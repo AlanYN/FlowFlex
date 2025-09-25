@@ -66,13 +66,14 @@ namespace FlowFlex.WebApi.Middlewares
                     return;
                 }
 
-                // Additional validation: Check if token is active in database
-                var isTokenActive = await ValidateTokenInDatabaseAsync(context, token);
-                if (!isTokenActive)
-                {
-                    await HandleUnauthorizedAsync(context, "Token has been revoked");
-                    return;
-                }
+                // Additional validation: Check if token is active in database - DISABLED
+                // Token blacklist validation disabled - skip database validation
+                // var isTokenActive = await ValidateTokenInDatabaseAsync(context, token);
+                // if (!isTokenActive)
+                // {
+                //     await HandleUnauthorizedAsync(context, "Token has been revoked");
+                //     return;
+                // }
 
                 // Set user context
                 context.User = principal;

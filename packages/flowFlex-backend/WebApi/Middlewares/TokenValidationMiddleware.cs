@@ -38,19 +38,20 @@ namespace FlowFlex.WebApi.Middlewares
 
             try
             {
+                // Token blacklist validation disabled - skip database validation
                 // Extract JWT token
-                var token = ExtractToken(context);
+                // var token = ExtractToken(context);
 
-                if (!string.IsNullOrEmpty(token))
-                {
-                    // Validate token in database
-                    var isTokenValid = await ValidateTokenInDatabaseAsync(context, token);
-                    if (!isTokenValid)
-                    {
-                        await HandleUnauthorizedAsync(context, "Token has been revoked or is no longer valid");
-                        return;
-                    }
-                }
+                // if (!string.IsNullOrEmpty(token))
+                // {
+                //     // Validate token in database
+                //     var isTokenValid = await ValidateTokenInDatabaseAsync(context, token);
+                //     if (!isTokenValid)
+                //     {
+                //         await HandleUnauthorizedAsync(context, "Token has been revoked or is no longer valid");
+                //         return;
+                //     }
+                // }
 
                 await _next(context);
             }
