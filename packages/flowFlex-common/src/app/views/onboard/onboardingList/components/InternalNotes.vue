@@ -56,7 +56,7 @@
 												)
 											}}
 										</span>
-										<el-dropdown trigger="click">
+										<el-dropdown v-if="!props.disabled" trigger="click">
 											<el-button size="small" text class="p-1">
 												<el-icon><MoreFilled /></el-icon>
 											</el-button>
@@ -139,7 +139,7 @@
 							<Mention
 								v-model="newNote"
 								placeholder="Add a note... Use @username to mention someone"
-								:disabled="addingNote"
+								:disabled="addingNote || props.disabled"
 								class="w-full"
 							/>
 						</el-form-item>
@@ -148,7 +148,7 @@
 								<el-button
 									type="primary"
 									@click="handleAddNote"
-									:disabled="!newNote.trim() || addingNote"
+									:disabled="!newNote.trim() || addingNote || props.disabled"
 									:loading="addingNote"
 									size="small"
 									:icon="Promotion"
@@ -211,6 +211,7 @@ interface ApiResponse<T = any> {
 interface Props {
 	onboardingId: string;
 	stageId?: string;
+	disabled?: boolean;
 }
 
 const props = defineProps<Props>();

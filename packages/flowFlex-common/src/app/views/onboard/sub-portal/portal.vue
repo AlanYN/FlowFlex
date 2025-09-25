@@ -610,8 +610,8 @@ const stagePortalPermission = computed(() => {
 	const status = onboardingData.value?.status;
 	const currentStage = workflowStages.value.find((stage) => stage.stageId === activeStage.value);
 
-	// 如果是Paused状态，直接禁用
-	if (status && ['Paused'].includes(status)) {
+	// 如果是Paused或Force Completed状态，直接禁用
+	if (status && ['Paused', 'Force Completed'].includes(status)) {
 		return true;
 	}
 
@@ -672,7 +672,7 @@ const statusShouldPulse = computed(() => {
 // 计算是否因为Aborted状态而禁用组件（类似于Viewable only逻辑）
 const isAbortedReadonly = computed(() => {
 	const status = onboardingData.value?.status;
-	return status && ['Aborted', 'Cancelled', 'Paused'].includes(status);
+	return !!status && ['Aborted', 'Cancelled', 'Paused', 'Force Completed'].includes(status);
 });
 
 const sortedComponents = computed(() => {

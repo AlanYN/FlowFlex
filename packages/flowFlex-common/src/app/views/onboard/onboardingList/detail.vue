@@ -189,6 +189,7 @@
 							v-if="activeStage && onboardingId"
 							:onboarding-id="onboardingId"
 							:stage-id="activeStage"
+							:disabled="isAbortedReadonly"
 							@note-added="handleNoteAdded"
 						/>
 					</div>
