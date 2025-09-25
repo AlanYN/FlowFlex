@@ -89,6 +89,7 @@
 												type="primary"
 												@click="editNote(index)"
 												link
+												:disabled="disabled"
 												:icon="Edit"
 											/>
 
@@ -96,6 +97,7 @@
 												type="danger"
 												@click="removeNote(index)"
 												link
+												:disabled="disabled"
 												:icon="Delete"
 											/>
 										</div>
@@ -113,11 +115,15 @@
 											<div class="edit-note-actions">
 												<el-button
 													type="primary"
+													:disabled="disabled"
 													@click="saveEditNote(index)"
 												>
 													Save
 												</el-button>
-												<el-button @click="cancelEditNote">
+												<el-button
+													@click="cancelEditNote"
+													:disabled="disabled"
+												>
 													Cancel
 												</el-button>
 											</div>
@@ -196,7 +202,6 @@
 											type="primary"
 											@click="downloadAttachment(attachment)"
 											link
-											:disabled="disabled"
 											:icon="Download"
 										/>
 										<el-button
