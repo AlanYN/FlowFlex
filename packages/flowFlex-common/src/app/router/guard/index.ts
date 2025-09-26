@@ -80,10 +80,11 @@ function handleTokenCheck(to, next) {
 		return false;
 	}
 
-	if (!accessToken && to.path === '/login') {
+	if (!accessToken || (accessToken && to.path === '/login')) {
 		toIDMLogin('login');
 		return true;
-	} else if (accessToken && to.path === '/login') {
+	}
+	if (accessToken && to.path === '/login') {
 		next({ path: PageEnum.BASE_HOME });
 		return true;
 	}
