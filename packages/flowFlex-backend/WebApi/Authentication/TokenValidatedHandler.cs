@@ -97,5 +97,83 @@ namespace WebApi.Authentication
                 context.Fail("Version mismatch");
             }
         }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="context"></param>
+        /// <exception cref="NullReferenceException"></exception>
+        public static async Task OnIamItemTokenValidated(TokenValidatedContext context)
+        {
+            await Task.CompletedTask;
+            var principal = context.Principal ?? throw new NullReferenceException(nameof(context.Principal));
+            var claims = principal.Claims.ToList();
+            var userContext = context.HttpContext.RequestServices.GetService<UserContext>() ??
+                              throw new NullReferenceException(nameof(UserContext));
+
+            var configuration = context.HttpContext.RequestServices.GetRequiredService<IConfiguration>();
+
+            var tokenType = claims!.FirstOrDefault(x => x.Type == "grant_type")?.Value;
+            try
+            {
+                var identityHubClient = context.HttpContext.RequestServices.GetService<IdentityHubClient>();
+                switch (tokenType)
+                {
+                    case "password":
+                    case "authorization_code":
+                    case "refresh_token":
+                        userContext.Schema = AuthSchemes.ItemIamIdentification;
+                        var authorization = context.HttpContext.Request.Headers.Authorization;
+                        userContext.IamToken = authorization;
+                        var userInfo = await identityHubClient.UserInfoAsync(authorization);
+                        var validatedUserExtensionResult = await identityHubClient.UserExtensionAsync(authorization);
+                        if (!validatedUserExtensionResult!.Data!.IsVersionMatched)
+                        {
+                            context.Fail("Version mismatch");
+                            return;
+                        }
+
+                        userContext.RoleIds = validatedUserExtensionResult.Data.RoleIds;
+                        userContext.ValidationVersion = claims!.FirstOrDefault(x => x.Type == "jti")?.Value;
+                        userContext.UserId = userInfo.UserId;
+                        userContext.UserName = userInfo.UserName;
+                        userContext.LastName = userInfo.LastName;
+                        userContext.FirstName = userInfo.FirstName;
+                        userContext.Email = userInfo.Email;
+                        var iamClientId = claims!.FirstOrDefault(x => x.Type == "client_id")?.Value;
+                        foreach (var item in userInfo.Tenants)
+                        {
+                            userContext.Tenants.Add(item.Key.ToString(), item.Value);
+                        }
+                        if (context.Request.Headers.ContainsKey("X-Tenant-Id"))
+                        {
+                            var headerTenantId = context.Request.Headers["X-Tenant-Id"].FirstOrDefault();
+                            userContext.TenantId = headerTenantId;
+                            userContext.CompanyId = headerTenantId;
+                        }
+                        else
+                        {
+                            userContext.TenantId = userInfo.TenantId.ToString();
+                            userContext.CompanyId = userInfo.TenantId.ToString();
+                        }
+                        userContext.AppCode = context.HttpContext.Request.Headers["X-App-Code"].FirstOrDefault() ?? "DEFAULT";
+                        break;
+                    case "client_credentials":
+                        userContext.Schema = AuthSchemes.ItemIamClientIdentification;
+                        if (context.Request.Headers.ContainsKey("X-Tenant-Id"))
+                        {
+                            var headerTenantId = context.Request.Headers["X-Tenant-Id"].FirstOrDefault();
+                            userContext.TenantId = headerTenantId;
+                            userContext.CompanyId = headerTenantId;
+                        }
+                        userContext.AppCode = context.HttpContext.Request.Headers["X-App-Code"].FirstOrDefault() ?? "DEFAULT";
+                        break;
+                }
+            }
+            catch
+            {
+                context.Fail("Version mismatch");
+            }
+        }
     }
 }
