@@ -747,7 +747,7 @@
 <script setup lang="ts">
 import { computed, ref, nextTick, onMounted } from 'vue';
 import { Delete, DocumentCopy, Paperclip, Document, Close } from '@element-plus/icons-vue';
-import { ElMessage } from 'element-plus';
+import { ElMessage, ElMessageBox } from 'element-plus';
 import { useI18n } from '@/hooks/useI18n';
 import { getTokenobj } from '@/utils/auth';
 import { useUserStoreWithOut } from '@/stores/modules/user';
@@ -758,6 +758,7 @@ import PrototypeTabs from '@/components/PrototypeTabs/index.vue';
 import TabPane from '@/components/PrototypeTabs/TabPane.vue';
 import { parseCurl, type ParsedCurlConfig } from '@/utils/curlParser';
 import * as XLSX from 'xlsx-js-style';
+import { getAppCode } from '@/utils/threePartyLogin';
 
 // External library loaders (CDN-based to avoid local dependency issues)
 const PDF_JS_VERSION = '3.11.174';
@@ -2089,9 +2090,7 @@ const streamGenerateHttpConfigDirect = async (
 	}
 
 	// 添加用户相关头信息
-	if (userInfo?.appCode) {
-		headers['X-App-Code'] = String(userInfo.appCode);
-	}
+	headers['X-App-Code'] = getAppCode();
 	if (userInfo?.tenantId) {
 		headers['X-Tenant-Id'] = String(userInfo.tenantId);
 	}
@@ -2151,6 +2150,52 @@ const streamGenerateHttpConfigDirect = async (
 									try {
 										const parsed = JSON.parse(data);
 										console.log('✨ Parsed JSON data:', parsed);
+
+										// 检查并应用HTTP配置 (仅在HTTP配置生成流程中)
+										if (parsed.type === 'complete' && parsed.actionData) {
+											console.log(
+												'🎯 Complete event with actionData received'
+											);
+
+											// 在流式处理完成时自动应用配置
+											const httpConfig = extractHttpConfigFromActionPlan(
+												parsed.actionData
+											);
+											if (httpConfig) {
+												console.log(
+													'🔧 Auto-applying HTTP config from stream:',
+													httpConfig
+												);
+												try {
+													await applyGeneratedConfig(httpConfig);
+													console.log(
+														'✅ HTTP configuration auto-applied successfully'
+													);
+												} catch (error) {
+													console.error(
+														'❌ Error auto-applying configuration:',
+														error
+													);
+													// 不要阻止流继续处理，只记录错误
+												}
+											} else {
+												// 如果无法提取有效的HTTP配置，给出说明和建议
+												console.warn(
+													'⚠️ No valid HTTP configuration found in AI response'
+												);
+												showConfigurationSuggestions(parsed.actionData);
+											}
+										} else if (
+											parsed.type === 'complete' &&
+											!parsed.actionData
+										) {
+											// 如果完成但没有actionData，也给出建议
+											console.warn(
+												'⚠️ AI generation completed but no configuration data received'
+											);
+											showNoConfigurationDataSuggestions();
+										}
+
 										onChunk(parsed);
 
 										if (parsed.type === 'complete') {
@@ -2159,12 +2204,18 @@ const streamGenerateHttpConfigDirect = async (
 											return;
 										} else if (parsed.type === 'error') {
 											console.error('❌ Stream error:', parsed.content);
-											reject(new Error(parsed.content));
+											reject(
+												new Error(
+													parsed.content ||
+														parsed.message ||
+														'Stream processing error'
+												)
+											);
 											return;
 										}
 									} catch (e) {
 										console.warn('⚠️ Failed to parse JSON:', data, e);
-										// Skip invalid JSON
+										// Skip invalid JSON but continue processing
 										continue;
 									}
 								}
@@ -2503,129 +2554,82 @@ const parseCurlCommand = (input: string) => {
 		body: '',
 	};
 
-	// 查找curl命令
+	// 查找curl命令 - 支持多种引号格式
 	const curlMatch = input.match(
-		/curl\s+[^']*'([^']+)'|curl\s+--location\s+'([^']+)'|curl\s+([^\s\\]+)/
+		/curl\s+[^'"^]*['"^]([^'"^]+)['"^]|curl\s+--location\s+['"^]([^'"^]+)['"^]|curl\s+([^\s\\]+)/
 	);
 	if (curlMatch) {
 		config.url = curlMatch[1] || curlMatch[2] || curlMatch[3];
 		console.log('📍 Found URL:', config.url);
 	}
 
-	// 解析HTTP方法
-	const methodMatch = input.match(/--request\s+(\w+)|-X\s+(\w+)/i);
+	// 解析HTTP方法 - 支持引号格式
+	const methodMatch = input.match(/(?:--request|-X)\s+['"^]*(\w+)['"^]*/i);
 	if (methodMatch) {
-		config.method = (methodMatch[1] || methodMatch[2]).toUpperCase();
+		config.method = methodMatch[1].toUpperCase();
 	} else {
 		// 默认GET，除非有数据
 		config.method = input.includes('--data') ? 'POST' : 'GET';
 	}
 	console.log('🔧 HTTP Method:', config.method);
 
-	// 解析headers
-	const headerMatches = input.matchAll(/--header\s+'([^']+)'|--header\s+"([^"]+)"/g);
+	// 解析headers - 支持 -H 和 --header 两种格式
+	const headerMatches = input.matchAll(/(?:--header|-H)\s+['"^]*([^'"\n\r^]+)['"^]*/g);
 	for (const match of headerMatches) {
-		const headerValue = match[1] || match[2];
-		const [key, ...valueParts] = headerValue.split(':');
-		if (key && valueParts.length > 0) {
-			const value = valueParts.join(':').trim();
-			config.headers[key.trim()] = value;
+		const headerValue = match[1];
+		if (headerValue) {
+			const colonIndex = headerValue.indexOf(':');
+			if (colonIndex > 0) {
+				const key = headerValue.substring(0, colonIndex).trim();
+				const value = headerValue.substring(colonIndex + 1).trim();
+				if (key && value) {
+					config.headers[key] = value;
+				}
+			}
 		}
 	}
 	console.log('📋 Headers:', config.headers);
 
-	// 解析请求体 - 使用更简单但更有效的方法
+	// 解析请求体 - 支持Windows cURL的特殊引号格式
 	let bodyContent = '';
 
 	// 查找 --data-raw 或 --data 的位置
-	const dataRawIndex = input.indexOf('--data-raw');
-	const dataIndex = input.indexOf('--data');
+	const dataRawMatch = input.match(/--data-raw\s+['"^]*([^]*)/);
+	const dataMatch = input.match(/--data\s+['"^]*([^]*)/);
 
-	let startIndex = -1;
-	if (dataRawIndex !== -1) {
-		startIndex = dataRawIndex;
-		console.log('📦 Found --data-raw at index:', startIndex);
-	} else if (dataIndex !== -1) {
-		startIndex = dataIndex;
-		console.log('📦 Found --data at index:', startIndex);
+	let dataContent = '';
+	if (dataRawMatch) {
+		dataContent = dataRawMatch[1];
+		console.log('📦 Found --data-raw content');
+	} else if (dataMatch) {
+		dataContent = dataMatch[1];
+		console.log('📦 Found --data content');
 	}
 
-	if (startIndex !== -1) {
-		// 从 --data-raw 或 --data 开始查找
-		const fromDataStart = input.substring(startIndex);
-		console.log('📦 Content from data start:', fromDataStart.substring(0, 100) + '...');
+	if (dataContent) {
+		console.log('📦 Raw data content length:', dataContent.length);
+		console.log('📦 Raw data start:', dataContent.substring(0, 100) + '...');
 
-		// 查找第一个引号并确定引号类型 - 移除$锚点以匹配整个剩余内容
-		const singleQuoteMatch = fromDataStart.match(/--data(?:-raw)?\s+'([\s\S]*)/);
-		const doubleQuoteMatch = fromDataStart.match(/--data(?:-raw)?\s+"([\s\S]*)/);
+		// 处理Windows cURL的特殊引号格式（^"...^"）和普通引号
+		let cleanContent = dataContent;
 
-		console.log('📦 Single quote match result:', singleQuoteMatch ? 'Found' : 'Not found');
-		console.log('📦 Double quote match result:', doubleQuoteMatch ? 'Found' : 'Not found');
+		// 移除开头的转义字符和引号
+		cleanContent = cleanContent.replace(/^[\s^]*["']/, '');
 
-		let rawContent = '';
-		let quoteChar = '';
+		// 移除结尾的转义字符和引号
+		cleanContent = cleanContent.replace(/["'][\s^]*$/, '');
 
-		if (singleQuoteMatch) {
-			rawContent = singleQuoteMatch[1];
-			quoteChar = "'";
-			console.log('📦 Found single quote format');
-		} else if (doubleQuoteMatch) {
-			rawContent = doubleQuoteMatch[1];
-			quoteChar = '"';
-			console.log('📦 Found double quote format');
-		}
+		// 移除结尾可能的额外空白和特殊字符
+		cleanContent = cleanContent.trim();
 
-		if (rawContent && quoteChar) {
-			console.log('📦 Raw content length:', rawContent.length);
-			console.log('📦 Raw content after quote:', rawContent.substring(0, 100) + '...');
-			console.log('📦 Raw content last 100 chars:', rawContent.slice(-100));
+		// 替换 Windows cURL 的转义字符
+		cleanContent = cleanContent.replace(/\^\^/g, '^');
+		cleanContent = cleanContent.replace(/\^"/g, '"');
+		cleanContent = cleanContent.replace(/\^'/g, "'");
 
-			// 从末尾开始查找匹配的结束引号，但要确保它不在 JSON 字符串内部
-			// 简单的方法：查找行末的引号
-			const lines = rawContent.split('\n');
-			console.log('📦 Total lines in raw content:', lines.length);
-			let endQuoteLineIndex = -1;
-
-			// 从最后一行开始向前查找，寻找只包含引号和空白字符的行
-			for (let i = lines.length - 1; i >= 0; i--) {
-				const line = lines[i].trim();
-				console.log(`📦 Checking line ${i}: "${line}"`);
-				if (line === quoteChar || line.endsWith(quoteChar)) {
-					endQuoteLineIndex = i;
-					console.log('📦 Found ending quote at line:', i);
-					break;
-				}
-			}
-
-			if (endQuoteLineIndex !== -1) {
-				// 提取到结束引号行之前的所有内容
-				const contentLines = lines.slice(0, endQuoteLineIndex);
-				// 如果最后一行以引号结尾，需要移除引号
-				if (
-					endQuoteLineIndex < lines.length &&
-					lines[endQuoteLineIndex].trim() !== quoteChar
-				) {
-					const lastLine = lines[endQuoteLineIndex];
-					const quoteIndex = lastLine.lastIndexOf(quoteChar);
-					if (quoteIndex !== -1) {
-						contentLines.push(lastLine.substring(0, quoteIndex));
-					}
-				}
-				bodyContent = contentLines.join('\n');
-				console.log('📦 Extracted body content (lines 0 to ' + endQuoteLineIndex + ')');
-			} else {
-				// 如果找不到结束引号，使用整个内容
-				bodyContent = rawContent;
-				console.log('📦 No ending quote found, using entire content');
-			}
-
-			console.log('📦 Final body content length:', bodyContent.length);
-			console.log(
-				'📦 Final extracted content preview:',
-				bodyContent.substring(0, 200) + '...'
-			);
-			console.log('📦 Content ends with:', bodyContent.slice(-100));
-		}
+		bodyContent = cleanContent;
+		console.log('📦 Cleaned body content length:', bodyContent.length);
+		console.log('📦 Body preview:', bodyContent.substring(0, 200) + '...');
 	}
 
 	if (bodyContent.trim()) {
@@ -2667,10 +2671,62 @@ const parseCurlCommand = (input: string) => {
 };
 
 const extractHttpConfigFromActionPlan = (actionPlan: any) => {
-	// 从AI生成的行动计划中提取HTTP配置信息，同时从原始用户输入中解析curl命令
+	// 从AI生成的行动计划中提取HTTP配置信息
 	console.log('🔧 Extracting HTTP config from action plan:', actionPlan);
 
-	// 首先尝试从用户的原始输入中解析curl命令
+	if (!actionPlan || typeof actionPlan !== 'object') {
+		console.warn('⚠️ Invalid action plan provided');
+		return null;
+	}
+
+	// 检查新的标准格式：{ actionPlan: { actions: [{ httpConfig: ... }] } }
+	if (actionPlan.actionPlan?.actions) {
+		const actions = actionPlan.actionPlan.actions;
+		if (Array.isArray(actions) && actions.length > 0) {
+			for (const action of actions) {
+				if (action.httpConfig) {
+					console.log('✅ Found httpConfig in actionPlan.actions[].httpConfig');
+					const config = action.httpConfig;
+					// 确保actionName存在
+					if (!config.actionName && config.url) {
+						config.actionName = generateActionName(config.url, config.method || 'GET');
+					}
+					return config;
+				}
+			}
+		}
+	}
+
+	// 检查简化格式：{ actions: [{ httpConfig: ... }] }
+	if (actionPlan.actions) {
+		const actions = actionPlan.actions;
+		if (Array.isArray(actions) && actions.length > 0) {
+			for (const action of actions) {
+				if (action.httpConfig) {
+					console.log('✅ Found httpConfig in actions[].httpConfig');
+					const config = action.httpConfig;
+					// 确保actionName存在
+					if (!config.actionName && config.url) {
+						config.actionName = generateActionName(config.url, config.method || 'GET');
+					}
+					return config;
+				}
+			}
+		}
+	}
+
+	// 检查直接httpConfig格式：{ httpConfig: ... }
+	if (actionPlan.httpConfig) {
+		console.log('✅ Found httpConfig at root level');
+		const config = actionPlan.httpConfig;
+		// 确保actionName存在
+		if (!config.actionName && config.url) {
+			config.actionName = generateActionName(config.url, config.method || 'GET');
+		}
+		return config;
+	}
+
+	// 首先尝试从用户的原始输入中解析curl命令（作为后备方案）
 	const userInput = aiChatMessages.value.find((msg) => msg.role === 'user')?.content || '';
 	console.log('📝 User input for parsing:', userInput);
 
@@ -2682,7 +2738,7 @@ const extractHttpConfigFromActionPlan = (actionPlan: any) => {
 		return curlConfig;
 	}
 
-	// 如果curl解析失败，回退到从AI响应中解析
+	// 如果以上都失败，回退到从旧格式AI响应中解析
 	const actions = actionPlan.ActionItems || actionPlan.actions || [];
 	console.log('🔍 Searching in ActionItems/actions:', actions);
 
@@ -2741,17 +2797,19 @@ const extractHttpConfigFromActionPlan = (actionPlan: any) => {
 			}
 		}
 
-		// 如果没有找到完整URL，尝试构建一个基础URL
+		// 如果没有找到完整URL，检查是否有路径可以构建
 		if (!config.url || config.url === '') {
 			// 查找API路径
 			const pathMatch =
 				fullText.match(/\/api\/[^\s\n]*/i) || fullText.match(/\/[a-zA-Z0-9\-_/]+/);
 			if (pathMatch) {
+				// 只有找到明确的API路径才构建URL
 				config.url = `https://api.example.com${pathMatch[0]}`;
 				console.log('🔧 Constructed URL from path:', config.url);
 			} else {
-				config.url = 'https://api.example.com/endpoint';
-				console.log('🔧 Using default URL');
+				// 根据用户要求，不提供默认URL
+				console.log('⚠️ No valid URL found, cannot create configuration');
+				return null;
 			}
 		}
 
@@ -2793,20 +2851,9 @@ const extractHttpConfigFromActionPlan = (actionPlan: any) => {
 		return config;
 	}
 
-	console.log('⚠️ No HTTP action found, using default config');
-	// 默认配置
-	const defaultConfig = {
-		method: 'GET',
-		url: 'https://api.example.com/endpoint',
-		headers: {
-			'Content-Type': 'application/json',
-			Accept: 'application/json',
-		},
-		bodyType: 'none',
-		body: '',
-		actionName: 'custom_api_action',
-	};
-	return defaultConfig;
+	console.log('⚠️ No HTTP action found, cannot extract valid configuration');
+	// 根据用户要求，不返回默认配置，而是返回null
+	return null;
 };
 
 // Enhanced file content reading functions
@@ -3185,13 +3232,119 @@ const generateActionName = (url: string, method: string): string => {
 	}
 };
 
+const validateHttpConfig = (httpConfig: any): { isValid: boolean; errors: string[] } => {
+	const errors: string[] = [];
+
+	if (!httpConfig || typeof httpConfig !== 'object') {
+		errors.push('Configuration must be a valid object');
+		return { isValid: false, errors };
+	}
+
+	// Validate URL
+	if (!httpConfig.url || typeof httpConfig.url !== 'string' || httpConfig.url.trim() === '') {
+		errors.push('URL is required and must be a non-empty string');
+	} else {
+		const url = httpConfig.url.trim();
+		if (!url.match(/^https?:\/\//) && !url.startsWith('/')) {
+			errors.push(
+				'URL must start with http://, https://, or be a relative path starting with /'
+			);
+		}
+	}
+
+	// Validate method
+	if (!httpConfig.method || typeof httpConfig.method !== 'string') {
+		errors.push('HTTP method is required');
+	} else {
+		const validMethods = ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'HEAD', 'OPTIONS'];
+		if (!validMethods.includes(httpConfig.method.toUpperCase())) {
+			errors.push(`HTTP method must be one of: ${validMethods.join(', ')}`);
+		}
+	}
+
+	// Validate headers
+	if (httpConfig.headers && typeof httpConfig.headers !== 'object') {
+		errors.push('Headers must be an object');
+	}
+
+	// Validate timeout
+	if (httpConfig.timeout !== undefined) {
+		if (typeof httpConfig.timeout !== 'number' || httpConfig.timeout <= 0) {
+			errors.push('Timeout must be a positive number');
+		}
+	}
+
+	// Validate actionName
+	if (httpConfig.actionName && typeof httpConfig.actionName !== 'string') {
+		errors.push('Action name must be a string');
+	} else if (httpConfig.actionName && !httpConfig.actionName.match(/^[a-zA-Z][a-zA-Z0-9_]*$/)) {
+		errors.push('Action name must be a valid identifier (letters, numbers, underscore)');
+	}
+
+	return { isValid: errors.length === 0, errors };
+};
+
+// 当AI无法生成有效配置时，提供用户建议
+const showConfigurationSuggestions = (actionData: any) => {
+	console.log('💡 Showing configuration suggestions for:', actionData);
+
+	ElMessageBox.alert(
+		`AI could not extract valid HTTP configuration from your input. Please try the following suggestions:
+
+• Provide more detailed API description with complete URL and HTTP method
+• Use cURL command format, for example: curl -X GET https://api.example.com/users
+• Clearly specify the request method (GET, POST, PUT, DELETE, etc.)
+• Include complete API endpoint URL (with protocol http:// or https://)
+• For POST/PUT requests, specify request body format (JSON, form, etc.)
+
+You can also switch to the "From cURL" tab to directly paste and import cURL commands.`,
+		'Unable to Generate HTTP Configuration',
+		{
+			type: 'warning',
+			confirmButtonText: 'Got it',
+		}
+	);
+};
+
+// 当AI完全没有返回配置数据时的建议
+const showNoConfigurationDataSuggestions = () => {
+	console.log('💡 Showing no configuration data suggestions');
+
+	ElMessageBox.alert(
+		`AI processing completed but no configuration data was returned. Please check your input and try:
+
+• Ensure input contains API-related information
+• Provide specific HTTP request description
+• Use standard cURL command format
+• Check network connection is working properly
+• If the problem persists, try refreshing the page and retry
+
+We recommend using the "From cURL" feature to import existing cURL commands directly.`,
+		'No Configuration Data Received',
+		{
+			type: 'info',
+			confirmButtonText: 'Got it',
+		}
+	);
+};
+
 const applyGeneratedConfig = async (httpConfig: any) => {
 	console.log('🔧 Applying generated HTTP config:', httpConfig);
 
 	// 验证配置有效性
-	if (!httpConfig || typeof httpConfig !== 'object') {
-		console.error('❌ Invalid HTTP config provided:', httpConfig);
-		ElMessage.error('Invalid HTTP configuration provided');
+	const validation = validateHttpConfig(httpConfig);
+	if (!validation.isValid) {
+		console.error('❌ HTTP config validation failed:', validation.errors);
+		ElMessage.error(`Configuration validation failed: ${validation.errors.join(', ')}`);
+
+		// 显示详细错误信息
+		ElMessageBox.alert(
+			`The generated HTTP configuration has the following issues:\n\n${validation.errors
+				.map((error) => `• ${error}`)
+				.join('\n')}\n\nPlease check your input and try again.`,
+			'Configuration Validation Failed',
+			{ type: 'error' }
+		);
 		return;
 	}
 
@@ -3207,7 +3360,8 @@ const applyGeneratedConfig = async (httpConfig: any) => {
 			if (validUrl.startsWith('//')) {
 				validUrl = 'https:' + validUrl;
 			} else if (validUrl.startsWith('/')) {
-				validUrl = 'https://api.example.com' + validUrl;
+				// 相对路径需要基础域名，但不使用示例域名
+				validUrl = 'https://localhost' + validUrl;
 			} else if (!validUrl.includes('://')) {
 				validUrl = 'https://' + validUrl;
 			}
@@ -3215,8 +3369,9 @@ const applyGeneratedConfig = async (httpConfig: any) => {
 		newConfig.url = validUrl;
 		console.log('✅ Applied URL:', validUrl);
 	} else {
-		console.warn('⚠️ No valid URL provided, using default');
-		newConfig.url = 'https://api.example.com/endpoint';
+		console.error('❌ No valid URL provided in configuration');
+		// 这种情况不应该发生，因为配置在到达这里之前已经验证过了
+		throw new Error('Invalid configuration: URL is required');
 	}
 
 	// 应用HTTP方法
@@ -3254,6 +3409,24 @@ const applyGeneratedConfig = async (httpConfig: any) => {
 			console.warn('⚠️ Invalid body type:', httpConfig.bodyType, 'using none');
 			newConfig.bodyType = 'none';
 		}
+	}
+
+	// 应用timeout
+	if (httpConfig.timeout && typeof httpConfig.timeout === 'number' && httpConfig.timeout > 0) {
+		newConfig.timeout = httpConfig.timeout;
+		console.log('✅ Applied Timeout:', httpConfig.timeout);
+	} else if (httpConfig.timeout !== undefined) {
+		console.warn('⚠️ Invalid timeout value:', httpConfig.timeout, 'using default 30');
+		newConfig.timeout = 30;
+	}
+
+	// 应用followRedirects
+	if (
+		httpConfig.followRedirects !== undefined &&
+		typeof httpConfig.followRedirects === 'boolean'
+	) {
+		newConfig.followRedirects = httpConfig.followRedirects;
+		console.log('✅ Applied Follow Redirects:', httpConfig.followRedirects);
 	}
 
 	// 应用Body内容
@@ -3359,9 +3532,7 @@ const initializeAIModels = async () => {
 		}
 
 		// 添加用户相关头信息
-		if (userInfo?.appCode) {
-			headers['X-App-Code'] = String(userInfo.appCode);
-		}
+		headers['X-App-Code'] = getAppCode();
 		if (userInfo?.tenantId) {
 			headers['X-Tenant-Id'] = String(userInfo.tenantId);
 		}

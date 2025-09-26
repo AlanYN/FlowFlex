@@ -12,6 +12,7 @@ export const useGlobSetting = (): Readonly<GlobConfig> => {
 		VITE_GLOB_SSOURL,
 		VITE_GLOB_ENVIRONMENT,
 		VITE_GLOB_DOMAIN_URL,
+		VITE_GLOB_IDM_URL,
 	} = getAppEnvConfig();
 
 	// Take global configuration
@@ -24,7 +25,7 @@ export const useGlobSetting = (): Readonly<GlobConfig> => {
 		ssoCode: VITE_GLOB_CODE,
 		ssoURL: VITE_GLOB_SSOURL,
 		environment: VITE_GLOB_ENVIRONMENT,
-		iamUrl: '',
+		idmUrl: VITE_GLOB_IDM_URL,
 		apiVersion: 'v1',
 		apiProName: '/api',
 		domainUrl: VITE_GLOB_DOMAIN_URL,

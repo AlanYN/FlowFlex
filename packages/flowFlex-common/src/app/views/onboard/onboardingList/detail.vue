@@ -22,7 +22,7 @@
 					type="primary"
 					@click="saveQuestionnaireAndField"
 					:loading="saveAllLoading"
-					:disabled="isSaveDisabled"
+					:disabled="isSaveDisabled || stageCanCompleted"
 					:icon="Document"
 					class="page-header-btn page-header-btn-primary"
 				>
@@ -32,7 +32,7 @@
 					type="primary"
 					@click="handleCompleteStage"
 					:loading="completing"
-					:disabled="isCompleteStageDisabled"
+					:disabled="isCompleteStageDisabled || stageCanCompleted"
 					class="page-header-btn page-header-btn-primary"
 					:icon="Check"
 				>
@@ -65,7 +65,7 @@
 					@update:stage-data="handleStageDataUpdate"
 				/>
 				<el-scrollbar ref="leftScrollbarRef" class="h-full px-2 w-full">
-					<div class="space-y-4 mt-4">
+					<div class="space-y-4 my-4">
 						<!-- AI Summary 组件 -->
 						<AISummary
 							:show-a-i-summary-section="showAISummarySection"
@@ -109,7 +109,7 @@
 									:static-fields="component.staticFields"
 									:onboarding-id="onboardingId"
 									:stage-id="activeStage"
-									:disabled="isAbortedReadonly"
+									:disabled="isAbortedReadonly || stageCanCompleted"
 									@save-success="refreshChangeLog"
 								/>
 
@@ -124,7 +124,7 @@
 									:stage-id="activeStage"
 									:checklist-data="getChecklistDataForComponent(component)"
 									:onboarding-id="onboardingId"
-									:disabled="isAbortedReadonly"
+									:disabled="isAbortedReadonly || stageCanCompleted"
 									@task-toggled="handleTaskToggled"
 									@refresh-checklist="loadCheckListData"
 								/>
@@ -140,7 +140,7 @@
 									:stage-id="activeStage"
 									:lead-data="onboardingData"
 									:workflow-stages="workflowStages"
-									:disabled="isAbortedReadonly"
+									:disabled="isAbortedReadonly || stageCanCompleted"
 									:questionnaire-data="
 										getQuestionnaireDataForComponent(component)
 									"
@@ -158,7 +158,7 @@
 									:onboarding-id="onboardingId"
 									:stage-id="activeStage"
 									:component="component"
-									:disabled="isAbortedReadonly"
+									:disabled="isAbortedReadonly || stageCanCompleted"
 									@document-uploaded="handleDocumentUploaded"
 									@document-deleted="handleDocumentDeleted"
 								/>
@@ -189,6 +189,7 @@
 							v-if="activeStage && onboardingId"
 							:onboarding-id="onboardingId"
 							:stage-id="activeStage"
+							:disabled="isAbortedReadonly"
 							@note-added="handleNoteAdded"
 						/>
 					</div>
@@ -240,7 +241,6 @@ import {
 	completeCurrentStage,
 	onboardingSave,
 	updateStageFields,
-	forceCompleteOnboarding,
 } from '@/apis/ow/onboarding';
 import { OnboardingItem, ComponentData, SectionAnswer, Stage } from '#/onboard';
 import { useAdaptiveScrollbar } from '@/hooks/useAdaptiveScrollbar';
@@ -261,6 +261,7 @@ import StaticForm from './components/StaticForm.vue';
 import PortalAccessContent from './components/PortalAccessContent.vue';
 import AISummary from './components/AISummary.vue';
 import EditableStageHeader from './components/EditableStageHeader.vue';
+import { getAppCode } from '@/utils/threePartyLogin';
 
 const { t } = useI18n();
 const userStore = useUserStore();
@@ -323,8 +324,6 @@ const statusTagType = computed(() => {
 			return 'primary';
 		case 'Completed':
 			return 'success';
-		case 'Force Completed':
-			return 'success';
 		case 'Paused':
 			return 'warning';
 		case 'Aborted':
@@ -345,8 +344,6 @@ const statusDisplayText = computed(() => {
 			return 'In progress';
 		case 'Cancelled':
 			return 'Aborted';
-		case 'Force Completed':
-			return 'Force Completed';
 		default:
 			return status;
 	}
@@ -362,8 +359,8 @@ const isSaveDisabled = computed(() => {
 	const status = onboardingData.value?.status;
 	if (!status) return false;
 
-	// 对于已中止、已取消或强制完成的状态，禁用保存
-	return ['Aborted', 'Cancelled', 'Force Completed'].includes(status);
+	// 对于已中止、已取消、暂停或强制完成的状态，禁用保存
+	return ['Aborted', 'Cancelled', 'Paused', 'Force Completed'].includes(status);
 });
 
 // 计算是否禁用完成阶段按钮
@@ -371,14 +368,19 @@ const isCompleteStageDisabled = computed(() => {
 	const status = onboardingData.value?.status;
 	if (!status) return false;
 
-	// 对于已中止、已取消、暂停或强制完成的状态，禁用完成阶段
-	return ['Aborted', 'Cancelled', 'Paused', 'Force Completed'].includes(status);
+	// 对于已中止、已取消或暂停的状态，禁用完成阶段
+	return ['Aborted', 'Cancelled', 'Paused'].includes(status);
 });
 
 // 计算是否因为Aborted状态而禁用组件（类似于Viewable only逻辑）
 const isAbortedReadonly = computed(() => {
 	const status = onboardingData.value?.status;
-	return !!status && ['Aborted', 'Cancelled', 'Force Completed'].includes(status);
+	return !!status && ['Aborted', 'Cancelled', 'Paused', 'Force Completed'].includes(status);
+});
+
+const stageCanCompleted = computed(() => {
+	const currentStage = workflowStages.value.find((stage) => stage.stageId === activeStage.value);
+	return currentStage?.isCompleted;
 });
 
 const onboardingStageStatus = computed(() => {
@@ -386,15 +388,6 @@ const onboardingStageStatus = computed(() => {
 		(stage) => stage?.stageId === activeStage?.value
 	);
 	return !!onboardingActiveStage?.completedBy;
-});
-
-// 计算是否可以强制完成
-const canForceComplete = computed(() => {
-	const status = onboardingData.value?.status;
-	if (!status) return false;
-
-	// 只有Active、Paused状态的onboarding可以强制完成
-	return ['Active', 'Paused', 'InProgress', 'Started'].includes(status);
 });
 
 // 添加组件引用
@@ -933,7 +926,6 @@ const saveAllForm = async (isValidate: boolean = true) => {
 };
 
 const completing = ref(false);
-const forceCompleting = ref(false);
 const handleCompleteStage = async () => {
 	ElMessageBox.confirm(
 		`Are you sure you want to mark this stage as complete? This action will record your name and the current time as the completion signature.`,
@@ -993,61 +985,6 @@ const saveQuestionnaireAndField = async () => {
 	} else {
 		ElMessage.error(t('sys.api.operationFailed'));
 	}
-};
-
-const handleForceComplete = async () => {
-	ElMessageBox.prompt(
-		'Please provide a reason for force completing this onboarding. This action will bypass all validation and mark the onboarding as Force Completed.',
-		'⚠️ Force Complete Onboarding',
-		{
-			confirmButtonText: 'Force Complete',
-			cancelButtonText: 'Cancel',
-			inputPlaceholder: 'Enter reason for force completion...',
-			inputValidator: (value) => {
-				if (!value || value.trim().length === 0) {
-					return 'Reason is required';
-				}
-				return true;
-			},
-			beforeClose: async (action, instance, done) => {
-				if (action === 'confirm') {
-					const reason = instance.inputValue?.trim();
-					if (!reason) {
-						return;
-					}
-
-					// 显示loading状态
-					instance.confirmButtonLoading = true;
-					instance.confirmButtonText = 'Force Completing...';
-					forceCompleting.value = true;
-
-					try {
-						const res = await forceCompleteOnboarding(onboardingId.value, {
-							reason: reason,
-							completionNotes: 'Force completed via detail page',
-						});
-
-						if (res.code === '200') {
-							ElMessage.success('Onboarding force completed successfully');
-							loadOnboardingDetail();
-						} else {
-							ElMessage.error(res.msg || 'Failed to force complete onboarding');
-						}
-						done();
-					} catch (error) {
-						console.error('Error force completing onboarding:', error);
-						ElMessage.error('Failed to force complete onboarding');
-					} finally {
-						instance.confirmButtonLoading = false;
-						instance.confirmButtonText = 'Force Complete';
-						forceCompleting.value = false;
-					}
-				} else {
-					done();
-				}
-			},
-		}
-	);
 };
 
 const changeLogRef = ref<InstanceType<typeof ChangeLog>>();
@@ -1133,9 +1070,7 @@ const refreshAISummary = async () => {
 		}
 
 		// 添加用户相关头信息
-		if (userInfo?.appCode) {
-			headers['X-App-Code'] = String(userInfo.appCode);
-		}
+		headers['X-App-Code'] = getAppCode();
 		if (userInfo?.tenantId) {
 			headers['X-Tenant-Id'] = String(userInfo.tenantId);
 		}

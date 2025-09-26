@@ -16,7 +16,6 @@ using System.Reflection;
 using System.Text;
 using FlowFlex.Application.Client;
 using Item.Redis.Extensions;
-using FlowFlex.Application.Contracts.IServices.OW;
 using WebApi.Authentication;
 using Item.Internal.Auth.Authorization;
 using FlowFlex.Domain.Shared.Const;
@@ -174,48 +173,49 @@ var authenticationBuilder = builder.Services.AddAuthentication(options =>
         ClockSkew = TimeSpan.Zero
     };
 
-    // Database-backed token validation integrated into JwtBearer events
+    // Database-backed token validation integrated into JwtBearer events - DISABLED
     options.Events = new JwtBearerEvents
     {
         OnTokenValidated = async context =>
         {
             try
             {
-                var services = context.HttpContext.RequestServices;
-                var jwtService = services.GetService<IJwtService>();
-                var accessTokenService = services.GetService<IAccessTokenService>();
+                // Token blacklist validation disabled - skip database validation
+                // var services = context.HttpContext.RequestServices;
+                // var jwtService = services.GetService<IJwtService>();
+                // var accessTokenService = services.GetService<IAccessTokenService>();
 
-                if (jwtService == null || accessTokenService == null)
-                {
-                    context.Fail("Authentication services unavailable");
-                    return;
-                }
+                // if (jwtService == null || accessTokenService == null)
+                // {
+                //     context.Fail("Authentication services unavailable");
+                //     return;
+                // }
 
-                var jwtToken = context.SecurityToken as System.IdentityModel.Tokens.Jwt.JwtSecurityToken;
-                var rawToken = jwtToken?.RawData
-                               ?? context.HttpContext.Request.Headers["Authorization"].FirstOrDefault()?.Replace("Bearer ", string.Empty)?.Trim();
+                // var jwtToken = context.SecurityToken as System.IdentityModel.Tokens.Jwt.JwtSecurityToken;
+                // var rawToken = jwtToken?.RawData
+                //                ?? context.HttpContext.Request.Headers["Authorization"].FirstOrDefault()?.Replace("Bearer ", string.Empty)?.Trim();
 
-                if (string.IsNullOrEmpty(rawToken))
-                {
-                    context.Fail("Missing token");
-                    return;
-                }
+                // if (string.IsNullOrEmpty(rawToken))
+                // {
+                //     context.Fail("Missing token");
+                //     return;
+                // }
 
-                var jti = jwtService.GetJtiFromToken(rawToken);
-                if (string.IsNullOrEmpty(jti))
-                {
-                    context.Fail("Invalid token jti");
-                    return;
-                }
+                // var jti = jwtService.GetJtiFromToken(rawToken);
+                // if (string.IsNullOrEmpty(jti))
+                // {
+                //     context.Fail("Invalid token jti");
+                //     return;
+                // }
 
-                var isActive = await accessTokenService.ValidateTokenAsync(jti);
-                if (!isActive)
-                {
-                    context.Fail("Token revoked or inactive");
-                    return;
-                }
+                // var isActive = await accessTokenService.ValidateTokenAsync(jti);
+                // if (!isActive)
+                // {
+                //     context.Fail("Token revoked or inactive");
+                //     return;
+                // }
 
-                await accessTokenService.UpdateTokenUsageAsync(jti);
+                // await accessTokenService.UpdateTokenUsageAsync(jti);
 
                 await TokenValidatedHandler.OnTokenValidated(context);
             }
@@ -228,7 +228,7 @@ var authenticationBuilder = builder.Services.AddAuthentication(options =>
 });
 
 var identityHubConfigOptions = builder.Configuration.GetSection("IdentityHubConfig").Get<IdentityHubConfigOptions>();
-if (identityHubConfigOptions.EnableIdentityHub)
+if (identityHubConfigOptions?.EnableIdentityHub == true)
 {
     schemes.Add(AuthSchemes.Identification);
     authenticationBuilder.AddJwtBearer(AuthSchemes.Identification, config =>

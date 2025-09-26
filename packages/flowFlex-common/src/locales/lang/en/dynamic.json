@@ -2,15 +2,15 @@
 	"title": {
 		"listName": "List Name",
 		"description": "List Description",
-		"columnConfig": "Edit column",
+		"columnConfig": "Edit Column",
 		"filterConfig": "Filter Configuration"
 	},
 	"table": {
 		"noData": "No Data",
 		"loading": "Loading...",
-		"editColumns": "Edit columns",
-		"searchColumns": "Search columns",
-		"selectedColumns": "Selected columns",
+		"editColumns": "Edit Columns",
+		"searchColumns": "Search Columns",
+		"selectedColumns": "Selected Columns",
 		"reset": "Reset",
 		"total": "Total {total} items",
 		"pageSize": "{size} items per page",
@@ -92,9 +92,9 @@
 		"searchPlaceholder": "Enter search text",
 		"chooseColumns": "Choose columns to search",
 		"findColumn": "Find a column",
-		"allColumns": "All columns",
+		"allColumns": "All Columns",
 		"selected": "selected",
-		"itemColumns": "Item columns",
+		"itemColumns": "Item Columns",
 		"selectAtLeastOneColumn": "Please select at least one column to search"
 	},
 	"error": {

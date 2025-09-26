@@ -37,7 +37,7 @@
 				<!-- 左侧配置面板 -->
 				<div class="config-panel">
 					<el-scrollbar ref="configScrollbarRef">
-						<el-card class="config-card rounded-xl">
+						<el-card class="config-card rounded-xl bg-white dark:bg-black-400">
 							<!-- 基本信息 -->
 							<QuestionnaireBasicInfo
 								:questionnaire="{
@@ -97,7 +97,7 @@
 					>
 						<el-scrollbar ref="editorScrollbarRef">
 							<TabPane value="questions" class="questions-pane">
-								<el-card class="editor-card rounded-xl">
+								<el-card class="editor-card rounded-xl bg-white dark:bg-black-400">
 									<!-- 当前分区信息 -->
 									<div
 										v-if="showSectionManagement"
@@ -110,7 +110,6 @@
 											<el-button
 												type="primary"
 												link
-												size="large"
 												@click="isEditingTitle = true"
 												class="edit-btn"
 												:icon="Edit"
@@ -391,7 +390,7 @@ const questionEditorRef = ref<any>(null);
 const questionTypes = [
 	{
 		id: 'short_answer',
-		name: 'Short answer',
+		name: 'Short Answer',
 		icon: 'mdi-light:pencil',
 	},
 	{
@@ -401,7 +400,7 @@ const questionTypes = [
 	},
 	{
 		id: 'multiple_choice',
-		name: 'Multiple choice',
+		name: 'Multiple Choice',
 		icon: 'mdi:checkbox-marked-circle-outline',
 	},
 	{
@@ -416,12 +415,12 @@ const questionTypes = [
 	},
 	{
 		id: 'file_upload',
-		name: 'File upload',
+		name: 'File Upload',
 		icon: 'ic:outline-drive-folder-upload',
 	},
 	{
 		id: 'linear_scale',
-		name: 'Linear scale',
+		name: 'Linear Scale',
 		icon: 'material-symbols:scan-outline-sharp',
 	},
 	{
@@ -431,12 +430,12 @@ const questionTypes = [
 	},
 	{
 		id: 'multiple_choice_grid',
-		name: 'Multiple choice grid',
+		name: 'Multiple Choice Grid',
 		icon: 'tabler:grid-dots',
 	},
 	{
 		id: 'checkbox_grid',
-		name: 'Checkbox grid',
+		name: 'Checkbox Grid',
 		icon: 'gridicons:grid',
 	},
 	{
@@ -451,7 +450,7 @@ const questionTypes = [
 	},
 	{
 		id: 'short_answer_grid',
-		name: 'Short answer grid',
+		name: 'Short Answer Grid',
 		icon: 'ph:grid-nine-light',
 		isNew: true,
 	},
@@ -1048,7 +1047,7 @@ onMounted(async () => {
 /* 深色模式支持 */
 .dark .config-card {
 	border-color: var(--primary-600);
-	background-color: var(--primary-800);
+	background-color: var(--black-400);
 }
 
 .dark .section-title {
@@ -1072,8 +1071,15 @@ onMounted(async () => {
 }
 
 .edit-btn {
-	opacity: 0.6;
-	transition: opacity 0.2s;
+	:deep(.el-icon) {
+		width: 1.5rem !important;
+		height: 1.5rem !important;
+
+		svg {
+			width: 1.5rem !important;
+			height: 1.5rem !important;
+		}
+	}
 }
 
 .edit-btn:hover {

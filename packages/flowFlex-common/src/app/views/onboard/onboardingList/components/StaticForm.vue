@@ -12,7 +12,7 @@
 						<el-icon class="expand-icon text-lg mr-2" :class="{ rotated: isExpanded }">
 							<ArrowRight />
 						</el-icon>
-						<h3 class="static-form-title">Request fields</h3>
+						<h3 class="static-form-title">Request Fields</h3>
 					</div>
 					<div class="static-form-subtitle">Static form fields</div>
 				</div>
@@ -401,7 +401,7 @@ import { ArrowRight } from '@element-plus/icons-vue';
 import InputNumber from '@/components/form/InputNumber/index.vue';
 import { textraTwoHundredLength } from '@/settings/projectSetting';
 import { saveQuestionnaireStatic } from '@/apis/ow/onboarding';
-import { ElMessage } from 'element-plus';
+import { ElMessage, ElNotification } from 'element-plus';
 import FlowflexUser from '@/components/form/flowflexUser/index.vue';
 
 const props = defineProps<{
@@ -744,7 +744,11 @@ const handleSave = async (isValidate: boolean = true) => {
 			// 验证静态表单
 			const staticFormValid = await validateForm();
 			if (!staticFormValid || !props?.onboardingId) {
-				ElMessage.error('Please complete all required fields');
+				ElNotification({
+					title: 'Please complete all required fields',
+					dangerouslyUseHTMLString: true,
+					type: 'warning',
+				});
 				return false;
 			}
 		}

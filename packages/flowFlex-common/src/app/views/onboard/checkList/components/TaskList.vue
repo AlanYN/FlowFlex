@@ -99,9 +99,9 @@
 										{{ task?.notesCount }}
 									</div>
 								</div>
-								<div class="flex items-center space-x-1">
+								<div class="flex items-center space-x-2">
 									<el-dropdown placement="bottom">
-										<el-button :icon="MoreFilled" link size="small" />
+										<el-button :icon="MoreFilled" link />
 										<template #dropdown>
 											<el-dropdown-menu>
 												<!-- 如果已绑定 action，显示编辑和删除选项 -->
@@ -130,14 +130,12 @@
 									</el-dropdown>
 									<el-button
 										@click="editTask(props.checklist.id, task)"
-										size="small"
-										text
+										link
 										:icon="Edit"
 									/>
 									<el-button
 										@click="deleteTask(props.checklist.id, task.id)"
-										size="small"
-										text
+										link
 										:icon="Delete"
 										class="text-red-500"
 									/>
@@ -174,9 +172,15 @@
 										@click="saveTaskEdit"
 										type="primary"
 										size="small"
+										circle
 										:icon="Check"
 									/>
-									<el-button @click="cancelTaskEdit" size="small" :icon="Close" />
+									<el-button
+										@click="cancelTaskEdit"
+										size="small"
+										circle
+										:icon="Close"
+									/>
 								</div>
 							</template>
 						</div>
@@ -233,7 +237,7 @@
 					@click="showAddTaskDialog(props.checklist)"
 					type="primary"
 					:icon="Plus"
-					size="default"
+					circle
 				/>
 			</div>
 		</div>

@@ -51,25 +51,25 @@
 										:value="ToolsType.UseTool"
 										:disabled="props.isEditing || isConfigModeDisabled"
 									>
-										<span class="text-sm">Use tool</span>
+										<span class="text-sm">Use Tool</span>
 									</el-radio>
 									<el-radio
 										:value="ToolsType.MyTool"
 										:disabled="props.isEditing || isConfigModeDisabled"
 									>
-										<span class="text-sm">My action</span>
+										<span class="text-sm">My Action</span>
 									</el-radio>
 									<el-radio
 										:value="ToolsType.NewTool"
 										:disabled="props.isEditing || isConfigModeDisabled"
 									>
-										<span class="text-sm">Create new action</span>
+										<span class="text-sm">Create New Action</span>
 									</el-radio>
 									<el-radio
 										:value="ToolsType.SystemTools"
 										:disabled="props.isEditing || isConfigModeDisabled"
 									>
-										<span class="text-sm">System tool</span>
+										<span class="text-sm">System Tool</span>
 									</el-radio>
 								</el-radio-group>
 							</div>

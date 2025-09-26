@@ -183,17 +183,17 @@ const handleDragEnd = (evt: any) => {
 
 .dark .section-item {
 	border-color: var(--primary-600);
-	background-color: var(--primary-800);
+	background-color: var(--black-400);
 }
 
 .dark .section-item:hover {
-	border-color: var(--primary-500);
-	background-color: var(--primary-700);
+	border-color: var(--black-600);
+	background-color: var(--black-500);
 }
 
 .dark .section-item.active {
-	border-color: var(--primary-400);
-	background-color: var(--primary-700);
+	border-color: var(--black-600);
+	background-color: var(--primary-500);
 }
 
 .dark .section-name {

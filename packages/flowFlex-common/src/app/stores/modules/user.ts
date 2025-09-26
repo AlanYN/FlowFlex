@@ -12,7 +12,7 @@ import type { TokenObj } from '@/apis/axios/axiosTransform';
 import { usePermissionStore } from '@/stores/modules/permission';
 // import { useGlobSetting } from '@/settings';
 import { menuRoles } from '@/stores/modules/menuFunction';
-import { passLogout } from '@/utils/threePartyLogin';
+import { Logout } from '@/utils/threePartyLogin';
 import { useWujie } from '@/hooks/wujie/micro-app.config';
 
 import { h } from 'vue';
@@ -167,15 +167,12 @@ export const useUserStore = defineStore({
 			const userInfo: UserInfo = {
 				...userDate.data,
 				userId: userDate?.data?.userId,
-				// Use email as the primary display name instead of firstName + lastName
-				userName: userDate?.data?.email || undefined,
-				realName:
-					userDate?.data?.email ||
-					`${userDate?.data?.firstName || ''}${
-						userDate?.data?.lastName
-							? ` ${userDate?.data?.lastName || ''}`
-							: `${userDate?.data?.lastName || ''}`
-					}`,
+				// userName: userDate?.data?.firstName + userDate?.data?.lastName,
+				realName: `${userDate?.data?.firstName || ''}${
+					userDate?.data?.lastName
+						? ` ${userDate?.data?.lastName || ''}`
+						: `${userDate?.data?.lastName || ''}`
+				}`,
 				email: userDate?.data?.email,
 				desc: '',
 				roles: userDate?.data?.roleIds,
@@ -201,7 +198,7 @@ export const useUserStore = defineStore({
 				}
 			}
 
-			goHome && (await router.replace(userInfo?.homePath || (PageEnum.BASE_HOME as string)));
+			goHome && (await router.replace(PageEnum.BASE_HOME as string));
 			return userInfo;
 		},
 		async loginWithCode(userInfo: UserInfo) {
@@ -237,7 +234,7 @@ export const useUserStore = defineStore({
 			// 添加删除所有cookie的操作
 			deleteAllCookies();
 			if (isMicroAppEnvironment()) return;
-			goLogin && passLogout(type);
+			goLogin && Logout(type);
 		},
 
 		/**

@@ -17,7 +17,7 @@ export interface CreateAxiosOptions extends AxiosRequestConfig {
 
 export interface TokenObj {
 	accessToken: {
-		expire: number;
+		expire?: number;
 		token: string;
 		tokenType: string;
 	};

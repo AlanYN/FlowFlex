@@ -5,11 +5,14 @@ using System.Threading.Tasks;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using FlowFlex.Application.Contracts.IServices.OW;
+using FlowFlex.Application.Contracts.Options;
+using FlowFlex.Application.Contracts.Dtos.OW;
 using FlowFlex.Domain.Repository.OW;
 using FlowFlex.Domain.Shared;
 using FlowFlex.Domain.Shared.Enums;
 using FlowFlex.Domain.Shared.Enums.OW;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 namespace FlowFlex.Application.Services.OW
 {
@@ -22,15 +25,18 @@ namespace FlowFlex.Application.Services.OW
         private readonly IOnboardingRepository _onboardingRepository;
         private readonly IStageRepository _stageRepository;
         private readonly ILogger<StagesProgressSyncService> _logger;
+        private readonly StagesProgressSyncOptions _options;
 
         public StagesProgressSyncService(
             IOnboardingRepository onboardingRepository,
             IStageRepository stageRepository,
-            ILogger<StagesProgressSyncService> logger)
+            ILogger<StagesProgressSyncService> logger,
+            IOptions<StagesProgressSyncOptions> options)
         {
             _onboardingRepository = onboardingRepository;
             _stageRepository = stageRepository;
             _logger = logger;
+            _options = options?.Value ?? new StagesProgressSyncOptions();
         }
 
         /// <summary>
@@ -38,6 +44,19 @@ namespace FlowFlex.Application.Services.OW
         /// </summary>
         public async Task<int> SyncAfterStageUpdateAsync(long workflowId, long? updatedStageId = null)
         {
+            // EMERGENCY SAFETY CHECK: Respect configuration options
+            if (_options.EmergencyMode)
+            {
+                _logger.LogWarning("EMERGENCY MODE ACTIVE: Skipping stages progress sync for workflow {WorkflowId}", workflowId);
+                return 0;
+            }
+
+            if (!_options.EnableSync || !_options.EnableSyncAfterStageUpdate)
+            {
+                _logger.LogInformation("Stages progress sync is disabled via configuration for workflow {WorkflowId}", workflowId);
+                return 0;
+            }
+
             try
             {
                 _logger.LogInformation("Starting sync after stage update for workflow {WorkflowId}, stage {StageId}",
@@ -51,6 +70,15 @@ namespace FlowFlex.Application.Services.OW
                     return 0;
                 }
 
+                // Respect batch size limits
+                if (onboardings.Count > _options.MaxBatchSize)
+                {
+                    _logger.LogWarning("Onboarding count {Count} exceeds max batch size {MaxBatch} for workflow {WorkflowId}. " +
+                        "Processing first {MaxBatch} onboardings only.", 
+                        onboardings.Count, _options.MaxBatchSize, workflowId, _options.MaxBatchSize);
+                    onboardings = onboardings.Take(_options.MaxBatchSize).ToList();
+                }
+
                 var syncedCount = 0;
                 var failedCount = 0;
 
@@ -61,8 +89,11 @@ namespace FlowFlex.Application.Services.OW
                         await SyncSingleOnboardingInternalAsync(onboarding);
                         syncedCount++;
 
-                        _logger.LogDebug("Successfully synced stages progress for onboarding {OnboardingId}",
-                            onboarding.Id);
+                        if (_options.EnableDetailedLogging)
+                        {
+                            _logger.LogDebug("Successfully synced stages progress for onboarding {OnboardingId}",
+                                onboarding.Id);
+                        }
                     }
                     catch (Exception ex)
                     {
@@ -413,16 +444,21 @@ namespace FlowFlex.Application.Services.OW
         /// <summary>
         /// Internal method to sync stages progress for a single onboarding
         /// This method breaks the circular dependency by directly working with repositories
+        /// IMPROVED: Added comprehensive data validation and integrity checks
         /// </summary>
         private async Task SyncSingleOnboardingInternalAsync(Domain.Entities.OW.Onboarding onboarding)
         {
             try
             {
+                _logger.LogInformation("Starting stages progress sync for onboarding {OnboardingId} in workflow {WorkflowId}", 
+                    onboarding.Id, onboarding.WorkflowId);
+
                 // Get current workflow stages
                 var stages = await _stageRepository.GetByWorkflowIdAsync(onboarding.WorkflowId);
                 if (stages == null || !stages.Any())
                 {
-                    _logger.LogWarning("No stages found for workflow {WorkflowId}", onboarding.WorkflowId);
+                    _logger.LogWarning("No stages found for workflow {WorkflowId} - skipping sync for onboarding {OnboardingId}", 
+                        onboarding.WorkflowId, onboarding.Id);
                     return;
                 }
 
@@ -432,20 +468,60 @@ namespace FlowFlex.Application.Services.OW
                 _logger.LogDebug("Loaded {ProgressCount} stages progress entries for onboarding {OnboardingId}",
                     currentProgress.Count, onboarding.Id);
 
+                // CRITICAL VALIDATION: Check if we have existing completed stages
+                var completedStages = currentProgress.Where(p => p.IsCompleted).ToList();
+                if (completedStages.Any())
+                {
+                    _logger.LogInformation("Found {CompletedCount} completed stages for onboarding {OnboardingId}: {CompletedStageIds}",
+                        completedStages.Count, onboarding.Id, 
+                        string.Join(", ", completedStages.Select(s => s.StageId)));
+                }
+
                 // Sync with current workflow stages
                 var updatedProgress = SyncProgressWithStages(currentProgress, stages);
 
                 _logger.LogDebug("Synced to {UpdatedCount} stages progress entries for onboarding {OnboardingId}",
                     updatedProgress.Count, onboarding.Id);
 
+                // INTEGRITY CHECK: Verify that completed stages are preserved
+                var preservedCompletedStages = updatedProgress.Where(p => p.IsCompleted).ToList();
+                if (completedStages.Count != preservedCompletedStages.Count)
+                {
+                    _logger.LogError("CRITICAL: Completed stages count mismatch after sync for onboarding {OnboardingId}. Before: {BeforeCount}, After: {AfterCount}",
+                        onboarding.Id, completedStages.Count, preservedCompletedStages.Count);
+                    
+                    // Log detailed comparison
+                    var beforeIds = completedStages.Select(s => s.StageId).OrderBy(x => x).ToList();
+                    var afterIds = preservedCompletedStages.Select(s => s.StageId).OrderBy(x => x).ToList();
+                    _logger.LogError("Before completed stage IDs: [{BeforeIds}], After completed stage IDs: [{AfterIds}]",
+                        string.Join(", ", beforeIds), string.Join(", ", afterIds));
+                    
+                    throw new InvalidOperationException($"Data integrity violation: Completed stages were lost during sync for onboarding {onboarding.Id}");
+                }
+
+                // VALIDATION: Ensure we're not creating empty or invalid progress
+                if (!updatedProgress.Any())
+                {
+                    _logger.LogError("CRITICAL: Sync resulted in empty stages progress for onboarding {OnboardingId}. This is not allowed.", onboarding.Id);
+                    throw new InvalidOperationException($"Sync cannot result in empty stages progress for onboarding {onboarding.Id}");
+                }
+
                 // Update the onboarding entity
                 onboarding.StagesProgress = updatedProgress;
                 var jsonData = SerializeStagesProgress(updatedProgress);
 
+                // FINAL VALIDATION: Ensure JSON is not empty
+                if (string.IsNullOrEmpty(jsonData) || jsonData == "[]")
+                {
+                    _logger.LogError("CRITICAL: Serialized stages progress is empty for onboarding {OnboardingId}. Blocking update to prevent data loss.", onboarding.Id);
+                    throw new InvalidOperationException($"Cannot save empty stages progress for onboarding {onboarding.Id}");
+                }
+
                 // Save to database using JSONB-safe approach
                 await SafeUpdateOnboardingWithJsonbAsync(onboarding, jsonData);
 
-                _logger.LogDebug("Successfully synced stages progress for onboarding {OnboardingId}", onboarding.Id);
+                _logger.LogInformation("Successfully synced stages progress for onboarding {OnboardingId}. Final count: {FinalCount}, Completed: {CompletedCount}",
+                    onboarding.Id, updatedProgress.Count, preservedCompletedStages.Count);
             }
             catch (Exception ex)
             {
@@ -624,6 +700,7 @@ namespace FlowFlex.Application.Services.OW
         /// <summary>
         /// Safely update onboarding entity with JSONB compatibility
         /// This method handles the JSONB type conversion issue for stages_progress_json
+        /// IMPROVED: Now includes proper transaction handling and data integrity validation
         /// </summary>
         private async Task SafeUpdateOnboardingWithJsonbAsync(Domain.Entities.OW.Onboarding onboarding, string stagesProgressJson)
         {
@@ -632,45 +709,67 @@ namespace FlowFlex.Application.Services.OW
                 // Get SqlSugar client for direct SQL execution
                 var db = _onboardingRepository.GetSqlSugarClient();
 
-                // Update stages_progress_json using explicit JSONB casting
-                if (!string.IsNullOrEmpty(stagesProgressJson))
+                // CRITICAL FIX: Validate that we're not clearing existing data unintentionally
+                if (string.IsNullOrEmpty(stagesProgressJson))
                 {
-                    try
+                    _logger.LogWarning("CRITICAL: Attempting to set empty stages progress JSON for onboarding {OnboardingId}. This operation is blocked to prevent data loss.", onboarding.Id);
+                    
+                    // Respect configuration for data clearing prevention
+                    if (_options.PreventDataClearing)
                     {
-                        var progressSql = "UPDATE ff_onboarding SET stages_progress_json = @StagesProgressJson::jsonb WHERE id = @Id";
-                        await db.Ado.ExecuteCommandAsync(progressSql, new
+                        // Check if onboarding currently has stages progress data
+                        var currentOnboarding = await _onboardingRepository.GetByIdAsync(onboarding.Id);
+                        if (currentOnboarding != null && !string.IsNullOrEmpty(currentOnboarding.StagesProgressJson))
                         {
-                            StagesProgressJson = stagesProgressJson,
-                            Id = onboarding.Id
-                        });
-
-                        _logger.LogDebug("Successfully updated stages_progress_json with JSONB casting for onboarding {OnboardingId}", onboarding.Id);
+                            _logger.LogError("BLOCKED: Prevented clearing of existing stages progress data for onboarding {OnboardingId}. Current data: {CurrentData}", 
+                                onboarding.Id, currentOnboarding.StagesProgressJson);
+                            return; // Do not proceed with empty update
+                        }
                     }
-                    catch (Exception progressEx)
+                    else
                     {
-                        // Log but don't fail the main update
-                        _logger.LogWarning(progressEx, "Warning: Failed to update stages_progress_json for onboarding {OnboardingId}", onboarding.Id);
+                        _logger.LogWarning("Data clearing prevention is disabled - allowing empty update for onboarding {OnboardingId}", onboarding.Id);
+                    }
+                }
 
-                        // Try alternative approach with parameter substitution
+                // Use transaction to ensure data consistency
+                await db.Ado.UseTranAsync(async () =>
+                {
+                    // Update stages_progress_json using explicit JSONB casting with audit fields
+                    if (!string.IsNullOrEmpty(stagesProgressJson))
+                    {
                         try
                         {
-                            var escapedJson = stagesProgressJson.Replace("'", "''");
-                            var directSql = $"UPDATE ff_onboarding SET stages_progress_json = '{escapedJson}'::jsonb WHERE id = {onboarding.Id}";
-                            await db.Ado.ExecuteCommandAsync(directSql);
+                            // IMPROVED: Include audit fields in the update to maintain data integrity
+                            var progressSql = @"UPDATE ff_onboarding 
+                                              SET stages_progress_json = @StagesProgressJson::jsonb,
+                                                  modify_date = @ModifyDate,
+                                                  modify_by = @ModifyBy
+                                              WHERE id = @Id";
+                            
+                            await db.Ado.ExecuteCommandAsync(progressSql, new
+                            {
+                                StagesProgressJson = stagesProgressJson,
+                                Id = onboarding.Id,
+                                ModifyDate = DateTimeOffset.UtcNow,
+                                ModifyBy = "StagesProgressSyncService"
+                            });
 
-                            _logger.LogDebug("Successfully updated stages_progress_json with direct SQL for onboarding {OnboardingId}", onboarding.Id);
+                            _logger.LogDebug("Successfully updated stages_progress_json with JSONB casting for onboarding {OnboardingId}", onboarding.Id);
                         }
-                        catch (Exception directEx)
+                        catch (Exception progressEx)
                         {
-                            _logger.LogError(directEx, "Error: Both parameterized and direct JSONB update failed for onboarding {OnboardingId}", onboarding.Id);
-                            throw;
+                            _logger.LogError(progressEx, "CRITICAL: Failed to update stages_progress_json for onboarding {OnboardingId}. Rolling back transaction.", onboarding.Id);
+                            throw; // This will cause transaction rollback
                         }
                     }
-                }
-                else
-                {
-                    _logger.LogWarning("Stages progress JSON is empty for onboarding {OnboardingId}", onboarding.Id);
-                }
+                    else
+                    {
+                        _logger.LogInformation("Skipping empty stages progress JSON update for onboarding {OnboardingId} to prevent data loss", onboarding.Id);
+                    }
+                });
+
+                _logger.LogDebug("Transaction completed successfully for onboarding {OnboardingId}", onboarding.Id);
             }
             catch (Exception ex)
             {
@@ -714,6 +813,312 @@ namespace FlowFlex.Application.Services.OW
             catch (Exception ex)
             {
                 return $"Error debugging onboarding {onboardingId}: {ex.Message}";
+            }
+        }
+
+        #endregion
+
+        #region Data Validation and Recovery Methods
+
+        /// <summary>
+        /// Validate and repair stages progress data for a specific onboarding
+        /// </summary>
+        public async Task<StagesProgressValidationResult> ValidateAndRepairOnboardingAsync(long onboardingId, bool autoRepair = true)
+        {
+            var result = new StagesProgressValidationResult
+            {
+                OnboardingId = onboardingId,
+                RepairAttempted = autoRepair
+            };
+
+            try
+            {
+                var onboarding = await _onboardingRepository.GetByIdAsync(onboardingId);
+                if (onboarding == null)
+                {
+                    result.IsValid = false;
+                    result.ErrorMessage = "Onboarding not found";
+                    return result;
+                }
+
+                // Load current stages progress
+                var currentProgress = LoadStagesProgressFromJson(onboarding);
+                result.StagesCountBefore = currentProgress.Count;
+                result.CompletedStagesCountBefore = currentProgress.Count(p => p.IsCompleted);
+
+                // Get workflow stages for validation
+                var workflowStages = await _stageRepository.GetByWorkflowIdAsync(onboarding.WorkflowId);
+                if (workflowStages == null || !workflowStages.Any())
+                {
+                    result.Issues.Add("No stages found in workflow");
+                    result.IsValid = false;
+                    return result;
+                }
+
+                // Validate stages progress
+                var validationIssues = ValidateStagesProgress(currentProgress, workflowStages);
+                result.Issues.AddRange(validationIssues);
+                result.IsValid = !validationIssues.Any();
+
+                // Attempt repair if needed and requested
+                if (!result.IsValid && autoRepair && _options.EnableDataIntegrityValidation)
+                {
+                    try
+                    {
+                        _logger.LogInformation("Attempting to repair stages progress for onboarding {OnboardingId}", onboardingId);
+                        
+                        var repairedProgress = SyncProgressWithStages(currentProgress, workflowStages);
+                        var repairedJson = SerializeStagesProgress(repairedProgress);
+
+                        // Update the onboarding with repaired data
+                        await SafeUpdateOnboardingWithJsonbAsync(onboarding, repairedJson);
+
+                        result.RepairSuccessful = true;
+                        result.StagesCountAfter = repairedProgress.Count;
+                        result.CompletedStagesCountAfter = repairedProgress.Count(p => p.IsCompleted);
+
+                        _logger.LogInformation("Successfully repaired stages progress for onboarding {OnboardingId}", onboardingId);
+                    }
+                    catch (Exception repairEx)
+                    {
+                        result.RepairSuccessful = false;
+                        result.ErrorMessage = $"Repair failed: {repairEx.Message}";
+                        _logger.LogError(repairEx, "Failed to repair stages progress for onboarding {OnboardingId}", onboardingId);
+                    }
+                }
+                else
+                {
+                    result.StagesCountAfter = result.StagesCountBefore;
+                    result.CompletedStagesCountAfter = result.CompletedStagesCountBefore;
+                }
+
+                return result;
+            }
+            catch (Exception ex)
+            {
+                result.IsValid = false;
+                result.ErrorMessage = ex.Message;
+                _logger.LogError(ex, "Error validating stages progress for onboarding {OnboardingId}", onboardingId);
+                return result;
+            }
+        }
+
+        /// <summary>
+        /// Batch validate and repair stages progress data for multiple onboardings
+        /// </summary>
+        public async Task<List<StagesProgressValidationResult>> BatchValidateAndRepairAsync(List<long> onboardingIds, bool autoRepair = true)
+        {
+            var results = new List<StagesProgressValidationResult>();
+
+            if (onboardingIds == null || !onboardingIds.Any())
+            {
+                return results;
+            }
+
+            // Respect batch size limits
+            var batchSize = Math.Min(onboardingIds.Count, _options.MaxBatchSize);
+            var onboardingIdsToProcess = onboardingIds.Take(batchSize).ToList();
+
+            if (onboardingIds.Count > batchSize)
+            {
+                _logger.LogWarning("Batch size {RequestedCount} exceeds limit {MaxBatch}. Processing first {ProcessedCount} onboardings.",
+                    onboardingIds.Count, _options.MaxBatchSize, batchSize);
+            }
+
+            foreach (var onboardingId in onboardingIdsToProcess)
+            {
+                try
+                {
+                    var result = await ValidateAndRepairOnboardingAsync(onboardingId, autoRepair);
+                    results.Add(result);
+
+                    // Small delay to avoid overwhelming the database
+                    await Task.Delay(100);
+                }
+                catch (Exception ex)
+                {
+                    results.Add(new StagesProgressValidationResult
+                    {
+                        OnboardingId = onboardingId,
+                        IsValid = false,
+                        ErrorMessage = ex.Message
+                    });
+                    _logger.LogError(ex, "Error in batch validation for onboarding {OnboardingId}", onboardingId);
+                }
+            }
+
+            // Log summary
+            var validCount = results.Count(r => r.IsValid);
+            var repairedCount = results.Count(r => r.RepairSuccessful == true);
+            _logger.LogInformation("Batch validation completed: {Total} processed, {Valid} valid, {Repaired} repaired",
+                results.Count, validCount, repairedCount);
+
+            return results;
+        }
+
+        /// <summary>
+        /// Emergency recovery method to restore stages progress from workflow stages
+        /// </summary>
+        public async Task<StagesProgressRecoveryResult> EmergencyRecoverStagesProgressAsync(long onboardingId, bool preserveCompletedStages = true)
+        {
+            var result = new StagesProgressRecoveryResult
+            {
+                OnboardingId = onboardingId,
+                CompletedStagesPreserved = preserveCompletedStages
+            };
+
+            try
+            {
+                _logger.LogWarning("Starting emergency recovery for onboarding {OnboardingId}", onboardingId);
+
+                var onboarding = await _onboardingRepository.GetByIdAsync(onboardingId);
+                if (onboarding == null)
+                {
+                    result.ErrorMessage = "Onboarding not found";
+                    return result;
+                }
+
+                // Store original data for reference
+                result.OriginalStagesProgressJson = onboarding.StagesProgressJson;
+
+                // Get workflow stages
+                var workflowStages = await _stageRepository.GetByWorkflowIdAsync(onboarding.WorkflowId);
+                if (workflowStages == null || !workflowStages.Any())
+                {
+                    result.ErrorMessage = "No stages found in workflow";
+                    return result;
+                }
+
+                // Try to preserve completed stage information if requested
+                var completedStageIds = new HashSet<long>();
+                if (preserveCompletedStages && !string.IsNullOrEmpty(onboarding.StagesProgressJson))
+                {
+                    try
+                    {
+                        var existingProgress = LoadStagesProgressFromJson(onboarding);
+                        completedStageIds = existingProgress
+                            .Where(p => p.IsCompleted)
+                            .Select(p => p.StageId)
+                            .ToHashSet();
+                        
+                        _logger.LogInformation("Found {CompletedCount} completed stages to preserve for onboarding {OnboardingId}: {StageIds}",
+                            completedStageIds.Count, onboardingId, string.Join(", ", completedStageIds));
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Could not parse existing stages progress for preservation in onboarding {OnboardingId}", onboardingId);
+                    }
+                }
+
+                // Create fresh stages progress from workflow stages
+                var recoveredProgress = new List<Domain.Entities.OW.OnboardingStageProgress>();
+                var orderedStages = workflowStages.OrderBy(s => s.Order).ToList();
+
+                for (int i = 0; i < orderedStages.Count; i++)
+                {
+                    var stage = orderedStages[i];
+                    var isCompleted = completedStageIds.Contains(stage.Id);
+
+                    var stageProgress = new Domain.Entities.OW.OnboardingStageProgress
+                    {
+                        StageId = stage.Id,
+                        Status = isCompleted ? "Completed" : "Pending",
+                        IsCompleted = isCompleted,
+                        StartTime = isCompleted ? DateTime.UtcNow.AddDays(-1) : null,
+                        CompletionTime = isCompleted ? DateTime.UtcNow : null,
+                        CompletedById = isCompleted ? (long?)999999999 : null, // Special ID for recovery system
+                        CompletedBy = isCompleted ? "Emergency Recovery System" : null,
+                        Notes = isCompleted ? "Stage completion preserved during emergency recovery" : null,
+                        IsCurrent = false,
+                        StageOrder = i + 1
+                    };
+
+                    recoveredProgress.Add(stageProgress);
+                }
+
+                // Serialize and save recovered data
+                var recoveredJson = SerializeStagesProgress(recoveredProgress);
+                result.RecoveredStagesProgressJson = recoveredJson;
+
+                // Update the onboarding with recovered data
+                await SafeUpdateOnboardingWithJsonbAsync(onboarding, recoveredJson);
+
+                result.RecoverySuccessful = true;
+                result.StagesRecovered = recoveredProgress.Count;
+                result.CompletedStagesPreservedCount = completedStageIds.Count;
+
+                _logger.LogInformation("Emergency recovery completed for onboarding {OnboardingId}. Recovered {StageCount} stages, preserved {CompletedCount} completed stages",
+                    onboardingId, result.StagesRecovered, result.CompletedStagesPreservedCount);
+
+                return result;
+            }
+            catch (Exception ex)
+            {
+                result.RecoverySuccessful = false;
+                result.ErrorMessage = ex.Message;
+                _logger.LogError(ex, "Emergency recovery failed for onboarding {OnboardingId}", onboardingId);
+                return result;
+            }
+        }
+
+        /// <summary>
+        /// Validate stages progress against workflow stages
+        /// </summary>
+        private List<string> ValidateStagesProgress(List<Domain.Entities.OW.OnboardingStageProgress> progress, List<Domain.Entities.OW.Stage> workflowStages)
+        {
+            var issues = new List<string>();
+
+            try
+            {
+                // Check for empty progress
+                if (!progress.Any())
+                {
+                    issues.Add("Stages progress is empty");
+                    return issues;
+                }
+
+                // Check for invalid stage IDs
+                var invalidStages = progress.Where(p => p.StageId <= 0).ToList();
+                if (invalidStages.Any())
+                {
+                    issues.Add($"Found {invalidStages.Count} progress entries with invalid stage IDs");
+                }
+
+                // Check for duplicate stage IDs
+                var duplicateStageIds = progress
+                    .GroupBy(p => p.StageId)
+                    .Where(g => g.Count() > 1)
+                    .Select(g => g.Key)
+                    .ToList();
+
+                if (duplicateStageIds.Any())
+                {
+                    issues.Add($"Found duplicate stage IDs: {string.Join(", ", duplicateStageIds)}");
+                }
+
+                // Check for missing stages
+                var workflowStageIds = workflowStages.Select(s => s.Id).ToHashSet();
+                var progressStageIds = progress.Where(p => p.StageId > 0).Select(p => p.StageId).ToHashSet();
+
+                var missingStages = workflowStageIds.Except(progressStageIds).ToList();
+                if (missingStages.Any())
+                {
+                    issues.Add($"Missing stages in progress: {string.Join(", ", missingStages)}");
+                }
+
+                // Check for orphaned stages (stages in progress but not in workflow)
+                var orphanedStages = progressStageIds.Except(workflowStageIds).ToList();
+                if (orphanedStages.Any())
+                {
+                    issues.Add($"Orphaned stages in progress (not in workflow): {string.Join(", ", orphanedStages)}");
+                }
+
+                return issues;
+            }
+            catch (Exception ex)
+            {
+                issues.Add($"Validation error: {ex.Message}");
+                return issues;
             }
         }
 

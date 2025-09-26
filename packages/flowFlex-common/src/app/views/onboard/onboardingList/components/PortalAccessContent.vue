@@ -98,23 +98,21 @@
 		</div>
 
 		<!-- Add User Dialog -->
-		<el-dialog v-model="showAddDialog" title="Add Portal User" width="500px">
-			<div class="space-y-4">
-				<div>
-					<label class="block text-sm font-medium mb-2">Email Addresses</label>
-					<InputTag
-						v-model="selectedEmails"
-						placeholder="Enter email addresses and press enter"
-						style-type="normal"
-						:limit="10"
-						@change="handleEmailTagsChange"
-						style="width: 100%; height: 32px"
-						class="w-full rounded-xl"
-					/>
-					<div class="text-xs text-gray-500 mt-1">
-						Type email addresses and press Enter to add them. You can add multiple
-						emails at once.
-					</div>
+		<el-dialog v-model="showAddDialog" title="Add Portal User" append-to-body width="500px">
+			<div class="h-[100px]">
+				<label class="block text-sm font-medium mb-2">Email Addresses</label>
+				<InputTag
+					v-model="selectedEmails"
+					placeholder="Enter email addresses and press enter"
+					style-type="normal"
+					:limit="10"
+					@change="handleEmailTagsChange"
+					style="width: 100%; height: 32px"
+					class="w-full rounded-xl"
+				/>
+				<div class="text-xs text-gray-500 mt-1">
+					Type email addresses and press Enter to add them. You can add multiple emails at
+					once.
 				</div>
 			</div>
 			<template #footer>
@@ -123,6 +121,7 @@
 					<el-button
 						type="primary"
 						@click="handleAddUser"
+						:loading="loading"
 						:disabled="selectedEmails.length === 0"
 					>
 						<el-icon>
@@ -522,13 +521,6 @@ html.dark :deep(.portal-table .el-table__header th) {
 
 html.dark :deep(.portal-table .el-table__header th .cell) {
 	color: rgb(147, 197, 253);
-}
-
-/* 暗色主题样式 */
-html.dark {
-	.text-gray-500 {
-		color: #9ca3af;
-	}
 }
 
 /* InputTag组件样式调整 - 保持原有高度和宽度 */

@@ -1,10 +1,9 @@
-import { addLoginActivity, wujieCrmTokenApi } from '@/apis/pass/notify';
+import { addLoginActivity } from '@/apis/pass/notify';
 import { useUserStoreWithOut } from '@/stores/modules/user';
 import { useGlobSetting } from '@/settings';
 import { getItem, isIframe, setItem } from './utils';
-import { getSSOToken } from '@/apis/login/user';
+import { verifyTicket } from '@/apis/login/user';
 import { ProjectEnum } from '@/enums/appEnum';
-import { PageEnum } from '@/enums/pageEnum';
 import { ElLoading } from 'element-plus';
 import { router } from '@/router';
 import dayjs from 'dayjs';
@@ -30,41 +29,34 @@ export function addActivity(type = 'Switch') {
 	userStore.setIsLogin(true);
 }
 
-export async function passSsoToken(code, oauth) {
+export async function formIDMLogin(ticket, oauth) {
 	const userStore = useUserStoreWithOut();
 	if (oauth) {
 		userStore.setIsLogin(true);
 	}
-	const res = await getSSOToken({
-		code,
-		redirectUrl: window.location.origin,
-		clientid: globSetting.ssoCode,
+	const res = await verifyTicket({
+		ticket,
+		appId: ProjectEnum.WFE,
 	});
-	const { access_token, id_token, expires_in, refresh_token, token_type } = res; //, scope
-	if (access_token && access_token != '') {
-		const currentDate = dayjs(new Date()).unix();
-		userStore.setTokenobj({
-			accessToken: {
-				token: access_token,
-				expire: +currentDate + +expires_in,
-				tokenType: token_type,
-			},
-			refreshToken: refresh_token,
-			tripartiteToken: id_token,
-		});
-		// addActivity();
-		await userStore.afterLoginAction(false);
-		detailUrlQuery();
-	} else {
-		throw 'Failed to obtain token'; //获取token失败
-	}
+	const { refreshToken, expiresIn, token, tokenType, userId } = res;
+	userStore.setUserInfo({
+		...userStore.getUserInfo,
+		userId,
+	});
+	const currentDate = dayjs(new Date()).unix();
+	userStore.setTokenobj({
+		accessToken: {
+			token: token,
+			expire: +currentDate + +expiresIn,
+			tokenType: tokenType,
+		},
+		refreshToken: refreshToken,
+	});
+	await userStore.afterLoginAction(false);
+	detailUrlQuery();
 }
 
-export function toIAMLogin(type = 'Switch') {
-	if (isoldEnvironment()) {
-		router.push(PageEnum.BASE_LOGIN as string);
-		return;
-	}
+export function toIDMLogin(type = 'Switch') {
 	ElLoading.service({
 		lock: true,
 		text: 'Loading',
@@ -75,26 +67,10 @@ export function toIAMLogin(type = 'Switch') {
 		localStorage.setItem('href', window.location.href);
 	}
 	let urlParameter = '';
-	if (globSetting.environment == 'UNIS') {
-		urlParameter = `redirect_uri=${encodeURIComponent(window.location.origin)}&appId=${
-			ProjectEnum.CRM
-		}&action_type=${type}&theme=${localStorage.getItem('theme')}`;
-		window.open(`${globSetting.ssoURL}oauth?${urlParameter}`, '_self');
-	} else if (globSetting.environment == 'ITEM') {
-		if (type == 'logout') {
-			urlParameter = `post_logout_redirect_uri=${encodeURIComponent(
-				window.location.origin
-			)} `;
-			window.open(`${globSetting.ssoURL}oauth2/logout?${urlParameter}`, '_self');
-		} else {
-			urlParameter = `response_type=code&client_id=${
-				globSetting.ssoCode
-			}&scope=${'profile email phone openid'}&redirect_uri=${encodeURIComponent(
-				window.location.origin
-			)}&state=${'abcxyz'}`;
-			window.open(`${globSetting.ssoURL}oauth2/authorize?${urlParameter}`, '_self');
-		}
-	}
+	urlParameter = `redirect_uri=${encodeURIComponent(window.location.origin)}&appId=${
+		ProjectEnum.WFE
+	}&action_type=${type}&theme=${localStorage.getItem('theme')}`;
+	window.open(`${globSetting.idmUrl}/oauth?${urlParameter}`, '_self');
 }
 
 export function setEnvironment(type: string) {
@@ -109,6 +85,14 @@ export function isoldEnvironment() {
 	return getItem('loginType') == 'self';
 }
 
+export function setAppCode(appCode: string = 'default') {
+	setItem('appCode', appCode);
+}
+
+export function getAppCode() {
+	return getItem('appCode') || 'default';
+}
+
 export function detailUrlQuery() {
 	if (localStorage.getItem('href')) {
 		window.location.href = localStorage.getItem('href') as string;
@@ -118,8 +102,21 @@ export function detailUrlQuery() {
 	}
 }
 
-export function passLogout(type?: string) {
-	router.push(PageEnum.BASE_LOGIN as string);
+export function Logout(type?: string) {
+	ElLoading.service({
+		lock: true,
+		text: 'Loading',
+		background: 'rgba(0, 0, 0, 0.7)',
+	});
+
+	if (type != 'logout') {
+		localStorage.setItem('href', window.location.href);
+	}
+	let urlParameter = '';
+	urlParameter = `redirect_uri=${encodeURIComponent(window.location.origin)}&appId=${
+		ProjectEnum.WFE
+	}&action_type=${type}&theme=${localStorage.getItem('theme')}`;
+	window.open(`${globSetting.idmUrl}/oauth?${urlParameter}`, '_self');
 }
 
 export async function wujieCrmToken(
@@ -131,28 +128,16 @@ export async function wujieCrmToken(
 	currentRoute: string
 ) {
 	const userStore = useUserStoreWithOut();
-	const res = (await wujieCrmTokenApi(params)) as any;
-	if (res.code == '200') {
-		const { accessToken, tokenType, expiresIn, user } = res.data;
-		const currentDate = dayjs(new Date()).unix();
-		await userStore.setTokenobj({
-			accessToken: {
-				token: accessToken,
-				expire: +currentDate + +expiresIn,
-				tokenType: tokenType,
-			},
-			refreshToken: accessToken,
-		});
-
-		await userStore.setUserInfo({
-			appCode: params.appCode,
-			tenantId: params.tenantId,
-			...user,
-		});
-		if (currentRoute) {
-			router.push(currentRoute);
-		}
-	} else {
-		throw 'Failed to obtain token'; //获取token失败
+	await userStore.setTokenobj({
+		accessToken: {
+			token: params.authorizationToken,
+			tokenType: 'Bearer',
+		},
+		refreshToken: params.authorizationToken,
+	});
+	setAppCode(params.appCode);
+	userStore.afterLoginAction(true);
+	if (currentRoute) {
+		router.push(currentRoute);
 	}
 }

@@ -138,6 +138,19 @@
 												Resume
 											</el-dropdown-item>
 
+											<!-- Force Complete - 对进行中状态和暂停状态显示 -->
+											<el-dropdown-item
+												v-if="
+													isInProgressStatus(row.status) ||
+													row.status === 'Paused'
+												"
+												@click="handleForceComplete(row)"
+												class="text-green-500"
+											>
+												<el-icon><Check /></el-icon>
+												Force Complete
+											</el-dropdown-item>
+
 											<!-- Abort - 对进行中状态和暂停状态显示 -->
 											<el-dropdown-item
 												v-if="
@@ -540,10 +553,10 @@
 					</el-select>
 				</el-form-item>
 
-				<el-form-item label="Work flow" prop="workFlowId">
+				<el-form-item label="Workflow" prop="workFlowId">
 					<el-select
 						v-model="formData.workFlowId"
-						placeholder="Select Work Flow"
+						placeholder="Select Workflow"
 						clearable
 						class="w-full rounded-xl"
 					>
@@ -597,7 +610,6 @@ import {
 	View,
 	Warning,
 	Download,
-	Check,
 } from '@element-plus/icons-vue';
 import {
 	queryOnboardings,
@@ -689,7 +701,7 @@ const formRules = {
 		{ required: true, message: 'Contact Email is required', trigger: 'blur' },
 		{ type: 'email', message: 'Please enter a valid email address', trigger: 'blur' },
 	], // 必填，且需要验证邮箱格式
-	workFlowId: [{ required: true, message: 'Work Flow is required', trigger: 'blur' }],
+	workFlowId: [{ required: true, message: 'Workflow is required', trigger: 'blur' }],
 };
 
 const changeLifeCycleStage = (value: string) => {
