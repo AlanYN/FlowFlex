@@ -7,6 +7,7 @@ import { ProjectEnum } from '@/enums/appEnum';
 import { ElLoading } from 'element-plus';
 import { router } from '@/router';
 import dayjs from 'dayjs';
+import { getEnv } from './env';
 
 const globSetting = useGlobSetting();
 
@@ -66,11 +67,27 @@ export function toIDMLogin(type = 'Switch') {
 	if (type != 'logout') {
 		localStorage.setItem('href', window.location.href);
 	}
+
+	const currentEnv = getEnv();
 	let urlParameter = '';
-	urlParameter = `redirect_uri=${encodeURIComponent(window.location.origin)}&appId=${
-		ProjectEnum.WFE
-	}&action_type=${type}&theme=${localStorage.getItem('theme')}`;
-	window.open(`${globSetting.idmUrl}/oauth?${urlParameter}`, '_self');
+	console.log('currentEnv:', currentEnv);
+	// 如果是 stage 环境，使用新的 SSO 验证逻辑
+	if (currentEnv === 'stage' || currentEnv === 'production') {
+		urlParameter = `response_type=code&client_id=${
+			globSetting.ssoCode
+		}&scope=${'profile email phone openid'}&redirect_uri=${encodeURIComponent(
+			window.location.origin
+		)}&state=${'abcxyz'}&appId=${
+			ProjectEnum.WFE
+		}&action_type=${type}&theme=${localStorage.getItem('theme')}`;
+		window.open(`${globSetting.ssoURL}oauth2/authorize?${urlParameter}`, '_self');
+	} else {
+		// 其他环境保持原有逻辑
+		urlParameter = `redirect_uri=${encodeURIComponent(window.location.origin)}&appId=${
+			ProjectEnum.WFE
+		}&action_type=${type}&theme=${localStorage.getItem('theme')}`;
+		window.open(`${globSetting.idmUrl}/oauth?${urlParameter}`, '_self');
+	}
 }
 
 export function setEnvironment(type: string) {
@@ -112,11 +129,25 @@ export function Logout(type?: string) {
 	if (type != 'logout') {
 		localStorage.setItem('href', window.location.href);
 	}
+
+	const currentEnv = getEnv();
 	let urlParameter = '';
-	urlParameter = `redirect_uri=${encodeURIComponent(window.location.origin)}&appId=${
-		ProjectEnum.WFE
-	}&action_type=${type}&theme=${localStorage.getItem('theme')}`;
-	window.open(`${globSetting.idmUrl}/oauth?${urlParameter}`, '_self');
+	console.log('currentEnv:', currentEnv);
+	// 如果是 stage 环境，使用新的 SSO 验证逻辑
+	if (currentEnv === 'stage' || currentEnv === 'production') {
+		urlParameter = `post_logout_redirect_uri=${encodeURIComponent(
+			window.location.origin
+		)}&appId=${ProjectEnum.WFE}&action_type=${type}&theme=${localStorage.getItem('theme')}`;
+		window.open(`${globSetting.ssoURL}oauth2/logout?${urlParameter}`, '_self');
+	} else {
+		let urlParameter = '';
+		urlParameter = `redirect_uri=${encodeURIComponent(window.location.origin)}&appId=${
+			ProjectEnum.WFE
+		}&action_type=${type}&theme=${localStorage.getItem('theme')}`;
+		const url = `${globSetting.idmUrl}/oauth?${urlParameter}`;
+		console.log('url:', url);
+		window.open(`${globSetting.idmUrl}/oauth?${urlParameter}`, '_self');
+	}
 }
 
 export async function wujieCrmToken(
