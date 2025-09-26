@@ -21,6 +21,7 @@ import { useUserStoreWithOut } from '@/stores/modules/user';
 import { useWujie } from '@/hooks/wujie/micro-app.config';
 import axios from 'axios';
 import qs from 'qs';
+import { ProjectEnum } from '@/enums/appEnum';
 
 import { useGlobSetting } from '@/settings';
 import { getAppCode } from '@/utils/threePartyLogin';
@@ -158,6 +159,7 @@ const transform: AxiosTransform = {
 		(config as Recordable).headers['Application-code'] = `${globSetting.ssoCode}`;
 		(config as Recordable).headers['X-App-Code'] = getAppCode();
 		(config as Recordable).headers['X-Tenant-Id'] = userStore.getUserInfo?.tenantId;
+		(config as Recordable).headers['X-App-Id'] = ProjectEnum.WFE;
 		// TODO: 在拦截器配置paramsSerializer
 		// const METHOD = config.method?.toUpperCase();
 		// if (METHOD === RequestEnum.GET || METHOD === RequestEnum.PUT) {

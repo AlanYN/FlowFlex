@@ -9,6 +9,7 @@ using FlowFlex.Infrastructure.Data;
 using FlowFlex.Application.Contracts.IServices;
 using FlowFlex.Infrastructure.Services.Security;
 using Item.Internal.Auth.Authorization;
+using Application.Contracts.Options;
 
 namespace FlowFlex.Infrastructure.Extensions
 {
@@ -49,6 +50,8 @@ namespace FlowFlex.Infrastructure.Extensions
                 .ValidateOnStart();
 
             services.Configure<IdentityHubConfigOptions>(configuration.GetSection("IdentityHubConfig"));
+
+            services.Configure<GlobalConfigOptions>(configuration.GetSection("Global"));
 
             // Register logging services
             services.AddScoped<IApplicationLogger, ApplicationLogger>();

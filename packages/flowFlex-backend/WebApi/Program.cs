@@ -1,32 +1,29 @@
-﻿using Microsoft.AspNetCore.Authentication.JwtBearer;
+﻿using Application.Contracts.Options;
+using FlowFlex.Application.Client;
+using FlowFlex.Application.Contracts.Options;
+using FlowFlex.Domain.Shared.Const;
+using FlowFlex.Domain.Shared.JsonConverters;
+using FlowFlex.Infrastructure.Extensions;
+using FlowFlex.SqlSugarDB.Extensions;
+using FlowFlex.WebApi.Extensions;
+using FlowFlex.WebApi.Middlewares;
+using Item.Internal.Auth.Authorization;
+using Item.Redis.Extensions;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Microsoft.AspNetCore.Mvc.Versioning;
+using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using OfficeOpenXml;
-using FlowFlex.Application.Contracts.Options;
-using FlowFlex.WebApi.Extensions;
-using FlowFlex.WebApi.Middlewares;
-using FlowFlex.SqlSugarDB.Extensions;
-using FlowFlex.Infrastructure.Extensions;
-using FlowFlex.Domain.Shared.JsonConverters;
-using System.Reflection;
-using System.Text;
-using FlowFlex.Application.Client;
-using Item.Redis.Extensions;
-using FlowFlex.Application.Contracts.IServices.OW;
-using WebApi.Authentication;
-using Item.Internal.Auth.Authorization;
-using FlowFlex.Domain.Shared.Const;
-using System.IdentityModel.Tokens.Jwt;
-using Microsoft.Extensions.DependencyInjection;
-using WebApi.Authorization;
-using Item.ThirdParty.IdentityHub;
-using FlowFlex.Application.Services.OW;
 using Polly;
 using Polly.Extensions.Http;
+using System.IdentityModel.Tokens.Jwt;
+using System.Reflection;
+using System.Text;
+using WebApi.Authentication;
+using WebApi.Authorization;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -269,6 +266,29 @@ if (identityHubConfigOptions?.EnableIdentityHub == true)
             OnTokenValidated = TokenValidatedHandler.OnIdmTokenValidated
         };
     });
+}
+
+var globalConfigOptions = builder.Configuration.GetSection("Global").Get<GlobalConfigOptions>();
+if (globalConfigOptions.EnableItemIam)
+{
+    schemes.Add(AuthSchemes.ItemIamIdentification);
+    var itemIamConfig = builder.Configuration.GetSection("ItemIamConfig").Get<IdentityHubConfigOptions>();
+    authenticationBuilder.AddJwtBearer(AuthSchemes.ItemIamIdentification, config =>
+    {
+        config.Authority = itemIamConfig.Authority;
+        config.RequireHttpsMetadata = itemIamConfig.RequireHttpsMetadata;
+        config.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidIssuer = itemIamConfig.Issuer,
+            ValidateAudience = false,
+            ValidateIssuerSigningKey = itemIamConfig.ValidateIssuerSigningKey
+        };
+        config.Events = new JwtBearerEvents
+        {
+            OnTokenValidated = TokenValidatedHandler.OnIamItemTokenValidated
+        };
+    });
+
 }
 
 builder.Services.AddAuthorization<WfeAuthorizationHandler>(schemes.ToArray());
