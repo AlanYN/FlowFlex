@@ -36,5 +36,15 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.User
         /// Team member count (only for team type nodes)
         /// </summary>
         public int MemberCount { get; set; }
+
+        /// <summary>
+        /// User name (only for user type nodes)
+        /// </summary>
+        public string Username { get; set; }
+
+        /// <summary>
+        /// User email (only for user type nodes)
+        /// </summary>
+        public string Email { get; set; }
     }
 }

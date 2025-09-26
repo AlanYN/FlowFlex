@@ -24,6 +24,9 @@ using System.IdentityModel.Tokens.Jwt;
 using Microsoft.Extensions.DependencyInjection;
 using WebApi.Authorization;
 using Item.ThirdParty.IdentityHub;
+using FlowFlex.Application.Services.OW;
+using Polly;
+using Polly.Extensions.Http;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -150,6 +153,23 @@ builder.Services.Configure<JwtOptions>(options =>
 });
 builder.Services.Configure<FileStorageOptions>(builder.Configuration.GetSection("FileStorage"));
 
+// Configure IDM API options
+builder.Services.Configure<IdentityHubOptions>(builder.Configuration.GetSection("IdmApis"));
+
+// Register HttpClient for IdmUserDataClient with retry policy and timeout
+builder.Services.AddHttpClient<FlowFlex.Application.Services.OW.IdmUserDataClient>("FlowFlexIdmUserDataClient", client =>
+{
+    var idmConfig = builder.Configuration.GetSection("IdmApis").Get<IdentityHubOptions>();
+    if (idmConfig != null && !string.IsNullOrEmpty(idmConfig.BaseUrl))
+    {
+        client.BaseAddress = new Uri(idmConfig.BaseUrl);
+    }
+    client.DefaultRequestHeaders.Add("User-Agent", "FlowFlex-HttpClient/1.0");
+    client.Timeout = TimeSpan.FromSeconds(30);
+})
+.AddPolicyHandler(GetRetryPolicy())
+.AddPolicyHandler(Policy.TimeoutAsync<HttpResponseMessage>(TimeSpan.FromSeconds(30)));
+
 // Register JWT authentication
 var jwtSecretKey = builder.Configuration["Security:JwtSecretKey"];
 var jwtIssuer = builder.Configuration["Security:JwtIssuer"];
@@ -230,6 +250,7 @@ var authenticationBuilder = builder.Services.AddAuthentication(options =>
 });
 
 var identityHubConfigOptions = builder.Configuration.GetSection("IdentityHubConfig").Get<IdentityHubConfigOptions>();
+
 if (identityHubConfigOptions?.EnableIdentityHub == true)
 {
     schemes.Add(AuthSchemes.Identification);
@@ -245,27 +266,26 @@ if (identityHubConfigOptions?.EnableIdentityHub == true)
         };
         config.Events = new JwtBearerEvents
         {
-            OnTokenValidated = TokenValidatedHandler.OnIdmTokenValidated,
-            OnAuthenticationFailed = (c) =>
-            {
-                Console.WriteLine("123123");
-                return Task.FromResult(true);
-            },
-            OnChallenge = (c) =>
-            {
-                Console.WriteLine("13345345");
-                return Task.FromResult(true);
-            },
-            OnForbidden = (c) =>
-            {
-                Console.WriteLine("fasdf");
-                return Task.FromResult(true);
-            }
+            OnTokenValidated = TokenValidatedHandler.OnIdmTokenValidated
         };
     });
 }
 
 builder.Services.AddAuthorization<WfeAuthorizationHandler>(schemes.ToArray());
+
+// Add authorization policy for user endpoints that supports both Bearer and IDM tokens
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy("BearerOrIdm", policy =>
+    {
+        policy.AuthenticationSchemes.Add(JwtBearerDefaults.AuthenticationScheme);
+        if (identityHubConfigOptions?.EnableIdentityHub == true)
+        {
+            policy.AuthenticationSchemes.Add(AuthSchemes.Identification);
+        }
+        policy.RequireAuthenticatedUser();
+    });
+});
 
 // Register HTTP context accessor
 builder.Services.AddHttpContextAccessor();
@@ -493,25 +513,15 @@ app.MapControllers();
 // Initialize database
 try
 {
-    Console.WriteLine("[Program] Starting database initialization...");
     app.Services.InitializeDatabase();
-    Console.WriteLine("[Program] Database initialization completed successfully");
 }
 catch (Exception ex)
 {
-    // Database initialization failed - log the error
-    Console.WriteLine($"[Program] Database initialization failed: {ex.Message}");
     app.Logger.LogError(ex, "Database initialization failed");
-
-    // In development environment, can choose to continue running, production environment should terminate
+    
     if (!app.Environment.IsDevelopment())
     {
-        Console.WriteLine("[Program] Production environment - terminating due to database initialization failure");
         throw;
-    }
-    else
-    {
-        Console.WriteLine("[Program] Development environment - continuing despite database initialization failure");
     }
 }
 
@@ -520,3 +530,15 @@ catch (Exception ex)
 // We're using the MigrationManager system instead
 
 app.Run();
+
+/// <summary>
+/// Retry policy configuration for IDM HttpClient
+/// </summary>
+static IAsyncPolicy<HttpResponseMessage> GetRetryPolicy()
+{
+    return HttpPolicyExtensions
+        .HandleTransientHttpError()
+        .WaitAndRetryAsync(
+            retryCount: 3,
+            sleepDurationProvider: retryAttempt => TimeSpan.FromSeconds(Math.Pow(2, retryAttempt)));
+}

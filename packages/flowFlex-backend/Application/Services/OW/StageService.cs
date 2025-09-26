@@ -1059,76 +1059,8 @@ namespace FlowFlex.Application.Service.OW
 
             try
             {
-                // Handle double-escaped JSON string
-                var jsonString = entity.ComponentsJson;
-
-                // If the string starts and ends with quotes, it's likely double-escaped
-                if (jsonString.StartsWith("\"") && jsonString.EndsWith("\""))
-                {
-                    Console.WriteLine($"[DEBUG] Detected double-escaped JSON, unescaping...");
-                    // Remove outer quotes and unescape
-                    jsonString = JsonSerializer.Deserialize<string>(jsonString) ?? jsonString.Trim('"');
-                    Console.WriteLine($"[DEBUG] Unescaped JSON: {jsonString}");
-                }
-
-                // Clean problematic escape sequences (e.g., \u0026 and stray \&)
-                var cleanedJson = CleanJsonString(jsonString);
-                Console.WriteLine($"[DEBUG] Cleaned JSON (preview): {cleanedJson.Substring(0, Math.Min(200, cleanedJson.Length))}...");
-
-                List<StageComponent> components = null;
-                try
-                {
-                    components = JsonSerializer.Deserialize<List<StageComponent>>(cleanedJson, _jsonOptions);
-                }
-                catch (JsonException jsonEx)
-                {
-                    Console.WriteLine($"[ERROR] Direct JSON deserialization failed: {jsonEx.Message}");
-                    // As a last resort, try to parse array items individually
-                    try
-                    {
-                        Console.WriteLine("[DEBUG] Trying manual JSON parsing...");
-                        using var doc = JsonDocument.Parse(cleanedJson);
-                        JsonElement root = doc.RootElement;
-                        if (root.ValueKind == JsonValueKind.String)
-                        {
-                            var inner = root.GetString() ?? string.Empty;
-                            using var innerDoc = JsonDocument.Parse(inner);
-                            root = innerDoc.RootElement.Clone();
-                        }
-                        if (root.ValueKind == JsonValueKind.Array)
-                        {
-                            var list = new List<StageComponent>();
-                            foreach (var elem in root.EnumerateArray())
-                            {
-                                bool isEnabled = true;
-                                if (elem.TryGetProperty("IsEnabled", out var enProp2) && enProp2.ValueKind == JsonValueKind.False)
-                                {
-                                    isEnabled = false;
-                                }
-                                var sc = new StageComponent
-                                {
-                                    Key = elem.TryGetProperty("Key", out var keyProp) ? keyProp.GetString() ?? string.Empty : string.Empty,
-                                    Order = elem.TryGetProperty("Order", out var orderProp) && orderProp.TryGetInt32(out var oi) ? oi : 0,
-                                    IsEnabled = isEnabled,
-                                    Configuration = elem.TryGetProperty("Configuration", out var cfgProp) ? (cfgProp.ValueKind == JsonValueKind.String ? cfgProp.GetString() : null) : null,
-                                    StaticFields = elem.TryGetProperty("StaticFields", out var sfProp) && sfProp.ValueKind == JsonValueKind.Array ? sfProp.EnumerateArray().Select(x => x.GetString() ?? string.Empty).ToList() : new List<string>(),
-                                    ChecklistIds = elem.TryGetProperty("ChecklistIds", out var clProp) && clProp.ValueKind == JsonValueKind.Array ? clProp.EnumerateArray().Select(x => x.TryGetInt64(out var v) ? v : 0).ToList() : new List<long>(),
-                                    QuestionnaireIds = elem.TryGetProperty("QuestionnaireIds", out var qProp) && qProp.ValueKind == JsonValueKind.Array ? qProp.EnumerateArray().Select(x => x.TryGetInt64(out var v) ? v : 0).ToList() : new List<long>(),
-                                    ChecklistNames = elem.TryGetProperty("ChecklistNames", out var clnProp) && clnProp.ValueKind == JsonValueKind.Array ? clnProp.EnumerateArray().Select(x => x.GetString() ?? string.Empty).ToList() : new List<string>(),
-                                    QuestionnaireNames = elem.TryGetProperty("QuestionnaireNames", out var qnnProp) && qnnProp.ValueKind == JsonValueKind.Array ? qnnProp.EnumerateArray().Select(x => x.GetString() ?? string.Empty).ToList() : new List<string>()
-                                };
-                                list.Add(sc);
-                            }
-                            components = list;
-                            Console.WriteLine($"[DEBUG] Manual parsing succeeded, {components.Count} components");
-                        }
-                    }
-                    catch (Exception manualEx)
-                    {
-                        Console.WriteLine($"[ERROR] Manual parsing also failed: {manualEx.Message}");
-                        throw; // rethrow original exception
-                    }
-                }
+                // Use the shared JSON parsing logic for consistency
+                var components = ParseStageComponentsJson(entity.ComponentsJson, id);
 
                 if (components == null || !components.Any())
                 {
@@ -1923,6 +1855,10 @@ namespace FlowFlex.Application.Service.OW
                 }
 
                 Console.WriteLine($"[StageService] Found {allStagesInWorkflow.Count} stages in workflow {workflowId}");
+                
+                // Track how many stages have components for validation integrity
+                var stagesWithComponents = 0;
+                var stagesWithParseErrors = 0;
 
                 // Check each stage for conflicts
                 foreach (var stage in allStagesInWorkflow)
@@ -1937,15 +1873,33 @@ namespace FlowFlex.Application.Service.OW
                     Console.WriteLine($"[StageService] Checking stage {stage.Id} ({stage.Name}) for conflicts");
 
                     // Parse existing components in this stage
-                    Console.WriteLine($"[StageService] Stage {stage.Id} ({stage.Name}) ComponentsJson: {stage.ComponentsJson ?? "NULL"}");
+                    Console.WriteLine($"[StageService] Stage {stage.Id} ({stage.Name}) ComponentsJson: {(string.IsNullOrEmpty(stage.ComponentsJson) ? "NULL" : $"Length: {stage.ComponentsJson.Length}")}");
                     var existingComponents = await GetStageComponentsFromEntity(stage);
+                    
                     if (existingComponents == null || !existingComponents.Any())
                     {
-                        Console.WriteLine($"[StageService] Stage {stage.Id} ({stage.Name}) has no components, skipping");
+                        // Check if this was due to a parsing error or truly empty components
+                        if (!string.IsNullOrEmpty(stage.ComponentsJson))
+                        {
+                            Console.WriteLine($"[StageService] WARNING: Stage {stage.Id} ({stage.Name}) has ComponentsJson but no parsed components - possible parsing error");
+                            stagesWithParseErrors++;
+                        }
+                        else
+                        {
+                            Console.WriteLine($"[StageService] Stage {stage.Id} ({stage.Name}) has no components, skipping validation");
+                        }
                         continue;
                     }
+                    
+                    stagesWithComponents++;
 
                     Console.WriteLine($"[StageService] Stage {stage.Id} ({stage.Name}) has {existingComponents.Count} components");
+                    
+                    // Log component details for debugging
+                    foreach (var comp in existingComponents)
+                    {
+                        Console.WriteLine($"[StageService] Stage {stage.Id} component: Key={comp.Key}, ChecklistIds=[{string.Join(",", comp.ChecklistIds ?? new List<long>())}], QuestionnaireIds=[{string.Join(",", comp.QuestionnaireIds ?? new List<long>())}]");
+                    }
 
                     // Extract existing checklist and questionnaire IDs
                     var existingChecklistIds = existingComponents
@@ -1971,19 +1925,44 @@ namespace FlowFlex.Application.Service.OW
 
                         if (conflictingChecklists.Any())
                         {
-                            conflictMessages.Add($"Checklist IDs {string.Join(", ", conflictingChecklists)} are already used in stage '{stage.Name}'");
+                            // Get checklist names for user-friendly error message
+                            var checklistNames = await GetChecklistNamesByIdsAsync(conflictingChecklists.ToList());
+                            var conflictMsg = $"Checklist '{string.Join(", ", checklistNames)}' already used in stage '{stage.Name}'";
+                            conflictMessages.Add(conflictMsg);
+                            Console.WriteLine($"[StageService] CONFLICT DETECTED: {conflictMsg} (IDs: {string.Join(", ", conflictingChecklists)})");
                         }
 
                         if (conflictingQuestionnaires.Any())
                         {
-                            conflictMessages.Add($"Questionnaire IDs {string.Join(", ", conflictingQuestionnaires)} are already used in stage '{stage.Name}'");
+                            // Get questionnaire names for user-friendly error message
+                            var questionnaireNames = await GetQuestionnaireNamesByIdsAsync(conflictingQuestionnaires.ToList());
+                            var conflictMsg = $"Questionnaire '{string.Join(", ", questionnaireNames)}' already used in stage '{stage.Name}'";
+                            conflictMessages.Add(conflictMsg);
+                            Console.WriteLine($"[StageService] CONFLICT DETECTED: {conflictMsg} (IDs: {string.Join(", ", conflictingQuestionnaires)})");
                         }
 
-                        Console.WriteLine($"[StageService] Component uniqueness validation failed: {string.Join("; ", conflictMessages)}");
-                        throw new CRMException(ErrorCodeEnum.BusinessError, $"Components must be unique within the same workflow. {string.Join("; ", conflictMessages)}");
+                        var fullErrorMessage = $"Components must be unique within the same workflow. {string.Join("; ", conflictMessages)}.";
+                        Console.WriteLine($"[StageService] Component uniqueness validation FAILED: {fullErrorMessage}");
+                        _logger.LogWarning("Component uniqueness validation failed for workflow {WorkflowId}: {ErrorMessage}", workflowId, fullErrorMessage);
+                        
+                        throw new CRMException(ErrorCodeEnum.BusinessError, fullErrorMessage);
+                    }
+                    else
+                    {
+                        Console.WriteLine($"[StageService] No conflicts found with stage {stage.Id} ({stage.Name})");
                     }
                 }
 
+                // Report validation statistics
+                Console.WriteLine($"[StageService] Validation completed for workflow {workflowId}: {stagesWithComponents} stages with components validated, {stagesWithParseErrors} stages with parse errors");
+                
+                // Warning if there were parse errors that could affect validation
+                if (stagesWithParseErrors > 0)
+                {
+                    _logger.LogWarning("Component uniqueness validation for workflow {WorkflowId} completed with {ParseErrors} JSON parse errors that could affect validation accuracy", 
+                        workflowId, stagesWithParseErrors);
+                }
+                
                 Console.WriteLine($"[StageService] Component uniqueness validation passed for workflow {workflowId}");
             }
             catch (Exception ex) when (!(ex is CRMException))
@@ -1994,25 +1973,104 @@ namespace FlowFlex.Application.Service.OW
         }
 
         /// <summary>
-        /// Get stage components from entity (helper method for validation)
+        /// Parse stage components JSON with robust error handling (extracted from GetComponentsAsync)
         /// </summary>
-        private async Task<List<StageComponent>> GetStageComponentsFromEntity(Stage stageEntity)
+        private List<StageComponent> ParseStageComponentsJson(string componentsJson, long stageId)
         {
             try
             {
-                if (string.IsNullOrEmpty(stageEntity.ComponentsJson))
+                if (string.IsNullOrEmpty(componentsJson))
                 {
+                    Console.WriteLine($"[StageService] ComponentsJson is null or empty for stage {stageId}");
                     return new List<StageComponent>();
                 }
 
-                var components = JsonSerializer.Deserialize<List<StageComponent>>(stageEntity.ComponentsJson, _jsonOptions);
+                // Handle double-escaped JSON string
+                var jsonString = componentsJson;
+
+                // If the string starts and ends with quotes, it's likely double-escaped
+                if (jsonString.StartsWith("\"") && jsonString.EndsWith("\""))
+                {
+                    Console.WriteLine($"[StageService] Detected double-escaped JSON for stage {stageId}, unescaping...");
+                    // Remove outer quotes and unescape
+                    jsonString = JsonSerializer.Deserialize<string>(jsonString) ?? jsonString.Trim('"');
+                }
+
+                // Clean problematic escape sequences (e.g., \u0026 and stray \&)
+                var cleanedJson = CleanJsonString(jsonString);
+
+                List<StageComponent> components = null;
+                try
+                {
+                    components = JsonSerializer.Deserialize<List<StageComponent>>(cleanedJson, _jsonOptions);
+                }
+                catch (JsonException jsonEx)
+                {
+                    Console.WriteLine($"[StageService] Direct JSON deserialization failed for stage {stageId}: {jsonEx.Message}");
+                    // As a last resort, try to parse array items individually
+                    try
+                    {
+                        Console.WriteLine($"[StageService] Trying manual JSON parsing for stage {stageId}...");
+                        using var doc = JsonDocument.Parse(cleanedJson);
+                        JsonElement root = doc.RootElement;
+                        if (root.ValueKind == JsonValueKind.String)
+                        {
+                            var inner = root.GetString() ?? string.Empty;
+                            using var innerDoc = JsonDocument.Parse(inner);
+                            root = innerDoc.RootElement.Clone();
+                        }
+                        if (root.ValueKind == JsonValueKind.Array)
+                        {
+                            var list = new List<StageComponent>();
+                            foreach (var elem in root.EnumerateArray())
+                            {
+                                bool isEnabled = true;
+                                if (elem.TryGetProperty("IsEnabled", out var enProp2) && enProp2.ValueKind == JsonValueKind.False)
+                                {
+                                    isEnabled = false;
+                                }
+                                var sc = new StageComponent
+                                {
+                                    Key = elem.TryGetProperty("Key", out var keyProp) ? keyProp.GetString() ?? string.Empty : string.Empty,
+                                    Order = elem.TryGetProperty("Order", out var orderProp) && orderProp.TryGetInt32(out var oi) ? oi : 0,
+                                    IsEnabled = isEnabled,
+                                    Configuration = elem.TryGetProperty("Configuration", out var cfgProp) ? (cfgProp.ValueKind == JsonValueKind.String ? cfgProp.GetString() : null) : null,
+                                    StaticFields = elem.TryGetProperty("StaticFields", out var sfProp) && sfProp.ValueKind == JsonValueKind.Array ? sfProp.EnumerateArray().Select(x => x.GetString() ?? string.Empty).ToList() : new List<string>(),
+                                    ChecklistIds = elem.TryGetProperty("ChecklistIds", out var clProp) && clProp.ValueKind == JsonValueKind.Array ? clProp.EnumerateArray().Select(x => x.TryGetInt64(out var v) ? v : 0).ToList() : new List<long>(),
+                                    QuestionnaireIds = elem.TryGetProperty("QuestionnaireIds", out var qProp) && qProp.ValueKind == JsonValueKind.Array ? qProp.EnumerateArray().Select(x => x.TryGetInt64(out var v) ? v : 0).ToList() : new List<long>(),
+                                    ChecklistNames = elem.TryGetProperty("ChecklistNames", out var clnProp) && clnProp.ValueKind == JsonValueKind.Array ? clnProp.EnumerateArray().Select(x => x.GetString() ?? string.Empty).ToList() : new List<string>(),
+                                    QuestionnaireNames = elem.TryGetProperty("QuestionnaireNames", out var qnnProp) && qnnProp.ValueKind == JsonValueKind.Array ? qnnProp.EnumerateArray().Select(x => x.GetString() ?? string.Empty).ToList() : new List<string>()
+                                };
+                                list.Add(sc);
+                            }
+                            components = list;
+                            Console.WriteLine($"[StageService] Manual parsing succeeded for stage {stageId}, {components.Count} components");
+                        }
+                    }
+                    catch (Exception manualEx)
+                    {
+                        Console.WriteLine($"[StageService] Manual parsing also failed for stage {stageId}: {manualEx.Message}");
+                        // Instead of throwing, return empty list to not break validation flow completely
+                        return new List<StageComponent>();
+                    }
+                }
+
                 return components ?? new List<StageComponent>();
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[StageService] Error parsing components JSON for stage {stageEntity.Id}: {ex.Message}");
+                Console.WriteLine($"[StageService] Error parsing components JSON for stage {stageId}: {ex.Message}");
+                _logger.LogError(ex, "Failed to parse stage components JSON for stage {StageId}", stageId);
                 return new List<StageComponent>();
             }
+        }
+
+        /// <summary>
+        /// Get stage components from entity (helper method for validation)
+        /// </summary>
+        private async Task<List<StageComponent>> GetStageComponentsFromEntity(Stage stageEntity)
+        {
+            return ParseStageComponentsJson(stageEntity.ComponentsJson, stageEntity.Id);
         }
 
         /// <summary>
@@ -2025,15 +2083,24 @@ namespace FlowFlex.Application.Service.OW
                 var checklists = new List<string>();
                 foreach (var id in checklistIds)
                 {
-                    var checklist = await _checklistService.GetByIdAsync(id);
-                    checklists.Add(checklist?.Name ?? $"Checklist {id}");
+                    try
+                    {
+                        var checklist = await _checklistService.GetByIdAsync(id);
+                        checklists.Add(checklist?.Name ?? $"Checklist {id}");
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"[StageService] Error getting checklist name for ID {id}: {ex.Message}");
+                        checklists.Add($"Checklist {id}"); // Fallback to ID-based name
+                    }
                 }
                 return checklists;
             }
             catch (Exception ex)
             {
                 Console.WriteLine($"[StageService] Error getting checklist names: {ex.Message}");
-                return new List<string>();
+                // Return fallback names based on IDs instead of empty list
+                return checklistIds.Select(id => $"Checklist {id}").ToList();
             }
         }
 
@@ -2047,15 +2114,24 @@ namespace FlowFlex.Application.Service.OW
                 var questionnaires = new List<string>();
                 foreach (var id in questionnaireIds)
                 {
-                    var questionnaire = await _questionnaireService.GetByIdAsync(id);
-                    questionnaires.Add(questionnaire?.Name ?? $"Questionnaire {id}");
+                    try
+                    {
+                        var questionnaire = await _questionnaireService.GetByIdAsync(id);
+                        questionnaires.Add(questionnaire?.Name ?? $"Questionnaire {id}");
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"[StageService] Error getting questionnaire name for ID {id}: {ex.Message}");
+                        questionnaires.Add($"Questionnaire {id}"); // Fallback to ID-based name
+                    }
                 }
                 return questionnaires;
             }
             catch (Exception ex)
             {
                 Console.WriteLine($"[StageService] Error getting questionnaire names: {ex.Message}");
-                return new List<string>();
+                // Return fallback names based on IDs instead of empty list
+                return questionnaireIds.Select(id => $"Questionnaire {id}").ToList();
             }
         }
     }
