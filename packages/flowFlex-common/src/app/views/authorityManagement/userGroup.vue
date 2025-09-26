@@ -4,6 +4,7 @@
 			ref="iframeRef"
 			:src="iframeUrl"
 			frameborder="0"
+			id="permission-iframe"
 			class="w-full h-full border-none"
 		></iframe>
 	</div>
