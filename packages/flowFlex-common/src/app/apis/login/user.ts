@@ -14,6 +14,8 @@ export const UnisApi = () => {
 		verifyTicket: `${globSetting.idmUrl}/api/v1/oauth/ticket`,
 
 		switchingCompany: `${globSetting.idmUrl}/api/v1/users/current/tenant`,
+
+		getSSOToken: `${globSetting.idmUrl}/api/v1/oauth/item-iam/token`,
 	};
 };
 
@@ -40,6 +42,10 @@ export function userInfoApi() {
 
 export function verifyTicket(params) {
 	return defHttp.post({ url: UnisApi().verifyTicket, params });
+}
+
+export function getSSOToken(params) {
+	return defHttp.post({ url: UnisApi().getSSOToken, params });
 }
 
 export function registerApi(params: {
