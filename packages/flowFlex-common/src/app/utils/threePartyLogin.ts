@@ -30,7 +30,7 @@ export function addActivity(type = 'Switch') {
 	userStore.setIsLogin(true);
 }
 
-export async function formIDMLogin(ticket, oauth) {
+export async function formIDMLogin(ticket, oauth, state) {
 	const userStore = useUserStoreWithOut();
 	if (oauth) {
 		userStore.setIsLogin(true);
@@ -96,12 +96,17 @@ export async function formIDMLogin(ticket, oauth) {
 	originalSearch.delete('state');
 	originalSearch.delete('code');
 
-	// 构建干净的URL
-	const cleanUrl =
-		originalPath + (originalSearch.toString() ? '?' + originalSearch.toString() : '');
+	if (currentEnv === 'development') {
+		// 构建干净的URL
+		const cleanUrl =
+			originalPath + (originalSearch.toString() ? '?' + originalSearch.toString() : '');
 
-	// 跳转到原始页面
-	window.location.href = cleanUrl;
+		// 跳转到原始页面
+		window.location.href = cleanUrl;
+	} else {
+		const redirectUrl = decodeURIComponent(state);
+		window.location.href = redirectUrl;
+	}
 }
 
 export function toIDMLogin(type = 'Switch') {

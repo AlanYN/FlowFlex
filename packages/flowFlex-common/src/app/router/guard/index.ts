@@ -170,6 +170,7 @@ async function handleTripartiteToken() {
 			oauth,
 			hideEditMenu,
 			hideMenu,
+			state,
 		} = parameterObj;
 
 		userStore.setLayout({
@@ -190,7 +191,7 @@ async function handleTripartiteToken() {
 
 		if (authParam) {
 			setEnvironment('unissso');
-			await formIDMLogin(authParam, oauth);
+			await formIDMLogin(authParam, oauth, state);
 		}
 	}
 
