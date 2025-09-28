@@ -2,7 +2,7 @@ import { addLoginActivity } from '@/apis/pass/notify';
 import { useUserStoreWithOut } from '@/stores/modules/user';
 import { useGlobSetting } from '@/settings';
 import { getItem, isIframe, setItem } from './utils';
-import { verifyTicket } from '@/apis/login/user';
+import { verifyTicket, getSSOToken } from '@/apis/login/user';
 import { ProjectEnum } from '@/enums/appEnum';
 import { ElLoading } from 'element-plus';
 import { router } from '@/router';
@@ -35,11 +35,40 @@ export async function formIDMLogin(ticket, oauth) {
 	if (oauth) {
 		userStore.setIsLogin(true);
 	}
-	const res = await verifyTicket({
-		ticket,
-		appId: ProjectEnum.WFE,
-	});
-	const { refreshToken, expiresIn, token, tokenType, userId } = res;
+
+	const currentEnv = getEnv();
+	let res;
+	let refreshToken, expiresIn, token, tokenType, userId;
+
+	if (currentEnv === 'development') {
+		// Development 环境：维持原逻辑
+		res = await verifyTicket({
+			ticket,
+			appId: ProjectEnum.WFE,
+		});
+		// 旧逻辑的参数结构
+		({ refreshToken, expiresIn, token, tokenType, userId } = res);
+	} else {
+		// 其他环境：使用 getSSOToken 接口
+		res = await getSSOToken({
+			code: ticket,
+			redirectUrl: window.location.origin,
+			clientid: globSetting.ssoCode,
+		});
+		// 新接口的参数结构适配
+		refreshToken = res.refresh_token;
+		expiresIn = res.expires_in;
+		token = res.access_token;
+		tokenType = res.token_type;
+		// 从 access_token 中解析用户信息（JWT token）
+		try {
+			const tokenPayload = JSON.parse(atob(res.access_token.split('.')[1]));
+			userId = tokenPayload.data?.user_id;
+		} catch (error) {
+			console.error('解析 access_token 失败:', error);
+			userId = null;
+		}
+	}
 	userStore.setUserInfo({
 		...userStore.getUserInfo,
 		userId,

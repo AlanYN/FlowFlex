@@ -9,14 +9,9 @@ import { getMenuListPath } from '@/utils';
 import { AxiosCanceler } from '@/apis/axios/axiosCancel';
 import { ParametersToken } from '#/config';
 import { isIframe, parseUrlSearch, objectToQueryString } from '@/utils/utils';
-import {
-	formIDMLogin,
-	toIDMLogin,
-	setEnvironment,
-	wujieCrmToken,
-	setAppCode,
-} from '@/utils/threePartyLogin';
+import { formIDMLogin, toIDMLogin, setEnvironment, setAppCode } from '@/utils/threePartyLogin';
 import { PageEnum } from '@/enums/pageEnum';
+import { getEnv } from '@/utils/env';
 
 import { getTokenobj } from '@/utils/auth';
 
@@ -167,7 +162,15 @@ async function handleTripartiteToken() {
 
 	// 统一处理：无论是否在微前端环境，都通过参数请求接口获取token
 	if (parameterObj) {
-		const { loginType, appCode, ticket = '', oauth, hideEditMenu, hideMenu } = parameterObj;
+		const {
+			loginType,
+			appCode,
+			ticket = '',
+			code = '',
+			oauth,
+			hideEditMenu,
+			hideMenu,
+		} = parameterObj;
 
 		userStore.setLayout({
 			hideMenu: hideMenu || isIframe(),
@@ -180,9 +183,14 @@ async function handleTripartiteToken() {
 			return;
 		}
 		setAppCode(appCode);
-		if (ticket) {
+
+		// 根据环境判断使用 ticket 还是 code 参数
+		const currentEnv = getEnv();
+		const authParam = currentEnv === 'development' ? ticket : code;
+
+		if (authParam) {
 			setEnvironment('unissso');
-			await formIDMLogin(ticket, oauth);
+			await formIDMLogin(authParam, oauth);
 		}
 	}
 
