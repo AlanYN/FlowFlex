@@ -164,26 +164,9 @@ async function handleTripartiteToken() {
 			hideEditMenu: true,
 		});
 	}
-	if (window.__POWERED_BY_WUJIE__ && window.$wujie?.props) {
-		console.log('无界环境处理 token');
-		console.log('window.$wujie.props:', window.$wujie.props);
-		if (getTokenobj()?.accessToken?.token) return;
-		const { appCode, tenantId, authorizationToken, currentRoute } = window.$wujie.props;
-		if (appCode && tenantId && authorizationToken) {
-			try {
-				await wujieCrmToken(
-					{
-						appCode,
-						tenantId,
-						authorizationToken,
-					},
-					currentRoute
-				);
-			} catch (error) {
-				console.error('无界环境 token 处理失败:', error);
-			}
-		}
-	} else if (!window.__POWERED_BY_WUJIE__ && parameterObj) {
+
+	// 统一处理：无论是否在微前端环境，都通过参数请求接口获取token
+	if (parameterObj) {
 		const { loginType, appCode, ticket = '', oauth, hideEditMenu, hideMenu } = parameterObj;
 
 		userStore.setLayout({
@@ -202,6 +185,28 @@ async function handleTripartiteToken() {
 			await formIDMLogin(ticket, oauth);
 		}
 	}
+
+	// 旧的微前端token处理逻辑（注释掉，保留备用）
+	// if (window.__POWERED_BY_WUJIE__ && window.$wujie?.props) {
+	// 	console.log('无界环境处理 token');
+	// 	console.log('window.$wujie.props:', window.$wujie.props);
+	// 	if (getTokenobj()?.accessToken?.token) return;
+	// 	const { appCode, tenantId, authorizationToken, currentRoute } = window.$wujie.props;
+	// 	if (appCode && tenantId && authorizationToken) {
+	// 		try {
+	// 			await wujieCrmToken(
+	// 				{
+	// 					appCode,
+	// 					tenantId,
+	// 					authorizationToken,
+	// 				},
+	// 				currentRoute
+	// 			);
+	// 		} catch (error) {
+	// 			console.error('无界环境 token 处理失败:', error);
+	// 		}
+	// 	}
+	// }
 }
 
 async function handlePermissionGuard(to, from, next) {

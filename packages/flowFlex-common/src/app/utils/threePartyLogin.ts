@@ -54,7 +54,25 @@ export async function formIDMLogin(ticket, oauth) {
 		refreshToken: refreshToken,
 	});
 	await userStore.afterLoginAction(false);
-	detailUrlQuery();
+
+	// 获取当前URL，移除SSO参数，保留原始路径
+	const currentUrl = new URL(window.location.href);
+	const originalPath = currentUrl.pathname;
+	const originalSearch = new URLSearchParams(currentUrl.search);
+
+	// 移除SSO相关参数
+	originalSearch.delete('ticket');
+	originalSearch.delete('oauth');
+	originalSearch.delete('userId');
+	originalSearch.delete('state');
+	originalSearch.delete('code');
+
+	// 构建干净的URL
+	const cleanUrl =
+		originalPath + (originalSearch.toString() ? '?' + originalSearch.toString() : '');
+
+	// 跳转到原始页面
+	window.location.href = cleanUrl;
 }
 
 export function toIDMLogin(type = 'Switch') {
@@ -77,13 +95,11 @@ export function toIDMLogin(type = 'Switch') {
 			globSetting.ssoCode
 		}&scope=${'profile email phone openid'}&redirect_uri=${encodeURIComponent(
 			window.location.origin
-		)}&state=${'abcxyz'}&appId=${
-			ProjectEnum.WFE
-		}&action_type=${type}&theme=${localStorage.getItem('theme')}`;
+		)}&state=${encodeURIComponent(window.location.href)}`;
 		window.open(`${globSetting.ssoURL}oauth2/authorize?${urlParameter}`, '_self');
 	} else {
 		// 其他环境保持原有逻辑
-		urlParameter = `redirect_uri=${encodeURIComponent(window.location.origin)}&appId=${
+		urlParameter = `redirect_uri=${encodeURIComponent(window.location.href)}&appId=${
 			ProjectEnum.WFE
 		}&action_type=${type}&theme=${localStorage.getItem('theme')}`;
 		window.open(`${globSetting.idmUrl}/oauth?${urlParameter}`, '_self');
