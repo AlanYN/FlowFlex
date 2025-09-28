@@ -7,6 +7,16 @@ import {
 } from '#/action';
 import { useGlobSetting } from '@/settings';
 
+// Change History interface
+export interface ActionChangeHistoryItem {
+	type: string;
+	changes: string;
+	description: string;
+	status: 'Success' | 'Failed' | 'Warning';
+	updatedBy: string;
+	dateTime: string;
+}
+
 const globSetting = useGlobSetting();
 
 // Action Type Enum
@@ -72,6 +82,9 @@ const Api = (id?: string) => {
 		mappingAction: `${globSetting.apiProName}/action/${globSetting.apiVersion}/mappings`,
 
 		actionResult: `${globSetting.apiProName}/action/${globSetting.apiVersion}/executions/trigger-source/${id}/search`,
+
+		// Change History API
+		actionChangeHistory: `${globSetting.apiProName}/ow/change-logs/${globSetting.apiVersion}/action`,
 	};
 };
 
@@ -204,6 +217,32 @@ export function getActionResult(
 ) {
 	return defHttp.post({
 		url: `${Api(id).actionResult}`,
+		params,
+	});
+}
+
+/**
+ * Get Action Change History
+ */
+export function getActionChangeHistory(
+	actionId: string,
+	params: {
+		pageIndex: number;
+		pageSize: number;
+	}
+) {
+	return defHttp.get<{
+		data: {
+			items: ActionChangeHistoryItem[];
+			totalCount: number;
+			pageIndex: number;
+			pageSize: number;
+		};
+		success: boolean;
+		code: string;
+		msg?: string;
+	}>({
+		url: `${Api().actionChangeHistory}/${actionId}`,
 		params,
 	});
 }

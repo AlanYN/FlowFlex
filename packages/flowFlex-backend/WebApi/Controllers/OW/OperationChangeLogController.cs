@@ -350,5 +350,30 @@ namespace FlowFlex.WebApi.Controllers.OW
 
             return Success(result);
         }
+
+        /// <summary>
+        /// Get operation logs by Action ID - specifically for Action change history
+        /// </summary>
+        /// <param name="actionId">Action ID</param>
+        /// <param name="pageIndex">Page number</param>
+        /// <param name="pageSize">Page size</param>
+        /// <returns>Paginated operation log list for Action changes and related action executions</returns>
+        [HttpGet("action/{actionId}")]
+        [ProducesResponseType<SuccessResponse<PagedResult<OperationChangeLogOutputDto>>>((int)HttpStatusCode.OK)]
+        public async Task<IActionResult> GetLogsByActionAsync(
+            long actionId,
+            [FromQuery] int pageIndex = 1,
+            [FromQuery] int pageSize = 20)
+        {
+            // Get logs for Action type (BusinessTypeEnum.Action = 6)
+            var result = await _operationChangeLogService.GetLogsByBusinessIdWithTypeAsync(
+                actionId,
+                BusinessTypeEnum.Action,
+                pageIndex,
+                pageSize
+            );
+
+            return Success(result);
+        }
     }
 }
