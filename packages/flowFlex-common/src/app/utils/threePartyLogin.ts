@@ -83,30 +83,31 @@ export async function formIDMLogin(ticket, oauth, state) {
 		refreshToken: refreshToken,
 	});
 	await userStore.afterLoginAction(false);
+	detailUrlQuery();
 
 	// 获取当前URL，移除SSO参数，保留原始路径
-	const currentUrl = new URL(window.location.href);
-	const originalPath = currentUrl.pathname;
-	const originalSearch = new URLSearchParams(currentUrl.search);
+	// const currentUrl = new URL(window.location.href);
+	// const originalPath = currentUrl.pathname;
+	// const originalSearch = new URLSearchParams(currentUrl.search);
 
 	// 移除SSO相关参数
-	originalSearch.delete('ticket');
-	originalSearch.delete('oauth');
-	originalSearch.delete('userId');
-	originalSearch.delete('state');
-	originalSearch.delete('code');
+	// originalSearch.delete('ticket');
+	// originalSearch.delete('oauth');
+	// originalSearch.delete('userId');
+	// originalSearch.delete('state');
+	// originalSearch.delete('code');
 
-	if (currentEnv === 'development') {
-		// 构建干净的URL
-		const cleanUrl =
-			originalPath + (originalSearch.toString() ? '?' + originalSearch.toString() : '');
+	// if (currentEnv === 'development') {
+	// 	// 构建干净的URL
+	// 	const cleanUrl =
+	// 		originalPath + (originalSearch.toString() ? '?' + originalSearch.toString() : '');
 
-		// 跳转到原始页面
-		window.location.href = cleanUrl;
-	} else {
-		const redirectUrl = decodeURIComponent(state);
-		window.location.href = redirectUrl;
-	}
+	// 	// 跳转到原始页面
+	// 	window.location.href = cleanUrl;
+	// } else {
+	// 	const redirectUrl = decodeURIComponent(state);
+	// 	window.location.href = redirectUrl;
+	// }
 }
 
 export function toIDMLogin(type = 'Switch') {
