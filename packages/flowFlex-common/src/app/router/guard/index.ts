@@ -9,7 +9,7 @@ import { getMenuListPath } from '@/utils';
 import { AxiosCanceler } from '@/apis/axios/axiosCancel';
 import { ParametersToken } from '#/config';
 import { isIframe, parseUrlSearch, objectToQueryString } from '@/utils/utils';
-import { formIDMLogin, toIDMLogin, setEnvironment, setAppCode } from '@/utils/threePartyLogin';
+import { formIDMLogin, toIDMLogin, setEnvironment, wujieCrmToken, setAppCode } from '@/utils/threePartyLogin';
 import { PageEnum } from '@/enums/pageEnum';
 import { getEnv } from '@/utils/env';
 
@@ -196,26 +196,26 @@ async function handleTripartiteToken() {
 	}
 
 	// 旧的微前端token处理逻辑（注释掉，保留备用）
-	// if (window.__POWERED_BY_WUJIE__ && window.$wujie?.props) {
-	// 	console.log('无界环境处理 token');
-	// 	console.log('window.$wujie.props:', window.$wujie.props);
-	// 	if (getTokenobj()?.accessToken?.token) return;
-	// 	const { appCode, tenantId, authorizationToken, currentRoute } = window.$wujie.props;
-	// 	if (appCode && tenantId && authorizationToken) {
-	// 		try {
-	// 			await wujieCrmToken(
-	// 				{
-	// 					appCode,
-	// 					tenantId,
-	// 					authorizationToken,
-	// 				},
-	// 				currentRoute
-	// 			);
-	// 		} catch (error) {
-	// 			console.error('无界环境 token 处理失败:', error);
-	// 		}
-	// 	}
-	// }
+	if (window.__POWERED_BY_WUJIE__ && window.$wujie?.props) {
+		console.log('无界环境处理 token');
+		console.log('window.$wujie.props:', window.$wujie.props);
+		if (getTokenobj()?.accessToken?.token) return;
+		const { appCode, tenantId, authorizationToken, currentRoute } = window.$wujie.props;
+		if (appCode && tenantId && authorizationToken) {
+			try {
+				await wujieCrmToken(
+					{
+						appCode,
+						tenantId,
+						authorizationToken,
+					},
+					currentRoute
+				);
+			} catch (error) {
+				console.error('无界环境 token 处理失败:', error);
+			}
+		}
+	}
 }
 
 async function handlePermissionGuard(to, from, next) {
