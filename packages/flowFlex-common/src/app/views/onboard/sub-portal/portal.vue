@@ -185,7 +185,7 @@
 								type="primary"
 								@click="saveQuestionnaireAndField"
 								:loading="saveAllLoading"
-								:disabled="stagePortalPermission"
+								:disabled="isSaveDisabled || stageCanCompleted"
 								:icon="Document"
 								class="page-header-btn page-header-btn-primary"
 							>
@@ -195,7 +195,7 @@
 								type="primary"
 								@click="handleCompleteStage"
 								:loading="completing"
-								:disabled="stagePortalPermission"
+								:disabled="isCompleteStageDisabled || stageCanCompleted"
 								:icon="Check"
 								class="page-header-btn page-header-btn-primary"
 							>
@@ -605,6 +605,30 @@ onBeforeUpdate(() => {
 const currentStageTitle = computed(() => {
 	const currentStage = workflowStages.value.find((stage) => stage.stageId === activeStage.value);
 	return currentStage?.stageName || defaultStr;
+});
+
+// 计算是否禁用保存按钮 - 与detail.vue保持一致
+const isSaveDisabled = computed(() => {
+	const status = onboardingData.value?.status;
+	if (!status) return false;
+
+	// 对于已中止、已取消、暂停或强制完成的状态，禁用保存
+	return ['Aborted', 'Cancelled', 'Paused', 'Force Completed'].includes(status);
+});
+
+// 计算是否禁用完成阶段按钮 - 与detail.vue保持一致
+const isCompleteStageDisabled = computed(() => {
+	const status = onboardingData.value?.status;
+	if (!status) return false;
+
+	// 对于已中止、已取消或暂停的状态，禁用完成阶段
+	return ['Aborted', 'Cancelled', 'Paused'].includes(status);
+});
+
+// 计算当前阶段是否已完成 - 与detail.vue保持一致
+const stageCanCompleted = computed(() => {
+	const currentStage = workflowStages.value.find((stage) => stage.stageId === activeStage.value);
+	return currentStage?.isCompleted;
 });
 
 const stagePortalPermission = computed(() => {

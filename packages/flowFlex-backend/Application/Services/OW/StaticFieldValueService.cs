@@ -13,6 +13,8 @@ using System.Linq;
 using System.Threading.Tasks;
 using System.Text.RegularExpressions;
 using FlowFlex.Application.Services.OW.Extensions;
+using System.Net.Http;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace FlowFlex.Application.Services.OW
 {
@@ -23,28 +25,28 @@ namespace FlowFlex.Application.Services.OW
     {
         private readonly IStaticFieldValueRepository _staticFieldValueRepository;
         private readonly IStageRepository _stageRepository;
-
         private readonly IOnboardingRepository _onboardingRepository;
         private readonly IOperationChangeLogService _operationChangeLogService;
         private readonly IMapper _mapper;
         private readonly UserContext _userContext;
+        private readonly IdmUserDataClient _idmUserDataClient;
 
         public StaticFieldValueService(
             IStaticFieldValueRepository staticFieldValueRepository,
             IStageRepository stageRepository,
-
             IOnboardingRepository onboardingRepository,
             IOperationChangeLogService operationChangeLogService,
             IMapper mapper,
-            UserContext userContext)
+            UserContext userContext,
+            IdmUserDataClient idmUserDataClient)
         {
             _staticFieldValueRepository = staticFieldValueRepository;
             _stageRepository = stageRepository;
-
             _onboardingRepository = onboardingRepository;
             _operationChangeLogService = operationChangeLogService;
             _mapper = mapper;
             _userContext = userContext;
+            _idmUserDataClient = idmUserDataClient;
         }
 
         /// <summary>
@@ -115,14 +117,18 @@ namespace FlowFlex.Application.Services.OW
 
                 await _staticFieldValueRepository.UpdateAsync(entity);
 
+                // Process Assignee field data to include user names for logging
+                var processedBeforeData = await ProcessAssigneeFieldDataAsync(existingEntity.FieldValueJson, entity.FieldName);
+                var processedAfterData = await ProcessAssigneeFieldDataAsync(entity.FieldValueJson, entity.FieldName);
+
                 // Log the update
                 await _operationChangeLogService.LogStaticFieldValueChangeAsync(
                     entity.Id,
                     entity.FieldName,
                     entity.OnboardingId,
                     entity.StageId,
-                    existingEntity.FieldValueJson,
-                    entity.FieldValueJson,
+                    processedBeforeData,
+                    processedAfterData,
                     GetChangedFields(existingEntity, entity),
                     entity.DisplayName
                 );
@@ -138,6 +144,9 @@ namespace FlowFlex.Application.Services.OW
 
                 long result = await _staticFieldValueRepository.InsertReturnBigIdentityAsync(entity);
 
+                // Process Assignee field data to include user names for logging
+                var processedAfterData = await ProcessAssigneeFieldDataAsync(entity.FieldValueJson, entity.FieldName);
+
                 // Log the creation
                 await _operationChangeLogService.LogStaticFieldValueChangeAsync(
                     result,
@@ -145,7 +154,7 @@ namespace FlowFlex.Application.Services.OW
                     entity.OnboardingId,
                     entity.StageId,
                     null,
-                    entity.FieldValueJson,
+                    processedAfterData,
                     new List<string> { "FieldValueJson", "Status", "CompletionRate" },
                     entity.DisplayName
                 );
@@ -228,13 +237,17 @@ namespace FlowFlex.Application.Services.OW
                         fieldLabel = entity.DisplayName;
                     }
 
+                    // Process Assignee field data to include user names for logging
+                    var processedBeforeData = await ProcessAssigneeFieldDataAsync(oldEntity?.FieldValueJson, entity.FieldName);
+                    var processedAfterData = await ProcessAssigneeFieldDataAsync(entity.FieldValueJson, entity.FieldName);
+
                     await _operationChangeLogService.LogStaticFieldValueChangeAsync(
                         entity.Id,
                         entity.FieldName,
                         entity.OnboardingId,
                         entity.StageId,
-                        oldEntity?.FieldValueJson,
-                        entity.FieldValueJson,
+                        processedBeforeData,
+                        processedAfterData,
                         changedFields,
                         fieldLabel
                     );
@@ -521,6 +534,140 @@ namespace FlowFlex.Application.Services.OW
                 // Not valid JSON, serialize as JSON string
                 return JsonSerializer.Serialize(input);
             }
+        }
+
+
+        /// <summary>
+        /// Get user information from IDM by user IDs
+        /// </summary>
+        /// <param name="userIds">List of user IDs</param>
+        /// <returns>Dictionary of user ID to user display name</returns>
+        private async Task<Dictionary<string, string>> GetUserInfoByIdsAsync(List<string> userIds)
+        {
+            var userMap = new Dictionary<string, string>();
+            
+            if (userIds == null || !userIds.Any())
+            {
+                return userMap;
+            }
+
+            try
+            {
+                Console.WriteLine($"Calling IDM API for user IDs: {string.Join(", ", userIds)}");
+                
+                // Use IdmUserDataClient to get team users with proper authentication
+                var teamUsers = await _idmUserDataClient.GetAllTeamUsersAsync("1401", 10000, 1);
+                
+                if (teamUsers != null && teamUsers.Any())
+                {
+                    Console.WriteLine($"Found {teamUsers.Count} users from IDM API");
+                    
+                    foreach (var user in teamUsers)
+                    {
+                        if (userIds.Contains(user.Id))
+                        {
+                            // Use UserName as display name (this is what's available from team users API)
+                            var displayName = !string.IsNullOrEmpty(user.UserName) ? user.UserName : user.Id;
+                            
+                            userMap[user.Id] = displayName;
+                            Console.WriteLine($"Mapped user {user.Id} to '{displayName}'");
+                        }
+                    }
+                }
+                else
+                {
+                    Console.WriteLine("No team users returned from IDM API");
+                }
+            }
+            catch (Exception ex)
+            {
+                // Log the error but continue processing without user names
+                Console.WriteLine($"Exception calling IDM API: {ex.Message}");
+                Console.WriteLine($"Stack trace: {ex.StackTrace}");
+            }
+
+            // For any user IDs that weren't found, use the ID as fallback
+            foreach (var userId in userIds)
+            {
+                if (!userMap.ContainsKey(userId))
+                {
+                    userMap[userId] = userId;
+                }
+            }
+
+            return userMap;
+        }
+
+        /// <summary>
+        /// Process Assignee field data to replace user IDs with user names
+        /// </summary>
+        /// <param name="fieldData">Field data JSON string</param>
+        /// <param name="fieldName">Field name</param>
+        /// <returns>Processed field data with user names</returns>
+        private async Task<string> ProcessAssigneeFieldDataAsync(string fieldData, string fieldName)
+        {
+            if (string.IsNullOrEmpty(fieldData) || 
+                (!string.Equals(fieldName, "Assignee", StringComparison.OrdinalIgnoreCase) &&
+                 !string.Equals(fieldName, "ASSIGNEE", StringComparison.OrdinalIgnoreCase)))
+            {
+                return fieldData;
+            }
+
+            try
+            {
+                List<string> userIds = null;
+                
+                // First try to parse as direct array (for newer format)
+                if (fieldData.Trim().StartsWith("["))
+                {
+                    userIds = JsonSerializer.Deserialize<List<string>>(fieldData);
+                }
+                else
+                {
+                    // Try to parse as object with value property (for older format)
+                    var fieldDataObj = JsonSerializer.Deserialize<JsonElement>(fieldData);
+                    
+                    if (fieldDataObj.TryGetProperty("value", out var valueElement))
+                    {
+                        var valueString = valueElement.GetString();
+                        if (!string.IsNullOrEmpty(valueString))
+                        {
+                            // Try to parse as JSON array of user IDs
+                            userIds = JsonSerializer.Deserialize<List<string>>(valueString);
+                        }
+                    }
+                }
+                
+                if (userIds != null && userIds.Any())
+                {
+                    // Get user information
+                    var userMap = await GetUserInfoByIdsAsync(userIds);
+                    
+                    // Create a list of user display names
+                    var userNames = userIds.Select(id => userMap.ContainsKey(id) ? userMap[id] : id).ToList();
+                    
+                    // Create enhanced field data with both IDs and names
+                    var enhancedData = new
+                    {
+                        value = fieldData.Trim().StartsWith("[") ? fieldData : JsonSerializer.Serialize(userIds), // Keep original IDs for system processing
+                        userIds = userIds,
+                        userNames = userNames,
+                        fieldName = fieldName,
+                        displayValue = string.Join(", ", userNames) // Human-readable display
+                    };
+                    
+                    return JsonSerializer.Serialize(enhancedData);
+                }
+            }
+            catch (Exception ex)
+            {
+                // If processing fails, return original data
+                // Add some basic logging for debugging
+                Console.WriteLine($"Failed to process Assignee field data: {ex.Message}");
+                Console.WriteLine($"Field data: {fieldData}");
+            }
+
+            return fieldData;
         }
     }
 }

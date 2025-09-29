@@ -1,5 +1,7 @@
 ﻿using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using System;
+using System.Net.Http;
 
 namespace FlowFlex.Application.Client
 {
@@ -9,6 +11,7 @@ namespace FlowFlex.Application.Client
         {
             AddIdeClient(serviceCollection, configuration);
             AddHttpApiClient(serviceCollection, configuration);
+            AddGeneralHttpClient(serviceCollection, configuration);
             return serviceCollection;
         }
 
@@ -31,6 +34,21 @@ namespace FlowFlex.Application.Client
             {
                 PooledConnectionLifetime = TimeSpan.FromMinutes(2),
                 MaxConnectionsPerServer = 100,
+                EnableMultipleHttp2Connections = true
+            });
+        }
+
+        private static void AddGeneralHttpClient(IServiceCollection serviceCollection, IConfiguration configuration)
+        {
+            serviceCollection.AddHttpClient("GeneralHttpClient", c =>
+            {
+                c.DefaultRequestHeaders.Add("User-Agent", "FlowFlex-HttpClient");
+                c.Timeout = TimeSpan.FromSeconds(30);
+            })
+            .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
+            {
+                PooledConnectionLifetime = TimeSpan.FromMinutes(2),
+                MaxConnectionsPerServer = 50,
                 EnableMultipleHttp2Connections = true
             });
         }
