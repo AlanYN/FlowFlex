@@ -206,16 +206,11 @@ namespace FlowFlex.SqlSugarDB.Repositories.Action
             int pageSize = 10,
             List<JsonQueryCondition>? jsonConditions = null)
         {
-            // Get current tenant and app context for filtering
-            var currentTenantId = GetCurrentTenantId();
-            var currentAppCode = GetCurrentAppCode();
-
-            // Then query executions with action information
+            // Query executions with action information
             var query = db.Queryable<ActionExecution>()
                 .InnerJoin<ActionTriggerMapping>((e, m) => e.ActionTriggerMappingId == m.Id)
                 .InnerJoin<ActionDefinition>((e, m, a) => m.ActionDefinitionId == a.Id && e.ActionDefinitionId == a.Id)
-                .Where((e, m, a) => m.TriggerSourceId == triggerSourceId && e.IsValid)
-                .Where((e, m, a) => e.TenantId == currentTenantId && e.AppCode == currentAppCode);
+                .Where((e, m, a) => m.TriggerSourceId == triggerSourceId && e.IsValid);
 
             // Apply JSON conditions if provided
             if (jsonConditions != null && jsonConditions.Count != 0)
