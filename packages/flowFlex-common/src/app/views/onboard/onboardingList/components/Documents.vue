@@ -171,7 +171,7 @@
 										size="small"
 										type="primary"
 										link
-										:disabled="viewDocumentIds.includes(row.id)"
+										:disabled="viewDocumentIds.includes(row.id) || disabled"
 										:loading="viewDocumentIds.includes(row.id)"
 										@click="handleViewDocument(row)"
 									>
@@ -182,7 +182,7 @@
 										size="small"
 										type="danger"
 										link
-										:disabled="viewDocumentIds.includes(row.id)"
+										:disabled="viewDocumentIds.includes(row.id) || disabled"
 										@click="handleDeleteDocument(row.id)"
 									>
 										<el-icon><Delete /></el-icon>

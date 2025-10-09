@@ -125,7 +125,12 @@
 		</div>
 
 		<!-- Task列表弹窗 -->
-		<el-dialog v-model="showTaskDialog" :width="bigDialogWidth" :close-on-click-modal="false">
+		<el-dialog
+			v-model="showTaskDialog"
+			:width="bigDialogWidth"
+			:close-on-click-modal="false"
+			@close="closeTaskDialog"
+		>
 			<template #header>
 				<div class="w-[750px] truncate text-2xl font-bold">
 					{{ currentChecklist?.name }}

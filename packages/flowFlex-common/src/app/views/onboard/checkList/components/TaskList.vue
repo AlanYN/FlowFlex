@@ -206,6 +206,7 @@
 								v-model="newTaskText"
 								placeholder="Enter task name..."
 								@keyup.enter="addTask(props.checklist.id)"
+								class="bg-white dark:bg-gray-800"
 							/>
 						</div>
 						<div class="flex-1 min-w-0 flex-shrink-0 flex flex-col gap-2">
