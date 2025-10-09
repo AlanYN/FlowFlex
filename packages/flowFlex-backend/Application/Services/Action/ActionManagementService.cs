@@ -17,6 +17,8 @@ using FlowFlex.Domain.Entities.OW;
 using System.Text.Json;
 using FlowFlex.Application.Services.OW.Extensions;
 using FlowFlex.Application.Contracts.IServices.OW.ChangeLog;
+using FlowFlex.Infrastructure.Services;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace FlowFlex.Application.Services.Action
 {
@@ -32,6 +34,8 @@ namespace FlowFlex.Application.Services.Action
         private readonly IQuestionnaireRepository _questionnaireRepository;
         private readonly IStageRepository _stageRepository;
         private readonly IActionLogService _actionLogService;
+        private readonly IBackgroundTaskQueue _backgroundTaskQueue;
+        private readonly IServiceScopeFactory _serviceScopeFactory;
         private readonly IMapper _mapper;
         private readonly ILogger<ActionManagementService> _logger;
         private readonly UserContext _userContext;
@@ -44,6 +48,8 @@ namespace FlowFlex.Application.Services.Action
             IQuestionnaireRepository questionnaireRepository,
             IStageRepository stageRepository,
             IActionLogService actionLogService,
+            IBackgroundTaskQueue backgroundTaskQueue,
+            IServiceScopeFactory serviceScopeFactory,
             IMapper mapper,
             UserContext userContext,
             ILogger<ActionManagementService> logger)
@@ -55,6 +61,8 @@ namespace FlowFlex.Application.Services.Action
             _questionnaireRepository = questionnaireRepository;
             _stageRepository = stageRepository;
             _actionLogService = actionLogService;
+            _backgroundTaskQueue = backgroundTaskQueue;
+            _serviceScopeFactory = serviceScopeFactory;
             _mapper = mapper;
             _userContext = userContext;
             _logger = logger;
@@ -88,6 +96,12 @@ namespace FlowFlex.Application.Services.Action
             bool? isAssignmentWorkflow = null,
             bool? isTools = null)
         {
+            // If querying System actions, ensure system predefined actions exist
+            if (actionType == ActionTypeEnum.System)
+            {
+                await EnsureSystemPredefinedActionsExistAsync();
+            }
+
             var (data, total) = await _actionDefinitionRepository.GetPagedAsync(pageIndex,
                 pageSize,
                 actionType.ToString(),
@@ -97,6 +111,14 @@ namespace FlowFlex.Application.Services.Action
                 isAssignmentQuestionnaire,
                 isAssignmentWorkflow,
                 isTools);
+
+            // Exclude System type actions when not explicitly querying for them
+            // This prevents System actions from appearing in general queries
+            if (actionType == null)
+            {
+                data = data.Where(x => x.ActionType != ActionTypeEnum.System.ToString()).ToList();
+                total = data.Count;
+            }
 
             // Get ActionDefinition DTO list
             var actionDtos = _mapper.Map<List<ActionDefinitionDto>>(data);
@@ -145,6 +167,70 @@ namespace FlowFlex.Application.Services.Action
 
             var resultDto = _mapper.Map<ActionDefinitionDto>(entity);
 
+            // Log action definition create operation with structured logging
+            _logger.LogInformation("Action definition created: {ActionId} - {ActionName} (Type: {ActionType})", 
+                entity.Id, entity.ActionName, dto.ActionType);
+            
+            _logger.LogDebug("Action definition create details: {@ActionDetails}", new
+            {
+                ActionId = entity.Id,
+                ActionCode = entity.ActionCode,
+                ActionName = entity.ActionName,
+                ActionType = dto.ActionType,
+                IsTools = dto.IsTools,
+                IsAIGenerated = dto.IsAIGenerated,
+                TriggerType = dto.TriggerType,
+                CreatedAt = entity.CreateDate,
+                TenantId = entity.TenantId,
+                CreateBy = entity.CreateBy
+            });
+
+            // Capture current user context for async operation
+            var currentUserContext = _userContext;
+            var currentUserName = currentUserContext?.UserName ?? "SYSTEM";
+            var currentUserId = long.TryParse(currentUserContext?.UserId, out var parsedUserId) ? parsedUserId : 0L;
+            var currentTenantId = currentUserContext?.TenantId ?? "DEFAULT";
+
+            // Async change log recording to database using IActionLogService (fire-and-forget)
+            _backgroundTaskQueue.QueueBackgroundWorkItem(async token =>
+            {
+                try
+                {
+                    using var scope = _serviceScopeFactory.CreateScope();
+                    var actionLogService = scope.ServiceProvider.GetRequiredService<IActionLogService>();
+                    
+                    var extendedData = JsonSerializer.Serialize(new
+                    {
+                        ActionId = entity.Id,
+                        ActionCode = entity.ActionCode,
+                        ActionName = entity.ActionName,
+                        ActionType = dto.ActionType.ToString(),
+                        IsTools = dto.IsTools,
+                        IsAIGenerated = dto.IsAIGenerated,
+                        TriggerType = dto.TriggerType?.ToString(),
+                        CreatedAt = entity.CreateDate,
+                        TenantId = currentTenantId,
+                        CreateBy = currentUserName,
+                        CreateUserId = currentUserId
+                    });
+
+                    await actionLogService.LogActionDefinitionCreateWithUserContextAsync(
+                        entity.Id,
+                        entity.ActionName,
+                        dto.ActionType.ToString(),
+                        currentUserName,
+                        currentUserId,
+                        currentTenantId,
+                        extendedData
+                    );
+                }
+                catch (Exception ex)
+                {
+                    // Log error but don't throw to avoid breaking background task processing
+                    _logger.LogError(ex, "Failed to record action definition create change log for action {ActionId}", entity.Id);
+                }
+            });
+
             if (dto.WorkflowId.HasValue && dto.TriggerSourceId.HasValue && dto.TriggerType.HasValue)
             {
                 try
@@ -182,14 +268,34 @@ namespace FlowFlex.Application.Services.Action
                 throw new ArgumentException($"Action definition with ID {id} not found");
             }
 
+            // Store original values for change logging
+            var originalName = entity.ActionName;
+            var originalDescription = entity.Description;
+            var originalActionType = entity.ActionType;
+            var originalActionConfig = entity.ActionConfig;
+            var originalIsEnabled = entity.IsEnabled;
+            var originalIsTools = entity.IsTools;
+
+            ActionDefinitionDto resultDto;
+            List<string> changedFields = new List<string>();
+
             // Check if this is a System Action
             if (entity.ActionType == ActionTypeEnum.System.ToString())
             {
                 _logger.LogInformation("Updating System Action {ActionId}: only IsEnabled and IsTools fields will be updated, core configuration remains unchanged", id);
                 
                 // For System Actions, only update specific fields, ignore core configuration
-                entity.IsEnabled = dto.IsEnabled;
-                entity.IsTools = dto.IsTools;
+                if (entity.IsEnabled != dto.IsEnabled)
+                {
+                    entity.IsEnabled = dto.IsEnabled;
+                    changedFields.Add("IsEnabled");
+                }
+                
+                if (entity.IsTools != dto.IsTools)
+                {
+                    entity.IsTools = dto.IsTools;
+                    changedFields.Add("IsTools");
+                }
                 
                 // Initialize update information with proper tenant and app context
                 entity.InitUpdateInfo(_userContext);
@@ -197,14 +303,44 @@ namespace FlowFlex.Application.Services.Action
                 await _actionDefinitionRepository.UpdateAsync(entity);
                 _logger.LogInformation("Updated System Action definition: {ActionId}", id);
 
-                return _mapper.Map<ActionDefinitionDto>(entity);
+                resultDto = _mapper.Map<ActionDefinitionDto>(entity);
             }
             else
             {
                 // For non-System Actions, perform full validation and update
                 ValidateActionConfig(dto.ActionType, dto.ActionConfig);
 
-                _mapper.Map(dto, entity);
+                // Track changes
+                if (entity.ActionName != dto.Name)
+                {
+                    entity.ActionName = dto.Name;
+                    changedFields.Add("Name");
+                }
+                if (entity.Description != dto.Description)
+                {
+                    entity.Description = dto.Description;
+                    changedFields.Add("Description");
+                }
+                if (entity.ActionType != dto.ActionType.ToString())
+                {
+                    entity.ActionType = dto.ActionType.ToString();
+                    changedFields.Add("ActionType");
+                }
+                if (entity.ActionConfig?.ToString() != dto.ActionConfig)
+                {
+                    entity.ActionConfig = JToken.Parse(dto.ActionConfig ?? "{}");
+                    changedFields.Add("ActionConfig");
+                }
+                if (entity.IsEnabled != dto.IsEnabled)
+                {
+                    entity.IsEnabled = dto.IsEnabled;
+                    changedFields.Add("IsEnabled");
+                }
+                if (entity.IsTools != dto.IsTools)
+                {
+                    entity.IsTools = dto.IsTools;
+                    changedFields.Add("IsTools");
+                }
 
                 // Initialize update information with proper tenant and app context
                 entity.InitUpdateInfo(_userContext);
@@ -212,8 +348,97 @@ namespace FlowFlex.Application.Services.Action
                 await _actionDefinitionRepository.UpdateAsync(entity);
                 _logger.LogInformation("Updated action definition: {ActionId}", id);
 
-                return _mapper.Map<ActionDefinitionDto>(entity);
+                resultDto = _mapper.Map<ActionDefinitionDto>(entity);
             }
+
+            // Log action definition update operation with structured logging
+            if (changedFields.Any())
+            {
+                _logger.LogInformation("Action definition updated: {ActionId} - {ActionName} - {ChangeCount} field(s) changed: {ChangedFields}", 
+                    id, entity.ActionName, changedFields.Count, string.Join(", ", changedFields));
+                
+                _logger.LogDebug("Action definition update details: {@UpdateDetails}", new
+                {
+                    ActionId = id,
+                    ActionCode = entity.ActionCode,
+                    ActionName = entity.ActionName,
+                    ActionType = entity.ActionType,
+                    ChangedFields = changedFields,
+                    IsSystemAction = entity.ActionType == ActionTypeEnum.System.ToString(),
+                    UpdatedAt = entity.ModifyDate,
+                    TenantId = entity.TenantId,
+                    ModifyBy = entity.ModifyBy
+                });
+
+                // Capture current user context for async operation
+                var currentUserContext = _userContext;
+                var currentUserName = currentUserContext?.UserName ?? "SYSTEM";
+                var currentUserId = long.TryParse(currentUserContext?.UserId, out var parsedUserId) ? parsedUserId : 0L;
+                var currentTenantId = currentUserContext?.TenantId ?? "DEFAULT";
+
+                // Async change log recording to database using IActionLogService (fire-and-forget)
+                _backgroundTaskQueue.QueueBackgroundWorkItem(async token =>
+                {
+                    try
+                    {
+                        using var scope = _serviceScopeFactory.CreateScope();
+                        var actionLogService = scope.ServiceProvider.GetRequiredService<IActionLogService>();
+                        
+                        // Prepare before and after data for logging using original values
+                        var beforeData = JsonSerializer.Serialize(new
+                        {
+                            Name = originalName,
+                            Description = originalDescription,
+                            ActionType = originalActionType,
+                            ActionConfig = originalActionConfig?.ToString(),
+                            IsEnabled = originalIsEnabled,
+                            IsTools = originalIsTools
+                        });
+
+                        var afterData = JsonSerializer.Serialize(new
+                        {
+                            Name = entity.ActionName,
+                            Description = entity.Description,
+                            ActionType = entity.ActionType,
+                            ActionConfig = entity.ActionConfig?.ToString(),
+                            IsEnabled = entity.IsEnabled,
+                            IsTools = entity.IsTools
+                        });
+
+                        var extendedData = JsonSerializer.Serialize(new
+                        {
+                            ActionId = entity.Id,
+                            ActionCode = entity.ActionCode,
+                            ChangeCount = changedFields.Count,
+                            ChangedFields = changedFields,
+                            IsSystemAction = entity.ActionType == ActionTypeEnum.System.ToString(),
+                            UpdatedAt = entity.ModifyDate,
+                            TenantId = currentTenantId,
+                            ModifyBy = currentUserName,
+                            ModifyUserId = currentUserId
+                        });
+
+                        await actionLogService.LogActionDefinitionUpdateWithUserContextAsync(
+                            entity.Id,
+                            entity.ActionName,
+                            beforeData,
+                            afterData,
+                            changedFields,
+                            currentUserName,
+                            currentUserId,
+                            currentTenantId,
+                            extendedData
+                        );
+                    }
+                    catch (Exception ex)
+                    {
+                        // Log error but don't throw to avoid breaking background task processing
+                        _logger.LogError(ex, "Failed to record action definition update change log for action {ActionId}", entity.Id);
+                    }
+                });
+            }
+
+            return resultDto;
         }
 
         public void ValidateActionConfig(ActionTypeEnum actionType, string actionConfig)
@@ -393,6 +618,11 @@ namespace FlowFlex.Application.Services.Action
                 return true;
             }
 
+            // Store information for logging before deletion
+            var actionName = entity.ActionName;
+            var actionType = entity.ActionType;
+            var actionCode = entity.ActionCode;
+
             _logger.LogInformation("Starting comprehensive cleanup for action definition: {ActionId}", id);
 
             // 1. Delete all related ActionTriggerMappings and collect affected IDs for targeted cleanup
@@ -411,6 +641,73 @@ namespace FlowFlex.Application.Services.Action
             await _actionDefinitionRepository.UpdateAsync(entity);
             _logger.LogInformation("Successfully deleted action definition and all related references: {ActionId}", id);
 
+            // Log action definition delete operation with structured logging
+            _logger.LogInformation("Action definition deleted: {ActionId} - {ActionName} (Type: {ActionType}) - Affected tasks: {TaskCount}, questions: {QuestionCount}", 
+                id, actionName, actionType, taskIds.Count, questionIds.Count);
+            
+            _logger.LogDebug("Action definition delete details: {@DeleteDetails}", new
+            {
+                ActionId = id,
+                ActionCode = actionCode,
+                ActionName = actionName,
+                ActionType = actionType,
+                TaskIdsAffected = taskIds,
+                QuestionIdsAffected = questionIds,
+                TriggerMappingsDeleted = taskIds.Count + questionIds.Count,
+                ComprehensiveCleanup = true,
+                DeletedAt = DateTimeOffset.UtcNow,
+                TenantId = _userContext?.TenantId
+            });
+
+            // Capture current user context for async operation
+            var currentUserContext = _userContext;
+            var currentUserName = currentUserContext?.UserName ?? "SYSTEM";
+            var currentUserId = long.TryParse(currentUserContext?.UserId, out var parsedUserId) ? parsedUserId : 0L;
+            var currentTenantId = currentUserContext?.TenantId ?? "DEFAULT";
+
+            // Async change log recording to database using IActionLogService (fire-and-forget)
+            _backgroundTaskQueue.QueueBackgroundWorkItem(async token =>
+            {
+                try
+                {
+                    using var scope = _serviceScopeFactory.CreateScope();
+                    var actionLogService = scope.ServiceProvider.GetRequiredService<IActionLogService>();
+                    
+                    var extendedData = JsonSerializer.Serialize(new
+                    {
+                        ActionId = id,
+                        ActionCode = actionCode,
+                        ActionName = actionName,
+                        ActionType = actionType,
+                        TaskIdsAffected = taskIds,
+                        QuestionIdsAffected = questionIds,
+                        TriggerMappingsDeleted = taskIds.Count + questionIds.Count,
+                        ComprehensiveCleanup = true,
+                        DeletedAt = DateTimeOffset.UtcNow,
+                        TenantId = currentTenantId,
+                        DeleteBy = currentUserName,
+                        DeleteUserId = currentUserId
+                    });
+
+                    var reason = $"Action definition deleted along with {taskIds.Count + questionIds.Count} related trigger mappings by {currentUserName}";
+
+                    await actionLogService.LogActionDefinitionDeleteWithUserContextAsync(
+                        id,
+                        actionName,
+                        currentUserName,
+                        currentUserId,
+                        currentTenantId,
+                        reason,
+                        extendedData
+                    );
+                }
+                catch (Exception ex)
+                {
+                    // Log error but don't throw to avoid breaking background task processing
+                    _logger.LogError(ex, "Failed to record action definition delete change log for action {ActionId}", id);
+                }
+            });
+
             return true;
         }
 
@@ -422,11 +719,89 @@ namespace FlowFlex.Application.Services.Action
                 return false;
             }
 
+            var originalStatus = entity.IsEnabled;
             entity.IsEnabled = isEnabled;
             entity.ModifyDate = DateTimeOffset.UtcNow;
 
             await _actionDefinitionRepository.UpdateAsync(entity);
             _logger.LogInformation("Updated action definition status: {ActionId}, IsEnabled: {IsEnabled}", id, isEnabled);
+
+            // Log action definition status change with structured logging
+            var statusAction = isEnabled ? "enabled" : "disabled";
+            _logger.LogInformation("Action definition status changed: {ActionId} - {ActionName} - Status: {OldStatus} -> {NewStatus}", 
+                id, entity.ActionName, originalStatus, isEnabled);
+            
+            _logger.LogDebug("Action definition status change details: {@StatusChangeDetails}", new
+            {
+                ActionId = id,
+                ActionCode = entity.ActionCode,
+                ActionName = entity.ActionName,
+                ActionType = entity.ActionType,
+                OldStatus = originalStatus,
+                NewStatus = isEnabled,
+                StatusAction = statusAction,
+                UpdatedAt = entity.ModifyDate,
+                TenantId = entity.TenantId,
+                ModifyBy = entity.ModifyBy
+            });
+
+            // Capture current user context for async operation
+            var currentUserContext = _userContext;
+            var currentUserName = currentUserContext?.UserName ?? "SYSTEM";
+            var currentUserId = long.TryParse(currentUserContext?.UserId, out var parsedUserId) ? parsedUserId : 0L;
+            var currentTenantId = currentUserContext?.TenantId ?? "DEFAULT";
+
+            // Async change log recording to database using IActionLogService (fire-and-forget)
+            _backgroundTaskQueue.QueueBackgroundWorkItem(async token =>
+            {
+                try
+                {
+                    using var scope = _serviceScopeFactory.CreateScope();
+                    var actionLogService = scope.ServiceProvider.GetRequiredService<IActionLogService>();
+                    
+                    var beforeData = JsonSerializer.Serialize(new
+                    {
+                        IsEnabled = originalStatus
+                    });
+
+                    var afterData = JsonSerializer.Serialize(new
+                    {
+                        IsEnabled = isEnabled
+                    });
+
+                    var extendedData = JsonSerializer.Serialize(new
+                    {
+                        ActionId = id,
+                        ActionCode = entity.ActionCode,
+                        ActionName = entity.ActionName,
+                        ActionType = entity.ActionType,
+                        OldStatus = originalStatus,
+                        NewStatus = isEnabled,
+                        StatusAction = statusAction,
+                        UpdatedAt = entity.ModifyDate,
+                        TenantId = currentTenantId,
+                        ModifyBy = currentUserName,
+                        ModifyUserId = currentUserId
+                    });
+
+                    await actionLogService.LogActionDefinitionUpdateWithUserContextAsync(
+                        id,
+                        entity.ActionName,
+                        beforeData,
+                        afterData,
+                        new List<string> { "IsEnabled" },
+                        currentUserName,
+                        currentUserId,
+                        currentTenantId,
+                        extendedData
+                    );
+                }
+                catch (Exception ex)
+                {
+                    // Log error but don't throw to avoid breaking background task processing
+                    _logger.LogError(ex, "Failed to record action definition status change log for action {ActionId}", id);
+                }
+            });
 
             return true;
         }
@@ -1136,6 +1511,118 @@ namespace FlowFlex.Application.Services.Action
             }
         }
 
+
+        #endregion
+
+        #region System Predefined Actions Management
+
+        /// <summary>
+        /// Ensure system predefined actions exist, create them if they don't
+        /// </summary>
+        private async Task EnsureSystemPredefinedActionsExistAsync()
+        {
+            try
+            {
+                var currentTenantId = _userContext?.TenantId ?? "DEFAULT";
+                _logger.LogInformation("Checking for system predefined actions for tenant: {TenantId}", currentTenantId);
+
+                // Get existing system actions for current tenant to check which ones exist
+                var (existingData, _) = await _actionDefinitionRepository.GetPagedAsync(1, 1000, 
+                    ActionTypeEnum.System.ToString(), null, null, null, null, null, false);
+
+                // Filter by current tenant and get action names
+                var existingActionNames = existingData
+                    .Where(a => !string.IsNullOrEmpty(a.ActionName) && a.TenantId == currentTenantId)
+                    .Select(a => a.ActionName.Trim())
+                    .ToHashSet();
+
+                // Define system predefined actions that should exist
+                var systemActions = GetSystemPredefinedActionDefinitions();
+
+                foreach (var systemAction in systemActions)
+                {
+                    if (!existingActionNames.Contains(systemAction.Name.Trim()))
+                    {
+                        _logger.LogInformation("Creating missing system action: {ActionName} for tenant: {TenantId}", 
+                            systemAction.Name, currentTenantId);
+                        
+                        try
+                        {
+                            await CreateActionDefinitionAsync(systemAction);
+                            _logger.LogInformation("Successfully created system action: {ActionName} for tenant: {TenantId}", 
+                                systemAction.Name, currentTenantId);
+
+                            // Log system predefined action creation with structured logging
+                            _logger.LogDebug("System predefined action auto-creation details: {@SystemActionDetails}", new
+                            {
+                                ActionName = systemAction.Name,
+                                ActionType = systemAction.ActionType,
+                                ActionConfig = systemAction.ActionConfig,
+                                TriggerType = systemAction.TriggerType,
+                                ActionTriggerType = systemAction.ActionTriggerType,
+                                IsSystemPredefined = true,
+                                AutoCreated = true,
+                                TenantId = currentTenantId,
+                                CreationReason = "System predefined action auto-creation during API request",
+                                CreatedAt = DateTimeOffset.UtcNow
+                            });
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogError(ex, "Failed to create system action: {ActionName} for tenant: {TenantId}", 
+                                systemAction.Name, currentTenantId);
+
+                            // Log failed system predefined action creation with structured logging
+                            _logger.LogDebug("System predefined action creation failed: {@FailureDetails}", new
+                            {
+                                ActionName = systemAction.Name,
+                                ActionType = systemAction.ActionType,
+                                IsSystemPredefined = true,
+                                AutoCreated = false,
+                                FailureReason = ex.Message,
+                                TenantId = currentTenantId,
+                                AttemptedAt = DateTimeOffset.UtcNow
+                            });
+                        }
+                    }
+                    else
+                    {
+                        _logger.LogDebug("System action {ActionName} already exists for tenant: {TenantId}", 
+                            systemAction.Name, currentTenantId);
+                    }
+                }
+
+                _logger.LogInformation("System predefined actions check completed for tenant: {TenantId}", currentTenantId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error ensuring system predefined actions exist for tenant: {TenantId}", 
+                    _userContext?.TenantId ?? "DEFAULT");
+                // Don't throw - this should not break the main query
+            }
+        }
+
+        /// <summary>
+        /// Get system predefined action definitions for creation
+        /// </summary>
+        private List<CreateActionDefinitionDto> GetSystemPredefinedActionDefinitions()
+        {
+            return new List<CreateActionDefinitionDto>
+            {
+                new CreateActionDefinitionDto
+                {
+                    Name = "Complete Stage",
+                    Description = "Complete a specific stage in the workflow automatically",
+                    ActionType = ActionTypeEnum.System,
+                    ActionConfig = @"{""actionName"": ""CompleteStage""}",
+                    IsEnabled = true,
+                    IsTools = false,
+                    IsAIGenerated = false,
+                    TriggerType = TriggerTypeEnum.Task,
+                    ActionTriggerType = "Task"
+                }
+            };
+        }
 
         #endregion
     }

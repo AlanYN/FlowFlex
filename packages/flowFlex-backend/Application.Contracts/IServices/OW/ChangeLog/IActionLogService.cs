@@ -65,6 +65,18 @@ namespace FlowFlex.Application.Contracts.IServices.OW.ChangeLog
             string extendedData = null);
 
         /// <summary>
+        /// Log action definition create operation with custom user context
+        /// </summary>
+        Task<bool> LogActionDefinitionCreateWithUserContextAsync(
+            long actionDefinitionId,
+            string actionName,
+            string actionType,
+            string customOperatorName,
+            long customOperatorId,
+            string customTenantId,
+            string extendedData = null);
+
+        /// <summary>
         /// Log action definition update operation
         /// </summary>
         Task<bool> LogActionDefinitionUpdateAsync(
@@ -76,11 +88,37 @@ namespace FlowFlex.Application.Contracts.IServices.OW.ChangeLog
             string extendedData = null);
 
         /// <summary>
+        /// Log action definition update operation with custom user context
+        /// </summary>
+        Task<bool> LogActionDefinitionUpdateWithUserContextAsync(
+            long actionDefinitionId,
+            string actionName,
+            string beforeData,
+            string afterData,
+            List<string> changedFields,
+            string customOperatorName,
+            long customOperatorId,
+            string customTenantId,
+            string extendedData = null);
+
+        /// <summary>
         /// Log action definition delete operation
         /// </summary>
         Task<bool> LogActionDefinitionDeleteAsync(
             long actionDefinitionId,
             string actionName,
+            string reason = null,
+            string extendedData = null);
+
+        /// <summary>
+        /// Log action definition delete operation with custom user context
+        /// </summary>
+        Task<bool> LogActionDefinitionDeleteWithUserContextAsync(
+            long actionDefinitionId,
+            string actionName,
+            string customOperatorName,
+            long customOperatorId,
+            string customTenantId,
             string reason = null,
             string extendedData = null);
 

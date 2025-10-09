@@ -63,6 +63,32 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
             string changedFields = null,
             string extendedData = null)
         {
+            return await LogOperationWithUserContextAsync(
+                operationType, businessModule, businessId, onboardingId, stageId,
+                operationTitle, operationDescription, operationSource, beforeData,
+                afterData, changedFields, extendedData, null, null, null);
+        }
+
+        /// <summary>
+        /// Core logging method with custom user context support (for async scenarios)
+        /// </summary>
+        public virtual async Task<bool> LogOperationWithUserContextAsync(
+            OperationTypeEnum operationType,
+            BusinessModuleEnum businessModule,
+            long businessId,
+            long? onboardingId,
+            long? stageId,
+            string operationTitle,
+            string operationDescription,
+            string operationSource = null,
+            string beforeData = null,
+            string afterData = null,
+            string changedFields = null,
+            string extendedData = null,
+            string customOperatorName = null,
+            long? customOperatorId = null,
+            string customTenantId = null)
+        {
             try
             {
                 var operationLog = new OperationChangeLog
@@ -80,17 +106,44 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                     AfterData = afterData,
                     ChangedFields = changedFields,
                     ExtendedData = extendedData,
-                    OperatorId = GetOperatorId(),
-                    OperatorName = GetOperatorDisplayName(),
+                    OperatorId = customOperatorId ?? GetOperatorId(),
+                    OperatorName = customOperatorName ?? GetOperatorDisplayName(),
                     OperationTime = DateTimeOffset.UtcNow,
                     IpAddress = GetClientIpAddress(),
                     UserAgent = GetUserAgent(),
-                    TenantId = _userContext.TenantId,
+                    TenantId = customTenantId ?? _userContext.TenantId,
                     AppCode = _userContext.AppCode
                 };
 
                 // Initialize unique snowflake ID
                 operationLog.InitNewId();
+
+                // Initialize base entity fields with custom user context if provided
+                if (!string.IsNullOrEmpty(customOperatorName) && customOperatorId.HasValue)
+                {
+                    // Use custom user context for async scenarios
+                    operationLog.CreateBy = customOperatorName;
+                    operationLog.ModifyBy = customOperatorName;
+                    operationLog.CreateUserId = customOperatorId.Value;
+                    operationLog.ModifyUserId = customOperatorId.Value;
+                    operationLog.TenantId = customTenantId ?? "DEFAULT";
+                    operationLog.AppCode = _userContext?.AppCode ?? "DEFAULT";
+                    operationLog.CreateDate = DateTimeOffset.UtcNow;
+                    operationLog.ModifyDate = DateTimeOffset.UtcNow;
+                    operationLog.IsValid = true;
+                }
+                else
+                {
+                    // Use default user context initialization
+                    operationLog.InitCreateInfo(_userContext);
+                    
+                    // Ensure correct operator information is preserved after InitCreateInfo
+                    // because InitCreateInfo might override with default values
+                    operationLog.CreateBy = GetOperatorDisplayName();
+                    operationLog.ModifyBy = GetOperatorDisplayName();
+                    operationLog.CreateUserId = GetOperatorId();
+                    operationLog.ModifyUserId = GetOperatorId();
+                }
 
                 _logger.LogDebug("Attempting to insert operation log with ID {LogId} for {BusinessModule} {BusinessId}",
                     operationLog.Id, businessModule, businessId);
@@ -781,6 +834,13 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
 
             // Initialize base entity fields
             operationLog.InitCreateInfo(_userContext);
+
+            // Ensure correct operator information is preserved after InitCreateInfo
+            // because InitCreateInfo might override with default values
+            operationLog.CreateBy = GetOperatorDisplayName();
+            operationLog.ModifyBy = GetOperatorDisplayName();
+            operationLog.CreateUserId = GetOperatorId();
+            operationLog.ModifyUserId = GetOperatorId();
 
             return operationLog;
         }

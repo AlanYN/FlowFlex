@@ -218,6 +218,36 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
         }
 
         /// <summary>
+        /// Log action definition create operation with custom user context
+        /// </summary>
+        public async Task<bool> LogActionDefinitionCreateWithUserContextAsync(
+            long actionDefinitionId,
+            string actionName,
+            string actionType,
+            string customOperatorName,
+            long customOperatorId,
+            string customTenantId,
+            string extendedData = null)
+        {
+            var operationTitle = $"Action Created: {actionName}";
+            var operationDescription = $"Action '{actionName}' of type {actionType} has been created by {customOperatorName}";
+
+            return await LogOperationWithUserContextAsync(
+                OperationTypeEnum.ActionDefinitionCreate,
+                BusinessModuleEnum.Action,
+                actionDefinitionId,
+                null, // No onboarding context
+                null, // No stage context
+                operationTitle,
+                operationDescription,
+                extendedData: extendedData,
+                customOperatorName: customOperatorName,
+                customOperatorId: customOperatorId,
+                customTenantId: customTenantId
+            );
+        }
+
+        /// <summary>
         /// Log action definition update operation
         /// </summary>
         public async Task<bool> LogActionDefinitionUpdateAsync(
@@ -248,6 +278,47 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
         }
 
         /// <summary>
+        /// Log action definition update operation with custom user context
+        /// </summary>
+        public async Task<bool> LogActionDefinitionUpdateWithUserContextAsync(
+            long actionDefinitionId,
+            string actionName,
+            string beforeData,
+            string afterData,
+            List<string> changedFields,
+            string customOperatorName,
+            long customOperatorId,
+            string customTenantId,
+            string extendedData = null)
+        {
+            if (!HasMeaningfulValueChangeEnhanced(beforeData, afterData))
+            {
+                _logger.LogDebug("Skipping operation log for action definition {ActionId} as there's no meaningful value change", actionDefinitionId);
+                return true;
+            }
+
+            var operationTitle = $"Action Updated: {actionName}";
+            var operationDescription = $"Action '{actionName}' has been updated by {customOperatorName}. Changes: {string.Join(", ", changedFields)}";
+
+            return await LogOperationWithUserContextAsync(
+                OperationTypeEnum.ActionDefinitionUpdate,
+                BusinessModuleEnum.Action,
+                actionDefinitionId,
+                null, // No onboarding context
+                null, // No stage context
+                operationTitle,
+                operationDescription,
+                beforeData: beforeData,
+                afterData: afterData,
+                changedFields: JsonSerializer.Serialize(changedFields),
+                extendedData: extendedData,
+                customOperatorName: customOperatorName,
+                customOperatorId: customOperatorId,
+                customTenantId: customTenantId
+            );
+        }
+
+        /// <summary>
         /// Log action definition delete operation
         /// </summary>
         public async Task<bool> LogActionDefinitionDeleteAsync(
@@ -264,6 +335,36 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                 "Deleted",
                 reason: reason,
                 extendedData: extendedData
+            );
+        }
+
+        /// <summary>
+        /// Log action definition delete operation with custom user context
+        /// </summary>
+        public async Task<bool> LogActionDefinitionDeleteWithUserContextAsync(
+            long actionDefinitionId,
+            string actionName,
+            string customOperatorName,
+            long customOperatorId,
+            string customTenantId,
+            string reason = null,
+            string extendedData = null)
+        {
+            var operationTitle = $"Action Deleted: {actionName}";
+            var operationDescription = reason ?? $"Action '{actionName}' has been deleted by {customOperatorName}";
+
+            return await LogOperationWithUserContextAsync(
+                OperationTypeEnum.ActionDefinitionDelete,
+                BusinessModuleEnum.Action,
+                actionDefinitionId,
+                null, // No onboarding context
+                null, // No stage context
+                operationTitle,
+                operationDescription,
+                extendedData: extendedData,
+                customOperatorName: customOperatorName,
+                customOperatorId: customOperatorId,
+                customTenantId: customTenantId
             );
         }
 

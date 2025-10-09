@@ -117,7 +117,7 @@
 								</el-tag>
 							</template>
 						</el-table-column>
-						<el-table-column label="Actions" width="120" fixed="right">
+						<el-table-column label="Actions" width="160" fixed="right">
 							<template #default="{ row }">
 								<div class="action-buttons">
 									<el-tooltip content="Edit" placement="top">
@@ -125,6 +125,27 @@
 											<el-icon>
 												<Edit />
 											</el-icon>
+										</el-button>
+									</el-tooltip>
+									<el-tooltip content="Change History" placement="top">
+										<el-button
+											type="info"
+											link
+											@click="handleChangeHistory(row)"
+										>
+											<i class="el-icon mr-2 change-history-icon">
+												<svg
+													xmlns="http://www.w3.org/2000/svg"
+													width="16"
+													height="16"
+													viewBox="0 0 24 24"
+												>
+													<path
+														fill="currentColor"
+														d="M12 5q-1.725 0-3.225.8T6.25 8H8q.425 0 .713.288T9 9t-.288.713T8 10H4q-.425 0-.712-.288T3 9V5q0-.425.288-.712T4 4t.713.288T5 5v1.35q1.275-1.6 3.113-2.475T12 3q1.875 0 3.513.7t2.862 1.925q1.05 1.05 1.725 2.425t.85 2.95q.05.425-.25.7t-.725.275-.712-.275-.338-.7q-.175-1.15-.675-2.15t-1.3-1.8q-.95-.95-2.212-1.5T12 5m-7.9 8.15q.4-.05.725.15t.45.6q.55 2.025 2.125 3.375t3.65 1.625q.525.075.75.388t.225.662q0 .4-.262.725t-.738.275q-2.775-.325-4.887-2.137T3.3 14.325q-.125-.425.125-.775t.675-.4M13 11.6l1.2 1.2q.35.35.313.738t-.313.662-.662.313-.738-.313l-1.5-1.5q-.15-.15-.225-.337T11 11.975V8q0-.425.288-.712T12 7t.713.288T13 8zM18.775 24q-.35 0-.612-.225t-.338-.575l-.15-.7q-.3-.125-.562-.262t-.538-.338l-.725.225q-.325.1-.638-.025t-.487-.4l-.2-.35q-.175-.3-.125-.65t.325-.575l.55-.475q-.05-.325-.05-.65t.05-.65l-.55-.475q-.275-.225-.325-.562t.125-.638l.225-.375q.175-.275.475-.4t.625-.025l.725.225q.275-.2.538-.337t.562-.263l.15-.725q.075-.35.338-.562t.612-.213h.4q.35 0 .613.225t.337.575l.15.7q.3.125.575.287t.525.363l.675-.225q.35-.125.675 0t.5.425l.2.35q.175.3.125.65t-.325.575l-.55.475q.05.325.05.625t-.05.625l.55.475q.275.225.325.563t-.125.637l-.225.375q-.175.275-.475.4t-.625.025l-.725-.225q-.275.2-.538.337t-.562.263l-.15.725q-.075.35-.337.563t-.613.212zm.2-3q.825 0 1.412-.587T20.976 19t-.587-1.412T18.975 17t-1.412.588T16.975 19t.588 1.413 1.412.587"
+													/>
+												</svg>
+											</i>
 										</el-button>
 									</el-tooltip>
 									<el-tooltip content="Delete" placement="top">
@@ -189,7 +210,7 @@
 								</el-tag>
 							</template>
 						</el-table-column>
-						<el-table-column label="Actions" width="120" fixed="right">
+						<el-table-column label="Actions" width="160" fixed="right">
 							<template #default="{ row }">
 								<div class="action-buttons">
 									<el-tooltip content="Edit" placement="top">
@@ -197,6 +218,27 @@
 											<el-icon>
 												<Edit />
 											</el-icon>
+										</el-button>
+									</el-tooltip>
+									<el-tooltip content="Change History" placement="top">
+										<el-button
+											type="info"
+											link
+											@click="handleChangeHistory(row)"
+										>
+											<i class="el-icon mr-2 change-history-icon">
+												<svg
+													xmlns="http://www.w3.org/2000/svg"
+													width="16"
+													height="16"
+													viewBox="0 0 24 24"
+												>
+													<path
+														fill="currentColor"
+														d="M12 5q-1.725 0-3.225.8T6.25 8H8q.425 0 .713.288T9 9t-.288.713T8 10H4q-.425 0-.712-.288T3 9V5q0-.425.288-.712T4 4t.713.288T5 5v1.35q1.275-1.6 3.113-2.475T12 3q1.875 0 3.513.7t2.862 1.925q1.05 1.05 1.725 2.425t.85 2.95q.05.425-.25.7t-.725.275-.712-.275-.338-.7q-.175-1.15-.675-2.15t-1.3-1.8q-.95-.95-2.212-1.5T12 5m-7.9 8.15q.4-.05.725.15t.45.6q.55 2.025 2.125 3.375t3.65 1.625q.525.075.75.388t.225.662q0 .4-.262.725t-.738.275q-2.775-.325-4.887-2.137T3.3 14.325q-.125-.425.125-.775t.675-.4M13 11.6l1.2 1.2q.35.35.313.738t-.313.662-.662.313-.738-.313l-1.5-1.5q-.15-.15-.225-.337T11 11.975V8q0-.425.288-.712T12 7t.713.288T13 8zM18.775 24q-.35 0-.612-.225t-.338-.575l-.15-.7q-.3-.125-.562-.262t-.538-.338l-.725.225q-.325.1-.638-.025t-.487-.4l-.2-.35q-.175-.3-.125-.65t.325-.575l.55-.475q-.05-.325-.05-.65t.05-.65l-.55-.475q-.275-.225-.325-.562t.125-.638l.225-.375q.175-.275.475-.4t.625-.025l.725.225q.275-.2.538-.337t.562-.263l.15-.725q.075-.35.338-.562t.612-.213h.4q.35 0 .613.225t.337.575l.15.7q.3.125.575.287t.525.363l.675-.225q.35-.125.675 0t.5.425l.2.35q.175.3.125.65t-.325.575l-.55.475q.05.325.05.625t-.05.625l.55.475q.275.225.325.563t-.125.637l-.225.375q-.175.275-.475.4t-.625.025l-.725-.225q-.275.2-.538.337t-.562.263l-.15.725q-.075.35-.337.563t-.613.212zm.2-3q.825 0 1.412-.587T20.976 19t-.587-1.412T18.975 17t-1.412.588T16.975 19t.588 1.413 1.412.587"
+													/>
+												</svg>
+											</i>
 										</el-button>
 									</el-tooltip>
 									<el-tooltip content="Delete" placement="top">
@@ -238,6 +280,118 @@
 			@save-success="onActionSave"
 			@cancel="onActionCancel"
 		/>
+
+		<!-- Change History Dialog -->
+		<el-dialog
+			v-model="showChangeHistoryDialog"
+			title="Change History"
+			width="900px"
+			:close-on-click-modal="false"
+			:destroy-on-close="true"
+		>
+			<template #header>
+				<div class="w-[850px] truncate text-2xl font-bold">Change History</div>
+			</template>
+
+			<div v-loading="changeHistoryLoading">
+				<div
+					v-if="!changeHistoryLoading && changeHistoryData.length === 0"
+					class="text-center py-8 text-gray-500"
+				>
+					No change history found for this action.
+				</div>
+
+				<div v-else class="space-y-4">
+					<div
+						v-for="(item, index) in changeHistoryData"
+						:key="index"
+						class="change-history-item border border-gray-200 rounded-lg p-4"
+					>
+						<div class="flex items-start gap-4">
+							<!-- Type Icon -->
+							<div
+								class="flex-shrink-0 w-10 h-10 flex items-center justify-center rounded-full"
+								:class="{
+									'bg-green-100 text-green-600':
+										getOperationStatus(item) === 'Success',
+									'bg-red-100 text-red-600':
+										getOperationStatus(item) === 'Failed',
+									'bg-yellow-100 text-yellow-600':
+										getOperationStatus(item) === 'Warning',
+								}"
+							>
+								<i
+									v-if="getOperationType(item).includes('Create')"
+									class="text-green-600 text-sm"
+								>
+									✓
+								</i>
+								<i
+									v-else-if="getOperationType(item).includes('Update')"
+									class="text-orange-600 text-sm"
+								>
+									📝
+								</i>
+								<i
+									v-else-if="getOperationType(item).includes('Delete')"
+									class="text-red-600 text-sm"
+								>
+									🗑
+								</i>
+								<i v-else class="text-blue-600 text-sm">📋</i>
+							</div>
+
+							<!-- Content -->
+							<div class="flex-1 min-w-0">
+								<div class="flex items-center gap-2 mb-2">
+									<h4 class="text-lg font-medium text-gray-900 truncate">
+										{{ getOperationTitle(item) }}
+									</h4>
+									<el-tag
+										:type="
+											getOperationStatus(item) === 'Success'
+												? 'success'
+												: getOperationStatus(item) === 'Failed'
+												? 'danger'
+												: 'warning'
+										"
+										size="small"
+									>
+										{{ getOperationStatus(item) }}
+									</el-tag>
+								</div>
+								<p class="text-sm text-gray-600 mb-3">
+									{{ getOperationDescription(item) }}
+								</p>
+							</div>
+
+							<!-- Meta Info -->
+							<div class="flex-shrink-0 text-right">
+								<div class="text-sm font-medium text-gray-900 mb-1">
+									{{ getOperationBy(item) }}
+								</div>
+								<div class="text-xs text-gray-500">
+									<i class="el-icon-time mr-1"></i>
+									{{ getOperationTime(item) }}
+								</div>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+
+			<template #footer>
+				<div class="flex justify-between">
+					<div class="text-sm text-gray-500">
+						{{ changeHistoryData.length }} Results
+						<span class="ml-4">Show: 15</span>
+					</div>
+					<div class="flex justify-end">
+						<el-button @click="closeChangeHistoryDialog">Close</el-button>
+					</div>
+				</div>
+			</template>
+		</el-dialog>
 	</div>
 </template>
 
@@ -254,12 +408,17 @@ import {
 	deleteAction,
 	exportActions,
 	getActionDetail,
+	getActionChangeHistory,
 	ActionType,
 	ACTION_TYPE_MAPPING,
+	type ActionChangeHistoryItem,
 } from '@/apis/action';
 import { ActionDefinition, ActionQueryRequest } from '#/action';
 import { tableMaxHeight } from '@/settings/projectSetting';
 import TableViewIcon from '@assets/svg/onboard/tavleView.svg';
+
+// Use flexible type for change history items to handle different API response structures
+type ChangeHistoryItem = ActionChangeHistoryItem | any;
 
 // Reactive data
 const loading = ref(false);
@@ -271,6 +430,12 @@ const actionEditorVisible = ref(false);
 const actionInfo = ref(null);
 const editActionLoading = ref(false);
 const currentEditAction = ref<ActionDefinition | null>(null);
+
+// Change History 弹窗相关状态
+const showChangeHistoryDialog = ref(false);
+const changeHistoryLoading = ref(false);
+const currentActionForHistory = ref<ActionDefinition | null>(null);
+const changeHistoryData = ref<ChangeHistoryItem[]>([]);
 
 // Search form
 const searchForm = reactive({
@@ -298,6 +463,40 @@ const actionsList = ref<ActionDefinition[]>([]);
 // Methods
 const getActionTypeName = (actionType: number) => {
 	return ACTION_TYPE_MAPPING[actionType as ActionType] || 'Unknown';
+};
+
+// Safe getter functions for Change History data
+const getOperationType = (item: any) => {
+	return item.type || item.operationType || 'Unknown';
+};
+
+const getOperationStatus = (item: any) => {
+	if (item.status) return item.status;
+	if (item.operationStatus === 'Success' || item.operationStatus === 1) return 'Success';
+	if (item.operationStatus === 'Failed' || item.operationStatus === 2) return 'Failed';
+	return 'Warning';
+};
+
+const getOperationTitle = (item: any) => {
+	return item.changes || item.operationTitle || item.operationDescription || 'No title available';
+};
+
+const getOperationDescription = (item: any) => {
+	return item.description || item.operationDescription || 'No description available';
+};
+
+const getOperationBy = (item: any) => {
+	return item.updatedBy || item.operatorName || 'System';
+};
+
+const getOperationTime = (item: any) => {
+	if (item.dateTime) return item.dateTime;
+	if (item.operationTime) {
+		// Format the date-time if it's in ISO format
+		const date = new Date(item.operationTime);
+		return date.toLocaleString();
+	}
+	return 'Unknown time';
 };
 
 // Get all available action type options
@@ -440,6 +639,50 @@ const handleEdit = async (row: ActionDefinition) => {
 	} finally {
 		editActionLoading.value = false;
 	}
+};
+
+const handleChangeHistory = async (row: ActionDefinition) => {
+	currentActionForHistory.value = row;
+	showChangeHistoryDialog.value = true;
+
+	if (!row.id) {
+		ElMessage.error('Action ID is missing');
+		return;
+	}
+
+	try {
+		changeHistoryLoading.value = true;
+
+		// Call the real API to get change history
+		const historyRes = await getActionChangeHistory(row.id.toString(), {
+			pageIndex: 1,
+			pageSize: 50, // Get more records to show full history
+		});
+
+		if (historyRes.code === '200' && historyRes.success && historyRes?.data?.items) {
+			// Debug: Log the actual data structure from backend
+			console.log('Change History API Response:', historyRes.data.items);
+			changeHistoryData.value = historyRes.data.items;
+		} else {
+			// Fallback to empty array if no data
+			changeHistoryData.value = [];
+			if (historyRes.msg) {
+				ElMessage.warning(historyRes.msg);
+			}
+		}
+	} catch (error) {
+		console.error('Failed to load change history:', error);
+		ElMessage.warning('Failed to load change history');
+		changeHistoryData.value = [];
+	} finally {
+		changeHistoryLoading.value = false;
+	}
+};
+
+const closeChangeHistoryDialog = () => {
+	showChangeHistoryDialog.value = false;
+	currentActionForHistory.value = null;
+	changeHistoryData.value = [];
 };
 
 const handleDelete = async (row: ActionDefinition) => {
@@ -596,6 +839,10 @@ onMounted(() => {
 	justify-content: center;
 }
 
+.change-history-icon {
+	color: var(--primary-500) !important;
+}
+
 .type-tag {
 	background-color: #e6f3ff !important;
 	border-color: #b3d9ff !important;
@@ -666,6 +913,17 @@ onMounted(() => {
 	@apply dark:border-primary-500;
 }
 
+/* Change History 弹窗样式 */
+.change-history-item {
+	@apply transition-all duration-200 hover:shadow-md;
+	background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+}
+
+.change-history-item:hover {
+	border-color: var(--primary-300) !important;
+	transform: translateY(-1px);
+}
+
 /* 暗色主题样式 */
 html.dark {
 	/* 筛选面板暗色主题 */
@@ -721,6 +979,37 @@ html.dark {
 
 	.assignments-list .assignment-item .assignment-date {
 		color: var(--gray-300) !important;
+	}
+
+	/* Change History 暗色主题样式 */
+	.change-history-item {
+		@apply bg-black-400 border-black-200;
+		background: linear-gradient(135deg, var(--black-400) 0%, var(--black-300) 100%);
+	}
+
+	.change-history-item:hover {
+		border-color: var(--primary-400) !important;
+	}
+
+	.change-history-item h4 {
+		@apply text-white-100;
+	}
+
+	.change-history-item p {
+		@apply text-gray-300;
+	}
+
+	.change-history-item .text-gray-900 {
+		@apply text-white-100;
+	}
+
+	.change-history-item .text-gray-500 {
+		@apply text-gray-400;
+	}
+
+	/* Change History 图标暗色主题样式 */
+	.change-history-icon {
+		color: var(--primary-400) !important;
 	}
 }
 </style>
