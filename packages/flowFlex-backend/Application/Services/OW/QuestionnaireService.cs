@@ -171,6 +171,9 @@ namespace FlowFlex.Application.Service.OW
 
             await _questionnaireRepository.InsertAsync(entity);
 
+            // Create ActionTriggerMappings for all Questions with Action IDs
+            await EnsureQuestionActionTriggerMappingsExistAsync(entity);
+
             // Log questionnaire create operation (fire-and-forget)
             _ = Task.Run(async () =>
             {
@@ -336,8 +339,8 @@ namespace FlowFlex.Application.Service.OW
                 });
             }
 
-            // Ensure ActionTriggerMappings exist for all Questions with Action IDs
-            await EnsureQuestionActionTriggerMappingsExistAsync(entity);
+            // Clean up removed ActionTriggerMappings and ensure current ones exist
+            await SyncQuestionActionTriggerMappingsAsync(entity, originalStructureJson);
 
             // No longer update Action configurations automatically
             // await UpdateExistingQuestionActionConfigurationsAsync(entity);
@@ -1841,8 +1844,257 @@ namespace FlowFlex.Application.Service.OW
             }
         }
 
+        /// <summary>
+        /// Synchronize ActionTriggerMappings: clean up removed ones and ensure current ones exist
+        /// </summary>
+        private async Task SyncQuestionActionTriggerMappingsAsync(Questionnaire questionnaire, string originalStructureJson)
+        {
+            if (questionnaire?.Structure == null)
+                return;
 
+            try
+            {
+                // Get action mappings from original structure (before update)
+                var originalActionMappings = GetActionMappingsFromStructureJson(originalStructureJson);
 
+                // Get action mappings from current structure (after update)
+                var currentStructureJson = questionnaire.Structure.ToString(Newtonsoft.Json.Formatting.None);
+                var currentActionMappings = GetActionMappingsFromStructureJson(currentStructureJson);
+
+                // Find removed action mappings (exist in original but not in current)
+                var removedMappings = originalActionMappings
+                    .Where(original => !currentActionMappings
+                        .Any(current => current.TriggerSourceId == original.TriggerSourceId && 
+                                      current.ActionDefinitionId == original.ActionDefinitionId))
+                    .ToList();
+
+                // Clean up removed ActionTriggerMappings
+                if (removedMappings.Any())
+                {
+                    Console.WriteLine($"[QuestionnaireService] Found {removedMappings.Count} removed action mappings to clean up");
+                    await CleanupRemovedActionTriggerMappingsAsync(removedMappings, questionnaire.Name);
+                }
+
+                // Ensure current ActionTriggerMappings exist
+                await EnsureQuestionActionTriggerMappingsExistAsync(questionnaire);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[QuestionnaireService] Error synchronizing ActionTriggerMappings for questionnaire '{questionnaire.Name}': {ex.Message}");
+                // Fall back to just ensuring current mappings exist
+                await EnsureQuestionActionTriggerMappingsExistAsync(questionnaire);
+            }
+        }
+
+        /// <summary>
+        /// Extract action mapping information from structure JSON
+        /// </summary>
+        private List<ActionMappingInfo> GetActionMappingsFromStructureJson(string structureJson)
+        {
+            var actionMappings = new List<ActionMappingInfo>();
+
+            if (string.IsNullOrWhiteSpace(structureJson))
+                return actionMappings;
+
+            try
+            {
+                using var document = JsonDocument.Parse(structureJson);
+                var root = document.RootElement;
+
+                if (root.TryGetProperty("sections", out var sectionsElement))
+                {
+                    foreach (var section in sectionsElement.EnumerateArray())
+                    {
+                        ExtractActionMappingsFromSection(section, actionMappings);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[QuestionnaireService] Error extracting action mappings from structure JSON: {ex.Message}");
+            }
+
+            return actionMappings;
+        }
+
+        /// <summary>
+        /// Extract action mappings from a section
+        /// </summary>
+        private void ExtractActionMappingsFromSection(JsonElement section, List<ActionMappingInfo> actionMappings)
+        {
+            // Check both "items" and "questions" arrays for Questions
+            ExtractActionMappingsFromQuestionArray(section, "items", actionMappings);
+            ExtractActionMappingsFromQuestionArray(section, "questions", actionMappings);
+        }
+
+        /// <summary>
+        /// Extract action mappings from a question array
+        /// </summary>
+        private void ExtractActionMappingsFromQuestionArray(JsonElement section, string arrayName, List<ActionMappingInfo> actionMappings)
+        {
+            if (section.TryGetProperty(arrayName, out var questionsElement) && questionsElement.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var question in questionsElement.EnumerateArray())
+                {
+                    ExtractActionMappingsFromQuestion(question, actionMappings);
+                    ExtractActionMappingsFromQuestionOptions(question, actionMappings);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Extract action mapping from a single question
+        /// </summary>
+        private void ExtractActionMappingsFromQuestion(JsonElement question, List<ActionMappingInfo> actionMappings)
+        {
+            try
+            {
+                // Check if this is a question with action
+                if (!question.TryGetProperty("action", out var actionElement))
+                    return;
+
+                // Extract action ID and question ID
+                var actionId = actionElement.TryGetProperty("id", out var actionIdEl) ? actionIdEl.GetString() : null;
+                var questionId = question.TryGetProperty("id", out var questionIdEl) ? questionIdEl.GetString() : null;
+
+                if (string.IsNullOrWhiteSpace(actionId) || string.IsNullOrWhiteSpace(questionId))
+                    return;
+
+                if (long.TryParse(actionId, out var actionIdLong) && long.TryParse(questionId, out var questionIdLong))
+                {
+                    actionMappings.Add(new ActionMappingInfo
+                    {
+                        TriggerSourceId = questionIdLong,
+                        ActionDefinitionId = actionIdLong,
+                        TriggerType = "Question",
+                        ElementType = "Question",
+                        ElementId = questionId
+                    });
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[QuestionnaireService] Error extracting action mapping from question: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Extract action mappings from question options
+        /// </summary>
+        private void ExtractActionMappingsFromQuestionOptions(JsonElement question, List<ActionMappingInfo> actionMappings)
+        {
+            try
+            {
+                // Check if question has options array
+                if (!question.TryGetProperty("options", out var optionsElement) ||
+                    optionsElement.ValueKind != JsonValueKind.Array)
+                    return;
+
+                foreach (var option in optionsElement.EnumerateArray())
+                {
+                    ExtractActionMappingsFromOption(option, actionMappings);
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[QuestionnaireService] Error extracting action mappings from question options: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Extract action mapping from a single option
+        /// </summary>
+        private void ExtractActionMappingsFromOption(JsonElement option, List<ActionMappingInfo> actionMappings)
+        {
+            try
+            {
+                // Check if this is an option with action
+                if (!option.TryGetProperty("action", out var actionElement))
+                    return;
+
+                // Extract action ID and option information
+                var actionId = actionElement.TryGetProperty("id", out var actionIdEl) ? actionIdEl.GetString() : null;
+                var optionValue = option.TryGetProperty("value", out var valueEl) ? valueEl.GetString() : null;
+                // 优先使用正式的 id，如果没有再使用 temporaryId
+                var optionId = option.TryGetProperty("id", out var optIdEl) ? optIdEl.GetString() :
+                              option.TryGetProperty("temporaryId", out var tempIdEl) ? tempIdEl.GetString() : null;
+
+                if (string.IsNullOrWhiteSpace(actionId) || string.IsNullOrWhiteSpace(optionId))
+                    return;
+
+                if (long.TryParse(actionId, out var actionIdLong) && long.TryParse(optionId, out var optionIdLong))
+                {
+                    actionMappings.Add(new ActionMappingInfo
+                    {
+                        TriggerSourceId = optionIdLong,
+                        ActionDefinitionId = actionIdLong,
+                        TriggerType = "Question", // Options also use "Question" trigger type
+                        ElementType = "Option",
+                        ElementId = optionId,
+                        OptionValue = optionValue
+                    });
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[QuestionnaireService] Error extracting action mapping from option: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Clean up removed ActionTriggerMappings
+        /// </summary>
+        private async Task CleanupRemovedActionTriggerMappingsAsync(List<ActionMappingInfo> removedMappings, string questionnaireName)
+        {
+            foreach (var mapping in removedMappings)
+            {
+                try
+                {
+                    Console.WriteLine($"[QuestionnaireService] Cleaning up ActionTriggerMapping for {mapping.ElementType} {mapping.ElementId} " +
+                                    $"(TriggerSourceId: {mapping.TriggerSourceId}, ActionId: {mapping.ActionDefinitionId}) " +
+                                    $"from questionnaire '{questionnaireName}'");
+
+                    // Get existing mappings for this trigger source
+                    var existingMappings = await _actionManagementService.GetActionTriggerMappingsByTriggerSourceIdAsync(mapping.TriggerSourceId);
+                    
+                    // Find the specific mapping to delete
+                    var mappingToDelete = existingMappings.FirstOrDefault(m => 
+                        m.ActionDefinitionId == mapping.ActionDefinitionId &&
+                        m.TriggerType == mapping.TriggerType &&
+                        m.TriggerSourceId == mapping.TriggerSourceId);
+
+                    if (mappingToDelete != null)
+                    {
+                        await _actionManagementService.DeleteActionTriggerMappingAsync(mappingToDelete.Id);
+                        Console.WriteLine($"[QuestionnaireService] Successfully deleted ActionTriggerMapping {mappingToDelete.Id} " +
+                                        $"for {mapping.ElementType} {mapping.ElementId}");
+                    }
+                    else
+                    {
+                        Console.WriteLine($"[QuestionnaireService] ActionTriggerMapping not found for {mapping.ElementType} {mapping.ElementId}, " +
+                                        $"may have been already deleted");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[QuestionnaireService] Error deleting ActionTriggerMapping for {mapping.ElementType} " +
+                                    $"{mapping.ElementId}: {ex.Message}");
+                }
+            }
+        }
+
+        /// <summary>
+        /// Action mapping information for comparison
+        /// </summary>
+        private class ActionMappingInfo
+        {
+            public long TriggerSourceId { get; set; }
+            public long ActionDefinitionId { get; set; }
+            public string TriggerType { get; set; }
+            public string ElementType { get; set; } // "Question" or "Option"
+            public string ElementId { get; set; }
+            public string OptionValue { get; set; } // For options only
+        }
 
     }
 }
