@@ -95,7 +95,7 @@ namespace FlowFlex.Application.Services.Action.Executors
             {
                 var key = header.Key?.Trim();
                 var value = header.Value?.Trim();
-                
+
                 if (string.IsNullOrEmpty(key) || string.IsNullOrEmpty(value))
                     continue;
 
@@ -132,14 +132,14 @@ namespace FlowFlex.Application.Services.Action.Executors
             if (!string.IsNullOrEmpty(config.Body))
             {
                 var processedBody = ReplacePlaceholders(config.Body, triggerContext);
-                
+
                 // Determine content type from config or default to application/json
                 var contentType = contentHeaders.GetValueOrDefault("Content-Type", "application/json");
                 request.Content = new StringContent(processedBody, System.Text.Encoding.UTF8, contentType);
-                
+
                 // Remove Content-Type from contentHeaders since it's already set in StringContent
                 contentHeaders.Remove("Content-Type");
-                
+
                 // Add remaining content headers
                 foreach (var header in contentHeaders)
                 {
@@ -157,7 +157,7 @@ namespace FlowFlex.Application.Services.Action.Executors
             {
                 // If there are content headers but no body, create empty content
                 request.Content = new StringContent(string.Empty, System.Text.Encoding.UTF8, "text/plain");
-                
+
                 foreach (var header in contentHeaders)
                 {
                     try
@@ -181,7 +181,7 @@ namespace FlowFlex.Application.Services.Action.Executors
 
                 // Check if auto download is enabled or if content should be auto-downloaded
                 var shouldDownload = config.AutoDownloadFile || ShouldAutoDownloadContent(response);
-                
+
                 if (shouldDownload && response.IsSuccessStatusCode)
                 {
                     return await HandleFileDownloadAsync(response, config, processedUrl);
@@ -348,7 +348,7 @@ namespace FlowFlex.Application.Services.Action.Executors
         {
             // 检查内容是否为二进制数据或包含不可打印字符
             var processedContent = ProcessResponseContent(content, response.Content.Headers.ContentType?.MediaType);
-            
+
             return new
             {
                 success = response.IsSuccessStatusCode,
@@ -376,8 +376,8 @@ namespace FlowFlex.Application.Services.Action.Executors
                 if (!string.IsNullOrEmpty(contentType))
                 {
                     var lowerContentType = contentType.ToLower();
-                    if (lowerContentType.StartsWith("image/") || 
-                        lowerContentType.StartsWith("video/") || 
+                    if (lowerContentType.StartsWith("image/") ||
+                        lowerContentType.StartsWith("video/") ||
                         lowerContentType.StartsWith("audio/") ||
                         lowerContentType.Contains("octet-stream"))
                     {
@@ -471,7 +471,7 @@ namespace FlowFlex.Application.Services.Action.Executors
 
                     if (binaryContentTypes.Contains(contentType))
                     {
-                        _logger.LogInformation("Auto-downloading binary content: ContentType={ContentType}, Size={Size}", 
+                        _logger.LogInformation("Auto-downloading binary content: ContentType={ContentType}, Size={Size}",
                             contentType, contentLength?.ToString() ?? "unknown");
                         return true;
                     }
@@ -505,25 +505,25 @@ namespace FlowFlex.Application.Services.Action.Executors
                 var maxDownloadSize = config.MaxDownloadSize > 0 ? config.MaxDownloadSize : 104857600; // Default 100MB
                 if (contentLength.HasValue && contentLength.Value > maxDownloadSize)
                 {
-                    _logger.LogWarning("File size {Size} bytes exceeds maximum download size {MaxSize} bytes", 
+                    _logger.LogWarning("File size {Size} bytes exceeds maximum download size {MaxSize} bytes",
                         contentLength.Value, maxDownloadSize);
-                    
+
                     return CreateErrorResult($"File size {contentLength.Value} bytes exceeds maximum download size {maxDownloadSize} bytes");
                 }
 
                 // Get content type
                 var contentType = response.Content.Headers.ContentType?.MediaType ?? "application/octet-stream";
-                
+
                 // Determine file name
                 var fileName = DetermineFileName(response, config, requestUrl);
-                
-                _logger.LogInformation("Starting file download: {FileName}, ContentType: {ContentType}, Size: {Size}", 
+
+                _logger.LogInformation("Starting file download: {FileName}, ContentType: {ContentType}, Size: {Size}",
                     fileName, contentType, contentLength?.ToString() ?? "unknown");
 
                 // Read response content as byte array to avoid stream disposal issues
                 var responseBytes = await response.Content.ReadAsByteArrayAsync();
                 var totalBytesRead = responseBytes.Length;
-                
+
                 // Check size limit
                 if (totalBytesRead > maxDownloadSize)
                 {
@@ -534,14 +534,14 @@ namespace FlowFlex.Application.Services.Action.Executors
                 // Save file using IFileStorageService
                 var fileCategory = string.IsNullOrWhiteSpace(config.FileCategory) ? "HttpApiDownload" : config.FileCategory;
                 var fileResult = await SaveDownloadedFileAsync(responseBytes, fileName, contentType, fileCategory);
-                
+
                 if (!fileResult.Success)
                 {
                     _logger.LogError("Failed to save downloaded file: {Error}", fileResult.ErrorMessage);
                     return CreateErrorResult($"Failed to save file: {fileResult.ErrorMessage}");
                 }
 
-                _logger.LogInformation("File downloaded and saved successfully: {FilePath}, AccessUrl: {AccessUrl}", 
+                _logger.LogInformation("File downloaded and saved successfully: {FilePath}, AccessUrl: {AccessUrl}",
                     fileResult.FilePath, fileResult.AccessUrl);
 
                 // Return success result with file information
@@ -599,7 +599,7 @@ namespace FlowFlex.Application.Services.Action.Executors
             var contentType = response.Content.Headers.ContentType?.MediaType ?? "application/octet-stream";
             var extension = GetFileExtensionFromContentType(contentType);
             var timestamp = DateTimeOffset.UtcNow.ToString("yyyyMMdd_HHmmss");
-            
+
             return $"download_{timestamp}{extension}";
         }
 
@@ -641,7 +641,7 @@ namespace FlowFlex.Application.Services.Action.Executors
             {
                 // Create IFormFile from byte array
                 var formFile = new FormFileFromBytes(fileBytes, fileName, contentType);
-                
+
                 // Save using file storage service
                 return await _fileStorageService.SaveFileAsync(formFile, category);
             }
@@ -734,7 +734,7 @@ namespace FlowFlex.Application.Services.Action.Executors
                 return false;
 
             var name = headerName.Trim();
-            
+
             // Content headers that belong to HttpContent
             return name.Equals("Content-Type", StringComparison.OrdinalIgnoreCase) ||
                    name.Equals("Content-Length", StringComparison.OrdinalIgnoreCase) ||

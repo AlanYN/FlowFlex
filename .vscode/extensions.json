@@ -1,9 +1,27 @@
 {
   "recommendations": [
-    "esbenp.prettier-vscode",
+    // Frontend Development
     "dbaeumer.vscode-eslint",
-    "vue.vscode-typescript-vue-plugin",
+    "esbenp.prettier-vscode",
+    "vue.volar",
+    
+    // Markdown and Documentation
+    "bierner.markdown-mermaid",
+    "bierner.markdown-syntax-highlighting",
+    "yzhang.markdown-all-in-one",
+    
+    // Optional: Mermaid Editor
+    "tomoyukim.vscode-mermaid-editor",
+    
+    // C# Backend Development
     "ms-dotnettools.csharp",
-    "stylelint.vscode-stylelint"
+    "ms-dotnettools.vscode-dotnet-runtime",
+    
+    // Git
+    "eamodio.gitlens",
+    
+    // Utilities
+    "editorconfig.editorconfig",
+    "streetsidesoftware.code-spell-checker"
   ]
 }

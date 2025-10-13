@@ -316,14 +316,14 @@ namespace FlowFlex.Application.Service.OW
                     // DISABLED: Stages progress sync after stage update to prevent data loss
                     // The sync was causing onboarding stages progress to be cleared or modified
                     // when stages are updated. Keeping onboarding progress data intact.
-                    
+
                     _logger.LogInformation("Stage update completed for workflow {WorkflowId}, stage {StageId}. " +
-                        "Stages progress sync is DISABLED to preserve existing onboarding data.", 
+                        "Stages progress sync is DISABLED to preserve existing onboarding data.",
                         stageInTransaction.WorkflowId, id);
-                        
+
                     // Note: If sync is absolutely necessary, it should be done manually or
                     // with explicit user confirmation to prevent accidental data loss
-                    
+
                     // Original sync code (DISABLED):
                     // _backgroundTaskQueue.QueueBackgroundWorkItem(async token =>
                     // {
@@ -533,9 +533,9 @@ namespace FlowFlex.Application.Service.OW
                 // DISABLED: Stages progress sync after stage deletion to prevent data loss
                 // The sync was causing onboarding stages progress to be modified when stages are deleted.
                 _logger.LogInformation("Stage deleted for workflow {WorkflowId}, stage {StageId}. " +
-                    "Stages progress sync is DISABLED to preserve existing onboarding data.", 
+                    "Stages progress sync is DISABLED to preserve existing onboarding data.",
                     workflowId, id);
-                    
+
                 // Original sync code (DISABLED):
                 // _backgroundTaskQueue.QueueBackgroundWorkItem(async token =>
                 // {
@@ -659,9 +659,9 @@ namespace FlowFlex.Application.Service.OW
                 // DISABLED: Stages progress sync after stage sorting to prevent data loss
                 // The sync was causing onboarding stages progress to be modified when stages are reordered.
                 _logger.LogInformation("Stages sorted for workflow {WorkflowId}. " +
-                    "Stages progress sync is DISABLED to preserve existing onboarding data.", 
+                    "Stages progress sync is DISABLED to preserve existing onboarding data.",
                     input.WorkflowId);
-                    
+
                 // Original sync code (DISABLED):
                 // _backgroundTaskQueue.QueueBackgroundWorkItem(async token =>
                 // {
@@ -737,24 +737,24 @@ namespace FlowFlex.Application.Service.OW
             // Create new WorkflowVersion (after stage combination) - Disabled automatic version creation
             // await CreateWorkflowVersionForStageChangeAsync(workflowId, $"Stages combined into '{input.NewStageName}'");
 
-        // DISABLED: Stages progress sync after stage combination to prevent data loss
-        // The sync was causing onboarding stages progress to be modified when stages are combined.
-        _logger.LogInformation("Stages combined for workflow {WorkflowId}, new stage {NewStageId}. " +
-            "Stages progress sync is DISABLED to preserve existing onboarding data.", 
-            workflowId, newStage.Id);
-            
-        // Original sync code (DISABLED):
-        // _backgroundTaskQueue.QueueBackgroundWorkItem(async token =>
-        // {
-        //     try
-        //     {
-        //         await _stagesProgressSyncService.SyncAfterStagesCombineAsync(workflowId, input.StageIds, newStage.Id);
-        //     }
-        //     catch
-        //     {
-        //         // Ignore sync errors to avoid impacting the main operation
-        //     }
-        // });
+            // DISABLED: Stages progress sync after stage combination to prevent data loss
+            // The sync was causing onboarding stages progress to be modified when stages are combined.
+            _logger.LogInformation("Stages combined for workflow {WorkflowId}, new stage {NewStageId}. " +
+                "Stages progress sync is DISABLED to preserve existing onboarding data.",
+                workflowId, newStage.Id);
+
+            // Original sync code (DISABLED):
+            // _backgroundTaskQueue.QueueBackgroundWorkItem(async token =>
+            // {
+            //     try
+            //     {
+            //         await _stagesProgressSyncService.SyncAfterStagesCombineAsync(workflowId, input.StageIds, newStage.Id);
+            //     }
+            //     catch
+            //     {
+            //         // Ignore sync errors to avoid impacting the main operation
+            //     }
+            // });
 
             return newStage.Id;
         }
@@ -1855,7 +1855,7 @@ namespace FlowFlex.Application.Service.OW
                 }
 
                 Console.WriteLine($"[StageService] Found {allStagesInWorkflow.Count} stages in workflow {workflowId}");
-                
+
                 // Track how many stages have components for validation integrity
                 var stagesWithComponents = 0;
                 var stagesWithParseErrors = 0;
@@ -1875,7 +1875,7 @@ namespace FlowFlex.Application.Service.OW
                     // Parse existing components in this stage
                     Console.WriteLine($"[StageService] Stage {stage.Id} ({stage.Name}) ComponentsJson: {(string.IsNullOrEmpty(stage.ComponentsJson) ? "NULL" : $"Length: {stage.ComponentsJson.Length}")}");
                     var existingComponents = await GetStageComponentsFromEntity(stage);
-                    
+
                     if (existingComponents == null || !existingComponents.Any())
                     {
                         // Check if this was due to a parsing error or truly empty components
@@ -1890,11 +1890,11 @@ namespace FlowFlex.Application.Service.OW
                         }
                         continue;
                     }
-                    
+
                     stagesWithComponents++;
 
                     Console.WriteLine($"[StageService] Stage {stage.Id} ({stage.Name}) has {existingComponents.Count} components");
-                    
+
                     // Log component details for debugging
                     foreach (var comp in existingComponents)
                     {
@@ -1944,7 +1944,7 @@ namespace FlowFlex.Application.Service.OW
                         var fullErrorMessage = $"Components must be unique within the same workflow. {string.Join("; ", conflictMessages)}.";
                         Console.WriteLine($"[StageService] Component uniqueness validation FAILED: {fullErrorMessage}");
                         _logger.LogWarning("Component uniqueness validation failed for workflow {WorkflowId}: {ErrorMessage}", workflowId, fullErrorMessage);
-                        
+
                         throw new CRMException(ErrorCodeEnum.BusinessError, fullErrorMessage);
                     }
                     else
@@ -1955,14 +1955,14 @@ namespace FlowFlex.Application.Service.OW
 
                 // Report validation statistics
                 Console.WriteLine($"[StageService] Validation completed for workflow {workflowId}: {stagesWithComponents} stages with components validated, {stagesWithParseErrors} stages with parse errors");
-                
+
                 // Warning if there were parse errors that could affect validation
                 if (stagesWithParseErrors > 0)
                 {
-                    _logger.LogWarning("Component uniqueness validation for workflow {WorkflowId} completed with {ParseErrors} JSON parse errors that could affect validation accuracy", 
+                    _logger.LogWarning("Component uniqueness validation for workflow {WorkflowId} completed with {ParseErrors} JSON parse errors that could affect validation accuracy",
                         workflowId, stagesWithParseErrors);
                 }
-                
+
                 Console.WriteLine($"[StageService] Component uniqueness validation passed for workflow {workflowId}");
             }
             catch (Exception ex) when (!(ex is CRMException))

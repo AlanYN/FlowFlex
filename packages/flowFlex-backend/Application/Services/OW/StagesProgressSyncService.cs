@@ -74,7 +74,7 @@ namespace FlowFlex.Application.Services.OW
                 if (onboardings.Count > _options.MaxBatchSize)
                 {
                     _logger.LogWarning("Onboarding count {Count} exceeds max batch size {MaxBatch} for workflow {WorkflowId}. " +
-                        "Processing first {MaxBatch} onboardings only.", 
+                        "Processing first {MaxBatch} onboardings only.",
                         onboardings.Count, _options.MaxBatchSize, workflowId, _options.MaxBatchSize);
                     onboardings = onboardings.Take(_options.MaxBatchSize).ToList();
                 }
@@ -450,14 +450,14 @@ namespace FlowFlex.Application.Services.OW
         {
             try
             {
-                _logger.LogInformation("Starting stages progress sync for onboarding {OnboardingId} in workflow {WorkflowId}", 
+                _logger.LogInformation("Starting stages progress sync for onboarding {OnboardingId} in workflow {WorkflowId}",
                     onboarding.Id, onboarding.WorkflowId);
 
                 // Get current workflow stages
                 var stages = await _stageRepository.GetByWorkflowIdAsync(onboarding.WorkflowId);
                 if (stages == null || !stages.Any())
                 {
-                    _logger.LogWarning("No stages found for workflow {WorkflowId} - skipping sync for onboarding {OnboardingId}", 
+                    _logger.LogWarning("No stages found for workflow {WorkflowId} - skipping sync for onboarding {OnboardingId}",
                         onboarding.WorkflowId, onboarding.Id);
                     return;
                 }
@@ -473,7 +473,7 @@ namespace FlowFlex.Application.Services.OW
                 if (completedStages.Any())
                 {
                     _logger.LogInformation("Found {CompletedCount} completed stages for onboarding {OnboardingId}: {CompletedStageIds}",
-                        completedStages.Count, onboarding.Id, 
+                        completedStages.Count, onboarding.Id,
                         string.Join(", ", completedStages.Select(s => s.StageId)));
                 }
 
@@ -489,13 +489,13 @@ namespace FlowFlex.Application.Services.OW
                 {
                     _logger.LogError("CRITICAL: Completed stages count mismatch after sync for onboarding {OnboardingId}. Before: {BeforeCount}, After: {AfterCount}",
                         onboarding.Id, completedStages.Count, preservedCompletedStages.Count);
-                    
+
                     // Log detailed comparison
                     var beforeIds = completedStages.Select(s => s.StageId).OrderBy(x => x).ToList();
                     var afterIds = preservedCompletedStages.Select(s => s.StageId).OrderBy(x => x).ToList();
                     _logger.LogError("Before completed stage IDs: [{BeforeIds}], After completed stage IDs: [{AfterIds}]",
                         string.Join(", ", beforeIds), string.Join(", ", afterIds));
-                    
+
                     throw new InvalidOperationException($"Data integrity violation: Completed stages were lost during sync for onboarding {onboarding.Id}");
                 }
 
@@ -713,7 +713,7 @@ namespace FlowFlex.Application.Services.OW
                 if (string.IsNullOrEmpty(stagesProgressJson))
                 {
                     _logger.LogWarning("CRITICAL: Attempting to set empty stages progress JSON for onboarding {OnboardingId}. This operation is blocked to prevent data loss.", onboarding.Id);
-                    
+
                     // Respect configuration for data clearing prevention
                     if (_options.PreventDataClearing)
                     {
@@ -721,7 +721,7 @@ namespace FlowFlex.Application.Services.OW
                         var currentOnboarding = await _onboardingRepository.GetByIdAsync(onboarding.Id);
                         if (currentOnboarding != null && !string.IsNullOrEmpty(currentOnboarding.StagesProgressJson))
                         {
-                            _logger.LogError("BLOCKED: Prevented clearing of existing stages progress data for onboarding {OnboardingId}. Current data: {CurrentData}", 
+                            _logger.LogError("BLOCKED: Prevented clearing of existing stages progress data for onboarding {OnboardingId}. Current data: {CurrentData}",
                                 onboarding.Id, currentOnboarding.StagesProgressJson);
                             return; // Do not proceed with empty update
                         }
@@ -746,7 +746,7 @@ namespace FlowFlex.Application.Services.OW
                                                   modify_date = @ModifyDate,
                                                   modify_by = @ModifyBy
                                               WHERE id = @Id";
-                            
+
                             await db.Ado.ExecuteCommandAsync(progressSql, new
                             {
                                 StagesProgressJson = stagesProgressJson,
@@ -866,7 +866,7 @@ namespace FlowFlex.Application.Services.OW
                     try
                     {
                         _logger.LogInformation("Attempting to repair stages progress for onboarding {OnboardingId}", onboardingId);
-                        
+
                         var repairedProgress = SyncProgressWithStages(currentProgress, workflowStages);
                         var repairedJson = SerializeStagesProgress(repairedProgress);
 
@@ -1000,7 +1000,7 @@ namespace FlowFlex.Application.Services.OW
                             .Where(p => p.IsCompleted)
                             .Select(p => p.StageId)
                             .ToHashSet();
-                        
+
                         _logger.LogInformation("Found {CompletedCount} completed stages to preserve for onboarding {OnboardingId}: {StageIds}",
                             completedStageIds.Count, onboardingId, string.Join(", ", completedStageIds));
                     }

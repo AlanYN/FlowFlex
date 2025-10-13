@@ -19,10 +19,10 @@ namespace FlowFlex.SqlSugarDB.Migrations
             {
                 // 获取表列信息
                 var columns = db.DbMaintenance.GetColumnInfosByTableName("ff_action_definitions");
-                
+
                 // 检查is_ai_generated字段是否已存在
                 var isAIGeneratedExists = columns.Any(c => c.DbColumnName.Equals("is_ai_generated", StringComparison.OrdinalIgnoreCase));
-                
+
                 if (!isAIGeneratedExists)
                 {
                     // 添加is_ai_generated字段
@@ -39,7 +39,7 @@ namespace FlowFlex.SqlSugarDB.Migrations
 
                 // 检查trigger_type字段是否已存在
                 var triggerTypeExists = columns.Any(c => c.DbColumnName.Equals("trigger_type", StringComparison.OrdinalIgnoreCase));
-                
+
                 if (!triggerTypeExists)
                 {
                     // 添加trigger_type字段（可空，不设置默认值）
@@ -193,10 +193,10 @@ namespace FlowFlex.SqlSugarDB.Migrations
 
                 // 获取表列信息
                 var columns = db.DbMaintenance.GetColumnInfosByTableName("ff_action_definitions");
-                
+
                 // 检查is_ai_generated字段是否存在
                 var isAIGeneratedExists = columns.Any(c => c.DbColumnName.Equals("is_ai_generated", StringComparison.OrdinalIgnoreCase));
-                
+
                 if (isAIGeneratedExists)
                 {
                     // 删除is_ai_generated字段
@@ -213,7 +213,7 @@ namespace FlowFlex.SqlSugarDB.Migrations
 
                 // 检查trigger_type字段是否存在
                 var triggerTypeExists = columns.Any(c => c.DbColumnName.Equals("trigger_type", StringComparison.OrdinalIgnoreCase));
-                
+
                 if (triggerTypeExists)
                 {
                     // 删除trigger_type字段

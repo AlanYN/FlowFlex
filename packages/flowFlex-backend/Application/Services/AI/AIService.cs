@@ -7075,15 +7075,15 @@ Make questions relevant to the project context and stage objectives.";
         {
             // Optimize conversation text - limit to last 10 messages and truncate long messages
             var recentMessages = input.ConversationHistory.TakeLast(10).ToList();
-            var conversationText = string.Join("\n", recentMessages.Select(m => 
+            var conversationText = string.Join("\n", recentMessages.Select(m =>
             {
                 var content = m.Content.Length > 500 ? m.Content.Substring(0, 500) + "..." : m.Content;
                 return $"{m.Role}: {content}";
             }));
-            
+
             var focusAreasText = input.FocusAreas.Any() ? string.Join(", ", input.FocusAreas) : "general action items";
-            var contextText = !string.IsNullOrEmpty(input.Context) && input.Context.Length > 200 
-                ? input.Context.Substring(0, 200) + "..." 
+            var contextText = !string.IsNullOrEmpty(input.Context) && input.Context.Length > 200
+                ? input.Context.Substring(0, 200) + "..."
                 : input.Context ?? "No additional context provided";
 
             return $@"Analyze this conversation and extract actionable insights (be concise):
@@ -7143,22 +7143,23 @@ Please return the results in JSON format with the following structure:
                 // Optimize analysis result - only include essential fields
                 var essentialAnalysis = new
                 {
-                    actionItems = input.AnalysisResult.ActionItems?.Take(5).Select(a => new { 
+                    actionItems = input.AnalysisResult.ActionItems?.Take(5).Select(a => new
+                    {
                         title = a.Title?.Length > 100 ? a.Title.Substring(0, 100) + "..." : a.Title,
                         description = a.Description?.Length > 200 ? a.Description.Substring(0, 200) + "..." : a.Description,
                         priority = a.Priority
                     }),
-                    keyInsights = input.AnalysisResult.KeyInsights?.Take(3).Select(i => 
+                    keyInsights = input.AnalysisResult.KeyInsights?.Take(3).Select(i =>
                         i.Length > 150 ? i.Substring(0, 150) + "..." : i),
-                    nextSteps = input.AnalysisResult.NextSteps?.Take(5).Select(s => 
+                    nextSteps = input.AnalysisResult.NextSteps?.Take(5).Select(s =>
                         s.Length > 100 ? s.Substring(0, 100) + "..." : s)
                 };
-                
+
                 var analysisJson = JsonSerializer.Serialize(essentialAnalysis, new JsonSerializerOptions { WriteIndented = false });
-                var contextText = !string.IsNullOrEmpty(input.Context) && input.Context.Length > 300 
-                    ? input.Context.Substring(0, 300) + "..." 
+                var contextText = !string.IsNullOrEmpty(input.Context) && input.Context.Length > 300
+                    ? input.Context.Substring(0, 300) + "..."
                     : input.Context ?? "";
-                
+
                 basePrompt = $"""
                     Create action plan from analysis (be concise):
 
@@ -7168,13 +7169,13 @@ Please return the results in JSON format with the following structure:
             }
             else
             {
-                var actionDesc = input.ActionDescription?.Length > 500 
-                    ? input.ActionDescription.Substring(0, 500) + "..." 
+                var actionDesc = input.ActionDescription?.Length > 500
+                    ? input.ActionDescription.Substring(0, 500) + "..."
                     : input.ActionDescription ?? "";
-                var contextText = !string.IsNullOrEmpty(input.Context) && input.Context.Length > 300 
-                    ? input.Context.Substring(0, 300) + "..." 
+                var contextText = !string.IsNullOrEmpty(input.Context) && input.Context.Length > 300
+                    ? input.Context.Substring(0, 300) + "..."
                     : input.Context ?? "";
-                
+
                 basePrompt = $"""
                     Create action plan (be concise):
 
@@ -7250,7 +7251,7 @@ Please return the results in JSON format with the following structure:
                 // Try to parse JSON response
                 var jsonStart = aiResponse.IndexOf('{');
                 var jsonEnd = aiResponse.LastIndexOf('}');
-                
+
                 if (jsonStart >= 0 && jsonEnd > jsonStart)
                 {
                     var jsonContent = aiResponse.Substring(jsonStart, jsonEnd - jsonStart + 1);
@@ -7331,7 +7332,7 @@ Please return the results in JSON format with the following structure:
                 // Try to parse JSON response
                 var jsonStart = aiResponse.IndexOf('{');
                 var jsonEnd = aiResponse.LastIndexOf('}');
-                
+
                 if (jsonStart >= 0 && jsonEnd > jsonStart)
                 {
                     var jsonContent = aiResponse.Substring(jsonStart, jsonEnd - jsonStart + 1);
@@ -7526,7 +7527,7 @@ Please return the results in JSON format with the following structure:
             {
                 // Use shorter timeout for Action operations to improve responsiveness
                 var originalTimeout = _aiOptions.ConnectionTest.TimeoutSeconds;
-                
+
                 // Temporarily reduce timeout for Action operations
                 // DeepSeek: 15 seconds, others: 20 seconds
                 var actionTimeout = provider?.ToLower() switch
@@ -7618,7 +7619,7 @@ Please return the results in JSON format with the following structure:
                 var content = new StringContent(json, Encoding.UTF8, "application/json");
 
                 var baseUrl = config.BaseUrl.TrimEnd('/');
-                string apiUrl = baseUrl.Contains("/chat/completions") ? baseUrl : 
+                string apiUrl = baseUrl.Contains("/chat/completions") ? baseUrl :
                                baseUrl.Contains("/v1") ? $"{baseUrl}/chat/completions" : $"{baseUrl}/v1/chat/completions";
 
                 _logger.LogInformation("DeepSeek Action API Request - Model: {Model}, Timeout: {Timeout}s", config.ModelName, timeoutSeconds);
@@ -8065,7 +8066,7 @@ Please return the results in JSON format with the following structure:
                 };
                 yield break;
             }
-            
+
             // Send final result
             yield return new AIActionStreamResult
             {
@@ -8227,7 +8228,7 @@ Please return the results in JSON format with the following structure:
                 };
                 yield break;
             }
-            
+
             // Send final result
             yield return new AIActionStreamResult
             {
@@ -8364,12 +8365,12 @@ Please return the results in JSON format with the following structure:
                 // Simulate streaming by chunking the response
                 var content = response.Content;
                 var chunkSize = Math.Max(10, content.Length / 20);
-                
+
                 for (int i = 0; i < content.Length; i += chunkSize)
                 {
                     var chunk = content.Substring(i, Math.Min(chunkSize, content.Length - i));
                     yield return chunk;
-                    
+
                     // Small delay to simulate streaming
                     await Task.Delay(50);
                 }
@@ -8402,7 +8403,7 @@ Please return the results in JSON format with the following structure:
             var httpContent = new StringContent(json, Encoding.UTF8, "application/json");
 
             var baseUrl = config.BaseUrl.TrimEnd('/');
-            string apiUrl = baseUrl.Contains("/chat/completions") ? baseUrl : 
+            string apiUrl = baseUrl.Contains("/chat/completions") ? baseUrl :
                            baseUrl.Contains("/v1") ? $"{baseUrl}/chat/completions" : $"{baseUrl}/v1/chat/completions";
 
             _logger.LogInformation("DeepSeek Action Stream API: {Url} - Model: {Model}", apiUrl, config.ModelName);
@@ -8605,12 +8606,12 @@ Please return the results in JSON format with the following structure:
                     MaxDepth = 64,
                     Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
                 };
-                
+
                 var parsedData = JsonSerializer.Deserialize<JsonElement>(jsonData, jsonOptions);
                 if (parsedData.TryGetProperty("choices", out var choices) && choices.GetArrayLength() > 0)
                 {
                     var choice = choices[0];
-                    if (choice.TryGetProperty("delta", out var delta) && 
+                    if (choice.TryGetProperty("delta", out var delta) &&
                         delta.TryGetProperty("content", out var content))
                     {
                         return content.GetString();
@@ -8661,14 +8662,14 @@ Please return the results in JSON format with the following structure:
             AIHttpConfigGenerationInput input, string prompt, string sessionId, DateTime startTime)
         {
             // Log input data for debugging
-            _logger.LogInformation("🔍 Input UserInput length: {Length}, FileContent length: {FileLength}", 
+            _logger.LogInformation("🔍 Input UserInput length: {Length}, FileContent length: {FileLength}",
                 input.UserInput?.Length ?? 0, input.FileContent?.Length ?? 0);
             if (!string.IsNullOrEmpty(input.UserInput))
             {
-                _logger.LogInformation("📋 UserInput preview: {Preview}", 
+                _logger.LogInformation("📋 UserInput preview: {Preview}",
                     input.UserInput.Length > 300 ? input.UserInput.Substring(0, 300) + "..." : input.UserInput);
             }
-            
+
             var streamingContent = new StringBuilder();
             var hasReceivedContent = false;
             Exception? processingException = null;
@@ -8697,7 +8698,7 @@ Please return the results in JSON format with the following structure:
             {
                 var fullContent = streamingContent.ToString();
                 _logger.LogInformation("📋 DeepSeek full response content length: {Length} chars", fullContent.Length);
-                
+
                 // Log a portion of the response for debugging (focus on the end where truncation occurs)
                 if (fullContent.Length > 1000)
                 {
@@ -8730,7 +8731,7 @@ Please return the results in JSON format with the following structure:
                     }
                     else
                     {
-                    resultMessage = "HTTP configuration generated (fallback mode)!";
+                        resultMessage = "HTTP configuration generated (fallback mode)!";
                     }
                 }
 
@@ -8775,10 +8776,10 @@ Please return the results in JSON format with the following structure:
             {
                 // Generate fallback config if no content received
                 var fallbackConfig = GenerateFallbackHttpConfig(input);
-                var message = fallbackConfig == null 
+                var message = fallbackConfig == null
                     ? "Unable to generate HTTP configuration. Please provide more specific API details including URL and method."
                     : "HTTP configuration generated (fallback mode)!";
-                    
+
                 yield return new AIActionStreamResult
                 {
                     Type = "complete",
@@ -8797,22 +8798,22 @@ Please return the results in JSON format with the following structure:
         private string BuildHttpConfigGenerationPrompt(AIHttpConfigGenerationInput input)
         {
             var originalInputLength = input.UserInput?.Length ?? 0;
-            var userInput = input.UserInput?.Length > 10000 
-                ? input.UserInput.Substring(0, 10000) + "..." 
+            var userInput = input.UserInput?.Length > 10000
+                ? input.UserInput.Substring(0, 10000) + "..."
                 : input.UserInput ?? "";
-            
-            _logger.LogInformation("📝 User input length: {OriginalLength}, truncated: {IsTruncated}", 
+
+            _logger.LogInformation("📝 User input length: {OriginalLength}, truncated: {IsTruncated}",
                 originalInputLength, originalInputLength > 10000);
-            
-            var contextText = !string.IsNullOrEmpty(input.Context) && input.Context.Length > 2000 
-                ? input.Context.Substring(0, 2000) + "..." 
+
+            var contextText = !string.IsNullOrEmpty(input.Context) && input.Context.Length > 2000
+                ? input.Context.Substring(0, 2000) + "..."
                 : input.Context ?? "";
 
             var fileContentText = "";
             if (!string.IsNullOrEmpty(input.FileContent))
             {
-                var content = input.FileContent.Length > 2000 
-                    ? input.FileContent.Substring(0, 2000) + "..." 
+                var content = input.FileContent.Length > 2000
+                    ? input.FileContent.Substring(0, 2000) + "..."
                     : input.FileContent;
                 fileContentText = $"\n\nFILE CONTENT ({input.FileName ?? "uploaded file"}):\n{content}";
             }
@@ -8915,7 +8916,7 @@ Return ONLY the JSON object, no additional text or formatting.";
                 };
 
                 var jsonResponse = JsonSerializer.Deserialize<JsonElement>(aiResponse, jsonOptions);
-                
+
                 if (jsonResponse.TryGetProperty("actionPlan", out var actionPlan))
                 {
                     return actionPlan;
@@ -9008,8 +9009,9 @@ Return ONLY the JSON object, no additional text or formatting.";
 
             return new
             {
-                actionPlan = new {
-                actions = new[] {
+                actionPlan = new
+                {
+                    actions = new[] {
                     new {
                         httpConfig = new {
                             method = method,

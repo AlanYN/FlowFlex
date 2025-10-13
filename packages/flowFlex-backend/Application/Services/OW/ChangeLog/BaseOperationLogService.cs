@@ -136,7 +136,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                 {
                     // Use default user context initialization
                     operationLog.InitCreateInfo(_userContext);
-                    
+
                     // Ensure correct operator information is preserved after InitCreateInfo
                     // because InitCreateInfo might override with default values
                     operationLog.CreateBy = GetOperatorDisplayName();

@@ -14,5 +14,18 @@
     "./packages/flowFlex-common"
   ],
   "prettier.useEditorConfig": true,
-  "volar.takeOverMode.enabled": true
+  "volar.takeOverMode.enabled": true,
+  // Markdown and Mermaid settings
+  "[markdown]": {
+    "editor.wordWrap": "on",
+    "editor.quickSuggestions": {
+      "comments": "on",
+      "strings": "on",
+      "other": "on"
+    }
+  },
+  "markdown.preview.breaks": true,
+  "markdown.preview.fontSize": 14,
+  "markdown.preview.lineHeight": 1.6,
+  "markdown.mermaid.themes": ["default", "forest", "dark", "neutral"]
 }

@@ -187,7 +187,7 @@ namespace FlowFlex.SqlSugarDB.Migrations
                 {
                     errorCount++;
                     Console.WriteLine($"Error migrating stage {row["id"]}: {ex.Message}");
-                    
+
                     // Set problematic records to NULL to prevent index issues
                     try
                     {

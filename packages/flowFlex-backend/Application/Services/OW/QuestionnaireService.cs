@@ -1864,7 +1864,7 @@ namespace FlowFlex.Application.Service.OW
                 // Find removed action mappings (exist in original but not in current)
                 var removedMappings = originalActionMappings
                     .Where(original => !currentActionMappings
-                        .Any(current => current.TriggerSourceId == original.TriggerSourceId && 
+                        .Any(current => current.TriggerSourceId == original.TriggerSourceId &&
                                       current.ActionDefinitionId == original.ActionDefinitionId))
                     .ToList();
 
@@ -2056,9 +2056,9 @@ namespace FlowFlex.Application.Service.OW
 
                     // Get existing mappings for this trigger source
                     var existingMappings = await _actionManagementService.GetActionTriggerMappingsByTriggerSourceIdAsync(mapping.TriggerSourceId);
-                    
+
                     // Find the specific mapping to delete
-                    var mappingToDelete = existingMappings.FirstOrDefault(m => 
+                    var mappingToDelete = existingMappings.FirstOrDefault(m =>
                         m.ActionDefinitionId == mapping.ActionDefinitionId &&
                         m.TriggerType == mapping.TriggerType &&
                         m.TriggerSourceId == mapping.TriggerSourceId);

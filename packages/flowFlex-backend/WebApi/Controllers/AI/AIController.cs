@@ -212,7 +212,7 @@ namespace FlowFlex.WebApi.Controllers.AI
                 }
                 else
                 {
-                    _logger.LogWarning("Action analysis failed for SessionId: {SessionId}, Message: {Message}", 
+                    _logger.LogWarning("Action analysis failed for SessionId: {SessionId}, Message: {Message}",
                         input.SessionId, result.Message);
                     return BadRequest(result.Message);
                 }
@@ -292,7 +292,7 @@ namespace FlowFlex.WebApi.Controllers.AI
 
                 if (!analysisResult.Success)
                 {
-                    _logger.LogWarning("Action analysis failed for SessionId: {SessionId}, Message: {Message}", 
+                    _logger.LogWarning("Action analysis failed for SessionId: {SessionId}, Message: {Message}",
                         input.SessionId, analysisResult.Message);
                     return BadRequest($"Analysis failed: {analysisResult.Message}");
                 }
@@ -318,7 +318,7 @@ namespace FlowFlex.WebApi.Controllers.AI
                 }
                 else
                 {
-                    _logger.LogWarning("Action creation failed for SessionId: {SessionId}, Message: {Message}", 
+                    _logger.LogWarning("Action creation failed for SessionId: {SessionId}, Message: {Message}",
                         input.SessionId, creationResult.Message);
                     return BadRequest($"Creation failed: {creationResult.Message}");
                 }
@@ -343,7 +343,7 @@ namespace FlowFlex.WebApi.Controllers.AI
             try
             {
                 _logger.LogInformation("Starting optimized HTTP config generation, SessionId: {SessionId}", input.SessionId);
-                
+
                 Response.Headers.Append("Content-Type", "text/event-stream");
                 Response.Headers.Append("Cache-Control", "no-cache");
                 Response.Headers.Append("Connection", "keep-alive");
@@ -358,7 +358,7 @@ namespace FlowFlex.WebApi.Controllers.AI
                         MaxDepth = 64,
                         Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
                     });
-                    
+
                     await Response.WriteAsync($"data: {json}\n\n");
                     await Response.Body.FlushAsync();
 
@@ -370,13 +370,13 @@ namespace FlowFlex.WebApi.Controllers.AI
 
                 await Response.WriteAsync("data: [DONE]\n\n");
                 await Response.Body.FlushAsync();
-                
+
                 _logger.LogInformation("Optimized HTTP config generation completed, SessionId: {SessionId}", input.SessionId);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error in optimized HTTP config generation, SessionId: {SessionId}", input.SessionId);
-                
+
                 var errorResult = new AIActionStreamResult
                 {
                     Type = "error",
@@ -385,14 +385,14 @@ namespace FlowFlex.WebApi.Controllers.AI
                     SessionId = input.SessionId ?? Guid.NewGuid().ToString(),
                     Progress = 100
                 };
-                
+
                 var errorJson = JsonSerializer.Serialize(errorResult, new JsonSerializerOptions
                 {
                     PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
                     MaxDepth = 64,
                     Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
                 });
-                
+
                 await Response.WriteAsync($"data: {errorJson}\n\n");
                 await Response.Body.FlushAsync();
             }

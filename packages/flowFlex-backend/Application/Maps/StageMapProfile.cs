@@ -227,7 +227,7 @@ namespace FlowFlex.Application.Maps
                     return null;
 
                 var jsonResult = JsonSerializer.Serialize(validAssignees, _jsonOptions);
-                
+
                 // Verify the result is valid JSON array format
                 if (!jsonResult.TrimStart().StartsWith("[") || !jsonResult.TrimEnd().EndsWith("]"))
                 {

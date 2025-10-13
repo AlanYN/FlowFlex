@@ -101,8 +101,8 @@ namespace FlowFlex.Application.Services.Action.Executors
                 if (!stageId.HasValue)
                 {
                     // Try different case variations and prioritize user-specified StageId over CurrentStageId
-                    stageId = contextJson["StageId"]?.ToObject<long>() ?? 
-                              contextJson["stageId"]?.ToObject<long>() ?? 
+                    stageId = contextJson["StageId"]?.ToObject<long>() ??
+                              contextJson["stageId"]?.ToObject<long>() ??
                               contextJson["CompletedStageId"]?.ToObject<long>() ??
                               contextJson["CurrentStageId"]?.ToObject<long>();
                 }
@@ -122,10 +122,10 @@ namespace FlowFlex.Application.Services.Action.Executors
             {
                 _logger.LogInformation("Onboarding is already completed, skipping CompleteStage action: OnboardingId={OnboardingId}, Status={Status}",
                     onboardingId.Value, onboarding.Status);
-                
+
                 // Check and fix any data inconsistency for the specific stage
                 await CheckAndFixStageCompletionInconsistencyAsync(onboardingId.Value, stageId.Value);
-                
+
                 return new { Success = false, Message = "Onboarding is already completed", AlreadyCompleted = true };
             }
 
@@ -183,11 +183,11 @@ namespace FlowFlex.Application.Services.Action.Executors
                 if (stageId <= 0 || onboardingId <= 0) return;
 
                 var updatedOnboardingDto = await _onboardingService.GetByIdAsync(onboardingId);
-                
+
                 if (updatedOnboardingDto?.StagesProgress != null)
                 {
                     var stageProgress = updatedOnboardingDto.StagesProgress.FirstOrDefault(sp => sp.StageId == stageId);
-                    if (stageProgress != null && !stageProgress.IsCompleted && 
+                    if (stageProgress != null && !stageProgress.IsCompleted &&
                         string.Equals(updatedOnboardingDto.Status, "Completed", StringComparison.OrdinalIgnoreCase))
                     {
                         _logger.LogWarning("发现数据不一致: Onboarding 已完成但 Stage 标记为未完成, 正在修复: OnboardingId={OnboardingId}, StageId={StageId}, StageIsCompleted={StageIsCompleted}",
@@ -198,7 +198,7 @@ namespace FlowFlex.Application.Services.Action.Executors
                         stageProgress.Status = "Completed";
                         stageProgress.CompletionTime = stageProgress.CompletionTime ?? DateTimeOffset.UtcNow;
                         stageProgress.CompletedBy = stageProgress.CompletedBy ?? _userContext?.UserName ?? "System";
-                        
+
                         // Handle UserId type conversion - UserId is string, CompletedById expects long?
                         if (!stageProgress.CompletedById.HasValue)
                         {

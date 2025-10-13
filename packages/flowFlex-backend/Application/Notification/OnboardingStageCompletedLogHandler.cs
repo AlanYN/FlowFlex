@@ -329,13 +329,13 @@ namespace FlowFlex.Application.Notification
                 }
 
                 _logger.LogDebug("找到 {Count} 个 questionnaire answers 用于处理", allQuestionnaireAnswers.Count);
-                
+
                 // 输出所有答案的概要信息用于调试
                 for (int i = 0; i < allQuestionnaireAnswers.Count; i++)
                 {
                     var answer = allQuestionnaireAnswers[i];
-                    _logger.LogDebug("Answer {Index}: ID={AnswerId}, 长度={Length}, 前100字符={Preview}", 
-                        i + 1, answer.Id, answer.AnswerJson?.Length ?? 0, 
+                    _logger.LogDebug("Answer {Index}: ID={AnswerId}, 长度={Length}, 前100字符={Preview}",
+                        i + 1, answer.Id, answer.AnswerJson?.Length ?? 0,
                         answer.AnswerJson?.Length > 100 ? answer.AnswerJson.Substring(0, 100) + "..." : answer.AnswerJson);
                 }
 
@@ -393,7 +393,7 @@ namespace FlowFlex.Application.Notification
                                     // 在所有相关答案中检查 question 是否已回答
                                     bool isAnswered = false;
                                     string matchedAnswerJson = null;
-                                    
+
                                     foreach (var answer in relevantAnswers)
                                     {
                                         if (CheckIfQuestionIsAnswered(answer.AnswerJson, question.Id))
@@ -412,15 +412,15 @@ namespace FlowFlex.Application.Notification
                                             // 输出调试信息，显示在所有答案中都未找到
                                             var debugInfos = relevantAnswers.Select(a => ExtractAnswerAndResponseText(a.AnswerJson, question.Id)).ToList();
                                             _logger.LogDebug("Question {QuestionId} ({QuestionTitle}) 在所有 {AnswerCount} 个答案中都尚未回答，跳过处理。调试信息: {DebugInfos}",
-                                                question.Id, question.Title ?? question.Question, relevantAnswers.Count, 
+                                                question.Id, question.Title ?? question.Question, relevantAnswers.Count,
                                                 string.Join(" | ", debugInfos.Select(d => $"answer={d.Answer},responseText={d.ResponseText}")));
-                                            
+
                                             // 额外输出：显示每个答案中实际包含的所有 questionId
                                             for (int i = 0; i < relevantAnswers.Count; i++)
                                             {
                                                 var answerJson = relevantAnswers[i].AnswerJson;
                                                 var actualQuestionIds = ExtractAllQuestionIds(answerJson);
-                                                _logger.LogDebug("Answer {Index} 包含的 questionIds: [{QuestionIds}]", 
+                                                _logger.LogDebug("Answer {Index} 包含的 questionIds: [{QuestionIds}]",
                                                     i + 1, string.Join(", ", actualQuestionIds));
                                             }
                                             continue;
@@ -950,7 +950,7 @@ namespace FlowFlex.Application.Notification
         private List<string> ExtractAllQuestionIds(string answerJson)
         {
             var questionIds = new List<string>();
-            
+
             try
             {
                 if (string.IsNullOrWhiteSpace(answerJson))
@@ -1033,30 +1033,30 @@ namespace FlowFlex.Application.Notification
                 if (answersRoot.TryGetProperty("responses", out var responsesElement) && responsesElement.ValueKind == JsonValueKind.Array)
                 {
                     _logger.LogDebug("ExtractAnswerAndResponseText: 找到responses数组，包含{Count}个元素", responsesElement.GetArrayLength());
-                    
+
                     // 收集所有的 questionId 用于调试
                     var allQuestionIds = new List<string>();
-                    
+
                     foreach (var responseElement in responsesElement.EnumerateArray())
                     {
                         if (responseElement.TryGetProperty("questionId", out var qIdElement))
                         {
                             var responseQuestionId = qIdElement.ValueKind == JsonValueKind.String ? qIdElement.GetString() : qIdElement.ToString();
                             allQuestionIds.Add(responseQuestionId);
-                            
+
                             if (responseQuestionId == questionId)
                             {
-                                var answer = responseElement.TryGetProperty("answer", out var answerElement) 
+                                var answer = responseElement.TryGetProperty("answer", out var answerElement)
                                     ? answerElement.ToString() : "not_found";
-                                var responseText = responseElement.TryGetProperty("responseText", out var responseTextElement) 
+                                var responseText = responseElement.TryGetProperty("responseText", out var responseTextElement)
                                     ? responseTextElement.ToString() : "not_found";
                                 _logger.LogDebug("ExtractAnswerAndResponseText: 在responses数组中找到匹配，answer={Answer}, responseText={ResponseText}", answer, responseText);
                                 return (answer, responseText);
                             }
                         }
                     }
-                    
-                    _logger.LogDebug("ExtractAnswerAndResponseText: 在responses数组中未找到匹配的questionId。目标={TargetQuestionId}, 数组中的所有questionId=[{AllQuestionIds}]", 
+
+                    _logger.LogDebug("ExtractAnswerAndResponseText: 在responses数组中未找到匹配的questionId。目标={TargetQuestionId}, 数组中的所有questionId=[{AllQuestionIds}]",
                         questionId, string.Join(", ", allQuestionIds));
                 }
                 else

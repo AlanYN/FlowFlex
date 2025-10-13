@@ -1189,7 +1189,7 @@ namespace FlowFlex.Application.Services.OW
 
             _logger.LogInformation("=== GetUserTreeAsync Started (using Teams API) ===");
             _logger.LogInformation("Current context - TenantId: {TenantId}, AppCode: {AppCode}", currentTenantId, currentAppCode);
-            
+
             // Log HTTP context details
             var httpContext = _httpContextAccessor?.HttpContext;
             if (httpContext != null)
@@ -1238,7 +1238,7 @@ namespace FlowFlex.Application.Services.OW
                             _logger.LogDebug("Failed to enumerate services: {Exception}", ex.Message);
                         }
                     }
-                    
+
                     throw new CRMException(HttpStatusCode.InternalServerError,
                         "IDM service is not available. Please try again later.");
                 }
@@ -1247,20 +1247,20 @@ namespace FlowFlex.Application.Services.OW
 
                 // Get teams and team users from IDM
                 _logger.LogInformation("Calling IDM APIs to fetch teams and team users data");
-                
+
                 var startTime = DateTimeOffset.UtcNow;
                 var teamsTask = idmUserDataClient.GetAllTeamsAsync(currentTenantId, 10000, 1);
                 var teamUsersTask = idmUserDataClient.GetAllTeamUsersAsync(currentTenantId, 10000, 1);
-                
+
                 // Execute both calls in parallel
                 await Task.WhenAll(teamsTask, teamUsersTask);
-                
+
                 var teamsResponse = await teamsTask;
                 var teamUsersResponse = await teamUsersTask; // Now returns List<IdmTeamUserDto> directly
                 var elapsed = DateTimeOffset.UtcNow - startTime;
-                
+
                 _logger.LogInformation("IDM APIs call completed in {ElapsedMs}ms", elapsed.TotalMilliseconds);
-                
+
                 // Validate teams data
                 if (teamsResponse?.Data == null)
                 {
@@ -1270,8 +1270,8 @@ namespace FlowFlex.Application.Services.OW
 
                 var idmTeams = teamsResponse.Data;
                 var idmTeamUsers = teamUsersResponse ?? new List<IdmTeamUserDto>();
-                
-                _logger.LogInformation("Retrieved {TeamCount} teams and {TeamUserCount} team user relationships from IDM", 
+
+                _logger.LogInformation("Retrieved {TeamCount} teams and {TeamUserCount} team user relationships from IDM",
                     idmTeams.Count, idmTeamUsers.Count);
 
                 _logger.LogInformation("Processing teams and users into tree structure");
@@ -1300,7 +1300,7 @@ namespace FlowFlex.Application.Services.OW
                     if (teamUserLookup.ContainsKey(team.Id))
                     {
                         var teamUsers = teamUserLookup[team.Id];
-                        
+
                         foreach (var teamUser in teamUsers)
                         {
                             var userNode = new UserTreeNodeDto
@@ -1321,7 +1321,7 @@ namespace FlowFlex.Application.Services.OW
 
                     teamNode.MemberCount = teamNode.Children.Count;
                     treeNodes.Add(teamNode);
-                    
+
                     _logger.LogDebug("Team '{TeamName}' processed with {MemberCount} members", team.TeamName, teamNode.MemberCount);
                 }
 
@@ -1330,7 +1330,7 @@ namespace FlowFlex.Application.Services.OW
                 if (unassignedUsers.Any())
                 {
                     _logger.LogInformation("Found {UnassignedCount} users without team assignments", unassignedUsers.Count);
-                    
+
                     var otherNode = new UserTreeNodeDto
                     {
                         Id = "other-team",
@@ -1371,7 +1371,7 @@ namespace FlowFlex.Application.Services.OW
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error occurred while getting user tree structure from IDM Teams API");
-                
+
                 // Fallback to local database users if IDM fails
                 _logger.LogInformation("Falling back to local database users due to IDM error");
                 return await GetUserTreeFromLocalDatabaseAsync();

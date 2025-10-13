@@ -187,7 +187,7 @@ namespace FlowFlex.Application.Services.Action
             catch (Exception ex) when (ex.Message.Contains("Unicode") || ex.Message.Contains("escape"))
             {
                 _logger.LogWarning(ex, "Failed to create JToken directly, attempting safe conversion");
-                
+
                 try
                 {
                     // Second attempt: serialize to JSON string first, then sanitize
@@ -198,7 +198,7 @@ namespace FlowFlex.Application.Services.Action
                 catch (Exception innerEx)
                 {
                     _logger.LogError(innerEx, "Failed to create JToken with sanitization, creating error object");
-                    
+
                     // Fallback: create a safe error object
                     return JObject.FromObject(new
                     {
@@ -212,7 +212,7 @@ namespace FlowFlex.Application.Services.Action
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Unexpected error creating JToken, creating error object");
-                
+
                 return JObject.FromObject(new
                 {
                     success = false,
@@ -235,22 +235,22 @@ namespace FlowFlex.Application.Services.Action
             {
                 // Replace problematic Unicode escape sequences that might cause PostgreSQL issues
                 var sanitized = jsonString;
-                
+
                 // Remove or replace null characters and other control characters that cause issues
                 sanitized = System.Text.RegularExpressions.Regex.Replace(
-                    sanitized, 
-                    @"\\u000[0-8]|\\u000[bB]|\\u000[eE-fF]|\\u001[0-9a-fA-F]", 
+                    sanitized,
+                    @"\\u000[0-8]|\\u000[bB]|\\u000[eE-fF]|\\u001[0-9a-fA-F]",
                     "");
-                
+
                 // Ensure the result is still valid JSON
                 JToken.Parse(sanitized); // This will throw if invalid
-                
+
                 return sanitized;
             }
             catch (Exception ex)
             {
                 _logger.LogWarning(ex, "Failed to sanitize JSON string, returning safe placeholder");
-                
+
                 // Return a safe JSON object if sanitization fails
                 return JsonConvert.SerializeObject(new
                 {

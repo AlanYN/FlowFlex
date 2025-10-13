@@ -59,7 +59,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
 
                 // Build operation description and check if there are meaningful changes
                 var operationDescription = await BuildAnswerOperationDescriptionAsync(operationAction, questionnaireId, beforeData, afterData);
-                
+
                 // If no meaningful changes detected, skip logging
                 if (string.IsNullOrEmpty(operationDescription))
                 {

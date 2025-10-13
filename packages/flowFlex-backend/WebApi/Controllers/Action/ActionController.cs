@@ -138,7 +138,7 @@ namespace FlowFlex.WebApi.Controllers.Action
         public async Task<IActionResult> UpdateActionDefinition(long id, [FromBody] JObject requestData)
         {
             _logger.LogInformation("Received PUT request for action definition ID: {ActionId} with data: {Data}", id, requestData);
-            
+
             try
             {
                 // Extract basic DTO fields
@@ -153,12 +153,12 @@ namespace FlowFlex.WebApi.Controllers.Action
                 };
 
                 var result = await _actionManagementService.UpdateActionDefinitionAsync(id, dto);
-                
+
                 // Handle triggerMappings for System Actions
                 if (dto.ActionType == ActionTypeEnum.System && requestData["triggerMappings"] != null)
                 {
                     _logger.LogInformation("Processing triggerMappings update for System Action {ActionId}", id);
-                    
+
                     var triggerMappings = requestData["triggerMappings"]?.ToObject<List<JObject>>();
                     if (triggerMappings != null && triggerMappings.Any())
                     {
@@ -168,9 +168,9 @@ namespace FlowFlex.WebApi.Controllers.Action
                         {
                             var mappingId = mapping["id"]?.ToString();
                             var isEnabled = mapping["isEnabled"]?.ToObject<bool>() ?? true;
-                            
+
                             _logger.LogInformation("TriggerMapping {MappingId} - IsEnabled: {IsEnabled}", mappingId, isEnabled);
-                            
+
                             // Update mapping status if needed
                             if (long.TryParse(mappingId, out var mappingIdLong))
                             {
@@ -179,7 +179,7 @@ namespace FlowFlex.WebApi.Controllers.Action
                         }
                     }
                 }
-                
+
                 _logger.LogInformation("Successfully updated action definition with ID: {ActionId}", id);
                 return Success(result);
             }
@@ -603,14 +603,14 @@ namespace FlowFlex.WebApi.Controllers.Action
                 ["CompleteStage"] = new SystemActionTemplateDto
                 {
                     ActionName = "CompleteStage",
-                     Template = @"{
+                    Template = @"{
    ""actionName"": ""CompleteStage"",
    ""stageId"": null,
    ""onboardingId"": null,
    ""completionNotes"": ""Completed by system action"",
    ""autoMoveToNext"": true
  }",
-                     Parameters = new List<SystemActionParameterDto>
+                    Parameters = new List<SystemActionParameterDto>
                      {
                          new SystemActionParameterDto { Name = "stageId", Type = "number", Required = false, Description = "Stage ID to complete (can be extracted from trigger context)" },
                          new SystemActionParameterDto { Name = "onboardingId", Type = "number", Required = false, Description = "Onboarding ID (can be extracted from trigger context)" },

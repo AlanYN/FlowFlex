@@ -164,6 +164,12 @@ namespace FlowFlex.Application.Services.OW
                     existingAnswer = await _repository.GetByOnboardingAndStageAsync(input.OnboardingId, input.StageId);
                 }
 
+                // Check if existing answer can be edited
+                if (existingAnswer != null && !CanEditAnswer(existingAnswer))
+                {
+                    throw new InvalidOperationException($"Cannot edit questionnaire answer. Current status is '{existingAnswer.Status}'. Only 'Draft' status answers can be edited.");
+                }
+
                 bool isUpdate = existingAnswer != null;
                 string oldAnswerJson = existingAnswer?.Answer?.ToString(Newtonsoft.Json.Formatting.None);
 
@@ -361,6 +367,12 @@ namespace FlowFlex.Application.Services.OW
             {
                 var existing = await _repository.GetByIdAsync(answerId);
                 if (existing == null) return false;
+
+                // Check if answer can be edited
+                if (!CanEditAnswer(existing))
+                {
+                    throw new InvalidOperationException($"Cannot edit questionnaire answer. Current status is '{existing.Status}'. Only 'Draft' status answers can be edited.");
+                }
 
                 var oldAnswerJson = existing.Answer?.ToString(Newtonsoft.Json.Formatting.None);
                 var newAnswerJson = input.AnswerJson;
@@ -981,6 +993,23 @@ namespace FlowFlex.Application.Services.OW
             {
                 // Debug logging handled by structured logging
             }
+        }
+
+        /// <summary>
+        /// Check if questionnaire answer can be edited
+        /// </summary>
+        /// <param name="answer">Questionnaire answer entity</param>
+        /// <returns>True if can be edited, false otherwise</returns>
+        private bool CanEditAnswer(QuestionnaireAnswer answer)
+        {
+            if (answer == null)
+            {
+                return true; // New answer can be created
+            }
+
+            // Only Draft status answers can be edited
+            // Submitted, Approved, Rejected answers cannot be edited
+            return string.Equals(answer.Status, "Draft", StringComparison.OrdinalIgnoreCase);
         }
     }
 }

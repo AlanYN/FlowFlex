@@ -1916,7 +1916,7 @@ namespace FlowFlex.Application.Services.OW
 
             // Update the entity using safe method - NO EVENT PUBLISHING
             var result = await SafeUpdateOnboardingAsync(entity);
-            
+
             return result;
         }
 
@@ -2358,10 +2358,10 @@ namespace FlowFlex.Application.Services.OW
                 var cancellationNote = $"Cancelled: {reason}";
                 // For cancellation, we want to prepend the note, so we'll handle this specially
                 var currentNotes = entity.Notes ?? string.Empty;
-                var newContent = string.IsNullOrEmpty(currentNotes) 
-                    ? cancellationNote 
+                var newContent = string.IsNullOrEmpty(currentNotes)
+                    ? cancellationNote
                     : $"{cancellationNote}. {currentNotes}";
-                
+
                 // Ensure we don't exceed the length limit
                 if (newContent.Length > 1000)
                 {
@@ -3927,7 +3927,7 @@ namespace FlowFlex.Application.Services.OW
         {
             if (!dateTime.HasValue)
                 return "";
-            
+
             // Format as MM/dd/yyyy HH:mm to include time precision to minutes
             return dateTime.Value.ToString("MM/dd/yyyy HH:mm");
         }
@@ -4765,7 +4765,7 @@ namespace FlowFlex.Application.Services.OW
                         // Populate fields from Stage entity
                         stageProgress.StageName = stage.Name;
                         stageProgress.StageDescription = stage.Description;
-                        
+
                         // IMPORTANT: Only update EstimatedDays if CustomEstimatedDays is not set
                         // This preserves the custom values set by users and maintains the correct priority:
                         // CustomEstimatedDays > EstimatedDays (from Stage)
@@ -4775,7 +4775,7 @@ namespace FlowFlex.Application.Services.OW
                         }
                         // If CustomEstimatedDays exists, EstimatedDays should show the custom value
                         // (This will be handled by AutoMapper: EstimatedDays = CustomEstimatedDays ?? EstimatedDays)
-                        
+
                         stageProgress.VisibleInPortal = stage.VisibleInPortal;
                         stageProgress.PortalPermission = stage.PortalPermission;
                         stageProgress.AttachmentManagementNeeded = stage.AttachmentManagementNeeded;
@@ -4977,13 +4977,13 @@ namespace FlowFlex.Application.Services.OW
         private static void SafeAppendToNotes(Onboarding entity, string noteText)
         {
             const int maxNotesLength = 1000;
-            
+
             if (string.IsNullOrEmpty(noteText))
                 return;
 
             var currentNotes = entity.Notes ?? string.Empty;
-            var newContent = string.IsNullOrEmpty(currentNotes) 
-                ? noteText 
+            var newContent = string.IsNullOrEmpty(currentNotes)
+                ? noteText
                 : $"{currentNotes}\n{noteText}";
 
             // If the new content exceeds the limit, truncate it intelligently
@@ -4992,7 +4992,7 @@ namespace FlowFlex.Application.Services.OW
                 // Try to keep the most recent notes by truncating from the beginning
                 var truncationMessage = "[...truncated older notes...]\n";
                 var availableSpace = maxNotesLength - truncationMessage.Length - noteText.Length - 1; // -1 for newline
-                
+
                 if (availableSpace > 0 && currentNotes.Length > availableSpace)
                 {
                     // Keep the most recent part of existing notes
@@ -5549,7 +5549,7 @@ namespace FlowFlex.Application.Services.OW
                     var currentTime = DateTimeOffset.UtcNow;
                     var currentUser = GetCurrentUserName();
                     var updateNote = $"[Custom fields updated {currentTime:yyyy-MM-dd HH:mm:ss} by {currentUser}] {input.Notes}";
-                    
+
                     if (string.IsNullOrEmpty(stageProgress.Notes))
                     {
                         stageProgress.Notes = updateNote;
@@ -5584,25 +5584,25 @@ namespace FlowFlex.Application.Services.OW
                 {
                     var changedFields = new List<string>();
                     var changeDetails = new List<string>();
-                    
+
                     // Check for actual changes in CustomEstimatedDays
-                    if (input.CustomEstimatedDays.HasValue && originalEstimatedDays != input.CustomEstimatedDays) 
+                    if (input.CustomEstimatedDays.HasValue && originalEstimatedDays != input.CustomEstimatedDays)
                     {
                         changedFields.Add("CustomEstimatedDays");
                         var beforeValue = originalEstimatedDays?.ToString() ?? "null";
                         changeDetails.Add($"EstimatedDays: {beforeValue} → {input.CustomEstimatedDays}");
                     }
-                    
+
                     // Check for actual changes in CustomEndTime
-                    if (input.CustomEndTime.HasValue && originalEndTime != input.CustomEndTime) 
+                    if (input.CustomEndTime.HasValue && originalEndTime != input.CustomEndTime)
                     {
                         changedFields.Add("CustomEndTime");
                         var beforeValue = originalEndTime?.ToString("yyyy-MM-dd HH:mm") ?? "null";
                         changeDetails.Add($"EndTime: {beforeValue} → {input.CustomEndTime?.ToString("yyyy-MM-dd HH:mm")}");
                     }
-                    
+
                     // Check if notes were added
-                    if (!string.IsNullOrEmpty(input.Notes)) 
+                    if (!string.IsNullOrEmpty(input.Notes))
                     {
                         changedFields.Add("Notes");
                         changeDetails.Add("Notes: Added");
@@ -5626,7 +5626,8 @@ namespace FlowFlex.Application.Services.OW
                             beforeData: beforeData,
                             afterData: afterData,
                             changedFields: changedFields,
-                            extendedData: JsonSerializer.Serialize(new { 
+                            extendedData: JsonSerializer.Serialize(new
+                            {
                                 Notes = input.Notes,
                                 OperationSource = "UpdateStageCustomFieldsAsync",
                                 HasActualChanges = true
@@ -6095,7 +6096,7 @@ namespace FlowFlex.Application.Services.OW
                             StagesProgressJson = preserveStagesProgressJson,
                             Id = entity.Id
                         });
-                        
+
                         LoggingExtensions.WriteLine($"[ForceComplete] Preserved original stages_progress_json for onboarding {entity.Id}");
                     }
                     catch (Exception progressEx)
@@ -6108,7 +6109,7 @@ namespace FlowFlex.Application.Services.OW
                             var escapedJson = preserveStagesProgressJson.Replace("'", "''");
                             var directSql = $"UPDATE ff_onboarding SET stages_progress_json = '{escapedJson}'::jsonb WHERE id = {entity.Id}";
                             await db.Ado.ExecuteCommandAsync(directSql);
-                            
+
                             LoggingExtensions.WriteLine($"[ForceComplete] Preserved original stages_progress_json for onboarding {entity.Id} using direct SQL");
                         }
                         catch (Exception directEx)

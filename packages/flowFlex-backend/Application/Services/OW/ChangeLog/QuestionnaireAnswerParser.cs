@@ -87,7 +87,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                                 // Skip file upload questions to reduce log noise
                                 continue;
                             }
-                            
+
                             var formattedAnswer = FormatAnswerWithConfig(afterResp, questionnaireConfig);
                             changesList.Add($"{questionTitle}: {formattedAnswer}");
                             // Debug: Added new answer
@@ -100,7 +100,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                                 // Skip file upload questions to reduce log noise
                                 continue;
                             }
-                            
+
                             var beforeAnswer = FormatAnswerWithConfig(beforeResp, questionnaireConfig);
                             var afterAnswer = FormatAnswerWithConfig(afterResp, questionnaireConfig);
                             changesList.Add($"{questionTitle}: {beforeAnswer} → {afterAnswer}");
@@ -715,7 +715,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                 }
 
                 var answerStr = answer.ToString();
-                
+
                 // Handle common array type string representation
                 if (answerStr == "System.String[]" || answerStr == "System.Object[]")
                 {
@@ -1146,11 +1146,11 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
             try
             {
                 var answerStr = answer.ToString();
-                
+
                 // Check for common file upload indicators
                 if (answerStr.Contains("\"name\"") && answerStr.Contains("\"size\""))
                     return true;
-                
+
                 if (answerStr.Contains("\"fileName\""))
                     return true;
 
@@ -1311,17 +1311,17 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                 if (fileObjStr.StartsWith("{"))
                 {
                     var jsonElement = JsonSerializer.Deserialize<JsonElement>(fileObjStr);
-                    
+
                     var name = "";
                     var size = 0L;
                     var uid = "";
 
                     if (jsonElement.TryGetProperty("name", out JsonElement nameElement))
                         name = nameElement.GetString() ?? "";
-                    
+
                     if (jsonElement.TryGetProperty("size", out JsonElement sizeElement))
                         size = sizeElement.GetInt64();
-                    
+
                     if (jsonElement.TryGetProperty("uid", out JsonElement uidElement))
                         uid = uidElement.GetString() ?? "";
 

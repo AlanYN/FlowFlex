@@ -80,12 +80,45 @@ namespace FlowFlex.WebApi.Controllers.OW
         }
 
         /// <summary>
-        /// Get workflow list
+        /// Get workflow list with pagination support
         /// </summary>
+        /// <param name="pageIndex">Page index (starting from 1, default: 1)</param>
+        /// <param name="pageSize">Page size (default: 15)</param>
+        /// <param name="sortField">Sort field (default: CreateDate)</param>
+        /// <param name="sortDirection">Sort direction (asc/desc, default: desc)</param>
+        /// <param name="name">Filter by name</param>
+        /// <param name="isActive">Filter by active status</param>
+        /// <param name="isDefault">Filter by default status</param>
+        /// <returns>Paged list of workflows or simple list when no pagination params provided</returns>
         [HttpGet]
-        [ProducesResponseType<SuccessResponse<List<WorkflowOutputDto>>>((int)HttpStatusCode.OK)]
-        public async Task<IActionResult> GetList()
+        [ProducesResponseType<SuccessResponse<object>>((int)HttpStatusCode.OK)]
+        public async Task<IActionResult> GetList(
+            [FromQuery] int? pageIndex = null,
+            [FromQuery] int? pageSize = null,
+            [FromQuery] string sortField = null,
+            [FromQuery] string sortDirection = null,
+            [FromQuery] string name = null,
+            [FromQuery] bool? isActive = null,
+            [FromQuery] bool? isDefault = null)
         {
+            // If pagination parameters are provided, use paged query
+            if (pageIndex.HasValue || pageSize.HasValue)
+            {
+                var query = new WorkflowQueryRequest
+                {
+                    PageIndex = pageIndex ?? 1,
+                    PageSize = pageSize ?? 15,
+                    SortField = sortField ?? "CreateDate",
+                    SortDirection = sortDirection ?? "desc",
+                    Name = name,
+                    IsActive = isActive,
+                    IsDefault = isDefault
+                };
+                var pagedData = await _workflowService.QueryAsync(query);
+                return Success(pagedData);
+            }
+
+            // Otherwise, use original simple list
             var data = await _workflowService.GetListAsync();
             return Success(data);
         }

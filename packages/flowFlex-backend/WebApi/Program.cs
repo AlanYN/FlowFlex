@@ -538,7 +538,7 @@ try
 catch (Exception ex)
 {
     app.Logger.LogError(ex, "Database initialization failed");
-    
+
     if (!app.Environment.IsDevelopment())
     {
         throw;

@@ -110,8 +110,8 @@ public class ChecklistTaskCompletionRepository : BaseRepository<ChecklistTaskCom
     public async Task<List<(bool success, bool statusChanged)>> BatchSaveTaskCompletionsAsync(List<ChecklistTaskCompletion> completions)
     {
         var results = new List<(bool success, bool statusChanged)>();
-        
-        if (!completions.Any()) 
+
+        if (!completions.Any())
             return results;
 
         try

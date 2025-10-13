@@ -279,9 +279,10 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
             entity.ModifyDate = DateTimeOffset.UtcNow;
 
             // Use selective update to avoid JSONB type conflicts
-            return await UpdateAsync(entity, it => new { 
-                it.CurrentStageId, 
-                it.CurrentStageOrder, 
+            return await UpdateAsync(entity, it => new
+            {
+                it.CurrentStageId,
+                it.CurrentStageOrder,
                 it.ModifyDate,
                 it.ModifyBy,
                 it.ModifyUserId

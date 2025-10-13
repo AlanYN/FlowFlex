@@ -30,7 +30,14 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
         /// <summary>
         /// Paginated query of workflows
         /// </summary>
-        public async Task<(List<Workflow> items, int total)> QueryPagedAsync(int pageIndex, int pageSize, string name = null, bool? isActive = null)
+        public async Task<(List<Workflow> items, int total)> QueryPagedAsync(
+            int pageIndex,
+            int pageSize,
+            string name = null,
+            bool? isActive = null,
+            bool? isDefault = null,
+            string sortField = "CreateDate",
+            string sortDirection = "desc")
         {
             // Build query condition list
             var whereExpressions = new List<Expression<Func<Workflow, bool>>>();
@@ -48,14 +55,68 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
                 whereExpressions.Add(x => x.IsActive == isActive.Value);
             }
 
-            // Use BaseRepository's safe pagination method
-            var (items, total) = await GetPageListAsync(
-                whereExpressions,
-                pageIndex,
-                pageSize,
-                orderByExpression: x => x.CreateDate,
-                isAsc: false // Descending order
-            );
+            if (isDefault.HasValue)
+            {
+                whereExpressions.Add(x => x.IsDefault == isDefault.Value);
+            }
+
+            // Build query
+            var query = db.Queryable<Workflow>()
+                .Where(x => x.IsValid == true);
+
+            // Apply filters
+            foreach (var where in whereExpressions.Skip(1)) // Skip the first IsValid filter as it's already applied
+            {
+                query = query.Where(where);
+            }
+
+            // Apply sorting based on sortField and sortDirection
+            var isAsc = sortDirection?.ToLower() == "asc";
+
+            switch (sortField?.ToLower())
+            {
+                case "name":
+                    query = isAsc ? query.OrderBy(x => x.Name) : query.OrderByDescending(x => x.Name);
+                    break;
+                case "isactive":
+                    query = isAsc ? query.OrderBy(x => x.IsActive).OrderBy(x => x.CreateDate)
+                                  : query.OrderByDescending(x => x.IsActive).OrderByDescending(x => x.CreateDate);
+                    break;
+                case "isdefault":
+                    query = isAsc ? query.OrderBy(x => x.IsDefault).OrderByDescending(x => x.CreateDate)
+                                  : query.OrderByDescending(x => x.IsDefault).OrderByDescending(x => x.CreateDate);
+                    break;
+                case "startdate":
+                    query = isAsc ? query.OrderBy(x => x.StartDate) : query.OrderByDescending(x => x.StartDate);
+                    break;
+                case "enddate":
+                    query = isAsc ? query.OrderBy(x => x.EndDate) : query.OrderByDescending(x => x.EndDate);
+                    break;
+                case "createdate":
+                default:
+                    query = isAsc ? query.OrderBy(x => x.CreateDate) : query.OrderByDescending(x => x.CreateDate);
+                    break;
+            }
+
+            // Ensure default workflow always comes first when sorting by IsDefault desc or CreateDate desc
+            if (sortField?.ToLower() == "isdefault" && !isAsc)
+            {
+                query = query.OrderByDescending(x => x.IsDefault).OrderByDescending(x => x.CreateDate);
+            }
+            else if (sortField?.ToLower() == "createdate" && !isAsc)
+            {
+                // When sorting by CreateDate desc, put default workflow first
+                query = query.OrderByDescending(x => x.IsDefault).OrderByDescending(x => x.CreateDate);
+            }
+
+            // Get total count
+            var total = await query.CountAsync();
+
+            // Get paged results
+            var items = await query
+                .Skip((pageIndex - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync();
 
             return (items, total);
         }

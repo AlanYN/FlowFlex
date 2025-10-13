@@ -168,9 +168,9 @@ namespace FlowFlex.Application.Services.Action
             var resultDto = _mapper.Map<ActionDefinitionDto>(entity);
 
             // Log action definition create operation with structured logging
-            _logger.LogInformation("Action definition created: {ActionId} - {ActionName} (Type: {ActionType})", 
+            _logger.LogInformation("Action definition created: {ActionId} - {ActionName} (Type: {ActionType})",
                 entity.Id, entity.ActionName, dto.ActionType);
-            
+
             _logger.LogDebug("Action definition create details: {@ActionDetails}", new
             {
                 ActionId = entity.Id,
@@ -198,7 +198,7 @@ namespace FlowFlex.Application.Services.Action
                 {
                     using var scope = _serviceScopeFactory.CreateScope();
                     var actionLogService = scope.ServiceProvider.GetRequiredService<IActionLogService>();
-                    
+
                     var extendedData = JsonSerializer.Serialize(new
                     {
                         ActionId = entity.Id,
@@ -283,20 +283,20 @@ namespace FlowFlex.Application.Services.Action
             if (entity.ActionType == ActionTypeEnum.System.ToString())
             {
                 _logger.LogInformation("Updating System Action {ActionId}: only IsEnabled and IsTools fields will be updated, core configuration remains unchanged", id);
-                
+
                 // For System Actions, only update specific fields, ignore core configuration
                 if (entity.IsEnabled != dto.IsEnabled)
                 {
                     entity.IsEnabled = dto.IsEnabled;
                     changedFields.Add("IsEnabled");
                 }
-                
+
                 if (entity.IsTools != dto.IsTools)
                 {
                     entity.IsTools = dto.IsTools;
                     changedFields.Add("IsTools");
                 }
-                
+
                 // Initialize update information with proper tenant and app context
                 entity.InitUpdateInfo(_userContext);
 
@@ -354,9 +354,9 @@ namespace FlowFlex.Application.Services.Action
             // Log action definition update operation with structured logging
             if (changedFields.Any())
             {
-                _logger.LogInformation("Action definition updated: {ActionId} - {ActionName} - {ChangeCount} field(s) changed: {ChangedFields}", 
+                _logger.LogInformation("Action definition updated: {ActionId} - {ActionName} - {ChangeCount} field(s) changed: {ChangedFields}",
                     id, entity.ActionName, changedFields.Count, string.Join(", ", changedFields));
-                
+
                 _logger.LogDebug("Action definition update details: {@UpdateDetails}", new
                 {
                     ActionId = id,
@@ -383,7 +383,7 @@ namespace FlowFlex.Application.Services.Action
                     {
                         using var scope = _serviceScopeFactory.CreateScope();
                         var actionLogService = scope.ServiceProvider.GetRequiredService<IActionLogService>();
-                        
+
                         // Prepare before and after data for logging using original values
                         var beforeData = JsonSerializer.Serialize(new
                         {
@@ -642,9 +642,9 @@ namespace FlowFlex.Application.Services.Action
             _logger.LogInformation("Successfully deleted action definition and all related references: {ActionId}", id);
 
             // Log action definition delete operation with structured logging
-            _logger.LogInformation("Action definition deleted: {ActionId} - {ActionName} (Type: {ActionType}) - Affected tasks: {TaskCount}, questions: {QuestionCount}", 
+            _logger.LogInformation("Action definition deleted: {ActionId} - {ActionName} (Type: {ActionType}) - Affected tasks: {TaskCount}, questions: {QuestionCount}",
                 id, actionName, actionType, taskIds.Count, questionIds.Count);
-            
+
             _logger.LogDebug("Action definition delete details: {@DeleteDetails}", new
             {
                 ActionId = id,
@@ -672,7 +672,7 @@ namespace FlowFlex.Application.Services.Action
                 {
                     using var scope = _serviceScopeFactory.CreateScope();
                     var actionLogService = scope.ServiceProvider.GetRequiredService<IActionLogService>();
-                    
+
                     var extendedData = JsonSerializer.Serialize(new
                     {
                         ActionId = id,
@@ -728,9 +728,9 @@ namespace FlowFlex.Application.Services.Action
 
             // Log action definition status change with structured logging
             var statusAction = isEnabled ? "enabled" : "disabled";
-            _logger.LogInformation("Action definition status changed: {ActionId} - {ActionName} - Status: {OldStatus} -> {NewStatus}", 
+            _logger.LogInformation("Action definition status changed: {ActionId} - {ActionName} - Status: {OldStatus} -> {NewStatus}",
                 id, entity.ActionName, originalStatus, isEnabled);
-            
+
             _logger.LogDebug("Action definition status change details: {@StatusChangeDetails}", new
             {
                 ActionId = id,
@@ -758,7 +758,7 @@ namespace FlowFlex.Application.Services.Action
                 {
                     using var scope = _serviceScopeFactory.CreateScope();
                     var actionLogService = scope.ServiceProvider.GetRequiredService<IActionLogService>();
-                    
+
                     var beforeData = JsonSerializer.Serialize(new
                     {
                         IsEnabled = originalStatus
@@ -1527,7 +1527,7 @@ namespace FlowFlex.Application.Services.Action
                 _logger.LogInformation("Checking for system predefined actions for tenant: {TenantId}", currentTenantId);
 
                 // Get existing system actions for current tenant to check which ones exist
-                var (existingData, _) = await _actionDefinitionRepository.GetPagedAsync(1, 1000, 
+                var (existingData, _) = await _actionDefinitionRepository.GetPagedAsync(1, 1000,
                     ActionTypeEnum.System.ToString(), null, null, null, null, null, false);
 
                 // Filter by current tenant and get action names
@@ -1543,13 +1543,13 @@ namespace FlowFlex.Application.Services.Action
                 {
                     if (!existingActionNames.Contains(systemAction.Name.Trim()))
                     {
-                        _logger.LogInformation("Creating missing system action: {ActionName} for tenant: {TenantId}", 
+                        _logger.LogInformation("Creating missing system action: {ActionName} for tenant: {TenantId}",
                             systemAction.Name, currentTenantId);
-                        
+
                         try
                         {
                             await CreateActionDefinitionAsync(systemAction);
-                            _logger.LogInformation("Successfully created system action: {ActionName} for tenant: {TenantId}", 
+                            _logger.LogInformation("Successfully created system action: {ActionName} for tenant: {TenantId}",
                                 systemAction.Name, currentTenantId);
 
                             // Log system predefined action creation with structured logging
@@ -1569,7 +1569,7 @@ namespace FlowFlex.Application.Services.Action
                         }
                         catch (Exception ex)
                         {
-                            _logger.LogError(ex, "Failed to create system action: {ActionName} for tenant: {TenantId}", 
+                            _logger.LogError(ex, "Failed to create system action: {ActionName} for tenant: {TenantId}",
                                 systemAction.Name, currentTenantId);
 
                             // Log failed system predefined action creation with structured logging
@@ -1587,7 +1587,7 @@ namespace FlowFlex.Application.Services.Action
                     }
                     else
                     {
-                        _logger.LogDebug("System action {ActionName} already exists for tenant: {TenantId}", 
+                        _logger.LogDebug("System action {ActionName} already exists for tenant: {TenantId}",
                             systemAction.Name, currentTenantId);
                     }
                 }
@@ -1596,7 +1596,7 @@ namespace FlowFlex.Application.Services.Action
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error ensuring system predefined actions exist for tenant: {TenantId}", 
+                _logger.LogError(ex, "Error ensuring system predefined actions exist for tenant: {TenantId}",
                     _userContext?.TenantId ?? "DEFAULT");
                 // Don't throw - this should not break the main query
             }

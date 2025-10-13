@@ -545,7 +545,7 @@ namespace FlowFlex.Application.Services.OW
         private async Task<Dictionary<string, string>> GetUserInfoByIdsAsync(List<string> userIds)
         {
             var userMap = new Dictionary<string, string>();
-            
+
             if (userIds == null || !userIds.Any())
             {
                 return userMap;
@@ -554,21 +554,21 @@ namespace FlowFlex.Application.Services.OW
             try
             {
                 Console.WriteLine($"Calling IDM API for user IDs: {string.Join(", ", userIds)}");
-                
+
                 // Use IdmUserDataClient to get team users with proper authentication
                 var teamUsers = await _idmUserDataClient.GetAllTeamUsersAsync("1401", 10000, 1);
-                
+
                 if (teamUsers != null && teamUsers.Any())
                 {
                     Console.WriteLine($"Found {teamUsers.Count} users from IDM API");
-                    
+
                     foreach (var user in teamUsers)
                     {
                         if (userIds.Contains(user.Id))
                         {
                             // Use UserName as display name (this is what's available from team users API)
                             var displayName = !string.IsNullOrEmpty(user.UserName) ? user.UserName : user.Id;
-                            
+
                             userMap[user.Id] = displayName;
                             Console.WriteLine($"Mapped user {user.Id} to '{displayName}'");
                         }
@@ -606,7 +606,7 @@ namespace FlowFlex.Application.Services.OW
         /// <returns>Processed field data with user names</returns>
         private async Task<string> ProcessAssigneeFieldDataAsync(string fieldData, string fieldName)
         {
-            if (string.IsNullOrEmpty(fieldData) || 
+            if (string.IsNullOrEmpty(fieldData) ||
                 (!string.Equals(fieldName, "Assignee", StringComparison.OrdinalIgnoreCase) &&
                  !string.Equals(fieldName, "ASSIGNEE", StringComparison.OrdinalIgnoreCase)))
             {
@@ -616,7 +616,7 @@ namespace FlowFlex.Application.Services.OW
             try
             {
                 List<string> userIds = null;
-                
+
                 // First try to parse as direct array (for newer format)
                 if (fieldData.Trim().StartsWith("["))
                 {
@@ -626,7 +626,7 @@ namespace FlowFlex.Application.Services.OW
                 {
                     // Try to parse as object with value property (for older format)
                     var fieldDataObj = JsonSerializer.Deserialize<JsonElement>(fieldData);
-                    
+
                     if (fieldDataObj.TryGetProperty("value", out var valueElement))
                     {
                         var valueString = valueElement.GetString();
@@ -637,15 +637,15 @@ namespace FlowFlex.Application.Services.OW
                         }
                     }
                 }
-                
+
                 if (userIds != null && userIds.Any())
                 {
                     // Get user information
                     var userMap = await GetUserInfoByIdsAsync(userIds);
-                    
+
                     // Create a list of user display names
                     var userNames = userIds.Select(id => userMap.ContainsKey(id) ? userMap[id] : id).ToList();
-                    
+
                     // Create enhanced field data with both IDs and names
                     var enhancedData = new
                     {
@@ -655,7 +655,7 @@ namespace FlowFlex.Application.Services.OW
                         fieldName = fieldName,
                         displayValue = string.Join(", ", userNames) // Human-readable display
                     };
-                    
+
                     return JsonSerializer.Serialize(enhancedData);
                 }
             }
