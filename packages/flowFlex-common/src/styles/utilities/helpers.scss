@@ -1,0 +1,59 @@
+/**
+ * 辅助工具类
+ * 项目中常用的工具类和辅助样式
+ */
+
+/* 必填字段标记 */
+.red-star {
+	margin-left: 4px;
+	color: red;
+	font-weight: bold;
+}
+
+/* 必填标签样式 */
+.required-label {
+	.cell::before {
+		content: '*';
+		color: var(--el-color-danger);
+		@apply mr-2;
+	}
+}
+
+/* 字体颜色 */
+.font-color-black {
+	color: #000;
+}
+
+/* 字体粗细 */
+.font-weight-700 {
+	font-weight: 700;
+}
+
+/* 全局图标颜色 */
+.globelIcon {
+	color: #444545;
+}
+
+/* 保存按钮定位（特定场景）*/
+.saveGloub-button {
+	position: absolute;
+	top: 30px;
+	right: 50px;
+	z-index: 100;
+}
+
+/* 搜索表单样式 */
+.search-form {
+	@apply bg-gray-50 dark:bg-black-200;
+	
+	&-content {
+		width: 100%;
+		display: flex;
+
+		> * {
+			width: 100%;
+			margin-right: 8px;
+		}
+	}
+}
+

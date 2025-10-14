@@ -1,0 +1,175 @@
+/**
+ * Typography 层级系统
+ * 统一的标题和文本规范
+ * 
+ * 使用方式：
+ * 1. CSS 变量：font-size: var(--heading-1-size);
+ * 2. Utility 类：<h1 class="heading-1">标题</h1>
+ * 3. Tailwind：<h1 class="text-heading-1">标题</h1>
+ */
+html,
+html.sub-app-body,
+html.flowflex-app {
+	/* ========== 标题层级（Headings H1-H6） ========== */
+
+	/* H1 - 页面主标题 */
+	--heading-1-size: 32px;
+	--heading-1-weight: 700;
+	--heading-1-line-height: 40px;
+	--heading-1-letter-spacing: 0;
+
+	/* H2 - 区域标题（卡片、对话框标题） */
+	--heading-2-size: 24px;
+	--heading-2-weight: 700;
+	--heading-2-line-height: 32px;
+	--heading-2-letter-spacing: 0;
+
+	/* H3 - 小节标题 */
+	--heading-3-size: 20px;
+	--heading-3-weight: 600;
+	--heading-3-line-height: 28px;
+	--heading-3-letter-spacing: 0;
+
+	/* H4 - 表单分组标题 */
+	--heading-4-size: 18px;
+	--heading-4-weight: 600;
+	--heading-4-line-height: 26px;
+	--heading-4-letter-spacing: 0;
+
+	/* H5 - 小标题 */
+	--heading-5-size: 16px;
+	--heading-5-weight: 500;
+	--heading-5-line-height: 24px;
+	--heading-5-letter-spacing: 0;
+
+	/* H6 - 最小标题 */
+	--heading-6-size: 14px;
+	--heading-6-weight: 500;
+	--heading-6-line-height: 22px;
+	--heading-6-letter-spacing: 0;
+
+	/* ========== 正文层级（Body Text） ========== */
+
+	--text-xl-size: 18px;
+	--text-xl-line-height: 26px;
+	--text-xl-weight: 400;
+
+	--text-lg-size: 16px;
+	--text-lg-line-height: 24px;
+	--text-lg-weight: 400;
+
+	--text-base-size: 14px;
+	--text-base-line-height: 22px;
+	--text-base-weight: 400;
+
+	--text-sm-size: 12px;
+	--text-sm-line-height: 20px;
+	--text-sm-weight: 400;
+
+	--text-xs-size: 10px;
+	--text-xs-line-height: 16px;
+	--text-xs-weight: 400;
+
+	/* ========== 特殊文本 ========== */
+
+	--label-size: 12px;
+	--label-weight: 500;
+	--label-line-height: 16px;
+
+	--caption-size: 10px;
+	--caption-line-height: 14px;
+}
+
+/* ========== Utility Classes ========== */
+
+/* 标题 Utility Classes */
+.heading-1 {
+	font-size: var(--heading-1-size);
+	font-weight: var(--heading-1-weight);
+	line-height: var(--heading-1-line-height);
+	letter-spacing: var(--heading-1-letter-spacing);
+	color: var(--el-text-color-primary);
+}
+
+.heading-2 {
+	font-size: var(--heading-2-size);
+	font-weight: var(--heading-2-weight);
+	line-height: var(--heading-2-line-height);
+	letter-spacing: var(--heading-2-letter-spacing);
+	color: var(--el-text-color-primary);
+}
+
+.heading-3 {
+	font-size: var(--heading-3-size);
+	font-weight: var(--heading-3-weight);
+	line-height: var(--heading-3-line-height);
+	letter-spacing: var(--heading-3-letter-spacing);
+	color: var(--el-text-color-primary);
+}
+
+.heading-4 {
+	font-size: var(--heading-4-size);
+	font-weight: var(--heading-4-weight);
+	line-height: var(--heading-4-line-height);
+	letter-spacing: var(--heading-4-letter-spacing);
+	color: var(--el-text-color-primary);
+}
+
+.heading-5 {
+	font-size: var(--heading-5-size);
+	font-weight: var(--heading-5-weight);
+	line-height: var(--heading-5-line-height);
+	letter-spacing: var(--heading-5-letter-spacing);
+	color: var(--el-text-color-primary);
+}
+
+.heading-6 {
+	font-size: var(--heading-6-size);
+	font-weight: var(--heading-6-weight);
+	line-height: var(--heading-6-line-height);
+	letter-spacing: var(--heading-6-letter-spacing);
+	color: var(--el-text-color-primary);
+}
+
+/* 正文 Utility Classes */
+.text-xl {
+	font-size: var(--text-xl-size);
+	line-height: var(--text-xl-line-height);
+	font-weight: var(--text-xl-weight);
+}
+
+.text-lg {
+	font-size: var(--text-lg-size);
+	line-height: var(--text-lg-line-height);
+	font-weight: var(--text-lg-weight);
+}
+
+.text-base {
+	font-size: var(--text-base-size);
+	line-height: var(--text-base-line-height);
+	font-weight: var(--text-base-weight);
+}
+
+.text-sm {
+	font-size: var(--text-sm-size);
+	line-height: var(--text-sm-line-height);
+	font-weight: var(--text-sm-weight);
+}
+
+.text-xs {
+	font-size: var(--text-xs-size);
+	line-height: var(--text-xs-line-height);
+	font-weight: var(--text-xs-weight);
+}
+
+/* 特殊文本 Utility Classes */
+.label {
+	font-size: var(--label-size);
+	font-weight: var(--label-weight);
+	line-height: var(--label-line-height);
+}
+
+.caption {
+	font-size: var(--caption-size);
+	line-height: var(--caption-line-height);
+}

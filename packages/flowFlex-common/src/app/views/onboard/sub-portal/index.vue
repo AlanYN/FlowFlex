@@ -2,10 +2,13 @@
 	<div class="min-h-screen bg-gray-50">
 		<!-- Mobile sidebar -->
 		<div :class="['fixed inset-0 z-50 lg:hidden', sidebarOpen ? 'block' : 'hidden']">
-			<div class="fixed inset-0 bg-gray-600 bg-opacity-75" @click="sidebarOpen = false"></div>
-			<div class="fixed inset-y-0 left-0 flex w-64 flex-col bg-white">
+			<div
+				class="fixed inset-0 bg-siderbarGray dark:bg-black"
+				@click="sidebarOpen = false"
+			></div>
+			<div class="fixed inset-y-0 left-0 flex w-64 flex-col bg-siderbarGray dark:bg-black">
 				<div class="flex h-16 items-center justify-between px-4 border-b">
-					<h1 class="text-xl font-bold text-blue-600">Customer Portal</h1>
+					<h1 class="text-xl font-bold text-primary">Customer Portal</h1>
 					<button @click="sidebarOpen = false" class="p-1 rounded-xl hover:bg-gray-100">
 						<svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 							<path
@@ -24,7 +27,7 @@
 						:class="[
 							'group flex items-center px-2 py-2 text-sm font-medium rounded-xl cursor-pointer',
 							currentView === item.view
-								? 'bg-blue-100 text-blue-900'
+								? 'bg-primary-100 text-primary-900'
 								: 'text-gray-600 hover:bg-gray-50 hover:text-gray-900',
 						]"
 						@click="
@@ -39,7 +42,7 @@
 
 				<!-- Customer Info Card -->
 				<div class="p-4 border-t">
-					<div class="rounded-xl border bg-white p-4 shadow-sm">
+					<div class="rounded-xl border bg-siderbarGray dark:bg-black p-4 shadow-sm">
 						<div class="flex items-center space-x-3">
 							<div class="bg-blue-100 p-2 rounded-full">
 								<svg
@@ -72,9 +75,11 @@
 
 		<!-- Desktop sidebar -->
 		<div class="hidden lg:fixed lg:inset-y-0 lg:flex lg:w-64 lg:flex-col">
-			<div class="flex flex-col flex-grow bg-white border-r border-gray-200">
+			<div
+				class="flex flex-col flex-grow bg-siderbarGray dark:bg-black border-r border-gray-200"
+			>
 				<div class="flex h-16 items-center px-4 border-b">
-					<h1 class="text-xl font-bold text-blue-600">Customer Portal</h1>
+					<h1 class="text-xl font-bold text-primary">Customer Portal</h1>
 				</div>
 				<nav class="flex-1 space-y-1 px-2 py-4">
 					<div
@@ -83,7 +88,7 @@
 						:class="[
 							'group flex items-center px-2 py-2 text-sm font-medium rounded-xl cursor-pointer',
 							currentView === item.view
-								? 'bg-blue-100 text-blue-900'
+								? 'bg-primary-100 text-primary-900'
 								: 'text-gray-600 hover:bg-gray-50 hover:text-gray-900',
 						]"
 						@click="handleNavigation(item.view)"
@@ -95,7 +100,7 @@
 
 				<!-- Customer Info Card -->
 				<div class="p-4 border-t">
-					<div class="rounded-xl border bg-white p-4 shadow-sm">
+					<div class="rounded-xl border bg-siderbarGray dark:bg-black p-4 shadow-sm">
 						<div class="flex items-center space-x-3 mb-3">
 							<div class="bg-blue-100 p-2 rounded-full">
 								<svg
@@ -170,7 +175,7 @@
 					<div v-if="loading" class="flex items-center justify-center py-12">
 						<div class="text-center">
 							<div
-								class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"
+								class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary"
 							></div>
 							<p class="mt-2 text-gray-600">Loading onboarding data...</p>
 						</div>
@@ -184,7 +189,10 @@
 					/>
 
 					<!-- Overall Progress -->
-					<div v-if="!loading" class="rounded-xl border bg-white p-6 shadow-sm">
+					<div
+						v-if="!loading"
+						class="rounded-xl border bg-siderbarGray dark:bg-black p-6 shadow-sm"
+					>
 						<div class="mb-6">
 							<div class="flex items-center mb-2">
 								<svg
@@ -215,7 +223,7 @@
 							</div>
 							<div class="w-full bg-gray-200 rounded-full h-3">
 								<div
-									class="bg-blue-600 h-3 rounded-full transition-all duration-300"
+									class="bg-primary h-3 rounded-full transition-all duration-300"
 									:style="{ width: progressPercentage + '%' }"
 								></div>
 							</div>
@@ -270,14 +278,11 @@
 					</div>
 
 					<!-- Next Steps - Action Required -->
-					<div
-						v-if="!loading"
-						class="rounded-xl border-2 border-orange-200 bg-orange-50 p-6 shadow-sm"
-					>
+					<div v-if="!loading" class="rounded-xl bg-primary p-6">
 						<div class="mb-6">
-							<div class="flex items-center mb-2 text-orange-800">
+							<div class="flex items-center mb-2 text-white">
 								<svg
-									class="mr-2 h-5 w-5 text-orange-600"
+									class="mr-2 h-5 w-5 text-white"
 									fill="currentColor"
 									viewBox="0 0 24 24"
 								>
@@ -287,7 +292,7 @@
 								</svg>
 								<h3 class="text-lg font-semibold">Next Steps - Action Required</h3>
 							</div>
-							<p class="text-sm text-orange-700">
+							<p class="text-sm text-white">
 								Complete these steps to continue your onboarding process
 							</p>
 						</div>
@@ -295,7 +300,7 @@
 							<div
 								v-for="stage in nextSteps"
 								:key="stage.id"
-								class="flex items-center justify-between p-4 bg-white rounded-xl border border-orange-200 shadow-sm"
+								class="flex items-center justify-between p-4 bg-siderbarGray dark:bg-black rounded-xl border border-primary-200 shadow-sm"
 							>
 								<div class="flex items-center space-x-3">
 									<div class="flex-shrink-0">
@@ -322,7 +327,7 @@
 										<p class="font-medium text-gray-900">{{ stage.name }}</p>
 										<p class="text-sm text-gray-600">{{ stage.description }}</p>
 										<span
-											class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 mt-1"
+											class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-primary text-white mt-1"
 										>
 											In Progress
 										</span>
@@ -331,7 +336,7 @@
 								<div class="flex items-center space-x-2">
 									<button
 										@click="handleStageAction(stage)"
-										class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-xl text-white bg-orange-600 hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500"
+										class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-xl text-white bg-primary hover:bg-primary focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500"
 									>
 										Continue
 										<svg
@@ -372,9 +377,12 @@
 					</div>
 
 					<!-- Stages Timeline -->
-					<div v-if="!loading" class="rounded-xl border bg-white p-6 shadow-sm">
+					<div
+						v-if="!loading"
+						class="rounded-xl border bg-siderbarGray dark:bg-black p-6 shadow-sm"
+					>
 						<div class="mb-6">
-							<h3 class="text-lg font-semibold text-gray-900">Case Stages</h3>
+							<h3 class="text-lg font-semibold text-white">Case Stages</h3>
 							<p class="text-sm text-gray-600">
 								Track your progress through each stage
 							</p>
@@ -385,15 +393,18 @@
 								:key="stage.id"
 								:class="[
 									'flex items-start space-x-4 p-4 rounded-xl border transition-colors',
-									stage.status === 'completed' && 'bg-green-50 border-green-200',
-									stage.status === 'in_progress' && 'bg-blue-50 border-blue-200',
-									stage.status === 'pending' && 'bg-gray-50 border-gray-200',
+									stage.status === 'completed' &&
+										'bg-siderbarGray dark:bg-black border-gray-200',
+									stage.status === 'in_progress' &&
+										'bg-siderbarGray dark:bg-black border-gray-200',
+									stage.status === 'pending' &&
+										'bg-siderbarGray dark:bg-black border-gray-200',
 								]"
 							>
 								<div class="flex-shrink-0 mt-1">
 									<svg
 										v-if="stage.status === 'completed'"
-										class="h-5 w-5 text-green-500"
+										class="h-5 w-5 text-primary-500"
 										fill="none"
 										stroke="currentColor"
 										viewBox="0 0 24 24"
@@ -407,7 +418,7 @@
 									</svg>
 									<svg
 										v-else-if="stage.status === 'in_progress'"
-										class="h-5 w-5 text-blue-500"
+										class="h-5 w-5 text-primary-500"
 										fill="none"
 										stroke="currentColor"
 										viewBox="0 0 24 24"
@@ -421,7 +432,7 @@
 									</svg>
 									<div
 										v-else
-										class="h-5 w-5 rounded-full border-2 border-gray-300"
+										class="h-5 w-5 rounded-full border-2 border-primary-200"
 									></div>
 								</div>
 								<div class="flex-1 min-w-0">
@@ -434,11 +445,11 @@
 												:class="[
 													'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border',
 													stage.status === 'completed' &&
-														'bg-green-100 text-green-700 border-green-300',
+														'bg-primary text-white border-gray-200',
 													stage.status === 'in_progress' &&
-														'bg-blue-100 text-blue-700 border-blue-300',
+														'bg-primary text-white border-gray-200',
 													stage.status === 'pending' &&
-														'bg-gray-100 text-gray-700 border-gray-300',
+														'bg-primary text-white border-gray-200',
 												]"
 											>
 												{{ getStageStatusText(stage.status) }}
@@ -450,7 +461,7 @@
 														stage.status === 'in_progress')
 												"
 												@click="handleStageAction(stage)"
-												class="inline-flex items-center px-3 py-1 border border-gray-300 text-sm font-medium rounded-xl text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+												class="inline-flex items-center px-3 py-1 border border-gray-200 text-sm font-medium rounded-xl text-gray-700 bg-gray-50 hover:bg-primary focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
 											>
 												<svg
 													v-if="stage.status === 'completed'"
@@ -495,13 +506,13 @@
 									</p>
 									<p
 										v-if="stage.completedDate"
-										class="text-xs text-green-600 mt-1"
+										class="text-xs text-primary-600 mt-1"
 									>
 										Completed on {{ stage.completedDate }}
 									</p>
 									<div
 										v-if="stage.status === 'in_progress'"
-										class="mt-2 p-2 bg-blue-100 rounded-xl text-sm text-blue-700 flex items-center"
+										class="mt-2 p-2 bg-primary rounded-xl text-sm text-white flex items-center"
 									>
 										<svg
 											class="h-4 w-4 mr-1"

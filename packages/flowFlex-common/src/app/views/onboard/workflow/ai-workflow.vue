@@ -239,20 +239,20 @@ onMounted(() => {
 	transition-property: color, background-color, border-color, text-decoration-color, fill, stroke;
 	transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
 	transition-duration: 150ms;
-	background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
-	border: 1px solid #e2e8f0;
+	background: var(--el-bg-color);
+	border: 1px solid var(--el-border-color-light);
 }
 
 .workflow-item:hover {
-	background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
-	border-color: #cbd5e1;
+	background: var(--el-fill-color-lighter);
+	border-color: var(--el-border-color);
 	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 }
 
 .stages-count {
 	display: flex;
 	align-items: center;
-	color: #64748b;
+	color: var(--el-text-color-secondary);
 	font-weight: 500;
 }
 
@@ -260,7 +260,7 @@ onMounted(() => {
 	transition-property: color, background-color, border-color, text-decoration-color, fill, stroke;
 	transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
 	transition-duration: 150ms;
-	background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+	background: var(--el-fill-color-lighter);
 	padding: 2rem;
 	margin: 1rem 0;
 	@apply rounded-xl;
@@ -268,8 +268,8 @@ onMounted(() => {
 
 /* New styles for AI dialog */
 .ai-workflow-dialog .el-dialog__header {
-	background: linear-gradient(135deg, #4f46e5 0%, #4338ca 100%);
-	color: white;
+	background: var(--el-color-primary);
+	color: var(--el-color-white);
 	padding: 1.5rem;
 	@apply rounded-xl;
 }
@@ -289,7 +289,7 @@ onMounted(() => {
 	align-items: center;
 	margin-bottom: 1.5rem;
 	padding-bottom: 1.5rem;
-	border-bottom: 1px solid #e5e7eb;
+	border-bottom: 1px solid var(--el-border-color-light);
 }
 
 .overview-left {
@@ -303,14 +303,14 @@ onMounted(() => {
 }
 
 .add-stage-btn .el-button__inner {
-	background-color: #f3f4f6;
-	color: #4f46e5;
-	border-color: #d1d5db;
+	background-color: var(--el-fill-color-light);
+	color: var(--el-color-primary);
+	border-color: var(--el-border-color);
 }
 
 .add-stage-btn .el-button__inner:hover {
-	background-color: #e5e7eb;
-	border-color: #cbd5e1;
+	background-color: var(--el-fill-color);
+	border-color: var(--el-border-color-light);
 }
 
 .workflow-info {
@@ -320,7 +320,7 @@ onMounted(() => {
 .workflow-title {
 	font-size: 1.5rem;
 	font-weight: 700;
-	color: #374151;
+	color: var(--el-text-color-regular);
 	margin-bottom: 0.25rem;
 }
 
@@ -328,13 +328,13 @@ onMounted(() => {
 	display: flex;
 	align-items: center;
 	font-size: 0.875rem;
-	color: #6b7280;
+	color: var(--el-text-color-secondary);
 }
 
 .meta-badge {
-	background-color: #e0e7ff;
-	color: #4f46e5;
-	border: 1px solid #d1d5db;
+	background-color: var(--el-color-primary-light-9);
+	color: var(--el-color-primary);
+	border: 1px solid var(--el-border-color);
 	padding: 0.25rem 0.75rem;
 	font-weight: 600;
 	@apply rounded-xl;
@@ -362,8 +362,8 @@ onMounted(() => {
 }
 
 .stage-card {
-	background: linear-gradient(135deg, #f9fafb 0%, #f3f4f6 100%);
-	border: 1px solid #e5e7eb;
+	background: var(--el-fill-color-lighter);
+	border: 1px solid var(--el-border-color-light);
 	padding: 1.25rem;
 	transition: all 0.2s ease-in-out;
 	height: fit-content;
@@ -373,7 +373,7 @@ onMounted(() => {
 .stage-card:hover {
 	transform: translateY(-3px);
 	box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
-	border-color: #4f46e5;
+	border-color: var(--el-color-primary);
 }
 
 .stage-card-header {
@@ -384,8 +384,8 @@ onMounted(() => {
 }
 
 .stage-number-badge {
-	background: linear-gradient(135deg, #4f46e5 0%, #4338ca 100%);
-	color: white;
+	background: var(--el-color-primary);
+	color: var(--el-color-white);
 	padding: 0.375rem 0.75rem;
 	font-weight: 600;
 	font-size: 0.875rem;
@@ -399,13 +399,13 @@ onMounted(() => {
 }
 
 .stage-title-input .el-input__inner {
-	border-color: #d1d5db;
+	border-color: var(--el-border-color);
 	font-weight: 600;
 	@apply rounded-xl;
 }
 
 .stage-title-input .el-input__inner:focus {
-	border-color: #4f46e5;
+	border-color: var(--el-color-primary);
 	box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.1);
 }
 
@@ -424,15 +424,15 @@ onMounted(() => {
 }
 
 .remove-stage-btn .el-button__inner {
-	background-color: #fee2e2;
-	color: #ef4444;
-	border-color: #fecaca;
+	background-color: var(--el-color-danger-light-9);
+	color: var(--el-color-danger);
+	border-color: var(--el-color-danger-light-7);
 	padding: 0;
 }
 
 .remove-stage-btn .el-button__inner:hover {
-	background-color: #fecaca;
-	border-color: #f87171;
+	background-color: var(--el-color-danger-light-7);
+	border-color: var(--el-color-danger-light-5);
 }
 
 .stage-card-body {
@@ -456,7 +456,7 @@ onMounted(() => {
 .meta-label {
 	font-size: 0.75rem;
 	font-weight: 600;
-	color: #6b7280;
+	color: var(--el-text-color-secondary);
 	text-transform: uppercase;
 	letter-spacing: 0.05em;
 }
@@ -466,12 +466,12 @@ onMounted(() => {
 }
 
 .team-select .el-input__inner {
-	border-color: #d1d5db;
+	border-color: var(--el-border-color);
 	@apply rounded-xl;
 }
 
 .team-select .el-input__inner:focus {
-	border-color: #4f46e5;
+	border-color: var(--el-color-primary);
 	box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.1);
 }
 
@@ -480,12 +480,12 @@ onMounted(() => {
 }
 
 .duration-input .el-input__inner {
-	border-color: #d1d5db;
+	border-color: var(--el-border-color);
 	@apply rounded-xl;
 }
 
 .duration-input .el-input__inner:focus {
-	border-color: #4f46e5;
+	border-color: var(--el-color-primary);
 	box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.1);
 }
 
@@ -496,14 +496,14 @@ onMounted(() => {
 }
 
 .description-textarea .el-textarea__inner {
-	border-color: #d1d5db;
+	border-color: var(--el-border-color);
 	resize: vertical;
 	min-height: 80px;
 	@apply rounded-xl;
 }
 
 .description-textarea .el-textarea__inner:focus {
-	border-color: #4f46e5;
+	border-color: var(--el-color-primary);
 	box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.1);
 }
 
@@ -521,29 +521,29 @@ onMounted(() => {
 }
 
 .field-tag {
-	background-color: #e0e7ff;
-	color: #4f46e5;
-	border-color: #c7d2fe;
+	background-color: var(--el-color-primary-light-9);
+	color: var(--el-color-primary);
+	border: 1px dashed var(--el-color-primary);
 }
 
 .field-tag:hover {
-	background-color: #c7d2fe;
-	border-color: #a5b4fc;
+	background-color: var(--el-color-primary-light-8);
+	border: 1px dashed var(--el-color-primary);
 }
 
 .add-field-btn {
 	align-self: flex-start;
-	border: 1px dashed #d1d5db;
-	background-color: #f9fafb;
-	color: #6b7280;
+	border: 1px dashed var(--el-border-color);
+	background-color: var(--el-fill-color-blank);
+	color: var(--el-text-color-secondary);
 	transition: all 0.2s ease-in-out;
 	@apply rounded-xl;
 }
 
 .add-field-btn:hover {
-	background-color: #f3f4f6;
-	border-color: #4f46e5;
-	color: #4f46e5;
+	background-color: var(--el-fill-color-light);
+	border-color: var(--el-color-primary);
+	color: var(--el-color-primary);
 }
 
 .stage-connection {
@@ -561,13 +561,13 @@ onMounted(() => {
 .connection-line {
 	width: 100%;
 	height: 2px;
-	background: linear-gradient(90deg, #e5e7eb 0%, #4f46e5 100%);
+	background: var(--el-color-primary);
 }
 
 .connection-arrow {
 	position: absolute;
 	right: -8px;
-	background: linear-gradient(135deg, #4f46e5 0%, #4338ca 100%);
+	background: var(--el-color-primary);
 	border-radius: 50%;
 	width: 16px;
 	height: 16px;
@@ -578,7 +578,7 @@ onMounted(() => {
 
 .connection-arrow .el-icon {
 	font-size: 0.75rem;
-	color: white;
+	color: var(--el-color-white);
 }
 
 .ai-dialog-footer {
@@ -586,7 +586,7 @@ onMounted(() => {
 	justify-content: space-between;
 	align-items: center;
 	padding-top: 1.5rem;
-	border-top: 1px solid #e5e7eb;
+	border-top: 1px solid var(--el-border-color-light);
 }
 
 .footer-content {
@@ -603,7 +603,7 @@ onMounted(() => {
 
 .workflow-summary {
 	font-size: 0.875rem;
-	color: #6b7280;
+	color: var(--el-text-color-secondary);
 }
 
 .footer-center {
@@ -612,53 +612,53 @@ onMounted(() => {
 }
 
 .ai-enhance-btn .el-button__inner {
-	background-color: #f3f4f6;
-	color: #4f46e5;
-	border-color: #d1d5db;
+	background-color: var(--el-fill-color-light);
+	color: var(--el-color-primary);
+	border-color: var(--el-border-color);
 }
 
 .ai-enhance-btn .el-button__inner:hover {
-	background-color: #e5e7eb;
-	border-color: #cbd5e1;
+	background-color: var(--el-fill-color);
+	border-color: var(--el-border-color-light);
 }
 
 .ai-validate-btn .el-button__inner {
-	background-color: #f3f4f6;
-	color: #4f46e5;
-	border-color: #d1d5db;
+	background-color: var(--el-fill-color-light);
+	color: var(--el-color-primary);
+	border-color: var(--el-border-color);
 }
 
 .ai-validate-btn .el-button__inner:hover {
-	background-color: #e5e7eb;
-	border-color: #cbd5e1;
+	background-color: var(--el-fill-color);
+	border-color: var(--el-border-color-light);
 }
 
 .save-workflow-btn .el-button__inner {
-	background-color: #4f46e5;
-	color: white;
-	border-color: #4f46e5;
+	background-color: var(--el-color-primary);
+	color: var(--el-color-white);
+	border-color: var(--el-color-primary);
 }
 
 .save-workflow-btn .el-button__inner:hover {
-	background-color: #4338ca;
-	border-color: #4338ca;
+	background-color: var(--el-color-primary-dark-2);
+	border-color: var(--el-color-primary-dark-2);
 }
 
 .cancel-btn .el-button__inner {
-	background-color: #f3f4f6;
-	color: #6b7280;
-	border-color: #d1d5db;
+	background-color: var(--el-fill-color-light);
+	color: var(--el-text-color-secondary);
+	border-color: var(--el-border-color);
 }
 
 .cancel-btn .el-button__inner:hover {
-	background-color: #e5e7eb;
-	border-color: #cbd5e1;
+	background-color: var(--el-fill-color);
+	border-color: var(--el-border-color-light);
 }
 
 /* New styles for Field Addition Dialog */
 .ai-field-dialog .el-dialog__header {
-	background: linear-gradient(135deg, #4f46e5 0%, #4338ca 100%);
-	color: white;
+	background: var(--el-color-primary);
+	color: var(--el-color-white);
 	padding: 1.5rem;
 	@apply rounded-xl;
 }
@@ -677,30 +677,30 @@ onMounted(() => {
 }
 
 .ai-field-input .el-input__inner {
-	border-color: #d1d5db;
+	border-color: var(--el-border-color);
 	@apply rounded-xl;
 }
 
 .ai-field-input .el-input__inner:focus {
-	border-color: #4f46e5;
-	box-shadow: 0 0 0 2px #4f46e5;
+	border-color: var(--el-color-primary);
+	box-shadow: 0 0 0 2px var(--el-color-primary);
 }
 
 .ai-confirm-btn .el-button__inner {
-	background-color: #4f46e5;
-	color: white;
-	border-color: #4f46e5;
+	background-color: var(--el-color-primary);
+	color: var(--el-color-white);
+	border-color: var(--el-color-primary);
 }
 
 .ai-confirm-btn .el-button__inner:hover {
-	background-color: #4338ca;
-	border-color: #4338ca;
+	background-color: var(--el-color-primary-dark-2);
+	border-color: var(--el-color-primary-dark-2);
 }
 
 /* New styles for Enhancement Dialog */
 .ai-enhance-dialog .el-dialog__header {
-	background: linear-gradient(135deg, #4f46e5 0%, #4338ca 100%);
-	color: white;
+	background: var(--el-color-primary);
+	color: var(--el-color-white);
 	padding: 1.5rem;
 	@apply rounded-xl;
 }
@@ -719,13 +719,13 @@ onMounted(() => {
 }
 
 .ai-enhance-input .el-input__inner {
-	border-color: #d1d5db;
+	border-color: var(--el-border-color);
 	@apply rounded-xl;
 }
 
 .ai-enhance-input .el-input__inner:focus {
-	border-color: #4f46e5;
-	box-shadow: 0 0 0 2px #4f46e5;
+	border-color: var(--el-color-primary);
+	box-shadow: 0 0 0 2px var(--el-color-primary);
 }
 
 .enhancement-result {
@@ -733,14 +733,14 @@ onMounted(() => {
 }
 
 .ai-apply-btn .el-button__inner {
-	background-color: #4f46e5;
-	color: white;
-	border-color: #4f46e5;
+	background-color: var(--el-color-primary);
+	color: var(--el-color-white);
+	border-color: var(--el-color-primary);
 }
 
 .ai-apply-btn .el-button__inner:hover {
-	background-color: #4338ca;
-	border-color: #4338ca;
+	background-color: var(--el-color-primary-dark-2);
+	border-color: var(--el-color-primary-dark-2);
 }
 
 /* AI Status Indicator */
@@ -754,7 +754,7 @@ onMounted(() => {
 	position: absolute;
 	width: 100%;
 	height: 100%;
-	border: 2px solid #4f46e5;
+	border: 2px solid var(--el-color-primary);
 	border-radius: 50%;
 	animation: pulse 1.5s infinite ease-in-out;
 }
@@ -763,7 +763,7 @@ onMounted(() => {
 	position: absolute;
 	width: 10px;
 	height: 10px;
-	background-color: #4f46e5;
+	background-color: var(--el-color-primary);
 	border-radius: 50%;
 	top: 50%;
 	left: 50%;
@@ -791,8 +791,8 @@ onMounted(() => {
 }
 
 .ai-config-dialog .el-dialog__header {
-	background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-	color: white;
+	background: var(--el-color-success);
+	color: var(--el-color-white);
 	padding: 1.5rem;
 	@apply rounded-xl;
 }
@@ -800,12 +800,12 @@ onMounted(() => {
 .ai-config-dialog .el-dialog__header .el-dialog__title {
 	font-size: 1.5rem;
 	font-weight: 700;
-	color: white;
+	color: var(--el-color-white);
 }
 
 .ai-config-dialog .el-dialog__body {
 	padding: 0;
-	background: #f8fafc;
+	background: var(--el-fill-color-blank);
 	max-height: 70vh;
 	overflow-y: auto;
 }
@@ -817,9 +817,9 @@ onMounted(() => {
 
 /* AI Tag Styles */
 .ai-tag {
-	background: #753bbd;
-	background-color: #753bbd;
-	color: white;
+	background: var(--el-color-primary);
+	background-color: var(--el-color-primary);
+	color: var(--el-color-white);
 	border-color: transparent;
 	padding: 2px 6px;
 	font-size: 10px;
@@ -835,12 +835,12 @@ onMounted(() => {
 .el-tag.ai-tag,
 .el-tag--primary.ai-tag,
 .el-tag--primary.is-light.ai-tag {
-	background: #753bbd !important;
-	background-color: #753bbd !important;
+	background: var(--el-color-primary) !important;
+	background-color: var(--el-color-primary) !important;
 	background-image: none !important;
-	color: #ffffff !important;
+	color: var(--el-color-white) !important;
 	border-color: transparent !important;
-	--el-tag-text-color: #ffffff !important;
+	--el-tag-text-color: var(--el-color-white) !important;
 }
 
 .ai-sparkles {

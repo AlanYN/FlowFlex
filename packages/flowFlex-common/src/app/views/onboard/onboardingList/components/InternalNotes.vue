@@ -1,15 +1,18 @@
 <template>
-	<div class="customer-block">
+	<div class="wfe-global-block-bg">
 		<!-- 统一的头部卡片 -->
-		<div class="notes-header-card rounded-xl" :class="{ expanded: isOpen }" @click="toggleOpen">
+		<div class="case-notes-header rounded-xl" :class="{ expanded: isOpen }" @click="toggleOpen">
 			<div class="">
 				<div class="flex items-center">
-					<el-icon class="expand-icon text-lg mr-2" :class="{ rotated: isOpen }">
+					<el-icon
+						class="case-component-expand-icon text-lg mr-2"
+						:class="{ rotated: isOpen }"
+					>
 						<ArrowRight />
 					</el-icon>
-					<h3 class="notes-title">Internal Notes</h3>
+					<h3 class="case-component-title">Internal Notes</h3>
 				</div>
-				<div class="notes-subtitle">
+				<div class="case-component-subtitle">
 					{{ notes.length }} {{ notes.length > 1 ? 'notes' : 'note' }}
 				</div>
 			</div>
@@ -23,7 +26,7 @@
 					<el-icon class="text-2xl animate-spin">
 						<Loading />
 					</el-icon>
-					<p class="text-gray-500 dark:text-gray-400 mt-2">Loading notes...</p>
+					<p class="note-loading mt-2">Loading notes...</p>
 				</div>
 
 				<!-- 笔记列表 -->
@@ -32,22 +35,20 @@
 						<div
 							v-for="note in notes"
 							:key="note.id"
-							class="flex space-x-3 p-3 bg-gray-50 dark:bg-black-200 rounded-xl"
+							class="flex space-x-3 p-3 note-item rounded-xl"
 						>
 							<div
-								class="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-white text-sm font-medium flex-shrink-0"
+								class="w-8 h-8 rounded-full note-avatar flex items-center justify-center text-sm font-medium flex-shrink-0"
 							>
 								{{ getAuthorInitial(note.createBy) }}
 							</div>
 							<div class="flex-1 min-w-0">
 								<div class="flex items-center justify-between mb-1">
-									<span
-										class="text-sm font-medium text-gray-900 dark:text-white-100"
-									>
+									<span class="text-sm font-medium note-author">
 										{{ note.createBy || defaultStr }}
 									</span>
 									<div class="flex items-center space-x-2">
-										<span class="text-xs text-gray-500 dark:text-gray-400">
+										<span class="text-xs note-time">
 											{{
 												timeZoneConvert(
 													note?.modifyDate || '',
@@ -82,7 +83,7 @@
 								<!-- 笔记内容 - 支持内联编辑 -->
 								<div
 									v-if="editingNoteId !== note.id"
-									class="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap"
+									class="text-sm note-content whitespace-pre-wrap"
 								>
 									<component :is="renderNoteContent(note.content)" />
 								</div>
@@ -119,10 +120,7 @@
 						</div>
 
 						<!-- 空状态 -->
-						<div
-							v-if="notes.length === 0"
-							class="text-center py-8 text-gray-500 dark:text-gray-400"
-						>
+						<div v-if="notes.length === 0" class="text-center py-8 note-empty">
 							<el-icon class="text-4xl mb-2">
 								<ChatDotSquare />
 							</el-icon>
@@ -460,65 +458,7 @@ const getAuthorInitial = (createBy: string | undefined | null): string => {
 </script>
 
 <style scoped lang="scss">
-/* 统一的头部卡片样式 */
-.notes-header-card {
-	background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
-	padding: 10px;
-	color: white;
-	box-shadow: 0 4px 12px rgba(99, 102, 241, 0.2);
-	display: flex;
-	flex-direction: column;
-	gap: 16px;
-	cursor: pointer;
-	transition: all 0.2s ease;
-
-	&:hover {
-		box-shadow: 0 6px 16px rgba(99, 102, 241, 0.3);
-		transform: translateY(-1px);
-	}
-}
-
-.notes-title {
-	font-size: 18px;
-	font-weight: 600;
-	margin: 0;
-}
-
-.notes-subtitle {
-	font-size: 14px;
-	opacity: 0.9;
-	margin-top: 4px;
-}
-
-.progress-info {
-	text-align: right;
-	display: flex;
-	flex-direction: column;
-	align-items: flex-end;
-	gap: 2px;
-}
-
-.progress-percentage {
-	font-size: 20px;
-	font-weight: 700;
-	line-height: 1;
-}
-
-.progress-label {
-	font-size: 12px;
-	opacity: 0.8;
-	letter-spacing: 0.5px;
-}
-
-.expand-icon {
-	transition: transform 0.2s ease;
-
-	&.rotated {
-		transform: rotate(90deg);
-	}
-}
-
-.customer-block {
+.wfe-global-block-bg {
 	margin-bottom: 16px;
 
 	&:last-child {
@@ -526,11 +466,37 @@ const getAuthorInitial = (createBy: string | undefined | null): string => {
 	}
 }
 
+/* 笔记项样式 */
+.note-item {
+	background: var(--el-fill-color-lighter);
+}
+
+.note-avatar {
+	background: var(--el-color-primary);
+	color: var(--el-color-white);
+}
+
+.note-author {
+	color: var(--el-text-color-primary);
+}
+
+.note-time {
+	color: var(--el-text-color-secondary);
+}
+
+.note-content {
+	color: var(--el-text-color-regular);
+}
+
+.note-loading,
+.note-empty {
+	color: var(--el-text-color-secondary);
+}
+
 /* 暗色主题样式 */
 html.dark {
-	.notes-header-card {
-		background: linear-gradient(135deg, #1e40af 0%, #1e3a8a 100%);
-		box-shadow: 0 4px 12px rgba(30, 64, 175, 0.3);
+	.note-item {
+		background: var(--black-200);
 	}
 }
 

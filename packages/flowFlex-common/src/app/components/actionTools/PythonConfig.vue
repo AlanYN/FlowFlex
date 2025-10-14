@@ -17,7 +17,7 @@
 		<!-- Test Run Section -->
 		<div class="test-section">
 			<div class="flex items-center justify-between mb-3">
-				<h5 class="font-medium text-gray-700 dark:text-gray-300">Test Script</h5>
+				<h5 class="font-medium">Test Script</h5>
 				<div class="button-group">
 					<el-button
 						type="primary"

@@ -1,5 +1,5 @@
 <template>
-	<div class="filter-panel rounded-xl shadow-sm p-4 mb-6">
+	<el-card class="mb-6">
 		<el-form
 			ref="searchFormRef"
 			:model="searchParams"
@@ -8,7 +8,7 @@
 		>
 			<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
 				<div class="space-y-2">
-					<label class="filter-label text-sm font-medium">Lead ID</label>
+					<label class="text-sm font-medium">Lead ID</label>
 					<InputTag
 						v-model="leadIdTags"
 						placeholder="Enter Lead ID and press enter"
@@ -20,7 +20,7 @@
 				</div>
 
 				<div class="space-y-2">
-					<label class="filter-label text-sm font-medium">Company/Contact Name</label>
+					<label class="text-sm font-medium">Company/Contact Name</label>
 					<InputTag
 						v-model="leadNameTags"
 						placeholder="Enter Company/Contact Name and press enter"
@@ -32,7 +32,7 @@
 				</div>
 
 				<div class="space-y-2">
-					<label class="filter-label text-sm font-medium">Life Cycle Stage</label>
+					<label class="text-sm font-medium">Life Cycle Stage</label>
 					<el-select
 						v-model="searchParams.lifeCycleStageName"
 						placeholder="Select Stage"
@@ -51,7 +51,7 @@
 				</div>
 
 				<div class="space-y-2" v-if="filterType === 'table'">
-					<label class="filter-label text-sm font-medium">Workflow</label>
+					<label class="text-sm font-medium">Workflow</label>
 					<el-select
 						v-model="searchParams.workFlowId"
 						placeholder="Select Workflow"
@@ -70,7 +70,7 @@
 				</div>
 
 				<div class="space-y-2" v-if="filterType === 'table'">
-					<label class="filter-label text-sm font-medium">Stage</label>
+					<label class="text-sm font-medium">Stage</label>
 					<el-select
 						v-model="searchParams.currentStageId"
 						placeholder="Select Stage"
@@ -91,7 +91,7 @@
 				</div>
 
 				<div class="space-y-2">
-					<label class="filter-label text-sm font-medium">Updated By</label>
+					<label class="text-sm font-medium">Updated By</label>
 					<InputTag
 						v-model="updatedByTags"
 						placeholder="Enter User Name and press enter"
@@ -103,7 +103,7 @@
 				</div>
 
 				<div class="space-y-2">
-					<label class="filter-label text-sm font-medium">Priority</label>
+					<label class="text-sm font-medium">Priority</label>
 					<el-select
 						v-model="searchParams.priority"
 						placeholder="Select Priority"
@@ -119,7 +119,7 @@
 				</div>
 			</div>
 		</el-form>
-	</div>
+	</el-card>
 </template>
 
 <script setup lang="ts">
@@ -281,18 +281,6 @@ defineExpose({
 </script>
 
 <style scoped lang="scss">
-/* 筛选面板样式 */
-.filter-panel {
-	@apply bg-white dark:bg-black-400;
-	border: 1px solid var(--primary-100);
-	@apply dark:border-black-200;
-}
-
-.filter-label {
-	color: var(--primary-700);
-	@apply dark:text-primary-300;
-}
-
 /* Element Plus 组件样式覆盖 */
 :deep(.filter-select .el-input__wrapper) {
 	border-color: var(--primary-200);
@@ -316,15 +304,6 @@ defineExpose({
 
 /* 暗色主题样式 */
 html.dark {
-	/* 筛选面板暗色主题 */
-	.filter-panel {
-		@apply bg-black-400 dark:border-black-200;
-	}
-
-	.filter-label {
-		@apply dark:text-primary-300;
-	}
-
 	/* Element Plus 组件暗色主题 */
 	:deep(.filter-select .el-input__wrapper) {
 		background-color: var(--black-200) !important;

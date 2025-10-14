@@ -124,7 +124,13 @@
 		<!-- 阶段表单 -->
 		<div v-if="stageForm && stage.portalEditable" class="stage-form-section">
 			<h4>{{ stage.name }}表单</h4>
-			<el-form ref="stageForm" :model="formData" :rules="formRules" label-width="120px">
+			<el-form
+				ref="stageForm"
+				:model="formData"
+				:rules="formRules"
+				label-width="120px"
+				@submit.prevent
+			>
 				<el-form-item
 					v-for="field in stageForm.fields"
 					:key="field.name"
@@ -623,34 +629,34 @@ export default {
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	color: white;
+	color: var(--el-color-white);
 	font-size: 20px;
 	flex-shrink: 0;
 }
 
 .stage-name h3 {
 	margin: 0 0 8px 0;
-	color: #1f2937;
+	color: var(--el-text-color-primary);
 	font-size: 20px;
 	font-weight: 600;
 }
 
 .stage-name p {
 	margin: 0;
-	color: #6b7280;
+	color: var(--el-text-color-secondary);
 	font-size: 14px;
 }
 
 .stage-progress-section {
 	margin-bottom: 24px;
 	padding: 16px;
-	background: #f9fafb;
+	background: var(--el-fill-color-blank);
 	@apply rounded-xl;
 }
 
 .stage-progress-section h4 {
 	margin: 0 0 16px 0;
-	color: #1f2937;
+	color: var(--el-text-color-primary);
 	font-size: 16px;
 	font-weight: 600;
 }
@@ -658,7 +664,7 @@ export default {
 .progress-info {
 	margin-top: 8px;
 	font-size: 14px;
-	color: #6b7280;
+	color: var(--el-text-color-secondary);
 }
 
 .tasks-section,
@@ -673,7 +679,7 @@ export default {
 .stage-form-section h4,
 .notes-section h4 {
 	margin: 0 0 16px 0;
-	color: #1f2937;
+	color: var(--el-text-color-primary);
 	font-size: 16px;
 	font-weight: 600;
 }
@@ -685,18 +691,18 @@ export default {
 	align-items: flex-start;
 	padding: 16px;
 	margin-bottom: 12px;
-	background: #f9fafb;
+	background: var(--el-fill-color-blank);
 	border-left: 4px solid transparent;
 	@apply rounded-xl;
 }
 
 .task-item.completed {
-	border-left-color: #10b981;
-	background: #f0fdf4;
+	border-left-color: var(--el-color-success);
+	background: var(--el-color-success-light-9);
 }
 
 .task-item.editable {
-	border-left-color: #3b82f6;
+	border-left-color: var(--el-color-primary);
 }
 
 .task-content {
@@ -708,19 +714,19 @@ export default {
 
 .task-info h5 {
 	margin: 0 0 4px 0;
-	color: #1f2937;
+	color: var(--el-text-color-primary);
 	font-size: 14px;
 	font-weight: 600;
 }
 
 .task-info h5.completed {
 	text-decoration: line-through;
-	color: #6b7280;
+	color: var(--el-text-color-secondary);
 }
 
 .task-info p {
 	margin: 0 0 8px 0;
-	color: #6b7280;
+	color: var(--el-text-color-secondary);
 	font-size: 13px;
 }
 
@@ -728,12 +734,12 @@ export default {
 	display: flex;
 	gap: 16px;
 	font-size: 12px;
-	color: #9ca3af;
+	color: var(--el-text-color-placeholder);
 }
 
 .document-item.uploaded {
-	border-left-color: #10b981;
-	background: #f0fdf4;
+	border-left-color: var(--el-color-success);
+	background: var(--el-color-success-light-9);
 }
 
 .document-info {
@@ -745,19 +751,19 @@ export default {
 
 .document-icon {
 	font-size: 24px;
-	color: #3b82f6;
+	color: var(--el-color-primary);
 }
 
 .document-details h5 {
 	margin: 0 0 4px 0;
-	color: #1f2937;
+	color: var(--el-text-color-primary);
 	font-size: 14px;
 	font-weight: 600;
 }
 
 .document-details p {
 	margin: 0 0 8px 0;
-	color: #6b7280;
+	color: var(--el-text-color-secondary);
 	font-size: 13px;
 }
 
@@ -769,7 +775,7 @@ export default {
 
 .upload-date {
 	font-size: 12px;
-	color: #9ca3af;
+	color: var(--el-text-color-placeholder);
 }
 
 .notes-list {
@@ -779,7 +785,7 @@ export default {
 .note-item {
 	padding: 12px;
 	margin-bottom: 8px;
-	background: #f9fafb;
+	background: var(--el-fill-color-blank);
 	@apply rounded-xl;
 }
 
@@ -792,17 +798,17 @@ export default {
 
 .note-author {
 	font-weight: 500;
-	color: #1f2937;
+	color: var(--el-text-color-primary);
 	font-size: 14px;
 }
 
 .note-date {
 	font-size: 12px;
-	color: #9ca3af;
+	color: var(--el-text-color-placeholder);
 }
 
 .note-content {
-	color: #4b5563;
+	color: var(--el-text-color-regular);
 	font-size: 14px;
 	line-height: 1.5;
 }
@@ -812,7 +818,7 @@ export default {
 	justify-content: flex-end;
 	gap: 12px;
 	padding-top: 20px;
-	border-top: 1px solid #e5e7eb;
+	border-top: 1px solid var(--el-border-color-light);
 }
 
 @media (max-width: 768px) {

@@ -1,7 +1,6 @@
 <template>
 	<div class="send-email-config" v-loading="loading">
-		loading:{{ loading }}
-		<el-form :model="config" label-width="120px">
+		<el-form :model="config" label-width="120px" @submit.prevent>
 			<el-form-item label="Subject">
 				<el-input v-model="config.subject" placeholder="Email subject" />
 			</el-form-item>
@@ -155,7 +154,7 @@ const handleTestRun = async () => {
 
 		.test-output {
 			@apply rounded-xl;
-			background-color: #f5f5f5;
+			background-color: var(--el-fill-color-light);
 			padding: 12px;
 			font-family: 'Courier New', monospace;
 			font-size: 14px;

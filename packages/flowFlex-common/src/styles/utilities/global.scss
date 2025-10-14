@@ -1,0 +1,76 @@
+/* 核心：只修改 .wfe-global-block-bg */
+.wfe-global-block-bg {
+  position: relative;       /* 伪元素定位的基准 */
+  border-radius: 1rem;      /* 和你原来 rounded-xl 对齐 */
+  background: transparent;  /* 真实背景由 ::after 提供 */
+  overflow: hidden;         /* 保证内容被圆角裁切 */
+  transition: transform 0.3s ease; /* hover 整体微移 */
+  /* 如果原来有 box-shadow/border 在其他地方生效，可把它们覆盖/移除以避免冲突 */
+  box-shadow: none !important;
+  border: none !important;
+}
+
+/* 阴影层（在最底层）*/
+.wfe-global-block-bg::before {
+  content: "";
+  position: absolute;
+  inset: 0;                  /* top:0; right:0; bottom:0; left:0 */
+  border-radius: inherit;    /* 跟随父元素圆角 */
+  pointer-events: none;
+  z-index: 0;                /* 最底层：低于背景与内容 */
+  box-shadow:
+    0 1px 3px rgba(0,0,0,0.04),
+    0 2px 6px rgba(0,0,0,0.04),
+    0 4px 12px rgba(0,0,0,0.04),
+    0 8px 24px rgba(0,0,0,0.03);
+  transition: box-shadow 0.3s ease, transform 0.3s ease;
+  transform: translateY(0);
+}
+
+/* 内层背景与边框（在阴影之上，内容之下）*/
+.wfe-global-block-bg::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: 1;                /* 高于阴影，低于内容 */
+  background: var(--el-color-white);       /* 原先白色背景 */
+}
+
+/* 保证原来元素内的所有子节点显示在最上层，不需要修改 HTML */
+.wfe-global-block-bg > * {
+  position: relative;
+  z-index: 2;
+}
+
+/* hover 效果：提升阴影强度并微移动 */
+.wfe-global-block-bg:hover::before {
+  box-shadow:
+    0 2px 4px rgba(0,0,0,0.05),
+    0 4px 8px rgba(0,0,0,0.05),
+    0 8px 16px rgba(0,0,0,0.05),
+    0 12px 32px rgba(0,0,0,0.04);
+  transform: translateY(-6px);
+}
+
+/* 可选：让卡片本身也微微上移 */
+.wfe-global-block-bg:hover {
+  transform: translateY(-2px);
+}
+
+/* 深色模式（如果你项目使用 html.dark）*/
+html.dark .wfe-global-block-bg::after {
+  background: var(--black-400);
+}
+
+/* 全局文本选中样式 */
+::selection {
+  background-color: var(--el-color-primary);
+  color: var(--el-color-white);
+}
+
+::-moz-selection {
+  background-color: var(--el-color-primary);
+  color: var(--el-color-white);
+}

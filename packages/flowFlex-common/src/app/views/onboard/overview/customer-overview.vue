@@ -1,5 +1,5 @@
 <template>
-	<div class="pb-6 bg-gray-50 dark:bg-black-400">
+	<div class="pb-6 customer-overview-bg">
 		<!-- 加载状态 -->
 		<PageHeader
 			:title="`Customer Overview: ${customerData?.leadName || 'Loading...'}`"
@@ -36,19 +36,25 @@
 				</template>
 				<div class="grid grid-cols-1 md:grid-cols-4 gap-4">
 					<div>
-						<p class="text-sm font-medium text-gray-500">Lead/Customer ID</p>
+						<p class="text-sm font-medium text-el-text-color-secondary">
+							Lead/Customer ID
+						</p>
 						<p class="font-medium">{{ customerData.leadId }}</p>
 					</div>
 					<div>
-						<p class="text-sm font-medium text-gray-500">Customer Name</p>
+						<p class="text-sm font-medium text-el-text-color-secondary">
+							Customer Name
+						</p>
 						<p class="font-medium">{{ customerData.leadName }}</p>
 					</div>
 					<div>
-						<p class="text-sm font-medium text-gray-500">Contact Name</p>
+						<p class="text-sm font-medium text-el-text-color-secondary">Contact Name</p>
 						<p class="font-medium">{{ customerData.contactPerson || 'N/A' }}</p>
 					</div>
 					<div>
-						<p class="text-sm font-medium text-gray-500">Contact Email</p>
+						<p class="text-sm font-medium text-el-text-color-secondary">
+							Contact Email
+						</p>
 						<p class="font-medium">
 							{{ customerData.contactEmail || customerData.leadEmail || 'N/A' }}
 						</p>
@@ -57,7 +63,7 @@
 			</el-card>
 
 			<!-- Search and Filters -->
-			<div class="filter-panel rounded-xl shadow-sm p-4 mb-6">
+			<el-card class="mb-6">
 				<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
 					<div class="space-y-2">
 						<label class="filter-label text-sm font-medium">
@@ -134,13 +140,15 @@
 				</div>
 
 				<div
-					class="flex items-center justify-between text-sm text-gray-500 mt-4 pt-4 border-t border-gray-200 dark:border-gray-600"
+					class="flex items-center justify-between text-sm text-el-text-color-secondary mt-4 pt-4 border-t border-el-border-color-light dark:border-el-border-color"
 				>
 					<span>
 						Showing {{ visibleResponses.length }} of {{ totalResponsesCount }} responses
 						from {{ filteredData.length }} questionnaires
 					</span>
-					<div class="flex items-center justify-between text-sm text-gray-500">
+					<div
+						class="flex items-center justify-between text-sm text-el-text-color-secondary"
+					>
 						<span>
 							Showing {{ visibleResponses.length }} of
 							{{ totalResponsesCount }} responses from
@@ -157,7 +165,7 @@
 						</div>
 					</div>
 				</div>
-			</div>
+			</el-card>
 
 			<!-- Questionnaire Responses -->
 			<div class="space-y-6">
@@ -171,7 +179,7 @@
 									</div>
 								</div>
 								<div class="flex flex-col items-end space-y-1">
-									<el-tag type="info" style="color: #000">
+									<el-tag type="info" class="questionnaire-tag">
 										{{
 											questionnaire.responses.filter((r) =>
 												hasValidAnswer(r.answer)
@@ -188,6 +196,7 @@
 							style="width: 100%"
 							:lazy="true"
 							v-loading="questionnaire.loading"
+							border
 						>
 							<el-table-column label="Section" width="150">
 								<template #default="{ row }">
@@ -199,7 +208,7 @@
 							<el-table-column label="Question" show-overflow-tooltip min-width="200">
 								<template #default="{ row }">
 									<p
-										class="font-medium text-gray-900"
+										class="font-medium text-el-text-color-primary"
 										style="white-space: normal"
 									>
 										<span class="question-number">
@@ -215,7 +224,7 @@
 										<!-- 短答题 -->
 										<div
 											v-if="isShortAnswerType(row.questionType)"
-											class="text-gray-700"
+											class="text-el-text-color-regular"
 										>
 											{{ row.answer }}
 										</div>
@@ -223,7 +232,7 @@
 										<!-- 长答题/段落 -->
 										<div
 											v-else-if="isParagraphType(row.questionType)"
-											class="text-gray-700"
+											class="text-el-text-color-regular"
 											style="white-space: pre-wrap"
 										>
 											{{ row.answer }}
@@ -288,7 +297,9 @@
 														{{ item }}
 													</el-tag>
 												</div>
-												<div class="mt-1 text-xs text-gray-500">
+												<div
+													class="mt-1 text-xs text-el-text-color-secondary"
+												>
 													{{
 														getCheckboxLabels(
 															row.answer,
@@ -336,7 +347,7 @@
 										<!-- 日期/时间 -->
 										<div
 											v-else-if="isDateTimeType(row.questionType)"
-											class="text-gray-700"
+											class="text-el-text-color-regular"
 										>
 											<template v-if="row.answer">
 												<el-icon class="mr-1">
@@ -384,10 +395,12 @@
 																false
 															)
 														"
-														class="w-4 h-4 text-gray-300 mr-1"
+														class="w-4 h-4 text-el-text-color-placeholder mr-1"
 													/>
 												</div>
-												<span class="ml-2 text-sm text-gray-600">
+												<span
+													class="ml-2 text-sm text-el-text-color-regular"
+												>
 													({{ row.answer }}/{{
 														getRatingMax(row.questionConfig)
 													}})
@@ -402,7 +415,7 @@
 										>
 											<div v-if="row.answer" class="flex items-center">
 												<div
-													class="flex-1 bg-gray-200 rounded-full h-2 mr-2"
+													class="flex-1 bg-el-fill-color-light rounded-full h-2 mr-2"
 												>
 													<div
 														class="bg-blue-500 h-2 rounded-full"
@@ -432,14 +445,14 @@
 												<div
 													v-for="file in getFileAnswers(row.answer)"
 													:key="file.name + (file.url || '')"
-													class="flex items-center text-sm bg-gray-100 p-1 rounded"
+													class="flex items-center text-sm overview-file-item p-1 rounded"
 												>
 													<el-icon class="mr-1 text-blue-500">
 														<Document />
 													</el-icon>
 													<span class="truncate">{{ file.name }}</span>
 													<span
-														class="ml-1 text-xs text-gray-500"
+														class="ml-1 text-xs text-el-text-color-secondary"
 														v-if="file.size"
 													>
 														({{ formatFileSize(file.size) }})
@@ -496,7 +509,9 @@
 														)[0] || row.answer
 													}}
 												</el-tag>
-												<div class="mt-1 text-xs text-gray-500">
+												<div
+													class="mt-1 text-xs text-el-text-color-secondary"
+												>
 													Grid selection
 												</div>
 											</template>
@@ -537,7 +552,9 @@
 														{{ item }}
 													</el-tag>
 												</div>
-												<div class="mt-1 text-xs text-gray-500">
+												<div
+													class="mt-1 text-xs text-el-text-color-secondary"
+												>
 													{{
 														getGridAnswerLabels(
 															row.answer,
@@ -588,19 +605,21 @@
 													>
 														<div class="flex items-start text-sm">
 															<span
-																class="font-medium text-gray-600 mr-2 min-w-0 flex-shrink-0"
+																class="font-medium text-el-text-color-regular mr-2 min-w-0 flex-shrink-0"
 															>
 																{{ gridData.row }}:
 															</span>
 															<span
-																class="text-gray-800 bg-gray-50 px-2 py-1 rounded-xl flex-1"
+																class="overview-grid-value px-2 py-1 rounded-xl flex-1"
 															>
 																{{ gridData.value }}
 															</span>
 														</div>
 													</div>
 												</div>
-												<div class="mt-2 text-xs text-gray-500">
+												<div
+													class="mt-2 text-xs text-el-text-color-secondary"
+												>
 													{{
 														getShortAnswerGridData(
 															row.responseText,
@@ -624,7 +643,7 @@
 										<!-- 默认显示 -->
 										<div
 											v-else
-											class="text-gray-700"
+											class="text-el-text-color-regular"
 											style="white-space: normal"
 										>
 											{{ row.answer }}
@@ -639,7 +658,7 @@
 										<template v-if="hasValidAnswer(row.answer)">
 											<!-- 回答人信息 -->
 											<div
-												class="flex items-center text-gray-700"
+												class="flex items-center text-el-text-color-regular"
 												v-if="row.answeredBy"
 											>
 												<el-icon class="mr-1"><User /></el-icon>
@@ -650,7 +669,7 @@
 
 											<!-- 首次回答时间 -->
 											<div
-												class="flex items-center text-gray-600"
+												class="flex items-center text-el-text-color-regular"
 												v-if="row.firstAnsweredDate"
 											>
 												<el-icon class="mr-1"><Clock /></el-icon>
@@ -677,7 +696,7 @@
 												v-else-if="
 													row.answeredDate && !row.firstAnsweredDate
 												"
-												class="flex items-center text-gray-600"
+												class="flex items-center text-el-text-color-regular"
 											>
 												<el-icon class="mr-1"><Clock /></el-icon>
 												<span>{{ formatDate(row.answeredDate) }}</span>
@@ -691,9 +710,9 @@
 				</template>
 				<el-card v-else-if="!loading">
 					<div class="py-12 text-center">
-						<el-icon class="text-6xl text-gray-400 mb-4"><Document /></el-icon>
+						<el-icon class="text-6xl overview-empty-icon mb-4"><Document /></el-icon>
 						<h3 class="text-lg font-medium mb-2">No responses found</h3>
-						<p class="text-gray-500 mb-4">
+						<p class="text-el-text-color-secondary mb-4">
 							{{
 								hasActiveFilters
 									? 'Try adjusting your search criteria or filters.'
@@ -717,23 +736,23 @@
 						<div class="text-2xl font-bold text-blue-600">
 							{{ filteredData.length }}
 						</div>
-						<div class="text-sm text-gray-500">Questionnaires</div>
+						<div class="text-sm text-el-text-color-secondary">Questionnaires</div>
 					</div>
 					<div class="text-center">
 						<div class="text-2xl font-bold text-green-600">
 							{{ totalResponsesCount }}
 						</div>
-						<div class="text-sm text-gray-500">Total Responses</div>
+						<div class="text-sm text-el-text-color-secondary">Total Responses</div>
 					</div>
 					<div class="text-center">
 						<div class="text-2xl font-bold text-purple-600">{{ sections.length }}</div>
-						<div class="text-sm text-gray-500">Sections</div>
+						<div class="text-sm text-el-text-color-secondary">Sections</div>
 					</div>
 					<div class="text-center">
 						<div class="text-2xl font-bold text-orange-600">
 							{{ uniqueContributors }}
 						</div>
-						<div class="text-sm text-gray-500">Contributors</div>
+						<div class="text-sm text-el-text-color-secondary">Contributors</div>
 					</div>
 				</div>
 			</el-card>
@@ -1897,7 +1916,7 @@ const handleExportPDF = async () => {
 		ElMessage.info('Generating PDF, please wait...');
 
 		// 获取页面内容元素
-		const sourceElement = document.querySelector('.pb-6.bg-gray-50') as HTMLElement;
+		const sourceElement = document.querySelector('.pb-6.customer-overview-bg') as HTMLElement;
 		console.log('[PDF Export] Found main element:', !!sourceElement);
 		if (!sourceElement) {
 			throw new Error('Page content not found');
@@ -1925,7 +1944,9 @@ const handleExportPDF = async () => {
 			titleElement.style.maxWidth = 'none';
 			titleElement.style.fontSize = '1.5rem';
 			titleElement.style.fontWeight = '700';
-			titleElement.style.color = '#111827';
+			titleElement.style.color = getComputedStyle(document.documentElement)
+				.getPropertyValue('--el-text-color-primary')
+				.trim();
 			titleElement.style.display = 'block';
 			titleElement.style.visibility = 'visible';
 		}
@@ -1976,9 +1997,15 @@ const handleExportPDF = async () => {
 			summarySection.className = 'el-card is-always-shadow mt-6';
 			// 应用与Element Plus卡片相同的样式
 			summarySection.style.marginTop = '24px';
-			summarySection.style.border = '1px solid #ebeef5';
+			summarySection.style.border =
+				'1px solid ' +
+				getComputedStyle(document.documentElement)
+					.getPropertyValue('--el-border-color-light')
+					.trim();
 			summarySection.style.borderRadius = '4px';
-			summarySection.style.backgroundColor = '#ffffff';
+			summarySection.style.backgroundColor = getComputedStyle(document.documentElement)
+				.getPropertyValue('--el-bg-color')
+				.trim();
 			summarySection.style.boxShadow = '0 2px 12px 0 rgba(0, 0, 0, 0.1)';
 			summarySection.style.overflow = 'hidden';
 			summarySection.style.display = 'block';
@@ -1987,11 +2014,19 @@ const handleExportPDF = async () => {
 			// 创建标题部分
 			const headerDiv = document.createElement('div');
 			headerDiv.style.padding = '18px 20px';
-			headerDiv.style.borderBottom = '1px solid #ebeef5';
-			headerDiv.style.backgroundColor = '#fafafa';
+			headerDiv.style.borderBottom =
+				'1px solid ' +
+				getComputedStyle(document.documentElement)
+					.getPropertyValue('--el-border-color-light')
+					.trim();
+			headerDiv.style.backgroundColor = getComputedStyle(document.documentElement)
+				.getPropertyValue('--el-fill-color-light')
+				.trim();
 			headerDiv.style.fontSize = '1.125rem';
 			headerDiv.style.fontWeight = '500';
-			headerDiv.style.color = '#303133';
+			headerDiv.style.color = getComputedStyle(document.documentElement)
+				.getPropertyValue('--el-text-color-primary')
+				.trim();
 			headerDiv.textContent = 'Response Summary';
 
 			// 创建内容部分
@@ -2005,11 +2040,23 @@ const handleExportPDF = async () => {
 			gridDiv.style.gap = '1rem';
 
 			// 创建统计项目
+			const primaryColor = getComputedStyle(document.documentElement)
+				.getPropertyValue('--el-color-primary')
+				.trim();
+			const successColor = getComputedStyle(document.documentElement)
+				.getPropertyValue('--el-color-success')
+				.trim();
+			const infoColor = getComputedStyle(document.documentElement)
+				.getPropertyValue('--el-color-info')
+				.trim();
+			const warningColor = getComputedStyle(document.documentElement)
+				.getPropertyValue('--el-color-warning')
+				.trim();
 			const statsData = [
-				{ value: filteredData.value.length, label: 'Questionnaires', color: '#2563eb' },
-				{ value: totalResponsesCount.value, label: 'Total Responses', color: '#16a34a' },
-				{ value: sections.value.length, label: 'Sections', color: '#9333ea' },
-				{ value: uniqueContributors.value, label: 'Contributors', color: '#ea580c' },
+				{ value: filteredData.value.length, label: 'Questionnaires', color: primaryColor },
+				{ value: totalResponsesCount.value, label: 'Total Responses', color: successColor },
+				{ value: sections.value.length, label: 'Sections', color: infoColor },
+				{ value: uniqueContributors.value, label: 'Contributors', color: warningColor },
 			];
 
 			statsData.forEach((stat) => {
@@ -2024,9 +2071,12 @@ const handleExportPDF = async () => {
 				valueDiv.textContent = String(stat.value);
 
 				const labelDiv = document.createElement('div');
+				const secondaryColor = getComputedStyle(document.documentElement)
+					.getPropertyValue('--el-text-color-secondary')
+					.trim();
 				labelDiv.style.fontSize = '0.875rem';
 				labelDiv.style.lineHeight = '1.25rem';
-				labelDiv.style.color = '#6b7280';
+				labelDiv.style.color = secondaryColor;
 				labelDiv.textContent = stat.label;
 
 				statDiv.appendChild(valueDiv);
@@ -2108,7 +2158,9 @@ const handleExportPDF = async () => {
 		clonedElement.style.left = '0px';
 		clonedElement.style.width = sourceElement.offsetWidth + 'px';
 		clonedElement.style.height = 'auto';
-		clonedElement.style.backgroundColor = '#ffffff';
+		clonedElement.style.backgroundColor = getComputedStyle(document.documentElement)
+			.getPropertyValue('--el-bg-color')
+			.trim();
 		clonedElement.style.zIndex = '-1000';
 		clonedElement.style.visibility = 'hidden';
 		clonedElement.style.pointerEvents = 'none';
@@ -2140,8 +2192,14 @@ const handleExportPDF = async () => {
 			summaryInClone.style.position = 'static';
 			summaryInClone.style.width = '100%';
 			summaryInClone.style.minHeight = '150px';
-			summaryInClone.style.backgroundColor = '#ffffff';
-			summaryInClone.style.border = '1px solid #ddd';
+			summaryInClone.style.backgroundColor = getComputedStyle(document.documentElement)
+				.getPropertyValue('--el-bg-color')
+				.trim();
+			summaryInClone.style.border =
+				'1px solid ' +
+				getComputedStyle(document.documentElement)
+					.getPropertyValue('--el-border-color-light')
+					.trim();
 			summaryInClone.style.borderRadius = '8px';
 			summaryInClone.style.padding = '20px';
 			summaryInClone.style.marginTop = '30px';
@@ -2178,21 +2236,27 @@ const handleExportPDF = async () => {
 		// 最终确认Summary section的完整性
 		const finalSummaryForCanvas = clonedElement.querySelector('.mt-6') as HTMLElement;
 		if (finalSummaryForCanvas) {
+			const bgColor = getComputedStyle(document.documentElement)
+				.getPropertyValue('--el-bg-color')
+				.trim();
+			const borderColor = getComputedStyle(document.documentElement)
+				.getPropertyValue('--el-border-color-light')
+				.trim();
 			// 强制设置所有可能影响渲染的样式
 			finalSummaryForCanvas.style.cssText = `
-				display: block !important;
-				visibility: visible !important;
-				opacity: 1 !important;
-				position: relative !important;
-				height: auto !important;
-				width: 100% !important;
-				margin-top: 24px !important;
-				background-color: #ffffff !important;
-				border: 1px solid #ebeef5 !important;
-				box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1) !important;
-				overflow: visible !important;
-				transform: none !important;
-				left: auto !important;
+			display: block !important;
+			visibility: visible !important;
+			opacity: 1 !important;
+			position: relative !important;
+			height: auto !important;
+			width: 100% !important;
+			margin-top: 24px !important;
+			background-color: ${bgColor} !important;
+			border: 1px solid ${borderColor} !important;
+			box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1) !important;
+			overflow: visible !important;
+			transform: none !important;
+			left: auto !important;
 				top: auto !important;
 				right: auto !important;
 				bottom: auto !important;
@@ -2216,7 +2280,9 @@ const handleExportPDF = async () => {
 			scale: 1, // 降低缩放，避免渲染问题
 			useCORS: true,
 			allowTaint: true,
-			backgroundColor: '#ffffff',
+			backgroundColor: getComputedStyle(document.documentElement)
+				.getPropertyValue('--el-bg-color')
+				.trim(),
 			width: clonedElement.offsetWidth,
 			height: clonedElement.scrollHeight,
 			logging: true, // 开启日志以调试
@@ -2928,11 +2994,6 @@ onUnmounted(() => {
 </script>
 
 <style scoped lang="scss">
-/* 表格全宽样式 */
-:deep(.el-table) {
-	width: 100% !important;
-}
-
 :deep(.el-table__body-wrapper) {
 	width: 100% !important;
 }
@@ -2946,7 +3007,7 @@ onUnmounted(() => {
 	transition: all 0.2s ease;
 
 	&:hover {
-		background-color: #f5f5f5 !important;
+		background-color: var(--el-fill-color-light) !important;
 		transform: translateY(-1px);
 		box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 	}
@@ -2987,7 +3048,7 @@ onUnmounted(() => {
 	&.short-answer-grid {
 		.grid-row-data {
 			padding: 4px 0;
-			border-bottom: 1px solid #f0f0f0;
+			border-bottom: 1px solid var(--el-border-color-lighter);
 
 			&:last-child {
 				border-bottom: none;
@@ -2995,16 +3056,16 @@ onUnmounted(() => {
 
 			.font-medium {
 				min-width: 120px;
-				color: #6b7280;
+				color: var(--el-text-color-secondary);
 				font-size: 0.8rem;
 			}
 
 			span:last-child {
-				background-color: #f8fafc;
-				border: 1px solid #e2e8f0;
+				background-color: var(--el-fill-color-lighter);
+				border: 1px solid var(--el-border-color-light);
 				padding: 2px 8px;
 				font-size: 0.875rem;
-				color: #374151;
+				color: var(--el-text-color-regular);
 				word-break: break-word;
 				@apply rounded-xl;
 			}
@@ -3016,20 +3077,6 @@ onUnmounted(() => {
 .answer-cell {
 	min-height: 40px;
 	display: block;
-}
-
-/* 确保卡片内容占满宽度 */
-:deep(.el-card__body) {
-	padding: 20px;
-	width: 100%;
-	color: #000;
-}
-
-/* 表格响应式调整 */
-@media (max-width: 1024px) {
-	:deep(.el-table .el-table__cell) {
-		padding: 8px 4px;
-	}
 }
 
 /* 确保标签内容在PDF导出时可见 */
@@ -3055,7 +3102,7 @@ onUnmounted(() => {
 
 /* 题目序号样式 */
 .question-number {
-	color: #2563eb;
+	color: var(--el-color-primary);
 	font-weight: 600;
 	margin-right: 0.5rem;
 	font-size: 0.9em;
@@ -3063,18 +3110,7 @@ onUnmounted(() => {
 
 /* 暗色主题下的题目序号样式 */
 html.dark .question-number {
-	color: #60a5fa;
-}
-
-/* 筛选面板样式 */
-.filter-panel {
-	background-color: #ffffff;
-	border: 1px solid var(--primary-100);
-}
-
-html.dark .filter-panel {
-	background-color: var(--black-400);
-	border-color: var(--black-200);
+	color: var(--el-color-primary);
 }
 
 .filter-label {
@@ -3113,5 +3149,27 @@ html.dark :deep(.filter-select .el-input__wrapper.is-focus) {
 
 html.dark :deep(.filter-select .el-input__inner) {
 	color: var(--white-100);
+}
+
+.customer-overview-bg {
+	background: var(--el-bg-color-page);
+}
+
+.questionnaire-tag {
+	color: var(--el-text-color-primary);
+}
+
+/* Overview custom classes */
+.overview-file-item {
+	background-color: var(--el-fill-color-light);
+}
+
+.overview-grid-value {
+	color: var(--el-text-color-primary);
+	background-color: var(--el-fill-color-blank);
+}
+
+.overview-empty-icon {
+	color: var(--el-text-color-placeholder);
 }
 </style>

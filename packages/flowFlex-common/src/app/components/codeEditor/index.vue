@@ -1,10 +1,10 @@
 <template>
 	<div class="code-editor-container">
 		<div class="code-editor-header">
-			<label class="text-base font-bold text-primary-800 dark:text-primary-300">
+			<label class="text-base font-bold">
 				{{ title }}
 			</label>
-			<p class="text-sm text-primary-600 dark:text-primary-400">
+			<p class="text-sm text-gray-600">
 				{{ description }}
 			</p>
 		</div>
@@ -72,8 +72,12 @@ const initEditor = async () => {
 			inherit: true,
 			rules: [],
 			colors: {
-				'editor.background': '#f8fafc',
-				'editor.foreground': '#1e293b',
+				'editor.background': getComputedStyle(document.documentElement)
+					.getPropertyValue('--el-fill-color-blank')
+					.trim(),
+				'editor.foreground': getComputedStyle(document.documentElement)
+					.getPropertyValue('--el-text-color-primary')
+					.trim(),
 			},
 		});
 
@@ -330,7 +334,7 @@ defineExpose({
 }
 
 .code-editor-wrapper {
-	@apply border rounded-xl border-primary-200 bg-white overflow-hidden relative;
+	@apply border rounded-xl mt-2 overflow-hidden relative;
 	height: v-bind(height);
 	min-height: 200px;
 }
@@ -350,7 +354,7 @@ defineExpose({
 }
 
 :deep(.monaco-editor .monaco-editor-background) {
-	@apply bg-white;
+	@apply bg-none;
 }
 
 :deep(.monaco-editor .line-numbers) {

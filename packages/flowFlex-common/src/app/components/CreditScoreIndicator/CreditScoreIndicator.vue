@@ -60,13 +60,25 @@ const rotateToAngle = (creditScore) => {
 	const angle = (creditScore / 100) * 180;
 	var indicator = document.getElementById('indicator') as HTMLDivElement;
 	indicator.style.transform = `rotate(${angle}deg)`;
-	let formBack = '#E52628';
+
+	// 动态获取CSS变量颜色
+	const dangerColor = getComputedStyle(document.documentElement)
+		.getPropertyValue('--el-color-danger')
+		.trim();
+	const warningColor = getComputedStyle(document.documentElement)
+		.getPropertyValue('--el-color-warning')
+		.trim();
+	const successColor = getComputedStyle(document.documentElement)
+		.getPropertyValue('--el-color-success')
+		.trim();
+
+	let formBack = dangerColor;
 	if (0 <= angle && angle < 70) {
-		formBack = '#E52628';
+		formBack = dangerColor;
 	} else if (60 < angle && angle < 130) {
-		formBack = '#f7be00';
+		formBack = warningColor;
 	} else {
-		formBack = '#018A16';
+		formBack = successColor;
 	}
 	(document.getElementById('inner') as HTMLDivElement).style.background = formBack;
 };
@@ -102,7 +114,7 @@ defineExpose({
 	padding: 0px;
 	width: 212px;
 	height: 116px;
-	border-right: 4px solid #018a16;
+	border-right: 4px solid var(--el-color-success);
 	border-radius: 9999px 9999px 0px 0px;
 	flex: none;
 	order: 0;
@@ -119,7 +131,7 @@ defineExpose({
 	gap: 10px;
 	width: 212px;
 	height: 116px;
-	border-top: 4px solid #f7be00;
+	border-top: 4px solid var(--el-color-warning);
 	border-radius: 9999px 9999px 0px 0px;
 	flex: none;
 	order: 0;
@@ -136,7 +148,7 @@ defineExpose({
 	gap: 10px;
 	width: 212px;
 	height: 116px;
-	border-left: 4px solid #e52628;
+	border-left: 4px solid var(--el-color-danger);
 	border-radius: 9999px 9999px 0px 0px;
 	flex: none;
 	order: 0;
@@ -153,7 +165,7 @@ defineExpose({
 	isolation: isolate;
 	width: 180px;
 	height: 100px;
-	border-top: 1px dashed #989a9c;
+	border-top: 1px dashed var(--el-border-color);
 	border-radius: 9999px 9999px 0px 0px;
 	flex: none;
 	order: 0;
@@ -176,7 +188,7 @@ defineExpose({
 	width: 16px;
 	height: 16px;
 	border-radius: 9999px;
-	background: #e52628;
+	background: var(--el-color-danger);
 	flex: none;
 	order: 2;
 	flex-grow: 0;
@@ -187,7 +199,7 @@ defineExpose({
 .inner {
 	width: 8px;
 	height: 8px;
-	background: #ffffff;
+	background: var(--el-color-white);
 	flex: none;
 	order: 0;
 	flex-grow: 0;
@@ -202,7 +214,7 @@ defineExpose({
 	padding: 0px 10px;
 	gap: 10px;
 	height: 20px;
-	background: #fefce8;
+	background: var(--el-color-warning-light-9);
 	flex: none;
 	order: 1;
 	flex-grow: 0;
@@ -217,7 +229,7 @@ defineExpose({
 		display: flex;
 		align-items: center;
 		text-align: center;
-		color: #ff9900;
+		color: var(--el-color-warning);
 		flex: none;
 		order: 0;
 		flex-grow: 0;

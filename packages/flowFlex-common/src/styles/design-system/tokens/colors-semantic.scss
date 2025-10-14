@@ -1,0 +1,115 @@
+/**
+ * 语义颜色系统 (Layer 2: Semantic Colors)
+ * 依赖深色/浅色模式，不依赖蓝色/紫色主题
+ * 完全对齐 Item Element Plus 设计规范
+ * 
+ * @link https://design.item.com/guidelines/element-plus-colors
+ * 
+ * 包括：
+ * - 文本颜色 (Text Colors)
+ * - 背景颜色 (Background Colors)
+ * - 边框颜色 (Border Colors)
+ * - 填充颜色 (Fill Colors)
+ * - 语义状态颜色 (Semantic Colors: success/warning/danger/info)
+ */
+
+/* ============================================
+   浅色模式语义颜色
+   ============================================ */
+html,
+html.sub-app-body,
+html.flowflex-app {
+	/* 文本颜色 - Item 设计系统规范 */
+	--el-text-color-primary: #181818; /* Headings & emphasis */
+	--el-text-color-regular: #3c3c3c; /* Body text */
+	--el-text-color-secondary: #666666; /* Descriptions & labels */
+	--el-text-color-placeholder: #666666; /* Input placeholders */
+	--el-text-color-disabled: rgba(102, 102, 102, 0.36); /* Inactive elements */
+
+	/* 背景颜色 - Item 设计系统规范 */
+	--el-bg-color: #f9f9f9; /* Main background */
+	--el-bg-color-page: #f2f3f5; /* Page background */
+	--el-bg-color-overlay: #ffffff; /* Overlay surfaces */
+
+	/* 边框颜色 - Item 设计系统规范 */
+	--el-border-color: #c0c1c2; /* Default borders */
+	--el-border-color-light: #e0e0e0; /* Subtle borders */
+	--el-border-color-lighter: #dbdbdb; /* Very light borders */
+	--el-border-color-hover: #c0c4cc; /* Hover state */
+
+	/* 填充颜色 - Item 设计系统规范 */
+	--el-fill-color: #f0f2f5; /* Component backgrounds */
+	--el-fill-color-light: #f3f3f3; /* Light fills */
+	--el-fill-color-lighter: #eaeaea; /* Lightest fills */
+	--el-fill-color-blank: #ffffff; /* Pure backgrounds */
+
+	/* 语义状态颜色 - Item 设计系统规范 */
+	/* Success - 成功色 */
+	--el-color-success: #15803d;
+	--el-color-success-light-7: #dcfce7;
+
+	/* Warning - 警告色 */
+	--el-color-warning: #e79f04;
+	--el-color-warning-light-7: #fef3c7;
+
+	/* Danger - 错误色 */
+	--el-color-danger: #f0283c;
+	--el-color-danger-light-7: #fecaca;
+
+	/* Info - 信息色 */
+	--el-color-info: #666666;
+	--el-color-info-light-7: #dedfe0;
+
+	/* 全局圆角 */
+	--el-border-radius-base: 12px;
+	--el-border-radius-small: 8px;
+	--el-border-radius-large: 16px;
+}
+
+/* ============================================
+   深色模式语义颜色
+   ============================================ */
+html.dark,
+html.dark.sub-app-body,
+html.dark.flowflex-app {
+	/* 文本颜色 - Item 暗色模式 */
+	--el-text-color-primary: #ffffff;
+	--el-text-color-regular: #ffffff;
+	--el-text-color-secondary: #999999;
+	--el-text-color-placeholder: #737373;
+	--el-text-color-disabled: rgba(115, 115, 115, 0.43);
+
+	/* 背景颜色 - Item 暗色模式 */
+	--el-bg-color: #000000;
+	--el-bg-color-page: #0a0a0a;
+	--el-bg-color-overlay: #0d0d0d;
+
+	/* 边框颜色 - Item 暗色模式 */
+	--el-border-color: #343434;
+	--el-border-color-light: #292929;
+	--el-border-color-lighter: #292929;
+	--el-border-color-hover: #6e6e70;
+
+	/* 填充颜色 - Item 暗色模式 */
+	--el-fill-color: #303030;
+	--el-fill-color-light: #262627;
+	--el-fill-color-lighter: #1d1e1e;
+	--el-fill-color-blank: #0d0d0d;
+
+	/* 语义状态颜色 - Item 暗色模式 */
+	/* Success */
+	--el-color-success: #15803d;
+	--el-color-success-light-7: rgba(21, 128, 61, 0.13);
+
+	/* Warning */
+	--el-color-warning: #e79f04;
+	--el-color-warning-light-7: #473a1e;
+
+	/* Danger */
+	--el-color-danger: #f0283c;
+	--el-color-danger-light-7: rgba(240, 40, 60, 0.14);
+
+	/* Info */
+	--el-color-info: #666666;
+	--el-color-info-light-7: #181818;
+}

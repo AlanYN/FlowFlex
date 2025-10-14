@@ -11,7 +11,7 @@
 		<template #header>
 			<div class="flex flex-col gap-1">
 				<span class="text-xl font-semibold text-primary-500">Questionnaire Preview</span>
-				<span class="text-sm text-gray-600">
+				<span class="text-sm preview-subtitle">
 					This is how the questionnaire will appear to users.
 				</span>
 			</div>
@@ -121,6 +121,10 @@ const handleClose = () => {
 </script>
 
 <style scoped lang="scss">
+.preview-subtitle {
+	color: var(--el-text-color-secondary);
+}
+
 .questionnaire-preview-dialog {
 	:deep(.el-dialog__body) {
 		padding: 0;

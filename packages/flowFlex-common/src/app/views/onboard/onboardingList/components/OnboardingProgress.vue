@@ -1,31 +1,34 @@
 <template>
-	<div class="customer-block">
+	<div class="wfe-global-block-bg">
 		<!-- 统一的头部卡片 -->
 		<div
-			class="progress-header-card rounded-xl"
+			class="case-stageList-header rounded-xl"
 			:class="{ expanded: isOpen }"
 			@click="toggleOpen"
 		>
 			<div class="flex justify-between">
 				<div>
 					<div class="flex items-center">
-						<el-icon class="expand-icon text-lg mr-2" :class="{ rotated: isOpen }">
+						<el-icon
+							class="case-component-expand-icon text-lg mr-2"
+							:class="{ rotated: isOpen }"
+						>
 							<ArrowRight />
 						</el-icon>
-						<h3 class="progress-title">Case Progress</h3>
+						<h3 class="case-component-title">Case Progress</h3>
 					</div>
-					<div class="progress-subtitle"></div>
+					<div class="case-component-subtitle"></div>
 				</div>
-				<div class="progress-info">
-					<span class="progress-percentage">{{ progressPercentage }}%</span>
-					<span class="progress-label">Completed</span>
+				<div class="case-component-info">
+					<span class="case-component-percentage">{{ progressPercentage }}%</span>
+					<span class="case-component-label">Completed</span>
 				</div>
 			</div>
 			<!-- 统一进度条 -->
-			<div class="progress-bar-container">
-				<div class="progress-bar rounded-xl">
+			<div class="w-full">
+				<div class="case-component-bar rounded-xl">
 					<div
-						class="progress-fill rounded-xl"
+						class="case-component-fill rounded-xl"
 						:style="{ width: `${progressPercentage}%` }"
 					></div>
 				</div>
@@ -55,7 +58,7 @@
 							class="flex items-center gap-2 p-3 cursor-pointer transition-colors hover:bg-gray-50 dark:hover:bg-indigo-900/20 rounded-xl min-w-0 w-full"
 							:class="[
 								stage.completed
-									? 'border-green-500'
+									? 'border-primary'
 									: 'border-gray-300 dark:border-gray-600',
 								activeStage === stage.stageId
 									? 'bg-indigo-50 dark:bg-indigo-900/30'
@@ -72,10 +75,10 @@
 								class="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0"
 								:class="[
 									stage.completed
-										? 'bg-green-500 text-white'
+										? 'bg-primary text-white'
 										: activeStage === stage.stageId
 										? 'bg-primary-500 text-white'
-										: 'bg-gray-300 text-gray-600 dark:bg-gray-600 dark:text-gray-300',
+										: 'bg-[var(--el-bg-color-page)] dark:bg-black',
 								]"
 							>
 								<el-icon v-if="stage.completed" class="text-xs">
@@ -92,11 +95,11 @@
 							<!-- 阶段内容 -->
 							<div class="space-y-1 w-full min-w-0">
 								<div class="font-medium flex items-start min-w-0">
-									<span
-										class="mr-2 text-sm font-bold text-gray-500 dark:text-gray-400 flex-shrink-0"
+									<!-- <span
+										class="mr-2 text-sm font-bold text-[var(--el-text-color-secondary)] flex-shrink-0"
 									>
 										{{ getOriginalStageIndex(stage) + 1 }}.
-									</span>
+									</span> -->
 									<div class="flex-1 min-w-0">
 										<div class="flex items-center gap-2 min-w-0">
 											<div
@@ -127,7 +130,7 @@
 								</div>
 								<div
 									v-if="stage.completedBy || stage.savedBy"
-									class="text-xs text-green-600 dark:text-green-400 ml-6 min-w-0"
+									class="text-xs text-primary ml-2 min-w-0"
 								>
 									<span
 										class="completion-info-text block min-w-0"
@@ -291,111 +294,6 @@ watch(
 </script>
 
 <style scoped lang="scss">
-/* 统一的头部卡片样式 */
-.progress-header-card {
-	background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
-	padding: 10px;
-	color: white;
-	box-shadow: 0 4px 12px rgba(99, 102, 241, 0.2);
-	display: flex;
-	flex-direction: column;
-	gap: 16px;
-	cursor: pointer;
-	transition: all 0.2s ease;
-
-	&:hover {
-		box-shadow: 0 6px 16px rgba(99, 102, 241, 0.3);
-		transform: translateY(-1px);
-	}
-}
-
-.progress-title {
-	font-size: 18px;
-	font-weight: 600;
-	margin: 0 0 4px 0;
-}
-
-.progress-subtitle {
-	font-size: 14px;
-	opacity: 0.9;
-	height: 21px;
-}
-
-.progress-info {
-	display: flex;
-	flex-direction: column;
-	align-items: flex-end;
-	text-align: right;
-}
-
-.progress-percentage {
-	font-size: 24px;
-	font-weight: 700;
-	line-height: 1;
-	color: white;
-}
-
-.progress-label {
-	font-size: 12px;
-	color: rgba(255, 255, 255, 0.9);
-	margin-top: 2px;
-}
-
-.progress-bar-container {
-	width: 100%;
-}
-
-.progress-bar {
-	width: 100%;
-	height: 8px;
-	background-color: rgba(255, 255, 255, 0.4);
-	overflow: hidden;
-}
-
-.progress-fill {
-	height: 100%;
-	background: linear-gradient(90deg, #a5b4fc 0%, #6366f1 50%, #4338ca 100%);
-	box-shadow: 0 2px 8px rgba(99, 102, 241, 0.7);
-	transition: width 0.3s ease;
-}
-
-.expand-icon {
-	transition: transform 0.2s ease;
-
-	&.rotated {
-		transform: rotate(90deg);
-	}
-}
-
-/* 暗色主题样式 */
-html.dark {
-	.progress-header-card {
-		background: linear-gradient(135deg, #4338ca 0%, #3730a3 100%);
-		box-shadow: 0 4px 12px rgba(67, 56, 202, 0.3);
-	}
-
-	.progress-bar {
-		background-color: rgba(255, 255, 255, 0.3);
-	}
-
-	.progress-fill {
-		background: linear-gradient(90deg, #8b5cf6 0%, #6366f1 50%, #4338ca 100%);
-		box-shadow: 0 2px 10px rgba(139, 92, 246, 0.8);
-	}
-}
-
-/* 响应式样式 */
-@media (max-width: 768px) {
-	.progress-header-card {
-		padding: 16px;
-	}
-
-	.progress-info {
-		align-items: flex-start;
-		text-align: left;
-	}
-}
-
 .rotate-180 {
 	transform: rotate(180deg);
 }

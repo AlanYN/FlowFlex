@@ -16,7 +16,7 @@
 
 		<!-- Models Table -->
 		<div class="models-table">
-			<el-table :data="modelConfigs" v-loading="loading" stripe>
+			<el-table :data="modelConfigs" v-loading="loading" stripe border>
 				<el-table-column prop="provider" label="Provider" width="120">
 					<template #default="{ row }">
 						<el-tag :type="getProviderType(row.provider)">
@@ -240,7 +240,7 @@ const loadConfigs = async () => {
 		const response = await getUserAIModels();
 		console.log('📥 AI model configuration response:', response);
 
-		if (response.success && (response.code === 200 || response.code === '200')) {
+		if (response.success && response.code == 200) {
 			modelConfigs.value = response.data || [];
 			console.log(
 				'✅ AI model configurations loaded successfully:',
@@ -284,8 +284,8 @@ const loadProviders = async () => {
 		const response = await getAIProviders();
 		console.log('📥 AI providers response:', response);
 
-		if (response.success && (response.code === 200 || response.code === '200')) {
-			providers.value = response.data || [];
+		if (response.success && response.code == 200) {
+			providers.value = (response.data as unknown as AIProviderInfo[]) || [];
 			console.log(
 				'✅ AI providers loaded successfully:',
 				providers.value.length,
@@ -322,7 +322,7 @@ const testConnection = async (config: AIModelConfig) => {
 	testingId.value = config.id!;
 	try {
 		const response = await testAIModelConnection(config);
-		if (response.success && (response.code === 200 || response.code === '200')) {
+		if (response.success && response.code == 200) {
 			const result = response.data;
 			if (result.success) {
 				ElMessage.success(result.message || 'Connection test successful!');
@@ -370,7 +370,7 @@ const editConfig = (config: AIModelConfig) => {
 const setDefault = async (configId: number) => {
 	try {
 		const response = await setDefaultAIModel(configId);
-		if (response.success && (response.code === 200 || response.code === '200')) {
+		if (response.success && response.code == 200) {
 			// Update local state
 			modelConfigs.value.forEach((config) => {
 				config.isDefault = config.id === configId;
@@ -394,7 +394,7 @@ const deleteConfig = async (configId: number) => {
 		);
 
 		const response = await deleteAIModel(configId);
-		if (response.success && (response.code === 200 || response.code === '200')) {
+		if (response.success && response.code == 200) {
 			modelConfigs.value = modelConfigs.value.filter((config) => config.id !== configId);
 			ElMessage.success('Configuration deleted successfully!');
 		} else {
@@ -423,7 +423,7 @@ const saveConfig = async () => {
 			// Update existing
 			const updatedConfig = { ...editingConfig.value, ...configForm } as AIModelConfig;
 			const response = await updateAIModel(updatedConfig);
-			if (response.success && (response.code === 200 || response.code === '200')) {
+			if (response.success && response.code == 200) {
 				// Update local state to reflect the changes including isDefault
 				Object.assign(editingConfig.value, configForm);
 
@@ -443,7 +443,7 @@ const saveConfig = async () => {
 		} else {
 			// Add new
 			const response = await createAIModel(configForm);
-			if (response.success && (response.code === 200 || response.code === '200')) {
+			if (response.success && response.code == 200) {
 				const newConfig: AIModelConfig = {
 					...(configForm as AIModelConfig),
 					id: response.data,
@@ -459,10 +459,7 @@ const saveConfig = async () => {
 				// If user wants to set this as default, call the separate API
 				if (configForm.isDefault) {
 					const defaultResponse = await setDefaultAIModel(response.data);
-					if (
-						defaultResponse.success &&
-						(defaultResponse.code === 200 || defaultResponse.code === '200')
-					) {
+					if (defaultResponse.success && defaultResponse.code == 200) {
 						// Update local state - set all others to false, this one to true
 						modelConfigs.value.forEach((config) => {
 							config.isDefault = config.id === response.data;
@@ -523,7 +520,10 @@ const onProviderChange = () => {
 };
 
 const getProviderType = (provider: string) => {
-	const types: Record<string, string> = {
+	const types: Record<
+		'OpenAI' | 'ZhipuAI' | 'Claude' | 'DeepSeek',
+		'success' | 'warning' | 'info' | 'primary' | 'danger'
+	> = {
 		OpenAI: 'success',
 		ZhipuAI: 'primary',
 		Claude: 'warning',
@@ -565,8 +565,8 @@ onMounted(async () => {
 	align-items: center;
 	margin-bottom: 20px;
 	padding: 20px 32px;
-	background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-	color: white;
+	background: var(--el-color-success);
+	color: var(--el-color-white);
 	width: 100%;
 	box-sizing: border-box;
 	@apply rounded-xl;
@@ -585,17 +585,12 @@ onMounted(async () => {
 }
 
 .models-table {
-	background: white;
+	background: var(--el-bg-color);
 	padding: 20px;
 	box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 	width: 100%;
 	box-sizing: border-box;
 	@apply rounded-xl;
-}
-
-/* 表格容器优化 */
-.models-table :deep(.el-table) {
-	width: 100%;
 }
 
 .models-table :deep(.el-table__body-wrapper) {
@@ -707,21 +702,5 @@ onMounted(async () => {
 
 :deep(.el-form-item__label) {
 	font-weight: 500;
-}
-
-/* 表格样式优化 */
-:deep(.el-table) {
-	overflow: hidden;
-	@apply rounded-xl;
-}
-
-:deep(.el-table th) {
-	background-color: #f8fafc;
-	font-weight: 600;
-	color: #374151;
-}
-
-:deep(.el-table tr:hover > td) {
-	background-color: #f9fafb;
 }
 </style>

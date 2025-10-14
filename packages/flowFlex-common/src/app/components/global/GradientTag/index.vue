@@ -92,37 +92,14 @@ const dotSizeClasses = computed(() => {
 	}
 });
 
-// 类型配置映射
-const typeConfig = {
-	primary: { colors: ['blue', 'indigo', 'purple'], main: 'blue' },
-	success: { colors: ['emerald', 'teal', 'green'], main: 'emerald' },
-	warning: { colors: ['amber', 'yellow', 'orange'], main: 'amber' },
-	danger: { colors: ['red', 'rose', 'pink'], main: 'red' },
-	info: { colors: ['slate', 'gray', 'zinc'], main: 'slate' },
-	default: { colors: ['gray', 'neutral', 'stone'], main: 'gray' },
-} as const;
-
-// 类型样式 - 完整版本
+// 类型样式
 const typeClasses = computed(() => {
-	const config = typeConfig[props.type] || typeConfig.default;
-	const [c1, c2, c3] = config.colors;
-	const main = config.main;
-
-	return [
-		`gradient-tag-${props.type}`,
-		`bg-gradient-to-br from-${c1}-100 via-${c2}-200 to-${c3}-300`,
-		`text-${main}-800 border border-${main}-300/60`,
-		`dark:from-${c1}-800/90 dark:via-${c2}-700/90 dark:to-${c3}-600/90`,
-		`dark:text-${main}-100 dark:border-${main}-400/40`,
-	].join(' ');
+	return `gradient-tag-${props.type}`;
 });
 
-// 点的颜色 - 简化版本
+// 点的颜色
 const dotClasses = computed(() => {
-	const config = typeConfig[props.type] || typeConfig.default;
-	const [c1, c2, c3] = config.colors;
-
-	return `bg-gradient-to-br from-${c1}-400 via-${c2}-500 to-${c3}-600 dot-shadow dark:from-${c1}-300 dark:via-${c2}-400 dark:to-${c3}-500`;
+	return `gradient-dot gradient-dot-${props.type}`;
 });
 
 // 鼠标样式和交互效果
@@ -169,43 +146,90 @@ span {
 	user-select: none;
 }
 
-/* 类型特定的阴影和暗色主题 */
+/* 类型特定的背景、文字和边框样式 - 使用 Element Plus 变量 */
 .gradient-tag-primary {
+	background: var(--el-color-primary);
+	color: var(--el-color-white);
+	border: 1px solid var(--el-color-primary);
 	box-shadow:
-		0 2px 8px rgba(59, 130, 246, 0.15),
-		inset 0 1px 0 rgba(255, 255, 255, 0.6);
+		0 2px 8px var(--el-color-primary-light-8),
+		inset 0 1px 0 rgba(255, 255, 255, 0.2);
 }
+
 .gradient-tag-success {
+	background: var(--el-color-success);
+	color: var(--el-color-white);
+	border: 1px solid var(--el-color-success);
 	box-shadow:
-		0 2px 8px rgba(16, 185, 129, 0.15),
-		inset 0 1px 0 rgba(255, 255, 255, 0.6);
+		0 2px 8px var(--el-color-success-light-8),
+		inset 0 1px 0 rgba(255, 255, 255, 0.2);
 }
+
 .gradient-tag-warning {
+	background: var(--el-color-warning);
+	color: var(--el-color-white);
+	border: 1px solid var(--el-color-warning);
 	box-shadow:
-		0 2px 8px rgba(245, 158, 11, 0.15),
-		inset 0 1px 0 rgba(255, 255, 255, 0.6);
+		0 2px 8px var(--el-color-warning-light-8),
+		inset 0 1px 0 rgba(255, 255, 255, 0.2);
 }
+
 .gradient-tag-danger {
+	background: var(--el-color-danger);
+	color: var(--el-color-white);
+	border: 1px solid var(--el-color-danger);
 	box-shadow:
-		0 2px 8px rgba(239, 68, 68, 0.15),
-		inset 0 1px 0 rgba(255, 255, 255, 0.6);
+		0 2px 8px var(--el-color-danger-light-8),
+		inset 0 1px 0 rgba(255, 255, 255, 0.2);
 }
+
 .gradient-tag-info {
+	background: var(--el-color-info);
+	color: var(--el-color-white);
+	border: 1px solid var(--el-color-info);
 	box-shadow:
-		0 2px 8px rgba(100, 116, 139, 0.15),
-		inset 0 1px 0 rgba(255, 255, 255, 0.6);
+		0 2px 8px var(--el-color-info-light-8),
+		inset 0 1px 0 rgba(255, 255, 255, 0.2);
 }
+
 .gradient-tag-default {
+	background: var(--el-fill-color-darker);
+	color: var(--el-text-color-regular);
+	border: 1px solid var(--el-border-color);
 	box-shadow:
-		0 2px 8px rgba(107, 114, 128, 0.15),
+		0 2px 8px rgba(0, 0, 0, 0.08),
 		inset 0 1px 0 rgba(255, 255, 255, 0.6);
 }
 
-/* 点的阴影 */
-.dot-shadow {
+/* 点的样式 */
+.gradient-dot {
 	box-shadow:
 		0 1px 3px currentColor,
 		inset 0 1px 0 rgba(255, 255, 255, 0.3);
+}
+
+.gradient-dot-primary {
+	background: var(--el-color-primary);
+}
+
+.gradient-dot-success {
+	background: var(--el-color-success);
+}
+
+.gradient-dot-warning {
+	background: var(--el-color-warning);
+}
+
+.gradient-dot-danger {
+	background: var(--el-color-danger);
+}
+
+.gradient-dot-info {
+	background: var(--el-color-info);
+}
+
+.gradient-dot-default {
+	background: var(--el-text-color-regular);
 }
 
 /* 交互效果 */
@@ -274,35 +298,58 @@ span:hover::before {
 	}
 }
 
-/* 暗色主题阴影覆盖 */
+/* 暗色主题样式 */
 html.dark .gradient-tag-primary {
+	background: var(--el-color-primary);
+	color: var(--el-color-white);
+	border: 1px solid var(--el-color-primary);
 	box-shadow:
-		0 2px 8px rgba(59, 130, 246, 0.25),
+		0 2px 8px color-mix(in srgb, var(--el-color-primary) 25%, transparent),
 		inset 0 1px 0 rgba(255, 255, 255, 0.1);
 }
+
 html.dark .gradient-tag-success {
+	background: var(--el-color-success);
+	color: var(--el-color-white);
+	border: 1px solid var(--el-color-success);
 	box-shadow:
-		0 2px 8px rgba(16, 185, 129, 0.25),
+		0 2px 8px color-mix(in srgb, var(--el-color-success) 25%, transparent),
 		inset 0 1px 0 rgba(255, 255, 255, 0.1);
 }
+
 html.dark .gradient-tag-warning {
+	background: var(--el-color-warning);
+	color: var(--el-color-white);
+	border: 1px solid var(--el-color-warning);
 	box-shadow:
-		0 2px 8px rgba(245, 158, 11, 0.25),
+		0 2px 8px color-mix(in srgb, var(--el-color-warning) 25%, transparent),
 		inset 0 1px 0 rgba(255, 255, 255, 0.1);
 }
+
 html.dark .gradient-tag-danger {
+	background: var(--el-color-danger);
+	color: var(--el-color-white);
+	border: 1px solid var(--el-color-danger);
 	box-shadow:
-		0 2px 8px rgba(239, 68, 68, 0.25),
+		0 2px 8px color-mix(in srgb, var(--el-color-danger) 25%, transparent),
 		inset 0 1px 0 rgba(255, 255, 255, 0.1);
 }
+
 html.dark .gradient-tag-info {
+	background: var(--el-color-info);
+	color: var(--el-color-white);
+	border: 1px solid var(--el-color-info);
 	box-shadow:
-		0 2px 8px rgba(100, 116, 139, 0.25),
+		0 2px 8px color-mix(in srgb, var(--el-color-info) 25%, transparent),
 		inset 0 1px 0 rgba(255, 255, 255, 0.1);
 }
+
 html.dark .gradient-tag-default {
+	background: var(--el-fill-color-dark);
+	color: var(--el-text-color-regular);
+	border: 1px solid var(--el-border-color-darker);
 	box-shadow:
-		0 2px 8px rgba(107, 114, 128, 0.25),
+		0 2px 8px rgba(0, 0, 0, 0.3),
 		inset 0 1px 0 rgba(255, 255, 255, 0.1);
 }
 

@@ -1,11 +1,412 @@
 <template>
-	<div class="space-y-6 import-dialog">
+	<div class="space-y-3">
 		<!-- Import Section -->
-		<div class="import-section flex justify-between items-center mb-4">
-			<h4 class="font-medium text-gray-700 dark:text-gray-300">HTTP Configuration</h4>
+		<div class="flex justify-between items-center mt-4">
+			<h4 class="text-base font-bold">HTTP Configuration</h4>
 			<el-button type="primary" @click="showImportDialog" :disabled="disabled">
 				Import
 			</el-button>
+		</div>
+
+		<!-- HTTP Configuration Form -->
+		<el-form
+			:model="formConfig"
+			label-width="120px"
+			class=""
+			label-position="top"
+			@submit.prevent
+		>
+			<el-form-item label="Request URL" required class="request-url-input">
+				<el-input
+					:model-value="formConfig.url"
+					@update:model-value="setUrl"
+					placeholder="Enter URL, type '/' to insert variables"
+					class="w-full"
+					:disabled="disabled"
+				>
+					<template #prepend>
+						<el-select
+							:model-value="formConfig.method"
+							@update:model-value="setMethod"
+							style="width: 115px"
+							:disabled="disabled"
+						>
+							<el-option label="GET" value="GET" />
+							<el-option label="POST" value="POST" />
+							<el-option label="PUT" value="PUT" />
+							<el-option label="DELETE" value="DELETE" />
+							<el-option label="PATCH" value="PATCH" />
+						</el-select>
+					</template>
+				</el-input>
+				<div class="text-xs url-hint mt-1">
+					Use variables like &#123;&#123;onboarding.id&#125;&#125; or
+					&#123;&#123;stage.name&#125;&#125; in the URL
+				</div>
+			</el-form-item>
+
+			<!-- Headers Section -->
+			<el-form-item label="HEADERS">
+				<div class="params-section-enhanced">
+					<div class="params-header-enhanced">
+						<div class="param-col-key">Key</div>
+						<div class="param-col-value">Value</div>
+						<div class="param-actions-enhanced"></div>
+					</div>
+					<div class="params-body-enhanced">
+						<div
+							v-for="(header, index) in formConfig.headersList"
+							:key="index"
+							class="param-row-enhanced"
+						>
+							<div class="param-key-container">
+								<variable-auto-complete
+									v-model="header.key"
+									placeholder="Header key"
+									class="param-input-enhanced"
+									@update:model-value="updateHeaderKey(index, $event)"
+									:disabled="disabled"
+								/>
+							</div>
+							<div class="param-value-container">
+								<variable-auto-complete
+									v-if="!header.focused"
+									v-model="header.value"
+									placeholder="Header value"
+									class="param-input-enhanced"
+									@update:model-value="updateHeaderValue(index, $event)"
+									@focus="setHeaderFocused(index, true)"
+									:disabled="disabled"
+								/>
+								<el-input
+									v-else
+									v-model="header.value"
+									type="textarea"
+									placeholder="Header value"
+									class="param-textarea-auto-height"
+									@update:model-value="updateHeaderValue(index, $event)"
+									@blur="setHeaderFocused(index, false)"
+									:disabled="disabled"
+									:autosize="{ minRows: 1, maxRows: 10 }"
+									:ref="
+										(el) => {
+											if (el) headerTextareaRefs[index] = el;
+										}
+									"
+								/>
+							</div>
+							<div class="param-delete-container">
+								<el-button
+									type="danger"
+									text
+									@click="removeHeader(index)"
+									class="param-delete-enhanced"
+									:disabled="disabled"
+								>
+									<el-icon><Delete /></el-icon>
+								</el-button>
+							</div>
+						</div>
+					</div>
+				</div>
+			</el-form-item>
+
+			<!-- Params Section -->
+			<el-form-item label="PARAMS">
+				<div class="params-section-enhanced">
+					<div class="params-header-enhanced">
+						<div class="param-col-key">Key</div>
+						<div class="param-col-value">Value</div>
+						<div class="param-actions-enhanced"></div>
+					</div>
+					<div class="params-body-enhanced">
+						<div
+							v-for="(param, index) in formConfig.paramsList"
+							:key="index"
+							class="param-row-enhanced"
+						>
+							<div class="param-key-container">
+								<variable-auto-complete
+									v-model="param.key"
+									placeholder="Parameter key"
+									class="param-input-enhanced"
+									@update:model-value="updateParamKey(index, $event)"
+									:disabled="disabled"
+								/>
+							</div>
+							<div class="param-value-container">
+								<variable-auto-complete
+									v-if="!param.focused"
+									v-model="param.value"
+									placeholder="Parameter value"
+									class="param-input-enhanced"
+									@update:model-value="updateParamValue(index, $event)"
+									@focus="setParamFocused(index, true)"
+									:disabled="disabled"
+								/>
+								<el-input
+									v-else
+									v-model="param.value"
+									type="textarea"
+									placeholder="Parameter value"
+									class="param-textarea-auto-height"
+									@update:model-value="updateParamValue(index, $event)"
+									@blur="setParamFocused(index, false)"
+									:disabled="disabled"
+									:autosize="{ minRows: 1, maxRows: 10 }"
+									:ref="
+										(el) => {
+											if (el) paramTextareaRefs[index] = el;
+										}
+									"
+								/>
+							</div>
+							<div class="param-delete-container">
+								<el-button
+									type="danger"
+									text
+									@click="removeParam(index)"
+									class="param-delete-enhanced"
+									:disabled="disabled"
+								>
+									<el-icon><Delete /></el-icon>
+								</el-button>
+							</div>
+						</div>
+					</div>
+				</div>
+			</el-form-item>
+
+			<!-- Body Section -->
+			<el-form-item label="BODY">
+				<div class="body-section">
+					<!-- Body Type Selection -->
+					<el-radio-group
+						:model-value="formConfig.bodyType"
+						@update:model-value="setBodyType"
+						class="body-type-group"
+						:disabled="disabled"
+					>
+						<el-radio value="none">none</el-radio>
+						<el-radio value="form-data">form-data</el-radio>
+						<el-radio value="x-www-form-urlencoded">x-www-form-urlencoded</el-radio>
+						<el-radio value="raw">raw</el-radio>
+					</el-radio-group>
+
+					<!-- Body Content based on type -->
+					<div class="body-content">
+						<!-- None - No content -->
+						<div v-if="formConfig.bodyType === 'none'" class="body-none">
+							<p class="text-sm body-none-text">This request has no body</p>
+						</div>
+
+						<!-- Form Data -->
+						<div
+							v-else-if="formConfig.bodyType === 'form-data'"
+							class="params-section-enhanced"
+						>
+							<div class="params-header-enhanced">
+								<div class="param-col-key">Key</div>
+								<div class="param-col-value">Value</div>
+								<div class="param-actions-enhanced"></div>
+							</div>
+							<div class="params-body-enhanced">
+								<div
+									v-for="(item, index) in formConfig.formDataList"
+									:key="index"
+									class="param-row-enhanced"
+								>
+									<div class="param-key-container">
+										<variable-auto-complete
+											v-model="item.key"
+											placeholder="Form data key"
+											class="param-input-enhanced"
+											@update:model-value="updateFormDataKey(index, $event)"
+											:disabled="disabled"
+										/>
+									</div>
+									<div class="param-value-container">
+										<variable-auto-complete
+											v-if="!item.focused"
+											v-model="item.value"
+											placeholder="Form data value"
+											class="param-input-enhanced"
+											@update:model-value="updateFormDataValue(index, $event)"
+											@focus="setFormDataFocused(index, true)"
+											:disabled="disabled"
+										/>
+										<el-input
+											v-else
+											v-model="item.value"
+											type="textarea"
+											placeholder="Form data value"
+											class="param-textarea-auto-height"
+											@update:model-value="updateFormDataValue(index, $event)"
+											@blur="setFormDataFocused(index, false)"
+											:disabled="disabled"
+											:autosize="{ minRows: 1, maxRows: 10 }"
+											:ref="
+												(el) => {
+													if (el) formDataTextareaRefs[index] = el;
+												}
+											"
+										/>
+									</div>
+									<div class="param-delete-container">
+										<el-button
+											type="danger"
+											text
+											@click="removeFormData(index)"
+											class="param-delete-enhanced"
+											v-if="formConfig.formDataList.length > 1"
+											:disabled="disabled"
+										>
+											<el-icon><Delete /></el-icon>
+										</el-button>
+									</div>
+								</div>
+							</div>
+						</div>
+
+						<!-- URL Encoded -->
+						<div
+							v-else-if="formConfig.bodyType === 'x-www-form-urlencoded'"
+							class="params-section-enhanced"
+						>
+							<div class="params-header-enhanced">
+								<div class="param-col-key">Key</div>
+								<div class="param-col-value">Value</div>
+								<div class="param-actions-enhanced"></div>
+							</div>
+							<div class="params-body-enhanced">
+								<div
+									v-for="(item, index) in formConfig.urlEncodedList"
+									:key="index"
+									class="param-row-enhanced"
+								>
+									<div class="param-key-container">
+										<variable-auto-complete
+											v-model="item.key"
+											placeholder="URL encoded key"
+											class="param-input-enhanced"
+											@update:model-value="updateUrlEncodedKey(index, $event)"
+											:disabled="disabled"
+										/>
+									</div>
+									<div class="param-value-container">
+										<variable-auto-complete
+											v-if="!item.focused"
+											v-model="item.value"
+											placeholder="URL encoded value"
+											class="param-input-enhanced"
+											@update:model-value="
+												updateUrlEncodedValue(index, $event)
+											"
+											@focus="setUrlEncodedFocused(index, true)"
+											:disabled="disabled"
+										/>
+										<el-input
+											v-else
+											v-model="item.value"
+											type="textarea"
+											placeholder="URL encoded value"
+											class="param-textarea-auto-height"
+											@update:model-value="
+												updateUrlEncodedValue(index, $event)
+											"
+											@blur="setUrlEncodedFocused(index, false)"
+											:disabled="disabled"
+											:autosize="{ minRows: 1, maxRows: 10 }"
+											:ref="
+												(el) => {
+													if (el) urlEncodedTextareaRefs[index] = el;
+												}
+											"
+										/>
+									</div>
+									<div class="param-delete-container">
+										<el-button
+											type="danger"
+											text
+											@click="removeUrlEncoded(index)"
+											class="param-delete-enhanced"
+											v-if="formConfig.urlEncodedList.length > 1"
+											:disabled="disabled"
+										>
+											<el-icon><Delete /></el-icon>
+										</el-button>
+									</div>
+								</div>
+							</div>
+						</div>
+
+						<!-- Raw - with format selection -->
+						<div v-else-if="formConfig.bodyType === 'raw'" class="raw-section">
+							<div class="raw-header">
+								<div class="raw-format-controls">
+									<el-select
+										:model-value="formConfig.rawFormat"
+										@update:model-value="setRawFormat"
+										class="raw-format-select"
+										:disabled="disabled"
+									>
+										<el-option label="JSON" value="json" />
+										<el-option label="Text" value="text" />
+										<el-option label="JavaScript" value="javascript" />
+										<el-option label="HTML" value="html" />
+										<el-option label="XML" value="xml" />
+									</el-select>
+									<el-button
+										type="primary"
+										@click="formatRawContent"
+										:disabled="disabled || !formConfig.body.trim()"
+										class="format-btn"
+										:icon="DocumentCopy"
+									>
+										Beautify
+									</el-button>
+								</div>
+							</div>
+							<div class="raw-textarea-container">
+								<variable-auto-complete
+									:model-value="formConfig.body"
+									@update:model-value="setBody"
+									type="textarea"
+									:rows="8"
+									placeholder="Enter your content here, type '/' to insert variables..."
+									class="font-mono text-sm raw-textarea"
+									:disabled="disabled"
+								/>
+							</div>
+						</div>
+					</div>
+				</div>
+			</el-form-item>
+		</el-form>
+
+		<!-- Test Run Section -->
+		<div class="test-section">
+			<div class="flex items-center justify-between mb-3">
+				<h5 class="font-medium">Test API Call</h5>
+				<el-button
+					type="primary"
+					@click="handleTest"
+					:loading="testing"
+					:disabled="!formConfig.url"
+				>
+					Test Request
+				</el-button>
+			</div>
+
+			<div v-if="testResult" class="test-result">
+				<div class="test-result-box rounded-xl p-3">
+					<h6 class="font-medium text-sm mb-2">Test Result:</h6>
+					<pre class="text-xs test-result-text whitespace-pre-wrap">
+						{{ testResult.stdout || testResult }}
+					</pre
+					>
+				</div>
+			</div>
 		</div>
 
 		<!-- Import Dialog -->
@@ -24,24 +425,20 @@
 			>
 				<!-- cURL Tab -->
 				<TabPane value="curl">
-					<div class="curl-import-content space-y-4">
-						<div
-							class="bg-blue-50 dark:bg-gray-800 p-4 rounded-xl border border-blue-200 dark:border-gray-700"
-						>
+					<div class="space-y-4">
+						<div class="curl-info-banner">
 							<div class="flex items-start space-x-3">
 								<div class="flex-shrink-0">
 									<Icon
 										icon="heroicons:information-circle"
-										class="w-5 h-5 text-blue-600 dark:text-blue-400 mt-0.5"
+										class="w-5 h-5 info-icon mt-0.5"
 									/>
 								</div>
 								<div>
-									<h4
-										class="text-sm font-medium text-blue-900 dark:text-blue-100 mb-1"
-									>
+									<h4 class="text-sm font-medium info-title mb-1">
 										How to use cURL Import
 									</h4>
-									<p class="text-sm text-blue-700 dark:text-blue-300">
+									<p class="text-sm info-text">
 										Paste your cURL command below. The system will automatically
 										parse and populate all form fields including URL, method,
 										headers, and body data.
@@ -63,16 +460,14 @@
 								<div class="flex-shrink-0">
 									<Icon
 										icon="heroicons:exclamation-triangle"
-										class="w-5 h-5 text-red-600 dark:text-red-400 mt-0.5"
+										class="w-5 h-5 error-icon mt-0.5"
 									/>
 								</div>
 								<div class="flex-1">
-									<h4
-										class="text-sm font-medium text-red-900 dark:text-red-100 mb-1"
-									>
+									<h4 class="text-sm font-medium error-title mb-1">
 										Import Failed
 									</h4>
-									<p class="text-sm text-red-700 dark:text-red-300">
+									<p class="text-sm error-text">
 										{{ importError }}
 									</p>
 								</div>
@@ -337,410 +732,6 @@
 				</div>
 			</template>
 		</el-dialog>
-
-		<!-- HTTP Configuration Form -->
-		<div class="http-form">
-			<el-form :model="formConfig" label-width="120px" class="space-y-6" label-position="top">
-				<el-form-item label="Request URL" required class="request-url-input">
-					<el-input
-						:model-value="formConfig.url"
-						@update:model-value="setUrl"
-						placeholder="Enter URL, type '/' to insert variables"
-						class="w-full"
-						:disabled="disabled"
-					>
-						<template #prepend>
-							<el-select
-								:model-value="formConfig.method"
-								@update:model-value="setMethod"
-								style="width: 115px"
-								:disabled="disabled"
-							>
-								<el-option label="GET" value="GET" />
-								<el-option label="POST" value="POST" />
-								<el-option label="PUT" value="PUT" />
-								<el-option label="DELETE" value="DELETE" />
-								<el-option label="PATCH" value="PATCH" />
-							</el-select>
-						</template>
-					</el-input>
-					<div class="text-xs text-gray-500 mt-1">
-						Use variables like &#123;&#123;onboarding.id&#125;&#125; or
-						&#123;&#123;stage.name&#125;&#125; in the URL
-					</div>
-				</el-form-item>
-
-				<!-- Headers Section -->
-				<el-form-item label="HEADERS">
-					<div class="params-section-enhanced">
-						<div class="params-header-enhanced">
-							<div class="param-col-key">Key</div>
-							<div class="param-col-value">Value</div>
-							<div class="param-actions-enhanced"></div>
-						</div>
-						<div class="params-body-enhanced">
-							<div
-								v-for="(header, index) in formConfig.headersList"
-								:key="index"
-								class="param-row-enhanced"
-							>
-								<div class="param-key-container">
-									<variable-auto-complete
-										v-model="header.key"
-										placeholder="Header key"
-										class="param-input-enhanced"
-										@update:model-value="updateHeaderKey(index, $event)"
-										:disabled="disabled"
-									/>
-								</div>
-								<div class="param-value-container">
-									<variable-auto-complete
-										v-if="!header.focused"
-										v-model="header.value"
-										placeholder="Header value"
-										class="param-input-enhanced"
-										@update:model-value="updateHeaderValue(index, $event)"
-										@focus="setHeaderFocused(index, true)"
-										:disabled="disabled"
-									/>
-									<el-input
-										v-else
-										v-model="header.value"
-										type="textarea"
-										placeholder="Header value"
-										class="param-textarea-auto-height"
-										@update:model-value="updateHeaderValue(index, $event)"
-										@blur="setHeaderFocused(index, false)"
-										:disabled="disabled"
-										:autosize="{ minRows: 1, maxRows: 10 }"
-										:ref="
-											(el) => {
-												if (el) headerTextareaRefs[index] = el;
-											}
-										"
-									/>
-								</div>
-								<div class="param-delete-container">
-									<el-button
-										type="danger"
-										text
-										@click="removeHeader(index)"
-										class="param-delete-enhanced"
-										:disabled="disabled"
-									>
-										<el-icon><Delete /></el-icon>
-									</el-button>
-								</div>
-							</div>
-						</div>
-					</div>
-				</el-form-item>
-
-				<!-- Params Section -->
-				<el-form-item label="PARAMS">
-					<div class="params-section-enhanced">
-						<div class="params-header-enhanced">
-							<div class="param-col-key">Key</div>
-							<div class="param-col-value">Value</div>
-							<div class="param-actions-enhanced"></div>
-						</div>
-						<div class="params-body-enhanced">
-							<div
-								v-for="(param, index) in formConfig.paramsList"
-								:key="index"
-								class="param-row-enhanced"
-							>
-								<div class="param-key-container">
-									<variable-auto-complete
-										v-model="param.key"
-										placeholder="Parameter key"
-										class="param-input-enhanced"
-										@update:model-value="updateParamKey(index, $event)"
-										:disabled="disabled"
-									/>
-								</div>
-								<div class="param-value-container">
-									<variable-auto-complete
-										v-if="!param.focused"
-										v-model="param.value"
-										placeholder="Parameter value"
-										class="param-input-enhanced"
-										@update:model-value="updateParamValue(index, $event)"
-										@focus="setParamFocused(index, true)"
-										:disabled="disabled"
-									/>
-									<el-input
-										v-else
-										v-model="param.value"
-										type="textarea"
-										placeholder="Parameter value"
-										class="param-textarea-auto-height"
-										@update:model-value="updateParamValue(index, $event)"
-										@blur="setParamFocused(index, false)"
-										:disabled="disabled"
-										:autosize="{ minRows: 1, maxRows: 10 }"
-										:ref="
-											(el) => {
-												if (el) paramTextareaRefs[index] = el;
-											}
-										"
-									/>
-								</div>
-								<div class="param-delete-container">
-									<el-button
-										type="danger"
-										text
-										@click="removeParam(index)"
-										class="param-delete-enhanced"
-										:disabled="disabled"
-									>
-										<el-icon><Delete /></el-icon>
-									</el-button>
-								</div>
-							</div>
-						</div>
-					</div>
-				</el-form-item>
-
-				<!-- Body Section -->
-				<el-form-item label="BODY">
-					<div class="body-section">
-						<!-- Body Type Selection -->
-						<el-radio-group
-							:model-value="formConfig.bodyType"
-							@update:model-value="setBodyType"
-							class="body-type-group"
-							:disabled="disabled"
-						>
-							<el-radio value="none">none</el-radio>
-							<el-radio value="form-data">form-data</el-radio>
-							<el-radio value="x-www-form-urlencoded">x-www-form-urlencoded</el-radio>
-							<el-radio value="raw">raw</el-radio>
-						</el-radio-group>
-
-						<!-- Body Content based on type -->
-						<div class="body-content">
-							<!-- None - No content -->
-							<div v-if="formConfig.bodyType === 'none'" class="body-none">
-								<p class="text-gray-500 text-sm">This request has no body</p>
-							</div>
-
-							<!-- Form Data -->
-							<div
-								v-else-if="formConfig.bodyType === 'form-data'"
-								class="params-section-enhanced"
-							>
-								<div class="params-header-enhanced">
-									<div class="param-col-key">Key</div>
-									<div class="param-col-value">Value</div>
-									<div class="param-actions-enhanced"></div>
-								</div>
-								<div class="params-body-enhanced">
-									<div
-										v-for="(item, index) in formConfig.formDataList"
-										:key="index"
-										class="param-row-enhanced"
-									>
-										<div class="param-key-container">
-											<variable-auto-complete
-												v-model="item.key"
-												placeholder="Form data key"
-												class="param-input-enhanced"
-												@update:model-value="
-													updateFormDataKey(index, $event)
-												"
-												:disabled="disabled"
-											/>
-										</div>
-										<div class="param-value-container">
-											<variable-auto-complete
-												v-if="!item.focused"
-												v-model="item.value"
-												placeholder="Form data value"
-												class="param-input-enhanced"
-												@update:model-value="
-													updateFormDataValue(index, $event)
-												"
-												@focus="setFormDataFocused(index, true)"
-												:disabled="disabled"
-											/>
-											<el-input
-												v-else
-												v-model="item.value"
-												type="textarea"
-												placeholder="Form data value"
-												class="param-textarea-auto-height"
-												@update:model-value="
-													updateFormDataValue(index, $event)
-												"
-												@blur="setFormDataFocused(index, false)"
-												:disabled="disabled"
-												:autosize="{ minRows: 1, maxRows: 10 }"
-												:ref="
-													(el) => {
-														if (el) formDataTextareaRefs[index] = el;
-													}
-												"
-											/>
-										</div>
-										<div class="param-delete-container">
-											<el-button
-												type="danger"
-												text
-												@click="removeFormData(index)"
-												class="param-delete-enhanced"
-												v-if="formConfig.formDataList.length > 1"
-												:disabled="disabled"
-											>
-												<el-icon><Delete /></el-icon>
-											</el-button>
-										</div>
-									</div>
-								</div>
-							</div>
-
-							<!-- URL Encoded -->
-							<div
-								v-else-if="formConfig.bodyType === 'x-www-form-urlencoded'"
-								class="params-section-enhanced"
-							>
-								<div class="params-header-enhanced">
-									<div class="param-col-key">Key</div>
-									<div class="param-col-value">Value</div>
-									<div class="param-actions-enhanced"></div>
-								</div>
-								<div class="params-body-enhanced">
-									<div
-										v-for="(item, index) in formConfig.urlEncodedList"
-										:key="index"
-										class="param-row-enhanced"
-									>
-										<div class="param-key-container">
-											<variable-auto-complete
-												v-model="item.key"
-												placeholder="URL encoded key"
-												class="param-input-enhanced"
-												@update:model-value="
-													updateUrlEncodedKey(index, $event)
-												"
-												:disabled="disabled"
-											/>
-										</div>
-										<div class="param-value-container">
-											<variable-auto-complete
-												v-if="!item.focused"
-												v-model="item.value"
-												placeholder="URL encoded value"
-												class="param-input-enhanced"
-												@update:model-value="
-													updateUrlEncodedValue(index, $event)
-												"
-												@focus="setUrlEncodedFocused(index, true)"
-												:disabled="disabled"
-											/>
-											<el-input
-												v-else
-												v-model="item.value"
-												type="textarea"
-												placeholder="URL encoded value"
-												class="param-textarea-auto-height"
-												@update:model-value="
-													updateUrlEncodedValue(index, $event)
-												"
-												@blur="setUrlEncodedFocused(index, false)"
-												:disabled="disabled"
-												:autosize="{ minRows: 1, maxRows: 10 }"
-												:ref="
-													(el) => {
-														if (el) urlEncodedTextareaRefs[index] = el;
-													}
-												"
-											/>
-										</div>
-										<div class="param-delete-container">
-											<el-button
-												type="danger"
-												text
-												@click="removeUrlEncoded(index)"
-												class="param-delete-enhanced"
-												v-if="formConfig.urlEncodedList.length > 1"
-												:disabled="disabled"
-											>
-												<el-icon><Delete /></el-icon>
-											</el-button>
-										</div>
-									</div>
-								</div>
-							</div>
-
-							<!-- Raw - with format selection -->
-							<div v-else-if="formConfig.bodyType === 'raw'" class="raw-section">
-								<div class="raw-header">
-									<div class="raw-format-controls">
-										<el-select
-											:model-value="formConfig.rawFormat"
-											@update:model-value="setRawFormat"
-											class="raw-format-select"
-											:disabled="disabled"
-										>
-											<el-option label="JSON" value="json" />
-											<el-option label="Text" value="text" />
-											<el-option label="JavaScript" value="javascript" />
-											<el-option label="HTML" value="html" />
-											<el-option label="XML" value="xml" />
-										</el-select>
-										<el-button
-											type="primary"
-											@click="formatRawContent"
-											:disabled="disabled || !formConfig.body.trim()"
-											class="format-btn"
-											:icon="DocumentCopy"
-										>
-											Beautify
-										</el-button>
-									</div>
-								</div>
-								<div class="raw-textarea-container">
-									<variable-auto-complete
-										:model-value="formConfig.body"
-										@update:model-value="setBody"
-										type="textarea"
-										:rows="8"
-										placeholder="Enter your content here, type '/' to insert variables..."
-										class="font-mono text-sm raw-textarea"
-										:disabled="disabled"
-									/>
-								</div>
-							</div>
-						</div>
-					</div>
-				</el-form-item>
-			</el-form>
-		</div>
-
-		<!-- Test Run Section -->
-		<div class="test-section">
-			<div class="flex items-center justify-between mb-3">
-				<h5 class="font-medium text-gray-700 dark:text-gray-300">Test API Call</h5>
-				<el-button
-					type="success"
-					@click="handleTest"
-					:loading="testing"
-					:disabled="!formConfig.url"
-				>
-					Test Request
-				</el-button>
-			</div>
-
-			<div v-if="testResult" class="test-result">
-				<div class="bg-gray-50 dark:bg-gray-800 rounded-xl p-3">
-					<h6 class="font-medium text-sm mb-2">Test Result:</h6>
-					<pre class="text-xs text-gray-700 dark:text-gray-300 whitespace-pre-wrap">{{
-						testResult.stdout || testResult
-					}}</pre>
-				</div>
-			</div>
-		</div>
 	</div>
 </template>
 
@@ -1314,7 +1305,7 @@ const setMethod = (val: string) => {
 	formConfig.value = { ...formConfig.value, method: val } as any;
 };
 
-const setBodyType = (val: 'none' | 'form-data' | 'x-www-form-urlencoded' | 'raw') => {
+const setBodyType = (val: 'none' | 'form-data' | 'x-www-form-urlencoded' | 'raw'): any => {
 	formConfig.value = { ...formConfig.value, bodyType: val } as any;
 };
 
@@ -1796,7 +1787,7 @@ const handleTest = () => {
 };
 
 // AI 相关方法
-const handleAIKeydown = (event: KeyboardEvent) => {
+const handleAIKeydown = (event: KeyboardEvent): any => {
 	if (event.key === 'Enter') {
 		if (event.shiftKey) {
 			// Shift+Enter: Allow default behavior (new line)
@@ -2236,311 +2227,6 @@ const streamGenerateHttpConfigDirect = async (
 			});
 	});
 };
-
-// 流式分析请求 (已移除，使用优化的单步流程)
-/*
-	const streamAnalyzeRequest = async (
-		input: string,
-		file: File | null,
-		onChunk: (chunk: any, data?: any) => void
-	) => {
-		const conversationHistory = [
-			{
-				role: 'user',
-				content: input,
-				timestamp: new Date().toISOString(),
-		},
-	];
-
-	// 如果有文件，读取文件内容并添加到上下文中
-	let context = 'HTTP API configuration generation request';
-	if (file) {
-		try {
-			const fileContent = await readFileContent(file);
-			context += `\n\nFile content (${file.name}):\n${fileContent}`;
-		} catch (error) {
-			console.error('Error reading file:', error);
-		}
-	}
-
-	const payload = {
-		conversationHistory,
-		sessionId: `http_config_${Date.now()}`,
-		context,
-		focusAreas: ['HTTP API', 'Configuration', 'Request/Response'],
-		modelId: currentAIModel.value?.id?.toString(),
-		modelProvider: currentAIModel.value?.provider || selectedAIModel.value,
-		modelName:
-			currentAIModel.value?.modelName ||
-			(selectedAIModel.value === 'zhipuai'
-				? 'glm-4'
-				: selectedAIModel.value === 'openai'
-				? 'gpt-4'
-				: 'claude-3'),
-	};
-
-	// 获取认证信息
-	const tokenObj = getTokenobj();
-	const userStore = useUserStoreWithOut();
-	const userInfo = userStore.getUserInfo;
-	const globSetting = useGlobSetting();
-
-	// 构建请求头
-	const headers: Record<string, string> = {
-		'Content-Type': 'application/json',
-		'Time-Zone': getTimeZoneInfo().timeZone,
-		'Application-code': globSetting?.ssoCode || '',
-		Accept: 'text/event-stream',
-		'Cache-Control': 'no-cache',
-	};
-
-	// 添加认证头
-	if (tokenObj?.accessToken?.token) {
-		const token = tokenObj.accessToken.token;
-		const tokenType = tokenObj.accessToken.tokenType || 'Bearer';
-		headers.Authorization = `${tokenType} ${token}`;
-	}
-
-	// 添加用户相关头信息
-	if (userInfo?.appCode) {
-		headers['X-App-Code'] = String(userInfo.appCode);
-	}
-	if (userInfo?.tenantId) {
-		headers['X-Tenant-Id'] = String(userInfo.tenantId);
-	}
-
-	console.log('🌐 Starting analyze stream request to:', '/api/ai/v1/actions/analyze/stream');
-	console.log('📤 Request payload:', payload);
-
-	// 使用EventSource进行流式请求
-	return new Promise<void>((resolve, reject) => {
-		fetch('/api/ai/v1/actions/analyze/stream', {
-			method: 'POST',
-			headers: headers,
-			body: JSON.stringify(payload),
-		})
-			.then((response) => {
-				console.log('📡 Response received:', response.status, response.statusText);
-
-				if (!response.ok) {
-					throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-				}
-
-				const reader = response.body?.getReader();
-				if (!reader) {
-					throw new Error('No response body reader available');
-				}
-
-				const decoder = new TextDecoder();
-
-				const readStream = async () => {
-					try {
-						console.log('📖 Starting to read stream...');
-						while (true) {
-							const { done, value } = await reader.read();
-							if (done) {
-								console.log('✅ Stream reading completed');
-								break;
-							}
-
-							const chunk = decoder.decode(value, { stream: true });
-							console.log('📝 Raw chunk received:', chunk);
-							const lines = chunk.split('\n');
-
-							for (const line of lines) {
-								if (line.startsWith('data: ')) {
-									const data = line.substring(6);
-									console.log('📊 Processing data line:', data);
-
-									if (data === '[DONE]') {
-										console.log('🏁 Received [DONE] signal');
-										resolve();
-										return;
-									}
-
-									try {
-										const parsed = JSON.parse(data);
-										console.log('✨ Parsed JSON data:', parsed);
-										onChunk(parsed);
-
-										if (parsed.type === 'complete') {
-											console.log('🎯 Stream completed');
-											resolve();
-											return;
-										} else if (parsed.type === 'error') {
-											console.error('❌ Stream error:', parsed.content);
-											reject(new Error(parsed.content));
-											return;
-										}
-									} catch (e) {
-										console.warn('⚠️ Failed to parse JSON:', data, e);
-										// Skip invalid JSON
-										continue;
-									}
-								}
-							}
-						}
-						resolve();
-					} catch (error) {
-						console.error('💥 Stream reading error:', error);
-						reject(error);
-					}
-				};
-
-				readStream();
-			})
-			.catch((error) => {
-				console.error('🚫 Fetch error:', error);
-				reject(error);
-			});
-	});
-	*/
-
-// 流式创建Action (已移除，使用优化的单步流程)
-/*
-	const streamCreateAction = async (
-	analysisResult: any,
-	onChunk: (chunk: any, data?: any) => void
-) => {
-	const payload = {
-		analysisResult,
-		context: 'Generate HTTP API configuration based on user requirements',
-		stakeholders: ['Developer', 'API Consumer'],
-		priority: 'High',
-		modelId: currentAIModel.value?.id?.toString(),
-		modelProvider: currentAIModel.value?.provider || selectedAIModel.value,
-		modelName:
-			currentAIModel.value?.modelName ||
-			(selectedAIModel.value === 'zhipuai'
-				? 'glm-4'
-				: selectedAIModel.value === 'openai'
-				? 'gpt-4'
-				: 'claude-3'),
-	};
-
-	// 获取认证信息
-	const tokenObj = getTokenobj();
-	const userStore = useUserStoreWithOut();
-	const userInfo = userStore.getUserInfo;
-	const globSetting = useGlobSetting();
-
-	// 构建请求头
-	const headers: Record<string, string> = {
-		'Content-Type': 'application/json',
-		'Time-Zone': getTimeZoneInfo().timeZone,
-		'Application-code': globSetting?.ssoCode || '',
-		Accept: 'text/event-stream',
-		'Cache-Control': 'no-cache',
-	};
-
-	// 添加认证头
-	if (tokenObj?.accessToken?.token) {
-		const token = tokenObj.accessToken.token;
-		const tokenType = tokenObj.accessToken.tokenType || 'Bearer';
-		headers.Authorization = `${tokenType} ${token}`;
-	}
-
-	// 添加用户相关头信息
-	if (userInfo?.appCode) {
-		headers['X-App-Code'] = String(userInfo.appCode);
-	}
-	if (userInfo?.tenantId) {
-		headers['X-Tenant-Id'] = String(userInfo.tenantId);
-	}
-
-	console.log('🌐 Starting create stream request to:', '/api/ai/v1/actions/create/stream');
-	console.log('📤 Create request payload:', payload);
-
-	// 使用fetch进行流式请求
-	return new Promise<void>((resolve, reject) => {
-		fetch('/api/ai/v1/actions/create/stream', {
-			method: 'POST',
-			headers: headers,
-			body: JSON.stringify(payload),
-		})
-			.then((response) => {
-				console.log('📡 Create response received:', response.status, response.statusText);
-
-				if (!response.ok) {
-					throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-				}
-
-				const reader = response.body?.getReader();
-				if (!reader) {
-					throw new Error('No response body reader available');
-				}
-
-				const decoder = new TextDecoder();
-
-				const readStream = async () => {
-					try {
-						console.log('📖 Starting to read create stream...');
-						while (true) {
-							const { done, value } = await reader.read();
-							if (done) {
-								console.log('✅ Create stream reading completed');
-								break;
-							}
-
-							const chunk = decoder.decode(value, { stream: true });
-							console.log('📝 Create raw chunk received:', chunk);
-							const lines = chunk.split('\n');
-
-							for (const line of lines) {
-								if (line.startsWith('data: ')) {
-									const data = line.substring(6);
-									console.log('📊 Processing create data line:', data);
-
-									if (data === '[DONE]') {
-										console.log('🏁 Create received [DONE] signal');
-										resolve();
-										return;
-									}
-
-									try {
-										const parsed = JSON.parse(data);
-										console.log('✨ Create parsed JSON data:', parsed);
-										onChunk(parsed);
-
-										if (parsed.type === 'complete') {
-											console.log('🎯 Create stream completed');
-											resolve();
-											return;
-										} else if (parsed.type === 'error') {
-											console.error(
-												'❌ Create stream error:',
-												parsed.content
-											);
-											reject(new Error(parsed.content));
-											return;
-										}
-									} catch (e) {
-										console.warn('⚠️ Create failed to parse JSON:', data, e);
-										// Skip invalid JSON
-										continue;
-									}
-								}
-							}
-						}
-						resolve();
-					} catch (error) {
-						console.error('💥 Create stream reading error:', error);
-						reject(error);
-					}
-				};
-
-				readStream();
-			})
-			.catch((error) => {
-				console.error('🚫 Create fetch error:', error);
-				reject(error);
-			});
-	});
-	*/
-
-// Removed unused analyzeUserRequest function
-
-// Removed unused createHttpAction function
 
 // 解析curl命令的函数
 const parseCurlCommand = (input: string) => {
@@ -3617,33 +3303,55 @@ onMounted(() => {
 </script>
 
 <style scoped lang="scss">
-.http-form {
-	@apply dark:border-gray-700 rounded-xl;
-}
-
 // Params Section Styles (Legacy)
 .params-section {
-	@apply w-full border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden;
+	@apply w-full border rounded-xl overflow-hidden;
+	border-color: var(--el-border-color-light);
+}
+
+html.dark .params-section {
+	border-color: var(--el-border-color-dark);
 }
 
 // Enhanced Params Section Styles (New)
 .params-section-enhanced {
-	@apply w-full border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden;
+	@apply w-full border rounded-xl overflow-hidden;
+	border-color: var(--el-border-color-light);
+}
+
+html.dark .params-section-enhanced {
+	border-color: var(--el-border-color-dark);
 }
 
 .params-header-enhanced {
-	@apply bg-gray-50 dark:bg-gray-800 px-4 py-3 border-b border-gray-200 dark:border-gray-700 grid grid-cols-12 gap-4 items-center;
+	@apply px-4 py-3 border-b grid grid-cols-12 gap-4 items-center;
+	background: var(--el-fill-color-lighter);
+	border-bottom-color: var(--el-border-color-light);
 
 	.param-col-key {
-		@apply col-span-4 text-sm font-medium text-gray-600 dark:text-gray-400;
+		@apply col-span-4 text-sm font-medium;
+		color: var(--el-text-color-regular);
 	}
 
 	.param-col-value {
-		@apply col-span-7 text-sm font-medium text-gray-600 dark:text-gray-400;
+		@apply col-span-7 text-sm font-medium;
+		color: var(--el-text-color-regular);
 	}
 
 	.param-actions-enhanced {
-		@apply col-span-1 text-sm font-medium text-gray-600 dark:text-gray-400 text-center;
+		@apply col-span-1 text-sm font-medium text-center;
+		color: var(--el-text-color-regular);
+	}
+}
+
+html.dark .params-header-enhanced {
+	background: var(--el-fill-color-darker);
+	border-bottom-color: var(--el-border-color-dark);
+
+	.param-col-key,
+	.param-col-value,
+	.param-actions-enhanced {
+		color: var(--el-text-color-secondary);
 	}
 }
 
@@ -3681,11 +3389,18 @@ onMounted(() => {
 }
 
 .param-action-btn {
-	@apply w-5 h-5 flex items-center justify-center text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors;
+	@apply w-5 h-5 flex items-center justify-center rounded transition-colors;
+	color: var(--el-text-color-secondary);
 
 	&:hover {
-		@apply bg-gray-100 dark:bg-gray-700 rounded;
+		color: var(--el-text-color-regular);
+		background: var(--el-fill-color-light);
 	}
+}
+
+html.dark .param-action-btn:hover {
+	color: var(--el-text-color-placeholder);
+	background: var(--el-fill-color-dark);
 }
 
 // 文本域容器
@@ -3708,27 +3423,55 @@ onMounted(() => {
 
 // 文本域右上角的按钮组
 .param-textarea-actions {
-	@apply absolute top-2 right-2 flex items-center space-x-1 bg-white dark:bg-gray-800 px-2 py-1 rounded-xl shadow-sm border border-gray-200 dark:border-gray-600;
+	@apply absolute top-2 right-2 flex items-center space-x-1 px-2 py-1 rounded-xl shadow-sm border;
 	z-index: 10;
+	background: var(--el-bg-color);
+	border-color: var(--el-border-color-light);
+}
+
+html.dark .param-textarea-actions {
+	background: var(--el-fill-color-darker);
+	border-color: var(--el-border-color);
 }
 
 .param-value-hint {
-	@apply text-xs text-gray-500 dark:text-gray-400 italic;
+	@apply text-xs italic;
+	color: var(--el-text-color-secondary);
 }
 
 .param-delete-enhanced {
-	@apply w-8 h-8 flex items-center justify-center text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl transition-colors;
+	@apply w-8 h-8 flex items-center justify-center rounded-xl transition-colors;
+	color: var(--el-color-danger);
+
+	&:hover {
+		color: var(--el-color-danger-light-3);
+		background: var(--el-color-danger-light-9);
+	}
 }
 
 .params-header {
-	@apply bg-gray-50 dark:bg-gray-800 px-4 py-3 border-b border-gray-200 dark:border-gray-700 flex items-center gap-4;
+	@apply px-4 py-3 border-b flex items-center gap-4;
+	background: var(--el-fill-color-lighter);
+	border-bottom-color: var(--el-border-color-light);
 
 	.param-col {
-		@apply flex-1 text-sm font-medium text-gray-600 dark:text-gray-400;
+		@apply flex-1 text-sm font-medium;
+		color: var(--el-text-color-regular);
 	}
 
 	.param-actions {
-		@apply w-12 text-sm font-medium text-gray-600 dark:text-gray-400;
+		@apply w-12 text-sm font-medium;
+		color: var(--el-text-color-regular);
+	}
+}
+
+html.dark .params-header {
+	background: var(--el-fill-color-darker);
+	border-bottom-color: var(--el-border-color-dark);
+
+	.param-col,
+	.param-actions {
+		color: var(--el-text-color-secondary);
 	}
 }
 
@@ -3824,11 +3567,21 @@ onMounted(() => {
 
 // Options Section
 .options-section {
-	@apply border border-gray-200 dark:border-gray-700 rounded-xl p-4;
+	@apply border rounded-xl p-4;
+	border-color: var(--el-border-color-light);
+}
+
+html.dark .options-section {
+	border-color: var(--el-border-color-dark);
 }
 
 .test-section {
-	@apply border-t border-gray-200 dark:border-gray-700 pt-6;
+	@apply border-t pt-6;
+	border-top-color: var(--el-border-color-light);
+}
+
+html.dark .test-section {
+	border-top-color: var(--el-border-color-dark);
 }
 
 .test-result {
@@ -3841,7 +3594,15 @@ onMounted(() => {
 
 :deep(.el-input-number) {
 	.el-input-group__append {
-		@apply bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300;
+		background: var(--el-fill-color-lighter);
+		color: var(--el-text-color-regular);
+	}
+}
+
+html.dark :deep(.el-input-number) {
+	.el-input-group__append {
+		background: var(--el-fill-color-dark);
+		color: var(--el-text-color-placeholder);
 	}
 }
 
@@ -3852,7 +3613,40 @@ onMounted(() => {
 
 // 导入错误信息样式
 .import-error-message {
-	@apply mt-4 p-4 rounded-xl border border-red-200 dark:border-red-700 bg-red-50 dark:bg-red-900/20;
+	@apply mt-4 p-4 rounded-xl border;
+	background: var(--el-color-danger-light-9);
+	border-color: var(--el-color-danger-light-5);
+}
+
+// 信息提示样式
+.curl-info-banner {
+	@apply p-4 rounded-xl border;
+	background: var(--el-color-info-light-9);
+	border-color: var(--el-color-info-light-5);
+}
+
+.info-icon {
+	color: var(--el-color-info);
+}
+
+.info-title {
+	color: var(--el-text-color-primary);
+}
+
+.info-text {
+	color: var(--el-text-color-regular);
+}
+
+.error-icon {
+	color: var(--el-color-danger);
+}
+
+.error-title {
+	color: var(--el-text-color-primary);
+}
+
+.error-text {
+	color: var(--el-text-color-regular);
 }
 
 // AI Chat 样式
@@ -3865,8 +3659,13 @@ onMounted(() => {
 }
 
 .ai-chat-messages {
-	@apply flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50 dark:bg-gray-800 rounded-lg mb-4;
+	@apply flex-1 overflow-y-auto p-4 space-y-4 rounded-lg mb-4;
 	max-height: 300px;
+	background: var(--el-fill-color-lighter);
+}
+
+html.dark .ai-chat-messages {
+	background: var(--el-fill-color-darker);
 }
 
 .ai-message {
@@ -3876,7 +3675,9 @@ onMounted(() => {
 		@apply justify-end;
 
 		.message-content {
-			@apply bg-blue-500 text-white rounded-lg px-4 py-2 max-w-xs;
+			@apply rounded-lg px-4 py-2 max-w-xs;
+			background: var(--el-color-primary);
+			color: var(--el-color-white);
 		}
 	}
 
@@ -3884,9 +3685,18 @@ onMounted(() => {
 		@apply justify-start;
 
 		.message-content {
-			@apply bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg px-4 py-2 max-w-md border border-gray-200 dark:border-gray-600;
+			@apply rounded-lg px-4 py-2 max-w-md border;
+			background: var(--el-bg-color);
+			color: var(--el-text-color-primary);
+			border-color: var(--el-border-color-light);
 		}
 	}
+}
+
+html.dark .ai-message.assistant-message .message-content {
+	background: var(--el-fill-color-dark);
+	color: var(--el-color-white);
+	border-color: var(--el-border-color);
 }
 
 .message-text {
@@ -3898,11 +3708,23 @@ onMounted(() => {
 }
 
 .config-preview {
-	@apply bg-gray-50 dark:bg-gray-800 rounded-lg p-3 border border-gray-200 dark:border-gray-600;
+	@apply rounded-lg p-3 border;
+	background: var(--el-fill-color-lighter);
+	border-color: var(--el-border-color-light);
+}
+
+html.dark .config-preview {
+	background: var(--el-fill-color-darker);
+	border-color: var(--el-border-color);
 }
 
 .config-title {
-	@apply text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2;
+	@apply text-sm font-semibold mb-2;
+	color: var(--el-text-color-regular);
+}
+
+html.dark .config-title {
+	color: var(--el-text-color-placeholder);
 }
 
 .config-details {
@@ -3926,14 +3748,22 @@ onMounted(() => {
 }
 
 .config-label {
-	@apply text-xs font-medium text-gray-500 dark:text-gray-400 min-w-16;
+	@apply text-xs font-medium min-w-16;
+	color: var(--el-text-color-secondary);
 }
 
 .config-value {
-	@apply text-xs text-gray-700 dark:text-gray-300 font-mono bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded;
+	@apply text-xs font-mono px-2 py-1 rounded;
+	color: var(--el-text-color-regular);
+	background: var(--el-fill-color-light);
 	word-break: break-all;
 	max-width: 100%;
 	overflow-wrap: break-word;
+}
+
+html.dark .config-value {
+	color: var(--el-text-color-placeholder);
+	background: var(--el-fill-color-dark);
 }
 
 .config-headers {
@@ -3941,10 +3771,17 @@ onMounted(() => {
 }
 
 .header-item {
-	@apply text-xs text-gray-600 dark:text-gray-400 font-mono bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded;
+	@apply text-xs font-mono px-2 py-1 rounded;
+	color: var(--el-text-color-regular);
+	background: var(--el-fill-color-light);
 	word-break: break-all;
 	max-width: 100%;
 	overflow-wrap: break-word;
+}
+
+html.dark .header-item {
+	color: var(--el-text-color-secondary);
+	background: var(--el-fill-color-dark);
 }
 
 .apply-config-btn {
@@ -3955,7 +3792,8 @@ onMounted(() => {
 	@apply inline-flex items-center space-x-1 mr-2;
 
 	span {
-		@apply w-2 h-2 bg-gray-400 rounded-full animate-pulse;
+		@apply w-2 h-2 rounded-full animate-pulse;
+		background: var(--el-text-color-secondary);
 
 		&:nth-child(1) {
 			animation-delay: 0s;
@@ -3972,7 +3810,12 @@ onMounted(() => {
 }
 
 .ai-input-area {
-	@apply border-t border-gray-200 dark:border-gray-700 pt-4;
+	@apply border-t pt-4;
+	border-top-color: var(--el-border-color-light);
+}
+
+html.dark .ai-input-area {
+	border-top-color: var(--el-border-color-dark);
 }
 
 .ai-input-with-button {
@@ -3992,14 +3835,14 @@ onMounted(() => {
 		min-height: 70px !important;
 		height: 70px !important;
 		border-radius: 12px;
-		border: 1px solid #d1d5db;
+		border: 1px solid var(--el-border-color-light);
 		padding: 12px 80px 12px 16px;
 		font-size: 14px;
 		transition: all 0.2s ease;
 
 		&:focus {
-			border-color: #4f46e5;
-			box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+			border-color: var(--el-color-primary);
+			box-shadow: 0 0 0 3px var(--el-color-primary-light-9);
 		}
 	}
 }
@@ -4021,7 +3864,8 @@ onMounted(() => {
 }
 
 .input-bottom-actions .model-select :deep(.el-input__inner) {
-	@apply text-xs border-none bg-transparent p-1 shadow-none text-gray-500;
+	@apply text-xs border-none bg-transparent p-1 shadow-none;
+	color: var(--el-text-color-secondary);
 }
 
 .input-bottom-actions .model-select :deep(.el-input__inner:focus) {
@@ -4037,7 +3881,8 @@ onMounted(() => {
 }
 
 .model-display {
-	@apply text-sm text-gray-800 font-normal;
+	@apply text-sm font-normal;
+	color: var(--el-text-color-primary);
 }
 
 .model-status {
@@ -4045,15 +3890,16 @@ onMounted(() => {
 }
 
 .status-dot {
-	@apply w-2 h-2 rounded-full bg-red-400;
+	@apply w-2 h-2 rounded-full;
+	background: var(--el-color-danger);
 }
 
 .status-dot.online {
-	@apply bg-green-400;
+	background: var(--el-color-success);
 }
 
 .status-dot.offline {
-	@apply bg-red-400;
+	background: var(--el-color-danger);
 }
 
 .input-right-actions {
@@ -4073,7 +3919,12 @@ onMounted(() => {
 }
 
 .upload-button {
-	@apply w-8 h-8 flex items-center justify-center text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200;
+	@apply w-8 h-8 flex items-center justify-center;
+	color: var(--el-text-color-secondary);
+
+	&:hover {
+		color: var(--el-text-color-regular);
+	}
 }
 
 .input-right-actions .ai-send-button {
@@ -4082,41 +3933,52 @@ onMounted(() => {
 	min-width: 32px;
 	padding: 0;
 	border-radius: 50%;
-	background: linear-gradient(135deg, #4f46e5 0%, #4338ca 100%);
+	background: var(--el-color-primary);
 	border: none;
-	box-shadow: 0 2px 8px rgba(79, 70, 229, 0.3);
+	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 	transition: all 0.2s ease;
 }
 
 .input-right-actions .ai-send-button:hover {
 	transform: translateY(-1px);
-	box-shadow: 0 4px 12px rgba(79, 70, 229, 0.4);
+	background: var(--el-color-primary-light-3);
+	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
 .input-right-actions .ai-send-button:disabled {
-	background: #d1d5db;
+	background: var(--el-fill-color);
 	box-shadow: none;
 	transform: none;
 }
 
 .input-right-actions .ai-send-button .el-icon {
 	font-size: 14px;
-	color: white;
+	color: var(--el-color-white);
 }
 
 .input-right-actions .ai-send-button .send-icon {
 	width: 14px;
 	height: 14px;
-	color: white;
+	color: var(--el-color-white);
 	transform: rotate(-45deg);
 }
 
 .uploaded-file-display {
-	@apply mt-2 p-2 bg-gray-100 dark:bg-gray-700 rounded-lg;
+	@apply mt-2 p-2 rounded-lg;
+	background: var(--el-fill-color-light);
+}
+
+html.dark .uploaded-file-display {
+	background: var(--el-fill-color-dark);
 }
 
 .file-info {
-	@apply flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400;
+	@apply flex items-center gap-2 text-sm;
+	color: var(--el-text-color-regular);
+}
+
+html.dark .file-info {
+	color: var(--el-text-color-secondary);
 }
 
 .file-name {
@@ -4124,6 +3986,32 @@ onMounted(() => {
 }
 
 .remove-file-btn {
-	@apply w-6 h-6 flex items-center justify-center text-gray-400 hover:text-red-500;
+	@apply w-6 h-6 flex items-center justify-center;
+	color: var(--el-text-color-secondary);
+
+	&:hover {
+		color: var(--el-color-danger);
+	}
+}
+
+.url-hint,
+.body-none-text {
+	color: var(--el-text-color-secondary);
+}
+
+.test-result-box {
+	background: var(--el-fill-color-lighter);
+}
+
+html.dark .test-result-box {
+	background: var(--el-fill-color-darker);
+}
+
+.test-result-text {
+	color: var(--el-text-color-regular);
+}
+
+html.dark .test-result-text {
+	color: var(--el-text-color-placeholder);
 }
 </style>

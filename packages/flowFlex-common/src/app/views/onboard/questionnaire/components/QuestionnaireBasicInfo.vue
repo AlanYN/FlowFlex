@@ -1,7 +1,7 @@
 <template>
 	<div class="config-section">
 		<h3 class="section-title">Basic Information</h3>
-		<el-form :model="questionnaire" label-position="top">
+		<el-form :model="questionnaire" label-position="top" @submit.prevent>
 			<el-form-item label="Questionnaire Title" required>
 				<el-input
 					:model-value="questionnaire.name"

@@ -13,7 +13,7 @@
 		<!-- 任务已加载完成时显示 -->
 		<div v-if="tasksLoaded">
 			<div class="flex items-center mb-4">
-				<h4 class="text-sm font-medium text-gray-900 dark:text-gray-100">Tasks</h4>
+				<h4 class="text-sm font-medium task-list-title">Tasks</h4>
 			</div>
 
 			<!-- 任务列表 -->
@@ -61,7 +61,7 @@
 									<!-- Task name -->
 									<div class="flex-1 min-w-0 pr-3">
 										<span
-											class="text-sm truncate block text-gray-900 dark:text-gray-100"
+											class="text-sm truncate block task-name-text"
 											:title="task?.name || ''"
 										>
 											{{ task.name }}
@@ -83,16 +83,14 @@
 										</el-tag>
 									</div>
 									<div
-										class="flex items-center gap-1 flex-shrink-0"
-										style="color: #47b064"
+										class="flex items-center gap-1 flex-shrink-0 task-files-icon"
 										v-if="task?.filesCount"
 									>
 										<icon icon="iconoir:attachment" />
 										{{ task?.filesCount }}
 									</div>
 									<div
-										class="flex items-center gap-1 flex-shrink-0"
-										style="color: #ed6f2d"
+										class="flex items-center gap-1 flex-shrink-0 task-notes-icon"
 										v-if="task?.notesCount"
 									>
 										<icon icon="mynaui:message" />
@@ -187,7 +185,7 @@
 					</template>
 				</draggable>
 			</div>
-			<div v-else class="text-center py-8 text-gray-500 dark:text-gray-400">
+			<div v-else class="text-center py-8 task-empty-text">
 				<p class="text-sm">
 					No tasks added yet. Click the "Add Task" button to add a task.
 				</p>
@@ -196,21 +194,21 @@
 			<!-- 添加任务表单 -->
 			<div
 				v-if="addingTaskTo === props.checklist.id"
-				class="border border-gray-200 dark:border-gray-600 rounded-xl p-2 mt-4 bg-gray-50 dark:bg-gray-800"
+				class="task-add-form rounded-xl p-2 mt-4"
 			>
 				<div class="">
 					<div class="flex items-center gap-3">
 						<div class="flex-1 min-w-0 flex flex-col gap-2">
-							<div class="text-gray-700 dark:text-gray-300">Task name</div>
+							<div class="task-form-label">Task name</div>
 							<el-input
 								v-model="newTaskText"
 								placeholder="Enter task name..."
 								@keyup.enter="addTask(props.checklist.id)"
-								class="bg-white dark:bg-gray-800"
+								class="task-form-input"
 							/>
 						</div>
 						<div class="flex-1 min-w-0 flex-shrink-0 flex flex-col gap-2">
-							<div class="text-gray-700 dark:text-gray-300">Assignee</div>
+							<div class="task-form-label">Assignee</div>
 							<flowflex-user-selector
 								ref="newTaskAssigneeSelectorRef"
 								v-model="newTaskAssignee"
@@ -747,15 +745,15 @@ defineExpose({
 
 .ghost-task {
 	opacity: 0.6;
-	background: var(--primary-50, #f0f7ff) !important;
-	border: 1px dashed var(--primary-500, #2468f2) !important;
-	box-shadow: 0 4px 12px rgba(36, 104, 242, 0.15);
+	background: var(--primary-50) !important;
+	border: 1px dashed var(--primary-500) !important;
+	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 	transform: rotate(1deg);
 }
 
 .task-item {
 	transition: all 0.3s ease;
-	background-color: #ffffff;
+	background-color: var(--el-color-white);
 	border: 1px solid transparent;
 	box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 	position: relative;
@@ -764,8 +762,8 @@ defineExpose({
 }
 
 .task-item:hover:not(.task-disabled):not(.task-sorting) {
-	background-color: #f9fafb !important;
-	border-color: #e5e7eb;
+	background-color: var(--el-fill-color-lighter) !important;
+	border-color: var(--el-border-color-light);
 	box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
 	transform: translateY(-1px);
 }
@@ -790,8 +788,8 @@ defineExpose({
 }
 
 .drag-handle:hover:not(.drag-disabled):not(.drag-sorting) {
-	background-color: #e5e7eb !important;
-	color: #374151 !important;
+	background-color: var(--el-fill-color-light) !important;
+	color: var(--el-text-color-regular) !important;
 }
 
 .drag-disabled {
@@ -815,30 +813,89 @@ defineExpose({
 	}
 }
 
+/* TaskList custom classes */
+.task-files-icon {
+	color: var(--el-color-success);
+}
+
+.task-notes-icon {
+	color: var(--el-color-warning);
+}
+
+.task-list-title {
+	color: var(--el-text-color-primary);
+}
+
+html.dark .task-list-title {
+	color: var(--el-color-white);
+}
+
+.task-name-text {
+	color: var(--el-text-color-primary);
+}
+
+html.dark .task-name-text {
+	color: var(--el-color-white);
+}
+
+.task-empty-text {
+	color: var(--el-text-color-secondary);
+}
+
+html.dark .task-empty-text {
+	color: var(--el-text-color-placeholder);
+}
+
+.task-add-form {
+	background-color: var(--el-fill-color-lighter);
+	border: 1px solid var(--el-border-color-light);
+}
+
+html.dark .task-add-form {
+	background-color: var(--el-bg-color-page);
+	border-color: var(--el-border-color-darker);
+}
+
+.task-form-label {
+	color: var(--el-text-color-regular);
+}
+
+html.dark .task-form-label {
+	color: var(--el-text-color-placeholder);
+}
+
+.task-form-input {
+	background-color: var(--el-color-white);
+}
+
+html.dark .task-form-input {
+	background-color: var(--el-bg-color-page);
+}
+
 /* 暗色主题 */
 html.dark {
 	.task-item {
-		@apply bg-gray-800;
-		border-color: #374151;
+		background-color: var(--el-bg-color-page);
+		border-color: var(--el-border-color-darker);
 		box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
 	}
 
 	.task-item:hover:not(.task-disabled):not(.task-sorting) {
-		@apply bg-gray-700 !important;
-		border-color: #4b5563 !important;
+		background-color: var(--el-fill-color) !important;
+		border-color: var(--el-border-color) !important;
 		box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4) !important;
 		transform: translateY(-1px);
 	}
 
 	.drag-handle:hover:not(.drag-disabled):not(.drag-sorting) {
-		background-color: #4b5563 !important;
-		color: #d1d5db !important;
+		background-color: var(--el-fill-color) !important;
+		color: var(--el-text-color-secondary) !important;
 	}
 
 	.ghost-task {
-		background: #1e3a8a !important;
-		border: 1px dashed #3b82f6 !important;
-		box-shadow: 0 4px 12px rgba(59, 130, 246, 0.25);
+		background: var(--el-color-primary-dark-2) !important;
+		border: 1px dashed var(--el-color-primary) !important;
+		box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
 	}
 }
 </style>

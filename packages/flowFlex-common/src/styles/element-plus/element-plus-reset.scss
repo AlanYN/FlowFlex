@@ -1,0 +1,82 @@
+/* Fix tag borders to match their background colors */
+.el-tag--success {
+	border-color: var(--el-color-success) !important;
+  background-color: var(--el-color-success) !important;
+  color: var(--el-color-success-light-9) !important;
+}
+
+.el-tag--warning {
+	border-color: var(--el-color-warning) !important;
+  background-color: var(--el-color-warning) !important;
+  color: var(--el-color-warning-light-9) !important;
+}
+
+.el-tag--danger {
+	border-color: var(--el-color-danger) !important;
+  background-color: var(--el-color-danger) !important;
+  color: var(--el-color-danger-light-9) !important;
+}
+
+.el-tag--info {
+	border-color: var(--el-color-info) !important;
+  background-color: var(--el-color-info) !important;
+  color: var(--el-color-info-light-9) !important;
+}
+
+.el-tag--primary {
+	border-color: var(--el-color-primary) !important;
+  background-color: var(--el-color-primary) !important;
+  color: var(--el-color-primary-light-9) !important;
+}
+
+/* Dark mode tag border fixes */
+html.dark .el-tag--success {
+	border-color: var(--el-color-success) !important;
+  background-color: var(--el-color-success) !important;
+  color: var(--el-color-success-light-9) !important;
+}
+
+html.dark .el-tag--warning {
+	border-color: var(--el-color-warning) !important;
+  background-color: var(--el-color-warning) !important;
+  color: var(--el-color-warning-light-9) !important;
+}
+
+html.dark .el-tag--danger {
+	border-color: var(--el-color-danger) !important;
+  background-color: var(--el-color-danger) !important;
+  color: var(--el-color-danger-light-9) !important;
+}
+
+html.dark .el-tag--info {
+	border-color: var(--el-color-info) !important;
+  background-color: var(--el-color-info) !important;
+  color: var(--el-color-info-light-9) !important;
+}
+
+html.dark .el-tag--primary {
+	border-color: var(--el-color-primary) !important;
+  background-color: var(--el-color-primary) !important;
+  color: var(--el-color-primary-light-9) !important;
+}
+
+.el-menu {
+	border-right: none;
+}
+
+.el-menu-item:hover,
+.el-menu-item.is-active {
+	background-color: var(--el-color-primary);
+  color: var(--el-color-white);
+  @apply rounded-xl ;
+}
+
+.el-table th {
+	background-color: var(--el-fill-color-lighter) !important;
+	color: var(--el-table-header-text-color);
+}
+
+.el-card {
+  box-shadow: none !important;
+  @apply  rounded-xl;
+}

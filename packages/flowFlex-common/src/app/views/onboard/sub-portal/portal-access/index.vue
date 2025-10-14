@@ -1,10 +1,10 @@
 <template>
 	<div
-		class="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4"
+		class="min-h-screen bg-gradient-to-br from-primary-50 to-indigo-100 flex items-center justify-center p-4"
 	>
 		<div class="max-w-md w-full bg-white rounded-xl shadow-lg overflow-hidden">
 			<!-- Header -->
-			<div class="bg-gradient-to-r from-blue-500 to-indigo-600 px-6 py-4">
+			<div class="bg-primary px-6 py-4">
 				<h1 class="text-xl font-semibold text-white text-center">
 					Portal Access Verification
 				</h1>
@@ -15,10 +15,10 @@
 				<!-- Loading State (during auto-verification) -->
 				<div v-if="loading && verificationState === 'form'" class="text-center space-y-4">
 					<div
-						class="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto"
+						class="w-16 h-16 bg-primary-100 rounded-full flex items-center justify-center mx-auto"
 					>
 						<svg
-							class="w-8 h-8 text-blue-600 animate-spin"
+							class="w-8 h-8 text-primary-600 animate-spin"
 							fill="none"
 							stroke="currentColor"
 							viewBox="0 0 24 24"
@@ -58,7 +58,7 @@
 						<h3 class="text-lg font-semibold text-gray-800">User Already Logged In</h3>
 						<p class="text-gray-600 mb-4">
 							You are currently logged in as
-							<span class="font-semibold text-blue-600">
+							<span class="font-semibold text-primary">
 								{{ currentLoggedUser?.email || currentLoggedUser?.userName }}
 							</span>
 						</p>
@@ -70,20 +70,24 @@
 					</div>
 
 					<div class="space-y-3">
-						<el-button
-							type="primary"
-							size="large"
-							class="w-full"
-							@click="useContinueWithCurrentUser"
-							:loading="loading"
-						>
-							Continue with
-							{{ currentLoggedUser?.email || currentLoggedUser?.userName }}
-						</el-button>
+						<div>
+							<el-button
+								type="primary"
+								size="large"
+								class="w-full"
+								@click="useContinueWithCurrentUser"
+								:loading="loading"
+							>
+								Continue with
+								{{ currentLoggedUser?.email || currentLoggedUser?.userName }}
+							</el-button>
+						</div>
 
-						<el-button size="large" class="w-full" @click="switchToEmailForm">
-							Use Different Email Address
-						</el-button>
+						<div>
+							<el-button size="large" class="w-full" @click="switchToEmailForm">
+								Use Different Email Address
+							</el-button>
+						</div>
 
 						<el-button
 							type="text"
@@ -100,10 +104,10 @@
 				<div v-if="verificationState === 'form' && !loading" class="space-y-4">
 					<div class="text-center mb-6">
 						<div
-							class="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-3"
+							class="w-16 h-16 bg-primary-100 rounded-full flex items-center justify-center mx-auto mb-3"
 						>
 							<svg
-								class="w-8 h-8 text-blue-600"
+								class="w-8 h-8 text-primary-600"
 								fill="none"
 								stroke="currentColor"
 								viewBox="0 0 24 24"
@@ -122,7 +126,13 @@
 						</p>
 					</div>
 
-					<el-form ref="formRef" :model="form" :rules="rules" label-position="top">
+					<el-form
+						ref="formRef"
+						:model="form"
+						:rules="rules"
+						label-position="top"
+						@submit.prevent
+					>
 						<el-form-item label="Email Address" prop="email">
 							<el-input
 								v-model="form.email"
