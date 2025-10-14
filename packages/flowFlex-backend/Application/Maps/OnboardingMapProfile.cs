@@ -28,14 +28,28 @@ namespace FlowFlex.Application.Maps
                 .ForMember(dest => dest.CreateBy, opt => opt.Ignore())
                 .ForMember(dest => dest.ModifyBy, opt => opt.Ignore())
                 .ForMember(dest => dest.CreateUserId, opt => opt.Ignore())
-                .ForMember(dest => dest.ModifyUserId, opt => opt.Ignore());
+                .ForMember(dest => dest.ModifyUserId, opt => opt.Ignore())
+                // Permission fields mapping
+                .ForMember(dest => dest.PermissionSubjectType, opt => opt.MapFrom(src => src.PermissionSubjectType))
+                .ForMember(dest => dest.ViewPermissionMode, opt => opt.MapFrom(src => src.ViewPermissionMode))
+                .ForMember(dest => dest.ViewTeams, opt => opt.MapFrom(src => SerializeSubjectList(src.ViewTeams)))
+                .ForMember(dest => dest.ViewUsers, opt => opt.MapFrom(src => SerializeSubjectList(src.ViewUsers)))
+                .ForMember(dest => dest.OperateTeams, opt => opt.MapFrom(src => SerializeSubjectList(src.OperateTeams)))
+                .ForMember(dest => dest.OperateUsers, opt => opt.MapFrom(src => SerializeSubjectList(src.OperateUsers)));
 
             // Entity to DTO mapping
             CreateMap<Onboarding, OnboardingOutputDto>()
                 .ForMember(dest => dest.WorkflowName, opt => opt.Ignore())
                 .ForMember(dest => dest.CurrentStageName, opt => opt.Ignore())
                 .ForMember(dest => dest.CurrentStageEndTime, opt => opt.Ignore())
-                .ForMember(dest => dest.CurrentStageEstimatedDays, opt => opt.Ignore());
+                .ForMember(dest => dest.CurrentStageEstimatedDays, opt => opt.Ignore())
+                // Permission fields mapping
+                .ForMember(dest => dest.PermissionSubjectType, opt => opt.MapFrom(src => src.PermissionSubjectType))
+                .ForMember(dest => dest.ViewPermissionMode, opt => opt.MapFrom(src => src.ViewPermissionMode))
+                .ForMember(dest => dest.ViewTeams, opt => opt.MapFrom(src => DeserializeSubjectList(src.ViewTeams)))
+                .ForMember(dest => dest.ViewUsers, opt => opt.MapFrom(src => DeserializeSubjectList(src.ViewUsers)))
+                .ForMember(dest => dest.OperateTeams, opt => opt.MapFrom(src => DeserializeSubjectList(src.OperateTeams)))
+                .ForMember(dest => dest.OperateUsers, opt => opt.MapFrom(src => DeserializeSubjectList(src.OperateUsers)));
 
             // OnboardingStageProgress to OnboardingStageProgressDto mapping
             CreateMap<OnboardingStageProgress, OnboardingStageProgressDto>()
@@ -143,6 +157,58 @@ namespace FlowFlex.Application.Maps
             {
                 return null;
             }
+        }
+
+        /// <summary>
+        /// Helper method to deserialize JSON string to List of strings
+        /// Handles both direct JSON arrays and double-encoded JSON strings
+        /// </summary>
+        private static List<string> DeserializeSubjectList(string jsonString)
+        {
+            if (string.IsNullOrWhiteSpace(jsonString))
+            {
+                return new List<string>();
+            }
+
+            try
+            {
+                var trimmed = jsonString.Trim();
+
+                // Check if it's double-encoded (starts with a quote)
+                if (trimmed.StartsWith("\"") && trimmed.EndsWith("\""))
+                {
+                    // Remove outer quotes and unescape
+                    var unescaped = JsonSerializer.Deserialize<string>(trimmed);
+                    if (!string.IsNullOrEmpty(unescaped))
+                    {
+                        trimmed = unescaped;
+                    }
+                }
+
+                // Now deserialize the actual array
+                if (trimmed.StartsWith("["))
+                {
+                    return JsonSerializer.Deserialize<List<string>>(trimmed) ?? new List<string>();
+                }
+
+                return new List<string>();
+            }
+            catch
+            {
+                return new List<string>();
+            }
+        }
+
+        /// <summary>
+        /// Helper method to serialize List of strings to JSON string
+        /// </summary>
+        private static string SerializeSubjectList(List<string> subjectList)
+        {
+            if (subjectList == null || subjectList.Count == 0)
+            {
+                return null;
+            }
+            return JsonSerializer.Serialize(subjectList);
         }
     }
 }
