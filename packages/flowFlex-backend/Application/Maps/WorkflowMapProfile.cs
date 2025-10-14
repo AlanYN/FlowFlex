@@ -1,3 +1,4 @@
+using System.Text.Json;
 using AutoMapper;
 using FlowFlex.Application.Contracts.Dtos.OW.Workflow;
 using FlowFlex.Domain.Entities.OW;
@@ -24,6 +25,11 @@ namespace FlowFlex.Application.Maps
                 .ForMember(dest => dest.Version, opt => opt.MapFrom(src => src.Version))
                 .ForMember(dest => dest.IsActive, opt => opt.MapFrom(src => src.IsActive))
                 .ForMember(dest => dest.IsValid, opt => opt.MapFrom(src => src.IsValid))
+                .ForMember(dest => dest.VisibleInPortal, opt => opt.MapFrom(src => src.VisibleInPortal))
+                .ForMember(dest => dest.PortalPermission, opt => opt.MapFrom(src => src.PortalPermission))
+                .ForMember(dest => dest.ViewPermissionMode, opt => opt.MapFrom(src => src.ViewPermissionMode))
+                .ForMember(dest => dest.ViewTeams, opt => opt.MapFrom(src => DeserializeTeamList(src.ViewTeams)))
+                .ForMember(dest => dest.OperateTeams, opt => opt.MapFrom(src => DeserializeTeamList(src.OperateTeams)))
                 .ForMember(dest => dest.CreateDate, opt => opt.MapFrom(src => src.CreateDate))
                 .ForMember(dest => dest.ModifyDate, opt => opt.MapFrom(src => src.ModifyDate))
                 .ForMember(dest => dest.CreateBy, opt => opt.MapFrom(src => src.CreateBy))
@@ -44,6 +50,11 @@ namespace FlowFlex.Application.Maps
                 .ForMember(dest => dest.EndDate, opt => opt.MapFrom(src => src.EndDate))
                 .ForMember(dest => dest.IsActive, opt => opt.MapFrom(src => src.IsActive))
                 .ForMember(dest => dest.ConfigJson, opt => opt.MapFrom(src => src.ConfigJson))
+                .ForMember(dest => dest.VisibleInPortal, opt => opt.MapFrom(src => src.VisibleInPortal))
+                .ForMember(dest => dest.PortalPermission, opt => opt.MapFrom(src => src.PortalPermission))
+                .ForMember(dest => dest.ViewPermissionMode, opt => opt.MapFrom(src => src.ViewPermissionMode))
+                .ForMember(dest => dest.ViewTeams, opt => opt.MapFrom(src => SerializeTeamList(src.ViewTeams)))
+                .ForMember(dest => dest.OperateTeams, opt => opt.MapFrom(src => SerializeTeamList(src.OperateTeams)))
                 // Ignore fields that will be set by extension methods
                 .ForMember(dest => dest.Id, opt => opt.Ignore())
                 .ForMember(dest => dest.TenantId, opt => opt.Ignore())
@@ -56,6 +67,59 @@ namespace FlowFlex.Application.Maps
                 .ForMember(dest => dest.CreateUserId, opt => opt.Ignore())
                 .ForMember(dest => dest.ModifyUserId, opt => opt.Ignore())
                 .ForMember(dest => dest.Stages, opt => opt.Ignore());
+        }
+
+        /// <summary>
+        /// Helper method to deserialize JSON string to List of strings
+        /// Handles both direct JSON arrays and double-encoded JSON strings
+        /// </summary>
+        private static List<string> DeserializeTeamList(string jsonString)
+        {
+            if (string.IsNullOrWhiteSpace(jsonString))
+            {
+                return new List<string>();
+            }
+
+            try
+            {
+                var trimmed = jsonString.Trim();
+                
+                // Check if it's double-encoded (starts with a quote)
+                if (trimmed.StartsWith("\"") && trimmed.EndsWith("\""))
+                {
+                    // Remove outer quotes and unescape
+                    var unescaped = JsonSerializer.Deserialize<string>(trimmed);
+                    if (!string.IsNullOrEmpty(unescaped))
+                    {
+                        trimmed = unescaped;
+                    }
+                }
+                
+                // Now deserialize the actual array
+                if (trimmed.StartsWith("["))
+                {
+                    return JsonSerializer.Deserialize<List<string>>(trimmed) ?? new List<string>();
+                }
+                
+                return new List<string>();
+            }
+            catch
+            {
+                return new List<string>();
+            }
+        }
+
+        /// <summary>
+        /// Helper method to serialize List of strings to JSON string
+        /// </summary>
+        private static string SerializeTeamList(List<string> teamList)
+        {
+            if (teamList == null || teamList.Count == 0)
+            {
+                return null;
+            }
+
+            return JsonSerializer.Serialize(teamList);
         }
     }
 }

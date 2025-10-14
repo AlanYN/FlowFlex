@@ -543,23 +543,23 @@ namespace FlowFlex.Application.Service.OW
             // Temporarily disable expired workflow processing to avoid concurrent database operations
             // Debug logging handled by structured logging
             var (items, total) = await _workflowRepository.QueryPagedAsync(
-                query.PageIndex, 
-                query.PageSize, 
-                query.Name, 
-                query.IsActive, 
+                query.PageIndex,
+                query.PageSize,
+                query.Name,
+                query.IsActive,
                 query.IsDefault,
                 query.SortField,
                 query.SortDirection);
-            
+
             var result = _mapper.Map<List<WorkflowOutputDto>>(items);
-            
+
             // 为了优化性能，工作流列表接口不返回Stage数据
             // Stage数据通过单独的接口获取: /api/ow/workflows/{id}/stages
             foreach (var workflow in result)
             {
                 workflow.Stages = new List<StageOutputDto>();
             }
-            
+
             return new PagedResult<WorkflowOutputDto>
             {
                 Items = result,

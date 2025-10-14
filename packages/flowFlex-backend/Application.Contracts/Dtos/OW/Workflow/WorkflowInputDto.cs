@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using FlowFlex.Application.Contracts.Dtos.OW.Stage;
+using FlowFlex.Domain.Shared.Enums.OW;
 
 namespace FlowFlex.Application.Contracts.Dtos.OW.Workflow
 {
@@ -63,6 +64,31 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.Workflow
         /// JSON for workflow configuration (stages, settings, etc.)
         /// </summary>
         public string? ConfigJson { get; set; }
+
+        /// <summary>
+        /// Visible in Portal
+        /// </summary>
+        public bool VisibleInPortal { get; set; } = true;
+
+        /// <summary>
+        /// Portal Permission - Viewable or Completable
+        /// </summary>
+        public PortalAvailabilityEnum? PortalPermission { get; set; } = PortalAvailabilityEnum.Viewable;
+
+        /// <summary>
+        /// View Permission Mode - Public/VisibleToTeams/InvisibleToTeams
+        /// </summary>
+        public ViewPermissionModeEnum ViewPermissionMode { get; set; } = ViewPermissionModeEnum.Public;
+
+        /// <summary>
+        /// View Teams - List of team names for view permission control
+        /// </summary>
+        public List<string>? ViewTeams { get; set; }
+
+        /// <summary>
+        /// Operate Teams - List of team names that can perform operations
+        /// </summary>
+        public List<string>? OperateTeams { get; set; }
 
         /// <summary>
         /// Stages to be created with this workflow

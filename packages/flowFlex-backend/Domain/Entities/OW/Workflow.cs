@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using FlowFlex.Domain.Entities.Base;
+using FlowFlex.Domain.Shared.Enums.OW;
 using SqlSugar;
 
 namespace FlowFlex.Domain.Entities.OW
@@ -67,6 +68,38 @@ namespace FlowFlex.Domain.Entities.OW
         /// </summary>
         [SugarColumn(ColumnName = "config_json", ColumnDataType = "jsonb", IsJson = true)]
         public string ConfigJson { get; set; }
+
+        /// <summary>
+        /// Visible in Portal - Controls whether this workflow is visible in the portal
+        /// </summary>
+        [SugarColumn(ColumnName = "visible_in_portal")]
+        public bool VisibleInPortal { get; set; } = true;
+
+        /// <summary>
+        /// Portal Permission - Defines the level of access in the customer portal (Viewable or Completable)
+        /// Only applies when VisibleInPortal is true
+        /// </summary>
+        [SugarColumn(ColumnName = "portal_permission")]
+        public PortalAvailabilityEnum? PortalPermission { get; set; } = PortalAvailabilityEnum.Viewable;
+
+        /// <summary>
+        /// View Permission Mode - Defines how view permissions are controlled (Public/VisibleToTeams/InvisibleToTeams)
+        /// </summary>
+        [SugarColumn(ColumnName = "view_permission_mode")]
+        public ViewPermissionModeEnum ViewPermissionMode { get; set; } = ViewPermissionModeEnum.Public;
+
+        /// <summary>
+        /// View Teams - JSONB array of team names for view permission control
+        /// Used with VisibleToTeams or InvisibleToTeams mode
+        /// </summary>
+        [SugarColumn(ColumnName = "view_teams", ColumnDataType = "jsonb", IsJson = true)]
+        public string ViewTeams { get; set; }
+
+        /// <summary>
+        /// Operate Teams - JSONB array of team names that can perform operations (Create/Update/Delete)
+        /// </summary>
+        [SugarColumn(ColumnName = "operate_teams", ColumnDataType = "jsonb", IsJson = true)]
+        public string OperateTeams { get; set; }
 
         /// <summary>
         /// Associated Stage Collection
