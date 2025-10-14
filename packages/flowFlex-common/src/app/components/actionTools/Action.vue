@@ -56,7 +56,6 @@
 				</draggable>
 			</el-scrollbar>
 		</div>
-
 		<!-- Action Configuration Dialog -->
 		<ActionConfigDialog
 			ref="actionConfigDialogRef"
@@ -66,6 +65,7 @@
 			:triggerSourceId="stageId"
 			:workflow-id="workflowId"
 			:loading="editLoading"
+			:triggerType="triggerType"
 			@save-success="onActionSave"
 			@cancel="onActionCancel"
 		/>
@@ -82,6 +82,7 @@ import ActionConfigDialog from './ActionConfigDialog.vue';
 import { getStageAction, deleteMappingAction, getActionDetail } from '@/apis/action';
 import { useI18n } from 'vue-i18n';
 import { ActionListItem } from '#/action';
+import { TriggerTypeEnum } from '@/enums/appEnum';
 
 const { t } = useI18n();
 
@@ -89,6 +90,7 @@ const { t } = useI18n();
 const props = defineProps<{
 	stageId?: string;
 	workflowId?: string;
+	triggerType?: TriggerTypeEnum;
 }>();
 
 // State
@@ -256,7 +258,7 @@ defineExpose({
 // Custom ghost class for actions
 .ghost-action {
 	opacity: 0.6;
-	background: var(--primary-50, #f0f7ff);
-	border: 1px dashed var(--primary-500, #2468f2);
+	background: var(--primary-50);
+	border: 1px dashed var(--primary-500);
 }
 </style>

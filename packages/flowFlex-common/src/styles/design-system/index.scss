@@ -1,0 +1,23 @@
+/**
+ * Design System Tokens - 统一导出
+ * 
+ * 导入顺序说明：
+ * 1. 基础颜色（Layer 1）- 不依赖主题
+ * 2. 语义颜色（Layer 2）- 依赖深色/浅色模式
+ * 3. 主题颜色（Layer 3）- 依赖深色/浅色 + 蓝色/紫色主题
+ * 4. Typography - 文字层级系统
+ */
+
+/* Layer 1: 基础颜色 */
+@use './tokens/colors-base' as *;
+
+/* Layer 2: 语义颜色 */
+@use './tokens/colors-semantic' as *;
+
+/* Layer 3: 主题颜色 */
+@use './tokens/colors-theme-blue' as *;
+@use './tokens/colors-theme-purple' as *;
+
+/* Typography 系统 */
+@use './tokens/typography' as *;
+

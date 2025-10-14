@@ -132,7 +132,7 @@ const handleDragEnd = (evt: any) => {
 	display: flex;
 	align-items: center;
 	padding: 0.75rem;
-	border: 1px solid var(--primary-200);
+	border: 1px solid var(--el-border-color-light);
 	cursor: pointer;
 	transition: all 0.2s;
 	gap: 0.5rem;
@@ -140,13 +140,13 @@ const handleDragEnd = (evt: any) => {
 }
 
 .section-item:hover {
-	border-color: var(--primary-300);
-	background-color: var(--primary-50);
+	border-color: var(--el-color-primary);
+	background-color: var(--el-bg-color-light);
 }
 
 .section-item.active {
-	border-color: var(--primary-500);
-	background-color: var(--primary-50);
+	border-color: var(--el-color-primary);
+	background-color: var(--el-bg-color-light);
 }
 
 .section-info {
@@ -172,36 +172,36 @@ const handleDragEnd = (evt: any) => {
 	color: var(--primary-500);
 }
 
-.delete-btn:hover {
-	background-color: var(--el-color-danger-light-9);
-}
-
 /* 深色模式支持 */
 .dark .section-title {
 	color: var(--primary-200);
 }
 
 .dark .section-item {
-	border-color: var(--primary-600);
-	background-color: var(--black-400);
+	border-color: var(--el-border-color-dark);
+	background-color: var(--black);
 }
 
 .dark .section-item:hover {
-	border-color: var(--black-600);
-	background-color: var(--black-500);
+	border-color: var(--el-border-color-dark);
+	background-color: var(--el-color-primary);
+
+	.delete-btn {
+		color: var(--el-color-white);
+	}
 }
 
 .dark .section-item.active {
-	border-color: var(--black-600);
-	background-color: var(--primary-500);
+	border-color: var(--el-border-color-dark);
+	background-color: var(--el-color-primary);
 }
 
 .dark .section-name {
-	color: var(--primary-100);
+	color: var(--el-color-white);
 }
 
 .dark .section-count {
-	color: var(--primary-300);
+	color: var(--el-color-white);
 }
 
 .dark .sections-list-container {

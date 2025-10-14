@@ -14,6 +14,7 @@
 					:rules="rules"
 					label-position="top"
 					class="p-1"
+					@submit.prevent
 				>
 					<el-form-item label="Stage Name" prop="name">
 						<el-input v-model="formData.name" placeholder="Enter stage name" />
@@ -110,7 +111,12 @@
 				/>
 			</TabPane>
 			<TabPane value="actions">
-				<Action ref="actionRef" :stage-id="formData.id" :workflow-id="workflowId" />
+				<Action
+					ref="actionRef"
+					:stage-id="formData.id"
+					:workflow-id="workflowId"
+					:trigger-type="TriggerTypeEnum.Stage"
+				/>
 			</TabPane>
 		</PrototypeTabs>
 
@@ -137,6 +143,7 @@ import { PortalPermissionEnum, portalPermissionOptions } from '@/enums/portalPer
 import StageComponentsSelector from './StageComponentsSelector.vue';
 import Action from '@/components/actionTools/Action.vue';
 import FlowflexUser from '@/components/form/flowflexUser/index.vue';
+import { TriggerTypeEnum } from '@/enums/appEnum';
 
 import { PrototypeTabs, TabPane } from '@/components/PrototypeTabs';
 import { Checklist, Questionnaire, Stage, ComponentsData, StageComponentData } from '#/onboard';
@@ -321,9 +328,15 @@ const emit = defineEmits(['submit', 'cancel']);
 	cursor: pointer;
 	border: 2px solid transparent;
 }
+
 .color-option.selected {
-	border-color: var(--el-color-primary);
+	border-color: var(--el-color-black);
 }
+
+.dark .color-option.selected {
+	border-color: var(--el-color-white);
+}
+
 .form-actions {
 	display: flex;
 	justify-content: flex-end;
@@ -331,7 +344,7 @@ const emit = defineEmits(['submit', 'cancel']);
 	margin-top: 16px;
 }
 .text-muted {
-	color: #6b7280;
+	color: var(--el-text-color-secondary);
 }
 .portal-permission-group {
 	width: 100%;

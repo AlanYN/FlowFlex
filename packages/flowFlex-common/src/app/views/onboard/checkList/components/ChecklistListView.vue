@@ -1,5 +1,5 @@
 <template>
-	<div class="customer-block !p-0 !ml-0">
+	<div class="">
 		<el-table
 			:data="checklists"
 			@selection-change="handleSelectionChange"
@@ -8,6 +8,7 @@
 			v-loading="loading"
 			:max-height="tableMaxHeight"
 			header-cell-class-name="bg-blue-50"
+			border
 		>
 			<template #empty>
 				<slot name="empty">
@@ -20,7 +21,7 @@
 					<el-dropdown trigger="click">
 						<el-button
 							size="small"
-							class="p-1 text-gray-600 hover:text-blue-600"
+							class="p-1 checklist-action-btn"
 							link
 							:icon="ArrowDownBold"
 						/>
@@ -95,8 +96,8 @@
 				<template #default="{ row }">
 					<div class="flex items-center gap-1 max-w-full">
 						<!-- 只显示第一个assignment -->
-						<div
-							class="table-assignment-tag flex-1"
+						<el-tag
+							class="table-assignment-tag"
 							v-if="getDisplayedAssignments(row.assignments).length > 0"
 							:key="`${getDisplayedAssignments(row.assignments)[0].workflowId}-${
 								getDisplayedAssignments(row.assignments)[0].stageId
@@ -106,6 +107,7 @@
 							)} → ${getStageName(
 								getDisplayedAssignments(row.assignments)[0].stageId
 							)}`"
+							type="primary"
 						>
 							<span class="table-assignment-text">
 								{{
@@ -116,7 +118,7 @@
 									)}`
 								}}
 							</span>
-						</div>
+						</el-tag>
 						<!-- 显示剩余数量 -->
 						<el-popover
 							v-if="
@@ -134,7 +136,7 @@
 							<div class="popover-content">
 								<h4 class="popover-title">All Assignments</h4>
 								<div class="popover-tags">
-									<div
+									<el-tag
 										class="popover-tag"
 										v-for="assignment in getUniqueAssignments(
 											row.assignments
@@ -143,6 +145,7 @@
 										:title="`${getWorkflowName(
 											assignment.workflowId
 										)} → ${getStageName(assignment.stageId)}`"
+										type="primary"
 									>
 										<span class="popover-tag-text">
 											{{
@@ -151,7 +154,7 @@
 												)} → ${getStageName(assignment.stageId)}`
 											}}
 										</span>
-									</div>
+									</el-tag>
 								</div>
 							</div>
 						</el-popover>
@@ -316,170 +319,12 @@ const getUniqueAssignments = (assignments) => {
 </script>
 
 <style scoped lang="scss">
-/* 表格视图样式 */
-.table-assignment-tag {
-	@apply inline-flex items-center justify-center rounded-full border text-xs font-semibold transition-colors bg-primary-50 text-primary-500 border-primary-200 px-3 py-1;
-	min-width: 0;
-	max-width: 100%;
-	flex-shrink: 1;
-	background: linear-gradient(to right, rgb(196, 181, 253), rgb(191, 219, 254)) !important;
+/* Checklist custom classes */
+.checklist-action-btn {
+	color: var(--el-text-color-regular);
 }
 
-.table-assignment-text {
-	white-space: nowrap;
-	overflow: hidden;
-	text-overflow: ellipsis;
-	max-width: 100%;
-	text-align: center;
-	display: block;
-}
-
-.table-assignment-tag:hover {
-	@apply bg-primary-100 border-primary-300;
-}
-
-.table-assignment-more {
-	@apply inline-flex items-center rounded-full border text-xs font-semibold transition-colors bg-primary-50 text-primary-500 border-primary-200 px-2 py-1;
-	white-space: nowrap;
-	min-width: 40px;
-	width: auto;
-	justify-content: center;
-	flex-shrink: 0;
-	background: linear-gradient(to right, rgb(196, 181, 253), rgb(191, 219, 254)) !important;
-}
-
-.table-assignment-more:hover {
-	@apply bg-primary-100 border-primary-300;
-}
-
-/* 表格单元格内容样式 */
-.table-cell-content {
-	overflow: hidden;
-	text-overflow: ellipsis;
-	white-space: nowrap;
-	max-width: 100%;
-	display: block;
-}
-
-/* 表格链接样式 */
-.table-cell-link {
-	display: block;
-	width: 100%;
-}
-
-:deep(.table-cell-link .el-link__inner) {
-	display: block;
-	width: 100%;
-}
-
-/* 弹出层样式 */
-.popover-title {
-	font-size: 14px;
-	font-weight: 600;
-	color: var(--primary-700);
-	@apply dark:text-primary-300;
-	margin-bottom: 10px;
-}
-
-.popover-tags {
-	display: flex;
-	flex-direction: column;
-	gap: 8px;
-}
-
-.popover-tag {
-	@apply inline-flex items-center justify-center rounded-full border text-xs font-semibold transition-colors bg-primary-50 text-primary-500 border-primary-200 px-3 py-1;
-	width: 100%;
-	min-width: 0;
-	flex-shrink: 0;
-	background: linear-gradient(to right, rgb(196, 181, 253), rgb(191, 219, 254)) !important;
-}
-
-.popover-tag-text {
-	white-space: nowrap;
-	overflow: hidden;
-	text-overflow: ellipsis;
-	max-width: 100%;
-	text-align: center;
-	display: block;
-}
-
-.popover-tag:hover {
-	@apply bg-primary-100 border-primary-300;
-}
-
-/* 暗色主题样式 */
-html.dark {
-	/* 表格视图暗色主题样式 */
-	.table-assignment-tag {
-		@apply bg-black-200 text-white-100 border-black-200;
-		background: linear-gradient(to right, #4c1d95, #1e40af) !important;
-	}
-
-	.table-assignment-tag:hover {
-		@apply bg-black-300 border-black-100;
-	}
-
-	.table-assignment-text {
-		@apply text-white-100;
-	}
-
-	.table-assignment-more {
-		@apply bg-black-200 text-white-100 border-black-200;
-		background: linear-gradient(to right, #4c1d95, #1e40af) !important;
-	}
-
-	.table-assignment-more:hover {
-		@apply bg-black-300 border-black-100;
-	}
-
-	/* 弹窗暗色主题样式 */
-	.popover-tag {
-		@apply bg-black-200 text-white-100 border-black-200;
-		background: linear-gradient(to right, #4c1d95, #1e40af) !important;
-	}
-
-	.popover-tag:hover {
-		@apply bg-black-300 border-black-100;
-	}
-
-	.popover-tag-text {
-		@apply text-white-100;
-	}
-
-	/* 表格暗色主题 */
-	:deep(.el-table) {
-		background-color: var(--black-400) !important;
-		border: 1px solid var(--black-200) !important;
-	}
-
-	:deep(.el-table .bg-blue-50) {
-		background-color: #003c76 !important;
-	}
-
-	:deep(.el-table th) {
-		background-color: #003c76 !important;
-		border-bottom: 1px solid #00509d !important;
-		color: #cce8d0 !important;
-	}
-
-	:deep(.el-table td) {
-		border-bottom: 1px solid var(--black-200) !important;
-		background-color: var(--black-400) !important;
-		color: var(--white-100) !important;
-	}
-
-	:deep(.el-table tbody tr:hover > td) {
-		background-color: var(--black-300) !important;
-	}
-
-	/* 表格链接暗色主题 */
-	:deep(.table-cell-link) {
-		color: var(--primary-400) !important;
-	}
-
-	:deep(.table-cell-link:hover) {
-		color: var(--primary-300) !important;
-	}
+.checklist-action-btn:hover {
+	color: var(--el-color-primary);
 }
 </style>

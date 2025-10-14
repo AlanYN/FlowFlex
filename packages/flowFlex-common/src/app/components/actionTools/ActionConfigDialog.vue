@@ -164,9 +164,9 @@
 									>
 										<div class="flex items-center space-x-3">
 											<div
-												class="flex items-center justify-center w-10 h-10 rounded-xl bg-gray-100 dark:bg-gray-700"
+												class="flex items-center justify-center w-10 h-10 rounded-xl bg-black dark:bg-white"
 											>
-												<el-icon class="text-primary-500" size="20">
+												<el-icon class="text-primary" size="20">
 													<component :is="actionType.icon" />
 												</el-icon>
 											</div>
@@ -810,11 +810,11 @@ defineExpose({
 }
 
 .action-config-container {
-	@apply bg-white dark:bg-gray-800 min-h-full;
+	@apply min-h-full;
 }
 
 .section-header {
-	@apply border-b border-gray-200 dark:border-gray-700 pb-3 mb-4;
+	@apply border-b pb-3 mb-4;
 }
 
 .action-config-section {
@@ -823,7 +823,7 @@ defineExpose({
 
 // 抽屉footer样式
 .dialog-footer {
-	@apply flex justify-end space-x-3 px-6 py-4 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800;
+	@apply flex justify-end space-x-3 px-6 py-4 border-t;
 	position: sticky;
 	bottom: 0;
 	margin-top: auto;
@@ -852,24 +852,25 @@ defineExpose({
 }
 
 .external-toggle-button {
-	@apply border-l-2 border-primary-500 rounded-s-md cursor-pointer transition-all duration-300 bg-white flex flex-col items-center justify-center gap-2;
+	@apply border-l-2 border-primary-500 rounded-s-md cursor-pointer transition-all duration-300 flex flex-col items-center justify-center gap-2;
 	width: 30px;
 	height: 200px;
+	background-color: var(--el-bg-color);
 
 	&:hover {
-		background-color: #f8fafc;
-		border-color: #3b82f6;
+		background-color: var(--el-fill-color-blank);
+		border-color: var(--el-color-primary);
 		transform: scale(1.05);
-		box-shadow: 0 6px 16px rgba(59, 130, 246, 0.3);
+		box-shadow: 0 6px 16px rgba(0, 0, 0, 0.1);
 	}
 
 	.dark & {
-		background-color: #374151;
-		border-color: #4b5563;
+		background-color: var(--el-bg-color);
+		border-color: var(--el-border-color);
 
 		&:hover {
-			background-color: #4b5563;
-			border-color: #3b82f6;
+			background-color: var(--el-fill-color);
+			border-color: var(--el-color-primary);
 		}
 	}
 
@@ -879,11 +880,12 @@ defineExpose({
 }
 
 .variables-panel-container {
-	@apply flex-1 min-w-0 min-h-0 flex flex-col bg-gray-50 dark:bg-gray-800 rounded-xl;
-	border: 1px solid #e2e8f0;
+	@apply flex-1 min-w-0 min-h-0 flex flex-col rounded-xl;
+	background-color: var(--el-fill-color-lighter);
+	border: 1px solid var(--el-border-color-light);
 
 	.dark & {
-		border-color: #4b5563;
+		border-color: var(--el-border-color);
 	}
 }
 
@@ -904,21 +906,21 @@ defineExpose({
 }
 
 .mode-selection-section {
-	border-left: 4px solid #3b82f6;
-	background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+	border-left: 4px solid var(--el-color-primary);
+	background: var(--el-fill-color-blank);
 	transition: all 0.3s ease;
 
 	&:hover {
-		background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
+		background: var(--el-fill-color-lighter);
 		box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 	}
 
 	.dark & {
-		background: linear-gradient(135deg, #374151 0%, #4b5563 100%);
-		border-left-color: #60a5fa;
+		background: var(--el-fill-color);
+		border-left-color: var(--el-color-primary-light-3);
 
 		&:hover {
-			background: linear-gradient(135deg, #4b5563 0%, #6b7280 100%);
+			background: var(--el-fill-color-light);
 			box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 		}
 	}

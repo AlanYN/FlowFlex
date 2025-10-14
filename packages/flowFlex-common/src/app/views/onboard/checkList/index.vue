@@ -30,10 +30,10 @@
 			</PageHeader>
 
 			<!-- 搜索和筛选区域 -->
-			<div class="filter-panel rounded-xl shadow-sm p-4 mb-6">
+			<el-card class="mb-6">
 				<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
 					<div class="space-y-2">
-						<label class="filter-label text-sm font-medium">Search</label>
+						<label class="text-sm font-medium">Search</label>
 						<InputTag
 							v-model="searchTags"
 							placeholder="Enter checklist name and press enter"
@@ -46,7 +46,7 @@
 					</div>
 
 					<div class="space-y-2">
-						<label class="filter-label text-sm font-medium">Team</label>
+						<label class="text-sm font-medium">Team</label>
 						<FlowflexUserSelector
 							v-model="selectedTeam"
 							placeholder="Select team"
@@ -57,7 +57,7 @@
 						/>
 					</div>
 				</div>
-			</div>
+			</el-card>
 
 			<!-- 视图切换标签页 -->
 			<PrototypeTabs
@@ -159,11 +159,11 @@
 			<template #header>
 				<div>
 					<h3 class="text-lg font-medium">{{ dialogConfig.title }}</h3>
-					<p class="text-sm text-gray-600 mt-1">{{ dialogConfig.description }}</p>
+					<p class="text-sm checklist-dialog-desc mt-1">{{ dialogConfig.description }}</p>
 				</div>
 			</template>
 
-			<el-form :model="formData" label-position="top" class="space-y-4 p-1">
+			<el-form :model="formData" label-position="top" class="space-y-4 p-1" @submit.prevent>
 				<el-form-item label="Checklist Name" required>
 					<el-input v-model="formData.name" :placeholder="dialogConfig.namePlaceholder" />
 				</el-form-item>
@@ -735,19 +735,6 @@ onMounted(() => {
 </script>
 
 <style scoped lang="scss">
-/* 筛选面板样式 */
-.filter-panel {
-	@apply bg-white dark:bg-black-400;
-	border: 1px solid var(--primary-100);
-	@apply dark:border-black-200;
-	flex-shrink: 0;
-}
-
-.filter-label {
-	color: var(--primary-700);
-	@apply dark:text-primary-300;
-}
-
 /* Task弹窗样式 */
 .task-dialog-content {
 	min-height: 400px;
@@ -755,15 +742,8 @@ onMounted(() => {
 	overflow-y: auto;
 }
 
-/* 暗色主题样式 */
-html.dark {
-	/* 筛选面板暗色主题 */
-	.filter-panel {
-		@apply bg-black-400 dark:border-black-200;
-	}
-
-	.filter-label {
-		@apply dark:text-primary-300;
-	}
+/* Checklist dialog custom classes */
+.checklist-dialog-desc {
+	color: var(--el-text-color-secondary);
 }
 </style>

@@ -1,12 +1,15 @@
 <template>
-	<div class="min-h-screen bg-gray-50">
+	<div class="min-h-screen">
 		<!-- Mobile sidebar -->
 		<div :class="['fixed inset-0 z-50 lg:hidden', sidebarOpen ? 'block' : 'hidden']">
-			<div class="fixed inset-0 bg-gray-600 bg-opacity-75" @click="sidebarOpen = false"></div>
-			<div class="fixed inset-y-0 left-0 flex w-64 flex-col bg-white">
+			<div
+				class="fixed inset-0 bg-siderbarGray dark:bg-black"
+				@click="sidebarOpen = false"
+			></div>
+			<div class="fixed inset-y-0 left-0 flex w-64 flex-col bg-siderbarGray dark:bg-black">
 				<div class="flex h-16 items-center justify-between px-4 border-b">
-					<h1 class="text-xl font-bold text-blue-600">Customer Portal</h1>
-					<button @click="sidebarOpen = false" class="p-1 rounded-xl hover:bg-gray-100">
+					<h1 class="text-xl font-bold text-primary">Customer Portal</h1>
+					<button @click="sidebarOpen = false" class="p-1 rounded-xl portal-btn-hover">
 						<svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 							<path
 								stroke-linecap="round"
@@ -22,10 +25,8 @@
 						v-for="item in navigation"
 						:key="item.name"
 						:class="[
-							'group flex items-center px-2 py-2 text-sm font-medium rounded-xl cursor-pointer',
-							currentView === item.view
-								? 'bg-blue-100 text-blue-900'
-								: 'text-gray-600 hover:bg-gray-50 hover:text-gray-900',
+							'group flex items-center px-2 py-2 text-sm font-medium rounded-xl cursor-pointer portal-nav-item',
+							currentView === item.view ? 'portal-nav-active' : '',
 						]"
 						@click="handleNavigation(item)"
 					>
@@ -36,11 +37,11 @@
 
 				<!-- Customer Info Card -->
 				<div class="p-4 border-t">
-					<div class="rounded-xl border bg-white p-4 shadow-sm">
+					<div class="rounded-xl border bg-siderbarGray dark:bg-black p-4 shadow-sm">
 						<div class="flex items-center space-x-3">
-							<div class="bg-blue-100 p-2 rounded-full">
+							<div class="portal-company-icon">
 								<svg
-									class="h-5 w-5 text-blue-600"
+									class="h-5 w-5"
 									fill="none"
 									stroke="currentColor"
 									viewBox="0 0 24 24"
@@ -54,10 +55,10 @@
 								</svg>
 							</div>
 							<div class="flex-1 min-w-0">
-								<p class="text-sm font-medium text-gray-900 truncate">
+								<p class="text-sm font-medium portal-text-primary truncate">
 									{{ customerData.companyName }}
 								</p>
-								<p class="text-xs text-gray-500 truncate">
+								<p class="text-xs portal-text-secondary truncate">
 									{{ customerData.contactName }}
 								</p>
 							</div>
@@ -69,19 +70,19 @@
 
 		<!-- Desktop sidebar -->
 		<div class="hidden lg:fixed lg:inset-y-0 lg:flex lg:w-64 lg:flex-col">
-			<div class="flex flex-col flex-grow bg-white border-r border-gray-200">
+			<div
+				class="flex flex-col flex-grow bg-siderbarGray dark:bg-black portal-sidebar-border"
+			>
 				<div class="flex h-16 items-center px-4 border-b">
-					<h1 class="text-xl font-bold text-blue-600">Customer Portal</h1>
+					<h1 class="text-xl font-bold text-primary">Customer Portal</h1>
 				</div>
 				<nav class="flex-1 space-y-1 px-2 py-4">
 					<div
 						v-for="item in navigation"
 						:key="item.name"
 						:class="[
-							'group flex items-center px-2 py-2 text-sm font-medium rounded-xl cursor-pointer',
-							currentView === item.view
-								? 'bg-blue-100 text-blue-900'
-								: 'text-gray-600 hover:bg-gray-50 hover:text-gray-900',
+							'group flex items-center px-2 py-2 text-sm font-medium rounded-xl cursor-pointer portal-nav-item',
+							currentView === item.view ? 'portal-nav-active' : '',
 						]"
 						@click="handleNavigation(item)"
 					>
@@ -92,11 +93,11 @@
 
 				<!-- Customer Info Card -->
 				<div class="p-4 border-t">
-					<div class="rounded-xl border bg-white p-4 shadow-sm">
+					<div class="rounded-xl border bg-siderbarGray dark:bg-black p-4 shadow-sm">
 						<div class="flex items-center space-x-3 mb-3">
-							<div class="bg-blue-100 p-2 rounded-full">
+							<div class="portal-company-icon">
 								<svg
-									class="h-5 w-5 text-blue-600"
+									class="h-5 w-5"
 									fill="none"
 									stroke="currentColor"
 									viewBox="0 0 24 24"
@@ -110,16 +111,16 @@
 								</svg>
 							</div>
 							<div class="flex-1 min-w-0">
-								<p class="text-sm font-medium text-gray-900 truncate">
+								<p class="text-sm font-medium portal-text-primary truncate">
 									{{ customerData.companyName }}
 								</p>
-								<p class="text-xs text-gray-500 truncate">
+								<p class="text-xs portal-text-secondary truncate">
 									{{ customerData.contactName }}
 								</p>
 							</div>
 						</div>
 						<div class="space-y-1">
-							<div class="flex items-center text-xs text-gray-500">
+							<div class="flex items-center text-xs portal-text-secondary">
 								<svg
 									class="h-3 w-3 mr-1"
 									fill="none"
@@ -145,7 +146,7 @@
 		<div class="lg:pl-64">
 			<!-- Mobile header -->
 			<div class="flex h-16 items-center justify-between border-b bg-white px-4 lg:hidden">
-				<button @click="sidebarOpen = true" class="p-1 rounded-xl hover:bg-gray-100">
+				<button @click="sidebarOpen = true" class="p-1 rounded-xl portal-btn-hover">
 					<svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 						<path
 							stroke-linecap="round"
@@ -162,7 +163,7 @@
 			<!-- Page content -->
 			<main class="flex-1 p-6">
 				<!-- Onboarding Detail View -->
-				<div class="pb-6 bg-gray-50 dark:bg-black-400">
+				<div class="pb-6">
 					<!-- 统一页面头部 -->
 					<PageHeader
 						:title="`${onboardingData?.leadId || ''} ${onboardingData?.leadName || ''}`"
@@ -205,14 +206,14 @@
 					</PageHeader>
 
 					<!-- 主要内容区域 -->
-					<div class="flex w-full">
+					<div class="flex w-full gap-x-4">
 						<!-- 左侧阶段详情 (2/3 宽度) -->
-						<div class="flex-[2] min-w-0 overflow-hidden customer-block">
+						<div class="flex-[2] min-w-0 overflow-hidden wfe-global-block-bg">
 							<div
 								class="rounded-xl el-card is-always-shadow rounded-xl el-card__header"
 							>
 								<div
-									class="bg-gradient-to-r from-blue-500 to-indigo-500 text-white -mx-5 -my-5 px-5 py-4 rounded-t-lg"
+									class="editable-header-card text-white -mx-5 -my-5 px-5 py-4 rounded-t-lg"
 								>
 									<h2 class="text-lg font-semibold">{{ currentStageTitle }}</h2>
 								</div>
@@ -241,7 +242,7 @@
 											<el-icon class="is-loading text-4xl text-primary-500">
 												<Loading />
 											</el-icon>
-											<p class="text-gray-500 dark:text-gray-400">
+											<p class="portal-loading-text">
 												Loading stage details...
 											</p>
 										</div>
@@ -367,7 +368,6 @@
 										:workflow-stages="workflowStages"
 										@set-active-stage="setActiveStageWithData"
 										@stage-completed="loadOnboardingDetail"
-										class="bg-white dark:bg-black-300 rounded-xl shadow-lg border border-gray-200 dark:border-gray-600"
 									/>
 								</div>
 							</el-scrollbar>
@@ -381,7 +381,7 @@
 						width="500px"
 						:before-close="handleEditDialogClose"
 					>
-						<el-form :model="editForm" label-width="100px">
+						<el-form :model="editForm" label-width="100px" @submit.prevent>
 							<el-form-item label="Priority">
 								<el-select
 									v-model="editForm.priority"
@@ -1386,11 +1386,11 @@ const showHiddenComponentErrors = (errors: HiddenValidationError[]) => {
 
 	const fullMessage = `
     <div class="text-sm">
-      <p class="mb-3 text-gray-700">
+      <p class="mb-3" style="color: var(--el-text-color-regular);">
         Some hidden required fields need to be completed by administrators before this stage can be finished:
       </p>
       ${errorGroups}
-      <p class="mt-3 text-xs text-gray-500">
+      <p class="mt-3 text-xs" style="color: var(--el-text-color-secondary);">
         Please contact your administrator to complete these required items.
       </p>
     </div>
@@ -2004,7 +2004,65 @@ watch(stageIdFromRoute, async (newStageId) => {
 });
 </script>
 
-<style scoped>
+<style scoped lang="scss">
+/* Portal custom classes */
+.portal-btn-hover:hover {
+	background-color: var(--el-fill-color-light);
+}
+
+.portal-nav-item {
+	color: var(--el-text-color-regular);
+	&:hover {
+		background-color: var(--el-fill-color-lighter);
+		color: var(--el-text-color-primary);
+	}
+}
+
+.portal-nav-active {
+	background-color: var(--el-color-primary-light-9);
+	color: var(--el-color-primary);
+}
+
+.portal-company-icon {
+	background-color: var(--el-color-primary-light-9);
+	padding: 0.5rem;
+	border-radius: 9999px;
+	color: var(--el-color-primary);
+}
+
+.portal-text-primary {
+	color: var(--el-text-color-primary);
+}
+
+.portal-text-secondary {
+	color: var(--el-text-color-secondary);
+}
+
+.portal-sidebar-border {
+	border-right: 1px solid var(--el-border-color-light);
+}
+
+.portal-loading-text {
+	color: var(--el-text-color-secondary);
+}
+
+html.dark .portal-loading-text {
+	color: var(--el-text-color-placeholder);
+}
+
+.editable-header-card {
+	background: var(--el-color-primary);
+	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+	display: flex;
+	flex-direction: column;
+	gap: 16px;
+	transition: all 0.2s ease;
+
+	&:hover {
+		box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15);
+		transform: translateY(-1px);
+	}
+}
 /* Smooth transitions */
 .transition-colors {
 	transition-property: color, background-color, border-color, text-decoration-color, fill, stroke;

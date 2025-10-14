@@ -9,8 +9,8 @@
 		<div>
 			<!-- Model Selection -->
 			<div class="flex items-center gap-2 mb-4 p-1">
-				<el-icon class="text-blue-500"><Star /></el-icon>
-				<span class="font-medium text-gray-900">Model:</span>
+				<el-icon class="text-primary"><Star /></el-icon>
+				<span class="font-medium">Model:</span>
 				<el-select
 					v-model="selectedModelId"
 					placeholder="Select AI Model"
@@ -35,7 +35,7 @@
 				<!-- Left: Instructions -->
 				<div class="flex-1 flex flex-col h-80 lg:h-auto">
 					<div class="font-medium text-gray-900 mb-2">Instructions</div>
-					<div class="flex-1 border-gray-200 rounded-xl overflow-hidden">
+					<div class="flex-1 overflow-hidden">
 						<el-input
 							v-model="aiInstructions"
 							type="textarea"
@@ -57,7 +57,9 @@
 							v-if="!generatedCode && !generating"
 							class="flex flex-col items-center justify-center h-full text-gray-500 text-center"
 						>
-							<el-icon size="48" color="#909399"><Star /></el-icon>
+							<el-icon size="48" :color="'var(--el-text-color-placeholder)'">
+								<Star />
+							</el-icon>
 							<p class="mt-2 text-sm">
 								Describe your use case on the left, and the code preview will be
 								displayed here.

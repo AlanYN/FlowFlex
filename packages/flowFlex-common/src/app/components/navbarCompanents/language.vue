@@ -8,7 +8,7 @@
 				<li
 					v-for="item in localeArr"
 					:key="item.event"
-					class="text-[#b4b4b4] cursor-pointer text-center dark:text-white-100 flex flex-row items-center"
+					class="text-placeholder cursor-pointer text-center dark:text-white-100 flex flex-row items-center"
 				>
 					<el-button
 						:bg="true"

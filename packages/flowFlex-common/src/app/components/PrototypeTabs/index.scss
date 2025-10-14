@@ -69,13 +69,13 @@
 		justify-content: flex-start;
 		height: auto;
 		min-height: 2.5rem;
-		background-color: #fff;
-		border-color: #e2e8f0;
+		background-color: var(--el-bg-color);
+		border-color: var(--el-border-color-light);
 		@apply rounded-xl;
 
 		:root.dark & {
-			background-color: #2d3748;
-			border-color: #4a5568;
+			background-color: var(--el-bg-color-page);
+			border-color: var(--el-border-color);
 		}
 	}
 
@@ -113,13 +113,13 @@
 		top: 0.25rem;
 		left: 0;
 		height: 2rem; /* 固定高度，只覆盖按钮区域 */
-		background-color: white;
+		background-color: var(--el-color-white);
 		box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 		@apply rounded-xl;
 
 		:root.dark & {
-			background-color: #4a5568;
-			border: 1px solid #718096;
+			background-color: var(--el-fill-color);
+			border: 1px solid var(--el-border-color);
 			box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
 		}
 	}
@@ -169,7 +169,7 @@
 		padding: 0.375rem 0.75rem;
 
 		:root.dark & {
-			color: #e2e8f0;
+			color: var(--el-text-color-primary);
 		}
 	}
 
@@ -241,11 +241,11 @@
 
 	/* Active 样式 */
 	&--active {
-		color: white;
+		color: var(--el-color-white);
 		z-index: 2;
 
 		:root.dark & {
-			color: white;
+			color: var(--el-color-white);
 		}
 
 		.tab-icon {
@@ -427,18 +427,18 @@
 /* 打印样式 */
 @media print {
 	.tabs-list {
-		background: white !important;
+		background: var(--el-color-white) !important;
 		border: 1px solid #000 !important;
 		box-shadow: none !important;
 	}
 
 	.tab-trigger {
-		background: white !important;
+		background: var(--el-color-white) !important;
 		color: black !important;
 		box-shadow: none !important;
 
 		&--active {
-			background: #f0f0f0 !important;
+			background: var(--el-fill-color-lighter) !important;
 			font-weight: bold !important;
 		}
 	}

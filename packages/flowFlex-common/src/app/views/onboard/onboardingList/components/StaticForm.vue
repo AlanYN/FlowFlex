@@ -1,20 +1,23 @@
 <template>
-	<div class="customer-block">
+	<div class="wfe-global-block-bg">
 		<!-- 统一的头部卡片 -->
 		<div
-			class="static-form-header-card rounded-xl"
+			class="case-component-header rounded-xl"
 			:class="{ expanded: isExpanded }"
 			@click="toggleExpanded"
 		>
 			<div class="flex justify-between">
 				<div>
 					<div class="flex items-center">
-						<el-icon class="expand-icon text-lg mr-2" :class="{ rotated: isExpanded }">
+						<el-icon
+							class="case-component-expand-icon text-lg mr-2"
+							:class="{ rotated: isExpanded }"
+						>
 							<ArrowRight />
 						</el-icon>
-						<h3 class="static-form-title">Request Fields</h3>
+						<h3 class="case-component-title">Request Fields</h3>
 					</div>
-					<div class="static-form-subtitle">Static form fields</div>
+					<div class="case-component-subtitle">Static form fields</div>
 				</div>
 			</div>
 		</div>
@@ -29,6 +32,7 @@
 					label-position="top"
 					class="form-grid"
 					:disabled="disabled"
+					@submit.prevent
 				>
 					<!-- Lead Basic Info -->
 					<el-form-item
@@ -788,47 +792,6 @@ defineExpose({
 </script>
 
 <style lang="scss" scoped>
-/* 头部卡片样式 - 紫色渐变 */
-.static-form-header-card {
-	background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
-	padding: 10px;
-	color: white;
-	box-shadow: 0 4px 12px rgba(139, 92, 246, 0.2);
-	display: flex;
-	flex-direction: column;
-	gap: 16px;
-	cursor: pointer;
-	transition: all 0.2s ease;
-
-	&:hover {
-		box-shadow: 0 6px 16px rgba(139, 92, 246, 0.3);
-		transform: translateY(-1px);
-	}
-}
-
-.static-form-title {
-	font-size: 18px;
-	font-weight: 600;
-	margin: 0 0 4px 0;
-	color: white;
-}
-
-.static-form-subtitle {
-	font-size: 14px;
-	margin: 0;
-	color: rgba(255, 255, 255, 0.9);
-	font-weight: 400;
-}
-
-.expand-icon {
-	transition: transform 0.2s ease;
-	color: white;
-
-	&.rotated {
-		transform: rotate(90deg);
-	}
-}
-
 .form-grid {
 	display: grid;
 	grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
@@ -855,42 +818,20 @@ defineExpose({
 
 		.el-form-item__label {
 			font-weight: 500;
-			color: #374151;
+			color: var(--el-text-color-regular);
 			margin-bottom: 4px;
 		}
 	}
 }
 
-/* 优化折叠动画 */
-:deep(.el-collapse-transition) {
-	transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
-}
-
-:deep(.el-collapse-transition .el-collapse-item__content) {
-	will-change: height;
-	transform: translateZ(0); /* 启用硬件加速 */
-}
-
 /* 暗色主题 */
 .dark {
-	.static-form-header-card {
-		background: linear-gradient(135deg, #6d28d9 0%, #5b21b6 100%);
-		box-shadow: 0 4px 12px rgba(109, 40, 217, 0.3);
-	}
-
 	.form-grid {
 		:deep(.el-form-item) {
 			.el-form-item__label {
 				color: var(--white-100);
 			}
 		}
-	}
-}
-
-/* 响应式设计 */
-@media (max-width: 768px) {
-	.static-form-header-card {
-		padding: 16px;
 	}
 }
 </style>

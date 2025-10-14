@@ -4,7 +4,6 @@ import { LAYOUT } from '@/router/constant';
 import { t } from '@/hooks/useI18n';
 
 import questionnaireIcon from '@assets/svg/menu/question.svg';
-import { truncate } from 'lodash-es';
 
 const leads: AppRouteModule = {
 	path: '/onboard',
@@ -12,7 +11,7 @@ const leads: AppRouteModule = {
 	component: LAYOUT,
 	redirect: '/onboard/questionnaire',
 	meta: {
-		hideChildrenInMenu: truncate,
+		hideChildrenInMenu: true,
 		icon: questionnaireIcon,
 		title: t('sys.router.questionnaireSetup'),
 		code: 'QUESTIONNAIRES',

@@ -1,35 +1,38 @@
 <template>
 	<div class="">
-		<div
-			class="editable-header-card rounded-xl text-white p-2.5"
-			style="background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)"
-		>
+		<div class="case-header rounded-xl p-2.5">
 			<!-- 显示状态 -->
 			<div v-if="!isEditing">
 				<!-- 头部标题和编辑按钮 -->
 				<div class="flex items-center justify-between">
-					<h2 class="text-xl font-semibold">{{ displayTitle }}</h2>
+					<h2 class="text-primary font-bold">{{ displayTitle }}</h2>
 					<el-button
 						link
-						class="!text-white hover:bg-white/10 p-2 transition-colors"
+						type="primary"
 						@click="handleEdit"
 						:icon="Edit"
 						:disabled="disabled || !currentStage?.startTime"
 					/>
 				</div>
+				<div
+					v-if="currentStage?.stageDescription"
+					class="text-sm text-[var(--el-text-color-secondary)]"
+				>
+					{{ currentStage?.stageDescription }}
+				</div>
 				<el-divider class="my-4" />
 				<!-- 信息网格 -->
 				<div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
 					<div>
-						<div class="text-white/70 mb-1">Start Date</div>
+						<div class="mb-1">Start Date</div>
 						<div class="font-medium">{{ displayStartDate }}</div>
 					</div>
 					<div>
-						<div class="text-white/70 mb-1">Est. Duration</div>
+						<div class="mb-1">Est. Duration</div>
 						<div class="font-medium">{{ displayEstimatedDuration }}</div>
 					</div>
 					<div>
-						<div class="text-white/70 mb-1">ETA</div>
+						<div class="mb-1">ETA</div>
 						<div class="font-medium">{{ displayETA }}</div>
 					</div>
 				</div>
@@ -41,20 +44,10 @@
 				<div class="flex items-center justify-between mb-4">
 					<h2 class="text-xl font-semibold">Edit Stage Information</h2>
 					<div class="flex items-center gap-2">
-						<el-button
-							link
-							class="!text-white hover:bg-white/10 px-3 py-1 transition-colors text-sm"
-							@click="handleCancel"
-							:disabled="saving"
-						>
+						<el-button link type="info" @click="handleCancel" :disabled="saving">
 							Cancel
 						</el-button>
-						<el-button
-							link
-							class="!text-white hover:bg-white/10 px-3 py-1 transition-colors text-sm font-medium"
-							@click="handleSave"
-							:loading="saving"
-						>
+						<el-button link type="primary" @click="handleSave" :loading="saving">
 							Save
 						</el-button>
 					</div>
@@ -64,7 +57,7 @@
 				<div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
 					<!-- Start Date - 只读显示 -->
 					<div>
-						<div class="text-white/70 mb-2">Start Date</div>
+						<div class="mb-2">Start Date</div>
 						<el-input
 							v-model="displayStartDate"
 							class="w-full stage-edit-input"
@@ -73,7 +66,7 @@
 					</div>
 					<!-- Est. Duration - 可编辑 -->
 					<div>
-						<div class="text-white/70 mb-2">Est. Duration (days)</div>
+						<div class="mb-2">Est. Duration (days)</div>
 						<InputNumber
 							v-model="editForm.customEstimatedDays as number"
 							placeholder="Enter days"
@@ -86,9 +79,9 @@
 					</div>
 					<!-- End Time - 可编辑 -->
 					<div>
-						<div class="text-white/70 mb-2">End Time</div>
+						<div class="mb-2">End Time</div>
 						<el-date-picker
-							v-model="editForm.customEndTime"
+							v-model="editForm.customEndTime as string"
 							type="datetime"
 							placeholder="Select end date"
 							class="w-full stage-edit-input"
@@ -383,127 +376,11 @@ const handleSave = async () => {
 </script>
 
 <style scoped lang="scss">
-/* 统一的头部卡片样式 */
-.editable-header-card {
-	box-shadow: 0 4px 12px rgba(99, 102, 241, 0.2);
-	display: flex;
-	flex-direction: column;
-	gap: 16px;
-	transition: all 0.2s ease;
-
-	&:hover {
-		box-shadow: 0 6px 16px rgba(99, 102, 241, 0.3);
-		transform: translateY(-1px);
-	}
-}
-
-/* 编辑输入框样式 */
-:deep(.stage-edit-input) {
-	.el-input__wrapper {
-		background-color: rgba(255, 255, 255, 0.1);
-		border-color: rgba(255, 255, 255, 0.2);
-		color: white;
-
-		&:hover {
-			border-color: rgba(255, 255, 255, 0.3);
-		}
-
-		&.is-focus {
-			border-color: rgba(255, 255, 255, 0.5);
-			box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.2) inset;
-		}
-	}
-
-	.el-input__inner {
-		color: white;
-
-		&::placeholder {
-			color: rgba(255, 255, 255, 0.6);
-		}
-	}
-
-	.el-input-number__decrease,
-	.el-input-number__increase {
-		background-color: rgba(255, 255, 255, 0.1);
-		border-color: rgba(255, 255, 255, 0.2);
-		color: white;
-
-		&:hover {
-			background-color: rgba(255, 255, 255, 0.2);
-			color: white;
-		}
-	}
-}
-
-/* 日期选择器样式 */
-:deep(.el-date-editor) {
-	.el-input__wrapper {
-		background-color: rgba(255, 255, 255, 0.1);
-		border-color: rgba(255, 255, 255, 0.2);
-
-		&:hover {
-			border-color: rgba(255, 255, 255, 0.3);
-		}
-
-		&.is-focus {
-			border-color: rgba(255, 255, 255, 0.5);
-		}
-	}
-
-	.el-input__inner {
-		color: white;
-
-		&::placeholder {
-			color: rgba(255, 255, 255, 0.6);
-		}
-	}
-
-	.el-input__prefix-inner,
-	.el-input__suffix-inner {
-		color: rgba(255, 255, 255, 0.8);
-	}
-}
-
-/* 暗色主题适配 */
-html.dark {
-	.editable-header-card {
-		background: linear-gradient(135deg, #4338ca 0%, #3730a3 100%) !important;
-		box-shadow: 0 4px 12px rgba(67, 56, 202, 0.3);
-	}
-
-	.editable-header-card:hover {
-		box-shadow: 0 6px 16px rgba(67, 56, 202, 0.4);
-	}
-	:deep(.stage-edit-input) {
-		.el-input__wrapper {
-			background-color: rgba(0, 0, 0, 0.2);
-			border-color: rgba(255, 255, 255, 0.1);
-		}
-	}
-
-	:deep(.el-date-editor) {
-		.el-input__wrapper {
-			background-color: rgba(0, 0, 0, 0.2);
-			border-color: rgba(255, 255, 255, 0.1);
-		}
-	}
-}
-
 /* 响应式设计 */
 @media (max-width: 768px) {
 	:deep(.grid) {
 		grid-template-columns: 1fr;
 		gap: 1rem;
-	}
-
-	.flex.items-center.justify-between {
-		flex-direction: column;
-		align-items: flex-start;
-		gap: 0.75rem;
-	}
-
-	.flex.items-center.gap-2 {
-		align-self: flex-end;
 	}
 }
 </style>

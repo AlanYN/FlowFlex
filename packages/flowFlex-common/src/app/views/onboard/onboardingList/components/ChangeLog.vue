@@ -1,39 +1,40 @@
 <template>
-	<div class="customer-block">
+	<div class="wfe-global-block-bg">
 		<!-- 统一的头部卡片 -->
 		<div
-			class="change-log-header-card rounded-xl"
+			class="case-change-log-header rounded"
 			:class="{ expanded: isExpanded }"
 			@click="toggleExpanded"
 		>
 			<div class="flex justify-between">
 				<div>
 					<div class="flex items-center">
-						<el-icon class="expand-icon text-lg mr-2" :class="{ rotated: isExpanded }">
+						<el-icon
+							class="case-component-expand-icon text-lg mr-2"
+							:class="{ rotated: isExpanded }"
+						>
 							<ArrowRight />
 						</el-icon>
-						<h3 class="change-log-title">Change Log</h3>
+						<h3 class="case-component-title">Change Log</h3>
 					</div>
 				</div>
-				<div class="change-log-actions">
+				<div class="case-component-actions">
 					<el-button
 						v-if="isExpanded"
 						size="small"
 						:icon="RefreshRight"
 						:loading="loading"
+						type="primary"
 						@click.stop="loadChangeLogs"
-						class="refresh-button"
-					>
-						Refresh
-					</el-button>
+					/>
 				</div>
 			</div>
 		</div>
 
 		<!-- 可折叠内容 -->
 		<el-collapse-transition>
-			<div v-show="isExpanded" class="p-2">
-				<div class="p-0" v-loading="loading">
+			<div v-show="isExpanded" class="">
+				<div class="pb-4" v-loading="loading">
 					<el-table
 						:data="processedChanges"
 						max-height="384px"
@@ -68,11 +69,11 @@
 											<div
 												v-for="(change, index) in row.fieldChanges"
 												:key="index"
-												class="bg-yellow-50 dark:bg-yellow-900/20 p-3 rounded-xl border-l-4 border-yellow-400"
+												class="field-change-card p-3 rounded border-l-4"
 											>
 												<div class="text-sm">
 													<div
-														class="font-semibold text-yellow-800 dark:text-yellow-200 mb-2"
+														class="field-change-title font-semibold mb-2"
 													>
 														{{ change.fieldName }}
 													</div>
@@ -81,24 +82,24 @@
 														<template v-if="change.beforeValue">
 															<div class="flex items-center text-xs">
 																<span
-																	class="text-red-600 dark:text-red-400 font-medium mr-2"
+																	class="before-label font-medium mr-2"
 																>
 																	Before:
 																</span>
 																<span
-																	class="bg-red-100 dark:bg-red-900/30 px-2 py-1 rounded-xl text-red-800 dark:text-red-200"
+																	class="before-value px-2 py-1 rounded"
 																>
 																	{{ change.beforeValue }}
 																</span>
 															</div>
 															<div class="flex items-center text-xs">
 																<span
-																	class="text-green-600 dark:text-green-400 font-medium mr-2"
+																	class="after-label font-medium mr-2"
 																>
 																	After:
 																</span>
 																<span
-																	class="bg-green-100 dark:bg-green-900/30 px-2 py-1 rounded-xl text-green-800 dark:text-green-200"
+																	class="after-value px-2 py-1 rounded"
 																>
 																	{{ change.afterValue || 'N/A' }}
 																</span>
@@ -108,12 +109,12 @@
 														<template v-else>
 															<div class="flex items-center text-xs">
 																<span
-																	class="text-blue-600 dark:text-blue-400 font-medium mr-2"
+																	class="value-set-label font-medium mr-2"
 																>
 																	Value Set:
 																</span>
 																<span
-																	class="bg-blue-100 dark:bg-blue-900/30 px-2 py-1 rounded-xl text-blue-800 dark:text-blue-200"
+																	class="value-set-value px-2 py-1 rounded"
 																>
 																	{{ change.afterValue || 'N/A' }}
 																</span>
@@ -135,11 +136,9 @@
 										"
 									>
 										<div
-											class="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-xl text-sm border-l-4 border-blue-400"
+											class="answer-update-card p-3 rounded text-sm border-l-4"
 										>
-											<div
-												class="text-gray-700 dark:text-gray-300 whitespace-pre-line"
-											>
+											<div class="answer-update-text whitespace-pre-line">
 												{{ getSimplifiedTitle(row) }}
 											</div>
 										</div>
@@ -148,7 +147,7 @@
 									<!-- 文件上传详情 -->
 									<div v-else-if="row.type === 'File Upload' && row.fileInfo">
 										<div
-											class="bg-cyan-50 dark:bg-cyan-900/20 p-2 rounded-xl text-xs border-l-4 border-cyan-400"
+											class="bg-cyan-50 dark:bg-cyan-900/20 p-2 rounded text-xs border-l-4 border-cyan-400"
 										>
 											<div class="flex items-center">
 												<el-icon class="mr-2 text-cyan-600">
@@ -176,7 +175,7 @@
 										"
 									>
 										<div
-											class="bg-green-50 dark:bg-green-900/20 p-2 rounded-xl text-xs border-l-4 border-green-400"
+											class="bg-green-50 dark:bg-green-900/20 p-2 rounded text-xs border-l-4 border-green-400"
 										>
 											<div class="text-gray-600 mt-1">
 												{{ row.taskInfo.statusChange }}
@@ -205,7 +204,7 @@
 									>
 										<div
 											:class="getActionExecutionBgClass(row.type)"
-											class="p-3 rounded-xl border-l-4"
+											class="p-3 rounded border-l-4"
 										>
 											<div class="text-sm">
 												<div
@@ -218,7 +217,7 @@
 														:class="
 															getActionExecutionStatusClass(row.type)
 														"
-														class="px-2 py-1 rounded-xl text-xs font-medium"
+														class="px-2 py-1 rounded text-xs font-medium"
 													>
 														{{ getActionExecutionStatusText(row.type) }}
 													</span>
@@ -253,7 +252,7 @@
 														</span>
 														<span
 															:class="getActionSourceClass(row.type)"
-															class="px-2 py-1 rounded-xl text-xs font-medium"
+															class="px-2 py-1 rounded text-xs font-medium"
 														>
 															{{ getActionSource(row.type) }}
 														</span>
@@ -282,7 +281,7 @@
 																	row.actionInfo.executionStatus
 																)
 															"
-															class="px-2 py-1 rounded-xl text-xs font-medium"
+															class="px-2 py-1 rounded text-xs font-medium"
 														>
 															{{ row.actionInfo.executionStatus }}
 														</span>
@@ -366,7 +365,7 @@
 															Output:
 														</div>
 														<div
-															class="bg-gray-100 dark:bg-gray-800 p-2 rounded-xl text-xs"
+															class="bg-gray-100 dark:bg-gray-800 p-2 rounded text-xs"
 														>
 															{{
 																getExecutionOutputSummary(
@@ -389,7 +388,7 @@
 															Input:
 														</div>
 														<div
-															class="bg-blue-50 dark:bg-blue-900/20 p-2 rounded-xl text-xs"
+															class="bg-blue-50 dark:bg-blue-900/20 p-2 rounded text-xs"
 														>
 															{{
 																getExecutionInputSummary(
@@ -424,7 +423,7 @@
 																Stack Trace
 															</summary>
 															<pre
-																class="mt-1 whitespace-pre-wrap bg-red-50 dark:bg-red-900/20 p-2 rounded-xl text-xs overflow-x-auto"
+																class="mt-1 whitespace-pre-wrap bg-red-50 dark:bg-red-900/20 p-2 rounded text-xs overflow-x-auto"
 																>{{
 																	row.actionInfo.errorStackTrace
 																}}</pre
@@ -496,17 +495,15 @@
 					</el-table>
 
 					<!-- 分页 -->
-					<div v-if="total > 0" class="border-t bg-white dark:bg-black-400 rounded-b-md">
-						<CustomerPagination
-							:total="total"
-							:limit="pageSize"
-							:page="currentPage"
-							:background="true"
-							@pagination="handlePaginationUpdate"
-							@update:page="handleCurrentChange"
-							@update:limit="handlePageUpdate"
-						/>
-					</div>
+					<CustomerPagination
+						:total="total"
+						:limit="pageSize"
+						:page="currentPage"
+						:background="true"
+						@pagination="handlePaginationUpdate"
+						@update:page="handleCurrentChange"
+						@update:limit="handlePageUpdate"
+					/>
 				</div>
 			</div>
 		</el-collapse-transition>
@@ -787,7 +784,7 @@ const handlePageUpdate = (newSize: number) => {
 };
 
 // 优化的标签类型获取 - 使用Map减少switch复杂度
-const getTagType = (type: string): string => {
+const getTagType = (type: string): 'success' | 'warning' | 'info' | 'primary' | 'danger' => {
 	const tagTypeMap = new Map<string, string>([
 		// Success types
 		...[
@@ -829,7 +826,12 @@ const getTagType = (type: string): string => {
 		].map((t): [string, string] => [t, 'info']),
 	]);
 
-	return tagTypeMap.get(type) ?? 'info';
+	return (tagTypeMap.get(type) ?? 'info') as
+		| 'success'
+		| 'warning'
+		| 'info'
+		| 'primary'
+		| 'danger';
 };
 
 const getSimplifiedTitle = (row: any): string => {
@@ -1154,12 +1156,12 @@ defineExpose({
 </script>
 
 <style scoped lang="scss">
-/* 头部卡片样式 - 现代灰色渐变 */
+/* 头部卡片样式 - 主题色 */
 .change-log-header-card {
-	background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%);
+	background: var(--el-color-primary);
 	padding: 10px;
-	color: white;
-	box-shadow: 0 4px 12px rgba(107, 114, 128, 0.2);
+	color: var(--el-color-white);
+	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 	display: flex;
 	flex-direction: column;
 	gap: 16px;
@@ -1167,9 +1169,8 @@ defineExpose({
 	transition: all 0.2s ease;
 
 	&:hover {
-		box-shadow: 0 6px 16px rgba(107, 114, 128, 0.3);
+		box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15);
 		transform: translateY(-1px);
-		background: linear-gradient(135deg, #4b5563 0%, #374151 100%);
 	}
 }
 
@@ -1177,7 +1178,7 @@ defineExpose({
 	font-size: 14px;
 	font-weight: 600;
 	margin: 0;
-	color: white;
+	color: var(--el-color-white);
 }
 
 .change-log-subtitle {
@@ -1192,26 +1193,9 @@ defineExpose({
 	align-items: center;
 }
 
-.refresh-button {
-	background-color: rgba(255, 255, 255, 0.2);
-	border-color: rgba(255, 255, 255, 0.3);
-	color: white;
-
-	&:hover {
-		background-color: rgba(255, 255, 255, 0.3);
-		border-color: rgba(255, 255, 255, 0.4);
-	}
-
-	&:disabled {
-		background-color: rgba(255, 255, 255, 0.1);
-		border-color: rgba(255, 255, 255, 0.2);
-		color: rgba(255, 255, 255, 0.6);
-	}
-}
-
 .expand-icon {
 	transition: transform 0.2s ease;
-	color: white;
+	color: var(--el-color-white);
 
 	&.rotated {
 		transform: rotate(90deg);
@@ -1229,14 +1213,13 @@ defineExpose({
 }
 
 // 暗色主题支持
-.dark {
+html.dark {
 	.change-log-header-card {
-		background: linear-gradient(135deg, #4b5563 0%, #374151 100%);
-		box-shadow: 0 4px 12px rgba(75, 85, 99, 0.3);
+		background: var(--el-color-primary);
+		box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
 
 		&:hover {
-			box-shadow: 0 6px 16px rgba(75, 85, 99, 0.4);
-			background: linear-gradient(135deg, #374151 0%, #1f2937 100%);
+			box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
 		}
 	}
 }

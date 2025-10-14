@@ -1,0 +1,77 @@
+/**
+ * FlowFlex 样式系统主入口
+ * 符合 Item Element Plus 设计规范
+ * 
+ * ⚠️ 导入顺序很重要，不要随意调整！
+ * 
+ * 架构层级：
+ * 1. 第三方库（Tailwind CSS, nprogress 等）
+ * 2. 字体（Satoshi, HelveticaNow）
+ * 3. 设计系统核心 Token（颜色三层架构 + Typography）
+ * 4. Element Plus（主题变量 + 组件重置）
+ * 5. 自定义组件样式
+ * 6. 工具样式（动画、滚动条等）
+ * 7. Mixins
+ * 8. 全局样式（临时保留，逐步迁移）
+ * 9. 兼容层（向后兼容废弃的变量和类）
+ */
+
+/* ========== 2. 字体定义 ========== */
+@use './fonts' as *;
+
+/* ========== 3. 基础样式和 HSL 变量系统（必须在设计系统之前）========== */
+/**
+ * ⚠️ base.scss 包含：
+ * - HSL 变量定义（--background, --foreground, --sidebar-* 等）
+ * - Body 和 HTML 基础样式
+ * - HSL 颜色工具类
+ * 这些变量被 body 和其他元素使用，必须优先加载
+ */
+@use './base' as *;
+
+/* ========== 4. 设计系统核心 Token ========== */
+/**
+ * 三层颜色架构：
+ * - Layer 1: 基础颜色（黑白灰，不依赖主题）
+ * - Layer 2: 语义颜色（文本/背景/边框/填充，依赖深色/浅色模式）
+ * - Layer 3: 主题颜色（Primary，依赖深色/浅色 + 蓝色/紫色主题）
+ * - Typography: 标题和正文层级系统
+ */
+@use './design-system/index' as *;
+
+/* ========== 5. Element Plus 定制 ========== */
+/**
+ * 基于 Item 设计规范的 Element Plus 主题
+ * 包含组件变量和样式重置
+ */
+@use './element-plus/index' as *;
+
+/* ========== 6. 自定义组件 ========== */
+/**
+ * 项目特定的自定义组件样式
+ * - custom-switch: 自定义开关组件
+ * - status-blocks: 状态块组件
+ * - loading-animations: 加载动画
+ */
+@use './components/index' as *;
+
+/* ========== 7. 工具样式 ========== */
+/**
+ * 工具类和辅助样式
+ * - scrollbar: 自定义滚动条
+ * - helpers: 辅助类
+ * - item-sidebar: Item Sidebar 工具类
+ */
+@use './utilities/index' as *;
+
+/* ========== 8. Mixins ========== */
+@use './mixins' as *;
+
+/* ========== 9. 兼容层（最后导入，允许覆盖） ========== */
+/**
+ * 向后兼容废弃的变量和类
+ * 确保旧代码能够平滑迁移
+ */
+// @use './legacy/deprecated-colors' as *;
+// @use './legacy/deprecated-classes' as *;
+

@@ -1,5 +1,5 @@
 <template>
-	<div class="bg-gray-50">
+	<div class="">
 		<!-- 标题和操作区 -->
 		<PageHeader
 			title="Cases"
@@ -59,7 +59,7 @@
 					@search="handleFilterSearch"
 					@export="handleExport"
 				/>
-				<div class="customer-block !p-0 !ml-0">
+				<div class="wfe-global-block-bg !p-0 !ml-0">
 					<el-table
 						:data="onboardingList"
 						@selection-change="handleSelectionChange"
@@ -67,24 +67,19 @@
 						class="w-full rounded-none"
 						v-loading="loading"
 						:max-height="tableMaxHeight"
-						header-cell-class-name="bg-blue-50"
 						row-key="id"
+						border
 					>
 						<template #empty>
 							<slot name="empty">
 								<el-empty description="No Data" :image-size="50" />
 							</slot>
 						</template>
-						<el-table-column type="selection" fixed="left" width="50" align />
+						<el-table-column type="selection" fixed="left" width="50" align="center" />
 						<el-table-column label="Actions" fixed="left" width="80">
 							<template #default="{ row }">
 								<el-dropdown trigger="click">
-									<el-button
-										size="small"
-										class="p-1 text-gray-600 hover:text-blue-600"
-										link
-										:icon="ArrowDownBold"
-									/>
+									<el-button size="small" link :icon="ArrowDownBold" />
 
 									<template #dropdown>
 										<el-dropdown-menu>
@@ -249,12 +244,14 @@
 							min-width="200"
 						>
 							<template #default="{ row }">
-								<div
-									:class="row.workflowName ? `workflow-name-tag` : ''"
+								<el-tag
+									v-if="row.workflowName"
+									type="primary"
+									class="workflow-name-tag"
 									:title="row.workflowName"
 								>
 									{{ row.workflowName }}
-								</div>
+								</el-tag>
 							</template>
 						</el-table-column>
 						<el-table-column
@@ -276,7 +273,7 @@
 							width="130"
 						>
 							<template #default="{ row }">
-								<el-tag :type="getPriorityTagType(row.priority)" class="text-white">
+								<el-tag :type="getPriorityTagType(row.priority)">
 									{{ row.priority }}
 								</el-tag>
 							</template>
@@ -384,17 +381,15 @@
 					</el-table>
 
 					<!-- 分页 -->
-					<div class="border-t bg-white rounded-b-md">
-						<CustomerPagination
-							:total="totalElements"
-							:limit="pageSize"
-							:page="currentPage"
-							:background="true"
-							@pagination="handleLimitUpdate"
-							@update:page="handleCurrentChange"
-							@update:limit="handlePageUpdate"
-						/>
-					</div>
+					<CustomerPagination
+						:total="totalElements"
+						:limit="pageSize"
+						:page="currentPage"
+						:background="true"
+						@pagination="handleLimitUpdate"
+						@update:page="handleCurrentChange"
+						@update:limit="handlePageUpdate"
+					/>
 				</div>
 			</TabPane>
 
@@ -429,8 +424,8 @@
 				/>
 				<div class="mb-4">
 					<div class="flex justify-between items-center mb-2">
-						<div class="text-sm font-medium text-gray-700">Filter Stages:</div>
-						<div class="text-sm text-gray-500">Total Records: {{ totalElements }}</div>
+						<div class="text-sm font-medium filter-label">Filter Stages:</div>
+						<div class="text-sm filter-count">Total Records: {{ totalElements }}</div>
 					</div>
 					<!-- 阶段过滤器 -->
 					<StageFilter
@@ -580,7 +575,7 @@
 
 		<!-- 删除确认对话框 -->
 		<el-dialog v-model="deleteDialogVisible" title="Confirm Deletion" width="400px">
-			<p class="text-gray-600">
+			<p class="delete-confirm-text">
 				Are you sure you want to delete this lead? This action cannot be undone.
 			</p>
 			<template #footer>
@@ -644,6 +639,24 @@ import { pick, omitBy, isNil } from 'lodash-es';
 import StageFilter from './components/StageFilter.vue';
 import StageCardList from './components/StageCardList.vue';
 
+type RuleType =
+	| 'string'
+	| 'number'
+	| 'boolean'
+	| 'method'
+	| 'regexp'
+	| 'integer'
+	| 'float'
+	| 'array'
+	| 'object'
+	| 'enum'
+	| 'date'
+	| 'url'
+	| 'hex'
+	| 'email'
+	| 'pattern'
+	| 'any';
+
 const { t } = useI18n();
 
 // 入职阶段定义
@@ -692,6 +705,7 @@ const formData = reactive({
 	ContactEmail: '',
 	workFlowId: '',
 });
+
 const formRules = {
 	leadId: [{ required: true, message: 'Lead ID is required', trigger: 'blur' }],
 	priority: [{ required: true, message: 'Priority is required', trigger: 'change' }],
@@ -699,7 +713,11 @@ const formRules = {
 	ContactPerson: [{ required: false, message: 'Contact Name is required', trigger: 'blur' }], // 必填
 	ContactEmail: [
 		{ required: true, message: 'Contact Email is required', trigger: 'blur' },
-		{ type: 'email', message: 'Please enter a valid email address', trigger: 'blur' },
+		{
+			type: 'email' as RuleType,
+			message: 'Please enter a valid email address',
+			trigger: 'blur',
+		},
 	], // 必填，且需要验证邮箱格式
 	workFlowId: [{ required: true, message: 'Workflow is required', trigger: 'blur' }],
 };
@@ -996,13 +1014,13 @@ const isAbortedStatus = (status: string) => {
 const getPriorityBorderClass = (priority: string) => {
 	switch (priority.toLowerCase()) {
 		case 'high':
-			return 'border-red-500';
+			return 'border-danger';
 		case 'medium':
-			return 'border-yellow-500';
+			return 'border-warning';
 		case 'low':
-			return 'border-green-500';
+			return 'border-success';
 		default:
-			return 'border-gray-500';
+			return 'border-default';
 	}
 };
 
@@ -1701,12 +1719,12 @@ onMounted(async () => {
 .dialog-title {
 	font-size: 18px;
 	font-weight: 600;
-	color: #303133;
+	color: var(--el-text-color-primary);
 	margin: 0 0 4px 0;
 }
 
 .dialog-subtitle {
-	color: #606266;
+	color: var(--el-text-color-regular);
 	font-size: 13px;
 	margin: 0;
 	font-weight: normal;
@@ -1724,56 +1742,15 @@ onMounted(async () => {
 	padding: 16px 0 0 0;
 }
 
-:deep(.onboarding-dialog .el-dialog__header) {
-	padding: 0;
-	margin-right: 0;
-	border-bottom: none;
-}
-
-:deep(.onboarding-dialog .el-dialog__headerbtn) {
-	top: 16px;
-	right: 16px;
-	z-index: 10;
-}
-
-:deep(.onboarding-dialog .el-dialog__body) {
-	padding: 24px;
-}
-
-:deep(.onboarding-dialog .el-dialog__footer) {
-	padding: 0 24px 24px 24px;
-	border-top: 1px solid #f0f0f0;
-	margin-top: 16px;
-}
-
-/* 优先级标签样式 */
-:deep(.el-tag.el-tag--danger) {
-	background-color: #dc2626;
-	border-color: #dc2626;
-	color: white;
-}
-
-:deep(.el-tag.el-tag--warning) {
-	background-color: #d97706;
-	border-color: #d97706;
-	color: white;
-}
-
-:deep(.el-tag.el-tag--success) {
-	background-color: #059669;
-	border-color: #059669;
-	color: white;
-}
-
 /* 管道视图样式 */
 .stage-card {
-	border: 1px solid #e5e7eb;
+	border: 1px solid var(--el-border-color-light);
 	overflow: hidden;
 }
 
 .stage-card :deep(.el-card__header) {
 	background-color: var(--primary-10);
-	border-bottom: 1px solid #e5e7eb;
+	border-bottom: 1px solid var(--el-border-color-light);
 	padding: 12px 20px;
 }
 
@@ -1785,87 +1762,13 @@ onMounted(async () => {
 	padding: 16px;
 }
 
-:deep(.pipeline-lead-button) {
-	border: 1px solid #d1d5db;
-	border-left-width: 4px;
-	background: white;
-	color: #374151;
-	font-size: 14px;
-	padding: 8px 12px;
-	margin: 2px;
-	transition: all 0.2s;
-	height: 32px;
-	text-align: left;
-	justify-content: flex-start;
-	font-weight: normal;
-}
-
-:deep(.pipeline-lead-button:hover) {
-	background-color: #f9fafb;
-}
-
-:deep(.pipeline-lead-button.border-red-500) {
-	border-color: #dc2626 !important;
-	border-left-color: #dc2626 !important;
-}
-
-:deep(.pipeline-lead-button.border-yellow-500) {
-	border-color: #d97706 !important;
-	border-left-color: #d97706 !important;
-}
-
-:deep(.pipeline-lead-button.border-green-500) {
-	border-color: #059669 !important;
-	border-left-color: #059669 !important;
-}
-
-:deep(.pipeline-lead-button.border-gray-500) {
-	border-color: #6b7280 !important;
-	border-left-color: #6b7280 !important;
-}
-
-/* 逾期时的红色边框覆盖优先级颜色 */
-:deep(
-		.pipeline-lead-button.border-red-500:not(.border-yellow-500):not(.border-green-500):not(
-				.border-gray-500
-			)
-	) {
-	border-color: #dc2626 !important;
-	border-left-color: #dc2626 !important;
-}
-
-/* 工具提示样式 */
-:deep(.el-tooltip__popper) {
-	background-color: #1f2937;
-	border: none;
-	box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
-}
-
-/* Light 效果的 tooltip 增强阴影效果 */
-:deep(.el-popper.is-light) {
-	box-shadow:
-		0 25px 50px -12px rgba(0, 0, 0, 0.25),
-		0 12px 24px -6px rgba(0, 0, 0, 0.15),
-		0 6px 12px -3px rgba(0, 0, 0, 0.1) !important;
-	border: 1px solid rgba(0, 0, 0, 0.15) !important;
-}
-
-/* 全局 tooltip 阴影增强 - 使用更高优先级 */
-.el-popper.is-light {
-	box-shadow:
-		0 25px 50px -12px rgba(0, 0, 0, 0.25),
-		0 12px 24px -6px rgba(0, 0, 0, 0.15),
-		0 6px 12px -3px rgba(0, 0, 0, 0.1) !important;
-	border: 1px solid rgba(0, 0, 0, 0.15) !important;
-}
-
 /* 箭头样式 */
 .el-popper.is-light .el-popper__arrow::before {
 	border-color: rgba(0, 0, 0, 0.15) !important;
 }
 
 .el-popper.is-light .el-popper__arrow::after {
-	border-color: #ffffff !important;
+	border-color: var(--el-color-white) !important;
 }
 
 /* 旋转动画 */
@@ -1910,11 +1813,6 @@ onMounted(async () => {
 
 /* 暗色主题样式 - 参考项目设计规范 */
 html.dark {
-	/* 页面背景 - 使用项目标准的 black-400 */
-	.bg-gray-50 {
-		@apply bg-black-400 !important;
-	}
-
 	/* 弹窗暗色主题 */
 	.dialog-title {
 		color: var(--white-100);
@@ -1924,159 +1822,20 @@ html.dark {
 		color: var(--gray-300);
 	}
 
-	:deep(.onboarding-dialog .el-dialog__wrapper) {
-		background-color: rgba(0, 0, 0, 0.7);
-	}
-
-	:deep(.onboarding-dialog .el-dialog) {
-		background-color: var(--black-400);
-		border: 1px solid var(--black-200);
-	}
-
-	:deep(.onboarding-dialog .el-dialog__header) {
-		background-color: var(--black-400);
-	}
-
-	:deep(.onboarding-dialog .el-dialog__body) {
-		background-color: var(--black-400);
-	}
-
-	:deep(.onboarding-dialog .el-dialog__footer) {
-		background-color: var(--black-400);
-		border-top: 1px solid var(--black-200);
-	}
-
-	:deep(.onboarding-form .el-form-item__label) {
-		color: var(--white-100);
-	}
-
-	:deep(.onboarding-form .el-input__wrapper) {
-		background-color: var(--black-200);
-		border-color: var(--black-200);
-	}
-
-	:deep(.onboarding-form .el-input__inner) {
-		color: var(--white-100);
-	}
-
-	:deep(.onboarding-form .el-select .el-input__wrapper) {
-		background-color: var(--black-200);
-		border-color: var(--black-200);
-	}
-
 	/* 管道视图暗色主题 */
 	.stage-card {
-		border: 1px solid #4a5568 !important; /* 使用更明显的灰色边框 */
-		background-color: var(--black-400) !important;
-	}
-
-	.stage-card :deep(.el-card__header) {
-		background-color: #003c76 !important; /* 使用项目的 sea-700 深蓝色 */
-		border-bottom: 1px solid #00509d !important; /* 使用项目的 sea-600 */
-		color: #cce8d0 !important; /* 使用项目的浅色文字 */
-	}
-
-	.stage-card :deep(.el-card__body) {
+		border: 1px solid var(--el-border-color) !important;
 		background-color: var(--black-400) !important;
 	}
 
 	.stage-content {
 		background-color: var(--black-400) !important;
 	}
-
-	/* 客户按钮暗色主题 */
-	:deep(.pipeline-lead-button) {
-		background-color: var(--black-200) !important;
-		border: 1px solid var(--black-200) !important;
-		border-left-width: 4px !important;
-		color: var(--white-100) !important;
-	}
-
-	:deep(.pipeline-lead-button:hover) {
-		background-color: var(--black-300) !important;
-	}
-
-	/* 卡片底部统计区域暗色主题 */
-	.stage-card :deep(.el-card__footer) {
-		background-color: var(--black-200) !important;
-		border-top: 1px solid #4a5568 !important; /* 使用更明显的灰色边框 */
-		color: #9ca3af !important;
-	}
-
-	/* 文本颜色调整 - 使用项目标准的白色文本 */
-	.text-gray-700,
-	.text-gray-600,
-	.text-gray-900 {
-		@apply text-white-100 !important;
-	}
-
-	.text-gray-500 {
-		@apply text-gray-300 !important;
-	}
-
-	/* 边框颜色调整 */
-	.border-gray-200,
-	.border-gray-300 {
-		@apply border-black-200 !important;
-	}
-
-	/* 标签暗色主题 */
-	:deep(.el-tag) {
-		@apply bg-black-200 border-black-200 text-white-100;
-	}
-
-	:deep(.el-tag.el-tag--info) {
-		@apply bg-black-200 border-black-200 text-gray-300;
-	}
-
-	:deep(.el-tag.el-tag--primary) {
-		background-color: var(--primary-500);
-		border-color: var(--primary-500);
-		color: white;
-	}
-
-	/* 工具提示在暗色主题下的增强 */
-	:deep(.el-popper.is-light) {
-		@apply bg-black-400 text-white-100 !important;
-		border: 1px solid var(--black-200) !important;
-		box-shadow:
-			0 25px 50px -12px rgba(0, 0, 0, 0.6),
-			0 12px 24px -6px rgba(0, 0, 0, 0.4),
-			0 6px 12px -3px rgba(0, 0, 0, 0.25) !important;
-	}
-
-	.el-popper.is-light {
-		@apply bg-black-400 text-white-100 !important;
-		border: 1px solid var(--black-200) !important;
-		box-shadow:
-			0 25px 50px -12px rgba(0, 0, 0, 0.6),
-			0 12px 24px -6px rgba(0, 0, 0, 0.4),
-			0 6px 12px -3px rgba(0, 0, 0, 0.25) !important;
-	}
-
-	.el-popper.is-light .el-popper__arrow::after {
-		border-color: var(--black-400) !important;
-	}
-
-	/* 工具提示内容文本颜色 */
-	:deep(.el-tooltip__content) {
-		@apply text-white-100 !important;
-	}
-
-	/* 空状态区域 */
-	.bg-gray-50 {
-		@apply bg-black-200 !important;
-	}
 }
 
 /* 工作流名称标签样式 */
 .workflow-name-tag {
-	@apply block px-3 py-1 text-sm text-center font-medium text-primary-600 bg-primary-50 rounded-full truncate;
-	border: 1px solid #dbeafe;
+	@apply block text-sm text-center font-medium truncate;
 	transition: all 0.3s ease;
-}
-
-.workflow-name-tag:hover {
-	@apply bg-blue-100 text-blue-700;
 }
 </style>

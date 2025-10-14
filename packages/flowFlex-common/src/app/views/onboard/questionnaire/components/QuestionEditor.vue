@@ -1,7 +1,7 @@
 <template>
 	<div class="new-question-editor">
 		<h4 class="editor-title">{{ isEditing ? 'Edit Question' : 'Add New Question' }}</h4>
-		<el-form :model="newQuestion" label-position="top">
+		<el-form :model="newQuestion" label-position="top" @submit.prevent>
 			<el-row :gutter="16">
 				<el-col :span="12">
 					<el-form-item label="Question Type">
@@ -58,6 +58,8 @@
 					placeholder="Enter question description or help text"
 				/>
 			</el-form-item>
+
+			<el-divider />
 
 			<!-- 选项编辑器 -->
 			<OptionsEditor
@@ -124,7 +126,7 @@
 					@click="handleAddQuestion"
 					:disabled="!newQuestion.question || !newQuestion.type"
 					:icon="Plus"
-					class="add-question-btn"
+					class="w-full"
 				>
 					{{ isEditing ? 'Update Question' : 'Add Question' }}
 				</el-button>
@@ -504,7 +506,7 @@ defineExpose({
 .new-question-editor {
 	padding: 1rem;
 	background-color: var(--primary-50);
-	border: 1px solid var(--primary-100);
+	border: 1px solid var(--el-border-color-light);
 	@apply rounded-xl;
 }
 
@@ -534,23 +536,6 @@ defineExpose({
 	padding: 0.125rem 0.25rem;
 }
 
-.add-question-btn {
-	background-color: var(--primary-600) !important;
-	border-color: var(--primary-600) !important;
-	color: white !important;
-	flex: 1;
-}
-
-.add-question-btn:hover {
-	background-color: var(--primary-700) !important;
-	border-color: var(--primary-700) !important;
-}
-
-.add-question-btn:disabled {
-	background-color: var(--primary-200) !important;
-	border-color: var(--primary-200) !important;
-}
-
 .cancel-edit-btn {
 	background-color: var(--el-color-info) !important;
 	border-color: var(--el-color-info) !important;
@@ -571,11 +556,11 @@ defineExpose({
 
 /* 深色模式支持 */
 .dark .new-question-editor {
-	background-color: var(--black-400);
-	border-color: var(--black-600);
+	background-color: var(--black);
+	border-color: var(--el-border-color-dark);
 }
 
 .dark .editor-title {
-	color: var(--primary-200);
+	color: var(--el-text-color-secondary);
 }
 </style>

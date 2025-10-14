@@ -1,13 +1,13 @@
 <template>
 	<div class="flex flex-row w-full overflow-hidden">
 		<keep-alive>
-			<sidebar ref="sidebarRef" v-if="!hideMenu" @click-event="getIsCollapse" />
+			<sidebar ref="sidebarRef" v-if="!hideMenu" :is-collapse="isCollapse" />
 		</keep-alive>
 		<div
-			class="h-screen bg-gray-50 dark:bg-black-300 pb-10 w-full"
-			:class="hideMenu ? '' : isCollapse ? 'right-content-collapse' : 'right-content'"
+			class="h-screen pb-10 w-full main-content"
+			:class="hideMenu || isCollapse ? 'right-content-full' : 'right-content'"
 		>
-			<navbar v-if="!hideMenu" />
+			<navbar v-if="!hideMenu" @toggle-sidebar="handleSidebarToggle" />
 			<!-- 页面切换容器 -->
 			<div class="w-full h-full relative">
 				<el-scrollbar class="h-full p-4">
@@ -37,7 +37,7 @@ const userStore = useUserStore();
 const sidebarRef = ref<InstanceType<typeof sidebar>>();
 
 provide('openOrClose', (info: boolean) => {
-	sidebarRef.value?.collapseEvent(info);
+	handleSidebarToggle(info);
 });
 
 const historyTableRef = ref<InstanceType<typeof HistoryTable>>();
@@ -48,8 +48,9 @@ provide('History', (id: string, type: WFEMoudels) => {
 
 let isCollapse = ref(false);
 
-const getIsCollapse = (newIsCollapse: boolean) => {
-	isCollapse.value = newIsCollapse;
+// 处理sidebar折叠切换
+const handleSidebarToggle = (collapsed: boolean) => {
+	isCollapse.value = collapsed;
 };
 
 const hideMenu = computed(() => {
@@ -88,8 +89,17 @@ onMounted(() => {
 </script>
 
 <style lang="scss" scoped>
+.main-content {
+	background: var(--el-bg-color-page);
+	transition: width 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+
 .right-content {
 	width: calc(100% - 300px);
+}
+
+.right-content-full {
+	width: 100%;
 }
 
 .right-content-collapse {

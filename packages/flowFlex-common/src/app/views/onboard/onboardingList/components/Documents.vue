@@ -1,36 +1,39 @@
 <template>
-	<div class="customer-block">
+	<div class="wfe-global-block-bg">
 		<!-- 统一的头部卡片 -->
 		<div
-			class="documents-header-card rounded-xl"
+			class="case-component-header rounded-xl"
 			:class="{ expanded: isExpanded }"
 			@click="toggleExpanded"
 		>
 			<div class="flex justify-between">
 				<div>
 					<div class="flex items-center">
-						<el-icon class="expand-icon text-lg mr-2" :class="{ rotated: isExpanded }">
+						<el-icon
+							class="case-component-expand-icon text-lg mr-2"
+							:class="{ rotated: isExpanded }"
+						>
 							<ArrowRight />
 						</el-icon>
-						<h3 class="documents-title">
+						<h3 class="case-component-title">
 							Documents
 							<span v-if="props?.component?.isEnabled" class="text-red-300 ml-1">
 								*
 							</span>
 						</h3>
 					</div>
-					<div class="documents-subtitle">
+					<div class="case-component-subtitle">
 						{{ documents.length }}
 						{{ documents.length === 1 ? 'file' : 'files' }} uploaded
 					</div>
 				</div>
-				<div class="documents-actions">
+				<div class="case-component-actions">
 					<el-button
 						:icon="Upload"
 						@click.stop="triggerUpload"
 						:disabled="disabled"
 						size="small"
-						class="upload-button"
+						type="primary"
 					>
 						Upload Files
 					</el-button>
@@ -114,11 +117,11 @@
 					<h4 class="text-sm font-medium text-gray-700 dark:text-gray-300">
 						Uploaded Files
 					</h4>
-					<el-table :data="documents" stripe class="w-full">
+					<el-table :data="documents" stripe class="w-full" border>
 						<el-table-column label="File Name" min-width="200">
 							<template #default="{ row }">
 								<div class="flex items-center">
-									<el-icon class="text-blue-500 mr-2 flex-shrink-0">
+									<el-icon class="text-primary mr-2 flex-shrink-0">
 										<Document />
 									</el-icon>
 									<span
@@ -574,65 +577,9 @@ defineExpose({
 </script>
 
 <style scoped>
-/* 头部卡片样式 - 绿色渐变 */
-.documents-header-card {
-	background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
-	padding: 10px;
-	color: white;
-	box-shadow: 0 4px 12px rgba(16, 185, 129, 0.2);
-	display: flex;
-	flex-direction: column;
-	gap: 16px;
-	cursor: pointer;
-	transition: all 0.2s ease;
-
-	&:hover {
-		box-shadow: 0 6px 16px rgba(59, 130, 246, 0.3);
-		transform: translateY(-1px);
-	}
-}
-
-.documents-title {
-	font-size: 18px;
-	font-weight: 600;
-	margin: 0 0 4px 0;
-	color: white;
-	display: flex;
-	align-items: center;
-}
-
-.documents-subtitle {
-	font-size: 14px;
-	margin: 0;
-	color: rgba(255, 255, 255, 0.9);
-	font-weight: 400;
-}
-
-.documents-actions {
-	display: flex;
-	align-items: center;
-}
-
-.upload-button {
-	background-color: rgba(255, 255, 255, 0.2);
-	border-color: rgba(255, 255, 255, 0.3);
-	color: white;
-
-	&:hover {
-		background-color: rgba(255, 255, 255, 0.3);
-		border-color: rgba(255, 255, 255, 0.4);
-	}
-
-	&:disabled {
-		background-color: rgba(255, 255, 255, 0.1);
-		border-color: rgba(255, 255, 255, 0.2);
-		color: rgba(255, 255, 255, 0.6);
-	}
-}
-
 .expand-icon {
 	transition: transform 0.2s ease;
-	color: white;
+	color: var(--el-color-white);
 
 	&.rotated {
 		transform: rotate(90deg);
@@ -649,77 +596,30 @@ defineExpose({
 	transform: translateZ(0); /* 启用硬件加速 */
 }
 
-:deep(.el-upload-dragger) {
-	border: 2px dashed #d1d5db;
-	background: transparent;
-	transition: all 0.2s;
-	padding: 8px 4px;
-}
-
-:deep(.el-upload-dragger:hover) {
-	border-color: #3b82f6;
-	background-color: #f0f9ff;
-}
-
 :deep(.el-progress-bar__outer) {
-	background-color: #e5e7eb;
+	background-color: var(--el-fill-color);
 }
 
 :deep(.el-progress-bar__inner) {
-	background-color: #3b82f6;
-}
-
-/* 暗色主题支持 */
-html.dark :deep(.el-upload-dragger) {
-	border-color: #4b5563;
-	background: transparent;
-}
-
-html.dark :deep(.el-upload-dragger:hover) {
-	border-color: #3b82f6;
-	background-color: rgba(59, 130, 246, 0.1);
+	background-color: var(--el-color-primary);
 }
 
 html.dark :deep(.el-progress-bar__outer) {
-	background-color: #374151;
+	background-color: var(--el-fill-color-darker);
 }
 
 /* 上传组件样式 */
 .el-icon--upload {
-	color: #3b82f6;
+	color: var(--el-color-primary);
 }
 
 :deep(.el-upload__tip) {
 	margin-top: 4px;
-	color: #6b7280;
+	color: var(--el-text-color-secondary);
 }
 
 html.dark :deep(.el-upload__tip) {
-	color: #9ca3af;
-}
-
-/* 暗色主题 - Documents头部 */
-.dark {
-	.documents-header-card {
-		background: linear-gradient(135deg, #1e40af 0%, #1e3a8a 100%);
-		box-shadow: 0 4px 12px rgba(30, 64, 175, 0.3);
-	}
-}
-
-/* 响应式设计 */
-@media (max-width: 768px) {
-	.documents-header-card {
-		padding: 16px;
-
-		.documents-actions {
-			margin-top: 8px;
-		}
-	}
-
-	.documents-header-card .flex {
-		flex-direction: column;
-		align-items: flex-start;
-	}
+	color: var(--el-text-color-placeholder);
 }
 
 /* 文件列表样式 */

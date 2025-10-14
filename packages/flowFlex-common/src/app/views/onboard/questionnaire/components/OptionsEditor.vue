@@ -1,5 +1,5 @@
 <template>
-	<div class="options-editor">
+	<div class="">
 		<div class="options-section">
 			<div class="options-header mb-2">
 				<label class="options-label">Options:</label>
@@ -29,7 +29,7 @@
 										<el-tag
 											v-if="option.isOther"
 											size="small"
-											type="warning"
+											type="primary"
 											class="other-tag"
 										>
 											Other
@@ -92,7 +92,7 @@
 				</div>
 				<div v-if="!hasOtherOption && type != 'dropdown'" class="add-other-section">
 					<el-button
-						type="success"
+						type="primary"
 						size="small"
 						@click="addOtherOption"
 						class="add-other-btn"
@@ -187,10 +187,6 @@ const saveOptionEdit = (id: string) => {
 </script>
 
 <style scoped lang="scss">
-.options-editor {
-	margin-top: 1rem;
-}
-
 .options-section {
 	margin-bottom: 1rem;
 }
@@ -204,7 +200,6 @@ const saveOptionEdit = (id: string) => {
 .options-label {
 	font-size: 0.875rem;
 	font-weight: 500;
-	color: var(--primary-700);
 }
 
 .options-input-section {
@@ -248,7 +243,6 @@ const saveOptionEdit = (id: string) => {
 .current-options-container {
 	border: 1px solid var(--primary-200);
 	padding: 0.75rem;
-	background-color: var(--primary-50);
 	@apply rounded-xl;
 }
 
@@ -257,7 +251,6 @@ const saveOptionEdit = (id: string) => {
 	margin-bottom: 0.5rem;
 	font-size: 0.875rem;
 	font-weight: 500;
-	color: var(--primary-700);
 }
 
 .options-list {
@@ -282,8 +275,8 @@ const saveOptionEdit = (id: string) => {
 }
 
 .option-item-other {
-	background-color: var(--el-color-warning-light-9);
-	border: 1px solid var(--el-color-warning-light-7);
+	background-color: var(--el-color-white);
+	border: 1px solid var(--el-color-primary);
 }
 
 .option-item-number {
@@ -325,7 +318,6 @@ const saveOptionEdit = (id: string) => {
 
 .option-label-text {
 	font-weight: 500;
-	color: var(--primary-700);
 	display: flex;
 	align-items: center;
 	gap: 0.5rem;
@@ -359,9 +351,9 @@ const saveOptionEdit = (id: string) => {
 	gap: 0.5rem;
 	margin-top: 1rem;
 	padding: 0.75rem;
-	background-color: var(--el-color-success-light-9);
-	border: 1px dashed var(--el-color-success-light-7);
 	@apply rounded-xl;
+	background-color: var(--el-color-white);
+	border: 1px dashed var(--el-color-black);
 }
 
 .add-other-btn {
@@ -370,16 +362,8 @@ const saveOptionEdit = (id: string) => {
 
 .other-help-text {
 	font-size: 0.75rem;
-	color: var(--el-color-success);
+	color: var(--el-color-primary);
 	font-style: italic;
-}
-
-/* 深色模式支持 */
-.dark .options-label,
-.dark .input-label,
-.dark .current-options-label,
-.dark .option-label-text {
-	color: var(--primary-200);
 }
 
 .dark .option-item-number {
@@ -387,22 +371,22 @@ const saveOptionEdit = (id: string) => {
 }
 
 .dark .current-options-container {
-	background-color: var(--primary-700);
-	border-color: var(--primary-600);
+	background-color: var(--el-bg-color-page);
+	border-color: var(--el-border-color-light);
 }
 
 .dark .option-item {
-	background-color: var(--primary-800);
+	background-color: var(--el-bg-color-page);
 	border-color: var(--primary-600);
 }
 
 .dark .option-item:hover {
-	background-color: var(--primary-600);
+	background-color: var(--el-bg-color-page);
 }
 
 .dark .option-item-other {
-	background-color: var(--el-color-warning-dark-2);
-	border-color: var(--el-color-warning);
+	background-color: var(--el-color-black);
+	border-color: var(--el-color-primary);
 }
 
 .dark .option-value-text {
@@ -410,11 +394,11 @@ const saveOptionEdit = (id: string) => {
 }
 
 .dark .add-other-section {
-	background-color: var(--el-color-success-dark-2);
-	border-color: var(--el-color-success);
+	background-color: var(--el-color-black);
+	border-color: var(--el-color-white);
 }
 
 .dark .other-help-text {
-	color: var(--el-color-success-light-3);
+	color: var(--el-color-primary);
 }
 </style>

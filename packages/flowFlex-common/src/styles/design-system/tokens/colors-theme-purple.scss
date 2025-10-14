@@ -1,0 +1,52 @@
+/**
+ * 紫色主题颜色 (Layer 3: Theme Colors - Purple)
+ * Item 品牌色 - 默认主题
+ * 通过 setPrimary('purple') 激活
+ * 
+ * @link https://design.item.com/guidelines/element-plus-colors
+ */
+
+/* ============================================
+   浅色模式 - 紫色主题
+   ============================================ */
+:root.purple {
+	/* Primary 颜色系列 - Item Brand Purple */
+	--primary-10: #f3f4f6;
+	--primary-50: #f3e8ff;
+	--primary-100: #e9d5ff;
+	--primary-200: #d8b4fe;
+	--primary-300: #c084fc;
+	--primary-400: #a855f7;
+	--primary-500: #7e22ce;  /* 主色 */
+	--primary-600: #7c3aed;
+	--primary-700: #6b21a8;
+	--primary-800: #581c87;
+	--primary-900: #4c1d95;
+	--primary-reverse-500: #006ed0;  /* 反向主题色引用（蓝色） */
+	--primary-500-rgb: 126, 34, 206;
+	
+	/* Element Plus 主色变量 - Item 品牌色 */
+	--el-color-primary: #753BBD;        /* Light mode - Item Brand Primary */
+	--el-color-primary-light-3: #9561D0; /* Hover states */
+	--el-color-primary-light-5: #A788E1; /* Active elements */
+	--el-color-primary-light-7: #CDBAF0; /* Subtle backgrounds */
+	--el-color-primary-light-8: #E0D4F4; /* Very light tints */
+	--el-color-primary-light-9: #F5F0FB; /* Near-white purple */
+	--el-color-primary-dark-2: #5B2D94;  /* Pressed states */
+}
+
+/* ============================================
+   深色模式 - 紫色主题调整
+   ============================================ */
+.dark.purple,
+:root {
+	/* Element Plus 主色变量 - 深色模式 Item 品牌色 */
+	--el-color-primary: #6831AA;        /* Dark mode - Item Brand Primary */
+	--el-color-primary-light-3: #6C38AD;
+	--el-color-primary-light-5: #693f9d;
+	--el-color-primary-light-7: #562d87;
+	--el-color-primary-light-8: #562d87;
+	--el-color-primary-light-9: #0a090a;
+	--el-color-primary-dark-2: #5c2a9a;
+}
+

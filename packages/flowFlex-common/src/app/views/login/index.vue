@@ -1,7 +1,5 @@
 <template>
-	<div
-		class="relative w-full h-screen overflow-hidden bg-gradient-to-br from-[#0f1631] to-[#2a1b3d]"
-	>
+	<div class="login-page-bg relative w-full h-screen overflow-hidden">
 		<canvas
 			id="particleCanvas"
 			ref="particleCanvas"
@@ -32,7 +30,7 @@
 				<div class="flex justify-between mb-4 text-white text-sm">
 					<span
 						:class="{
-							'font-bold text-[#58c7fa]': !isRegister,
+							'login-tab-active font-bold': !isRegister,
 							'cursor-pointer': isRegister && !isBusy,
 							'pointer-events-none opacity-60': isBusy,
 						}"
@@ -42,7 +40,7 @@
 					</span>
 					<span
 						:class="{
-							'font-bold text-[#58c7fa]': isRegister,
+							'login-tab-active font-bold': isRegister,
 							'cursor-pointer': !isRegister && !isBusy,
 							'pointer-events-none opacity-60': isBusy,
 						}"
@@ -67,6 +65,7 @@
 					ref="formRef"
 					label-position="top"
 					:rules="loginRules"
+					@submit.prevent
 				>
 					<el-form-item prop="email">
 						<label class="text-white/90 text-sm mb-2 block font-medium">
@@ -111,6 +110,7 @@
 					ref="formRef"
 					label-position="top"
 					:rules="registerRules"
+					@submit.prevent
 				>
 					<el-form-item prop="email">
 						<label class="text-white/90 text-sm mb-2 block font-medium">
@@ -506,11 +506,21 @@ const handleRegister = async () => {
 	align-items: center;
 	justify-content: center;
 }
+/* Login page background */
+.login-page-bg {
+	background: var(--el-bg-color-page);
+}
+
+/* Login tab active state */
+.login-tab-active {
+	color: var(--el-color-primary);
+}
+
 .login-loading-spinner {
 	width: 48px;
 	height: 48px;
-	border: 5px solid #fff;
-	border-top: 5px solid #a07aff;
+	border: 5px solid var(--el-color-white);
+	border-top: 5px solid var(--el-color-primary);
 	border-radius: 50%;
 	animation: spin 1s linear infinite;
 	margin-bottom: 16px;
@@ -524,7 +534,7 @@ const handleRegister = async () => {
 	}
 }
 .login-loading-text {
-	color: #fff;
+	color: var(--el-color-white);
 	font-size: 18px;
 	letter-spacing: 2px;
 }

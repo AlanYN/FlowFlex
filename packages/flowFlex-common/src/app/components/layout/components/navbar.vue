@@ -1,8 +1,18 @@
 <template>
 	<div
-		class="w-full cursor-pointer h-[64px] border-gray-100 dark:border-primary-500 px-10 py-5 flex flex-row justify-between items-center border-solid border-b"
+		class="w-full cursor-pointer h-[64px] pr-10 py-5 flex flex-row justify-between items-center border-solid border-b navbar-border"
 	>
 		<div class="flex items-center gap-x-4">
+			<!-- 折叠按钮 -->
+			<div class="cursor-pointer flex items-center gap-2 px-4" @click="toggleSidebar">
+				<el-button :icon="CollapseIcon" link />
+				<div
+					data-orientation="vertical"
+					role="none"
+					class="shrink-0 bg-border w-[1px] h-4"
+				></div>
+			</div>
+
 			<el-icon :size="24" class="cursor-pointer" v-if="!isEditRoute" @click="goToHomePage">
 				<HomeFilled />
 			</el-icon>
@@ -11,7 +21,7 @@
 				class="dark-white-100 font-medium text-[22px] dark:text-white-100 cursor-pointer flex items-center"
 				@click="goBack"
 			>
-				<el-icon :size="24" :color="theme == 'light' ? '#000' : '#fff'">
+				<el-icon :size="24">
 					<el-icon :size="20">
 						<Back />
 					</el-icon>
@@ -59,9 +69,16 @@ import UserLayout from '@/components/navbarCompanents/userLayout.vue';
 import Setting from '@/components/navbarCompanents/setting.vue';
 import Company from '@/components/navbarCompanents/company.vue';
 
+// 导入折叠相关的图标
+import CollapseIcon from '@assets/svg/layout/collapseButton.svg';
+
 const Router = useRoute();
 
 const isEditRoute = ref(false);
+const sidebarCollapsed = ref(false);
+
+// 定义emits
+const emit = defineEmits(['toggleSidebar']);
 
 const goBack = () => {
 	router.back();
@@ -98,9 +115,19 @@ watch(
 const goToHomePage = () => {
 	router.push(PageEnum.BASE_HOME as string);
 };
+
+// 切换sidebar折叠状态
+const toggleSidebar = () => {
+	sidebarCollapsed.value = !sidebarCollapsed.value;
+	emit('toggleSidebar', sidebarCollapsed.value);
+};
 </script>
 
 <style lang="scss" scoped>
+.navbar-border {
+	border-color: var(--el-border-color-light);
+}
+
 :deep(.iconify) {
 	display: block;
 	width: 20px;

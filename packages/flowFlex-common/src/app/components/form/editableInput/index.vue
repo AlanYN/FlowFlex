@@ -111,7 +111,7 @@
 			>
 				<el-option
 					v-for="item in assignKeyOptions"
-					:key="item.key"
+					:key="item.key as string"
 					:label="item.value"
 					:value="item.key"
 				/>
@@ -169,7 +169,7 @@
 								value: item.key,
 						  })) || []
 						: searchOptions"
-					:key="item.value"
+					:key="item.value as string"
 					:label="item.label"
 					:value="item.value"
 				/>
@@ -589,6 +589,6 @@ const getConnectionValue = (value: any, field: 'value' | 'businessValue') => {
 }
 
 :deep(.el-button--info.is-link) {
-	@apply text-[#606266];
+	@apply text-regular;
 }
 </style>

@@ -1,0 +1,60 @@
+/**
+ * Item Sidebar Design System - 工具类
+ * Item 侧边栏组件的样式系统
+ */
+
+/* Item Sidebar 主容器 */
+.item-sidebar {
+	background-color: hsl(var(--sidebar));
+	color: hsl(var(--sidebar-foreground));
+	border-color: hsl(var(--sidebar-border));
+}
+
+/* Sidebar 头部 */
+.item-sidebar-header {
+	height: var(--sidebar-header-height);
+	padding: var(--sidebar-padding);
+	gap: var(--sidebar-gap);
+}
+
+/* Sidebar 菜单按钮 */
+.item-sidebar-menu-button {
+	height: var(--sidebar-menu-item-height);
+	padding: var(--sidebar-padding);
+	border-radius: var(--radius);
+	transition-duration: var(--sidebar-transition-duration);
+	transition-timing-function: var(--sidebar-transition-easing);
+	transition-property: background-color, color;
+}
+
+.item-sidebar-menu-button:hover {
+	background-color: hsl(var(--sidebar-accent));
+	color: hsl(var(--sidebar-accent-foreground));
+}
+
+.item-sidebar-menu-button[data-active="true"] {
+	background-color: hsl(var(--sidebar-accent));
+	color: hsl(var(--sidebar-accent-foreground));
+	font-weight: 500;
+}
+
+/* Sidebar 容器 */
+.item-sidebar-container {
+	width: var(--sidebar-width);
+	transition: width var(--sidebar-transition-duration) var(--sidebar-transition-easing);
+}
+
+.item-sidebar-container[data-state="collapsed"] {
+	width: var(--sidebar-width-icon);
+}
+
+/* Sidebar 图标 */
+.item-sidebar-icon {
+	width: 18px;
+	height: 18px;
+	flex-shrink: 0;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+}
+

@@ -1,10 +1,10 @@
 <template>
 	<div class="dynamic-form">
-		<div class="questionnaire-sections">
+		<div class="">
 			<!-- 加载状态 -->
 			<div v-if="loading" class="flex justify-center items-center py-8">
 				<el-icon class="animate-spin mr-2"><Loading /></el-icon>
-				<span class="text-sm text-gray-500">Loading questionnaire data...</span>
+				<span class="text-sm form-loading-text">Loading questionnaire data...</span>
 			</div>
 
 			<!-- 问卷内容 -->
@@ -39,7 +39,7 @@
 					>
 						<div class="mb-2" v-if="question.type !== 'page_break'">
 							<div class="flex items-center gap-2">
-								<span class="text-sm font-medium text-gray-700">
+								<span class="text-sm font-medium form-question-number">
 									{{ currentSectionIndex + 1 }}-{{
 										getQuestionNumber(questionIndex)
 									}}.
@@ -62,7 +62,7 @@
 									size="small"
 								/>
 							</div>
-							<p v-if="question.description" class="text-xs text-gray-500 mt-1">
+							<p v-if="question.description" class="text-xs form-question-desc mt-1">
 								{{ question.description }}
 							</p>
 							<div
@@ -119,8 +119,8 @@
 								<div
 									v-for="option in question.options"
 									:key="option.id || option.value"
-									class="w-full flex items-center space-x-2 p-2 hover:bg-gray-50 rounded"
-									:class="{ 'cursor-not-allowed bg-gray-50': disabled }"
+									class="w-full flex items-center space-x-2 p-2 form-radio-option rounded"
+									:class="{ 'cursor-not-allowed form-radio-disabled': disabled }"
 									@click="
 										!disabled && handleHasOtherQuestion(question, option.value)
 									"
@@ -129,8 +129,8 @@
 										:class="[
 											'w-4 h-4 border-2 rounded-full flex items-center justify-center flex-shrink-0',
 											formData[question.id] === (option.value || option.label)
-												? 'border-blue-500 bg-blue-500'
-												: 'border-gray-300',
+												? 'form-radio-checked'
+												: 'form-radio-unchecked',
 										]"
 									>
 										<div
@@ -267,7 +267,7 @@
 								@change="handleInputChange(question.id, $event)"
 								:disabled="disabled"
 							/>
-							<span v-if="question.showText" class="text-sm text-gray-500">
+							<span v-if="question.showText" class="text-sm form-star-text">
 								({{ question.max || 5 }} stars)
 							</span>
 						</div>
@@ -286,7 +286,7 @@
 								show-stops
 								:disabled="disabled"
 							/>
-							<div class="flex justify-between text-xs text-gray-500">
+							<div class="flex justify-between text-xs form-slider-labels">
 								<span>{{ question.minLabel || question.min }}</span>
 								<span>{{ question.maxLabel || question.max }}</span>
 							</div>
@@ -463,7 +463,7 @@
 							<!-- 如果没有数据，显示占位符 -->
 							<div
 								v-else
-								class="text-gray-400 italic p-4 border border-dashed border-gray-300 rounded"
+								class="form-unsupported-type italic p-4 border border-dashed rounded"
 							>
 								<el-icon class="mr-2"><Warning /></el-icon>
 								Checkbox grid: No rows or columns data available
@@ -518,7 +518,7 @@
 
 						<div
 							v-else-if="question.type === 'page_break'"
-							class="text-gray-600 italic"
+							class="form-page-break italic"
 						>
 							<div class="border-t-2 border-dashed border-primary-300 pt-4 mt-4">
 								<div class="text-center text-primary-500 text-sm">
@@ -559,7 +559,7 @@
 							description="No questions available in this section"
 						>
 							<template #description>
-								<p class="text-gray-500 text-sm">
+								<p class="form-empty-text text-sm">
 									This section doesn't contain any questions yet.
 								</p>
 							</template>
@@ -615,7 +615,7 @@
 				<div v-else-if="totalSections === 0" class="no-sections-placeholder">
 					<el-empty description="No sections available" :image-size="80">
 						<template #description>
-							<p class="text-gray-500">
+							<p class="form-empty-text">
 								This questionnaire doesn't have any sections configured.
 							</p>
 						</template>
@@ -1524,29 +1524,13 @@ defineExpose({
 
 <style scoped lang="scss">
 /* 问卷区域样式 */
-.questionnaire-sections {
-	:deep(.el-collapse-item__header) {
-		font-size: 16px;
-		font-weight: 500;
-		color: #374151;
-		background-color: var(--primary-50);
-		border-bottom: 1px solid #e5e7eb;
-		padding: 16px;
-	}
-
-	:deep(.el-collapse-item__content) {
-		padding: 20px;
-		background-color: #ffffff;
-	}
-}
-
 .error-indicator {
 	font-size: 14px;
 	font-weight: normal;
-	color: #ef4444;
-	background-color: #fef2f2;
+	color: var(--el-color-danger);
+	background-color: var(--el-color-danger-light-9);
 	padding: 2px 8px;
-	border: 1px solid #fecaca;
+	border: 1px solid var(--el-color-danger-light-7);
 	@apply rounded-xl;
 }
 
@@ -1558,8 +1542,8 @@ defineExpose({
 .bottom-navigation {
 	margin-top: 32px;
 	padding: 20px;
-	background-color: #f9fafb;
-	border: 1px solid #e5e7eb;
+	background-color: var(--el-fill-color-blank);
+	border: 1px solid var(--el-border-color-lighter);
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
@@ -1602,8 +1586,8 @@ defineExpose({
 	width: 12px;
 	height: 12px;
 	border-radius: 50%;
-	border: 2px solid #d1d5db;
-	background-color: #f9fafb;
+	border: 2px solid var(--el-border-color);
+	background-color: var(--el-fill-color-blank);
 	transition: all 0.2s ease;
 	padding: 0;
 	outline: none;
@@ -1647,30 +1631,17 @@ defineExpose({
 
 .question-item {
 	padding: 16px;
-	border: 1px solid #e5e7eb;
-	background-color: #f9fafb;
+	border: 1px solid var(--el-border-color-lighter);
+	background-color: var(--el-fill-color-blank);
 	@apply rounded-xl;
 
 	&:hover {
-		border-color: #d1d5db;
+		border-color: var(--el-border-color);
 	}
 }
 
 /* 暗色主题 */
 html.dark {
-	.questionnaire-sections {
-		:deep(.el-collapse-item__header) {
-			background-color: var(--black-200) !important;
-			border-bottom: 1px solid var(--black-100) !important;
-			color: var(--white-100) !important;
-		}
-
-		:deep(.el-collapse-item__content) {
-			background-color: var(--black-400) !important;
-			color: var(--white-100) !important;
-		}
-	}
-
 	.question-item {
 		background-color: var(--black-200) !important;
 		border-color: var(--black-100) !important;
@@ -1680,24 +1651,12 @@ html.dark {
 		}
 	}
 
-	.text-gray-900,
-	.text-gray-700,
-	.text-gray-600 {
-		color: var(--white-100) !important;
-	}
-
-	.text-gray-500 {
-		color: #d1d5db !important;
-	}
-
-	.text-gray-400 {
-		color: #9ca3af !important;
-	}
+	/* 移除硬编码的 dark 模式样式，使用新的自定义类 */
 
 	.error-indicator {
-		color: #fca5a5;
-		background-color: rgba(239, 68, 68, 0.1);
-		border-color: rgba(239, 68, 68, 0.3);
+		color: var(--el-color-danger-light-3);
+		background-color: var(--el-color-danger-dark-2);
+		border-color: var(--el-color-danger);
 	}
 
 	/* 底部导航暗色主题 */
@@ -1799,11 +1758,11 @@ html.dark {
 	}
 
 	.grid-radio-cell {
-		background-color: white;
+		background-color: var(--el-color-white);
 	}
 
 	.grid-checkbox-cell {
-		background-color: white;
+		background-color: var(--el-color-white);
 		justify-content: center;
 	}
 
@@ -1902,5 +1861,56 @@ html.dark {
 		height: auto;
 		object-fit: contain;
 	}
+}
+
+/* Dynamic Form custom classes */
+.form-loading-text {
+	color: var(--el-text-color-secondary);
+}
+
+.form-question-number {
+	color: var(--el-text-color-regular);
+}
+
+.form-question-desc {
+	color: var(--el-text-color-secondary);
+}
+
+.form-radio-option:hover {
+	background-color: var(--el-fill-color-lighter);
+}
+
+.form-radio-disabled {
+	background-color: var(--el-fill-color-light);
+}
+
+.form-radio-checked {
+	border-color: var(--el-color-primary);
+	background-color: var(--el-color-primary);
+}
+
+.form-radio-unchecked {
+	border-color: var(--el-border-color);
+}
+
+.form-star-text {
+	color: var(--el-text-color-secondary);
+}
+
+.form-slider-labels {
+	color: var(--el-text-color-secondary);
+}
+
+.form-unsupported-type {
+	color: var(--el-text-color-placeholder);
+	border-color: var(--el-border-color);
+}
+
+.form-page-break {
+	color: var(--el-text-color-regular);
+}
+
+.form-empty-text {
+	color: var(--el-text-color-secondary);
 }
 </style>

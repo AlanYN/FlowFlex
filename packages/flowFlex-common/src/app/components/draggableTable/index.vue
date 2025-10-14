@@ -39,7 +39,7 @@
 						</div>
 						<div v-if="element?.amount" class="flex items-center gap-x-2">
 							<div class="font-bold">Amount:</div>
-							<div class="text-[#606266]">
+							<div class="text-regular">
 								$ {{ formatToFinancial(element.amount) }}
 							</div>
 						</div>
@@ -48,7 +48,7 @@
 							class="flex items-center gap-x-2"
 						>
 							<div class="font-bold">One-Time Charge Fee:</div>
-							<div class="text-[#606266]">
+							<div class="text-regular">
 								$ {{ formatToFinancial(element.one_time_charge_fee) }}
 							</div>
 						</div>
@@ -57,7 +57,7 @@
 							class="flex items-center gap-x-2"
 						>
 							<div class="font-bold">Monthly Charge Fee:</div>
-							<div class="text-[#606266]">
+							<div class="text-regular">
 								$ {{ formatToFinancial(element.monthly_charge_fee) }}
 							</div>
 						</div>
@@ -378,7 +378,6 @@ div[name='flip-list'] {
 }
 
 .total-footer {
-	/* background-color: #f8f9fa; */
 	padding: 10px 15px;
 	position: absolute;
 	bottom: 0;

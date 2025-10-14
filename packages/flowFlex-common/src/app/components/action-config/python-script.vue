@@ -1,6 +1,6 @@
 <template>
 	<div class="python-script-config">
-		<el-form :model="config" label-width="120px">
+		<el-form :model="config" label-width="120px" @submit.prevent>
 			<el-form-item label="Python Script">
 				<CodeEditor
 					v-model="config.sourceCode"
@@ -192,7 +192,7 @@ refreshModels();
 		@apply rounded-xl;
 		height: 400px;
 		overflow-y: auto;
-		background-color: #f5f5f5;
+		background-color: var(--el-fill-color-light);
 		padding: 12px;
 
 		.test-output {

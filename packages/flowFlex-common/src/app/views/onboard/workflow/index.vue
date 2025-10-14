@@ -28,7 +28,7 @@
 			<!-- 加载中状态 -->
 			<div
 				v-if="loading.workflows"
-				class="loading-container rounded-xl bg-white dark:bg-gray-800"
+				class="loading-container rounded-xl bg-el-bg-color dark:bg-el-bg-color"
 			>
 				<el-skeleton style="width: 100%" :rows="10" animated />
 			</div>
@@ -36,15 +36,17 @@
 			<!-- 工作流内容 -->
 			<div class="workflow-list" v-else-if="workflow">
 				<div
-					class="workflow-card rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600"
+					class="workflow-card rounded-xl bg-el-bg-color border border-el-border-color-light dark:border-el-border-color"
 					:class="{ active: workflow.isActive }"
 				>
 					<div
-						class="workflow-card-header bg-blue-50 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600"
+						class="workflow-card-header bg-el-color-primary-light-9 dark:bg-el-fill-color border-b border-el-border-color-light dark:border-el-border-color"
 					>
 						<div class="left-section">
 							<div class="title-and-tags">
-								<span class="workflow-name text-gray-900 dark:text-gray-100">
+								<span
+									class="workflow-name text-el-text-color-primary dark:text-el-text-color-primary"
+								>
 									{{ workflow.name }}
 								</span>
 								<el-tag
@@ -81,7 +83,9 @@
 									Inactive
 								</el-tag>
 							</div>
-							<span class="workflow-desc text-gray-600 dark:text-gray-400">
+							<span
+								class="workflow-desc text-el-text-color-regular dark:text-el-text-color-secondary"
+							>
 								{{ workflow.description }}
 							</span>
 						</div>
@@ -248,7 +252,9 @@
 					</div>
 
 					<!-- Workflow 内容 -->
-					<div class="workflow-card-body bg-blue-50/50 dark:bg-gray-800/50">
+					<div
+						class="workflow-card-body bg-el-color-primary-light-9 dark:bg-el-fill-color"
+					>
 						<div class="workflow-header-actions">
 							<div class="dates-container">
 								<el-tooltip content="last mdify by">
@@ -258,7 +264,7 @@
 											class="text-primary-500 w-5 h-5"
 										/>
 										<span
-											class="card-value font-medium text-gray-700 dark:text-gray-300"
+											class="card-value font-medium text-el-text-color-regular dark:text-el-text-color-secondary"
 										>
 											{{ workflow.modifyBy }}
 										</span>
@@ -271,7 +277,7 @@
 											class="text-primary-500 w-5 h-5"
 										/>
 										<span
-											class="card-value font-medium text-gray-700 dark:text-gray-300"
+											class="card-value font-medium text-el-text-color-regular dark:text-el-text-color-secondary"
 										>
 											{{
 												timeZoneConvert(
@@ -285,19 +291,13 @@
 								</el-tooltip>
 							</div>
 							<div class="action-buttons-group">
-								<button
-									class="add-stage-btn bg-transparent border border-blue-500 text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 disabled:opacity-60 disabled:cursor-not-allowed rounded-xl px-3 py-1.5 text-sm transition-colors"
+								<el-button
 									@click="addStage()"
 									:disabled="loading.createStage"
+									:icon="loading.createStage ? Loading : Plus"
 								>
-									<el-icon v-if="loading.createStage" class="mr-1 text-primary">
-										<Loading />
-									</el-icon>
-									<el-icon v-else class="mr-1 text-primary">
-										<Plus />
-									</el-icon>
-									<span>Add Stage</span>
-								</button>
+									Add Stage
+								</el-button>
 							</div>
 						</div>
 
@@ -325,9 +325,11 @@
 
 					<!-- 总阶段数信息 -->
 					<div
-						class="workflow-footer bg-gray-50 dark:bg-gray-700 border-t border-gray-200 dark:border-gray-600 px-6 py-4"
+						class="workflow-footer bg-el-fill-color-light dark:bg-el-fill-color border-t border-el-border-color-light dark:border-el-border-color px-6 py-4"
 					>
-						<p class="stage-count text-gray-600 dark:text-gray-400 text-sm">
+						<p
+							class="stage-count text-el-text-color-regular dark:text-el-text-color-secondary text-sm"
+						>
 							Total stages: {{ workflow?.stages?.length || 0 }}
 						</p>
 					</div>
@@ -337,16 +339,20 @@
 			<!-- 空状态 - 没有工作流时显示 -->
 			<div
 				v-else
-				class="empty-state-container rounded-xl bg-white dark:bg-gray-800 border border-dashed border-gray-300 dark:border-gray-600"
+				class="empty-state-container rounded-xl bg-el-bg-color border border-dashed border-el-border-color dark:border-el-border-color"
 			>
 				<div class="empty-state-content">
 					<el-icon class="empty-state-icon text-primary-300 dark:text-primary-400">
 						<DocumentAdd />
 					</el-icon>
-					<h2 class="empty-state-title text-gray-900 dark:text-gray-100">
+					<h2
+						class="empty-state-title text-el-text-color-primary dark:text-el-text-color-primary"
+					>
 						No Workflows Found
 					</h2>
-					<p class="empty-state-desc text-gray-600 dark:text-gray-400">
+					<p
+						class="empty-state-desc text-el-text-color-regular dark:text-el-text-color-secondary"
+					>
 						Workflows help you organize and manage the entire onboarding process. Create
 						your first workflow to get started.
 					</p>
@@ -1335,7 +1341,7 @@ const getUserGroup = async () => {
 }
 
 .workflow-card.active {
-	@apply border-blue-200 dark:border-blue-600;
+	border: 1px solid var(--el-border-color-light);
 }
 
 .workflow-card-header {
@@ -1373,7 +1379,7 @@ const getUserGroup = async () => {
 	width: 36px;
 	height: 36px;
 	padding: 0;
-	border: 1px solid var(--el-border-color-light, #e4e7ed);
+	border: 1px solid var(--el-border-color-light);
 }
 
 .actions-dropdown {
@@ -1386,8 +1392,8 @@ const getUserGroup = async () => {
 }
 
 .ai-tag {
-	background: #753bbd;
-	background-color: #753bbd;
+	background: var(--el-color-primary);
+	background-color: var(--el-color-primary);
 	color: white;
 	border-color: transparent;
 	padding: 2px 8px;
@@ -1405,17 +1411,17 @@ const getUserGroup = async () => {
 .el-tag.ai-tag,
 .el-tag--primary.ai-tag,
 .el-tag--primary.is-light.ai-tag {
-	background: #753bbd !important;
-	background-color: #753bbd !important;
+	background: var(--el-color-primary) !important;
+	background-color: var(--el-color-primary) !important;
 	background-image: none !important;
-	color: #ffffff !important;
+	color: var(--el-color-white) !important;
 	border-color: transparent !important;
-	--el-tag-text-color: #ffffff !important;
+	--el-tag-text-color: var(--el-color-white) !important;
 }
 
 .default-tag {
-	background: linear-gradient(to right, var(--yellow-400, #f59e0b), var(--yellow-500, #e6a23c));
-	color: white;
+	background: var(--el-color-warning);
+	color: var(--el-color-white);
 	border-color: transparent;
 	padding: 2px 8px;
 	font-size: 11px;
@@ -1464,12 +1470,12 @@ const getUserGroup = async () => {
 }
 
 .ai-dropdown-icon {
-	color: var(--primary-500, #2468f2);
+	color: var(--el-color-primary);
 	font-size: 14px;
 }
 
 .inactive-icon {
-	color: #f56c6c;
+	color: var(--el-color-danger);
 	font-size: 14px;
 }
 
@@ -1480,7 +1486,7 @@ const getUserGroup = async () => {
 }
 
 .delete-item {
-	color: var(--red-500, #f56c6c);
+	color: var(--red-500, var(--el-color-danger));
 }
 
 .workflow-card-body {
@@ -1503,12 +1509,12 @@ const getUserGroup = async () => {
 
 .date-label {
 	font-weight: 500;
-	color: #303133;
+	color: var(--el-text-color-primary);
 	margin-right: 2px;
 }
 
 .date-value {
-	color: #606266;
+	color: var(--el-text-color-regular);
 }
 
 .stages-header {
@@ -1520,7 +1526,7 @@ const getUserGroup = async () => {
 .stages-header h3 {
 	margin: 0;
 	font-size: 16px;
-	color: #303133;
+	color: var(--el-text-color-primary);
 	font-weight: 500;
 }
 
@@ -1542,8 +1548,8 @@ const getUserGroup = async () => {
 .version-tag {
 	font-size: 12px;
 	font-weight: 600;
-	background: linear-gradient(135deg, #667eea, #764ba2);
-	color: white;
+	background: var(--el-color-primary);
+	color: var(--el-color-white);
 	border: none;
 }
 
@@ -1551,20 +1557,16 @@ const getUserGroup = async () => {
 	@apply flex items-center gap-3;
 }
 
-.add-stage-btn {
-	@apply inline-flex items-center gap-1.5 cursor-pointer;
-}
-
 /* Hover and disabled states handled by Tailwind classes */
 
 .drag-handle {
 	cursor: move;
-	color: #909399;
+	color: var(--el-text-color-placeholder);
 }
 
 .ghost-workflow {
 	opacity: 0.5;
-	background: #c8ebfb;
+	background: var(--el-color-info-light-7);
 }
 
 .version-history-placeholder {
@@ -1584,7 +1586,7 @@ const getUserGroup = async () => {
 }
 
 .text-primary {
-	color: var(--primary-500, #2468f2);
+	color: var(--el-color-primary);
 }
 
 .combine-stages-form {
@@ -1592,7 +1594,7 @@ const getUserGroup = async () => {
 }
 
 .text-muted {
-	color: #64748b;
+	color: var(--el-text-color-secondary);
 }
 
 .stage-item-select {
@@ -1603,7 +1605,7 @@ const getUserGroup = async () => {
 }
 
 .stage-item-select:hover {
-	background-color: #f8fafc;
+	background-color: var(--el-fill-color-lighter);
 }
 
 .stage-color-indicator {
@@ -1630,7 +1632,7 @@ const getUserGroup = async () => {
 }
 
 .dialog-subtitle {
-	color: #606266;
+	color: var(--el-text-color-regular);
 	font-size: 13px;
 	margin: 0;
 	font-weight: normal;
@@ -1662,7 +1664,7 @@ const getUserGroup = async () => {
 :deep(.version-history-dialog .el-dialog__header) {
 	padding: 0;
 	margin-right: 0;
-	border-bottom: 1px solid #f0f0f0;
+	border-bottom: 1px solid var(--el-border-color-lighter);
 }
 
 :deep(.version-history-dialog .el-dialog__headerbtn) {
@@ -1677,25 +1679,25 @@ const getUserGroup = async () => {
 
 :deep(.version-history-dialog .el-dialog__footer) {
 	padding: 20px 24px;
-	border-top: 1px solid #f0f0f0;
-	background-color: #fafafa;
+	border-top: 1px solid var(--el-border-color-lighter);
+	background-color: var(--el-fill-color-lighter);
 }
 
 .version-dialog-header {
 	padding: 24px 24px 20px 24px;
-	background-color: #fff;
+	background-color: var(--el-bg-color);
 }
 
 .version-dialog-title {
 	font-size: 20px;
 	font-weight: 600;
-	color: #1a1a1a;
+	color: var(--el-text-color-primary);
 	margin: 0 0 8px 0;
 	line-height: 1.2;
 }
 
 .version-dialog-subtitle {
-	color: #6b7280;
+	color: var(--el-text-color-secondary);
 	font-size: 14px;
 	margin: 0;
 	font-weight: normal;
@@ -1704,7 +1706,7 @@ const getUserGroup = async () => {
 
 .version-history-content {
 	padding: 0;
-	background-color: #fff;
+	background-color: var(--el-bg-color);
 }
 
 .version-history-table {
@@ -1717,22 +1719,22 @@ const getUserGroup = async () => {
 }
 
 :deep(.version-table-header) {
-	background-color: #f8fafc;
-	border-bottom: 1px solid #e5e7eb;
+	background-color: var(--el-fill-color-lighter);
+	border-bottom: 1px solid var(--el-border-color-light);
 }
 
 :deep(.version-table-header th) {
-	background-color: #f8fafc !important;
-	color: #374151;
+	background-color: var(--el-fill-color-lighter) !important;
+	color: var(--el-text-color-primary);
 	font-weight: 600;
 	font-size: 13px;
 	padding: 16px 12px;
-	border-bottom: 1px solid #e5e7eb;
+	border-bottom: 1px solid var(--el-border-color-light);
 }
 
 :deep(.version-table-row td) {
 	padding: 14px 12px;
-	border-bottom: 1px solid #f3f4f6;
+	border-bottom: 1px solid var(--el-fill-color-light);
 	vertical-align: middle;
 }
 
@@ -1741,12 +1743,12 @@ const getUserGroup = async () => {
 }
 
 :deep(.version-table-row:hover td) {
-	background-color: #f9fafb;
+	background-color: var(--el-fill-color-lighter);
 }
 
 .version-name {
 	font-weight: 500;
-	color: #1f2937;
+	color: var(--el-text-color-primary);
 	font-size: 14px;
 	white-space: nowrap;
 	overflow: hidden;
@@ -1759,21 +1761,21 @@ const getUserGroup = async () => {
 }
 
 .default-tag {
-	background: linear-gradient(135deg, #fbbf24, #f59e0b);
-	color: white;
+	background: var(--el-color-warning);
+	color: var(--el-color-white);
 	border: none;
 	font-weight: 500;
 	font-size: 12px;
 }
 
 .date-text {
-	color: #6b7280;
+	color: var(--el-text-color-secondary);
 	font-size: 13px;
 	white-space: nowrap;
 }
 
 .created-by {
-	color: #374151;
+	color: var(--el-text-color-primary);
 	font-size: 13px;
 	font-weight: 500;
 	white-space: nowrap;
@@ -1799,7 +1801,7 @@ const getUserGroup = async () => {
 }
 
 .edit-btn:hover {
-	background-color: #f3f4f6;
+	background-color: var(--el-fill-color-light);
 }
 
 .version-dialog-footer {
@@ -1809,22 +1811,22 @@ const getUserGroup = async () => {
 }
 
 .close-btn {
-	color: #6b7280;
-	border-color: #d1d5db;
-	background-color: #fff;
+	color: var(--el-text-color-secondary);
+	border-color: var(--el-border-color);
+	background-color: var(--el-bg-color);
 	font-weight: 500;
 	padding: 8px 16px;
 }
 
 .close-btn:hover {
-	background-color: #f9fafb;
-	border-color: #9ca3af;
+	background-color: var(--el-fill-color-lighter);
+	border-color: var(--el-text-color-secondary);
 }
 
 .new-workflow-btn-footer {
-	background: linear-gradient(135deg, #3b82f6, #2563eb);
+	background: var(--el-color-primary);
 	border: none;
-	color: white;
+	color: var(--el-color-white);
 	font-weight: 500;
 	padding: 8px 16px;
 	display: flex;
@@ -1834,9 +1836,9 @@ const getUserGroup = async () => {
 }
 
 .new-workflow-btn-footer:hover {
-	background: linear-gradient(135deg, #2563eb, #1d4ed8);
+	background: var(--el-color-primary-dark-2);
 	transform: translateY(-1px);
-	box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
 .mr-1 {
@@ -1903,7 +1905,7 @@ const getUserGroup = async () => {
 	/* border-radius removed - using rounded-xl class */
 
 	.el-message-box__message {
-		color: #606266;
+		color: var(--el-text-color-regular);
 		font-size: 14px;
 		line-height: 1.5;
 	}
@@ -1912,7 +1914,7 @@ const getUserGroup = async () => {
 /* 停用确认对话框样式 */
 .deactivate-confirmation-dialog {
 	.el-message-box__message {
-		color: #606266;
+		color: var(--el-text-color-regular);
 		font-size: 14px;
 		line-height: 1.5;
 	}
@@ -1921,7 +1923,7 @@ const getUserGroup = async () => {
 /* 过期日期确认对话框样式 */
 .expired-date-confirmation-dialog {
 	.el-message-box__message {
-		color: #606266;
+		color: var(--el-text-color-regular);
 		font-size: 14px;
 		line-height: 1.5;
 		white-space: pre-line;
@@ -1937,7 +1939,7 @@ const getUserGroup = async () => {
 		background-color: var(--el-color-danger) !important;
 		background-image: none !important;
 		border-color: var(--el-color-danger) !important;
-		color: #ffffff !important;
+		color: var(--el-color-white) !important;
 		opacity: 1 !important;
 		box-shadow: none !important;
 
@@ -1947,7 +1949,7 @@ const getUserGroup = async () => {
 			background-color: var(--el-color-danger-light-3) !important;
 			background-image: none !important;
 			border-color: var(--el-color-danger-light-3) !important;
-			color: #ffffff !important;
+			color: var(--el-color-white) !important;
 			opacity: 1 !important;
 			box-shadow: 0 0 0 2px var(--el-color-danger-light-8) !important;
 		}
@@ -1957,7 +1959,7 @@ const getUserGroup = async () => {
 			background-color: var(--el-color-danger-dark-2) !important;
 			background-image: none !important;
 			border-color: var(--el-color-danger-dark-2) !important;
-			color: #ffffff !important;
+			color: var(--el-color-white) !important;
 			opacity: 1 !important;
 		}
 
@@ -1975,14 +1977,14 @@ const getUserGroup = async () => {
 		background-image: none !important;
 		border: 1px solid var(--el-color-danger) !important;
 		border-color: var(--el-color-danger) !important;
-		color: #ffffff !important;
+		color: var(--el-color-white) !important;
 
 		&:not(:disabled):not(.is-disabled) {
 			background: var(--el-color-danger) !important;
 			background-color: var(--el-color-danger) !important;
 			background-image: none !important;
 			border-color: var(--el-color-danger) !important;
-			color: #ffffff !important;
+			color: var(--el-color-white) !important;
 		}
 	}
 }
@@ -1990,14 +1992,14 @@ const getUserGroup = async () => {
 /* 取消按钮样式 - 仅限于删除确认对话框 */
 .delete-confirmation-dialog {
 	.cancel-confirm-btn {
-		background-color: #ffffff !important;
-		border-color: #dcdfe6 !important;
-		color: #606266 !important;
+		background-color: var(--el-color-white) !important;
+		border-color: var(--el-border-color) !important;
+		color: var(--el-text-color-regular) !important;
 
 		&:hover {
-			background-color: #f5f7fa !important;
-			border-color: #c0c4cc !important;
-			color: #606266 !important;
+			background-color: var(--el-fill-color-lighter) !important;
+			border-color: var(--el-border-color-dark) !important;
+			color: var(--el-text-color-regular) !important;
 		}
 	}
 }
@@ -2010,7 +2012,7 @@ const getUserGroup = async () => {
 		background-color: var(--el-color-warning) !important;
 		background-image: none !important;
 		border-color: var(--el-color-warning) !important;
-		color: #ffffff !important;
+		color: var(--el-color-white) !important;
 		opacity: 1 !important;
 		box-shadow: none !important;
 
@@ -2020,7 +2022,7 @@ const getUserGroup = async () => {
 			background-color: var(--el-color-warning-light-3) !important;
 			background-image: none !important;
 			border-color: var(--el-color-warning-light-3) !important;
-			color: #ffffff !important;
+			color: var(--el-color-white) !important;
 			opacity: 1 !important;
 			box-shadow: 0 0 0 2px var(--el-color-warning-light-8) !important;
 		}
@@ -2030,7 +2032,7 @@ const getUserGroup = async () => {
 			background-color: var(--el-color-warning-dark-2) !important;
 			background-image: none !important;
 			border-color: var(--el-color-warning-dark-2) !important;
-			color: #ffffff !important;
+			color: var(--el-color-white) !important;
 			opacity: 1 !important;
 		}
 
@@ -2048,27 +2050,27 @@ const getUserGroup = async () => {
 		background-image: none !important;
 		border: 1px solid var(--el-color-warning) !important;
 		border-color: var(--el-color-warning) !important;
-		color: #ffffff !important;
+		color: var(--el-color-white) !important;
 
 		&:not(:disabled):not(.is-disabled) {
 			background: var(--el-color-warning) !important;
 			background-color: var(--el-color-warning) !important;
 			background-image: none !important;
 			border-color: var(--el-color-warning) !important;
-			color: #ffffff !important;
+			color: var(--el-color-white) !important;
 		}
 	}
 
 	/* 取消按钮样式 */
 	.cancel-confirm-btn {
-		background-color: #ffffff !important;
-		border-color: #dcdfe6 !important;
-		color: #606266 !important;
+		background-color: var(--el-color-white) !important;
+		border-color: var(--el-border-color) !important;
+		color: var(--el-text-color-regular) !important;
 
 		&:hover {
-			background-color: #f5f7fa !important;
-			border-color: #c0c4cc !important;
-			color: #606266 !important;
+			background-color: var(--el-fill-color-lighter) !important;
+			border-color: var(--el-border-color-dark) !important;
+			color: var(--el-text-color-regular) !important;
 		}
 	}
 }
@@ -2081,7 +2083,7 @@ const getUserGroup = async () => {
 		background-color: var(--el-color-warning) !important;
 		background-image: none !important;
 		border-color: var(--el-color-warning) !important;
-		color: #ffffff !important;
+		color: var(--el-color-white) !important;
 		opacity: 1 !important;
 		box-shadow: none !important;
 
@@ -2091,7 +2093,7 @@ const getUserGroup = async () => {
 			background-color: var(--el-color-warning-light-3) !important;
 			background-image: none !important;
 			border-color: var(--el-color-warning-light-3) !important;
-			color: #ffffff !important;
+			color: var(--el-color-white) !important;
 			opacity: 1 !important;
 			box-shadow: 0 0 0 2px var(--el-color-warning-light-8) !important;
 		}
@@ -2101,7 +2103,7 @@ const getUserGroup = async () => {
 			background-color: var(--el-color-warning-dark-2) !important;
 			background-image: none !important;
 			border-color: var(--el-color-warning-dark-2) !important;
-			color: #ffffff !important;
+			color: var(--el-color-white) !important;
 			opacity: 1 !important;
 		}
 
@@ -2119,27 +2121,27 @@ const getUserGroup = async () => {
 		background-image: none !important;
 		border: 1px solid var(--el-color-warning) !important;
 		border-color: var(--el-color-warning) !important;
-		color: #ffffff !important;
+		color: var(--el-color-white) !important;
 
 		&:not(:disabled):not(.is-disabled) {
 			background: var(--el-color-warning) !important;
 			background-color: var(--el-color-warning) !important;
 			background-image: none !important;
 			border-color: var(--el-color-warning) !important;
-			color: #ffffff !important;
+			color: var(--el-color-white) !important;
 		}
 	}
 
 	/* 取消按钮样式 */
 	.cancel-confirm-btn {
-		background-color: #ffffff !important;
-		border-color: #dcdfe6 !important;
-		color: #606266 !important;
+		background-color: var(--el-color-white) !important;
+		border-color: var(--el-border-color) !important;
+		color: var(--el-text-color-regular) !important;
 
 		&:hover {
-			background-color: #f5f7fa !important;
-			border-color: #c0c4cc !important;
-			color: #606266 !important;
+			background-color: var(--el-fill-color-lighter) !important;
+			border-color: var(--el-border-color-dark) !important;
+			color: var(--el-text-color-regular) !important;
 		}
 	}
 }

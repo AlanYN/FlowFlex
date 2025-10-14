@@ -34,10 +34,10 @@
 						</el-button>
 					</div>
 
-					<el-form :model="assignment" label-position="top">
+					<el-form :model="assignment" label-position="top" @submit.prevent>
 						<el-form-item label="Workflow">
 							<el-select
-								v-model="assignment.workflowId"
+								v-model="assignment.workflowId as string"
 								placeholder="Select workflow"
 								style="width: 100%"
 								@change="handleWorkflowChange(index, $event)"
@@ -68,7 +68,7 @@
 
 						<el-form-item label="Stage">
 							<el-select
-								v-model="assignment.stageId"
+								v-model="assignment.stageId as string"
 								placeholder="Select stage"
 								style="width: 100%"
 								:disabled="!assignment.workflowId || assignment.stagesLoading"
@@ -147,7 +147,7 @@ const initializeAssignments = async () => {
 	extendedAssignments.value = validAssignments.map((assignment) => ({
 		...assignment,
 		// 如果stageId为0或'0'，将其设为空字符串，让用户重新选择
-		stageId: assignment.stageId === '0' || assignment.stageId === 0 ? '' : assignment.stageId,
+		stageId: assignment.stageId == '0' ? '' : assignment.stageId,
 		stages: (assignment.workflowId && stagesCache.value[assignment.workflowId]) || [],
 		stagesLoading: false,
 	}));
@@ -402,7 +402,7 @@ defineExpose({
 }
 
 .inactive-icon {
-	color: #f56c6c;
+	color: var(--el-color-danger);
 	font-size: 14px;
 }
 </style>
