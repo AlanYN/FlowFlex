@@ -19,7 +19,12 @@ namespace FlowFlex.Domain.Shared.Enums.OW
         /// <summary>
         /// Invisible to specific teams - All teams except listed teams can view
         /// </summary>
-        InvisibleToTeams = 2
+        InvisibleToTeams = 2,
+
+        /// <summary>
+        /// Private - Only the creator/owner can view
+        /// </summary>
+        Private = 3
     }
 }
 

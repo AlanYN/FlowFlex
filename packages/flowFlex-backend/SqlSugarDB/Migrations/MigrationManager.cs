@@ -80,7 +80,8 @@ namespace FlowFlex.SqlSugarDB.Migrations
                     ("20250109000001_ConvertStageDefaultAssigneeToJsonb", (Action)(() => ConvertStageDefaultAssigneeToJsonb_20250109000001.Up(_db))),
                     ("20250904000001_AddWorkflowStageFieldsToActionMapping", (Action)(() => AddWorkflowStageFieldsToActionMapping_20250904000001.Up(_db))),
                     ("20250916000001_AddIsAIGeneratedToActionDefinitions", (Action)(() => AddIsAIGeneratedToActionDefinitions_20250916000001.Up(_db))),
-                    ("20251013000001_AddWorkflowPermissionFields", (Action)(() => Migration_20251013000001_AddWorkflowPermissionFields.Up(_db)))
+                    ("20251013000001_AddWorkflowPermissionFields", (Action)(() => Migration_20251013000001_AddWorkflowPermissionFields.Up(_db))),
+                    ("20251014000001_AddStagePermissionFields", (Action)(() => Migration_20251014000001_AddStagePermissionFields.Up(_db)))
                 };
 
                 // Pre-check all migrations to reduce individual SQL queries

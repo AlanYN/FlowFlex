@@ -1,6 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using System.Collections.Generic;
 using FlowFlex.Domain.Shared.Enums;
+using FlowFlex.Domain.Shared.Enums.OW;
 
 namespace FlowFlex.Application.Contracts.Dtos.OW.Stage
 {
@@ -87,6 +88,21 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.Stage
         /// Only applies when VisibleInPortal is true
         /// </summary>
         public PortalPermissionEnum? PortalPermission { get; set; } = PortalPermissionEnum.Viewable;
+
+        /// <summary>
+        /// View Permission Mode - Public/VisibleToTeams/InvisibleToTeams/Private
+        /// </summary>
+        public ViewPermissionModeEnum ViewPermissionMode { get; set; } = ViewPermissionModeEnum.Public;
+
+        /// <summary>
+        /// View Teams - List of team names for view permission control
+        /// </summary>
+        public List<string> ViewTeams { get; set; }
+
+        /// <summary>
+        /// Operate Teams - List of team names that can perform operations
+        /// </summary>
+        public List<string> OperateTeams { get; set; }
 
         /// <summary>
         /// Attachment Management Needed - Indicates whether file upload is required for this stage

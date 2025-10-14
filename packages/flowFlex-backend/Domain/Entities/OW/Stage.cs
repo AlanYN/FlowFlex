@@ -3,6 +3,7 @@ using SqlSugar;
 using System.Collections.Generic;
 using FlowFlex.Domain.Entities.Base;
 using FlowFlex.Domain.Shared.Enums;
+using FlowFlex.Domain.Shared.Enums.OW;
 
 namespace FlowFlex.Domain.Entities.OW
 {
@@ -107,6 +108,25 @@ namespace FlowFlex.Domain.Entities.OW
         /// </summary>
         [SugarColumn(ColumnName = "portal_permission")]
         public PortalPermissionEnum? PortalPermission { get; set; } = PortalPermissionEnum.Viewable;
+
+        /// <summary>
+        /// View Permission Mode - Defines how view permissions are controlled (Public/VisibleToTeams/InvisibleToTeams/Private)
+        /// </summary>
+        [SugarColumn(ColumnName = "view_permission_mode")]
+        public ViewPermissionModeEnum ViewPermissionMode { get; set; } = ViewPermissionModeEnum.Public;
+
+        /// <summary>
+        /// View Teams - JSONB array of team names for view permission control
+        /// Used with VisibleToTeams or InvisibleToTeams mode
+        /// </summary>
+        [SugarColumn(ColumnName = "view_teams", ColumnDataType = "jsonb", IsJson = true)]
+        public string ViewTeams { get; set; }
+
+        /// <summary>
+        /// Operate Teams - JSONB array of team names that can perform operations (Create/Update/Delete)
+        /// </summary>
+        [SugarColumn(ColumnName = "operate_teams", ColumnDataType = "jsonb", IsJson = true)]
+        public string OperateTeams { get; set; }
 
         /// <summary>
         /// Attachment Management Needed - Indicates whether file upload is required for this stage

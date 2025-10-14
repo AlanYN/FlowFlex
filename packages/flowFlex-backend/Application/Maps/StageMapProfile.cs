@@ -41,6 +41,9 @@ namespace FlowFlex.Application.Maps
                 .ForMember(dest => dest.Components, opt => opt.MapFrom(src => ParseComponents(src.ComponentsJson)))
                 .ForMember(dest => dest.VisibleInPortal, opt => opt.MapFrom(src => src.VisibleInPortal))
                 .ForMember(dest => dest.PortalPermission, opt => opt.MapFrom(src => src.PortalPermission))
+                .ForMember(dest => dest.ViewPermissionMode, opt => opt.MapFrom(src => src.ViewPermissionMode))
+                .ForMember(dest => dest.ViewTeams, opt => opt.MapFrom(src => DeserializeTeamList(src.ViewTeams)))
+                .ForMember(dest => dest.OperateTeams, opt => opt.MapFrom(src => DeserializeTeamList(src.OperateTeams)))
                 .ForMember(dest => dest.AttachmentManagementNeeded, opt => opt.MapFrom(src => src.AttachmentManagementNeeded))
                 .ForMember(dest => dest.IsValid, opt => opt.MapFrom(src => src.IsValid))
                 .ForMember(dest => dest.CreateDate, opt => opt.MapFrom(src => src.CreateDate))
@@ -67,6 +70,9 @@ namespace FlowFlex.Application.Maps
                 .ForMember(dest => dest.IsActive, opt => opt.MapFrom(src => true))
                 .ForMember(dest => dest.VisibleInPortal, opt => opt.MapFrom(src => src.VisibleInPortal))
                 .ForMember(dest => dest.PortalPermission, opt => opt.MapFrom(src => src.PortalPermission))
+                .ForMember(dest => dest.ViewPermissionMode, opt => opt.MapFrom(src => src.ViewPermissionMode))
+                .ForMember(dest => dest.ViewTeams, opt => opt.MapFrom(src => SerializeTeamList(src.ViewTeams)))
+                .ForMember(dest => dest.OperateTeams, opt => opt.MapFrom(src => SerializeTeamList(src.OperateTeams)))
                 .ForMember(dest => dest.AttachmentManagementNeeded, opt => opt.MapFrom(src => src.AttachmentManagementNeeded))
                 // Ignore fields that will be set by extension methods or business logic
                 .ForMember(dest => dest.Id, opt => opt.Ignore())
@@ -342,6 +348,59 @@ namespace FlowFlex.Application.Maps
                                 .Select(s => s.Trim())
                                 .Where(s => !string.IsNullOrWhiteSpace(s))
                                 .ToList();
+        }
+
+        /// <summary>
+        /// Helper method to deserialize JSON string to List of strings
+        /// Handles both direct JSON arrays and double-encoded JSON strings
+        /// </summary>
+        private static List<string> DeserializeTeamList(string jsonString)
+        {
+            if (string.IsNullOrWhiteSpace(jsonString))
+            {
+                return new List<string>();
+            }
+
+            try
+            {
+                var trimmed = jsonString.Trim();
+                
+                // Check if it's double-encoded (starts with a quote)
+                if (trimmed.StartsWith("\"") && trimmed.EndsWith("\""))
+                {
+                    // Remove outer quotes and unescape
+                    var unescaped = JsonSerializer.Deserialize<string>(trimmed);
+                    if (!string.IsNullOrEmpty(unescaped))
+                    {
+                        trimmed = unescaped;
+                    }
+                }
+                
+                // Now deserialize the actual array
+                if (trimmed.StartsWith("["))
+                {
+                    return JsonSerializer.Deserialize<List<string>>(trimmed) ?? new List<string>();
+                }
+                
+                return new List<string>();
+            }
+            catch
+            {
+                return new List<string>();
+            }
+        }
+
+        /// <summary>
+        /// Helper method to serialize List of strings to JSON string
+        /// </summary>
+        private static string SerializeTeamList(List<string> teamList)
+        {
+            if (teamList == null || teamList.Count == 0)
+            {
+                return null;
+            }
+
+            return JsonSerializer.Serialize(teamList);
         }
     }
 }
