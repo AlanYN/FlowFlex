@@ -1,0 +1,32 @@
+/**
+ * 蓝色主题颜色 (Layer 3: Theme Colors - Blue)
+ * 项目自定义主题色
+ * 通过 setPrimary('blue') 激活
+ */
+
+html.blue {
+	/* Primary 颜色系列 - 蓝色 */
+	--primary-10: #eff6ff;
+	--primary-50: #e6f1fa;
+	--primary-100: #cce2f6;
+	--primary-200: #99c5ec;
+	--primary-300: #66a8e3;
+	--primary-400: #338bd9;
+	--primary-500: #006ed0;  /* 主色 */
+	--primary-600: #0058a6;
+	--primary-700: #00427d;
+	--primary-800: #002c53;
+	--primary-900: #00162a;
+	--primary-reverse-500: #7e22ce;  /* 反向主题色引用（紫色） */
+	--primary-500-rgb: 0, 110, 208;
+	
+	/* Element Plus 主色变量 - 蓝色 */
+	--el-color-primary: #006ed0;
+	--el-color-primary-light-3: #338bd9;   /* Hover states */
+	--el-color-primary-light-5: #66a8e3;   /* Active elements */
+	--el-color-primary-light-7: #99c5ec;   /* Subtle backgrounds */
+	--el-color-primary-light-8: #cce2f6;   /* Very light tints */
+	--el-color-primary-light-9: #e6f1fa;   /* Near-white blue */
+	--el-color-primary-dark-2: #0058a6;    /* Pressed states */
+}
+

@@ -73,7 +73,7 @@ const selectQuestionType = (typeId: string) => {
 	display: flex;
 	align-items: center;
 	padding: 0.5rem 0.75rem;
-	border: 1px solid var(--primary-100);
+	border: 1px solid var(--el-border-color-light);
 	cursor: pointer;
 	transition: all 0.2s;
 	min-height: 2.5rem;
@@ -85,7 +85,7 @@ const selectQuestionType = (typeId: string) => {
 
 .question-type-item:hover {
 	background-color: var(--primary-50);
-	border-color: var(--primary-300);
+	border-color: var(--el-color-primary);
 	@apply dark:bg-primary-800 dark:border-primary-500;
 }
 
@@ -139,18 +139,18 @@ const selectQuestionType = (typeId: string) => {
 }
 
 .dark .question-type-item {
-	border-color: var(--black-600);
-	background-color: var(--black-400);
+	border-color: var(--el-border-color-dark);
+	background-color: var(--black);
 }
 
 .dark .question-type-item:hover {
-	background-color: var(--primary-500);
-	border-color: var(--black-600);
+	background-color: var(--el-color-primary);
+	border-color: var(--el-border-color-dark);
 }
 
 .dark .question-type-item.active {
 	background-color: var(--primary-500);
-	border-color: var(--black-600);
+	border-color: var(--el-border-color-dark);
 }
 
 .dark .type-icon {
@@ -158,6 +158,6 @@ const selectQuestionType = (typeId: string) => {
 }
 
 .dark .type-name {
-	color: var(--primary-100);
+	color: var(--el-color-white);
 }
 </style>

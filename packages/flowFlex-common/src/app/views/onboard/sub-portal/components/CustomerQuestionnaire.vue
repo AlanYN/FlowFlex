@@ -407,19 +407,19 @@ export default {
 	align-items: flex-start;
 	margin-bottom: 32px;
 	padding-bottom: 24px;
-	border-bottom: 1px solid #e5e7eb;
+	border-bottom: 1px solid var(--el-border-color-light);
 }
 
 .header-title h2 {
 	margin: 0 0 8px 0;
-	color: #1f2937;
+	color: var(--el-text-color-primary);
 	font-size: 24px;
 	font-weight: 600;
 }
 
 .header-title p {
 	margin: 0;
-	color: #6b7280;
+	color: var(--el-text-color-secondary);
 	font-size: 14px;
 }
 
@@ -430,7 +430,7 @@ export default {
 
 .progress-text {
 	font-size: 14px;
-	color: #374151;
+	color: var(--el-text-color-regular);
 	margin-bottom: 8px;
 }
 
@@ -441,8 +441,8 @@ export default {
 .form-section {
 	margin-bottom: 40px;
 	padding: 24px;
-	background: #f9fafb;
-	border-left: 4px solid #3b82f6;
+	background: var(--el-fill-color-blank);
+	border-left: 4px solid var(--el-color-primary);
 	@apply rounded-xl;
 }
 
@@ -452,27 +452,27 @@ export default {
 
 .section-header h3 {
 	margin: 0 0 8px 0;
-	color: #1f2937;
+	color: var(--el-text-color-primary);
 	font-size: 18px;
 	font-weight: 600;
 }
 
 .section-header p {
 	margin: 0;
-	color: #6b7280;
+	color: var(--el-text-color-secondary);
 	font-size: 14px;
 }
 
 .priority-label {
 	margin-left: 16px;
 	font-size: 14px;
-	color: #374151;
+	color: var(--el-text-color-regular);
 }
 
 .form-actions {
 	text-align: center;
 	padding: 32px 0;
-	border-top: 1px solid #e5e7eb;
+	border-top: 1px solid var(--el-border-color-lighter);
 	margin-top: 32px;
 }
 
@@ -506,7 +506,7 @@ export default {
 /* 自定义样式 */
 .el-form-item__label {
 	font-weight: 500;
-	color: #374151;
+	color: var(--el-text-color-regular);
 }
 
 .el-checkbox-group .el-checkbox {

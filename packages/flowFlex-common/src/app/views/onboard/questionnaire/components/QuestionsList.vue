@@ -158,7 +158,7 @@
 							<!-- 显示已上传的文件 -->
 							<div
 								v-if="item.questionProps && item.questionProps.fileUrl"
-								class="mt-3 p-3 bg-gray-50 rounded-xl border border-gray-200 dark:bg-gray-800 dark:border-gray-700"
+								class="mt-3 p-3 rounded-xl border file-upload-display"
 							>
 								<div class="flex items-center justify-between gap-3">
 									<div class="flex items-center gap-2 flex-1 min-w-0">
@@ -175,9 +175,7 @@
 													: 'text-orange-500'
 											"
 										/>
-										<span
-											class="text-sm font-medium text-gray-700 dark:text-gray-300 truncate"
-										>
+										<span class="text-sm font-medium file-name-text truncate">
 											{{ item.questionProps.fileName }}
 										</span>
 										<el-tag
@@ -660,14 +658,13 @@ const getJumpTargetClass = (question: QuestionnaireSection, optionId: string) =>
 
 .question-item {
 	padding: 0.75rem;
-	border: 1px solid var(--primary-200);
+	border: 1px solid var(--el-border-color-light);
 	background-color: white;
 	transition: all 0.2s ease;
 	@apply rounded-xl;
 }
 
 .question-item:hover {
-	border-color: var(--primary-300);
 	box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 }
 
@@ -780,7 +777,7 @@ const getJumpTargetClass = (question: QuestionnaireSection, optionId: string) =>
 
 .option-number {
 	font-weight: 600;
-	color: #1d4ed8;
+	color: var(--el-color-primary);
 	min-width: 1rem;
 	flex-shrink: 0;
 }
@@ -788,11 +785,11 @@ const getJumpTargetClass = (question: QuestionnaireSection, optionId: string) =>
 .option-badge {
 	padding: 0.125rem 0.625rem;
 	border-radius: 9999px;
-	border: 1px solid #e5e7eb;
+	border: 1px solid var(--el-border-color-light);
 	font-size: 0.75rem;
 	font-weight: 600;
-	color: #374151;
-	background-color: #f9fafb;
+	color: var(--el-text-color-regular);
+	background-color: var(--el-fill-color-lighter);
 	transition: all 0.2s;
 }
 
@@ -808,13 +805,13 @@ const getJumpTargetClass = (question: QuestionnaireSection, optionId: string) =>
 }
 
 .jump-badge.jump-default {
-	color: #7c3aed;
-	background-color: #ede9fe;
+	color: var(--el-color-primary);
+	background-color: var(--el-color-primary-light-9);
 }
 
 .jump-badge.jump-custom {
-	color: #7c3aed;
-	background-color: #ede9fe;
+	color: var(--el-color-primary);
+	background-color: var(--el-color-primary-light-9);
 }
 
 .jump-badge:hover {
@@ -838,22 +835,22 @@ const getJumpTargetClass = (question: QuestionnaireSection, optionId: string) =>
 /* 拖拽时的幽灵样式 */
 .ghost-question {
 	opacity: 0.6;
-	background: var(--primary-50, #f0f7ff);
-	border: 1px dashed var(--primary-500, #2468f2);
+	background: var(--el-color-primary-light-9);
+	border: 1px dashed var(--el-color-primary);
 }
 
 /* 深色模式支持 */
 .dark .question-item {
-	background-color: var(--black-400);
-	border-color: var(--primary-600);
+	background-color: var(--black);
+	border-color: var(--el-border-color-light);
 }
 
 .dark .question-item:hover {
-	border-color: var(--primary-500);
+	border-color: var(--el-color-primary);
 }
 
 .dark .question-text {
-	color: var(--primary-100);
+	color: var(--el-color-white);
 }
 
 .dark .question-description {
@@ -878,23 +875,23 @@ const getJumpTargetClass = (question: QuestionnaireSection, optionId: string) =>
 }
 
 .dark .option-number {
-	color: #60a5fa;
+	color: var(--el-color-primary-light-3);
 }
 
 .dark .option-badge {
-	color: #e5e7eb;
-	background-color: #374151;
-	border-color: #4b5563;
+	color: var(--el-text-color-regular);
+	background-color: var(--el-fill-color-dark);
+	border-color: var(--el-border-color);
 }
 
 .dark .jump-badge.jump-default {
-	color: #c4b5fd;
-	background-color: #4c1d95;
+	color: var(--el-color-primary-light-3);
+	background-color: var(--el-color-primary-dark-2);
 }
 
 .dark .jump-badge.jump-custom {
-	color: #c4b5fd;
-	background-color: #4c1d95;
+	color: var(--el-color-primary-light-3);
+	background-color: var(--el-color-primary-dark-2);
 }
 
 .dark .empty-questions {
@@ -907,5 +904,23 @@ const getJumpTargetClass = (question: QuestionnaireSection, optionId: string) =>
 
 .dark .edit-question-btn:hover {
 	background-color: var(--primary-700) !important;
+}
+
+.file-upload-display {
+	background: var(--el-fill-color-lighter);
+	border-color: var(--el-border-color-light);
+}
+
+html.dark .file-upload-display {
+	background: var(--el-fill-color-darker);
+	border-color: var(--el-border-color);
+}
+
+.file-name-text {
+	color: var(--el-text-color-regular);
+}
+
+html.dark .file-name-text {
+	color: var(--el-text-color-secondary);
 }
 </style>

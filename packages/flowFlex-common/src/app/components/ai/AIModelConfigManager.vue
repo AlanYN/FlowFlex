@@ -16,7 +16,7 @@
 
 		<!-- Current Models List -->
 		<div class="models-list">
-			<el-table :data="modelConfigs" v-loading="loading" stripe style="width: 100%">
+			<el-table :data="modelConfigs" v-loading="loading" stripe style="width: 100%" border>
 				<el-table-column prop="provider" label="Provider" width="120">
 					<template #default="{ row }">
 						<el-tag :type="getProviderType(row.provider)">
@@ -440,24 +440,24 @@ onMounted(async () => {
 	align-items: center;
 	margin-bottom: 24px;
 	padding-bottom: 16px;
-	border-bottom: 1px solid #e5e7eb;
+	border-bottom: 1px solid var(--el-border-color-light);
 }
 
 .header-info h3 {
 	margin: 0 0 4px 0;
 	font-size: 18px;
 	font-weight: 600;
-	color: #374151;
+	color: var(--el-text-color-regular);
 }
 
 .header-info p {
 	margin: 0;
-	color: #6b7280;
+	color: var(--el-text-color-secondary);
 	font-size: 14px;
 }
 
 .models-list {
-	background: white;
+	background: var(--el-bg-color);
 	overflow: hidden;
 	@apply rounded-xl;
 }

@@ -1,15 +1,22 @@
-// 使用 @use 替代 @import
-@use 'unisc-item-ui/es/notify/style/index.css' as *;
-@use 'unisc-item-ui/es/notify-box/style/index.css' as *;
-@use '@styles/third-party' as *;
-@use './styles/fonts.scss' as *;
-@use '@styles/envVariable.scss' as *; // 环境变量
-@use '@styles/element-plus-reset-light' as *; // 重置element plus样式（默认）
-@use '@styles/element-plus-reset-dark' as *; // 重置element plus样式（暗黑）
-// @use '@styles/element-plus-reset-dark-purple.scss' as *; // 重置element plus样式（暗黑紫色）
-@use '@styles/global.scss' as *;
-@use '@styles/mixins' as *;
-@use 'nprogress/nprogress.css' as *; //这个样式必须引入
+/**
+ * FlowFlex 样式系统入口
+ * 
+ * 新的样式系统架构：
+ * - 符合 Item Element Plus 设计规范
+ * - 支持深色/浅色模式和蓝色/紫色主题双维度切换
+ * - 模块化、可维护的文件组织
+ * - 统一的 Typography 层级系统
+ * - 完全基于 CSS 变量，支持运行时主题切换
+ * 
+ * ⚠️ SCSS 规则：所有 @use 必须在文件最前面，@import 在 @use 之后
+ */
 
-// JSON语法高亮样式
+/* ========== 1. 第三方库样式（必须最先加载）========== */
+@use './styles/third-party' as *;
+@use 'nprogress/nprogress.css' as *;
+
+/* ========== 2. 设计系统和应用样式 ========== */
+@use './styles/index.scss' as *;
+
+/* ========== 3. 使用 @import 的遗留样式 ========== */
 @import './styles/json-syntax-highlight.scss';

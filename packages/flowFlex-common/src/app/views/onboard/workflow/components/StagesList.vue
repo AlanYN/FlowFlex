@@ -45,7 +45,7 @@
 				>
 					<template #item="{ element, index }">
 						<div
-							class="stage-item drag-handle"
+							class="stage-item drag-handle border-2"
 							:class="{
 								'stage-disabled': isLoading,
 								'stage-sorting': isSorting,
@@ -126,15 +126,8 @@
 									</div>
 								</div>
 								<div class="right-section">
-									<!-- <div
-										v-if="element.defaultAssignedGroup"
-										class="stage-tag stage-group-tag"
-										:title="element.defaultAssignedGroup"
-									>
-										{{ element.defaultAssignedGroup }}
-									</div> -->
 									<div
-										class="stage-tag stage-duration-tag"
+										class="stage-tag bg-primary text-white"
 										:title="`${element.estimatedDuration} ${
 											element.estimatedDuration > 1 ? 'days' : 'day'
 										}`"
@@ -144,7 +137,7 @@
 									</div>
 									<div
 										v-if="getStageComponents(element).length > 0"
-										class="stage-tag stage-group-tag"
+										class="stage-tag"
 										:title="`${getStageComponents(element).length} ${
 											getStageComponents(element).length > 1
 												? 'components'
@@ -263,7 +256,7 @@
 
 								<!-- Stage Details Section -->
 								<div class="stage-info-section">
-									<div class="flex items-center space-x-6 mt-4">
+									<div class="flex items-center space-x-6">
 										<!-- <div class="flex items-center">
 											<Users
 												:style="{
@@ -667,7 +660,9 @@ const getPortalPermissionTooltip = (permission?: number) => {
 }
 
 .stage-item {
-	@apply bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-600 overflow-hidden relative rounded-xl;
+	overflow: hidden;
+	position: relative;
+	border-radius: 12px;
 	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
 	border-left-width: 4px;
 	border-left-style: solid;
@@ -685,12 +680,13 @@ html.dark .stage-item:hover {
 }
 
 .stage-header {
-	@apply flex justify-between items-center p-4 cursor-pointer bg-white dark:bg-gray-800 gap-4;
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	padding: 1rem;
+	cursor: pointer;
+	gap: 1rem;
 	transition: background-color 0.2s;
-}
-
-.stage-header:hover {
-	@apply bg-blue-50/50 dark:bg-gray-700;
 }
 
 .left-section {
@@ -711,12 +707,12 @@ html.dark .stage-item:hover {
 }
 
 .stage-name {
-	@apply font-medium text-gray-900 dark:text-gray-100 whitespace-nowrap overflow-hidden text-ellipsis flex-1 min-w-0 flex items-center gap-1.5;
+	@apply font-medium stage-text-primary whitespace-nowrap overflow-hidden text-ellipsis flex-1 min-w-0 flex items-center gap-1.5;
 	font-size: 15px;
 }
 
 .portal-icon {
-	@apply w-5 h-5 text-gray-900 dark:text-gray-100 flex-shrink-0 outline-none border-none pt-0.5;
+	@apply w-5 h-5 stage-text-primary flex-shrink-0 outline-none border-none pt-0.5;
 }
 
 .portal-icon:focus,
@@ -728,7 +724,7 @@ html.dark .stage-item:hover {
 }
 
 .stage-description {
-	@apply text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap overflow-hidden text-ellipsis max-w-full;
+	@apply text-xs stage-text-secondary whitespace-nowrap overflow-hidden text-ellipsis max-w-full;
 }
 
 .right-section {
@@ -737,24 +733,12 @@ html.dark .stage-item:hover {
 
 /* 标签样式 */
 .stage-tag {
-	@apply inline-flex items-center justify-center rounded-full border border-gray-100 dark:border-gray-600 px-2.5 py-1 text-xs font-semibold bg-gray-50 dark:bg-gray-700 whitespace-nowrap flex-shrink-0 overflow-hidden text-ellipsis transition-all duration-200;
+	@apply inline-flex items-center justify-center rounded-full border stage-border-light px-2.5 py-1 text-xs font-semibold  whitespace-nowrap flex-shrink-0 overflow-hidden text-ellipsis transition-all duration-200;
 	max-width: 120px;
 }
 
 .stage-tag:hover {
-	@apply bg-gray-100 dark:bg-gray-600 border-gray-200 dark:border-gray-500;
-}
-
-.stage-group-tag {
-	@apply text-gray-700 dark:text-gray-300;
-}
-
-.stage-duration-tag {
-	@apply text-emerald-600 dark:text-emerald-400 border-emerald-100 dark:border-emerald-700 bg-emerald-50 dark:bg-emerald-900/20;
-}
-
-.stage-duration-tag:hover {
-	@apply bg-emerald-100 dark:bg-emerald-900/30;
+	@apply stage-bg-hover stage-border-hover;
 }
 
 .drag-handle {
@@ -763,17 +747,17 @@ html.dark .stage-item:hover {
 
 .ghost-stage {
 	opacity: 0.6;
-	background: var(--primary-50, #f0f7ff);
-	border: 1px dashed var(--primary-500, #2468f2);
+	background: var(--el-color-primary-light-9);
+	border: 1px dashed var(--el-color-primary);
 }
 
 .delete-item {
-	color: var(--red-500, #f56c6c);
+	color: var(--el-color-danger);
 }
 
 /* 展开详情样式 */
 .stage-details {
-	@apply px-4 pb-4 border-t border-gray-100 dark:border-gray-600 bg-slate-50/50 dark:bg-gray-800/80;
+	@apply px-4 pb-4 border-t stage-border-light;
 }
 
 /* Stage Components Section */
@@ -786,21 +770,21 @@ html.dark .stage-item:hover {
 }
 
 .component-item {
-	@apply flex items-center gap-3 p-2 px-3 bg-white dark:bg-gray-700 border border-gray-100 dark:border-gray-600 rounded-xl transition-all duration-200;
+	@apply flex items-center gap-3 p-2 px-3 stage-bg-base border stage-border-light rounded-xl transition-all duration-200;
 	box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
 }
 
 .component-item:hover {
-	@apply bg-blue-50 dark:bg-gray-600 border-blue-100 dark:border-gray-500;
+	@apply stage-bg-hover-primary stage-border-hover-primary;
 	box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
 }
 
 .component-number {
-	@apply flex items-center justify-center w-5 h-5 bg-blue-500 dark:bg-blue-600 text-white rounded-full text-xs font-semibold flex-shrink-0;
+	@apply flex items-center justify-center w-5 h-5 bg-primary rounded-full text-xs font-semibold flex-shrink-0 text-white;
 }
 
 .component-icon {
-	@apply flex items-center justify-center w-5 h-5 text-blue-600 dark:text-blue-400 flex-shrink-0;
+	@apply flex items-center justify-center w-5 h-5 text-primary flex-shrink-0;
 }
 
 .component-icon svg {
@@ -808,19 +792,19 @@ html.dark .stage-item:hover {
 }
 
 .component-name {
-	@apply flex-1 text-sm font-medium text-gray-700 dark:text-gray-300 min-w-0;
+	@apply flex-1 text-sm font-medium stage-text-regular min-w-0;
 }
 
 .component-type {
-	@apply text-xs font-medium text-slate-600 dark:text-gray-400 bg-slate-100 dark:bg-gray-600 px-2 py-0.5 lowercase flex-shrink-0 rounded-xl;
+	@apply text-xs font-medium bg-primary px-2 py-0.5 lowercase flex-shrink-0 rounded-xl text-white;
 }
 
 .no-components {
-	@apply p-3 text-center bg-gray-50 dark:bg-gray-700 border border-dashed border-gray-300 dark:border-gray-600 rounded-xl;
+	@apply p-3 text-center stage-bg-light border border-dashed stage-border-base rounded-xl;
 }
 
 .stage-info-section {
-	@apply border-t border-gray-200 dark:border-gray-600 pt-3;
+	@apply border-t stage-border-base pt-3;
 }
 
 .required-fields-section {
@@ -840,17 +824,17 @@ html.dark .stage-item:hover {
 }
 
 :deep(.el-checkbox__inner) {
-	border-color: var(--primary-100, #d9e6ff);
-	background-color: #fff;
+	border-color: var(--el-color-primary-light-8);
+	background-color: var(--el-color-white);
 }
 
 :deep(.el-checkbox__input.is-checked .el-checkbox__inner) {
-	background-color: var(--primary-500, #2468f2);
-	border-color: var(--primary-500, #2468f2);
+	background-color: var(--el-color-primary);
+	border-color: var(--el-color-primary);
 }
 
 .text-muted-foreground {
-	@apply text-gray-500 dark:text-gray-400 mr-2;
+	@apply stage-text-secondary mr-2;
 }
 
 .toggle-arrow {
@@ -896,11 +880,11 @@ html.dark .stage-item:hover {
 }
 
 .stage-skeleton {
-	@apply bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 overflow-hidden rounded-xl;
+	@apply bg-white dark:bg-gray-800 border stage-border-base overflow-hidden rounded-xl;
 	box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 	border-left-width: 4px;
 	border-left-style: solid;
-	border-left-color: #e5e7eb;
+	border-left-color: var(--el-border-color-light);
 }
 
 .skeleton-header {
@@ -911,7 +895,12 @@ html.dark .stage-item:hover {
 	width: 32px;
 	height: 32px;
 	border-radius: 50%;
-	background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+	background: linear-gradient(
+		90deg,
+		var(--el-fill-color-lighter) 25%,
+		var(--el-fill-color-light) 50%,
+		var(--el-fill-color-lighter) 75%
+	);
 	background-size: 200% 100%;
 	animation: skeleton-loading 1.5s infinite;
 }
@@ -922,7 +911,12 @@ html.dark .stage-item:hover {
 
 .skeleton-title {
 	height: 16px;
-	background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+	background: linear-gradient(
+		90deg,
+		var(--el-fill-color-lighter) 25%,
+		var(--el-fill-color-light) 50%,
+		var(--el-fill-color-lighter) 75%
+	);
 	background-size: 200% 100%;
 	animation: skeleton-loading 1.5s infinite;
 	margin-bottom: 8px;
@@ -932,7 +926,12 @@ html.dark .stage-item:hover {
 
 .skeleton-description {
 	height: 12px;
-	background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+	background: linear-gradient(
+		90deg,
+		var(--el-fill-color-lighter) 25%,
+		var(--el-fill-color-light) 50%,
+		var(--el-fill-color-lighter) 75%
+	);
 	background-size: 200% 100%;
 	animation: skeleton-loading 1.5s infinite;
 	width: 80%;
@@ -946,7 +945,12 @@ html.dark .stage-item:hover {
 .skeleton-tag {
 	height: 24px;
 	width: 80px;
-	background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+	background: linear-gradient(
+		90deg,
+		var(--el-fill-color-lighter) 25%,
+		var(--el-fill-color-light) 50%,
+		var(--el-fill-color-lighter) 75%
+	);
 	background-size: 200% 100%;
 	animation: skeleton-loading 1.5s infinite;
 	@apply rounded-xl;
@@ -964,8 +968,8 @@ html.dark .stage-item:hover {
 /* Sorting banner styles */
 .sorting-banner {
 	position: relative;
-	background: linear-gradient(135deg, rgba(36, 104, 242, 0.08), rgba(139, 92, 246, 0.08));
-	border: 1px solid rgba(36, 104, 242, 0.2);
+	background: var(--el-color-primary-light-9);
+	border: 1px solid var(--el-color-primary-light-7);
 	padding: 12px 16px;
 	margin-bottom: 16px;
 	animation: banner-slide-down 0.3s ease-out;
@@ -977,12 +981,12 @@ html.dark .stage-item:hover {
 	position: sticky;
 	top: 0;
 	z-index: 10;
-	background: linear-gradient(135deg, rgba(36, 104, 242, 0.95), rgba(139, 92, 246, 0.95));
+	background: var(--el-color-primary);
 	backdrop-filter: blur(8px);
-	border: 1px solid rgba(36, 104, 242, 0.3);
+	border: 1px solid var(--el-color-primary-light-3);
 	padding: 12px 16px;
 	margin-bottom: 16px;
-	box-shadow: 0 2px 8px rgba(36, 104, 242, 0.15);
+	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 	animation: banner-slide-down 0.3s ease-out;
 	@apply rounded-xl;
 }
@@ -1012,7 +1016,7 @@ html.dark .stage-item:hover {
 
 .line {
 	height: 2px;
-	background: var(--primary-500, #2468f2);
+	background: var(--el-color-primary);
 	animation: sorting-wave 1.5s infinite ease-in-out;
 	@apply rounded-xl;
 }
@@ -1181,14 +1185,103 @@ html.dark .stage-item:hover {
 	}
 
 	.field-tag {
-		background-color: rgba(14, 165, 233, 0.1);
-		color: #60a5fa;
-		border-color: rgba(14, 165, 233, 0.3);
+		background-color: var(--el-color-info-light-9);
+		color: var(--el-color-info-light-3);
+		border-color: var(--el-color-info-light-7);
 	}
 
 	.field-tag:hover {
-		background-color: rgba(14, 165, 233, 0.2);
-		border-color: rgba(14, 165, 233, 0.5);
+		background-color: var(--el-color-info-light-8);
+		border-color: var(--el-color-info-light-5);
 	}
+}
+
+/* 自定义类定义 */
+.stage-text-primary {
+	color: var(--el-text-color-primary);
+}
+
+.stage-text-secondary {
+	color: var(--el-text-color-secondary);
+}
+
+.stage-text-regular {
+	color: var(--el-text-color-regular);
+}
+
+.stage-text-muted {
+	color: var(--el-text-color-secondary);
+}
+
+.stage-bg-light {
+	background-color: var(--el-fill-color-lighter);
+}
+
+html.dark .stage-bg-light {
+	background-color: var(--el-fill-color-darker);
+}
+
+.stage-bg-base {
+	background-color: var(--el-bg-color);
+}
+
+html.dark .stage-bg-base {
+	background-color: var(--el-fill-color-darker);
+}
+
+.stage-bg-hover {
+	background-color: var(--el-fill-color-light);
+}
+
+html.dark .stage-bg-hover {
+	background-color: var(--el-fill-color);
+}
+
+.stage-bg-hover-primary {
+	background-color: var(--el-color-primary-light-9);
+}
+
+html.dark .stage-bg-hover-primary {
+	background-color: var(--el-fill-color);
+}
+
+.stage-bg-muted {
+	background-color: var(--el-fill-color-light);
+}
+
+html.dark .stage-bg-muted {
+	background-color: var(--el-fill-color);
+}
+
+.stage-border-light {
+	border-color: var(--el-border-color-lighter);
+}
+
+html.dark .stage-border-light {
+	border-color: var(--el-border-color);
+}
+
+.stage-border-base {
+	border-color: var(--el-border-color);
+}
+
+html.dark .stage-border-base {
+	border-color: var(--el-border-color);
+}
+
+.stage-border-hover {
+	border-color: var(--el-border-color-light);
+}
+
+html.dark .stage-border-hover {
+	border-color: var(--el-border-color-dark);
+}
+
+.stage-border-hover-primary {
+	border-color: var(--el-color-primary-light-8);
+}
+
+html.dark .stage-border-hover-primary {
+	border-color: var(--el-border-color-dark);
 }
 </style>

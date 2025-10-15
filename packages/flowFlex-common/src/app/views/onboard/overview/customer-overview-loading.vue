@@ -1,5 +1,5 @@
 <template>
-	<div class="pb-6 bg-gray-50 dark:bg-black-400">
+	<div class="pb-6 overview-loading-bg">
 		<!-- 顶部导航栏骨架 -->
 		<div class="flex justify-between items-center mb-6">
 			<div class="flex items-center">
@@ -62,7 +62,7 @@
 
 				<!-- 表格骨架 -->
 				<div class="w-full">
-					<div class="flex border-b border-gray-200 pb-2 mb-4">
+					<div class="flex overview-table-header pb-2 mb-4">
 						<div class="w-32 mr-4">
 							<el-skeleton-item variant="text" class="w-20 h-4" />
 						</div>
@@ -78,11 +78,7 @@
 					</div>
 
 					<!-- 表格行骨架 -->
-					<div
-						v-for="j in 4"
-						:key="j"
-						class="flex items-start py-3 border-b border-gray-100"
-					>
+					<div v-for="j in 4" :key="j" class="flex items-start py-3 overview-table-row">
 						<div class="w-32 mr-4">
 							<el-skeleton-item variant="button" class="w-20 h-6" />
 						</div>
@@ -127,4 +123,16 @@
 // 这是一个纯展示组件，不需要任何逻辑
 </script>
 
-<style scoped lang="scss"></style>
+<style scoped lang="scss">
+.overview-loading-bg {
+	background-color: var(--el-bg-color-page);
+}
+
+.overview-table-header {
+	border-bottom: 1px solid var(--el-border-color-light);
+}
+
+.overview-table-row {
+	border-bottom: 1px solid var(--el-border-color-lighter);
+}
+</style>

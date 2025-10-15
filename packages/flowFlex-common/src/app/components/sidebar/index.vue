@@ -1,91 +1,77 @@
 <template>
 	<div
-		:class="[
-			isCollapse ? 'w-[80px]' : 'w-[300px]',
-			' bg-siderbarGray dark:bg-black-400 py-8 unis-sidebar px-2',
-		]"
+		class="bg-siderbarGray dark:bg-black py-8 unis-sidebar sidebar-container"
+		:class="{ 'sidebar-collapsed': props.isCollapse }"
 	>
-		<div :class="[{ 'flex-col': isCollapse }, 'flex items-center justify-between px-2']">
-			<div class="block mr-[10px]" v-if="!isCollapse">
-				<div class="logo-top flex gap-1 text-lg font-medium ml-2 flex items-center">
-					<Logo />
-					<div class="text-2xl font-bold ml-2">WFE</div>
+		<div class="sidebar-content" :class="{ 'content-hidden': props.isCollapse }">
+			<div class="flex px-3 gap-x-2 cursor-pointer" @click="goToHomePage">
+				<Logo v-if="theme.theme == 'dark'" width="48" height="48" />
+				<PurpleLogo v-else width="48" height="48" />
+				<div class="flex flex-col dark:text-white">
+					<div class="text-2xl font-bold">item</div>
+					<div class="text-sm font-bold">WFE</div>
 				</div>
 			</div>
-			<div v-else>
-				<Logo class="mt-[32px] mb-[32px]" />
-			</div>
-			<template v-if="!isCollapse">
-				<DarkCollapseIcon
-					class="cursor-pointer"
-					v-if="theme === 'dark'"
-					@click="collapseEvent(true)"
+			<el-scrollbar :class="['mt-4 pr-1']">
+				<Menu
+					:collapse="false"
+					:uniqueOpened="true"
+					:collapseTransition="true"
+					mode="vertical"
 				/>
-				<CollapseIcon v-else class="cursor-pointer" @click="collapseEvent(true)" />
-			</template>
-			<template v-else>
-				<DarkExpandIcon
-					class="cursor-pointer"
-					v-if="theme === 'dark'"
-					@click="collapseEvent(false)"
-				/>
-				<ExpandIcon class="cursor-pointer" v-else @click="collapseEvent(false)" />
-			</template>
+			</el-scrollbar>
 		</div>
-		<el-scrollbar :class="['mt-10']">
-			<Menu
-				:collapse="isCollapse"
-				:uniqueOpened="true"
-				:collapseTransition="true"
-				mode="vertical"
-			/>
-		</el-scrollbar>
 	</div>
 </template>
 <script setup lang="ts">
-import { ref, computed } from 'vue';
-import { useTheme } from '@/utils/theme';
 import Menu from './components/menu.vue';
-// import { useGlobSetting } from '@/settings';
+import { PageEnum } from '@/enums/pageEnum';
+import { router } from '@/router';
 
-import CollapseIcon from '@assets/svg/layout/collapseButton.svg';
-import DarkCollapseIcon from '@assets/svg/layout/dark_collapse.svg';
-import ExpandIcon from '@assets/svg/layout/expand.svg';
-import DarkExpandIcon from '@assets/svg/layout/dark_expand.svg';
 import Logo from '@assets/svg/layout/logo.svg';
-
+import PurpleLogo from '@assets/svg/layout/purpleLogo.svg';
+import { useTheme } from '@/utils/theme';
 // const globSetting = useGlobSetting();
 
-let isCollapse = ref(false);
-const emit = defineEmits(['clickEvent']);
-
-const theme = computed(() => {
-	return useTheme().theme;
+const props = defineProps({
+	isCollapse: {
+		type: Boolean,
+		default: false,
+	},
 });
 
-const collapseEvent = (info?: boolean) => {
-	isCollapse.value = info || false;
-	emit('clickEvent', isCollapse.value);
+const goToHomePage = () => {
+	router.push(PageEnum.BASE_HOME as string);
 };
 
-defineExpose({
-	collapseEvent,
-});
+const theme = useTheme();
 </script>
 
 <style lang="scss" scoped>
 .unis-sidebar {
-	transition: width 0.5s ease;
+	transition: all 0.3s ease-in-out;
+	border-right: 2px solid var(--el-border-color-light);
 }
 
-.el-scrollbar {
-	.el-menu {
-		border-right: none !important;
-		padding-left: 0 !important;
-	}
+.sidebar-container {
+	width: 300px;
+	transition: width 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+	overflow: hidden;
+	position: relative;
 }
 
-.el-menu-item {
-	padding-left: 0 !important;
+.sidebar-collapsed {
+	width: 0px;
+}
+
+.sidebar-content {
+	width: 300px;
+	opacity: 1;
+	transition: opacity 0.3s ease-in-out;
+}
+
+.content-hidden {
+	opacity: 0;
+	transition: opacity 0.2s ease-in-out;
 }
 </style>

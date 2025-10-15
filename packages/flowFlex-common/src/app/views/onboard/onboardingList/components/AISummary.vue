@@ -1,5 +1,5 @@
 <template>
-	<div class="customer-block !rounded-3xl" v-if="showAISummarySection">
+	<div class="wfe-global-block-bg !rounded-3xl" v-if="showAISummarySection">
 		<!-- 统一的头部卡片 -->
 		<div
 			class="ai-summary-header-card rounded-3xl"
@@ -54,7 +54,7 @@
 				<div v-if="currentAISummary" class="ai-content-display">
 					<div class="ai-content-wrapper">
 						<p
-							class="break-words word-wrap text-sm leading-7 text-gray-800 dark:text-gray-100 overflow-hidden"
+							class="break-words word-wrap text-sm leading-7 ai-content-text overflow-hidden"
 							:class="{ 'ai-streaming': loading }"
 						>
 							{{ currentAISummary }}
@@ -73,10 +73,10 @@
 						</div>
 					</div>
 					<div class="ai-loading-text">
-						<div class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+						<div class="text-sm font-medium ai-loading-title mb-1">
 							AI is analyzing your data
 						</div>
-						<div class="text-xs text-gray-500 dark:text-gray-400">
+						<div class="text-xs ai-loading-subtitle">
 							{{ loadingText }}
 						</div>
 					</div>
@@ -112,10 +112,8 @@
 							/>
 						</svg>
 					</div>
-					<div class="text-sm text-gray-500 dark:text-gray-400 mb-1">
-						No AI insights available
-					</div>
-					<div class="text-xs text-gray-400 dark:text-gray-500">
+					<div class="text-sm ai-empty-title mb-1">No AI insights available</div>
+					<div class="text-xs ai-empty-subtitle">
 						Click the refresh button to generate intelligent summary
 					</div>
 				</div>
@@ -164,7 +162,7 @@ const emit = defineEmits<{
 }>();
 
 // 折叠状态
-const isExpanded = ref(true); // 默认展开
+const isExpanded = ref(false); // 默认展开
 
 // 切换展开状态
 const toggleExpanded = () => {
@@ -178,186 +176,6 @@ const handleRefresh = () => {
 </script>
 
 <style scoped lang="scss">
-/* 头部卡片样式 - 炫酷AI效果 */
-.ai-summary-header-card {
-	position: relative;
-	padding: 12px 16px;
-	color: white;
-	cursor: pointer;
-	transition: all 0.3s ease;
-	overflow: hidden;
-
-	/* 主要渐变背景 */
-	background: linear-gradient(
-		135deg,
-		#60a5fa 0%,
-		#818cf8 25%,
-		#8b5cf6 50%,
-		#6366f1 75%,
-		#60a5fa 100%
-	);
-	background-size: 300% 300%;
-	animation: gradient-shift 6s ease infinite;
-
-	/* 内容背景遮罩 */
-	&::after {
-		content: '';
-		position: absolute;
-		top: 3px;
-		left: 3px;
-		right: 3px;
-		bottom: 3px;
-		background: linear-gradient(
-			135deg,
-			#60a5fa 0%,
-			#818cf8 25%,
-			#8b5cf6 50%,
-			#6366f1 75%,
-			#60a5fa 100%
-		);
-		background-size: 300% 300%;
-		animation: gradient-shift 6s ease infinite;
-		z-index: -1;
-		@apply rounded-xl;
-	}
-
-	/* AI粒子效果 */
-	&::after {
-		background-image: radial-gradient(
-				circle at 20% 20%,
-				rgba(59, 130, 246, 0.3) 1px,
-				transparent 1px
-			),
-			radial-gradient(circle at 80% 80%, rgba(139, 92, 246, 0.3) 1px, transparent 1px),
-			radial-gradient(circle at 40% 40%, rgba(16, 185, 129, 0.3) 1px, transparent 1px),
-			linear-gradient(135deg, #60a5fa 0%, #818cf8 25%, #8b5cf6 50%, #6366f1 75%, #60a5fa 100%);
-		background-size:
-			50px 50px,
-			30px 30px,
-			40px 40px,
-			300% 300%;
-		animation:
-			gradient-shift 6s ease infinite,
-			particles-float 8s ease-in-out infinite;
-	}
-
-	> * {
-		position: relative;
-		z-index: 1;
-	}
-}
-
-.ai-summary-title {
-	font-size: 14px;
-	font-weight: 600;
-	margin: 0;
-	color: white;
-}
-
-.ai-summary-subtitle {
-	font-size: 12px;
-	margin: 0;
-	color: rgba(255, 255, 255, 0.9);
-	font-weight: 400;
-}
-
-.ai-actions {
-	display: flex;
-	align-items: center;
-}
-
-.expand-icon {
-	transition: transform 0.2s ease;
-	color: white;
-
-	&.rotated {
-		transform: rotate(90deg);
-	}
-}
-
-/* 状态徽章 - AI主题 */
-.ai-status-badge {
-	display: flex;
-	align-items: center;
-	gap: 4px;
-	padding: 3px 8px;
-	font-weight: 500;
-	font-size: 10px;
-	text-transform: uppercase;
-	letter-spacing: 0.3px;
-	background: rgba(255, 255, 255, 0.15);
-	backdrop-filter: blur(10px);
-	border: 1px solid rgba(255, 255, 255, 0.2);
-	box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
-	@apply rounded-xl;
-
-	.status-dot {
-		width: 6px;
-		height: 6px;
-		margin-right: 2px;
-		box-shadow: 0 0 6px currentColor;
-		@apply rounded-xl;
-	}
-
-	&.generating {
-		background: linear-gradient(135deg, rgba(245, 158, 11, 0.2), rgba(251, 191, 36, 0.3));
-		border-color: rgba(245, 158, 11, 0.4);
-		color: #fbbf24;
-
-		.status-dot {
-			background: #fbbf24;
-			animation:
-				status-pulse 1s ease-in-out infinite,
-				glow-pulse 2s ease-in-out infinite;
-		}
-	}
-
-	&.ready {
-		background: linear-gradient(135deg, rgba(16, 185, 129, 0.2), rgba(52, 211, 153, 0.3));
-		border-color: rgba(16, 185, 129, 0.4);
-		color: #10b981;
-
-		.status-dot {
-			background: #10b981;
-			animation: status-pulse 2s ease-in-out infinite;
-		}
-	}
-
-	&.idle {
-		background: linear-gradient(135deg, rgba(156, 163, 175, 0.2), rgba(209, 213, 219, 0.3));
-		border-color: rgba(156, 163, 175, 0.4);
-		color: #9ca3af;
-
-		.status-dot {
-			background: #9ca3af;
-			animation: status-pulse 3s ease-in-out infinite;
-		}
-	}
-}
-
-/* 刷新按钮 - AI主题 */
-.ai-refresh-btn {
-	background: linear-gradient(135deg, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0.1));
-	border: 1px solid rgba(255, 255, 255, 0.3);
-	color: white;
-	transition: all 0.3s ease;
-	backdrop-filter: blur(10px);
-	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-
-	&:hover {
-		background: linear-gradient(135deg, rgba(255, 255, 255, 0.3), rgba(255, 255, 255, 0.2));
-		border-color: rgba(255, 255, 255, 0.5);
-		transform: translateY(-1px);
-		box-shadow:
-			0 4px 12px rgba(0, 0, 0, 0.2),
-			0 0 15px rgba(255, 255, 255, 0.25);
-	}
-
-	&:active {
-		transform: translateY(0) scale(0.98);
-	}
-}
-
 /* AI内容样式 */
 .ai-content-wrapper {
 	position: relative;
@@ -369,20 +187,13 @@ const handleRefresh = () => {
 }
 
 .ai-streaming {
-	background: linear-gradient(
-		90deg,
-		transparent 0%,
-		rgba(59, 130, 246, 0.08) 50%,
-		transparent 100%
-	);
-	background-size: 200% 100%;
-	animation: ai-shimmer 2s infinite;
+	background: var(--el-fill-color);
 	padding: 8px;
 	@apply rounded-xl;
 }
 
 .ai-typing-cursor {
-	color: #3b82f6;
+	color: var(--el-color-primary);
 	font-weight: bold;
 	animation: typing-blink 1s infinite;
 }
@@ -410,7 +221,7 @@ const handleRefresh = () => {
 		position: absolute;
 		width: 100%;
 		height: 4px;
-		background: linear-gradient(90deg, #3b82f6 0%, #8b5cf6 50%, #6366f1 100%);
+		background: var(--el-color-primary);
 		animation: brain-wave-animation 1.5s ease-in-out infinite;
 		@apply rounded-xl;
 
@@ -435,14 +246,14 @@ const handleRefresh = () => {
 	width: 100%;
 	max-width: 200px;
 	height: 3px;
-	background: rgba(59, 130, 246, 0.1);
+	background: var(--el-fill-color);
 	overflow: hidden;
 	margin-top: 1rem;
 	@apply rounded-xl;
 
 	.progress-bar {
 		height: 100%;
-		background: linear-gradient(90deg, #3b82f6 0%, #8b5cf6 100%);
+		background: var(--el-color-primary);
 		animation: progress-flow 2s ease-in-out infinite;
 		@apply rounded-xl;
 	}
@@ -459,7 +270,7 @@ const handleRefresh = () => {
 
 	.empty-icon {
 		margin-bottom: 1rem;
-		color: #9ca3af;
+		color: var(--el-text-color-placeholder);
 		opacity: 0.7;
 		animation: float 4s ease-in-out infinite;
 	}
@@ -472,7 +283,7 @@ const handleRefresh = () => {
 	justify-content: center;
 	padding: 8px;
 	margin-top: 8px;
-	background: rgba(59, 130, 246, 0.05);
+	background: var(--el-fill-color);
 	@apply rounded-xl;
 }
 
@@ -483,7 +294,7 @@ const handleRefresh = () => {
 	.dot {
 		width: 4px;
 		height: 4px;
-		background: #3b82f6;
+		background: var(--el-color-primary);
 		border-radius: 50%;
 		animation: dot-bounce 1.4s ease-in-out infinite both;
 
@@ -510,95 +321,28 @@ const handleRefresh = () => {
 	backface-visibility: hidden;
 }
 
-/* 暗色主题样式 */
-.dark {
-	.ai-summary-header-card {
-		/* 暗色主题下增强的渐变背景 */
-		background: linear-gradient(
-			135deg,
-			#3b82f6 0%,
-			#60a5fa 20%,
-			#818cf8 40%,
-			#8b5cf6 60%,
-			#6366f1 80%,
-			#3b82f6 100%
-		);
-		background-size: 300% 300%;
-		animation: gradient-shift 6s ease infinite;
+/* 自定义文本颜色类 */
+.ai-content-text {
+	color: var(--el-text-color-primary);
+}
 
-		&::after {
-			background: linear-gradient(
-				135deg,
-				#3b82f6 0%,
-				#60a5fa 20%,
-				#818cf8 40%,
-				#8b5cf6 60%,
-				#6366f1 80%,
-				#3b82f6 100%
-			);
+.ai-loading-title {
+	color: var(--el-text-color-regular);
+}
 
-			/* 增强粒子效果可见性 */
-			background-image: radial-gradient(
-					circle at 20% 20%,
-					rgba(96, 165, 250, 0.6) 1.5px,
-					transparent 1.5px
-				),
-				radial-gradient(
-					circle at 80% 80%,
-					rgba(167, 139, 250, 0.6) 1.5px,
-					transparent 1.5px
-				),
-				radial-gradient(circle at 40% 40%, rgba(52, 211, 153, 0.6) 1.5px, transparent 1.5px),
-				radial-gradient(circle at 60% 20%, rgba(251, 191, 36, 0.5) 1px, transparent 1px),
-				radial-gradient(circle at 30% 70%, rgba(248, 113, 113, 0.5) 1px, transparent 1px),
-				linear-gradient(
-					135deg,
-					#3b82f6 0%,
-					#60a5fa 20%,
-					#818cf8 40%,
-					#8b5cf6 60%,
-					#6366f1 80%,
-					#3b82f6 100%
-				);
-			background-size:
-				60px 60px,
-				40px 40px,
-				50px 50px,
-				35px 35px,
-				45px 45px,
-				300% 300%;
-			animation:
-				gradient-shift 6s ease infinite,
-				particles-float 10s ease-in-out infinite;
-		}
-	}
+.ai-loading-subtitle {
+	color: var(--el-text-color-secondary);
+}
+
+.ai-empty-title {
+	color: var(--el-text-color-secondary);
+}
+
+.ai-empty-subtitle {
+	color: var(--el-text-color-placeholder);
 }
 
 /* 动画定义 */
-@keyframes status-pulse {
-	0%,
-	100% {
-		opacity: 1;
-		transform: scale(1);
-	}
-	50% {
-		opacity: 0.7;
-		transform: scale(1.1);
-	}
-}
-
-@keyframes glow-pulse {
-	0%,
-	100% {
-		box-shadow: 0 0 8px currentColor;
-	}
-	50% {
-		box-shadow:
-			0 0 16px currentColor,
-			0 0 24px currentColor;
-	}
-}
-
 @keyframes ai-shimmer {
 	0% {
 		background-position: -200% 0;
@@ -703,13 +447,6 @@ const handleRefresh = () => {
 			100% 100%,
 			50% 50%,
 			100% 50%;
-	}
-}
-
-/* 响应式设计 */
-@media (max-width: 768px) {
-	.ai-summary-header-card {
-		padding: 8px 12px;
 	}
 }
 

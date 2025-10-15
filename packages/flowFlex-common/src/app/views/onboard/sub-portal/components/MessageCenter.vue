@@ -20,8 +20,8 @@
 				<el-col :span="8">
 					<el-card>
 						<div class="stat-content">
-							<div class="stat-icon">
-								<i class="el-icon-message" style="color: #409eff"></i>
+							<div class="stat-icon stat-icon-primary">
+								<i class="el-icon-message"></i>
 							</div>
 							<div class="stat-info">
 								<div class="stat-value">{{ totalMessages }}</div>
@@ -33,8 +33,8 @@
 				<el-col :span="8">
 					<el-card>
 						<div class="stat-content">
-							<div class="stat-icon">
-								<i class="el-icon-warning" style="color: #f56c6c"></i>
+							<div class="stat-icon stat-icon-danger">
+								<i class="el-icon-warning"></i>
 							</div>
 							<div class="stat-info">
 								<div class="stat-value">{{ unreadMessages }}</div>
@@ -46,8 +46,8 @@
 				<el-col :span="8">
 					<el-card>
 						<div class="stat-content">
-							<div class="stat-icon">
-								<i class="el-icon-time" style="color: #67c23a"></i>
+							<div class="stat-icon stat-icon-success">
+								<i class="el-icon-time"></i>
 							</div>
 							<div class="stat-info">
 								<div class="stat-value">{{ todayMessages }}</div>
@@ -175,7 +175,7 @@
 								:value="member.id"
 							>
 								<span style="float: left">{{ member.name }}</span>
-								<span style="float: right; color: #8492a6; font-size: 13px">
+								<span class="member-role-option">
 									{{ member.role }}
 								</span>
 							</el-option>
@@ -229,7 +229,13 @@
 					<div class="original-content">{{ replyMessage.content }}</div>
 				</div>
 			</div>
-			<el-form :model="replyForm" :rules="replyRules" ref="replyForm" label-width="80px">
+			<el-form
+				:model="replyForm"
+				:rules="replyRules"
+				ref="replyForm"
+				label-width="80px"
+				@submit.prevent
+			>
 				<el-form-item label="回复内容" prop="content">
 					<el-input
 						v-model="replyForm.content"
@@ -426,14 +432,14 @@ export default {
 
 .header-title h2 {
 	margin: 0 0 8px 0;
-	color: #1f2937;
+	color: var(--el-text-color-primary);
 	font-size: 24px;
 	font-weight: 600;
 }
 
 .header-title p {
 	margin: 0;
-	color: #6b7280;
+	color: var(--el-text-color-secondary);
 	font-size: 14px;
 }
 
@@ -450,20 +456,20 @@ export default {
 .stat-icon {
 	font-size: 24px;
 	padding: 12px;
-	background-color: #f3f4f6;
+	background-color: var(--el-fill-color-light);
 	@apply rounded-xl;
 }
 
 .stat-value {
 	font-size: 24px;
 	font-weight: 700;
-	color: #1f2937;
+	color: var(--el-text-color-primary);
 	margin-bottom: 4px;
 }
 
 .stat-label {
 	font-size: 12px;
-	color: #6b7280;
+	color: var(--el-text-color-secondary);
 }
 
 .message-filters {
@@ -504,13 +510,13 @@ export default {
 
 .sender-name {
 	font-weight: 600;
-	color: #1f2937;
+	color: var(--el-text-color-primary);
 	margin-bottom: 4px;
 }
 
 .sender-role {
 	font-size: 12px;
-	color: #6b7280;
+	color: var(--el-text-color-secondary);
 }
 
 .message-info {
@@ -519,7 +525,7 @@ export default {
 
 .message-time {
 	font-size: 12px;
-	color: #6b7280;
+	color: var(--el-text-color-secondary);
 	margin-bottom: 8px;
 }
 
@@ -537,12 +543,12 @@ export default {
 	margin: 0 0 8px 0;
 	font-size: 16px;
 	font-weight: 600;
-	color: #1f2937;
+	color: var(--el-text-color-primary);
 }
 
 .message-preview {
 	margin: 0;
-	color: #4b5563;
+	color: var(--el-text-color-regular);
 	line-height: 1.5;
 	display: -webkit-box;
 	-webkit-line-clamp: 2;
@@ -559,7 +565,7 @@ export default {
 .empty-state {
 	text-align: center;
 	padding: 60px 20px;
-	color: #9ca3af;
+	color: var(--el-text-color-placeholder);
 }
 
 .empty-state i {
@@ -573,8 +579,8 @@ export default {
 }
 
 .original-message {
-	background-color: #f9fafb;
-	border-left: 4px solid #e5e7eb;
+	background-color: var(--el-fill-color-blank);
+	border-left: 4px solid var(--el-border-color-light);
 	padding: 16px;
 	@apply rounded-xl;
 }
@@ -588,17 +594,17 @@ export default {
 
 .original-time {
 	font-size: 12px;
-	color: #6b7280;
+	color: var(--el-text-color-secondary);
 }
 
 .original-subject {
 	font-weight: 500;
 	margin-bottom: 8px;
-	color: #374151;
+	color: var(--el-text-color-regular);
 }
 
 .original-content {
-	color: #4b5563;
+	color: var(--el-text-color-regular);
 	line-height: 1.5;
 }
 
@@ -624,5 +630,24 @@ export default {
 	.message-actions {
 		justify-content: flex-start;
 	}
+}
+
+/* 自定义样式类 */
+.stat-icon-primary {
+	color: var(--el-color-primary);
+}
+
+.stat-icon-danger {
+	color: var(--el-color-danger);
+}
+
+.stat-icon-success {
+	color: var(--el-color-success);
+}
+
+.member-role-option {
+	float: right;
+	color: var(--el-text-color-placeholder);
+	font-size: 13px;
 }
 </style>

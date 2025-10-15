@@ -34,13 +34,18 @@
 						</el-button>
 					</div>
 
-					<el-form :model="assignment" label-position="left" label-width="80px">
+					<el-form
+						:model="assignment"
+						label-position="left"
+						label-width="80px"
+						@submit.prevent
+					>
 						<el-form-item>
 							<template #label>
 								<span class="font-bold">Workflow</span>
 							</template>
 							<el-select
-								v-model="assignment.workflowId"
+								v-model="assignment.workflowId as string"
 								placeholder="Select workflow"
 								style="width: 100%"
 								@change="handleWorkflowChange(index, $event)"
@@ -75,7 +80,7 @@
 								<span class="font-bold">Stage</span>
 							</template>
 							<el-select
-								v-model="assignment.stageId"
+								v-model="assignment.stageId as string"
 								placeholder="Select stage"
 								style="width: 100%"
 								:disabled="!assignment.workflowId || assignment.stagesLoading"
@@ -358,7 +363,7 @@ defineExpose({
 }
 
 .inactive-icon {
-	color: #f56c6c;
+	color: var(--el-color-danger);
 	font-size: 14px;
 }
 </style>

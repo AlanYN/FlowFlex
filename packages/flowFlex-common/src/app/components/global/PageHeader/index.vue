@@ -4,10 +4,8 @@
 	>
 		<!-- 背景层 -->
 		<div class="absolute inset-0 z-10">
-			<!-- 渐变背景 -->
-			<div
-				class="absolute inset-0 bg-gradient-to-r from-primary-600 to-indigo-600 opacity-80"
-			></div>
+			<!-- 主题背景 -->
+			<div class="absolute inset-0 page-header-bg"></div>
 		</div>
 
 		<!-- 内容层 -->
@@ -72,6 +70,12 @@ const handleGoBack = () => {
 </script>
 
 <style scoped lang="scss">
+/* 页面头部背景 */
+.page-header-bg {
+	background: var(--el-color-primary);
+	opacity: 0.9;
+}
+
 /* 标题白色文字效果 */
 h1 {
 	text-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
@@ -83,10 +87,11 @@ h1 {
 }
 
 :deep(.page-header-btn-primary) {
-	@apply text-white shadow-lg;
-	background: linear-gradient(135deg, #6366f1, #4f46e5);
+	@apply shadow-lg;
+	background: var(--el-color-primary);
+	color: var(--el-color-white);
 	box-shadow:
-		0 2px 8px rgba(99, 102, 241, 0.3),
+		0 2px 8px rgba(0, 0, 0, 0.15),
 		0 1px 3px rgba(0, 0, 0, 0.2);
 }
 
@@ -94,14 +99,15 @@ h1 {
 	content: '';
 	@apply absolute top-0 w-full h-full transition-all duration-500 ease-in-out;
 	left: -100%;
-	background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+	background: var(--el-color-white);
+	opacity: 0.15;
 }
 
 :deep(.page-header-btn-primary:hover) {
 	@apply -translate-y-0.5;
-	background: linear-gradient(135deg, #4f46e5, #3730a3);
+	background: var(--el-color-primary-dark-2);
 	box-shadow:
-		0 4px 12px rgba(99, 102, 241, 0.4),
+		0 4px 12px rgba(0, 0, 0, 0.2),
 		0 2px 6px rgba(0, 0, 0, 0.2);
 }
 
@@ -114,7 +120,8 @@ h1 {
 }
 
 :deep(.page-header-btn-secondary) {
-	@apply text-white border border-white/30;
+	color: var(--el-color-white);
+	border: 1px solid rgba(255, 255, 255, 0.3);
 	background: rgba(255, 255, 255, 0.1);
 }
 
@@ -153,19 +160,9 @@ h1 {
 
 /* 暗色主题支持 */
 html.dark {
-	/* 暗色渐变背景 */
-	.bg-gradient-to-br {
-		background: linear-gradient(
-			135deg,
-			var(--black-100) 0%,
-			var(--black-200) 50%,
-			var(--primary-800) 100%
-		);
-	}
-
 	/* 暗色标题样式 */
 	h1 {
-		@apply text-white;
+		color: var(--el-color-white);
 		background: none !important;
 		-webkit-background-clip: unset !important;
 		-webkit-text-fill-color: unset !important;
@@ -175,7 +172,7 @@ html.dark {
 
 	/* 暗色描述文字 */
 	p {
-		@apply text-white;
+		color: var(--el-color-white);
 		opacity: 0.8;
 	}
 

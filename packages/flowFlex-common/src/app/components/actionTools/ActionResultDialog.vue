@@ -27,7 +27,7 @@
 						<div class="empty-state-content">
 							<!-- Icon -->
 							<div class="empty-state-icon">
-								<el-icon class="text-6xl text-gray-300 dark:text-gray-600">
+								<el-icon class="text-6xl empty-icon-color">
 									<Document />
 								</el-icon>
 							</div>
@@ -70,10 +70,10 @@
 												<template #label>
 													<div class="flex items-center space-x-2">
 														<div
-															class="w-2 h-2 bg-blue-500 rounded-full"
+															class="w-2 h-2 section-indicator rounded-full"
 														></div>
 														<h4
-															class="text-sm font-semibold text-gray-700 dark:text-gray-200 m-0"
+															class="text-sm font-semibold section-title m-0"
 														>
 															Input
 														</h4>
@@ -83,7 +83,7 @@
 											<div v-else class="text-renderer">
 												<el-scrollbar max-height="300px">
 													<pre
-														class="font-mono text-xs leading-relaxed text-gray-800 dark:text-gray-200 p-4 m-0 whitespace-pre-wrap break-words"
+														class="font-mono text-xs leading-relaxed code-text-color p-4 m-0 whitespace-pre-wrap break-words"
 														>{{ row.inputType.data }}</pre
 													>
 												</el-scrollbar>
@@ -93,7 +93,7 @@
 										<template v-else>
 											<el-scrollbar max-height="300px">
 												<pre
-													class="font-mono text-xs leading-relaxed text-gray-800 dark:text-gray-200 p-4 m-0 whitespace-pre-wrap break-words"
+													class="font-mono text-xs leading-relaxed code-text-color p-4 m-0 whitespace-pre-wrap break-words"
 													>{{ formatJsonOutput(row.executionInput) }}</pre
 												>
 											</el-scrollbar>
@@ -101,7 +101,7 @@
 									</div>
 								</div>
 								<div
-									class="w-px border-l border-dashed border-gray-300 dark:border-gray-500 my-4"
+									class="w-px border-l border-dashed divider-border-color my-4"
 								></div>
 								<div
 									v-if="row.executionOutput"
@@ -122,7 +122,7 @@
 															class="w-2 h-2 bg-green-500 rounded-full"
 														></div>
 														<h4
-															class="text-sm font-semibold text-gray-700 dark:text-gray-200 m-0"
+															class="text-sm font-semibold section-title m-0"
 														>
 															Output
 														</h4>
@@ -142,7 +142,7 @@
 															class="w-2 h-2 bg-green-500 rounded-full"
 														></div>
 														<h4
-															class="text-sm font-semibold text-gray-700 dark:text-gray-200 m-0"
+															class="text-sm font-semibold section-title m-0"
 														>
 															Output
 														</h4>
@@ -152,7 +152,7 @@
 											<div v-else class="text-renderer">
 												<el-scrollbar max-height="300px">
 													<pre
-														class="font-mono text-xs leading-relaxed text-gray-800 dark:text-gray-200 p-4 m-0 whitespace-pre-wrap break-words"
+														class="font-mono text-xs leading-relaxed code-text-color p-4 m-0 whitespace-pre-wrap break-words"
 														>{{ row.outputType.data }}</pre
 													>
 												</el-scrollbar>
@@ -162,7 +162,7 @@
 										<template v-else>
 											<el-scrollbar max-height="300px">
 												<pre
-													class="font-mono text-xs leading-relaxed text-gray-800 dark:text-gray-200 border-0 rounded-none p-4 m-0 whitespace-pre-wrap break-words"
+													class="font-mono text-xs leading-relaxed code-text-color border-0 rounded-none p-4 m-0 whitespace-pre-wrap break-words"
 													>{{
 														formatJsonOutput(row.executionOutput)
 													}}</pre
@@ -208,7 +208,7 @@
 								"
 								class="text-center py-8"
 							>
-								<div class="text-gray-400 dark:text-gray-500 text-sm">
+								<div class="empty-text-color text-sm">
 									No execution details available
 								</div>
 							</div>
@@ -429,23 +429,20 @@ const formatJsonOutput = (data: any): string => {
 };
 
 const getStatusClass = (status: string): string => {
-	if (!status) return 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-100';
+	if (!status) return 'status-tag status-default';
 
 	const statusMap = new Map<string, string>([
-		['completed', 'bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-100'],
-		['success', 'bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-100'],
-		['failed', 'bg-red-100 text-red-800 dark:bg-red-800 dark:text-red-100'],
-		['error', 'bg-red-100 text-red-800 dark:bg-red-800 dark:text-red-100'],
-		['pending', 'bg-orange-100 text-orange-800 dark:bg-orange-800 dark:text-orange-100'],
-		['running', 'bg-orange-100 text-orange-800 dark:bg-orange-800 dark:text-orange-100'],
-		['executing', 'bg-orange-100 text-orange-800 dark:bg-orange-800 dark:text-orange-100'],
-		['waiting', 'bg-orange-100 text-orange-800 dark:bg-orange-800 dark:text-orange-100'],
+		['completed', 'status-tag status-success'],
+		['success', 'status-tag status-success'],
+		['failed', 'status-tag status-danger'],
+		['error', 'status-tag status-danger'],
+		['pending', 'status-tag status-warning'],
+		['running', 'status-tag status-warning'],
+		['executing', 'status-tag status-warning'],
+		['waiting', 'status-tag status-warning'],
 	]);
 
-	return (
-		statusMap.get(status.toLowerCase()) ??
-		'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-100'
-	);
+	return statusMap.get(status.toLowerCase()) ?? 'status-tag status-default';
 };
 
 const getStatusText = (status: string): string => {
@@ -628,6 +625,84 @@ watch(
 </script>
 
 <style scoped lang="scss">
+/* 新增CSS类定义 */
+.empty-icon-color {
+	color: var(--el-text-color-placeholder);
+}
+
+html.dark .empty-icon-color {
+	color: var(--el-border-color);
+}
+
+.section-indicator {
+	background-color: var(--el-color-primary);
+}
+
+.section-title {
+	color: var(--el-text-color-regular);
+}
+
+.code-text-color {
+	color: var(--el-text-color-primary);
+}
+
+.divider-border-color {
+	border-color: var(--el-border-color-light);
+}
+
+html.dark .divider-border-color {
+	border-color: var(--el-border-color);
+}
+
+.empty-text-color {
+	color: var(--el-text-color-secondary);
+}
+
+/* 状态标签样式 */
+.status-tag {
+	@apply inline-flex items-center px-2 py-1 rounded text-xs font-medium;
+}
+
+.status-success {
+	background-color: var(--el-color-success-light-9) !important;
+	color: var(--el-color-success-dark-2) !important;
+}
+
+html.dark .status-success {
+	background-color: var(--el-color-success-dark-2) !important;
+	color: var(--el-color-success-light-9) !important;
+}
+
+.status-danger {
+	background-color: var(--el-color-danger-light-9) !important;
+	color: var(--el-color-danger-dark-2) !important;
+}
+
+html.dark .status-danger {
+	background-color: var(--el-color-danger-dark-2) !important;
+	color: var(--el-color-danger-light-9) !important;
+}
+
+.status-warning {
+	background-color: var(--el-color-warning-light-9) !important;
+	color: var(--el-color-warning-dark-2) !important;
+}
+
+html.dark .status-warning {
+	background-color: var(--el-color-warning-dark-2) !important;
+	color: var(--el-color-warning-light-9) !important;
+}
+
+.status-default {
+	background-color: var(--el-fill-color-light) !important;
+	color: var(--el-text-color-regular) !important;
+}
+
+html.dark .status-default {
+	background-color: var(--el-fill-color) !important;
+	color: var(--el-text-color-primary) !important;
+}
+
 .action-result-dialog {
 	:deep(.el-dialog__body) {
 		padding: 20px;
@@ -681,9 +756,9 @@ watch(
 
 /* Type tag styles */
 .type-tag {
-	background-color: #e6f3ff !important;
-	border-color: #b3d9ff !important;
-	color: #2468f2 !important;
+	background-color: var(--el-color-primary-light-9) !important;
+	border-color: var(--el-color-primary-light-7) !important;
+	color: var(--el-color-primary) !important;
 	padding: 4px 12px !important;
 	font-size: 12px !important;
 	font-weight: 500 !important;
@@ -697,37 +772,13 @@ watch(
 	font-weight: 500 !important;
 }
 
-/* 成功状态 - 绿色 */
-.status-tag.bg-green-100 {
-	background-color: #dcfce7 !important;
-	color: #166534 !important;
-}
-
-/* 失败状态 - 红色 */
-.status-tag.bg-red-100 {
-	background-color: #fee2e2 !important;
-	color: #991b1b !important;
-}
-
-/* 等待/进行中状态 - 橙色 */
-.status-tag.bg-orange-100 {
-	background-color: #fed7aa !important;
-	color: #c2410c !important;
-}
-
-/* 未知状态 - 灰色 */
-.status-tag.bg-gray-100 {
-	background-color: #f3f4f6 !important;
-	color: #374151 !important;
-}
-
 .execution-code-block {
 	@apply rounded-xl;
 	font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
 	font-size: 12px;
 	line-height: 1.5;
-	background: white;
-	border: 1px solid #e5e7eb;
+	background: var(--el-bg-color);
+	border: 1px solid var(--el-border-color-light);
 	padding: 12px;
 	margin: 0;
 	overflow-x: auto;
@@ -748,36 +799,20 @@ html.dark {
 	}
 
 	.execution-code-block {
-		background: #1f2937;
-		border-color: #374151;
-		color: #f9fafb;
-	}
-
-	/* 暗色模式下的状态标签 */
-	.status-tag.bg-green-100 {
-		background-color: #166534 !important;
-		color: #dcfce7 !important;
-	}
-
-	.status-tag.bg-red-100 {
-		background-color: #991b1b !important;
-		color: #fee2e2 !important;
-	}
-
-	.status-tag.bg-orange-100 {
-		background-color: #c2410c !important;
-		color: #fed7aa !important;
-	}
-
-	.status-tag.bg-gray-100 {
-		background-color: #374151 !important;
-		color: #f3f4f6 !important;
+		background: var(--el-bg-color-page);
+		border-color: var(--el-border-color);
+		color: var(--el-text-color-primary);
 	}
 }
 
 /* 新增渲染组件样式 */
 .text-renderer {
-	@apply bg-white dark:bg-gray-900 rounded-xl;
+	@apply rounded-xl;
+	background: var(--el-bg-color);
+}
+
+html.dark .text-renderer {
+	background: var(--el-bg-color-page);
 }
 
 .text-renderer pre {

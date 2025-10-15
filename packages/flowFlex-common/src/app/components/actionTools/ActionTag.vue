@@ -140,9 +140,8 @@ const handleClick = () => {
 	border-radius: 50%;
 	transition: all 0.2s ease;
 	user-select: none;
-	background-color: #f3f4f6;
-	border: 1px solid #e5e7eb;
-	color: #6366f1;
+	background-color: var(--el-color-primary);
+	color: var(--el-color-white);
 	position: relative;
 }
 
@@ -157,8 +156,8 @@ const handleClick = () => {
 	position: absolute;
 	top: -6px;
 	right: -6px;
-	background-color: #f59e0b;
-	color: white;
+	background-color: var(--el-color-warning);
+	color: var(--el-color-white);
 	font-size: 0.6em;
 	font-weight: 600;
 	line-height: 1;
@@ -168,14 +167,14 @@ const handleClick = () => {
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	border: 1px solid white;
+	border: 1px solid var(--el-color-white);
 	box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 .action-icon-tag:hover {
-	box-shadow: 0 2px 8px rgba(99, 102, 241, 0.25);
-	background-color: #eef2ff;
-	border-color: #c7d2fe;
+	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+	background-color: var(--el-color-primary-light-9);
+	border-color: var(--el-color-primary-light-5);
 }
 
 .action-icon-tag:active {
@@ -188,21 +187,8 @@ const handleClick = () => {
 	box-shadow: none;
 }
 
-/* 暗色主题支持 */
-html.dark .action-icon-tag {
-	background-color: #374151;
-	border-color: #4b5563;
-	color: #818cf8;
-}
-
-html.dark .action-icon-tag:hover {
-	background-color: #4338ca;
-	border-color: #6366f1;
-	color: #c7d2fe;
-}
-
 html.dark .action-count {
-	background-color: #dc2626;
-	border-color: #374151;
+	background-color: var(--el-color-danger);
+	border-color: var(--el-border-color);
 }
 </style>

@@ -536,7 +536,7 @@ const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 .attachment-btn {
 	font-size: 18px !important;
-	color: #6b7280 !important;
+	color: var(--el-text-color-secondary) !important;
 	padding: 4px 8px !important;
 	margin: 0 !important;
 	border: none !important;
@@ -547,8 +547,8 @@ const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 .attachment-btn:hover {
-	color: #4f46e5 !important;
-	background: #f3f4f6 !important;
+	color: var(--el-color-primary) !important;
+	background: var(--el-fill-color-light) !important;
 	@apply rounded-xl;
 }
 
@@ -568,13 +568,13 @@ const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 	align-items: center;
 	gap: 1rem;
 	padding: 1rem;
-	background: #f8fafc;
+	background: var(--el-fill-color-blank);
 	@apply rounded-xl;
 }
 
 .file-icon {
 	font-size: 32px;
-	color: #4f46e5;
+	color: var(--el-color-primary);
 }
 
 .file-details {
@@ -585,13 +585,13 @@ const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 	margin: 0 0 0.25rem 0;
 	font-size: 16px;
 	font-weight: 600;
-	color: #374151;
+	color: var(--el-text-color-regular);
 }
 
 .file-size {
 	margin: 0;
 	font-size: 14px;
-	color: #6b7280;
+	color: var(--el-text-color-secondary);
 }
 
 .processing-steps {
@@ -610,18 +610,18 @@ const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 .step-item.active {
-	background: #eff6ff;
-	border: 1px solid #dbeafe;
+	background: var(--el-color-primary-light-9);
+	border: 1px solid var(--el-color-primary-light-8);
 }
 
 .step-item.completed {
-	background: #f0fdf4;
-	border: 1px solid #bbf7d0;
+	background: var(--el-color-success-light-9);
+	border: 1px solid var(--el-color-success-light-7);
 }
 
 .step-item.error {
-	background: #fef2f2;
-	border: 1px solid #fecaca;
+	background: var(--el-color-danger-light-9);
+	border: 1px solid var(--el-color-danger-light-7);
 }
 
 .step-icon {
@@ -636,23 +636,23 @@ const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 .step-item .step-icon {
-	background: #f3f4f6;
-	color: #6b7280;
+	background: var(--el-fill-color-light);
+	color: var(--el-text-color-secondary);
 }
 
 .step-item.active .step-icon {
-	background: #3b82f6;
-	color: white;
+	background: var(--el-color-primary);
+	color: var(--el-color-white);
 }
 
 .step-item.completed .step-icon {
-	background: #10b981;
-	color: white;
+	background: var(--el-color-success);
+	color: var(--el-color-white);
 }
 
 .step-item.error .step-icon {
-	background: #ef4444;
-	color: white;
+	background: var(--el-color-danger);
+	color: var(--el-color-white);
 }
 
 .step-number {
@@ -681,26 +681,26 @@ const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 	margin: 0 0 0.25rem 0;
 	font-size: 14px;
 	font-weight: 600;
-	color: #374151;
+	color: var(--el-text-color-regular);
 }
 
 .step-description {
 	margin: 0;
 	font-size: 13px;
-	color: #6b7280;
+	color: var(--el-text-color-secondary);
 }
 
 .step-error {
 	margin: 0.25rem 0 0 0;
 	font-size: 13px;
-	color: #ef4444;
+	color: var(--el-color-danger);
 	font-weight: 500;
 }
 
 .content-preview {
 	padding: 1rem;
-	background: #f8fafc;
-	border: 1px solid #e5e7eb;
+	background: var(--el-fill-color-blank);
+	border: 1px solid var(--el-border-color-light);
 	@apply rounded-xl;
 }
 
@@ -708,17 +708,17 @@ const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 	margin: 0 0 0.75rem 0;
 	font-size: 14px;
 	font-weight: 600;
-	color: #374151;
+	color: var(--el-text-color-regular);
 }
 
 .preview-text {
 	padding: 0.75rem;
-	background: white;
-	border: 1px solid #d1d5db;
+	background: var(--el-bg-color);
+	border: 1px solid var(--el-border-color);
 	font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
 	font-size: 13px;
 	line-height: 1.5;
-	color: #374151;
+	color: var(--el-text-color-regular);
 	white-space: pre-wrap;
 	word-break: break-word;
 	max-height: 200px;
@@ -729,7 +729,7 @@ const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 .content-stats {
 	margin: 0.75rem 0 0 0;
 	font-size: 12px;
-	color: #6b7280;
+	color: var(--el-text-color-secondary);
 }
 
 .dialog-footer {

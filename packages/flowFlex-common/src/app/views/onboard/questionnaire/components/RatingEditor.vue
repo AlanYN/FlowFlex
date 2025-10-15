@@ -1,32 +1,20 @@
 <template>
-	<div
-		class="mt-6 p-4 border border-primary-200 rounded-xl bg-primary-25 dark:bg-primary-700 dark:border-primary-600"
-	>
+	<div class="mt-6">
 		<div class="flex flex-col gap-4">
 			<div class="flex justify-between items-center mb-2">
-				<label class="text-sm font-semibold text-primary-800 dark:text-primary-200">
-					Rating Configuration
-				</label>
+				<label class="">Rating Configuration</label>
 			</div>
 
 			<!-- 评分设置区域 -->
-			<div class="flex gap-8 mt-4">
+			<div class="flex gap-8">
 				<!-- 左侧：评分数量设置 -->
 				<div class="flex-1 min-w-0">
 					<div class="mb-4">
-						<h4
-							class="text-base font-medium text-primary-800 dark:text-primary-200 m-0"
-						>
-							Rating Scale
-						</h4>
+						<h4 class="text-base font-medium m-0">Rating Scale</h4>
 					</div>
 					<div class="flex flex-col gap-3">
 						<div class="flex items-center gap-3">
-							<label
-								class="text-sm font-medium text-primary-700 dark:text-primary-300 min-w-[100px]"
-							>
-								Maximum Score
-							</label>
+							<label class="text-sm font-medium min-w-[100px]">Maximum Score</label>
 							<el-input-number
 								:model-value="max"
 								:min="2"
@@ -36,14 +24,8 @@
 								class="w-[120px]"
 							/>
 						</div>
-						<div
-							class="p-2 bg-primary-50 dark:bg-primary-600 rounded-xl border border-primary-100 dark:border-primary-500"
-						>
-							<span
-								class="text-sm text-primary-600 dark:text-primary-200 font-medium"
-							>
-								Scale: 1 - {{ max }}
-							</span>
+						<div class="p-2 bg-primary rounded-xl">
+							<span class="text-sm font-medium">Scale: 1 - {{ max }}</span>
 						</div>
 					</div>
 				</div>
@@ -51,18 +33,14 @@
 				<!-- 右侧：图标类型设置 -->
 				<div class="flex-1 min-w-0">
 					<div class="mb-4">
-						<h4
-							class="text-base font-medium text-primary-800 dark:text-primary-200 m-0"
-						>
-							Icon Type
-						</h4>
+						<h4 class="text-base font-medium m-0">Icon Type</h4>
 					</div>
 					<div class="flex flex-col gap-3">
 						<div class="flex gap-3 flex-wrap">
 							<div
 								v-for="iconOption in iconOptions"
 								:key="iconOption.value"
-								class="flex flex-col items-center gap-2 p-3 border-2 border-primary-200 dark:border-primary-600 rounded-xl cursor-pointer transition-all bg-white dark:bg-primary-800 min-w-[80px] hover:border-primary-400 hover:bg-primary-25 dark:hover:border-primary-400 dark:hover:bg-primary-600"
+								class="flex flex-col items-center gap-2 p-3 rounded-xl cursor-pointer transition-all bg-white dark:bg-black min-w-[80px] hover:border-primary-400 hover:bg-primary-25 dark:hover:border-primary-400 dark:hover:bg-primary-600"
 								:class="{
 									'border-primary-600 bg-primary-50 dark:border-primary-400 dark:bg-primary-600':
 										iconType === iconOption.value,
@@ -90,15 +68,13 @@
 						Preview
 					</h4>
 				</div>
-				<div
-					class="flex items-center gap-3 p-4 bg-white rounded-xl border border-primary-100 dark:border-primary-500"
-				>
+				<div class="flex items-center gap-3 p-4 rounded-xl">
 					<el-rate
 						v-model="previewValue"
 						:max="max"
 						:icons="getSelectedFilledIcon()"
 						:void-icon="getSelectedVoidIcon()"
-						:colors="['#409eff', '#67c23a', '#FF9900']"
+						:colors="ratingColors"
 					/>
 					<span class="text-sm text-primary-600 dark:text-primary-200 font-medium">
 						({{ max }} {{ getIconLabel() }})
@@ -110,7 +86,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 // 使用 MDI 图标库
 import IconStar from '~icons/mdi/star';
 import IconStarOutline from '~icons/mdi/star-outline';
@@ -131,6 +107,20 @@ const emit = defineEmits<{
 	'update-max': [value: number];
 	'update-icon-type': [type: string];
 }>();
+
+// 动态获取 Element Plus 颜色
+const ratingColors = computed(() => {
+	const primary = getComputedStyle(document.documentElement)
+		.getPropertyValue('--el-color-primary')
+		.trim();
+	const success = getComputedStyle(document.documentElement)
+		.getPropertyValue('--el-color-success')
+		.trim();
+	const warning = getComputedStyle(document.documentElement)
+		.getPropertyValue('--el-color-warning')
+		.trim();
+	return [primary, success, warning];
+});
 
 // 图标选项
 const iconOptions = [

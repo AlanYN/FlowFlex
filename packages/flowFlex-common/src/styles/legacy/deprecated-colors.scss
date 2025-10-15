@@ -1,0 +1,95 @@
+/**
+ * 废弃的颜色变量 - 向后兼容层
+ * 
+ * @deprecated 这些变量将在未来版本中移除
+ * 请迁移到 Item 设计系统变量
+ * 
+ * 迁移指南：
+ * - mainGray → var(--el-bg-color)
+ * - customBlue → var(--el-color-primary)
+ * - disabledBgGray → var(--el-fill-color-light)
+ * - disabledTextGray → var(--el-text-color-disabled)
+ * - light-gray → var(--gray-50)
+ * - textTitle → var(--el-text-color-secondary)
+ */
+html,
+html.sub-app-body,
+html.flowflex-app {
+	/* @deprecated 使用 var(--el-bg-color) */
+	--mainGray: var(--el-bg-color);
+	
+	/* @deprecated 使用 var(--el-color-primary) */
+	--customBlue: var(--el-color-primary);
+	
+	/* @deprecated 使用 var(--el-fill-color-light) */
+	--disabledBgGray: var(--el-fill-color-light);
+	
+	/* @deprecated 使用 var(--el-text-color-disabled) */
+	--disabledTextGray: var(--el-text-color-disabled);
+	
+	/* @deprecated 使用 var(--gray-50) */
+	--light-gray: var(--gray-50);
+	
+	/* @deprecated 使用 var(--el-text-color-secondary) */
+	--textTitle: var(--el-text-color-secondary);
+	
+	/* 项目特定颜色 - 暂时保留 */
+	--textGreen: #88B24E;
+	--textCount: #262B24;
+	--darkGreen: #698E6D;
+	--darkCount: #FDFAE9;
+
+	/* 完整颜色系列 - 映射到语义颜色或固定值 */
+	/* Red 系列 - 映射到 danger 色 */
+	--red-500: var(--el-color-danger);
+	
+	/* Yellow 系列 - 映射到 warning 色 */
+	--yellow-400: #ffcf61;
+	--yellow-500: var(--el-color-warning);
+}
+
+/* Tailwind 兼容类 - 确保使用旧类名的地方仍能工作 */
+.bg-mainGray {
+	background-color: var(--mainGray) !important;
+}
+
+.text-customBlue {
+	color: var(--customBlue) !important;
+}
+
+.bg-customBlue {
+	background-color: var(--customBlue) !important;
+}
+
+.bg-disabledBgGray {
+	background-color: var(--disabledBgGray) !important;
+}
+
+.text-disabledTextGray {
+	color: var(--disabledTextGray) !important;
+}
+
+.bg-light-gray {
+	background-color: var(--light-gray) !important;
+}
+
+.text-textTitle {
+	color: var(--textTitle) !important;
+}
+
+.text-textGreen {
+	color: var(--textGreen) !important;
+}
+
+.bg-textGreen {
+	background-color: var(--textGreen) !important;
+}
+
+.text-darkGreen {
+	color: var(--darkGreen) !important;
+}
+
+.bg-darkGreen {
+	background-color: var(--darkGreen) !important;
+}
+

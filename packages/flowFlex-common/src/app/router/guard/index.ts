@@ -9,7 +9,13 @@ import { getMenuListPath } from '@/utils';
 import { AxiosCanceler } from '@/apis/axios/axiosCancel';
 import { ParametersToken } from '#/config';
 import { isIframe, parseUrlSearch, objectToQueryString } from '@/utils/utils';
-import { formIDMLogin, toIDMLogin, setEnvironment, wujieCrmToken, setAppCode } from '@/utils/threePartyLogin';
+import {
+	formIDMLogin,
+	toIDMLogin,
+	setEnvironment,
+	wujieCrmToken,
+	setAppCode,
+} from '@/utils/threePartyLogin';
 import { PageEnum } from '@/enums/pageEnum';
 import { getEnv } from '@/utils/env';
 

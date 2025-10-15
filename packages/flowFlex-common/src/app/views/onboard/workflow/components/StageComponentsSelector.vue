@@ -6,14 +6,10 @@
 			<el-scrollbar ref="scrollbarRefLeft" class="stage-components-selector">
 				<!-- Required Fields -->
 				<div class="space-y-2">
-					<label class="text-base font-bold text-primary-800 dark:text-primary-300">
-						Required Fields
-					</label>
-					<p class="text-sm text-primary-600 dark:text-primary-400">
-						Select fields that are required for this stage
-					</p>
-					<div class="border rounded-xl border-primary-200">
-						<div class="p-2 border-b border-primary-100">
+					<label class="text-base font-bold">Required Fields</label>
+					<p class="text-sm">Select fields that are required for this stage</p>
+					<div class="border rounded-xl">
+						<div class="p-2 border-b">
 							<el-input
 								v-model="searchQuery"
 								placeholder="Search fields..."
@@ -53,7 +49,7 @@
 					</div>
 					<div
 						v-if="getFieldsComponent().staticFields.length > 0"
-						class="text-xs text-primary-600"
+						class="text-xs text-primary"
 					>
 						{{ getFieldsComponent().staticFields.length }} fields selected
 					</div>
@@ -61,10 +57,8 @@
 
 				<!-- Selected Fields Tags -->
 				<div v-if="getSelectedFieldTags().length > 0" class="space-y-2">
-					<label class="text-base font-bold text-primary-800 dark:text-primary-300">
-						Selected Fields
-					</label>
-					<div class="border rounded-xl p-2 border-primary-200 bg-primary-50">
+					<label class="text-base font-bold">Selected Fields</label>
+					<div class="border rounded-xl p-2">
 						<div class="flex flex-wrap gap-1">
 							<el-tag
 								v-for="fieldTag in getSelectedFieldTags()"
@@ -81,13 +75,9 @@
 
 				<!-- Checklists -->
 				<div class="space-y-2 mt-4">
-					<label class="text-base font-bold text-primary-800 dark:text-primary-300">
-						Checklists
-					</label>
-					<p class="text-sm text-primary-600 dark:text-primary-400">
-						Select checklists to include in this stage
-					</p>
-					<div class="border rounded-xl border-primary-200">
+					<label class="text-base font-bold">Checklists</label>
+					<p class="text-sm">Select checklists to include in this stage</p>
+					<div class="border rounded-xl">
 						<el-scrollbar max-height="160px">
 							<div class="p-2">
 								<div
@@ -128,13 +118,9 @@
 
 				<!-- Questionnaires -->
 				<div class="space-y-2 mt-4">
-					<label class="text-base font-bold text-primary-800 dark:text-primary-300">
-						Questionnaires
-					</label>
-					<p class="text-sm text-primary-600 dark:text-primary-400">
-						Select questionnaires to include in this stage
-					</p>
-					<div class="border rounded-xl border-primary-200">
+					<label class="text-base font-bold">Questionnaires</label>
+					<p class="text-sm">Select questionnaires to include in this stage</p>
+					<div class="border rounded-xl">
 						<el-scrollbar max-height="160px">
 							<div class="p-2">
 								<div
@@ -180,22 +166,16 @@
 
 				<!-- File Management -->
 				<div class="space-y-2 mt-4">
-					<label class="text-base font-bold text-primary-800 dark:text-primary-300">
-						File Management
-					</label>
-					<p class="text-sm text-primary-600 dark:text-primary-400">
-						Enable file upload and attachment functionality
-					</p>
-					<div
-						class="flex items-center space-x-2 p-2 border rounded-xl border-primary-200 bg-primary-50"
-					>
+					<label class="text-base font-bold">File Management</label>
+					<p class="text-sm">Enable file upload and attachment functionality</p>
+					<div class="flex items-center space-x-2 p-2 rounded-xl bg-primary-50">
 						<el-switch
 							:model-value="getFileComponent().isEnabled"
 							@change="(val) => toggleFileComponent(val)"
 							id="file-management"
 							size="small"
 						/>
-						<div class="flex-1 min-w-0 dark:text-black-400">
+						<div class="flex-1 min-w-0">
 							<label
 								for="file-management"
 								class="text-sm leading-none font-medium cursor-pointer block truncate"
@@ -238,14 +218,12 @@
 		<div class="space-y-4 w-full overflow-hidden">
 			<el-scrollbar ref="scrollbarRefRight" class="stage-components-selector">
 				<div class="space-y-2">
-					<label class="text-base font-bold text-primary-800 dark:text-primary-300">
-						Selected Items
-					</label>
-					<p class="text-sm text-primary-600 dark:text-primary-400">
+					<label class="text-base font-bold">Selected Items</label>
+					<p class="text-sm">
 						Items that will be included in this stage (drag to reorder)
 					</p>
 					<div
-						class="border rounded-xl p-3 min-h-[600px] border-primary-200 bg-gradient-to-br from-primary-50 to-primary-100 w-full overflow-hidden"
+						class="border rounded-xl p-3 min-h-[600px] bg-siderbarGray dark:bg-black w-full overflow-hidden"
 					>
 						<draggable
 							v-model="selectedItems"
@@ -259,19 +237,19 @@
 						>
 							<template #item="{ element, index }">
 								<div
-									class="bg-white border rounded-xl shadow-sm hover:shadow-md transition-all border-primary-200 w-full overflow-hidden"
+									class="border rounded-xl shadow-sm hover:shadow-md transition-all w-full overflow-hidden"
 								>
 									<div class="flex items-center p-2">
-										<div class="flex items-center space-x-3 flex-1 min-w-0">
+										<div class="flex items-center flex-1 min-w-0 gap-x-2">
 											<div
-												class="drag-handle flex items-center justify-center w-5 h-5 bg-primary-100 rounded-xl cursor-move hover:bg-primary-200 transition-colors flex-shrink-0"
+												class="drag-handle flex items-center justify-center w-5 h-5 rounded-xl cursor-move transition-colors flex-shrink-0"
 											>
-												<el-icon class="text-primary-600 text-sm">
+												<el-icon class="text-black dark:text-white text-sm">
 													<GripVertical />
 												</el-icon>
 											</div>
 											<span
-												class="text-xs bg-primary-100 text-primary-800 px-2 py-1 rounded-xl font-medium flex-shrink-0"
+												class="text-xs bg-primary text-white w-6 h-6 flex items-center justify-center rounded-xl font-medium min-w-0 flex-shrink-0"
 											>
 												{{ index + 1 }}
 											</span>
@@ -303,11 +281,7 @@
 											</div>
 										</div>
 										<div class="flex items-center space-x-2 flex-shrink-0 ml-2">
-											<el-tag
-												size="small"
-												class="border-primary-200"
-												:type="getItemTypeColor(element.type)"
-											>
+											<el-tag size="small" type="primary">
 												{{ getItemTypeLabel(element.type) }}
 											</el-tag>
 											<el-button
@@ -324,9 +298,7 @@
 										v-if="shouldShowPortalAccess"
 										class="border-t p-2 flex justify-between items-center"
 									>
-										<div class="font-bold text-primary-600">
-											Customer Portal Access
-										</div>
+										<div class="font-bold">Customer Portal Access</div>
 										<el-dropdown
 											@command="
 												(value) => commandChangePortalAccess(element, value)
@@ -334,8 +306,7 @@
 											trigger="click"
 										>
 											<div
-												:class="getElementPortalAccessBadgeClass(element)"
-												class="cursor-pointer hover:opacity-80 transition-opacity inline-flex items-center"
+												class="cursor-pointer hover:opacity-80 transition-opacity inline-flex items-center px-2 py-0.5 rounded-xl text-xs font-medium bg-primary border"
 											>
 												{{ getElementPortalAccessLabel(element) }}
 												<el-icon class="ml-1 text-xs">
@@ -698,22 +669,6 @@ const getElementPortalAccessLabel = (element: SelectedItem): string => {
 	return 'View Only';
 };
 
-// 获取元素的 Portal Access 标签样式类
-const getElementPortalAccessBadgeClass = (element: SelectedItem): string => {
-	const baseClass = 'px-2 py-0.5 rounded-xl text-xs font-medium';
-
-	switch (element.customerPortalAccess) {
-		case StageComponentPortal.Hidden:
-			return `${baseClass} bg-gray-50 text-gray-600 border border-gray-200`;
-		case StageComponentPortal.Viewable:
-			return `${baseClass} bg-blue-50 text-blue-600 border border-blue-200`;
-		case StageComponentPortal.Completable:
-			return `${baseClass} bg-green-50 text-green-600 border border-green-200`;
-		default:
-			return `${baseClass} bg-blue-50 text-blue-600 border border-blue-200`;
-	}
-};
-
 const commandChangePortalAccess = (element: SelectedItem, value) => {
 	// 检查选择的值是否在允许的选项中
 	const availableOptions = getAvailablePortalOptions.value;
@@ -978,21 +933,6 @@ const getItemTypeLabel = (type: string) => {
 	}
 };
 
-const getItemTypeColor = (type: string) => {
-	switch (type) {
-		case 'fields':
-			return 'primary';
-		case 'checklist':
-			return 'success';
-		case 'questionnaires':
-			return 'warning';
-		case 'files':
-			return 'info';
-		default:
-			return '';
-	}
-};
-
 // Watch for changes and update items display
 watch(() => props.modelValue, updateItemsDisplay, { deep: true, immediate: true });
 
@@ -1015,34 +955,9 @@ const getQuestionnaireComponent = (): { questionnaireIds: string[] } => {
 	@apply pr-4 max-h-[75vh];
 }
 
-.search-input {
-	--el-input-border-color: transparent;
-	--el-input-focus-border-color: transparent;
-}
-
-.search-input :deep(.el-input__wrapper) {
-	border: none;
-	box-shadow: none;
-}
-
-.search-input :deep(.el-input__wrapper:focus) {
-	border: none;
-	box-shadow: none;
-}
-
 .ghost-stage {
 	opacity: 0.6;
 	background: var(--primary-50);
 	border: 1px dashed var(--primary-500);
-}
-
-// 确保主题色变量在深色模式下也能正常工作
-:deep(.el-empty) {
-	--el-text-color-regular: var(--black-400);
-}
-
-// 确保拖拽项在深色模式下的背景色
-:deep(.el-tag) {
-	--el-tag-border-color: var(--primary-200);
 }
 </style>

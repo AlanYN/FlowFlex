@@ -1,14 +1,14 @@
 <template>
 	<div class="variables-panel">
 		<!-- Header Section -->
-		<div class="p-4 bg-gray-50 dark:bg-gray-800 rounded-xl">
+		<div class="variables-header-section p-4 rounded-xl">
 			<div class="flex items-center justify-between mb-3">
 				<div class="flex items-center space-x-2">
 					<icon icon="tabler:variable-plus" class="text-primary-500" />
-					<h4 class="font-medium text-gray-800 dark:text-white">Available Variables</h4>
+					<h4 class="variables-title font-medium">Available Variables</h4>
 				</div>
 			</div>
-			<p class="text-sm text-gray-600 dark:text-gray-400">
+			<p class="variables-description text-sm">
 				Click on any variable to copy it to clipboard, then paste into your code or
 				configuration.
 			</p>
@@ -19,13 +19,13 @@
 			<el-tabs v-model="activeTab" type="">
 				<el-tab-pane label="All" name="all">
 					<div class="context-structure-section p-4 rounded-xl">
-						<div class="bg-gray-50 dark:bg-gray-800 p-4">
+						<div class="context-structure-header">
 							<div
 								class="flex items-center justify-between cursor-pointer transition-colors"
 							>
 								<div class="flex items-center space-x-2">
 									<icon icon="tabler:variable-plus" class="text-primary-500" />
-									<h5 class="font-semibold text-gray-800 dark:text-white">
+									<h5 class="context-structure-title font-semibold">
 										Context Parameter Structure
 									</h5>
 								</div>
@@ -40,7 +40,7 @@
 									</el-button>
 								</div>
 							</div>
-							<div class="text-sm text-gray-600 dark:text-gray-400 mt-2">
+							<div class="context-structure-desc text-sm mt-2">
 								Complete structure of the context parameter passed to your Python
 								main() function
 							</div>
@@ -56,12 +56,10 @@
 						<!-- Basic Event Data -->
 						<div class="variable-category">
 							<div class="category-header">
-								<el-icon class="text-blue-500" size="16">
+								<el-icon class="text-primary" size="16">
 									<User />
 								</el-icon>
-								<h5 class="font-medium text-gray-700 dark:text-gray-300">
-									Basic Event Data
-								</h5>
+								<h5 class="font-medium category-header-title">Basic Event Data</h5>
 							</div>
 							<div class="variable-list">
 								<div
@@ -86,10 +84,10 @@
 						<!-- Workflow Data -->
 						<div class="variable-category">
 							<div class="category-header">
-								<el-icon class="text-green-500" size="16">
+								<el-icon class="text-primary" size="16">
 									<Flag />
 								</el-icon>
-								<h5 class="font-medium text-gray-700 dark:text-gray-300">
+								<h5 class="font-medium category-header-title">
 									Workflow & Stage Data
 								</h5>
 							</div>
@@ -117,9 +115,7 @@
 						<div class="variable-category">
 							<div class="category-header">
 								<icon icon="tabler:variable-plus" class="text-primary-500" />
-								<h5 class="font-medium text-gray-700 dark:text-gray-300">
-									Business Context
-								</h5>
+								<h5 class="font-medium category-header-title">Business Context</h5>
 							</div>
 							<div class="variable-list">
 								<div
@@ -147,9 +143,7 @@
 								<el-icon class="text-orange-500" size="16">
 									<Document />
 								</el-icon>
-								<h5 class="font-medium text-gray-700 dark:text-gray-300">
-									Metadata & Tags
-								</h5>
+								<h5 class="font-medium category-header-title">Metadata & Tags</h5>
 							</div>
 							<div class="variable-list">
 								<div
@@ -178,10 +172,10 @@
 						<!-- Checklists -->
 						<div class="variable-category">
 							<div class="category-header">
-								<el-icon class="text-blue-600" size="16">
+								<el-icon class="text-primary" size="16">
 									<Document />
 								</el-icon>
-								<h5 class="font-medium text-gray-700 dark:text-gray-300">
+								<h5 class="font-medium category-header-title">
 									Checklists & Tasks
 								</h5>
 							</div>
@@ -211,9 +205,7 @@
 								<el-icon class="text-red-500" size="16">
 									<Flag />
 								</el-icon>
-								<h5 class="font-medium text-gray-700 dark:text-gray-300">
-									Required Fields
-								</h5>
+								<h5 class="font-medium category-header-title">Required Fields</h5>
 							</div>
 							<div class="variable-list">
 								<div
@@ -241,9 +233,7 @@
 								<el-icon class="text-purple-500" size="16">
 									<Document />
 								</el-icon>
-								<h5 class="font-medium text-gray-700 dark:text-gray-300">
-									Form Responses
-								</h5>
+								<h5 class="font-medium category-header-title">Form Responses</h5>
 							</div>
 							<div class="variable-list">
 								<div
@@ -667,16 +657,65 @@ const copyToClipboard = async (text: string) => {
 </script>
 
 <style scoped lang="scss">
+/* 新增类定义 */
+.variables-header-section {
+	background: var(--el-fill-color-blank);
+	color: var(--el-text-color-primary);
+}
+
+html.dark .variables-header-section {
+	background: var(--el-bg-color-page);
+}
+
+.variables-title {
+	color: var(--el-text-color-primary);
+}
+
+.variables-description {
+	color: var(--el-text-color-secondary);
+}
+
+.context-structure-header {
+	background: var(--el-fill-color-blank);
+}
+
+html.dark .context-structure-header {
+	background: var(--el-bg-color-page);
+}
+
+.context-structure-title {
+	color: var(--el-text-color-primary);
+}
+
+.context-structure-desc {
+	color: var(--el-text-color-secondary);
+}
+
+.category-header-title {
+	color: var(--el-text-color-regular);
+}
+
 .variables-panel {
 	@apply overflow-hidden flex flex-col gap-4 pr-4;
 }
 
 .variables-content {
-	@apply bg-white dark:bg-gray-900;
+	background: var(--el-bg-color);
+}
+
+html.dark .variables-content {
+	background: var(--el-bg-color-page);
 }
 
 .context-structure-wrapper {
-	@apply p-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800;
+	padding: 1rem;
+	border-bottom: 1px solid var(--el-border-color-light);
+	background: var(--el-fill-color-blank);
+}
+
+html.dark .context-structure-wrapper {
+	border-bottom: 1px solid var(--el-border-color);
+	background: var(--el-bg-color-page);
 }
 
 .context-header {
@@ -684,11 +723,20 @@ const copyToClipboard = async (text: string) => {
 }
 
 .context-code-block {
-	@apply rounded-xl  bg-white dark:bg-gray-900;
+	@apply border rounded-xl;
+	background: var(--el-bg-color);
+}
+
+html.dark .context-code-block {
+	background: var(--el-bg-color-page);
 }
 
 .context-structure-section {
-	@apply border-gray-200 dark:border-gray-700;
+	border-color: var(--el-border-color-light);
+}
+
+html.dark .context-structure-section {
+	border-color: var(--el-border-color);
 }
 
 .variable-category {
@@ -704,8 +752,23 @@ const copyToClipboard = async (text: string) => {
 }
 
 .variable-item {
-	@apply flex items-center justify-between p-3 rounded-xl border border-gray-200 dark:border-gray-600 hover:border-primary-300 dark:hover:border-primary-600 hover:bg-primary-50 dark:hover:bg-gray-700 cursor-pointer transition-all;
+	@apply flex items-center justify-between p-3 rounded-xl border cursor-pointer transition-all;
+	border-color: var(--el-border-color-light);
 	min-width: 0; /* 允许flex子元素收缩 */
+
+	&:hover {
+		border-color: var(--el-color-primary-light-5);
+		background: var(--el-color-primary-light-9);
+	}
+}
+
+html.dark .variable-item {
+	border-color: var(--el-border-color);
+
+	&:hover {
+		border-color: var(--el-color-primary);
+		background: var(--el-fill-color-dark);
+	}
 }
 
 .variable-info {
@@ -714,7 +777,7 @@ const copyToClipboard = async (text: string) => {
 }
 
 .variable-name {
-	@apply font-mono text-sm text-primary-600 dark:text-primary-400 font-medium;
+	@apply font-mono text-sm font-medium;
 	max-width: 100%;
 	overflow: hidden;
 	white-space: nowrap;
@@ -722,7 +785,8 @@ const copyToClipboard = async (text: string) => {
 }
 
 .variable-description {
-	@apply text-xs text-gray-500 dark:text-gray-400;
+	@apply text-xs;
+	color: var(--el-text-color-placeholder);
 	max-width: 100%;
 	overflow: hidden;
 	white-space: nowrap;
@@ -730,8 +794,13 @@ const copyToClipboard = async (text: string) => {
 }
 
 .copy-btn {
-	@apply opacity-0 group-hover:opacity-100 transition-opacity text-gray-400 hover:text-primary-500;
+	@apply opacity-0 group-hover:opacity-100 transition-opacity;
+	color: var(--el-text-color-placeholder);
 	flex-shrink: 0; /* 防止按钮被压缩 */
+
+	&:hover {
+		color: var(--el-color-primary);
+	}
 }
 
 .questionnaire-section {
@@ -751,7 +820,14 @@ const copyToClipboard = async (text: string) => {
 }
 
 .json-preview {
-	@apply text-xs bg-gray-50 dark:bg-gray-900 p-4 rounded-xl overflow-x-auto border border-gray-200 dark:border-gray-600 font-mono;
+	@apply text-xs p-4 rounded-xl overflow-x-auto border font-mono;
+	background: var(--el-fill-color-blank);
+	border-color: var(--el-border-color-light);
+}
+
+html.dark .json-preview {
+	background: var(--el-bg-color-page);
+	border-color: var(--el-border-color);
 }
 
 .examples-section {
@@ -763,23 +839,37 @@ const copyToClipboard = async (text: string) => {
 }
 
 .example-title {
-	@apply font-medium text-gray-800 dark:text-white;
+	@apply font-medium;
+	color: var(--el-text-color-primary);
 }
 
 .example-description {
-	@apply text-sm text-gray-600 dark:text-gray-400;
+	@apply text-sm;
+	color: var(--el-text-color-secondary);
 }
 
 .example-code {
 	@apply relative;
 
 	pre {
-		@apply text-xs bg-gray-50 dark:bg-gray-900 p-4 rounded-xl overflow-x-auto border border-gray-200 dark:border-gray-600 font-mono;
+		@apply text-xs p-4 rounded-xl overflow-x-auto border font-mono;
+		background: var(--el-fill-color-blank);
+		border-color: var(--el-border-color-light);
 	}
 }
 
+html.dark .example-code pre {
+	background: var(--el-bg-color-page);
+	border-color: var(--el-border-color);
+}
+
 .copy-example-btn {
-	@apply absolute top-2 right-2 text-gray-400 hover:text-primary-500;
+	@apply absolute top-2 right-2;
+	color: var(--el-text-color-placeholder);
+
+	&:hover {
+		color: var(--el-color-primary);
+	}
 }
 
 .context-structure-section {
@@ -791,7 +881,12 @@ const copyToClipboard = async (text: string) => {
 }
 
 .preview-header {
-	@apply border-b border-gray-200 dark:border-gray-600 pb-2;
+	@apply border-b pb-2;
+	border-color: var(--el-border-color-light);
+}
+
+html.dark .preview-header {
+	border-color: var(--el-border-color);
 }
 
 .context-output {
@@ -799,13 +894,13 @@ const copyToClipboard = async (text: string) => {
 }
 
 .context-structure-pre {
-	@apply text-xs bg-gray-50 dark:bg-gray-900 p-4 rounded-xl overflow-auto font-mono text-gray-800 dark:text-gray-200 whitespace-pre-wrap;
+	@apply text-xs p-4 rounded-xl overflow-auto font-mono whitespace-pre-wrap;
+	background: var(--el-fill-color-blank);
+	color: var(--el-text-color-primary);
 }
 
-// Dark mode
-.dark {
-	.variables-header {
-		@apply bg-gray-800;
-	}
+html.dark .context-structure-pre {
+	background: var(--el-bg-color-page);
+	color: var(--el-text-color-regular);
 }
 </style>

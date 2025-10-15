@@ -1,6 +1,6 @@
 <template>
 	<div class="http-api-config">
-		<el-form :model="config" label-width="120px">
+		<el-form :model="config" label-width="120px" @submit.prevent>
 			<el-form-item label="URL">
 				<el-input v-model="config.url" placeholder="URL" />
 			</el-form-item>
@@ -150,7 +150,7 @@ const handleTestRun = async () => {
 
 		.test-output {
 			@apply rounded-xl;
-			background-color: #f5f5f5;
+			background-color: var(--el-fill-color-light);
 			padding: 12px;
 			font-family: 'Courier New', monospace;
 			font-size: 14px;

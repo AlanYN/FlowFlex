@@ -1,0 +1,216 @@
+/**
+ * Assignments 统一样式
+ * 用于项目中所有 Assignment 标签、链接和弹出层的统一样式
+ */
+
+/* Assignments 容器 */
+.assignments-container {
+	height: 60px !important;
+	overflow: hidden;
+}
+
+/* Assignment 链接标签基础样式 */
+.card-link {
+	@apply inline-flex items-center rounded-full border text-xs font-semibold transition-colors bg-primary px-2 py-1;
+	white-space: nowrap;
+	background: var(--el-color-primary) !important;
+	color: var(--el-color-white) !important;
+	border-color: var(--el-color-primary) !important;
+}
+
+/* 占满一行的样式 */
+.card-link-full {
+	width: 100%;
+	flex-shrink: 0;
+}
+
+/* 与+几按钮共享一行的样式 */
+.card-link-shared {
+	flex: 1;
+	min-width: 0;
+	max-width: calc(100% - 48px); /* 为+几按钮留出空间 */
+}
+
+/* +几按钮样式 */
+.card-link-more {
+	@apply inline-flex items-center rounded-full border text-xs font-semibold transition-colors bg-primary px-2 py-1;
+	white-space: nowrap;
+	width: 40px;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	justify-content: center;
+	flex-shrink: 0;
+	margin-right: 8px;
+	background: var(--el-color-primary) !important;
+	color: var(--el-color-white) !important;
+}
+
+/* 弹出层样式 */
+.popover-title {
+	font-size: 14px;
+	font-weight: 600;
+	color: var(--el-text-color-primary);
+	margin-bottom: 10px;
+}
+
+.popover-tags {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+}
+
+.popover-tag {
+	@apply items-center border text-xs transition-colors;
+	width: 100%;
+	justify-content: center;
+	flex-shrink: 0;
+	min-width: 0;
+}
+
+.popover-tag:hover {
+	opacity: 0.9;
+	transform: translateY(-1px);
+	transition: all 0.2s ease;
+}
+
+.popover-tag-text {
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	width: 100%;
+	display: block;
+	text-align: center;
+}
+
+
+/* 表格视图样式 */
+.table-assignment-tag {
+	@apply block text-sm text-center font-medium truncate;
+	transition: all 0.3s ease;
+}
+
+.table-assignment-text {
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	max-width: 100%;
+	text-align: center;
+	display: block;
+  @apply text-white;
+}
+
+.table-assignment-more {
+	@apply inline-flex items-center rounded-full border text-xs font-semibold transition-colors text-white px-2 py-1;
+	white-space: nowrap;
+	min-width: 40px;
+	width: auto;
+	justify-content: center;
+	flex-shrink: 0;
+	background: var(--el-color-primary) !important;
+}
+
+.table-assignment-more:hover {
+	@apply bg-primary-100 border-primary-300;
+}
+
+/* 表格单元格内容样式 */
+.table-cell-content {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	max-width: 100%;
+	display: block;
+}
+
+/* 表格链接样式 */
+.table-cell-link {
+	display: block;
+	width: 100%;
+}
+
+:deep(.table-cell-link .el-link__inner) {
+	display: block;
+	width: 100%;
+}
+
+/* 检查清单卡片样式 */
+.checklist-card,
+.questionnaire-card {
+  @apply border dark:bg-black-400;
+	transition: all 0.3s ease;
+	border-bottom-left-radius: 6px;
+	border-bottom-right-radius: 6px;
+}
+
+.checklist-card:hover,
+.questionnaire-card:hover  {
+	border-color: var(--primary-300);
+	@apply dark:border-primary-600;
+}
+
+.card-header {
+	display: flex;
+	flex-direction: column;
+	justify-content: space-between;
+}
+
+.card-icon {
+	background-color: var(--primary-500);
+	color: var(--el-color-white);
+	width: 36px;
+	height: 36px;
+}
+
+.card-title {
+	@apply dark:text-white;
+}
+
+.card-more-btn {
+	color: var(--primary-700);
+	@apply dark:text-primary-300;
+}
+
+.card-label {
+	color: var(--el-text-color-secondary);
+	font-weight: 500;
+	min-width: 70px;
+}
+
+/* 暗色模式适配 */
+html.dark {
+	.popover-title {
+		color: var(--el-text-color-primary);
+	}
+
+	.card-link,
+	.card-link-more {
+		background: var(--el-color-primary) !important;
+		color: var(--el-color-white) !important;
+		border-color: var(--el-color-primary) !important;
+	}
+
+	.table-assignment-more {
+		@apply text-white;
+		background: var(--el-color-primary) !important;
+	}
+
+	.table-assignment-more:hover {
+		@apply bg-black-300 border-black-100;
+	}
+
+	/* 弹窗暗色主题样式已整合到 @styles/components/assignments.scss */
+
+	/* 表格链接暗色主题 */
+	:deep(.table-cell-link) {
+		color: var(--primary-400) !important;
+	}
+
+	:deep(.table-cell-link:hover) {
+		color: var(--primary-300) !important;
+	}
+
+  .card-label {
+    color: var(--el-text-color-placeholder);
+  }
+}
+

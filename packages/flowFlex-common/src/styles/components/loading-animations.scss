@@ -1,0 +1,82 @@
+/**
+ * 加载动画组件
+ * 自定义的加载指示器样式
+ */
+
+.path {
+	animation: loading-dash 1.5s ease-in-out infinite;
+	stroke-dasharray: 90, 150;
+	stroke-dashoffset: 0;
+	stroke-width: 2;
+	stroke: var(--el-color-primary);
+	stroke-linecap: round;
+}
+
+.loading-path .dot1 {
+	transform: translate(3.75px, 3.75px);
+	fill: var(--el-color-primary);
+	animation: custom-spin-move 1s infinite linear alternate;
+	opacity: 0.3;
+}
+
+.loading-path .dot2 {
+	transform: translate(calc(100% - 3.75px), 3.75px);
+	fill: var(--el-color-primary);
+	animation: custom-spin-move 1s infinite linear alternate;
+	opacity: 0.3;
+	animation-delay: 0.4s;
+}
+
+.loading-path .dot3 {
+	transform: translate(3.75px, calc(100% - 3.75px));
+	fill: var(--el-color-primary);
+	animation: custom-spin-move 1s infinite linear alternate;
+	opacity: 0.3;
+	animation-delay: 1.2s;
+}
+
+.loading-path .dot4 {
+	transform: translate(calc(100% - 3.75px), calc(100% - 3.75px));
+	fill: var(--el-color-primary);
+	animation: custom-spin-move 1s infinite linear alternate;
+	opacity: 0.3;
+	animation-delay: 0.8s;
+}
+
+.circular {
+	display: inline;
+	height: 30px;
+	width: 30px;
+	animation: loading-rotate 2s linear infinite;
+}
+
+@keyframes loading-rotate {
+	to {
+		transform: rotate(360deg);
+	}
+}
+
+@keyframes loading-dash {
+	0% {
+		stroke-dasharray: 1, 150;
+		stroke-dashoffset: 0;
+	}
+	50% {
+		stroke-dasharray: 90, 150;
+		stroke-dashoffset: -35;
+	}
+	100% {
+		stroke-dasharray: 90, 150;
+		stroke-dashoffset: -124;
+	}
+}
+
+@keyframes custom-spin-move {
+	0% {
+		opacity: 0.3;
+	}
+	100% {
+		opacity: 1;
+	}
+}
+

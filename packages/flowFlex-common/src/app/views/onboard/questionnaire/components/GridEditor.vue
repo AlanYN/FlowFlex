@@ -35,7 +35,6 @@
 									link
 									size="small"
 									@click="startRowEdit(row.temporaryId, row.label)"
-									class="grid-edit-btn"
 									:icon="Edit"
 								/>
 							</div>
@@ -43,10 +42,9 @@
 							<div class="grid-item-actions">
 								<el-button
 									type="danger"
-									text
+									link
 									size="small"
 									@click="removeRow(row.temporaryId)"
-									class="grid-delete-btn"
 								>
 									<el-icon><Close /></el-icon>
 								</el-button>
@@ -121,7 +119,6 @@
 									link
 									size="small"
 									@click="startColumnEdit(column.temporaryId, column.label)"
-									class="grid-edit-btn"
 									:icon="Edit"
 								/>
 							</div>
@@ -129,10 +126,9 @@
 							<div class="grid-item-actions">
 								<el-button
 									type="danger"
-									text
+									link
 									size="small"
 									@click="removeColumn(column.temporaryId)"
-									class="grid-delete-btn"
 								>
 									<el-icon><Close /></el-icon>
 								</el-button>
@@ -162,12 +158,12 @@
 						<!-- 添加Other选项按钮 -->
 						<div v-if="!hasOtherColumn" class="grid-add-other">
 							<el-button
-								type="success"
+								type="primary"
 								size="small"
 								@click="addOtherColumn"
 								class="add-other-btn"
+								:icon="Plus"
 							>
-								<el-icon><Plus /></el-icon>
 								Add "Other" Option
 							</el-button>
 							<span class="other-help-text">
@@ -318,10 +314,6 @@ const saveColumnEdit = (id: string) => {
 
 <style scoped lang="scss">
 .grid-editor {
-	margin-top: 1.5rem;
-	padding: 1rem;
-	border: 1px solid var(--primary-200);
-	background-color: var(--primary-25);
 	@apply rounded-xl;
 }
 
@@ -338,16 +330,9 @@ const saveColumnEdit = (id: string) => {
 	margin-bottom: 0.5rem;
 }
 
-.grid-label {
-	font-size: 0.875rem;
-	font-weight: 600;
-	color: var(--primary-800);
-}
-
 .grid-editor-layout {
 	display: flex;
 	gap: 2rem;
-	margin-top: 1rem;
 }
 
 .grid-column-editor {
@@ -382,13 +367,9 @@ const saveColumnEdit = (id: string) => {
 	@apply rounded-xl;
 }
 
-.grid-editor-item:hover {
-	background-color: var(--primary-25);
-}
-
 .grid-item-other {
-	background-color: var(--el-color-warning-light-9);
-	border: 1px solid var(--el-color-warning-light-7);
+	background-color: var(--el-color-white);
+	border: 1px solid var(--el-color-primary);
 }
 
 .grid-item-number {
@@ -421,15 +402,6 @@ const saveColumnEdit = (id: string) => {
 	opacity: 1;
 }
 
-.grid-edit-btn {
-	opacity: 0.8;
-	transition: opacity 0.2s;
-}
-
-.grid-edit-btn:hover {
-	opacity: 1;
-}
-
 .other-tag {
 	font-size: 0.625rem;
 	height: 1.125rem;
@@ -442,21 +414,12 @@ const saveColumnEdit = (id: string) => {
 	font-size: 1rem;
 }
 
-.grid-delete-btn {
-	opacity: 0.6;
-	transition: opacity 0.2s;
-}
-
-.grid-delete-btn:hover {
-	opacity: 1;
-}
-
 .grid-add-item {
 	display: flex;
 	align-items: center;
 	gap: 0.75rem;
 	padding: 0.5rem;
-	border: 1px dashed var(--primary-200);
+	border: 1px dashed var(--el-border-color-light);
 	margin-top: 0.5rem;
 	@apply rounded-xl;
 }
@@ -471,8 +434,8 @@ const saveColumnEdit = (id: string) => {
 	gap: 0.5rem;
 	margin-top: 1rem;
 	padding: 0.75rem;
-	background-color: var(--el-color-success-light-9);
-	border: 1px dashed var(--el-color-success-light-7);
+	background-color: var(--el-color-white);
+	border: 1px dashed var(--el-color-black);
 	@apply rounded-xl;
 }
 
@@ -482,7 +445,7 @@ const saveColumnEdit = (id: string) => {
 
 .other-help-text {
 	font-size: 0.75rem;
-	color: var(--el-color-success);
+	color: var(--el-color-primary);
 	font-style: italic;
 }
 
@@ -498,29 +461,25 @@ const saveColumnEdit = (id: string) => {
 
 /* 深色模式支持 */
 .dark .grid-editor {
-	background-color: var(--primary-700);
-	border-color: var(--primary-600);
+	background-color: var(--black);
+	border-color: var(--el-border-color-dark);
 }
 
 .dark .grid-label {
-	color: var(--primary-200);
+	color: var(--el-color-white);
 }
 
 .dark .grid-column-title {
-	color: var(--primary-200);
-}
-
-.dark .grid-editor-item:hover {
-	background-color: var(--primary-600);
+	color: var(--el-color-white);
 }
 
 .dark .grid-item-other {
-	background-color: var(--el-color-warning-dark-2);
-	border-color: var(--el-color-warning);
+	background-color: var(--el-color-black);
+	border-color: var(--el-color-primary);
 }
 
 .dark .grid-item-number {
-	color: var(--primary-300);
+	color: var(--el-color-white);
 }
 
 .dark .grid-item-label {
@@ -532,16 +491,16 @@ const saveColumnEdit = (id: string) => {
 }
 
 .dark .grid-add-item {
-	border-color: var(--primary-500);
+	border-color: var(--el-border-color-light);
 }
 
 .dark .grid-add-other {
-	background-color: var(--el-color-success-dark-2);
-	border-color: var(--el-color-success);
+	background-color: var(--el-color-black);
+	border-color: var(--el-color-white);
 }
 
 .dark .other-help-text {
-	color: var(--el-color-success-light-3);
+	color: var(--el-color-primary);
 }
 
 .dark .grid-options {

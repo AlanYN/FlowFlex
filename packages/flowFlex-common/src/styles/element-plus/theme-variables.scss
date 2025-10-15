@@ -1,0 +1,216 @@
+/**
+ * Element Plus 主题变量
+ * 基于 Item 设计规范
+ * 
+ * @source item-theme.css (官方 Element Plus 样式规范)
+ * 
+ * 注意：此文件依赖 design-system tokens 中定义的基础和语义颜色
+ */
+
+/* ============================================
+   浅色模式 Element Plus 变量
+   ============================================ */
+html,
+html.sub-app-body,
+html.flowflex-app {
+	/* Menu Variables */
+	--el-menu-active-color: var(--el-color-primary);
+	--el-menu-text-color: var(--el-text-color-primary);
+	--el-menu-hover-text-color: var(--el-color-primary);
+	--el-menu-bg-color: var(--el-color-white);
+	--el-menu-hover-bg-color: var(--el-color-primary-light-9);
+	--el-menu-item-height: 56px;
+	--el-menu-item-font-size: 14px;
+	--el-menu-item-hover-fill: var(--el-color-primary-light-9);
+	--el-menu-border-color: var(--el-border-color);
+
+	/* Global Border Radius Settings - 8px roundness */
+	--el-border-radius-base: 8px;
+	--el-border-radius-small: 4px;
+	--el-border-radius-round: 20px;
+	--el-border-radius-circle: 100%;
+	--el-border-radius-large: 16px;
+
+	/* Component border radius - using base radius for consistency */
+	--el-card-border-radius: var(--el-border-radius-base);
+	--el-button-border-radius: var(--el-border-radius-base);
+	--el-tag-border-radius: var(--el-border-radius-base);
+	--el-tooltip-border-radius: var(--el-border-radius-base);
+	--el-popover-border-radius: var(--el-border-radius-base);
+	--el-pagination-border-radius: var(--el-border-radius-small);
+
+	/* Button Variables */
+	--el-button-font-size: 14px;
+	--el-button-font-weight: 500;
+	--el-button-padding-vertical: 8px;
+	--el-button-padding-horizontal: 15px;
+	--el-button-text-color: var(--el-text-color-regular);
+	--el-button-bg-color: var(--el-fill-color-blank);
+	--el-button-border-color: var(--el-border-color);
+	--el-button-hover-text-color: var(--el-color-primary);
+	--el-button-hover-bg-color: var(--el-color-primary-light-9);
+	--el-button-hover-border-color: var(--el-color-primary-light-7);
+	--el-button-active-text-color: var(--el-button-hover-text-color);
+	--el-button-active-bg-color: var(--el-button-hover-bg-color);
+	--el-button-active-border-color: var(--el-button-hover-border-color);
+	--el-button-disabled-text-color: var(--el-text-color-disabled);
+	--el-button-disabled-bg-color: var(--el-fill-color-blank);
+	--el-button-disabled-border-color: var(--el-border-color-light);
+
+	/* Input Variables */
+	--el-input-font-size: 14px;
+	--el-input-height: 32px;
+	--el-input-line-height: 32px;
+	--el-input-padding-horizontal: 11px;
+	--el-input-text-color: var(--el-text-color-regular);
+	--el-input-bg-color: var(--el-fill-color-blank);
+	--el-input-border-color: var(--el-border-color);
+	--el-input-placeholder-color: var(--el-text-color-placeholder);
+	--el-input-hover-border-color: var(--el-border-color-hover);
+	--el-input-focus-border-color: var(--el-color-primary);
+	--el-input-disabled-text-color: var(--el-text-color-disabled);
+	--el-input-disabled-bg-color: var(--el-fill-color-light);
+	--el-input-disabled-border-color: var(--el-border-color-light);
+	--el-input-clear-hover-color: var(--el-text-color-secondary);
+
+	/* Select Variables */
+	--el-select-border-color-hover: var(--el-border-color-hover);
+	--el-select-input-focus-border-color: var(--el-color-primary);
+	--el-select-dropdown-background: var(--el-bg-color-overlay);
+	--el-select-option-hover-background: var(--el-fill-color-light);
+
+	/* Table Variables */
+	--el-table-font-size: 14px;
+	--el-table-text-color: var(--el-text-color-regular);
+	--el-table-header-text-color: var(--el-text-color-secondary);
+	--el-table-header-bg-color: var(--el-bg-color);
+	--el-table-row-bg-color: var(--el-bg-color);
+	--el-table-row-hover-bg-color: var(--el-fill-color-light);
+	--el-table-current-row-bg-color: var(--el-color-primary-light-9);
+	--el-table-border-color: var(--el-border-color-lighter);
+	--el-table-fixed-box-shadow: var(--el-box-shadow-light);
+	--el-table-bg-color: var(--el-bg-color);
+
+	/* Card Variables */
+	--el-card-bg-color: var(--el-bg-color);
+	--el-card-border-color: var(--el-border-color-light);
+	--el-box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
+	--el-box-shadow-light: 0 2px 4px rgba(0, 0, 0, 0.12), 0 0 6px rgba(0, 0, 0, 0.04);
+
+	/* Tag Variables */
+	--el-tag-font-size: 12px;
+
+	/* Alert Variables */
+	--el-alert-padding: 8px 16px;
+	--el-alert-border-radius-base: var(--el-border-radius-base);
+	--el-alert-title-font-size: 13px;
+
+	/* Date Picker Variables */
+	--el-datepicker-inner-border-color: var(--el-border-color-light);
+	--el-datepicker-border-color: var(--el-border-color);
+	--el-datepicker-header-bg-color: var(--el-fill-color-light);
+	--el-datepicker-inrange-bg-color: var(--el-color-primary-light-9);
+	--el-datepicker-inrange-hover-bg-color: var(--el-color-primary-light-8);
+	--el-datepicker-active-color: var(--el-color-primary);
+	--el-datepicker-text-color: var(--el-text-color-disabled);
+	--el-datepicker-off-text-color: var(--el-text-color-placeholder);
+	--el-datepicker-header-text-color: var(--el-text-color-regular);
+	--el-datepicker-icon-color: var(--el-text-color-disabled);
+	--el-datepicker-hover-text-color: var(--el-color-primary);
+	--el-datepicker-current-color: var(--el-color-primary);
+	--el-date-editor-disabled-bg-color: var(--el-fill-color-light);
+	--el-date-editor-disabled-text-color: var(--el-text-color-disabled);
+	--el-date-editor-disabled-border-color: var(--el-border-color-light);
+
+	/* Form Variables */
+	--el-form-label-font-size: 14px;
+	--el-checkbox-font-size: 14px;
+	--el-checkbox-text-color: var(--el-text-color-regular);
+	--el-checkbox-checked-text-color: var(--el-color-primary);
+	--el-checkbox-checked-bg-color: var(--el-color-primary);
+	--el-radio-font-size: 14px;
+	--el-radio-text-color: var(--el-text-color-regular);
+	--el-switch-on-color: var(--el-color-primary);
+	--el-switch-off-color: var(--el-border-color);
+
+	/* Dialog Variables */
+	--el-dialog-bg-color: var(--el-bg-color);
+	--el-dialog-box-shadow: var(--el-box-shadow);
+	--el-overlay-bg-color: rgba(0, 0, 0, 0.5);
+
+	/* Progress Variables */
+	--el-progress-bg-color: var(--el-border-color-lighter);
+	--el-progress-bar-color: var(--el-color-primary);
+
+	/* Badge Variables */
+	--el-badge-bg-color: var(--el-color-danger);
+	--el-badge-text-color: var(--el-color-white);
+
+	/* Other Colors */
+	--el-color-white: #ffffff;
+	--el-color-black: #000000;
+	--el-mask-color: rgba(255, 255, 255, 0.9);
+	--el-mask-color-extra-light: rgba(255, 255, 255, 0.3);
+
+	/* Disabled States */
+	--el-disabled-text-color: var(--el-text-color-disabled);
+	--el-disabled-bg-color: var(--el-fill-color-light);
+	--el-disabled-border-color: var(--el-border-color-light);
+}
+
+/* ============================================
+   深色模式 Element Plus 变量覆盖
+   ============================================ */
+html.dark,
+html.dark.sub-app-body,
+html.dark.flowflex-app {
+	/* Menu Variables - Dark Mode */
+	--el-menu-active-color: var(--el-color-primary);
+	--el-menu-text-color: var(--el-text-color-primary);
+	--el-menu-hover-text-color: var(--el-color-primary);
+	--el-menu-bg-color: var(--el-color-black);
+  --el-menu-hover-bg-color: rgba(117, 59, 189, 0.1);
+	--el-menu-item-height: 56px;
+	--el-menu-item-font-size: 14px;
+	--el-menu-item-hover-fill: rgba(117, 59, 189, 0.1);
+	--el-menu-border-color: var(--el-border-color);
+
+	/* Button Variables - Dark Mode */
+	--el-button-hover-bg-color: rgba(255, 255, 255, 0.1);
+
+	/* Input Variables - Dark Mode */
+	--el-input-bg-color: transparent;
+
+	/* Table Variables - Dark Mode */
+	--el-table-current-row-bg-color: rgba(117, 59, 189, 0.1);
+	--el-table-fixed-box-shadow: 0 0 10px rgba(0, 0, 0, 0.12);
+
+	/* Card Variables - Dark Mode */
+	--el-box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.3);
+	--el-box-shadow-light: 0 2px 4px rgba(0, 0, 0, 0.12), 0 0 6px rgba(0, 0, 0, 0.12);
+
+	/* Alert Variables - Dark Mode */
+	--el-alert-bg-color: var(--el-bg-color);
+	--el-alert-border-color: var(--el-border-color);
+	--el-alert-text-color: var(--el-text-color-primary);
+
+	/* Form Variables - Dark Mode */
+	--el-checkbox-checked-border-color: var(--el-color-primary);
+	--el-radio-checked-bg-color: var(--el-color-primary);
+	--el-radio-checked-border-color: var(--el-color-primary);
+
+	/* Dialog Variables - Dark Mode */
+	--el-dialog-box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.5);
+	--el-overlay-bg-color: rgba(0, 0, 0, 0.7);
+
+	/* Avatar Variables - Dark Mode */
+	--el-avatar-bg-color: var(--el-fill-color);
+	--el-avatar-text-color: var(--el-text-color-primary);
+
+	/* Other Colors - Dark Mode */
+	--el-mask-color: rgba(0, 0, 0, 0.8);
+	--el-mask-color-extra-light: rgba(0, 0, 0, 0.3);
+
+	/* Disabled States - Dark Mode */
+	--el-disabled-bg-color: #1a1a1a;
+}

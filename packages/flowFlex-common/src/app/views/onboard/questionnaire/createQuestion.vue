@@ -37,7 +37,7 @@
 				<!-- 左侧配置面板 -->
 				<div class="config-panel">
 					<el-scrollbar ref="configScrollbarRef">
-						<el-card class="config-card rounded-xl bg-white dark:bg-black-400">
+						<el-card class="config-card">
 							<!-- 基本信息 -->
 							<QuestionnaireBasicInfo
 								:questionnaire="{
@@ -70,7 +70,7 @@
 								>
 									Add Section
 								</el-button>
-								<p class="text-xs text-gray-500 mt-2 text-center">
+								<p class="text-xs section-hint mt-2 text-center">
 									Organize your questions into sections
 								</p>
 							</div>
@@ -97,7 +97,7 @@
 					>
 						<el-scrollbar ref="editorScrollbarRef">
 							<TabPane value="questions" class="questions-pane">
-								<el-card class="editor-card rounded-xl bg-white dark:bg-black-400">
+								<el-card class="editor-card">
 									<!-- 当前分区信息 -->
 									<div
 										v-if="showSectionManagement"
@@ -173,6 +173,7 @@
 										v-if="showSectionManagement"
 										:model="currentSection"
 										label-position="top"
+										@submit.prevent
 									>
 										<div class="current-section-info">
 											<el-form-item label="Section Description">
@@ -992,7 +993,6 @@ onMounted(async () => {
 
 .config-card {
 	height: fit-content;
-	border: 1px solid var(--primary-100);
 }
 
 .config-section {
@@ -1033,7 +1033,6 @@ onMounted(async () => {
 .editor-card,
 .preview-card {
 	height: 100%;
-	border: 1px solid var(--primary-100);
 }
 
 .current-section-info {
@@ -1042,12 +1041,6 @@ onMounted(async () => {
 	background-color: var(--primary-50);
 	border: 1px solid var(--primary-100);
 	@apply rounded-xl;
-}
-
-/* 深色模式支持 */
-.dark .config-card {
-	border-color: var(--primary-600);
-	background-color: var(--black-400);
 }
 
 .dark .section-title {
@@ -1112,5 +1105,9 @@ onMounted(async () => {
 		color: var(--el-text-color-primary);
 		line-height: 1.6;
 	}
+}
+
+.section-hint {
+	color: var(--el-text-color-secondary);
 }
 </style>

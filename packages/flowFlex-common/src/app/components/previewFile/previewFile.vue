@@ -162,7 +162,7 @@ const closeOffice = () => {
 .office_block-item {
 	width: 90vw;
 	height: 90vh;
-	background-color: #f5f5f5;
+	background-color: var(--el-fill-color-light);
 	display: flex;
 	flex-direction: column;
 	overflow: hidden;
@@ -171,8 +171,8 @@ const closeOffice = () => {
 
 .preview-toolbar {
 	@apply flex justify-between items-center p-2;
-	background: rgba(255, 255, 255, 0.9);
-	border-bottom: 1px solid #eee;
+	background: var(--el-bg-color-overlay);
+	border-bottom: 1px solid var(--el-border-color-lighter);
 	z-index: 1;
 }
 
@@ -181,7 +181,7 @@ const closeOffice = () => {
 	overflow: auto;
 	transition: transform 0.3s ease;
 	transform-origin: center top;
-	background: #f5f5f5;
+	background: var(--el-fill-color-light);
 	padding: 0 40px;
 	display: flex;
 	justify-content: center;
@@ -193,14 +193,14 @@ const closeOffice = () => {
 	}
 
 	&::-webkit-scrollbar-track {
-		background: #f1f1f1;
+		background: var(--el-fill-color-lighter);
 	}
 
 	&::-webkit-scrollbar-thumb {
-		background: #ccc;
+		background: var(--el-border-color);
 		@apply rounded-xl;
 		&:hover {
-			background: #999;
+			background: var(--el-border-color-dark);
 		}
 	}
 }
@@ -220,7 +220,7 @@ const closeOffice = () => {
 	min-height: 1056px; /* A4纸张高度 */
 	margin: 0 auto;
 	padding: 0;
-	background: white;
+	background: var(--el-bg-color);
 	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 	box-sizing: border-box;
 
@@ -266,7 +266,7 @@ const closeOffice = () => {
 			display: table !important;
 			margin: 0 auto !important;
 			border-collapse: collapse !important;
-			border: 1px solid #000 !important;
+			border: 1px solid var(--el-border-color-darker) !important;
 
 			td,
 			th {
@@ -274,7 +274,7 @@ const closeOffice = () => {
 				word-break: break-word !important;
 				overflow: hidden !important;
 				white-space: normal !important;
-				border: 1px solid #000 !important;
+				border: 1px solid var(--el-border-color-darker) !important;
 				padding: 8px !important;
 			}
 		}
@@ -379,19 +379,19 @@ const closeOffice = () => {
 /* 暗色模式适配 */
 .dark {
 	.preview-toolbar {
-		background: rgba(0, 0, 0, 0.8);
-		border-color: #333;
+		background: var(--el-bg-color-overlay);
+		border-color: var(--el-border-color-darker);
 	}
 
 	:deep(.docx-wrapper) {
-		background: #1a1a1a;
-		color: #e5e5e5;
+		background: var(--el-bg-color-page);
+		color: var(--el-text-color-primary);
 		box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 
 		table {
 			td,
 			th {
-				border-color: #4a4a4a !important;
+				border-color: var(--el-border-color) !important;
 			}
 		}
 	}

@@ -1,45 +1,52 @@
+/**
+ * 字体定义
+ * 包含 Satoshi (Item 规范) 和 HelveticaNow (项目原有)
+ */
+
+/* Satoshi Font Face Declarations */
 @font-face {
-	font-family: 'HelveticaNow';
-	font-weight: 100;
-	src: url('@assets/fonts/HelveticaNowDisplay-Th.otf') format('opentype');
+  font-family: 'Satoshi';
+  src: url('/fonts/Satoshi-Variable.ttf') format('truetype');
+  font-weight: 300 900;
+  font-display: swap;
+  font-style: normal;
 }
+
 @font-face {
-	font-family: 'HelveticaNow';
-	font-weight: 200;
-	src: url('@assets/fonts/HelveticaNowDisplay-XLt.otf') format('opentype');
+  font-family: 'Satoshi';
+  src: url('/fonts/Satoshi-VariableItalic.ttf') format('truetype');
+  font-weight: 300 900;
+  font-display: swap;
+  font-style: italic;
 }
-@font-face {
-	font-family: 'HelveticaNow';
-	font-weight: 300;
-	src: url('@assets/fonts/HelveticaNowDisplay-Lt.otf') format('opentype');
+
+/* ========== Font Family Application ========== */
+/* Font Family */
+body {
+  font-family:
+    'Satoshi',
+    -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    Roboto,
+    'Helvetica Neue',
+    Arial,
+    sans-serif;
+  font-weight: 400;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
-@font-face {
-	font-family: 'HelveticaNow';
-	font-weight: 400;
-	src: url('@assets/fonts/HelveticaNowDisplay-Regular.otf') format('opentype');
+
+#app {
+  font-family:
+    'Satoshi',
+    -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    Roboto,
+    'Helvetica Neue',
+    Arial,
+    sans-serif;
 }
-@font-face {
-	font-family: 'HelveticaNow';
-	font-weight: 500;
-	src: url('@assets/fonts/HelveticaNowDisplay-Regular-BTDLwXjp.otf') format('opentype');
-}
-@font-face {
-	font-family: 'HelveticaNow';
-	font-weight: 600;
-	src: url('@assets/fonts/HelveticaNowDisplay-Bd.otf') format('opentype');
-}
-@font-face {
-	font-family: 'HelveticaNow';
-	font-weight: 700;
-	src: url('@assets/fonts/HelveticaNowDisplay-XBd.otf') format('opentype');
-}
-@font-face {
-	font-family: 'HelveticaNow';
-	font-weight: 800;
-	src: url('@assets/fonts/HelveticaNowDisplay-Blk.otf') format('opentype');
-}
-@font-face {
-	font-family: 'HelveticaNow';
-	font-weight: 900;
-	src: url('@assets/fonts/HelveticaNowDisplay-XBlk.otf') format('opentype');
-}
+
+

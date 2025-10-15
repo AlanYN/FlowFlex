@@ -1,0 +1,87 @@
+/**
+ * 状态块组件
+ * 用于显示各种状态的标签块
+ */
+
+.status_block-public {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	height: 24px;
+	font-style: normal;
+	font-weight: 400;
+	font-size: 14px;
+	line-height: 16px;
+	align-items: center;
+	text-align: center;
+	@apply rounded-xl;
+}
+
+.status_1 {
+	background: #f4f4f5;
+	color: #909399;
+}
+
+.status_2 {
+	background: #f0f9eb;
+	color: #67c23a;
+}
+
+.status_3 {
+	background: #fdf6ec;
+	color: #e6a23c;
+}
+
+.status_4 {
+	background: #fef0f0;
+	color: #f56c6c;
+}
+
+.status_5 {
+	background: #ecf5ff;
+	color: #409eff;
+}
+
+.status_block {
+	/* Auto layout */
+	display: flex;
+	justify-content: center;
+	text-align: center;
+	align-items: center;
+
+	height: 24px;
+	padding: 0 10px;
+
+	background: #e6f1fa;
+	color: #000;
+
+	/* Inside auto layout */
+	flex: none;
+	flex-grow: 0;
+	@apply rounded-xl;
+}
+
+.status_inactive {
+	background: #f4f4f5 !important;
+	color: #909399 !important;
+}
+
+.tag_block {
+	/* Auto layout */
+	display: flex;
+	justify-content: center;
+	text-align: center;
+	align-items: center;
+
+	height: 24px;
+	padding: 0 10px;
+
+	background: #e6f3e8;
+	color: #000;
+
+	/* Inside auto layout */
+	flex: none;
+	flex-grow: 0;
+	@apply rounded-xl;
+}
+

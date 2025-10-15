@@ -182,7 +182,12 @@ export default {
 		},
 
 		getStageColor(stage) {
-			return stage.color || '#409EFF';
+			return (
+				stage.color ||
+				getComputedStyle(document.documentElement)
+					.getPropertyValue('--el-color-primary')
+					.trim()
+			);
 		},
 
 		getStageIcon(stage) {
@@ -266,14 +271,14 @@ export default {
 
 .progress-title h2 {
 	margin: 0 0 8px 0;
-	color: #1f2937;
+	color: var(--el-text-color-primary);
 	font-size: 24px;
 	font-weight: 600;
 }
 
 .progress-title p {
 	margin: 0;
-	color: #6b7280;
+	color: var(--el-text-color-secondary);
 	font-size: 14px;
 }
 
@@ -289,13 +294,13 @@ export default {
 .stat-value {
 	font-size: 28px;
 	font-weight: 700;
-	color: #3b82f6;
+	color: var(--el-color-primary);
 	margin-bottom: 4px;
 }
 
 .stat-label {
 	font-size: 12px;
-	color: #6b7280;
+	color: var(--el-text-color-secondary);
 	text-transform: uppercase;
 	letter-spacing: 0.5px;
 }
@@ -331,11 +336,11 @@ export default {
 	top: 40px;
 	width: 2px;
 	height: 32px;
-	background-color: #e5e7eb;
+	background-color: var(--el-border-color-light);
 }
 
 .stage-item.completed .stage-connector {
-	background-color: #10b981;
+	background-color: var(--el-color-success);
 }
 
 .stage-icon {
@@ -354,7 +359,7 @@ export default {
 
 .stage-content {
 	flex: 1;
-	background: #f9fafb;
+	background: var(--el-fill-color-blank);
 	padding: 16px;
 	border-left: 4px solid transparent;
 	transition: all 0.3s ease;
@@ -362,17 +367,17 @@ export default {
 }
 
 .stage-item.completed .stage-content {
-	border-left-color: #10b981;
-	background: #f0fdf4;
+	border-left-color: var(--el-color-success);
+	background: var(--el-color-success-light-9);
 }
 
 .stage-item.in-progress .stage-content {
-	border-left-color: #f59e0b;
-	background: #fffbeb;
+	border-left-color: var(--el-color-warning);
+	background: var(--el-color-warning-light-9);
 }
 
 .stage-item.editable .stage-content:hover {
-	background: #f3f4f6;
+	background: var(--el-fill-color-light);
 	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
@@ -385,7 +390,7 @@ export default {
 
 .stage-header h4 {
 	margin: 0;
-	color: #1f2937;
+	color: var(--el-text-color-primary);
 	font-size: 16px;
 	font-weight: 600;
 }
@@ -398,12 +403,12 @@ export default {
 
 .completion-date {
 	font-size: 12px;
-	color: #6b7280;
+	color: var(--el-text-color-secondary);
 }
 
 .stage-description {
 	margin: 0 0 16px 0;
-	color: #4b5563;
+	color: var(--el-text-color-regular);
 	font-size: 14px;
 	line-height: 1.5;
 }
@@ -422,7 +427,7 @@ export default {
 	align-items: center;
 	margin-bottom: 8px;
 	font-size: 12px;
-	color: #6b7280;
+	color: var(--el-text-color-secondary);
 }
 
 .completion-info {
@@ -442,18 +447,18 @@ export default {
 }
 
 .completion-item i {
-	color: #3b82f6;
+	color: var(--el-color-primary);
 	font-size: 18px;
 }
 
 .completion-item label {
-	color: #6b7280;
+	color: var(--el-text-color-secondary);
 	font-size: 14px;
 	margin-right: 4px;
 }
 
 .completion-item span {
-	color: #1f2937;
+	color: var(--el-text-color-primary);
 	font-weight: 500;
 }
 
