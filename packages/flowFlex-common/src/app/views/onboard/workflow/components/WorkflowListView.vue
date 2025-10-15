@@ -98,17 +98,28 @@
 						</div>
 						<!-- 标签区域（右侧，固定） -->
 						<div class="workflow-tags-right">
+							<el-tag v-if="row.isDefault" type="warning" size="small">
+								<div class="flex items-center gap-1 text-white font-bold">
+									<StarIcon class="star-icon" />
+									Default
+								</div>
+							</el-tag>
 							<el-tag v-if="row.isAIGenerated" type="primary" size="small">
 								<div class="flex items-center gap-1 text-white font-bold">
 									<span class="ai-sparkles">✨</span>
 									AI
 								</div>
 							</el-tag>
-							<el-tag v-if="row.isDefault" type="warning" size="small">
-								<div class="flex items-center gap-1 text-white font-bold">
-									<StarIcon class="star-icon" />
-									Default
-								</div>
+							<el-tag
+								v-if="row.status === 'active'"
+								type="success"
+								size="small"
+								class="rounded-xl"
+							>
+								Active
+							</el-tag>
+							<el-tag v-else type="danger" size="small" class="rounded-xl">
+								Inactive
 							</el-tag>
 						</div>
 					</div>

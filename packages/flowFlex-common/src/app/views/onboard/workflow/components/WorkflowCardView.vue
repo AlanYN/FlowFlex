@@ -135,75 +135,23 @@
 									class="stages-container"
 									style="height: 60px; overflow: hidden"
 								>
-									<template
-										v-for="(stage, index) in getDisplayedStages(
-											workflow.stages
-										)"
-										:key="stage.id"
-									>
-										<!-- 第一个stage独占一行 -->
-										<div v-if="index === 0" class="flex gap-2 mb-2">
-											<span
-												class="card-link card-link-full"
-												:title="stage.name"
-											>
-												<span
-													class="w-full text-center overflow-hidden text-ellipsis whitespace-nowrap block"
-												>
-													{{ stage.name }}
-												</span>
+									<div class="stages-list">
+										<span
+											v-for="stage in workflow.stages"
+											:key="stage.id"
+											class="stage-tag"
+											:style="{
+												borderColor:
+													stage?.color || 'var(--el-color-primary)',
+												color: stage?.color || 'var(--el-color-primary)',
+											}"
+											:title="stage.name"
+										>
+											<span class="stage-tag-text">
+												{{ stage.name }}
 											</span>
-										</div>
-										<!-- 第二个stage，根据是否有剩余内容决定是否与+几按钮共享一行 -->
-										<div v-if="index === 1" class="flex gap-2 items-center">
-											<span
-												:class="{
-													'card-link': true,
-													'card-link-full':
-														(workflow.stages?.length || 0) <= 2,
-													'card-link-shared':
-														(workflow.stages?.length || 0) > 2,
-												}"
-												:title="stage.name"
-											>
-												<span
-													class="w-full text-center overflow-hidden text-ellipsis whitespace-nowrap block"
-												>
-													{{ stage.name }}
-												</span>
-											</span>
-											<!-- 显示剩余数量的按钮 -->
-											<el-popover
-												v-if="workflow.stages && workflow.stages.length > 2"
-												placement="top"
-												:width="400"
-												trigger="click"
-											>
-												<template #reference>
-													<span class="card-link-more">
-														+{{ workflow.stages.length - 2 }}
-													</span>
-												</template>
-												<div class="popover-content">
-													<h4 class="popover-title">More Stages</h4>
-													<div class="popover-tags">
-														<span
-															class="popover-tag"
-															v-for="moreStage in workflow.stages.slice(
-																2
-															)"
-															:key="moreStage.id"
-															:title="moreStage.name"
-														>
-															<span class="popover-tag-text">
-																{{ moreStage.name }}
-															</span>
-														</span>
-													</div>
-												</div>
-											</el-popover>
-										</div>
-									</template>
+										</span>
+									</div>
 								</div>
 							</div>
 							<!-- 状态标签区域 -->
@@ -337,17 +285,6 @@ const handleWorkflowSelect = (workflow: any) => {
 	emit('select-workflow', workflow.id);
 };
 
-// 获取显示的stages数量
-const getDisplayedStages = (stages: any[]) => {
-	const displayedCount = 2; // 显示2个
-	if (!stages || stages.length === 0) {
-		return [];
-	}
-
-	// 返回前N个stages
-	return stages.slice(0, displayedCount);
-};
-
 // 检查workflow是否有任何操作正在loading
 const isWorkflowActionLoading = (workflowId: string) => {
 	if (!props.actionLoading || !props.actionLoading[workflowId]) {
@@ -364,6 +301,32 @@ const isWorkflowActionLoading = (workflowId: string) => {
 .card-label {
 	font-weight: 500;
 	color: var(--el-text-color-primary);
+}
+
+/* stages列表样式 */
+.stages-list {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+	align-items: flex-start;
+}
+
+.stage-tag {
+	display: inline-flex;
+	align-items: center;
+	background-color: transparent;
+	font-size: 12px;
+	font-weight: 500;
+	transition: all 0.2s ease;
+	white-space: nowrap;
+	max-width: 120px;
+	@apply border px-2.5 py-0.5 rounded-full;
+}
+
+.stage-tag-text {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
 }
 
 /* 工作流卡片网格布局 */
