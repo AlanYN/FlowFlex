@@ -1,8 +1,8 @@
 import { reactive, readonly } from 'vue';
 
 const state = reactive({
-	theme: localStorage.theme || 'light', // 默认主题为 dark
-	primary: localStorage.primary || 'blue', // 默认主题为 dark
+	theme: localStorage.theme || 'dark', // 默认主题为 dark
+	primary: localStorage.primary || 'purple', // 默认主色调为 purple
 });
 
 export function useTheme() {
@@ -30,8 +30,12 @@ export function setTheme(theme?: string | null, isSet?: boolean) {
 	function changeDarkMode() {
 		if (state.theme === 'dark') {
 			document.documentElement.classList.add('dark');
+			// 暗色主题使用 purple 主色调
+			setPrimary('purple');
 		} else {
 			document.documentElement.classList.remove('dark');
+			// 白色主题使用 blue 主色调
+			setPrimary('blue');
 		}
 
 		// 通知嵌套的权限页面切换主题
@@ -63,7 +67,7 @@ export function setPrimary(primary?: string | null) {
 		state.primary = primary;
 	} else {
 		if (!primaryColor) {
-			state.primary = 'blue';
+			state.primary = 'purple';
 		} else {
 			state.primary = primaryColor;
 		}
