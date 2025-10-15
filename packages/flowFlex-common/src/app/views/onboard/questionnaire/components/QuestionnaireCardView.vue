@@ -279,7 +279,7 @@
 			<p class="empty-subtitle mt-1 mb-4">
 				{{ emptyMessage }}
 			</p>
-			<el-button type="primary" @click="$emit('new-questionnaire')" class="primary-button">
+			<el-button type="primary" @click="$emit('new-questionnaire')">
 				<el-icon class="mr-2"><Plus /></el-icon>
 				Create Your First Questionnaire
 			</el-button>
@@ -459,16 +459,5 @@ const getUniqueAssignments = (assignments: any[]) => {
 .empty-subtitle {
 	color: var(--primary-600);
 	@apply dark:text-primary-300;
-}
-
-.primary-button {
-	background-color: var(--primary-500) !important;
-	border-color: var(--primary-500) !important;
-	color: white !important;
-}
-
-.primary-button:hover {
-	background-color: var(--primary-600) !important;
-	border-color: var(--primary-600) !important;
 }
 </style>

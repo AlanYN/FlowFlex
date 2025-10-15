@@ -164,9 +164,9 @@
 									>
 										<div class="flex items-center space-x-3">
 											<div
-												class="flex items-center justify-center w-10 h-10 rounded-xl bg-black dark:bg-white"
+												class="flex items-center justify-center w-10 h-10 rounded-xl bg-primary"
 											>
-												<el-icon class="text-primary" size="20">
+												<el-icon class="text-white" size="20">
 													<component :is="actionType.icon" />
 												</el-icon>
 											</div>

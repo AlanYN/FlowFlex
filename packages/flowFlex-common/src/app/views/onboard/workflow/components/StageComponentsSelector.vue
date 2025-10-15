@@ -175,7 +175,7 @@
 							id="file-management"
 							size="small"
 						/>
-						<div class="flex-1 min-w-0">
+						<div class="flex-1 min-w-0 dark:text-black-400">
 							<label
 								for="file-management"
 								class="text-sm leading-none font-medium cursor-pointer block truncate"

@@ -880,7 +880,7 @@ html.dark .stage-item:hover {
 }
 
 .stage-skeleton {
-	@apply bg-white dark:bg-gray-800 border stage-border-base overflow-hidden rounded-xl;
+	@apply bg-white dark:bg-black border stage-border-base overflow-hidden rounded-xl;
 	box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 	border-left-width: 4px;
 	border-left-style: solid;

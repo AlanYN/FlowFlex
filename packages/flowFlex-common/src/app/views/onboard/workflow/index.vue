@@ -6,6 +6,14 @@
 			description="Design and manage business workflows with customizable stages and automated processes"
 		>
 			<template #actions>
+				<TabButtonGroup
+					v-model="activeView"
+					:tabs="tabsConfig"
+					size="small"
+					type="adaptive"
+					class="mr-4"
+					@tab-change="handleViewChange"
+				/>
 				<el-button
 					type="primary"
 					@click="showNewWorkflowDialog"
@@ -25,347 +33,361 @@
 
 		<!-- 主要内容区 -->
 		<div>
-			<!-- 加载中状态 -->
-			<div
-				v-if="loading.workflows"
-				class="loading-container rounded-xl bg-el-bg-color dark:bg-el-bg-color"
-			>
-				<el-skeleton style="width: 100%" :rows="10" animated />
-			</div>
-
-			<!-- 工作流内容 -->
-			<div class="workflow-list" v-else-if="workflow">
-				<div
-					class="workflow-card rounded-xl bg-el-bg-color border border-el-border-color-light dark:border-el-border-color"
-					:class="{ active: workflow.isActive }"
+			<!-- 列表视图模式 -->
+			<div v-if="viewMode === 'list'">
+				<!-- 视图切换标签页 -->
+				<PrototypeTabs
+					v-model="activeView"
+					:tabs="tabsConfig"
+					type="adaptive"
+					size="default"
+					:hidden-tab="true"
+					@tab-change="handleViewChange"
 				>
-					<div
-						class="workflow-card-header bg-el-color-primary-light-9 dark:bg-el-fill-color border-b border-el-border-color-light dark:border-el-border-color"
-					>
-						<div class="left-section">
-							<div class="title-and-tags">
-								<span
-									class="workflow-name text-el-text-color-primary dark:text-el-text-color-primary"
-								>
-									{{ workflow.name }}
-								</span>
-								<el-tag
-									v-if="workflow.isAIGenerated"
-									type="primary"
-									size="small"
-									class="ai-tag rounded-xl"
-								>
-									<div class="flex items-center gap-1">
-										<span class="ai-sparkles">✨</span>
-										AI
-									</div>
-								</el-tag>
-								<el-tag
-									v-if="workflow.isDefault"
-									type="warning"
-									size="small"
-									class="default-tag rounded-xl"
-								>
-									<div class="flex items-center gapx-2">
-										<StarIcon class="star-icon" />
-										Default
-									</div>
-								</el-tag>
-								<el-tag
-									v-if="workflow.status === 'active'"
-									type="success"
-									size="small"
-									class="rounded-xl"
-								>
-									Active
-								</el-tag>
-								<el-tag v-else type="danger" size="small" class="rounded-xl">
-									Inactive
-								</el-tag>
-							</div>
-							<span
-								class="workflow-desc text-el-text-color-regular dark:text-el-text-color-secondary"
-							>
-								{{ workflow.description }}
-							</span>
-						</div>
-						<div class="right-section">
-							<!-- 工作流选择器 -->
-							<el-select
-								v-model="selectedWorkflow"
-								placeholder="Select Workflow"
-								size="default"
-								class="workflow-selector"
-								@change="onWorkflowChange"
-							>
-								<el-option
-									v-for="workflowItem in workflowListData"
-									:key="workflowItem.id"
-									:label="workflowItem.name"
-									:value="workflowItem.id"
-								>
-									<div class="flex items-center justify-between">
-										<div class="flex items-center">
-											<el-icon v-if="workflowItem.id === workflow?.id">
-												<Check />
-											</el-icon>
-											<div class="max-w-[250px] truncate">
-												{{ workflowItem.name }}
-											</div>
-										</div>
-										<div class="flex items-center gap-1">
-											<span
-												v-if="workflowItem.isAIGenerated"
-												class="ai-dropdown-sparkles"
-											>
-												✨
-											</span>
-											<div v-if="workflowItem.isDefault">⭐</div>
-											<el-icon
-												v-if="workflowItem.status === 'inactive'"
-												class="inactive-icon"
-											>
-												<VideoPause />
-											</el-icon>
-										</div>
-									</div>
-								</el-option>
-							</el-select>
+					<!-- 卡片视图 -->
+					<TabPane value="card">
+						<el-scrollbar ref="scrollbarRef">
+							<WorkflowCardView
+								:workflows="workflowListData"
+								:loading="loading.workflows"
+								:empty-message="getEmptyStateMessage()"
+								:action-loading="actionLoading"
+								@command="handleCommand"
+								@select-workflow="handleWorkflowSelect"
+								@new-workflow="showNewWorkflowDialog"
+							/>
+						</el-scrollbar>
+					</TabPane>
 
-							<!-- 更多操作按钮 -->
-							<el-dropdown
-								trigger="click"
-								@command="(cmd) => workflow && handleCommand(cmd)"
-								:disabled="
-									loading.activateWorkflow ||
-									loading.deactivateWorkflow ||
-									loading.duplicateWorkflow ||
-									loading.updateWorkflow ||
-									loading.exportWorkflow
-								"
-								:popper-options="{
-									modifiers: [
-										{
-											name: 'computeStyles',
-											options: {
-												adaptive: false,
-												enabled: false,
-											},
-										},
-									],
-								}"
-							>
-								<el-button
-									class="more-actions-btn rounded-xl"
-									aria-label="More actions"
-									:aria-expanded="false"
-								>
-									<el-icon
-										v-if="
-											loading.activateWorkflow ||
-											loading.deactivateWorkflow ||
-											loading.duplicateWorkflow ||
-											loading.updateWorkflow ||
-											loading.exportWorkflow
-										"
-									>
-										<Loading />
-									</el-icon>
-									<el-icon v-else>
-										<MoreFilled />
-									</el-icon>
-								</el-button>
-								<template #dropdown>
-									<el-dropdown-menu class="actions-dropdown">
-										<el-dropdown-item command="edit">
-											<el-icon>
-												<Edit />
-											</el-icon>
-											Edit Workflow
-										</el-dropdown-item>
-										<el-dropdown-item
-											v-if="
-												!workflow.isDefault && workflow.status === 'active'
-											"
-											divided
-											command="setDefault"
-										>
-											<el-icon>
-												<Star />
-											</el-icon>
-											Set as Default
-										</el-dropdown-item>
-										<el-dropdown-item
-											v-if="workflow.status === 'active'"
-											command="deactivate"
-										>
-											<el-icon>
-												<CircleClose />
-											</el-icon>
-											Set as Inactive
-										</el-dropdown-item>
-										<el-dropdown-item
-											v-if="workflow.status === 'inactive'"
-											command="activate"
-										>
-											<el-icon>
-												<Check />
-											</el-icon>
-											Set as Active
-										</el-dropdown-item>
-										<el-dropdown-item divided command="duplicate">
-											<el-icon>
-												<CopyDocument />
-											</el-icon>
-											Duplicate
-										</el-dropdown-item>
-										<el-dropdown-item command="addStage">
-											<el-icon>
-												<Plus />
-											</el-icon>
-											Add Stage
-										</el-dropdown-item>
-
-										<!-- <el-dropdown-item
-											command="combineStages"
-											:disabled="workflow.stages.length < 2"
-										>
-											<el-icon><Connection /></el-icon>
-											Combine Stages
-										</el-dropdown-item> -->
-										<el-dropdown-item divided>
-											<HistoryButton
-												:id="workflow?.id"
-												:type="WFEMoudels.Workflow"
-											/>
-										</el-dropdown-item>
-										<el-dropdown-item divided command="export">
-											<el-icon>
-												<Download />
-											</el-icon>
-											Export Workflow
-										</el-dropdown-item>
-									</el-dropdown-menu>
-								</template>
-							</el-dropdown>
-						</div>
-					</div>
-
-					<!-- Workflow 内容 -->
-					<div
-						class="workflow-card-body bg-el-color-primary-light-9 dark:bg-el-fill-color"
-					>
-						<div class="workflow-header-actions">
-							<div class="dates-container">
-								<el-tooltip content="last mdify by">
-									<div class="flex items-center gap-2">
-										<Icon
-											icon="ic:baseline-person-3"
-											class="text-primary-500 w-5 h-5"
-										/>
-										<span
-											class="card-value font-medium text-el-text-color-regular dark:text-el-text-color-secondary"
-										>
-											{{ workflow.modifyBy }}
-										</span>
-									</div>
-								</el-tooltip>
-								<el-tooltip content="last modify date">
-									<div class="flex items-center gap-2">
-										<Icon
-											icon="ic:baseline-calendar-month"
-											class="text-primary-500 w-5 h-5"
-										/>
-										<span
-											class="card-value font-medium text-el-text-color-regular dark:text-el-text-color-secondary"
-										>
-											{{
-												timeZoneConvert(
-													workflow.modifyDate,
-													false,
-													projectTenMinuteDate
-												)
-											}}
-										</span>
-									</div>
-								</el-tooltip>
-							</div>
-							<div class="action-buttons-group">
-								<el-button
-									@click="addStage()"
-									:disabled="loading.createStage"
-									:icon="loading.createStage ? Loading : Plus"
-								>
-									Add Stage
-								</el-button>
-							</div>
-						</div>
-
-						<!-- Stages 标题 -->
-						<div class="stages-header">
-							<div class="stages-header-actions"></div>
-						</div>
-
-						<StagesList
-							v-model:stages="workflow.stages"
-							:workflow-id="workflow.id"
-							:is-editing="isEditing"
-							:loading="{
-								stages: loading.stages,
-								deleteStage: loading.deleteStage,
-								sortStages: loading.sortStages,
-							}"
-							:userList="userList"
-							@edit="(stage) => editStage(stage)"
-							@delete="(stageId) => deleteStage(stageId)"
-							@drag-start="onDragStart"
-							@order-changed="() => updateStagesOrder()"
+					<!-- 列表视图 -->
+					<TabPane value="list">
+						<WorkflowListView
+							:workflows="workflowListData"
+							:loading="loading.workflows"
+							:action-loading="actionLoading"
+							@command="handleCommand"
+							@selection-change="handleSelectionChange"
+							@sort-change="handleSortChange"
+							@select-workflow="handleWorkflowSelect"
 						/>
-					</div>
+					</TabPane>
+				</PrototypeTabs>
 
-					<!-- 总阶段数信息 -->
-					<div
-						class="workflow-footer bg-el-fill-color-light dark:bg-el-fill-color border-t border-el-border-color-light dark:border-el-border-color px-6 py-4"
-					>
-						<p
-							class="stage-count text-el-text-color-regular dark:text-el-text-color-secondary text-sm"
-						>
-							Total stages: {{ workflow?.stages?.length || 0 }}
-						</p>
-					</div>
+				<!-- 统一分页组件 -->
+				<div v-if="!loading.workflows && pagination.total > 0">
+					<CustomerPagination
+						:total="pagination.total"
+						:limit="pagination.pageSize"
+						:page="pagination.pageIndex"
+						:background="true"
+						@pagination="handleLimitUpdate"
+						@update:page="handleCurrentChange"
+						@update:limit="handlePageUpdate"
+					/>
 				</div>
 			</div>
 
-			<!-- 空状态 - 没有工作流时显示 -->
-			<div
-				v-else
-				class="empty-state-container rounded-xl bg-el-bg-color border border-dashed border-el-border-color dark:border-el-border-color"
-			>
-				<div class="empty-state-content">
-					<el-icon class="empty-state-icon text-primary-300 dark:text-primary-400">
-						<DocumentAdd />
-					</el-icon>
-					<h2
-						class="empty-state-title text-el-text-color-primary dark:text-el-text-color-primary"
+			<!-- 详情视图模式 -->
+			<div v-else-if="viewMode === 'detail'">
+				<!-- 返回按钮 -->
+				<div class="mb-4">
+					<el-button @click="handleBackToList" :icon="ArrowLeft">Back to List</el-button>
+				</div>
+
+				<!-- 加载中状态 -->
+				<div
+					v-if="loading.workflows"
+					class="loading-container rounded-xl bg-el-bg-color dark:bg-el-bg-color"
+				>
+					<el-skeleton style="width: 100%" :rows="10" animated />
+				</div>
+
+				<!-- 工作流详情内容 -->
+				<div class="workflow-list" v-else-if="workflow">
+					<div
+						class="workflow-card rounded-xl bg-el-bg-color border border-el-border-color-light dark:border-el-border-color"
+						:class="{ active: workflow.isActive }"
 					>
-						No Workflows Found
-					</h2>
-					<p
-						class="empty-state-desc text-el-text-color-regular dark:text-el-text-color-secondary"
-					>
-						Workflows help you organize and manage the entire onboarding process. Create
-						your first workflow to get started.
-					</p>
-					<el-button
-						type="primary"
-						size="large"
-						@click="showNewWorkflowDialog"
-						:loading="loading.createWorkflow"
-						class="create-workflow-btn"
-					>
-						<el-icon><Plus /></el-icon>
-						<span>Create Workflow</span>
-					</el-button>
+						<div
+							class="workflow-card-header bg-el-color-primary-light-9 dark:bg-el-fill-color border-b border-el-border-color-light dark:border-el-border-color"
+						>
+							<div class="left-section">
+								<div class="title-and-tags">
+									<span
+										class="workflow-name text-el-text-color-primary dark:text-el-text-color-primary"
+									>
+										{{ workflow.name }}
+									</span>
+									<el-tag
+										v-if="workflow.isAIGenerated"
+										type="primary"
+										size="small"
+										class="ai-tag rounded-xl"
+									>
+										<div class="flex items-center gap-1">
+											<span class="ai-sparkles">✨</span>
+											AI
+										</div>
+									</el-tag>
+									<el-tag
+										v-if="workflow.isDefault"
+										type="warning"
+										size="small"
+										class="default-tag rounded-xl"
+									>
+										<div class="flex items-center gapx-2">
+											<StarIcon class="star-icon" />
+											Default
+										</div>
+									</el-tag>
+									<el-tag
+										v-if="workflow.status === 'active'"
+										type="success"
+										size="small"
+										class="rounded-xl"
+									>
+										Active
+									</el-tag>
+									<el-tag v-else type="danger" size="small" class="rounded-xl">
+										Inactive
+									</el-tag>
+								</div>
+								<span
+									class="workflow-desc text-el-text-color-regular dark:text-el-text-color-secondary"
+								>
+									{{ workflow.description }}
+								</span>
+							</div>
+							<div class="right-section">
+								<!-- 更多操作按钮 -->
+								<el-dropdown
+									trigger="click"
+									@command="(cmd) => workflow && handleCommand(cmd, workflow)"
+									:disabled="
+										loading.activateWorkflow ||
+										loading.deactivateWorkflow ||
+										loading.duplicateWorkflow ||
+										loading.updateWorkflow ||
+										loading.exportWorkflow
+									"
+									:popper-options="{
+										modifiers: [
+											{
+												name: 'computeStyles',
+												options: {
+													adaptive: false,
+													enabled: false,
+												},
+											},
+										],
+									}"
+								>
+									<el-button
+										class="more-actions-btn rounded-xl"
+										aria-label="More actions"
+										:aria-expanded="false"
+									>
+										<el-icon
+											v-if="
+												loading.activateWorkflow ||
+												loading.deactivateWorkflow ||
+												loading.duplicateWorkflow ||
+												loading.updateWorkflow ||
+												loading.exportWorkflow
+											"
+										>
+											<Loading />
+										</el-icon>
+										<el-icon v-else>
+											<MoreFilled />
+										</el-icon>
+									</el-button>
+									<template #dropdown>
+										<el-dropdown-menu class="actions-dropdown">
+											<el-dropdown-item command="edit">
+												<el-icon>
+													<Edit />
+												</el-icon>
+												Edit Workflow
+											</el-dropdown-item>
+											<el-dropdown-item
+												v-if="
+													!workflow.isDefault &&
+													workflow.status === 'active'
+												"
+												divided
+												command="setDefault"
+											>
+												<el-icon>
+													<Star />
+												</el-icon>
+												Set as Default
+											</el-dropdown-item>
+											<el-dropdown-item
+												v-if="workflow.status === 'active'"
+												command="deactivate"
+											>
+												<el-icon>
+													<CircleClose />
+												</el-icon>
+												Set as Inactive
+											</el-dropdown-item>
+											<el-dropdown-item
+												v-if="workflow.status === 'inactive'"
+												command="activate"
+											>
+												<el-icon>
+													<Check />
+												</el-icon>
+												Set as Active
+											</el-dropdown-item>
+											<el-dropdown-item divided command="duplicate">
+												<el-icon>
+													<CopyDocument />
+												</el-icon>
+												Duplicate
+											</el-dropdown-item>
+											<el-dropdown-item command="addStage">
+												<el-icon>
+													<Plus />
+												</el-icon>
+												Add Stage
+											</el-dropdown-item>
+
+											<el-dropdown-item divided>
+												<HistoryButton
+													:id="workflow?.id"
+													:type="WFEMoudels.Workflow"
+												/>
+											</el-dropdown-item>
+											<el-dropdown-item divided command="export">
+												<el-icon>
+													<Download />
+												</el-icon>
+												Export Workflow
+											</el-dropdown-item>
+										</el-dropdown-menu>
+									</template>
+								</el-dropdown>
+							</div>
+						</div>
+
+						<!-- Workflow 内容 -->
+						<div
+							class="workflow-card-body bg-el-color-primary-light-9 dark:bg-el-fill-color"
+						>
+							<div class="workflow-header-actions">
+								<div class="dates-container">
+									<el-tooltip content="last mdify by">
+										<div class="flex items-center gap-2">
+											<Icon
+												icon="ic:baseline-person-3"
+												class="text-primary-500 w-5 h-5"
+											/>
+											<span
+												class="card-value font-medium text-el-text-color-regular dark:text-el-text-color-secondary"
+											>
+												{{ workflow.modifyBy }}
+											</span>
+										</div>
+									</el-tooltip>
+									<el-tooltip content="last modify date">
+										<div class="flex items-center gap-2">
+											<Icon
+												icon="ic:baseline-calendar-month"
+												class="text-primary-500 w-5 h-5"
+											/>
+											<span
+												class="card-value font-medium text-el-text-color-regular dark:text-el-text-color-secondary"
+											>
+												{{
+													timeZoneConvert(
+														workflow.modifyDate,
+														false,
+														projectTenMinuteDate
+													)
+												}}
+											</span>
+										</div>
+									</el-tooltip>
+								</div>
+								<div class="action-buttons-group">
+									<el-button
+										@click="addStage()"
+										:disabled="loading.createStage"
+										:icon="loading.createStage ? Loading : Plus"
+									>
+										Add Stage
+									</el-button>
+								</div>
+							</div>
+
+							<!-- Stages 标题 -->
+							<div class="stages-header">
+								<div class="stages-header-actions"></div>
+							</div>
+
+							<StagesList
+								v-model:stages="workflow.stages"
+								:workflow-id="workflow.id"
+								:is-editing="isEditing"
+								:loading="{
+									stages: loading.stages,
+									deleteStage: loading.deleteStage,
+									sortStages: loading.sortStages,
+								}"
+								:userList="userList"
+								@edit="(stage) => editStage(stage)"
+								@delete="(stageId) => deleteStage(stageId)"
+								@drag-start="onDragStart"
+								@order-changed="() => updateStagesOrder()"
+							/>
+						</div>
+
+						<!-- 总阶段数信息 -->
+						<div
+							class="workflow-footer bg-el-fill-color-light dark:bg-el-fill-color border-t border-el-border-color-light dark:border-el-border-color px-6 py-4"
+						>
+							<p
+								class="stage-count text-el-text-color-regular dark:text-el-text-color-secondary text-sm"
+							>
+								Total stages: {{ workflow?.stages?.length || 0 }}
+							</p>
+						</div>
+					</div>
+				</div>
+
+				<!-- 空状态 - 没有工作流时显示 -->
+				<div
+					v-else
+					class="empty-state-container rounded-xl bg-el-bg-color border border-dashed border-el-border-color dark:border-el-border-color"
+				>
+					<div class="empty-state-content">
+						<el-icon class="empty-state-icon text-primary-300 dark:text-primary-400">
+							<DocumentAdd />
+						</el-icon>
+						<h2
+							class="empty-state-title text-el-text-color-primary dark:text-el-text-color-primary"
+						>
+							No Workflows Found
+						</h2>
+						<p
+							class="empty-state-desc text-el-text-color-regular dark:text-el-text-color-secondary"
+						>
+							Workflows help you organize and manage the entire onboarding process.
+							Create your first workflow to get started.
+						</p>
+						<el-button
+							type="primary"
+							size="large"
+							@click="showNewWorkflowDialog"
+							:loading="loading.createWorkflow"
+							class="create-workflow-btn"
+						>
+							<el-icon><Plus /></el-icon>
+							<span>Create Workflow</span>
+						</el-button>
+					</div>
 				</div>
 			</div>
 		</div>
@@ -547,7 +569,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, computed } from 'vue';
+import { ref, reactive, onMounted, computed, markRaw } from 'vue';
 import { ElMessage, ElMessageBox, ElNotification } from 'element-plus';
 import {
 	Plus,
@@ -560,8 +582,8 @@ import {
 	// Connection,
 	Loading,
 	Star,
-	VideoPause,
 	DocumentAdd,
+	ArrowLeft,
 } from '@element-plus/icons-vue';
 
 import StarIcon from '@assets/svg/workflow/star.svg';
@@ -593,14 +615,24 @@ import { queryQuestionnaires } from '@/apis/ow/questionnaire';
 import StagesList from './components/StagesList.vue';
 import NewWorkflowForm from './components/NewWorkflowForm.vue';
 import StageForm from './components/StageForm.vue';
+import WorkflowCardView from './components/WorkflowCardView.vue';
+import WorkflowListView from './components/WorkflowListView.vue';
 import { Stage, Workflow, Questionnaire, Checklist } from '#/onboard';
 import { getFlowflexUser } from '@/apis/global';
 import { FlowflexUser } from '#/golbal';
 import { getAvatarColor } from '@/utils';
 import { WFEMoudels } from '@/enums/appEnum';
 import PageHeader from '@/components/global/PageHeader/index.vue';
+import { PrototypeTabs, TabPane, TabButtonGroup } from '@/components/PrototypeTabs';
+import CustomerPagination from '@/components/global/u-pagination/index.vue';
+import { useAdaptiveScrollbar } from '@/hooks/useAdaptiveScrollbar';
+import TableViewIcon from '@assets/svg/onboard/tavleView.svg';
+import ProgressViewIcon from '@assets/svg/onboard/progressView.svg';
 
 const { t } = useI18n();
+
+// 使用自适应滚动条 hook
+const { scrollbarRef } = useAdaptiveScrollbar(70);
 
 // 状态
 const workflow = ref<Workflow | null>(null); // 当前操作的工作流
@@ -612,9 +644,24 @@ const isEditing = ref(true);
 const currentStage = ref<Stage | null>(null);
 const isEditingStage = ref(false);
 const selectedWorkflow = ref<string>('');
-const workflowListData = ref<any[]>([]); // 工作流列表数据
+const workflowListData = ref<any[]>([]); // 工作流列表数据（分页数据，用于列表视图）
 const isEditingWorkflow = ref(false);
 const originalStagesOrder = ref<Stage[]>([]); // 保存拖动前的原始阶段顺序
+
+// 新增状态变量
+const viewMode = ref<'list' | 'detail'>('list'); // 视图模式
+const activeView = ref('list'); // table/card切换
+const pagination = ref({
+	pageIndex: 1,
+	pageSize: 15,
+	total: 0,
+});
+
+// 视图切换配置
+const tabsConfig = ref([
+	{ label: 'Table View', value: 'list', icon: markRaw(TableViewIcon) },
+	{ label: 'Card View', value: 'card', icon: markRaw(ProgressViewIcon) },
+]);
 
 // API加载状态变量
 const loading = reactive({
@@ -631,6 +678,49 @@ const loading = reactive({
 	sortStages: false, // 排序阶段
 	combineStages: false, // 合并阶段
 	exportWorkflow: false, // 导出工作流
+});
+
+// 当前正在执行操作的workflow ID和操作类型
+const currentActionWorkflow = ref<string | null>(null);
+const currentActionType = ref<string | null>(null);
+
+// 计算actionLoading状态，用于子组件
+const actionLoading = computed(() => {
+	if (!currentActionWorkflow.value || !currentActionType.value) {
+		return {};
+	}
+
+	const workflowId = currentActionWorkflow.value;
+	const actionType = currentActionType.value;
+
+	// 检查对应的loading状态
+	let isLoading = false;
+	switch (actionType) {
+		case 'edit':
+		case 'setDefault':
+			isLoading = loading.updateWorkflow;
+			break;
+		case 'activate':
+			isLoading = loading.activateWorkflow;
+			break;
+		case 'deactivate':
+			isLoading = loading.deactivateWorkflow;
+			break;
+		case 'duplicate':
+			isLoading = loading.duplicateWorkflow;
+			break;
+		case 'export':
+			isLoading = loading.exportWorkflow;
+			break;
+		default:
+			isLoading = false;
+	}
+
+	return {
+		[workflowId]: {
+			[actionType]: isLoading,
+		},
+	};
 });
 
 // 合并阶段相关状态
@@ -665,12 +755,7 @@ const dialogSubtitle = computed(() => {
 	return 'Create a new workflow version for the onboarding process.';
 });
 
-// 工作流切换处理
-const onWorkflowChange = (workflowId: string) => {
-	if (workflowId && workflowId !== workflow.value?.id) {
-		setCurrentWorkflow(workflowId);
-	}
-};
+// 注意：onWorkflowChange函数已移除，因为详情视图不再需要选择器
 
 const checklists = ref<Checklist[]>([]);
 const questionnaires = ref<Questionnaire[]>([]);
@@ -704,55 +789,45 @@ const fetchQuestionnaires = async () => {
 
 // 初始化数据
 onMounted(async () => {
-	// 获取工作流列表数据
+	// 获取工作流列表数据（默认显示列表视图）
 	await fetchWorkflows();
 	fetchChecklists();
 	fetchQuestionnaires();
-	if (workflow.value) {
-		selectedWorkflow.value = workflow.value.id;
-	}
 });
 
-// 获取工作流列表
-const fetchWorkflows = async (workflowId?: string) => {
+// 获取工作流列表（分页数据，用于列表视图）
+const fetchWorkflows = async (resetPage = false) => {
 	try {
 		loading.workflows = true;
-		const res = await getWorkflowList();
-		if (res.code === '200' && res.data && res.data.length > 0) {
-			// 获取默认工作流或第一个工作流
-			const defaultWorkflow = res.data.find((wf) => wf.isDefault) || res.data[0];
 
-			workflowListData.value = res.data;
+		// 如果需要重置页码
+		if (resetPage) {
+			pagination.value.pageIndex = 1;
+		}
 
-			// 设置当前工作流并获取阶段
-			if (workflowId) {
-				await setCurrentWorkflow(workflowId);
-			} else if (defaultWorkflow) {
-				await setCurrentWorkflow(defaultWorkflow.id);
-			}
+		// 构建查询参数
+		const params = {
+			pageIndex: pagination.value.pageIndex,
+			pageSize: pagination.value.pageSize,
+		};
+
+		const res = await getWorkflowList(params);
+		if (res.code === '200') {
+			workflowListData.value = res?.data?.items || [];
+
+			pagination.value.total = res?.data?.totalCount || 0;
 		} else {
-			// 如果没有数据，显示空状态
-			workflow.value = null;
+			workflowListData.value = [];
+			pagination.value.total = 0;
 		}
 	} finally {
 		loading.workflows = false;
 	}
 };
 
-// 设置当前工作流并获取阶段
-const setCurrentWorkflow = async (workflowId: string | number) => {
-	// 从工作流列表中查找
-	let selectedWorkflowData = workflowListData.value.find((wf) => wf.id === workflowId);
+// 注意：fetchAllWorkflows函数已移除，因为详情视图不再需要选择器
 
-	if (selectedWorkflowData) {
-		workflow.value = selectedWorkflowData;
-		selectedWorkflow.value = workflowId.toString();
-		// 获取工作流关联的阶段
-		await fetchStages(workflowId);
-	} else {
-		ElMessage.error('Workflow not found');
-	}
-};
+// 注意：setCurrentWorkflow函数已被handleWorkflowSelect替代
 
 // 获取工作流关联的阶段
 const fetchStages = async (workflowId: string | number) => {
@@ -777,32 +852,121 @@ const showNewWorkflowDialog = () => {
 	dialogVisible.workflowForm = true;
 };
 
-const handleCommand = (command: string) => {
+// 新增事件处理函数
+const handleViewChange = (value: string) => {
+	activeView.value = value;
+};
+
+const handleWorkflowSelect = async (workflowId: string) => {
+	// 从列表数据中查找选中的workflow
+	const selectedWorkflowData = workflowListData.value.find((wf) => wf.id === workflowId);
+
+	if (selectedWorkflowData) {
+		// 设置基本信息
+		workflow.value = selectedWorkflowData;
+		selectedWorkflow.value = workflowId.toString();
+
+		// 切换到详情视图
+		viewMode.value = 'detail';
+
+		// 获取完整的workflow详情（包括stages）
+		await fetchStages(workflowId);
+	} else {
+		ElMessage.error('Workflow not found');
+	}
+};
+
+const handleBackToList = () => {
+	viewMode.value = 'list';
+	workflow.value = null;
+};
+
+const getEmptyStateMessage = () => {
+	return 'No workflows have been created yet';
+};
+
+// 分页处理函数
+const handleCurrentChange = (page: number) => {
+	pagination.value.pageIndex = page;
+};
+
+const handlePageUpdate = (pageSize: number) => {
+	pagination.value.pageSize = pageSize;
+};
+
+const handleLimitUpdate = () => {
+	fetchWorkflows();
+};
+
+// 表格相关方法 (列表视图)
+const handleSelectionChange = (selection: any[]) => {
+	// 在列表视图中，selectionChange 通常用于多选，这里不需要特殊处理
+};
+
+const handleSortChange = (sort: any) => {
+	// 在列表视图中，sortChange 用于排序，这里不需要特殊处理
+};
+
+const handleCommand = (command: string, targetWorkflow?: any) => {
+	// 设置当前操作的workflow和操作类型（用于loading状态）
+	if (targetWorkflow) {
+		currentActionWorkflow.value = targetWorkflow.id;
+		currentActionType.value = command;
+	}
+
 	switch (command) {
 		case 'edit':
-			isEditingWorkflow.value = true;
-			dialogVisible.workflowForm = true;
+			if (targetWorkflow) {
+				// 设置编辑模式和当前workflow
+				workflow.value = targetWorkflow;
+				isEditingWorkflow.value = true;
+				dialogVisible.workflowForm = true;
+				// 编辑操作不需要loading状态，立即清除
+				currentActionWorkflow.value = null;
+				currentActionType.value = null;
+			}
 			break;
 		case 'setDefault':
-			setAsDefault();
+			if (targetWorkflow) {
+				setAsDefault(targetWorkflow);
+			}
 			break;
 		case 'activate':
-			activateWorkflow();
+			if (targetWorkflow) {
+				activateWorkflow(targetWorkflow);
+			}
 			break;
 		case 'deactivate':
-			deactivateWorkflow();
+			if (targetWorkflow) {
+				deactivateWorkflow(targetWorkflow);
+			}
 			break;
 		case 'addStage':
 			addStage();
+			// 清除loading状态
+			currentActionWorkflow.value = null;
+			currentActionType.value = null;
 			break;
 		case 'duplicate':
-			duplicateWorkflow();
+			if (targetWorkflow) {
+				duplicateWorkflow(targetWorkflow);
+			}
 			break;
 		case 'export':
-			exportWorkflow();
+			if (targetWorkflow) {
+				exportWorkflow(targetWorkflow);
+			}
+			break;
+		case 'delete':
+			if (targetWorkflow) {
+				deleteWorkflow(targetWorkflow);
+			}
 			break;
 		case 'combineStages':
 			showCombineStagesDialog();
+			// 清除loading状态
+			currentActionWorkflow.value = null;
+			currentActionType.value = null;
 			break;
 	}
 };
@@ -907,34 +1071,41 @@ const updateWorkflow = async (updatedWorkflow: Partial<Workflow>) => {
 	}
 };
 
-const activateWorkflow = async () => {
-	if (!workflow.value) return;
+const activateWorkflow = async (targetWorkflow?: any) => {
+	const workflowToActivate = targetWorkflow || workflow.value;
+	if (!workflowToActivate) return;
 
 	// 如果没有end date或者end date未过期，直接激活
 	try {
 		loading.activateWorkflow = true;
 		// 调用激活工作流API
-		const res = await activateWorkflowApi(workflow.value.id);
+		const res = await activateWorkflowApi(workflowToActivate.id);
 
 		if (res.code === '200') {
 			ElMessage.success(t('sys.api.operationSuccess'));
 			// 更新本地状态
-			workflow.value.status = 'active';
-			workflow.value.isActive = true;
-			fetchWorkflows(workflow.value!.id);
+			if (workflow.value && workflow.value.id === workflowToActivate.id) {
+				workflow.value.status = 'active';
+				workflow.value.isActive = true;
+			}
+			fetchWorkflows();
 		} else {
 			ElMessage.error(res.msg || t('sys.api.operationFailed'));
 		}
 	} finally {
 		loading.activateWorkflow = false;
+		// 清除当前操作状态
+		currentActionWorkflow.value = null;
+		currentActionType.value = null;
 	}
 };
 
-const deactivateWorkflow = async () => {
-	if (!workflow.value) return;
+const deactivateWorkflow = async (targetWorkflow?: any) => {
+	const workflowToDeactivate = targetWorkflow || workflow.value;
+	if (!workflowToDeactivate) return;
 
 	ElMessageBox.confirm(
-		`Are you sure you want to set the workflow "${workflow.value.name}" as inactive? This will stop all active processes and cannot be easily undone.`,
+		`Are you sure you want to set the workflow "${workflowToDeactivate.name}" as inactive? This will stop all active processes and cannot be easily undone.`,
 		'⚠️ Confirm Workflow Deactivation',
 		{
 			confirmButtonText: 'Set as Inactive',
@@ -953,14 +1124,16 @@ const deactivateWorkflow = async () => {
 
 					try {
 						// 调用停用工作流API
-						const res = await deactivateWorkflowApi(workflow.value!.id);
+						const res = await deactivateWorkflowApi(workflowToDeactivate.id);
 
 						if (res.code === '200') {
 							ElMessage.success(t('sys.api.operationSuccess'));
 							// 更新本地状态
-							workflow.value!.status = 'inactive';
-							workflow.value!.isActive = false;
-							fetchWorkflows(workflow.value!.id);
+							if (workflow.value && workflow.value.id === workflowToDeactivate.id) {
+								workflow.value.status = 'inactive';
+								workflow.value.isActive = false;
+							}
+							fetchWorkflows();
 							done(); // 关闭对话框
 						} else {
 							ElMessage.error(res.msg || t('sys.api.operationFailed'));
@@ -968,10 +1141,16 @@ const deactivateWorkflow = async () => {
 							instance.confirmButtonLoading = false;
 							instance.confirmButtonText = 'Set as Inactive';
 						}
+						// 清除当前操作状态
+						currentActionWorkflow.value = null;
+						currentActionType.value = null;
 					} catch (error) {
 						// 恢复按钮状态
 						instance.confirmButtonLoading = false;
 						instance.confirmButtonText = 'Set as Inactive';
+						// 清除当前操作状态
+						currentActionWorkflow.value = null;
+						currentActionType.value = null;
 					}
 				} else {
 					done(); // 取消或关闭时直接关闭对话框
@@ -981,19 +1160,20 @@ const deactivateWorkflow = async () => {
 	);
 };
 
-const setAsDefault = async () => {
-	if (!workflow.value) return;
+const setAsDefault = async (targetWorkflow?: any) => {
+	const workflowToSetDefault = targetWorkflow || workflow.value;
+	if (!workflowToSetDefault) return;
 
 	try {
 		loading.updateWorkflow = true;
 		// 调用设置默认工作流API
 		const params = {
-			...workflow.value,
+			...workflowToSetDefault,
 			isDefault: true,
 			stages: null,
 		};
 
-		const res = await updateWorkflowApi(workflow.value.id, params);
+		const res = await updateWorkflowApi(workflowToSetDefault.id, params);
 
 		if (res.code === '200') {
 			ElMessage.success(t('sys.api.operationSuccess'));
@@ -1004,6 +1184,9 @@ const setAsDefault = async () => {
 		}
 	} finally {
 		loading.updateWorkflow = false;
+		// 清除当前操作状态
+		currentActionWorkflow.value = null;
+		currentActionType.value = null;
 	}
 };
 
@@ -1208,18 +1391,19 @@ const downloadFileFromBlob = (blob: Blob, baseFileName: string): boolean => {
 	}
 };
 
-const exportWorkflow = async () => {
-	if (!workflow.value) return;
+const exportWorkflow = async (targetWorkflow?: any) => {
+	const workflowToExport = targetWorkflow || workflow.value;
+	if (!workflowToExport) return;
 
 	try {
 		loading.exportWorkflow = true;
 		// 调用导出工作流API，直接返回文件流
-		const res = await exportWorkflowToExcel(workflow.value.id);
+		const res = await exportWorkflowToExcel(workflowToExport.id);
 
 		// 检查返回的是否为文件流
 		if (res instanceof Blob) {
 			// 生成基础文件名（不含扩展名）
-			const baseFileName = `${workflow.value.name}_workflow_${
+			const baseFileName = `${workflowToExport.name}_workflow_${
 				new Date().toISOString().split('T')[0]
 			}`;
 
@@ -1237,21 +1421,25 @@ const exportWorkflow = async () => {
 		}
 	} finally {
 		loading.exportWorkflow = false;
+		// 清除当前操作状态
+		currentActionWorkflow.value = null;
+		currentActionType.value = null;
 	}
 };
 
-const duplicateWorkflow = async () => {
-	if (!workflow.value) return;
+const duplicateWorkflow = async (targetWorkflow?: any) => {
+	const workflowToDuplicate = targetWorkflow || workflow.value;
+	if (!workflowToDuplicate) return;
 
 	try {
 		loading.duplicateWorkflow = true;
 		const params = {
-			name: `${workflow.value.name} (Copy)`,
-			description: workflow.value.description,
+			name: `${workflowToDuplicate.name} (Copy)`,
+			description: workflowToDuplicate.description,
 			setAsDefault: false,
 		};
 
-		const res = await duplicateWorkflowApi(workflow.value.id, params);
+		const res = await duplicateWorkflowApi(workflowToDuplicate.id, params);
 
 		if (res.code === '200') {
 			ElMessage.success(t('sys.api.operationSuccess'));
@@ -1262,7 +1450,74 @@ const duplicateWorkflow = async () => {
 		}
 	} finally {
 		loading.duplicateWorkflow = false;
+		// 清除当前操作状态
+		currentActionWorkflow.value = null;
+		currentActionType.value = null;
 	}
+};
+
+const deleteWorkflow = async (targetWorkflow?: any) => {
+	const workflowToDelete = targetWorkflow || workflow.value;
+	if (!workflowToDelete) return;
+
+	ElMessageBox.confirm(
+		`Are you sure you want to delete the workflow "${workflowToDelete.name}"? This action cannot be undone and will permanently remove all associated stages and data.`,
+		'⚠️ Confirm Workflow Deletion',
+		{
+			confirmButtonText: 'Delete Workflow',
+			cancelButtonText: 'Cancel',
+			confirmButtonClass: 'danger-confirm-btn',
+			cancelButtonClass: 'cancel-confirm-btn',
+			distinguishCancelAndClose: true,
+			customClass: 'delete-confirmation-dialog',
+			showCancelButton: true,
+			showConfirmButton: true,
+			beforeClose: async (action, instance, done) => {
+				if (action === 'confirm') {
+					// 显示loading状态
+					instance.confirmButtonLoading = true;
+					instance.confirmButtonText = 'Deleting...';
+
+					try {
+						// TODO: 调用删除工作流API（当API可用时）
+						// const res = await deleteWorkflowApi(workflowToDelete.id);
+
+						// 临时实现：显示消息表示功能暂不可用
+						ElMessage.warning(
+							'Delete workflow functionality is not yet implemented in the API.'
+						);
+						done(); // 关闭对话框
+
+						// 当API可用时，取消注释以下代码：
+						/*
+						if (res.code === '200') {
+							ElMessage.success(t('sys.api.operationSuccess'));
+							// 如果删除的是当前选中的workflow，返回列表视图
+							if (workflow.value && workflow.value.id === workflowToDelete.id) {
+								handleBackToList();
+							}
+							// 重新获取工作流列表
+							await fetchWorkflows();
+							done(); // 关闭对话框
+						} else {
+							ElMessage.error(res.msg || t('sys.api.operationFailed'));
+							// 恢复按钮状态
+							instance.confirmButtonLoading = false;
+							instance.confirmButtonText = 'Delete Workflow';
+						}
+						*/
+					} catch (error) {
+						ElMessage.error('An error occurred while deleting the workflow.');
+						// 恢复按钮状态
+						instance.confirmButtonLoading = false;
+						instance.confirmButtonText = 'Delete Workflow';
+					}
+				} else {
+					done(); // 取消或关闭时直接关闭对话框
+				}
+			},
+		}
+	);
 };
 
 const showCombineStagesDialog = () => {
@@ -1368,9 +1623,7 @@ const getUserGroup = async () => {
 	@apply flex items-center gap-4;
 }
 
-.workflow-selector {
-	min-width: 250px;
-}
+/* workflow-selector样式已移除，因为详情视图不再需要选择器 */
 
 .more-actions-btn {
 	display: flex;
@@ -1436,11 +1689,7 @@ const getUserGroup = async () => {
 	display: inline-block;
 }
 
-.ai-dropdown-sparkles {
-	font-size: 14px;
-	animation: sparkle 2s ease-in-out infinite;
-	display: inline-block;
-}
+/* ai-dropdown-sparkles样式已移除，因为详情视图不再需要选择器 */
 
 @keyframes sparkle {
 	0%,
@@ -1469,15 +1718,7 @@ const getUserGroup = async () => {
 	height: 12px;
 }
 
-.ai-dropdown-icon {
-	color: var(--el-color-primary);
-	font-size: 14px;
-}
-
-.inactive-icon {
-	color: var(--el-color-danger);
-	font-size: 14px;
-}
+/* ai-dropdown-icon和inactive-icon样式已移除，因为详情视图不再需要选择器 */
 
 .calendar-icon {
 	color: var(--primary-500);
@@ -2063,15 +2304,9 @@ const getUserGroup = async () => {
 
 	/* 取消按钮样式 */
 	.cancel-confirm-btn {
-		background-color: var(--el-color-white) !important;
-		border-color: var(--el-border-color) !important;
+		background-color: var(--el-fill-color-lighter) !important;
+		border-color: var(--el-border-color-dark) !important;
 		color: var(--el-text-color-regular) !important;
-
-		&:hover {
-			background-color: var(--el-fill-color-lighter) !important;
-			border-color: var(--el-border-color-dark) !important;
-			color: var(--el-text-color-regular) !important;
-		}
 	}
 }
 
@@ -2134,8 +2369,8 @@ const getUserGroup = async () => {
 
 	/* 取消按钮样式 */
 	.cancel-confirm-btn {
-		background-color: var(--el-color-white) !important;
-		border-color: var(--el-border-color) !important;
+		background-color: var(--el-fill-color-lighter) !important;
+		border-color: var(--el-border-color-dark) !important;
 		color: var(--el-text-color-regular) !important;
 
 		&:hover {
