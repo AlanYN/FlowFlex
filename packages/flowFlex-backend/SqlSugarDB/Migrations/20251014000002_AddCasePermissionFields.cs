@@ -138,7 +138,7 @@ namespace FlowFlex.SqlSugarDB.Migrations
 
                 // 5. Add indexes for better query performance
                 Console.WriteLine("Creating indexes...");
-                
+
                 // Index on permission_subject_type for filtering by permission model
                 db.Ado.ExecuteCommand(@"
                     DO $$

@@ -39,11 +39,20 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
             string sortField = "CreateDate",
             string sortDirection = "desc")
         {
+            // Get current tenant ID and app code
+            var currentTenantId = GetCurrentTenantId();
+            var currentAppCode = GetCurrentAppCode();
+
+            _logger.LogInformation($"[WorkflowRepository] QueryPagedAsync with TenantId={currentTenantId}, AppCode={currentAppCode}");
+
             // Build query condition list
             var whereExpressions = new List<Expression<Func<Workflow, bool>>>();
 
             // Basic filter conditions
             whereExpressions.Add(x => x.IsValid == true);
+
+            // Add tenant and app code filters
+            whereExpressions.Add(x => x.TenantId == currentTenantId && x.AppCode == currentAppCode);
 
             if (!string.IsNullOrWhiteSpace(name))
             {

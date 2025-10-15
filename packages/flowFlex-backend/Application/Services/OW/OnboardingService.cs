@@ -5052,7 +5052,7 @@ namespace FlowFlex.Application.Services.OW
                             operate_teams = @OperateTeams::jsonb,
                             operate_users = @OperateUsers::jsonb
                         WHERE id = @Id";
-                    
+
                     await db.Ado.ExecuteCommandAsync(permissionSql, new
                     {
                         ViewTeams = entity.ViewTeams,

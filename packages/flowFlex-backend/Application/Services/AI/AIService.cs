@@ -8462,25 +8462,59 @@ Please return the results in JSON format with the following structure:
                 using var reader = new StreamReader(stream);
 
                 string? line;
+                var lineCount = 0;
+                var emptyContentCount = 0;
+                var yieldedCount = 0;
+
+                _logger.LogInformation("🔄 DeepSeek: Starting stream processing");
+
                 while ((line = await reader.ReadLineAsync()) != null)
                 {
+                    lineCount++;
+
+                    // Log empty lines
+                    if (string.IsNullOrWhiteSpace(line))
+                    {
+                        continue;
+                    }
+
                     if (line.StartsWith("data: "))
                     {
                         var data = line.Substring(6);
-                        if (data == "[DONE]") break;
+
+                        if (data == "[DONE]")
+                        {
+                            _logger.LogInformation("🏁 DeepSeek: Received [DONE]. Lines: {LineCount}, Yielded: {YieldedCount}, Empty: {EmptyCount}",
+                                lineCount, yieldedCount, emptyContentCount);
+                            break;
+                        }
 
                         // Log raw AI response data for debugging
-                        _logger.LogDebug("🔍 AI raw data chunk: {Data}", data.Length > 200 ? data.Substring(0, 200) + "..." : data);
+                        _logger.LogDebug("🔍 DeepSeek chunk #{LineCount}: {Data}", lineCount,
+                            data.Length > 200 ? data.Substring(0, 200) + "..." : data);
 
                         var contentText = ParseStreamingJsonContent(data);
                         if (!string.IsNullOrEmpty(contentText))
                         {
-                            // Log the actual content being yielded
-                            _logger.LogDebug("📤 AI yielding content: {Content}", contentText.Length > 100 ? contentText.Substring(0, 100) + "..." : contentText);
+                            yieldedCount++;
+                            _logger.LogDebug("📤 DeepSeek yield #{YieldedCount}: {Content}", yieldedCount,
+                                contentText.Length > 100 ? contentText.Substring(0, 100) + "..." : contentText);
                             yield return contentText;
+                        }
+                        else
+                        {
+                            emptyContentCount++;
+                            if (emptyContentCount <= 5) // Only log first 5 empty chunks
+                            {
+                                _logger.LogDebug("⚠️ DeepSeek empty content #{EmptyCount} at line {LineCount}: {Data}",
+                                    emptyContentCount, lineCount, data.Length > 300 ? data.Substring(0, 300) + "..." : data);
+                            }
                         }
                     }
                 }
+
+                _logger.LogInformation("✅ DeepSeek stream completed. Lines: {LineCount}, Yielded: {YieldedCount}, Empty: {EmptyCount}",
+                    lineCount, yieldedCount, emptyContentCount);
             }
             finally
             {
@@ -8568,25 +8602,58 @@ Please return the results in JSON format with the following structure:
                 using var reader = new StreamReader(stream);
 
                 string? line;
+                var lineCount = 0;
+                var emptyContentCount = 0;
+                var yieldedCount = 0;
+
+                _logger.LogInformation("🔄 OpenAI: Starting stream processing");
+
                 while ((line = await reader.ReadLineAsync()) != null)
                 {
+                    lineCount++;
+
+                    if (string.IsNullOrWhiteSpace(line))
+                    {
+                        continue;
+                    }
+
                     if (line.StartsWith("data: "))
                     {
                         var data = line.Substring(6);
-                        if (data == "[DONE]") break;
+
+                        if (data == "[DONE]")
+                        {
+                            _logger.LogInformation("🏁 OpenAI: Received [DONE]. Lines: {LineCount}, Yielded: {YieldedCount}, Empty: {EmptyCount}",
+                                lineCount, yieldedCount, emptyContentCount);
+                            break;
+                        }
 
                         // Log raw AI response data for debugging
-                        _logger.LogDebug("🔍 AI raw data chunk: {Data}", data.Length > 200 ? data.Substring(0, 200) + "..." : data);
+                        _logger.LogDebug("🔍 OpenAI chunk #{LineCount}: {Data}", lineCount,
+                            data.Length > 200 ? data.Substring(0, 200) + "..." : data);
 
                         var contentText = ParseStreamingJsonContent(data);
                         if (!string.IsNullOrEmpty(contentText))
                         {
-                            // Log the actual content being yielded
-                            _logger.LogDebug("📤 AI yielding content: {Content}", contentText.Length > 100 ? contentText.Substring(0, 100) + "..." : contentText);
+                            yieldedCount++;
+                            _logger.LogDebug("📤 OpenAI yield #{YieldedCount}: {Content}", yieldedCount,
+                                contentText.Length > 100 ? contentText.Substring(0, 100) + "..." : contentText);
                             yield return contentText;
+                        }
+                        else
+                        {
+                            emptyContentCount++;
+                            if (emptyContentCount <= 5)
+                            {
+                                _logger.LogDebug("⚠️ OpenAI empty content #{EmptyCount} at line {LineCount}: {Data}",
+                                    emptyContentCount, lineCount, data.Length > 300 ? data.Substring(0, 300) + "..." : data);
+                            }
                         }
                     }
                 }
+
+                _logger.LogInformation("✅ OpenAI stream completed. Lines: {LineCount}, Yielded: {YieldedCount}, Empty: {EmptyCount}",
+                    lineCount, yieldedCount, emptyContentCount);
             }
             finally
             {
@@ -8597,7 +8664,7 @@ Please return the results in JSON format with the following structure:
         /// <summary>
         /// Parse streaming JSON content and extract text content
         /// </summary>
-        private static string? ParseStreamingJsonContent(string jsonData)
+        private string? ParseStreamingJsonContent(string jsonData)
         {
             try
             {
@@ -8608,19 +8675,63 @@ Please return the results in JSON format with the following structure:
                 };
 
                 var parsedData = JsonSerializer.Deserialize<JsonElement>(jsonData, jsonOptions);
+
+                // Standard format: choices[0].delta.content (OpenAI and DeepSeek)
                 if (parsedData.TryGetProperty("choices", out var choices) && choices.GetArrayLength() > 0)
                 {
                     var choice = choices[0];
-                    if (choice.TryGetProperty("delta", out var delta) &&
-                        delta.TryGetProperty("content", out var content))
+                    if (choice.TryGetProperty("delta", out var delta))
                     {
-                        return content.GetString();
+                        if (delta.TryGetProperty("content", out var content))
+                        {
+                            var contentText = content.GetString();
+                            if (!string.IsNullOrEmpty(contentText))
+                            {
+                                return contentText;
+                            }
+                        }
+
+                        // DeepSeek alternative: check for 'text' field in delta
+                        if (delta.TryGetProperty("text", out var text))
+                        {
+                            var textContent = text.GetString();
+                            if (!string.IsNullOrEmpty(textContent))
+                            {
+                                _logger.LogDebug("📝 Using 'text' field from delta: {Text}", textContent);
+                                return textContent;
+                            }
+                        }
+                    }
+
+                    // Alternative format: choices[0].message.content (some providers)
+                    if (choice.TryGetProperty("message", out var message) &&
+                        message.TryGetProperty("content", out var messageContent))
+                    {
+                        var msgText = messageContent.GetString();
+                        if (!string.IsNullOrEmpty(msgText))
+                        {
+                            _logger.LogDebug("📝 Using 'message.content' field: {Text}", msgText);
+                            return msgText;
+                        }
+                    }
+                }
+
+                // DeepSeek direct format: content at root level
+                if (parsedData.TryGetProperty("content", out var rootContent))
+                {
+                    var rootText = rootContent.GetString();
+                    if (!string.IsNullOrEmpty(rootText))
+                    {
+                        _logger.LogDebug("📝 Using root 'content' field: {Text}", rootText);
+                        return rootText;
                     }
                 }
             }
-            catch (JsonException)
+            catch (JsonException ex)
             {
-                // Skip invalid JSON
+                // Log the error for debugging instead of silently skipping
+                _logger.LogWarning(ex, "Failed to parse streaming JSON content: {JsonData}",
+                    jsonData.Length > 200 ? jsonData.Substring(0, 200) + "..." : jsonData);
             }
             return null;
         }
@@ -8907,6 +9018,21 @@ Return ONLY the JSON object, no additional text or formatting.";
         {
             try
             {
+                // Log response for debugging
+                _logger.LogInformation("🔍 Parsing HTTP config response, length: {Length}", aiResponse.Length);
+                _logger.LogDebug("📋 Response start (500 chars): {Start}",
+                    aiResponse.Length > 500 ? aiResponse.Substring(0, 500) : aiResponse);
+                _logger.LogDebug("📋 Response end (500 chars): {End}",
+                    aiResponse.Length > 500 ? aiResponse.Substring(aiResponse.Length - 500) : aiResponse);
+
+                // Try to extract JSON from markdown code blocks
+                var extractedJson = ExtractJsonFromMarkdown(aiResponse);
+                if (extractedJson != null)
+                {
+                    _logger.LogInformation("✅ Extracted JSON from markdown code block");
+                    aiResponse = extractedJson;
+                }
+
                 // Configure JSON serializer options to prevent truncation
                 var jsonOptions = new JsonSerializerOptions
                 {
@@ -8915,38 +9041,180 @@ Return ONLY the JSON object, no additional text or formatting.";
                     PropertyNamingPolicy = JsonNamingPolicy.CamelCase
                 };
 
-                var jsonResponse = JsonSerializer.Deserialize<JsonElement>(aiResponse, jsonOptions);
-
-                if (jsonResponse.TryGetProperty("actionPlan", out var actionPlan))
+                // Try to parse as JSON
+                JsonElement jsonResponse;
+                try
                 {
-                    return actionPlan;
+                    jsonResponse = JsonSerializer.Deserialize<JsonElement>(aiResponse, jsonOptions);
+                }
+                catch (JsonException ex)
+                {
+                    _logger.LogWarning(ex, "❌ Failed to parse response as JSON, trying flexible parsing");
+                    return TryParseFlexibleJsonStructure(aiResponse, input, jsonOptions);
                 }
 
-                // Try to extract from top-level structure
-                if (jsonResponse.TryGetProperty("actions", out var actions) && actions.ValueKind == JsonValueKind.Array)
+                // Try multiple field names for action plan (case-insensitive)
+                var possibleFieldNames = new[] { "actionPlan", "action_plan", "plan", "actionplan", "ActionPlan" };
+                foreach (var fieldName in possibleFieldNames)
                 {
-                    return new
+                    if (TryGetPropertyCaseInsensitive(jsonResponse, fieldName, out var actionPlan))
                     {
-                        id = "http_config_001",
-                        title = "HTTP API Configuration",
-                        description = "Generated HTTP configuration",
-                        actions = JsonSerializer.Deserialize<object[]>(actions.GetRawText(), jsonOptions)
-                    };
+                        _logger.LogInformation("✅ Found action plan using field: {FieldName}", fieldName);
+                        return actionPlan;
+                    }
                 }
 
+                // Try to extract from top-level structure with various field names
+                var possibleActionsFields = new[] { "actions", "action", "items", "steps" };
+                foreach (var fieldName in possibleActionsFields)
+                {
+                    if (TryGetPropertyCaseInsensitive(jsonResponse, fieldName, out var actions) &&
+                        actions.ValueKind == JsonValueKind.Array)
+                    {
+                        _logger.LogInformation("✅ Found actions array using field: {FieldName}", fieldName);
+                        return new
+                        {
+                            id = "http_config_001",
+                            title = "HTTP API Configuration",
+                            description = "Generated HTTP configuration",
+                            actions = JsonSerializer.Deserialize<object[]>(actions.GetRawText(), jsonOptions)
+                        };
+                    }
+                }
+
+                // Try to find any array at root level
+                foreach (var property in jsonResponse.EnumerateObject())
+                {
+                    if (property.Value.ValueKind == JsonValueKind.Array)
+                    {
+                        _logger.LogInformation("✅ Found array at property: {PropertyName}", property.Name);
+                        return new
+                        {
+                            id = "http_config_001",
+                            title = "HTTP API Configuration",
+                            description = "Generated HTTP configuration",
+                            actions = JsonSerializer.Deserialize<object[]>(property.Value.GetRawText(), jsonOptions)
+                        };
+                    }
+                }
+
+                // If no specific structure found, try to deserialize the entire response
                 var deserializedResult = JsonSerializer.Deserialize<object>(aiResponse, jsonOptions);
-                return deserializedResult ?? GenerateFallbackHttpConfig(input);
+                if (deserializedResult != null)
+                {
+                    _logger.LogInformation("✅ Using entire deserialized response");
+                    return deserializedResult;
+                }
+
+                _logger.LogWarning("⚠️ No valid structure found in response, using fallback");
+                return GenerateFallbackHttpConfig(input);
             }
-            catch (JsonException)
+            catch (JsonException ex)
             {
-                _logger.LogWarning("Failed to parse HTTP config JSON response, generating fallback");
+                _logger.LogError(ex, "❌ Failed to parse HTTP config JSON response");
+                _logger.LogDebug("📋 Failed response content: {Content}",
+                    aiResponse.Length > 1000 ? aiResponse.Substring(0, 1000) + "..." : aiResponse);
+
                 var fallbackResult = GenerateFallbackHttpConfig(input);
                 if (fallbackResult == null)
                 {
-                    _logger.LogWarning("Fallback config generation also failed - no valid URL found in input");
+                    _logger.LogWarning("⚠️ Fallback config generation also failed - no valid URL found in input");
                 }
                 return fallbackResult;
             }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "❌ Unexpected error parsing HTTP config response");
+                return GenerateFallbackHttpConfig(input);
+            }
+        }
+
+        /// <summary>
+        /// Extract JSON from markdown code blocks
+        /// </summary>
+        private string? ExtractJsonFromMarkdown(string content)
+        {
+            // Try to find JSON in markdown code blocks: ```json ... ``` or ``` ... ```
+            var jsonBlockPattern = @"```(?:json)?\s*(\{[\s\S]*?\})\s*```";
+            var match = System.Text.RegularExpressions.Regex.Match(content, jsonBlockPattern);
+
+            if (match.Success && match.Groups.Count > 1)
+            {
+                return match.Groups[1].Value.Trim();
+            }
+
+            // Try to find JSON without markdown (look for first { to last })
+            var firstBrace = content.IndexOf('{');
+            var lastBrace = content.LastIndexOf('}');
+
+            if (firstBrace >= 0 && lastBrace > firstBrace)
+            {
+                var potentialJson = content.Substring(firstBrace, lastBrace - firstBrace + 1);
+                // Only return if it looks like valid JSON (simple check)
+                if (potentialJson.Contains("\"") && potentialJson.Contains(":"))
+                {
+                    return potentialJson;
+                }
+            }
+
+            return null;
+        }
+
+        /// <summary>
+        /// Try to get property with case-insensitive name matching
+        /// </summary>
+        private bool TryGetPropertyCaseInsensitive(JsonElement element, string propertyName, out JsonElement value)
+        {
+            // Try exact match first
+            if (element.TryGetProperty(propertyName, out value))
+            {
+                return true;
+            }
+
+            // Try case-insensitive match
+            foreach (var property in element.EnumerateObject())
+            {
+                if (string.Equals(property.Name, propertyName, StringComparison.OrdinalIgnoreCase))
+                {
+                    value = property.Value;
+                    return true;
+                }
+            }
+
+            value = default;
+            return false;
+        }
+
+        /// <summary>
+        /// Try flexible JSON structure parsing for non-standard responses
+        /// </summary>
+        private object? TryParseFlexibleJsonStructure(string content, AIHttpConfigGenerationInput input, JsonSerializerOptions jsonOptions)
+        {
+            try
+            {
+                // Remove potential leading/trailing text
+                var trimmedContent = content.Trim();
+
+                // Try to find and extract the main JSON object/array
+                var jsonMatch = System.Text.RegularExpressions.Regex.Match(trimmedContent, @"(\{[\s\S]*\}|\[[\s\S]*\])");
+                if (jsonMatch.Success)
+                {
+                    var jsonPart = jsonMatch.Groups[1].Value;
+                    _logger.LogDebug("🔧 Extracted JSON part: {JsonPart}",
+                        jsonPart.Length > 500 ? jsonPart.Substring(0, 500) + "..." : jsonPart);
+
+                    var parsed = JsonSerializer.Deserialize<JsonElement>(jsonPart, jsonOptions);
+                    return JsonSerializer.Deserialize<object>(jsonPart, jsonOptions);
+                }
+
+                _logger.LogWarning("⚠️ Could not extract valid JSON structure");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "⚠️ Flexible JSON parsing failed");
+            }
+
+            return GenerateFallbackHttpConfig(input);
         }
 
         /// <summary>
