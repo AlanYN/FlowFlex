@@ -30,8 +30,8 @@
 				<el-col :span="6">
 					<el-card>
 						<div class="stat-content">
-							<div class="stat-icon">
-								<i class="el-icon-document" style="color: #409eff"></i>
+							<div class="stat-icon stat-icon-primary">
+								<i class="el-icon-document"></i>
 							</div>
 							<div class="stat-info">
 								<div class="stat-value">{{ documentStats.total }}</div>
@@ -43,8 +43,8 @@
 				<el-col :span="6">
 					<el-card>
 						<div class="stat-content">
-							<div class="stat-icon">
-								<i class="el-icon-check" style="color: #67c23a"></i>
+							<div class="stat-icon stat-icon-success">
+								<i class="el-icon-check"></i>
 							</div>
 							<div class="stat-info">
 								<div class="stat-value">{{ documentStats.approved }}</div>
@@ -56,8 +56,8 @@
 				<el-col :span="6">
 					<el-card>
 						<div class="stat-content">
-							<div class="stat-icon">
-								<i class="el-icon-time" style="color: #e6a23c"></i>
+							<div class="stat-icon stat-icon-warning">
+								<i class="el-icon-time"></i>
 							</div>
 							<div class="stat-info">
 								<div class="stat-value">{{ documentStats.pending }}</div>
@@ -69,8 +69,8 @@
 				<el-col :span="6">
 					<el-card>
 						<div class="stat-content">
-							<div class="stat-icon">
-								<i class="el-icon-warning" style="color: #f56c6c"></i>
+							<div class="stat-icon stat-icon-danger">
+								<i class="el-icon-warning"></i>
 							</div>
 							<div class="stat-info">
 								<div class="stat-value">{{ documentStats.rejected }}</div>
@@ -455,14 +455,14 @@ export default {
 
 .header-title h2 {
 	margin: 0 0 8px 0;
-	color: #1f2937;
+	color: var(--el-text-color-primary);
 	font-size: 24px;
 	font-weight: 600;
 }
 
 .header-title p {
 	margin: 0;
-	color: #6b7280;
+	color: var(--el-text-color-secondary);
 	font-size: 14px;
 }
 
@@ -479,20 +479,20 @@ export default {
 .stat-icon {
 	font-size: 24px;
 	padding: 12px;
-	background-color: #f3f4f6;
+	background-color: var(--el-fill-color-light);
 	@apply rounded-xl;
 }
 
 .stat-value {
 	font-size: 24px;
 	font-weight: 700;
-	color: #1f2937;
+	color: var(--el-text-color-primary);
 	margin-bottom: 4px;
 }
 
 .stat-label {
 	font-size: 12px;
-	color: #6b7280;
+	color: var(--el-text-color-secondary);
 }
 
 .document-filters {
@@ -517,7 +517,7 @@ export default {
 }
 
 .document-item.rejected {
-	border-left: 4px solid #f56c6c;
+	border-left: 4px solid var(--el-color-danger);
 }
 
 .document-content {
@@ -528,7 +528,7 @@ export default {
 
 .document-icon {
 	font-size: 48px;
-	color: #409eff;
+	color: var(--el-color-primary);
 	display: flex;
 	align-items: center;
 	justify-content: center;
@@ -551,7 +551,7 @@ export default {
 	margin: 0 0 4px 0;
 	font-size: 16px;
 	font-weight: 600;
-	color: #1f2937;
+	color: var(--el-text-color-primary);
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
@@ -561,7 +561,7 @@ export default {
 	display: flex;
 	gap: 12px;
 	font-size: 12px;
-	color: #6b7280;
+	color: var(--el-text-color-secondary);
 }
 
 .document-details {
@@ -573,7 +573,7 @@ export default {
 .document-description {
 	margin: 0;
 	font-size: 12px;
-	color: #4b5563;
+	color: var(--el-text-color-regular);
 	line-height: 1.4;
 	display: -webkit-box;
 	-webkit-line-clamp: 2;
@@ -591,7 +591,7 @@ export default {
 .empty-state {
 	text-align: center;
 	padding: 60px 20px;
-	color: #9ca3af;
+	color: var(--el-text-color-placeholder);
 }
 
 .empty-state i {
@@ -610,7 +610,7 @@ export default {
 
 .unsupported-preview i {
 	font-size: 48px;
-	color: #9ca3af;
+	color: var(--el-text-color-placeholder);
 	margin-bottom: 16px;
 	display: block;
 }
@@ -632,12 +632,29 @@ export default {
 
 .file-name {
 	font-weight: 500;
-	color: #1f2937;
+	color: var(--el-text-color-primary);
 }
 
 .file-size {
 	font-size: 12px;
-	color: #6b7280;
+	color: var(--el-text-color-secondary);
+}
+
+/* 自定义样式类 */
+.stat-icon-primary {
+	color: var(--el-color-primary);
+}
+
+.stat-icon-success {
+	color: var(--el-color-success);
+}
+
+.stat-icon-warning {
+	color: var(--el-color-warning);
+}
+
+.stat-icon-danger {
+	color: var(--el-color-danger);
 }
 
 @media (max-width: 768px) {

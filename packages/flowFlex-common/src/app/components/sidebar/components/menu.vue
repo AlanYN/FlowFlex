@@ -3,7 +3,6 @@
 		:default-active="computedActiveMenu"
 		:collapse="collapse"
 		:unique-opened="uniqueOpened"
-		class="el-menu-vertical-demo"
 		:mode="mode"
 		:collapse-transition="collapseTransition"
 		:router="true"
@@ -18,11 +17,16 @@
 				:index="item.path"
 			>
 				<template #title>
-					<component :is="item?.meta?.icon" :title="t(item.meta.title)" />
+					<component
+						:is="item?.meta?.icon"
+						:title="t(item.meta.title)"
+						width="18"
+						height="18"
+					/>
 					<span
 						:title="t(item.meta.title)"
 						v-if="!collapse"
-						class="ml-2 font-bold"
+						class="ml-2"
 						:class="{ 'beta-label': item.meta.beta }"
 					>
 						{{ t(item.meta.title) }}
@@ -38,14 +42,28 @@
 					>
 						<!-- :is="chil?.meta?.icon"  -->
 						<template #title>
-							<component
-								v-if="!collapse"
-								class="mb-auto"
-								:is="isLastMenu(chil, item.children) ? parent : customerICon"
-							/>
-							<span class="ml-2" :class="{ 'beta-label': chil.meta.beta }">
-								{{ t(chil.meta.title) }}
-							</span>
+							<a
+								:href="`${item.path}/${chil.path}`"
+								@click.prevent="handleNavigate(`${item.path}/${chil.path}`)"
+								data-sidebar="menu-button"
+								data-size="default"
+								data-active="false"
+								class="flex items-center gap-2 w-full"
+							>
+								<span class="item-menu-icon">
+									<component
+										v-if="!collapse"
+										:is="
+											isLastMenu(chil, item.children) ? parent : customerICon
+										"
+										width="18"
+										height="50"
+									/>
+								</span>
+								<span :class="{ 'beta-label': chil.meta.beta }">
+									{{ t(chil.meta.title) }}
+								</span>
+							</a>
 						</template>
 					</el-menu-item>
 				</template>
@@ -56,14 +74,26 @@
 				:title="t(item?.meta?.title)"
 				v-else-if="!item.meta.hidden"
 			>
-				<component :is="item?.meta?.icon" v-if="item?.meta?.icon" />
-				<span
-					v-if="!collapse"
-					class="ml-2 font-bold"
-					:class="{ 'beta-label': item.meta.beta }"
+				<a
+					:href="`${item.redirect}`"
+					@click.prevent="handleNavigate(`${item.redirect}`)"
+					data-sidebar="menu-button"
+					data-size="default"
+					data-active="false"
+					class="flex items-center gap-2 w-full"
 				>
-					{{ t(item.meta.title) }}
-				</span>
+					<span class="item-menu-icon">
+						<component
+							:is="item?.meta?.icon"
+							v-if="item?.meta?.icon"
+							width="18"
+							height="18"
+						/>
+					</span>
+					<span v-if="!collapse" :class="{ 'beta-label': item.meta.beta }">
+						{{ t(item.meta.title) }}
+					</span>
+				</a>
 			</el-menu-item>
 		</template>
 	</el-menu>
@@ -73,7 +103,7 @@
 import { computed, toRaw } from 'vue';
 // import { Routes } from '@/router/routers';
 import { useI18n } from '@/hooks/useI18n';
-import { useRoute } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 
 import OpenIcon from '@assets/svg/global/open.svg';
 import CloseIcon from '@assets/svg/global/close.svg';
@@ -87,6 +117,7 @@ import { PageEnum } from '@/enums/pageEnum';
 
 const { t } = useI18n();
 const currentRoute = useRoute();
+const router = useRouter();
 
 defineProps({
 	uniqueOpened: {
@@ -98,7 +129,7 @@ defineProps({
 		default: false,
 	},
 	mode: {
-		type: String,
+		type: String as () => 'vertical' | 'horizontal',
 		default: 'vertical',
 	},
 	collapseTransition: {
@@ -112,6 +143,11 @@ const isLastMenu = (chil, item) => {
 	return chil.path == arr[arr.length - 1].path;
 };
 
+// 处理导航，使用 Vue Router 进行 SPA 导航
+const handleNavigate = (path: string) => {
+	router.push(path);
+};
+
 const menuRoutes = computed<any[]>(() => {
 	// Routes.sort((a: any, b: any) => {
 	// 	return a.meta.orderNo - b.meta.orderNo;
@@ -123,56 +159,23 @@ const menuRoutes = computed<any[]>(() => {
 	// toRaw(permissionStore.frontMenuList);
 });
 
-// const defaultActive = computed((): string => {
-// 	return (router.currentRoute.value.path as string) || '/home/index';
-// });
-
 // 计算活跃menu
 const computedActiveMenu = computed((): string => {
 	// console.log('currentRoute:', currentRoute.query);
 	let activePath = '';
-	if (Object.keys(currentRoute.query).includes('customerId')) {
-		activePath = currentRoute.query.isCustomer
-			? (currentRoute.meta.activeMenu as string)
-			: '/foundationData/index';
-	} else {
-		activePath = currentRoute.meta.activeMenu
-			? (currentRoute.meta.activeMenu as string)
-			: currentRoute.path || `${PageEnum.BASE_HOME}`;
-	}
+	activePath = currentRoute.meta.activeMenu
+		? (currentRoute.meta.activeMenu as string)
+		: currentRoute.path || `${PageEnum.BASE_HOME}`;
 	return activePath as string;
 });
 </script>
 
 <style lang="scss" scoped>
-:deep(.el-icon) {
-	width: 14px;
-	height: 14px;
-
-	svg {
-		width: 14px;
-		height: 14px;
-	}
-}
-
-.beta-label {
-	position: relative;
+.item-menu-icon {
+	width: 18px;
+	height: 18px;
 	display: inline-flex;
 	align-items: center;
-
-	&::after {
-		content: 'BETA';
-		position: static;
-		display: inline-block;
-		margin-left: 8px;
-		font-size: 10px;
-		font-weight: 700;
-		padding: 0 8px;
-		background-color: var(--primary-100);
-		color: var(--primary-500);
-		line-height: 20px;
-		letter-spacing: 1.5px;
-		@apply rounded-xl;
-	}
+	justify-content: center;
 }
 </style>

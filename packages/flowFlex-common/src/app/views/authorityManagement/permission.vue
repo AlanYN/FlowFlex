@@ -1,5 +1,5 @@
 <template>
-	<div class="w-full h-full customer-block p-4" ref="scrollbarRef">
+	<div class="w-full h-full wfe-global-block-bg p-4" ref="scrollbarRef">
 		<iframe
 			ref="iframeRef"
 			id="permission-iframe"

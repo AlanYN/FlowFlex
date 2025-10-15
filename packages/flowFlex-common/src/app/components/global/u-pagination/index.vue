@@ -8,11 +8,14 @@
 <template>
 	<div
 		:class="{ hidden: hidden || total === 0 }"
-		class="flex flex-row justify-between px-6 bg-white py-2 dark:bg-black-500 rounded-[0px_0px_8px_8px]"
+		class="flex flex-row justify-between pr-4 py-2 items-center"
 	>
-		<span class="leading-8 text-gray-300 text-xs">{{ total }} Results</span>
-		<div>
-			<span class="leading-4 px-2 font-bold text-xs mr-4">Show:</span>
+		<span class="text-sm">
+			{{ total > limit ? limit : total }} Results • Showing {{ page }}-{{ limit }} of
+			{{ total }}
+		</span>
+		<div class="flex items-center">
+			<span class="leading-4 px-2 font-bold text-sm mr-4">Show:</span>
 			<el-select
 				v-model="limit"
 				placeholder="Select"
@@ -170,38 +173,4 @@ function handleCurrentChange(val: number) {
 }
 </script>
 
-<style lang="scss">
-.page-limit {
-	.el-input .el-input__wrapper {
-		@apply dark:bg-transparent;
-	}
-}
-
-.el-pagination.is-background {
-	@apply mt-0;
-
-	.btn-prev,
-	.btn-next {
-		@apply bg-transparent px-3 py-1.5 text-sm text-neutral-600 hover:bg-neutral-100 dark:text-white-100 dark:hover:bg-neutral-700 dark:hover:text-white-100;
-
-		&:disabled {
-			@apply bg-transparent;
-		}
-	}
-
-	.el-pager {
-		li {
-			@apply bg-transparent;
-		}
-
-		li.is-active {
-			background-color: rgb(227 235 247 / var(--tw-bg-opacity));
-			@apply relative block rounded-xl px-3 py-1.5 text-sm dark:bg-night-200;
-		}
-
-		li:hover {
-			@apply text-primary-500;
-		}
-	}
-}
-</style>
+<style lang="scss"></style>

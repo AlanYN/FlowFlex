@@ -106,14 +106,6 @@ const updateMaxLabel = (label: string) => {
 </script>
 
 <style scoped lang="scss">
-.linear-scale-editor {
-	margin-top: 1.5rem;
-	padding: 1rem;
-	border: 1px solid var(--primary-200);
-	background-color: var(--primary-25);
-	@apply dark:bg-primary-700 dark:border-primary-600 rounded-xl;
-}
-
 .linear-scale-section {
 	display: flex;
 	flex-direction: column;
@@ -127,8 +119,6 @@ const updateMaxLabel = (label: string) => {
 .linear-scale-label {
 	font-size: 0.875rem;
 	font-weight: 600;
-	color: var(--primary-800);
-	@apply dark:text-primary-200;
 }
 
 .scale-range-config {
@@ -151,8 +141,6 @@ const updateMaxLabel = (label: string) => {
 .range-label {
 	font-size: 0.875rem;
 	font-weight: 500;
-	color: var(--primary-700);
-	@apply dark:text-primary-300;
 }
 
 .range-select {
@@ -161,15 +149,13 @@ const updateMaxLabel = (label: string) => {
 
 .range-separator {
 	font-size: 0.875rem;
-	color: var(--primary-600);
 	margin-top: 1.5rem;
-	@apply dark:text-primary-400;
 }
 
 .scale-labels-config {
-	border-top: 1px solid var(--primary-100);
+	border-top: 1px solid var(--el-border-color-dark);
 	padding-top: 1rem;
-	@apply dark:border-primary-600;
+	@apply dark:border-[var(--el-border-color-light)];
 }
 
 .labels-grid {
@@ -187,9 +173,7 @@ const updateMaxLabel = (label: string) => {
 .label-title {
 	font-size: 0.875rem;
 	font-weight: 500;
-	color: var(--primary-700);
 	text-align: center;
-	@apply dark:text-primary-300;
 }
 
 .label-input {

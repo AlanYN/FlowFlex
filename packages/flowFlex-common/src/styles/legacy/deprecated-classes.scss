@@ -1,0 +1,21 @@
+/**
+ * 废弃的样式类 - 向后兼容层
+ * 
+ * @deprecated 这些类将在未来版本中移除
+ * 请迁移到新的 Typography 系统
+ * 
+ * 迁移指南：
+ * - .page_title_blod → .heading-2 或 Tailwind 的 .text-heading-2
+ */
+
+/* @deprecated 使用 .heading-2 或 Tailwind 的 text-heading-2 */
+.page_title_blod {
+	font-size: var(--heading-2-size);
+	font-weight: var(--heading-2-weight);
+	line-height: var(--heading-2-line-height);
+	letter-spacing: var(--heading-2-letter-spacing);
+	color: var(--el-text-color-primary);
+}
+
+/* 其他可能需要兼容的类可以在此添加 */
+

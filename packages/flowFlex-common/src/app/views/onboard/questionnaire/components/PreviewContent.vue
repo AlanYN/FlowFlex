@@ -1,13 +1,13 @@
 <template>
-	<div class="bg-white dark:bg-black-300 rounded-xl">
+	<div class="bg-white dark:bg-black">
 		<!-- 加载状态 -->
 		<div v-if="loading" class="text-center py-12">
 			<el-icon class="is-loading text-4xl text-primary-500 mb-4">
 				<Loading />
 			</el-icon>
-			<p class="text-gray-500">Loading preview...</p>
+			<p class="text-secondary">Loading preview...</p>
 		</div>
-		<div v-else-if="questionnaire" class="space-y-4 p-4">
+		<div v-else-if="questionnaire" class="space-y-4">
 			<!-- 问卷基本信息 -->
 			<div class="questionnaire-header p-4 rounded-xl border">
 				<div class="flex items-start justify-between mb-4">
@@ -92,7 +92,7 @@
 					<div class="ml-6 text-right text-sm space-y-1">
 						<div
 							v-if="questionnaire.totalQuestions"
-							class="flex items-center text-gray-600"
+							class="flex items-center text-regular"
 						>
 							<el-icon class="mr-1">
 								<Document />
@@ -145,7 +145,7 @@
 								{{ section.description }}
 							</p>
 						</div>
-						<div class="text-sm text-gray-500">
+						<div class="text-sm text-secondary">
 							{{ section.questions?.length || 0 }}
 							{{ section.questions?.length > 1 ? 'items' : 'item' }}
 						</div>
@@ -157,7 +157,7 @@
 					<div
 						v-for="(item, itemIndex) in section.questions"
 						:key="item.id || itemIndex"
-						class="question-item space-y-3 pb-6 border-b border-gray-50 last:border-b-0 last:pb-0"
+						class="question-item space-y-3 pb-6 border-b border-light last:border-b-0 last:pb-0"
 					>
 						<!-- 问题标题 -->
 						<div
@@ -165,7 +165,7 @@
 							v-if="item.type !== 'page_break'"
 						>
 							<h4 class="text-base font-medium question-title flex-1">
-								<span class="text-gray-400 mr-2">
+								<span class="text-placeholder mr-2">
 									{{ getQuestionNumber(sectionIndex, itemIndex) }}.
 								</span>
 								<a :href="`#${item.id}`">{{ item.question || item.title }}</a>
@@ -360,7 +360,7 @@
 									:void-icon="getSelectedVoidIcon(item.iconType)"
 									class="preview-rating"
 								/>
-								<span v-if="item.showText" class="text-sm text-gray-500">
+								<span v-if="item.showText" class="text-sm text-secondary">
 									({{ item.max || 5 }} stars)
 								</span>
 							</div>
@@ -413,7 +413,7 @@
 									:show-input="false"
 									class="preview-linear-scale"
 								/>
-								<div class="flex justify-between text-xs text-gray-500">
+								<div class="flex justify-between text-xs text-secondary">
 									<span>{{ item.minLabel || item.min }}</span>
 									<span>{{ item.maxLabel || item.max }}</span>
 								</div>
@@ -518,7 +518,7 @@
 								<!-- 如果没有任何数据，显示占位符 -->
 								<div
 									v-else
-									class="text-gray-400 italic p-4 border border-dashed border-gray-300 rounded"
+									class="text-placeholder italic p-4 border border-dashed border-base rounded"
 								>
 									<el-icon class="mr-2">
 										<Warning />
@@ -628,7 +628,7 @@
 								<!-- 如果没有数据，显示占位符 -->
 								<div
 									v-else
-									class="text-gray-400 italic p-4 border border-dashed border-gray-300 rounded"
+									class="text-placeholder italic p-4 border border-dashed border-base rounded"
 								>
 									<el-icon class="mr-2">
 										<Warning />
@@ -693,15 +693,12 @@
 							<!-- 说明文本 -->
 							<div
 								v-else-if="item.type === 'description'"
-								class="text-gray-600 italic"
+								class="text-regular italic"
 							>
 								{{ item.content || item.text }}
 							</div>
 
-							<div
-								v-else-if="item.type === 'page_break'"
-								class="text-gray-600 italic"
-							>
+							<div v-else-if="item.type === 'page_break'" class="text-regular italic">
 								<div class="border-t-2 border-dashed border-primary-300 pt-4 mt-4">
 									<div class="text-center text-primary-500 text-sm">
 										— Page Break —
@@ -735,7 +732,7 @@
 							<!-- 未知类型 -->
 							<div
 								v-else
-								class="text-gray-400 italic p-4 border border-dashed border-gray-300 rounded"
+								class="text-placeholder italic p-4 border border-dashed border-base rounded"
 							>
 								<el-icon class="mr-2">
 									<Warning />
@@ -750,11 +747,11 @@
 
 		<!-- 空状态 -->
 		<div v-else class="text-center py-12">
-			<el-icon class="text-6xl text-gray-400 mb-4">
+			<el-icon class="text-6xl text-placeholder mb-4">
 				<Document />
 			</el-icon>
-			<p class="text-gray-500 text-lg">No data available</p>
-			<p class="text-gray-400 text-sm mt-2">
+			<p class="text-secondary text-lg">No data available</p>
+			<p class="text-placeholder text-sm mt-2">
 				The questionnaire may not exist or failed to load
 			</p>
 		</div>
@@ -914,7 +911,12 @@ const handleFileChange = (sectionIndex: number, itemIndex: number, file: any, fi
 };
 
 // 处理单选变化 - 清空Other输入框
-const handleRadioChange = (sectionIndex: number, itemIndex: number, item: any, value: string) => {
+const handleRadioChange = (
+	sectionIndex: number,
+	itemIndex: number,
+	item: any,
+	value?: string | number | boolean
+) => {
 	const otherTextKey = getItemKey(sectionIndex, itemIndex, true);
 
 	// 查找Other选项
@@ -979,7 +981,7 @@ const handleGridRadioChange = (
 	itemIndex: number,
 	rowIndex: number,
 	item: any,
-	value: string
+	value?: string | number | boolean
 ) => {
 	const otherTextKey = getOtherTextKey(sectionIndex, itemIndex, rowIndex);
 
@@ -1319,8 +1321,13 @@ const getQuestionNumber = (sectionIndex: number, itemIndex: number) => {
 
 /* Assignments样式 */
 .assignment-label {
-	@apply text-gray-500 dark:text-gray-400 font-medium;
+	color: var(--el-text-color-secondary);
+	font-weight: 500;
 	min-width: 70px;
+}
+
+html.dark .assignment-label {
+	color: var(--el-text-color-placeholder);
 }
 
 .assignment-tag {
@@ -1441,22 +1448,22 @@ const getQuestionNumber = (sectionIndex: number, itemIndex: number) => {
 /* 错误状态样式 */
 .error-input {
 	:deep(.el-input__wrapper) {
-		border-color: #f56565 !important;
-		box-shadow: 0 0 0 1px rgba(245, 101, 101, 0.2) !important;
+		border-color: var(--el-color-danger) !important;
+		box-shadow: 0 0 0 1px var(--el-color-danger-light-7) !important;
 	}
 }
 
 .error-select {
 	:deep(.el-select__wrapper) {
-		border-color: #f56565 !important;
-		box-shadow: 0 0 0 1px rgba(245, 101, 101, 0.2) !important;
+		border-color: var(--el-color-danger) !important;
+		box-shadow: 0 0 0 1px var(--el-color-danger-light-7) !important;
 	}
 }
 
 .error-upload {
 	:deep(.el-upload-dragger) {
-		border-color: #f56565 !important;
-		background-color: rgba(245, 101, 101, 0.05) !important;
+		border-color: var(--el-color-danger) !important;
+		background-color: var(--el-color-danger-light-9) !important;
 	}
 }
 
@@ -1669,5 +1676,27 @@ const getQuestionNumber = (sectionIndex: number, itemIndex: number) => {
 		height: auto;
 		object-fit: contain;
 	}
+}
+
+// 自定义文本颜色类
+.text-secondary {
+	color: var(--el-text-color-secondary);
+}
+
+.text-regular {
+	color: var(--el-text-color-regular);
+}
+
+.text-placeholder {
+	color: var(--el-text-color-placeholder);
+}
+
+// 自定义边框颜色类
+.border-light {
+	border-color: var(--el-border-color-lighter);
+}
+
+.border-base {
+	border-color: var(--el-border-color);
 }
 </style>

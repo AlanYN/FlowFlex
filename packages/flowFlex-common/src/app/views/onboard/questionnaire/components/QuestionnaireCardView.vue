@@ -76,7 +76,7 @@
 									</template>
 								</el-dropdown>
 							</div>
-							<p class="text-primary-600 text-sm mt-1.5 truncate h-6">
+							<p class="text-white text-sm mt-1.5 truncate h-6">
 								{{ questionnaire.description }}
 							</p>
 						</div>
@@ -206,7 +206,7 @@
 											icon="material-symbols-light:insert-page-break"
 											class="text-primary-500 w-5 h-5"
 										/>
-										<span class="card-value font-medium">
+										<span class="font-medium">
 											{{
 												questionnaire.structureJson
 													? JSON.parse(
@@ -225,7 +225,7 @@
 											icon="material-symbols:format-list-bulleted"
 											class="text-primary-500 w-5 h-5"
 										/>
-										<span class="card-value font-medium">
+										<span class="font-medium">
 											{{ questionnaire.totalQuestions }}
 										</span>
 									</div>
@@ -238,7 +238,7 @@
 											icon="ic:baseline-person-3"
 											class="text-primary-500 w-5 h-5"
 										/>
-										<span class="card-value font-medium">
+										<span class="font-medium">
 											{{ questionnaire.modifyBy }}
 										</span>
 									</div>
@@ -249,7 +249,7 @@
 											icon="ic:baseline-calendar-month"
 											class="text-primary-500 w-5 h-5"
 										/>
-										<span class="card-value font-medium">
+										<span class="font-medium">
 											{{
 												timeZoneConvert(
 													questionnaire.modifyDate,
@@ -434,100 +434,6 @@ const getUniqueAssignments = (assignments: any[]) => {
 	}
 }
 
-/* 问卷卡片样式 */
-.questionnaire-card {
-	border: 1px solid var(--primary-100);
-	@apply dark:border-black-200 dark:bg-black-400;
-	transition: all 0.3s ease;
-	border-bottom: 6px solid var(--primary-500);
-	border-bottom-left-radius: 6px;
-	border-bottom-right-radius: 6px;
-}
-
-.questionnaire-card:hover {
-	border-color: var(--primary-300);
-	@apply dark:border-primary-600;
-}
-
-.card-header {
-	background: linear-gradient(to right, var(--primary-50), var(--primary-100));
-	@apply dark:from-primary-600 dark:to-primary-500;
-	display: flex;
-	flex-direction: column;
-	justify-content: space-between;
-}
-
-.card-icon {
-	background-color: var(--primary-500);
-	color: white;
-	width: 36px;
-	height: 36px;
-}
-
-.card-title {
-	color: var(--primary-800);
-	@apply dark:text-white;
-}
-
-.card-more-btn {
-	color: var(--primary-700);
-	@apply dark:text-primary-300;
-}
-
-.card-label {
-	@apply text-gray-500 dark:text-gray-400 font-medium;
-	min-width: 70px;
-}
-
-.card-link {
-	@apply inline-flex items-center rounded-full border text-xs font-semibold transition-colors bg-primary-50 text-primary-500 border-primary-200 px-2 py-1;
-	white-space: nowrap;
-	background: linear-gradient(to right, rgb(196, 181, 253), rgb(191, 219, 254)) !important;
-}
-
-/* 占满一行的样式 */
-.card-link-full {
-	width: 100%;
-	flex-shrink: 0;
-}
-
-/* 与+几按钮共享一行的样式 */
-.card-link-shared {
-	flex: 1;
-	min-width: 0;
-	max-width: calc(100% - 48px); /* 为+几按钮留出空间 */
-}
-
-.card-link:hover {
-	@apply bg-primary-100 border-primary-300;
-}
-
-.card-link-more {
-	@apply inline-flex items-center rounded-full border text-xs font-semibold transition-colors bg-primary-50 text-primary-500 border-primary-200 px-2 py-1;
-	white-space: nowrap;
-	width: 40px; /* 固定宽度 */
-	overflow: hidden;
-	text-overflow: ellipsis;
-	justify-content: center; /* 文本居中 */
-	flex-shrink: 0; /* 防止收缩 */
-	margin-right: 8px; /* 增加右边距 */
-	background: linear-gradient(to right, rgb(196, 181, 253), rgb(191, 219, 254)) !important;
-}
-
-.card-link-more:hover {
-	@apply bg-primary-100 border-primary-300;
-}
-
-.card-value {
-	color: var(--primary-700);
-	@apply dark:text-primary-300;
-}
-
-/* Assignments容器样式 */
-.assignments-container {
-	height: 60px !important; /* 固定高度 */
-}
-
 /* 空状态样式 */
 .empty-state {
 	@apply bg-white dark:bg-black-400;
@@ -564,69 +470,5 @@ const getUniqueAssignments = (assignments: any[]) => {
 .primary-button:hover {
 	background-color: var(--primary-600) !important;
 	border-color: var(--primary-600) !important;
-}
-
-/* 弹出层样式 */
-.popover-title {
-	font-size: 14px;
-	font-weight: 600;
-	color: var(--primary-700);
-	@apply dark:text-primary-300;
-	margin-bottom: 10px;
-}
-
-.popover-tags {
-	display: flex;
-	flex-direction: column;
-	gap: 8px;
-}
-
-.popover-tag {
-	@apply inline-flex items-center rounded-full border text-xs font-semibold transition-colors bg-primary-50 text-primary-500 border-primary-200 px-2 py-1;
-	width: 100%; /* 占满整行 */
-	justify-content: center; /* 文本居中 */
-	flex-shrink: 0; /* 防止收缩 */
-	min-width: 0; /* 允许内容收缩 */
-	background: linear-gradient(to right, rgb(196, 181, 253), rgb(191, 219, 254)) !important;
-}
-
-.popover-tag:hover {
-	@apply bg-primary-100 border-primary-300;
-}
-
-.popover-tag-text {
-	white-space: nowrap;
-	overflow: hidden;
-	text-overflow: ellipsis;
-	width: 100%;
-	display: block;
-	text-align: center;
-}
-
-/* 自定义卡片样式 */
-:deep(.el-card) {
-	box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
-	@apply dark:shadow-black-50;
-}
-
-:deep(.el-card__header) {
-	padding: 0;
-	border-bottom: none;
-}
-
-:deep(.el-card__body) {
-	padding: 16px;
-	@apply dark:bg-black-400;
-}
-
-/* 移除Element Plus默认的卡片内边距和边框 */
-:deep(.el-card .el-card__header) {
-	margin: 0;
-	padding: 20px;
-}
-
-:deep(.el-card .el-card__footer) {
-	margin: 0;
-	padding: 0 20px 20px 20px;
 }
 </style>

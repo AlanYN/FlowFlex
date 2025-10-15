@@ -1,5 +1,5 @@
 <template>
-	<div class="pb-6 bg-gray-50 dark:bg-black-400">
+	<div class="pb-6">
 		<!-- 页面头部 -->
 		<PageHeader
 			:title="`${onboardingData?.leadId || ''} - ${onboardingData?.leadName || ''}`"
@@ -56,9 +56,9 @@
 		</PageHeader>
 
 		<!-- 主要内容区域 -->
-		<div class="flex w-full">
+		<div class="flex w-full gap-x-4">
 			<!-- 左侧阶段详情 (2/3 宽度) -->
-			<div class="flex-[2] min-w-0 overflow-hidden customer-block">
+			<div class="flex-[2] min-w-0 overflow-hidden">
 				<EditableStageHeader
 					:current-stage="onboardingActiveStageInfo"
 					:disabled="isAbortedReadonly || onboardingStageStatus"
@@ -208,8 +208,6 @@
 			/>
 		</div>
 
-		<!-- 消息对话框 -->
-		<MessageDialog v-model="messageDialogVisible" :onboarding-data="onboardingData" />
 		<!-- Portal Access Management 对话框 -->
 		<el-dialog
 			v-model="portalAccessDialogVisible"
@@ -254,7 +252,6 @@ import OnboardingProgress from './components/OnboardingProgress.vue';
 import QuestionnaireDetails from './components/QuestionnaireDetails.vue';
 import InternalNotes from './components/InternalNotes.vue';
 import ChangeLog from './components/ChangeLog.vue';
-import MessageDialog from './components/MessageDialog.vue';
 import CheckList from './components/CheckList.vue';
 import Documents from './components/Documents.vue';
 import StaticForm from './components/StaticForm.vue';
@@ -275,7 +272,6 @@ const route = useRoute();
 const onboardingData = ref<OnboardingItem | null>(null);
 const activeStage = ref<string>(''); // 初始为空，等待从服务器获取当前阶段
 const workflowStages = ref<Stage[]>([]);
-const messageDialogVisible = ref(false);
 const portalAccessDialogVisible = ref(false);
 
 // 存储批量查询到的数据

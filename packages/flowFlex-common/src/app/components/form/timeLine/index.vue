@@ -198,8 +198,8 @@ const progressClass = computed(() => progressData.value.class);
 
 <style lang="scss" scoped>
 $bg-color: rgb(196, 196, 196);
-$bg-progress: #333;
-$full-progress-color: #3b82f6;
+$bg-progress: var(--el-text-color-primary);
+$full-progress-color: var(--el-color-primary);
 
 .date-range-picker {
 	// width: 100%;
@@ -221,7 +221,7 @@ $full-progress-color: #3b82f6;
 .progress-bar {
 	width: 100%;
 	height: 100%;
-	background-color: #e5e7eb;
+	background-color: var(--el-fill-color);
 	overflow: hidden;
 	position: relative;
 	display: flex;
@@ -251,7 +251,7 @@ $full-progress-color: #3b82f6;
 }
 
 .days-count {
-	color: #fff;
+	color: var(--el-color-white);
 	width: 100%;
 	z-index: 2;
 	display: flex;
@@ -261,7 +261,7 @@ $full-progress-color: #3b82f6;
 }
 
 .date-range-text {
-	color: #fff;
+	color: var(--el-color-white);
 	white-space: nowrap;
 }
 

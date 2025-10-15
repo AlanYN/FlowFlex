@@ -38,7 +38,7 @@
 		</PageHeader>
 
 		<!-- Search and Filter Area -->
-		<div class="filter-panel rounded-xl shadow-sm p-4 mb-6">
+		<el-card class="mb-6">
 			<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
 				<div class="space-y-2">
 					<label class="filter-label text-sm font-medium">Tool ID or Tool Name</label>
@@ -46,7 +46,7 @@
 						v-model="searchForm.keyword"
 						placeholder="Enter Tool ID or Tool Name"
 						clearable
-						class="w-full rounded-xl filter-input"
+						class="w-full"
 						@change="handleSearch"
 					/>
 				</div>
@@ -57,7 +57,7 @@
 						v-model="searchForm.type"
 						placeholder="Select Type"
 						clearable
-						class="w-full filter-select"
+						class="w-full"
 						@change="handleSearch"
 					>
 						<el-option
@@ -69,7 +69,7 @@
 					</el-select>
 				</div>
 			</div>
-		</div>
+		</el-card>
 
 		<!-- Tabs Area -->
 		<PrototypeTabs
@@ -82,13 +82,14 @@
 		>
 			<!-- Tools Tab -->
 			<TabPane value="tools">
-				<div class="customer-block !p-0 !ml-0">
+				<div class="">
 					<el-table
 						:data="actionsList"
 						style="width: 100%"
 						@selection-change="handleSelectionChange"
 						:max-height="tableMaxHeight"
 						v-loading="loading"
+						border
 					>
 						<el-table-column type="selection" width="55" />
 						<el-table-column prop="actionCode" label="Tool ID" width="120" />
@@ -175,13 +176,14 @@
 
 			<!-- My Action Tab -->
 			<TabPane value="myAction">
-				<div class="customer-block !p-0 !ml-0">
+				<div class="">
 					<el-table
 						:data="actionsList"
 						style="width: 100%"
 						@selection-change="handleSelectionChange"
 						:max-height="tableMaxHeight"
 						v-loading="loading"
+						border
 					>
 						<el-table-column type="selection" width="55" />
 						<el-table-column prop="actionCode" label="Tool ID" width="120" />
@@ -254,17 +256,15 @@
 					</el-table>
 
 					<!-- Pagination -->
-					<div class="border-t bg-white rounded-b-md">
-						<CustomerPagination
-							:total="pagination.total"
-							:limit="pagination.pageSize"
-							:page="pagination.currentPage"
-							:background="true"
-							@pagination="handleLimitUpdate"
-							@update:page="handleCurrentChange"
-							@update:limit="handlePageUpdate"
-						/>
-					</div>
+					<CustomerPagination
+						:total="pagination.total"
+						:limit="pagination.pageSize"
+						:page="pagination.currentPage"
+						:background="true"
+						@pagination="handleLimitUpdate"
+						@update:page="handleCurrentChange"
+						@update:limit="handlePageUpdate"
+					/>
 				</div>
 			</TabPane>
 		</PrototypeTabs>
@@ -822,13 +822,13 @@ onMounted(() => {
 
 		.assignment-name {
 			font-weight: 500;
-			color: #374151;
+			color: var(--el-text-color-regular);
 			margin-bottom: 4px;
 		}
 
 		.assignment-date {
 			font-size: 12px;
-			color: #6b7280;
+			color: var(--el-text-color-secondary);
 		}
 	}
 }
@@ -844,9 +844,9 @@ onMounted(() => {
 }
 
 .type-tag {
-	background-color: #e6f3ff !important;
-	border-color: #b3d9ff !important;
-	color: #2468f2 !important;
+	background-color: var(--el-color-primary-light-9) !important;
+	border-color: var(--el-color-primary-light-5) !important;
+	color: var(--el-color-primary) !important;
 	padding: 4px 12px !important;
 	font-size: 12px !important;
 	font-weight: 500 !important;
@@ -854,9 +854,9 @@ onMounted(() => {
 
 /* AI标签样式 */
 .ai-tag {
-	background-color: #e6f3ff !important;
-	border-color: #b3d9ff !important;
-	color: #2468f2 !important;
+	background-color: var(--el-color-primary-light-9) !important;
+	border-color: var(--el-color-primary-light-5) !important;
+	color: var(--el-color-primary) !important;
 	border-radius: 4px !important;
 	padding: 2px 6px !important;
 	font-size: 11px !important;
@@ -869,54 +869,10 @@ onMounted(() => {
 .ai-sparkles {
 	font-size: 10px !important;
 }
-
-/* 筛选面板样式 */
-.filter-panel {
-	@apply bg-white dark:bg-black-400;
-	border: 1px solid var(--primary-100);
-	@apply dark:border-black-200;
-}
-
-.filter-label {
-	color: var(--primary-700);
-	@apply dark:text-primary-300;
-}
-
-/* Element Plus 组件样式覆盖 */
-:deep(.filter-input .el-input__wrapper) {
-	border-color: var(--primary-200);
-	@apply dark:border-black-200;
-}
-
-:deep(.filter-input .el-input__wrapper:hover) {
-	border-color: var(--primary-400);
-	@apply dark:border-primary-600;
-}
-
-:deep(.filter-input .el-input__wrapper.is-focus) {
-	border-color: var(--primary-500);
-	@apply dark:border-primary-500;
-}
-
-:deep(.filter-select .el-input__wrapper) {
-	border-color: var(--primary-200);
-	@apply dark:border-black-200;
-}
-
-:deep(.filter-select .el-input__wrapper:hover) {
-	border-color: var(--primary-400);
-	@apply dark:border-primary-600;
-}
-
-:deep(.filter-select .el-input__wrapper.is-focus) {
-	border-color: var(--primary-500);
-	@apply dark:border-primary-500;
-}
-
 /* Change History 弹窗样式 */
 .change-history-item {
 	@apply transition-all duration-200 hover:shadow-md;
-	background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+	background: var(--el-bg-color);
 }
 
 .change-history-item:hover {
@@ -926,52 +882,6 @@ onMounted(() => {
 
 /* 暗色主题样式 */
 html.dark {
-	/* 筛选面板暗色主题 */
-	.filter-panel {
-		@apply bg-black-400 dark:border-black-200;
-	}
-
-	.filter-label {
-		@apply dark:text-primary-300;
-	}
-
-	/* Element Plus 组件暗色主题 */
-	:deep(.filter-input .el-input__wrapper) {
-		background-color: var(--black-200) !important;
-		border-color: var(--black-200) !important;
-	}
-
-	:deep(.filter-input .el-input__wrapper:hover) {
-		border-color: var(--black-100) !important;
-	}
-
-	:deep(.filter-input .el-input__wrapper.is-focus) {
-		border-color: var(--primary-500);
-		box-shadow: 0 0 0 3px rgba(126, 34, 206, 0.2);
-	}
-
-	:deep(.filter-input .el-input__inner) {
-		@apply text-white-100;
-	}
-
-	:deep(.filter-select .el-input__wrapper) {
-		background-color: var(--black-200) !important;
-		border-color: var(--black-200) !important;
-	}
-
-	:deep(.filter-select .el-input__wrapper:hover) {
-		border-color: var(--black-100) !important;
-	}
-
-	:deep(.filter-select .el-input__wrapper.is-focus) {
-		border-color: var(--primary-500);
-		box-shadow: 0 0 0 3px rgba(126, 34, 206, 0.2);
-	}
-
-	:deep(.filter-select .el-input__inner) {
-		@apply text-white-100;
-	}
-
 	/* 标签样式在暗色主题下的适配 */
 	.assignments-list .assignment-item .assignment-name {
 		color: var(--white-100) !important;
@@ -984,7 +894,7 @@ html.dark {
 	/* Change History 暗色主题样式 */
 	.change-history-item {
 		@apply bg-black-400 border-black-200;
-		background: linear-gradient(135deg, var(--black-400) 0%, var(--black-300) 100%);
+		background: var(--el-bg-color-page);
 	}
 
 	.change-history-item:hover {

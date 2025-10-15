@@ -26,7 +26,10 @@
 						v-model="isActiveSwitch"
 						class="ml-2"
 						inline-prompt
-						style="--el-switch-on-color: #13ce66; --el-switch-off-color: #ff4949"
+						style="
+							--el-switch-on-color: var(--el-color-success);
+							--el-switch-off-color: var(--el-color-danger);
+						"
 						active-text="Active"
 						inactive-text="Inactive"
 					/>
@@ -39,7 +42,10 @@
 						v-model="formData.isDefault"
 						class="ml-2"
 						inline-prompt
-						style="--el-switch-on-color: #13ce66; --el-switch-off-color: #ff4949"
+						style="
+							--el-switch-on-color: var(--el-color-success);
+							--el-switch-off-color: var(--el-color-danger);
+						"
 						active-text="Default"
 						inactive-text="Not Default"
 						:disabled="isDefaultDisabled"
@@ -253,42 +259,42 @@ const emit = defineEmits(['submit', 'cancel']);
 :deep(.el-form-item__label) {
 	font-weight: 500;
 	margin-bottom: 4px;
-	color: #303133;
+	color: var(--el-text-color-primary);
 	line-height: 1.4;
 	padding-bottom: 0;
 }
 
 :deep(.el-input__wrapper),
 :deep(.el-textarea__wrapper) {
-	box-shadow: 0 0 0 1px #dcdfe6 inset;
+	box-shadow: 0 0 0 1px var(--el-border-color) inset;
 	@apply rounded-xl;
 }
 
 :deep(.el-input__wrapper:hover),
 :deep(.el-textarea__wrapper:hover) {
-	box-shadow: 0 0 0 1px var(--primary-400, #4989f5) inset;
+	box-shadow: 0 0 0 1px var(--el-color-primary-light-5) inset;
 }
 
 :deep(.el-input__wrapper.is-focus),
 :deep(.el-textarea__wrapper.is-focus) {
-	box-shadow: 0 0 0 1px var(--primary-500, #2468f2) inset;
+	box-shadow: 0 0 0 1px var(--el-color-primary) inset;
 }
 
 :deep(.el-button--primary) {
-	background-color: var(--primary-500, #2468f2);
-	border-color: var(--primary-500, #2468f2);
+	background-color: var(--el-color-primary);
+	border-color: var(--el-color-primary);
 }
 
 :deep(.el-button--primary:hover) {
-	background-color: var(--primary-600, #1d5ad8);
-	border-color: var(--primary-600, #1d5ad8);
+	background-color: var(--el-color-primary-dark-2);
+	border-color: var(--el-color-primary-dark-2);
 }
 
 :deep(.el-button--primary.is-disabled),
 :deep(.el-button--primary.is-disabled:hover) {
-	background-color: #a0cfff;
-	border-color: #a0cfff;
-	color: #fff;
+	background-color: var(--el-color-primary-light-5);
+	border-color: var(--el-color-primary-light-5);
+	color: var(--el-color-white);
 	cursor: not-allowed;
 	opacity: 0.6;
 }

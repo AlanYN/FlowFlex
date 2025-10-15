@@ -119,21 +119,27 @@ interface Stage {
 	color?: string;
 }
 
-// 颜色选项
-const colorOptions = [
-	'#4F46E5', // Indigo
-	'#0EA5E9', // Sky
-	'#10B981', // Emerald
-	'#F59E0B', // Amber
-	'#EC4899', // Pink
-	'#8B5CF6', // Violet
-	'#06B6D4', // Cyan
-	'#14B8A6', // Teal
-	'#F43F5E', // Rose
-	'#22C55E', // Green
-	'#3B82F6', // Blue
-	'#A855F7', // Purple
-];
+// 颜色选项 - 动态获取Element Plus颜色
+const colorOptions = computed(() => {
+	const getColor = (name: string) => {
+		return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+	};
+
+	return [
+		getColor('--el-color-primary'),
+		getColor('--el-color-success'),
+		getColor('--el-color-warning'),
+		getColor('--el-color-danger'),
+		getColor('--el-color-info'),
+		getColor('--el-color-primary-light-3'),
+		getColor('--el-color-success-light-3'),
+		getColor('--el-color-warning-light-3'),
+		getColor('--el-color-danger-light-3'),
+		getColor('--el-color-info-light-3'),
+		getColor('--el-color-primary-dark-2'),
+		getColor('--el-color-success-dark-2'),
+	];
+});
 
 // Props
 const props = defineProps({
@@ -154,7 +160,7 @@ const formData = reactive({
 	defaultAssignedGroup: '',
 	defaultAssignee: '',
 	estimatedDuration: 1,
-	color: colorOptions[Math.floor(Math.random() * colorOptions.length)], // 随机默认颜色
+	color: colorOptions.value[Math.floor(Math.random() * colorOptions.value.length)], // 随机默认颜色
 });
 
 // 表单验证规则 - 与StageForm保持一致
@@ -191,10 +197,11 @@ onMounted(() => {
 		formData.estimatedDuration = totalEstimatedDuration.value;
 		// 使用第一个阶段的颜色或选择随机颜色
 		formData.color =
-			firstStage.color || colorOptions[Math.floor(Math.random() * colorOptions.length)];
+			firstStage.color ||
+			colorOptions.value[Math.floor(Math.random() * colorOptions.value.length)];
 	} else {
 		// 选择随机颜色
-		formData.color = colorOptions[Math.floor(Math.random() * colorOptions.length)];
+		formData.color = colorOptions.value[Math.floor(Math.random() * colorOptions.value.length)];
 	}
 });
 
@@ -221,14 +228,14 @@ const emit = defineEmits(['submit', 'cancel']);
 .selected-stages {
 	margin-bottom: 20px;
 	padding: 10px;
-	background-color: #f5f7fa;
+	background-color: var(--el-fill-color-lighter);
 	@apply rounded-xl;
 }
 
 .selected-stages h4 {
 	margin-top: 0;
 	margin-bottom: 10px;
-	color: #606266;
+	color: var(--el-text-color-regular);
 }
 
 .selected-stages ul {
@@ -239,7 +246,7 @@ const emit = defineEmits(['submit', 'cancel']);
 
 .selected-stages li {
 	padding: 5px 0;
-	color: #303133;
+	color: var(--el-text-color-primary);
 }
 
 .form-actions {
@@ -251,7 +258,7 @@ const emit = defineEmits(['submit', 'cancel']);
 
 .help-text {
 	font-size: 12px;
-	color: #909399;
+	color: var(--el-text-color-placeholder);
 	margin-top: 4px;
 	font-style: italic;
 }
@@ -276,13 +283,8 @@ const emit = defineEmits(['submit', 'cancel']);
 	border: 2px solid transparent;
 }
 
-.color-option:hover {
-	transform: scale(1.1);
-}
-
 .color-option.selected {
-	border-color: #333;
-	transform: scale(1.1);
+	border-color: var(--el-color-white);
 }
 
 .disabled-btn {

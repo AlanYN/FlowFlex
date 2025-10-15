@@ -1,0 +1,74 @@
+/**
+ * 自定义开关组件 (opena8-switch)
+ * 项目特定的开关样式
+ */
+
+.opena8-switch {
+	display: inline-block;
+	font-size: 100%;
+	position: relative;
+	margin-bottom: inherit;
+}
+.opena8-switch,
+.opena8-switch-style,
+.opena8-switch-style:before {
+	box-sizing: border-box;
+}
+.opena8-switch > span:last-child {
+	vertical-align: middle;
+	margin-left: 0.71875em;
+}
+.opena8-switch.large > .opena8-switch-style {
+	height: 1.625rem !important;
+	width: 3.375rem !important;
+	@apply rounded-xl;
+}
+.opena8-switch.large > .opena8-switch-style:before {
+	height: 1.5rem !important;
+	width: 1.5rem !important;
+}
+.opena8-switch-style {
+	vertical-align: middle;
+	height: 1rem;
+	left: 0;
+	background: #ea7724;
+	display: inline-block;
+	position: relative;
+	top: 0;
+	transition: all 0.3s ease-in-out;
+	width: 2.5rem;
+	cursor: pointer;
+	@apply rounded-xl;
+}
+.opena8-switch-style:before {
+	display: block;
+	content: '';
+	height: 0.875rem;
+	position: absolute;
+	width: 0.875rem;
+	background-color: #ffffff;
+	border-radius: 50%;
+	left: 1px;
+	top: 1px;
+	transition: all 0.3s ease-in-out;
+}
+.opena8-switch > input[type='checkbox'] {
+	display: none;
+}
+.opena8-switch > input[type='checkbox'][disabled] + .opena8-switch-style {
+	cursor: not-allowed;
+	background-color: #b4b5b5;
+}
+.opena8-switch > input[type='checkbox']:checked + .opena8-switch-style {
+	background-color: #5151c0;
+}
+.opena8-switch > input[type='checkbox']:checked + .opena8-switch-style:before {
+	left: calc(100% - 1rem);
+}
+.opena8-switch > input[type='checkbox']:checked[disabled] + .opena8-switch-style {
+	background-color: #444545;
+}
+.opena8-switch.large > input[type='checkbox']:checked + .opena8-switch-style:before {
+	left: calc(100% - 1.625rem) !important;
+}
+

@@ -1,5 +1,5 @@
 <template>
-	<div class="empty-state-container rounded-xl bg-white shadow-sm border border-gray-200">
+	<div class="empty-state-container rounded-xl bg-white shadow-sm empty-state-border">
 		<div class="empty-state-content">
 			<svg
 				xmlns="http://www.w3.org/2000/svg"
@@ -94,24 +94,30 @@ defineEmits(['create']);
 }
 
 .empty-state-icon {
-	color: var(--primary-300, #93c5fd);
+	color: var(--primary-300);
 	margin-bottom: 24px;
 }
 
 .empty-state-title {
 	font-size: 24px;
 	font-weight: 600;
-	color: #303133;
+	color: var(--el-text-color-primary);
 	margin: 0 0 16px 0;
-	@apply dark:text-white;
+}
+
+html.dark .empty-state-title {
+	color: var(--el-color-white);
 }
 
 .empty-state-desc {
 	font-size: 16px;
-	color: #606266;
+	color: var(--el-text-color-regular);
 	margin: 0 0 32px 0;
 	line-height: 1.6;
-	@apply dark:text-gray-300;
+}
+
+.empty-state-border {
+	border-color: var(--el-border-color-light);
 }
 
 .create-btn {

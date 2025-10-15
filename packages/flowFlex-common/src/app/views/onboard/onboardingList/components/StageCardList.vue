@@ -246,13 +246,13 @@ defineProps({
 <style scoped lang="scss">
 /* 管道视图样式 */
 .stage-card {
-	border: 1px solid #e5e7eb;
+	border: 1px solid var(--el-border-color-light);
 	overflow: hidden;
 }
 
 .stage-card :deep(.el-card__header) {
 	background-color: var(--primary-10);
-	border-bottom: 1px solid #e5e7eb;
+	border-bottom: 1px solid var(--el-border-color-light);
 	padding: 12px 20px;
 }
 
@@ -265,10 +265,10 @@ defineProps({
 }
 
 :deep(.pipeline-lead-button) {
-	border: 1px solid #d1d5db;
+	border: 1px solid var(--el-border-color);
 	border-left-width: 4px;
-	background: white;
-	color: #374151;
+	background: var(--el-bg-color);
+	color: var(--el-text-color-regular);
 	font-size: 14px;
 	padding: 8px 12px;
 	margin: 2px;
@@ -280,27 +280,27 @@ defineProps({
 }
 
 :deep(.pipeline-lead-button:hover) {
-	background-color: #f9fafb;
+	background-color: var(--el-fill-color-blank);
 }
 
 :deep(.pipeline-lead-button.border-red-500) {
-	border-color: #dc2626 !important;
-	border-left-color: #dc2626 !important;
+	border-color: var(--el-color-danger) !important;
+	border-left-color: var(--el-color-danger) !important;
 }
 
 :deep(.pipeline-lead-button.border-yellow-500) {
-	border-color: #d97706 !important;
-	border-left-color: #d97706 !important;
+	border-color: var(--el-color-warning) !important;
+	border-left-color: var(--el-color-warning) !important;
 }
 
 :deep(.pipeline-lead-button.border-green-500) {
-	border-color: #059669 !important;
-	border-left-color: #059669 !important;
+	border-color: var(--el-color-success) !important;
+	border-left-color: var(--el-color-success) !important;
 }
 
 :deep(.pipeline-lead-button.border-gray-500) {
-	border-color: #6b7280 !important;
-	border-left-color: #6b7280 !important;
+	border-color: var(--el-text-color-secondary) !important;
+	border-left-color: var(--el-text-color-secondary) !important;
 }
 
 /* 逾期时的红色边框覆盖优先级颜色 */
@@ -309,20 +309,20 @@ defineProps({
 				.border-gray-500
 			)
 	) {
-	border-color: #dc2626 !important;
-	border-left-color: #dc2626 !important;
+	border-color: var(--el-color-danger) !important;
+	border-left-color: var(--el-color-danger) !important;
 }
 
 /* 骨架屏样式 */
 .stage-card-skeleton {
 	.stage-card {
-		border: 1px solid #e5e7eb;
+		border: 1px solid var(--el-border-color-light);
 		overflow: hidden;
 	}
 
 	.stage-card :deep(.el-card__header) {
 		background-color: var(--primary-10);
-		border-bottom: 1px solid #e5e7eb;
+		border-bottom: 1px solid var(--el-border-color-light);
 		padding: 12px 20px;
 	}
 
@@ -344,14 +344,14 @@ defineProps({
 html.dark {
 	/* 管道视图暗色主题 */
 	.stage-card {
-		border: 1px solid #4a5568 !important;
+		border: 1px solid var(--el-border-color) !important;
 		background-color: var(--black-400) !important;
 	}
 
 	.stage-card :deep(.el-card__header) {
-		background-color: #003c76 !important;
-		border-bottom: 1px solid #00509d !important;
-		color: #cce8d0 !important;
+		background-color: var(--el-color-primary-dark-2) !important;
+		border-bottom: 1px solid var(--el-color-primary-dark-2) !important;
+		color: var(--el-text-color-primary) !important;
 	}
 
 	.stage-card :deep(.el-card__body) {
@@ -377,8 +377,8 @@ html.dark {
 	/* 卡片底部统计区域暗色主题 */
 	.stage-card :deep(.el-card__footer) {
 		background-color: var(--black-200) !important;
-		border-top: 1px solid #4a5568 !important;
-		color: #9ca3af !important;
+		border-top: 1px solid var(--el-border-color) !important;
+		color: var(--el-text-color-secondary) !important;
 	}
 }
 </style>

@@ -14,7 +14,7 @@
 				@compositionstart="handleCompositionStart"
 				@compositionend="handleCompositionEnd(index, $event)"
 				ref="codeInputs"
-				class="w-10 h-10 rounded-xl text-white text-center text-lg bg-white/10 border border-white/20 focus:outline-none focus:border-[#58c7fa] focus:shadow-[0_0_15px_rgba(88,199,250,0.5)]"
+				class="w-10 h-10 rounded-xl auth-code-input text-center text-lg focus:outline-none"
 				:class="{ 'bg-gray-500/50 cursor-not-allowed': disabled }"
 			/>
 		</div>
@@ -159,3 +159,16 @@ const startTimer = async () => {
 	}
 };
 </script>
+
+<style scoped>
+.auth-code-input {
+	color: var(--el-color-white);
+	background: rgba(255, 255, 255, 0.1);
+	border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.auth-code-input:focus {
+	border-color: var(--el-color-primary);
+	box-shadow: 0 0 15px rgba(0, 0, 0, 0.2);
+}
+</style>

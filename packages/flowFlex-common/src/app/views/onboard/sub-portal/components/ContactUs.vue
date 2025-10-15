@@ -94,13 +94,7 @@
 											:value="member.id"
 										>
 											<span style="float: left">{{ member.name }}</span>
-											<span
-												style="
-													float: right;
-													color: #8492a6;
-													font-size: 13px;
-												"
-											>
+											<span class="member-role-option">
 												{{ member.role }}
 											</span>
 										</el-option>
@@ -383,14 +377,14 @@ export default {
 
 .contact-header h2 {
 	margin: 0 0 8px 0;
-	color: #1f2937;
+	color: var(--el-text-color-primary);
 	font-size: 28px;
 	font-weight: 600;
 }
 
 .contact-header p {
 	margin: 0;
-	color: #6b7280;
+	color: var(--el-text-color-secondary);
 	font-size: 16px;
 }
 
@@ -400,7 +394,7 @@ export default {
 
 .team-section h3 {
 	margin: 0 0 24px 0;
-	color: #1f2937;
+	color: var(--el-text-color-primary);
 	font-size: 20px;
 	font-weight: 600;
 }
@@ -433,21 +427,21 @@ export default {
 
 .member-details h4 {
 	margin: 0 0 4px 0;
-	color: #1f2937;
+	color: var(--el-text-color-primary);
 	font-size: 16px;
 	font-weight: 600;
 }
 
 .member-role {
 	margin: 0 0 4px 0;
-	color: #3b82f6;
+	color: var(--el-color-primary);
 	font-size: 14px;
 	font-weight: 500;
 }
 
 .member-department {
 	margin: 0 0 8px 0;
-	color: #6b7280;
+	color: var(--el-text-color-secondary);
 	font-size: 12px;
 }
 
@@ -468,7 +462,7 @@ export default {
 
 .specialties-title {
 	font-size: 12px;
-	color: #6b7280;
+	color: var(--el-text-color-secondary);
 	margin-bottom: 8px;
 }
 
@@ -482,7 +476,7 @@ export default {
 
 .quick-contact-section h3 {
 	margin: 0 0 24px 0;
-	color: #1f2937;
+	color: var(--el-text-color-primary);
 	font-size: 20px;
 	font-weight: 600;
 }
@@ -496,19 +490,19 @@ export default {
 	align-items: flex-start;
 	margin-bottom: 20px;
 	padding: 16px;
-	background: #f9fafb;
+	background: var(--el-fill-color-blank);
 	@apply rounded-xl;
 }
 
 .contact-icon {
 	width: 40px;
 	height: 40px;
-	background: #3b82f6;
+	background: var(--el-color-primary);
 	border-radius: 50%;
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	color: white;
+	color: var(--el-color-white);
 	font-size: 18px;
 	margin-right: 16px;
 	flex-shrink: 0;
@@ -516,30 +510,30 @@ export default {
 
 .contact-details h4 {
 	margin: 0 0 4px 0;
-	color: #1f2937;
+	color: var(--el-text-color-primary);
 	font-size: 16px;
 	font-weight: 600;
 }
 
 .contact-details p {
 	margin: 0 0 4px 0;
-	color: #374151;
+	color: var(--el-text-color-regular);
 	font-size: 14px;
 }
 
 .contact-time {
-	color: #6b7280;
+	color: var(--el-text-color-secondary);
 	font-size: 12px;
 }
 
 .faq-section {
-	border-top: 1px solid #e5e7eb;
+	border-top: 1px solid var(--el-border-color-light);
 	padding-top: 20px;
 }
 
 .faq-section h4 {
 	margin: 0 0 16px 0;
-	color: #1f2937;
+	color: var(--el-text-color-primary);
 	font-size: 16px;
 	font-weight: 600;
 }
@@ -555,14 +549,14 @@ export default {
 }
 
 .service-commitment {
-	background: #f9fafb;
+	background: var(--el-fill-color-blank);
 	padding: 32px;
 	@apply rounded-xl;
 }
 
 .service-commitment h3 {
 	margin: 0 0 32px 0;
-	color: #1f2937;
+	color: var(--el-text-color-primary);
 	font-size: 20px;
 	font-weight: 600;
 	text-align: center;
@@ -576,28 +570,35 @@ export default {
 .commitment-icon {
 	width: 60px;
 	height: 60px;
-	background: #3b82f6;
+	background: var(--el-color-primary);
 	border-radius: 50%;
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	color: white;
+	color: var(--el-color-white);
 	font-size: 24px;
 	margin: 0 auto 16px auto;
 }
 
 .commitment-item h4 {
 	margin: 0 0 12px 0;
-	color: #1f2937;
+	color: var(--el-text-color-primary);
 	font-size: 16px;
 	font-weight: 600;
 }
 
 .commitment-item p {
 	margin: 0;
-	color: #6b7280;
+	color: var(--el-text-color-secondary);
 	font-size: 14px;
 	line-height: 1.5;
+}
+
+/* 自定义样式类 */
+.member-role-option {
+	float: right;
+	color: var(--el-text-color-placeholder);
+	font-size: 13px;
 }
 
 @media (max-width: 768px) {

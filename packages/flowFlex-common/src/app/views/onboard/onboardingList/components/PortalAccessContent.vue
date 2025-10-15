@@ -10,8 +10,8 @@
 		/>
 
 		<!-- Description -->
-		<div class="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-xl">
-			<p class="text-sm text-blue-700 dark:text-blue-300">
+		<div class="bg-primary-50 dark:bg-primary-900/20 p-4 rounded-xl">
+			<p class="text-sm text-primary dark:text-primary-300">
 				Create login credentials for customers to access the customer portal. They will
 				receive an email with instructions to set up their password and complete the
 				application form.
@@ -30,7 +30,7 @@
 
 		<!-- Portal Users Table -->
 		<div v-if="portalUsers.length > 0" class="border rounded-xl overflow-hidden">
-			<el-table :data="portalUsers" style="width: 100%" class="portal-table">
+			<el-table :data="portalUsers" style="width: 100%" border>
 				<el-table-column label="Email" prop="email" />
 				<el-table-column label="Status" width="120">
 					<template #default="{ row }">
@@ -170,8 +170,8 @@
 					</div>
 				</div>
 
-				<div class="bg-blue-50 p-4 rounded-xl">
-					<p class="text-sm text-blue-800">
+				<div class="bg-primary-50 p-4 rounded-xl">
+					<p class="text-sm text-primary">
 						<strong>Note:</strong>
 						Share this link with the customer to access their onboarding portal. The
 						link is encrypted and secure.
@@ -486,51 +486,14 @@ watchEffect(async () => {
 </script>
 
 <style scoped lang="scss">
-/* Portal Table 样式 */
-:deep(.portal-table .el-table__header-wrapper) {
-	background-color: var(--primary-10);
-}
-
-:deep(.portal-table .el-table__header) {
-	background-color: var(--primary-10);
-}
-
-:deep(.portal-table .el-table__header th) {
-	background-color: var(--primary-10) !important;
-	border: none;
-	font-weight: 500;
-}
-
-:deep(.portal-table .el-table__header th .cell) {
-	color: #374151;
-	font-weight: 500;
-}
-
-/* 暗色主题下的表格样式 */
-html.dark :deep(.portal-table .el-table__header-wrapper) {
-	background-color: rgba(59, 130, 246, 0.2);
-}
-
-html.dark :deep(.portal-table .el-table__header) {
-	background-color: rgba(59, 130, 246, 0.2);
-}
-
-html.dark :deep(.portal-table .el-table__header th) {
-	background-color: rgba(59, 130, 246, 0.2) !important;
-}
-
-html.dark :deep(.portal-table .el-table__header th .cell) {
-	color: rgb(147, 197, 253);
-}
-
 /* InputTag组件样式调整 - 保持原有高度和宽度 */
 :deep(.layout) {
 	min-height: 32px;
 	height: 32px;
-	border: 1px solid var(--el-border-color, #dcdfe6);
+	border: 1px solid var(--el-border-color);
 	padding: 4px 11px;
-	background-color: var(--el-fill-color-blank, #ffffff);
-	transition: all var(--el-transition-duration, 0.2s);
+	background-color: var(--el-fill-color-blank);
+	transition: all var(--el-transition-duration);
 	box-shadow: 0 0 0 1px transparent inset;
 	font-size: 14px;
 	display: flex;
@@ -541,37 +504,19 @@ html.dark :deep(.portal-table .el-table__header th .cell) {
 }
 
 :deep(.layout:hover) {
-	border-color: var(--el-border-color-hover, #c0c4cc);
+	border-color: var(--el-border-color-hover);
 }
 
 :deep(.layout:focus-within) {
-	border-color: var(--primary-500, #409eff);
-	box-shadow: 0 0 0 1px var(--primary-500, #409eff) inset !important;
-}
-
-:deep(.input-tag) {
-	min-width: 100px;
-	height: 24px;
-	line-height: 24px;
-	font-size: 14px;
-	color: var(--el-text-color-regular, #606266);
-	border: none;
-	outline: none;
-	background: transparent;
-	flex: 1;
-	padding: 0;
-}
-
-:deep(.input-tag::placeholder) {
-	color: var(--el-text-color-placeholder, #a8abb2);
-	font-size: 14px;
+	border-color: var(--el-color-primary);
+	box-shadow: 0 0 0 1px var(--el-color-primary) inset !important;
 }
 
 :deep(.label-box) {
 	height: 24px;
 	margin: 0;
-	background-color: var(--el-fill-color-light, #f5f7fa);
-	border: 1px solid var(--el-border-color-lighter, #e4e7ed);
+	background-color: var(--el-fill-color-light);
+	border: 1px solid var(--el-border-color-lighter);
 	display: inline-flex;
 	align-items: center;
 	padding: 0 8px;
@@ -583,7 +528,7 @@ html.dark :deep(.portal-table .el-table__header th .cell) {
 	font-size: 12px;
 	padding: 0;
 	line-height: 24px;
-	color: var(--el-text-color-regular, #606266);
+	color: var(--el-text-color-regular);
 	font-weight: 500;
 	white-space: nowrap;
 	overflow: hidden;
@@ -594,7 +539,7 @@ html.dark :deep(.portal-table .el-table__header th .cell) {
 :deep(.label-close) {
 	padding: 0;
 	margin-left: 6px;
-	color: var(--el-text-color-placeholder, #a8abb2);
+	color: var(--el-text-color-placeholder);
 	cursor: pointer;
 	display: inline-flex;
 	align-items: center;
@@ -602,14 +547,14 @@ html.dark :deep(.portal-table .el-table__header th .cell) {
 	width: 16px;
 	height: 16px;
 	border-radius: 50%;
-	background: var(--el-fill-color, #f0f2f5);
+	background: var(--el-fill-color);
 	transition: all 0.2s ease;
 	transform: none;
 }
 
 :deep(.label-close:hover) {
-	background: var(--el-fill-color-dark, #e6e8eb);
-	color: var(--el-text-color-regular, #606266);
+	background: var(--el-fill-color-dark);
+	color: var(--el-text-color-regular);
 }
 
 :deep(.label-close:after) {

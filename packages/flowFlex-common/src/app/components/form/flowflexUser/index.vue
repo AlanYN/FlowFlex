@@ -38,7 +38,7 @@
 		<!-- 可编辑模式 -->
 		<div
 			v-else
-			class="w-full min-h-8 border border-[var(--el-border-color)] dark:border-gray-600 rounded-xl px-3 py-1.5 bg-white dark:bg-black-200 cursor-pointer transition-colors duration-200 flex items-center"
+			class="w-full min-h-8 px-3 el-input__wrapper cursor-pointer transition-colors duration-200 flex items-center"
 			:class="[
 				disabled
 					? 'bg-gray-50 dark:bg-gray-700 cursor-not-allowed'
@@ -65,20 +65,20 @@
 						>
 							<div class="flex items-center gap-1">
 								<div
-									class="w-6 h-6 rounded-full flex items-center justify-center text-white font-semibold text-xs relative cursor-pointer transition-transform duration-200 hover:scale-105 group"
+									class="w-4 h-4 rounded-full flex items-center justify-center text-white font-semibold text-xs relative cursor-pointer transition-transform duration-200 hover:scale-105 group flex-shrink-0"
 									:class="{ 'cursor-not-allowed': disabled }"
 									:style="{ backgroundColor: getAvatarColor(item.name) }"
 								>
 									{{ getInitials(item.name) }}
 									<div
 										v-if="!disabled"
-										class="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity duration-200 cursor-pointer border border-white hover:bg-red-600"
+										class="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity duration-200 cursor-pointer border border-white hover:bg-red-600"
 										@click.stop="removeSelectedItem(item.id)"
 									>
 										<el-icon class="text-[8px]"><Close /></el-icon>
 									</div>
 								</div>
-								<div class="text-gray-900 dark:text-gray-100">{{ item.name }}</div>
+								<text class="el-input__inner">{{ item.name }}</text>
 							</div>
 						</el-tooltip>
 					</div>
@@ -96,7 +96,7 @@
 					</div>
 				</div>
 				<!-- Clear 按钮固定到右侧 -->
-				<div v-if="clearable" class="flex-shrink-0 ml-1">
+				<div v-if="clearable" class="flex-shrink-0 ml-1 leading-[30px]">
 					<el-button
 						circle
 						@click.stop="clearSelection"
@@ -130,13 +130,11 @@
 				<!-- 左右分栏布局 -->
 				<div class="flex gap-5 h-[450px]">
 					<!-- 左侧：可选用户 -->
-					<div
-						class="flex-1 flex flex-col border border-gray-200 dark:border-gray-600 rounded-xl overflow-hidden"
-					>
+					<div class="flex-1 flex flex-col border rounded-xl overflow-hidden">
 						<div
-							class="bg-gray-50 dark:bg-gray-700 px-4 py-3 border-b border-gray-200 dark:border-gray-600 flex items-center gap-2"
+							class="bg-[var(--el-fill-color-lighter)] dark:bg-white px-4 py-3 border-b flex items-center gap-2"
 						>
-							<span class="font-semibold text-gray-800 dark:text-gray-200 text-sm">
+							<span class="font-semibold text-sm">
 								{{
 									props.selectionType === 'user'
 										? 'Available Items'
@@ -144,13 +142,13 @@
 								}}
 							</span>
 							<span
-								class="bg-blue-500 text-white text-xs px-2 py-0.5 rounded-full min-w-[20px] text-center"
+								class="bg-primary text-white text-xs px-2 py-0.5 rounded-full min-w-[20px] text-center"
 							>
 								{{ getAvailableUsersCount() }}
 							</span>
 						</div>
 						<!-- 搜索框 -->
-						<div class="p-3 border-b border-gray-200 dark:border-gray-600">
+						<div class="p-3 border-b">
 							<el-input
 								v-model="searchText"
 								placeholder="Search..."
@@ -220,26 +218,19 @@
 					</div>
 
 					<!-- 右侧：已选用户 -->
-					<div
-						class="flex-1 flex flex-col border border-gray-200 dark:border-gray-600 rounded-xl overflow-hidden"
-					>
+					<div class="flex-1 flex flex-col border rounded-xl overflow-hidden">
 						<div
-							class="bg-gray-50 dark:bg-gray-700 px-4 py-3 border-b border-gray-200 dark:border-gray-600 flex items-center gap-2"
+							class="bg-[var(--el-fill-color-lighter)] dark:bg-white px-4 py-3 border-b flex items-center gap-2"
 						>
-							<span class="font-semibold text-gray-800 dark:text-gray-200 text-sm">
+							<span class="font-semibold text-sm">
 								Selected {{ getSelectedTypeText() }}
 							</span>
 							<span
-								class="bg-blue-500 text-white text-xs px-2 py-0.5 rounded-full min-w-[20px] text-center"
+								class="bg-primary text-white text-xs px-2 py-0.5 rounded-full min-w-[20px] text-center"
 							>
 								{{ tempSelectedItems.length }}
 							</span>
-							<span
-								v-if="maxCount > 0"
-								class="text-gray-500 dark:text-gray-400 text-xs"
-							>
-								/ {{ maxCount }}
-							</span>
+							<span v-if="maxCount > 0" class="text-xs">/ {{ maxCount }}</span>
 						</div>
 						<el-scrollbar class="flex-1">
 							<div class="p-2">
@@ -253,7 +244,7 @@
 									<div
 										v-for="item in tempSelectedItems"
 										:key="item.id"
-										class="flex items-center gap-3 p-2 bg-gray-50 dark:bg-gray-700 rounded-xl transition-colors duration-200 hover:bg-gray-100 dark:hover:bg-gray-600"
+										class="flex items-center gap-3 p-2 border rounded-xl transition-colors duration-200 hover:bg-gray-100 dark:hover:bg-gray-600"
 									>
 										<div
 											class="w-6 h-6 rounded-full flex items-center justify-center text-white font-semibold text-base flex-shrink-0"
@@ -838,12 +829,12 @@ defineExpose({
 }
 
 .el-tree-node__content:hover {
-	background-color: #f9fafb !important;
+	background-color: var(--el-fill-color-blank) !important;
 }
 
 /* Dark mode 树形组件样式 */
 html.dark .el-tree-node__content:hover {
-	background-color: #374151 !important;
+	background-color: var(--el-fill-color) !important;
 }
 
 html.dark .el-tree-node__content {

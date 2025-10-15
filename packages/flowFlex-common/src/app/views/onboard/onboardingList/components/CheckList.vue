@@ -1,32 +1,35 @@
 <template>
-	<div class="customer-block" v-if="checklistData && checklistData.length > 0">
+	<div class="wfe-global-block-bg" v-if="checklistData && checklistData.length > 0">
 		<div
-			class="checklist-header-card rounded-xl"
+			class="case-component-header rounded-xl"
 			:class="{ expanded: isExpanded }"
 			@click="toggleExpanded"
 		>
 			<div class="flex justify-between">
 				<div>
 					<div class="flex items-center">
-						<el-icon class="expand-icon text-lg mr-2" :class="{ rotated: isExpanded }">
+						<el-icon
+							class="case-component-expand-icon text-lg mr-2"
+							:class="{ rotated: isExpanded }"
+						>
 							<ArrowRight />
 						</el-icon>
-						<h3 class="checklist-title">{{ checklistData[0].name }}</h3>
+						<h3 class="case-component-title">{{ checklistData[0].name }}</h3>
 					</div>
-					<div class="checklist-subtitle">
+					<div class="case-component-subtitle">
 						{{ totalCompletedTasks }} of {{ totalTasks }} tasks completed
 					</div>
 				</div>
-				<div class="progress-info">
-					<span class="progress-percentage">{{ overallCompletionRate }}%</span>
-					<span class="progress-label">Completed</span>
+				<div class="case-component-info">
+					<span class="case-component-percentage">{{ overallCompletionRate }}%</span>
+					<span class="case-component-label">Completed</span>
 				</div>
 			</div>
 			<!-- 统一进度条 -->
-			<div class="progress-bar-container">
-				<div class="progress-bar rounded-xl">
+			<div class="case-component-bar-container">
+				<div class="case-component-bar rounded-xl">
 					<div
-						class="progress-fill rounded-xl"
+						class="case-component-fill rounded-xl"
 						:style="{ width: `${overallCompletionRate}%` }"
 					></div>
 				</div>
@@ -55,8 +58,7 @@
 								<div class="flex items-center gap-2 mb-1">
 									<icon
 										icon="material-symbols:check-circle-outline-rounded"
-										style="color: #10b981"
-										class="text-xl"
+										class="text-xl check-complete-icon"
 										v-if="task.isCompleted"
 									/>
 									<h4 v-if="task.name" class="item-title bolck">
@@ -85,15 +87,13 @@
 										</span>
 									</div>
 									<div
-										class="flex items-center gap-1 flex-shrink-0"
-										style="color: #47b064"
+										class="flex items-center gap-1 flex-shrink-0 task-files-count"
 									>
 										<icon icon="iconoir:attachment" />
 										{{ task?.filesCount || 0 }}
 									</div>
 									<div
-										class="flex items-center gap-1 flex-shrink-0"
-										style="color: #ed6f2d"
+										class="flex items-center gap-1 flex-shrink-0 task-notes-count"
 									>
 										<icon icon="mynaui:message" />
 										{{ task?.notesCount || 0 }}
@@ -116,7 +116,6 @@
 								<el-button
 									class="action-button details-button"
 									@click.stop="openTaskDetails(task)"
-									color="#e6f1fa"
 								>
 									Details
 								</el-button>
@@ -317,120 +316,11 @@ const getAssigneeInitials = (fullName: string) => {
 </script>
 
 <style scoped lang="scss">
-/* 头部卡片样式 - 橙色渐变 */
-.checklist-header-card {
-	background: linear-gradient(135deg, #ff6b35 0%, #f7931e 100%);
-	padding: 10px;
-	color: white;
-	box-shadow: 0 4px 12px rgba(255, 107, 53, 0.2);
-	display: flex;
-	flex-direction: column;
-	gap: 16px;
-	cursor: pointer;
-	transition: all 0.2s ease;
-
-	&:hover {
-		box-shadow: 0 6px 16px rgba(255, 107, 53, 0.3);
-		transform: translateY(-1px);
-	}
-}
-
-.checklist-title {
-	font-size: 18px;
-	font-weight: 600;
-	margin: 0 0 4px 0;
-	color: white;
-}
-
-.checklist-subtitle {
-	font-size: 14px;
-	margin: 0;
-	color: rgba(255, 255, 255, 0.9);
-	font-weight: 400;
-}
-
-.progress-info {
-	display: flex;
-	flex-direction: column;
-	align-items: flex-end;
-	text-align: right;
-}
-
-.progress-percentage {
-	font-size: 24px;
-	font-weight: 700;
-	line-height: 1;
-	color: white;
-}
-
-.progress-label {
-	font-size: 12px;
-	color: rgba(255, 255, 255, 0.9);
-	margin-top: 2px;
-}
-
-.progress-bar-container {
-	width: 100%;
-}
-
-.progress-bar {
-	width: 100%;
-	height: 8px;
-	background-color: rgba(255, 255, 255, 0.4);
-	overflow: hidden;
-}
-
-.progress-fill {
-	height: 100%;
-	background: linear-gradient(90deg, #fed7aa 0%, #fb923c 50%, #ea580c 100%);
-	box-shadow: 0 2px 8px rgba(251, 146, 60, 0.7);
-	transition: width 0.3s ease;
-}
-
-.expand-icon {
-	transition: transform 0.2s ease;
-	color: white;
-
-	&.rotated {
-		transform: rotate(90deg);
-	}
-}
-
-/* 优化折叠动画 - 只优化动画性能 */
-:deep(.el-collapse-transition) {
-	transition: height 0.2s ease-out !important;
-}
-
-:deep(.el-collapse-transition .el-collapse-item__content) {
-	will-change: height;
-	transform: translateZ(0); /* 启用硬件加速 */
-	backface-visibility: hidden;
-}
-
 /* 优化任务列表性能 - 只优化动画 */
 .checklist-items {
 	transform: translateZ(0);
 	backface-visibility: hidden;
 	contain: layout;
-}
-
-/* 检查项分组标题 */
-.checklist-group-title {
-	font-size: 14px;
-	font-weight: 600;
-	color: #374151;
-	margin: 16px 0 8px 0;
-	padding-bottom: 8px;
-	border-bottom: 2px solid #e5e7eb;
-	display: flex;
-	align-items: center;
-	gap: 8px;
-}
-
-.group-task-count {
-	font-size: 14px;
-	font-weight: 400;
-	color: #6b7280;
 }
 
 /* 检查项列表 */
@@ -445,14 +335,14 @@ const getAssigneeInitials = (fullName: string) => {
 	display: flex;
 	align-items: stretch;
 	justify-content: space-between;
-	background-color: #ffffff;
-	border: 1px solid #e5e7eb;
+	background-color: var(--el-fill-color-blank);
+	border: 2px solid var(--el-border-color-light);
 	/* 优化动画性能 */
 	transition:
 		transform 0.15s ease,
 		box-shadow 0.15s ease,
 		border-color 0.15s ease;
-	box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+	box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
 	/* 确保卡片不会被内容撑开 */
 	min-width: 0;
 	overflow: hidden;
@@ -464,8 +354,8 @@ const getAssigneeInitials = (fullName: string) => {
 	@apply rounded-xl;
 
 	&:hover {
-		border-color: #d1d5db;
-		box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+		border-color: var(--el-color-primary-light-5);
+		box-shadow: 0 4px 8px rgba(0, 0, 0, 0.12);
 		transform: translateY(-1px) translateZ(0);
 	}
 }
@@ -475,15 +365,13 @@ const getAssigneeInitials = (fullName: string) => {
 	min-width: 0;
 	/* 确保内容不会撑开父容器 */
 	overflow: hidden;
-	background-color: #fffbeb;
+	background-color: var(--el-fill-color-blank);
 
 	&.completed {
-		background-color: #f0fdf4;
-		border-color: #bbf7d0;
+		border-left: 6px solid var(--el-color-success);
 
 		&:hover {
-			border-color: #bbf7d0;
-			box-shadow: 0 4px 6px rgba(34, 197, 94, 0.1);
+			background-color: var(--el-color-success-light-8);
 		}
 	}
 }
@@ -526,7 +414,7 @@ const getAssigneeInitials = (fullName: string) => {
 .item-title {
 	font-size: 14px;
 	font-weight: 600;
-	color: #1f2937;
+	color: var(--el-text-color-primary);
 	line-height: 1.5;
 	/* 处理长文本，防止撑开容器 */
 	overflow: hidden;
@@ -537,14 +425,14 @@ const getAssigneeInitials = (fullName: string) => {
 	-webkit-box-orient: vertical;
 
 	.completed & {
-		color: #10b981;
+		color: var(--el-color-success);
 	}
 }
 
 /* 新增的简化样式 */
 .completed-check {
 	font-size: 18px;
-	color: #10b981;
+	color: var(--el-color-success);
 	font-weight: bold;
 }
 
@@ -556,22 +444,22 @@ const getAssigneeInitials = (fullName: string) => {
 }
 
 .assignee-info {
-	color: #6366f1;
+	color: var(--el-color-primary);
 	font-weight: 500;
 }
 
 .file-count {
-	color: #059669;
+	color: var(--el-color-success);
 }
 
 .note-count {
-	color: #dc2626;
+	color: var(--el-color-danger);
 }
 
 .item-description {
 	font-size: 14px;
 	margin: 0 0 8px 0;
-	color: #6b7280;
+	color: var(--el-text-color-secondary);
 	line-height: 1.4;
 	/* 限制描述文本最多显示3行 */
 	overflow: hidden;
@@ -586,7 +474,7 @@ const getAssigneeInitials = (fullName: string) => {
 	align-items: center;
 	gap: 6px;
 	font-size: 12px;
-	color: #10b981;
+	color: var(--el-color-success);
 	/* 确保完成信息不会撑开容器 */
 	min-width: 0;
 	overflow: hidden;
@@ -594,7 +482,7 @@ const getAssigneeInitials = (fullName: string) => {
 
 .completion-icon {
 	font-size: 12px;
-	color: #10b981;
+	color: var(--el-color-success);
 }
 
 .completion-text {
@@ -606,37 +494,7 @@ const getAssigneeInitials = (fullName: string) => {
 }
 
 .dark {
-	.checklist-container {
-		background-color: var(--black-400);
-		box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
-	}
-
-	.checklist-header-card {
-		background: linear-gradient(135deg, #e53e3e 0%, #dd6b20 100%);
-		box-shadow: 0 4px 12px rgba(229, 62, 62, 0.3);
-	}
-
-	.progress-bar {
-		background-color: rgba(255, 255, 255, 0.3);
-	}
-
-	.progress-fill {
-		background: linear-gradient(90deg, #fdba74 0%, #f97316 50%, #ea580c 100%);
-		box-shadow: 0 2px 10px rgba(249, 115, 22, 0.8);
-	}
-
-	.checklist-group-title {
-		color: var(--white-100);
-		border-bottom-color: var(--black-100);
-	}
-
-	.group-task-count {
-		color: var(--gray-400);
-	}
-
 	.checklist-item-card {
-		background-color: var(--black-300);
-		border-color: var(--black-200);
 		box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
 
 		&:hover {
@@ -646,7 +504,7 @@ const getAssigneeInitials = (fullName: string) => {
 		}
 
 		&.completed {
-			background-color: rgba(16, 185, 129, 0.1);
+			background-color: var(--el-color-success-light-9);
 			border-color: rgba(16, 185, 129, 0.3);
 
 			&:hover {
@@ -657,10 +515,10 @@ const getAssigneeInitials = (fullName: string) => {
 	}
 
 	.item-title {
-		color: var(--black-100);
+		color: var(--el-color-white);
 
 		.completed & {
-			color: #34d399;
+			color: var(--el-color-success-light-3);
 		}
 	}
 
@@ -669,43 +527,27 @@ const getAssigneeInitials = (fullName: string) => {
 	}
 }
 
-/* 响应式设计 */
-@media (max-width: 768px) {
-	.checklist-header-card {
-		padding: 16px;
-	}
+/* 自定义图标和文本颜色类 */
+.check-complete-icon {
+	color: var(--el-color-success);
+}
 
-	.progress-info {
-		align-items: flex-start;
-		text-align: left;
-	}
+.task-files-count {
+	color: var(--el-color-success);
+}
 
-	.checklist-item-card {
-		padding: 16px;
-		flex-direction: column;
-		gap: 12px;
-	}
+.task-notes-count {
+	color: var(--el-color-warning);
+}
 
-	.item-content {
-		margin-right: 0;
-		margin-bottom: 12px;
-	}
+.details-button {
+	background-color: var(--el-fill-color) !important;
+	border-color: var(--el-border-color-light) !important;
+	color: var(--el-text-color-regular) !important;
 
-	.item-actions {
-		width: 100%;
-		justify-content: flex-end;
-	}
-
-	.item-title {
-		font-size: 15px;
-	}
-
-	.item-description {
-		font-size: 13px;
-	}
-
-	.checklist-group-title {
-		font-size: 15px;
+	&:hover {
+		border-color: var(--el-color-primary-light-5) !important;
+		color: var(--el-color-primary) !important;
 	}
 }
 </style>

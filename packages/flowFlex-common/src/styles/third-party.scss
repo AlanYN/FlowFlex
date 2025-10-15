@@ -8,14 +8,14 @@
 @tailwind utilities;
 
 /* tailwind element */
-@layer base {
-	html {
-		@apply text-neutral-800;
-	}
-	html.dark {
-		@apply text-white-100 bg-black-400;
-	}
-}
+// @layer base {
+// 	html {
+// 		@apply text-neutral-800;
+// 	}
+// 	html.dark {
+// 		@apply text-white-100 bg-black-400;
+// 	}
+// }
 
 /* material-icons */
 @import 'material-icons/iconfont/material-icons.css';

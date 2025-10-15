@@ -1,33 +1,36 @@
 <template>
-	<div class="customer-block" v-if="hasQuestionnaireData">
+	<div class="wfe-global-block-bg" v-if="hasQuestionnaireData">
 		<!-- 统一的头部卡片 -->
 		<div
-			class="questionnaire-header-card rounded-xl"
+			class="case-component-header rounded-xl"
 			:class="{ expanded: isExpanded }"
 			@click="toggleExpanded"
 		>
 			<div class="flex justify-between">
 				<div>
 					<div class="flex items-center">
-						<el-icon class="expand-icon text-lg mr-2" :class="{ rotated: isExpanded }">
+						<el-icon
+							class="case-component-expand-icon text-lg mr-2"
+							:class="{ rotated: isExpanded }"
+						>
 							<ArrowRight />
 						</el-icon>
-						<h3 class="questionnaire-title">{{ questionnaireData.name }}</h3>
+						<h3 class="case-component-title">{{ questionnaireData.name }}</h3>
 					</div>
-					<div class="questionnaire-subtitle">
+					<div class="case-component-subtitle">
 						{{ completionStatus }}
 					</div>
 				</div>
-				<div class="progress-info">
-					<span class="progress-percentage">{{ completionRate }}%</span>
-					<span class="progress-label">Answered</span>
+				<div class="case-component-info">
+					<span class="case-component-percentage">{{ completionRate }}%</span>
+					<span class="case-component-label">Answered</span>
 				</div>
 			</div>
 			<!-- 进度条 -->
-			<div class="progress-bar-container">
-				<div class="progress-bar rounded-xl">
+			<div class="case-component-bar-container">
+				<div class="case-component-bar rounded-xl">
 					<div
-						class="progress-fill rounded-xl"
+						class="case-component-fill rounded-xl"
 						:style="{ width: `${completionRate}%` }"
 					></div>
 				</div>
@@ -381,159 +384,4 @@ defineExpose({
 });
 </script>
 
-<style scoped lang="scss">
-/* 头部卡片样式 - 绿色渐变 */
-.questionnaire-header-card {
-	background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-	padding: 10px;
-	color: white;
-	box-shadow: 0 4px 12px rgba(16, 185, 129, 0.2);
-	display: flex;
-	flex-direction: column;
-	gap: 16px;
-	cursor: pointer;
-	transition: all 0.2s ease;
-
-	&:hover {
-		box-shadow: 0 6px 16px rgba(16, 185, 129, 0.3);
-		transform: translateY(-1px);
-	}
-}
-
-.questionnaire-title {
-	font-size: 18px;
-	font-weight: 600;
-	margin: 0 0 4px 0;
-	color: white;
-}
-
-.questionnaire-subtitle {
-	font-size: 14px;
-	margin: 0;
-	color: rgba(255, 255, 255, 0.9);
-	font-weight: 400;
-}
-
-.progress-info {
-	display: flex;
-	flex-direction: column;
-	align-items: flex-end;
-	text-align: right;
-}
-
-.progress-percentage {
-	font-size: 24px;
-	font-weight: 700;
-	line-height: 1;
-	color: white;
-}
-
-.progress-label {
-	font-size: 12px;
-	color: rgba(255, 255, 255, 0.9);
-	margin-top: 2px;
-}
-
-.progress-bar-container {
-	width: 100%;
-}
-
-.progress-bar {
-	width: 100%;
-	height: 8px;
-	background-color: rgba(255, 255, 255, 0.4);
-	overflow: hidden;
-}
-
-.progress-fill {
-	height: 100%;
-	background: linear-gradient(90deg, #34d399 0%, #10b981 100%);
-	transition: width 0.3s ease;
-}
-
-.expand-icon {
-	transition: transform 0.2s ease;
-	color: white;
-
-	&.rotated {
-		transform: rotate(90deg);
-	}
-}
-
-/* 优化折叠动画 */
-:deep(.el-collapse-transition) {
-	transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
-}
-
-:deep(.el-collapse-transition .el-collapse-item__content) {
-	will-change: height;
-	transform: translateZ(0); /* 启用硬件加速 */
-}
-
-.stage-details-card {
-	:deep(.el-card__header) {
-		background-color: #f8fafb;
-		border-bottom: 1px solid #e5e7eb;
-	}
-}
-
-/* 暗色主题 */
-.dark {
-	.questionnaire-header-card {
-		background: linear-gradient(135deg, #047857 0%, #065f46 100%);
-		box-shadow: 0 4px 12px rgba(5, 150, 105, 0.3);
-	}
-
-	.progress-bar {
-		background-color: rgba(255, 255, 255, 0.3);
-	}
-
-	.progress-fill {
-		background: linear-gradient(90deg, #22d3ee 0%, #34d399 100%);
-	}
-
-	.stage-details-card {
-		:deep(.el-card) {
-			background-color: var(--black-400) !important;
-			border: 1px solid var(--black-200) !important;
-		}
-
-		:deep(.el-card__header) {
-			background-color: var(--black-200) !important;
-			border-bottom: 1px solid var(--black-100) !important;
-			color: var(--white-100) !important;
-		}
-
-		:deep(.el-card__body) {
-			background-color: var(--black-400) !important;
-			color: var(--white-100) !important;
-		}
-	}
-
-	.text-gray-900,
-	.text-gray-700,
-	.text-gray-600 {
-		color: var(--white-100) !important;
-	}
-
-	.text-gray-500 {
-		color: #d1d5db !important;
-	}
-
-	.text-gray-400 {
-		color: #9ca3af !important;
-	}
-}
-
-/* 响应式设计 */
-@media (max-width: 768px) {
-	.questionnaire-header-card {
-		padding: 16px;
-	}
-
-	.progress-info {
-		align-items: flex-start;
-		text-align: left;
-	}
-}
-</style>
+<style scoped lang="scss"></style>

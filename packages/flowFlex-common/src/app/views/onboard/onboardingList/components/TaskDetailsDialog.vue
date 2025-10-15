@@ -828,9 +828,9 @@ const formatFileSize = (bytes: number): string => {
 
 /* 任务基本信息 */
 .task-basic-info {
-	background-color: #f8f9fa;
+	background-color: var(--el-fill-color-lighter);
 	padding: 16px;
-	border-left: 4px solid #3b82f6;
+	border-left: 4px solid var(--el-color-primary);
 	@apply rounded-xl;
 }
 
@@ -846,13 +846,13 @@ const formatFileSize = (bytes: number): string => {
 
 .info-label {
 	font-weight: 600;
-	color: #374151;
+	color: var(--el-text-color-regular);
 	min-width: 120px;
 	margin-right: 12px;
 }
 
 .info-value {
-	color: #6b7280;
+	color: var(--el-text-color-secondary);
 	flex: 1;
 }
 
@@ -870,7 +870,7 @@ const formatFileSize = (bytes: number): string => {
 	gap: 8px;
 	font-size: 16px;
 	font-weight: 600;
-	color: #1f2937;
+	color: var(--el-text-color-primary);
 	margin: 0;
 	flex: 1;
 }
@@ -880,8 +880,8 @@ const formatFileSize = (bytes: number): string => {
 	.add-note-section {
 		margin-bottom: 16px;
 		padding: 12px;
-		background-color: #f8f9fa;
-		border: 1px solid #e5e7eb;
+		background-color: var(--el-fill-color-lighter);
+		border: 1px solid var(--el-border-color-light);
 		@apply rounded-xl;
 	}
 
@@ -895,7 +895,7 @@ const formatFileSize = (bytes: number): string => {
 	}
 
 	.notes-scrollbar {
-		border: 1px solid #e5e7eb;
+		border: 1px solid var(--el-border-color-light);
 		@apply rounded-xl;
 	}
 
@@ -911,13 +911,13 @@ const formatFileSize = (bytes: number): string => {
 		justify-content: space-between;
 		align-items: flex-start;
 		padding: 12px;
-		background-color: #f8f9fa;
-		border: 1px solid #e5e7eb;
+		background-color: var(--el-fill-color-lighter);
+		border: 1px solid var(--el-border-color-light);
 		transition: all 0.2s ease;
 		@apply rounded-xl;
 
 		&:hover {
-			border-color: #3b82f6;
+			border-color: var(--el-color-primary);
 			box-shadow: 0 2px 4px rgba(59, 130, 246, 0.1);
 		}
 	}
@@ -930,7 +930,7 @@ const formatFileSize = (bytes: number): string => {
 
 	.note-text {
 		margin: 0 0 8px 0;
-		color: #1f2937;
+		color: var(--el-text-color-primary);
 		line-height: 1.5;
 		white-space: pre-wrap;
 		word-break: break-word;
@@ -941,7 +941,7 @@ const formatFileSize = (bytes: number): string => {
 		align-items: center;
 		gap: 8px;
 		font-size: 12px;
-		color: #6b7280;
+		color: var(--el-text-color-secondary);
 	}
 
 	.note-author {
@@ -978,9 +978,9 @@ const formatFileSize = (bytes: number): string => {
 		justify-content: center;
 		gap: 8px;
 		padding: 24px;
-		color: #9ca3af;
-		background-color: #f9fafb;
-		border: 2px dashed #d1d5db;
+		color: var(--el-text-color-placeholder);
+		background-color: var(--el-fill-color-blank);
+		border: 2px dashed var(--el-border-color-lighter);
 		font-style: italic;
 		@apply rounded-xl;
 	}
@@ -993,7 +993,7 @@ const formatFileSize = (bytes: number): string => {
 	}
 
 	.attachments-scrollbar {
-		border: 1px solid #e5e7eb;
+		border: 1px solid var(--el-border-color-light);
 		@apply rounded-xl;
 	}
 
@@ -1009,13 +1009,13 @@ const formatFileSize = (bytes: number): string => {
 		justify-content: space-between;
 		align-items: center;
 		padding: 12px;
-		background-color: #f8f9fa;
-		border: 1px solid #e5e7eb;
+		background-color: var(--el-fill-color-lighter);
+		border: 1px solid var(--el-border-color-light);
 		transition: all 0.2s ease;
 		@apply rounded-xl;
 
 		&:hover {
-			border-color: #3b82f6;
+			border-color: var(--el-color-primary);
 			box-shadow: 0 2px 4px rgba(59, 130, 246, 0.1);
 		}
 	}
@@ -1029,7 +1029,7 @@ const formatFileSize = (bytes: number): string => {
 	}
 
 	.attachment-icon {
-		color: #6b7280;
+		color: var(--el-text-color-secondary);
 		font-size: 20px;
 		flex-shrink: 0;
 	}
@@ -1043,7 +1043,7 @@ const formatFileSize = (bytes: number): string => {
 
 	.attachment-name {
 		font-weight: 500;
-		color: #1f2937;
+		color: var(--el-text-color-primary);
 		overflow: hidden;
 		text-overflow: ellipsis;
 		white-space: nowrap;
@@ -1051,7 +1051,7 @@ const formatFileSize = (bytes: number): string => {
 
 	.attachment-size {
 		font-size: 12px;
-		color: #6b7280;
+		color: var(--el-text-color-secondary);
 	}
 
 	.attachment-actions {
@@ -1066,9 +1066,9 @@ const formatFileSize = (bytes: number): string => {
 		justify-content: center;
 		gap: 8px;
 		padding: 24px;
-		color: #9ca3af;
-		background-color: #f9fafb;
-		border: 2px dashed #d1d5db;
+		color: var(--el-text-color-placeholder);
+		background-color: var(--el-fill-color-blank);
+		border: 2px dashed var(--el-border-color-lighter);
 		font-style: italic;
 		@apply rounded-xl;
 	}
@@ -1092,7 +1092,7 @@ const formatFileSize = (bytes: number): string => {
 .dark {
 	.task-basic-info {
 		background-color: var(--black-300);
-		border-left-color: #3b82f6;
+		border-left-color: var(--el-color-primary);
 	}
 
 	.info-label {
@@ -1122,7 +1122,7 @@ const formatFileSize = (bytes: number): string => {
 		border-color: var(--black-200);
 
 		&:hover {
-			border-color: #3b82f6;
+			border-color: var(--el-color-primary);
 			box-shadow: 0 2px 4px rgba(59, 130, 246, 0.2);
 		}
 	}
@@ -1147,7 +1147,7 @@ const formatFileSize = (bytes: number): string => {
 		border-color: var(--black-200);
 
 		&:hover {
-			border-color: #3b82f6;
+			border-color: var(--el-color-primary);
 			box-shadow: 0 2px 4px rgba(59, 130, 246, 0.2);
 		}
 	}
@@ -1195,7 +1195,7 @@ const formatFileSize = (bytes: number): string => {
 	flex-direction: column;
 	gap: 8px;
 	padding: 8px;
-	border: 1px solid #e5e7eb;
+	border: 1px solid var(--el-border-color-light);
 	@apply rounded-xl;
 }
 
@@ -1204,7 +1204,7 @@ const formatFileSize = (bytes: number): string => {
 	justify-content: space-between;
 	align-items: center;
 	padding: 8px;
-	background-color: #f8f9fa;
+	background-color: var(--el-fill-color-lighter);
 	@apply rounded-xl;
 }
 
@@ -1217,7 +1217,7 @@ const formatFileSize = (bytes: number): string => {
 }
 
 .progress-icon {
-	color: #3b82f6;
+	color: var(--el-color-primary);
 	font-size: 16px;
 	flex-shrink: 0;
 }
@@ -1230,14 +1230,14 @@ const formatFileSize = (bytes: number): string => {
 .progress-name {
 	font-size: 14px;
 	font-weight: 500;
-	color: #1f2937;
+	color: var(--el-text-color-primary);
 	display: block;
 	margin-bottom: 4px;
 }
 
 .progress-percentage {
 	font-size: 12px;
-	color: #6b7280;
+	color: var(--el-text-color-secondary);
 	flex-shrink: 0;
 }
 

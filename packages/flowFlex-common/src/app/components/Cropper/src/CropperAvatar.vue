@@ -127,7 +127,7 @@ defineExpose({
 
 .activeSrc_block-tips {
 	margin-left: 20px;
-	color: #606266;
+	color: var(--el-text-color-regular);
 }
 
 .cropper-avatar {
@@ -169,6 +169,6 @@ defineExpose({
 }
 
 .removeBUtton {
-	color: #f00;
+	color: var(--el-color-danger);
 }
 </style>

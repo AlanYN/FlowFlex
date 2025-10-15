@@ -1,6 +1,6 @@
 <template>
 	<div
-		class="action-item border border-gray-200 dark:border-gray-700 rounded-xl p-4 transition-all duration-200"
+		class="action-item wfe-global-block-bg p-4 transition-all duration-200"
 		:class="{
 			'action-dragging': isDragging,
 		}"
@@ -112,11 +112,5 @@ const onDelete = () => {
 
 .order-indicator {
 	@apply mt-2 pt-2 border-t border-gray-100 dark:border-gray-700;
-}
-
-.dark {
-	.action-item {
-		@apply bg-gray-800;
-	}
 }
 </style>

@@ -27,10 +27,10 @@
 		</PageHeader>
 
 		<!-- 搜索和筛选区域 -->
-		<div class="filter-panel rounded-xl shadow-sm p-4 mb-6">
+		<el-card class="mb-6">
 			<div class="grid grid-cols-1 md:grid-cols-3 gap-4">
 				<div class="space-y-2">
-					<label class="filter-label text-sm font-medium">Search</label>
+					<label class="text-sm font-medium">Search</label>
 					<InputTag
 						v-model="searchTags"
 						placeholder="Enter questionnaire name and press enter"
@@ -42,11 +42,11 @@
 				</div>
 
 				<div class="space-y-2">
-					<label class="filter-label text-sm font-medium">Workflow</label>
+					<label class="text-sm font-medium">Workflow</label>
 					<el-select
 						v-model="selectedWorkflow"
 						placeholder="Select workflow"
-						class="w-full filter-select"
+						class="w-full"
 						@change="handleWorkflowChange"
 					>
 						<el-option label="All Workflows" value="all" />
@@ -60,11 +60,11 @@
 				</div>
 
 				<div class="space-y-2">
-					<label class="filter-label text-sm font-medium">Stage</label>
+					<label class="text-sm font-medium">Stage</label>
 					<el-select
 						v-model="selectedStage"
 						placeholder="Select stage"
-						class="w-full filter-select"
+						class="w-full"
 						:disabled="selectedWorkflow === 'all' || stagesLoading"
 						:loading="stagesLoading"
 					>
@@ -78,7 +78,7 @@
 					</el-select>
 				</div>
 			</div>
-		</div>
+		</el-card>
 
 		<!-- 视图切换标签页 -->
 		<PrototypeTabs
@@ -143,7 +143,7 @@
 					<h2 class="delete-dialog-title">Delete Questionnaire</h2>
 				</div>
 			</template>
-			<p class="text-gray-600">
+			<p class="questionnaire-delete-text">
 				Are you sure you want to delete
 				<strong class="text-red-600">
 					"{{
@@ -581,19 +581,6 @@ const handleSortChange = (sort: any) => {
 	flex-direction: column;
 }
 
-/* 筛选面板样式 */
-.filter-panel {
-	@apply bg-white dark:bg-black-400;
-	border: 1px solid var(--primary-100);
-	@apply dark:border-black-200;
-	flex-shrink: 0;
-}
-
-.filter-label {
-	color: var(--primary-700);
-	@apply dark:text-primary-300;
-}
-
 /* 删除对话框样式 */
 :deep(.delete-dialog .el-dialog__header) {
 	padding: 20px 20px 0 20px;
@@ -608,11 +595,10 @@ const handleSortChange = (sort: any) => {
 }
 
 .delete-dialog-title {
-	color: #f56565; /* 红色标题，与删除按钮颜色一致 */
+	color: var(--el-color-danger);
 	font-size: 18px;
 	font-weight: 600;
 	margin: 0;
-	@apply dark:text-red-400;
 }
 
 .card-action-btn {
@@ -626,231 +612,7 @@ const handleSortChange = (sort: any) => {
 	@apply dark:bg-primary-500;
 }
 
-/* InputTag组件样式调整 - 优化显示效果 */
-:deep(.filter-panel .layout) {
-	min-height: 32px;
-	border: 1px solid var(--el-border-color, #dcdfe6);
-	padding: 4px 11px;
-	background-color: var(--el-fill-color-blank, #ffffff);
-	transition: all var(--el-transition-duration, 0.2s);
-	box-shadow: 0 0 0 1px transparent inset;
-	font-size: 14px;
-	display: flex;
-	align-items: center;
-	flex-wrap: wrap;
-	gap: 4px;
-	@apply rounded-xl;
-}
-
-:deep(.filter-panel .layout:hover) {
-	border-color: var(--el-border-color-hover, #c0c4cc);
-}
-
-:deep(.filter-panel .layout:focus-within) {
-	border-color: var(--primary-500, #409eff);
-	box-shadow: 0 0 0 1px var(--primary-500, #409eff) inset !important;
-}
-
-:deep(.filter-panel .input-tag) {
-	min-width: 100px;
-	height: 24px;
-	line-height: 24px;
-	font-size: 14px;
-	color: var(--el-text-color-regular, #606266);
-	border: none;
-	outline: none;
-	background: transparent;
-	flex: 1;
-	padding: 0;
-}
-
-:deep(.filter-panel .input-tag::placeholder) {
-	color: var(--el-text-color-placeholder, #a8abb2);
-	font-size: 14px;
-}
-
-:deep(.filter-panel .label-box) {
-	height: 24px;
-	margin: 0;
-	background-color: var(--el-fill-color-light, #f5f7fa);
-	border: 1px solid var(--el-border-color-lighter, #e4e7ed);
-	display: inline-flex;
-	align-items: center;
-	padding: 0 8px;
-	transition: all 0.2s ease;
-	@apply rounded-xl;
-}
-
-:deep(.filter-panel .label-title) {
-	font-size: 12px;
-	padding: 0;
-	line-height: 24px;
-	color: var(--el-text-color-regular, #606266);
-	font-weight: 500;
-	white-space: nowrap;
-	overflow: hidden;
-	text-overflow: ellipsis;
-	max-width: 120px;
-}
-
-:deep(.filter-panel .label-close) {
-	padding: 0;
-	margin-left: 6px;
-	color: var(--el-text-color-placeholder, #a8abb2);
-	cursor: pointer;
-	display: inline-flex;
-	align-items: center;
-	justify-content: center;
-	width: 16px;
-	height: 16px;
-	border-radius: 50%;
-	background: var(--el-fill-color, #f0f2f5);
-	transition: all 0.2s ease;
-	transform: none;
-}
-
-:deep(.filter-panel .label-close:hover) {
-	background: var(--el-fill-color-dark, #e6e8eb);
-	color: var(--el-text-color-regular, #606266);
-}
-
-:deep(.filter-panel .label-close:after) {
-	content: '×';
-	font-size: 12px;
-	line-height: 1;
-	font-weight: bold;
-}
-
-/* Element Plus 组件样式覆盖 */
-:deep(.filter-select .el-input__wrapper) {
-	border-color: var(--primary-200);
-	@apply dark:border-black-200;
-}
-
-:deep(.filter-select .el-input__wrapper:hover) {
-	border-color: var(--primary-400);
-	@apply dark:border-primary-600;
-}
-
-:deep(.filter-select .el-input__wrapper.is-focus) {
-	border-color: var(--primary-500);
-	@apply dark:border-primary-500;
-}
-
-/* 自定义卡片样式 */
-:deep(.el-card) {
-	/* border-radius removed - using rounded-xl class */
-	box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
-	@apply dark:shadow-black-50;
-}
-
-:deep(.el-card__header) {
-	padding: 0;
-	border-bottom: none;
-}
-
-:deep(.el-card__body) {
-	padding: 16px;
-	@apply dark:bg-black-400;
-}
-
-/* 移除Element Plus默认的卡片内边距和边框 */
-:deep(.el-card .el-card__header) {
-	margin: 0;
-	padding: 20px;
-}
-
-:deep(.el-card .el-card__footer) {
-	margin: 0;
-	padding: 0 20px 20px 20px;
-}
-
-/* 对话框样式 */
-:deep(.el-dialog) {
-	@apply dark:bg-black-400;
-}
-
-:deep(.el-dialog__header) {
-	@apply dark:border-black-200;
-}
-
-:deep(.el-dialog__title) {
-	color: var(--primary-800);
-	@apply dark:text-white;
-}
-
-/* 暗色主题样式 */
-html.dark {
-	/* InputTag暗色主题 - 优化暗色显示效果 */
-	:deep(.filter-panel .layout) {
-		background-color: var(--black-200) !important;
-		border: 1px solid var(--black-200) !important;
-		color: var(--white-100) !important;
-	}
-
-	:deep(.filter-panel .layout:hover) {
-		border-color: var(--black-100) !important;
-	}
-
-	:deep(.filter-panel .layout:focus-within) {
-		border-color: var(--primary-500) !important;
-		box-shadow: 0 0 0 1px var(--primary-500) inset !important;
-	}
-
-	:deep(.filter-panel .input-tag) {
-		color: var(--white-100) !important;
-		background-color: transparent !important;
-	}
-
-	:deep(.filter-panel .input-tag::placeholder) {
-		color: var(--gray-300) !important;
-	}
-
-	:deep(.filter-panel .label-box) {
-		background-color: var(--black-300) !important;
-		border: 1px solid var(--black-100) !important;
-	}
-
-	:deep(.filter-panel .label-title) {
-		color: var(--white-100) !important;
-	}
-
-	:deep(.filter-panel .label-close) {
-		background: var(--black-200) !important;
-		color: var(--gray-300) !important;
-	}
-
-	:deep(.filter-panel .label-close:hover) {
-		background: var(--black-100) !important;
-		color: var(--white-100) !important;
-	}
-
-	/* 筛选面板暗色主题 */
-	.filter-panel {
-		@apply bg-black-400 dark:border-black-200;
-	}
-
-	.filter-label {
-		@apply dark:text-primary-300;
-	}
-
-	/* Element Plus 组件暗色主题 */
-	:deep(.filter-select .el-input__wrapper) {
-		background-color: var(--black-200) !important;
-		border-color: var(--black-200) !important;
-	}
-
-	:deep(.filter-select .el-input__wrapper:hover) {
-		border-color: var(--black-100) !important;
-	}
-
-	:deep(.filter-select .el-input__wrapper.is-focus) {
-		border-color: var(--primary-500);
-		box-shadow: 0 0 0 3px rgba(126, 34, 206, 0.2);
-	}
-
-	:deep(.filter-select .el-input__inner) {
-		@apply text-white-100;
-	}
+.questionnaire-delete-text {
+	color: var(--el-text-color-regular);
 }
 </style>
