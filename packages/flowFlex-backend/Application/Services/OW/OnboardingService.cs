@@ -574,8 +574,11 @@ namespace FlowFlex.Application.Services.OW
                 }
 
                 // Map the input to entity (this will update all the mappable fields)
-                // Debug logging handled by structured logging
                 _mapper.Map(input, entity);
+
+                // Note: We preserve all permission fields (both Teams and Users) regardless of PermissionSubjectType
+                // This allows users to switch between Team/User modes without losing data
+                // The frontend will use PermissionSubjectType to determine which fields to display/use
 
                 // Update system fields
                 entity.ModifyDate = DateTimeOffset.UtcNow;
@@ -5037,7 +5040,37 @@ namespace FlowFlex.Application.Services.OW
                 // Always use the JSONB-safe approach to avoid type conversion errors
                 var db = _onboardingRepository.GetSqlSugarClient();
 
-                // Update all fields except stages_progress_json first
+                // First, update permission JSONB fields with explicit JSONB casting
+                // This must be done BEFORE updating permission_subject_type and view_permission_mode
+                // to avoid violating the chk_onboarding_view_subjects_required constraint
+                try
+                {
+                    var permissionSql = @"
+                        UPDATE ff_onboarding 
+                        SET view_teams = @ViewTeams::jsonb,
+                            view_users = @ViewUsers::jsonb,
+                            operate_teams = @OperateTeams::jsonb,
+                            operate_users = @OperateUsers::jsonb
+                        WHERE id = @Id";
+
+                    await db.Ado.ExecuteCommandAsync(permissionSql, new
+                    {
+                        ViewTeams = entity.ViewTeams,
+                        ViewUsers = entity.ViewUsers,
+                        OperateTeams = entity.OperateTeams,
+                        OperateUsers = entity.OperateUsers,
+                        Id = entity.Id
+                    });
+                }
+                catch (Exception permEx)
+                {
+                    LoggingExtensions.WriteLine($"Error: Failed to update permission JSONB fields: {permEx.Message}");
+                    // This is critical, so we should throw
+                    throw new CRMException($"Failed to update permission fields: {permEx.Message}");
+                }
+
+                // Then update all other fields (including permission_subject_type and view_permission_mode)
+                // Now the constraint will be satisfied because JSONB fields are already updated
                 var result = await _onboardingRepository.UpdateAsync(entity,
                     it => new
                     {
@@ -5070,6 +5103,9 @@ namespace FlowFlex.Application.Services.OW
                         it.CustomFieldsJson,
                         it.Notes,
                         it.IsActive,
+                        it.PermissionSubjectType,
+                        it.ViewPermissionMode,
+                        // Note: ViewTeams, ViewUsers, OperateTeams, OperateUsers were already updated above
                         it.ModifyDate,
                         it.ModifyBy,
                         it.ModifyUserId,

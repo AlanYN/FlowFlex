@@ -83,7 +83,7 @@ namespace FlowFlex.Application.Maps
             try
             {
                 var trimmed = jsonString.Trim();
-                
+
                 // Check if it's double-encoded (starts with a quote)
                 if (trimmed.StartsWith("\"") && trimmed.EndsWith("\""))
                 {
@@ -94,13 +94,13 @@ namespace FlowFlex.Application.Maps
                         trimmed = unescaped;
                     }
                 }
-                
+
                 // Now deserialize the actual array
                 if (trimmed.StartsWith("["))
                 {
                     return JsonSerializer.Deserialize<List<string>>(trimmed) ?? new List<string>();
                 }
-                
+
                 return new List<string>();
             }
             catch

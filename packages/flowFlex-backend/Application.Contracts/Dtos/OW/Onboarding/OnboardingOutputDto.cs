@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using FlowFlex.Domain.Shared.Enums.OW;
 using Newtonsoft.Json;
 
 namespace FlowFlex.Application.Contracts.Dtos.OW.Onboarding
@@ -205,6 +206,36 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.Onboarding
         /// 是否激活
         /// </summary>
         public bool IsActive { get; set; }
+
+        /// <summary>
+        /// Permission Subject Type - Team or User based permissions
+        /// </summary>
+        public PermissionSubjectTypeEnum PermissionSubjectType { get; set; }
+
+        /// <summary>
+        /// View Permission Mode - Public/VisibleToTeams/InvisibleToTeams/Private
+        /// </summary>
+        public ViewPermissionModeEnum ViewPermissionMode { get; set; }
+
+        /// <summary>
+        /// View Teams - List of team names for view permission control (used when PermissionSubjectType=Team)
+        /// </summary>
+        public List<string> ViewTeams { get; set; }
+
+        /// <summary>
+        /// View Users - List of user IDs for view permission control (used when PermissionSubjectType=User)
+        /// </summary>
+        public List<string> ViewUsers { get; set; }
+
+        /// <summary>
+        /// Operate Teams - List of team names that can perform operations (used when PermissionSubjectType=Team)
+        /// </summary>
+        public List<string> OperateTeams { get; set; }
+
+        /// <summary>
+        /// Operate Users - List of user IDs that can perform operations (used when PermissionSubjectType=User)
+        /// </summary>
+        public List<string> OperateUsers { get; set; }
 
         /// <summary>
         /// Stage进度详情

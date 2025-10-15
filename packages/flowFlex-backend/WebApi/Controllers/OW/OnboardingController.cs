@@ -65,6 +65,9 @@ namespace FlowFlex.WebApi.Controllers.OW
 
         /// <summary>
         /// Update onboarding
+        /// Supports updating all fields including permission configuration
+        /// Permission fields: PermissionSubjectType, ViewPermissionMode, ViewTeams/ViewUsers, OperateTeams/OperateUsers
+        /// Teams and Users are stored separately - data switches based on PermissionSubjectType
         /// </summary>
         [HttpPut("{id}")]
         [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
