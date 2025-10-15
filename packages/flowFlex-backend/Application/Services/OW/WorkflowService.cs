@@ -553,11 +553,11 @@ namespace FlowFlex.Application.Service.OW
 
             var result = _mapper.Map<List<WorkflowOutputDto>>(items);
 
-            // 为了优化性能，工作流列表接口不返回Stage数据
-            // Stage数据通过单独的接口获取: /api/ow/workflows/{id}/stages
+            // Load stages for each workflow in the paged results
             foreach (var workflow in result)
             {
-                workflow.Stages = new List<StageOutputDto>();
+                var stages = await _stageRepository.GetByWorkflowIdAsync(workflow.Id);
+                workflow.Stages = _mapper.Map<List<StageOutputDto>>(stages);
             }
 
             return new PagedResult<WorkflowOutputDto>

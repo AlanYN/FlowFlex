@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using FlowFlex.Domain.Entities.Base;
+using FlowFlex.Domain.Shared.Enums.OW;
 using SqlSugar;
 
 namespace FlowFlex.Domain.Entities.OW
@@ -199,6 +200,56 @@ namespace FlowFlex.Domain.Entities.OW
         /// </summary>
         [SugarColumn(ColumnName = "is_active")]
         public bool IsActive { get; set; } = true;
+
+        /// <summary>
+        /// Permission Subject Type - Defines whether permissions are based on Teams or Individual Users
+        /// Team: Permission based on team membership (default)
+        /// User: Permission based on specific user IDs
+        /// </summary>
+        [SugarColumn(ColumnName = "permission_subject_type")]
+        public PermissionSubjectTypeEnum PermissionSubjectType { get; set; } = PermissionSubjectTypeEnum.Team;
+
+        /// <summary>
+        /// View Permission Mode - Defines how view permissions are controlled
+        /// Public: All users can view (default)
+        /// VisibleToTeams: Only listed teams/users can view
+        /// InvisibleToTeams: All teams/users except listed can view
+        /// Private: Only the owner can view
+        /// </summary>
+        [SugarColumn(ColumnName = "view_permission_mode")]
+        public ViewPermissionModeEnum ViewPermissionMode { get; set; } = ViewPermissionModeEnum.Public;
+
+        /// <summary>
+        /// View Teams - JSONB array of team names for view permission control (used when PermissionSubjectType=Team)
+        /// Example: ["Team-A", "Team-B"]
+        /// Used with VisibleToTeams or InvisibleToTeams mode
+        /// </summary>
+        [SugarColumn(ColumnName = "view_teams", ColumnDataType = "jsonb")]
+        public string ViewTeams { get; set; }
+
+        /// <summary>
+        /// View Users - JSONB array of user IDs for view permission control (used when PermissionSubjectType=User)
+        /// Example: ["1935628742495965184", "1935628742495965185"]
+        /// Used with VisibleToTeams or InvisibleToTeams mode
+        /// </summary>
+        [SugarColumn(ColumnName = "view_users", ColumnDataType = "jsonb")]
+        public string ViewUsers { get; set; }
+
+        /// <summary>
+        /// Operate Teams - JSONB array of team names that can perform operations (used when PermissionSubjectType=Team)
+        /// Example: ["Team-A", "Team-B"]
+        /// Operations include: Create, Update, Delete, Assign
+        /// </summary>
+        [SugarColumn(ColumnName = "operate_teams", ColumnDataType = "jsonb")]
+        public string OperateTeams { get; set; }
+
+        /// <summary>
+        /// Operate Users - JSONB array of user IDs that can perform operations (used when PermissionSubjectType=User)
+        /// Example: ["1935628742495965184", "1935628742495965185"]
+        /// Operations include: Create, Update, Delete, Assign
+        /// </summary>
+        [SugarColumn(ColumnName = "operate_users", ColumnDataType = "jsonb")]
+        public string OperateUsers { get; set; }
 
         /// <summary>
         /// Stage Progress Details (stored in JSONB format for better performance and querying)
