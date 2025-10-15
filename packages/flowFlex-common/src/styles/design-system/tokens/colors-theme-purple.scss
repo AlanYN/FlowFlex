@@ -9,7 +9,7 @@
 /* ============================================
    浅色模式 - 紫色主题
    ============================================ */
-:root.purple {
+html.purple {
 	/* Primary 颜色系列 - Item Brand Purple */
 	--primary-10: #f3f4f6;
 	--primary-50: #f3e8ff;
@@ -38,8 +38,7 @@
 /* ============================================
    深色模式 - 紫色主题调整
    ============================================ */
-.dark.purple,
-:root {
+html.dark.purple {
 	/* Element Plus 主色变量 - 深色模式 Item 品牌色 */
 	--el-color-primary: #6831AA;        /* Dark mode - Item Brand Primary */
 	--el-color-primary-light-3: #6C38AD;

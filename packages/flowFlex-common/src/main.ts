@@ -41,9 +41,9 @@ async function bootstrap() {
 
 	app.use(autoAnimatePlugin);
 
-	setTheme(localStorage.getItem('theme') || 'light', true);
+	setTheme(localStorage.getItem('theme') || 'dark', true);
 	// setTheme(globSetting.environment == 'ITEM' ? 'dark' : localStorage.getItem('theme'), true);
-	setPrimary(localStorage.getItem('primary') || 'blue');
+	setPrimary(localStorage.getItem('primary') || 'purple');
 
 	app.use(ElementPlus);
 	app.component('Icon', Icon);
