@@ -1,5 +1,5 @@
 <template>
-	<div class="min-h-screen bg-gray-50">
+	<div class="min-h-screen bg-siderbarGray dark:bg-black">
 		<!-- Mobile sidebar -->
 		<div :class="['fixed inset-0 z-50 lg:hidden', sidebarOpen ? 'block' : 'hidden']">
 			<div
@@ -168,7 +168,7 @@
 			</div>
 
 			<!-- Page content -->
-			<main class="flex-1 p-6">
+			<main class="flex-1 p-6" style="background: var(--el-bg-color-page)">
 				<!-- Onboarding Progress View -->
 				<div v-if="currentView === 'progress'" class="space-y-6">
 					<!-- Loading State -->
@@ -191,7 +191,7 @@
 					<!-- Overall Progress -->
 					<div
 						v-if="!loading"
-						class="rounded-xl border bg-siderbarGray dark:bg-black p-6 shadow-sm"
+						class="rounded-xl border bg-white dark:bg-black p-6 shadow-sm"
 					>
 						<div class="mb-6">
 							<div class="flex items-center mb-2">
@@ -300,7 +300,7 @@
 							<div
 								v-for="stage in nextSteps"
 								:key="stage.id"
-								class="flex items-center justify-between p-4 bg-siderbarGray dark:bg-black rounded-xl border border-primary-200 shadow-sm"
+								class="flex items-center justify-between p-4 bg-white dark:bg-black rounded-xl border border-primary-200 shadow-sm"
 							>
 								<div class="flex items-center space-x-3">
 									<div class="flex-shrink-0">
@@ -379,10 +379,10 @@
 					<!-- Stages Timeline -->
 					<div
 						v-if="!loading"
-						class="rounded-xl border bg-siderbarGray dark:bg-black p-6 shadow-sm"
+						class="rounded-xl border bg-white dark:bg-black p-6 shadow-sm"
 					>
 						<div class="mb-6">
-							<h3 class="text-lg font-semibold text-white">Case Stages</h3>
+							<h3 class="text-lg font-semibold">Case Stages</h3>
 							<p class="text-sm text-gray-600">
 								Track your progress through each stage
 							</p>
@@ -394,11 +394,11 @@
 								:class="[
 									'flex items-start space-x-4 p-4 rounded-xl border transition-colors',
 									stage.status === 'completed' &&
-										'bg-siderbarGray dark:bg-black border-gray-200',
+										'bg-white dark:bg-black border-gray-200',
 									stage.status === 'in_progress' &&
-										'bg-siderbarGray dark:bg-black border-gray-200',
+										'bg-white dark:bg-black border-gray-200',
 									stage.status === 'pending' &&
-										'bg-siderbarGray dark:bg-black border-gray-200',
+										'bg-white dark:bg-black border-gray-200',
 								]"
 							>
 								<div class="flex-shrink-0 mt-1">
