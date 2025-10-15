@@ -1,5 +1,5 @@
 <template>
-	<div class="min-h-screen">
+	<div class="min-h-screen bg-siderbarGray dark:bg-black">
 		<!-- Mobile sidebar -->
 		<div :class="['fixed inset-0 z-50 lg:hidden', sidebarOpen ? 'block' : 'hidden']">
 			<div
@@ -161,7 +161,7 @@
 			</div>
 
 			<!-- Page content -->
-			<main class="flex-1 p-6">
+			<main class="flex-1 p-6" style="background: var(--el-bg-color-page)">
 				<!-- Onboarding Detail View -->
 				<div class="pb-6">
 					<!-- 统一页面头部 -->
@@ -208,7 +208,7 @@
 					<!-- 主要内容区域 -->
 					<div class="flex w-full gap-x-4">
 						<!-- 左侧阶段详情 (2/3 宽度) -->
-						<div class="flex-[2] min-w-0 overflow-hidden wfe-global-block-bg">
+						<div class="flex-[2] min-w-0 overflow-hidden">
 							<div
 								class="rounded-xl el-card is-always-shadow rounded-xl el-card__header"
 							>
@@ -218,8 +218,8 @@
 									<h2 class="text-lg font-semibold">{{ currentStageTitle }}</h2>
 								</div>
 							</div>
-							<el-scrollbar ref="leftScrollbarRef" class="h-full pr-4">
-								<div class="space-y-6 my-4">
+							<el-scrollbar ref="leftScrollbarRef" class="h-full px-2 w-full">
+								<div class="space-y-4 my-4">
 									<!-- AI Summary 组件 -->
 									<AISummary
 										:show-a-i-summary-section="showAISummarySection"
