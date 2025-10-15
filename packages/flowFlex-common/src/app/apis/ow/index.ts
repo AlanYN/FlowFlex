@@ -49,8 +49,8 @@ export function createWorkflow(params: any) {
  * 获取工作流列表 [W02]
  * @returns List<WorkflowOutputDto>
  */
-export function getWorkflowList() {
-	return defHttp.get({ url: `${Api().workflows}` });
+export function getWorkflowList(params?: any) {
+	return defHttp.get({ url: `${Api().workflows}`, params });
 }
 
 /**

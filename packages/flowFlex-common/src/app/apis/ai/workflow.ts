@@ -333,7 +333,7 @@ export function getDefaultAIModel() {
  * @returns 工作流列表
  */
 export function getAvailableWorkflows() {
-	return defHttp.get({ url: `${globSetting.apiProName}/ow/workflows/${globSetting.apiVersion}` });
+	return defHttp.get({ url: Api().getWorkflows });
 }
 
 /**

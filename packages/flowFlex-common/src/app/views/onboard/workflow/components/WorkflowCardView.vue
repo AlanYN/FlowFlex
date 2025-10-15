@@ -5,44 +5,61 @@
 			<el-icon class="animate-spin h-8 w-8 text-primary-500">
 				<Loading />
 			</el-icon>
-			<span class="ml-2 text-primary-600">Loading questionnaires...</span>
+			<span class="ml-2 text-primary-600">Loading workflows...</span>
 		</div>
 
-		<!-- 问卷卡片网格 -->
-		<div v-else class="questionnaire-grid">
-			<template v-if="questionnaires.length > 0">
+		<!-- 工作流卡片网格 -->
+		<div v-else class="workflow-grid">
+			<template v-if="workflows.length > 0">
 				<el-card
-					v-for="questionnaire in questionnaires"
-					:key="questionnaire.id"
-					class="questionnaire-card overflow-hidden transition-all"
+					v-for="workflow in workflows"
+					:key="workflow.id"
+					class="workflow-card overflow-hidden transition-all cursor-pointer hover:shadow-lg"
 				>
 					<!-- 卡片头部 -->
 					<template #header>
 						<div class="card-header -m-5 p-4">
 							<div class="flex items-center justify-between w-full">
-								<div class="flex items-center space-x-3 flex-1 min-w-0">
+								<div
+									class="flex items-center space-x-3 flex-1 min-w-0"
+									@click="handleWorkflowSelect(workflow)"
+								>
 									<div
 										class="card-icon rounded-full flex-shrink-0 flex items-center justify-center"
 									>
 										<Icon
-											icon="material-symbols:edit-document-outline"
+											icon="material-symbols:account-tree-outline"
 											class="w-6 h-6"
 										/>
 									</div>
-									<h3
-										class="card-title text-xl font-semibold leading-tight tracking-tight truncate"
-										:title="questionnaire.name"
-									>
-										{{ questionnaire.name }}
-									</h3>
+									<div class="flex-1 min-w-0">
+										<h3
+											class="card-title text-xl font-semibold leading-tight tracking-tight truncate"
+											:title="workflow.name"
+										>
+											{{ workflow.name }}
+										</h3>
+									</div>
 								</div>
 								<el-dropdown
 									trigger="click"
-									@command="(cmd) => handleCommand(cmd, questionnaire)"
+									@click.stop
+									@command="(cmd) => handleCommand(cmd, workflow)"
 									class="flex-shrink-0"
+									:disabled="isWorkflowActionLoading(workflow.id)"
 								>
-									<el-button text class="card-more-btn" link>
-										<el-icon class="h-4 w-4"><MoreFilled /></el-icon>
+									<el-button
+										text
+										class="card-more-btn"
+										link
+										:loading="isWorkflowActionLoading(workflow.id)"
+									>
+										<el-icon
+											v-if="!isWorkflowActionLoading(workflow.id)"
+											class="h-4 w-4"
+										>
+											<MoreFilled />
+										</el-icon>
 									</el-button>
 									<template #dropdown>
 										<el-dropdown-menu>
@@ -50,9 +67,29 @@
 												<el-icon class="mr-2"><Edit /></el-icon>
 												Edit
 											</el-dropdown-item>
-											<el-dropdown-item command="preview">
-												<el-icon class="mr-2"><View /></el-icon>
-												Preview
+											<el-dropdown-item
+												v-if="
+													!workflow.isDefault &&
+													workflow.status === 'active'
+												"
+												command="setDefault"
+											>
+												<el-icon class="mr-2"><Star /></el-icon>
+												Set as Default
+											</el-dropdown-item>
+											<el-dropdown-item
+												v-if="workflow.status === 'active'"
+												command="deactivate"
+											>
+												<el-icon class="mr-2"><CircleClose /></el-icon>
+												Set as Inactive
+											</el-dropdown-item>
+											<el-dropdown-item
+												v-if="workflow.status === 'inactive'"
+												command="activate"
+											>
+												<el-icon class="mr-2"><Check /></el-icon>
+												Set as Active
 											</el-dropdown-item>
 											<el-dropdown-item command="duplicate">
 												<el-icon class="mr-2"><CopyDocument /></el-icon>
@@ -60,9 +97,13 @@
 											</el-dropdown-item>
 											<el-dropdown-item divided>
 												<HistoryButton
-													:id="questionnaire.id"
-													:type="WFEMoudels.Questionnaire"
+													:id="workflow.id"
+													:type="WFEMoudels.Workflow"
 												/>
+											</el-dropdown-item>
+											<el-dropdown-item command="export">
+												<el-icon class="mr-2"><Download /></el-icon>
+												Export Workflow
 											</el-dropdown-item>
 											<el-dropdown-item
 												divided
@@ -77,7 +118,7 @@
 								</el-dropdown>
 							</div>
 							<p class="text-white text-sm mt-1.5 truncate h-6">
-								{{ questionnaire.description }}
+								{{ workflow.description }}
 							</p>
 						</div>
 					</template>
@@ -85,111 +126,77 @@
 					<!-- 卡片内容 -->
 					<div class="">
 						<div class="space-y-3">
-							<!-- Assignments区域 -->
+							<!-- Stages区域 -->
 							<div class="space-y-2">
 								<div class="flex items-center text-sm">
-									<span class="card-label">Assignments:</span>
+									<span class="card-label">Stages:</span>
 								</div>
 								<div
-									class="assignments-container"
+									class="stages-container"
 									style="height: 60px; overflow: hidden"
 								>
 									<template
-										v-for="(assignment, index) in getDisplayedAssignments(
-											questionnaire.assignments
+										v-for="(stage, index) in getDisplayedStages(
+											workflow.stages
 										)"
-										:key="`${assignment.workflowId}-${assignment.stageId}`"
+										:key="stage.id"
 									>
-										<!-- 第一个assignment独占一行 -->
+										<!-- 第一个stage独占一行 -->
 										<div v-if="index === 0" class="flex gap-2 mb-2">
 											<span
 												class="card-link card-link-full"
-												:title="`${getWorkflowName(
-													assignment.workflowId
-												)} → ${getStageName(assignment.stageId)}`"
+												:title="stage.name"
 											>
 												<span
 													class="w-full text-center overflow-hidden text-ellipsis whitespace-nowrap block"
 												>
-													{{
-														`${getWorkflowName(
-															assignment.workflowId
-														)} → ${getStageName(assignment.stageId)}`
-													}}
+													{{ stage.name }}
 												</span>
 											</span>
 										</div>
-										<!-- 第二个assignment，根据是否有剩余内容决定是否与+几按钮共享一行 -->
+										<!-- 第二个stage，根据是否有剩余内容决定是否与+几按钮共享一行 -->
 										<div v-if="index === 1" class="flex gap-2 items-center">
 											<span
 												:class="{
 													'card-link': true,
 													'card-link-full':
-														getUniqueAssignments(
-															questionnaire.assignments
-														).length <= 2,
+														(workflow.stages?.length || 0) <= 2,
 													'card-link-shared':
-														getUniqueAssignments(
-															questionnaire.assignments
-														).length > 2,
+														(workflow.stages?.length || 0) > 2,
 												}"
-												:title="`${getWorkflowName(
-													assignment.workflowId
-												)} → ${getStageName(assignment.stageId)}`"
+												:title="stage.name"
 											>
 												<span
 													class="w-full text-center overflow-hidden text-ellipsis whitespace-nowrap block"
 												>
-													{{
-														`${getWorkflowName(
-															assignment.workflowId
-														)} → ${getStageName(assignment.stageId)}`
-													}}
+													{{ stage.name }}
 												</span>
 											</span>
 											<!-- 显示剩余数量的按钮 -->
 											<el-popover
-												v-if="
-													questionnaire.assignments &&
-													getUniqueAssignments(questionnaire.assignments)
-														.length > 2
-												"
+												v-if="workflow.stages && workflow.stages.length > 2"
 												placement="top"
 												:width="400"
 												trigger="click"
 											>
 												<template #reference>
 													<span class="card-link-more">
-														+{{
-															getUniqueAssignments(
-																questionnaire.assignments
-															).length - 2
-														}}
+														+{{ workflow.stages.length - 2 }}
 													</span>
 												</template>
 												<div class="popover-content">
-													<h4 class="popover-title">More Assignments</h4>
+													<h4 class="popover-title">More Stages</h4>
 													<div class="popover-tags">
 														<span
 															class="popover-tag"
-															v-for="moreAssignment in getUniqueAssignments(
-																questionnaire.assignments
-															).slice(2)"
-															:key="`${moreAssignment.workflowId}-${moreAssignment.stageId}`"
-															:title="`${getWorkflowName(
-																moreAssignment.workflowId
-															)} → ${getStageName(
-																moreAssignment.stageId
-															)}`"
+															v-for="moreStage in workflow.stages.slice(
+																2
+															)"
+															:key="moreStage.id"
+															:title="moreStage.name"
 														>
 															<span class="popover-tag-text">
-																{{
-																	`${getWorkflowName(
-																		moreAssignment.workflowId
-																	)} → ${getStageName(
-																		moreAssignment.stageId
-																	)}`
-																}}
+																{{ moreStage.name }}
 															</span>
 														</span>
 													</div>
@@ -199,47 +206,41 @@
 									</template>
 								</div>
 							</div>
-							<div class="flex items-center justify-between text-sm">
-								<el-tooltip class="flex-1" content="total number of sections">
-									<div class="flex flex-1 items-center gap-2">
-										<Icon
-											icon="material-symbols-light:insert-page-break"
-											class="text-primary-500 w-5 h-5"
-										/>
-										<span class="font-medium">
-											{{
-												questionnaire.structureJson
-													? JSON.parse(
-															questionnaire.structureJson
-													  )?.sections?.filter(
-															(section) => !section.isDefault
-													  )?.length || 0
-													: 0
-											}}
-										</span>
+							<!-- 状态标签区域 -->
+							<div class="flex items-center gap-2 text-sm">
+								<el-tag v-if="workflow.isAIGenerated" type="primary" size="small">
+									<div class="flex items-center gap-1">
+										<span class="ai-sparkles">✨</span>
+										AI
 									</div>
-								</el-tooltip>
-								<el-tooltip class="flex-1" content="total number of questions">
-									<div class="flex flex-1 items-center gap-2">
-										<Icon
-											icon="material-symbols:format-list-bulleted"
-											class="text-primary-500 w-5 h-5"
-										/>
-										<span class="font-medium">
-											{{ questionnaire.totalQuestions }}
-										</span>
+								</el-tag>
+								<el-tag v-if="workflow.isDefault" type="warning" size="small">
+									<div class="flex items-center gap-1">
+										<StarIcon />
+										Default
 									</div>
-								</el-tooltip>
+								</el-tag>
+								<el-tag
+									v-if="workflow.status === 'active'"
+									type="success"
+									size="small"
+									class="rounded-xl"
+								>
+									Active
+								</el-tag>
+								<el-tag v-else type="danger" size="small" class="rounded-xl">
+									Inactive
+								</el-tag>
 							</div>
 							<div class="flex items-center justify-between text-sm">
-								<el-tooltip class="flex-1" content="last mdify by">
+								<el-tooltip class="flex-1" content="last modify by">
 									<div class="flex flex-1 items-center gap-2">
 										<Icon
 											icon="ic:baseline-person-3"
 											class="text-primary-500 w-5 h-5"
 										/>
 										<span class="font-medium">
-											{{ questionnaire.modifyBy }}
+											{{ workflow.modifyBy || 'Unknown' }}
 										</span>
 									</div>
 								</el-tooltip>
@@ -252,7 +253,7 @@
 										<span class="font-medium">
 											{{
 												timeZoneConvert(
-													questionnaire.modifyDate,
+													workflow.modifyDate,
 													false,
 													projectTenMinuteDate
 												)
@@ -269,19 +270,19 @@
 
 		<!-- 空状态 -->
 		<div
-			v-if="questionnaires.length === 0 && !loading"
+			v-if="workflows.length === 0 && !loading"
 			class="empty-state flex flex-col items-center justify-center py-12 text-center rounded-xl shadow-sm"
 		>
 			<div class="empty-icon-bg p-4 rounded-full mb-4">
-				<el-icon class="h-12 w-12 empty-icon"><Document /></el-icon>
+				<el-icon class="h-12 w-12 empty-icon"><DocumentAdd /></el-icon>
 			</div>
-			<h3 class="text-lg font-medium empty-title">No questionnaires found</h3>
+			<h3 class="text-lg font-medium empty-title">No workflows found</h3>
 			<p class="empty-subtitle mt-1 mb-4">
 				{{ emptyMessage }}
 			</p>
-			<el-button type="primary" @click="$emit('new-questionnaire')">
+			<el-button type="primary" @click="$emit('new-workflow')">
 				<el-icon class="mr-2"><Plus /></el-icon>
-				Create Your First Questionnaire
+				Create Your First Workflow
 			</el-button>
 		</div>
 	</div>
@@ -294,89 +295,79 @@ import {
 	Edit,
 	CopyDocument,
 	Delete,
-	Document,
+	DocumentAdd,
 	MoreFilled,
-	View,
 	Loading,
+	Star,
+	CircleClose,
+	Check,
+	Download,
 } from '@element-plus/icons-vue';
 import { Icon } from '@iconify/vue';
 import { timeZoneConvert } from '@/hooks/time';
-import { projectTenMinuteDate, defaultStr } from '@/settings/projectSetting';
+import { projectTenMinuteDate } from '@/settings/projectSetting';
 import { WFEMoudels } from '@/enums/appEnum';
+import StarIcon from '@assets/svg/workflow/star.svg';
 
 // Props
 const props = defineProps<{
-	questionnaires: any[];
+	workflows: any[];
 	loading: boolean;
 	emptyMessage: string;
-	workflows: any[];
-	allStages: any[];
+	actionLoading?: {
+		[workflowId: string]: {
+			[action: string]: boolean;
+		};
+	};
 }>();
 
 // Emits
 const emit = defineEmits<{
-	command: [command: string, questionnaire: any];
-	'new-questionnaire': [];
+	command: [command: string, workflow: any];
+	'select-workflow': [workflowId: string];
+	'new-workflow': [];
 }>();
 
 // Methods
-const handleCommand = (command: string, questionnaire: any) => {
-	emit('command', command, questionnaire);
+const handleCommand = (command: string, workflow: any) => {
+	emit('command', command, workflow);
 };
 
-const getWorkflowName = (workflowId: string) => {
-	if (!workflowId || workflowId === '0') return defaultStr;
-	const workflow = props.workflows.find((w) => w.id === workflowId);
-	return workflow?.name || workflowId;
+const handleWorkflowSelect = (workflow: any) => {
+	emit('select-workflow', workflow.id);
 };
 
-const getStageName = (stageId: string) => {
-	if (!stageId || stageId === '0') return defaultStr;
-	const stage = props.allStages.find((s) => s.id === stageId);
-	return stage ? stage.name : stageId;
-};
-
-// 获取显示的分配数量（去重）
-const getDisplayedAssignments = (assignments: any[]) => {
+// 获取显示的stages数量
+const getDisplayedStages = (stages: any[]) => {
 	const displayedCount = 2; // 显示2个
-	if (!assignments || assignments.length === 0) {
+	if (!stages || stages.length === 0) {
 		return [];
 	}
 
-	// 根据workflowId+stageId组合进行去重
-	const uniqueAssignments = assignments.filter((assignment, index, self) => {
-		return (
-			index ===
-			self.findIndex(
-				(a) => a.workflowId === assignment.workflowId && a.stageId === assignment.stageId
-			)
-		);
-	});
-
-	// 返回前N个去重后的数据
-	return uniqueAssignments.slice(0, displayedCount);
+	// 返回前N个stages
+	return stages.slice(0, displayedCount);
 };
 
-// 获取去重后的所有数据
-const getUniqueAssignments = (assignments: any[]) => {
-	if (!assignments || assignments.length === 0) {
-		return [];
+// 检查workflow是否有任何操作正在loading
+const isWorkflowActionLoading = (workflowId: string) => {
+	if (!props.actionLoading || !props.actionLoading[workflowId]) {
+		return false;
 	}
 
-	return assignments.filter((assignment, index, self) => {
-		return (
-			index ===
-			self.findIndex(
-				(a) => a.workflowId === assignment.workflowId && a.stageId === assignment.stageId
-			)
-		);
-	});
+	const workflowActions = props.actionLoading[workflowId];
+	return Object.values(workflowActions).some((loading) => loading);
 };
 </script>
 
 <style scoped lang="scss">
-/* 问卷卡片网格布局 */
-.questionnaire-grid {
+/* card-label样式 */
+.card-label {
+	font-weight: 500;
+	color: var(--el-text-color-primary);
+}
+
+/* 工作流卡片网格布局 */
+.workflow-grid {
 	display: grid;
 	gap: 24px;
 	/* 使用auto-fill保持卡片合适宽度，避免过度拉伸 */
@@ -428,9 +419,35 @@ const getUniqueAssignments = (assignments: any[]) => {
 	}
 
 	/* 限制单个卡片的最大宽度，防止过度拉伸 */
-	& > .questionnaire-card {
+	& > .workflow-card {
 		max-width: 600px;
 		width: 100%;
+	}
+}
+
+.ai-sparkles {
+	font-size: 12px;
+	animation: sparkle 2s ease-in-out infinite;
+	display: inline-block;
+}
+
+@keyframes sparkle {
+	0%,
+	100% {
+		transform: scale(1) rotate(0deg);
+		opacity: 1;
+	}
+	25% {
+		transform: scale(1.1) rotate(5deg);
+		opacity: 0.9;
+	}
+	50% {
+		transform: scale(1.2) rotate(-5deg);
+		opacity: 0.8;
+	}
+	75% {
+		transform: scale(1.1) rotate(3deg);
+		opacity: 0.9;
 	}
 }
 
