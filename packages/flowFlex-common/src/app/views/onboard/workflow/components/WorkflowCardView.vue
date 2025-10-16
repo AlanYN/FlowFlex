@@ -105,14 +105,6 @@
 												<el-icon class="mr-2"><Download /></el-icon>
 												Export Workflow
 											</el-dropdown-item>
-											<el-dropdown-item
-												divided
-												command="delete"
-												class="text-red-500"
-											>
-												<el-icon class="mr-2"><Delete /></el-icon>
-												Delete
-											</el-dropdown-item>
 										</el-dropdown-menu>
 									</template>
 								</el-dropdown>
@@ -129,7 +121,10 @@
 							<!-- Stages区域 -->
 							<div class="space-y-2">
 								<div class="flex items-center text-sm">
-									<span class="card-label">Stages:</span>
+									<span class="flex items-center">
+										<text class="card-label">Stages:</text>
+										{{ workflow.stages.length }}
+									</span>
 								</div>
 								<div
 									class="stages-container"
@@ -242,7 +237,6 @@ import {
 	Plus,
 	Edit,
 	CopyDocument,
-	Delete,
 	DocumentAdd,
 	MoreFilled,
 	Loading,
@@ -297,12 +291,6 @@ const isWorkflowActionLoading = (workflowId: string) => {
 </script>
 
 <style scoped lang="scss">
-/* card-label样式 */
-.card-label {
-	font-weight: 500;
-	color: var(--el-text-color-primary);
-}
-
 /* stages列表样式 */
 .stages-list {
 	display: flex;

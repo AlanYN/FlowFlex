@@ -33,6 +33,36 @@
 
 		<!-- 主要内容区 -->
 		<div>
+			<!-- 搜索和筛选区域 -->
+			<el-card class="mb-6">
+				<div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+					<div class="space-y-2">
+						<label class="text-sm font-medium">Search</label>
+						<InputTag
+							v-model="searchWorkflowName"
+							placeholder="Enter workflow name and press enter"
+							style-type="normal"
+							:limit="10"
+							@change="handleWorkflowChange"
+							class="w-full rounded-xl"
+						/>
+					</div>
+
+					<div class="space-y-2">
+						<label class="text-sm font-medium">Workflow</label>
+						<el-select
+							v-model="searceWorkflowStatus"
+							placeholder="Select workflow status"
+							class="w-full"
+							@change="handleWorkflowChange"
+						>
+							<el-option label="All Status" value="" />
+							<el-option label="Active" value="active" />
+							<el-option label="Inactive" value="inactive" />
+						</el-select>
+					</div>
+				</div>
+			</el-card>
 			<!-- 列表视图模式 -->
 			<div v-if="viewMode === 'list'">
 				<!-- 视图切换标签页 -->
@@ -625,6 +655,7 @@ import { WFEMoudels } from '@/enums/appEnum';
 import PageHeader from '@/components/global/PageHeader/index.vue';
 import { PrototypeTabs, TabPane, TabButtonGroup } from '@/components/PrototypeTabs';
 import CustomerPagination from '@/components/global/u-pagination/index.vue';
+import InputTag from '@/components/global/u-input-tags/index.vue';
 import { useAdaptiveScrollbar } from '@/hooks/useAdaptiveScrollbar';
 import TableViewIcon from '@assets/svg/onboard/tavleView.svg';
 import ProgressViewIcon from '@assets/svg/onboard/progressView.svg';
@@ -796,6 +827,12 @@ onMounted(async () => {
 });
 
 // 获取工作流列表（分页数据，用于列表视图）
+// 筛选
+const searchWorkflowName = ref<string[]>([]);
+const searceWorkflowStatus = ref<string>('all');
+const handleWorkflowChange = () => {
+	fetchWorkflows(true);
+};
 const fetchWorkflows = async (resetPage = false) => {
 	try {
 		loading.workflows = true;
@@ -805,10 +842,19 @@ const fetchWorkflows = async (resetPage = false) => {
 			pagination.value.pageIndex = 1;
 		}
 
+		const searchParams = {} as any;
+		if (searchWorkflowName.value) {
+			searchParams.name = searchWorkflowName.value;
+		}
+		if (searceWorkflowStatus.value && searceWorkflowStatus.value !== 'all') {
+			searchParams.status = searceWorkflowStatus.value;
+		}
+
 		// 构建查询参数
 		const params = {
 			pageIndex: pagination.value.pageIndex,
 			pageSize: pagination.value.pageSize,
+			...searchParams,
 		};
 
 		const res = await getWorkflowList(params);
