@@ -426,7 +426,7 @@
 		<el-dialog
 			v-model="dialogVisible.workflowForm"
 			:title="dialogTitle"
-			:width="dialogWidth + 'px'"
+			:width="bigDialogWidth"
 			destroy-on-close
 			custom-class="workflow-dialog"
 			:show-close="true"

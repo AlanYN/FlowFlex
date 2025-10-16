@@ -1,70 +1,90 @@
 <template>
 	<div class="new-workflow-form p-1">
-		<el-form
-			ref="formRef"
-			:model="formData"
-			:rules="rules"
-			label-position="top"
-			@submit.prevent="submitForm"
+		<PrototypeTabs
+			v-model="currentTab"
+			:tabs="tabsConfig"
+			class="workflow-tabs"
+			content-class="workflow-content"
 		>
-			<el-form-item label="Workflow Name" prop="name">
-				<el-input v-model="formData.name" placeholder="Enter workflow name" />
-			</el-form-item>
-
-			<el-form-item label="Description" prop="description">
-				<el-input
-					v-model="formData.description"
-					type="textarea"
-					placeholder="Enter workflow description"
-					:rows="3"
-				/>
-			</el-form-item>
-
-			<el-form-item label="Set as active workflow" class="switch-group-item">
-				<div class="switch-container">
-					<el-switch
-						v-model="isActiveSwitch"
-						class="ml-2"
-						inline-prompt
-						style="
-							--el-switch-on-color: var(--el-color-success);
-							--el-switch-off-color: var(--el-color-danger);
-						"
-						active-text="Active"
-						inactive-text="Inactive"
-					/>
-				</div>
-			</el-form-item>
-
-			<el-form-item label="Set as default workflow" class="switch-group-item">
-				<div class="switch-container">
-					<el-switch
-						v-model="formData.isDefault"
-						class="ml-2"
-						inline-prompt
-						style="
-							--el-switch-on-color: var(--el-color-success);
-							--el-switch-off-color: var(--el-color-danger);
-						"
-						active-text="Default"
-						inactive-text="Not Default"
-						:disabled="isDefaultDisabled"
-					/>
-				</div>
-			</el-form-item>
-
-			<div class="form-actions">
-				<el-button @click="$emit('cancel')">Cancel</el-button>
-				<el-button
-					type="primary"
-					native-type="submit"
-					:loading="loading"
-					:disabled="loading"
+			<!-- Basic Info Tab -->
+			<TabPane value="basicInfo">
+				<el-form
+					ref="formRef"
+					:model="formData"
+					:rules="rules"
+					label-position="top"
+					class="p-1"
+					@submit.prevent="submitForm"
 				>
-					{{ isEditing ? 'Update Workflow' : 'Create Workflow' }}
-				</el-button>
-			</div>
-		</el-form>
+					<el-form-item label="Workflow Name" prop="name">
+						<el-input v-model="formData.name" placeholder="Enter workflow name" />
+					</el-form-item>
+
+					<el-form-item label="Description" prop="description">
+						<el-input
+							v-model="formData.description"
+							type="textarea"
+							placeholder="Enter workflow description"
+							:rows="3"
+						/>
+					</el-form-item>
+
+					<el-form-item label="Set as active workflow" class="switch-group-item">
+						<div class="switch-container">
+							<el-switch
+								v-model="isActiveSwitch"
+								class="ml-2"
+								inline-prompt
+								style="
+									--el-switch-on-color: var(--el-color-success);
+									--el-switch-off-color: var(--el-color-danger);
+								"
+								active-text="Active"
+								inactive-text="Inactive"
+							/>
+						</div>
+					</el-form-item>
+
+					<el-form-item label="Set as default workflow" class="switch-group-item">
+						<div class="switch-container">
+							<el-switch
+								v-model="formData.isDefault"
+								class="ml-2"
+								inline-prompt
+								style="
+									--el-switch-on-color: var(--el-color-success);
+									--el-switch-off-color: var(--el-color-danger);
+								"
+								active-text="Default"
+								inactive-text="Not Default"
+								:disabled="isDefaultDisabled"
+							/>
+						</div>
+					</el-form-item>
+				</el-form>
+			</TabPane>
+
+			<!-- Permissions Tab -->
+			<TabPane value="permissions">
+				<div class="space-y-4">
+					<div class="space-y-1">
+						<h3 class="text-base font-bold">Workflow Permissions</h3>
+						<p class="text-sm text-gray-600">
+							Configure who can view and operate cases using this workflow
+						</p>
+					</div>
+					<PermissionSelector v-model="formData.permissions" />
+				</div>
+			</TabPane>
+		</PrototypeTabs>
+
+		<!-- 表单操作按钮移到 tabs 外面 -->
+		<div class="form-actions">
+			<el-button @click="$emit('cancel')">Cancel</el-button>
+			<el-button type="primary" :loading="loading" :disabled="loading" @click="submitForm">
+				{{ isEditing ? 'Update Workflow' : 'Create Workflow' }}
+			</el-button>
+		</div>
 	</div>
 </template>
 
@@ -72,6 +92,8 @@
 import { ref, reactive, computed, watch, onMounted } from 'vue';
 import type { FormInstance, FormRules } from 'element-plus';
 import { getWorkflowList } from '@/apis/ow';
+import { PrototypeTabs, TabPane } from '@/components/PrototypeTabs';
+import PermissionSelector from './PermissionSelector.vue';
 
 // 定义 props
 interface Props {
@@ -88,12 +110,26 @@ const props = withDefaults(defineProps<Props>(), {
 	loading: false,
 });
 
+// Tab 配置
+const currentTab = ref('basicInfo');
+const tabsConfig = [
+	{ value: 'basicInfo', label: 'Basic Info' },
+	{ value: 'permissions', label: 'Permissions' },
+];
+
 // 表单数据
 const formData = reactive({
 	name: '',
 	description: '',
 	status: 'active' as 'active' | 'inactive',
 	isDefault: false, // 初始值为 false，由后续逻辑决定
+	// 新增权限字段
+	permissions: {
+		viewPermissionType: 'public',
+		viewGroups: [] as string[],
+		useSameGroups: true,
+		operateGroups: [] as string[],
+	},
 });
 
 // 开关状态计算属性
@@ -158,6 +194,16 @@ watch(
 			formData.isDefault = Object.keys(newData).includes('isDefault')
 				? !!newData.isDefault
 				: false; // 编辑模式下不自动设为默认
+
+			// 初始化权限数据
+			if (newData.permissions) {
+				formData.permissions = {
+					viewPermissionType: newData.permissions.viewPermissionType || 'public',
+					viewGroups: newData.permissions.viewGroups || [],
+					useSameGroups: newData.permissions.useSameGroups ?? true,
+					operateGroups: newData.permissions.operateGroups || [],
+				};
+			}
 		} else if (!props.isEditing) {
 			// 创建模式：没有初始数据时检查默认值
 			checkAndSetDefaultValue();
@@ -226,6 +272,14 @@ const emit = defineEmits(['submit', 'cancel']);
 	margin-top: 5px;
 }
 
+.workflow-tabs {
+	margin-bottom: 16px;
+}
+
+.workflow-content {
+	padding-top: 8px;
+}
+
 .date-fields {
 	display: flex;
 	gap: 16px;
@@ -250,6 +304,8 @@ const emit = defineEmits(['submit', 'cancel']);
 	gap: 10px;
 	margin-top: 20px;
 	padding-right: 10px;
+	padding-top: 16px;
+	border-top: 1px solid var(--el-border-color-lighter);
 }
 
 :deep(.el-form-item) {
