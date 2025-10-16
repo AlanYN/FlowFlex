@@ -110,6 +110,9 @@
 					@update:model-value="updateComponentsData"
 				/>
 			</TabPane>
+			<TabPane value="permissions">
+				<StagePermissions v-model="formData.stagePermissions" />
+			</TabPane>
 			<TabPane value="actions">
 				<Action
 					ref="actionRef"
@@ -147,6 +150,7 @@ import { TriggerTypeEnum } from '@/enums/appEnum';
 
 import { PrototypeTabs, TabPane } from '@/components/PrototypeTabs';
 import { Checklist, Questionnaire, Stage, ComponentsData, StageComponentData } from '#/onboard';
+import StagePermissions from './StagePermissions.vue';
 
 // 颜色选项
 const colorOptions = stageColorOptions;
@@ -193,6 +197,10 @@ const tabsConfig = computed(() => {
 					label: 'Components',
 				},
 				{
+					value: 'permissions',
+					label: 'Permissions',
+				},
+				{
 					value: 'actions',
 					label: 'Actions',
 				},
@@ -201,6 +209,10 @@ const tabsConfig = computed(() => {
 				{
 					value: 'basicInfo',
 					label: 'Basic Info',
+				},
+				{
+					value: 'permissions',
+					label: 'Permissions',
 				},
 				{
 					value: 'components',
@@ -224,6 +236,34 @@ const formData = ref({
 	order: 0,
 	color: colorOptions[Math.floor(Math.random() * colorOptions.length)] as StageColorType,
 	attachmentManagementNeeded: false,
+	// 新增权限字段
+	stagePermissions: {
+		portalAvailability: 'viewable',
+		fields: [
+			{
+				id: 'stage',
+				name: 'Stage',
+				type: 'stage' as const,
+				permissions: {
+					viewPermissionType: 'public',
+					viewGroups: [],
+					useSameGroups: true,
+					operateGroups: [],
+				},
+			},
+			{
+				id: 'companyName',
+				name: 'Company Name',
+				type: 'field' as const,
+				permissions: {
+					viewPermissionType: 'public',
+					viewGroups: [],
+					useSameGroups: true,
+					operateGroups: [],
+				},
+			},
+		],
+	},
 });
 
 // 表单验证规则
@@ -270,6 +310,34 @@ onMounted(() => {
 			} else if (key === 'portalPermission') {
 				formData.value[key] =
 					props.stage?.portalPermission || PortalPermissionEnum.Viewable;
+			} else if (key === 'stagePermissions') {
+				formData.value[key] = (props.stage as any)?.stagePermissions || {
+					portalAvailability: 'viewable',
+					fields: [
+						{
+							id: 'stage',
+							name: 'Stage',
+							type: 'stage' as const,
+							permissions: {
+								viewPermissionType: 'public',
+								viewGroups: [],
+								useSameGroups: true,
+								operateGroups: [],
+							},
+						},
+						{
+							id: 'companyName',
+							name: 'Company Name',
+							type: 'field' as const,
+							permissions: {
+								viewPermissionType: 'public',
+								viewGroups: [],
+								useSameGroups: true,
+								operateGroups: [],
+							},
+						},
+					],
+				};
 			} else {
 				formData.value[key] = props.stage ? (props.stage as any)[key] : '';
 			}
