@@ -175,7 +175,7 @@
 					</div>
 				</template>
 			</el-table-column>
-			<el-table-column prop="modifyDate" label="Modified Date" width="250">
+			<el-table-column prop="modifyDate" label="Modified Time" width="250">
 				<template #default="{ row }">
 					<div
 						class="table-cell-content"
