@@ -66,14 +66,6 @@
 									<el-icon><Download /></el-icon>
 									Export Workflow
 								</el-dropdown-item>
-								<el-dropdown-item
-									@click="$emit('command', 'delete', row)"
-									class="text-red-500"
-									divided
-								>
-									<el-icon><Delete /></el-icon>
-									Delete
-								</el-dropdown-item>
 							</el-dropdown-menu>
 						</template>
 					</el-dropdown>
@@ -175,7 +167,6 @@ import { defineProps, defineEmits } from 'vue';
 import {
 	Edit,
 	CopyDocument,
-	Delete,
 	ArrowDownBold,
 	Star,
 	CircleClose,
