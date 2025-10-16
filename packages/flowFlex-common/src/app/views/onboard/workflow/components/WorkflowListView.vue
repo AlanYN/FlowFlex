@@ -149,14 +149,14 @@
 					</div>
 				</template>
 			</el-table-column>
-			<el-table-column prop="modifyBy" label="Updated By" sortable="custom" min-width="140">
+			<el-table-column prop="modifyBy" label="Modified By" sortable="custom" min-width="140">
 				<template #default="{ row }">
 					<div class="table-cell-content" :title="row.modifyBy">
 						{{ row.modifyBy || 'Unknown' }}
 					</div>
 				</template>
 			</el-table-column>
-			<el-table-column prop="modifyDate" label="Update Time" sortable="custom" width="180">
+			<el-table-column prop="modifyDate" label="Modified Time" sortable="custom" width="180">
 				<template #default="{ row }">
 					<div
 						class="table-cell-content"
