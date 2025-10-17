@@ -50,8 +50,10 @@
 					:questionnaire-answers="questionnaireAnswers"
 					:isSubmitEnabled="canSubmitQuestionnaire"
 					:skippedQuestions="skippedQuestionsSet"
-					:disabled="disabled"
+					:disabled="disabled || questionnaireAnswers?.status === 'Submitted'"
+					:loading="submitting || loading"
 					@stage-updated="handleStageUpdated"
+					@submit="handleSubmit"
 				/>
 			</div>
 		</el-collapse-transition>
@@ -73,6 +75,7 @@ import { ArrowRight } from '@element-plus/icons-vue';
 import { OnboardingItem, SectionAnswer } from '#/onboard';
 
 import { saveQuestionnaireAnswer } from '@/apis/ow/onboarding';
+import { submitQuestionnaireAnswer } from '@/apis/ow/questionnaire';
 import DynamicForm from './dynamicForm.vue';
 
 // 组件属性
@@ -84,6 +87,7 @@ interface Props {
 	questionnaireData?: any;
 	questionnaireAnswers?: SectionAnswer;
 	disabled?: boolean;
+	loading?: boolean;
 }
 
 const props = defineProps<Props>();
@@ -91,6 +95,7 @@ const props = defineProps<Props>();
 // 组件事件
 const emit = defineEmits<{
 	stageUpdated: [];
+	questionSubmitted: [onboardingId: string, stageId: string, questionnaireId: string];
 }>();
 
 // 响应式数据
@@ -710,6 +715,36 @@ const handleSave = async (isTip: boolean = true, isValidate: boolean = true) => 
 		return false;
 	} finally {
 		saving.value = false;
+	}
+};
+
+const submitting = ref(false);
+const handleSubmit = async () => {
+	try {
+		submitting.value = true;
+		const saveRes = await handleSave(false, true);
+		if (!saveRes) {
+			return false;
+		}
+		const res = await submitQuestionnaireAnswer(
+			props?.onboardingId || '',
+			props.stageId,
+			props.questionnaireData.id
+		);
+		if (res.code == '200') {
+			ElMessage.success('Questionnaire submitted successfully');
+			emit(
+				'questionSubmitted',
+				props?.onboardingId || '',
+				props.stageId,
+				props.questionnaireData.id
+			);
+		}
+	} catch (error) {
+		console.error('Error submitting questionnaire:', error);
+		return false;
+	} finally {
+		submitting.value = false;
 	}
 };
 
