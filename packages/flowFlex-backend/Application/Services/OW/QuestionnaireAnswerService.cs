@@ -446,11 +446,11 @@ namespace FlowFlex.Application.Services.OW
         /// <summary>
         /// Submit answer for review
         /// </summary>
-        public async Task<bool> SubmitAnswerAsync(long onboardingId, long stageId)
+        public async Task<bool> SubmitAnswerAsync(long onboardingId, long stageId, long questionnaireId)
         {
             try
             {
-                var answer = await _repository.GetByOnboardingAndStageAsync(onboardingId, stageId);
+                var answer = await _repository.GetByOnboardingAndStageAsync(onboardingId, stageId, questionnaireId);
                 if (answer == null) return false;
 
                 var oldStatus = answer.Status;

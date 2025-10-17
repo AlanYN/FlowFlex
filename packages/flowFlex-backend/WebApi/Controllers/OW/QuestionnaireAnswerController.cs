@@ -120,12 +120,13 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// </summary>
         /// <param name="onboardingId">Onboarding ID</param>
         /// <param name="stageId">Stage ID</param>
+        /// <param name="questionnaireId">Questionnaire ID</param>
         /// <returns>Submission result</returns>
-        [HttpPost("{onboardingId}/stage/{stageId}/submit")]
+        [HttpPost("{onboardingId}/stage/{stageId}/questionnaire/{questionnaire_id}submit")]
         [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
-        public async Task<IActionResult> SubmitAnswerAsync(long onboardingId, long stageId)
+        public async Task<IActionResult> SubmitAnswerAsync(long onboardingId, long stageId, [FromRoute(Name = "questionnaire_id")] long questionnaireId)
         {
-            bool result = await _questionnaireAnswerService.SubmitAnswerAsync(onboardingId, stageId);
+            bool result = await _questionnaireAnswerService.SubmitAnswerAsync(onboardingId, stageId, questionnaireId);
             return Success(result);
         }
 

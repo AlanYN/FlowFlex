@@ -69,8 +69,9 @@ namespace FlowFlex.Application.Contracts.IServices.OW
         /// </summary>
         /// <param name="onboardingId">Onboarding ID</param>
         /// <param name="stageId">Stage ID</param>
+        /// <param name="questionnaireId">Questionnaire ID</param>
         /// <returns>Whether successful</returns>
-        Task<bool> SubmitAnswerAsync(long onboardingId, long stageId);
+        Task<bool> SubmitAnswerAsync(long onboardingId, long stageId, long questionnaireId);
 
         /// <summary>
         /// Review answers
