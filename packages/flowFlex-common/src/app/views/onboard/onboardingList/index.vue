@@ -101,6 +101,12 @@
 												Proceed
 											</el-dropdown-item>
 
+											<!-- Edit Case -->
+											<el-dropdown-item @click="handleEditCase(row)">
+												<el-icon><Edit /></el-icon>
+												Edit Case
+											</el-dropdown-item>
+
 											<!-- View - 对Completed、Force Completed、Paused、Aborted状态显示 -->
 											<el-dropdown-item
 												v-if="
@@ -465,9 +471,15 @@
 		>
 			<template #header>
 				<div class="dialog-header">
-					<h2 class="dialog-title">Create New Cases</h2>
+					<h2 class="dialog-title">
+						{{ isEditMode ? 'Edit Case' : 'Create New Case' }}
+					</h2>
 					<p class="dialog-subtitle">
-						Create a new onboarding record for lead management.
+						{{
+							isEditMode
+								? 'Modify case information and permissions.'
+								: 'Create a new onboarding record for lead management.'
+						}}
 					</p>
 				</div>
 			</template>
@@ -563,6 +575,30 @@
 						/>
 					</el-select>
 				</el-form-item>
+
+				<el-form-item label="Owner" prop="owner">
+					<el-input
+						v-model="formData.owner"
+						placeholder="Enter Owner Name"
+						clearable
+						class="w-full rounded-xl"
+					/>
+				</el-form-item>
+
+				<!-- Access Control Section -->
+				<div class="access-control-section">
+					<div class="section-header">
+						<label class="text-base font-bold">Access Control</label>
+						<p class="text-sm text-gray-500">
+							Configure who can view and operate on this case
+						</p>
+					</div>
+
+					<PermissionSelector
+						v-model="casePermissions"
+						:custom-permission-options="casePermissionOptions"
+					/>
+				</div>
 			</el-form>
 
 			<template #footer>
@@ -606,10 +642,13 @@ import {
 	Warning,
 	Download,
 } from '@element-plus/icons-vue';
+import PermissionSelector from '@/views/onboard/workflow/components/PermissionSelector.vue';
+import { CasePermissionModeEnum } from '@/enums/permissionEnum';
 import {
 	queryOnboardings,
 	deleteOnboarding,
 	createOnboarding,
+	updateOnboarding,
 	exportOnboarding,
 	batchUpdateStaticFieldValues,
 	startOnboarding,
@@ -695,6 +734,10 @@ const handleViewChange = (value: string) => {
 // 新建入职弹窗相关状态
 const dialogVisible = ref(false);
 const formRef = ref();
+// 编辑相关状态
+const isEditMode = ref(false);
+const editingCaseId = ref<string | null>(null);
+
 const formData = reactive({
 	leadId: '',
 	leadName: '',
@@ -704,6 +747,11 @@ const formData = reactive({
 	ContactPerson: '',
 	ContactEmail: '',
 	workFlowId: '',
+	// 新增权限字段
+	owner: '',
+	viewPermissionMode: CasePermissionModeEnum.InheritFromWorkflow,
+	viewTeams: [] as string[],
+	operateTeams: [] as string[],
 });
 
 const formRules = {
@@ -721,6 +769,30 @@ const formRules = {
 	], // 必填，且需要验证邮箱格式
 	workFlowId: [{ required: true, message: 'Workflow is required', trigger: 'blur' }],
 };
+
+// Case 权限选项
+const casePermissionOptions = [
+	{ label: 'Public', value: CasePermissionModeEnum.Public },
+	{ label: 'Inherit from workflow', value: CasePermissionModeEnum.InheritFromWorkflow },
+	{ label: 'Private', value: CasePermissionModeEnum.Private },
+	{ label: 'Visible to', value: CasePermissionModeEnum.VisibleTo },
+	{ label: 'Invisible to', value: CasePermissionModeEnum.InvisibleTo },
+];
+
+// 计算属性适配 PermissionSelector
+const casePermissions = computed({
+	get: () => ({
+		viewPermissionMode: formData.viewPermissionMode,
+		viewTeams: formData.viewTeams,
+		useSameGroups: JSON.stringify(formData.viewTeams) === JSON.stringify(formData.operateTeams),
+		operateTeams: formData.operateTeams,
+	}),
+	set: (value) => {
+		formData.viewPermissionMode = value.viewPermissionMode;
+		formData.viewTeams = value.viewTeams;
+		formData.operateTeams = value.operateTeams;
+	},
+});
 
 const changeLifeCycleStage = (value: string) => {
 	const stage = lifeCycleStage.value.find((stage) => stage.id === value);
@@ -1502,8 +1574,33 @@ const handleLimitUpdate = async () => {
 };
 
 // 新建入职相关方法
+// 编辑 Case
+const handleEditCase = (row: any) => {
+	isEditMode.value = true;
+	editingCaseId.value = row.id;
+
+	// 使用列表数据直接回显
+	formData.leadName = row.leadName || '';
+	formData.leadId = row.leadId || '';
+	formData.ContactPerson = row.contactPerson || '';
+	formData.ContactEmail = row.contactEmail || '';
+	formData.lifeCycleStageId = row.lifeCycleStageId || '';
+	formData.priority = row.priority || '';
+	formData.workFlowId = row.workflowId || '';
+	formData.owner = row.owner || '';
+	formData.viewPermissionMode =
+		row.viewPermissionMode ?? CasePermissionModeEnum.InheritFromWorkflow;
+	formData.viewTeams = row.viewTeams || [];
+	formData.operateTeams = row.operateTeams || [];
+
+	// 打开弹窗
+	dialogVisible.value = true;
+};
+
 const handleCancel = () => {
 	dialogVisible.value = false;
+	isEditMode.value = false;
+	editingCaseId.value = null;
 	resetForm();
 };
 
@@ -1529,8 +1626,14 @@ const handleSave = async () => {
 
 		saving.value = true;
 
-		// 调用创建入职的API接口
-		const res = await createOnboarding(formData);
+		let res;
+		if (isEditMode.value && editingCaseId.value) {
+			// 编辑模式：调用更新接口
+			res = await updateOnboarding(editingCaseId.value, formData);
+		} else {
+			// 创建模式：调用创建接口
+			res = await createOnboarding(formData);
+		}
 
 		if (res.code === '200') {
 			const onboardingId = res.data;
@@ -1611,16 +1714,27 @@ const handleSave = async () => {
 				}
 			}
 
-			ElMessage.success(t('sys.api.operationSuccess'));
+			const wasEditMode = isEditMode.value;
+
+			ElMessage.success(
+				isEditMode.value ? 'Case updated successfully' : t('sys.api.operationSuccess')
+			);
 			dialogVisible.value = false;
+			isEditMode.value = false;
+			editingCaseId.value = null;
 			resetForm();
 
-			// 获取返回的 onboarding ID 并跳转到详情页面
-			if (onboardingId) {
-				router.push(`/onboard/onboardDetail?onboardingId=${onboardingId}`);
-			} else {
-				// 如果没有返回 ID，则重新加载列表数据
+			// 编辑模式：刷新列表
+			if (wasEditMode) {
 				await loadOnboardingList();
+			} else {
+				// 创建模式：获取返回的 onboarding ID 并跳转到详情页面
+				if (onboardingId) {
+					router.push(`/onboard/onboardDetail?onboardingId=${onboardingId}`);
+				} else {
+					// 如果没有返回 ID，则重新加载列表数据
+					await loadOnboardingList();
+				}
 			}
 		}
 	} catch (error) {
@@ -1837,5 +1951,23 @@ html.dark {
 .workflow-name-tag {
 	@apply block text-sm text-center font-medium truncate;
 	transition: all 0.3s ease;
+}
+
+/* Access Control 样式 */
+.access-control-section {
+	margin-top: 24px;
+	padding: 20px;
+	border: 1px solid var(--el-border-color-lighter);
+	border-radius: 8px;
+	background-color: var(--el-fill-color-blank);
+}
+
+.section-header {
+	margin-bottom: 16px;
+}
+
+.section-header label {
+	display: block;
+	margin-bottom: 4px;
 }
 </style>
