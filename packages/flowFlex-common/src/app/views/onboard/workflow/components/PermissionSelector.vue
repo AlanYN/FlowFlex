@@ -7,7 +7,7 @@
 				<p class="text-sm">Controls who can view cases using this workflow</p>
 
 				<el-select
-					v-model="localPermissions.viewPermissionType"
+					v-model="localPermissions.viewPermissionMode"
 					placeholder="Select permission type"
 					class="w-full"
 				>
@@ -21,10 +21,13 @@
 			</div>
 
 			<!-- User Groups（仅在非 public 时显示）-->
-			<div v-if="localPermissions.viewPermissionType !== 'public'" class="space-y-2">
+			<div
+				v-if="localPermissions.viewPermissionMode !== ViewPermissionModeEnum.Public"
+				class="space-y-2"
+			>
 				<label class="text-base font-bold">User Groups</label>
 				<el-select
-					v-model="localPermissions.viewGroups"
+					v-model="localPermissions.viewTeams"
 					multiple
 					placeholder="Add group..."
 					class="w-full"
@@ -54,7 +57,7 @@
 			<div v-if="!localPermissions.useSameGroups" class="space-y-2">
 				<label class="text-base font-bold">Available Groups</label>
 				<el-select
-					v-model="localPermissions.operateGroups"
+					v-model="localPermissions.operateTeams"
 					multiple
 					placeholder="Add group..."
 					class="w-full"
@@ -77,34 +80,35 @@
 
 <script setup lang="ts">
 import { reactive, computed, watch, nextTick, ref } from 'vue';
+import { ViewPermissionModeEnum } from '@/enums/permissionEnum';
 
 // Props
 interface Props {
 	modelValue?: {
-		viewPermissionType: string;
-		viewGroups: string[];
+		viewPermissionMode: number;
+		viewTeams: string[];
 		useSameGroups: boolean;
-		operateGroups: string[];
+		operateTeams: string[];
 	};
 }
 
 const props = withDefaults(defineProps<Props>(), {
 	modelValue: () => ({
-		viewPermissionType: 'public',
-		viewGroups: [],
+		viewPermissionMode: ViewPermissionModeEnum.Public,
+		viewTeams: [],
 		useSameGroups: true,
-		operateGroups: [],
+		operateTeams: [],
 	}),
 });
 
 // Emits
 const emit = defineEmits(['update:modelValue']);
 
-// 权限类型选项（临时写死）
+// 权限类型选项
 const permissionTypeOptions = [
-	{ label: 'Public', value: 'public' },
-	{ label: 'Visible to', value: 'visible_to' },
-	{ label: 'Invisible to', value: 'invisible_to' },
+	{ label: 'Public', value: ViewPermissionModeEnum.Public },
+	{ label: 'Visible to', value: ViewPermissionModeEnum.VisibleToTeams },
+	{ label: 'Invisible to', value: ViewPermissionModeEnum.InvisibleToTeams },
 ];
 
 // 可用组列表（临时写死）
@@ -119,19 +123,19 @@ const availableGroups = [
 
 // 本地权限数据
 const localPermissions = reactive({
-	viewPermissionType: props.modelValue.viewPermissionType || 'public',
-	viewGroups: [...(props.modelValue.viewGroups || [])],
+	viewPermissionMode: props.modelValue.viewPermissionMode ?? ViewPermissionModeEnum.Public,
+	viewTeams: [...(props.modelValue.viewTeams || [])],
 	useSameGroups: props.modelValue.useSameGroups ?? true,
-	operateGroups: [...(props.modelValue.operateGroups || [])],
+	operateTeams: [...(props.modelValue.operateTeams || [])],
 });
 
 // 计算 Operate 可选的组（必须是 View 已选的子集）
 const availableOperateGroups = computed(() => {
-	if (localPermissions.viewPermissionType === 'public') {
+	if (localPermissions.viewPermissionMode === ViewPermissionModeEnum.Public) {
 		return availableGroups;
 	}
 	// 只能选择 View 已选择的组
-	return availableGroups.filter((group) => localPermissions.viewGroups.includes(group.value));
+	return availableGroups.filter((group) => localPermissions.viewTeams.includes(group.value));
 });
 
 // 使用一个 ref 来跟踪是否正在处理内部更新
@@ -146,40 +150,38 @@ const processPermissionChanges = () => {
 
 	// 使用 nextTick 确保在下一个事件循环中处理
 	nextTick(() => {
-		// 处理 viewPermissionType 的变化
+		// 处理 viewPermissionMode 的变化
 		if (
-			localPermissions.viewPermissionType === 'public' &&
-			localPermissions.viewGroups.length > 0
+			localPermissions.viewPermissionMode === ViewPermissionModeEnum.Public &&
+			localPermissions.viewTeams.length > 0
 		) {
-			localPermissions.viewGroups = [];
+			localPermissions.viewTeams = [];
 		}
 
-		// 处理 operateGroups 的同步或过滤
+		// 处理 operateTeams 的同步或过滤
 		if (localPermissions.useSameGroups) {
-			const newOperateGroups =
-				localPermissions.viewPermissionType === 'public'
+			const newOperateTeams =
+				localPermissions.viewPermissionMode === ViewPermissionModeEnum.Public
 					? []
-					: [...localPermissions.viewGroups];
-			if (
-				JSON.stringify(newOperateGroups) !== JSON.stringify(localPermissions.operateGroups)
-			) {
-				localPermissions.operateGroups = newOperateGroups;
+					: [...localPermissions.viewTeams];
+			if (JSON.stringify(newOperateTeams) !== JSON.stringify(localPermissions.operateTeams)) {
+				localPermissions.operateTeams = newOperateTeams;
 			}
 		} else {
-			const filtered = localPermissions.operateGroups.filter((group) =>
-				localPermissions.viewGroups.includes(group)
+			const filtered = localPermissions.operateTeams.filter((group) =>
+				localPermissions.viewTeams.includes(group)
 			);
-			if (JSON.stringify(filtered) !== JSON.stringify(localPermissions.operateGroups)) {
-				localPermissions.operateGroups = filtered;
+			if (JSON.stringify(filtered) !== JSON.stringify(localPermissions.operateTeams)) {
+				localPermissions.operateTeams = filtered;
 			}
 		}
 
 		// emit 更新到父组件
 		emit('update:modelValue', {
-			viewPermissionType: localPermissions.viewPermissionType,
-			viewGroups: [...localPermissions.viewGroups],
+			viewPermissionMode: localPermissions.viewPermissionMode,
+			viewTeams: [...localPermissions.viewTeams],
 			useSameGroups: localPermissions.useSameGroups,
-			operateGroups: [...localPermissions.operateGroups],
+			operateTeams: [...localPermissions.operateTeams],
 		});
 
 		// 重置标志位
@@ -205,18 +207,19 @@ watch(
 		if (newVal && !isProcessingInternalUpdate.value) {
 			// 检查是否真的有变化，避免不必要的更新
 			const hasChanges =
-				localPermissions.viewPermissionType !== newVal.viewPermissionType ||
-				JSON.stringify(localPermissions.viewGroups) !== JSON.stringify(newVal.viewGroups) ||
+				localPermissions.viewPermissionMode !== newVal.viewPermissionMode ||
+				JSON.stringify(localPermissions.viewTeams) !== JSON.stringify(newVal.viewTeams) ||
 				localPermissions.useSameGroups !== newVal.useSameGroups ||
-				JSON.stringify(localPermissions.operateGroups) !==
-					JSON.stringify(newVal.operateGroups);
+				JSON.stringify(localPermissions.operateTeams) !==
+					JSON.stringify(newVal.operateTeams);
 
 			if (hasChanges) {
 				isProcessingInternalUpdate.value = true;
-				localPermissions.viewPermissionType = newVal.viewPermissionType || 'public';
-				localPermissions.viewGroups = [...(newVal.viewGroups || [])];
+				localPermissions.viewPermissionMode =
+					newVal.viewPermissionMode ?? ViewPermissionModeEnum.Public;
+				localPermissions.viewTeams = [...(newVal.viewTeams || [])];
 				localPermissions.useSameGroups = newVal.useSameGroups ?? true;
-				localPermissions.operateGroups = [...(newVal.operateGroups || [])];
+				localPermissions.operateTeams = [...(newVal.operateTeams || [])];
 				nextTick(() => {
 					isProcessingInternalUpdate.value = false;
 				});

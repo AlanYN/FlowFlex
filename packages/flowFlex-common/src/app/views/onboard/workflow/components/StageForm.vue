@@ -151,6 +151,10 @@ import { TriggerTypeEnum } from '@/enums/appEnum';
 import { PrototypeTabs, TabPane } from '@/components/PrototypeTabs';
 import { Checklist, Questionnaire, Stage, ComponentsData, StageComponentData } from '#/onboard';
 import StagePermissions from './StagePermissions.vue';
+import {
+	PortalAvailabilityEnum as StagePortalAvailabilityEnum,
+	ViewPermissionModeEnum,
+} from '@/enums/permissionEnum';
 
 // 颜色选项
 const colorOptions = stageColorOptions;
@@ -238,17 +242,17 @@ const formData = ref({
 	attachmentManagementNeeded: false,
 	// 新增权限字段
 	stagePermissions: {
-		portalAvailability: 'viewable',
+		portalAvailability: StagePortalAvailabilityEnum.Viewable,
 		fields: [
 			{
 				id: 'stage',
 				name: 'Stage',
 				type: 'stage' as const,
 				permissions: {
-					viewPermissionType: 'public',
-					viewGroups: [],
+					viewPermissionMode: ViewPermissionModeEnum.Public,
+					viewTeams: [],
 					useSameGroups: true,
-					operateGroups: [],
+					operateTeams: [],
 				},
 			},
 			{
@@ -256,10 +260,10 @@ const formData = ref({
 				name: 'Company Name',
 				type: 'field' as const,
 				permissions: {
-					viewPermissionType: 'public',
-					viewGroups: [],
+					viewPermissionMode: ViewPermissionModeEnum.Public,
+					viewTeams: [],
 					useSameGroups: true,
-					operateGroups: [],
+					operateTeams: [],
 				},
 			},
 		],
@@ -312,17 +316,17 @@ onMounted(() => {
 					props.stage?.portalPermission || PortalPermissionEnum.Viewable;
 			} else if (key === 'stagePermissions') {
 				formData.value[key] = (props.stage as any)?.stagePermissions || {
-					portalAvailability: 'viewable',
+					portalAvailability: StagePortalAvailabilityEnum.Viewable,
 					fields: [
 						{
 							id: 'stage',
 							name: 'Stage',
 							type: 'stage' as const,
 							permissions: {
-								viewPermissionType: 'public',
-								viewGroups: [],
+								viewPermissionMode: ViewPermissionModeEnum.Public,
+								viewTeams: [],
 								useSameGroups: true,
-								operateGroups: [],
+								operateTeams: [],
 							},
 						},
 						{
@@ -330,10 +334,10 @@ onMounted(() => {
 							name: 'Company Name',
 							type: 'field' as const,
 							permissions: {
-								viewPermissionType: 'public',
-								viewGroups: [],
+								viewPermissionMode: ViewPermissionModeEnum.Public,
+								viewTeams: [],
 								useSameGroups: true,
-								operateGroups: [],
+								operateTeams: [],
 							},
 						},
 					],

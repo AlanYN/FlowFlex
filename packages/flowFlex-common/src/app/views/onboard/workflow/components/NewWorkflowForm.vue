@@ -73,7 +73,7 @@
 							Configure who can view and operate cases using this workflow
 						</p>
 					</div>
-					<PermissionSelector v-model="formData.permissions" />
+					<PermissionSelector v-model="permissionsData" />
 				</div>
 			</TabPane>
 		</PrototypeTabs>
@@ -94,6 +94,7 @@ import type { FormInstance, FormRules } from 'element-plus';
 import { getWorkflowList } from '@/apis/ow';
 import { PrototypeTabs, TabPane } from '@/components/PrototypeTabs';
 import PermissionSelector from './PermissionSelector.vue';
+import { ViewPermissionModeEnum } from '@/enums/permissionEnum';
 
 // 定义 props
 interface Props {
@@ -123,13 +124,10 @@ const formData = reactive({
 	description: '',
 	status: 'active' as 'active' | 'inactive',
 	isDefault: false, // 初始值为 false，由后续逻辑决定
-	// 新增权限字段
-	permissions: {
-		viewPermissionType: 'public',
-		viewGroups: [] as string[],
-		useSameGroups: true,
-		operateGroups: [] as string[],
-	},
+	// 权限字段
+	viewPermissionMode: ViewPermissionModeEnum.Public,
+	viewTeams: [] as string[],
+	operateTeams: [] as string[],
 });
 
 // 开关状态计算属性
@@ -137,6 +135,26 @@ const isActiveSwitch = computed({
 	get: () => formData.status === 'active',
 	set: (value: boolean) => {
 		formData.status = value ? 'active' : 'inactive';
+	},
+});
+
+// 权限数据计算属性（用于 PermissionSelector 的 v-model）
+const permissionsData = computed({
+	get: () => ({
+		viewPermissionMode: formData.viewPermissionMode,
+		viewTeams: formData.viewTeams,
+		useSameGroups: JSON.stringify(formData.viewTeams) === JSON.stringify(formData.operateTeams),
+		operateTeams: formData.operateTeams,
+	}),
+	set: (value: {
+		viewPermissionMode: number;
+		viewTeams: string[];
+		useSameGroups: boolean;
+		operateTeams: string[];
+	}) => {
+		formData.viewPermissionMode = value.viewPermissionMode;
+		formData.viewTeams = value.viewTeams;
+		formData.operateTeams = value.operateTeams;
 	},
 });
 
@@ -195,15 +213,11 @@ watch(
 				? !!newData.isDefault
 				: false; // 编辑模式下不自动设为默认
 
-			// 初始化权限数据
-			if (newData.permissions) {
-				formData.permissions = {
-					viewPermissionType: newData.permissions.viewPermissionType || 'public',
-					viewGroups: newData.permissions.viewGroups || [],
-					useSameGroups: newData.permissions.useSameGroups ?? true,
-					operateGroups: newData.permissions.operateGroups || [],
-				};
-			}
+			// 初始化权限数据（直接从根节点读取）
+			formData.viewPermissionMode =
+				newData.viewPermissionMode ?? ViewPermissionModeEnum.Public;
+			formData.viewTeams = newData.viewTeams || [];
+			formData.operateTeams = newData.operateTeams || [];
 		} else if (!props.isEditing) {
 			// 创建模式：没有初始数据时检查默认值
 			checkAndSetDefaultValue();

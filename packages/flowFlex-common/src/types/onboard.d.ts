@@ -293,6 +293,9 @@ export interface Workflow {
 	isActive?: boolean;
 	version: number;
 	stages: Stage[];
+	viewPermissionMode: number;
+	viewTeams: string[];
+	operateTeams: string[];
 }
 
 export interface Checklist {
