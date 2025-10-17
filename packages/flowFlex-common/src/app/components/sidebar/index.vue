@@ -9,7 +9,7 @@
 				<PurpleLogo v-else width="48" height="48" />
 				<div class="flex flex-col dark:text-white">
 					<div class="text-2xl font-bold">item</div>
-					<div class="text-sm font-bold">WFE</div>
+					<div class="text-sm font-bold">{{ globSetting.title }}</div>
 				</div>
 			</div>
 			<el-scrollbar :class="['mt-4 pr-1']">
@@ -31,7 +31,9 @@ import { router } from '@/router';
 import Logo from '@assets/svg/layout/logo.svg';
 import PurpleLogo from '@assets/svg/layout/purpleLogo.svg';
 import { useTheme } from '@/utils/theme';
-// const globSetting = useGlobSetting();
+import { useGlobSetting } from '@/settings';
+
+const globSetting = useGlobSetting();
 
 const props = defineProps({
 	isCollapse: {
