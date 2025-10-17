@@ -1066,6 +1066,10 @@ const createWorkflow = async (newWorkflow: Partial<Workflow>) => {
 			status: newWorkflow.status || 'Active',
 			isActive: newWorkflow.status === 'active',
 			version: 1,
+			// 权限字段
+			viewPermissionMode: newWorkflow.viewPermissionMode ?? 0, // 默认为 Public
+			viewTeams: newWorkflow.viewTeams ?? [],
+			operateTeams: newWorkflow.operateTeams ?? [],
 		};
 		// 调用创建工作流API
 		const res = await createWorkflowApi(params);
@@ -1099,6 +1103,11 @@ const updateWorkflow = async (updatedWorkflow: Partial<Workflow>) => {
 			status: updatedWorkflow.status || workflow.value.status,
 			isActive: (updatedWorkflow.status || workflow.value.status) === 'active',
 			version: workflow.value.version + 1,
+			// 使用 ?? 运算符，允许 0 作为有效值
+			viewPermissionMode:
+				updatedWorkflow.viewPermissionMode ?? workflow.value.viewPermissionMode,
+			viewTeams: updatedWorkflow.viewTeams ?? workflow.value.viewTeams,
+			operateTeams: updatedWorkflow.operateTeams ?? workflow.value.operateTeams,
 		};
 
 		// 调用更新工作流API

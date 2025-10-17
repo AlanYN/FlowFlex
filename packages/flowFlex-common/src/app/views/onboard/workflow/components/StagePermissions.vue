@@ -6,13 +6,22 @@
 
 			<el-radio-group v-model="localPermissions.portalAvailability" class="w-full">
 				<div class="flex flex-row justify-center items-center gap-4">
-					<el-radio value="viewable" class="permission-radio-horizontal">
+					<el-radio
+						:value="PortalAvailabilityEnum.Viewable"
+						class="permission-radio-horizontal"
+					>
 						<span class="font-medium">Viewable</span>
 					</el-radio>
-					<el-radio value="completable" class="permission-radio-horizontal">
+					<el-radio
+						:value="PortalAvailabilityEnum.Completable"
+						class="permission-radio-horizontal"
+					>
 						<span class="font-medium">Completable</span>
 					</el-radio>
-					<el-radio value="notAvailable" class="permission-radio-horizontal">
+					<el-radio
+						:value="PortalAvailabilityEnum.NotAvailable"
+						class="permission-radio-horizontal"
+					>
 						<span class="font-medium">Not Available</span>
 					</el-radio>
 				</div>
@@ -51,12 +60,13 @@
 <script setup lang="ts">
 import { reactive, watch } from 'vue';
 import PermissionSelector from './PermissionSelector.vue';
+import { PortalAvailabilityEnum, ViewPermissionModeEnum } from '@/enums/permissionEnum';
 
 interface PermissionData {
-	viewPermissionType: string;
-	viewGroups: string[];
+	viewPermissionMode: number;
+	viewTeams: string[];
 	useSameGroups: boolean;
-	operateGroups: string[];
+	operateTeams: string[];
 }
 
 interface PermissionField {
@@ -68,24 +78,24 @@ interface PermissionField {
 
 interface Props {
 	modelValue?: {
-		portalAvailability: string;
+		portalAvailability: number;
 		fields: PermissionField[];
 	};
 }
 
 const props = withDefaults(defineProps<Props>(), {
 	modelValue: () => ({
-		portalAvailability: 'viewable',
+		portalAvailability: PortalAvailabilityEnum.Viewable,
 		fields: [
 			{
 				id: 'stage',
 				name: 'Stage',
 				type: 'stage',
 				permissions: {
-					viewPermissionType: 'public',
-					viewGroups: [],
+					viewPermissionMode: ViewPermissionModeEnum.Public,
+					viewTeams: [],
 					useSameGroups: true,
-					operateGroups: [],
+					operateTeams: [],
 				},
 			},
 			{
@@ -93,10 +103,10 @@ const props = withDefaults(defineProps<Props>(), {
 				name: 'Company Name',
 				type: 'field',
 				permissions: {
-					viewPermissionType: 'public',
-					viewGroups: [],
+					viewPermissionMode: ViewPermissionModeEnum.Public,
+					viewTeams: [],
 					useSameGroups: true,
-					operateGroups: [],
+					operateTeams: [],
 				},
 			},
 		],
@@ -107,7 +117,7 @@ const emit = defineEmits(['update:modelValue']);
 
 // 本地数据
 const localPermissions = reactive({
-	portalAvailability: props.modelValue.portalAvailability || 'viewable',
+	portalAvailability: props.modelValue.portalAvailability ?? PortalAvailabilityEnum.Viewable,
 });
 
 // 字段权限列表（临时写死）
@@ -117,10 +127,10 @@ const permissionFields = reactive<PermissionField[]>([
 		name: 'Stage',
 		type: 'stage',
 		permissions: {
-			viewPermissionType: 'public',
-			viewGroups: [],
+			viewPermissionMode: ViewPermissionModeEnum.Public,
+			viewTeams: [],
 			useSameGroups: true,
-			operateGroups: [],
+			operateTeams: [],
 		},
 	},
 	{
@@ -128,10 +138,10 @@ const permissionFields = reactive<PermissionField[]>([
 		name: 'Company Name',
 		type: 'field',
 		permissions: {
-			viewPermissionType: 'public',
-			viewGroups: [],
+			viewPermissionMode: ViewPermissionModeEnum.Public,
+			viewTeams: [],
 			useSameGroups: true,
-			operateGroups: [],
+			operateTeams: [],
 		},
 	},
 ]);
@@ -165,7 +175,8 @@ watch(
 	() => props.modelValue,
 	(newVal) => {
 		if (newVal) {
-			localPermissions.portalAvailability = newVal.portalAvailability || 'viewable';
+			localPermissions.portalAvailability =
+				newVal.portalAvailability ?? PortalAvailabilityEnum.Viewable;
 			if (newVal.fields && newVal.fields.length > 0) {
 				permissionFields.splice(0, permissionFields.length, ...newVal.fields);
 			}
