@@ -226,16 +226,13 @@
 												{{ option.label }}
 											</div>
 											<!-- 显示选项的action标签 -->
-											<span
+											<el-tag
 												v-if="item.type === 'multiple_choice'"
-												class="jump-badge flex-shrink-0"
-												:class="
-													getJumpTargetClass(item, option.temporaryId)
-												"
+												type="primary"
 											>
 												→
 												{{ getJumpTargetName(item, option.temporaryId) }}
-											</span>
+											</el-tag>
 											<el-tag
 												v-if="option.action"
 												type="success"
@@ -629,20 +626,6 @@ const getJumpTargetName = (question: QuestionnaireSection, optionId: string) => 
 
 	return 'Next';
 };
-
-// 获取跳转目标的样式类
-const getJumpTargetClass = (question: QuestionnaireSection, optionId: string) => {
-	if (!question.jumpRules || question.jumpRules.length === 0) {
-		return 'jump-default';
-	}
-
-	const jumpRule = question.jumpRules.find((rule) => rule.optionId === optionId);
-	if (jumpRule) {
-		return 'jump-custom';
-	}
-
-	return 'jump-default';
-};
 </script>
 
 <style scoped lang="scss">
@@ -793,31 +776,6 @@ const getJumpTargetClass = (question: QuestionnaireSection, optionId: string) =>
 	transition: all 0.2s;
 }
 
-.jump-badge {
-	display: inline-flex;
-	align-items: center;
-	padding: 0.125rem 0.625rem;
-	border-radius: 9999px;
-	border: 1px solid transparent;
-	font-size: 0.75rem;
-	font-weight: 600;
-	transition: all 0.2s;
-}
-
-.jump-badge.jump-default {
-	color: var(--el-color-primary);
-	background-color: var(--el-color-primary-light-9);
-}
-
-.jump-badge.jump-custom {
-	color: var(--el-color-primary);
-	background-color: var(--el-color-primary-light-9);
-}
-
-.jump-badge:hover {
-	opacity: 0.8;
-}
-
 .empty-questions {
 	text-align: center;
 	padding: 2rem;
@@ -882,16 +840,6 @@ const getJumpTargetClass = (question: QuestionnaireSection, optionId: string) =>
 	color: var(--el-text-color-regular);
 	background-color: var(--el-fill-color-dark);
 	border-color: var(--el-border-color);
-}
-
-.dark .jump-badge.jump-default {
-	color: var(--el-color-primary-light-3);
-	background-color: var(--el-color-primary-dark-2);
-}
-
-.dark .jump-badge.jump-custom {
-	color: var(--el-color-primary-light-3);
-	background-color: var(--el-color-primary-dark-2);
 }
 
 .dark .empty-questions {

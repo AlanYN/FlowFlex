@@ -44,7 +44,12 @@
 										getQuestionNumber(questionIndex)
 									}}.
 									{{ question.title }}
-									<span v-if="question.required" class="text-red-500">*</span>
+									<span
+										v-if="question.required && !isQuestionSkipped(question)"
+										class="text-red-500"
+									>
+										*
+									</span>
 								</span>
 								<!-- Action Tag for question -->
 								<ActionTag
@@ -85,7 +90,6 @@
 								></video>
 							</div>
 						</div>
-
 						<!-- 短答题 -->
 						<el-input
 							v-if="question.type === 'short_answer' || question.type === 'text'"
@@ -93,7 +97,7 @@
 							:maxlength="questionMaxlength"
 							:placeholder="'Enter ' + question.question"
 							:disabled="disabled"
-							@input="handleInputChange(question.id, $event)"
+							@change="handleInputChange(question.id, $event)"
 						/>
 
 						<!-- 长答题 -->
@@ -110,7 +114,7 @@
 							:rows="3"
 							show-word-limit
 							:placeholder="'Enter ' + question.question"
-							@input="handleInputChange(question.id, $event)"
+							@change="handleInputChange(question.id, $event)"
 						/>
 
 						<!-- 单选题 -->
@@ -567,13 +571,12 @@
 					</div>
 
 					<!-- 统一的底部导航控件 -->
-					<div v-if="totalSections > 1" class="bottom-navigation">
+					<div class="bottom-navigation">
 						<!-- 左侧：上一页按钮 -->
 						<div class="nav-left">
 							<el-button
-								v-if="!isFirstSection"
+								v-if="!isFirstSection && totalSections > 1"
 								@click="goToPreviousSection"
-								class="pagination-btn"
 							>
 								<el-icon class="mr-1"><ArrowLeft /></el-icon>
 								Previous
@@ -599,13 +602,20 @@
 						<!-- 右侧：下一页按钮 -->
 						<div class="nav-right">
 							<el-button
-								v-if="!isLastSection"
+								v-if="!isLastSection && totalSections > 1"
 								@click="goToNextSection"
-								type="primary"
-								class="pagination-btn"
 							>
 								Next
 								<el-icon class="ml-1"><ArrowRight /></el-icon>
+							</el-button>
+							<el-button
+								@click="handleSave()"
+								type="primary"
+								:icon="Document"
+								:loading="loading"
+								:disabled="!isSubmitEnabled"
+							>
+								Submit
 							</el-button>
 						</div>
 					</div>
@@ -628,7 +638,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, watch, nextTick, readonly } from 'vue';
-import { Upload, Loading, Warning, ArrowLeft, ArrowRight } from '@element-plus/icons-vue';
+import { Upload, Loading, Warning, ArrowLeft, ArrowRight, Document } from '@element-plus/icons-vue';
 import { QuestionnaireAnswer, QuestionnaireData, ComponentData, SectionAnswer } from '#/onboard';
 import { QuestionnaireSection } from '#/section';
 // import { ElNotification } from 'element-plus';
@@ -655,9 +665,12 @@ interface Props {
 	isStageCompleted?: boolean;
 	questionnaireAnswers?: SectionAnswer;
 	disabled?: boolean;
+	isSubmitEnabled?: boolean;
+	skippedQuestions?: Set<string>;
 }
 
 const props = defineProps<Props>();
+const emit = defineEmits(['save', 'change']);
 
 const formData = ref<Record<string, any>>({});
 const loading = ref(false);
@@ -859,6 +872,8 @@ const handleRadioClick = (questionId: string, optionValue: string) => {
 // 处理表单值变化
 const handleInputChange = (questionId: string, value: any) => {
 	formData.value[questionId] = value;
+
+	emit('change');
 };
 
 // 复杂表单值变化处理
@@ -893,6 +908,8 @@ const handleHasOtherQuestion = (question: QuestionnaireSection & { id: string },
 			}
 		});
 	}
+
+	emit('change');
 };
 
 // 处理文件变化
@@ -1508,6 +1525,17 @@ const getQuestionNumber = (questionIndex: number) => {
 	return actualQuestionNumber;
 };
 
+// 检查问题是否被跳过
+const isQuestionSkipped = (question: any): boolean => {
+	if (!props.skippedQuestions) return false;
+	const questionId = question.id || question.temporaryId || question.questionId;
+	return props.skippedQuestions.has(questionId);
+};
+
+const handleSave = () => {
+	emit('save');
+};
+
 defineExpose({
 	validateForm,
 	transformFormDataForAPI,
@@ -1519,6 +1547,10 @@ defineExpose({
 	totalSections,
 	isFirstSection,
 	isLastSection,
+	// 暴露 formData 以供父组件访问
+	get formData() {
+		return formData.value;
+	},
 });
 </script>
 
@@ -1601,12 +1633,6 @@ defineExpose({
 		border-color: var(--primary-500);
 		background-color: var(--primary-500);
 	}
-}
-
-.pagination-btn {
-	display: flex;
-	align-items: center;
-	gap: 4px;
 }
 
 .section-title {
