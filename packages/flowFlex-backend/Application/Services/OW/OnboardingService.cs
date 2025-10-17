@@ -2810,6 +2810,9 @@ namespace FlowFlex.Application.Services.OW
                 return true; // Return success since the desired outcome (completion) is already achieved
             }
 
+            // Preserve the original stages_progress_json to avoid any modifications
+            var originalStagesProgressJson = entity.StagesProgressJson;
+
             entity.Status = "Completed";
             entity.CompletionRate = 100;
             entity.ActualCompletionDate = DateTimeOffset.UtcNow;
@@ -2835,10 +2838,14 @@ namespace FlowFlex.Application.Services.OW
                 SafeAppendToNotes(entity, feedbackText);
             }
 
-            // Update stage tracking info
-            await UpdateStageTrackingInfoAsync(entity);
+            // Update stage tracking info (without modifying stagesProgress)
+            entity.StageUpdatedTime = DateTimeOffset.UtcNow;
+            entity.StageUpdatedBy = _operatorContextService.GetOperatorDisplayName();
+            entity.StageUpdatedById = _operatorContextService.GetOperatorId();
+            entity.StageUpdatedByEmail = GetCurrentUserEmail();
 
-            return await SafeUpdateOnboardingAsync(entity);
+            // Use SafeUpdateOnboardingWithoutStagesProgressAsync to preserve stagesProgress
+            return await SafeUpdateOnboardingWithoutStagesProgressAsync(entity, originalStagesProgressJson);
         }
 
         /// <summary>
@@ -2856,6 +2863,9 @@ namespace FlowFlex.Application.Services.OW
             {
                 throw new CRMException(ErrorCodeEnum.BusinessError, "Onboarding is already in progress");
             }
+
+            // Preserve the original stages_progress_json to avoid any modifications
+            var originalStagesProgressJson = entity.StagesProgressJson;
 
             entity.Status = "InProgress";
             entity.ActualCompletionDate = null;
@@ -2881,10 +2891,14 @@ namespace FlowFlex.Application.Services.OW
 
             SafeAppendToNotes(entity, restartText);
 
-            // Update stage tracking info
-            await UpdateStageTrackingInfoAsync(entity);
+            // Update stage tracking info (without modifying stagesProgress)
+            entity.StageUpdatedTime = DateTimeOffset.UtcNow;
+            entity.StageUpdatedBy = _operatorContextService.GetOperatorDisplayName();
+            entity.StageUpdatedById = _operatorContextService.GetOperatorId();
+            entity.StageUpdatedByEmail = GetCurrentUserEmail();
 
-            return await SafeUpdateOnboardingAsync(entity);
+            // Use SafeUpdateOnboardingWithoutStagesProgressAsync to preserve stagesProgress
+            return await SafeUpdateOnboardingWithoutStagesProgressAsync(entity, originalStagesProgressJson);
         }
 
         /// <summary>
@@ -5798,6 +5812,9 @@ namespace FlowFlex.Application.Services.OW
                     $"Cannot start onboarding. Current status is '{entity.Status}'. Only 'Inactive' onboardings can be started.");
             }
 
+            // Preserve the original stages_progress_json to avoid any modifications
+            var originalStagesProgressJson = entity.StagesProgressJson;
+
             // Update status to Active
             entity.Status = "Active";
             entity.StartDate = DateTimeOffset.UtcNow;
@@ -5824,10 +5841,14 @@ namespace FlowFlex.Application.Services.OW
 
             SafeAppendToNotes(entity, startText);
 
-            // Update stage tracking info
-            await UpdateStageTrackingInfoAsync(entity);
+            // Update stage tracking info (without modifying stagesProgress)
+            entity.StageUpdatedTime = DateTimeOffset.UtcNow;
+            entity.StageUpdatedBy = _operatorContextService.GetOperatorDisplayName();
+            entity.StageUpdatedById = _operatorContextService.GetOperatorId();
+            entity.StageUpdatedByEmail = GetCurrentUserEmail();
 
-            return await SafeUpdateOnboardingAsync(entity);
+            // Use SafeUpdateOnboardingWithoutStagesProgressAsync to preserve stagesProgress
+            return await SafeUpdateOnboardingWithoutStagesProgressAsync(entity, originalStagesProgressJson);
         }
 
 
@@ -5849,6 +5870,9 @@ namespace FlowFlex.Application.Services.OW
                     $"Cannot abort onboarding with status '{entity.Status}'");
             }
 
+            // Preserve the original stages_progress_json to avoid any modifications
+            var originalStagesProgressJson = entity.StagesProgressJson;
+
             // Update status to Aborted
             entity.Status = "Aborted";
             entity.EstimatedCompletionDate = null; // Remove ETA
@@ -5862,10 +5886,14 @@ namespace FlowFlex.Application.Services.OW
 
             SafeAppendToNotes(entity, abortText);
 
-            // Update stage tracking info
-            await UpdateStageTrackingInfoAsync(entity);
+            // Update stage tracking info (without modifying stagesProgress)
+            entity.StageUpdatedTime = DateTimeOffset.UtcNow;
+            entity.StageUpdatedBy = _operatorContextService.GetOperatorDisplayName();
+            entity.StageUpdatedById = _operatorContextService.GetOperatorId();
+            entity.StageUpdatedByEmail = GetCurrentUserEmail();
 
-            return await SafeUpdateOnboardingAsync(entity);
+            // Use SafeUpdateOnboardingWithoutStagesProgressAsync to preserve stagesProgress
+            return await SafeUpdateOnboardingWithoutStagesProgressAsync(entity, originalStagesProgressJson);
         }
 
         /// <summary>
@@ -5886,48 +5914,18 @@ namespace FlowFlex.Application.Services.OW
                     $"Cannot reactivate onboarding. Current status is '{entity.Status}'. Only 'Aborted' onboardings can be reactivated.");
             }
 
+            // Preserve the original stages_progress_json to avoid any modifications
+            var originalStagesProgressJson = entity.StagesProgressJson;
+
             // Update status to Active
             entity.Status = "Active";
             entity.ActualCompletionDate = null;
 
-            // Reset progress if requested (default is true for reactivation)
-            if (input.ResetProgress)
-            {
-                entity.CurrentStageId = null;
-                entity.CurrentStageOrder = 0;
-                entity.CompletionRate = 0;
-                entity.CurrentStageStartTime = DateTimeOffset.UtcNow;
-
-                // Reset stages progress but preserve questionnaire answers if requested
-                LoadStagesProgressFromJson(entity);
-                if (entity.StagesProgress != null)
-                {
-                    foreach (var stage in entity.StagesProgress)
-                    {
-                        stage.IsCompleted = false;
-                        stage.Status = "Pending";
-                        stage.CompletionTime = null;
-                        stage.CompletedById = null;
-                        stage.CompletedBy = null;
-                        stage.StartTime = null;
-
-                        // Reset stage to first stage
-                        if (stage.StageOrder == 1)
-                        {
-                            stage.Status = "InProgress";
-                            stage.StartTime = DateTimeOffset.UtcNow; // Set StartTime for system reset operation
-                            stage.IsCurrent = true;
-                            entity.CurrentStageId = stage.StageId;
-                            entity.CurrentStageOrder = 1;
-                        }
-                        else
-                        {
-                            stage.IsCurrent = false;
-                        }
-                    }
-                    entity.StagesProgressJson = SerializeStagesProgress(entity.StagesProgress);
-                }
-            }
+            // Update stage tracking info (without modifying stagesProgress)
+            entity.StageUpdatedTime = DateTimeOffset.UtcNow;
+            entity.StageUpdatedBy = _operatorContextService.GetOperatorDisplayName();
+            entity.StageUpdatedById = _operatorContextService.GetOperatorId();
+            entity.StageUpdatedByEmail = GetCurrentUserEmail();
 
             // Add reactivation notes
             var reactivateText = $"[Reactivate] Onboarding reactivated from Aborted status - Reason: {input.Reason}";
@@ -5942,10 +5940,9 @@ namespace FlowFlex.Application.Services.OW
 
             SafeAppendToNotes(entity, reactivateText);
 
-            // Update stage tracking info
-            await UpdateStageTrackingInfoAsync(entity);
-
-            return await SafeUpdateOnboardingAsync(entity);
+            // CRITICAL: Use SafeUpdateOnboardingWithoutStagesProgressAsync to ensure stages_progress_json is NOT modified
+            // This preserves all existing progress state (IsCompleted, Status, CompletionTime, etc.)
+            return await SafeUpdateOnboardingWithoutStagesProgressAsync(entity, originalStagesProgressJson);
         }
 
         /// <summary>
@@ -5966,23 +5963,11 @@ namespace FlowFlex.Application.Services.OW
                     $"Cannot resume onboarding. Current status is '{entity.Status}'. Only 'Paused' onboardings can be resumed.");
             }
 
+            // Preserve the original stages_progress_json to avoid any modifications
+            var originalStagesProgressJson = entity.StagesProgressJson;
+
             // Update status to Active
             entity.Status = "Active";
-
-            // Restore ETA calculation - resume timing from where it was paused
-            // The current stage timing should continue from where it left off
-            LoadStagesProgressFromJson(entity);
-            if (entity.StagesProgress != null)
-            {
-                var currentStage = entity.StagesProgress.FirstOrDefault(s => s.IsCurrent);
-                if (currentStage != null && currentStage.StartTime.HasValue)
-                {
-                    // Calculate remaining time for current stage
-                    var timeSpentBeforePause = DateTimeOffset.UtcNow - currentStage.StartTime.Value;
-                    // The stage timing continues from where it was paused
-                    // No need to adjust StartTime as it represents the original start
-                }
-            }
 
             // Add resume notes
             var resumeText = $"[Resume] Onboarding resumed from Paused status";
@@ -5997,10 +5982,14 @@ namespace FlowFlex.Application.Services.OW
 
             SafeAppendToNotes(entity, resumeText);
 
-            // Update stage tracking info
-            await UpdateStageTrackingInfoAsync(entity);
+            // Update stage tracking info (without modifying stagesProgress)
+            entity.StageUpdatedTime = DateTimeOffset.UtcNow;
+            entity.StageUpdatedBy = _operatorContextService.GetOperatorDisplayName();
+            entity.StageUpdatedById = _operatorContextService.GetOperatorId();
+            entity.StageUpdatedByEmail = GetCurrentUserEmail();
 
-            return await SafeUpdateOnboardingAsync(entity);
+            // Use SafeUpdateOnboardingWithoutStagesProgressAsync to preserve stagesProgress
+            return await SafeUpdateOnboardingWithoutStagesProgressAsync(entity, originalStagesProgressJson);
         }
 
         /// <summary>

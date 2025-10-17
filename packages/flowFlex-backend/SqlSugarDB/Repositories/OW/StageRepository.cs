@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Logging;
+using Microsoft.AspNetCore.Http;
 using SqlSugar;
 using System.Linq;
 using System.Linq.Expressions;
@@ -13,8 +14,47 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
     /// </summary>
     public class StageRepository : BaseRepository<Stage>, IStageRepository, IScopedService
     {
-        public StageRepository(ISqlSugarClient sqlSugarClient) : base(sqlSugarClient)
+        private readonly IHttpContextAccessor _httpContextAccessor;
+        private readonly ILogger<StageRepository> _logger;
+
+        public StageRepository(ISqlSugarClient sqlSugarClient, IHttpContextAccessor httpContextAccessor, ILogger<StageRepository> logger) : base(sqlSugarClient)
         {
+            _httpContextAccessor = httpContextAccessor;
+            _logger = logger;
+        }
+
+        /// <summary>
+        /// Get current tenant ID from HTTP context
+        /// </summary>
+        private string GetCurrentTenantId()
+        {
+            var httpContext = _httpContextAccessor.HttpContext;
+            if (httpContext != null)
+            {
+                var tenantId = httpContext.Request.Headers["X-Tenant-Id"].FirstOrDefault();
+                if (!string.IsNullOrEmpty(tenantId))
+                {
+                    return tenantId;
+                }
+            }
+            return "999"; // Default tenant ID
+        }
+
+        /// <summary>
+        /// Get current app code from HTTP context
+        /// </summary>
+        private string GetCurrentAppCode()
+        {
+            var httpContext = _httpContextAccessor.HttpContext;
+            if (httpContext != null)
+            {
+                var appCode = httpContext.Request.Headers["X-App-Code"].FirstOrDefault();
+                if (!string.IsNullOrEmpty(appCode))
+                {
+                    return appCode;
+                }
+            }
+            return "OW"; // Default app code
         }
 
         /// <summary>
@@ -33,11 +73,20 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
         /// </summary>
         public async Task<(List<Stage> items, int total)> QueryPagedAsync(int pageIndex, int pageSize, long? workflowId = null, string name = null)
         {
+            // Get current tenant ID and app code
+            var currentTenantId = GetCurrentTenantId();
+            var currentAppCode = GetCurrentAppCode();
+
+            _logger.LogInformation($"[StageRepository] QueryPagedAsync with TenantId={currentTenantId}, AppCode={currentAppCode}, WorkflowId={workflowId}");
+
             // Build query condition list
             var whereExpressions = new List<Expression<Func<Stage, bool>>>();
 
             // Basic filter conditions
             whereExpressions.Add(x => x.IsValid == true);
+
+            // Add tenant and app code filters
+            whereExpressions.Add(x => x.TenantId == currentTenantId && x.AppCode == currentAppCode);
 
             if (workflowId.HasValue)
             {
@@ -138,8 +187,15 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
         /// </summary>
         public async Task<int> GetCountByColorAsync(string color)
         {
+            // Get current tenant ID and app code
+            var currentTenantId = GetCurrentTenantId();
+            var currentAppCode = GetCurrentAppCode();
+
+            _logger.LogInformation($"[StageRepository] GetCountByColorAsync with Color={color}, TenantId={currentTenantId}, AppCode={currentAppCode}");
+
             return await db.Queryable<Stage>()
                 .Where(x => x.Color == color && x.IsValid == true)
+                .Where(x => x.TenantId == currentTenantId && x.AppCode == currentAppCode)
                 .CountAsync();
         }
 
@@ -172,8 +228,15 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
         /// </summary>
         public async Task<List<Stage>> GetAllOptimizedAsync()
         {
+            // Get current tenant ID and app code
+            var currentTenantId = GetCurrentTenantId();
+            var currentAppCode = GetCurrentAppCode();
+
+            _logger.LogInformation($"[StageRepository] GetAllOptimizedAsync with TenantId={currentTenantId}, AppCode={currentAppCode}");
+
             return await db.Queryable<Stage>()
                 .Where(x => x.IsValid == true)
+                .Where(x => x.TenantId == currentTenantId && x.AppCode == currentAppCode)
                 .OrderBy(x => x.WorkflowId, OrderByType.Asc)
                 .OrderBy(x => x.Order, OrderByType.Asc)
                 .ToListAsync();

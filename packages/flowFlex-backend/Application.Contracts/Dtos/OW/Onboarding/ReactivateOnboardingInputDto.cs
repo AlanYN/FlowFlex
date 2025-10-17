@@ -21,8 +21,9 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.Onboarding
         public string? Notes { get; set; }
 
         /// <summary>
-        /// Reset progress to stage 1 (default: true for reactivation)
+        /// Reset progress to stage 1 (deprecated: this parameter is no longer used)
         /// </summary>
+        [Obsolete("This parameter is no longer used. StagesProgress fields are now preserved during reactivation.")]
         public bool ResetProgress { get; set; } = true;
 
         /// <summary>

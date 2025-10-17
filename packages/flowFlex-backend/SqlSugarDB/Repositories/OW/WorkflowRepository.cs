@@ -135,8 +135,15 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
         /// </summary>
         public async Task<Workflow> GetByNameAsync(string name)
         {
+            // Get current tenant ID and app code
+            var currentTenantId = GetCurrentTenantId();
+            var currentAppCode = GetCurrentAppCode();
+
+            _logger.LogInformation($"[WorkflowRepository] GetByNameAsync with name={name}, TenantId={currentTenantId}, AppCode={currentAppCode}");
+
             return await db.Queryable<Workflow>()
                 .Where(x => x.Name == name && x.IsValid == true)
+                .Where(x => x.TenantId == currentTenantId && x.AppCode == currentAppCode)
                 .FirstAsync();
         }
 
@@ -145,8 +152,15 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
         /// </summary>
         public async Task<Workflow> GetDefaultWorkflowAsync()
         {
+            // Get current tenant ID and app code
+            var currentTenantId = GetCurrentTenantId();
+            var currentAppCode = GetCurrentAppCode();
+
+            _logger.LogInformation($"[WorkflowRepository] GetDefaultWorkflowAsync with TenantId={currentTenantId}, AppCode={currentAppCode}");
+
             return await db.Queryable<Workflow>()
                 .Where(x => x.IsDefault == true && x.IsValid == true)
+                .Where(x => x.TenantId == currentTenantId && x.AppCode == currentAppCode)
                 .FirstAsync();
         }
 
@@ -155,20 +169,28 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
         /// </summary>
         public async Task<bool> SetDefaultWorkflowAsync(long workflowId)
         {
+            // Get current tenant ID and app code
+            var currentTenantId = GetCurrentTenantId();
+            var currentAppCode = GetCurrentAppCode();
+
+            _logger.LogInformation($"[WorkflowRepository] SetDefaultWorkflowAsync for workflowId={workflowId} with TenantId={currentTenantId}, AppCode={currentAppCode}");
+
             try
             {
                 await db.Ado.BeginTranAsync();
 
-                // Cancel default state of all other workflows
+                // Cancel default state of all other workflows in the same tenant and app
                 await db.Updateable<Workflow>()
                     .SetColumns(x => x.IsDefault == false)
                     .Where(x => x.IsValid == true && x.Id != workflowId)
+                    .Where(x => x.TenantId == currentTenantId && x.AppCode == currentAppCode)
                     .ExecuteCommandAsync();
 
-                // Set specified workflow as default
+                // Set specified workflow as default (within the same tenant and app)
                 await db.Updateable<Workflow>()
                     .SetColumns(x => x.IsDefault == true)
                     .Where(x => x.Id == workflowId && x.IsValid == true)
+                    .Where(x => x.TenantId == currentTenantId && x.AppCode == currentAppCode)
                     .ExecuteCommandAsync();
 
                 await db.Ado.CommitTranAsync();
@@ -186,9 +208,16 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
         /// </summary>
         public async Task<bool> RemoveDefaultWorkflowAsync(long workflowId)
         {
+            // Get current tenant ID and app code
+            var currentTenantId = GetCurrentTenantId();
+            var currentAppCode = GetCurrentAppCode();
+
+            _logger.LogInformation($"[WorkflowRepository] RemoveDefaultWorkflowAsync for workflowId={workflowId} with TenantId={currentTenantId}, AppCode={currentAppCode}");
+
             var result = await db.Updateable<Workflow>()
                 .SetColumns(x => x.IsDefault == false)
                 .Where(x => x.Id == workflowId && x.IsValid == true)
+                .Where(x => x.TenantId == currentTenantId && x.AppCode == currentAppCode)
                 .ExecuteCommandAsync();
 
             return result > 0;

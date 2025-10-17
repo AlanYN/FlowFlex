@@ -186,7 +186,19 @@
 						v-else
 						title="Case Progress"
 						description="Track your journey with us"
-					/>
+					>
+						<template #description>
+							<!-- 状态显示 -->
+							<div class="flex items-center" v-if="onboardingData?.status">
+								<GradientTag
+									:type="statusTagType"
+									:text="statusDisplayText"
+									:pulse="statusShouldPulse"
+									size="small"
+								/>
+							</div>
+						</template>
+					</PageHeader>
 
 					<!-- Overall Progress -->
 					<div
@@ -336,7 +348,13 @@
 								<div class="flex items-center space-x-2">
 									<button
 										@click="handleStageAction(stage)"
-										class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-xl text-white bg-primary hover:bg-primary focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500"
+										:disabled="!isStageEditable"
+										:class="[
+											'inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500',
+											isStageEditable
+												? 'bg-primary hover:bg-primary cursor-pointer'
+												: 'bg-gray-400 cursor-not-allowed opacity-60',
+										]"
 									>
 										Continue
 										<svg
@@ -461,7 +479,13 @@
 														stage.status === 'in_progress')
 												"
 												@click="handleStageAction(stage)"
-												class="inline-flex items-center px-3 py-1 border border-gray-200 text-sm font-medium rounded-xl text-gray-700 bg-gray-50 hover:bg-primary focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+												:disabled="!isStageEditable"
+												:class="[
+													'inline-flex items-center px-3 py-1 border text-sm font-medium rounded-xl focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500',
+													isStageEditable
+														? 'border-gray-200 text-gray-700 bg-gray-50 hover:bg-primary cursor-pointer'
+														: 'border-gray-300 text-gray-400 bg-gray-100 cursor-not-allowed opacity-60',
+												]"
 											>
 												<svg
 													v-if="stage.status === 'completed'"
@@ -554,6 +578,8 @@ import MessageCenter from './components/MessageCenter.vue';
 import DocumentCenter from './components/DocumentCenter.vue';
 import ContactUs from './components/ContactUs.vue';
 import PageHeader from '@/components/global/PageHeader/index.vue';
+import GradientTag from '@/components/global/GradientTag/index.vue';
+import { defaultStr } from '@/settings/projectSetting';
 
 // Icon components
 const HomeIcon = {
@@ -603,6 +629,7 @@ export default {
 		DocumentCenter,
 		ContactUs,
 		PageHeader,
+		GradientTag,
 		HomeIcon,
 		DetailsIcon,
 		MessageSquareIcon,
@@ -815,6 +842,63 @@ export default {
 			return nextPendingStage ? [nextPendingStage] : [];
 		});
 
+		// 状态显示映射 - 与portal.vue保持一致
+		const statusTagType = computed(() => {
+			const status = onboardingData.value?.status;
+			if (!status) return 'default';
+
+			switch (status) {
+				case 'Inactive':
+					return 'info';
+				case 'Active':
+				case 'InProgress':
+				case 'Started':
+					return 'primary';
+				case 'Completed':
+					return 'success';
+				case 'Force Completed':
+					return 'success';
+				case 'Paused':
+					return 'warning';
+				case 'Aborted':
+				case 'Cancelled':
+					return 'danger';
+				default:
+					return 'info';
+			}
+		});
+
+		const statusDisplayText = computed(() => {
+			const status = onboardingData.value?.status;
+			if (!status) return defaultStr;
+
+			switch (status) {
+				case 'Active':
+				case 'Started':
+					return 'In progress';
+				case 'Cancelled':
+					return 'Aborted';
+				case 'Force Completed':
+					return 'Force Completed';
+				default:
+					return status;
+			}
+		});
+
+		const statusShouldPulse = computed(() => {
+			const status = onboardingData.value?.status;
+			return ['Active', 'InProgress', 'Started', 'Paused'].includes(status || '');
+		});
+
+		// 计算是否禁用编辑按钮 - 与portal.vue保持一致
+		const isStageEditable = computed(() => {
+			const status = onboardingData.value?.status;
+			if (!status) return true;
+
+			// 对于Aborted/Cancelled/Paused/Force Completed状态，禁用编辑
+			return !['Aborted', 'Cancelled', 'Paused', 'Force Completed'].includes(status);
+		});
+
 		// 方法
 		const getStageStatusText = (status) => {
 			switch (status) {
@@ -842,6 +926,12 @@ export default {
 		};
 
 		const handleStageAction = (stage) => {
+			// 检查状态是否允许编辑
+			if (!isStageEditable.value) {
+				ElMessage.warning('This case cannot be edited in its current status');
+				return;
+			}
+
 			// Navigate to portal page with specific onboardingId
 			router.push({
 				path: '/onboard/sub-portal/portal',
@@ -905,6 +995,11 @@ export default {
 			handleNavigation,
 			handleStageAction,
 			loadOnboardingData,
+			onboardingData,
+			statusTagType,
+			statusDisplayText,
+			statusShouldPulse,
+			isStageEditable,
 		};
 	},
 };
