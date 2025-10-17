@@ -2,6 +2,8 @@ using SqlSugar;
 using FlowFlex.Domain.Entities.OW;
 using FlowFlex.Domain.Repository.OW;
 using FlowFlex.Domain.Shared;
+using FlowFlex.Domain.Shared.Models;
+using StackExchange.Redis;
 
 namespace FlowFlex.SqlSugarDB.Implements.OW
 {
@@ -15,9 +17,14 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
         /// <summary>
         /// Get answer by Onboarding ID and Stage ID
         /// </summary>
-        public async Task<QuestionnaireAnswer?> GetByOnboardingAndStageAsync(long onboardingId, long stageId, long questionnaireId)
+        public async Task<QuestionnaireAnswer?> GetByOnboardingAndStageAsync(long onboardingId, long stageId, long questionnaireId = 0)
         {
-            return await base.GetFirstAsync(x => x.OnboardingId == onboardingId && x.StageId == stageId && x.QuestionnaireId == questionnaireId && x.IsLatest && x.IsValid);
+            var whereExpression = Expressionable.Create<QuestionnaireAnswer>().And(x => x.OnboardingId == onboardingId && x.StageId == stageId && x.IsLatest && x.IsValid);
+            if (questionnaireId > 0)
+            {
+                whereExpression.And(x => x.QuestionnaireId == questionnaireId);
+            }
+            return await base.GetFirstAsync(whereExpression.ToExpression());
         }
 
         /// <summary>

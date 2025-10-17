@@ -14,7 +14,7 @@ namespace FlowFlex.Domain.Repository.OW
         /// <param name="stageId">Stage ID</param>
         /// <param name="questionnaireId">Questionnaire ID</param>
         /// <returns>Questionnaire answer</returns>
-        Task<QuestionnaireAnswer?> GetByOnboardingAndStageAsync(long onboardingId, long stageId, long questionnaireId);
+        Task<QuestionnaireAnswer?> GetByOnboardingAndStageAsync(long onboardingId, long stageId, long questionnaireId = 0);
 
         /// <summary>
         /// Get answer by Onboarding ID, Stage ID and Questionnaire ID
