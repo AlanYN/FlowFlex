@@ -78,3 +78,8 @@ html.dark .wfe-global-block-bg::after {
 #nprogress .bar {
   background: var(--el-color-primary) !important;
 }
+
+#nprogress .spinner-icon {
+  border-top-color: var(--el-color-primary) !important;
+  border-left-color: var(--el-color-primary) !important;
+}
