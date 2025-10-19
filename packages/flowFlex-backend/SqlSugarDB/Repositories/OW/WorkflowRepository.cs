@@ -80,8 +80,13 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
             }
 
             // Apply sorting based on sortField and sortDirection
+            // Always put IsDefault=true workflows first, then apply secondary sorting
             var isAsc = sortDirection?.ToLower() == "asc";
 
+            // First, always order by IsDefault descending (true first)
+            query = query.OrderByDescending(x => x.IsDefault);
+
+            // Then apply secondary sorting based on sortField
             switch (sortField?.ToLower())
             {
                 case "name":
@@ -92,8 +97,8 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
                                   : query.OrderByDescending(x => x.IsActive).OrderByDescending(x => x.CreateDate);
                     break;
                 case "isdefault":
-                    query = isAsc ? query.OrderBy(x => x.IsDefault).OrderByDescending(x => x.CreateDate)
-                                  : query.OrderByDescending(x => x.IsDefault).OrderByDescending(x => x.CreateDate);
+                    // IsDefault is already handled as primary sort, just add CreateDate as secondary
+                    query = isAsc ? query.OrderBy(x => x.CreateDate) : query.OrderByDescending(x => x.CreateDate);
                     break;
                 case "startdate":
                     query = isAsc ? query.OrderBy(x => x.StartDate) : query.OrderByDescending(x => x.StartDate);
@@ -105,17 +110,6 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
                 default:
                     query = isAsc ? query.OrderBy(x => x.CreateDate) : query.OrderByDescending(x => x.CreateDate);
                     break;
-            }
-
-            // Ensure default workflow always comes first when sorting by IsDefault desc or CreateDate desc
-            if (sortField?.ToLower() == "isdefault" && !isAsc)
-            {
-                query = query.OrderByDescending(x => x.IsDefault).OrderByDescending(x => x.CreateDate);
-            }
-            else if (sortField?.ToLower() == "createdate" && !isAsc)
-            {
-                // When sorting by CreateDate desc, put default workflow first
-                query = query.OrderByDescending(x => x.IsDefault).OrderByDescending(x => x.CreateDate);
             }
 
             // Get total count
