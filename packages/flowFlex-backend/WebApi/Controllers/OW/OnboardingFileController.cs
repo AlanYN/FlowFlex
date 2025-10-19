@@ -7,6 +7,7 @@ using FlowFlex.Application.Contracts.Dtos.OW.OnboardingFile;
 
 using Item.Internal.StandardApi.Response;
 using System.ComponentModel;
+using FlowFlex.Application.Filter;
 
 namespace FlowFlex.WebApi.Controllers.OW
 {
@@ -14,6 +15,7 @@ namespace FlowFlex.WebApi.Controllers.OW
     /// Onboarding file management API
     /// </summary>
     [ApiController]
+    [PortalAccess] // Allow Portal token access - Portal users can upload and view files
     [Route("ow/onboardings/{onboardingId}/files/v{version:apiVersion}")]
     [Display(Name = "onboarding-files")]
     [Authorize] // 添加授权特性，要求所有onboarding file API都需要认证

@@ -7,6 +7,7 @@ using FlowFlex.Application.Contracts.IServices.OW;
 using FlowFlex.Domain.Shared.Attr;
 using Item.Internal.StandardApi.Response;
 using FlowFlex.WebApi.Model.Response;
+using FlowFlex.Application.Filter;
 
 
 namespace FlowFlex.WebApi.Controllers.OW
@@ -16,7 +17,7 @@ namespace FlowFlex.WebApi.Controllers.OW
     /// </summary>
 
     [ApiController]
-
+    [PortalAccess] // Allow Portal token access - Portal users can submit and view questionnaire answers
     [Route("ow/questionnaire-answers/v{version:apiVersion}")]
     [Display(Name = "questionnaire-answers")]
 

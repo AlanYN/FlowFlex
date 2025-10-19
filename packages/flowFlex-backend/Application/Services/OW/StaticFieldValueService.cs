@@ -29,6 +29,7 @@ namespace FlowFlex.Application.Services.OW
         private readonly IOperationChangeLogService _operationChangeLogService;
         private readonly IMapper _mapper;
         private readonly UserContext _userContext;
+        private readonly IOperatorContextService _operatorContextService;
         private readonly IdmUserDataClient _idmUserDataClient;
 
         public StaticFieldValueService(
@@ -38,6 +39,7 @@ namespace FlowFlex.Application.Services.OW
             IOperationChangeLogService operationChangeLogService,
             IMapper mapper,
             UserContext userContext,
+            IOperatorContextService operatorContextService,
             IdmUserDataClient idmUserDataClient)
         {
             _staticFieldValueRepository = staticFieldValueRepository;
@@ -46,6 +48,7 @@ namespace FlowFlex.Application.Services.OW
             _operationChangeLogService = operationChangeLogService;
             _mapper = mapper;
             _userContext = userContext;
+            _operatorContextService = operatorContextService;
             _idmUserDataClient = idmUserDataClient;
         }
 
@@ -112,6 +115,7 @@ namespace FlowFlex.Application.Services.OW
                 // Update existing record and replace StageId
                 entity.Id = existingEntity.Id;
                 entity.InitUpdateInfo(_userContext);
+                AuditHelper.ApplyModifyAudit(entity, _operatorContextService);
                 entity.Version = existingEntity.Version + 1;
                 entity.IsLatest = true;
 
@@ -139,6 +143,7 @@ namespace FlowFlex.Application.Services.OW
             {
                 // Create new record
                 entity.InitCreateInfo(_userContext);
+                AuditHelper.ApplyCreateAudit(entity, _operatorContextService);
                 entity.Version = 1;
                 entity.IsLatest = true;
 
@@ -186,6 +191,10 @@ namespace FlowFlex.Application.Services.OW
 
                 // Initialize create/update information
                 entity.InitCreateInfo(_userContext);
+                AuditHelper.ApplyCreateAudit(entity, _operatorContextService);
+                
+                // Debug logging for audit fields
+                Console.WriteLine($"[StaticFieldValueService] After audit - Field: {entity.FieldName}, CreateBy: '{entity.CreateBy}', ModifyBy: '{entity.ModifyBy}', CreateUserId: {entity.CreateUserId}, ModifyUserId: {entity.ModifyUserId}");
 
                 // Store fieldLabel mapping for operation logging
                 if (!string.IsNullOrEmpty(fieldValue.FieldLabel))

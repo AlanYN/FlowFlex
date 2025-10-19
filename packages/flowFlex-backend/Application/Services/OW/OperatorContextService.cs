@@ -22,13 +22,20 @@ namespace FlowFlex.Application.Services.OW
 
         public string GetOperatorDisplayName()
         {
+            Console.WriteLine($"[OperatorContextService] GetOperatorDisplayName called");
+            Console.WriteLine($"[OperatorContextService] UserContext.Email: '{_userContext?.Email ?? "null"}'");
+            Console.WriteLine($"[OperatorContextService] UserContext.UserName: '{_userContext?.UserName ?? "null"}'");
+            Console.WriteLine($"[OperatorContextService] UserContext.UserId: '{_userContext?.UserId ?? "null"}'");
+            
             // Prefer explicit email then username from UserContext
             if (!string.IsNullOrWhiteSpace(_userContext?.Email))
             {
+                Console.WriteLine($"[OperatorContextService] Returning Email: '{_userContext.Email}'");
                 return _userContext.Email;
             }
             if (!string.IsNullOrWhiteSpace(_userContext?.UserName))
             {
+                Console.WriteLine($"[OperatorContextService] Returning UserName: '{_userContext.UserName}'");
                 return _userContext.UserName;
             }
 
@@ -69,6 +76,14 @@ namespace FlowFlex.Application.Services.OW
                 }
             }
 
+            // Fallback: use UserId if available
+            if (!string.IsNullOrWhiteSpace(_userContext?.UserId))
+            {
+                Console.WriteLine($"[OperatorContextService] Using UserId as fallback: 'User_{_userContext.UserId}'");
+                return $"User_{_userContext.UserId}";
+            }
+
+            Console.WriteLine($"[OperatorContextService] No user info found, returning 'System'");
             return "System";
         }
 

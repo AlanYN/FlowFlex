@@ -134,20 +134,29 @@ const transform: AxiosTransform = {
 		const token = tokenObj?.accessToken?.token;
 		const authenticat = tokenObj?.accessToken?.tokenType;
 
-		// Portal页面优先使用标准用户认证，fallback到portal_access_token
+		// Portal Token Management
+		// Portal users have limited scope tokens that can only access Portal-specific endpoints
 		const portalAccessToken = localStorage.getItem('portal_access_token');
-		const isPortalRequest =
+		const isPortalPath =
 			window.location.pathname.startsWith('/customer-portal') ||
-			window.location.pathname.startsWith('/onboard/sub-portal/portal');
+			window.location.pathname.startsWith('/onboard/sub-portal/portal') ||
+			window.location.pathname.startsWith('/portal-access');
 
-		if (token && (config as Recordable)?.requestOptions?.withToken !== false) {
-			// 优先使用标准用户认证（包括portal页面）
+		// Priority: Portal Token > Regular Token (for Portal paths)
+		// This ensures Portal users use their limited-scope token
+		if (
+			isPortalPath &&
+			portalAccessToken &&
+			(config as Recordable)?.requestOptions?.withToken !== false
+		) {
+			// Use Portal token for Portal pages - has limited scope (scope: portal)
+			(config as Recordable).headers.Authorization = `Bearer ${portalAccessToken}`;
+			console.log('[Portal Token] Using Portal access token for Portal request');
+		} else if (token && (config as Recordable)?.requestOptions?.withToken !== false) {
+			// Use regular user token for non-Portal pages or when Portal token is not available
 			(config as Recordable).headers.Authorization = authenticat
 				? `${authenticat} ${token}`
 				: `${options.authenticationScheme} ${token}`;
-		} else if (isPortalRequest && portalAccessToken) {
-			// 当没有标准认证时，portal页面才使用portal访问token
-			(config as Recordable).headers.Authorization = `Bearer ${portalAccessToken}`;
 		} else {
 			if (Object.keys((config as Recordable)?.requestOptions).includes('Authorization')) {
 				(config as Recordable).headers.Authorization = (config as Recordable)

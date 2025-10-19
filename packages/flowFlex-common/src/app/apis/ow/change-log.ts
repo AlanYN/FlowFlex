@@ -348,7 +348,8 @@ export function parseTaskStatusChanges(beforeData: any, afterData: any): string 
 export function parseStaticFieldChanges(
 	beforeData: any,
 	afterData: any,
-	changedFields?: string[]
+	changedFields?: string[],
+	userMap?: Map<string, string>
 ): Array<{
 	fieldName: string;
 	beforeValue: string;
@@ -381,6 +382,11 @@ export function parseStaticFieldChanges(
 				}
 			} catch {
 				// 如果解析失败，保持原值
+			}
+
+			// 特殊处理 Assignee 字段
+			if (isAssigneeField(after.fieldName)) {
+				afterValue = parseAssigneeValue(afterValue, userMap);
 			}
 
 			changes.push({
@@ -426,6 +432,12 @@ export function parseStaticFieldChanges(
 					// 如果解析失败，保持原值
 				}
 
+				// 特殊处理 Assignee 字段
+				if (isAssigneeField(before.fieldName || after.fieldName)) {
+					beforeValue = parseAssigneeValue(beforeValue, userMap);
+					afterValue = parseAssigneeValue(afterValue, userMap);
+				}
+
 				changes.push({
 					fieldName: before.fieldName || after.fieldName,
 					beforeValue: String(beforeValue || ''),
@@ -437,10 +449,19 @@ export function parseStaticFieldChanges(
 
 				fieldsToCompare.forEach((field) => {
 					if (before[field] !== after[field]) {
+						let beforeValue = before[field];
+						let afterValue = after[field];
+
+						// 特殊处理 Assignee 字段
+						if (isAssigneeField(field)) {
+							beforeValue = parseAssigneeValue(beforeValue, userMap);
+							afterValue = parseAssigneeValue(afterValue, userMap);
+						}
+
 						changes.push({
 							fieldName: field,
-							beforeValue: String(before[field] || ''),
-							afterValue: String(after[field] || ''),
+							beforeValue: String(beforeValue || ''),
+							afterValue: String(afterValue || ''),
 						});
 					}
 				});
@@ -452,6 +473,154 @@ export function parseStaticFieldChanges(
 		console.error('Error parsing static field changes:', error);
 		return [];
 	}
+}
+
+/**
+ * 判断是否为 Assignee 字段
+ */
+function isAssigneeField(fieldName: string): boolean {
+	return (
+		fieldName &&
+		(fieldName.toUpperCase() === 'ASSIGNEE' || fieldName.toLowerCase() === 'assignee')
+	);
+}
+
+/**
+ * 解析 Assignee 字段值，将用户 ID 映射为用户名
+ */
+function parseAssigneeValue(value: any, userMap?: Map<string, string>): string {
+	if (!value || value === 'null' || !userMap) {
+		return String(value || '');
+	}
+
+	try {
+		// 尝试解析嵌套的 JSON 结构
+		let parsedValue = value;
+
+		// 如果是字符串，尝试解析为 JSON
+		if (typeof value === 'string') {
+			try {
+				parsedValue = JSON.parse(value);
+			} catch {
+				// 如果解析失败，可能是简单的字符串或数组字符串
+				parsedValue = value;
+			}
+		}
+
+		// 情况 1: 包含 displayValue 的对象（后端已处理）
+		if (parsedValue && typeof parsedValue === 'object' && parsedValue.displayValue) {
+			// 尝试将 displayValue 中的 ID 替换为用户名
+			return replaceIdsWithNames(parsedValue.displayValue, userMap);
+		}
+
+		// 情况 2: 包含 userIds 的对象
+		if (parsedValue && typeof parsedValue === 'object' && parsedValue.userIds) {
+			const userIds = Array.isArray(parsedValue.userIds)
+				? parsedValue.userIds
+				: [parsedValue.userIds];
+			return mapUserIdsToNames(userIds, userMap);
+		}
+
+		// 情况 3: 包含 value 属性的嵌套对象
+		if (parsedValue && typeof parsedValue === 'object' && parsedValue.value) {
+			// 递归解析 value 属性
+			return parseAssigneeValue(parsedValue.value, userMap);
+		}
+
+		// 情况 4: 直接是用户 ID 数组
+		if (Array.isArray(parsedValue)) {
+			return mapUserIdsToNames(parsedValue, userMap);
+		}
+
+		// 情况 5: 字符串形式的数组 "[\"1080\",\"4362\"]"
+		if (typeof parsedValue === 'string' && parsedValue.trim().startsWith('[')) {
+			try {
+				const userIds = JSON.parse(parsedValue);
+				if (Array.isArray(userIds)) {
+					return mapUserIdsToNames(userIds, userMap);
+				}
+			} catch {
+				// 解析失败，返回原值
+			}
+		}
+
+		// 默认返回原值
+		return String(value);
+	} catch (error) {
+		console.error('Error parsing assignee value:', error);
+		return String(value || '');
+	}
+}
+
+/**
+ * 将用户 ID 数组映射为用户名字符串
+ */
+function mapUserIdsToNames(userIds: string[], userMap: Map<string, string>): string {
+	if (!userIds || !Array.isArray(userIds) || userIds.length === 0) {
+		return '';
+	}
+
+	const userNames = userIds.map((id) => {
+		const userId = String(id).trim();
+		return userMap.get(userId) || userId; // 如果找不到映射，返回原 ID
+	});
+
+	return userNames.join(', ');
+}
+
+/**
+ * 替换字符串中的用户 ID 为用户名
+ */
+function replaceIdsWithNames(displayValue: string, userMap: Map<string, string>): string {
+	if (!displayValue || !userMap) {
+		return displayValue;
+	}
+
+	let result = displayValue;
+
+	// 遍历 userMap，将所有匹配的 ID 替换为用户名
+	userMap.forEach((userName, userId) => {
+		// 使用正则表达式进行全局替换，确保只替换完整的 ID
+		const regex = new RegExp(`\\b${userId}\\b`, 'g');
+		result = result.replace(regex, userName);
+	});
+
+	return result;
+}
+
+/**
+ * 从用户树构建用户 ID 到用户名的映射
+ * @param userTree 用户树数据（来自 /api/ow/users/tree）
+ * @returns Map<userId, userName>
+ */
+export function buildUserMapFromTree(userTree: any[]): Map<string, string> {
+	const userMap = new Map<string, string>();
+
+	if (!userTree || !Array.isArray(userTree)) {
+		return userMap;
+	}
+
+	// 递归遍历用户树
+	function traverseTree(nodes: any[]) {
+		if (!nodes || !Array.isArray(nodes)) return;
+
+		nodes.forEach((node) => {
+			// 如果是用户节点，添加到映射
+			if (node.type === 'user' && node.id) {
+				// 优先使用 name，其次使用 username，最后使用 id
+				const displayName = node.name || node.username || node.id;
+				userMap.set(String(node.id), displayName);
+			}
+
+			// 如果有子节点，递归处理
+			if (node.children && Array.isArray(node.children)) {
+				traverseTree(node.children);
+			}
+		});
+	}
+
+	traverseTree(userTree);
+	return userMap;
 }
 
 /**

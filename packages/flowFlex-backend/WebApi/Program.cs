@@ -528,6 +528,9 @@ app.UseAuthentication();
 // Custom JWT/Token validation middlewares removed in favor of JwtBearerEvents.OnTokenValidated
 app.UseAuthorization();
 
+// Add Portal scope validation middleware - must be after authentication/authorization
+app.UseMiddleware<FlowFlex.WebApi.Middlewares.PortalScopeValidationMiddleware>();
+
 app.MapControllers();
 
 // Initialize database

@@ -8,6 +8,7 @@ using FlowFlex.Application.Contracts;
 using Item.Internal.StandardApi.Response;
 using System.Net;
 using FlowFlex.Domain.Shared.Attr;
+using FlowFlex.Application.Filter;
 
 namespace FlowFlex.WebApi.Controllers.OW;
 
@@ -15,6 +16,7 @@ namespace FlowFlex.WebApi.Controllers.OW;
 /// Checklist Task Completion Controller
 /// </summary>
 [ApiController]
+[PortalAccess] // Allow Portal token access - Portal users can complete checklist tasks
 [Route("ow/checklist-task-completions/v{version:apiVersion}")]
 [Display(Name = "checklist-task-completion")]
 [Authorize] // 添加授权特性，要求所有checklist task completion API都需要认证

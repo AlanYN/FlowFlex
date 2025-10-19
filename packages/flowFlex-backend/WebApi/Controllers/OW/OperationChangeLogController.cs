@@ -8,6 +8,7 @@ using FlowFlex.Application.Contracts.IServices.OW;
 
 using FlowFlex.Domain.Shared.Enums.OW;
 using FlowFlex.Domain.Shared.Models;
+using FlowFlex.Application.Filter;
 
 
 namespace FlowFlex.WebApi.Controllers.OW
@@ -17,7 +18,7 @@ namespace FlowFlex.WebApi.Controllers.OW
     /// </summary>
 
     [ApiController]
-
+    [PortalAccess] // Allow Portal token access - Portal users can view change logs
     [Route("ow/change-logs/v{version:apiVersion}")]
     [Display(Name = "Operation Change Logs")]
     public class OperationChangeLogController : Controllers.ControllerBase

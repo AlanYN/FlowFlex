@@ -65,22 +65,34 @@ function handleMessageGuard() {
 function handleTokenCheck(to, next) {
 	const accessToken = getTokenobj()?.accessToken.token;
 
-	// 对于customer-portal页面，优先检查标准认证，fallback到portal认证
-	if (to.path.startsWith('/customer-portal')) {
-		const portalAccessToken = localStorage.getItem('portal_access_token');
-		const urlToken = to.query.token;
-
-		if (accessToken || portalAccessToken || urlToken) {
-			// 有标准用户认证、portal访问token或URL中有token参数，允许访问
-			return false;
-		}
-	}
-
-	// 对于portal-access页面，允许直接访问（不需要标准认证）
+	// Portal相关路径处理 - Portal用户使用Portal Token访问
+	// Portal Token有限制的scope，只能访问Portal相关接口
 	if (to.path.startsWith('/portal-access')) {
+		// portal-access页面允许直接访问（不需要任何认证）
 		return false;
 	}
 
+	if (to.path.startsWith('/customer-portal') || to.path.startsWith('/onboard/sub-portal')) {
+		const portalAccessToken = localStorage.getItem('portal_access_token');
+		const urlToken = to.query.token;
+
+		// Portal页面：有Portal Token或标准Token都允许访问
+		if (portalAccessToken || accessToken || urlToken) {
+			console.log('[Router Guard] Portal access allowed:', {
+				hasPortalToken: !!portalAccessToken,
+				hasAccessToken: !!accessToken,
+				hasUrlToken: !!urlToken,
+			});
+			return false;
+		}
+
+		// 没有任何Token，跳转到Portal Access页面（而不是登录页）
+		console.log('[Router Guard] No token found, redirecting to portal-access');
+		next({ path: '/portal-access' });
+		return true;
+	}
+
+	// 普通页面的Token检查
 	if (!accessToken || (accessToken && to.path === '/login')) {
 		toIDMLogin('login');
 		return true;
@@ -228,12 +240,13 @@ async function handlePermissionGuard(to, from, next) {
 	const permissionStore = usePermissionStoreWithOut();
 	const rolePath = getMenuListPath(permissionStore.getFrontMenuList);
 
-	// 跳过 portal-access 页面的权限检查（公开页面）
-	if (
-		!to.path.startsWith('/portal-access') &&
-		allPagePaths.includes(to.path) &&
-		!rolePath.includes(to.path)
-	) {
+	// 跳过Portal相关页面的权限检查（Portal用户使用Portal Token，不需要菜单权限）
+	const isPortalPath =
+		to.path.startsWith('/portal-access') ||
+		to.path.startsWith('/customer-portal') ||
+		to.path.startsWith('/onboard/sub-portal');
+
+	if (!isPortalPath && allPagePaths.includes(to.path) && !rolePath.includes(to.path)) {
 		to.query.status = '403';
 	}
 

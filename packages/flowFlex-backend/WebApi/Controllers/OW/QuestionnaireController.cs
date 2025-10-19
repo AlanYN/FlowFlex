@@ -8,6 +8,7 @@ using FlowFlex.Application.Contracts.IServices.OW;
 using FlowFlex.Application.Contracts;
 using Item.Internal.StandardApi.Response;
 using System.Net;
+using FlowFlex.Application.Filter;
 
 namespace FlowFlex.WebApi.Controllers.OW
 {
@@ -15,6 +16,7 @@ namespace FlowFlex.WebApi.Controllers.OW
     /// Questionnaire management API
     /// </summary>
     [ApiController]
+    [PortalAccess] // Allow Portal token access - Portal users can view and submit questionnaires
     [Route("ow/questionnaires/v{version:apiVersion}")]
     [Display(Name = "questionnaire")]
     [Authorize] // 添加授权特性，要求所有questionnaire API都需要认证

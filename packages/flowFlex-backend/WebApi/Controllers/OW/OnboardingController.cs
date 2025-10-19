@@ -11,6 +11,7 @@ using Item.Internal.StandardApi.Response;
 using System.Net;
 
 using FlowFlex.Domain.Shared.Models;
+using FlowFlex.Application.Filter;
 
 namespace FlowFlex.WebApi.Controllers.OW
 {
@@ -21,6 +22,7 @@ namespace FlowFlex.WebApi.Controllers.OW
     [Route("ow/onboardings/v{version:apiVersion}")]
     [Display(Name = "onboarding")]
     [Authorize] // 添加授权特性，要求所有onboarding API都需要认证
+    [PortalAccess] // Allow Portal token access - Portal users can view and update onboarding information
     public class OnboardingController : Controllers.ControllerBase
     {
         private readonly IOnboardingService _onboardingService;

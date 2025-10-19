@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 using System.ComponentModel.DataAnnotations;
 using System.Net;
 using FlowFlex.Application.Contracts.Dtos.OW.StaticField;
@@ -6,18 +7,18 @@ using FlowFlex.Application.Contracts.IServices.OW;
 
 using Item.Internal.StandardApi.Response;
 using FlowFlex.Domain.Shared.Const;
+using FlowFlex.Application.Filter;
 
 namespace FlowFlex.WebApi.Controllers.OW
 {
     /// <summary>
     /// Static field value management API - Includes static field value CRUD and content management functions
     /// </summary>
-
     [ApiController]
-
+    [Authorize] // 添加授权特性，要求所有 static field value API 都需要认证
+    [PortalAccess] // Allow Portal token access - Portal users can submit and view static field values
     [Route("ow/static-field-values/v{version:apiVersion}")]
     [Display(Name = "static field values")]
-
     public class StaticFieldValueController : Controllers.ControllerBase
     {
         private readonly IStaticFieldValueService _staticFieldValueService;

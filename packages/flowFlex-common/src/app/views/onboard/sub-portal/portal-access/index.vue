@@ -327,12 +327,23 @@ const handleVerify = async () => {
 		const verificationData = response.data || response;
 
 		if (verificationData.isValid) {
-			// Store portal access token
+			// Store Portal access token with limited scope (scope: portal)
+			// This token can only access Portal-specific endpoints
 			localStorage.setItem('portal_access_token', verificationData.accessToken);
 			localStorage.setItem('onboarding_id', verificationData.onboardingId.toString());
 
-			// 邮箱验证成功后，自动内部注册并跳转（无需密码）
-			await handleAutoRegisterAndRedirect();
+			console.log('[Portal Access] Portal token stored successfully');
+			console.log('[Portal Access] Token scope: portal (limited access)');
+
+			// Email verified successfully, redirect to customer portal
+			// No need for additional registration - Portal token is sufficient
+			verificationState.value = 'success';
+			successMessage.value = 'Access verified! Redirecting to customer portal...';
+
+			// Auto redirect after short delay
+			setTimeout(() => {
+				redirectToCustomerPortal();
+			}, 1000);
 		} else {
 			if (verificationData.isExpired) {
 				verificationState.value = 'expired';
@@ -362,95 +373,9 @@ const redirectToCustomerPortal = () => {
 	}
 };
 
-// 自动注册并重定向到portal页面
-const handleAutoRegisterAndRedirect = async () => {
-	try {
-		registering.value = true;
-
-		const onboardingId = localStorage.getItem('onboarding_id');
-		if (!onboardingId) {
-			throw new Error('Case ID not found');
-		}
-
-		// 检查用户是否已存在
-		const emailExistsResponse = await userApi.checkEmailExists(form.value.email);
-		const emailExists = emailExistsResponse?.data || emailExistsResponse;
-
-		let loginData;
-
-		if (!emailExists) {
-			// 用户不存在，自动内部注册（无需密码）
-			const autoPassword = `portal_${Date.now()}_${Math.random().toString(36).substring(2)}`;
-
-			await userApi.portalAutoRegisterAndLogin({
-				email: form.value.email,
-				password: autoPassword,
-				onboardingId,
-			});
-
-			// 注册后自动登录
-			const loginResponse = await userApi.loginUser({
-				email: form.value.email,
-				password: autoPassword,
-			});
-			loginData = loginResponse?.data || loginResponse;
-		} else {
-			// 用户已存在，使用短URL验证返回的access token
-			const portalAccessToken = localStorage.getItem('portal_access_token');
-			if (portalAccessToken) {
-				// 模拟loginData结构，使用portal access token
-				loginData = {
-					accessToken: portalAccessToken,
-					expiresIn: 86400, // 24 hours
-					tokenType: 'Bearer',
-					user: {
-						email: form.value.email,
-						username: form.value.email,
-						id: form.value.email, // 临时使用邮箱作为用户ID
-					},
-				};
-			} else {
-				throw new Error('Portal access token not found');
-			}
-		}
-
-		// 设置用户认证信息
-		const userStore = useUserStore();
-		const currentDate = dayjs(new Date()).unix();
-
-		userStore.setTokenobj({
-			accessToken: {
-				token: loginData.accessToken,
-				expire: currentDate + (loginData.expiresIn || 86400), // Default 24 hours
-				tokenType: loginData.tokenType || 'Bearer',
-			},
-			refreshToken: loginData.accessToken, // Use access token as refresh token for simplicity
-		});
-
-		userStore.setUserInfo({
-			...loginData.user,
-			userName: loginData.user.email || loginData.user.username,
-			userId: loginData.user.id,
-		});
-
-		// 显示成功状态
-		verificationState.value = 'success';
-		successMessage.value = 'Welcome! Redirecting to customer portal...';
-
-		// 自动跳转
-		setTimeout(() => {
-			redirectToCustomerPortal();
-		}, 1000);
-	} catch (error: any) {
-		console.error('Auto registration error:', error);
-		verificationState.value = 'error';
-		errorMessage.value = 'Registration Failed';
-		errorDescription.value =
-			'Failed to access the portal. Please try again or contact support.';
-	} finally {
-		registering.value = false;
-	}
-};
+// Portal Token is sufficient for access - no additional registration needed
+// The backend Portal Token Service already handles user creation if needed
+// This simplifies the flow and ensures Portal users have limited scope access
 
 // Get user-friendly error description
 const getErrorDescription = (errorMessage?: string): string => {
@@ -522,13 +447,19 @@ const useContinueWithCurrentUser = async () => {
 		const verificationData = response.data || response;
 
 		if (verificationData.isValid) {
-			// Store portal access token
+			// Store Portal access token with limited scope
 			localStorage.setItem('portal_access_token', verificationData.accessToken);
 			localStorage.setItem('onboarding_id', verificationData.onboardingId.toString());
 
-			// 邮箱验证成功后，自动内部注册并跳转（无需密码）
-			form.value.email = userEmail; // Set form email for registration flow
-			await handleAutoRegisterAndRedirect();
+			console.log('[Portal Access] Portal token stored for current user');
+
+			// Email verified successfully, redirect to customer portal
+			verificationState.value = 'success';
+			successMessage.value = 'Access verified! Redirecting to customer portal...';
+
+			setTimeout(() => {
+				redirectToCustomerPortal();
+			}, 1000);
 		} else {
 			if (verificationData.isExpired) {
 				verificationState.value = 'expired';

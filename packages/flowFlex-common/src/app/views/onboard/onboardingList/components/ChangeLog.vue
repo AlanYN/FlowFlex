@@ -521,7 +521,9 @@ import {
 	parseTaskStatusChanges,
 	parseStaticFieldChanges,
 	getOperationTypeInfo,
+	buildUserMapFromTree,
 } from '@/apis/ow/change-log';
+import { getUserTree } from '@/apis/ow/user';
 import { ElMessage } from 'element-plus';
 import { useI18n } from 'vue-i18n';
 import CustomerPagination from '@/components/global/u-pagination/index.vue';
@@ -542,6 +544,7 @@ const currentPage = ref(1);
 const pageSize = ref(20);
 const total = ref(0);
 const isExpanded = ref(false); // 折叠状态
+const userMap = ref<Map<string, string>>(new Map()); // 用户ID到用户名的映射
 
 interface ProcessedChange extends ChangeLogItem {
 	type: string;
@@ -559,7 +562,20 @@ interface ProcessedChange extends ChangeLogItem {
 
 const processedChanges = ref<ProcessedChange[]>([]); // 修正类型
 
-// 防止重复请求
+// 加载用户映射
+const loadUserMap = async () => {
+	try {
+		const response = await getUserTree();
+		if (response && response.data) {
+			userMap.value = buildUserMapFromTree(response.data);
+			console.log('[ChangeLog] User map loaded:', userMap.value.size, 'users');
+		}
+	} catch (error) {
+		console.error('[ChangeLog] Failed to load user map:', error);
+		// 失败时使用空映射，不影响其他功能
+		userMap.value = new Map();
+	}
+};
 
 // 加载数据
 const loadChangeLogs = async () => {
@@ -580,6 +596,10 @@ const loadChangeLogs = async () => {
 	loading.value = true;
 
 	try {
+		// 先加载用户映射（如果还没有加载）
+		if (userMap.value.size === 0) {
+			await loadUserMap();
+		}
 		// stageId 是必填参数，确保API调用格式统一
 		const apiParams = {
 			stageId: String(props.stageId), // 必填参数
@@ -685,7 +705,8 @@ const processChangesData = async () => {
 				specificData.fieldChanges = parseStaticFieldChanges(
 					change.beforeData,
 					change.afterData,
-					change.changedFields
+					change.changedFields,
+					userMap.value // 传入用户映射
 				);
 				break;
 

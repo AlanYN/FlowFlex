@@ -11,6 +11,7 @@ using FlowFlex.Application.Contracts.IServices.OW;
 using Item.Internal.StandardApi.Response;
 using System.Net;
 using System.Linq.Dynamic.Core;
+using FlowFlex.Application.Filter;
 
 namespace FlowFlex.WebApi.Controllers.OW
 {
@@ -25,6 +26,7 @@ namespace FlowFlex.WebApi.Controllers.OW
     /// - PDF export functionality
     /// </remarks>
     [ApiController]
+    [PortalAccess] // Allow Portal token access - Portal users can view and manage checklists
     [Route("ow/checklists/v{version:apiVersion}")]
     [Display(Name = "Checklist Management")]
     [Tags("OW-Checklist", "Onboard Workflow", "Task Management")]

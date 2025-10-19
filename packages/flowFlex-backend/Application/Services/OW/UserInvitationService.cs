@@ -25,6 +25,7 @@ namespace FlowFlex.Application.Services.OW
         private readonly IUserRepository _userRepository;
         private readonly IEmailService _emailService;
         private readonly IJwtService _jwtService;
+        private readonly IPortalTokenService _portalTokenService;
         private readonly IAccessTokenService _accessTokenService;
         private readonly IMapper _mapper;
         private readonly ILogger<UserInvitationService> _logger;
@@ -37,6 +38,7 @@ namespace FlowFlex.Application.Services.OW
             IUserRepository userRepository,
             IEmailService emailService,
             IJwtService jwtService,
+            IPortalTokenService portalTokenService,
             IAccessTokenService accessTokenService,
             IMapper mapper,
             ILogger<UserInvitationService> logger,
@@ -48,6 +50,7 @@ namespace FlowFlex.Application.Services.OW
             _userRepository = userRepository;
             _emailService = emailService;
             _jwtService = jwtService;
+            _portalTokenService = portalTokenService;
             _accessTokenService = accessTokenService;
             _mapper = mapper;
             _logger = logger;
@@ -490,14 +493,17 @@ namespace FlowFlex.Application.Services.OW
                     await _userRepository.InsertAsync(user);
                 }
 
-                // Generate access token with details for database tracking
-                var tokenDetails = _jwtService.GenerateTokenWithDetails(
+                // Generate Portal-specific access token with limited scope
+                var tokenDetails = _portalTokenService.GeneratePortalToken(
                     user.Id,
                     user.Email,
-                    user.Username,
-                    user.TenantId ?? "DEFAULT",
-                    "portal-access"
+                    invitation.OnboardingId,
+                    user.TenantId ?? "DEFAULT"
                 );
+
+                _logger.LogInformation(
+                    "Generated Portal token for user {Email} with onboarding {OnboardingId}, scope: portal",
+                    user.Email, invitation.OnboardingId);
 
                 // Record token in database for validation
                 await _accessTokenService.RecordTokenAsync(

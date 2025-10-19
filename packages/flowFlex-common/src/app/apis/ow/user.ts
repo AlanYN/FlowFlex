@@ -12,6 +12,7 @@ const Api = () => {
 		sendVerificationCode: `${globSetting.apiProName}/ow/users/send-verification-code`,
 		verifyEmail: `${globSetting.apiProName}/ow/users/verify-email`,
 		currentUser: `${globSetting.apiProName}/ow/users/current`,
+		userTree: `${globSetting.apiProName}/ow/users/tree`,
 	};
 };
 
@@ -82,5 +83,12 @@ export function portalAutoRegisterAndLogin(params: {
 			verificationCode: '000000', // Portal用户不需要验证码验证
 			skipEmailVerification: true, // 特殊标记，表示portal用户跳过邮箱验证
 		},
+	});
+}
+
+// 获取用户树（包含团队和用户的层级结构）
+export function getUserTree() {
+	return defHttp.get({
+		url: Api().userTree,
 	});
 }
