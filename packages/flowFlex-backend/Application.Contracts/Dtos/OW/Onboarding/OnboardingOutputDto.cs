@@ -193,6 +193,21 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.Onboarding
         public bool IsPrioritySet { get; set; }
 
         /// <summary>
+        /// Ownership - User ID who owns this onboarding
+        /// </summary>
+        public long? Ownership { get; set; }
+
+        /// <summary>
+        /// Ownership Name - User name who owns this onboarding
+        /// </summary>
+        public string OwnershipName { get; set; }
+
+        /// <summary>
+        /// Ownership Email - User email who owns this onboarding
+        /// </summary>
+        public string OwnershipEmail { get; set; }
+
+        /// <summary>
         /// 动态扩展字段（JSON）
         /// </summary>
         public string CustomFieldsJson { get; set; }

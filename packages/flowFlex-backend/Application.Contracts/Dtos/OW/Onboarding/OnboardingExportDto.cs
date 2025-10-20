@@ -50,6 +50,12 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.Onboarding
         public string Priority { get; set; }
 
         /// <summary>
+        /// Ownership
+        /// </summary>
+        [ExcelColumn(Name = "Ownership")]
+        public string Ownership { get; set; }
+
+        /// <summary>
         /// Status
         /// </summary>
         [ExcelColumn(Name = "Status")]
