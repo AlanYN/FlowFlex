@@ -231,7 +231,7 @@
 			</div>
 
 			<!-- Add Task 按钮 -->
-			<div class="mt-4 flex justify-end">
+			<div class="mt-4 flex justify-end" v-if="!addingTaskTo">
 				<el-button
 					@click="showAddTaskDialog(props.checklist)"
 					type="primary"
