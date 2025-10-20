@@ -321,7 +321,7 @@
 						label="Assignee"
 						prop="assignee"
 						v-if="staticFields.includes('ASSIGNEE')"
-						class="full-width"
+						class="half-width"
 					>
 						<FlowflexUser
 							v-model="formData.assignee"
@@ -802,6 +802,10 @@ defineExpose({
 	// 对于需要占满整行的元素
 	.full-width {
 		grid-column: 1 / -1;
+	}
+
+	.half-width {
+		grid-column: span 2;
 	}
 
 	// 确保表单项内部元素也是100%宽度
