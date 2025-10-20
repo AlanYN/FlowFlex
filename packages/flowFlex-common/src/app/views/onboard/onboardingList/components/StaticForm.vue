@@ -321,13 +321,14 @@
 						label="Assignee"
 						prop="assignee"
 						v-if="staticFields.includes('ASSIGNEE')"
+						class="full-width"
 					>
 						<FlowflexUser
 							v-model="formData.assignee"
 							placeholder="Select default assignee"
 							:multiple="false"
 							:clearable="true"
-							:max-count="0"
+							:maxShowCount="5"
 						/>
 					</el-form-item>
 

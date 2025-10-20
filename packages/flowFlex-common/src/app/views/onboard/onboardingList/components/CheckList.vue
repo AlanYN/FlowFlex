@@ -336,7 +336,6 @@ const getAssigneeInitials = (fullName: string) => {
 	align-items: stretch;
 	justify-content: space-between;
 	background-color: var(--el-fill-color-blank);
-	border: 2px solid var(--el-border-color-light);
 	/* 优化动画性能 */
 	transition:
 		transform 0.15s ease,
@@ -351,7 +350,7 @@ const getAssigneeInitials = (fullName: string) => {
 	backface-visibility: hidden;
 	/* 避免重绘 */
 	contain: layout style;
-	@apply rounded-xl;
+	@apply rounded-xl border;
 
 	&:hover {
 		border-color: var(--el-color-primary-light-5);

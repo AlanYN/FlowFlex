@@ -20,6 +20,7 @@
 		"login": "登录",
 		"roleManagement": "角色管理",
 		"userManagement": "用户管理",
+		"teamsManagement": "团队管理",
 		"permissionManagement": "权限管理",
 		"setting": "设置",
 		"settingTitle": "Approval Flow",
