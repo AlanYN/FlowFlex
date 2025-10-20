@@ -1,6 +1,6 @@
 <template>
 	<div v-if="atPresentCompany">
-		<el-popover placement="bottom" popper-class="!pr-1" trigger="click" :width="200">
+		<el-popover placement="bottom" popper-class="!pr-1" trigger="click" width="300">
 			<template #reference>
 				<div class="company_check-button" :title="atPresentCompany">
 					{{ atPresentCompany }}
@@ -10,16 +10,16 @@
 				<div class="font-bold text-xs">SWITCH COMPANY</div>
 				<el-scrollbar max-height="300px" class="w-full pr-3">
 					<div class="flex flex-col w-full">
+						<el-input placeholder="Search Company" v-model="searchText" />
 						<el-check-tag
 							v-for="item in companyList"
-							:key="item"
+							:key="item.id"
 							class="font-semibold text-xs my-2 w-full text-center"
+							style="word-wrap: break-word"
 							:checked="atPresentCompany == item.name"
 							@change="changeCompany(item.id)"
 						>
-							<span class="truncate" :title="item.name">
-								{{ item.name }}
-							</span>
+							{{ item.name }}
 						</el-check-tag>
 					</div>
 				</el-scrollbar>
@@ -29,10 +29,11 @@
 </template>
 
 <script lang="ts" setup>
-import { ref, computed } from 'vue';
+import { ref, computed, inject } from 'vue';
 import { useUserStore } from '@/stores/modules/user';
 import { switchingCompany } from '@/apis/login/user';
 import { ElMessage } from 'element-plus';
+import { NotificationAction } from '#/golbal';
 
 const userStore = useUserStore();
 
@@ -40,6 +41,8 @@ interface Company {
 	id: string;
 	name: string;
 }
+
+const searchText = ref('');
 
 // 切换公司
 // 公司列表
@@ -52,6 +55,13 @@ const companyList = computed<Company[]>(() => {
 			name: tenants[key],
 		});
 	}
+
+	if (searchText.value) {
+		return arr.filter((item) =>
+			item.name.toLocaleLowerCase().includes(searchText.value.toLocaleLowerCase())
+		);
+	}
+
 	return arr;
 });
 
@@ -75,9 +85,14 @@ const changeCompany = async (id) => {
 		}
 	} finally {
 		checkCompany.value = false;
+		notifyTenantChange();
 		window.location.reload();
 	}
 };
+
+const notifiers = inject<Array<NotificationAction>>('ancestor-notifiers') ?? [];
+const notifyTenantChange = () =>
+	notifiers.forEach((fn) => fn({ name: 'tenant-change', msg: undefined }));
 </script>
 
 <style lang="scss" scoped>
@@ -105,13 +120,5 @@ const changeCompany = async (id) => {
 		overflow: hidden;
 		width: 100%;
 	}
-}
-
-.truncate {
-	display: inline-block;
-	max-width: 100%;
-	overflow: hidden;
-	text-overflow: ellipsis;
-	white-space: nowrap;
 }
 </style>
