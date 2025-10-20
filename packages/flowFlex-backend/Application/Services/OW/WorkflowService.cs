@@ -548,6 +548,7 @@ namespace FlowFlex.Application.Service.OW
                 query.Name,
                 query.IsActive,
                 query.IsDefault,
+                query.Status,
                 query.SortField,
                 query.SortDirection);
 

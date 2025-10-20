@@ -50,24 +50,25 @@ namespace FlowFlex.Application.Services.OW
                 var userGroups = GetUserGroups();
                 if (userGroups == null || !userGroups.Any())
                 {
-                    _logger.LogWarning("User {UserId} does not belong to any Group", userId);
-                    return PermissionResult.CreateFailure(
-                        "User does not belong to any Group",
-                        "USER_NO_GROUP");
+                    _logger.LogInformation("User {UserId} does not belong to any Group, skipping Group permission check", userId);
+                    // If user has no Group, skip Group permission check and allow access
+                    // This is a temporary solution until Group management is fully implemented
                 }
-
-                // Step 3: Check Group permission switch (前置检查)
-                var groupCheckResult = await CheckGroupPermissionSwitchAsync(
-                    userGroups,
-                    PermissionEntityTypeEnum.Workflow,
-                    operationType);
-
-                if (!groupCheckResult.Success)
+                else
                 {
-                    _logger.LogWarning(
-                        "Group permission switch check failed for user {UserId} - {ErrorMessage}",
-                        userId, groupCheckResult.ErrorMessage);
-                    return groupCheckResult;
+                    // Step 3: Check Group permission switch (前置检查) - only if user has groups
+                    var groupCheckResult = await CheckGroupPermissionSwitchAsync(
+                        userGroups,
+                        PermissionEntityTypeEnum.Workflow,
+                        operationType);
+
+                    if (!groupCheckResult.Success)
+                    {
+                        _logger.LogWarning(
+                            "Group permission switch check failed for user {UserId} - {ErrorMessage}",
+                            userId, groupCheckResult.ErrorMessage);
+                        return groupCheckResult;
+                    }
                 }
 
                 // Step 4: Load Workflow permission configuration
@@ -116,20 +117,21 @@ namespace FlowFlex.Application.Services.OW
                 var userGroups = GetUserGroups();
                 if (userGroups == null || !userGroups.Any())
                 {
-                    return PermissionResult.CreateFailure(
-                        "User does not belong to any Group",
-                        "USER_NO_GROUP");
+                    _logger.LogInformation("User {UserId} does not belong to any Group, skipping Group permission check", userId);
+                    // If user has no Group, skip Group permission check and allow access
                 }
-
-                // Step 3: Check Group permission switch
-                var groupCheckResult = await CheckGroupPermissionSwitchAsync(
-                    userGroups,
-                    PermissionEntityTypeEnum.Stage,
-                    operationType);
-
-                if (!groupCheckResult.Success)
+                else
                 {
-                    return groupCheckResult;
+                    // Step 3: Check Group permission switch - only if user has groups
+                    var groupCheckResult = await CheckGroupPermissionSwitchAsync(
+                        userGroups,
+                        PermissionEntityTypeEnum.Stage,
+                        operationType);
+
+                    if (!groupCheckResult.Success)
+                    {
+                        return groupCheckResult;
+                    }
                 }
 
                 // Step 4: Load Stage permission configuration
@@ -174,20 +176,21 @@ namespace FlowFlex.Application.Services.OW
                 var userGroups = GetUserGroups();
                 if (userGroups == null || !userGroups.Any())
                 {
-                    return PermissionResult.CreateFailure(
-                        "User does not belong to any Group",
-                        "USER_NO_GROUP");
+                    _logger.LogInformation("User {UserId} does not belong to any Group, skipping Group permission check", userId);
+                    // If user has no Group, skip Group permission check and allow access
                 }
-
-                // Step 3: Check Group permission switch
-                var groupCheckResult = await CheckGroupPermissionSwitchAsync(
-                    userGroups,
-                    PermissionEntityTypeEnum.Case,
-                    operationType);
-
-                if (!groupCheckResult.Success)
+                else
                 {
-                    return groupCheckResult;
+                    // Step 3: Check Group permission switch - only if user has groups
+                    var groupCheckResult = await CheckGroupPermissionSwitchAsync(
+                        userGroups,
+                        PermissionEntityTypeEnum.Case,
+                        operationType);
+
+                    if (!groupCheckResult.Success)
+                    {
+                        return groupCheckResult;
+                    }
                 }
 
                 // Step 4: Load Case permission configuration

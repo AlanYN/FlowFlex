@@ -90,9 +90,10 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// <param name="pageSize">Page size (default: 15)</param>
         /// <param name="sortField">Sort field (default: CreateDate)</param>
         /// <param name="sortDirection">Sort direction (asc/desc, default: desc)</param>
-        /// <param name="name">Filter by name</param>
+        /// <param name="name">Filter by name (supports multiple values or comma-separated)</param>
         /// <param name="isActive">Filter by active status</param>
         /// <param name="isDefault">Filter by default status</param>
+        /// <param name="status">Filter by workflow status (e.g., active, inactive, draft)</param>
         /// <returns>Paged list of workflows or simple list when no pagination params provided</returns>
         [HttpGet]
         [ProducesResponseType<SuccessResponse<object>>((int)HttpStatusCode.OK)]
@@ -101,22 +102,29 @@ namespace FlowFlex.WebApi.Controllers.OW
             [FromQuery] int? pageSize = null,
             [FromQuery] string sortField = null,
             [FromQuery] string sortDirection = null,
-            [FromQuery] string name = null,
+            [FromQuery] string[] name = null,
             [FromQuery] bool? isActive = null,
-            [FromQuery] bool? isDefault = null)
+            [FromQuery] bool? isDefault = null,
+            [FromQuery] string status = null)
         {
             // If pagination parameters are provided, use paged query
             if (pageIndex.HasValue || pageSize.HasValue)
             {
+                // Combine multiple name parameters into comma-separated string
+                var nameFilter = name != null && name.Any() 
+                    ? string.Join(",", name.Where(n => !string.IsNullOrWhiteSpace(n)))
+                    : null;
+
                 var query = new WorkflowQueryRequest
                 {
                     PageIndex = pageIndex ?? 1,
                     PageSize = pageSize ?? 15,
                     SortField = sortField ?? "CreateDate",
                     SortDirection = sortDirection ?? "desc",
-                    Name = name,
+                    Name = nameFilter,
                     IsActive = isActive,
-                    IsDefault = isDefault
+                    IsDefault = isDefault,
+                    Status = status
                 };
                 var pagedData = await _workflowService.QueryAsync(query);
                 return Success(pagedData);

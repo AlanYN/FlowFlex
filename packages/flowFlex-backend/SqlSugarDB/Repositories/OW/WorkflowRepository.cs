@@ -36,6 +36,7 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
             string name = null,
             bool? isActive = null,
             bool? isDefault = null,
+            string status = null,
             string sortField = "CreateDate",
             string sortDirection = "desc")
         {
@@ -56,7 +57,17 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
 
             if (!string.IsNullOrWhiteSpace(name))
             {
-                whereExpressions.Add(x => x.Name.ToLower().Contains(name.ToLower()));
+                // Support comma-separated workflow names
+                var names = name.Split(',', StringSplitOptions.RemoveEmptyEntries)
+                               .Select(n => n.Trim())
+                               .Where(n => !string.IsNullOrEmpty(n))
+                               .ToList();
+
+                if (names.Any())
+                {
+                    // Create OR condition for multiple names (match any)
+                    whereExpressions.Add(x => names.Any(n => x.Name.ToLower().Contains(n.ToLower())));
+                }
             }
 
             if (isActive.HasValue)
@@ -67,6 +78,11 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
             if (isDefault.HasValue)
             {
                 whereExpressions.Add(x => x.IsDefault == isDefault.Value);
+            }
+
+            if (!string.IsNullOrWhiteSpace(status))
+            {
+                whereExpressions.Add(x => x.Status.ToLower() == status.ToLower());
             }
 
             // Build query

@@ -11,7 +11,7 @@ namespace FlowFlex.Domain.Repository.OW
         /// <summary>
         /// Query workflows with pagination
         /// </summary>
-        Task<(List<Workflow> items, int total)> QueryPagedAsync(int pageIndex, int pageSize, string name = null, bool? isActive = null, bool? isDefault = null, string sortField = "CreateDate", string sortDirection = "desc");
+        Task<(List<Workflow> items, int total)> QueryPagedAsync(int pageIndex, int pageSize, string name = null, bool? isActive = null, bool? isDefault = null, string status = null, string sortField = "CreateDate", string sortDirection = "desc");
 
         /// <summary>
         /// Get workflow by name

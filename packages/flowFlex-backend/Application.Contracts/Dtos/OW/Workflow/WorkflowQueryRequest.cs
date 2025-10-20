@@ -34,6 +34,12 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.Workflow
         public bool? IsDefault { get; set; }
 
         /// <summary>
+        /// Filter by workflow status (e.g., active, inactive, draft)
+        /// </summary>
+        [StringLength(50)]
+        public string Status { get; set; }
+
+        /// <summary>
         /// Sort field
         /// </summary>
         [StringLength(50)]

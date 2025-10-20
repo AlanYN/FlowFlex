@@ -498,7 +498,16 @@ const backToUserSelection = () => {
 // Logout current user and continue
 const logoutAndContinue = () => {
 	const userStore = useUserStore();
-	userStore.logout();
+
+	// Clear local user state without triggering IDM logout redirect
+	// This is important for Portal Access page which should remain accessible
+	userStore.setTokenobj(undefined);
+	userStore.setUserInfo(null);
+
+	// Clear local storage tokens
+	localStorage.removeItem('portal_access_token');
+	localStorage.removeItem('onboarding_id');
+
 	currentLoggedUser.value = null;
 	verificationState.value = 'form';
 	form.value.email = '';
