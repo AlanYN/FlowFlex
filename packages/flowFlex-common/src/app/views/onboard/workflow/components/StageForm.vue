@@ -111,7 +111,7 @@
 				/>
 			</TabPane>
 			<TabPane value="permissions">
-				<StagePermissions v-model="formData.stagePermissions" />
+				<StagePermissions v-model="permissionsData" />
 			</TabPane>
 			<TabPane value="actions">
 				<Action
@@ -151,10 +151,7 @@ import { TriggerTypeEnum } from '@/enums/appEnum';
 import { PrototypeTabs, TabPane } from '@/components/PrototypeTabs';
 import { Checklist, Questionnaire, Stage, ComponentsData, StageComponentData } from '#/onboard';
 import StagePermissions from './StagePermissions.vue';
-import {
-	PortalAvailabilityEnum as StagePortalAvailabilityEnum,
-	ViewPermissionModeEnum,
-} from '@/enums/permissionEnum';
+import { ViewPermissionModeEnum } from '@/enums/permissionEnum';
 
 // 颜色选项
 const colorOptions = stageColorOptions;
@@ -240,34 +237,10 @@ const formData = ref({
 	order: 0,
 	color: colorOptions[Math.floor(Math.random() * colorOptions.length)] as StageColorType,
 	attachmentManagementNeeded: false,
-	// 新增权限字段
-	stagePermissions: {
-		portalAvailability: StagePortalAvailabilityEnum.Viewable,
-		fields: [
-			{
-				id: 'stage',
-				name: 'Stage',
-				type: 'stage' as const,
-				permissions: {
-					viewPermissionMode: ViewPermissionModeEnum.Public,
-					viewTeams: [],
-					useSameGroups: true,
-					operateTeams: [],
-				},
-			},
-			{
-				id: 'companyName',
-				name: 'Company Name',
-				type: 'field' as const,
-				permissions: {
-					viewPermissionMode: ViewPermissionModeEnum.Public,
-					viewTeams: [],
-					useSameGroups: true,
-					operateTeams: [],
-				},
-			},
-		],
-	},
+	// 权限字段
+	viewPermissionMode: ViewPermissionModeEnum.Public,
+	viewTeams: [] as string[],
+	operateTeams: [] as string[],
 });
 
 // 表单验证规则
@@ -285,6 +258,28 @@ const rules = reactive<FormRules>({
 // 计算属性
 const isFormValid = computed(() => {
 	return !!formData.value.name && !isNaN(formData.value.estimatedDuration as number);
+});
+
+// 权限数据计算属性（用于 PermissionSelector 的 v-model）
+const permissionsData = computed({
+	get: () => ({
+		viewPermissionMode: formData.value.viewPermissionMode,
+		viewTeams: formData.value.viewTeams,
+		useSameGroups:
+			JSON.stringify(formData.value.viewTeams) ===
+			JSON.stringify(formData.value.operateTeams),
+		operateTeams: formData.value.operateTeams,
+	}),
+	set: (value: {
+		viewPermissionMode: number;
+		viewTeams: string[];
+		useSameGroups: boolean;
+		operateTeams: string[];
+	}) => {
+		formData.value.viewPermissionMode = value.viewPermissionMode;
+		formData.value.viewTeams = value.viewTeams;
+		formData.value.operateTeams = value.operateTeams;
+	},
 });
 
 // 表单引用
@@ -314,34 +309,13 @@ onMounted(() => {
 			} else if (key === 'portalPermission') {
 				formData.value[key] =
 					props.stage?.portalPermission || PortalPermissionEnum.Viewable;
-			} else if (key === 'stagePermissions') {
-				formData.value[key] = (props.stage as any)?.stagePermissions || {
-					portalAvailability: StagePortalAvailabilityEnum.Viewable,
-					fields: [
-						{
-							id: 'stage',
-							name: 'Stage',
-							type: 'stage' as const,
-							permissions: {
-								viewPermissionMode: ViewPermissionModeEnum.Public,
-								viewTeams: [],
-								useSameGroups: true,
-								operateTeams: [],
-							},
-						},
-						{
-							id: 'companyName',
-							name: 'Company Name',
-							type: 'field' as const,
-							permissions: {
-								viewPermissionMode: ViewPermissionModeEnum.Public,
-								viewTeams: [],
-								useSameGroups: true,
-								operateTeams: [],
-							},
-						},
-					],
-				};
+			} else if (key === 'viewPermissionMode') {
+				formData.value[key] =
+					(props.stage as any)?.viewPermissionMode ?? ViewPermissionModeEnum.Public;
+			} else if (key === 'viewTeams') {
+				formData.value[key] = (props.stage as any)?.viewTeams || [];
+			} else if (key === 'operateTeams') {
+				formData.value[key] = (props.stage as any)?.operateTeams || [];
 			} else {
 				formData.value[key] = props.stage ? (props.stage as any)[key] : '';
 			}

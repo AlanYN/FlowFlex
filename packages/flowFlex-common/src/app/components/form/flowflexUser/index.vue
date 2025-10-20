@@ -313,6 +313,7 @@ interface Props {
 	maxShowCount?: number; // 最大显示数量
 	readonlyNoDataText?: string; // 只读模式下没有数据时的文本
 	clearable?: boolean; // 是否可清除
+	availableIds?: string[]; // 限制可选的 ID 范围，undefined 表示不限制，[] 表示无可选项
 }
 
 interface Emits {
@@ -338,6 +339,7 @@ const props = withDefaults(defineProps<Props>(), {
 	readonly: false,
 	maxShowCount: 10,
 	readonlyNoDataText: 'No users selected',
+	availableIds: undefined,
 });
 
 // 计算 placeholder
@@ -354,6 +356,7 @@ const menuStore = menuRoles();
 
 // 数据相关
 const treeData = ref<FlowflexUser[]>([]);
+const rawTreeData = ref<FlowflexUser[]>([]); // 保存原始数据（未经过滤）
 const loading = ref(false);
 const userDataMap = ref<Map<string, FlowflexUser>>(new Map());
 const searchText = ref('');
@@ -427,13 +430,14 @@ const buildUserDataMap = (data: FlowflexUser[], clear = false) => {
 };
 
 // 过滤节点方法，支持搜索
-const filterNode = (value: string, data: FlowflexUser) => {
+const filterNode = (value: string, data: any): boolean => {
 	if (!value) return true;
 	const searchValue = value.toLowerCase();
-	return (
-		data.name.toLowerCase().includes(searchValue) ||
-		(data.userDetails?.email && data.userDetails.email.toLowerCase().includes(searchValue))
-	);
+	const nodeData = data as FlowflexUser;
+	const matchesName = nodeData.name?.toLowerCase().includes(searchValue) || false;
+	const matchesEmail =
+		(nodeData.userDetails?.email?.toLowerCase().includes(searchValue) || false) && true;
+	return matchesName || matchesEmail;
 };
 
 // 搜索处理
@@ -664,6 +668,8 @@ const initializeData = async (searchQuery = '') => {
 		const data = await menuStore.getFlowflexUserDataWithCache(searchQuery);
 
 		if (data && data.length > 0) {
+			// 保存原始数据
+			rawTreeData.value = data;
 			// 确保数据结构正确，为没有子节点的项目添加空数组
 			const processedData = processTreeData(data);
 			treeData.value = processedData;
@@ -711,6 +717,27 @@ const processTreeData = (data: FlowflexUser[]): FlowflexUser[] => {
 					item.children && Array.isArray(item.children)
 						? filterNodesByType(item.children)
 						: [];
+
+				// 如果设置了 availableIds（不是 undefined），则进行过滤
+				// undefined 表示不限制，[] 表示无可选项，[id1, id2] 表示只能选这些
+				if (props.availableIds !== undefined) {
+					// 判断当前节点是否是可选类型
+					const isSelectableType = props.selectionType === 'user' || item.type === 'team';
+
+					// 如果是可选类型且不在可用列表中，跳过该节点
+					if (isSelectableType && !props.availableIds.includes(item.id)) {
+						// 如果有子节点，返回 null 但子节点会被递归处理
+						// 如果没有子节点，直接跳过
+						if (filteredChildren.length > 0) {
+							// 返回容器节点（保留子节点）
+							return {
+								...item,
+								children: filteredChildren,
+							};
+						}
+						return null;
+					}
+				}
 
 				// 根据选择类型决定显示逻辑
 				if (props.selectionType === 'user') {
@@ -776,6 +803,21 @@ const handleModelValueChange = async () => {
 		await initializeData();
 	}
 };
+
+// 监听 availableIds 变化，重新处理树形数据
+watch(
+	() => props.availableIds,
+	() => {
+		// 如果有原始数据，重新处理
+		if (rawTreeData.value && rawTreeData.value.length > 0) {
+			const processedData = processTreeData(rawTreeData.value);
+			treeData.value = processedData;
+			// 重新构建数据映射
+			buildUserDataMap(processedData, true);
+		}
+	},
+	{ deep: true }
+);
 
 // 组件挂载时初始化
 onMounted(async () => {

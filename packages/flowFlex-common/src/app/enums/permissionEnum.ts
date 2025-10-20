@@ -50,3 +50,31 @@ export const getViewPermissionModeLabel = (value: ViewPermissionModeEnum): strin
 	};
 	return labels[value] || 'Unknown';
 };
+
+/**
+ * Case Permission Mode Enum
+ * Controls who can view and operate on cases
+ */
+export enum CasePermissionModeEnum {
+	/** All users can access */
+	Public = 0,
+	/** Only listed teams can access */
+	VisibleToTeams = 1,
+	/** All teams except listed teams can access */
+	InvisibleToTeams = 2,
+	/** Only the creator/owner can access */
+	Private = 3,
+}
+
+/**
+ * Get case permission mode label
+ */
+export const getCasePermissionModeLabel = (value: CasePermissionModeEnum): string => {
+	const labels = {
+		[CasePermissionModeEnum.Public]: 'Public',
+		[CasePermissionModeEnum.VisibleToTeams]: 'Visible to',
+		[CasePermissionModeEnum.InvisibleToTeams]: 'Invisible to',
+		[CasePermissionModeEnum.Private]: 'Private',
+	};
+	return labels[value] || 'Unknown';
+};

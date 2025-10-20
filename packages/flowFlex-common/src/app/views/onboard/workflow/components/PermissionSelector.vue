@@ -20,25 +20,15 @@
 				</el-select>
 			</div>
 
-			<!-- User Groups（仅在非 public 时显示）-->
-			<div
-				v-if="localPermissions.viewPermissionMode !== ViewPermissionModeEnum.Public"
-				class="space-y-2"
-			>
-				<label class="text-base font-bold">User Groups</label>
-				<el-select
+			<!-- Team（仅在 VisibleToTeams 或 InvisibleToTeams 时显示）-->
+			<div v-if="shouldShowTeamSelector" class="space-y-2">
+				<label class="text-base font-bold">Team</label>
+				<FlowflexUserSelector
 					v-model="localPermissions.viewTeams"
-					multiple
-					placeholder="Add group..."
-					class="w-full"
-				>
-					<el-option
-						v-for="group in availableGroups"
-						:key="group.value"
-						:label="group.label"
-						:value="group.value"
-					/>
-				</el-select>
+					selectionType="team"
+					placeholder="Select teams"
+					:clearable="true"
+				/>
 			</div>
 		</div>
 
@@ -53,25 +43,27 @@
 				</el-checkbox>
 			</div>
 
-			<!-- Available Groups（仅在不勾选 useSameGroups 时显示）-->
+			<!-- Available Teams（仅在不勾选 useSameGroups 时显示）-->
 			<div v-if="!localPermissions.useSameGroups" class="space-y-2">
-				<label class="text-base font-bold">Available Groups</label>
-				<el-select
+				<label class="text-base font-bold">Available Teams</label>
+				<FlowflexUserSelector
 					v-model="localPermissions.operateTeams"
-					multiple
-					placeholder="Add group..."
-					class="w-full"
-					:disabled="availableOperateGroups.length === 0"
+					selectionType="team"
+					placeholder="Select teams"
+					:clearable="true"
+					:available-ids="shouldShowTeamSelector ? localPermissions.viewTeams : undefined"
+				/>
+				<p
+					v-if="shouldShowTeamSelector && localPermissions.viewTeams.length === 0"
+					class="text-xs text-gray-500"
 				>
-					<el-option
-						v-for="group in availableOperateGroups"
-						:key="group.value"
-						:label="group.label"
-						:value="group.value"
-					/>
-				</el-select>
-				<p v-if="availableOperateGroups.length === 0" class="text-xs text-gray-500">
-					Please select view permission groups first
+					Please select view permission teams first
+				</p>
+				<p
+					v-if="shouldShowTeamSelector && localPermissions.viewTeams.length > 0"
+					class="text-xs text-gray-500"
+				>
+					Only teams selected in view permission can be chosen
 				</p>
 			</div>
 		</div>
@@ -80,7 +72,8 @@
 
 <script setup lang="ts">
 import { reactive, computed, watch, nextTick, ref } from 'vue';
-import { ViewPermissionModeEnum } from '@/enums/permissionEnum';
+import { ViewPermissionModeEnum, CasePermissionModeEnum } from '@/enums/permissionEnum';
+import FlowflexUserSelector from '@/components/form/flowflexUser/index.vue';
 
 // Props
 interface Props {
@@ -90,6 +83,9 @@ interface Props {
 		useSameGroups: boolean;
 		operateTeams: string[];
 	};
+	// 权限类型：'workflow' | 'stage' 使用 ViewPermissionModeEnum，'case' 使用 CasePermissionModeEnum
+	// 未来可扩展其他类型
+	type?: string;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -99,43 +95,76 @@ const props = withDefaults(defineProps<Props>(), {
 		useSameGroups: true,
 		operateTeams: [],
 	}),
+	type: 'workflow', // 默认为 workflow 类型
 });
 
 // Emits
 const emit = defineEmits(['update:modelValue']);
 
-// 权限类型选项
-const permissionTypeOptions = [
-	{ label: 'Public', value: ViewPermissionModeEnum.Public },
-	{ label: 'Visible to', value: ViewPermissionModeEnum.VisibleToTeams },
-	{ label: 'Invisible to', value: ViewPermissionModeEnum.InvisibleToTeams },
-];
+// 权限类型选项 - 根据 type 返回不同的枚举选项
+const permissionTypeOptions = computed(() => {
+	switch (props.type) {
+		case 'case':
+			// Case 场景：使用 CasePermissionModeEnum
+			return [
+				{ label: 'Public', value: CasePermissionModeEnum.Public },
+				{ label: 'Visible to', value: CasePermissionModeEnum.VisibleToTeams },
+				{ label: 'Invisible to', value: CasePermissionModeEnum.InvisibleToTeams },
+				{ label: 'Private', value: CasePermissionModeEnum.Private },
+			];
+		case 'workflow':
+		case 'stage':
+		default:
+			// 默认（workflow/stage）：使用 ViewPermissionModeEnum
+			return [
+				{ label: 'Public', value: ViewPermissionModeEnum.Public },
+				{ label: 'Visible to', value: ViewPermissionModeEnum.VisibleToTeams },
+				{ label: 'Invisible to', value: ViewPermissionModeEnum.InvisibleToTeams },
+			];
+	}
+});
 
-// 可用组列表（临时写死）
-const availableGroups = [
-	{ label: 'Admin', value: 'admin' },
-	{ label: 'Manager', value: 'manager' },
-	{ label: 'HR', value: 'hr' },
-	{ label: 'Finance', value: 'finance' },
-	{ label: 'Sales', value: 'sales' },
-	{ label: 'Support', value: 'support' },
-];
+// Public 值辅助计算属性 - 根据 type 返回对应的 Public 枚举值
+const publicValue = computed(() => {
+	switch (props.type) {
+		case 'case':
+			return CasePermissionModeEnum.Public;
+		case 'workflow':
+		case 'stage':
+		default:
+			return ViewPermissionModeEnum.Public;
+	}
+});
+
+// Private 值辅助计算属性 - 根据 type 返回对应的 Private 枚举值
+const privateValue = computed(() => {
+	switch (props.type) {
+		case 'case':
+			return CasePermissionModeEnum.Private;
+		case 'workflow':
+		case 'stage':
+		default:
+			// workflow/stage 没有 Private 选项，返回 null
+			return null;
+	}
+});
+
+// 是否需要显示 Team 选择器 - 只有 VisibleToTeams 和 InvisibleToTeams 需要选择团队
+const shouldShowTeamSelector = computed(() => {
+	const mode = localPermissions.viewPermissionMode;
+	// Public 和 Private 模式下都不显示
+	if (mode === publicValue.value || mode === privateValue.value) {
+		return false;
+	}
+	return true;
+});
 
 // 本地权限数据
 const localPermissions = reactive({
-	viewPermissionMode: props.modelValue.viewPermissionMode ?? ViewPermissionModeEnum.Public,
+	viewPermissionMode: props.modelValue.viewPermissionMode ?? publicValue.value,
 	viewTeams: [...(props.modelValue.viewTeams || [])],
 	useSameGroups: props.modelValue.useSameGroups ?? true,
 	operateTeams: [...(props.modelValue.operateTeams || [])],
-});
-
-// 计算 Operate 可选的组（必须是 View 已选的子集）
-const availableOperateGroups = computed(() => {
-	if (localPermissions.viewPermissionMode === ViewPermissionModeEnum.Public) {
-		return availableGroups;
-	}
-	// 只能选择 View 已选择的组
-	return availableGroups.filter((group) => localPermissions.viewTeams.includes(group.value));
 });
 
 // 使用一个 ref 来跟踪是否正在处理内部更新
@@ -150,29 +179,34 @@ const processPermissionChanges = () => {
 
 	// 使用 nextTick 确保在下一个事件循环中处理
 	nextTick(() => {
-		// 处理 viewPermissionMode 的变化
-		if (
-			localPermissions.viewPermissionMode === ViewPermissionModeEnum.Public &&
-			localPermissions.viewTeams.length > 0
-		) {
+		// 处理 viewPermissionMode 的变化 - Public 和 Private 模式下清空 viewTeams
+		if (!shouldShowTeamSelector.value && localPermissions.viewTeams.length > 0) {
 			localPermissions.viewTeams = [];
 		}
 
 		// 处理 operateTeams 的同步或过滤
 		if (localPermissions.useSameGroups) {
-			const newOperateTeams =
-				localPermissions.viewPermissionMode === ViewPermissionModeEnum.Public
-					? []
-					: [...localPermissions.viewTeams];
+			// 勾选"使用相同团队"时，同步 viewTeams 到 operateTeams
+			const newOperateTeams = shouldShowTeamSelector.value
+				? [...localPermissions.viewTeams]
+				: [];
 			if (JSON.stringify(newOperateTeams) !== JSON.stringify(localPermissions.operateTeams)) {
 				localPermissions.operateTeams = newOperateTeams;
 			}
 		} else {
-			const filtered = localPermissions.operateTeams.filter((group) =>
-				localPermissions.viewTeams.includes(group)
-			);
-			if (JSON.stringify(filtered) !== JSON.stringify(localPermissions.operateTeams)) {
-				localPermissions.operateTeams = filtered;
+			// 不勾选时的处理逻辑
+			if (!shouldShowTeamSelector.value) {
+				// Public 和 Private 模式下，operateTeams 可以自由选择任何团队，无需过滤
+				// 保持用户选择的 operateTeams 不变
+			} else {
+				// VisibleToTeams/InvisibleToTeams 模式下，Operate权限的团队范围必须 <= View权限的团队范围
+				// 过滤掉不在 viewTeams 中的团队
+				const filtered = localPermissions.operateTeams.filter((teamId) =>
+					localPermissions.viewTeams.includes(teamId)
+				);
+				if (JSON.stringify(filtered) !== JSON.stringify(localPermissions.operateTeams)) {
+					localPermissions.operateTeams = filtered;
+				}
 			}
 		}
 
@@ -216,7 +250,7 @@ watch(
 			if (hasChanges) {
 				isProcessingInternalUpdate.value = true;
 				localPermissions.viewPermissionMode =
-					newVal.viewPermissionMode ?? ViewPermissionModeEnum.Public;
+					newVal.viewPermissionMode ?? publicValue.value;
 				localPermissions.viewTeams = [...(newVal.viewTeams || [])];
 				localPermissions.useSameGroups = newVal.useSameGroups ?? true;
 				localPermissions.operateTeams = [...(newVal.operateTeams || [])];
