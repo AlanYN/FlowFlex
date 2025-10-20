@@ -668,6 +668,7 @@ const handleStageUpdated = () => {
  */
 const handleSave = async (isTip: boolean = true, isValidate: boolean = true) => {
 	try {
+		if (props?.questionnaireAnswers?.status === 'Submitted') return true;
 		saving.value = true;
 		if (isValidate) {
 			// 验证动态表单

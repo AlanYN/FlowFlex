@@ -327,7 +327,7 @@
 							placeholder="Select default assignee"
 							:multiple="false"
 							:clearable="true"
-							:max-count="0"
+							:maxShowCount="3"
 						/>
 					</el-form-item>
 
