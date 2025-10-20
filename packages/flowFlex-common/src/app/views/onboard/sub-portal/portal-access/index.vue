@@ -563,42 +563,13 @@ const checkCurrentUserAndAutoLogin = async () => {
 			...currentUserInfo,
 		};
 
-		// Show user logged in state instead of auto-verification
+		// Show user logged in state - let user choose whether to use this account
+		// Don't auto-verify to avoid potential issues with mismatched emails
 		verificationState.value = 'userLoggedIn';
 
-		// Optional: Try auto-verification in background for exact email match
-		if (userEmail) {
-			try {
-				loading.value = true;
-
-				// 使用短URL验证当前用户邮箱是否匹配
-				const response = (await userInvitationApi.verifyPortalAccessByShortUrl(shortUrlId, {
-					email: userEmail,
-				})) as any;
-				const verificationData = response.data || response;
-
-				if (verificationData.isValid) {
-					// Store portal access token and onboarding ID
-					localStorage.setItem('portal_access_token', verificationData.accessToken);
-					localStorage.setItem('onboarding_id', verificationData.onboardingId.toString());
-
-					// Auto redirect without requiring additional confirmation if email matches exactly
-					verificationState.value = 'success';
-					successMessage.value =
-						'Welcome back! Email verified. Redirecting to customer portal...';
-
-					setTimeout(() => {
-						redirectToCustomerPortal();
-					}, 1500);
-					return;
-				}
-			} catch (error) {
-				console.error('Background auto-verification error:', error);
-				// Continue to show user selection even if auto-verification fails
-			} finally {
-				loading.value = false;
-			}
-		}
+		console.log('[Portal Access] User logged in state displayed. User can choose to:');
+		console.log('  1. Use current account (will verify email match)');
+		console.log('  2. Logout and enter different email');
 	} else {
 		// No current user, show the form
 		verificationState.value = 'form';

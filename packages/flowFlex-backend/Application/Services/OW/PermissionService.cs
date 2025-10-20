@@ -1,9 +1,14 @@
 using FlowFlex.Application.Contracts.IServices.OW;
+using FlowFlex.Domain.Entities.OW;
+using FlowFlex.Domain.Repository.OW;
 using FlowFlex.Domain.Shared;
+using FlowFlex.Domain.Shared.Enums.OW;
 using FlowFlex.Domain.Shared.Enums.Permission;
 using FlowFlex.Domain.Shared.Models;
 using FlowFlex.Domain.Shared.Models.Permission;
 using Microsoft.Extensions.Logging;
+using Newtonsoft.Json;
+using PermissionOperationType = FlowFlex.Domain.Shared.Enums.Permission.OperationTypeEnum;
 
 namespace FlowFlex.Application.Services.OW
 {
@@ -15,13 +20,22 @@ namespace FlowFlex.Application.Services.OW
     {
         private readonly ILogger<PermissionService> _logger;
         private readonly UserContext _userContext;
+        private readonly IWorkflowRepository _workflowRepository;
+        private readonly IStageRepository _stageRepository;
+        private readonly IOnboardingRepository _onboardingRepository;
 
         public PermissionService(
             ILogger<PermissionService> logger,
-            UserContext userContext)
+            UserContext userContext,
+            IWorkflowRepository workflowRepository,
+            IStageRepository stageRepository,
+            IOnboardingRepository onboardingRepository)
         {
             _logger = logger;
             _userContext = userContext;
+            _workflowRepository = workflowRepository;
+            _stageRepository = stageRepository;
+            _onboardingRepository = onboardingRepository;
         }
 
         /// <summary>
@@ -30,7 +44,7 @@ namespace FlowFlex.Application.Services.OW
         public async Task<PermissionResult> CheckWorkflowAccessAsync(
             long userId,
             long workflowId,
-            OperationTypeEnum operationType)
+            PermissionOperationType operationType)
         {
             _logger.LogInformation(
                 "Checking Workflow access - UserId: {UserId}, WorkflowId: {WorkflowId}, Operation: {Operation}",
@@ -71,16 +85,32 @@ namespace FlowFlex.Application.Services.OW
                     }
                 }
 
-                // Step 4: Load Workflow permission configuration
-                // TODO: Implement actual permission loading from database
-                // For now, return a temporary success result
-                _logger.LogInformation(
-                    "Workflow permission check passed for user {UserId}",
-                    userId);
+                // Step 4: Load Workflow entity
+                var workflow = await _workflowRepository.GetByIdAsync(workflowId);
+                if (workflow == null)
+                {
+                    return PermissionResult.CreateFailure(
+                        "Workflow not found",
+                        "WORKFLOW_NOT_FOUND");
+                }
 
-                return PermissionResult.CreateSuccess(
-                    PermissionLevelEnum.Operate,
-                    "WorkflowTeam");
+                // Step 5: Check permission based on ViewPermissionMode and operation type
+                var permissionCheck = CheckWorkflowPermission(workflow, userId, operationType);
+                
+                if (permissionCheck.Success)
+                {
+                    _logger.LogInformation(
+                        "Workflow permission check passed for user {UserId}, Reason: {Reason}",
+                        userId, permissionCheck.GrantReason);
+                }
+                else
+                {
+                    _logger.LogWarning(
+                        "Workflow permission check failed for user {UserId}, Reason: {Reason}",
+                        userId, permissionCheck.ErrorMessage);
+                }
+
+                return permissionCheck;
             }
             catch (Exception ex)
             {
@@ -97,7 +127,7 @@ namespace FlowFlex.Application.Services.OW
         public async Task<PermissionResult> CheckStageAccessAsync(
             long userId,
             long stageId,
-            OperationTypeEnum operationType)
+            PermissionOperationType operationType)
         {
             _logger.LogInformation(
                 "Checking Stage access - UserId: {UserId}, StageId: {StageId}, Operation: {Operation}",
@@ -138,7 +168,8 @@ namespace FlowFlex.Application.Services.OW
                 // TODO: Implement actual permission loading from database
                 
                 return PermissionResult.CreateSuccess(
-                    PermissionLevelEnum.Operate,
+                    true,  // canView
+                    true,  // canOperate
                     "StageTeam");
             }
             catch (Exception ex)
@@ -156,7 +187,7 @@ namespace FlowFlex.Application.Services.OW
         public async Task<PermissionResult> CheckCaseAccessAsync(
             long userId,
             long caseId,
-            OperationTypeEnum operationType)
+            PermissionOperationType operationType)
         {
             _logger.LogInformation(
                 "Checking Case access - UserId: {UserId}, CaseId: {CaseId}, Operation: {Operation}",
@@ -197,7 +228,8 @@ namespace FlowFlex.Application.Services.OW
                 // TODO: Implement actual permission loading from database
                 
                 return PermissionResult.CreateSuccess(
-                    PermissionLevelEnum.Operate,
+                    true,  // canView
+                    true,  // canOperate
                     "CasePermission");
             }
             catch (Exception ex)
@@ -235,7 +267,7 @@ namespace FlowFlex.Application.Services.OW
         private async Task<PermissionResult> CheckGroupPermissionSwitchAsync(
             List<string> userGroups,
             PermissionEntityTypeEnum entityType,
-            OperationTypeEnum operationType)
+            PermissionOperationType operationType)
         {
             _logger.LogDebug(
                 "Checking Group permission switch - EntityType: {EntityType}, Operation: {Operation}",
@@ -250,9 +282,145 @@ namespace FlowFlex.Application.Services.OW
             // - If all Groups have the switch disabled, return failure
             
             // Temporary implementation: allow all operations
-            return PermissionResult.CreateSuccess(
-                PermissionLevelEnum.Operate,
-                "GroupPermissionSwitch");
+            return PermissionResult.CreateSuccess(true, true, "GroupPermissionSwitch");
+        }
+
+        /// <summary>
+        /// Check Workflow permission based on ViewPermissionMode and operation type
+        /// </summary>
+        private PermissionResult CheckWorkflowPermission(
+            Workflow workflow,
+            long userId,
+            PermissionOperationType operationType)
+        {
+            // Get user teams
+            var userTeamIds = GetUserTeamIds();
+
+            // Step 1: Check View Permission based on ViewPermissionMode
+            bool canView = CheckViewPermission(workflow, userTeamIds);
+
+            // Step 2: Check Operate Permission
+            bool canOperate = false;
+            if (canView && operationType == PermissionOperationType.Operate)
+            {
+                canOperate = CheckOperatePermission(workflow, userTeamIds);
+            }
+
+            // Step 3: Return result based on operation type
+            if (operationType == PermissionOperationType.View)
+            {
+                if (canView)
+                {
+                    return PermissionResult.CreateSuccess(true, false, "ViewPermission");
+                }
+                else
+                {
+                    return PermissionResult.CreateFailure(
+                        "User does not have view permission for this workflow",
+                        "VIEW_PERMISSION_DENIED");
+                }
+            }
+            else if (operationType == PermissionOperationType.Operate)
+            {
+                if (canOperate)
+                {
+                    return PermissionResult.CreateSuccess(true, true, "OperatePermission");
+                }
+                else if (canView)
+                {
+                    return PermissionResult.CreateFailure(
+                        "User has view permission but not operate permission",
+                        "OPERATE_PERMISSION_DENIED");
+                }
+                else
+                {
+                    return PermissionResult.CreateFailure(
+                        "User does not have permission for this workflow",
+                        "PERMISSION_DENIED");
+                }
+            }
+
+            return PermissionResult.CreateFailure(
+                "Unsupported operation type",
+                "UNSUPPORTED_OPERATION");
+        }
+
+        /// <summary>
+        /// Check view permission based on ViewPermissionMode
+        /// </summary>
+        private bool CheckViewPermission(Workflow workflow, List<string> userTeamIds)
+        {
+            switch (workflow.ViewPermissionMode)
+            {
+                case ViewPermissionModeEnum.Public:
+                    // Public mode: everyone can view
+                    return true;
+
+                case ViewPermissionModeEnum.VisibleToTeams:
+                    // Visible to specific teams: check if user belongs to any of the listed teams
+                    if (string.IsNullOrWhiteSpace(workflow.ViewTeams))
+                    {
+                        // No teams specified, deny access
+                        return false;
+                    }
+                    var visibleTeams = JsonConvert.DeserializeObject<List<string>>(workflow.ViewTeams) ?? new List<string>();
+                    return userTeamIds.Any(teamId => visibleTeams.Contains(teamId));
+
+                case ViewPermissionModeEnum.InvisibleToTeams:
+                    // Invisible to specific teams: check if user does NOT belong to any of the listed teams
+                    if (string.IsNullOrWhiteSpace(workflow.ViewTeams))
+                    {
+                        // No teams specified, allow access to all
+                        return true;
+                    }
+                    var invisibleTeams = JsonConvert.DeserializeObject<List<string>>(workflow.ViewTeams) ?? new List<string>();
+                    return !userTeamIds.Any(teamId => invisibleTeams.Contains(teamId));
+
+                case ViewPermissionModeEnum.Private:
+                    // Private mode: only creator/owner can view
+                    if (string.IsNullOrEmpty(_userContext?.UserId))
+                    {
+                        return false;
+                    }
+                    return long.TryParse(_userContext.UserId, out var currentUserId) && 
+                           workflow.CreateUserId == currentUserId;
+
+                default:
+                    // Default: deny access
+                    return false;
+            }
+        }
+
+        /// <summary>
+        /// Check operate permission
+        /// </summary>
+        private bool CheckOperatePermission(Workflow workflow, List<string> userTeamIds)
+        {
+            // If no operate teams specified, deny operate permission
+            if (string.IsNullOrWhiteSpace(workflow.OperateTeams))
+            {
+                return false;
+            }
+
+            var operateTeams = JsonConvert.DeserializeObject<List<string>>(workflow.OperateTeams) ?? new List<string>();
+            
+            // Check if user belongs to any of the operate teams
+            return userTeamIds.Any(teamId => operateTeams.Contains(teamId));
+        }
+
+        /// <summary>
+        /// Get user team IDs from UserContext
+        /// </summary>
+        private List<string> GetUserTeamIds()
+        {
+            if (_userContext?.UserTeams == null)
+            {
+                return new List<string>();
+            }
+
+            // Get all team IDs (including sub-teams)
+            var teamIds = _userContext.UserTeams.GetAllTeamIds();
+            return teamIds.Select(id => id.ToString()).ToList();
         }
     }
 }

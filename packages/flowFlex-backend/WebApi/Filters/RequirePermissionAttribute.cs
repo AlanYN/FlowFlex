@@ -1,16 +1,16 @@
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.Filters;
 using FlowFlex.Application.Contracts.IServices.OW;
+using FlowFlex.Domain.Shared;
 using FlowFlex.Domain.Shared.Enums.Permission;
 using FlowFlex.Domain.Shared.Models;
-using Microsoft.Extensions.DependencyInjection;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.Extensions.Logging;
 
 namespace FlowFlex.WebApi.Filters
 {
     /// <summary>
-    /// Permission verification attribute
-    /// Function: Declarative permission control for API endpoints
+    /// Permission verification filter attribute
+    /// Function: Verify user permission before executing controller action
     /// Usage: [RequirePermission(PermissionEntityTypeEnum.Workflow, OperationTypeEnum.View)]
     /// </summary>
     [AttributeUsage(AttributeTargets.Method | AttributeTargets.Class, AllowMultiple = false)]
@@ -24,8 +24,8 @@ namespace FlowFlex.WebApi.Filters
         /// Constructor
         /// </summary>
         /// <param name="entityType">Entity type (Workflow/Stage/Case)</param>
-        /// <param name="operationType">Operation type (Create/View/Operate/Delete/Assign)</param>
-        /// <param name="entityIdParameterName">Entity ID parameter name in route/query (default: "id")</param>
+        /// <param name="operationType">Operation type (View/Operate/Delete)</param>
+        /// <param name="entityIdParameterName">Entity ID parameter name in route (default: "id")</param>
         public RequirePermissionAttribute(
             PermissionEntityTypeEnum entityType,
             OperationTypeEnum operationType,
@@ -44,50 +44,51 @@ namespace FlowFlex.WebApi.Filters
 
             try
             {
-                // Step 1: Get user ID
-                if (string.IsNullOrWhiteSpace(userContext?.UserId) || !long.TryParse(userContext.UserId, out var userId))
+                // Step 1: Get entity ID from route parameters
+                if (!context.ActionArguments.TryGetValue(_entityIdParameterName, out var entityIdObj))
                 {
-                    logger.LogWarning("Invalid or missing user ID in UserContext");
-                    context.Result = new ObjectResult(new
+                    logger.LogWarning("Entity ID parameter '{ParameterName}' not found in action arguments", _entityIdParameterName);
+                    context.Result = new BadRequestObjectResult(new
+                    {
+                        success = false,
+                        errorCode = "INVALID_PARAMETER",
+                        message = $"Entity ID parameter '{_entityIdParameterName}' is required"
+                    });
+                    return;
+                }
+
+                if (!long.TryParse(entityIdObj?.ToString(), out var entityId) || entityId <= 0)
+                {
+                    logger.LogWarning("Invalid entity ID: {EntityId}", entityIdObj);
+                    context.Result = new BadRequestObjectResult(new
+                    {
+                        success = false,
+                        errorCode = "INVALID_ENTITY_ID",
+                        message = "Invalid entity ID"
+                    });
+                    return;
+                }
+
+                // Step 2: Get current user ID
+                var userIdString = userContext?.UserId;
+                if (string.IsNullOrEmpty(userIdString) || !long.TryParse(userIdString, out var userId) || userId <= 0)
+                {
+                    logger.LogWarning("User not authenticated or invalid user ID");
+                    context.Result = new UnauthorizedObjectResult(new
                     {
                         success = false,
                         errorCode = "UNAUTHORIZED",
                         message = "User not authenticated"
-                    })
-                    {
-                        StatusCode = 401
-                    };
-                    return;
-                }
-
-                // Step 2: Get entity ID from route/query parameters
-                if (!context.ActionArguments.TryGetValue(_entityIdParameterName, out var entityIdObj) ||
-                    !long.TryParse(entityIdObj?.ToString(), out var entityId))
-                {
-                    logger.LogWarning(
-                        "Entity ID parameter '{ParameterName}' not found or invalid",
-                        _entityIdParameterName);
-                    context.Result = new ObjectResult(new
-                    {
-                        success = false,
-                        errorCode = "INVALID_REQUEST",
-                        message = $"Entity ID parameter '{_entityIdParameterName}' is required"
-                    })
-                    {
-                        StatusCode = 400
-                    };
+                    });
                     return;
                 }
 
                 // Step 3: Check permission based on entity type
                 var permissionResult = _entityType switch
                 {
-                    PermissionEntityTypeEnum.Workflow => await permissionService.CheckWorkflowAccessAsync(
-                        userId, entityId, _operationType),
-                    PermissionEntityTypeEnum.Stage => await permissionService.CheckStageAccessAsync(
-                        userId, entityId, _operationType),
-                    PermissionEntityTypeEnum.Case => await permissionService.CheckCaseAccessAsync(
-                        userId, entityId, _operationType),
+                    PermissionEntityTypeEnum.Workflow => await permissionService.CheckWorkflowAccessAsync(userId, entityId, _operationType),
+                    PermissionEntityTypeEnum.Stage => await permissionService.CheckStageAccessAsync(userId, entityId, _operationType),
+                    PermissionEntityTypeEnum.Case => await permissionService.CheckCaseAccessAsync(userId, entityId, _operationType),
                     _ => throw new ArgumentException($"Unsupported entity type: {_entityType}")
                 };
 
@@ -101,11 +102,11 @@ namespace FlowFlex.WebApi.Filters
                     context.Result = new ObjectResult(new
                     {
                         success = false,
-                        errorCode = permissionResult.ErrorCode ?? "ACCESS_DENIED",
-                        message = permissionResult.ErrorMessage ?? "Access denied"
+                        errorCode = permissionResult.ErrorCode,
+                        message = permissionResult.ErrorMessage
                     })
                     {
-                        StatusCode = 403
+                        StatusCode = 403 // Forbidden
                     };
                     return;
                 }
@@ -136,4 +137,3 @@ namespace FlowFlex.WebApi.Filters
         }
     }
 }
-

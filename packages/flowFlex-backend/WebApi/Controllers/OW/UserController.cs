@@ -8,6 +8,7 @@ using FlowFlex.WebApi.Model.Response;
 using Item.Internal.StandardApi.Response;
 using System.Net;
 using System.Linq;
+using FlowFlex.Application.Filter;
 
 namespace FlowFlex.WebApi.Controllers.OW
 {
@@ -387,6 +388,7 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// <returns>Tree structure with teams and users</returns>
         [HttpGet("tree")]
         [Authorize]
+        [PortalAccess] // Allow Portal token access - Portal users can view user tree for assignments and logs
         [ProducesResponseType<SuccessResponse<List<UserTreeNodeDto>>>((int)HttpStatusCode.OK)]
         [ProducesResponseType(typeof(ErrorResponse), 400)]
         [ProducesResponseType(typeof(ErrorResponse), 401)]

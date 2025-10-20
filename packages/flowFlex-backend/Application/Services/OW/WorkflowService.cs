@@ -41,8 +41,9 @@ namespace FlowFlex.Application.Service.OW
         private readonly IComponentMappingService _componentMappingService;
         private readonly IDistributedCacheService _cacheService;
         private readonly IOperationChangeLogService _operationChangeLogService;
+        private readonly IPermissionService _permissionService;
 
-        public WorkflowService(IWorkflowRepository workflowRepository, IStageRepository stageRepository, IMapper mapper, UserContext userContext, ILogger<WorkflowService> logger, IOperatorContextService operatorContextService, IComponentMappingService componentMappingService, IDistributedCacheService cacheService, IOperationChangeLogService operationChangeLogService)
+        public WorkflowService(IWorkflowRepository workflowRepository, IStageRepository stageRepository, IMapper mapper, UserContext userContext, ILogger<WorkflowService> logger, IOperatorContextService operatorContextService, IComponentMappingService componentMappingService, IDistributedCacheService cacheService, IOperationChangeLogService operationChangeLogService, IPermissionService permissionService)
         {
             _workflowRepository = workflowRepository;
             _stageRepository = stageRepository;
@@ -53,6 +54,7 @@ namespace FlowFlex.Application.Service.OW
             _componentMappingService = componentMappingService;
             _cacheService = cacheService;
             _operationChangeLogService = operationChangeLogService;
+            _permissionService = permissionService;
         }
 
         public async Task<long> CreateAsync(WorkflowInputDto input)
@@ -199,6 +201,7 @@ namespace FlowFlex.Application.Service.OW
             var originalIsActive = entity.IsActive;
             var originalStartDate = entity.StartDate;
             var originalEndDate = entity.EndDate;
+            var originalIsAIGenerated = entity.IsAIGenerated; // Preserve AI-generated flag
 
             // Only create version history record when there are actual changes
             if (hasChanges)
@@ -209,6 +212,10 @@ namespace FlowFlex.Application.Service.OW
 
             // Update entity data first
             _mapper.Map(input, entity);
+
+            // Protect IsAIGenerated field - should not be updated by user input
+            // This field is set during creation and should remain unchanged
+            entity.IsAIGenerated = originalIsAIGenerated;
 
             // Initialize update information with proper timestamps
             entity.InitUpdateInfo(_userContext);
@@ -466,7 +473,11 @@ namespace FlowFlex.Application.Service.OW
             // Temporarily disable expired workflow processing to avoid concurrent database operations
             // Debug logging handled by structured logging
             var list = await _workflowRepository.GetAllWorkflowsAsync();
-            var result = _mapper.Map<List<WorkflowOutputDto>>(list);
+            
+            // Apply permission filtering
+            var filteredList = await FilterWorkflowsByPermissionAsync(list);
+            
+            var result = _mapper.Map<List<WorkflowOutputDto>>(filteredList);
 
             // 为了优化性能，工作流列表接口不返回Stage数据
             // Stage数据通过单独的接口获取: /api/ow/workflows/{id}/stages
@@ -507,7 +518,10 @@ namespace FlowFlex.Application.Service.OW
                     return new List<WorkflowOutputDto>();
                 }
 
-                var result = _mapper.Map<List<WorkflowOutputDto>>(list);
+                // Apply permission filtering
+                var filteredList = await FilterWorkflowsByPermissionAsync(list);
+                
+                var result = _mapper.Map<List<WorkflowOutputDto>>(filteredList);
                 if (result == null)
                 {
                     // Debug logging handled by structured logging
@@ -552,7 +566,10 @@ namespace FlowFlex.Application.Service.OW
                 query.SortField,
                 query.SortDirection);
 
-            var result = _mapper.Map<List<WorkflowOutputDto>>(items);
+            // Apply permission filtering
+            var filteredItems = await FilterWorkflowsByPermissionAsync(items);
+            
+            var result = _mapper.Map<List<WorkflowOutputDto>>(filteredItems);
 
             // Load stages for each workflow in the paged results
             foreach (var workflow in result)
@@ -1028,6 +1045,47 @@ namespace FlowFlex.Application.Service.OW
                 counter++;
                 currentName = $"{originalName} ({counter})";
             }
+        }
+
+        /// <summary>
+        /// Filter workflows by user permission
+        /// </summary>
+        private async Task<List<Workflow>> FilterWorkflowsByPermissionAsync(List<Workflow> workflows)
+        {
+            if (workflows == null || !workflows.Any())
+            {
+                return workflows;
+            }
+
+            var userIdString = _userContext?.UserId;
+            if (string.IsNullOrEmpty(userIdString) || !long.TryParse(userIdString, out var userId) || userId <= 0)
+            {
+                _logger.LogWarning("User ID is invalid, returning empty workflow list");
+                return new List<Workflow>();
+            }
+
+            var filteredWorkflows = new List<Workflow>();
+
+            foreach (var workflow in workflows)
+            {
+                // Check view permission for each workflow
+                var permissionResult = await _permissionService.CheckWorkflowAccessAsync(
+                    userId,
+                    workflow.Id,
+                    Domain.Shared.Enums.Permission.OperationTypeEnum.View);
+
+                if (permissionResult.Success && permissionResult.CanView)
+                {
+                    filteredWorkflows.Add(workflow);
+                }
+            }
+
+            _logger.LogDebug(
+                "Filtered workflows - Total: {Total}, Accessible: {Accessible}",
+                workflows.Count,
+                filteredWorkflows.Count);
+
+            return filteredWorkflows;
         }
 
         // 缓存相关方法已移除
