@@ -183,6 +183,26 @@ namespace FlowFlex.Domain.Entities.OW
         public bool IsPrioritySet { get; set; } = false;
 
         /// <summary>
+        /// Ownership - User ID who owns this onboarding
+        /// </summary>
+        [SugarColumn(ColumnName = "ownership")]
+        public long? Ownership { get; set; }
+
+        /// <summary>
+        /// Ownership Name - User name who owns this onboarding
+        /// </summary>
+        [StringLength(100)]
+        [SugarColumn(ColumnName = "ownership_name")]
+        public string OwnershipName { get; set; }
+
+        /// <summary>
+        /// Ownership Email - User email who owns this onboarding
+        /// </summary>
+        [StringLength(200)]
+        [SugarColumn(ColumnName = "ownership_email")]
+        public string OwnershipEmail { get; set; }
+
+        /// <summary>
         /// Dynamic Extension Fields (redundant common fields for easy list search/sorting/export) - JSONB
         /// </summary>
         [SugarColumn(ColumnName = "custom_fields_json", ColumnDataType = "jsonb", IsJson = true)]
