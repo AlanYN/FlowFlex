@@ -295,6 +295,7 @@
 													v-model="element.defaultAssignee"
 													selection-type="user"
 													readonly
+													:max-show-count="10"
 												/>
 											</div>
 										</div>
