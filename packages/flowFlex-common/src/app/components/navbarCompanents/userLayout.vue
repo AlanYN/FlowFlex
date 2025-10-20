@@ -5,7 +5,7 @@
 				<div class="flex items-center">
 					<div
 						v-if="!avatar"
-						class="h-[35px] w-[35px] rounded-full text-xl text-center font-bold leading-[35px] text-white"
+						class="h-[35px] w-[35px] rounded-full text-xl font-bold leading-[35px] text-white flex items-center justify-center"
 						:style="{ backgroundColor: getAvatarColor(userName) }"
 					>
 						{{

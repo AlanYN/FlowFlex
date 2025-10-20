@@ -387,3 +387,6 @@ export interface FlowflexUser {
 	};
 	memberCount?: number;
 }
+
+export type NotificationType = { name: 'tenant-change'; msg: any };
+export type NotificationAction = (p: NotificationType) => Promise | void;
