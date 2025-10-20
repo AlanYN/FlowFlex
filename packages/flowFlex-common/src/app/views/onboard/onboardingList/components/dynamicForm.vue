@@ -1,588 +1,559 @@
 <template>
 	<div class="dynamic-form">
-		<div class="">
-			<!-- 加载状态 -->
-			<div v-if="loading" class="flex justify-center items-center py-8">
-				<el-icon class="animate-spin mr-2"><Loading /></el-icon>
-				<span class="text-sm form-loading-text">Loading questionnaire data...</span>
+		<div v-loading="loading" class="">
+			<div v-if="!!formattedQuestionnaires[0]?.hasError" class="questionnaire-error">
+				<el-alert
+					title="Failed to load questionnaire"
+					:description="`There was an error loading the questionnaire structure for '${formattedQuestionnaires[0].title}'. Please check the data format.`"
+					type="warning"
+					show-icon
+					:closable="false"
+				/>
 			</div>
 
-			<!-- 问卷内容 -->
-			<template v-else>
-				<!-- 错误状态显示 -->
-				<div v-if="!!formattedQuestionnaires[0]?.hasError" class="questionnaire-error">
-					<el-alert
-						title="Failed to load questionnaire"
-						:description="`There was an error loading the questionnaire structure for '${formattedQuestionnaires[0].title}'. Please check the data format.`"
-						type="warning"
-						show-icon
-						:closable="false"
-					/>
+			<!-- 当前 Section 内容 -->
+			<div v-if="currentSection" class="space-y-4">
+				<div class="flex flex-col space-y-1" v-if="!currentSection.isDefault">
+					<h4 class="section-title" v-if="currentSection.title">
+						{{ currentSectionIndex + 1 }}.{{ currentSection.title }}
+					</h4>
+					<p v-if="currentSection.description" class="section-description">
+						{{ currentSection.description }}
+					</p>
 				</div>
 
-				<!-- 当前 Section 内容 -->
-				<div v-if="currentSection" class="space-y-4">
-					<div class="flex flex-col space-y-1" v-if="!currentSection.isDefault">
-						<h4 class="section-title" v-if="currentSection.title">
-							{{ currentSectionIndex + 1 }}.{{ currentSection.title }}
-						</h4>
-						<p v-if="currentSection.description" class="section-description">
-							{{ currentSection.description }}
-						</p>
-					</div>
-
-					<div
-						v-for="(question, questionIndex) in currentSection.questions"
-						:key="question.id"
-						class="question-item"
-						:class="{ '!bg-white !border-none': question.type == 'page_break' }"
-					>
-						<div class="mb-2" v-if="question.type !== 'page_break'">
-							<div class="flex items-center gap-2">
-								<span class="text-sm font-medium form-question-number">
-									{{ currentSectionIndex + 1 }}-{{
-										getQuestionNumber(questionIndex)
-									}}.
-									{{ question.title }}
-									<span v-if="question.required" class="text-red-500">*</span>
+				<div
+					v-for="(question, questionIndex) in currentSection.questions"
+					:key="question.id"
+					class="question-item"
+					:class="{ '!bg-white !border-none': question.type == 'page_break' }"
+				>
+					<div class="mb-2" v-if="question.type !== 'page_break'">
+						<div class="flex items-center gap-2">
+							<span class="text-sm font-medium form-question-number">
+								{{ currentSectionIndex + 1 }}-{{
+									getQuestionNumber(questionIndex)
+								}}.
+								{{ question.title }}
+								<span
+									v-if="question.required && !isQuestionSkipped(question)"
+									class="text-red-500"
+								>
+									*
 								</span>
-								<!-- Action Tag for question -->
-								<ActionTag
-									v-if="
-										question.action &&
-										question.action.id &&
-										question.action.name &&
-										onboardingId
-									"
-									:action="question.action"
-									:trigger-source-id="question.id"
-									trigger-source-type="question"
-									:onboarding-id="onboardingId"
-									type="success"
-									size="small"
-								/>
-							</div>
-							<p v-if="question.description" class="text-xs form-question-desc mt-1">
-								{{ question.description }}
-							</p>
-							<div
-								v-if="question.questionProps && question.questionProps.fileUrl"
-								class="flex justify-center items-center"
-							>
-								<el-image
-									v-if="question.questionProps.type === 'image'"
-									:src="question.questionProps.fileUrl"
-									class="responsive-image"
-									:preview-src-list="[`${question.questionProps.fileUrl}`]"
-									fit="contain"
-								/>
-								<video
-									v-else-if="question.questionProps.type === 'video'"
-									:src="question.questionProps.fileUrl"
-									:alt="question.questionProps.fileName || 'Uploaded video'"
-									controls
-									class="max-h-[500px] w-auto object-contain"
-								></video>
-							</div>
-						</div>
-
-						<!-- 短答题 -->
-						<el-input
-							v-if="question.type === 'short_answer' || question.type === 'text'"
-							v-model="formData[question.id]"
-							:maxlength="questionMaxlength"
-							:placeholder="'Enter ' + question.question"
-							:disabled="disabled"
-							@input="handleInputChange(question.id, $event)"
-						/>
-
-						<!-- 长答题 -->
-						<el-input
-							v-else-if="
-								question.type === 'long_answer' ||
-								question.type === 'paragraph' ||
-								question.type === 'textarea'
-							"
-							:disabled="disabled"
-							v-model="formData[question.id]"
-							:maxlength="notesPageTextraMaxLength"
-							type="textarea"
-							:rows="3"
-							show-word-limit
-							:placeholder="'Enter ' + question.question"
-							@input="handleInputChange(question.id, $event)"
-						/>
-
-						<!-- 单选题 -->
-						<div v-else-if="question.type === 'multiple_choice'" class="w-full">
-							<div class="space-y-2">
-								<div
-									v-for="option in question.options"
-									:key="option.id || option.value"
-									class="w-full flex items-center space-x-2 p-2 form-radio-option rounded"
-									:class="{ 'cursor-not-allowed form-radio-disabled': disabled }"
-									@click="
-										!disabled && handleHasOtherQuestion(question, option.value)
-									"
-								>
-									<div
-										:class="[
-											'w-4 h-4 border-2 rounded-full flex items-center justify-center flex-shrink-0',
-											formData[question.id] === (option.value || option.label)
-												? 'form-radio-checked'
-												: 'form-radio-unchecked',
-										]"
-									>
-										<div
-											v-if="
-												formData[question.id] ===
-												(option.value || option.label)
-											"
-											class="w-2 h-2 bg-white rounded-full"
-										></div>
-									</div>
-									<div v-if="option.isOther">
-										<el-input
-											@click.stop
-											:disabled="
-												formData[question.id] != option.value || disabled
-											"
-											v-model="formData[`${question.id}_${option.id}`]"
-											:maxlength="questionMaxlength"
-											placeholder="Enter other"
-										/>
-									</div>
-									<div v-else class="flex items-center gap-2">
-										<span
-											class="text-sm"
-											:class="{
-												'text-primary-500 font-bold':
-													formData[question.id] ===
-													(option.value || option.label),
-											}"
-										>
-											{{ option.label || option.text || option.value }}
-										</span>
-										<!-- Action Tag for option -->
-										<ActionTag
-											v-if="
-												option.action &&
-												option.action.id &&
-												option.action.name &&
-												onboardingId
-											"
-											:action="option.action"
-											:trigger-source-id="option.id || option.temporaryId"
-											trigger-source-type="option"
-											:onboarding-id="onboardingId"
-											type="success"
-											size="small"
-										/>
-									</div>
-								</div>
-							</div>
-						</div>
-
-						<!-- 多选题 -->
-						<el-checkbox-group
-							v-else-if="question.type === 'checkboxes'"
-							v-model="formData[question.id]"
-							@change="handleHasOtherQuestion(question, $event)"
-							class="w-full"
-							:disabled="disabled"
-						>
-							<div class="space-y-2">
-								<el-checkbox
-									v-for="option in question.options"
-									:key="option.id"
-									:value="option.value"
-									class="w-full"
-								>
-									<div v-if="option.isOther">
-										<el-input
-											:disabled="
-												!formData[question.id]?.includes(option.value) ||
-												disabled
-											"
-											v-model="formData[`${question.id}_${option.id}`]"
-											:maxlength="questionMaxlength"
-											placeholder="Enter other"
-										/>
-									</div>
-									<span v-else class="text-sm">
-										{{ option.label }}
-									</span>
-								</el-checkbox>
-							</div>
-						</el-checkbox-group>
-
-						<!-- 下拉选择 -->
-						<el-select
-							v-else-if="question.type === 'dropdown'"
-							v-model="formData[question.id]"
-							:placeholder="'Select ' + question.question"
-							class="w-full"
-							@change="handleInputChange(question.id, $event)"
-							:disabled="disabled"
-						>
-							<el-option
-								v-for="option in question.options"
-								:key="option.id || option.value"
-								:label="option.label || option.text || option.value"
-								:value="option.value || option.label"
-							/>
-						</el-select>
-
-						<!-- 日期选择 -->
-						<el-date-picker
-							v-else-if="question.type === 'date'"
-							v-model="formData[question.id]"
-							type="date"
-							:placeholder="'Select date'"
-							class="w-full"
-							:format="projectDate"
-							@change="handleInputChange(question.id, $event)"
-							:disabled="disabled"
-						/>
-
-						<!-- 时间选择 -->
-						<el-time-picker
-							v-else-if="question.type === 'time'"
-							v-model="formData[question.id]"
-							:placeholder="'Select time'"
-							class="w-full"
-							@change="handleInputChange(question.id, $event)"
-							:disabled="disabled"
-						/>
-						<!-- 评分 -->
-						<div
-							v-else-if="question.type === 'rating'"
-							class="flex items-center space-x-2"
-						>
-							<el-rate
-								v-model="formData[question.id]"
-								:max="question.max || 5"
-								:icons="getSelectedFilledIcon(question.iconType)"
-								:void-icon="getSelectedVoidIcon(question.iconType)"
-								@change="handleInputChange(question.id, $event)"
-								:disabled="disabled"
-							/>
-							<span v-if="question.showText" class="text-sm form-star-text">
-								({{ question.max || 5 }} stars)
 							</span>
-						</div>
-
-						<!-- 线性量表 -->
-						<div v-else-if="question.type === 'linear_scale'" class="space-y-2">
-							<el-slider
-								:key="`slider-${question.id}-${formData[question.id] || 0}`"
-								v-model="formData[question.id]"
-								:min="question.min"
-								:max="question.max"
-								:marks="getSliderMarks(question)"
-								class="preview-linear-scale"
-								@change="handleInputChange(question.id, $event)"
-								:validate-event="false"
-								show-stops
-								:disabled="disabled"
-							/>
-							<div class="flex justify-between text-xs form-slider-labels">
-								<span>{{ question.minLabel || question.min }}</span>
-								<span>{{ question.maxLabel || question.max }}</span>
-							</div>
-						</div>
-
-						<!-- 文件上传 -->
-						<div
-							v-else-if="question.type === 'file' || question.type === 'file_upload'"
-							class="w-full"
-						>
-							<el-upload
-								drag
-								:auto-upload="false"
-								:show-file-list="true"
-								:on-change="
-									(file, fileList) => {
-										handleFileChange(question.id, file, fileList);
-									}
-								"
-								v-model:file-list="formData[question.id]"
-								:accept="question.accept"
-								class="w-full"
-								:disabled="disabled"
-							>
-								<el-icon class="el-icon--upload text-4xl"><Upload /></el-icon>
-								<div class="el-upload__text">
-									Drop file here or
-									<em>click to select</em>
-								</div>
-								<div v-if="question.accept" class="el-upload__tip text-xs">
-									Accepted formats: {{ question.accept }}
-								</div>
-							</el-upload>
-						</div>
-
-						<!-- 多选网格 -->
-						<div
-							v-else-if="question.type === 'multiple_choice_grid'"
-							class="preview-grid"
-						>
-							<div v-if="question.columns && question.rows" class="grid-container">
-								<div class="grid-header">
-									<div class="grid-cell grid-row-header"></div>
-									<div
-										v-for="(column, colIndex) in question.columns"
-										:key="colIndex"
-										class="grid-cell grid-column-header"
-									>
-										{{ column.label }}
-										<el-tag
-											v-if="column.isOther"
-											type="warning"
-											class="other-column-tag"
-										>
-											Other
-										</el-tag>
-									</div>
-								</div>
-								<div
-									v-for="(row, rowIndex) in question.rows"
-									:key="rowIndex"
-									class="grid-row"
-								>
-									<div class="grid-cell grid-row-header">{{ row.label }}</div>
-									<div
-										v-for="(column, colIndex) in question.columns"
-										:key="colIndex"
-										class="grid-cell grid-checkbox-cell gap-x-2"
-									>
-										<el-checkbox-group
-											v-model="formData[`${question.id}_${row.id}`]"
-											@change="handleHasOtherQuestion(question, row.id)"
-											:disabled="disabled"
-										>
-											<el-checkbox :value="column.id" class="grid-checkbox" />
-										</el-checkbox-group>
-
-										<!-- Other选项的文字输入框 -->
-										<div v-if="column.isOther">
-											<el-input
-												v-model="
-													formData[
-														`${question.id}_${row.id}_${column.id}`
-													]
-												"
-												:disabled="
-													!formData[`${question.id}_${row.id}`]?.includes(
-														column.id
-													)
-												"
-												:maxlength="questionMaxlength"
-												placeholder="Enter other"
-												class="other-input"
-											/>
-										</div>
-									</div>
-								</div>
-							</div>
-						</div>
-
-						<!-- 单选网格 (Checkbox grid) -->
-						<div v-else-if="question.type === 'checkbox_grid'" class="preview-grid">
-							<div
+							<!-- Action Tag for question -->
+							<ActionTag
 								v-if="
-									question.rows &&
-									question.rows.length > 0 &&
-									question.columns &&
-									question.columns.length > 0
+									question.action &&
+									question.action.id &&
+									question.action.name &&
+									onboardingId
 								"
-								class="grid-container"
-							>
-								<div class="grid-header">
-									<div class="grid-cell grid-row-header"></div>
-									<div
-										v-for="(column, colIndex) in question.columns"
-										:key="colIndex"
-										class="grid-cell grid-column-header"
-									>
-										{{ column.label }}
-										<el-tag
-											v-if="column.isOther"
-											type="warning"
-											class="other-column-tag"
-										>
-											Other
-										</el-tag>
-									</div>
-								</div>
-								<div
-									v-for="(row, rowIndex) in question.rows"
-									:key="rowIndex"
-									class="grid-row"
-								>
-									<div class="grid-cell grid-row-header">{{ row.label }}</div>
-									<div
-										v-for="(column, colIndex) in question.columns"
-										:key="colIndex"
-										class="grid-cell grid-radio-cell gap-x-2"
-									>
-										<el-radio
-											v-model="formData[`${question.id}_${row.id}`]"
-											:name="`grid_${question.id}_${rowIndex}`"
-											:value="
-												column.value ||
-												column.label ||
-												`${rowIndex}_${colIndex}`
-											"
-											:disabled="disabled"
-											@change="handleHasOtherQuestion(question, row.id)"
-											class="grid-radio"
-										/>
-
-										<!-- Other选项的文字输入框 -->
-										<div v-if="column.isOther">
-											<el-input
-												v-model="
-													formData[
-														`${question.id}_${row.id}_${column.id}`
-													]
-												"
-												:disabled="
-													formData[`${question.id}_${row.id}`] !=
-														(column.value || column.label) || disabled
-												"
-												placeholder="Enter other"
-												:maxlength="questionMaxlength"
-												class="other-input"
-											/>
-										</div>
-									</div>
-								</div>
-							</div>
-
-							<!-- 如果没有数据，显示占位符 -->
-							<div
-								v-else
-								class="form-unsupported-type italic p-4 border border-dashed rounded"
-							>
-								<el-icon class="mr-2"><Warning /></el-icon>
-								Checkbox grid: No rows or columns data available
-								<div class="text-xs mt-1">
-									Rows: {{ question.rows?.length || 0 }}, Columns:
-									{{ question.columns?.length || 0 }}
-								</div>
-							</div>
+								:action="question.action"
+								:trigger-source-id="question.id"
+								trigger-source-type="question"
+								:onboarding-id="onboardingId"
+								type="success"
+								size="small"
+							/>
 						</div>
-
-						<div v-else-if="question.type === 'short_answer_grid'" class="preview-grid">
-							<div v-if="question.columns && question.rows" class="grid-container">
-								<div class="grid-header">
-									<div class="grid-cell grid-row-header"></div>
-									<div
-										v-for="(column, colIndex) in question.columns"
-										:key="colIndex"
-										class="grid-cell grid-column-header"
-									>
-										{{ column.label }}
-										<el-tag
-											v-if="column.isOther"
-											type="warning"
-											class="other-column-tag"
-										>
-											Other
-										</el-tag>
-									</div>
-								</div>
-								<div
-									v-for="(row, rowIndex) in question.rows"
-									:key="rowIndex"
-									class="grid-row"
-								>
-									<div class="grid-cell grid-row-header">{{ row.label }}</div>
-									<div
-										v-for="(column, colIndex) in question.columns"
-										:key="colIndex"
-										class="grid-cell grid-checkbox-cell gap-x-2"
-									>
-										<el-input
-											v-model="
-												formData[`${question.id}_${column.id}_${row.id}`]
-											"
-											:maxlength="questionMaxlength"
-											:disabled="disabled"
-										/>
-									</div>
-								</div>
-							</div>
-						</div>
-
+						<p v-if="question.description" class="text-xs form-question-desc mt-1">
+							{{ question.description }}
+						</p>
 						<div
-							v-else-if="question.type === 'page_break'"
-							class="form-page-break italic"
-						>
-							<div class="border-t-2 border-dashed border-primary-300 pt-4 mt-4">
-								<div class="text-center text-primary-500 text-sm">
-									— Page Break —
-								</div>
-							</div>
-						</div>
-
-						<div
-							v-else-if="question.type === 'image'"
+							v-if="question.questionProps && question.questionProps.fileUrl"
 							class="flex justify-center items-center"
 						>
 							<el-image
-								:src="question.fileUrl"
+								v-if="question.questionProps.type === 'image'"
+								:src="question.questionProps.fileUrl"
 								class="responsive-image"
-								:preview-src-list="[`${question.fileUrl}`]"
+								:preview-src-list="[`${question.questionProps.fileUrl}`]"
 								fit="contain"
 							/>
-						</div>
-
-						<div
-							v-else-if="question.type === 'video'"
-							class="flex justify-center items-center"
-						>
 							<video
-								:src="question.fileUrl"
+								v-else-if="question.questionProps.type === 'video'"
+								:src="question.questionProps.fileUrl"
+								:alt="question.questionProps.fileName || 'Uploaded video'"
 								controls
 								class="max-h-[500px] w-auto object-contain"
 							></video>
 						</div>
 					</div>
-					<div
-						v-if="!currentSection.questions || currentSection.questions.length <= 0"
-						class="empty-state-container"
-					>
-						<el-empty
-							:image-size="60"
-							description="No questions available in this section"
-						>
-							<template #description>
-								<p class="form-empty-text text-sm">
-									This section doesn't contain any questions yet.
-								</p>
-							</template>
-						</el-empty>
+					<!-- 短答题 -->
+					<el-input
+						v-if="question.type === 'short_answer' || question.type === 'text'"
+						v-model="formData[question.id]"
+						:maxlength="questionMaxlength"
+						:placeholder="'Enter ' + question.question"
+						:disabled="disabled"
+						@change="handleInputChange(question.id, $event)"
+					/>
+
+					<!-- 长答题 -->
+					<el-input
+						v-else-if="
+							question.type === 'long_answer' ||
+							question.type === 'paragraph' ||
+							question.type === 'textarea'
+						"
+						:disabled="disabled"
+						v-model="formData[question.id]"
+						:maxlength="notesPageTextraMaxLength"
+						type="textarea"
+						:rows="3"
+						show-word-limit
+						:placeholder="'Enter ' + question.question"
+						@change="handleInputChange(question.id, $event)"
+					/>
+
+					<!-- 单选题 -->
+					<div v-else-if="question.type === 'multiple_choice'" class="w-full">
+						<div class="space-y-2">
+							<div
+								v-for="option in question.options"
+								:key="option.id || option.value"
+								class="w-full flex items-center space-x-2 p-2 form-radio-option rounded"
+								:class="{ 'cursor-not-allowed form-radio-disabled': disabled }"
+								@click="!disabled && handleHasOtherQuestion(question, option.value)"
+							>
+								<div
+									:class="[
+										'w-4 h-4 border-2 rounded-full flex items-center justify-center flex-shrink-0',
+										formData[question.id] === (option.value || option.label)
+											? 'form-radio-checked'
+											: 'form-radio-unchecked',
+									]"
+								>
+									<div
+										v-if="
+											formData[question.id] === (option.value || option.label)
+										"
+										class="w-2 h-2 bg-white rounded-full"
+									></div>
+								</div>
+								<div v-if="option.isOther">
+									<el-input
+										@click.stop
+										:disabled="
+											formData[question.id] != option.value || disabled
+										"
+										v-model="formData[`${question.id}_${option.id}`]"
+										:maxlength="questionMaxlength"
+										placeholder="Enter other"
+									/>
+								</div>
+								<div v-else class="flex items-center gap-2">
+									<span
+										class="text-sm"
+										:class="{
+											'text-primary-500 font-bold':
+												formData[question.id] ===
+												(option.value || option.label),
+										}"
+									>
+										{{ option.label || option.text || option.value }}
+									</span>
+									<!-- Action Tag for option -->
+									<ActionTag
+										v-if="
+											option.action &&
+											option.action.id &&
+											option.action.name &&
+											onboardingId
+										"
+										:action="option.action"
+										:trigger-source-id="option.id || option.temporaryId"
+										trigger-source-type="option"
+										:onboarding-id="onboardingId"
+										type="success"
+										size="small"
+									/>
+								</div>
+							</div>
+						</div>
 					</div>
 
-					<!-- 统一的底部导航控件 -->
-					<div v-if="totalSections > 1" class="bottom-navigation">
-						<!-- 左侧：上一页按钮 -->
-						<div class="nav-left">
-							<el-button
-								v-if="!isFirstSection"
-								@click="goToPreviousSection"
-								class="pagination-btn"
+					<!-- 多选题 -->
+					<el-checkbox-group
+						v-else-if="question.type === 'checkboxes'"
+						v-model="formData[question.id]"
+						@change="handleHasOtherQuestion(question, $event)"
+						class="w-full"
+						:disabled="disabled"
+					>
+						<div class="space-y-2">
+							<el-checkbox
+								v-for="option in question.options"
+								:key="option.id"
+								:value="option.value"
+								class="w-full"
 							>
-								<el-icon class="mr-1"><ArrowLeft /></el-icon>
-								Previous
-							</el-button>
+								<div v-if="option.isOther">
+									<el-input
+										:disabled="
+											!formData[question.id]?.includes(option.value) ||
+											disabled
+										"
+										v-model="formData[`${question.id}_${option.id}`]"
+										:maxlength="questionMaxlength"
+										placeholder="Enter other"
+									/>
+								</div>
+								<span v-else class="text-sm">
+									{{ option.label }}
+								</span>
+							</el-checkbox>
+						</div>
+					</el-checkbox-group>
+
+					<!-- 下拉选择 -->
+					<el-select
+						v-else-if="question.type === 'dropdown'"
+						v-model="formData[question.id]"
+						:placeholder="'Select ' + question.question"
+						class="w-full"
+						@change="handleInputChange(question.id, $event)"
+						:disabled="disabled"
+					>
+						<el-option
+							v-for="option in question.options"
+							:key="option.id || option.value"
+							:label="option.label || option.text || option.value"
+							:value="option.value || option.label"
+						/>
+					</el-select>
+
+					<!-- 日期选择 -->
+					<el-date-picker
+						v-else-if="question.type === 'date'"
+						v-model="formData[question.id]"
+						type="date"
+						:placeholder="'Select date'"
+						class="w-full"
+						:format="projectDate"
+						@change="handleInputChange(question.id, $event)"
+						:disabled="disabled"
+					/>
+
+					<!-- 时间选择 -->
+					<el-time-picker
+						v-else-if="question.type === 'time'"
+						v-model="formData[question.id]"
+						:placeholder="'Select time'"
+						class="w-full"
+						@change="handleInputChange(question.id, $event)"
+						:disabled="disabled"
+					/>
+					<!-- 评分 -->
+					<div v-else-if="question.type === 'rating'" class="flex items-center space-x-2">
+						<el-rate
+							v-model="formData[question.id]"
+							:max="question.max || 5"
+							:icons="getSelectedFilledIcon(question.iconType)"
+							:void-icon="getSelectedVoidIcon(question.iconType)"
+							@change="handleInputChange(question.id, $event)"
+							:disabled="disabled"
+						/>
+						<span v-if="question.showText" class="text-sm form-star-text">
+							({{ question.max || 5 }} stars)
+						</span>
+					</div>
+
+					<!-- 线性量表 -->
+					<div v-else-if="question.type === 'linear_scale'" class="space-y-2">
+						<el-slider
+							:key="`slider-${question.id}-${formData[question.id] || 0}`"
+							v-model="formData[question.id]"
+							:min="question.min"
+							:max="question.max"
+							:marks="getSliderMarks(question)"
+							class="preview-linear-scale"
+							@change="handleInputChange(question.id, $event)"
+							:validate-event="false"
+							show-stops
+							:disabled="disabled"
+						/>
+						<div class="flex justify-between text-xs form-slider-labels">
+							<span>{{ question.minLabel || question.min }}</span>
+							<span>{{ question.maxLabel || question.max }}</span>
+						</div>
+					</div>
+
+					<!-- 文件上传 -->
+					<div
+						v-else-if="question.type === 'file' || question.type === 'file_upload'"
+						class="w-full"
+					>
+						<el-upload
+							drag
+							:auto-upload="false"
+							:show-file-list="true"
+							:on-change="
+								(file, fileList) => {
+									handleFileChange(question.id, file, fileList);
+								}
+							"
+							v-model:file-list="formData[question.id]"
+							:accept="question.accept"
+							class="w-full"
+							:disabled="disabled"
+						>
+							<el-icon class="el-icon--upload text-4xl"><Upload /></el-icon>
+							<div class="el-upload__text">
+								Drop file here or
+								<em>click to select</em>
+							</div>
+							<div v-if="question.accept" class="el-upload__tip text-xs">
+								Accepted formats: {{ question.accept }}
+							</div>
+						</el-upload>
+					</div>
+
+					<!-- 多选网格 -->
+					<div v-else-if="question.type === 'multiple_choice_grid'" class="preview-grid">
+						<div v-if="question.columns && question.rows" class="grid-container">
+							<div class="grid-header">
+								<div class="grid-cell grid-row-header"></div>
+								<div
+									v-for="(column, colIndex) in question.columns"
+									:key="colIndex"
+									class="grid-cell grid-column-header"
+								>
+									{{ column.label }}
+									<el-tag
+										v-if="column.isOther"
+										type="warning"
+										class="other-column-tag"
+									>
+										Other
+									</el-tag>
+								</div>
+							</div>
+							<div
+								v-for="(row, rowIndex) in question.rows"
+								:key="rowIndex"
+								class="grid-row"
+							>
+								<div class="grid-cell grid-row-header">{{ row.label }}</div>
+								<div
+									v-for="(column, colIndex) in question.columns"
+									:key="colIndex"
+									class="grid-cell grid-checkbox-cell gap-x-2"
+								>
+									<el-checkbox-group
+										v-model="formData[`${question.id}_${row.id}`]"
+										@change="handleHasOtherQuestion(question, row.id)"
+										:disabled="disabled"
+									>
+										<el-checkbox :value="column.id" class="grid-checkbox" />
+									</el-checkbox-group>
+
+									<!-- Other选项的文字输入框 -->
+									<div v-if="column.isOther">
+										<el-input
+											v-model="
+												formData[`${question.id}_${row.id}_${column.id}`]
+											"
+											:disabled="
+												!formData[`${question.id}_${row.id}`]?.includes(
+													column.id
+												)
+											"
+											:maxlength="questionMaxlength"
+											placeholder="Enter other"
+											class="other-input"
+										/>
+									</div>
+								</div>
+							</div>
+						</div>
+					</div>
+
+					<!-- 单选网格 (Checkbox grid) -->
+					<div v-else-if="question.type === 'checkbox_grid'" class="preview-grid">
+						<div
+							v-if="
+								question.rows &&
+								question.rows.length > 0 &&
+								question.columns &&
+								question.columns.length > 0
+							"
+							class="grid-container"
+						>
+							<div class="grid-header">
+								<div class="grid-cell grid-row-header"></div>
+								<div
+									v-for="(column, colIndex) in question.columns"
+									:key="colIndex"
+									class="grid-cell grid-column-header"
+								>
+									{{ column.label }}
+									<el-tag
+										v-if="column.isOther"
+										type="warning"
+										class="other-column-tag"
+									>
+										Other
+									</el-tag>
+								</div>
+							</div>
+							<div
+								v-for="(row, rowIndex) in question.rows"
+								:key="rowIndex"
+								class="grid-row"
+							>
+								<div class="grid-cell grid-row-header">{{ row.label }}</div>
+								<div
+									v-for="(column, colIndex) in question.columns"
+									:key="colIndex"
+									class="grid-cell grid-radio-cell gap-x-2"
+								>
+									<el-radio
+										v-model="formData[`${question.id}_${row.id}`]"
+										:name="`grid_${question.id}_${rowIndex}`"
+										:value="
+											column.value ||
+											column.label ||
+											`${rowIndex}_${colIndex}`
+										"
+										:disabled="disabled"
+										@change="handleHasOtherQuestion(question, row.id)"
+										class="grid-radio"
+									/>
+
+									<!-- Other选项的文字输入框 -->
+									<div v-if="column.isOther">
+										<el-input
+											v-model="
+												formData[`${question.id}_${row.id}_${column.id}`]
+											"
+											:disabled="
+												formData[`${question.id}_${row.id}`] !=
+													(column.value || column.label) || disabled
+											"
+											placeholder="Enter other"
+											:maxlength="questionMaxlength"
+											class="other-input"
+										/>
+									</div>
+								</div>
+							</div>
 						</div>
 
-						<!-- 中间：进度指示器 -->
-						<div class="section-progress">
-							<!-- <div class="section-dots">
+						<!-- 如果没有数据，显示占位符 -->
+						<div
+							v-else
+							class="form-unsupported-type italic p-4 border border-dashed rounded"
+						>
+							<el-icon class="mr-2"><Warning /></el-icon>
+							Checkbox grid: No rows or columns data available
+							<div class="text-xs mt-1">
+								Rows: {{ question.rows?.length || 0 }}, Columns:
+								{{ question.columns?.length || 0 }}
+							</div>
+						</div>
+					</div>
+
+					<div v-else-if="question.type === 'short_answer_grid'" class="preview-grid">
+						<div v-if="question.columns && question.rows" class="grid-container">
+							<div class="grid-header">
+								<div class="grid-cell grid-row-header"></div>
+								<div
+									v-for="(column, colIndex) in question.columns"
+									:key="colIndex"
+									class="grid-cell grid-column-header"
+								>
+									{{ column.label }}
+									<el-tag
+										v-if="column.isOther"
+										type="warning"
+										class="other-column-tag"
+									>
+										Other
+									</el-tag>
+								</div>
+							</div>
+							<div
+								v-for="(row, rowIndex) in question.rows"
+								:key="rowIndex"
+								class="grid-row"
+							>
+								<div class="grid-cell grid-row-header">{{ row.label }}</div>
+								<div
+									v-for="(column, colIndex) in question.columns"
+									:key="colIndex"
+									class="grid-cell grid-checkbox-cell gap-x-2"
+								>
+									<el-input
+										v-model="formData[`${question.id}_${column.id}_${row.id}`]"
+										:maxlength="questionMaxlength"
+										:disabled="disabled"
+									/>
+								</div>
+							</div>
+						</div>
+					</div>
+
+					<div v-else-if="question.type === 'page_break'" class="form-page-break italic">
+						<div class="border-t-2 border-dashed border-primary-300 pt-4 mt-4">
+							<div class="text-center text-primary-500 text-sm">— Page Break —</div>
+						</div>
+					</div>
+
+					<div
+						v-else-if="question.type === 'image'"
+						class="flex justify-center items-center"
+					>
+						<el-image
+							:src="question.fileUrl"
+							class="responsive-image"
+							:preview-src-list="[`${question.fileUrl}`]"
+							fit="contain"
+						/>
+					</div>
+
+					<div
+						v-else-if="question.type === 'video'"
+						class="flex justify-center items-center"
+					>
+						<video
+							:src="question.fileUrl"
+							controls
+							class="max-h-[500px] w-auto object-contain"
+						></video>
+					</div>
+				</div>
+				<div
+					v-if="!currentSection.questions || currentSection.questions.length <= 0"
+					class="empty-state-container"
+				>
+					<el-empty :image-size="60" description="No questions available in this section">
+						<template #description>
+							<p class="form-empty-text text-sm">
+								This section doesn't contain any questions yet.
+							</p>
+						</template>
+					</el-empty>
+				</div>
+
+				<!-- 统一的底部导航控件 -->
+				<div class="bottom-navigation">
+					<!-- 左侧：上一页按钮 -->
+					<div class="nav-left">
+						<el-button
+							v-if="!isFirstSection && totalSections > 1"
+							@click="goToPreviousSection"
+						>
+							<el-icon class="mr-1"><ArrowLeft /></el-icon>
+							Previous
+						</el-button>
+					</div>
+
+					<!-- 中间：进度指示器 -->
+					<div class="section-progress">
+						<!-- <div class="section-dots">
 								<button
 									v-for="(section, index) in formattedQuestionnaires[0].sections"
 									:key="section.id"
@@ -594,41 +565,47 @@
 									:title="section.title"
 								></button>
 							</div> -->
-						</div>
+					</div>
 
-						<!-- 右侧：下一页按钮 -->
-						<div class="nav-right">
-							<el-button
-								v-if="!isLastSection"
-								@click="goToNextSection"
-								type="primary"
-								class="pagination-btn"
-							>
-								Next
-								<el-icon class="ml-1"><ArrowRight /></el-icon>
-							</el-button>
-						</div>
+					<!-- 右侧：下一页按钮 -->
+					<div class="nav-right">
+						<el-button
+							v-if="!isLastSection && totalSections > 1"
+							@click="goToNextSection"
+						>
+							Next
+							<el-icon class="ml-1"><ArrowRight /></el-icon>
+						</el-button>
+						<el-button
+							@click="handleSave()"
+							type="primary"
+							:icon="Document"
+							:loading="loading"
+							:disabled="!isSubmitEnabled || disabled"
+						>
+							Submit
+						</el-button>
 					</div>
 				</div>
+			</div>
 
-				<!-- 如果没有当前 section 的占位符 -->
-				<div v-else-if="totalSections === 0" class="no-sections-placeholder">
-					<el-empty description="No sections available" :image-size="80">
-						<template #description>
-							<p class="form-empty-text">
-								This questionnaire doesn't have any sections configured.
-							</p>
-						</template>
-					</el-empty>
-				</div>
-			</template>
+			<!-- 如果没有当前 section 的占位符 -->
+			<div v-else-if="totalSections === 0" class="no-sections-placeholder">
+				<el-empty description="No sections available" :image-size="80">
+					<template #description>
+						<p class="form-empty-text">
+							This questionnaire doesn't have any sections configured.
+						</p>
+					</template>
+				</el-empty>
+			</div>
 		</div>
 	</div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted, watch, nextTick, readonly } from 'vue';
-import { Upload, Loading, Warning, ArrowLeft, ArrowRight } from '@element-plus/icons-vue';
+import { Upload, Warning, ArrowLeft, ArrowRight, Document } from '@element-plus/icons-vue';
 import { QuestionnaireAnswer, QuestionnaireData, ComponentData, SectionAnswer } from '#/onboard';
 import { QuestionnaireSection } from '#/section';
 // import { ElNotification } from 'element-plus';
@@ -655,12 +632,15 @@ interface Props {
 	isStageCompleted?: boolean;
 	questionnaireAnswers?: SectionAnswer;
 	disabled?: boolean;
+	isSubmitEnabled?: boolean;
+	skippedQuestions?: Set<string>;
+	loading?: boolean;
 }
 
 const props = defineProps<Props>();
+const emit = defineEmits(['submit', 'change']);
 
 const formData = ref<Record<string, any>>({});
-const loading = ref(false);
 const currentSectionIndex = ref(0);
 
 // 计算属性 - 检查是否有问卷数据
@@ -859,6 +839,8 @@ const handleRadioClick = (questionId: string, optionValue: string) => {
 // 处理表单值变化
 const handleInputChange = (questionId: string, value: any) => {
 	formData.value[questionId] = value;
+
+	emit('change');
 };
 
 // 复杂表单值变化处理
@@ -893,6 +875,8 @@ const handleHasOtherQuestion = (question: QuestionnaireSection & { id: string },
 			}
 		});
 	}
+
+	emit('change');
 };
 
 // 处理文件变化
@@ -1508,6 +1492,17 @@ const getQuestionNumber = (questionIndex: number) => {
 	return actualQuestionNumber;
 };
 
+// 检查问题是否被跳过
+const isQuestionSkipped = (question: any): boolean => {
+	if (!props.skippedQuestions) return false;
+	const questionId = question.id || question.temporaryId || question.questionId;
+	return props.skippedQuestions.has(questionId);
+};
+
+const handleSave = () => {
+	emit('submit');
+};
+
 defineExpose({
 	validateForm,
 	transformFormDataForAPI,
@@ -1519,6 +1514,10 @@ defineExpose({
 	totalSections,
 	isFirstSection,
 	isLastSection,
+	// 暴露 formData 以供父组件访问
+	get formData() {
+		return formData.value;
+	},
 });
 </script>
 
@@ -1601,12 +1600,6 @@ defineExpose({
 		border-color: var(--primary-500);
 		background-color: var(--primary-500);
 	}
-}
-
-.pagination-btn {
-	display: flex;
-	align-items: center;
-	gap: 4px;
 }
 
 .section-title {
@@ -1861,11 +1854,6 @@ html.dark {
 		height: auto;
 		object-fit: contain;
 	}
-}
-
-/* Dynamic Form custom classes */
-.form-loading-text {
-	color: var(--el-text-color-secondary);
 }
 
 .form-question-number {

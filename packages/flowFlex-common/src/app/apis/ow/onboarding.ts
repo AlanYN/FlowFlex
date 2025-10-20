@@ -51,7 +51,6 @@ const Api = (id?: string | number) => {
 		// 问卷答案相关API
 		questionnaireAnswers: `${globSetting.apiProName}/ow/questionnaire-answers/${globSetting.apiVersion}/${id}/answers`,
 		questionnaireAnswer: `${globSetting.apiProName}/ow/questionnaire-answers/${globSetting.apiVersion}/${id}/stage`,
-		questionnaireAnswerSubmit: `${globSetting.apiProName}/ow/questionnaire-answers/${globSetting.apiVersion}/${id}/stage`,
 		questionnaireAnswerHistory: `${globSetting.apiProName}/ow/questionnaire-answers/${globSetting.apiVersion}/${id}/stage`,
 		questionnaireAnswersStatistics: `${globSetting.apiProName}/ow/questionnaire-answers/${globSetting.apiVersion}/statistics`,
 		questionnaireAnswerReview: `${globSetting.apiProName}/ow/questionnaire-answers/${globSetting.apiVersion}/review`,
@@ -583,18 +582,6 @@ export function batchUpdateStaticFieldValues(
  */
 export function getQuestionnaireAnswer(onboardingId: string | number, stageId: string | number) {
 	return defHttp.get({ url: `${Api(onboardingId).questionnaireAnswer}/${stageId}/answer` });
-}
-
-/**
- * 提交问卷答案 [QA04]
- * @param onboardingId 入职ID
- * @param stageId 阶段ID
- * @returns bool
- */
-export function submitQuestionnaireAnswer(onboardingId: string | number, stageId: string | number) {
-	return defHttp.post({
-		url: `${Api(onboardingId).questionnaireAnswerSubmit}/${stageId}/submit`,
-	});
 }
 
 /**

@@ -166,7 +166,7 @@ const AnswerApi = (
 		questionnaireAnswers: `${globSetting.apiProName}/ow/questionnaire-answers/${globSetting.apiVersion}/${onboardingId}/answers`,
 		saveAnswer: `${globSetting.apiProName}/ow/questionnaire-answers/${globSetting.apiVersion}/${onboardingId}/stage/${stageId}/answer`,
 		getAnswer: `${globSetting.apiProName}/ow/questionnaire-answers/${globSetting.apiVersion}/${onboardingId}/stage/${stageId}/answer`,
-		submitAnswer: `${globSetting.apiProName}/ow/questionnaire-answers/${globSetting.apiVersion}/${onboardingId}/stage/${stageId}/submit`,
+		submitAnswer: `${globSetting.apiProName}/ow/questionnaire-answers/${globSetting.apiVersion}/${onboardingId}/stage/${stageId}`,
 		answerHistory: `${globSetting.apiProName}/ow/questionnaire-answers/${globSetting.apiVersion}/${onboardingId}/stage/${stageId}/history`,
 		answerStatistics: `${globSetting.apiProName}/ow/questionnaire-answers/${globSetting.apiVersion}/statistics`,
 		updateAnswer: `${globSetting.apiProName}/ow/questionnaire-answers/${globSetting.apiVersion}/${answerId}`,
@@ -215,8 +215,16 @@ export function getQuestionnaireAnswer(onboardingId: string | number, stageId: s
  * @param stageId 阶段ID
  * @returns bool
  */
-export function submitQuestionnaireAnswer(onboardingId: string | number, stageId: string | number) {
-	return defHttp.post({ url: `${AnswerApi(onboardingId, stageId).submitAnswer}` });
+export function submitQuestionnaireAnswer(
+	onboardingId: string | number,
+	stageId: string | number,
+	questionnaireId: string | number
+) {
+	return defHttp.post({
+		url: `${
+			AnswerApi(onboardingId, stageId).submitAnswer
+		}/questionnaire/${questionnaireId}/submit`,
+	});
 }
 
 /**

@@ -13,7 +13,7 @@ const userGroup: AppRouteModule = {
 		hideChildrenInMenu: true,
 		icon: userGroupIcon,
 		title: t('sys.router.roleManagement'),
-		// code: 'USERGROUP',
+		code: 'USERGROUP',
 		ordinal: 9,
 		hidden: false,
 		status: true,
@@ -25,7 +25,7 @@ const userGroup: AppRouteModule = {
 			component: () => import('@/views/authorityManagement/userGroup.vue'),
 			meta: {
 				title: t('sys.router.roleManagement'),
-				// code: 'USERGROUP',
+				code: 'USERGROUP',
 				ordinal: 1,
 				hidden: false,
 				status: true,
