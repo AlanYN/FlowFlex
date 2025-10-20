@@ -553,18 +553,15 @@
 
 					<!-- 中间：进度指示器 -->
 					<div class="section-progress">
-						<!-- <div class="section-dots">
-								<button
-									v-for="(section, index) in formattedQuestionnaires[0].sections"
-									:key="section.id"
-									@click="goToSection(index)"
-									:class="[
-										'section-dot',
-										{ active: index === currentSectionIndex },
-									]"
-									:title="section.title"
-								></button>
-							</div> -->
+						<div class="section-dots">
+							<button
+								v-for="(section, index) in formattedQuestionnaires[0].sections"
+								:key="section.id"
+								@click="goToSection(index)"
+								:class="['section-dot', { active: index === currentSectionIndex }]"
+								:title="section.title"
+							></button>
+						</div>
 					</div>
 
 					<!-- 右侧：下一页按钮 -->
