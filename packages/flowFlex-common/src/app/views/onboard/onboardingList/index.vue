@@ -104,7 +104,7 @@
 											<!-- Edit Case -->
 											<el-dropdown-item @click="handleEditCase(row)">
 												<el-icon><Edit /></el-icon>
-												Edit Case
+												Edit
 											</el-dropdown-item>
 
 											<!-- View - 对Completed、Force Completed、Paused、Aborted状态显示 -->
@@ -576,10 +576,10 @@
 					</el-select>
 				</el-form-item>
 
-				<el-form-item label="Owner" prop="owner">
+				<el-form-item label="Ownership" prop="ownership">
 					<el-input
-						v-model="formData.owner"
-						placeholder="Enter Owner Name"
+						v-model="formData.ownership"
+						placeholder="Enter Ownership Name"
 						clearable
 						class="w-full rounded-xl"
 					/>
@@ -594,10 +594,7 @@
 						</p>
 					</div>
 
-					<PermissionSelector
-						v-model="casePermissions"
-						:custom-permission-options="casePermissionOptions"
-					/>
+					<PermissionSelector v-model="casePermissions" type="case" />
 				</div>
 			</el-form>
 
@@ -748,8 +745,8 @@ const formData = reactive({
 	ContactEmail: '',
 	workFlowId: '',
 	// 新增权限字段
-	owner: '',
-	viewPermissionMode: CasePermissionModeEnum.InheritFromWorkflow,
+	ownership: '',
+	viewPermissionMode: CasePermissionModeEnum.Public,
 	viewTeams: [] as string[],
 	operateTeams: [] as string[],
 });
@@ -769,15 +766,6 @@ const formRules = {
 	], // 必填，且需要验证邮箱格式
 	workFlowId: [{ required: true, message: 'Workflow is required', trigger: 'blur' }],
 };
-
-// Case 权限选项
-const casePermissionOptions = [
-	{ label: 'Public', value: CasePermissionModeEnum.Public },
-	{ label: 'Inherit from workflow', value: CasePermissionModeEnum.InheritFromWorkflow },
-	{ label: 'Private', value: CasePermissionModeEnum.Private },
-	{ label: 'Visible to', value: CasePermissionModeEnum.VisibleTo },
-	{ label: 'Invisible to', value: CasePermissionModeEnum.InvisibleTo },
-];
 
 // 计算属性适配 PermissionSelector
 const casePermissions = computed({
@@ -1587,9 +1575,8 @@ const handleEditCase = (row: any) => {
 	formData.lifeCycleStageId = row.lifeCycleStageId || '';
 	formData.priority = row.priority || '';
 	formData.workFlowId = row.workflowId || '';
-	formData.owner = row.owner || '';
-	formData.viewPermissionMode =
-		row.viewPermissionMode ?? CasePermissionModeEnum.InheritFromWorkflow;
+	formData.ownership = row.ownership || '';
+	formData.viewPermissionMode = row.viewPermissionMode ?? CasePermissionModeEnum.Public;
 	formData.viewTeams = row.viewTeams || [];
 	formData.operateTeams = row.operateTeams || [];
 
