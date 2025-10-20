@@ -160,6 +160,7 @@
 									:onboarding-id="onboardingId"
 									:stage-id="activeStage"
 									:component="component"
+									:document-is-required="documentIsRequired"
 									:disabled="isAbortedReadonly || stageCanCompleted"
 									@document-uploaded="handleDocumentUploaded"
 									@document-deleted="handleDocumentDeleted"
@@ -379,6 +380,11 @@ const isAbortedReadonly = computed(() => {
 const stageCanCompleted = computed(() => {
 	const currentStage = workflowStages.value.find((stage) => stage.stageId === activeStage.value);
 	return currentStage?.isCompleted;
+});
+
+const documentIsRequired = computed(() => {
+	const currentStage = workflowStages.value.find((stage) => stage.stageId === activeStage.value);
+	return currentStage?.attachmentManagementNeeded;
 });
 
 const onboardingStageStatus = computed(() => {

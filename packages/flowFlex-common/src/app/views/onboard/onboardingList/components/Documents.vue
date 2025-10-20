@@ -17,9 +17,7 @@
 						</el-icon>
 						<h3 class="case-component-title">
 							Documents
-							<span v-if="props?.component?.isEnabled" class="text-red-300 ml-1">
-								*
-							</span>
+							<span v-if="documentIsRequired" class="text-red-300 ml-1">*</span>
 						</h3>
 					</div>
 					<div class="case-component-subtitle">
@@ -249,6 +247,7 @@ interface Props {
 	stageId?: string;
 	component: ComponentData;
 	disabled?: boolean;
+	documentIsRequired?: boolean;
 }
 
 const props = defineProps<Props>();
@@ -548,7 +547,7 @@ const getMimeType = (fileExtension: string) => {
 
 const vailComponent = () => {
 	try {
-		if (props?.component?.isEnabled && documents?.value?.length <= 0) {
+		if (props?.documentIsRequired && documents?.value?.length <= 0) {
 			ElMessage.warning('Please upload at least one document');
 			return false;
 		}
