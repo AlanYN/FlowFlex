@@ -8,7 +8,7 @@
 <template>
 	<div
 		:class="{ hidden: hidden || total === 0 }"
-		class="flex flex-row justify-between pr-4 py-2 items-center"
+		class="flex flex-row justify-between pr-4 py-2 items-center mb-4"
 	>
 		<span class="text-sm">
 			{{ total > limit ? limit : total }} Results • Showing {{ page }}-{{ limit }} of
