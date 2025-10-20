@@ -3,8 +3,11 @@
 		<!-- 只读模式 -->
 		<div v-if="readonly" class="flex items-center">
 			<div v-if="selectedItems.length > 0" class="flex items-center">
+				<!-- 显示限制数量内的用户 -->
 				<div
-					v-for="(item, index) in selectedItems"
+					v-for="(item, index) in selectedItems.filter(
+						(item, index) => index < maxShowCount
+					)"
 					:key="item.id"
 					class="inline-flex items-center"
 					:style="{
@@ -26,6 +29,33 @@
 							:style="{ backgroundColor: getAvatarColor(item.name) }"
 						>
 							{{ getInitials(item.name) }}
+						</div>
+					</el-tooltip>
+				</div>
+				<!-- 超出数量时显示 +N -->
+				<div
+					v-if="selectedItems.length > maxShowCount"
+					class="inline-flex items-center"
+					:style="{
+						marginLeft: maxShowCount > 0 ? '-8px' : '0',
+						zIndex: maxShowCount + 1,
+					}"
+				>
+					<el-tooltip
+						:content="`+${selectedItems.length - maxShowCount} more ${
+							props.selectionType === 'user' ? 'users' : 'teams'
+						}`"
+						:show-after="500"
+					>
+						<div
+							class="w-6 h-6 rounded-full flex items-center justify-center text-white dark:text-black font-semibold text-xs flex-shrink-0 border-2 border-white"
+							:style="{
+								backgroundColor: getAvatarColor(
+									`+${selectedItems.length - maxShowCount}`
+								),
+							}"
+						>
+							+{{ selectedItems.length - maxShowCount }}
 						</div>
 					</el-tooltip>
 				</div>

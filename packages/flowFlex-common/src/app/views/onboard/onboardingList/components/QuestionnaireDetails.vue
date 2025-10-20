@@ -528,7 +528,6 @@ const completionStats = computed(() => {
 	// 由于 getMergedAnswers() 会访问 dynamicFormRef.value?.formData
 	// Vue 的响应式系统会自动追踪这个依赖，当 formData 变化时会自动重新计算
 	const answers = getMergedAnswers();
-
 	if (!questionnaireData?.sections || !Array.isArray(questionnaireData.sections)) {
 		return {
 			totalQuestions: 0,
@@ -541,7 +540,7 @@ const completionStats = computed(() => {
 	}
 
 	// 过滤掉默认section
-	const validSections = questionnaireData.sections.filter((section) => !section.isDefault);
+	const validSections = questionnaireData.sections;
 
 	// 获取所有问题（网格类型问题算作一个问题）
 	const allQuestions = validSections.flatMap((section) => {
