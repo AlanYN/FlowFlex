@@ -227,7 +227,10 @@
 											</div>
 											<!-- 显示选项的action标签 -->
 											<el-tag
-												v-if="item.type === 'multiple_choice'"
+												v-if="
+													item.type === 'multiple_choice' &&
+													setGoToSection
+												"
 												type="primary"
 											>
 												→
