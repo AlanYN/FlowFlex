@@ -1118,6 +1118,20 @@ const updateWorkflow = async (updatedWorkflow: Partial<Workflow>) => {
 			// 重新获取工作流列表
 			dialogVisible.workflowForm = false;
 			await fetchWorkflows();
+
+			// 如果当前在详情视图，更新当前显示的 workflow 数据
+			if (viewMode.value === 'detail' && workflow.value) {
+				const updatedWorkflowData = workflowListData.value.find(
+					(wf) => wf.id === workflow.value!.id
+				);
+				if (updatedWorkflowData) {
+					// 保留 stages 数据，只更新基本信息
+					workflow.value = {
+						...updatedWorkflowData,
+						stages: workflow.value.stages,
+					};
+				}
+			}
 		} else {
 			ElMessage.error(res.msg || t('sys.api.operationFailed'));
 		}
@@ -1234,6 +1248,20 @@ const setAsDefault = async (targetWorkflow?: any) => {
 			ElMessage.success(t('sys.api.operationSuccess'));
 			// 重新获取工作流列表以更新所有工作流的默认状态
 			await fetchWorkflows();
+
+			// 如果当前在详情视图，更新当前显示的 workflow 数据
+			if (viewMode.value === 'detail' && workflow.value) {
+				const updatedWorkflowData = workflowListData.value.find(
+					(wf) => wf.id === workflow.value!.id
+				);
+				if (updatedWorkflowData) {
+					// 保留 stages 数据，只更新基本信息
+					workflow.value = {
+						...updatedWorkflowData,
+						stages: workflow.value.stages,
+					};
+				}
+			}
 		} else {
 			ElMessage.error(res.msg || t('sys.api.operationFailed'));
 		}
