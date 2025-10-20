@@ -3854,6 +3854,9 @@ namespace FlowFlex.Application.Services.OW
                 WorkFlow = item.WorkflowName,
                 OnboardStage = item.CurrentStageName,
                 Priority = item.Priority,
+                Ownership = !string.IsNullOrWhiteSpace(item.OwnershipName) 
+                    ? $"{item.OwnershipName} ({item.OwnershipEmail})" 
+                    : string.Empty,
                 Status = GetDisplayStatus(item.Status),
                 StartDate = FormatDateForExport(item.CurrentStageStartTime),
                 EndDate = FormatDateForExport(item.CurrentStageEndTime),
@@ -3867,7 +3870,7 @@ namespace FlowFlex.Application.Services.OW
 
             // Generate CSV content
             var csvContent = new StringBuilder();
-            csvContent.AppendLine("Customer Name,Lead ID,Contact Name,Life Cycle Stage,Workflow,Stage,Priority,Status,Start Date,End Date,Updated By,Update Time");
+            csvContent.AppendLine("Customer Name,Lead ID,Contact Name,Life Cycle Stage,Workflow,Stage,Priority,Ownership,Status,Start Date,End Date,Updated By,Update Time");
 
             foreach (var item in exportData)
             {
@@ -3878,6 +3881,7 @@ namespace FlowFlex.Application.Services.OW
                     $"\"{item.WorkFlow?.Replace("\"", "\"\"")}\"," +
                     $"\"{item.OnboardStage?.Replace("\"", "\"\"")}\"," +
                     $"\"{item.Priority?.Replace("\"", "\"\"")}\"," +
+                    $"\"{item.Ownership?.Replace("\"", "\"\"")}\"," +
                     $"\"{item.Status?.Replace("\"", "\"\"")}\"," +
                     $"\"{item.StartDate?.Replace("\"", "\"\"")}\"," +
                     $"\"{item.EndDate?.Replace("\"", "\"\"")}\"," +
@@ -3909,6 +3913,9 @@ namespace FlowFlex.Application.Services.OW
                 WorkFlow = item.WorkflowName,
                 OnboardStage = item.CurrentStageName,
                 Priority = item.Priority,
+                Ownership = !string.IsNullOrWhiteSpace(item.OwnershipName) 
+                    ? $"{item.OwnershipName} ({item.OwnershipEmail})" 
+                    : string.Empty,
                 Status = GetDisplayStatus(item.Status),
                 StartDate = FormatDateForExport(item.CurrentStageStartTime),
                 EndDate = FormatDateForExport(item.CurrentStageEndTime),
@@ -5114,6 +5121,9 @@ namespace FlowFlex.Application.Services.OW
                         it.CurrentStageStartTime,
                         it.Priority,
                         it.IsPrioritySet,
+                        it.Ownership,
+                        it.OwnershipName,
+                        it.OwnershipEmail,
                         it.CustomFieldsJson,
                         it.Notes,
                         it.IsActive,
@@ -6101,6 +6111,9 @@ namespace FlowFlex.Application.Services.OW
                         it.CurrentStageStartTime,
                         it.Priority,
                         it.IsPrioritySet,
+                        it.Ownership,
+                        it.OwnershipName,
+                        it.OwnershipEmail,
                         it.CustomFieldsJson,
                         it.Notes,
                         it.IsActive,
