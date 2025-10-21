@@ -61,5 +61,10 @@ namespace FlowFlex.Domain.Repository.OW
         /// Get tasks by action ID
         /// </summary>
         Task<List<ChecklistTask>> GetTasksByActionIdAsync(long actionId);
+
+        /// <summary>
+        /// Check if task name exists in checklist (excluding specific task ID for update scenario)
+        /// </summary>
+        Task<bool> IsTaskNameExistsAsync(long checklistId, string taskName, long? excludeTaskId = null);
     }
 }

@@ -963,6 +963,12 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                                 changeList.Add($"{field} from '{beforeStr}' to '{afterStr}'");
                             }
                         }
+                        else if (field.Equals("AssigneeId", StringComparison.OrdinalIgnoreCase))
+                        {
+                            // Skip AssigneeId to avoid exposing internal IDs
+                            // AssigneeName will be shown instead
+                            continue;
+                        }
                         else
                         {
                             var beforeStr = GetDisplayValue(beforeValue, field);
@@ -1011,7 +1017,19 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                 return GetJsonSummary(str, fieldName);
             }
 
-            // Truncate very long non-JSON values
+            // For Name fields, use longer limit to avoid truncation of important titles
+            if (!string.IsNullOrEmpty(fieldName) && 
+                fieldName.Equals("Name", StringComparison.OrdinalIgnoreCase))
+            {
+                // Allow up to 200 characters for Name fields
+                if (str.Length > 200)
+                {
+                    return str.Substring(0, 197) + "...";
+                }
+                return str;
+            }
+
+            // Truncate very long non-JSON values for other fields
             if (str.Length > 50)
             {
                 return str.Substring(0, 47) + "...";

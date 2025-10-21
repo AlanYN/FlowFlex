@@ -263,4 +263,25 @@ public class ChecklistTaskRepository : BaseRepository<ChecklistTask>, IChecklist
             .OrderBy(x => x.Order)
             .ToListAsync();
     }
+
+    /// <summary>
+    /// Check if task name exists in checklist (excluding specific task ID for update scenario)
+    /// </summary>
+    public async Task<bool> IsTaskNameExistsAsync(long checklistId, string taskName, long? excludeTaskId = null)
+    {
+        if (string.IsNullOrWhiteSpace(taskName))
+            return false;
+
+        var query = db.Queryable<ChecklistTask>()
+            .Where(x => x.ChecklistId == checklistId 
+                && x.Name == taskName.Trim() 
+                && x.IsValid == true);
+
+        if (excludeTaskId.HasValue)
+        {
+            query = query.Where(x => x.Id != excludeTaskId.Value);
+        }
+
+        return await query.AnyAsync();
+    }
 }

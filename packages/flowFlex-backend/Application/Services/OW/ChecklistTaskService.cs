@@ -66,6 +66,13 @@ public class ChecklistTaskService : IChecklistTaskService, IScopedService
             throw new CRMException(ErrorCodeEnum.NotFound, "Checklist not found");
         }
 
+        // Check for duplicate task name in the same checklist
+        if (await _checklistTaskRepository.IsTaskNameExistsAsync(input.ChecklistId, input.Name))
+        {
+            throw new CRMException(ErrorCodeEnum.BusinessError, 
+                $"Task name '{input.Name}' already exists in this checklist");
+        }
+
         // Validate dependent task if specified
         if (input.DependsOnTaskId.HasValue)
         {
@@ -123,6 +130,13 @@ public class ChecklistTaskService : IChecklistTaskService, IScopedService
         if (existingTask == null)
         {
             throw new CRMException(ErrorCodeEnum.NotFound, "Task not found");
+        }
+
+        // Check for duplicate task name in the same checklist (excluding current task)
+        if (await _checklistTaskRepository.IsTaskNameExistsAsync(existingTask.ChecklistId, input.Name, id))
+        {
+            throw new CRMException(ErrorCodeEnum.BusinessError, 
+                $"Task name '{input.Name}' already exists in this checklist");
         }
 
         // Store original values for change detection and logging
@@ -216,7 +230,17 @@ public class ChecklistTaskService : IChecklistTaskService, IScopedService
                         Description = existingTask.Description,
                         Status = existingTask.Status,
                         Priority = existingTask.Priority,
-                        IsCompleted = existingTask.IsCompleted
+                        IsCompleted = existingTask.IsCompleted,
+                        IsRequired = existingTask.IsRequired,
+                        AssigneeId = existingTask.AssigneeId,
+                        AssigneeName = existingTask.AssigneeName,
+                        Order = existingTask.Order,
+                        EstimatedHours = existingTask.EstimatedHours,
+                        DueDate = existingTask.DueDate,
+                        DependsOnTaskId = existingTask.DependsOnTaskId,
+                        ActionId = existingTask.ActionId,
+                        ActionName = existingTask.ActionName,
+                        ActionMappingId = existingTask.ActionMappingId
                     });
 
                     // Determine changed fields
@@ -233,6 +257,9 @@ public class ChecklistTaskService : IChecklistTaskService, IScopedService
                     if (originalTask.EstimatedHours != existingTask.EstimatedHours) changedFields.Add("EstimatedHours");
                     if (originalTask.DueDate != existingTask.DueDate) changedFields.Add("DueDate");
                     if (originalTask.DependsOnTaskId != existingTask.DependsOnTaskId) changedFields.Add("DependsOnTaskId");
+                    if (originalTask.ActionId != existingTask.ActionId) changedFields.Add("ActionId");
+                    if (originalTask.ActionName != existingTask.ActionName) changedFields.Add("ActionName");
+                    if (originalTask.ActionMappingId != existingTask.ActionMappingId) changedFields.Add("ActionMappingId");
 
                     if (changedFields.Any())
                     {

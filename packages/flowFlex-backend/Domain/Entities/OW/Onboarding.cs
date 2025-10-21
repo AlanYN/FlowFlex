@@ -252,7 +252,7 @@ namespace FlowFlex.Domain.Entities.OW
         /// Example: ["Team-A", "Team-B"]
         /// Used with VisibleToTeams or InvisibleToTeams mode
         /// </summary>
-        [SugarColumn(ColumnName = "view_teams", ColumnDataType = "jsonb")]
+        [SugarColumn(ColumnName = "view_teams", ColumnDataType = "jsonb", IsJson = true)]
         public string ViewTeams { get; set; }
 
         /// <summary>
@@ -260,7 +260,7 @@ namespace FlowFlex.Domain.Entities.OW
         /// Example: ["1935628742495965184", "1935628742495965185"]
         /// Used with VisibleToTeams or InvisibleToTeams mode
         /// </summary>
-        [SugarColumn(ColumnName = "view_users", ColumnDataType = "jsonb")]
+        [SugarColumn(ColumnName = "view_users", ColumnDataType = "jsonb", IsJson = true)]
         public string ViewUsers { get; set; }
 
         /// <summary>
@@ -268,7 +268,7 @@ namespace FlowFlex.Domain.Entities.OW
         /// Example: ["Team-A", "Team-B"]
         /// Operations include: Create, Update, Delete, Assign
         /// </summary>
-        [SugarColumn(ColumnName = "operate_teams", ColumnDataType = "jsonb")]
+        [SugarColumn(ColumnName = "operate_teams", ColumnDataType = "jsonb", IsJson = true)]
         public string OperateTeams { get; set; }
 
         /// <summary>
@@ -276,13 +276,13 @@ namespace FlowFlex.Domain.Entities.OW
         /// Example: ["1935628742495965184", "1935628742495965185"]
         /// Operations include: Create, Update, Delete, Assign
         /// </summary>
-        [SugarColumn(ColumnName = "operate_users", ColumnDataType = "jsonb")]
+        [SugarColumn(ColumnName = "operate_users", ColumnDataType = "jsonb", IsJson = true)]
         public string OperateUsers { get; set; }
 
         /// <summary>
         /// Stage Progress Details (stored in JSONB format for better performance and querying)
         /// </summary>
-        [SugarColumn(ColumnName = "stages_progress_json", ColumnDataType = "jsonb")]
+        [SugarColumn(ColumnName = "stages_progress_json", ColumnDataType = "jsonb", IsJson = true)]
         public string StagesProgressJson { get; set; }
 
         /// <summary>

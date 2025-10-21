@@ -950,8 +950,8 @@ const getTableViewOnboarding = async (event) => {
 		const queryParams: OnboardingQueryRequest = {
 			pageIndex: currentPage.value,
 			pageSize: pageSize.value,
-			sort: event?.prop ? event.prop : '',
-			sortType: event?.isAsc ? 'asc' : 'desc',
+			sortField: event?.prop ? event.prop : '',
+			sortDirection: event?.isAsc ? 'asc' : 'desc',
 			...omitBy(
 				pick(searchParams, [
 					'leadId',

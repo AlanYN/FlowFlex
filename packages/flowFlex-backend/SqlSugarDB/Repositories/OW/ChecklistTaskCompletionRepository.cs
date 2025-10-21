@@ -159,7 +159,9 @@ public class ChecklistTaskCompletionRepository : BaseRepository<ChecklistTaskCom
             return new List<ChecklistTaskCompletion>();
 
         return await db.Queryable<ChecklistTaskCompletion>()
-            .Where(x => taskIds.Contains(x.TaskId) && x.IsValid)
+            .LeftJoin<Onboarding>((ctc, ob) => ctc.OnboardingId == ob.Id)
+            .Where((ctc, ob) => taskIds.Contains(ctc.TaskId) && ctc.IsValid && ob.IsValid)
+            .Select((ctc, ob) => ctc)
             .ToListAsync();
     }
 

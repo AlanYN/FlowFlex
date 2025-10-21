@@ -393,17 +393,23 @@ namespace FlowFlex.Application.Services.OW
                     priority, is_priority_set, ownership, ownership_name, ownership_email,
                     notes, is_active, stages_progress_json, id,
                     current_stage_id, contact_person, contact_email, life_cycle_stage_id, 
-                    life_cycle_stage_name, start_date, current_stage_start_time
+                    life_cycle_stage_name, start_date, current_stage_start_time,
+                    view_permission_subject_type, operate_permission_subject_type,
+                    view_permission_mode, view_teams, view_users, operate_teams, operate_users
                 ) VALUES (
                     @TenantId, @AppCode, @IsValid, @CreateDate, @ModifyDate, @CreateBy, @ModifyBy,
                     @CreateUserId, @ModifyUserId, @WorkflowId, @CurrentStageOrder,
                     @LeadId, @LeadName, @LeadEmail, @LeadPhone, @Status, @CompletionRate,
-                    @Priority, @IsPrioritySet, @Ownership, @OwnershipName, @OwnershipEmail,
+                    @Priority, @IsPrioritySet, 
+                    CASE WHEN @Ownership IS NULL THEN NULL ELSE @Ownership END,
+                    @OwnershipName, @OwnershipEmail,
                     @Notes, @IsActive, @StagesProgressJson::jsonb, @Id,
                     CASE WHEN @CurrentStageId IS NULL OR @CurrentStageId = '' THEN NULL ELSE @CurrentStageId::bigint END,
                     @ContactPerson, @ContactEmail,
                     CASE WHEN @LifeCycleStageId IS NULL OR @LifeCycleStageId = '' THEN NULL ELSE @LifeCycleStageId::bigint END,
-                    @LifeCycleStageName, @StartDate, @CurrentStageStartTime
+                    @LifeCycleStageName, @StartDate, @CurrentStageStartTime,
+                    @ViewPermissionSubjectType, @OperatePermissionSubjectType,
+                    @ViewPermissionMode, @ViewTeams::jsonb, @ViewUsers::jsonb, @OperateTeams::jsonb, @OperateUsers::jsonb
                 ) RETURNING id";
 
                         var parameters = new
@@ -440,7 +446,14 @@ namespace FlowFlex.Application.Services.OW
                             LifeCycleStageId = entity.LifeCycleStageId?.ToString(),
                             LifeCycleStageName = entity.LifeCycleStageName,
                             StartDate = entity.StartDate,
-                            CurrentStageStartTime = entity.CurrentStageStartTime
+                            CurrentStageStartTime = entity.CurrentStageStartTime,
+                            ViewPermissionSubjectType = (int)entity.ViewPermissionSubjectType,
+                            OperatePermissionSubjectType = (int)entity.OperatePermissionSubjectType,
+                            ViewPermissionMode = (int)entity.ViewPermissionMode,
+                            ViewTeams = string.IsNullOrEmpty(entity.ViewTeams) ? "[]" : entity.ViewTeams,
+                            ViewUsers = string.IsNullOrEmpty(entity.ViewUsers) ? "[]" : entity.ViewUsers,
+                            OperateTeams = string.IsNullOrEmpty(entity.OperateTeams) ? "[]" : entity.OperateTeams,
+                            OperateUsers = string.IsNullOrEmpty(entity.OperateUsers) ? "[]" : entity.OperateUsers
                         };
                         // Debug logging handled by structured logging
                         insertedId = await sqlSugarClient.Ado.SqlQuerySingleAsync<long>(sql, parameters);
