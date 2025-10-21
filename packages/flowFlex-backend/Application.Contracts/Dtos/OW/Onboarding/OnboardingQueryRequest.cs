@@ -150,6 +150,16 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.Onboarding
         public long? CreatedByUserId { get; set; }
 
         /// <summary>
+        /// Filter by ownership (user ID who owns the onboarding)
+        /// </summary>
+        public long? Ownership { get; set; }
+
+        /// <summary>
+        /// Filter by ownership name
+        /// </summary>
+        public string? OwnershipName { get; set; }
+
+        /// <summary>
         /// Return all data without pagination when set to true
         /// </summary>
         public bool AllData { get; set; } = false;

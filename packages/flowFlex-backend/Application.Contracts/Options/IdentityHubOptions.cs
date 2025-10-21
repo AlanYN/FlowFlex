@@ -69,5 +69,10 @@ namespace FlowFlex.Application.Contracts.Options
         /// Current user information endpoint
         /// </summary>
         public string GetCurrentUserInfoEndpoint { get; set; } = "/api/v1/users/current/info";
+
+        /// <summary>
+        /// App ID for IDM public API requests (required for /api/v1/public/* endpoints)
+        /// </summary>
+        public string AppId { get; set; } = "5";
     }
 }
