@@ -1,57 +1,69 @@
 <template>
-	<div class="office_block" v-if="isShow">
-		<!-- 图片预览 -->
-		<ElImageViewer
-			v-if="type == 'jpg' || type == 'png' || type == 'jpeg'"
-			:url-list="[previewSrc]"
-			:hideOnClickModal="true"
-			@close="closeOffice"
-		/>
-
-		<!-- 文档预览 -->
-		<div class="office_block-item" v-else>
-			<!-- 顶部工具栏 -->
-			<div class="preview-toolbar">
-				<div class="toolbar-left">
-					<el-button-group>
-						<el-button :disabled="offloading" :icon="ZoomIn" @click="zoomIn" />
-						<el-button :disabled="offloading" :icon="ZoomOut" @click="zoomOut" />
-						<el-button :disabled="offloading" :icon="RefreshRight" @click="resetZoom" />
-					</el-button-group>
-				</div>
-				<div class="toolbar-right">
-					<el-button :icon="CloseBold" @click="closeOffice" />
-				</div>
-			</div>
-
-			<!-- 预览内容区 -->
-			<div
-				class="preview-content"
-				v-loading="offloading"
-				:style="{ transform: `scale(${scale})` }"
-			>
-				<vue-office-docx
-					v-if="type == 'docx'"
-					class="office_block-office"
-					:src="previewSrc"
-					@rendered="rendered"
+	<div>
+		<Teleport to="body">
+			<div class="office_block" v-if="isShow">
+				<!-- 图片预览 -->
+				<ElImageViewer
+					v-if="type == 'jpg' || type == 'png' || type == 'jpeg'"
+					:url-list="[previewSrc]"
+					:hideOnClickModal="true"
+					@close="closeOffice"
 				/>
 
-				<vue-office-excel
-					v-else-if="type == 'xlsx'"
-					class="office_block-office"
-					:src="previewSrc"
-					@rendered="rendered"
-				/>
+				<!-- 文档预览 -->
+				<div class="office_block-item" v-else>
+					<!-- 顶部工具栏 -->
+					<div class="preview-toolbar">
+						<div class="toolbar-left">
+							<el-button-group>
+								<el-button :disabled="offloading" :icon="ZoomIn" @click="zoomIn" />
+								<el-button
+									:disabled="offloading"
+									:icon="ZoomOut"
+									@click="zoomOut"
+								/>
+								<el-button
+									:disabled="offloading"
+									:icon="RefreshRight"
+									@click="resetZoom"
+								/>
+							</el-button-group>
+						</div>
+						<div class="toolbar-right">
+							<el-button :icon="CloseBold" @click="closeOffice" />
+						</div>
+					</div>
 
-				<iframe
-					v-else
-					:src="previewSrc"
-					frameborder="0"
-					class="office_block-office"
-				></iframe>
+					<!-- 预览内容区 -->
+					<div
+						class="preview-content"
+						v-loading="offloading"
+						:style="{ transform: `scale(${scale})` }"
+					>
+						<vue-office-docx
+							v-if="type == 'docx'"
+							class="office_block-office"
+							:src="previewSrc"
+							@rendered="rendered"
+						/>
+
+						<vue-office-excel
+							v-else-if="type == 'xlsx'"
+							class="office_block-office"
+							:src="previewSrc"
+							@rendered="rendered"
+						/>
+
+						<iframe
+							v-else
+							:src="previewSrc"
+							frameborder="0"
+							class="office_block-office"
+						></iframe>
+					</div>
+				</div>
 			</div>
-		</div>
+		</Teleport>
 	</div>
 </template>
 

@@ -306,7 +306,7 @@
 											trigger="click"
 										>
 											<div
-												class="cursor-pointer hover:opacity-80 transition-opacity inline-flex items-center px-2 py-0.5 rounded-xl text-xs font-medium bg-primary border"
+												class="cursor-pointer text-white hover:opacity-80 transition-opacity inline-flex items-center px-2 py-0.5 rounded-xl text-xs font-medium bg-primary border"
 											>
 												{{ getElementPortalAccessLabel(element) }}
 												<el-icon class="ml-1 text-xs">

@@ -186,7 +186,12 @@
 								type="primary"
 								@click="saveQuestionnaireAndField"
 								:loading="saveAllLoading"
-								:disabled="isSaveDisabled || stageCanCompleted"
+								:disabled="
+									isSaveDisabled ||
+									stageCanCompleted ||
+									(onboardingActiveStageInfo?.visibleInPortal &&
+										stagePortalPermission)
+								"
 								:icon="Document"
 								class="page-header-btn page-header-btn-primary"
 							>
@@ -196,7 +201,12 @@
 								type="primary"
 								@click="handleCompleteStage"
 								:loading="completing"
-								:disabled="isCompleteStageDisabled || stageCanCompleted"
+								:disabled="
+									isCompleteStageDisabled ||
+									stageCanCompleted ||
+									(onboardingActiveStageInfo?.visibleInPortal &&
+										stagePortalPermission)
+								"
 								:icon="Check"
 								class="page-header-btn page-header-btn-primary"
 							>
