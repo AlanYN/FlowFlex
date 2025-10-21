@@ -44,9 +44,9 @@
 				<div class="p-4 border-t">
 					<div class="rounded-xl border bg-siderbarGray dark:bg-black p-4 shadow-sm">
 						<div class="flex items-center space-x-3">
-							<div class="bg-blue-100 p-2 rounded-full">
+							<div class="bg-primary-100 p-2 rounded-full">
 								<svg
-									class="h-5 w-5 text-blue-600"
+									class="h-5 w-5 text-primary-600"
 									fill="none"
 									stroke="currentColor"
 									viewBox="0 0 24 24"
@@ -102,9 +102,9 @@
 				<div class="p-4 border-t">
 					<div class="rounded-xl border bg-siderbarGray dark:bg-black p-4 shadow-sm">
 						<div class="flex items-center space-x-3 mb-3">
-							<div class="bg-blue-100 p-2 rounded-full">
+							<div class="bg-primary-100 p-2 rounded-full">
 								<svg
-									class="h-5 w-5 text-blue-600"
+									class="h-5 w-5 text-primary-600"
 									fill="none"
 									stroke="currentColor"
 									viewBox="0 0 24 24"
@@ -278,11 +278,11 @@
 									</span>
 								</div>
 							</div>
-							<div v-if="currentStageData" class="mt-4 p-3 bg-blue-50 rounded-xl">
-								<p class="text-sm font-medium text-blue-900">
+							<div v-if="currentStageData" class="mt-4 p-3 bg-primary-50 rounded-xl">
+								<p class="text-sm font-medium text-primary-900">
 									Current Stage: {{ currentStageData.name }}
 								</p>
-								<p class="text-sm text-blue-700">
+								<p class="text-sm text-primary-700">
 									{{ currentStageData.description }}
 								</p>
 							</div>
@@ -290,7 +290,7 @@
 					</div>
 
 					<!-- Next Steps - Action Required -->
-					<div v-if="!loading" class="rounded-xl bg-primary p-6">
+					<div v-if="!loading" class="rounded-xl bg-white dark:bg-black p-6">
 						<div class="mb-6">
 							<div class="flex items-center mb-2 text-white">
 								<svg
@@ -312,7 +312,7 @@
 							<div
 								v-for="stage in nextSteps"
 								:key="stage.id"
-								class="flex items-center justify-between p-4 bg-white dark:bg-black rounded-xl border border-primary-200 shadow-sm"
+								class="flex items-center justify-between p-4 bg-white dark:bg-black rounded-xl border shadow-sm"
 							>
 								<div class="flex items-center space-x-3">
 									<div class="flex-shrink-0">
@@ -481,7 +481,7 @@
 												@click="handleStageAction(stage)"
 												:disabled="!isStageEditable"
 												:class="[
-													'inline-flex items-center px-3 py-1 border text-sm font-medium rounded-xl focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500',
+													'inline-flex items-center px-3 py-1 border text-sm font-medium rounded-xl focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500',
 													isStageEditable
 														? 'border-gray-200 text-gray-700 bg-gray-50 hover:bg-primary cursor-pointer'
 														: 'border-gray-300 text-gray-400 bg-gray-100 cursor-not-allowed opacity-60',

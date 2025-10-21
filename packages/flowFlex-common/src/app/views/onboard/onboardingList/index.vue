@@ -298,7 +298,12 @@
 								</template>
 							</template>
 						</el-table-column>
-						<el-table-column label="Start Date" width="150" sortable="custom">
+						<el-table-column
+							prop="currentStageStartTime"
+							label="Start Date"
+							width="150"
+							sortable="custom"
+						>
 							<template #default="{ row }">
 								<div class="text-xs space-y-1">
 									<div class="flex items-center">
@@ -324,7 +329,12 @@
 								</div>
 							</template>
 						</el-table-column>
-						<el-table-column label="End Date" width="150" sortable="custom">
+						<el-table-column
+							prop="currentStageEndTime"
+							label="End Date"
+							width="150"
+							sortable="custom"
+						>
 							<template #default="{ row }">
 								<div class="text-xs space-y-1">
 									<div class="flex items-center">
@@ -950,8 +960,7 @@ const getTableViewOnboarding = async (event) => {
 		const queryParams: OnboardingQueryRequest = {
 			pageIndex: currentPage.value,
 			pageSize: pageSize.value,
-			sortField: event?.prop ? event.prop : '',
-			sortDirection: event?.isAsc ? 'asc' : 'desc',
+			...event,
 			...omitBy(
 				pick(searchParams, [
 					'leadId',
@@ -1148,10 +1157,14 @@ const handleSelectionChange = (selection: OnboardingItem[]) => {
 	selectedItems.value = selection;
 };
 
-const handleSortChange = (event) => {
+const handleSortChange = (event: any) => {
 	// 这里可以添加排序逻辑，发送到后端
 	// 暂时使用前端排序
-	loadOnboardingList(event);
+	const sortord = {
+		sortDirection: event.order && event.order == 'ascending' ? 'asc' : 'desc',
+		sortField: event.order ? event.prop : '',
+	};
+	loadOnboardingList(sortord);
 	return false;
 };
 
