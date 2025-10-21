@@ -257,11 +257,19 @@ const processPermissionChanges = () => {
 	nextTick(() => {
 		// 处理 viewPermissionMode 的变化 - Public 和 Private 模式下清空所有选择
 		if (!shouldShowSelector.value) {
+			// 清空 View 相关的选择
 			if (localPermissions.viewTeams.length > 0) {
 				localPermissions.viewTeams = [];
 			}
 			if (localPermissions.viewUsers.length > 0) {
 				localPermissions.viewUsers = [];
+			}
+			// 清空 Operate 相关的选择
+			if (localPermissions.operateTeams.length > 0) {
+				localPermissions.operateTeams = [];
+			}
+			if (localPermissions.operateUsers.length > 0) {
+				localPermissions.operateUsers = [];
 			}
 		}
 
