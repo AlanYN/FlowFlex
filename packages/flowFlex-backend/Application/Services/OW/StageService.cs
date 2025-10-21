@@ -55,13 +55,14 @@ namespace FlowFlex.Application.Service.OW
         private readonly IDistributedCacheService _cacheService;
         private readonly IBackgroundTaskQueue _backgroundTaskQueue;
         private readonly IOperationChangeLogService _operationChangeLogService;
+        private readonly IPermissionService _permissionService;
         private readonly ILogger<StageService> _logger;
 
         // Cache key constants
         private const string STAGE_CACHE_PREFIX = "ow:stage";
         private static readonly TimeSpan STAGE_CACHE_DURATION = TimeSpan.FromMinutes(10);
 
-        public StageService(IStageRepository stageRepository, IWorkflowRepository workflowRepository, IMapper mapper, IStagesProgressSyncService stagesProgressSyncService, IChecklistService checklistService, IQuestionnaireService questionnaireService, IQuestionnaireAnswerService questionnaireAnswerService, IAIService aiService, IChecklistTaskCompletionRepository checklistTaskCompletionRepository, UserContext userContext, IComponentMappingService mappingService, ISqlSugarClient db, IDistributedCacheService cacheService, IBackgroundTaskQueue backgroundTaskQueue, IOperationChangeLogService operationChangeLogService, ILogger<StageService> logger)
+        public StageService(IStageRepository stageRepository, IWorkflowRepository workflowRepository, IMapper mapper, IStagesProgressSyncService stagesProgressSyncService, IChecklistService checklistService, IQuestionnaireService questionnaireService, IQuestionnaireAnswerService questionnaireAnswerService, IAIService aiService, IChecklistTaskCompletionRepository checklistTaskCompletionRepository, UserContext userContext, IComponentMappingService mappingService, ISqlSugarClient db, IDistributedCacheService cacheService, IBackgroundTaskQueue backgroundTaskQueue, IOperationChangeLogService operationChangeLogService, IPermissionService permissionService, ILogger<StageService> logger)
         {
             _stageRepository = stageRepository;
             _workflowRepository = workflowRepository;
@@ -78,6 +79,7 @@ namespace FlowFlex.Application.Service.OW
             _cacheService = cacheService;
             _backgroundTaskQueue = backgroundTaskQueue;
             _operationChangeLogService = operationChangeLogService;
+            _permissionService = permissionService;
             _logger = logger;
         }
 
@@ -561,20 +563,50 @@ namespace FlowFlex.Application.Service.OW
 
         public async Task<List<StageOutputDto>> GetListByWorkflowIdAsync(long workflowId)
         {
-            // Use cache for frequently accessed workflow stages
-            var cacheKey = $"{STAGE_CACHE_PREFIX}:workflow:{workflowId}";
-
-            var cachedResult = await _cacheService.GetAsync<List<StageOutputDto>>(cacheKey);
-            if (cachedResult != null)
+            // Note: Cache is disabled for this method because Stage permissions are user-specific
+            // Each user may see different stages based on their team membership
+            
+            // Get all stages for the workflow
+            var list = await _stageRepository.GetByWorkflowIdAsync(workflowId);
+            
+            // Get current user ID
+            var userIdString = _userContext?.UserId;
+            if (string.IsNullOrEmpty(userIdString) || !long.TryParse(userIdString, out var userId) || userId <= 0)
             {
-                return cachedResult;
+                _logger.LogWarning("User ID is invalid, returning empty stage list");
+                return new List<StageOutputDto>();
             }
 
-            var list = await _stageRepository.GetByWorkflowIdAsync(workflowId);
-            var result = _mapper.Map<List<StageOutputDto>>(list);
+            // Filter stages based on user permissions
+            var filteredStages = new List<Stage>();
+            foreach (var stage in list)
+            {
+                // Check if user has view permission for this stage
+                var permissionResult = await _permissionService.CheckStageAccessAsync(
+                    userId,
+                    stage.Id,
+                    FlowFlex.Domain.Shared.Enums.Permission.OperationTypeEnum.View);
 
-            // Cache for 10 minutes
-            await _cacheService.SetAsync(cacheKey, result, STAGE_CACHE_DURATION);
+                if (permissionResult.Success)
+                {
+                    filteredStages.Add(stage);
+                    _logger.LogDebug(
+                        "Stage {StageId} ({StageName}) included - User {UserId} has view permission",
+                        stage.Id, stage.Name, userId);
+                }
+                else
+                {
+                    _logger.LogDebug(
+                        "Stage {StageId} ({StageName}) filtered out - User {UserId} denied: {Reason}",
+                        stage.Id, stage.Name, userId, permissionResult.ErrorMessage);
+                }
+            }
+
+            var result = _mapper.Map<List<StageOutputDto>>(filteredStages);
+            
+            _logger.LogInformation(
+                "GetListByWorkflowIdAsync - WorkflowId: {WorkflowId}, Total stages: {TotalCount}, Visible to user {UserId}: {VisibleCount}",
+                workflowId, list.Count, userId, filteredStages.Count);
 
             return result;
         }

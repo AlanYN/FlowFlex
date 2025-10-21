@@ -6,6 +6,8 @@ using System.Net;
 using System.Threading.Tasks;
 using FlowFlex.Application.Contracts.Dtos.OW.Stage;
 using FlowFlex.Application.Contracts.IServices.OW;
+using FlowFlex.Domain.Shared.Enums.Permission;
+using FlowFlex.WebApi.Filters;
 using Item.Internal.StandardApi.Response;
 using System.Linq.Dynamic.Core;
 using System;
@@ -52,6 +54,7 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// Update stage
         /// </summary>
         [HttpPut("{id}")]
+        [RequirePermission(PermissionEntityTypeEnum.Stage, OperationTypeEnum.Operate)]
         [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> Update(long id, [FromBody] StageInputDto input)
         {
@@ -63,6 +66,7 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// Delete stage (with confirmation)
         /// </summary>
         [HttpDelete("{id}")]
+        [RequirePermission(PermissionEntityTypeEnum.Stage, OperationTypeEnum.Delete)]
         [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> Delete(long id, [FromQuery] bool confirm = false)
         {
@@ -74,6 +78,7 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// Get stage by id
         /// </summary>
         [HttpGet("{id}")]
+        [RequirePermission(PermissionEntityTypeEnum.Stage, OperationTypeEnum.View)]
         [ProducesResponseType<SuccessResponse<StageOutputDto>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> GetById(long id)
         {
