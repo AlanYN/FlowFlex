@@ -595,7 +595,7 @@
 						</p>
 					</div>
 
-					<PermissionSelector v-model="casePermissions" type="case" />
+					<CasePermissionSelector v-model="casePermissions" />
 				</div>
 			</el-form>
 
@@ -640,9 +640,9 @@ import {
 	Warning,
 	Download,
 } from '@element-plus/icons-vue';
-import PermissionSelector from '@/views/onboard/workflow/components/PermissionSelector.vue';
 import { CasePermissionModeEnum } from '@/enums/permissionEnum';
 import FlowflexUserSelector from '@/components/form/flowflexUser/index.vue';
+import CasePermissionSelector from './components/CasePermissionSelector.vue';
 import {
 	queryOnboardings,
 	deleteOnboarding,
@@ -750,7 +750,9 @@ const formData = reactive({
 	ownership: '',
 	viewPermissionMode: CasePermissionModeEnum.Public,
 	viewTeams: [] as string[],
+	viewUsers: [] as string[],
 	operateTeams: [] as string[],
+	operateUsers: [] as string[],
 });
 
 const formRules = {
@@ -769,18 +771,24 @@ const formRules = {
 	workFlowId: [{ required: true, message: 'Workflow is required', trigger: 'blur' }],
 };
 
-// 计算属性适配 PermissionSelector
+// 计算属性适配 CasePermissionSelector
 const casePermissions = computed({
 	get: () => ({
 		viewPermissionMode: formData.viewPermissionMode,
 		viewTeams: formData.viewTeams,
-		useSameGroups: JSON.stringify(formData.viewTeams) === JSON.stringify(formData.operateTeams),
+		viewUsers: formData.viewUsers,
+		useSameGroups:
+			JSON.stringify(formData.viewTeams) === JSON.stringify(formData.operateTeams) &&
+			JSON.stringify(formData.viewUsers) === JSON.stringify(formData.operateUsers),
 		operateTeams: formData.operateTeams,
+		operateUsers: formData.operateUsers,
 	}),
 	set: (value) => {
 		formData.viewPermissionMode = value.viewPermissionMode;
 		formData.viewTeams = value.viewTeams;
+		formData.viewUsers = value.viewUsers;
 		formData.operateTeams = value.operateTeams;
+		formData.operateUsers = value.operateUsers;
 	},
 });
 
@@ -1580,7 +1588,9 @@ const handleEditCase = (row: any) => {
 	formData.ownership = row.ownership || '';
 	formData.viewPermissionMode = row.viewPermissionMode ?? CasePermissionModeEnum.Public;
 	formData.viewTeams = row.viewTeams || [];
+	formData.viewUsers = row.viewUsers || [];
 	formData.operateTeams = row.operateTeams || [];
+	formData.operateUsers = row.operateUsers || [];
 
 	// 打开弹窗
 	dialogVisible.value = true;
@@ -1601,6 +1611,13 @@ const resetForm = () => {
 	formData.priority = '';
 	formData.ContactPerson = '';
 	formData.ContactEmail = '';
+	formData.workFlowId = '';
+	formData.ownership = '';
+	formData.viewPermissionMode = CasePermissionModeEnum.Public;
+	formData.viewTeams = [];
+	formData.viewUsers = [];
+	formData.operateTeams = [];
+	formData.operateUsers = [];
 	if (formRef.value) {
 		formRef.value.clearValidate();
 	}
@@ -1615,13 +1632,20 @@ const handleSave = async () => {
 
 		saving.value = true;
 
+		// 处理 ownership 字段：如果为空字符串，转换为 null
+		const submitData = {
+			...formData,
+			ownership:
+				formData.ownership && formData.ownership.trim() !== '' ? formData.ownership : null,
+		};
+
 		let res;
 		if (isEditMode.value && editingCaseId.value) {
 			// 编辑模式：调用更新接口
-			res = await updateOnboarding(editingCaseId.value, formData);
+			res = await updateOnboarding(editingCaseId.value, submitData);
 		} else {
 			// 创建模式：调用创建接口
-			res = await createOnboarding(formData);
+			res = await createOnboarding(submitData);
 		}
 
 		if (res.code === '200') {
