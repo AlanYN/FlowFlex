@@ -577,11 +577,12 @@
 				</el-form-item>
 
 				<el-form-item label="Ownership" prop="ownership">
-					<el-input
+					<FlowflexUserSelector
 						v-model="formData.ownership"
-						placeholder="Enter Ownership Name"
-						clearable
-						class="w-full rounded-xl"
+						selection-type="user"
+						:max-count="1"
+						placeholder="Select user"
+						:clearable="true"
 					/>
 				</el-form-item>
 
@@ -641,6 +642,7 @@ import {
 } from '@element-plus/icons-vue';
 import PermissionSelector from '@/views/onboard/workflow/components/PermissionSelector.vue';
 import { CasePermissionModeEnum } from '@/enums/permissionEnum';
+import FlowflexUserSelector from '@/components/form/flowflexUser/index.vue';
 import {
 	queryOnboardings,
 	deleteOnboarding,
