@@ -178,9 +178,14 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.Onboarding
         public bool IsActive { get; set; } = true;
 
         /// <summary>
-        /// Permission Subject Type - Team or User based permissions
+        /// View Permission Subject Type - Team or User based view permissions
         /// </summary>
-        public PermissionSubjectTypeEnum PermissionSubjectType { get; set; } = PermissionSubjectTypeEnum.Team;
+        public PermissionSubjectTypeEnum ViewPermissionSubjectType { get; set; } = PermissionSubjectTypeEnum.Team;
+
+        /// <summary>
+        /// Operate Permission Subject Type - Team or User based operate permissions
+        /// </summary>
+        public PermissionSubjectTypeEnum OperatePermissionSubjectType { get; set; } = PermissionSubjectTypeEnum.Team;
 
         /// <summary>
         /// View Permission Mode - Public/VisibleToTeams/InvisibleToTeams/Private
@@ -188,22 +193,22 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.Onboarding
         public ViewPermissionModeEnum ViewPermissionMode { get; set; } = ViewPermissionModeEnum.Public;
 
         /// <summary>
-        /// View Teams - List of team names for view permission control (used when PermissionSubjectType=Team)
+        /// View Teams - List of team names for view permission control (used when ViewPermissionSubjectType=Team)
         /// </summary>
         public List<string> ViewTeams { get; set; }
 
         /// <summary>
-        /// View Users - List of user IDs for view permission control (used when PermissionSubjectType=User)
+        /// View Users - List of user IDs for view permission control (used when ViewPermissionSubjectType=User)
         /// </summary>
         public List<string> ViewUsers { get; set; }
 
         /// <summary>
-        /// Operate Teams - List of team names that can perform operations (used when PermissionSubjectType=Team)
+        /// Operate Teams - List of team names that can perform operations (used when OperatePermissionSubjectType=Team)
         /// </summary>
         public List<string> OperateTeams { get; set; }
 
         /// <summary>
-        /// Operate Users - List of user IDs that can perform operations (used when PermissionSubjectType=User)
+        /// Operate Users - List of user IDs that can perform operations (used when OperatePermissionSubjectType=User)
         /// </summary>
         public List<string> OperateUsers { get; set; }
 

@@ -921,12 +921,13 @@ namespace FlowFlex.Application.Services.OW
             var userIdString = userId.ToString();
 
             _logger.LogDebug(
-                "CheckCasePermission - CaseId: {CaseId}, ViewMode: {ViewMode}, PermissionSubjectType: {SubjectType}, " +
+                "CheckCasePermission - CaseId: {CaseId}, ViewMode: {ViewMode}, ViewSubjectType: {ViewSubjectType}, OperateSubjectType: {OperateSubjectType}, " +
                 "ViewTeams: {ViewTeams}, ViewUsers: {ViewUsers}, OperateTeams: {OperateTeams}, OperateUsers: {OperateUsers}, " +
                 "Ownership: {Ownership}, UserTeams: [{UserTeams}], UserId: {UserId}",
                 onboarding.Id,
                 onboarding.ViewPermissionMode,
-                onboarding.PermissionSubjectType,
+                onboarding.ViewPermissionSubjectType,
+                onboarding.OperatePermissionSubjectType,
                 onboarding.ViewTeams ?? "NULL",
                 onboarding.ViewUsers ?? "NULL",
                 onboarding.OperateTeams ?? "NULL",
@@ -980,10 +981,10 @@ namespace FlowFlex.Application.Services.OW
         private bool CheckCaseViewPermission(Onboarding onboarding, List<string> userTeamIds, string userId)
         {
             _logger.LogDebug(
-                "CheckCaseViewPermission - CaseId: {CaseId}, ViewMode: {ViewMode}, SubjectType: {SubjectType}",
+                "CheckCaseViewPermission - CaseId: {CaseId}, ViewMode: {ViewMode}, ViewSubjectType: {ViewSubjectType}",
                 onboarding.Id,
                 onboarding.ViewPermissionMode,
-                onboarding.PermissionSubjectType);
+                onboarding.ViewPermissionSubjectType);
 
             switch (onboarding.ViewPermissionMode)
             {
@@ -992,7 +993,7 @@ namespace FlowFlex.Application.Services.OW
                     return true;
 
                 case ViewPermissionModeEnum.VisibleToTeams:
-                    if (onboarding.PermissionSubjectType == PermissionSubjectTypeEnum.Team)
+                    if (onboarding.ViewPermissionSubjectType == PermissionSubjectTypeEnum.Team)
                     {
                         // Team-based permission
                         if (string.IsNullOrWhiteSpace(onboarding.ViewTeams))
@@ -1026,7 +1027,7 @@ namespace FlowFlex.Application.Services.OW
                     }
 
                 case ViewPermissionModeEnum.InvisibleToTeams:
-                    if (onboarding.PermissionSubjectType == PermissionSubjectTypeEnum.Team)
+                    if (onboarding.ViewPermissionSubjectType == PermissionSubjectTypeEnum.Team)
                     {
                         // Team-based permission
                         if (string.IsNullOrWhiteSpace(onboarding.ViewTeams))
@@ -1076,13 +1077,13 @@ namespace FlowFlex.Application.Services.OW
         private bool CheckCaseOperatePermission(Onboarding onboarding, List<string> userTeamIds, string userId)
         {
             _logger.LogDebug(
-                "CheckCaseOperatePermission - CaseId: {CaseId}, SubjectType: {SubjectType}, OperateTeams: {OperateTeams}, OperateUsers: {OperateUsers}",
+                "CheckCaseOperatePermission - CaseId: {CaseId}, OperateSubjectType: {OperateSubjectType}, OperateTeams: {OperateTeams}, OperateUsers: {OperateUsers}",
                 onboarding.Id,
-                onboarding.PermissionSubjectType,
+                onboarding.OperatePermissionSubjectType,
                 onboarding.OperateTeams ?? "NULL",
                 onboarding.OperateUsers ?? "NULL");
 
-            if (onboarding.PermissionSubjectType == PermissionSubjectTypeEnum.Team)
+            if (onboarding.OperatePermissionSubjectType == PermissionSubjectTypeEnum.Team)
             {
                 // Team-based permission
                 // Special case: If ViewPermissionMode is Public and OperateTeams is NULL or empty,

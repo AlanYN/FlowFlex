@@ -22,7 +22,7 @@
 					type="primary"
 					@click="saveQuestionnaireAndField"
 					:loading="saveAllLoading"
-					:disabled="isSaveDisabled || stageCanCompleted"
+					:disabled="isSaveDisabled || stageCanCompleted || onboardingData?.isDisabled"
 					:icon="Document"
 					class="page-header-btn page-header-btn-primary"
 				>
@@ -32,7 +32,9 @@
 					type="primary"
 					@click="handleCompleteStage"
 					:loading="completing"
-					:disabled="isCompleteStageDisabled || stageCanCompleted"
+					:disabled="
+						isCompleteStageDisabled || stageCanCompleted || onboardingData?.isDisabled
+					"
 					class="page-header-btn page-header-btn-primary"
 					:icon="Check"
 				>
@@ -109,7 +111,11 @@
 									:static-fields="component.staticFields"
 									:onboarding-id="onboardingId"
 									:stage-id="activeStage"
-									:disabled="isAbortedReadonly || stageCanCompleted"
+									:disabled="
+										isAbortedReadonly ||
+										stageCanCompleted ||
+										onboardingData?.isDisabled
+									"
 									@save-success="refreshChangeLog"
 								/>
 
@@ -124,7 +130,11 @@
 									:stage-id="activeStage"
 									:checklist-data="getChecklistDataForComponent(component)"
 									:onboarding-id="onboardingId"
-									:disabled="isAbortedReadonly || stageCanCompleted"
+									:disabled="
+										isAbortedReadonly ||
+										stageCanCompleted ||
+										onboardingData?.isDisabled
+									"
 									@task-toggled="handleTaskToggled"
 									@refresh-checklist="loadCheckListData"
 								/>
@@ -140,7 +150,11 @@
 									:stage-id="activeStage"
 									:lead-data="onboardingData"
 									:workflow-stages="workflowStages"
-									:disabled="isAbortedReadonly || stageCanCompleted"
+									:disabled="
+										isAbortedReadonly ||
+										stageCanCompleted ||
+										onboardingData?.isDisabled
+									"
 									:questionnaire-data="
 										getQuestionnaireDataForComponent(component)
 									"
@@ -161,7 +175,11 @@
 									:stage-id="activeStage"
 									:component="component"
 									:document-is-required="documentIsRequired"
-									:disabled="isAbortedReadonly || stageCanCompleted"
+									:disabled="
+										isAbortedReadonly ||
+										stageCanCompleted ||
+										onboardingData?.isDisabled
+									"
 									@document-uploaded="handleDocumentUploaded"
 									@document-deleted="handleDocumentDeleted"
 								/>
@@ -192,7 +210,7 @@
 							v-if="activeStage && onboardingId"
 							:onboarding-id="onboardingId"
 							:stage-id="activeStage"
-							:disabled="isAbortedReadonly"
+							:disabled="isAbortedReadonly || onboardingData?.isDisabled"
 							@note-added="handleNoteAdded"
 						/>
 					</div>

@@ -28,6 +28,7 @@ using FlowFlex.Application.Contracts.Dtos.Action;
 using FlowFlex.Domain.Shared.Utils;
 using Microsoft.Extensions.DependencyInjection;
 using FlowFlex.Infrastructure.Extensions;
+using PermissionOperationType = FlowFlex.Domain.Shared.Enums.Permission.OperationTypeEnum;
 
 namespace FlowFlex.Application.Services.OW
 {
@@ -55,6 +56,7 @@ namespace FlowFlex.Application.Services.OW
         private readonly IBackgroundTaskQueue _backgroundTaskQueue;
         private readonly IActionManagementService _actionManagementService;
         private readonly IOperationChangeLogService _operationChangeLogService;
+        private readonly IPermissionService _permissionService;
         // Cache key constants - temporarily disable Redis cache
         private const string WORKFLOW_CACHE_PREFIX = "ow:workflow";
         private const string STAGE_CACHE_PREFIX = "ow:stage";
@@ -79,7 +81,8 @@ namespace FlowFlex.Application.Services.OW
             IServiceScopeFactory serviceScopeFactory,
             IBackgroundTaskQueue backgroundTaskQueue,
             IActionManagementService actionManagementService,
-            IOperationChangeLogService operationChangeLogService)
+            IOperationChangeLogService operationChangeLogService,
+            IPermissionService permissionService)
         {
             _onboardingRepository = onboardingRepository ?? throw new ArgumentNullException(nameof(onboardingRepository));
             _workflowRepository = workflowRepository ?? throw new ArgumentNullException(nameof(workflowRepository));
@@ -100,6 +103,7 @@ namespace FlowFlex.Application.Services.OW
             _backgroundTaskQueue = backgroundTaskQueue ?? throw new ArgumentNullException(nameof(backgroundTaskQueue));
             _actionManagementService = actionManagementService ?? throw new ArgumentNullException(nameof(actionManagementService));
             _operationChangeLogService = operationChangeLogService ?? throw new ArgumentNullException(nameof(operationChangeLogService));
+            _permissionService = permissionService ?? throw new ArgumentNullException(nameof(permissionService));
         }
 
         /// <summary>
@@ -831,6 +835,9 @@ namespace FlowFlex.Application.Services.OW
                     }
                 }
 
+                // Check if current user has operate permission
+                result.IsDisabled = !await CheckCaseOperatePermissionAsync(id);
+
                 return result;
             }
             catch (Exception ex)
@@ -850,6 +857,29 @@ namespace FlowFlex.Application.Services.OW
             foreach (var entity in entities)
             {
                 await EnsureStagesProgressInitializedAsync(entity);
+            }
+
+            // Apply permission filtering - filter out cases user cannot view
+            var userId = _userContext?.UserId;
+            if (!string.IsNullOrEmpty(userId) && long.TryParse(userId, out var userIdLong))
+            {
+                var filteredEntities = new List<Onboarding>();
+                
+                foreach (var entity in entities)
+                {
+                    var permissionResult = await _permissionService.CheckCaseAccessAsync(
+                        userIdLong,
+                        entity.Id,
+                        PermissionOperationType.View);
+                    
+                    if (permissionResult.Success && permissionResult.CanView)
+                    {
+                        filteredEntities.Add(entity);
+                    }
+                }
+                
+                entities = filteredEntities;
+                LoggingExtensions.WriteLine($"[Permission Filter] GetListAsync - Filtered count: {filteredEntities.Count}");
             }
 
             // Map to output DTOs
@@ -1056,6 +1086,32 @@ namespace FlowFlex.Application.Services.OW
 
                 // Batch process JSON deserialization
                 ProcessStagesProgressParallel(pagedEntities);
+
+                // Apply permission filtering - filter out cases user cannot view
+                var userId = _userContext?.UserId;
+                if (!string.IsNullOrEmpty(userId) && long.TryParse(userId, out var userIdLong))
+                {
+                    var filteredEntities = new List<Onboarding>();
+                    
+                    foreach (var entity in pagedEntities)
+                    {
+                        var permissionResult = await _permissionService.CheckCaseAccessAsync(
+                            userIdLong,
+                            entity.Id,
+                            PermissionOperationType.View);
+                        
+                        if (permissionResult.Success && permissionResult.CanView)
+                        {
+                            filteredEntities.Add(entity);
+                        }
+                    }
+                    
+                    // Update pagedEntities to filtered list
+                    pagedEntities = filteredEntities;
+                    totalCount = filteredEntities.Count;
+                    
+                    LoggingExtensions.WriteLine($"[Permission Filter] Original count: {pagedEntities.Count}, Filtered count: {filteredEntities.Count}");
+                }
 
                 // Map to output DTOs
                 var results = _mapper.Map<List<OnboardingOutputDto>>(pagedEntities);
@@ -1546,6 +1602,13 @@ namespace FlowFlex.Application.Services.OW
         /// </summary>
         public async Task<bool> MoveToNextStageAsync(long id)
         {
+            // Check permission
+            if (!await CheckCaseOperatePermissionAsync(id))
+            {
+                throw new CRMException(ErrorCodeEnum.OperationNotAllowed, 
+                    $"User does not have permission to operate on case {id}");
+            }
+
             var entity = await _onboardingRepository.GetByIdAsync(id);
             if (entity == null || !entity.IsValid)
             {
@@ -1578,6 +1641,13 @@ namespace FlowFlex.Application.Services.OW
         /// </summary>
         public async Task<bool> MoveToPreviousStageAsync(long id)
         {
+            // Check permission
+            if (!await CheckCaseOperatePermissionAsync(id))
+            {
+                throw new CRMException(ErrorCodeEnum.OperationNotAllowed, 
+                    $"User does not have permission to operate on case {id}");
+            }
+
             var entity = await _onboardingRepository.GetByIdAsync(id);
             if (entity == null || !entity.IsValid)
             {
@@ -1602,6 +1672,13 @@ namespace FlowFlex.Application.Services.OW
         /// </summary>
         public async Task<bool> MoveToStageAsync(long id, MoveToStageInputDto input)
         {
+            // Check permission
+            if (!await CheckCaseOperatePermissionAsync(id))
+            {
+                throw new CRMException(ErrorCodeEnum.OperationNotAllowed, 
+                    $"User does not have permission to operate on case {id}");
+            }
+
             var entity = await _onboardingRepository.GetByIdAsync(id);
             if (entity == null || !entity.IsValid)
             {
@@ -1622,6 +1699,13 @@ namespace FlowFlex.Application.Services.OW
         /// </summary>
         public async Task<bool> CompleteCurrentStageAsync(long id)
         {
+            // Check permission
+            if (!await CheckCaseOperatePermissionAsync(id))
+            {
+                throw new CRMException(ErrorCodeEnum.OperationNotAllowed, 
+                    $"User does not have permission to operate on case {id}");
+            }
+
             var entity = await _onboardingRepository.GetByIdAsync(id);
             if (entity == null || !entity.IsValid)
             {
@@ -1946,6 +2030,13 @@ namespace FlowFlex.Application.Services.OW
         /// </summary>
         public async Task<bool> CompleteCurrentStageAsync(long id, CompleteCurrentStageInputDto input)
         {
+            // Check permission
+            if (!await CheckCaseOperatePermissionAsync(id))
+            {
+                throw new CRMException(ErrorCodeEnum.OperationNotAllowed, 
+                    $"User does not have permission to operate on case {id}");
+            }
+
             var entity = await _onboardingRepository.GetByIdAsync(id);
             if (entity == null || !entity.IsValid)
             {
@@ -2205,6 +2296,13 @@ namespace FlowFlex.Application.Services.OW
         /// </summary>
         public async Task<bool> CompleteStageAsync(long id, CompleteStageInputDto input)
         {
+            // Check permission
+            if (!await CheckCaseOperatePermissionAsync(id))
+            {
+                throw new CRMException(ErrorCodeEnum.OperationNotAllowed, 
+                    $"User does not have permission to operate on case {id}");
+            }
+
             var entity = await _onboardingRepository.GetByIdAsync(id);
             if (entity == null || !entity.IsValid)
             {
@@ -2305,6 +2403,13 @@ namespace FlowFlex.Application.Services.OW
         /// </summary>
         public async Task<bool> CompleteAsync(long id)
         {
+            // Check permission
+            if (!await CheckCaseOperatePermissionAsync(id))
+            {
+                throw new CRMException(ErrorCodeEnum.OperationNotAllowed, 
+                    $"User does not have permission to operate on case {id}");
+            }
+
             var entity = await _onboardingRepository.GetByIdAsync(id);
             if (entity == null || !entity.IsValid)
             {
@@ -2324,6 +2429,13 @@ namespace FlowFlex.Application.Services.OW
         /// </summary>
         public async Task<bool> PauseAsync(long id)
         {
+            // Check permission
+            if (!await CheckCaseOperatePermissionAsync(id))
+            {
+                throw new CRMException(ErrorCodeEnum.OperationNotAllowed, 
+                    $"User does not have permission to operate on case {id}");
+            }
+
             var entity = await _onboardingRepository.GetByIdAsync(id);
             if (entity == null || !entity.IsValid)
             {
@@ -2343,6 +2455,13 @@ namespace FlowFlex.Application.Services.OW
         /// </summary>
         public async Task<bool> ResumeAsync(long id)
         {
+            // Check permission
+            if (!await CheckCaseOperatePermissionAsync(id))
+            {
+                throw new CRMException(ErrorCodeEnum.OperationNotAllowed, 
+                    $"User does not have permission to operate on case {id}");
+            }
+
             var entity = await _onboardingRepository.GetByIdAsync(id);
             if (entity == null || !entity.IsValid)
             {
@@ -2362,6 +2481,13 @@ namespace FlowFlex.Application.Services.OW
         /// </summary>
         public async Task<bool> CancelAsync(long id, string reason)
         {
+            // Check permission
+            if (!await CheckCaseOperatePermissionAsync(id))
+            {
+                throw new CRMException(ErrorCodeEnum.OperationNotAllowed, 
+                    $"User does not have permission to operate on case {id}");
+            }
+
             var entity = await _onboardingRepository.GetByIdAsync(id);
             if (entity == null || !entity.IsValid)
             {
@@ -2408,6 +2534,13 @@ namespace FlowFlex.Application.Services.OW
         /// </summary>
         public async Task<bool> RejectAsync(long id, RejectOnboardingInputDto input)
         {
+            // Check permission
+            if (!await CheckCaseOperatePermissionAsync(id))
+            {
+                throw new CRMException(ErrorCodeEnum.OperationNotAllowed, 
+                    $"User does not have permission to operate on case {id}");
+            }
+
             var entity = await _onboardingRepository.GetByIdAsync(id);
             if (entity == null || !entity.IsValid)
             {
@@ -2816,6 +2949,13 @@ namespace FlowFlex.Application.Services.OW
         /// </summary>
         public async Task<bool> CompleteAsync(long id, CompleteOnboardingInputDto input)
         {
+            // Check permission
+            if (!await CheckCaseOperatePermissionAsync(id))
+            {
+                throw new CRMException(ErrorCodeEnum.OperationNotAllowed, 
+                    $"User does not have permission to operate on case {id}");
+            }
+
             var entity = await _onboardingRepository.GetByIdAsync(id);
             if (entity == null || !entity.IsValid)
             {
@@ -2871,6 +3011,13 @@ namespace FlowFlex.Application.Services.OW
         /// </summary>
         public async Task<bool> RestartAsync(long id, RestartOnboardingInputDto input)
         {
+            // Check permission
+            if (!await CheckCaseOperatePermissionAsync(id))
+            {
+                throw new CRMException(ErrorCodeEnum.OperationNotAllowed, 
+                    $"User does not have permission to operate on case {id}");
+            }
+
             var entity = await _onboardingRepository.GetByIdAsync(id);
             if (entity == null || !entity.IsValid)
             {
@@ -5145,7 +5292,8 @@ namespace FlowFlex.Application.Services.OW
                         it.CustomFieldsJson,
                         it.Notes,
                         it.IsActive,
-                        it.PermissionSubjectType,
+                        it.ViewPermissionSubjectType,
+                        it.OperatePermissionSubjectType,
                         it.ViewPermissionMode,
                         // Note: ViewTeams, ViewUsers, OperateTeams, OperateUsers were already updated above
                         it.ModifyDate,
@@ -5694,7 +5842,7 @@ namespace FlowFlex.Application.Services.OW
 
                         // Log the stage custom fields update operation
                         await _operationChangeLogService.LogOperationAsync(
-                            operationType: OperationTypeEnum.StageUpdate,
+                            operationType: FlowFlex.Domain.Shared.Enums.OW.OperationTypeEnum.StageUpdate,
                             businessModule: BusinessModuleEnum.Stage,
                             businessId: input.StageId,
                             onboardingId: onboardingId,
@@ -5722,7 +5870,7 @@ namespace FlowFlex.Application.Services.OW
             {
                 // Log the failed operation
                 await _operationChangeLogService.LogOperationAsync(
-                    operationType: OperationTypeEnum.StageUpdate,
+                    operationType: FlowFlex.Domain.Shared.Enums.OW.OperationTypeEnum.StageUpdate,
                     businessModule: BusinessModuleEnum.Stage,
                     businessId: input.StageId,
                     onboardingId: onboardingId,
@@ -5743,6 +5891,13 @@ namespace FlowFlex.Application.Services.OW
         /// </summary>
         public async Task<bool> SaveStageAsync(long onboardingId, long stageId)
         {
+            // Check permission
+            if (!await CheckCaseOperatePermissionAsync(onboardingId))
+            {
+                throw new CRMException(ErrorCodeEnum.OperationNotAllowed, 
+                    $"User does not have permission to operate on case {onboardingId}");
+            }
+
             try
             {
                 // Get current onboarding
@@ -5792,6 +5947,25 @@ namespace FlowFlex.Application.Services.OW
         /// <summary>
         /// Helper method to populate workflow/stage names and calculate current stage end time for OnboardingOutputDto lists
         /// </summary>
+        /// <summary>
+        /// Check if current user has permission to operate on a case
+        /// </summary>
+        private async Task<bool> CheckCaseOperatePermissionAsync(long caseId)
+        {
+            var userId = _userContext?.UserId;
+            if (string.IsNullOrEmpty(userId) || !long.TryParse(userId, out var userIdLong))
+            {
+                return false;
+            }
+
+            var permissionResult = await _permissionService.CheckCaseAccessAsync(
+                userIdLong,
+                caseId,
+                PermissionOperationType.Operate);
+
+            return permissionResult.Success && permissionResult.CanOperate;
+        }
+
         private async Task PopulateOnboardingOutputDtoAsync(List<OnboardingOutputDto> results, List<Onboarding> entities)
         {
             if (!results.Any() || !entities.Any()) return;
@@ -5802,7 +5976,7 @@ namespace FlowFlex.Application.Services.OW
             var stageDict = stages.ToDictionary(s => s.Id, s => s.Name);
             var stageEstimatedDaysDict = stages.ToDictionary(s => s.Id, s => s.EstimatedDuration);
 
-            // Populate workflow and stage names, and calculate current stage end time
+            // Populate workflow and stage names, calculate current stage end time, and check permissions
             foreach (var result in results)
             {
                 result.WorkflowName = workflowDict.GetValueOrDefault(result.WorkflowId);
@@ -5817,6 +5991,9 @@ namespace FlowFlex.Application.Services.OW
                         result.CurrentStageEndTime = result.CurrentStageStartTime.Value.AddDays((double)result.CurrentStageEstimatedDays.Value);
                     }
                 }
+
+                // Check if current user has operate permission for this case
+                result.IsDisabled = !await CheckCaseOperatePermissionAsync(result.Id);
             }
         }
 
@@ -5827,6 +6004,13 @@ namespace FlowFlex.Application.Services.OW
         /// </summary>
         public async Task<bool> StartOnboardingAsync(long id, StartOnboardingInputDto input)
         {
+            // Check permission
+            if (!await CheckCaseOperatePermissionAsync(id))
+            {
+                throw new CRMException(ErrorCodeEnum.OperationNotAllowed, 
+                    $"User does not have permission to operate on case {id}");
+            }
+
             var entity = await _onboardingRepository.GetByIdAsync(id);
             if (entity == null || !entity.IsValid)
             {
@@ -5885,6 +6069,13 @@ namespace FlowFlex.Application.Services.OW
         /// </summary>
         public async Task<bool> AbortAsync(long id, AbortOnboardingInputDto input)
         {
+            // Check permission
+            if (!await CheckCaseOperatePermissionAsync(id))
+            {
+                throw new CRMException(ErrorCodeEnum.OperationNotAllowed, 
+                    $"User does not have permission to operate on case {id}");
+            }
+
             var entity = await _onboardingRepository.GetByIdAsync(id);
             if (entity == null || !entity.IsValid)
             {
@@ -5929,6 +6120,13 @@ namespace FlowFlex.Application.Services.OW
         /// </summary>
         public async Task<bool> ReactivateAsync(long id, ReactivateOnboardingInputDto input)
         {
+            // Check permission
+            if (!await CheckCaseOperatePermissionAsync(id))
+            {
+                throw new CRMException(ErrorCodeEnum.OperationNotAllowed, 
+                    $"User does not have permission to operate on case {id}");
+            }
+
             var entity = await _onboardingRepository.GetByIdAsync(id);
             if (entity == null || !entity.IsValid)
             {
@@ -5978,6 +6176,13 @@ namespace FlowFlex.Application.Services.OW
         /// </summary>
         public async Task<bool> ResumeWithConfirmationAsync(long id, ResumeOnboardingInputDto input)
         {
+            // Check permission
+            if (!await CheckCaseOperatePermissionAsync(id))
+            {
+                throw new CRMException(ErrorCodeEnum.OperationNotAllowed, 
+                    $"User does not have permission to operate on case {id}");
+            }
+
             var entity = await _onboardingRepository.GetByIdAsync(id);
             if (entity == null || !entity.IsValid)
             {
@@ -6025,6 +6230,13 @@ namespace FlowFlex.Application.Services.OW
         /// </summary>
         public async Task<bool> ForceCompleteAsync(long id, ForceCompleteOnboardingInputDto input)
         {
+            // Check permission
+            if (!await CheckCaseOperatePermissionAsync(id))
+            {
+                throw new CRMException(ErrorCodeEnum.OperationNotAllowed, 
+                    $"User does not have permission to operate on case {id}");
+            }
+
             var entity = await _onboardingRepository.GetByIdAsync(id);
             if (entity == null || !entity.IsValid)
             {

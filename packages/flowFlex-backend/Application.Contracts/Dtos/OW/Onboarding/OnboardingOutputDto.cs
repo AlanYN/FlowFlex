@@ -223,9 +223,14 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.Onboarding
         public bool IsActive { get; set; }
 
         /// <summary>
-        /// Permission Subject Type - Team or User based permissions
+        /// View Permission Subject Type - Team or User based view permissions
         /// </summary>
-        public PermissionSubjectTypeEnum PermissionSubjectType { get; set; }
+        public PermissionSubjectTypeEnum ViewPermissionSubjectType { get; set; }
+
+        /// <summary>
+        /// Operate Permission Subject Type - Team or User based operate permissions
+        /// </summary>
+        public PermissionSubjectTypeEnum OperatePermissionSubjectType { get; set; }
 
         /// <summary>
         /// View Permission Mode - Public/VisibleToTeams/InvisibleToTeams/Private
@@ -233,22 +238,22 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.Onboarding
         public ViewPermissionModeEnum ViewPermissionMode { get; set; }
 
         /// <summary>
-        /// View Teams - List of team names for view permission control (used when PermissionSubjectType=Team)
+        /// View Teams - List of team names for view permission control (used when ViewPermissionSubjectType=Team)
         /// </summary>
         public List<string> ViewTeams { get; set; }
 
         /// <summary>
-        /// View Users - List of user IDs for view permission control (used when PermissionSubjectType=User)
+        /// View Users - List of user IDs for view permission control (used when ViewPermissionSubjectType=User)
         /// </summary>
         public List<string> ViewUsers { get; set; }
 
         /// <summary>
-        /// Operate Teams - List of team names that can perform operations (used when PermissionSubjectType=Team)
+        /// Operate Teams - List of team names that can perform operations (used when OperatePermissionSubjectType=Team)
         /// </summary>
         public List<string> OperateTeams { get; set; }
 
         /// <summary>
-        /// Operate Users - List of user IDs that can perform operations (used when PermissionSubjectType=User)
+        /// Operate Users - List of user IDs that can perform operations (used when OperatePermissionSubjectType=User)
         /// </summary>
         public List<string> OperateUsers { get; set; }
 
@@ -276,5 +281,12 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.Onboarding
         /// 修改人
         /// </summary>
         public string ModifyBy { get; set; }
+
+        /// <summary>
+        /// 是否禁止操作 - 当前用户是否无权限操作此 Case
+        /// true: 用户无操作权限,前端应禁用操作按钮
+        /// false: 用户有操作权限,前端可启用操作按钮
+        /// </summary>
+        public bool IsDisabled { get; set; }
     }
 }

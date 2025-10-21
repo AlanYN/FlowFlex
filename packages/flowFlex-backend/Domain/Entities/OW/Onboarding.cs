@@ -222,12 +222,20 @@ namespace FlowFlex.Domain.Entities.OW
         public bool IsActive { get; set; } = true;
 
         /// <summary>
-        /// Permission Subject Type - Defines whether permissions are based on Teams or Individual Users
-        /// Team: Permission based on team membership (default)
-        /// User: Permission based on specific user IDs
+        /// View Permission Subject Type - Defines whether view permissions are based on Teams or Individual Users
+        /// Team: View permission based on team membership (default)
+        /// User: View permission based on specific user IDs
         /// </summary>
-        [SugarColumn(ColumnName = "permission_subject_type")]
-        public PermissionSubjectTypeEnum PermissionSubjectType { get; set; } = PermissionSubjectTypeEnum.Team;
+        [SugarColumn(ColumnName = "view_permission_subject_type")]
+        public PermissionSubjectTypeEnum ViewPermissionSubjectType { get; set; } = PermissionSubjectTypeEnum.Team;
+
+        /// <summary>
+        /// Operate Permission Subject Type - Defines whether operate permissions are based on Teams or Individual Users
+        /// Team: Operate permission based on team membership (default)
+        /// User: Operate permission based on specific user IDs
+        /// </summary>
+        [SugarColumn(ColumnName = "operate_permission_subject_type")]
+        public PermissionSubjectTypeEnum OperatePermissionSubjectType { get; set; } = PermissionSubjectTypeEnum.Team;
 
         /// <summary>
         /// View Permission Mode - Defines how view permissions are controlled
@@ -240,7 +248,7 @@ namespace FlowFlex.Domain.Entities.OW
         public ViewPermissionModeEnum ViewPermissionMode { get; set; } = ViewPermissionModeEnum.Public;
 
         /// <summary>
-        /// View Teams - JSONB array of team names for view permission control (used when PermissionSubjectType=Team)
+        /// View Teams - JSONB array of team names for view permission control (used when ViewPermissionSubjectType=Team)
         /// Example: ["Team-A", "Team-B"]
         /// Used with VisibleToTeams or InvisibleToTeams mode
         /// </summary>
@@ -248,7 +256,7 @@ namespace FlowFlex.Domain.Entities.OW
         public string ViewTeams { get; set; }
 
         /// <summary>
-        /// View Users - JSONB array of user IDs for view permission control (used when PermissionSubjectType=User)
+        /// View Users - JSONB array of user IDs for view permission control (used when ViewPermissionSubjectType=User)
         /// Example: ["1935628742495965184", "1935628742495965185"]
         /// Used with VisibleToTeams or InvisibleToTeams mode
         /// </summary>
@@ -256,7 +264,7 @@ namespace FlowFlex.Domain.Entities.OW
         public string ViewUsers { get; set; }
 
         /// <summary>
-        /// Operate Teams - JSONB array of team names that can perform operations (used when PermissionSubjectType=Team)
+        /// Operate Teams - JSONB array of team names that can perform operations (used when OperatePermissionSubjectType=Team)
         /// Example: ["Team-A", "Team-B"]
         /// Operations include: Create, Update, Delete, Assign
         /// </summary>
@@ -264,7 +272,7 @@ namespace FlowFlex.Domain.Entities.OW
         public string OperateTeams { get; set; }
 
         /// <summary>
-        /// Operate Users - JSONB array of user IDs that can perform operations (used when PermissionSubjectType=User)
+        /// Operate Users - JSONB array of user IDs that can perform operations (used when OperatePermissionSubjectType=User)
         /// Example: ["1935628742495965184", "1935628742495965185"]
         /// Operations include: Create, Update, Delete, Assign
         /// </summary>

@@ -30,7 +30,8 @@ namespace FlowFlex.Application.Maps
                 .ForMember(dest => dest.CreateUserId, opt => opt.Ignore())
                 .ForMember(dest => dest.ModifyUserId, opt => opt.Ignore())
                 // Permission fields mapping
-                .ForMember(dest => dest.PermissionSubjectType, opt => opt.MapFrom(src => src.PermissionSubjectType))
+                .ForMember(dest => dest.ViewPermissionSubjectType, opt => opt.MapFrom(src => src.ViewPermissionSubjectType))
+                .ForMember(dest => dest.OperatePermissionSubjectType, opt => opt.MapFrom(src => src.OperatePermissionSubjectType))
                 .ForMember(dest => dest.ViewPermissionMode, opt => opt.MapFrom(src => src.ViewPermissionMode))
                 .ForMember(dest => dest.ViewTeams, opt => opt.MapFrom(src => SerializeSubjectList(src.ViewTeams)))
                 .ForMember(dest => dest.ViewUsers, opt => opt.MapFrom(src => SerializeSubjectList(src.ViewUsers)))
@@ -44,7 +45,8 @@ namespace FlowFlex.Application.Maps
                 .ForMember(dest => dest.CurrentStageEndTime, opt => opt.Ignore())
                 .ForMember(dest => dest.CurrentStageEstimatedDays, opt => opt.Ignore())
                 // Permission fields mapping
-                .ForMember(dest => dest.PermissionSubjectType, opt => opt.MapFrom(src => src.PermissionSubjectType))
+                .ForMember(dest => dest.ViewPermissionSubjectType, opt => opt.MapFrom(src => src.ViewPermissionSubjectType))
+                .ForMember(dest => dest.OperatePermissionSubjectType, opt => opt.MapFrom(src => src.OperatePermissionSubjectType))
                 .ForMember(dest => dest.ViewPermissionMode, opt => opt.MapFrom(src => src.ViewPermissionMode))
                 .ForMember(dest => dest.ViewTeams, opt => opt.MapFrom(src => DeserializeSubjectList(src.ViewTeams)))
                 .ForMember(dest => dest.ViewUsers, opt => opt.MapFrom(src => DeserializeSubjectList(src.ViewUsers)))
