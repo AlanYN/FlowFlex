@@ -18,6 +18,22 @@
 						:value="option.value"
 					/>
 				</el-select>
+
+				<!-- Public/Private 提示文本 -->
+				<p
+					v-if="localPermissions.viewPermissionMode === CasePermissionModeEnum.Public"
+					class="text-sm text-gray-500 mt-2"
+				>
+					Public (Inherit from workflow)
+				</p>
+				<p
+					v-else-if="
+						localPermissions.viewPermissionMode === CasePermissionModeEnum.Private
+					"
+					class="text-sm text-gray-500 mt-2"
+				>
+					Private (Only owner can view)
+				</p>
 			</div>
 
 			<!-- Team/User 选择（仅在 VisibleToTeams 或 InvisibleToTeams 时显示）-->
@@ -26,7 +42,7 @@
 
 				<!-- 单选按钮：User Groups / Individual Users -->
 				<el-radio-group v-model="viewSelectionType" @change="handleViewSelectionTypeChange">
-					<el-radio value="team">User Groups</el-radio>
+					<el-radio value="team">User Teams</el-radio>
 					<el-radio value="user">Individual Users</el-radio>
 				</el-radio-group>
 
@@ -45,9 +61,25 @@
 				<label class="text-base font-bold">Operate Permission</label>
 				<p class="text-sm">Controls who can operate on this case</p>
 
-				<el-checkbox v-model="localPermissions.useSameGroups">
-					Use same selection as view permission
+				<el-checkbox v-if="shouldShowSelector" v-model="localPermissions.useSameGroups">
+					Use same teams and users that have view permission
 				</el-checkbox>
+
+				<!-- Public/Private 提示文本 -->
+				<p
+					v-if="localPermissions.viewPermissionMode === CasePermissionModeEnum.Public"
+					class="text-sm text-gray-500 mt-2"
+				>
+					Public (Inherit from workflow)
+				</p>
+				<p
+					v-else-if="
+						localPermissions.viewPermissionMode === CasePermissionModeEnum.Private
+					"
+					class="text-sm text-gray-500 mt-2"
+				>
+					Private (Only owner can operate)
+				</p>
 			</div>
 
 			<!-- Available Teams/Users（仅在不勾选 useSameGroups 时显示）-->
@@ -59,7 +91,7 @@
 					v-model="operateSelectionType"
 					@change="handleOperateSelectionTypeChange"
 				>
-					<el-radio value="team">User Groups</el-radio>
+					<el-radio value="team">User Teams</el-radio>
 					<el-radio value="user">Individual Users</el-radio>
 				</el-radio-group>
 
@@ -77,7 +109,7 @@
 
 <script setup lang="ts">
 import { reactive, computed, watch, nextTick, ref } from 'vue';
-import { CasePermissionModeEnum } from '@/enums/permissionEnum';
+import { CasePermissionModeEnum, PermissionSubjectTypeEnum } from '@/enums/permissionEnum';
 import FlowflexUserSelector from '@/components/form/flowflexUser/index.vue';
 
 // Props
@@ -86,9 +118,11 @@ interface Props {
 		viewPermissionMode: number;
 		viewTeams: string[];
 		viewUsers: string[];
+		viewPermissionSubjectType: number;
 		useSameGroups: boolean;
 		operateTeams: string[];
 		operateUsers: string[];
+		operatePermissionSubjectType: number;
 	};
 }
 
@@ -97,9 +131,11 @@ const props = withDefaults(defineProps<Props>(), {
 		viewPermissionMode: CasePermissionModeEnum.Public,
 		viewTeams: [],
 		viewUsers: [],
+		viewPermissionSubjectType: PermissionSubjectTypeEnum.Team,
 		useSameGroups: true,
 		operateTeams: [],
 		operateUsers: [],
+		operatePermissionSubjectType: PermissionSubjectTypeEnum.Team,
 	}),
 });
 
@@ -123,20 +159,30 @@ const shouldShowSelector = computed(() => {
 	);
 });
 
-// 左侧选择类型：team 或 user（默认 team）
-const viewSelectionType = ref<'team' | 'user'>('team');
+// 左侧选择类型：team 或 user（根据 props.modelValue 的 SubjectType 初始化）
+const viewSelectionType = ref<'team' | 'user'>(
+	props.modelValue.viewPermissionSubjectType === PermissionSubjectTypeEnum.User ? 'user' : 'team'
+);
 
-// 右侧选择类型：team 或 user（默认 team）
-const operateSelectionType = ref<'team' | 'user'>('team');
+// 右侧选择类型：team 或 user（根据 props.modelValue 的 SubjectType 初始化）
+const operateSelectionType = ref<'team' | 'user'>(
+	props.modelValue.operatePermissionSubjectType === PermissionSubjectTypeEnum.User
+		? 'user'
+		: 'team'
+);
 
 // 本地权限数据
 const localPermissions = reactive({
 	viewPermissionMode: props.modelValue.viewPermissionMode ?? CasePermissionModeEnum.Public,
 	viewTeams: [...(props.modelValue.viewTeams || [])],
 	viewUsers: [...(props.modelValue.viewUsers || [])],
+	viewPermissionSubjectType:
+		props.modelValue.viewPermissionSubjectType ?? PermissionSubjectTypeEnum.Team,
 	useSameGroups: props.modelValue.useSameGroups ?? true,
 	operateTeams: [...(props.modelValue.operateTeams || [])],
 	operateUsers: [...(props.modelValue.operateUsers || [])],
+	operatePermissionSubjectType:
+		props.modelValue.operatePermissionSubjectType ?? PermissionSubjectTypeEnum.Team,
 });
 
 // 当前 View 选择的数据（根据 viewSelectionType 动态绑定）
@@ -176,9 +222,11 @@ const handleViewSelectionTypeChange = () => {
 	if (viewSelectionType.value === 'team') {
 		// 切换到 team，清空 users
 		localPermissions.viewUsers = [];
+		localPermissions.viewPermissionSubjectType = PermissionSubjectTypeEnum.Team;
 	} else {
 		// 切换到 user，清空 teams
 		localPermissions.viewTeams = [];
+		localPermissions.viewPermissionSubjectType = PermissionSubjectTypeEnum.User;
 	}
 };
 
@@ -187,9 +235,11 @@ const handleOperateSelectionTypeChange = () => {
 	if (operateSelectionType.value === 'team') {
 		// 切换到 team，清空 users
 		localPermissions.operateUsers = [];
+		localPermissions.operatePermissionSubjectType = PermissionSubjectTypeEnum.Team;
 	} else {
 		// 切换到 user，清空 teams
 		localPermissions.operateTeams = [];
+		localPermissions.operatePermissionSubjectType = PermissionSubjectTypeEnum.User;
 	}
 };
 
@@ -228,8 +278,10 @@ const processPermissionChanges = () => {
 				localPermissions.operateUsers = newOperateUsers;
 			}
 
-			// 同步选择类型
+			// 同步选择类型和 SubjectType 枚举值
 			operateSelectionType.value = viewSelectionType.value;
+			localPermissions.operatePermissionSubjectType =
+				localPermissions.viewPermissionSubjectType;
 		}
 		// 注意：不勾选时，左右完全独立，无需任何过滤或限制
 
@@ -238,9 +290,11 @@ const processPermissionChanges = () => {
 			viewPermissionMode: localPermissions.viewPermissionMode,
 			viewTeams: [...localPermissions.viewTeams],
 			viewUsers: [...localPermissions.viewUsers],
+			viewPermissionSubjectType: localPermissions.viewPermissionSubjectType,
 			useSameGroups: localPermissions.useSameGroups,
 			operateTeams: [...localPermissions.operateTeams],
 			operateUsers: [...localPermissions.operateUsers],
+			operatePermissionSubjectType: localPermissions.operatePermissionSubjectType,
 		});
 
 		// 重置标志位
@@ -269,11 +323,14 @@ watch(
 				localPermissions.viewPermissionMode !== newVal.viewPermissionMode ||
 				JSON.stringify(localPermissions.viewTeams) !== JSON.stringify(newVal.viewTeams) ||
 				JSON.stringify(localPermissions.viewUsers) !== JSON.stringify(newVal.viewUsers) ||
+				localPermissions.viewPermissionSubjectType !== newVal.viewPermissionSubjectType ||
 				localPermissions.useSameGroups !== newVal.useSameGroups ||
 				JSON.stringify(localPermissions.operateTeams) !==
 					JSON.stringify(newVal.operateTeams) ||
 				JSON.stringify(localPermissions.operateUsers) !==
-					JSON.stringify(newVal.operateUsers);
+					JSON.stringify(newVal.operateUsers) ||
+				localPermissions.operatePermissionSubjectType !==
+					newVal.operatePermissionSubjectType;
 
 			if (hasChanges) {
 				isProcessingInternalUpdate.value = true;
@@ -281,22 +338,23 @@ watch(
 					newVal.viewPermissionMode ?? CasePermissionModeEnum.Public;
 				localPermissions.viewTeams = [...(newVal.viewTeams || [])];
 				localPermissions.viewUsers = [...(newVal.viewUsers || [])];
+				localPermissions.viewPermissionSubjectType =
+					newVal.viewPermissionSubjectType ?? PermissionSubjectTypeEnum.Team;
 				localPermissions.useSameGroups = newVal.useSameGroups ?? true;
 				localPermissions.operateTeams = [...(newVal.operateTeams || [])];
 				localPermissions.operateUsers = [...(newVal.operateUsers || [])];
+				localPermissions.operatePermissionSubjectType =
+					newVal.operatePermissionSubjectType ?? PermissionSubjectTypeEnum.Team;
 
-				// 根据数据恢复选择类型
-				if (newVal.viewTeams && newVal.viewTeams.length > 0) {
-					viewSelectionType.value = 'team';
-				} else if (newVal.viewUsers && newVal.viewUsers.length > 0) {
-					viewSelectionType.value = 'user';
-				}
-
-				if (newVal.operateTeams && newVal.operateTeams.length > 0) {
-					operateSelectionType.value = 'team';
-				} else if (newVal.operateUsers && newVal.operateUsers.length > 0) {
-					operateSelectionType.value = 'user';
-				}
+				// 根据 SubjectType 枚举值恢复 radio 选择
+				viewSelectionType.value =
+					newVal.viewPermissionSubjectType === PermissionSubjectTypeEnum.User
+						? 'user'
+						: 'team';
+				operateSelectionType.value =
+					newVal.operatePermissionSubjectType === PermissionSubjectTypeEnum.User
+						? 'user'
+						: 'team';
 
 				nextTick(() => {
 					isProcessingInternalUpdate.value = false;

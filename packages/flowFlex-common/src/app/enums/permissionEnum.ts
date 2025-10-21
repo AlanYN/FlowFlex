@@ -78,3 +78,14 @@ export const getCasePermissionModeLabel = (value: CasePermissionModeEnum): strin
 	};
 	return labels[value] || 'Unknown';
 };
+
+/**
+ * Permission Subject Type Enum
+ * Controls whether permissions are applied to teams or individual users
+ */
+export enum PermissionSubjectTypeEnum {
+	/** Team-based permissions - Permission subjects are team names */
+	Team = 1,
+	/** User-based permissions - Permission subjects are individual user IDs */
+	User = 2,
+}

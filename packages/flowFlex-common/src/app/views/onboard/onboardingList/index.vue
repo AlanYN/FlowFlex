@@ -640,7 +640,7 @@ import {
 	Warning,
 	Download,
 } from '@element-plus/icons-vue';
-import { CasePermissionModeEnum } from '@/enums/permissionEnum';
+import { CasePermissionModeEnum, PermissionSubjectTypeEnum } from '@/enums/permissionEnum';
 import FlowflexUserSelector from '@/components/form/flowflexUser/index.vue';
 import CasePermissionSelector from './components/CasePermissionSelector.vue';
 import {
@@ -659,7 +659,10 @@ import {
 } from '@/apis/ow/onboarding';
 import { getAllStages, getWorkflowList } from '@/apis/ow';
 import { OnboardingItem, SearchParams, OnboardingQueryRequest, ApiResponse } from '#/onboard';
+import type { FlowflexUser } from '#/golbal';
 import { PrototypeTabs, TabPane, TabButtonGroup } from '@/components/PrototypeTabs';
+import { useUserStore } from '@/stores/modules/user';
+import { menuRoles } from '@/stores/modules/menuFunction';
 import {
 	defaultStr,
 	projectTenMinutesSsecondsDate,
@@ -696,6 +699,10 @@ type RuleType =
 	| 'any';
 
 const { t } = useI18n();
+
+// Store 实例
+const userStore = useUserStore();
+const menuStore = menuRoles();
 
 // 入职阶段定义
 const onboardingStages = ref<any[]>([]);
@@ -751,8 +758,10 @@ const formData = reactive({
 	viewPermissionMode: CasePermissionModeEnum.Public,
 	viewTeams: [] as string[],
 	viewUsers: [] as string[],
+	viewPermissionSubjectType: PermissionSubjectTypeEnum.Team,
 	operateTeams: [] as string[],
 	operateUsers: [] as string[],
+	operatePermissionSubjectType: PermissionSubjectTypeEnum.Team,
 });
 
 const formRules = {
@@ -777,18 +786,22 @@ const casePermissions = computed({
 		viewPermissionMode: formData.viewPermissionMode,
 		viewTeams: formData.viewTeams,
 		viewUsers: formData.viewUsers,
+		viewPermissionSubjectType: formData.viewPermissionSubjectType,
 		useSameGroups:
 			JSON.stringify(formData.viewTeams) === JSON.stringify(formData.operateTeams) &&
 			JSON.stringify(formData.viewUsers) === JSON.stringify(formData.operateUsers),
 		operateTeams: formData.operateTeams,
 		operateUsers: formData.operateUsers,
+		operatePermissionSubjectType: formData.operatePermissionSubjectType,
 	}),
 	set: (value) => {
 		formData.viewPermissionMode = value.viewPermissionMode;
 		formData.viewTeams = value.viewTeams;
 		formData.viewUsers = value.viewUsers;
+		formData.viewPermissionSubjectType = value.viewPermissionSubjectType;
 		formData.operateTeams = value.operateTeams;
 		formData.operateUsers = value.operateUsers;
+		formData.operatePermissionSubjectType = value.operatePermissionSubjectType;
 	},
 });
 
@@ -1146,9 +1159,13 @@ const handleEdit = (itemId: string) => {
 	router.push(`/onboard/onboardDetail?onboardingId=${itemId}`);
 };
 
-const handleNewOnboarding = () => {
+const handleNewOnboarding = async () => {
 	if (allWorkflows.value.length > 0) {
 		formData.workFlowId = allWorkflows.value.find((item) => item.isDefault)?.id || '';
+
+		// 自动填充当前用户
+		await autoFillCurrentUser();
+
 		dialogVisible.value = true;
 	} else {
 		// End date已过期，显示警告提示
@@ -1589,11 +1606,61 @@ const handleEditCase = (row: any) => {
 	formData.viewPermissionMode = row.viewPermissionMode ?? CasePermissionModeEnum.Public;
 	formData.viewTeams = row.viewTeams || [];
 	formData.viewUsers = row.viewUsers || [];
+	formData.viewPermissionSubjectType =
+		row.viewPermissionSubjectType ?? PermissionSubjectTypeEnum.Team;
 	formData.operateTeams = row.operateTeams || [];
 	formData.operateUsers = row.operateUsers || [];
+	formData.operatePermissionSubjectType =
+		row.operatePermissionSubjectType ?? PermissionSubjectTypeEnum.Team;
 
 	// 打开弹窗
 	dialogVisible.value = true;
+};
+
+// 自动填充当前用户到 ownership
+const autoFillCurrentUser = async () => {
+	try {
+		// 获取当前登录用户信息
+		const currentUser = userStore.getUserInfo;
+		if (!currentUser || !currentUser.userId) {
+			console.warn('No current user info available');
+			return;
+		}
+
+		// 获取用户数据列表（使用缓存）
+		const userData = await menuStore.getFlowflexUserDataWithCache();
+		if (!userData || userData.length === 0) {
+			console.warn('No user data available');
+			return;
+		}
+
+		// 递归查找当前用户
+		const findUserById = (data: FlowflexUser[], userId: string): FlowflexUser | null => {
+			for (const item of data) {
+				if (item.type === 'user' && item.id === userId) {
+					return item;
+				}
+				if (item.children && item.children.length > 0) {
+					const found = findUserById(item.children, userId);
+					if (found) return found;
+				}
+			}
+			return null;
+		};
+
+		const currentUserData = findUserById(userData, String(currentUser.userId));
+
+		// 如果找到用户，自动填充
+		if (currentUserData) {
+			formData.ownership = currentUserData.id;
+		} else {
+			console.warn('Current user not found in user data list');
+			// 留空，不填充
+		}
+	} catch (error) {
+		console.error('Failed to auto-fill current user:', error);
+		// 出错时留空
+	}
 };
 
 const handleCancel = () => {
@@ -1616,8 +1683,10 @@ const resetForm = () => {
 	formData.viewPermissionMode = CasePermissionModeEnum.Public;
 	formData.viewTeams = [];
 	formData.viewUsers = [];
+	formData.viewPermissionSubjectType = PermissionSubjectTypeEnum.Team;
 	formData.operateTeams = [];
 	formData.operateUsers = [];
+	formData.operatePermissionSubjectType = PermissionSubjectTypeEnum.Team;
 	if (formRef.value) {
 		formRef.value.clearValidate();
 	}
@@ -1651,8 +1720,8 @@ const handleSave = async () => {
 		if (res.code === '200') {
 			const onboardingId = res.data;
 
-			// 如果创建成功且有 onboardingId，则更新静态字段值
-			if (onboardingId) {
+			// 仅在创建模式下更新静态字段值（编辑模式不调用）
+			if (!isEditMode.value && onboardingId) {
 				try {
 					const fieldValues: Array<{
 						fieldName: string;
