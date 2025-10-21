@@ -152,6 +152,18 @@ async function handleRouterRoles(to) {
 
 async function createDynamicRoutes(router: Router) {
 	try {
+		// Skip dynamic route creation for Portal pages
+		// Portal pages don't need user permissions or dynamic routes
+		const isPortalPath =
+			window.location.pathname.startsWith('/portal-access') ||
+			window.location.pathname.startsWith('/customer-portal') ||
+			window.location.pathname.startsWith('/onboard/sub-portal');
+
+		if (isPortalPath) {
+			console.log('[Router Guard] Skipping dynamic routes for Portal page');
+			return;
+		}
+
 		const accessToken = getTokenobj()?.accessToken.token;
 		if (!accessToken) return;
 		const permissionStore = usePermissionStoreWithOut();

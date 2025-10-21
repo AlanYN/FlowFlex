@@ -299,16 +299,35 @@ namespace FlowFlex.Application.Services.OW
                 if (!groupCheckResult.Success)
                 {
                     return groupCheckResult;
-                    }
+                }
                 }
 
-                // Step 4: Load Case permission configuration
-                // TODO: Implement actual permission loading from database
+                // Step 4: Load Case (Onboarding) entity
+                var onboarding = await _onboardingRepository.GetByIdAsync(caseId);
+                if (onboarding == null)
+                {
+                    return PermissionResult.CreateFailure(
+                        "Case not found",
+                        "CASE_NOT_FOUND");
+                }
+
+                // Step 5: Check Case permission
+                var permissionCheck = CheckCasePermission(onboarding, userId, operationType);
                 
-                return PermissionResult.CreateSuccess(
-                    true,  // canView
-                    true,  // canOperate
-                    "CasePermission");
+                if (permissionCheck.Success)
+                {
+                    _logger.LogInformation(
+                        "Case permission check passed for user {UserId}, Reason: {Reason}",
+                        userId, permissionCheck.GrantReason);
+                }
+                else
+                {
+                    _logger.LogWarning(
+                        "Case permission check failed for user {UserId}, Reason: {Reason}",
+                        userId, permissionCheck.ErrorMessage);
+                }
+
+                return permissionCheck;
             }
             catch (Exception ex)
             {
@@ -886,6 +905,271 @@ namespace FlowFlex.Application.Services.OW
                 string.Join(", ", teams),
                 hasTeamAccess);
             return hasTeamAccess;
+        }
+
+        /// <summary>
+        /// Check Case permission (independent from Workflow/Stage)
+        /// Case has completely independent permission control including Ownership
+        /// </summary>
+        private PermissionResult CheckCasePermission(
+            Onboarding onboarding,
+            long userId,
+            PermissionOperationType operationType)
+        {
+            // Get user teams or user IDs based on PermissionSubjectType
+            var userTeamIds = GetUserTeamIds();
+            var userIdString = userId.ToString();
+
+            _logger.LogDebug(
+                "CheckCasePermission - CaseId: {CaseId}, ViewMode: {ViewMode}, PermissionSubjectType: {SubjectType}, " +
+                "ViewTeams: {ViewTeams}, ViewUsers: {ViewUsers}, OperateTeams: {OperateTeams}, OperateUsers: {OperateUsers}, " +
+                "Ownership: {Ownership}, UserTeams: [{UserTeams}], UserId: {UserId}",
+                onboarding.Id,
+                onboarding.ViewPermissionMode,
+                onboarding.PermissionSubjectType,
+                onboarding.ViewTeams ?? "NULL",
+                onboarding.ViewUsers ?? "NULL",
+                onboarding.OperateTeams ?? "NULL",
+                onboarding.OperateUsers ?? "NULL",
+                onboarding.Ownership,
+                string.Join(", ", userTeamIds),
+                userId);
+
+            // Step 1: Check Ownership (highest priority)
+            if (onboarding.Ownership.HasValue && onboarding.Ownership.Value == userId)
+            {
+                _logger.LogDebug("Case permission: User {UserId} is the owner - granting full access", userId);
+                return PermissionResult.CreateSuccess(true, true, "Owner");
+            }
+
+            // Step 2: Check View Permission
+            bool canView = CheckCaseViewPermission(onboarding, userTeamIds, userIdString);
+            
+            if (!canView)
+            {
+                return PermissionResult.CreateFailure(
+                    "User does not have view permission for this case",
+                    "VIEW_PERMISSION_DENIED");
+            }
+
+            // Step 3: Check Operate Permission (only if user can view)
+            if (operationType == PermissionOperationType.Operate || 
+                operationType == PermissionOperationType.Delete)
+            {
+                bool canOperate = CheckCaseOperatePermission(onboarding, userTeamIds, userIdString);
+                
+                if (canOperate)
+                {
+                    return PermissionResult.CreateSuccess(true, true, "CaseOperatePermission");
+                }
+                else
+                {
+                    return PermissionResult.CreateFailure(
+                        "User has view permission but not operate permission for this case",
+                        "OPERATE_PERMISSION_DENIED");
+                }
+            }
+
+            // View operation
+            return PermissionResult.CreateSuccess(true, false, "CaseViewPermission");
+        }
+
+        /// <summary>
+        /// Check Case view permission
+        /// </summary>
+        private bool CheckCaseViewPermission(Onboarding onboarding, List<string> userTeamIds, string userId)
+        {
+            _logger.LogDebug(
+                "CheckCaseViewPermission - CaseId: {CaseId}, ViewMode: {ViewMode}, SubjectType: {SubjectType}",
+                onboarding.Id,
+                onboarding.ViewPermissionMode,
+                onboarding.PermissionSubjectType);
+
+            switch (onboarding.ViewPermissionMode)
+            {
+                case ViewPermissionModeEnum.Public:
+                    _logger.LogDebug("Case view permission: Public mode - granting access");
+                    return true;
+
+                case ViewPermissionModeEnum.VisibleToTeams:
+                    if (onboarding.PermissionSubjectType == PermissionSubjectTypeEnum.Team)
+                    {
+                        // Team-based permission
+                        if (string.IsNullOrWhiteSpace(onboarding.ViewTeams))
+                        {
+                            _logger.LogDebug("Case view permission: VisibleToTeams mode but ViewTeams is empty - denying access");
+                            return false;
+                        }
+                        var visibleTeams = DeserializeTeamList(onboarding.ViewTeams);
+                        var hasVisibleTeam = userTeamIds.Any(teamId => visibleTeams.Contains(teamId));
+                        _logger.LogDebug(
+                            "Case view permission: VisibleToTeams (Team) - Required teams: [{RequiredTeams}], User has access: {HasAccess}",
+                            string.Join(", ", visibleTeams),
+                            hasVisibleTeam);
+                        return hasVisibleTeam;
+                    }
+                    else
+                    {
+                        // User-based permission
+                        if (string.IsNullOrWhiteSpace(onboarding.ViewUsers))
+                        {
+                            _logger.LogDebug("Case view permission: VisibleToTeams mode but ViewUsers is empty - denying access");
+                            return false;
+                        }
+                        var visibleUsers = DeserializeTeamList(onboarding.ViewUsers);
+                        var hasAccess = visibleUsers.Contains(userId);
+                        _logger.LogDebug(
+                            "Case view permission: VisibleToTeams (User) - Required users: [{RequiredUsers}], User has access: {HasAccess}",
+                            string.Join(", ", visibleUsers),
+                            hasAccess);
+                        return hasAccess;
+                    }
+
+                case ViewPermissionModeEnum.InvisibleToTeams:
+                    if (onboarding.PermissionSubjectType == PermissionSubjectTypeEnum.Team)
+                    {
+                        // Team-based permission
+                        if (string.IsNullOrWhiteSpace(onboarding.ViewTeams))
+                        {
+                            _logger.LogDebug("Case view permission: InvisibleToTeams mode but ViewTeams is empty - granting access");
+                            return true;
+                        }
+                        var invisibleTeams = DeserializeTeamList(onboarding.ViewTeams);
+                        var isInvisible = !userTeamIds.Any(teamId => invisibleTeams.Contains(teamId));
+                        _logger.LogDebug(
+                            "Case view permission: InvisibleToTeams (Team) - Blocked teams: [{BlockedTeams}], User has access: {HasAccess}",
+                            string.Join(", ", invisibleTeams),
+                            isInvisible);
+                        return isInvisible;
+                    }
+                    else
+                    {
+                        // User-based permission
+                        if (string.IsNullOrWhiteSpace(onboarding.ViewUsers))
+                        {
+                            _logger.LogDebug("Case view permission: InvisibleToTeams mode but ViewUsers is empty - granting access");
+                            return true;
+                        }
+                        var invisibleUsers = DeserializeTeamList(onboarding.ViewUsers);
+                        var hasAccess = !invisibleUsers.Contains(userId);
+                        _logger.LogDebug(
+                            "Case view permission: InvisibleToTeams (User) - Blocked users: [{BlockedUsers}], User has access: {HasAccess}",
+                            string.Join(", ", invisibleUsers),
+                            hasAccess);
+                        return hasAccess;
+                    }
+
+                case ViewPermissionModeEnum.Private:
+                    // Private mode: Only owner can view (already checked in CheckCasePermission)
+                    _logger.LogDebug("Case view permission: Private mode - denying access (not owner)");
+                    return false;
+
+                default:
+                    _logger.LogWarning("Case view permission: Unknown ViewPermissionMode: {ViewMode} - denying access", onboarding.ViewPermissionMode);
+                    return false;
+            }
+        }
+
+        /// <summary>
+        /// Check Case operate permission
+        /// </summary>
+        private bool CheckCaseOperatePermission(Onboarding onboarding, List<string> userTeamIds, string userId)
+        {
+            _logger.LogDebug(
+                "CheckCaseOperatePermission - CaseId: {CaseId}, SubjectType: {SubjectType}, OperateTeams: {OperateTeams}, OperateUsers: {OperateUsers}",
+                onboarding.Id,
+                onboarding.PermissionSubjectType,
+                onboarding.OperateTeams ?? "NULL",
+                onboarding.OperateUsers ?? "NULL");
+
+            if (onboarding.PermissionSubjectType == PermissionSubjectTypeEnum.Team)
+            {
+                // Team-based permission
+                // Special case: If ViewPermissionMode is Public and OperateTeams is NULL or empty,
+                // everyone who can view can also operate
+                if (onboarding.ViewPermissionMode == ViewPermissionModeEnum.Public)
+                {
+                    if (string.IsNullOrWhiteSpace(onboarding.OperateTeams))
+                    {
+                        _logger.LogDebug("Case operate permission: Public mode with NULL OperateTeams - granting access to all");
+                        return true;
+                    }
+                    
+                    var operateTeams = DeserializeTeamList(onboarding.OperateTeams);
+                    if (operateTeams.Count == 0)
+                    {
+                        _logger.LogDebug("Case operate permission: Public mode with empty OperateTeams array - granting access to all");
+                        return true;
+                    }
+                    
+                    // Public mode with specific teams - check membership
+                    var hasOperateTeam = userTeamIds.Any(teamId => operateTeams.Contains(teamId));
+                    _logger.LogDebug(
+                        "Case operate permission: Public mode with specific teams - Required teams: [{RequiredTeams}], User has access: {HasAccess}",
+                        string.Join(", ", operateTeams),
+                        hasOperateTeam);
+                    return hasOperateTeam;
+                }
+
+                // Non-Public modes: OperateTeams must be specified
+                if (string.IsNullOrWhiteSpace(onboarding.OperateTeams))
+                {
+                    _logger.LogDebug("Case operate permission: Non-Public mode with NULL OperateTeams - denying access");
+                    return false;
+                }
+
+                var teams = DeserializeTeamList(onboarding.OperateTeams);
+                var hasTeamAccess = userTeamIds.Any(teamId => teams.Contains(teamId));
+                _logger.LogDebug(
+                    "Case operate permission: Team-based - Required teams: [{RequiredTeams}], User has access: {HasAccess}",
+                    string.Join(", ", teams),
+                    hasTeamAccess);
+                return hasTeamAccess;
+            }
+            else
+            {
+                // User-based permission
+                // Special case: If ViewPermissionMode is Public and OperateUsers is NULL or empty,
+                // everyone who can view can also operate
+                if (onboarding.ViewPermissionMode == ViewPermissionModeEnum.Public)
+                {
+                    if (string.IsNullOrWhiteSpace(onboarding.OperateUsers))
+                    {
+                        _logger.LogDebug("Case operate permission: Public mode with NULL OperateUsers - granting access to all");
+                        return true;
+                    }
+                    
+                    var operateUsers = DeserializeTeamList(onboarding.OperateUsers);
+                    if (operateUsers.Count == 0)
+                    {
+                        _logger.LogDebug("Case operate permission: Public mode with empty OperateUsers array - granting access to all");
+                        return true;
+                    }
+                    
+                    // Public mode with specific users - check membership
+                    var hasAccess = operateUsers.Contains(userId);
+                    _logger.LogDebug(
+                        "Case operate permission: Public mode with specific users - Required users: [{RequiredUsers}], User has access: {HasAccess}",
+                        string.Join(", ", operateUsers),
+                        hasAccess);
+                    return hasAccess;
+                }
+
+                // Non-Public modes: OperateUsers must be specified
+                if (string.IsNullOrWhiteSpace(onboarding.OperateUsers))
+                {
+                    _logger.LogDebug("Case operate permission: Non-Public mode with NULL OperateUsers - denying access");
+                    return false;
+                }
+
+                var users = DeserializeTeamList(onboarding.OperateUsers);
+                var hasUserAccess = users.Contains(userId);
+                _logger.LogDebug(
+                    "Case operate permission: User-based - Required users: [{RequiredUsers}], User has access: {HasAccess}",
+                    string.Join(", ", users),
+                    hasUserAccess);
+                return hasUserAccess;
+            }
         }
     }
 }
