@@ -12,6 +12,8 @@ using System.Net;
 
 using FlowFlex.Domain.Shared.Models;
 using FlowFlex.Application.Filter;
+using FlowFlex.Domain.Shared.Enums.Permission;
+using FlowFlex.WebApi.Filters;
 
 namespace FlowFlex.WebApi.Controllers.OW
 {
@@ -72,6 +74,7 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// Teams and Users are stored separately - data switches based on PermissionSubjectType
         /// </summary>
         [HttpPut("{id}")]
+        [RequirePermission(PermissionEntityTypeEnum.Case, OperationTypeEnum.Operate)]
         [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> UpdateAsync(long id, [FromBody] OnboardingInputDto input)
         {
@@ -83,6 +86,7 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// Delete onboarding (with confirmation)
         /// </summary>
         [HttpDelete("{id}")]
+        [RequirePermission(PermissionEntityTypeEnum.Case, OperationTypeEnum.Delete)]
         [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> DeleteAsync(long id, [FromQuery] bool confirm = false)
         {
@@ -94,6 +98,7 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// Get onboarding by ID
         /// </summary>
         [HttpGet("{id}")]
+        [RequirePermission(PermissionEntityTypeEnum.Case, OperationTypeEnum.View)]
         [ProducesResponseType<SuccessResponse<OnboardingOutputDto>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> GetByIdAsync(long id)
         {

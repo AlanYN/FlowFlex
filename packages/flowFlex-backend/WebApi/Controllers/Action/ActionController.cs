@@ -9,6 +9,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json.Linq;
 using System.Net;
+using FlowFlex.Application.Filter;
 
 namespace FlowFlex.WebApi.Controllers.Action
 {
@@ -16,6 +17,7 @@ namespace FlowFlex.WebApi.Controllers.Action
     /// Action management controller
     /// </summary>
     [ApiController]
+    [PortalAccess] // Allow Portal token access - Portal users can view and manage actions
     [Route("action/v{version:apiVersion}")]
     [Authorize]
     public class ActionController : ControllerBase

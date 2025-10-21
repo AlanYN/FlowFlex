@@ -520,6 +520,13 @@ namespace FlowFlex.Application.Services.OW
 
                 _client.DefaultRequestHeaders.Authorization =
                     new AuthenticationHeaderValue(tokenInfo.TokenType, tokenInfo.AccessToken);
+                
+                // Add X-App-Id header for public API endpoints
+                if (!string.IsNullOrEmpty(_options.AppId))
+                {
+                    _client.DefaultRequestHeaders.Add("X-App-Id", _options.AppId);
+                    _logger.LogDebug("Added X-App-Id header: {AppId}", _options.AppId);
+                }
 
                 // Build request URI with TenantId parameter
                 var requestUri = $"{_options.QueryTeams}?PageIndex={pageIndex}&PageSize={pageSize}";
@@ -538,7 +545,8 @@ namespace FlowFlex.Application.Services.OW
                                       tokenInfo.AccessToken.Length > 20 ?
                                       $"{tokenInfo.AccessToken.Substring(0, 20)}..." :
                                       tokenInfo.AccessToken;
-                    var curlCommand = $"curl -X GET \"{fullUrl}\" -H \"Authorization: {tokenInfo.TokenType} {tokenPreview}\"";
+                    var appIdHeader = !string.IsNullOrEmpty(_options.AppId) ? $" -H \"X-App-Id: {_options.AppId}\"" : "";
+                    var curlCommand = $"curl -X GET \"{fullUrl}\" -H \"Authorization: {tokenInfo.TokenType} {tokenPreview}\"{appIdHeader}";
                     _logger.LogInformation("🔍 Teams API cURL equivalent: {CurlCommand}", curlCommand);
                 }
                 catch (Exception ex)
@@ -650,6 +658,13 @@ namespace FlowFlex.Application.Services.OW
 
                 _client.DefaultRequestHeaders.Authorization =
                     new AuthenticationHeaderValue(tokenInfo.TokenType, tokenInfo.AccessToken);
+                
+                // Add X-App-Id header for public API endpoints
+                if (!string.IsNullOrEmpty(_options.AppId))
+                {
+                    _client.DefaultRequestHeaders.Add("X-App-Id", _options.AppId);
+                    _logger.LogDebug("Added X-App-Id header: {AppId}", _options.AppId);
+                }
 
                 // Build request URI with pagination and TenantId parameters
                 var requestUri = $"{_options.QueryTeamUsers}?PageIndex={pageIndex}&PageSize={pageSize}";
@@ -668,7 +683,8 @@ namespace FlowFlex.Application.Services.OW
                                       tokenInfo.AccessToken.Length > 20 ?
                                       $"{tokenInfo.AccessToken.Substring(0, 20)}..." :
                                       tokenInfo.AccessToken;
-                    var curlCommand = $"curl -X GET \"{fullUrl}\" -H \"Authorization: {tokenInfo.TokenType} {tokenPreview}\"";
+                    var appIdHeader = !string.IsNullOrEmpty(_options.AppId) ? $" -H \"X-App-Id: {_options.AppId}\"" : "";
+                    var curlCommand = $"curl -X GET \"{fullUrl}\" -H \"Authorization: {tokenInfo.TokenType} {tokenPreview}\"{appIdHeader}";
                     _logger.LogInformation("🔍 TeamUsers API cURL equivalent: {CurlCommand}", curlCommand);
                 }
                 catch (Exception ex)

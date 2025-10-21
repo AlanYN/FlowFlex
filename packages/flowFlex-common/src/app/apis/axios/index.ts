@@ -212,12 +212,23 @@ const transform: AxiosTransform = {
 			}
 			window.parent.postMessage({ exceedToken: true }, '*');
 		} else if (error.response?.status === 401) {
-			axiosCanceler.removeAllPending();
-			const { tokenExpiredLogOut } = useWujie();
-			if (tokenExpiredLogOut) {
-				tokenExpiredLogOut(true);
+			// Check if current page is Portal-related (public pages)
+			// Portal pages should not trigger logout on 401 errors
+			const isPortalPath =
+				window.location.pathname.startsWith('/portal-access') ||
+				window.location.pathname.startsWith('/customer-portal') ||
+				window.location.pathname.startsWith('/onboard/sub-portal');
+
+			if (!isPortalPath) {
+				axiosCanceler.removeAllPending();
+				const { tokenExpiredLogOut } = useWujie();
+				if (tokenExpiredLogOut) {
+					tokenExpiredLogOut(true);
+				}
+				window.parent.postMessage({ exceedToken: true }, '*');
+			} else {
+				console.log('[Portal] 401 error on Portal page - not triggering logout');
 			}
-			window.parent.postMessage({ exceedToken: true }, '*');
 		}
 		if (axios.isCancel(error)) {
 			return Promise.reject(error);

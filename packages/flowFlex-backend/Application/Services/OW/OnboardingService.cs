@@ -386,14 +386,16 @@ namespace FlowFlex.Application.Services.OW
                     tenant_id, app_code, is_valid, create_date, modify_date, create_by, modify_by,
                     create_user_id, modify_user_id, workflow_id, current_stage_order,
                     lead_id, lead_name, lead_email, lead_phone, status, completion_rate,
-                    priority, is_priority_set, notes, is_active, stages_progress_json, id,
+                    priority, is_priority_set, ownership, ownership_name, ownership_email,
+                    notes, is_active, stages_progress_json, id,
                     current_stage_id, contact_person, contact_email, life_cycle_stage_id, 
                     life_cycle_stage_name, start_date, current_stage_start_time
                 ) VALUES (
                     @TenantId, @AppCode, @IsValid, @CreateDate, @ModifyDate, @CreateBy, @ModifyBy,
                     @CreateUserId, @ModifyUserId, @WorkflowId, @CurrentStageOrder,
                     @LeadId, @LeadName, @LeadEmail, @LeadPhone, @Status, @CompletionRate,
-                    @Priority, @IsPrioritySet, @Notes, @IsActive, @StagesProgressJson::jsonb, @Id,
+                    @Priority, @IsPrioritySet, @Ownership, @OwnershipName, @OwnershipEmail,
+                    @Notes, @IsActive, @StagesProgressJson::jsonb, @Id,
                     CASE WHEN @CurrentStageId IS NULL OR @CurrentStageId = '' THEN NULL ELSE @CurrentStageId::bigint END,
                     @ContactPerson, @ContactEmail,
                     CASE WHEN @LifeCycleStageId IS NULL OR @LifeCycleStageId = '' THEN NULL ELSE @LifeCycleStageId::bigint END,
@@ -421,6 +423,9 @@ namespace FlowFlex.Application.Services.OW
                             CompletionRate = entity.CompletionRate,
                             Priority = entity.Priority,
                             IsPrioritySet = entity.IsPrioritySet,
+                            Ownership = entity.Ownership,
+                            OwnershipName = entity.OwnershipName,
+                            OwnershipEmail = entity.OwnershipEmail,
                             Notes = entity.Notes ?? "",
                             IsActive = entity.IsActive,
                             StagesProgressJson = entity.StagesProgressJson,
@@ -979,6 +984,17 @@ namespace FlowFlex.Application.Services.OW
                     whereExpressions.Add(x => x.CreateUserId == request.CreatedByUserId.Value);
                 }
 
+                // Filter by Ownership
+                if (request.Ownership.HasValue && request.Ownership.Value > 0)
+                {
+                    whereExpressions.Add(x => x.Ownership == request.Ownership.Value);
+                }
+
+                if (!string.IsNullOrEmpty(request.OwnershipName) && request.OwnershipName != "string")
+                {
+                    whereExpressions.Add(x => x.OwnershipName.ToLower().Contains(request.OwnershipName.ToLower()));
+                }
+
                 // Determine sort field and direction
                 Expression<Func<Onboarding, object>> orderByExpression = GetOrderByExpression(request);
                 bool isAsc = GetSortDirection(request);
@@ -1098,6 +1114,8 @@ namespace FlowFlex.Application.Services.OW
                 "status" => x => x.Status,
                 "isactive" => x => x.IsActive,
                 "completionrate" => x => x.CompletionRate,
+                "ownership" => x => x.Ownership,
+                "ownershipname" => x => x.OwnershipName,
                 "createdate" => x => x.CreateDate,
                 "modifydate" => x => x.ModifyDate,
                 "createby" => x => x.CreateBy,
