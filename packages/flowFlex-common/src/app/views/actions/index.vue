@@ -720,14 +720,10 @@ const handleDelete = async (row: ActionDefinition) => {
 const handlePageUpdate = async (size: number) => {
 	pagination.pageSize = size;
 	pagination.currentPage = 1;
-	// Reload data
-	await loadActionsList();
 };
 
 const handleCurrentChange = async (page: number) => {
 	pagination.currentPage = page;
-	// Reload data
-	await loadActionsList();
 };
 
 const handleLimitUpdate = async () => {
