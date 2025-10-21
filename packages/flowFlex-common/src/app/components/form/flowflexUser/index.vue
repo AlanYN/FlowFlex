@@ -849,6 +849,28 @@ watch(
 	{ deep: true }
 );
 
+// 监听 selectionType 变化，重新处理树形数据
+watch(
+	() => props.selectionType,
+	() => {
+		// 如果有原始数据，重新处理
+		if (rawTreeData.value && rawTreeData.value.length > 0) {
+			const processedData = processTreeData(rawTreeData.value);
+			treeData.value = processedData;
+			// 重新构建数据映射
+			buildUserDataMap(processedData, true);
+
+			// 如果弹窗打开，更新树的选中状态
+			if (modalVisible.value && treeRef.value) {
+				nextTick(() => {
+					const checkedKeys = tempSelectedItems.value.map((item) => item.id);
+					treeRef.value.setCheckedKeys(checkedKeys);
+				});
+			}
+		}
+	}
+);
+
 // 组件挂载时初始化
 onMounted(async () => {
 	// 监听modelValue变化（会自动处理初始值）

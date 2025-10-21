@@ -39,7 +39,7 @@
 				<p class="text-sm">Controls who can operate on cases using this workflow</p>
 
 				<el-checkbox v-model="localPermissions.useSameGroups">
-					Use same groups that have view permission
+					Use same team that have view permission
 				</el-checkbox>
 			</div>
 
