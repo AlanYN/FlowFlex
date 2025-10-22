@@ -17,7 +17,7 @@ import {
 	setAppCode,
 } from '@/utils/threePartyLogin';
 import { PageEnum } from '@/enums/pageEnum';
-import { getEnv } from '@/utils/env';
+// import { getEnv } from '@/utils/env';
 
 import { getTokenobj } from '@/utils/auth';
 
@@ -215,9 +215,7 @@ async function handleTripartiteToken() {
 		}
 		setAppCode(appCode);
 
-		// 根据环境判断使用 ticket 还是 code 参数
-		const currentEnv = getEnv();
-		const authParam = currentEnv === 'development' ? ticket : code;
+		const authParam = ticket || code;
 
 		if (authParam) {
 			setEnvironment('unissso');
