@@ -42,8 +42,9 @@ namespace FlowFlex.Application.Service.OW
         private readonly IDistributedCacheService _cacheService;
         private readonly IOperationChangeLogService _operationChangeLogService;
         private readonly IPermissionService _permissionService;
+        private readonly IUserService _userService;
 
-        public WorkflowService(IWorkflowRepository workflowRepository, IStageRepository stageRepository, IMapper mapper, UserContext userContext, ILogger<WorkflowService> logger, IOperatorContextService operatorContextService, IComponentMappingService componentMappingService, IDistributedCacheService cacheService, IOperationChangeLogService operationChangeLogService, IPermissionService permissionService)
+        public WorkflowService(IWorkflowRepository workflowRepository, IStageRepository stageRepository, IMapper mapper, UserContext userContext, ILogger<WorkflowService> logger, IOperatorContextService operatorContextService, IComponentMappingService componentMappingService, IDistributedCacheService cacheService, IOperationChangeLogService operationChangeLogService, IPermissionService permissionService, IUserService userService)
         {
             _workflowRepository = workflowRepository;
             _stageRepository = stageRepository;
@@ -55,6 +56,7 @@ namespace FlowFlex.Application.Service.OW
             _cacheService = cacheService;
             _operationChangeLogService = operationChangeLogService;
             _permissionService = permissionService;
+            _userService = userService;
         }
 
         public async Task<long> CreateAsync(WorkflowInputDto input)
@@ -202,6 +204,11 @@ namespace FlowFlex.Application.Service.OW
             var originalStartDate = entity.StartDate;
             var originalEndDate = entity.EndDate;
             var originalIsAIGenerated = entity.IsAIGenerated; // Preserve AI-generated flag
+            var originalVisibleInPortal = entity.VisibleInPortal;
+            var originalPortalPermission = entity.PortalPermission;
+            var originalViewPermissionMode = entity.ViewPermissionMode;
+            var originalViewTeams = entity.ViewTeams;
+            var originalOperateTeams = entity.OperateTeams;
 
             // Only create version history record when there are actual changes
             if (hasChanges)
@@ -308,7 +315,12 @@ namespace FlowFlex.Application.Service.OW
                                     IsDefault = originalIsDefault,
                                     IsActive = originalIsActive,
                                     StartDate = originalStartDate,
-                                    EndDate = originalEndDate
+                                    EndDate = originalEndDate,
+                                    VisibleInPortal = originalVisibleInPortal,
+                                    PortalPermission = originalPortalPermission,
+                                    ViewPermissionMode = originalViewPermissionMode,
+                                    ViewTeams = originalViewTeams,
+                                    OperateTeams = originalOperateTeams
                                 });
 
                                 var afterData = JsonSerializer.Serialize(new
@@ -319,7 +331,12 @@ namespace FlowFlex.Application.Service.OW
                                     IsDefault = updatedWorkflow.IsDefault,
                                     IsActive = updatedWorkflow.IsActive,
                                     StartDate = updatedWorkflow.StartDate,
-                                    EndDate = updatedWorkflow.EndDate
+                                    EndDate = updatedWorkflow.EndDate,
+                                    VisibleInPortal = updatedWorkflow.VisibleInPortal,
+                                    PortalPermission = updatedWorkflow.PortalPermission,
+                                    ViewPermissionMode = updatedWorkflow.ViewPermissionMode,
+                                    ViewTeams = updatedWorkflow.ViewTeams,
+                                    OperateTeams = updatedWorkflow.OperateTeams
                                 });
 
                                 // Determine changed fields by comparing original vs updated values
@@ -331,6 +348,11 @@ namespace FlowFlex.Application.Service.OW
                                 if (originalIsActive != updatedWorkflow.IsActive) changedFields.Add("IsActive");
                                 if (originalStartDate != updatedWorkflow.StartDate) changedFields.Add("StartDate");
                                 if (originalEndDate != updatedWorkflow.EndDate) changedFields.Add("EndDate");
+                                if (originalVisibleInPortal != updatedWorkflow.VisibleInPortal) changedFields.Add("VisibleInPortal");
+                                if (originalPortalPermission != updatedWorkflow.PortalPermission) changedFields.Add("PortalPermission");
+                                if (originalViewPermissionMode != updatedWorkflow.ViewPermissionMode) changedFields.Add("ViewPermissionMode");
+                                if (originalViewTeams != updatedWorkflow.ViewTeams) changedFields.Add("ViewTeams");
+                                if (originalOperateTeams != updatedWorkflow.OperateTeams) changedFields.Add("OperateTeams");
 
                                 // Alternative: Use auto-detection (experimental)
                                 // var autoDetectedFields = AutoDetectChangedFields(beforeData, afterData);
@@ -375,6 +397,23 @@ namespace FlowFlex.Application.Service.OW
             if (entity.EndDate != input.EndDate) return true;
             if (entity.IsActive != input.IsActive) return true;
             if (entity.ConfigJson != input.ConfigJson) return true;
+            
+            // Check permission-related fields
+            if (entity.VisibleInPortal != input.VisibleInPortal) return true;
+            if (entity.PortalPermission != input.PortalPermission) return true;
+            if (entity.ViewPermissionMode != input.ViewPermissionMode) return true;
+            
+            // Compare ViewTeams (entity is string, input is List<string>)
+            var inputViewTeamsJson = input.ViewTeams != null && input.ViewTeams.Any() 
+                ? JsonSerializer.Serialize(input.ViewTeams) 
+                : null;
+            if (entity.ViewTeams != inputViewTeamsJson) return true;
+            
+            // Compare OperateTeams (entity is string, input is List<string>)
+            var inputOperateTeamsJson = input.OperateTeams != null && input.OperateTeams.Any() 
+                ? JsonSerializer.Serialize(input.OperateTeams) 
+                : null;
+            if (entity.OperateTeams != inputOperateTeamsJson) return true;
 
             return false; // No changes
         }
@@ -818,11 +857,21 @@ namespace FlowFlex.Application.Service.OW
 
         public async Task<Stream> ExportDetailedToExcelAsync(long workflowId)
         {
+            _logger.LogInformation("ExportDetailedToExcelAsync called for workflow {WorkflowId}", workflowId);
+            
             var workflow = await _workflowRepository.GetWithStagesAsync(workflowId);
             if (workflow == null)
             {
                 throw new CRMException(ErrorCodeEnum.NotFound, $"Workflow with ID {workflowId} not found");
             }
+
+            _logger.LogInformation("Workflow loaded with {StageCount} stages, starting assignee ID to name conversion", 
+                workflow.Stages?.Count ?? 0);
+
+            // Convert Assignee IDs to user names before export
+            await ConvertAssigneeIdsToNamesAsync(workflow);
+
+            _logger.LogInformation("Assignee conversion completed, generating Excel file");
 
             // 使用专门?WorkflowExcelExportHelper 来生成详细格式的 Excel
             return WorkflowExcelExportHelper.ExportToExcel(workflow);
@@ -851,6 +900,12 @@ namespace FlowFlex.Application.Service.OW
             else
             {
                 workflows = await _workflowRepository.GetActiveWorkflowsAsync();
+            }
+
+            // Convert Assignee IDs to user names before export
+            foreach (var workflow in workflows)
+            {
+                await ConvertAssigneeIdsToNamesAsync(workflow);
             }
 
             // 使用专门?WorkflowExcelExportHelper 来生成详细格式的 Excel
@@ -1086,6 +1141,168 @@ namespace FlowFlex.Application.Service.OW
                 filteredWorkflows.Count);
 
             return filteredWorkflows;
+        }
+
+        /// <summary>
+        /// Convert Assignee IDs to user names for display in exports
+        /// </summary>
+        private async Task ConvertAssigneeIdsToNamesAsync(Workflow workflow)
+        {
+            _logger.LogInformation("ConvertAssigneeIdsToNamesAsync started for workflow {WorkflowId}", workflow?.Id);
+            
+            if (workflow?.Stages == null || !workflow.Stages.Any())
+            {
+                _logger.LogWarning("Workflow has no stages, skipping assignee conversion");
+                return;
+            }
+
+            // Collect all unique user IDs from all stages
+            var allUserIds = new HashSet<long>();
+            foreach (var stage in workflow.Stages)
+            {
+                if (!string.IsNullOrWhiteSpace(stage.DefaultAssignee))
+                {
+                    _logger.LogDebug("Stage {StageName} has DefaultAssignee: {DefaultAssignee}", 
+                        stage.Name, stage.DefaultAssignee);
+                    
+                    var userIds = ParseAssigneeIds(stage.DefaultAssignee);
+                    _logger.LogDebug("Parsed {Count} user IDs from stage {StageName}: {UserIds}", 
+                        userIds.Count, stage.Name, string.Join(", ", userIds));
+                    
+                    foreach (var id in userIds)
+                    {
+                        allUserIds.Add(id);
+                    }
+                }
+            }
+
+            if (!allUserIds.Any())
+            {
+                _logger.LogInformation("No user IDs found in any stage, skipping conversion");
+                return;
+            }
+
+            _logger.LogInformation("Collected {Count} unique user IDs: {UserIds}", 
+                allUserIds.Count, string.Join(", ", allUserIds));
+
+            // Batch fetch user information
+            try
+            {
+                _logger.LogInformation("Calling UserService.GetUsersByIdsAsync with {Count} IDs", allUserIds.Count);
+                
+                var users = await _userService.GetUsersByIdsAsync(allUserIds.ToList());
+                
+                _logger.LogInformation("UserService returned {UserCount} users for {IdCount} IDs", 
+                    users.Count, allUserIds.Count);
+                
+                if (users.Any())
+                {
+                    _logger.LogDebug("Retrieved users: {Users}", 
+                        string.Join(", ", users.Select(u => $"{u.Id}:{u.Username}")));
+                }
+                
+                var userDict = users.ToDictionary(u => u.Id, u => u.Username ?? u.Email ?? u.Id.ToString());
+
+                // Convert IDs to names for each stage
+                foreach (var stage in workflow.Stages)
+                {
+                    if (!string.IsNullOrWhiteSpace(stage.DefaultAssignee))
+                    {
+                        var originalAssignee = stage.DefaultAssignee;
+                        var userIds = ParseAssigneeIds(stage.DefaultAssignee);
+                        var userNames = userIds
+                            .Select(id => userDict.TryGetValue(id, out var name) ? name : id.ToString())
+                            .ToList();
+
+                        // Replace the DefaultAssignee field with comma-separated user names
+                        stage.DefaultAssignee = string.Join(", ", userNames);
+                        
+                        _logger.LogInformation("Stage {StageName}: Converted '{Original}' to '{Converted}'", 
+                            stage.Name, originalAssignee, stage.DefaultAssignee);
+                    }
+                }
+                
+                _logger.LogInformation("ConvertAssigneeIdsToNamesAsync completed successfully");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to convert assignee IDs to names for workflow {WorkflowId}", workflow.Id);
+                // If conversion fails, keep the original IDs
+            }
+        }
+
+        /// <summary>
+        /// Parse Assignee IDs from JSON string or comma-separated string
+        /// </summary>
+        private List<long> ParseAssigneeIds(string assigneeData)
+        {
+            var userIds = new List<long>();
+
+            if (string.IsNullOrWhiteSpace(assigneeData))
+            {
+                return userIds;
+            }
+
+            try
+            {
+                var trimmedData = assigneeData.Trim();
+                
+                // Handle double-encoded JSON string (e.g., "\"[\\\"123\\\",\\\"456\\\"]\"")
+                // First, try to deserialize as a JSON string to get the actual JSON array string
+                if (trimmedData.StartsWith("\"") && trimmedData.EndsWith("\""))
+                {
+                    try
+                    {
+                        var unescapedJson = JsonSerializer.Deserialize<string>(trimmedData);
+                        if (!string.IsNullOrWhiteSpace(unescapedJson))
+                        {
+                            trimmedData = unescapedJson;
+                            _logger.LogDebug("Unescaped double-encoded JSON: {UnescapedJson}", trimmedData);
+                        }
+                    }
+                    catch
+                    {
+                        // If deserialization fails, continue with original data
+                        _logger.LogDebug("Failed to unescape as double-encoded JSON, using original data");
+                    }
+                }
+                
+                // Try to parse as JSON array
+                if (trimmedData.StartsWith("["))
+                {
+                    var ids = JsonSerializer.Deserialize<List<string>>(trimmedData);
+                    if (ids != null)
+                    {
+                        foreach (var id in ids)
+                        {
+                            if (long.TryParse(id, out var userId))
+                            {
+                                userIds.Add(userId);
+                            }
+                        }
+                    }
+                }
+                else
+                {
+                    // Fallback: parse as comma-separated string
+                    var parts = trimmedData.Split(',', StringSplitOptions.RemoveEmptyEntries);
+                    foreach (var part in parts)
+                    {
+                        if (long.TryParse(part.Trim(), out var userId))
+                        {
+                            userIds.Add(userId);
+                        }
+                    }
+                }
+                
+                _logger.LogDebug("Successfully parsed {Count} user IDs from assignee data", userIds.Count);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to parse assignee data: {AssigneeData}", assigneeData);
+            }
+
+            return userIds;
         }
 
         // 缓存相关方法已移除

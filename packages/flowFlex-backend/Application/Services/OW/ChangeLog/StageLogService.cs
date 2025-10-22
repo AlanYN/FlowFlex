@@ -830,6 +830,32 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                             var afterStr = afterValue?.ToString() ?? "0";
                             changeList.Add($"order from {beforeStr} to {afterStr}");
                         }
+                        else if (field.Equals("ViewPermissionMode", StringComparison.OrdinalIgnoreCase))
+                        {
+                            var beforeStr = beforeValue?.ToString() ?? "Public";
+                            var afterStr = afterValue?.ToString() ?? "Public";
+                            changeList.Add($"view permission mode from {beforeStr} to {afterStr}");
+                        }
+                        else if (field.Equals("ViewTeams", StringComparison.OrdinalIgnoreCase))
+                        {
+                            var beforeTeams = ParseTeamList(beforeValue?.ToString());
+                            var afterTeams = ParseTeamList(afterValue?.ToString());
+                            var teamChanges = GetTeamChangesAsync(beforeTeams, afterTeams, "view").GetAwaiter().GetResult();
+                            if (!string.IsNullOrEmpty(teamChanges))
+                            {
+                                changeList.Add(teamChanges);
+                            }
+                        }
+                        else if (field.Equals("OperateTeams", StringComparison.OrdinalIgnoreCase))
+                        {
+                            var beforeTeams = ParseTeamList(beforeValue?.ToString());
+                            var afterTeams = ParseTeamList(afterValue?.ToString());
+                            var teamChanges = GetTeamChangesAsync(beforeTeams, afterTeams, "operate").GetAwaiter().GetResult();
+                            if (!string.IsNullOrEmpty(teamChanges))
+                            {
+                                changeList.Add(teamChanges);
+                            }
+                        }
                         else
                         {
                             var beforeStr = GetDisplayValue(beforeValue, field);
@@ -1492,6 +1518,145 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
             {
                 _stageLogger.LogWarning(ex, "Failed to add action executions for stage {StageId}", stageId);
             }
+        }
+
+        #endregion
+
+        #region Permission Helper Methods
+
+        /// <summary>
+        /// Parse team list from JSON string (handles double-encoded JSON)
+        /// </summary>
+        private List<string> ParseTeamList(string teamsJson)
+        {
+            if (string.IsNullOrWhiteSpace(teamsJson))
+            {
+                return new List<string>();
+            }
+
+            try
+            {
+                var trimmedData = teamsJson.Trim();
+
+                // Handle double-encoded JSON string (e.g., "\"[\\\"123\\\",\\\"456\\\"]\"")
+                // First, try to deserialize as a JSON string to get the actual JSON array string
+                if (trimmedData.StartsWith("\"") && trimmedData.EndsWith("\""))
+                {
+                    try
+                    {
+                        var unescapedJson = JsonSerializer.Deserialize<string>(trimmedData);
+                        if (!string.IsNullOrWhiteSpace(unescapedJson))
+                        {
+                            trimmedData = unescapedJson;
+                            _stageLogger.LogDebug("Unescaped double-encoded team JSON: {UnescapedJson}", trimmedData);
+                        }
+                    }
+                    catch
+                    {
+                        // If deserialization fails, continue with original data
+                        _stageLogger.LogDebug("Failed to unescape as double-encoded JSON, using original data");
+                    }
+                }
+
+                // Try to parse as JSON array
+                if (trimmedData.StartsWith("["))
+                {
+                    var teams = JsonSerializer.Deserialize<List<string>>(trimmedData);
+                    if (teams != null)
+                    {
+                        _stageLogger.LogDebug("Successfully parsed {Count} teams from JSON array", teams.Count);
+                        return teams;
+                    }
+                }
+                
+                // Fallback: treat as comma-separated string
+                var teamList = trimmedData.Split(',', StringSplitOptions.RemoveEmptyEntries)
+                    .Select(t => t.Trim())
+                    .Where(t => !string.IsNullOrEmpty(t))
+                    .ToList();
+                
+                _stageLogger.LogDebug("Parsed {Count} teams from comma-separated string", teamList.Count);
+                return teamList;
+            }
+            catch (Exception ex)
+            {
+                _stageLogger.LogWarning(ex, "Failed to parse team list: {TeamsJson}", teamsJson);
+                return new List<string>();
+            }
+        }
+
+        /// <summary>
+        /// Get team changes description (async version with team name resolution)
+        /// </summary>
+        private async Task<string> GetTeamChangesAsync(List<string> beforeTeams, List<string> afterTeams, string permissionType)
+        {
+            var changes = new List<string>();
+
+            var addedTeams = afterTeams.Except(beforeTeams).ToList();
+            var removedTeams = beforeTeams.Except(afterTeams).ToList();
+
+            // Get team names for all changed teams
+            var allChangedTeams = addedTeams.Concat(removedTeams).Distinct().ToList();
+            var teamNameMap = new Dictionary<string, string>();
+
+            if (allChangedTeams.Any())
+            {
+                try
+                {
+                    // Get tenant ID from UserContext (works in background tasks)
+                    var tenantId = _userContext?.TenantId ?? "999";
+                    _stageLogger.LogDebug("Using TenantId: {TenantId} for fetching team names", tenantId);
+
+                    teamNameMap = await _userService.GetTeamNamesByIdsAsync(allChangedTeams, tenantId);
+                    _stageLogger.LogDebug("Fetched {Count} team names for team change details", teamNameMap.Count);
+                }
+                catch (Exception ex)
+                {
+                    _stageLogger.LogWarning(ex, "Failed to fetch team names for team change details. Using IDs instead.");
+                }
+            }
+
+            if (addedTeams.Any())
+            {
+                var addedNames = addedTeams
+                    .Select(id => teamNameMap.GetValueOrDefault(id, id))
+                    .ToList();
+
+                if (addedNames.Count == 1)
+                {
+                    changes.Add($"added {addedNames[0]} to {permissionType} teams");
+                }
+                else if (addedNames.Count <= 3)
+                {
+                    changes.Add($"added {string.Join(", ", addedNames)} to {permissionType} teams");
+                }
+                else
+                {
+                    changes.Add($"added {string.Join(", ", addedNames.Take(3))} and {addedNames.Count - 3} more to {permissionType} teams");
+                }
+            }
+
+            if (removedTeams.Any())
+            {
+                var removedNames = removedTeams
+                    .Select(id => teamNameMap.GetValueOrDefault(id, id))
+                    .ToList();
+
+                if (removedNames.Count == 1)
+                {
+                    changes.Add($"removed {removedNames[0]} from {permissionType} teams");
+                }
+                else if (removedNames.Count <= 3)
+                {
+                    changes.Add($"removed {string.Join(", ", removedNames)} from {permissionType} teams");
+                }
+                else
+                {
+                    changes.Add($"removed {string.Join(", ", removedNames.Take(3))} and {removedNames.Count - 3} more from {permissionType} teams");
+                }
+            }
+
+            return string.Join(", ", changes);
         }
 
         #endregion

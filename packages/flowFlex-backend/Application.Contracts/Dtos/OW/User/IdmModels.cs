@@ -130,6 +130,24 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.User
     }
 
     /// <summary>
+    /// Team tree node model from IDM teamTree API
+    /// </summary>
+    public class IdmTeamTreeNodeDto
+    {
+        [JsonProperty("value")]
+        [JsonPropertyName("value")]
+        public string Value { get; set; }
+
+        [JsonProperty("label")]
+        [JsonPropertyName("label")]
+        public string Label { get; set; }
+
+        [JsonProperty("children")]
+        [JsonPropertyName("children")]
+        public List<IdmTeamTreeNodeDto> Children { get; set; } = new List<IdmTeamTreeNodeDto>();
+    }
+
+    /// <summary>
     /// User query type enumeration
     /// </summary>
     public enum UserQueryType

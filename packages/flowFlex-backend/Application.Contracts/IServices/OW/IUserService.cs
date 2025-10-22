@@ -138,5 +138,21 @@ namespace FlowFlex.Application.Contracts.IServices.OW
         /// <param name="userIds">List of User IDs</param>
         /// <returns>List of User DTOs</returns>
         Task<List<UserDto>> GetUsersByIdsAsync(List<long> userIds);
+
+        /// <summary>
+        /// Get Users by IDs with explicit tenant ID (for background tasks)
+        /// </summary>
+        /// <param name="userIds">List of User IDs</param>
+        /// <param name="tenantId">Tenant ID</param>
+        /// <returns>List of User DTOs</returns>
+        Task<List<UserDto>> GetUsersByIdsAsync(List<long> userIds, string tenantId);
+
+        /// <summary>
+        /// Get Team names by Team IDs from IDM
+        /// </summary>
+        /// <param name="teamIds">List of Team ID strings</param>
+        /// <param name="tenantId">Tenant ID</param>
+        /// <returns>Dictionary mapping Team ID to Team Name</returns>
+        Task<Dictionary<string, string>> GetTeamNamesByIdsAsync(List<string> teamIds, string tenantId);
     }
 }

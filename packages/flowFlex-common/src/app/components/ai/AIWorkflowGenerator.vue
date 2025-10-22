@@ -1240,6 +1240,7 @@ import {
 import { getDefaultAIModel, getUserAIModels, type AIModelConfig } from '@/apis/ai/config';
 import { useStreamAIWorkflow } from '@/hooks/useStreamAIWorkflow';
 import AIFileAnalyzer from './AIFileAnalyzer.vue';
+import { useUserStore } from '@/stores/modules/user';
 
 // Types
 interface Workflow {
@@ -1355,6 +1356,17 @@ const emit = defineEmits<{
 		},
 	];
 }>();
+
+// User Store
+const userStore = useUserStore();
+
+// Helper function to get storage key with tenant and user isolation
+const getChatHistoryStorageKey = () => {
+	const userInfo = userStore.getUserInfo;
+	const tenantId = userInfo?.tenantId || 'default';
+	const userId = userInfo?.userId || 'anonymous';
+	return `ai-workflow-chat-history-${tenantId}-${userId}`;
+};
 
 // Reactive data
 const currentInput = ref('');
@@ -3637,7 +3649,9 @@ const showContextMenu = (event: MouseEvent, session: ChatSession) => {
 };
 
 const saveChatHistoryToStorage = () => {
-	localStorage.setItem('ai-workflow-chat-history', JSON.stringify(chatHistory.value));
+	const storageKey = getChatHistoryStorageKey();
+	localStorage.setItem(storageKey, JSON.stringify(chatHistory.value));
+	console.log('💾 Chat history saved with key:', storageKey);
 };
 
 // File Analysis Handlers
@@ -3820,8 +3834,10 @@ onMounted(async () => {
 		console.warn('Failed to load default AI model:', error);
 	}
 
-	// Load chat history from localStorage
-	const savedHistory = localStorage.getItem('ai-workflow-chat-history');
+	// Load chat history from localStorage with tenant and user isolation
+	const storageKey = getChatHistoryStorageKey();
+	const savedHistory = localStorage.getItem(storageKey);
+	console.log('📥 Loading chat history with key:', storageKey);
 	if (savedHistory) {
 		try {
 			const parsed = JSON.parse(savedHistory);
@@ -3833,9 +3849,16 @@ onMounted(async () => {
 					timestamp: new Date(msg.timestamp),
 				})),
 			}));
+			console.log(
+				'✅ Chat history loaded successfully:',
+				chatHistory.value.length,
+				'sessions'
+			);
 		} catch (e) {
 			console.warn('Failed to load chat history:', e);
 		}
+	} else {
+		console.log('ℹ️ No saved chat history found for this user');
 	}
 
 	// Add initial AI message if no messages exist

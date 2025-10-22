@@ -51,6 +51,11 @@ namespace FlowFlex.Application.Contracts.Options
         public string QueryTeams { get; set; } = "/api/v1/public/teams";
 
         /// <summary>
+        /// Query team tree endpoint (returns hierarchical team structure)
+        /// </summary>
+        public string QueryTeamTree { get; set; } = "/api/v1/public/teams/teamTree";
+
+        /// <summary>
         /// Query team users endpoint
         /// </summary>
         public string QueryTeamUsers { get; set; } = "/api/v1/public/teamusers";

@@ -222,9 +222,10 @@ namespace FlowFlex.Application.Maps
 
             try
             {
-                // Filter out any invalid entries and ensure we have at least one valid ID
+                // Filter out only empty/whitespace entries, keep all valid IDs regardless of length
+                // This allows both long IDs (snowflake) and short IDs (legacy/test systems)
                 var validAssignees = assigneeList
-                    .Where(id => !string.IsNullOrWhiteSpace(id) && id.Trim().Length >= 10)
+                    .Where(id => !string.IsNullOrWhiteSpace(id))
                     .Select(id => id.Trim())
                     .Distinct()
                     .ToList();
