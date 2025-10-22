@@ -610,11 +610,28 @@ namespace FlowFlex.Application.Service.OW
             
             var result = _mapper.Map<List<WorkflowOutputDto>>(filteredItems);
 
-            // Load stages for each workflow in the paged results
-            foreach (var workflow in result)
+            // Batch load stages for all workflows to reduce database queries
+            if (result.Any())
             {
-                var stages = await _stageRepository.GetByWorkflowIdAsync(workflow.Id);
-                workflow.Stages = _mapper.Map<List<StageOutputDto>>(stages);
+                var workflowIds = result.Select(w => w.Id).ToList();
+                var allStages = await _stageRepository.GetByWorkflowIdsAsync(workflowIds);
+                
+                // Group stages by workflow ID
+                var stagesByWorkflow = allStages.GroupBy(s => s.WorkflowId)
+                    .ToDictionary(g => g.Key, g => g.ToList());
+                
+                // Assign stages to each workflow
+                foreach (var workflow in result)
+                {
+                    if (stagesByWorkflow.TryGetValue(workflow.Id, out var stages))
+                    {
+                        workflow.Stages = _mapper.Map<List<StageOutputDto>>(stages);
+                    }
+                    else
+                    {
+                        workflow.Stages = new List<StageOutputDto>();
+                    }
+                }
             }
 
             return new PagedResult<WorkflowOutputDto>
@@ -1117,6 +1134,16 @@ namespace FlowFlex.Application.Service.OW
             {
                 _logger.LogWarning("User ID is invalid, returning empty workflow list");
                 return new List<Workflow>();
+            }
+
+            // Fast path: If user is System Admin, return all workflows without permission checks
+            if (_userContext?.IsSystemAdmin == true)
+            {
+                _logger.LogDebug(
+                    "User {UserId} is System Admin, skipping permission filtering for {Count} workflows",
+                    userId,
+                    workflows.Count);
+                return workflows;
             }
 
             var filteredWorkflows = new List<Workflow>();

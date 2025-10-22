@@ -69,6 +69,23 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
         }
 
         /// <summary>
+        /// Batch get stage lists by multiple workflow IDs (performance optimization)
+        /// </summary>
+        public async Task<List<Stage>> GetByWorkflowIdsAsync(List<long> workflowIds)
+        {
+            if (workflowIds == null || !workflowIds.Any())
+            {
+                return new List<Stage>();
+            }
+
+            return await db.Queryable<Stage>()
+                .Where(x => workflowIds.Contains(x.WorkflowId) && x.IsValid == true)
+                .OrderBy(x => x.WorkflowId)
+                .OrderBy(x => x.Order)
+                .ToListAsync();
+        }
+
+        /// <summary>
         /// Paginated query of stages
         /// </summary>
         public async Task<(List<Stage> items, int total)> QueryPagedAsync(int pageIndex, int pageSize, long? workflowId = null, string name = null)

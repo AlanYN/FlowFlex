@@ -751,6 +751,83 @@ namespace FlowFlex.Application.Services.OW
         }
 
         /// <summary>
+        /// Get current user info from IDM (includes UserType)
+        /// </summary>
+        /// <param name="authorization">Authorization header value (e.g., "Bearer token")</param>
+        /// <returns>User information including UserType</returns>
+        public async Task<IdmUserOutputDto> GetCurrentUserInfoAsync(string authorization)
+        {
+            try
+            {
+                _logger.LogInformation("=== GetCurrentUserInfoAsync Started ===");
+                _logger.LogDebug("Authorization header: {Authorization}", 
+                    string.IsNullOrEmpty(authorization) ? "(empty)" : "Bearer ***");
+
+                // Endpoint: /api/v1/users/current/info
+                var endpoint = "/api/v1/users/current/info";
+                var url = $"{_options.BaseUrl}{endpoint}";
+                
+                _logger.LogInformation("Requesting current user info from: {Url}", url);
+
+                // Create request with authorization header
+                var request = new HttpRequestMessage(HttpMethod.Get, url);
+                request.Headers.Add("Authorization", authorization);
+
+                _logger.LogDebug("Sending GET request to IDM current user info endpoint");
+                var resp = await _client.SendAsync(request);
+
+                if (!resp.IsSuccessStatusCode)
+                {
+                    var errorContent = await resp.Content.ReadAsStringAsync();
+                    _logger.LogError("IDM current user info API request failed: {StatusCode} - {ErrorContent}", 
+                        resp.StatusCode, errorContent);
+                    throw new HttpRequestException($"IDM current user info API request failed: {resp.StatusCode} - {errorContent}");
+                }
+
+                var responseContent = await resp.Content.ReadAsStringAsync();
+                _logger.LogDebug("Raw current user info response content (first 500 chars): {Content}",
+                    responseContent.Length > 500 ? responseContent.Substring(0, 500) + "..." : responseContent);
+
+                var result = JsonSerializer.Deserialize<BasicResponse<IdmUserOutputDto>>(responseContent, new JsonSerializerOptions
+                {
+                    PropertyNameCaseInsensitive = true
+                });
+
+                if (result == null)
+                {
+                    _logger.LogError("Failed to deserialize current user info response - result is null");
+                    throw new Exception("Failed to deserialize IDM current user info API response");
+                }
+
+                _logger.LogInformation("Current user info deserialization successful - Status: {Status}, Code: {Code}, Message: {Message}",
+                    result.Status, result.Code, result.Message);
+
+                if (result.Data == null)
+                {
+                    _logger.LogWarning("IDM current user info API returned null data in result");
+                    return null;
+                }
+
+                _logger.LogInformation("=== GetCurrentUserInfoAsync Success ===");
+                _logger.LogInformation("Retrieved user info - UserId: {UserId}, UserName: {UserName}, UserType: {UserType}",
+                    result.Data.Id, result.Data.Username, result.Data.UserType);
+
+                return result.Data;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "=== GetCurrentUserInfoAsync Failed ===");
+                _logger.LogError("Exception details: {ExceptionType} - {ExceptionMessage}", ex.GetType().Name, ex.Message);
+                if (ex.InnerException != null)
+                {
+                    _logger.LogError("Inner exception: {InnerExceptionType} - {InnerExceptionMessage}",
+                        ex.InnerException.GetType().Name, ex.InnerException.Message);
+                }
+                throw;
+            }
+        }
+
+        /// <summary>
         /// Get team users from IDM
         /// </summary>
         /// <param name="tenantId">Tenant ID</param>
