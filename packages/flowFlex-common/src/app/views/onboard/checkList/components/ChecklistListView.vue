@@ -87,8 +87,8 @@
 			</el-table-column>
 			<el-table-column prop="team" label="Team" width="120">
 				<template #default="{ row }">
-					<div class="table-cell-content" :title="row.team">
-						{{ row.team }}
+					<div class="table-cell-content" :title="row.teamName || row.team">
+						{{ row.teamName || row.team }}
 					</div>
 				</template>
 			</el-table-column>
