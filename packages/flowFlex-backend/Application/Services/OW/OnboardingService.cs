@@ -876,23 +876,32 @@ namespace FlowFlex.Application.Services.OW
             var userId = _userContext?.UserId;
             if (!string.IsNullOrEmpty(userId) && long.TryParse(userId, out var userIdLong))
             {
-                var filteredEntities = new List<Onboarding>();
-                
-                foreach (var entity in entities)
+                // Fast path: If user is System Admin, skip permission checks
+                if (_userContext?.IsSystemAdmin == true)
                 {
-                    var permissionResult = await _permissionService.CheckCaseAccessAsync(
-                        userIdLong,
-                        entity.Id,
-                        PermissionOperationType.View);
-                    
-                    if (permissionResult.Success && permissionResult.CanView)
-                    {
-                        filteredEntities.Add(entity);
-                    }
+                    LoggingExtensions.WriteLine($"[Permission Filter] User {userIdLong} is System Admin, skipping permission checks for {entities.Count} cases in GetListAsync");
                 }
-                
-                entities = filteredEntities;
-                LoggingExtensions.WriteLine($"[Permission Filter] GetListAsync - Filtered count: {filteredEntities.Count}");
+                else
+                {
+                    // Regular users need permission filtering
+                    var filteredEntities = new List<Onboarding>();
+                    
+                    foreach (var entity in entities)
+                    {
+                        var permissionResult = await _permissionService.CheckCaseAccessAsync(
+                            userIdLong,
+                            entity.Id,
+                            PermissionOperationType.View);
+                        
+                        if (permissionResult.Success && permissionResult.CanView)
+                        {
+                            filteredEntities.Add(entity);
+                        }
+                    }
+                    
+                    entities = filteredEntities;
+                    LoggingExtensions.WriteLine($"[Permission Filter] GetListAsync - Filtered count: {filteredEntities.Count}");
+                }
             }
 
             // Map to output DTOs
@@ -1104,26 +1113,35 @@ namespace FlowFlex.Application.Services.OW
                 var userId = _userContext?.UserId;
                 if (!string.IsNullOrEmpty(userId) && long.TryParse(userId, out var userIdLong))
                 {
-                    var filteredEntities = new List<Onboarding>();
-                    
-                    foreach (var entity in pagedEntities)
+                    // Fast path: If user is System Admin, skip permission checks
+                    if (_userContext?.IsSystemAdmin == true)
                     {
-                        var permissionResult = await _permissionService.CheckCaseAccessAsync(
-                            userIdLong,
-                            entity.Id,
-                            PermissionOperationType.View);
-                        
-                        if (permissionResult.Success && permissionResult.CanView)
-                        {
-                            filteredEntities.Add(entity);
-                        }
+                        LoggingExtensions.WriteLine($"[Permission Filter] User {userIdLong} is System Admin, skipping permission checks for {pagedEntities.Count} cases");
                     }
-                    
-                    // Update pagedEntities to filtered list
-                    pagedEntities = filteredEntities;
-                    totalCount = filteredEntities.Count;
-                    
-                    LoggingExtensions.WriteLine($"[Permission Filter] Original count: {pagedEntities.Count}, Filtered count: {filteredEntities.Count}");
+                    else
+                    {
+                        // Regular users need permission filtering
+                        var filteredEntities = new List<Onboarding>();
+                        
+                        foreach (var entity in pagedEntities)
+                        {
+                            var permissionResult = await _permissionService.CheckCaseAccessAsync(
+                                userIdLong,
+                                entity.Id,
+                                PermissionOperationType.View);
+                            
+                            if (permissionResult.Success && permissionResult.CanView)
+                            {
+                                filteredEntities.Add(entity);
+                            }
+                        }
+                        
+                        // Update pagedEntities to filtered list
+                        pagedEntities = filteredEntities;
+                        totalCount = filteredEntities.Count;
+                        
+                        LoggingExtensions.WriteLine($"[Permission Filter] Original count: {pagedEntities.Count}, Filtered count: {filteredEntities.Count}");
+                    }
                 }
 
                 // Map to output DTOs
@@ -5699,14 +5717,17 @@ namespace FlowFlex.Application.Services.OW
                     return false;
                 }
 
-                // Load stages progress from JSON
+                // Sync stages progress with workflow to ensure all stages are included
+                await SyncStagesProgressWithWorkflowAsync(onboarding);
+
+                // Load stages progress from JSON (after sync)
                 LoadStagesProgressFromJson(onboarding);
 
                 // Find the stage progress entry
                 var stageProgress = onboarding.StagesProgress?.FirstOrDefault(sp => sp.StageId == stageId);
                 if (stageProgress == null)
                 {
-                    LoggingExtensions.WriteLine($"Stage progress not found for stage {stageId} in onboarding {onboardingId}");
+                    LoggingExtensions.WriteLine($"Stage progress not found for stage {stageId} in onboarding {onboardingId} even after sync. Available stages: {string.Join(", ", onboarding.StagesProgress?.Select(sp => sp.StageId.ToString()) ?? Array.Empty<string>())}");
                     return false;
                 }
 
@@ -5729,7 +5750,15 @@ namespace FlowFlex.Application.Services.OW
 
                 // Update in database
                 var result = await SafeUpdateOnboardingAsync(onboarding);
-                LoggingExtensions.WriteLine($"✅ Successfully updated AI summary for stage {stageId} in onboarding {onboardingId}");
+                
+                if (result)
+                {
+                    LoggingExtensions.WriteLine($"✅ Successfully updated AI summary for stage {stageId} in onboarding {onboardingId}");
+                }
+                else
+                {
+                    LoggingExtensions.WriteLine($"❌ Failed to save AI summary for stage {stageId} in onboarding {onboardingId} - database update failed");
+                }
 
                 return result;
             }
@@ -5989,6 +6018,25 @@ namespace FlowFlex.Application.Services.OW
             var stageDict = stages.ToDictionary(s => s.Id, s => s.Name);
             var stageEstimatedDaysDict = stages.ToDictionary(s => s.Id, s => s.EstimatedDuration);
 
+            // Fast path: If user is System Admin, all cases are enabled
+            var userId = _userContext?.UserId;
+            bool isSystemAdmin = _userContext?.IsSystemAdmin == true;
+            Dictionary<long, bool> operatePermissions = null;
+
+            if (!isSystemAdmin && !string.IsNullOrEmpty(userId) && long.TryParse(userId, out var userIdLong))
+            {
+                // Batch check operate permissions for all cases to avoid N+1 queries
+                operatePermissions = new Dictionary<long, bool>();
+                foreach (var result in results)
+                {
+                    var permissionResult = await _permissionService.CheckCaseAccessAsync(
+                        userIdLong,
+                        result.Id,
+                        PermissionOperationType.Operate);
+                    operatePermissions[result.Id] = permissionResult.Success && permissionResult.CanOperate;
+                }
+            }
+
             // Populate workflow and stage names, calculate current stage end time, and check permissions
             foreach (var result in results)
             {
@@ -6005,8 +6053,19 @@ namespace FlowFlex.Application.Services.OW
                     }
                 }
 
-                // Check if current user has operate permission for this case
-                result.IsDisabled = !await CheckCaseOperatePermissionAsync(result.Id);
+                // Set IsDisabled based on operate permission
+                if (isSystemAdmin)
+                {
+                    result.IsDisabled = false; // System Admin can operate on all cases
+                }
+                else if (operatePermissions != null)
+                {
+                    result.IsDisabled = !operatePermissions.GetValueOrDefault(result.Id, false);
+                }
+                else
+                {
+                    result.IsDisabled = true; // No user context, disable by default
+                }
             }
         }
 

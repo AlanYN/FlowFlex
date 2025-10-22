@@ -506,6 +506,53 @@ namespace FlowFlex.WebApi.Controllers.OW
 
             try
             {
+                // Check if stage has any associated data (checklists or questionnaires)
+                var stage = await _stageService.GetByIdAsync(stageId);
+                if (stage == null)
+                {
+                    await Response.WriteAsync("Error: Stage not found");
+                    await Response.Body.FlushAsync();
+                    return;
+                }
+
+                // Check if stage has any components with data
+                var hasChecklistData = stage.Components?.Any(c => 
+                    c.Key == "checklist" && 
+                    c.ChecklistIds != null && 
+                    c.ChecklistIds.Any()) == true;
+                
+                var hasQuestionnaireData = stage.Components?.Any(c => 
+                    c.Key == "questionnaires" && 
+                    c.QuestionnaireIds != null && 
+                    c.QuestionnaireIds.Any()) == true;
+
+                if (!hasChecklistData && !hasQuestionnaireData)
+                {
+                    // Return empty string when no associated data found
+                    await Response.WriteAsync("");
+                    await Response.Body.FlushAsync();
+                    Console.WriteLine($"⚠️ Skipped AI summary generation for stage {stageId} - no associated checklists or questionnaires");
+                    
+                    // Update empty AI summary to database
+                    if (onboardingId.HasValue)
+                    {
+                        var generatedAt = DateTime.UtcNow;
+                        _backgroundTaskQueue.QueueBackgroundWorkItem(async token =>
+                        {
+                            try
+                            {
+                                await UpdateAISummaryInDatabaseAsync(stageId, onboardingId, "", generatedAt, null, null);
+                            }
+                            catch (Exception updateEx)
+                            {
+                                Console.WriteLine($"Failed to update empty AI summary in database: {updateEx.Message}");
+                            }
+                        });
+                    }
+                    
+                    return;
+                }
+
                 // 准备AI Summary生成输入
                 var summaryOptions = new StageSummaryOptions
                 {

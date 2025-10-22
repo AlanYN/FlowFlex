@@ -1513,8 +1513,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                                 var userId = long.Parse(id);
                                 return userNameMap.GetValueOrDefault(userId, id);
                             })
-                            .Take(3) // Limit to first 3 names to avoid overly long descriptions
-                            .ToList();
+                            .ToList(); // Show all names without limitation
 
                         if (addedNames.Any())
                         {
@@ -1522,13 +1521,9 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                             {
                                 changes.Add($"added {addedNames[0]}");
                             }
-                            else if (addedAssignees.Count <= 3)
-                            {
-                                changes.Add($"added {string.Join(", ", addedNames)}");
-                            }
                             else
                             {
-                                changes.Add($"added {string.Join(", ", addedNames)} and {addedAssignees.Count - 3} more");
+                                changes.Add($"added {string.Join(", ", addedNames)}");
                             }
                         }
                     }
@@ -1543,8 +1538,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                                 var userId = long.Parse(id);
                                 return userNameMap.GetValueOrDefault(userId, id);
                             })
-                            .Take(3) // Limit to first 3 names
-                            .ToList();
+                            .ToList(); // Show all names without limitation
 
                         if (removedNames.Any())
                         {
@@ -1552,13 +1546,9 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                             {
                                 changes.Add($"removed {removedNames[0]}");
                             }
-                            else if (removedAssignees.Count <= 3)
-                            {
-                                changes.Add($"removed {string.Join(", ", removedNames)}");
-                            }
                             else
                             {
-                                changes.Add($"removed {string.Join(", ", removedNames)} and {removedAssignees.Count - 3} more");
+                                changes.Add($"removed {string.Join(", ", removedNames)}");
                             }
                         }
                     }
@@ -2275,13 +2265,9 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                 {
                     changes.Add($"added {addedNames[0]} to {permissionType} teams");
                 }
-                else if (addedNames.Count <= 3)
-                {
-                    changes.Add($"added {string.Join(", ", addedNames)} to {permissionType} teams");
-                }
                 else
                 {
-                    changes.Add($"added {string.Join(", ", addedNames.Take(3))} and {addedNames.Count - 3} more to {permissionType} teams");
+                    changes.Add($"added {string.Join(", ", addedNames)} to {permissionType} teams");
                 }
             }
 
@@ -2295,13 +2281,9 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                 {
                     changes.Add($"removed {removedNames[0]} from {permissionType} teams");
                 }
-                else if (removedNames.Count <= 3)
-                {
-                    changes.Add($"removed {string.Join(", ", removedNames)} from {permissionType} teams");
-                }
                 else
                 {
-                    changes.Add($"removed {string.Join(", ", removedNames.Take(3))} and {removedNames.Count - 3} more from {permissionType} teams");
+                    changes.Add($"removed {string.Join(", ", removedNames)} from {permissionType} teams");
                 }
             }
 

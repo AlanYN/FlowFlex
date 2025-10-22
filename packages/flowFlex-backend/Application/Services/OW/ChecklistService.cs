@@ -43,6 +43,7 @@ public class ChecklistService : IChecklistService, IScopedService
     private readonly IBackgroundTaskQueue _backgroundTaskQueue;
     private readonly IOperationChangeLogService _operationChangeLogService;
     private readonly ILogger<ChecklistService> _logger;
+    private readonly IUserService _userService;
 
     public ChecklistService(
         IChecklistRepository checklistRepository,
@@ -54,7 +55,8 @@ public class ChecklistService : IChecklistService, IScopedService
         IComponentMappingService mappingService,
         IBackgroundTaskQueue backgroundTaskQueue,
         IOperationChangeLogService operationChangeLogService,
-        ILogger<ChecklistService> logger)
+        ILogger<ChecklistService> logger,
+        IUserService userService)
     {
         _checklistRepository = checklistRepository;
         _checklistTaskRepository = checklistTaskRepository;
@@ -66,6 +68,7 @@ public class ChecklistService : IChecklistService, IScopedService
         _backgroundTaskQueue = backgroundTaskQueue;
         _operationChangeLogService = operationChangeLogService;
         _logger = logger;
+        _userService = userService;
     }
 
     /// <summary>
@@ -331,6 +334,9 @@ public class ChecklistService : IChecklistService, IScopedService
         // Fill assignments and tasks for the checklist
         await FillAssignmentsAndTasksAsync(new List<ChecklistOutputDto> { result });
 
+        // Fill team name for the checklist
+        await FillTeamNamesAsync(new List<ChecklistOutputDto> { result });
+
         return result;
     }
 
@@ -344,6 +350,9 @@ public class ChecklistService : IChecklistService, IScopedService
 
         // Fill assignments for the checklists
         await FillAssignmentsAsync(result);
+
+        // Fill team names for the checklists
+        await FillTeamNamesAsync(result);
 
         return result;
     }
@@ -363,6 +372,9 @@ public class ChecklistService : IChecklistService, IScopedService
 
         // Fill assignments and tasks for the checklists
         await FillAssignmentsAndTasksAsync(result);
+
+        // Fill team names for the checklists
+        await FillTeamNamesAsync(result);
 
         return result;
     }
@@ -391,6 +403,9 @@ public class ChecklistService : IChecklistService, IScopedService
 
         // Fill assignments for the checklists
         await FillAssignmentsAsync(dtoItems);
+
+        // Fill team names for the checklists
+        await FillTeamNamesAsync(dtoItems);
 
         return new PagedResult<ChecklistOutputDto>
         {
@@ -665,6 +680,9 @@ public class ChecklistService : IChecklistService, IScopedService
         // Fill assignments for the templates
         await FillAssignmentsAsync(result);
 
+        // Fill team names for the templates
+        await FillTeamNamesAsync(result);
+
         return result;
     }
 
@@ -710,6 +728,9 @@ public class ChecklistService : IChecklistService, IScopedService
         // Fill assignments and tasks for the checklists
         await FillAssignmentsAndTasksAsync(result);
 
+        // Fill team names for the checklists
+        await FillTeamNamesAsync(result);
+
         return result;
     }
 
@@ -741,6 +762,9 @@ public class ChecklistService : IChecklistService, IScopedService
 
         // Fill assignments and tasks for the checklists
         await FillAssignmentsAndTasksAsync(result);
+
+        // Fill team names for the checklists
+        await FillTeamNamesAsync(result);
 
         return result;
     }
@@ -807,6 +831,62 @@ ASSIGNMENTS:
     private async Task FillAssignmentsAsync(List<ChecklistOutputDto> checklists)
     {
         await FillAssignmentsAndTasksAsync(checklists, false);
+    }
+
+    /// <summary>
+    /// Fill team names for checklist output DTOs
+    /// </summary>
+    private async Task FillTeamNamesAsync(List<ChecklistOutputDto> checklists)
+    {
+        if (checklists == null || !checklists.Any())
+            return;
+
+        try
+        {
+            // Collect all unique team IDs
+            var teamIds = checklists
+                .Where(c => !string.IsNullOrWhiteSpace(c.Team))
+                .Select(c => c.Team)
+                .Distinct()
+                .ToList();
+
+            if (!teamIds.Any())
+            {
+                _logger.LogDebug("No team IDs found in checklists, skipping team name resolution");
+                return;
+            }
+
+            _logger.LogDebug("Fetching team names for {Count} unique team IDs", teamIds.Count);
+
+            // Get tenant ID from UserContext
+            var tenantId = _userContext?.TenantId ?? "999";
+
+            // Fetch team names from IDM
+            var teamNameMap = await _userService.GetTeamNamesByIdsAsync(teamIds, tenantId);
+
+            // Fill team names for each checklist
+            foreach (var checklist in checklists)
+            {
+                if (!string.IsNullOrWhiteSpace(checklist.Team))
+                {
+                    checklist.TeamName = teamNameMap.GetValueOrDefault(checklist.Team, checklist.Team);
+                }
+            }
+
+            _logger.LogDebug("Successfully filled team names for {Count} checklists", checklists.Count);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to fill team names for checklists, using team IDs as fallback");
+            // If team name resolution fails, leave TeamName as null or use Team ID as fallback
+            foreach (var checklist in checklists)
+            {
+                if (!string.IsNullOrWhiteSpace(checklist.Team) && string.IsNullOrWhiteSpace(checklist.TeamName))
+                {
+                    checklist.TeamName = $"Team_{checklist.Team}";
+                }
+            }
+        }
     }
 
     /// <summary>
