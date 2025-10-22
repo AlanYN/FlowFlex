@@ -381,14 +381,17 @@
 			</div>
 
 			<template #footer>
-				<div class="flex justify-between">
-					<div class="text-sm text-gray-500">
-						{{ changeHistoryData.length }} Results
-						<span class="ml-4">Show: 15</span>
-					</div>
-					<div class="flex justify-end">
-						<el-button @click="closeChangeHistoryDialog">Close</el-button>
-					</div>
+				<div class="flex justify-between items-center">
+					<CustomerPagination
+						:total="historyTotalElements"
+						:limit="historyPageSize"
+						:page="historyCurrentPage"
+						:background="true"
+						@pagination="handleHistoryLimitUpdate"
+						@update:page="handleHistoryCurrentChange"
+						@update:limit="handleHistoryPageUpdate"
+					/>
+					<el-button @click="closeChangeHistoryDialog">Close</el-button>
 				</div>
 			</template>
 		</el-dialog>
@@ -436,6 +439,9 @@ const showChangeHistoryDialog = ref(false);
 const changeHistoryLoading = ref(false);
 const currentActionForHistory = ref<ActionDefinition | null>(null);
 const changeHistoryData = ref<ChangeHistoryItem[]>([]);
+const historyCurrentPage = ref(1);
+const historyPageSize = ref(15);
+const historyTotalElements = ref(0);
 
 // Search form
 const searchForm = reactive({
@@ -641,6 +647,47 @@ const handleEdit = async (row: ActionDefinition) => {
 	}
 };
 
+// Load change history with pagination
+const loadChangeHistory = async () => {
+	if (!currentActionForHistory.value?.id) {
+		return;
+	}
+
+	try {
+		changeHistoryLoading.value = true;
+
+		// Call the real API to get change history
+		const historyRes = await getActionChangeHistory(
+			currentActionForHistory.value.id.toString(),
+			{
+				pageIndex: historyCurrentPage.value,
+				pageSize: historyPageSize.value,
+			}
+		);
+
+		if (historyRes.code === '200' && historyRes.success && historyRes?.data?.items) {
+			// Debug: Log the actual data structure from backend
+			console.log('Change History API Response:', historyRes.data.items);
+			changeHistoryData.value = historyRes.data.items;
+			historyTotalElements.value = historyRes.data.totalCount || 0;
+		} else {
+			// Fallback to empty array if no data
+			changeHistoryData.value = [];
+			historyTotalElements.value = 0;
+			if (historyRes.msg) {
+				ElMessage.warning(historyRes.msg);
+			}
+		}
+	} catch (error) {
+		console.error('Failed to load change history:', error);
+		ElMessage.warning('Failed to load change history');
+		changeHistoryData.value = [];
+		historyTotalElements.value = 0;
+	} finally {
+		changeHistoryLoading.value = false;
+	}
+};
+
 const handleChangeHistory = async (row: ActionDefinition) => {
 	currentActionForHistory.value = row;
 	showChangeHistoryDialog.value = true;
@@ -650,39 +697,32 @@ const handleChangeHistory = async (row: ActionDefinition) => {
 		return;
 	}
 
-	try {
-		changeHistoryLoading.value = true;
-
-		// Call the real API to get change history
-		const historyRes = await getActionChangeHistory(row.id.toString(), {
-			pageIndex: 1,
-			pageSize: 50, // Get more records to show full history
-		});
-
-		if (historyRes.code === '200' && historyRes.success && historyRes?.data?.items) {
-			// Debug: Log the actual data structure from backend
-			console.log('Change History API Response:', historyRes.data.items);
-			changeHistoryData.value = historyRes.data.items;
-		} else {
-			// Fallback to empty array if no data
-			changeHistoryData.value = [];
-			if (historyRes.msg) {
-				ElMessage.warning(historyRes.msg);
-			}
-		}
-	} catch (error) {
-		console.error('Failed to load change history:', error);
-		ElMessage.warning('Failed to load change history');
-		changeHistoryData.value = [];
-	} finally {
-		changeHistoryLoading.value = false;
-	}
+	// Reset pagination
+	historyCurrentPage.value = 1;
+	await loadChangeHistory();
 };
 
 const closeChangeHistoryDialog = () => {
 	showChangeHistoryDialog.value = false;
 	currentActionForHistory.value = null;
 	changeHistoryData.value = [];
+	historyCurrentPage.value = 1;
+	historyPageSize.value = 15;
+	historyTotalElements.value = 0;
+};
+
+// Pagination handlers for change history
+const handleHistoryPageUpdate = async (size: number) => {
+	historyPageSize.value = size;
+	historyCurrentPage.value = 1;
+};
+
+const handleHistoryCurrentChange = async (page: number) => {
+	historyCurrentPage.value = page;
+};
+
+const handleHistoryLimitUpdate = async () => {
+	await loadChangeHistory();
 };
 
 const handleDelete = async (row: ActionDefinition) => {
