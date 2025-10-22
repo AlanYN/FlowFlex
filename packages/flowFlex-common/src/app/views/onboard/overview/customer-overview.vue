@@ -297,29 +297,6 @@
 														{{ item }}
 													</el-tag>
 												</div>
-												<div
-													class="mt-1 text-xs text-el-text-color-secondary"
-												>
-													{{
-														getCheckboxLabels(
-															row.answer,
-															row.questionConfig,
-															row.responseText,
-															row.id
-														).length
-													}}
-													option{{
-														getCheckboxLabels(
-															row.answer,
-															row.questionConfig,
-															row.responseText,
-															row.id
-														).length > 1
-															? 's'
-															: ''
-													}}
-													selected
-												</div>
 											</template>
 										</div>
 
@@ -509,11 +486,6 @@
 														)[0] || row.answer
 													}}
 												</el-tag>
-												<div
-													class="mt-1 text-xs text-el-text-color-secondary"
-												>
-													Grid selection
-												</div>
 											</template>
 										</div>
 
@@ -551,28 +523,6 @@
 														</el-icon>
 														{{ item }}
 													</el-tag>
-												</div>
-												<div
-													class="mt-1 text-xs text-el-text-color-secondary"
-												>
-													{{
-														getGridAnswerLabels(
-															row.answer,
-															row.questionConfig,
-															row.responseText,
-															row.id
-														).length
-													}}
-													grid selection{{
-														getGridAnswerLabels(
-															row.answer,
-															row.questionConfig,
-															row.responseText,
-															row.id
-														).length > 1
-															? 's'
-															: ''
-													}}
 												</div>
 											</template>
 										</div>
@@ -616,26 +566,6 @@
 															</span>
 														</div>
 													</div>
-												</div>
-												<div
-													class="mt-2 text-xs text-el-text-color-secondary"
-												>
-													{{
-														getShortAnswerGridData(
-															row.responseText,
-															row.id,
-															row.questionConfig
-														).length
-													}}
-													cell{{
-														getShortAnswerGridData(
-															row.responseText,
-															row.id,
-															row.questionConfig
-														).length > 1
-															? 's'
-															: ''
-													}}
 												</div>
 											</template>
 										</div>
