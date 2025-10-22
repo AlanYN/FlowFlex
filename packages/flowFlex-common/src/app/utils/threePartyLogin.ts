@@ -8,6 +8,7 @@ import { ElLoading } from 'element-plus';
 import { router } from '@/router';
 import dayjs from 'dayjs';
 import { getEnv } from './env';
+import { nextTick } from 'vue';
 
 const globSetting = useGlobSetting();
 
@@ -85,8 +86,10 @@ export async function formIDMLogin(ticket, oauth, state) {
 		},
 		refreshToken: refreshToken,
 	});
-	await userStore.afterLoginAction(false);
-	detailUrlQuery();
+	nextTick(async () => {
+		await userStore.afterLoginAction(false);
+		detailUrlQuery();
+	});
 
 	// 获取当前URL，移除SSO参数，保留原始路径
 	// const currentUrl = new URL(window.location.href);
