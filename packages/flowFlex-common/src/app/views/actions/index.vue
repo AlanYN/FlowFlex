@@ -453,7 +453,7 @@ const tabsConfig = ref([
 // Pagination
 const pagination = reactive({
 	currentPage: 1,
-	pageSize: 20,
+	pageSize: 15,
 	total: 0,
 });
 
@@ -726,8 +726,8 @@ const handleCurrentChange = async (page: number) => {
 	pagination.currentPage = page;
 };
 
-const handleLimitUpdate = async () => {
-	await loadActionsList();
+const handleLimitUpdate = () => {
+	loadActionsList();
 };
 
 // Action 保存成功回调
@@ -780,8 +780,6 @@ const loadActionsList = async () => {
 		if (response.code === '200' && response.success) {
 			actionsList.value = response.data.data || [];
 			pagination.total = response.data.total || 0;
-			pagination.currentPage = response.data.pageIndex || 1;
-			pagination.pageSize = response.data.pageSize || 20;
 		} else {
 			actionsList.value = [];
 			pagination.total = 0;

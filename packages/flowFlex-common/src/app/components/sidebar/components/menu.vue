@@ -5,7 +5,7 @@
 		:unique-opened="uniqueOpened"
 		:mode="mode"
 		:collapse-transition="collapseTransition"
-		:router="true"
+		:router="false"
 	>
 		<template v-for="(item, index) in menuRoutes" :key="index">
 			<el-sub-menu
