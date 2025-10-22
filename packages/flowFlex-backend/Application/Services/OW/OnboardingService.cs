@@ -5753,7 +5753,7 @@ namespace FlowFlex.Application.Services.OW
                 
                 if (result)
                 {
-                    LoggingExtensions.WriteLine($"✅ Successfully updated AI summary for stage {stageId} in onboarding {onboardingId}");
+                LoggingExtensions.WriteLine($"✅ Successfully updated AI summary for stage {stageId} in onboarding {onboardingId}");
                 }
                 else
                 {

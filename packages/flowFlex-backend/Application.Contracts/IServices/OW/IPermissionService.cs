@@ -1,3 +1,4 @@
+using FlowFlex.Application.Contracts.Dtos.OW.Permission;
 using FlowFlex.Domain.Shared.Enums.Permission;
 using FlowFlex.Domain.Shared.Models.Permission;
 
@@ -44,6 +45,18 @@ namespace FlowFlex.Application.Contracts.IServices.OW
             long userId,
             long caseId,
             OperationTypeEnum operationType);
+
+        /// <summary>
+        /// Check resource permission (unified interface for HTTP API)
+        /// </summary>
+        /// <param name="userId">User ID</param>
+        /// <param name="resourceId">Resource ID</param>
+        /// <param name="resourceType">Resource type</param>
+        /// <returns>Permission check response</returns>
+        Task<CheckPermissionResponse> CheckResourcePermissionAsync(
+            long userId,
+            long resourceId,
+            PermissionEntityTypeEnum resourceType);
     }
 }
 
