@@ -632,6 +632,202 @@ namespace FlowFlex.Application.Services.OW
         }
 
         /// <summary>
+        /// Get team tree structure from IDM teamTree API
+        /// </summary>
+        /// <param name="tenantId">Tenant ID</param>
+        /// <returns>Hierarchical team tree structure</returns>
+        public async Task<List<IdmTeamTreeNodeDto>> GetTeamTreeAsync(string tenantId = null)
+        {
+            try
+            {
+                _logger.LogInformation("=== Starting GetTeamTreeAsync ===");
+                _logger.LogInformation("Parameters - TenantId: {TenantId}", tenantId);
+                _logger.LogInformation("QueryTeamTree endpoint: {QueryTeamTree}", _options.QueryTeamTree);
+
+                _client.DefaultRequestHeaders.Clear();
+                _logger.LogDebug("Cleared default request headers");
+
+                var tokenInfo = await GetTokenAsync();
+                _logger.LogInformation("Retrieved token - Type: {TokenType}", tokenInfo?.TokenType);
+
+                _client.DefaultRequestHeaders.Authorization =
+                    new AuthenticationHeaderValue(tokenInfo.TokenType, tokenInfo.AccessToken);
+                
+                // Add X-App-Id header for public API endpoints
+                if (!string.IsNullOrEmpty(_options.AppId))
+                {
+                    _client.DefaultRequestHeaders.Add("X-App-Id", _options.AppId);
+                    _logger.LogDebug("Added X-App-Id header: {AppId}", _options.AppId);
+                }
+
+                // Build request URI with TenantId parameter
+                var requestUri = $"{_options.QueryTeamTree}?TenantId={tenantId ?? "1000"}";
+
+                var fullUrl = $"{_client.BaseAddress?.ToString().TrimEnd('/')}{requestUri}";
+                _logger.LogInformation("Making GET request to full URL: {FullUrl}", fullUrl);
+
+                // Output cURL command for debugging
+                try
+                {
+                    var tokenPreview = string.IsNullOrEmpty(tokenInfo.AccessToken) ? "[NULL]" :
+                                      tokenInfo.AccessToken.Length > 20 ?
+                                      $"{tokenInfo.AccessToken.Substring(0, 20)}..." :
+                                      tokenInfo.AccessToken;
+                    var appIdHeader = !string.IsNullOrEmpty(_options.AppId) ? $" -H \"X-App-Id: {_options.AppId}\"" : "";
+                    var curlCommand = $"curl -X GET \"{fullUrl}\" -H \"Authorization: {tokenInfo.TokenType} {tokenPreview}\"{appIdHeader}";
+                    _logger.LogInformation("🔍 TeamTree API cURL equivalent: {CurlCommand}", curlCommand);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning("Failed to generate cURL command: {Exception}", ex.Message);
+                }
+
+                var startTime = DateTimeOffset.UtcNow;
+                using var resp = await _client.GetAsync(requestUri);
+                var elapsed = DateTimeOffset.UtcNow - startTime;
+
+                _logger.LogInformation("IDM TeamTree API response - StatusCode: {StatusCode}, Elapsed: {ElapsedMs}ms",
+                    resp.StatusCode, elapsed.TotalMilliseconds);
+
+                if (!resp.IsSuccessStatusCode)
+                {
+                    var errorContent = await resp.Content.ReadAsStringAsync();
+                    _logger.LogError("IDM TeamTree API request failed:");
+                    _logger.LogError("  Status Code: {StatusCode}", resp.StatusCode);
+                    _logger.LogError("  Error Content: {ErrorContent}", errorContent);
+                    _logger.LogError("  Request URI: {RequestUri}", requestUri);
+                    _logger.LogError("  Full URL: {FullUrl}", fullUrl);
+                    throw new HttpRequestException($"IDM TeamTree API request failed: {resp.StatusCode} - {errorContent}");
+                }
+
+                var responseContent = await resp.Content.ReadAsStringAsync();
+                _logger.LogDebug("Raw team tree response content (first 500 chars): {Content}",
+                    responseContent.Length > 500 ? responseContent.Substring(0, 500) + "..." : responseContent);
+
+                var result = JsonSerializer.Deserialize<BasicResponse<List<IdmTeamTreeNodeDto>>>(responseContent, new JsonSerializerOptions
+                {
+                    PropertyNameCaseInsensitive = true
+                });
+
+                if (result == null)
+                {
+                    _logger.LogError("Failed to deserialize team tree response - result is null");
+                    throw new Exception("Failed to deserialize IDM TeamTree API response");
+                }
+
+                _logger.LogInformation("TeamTree deserialization successful - Status: {Status}, Code: {Code}, Message: {Message}",
+                    result.Status, result.Code, result.Message);
+
+                if (result.Data == null)
+                {
+                    _logger.LogWarning("IDM TeamTree API returned null data in result");
+                    return new List<IdmTeamTreeNodeDto>();
+                }
+
+                var teamCount = result.Data.Count;
+                _logger.LogInformation("=== GetTeamTreeAsync Success ===");
+                _logger.LogInformation("Retrieved {TeamCount} root team nodes from IDM", teamCount);
+
+                if (teamCount > 0)
+                {
+                    var firstTeam = result.Data.First();
+                    _logger.LogDebug("First team sample - Value: {Value}, Label: {Label}, ChildrenCount: {ChildrenCount}",
+                        firstTeam.Value, firstTeam.Label, firstTeam.Children?.Count ?? 0);
+                }
+
+                return result.Data;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "=== GetTeamTreeAsync Failed ===");
+                _logger.LogError("Exception details: {ExceptionType} - {ExceptionMessage}", ex.GetType().Name, ex.Message);
+                if (ex.InnerException != null)
+                {
+                    _logger.LogError("Inner exception: {InnerExceptionType} - {InnerExceptionMessage}",
+                        ex.InnerException.GetType().Name, ex.InnerException.Message);
+                }
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// Get current user info from IDM (includes UserType)
+        /// </summary>
+        /// <param name="authorization">Authorization header value (e.g., "Bearer token")</param>
+        /// <returns>User information including UserType</returns>
+        public async Task<IdmUserOutputDto> GetCurrentUserInfoAsync(string authorization)
+        {
+            try
+            {
+                _logger.LogInformation("=== GetCurrentUserInfoAsync Started ===");
+                _logger.LogDebug("Authorization header: {Authorization}", 
+                    string.IsNullOrEmpty(authorization) ? "(empty)" : "Bearer ***");
+
+                // Endpoint: /api/v1/users/current/info
+                var endpoint = "/api/v1/users/current/info";
+                var url = $"{_options.BaseUrl}{endpoint}";
+                
+                _logger.LogInformation("Requesting current user info from: {Url}", url);
+
+                // Create request with authorization header
+                var request = new HttpRequestMessage(HttpMethod.Get, url);
+                request.Headers.Add("Authorization", authorization);
+
+                _logger.LogDebug("Sending GET request to IDM current user info endpoint");
+                var resp = await _client.SendAsync(request);
+
+                if (!resp.IsSuccessStatusCode)
+                {
+                    var errorContent = await resp.Content.ReadAsStringAsync();
+                    _logger.LogError("IDM current user info API request failed: {StatusCode} - {ErrorContent}", 
+                        resp.StatusCode, errorContent);
+                    throw new HttpRequestException($"IDM current user info API request failed: {resp.StatusCode} - {errorContent}");
+                }
+
+                var responseContent = await resp.Content.ReadAsStringAsync();
+                _logger.LogDebug("Raw current user info response content (first 500 chars): {Content}",
+                    responseContent.Length > 500 ? responseContent.Substring(0, 500) + "..." : responseContent);
+
+                var result = JsonSerializer.Deserialize<BasicResponse<IdmUserOutputDto>>(responseContent, new JsonSerializerOptions
+                {
+                    PropertyNameCaseInsensitive = true
+                });
+
+                if (result == null)
+                {
+                    _logger.LogError("Failed to deserialize current user info response - result is null");
+                    throw new Exception("Failed to deserialize IDM current user info API response");
+                }
+
+                _logger.LogInformation("Current user info deserialization successful - Status: {Status}, Code: {Code}, Message: {Message}",
+                    result.Status, result.Code, result.Message);
+
+                if (result.Data == null)
+                {
+                    _logger.LogWarning("IDM current user info API returned null data in result");
+                    return null;
+                }
+
+                _logger.LogInformation("=== GetCurrentUserInfoAsync Success ===");
+                _logger.LogInformation("Retrieved user info - UserId: {UserId}, UserName: {UserName}, UserType: {UserType}",
+                    result.Data.Id, result.Data.Username, result.Data.UserType);
+
+                return result.Data;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "=== GetCurrentUserInfoAsync Failed ===");
+                _logger.LogError("Exception details: {ExceptionType} - {ExceptionMessage}", ex.GetType().Name, ex.Message);
+                if (ex.InnerException != null)
+                {
+                    _logger.LogError("Inner exception: {InnerExceptionType} - {InnerExceptionMessage}",
+                        ex.InnerException.GetType().Name, ex.InnerException.Message);
+                }
+                throw;
+            }
+        }
+
+        /// <summary>
         /// Get team users from IDM
         /// </summary>
         /// <param name="tenantId">Tenant ID</param>

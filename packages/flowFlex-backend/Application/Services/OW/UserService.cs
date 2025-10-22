@@ -37,6 +37,7 @@ namespace FlowFlex.Application.Services.OW
         private readonly EmailOptions _emailOptions;
         private readonly IUserContextService _userContextService;
         private readonly IBackgroundTaskQueue _backgroundTaskQueue;
+        private readonly IdmUserDataClient _idmUserDataClient;
 
         public UserService(
             IUserRepository userRepository,
@@ -48,7 +49,8 @@ namespace FlowFlex.Application.Services.OW
             IHttpContextAccessor httpContextAccessor,
             IOptions<EmailOptions> emailOptions,
             IUserContextService userContextService,
-            IBackgroundTaskQueue backgroundTaskQueue)
+            IBackgroundTaskQueue backgroundTaskQueue,
+            IdmUserDataClient idmUserDataClient)
         {
             _userRepository = userRepository;
             _emailService = emailService;
@@ -60,6 +62,7 @@ namespace FlowFlex.Application.Services.OW
             _emailOptions = emailOptions.Value;
             _userContextService = userContextService;
             _backgroundTaskQueue = backgroundTaskQueue;
+            _idmUserDataClient = idmUserDataClient;
         }
 
         /// <summary>
@@ -1179,7 +1182,7 @@ namespace FlowFlex.Application.Services.OW
         }
 
         /// <summary>
-        /// Get User Tree Structure grouped by teams using IDM teams and teamusers API
+        /// Get User Tree Structure using IDM teamTree API (returns hierarchical structure directly)
         /// </summary>
         /// <returns>Tree structure with teams and users from IDM</returns>
         public async Task<List<UserTreeNodeDto>> GetUserTreeAsync()
@@ -1187,7 +1190,7 @@ namespace FlowFlex.Application.Services.OW
             var currentTenantId = GetCurrentTenantId();
             var currentAppCode = GetCurrentAppCode();
 
-            _logger.LogInformation("=== GetUserTreeAsync Started (using Teams API) ===");
+            _logger.LogInformation("=== GetUserTreeAsync Started (using TeamTree API) ===");
             _logger.LogInformation("Current context - TenantId: {TenantId}, AppCode: {AppCode}", currentTenantId, currentAppCode);
 
             // Log HTTP context details
@@ -1215,167 +1218,147 @@ namespace FlowFlex.Application.Services.OW
 
             try
             {
-                // Get IdmUserDataClient service to fetch users from IDM
+                // Get IdmUserDataClient service to fetch team tree from IDM
                 _logger.LogInformation("Attempting to resolve IdmUserDataClient service");
                 var idmUserDataClient = _httpContextAccessor.HttpContext?.RequestServices.GetService<FlowFlex.Application.Services.OW.IdmUserDataClient>();
                 if (idmUserDataClient == null)
                 {
                     _logger.LogError("IdmUserDataClient service not available from DI container");
-                    _logger.LogError("Available services in DI container:");
-                    var serviceProvider = _httpContextAccessor.HttpContext?.RequestServices;
-                    if (serviceProvider != null)
-                    {
-                        try
-                        {
-                            var services = serviceProvider.GetServices<object>().Take(10);
-                            foreach (var svc in services)
-                            {
-                                _logger.LogDebug("  Service: {ServiceType}", svc?.GetType().FullName);
-                            }
-                        }
-                        catch (Exception ex)
-                        {
-                            _logger.LogDebug("Failed to enumerate services: {Exception}", ex.Message);
-                        }
-                    }
-
                     throw new CRMException(HttpStatusCode.InternalServerError,
                         "IDM service is not available. Please try again later.");
                 }
 
                 _logger.LogInformation("IdmUserDataClient service resolved successfully");
 
-                // Get teams and team users from IDM
-                _logger.LogInformation("Calling IDM APIs to fetch teams and team users data");
+                // Get team tree and team users from IDM in parallel
+                _logger.LogInformation("Calling IDM APIs to fetch team tree and team users");
 
                 var startTime = DateTimeOffset.UtcNow;
-                var teamsTask = idmUserDataClient.GetAllTeamsAsync(currentTenantId, 10000, 1);
+                var teamTreeTask = idmUserDataClient.GetTeamTreeAsync(currentTenantId);
                 var teamUsersTask = idmUserDataClient.GetAllTeamUsersAsync(currentTenantId, 10000, 1);
 
-                // Execute both calls in parallel
-                await Task.WhenAll(teamsTask, teamUsersTask);
+                await Task.WhenAll(teamTreeTask, teamUsersTask);
 
-                var teamsResponse = await teamsTask;
-                var teamUsersResponse = await teamUsersTask; // Now returns List<IdmTeamUserDto> directly
+                var teamTreeNodes = await teamTreeTask;
+                var teamUsers = await teamUsersTask;
                 var elapsed = DateTimeOffset.UtcNow - startTime;
 
                 _logger.LogInformation("IDM APIs call completed in {ElapsedMs}ms", elapsed.TotalMilliseconds);
 
-                // Validate teams data
-                if (teamsResponse?.Data == null)
+                if (teamTreeNodes == null || !teamTreeNodes.Any())
                 {
-                    _logger.LogWarning("No teams returned from IDM API");
+                    _logger.LogWarning("No team tree data returned from IDM API");
                     return new List<UserTreeNodeDto>();
                 }
 
-                var idmTeams = teamsResponse.Data;
-                var idmTeamUsers = teamUsersResponse ?? new List<IdmTeamUserDto>();
+                _logger.LogInformation("Retrieved {TeamCount} root team nodes and {UserCount} team users from IDM", 
+                    teamTreeNodes.Count, teamUsers?.Count ?? 0);
 
-                _logger.LogInformation("Retrieved {TeamCount} teams and {TeamUserCount} team user relationships from IDM",
-                    idmTeams.Count, idmTeamUsers.Count);
+                // Convert IdmTeamTreeNodeDto to UserTreeNodeDto and populate with users
+                _logger.LogInformation("Converting IDM team tree structure to UserTreeNodeDto format");
+                var treeNodes = ConvertIdmTeamTreeToUserTree(teamTreeNodes, teamUsers ?? new List<IdmTeamUserDto>());
 
-                _logger.LogInformation("Processing teams and users into tree structure");
-                var treeNodes = new List<UserTreeNodeDto>();
-
-                // Create a lookup for team users by teamId
-                var teamUserLookup = idmTeamUsers.GroupBy(tu => tu.TeamId)
-                    .ToDictionary(g => g.Key, g => g.ToList());
-
-                // Track which users have been assigned to teams
-                var assignedUsers = new HashSet<string>();
-
-                // Create tree structure for each team
-                foreach (var team in idmTeams.OrderBy(t => t.TeamName))
-                {
-                    var teamNode = new UserTreeNodeDto
-                    {
-                        Id = team.Id,
-                        Name = team.TeamName,
-                        Type = "team",
-                        MemberCount = 0, // Will be calculated based on actual users
-                        Children = new List<UserTreeNodeDto>()
-                    };
-
-                    // Get users for this team
-                    if (teamUserLookup.ContainsKey(team.Id))
-                    {
-                        var teamUsers = teamUserLookup[team.Id];
-
-                        foreach (var teamUser in teamUsers)
-                        {
-                            var userNode = new UserTreeNodeDto
-                            {
-                                Id = teamUser.Id,
-                                Name = teamUser.UserName, // Use userName as display name
-                                Type = "user",
-                                MemberCount = 0,
-                                Username = teamUser.UserName,
-                                Email = null, // Not available in teamuser API
-                                Children = null // Users have no children
-                            };
-
-                            teamNode.Children.Add(userNode);
-                            assignedUsers.Add(teamUser.UserName);
-                        }
-                    }
-
-                    teamNode.MemberCount = teamNode.Children.Count;
-                    treeNodes.Add(teamNode);
-
-                    _logger.LogDebug("Team '{TeamName}' processed with {MemberCount} members", team.TeamName, teamNode.MemberCount);
-                }
-
-                // Create "Other" group for users without teams
-                var unassignedUsers = idmTeamUsers.Where(tu => !assignedUsers.Contains(tu.UserName)).ToList();
-                if (unassignedUsers.Any())
-                {
-                    _logger.LogInformation("Found {UnassignedCount} users without team assignments", unassignedUsers.Count);
-
-                    var otherNode = new UserTreeNodeDto
-                    {
-                        Id = "other-team",
-                        Name = "Other",
-                        Type = "team",
-                        MemberCount = unassignedUsers.Count,
-                        Children = new List<UserTreeNodeDto>()
-                    };
-
-                    foreach (var unassignedUser in unassignedUsers)
-                    {
-                        var userNode = new UserTreeNodeDto
-                        {
-                            Id = unassignedUser.Id,
-                            Name = unassignedUser.UserName,
-                            Type = "user",
-                            MemberCount = 0,
-                            Username = unassignedUser.UserName,
-                            Email = null,
-                            Children = null
-                        };
-
-                        otherNode.Children.Add(userNode);
-                    }
-
-                    treeNodes.Add(otherNode);
-                    _logger.LogDebug("Created 'Other' team with {MemberCount} unassigned users", otherNode.MemberCount);
-                }
-
-                _logger.LogInformation("=== GetUserTreeAsync Completed Successfully (Teams API) ===");
+                _logger.LogInformation("=== GetUserTreeAsync Completed Successfully (TeamTree API) ===");
                 _logger.LogInformation("Final tree structure statistics:");
-                _logger.LogInformation("  Total teams: {TeamCount}", treeNodes.Count);
-                _logger.LogInformation("  Total users in teams: {UserCount}", treeNodes.Sum(t => t.MemberCount));
-                _logger.LogInformation("  Tree nodes created: {NodeCount}", treeNodes.Sum(t => t.Children.Count + 1));
+                _logger.LogInformation("  Total root nodes: {RootCount}", treeNodes.Count);
+                _logger.LogInformation("  Total nodes (including children): {TotalNodes}", CountTreeNodes(treeNodes));
 
                 return treeNodes;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error occurred while getting user tree structure from IDM Teams API");
+                _logger.LogError(ex, "Error occurred while getting user tree structure from IDM TeamTree API");
 
                 // Fallback to local database users if IDM fails
                 _logger.LogInformation("Falling back to local database users due to IDM error");
                 return await GetUserTreeFromLocalDatabaseAsync();
             }
+        }
+
+        /// <summary>
+        /// Convert IDM team tree structure to UserTreeNodeDto format and populate with users
+        /// </summary>
+        private List<UserTreeNodeDto> ConvertIdmTeamTreeToUserTree(List<IdmTeamTreeNodeDto> idmNodes, List<IdmTeamUserDto> teamUsers)
+        {
+            if (idmNodes == null || !idmNodes.Any())
+            {
+                return new List<UserTreeNodeDto>();
+            }
+
+            // Create a lookup for team users by teamId
+            var teamUserLookup = teamUsers.GroupBy(tu => tu.TeamId)
+                .ToDictionary(g => g.Key, g => g.ToList());
+
+            var result = new List<UserTreeNodeDto>();
+
+            foreach (var idmNode in idmNodes)
+            {
+                var userTreeNode = new UserTreeNodeDto
+                {
+                    Id = idmNode.Value,
+                    Name = idmNode.Label,
+                    Type = "team", // IDM teamTree returns teams
+                    MemberCount = 0,
+                    Children = new List<UserTreeNodeDto>()
+                };
+
+                // First, recursively convert child teams
+                if (idmNode.Children != null && idmNode.Children.Any())
+                {
+                    var childTeams = ConvertIdmTeamTreeToUserTree(idmNode.Children, teamUsers);
+                    userTreeNode.Children.AddRange(childTeams);
+                }
+
+                // Then, add users for this team
+                if (teamUserLookup.ContainsKey(idmNode.Value))
+                {
+                    var usersInTeam = teamUserLookup[idmNode.Value];
+                    foreach (var teamUser in usersInTeam)
+                    {
+                        var userNode = new UserTreeNodeDto
+                        {
+                            Id = teamUser.Id,
+                            Name = teamUser.UserName,
+                            Type = "user",
+                            MemberCount = 0,
+                            Username = teamUser.UserName,
+                            Email = null, // Not available in teamuser API
+                            Children = null // Users have no children
+                        };
+
+                        userTreeNode.Children.Add(userNode);
+                    }
+                }
+
+                // Update member count (including child teams and users)
+                userTreeNode.MemberCount = userTreeNode.Children.Count;
+
+                result.Add(userTreeNode);
+            }
+
+            return result;
+        }
+
+        /// <summary>
+        /// Count total nodes in tree structure (including all descendants)
+        /// </summary>
+        private int CountTreeNodes(List<UserTreeNodeDto> nodes)
+        {
+            if (nodes == null || !nodes.Any())
+            {
+                return 0;
+            }
+
+            int count = nodes.Count;
+            foreach (var node in nodes)
+            {
+                if (node.Children != null && node.Children.Any())
+                {
+                    count += CountTreeNodes(node.Children);
+                }
+            }
+
+            return count;
         }
 
         /// <summary>
@@ -1535,9 +1518,16 @@ namespace FlowFlex.Application.Services.OW
 
         public async Task<List<UserDto>> GetUsersByIdsAsync(List<long> userIds)
         {
+            var currentTenantId = GetCurrentTenantId();
+            return await GetUsersByIdsAsync(userIds, currentTenantId);
+        }
+
+        public async Task<List<UserDto>> GetUsersByIdsAsync(List<long> userIds, string tenantId)
+        {
             try
             {
-                _logger.LogInformation("GetUsersByIdsAsync called with {Count} user IDs", userIds?.Count ?? 0);
+                _logger.LogInformation("GetUsersByIdsAsync called with {Count} user IDs, TenantId: {TenantId}", 
+                    userIds?.Count ?? 0, tenantId);
 
                 if (userIds == null || userIds.Count == 0)
                 {
@@ -1555,8 +1545,61 @@ namespace FlowFlex.Application.Services.OW
 
                 _logger.LogInformation("Querying {ValidCount} valid user IDs", validUserIds.Count);
 
+                // Query local database first
                 var users = await _userRepository.GetListAsync(u => validUserIds.Contains(u.Id));
                 var userDtos = _mapper.Map<List<UserDto>>(users);
+                var foundUserIds = userDtos.Select(u => u.Id).ToHashSet();
+
+                _logger.LogInformation("Found {FoundCount} users in local database", userDtos.Count);
+
+                // For missing users, try to get from IDM
+                var missingUserIds = validUserIds.Where(id => !foundUserIds.Contains(id)).ToList();
+                if (missingUserIds.Any())
+                {
+                    _logger.LogInformation("Attempting to fetch {MissingCount} missing users from IDM with TenantId: {TenantId}", 
+                        missingUserIds.Count, tenantId);
+
+                    try
+                    {
+                        if (_idmUserDataClient != null)
+                        {
+                            var teamUsersResponse = await _idmUserDataClient.GetAllTeamUsersAsync(tenantId, 10000, 1);
+
+                            if (teamUsersResponse != null && teamUsersResponse.Any())
+                            {
+                                // Convert string IDs to long for comparison
+                                // Note: Same user may appear multiple times (one per team), so we need to deduplicate
+                                var idmUsers = teamUsersResponse
+                                    .Where(tu => long.TryParse(tu.Id, out var userId) && missingUserIds.Contains(userId))
+                                    .GroupBy(tu => tu.Id) // Group by user ID to deduplicate
+                                    .Select(g => g.First()) // Take first occurrence of each user
+                                    .Select(tu => new UserDto
+                                    {
+                                        Id = long.Parse(tu.Id),
+                                        Username = tu.UserName,
+                                        Email = null, // Not available in teamuser API
+                                        EmailVerified = true,
+                                        Status = "active"
+                                    })
+                                    .ToList();
+
+                                if (idmUsers.Any())
+                                {
+                                    userDtos.AddRange(idmUsers);
+                                    _logger.LogInformation("Found {IdmCount} additional users from IDM (after deduplication)", idmUsers.Count);
+                                }
+                            }
+                        }
+                        else
+                        {
+                            _logger.LogWarning("IdmUserDataClient not available, cannot fetch missing users from IDM");
+                        }
+                    }
+                    catch (Exception idmEx)
+                    {
+                        _logger.LogWarning(idmEx, "Failed to fetch missing users from IDM, continuing with local results");
+                    }
+                }
 
                 _logger.LogInformation("GetUsersByIdsAsync completed successfully. Found {FoundCount} users out of {RequestedCount} requested",
                     userDtos.Count, validUserIds.Count);
@@ -1568,6 +1611,110 @@ namespace FlowFlex.Application.Services.OW
                 _logger.LogError(ex, "Error occurred while getting users by IDs");
                 throw new CRMException(HttpStatusCode.InternalServerError,
                     "An error occurred while retrieving the users. Please try again.");
+            }
+        }
+
+        public async Task<Dictionary<string, string>> GetTeamNamesByIdsAsync(List<string> teamIds, string tenantId)
+        {
+            try
+            {
+                _logger.LogInformation("GetTeamNamesByIdsAsync called with {Count} team IDs, TenantId: {TenantId}",
+                    teamIds?.Count ?? 0, tenantId);
+
+                if (teamIds == null || teamIds.Count == 0)
+                {
+                    _logger.LogWarning("Empty or null teamIds list provided");
+                    return new Dictionary<string, string>();
+                }
+
+                // Filter and deduplicate valid IDs
+                var validTeamIds = teamIds
+                    .Where(id => !string.IsNullOrWhiteSpace(id))
+                    .Select(id => id.Trim())
+                    .Distinct()
+                    .ToList();
+
+                if (validTeamIds.Count == 0)
+                {
+                    _logger.LogWarning("No valid team IDs found in the provided list");
+                    return new Dictionary<string, string>();
+                }
+
+                _logger.LogInformation("Querying {ValidCount} valid team IDs", validTeamIds.Count);
+
+                var teamNameMap = new Dictionary<string, string>();
+
+                try
+                {
+                    if (_idmUserDataClient != null)
+                    {
+                        _logger.LogInformation("Fetching teams from IDM with TenantId: {TenantId}", tenantId);
+
+                        var teamsResponse = await _idmUserDataClient.GetAllTeamsAsync(tenantId, 10000, 1);
+
+                        if (teamsResponse?.Data != null && teamsResponse.Data.Any())
+                        {
+                            _logger.LogInformation("Retrieved {TeamCount} teams from IDM", teamsResponse.Data.Count);
+
+                            // Build team name map for requested IDs
+                            foreach (var teamId in validTeamIds)
+                            {
+                                var team = teamsResponse.Data.FirstOrDefault(t => t.Id == teamId);
+                                if (team != null)
+                                {
+                                    teamNameMap[teamId] = team.TeamName ?? teamId;
+                                    _logger.LogDebug("Mapped team {TeamId} to name '{TeamName}'", teamId, team.TeamName);
+                                }
+                                else
+                                {
+                                    // If team not found, use ID as fallback
+                                    teamNameMap[teamId] = $"Team_{teamId}";
+                                    _logger.LogDebug("Team {TeamId} not found in IDM, using fallback name", teamId);
+                                }
+                            }
+
+                            _logger.LogInformation("Successfully mapped {MappedCount} team names", teamNameMap.Count);
+                        }
+                        else
+                        {
+                            _logger.LogWarning("No teams returned from IDM");
+                            // Use IDs as fallback
+                            foreach (var teamId in validTeamIds)
+                            {
+                                teamNameMap[teamId] = $"Team_{teamId}";
+                            }
+                        }
+                    }
+                    else
+                    {
+                        _logger.LogWarning("IdmUserDataClient not available, using team IDs as names");
+                        // Use IDs as fallback
+                        foreach (var teamId in validTeamIds)
+                        {
+                            teamNameMap[teamId] = $"Team_{teamId}";
+                        }
+                    }
+                }
+                catch (Exception idmEx)
+                {
+                    _logger.LogWarning(idmEx, "Failed to fetch teams from IDM, using team IDs as names");
+                    // Use IDs as fallback
+                    foreach (var teamId in validTeamIds)
+                    {
+                        teamNameMap[teamId] = $"Team_{teamId}";
+                    }
+                }
+
+                _logger.LogInformation("GetTeamNamesByIdsAsync completed successfully. Mapped {MappedCount} teams out of {RequestedCount} requested",
+                    teamNameMap.Count, validTeamIds.Count);
+
+                return teamNameMap;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error occurred while getting team names by IDs");
+                // Return empty dictionary instead of throwing to allow graceful degradation
+                return new Dictionary<string, string>();
             }
         }
     }

@@ -91,8 +91,10 @@ namespace WebApi.Authentication
                     userContext.Schema = AuthSchemes.Identification;
                     userContext.AppCode = context.HttpContext.Request.Headers["X-App-Code"].FirstOrDefault() ?? "DEFAULT";
                     
-                    // Load user teams from IDM
-                    await LoadUserTeamsAsync(context, userContext);
+                    // Load user teams and user type in parallel to reduce latency
+                    var loadTeamsTask = LoadUserTeamsAsync(context, userContext);
+                    var loadUserTypeTask = LoadUserTypeAsync(context, userContext, authorization);
+                    await Task.WhenAll(loadTeamsTask, loadUserTypeTask);
                 }
             }
             catch
@@ -143,6 +145,7 @@ namespace WebApi.Authentication
                         userContext.LastName = userInfo.LastName;
                         userContext.FirstName = userInfo.FirstName;
                         userContext.Email = userInfo.Email;
+                        
                         var iamClientId = claims!.FirstOrDefault(x => x.Type == "client_id")?.Value;
                         foreach (var item in userInfo.Tenants)
                         {
@@ -161,8 +164,10 @@ namespace WebApi.Authentication
                         }
                         userContext.AppCode = context.HttpContext.Request.Headers["X-App-Code"].FirstOrDefault() ?? "DEFAULT";
                         
-                        // Load user teams from IDM for password/authorization_code/refresh_token
-                        await LoadUserTeamsAsync(context, userContext);
+                        // Load user teams and user type in parallel to reduce latency
+                        var loadTeamsTask = LoadUserTeamsAsync(context, userContext);
+                        var loadUserTypeTask = LoadUserTypeAsync(context, userContext, authorization);
+                        await Task.WhenAll(loadTeamsTask, loadUserTypeTask);
                         break;
                     case "client_credentials":
                         userContext.Schema = AuthSchemes.ItemIamClientIdentification;
@@ -179,6 +184,53 @@ namespace WebApi.Authentication
             catch
             {
                 context.Fail("Version mismatch");
+            }
+        }
+
+        /// <summary>
+        /// Load user type from IDM and populate UserContext.UserType
+        /// This method will not throw exceptions and will default to normal user (UserType=2) on any error
+        /// </summary>
+        private static async Task LoadUserTypeAsync(TokenValidatedContext context, UserContext userContext, string authorization)
+        {
+            // Set default value first
+            userContext.UserType = 2; // Default to normal user
+            
+            try
+            {
+                Console.WriteLine($"[TokenValidatedHandler] LoadUserTypeAsync started for user {userContext.UserId}");
+                
+                // Get IdmUserDataClient to fetch user information
+                var idmUserDataClient = context.HttpContext.RequestServices.GetService<FlowFlex.Application.Services.OW.IdmUserDataClient>();
+                if (idmUserDataClient == null)
+                {
+                    Console.WriteLine($"[TokenValidatedHandler] IdmUserDataClient not available, using default UserType=2");
+                    return;
+                }
+
+                // Call /api/v1/users/current/info to get UserType
+                Console.WriteLine($"[TokenValidatedHandler] Calling GetCurrentUserInfoAsync for user {userContext.UserId}");
+                var currentUserInfo = await idmUserDataClient.GetCurrentUserInfoAsync(authorization);
+                
+                if (currentUserInfo == null)
+                {
+                    Console.WriteLine($"[TokenValidatedHandler] GetCurrentUserInfoAsync returned null, using default UserType=2");
+                    return;
+                }
+
+                // Set UserType from IDM response
+                userContext.UserType = currentUserInfo.UserType ?? 2;
+                Console.WriteLine($"[TokenValidatedHandler] Successfully loaded UserType={userContext.UserType} for user {userContext.UserId} (IsSystemAdmin={userContext.IsSystemAdmin})");
+            }
+            catch (Exception ex)
+            {
+                // Log error but don't fail authentication - keep default UserType=2
+                Console.WriteLine($"[TokenValidatedHandler] Error loading user type (will use default UserType=2): {ex.GetType().Name} - {ex.Message}");
+                if (ex.InnerException != null)
+                {
+                    Console.WriteLine($"[TokenValidatedHandler] Inner exception: {ex.InnerException.GetType().Name} - {ex.InnerException.Message}");
+                }
+                // Don't log full stack trace to avoid cluttering logs
             }
         }
 

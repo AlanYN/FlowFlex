@@ -371,6 +371,10 @@ namespace FlowFlex.Application.Service.OW
                             EstimatedDuration = stage.EstimatedDuration,
                             IsActive = stage.IsActive,
                             VisibleInPortal = stage.VisibleInPortal,
+                            PortalPermission = stage.PortalPermission,
+                            ViewPermissionMode = stage.ViewPermissionMode,
+                            ViewTeams = stage.ViewTeams,
+                            OperateTeams = stage.OperateTeams,
                             Color = stage.Color
                         });
 
@@ -385,6 +389,10 @@ namespace FlowFlex.Application.Service.OW
                             EstimatedDuration = updatedStage.EstimatedDuration,
                             IsActive = updatedStage.IsActive,
                             VisibleInPortal = updatedStage.VisibleInPortal,
+                            PortalPermission = updatedStage.PortalPermission,
+                            ViewPermissionMode = updatedStage.ViewPermissionMode,
+                            ViewTeams = updatedStage.ViewTeams,
+                            OperateTeams = updatedStage.OperateTeams,
                             Color = updatedStage.Color
                         });
 
@@ -399,6 +407,10 @@ namespace FlowFlex.Application.Service.OW
                         if (stage.EstimatedDuration != updatedStage.EstimatedDuration) changedFields.Add("EstimatedDuration");
                         if (stage.IsActive != updatedStage.IsActive) changedFields.Add("IsActive");
                         if (stage.VisibleInPortal != updatedStage.VisibleInPortal) changedFields.Add("VisibleInPortal");
+                        if (stage.PortalPermission != updatedStage.PortalPermission) changedFields.Add("PortalPermission");
+                        if (stage.ViewPermissionMode != updatedStage.ViewPermissionMode) changedFields.Add("ViewPermissionMode");
+                        if (stage.ViewTeams != updatedStage.ViewTeams) changedFields.Add("ViewTeams");
+                        if (stage.OperateTeams != updatedStage.OperateTeams) changedFields.Add("OperateTeams");
                         if (stage.Color != updatedStage.Color) changedFields.Add("Color");
 
                         // Log the update operation (fire-and-forget)

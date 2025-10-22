@@ -963,6 +963,32 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                                 changeList.Add($"{field} from '{beforeStr}' to '{afterStr}'");
                             }
                         }
+                        else if (field.Equals("ViewPermissionMode", StringComparison.OrdinalIgnoreCase))
+                        {
+                            var beforeStr = beforeValue?.ToString() ?? "Public";
+                            var afterStr = afterValue?.ToString() ?? "Public";
+                            changeList.Add($"view permission mode from {beforeStr} to {afterStr}");
+                        }
+                        else if (field.Equals("ViewTeams", StringComparison.OrdinalIgnoreCase))
+                        {
+                            var beforeTeams = ParseTeamList(beforeValue?.ToString());
+                            var afterTeams = ParseTeamList(afterValue?.ToString());
+                            var teamChanges = GetTeamChangesAsync(beforeTeams, afterTeams, "view").GetAwaiter().GetResult();
+                            if (!string.IsNullOrEmpty(teamChanges))
+                            {
+                                changeList.Add(teamChanges);
+                            }
+                        }
+                        else if (field.Equals("OperateTeams", StringComparison.OrdinalIgnoreCase))
+                        {
+                            var beforeTeams = ParseTeamList(beforeValue?.ToString());
+                            var afterTeams = ParseTeamList(afterValue?.ToString());
+                            var teamChanges = GetTeamChangesAsync(beforeTeams, afterTeams, "operate").GetAwaiter().GetResult();
+                            if (!string.IsNullOrEmpty(teamChanges))
+                            {
+                                changeList.Add(teamChanges);
+                            }
+                        }
                         else if (field.Equals("AssigneeId", StringComparison.OrdinalIgnoreCase))
                         {
                             // Skip AssigneeId to avoid exposing internal IDs
@@ -1449,13 +1475,27 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                     {
                         try
                         {
+                            // Get tenant ID from UserContext (works in background tasks)
+                            var tenantId = _userContext?.TenantId ?? "999";
+                            _logger.LogDebug("Using TenantId: {TenantId} for fetching user names", tenantId);
+                            
                             // Fixed: Properly await async operation instead of blocking
-                            var users = await _userService.GetUsersByIdsAsync(changedUserIds);
-                            userNameMap = users.ToDictionary(
-                                u => u.Id,
-                                u => !string.IsNullOrEmpty(u.Username) ? u.Username :
-                                     (!string.IsNullOrEmpty(u.Email) ? u.Email : $"User_{u.Id}")
-                            );
+                            var users = await _userService.GetUsersByIdsAsync(changedUserIds, tenantId);
+                            
+                            // Group by ID to handle potential duplicates (shouldn't happen after UserService fix, but defensive)
+                            userNameMap = users
+                                .GroupBy(u => u.Id)
+                                .ToDictionary(
+                                    g => g.Key,
+                                    g =>
+                                    {
+                                        var user = g.First();
+                                        return !string.IsNullOrEmpty(user.Username) ? user.Username :
+                                               (!string.IsNullOrEmpty(user.Email) ? user.Email : $"User_{user.Id}");
+                                    }
+                                );
+                                
+                            _logger.LogDebug("Fetched {Count} user names for assignee change details", userNameMap.Count);
                         }
                         catch (Exception ex)
                         {
@@ -2127,6 +2167,145 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
             }
 
             return changes;
+        }
+
+        #endregion
+
+        #region Team Permission Helper Methods
+
+        /// <summary>
+        /// Parse team list from JSON string (handles double-encoded JSON)
+        /// </summary>
+        protected virtual List<string> ParseTeamList(string teamsJson)
+        {
+            if (string.IsNullOrWhiteSpace(teamsJson))
+            {
+                return new List<string>();
+            }
+
+            try
+            {
+                var trimmedData = teamsJson.Trim();
+
+                // Handle double-encoded JSON string (e.g., "\"[\\\"123\\\",\\\"456\\\"]\"")
+                // First, try to deserialize as a JSON string to get the actual JSON array string
+                if (trimmedData.StartsWith("\"") && trimmedData.EndsWith("\""))
+                {
+                    try
+                    {
+                        var unescapedJson = JsonSerializer.Deserialize<string>(trimmedData);
+                        if (!string.IsNullOrWhiteSpace(unescapedJson))
+                        {
+                            trimmedData = unescapedJson;
+                            _logger.LogDebug("Unescaped double-encoded team JSON: {UnescapedJson}", trimmedData);
+                        }
+                    }
+                    catch
+                    {
+                        // If deserialization fails, continue with original data
+                        _logger.LogDebug("Failed to unescape as double-encoded JSON, using original data");
+                    }
+                }
+
+                // Try to parse as JSON array
+                if (trimmedData.StartsWith("["))
+                {
+                    var teams = JsonSerializer.Deserialize<List<string>>(trimmedData);
+                    if (teams != null)
+                    {
+                        _logger.LogDebug("Successfully parsed {Count} teams from JSON array", teams.Count);
+                        return teams;
+                    }
+                }
+                
+                // Fallback: treat as comma-separated string
+                var teamList = trimmedData.Split(',', StringSplitOptions.RemoveEmptyEntries)
+                    .Select(t => t.Trim())
+                    .Where(t => !string.IsNullOrEmpty(t))
+                    .ToList();
+                
+                _logger.LogDebug("Parsed {Count} teams from comma-separated string", teamList.Count);
+                return teamList;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to parse team list: {TeamsJson}", teamsJson);
+                return new List<string>();
+            }
+        }
+
+        /// <summary>
+        /// Get team changes description (async version with team name resolution)
+        /// </summary>
+        protected virtual async Task<string> GetTeamChangesAsync(List<string> beforeTeams, List<string> afterTeams, string permissionType)
+        {
+            var changes = new List<string>();
+
+            var addedTeams = afterTeams.Except(beforeTeams).ToList();
+            var removedTeams = beforeTeams.Except(afterTeams).ToList();
+
+            // Get team names for all changed teams
+            var allChangedTeams = addedTeams.Concat(removedTeams).Distinct().ToList();
+            var teamNameMap = new Dictionary<string, string>();
+
+            if (allChangedTeams.Any())
+            {
+                try
+                {
+                    // Get tenant ID from UserContext (works in background tasks)
+                    var tenantId = _userContext?.TenantId ?? "999";
+                    _logger.LogDebug("Using TenantId: {TenantId} for fetching team names", tenantId);
+
+                    teamNameMap = await _userService.GetTeamNamesByIdsAsync(allChangedTeams, tenantId);
+                    _logger.LogDebug("Fetched {Count} team names for team change details", teamNameMap.Count);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to fetch team names for team change details. Using IDs instead.");
+                }
+            }
+
+            if (addedTeams.Any())
+            {
+                var addedNames = addedTeams
+                    .Select(id => teamNameMap.GetValueOrDefault(id, id))
+                    .ToList();
+
+                if (addedNames.Count == 1)
+                {
+                    changes.Add($"added {addedNames[0]} to {permissionType} teams");
+                }
+                else if (addedNames.Count <= 3)
+                {
+                    changes.Add($"added {string.Join(", ", addedNames)} to {permissionType} teams");
+                }
+                else
+                {
+                    changes.Add($"added {string.Join(", ", addedNames.Take(3))} and {addedNames.Count - 3} more to {permissionType} teams");
+                }
+            }
+
+            if (removedTeams.Any())
+            {
+                var removedNames = removedTeams
+                    .Select(id => teamNameMap.GetValueOrDefault(id, id))
+                    .ToList();
+
+                if (removedNames.Count == 1)
+                {
+                    changes.Add($"removed {removedNames[0]} from {permissionType} teams");
+                }
+                else if (removedNames.Count <= 3)
+                {
+                    changes.Add($"removed {string.Join(", ", removedNames)} from {permissionType} teams");
+                }
+                else
+                {
+                    changes.Add($"removed {string.Join(", ", removedNames.Take(3))} and {removedNames.Count - 3} more from {permissionType} teams");
+                }
+            }
+
+            return string.Join(", ", changes);
         }
 
         #endregion

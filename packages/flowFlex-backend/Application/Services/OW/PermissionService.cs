@@ -52,6 +52,15 @@ namespace FlowFlex.Application.Services.OW
 
             try
             {
+                // Step 0: Check if user is System Admin - bypass all permission checks
+                if (_userContext?.IsSystemAdmin == true)
+                {
+                    _logger.LogInformation(
+                        "User {UserId} is System Admin (UserType=1), bypassing all permission checks",
+                        userId);
+                    return PermissionResult.CreateSuccess(true, true, "SystemAdmin");
+                }
+
                 // Step 1: Validate input
                 if (userId <= 0 || workflowId <= 0)
                 {
@@ -136,6 +145,15 @@ namespace FlowFlex.Application.Services.OW
 
             try
             {
+                // Step 0: Check if user is System Admin - bypass all permission checks
+                if (_userContext?.IsSystemAdmin == true)
+                {
+                    _logger.LogInformation(
+                        "User {UserId} is System Admin (UserType=1), bypassing all permission checks",
+                        userId);
+                    return PermissionResult.CreateSuccess(true, true, "SystemAdmin");
+                }
+
                 // Step 1: Validate input
                 if (userId <= 0 || stageId <= 0)
                 {
@@ -273,6 +291,15 @@ namespace FlowFlex.Application.Services.OW
 
             try
             {
+                // Step 0: Check if user is System Admin - bypass all permission checks
+                if (_userContext?.IsSystemAdmin == true)
+                {
+                    _logger.LogInformation(
+                        "User {UserId} is System Admin (UserType=1), bypassing all permission checks",
+                        userId);
+                    return PermissionResult.CreateSuccess(true, true, "SystemAdmin");
+                }
+
                 // Step 1: Validate input
                 if (userId <= 0 || caseId <= 0)
                 {

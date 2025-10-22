@@ -40,6 +40,17 @@ namespace FlowFlex.Domain.Shared.Models
         /// </summary>
         public string DefaultTimeZone { get; set; }
 
+        /// <summary>
+        /// User type - 1: System Admin, 2: Normal User
+        /// System Admin (UserType = 1) bypasses all permission checks
+        /// </summary>
+        public int UserType { get; set; } = 2;
+
+        /// <summary>
+        /// Check if current user is system admin
+        /// </summary>
+        public bool IsSystemAdmin => UserType == 1;
+
         public UserTeamModel UserTeams { get; set; }
         public UserDataPermissionConfigModel UserDataPermissionConfig { get; set; }
     }

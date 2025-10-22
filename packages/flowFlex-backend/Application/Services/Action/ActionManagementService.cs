@@ -112,14 +112,6 @@ namespace FlowFlex.Application.Services.Action
                 isAssignmentWorkflow,
                 isTools);
 
-            // Exclude System type actions when not explicitly querying for them
-            // This prevents System actions from appearing in general queries
-            if (actionType == null)
-            {
-                data = data.Where(x => x.ActionType != ActionTypeEnum.System.ToString()).ToList();
-                total = data.Count;
-            }
-
             // Get ActionDefinition DTO list
             var actionDtos = _mapper.Map<List<ActionDefinitionDto>>(data);
 
