@@ -659,8 +659,15 @@ import InputTag from '@/components/global/u-input-tags/index.vue';
 import { useAdaptiveScrollbar } from '@/hooks/useAdaptiveScrollbar';
 import TableViewIcon from '@assets/svg/onboard/tavleView.svg';
 import ProgressViewIcon from '@assets/svg/onboard/progressView.svg';
+import { ViewPermissionModeEnum } from '@/enums/permissionEnum';
+import { useUserStore } from '@/stores/modules/user';
+import { menuRoles } from '@/stores/modules/menuFunction';
 
 const { t } = useI18n();
+
+// Store instances
+const userStore = useUserStore();
+const menuStore = menuRoles();
 
 // 使用自适应滚动条 hook
 const { scrollbarRef } = useAdaptiveScrollbar(70);
@@ -1031,9 +1038,122 @@ const handleWorkflowCancel = () => {
 	dialogVisible.workflowForm = false;
 };
 
+// 权限检查：检查当前用户是否会被排除在权限之外
+const checkWorkflowPermissions = async (
+	viewPermissionMode: number,
+	viewTeams: string[],
+	operateTeams: string[],
+	entityType: 'workflow' | 'stage' = 'workflow'
+): Promise<{
+	hasWarning: boolean;
+	warningMessage: string;
+}> => {
+	// 只在 VisibleToTeams 或 InvisibleToTeams 模式下检查
+	if (
+		viewPermissionMode !== ViewPermissionModeEnum.VisibleToTeams &&
+		viewPermissionMode !== ViewPermissionModeEnum.InvisibleToTeams
+	) {
+		return { hasWarning: false, warningMessage: '' };
+	}
+
+	const currentUser = userStore.getUserInfo;
+	if (!currentUser || !currentUser.userId) {
+		return { hasWarning: false, warningMessage: '' };
+	}
+
+	// 递归查找用户所属团队的辅助函数
+	const findUserTeams = (data: FlowflexUser[], userId: string): string[] => {
+		const teams: string[] = [];
+		for (const item of data) {
+			if (item.type === 'team' && item.children) {
+				// 检查团队下是否有当前用户
+				const hasCurrentUser = item.children.some(
+					(child) => child.type === 'user' && child.id === userId
+				);
+				if (hasCurrentUser) {
+					teams.push(item.id);
+				}
+				// 递归查找子团队
+				teams.push(...findUserTeams(item.children, userId));
+			}
+		}
+		return teams;
+	};
+
+	try {
+		// 获取用户数据
+		const userData = await menuStore.getFlowflexUserDataWithCache();
+		const currentUserId = String(currentUser.userId);
+		const userTeams = findUserTeams(userData, currentUserId);
+
+		let isUserExcludedFromView = false;
+		let isUserExcludedFromOperate = false;
+
+		// 检查 View Permission（基于团队）
+		const isInViewList = userTeams.some((teamId) => viewTeams.includes(teamId));
+		// 白名单：不在列表中 = 被排除；黑名单：在列表中 = 被排除
+		isUserExcludedFromView =
+			viewPermissionMode === ViewPermissionModeEnum.VisibleToTeams
+				? !isInViewList
+				: isInViewList;
+
+		// 检查 Operate Permission（基于团队）
+		const isInOperateList = userTeams.some((teamId) => operateTeams.includes(teamId));
+		// 白名单：不在列表中 = 被排除；黑名单：在列表中 = 被排除
+		isUserExcludedFromOperate =
+			viewPermissionMode === ViewPermissionModeEnum.VisibleToTeams
+				? !isInOperateList
+				: isInOperateList;
+
+		// 生成警告信息
+		if (isUserExcludedFromView || isUserExcludedFromOperate) {
+			let warningMessage = '';
+			const entityName = entityType === 'workflow' ? 'workflow' : 'stage';
+			if (isUserExcludedFromView && isUserExcludedFromOperate) {
+				warningMessage = `Warning: You are setting permissions that will exclude yourself from viewing and operating this ${entityName}. You will not be able to access this ${entityName} after saving. Do you want to continue?`;
+			} else if (isUserExcludedFromView) {
+				warningMessage = `Warning: You are setting permissions that will exclude yourself from viewing this ${entityName}. You will not be able to access this ${entityName} after saving. Do you want to continue?`;
+			} else {
+				warningMessage = `Warning: You are setting permissions that will exclude yourself from operating this ${entityName}. You will be able to view but not operate on this ${entityName} after saving. Do you want to continue?`;
+			}
+			return { hasWarning: true, warningMessage };
+		}
+	} catch (error) {
+		console.error('Failed to check user permissions:', error);
+	}
+
+	return { hasWarning: false, warningMessage: '' };
+};
+
 const createWorkflow = async (newWorkflow: Partial<Workflow>) => {
 	try {
 		loading.createWorkflow = true;
+
+		// 权限检查：检查当前用户是否会被排除在权限之外
+		const permissionCheck = await checkWorkflowPermissions(
+			newWorkflow.viewPermissionMode ?? ViewPermissionModeEnum.Public,
+			newWorkflow.viewTeams ?? [],
+			newWorkflow.operateTeams ?? [],
+			'workflow'
+		);
+		if (permissionCheck.hasWarning) {
+			try {
+				await ElMessageBox.confirm(
+					permissionCheck.warningMessage,
+					'⚠️ Permission Warning',
+					{
+						confirmButtonText: 'Continue',
+						cancelButtonText: 'Cancel',
+						type: 'warning',
+						distinguishCancelAndClose: true,
+					}
+				);
+			} catch (error) {
+				// 用户点击取消
+				loading.createWorkflow = false;
+				return;
+			}
+		}
 
 		// 检查系统中是否已有默认工作流
 		let shouldSetAsDefault = newWorkflow.isDefault || false;
@@ -1092,6 +1212,33 @@ const updateWorkflow = async (updatedWorkflow: Partial<Workflow>) => {
 
 	try {
 		loading.updateWorkflow = true;
+
+		// 权限检查：检查当前用户是否会被排除在权限之外
+		const permissionCheck = await checkWorkflowPermissions(
+			updatedWorkflow.viewPermissionMode ?? workflow.value.viewPermissionMode,
+			updatedWorkflow.viewTeams ?? workflow.value.viewTeams,
+			updatedWorkflow.operateTeams ?? workflow.value.operateTeams,
+			'workflow'
+		);
+		if (permissionCheck.hasWarning) {
+			try {
+				await ElMessageBox.confirm(
+					permissionCheck.warningMessage,
+					'⚠️ Permission Warning',
+					{
+						confirmButtonText: 'Continue',
+						cancelButtonText: 'Cancel',
+						type: 'warning',
+						distinguishCancelAndClose: true,
+					}
+				);
+			} catch (error) {
+				// 用户点击取消
+				loading.updateWorkflow = false;
+				return;
+			}
+		}
+
 		// 准备接口参数
 		const params = {
 			name: updatedWorkflow.name || workflow.value.name,
@@ -1290,6 +1437,8 @@ const submitStage = async (stage: Partial<Stage>) => {
 	try {
 		// 更新阶段
 		loading.updateStage = true;
+		// 注意：权限检查已在 StageForm.vue 组件内部完成，这里不需要重复检查
+
 		const params = {
 			workflowId: workflow.value.id,
 			...stage,

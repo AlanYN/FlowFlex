@@ -152,9 +152,17 @@ import { PrototypeTabs, TabPane } from '@/components/PrototypeTabs';
 import { Checklist, Questionnaire, Stage, ComponentsData, StageComponentData } from '#/onboard';
 import StagePermissions from './StagePermissions.vue';
 import { ViewPermissionModeEnum } from '@/enums/permissionEnum';
+import { useUserStore } from '@/stores/modules/user';
+import { menuRoles } from '@/stores/modules/menuFunction';
+import { ElMessageBox } from 'element-plus';
+import type { FlowflexUser as FlowflexUserType } from '#/golbal';
 
 // 颜色选项
 const colorOptions = stageColorOptions;
+
+// Store instances
+const userStore = useUserStore();
+const menuStore = menuRoles();
 
 // Props
 const props = defineProps({
@@ -334,8 +342,112 @@ function updateComponentsData(val: ComponentsData) {
 	formData.value.attachmentManagementNeeded = val.attachmentManagementNeeded ?? false;
 }
 
+// 权限检查：检查当前用户是否会被排除在权限之外
+const checkStagePermissions = async (): Promise<{
+	hasWarning: boolean;
+	warningMessage: string;
+}> => {
+	const viewPermissionMode = formData.value.viewPermissionMode;
+	const viewTeams = formData.value.viewTeams;
+	const operateTeams = formData.value.operateTeams;
+
+	// 只在 VisibleToTeams 或 InvisibleToTeams 模式下检查
+	if (
+		viewPermissionMode !== ViewPermissionModeEnum.VisibleToTeams &&
+		viewPermissionMode !== ViewPermissionModeEnum.InvisibleToTeams
+	) {
+		return { hasWarning: false, warningMessage: '' };
+	}
+
+	const currentUser = userStore.getUserInfo;
+	if (!currentUser || !currentUser.userId) {
+		return { hasWarning: false, warningMessage: '' };
+	}
+
+	// 递归查找用户所属团队的辅助函数
+	const findUserTeams = (data: FlowflexUserType[], userId: string): string[] => {
+		const teams: string[] = [];
+		for (const item of data) {
+			if (item.type === 'team' && item.children) {
+				// 检查团队下是否有当前用户
+				const hasCurrentUser = item.children.some(
+					(child) => child.type === 'user' && child.id === userId
+				);
+				if (hasCurrentUser) {
+					teams.push(item.id);
+				}
+				// 递归查找子团队
+				teams.push(...findUserTeams(item.children, userId));
+			}
+		}
+		return teams;
+	};
+
+	try {
+		// 获取用户数据
+		const userData = await menuStore.getFlowflexUserDataWithCache();
+		const currentUserId = String(currentUser.userId);
+		const userTeams = findUserTeams(userData, currentUserId);
+
+		let isUserExcludedFromView = false;
+		let isUserExcludedFromOperate = false;
+
+		// 检查 View Permission（基于团队）
+		const isInViewList = userTeams.some((teamId) => viewTeams.includes(teamId));
+		// 白名单：不在列表中 = 被排除；黑名单：在列表中 = 被排除
+		isUserExcludedFromView =
+			viewPermissionMode === ViewPermissionModeEnum.VisibleToTeams
+				? !isInViewList
+				: isInViewList;
+
+		// 检查 Operate Permission（基于团队）
+		const isInOperateList = userTeams.some((teamId) => operateTeams.includes(teamId));
+		// 白名单：不在列表中 = 被排除；黑名单：在列表中 = 被排除
+		isUserExcludedFromOperate =
+			viewPermissionMode === ViewPermissionModeEnum.VisibleToTeams
+				? !isInOperateList
+				: isInOperateList;
+
+		// 生成警告信息
+		if (isUserExcludedFromView || isUserExcludedFromOperate) {
+			let warningMessage = '';
+			if (isUserExcludedFromView && isUserExcludedFromOperate) {
+				warningMessage =
+					'Warning: You are setting permissions that will exclude yourself from viewing and operating this stage. You will not be able to access this stage after saving. Do you want to continue?';
+			} else if (isUserExcludedFromView) {
+				warningMessage =
+					'Warning: You are setting permissions that will exclude yourself from viewing this stage. You will not be able to access this stage after saving. Do you want to continue?';
+			} else {
+				warningMessage =
+					'Warning: You are setting permissions that will exclude yourself from operating this stage. You will be able to view but not operate on this stage after saving. Do you want to continue?';
+			}
+			return { hasWarning: true, warningMessage };
+		}
+	} catch (error) {
+		console.error('Failed to check stage permissions:', error);
+	}
+
+	return { hasWarning: false, warningMessage: '' };
+};
+
 // 提交
-function submitForm() {
+async function submitForm() {
+	// 权限检查：检查当前用户是否会被排除在权限之外
+	const permissionCheck = await checkStagePermissions();
+	if (permissionCheck.hasWarning) {
+		try {
+			await ElMessageBox.confirm(permissionCheck.warningMessage, '⚠️ Permission Warning', {
+				confirmButtonText: 'Continue',
+				cancelButtonText: 'Cancel',
+				type: 'warning',
+				distinguishCancelAndClose: true,
+			});
+		} catch (error) {
+			// 用户点击取消，不提交表单
+			return;
+		}
+	}
+
 	// 透传表单数据
 	const payload = { ...formData.value } as any;
 	// 颜色值
