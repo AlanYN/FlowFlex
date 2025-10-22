@@ -15,6 +15,10 @@
 					@tab-change="handleViewChange"
 				/>
 				<el-button
+					v-permission="
+						(ProjectPermissionEnum.workflow.create,
+						ProjectPermissionEnum.workflow.update)
+					"
 					type="primary"
 					@click="showNewWorkflowDialog"
 					:disabled="loading.createWorkflow"
@@ -659,6 +663,7 @@ import InputTag from '@/components/global/u-input-tags/index.vue';
 import { useAdaptiveScrollbar } from '@/hooks/useAdaptiveScrollbar';
 import TableViewIcon from '@assets/svg/onboard/tavleView.svg';
 import ProgressViewIcon from '@assets/svg/onboard/progressView.svg';
+import { ProjectPermissionEnum } from '@/enums/permissionEnum';
 
 const { t } = useI18n();
 

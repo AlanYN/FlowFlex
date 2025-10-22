@@ -30,11 +30,15 @@
 
 						<template #dropdown>
 							<el-dropdown-menu>
-								<el-dropdown-item @click="$emit('command', 'edit', row)">
+								<el-dropdown-item
+									v-permission="ProjectPermissionEnum.workflow.update"
+									@click="$emit('command', 'edit', row)"
+								>
 									<el-icon><Edit /></el-icon>
 									Edit
 								</el-dropdown-item>
 								<el-dropdown-item
+									v-permission="ProjectPermissionEnum.workflow.update"
 									v-if="!row.isDefault && row.status === 'active'"
 									@click="$emit('command', 'setDefault', row)"
 								>
@@ -42,6 +46,7 @@
 									Set as Default
 								</el-dropdown-item>
 								<el-dropdown-item
+									v-permission="ProjectPermissionEnum.workflow.update"
 									v-if="row.status === 'active'"
 									@click="$emit('command', 'deactivate', row)"
 								>
@@ -49,20 +54,30 @@
 									Set as Inactive
 								</el-dropdown-item>
 								<el-dropdown-item
+									v-permission="ProjectPermissionEnum.workflow.update"
 									v-if="row.status === 'inactive'"
 									@click="$emit('command', 'activate', row)"
 								>
 									<el-icon><Check /></el-icon>
 									Set as Active
 								</el-dropdown-item>
-								<el-dropdown-item @click="$emit('command', 'duplicate', row)">
+								<el-dropdown-item
+									v-permission="ProjectPermissionEnum.workflow.create"
+									@click="$emit('command', 'duplicate', row)"
+								>
 									<el-icon><CopyDocument /></el-icon>
 									Duplicate
 								</el-dropdown-item>
-								<el-dropdown-item divided>
+								<el-dropdown-item
+									v-permission="ProjectPermissionEnum.workflow.read"
+									divided
+								>
 									<HistoryButton :id="row.id" :type="WFEMoudels.Workflow" />
 								</el-dropdown-item>
-								<el-dropdown-item @click="$emit('command', 'export', row)">
+								<el-dropdown-item
+									v-permission="ProjectPermissionEnum.workflow.read"
+									@click="$emit('command', 'export', row)"
+								>
 									<el-icon><Download /></el-icon>
 									Export Workflow
 								</el-dropdown-item>
@@ -178,6 +193,7 @@ import { projectTenMinuteDate, tableMaxHeight } from '@/settings/projectSetting'
 import { Workflow } from '#/onboard';
 import { WFEMoudels } from '@/enums/appEnum';
 import StarIcon from '@assets/svg/workflow/star.svg';
+import { ProjectPermissionEnum } from '@/enums/permissionEnum';
 
 // Props
 const props = defineProps<{
