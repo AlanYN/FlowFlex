@@ -220,12 +220,9 @@ const currentOperateSelection = computed({
 // 处理 View 选择类型切换（切换时清空对应的另一个字段）
 const handleViewSelectionTypeChange = () => {
 	if (viewSelectionType.value === 'team') {
-		// 切换到 team，清空 users
-		localPermissions.viewUsers = [];
 		localPermissions.viewPermissionSubjectType = PermissionSubjectTypeEnum.Team;
 	} else {
-		// 切换到 user，清空 teams
-		localPermissions.viewTeams = [];
+		// 切换到 user，保持不变
 		localPermissions.viewPermissionSubjectType = PermissionSubjectTypeEnum.User;
 	}
 };
@@ -233,12 +230,10 @@ const handleViewSelectionTypeChange = () => {
 // 处理 Operate 选择类型切换（切换时清空对应的另一个字段）
 const handleOperateSelectionTypeChange = () => {
 	if (operateSelectionType.value === 'team') {
-		// 切换到 team，清空 users
-		localPermissions.operateUsers = [];
+		// 切换到 team，保持不变
 		localPermissions.operatePermissionSubjectType = PermissionSubjectTypeEnum.Team;
 	} else {
-		// 切换到 user，清空 teams
-		localPermissions.operateTeams = [];
+		// 切换到 user，保持不变
 		localPermissions.operatePermissionSubjectType = PermissionSubjectTypeEnum.User;
 	}
 };

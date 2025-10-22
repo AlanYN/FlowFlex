@@ -1705,6 +1705,108 @@ const resetForm = () => {
 	}
 };
 
+// 权限检查：检查当前用户是否会被排除在 View 或 Operate 权限之外
+const checkCurrentUserPermissions = async (): Promise<{
+	hasWarning: boolean;
+	warningMessage: string;
+}> => {
+	// 只在 VisibleToTeams 或 InvisibleToTeams 模式下检查
+	if (
+		formData.viewPermissionMode !== CasePermissionModeEnum.VisibleToTeams &&
+		formData.viewPermissionMode !== CasePermissionModeEnum.InvisibleToTeams
+	) {
+		return { hasWarning: false, warningMessage: '' };
+	}
+
+	const currentUser = userStore.getUserInfo;
+	if (!currentUser || !currentUser.userId) {
+		return { hasWarning: false, warningMessage: '' };
+	}
+
+	// 递归查找用户所属团队的辅助函数
+	const findUserTeams = (data: FlowflexUser[], userId: string): string[] => {
+		const teams: string[] = [];
+		for (const item of data) {
+			if (item.type === 'team' && item.children) {
+				// 检查团队下是否有当前用户
+				const hasCurrentUser = item.children.some(
+					(child) => child.type === 'user' && child.id === userId
+				);
+				if (hasCurrentUser) {
+					teams.push(item.id);
+				}
+				// 递归查找子团队
+				teams.push(...findUserTeams(item.children, userId));
+			}
+		}
+		return teams;
+	};
+
+	try {
+		// 获取用户数据
+		const userData = await menuStore.getFlowflexUserDataWithCache();
+		const currentUserId = String(currentUser.userId);
+		const userTeams = findUserTeams(userData, currentUserId);
+
+		let isUserExcludedFromView = false;
+		let isUserExcludedFromOperate = false;
+
+		// 检查 View Permission
+		if (formData.viewPermissionSubjectType === PermissionSubjectTypeEnum.User) {
+			const isInList = formData.viewUsers.includes(currentUserId);
+			// 白名单：不在列表中 = 被排除；黑名单：在列表中 = 被排除
+			isUserExcludedFromView =
+				formData.viewPermissionMode === CasePermissionModeEnum.VisibleToTeams
+					? !isInList
+					: isInList;
+		} else if (formData.viewPermissionSubjectType === PermissionSubjectTypeEnum.Team) {
+			const isInList = userTeams.some((teamId) => formData.viewTeams.includes(teamId));
+			// 白名单：不在列表中 = 被排除；黑名单：在列表中 = 被排除
+			isUserExcludedFromView =
+				formData.viewPermissionMode === CasePermissionModeEnum.VisibleToTeams
+					? !isInList
+					: isInList;
+		}
+
+		// 检查 Operate Permission
+		if (formData.operatePermissionSubjectType === PermissionSubjectTypeEnum.User) {
+			const isInList = formData.operateUsers.includes(currentUserId);
+			// 白名单：不在列表中 = 被排除；黑名单：在列表中 = 被排除
+			isUserExcludedFromOperate =
+				formData.viewPermissionMode === CasePermissionModeEnum.VisibleToTeams
+					? !isInList
+					: isInList;
+		} else if (formData.operatePermissionSubjectType === PermissionSubjectTypeEnum.Team) {
+			const isInList = userTeams.some((teamId) => formData.operateTeams.includes(teamId));
+			// 白名单：不在列表中 = 被排除；黑名单：在列表中 = 被排除
+			isUserExcludedFromOperate =
+				formData.viewPermissionMode === CasePermissionModeEnum.VisibleToTeams
+					? !isInList
+					: isInList;
+		}
+
+		// 生成警告信息
+		if (isUserExcludedFromView || isUserExcludedFromOperate) {
+			let warningMessage = '';
+			if (isUserExcludedFromView && isUserExcludedFromOperate) {
+				warningMessage =
+					'Warning: You are setting permissions that will exclude yourself from viewing and operating this case. You will not be able to access this case after saving. Do you want to continue?';
+			} else if (isUserExcludedFromView) {
+				warningMessage =
+					'Warning: You are setting permissions that will exclude yourself from viewing this case. You will not be able to access this case after saving. Do you want to continue?';
+			} else {
+				warningMessage =
+					'Warning: You are setting permissions that will exclude yourself from operating this case. You will be able to view but not operate on this case after saving. Do you want to continue?';
+			}
+			return { hasWarning: true, warningMessage };
+		}
+	} catch (error) {
+		console.error('Failed to check user permissions:', error);
+	}
+
+	return { hasWarning: false, warningMessage: '' };
+};
+
 const handleSave = async () => {
 	if (!formRef.value) return;
 
@@ -1712,7 +1814,47 @@ const handleSave = async () => {
 		// 表单验证
 		await formRef.value.validate();
 
+		// 权限检查：检查当前用户是否会被排除在权限之外
+		const permissionCheck = await checkCurrentUserPermissions();
+		if (permissionCheck.hasWarning) {
+			try {
+				await ElMessageBox.confirm(
+					permissionCheck.warningMessage,
+					'⚠️ Permission Warning',
+					{
+						confirmButtonText: 'Continue',
+						cancelButtonText: 'Cancel',
+						type: 'warning',
+						distinguishCancelAndClose: true,
+					}
+				);
+			} catch (error) {
+				// 用户点击取消
+				return;
+			}
+		}
+
 		saving.value = true;
+		if (
+			formData.viewPermissionMode === CasePermissionModeEnum.InvisibleToTeams ||
+			formData.viewPermissionMode === CasePermissionModeEnum.VisibleToTeams
+		) {
+			if (formData.viewPermissionSubjectType === PermissionSubjectTypeEnum.User) {
+				formData.viewTeams = [];
+			} else if (formData.viewPermissionSubjectType === PermissionSubjectTypeEnum.Team) {
+				formData.viewUsers = [];
+			}
+			if (formData.operatePermissionSubjectType === PermissionSubjectTypeEnum.User) {
+				formData.operateTeams = [];
+			} else if (formData.operatePermissionSubjectType === PermissionSubjectTypeEnum.Team) {
+				formData.operateUsers = [];
+			}
+		} else {
+			formData.viewTeams = [];
+			formData.viewUsers = [];
+			formData.operateTeams = [];
+			formData.operateUsers = [];
+		}
 
 		// 处理 ownership 字段：如果为空字符串，转换为 null
 		const submitData = {
