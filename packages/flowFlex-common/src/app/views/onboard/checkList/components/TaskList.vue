@@ -1,13 +1,10 @@
 <template>
 	<div class="task-list">
-		<div
-			class="flex items-center justify-center py-8"
-			v-if="!tasksLoaded || (isDragging && draggingChecklistId === props.checklist.id)"
-		>
+		<div class="flex items-center justify-center py-8" v-if="!tasksLoaded">
 			<el-icon class="animate-spin h-6 w-6 text-primary-500 mr-2">
 				<Loading />
 			</el-icon>
-			{{ !tasksLoaded ? 'Loading tasks...' : 'Updating task order...' }}
+			Loading tasks...
 		</div>
 
 		<!-- 任务已加载完成时显示 -->
@@ -330,6 +327,7 @@ const newTaskAssigneeSelectorRef = ref(null);
 const editTaskAssigneeSelectorRef = ref(null);
 
 // 加载任务数据
+// 加载任务（初始加载，显示loading状态）
 const loadTasks = async () => {
 	try {
 		tasksLoaded.value = false;
@@ -351,6 +349,28 @@ const loadTasks = async () => {
 		ElMessage.error(`Failed to load tasks: ${error.message || 'Unknown error'}`);
 		tasks.value = [];
 		tasksLoaded.value = true;
+	}
+};
+
+// 刷新任务（静默刷新，不改变loading状态，避免UI闪烁）
+const refreshTasks = async () => {
+	try {
+		const response = await getChecklistTasks(props.checklist.id);
+		const tasksData = response.data || response || [];
+
+		const processedTasks = tasksData
+			.map((task) => ({
+				...task,
+				completed: task.isCompleted || task.completed || false,
+				estimatedMinutes: task.estimatedHours ? task.estimatedHours * 60 : 0,
+				orderIndex: task.orderIndex,
+			}))
+			.sort((a, b) => (a.orderIndex || 0) - (b.orderIndex || 0));
+
+		tasks.value = processedTasks;
+	} catch (error) {
+		console.error('Failed to refresh tasks:', error);
+		ElMessage.error(`Failed to refresh tasks: ${error.message || 'Unknown error'}`);
 	}
 };
 
@@ -394,8 +414,8 @@ const addTask = async (checklistId) => {
 		await createChecklistTask(taskData);
 		ElMessage.success(t('sys.api.operationSuccess'));
 
-		// 重新加载任务数据
-		await loadTasks();
+		// 静默刷新任务数据，避免UI闪烁
+		await refreshTasks();
 		// 通知父组件更新checklist数据
 		emit('task-updated', checklistId);
 		cancelAddTask();
@@ -427,8 +447,8 @@ const deleteTask = async (checklistId, taskId) => {
 		await deleteChecklistTask(taskId, true);
 		ElMessage.success('Task deleted successfully');
 
-		// 重新加载任务数据
-		await loadTasks();
+		// 静默刷新任务数据，避免UI闪烁
+		await refreshTasks();
 		// 通知父组件更新checklist数据
 		emit('task-updated', checklistId);
 	} catch (err) {
@@ -501,10 +521,12 @@ const saveTaskEdit = async () => {
 
 		await updateChecklistTask(editingTask.value.id, taskData);
 		ElMessage.success(t('sys.api.operationSuccess'));
-		// 重新加载任务数据
-		await loadTasks();
+
+		// 静默刷新任务数据，避免UI闪烁
+		await refreshTasks();
 		// 通知父组件更新checklist数据
-		// emit('task-updated', props.checklist.id);
+		emit('task-updated', props.checklist.id);
+
 		// 成功保存后清理编辑状态
 		editingTask.value = null;
 		originalTaskData.value = null;
@@ -554,15 +576,14 @@ const onTaskDragChange = async (checklistId, event) => {
 		await Promise.all([Promise.all(updatePromises), minLoadingTime]);
 		ElMessage.success('Task order updated successfully');
 
-		// 重新加载任务数据
-		await loadTasks();
+		// 静默刷新任务数据，确保与后端完全一致
+		await refreshTasks();
 		// 通知父组件更新checklist数据
 		emit('task-updated', checklistId);
 	} catch (err) {
-		ElMessage.warning('Failed to save new order, but changes are visible locally');
-		// 即使出错也要等待最小loading时间并通知更新
-		await minLoadingTime;
-		// 重新加载任务数据
+		console.error('Failed to update task order:', err);
+		ElMessage.error('Failed to save new order');
+		// API调用失败时，显示loading并重新加载任务数据以恢复正确的顺序
 		await loadTasks();
 		emit('task-updated', checklistId);
 	} finally {
@@ -661,7 +682,11 @@ const onActionSave = async (actionResult) => {
 			});
 			if (updateResponse.code === '200') {
 				ElMessage.success(t('sys.api.operationSuccess'));
-				await loadTasks();
+
+				// 静默刷新任务数据，避免UI闪烁
+				await refreshTasks();
+				// 通知父组件更新checklist数据
+				emit('task-updated', props.checklist.id);
 			} else {
 				ElMessage.error(t('sys.api.operationFailed'));
 			}
@@ -723,7 +748,9 @@ const removeActionBinding = async (task) => {
 							);
 							if (unbindResponse.code === '200') {
 								ElMessage.success('Action binding removed successfully');
-								await loadTasks();
+
+								// 静默刷新任务数据，避免UI闪烁
+								await refreshTasks();
 								emit('task-updated', props.checklist.id);
 								done();
 							} else {
@@ -748,6 +775,7 @@ const removeActionBinding = async (task) => {
 
 defineExpose({
 	loadTasks,
+	refreshTasks,
 	resetTaskList,
 });
 </script>

@@ -188,13 +188,14 @@ namespace WebApi.Authentication
         }
 
         /// <summary>
-        /// Load user type from IDM and populate UserContext.UserType
-        /// This method will not throw exceptions and will default to normal user (UserType=2) on any error
+        /// Load user permissions from IDM and populate UserContext.UserPermissions
+        /// This method will not throw exceptions and will default to normal user on any error
         /// </summary>
         private static async Task LoadUserTypeAsync(TokenValidatedContext context, UserContext userContext, string authorization)
         {
             // Set default value first
             userContext.UserType = 2; // Default to normal user
+            userContext.UserPermissions = new List<FlowFlex.Domain.Shared.Models.UserPermissionModel>();
             
             try
             {
@@ -204,28 +205,47 @@ namespace WebApi.Authentication
                 var idmUserDataClient = context.HttpContext.RequestServices.GetService<FlowFlex.Application.Services.OW.IdmUserDataClient>();
                 if (idmUserDataClient == null)
                 {
-                    Console.WriteLine($"[TokenValidatedHandler] IdmUserDataClient not available, using default UserType=2");
+                    Console.WriteLine($"[TokenValidatedHandler] IdmUserDataClient not available, using default permissions");
                     return;
                 }
 
-                // Call /api/v1/users/current/info to get UserType
-                Console.WriteLine($"[TokenValidatedHandler] Calling GetCurrentUserInfoAsync for user {userContext.UserId}");
-                var currentUserInfo = await idmUserDataClient.GetCurrentUserInfoAsync(authorization);
+                // Call /api/v1/users/{userId} to get user permissions
+                Console.WriteLine($"[TokenValidatedHandler] Calling GetUserByIdAsync for user {userContext.UserId}");
+                var userInfo = await idmUserDataClient.GetUserByIdAsync(userContext.UserId, authorization);
                 
-                if (currentUserInfo == null)
+                if (userInfo == null)
                 {
-                    Console.WriteLine($"[TokenValidatedHandler] GetCurrentUserInfoAsync returned null, using default UserType=2");
+                    Console.WriteLine($"[TokenValidatedHandler] GetUserByIdAsync returned null, using default permissions");
                     return;
                 }
 
-                // Set UserType from IDM response
-                userContext.UserType = currentUserInfo.UserType ?? 2;
-                Console.WriteLine($"[TokenValidatedHandler] Successfully loaded UserType={userContext.UserType} for user {userContext.UserId} (IsSystemAdmin={userContext.IsSystemAdmin})");
+                // Map UserPermissions from IDM to UserContext
+                if (userInfo.UserPermissions != null && userInfo.UserPermissions.Any())
+                {
+                    userContext.UserPermissions = userInfo.UserPermissions.Select(p => new FlowFlex.Domain.Shared.Models.UserPermissionModel
+                    {
+                        TenantId = p.TenantId,
+                        UserType = p.UserType ?? 3, // Default to normal user if not specified
+                        RoleIds = p.RoleIds ?? new List<string>()
+                    }).ToList();
+
+                    Console.WriteLine($"[TokenValidatedHandler] Loaded {userContext.UserPermissions.Count} user permissions");
+                    foreach (var permission in userContext.UserPermissions)
+                    {
+                        Console.WriteLine($"[TokenValidatedHandler] Permission - TenantId: {permission.TenantId}, UserType: {permission.UserType}");
+                    }
+                }
+                else
+                {
+                    Console.WriteLine($"[TokenValidatedHandler] No user permissions found in IDM response");
+                }
+
+                Console.WriteLine($"[TokenValidatedHandler] Successfully loaded user permissions for user {userContext.UserId} (IsSystemAdmin={userContext.IsSystemAdmin})");
             }
             catch (Exception ex)
             {
-                // Log error but don't fail authentication - keep default UserType=2
-                Console.WriteLine($"[TokenValidatedHandler] Error loading user type (will use default UserType=2): {ex.GetType().Name} - {ex.Message}");
+                // Log error but don't fail authentication - keep default permissions
+                Console.WriteLine($"[TokenValidatedHandler] Error loading user permissions (will use default): {ex.GetType().Name} - {ex.Message}");
                 if (ex.InnerException != null)
                 {
                     Console.WriteLine($"[TokenValidatedHandler] Inner exception: {ex.InnerException.GetType().Name} - {ex.InnerException.Message}");

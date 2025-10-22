@@ -1626,13 +1626,9 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                 {
                     changes.Add($"added {addedNames[0]} to {permissionType} teams");
                 }
-                else if (addedNames.Count <= 3)
-                {
-                    changes.Add($"added {string.Join(", ", addedNames)} to {permissionType} teams");
-                }
                 else
                 {
-                    changes.Add($"added {string.Join(", ", addedNames.Take(3))} and {addedNames.Count - 3} more to {permissionType} teams");
+                    changes.Add($"added {string.Join(", ", addedNames)} to {permissionType} teams");
                 }
             }
 
@@ -1646,13 +1642,9 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                 {
                     changes.Add($"removed {removedNames[0]} from {permissionType} teams");
                 }
-                else if (removedNames.Count <= 3)
-                {
-                    changes.Add($"removed {string.Join(", ", removedNames)} from {permissionType} teams");
-                }
                 else
                 {
-                    changes.Add($"removed {string.Join(", ", removedNames.Take(3))} and {removedNames.Count - 3} more from {permissionType} teams");
+                    changes.Add($"removed {string.Join(", ", removedNames)} from {permissionType} teams");
                 }
             }
 

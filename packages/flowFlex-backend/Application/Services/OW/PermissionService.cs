@@ -1,3 +1,4 @@
+using FlowFlex.Application.Contracts.Dtos.OW.Permission;
 using FlowFlex.Application.Contracts.IServices.OW;
 using FlowFlex.Domain.Entities.OW;
 using FlowFlex.Domain.Repository.OW;
@@ -39,6 +40,14 @@ namespace FlowFlex.Application.Services.OW
         }
 
         /// <summary>
+        /// Get current tenant ID from UserContext
+        /// </summary>
+        private string GetCurrentTenantId()
+        {
+            return _userContext?.TenantId ?? "DEFAULT";
+        }
+
+        /// <summary>
         /// Check Workflow access permission
         /// </summary>
         public async Task<PermissionResult> CheckWorkflowAccessAsync(
@@ -52,13 +61,23 @@ namespace FlowFlex.Application.Services.OW
 
             try
             {
-                // Step 0: Check if user is System Admin - bypass all permission checks
+                // Step 0: Check if user is System Admin or Tenant Admin - bypass all permission checks
                 if (_userContext?.IsSystemAdmin == true)
                 {
                     _logger.LogInformation(
-                        "User {UserId} is System Admin (UserType=1), bypassing all permission checks",
+                        "User {UserId} is System Admin, bypassing all permission checks",
                         userId);
                     return PermissionResult.CreateSuccess(true, true, "SystemAdmin");
+                }
+
+                // Get current tenant ID to check tenant admin privileges
+                var currentTenantId = GetCurrentTenantId();
+                if (_userContext != null && _userContext.HasAdminPrivileges(currentTenantId))
+                {
+                    _logger.LogInformation(
+                        "User {UserId} is Tenant Admin for tenant {TenantId}, bypassing all permission checks",
+                        userId, currentTenantId);
+                    return PermissionResult.CreateSuccess(true, true, "TenantAdmin");
                 }
 
                 // Step 1: Validate input
@@ -145,13 +164,23 @@ namespace FlowFlex.Application.Services.OW
 
             try
             {
-                // Step 0: Check if user is System Admin - bypass all permission checks
+                // Step 0: Check if user is System Admin or Tenant Admin - bypass all permission checks
                 if (_userContext?.IsSystemAdmin == true)
                 {
                     _logger.LogInformation(
-                        "User {UserId} is System Admin (UserType=1), bypassing all permission checks",
+                        "User {UserId} is System Admin, bypassing all permission checks",
                         userId);
                     return PermissionResult.CreateSuccess(true, true, "SystemAdmin");
+                }
+
+                // Get current tenant ID to check tenant admin privileges
+                var currentTenantId = GetCurrentTenantId();
+                if (_userContext != null && _userContext.HasAdminPrivileges(currentTenantId))
+                {
+                    _logger.LogInformation(
+                        "User {UserId} is Tenant Admin for tenant {TenantId}, bypassing all permission checks",
+                        userId, currentTenantId);
+                    return PermissionResult.CreateSuccess(true, true, "TenantAdmin");
                 }
 
                 // Step 1: Validate input
@@ -291,13 +320,23 @@ namespace FlowFlex.Application.Services.OW
 
             try
             {
-                // Step 0: Check if user is System Admin - bypass all permission checks
+                // Step 0: Check if user is System Admin or Tenant Admin - bypass all permission checks
                 if (_userContext?.IsSystemAdmin == true)
                 {
                     _logger.LogInformation(
-                        "User {UserId} is System Admin (UserType=1), bypassing all permission checks",
+                        "User {UserId} is System Admin, bypassing all permission checks",
                         userId);
                     return PermissionResult.CreateSuccess(true, true, "SystemAdmin");
+                }
+
+                // Get current tenant ID to check tenant admin privileges
+                var currentTenantId = GetCurrentTenantId();
+                if (_userContext != null && _userContext.HasAdminPrivileges(currentTenantId))
+                {
+                    _logger.LogInformation(
+                        "User {UserId} is Tenant Admin for tenant {TenantId}, bypassing all permission checks",
+                        userId, currentTenantId);
+                    return PermissionResult.CreateSuccess(true, true, "TenantAdmin");
                 }
 
                 // Step 1: Validate input
@@ -1197,6 +1236,80 @@ namespace FlowFlex.Application.Services.OW
                     string.Join(", ", users),
                     hasUserAccess);
                 return hasUserAccess;
+            }
+        }
+
+        /// <summary>
+        /// Check resource permission (unified interface for HTTP API)
+        /// Checks both View and Operate permissions for the specified resource
+        /// </summary>
+        public async Task<CheckPermissionResponse> CheckResourcePermissionAsync(
+            long userId,
+            long resourceId,
+            PermissionEntityTypeEnum resourceType)
+        {
+            _logger.LogInformation(
+                "CheckResourcePermissionAsync - UserId: {UserId}, ResourceId: {ResourceId}, ResourceType: {ResourceType}",
+                userId, resourceId, resourceType);
+
+            try
+            {
+                PermissionResult result;
+
+                // Check permission based on resource type
+                switch (resourceType)
+                {
+                    case PermissionEntityTypeEnum.Workflow:
+                        result = await CheckWorkflowAccessAsync(userId, resourceId, PermissionOperationType.Operate);
+                        break;
+
+                    case PermissionEntityTypeEnum.Stage:
+                        result = await CheckStageAccessAsync(userId, resourceId, PermissionOperationType.Operate);
+                        break;
+
+                    case PermissionEntityTypeEnum.Case:
+                        result = await CheckCaseAccessAsync(userId, resourceId, PermissionOperationType.Operate);
+                        break;
+
+                    default:
+                        _logger.LogWarning(
+                            "Unsupported resource type: {ResourceType}",
+                            resourceType);
+                        return new CheckPermissionResponse
+                        {
+                            CanView = false,
+                            CanOperate = false,
+                            ErrorMessage = $"Unsupported resource type: {resourceType}"
+                        };
+                }
+
+                // Convert PermissionResult to CheckPermissionResponse
+                var response = new CheckPermissionResponse
+                {
+                    CanView = result.CanView,
+                    CanOperate = result.CanOperate,
+                    GrantReason = result.GrantReason,
+                    ErrorMessage = result.Success ? null : result.ErrorMessage
+                };
+
+                _logger.LogInformation(
+                    "CheckResourcePermissionAsync result - CanView: {CanView}, CanOperate: {CanOperate}, Reason: {Reason}",
+                    response.CanView, response.CanOperate, response.GrantReason ?? response.ErrorMessage);
+
+                return response;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex,
+                    "Error checking resource permission - UserId: {UserId}, ResourceId: {ResourceId}, ResourceType: {ResourceType}",
+                    userId, resourceId, resourceType);
+
+                return new CheckPermissionResponse
+                {
+                    CanView = false,
+                    CanOperate = false,
+                    ErrorMessage = "Internal error during permission check"
+                };
             }
         }
     }

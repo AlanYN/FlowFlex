@@ -755,31 +755,155 @@ namespace FlowFlex.Application.Services.OW
         /// </summary>
         /// <param name="authorization">Authorization header value (e.g., "Bearer token")</param>
         /// <returns>User information including UserType</returns>
+        /// <summary>
+        /// Get user information by user ID from IDM
+        /// </summary>
+        /// <param name="userId">User ID</param>
+        /// <param name="authorization">User's authorization token (e.g., "Bearer token")</param>
+        /// <returns>User information with permissions</returns>
+        public async Task<IdmUserOutputDto> GetUserByIdAsync(string userId, string authorization)
+        {
+            try
+            {
+                _logger.LogInformation("=== GetUserByIdAsync Started ===");
+                _logger.LogInformation("Requesting user info for UserId: {UserId}", userId);
+
+                // Endpoint: /api/v1/users/{userId}
+                var endpoint = $"/api/v1/users/{userId}";
+                var url = $"{_options.BaseUrl}{endpoint}";
+                
+                _logger.LogInformation("Requesting user info from: {Url}", url);
+
+                // Create request with user's authorization token
+                var request = new HttpRequestMessage(HttpMethod.Get, endpoint);
+                request.Headers.Add("Authorization", authorization);
+
+                var startTime = DateTimeOffset.UtcNow;
+                var resp = await _client.SendAsync(request);
+                var elapsed = DateTimeOffset.UtcNow - startTime;
+
+                _logger.LogInformation("IDM user info API response - StatusCode: {StatusCode}, Elapsed: {ElapsedMs}ms",
+                    resp.StatusCode, elapsed.TotalMilliseconds);
+
+                if (!resp.IsSuccessStatusCode)
+                {
+                    var errorContent = await resp.Content.ReadAsStringAsync();
+                    
+                    // If Forbidden (403), try fallback to /api/v1/users/current/info
+                    // This happens when a normal user tries to view their own info
+                    if (resp.StatusCode == System.Net.HttpStatusCode.Forbidden)
+                    {
+                        _logger.LogInformation(
+                            "User {UserId} got Forbidden (403) from /api/v1/users/{UserId}, falling back to /api/v1/users/current/info",
+                            userId, userId);
+                        
+                        try
+                        {
+                            // Fallback to current user info endpoint
+                            var currentUserInfo = await GetCurrentUserInfoAsync(authorization);
+                            if (currentUserInfo != null)
+                            {
+                                _logger.LogInformation("Successfully retrieved user info via /api/v1/users/current/info fallback");
+                                return currentUserInfo;
+                            }
+                        }
+                        catch (Exception fallbackEx)
+                        {
+                            _logger.LogWarning(fallbackEx, "Fallback to /api/v1/users/current/info also failed");
+                        }
+                    }
+                    
+                    _logger.LogError("IDM user info API request failed: {StatusCode} - {ErrorContent}", 
+                        resp.StatusCode, errorContent);
+                    throw new HttpRequestException($"IDM user info API request failed: {resp.StatusCode} - {errorContent}");
+                }
+
+                var responseContent = await resp.Content.ReadAsStringAsync();
+                _logger.LogDebug("Raw user info response content (first 500 chars): {Content}",
+                    responseContent.Length > 500 ? responseContent.Substring(0, 500) + "..." : responseContent);
+
+                var result = JsonSerializer.Deserialize<BasicResponse<IdmUserOutputDto>>(responseContent, new JsonSerializerOptions
+                {
+                    PropertyNameCaseInsensitive = true
+                });
+
+                if (result == null)
+                {
+                    _logger.LogError("Failed to deserialize user info response - result is null");
+                    throw new Exception("Failed to deserialize IDM user info API response");
+                }
+
+                _logger.LogInformation("User info deserialization successful - Status: {Status}, Code: {Code}, Message: {Message}",
+                    result.Status, result.Code, result.Message);
+
+                if (result.Data == null)
+                {
+                    _logger.LogWarning("IDM user info API returned null data in result");
+                    return null;
+                }
+
+                _logger.LogInformation("=== GetUserByIdAsync Success ===");
+                _logger.LogInformation("Retrieved user info - UserId: {UserId}, UserName: {UserName}, UserPermissions: {PermissionCount}",
+                    result.Data.Id, result.Data.Username, result.Data.UserPermissions?.Count ?? 0);
+
+                // Log user permissions for debugging
+                if (result.Data.UserPermissions != null && result.Data.UserPermissions.Any())
+                {
+                    foreach (var permission in result.Data.UserPermissions)
+                    {
+                        _logger.LogDebug("User permission - TenantId: {TenantId}, UserType: {UserType}, RoleIds: {RoleIds}",
+                            permission.TenantId, permission.UserType, string.Join(", ", permission.RoleIds ?? new List<string>()));
+                    }
+                }
+
+                return result.Data;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "=== GetUserByIdAsync Failed ===");
+                _logger.LogError("Exception details: {ExceptionType} - {ExceptionMessage}", ex.GetType().Name, ex.Message);
+                if (ex.InnerException != null)
+                {
+                    _logger.LogError("Inner exception: {InnerExceptionType} - {InnerExceptionMessage}",
+                        ex.InnerException.GetType().Name, ex.InnerException.Message);
+                }
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// Get current user information from IDM using /api/v1/users/current/info
+        /// This endpoint allows users to view their own information with their own token
+        /// </summary>
+        /// <param name="authorization">User's authorization token (e.g., "Bearer token")</param>
+        /// <returns>User information</returns>
         public async Task<IdmUserOutputDto> GetCurrentUserInfoAsync(string authorization)
         {
             try
             {
                 _logger.LogInformation("=== GetCurrentUserInfoAsync Started ===");
-                _logger.LogDebug("Authorization header: {Authorization}", 
-                    string.IsNullOrEmpty(authorization) ? "(empty)" : "Bearer ***");
-
+                
                 // Endpoint: /api/v1/users/current/info
                 var endpoint = "/api/v1/users/current/info";
                 var url = $"{_options.BaseUrl}{endpoint}";
                 
                 _logger.LogInformation("Requesting current user info from: {Url}", url);
 
-                // Create request with authorization header
-                var request = new HttpRequestMessage(HttpMethod.Get, url);
+                // Create request with user's authorization token
+                var request = new HttpRequestMessage(HttpMethod.Get, endpoint);
                 request.Headers.Add("Authorization", authorization);
 
-                _logger.LogDebug("Sending GET request to IDM current user info endpoint");
+                var startTime = DateTimeOffset.UtcNow;
                 var resp = await _client.SendAsync(request);
+                var elapsed = DateTimeOffset.UtcNow - startTime;
+
+                _logger.LogInformation("IDM current user info API response - StatusCode: {StatusCode}, Elapsed: {ElapsedMs}ms",
+                    resp.StatusCode, elapsed.TotalMilliseconds);
 
                 if (!resp.IsSuccessStatusCode)
                 {
                     var errorContent = await resp.Content.ReadAsStringAsync();
-                    _logger.LogError("IDM current user info API request failed: {StatusCode} - {ErrorContent}", 
+                    _logger.LogError("IDM current user info API request failed: {StatusCode} - {ErrorContent}",
                         resp.StatusCode, errorContent);
                     throw new HttpRequestException($"IDM current user info API request failed: {resp.StatusCode} - {errorContent}");
                 }
@@ -809,8 +933,8 @@ namespace FlowFlex.Application.Services.OW
                 }
 
                 _logger.LogInformation("=== GetCurrentUserInfoAsync Success ===");
-                _logger.LogInformation("Retrieved user info - UserId: {UserId}, UserName: {UserName}, UserType: {UserType}",
-                    result.Data.Id, result.Data.Username, result.Data.UserType);
+                _logger.LogInformation("Retrieved current user info - UserId: {UserId}, UserName: {UserName}",
+                    result.Data.Id, result.Data.Username);
 
                 return result.Data;
             }

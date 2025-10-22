@@ -65,6 +65,13 @@ public class ChecklistOutputDto
     public string Team { get; set; }
 
     /// <summary>
+    /// 团队名称
+    /// </summary>
+    /// <example>Human Resources</example>
+    [Description("团队的显示名称")]
+    public string TeamName { get; set; }
+
+    /// <summary>
     /// 清单类型
     /// </summary>
     /// <example>Template</example>

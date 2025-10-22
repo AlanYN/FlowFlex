@@ -221,7 +221,7 @@
 								class="text-primary-500 w-5 h-5"
 							/>
 							<span class="font-medium">
-								{{ checklist.team }}
+								{{ checklist.teamName || checklist.team }}
 							</span>
 						</div>
 					</el-tooltip>
