@@ -8,7 +8,6 @@ import { ElLoading } from 'element-plus';
 import { router } from '@/router';
 import dayjs from 'dayjs';
 import { getEnv } from './env';
-import { nextTick } from 'vue';
 
 const globSetting = useGlobSetting();
 
@@ -37,42 +36,44 @@ export async function formIDMLogin(ticket, oauth, state) {
 		userStore.setIsLogin(true);
 	}
 
-	const res = await verifyTicket({
-		ticket,
-		appId: ProjectEnum.WFE,
-	});
-	// 旧逻辑的参数结构
-	const { refreshToken, expiresIn, token, tokenType, userId } = res;
+	const currentEnv = getEnv();
+	let res;
+	let refreshToken, expiresIn, token, tokenType, userId;
 
-	// if (currentEnv === 'development') {
-	// 	// Development 环境：维持原逻辑
-	// 	res = await verifyTicket({
-	// 		ticket,
-	// 		appId: ProjectEnum.WFE,
-	// 	});
-	// 	// 旧逻辑的参数结构
-	// 	({ refreshToken, expiresIn, token, tokenType, userId } = res);
-	// } else {
-	// 	// 其他环境：使用 getSSOToken 接口
-	// 	res = await getSSOToken({
-	// 		code: ticket,
-	// 		redirectUrl: window.location.origin,
-	// 		clientid: globSetting.ssoCode,
-	// 	});
-	// 	// 新接口的参数结构适配
-	// 	refreshToken = res.refresh_token;
-	// 	expiresIn = res.expires_in;
-	// 	token = res.access_token;
-	// 	tokenType = res.token_type;
-	// 	// 从 access_token 中解析用户信息（JWT token）
-	// 	try {
-	// 		const tokenPayload = JSON.parse(atob(res.access_token.split('.')[1]));
-	// 		userId = tokenPayload.data?.user_id;
-	// 	} catch (error) {
-	// 		console.error('解析 access_token 失败:', error);
-	// 		userId = null;
-	// 	}
-	// }
+	if (currentEnv === 'development') {
+		// Development 环境：维持原逻辑
+		res = await verifyTicket({
+			ticket,
+			appId: ProjectEnum.WFE,
+		});
+		// 旧逻辑的参数结构
+		({ refreshToken, expiresIn, token, tokenType, userId } = res);
+	} else {
+		res = await verifyTicket({
+			ticket,
+			appId: ProjectEnum.WFE,
+		});
+		// 旧逻辑的参数结构
+		({ refreshToken, expiresIn, token, tokenType, userId } = res);
+		// res = await getSSOToken({
+		// 	code: ticket,
+		// 	redirectUrl: window.location.origin,
+		// 	clientid: globSetting.ssoCode,
+		// });
+		// // 新接口的参数结构适配
+		// refreshToken = res.refresh_token;
+		// expiresIn = res.expires_in;
+		// token = res.access_token;
+		// tokenType = res.token_type;
+		// // 从 access_token 中解析用户信息（JWT token）
+		// try {
+		// 	const tokenPayload = JSON.parse(atob(res.access_token.split('.')[1]));
+		// 	userId = tokenPayload.data?.user_id;
+		// } catch (error) {
+		// 	console.error('解析 access_token 失败:', error);
+		// 	userId = null;
+		// }
+	}
 	userStore.setUserInfo({
 		...userStore.getUserInfo,
 		userId,
@@ -86,10 +87,8 @@ export async function formIDMLogin(ticket, oauth, state) {
 		},
 		refreshToken: refreshToken,
 	});
-	nextTick(async () => {
-		await userStore.afterLoginAction(false);
-		detailUrlQuery();
-	});
+	await userStore.afterLoginAction(false);
+	detailUrlQuery();
 
 	// 获取当前URL，移除SSO参数，保留原始路径
 	// const currentUrl = new URL(window.location.href);
@@ -190,6 +189,7 @@ export function Logout(type?: string) {
 	}
 
 	const currentEnv = getEnv();
+	let urlParameter = '';
 	console.log('currentEnv:', currentEnv);
 	// 如果是 stage 环境，使用新的 SSO 验证逻辑
 	// if (currentEnv === 'stage' || currentEnv === 'production') {
@@ -200,12 +200,13 @@ export function Logout(type?: string) {
 	// 	)}&primary=${localStorage.getItem('primary')}`;
 	// 	window.open(`${globSetting.ssoURL}oauth2/logout?${urlParameter}`, '_self');
 	// } else {
-	let urlParameter = '';
 	urlParameter = `redirect_uri=${encodeURIComponent(window.location.origin)}&appId=${
 		ProjectEnum.WFE
 	}&action_type=${type}&theme=${localStorage.getItem('theme')}&primary=${localStorage.getItem(
 		'primary'
 	)}`;
+	const url = `${globSetting.idmUrl}/oauth?${urlParameter}`;
+	console.log('url:', url);
 	window.open(`${globSetting.idmUrl}/oauth?${urlParameter}`, '_self');
 	// }
 }
