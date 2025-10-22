@@ -721,14 +721,10 @@ const initializeData = async (searchQuery = '') => {
 				});
 			}
 		} else {
-			if (!searchQuery) {
-				ElMessage.warning('Failed to load user data');
-			}
 			treeData.value = [];
 		}
 	} catch (error) {
 		console.error('Failed to initialize user data:', error);
-		ElMessage.error('Failed to load user data, please try again later');
 		treeData.value = [];
 	} finally {
 		loading.value = false;
