@@ -28,26 +28,54 @@
 							</el-button>
 							<template #dropdown>
 								<el-dropdown-menu>
-									<el-dropdown-item command="edit">
+									<el-dropdown-item
+										command="edit"
+										v-if="
+											functionPermission(
+												ProjectPermissionEnum.checkList.update
+											)
+										"
+									>
 										<el-icon class="mr-2"><Edit /></el-icon>
 										Edit
 									</el-dropdown-item>
-									<el-dropdown-item command="task">
+									<el-dropdown-item
+										command="task"
+										v-if="
+											functionPermission(ProjectPermissionEnum.checkList.read)
+										"
+									>
 										<el-icon class="mr-2"><Edit /></el-icon>
 										View Tasks
 									</el-dropdown-item>
-									<el-dropdown-item command="export" :disabled="exportLoading">
+									<el-dropdown-item
+										command="export"
+										:disabled="exportLoading"
+										v-if="
+											functionPermission(ProjectPermissionEnum.checkList.read)
+										"
+									>
 										<el-icon class="mr-2"><Download /></el-icon>
 										{{ exportLoading ? 'Exporting...' : 'Export to PDF' }}
 									</el-dropdown-item>
 									<el-dropdown-item
 										command="duplicate"
+										v-if="
+											functionPermission(
+												ProjectPermissionEnum.checkList.create
+											)
+										"
 										:disabled="duplicateLoading"
 									>
 										<el-icon class="mr-2"><CopyDocument /></el-icon>
 										{{ duplicateLoading ? 'Duplicating...' : 'Duplicate' }}
 									</el-dropdown-item>
-									<el-dropdown-item divided>
+									<el-dropdown-item
+										divided
+										v-if="
+											functionPermission(ProjectPermissionEnum.checkList.read)
+										"
+									>
 										<HistoryButton
 											:id="checklist.id"
 											:type="WFEMoudels.Checklist"
@@ -58,6 +86,11 @@
 										command="delete"
 										class="text-red-500"
 										:disabled="deleteLoading"
+										v-if="
+											functionPermission(
+												ProjectPermissionEnum.checkList.delete
+											)
+										"
 									>
 										<el-icon class="mr-2"><Delete /></el-icon>
 										{{ deleteLoading ? 'Deleting...' : 'Delete' }}
@@ -242,6 +275,8 @@ import { Icon } from '@iconify/vue';
 import { timeZoneConvert } from '@/hooks/time';
 import { projectTenMinuteDate, defaultStr } from '@/settings/projectSetting';
 import { WFEMoudels } from '@/enums/appEnum';
+import { functionPermission } from '@/hooks';
+import { ProjectPermissionEnum } from '@/enums/permissionEnum';
 
 // Props
 const props = defineProps({

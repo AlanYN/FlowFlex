@@ -36,7 +36,12 @@
 					v-model="stagesList"
 					item-key="id"
 					handle=".drag-handle"
-					:disabled="!isEditing || isLoading || isSorting"
+					:disabled="
+						!isEditing ||
+						isLoading ||
+						isSorting ||
+						!functionPermission(ProjectPermissionEnum.workflow.update)
+					"
 					@start="onDragStart"
 					@change="onDragEnd"
 					ghost-class="ghost-stage"
@@ -154,6 +159,14 @@
 									<el-dropdown
 										trigger="click"
 										:disabled="isLoading || isSorting"
+										v-if="
+											functionPermission(
+												ProjectPermissionEnum.workflow.update
+											) ||
+											functionPermission(
+												ProjectPermissionEnum.workflow.delete
+											)
+										"
 										@command="(cmd) => handleCommand(cmd, element)"
 										@click.stop
 										:ref="(el) => (dropdownRefs[index] = el)"
@@ -169,13 +182,25 @@
 										</div>
 										<template #dropdown>
 											<el-dropdown-menu>
-												<el-dropdown-item command="edit">
+												<el-dropdown-item
+													v-if="
+														functionPermission(
+															ProjectPermissionEnum.workflow.update
+														)
+													"
+													command="edit"
+												>
 													<div class="flex items-center gap-2 font-bold">
 														<Edit class="w-4 h-4" />
 														Edit
 													</div>
 												</el-dropdown-item>
 												<el-dropdown-item
+													v-if="
+														functionPermission(
+															ProjectPermissionEnum.workflow.delete
+														)
+													"
 													command="delete"
 													class="delete-item"
 												>
@@ -361,6 +386,8 @@ import { defaultStr } from '@/settings/projectSetting';
 import { ElDropdown } from 'element-plus';
 import { FlowflexUser } from '#/golbal';
 import { getAvatarColor } from '@/utils';
+import { functionPermission } from '@/hooks';
+import { ProjectPermissionEnum } from '@/enums/permissionEnum';
 
 // Portal权限枚举常量
 const PortalPermissionEnum = {
@@ -822,16 +849,6 @@ html.dark .stage-item:hover {
 
 .field-tag:hover {
 	@apply bg-indigo-100 dark:bg-indigo-900/30 border-indigo-300 dark:border-indigo-600;
-}
-
-:deep(.el-checkbox__inner) {
-	border-color: var(--el-color-primary-light-8);
-	background-color: var(--el-color-white);
-}
-
-:deep(.el-checkbox__input.is-checked .el-checkbox__inner) {
-	background-color: var(--el-color-primary);
-	border-color: var(--el-color-primary);
 }
 
 .text-muted-foreground {

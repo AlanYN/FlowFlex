@@ -30,39 +30,61 @@
 
 						<template #dropdown>
 							<el-dropdown-menu>
-								<el-dropdown-item @click="$emit('command', 'edit', row)">
+								<el-dropdown-item
+									v-if="functionPermission(ProjectPermissionEnum.workflow.update)"
+									@click="$emit('command', 'edit', row)"
+								>
 									<el-icon><Edit /></el-icon>
-									Edit
+									Edit Workflow
 								</el-dropdown-item>
 								<el-dropdown-item
-									v-if="!row.isDefault && row.status === 'active'"
+									v-if="
+										!row.isDefault &&
+										row.status === 'active' &&
+										functionPermission(ProjectPermissionEnum.workflow.update)
+									"
 									@click="$emit('command', 'setDefault', row)"
 								>
 									<el-icon><Star /></el-icon>
 									Set as Default
 								</el-dropdown-item>
 								<el-dropdown-item
-									v-if="row.status === 'active'"
+									v-if="
+										row.status === 'active' &&
+										functionPermission(ProjectPermissionEnum.workflow.update)
+									"
 									@click="$emit('command', 'deactivate', row)"
 								>
 									<el-icon><CircleClose /></el-icon>
 									Set as Inactive
 								</el-dropdown-item>
 								<el-dropdown-item
-									v-if="row.status === 'inactive'"
+									v-if="
+										row.status === 'inactive' &&
+										functionPermission(ProjectPermissionEnum.workflow.update)
+									"
 									@click="$emit('command', 'activate', row)"
 								>
 									<el-icon><Check /></el-icon>
 									Set as Active
 								</el-dropdown-item>
-								<el-dropdown-item @click="$emit('command', 'duplicate', row)">
+								<el-dropdown-item
+									v-if="functionPermission(ProjectPermissionEnum.workflow.create)"
+									@click="$emit('command', 'duplicate', row)"
+								>
 									<el-icon><CopyDocument /></el-icon>
 									Duplicate
 								</el-dropdown-item>
-								<el-dropdown-item divided>
+								<el-dropdown-item
+									v-if="functionPermission(ProjectPermissionEnum.workflow.read)"
+									divided
+								>
 									<HistoryButton :id="row.id" :type="WFEMoudels.Workflow" />
 								</el-dropdown-item>
-								<el-dropdown-item @click="$emit('command', 'export', row)">
+								<el-dropdown-item
+									v-if="functionPermission(ProjectPermissionEnum.workflow.read)"
+									@click="$emit('command', 'export', row)"
+								>
 									<el-icon><Download /></el-icon>
 									Export Workflow
 								</el-dropdown-item>
@@ -83,6 +105,11 @@
 						<!-- 名称区域（左侧，可收缩） -->
 						<div
 							class="workflow-name-link table-cell-link"
+							:class="
+								functionPermission(ProjectPermissionEnum.workflow.read)
+									? 'cursor-pointer'
+									: 'cursor-not-allowed'
+							"
 							@click="handleWorkflowSelect(row)"
 							:title="row.name"
 						>
@@ -178,6 +205,8 @@ import { projectTenMinuteDate, tableMaxHeight } from '@/settings/projectSetting'
 import { Workflow } from '#/onboard';
 import { WFEMoudels } from '@/enums/appEnum';
 import StarIcon from '@assets/svg/workflow/star.svg';
+import { ProjectPermissionEnum } from '@/enums/permissionEnum';
+import { functionPermission } from '@/hooks';
 
 // Props
 const props = defineProps<{
@@ -208,6 +237,7 @@ const handleSortChange = (sort: any) => {
 };
 
 const handleWorkflowSelect = (workflow: Workflow) => {
+	if (!functionPermission(ProjectPermissionEnum.workflow.read)) return;
 	emit('select-workflow', workflow.id);
 };
 
@@ -242,7 +272,6 @@ const isWorkflowActionLoading = (workflowId: string) => {
 	display: block;
 	font-weight: 500;
 	color: var(--el-color-primary);
-	cursor: pointer;
 	transition: color 0.2s;
 }
 

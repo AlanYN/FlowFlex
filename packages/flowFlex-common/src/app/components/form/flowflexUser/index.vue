@@ -185,22 +185,24 @@
 								:prefix-icon="Search"
 								clearable
 								size="small"
-								@input="handleSearch"
 							/>
 						</div>
 						<el-scrollbar class="flex-1">
 							<div class="p-2">
-								<el-tree
+								<CustomTree
 									ref="treeRef"
-									:data="treeData"
-									:props="treeProps"
+									:data="filteredTreeData"
 									:show-checkbox="true"
-									:check-strictly="props.maxCount === 1"
-									:filter-node-method="filterNode"
 									:default-checked-keys="defaultCheckedKeys"
-									node-key="id"
-									class="bg-transparent"
+									:check-strictly="
+										props.checkStrictly !== undefined
+											? props.checkStrictly
+											: props.maxCount === 1
+									"
+									:default-expand-all="false"
+									:indent="20"
 									@check="handleTreeCheck"
+									@node-click="handleNodeClick"
 								>
 									<template #default="{ data }">
 										<div class="w-full">
@@ -242,7 +244,7 @@
 											</div>
 										</div>
 									</template>
-								</el-tree>
+								</CustomTree>
 							</div>
 						</el-scrollbar>
 					</div>
@@ -326,6 +328,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue';
 import { Search, Close } from '@element-plus/icons-vue';
+import CustomTree from './CustomTree.vue';
 import { ElMessage } from 'element-plus';
 import { menuRoles } from '@/stores/modules/menuFunction';
 import type { FlowflexUser } from '#/golbal';
@@ -344,6 +347,7 @@ interface Props {
 	readonlyNoDataText?: string; // 只读模式下没有数据时的文本
 	clearable?: boolean; // 是否可清除
 	availableIds?: string[]; // 限制可选的 ID 范围，undefined 表示不限制，[] 表示无可选项
+	checkStrictly?: boolean; // 是否严格模式，不遵循父子节点联动逻辑
 }
 
 interface Emits {
@@ -370,6 +374,7 @@ const props = withDefaults(defineProps<Props>(), {
 	maxShowCount: 10,
 	readonlyNoDataText: 'No users selected',
 	availableIds: undefined,
+	checkStrictly: undefined,
 });
 
 // 计算 placeholder
@@ -398,16 +403,37 @@ const isOriginallyArray = ref(false); // 记录原始 modelValue 是否为数组
 const selectedItems = ref<FlowflexUser[]>([]);
 const tempSelectedItems = ref<FlowflexUser[]>([]);
 
-// 树形配置
-const treeProps = {
-	value: 'id',
-	label: 'name',
-	children: 'children',
-};
+// 树形配置（自定义树组件不再需要）
 
 // 计算默认选中的keys
 const defaultCheckedKeys = computed(() => {
 	return tempSelectedItems.value.map((item) => item.id);
+});
+
+// 过滤后的树数据（用于搜索）
+const filteredTreeData = computed(() => {
+	if (!searchText.value) {
+		return treeData.value;
+	}
+
+	// 递归过滤树数据
+	const filterTree = (nodes: FlowflexUser[]): FlowflexUser[] => {
+		return nodes.reduce((filtered: FlowflexUser[], node) => {
+			const matchesSearch = filterNode(searchText.value, node);
+			const filteredChildren = node.children ? filterTree(node.children) : [];
+
+			if (matchesSearch || filteredChildren.length > 0) {
+				filtered.push({
+					...node,
+					children: filteredChildren,
+				});
+			}
+
+			return filtered;
+		}, []);
+	};
+
+	return filterTree(treeData.value);
 });
 
 // 初始化选中项
@@ -470,12 +496,7 @@ const filterNode = (value: string, data: any): boolean => {
 	return matchesName || matchesEmail;
 };
 
-// 搜索处理
-const handleSearch = () => {
-	if (treeRef.value) {
-		treeRef.value.filter(searchText.value);
-	}
-};
+// 搜索处理（现在通过 filteredTreeData 计算属性自动处理）
 
 // 打开弹窗
 const openModal = () => {
@@ -521,9 +542,11 @@ const removeSelectedItem = (id: string) => {
 };
 
 // 树节点选中事件
-const handleTreeCheck = (data: FlowflexUser, checkState: any) => {
+const handleTreeCheck = (
+	data: FlowflexUser,
+	checkState: { checkedKeys: string[]; checkedNodes: FlowflexUser[] }
+) => {
 	const targetType = props.selectionType;
-
 	// 单选模式下的特殊处理
 	if (props.maxCount === 1) {
 		// 如果点击的是非目标类型的节点（比如在用户模式下点击团队）
@@ -553,24 +576,42 @@ const handleTreeCheck = (data: FlowflexUser, checkState: any) => {
 		return;
 	}
 
-	// 多选模式的原有逻辑
-	const checkedNodes = treeRef.value.getCheckedNodes();
-	const filteredNodes = checkedNodes.filter((node: FlowflexUser) => node.type === targetType);
+	// 自定义树组件已经处理了联动选择，这里只需要处理业务逻辑
+	console.log('Tree check event:', {
+		clickedNode: data.name,
+		clickedNodeId: data.id,
+		checkedKeys: checkState.checkedKeys,
+		checkedNodes: checkState.checkedNodes.length,
+	});
+
+	// 过滤出目标类型的节点
+	const filteredNodes = checkState.checkedNodes.filter(
+		(node: FlowflexUser) => node.type === targetType
+	);
 
 	// 检查数量限制
 	if (props.maxCount > 0 && filteredNodes.length > props.maxCount) {
 		ElMessage.warning(`Maximum ${props.maxCount} items can be selected`);
-		// 取消最后选中的目标类型节点
+		// 取消当前选中的节点
 		nextTick(() => {
-			if (data.type === targetType) {
+			if (treeRef.value && data.type === targetType) {
 				treeRef.value.setChecked(data.id, false);
 			}
 		});
 		return;
 	}
 
+	// 去重：基于ID去重，只保留一个相同ID的节点
+	const uniqueNodes = filteredNodes.reduce((acc: FlowflexUser[], current: FlowflexUser) => {
+		const existingNode = acc.find((node) => node.id === current.id);
+		if (!existingNode) {
+			acc.push(current);
+		}
+		return acc;
+	}, []);
+
 	// 只将目标类型的节点设置为临时选中项
-	tempSelectedItems.value = filteredNodes;
+	tempSelectedItems.value = uniqueNodes;
 };
 
 // 从右侧选择区域移除项目
@@ -588,6 +629,12 @@ const removeFromSelection = (id: string) => {
 		// 可以在这里添加一些UI提示表明现在可以选择任意类型
 		console.log('All selections cleared, you can now select any type');
 	}
+};
+
+// 处理节点点击事件
+const handleNodeClick = (node: FlowflexUser) => {
+	console.log('Node clicked:', node.name, node.id);
+	// 可以在这里添加节点点击的逻辑，比如展开/折叠等
 };
 
 // 确认选择
@@ -913,7 +960,6 @@ defineExpose({
 .el-tree-node__content {
 	height: auto !important;
 	min-height: 40px !important;
-	padding: 8px 12px !important;
 	align-items: flex-center !important;
 	line-height: 1.4 !important;
 }

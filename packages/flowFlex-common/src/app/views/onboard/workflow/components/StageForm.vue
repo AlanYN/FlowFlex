@@ -244,7 +244,7 @@ const formData = ref({
 });
 
 // 表单验证规则
-const rules = reactive<FormRules>({
+const rules = {
 	name: [
 		{ required: true, message: 'Please enter stage name', trigger: 'blur' },
 		{ min: 1, max: 50, message: 'Length should be 1 to 50 characters', trigger: 'blur' },
@@ -253,7 +253,7 @@ const rules = reactive<FormRules>({
 	estimatedDuration: [
 		{ required: true, message: 'Please enter estimated duration', trigger: 'change' },
 	],
-});
+};
 
 // 计算属性
 const isFormValid = computed(() => {
@@ -335,15 +335,19 @@ function updateComponentsData(val: ComponentsData) {
 }
 
 // 提交
-function submitForm() {
+const submitForm = async () => {
 	// 透传表单数据
+	const isValid = await formRef.value?.validate();
+	if (!isValid) {
+		return;
+	}
 	const payload = { ...formData.value } as any;
 	// 颜色值
 	payload.color = formData.value.color;
 	// 发出提交事件
 	// @ts-ignore
 	emit('submit', payload);
-}
+};
 
 // emits
 const emit = defineEmits(['submit', 'cancel']);

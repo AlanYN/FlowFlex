@@ -28,11 +28,19 @@
 
 						<template #dropdown>
 							<el-dropdown-menu>
-								<el-dropdown-item @click="handleCommand('edit', row)">
+								<el-dropdown-item
+									@click="handleCommand('edit', row)"
+									v-if="
+										functionPermission(ProjectPermissionEnum.checkList.update)
+									"
+								>
 									<el-icon><Edit /></el-icon>
 									Edit
 								</el-dropdown-item>
-								<el-dropdown-item @click="handleCommand('task', row)">
+								<el-dropdown-item
+									@click="handleCommand('task', row)"
+									v-if="functionPermission(ProjectPermissionEnum.checkList.read)"
+								>
 									<el-icon><Edit /></el-icon>
 									View Tasks
 								</el-dropdown-item>
@@ -40,21 +48,33 @@
 									command="export"
 									:disabled="exportLoading"
 									@click="handleCommand('export', row)"
+									v-if="functionPermission(ProjectPermissionEnum.checkList.read)"
 								>
 									<el-icon><Download /></el-icon>
 									Export to PDF
 								</el-dropdown-item>
-								<el-dropdown-item @click="handleCommand('duplicate', row)">
+								<el-dropdown-item
+									@click="handleCommand('duplicate', row)"
+									v-if="
+										functionPermission(ProjectPermissionEnum.checkList.create)
+									"
+								>
 									<el-icon><CopyDocument /></el-icon>
 									Duplicate
 								</el-dropdown-item>
-								<el-dropdown-item divided>
+								<el-dropdown-item
+									divided
+									v-if="functionPermission(ProjectPermissionEnum.checkList.read)"
+								>
 									<HistoryButton :id="row.id" :type="WFEMoudels.Checklist" />
 								</el-dropdown-item>
 								<el-dropdown-item
 									divided
 									@click="handleCommand('delete', row)"
 									class="text-red-500"
+									v-if="
+										functionPermission(ProjectPermissionEnum.checkList.delete)
+									"
 								>
 									<el-icon><Delete /></el-icon>
 									Delete
@@ -194,6 +214,8 @@ import { Edit, CopyDocument, Delete, Download, ArrowDownBold } from '@element-pl
 import { timeZoneConvert } from '@/hooks/time';
 import { projectTenMinuteDate, defaultStr, tableMaxHeight } from '@/settings/projectSetting';
 import { WFEMoudels } from '@/enums/appEnum';
+import { functionPermission } from '@/hooks';
+import { ProjectPermissionEnum } from '@/enums/permissionEnum';
 
 // Props
 const props = defineProps({

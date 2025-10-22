@@ -89,3 +89,47 @@ export enum PermissionSubjectTypeEnum {
 	/** User-based permissions - Permission subjects are individual user IDs */
 	User = 2,
 }
+
+export const ProjectPermissionEnum = {
+	case: {
+		create: 'CASE:CREATE',
+		read: 'CASE:READ',
+		update: 'CASE:UPDATE',
+		delete: 'CASE:DELETE',
+	},
+	workflow: {
+		create: 'WORKFLOW:CREATE',
+		read: 'WORKFLOW:READ',
+		update: 'WORKFLOW:UPDATE',
+		delete: 'WORKFLOW:DELETE',
+	},
+	checkList: {
+		create: 'CHECKLIST:CREATE',
+		read: 'CHECKLIST:READ',
+		update: 'CHECKLIST:UPDATE',
+		delete: 'CHECKLIST:DELETE',
+	},
+	question: {
+		create: 'QUESTION:CREATE',
+		read: 'QUESTION:READ',
+		update: 'QUESTION:UPDATE',
+		delete: 'QUESTION:DELETE',
+	},
+	tool: {
+		create: 'TOOL:CREATE',
+		read: 'TOOL:READ',
+		update: 'TOOL:UPDATE',
+		delete: 'TOOL:DELETE',
+	},
+} as const;
+
+// 类型定义
+export type ProjectPermissionType =
+	| (typeof ProjectPermissionEnum.case)[keyof typeof ProjectPermissionEnum.case]
+	| (typeof ProjectPermissionEnum.workflow)[keyof typeof ProjectPermissionEnum.workflow]
+	| (typeof ProjectPermissionEnum.checkList)[keyof typeof ProjectPermissionEnum.checkList]
+	| (typeof ProjectPermissionEnum.question)[keyof typeof ProjectPermissionEnum.question]
+	| (typeof ProjectPermissionEnum.tool)[keyof typeof ProjectPermissionEnum.tool];
+
+// 辅助类型：获取所有权限值的联合类型
+export type ProjectPermissionValue = ProjectPermissionType;

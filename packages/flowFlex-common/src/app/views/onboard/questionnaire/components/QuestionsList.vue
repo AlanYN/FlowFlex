@@ -64,6 +64,9 @@
 									<el-dropdown
 										placement="bottom"
 										v-if="
+											functionPermission(
+												ProjectPermissionEnum.question.update
+											) &&
 											item.type !== 'image' &&
 											item.type != 'video' &&
 											item.type != 'page_break'
@@ -134,7 +137,10 @@
 											v-if="
 												item.type !== 'image' &&
 												item.type != 'video' &&
-												item.type != 'page_break'
+												item.type != 'page_break' &&
+												functionPermission(
+													ProjectPermissionEnum.question.update
+												)
 											"
 											type="primary"
 											link
@@ -146,6 +152,11 @@
 									<el-button
 										type="danger"
 										link
+										v-if="
+											functionPermission(
+												ProjectPermissionEnum.question.delete
+											)
+										"
 										@click="removeQuestion(index)"
 										:icon="Delete"
 										class="delete-question-btn"
@@ -198,6 +209,11 @@
 										link
 										size="small"
 										@click="removeFile(index)"
+										v-if="
+											functionPermission(
+												ProjectPermissionEnum.question.delete
+											)
+										"
 										:icon="Delete"
 									/>
 								</div>
@@ -247,7 +263,14 @@
 											</el-tag>
 										</div>
 										<!-- 选项操作下拉菜单，和问题级别保持一致 -->
-										<el-dropdown placement="bottom">
+										<el-dropdown
+											placement="bottom"
+											v-if="
+												functionPermission(
+													ProjectPermissionEnum.question.update
+												)
+											"
+										>
 											<el-button :icon="MoreFilled" link size="small" />
 											<template #dropdown>
 												<el-dropdown-menu>
@@ -324,6 +347,8 @@ import { QuestionnaireSection } from '#/section';
 import { triggerFileUpload } from '@/utils/fileUploadUtils';
 import ActionConfigDialog from '@/components/actionTools/ActionConfigDialog.vue';
 import { TriggerTypeEnum } from '@/enums/appEnum';
+import { functionPermission } from '@/hooks';
+import { ProjectPermissionEnum } from '@/enums/permissionEnum';
 
 import { useI18n } from 'vue-i18n';
 

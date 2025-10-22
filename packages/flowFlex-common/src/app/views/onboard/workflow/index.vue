@@ -15,6 +15,7 @@
 					@tab-change="handleViewChange"
 				/>
 				<el-button
+					v-permission="ProjectPermissionEnum.workflow.create"
 					type="primary"
 					@click="showNewWorkflowDialog"
 					:disabled="loading.createWorkflow"
@@ -234,7 +235,14 @@
 									</el-button>
 									<template #dropdown>
 										<el-dropdown-menu class="actions-dropdown">
-											<el-dropdown-item command="edit">
+											<el-dropdown-item
+												command="edit"
+												v-if="
+													functionPermission(
+														ProjectPermissionEnum.workflow.update
+													)
+												"
+											>
 												<el-icon>
 													<Edit />
 												</el-icon>
@@ -242,6 +250,9 @@
 											</el-dropdown-item>
 											<el-dropdown-item
 												v-if="
+													functionPermission(
+														ProjectPermissionEnum.workflow.update
+													) &&
 													!workflow.isDefault &&
 													workflow.status === 'active'
 												"
@@ -254,7 +265,11 @@
 												Set as Default
 											</el-dropdown-item>
 											<el-dropdown-item
-												v-if="workflow.status === 'active'"
+												v-if="
+													functionPermission(
+														ProjectPermissionEnum.workflow.update
+													) && workflow.status === 'active'
+												"
 												command="deactivate"
 											>
 												<el-icon>
@@ -263,7 +278,11 @@
 												Set as Inactive
 											</el-dropdown-item>
 											<el-dropdown-item
-												v-if="workflow.status === 'inactive'"
+												v-if="
+													functionPermission(
+														ProjectPermissionEnum.workflow.update
+													) && workflow.status === 'inactive'
+												"
 												command="activate"
 											>
 												<el-icon>
@@ -271,26 +290,56 @@
 												</el-icon>
 												Set as Active
 											</el-dropdown-item>
-											<el-dropdown-item divided command="duplicate">
+											<el-dropdown-item
+												divided
+												command="duplicate"
+												v-if="
+													functionPermission(
+														ProjectPermissionEnum.workflow.create
+													)
+												"
+											>
 												<el-icon>
 													<CopyDocument />
 												</el-icon>
 												Duplicate
 											</el-dropdown-item>
-											<el-dropdown-item command="addStage">
+											<el-dropdown-item
+												command="addStage"
+												v-if="
+													functionPermission(
+														ProjectPermissionEnum.workflow.create
+													)
+												"
+											>
 												<el-icon>
 													<Plus />
 												</el-icon>
 												Add Stage
 											</el-dropdown-item>
 
-											<el-dropdown-item divided>
+											<el-dropdown-item
+												divided
+												v-if="
+													functionPermission(
+														ProjectPermissionEnum.workflow.read
+													)
+												"
+											>
 												<HistoryButton
 													:id="workflow?.id"
 													:type="WFEMoudels.Workflow"
 												/>
 											</el-dropdown-item>
-											<el-dropdown-item divided command="export">
+											<el-dropdown-item
+												divided
+												command="export"
+												v-if="
+													functionPermission(
+														ProjectPermissionEnum.workflow.read
+													)
+												"
+											>
 												<el-icon>
 													<Download />
 												</el-icon>
@@ -343,6 +392,7 @@
 								</div>
 								<div class="action-buttons-group">
 									<el-button
+										v-permission="ProjectPermissionEnum.workflow.create"
 										@click="addStage()"
 										:disabled="loading.createStage"
 										:icon="loading.createStage ? Loading : Plus"
@@ -659,6 +709,8 @@ import InputTag from '@/components/global/u-input-tags/index.vue';
 import { useAdaptiveScrollbar } from '@/hooks/useAdaptiveScrollbar';
 import TableViewIcon from '@assets/svg/onboard/tavleView.svg';
 import ProgressViewIcon from '@assets/svg/onboard/progressView.svg';
+import { ProjectPermissionEnum } from '@/enums/permissionEnum';
+import { functionPermission } from '@/hooks';
 
 const { t } = useI18n();
 
