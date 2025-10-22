@@ -27,23 +27,36 @@
 
 						<template #dropdown>
 							<el-dropdown-menu>
-								<el-dropdown-item @click="$emit('command', 'edit', row)">
+								<el-dropdown-item
+									@click="$emit('command', 'edit', row)"
+									v-if="functionPermission(ProjectPermissionEnum.question.update)"
+								>
 									<el-icon><Edit /></el-icon>
 									Edit
 								</el-dropdown-item>
-								<el-dropdown-item @click="$emit('command', 'preview', row)">
+								<el-dropdown-item
+									@click="$emit('command', 'preview', row)"
+									v-if="functionPermission(ProjectPermissionEnum.question.read)"
+								>
 									<el-icon><View /></el-icon>
 									Preview
 								</el-dropdown-item>
-								<el-dropdown-item @click="$emit('command', 'duplicate', row)">
+								<el-dropdown-item
+									@click="$emit('command', 'duplicate', row)"
+									v-if="functionPermission(ProjectPermissionEnum.question.create)"
+								>
 									<el-icon><CopyDocument /></el-icon>
 									Duplicate
 								</el-dropdown-item>
-								<el-dropdown-item divided>
+								<el-dropdown-item
+									divided
+									v-if="functionPermission(ProjectPermissionEnum.question.read)"
+								>
 									<HistoryButton :id="row.id" :type="WFEMoudels.Questionnaire" />
 								</el-dropdown-item>
 								<el-dropdown-item
 									@click="$emit('command', 'delete', row)"
+									v-if="functionPermission(ProjectPermissionEnum.question.delete)"
 									class="text-red-500"
 								>
 									<el-icon><Delete /></el-icon>
@@ -209,6 +222,8 @@ import { timeZoneConvert } from '@/hooks/time';
 import { projectTenMinuteDate, defaultStr, tableMaxHeight } from '@/settings/projectSetting';
 import { Questionnaire } from '#/onboard';
 import { WFEMoudels } from '@/enums/appEnum';
+import { functionPermission } from '@/hooks';
+import { ProjectPermissionEnum } from '@/enums/permissionEnum';
 
 // Props
 const props = defineProps<{

@@ -25,6 +25,7 @@
 					:disabled="isSaveDisabled || stageCanCompleted || onboardingData?.isDisabled"
 					:icon="Document"
 					class="page-header-btn page-header-btn-primary"
+					v-if="functionPermission(ProjectPermissionEnum.case.update)"
 				>
 					Save
 				</el-button>
@@ -37,6 +38,7 @@
 					"
 					class="page-header-btn page-header-btn-primary"
 					:icon="Check"
+					v-if="functionPermission(ProjectPermissionEnum.case.update)"
 				>
 					Complete
 				</el-button>
@@ -44,6 +46,7 @@
 					@click="handleCustomerOverview"
 					class="page-header-btn page-header-btn-secondary"
 					:icon="View"
+					v-if="functionPermission(ProjectPermissionEnum.case.read)"
 				>
 					Overview
 				</el-button>
@@ -51,6 +54,7 @@
 					@click="portalAccessDialogVisible = true"
 					class="page-header-btn page-header-btn-secondary"
 					:icon="User"
+					v-if="functionPermission(ProjectPermissionEnum.case.update)"
 				>
 					Share
 				</el-button>
@@ -63,7 +67,12 @@
 			<div class="flex-[2] min-w-0 overflow-hidden">
 				<EditableStageHeader
 					:current-stage="onboardingActiveStageInfo"
-					:disabled="isAbortedReadonly || onboardingStageStatus"
+					:disabled="
+						isAbortedReadonly ||
+						onboardingStageStatus ||
+						onboardingData?.isDisabled ||
+						!functionPermission(ProjectPermissionEnum.case.update)
+					"
 					@update:stage-data="handleStageDataUpdate"
 				/>
 				<el-scrollbar ref="leftScrollbarRef" class="h-full px-2 w-full">
@@ -114,7 +123,8 @@
 									:disabled="
 										isAbortedReadonly ||
 										stageCanCompleted ||
-										onboardingData?.isDisabled
+										onboardingData?.isDisabled ||
+										!functionPermission(ProjectPermissionEnum.case.update)
 									"
 									@save-success="refreshChangeLog"
 								/>
@@ -133,7 +143,8 @@
 									:disabled="
 										isAbortedReadonly ||
 										stageCanCompleted ||
-										onboardingData?.isDisabled
+										onboardingData?.isDisabled ||
+										!functionPermission(ProjectPermissionEnum.case.update)
 									"
 									@task-toggled="handleTaskToggled"
 									@refresh-checklist="loadCheckListData"
@@ -153,7 +164,8 @@
 									:disabled="
 										isAbortedReadonly ||
 										stageCanCompleted ||
-										onboardingData?.isDisabled
+										onboardingData?.isDisabled ||
+										!functionPermission(ProjectPermissionEnum.case.update)
 									"
 									:questionnaire-data="
 										getQuestionnaireDataForComponent(component)
@@ -178,7 +190,8 @@
 									:disabled="
 										isAbortedReadonly ||
 										stageCanCompleted ||
-										onboardingData?.isDisabled
+										onboardingData?.isDisabled ||
+										!functionPermission(ProjectPermissionEnum.case.update)
 									"
 									@document-uploaded="handleDocumentUploaded"
 									@document-deleted="handleDocumentDeleted"
@@ -210,7 +223,11 @@
 							v-if="activeStage && onboardingId"
 							:onboarding-id="onboardingId"
 							:stage-id="activeStage"
-							:disabled="isAbortedReadonly || onboardingData?.isDisabled"
+							:disabled="
+								isAbortedReadonly ||
+								onboardingData?.isDisabled ||
+								!functionPermission(ProjectPermissionEnum.case.update)
+							"
 							@note-added="handleNoteAdded"
 						/>
 					</div>
@@ -280,6 +297,8 @@ import PortalAccessContent from './components/PortalAccessContent.vue';
 import AISummary from './components/AISummary.vue';
 import EditableStageHeader from './components/EditableStageHeader.vue';
 import { getAppCode } from '@/utils/threePartyLogin';
+import { ProjectPermissionEnum } from '@/enums/permissionEnum';
+import { functionPermission } from '@/hooks';
 
 const { t } = useI18n();
 const userStore = useUserStore();

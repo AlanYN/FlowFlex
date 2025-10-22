@@ -31,6 +31,7 @@
 					type="primary"
 					@click="handleCreateAction"
 					:icon="Plus"
+					v-if="functionPermission(ProjectPermissionEnum.tool.create)"
 				>
 					<span>New Tool</span>
 				</el-button>
@@ -122,7 +123,16 @@
 							<template #default="{ row }">
 								<div class="action-buttons">
 									<el-tooltip content="Edit" placement="top">
-										<el-button type="primary" link @click="handleEdit(row)">
+										<el-button
+											v-if="
+												functionPermission(
+													ProjectPermissionEnum.tool.update
+												)
+											"
+											type="primary"
+											link
+											@click="handleEdit(row)"
+										>
 											<el-icon>
 												<Edit />
 											</el-icon>
@@ -130,6 +140,9 @@
 									</el-tooltip>
 									<el-tooltip content="Change History" placement="top">
 										<el-button
+											v-if="
+												functionPermission(ProjectPermissionEnum.tool.read)
+											"
 											type="info"
 											link
 											@click="handleChangeHistory(row)"
@@ -150,7 +163,16 @@
 										</el-button>
 									</el-tooltip>
 									<el-tooltip content="Delete" placement="top">
-										<el-button type="danger" link @click="handleDelete(row)">
+										<el-button
+											v-if="
+												functionPermission(
+													ProjectPermissionEnum.tool.delete
+												)
+											"
+											type="danger"
+											link
+											@click="handleDelete(row)"
+										>
 											<el-icon>
 												<Delete />
 											</el-icon>
@@ -216,7 +238,16 @@
 							<template #default="{ row }">
 								<div class="action-buttons">
 									<el-tooltip content="Edit" placement="top">
-										<el-button type="primary" link @click="handleEdit(row)">
+										<el-button
+											v-if="
+												functionPermission(
+													ProjectPermissionEnum.tool.update
+												)
+											"
+											type="primary"
+											link
+											@click="handleEdit(row)"
+										>
 											<el-icon>
 												<Edit />
 											</el-icon>
@@ -224,6 +255,9 @@
 									</el-tooltip>
 									<el-tooltip content="Change History" placement="top">
 										<el-button
+											v-if="
+												functionPermission(ProjectPermissionEnum.tool.read)
+											"
 											type="info"
 											link
 											@click="handleChangeHistory(row)"
@@ -244,7 +278,16 @@
 										</el-button>
 									</el-tooltip>
 									<el-tooltip content="Delete" placement="top">
-										<el-button type="danger" link @click="handleDelete(row)">
+										<el-button
+											v-if="
+												functionPermission(
+													ProjectPermissionEnum.tool.delete
+												)
+											"
+											type="danger"
+											link
+											@click="handleDelete(row)"
+										>
 											<el-icon>
 												<Delete />
 											</el-icon>
@@ -416,6 +459,8 @@ import {
 import { ActionDefinition, ActionQueryRequest } from '#/action';
 import { tableMaxHeight } from '@/settings/projectSetting';
 import TableViewIcon from '@assets/svg/onboard/tavleView.svg';
+import { functionPermission } from '@/hooks';
+import { ProjectPermissionEnum } from '@/enums/permissionEnum';
 
 // Use flexible type for change history items to handle different API response structures
 type ChangeHistoryItem = ActionChangeHistoryItem | any;

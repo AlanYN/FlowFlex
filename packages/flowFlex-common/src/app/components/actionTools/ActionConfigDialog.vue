@@ -44,7 +44,7 @@
 								</span>
 								<el-radio-group
 									v-model="configMode"
-									@change="handleConfigModeChange"
+									@change="(value) => handleConfigModeChange(value as ToolsType)"
 									:disabled="isConfigModeDisabled"
 								>
 									<el-radio
@@ -79,7 +79,7 @@
 								<label
 									class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
 								>
-									Select Tool
+									Select Tool {{ disabledActionForMyTool }}
 								</label>
 
 								<el-select
@@ -96,7 +96,7 @@
 										v-for="tool in existingToolsList"
 										:key="tool.id"
 										:label="`${tool.name} (${tool.actionCode || tool.id})`"
-										:value="tool.id"
+										:value="tool.id || ''"
 									>
 										<div class="flex justify-between items-center">
 											<span>
@@ -152,7 +152,7 @@
 							<el-form-item label="Action Type" prop="actionType">
 								<el-radio-group
 									v-model="formData.actionType"
-									@change="handleActionTypeChange"
+									@change="(value) => handleActionTypeChange(value as ActionType)"
 									:disabled="shouldDisableFields"
 								>
 									<el-radio
@@ -338,6 +338,10 @@ const shouldDisableFields = computed(() => {
 		return false;
 	}
 
+	if (disabledActionForMyTool.value) {
+		return true;
+	}
+
 	// 编辑状态：根据 isTools 决定
 	if (props.action) {
 		return props.action.isTools === true;
@@ -445,6 +449,7 @@ const resetForm = () => {
 	visible.value = false;
 	formData.actionConfig = getDefaultConfig(ActionType.PYTHON_SCRIPT);
 	testResult.value = null;
+	disabledActionForMyTool.value = false;
 
 	// 重置选择已有工具的状态
 	selectedToolId.value = '';
@@ -495,6 +500,7 @@ const handleConfigModeChange = async (mode: ToolsType) => {
 	await changeConfigModeChange(mode);
 };
 
+const disabledActionForMyTool = ref(false);
 const changeConfigModeChange = async (mode: ToolsType) => {
 	console.log('mode:', mode);
 	if (mode === ToolsType.UseTool) {
@@ -505,7 +511,15 @@ const changeConfigModeChange = async (mode: ToolsType) => {
 	} else if (mode === ToolsType.MyTool) {
 		await loadExistingTools(false);
 		formData.isTools = false;
-		selectedToolId.value = formData.id;
+		// 检查当前 action 是否在加载的列表中
+		if (formData.id && existingToolsList.value.some((tool) => tool.id === formData.id)) {
+			selectedToolId.value = formData.id;
+			disabledActionForMyTool.value = false;
+		} else {
+			// 如果当前 action 不在列表中，清空选择但保留表单数据
+			selectedToolId.value = '';
+			disabledActionForMyTool.value = true;
+		}
 	} else if (mode === ToolsType.NewTool) {
 		// 创建普通 Action：清空列表，设置为非工具模式
 		existingToolsList.value = [];
@@ -558,7 +572,7 @@ const loadExistingTools = async (isTools: boolean, isSystemTools?: boolean) => {
 // Watch for action prop changes
 watch(
 	() => props.action,
-	(newAction) => {
+	async (newAction) => {
 		console.log('newAction:', newAction);
 		if (newAction) {
 			Object.keys(formData).forEach((key) => {
@@ -572,7 +586,7 @@ watch(
 			} else {
 				configMode.value = newAction.isTools ? ToolsType.UseTool : ToolsType.MyTool;
 			}
-			changeConfigModeChange(configMode.value);
+			await changeConfigModeChange(configMode.value);
 		} else {
 			resetForm();
 		}
@@ -600,7 +614,6 @@ const handleExistingToolSelect = async (toolId: string) => {
 		resetFormData();
 		return;
 	}
-
 	try {
 		// 获取工具详情
 		const response = await getActionDetail(toolId);
@@ -615,6 +628,7 @@ const handleExistingToolSelect = async (toolId: string) => {
 			formData.actionConfig = JSON.parse(toolDetail.actionConfig || '{}');
 			formData.id = toolDetail.id;
 			formData.isTools = true;
+			disabledActionForMyTool.value = false;
 
 			ElMessage.success('Tool details loaded successfully');
 		} else {
@@ -634,6 +648,7 @@ const resetFormData = () => {
 	formData.actionType = ActionType.PYTHON_SCRIPT;
 	formData.actionConfig = getDefaultConfig(ActionType.PYTHON_SCRIPT);
 	formRef.value?.clearValidate();
+	disabledActionForMyTool.value = false;
 };
 
 const onTest = async () => {

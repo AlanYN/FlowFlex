@@ -18,6 +18,7 @@
 						@tab-change="handleViewChange"
 					/>
 					<el-button
+						v-permission="ProjectPermissionEnum.checkList.create"
 						@click="openCreateDialog"
 						type="primary"
 						size="default"
@@ -233,6 +234,7 @@ import TableViewIcon from '@assets/svg/onboard/tavleView.svg';
 import ProgressViewIcon from '@assets/svg/onboard/progressView.svg';
 import FlowflexUserSelector from '@/components/form/flowflexUser/index.vue';
 import InputTag from '@/components/global/u-input-tags/index.vue';
+import { ProjectPermissionEnum } from '@/enums/permissionEnum';
 
 interface Workflow {
 	id: string;

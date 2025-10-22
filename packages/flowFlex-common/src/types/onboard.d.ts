@@ -55,6 +55,7 @@ export interface OnboardingItem {
 	currentStageStartTime: string;
 	currentStageEndTime: string;
 	currentStageEstimatedDays: string;
+	isDisabled: boolean;
 }
 
 export interface SearchParams {

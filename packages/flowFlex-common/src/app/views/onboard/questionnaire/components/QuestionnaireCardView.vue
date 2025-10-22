@@ -46,19 +46,47 @@
 									</el-button>
 									<template #dropdown>
 										<el-dropdown-menu>
-											<el-dropdown-item command="edit">
+											<el-dropdown-item
+												command="edit"
+												v-if="
+													functionPermission(
+														ProjectPermissionEnum.question.update
+													)
+												"
+											>
 												<el-icon class="mr-2"><Edit /></el-icon>
 												Edit
 											</el-dropdown-item>
-											<el-dropdown-item command="preview">
+											<el-dropdown-item
+												command="preview"
+												v-if="
+													functionPermission(
+														ProjectPermissionEnum.question.read
+													)
+												"
+											>
 												<el-icon class="mr-2"><View /></el-icon>
 												Preview
 											</el-dropdown-item>
-											<el-dropdown-item command="duplicate">
+											<el-dropdown-item
+												command="duplicate"
+												v-if="
+													functionPermission(
+														ProjectPermissionEnum.question.create
+													)
+												"
+											>
 												<el-icon class="mr-2"><CopyDocument /></el-icon>
 												Duplicate
 											</el-dropdown-item>
-											<el-dropdown-item divided>
+											<el-dropdown-item
+												divided
+												v-if="
+													functionPermission(
+														ProjectPermissionEnum.question.read
+													)
+												"
+											>
 												<HistoryButton
 													:id="questionnaire.id"
 													:type="WFEMoudels.Questionnaire"
@@ -68,6 +96,11 @@
 												divided
 												command="delete"
 												class="text-red-500"
+												v-if="
+													functionPermission(
+														ProjectPermissionEnum.question.delete
+													)
+												"
 											>
 												<el-icon class="mr-2"><Delete /></el-icon>
 												Delete
@@ -303,7 +336,8 @@ import { Icon } from '@iconify/vue';
 import { timeZoneConvert } from '@/hooks/time';
 import { projectTenMinuteDate, defaultStr } from '@/settings/projectSetting';
 import { WFEMoudels } from '@/enums/appEnum';
-
+import { functionPermission } from '@/hooks';
+import { ProjectPermissionEnum } from '@/enums/permissionEnum';
 // Props
 const props = defineProps<{
 	questionnaires: any[];

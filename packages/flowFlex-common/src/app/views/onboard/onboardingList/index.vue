@@ -20,6 +20,7 @@
 					@click="handleExport"
 					:loading="loading"
 					:disabled="loading"
+					v-if="functionPermission(ProjectPermissionEnum.case.read)"
 				>
 					<el-icon><Download /></el-icon>
 					Export {{ selectedItems.length > 0 ? `(${selectedItems.length})` : 'All' }}
@@ -31,6 +32,7 @@
 					:disabled="loading"
 					:loading="loading"
 					:icon="Plus"
+					v-if="functionPermission(ProjectPermissionEnum.case.create)"
 				>
 					<span>New Case</span>
 				</el-button>
@@ -85,7 +87,12 @@
 										<el-dropdown-menu>
 											<!-- Start Onboarding - 只对Inactive状态显示 -->
 											<el-dropdown-item
-												v-if="row.status === 'Inactive'"
+												v-if="
+													row.status === 'Inactive' &&
+													functionPermission(
+														ProjectPermissionEnum.case.update
+													)
+												"
 												@click="handleStartOnboarding(row)"
 											>
 												<el-icon><VideoPlay /></el-icon>
@@ -94,7 +101,12 @@
 
 											<!-- Proceed - 对进行中状态显示 -->
 											<el-dropdown-item
-												v-if="isInProgressStatus(row.status)"
+												v-if="
+													isInProgressStatus(row.status) &&
+													functionPermission(
+														ProjectPermissionEnum.case.update
+													)
+												"
 												@click="handleEdit(row.id)"
 											>
 												<el-icon><Edit /></el-icon>
@@ -102,7 +114,14 @@
 											</el-dropdown-item>
 
 											<!-- Edit Case -->
-											<el-dropdown-item @click="handleEditCase(row)">
+											<el-dropdown-item
+												@click="handleEditCase(row)"
+												v-if="
+													functionPermission(
+														ProjectPermissionEnum.case.update
+													)
+												"
+											>
 												<el-icon><Edit /></el-icon>
 												Edit
 											</el-dropdown-item>
@@ -110,10 +129,13 @@
 											<!-- View - 对Completed、Force Completed、Paused、Aborted状态显示 -->
 											<el-dropdown-item
 												v-if="
-													row.status === 'Completed' ||
-													row.status === 'Force Completed' ||
-													row.status === 'Paused' ||
-													isAbortedStatus(row.status)
+													(row.status === 'Completed' ||
+														row.status === 'Force Completed' ||
+														row.status === 'Paused' ||
+														isAbortedStatus(row.status)) &&
+													functionPermission(
+														ProjectPermissionEnum.case.read
+													)
 												"
 												@click="handleEdit(row.id)"
 											>
@@ -123,7 +145,12 @@
 
 											<!-- Pause - 对进行中状态显示 -->
 											<el-dropdown-item
-												v-if="isInProgressStatus(row.status)"
+												v-if="
+													isInProgressStatus(row.status) &&
+													functionPermission(
+														ProjectPermissionEnum.case.update
+													)
+												"
 												@click="handlePause(row)"
 											>
 												<el-icon><VideoPause /></el-icon>
@@ -132,7 +159,12 @@
 
 											<!-- Resume - 对Paused状态显示 -->
 											<el-dropdown-item
-												v-if="row.status === 'Paused'"
+												v-if="
+													row.status === 'Paused' &&
+													functionPermission(
+														ProjectPermissionEnum.case.update
+													)
+												"
 												@click="handleResume(row)"
 											>
 												<el-icon><VideoPlay /></el-icon>
@@ -142,8 +174,11 @@
 											<!-- Force Complete - 对进行中状态和暂停状态显示 -->
 											<el-dropdown-item
 												v-if="
-													isInProgressStatus(row.status) ||
-													row.status === 'Paused'
+													(isInProgressStatus(row.status) ||
+														row.status === 'Paused') &&
+													functionPermission(
+														ProjectPermissionEnum.case.update
+													)
 												"
 												@click="handleForceComplete(row)"
 												class="text-green-500"
@@ -155,8 +190,11 @@
 											<!-- Abort - 对进行中状态和暂停状态显示 -->
 											<el-dropdown-item
 												v-if="
-													isInProgressStatus(row.status) ||
-													row.status === 'Paused'
+													(isInProgressStatus(row.status) ||
+														row.status === 'Paused') &&
+													functionPermission(
+														ProjectPermissionEnum.case.update
+													)
 												"
 												@click="handleAbort(row)"
 												class="text-red-500"
@@ -167,7 +205,12 @@
 
 											<!-- Reactivate - 只对已中止状态显示 -->
 											<el-dropdown-item
-												v-if="isAbortedStatus(row.status)"
+												v-if="
+													isAbortedStatus(row.status) &&
+													functionPermission(
+														ProjectPermissionEnum.case.update
+													)
+												"
 												@click="handleReactivate(row)"
 											>
 												<el-icon><RefreshRight /></el-icon>
@@ -178,6 +221,11 @@
 											<el-dropdown-item
 												@click="handleDelete(row.id)"
 												class="text-red-500"
+												v-if="
+													functionPermission(
+														ProjectPermissionEnum.case.delete
+													)
+												"
 											>
 												<el-icon><Delete /></el-icon>
 												Delete
@@ -196,6 +244,7 @@
 						>
 							<template #default="{ row }">
 								<el-link
+									:disabled="!functionPermission(ProjectPermissionEnum.case.read)"
 									type="primary"
 									:underline="false"
 									@click="handleEdit(row.id)"
@@ -650,7 +699,11 @@ import {
 	Warning,
 	Download,
 } from '@element-plus/icons-vue';
-import { CasePermissionModeEnum, PermissionSubjectTypeEnum } from '@/enums/permissionEnum';
+import {
+	CasePermissionModeEnum,
+	PermissionSubjectTypeEnum,
+	ProjectPermissionEnum,
+} from '@/enums/permissionEnum';
 import FlowflexUserSelector from '@/components/form/flowflexUser/index.vue';
 import CasePermissionSelector from './components/CasePermissionSelector.vue';
 import {
@@ -689,6 +742,7 @@ import ProgressViewIcon from '@assets/svg/onboard/progressView.svg';
 import { pick, omitBy, isNil } from 'lodash-es';
 import StageFilter from './components/StageFilter.vue';
 import StageCardList from './components/StageCardList.vue';
+import { functionPermission } from '@/hooks';
 
 type RuleType =
 	| 'string'

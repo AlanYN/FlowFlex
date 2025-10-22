@@ -28,6 +28,7 @@
 					class="tasks-draggable"
 					@start="onTaskDragStart(props.checklist.id)"
 					@change="onTaskDragChange(props.checklist.id, $event)"
+					:disabled="!functionPermission(ProjectPermissionEnum.checkList.update)"
 				>
 					<template #item="{ element: task }">
 						<div
@@ -98,7 +99,14 @@
 									</div>
 								</div>
 								<div class="flex items-center space-x-2">
-									<el-dropdown placement="bottom">
+									<el-dropdown
+										placement="bottom"
+										v-if="
+											functionPermission(
+												ProjectPermissionEnum.checkList.update
+											) || task.actionId
+										"
+									>
 										<el-button :icon="MoreFilled" link />
 										<template #dropdown>
 											<el-dropdown-menu>
@@ -110,7 +118,6 @@
 													</div>
 												</el-dropdown-item>
 												<el-dropdown-item
-													v-if="task.actionId"
 													@click="removeActionBinding(task)"
 												>
 													<div class="flex items-center gap-2">
@@ -129,6 +136,11 @@
 									<el-button
 										@click="editTask(props.checklist.id, task)"
 										link
+										v-if="
+											functionPermission(
+												ProjectPermissionEnum.checkList.update
+											)
+										"
 										:icon="Edit"
 									/>
 									<el-button
@@ -136,6 +148,11 @@
 										link
 										:icon="Delete"
 										class="text-red-500"
+										v-if="
+											functionPermission(
+												ProjectPermissionEnum.checkList.delete
+											)
+										"
 									/>
 								</div>
 							</template>
@@ -225,6 +242,7 @@
 							type="primary"
 							:icon="Plus"
 							size="small"
+							v-if="functionPermission(ProjectPermissionEnum.checkList.create)"
 						/>
 					</div>
 				</div>
@@ -237,6 +255,7 @@
 					type="primary"
 					:icon="Plus"
 					circle
+					v-if="functionPermission(ProjectPermissionEnum.checkList.create)"
 				/>
 			</div>
 		</div>
@@ -273,6 +292,8 @@ import { useI18n } from '@/hooks/useI18n';
 import ActionConfigDialog from '@/components/actionTools/ActionConfigDialog.vue';
 import FlowflexUserSelector from '@/components/form/flowflexUser/index.vue';
 import { TriggerTypeEnum } from '@/enums/appEnum';
+import { functionPermission } from '@/hooks';
+import { ProjectPermissionEnum } from '@/enums/permissionEnum';
 
 const props = defineProps({
 	checklist: {

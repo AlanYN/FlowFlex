@@ -12,11 +12,20 @@
 			document.head.appendChild(faviconLink);
 		</script>
 		<style>
-			html, body {
+			:root {
+				/* CSS variables for theming */
+				--bg-primary: #0f0f23;
+				--accent-primary: #8b5cf6;
+				--accent-secondary: #ff6b6b;
+			}
+
+			html,
+			body {
 				margin: 0;
 				padding: 0;
 				width: 100%;
 				height: 100%;
+				overflow: hidden;
 			}
 
 			#app-root {
@@ -25,292 +34,59 @@
 				overflow: auto;
 			}
 
-			/* 添加 item-theme 样式 */
-			.item-theme {
-				background: #ffffff !important;
-			}
-
-			.item-theme .app-loading {
-				background: #ffffff !important;
-			}
-
-			.item-theme .app-loading-title {
-				color: #8B5CF6 !important;
-			}
-
-			.item-theme .loading-spinner::before {
-				border-top-color: #8B5CF6 !important;
-				border-right-color: #A855F7 !important;
-			}
-
-			.app-loading {
+			/* Loading Background Container */
+			.loading-container {
 				position: fixed;
 				top: 0;
 				left: 0;
-				width: 100%;
-				height: 100%;
+				width: 100vw;
+				height: 100vh;
+				background: var(--bg-primary);
 				display: flex;
-				flex-direction: column;
-				align-items: center;
 				justify-content: center;
-				background: #ffffff;
-				overflow: hidden;
+				align-items: center;
+				z-index: 9999;
 			}
 
-			/* 轻微的装饰效果 */
-			.app-loading::before {
-				content: '';
-				position: absolute;
-				top: 0;
-				left: 0;
-				width: 100%;
-				height: 100%;
-				background-image: 
-					radial-gradient(rgba(139,92,246,0.05), rgba(139,92,246,.02) 2px, transparent 40px),
-					radial-gradient(rgba(168,85,247,0.03), rgba(168,85,247,.01) 1px, transparent 30px);
-				background-size: 300px 300px, 200px 200px;
-				background-position: 0 0, 100px 150px;
-				animation: particleMove 30s linear infinite;
-				opacity: 0.6;
-			}
-
-			.app-loading .app-loading-wrap {
+			/* Wave Loading */
+			.wave-loading {
 				display: flex;
-				position: relative;
-				flex-direction: column;
-				align-items: center;
 				justify-content: center;
-				z-index: 10;
-			}
-
-			/* FlowFlex 品牌标志加载器 */
-			.loading-spinner {
-				position: relative;
-				width: 140px;
-				height: 140px;
-				margin-bottom: 50px;
-			}
-
-			/* 外圆环 - Flow 流动效果 */
-			.loading-spinner::before {
-				content: '';
-				position: absolute;
-				top: 50%;
-				left: 50%;
-				width: 100px;
-				height: 100px;
-				margin-top: -50px;
-				margin-left: -50px;
-				border-radius: 50%;
-				border: 3px solid transparent;
-				border-top: 3px solid #8B5CF6;
-				border-right: 3px solid #A855F7;
-				border-bottom: 3px solid rgba(139, 92, 246, 0.3);
-				animation: flowRotate 2s linear infinite;
-				box-shadow: 0 0 20px rgba(139, 92, 246, 0.2);
-			}
-
-			/* 内圆环 - Flex 灵活效果 */
-			.loading-spinner::after {
-				content: '';
-				position: absolute;
-				top: 50%;
-				left: 50%;
-				width: 70px;
-				height: 70px;
-				margin-top: -35px;
-				margin-left: -35px;
-				border-radius: 50%;
-				border: 2px solid transparent;
-				border-left: 2px solid #A855F7;
-				border-bottom: 2px solid rgba(168, 85, 247, 0.6);
-				animation: flexRotate 1.5s linear infinite reverse;
-			}
-
-			/* 中心品牌核心 */
-			.loading-center {
-				position: absolute;
-				top: 50%;
-				left: 50%;
-				width: 30px;
-				height: 30px;
-				margin-top: -15px;
-				margin-left: -15px;
-				background: linear-gradient(45deg, #8B5CF6, #A855F7);
-				border-radius: 50%;
-				animation: brandPulse 2s ease-in-out infinite;
-				box-shadow: 0 0 15px rgba(139, 92, 246, 0.3);
-			}
-
-			/* Flow 流动点效果 */
-			.flow-dots {
-				position: absolute;
-				width: 100%;
-				height: 100%;
-			}
-
-			.flow-dot {
-				position: absolute;
-				width: 6px;
-				height: 6px;
-				background: rgba(139, 92, 246, 0.7);
-				border-radius: 50%;
-				animation: flowDots 3s linear infinite;
-			}
-
-			.flow-dot:nth-child(1) {
-				top: 10px;
-				left: 50%;
-				animation-delay: 0s;
-			}
-
-			.flow-dot:nth-child(2) {
-				top: 50%;
-				right: 10px;
-				animation-delay: 0.75s;
-			}
-
-			.flow-dot:nth-child(3) {
-				bottom: 10px;
-				left: 50%;
-				animation-delay: 1.5s;
-			}
-
-			.flow-dot:nth-child(4) {
-				top: 50%;
-				left: 10px;
-				animation-delay: 2.25s;
-			}
-
-			.app-loading .app-loading-title {
-				display: flex;
 				align-items: center;
-				justify-content: center;
-				font-size: 32px;
-				font-weight: 400;
-				letter-spacing: 6px;
-				color: #8B5CF6;
-				text-shadow: 0 0 20px rgba(139, 92, 246, 0.2);
-				animation: textGlow 2s ease-in-out infinite alternate;
+				gap: 3px;
 			}
 
-			/* 进度条 */
-			.loading-progress {
-				width: 300px;
-				height: 4px;
-				background: rgba(139, 92, 246, 0.15);
+			.wave-loading .bar {
+				width: 4px;
+				height: 20px;
+				background: var(--accent-primary);
 				border-radius: 2px;
-				margin-top: 30px;
-				overflow: hidden;
-				position: relative;
+				animation: wave 1.2s ease-in-out infinite;
+				transition: background-color 0.3s ease;
 			}
 
-			.loading-progress::after {
-				content: '';
-				position: absolute;
-				top: 0;
-				left: -100%;
-				width: 100%;
-				height: 100%;
-				background: linear-gradient(90deg, 
-					transparent, 
-					rgba(139, 92, 246, 0.8), 
-					transparent
-				);
-				animation: progressSweep 2s infinite;
+			.wave-loading .bar:nth-child(1) {
+				animation-delay: -1.1s;
+			}
+			.wave-loading .bar:nth-child(2) {
+				animation-delay: -1.0s;
+			}
+			.wave-loading .bar:nth-child(3) {
+				animation-delay: -0.9s;
+			}
+			.wave-loading .bar:nth-child(4) {
+				animation-delay: -0.8s;
+			}
+			.wave-loading .bar:nth-child(5) {
+				animation-delay: -0.7s;
 			}
 
-			/* 动画定义 */
-			@keyframes flowRotate {
-				to {
-					transform: rotate(360deg);
+			@keyframes wave {
+				0%, 40%, 100% {
+					transform: scaleY(0.4);
 				}
-			}
-
-			@keyframes flexRotate {
-				to {
-					transform: rotate(360deg);
-				}
-			}
-
-			@keyframes brandPulse {
-				0%, 100% {
-					transform: scale(0.9);
-					opacity: 0.8;
-				}
-				50% {
-					transform: scale(1.1);
-					opacity: 1;
-				}
-			}
-
-			@keyframes flowDots {
-				0%, 100% {
-					opacity: 0.3;
-					transform: scale(0.8);
-				}
-				50% {
-					opacity: 1;
-					transform: scale(1.2);
-				}
-			}
-
-			@keyframes textGlow {
-				from {
-					text-shadow: 0 0 20px rgba(139, 92, 246, 0.2);
-				}
-				to {
-					text-shadow: 0 0 30px rgba(139, 92, 246, 0.4), 
-								 0 0 40px rgba(139, 92, 246, 0.1);
-				}
-			}
-
-			@keyframes progressSweep {
-				0% {
-					left: -100%;
-				}
-				100% {
-					left: 100%;
-				}
-			}
-
-			@keyframes particleMove {
-				0% {
-					background-position: 0 0, 40px 60px, 130px 270px;
-				}
-				100% {
-					background-position: 550px 0, 590px 60px, 680px 270px;
-				}
-			}
-
-			/* 响应式设计 */
-			@media (max-width: 768px) {
-				.loading-spinner {
-					width: 80px;
-					height: 80px;
-				}
-				
-				.loading-spinner::before {
-					width: 60px;
-					height: 60px;
-					margin-top: -30px;
-					margin-left: -30px;
-				}
-				
-				.loading-spinner::after {
-					width: 40px;
-					height: 40px;
-					margin-top: -20px;
-					margin-left: -20px;
-				}
-				
-				.app-loading .app-loading-title {
-					font-size: 24px;
-					letter-spacing: 4px;
-				}
-				
-				.loading-progress {
-					width: 250px;
+				20% {
+					transform: scaleY(1.0);
 				}
 			}
 		</style>
@@ -318,23 +94,17 @@
 	<body>
 		<!-- item-theme -->
 		<div id="app-root">
-			<div class="app-loading">
-				<div class="app-loading-wrap">
-					<div class="loading-spinner">
-						<div class="flow-dots">
-							<div class="flow-dot"></div>
-							<div class="flow-dot"></div>
-							<div class="flow-dot"></div>
-							<div class="flow-dot"></div>
-						</div>
-						<div class="loading-center"></div>
-					</div>
-					<div id="loading_text" class="app-loading-title"></div>
-					<div class="loading-progress"></div>
+			<div class="loading-container">
+				<div class="wave-loading">
+					<div class="bar"></div>
+					<div class="bar"></div>
+					<div class="bar"></div>
+					<div class="bar"></div>
+					<div class="bar"></div>
 				</div>
 			</div>
 		</div>
 		<script type="module" src="/src/main.ts"></script>
 	</body>
-	<link rel="prefetch" :href="<%= VITE_GLOB_SSOURL %>">
+	<link rel="prefetch" :href="<%= VITE_GLOB_SSOURL %>" />
 </html>

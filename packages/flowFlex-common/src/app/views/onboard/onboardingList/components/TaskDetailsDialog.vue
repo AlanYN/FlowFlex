@@ -6,6 +6,7 @@
 		:before-close="handleClose"
 		destroy-on-close
 		class="task-details-dialog"
+		:append-to-body="true"
 	>
 		<div v-if="task" class="dialog-content">
 			<!-- 任务基本信息 -->

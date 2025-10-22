@@ -20,6 +20,7 @@
 					@click="() => handleNewQuestionnaire()"
 					class="page-header-btn page-header-btn-primary"
 					:icon="Plus"
+					v-permission="ProjectPermissionEnum.question.create"
 				>
 					New Questionnaire
 				</el-button>
@@ -206,6 +207,7 @@ import { smallDialogWidth } from '@/settings/projectSetting';
 import { PrototypeTabs, TabPane, TabButtonGroup } from '@/components/PrototypeTabs';
 import TableViewIcon from '@assets/svg/onboard/tavleView.svg';
 import ProgressViewIcon from '@assets/svg/onboard/progressView.svg';
+import { ProjectPermissionEnum } from '@/enums/permissionEnum';
 
 const router = useRouter();
 

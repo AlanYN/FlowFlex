@@ -14,6 +14,11 @@
 					@click="handleSaveQuestionnaire"
 					:loading="saving"
 					:icon="Document"
+					v-if="
+						isEditMode
+							? functionPermission(ProjectPermissionEnum.question.update)
+							: functionPermission(ProjectPermissionEnum.question.create)
+					"
 				>
 					{{ isEditMode ? 'Update Questionnaire' : 'Save Questionnaire' }}
 				</el-button>
@@ -67,10 +72,14 @@
 									:icon="Plus"
 									@click="handleAddSection"
 									class="w-full"
+									v-if="functionPermission(ProjectPermissionEnum.question.create)"
 								>
 									Add Section
 								</el-button>
-								<p class="text-xs section-hint mt-2 text-center">
+								<p
+									class="text-xs section-hint mt-2 text-center"
+									v-if="functionPermission(ProjectPermissionEnum.question.create)"
+								>
 									Organize your questions into sections
 								</p>
 							</div>
@@ -131,7 +140,15 @@
 												ref="titleInputRef"
 											/>
 										</div>
-										<el-dropdown placement="bottom" @command="handleAddContent">
+										<el-dropdown
+											placement="bottom"
+											@command="handleAddContent"
+											v-if="
+												functionPermission(
+													ProjectPermissionEnum.question.update
+												)
+											"
+										>
 											<el-button :icon="MoreFilled" link />
 											<template #dropdown>
 												<el-dropdown-menu>
@@ -204,6 +221,11 @@
 
 									<!-- 新问题编辑器 -->
 									<QuestionEditor
+										v-if="
+											functionPermission(
+												ProjectPermissionEnum.question.create
+											)
+										"
 										ref="questionEditorRef"
 										:question-types="questionTypes"
 										:pressent-question-type="pressentQuestionType"
@@ -249,6 +271,8 @@ import QuestionTypesPanel from './components/QuestionTypesPanel.vue';
 import QuestionEditor from './components/QuestionEditor.vue';
 import QuestionsList from './components/QuestionsList.vue';
 import { Section } from '#/section';
+import { functionPermission } from '@/hooks';
+import { ProjectPermissionEnum } from '@/enums/permissionEnum';
 
 // 引入API
 import {

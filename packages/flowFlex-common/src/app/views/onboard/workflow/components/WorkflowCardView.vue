@@ -22,6 +22,11 @@
 							<div class="flex items-center justify-between w-full">
 								<div
 									class="flex items-center space-x-3 flex-1 min-w-0"
+									:class="
+										functionPermission(ProjectPermissionEnum.workflow.read)
+											? 'cursor-pointer'
+											: 'cursor-not-allowed'
+									"
 									@click="handleWorkflowSelect(workflow)"
 								>
 									<div
@@ -63,12 +68,22 @@
 									</el-button>
 									<template #dropdown>
 										<el-dropdown-menu>
-											<el-dropdown-item command="edit">
+											<el-dropdown-item
+												v-if="
+													functionPermission(
+														ProjectPermissionEnum.workflow.update
+													)
+												"
+												command="edit"
+											>
 												<el-icon class="mr-2"><Edit /></el-icon>
-												Edit
+												Edit Workflow
 											</el-dropdown-item>
 											<el-dropdown-item
 												v-if="
+													functionPermission(
+														ProjectPermissionEnum.workflow.update
+													) &&
 													!workflow.isDefault &&
 													workflow.status === 'active'
 												"
@@ -78,30 +93,59 @@
 												Set as Default
 											</el-dropdown-item>
 											<el-dropdown-item
-												v-if="workflow.status === 'active'"
+												v-if="
+													functionPermission(
+														ProjectPermissionEnum.workflow.update
+													) && workflow.status === 'active'
+												"
 												command="deactivate"
 											>
 												<el-icon class="mr-2"><CircleClose /></el-icon>
 												Set as Inactive
 											</el-dropdown-item>
 											<el-dropdown-item
-												v-if="workflow.status === 'inactive'"
+												v-if="
+													functionPermission(
+														ProjectPermissionEnum.workflow.update
+													) && workflow.status === 'inactive'
+												"
 												command="activate"
 											>
 												<el-icon class="mr-2"><Check /></el-icon>
 												Set as Active
 											</el-dropdown-item>
-											<el-dropdown-item command="duplicate">
+											<el-dropdown-item
+												v-if="
+													functionPermission(
+														ProjectPermissionEnum.workflow.create
+													)
+												"
+												command="duplicate"
+											>
 												<el-icon class="mr-2"><CopyDocument /></el-icon>
 												Duplicate
 											</el-dropdown-item>
-											<el-dropdown-item divided>
+											<el-dropdown-item
+												v-if="
+													functionPermission(
+														ProjectPermissionEnum.workflow.read
+													)
+												"
+												divided
+											>
 												<HistoryButton
 													:id="workflow.id"
 													:type="WFEMoudels.Workflow"
 												/>
 											</el-dropdown-item>
-											<el-dropdown-item command="export">
+											<el-dropdown-item
+												v-if="
+													functionPermission(
+														ProjectPermissionEnum.workflow.read
+													)
+												"
+												command="export"
+											>
 												<el-icon class="mr-2"><Download /></el-icon>
 												Export Workflow
 											</el-dropdown-item>
@@ -250,6 +294,8 @@ import { timeZoneConvert } from '@/hooks/time';
 import { projectTenMinuteDate } from '@/settings/projectSetting';
 import { WFEMoudels } from '@/enums/appEnum';
 import StarIcon from '@assets/svg/workflow/star.svg';
+import { ProjectPermissionEnum } from '@/enums/permissionEnum';
+import { functionPermission } from '@/hooks';
 
 // Props
 const props = defineProps<{
@@ -276,6 +322,7 @@ const handleCommand = (command: string, workflow: any) => {
 };
 
 const handleWorkflowSelect = (workflow: any) => {
+	if (!functionPermission(ProjectPermissionEnum.workflow.read)) return;
 	emit('select-workflow', workflow.id);
 };
 

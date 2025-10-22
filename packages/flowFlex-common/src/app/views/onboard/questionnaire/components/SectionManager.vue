@@ -2,7 +2,13 @@
 	<div class="config-section">
 		<div class="section-header">
 			<h3 class="section-title">Sections</h3>
-			<el-button type="primary" size="small" @click="addSection" :icon="Plus">
+			<el-button
+				v-if="functionPermission(ProjectPermissionEnum.question.create)"
+				type="primary"
+				size="small"
+				@click="addSection"
+				:icon="Plus"
+			>
 				Add Section
 			</el-button>
 		</div>
@@ -38,6 +44,7 @@
 							type="primary"
 							link
 							size="small"
+							v-if="functionPermission(ProjectPermissionEnum.question.delete)"
 							@click.stop="removeSection(index)"
 							:icon="Delete"
 							class="delete-btn"
@@ -54,6 +61,8 @@ import { computed, ref } from 'vue';
 import { Plus, Delete } from '@element-plus/icons-vue';
 import draggable from 'vuedraggable';
 import { Section } from '#/section';
+import { functionPermission } from '@/hooks';
+import { ProjectPermissionEnum } from '@/enums/permissionEnum';
 
 interface Props {
 	sections: Section[];
