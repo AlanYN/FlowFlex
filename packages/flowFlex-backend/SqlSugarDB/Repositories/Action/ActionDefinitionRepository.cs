@@ -109,6 +109,10 @@ namespace FlowFlex.SqlSugarDB.Repositories.Action
             {
                 query = query.Where(x => x.ActionType == actionType);
             }
+            else
+            {
+                query = query.Where(x => x.ActionType != ActionTypeEnum.System.ToString());
+            }
 
             // Filter by keyword (search in name and description)
             if (!string.IsNullOrEmpty(keyword))
