@@ -14,6 +14,8 @@ using FlowFlex.Domain.Shared.Models;
 using FlowFlex.Application.Filter;
 using FlowFlex.Domain.Shared.Enums.Permission;
 using FlowFlex.WebApi.Filters;
+using FlowFlex.Domain.Shared.Const;
+using WebApi.Authorization;
 
 namespace FlowFlex.WebApi.Controllers.OW
 {
@@ -36,8 +38,10 @@ namespace FlowFlex.WebApi.Controllers.OW
 
         /// <summary>
         /// Create new onboarding
+        /// Requires CASE:CREATE permission
         /// </summary>
         [HttpPost]
+        [WFEAuthorize(PermissionConsts.Case.Create)]
         [ProducesResponseType<SuccessResponse<long>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> CreateAsync([FromBody] OnboardingInputDto input)
         {
@@ -72,8 +76,10 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// Supports updating all fields including permission configuration
         /// Permission fields: PermissionSubjectType, ViewPermissionMode, ViewTeams/ViewUsers, OperateTeams/OperateUsers
         /// Teams and Users are stored separately - data switches based on PermissionSubjectType
+        /// Requires CASE:UPDATE permission
         /// </summary>
         [HttpPut("{id}")]
+        [WFEAuthorize(PermissionConsts.Case.Update)]
         [RequirePermission(PermissionEntityTypeEnum.Case, OperationTypeEnum.Operate)]
         [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> UpdateAsync(long id, [FromBody] OnboardingInputDto input)
@@ -84,8 +90,10 @@ namespace FlowFlex.WebApi.Controllers.OW
 
         /// <summary>
         /// Delete onboarding (with confirmation)
+        /// Requires CASE:DELETE permission
         /// </summary>
         [HttpDelete("{id}")]
+        [WFEAuthorize(PermissionConsts.Case.Delete)]
         [RequirePermission(PermissionEntityTypeEnum.Case, OperationTypeEnum.Delete)]
         [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> DeleteAsync(long id, [FromQuery] bool confirm = false)
@@ -96,8 +104,10 @@ namespace FlowFlex.WebApi.Controllers.OW
 
         /// <summary>
         /// Get onboarding by ID
+        /// Requires CASE:READ permission
         /// </summary>
         [HttpGet("{id}")]
+        [WFEAuthorize(PermissionConsts.Case.Read)]
         [RequirePermission(PermissionEntityTypeEnum.Case, OperationTypeEnum.View)]
         [ProducesResponseType<SuccessResponse<OnboardingOutputDto>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> GetByIdAsync(long id)
@@ -108,8 +118,10 @@ namespace FlowFlex.WebApi.Controllers.OW
 
         /// <summary>
         /// Get onboarding list
+        /// Requires CASE:READ permission
         /// </summary>
         [HttpGet]
+        [WFEAuthorize(PermissionConsts.Case.Read)]
         [ProducesResponseType<SuccessResponse<List<OnboardingOutputDto>>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> GetListAsync()
         {
@@ -125,8 +137,10 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// All text search queries are case-insensitive and support fuzzy matching
         /// leadId supports fuzzy search (partial matching)
         /// Example: {"leadId": "c", "leadName": "company1,company2", "updatedBy": "user1,user2"}
+        /// Requires CASE:READ permission
         /// </summary>
         [HttpPost("query")]
+        [WFEAuthorize(PermissionConsts.Case.Read)]
         [ProducesResponseType<SuccessResponse<PageModelDto<OnboardingOutputDto>>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> QueryAsync([FromBody] OnboardingQueryRequest query)
         {
@@ -209,8 +223,10 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// Supports comma-separated values for leadId, leadName, and updatedBy parameters
         /// All text search queries are case-insensitive
         /// Example: ?leadId=11,22,33&leadName=company1,company2&updatedBy=user1,user2
+        /// Requires CASE:READ permission
         /// </summary>
         [HttpGet("search")]
+        [WFEAuthorize(PermissionConsts.Case.Read)]
         [ProducesResponseType<SuccessResponse<PageModelDto<OnboardingOutputDto>>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> SearchAsync(
             [FromQuery] int pageIndex = 1,
@@ -258,8 +274,10 @@ namespace FlowFlex.WebApi.Controllers.OW
 
         /// <summary>
         /// Get onboarding statistics
+        /// Requires CASE:READ permission
         /// </summary>
         [HttpGet("statistics")]
+        [WFEAuthorize(PermissionConsts.Case.Read)]
         [ProducesResponseType<SuccessResponse<OnboardingStatisticsDto>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> GetStatisticsAsync()
         {
@@ -269,8 +287,10 @@ namespace FlowFlex.WebApi.Controllers.OW
 
         /// <summary>
         /// Get overdue onboarding list
+        /// Requires CASE:READ permission
         /// </summary>
         [HttpGet("overdue")]
+        [WFEAuthorize(PermissionConsts.Case.Read)]
         [ProducesResponseType<SuccessResponse<List<OnboardingOutputDto>>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> GetOverdueListAsync()
         {
@@ -280,8 +300,10 @@ namespace FlowFlex.WebApi.Controllers.OW
 
         /// <summary>
         /// Move onboarding to next stage
+        /// Requires CASE:UPDATE permission
         /// </summary>
         [HttpPost("{id}/next-stage")]
+        [WFEAuthorize(PermissionConsts.Case.Update)]
         [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> MoveToNextStageAsync(long id)
         {
@@ -291,8 +313,10 @@ namespace FlowFlex.WebApi.Controllers.OW
 
         /// <summary>
         /// Move onboarding to previous stage
+        /// Requires CASE:UPDATE permission
         /// </summary>
         [HttpPost("{id}/previous-stage")]
+        [WFEAuthorize(PermissionConsts.Case.Update)]
         [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> MoveToPreviousStageAsync(long id)
         {
@@ -302,8 +326,10 @@ namespace FlowFlex.WebApi.Controllers.OW
 
         /// <summary>
         /// Move onboarding to specific stage
+        /// Requires CASE:UPDATE permission
         /// </summary>
         [HttpPost("{id}/move-to-stage")]
+        [WFEAuthorize(PermissionConsts.Case.Update)]
         [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> MoveToStageAsync(long id, [FromBody] MoveToStageInputDto input)
         {
@@ -313,8 +339,10 @@ namespace FlowFlex.WebApi.Controllers.OW
 
         /// <summary>
         /// Complete current stage
+        /// Requires CASE:UPDATE permission
         /// </summary>
         [HttpPost("{id}/complete-stage")]
+        [WFEAuthorize(PermissionConsts.Case.Update)]
         [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> CompleteCurrentStageAsync(long id)
         {
@@ -324,8 +352,10 @@ namespace FlowFlex.WebApi.Controllers.OW
 
         /// <summary>
         /// Complete current stage with validation
+        /// Requires CASE:UPDATE permission
         /// </summary>
         [HttpPost("{id}/complete-stage-with-validation")]
+        [WFEAuthorize(PermissionConsts.Case.Update)]
         [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> CompleteCurrentStageWithValidationAsync(long id, [FromBody] CompleteCurrentStageInputDto input)
         {
@@ -346,8 +376,10 @@ namespace FlowFlex.WebApi.Controllers.OW
 
         /// <summary>
         /// Complete current stage with details
+        /// Requires CASE:UPDATE permission
         /// </summary>
         [HttpPost("{id}/complete-stage-with-details")]
+        [WFEAuthorize(PermissionConsts.Case.Update)]
         [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> CompleteStageAsync(long id, [FromBody] CompleteStageInputDto input)
         {
@@ -357,8 +389,10 @@ namespace FlowFlex.WebApi.Controllers.OW
 
         /// <summary>
         /// Complete onboarding
+        /// Requires CASE:UPDATE permission
         /// </summary>
         [HttpPost("{id}/complete")]
+        [WFEAuthorize(PermissionConsts.Case.Update)]
         [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> CompleteAsync(long id)
         {
@@ -368,8 +402,10 @@ namespace FlowFlex.WebApi.Controllers.OW
 
         /// <summary>
         /// Complete onboarding with details
+        /// Requires CASE:UPDATE permission
         /// </summary>
         [HttpPost("{id}/complete-with-details")]
+        [WFEAuthorize(PermissionConsts.Case.Update)]
         [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> CompleteWithDetailsAsync(long id, [FromBody] CompleteOnboardingInputDto input)
         {
@@ -379,8 +415,10 @@ namespace FlowFlex.WebApi.Controllers.OW
 
         /// <summary>
         /// Pause onboarding
+        /// Requires CASE:UPDATE permission
         /// </summary>
         [HttpPost("{id}/pause")]
+        [WFEAuthorize(PermissionConsts.Case.Update)]
         [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> PauseAsync(long id)
         {
@@ -390,8 +428,10 @@ namespace FlowFlex.WebApi.Controllers.OW
 
         /// <summary>
         /// Resume onboarding
+        /// Requires CASE:UPDATE permission
         /// </summary>
         [HttpPost("{id}/resume")]
+        [WFEAuthorize(PermissionConsts.Case.Update)]
         [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> ResumeAsync(long id)
         {
@@ -401,8 +441,10 @@ namespace FlowFlex.WebApi.Controllers.OW
 
         /// <summary>
         /// Reject onboarding application
+        /// Requires CASE:UPDATE permission
         /// </summary>
         [HttpPost("{id}/reject")]
+        [WFEAuthorize(PermissionConsts.Case.Update)]
         [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> RejectAsync(long id, [FromBody] RejectOnboardingInputDto input)
         {
@@ -412,8 +454,10 @@ namespace FlowFlex.WebApi.Controllers.OW
 
         /// <summary>
         /// Cancel onboarding
+        /// Requires CASE:UPDATE permission
         /// </summary>
         [HttpPost("{id}/cancel")]
+        [WFEAuthorize(PermissionConsts.Case.Update)]
         [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> CancelAsync(long id, [FromQuery] string reason = "")
         {
@@ -423,8 +467,10 @@ namespace FlowFlex.WebApi.Controllers.OW
 
         /// <summary>
         /// Start onboarding (activate an inactive onboarding)
+        /// Requires CASE:UPDATE permission
         /// </summary>
         [HttpPost("{id}/start")]
+        [WFEAuthorize(PermissionConsts.Case.Update)]
         [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> StartOnboardingAsync(long id, [FromBody] StartOnboardingInputDto input)
         {
@@ -435,8 +481,10 @@ namespace FlowFlex.WebApi.Controllers.OW
 
         /// <summary>
         /// Abort onboarding (terminate the process)
+        /// Requires CASE:UPDATE permission
         /// </summary>
         [HttpPost("{id}/abort")]
+        [WFEAuthorize(PermissionConsts.Case.Update)]
         [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> AbortAsync(long id, [FromBody] AbortOnboardingInputDto input)
         {
@@ -446,8 +494,10 @@ namespace FlowFlex.WebApi.Controllers.OW
 
         /// <summary>
         /// Reactivate onboarding (restart an aborted onboarding)
+        /// Requires CASE:UPDATE permission
         /// </summary>
         [HttpPost("{id}/reactivate")]
+        [WFEAuthorize(PermissionConsts.Case.Update)]
         [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> ReactivateAsync(long id, [FromBody] ReactivateOnboardingInputDto input)
         {
@@ -457,8 +507,10 @@ namespace FlowFlex.WebApi.Controllers.OW
 
         /// <summary>
         /// Resume onboarding with confirmation
+        /// Requires CASE:UPDATE permission
         /// </summary>
         [HttpPost("{id}/resume-with-confirmation")]
+        [WFEAuthorize(PermissionConsts.Case.Update)]
         [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> ResumeWithConfirmationAsync(long id, [FromBody] ResumeOnboardingInputDto input)
         {
@@ -468,8 +520,10 @@ namespace FlowFlex.WebApi.Controllers.OW
 
         /// <summary>
         /// Force complete onboarding (bypass normal validation and set to Force Completed status)
+        /// Requires CASE:UPDATE permission
         /// </summary>
         [HttpPost("{id}/force-complete")]
+        [WFEAuthorize(PermissionConsts.Case.Update)]
         [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> ForceCompleteAsync(long id, [FromBody] ForceCompleteOnboardingInputDto input)
         {
@@ -479,8 +533,10 @@ namespace FlowFlex.WebApi.Controllers.OW
 
         /// <summary>
         /// Assign onboarding to user
+        /// Requires CASE:UPDATE permission
         /// </summary>
         [HttpPost("{id}/assign")]
+        [WFEAuthorize(PermissionConsts.Case.Update)]
         [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> AssignAsync(long id, [FromBody] AssignOnboardingInputDto input)
         {
@@ -490,8 +546,10 @@ namespace FlowFlex.WebApi.Controllers.OW
 
         /// <summary>
         /// Update completion rate
+        /// Requires CASE:UPDATE permission
         /// </summary>
         [HttpPost("{id}/update-completion-rate")]
+        [WFEAuthorize(PermissionConsts.Case.Update)]
         [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> UpdateCompletionRateAsync(long id)
         {
@@ -501,8 +559,10 @@ namespace FlowFlex.WebApi.Controllers.OW
 
         /// <summary>
         /// Set onboarding priority
+        /// Requires CASE:UPDATE permission
         /// </summary>
         [HttpPost("{id}/set-priority")]
+        [WFEAuthorize(PermissionConsts.Case.Update)]
         [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> SetPriorityAsync(long id, [FromQuery] string priority)
         {
@@ -512,8 +572,10 @@ namespace FlowFlex.WebApi.Controllers.OW
 
         /// <summary>
         /// Batch update onboarding status
+        /// Requires CASE:UPDATE permission
         /// </summary>
         [HttpPost("batch-update-status")]
+        [WFEAuthorize(PermissionConsts.Case.Update)]
         [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> BatchUpdateStatusAsync([FromBody] BatchUpdateStatusInputDto input)
         {
@@ -523,8 +585,10 @@ namespace FlowFlex.WebApi.Controllers.OW
 
         /// <summary>
         /// Get onboarding timeline
+        /// Requires CASE:READ permission
         /// </summary>
         [HttpGet("{id}/timeline")]
+        [WFEAuthorize(PermissionConsts.Case.Read)]
         [ProducesResponseType<SuccessResponse<List<OnboardingTimelineDto>>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> GetTimelineAsync(long id)
         {
@@ -534,8 +598,10 @@ namespace FlowFlex.WebApi.Controllers.OW
 
         /// <summary>
         /// Add note to onboarding
+        /// Requires CASE:UPDATE permission
         /// </summary>
         [HttpPost("{id}/notes")]
+        [WFEAuthorize(PermissionConsts.Case.Update)]
         [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> AddNoteAsync(long id, [FromBody] AddNoteInputDto input)
         {
@@ -545,8 +611,10 @@ namespace FlowFlex.WebApi.Controllers.OW
 
         /// <summary>
         /// Update onboarding status
+        /// Requires CASE:UPDATE permission
         /// </summary>
         [HttpPut("{id}/status")]
+        [WFEAuthorize(PermissionConsts.Case.Update)]
         [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> UpdateStatusAsync(long id, [FromBody] UpdateStatusInputDto input)
         {
@@ -556,8 +624,10 @@ namespace FlowFlex.WebApi.Controllers.OW
 
         /// <summary>
         /// Update onboarding priority
+        /// Requires CASE:UPDATE permission
         /// </summary>
         [HttpPut("{id}/priority")]
+        [WFEAuthorize(PermissionConsts.Case.Update)]
         [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> UpdatePriorityAsync(long id, [FromBody] UpdatePriorityInputDto input)
         {
@@ -567,8 +637,10 @@ namespace FlowFlex.WebApi.Controllers.OW
 
         /// <summary>
         /// Restart onboarding
+        /// Requires CASE:UPDATE permission
         /// </summary>
         [HttpPost("{id}/restart")]
+        [WFEAuthorize(PermissionConsts.Case.Update)]
         [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> RestartAsync(long id, [FromBody] RestartOnboardingInputDto input)
         {
@@ -578,8 +650,10 @@ namespace FlowFlex.WebApi.Controllers.OW
 
         /// <summary>
         /// Get onboarding progress
+        /// Requires CASE:READ permission
         /// </summary>
         [HttpGet("{id}/progress")]
+        [WFEAuthorize(PermissionConsts.Case.Read)]
         [ProducesResponseType<SuccessResponse<OnboardingProgressDto>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> GetProgressAsync(long id)
         {
@@ -591,8 +665,10 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// Export onboarding list to Excel
         /// Supports comma-separated values for leadId, leadName, and updatedBy fields
         /// All text search queries are case-insensitive
+        /// Requires CASE:READ permission
         /// </summary>
         [HttpPost("export-excel")]
+        [WFEAuthorize(PermissionConsts.Case.Read)]
         [ProducesResponseType(typeof(FileResult), 200)]
         public async Task<IActionResult> ExportToExcelAsync([FromBody] OnboardingQueryRequest query)
         {
@@ -605,8 +681,10 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// Export onboarding list to Excel (GET method with query parameters)
         /// Supports comma-separated values for leadId, leadName, and updatedBy parameters
         /// All text search queries are case-insensitive
+        /// Requires CASE:READ permission
         /// </summary>
         [HttpGet("export-excel")]
+        [WFEAuthorize(PermissionConsts.Case.Read)]
         [ProducesResponseType(typeof(FileResult), 200)]
         public async Task<IActionResult> ExportToExcelAsync(
             [FromQuery] int pageIndex = 1,
@@ -659,8 +737,10 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// <summary>
         /// Sync stages progress from workflow stages configuration
         /// Updates VisibleInPortal and AttachmentManagementNeeded fields from stage definitions
+        /// Requires CASE:UPDATE permission
         /// </summary>
         [HttpPost("{id}/sync-stages-progress")]
+        [WFEAuthorize(PermissionConsts.Case.Update)]
         [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> SyncStagesProgressAsync(long id)
         {
@@ -671,8 +751,10 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// <summary>
         /// Update custom fields for a specific stage in onboarding's stagesProgress
         /// Updates CustomEstimatedDays and CustomEndTime fields
+        /// Requires CASE:UPDATE permission
         /// </summary>
         [HttpPost("{id}/stage/update-custom-fields")]
+        [WFEAuthorize(PermissionConsts.Case.Update)]
         [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> UpdateStageCustomFieldsAsync(long id, [FromBody] UpdateStageCustomFieldsInputDto input)
         {
@@ -683,8 +765,10 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// <summary>
         /// Save a specific stage in onboarding's stagesProgress
         /// Updates the stage's IsSaved, SaveTime, and SavedById fields
+        /// Requires CASE:UPDATE permission
         /// </summary>
         [HttpPost("{id}/save")]
+        [WFEAuthorize(PermissionConsts.Case.Update)]
         [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> SaveStageAsync(long id, [FromBody] SaveOnboardingStageDto input)
         {
