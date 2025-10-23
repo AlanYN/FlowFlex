@@ -807,36 +807,5 @@ defineExpose({
 	.half-width {
 		grid-column: span 2;
 	}
-
-	// 确保表单项内部元素也是100%宽度
-	.form-item {
-		width: 100%;
-		:deep(.el-select),
-		:deep(.el-input),
-		:deep(.el-input-number) {
-			width: 100%;
-		}
-	}
-
-	:deep(.el-form-item) {
-		margin-bottom: 0; // 移除默认的底部间距，因为我们使用gap来控制间距
-
-		.el-form-item__label {
-			font-weight: 500;
-			color: var(--el-text-color-regular);
-			margin-bottom: 4px;
-		}
-	}
-}
-
-/* 暗色主题 */
-.dark {
-	.form-grid {
-		:deep(.el-form-item) {
-			.el-form-item__label {
-				color: var(--white-100);
-			}
-		}
-	}
 }
 </style>

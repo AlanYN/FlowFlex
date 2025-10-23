@@ -1793,21 +1793,6 @@ html.dark {
 	width: 100%;
 }
 
-/* 线性量表样式 */
-.preview-linear-scale {
-	:deep(.el-slider__runway) {
-		background-color: var(--primary-100);
-		@apply dark:bg-black-200;
-	}
-
-	:deep(.el-slider__bar) {
-		background-color: var(--primary-500);
-	}
-
-	:deep(.el-slider__button) {
-		border-color: var(--primary-500);
-	}
-}
 /* 暗色主题支持 */
 html.dark {
 	.preview-grid {

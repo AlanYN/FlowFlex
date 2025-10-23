@@ -408,9 +408,12 @@
 									v-model="previewData[getItemKey(sectionIndex, itemIndex)]"
 									:min="item.min"
 									:max="item.max"
-									:step="item.min"
 									:marks="getSliderMarks(item)"
-									:show-input="false"
+									:validate-event="false"
+									show-stops
+									:key="`slider-${getItemKey(sectionIndex, itemIndex)}-${
+										previewData[getItemKey(sectionIndex, itemIndex)] || 0
+									}`"
 									class="preview-linear-scale"
 								/>
 								<div class="flex justify-between text-xs text-secondary">
@@ -1642,22 +1645,6 @@ html.dark .assignment-label {
 			border-color: var(--primary-200);
 			@apply dark:border-black-200;
 		}
-	}
-}
-
-/* 线性量表样式 */
-.preview-linear-scale {
-	:deep(.el-slider__runway) {
-		background-color: var(--primary-100);
-		@apply dark:bg-black-200;
-	}
-
-	:deep(.el-slider__bar) {
-		background-color: var(--primary-500);
-	}
-
-	:deep(.el-slider__button) {
-		border-color: var(--primary-500);
 	}
 }
 
