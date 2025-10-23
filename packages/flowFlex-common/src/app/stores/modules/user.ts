@@ -54,6 +54,15 @@ export const useUserStore = defineStore({
 		tokenObj: undefined,
 		layout: {},
 		isLogin: false,
+		// tenant switching
+		tenantSwitching: {
+			isActive: false,
+			fromTenantId: null,
+			toTenantId: null,
+			progress: 0,
+			currentStep: '',
+			error: null,
+		},
 	}),
 	getters: {
 		getToken(state): string {
@@ -82,6 +91,13 @@ export const useUserStore = defineStore({
 		},
 		getIsLogin(state): boolean {
 			return state.isLogin || getAuthCache<boolean>(ISLOGIN_KEY);
+		},
+		getIsSwitchingTenant(state): boolean {
+			// 向后兼容的getter
+			return state.tenantSwitching.isActive;
+		},
+		getTenantSwitching(state) {
+			return state.tenantSwitching;
 		},
 	},
 	actions: {
@@ -285,6 +301,68 @@ export const useUserStore = defineStore({
 						message: 'Delete canceled',
 					});
 				});
+		},
+
+		/**
+		 * @description: 开始租户切换
+		 * @param {string} fromTenantId - 原租户ID
+		 * @param {string} toTenantId - 目标租户ID
+		 */
+		startTenantSwitching(fromTenantId: string, toTenantId: string) {
+			this.tenantSwitching = {
+				isActive: true,
+				fromTenantId,
+				toTenantId,
+				progress: 0,
+				currentStep: 'validating',
+				error: null,
+			};
+		},
+
+		/**
+		 * @description: 更新切换进度
+		 * @param {number} progress - 进度百分比（0-100）
+		 * @param {string} currentStep - 当前步骤key
+		 */
+		updateProgress(progress: number, currentStep: string) {
+			if (this.tenantSwitching.isActive) {
+				this.tenantSwitching.progress = progress;
+				this.tenantSwitching.currentStep = currentStep;
+			}
+		},
+
+		/**
+		 * @description: 设置切换错误
+		 * @param {string} error - 错误消息
+		 */
+		setTenantError(error: string) {
+			if (this.tenantSwitching.isActive) {
+				this.tenantSwitching.error = error;
+				this.tenantSwitching.progress = 0;
+			}
+		},
+
+		/**
+		 * @description: 设置取消状态（显示回退视觉效果）
+		 */
+		setTenantCancelling() {
+			if (this.tenantSwitching.isActive) {
+				this.tenantSwitching.currentStep = 'cancelling';
+			}
+		},
+
+		/**
+		 * @description: 重置租户切换状态
+		 */
+		resetTenantSwitching() {
+			this.tenantSwitching = {
+				isActive: false,
+				fromTenantId: null,
+				toTenantId: null,
+				progress: 0,
+				currentStep: '',
+				error: null,
+			};
 		},
 	},
 });
