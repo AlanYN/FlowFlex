@@ -141,10 +141,16 @@ namespace FlowFlex.WebApi.Controllers.OW
 
         /// <summary>
         /// Get questionnaires by multiple IDs (batch query)
-        /// Requires QUESTION:READ permission
+        /// Requires any READ permission (WORKFLOW, CASE, CHECKLIST, QUESTION, or TOOL)
+        /// This is a shared query API accessible by any module with read permission
         /// </summary>
         [HttpPost("batch/by-ids")]
-        [WFEAuthorize(PermissionConsts.Question.Read)]
+        [WFEAuthorize(
+            PermissionConsts.Workflow.Read,
+            PermissionConsts.Case.Read,
+            PermissionConsts.Checklist.Read,
+            PermissionConsts.Question.Read,
+            PermissionConsts.Tool.Read)]
         [ProducesResponseType<SuccessResponse<List<QuestionnaireOutputDto>>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> GetByIds([FromBody] List<long> ids)
         {
@@ -252,10 +258,16 @@ namespace FlowFlex.WebApi.Controllers.OW
 
         /// <summary>
         /// Batch get questionnaires by stage IDs
-        /// Requires QUESTION:READ permission
+        /// Requires any READ permission (WORKFLOW, CASE, CHECKLIST, QUESTION, or TOOL)
+        /// This is a shared query API accessible by any module with read permission
         /// </summary>
         [HttpPost("batch/by-stages")]
-        [WFEAuthorize(PermissionConsts.Question.Read)]
+        [WFEAuthorize(
+            PermissionConsts.Workflow.Read,
+            PermissionConsts.Case.Read,
+            PermissionConsts.Checklist.Read,
+            PermissionConsts.Question.Read,
+            PermissionConsts.Tool.Read)]
         [ProducesResponseType<SuccessResponse<BatchStageQuestionnaireResponse>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> GetByStageIdsBatch([FromBody] BatchStageQuestionnaireRequest request)
         {
