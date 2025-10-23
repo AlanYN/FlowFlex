@@ -137,7 +137,18 @@ namespace FlowFlex.WebApi.Extensions
                                 return;
 
                             var httpContextAccessor = sp.GetService<IHttpContextAccessor>();
-                            var userContext = httpContextAccessor?.HttpContext?.RequestServices?.GetService<UserContext>();
+                            UserContext userContext = null;
+
+                            // Try to get UserContext safely
+                            try
+                            {
+                                userContext = httpContextAccessor?.HttpContext?.RequestServices?.GetService<UserContext>();
+                            }
+                            catch (ObjectDisposedException)
+                            {
+                                // RequestServices was disposed (e.g., in background tasks), silently skip
+                                return;
+                            }
 
                             if (userContext == null) return;
 
@@ -210,10 +221,15 @@ namespace FlowFlex.WebApi.Extensions
                                 }
                             }
                         }
+                        catch (ObjectDisposedException)
+                        {
+                            // ServiceProvider disposed - silently skip in background tasks
+                            return;
+                        }
                         catch (Exception ex)
                         {
-                            // 记录错误但不中断操作
-                            Console.WriteLine($"[AOP Error] Failed to set audit fields: {ex.Message}");
+                            // Log other errors but don't interrupt operations
+                            Console.WriteLine($"[AOP Warning] Failed to set audit fields: {ex.Message}");
                         }
                     };
 

@@ -9,6 +9,8 @@ using FlowFlex.Application.Contracts.IServices.OW;
 using FlowFlex.Domain.Shared.Enums.Permission;
 using FlowFlex.WebApi.Filters;
 using Item.Internal.StandardApi.Response;
+using FlowFlex.Domain.Shared.Const;
+using WebApi.Authorization;
 using System.Linq.Dynamic.Core;
 using System;
 using System.Linq;
@@ -41,8 +43,10 @@ namespace FlowFlex.WebApi.Controllers.OW
 
         /// <summary>
         /// Create stage
+        /// Requires WORKFLOW:CREATE permission
         /// </summary>
         [HttpPost]
+        [WFEAuthorize(PermissionConsts.Workflow.Create)]
         [ProducesResponseType<SuccessResponse<long>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> Create([FromBody] StageInputDto input)
         {
@@ -52,8 +56,10 @@ namespace FlowFlex.WebApi.Controllers.OW
 
         /// <summary>
         /// Update stage
+        /// Requires WORKFLOW:UPDATE permission
         /// </summary>
         [HttpPut("{id}")]
+        [WFEAuthorize(PermissionConsts.Workflow.Update)]
         [RequirePermission(PermissionEntityTypeEnum.Stage, OperationTypeEnum.Operate)]
         [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> Update(long id, [FromBody] StageInputDto input)
@@ -64,8 +70,10 @@ namespace FlowFlex.WebApi.Controllers.OW
 
         /// <summary>
         /// Delete stage (with confirmation)
+        /// Requires WORKFLOW:DELETE permission
         /// </summary>
         [HttpDelete("{id}")]
+        [WFEAuthorize(PermissionConsts.Workflow.Delete)]
         [RequirePermission(PermissionEntityTypeEnum.Stage, OperationTypeEnum.Delete)]
         [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> Delete(long id, [FromQuery] bool confirm = false)
@@ -76,8 +84,10 @@ namespace FlowFlex.WebApi.Controllers.OW
 
         /// <summary>
         /// Get stage by id
+        /// Requires WORKFLOW:READ permission
         /// </summary>
         [HttpGet("{id}")]
+        [WFEAuthorize(PermissionConsts.Workflow.Read)]
         [RequirePermission(PermissionEntityTypeEnum.Stage, OperationTypeEnum.View)]
         [ProducesResponseType<SuccessResponse<StageOutputDto>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> GetById(long id)
@@ -88,8 +98,10 @@ namespace FlowFlex.WebApi.Controllers.OW
 
         /// <summary>
         /// Query stage (paged)
+        /// Requires WORKFLOW:READ permission
         /// </summary>
         [HttpPost("query")]
+        [WFEAuthorize(PermissionConsts.Workflow.Read)]
         [ProducesResponseType<SuccessResponse<PagedResult<StageOutputDto>>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> Query([FromBody] StageQueryRequest query)
         {
@@ -99,8 +111,10 @@ namespace FlowFlex.WebApi.Controllers.OW
 
         /// <summary>
         /// Get all stages (no pagination)
+        /// Requires WORKFLOW:READ permission
         /// </summary>
         [HttpGet("all")]
+        [WFEAuthorize(PermissionConsts.Workflow.Read)]
         [ProducesResponseType<SuccessResponse<List<StageOutputDto>>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> GetAll()
         {
@@ -110,8 +124,10 @@ namespace FlowFlex.WebApi.Controllers.OW
 
         /// <summary>
         /// Sort stages
+        /// Requires WORKFLOW:UPDATE permission
         /// </summary>
         [HttpPost("sort")]
+        [WFEAuthorize(PermissionConsts.Workflow.Update)]
         [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> SortStages([FromBody] SortStagesInputDto input)
         {
@@ -121,8 +137,10 @@ namespace FlowFlex.WebApi.Controllers.OW
 
         /// <summary>
         /// Combine stages
+        /// Requires WORKFLOW:UPDATE permission
         /// </summary>
         [HttpPost("combine")]
+        [WFEAuthorize(PermissionConsts.Workflow.Update)]
         [ProducesResponseType<SuccessResponse<long>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> CombineStages([FromBody] CombineStagesInputDto input)
         {
@@ -132,8 +150,10 @@ namespace FlowFlex.WebApi.Controllers.OW
 
         /// <summary>
         /// Set stage color
+        /// Requires WORKFLOW:UPDATE permission
         /// </summary>
         [HttpPost("{id}/color")]
+        [WFEAuthorize(PermissionConsts.Workflow.Update)]
         [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> SetColor(long id, [FromBody] SetStageColorInputDto input)
         {
@@ -145,8 +165,10 @@ namespace FlowFlex.WebApi.Controllers.OW
 
         /// <summary>
         /// Duplicate stage
+        /// Requires WORKFLOW:CREATE permission
         /// </summary>
         [HttpPost("{id}/duplicate")]
+        [WFEAuthorize(PermissionConsts.Workflow.Create)]
         [ProducesResponseType<SuccessResponse<long>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> Duplicate(long id, [FromBody] DuplicateStageInputDto input)
         {
@@ -156,8 +178,10 @@ namespace FlowFlex.WebApi.Controllers.OW
 
         /// <summary>
         /// Update stage components
+        /// Requires WORKFLOW:UPDATE permission
         /// </summary>
         [HttpPost("{id}/components")]
+        [WFEAuthorize(PermissionConsts.Workflow.Update)]
         [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> UpdateComponents(long id, [FromBody] UpdateStageComponentsInputDto input)
         {
@@ -167,8 +191,10 @@ namespace FlowFlex.WebApi.Controllers.OW
 
         /// <summary>
         /// Get stage components
+        /// Requires WORKFLOW:READ permission
         /// </summary>
         [HttpGet("{id}/components")]
+        [WFEAuthorize(PermissionConsts.Workflow.Read)]
         [ProducesResponseType<SuccessResponse<List<FlowFlex.Domain.Shared.Models.StageComponent>>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> GetComponents(long id)
         {
@@ -178,8 +204,10 @@ namespace FlowFlex.WebApi.Controllers.OW
 
         /// <summary>
         /// Force sync stage assignments (debug/maintenance endpoint)
+        /// Requires WORKFLOW:UPDATE permission
         /// </summary>
         [HttpPost("{id}/sync-assignments")]
+        [WFEAuthorize(PermissionConsts.Workflow.Update)]
         [ProducesResponseType<SuccessResponse<object>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> ForceSyncAssignments(long id)
         {
@@ -254,6 +282,7 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// - Operation logs
         /// </remarks>
         [HttpGet("{stageId}/onboarding/{onboardingId}/content")]
+        [WFEAuthorize(PermissionConsts.Workflow.Read)]
         [ProducesResponseType<SuccessResponse<StageContentDto>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> GetStageContentAsync(long stageId, long onboardingId)
         {
@@ -279,6 +308,7 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// - Update overall completion rate
         /// </remarks>
         [HttpPut("{stageId}/onboarding/{onboardingId}/checklist/tasks/{taskId}")]
+        [WFEAuthorize(PermissionConsts.Workflow.Update)]
         [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> UpdateChecklistTaskAsync(long stageId, long onboardingId, long taskId, [FromBody] UpdateChecklistTaskRequest request)
         {
@@ -302,6 +332,7 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// - Support multiple question types
         /// </remarks>
         [HttpPost("{stageId}/onboarding/{onboardingId}/questionnaire/questions/{questionId}/answer")]
+        [WFEAuthorize(PermissionConsts.Workflow.Update)]
         [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> SubmitQuestionnaireAnswerAsync(long stageId, long onboardingId, long questionId, [FromBody] SubmitAnswerRequest request)
         {
@@ -324,6 +355,7 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// - File storage management
         /// </remarks>
         [HttpPost("{stageId}/onboarding/{onboardingId}/files")]
+        [WFEAuthorize(PermissionConsts.Workflow.Create)]
         [ProducesResponseType<SuccessResponse<StageFileDto>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> UploadStageFileAsync(long stageId, long onboardingId, [FromBody] UploadFileRequest request)
         {
@@ -345,6 +377,7 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// - Record deletion time
         /// </remarks>
         [HttpDelete("{stageId}/onboarding/{onboardingId}/files/{fileId}")]
+        [WFEAuthorize(PermissionConsts.Workflow.Delete)]
         [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> DeleteStageFileAsync(long stageId, long onboardingId, long fileId)
         {
@@ -368,6 +401,7 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// - Check operation logs completion
         /// </remarks>
         [HttpGet("{stageId}/onboarding/{onboardingId}/validation")]
+        [WFEAuthorize(PermissionConsts.Workflow.Read)]
         [ProducesResponseType<SuccessResponse<StageCompletionValidationDto>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> ValidateStageCompletionAsync(long stageId, long onboardingId)
         {
@@ -390,6 +424,7 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// - Update completion rate
         /// </remarks>
         [HttpPost("{stageId}/onboarding/{onboardingId}/complete")]
+        [WFEAuthorize(PermissionConsts.Workflow.Update)]
         [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> CompleteStageAsync(long stageId, long onboardingId, [FromBody] CompleteStageRequest request)
         {
@@ -412,6 +447,7 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// - Record note author
         /// </remarks>
         [HttpPost("{stageId}/onboarding/{onboardingId}/notes")]
+        [WFEAuthorize(PermissionConsts.Workflow.Create)]
         [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> AddStageNoteAsync(long stageId, long onboardingId, [FromBody] AddStageNoteRequest request)
         {
@@ -434,6 +470,7 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// - Paginate results
         /// </remarks>
         [HttpGet("{stageId}/onboarding/{onboardingId}/notes")]
+        [WFEAuthorize(PermissionConsts.Workflow.Read)]
         [ProducesResponseType<SuccessResponse<StageNotesDto>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> GetStageNotesAsync(long stageId, long onboardingId, [FromQuery] int pageIndex = 1, [FromQuery] int pageSize = 20)
         {
@@ -456,6 +493,7 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// - Record note author
         /// </remarks>
         [HttpPut("{stageId}/onboarding/{onboardingId}/notes/{noteId}")]
+        [WFEAuthorize(PermissionConsts.Workflow.Update)]
         [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> UpdateStageNoteAsync(long stageId, long onboardingId, long noteId, [FromBody] UpdateStageNoteRequest request)
         {
@@ -476,6 +514,7 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// - Record deletion time
         /// </remarks>
         [HttpDelete("{stageId}/onboarding/{onboardingId}/notes/{noteId}")]
+        [WFEAuthorize(PermissionConsts.Workflow.Delete)]
         [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> DeleteStageNoteAsync(long stageId, long onboardingId, long noteId)
         {
@@ -491,6 +530,7 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// <param name="language">Preferred language for summary (optional)</param>
         /// <returns>Streaming AI summary response</returns>
         [HttpPost("{stageId}/ai-summary/stream")]
+        [WFEAuthorize(PermissionConsts.Workflow.Read)]
         [ProducesResponseType(200)]
         [ProducesResponseType(typeof(ErrorResponse), 400)]
         public async Task StreamAISummary(
@@ -656,8 +696,10 @@ namespace FlowFlex.WebApi.Controllers.OW
 
         /// <summary>
         /// Validate stage data consistency between components and mappings
+        /// Requires WORKFLOW:UPDATE permission
         /// </summary>
         [HttpPost("{id}/validate-consistency")]
+        [WFEAuthorize(PermissionConsts.Workflow.Update)]
         [ProducesResponseType<SuccessResponse<StageConsistencyResult>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> ValidateConsistency(long id, [FromQuery] bool autoRepair = true)
         {
@@ -667,8 +709,10 @@ namespace FlowFlex.WebApi.Controllers.OW
 
         /// <summary>
         /// Batch validate stage data consistency for multiple stages
+        /// Requires WORKFLOW:UPDATE permission
         /// </summary>
         [HttpPost("batch/validate-consistency")]
+        [WFEAuthorize(PermissionConsts.Workflow.Update)]
         [ProducesResponseType<SuccessResponse<List<StageConsistencyResult>>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> BatchValidateConsistency([FromBody] BatchValidateConsistencyRequest request)
         {
@@ -683,8 +727,10 @@ namespace FlowFlex.WebApi.Controllers.OW
 
         /// <summary>
         /// Manually sync checklist name change to all related stages
+        /// Requires WORKFLOW:UPDATE permission
         /// </summary>
         [HttpPost("sync/checklist-name/{checklistId}")]
+        [WFEAuthorize(PermissionConsts.Workflow.Update)]
         [ProducesResponseType<SuccessResponse<int>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> SyncChecklistNameChange(long checklistId, [FromBody] SyncNameChangeRequest request)
         {
@@ -700,8 +746,10 @@ namespace FlowFlex.WebApi.Controllers.OW
 
         /// <summary>
         /// Manually sync questionnaire name change to all related stages
+        /// Requires WORKFLOW:UPDATE permission
         /// </summary>
         [HttpPost("sync/questionnaire-name/{questionnaireId}")]
+        [WFEAuthorize(PermissionConsts.Workflow.Update)]
         [ProducesResponseType<SuccessResponse<int>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> SyncQuestionnaireNameChange(long questionnaireId, [FromBody] SyncNameChangeRequest request)
         {
@@ -717,8 +765,10 @@ namespace FlowFlex.WebApi.Controllers.OW
 
         /// <summary>
         /// Refresh component names for a specific stage
+        /// Requires WORKFLOW:UPDATE permission
         /// </summary>
         [HttpPost("{id}/refresh-component-names")]
+        [WFEAuthorize(PermissionConsts.Workflow.Update)]
         [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> RefreshStageComponentNames(long id)
         {
@@ -734,8 +784,10 @@ namespace FlowFlex.WebApi.Controllers.OW
 
         /// <summary>
         /// Validate and fix all stage component names across the system
+        /// Requires WORKFLOW:UPDATE permission
         /// </summary>
         [HttpPost("validate-and-fix-all-component-names")]
+        [WFEAuthorize(PermissionConsts.Workflow.Update)]
         [ProducesResponseType<SuccessResponse<int>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> ValidateAndFixAllComponentNames()
         {

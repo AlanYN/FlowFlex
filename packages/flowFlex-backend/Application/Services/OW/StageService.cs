@@ -144,6 +144,13 @@ namespace FlowFlex.Application.Service.OW
                 return entity.Id;
             });
 
+            // Check transaction result
+            if (!result.IsSuccess)
+            {
+                // SqlSugar wrapped the exception, re-throw it
+                throw new CRMException(ErrorCodeEnum.SystemError, result.ErrorMessage ?? "Transaction failed");
+            }
+
             // Log stage create operation if successful (outside transaction)
             if (result.Data > 0)
             {
@@ -349,6 +356,13 @@ namespace FlowFlex.Application.Service.OW
 
                 return result;
             });
+
+            // Check transaction result
+            if (!transactionResult.IsSuccess)
+            {
+                // SqlSugar wrapped the exception, re-throw it
+                throw new CRMException(ErrorCodeEnum.SystemError, transactionResult.ErrorMessage ?? "Transaction failed during stage update");
+            }
 
             // Log stage update operation if successful (outside transaction)
             if (transactionResult.Data)
@@ -1079,6 +1093,14 @@ namespace FlowFlex.Application.Service.OW
 
                 return result;
             });
+
+            // Check transaction result
+            if (!transactionResult.IsSuccess)
+            {
+                // SqlSugar wrapped the exception, re-throw it
+                throw new CRMException(ErrorCodeEnum.SystemError, transactionResult.ErrorMessage ?? "Transaction failed during components update");
+            }
+
             return transactionResult.Data;
         }
 

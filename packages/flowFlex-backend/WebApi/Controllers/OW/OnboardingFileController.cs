@@ -8,6 +8,8 @@ using FlowFlex.Application.Contracts.Dtos.OW.OnboardingFile;
 using Item.Internal.StandardApi.Response;
 using System.ComponentModel;
 using FlowFlex.Application.Filter;
+using FlowFlex.Domain.Shared.Const;
+using WebApi.Authorization;
 
 namespace FlowFlex.WebApi.Controllers.OW
 {
@@ -37,7 +39,9 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// <param name="category">File category</param>
         /// <param name="description">File description</param>
         /// <returns>Upload result</returns>
+        /// Requires CASE:CREATE permission
         [HttpPost]
+        [WFEAuthorize(PermissionConsts.Case.Create)]
         [ProducesResponseType<SuccessResponse<OnboardingFileOutputDto>>((int)HttpStatusCode.OK)]
         [Consumes("multipart/form-data")]
         public async Task<IActionResult> UploadFileAsync(
@@ -116,7 +120,9 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// <param name="stageId">Stage ID (optional, if specified only returns files for that Stage)</param>
         /// <param name="category">File category filter (optional)</param>
         /// <returns>File list</returns>
+        /// Requires CASE:READ permission
         [HttpGet]
+        [WFEAuthorize(PermissionConsts.Case.Read)]
         [ProducesResponseType<SuccessResponse<List<OnboardingFileOutputDto>>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> GetFilesAsync(
             [FromRoute] long onboardingId,

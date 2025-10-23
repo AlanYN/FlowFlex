@@ -9,6 +9,8 @@ using FlowFlex.Application.Contracts.IServices.OW;
 
 
 using Item.Internal.StandardApi.Response;
+using FlowFlex.Domain.Shared.Const;
+using WebApi.Authorization;
 using System.Net;
 using System.Linq.Dynamic.Core;
 using FlowFlex.Application.Filter;
@@ -42,10 +44,12 @@ namespace FlowFlex.WebApi.Controllers.OW
 
         /// <summary>
         /// Create checklist
+        /// Requires CHECKLIST:CREATE permission
         /// </summary>
         /// <param name="input">Checklist input data</param>
         /// <returns>Created checklist ID</returns>
         [HttpPost]
+        [WFEAuthorize(PermissionConsts.Checklist.Create)]
         [ProducesResponseType<SuccessResponse<long>>((int)HttpStatusCode.OK)]
         [ProducesResponseType(typeof(ErrorResponse), 400)]
         public async Task<IActionResult> Create([FromBody] ChecklistInputDto input)
@@ -56,11 +60,13 @@ namespace FlowFlex.WebApi.Controllers.OW
 
         /// <summary>
         /// Update checklist
+        /// Requires CHECKLIST:UPDATE permission
         /// </summary>
         /// <param name="id">Checklist ID</param>
         /// <param name="input">Checklist input data</param>
         /// <returns>Success status</returns>
         [HttpPut("{id}")]
+        [WFEAuthorize(PermissionConsts.Checklist.Update)]
         [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
         [ProducesResponseType(typeof(ErrorResponse), 400)]
         [ProducesResponseType(typeof(ErrorResponse), 404)]
@@ -72,11 +78,13 @@ namespace FlowFlex.WebApi.Controllers.OW
 
         /// <summary>
         /// Delete checklist (with confirmation)
+        /// Requires CHECKLIST:DELETE permission
         /// </summary>
         /// <param name="id">Checklist ID</param>
         /// <param name="confirm">Confirmation flag</param>
         /// <returns>Success status</returns>
         [HttpDelete("{id}")]
+        [WFEAuthorize(PermissionConsts.Checklist.Delete)]
         [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
         [ProducesResponseType(typeof(ErrorResponse), 400)]
         [ProducesResponseType(typeof(ErrorResponse), 404)]
@@ -88,10 +96,12 @@ namespace FlowFlex.WebApi.Controllers.OW
 
         /// <summary>
         /// Get checklist by id
+        /// Requires CHECKLIST:READ permission
         /// </summary>
         /// <param name="id">Checklist ID</param>
         /// <returns>Checklist details</returns>
         [HttpGet("{id}")]
+        [WFEAuthorize(PermissionConsts.Checklist.Read)]
         [ProducesResponseType<SuccessResponse<ChecklistOutputDto>>((int)HttpStatusCode.OK)]
         [ProducesResponseType(typeof(ErrorResponse), 404)]
         public async Task<IActionResult> GetById(long id)
@@ -110,7 +120,9 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// <param name="name">Filter by name (supports comma-separated values)</param>
         /// <param name="team">Filter by team (optional)</param>
         /// <returns>Paged list of checklists or simple list when no pagination params provided</returns>
+        /// Requires CHECKLIST:READ permission
         [HttpGet]
+        [WFEAuthorize(PermissionConsts.Checklist.Read)]
         [ProducesResponseType<SuccessResponse<object>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> GetList(
             [FromQuery] int? pageIndex = null,
@@ -147,6 +159,7 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// <param name="ids">List of checklist IDs</param>
         /// <returns>List of checklists</returns>
         [HttpPost("batch/by-ids")]
+        [WFEAuthorize(PermissionConsts.Checklist.Read)]
         [ProducesResponseType<SuccessResponse<List<ChecklistOutputDto>>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> GetByIds([FromBody] List<long> ids)
         {
@@ -160,6 +173,7 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// <param name="query">Query parameters</param>
         /// <returns>Paged checklist results</returns>
         [HttpPost("query")]
+        [WFEAuthorize(PermissionConsts.Checklist.Read)]
         [ProducesResponseType<SuccessResponse<PagedResult<ChecklistOutputDto>>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> Query([FromBody] ChecklistQueryRequest query)
         {
@@ -174,6 +188,7 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// <param name="input">Duplication parameters</param>
         /// <returns>New checklist ID</returns>
         [HttpPost("{id}/duplicate")]
+        [WFEAuthorize(PermissionConsts.Checklist.Create)]
         [ProducesResponseType<SuccessResponse<long>>((int)HttpStatusCode.OK)]
         [ProducesResponseType(typeof(ErrorResponse), 400)]
         [ProducesResponseType(typeof(ErrorResponse), 404)]
@@ -189,6 +204,7 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// <param name="id">Checklist ID</param>
         /// <returns>PDF file</returns>
         [HttpGet("{id}/export-pdf")]
+        [WFEAuthorize(PermissionConsts.Checklist.Read)]
         [ProducesResponseType(typeof(FileResult), 200)]
         [ProducesResponseType(typeof(ErrorResponse), 404)]
         public async Task<IActionResult> ExportToPdf(long id)
@@ -203,6 +219,7 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// </summary>
         /// <returns>List of template checklists</returns>
         [HttpGet("templates")]
+        [WFEAuthorize(PermissionConsts.Checklist.Read)]
         [ProducesResponseType<SuccessResponse<List<ChecklistOutputDto>>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> GetTemplates()
         {
@@ -217,6 +234,7 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// <param name="input">Checklist input data</param>
         /// <returns>New checklist ID</returns>
         [HttpPost("templates/{templateId}/create")]
+        [WFEAuthorize(PermissionConsts.Checklist.Create)]
         [ProducesResponseType<SuccessResponse<long>>((int)HttpStatusCode.OK)]
         [ProducesResponseType(typeof(ErrorResponse), 400)]
         [ProducesResponseType(typeof(ErrorResponse), 404)]
@@ -232,6 +250,7 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// <param name="id">Checklist ID</param>
         /// <returns>Completion rate percentage</returns>
         [HttpPost("{id}/calculate-completion")]
+        [WFEAuthorize(PermissionConsts.Checklist.Update)]
         [ProducesResponseType<SuccessResponse<decimal>>((int)HttpStatusCode.OK)]
         [ProducesResponseType(typeof(ErrorResponse), 404)]
         public async Task<IActionResult> CalculateCompletion(long id)
@@ -246,6 +265,7 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// <param name="id">Checklist ID</param>
         /// <returns>Completion rate percentage</returns>
         [HttpGet("{id}/completion")]
+        [WFEAuthorize(PermissionConsts.Checklist.Read)]
         [ProducesResponseType<SuccessResponse<decimal>>((int)HttpStatusCode.OK)]
         [ProducesResponseType(typeof(ErrorResponse), 404)]
         public async Task<IActionResult> GetCompletion(long id)
@@ -259,6 +279,7 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// </summary>
         /// <returns>Overall checklist statistics</returns>
         [HttpGet("statistics")]
+        [WFEAuthorize(PermissionConsts.Checklist.Read)]
         [ProducesResponseType<SuccessResponse<ChecklistStatisticsDto>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> GetStatistics()
         {
@@ -273,6 +294,7 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// <param name="team">Team name</param>
         /// <returns>Team checklist statistics</returns>
         [HttpGet("statistics/{team}")]
+        [WFEAuthorize(PermissionConsts.Checklist.Read)]
         [ProducesResponseType<SuccessResponse<ChecklistStatisticsDto>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> GetStatisticsByTeam(string team)
         {
@@ -285,6 +307,7 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// </summary>
         /// <returns>List of workflow options</returns>
         [HttpGet("workflows")]
+        [WFEAuthorize(PermissionConsts.Checklist.Read)]
         [ProducesResponseType<SuccessResponse<List<object>>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> GetWorkflowOptions()
         {
@@ -299,6 +322,7 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// <param name="stageId">Stage ID</param>
         /// <returns>List of checklists for the stage</returns>
         [HttpGet("by-stage/{stageId}")]
+        [WFEAuthorize(PermissionConsts.Checklist.Read)]
         [ProducesResponseType<SuccessResponse<List<ChecklistOutputDto>>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> GetByStage(long stageId)
         {
@@ -312,6 +336,7 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// <param name="request">Batch request</param>
         /// <returns>Batch checklist response</returns>
         [HttpPost("batch/by-stages")]
+        [WFEAuthorize(PermissionConsts.Checklist.Read)]
         [ProducesResponseType<SuccessResponse<BatchStageChecklistResponse>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> GetByStageIdsBatch([FromBody] BatchStageChecklistRequest request)
         {
@@ -325,6 +350,7 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// <param name="workflowId">Optional workflow ID to filter stages</param>
         /// <returns>List of stage options</returns>
         [HttpGet("stages")]
+        [WFEAuthorize(PermissionConsts.Checklist.Read)]
         [ProducesResponseType<SuccessResponse<List<object>>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> GetStageOptions([FromQuery] long? workflowId = null)
         {
@@ -338,6 +364,7 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// </summary>
         /// <returns>List of all checklists</returns>
         [HttpGet("debug/all")]
+        [WFEAuthorize(PermissionConsts.Checklist.Read)]
         [ProducesResponseType<SuccessResponse<List<ChecklistOutputDto>>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> GetAllForDebug()
         {

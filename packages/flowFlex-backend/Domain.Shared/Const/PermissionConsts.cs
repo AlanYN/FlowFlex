@@ -249,5 +249,60 @@ namespace FlowFlex.Domain.Shared.Const
                 public const string Operation = $"{Prefix}:operation";
             }
         }
+
+        /// <summary>
+        /// Case permission control
+        /// </summary>
+        public static class Case
+        {
+            public const string Create = "CASE:CREATE";
+            public const string Read = "CASE:READ";
+            public const string Update = "CASE:UPDATE";
+            public const string Delete = "CASE:DELETE";
+        }
+
+        /// <summary>
+        /// Workflow permission control
+        /// </summary>
+        public static class Workflow
+        {
+            public const string Create = "WORKFLOW:CREATE";
+            public const string Read = "WORKFLOW:READ";
+            public const string Update = "WORKFLOW:UPDATE";
+            public const string Delete = "WORKFLOW:DELETE";
+        }
+
+        /// <summary>
+        /// Checklist permission control
+        /// </summary>
+        public static class Checklist
+        {
+            public const string Create = "CHECKLIST:CREATE";
+            public const string Read = "CHECKLIST:READ";
+            public const string Update = "CHECKLIST:UPDATE";
+            public const string Delete = "CHECKLIST:DELETE";
+        }
+
+        /// <summary>
+        /// Question permission control
+        /// </summary>
+        public static class Question
+        {
+            public const string Create = "QUESTION:CREATE";
+            public const string Read = "QUESTION:READ";
+            public const string Update = "QUESTION:UPDATE";
+            public const string Delete = "QUESTION:DELETE";
+        }
+
+        /// <summary>
+        /// Tool permission control
+        /// </summary>
+        public static class Tool
+        {
+            public const string Create = "TOOL:CREATE";
+            public const string Read = "TOOL:READ";
+            public const string Update = "TOOL:UPDATE";
+            public const string Delete = "TOOL:DELETE";
+        }
     }
 }

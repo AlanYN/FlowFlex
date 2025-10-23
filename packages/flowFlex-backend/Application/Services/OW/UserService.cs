@@ -1280,6 +1280,20 @@ namespace FlowFlex.Application.Services.OW
         /// </summary>
         private List<UserTreeNodeDto> ConvertIdmTeamTreeToUserTree(List<IdmTeamTreeNodeDto> idmNodes, List<IdmTeamUserDto> teamUsers)
         {
+            return ConvertIdmTeamTreeToUserTreeInternal(idmNodes, teamUsers, true);
+        }
+
+        /// <summary>
+        /// Internal method to convert IDM team tree structure to UserTreeNodeDto format
+        /// </summary>
+        /// <param name="idmNodes">IDM team tree nodes</param>
+        /// <param name="teamUsers">All team users</param>
+        /// <param name="isRootLevel">Whether this is the root level (only add "Other" team at root level)</param>
+        private List<UserTreeNodeDto> ConvertIdmTeamTreeToUserTreeInternal(
+            List<IdmTeamTreeNodeDto> idmNodes, 
+            List<IdmTeamUserDto> teamUsers, 
+            bool isRootLevel)
+        {
             if (idmNodes == null || !idmNodes.Any())
             {
                 return new List<UserTreeNodeDto>();
@@ -1302,10 +1316,10 @@ namespace FlowFlex.Application.Services.OW
                     Children = new List<UserTreeNodeDto>()
                 };
 
-                // First, recursively convert child teams
+                // First, recursively convert child teams (pass isRootLevel=false to prevent "Other" team creation in nested levels)
                 if (idmNode.Children != null && idmNode.Children.Any())
                 {
-                    var childTeams = ConvertIdmTeamTreeToUserTree(idmNode.Children, teamUsers);
+                    var childTeams = ConvertIdmTeamTreeToUserTreeInternal(idmNode.Children, teamUsers, false);
                     userTreeNode.Children.AddRange(childTeams);
                 }
 
@@ -1336,7 +1350,79 @@ namespace FlowFlex.Application.Services.OW
                 result.Add(userTreeNode);
             }
 
+            // Only handle users without team at root level to avoid duplicate "Other" teams
+            if (isRootLevel)
+            {
+                // Track all team IDs in the tree (including nested teams)
+                var allTeamIds = new HashSet<string>();
+                CollectAllTeamIds(idmNodes, allTeamIds);
+
+                // Find users without team or users whose team is not in the tree
+                var usersWithoutTeam = teamUsers
+                    .Where(tu => string.IsNullOrEmpty(tu.TeamId) || !allTeamIds.Contains(tu.TeamId))
+                    .GroupBy(u => u.Id) // Deduplicate users by ID
+                    .Select(g => g.First())
+                    .ToList();
+
+                if (usersWithoutTeam.Any())
+                {
+                    _logger.LogInformation("Found {Count} users without team, adding to 'Other' team at root level", usersWithoutTeam.Count);
+
+                    var otherTeamNode = new UserTreeNodeDto
+                    {
+                        Id = "Other",
+                        Name = "Other",
+                        Type = "team",
+                        MemberCount = usersWithoutTeam.Count,
+                        Children = new List<UserTreeNodeDto>()
+                    };
+
+                    foreach (var teamUser in usersWithoutTeam)
+                    {
+                        var userNode = new UserTreeNodeDto
+                        {
+                            Id = teamUser.Id,
+                            Name = teamUser.UserName,
+                            Type = "user",
+                            MemberCount = 0,
+                            Username = teamUser.UserName,
+                            Email = null,
+                            Children = null
+                        };
+
+                        otherTeamNode.Children.Add(userNode);
+                    }
+
+                    result.Add(otherTeamNode);
+                }
+            }
+
             return result;
+        }
+
+        /// <summary>
+        /// Collect all team IDs from the tree structure (including nested teams)
+        /// </summary>
+        private void CollectAllTeamIds(List<IdmTeamTreeNodeDto> nodes, HashSet<string> teamIds)
+        {
+            if (nodes == null || !nodes.Any())
+            {
+                return;
+            }
+
+            foreach (var node in nodes)
+            {
+                if (!string.IsNullOrEmpty(node.Value))
+                {
+                    teamIds.Add(node.Value);
+                }
+
+                // Recursively collect from children
+                if (node.Children != null && node.Children.Any())
+                {
+                    CollectAllTeamIds(node.Children, teamIds);
+                }
+            }
         }
 
         /// <summary>
