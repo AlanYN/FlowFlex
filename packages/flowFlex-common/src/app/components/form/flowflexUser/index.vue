@@ -162,7 +162,7 @@
 					<!-- 左侧：可选用户 -->
 					<div class="flex-1 flex flex-col border rounded-xl overflow-hidden">
 						<div
-							class="bg-[var(--el-fill-color-lighter)] dark:bg-white px-4 py-3 border-b flex items-center gap-2"
+							class="bg-[var(--el-fill-color-lighter)] px-4 py-3 border-b flex items-center gap-2"
 						>
 							<span class="font-semibold text-sm">
 								{{
@@ -178,16 +178,22 @@
 							</span>
 						</div>
 						<!-- 搜索框 -->
-						<div class="p-3 border-b">
+						<div class="p-3 border-b flex items-center justify-between gap-x-2">
 							<el-input
 								v-model="searchText"
 								placeholder="Search..."
 								:prefix-icon="Search"
 								clearable
+							/>
+							<el-button
+								circle
+								type="primary"
+								:icon="Refresh"
 								size="small"
+								@click="initializeData()"
 							/>
 						</div>
-						<el-scrollbar class="flex-1">
+						<el-scrollbar class="flex-1" v-loading="loading">
 							<div class="p-2">
 								<CustomTree
 									ref="treeRef"
@@ -203,6 +209,7 @@
 									:indent="20"
 									@check="handleTreeCheck"
 									@node-click="handleNodeClick"
+									:loading="loading"
 								>
 									<template #default="{ data }">
 										<div class="w-full">
@@ -252,7 +259,7 @@
 					<!-- 右侧：已选用户 -->
 					<div class="flex-1 flex flex-col border rounded-xl overflow-hidden">
 						<div
-							class="bg-[var(--el-fill-color-lighter)] dark:bg-white px-4 py-3 border-b flex items-center gap-2"
+							class="bg-[var(--el-fill-color-lighter)] px-4 py-3 border-b flex items-center gap-2"
 						>
 							<span class="font-semibold text-sm">
 								Selected {{ getSelectedTypeText() }}
@@ -327,7 +334,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue';
-import { Search, Close } from '@element-plus/icons-vue';
+import { Search, Close, Refresh } from '@element-plus/icons-vue';
 import CustomTree from './CustomTree.vue';
 import { ElMessage } from 'element-plus';
 import { menuRoles } from '@/stores/modules/menuFunction';
@@ -832,11 +839,11 @@ const handleClear = () => {
 // 初始化加载数据（使用缓存优化版）
 const initializeData = async (searchQuery = '') => {
 	if (loading.value) return; // 防止重复加载
-
 	try {
 		loading.value = true;
 
 		// 使用 store 中的缓存方法
+		await menuStore.clearFlowflexUserData();
 		const data = await menuStore.getFlowflexUserDataWithCache(searchQuery);
 
 		if (data && data.length > 0) {

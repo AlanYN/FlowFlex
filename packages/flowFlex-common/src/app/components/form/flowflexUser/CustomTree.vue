@@ -1,6 +1,6 @@
 <template>
 	<div class="custom-tree">
-		<div v-if="!data || data.length === 0" class="empty-tree">
+		<div v-if="!data || (data.length === 0 && !loading)" class="empty-tree">
 			<slot name="empty">No data</slot>
 		</div>
 		<div v-else class="tree-nodes">
@@ -42,6 +42,7 @@ interface Props {
 	defaultExpandedKeys?: string[];
 	indent?: number;
 	checkStrictly?: boolean;
+	loading?: boolean;
 }
 
 interface Emits {
