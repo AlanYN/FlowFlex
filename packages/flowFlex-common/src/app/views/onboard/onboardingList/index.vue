@@ -80,7 +80,12 @@
 						<el-table-column type="selection" fixed="left" width="50" align="center" />
 						<el-table-column label="Actions" fixed="left" width="80">
 							<template #default="{ row }">
-								<el-dropdown trigger="click">
+								<el-dropdown
+									trigger="click"
+									@visible-change="
+										(visible) => visible && checkCasePermission(row.id)
+									"
+								>
 									<el-button size="small" link :icon="ArrowDownBold" />
 
 									<template #dropdown>
@@ -89,7 +94,8 @@
 											<el-dropdown-item
 												v-if="
 													row.status === 'Inactive' &&
-													functionPermission(
+													hasCasePermission(
+														row.id,
 														ProjectPermissionEnum.case.update
 													)
 												"
@@ -103,7 +109,8 @@
 											<el-dropdown-item
 												v-if="
 													isInProgressStatus(row.status) &&
-													functionPermission(
+													hasCasePermission(
+														row.id,
 														ProjectPermissionEnum.case.update
 													)
 												"
@@ -117,7 +124,8 @@
 											<el-dropdown-item
 												@click="handleEditCase(row)"
 												v-if="
-													functionPermission(
+													hasCasePermission(
+														row.id,
 														ProjectPermissionEnum.case.update
 													)
 												"
@@ -147,7 +155,8 @@
 											<el-dropdown-item
 												v-if="
 													isInProgressStatus(row.status) &&
-													functionPermission(
+													hasCasePermission(
+														row.id,
 														ProjectPermissionEnum.case.update
 													)
 												"
@@ -161,7 +170,8 @@
 											<el-dropdown-item
 												v-if="
 													row.status === 'Paused' &&
-													functionPermission(
+													hasCasePermission(
+														row.id,
 														ProjectPermissionEnum.case.update
 													)
 												"
@@ -176,7 +186,8 @@
 												v-if="
 													(isInProgressStatus(row.status) ||
 														row.status === 'Paused') &&
-													functionPermission(
+													hasCasePermission(
+														row.id,
 														ProjectPermissionEnum.case.update
 													)
 												"
@@ -192,7 +203,8 @@
 												v-if="
 													(isInProgressStatus(row.status) ||
 														row.status === 'Paused') &&
-													functionPermission(
+													hasCasePermission(
+														row.id,
 														ProjectPermissionEnum.case.update
 													)
 												"
@@ -207,7 +219,8 @@
 											<el-dropdown-item
 												v-if="
 													isAbortedStatus(row.status) &&
-													functionPermission(
+													hasCasePermission(
+														row.id,
 														ProjectPermissionEnum.case.update
 													)
 												"
@@ -222,7 +235,8 @@
 												@click="handleDelete(row.id)"
 												class="text-red-500"
 												v-if="
-													functionPermission(
+													hasCasePermission(
+														row.id,
 														ProjectPermissionEnum.case.delete
 													)
 												"
@@ -743,7 +757,7 @@ import ProgressViewIcon from '@assets/svg/onboard/progressView.svg';
 import { pick, omitBy, isNil } from 'lodash-es';
 import StageFilter from './components/StageFilter.vue';
 import StageCardList from './components/StageCardList.vue';
-import { functionPermission } from '@/hooks';
+import { functionPermission, checkPermissionHook } from '@/hooks';
 
 type RuleType =
 	| 'string'
@@ -768,6 +782,14 @@ const { t } = useI18n();
 // Store 实例
 const userStore = useUserStore();
 const menuStore = menuRoles();
+
+// 存储每个 case 的操作权限检查结果
+const caseOperatePermissions = ref<{
+	[caseId: string]: {
+		canOperate: boolean;
+		loading: boolean;
+	};
+}>({});
 
 // 入职阶段定义
 const onboardingStages = ref<any[]>([]);
@@ -1690,41 +1712,41 @@ const autoFillCurrentUser = async () => {
 	try {
 		// 获取当前登录用户信息
 		const currentUser = userStore.getUserInfo;
-		if (!currentUser || !currentUser.userId) {
+		if (!currentUser || !currentUser.userId || !currentUser.userName) {
 			console.warn('No current user info available');
 			return;
 		}
+		formData.ownership = currentUser.userName || '';
+		// // 获取用户数据列表（使用缓存）
+		// const userData = await menuStore.getFlowflexUserDataWithCache();
+		// if (!userData || userData.length === 0) {
+		// 	console.warn('No user data available');
+		// 	return;
+		// }
 
-		// 获取用户数据列表（使用缓存）
-		const userData = await menuStore.getFlowflexUserDataWithCache();
-		if (!userData || userData.length === 0) {
-			console.warn('No user data available');
-			return;
-		}
+		// // 递归查找当前用户
+		// const findUserById = (data: FlowflexUser[], userId: string): FlowflexUser | null => {
+		// 	for (const item of data) {
+		// 		if (item.type === 'user' && item.id === userId) {
+		// 			return item;
+		// 		}
+		// 		if (item.children && item.children.length > 0) {
+		// 			const found = findUserById(item.children, userId);
+		// 			if (found) return found;
+		// 		}
+		// 	}
+		// 	return null;
+		// };
 
-		// 递归查找当前用户
-		const findUserById = (data: FlowflexUser[], userId: string): FlowflexUser | null => {
-			for (const item of data) {
-				if (item.type === 'user' && item.id === userId) {
-					return item;
-				}
-				if (item.children && item.children.length > 0) {
-					const found = findUserById(item.children, userId);
-					if (found) return found;
-				}
-			}
-			return null;
-		};
+		// const currentUserData = findUserById(userData, String(currentUser.userId));
 
-		const currentUserData = findUserById(userData, String(currentUser.userId));
-
-		// 如果找到用户，自动填充
-		if (currentUserData) {
-			formData.ownership = currentUserData.id;
-		} else {
-			console.warn('Current user not found in user data list');
-			// 留空，不填充
-		}
+		// // 如果找到用户，自动填充
+		// if (currentUserData) {
+		// 	formData.ownership = currentUserData.id;
+		// } else {
+		// 	console.warn('Current user not found in user data list');
+		// 	// 留空，不填充
+		// }
 	} catch (error) {
 		console.error('Failed to auto-fill current user:', error);
 		// 出错时留空
@@ -2082,6 +2104,35 @@ const getLifeCycleStage = async () => {
 };
 
 const tabWorkflowId = ref('');
+
+// 检查 case 操作权限
+const checkCasePermission = async (caseId: string) => {
+	caseOperatePermissions.value[caseId] = {
+		canOperate: false,
+		loading: true,
+	};
+
+	try {
+		const result = await checkPermissionHook(caseId, 3);
+		caseOperatePermissions.value[caseId] = {
+			canOperate: result,
+			loading: false,
+		};
+	} catch (error) {
+		console.error('Failed to check case permission:', error);
+		caseOperatePermissions.value[caseId] = {
+			canOperate: false,
+			loading: false,
+		};
+	}
+};
+
+// 检查是否有权限（功能权限 && 数据权限）
+const hasCasePermission = (caseId: string, functionalPermission: string) => {
+	const permission = caseOperatePermissions.value[caseId];
+	if (!permission || permission.loading) return false;
+	return functionPermission(functionalPermission) && permission.canOperate;
+};
 
 // 监听工作流切换，选中所有阶段
 watch(tabWorkflowId, () => {

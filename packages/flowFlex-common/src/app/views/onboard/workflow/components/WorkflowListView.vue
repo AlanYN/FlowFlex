@@ -19,6 +19,7 @@
 					<el-dropdown
 						trigger="click"
 						@click.stop
+						@visible-change="(visible) => visible && checkWorkflowPermission(row.id)"
 						:disabled="isWorkflowActionLoading(row.id)"
 					>
 						<el-button
@@ -31,7 +32,9 @@
 						<template #dropdown>
 							<el-dropdown-menu>
 								<el-dropdown-item
-									v-if="functionPermission(ProjectPermissionEnum.workflow.update)"
+									v-if="
+										hasPermission(row.id, ProjectPermissionEnum.workflow.update)
+									"
 									@click="$emit('command', 'edit', row)"
 								>
 									<el-icon><Edit /></el-icon>
@@ -41,7 +44,7 @@
 									v-if="
 										!row.isDefault &&
 										row.status === 'active' &&
-										functionPermission(ProjectPermissionEnum.workflow.update)
+										hasPermission(row.id, ProjectPermissionEnum.workflow.update)
 									"
 									@click="$emit('command', 'setDefault', row)"
 								>
@@ -51,7 +54,7 @@
 								<el-dropdown-item
 									v-if="
 										row.status === 'active' &&
-										functionPermission(ProjectPermissionEnum.workflow.update)
+										hasPermission(row.id, ProjectPermissionEnum.workflow.update)
 									"
 									@click="$emit('command', 'deactivate', row)"
 								>
@@ -61,7 +64,7 @@
 								<el-dropdown-item
 									v-if="
 										row.status === 'inactive' &&
-										functionPermission(ProjectPermissionEnum.workflow.update)
+										hasPermission(row.id, ProjectPermissionEnum.workflow.update)
 									"
 									@click="$emit('command', 'activate', row)"
 								>
@@ -190,7 +193,7 @@
 </template>
 
 <script setup lang="ts">
-import { defineProps, defineEmits } from 'vue';
+import { defineProps, defineEmits, ref } from 'vue';
 import {
 	Edit,
 	CopyDocument,
@@ -206,7 +209,15 @@ import { Workflow } from '#/onboard';
 import { WFEMoudels } from '@/enums/appEnum';
 import StarIcon from '@assets/svg/workflow/star.svg';
 import { ProjectPermissionEnum } from '@/enums/permissionEnum';
-import { functionPermission } from '@/hooks';
+import { functionPermission, checkPermissionHook } from '@/hooks';
+
+// 存储每个 workflow 的操作权限检查结果
+const workflowPermissions = ref<{
+	[workflowId: string]: {
+		canOperate: boolean;
+		loading: boolean;
+	};
+}>({});
 
 // Props
 const props = defineProps<{
@@ -226,6 +237,36 @@ const emit = defineEmits<{
 	'sort-change': [sort: any];
 	'select-workflow': [workflowId: string];
 }>();
+
+// 检查 workflow 操作权限
+const checkWorkflowPermission = async (workflowId: string) => {
+	// 设置加载状态
+	workflowPermissions.value[workflowId] = {
+		canOperate: false,
+		loading: true,
+	};
+
+	try {
+		const result = await checkPermissionHook(workflowId, 1); // resourceType: 0 = Workflow
+		workflowPermissions.value[workflowId] = {
+			canOperate: result,
+			loading: false,
+		};
+	} catch (error) {
+		console.error('Failed to check workflow permission:', error);
+		workflowPermissions.value[workflowId] = {
+			canOperate: false,
+			loading: false,
+		};
+	}
+};
+
+// 检查是否有权限（功能权限 && 数据权限）
+const hasPermission = (workflowId: string, functionalPermission: string) => {
+	const permission = workflowPermissions.value[workflowId];
+	if (!permission || permission.loading) return false;
+	return functionPermission(functionalPermission) && permission.canOperate;
+};
 
 // Methods
 const handleSelectionChange = (selection: Workflow[]) => {

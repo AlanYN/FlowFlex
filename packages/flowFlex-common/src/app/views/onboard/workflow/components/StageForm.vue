@@ -138,8 +138,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, PropType, computed } from 'vue';
-import type { FormInstance, FormRules } from 'element-plus';
+import { ref, onMounted, PropType, computed } from 'vue';
+import type { FormInstance } from 'element-plus';
 import InputNumber from '@/components/form/InputNumber/index.vue';
 import { stageColorOptions, StageColorType } from '@/enums/stageColorEnum';
 import { PortalPermissionEnum, portalPermissionOptions } from '@/enums/portalPermissionEnum';
@@ -195,39 +195,43 @@ const props = defineProps({
 // Tab配置
 const currentTab = ref('basicInfo');
 const tabsConfig = computed(() => {
-	return props?.stage?.id
-		? [
-				{
-					value: 'basicInfo',
-					label: 'Basic Info',
-				},
-				{
-					value: 'components',
-					label: 'Components',
-				},
-				{
-					value: 'permissions',
-					label: 'Permissions',
-				},
-				{
-					value: 'actions',
-					label: 'Actions',
-				},
-		  ]
-		: [
-				{
-					value: 'basicInfo',
-					label: 'Basic Info',
-				},
-				{
-					value: 'permissions',
-					label: 'Permissions',
-				},
-				{
-					value: 'components',
-					label: 'Components',
-				},
-		  ];
+	// 编辑模式：Basic Info -> Components -> Permissions -> Actions
+	if (props?.stage?.id) {
+		return [
+			{
+				value: 'basicInfo',
+				label: 'Basic Info',
+			},
+			{
+				value: 'components',
+				label: 'Components',
+			},
+			{
+				value: 'permissions',
+				label: 'Permissions',
+			},
+			{
+				value: 'actions',
+				label: 'Actions',
+			},
+		];
+	}
+
+	// 新建模式：Basic Info -> Permissions -> Components
+	return [
+		{
+			value: 'basicInfo',
+			label: 'Basic Info',
+		},
+		{
+			value: 'permissions',
+			label: 'Permissions',
+		},
+		{
+			value: 'components',
+			label: 'Components',
+		},
+	];
 });
 
 // 表单数据

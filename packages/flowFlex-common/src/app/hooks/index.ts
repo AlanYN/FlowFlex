@@ -1,6 +1,7 @@
 import { router } from '@/router';
 import { menuRoles } from '@/stores/modules/menuFunction';
 import { getTimeZoneInfo } from './time';
+import { checkPermission } from '@/apis/ow';
 
 // 使用 router 实例来访问当前路由和执行导航
 const currentRoute = router.currentRoute.value;
@@ -63,6 +64,14 @@ export function functionPermission(permissionRoles) {
 		return false;
 	}
 	return true;
+}
+
+export async function checkPermissionHook(resourceId: string, resourceType: 1 | 2 | 3) {
+	const res = await checkPermission({ resourceId, resourceType });
+	if (res.data.canOperate) {
+		return true;
+	}
+	return false;
 }
 
 export function reverseCreatedBy(name: string) {

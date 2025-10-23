@@ -195,6 +195,9 @@
 								<el-dropdown
 									trigger="click"
 									@command="(cmd) => workflow && handleCommand(cmd, workflow)"
+									@visible-change="
+										(visible) => visible && checkCurrentWorkflowPermission()
+									"
 									:disabled="
 										loading.activateWorkflow ||
 										loading.deactivateWorkflow ||
@@ -239,7 +242,7 @@
 											<el-dropdown-item
 												command="edit"
 												v-if="
-													functionPermission(
+													hasWorkflowPermission(
 														ProjectPermissionEnum.workflow.update
 													)
 												"
@@ -251,7 +254,7 @@
 											</el-dropdown-item>
 											<el-dropdown-item
 												v-if="
-													functionPermission(
+													hasWorkflowPermission(
 														ProjectPermissionEnum.workflow.update
 													) &&
 													!workflow.isDefault &&
@@ -267,7 +270,7 @@
 											</el-dropdown-item>
 											<el-dropdown-item
 												v-if="
-													functionPermission(
+													hasWorkflowPermission(
 														ProjectPermissionEnum.workflow.update
 													) && workflow.status === 'active'
 												"
@@ -280,7 +283,7 @@
 											</el-dropdown-item>
 											<el-dropdown-item
 												v-if="
-													functionPermission(
+													hasWorkflowPermission(
 														ProjectPermissionEnum.workflow.update
 													) && workflow.status === 'inactive'
 												"
@@ -711,7 +714,7 @@ import { useAdaptiveScrollbar } from '@/hooks/useAdaptiveScrollbar';
 import TableViewIcon from '@assets/svg/onboard/tavleView.svg';
 import ProgressViewIcon from '@assets/svg/onboard/progressView.svg';
 import { ProjectPermissionEnum, ViewPermissionModeEnum } from '@/enums/permissionEnum';
-import { functionPermission } from '@/hooks';
+import { functionPermission, checkPermissionHook } from '@/hooks';
 import { useUserStore } from '@/stores/modules/user';
 import { menuRoles } from '@/stores/modules/menuFunction';
 
@@ -720,6 +723,15 @@ const { t } = useI18n();
 // Store instances
 const userStore = useUserStore();
 const menuStore = menuRoles();
+
+// 存储当前 workflow 的操作权限检查结果
+const currentWorkflowPermission = ref<{
+	canOperate: boolean;
+	loading: boolean;
+}>({
+	canOperate: false,
+	loading: false,
+});
 
 // 使用自适应滚动条 hook
 const { scrollbarRef } = useAdaptiveScrollbar(70);
@@ -1852,6 +1864,38 @@ const resetCombineStagesForm = () => {
 	combinedStageName.value = '';
 	combinedStageGroup.value = '';
 	combinedStageDuration.value = 1;
+};
+
+// 检查当前 workflow 操作权限
+const checkCurrentWorkflowPermission = async () => {
+	if (!workflow.value?.id) {
+		return;
+	}
+
+	currentWorkflowPermission.value = {
+		canOperate: false,
+		loading: true,
+	};
+
+	try {
+		const result = await checkPermissionHook(workflow.value.id, 1);
+		currentWorkflowPermission.value = {
+			canOperate: result,
+			loading: false,
+		};
+	} catch (error) {
+		console.error('Failed to check workflow permission:', error);
+		currentWorkflowPermission.value = {
+			canOperate: false,
+			loading: false,
+		};
+	}
+};
+
+// 检查是否有权限（功能权限 && 数据权限）
+const hasWorkflowPermission = (functionalPermission: string) => {
+	if (currentWorkflowPermission.value.loading) return false;
+	return functionPermission(functionalPermission) && currentWorkflowPermission.value.canOperate;
 };
 
 const userList = ref<FlowflexUser[]>([]);

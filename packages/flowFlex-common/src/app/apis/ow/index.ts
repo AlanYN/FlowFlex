@@ -31,6 +31,9 @@ const Api = (id?: string | number) => {
 
 		allWorkflows: `${globSetting.apiProName}/ow/workflows/${globSetting.apiVersion}/all`,
 		allStages: `${globSetting.apiProName}/ow/stages/${globSetting.apiVersion}/all`,
+
+		// 权限检查API
+		permissionCheck: `${globSetting.apiProName}/ow/permissions/${globSetting.apiVersion}/check`,
 	};
 };
 
@@ -240,4 +243,18 @@ export function getWorkflows() {
  */
 export function getAllStages() {
 	return defHttp.get({ url: `${Api().allStages}` });
+}
+
+// ========================= 权限检查相关接口 =========================
+
+/**
+ * 检查用户权限
+ * @param params { resourceId: string, resourceType: 1 | 2 | 3 }
+ * @returns { success: boolean, data: { canView: boolean, canOperate: boolean, grantReason: string, errorMessage: string | null } }
+ */
+export function checkPermission(params: {
+	resourceId: string;
+	resourceType: 1 | 2 | 3; // 1: Workflow, 2: Stage, 3: Case
+}) {
+	return defHttp.post({ url: `${Api().permissionCheck}`, params });
 }
