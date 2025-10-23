@@ -97,9 +97,24 @@
 
 				<!-- 选择器 -->
 				<FlowflexUserSelector
-					v-model="currentOperateSelection"
-					:selection-type="operateSelectionType"
-					:placeholder="operateSelectionType === 'team' ? 'Select teams' : 'Select users'"
+					v-show="
+						localPermissions.operatePermissionSubjectType ===
+						PermissionSubjectTypeEnum.Team
+					"
+					v-model="localPermissions.operateTeams"
+					selection-type="team"
+					:clearable="true"
+					checkStrictly
+				/>
+
+				<!-- User 选择器 -->
+				<FlowflexUserSelector
+					v-show="
+						localPermissions.operatePermissionSubjectType ===
+						PermissionSubjectTypeEnum.User
+					"
+					v-model="localPermissions.operateUsers"
+					selection-type="user"
 					:clearable="true"
 				/>
 			</div>

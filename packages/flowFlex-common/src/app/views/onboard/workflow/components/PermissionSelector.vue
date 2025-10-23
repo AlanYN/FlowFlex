@@ -27,6 +27,7 @@
 					v-model="localPermissions.viewTeams"
 					selectionType="team"
 					:clearable="true"
+					checkStrictly
 				/>
 			</div>
 		</div>
@@ -49,6 +50,7 @@
 					v-model="localPermissions.operateTeams"
 					selectionType="team"
 					:clearable="true"
+					checkStrictly
 				/>
 			</div>
 		</div>
