@@ -9,6 +9,8 @@ using FlowFlex.Application.Contracts.Dtos.OW.Stage;
 using FlowFlex.Application.Contracts.IServices.OW;
 using FlowFlex.Domain.Shared.Enums.Permission;
 using FlowFlex.WebApi.Filters;
+using FlowFlex.Domain.Shared.Const;
+using WebApi.Authorization;
 
 using Item.Internal.StandardApi.Response;
 using System.Net;
@@ -38,8 +40,10 @@ namespace FlowFlex.WebApi.Controllers.OW
 
         /// <summary>
         /// Create workflow
+        /// Requires WORKFLOW:CREATE permission
         /// </summary>
         [HttpPost]
+        [WFEAuthorize(PermissionConsts.Workflow.Create)]
         [ProducesResponseType<SuccessResponse<long>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> Create([FromBody] WorkflowInputDto input)
         {
@@ -49,8 +53,10 @@ namespace FlowFlex.WebApi.Controllers.OW
 
         /// <summary>
         /// Update workflow
+        /// Requires WORKFLOW:UPDATE permission
         /// </summary>
         [HttpPut("{id}")]
+        [WFEAuthorize(PermissionConsts.Workflow.Update)]
         [RequirePermission(PermissionEntityTypeEnum.Workflow, OperationTypeEnum.Operate)]
         [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> Update(long id, [FromBody] WorkflowInputDto input)
@@ -61,8 +67,10 @@ namespace FlowFlex.WebApi.Controllers.OW
 
         /// <summary>
         /// Delete workflow (with confirmation)
+        /// Requires WORKFLOW:DELETE permission
         /// </summary>
         [HttpDelete("{id}")]
+        [WFEAuthorize(PermissionConsts.Workflow.Delete)]
         [RequirePermission(PermissionEntityTypeEnum.Workflow, OperationTypeEnum.Delete)]
         [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> Delete(long id, [FromQuery] bool confirm = false)
@@ -73,8 +81,10 @@ namespace FlowFlex.WebApi.Controllers.OW
 
         /// <summary>
         /// Get workflow by id
+        /// Requires WORKFLOW:READ permission
         /// </summary>
         [HttpGet("{id}")]
+        [WFEAuthorize(PermissionConsts.Workflow.Read)]
         [RequirePermission(PermissionEntityTypeEnum.Workflow, OperationTypeEnum.View)]
         [ProducesResponseType<SuccessResponse<WorkflowOutputDto>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> GetById(long id)
@@ -85,6 +95,7 @@ namespace FlowFlex.WebApi.Controllers.OW
 
         /// <summary>
         /// Get workflow list with pagination support
+        /// Requires WORKFLOW:READ permission
         /// </summary>
         /// <param name="pageIndex">Page index (starting from 1, default: 1)</param>
         /// <param name="pageSize">Page size (default: 15)</param>
@@ -96,6 +107,7 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// <param name="status">Filter by workflow status (e.g., active, inactive, draft)</param>
         /// <returns>Paged list of workflows or simple list when no pagination params provided</returns>
         [HttpGet]
+        [WFEAuthorize(PermissionConsts.Workflow.Read)]
         [ProducesResponseType<SuccessResponse<object>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> GetList(
             [FromQuery] int? pageIndex = null,
@@ -137,8 +149,10 @@ namespace FlowFlex.WebApi.Controllers.OW
 
         /// <summary>
         /// Get all workflows (no pagination)
+        /// Requires WORKFLOW:READ permission
         /// </summary>
         [HttpGet("all")]
+        [WFEAuthorize(PermissionConsts.Workflow.Read)]
         [ProducesResponseType<SuccessResponse<List<WorkflowOutputDto>>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> GetAll()
         {
@@ -148,8 +162,10 @@ namespace FlowFlex.WebApi.Controllers.OW
 
         /// <summary>
         /// Query workflow (paged)
+        /// Requires WORKFLOW:READ permission
         /// </summary>
         [HttpPost("query")]
+        [WFEAuthorize(PermissionConsts.Workflow.Read)]
         [ProducesResponseType<SuccessResponse<PagedResult<WorkflowOutputDto>>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> Query([FromBody] WorkflowQueryRequest query)
         {
@@ -159,8 +175,10 @@ namespace FlowFlex.WebApi.Controllers.OW
 
         /// <summary>
         /// Activate workflow
+        /// Requires WORKFLOW:UPDATE permission
         /// </summary>
         [HttpPost("{id}/activate")]
+        [WFEAuthorize(PermissionConsts.Workflow.Update)]
         [RequirePermission(PermissionEntityTypeEnum.Workflow, OperationTypeEnum.Operate)]
         [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> Activate(long id)
@@ -171,8 +189,10 @@ namespace FlowFlex.WebApi.Controllers.OW
 
         /// <summary>
         /// Deactivate workflow
+        /// Requires WORKFLOW:UPDATE permission
         /// </summary>
         [HttpPost("{id}/deactivate")]
+        [WFEAuthorize(PermissionConsts.Workflow.Update)]
         [RequirePermission(PermissionEntityTypeEnum.Workflow, OperationTypeEnum.Operate)]
         [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> Deactivate(long id)
@@ -183,8 +203,10 @@ namespace FlowFlex.WebApi.Controllers.OW
 
         /// <summary>
         /// Set as default workflow
+        /// Requires WORKFLOW:UPDATE permission
         /// </summary>
         [HttpPost("{id}/set-default")]
+        [WFEAuthorize(PermissionConsts.Workflow.Update)]
         [RequirePermission(PermissionEntityTypeEnum.Workflow, OperationTypeEnum.Operate)]
         [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> SetDefault(long id)
@@ -195,8 +217,10 @@ namespace FlowFlex.WebApi.Controllers.OW
 
         /// <summary>
         /// Remove default workflow
+        /// Requires WORKFLOW:UPDATE permission
         /// </summary>
         [HttpPost("{id}/remove-default")]
+        [WFEAuthorize(PermissionConsts.Workflow.Update)]
         [RequirePermission(PermissionEntityTypeEnum.Workflow, OperationTypeEnum.Operate)]
         [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> RemoveDefault(long id)
@@ -207,8 +231,10 @@ namespace FlowFlex.WebApi.Controllers.OW
 
         /// <summary>
         /// Duplicate workflow
+        /// Requires WORKFLOW:CREATE permission
         /// </summary>
         [HttpPost("{id}/duplicate")]
+        [WFEAuthorize(PermissionConsts.Workflow.Create)]
         [RequirePermission(PermissionEntityTypeEnum.Workflow, OperationTypeEnum.Operate)]
         [ProducesResponseType<SuccessResponse<long>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> Duplicate(long id, [FromBody] DuplicateWorkflowInputDto input)
@@ -224,8 +250,10 @@ namespace FlowFlex.WebApi.Controllers.OW
 
         /// <summary>
         /// Get stages by workflow id
+        /// Requires WORKFLOW:READ permission
         /// </summary>
         [HttpGet("{id}/stages")]
+        [WFEAuthorize(PermissionConsts.Workflow.Read)]
         [RequirePermission(PermissionEntityTypeEnum.Workflow, OperationTypeEnum.View)]
         [ProducesResponseType<SuccessResponse<List<StageOutputDto>>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> GetStagesByWorkflowId(long id)
@@ -236,8 +264,10 @@ namespace FlowFlex.WebApi.Controllers.OW
 
         /// <summary>
         /// Export single workflow to detailed Excel format
+        /// Requires WORKFLOW:READ permission
         /// </summary>
         [HttpGet("{id}/export-detailed-excel")]
+        [WFEAuthorize(PermissionConsts.Workflow.Read)]
         [RequirePermission(PermissionEntityTypeEnum.Workflow, OperationTypeEnum.View)]
         [ProducesResponseType(typeof(FileResult), 200)]
         public async Task<IActionResult> ExportDetailedToExcel(long id)
@@ -249,8 +279,10 @@ namespace FlowFlex.WebApi.Controllers.OW
 
         /// <summary>
         /// Export multiple workflows to detailed Excel format
+        /// Requires WORKFLOW:READ permission
         /// </summary>
         [HttpPost("export-detailed-excel")]
+        [WFEAuthorize(PermissionConsts.Workflow.Read)]
         [ProducesResponseType(typeof(FileResult), 200)]
         public async Task<IActionResult> ExportMultipleDetailedToExcel([FromBody] WorkflowExportSearch search)
         {
@@ -261,10 +293,12 @@ namespace FlowFlex.WebApi.Controllers.OW
 
         /// <summary>
         /// Sync component mappings for a workflow
+        /// Requires WORKFLOW:UPDATE permission
         /// </summary>
         /// <param name="workflowId">Workflow ID</param>
         /// <returns>Success status</returns>
         [HttpPost("{workflowId}/sync-mappings")]
+        [WFEAuthorize(PermissionConsts.Workflow.Update)]
         [RequirePermission(PermissionEntityTypeEnum.Workflow, OperationTypeEnum.Operate, "workflowId")]
         [ProducesResponseType<SuccessResponse<string>>((int)HttpStatusCode.OK)]
         [ProducesResponseType(typeof(ErrorResponse), 400)]

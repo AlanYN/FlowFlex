@@ -9,6 +9,8 @@ using FlowFlex.Application.Contracts;
 using Item.Internal.StandardApi.Response;
 using System.Net;
 using FlowFlex.Application.Filter;
+using FlowFlex.Domain.Shared.Const;
+using WebApi.Authorization;
 
 namespace FlowFlex.WebApi.Controllers.OW
 {
@@ -35,8 +37,10 @@ namespace FlowFlex.WebApi.Controllers.OW
 
         /// <summary>
         /// Create questionnaire
+        /// Requires QUESTION:CREATE permission
         /// </summary>
         [HttpPost]
+        [WFEAuthorize(PermissionConsts.Question.Create)]
         [ProducesResponseType<SuccessResponse<long>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> Create([FromBody] QuestionnaireInputDto input)
         {
@@ -61,8 +65,10 @@ namespace FlowFlex.WebApi.Controllers.OW
 
         /// <summary>
         /// Update questionnaire
+        /// Requires QUESTION:UPDATE permission
         /// </summary>
         [HttpPut("{id}")]
+        [WFEAuthorize(PermissionConsts.Question.Update)]
         [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> Update(long id, [FromBody] QuestionnaireInputDto input)
         {
@@ -83,8 +89,10 @@ namespace FlowFlex.WebApi.Controllers.OW
 
         /// <summary>
         /// Delete questionnaire (with confirmation)
+        /// Requires QUESTION:DELETE permission
         /// </summary>
         [HttpDelete("{id}")]
+        [WFEAuthorize(PermissionConsts.Question.Delete)]
         [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> Delete(long id, [FromQuery] bool confirm = false)
         {
@@ -94,8 +102,10 @@ namespace FlowFlex.WebApi.Controllers.OW
 
         /// <summary>
         /// Get questionnaire by id
+        /// Requires QUESTION:READ permission
         /// </summary>
         [HttpGet("{id}")]
+        [WFEAuthorize(PermissionConsts.Question.Read)]
         [ProducesResponseType<SuccessResponse<QuestionnaireOutputDto>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> GetById(long id)
         {
@@ -105,8 +115,10 @@ namespace FlowFlex.WebApi.Controllers.OW
 
         /// <summary>
         /// Get questionnaire list by category
+        /// Requires QUESTION:READ permission
         /// </summary>
         [HttpGet]
+        [WFEAuthorize(PermissionConsts.Question.Read)]
         [ProducesResponseType<SuccessResponse<List<QuestionnaireOutputDto>>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> GetList([FromQuery] string category = null)
         {
@@ -116,8 +128,10 @@ namespace FlowFlex.WebApi.Controllers.OW
 
         /// <summary>
         /// Get questionnaires by stage ID
+        /// Requires QUESTION:READ permission
         /// </summary>
         [HttpGet("by-stage/{stageId}")]
+        [WFEAuthorize(PermissionConsts.Question.Read)]
         [ProducesResponseType<SuccessResponse<List<QuestionnaireOutputDto>>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> GetByStageId(long stageId)
         {
@@ -127,8 +141,10 @@ namespace FlowFlex.WebApi.Controllers.OW
 
         /// <summary>
         /// Get questionnaires by multiple IDs (batch query)
+        /// Requires QUESTION:READ permission
         /// </summary>
         [HttpPost("batch/by-ids")]
+        [WFEAuthorize(PermissionConsts.Question.Read)]
         [ProducesResponseType<SuccessResponse<List<QuestionnaireOutputDto>>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> GetByIds([FromBody] List<long> ids)
         {
@@ -141,8 +157,10 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// Supports comma-separated values for name field
         /// All text search queries are case-insensitive
         /// Example: {"name": "questionnaire1,questionnaire2"}
+        /// Requires QUESTION:READ permission
         /// </summary>
         [HttpPost("query")]
+        [WFEAuthorize(PermissionConsts.Question.Read)]
         [ProducesResponseType<SuccessResponse<List<QuestionnaireOutputDto>>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> Query([FromBody] QuestionnaireQueryRequest query)
         {
@@ -152,8 +170,10 @@ namespace FlowFlex.WebApi.Controllers.OW
 
         /// <summary>
         /// Duplicate questionnaire
+        /// Requires QUESTION:CREATE permission
         /// </summary>
         [HttpPost("{id}/duplicate")]
+        [WFEAuthorize(PermissionConsts.Question.Create)]
         [ProducesResponseType<SuccessResponse<long>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> Duplicate(long id, [FromBody] DuplicateQuestionnaireInputDto input)
         {
@@ -163,8 +183,10 @@ namespace FlowFlex.WebApi.Controllers.OW
 
         /// <summary>
         /// Preview questionnaire
+        /// Requires QUESTION:READ permission
         /// </summary>
         [HttpGet("{id}/preview")]
+        [WFEAuthorize(PermissionConsts.Question.Read)]
         [ProducesResponseType<SuccessResponse<QuestionnaireOutputDto>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> Preview(long id)
         {
@@ -174,8 +196,10 @@ namespace FlowFlex.WebApi.Controllers.OW
 
         /// <summary>
         /// Publish questionnaire
+        /// Requires QUESTION:UPDATE permission
         /// </summary>
         [HttpPost("{id}/publish")]
+        [WFEAuthorize(PermissionConsts.Question.Update)]
         [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> Publish(long id)
         {
@@ -185,8 +209,10 @@ namespace FlowFlex.WebApi.Controllers.OW
 
         /// <summary>
         /// Archive questionnaire
+        /// Requires QUESTION:UPDATE permission
         /// </summary>
         [HttpPost("{id}/archive")]
+        [WFEAuthorize(PermissionConsts.Question.Update)]
         [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> Archive(long id)
         {
@@ -200,8 +226,10 @@ namespace FlowFlex.WebApi.Controllers.OW
 
         /// <summary>
         /// Validate questionnaire structure
+        /// Requires QUESTION:UPDATE permission
         /// </summary>
         [HttpPost("{id}/validate")]
+        [WFEAuthorize(PermissionConsts.Question.Update)]
         [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> ValidateStructure(long id)
         {
@@ -211,8 +239,10 @@ namespace FlowFlex.WebApi.Controllers.OW
 
         /// <summary>
         /// Update questionnaire statistics
+        /// Requires QUESTION:UPDATE permission
         /// </summary>
         [HttpPost("{id}/update-statistics")]
+        [WFEAuthorize(PermissionConsts.Question.Update)]
         [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> UpdateStatistics(long id)
         {
@@ -222,8 +252,10 @@ namespace FlowFlex.WebApi.Controllers.OW
 
         /// <summary>
         /// Batch get questionnaires by stage IDs
+        /// Requires QUESTION:READ permission
         /// </summary>
         [HttpPost("batch/by-stages")]
+        [WFEAuthorize(PermissionConsts.Question.Read)]
         [ProducesResponseType<SuccessResponse<BatchStageQuestionnaireResponse>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> GetByStageIdsBatch([FromBody] BatchStageQuestionnaireRequest request)
         {
@@ -238,6 +270,7 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// <param name="category">File category (optional, default: "QuestionnaireQuestion")</param>
         /// <returns>Complete file upload information</returns>
         [HttpPost("questions/upload-file")]
+        [WFEAuthorize(PermissionConsts.Question.Update)]
         [ProducesResponseType<SuccessResponse<QuestionnaireFileUploadResponseDto>>((int)HttpStatusCode.OK)]
         [Consumes("multipart/form-data")]
         public async Task<IActionResult> UploadQuestionFileAsync(
@@ -299,6 +332,7 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// <param name="category">File category (optional, default: "QuestionnaireQuestion")</param>
         /// <returns>List of complete file upload information</returns>
         [HttpPost("questions/batch-upload-files")]
+        [WFEAuthorize(PermissionConsts.Question.Update)]
         [ProducesResponseType<SuccessResponse<List<QuestionnaireFileUploadResponseDto>>>((int)HttpStatusCode.OK)]
         [Consumes("multipart/form-data")]
         public async Task<IActionResult> UploadMultipleQuestionFilesAsync(
@@ -380,8 +414,10 @@ namespace FlowFlex.WebApi.Controllers.OW
 
         /// <summary>
         /// Debug endpoint: Find which stages contain a specific questionnaire
+        /// Requires QUESTION:READ permission
         /// </summary>
         [HttpGet("{id}/debug/stages")]
+        [WFEAuthorize(PermissionConsts.Question.Read)]
         [ProducesResponseType<SuccessResponse<List<object>>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> DebugFindStagesContainingQuestionnaire(long id)
         {
@@ -400,8 +436,10 @@ namespace FlowFlex.WebApi.Controllers.OW
 
         /// <summary>
         /// Sync component mappings (初始化映射表数据)
+        /// Requires QUESTION:UPDATE permission
         /// </summary>
         [HttpPost("sync-mappings")]
+        [WFEAuthorize(PermissionConsts.Question.Update)]
         [ApiExplorerSettings(IgnoreApi = true)] // 隐藏在 Swagger 中，仅用于管理
         public async Task<IActionResult> SyncMappings()
         {

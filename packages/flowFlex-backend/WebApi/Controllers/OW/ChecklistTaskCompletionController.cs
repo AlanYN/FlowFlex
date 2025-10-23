@@ -9,6 +9,8 @@ using Item.Internal.StandardApi.Response;
 using System.Net;
 using FlowFlex.Domain.Shared.Attr;
 using FlowFlex.Application.Filter;
+using FlowFlex.Domain.Shared.Const;
+using WebApi.Authorization;
 
 namespace FlowFlex.WebApi.Controllers.OW;
 
@@ -35,8 +37,10 @@ public class ChecklistTaskCompletionController : Controllers.ControllerBase
 
     /// <summary>
     /// Get all task completions or filter by onboardingId and stageId
+    /// Requires CHECKLIST:READ permission
     /// </summary>
     [HttpGet]
+    [WFEAuthorize(PermissionConsts.Checklist.Read)]
     [ProducesResponseType<SuccessResponse<List<ChecklistTaskCompletionOutputDto>>>((int)HttpStatusCode.OK)]
     public async Task<IActionResult> GetTaskCompletions([FromQuery] long? onboardingId = null, [FromQuery] long? stageId = null)
     {

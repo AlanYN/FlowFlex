@@ -10,6 +10,8 @@ using Microsoft.Extensions.Logging;
 using Newtonsoft.Json.Linq;
 using System.Net;
 using FlowFlex.Application.Filter;
+using FlowFlex.Domain.Shared.Const;
+using WebApi.Authorization;
 
 namespace FlowFlex.WebApi.Controllers.Action
 {
@@ -43,7 +45,9 @@ namespace FlowFlex.WebApi.Controllers.Action
         /// </summary>
         /// <param name="id">Action definition ID</param>
         /// <returns>Action definition</returns>
+        /// Requires TOOL:READ permission
         [HttpGet("definitions/{id}")]
+        [WFEAuthorize(PermissionConsts.Tool.Read)]
         [ProducesResponseType<SuccessResponse<ActionDefinitionDto>>((int)HttpStatusCode.OK)]
         [ProducesResponseType((int)HttpStatusCode.NotFound)]
         public async Task<IActionResult> GetActionDefinition(long id)
@@ -68,7 +72,9 @@ namespace FlowFlex.WebApi.Controllers.Action
         /// <param name="isAssignmentQuestionnaire"></param>
         /// <param name="isTools"></param>
         /// <returns></returns>
+        /// Requires TOOL:READ permission
         [HttpGet("definitions")]
+        [WFEAuthorize(PermissionConsts.Tool.Read)]
         [ProducesResponseType<SuccessResponse<PageModelDto<ActionDefinitionDto>>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> GetPagedActionDefinitions(string? search,
             ActionTypeEnum? actionType,
@@ -104,7 +110,9 @@ namespace FlowFlex.WebApi.Controllers.Action
         /// Get enabled action definitions
         /// </summary>
         /// <returns>List of enabled action definitions</returns>
+        /// Requires TOOL:READ permission
         [HttpGet("definitions/enabled")]
+        [WFEAuthorize(PermissionConsts.Tool.Read)]
         [ProducesResponseType<SuccessResponse<List<ActionDefinitionDto>>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> GetEnabledActionDefinitions()
         {
@@ -118,7 +126,9 @@ namespace FlowFlex.WebApi.Controllers.Action
         /// <param name="dto">Create action definition DTO. 
         /// Optional parameters (WorkflowId, TriggerSourceId, TriggerType) can be provided to simultaneously create an Action Trigger Mapping.</param>
         /// <returns>Created action definition with trigger mapping creation status</returns>
+        /// Requires TOOL:CREATE permission
         [HttpPost("definitions")]
+        [WFEAuthorize(PermissionConsts.Tool.Create)]
         [ProducesResponseType<SuccessResponse<ActionDefinitionDto>>((int)HttpStatusCode.Created)]
         [ProducesResponseType((int)HttpStatusCode.BadRequest)]
         public async Task<IActionResult> CreateActionDefinition(CreateActionDefinitionDto dto)
@@ -133,7 +143,9 @@ namespace FlowFlex.WebApi.Controllers.Action
         /// <param name="id">Action definition ID</param>
         /// <param name="dto">Update action definition DTO</param>
         /// <returns>Updated action definition</returns>
+        /// Requires TOOL:UPDATE permission
         [HttpPut("definitions/{id}")]
+        [WFEAuthorize(PermissionConsts.Tool.Update)]
         [ProducesResponseType<SuccessResponse<ActionDefinitionDto>>((int)HttpStatusCode.OK)]
         [ProducesResponseType((int)HttpStatusCode.NotFound)]
         [ProducesResponseType((int)HttpStatusCode.BadRequest)]
@@ -202,7 +214,9 @@ namespace FlowFlex.WebApi.Controllers.Action
         /// </summary>
         /// <param name="id">Action definition ID</param>
         /// <returns>Success status</returns>
+        /// Requires TOOL:DELETE permission
         [HttpDelete("definitions/{id}")]
+        [WFEAuthorize(PermissionConsts.Tool.Delete)]
         [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
         [ProducesResponseType((int)HttpStatusCode.NotFound)]
         public async Task<IActionResult> DeleteActionDefinition(long id)
@@ -221,7 +235,9 @@ namespace FlowFlex.WebApi.Controllers.Action
         /// <param name="id">Action definition ID</param>
         /// <param name="isEnabled">Enable or disable</param>
         /// <returns>Success status</returns>
+        /// Requires TOOL:UPDATE permission
         [HttpPatch("definitions/{id}/status")]
+        [WFEAuthorize(PermissionConsts.Tool.Update)]
         [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
         [ProducesResponseType((int)HttpStatusCode.NotFound)]
         public async Task<IActionResult> UpdateActionDefinitionStatus(long id, [FromBody] bool isEnabled)
@@ -247,7 +263,9 @@ namespace FlowFlex.WebApi.Controllers.Action
         /// <param name="isSystemTools">System tools filter</param>
         /// <param name="actionIds">Comma-separated list of action IDs for selected export</param>
         /// <returns>Exported file</returns>
+        /// Requires TOOL:READ permission
         [HttpGet("definitions/export")]
+        [WFEAuthorize(PermissionConsts.Tool.Read)]
         [Produces("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")]
         [ProducesResponseType(typeof(FileStreamResult), StatusCodes.Status200OK)]
         public async Task<IActionResult> ExportAsync(string? search,
@@ -286,7 +304,9 @@ namespace FlowFlex.WebApi.Controllers.Action
         /// </summary>
         /// <param name="id">Mapping ID</param>
         /// <returns>Action trigger mapping</returns>
+        /// Requires TOOL:READ permission
         [HttpGet("mappings/{id}")]
+        [WFEAuthorize(PermissionConsts.Tool.Read)]
         [ProducesResponseType<SuccessResponse<ActionTriggerMappingDto>>((int)HttpStatusCode.OK)]
         [ProducesResponseType((int)HttpStatusCode.NotFound)]
         public async Task<IActionResult> GetActionTriggerMapping(long id)
@@ -303,7 +323,9 @@ namespace FlowFlex.WebApi.Controllers.Action
         /// Get all action trigger mappings
         /// </summary>
         /// <returns>List of action trigger mappings</returns>
+        /// Requires TOOL:READ permission
         [HttpGet("mappings")]
+        [WFEAuthorize(PermissionConsts.Tool.Read)]
         [ProducesResponseType<SuccessResponse<List<ActionTriggerMappingDto>>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> GetAllActionTriggerMappings()
         {
@@ -316,7 +338,9 @@ namespace FlowFlex.WebApi.Controllers.Action
         /// </summary>
         /// <param name="actionDefinitionId">Action definition ID</param>
         /// <returns>List of action trigger mappings</returns>
+        /// Requires TOOL:READ permission
         [HttpGet("mappings/action/{actionDefinitionId}")]
+        [WFEAuthorize(PermissionConsts.Tool.Read)]
         [ProducesResponseType<SuccessResponse<List<ActionTriggerMappingInfo>>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> GetActionTriggerMappingsByActionId(long actionDefinitionId)
         {
@@ -329,7 +353,9 @@ namespace FlowFlex.WebApi.Controllers.Action
         /// </summary>
         /// <param name="triggerType">Trigger type</param>
         /// <returns>List of action trigger mappings</returns>
+        /// Requires TOOL:READ permission
         [HttpGet("mappings/trigger-type/{triggerType}")]
+        [WFEAuthorize(PermissionConsts.Tool.Read)]
         [ProducesResponseType<SuccessResponse<List<ActionTriggerMappingDto>>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> GetActionTriggerMappingsByTriggerType(string triggerType)
         {
@@ -342,7 +368,9 @@ namespace FlowFlex.WebApi.Controllers.Action
         /// </summary>
         /// <param name="triggerSourceId"></param>
         /// <returns></returns>
+        /// Requires TOOL:READ permission
         [HttpGet("mappings/trigger-source/{triggerSourceId}")]
+        [WFEAuthorize(PermissionConsts.Tool.Read)]
         [ProducesResponseType<SuccessResponse<List<ActionTriggerMappingWithActionInfo>>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> GetActionTriggerMappingsByTriggerSourceId(long triggerSourceId)
         {
@@ -356,7 +384,9 @@ namespace FlowFlex.WebApi.Controllers.Action
         /// <param name="dto">Create action trigger mapping DTO. 
         /// TriggerEvent defaults to "Completed" if not provided.</param>
         /// <returns>Created action trigger mapping</returns>
+        /// Requires TOOL:CREATE permission
         [HttpPost("mappings")]
+        [WFEAuthorize(PermissionConsts.Tool.Create)]
         [ProducesResponseType<SuccessResponse<ActionTriggerMappingDto>>((int)HttpStatusCode.Created)]
         [ProducesResponseType((int)HttpStatusCode.BadRequest)]
         public async Task<IActionResult> CreateActionTriggerMapping(CreateActionTriggerMappingDto dto)
@@ -377,7 +407,9 @@ namespace FlowFlex.WebApi.Controllers.Action
         /// </summary>
         /// <param name="id">Mapping ID</param>
         /// <returns>Success status</returns>
+        /// Requires TOOL:DELETE permission
         [HttpDelete("mappings/{id}")]
+        [WFEAuthorize(PermissionConsts.Tool.Delete)]
         [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> DeleteActionTriggerMapping(long id)
         {
@@ -391,7 +423,9 @@ namespace FlowFlex.WebApi.Controllers.Action
         /// <param name="id">Mapping ID</param>
         /// <param name="isEnabled">Enable or disable</param>
         /// <returns>Success status</returns>
+        /// Requires TOOL:UPDATE permission
         [HttpPatch("mappings/{id}/status")]
+        [WFEAuthorize(PermissionConsts.Tool.Update)]
         [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
         [ProducesResponseType((int)HttpStatusCode.NotFound)]
         public async Task<IActionResult> UpdateActionTriggerMappingStatus(long id, [FromBody] bool isEnabled)
@@ -414,7 +448,9 @@ namespace FlowFlex.WebApi.Controllers.Action
         /// <param name="actionDefinitionId">Action definition ID</param>
         /// <param name="contextData">Context data for execution</param>
         /// <returns>Execution result</returns>
+        /// Requires TOOL:UPDATE permission
         [HttpPost("definitions/{actionDefinitionId}/test")]
+        [WFEAuthorize(PermissionConsts.Tool.Update)]
         [ProducesResponseType<SuccessResponse<JToken>>((int)HttpStatusCode.OK)]
         [ProducesResponseType((int)HttpStatusCode.BadRequest)]
         public async Task<IActionResult> TestAction(long actionDefinitionId, [FromBody] object contextData = null)
@@ -435,7 +471,9 @@ namespace FlowFlex.WebApi.Controllers.Action
         /// </summary>
         /// <param name="request">Direct execution request</param>
         /// <returns>Execution result</returns>
+        /// Requires TOOL:UPDATE permission
         [HttpPost("test/direct")]
+        [WFEAuthorize(PermissionConsts.Tool.Update)]
         [ProducesResponseType<SuccessResponse<object>>((int)HttpStatusCode.OK)]
         [ProducesResponseType((int)HttpStatusCode.BadRequest)]
         public async Task<IActionResult> TestActionDirectly([FromBody] DirectActionExecutionRequest request)
@@ -480,7 +518,9 @@ namespace FlowFlex.WebApi.Controllers.Action
         /// <param name="pageIndex">Page index (default: 1)</param>
         /// <param name="pageSize">Page size (default: 10)</param>
         /// <returns>Paginated executions with action information</returns>
+        /// Requires TOOL:READ permission
         [HttpGet("executions/trigger-source/{triggerSourceId}")]
+        [WFEAuthorize(PermissionConsts.Tool.Read)]
         [ProducesResponseType<SuccessResponse<PageModelDto<ActionExecutionWithActionInfoDto>>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> GetExecutionsByTriggerSourceId(
             long triggerSourceId,
@@ -498,7 +538,9 @@ namespace FlowFlex.WebApi.Controllers.Action
         /// <param name="triggerSourceId">Trigger source ID</param>
         /// <param name="request">Search request with JSON conditions</param>
         /// <returns>Paginated executions with action information</returns>
+        /// Requires TOOL:UPDATE permission
         [HttpPost("executions/trigger-source/{triggerSourceId}/search")]
+        [WFEAuthorize(PermissionConsts.Tool.Update)]
         [ProducesResponseType<SuccessResponse<PageModelDto<ActionExecutionWithActionInfoDto>>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> GetExecutionsByTriggerSourceIdWithConditions(
             [FromRoute] long triggerSourceId,
@@ -517,7 +559,9 @@ namespace FlowFlex.WebApi.Controllers.Action
         /// Get system predefined actions
         /// </summary>
         /// <returns>List of system predefined actions</returns>
+        /// Requires TOOL:READ permission
         [HttpGet("system/predefined")]
+        [WFEAuthorize(PermissionConsts.Tool.Read)]
         [ProducesResponseType<SuccessResponse<List<SystemActionDefinitionDto>>>((int)HttpStatusCode.OK)]
         public IActionResult GetSystemPredefinedActions()
         {
@@ -595,7 +639,9 @@ namespace FlowFlex.WebApi.Controllers.Action
         /// </summary>
         /// <param name="actionName">System action name</param>
         /// <returns>Configuration template</returns>
+        /// Requires TOOL:READ permission
         [HttpGet("system/template/{actionName}")]
+        [WFEAuthorize(PermissionConsts.Tool.Read)]
         [ProducesResponseType<SuccessResponse<SystemActionTemplateDto>>((int)HttpStatusCode.OK)]
         [ProducesResponseType((int)HttpStatusCode.NotFound)]
         public IActionResult GetSystemActionTemplate(string actionName)
