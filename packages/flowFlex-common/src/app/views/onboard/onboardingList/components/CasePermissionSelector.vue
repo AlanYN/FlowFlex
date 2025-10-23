@@ -117,6 +117,7 @@
 					v-model="localPermissions.operateTeams"
 					selection-type="team"
 					:clearable="true"
+					checkStrictly
 				/>
 
 				<!-- User 选择器 -->
