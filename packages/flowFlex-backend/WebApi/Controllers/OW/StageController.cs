@@ -111,10 +111,16 @@ namespace FlowFlex.WebApi.Controllers.OW
 
         /// <summary>
         /// Get all stages (no pagination)
-        /// Requires WORKFLOW:READ permission
+        /// Requires any READ permission (WORKFLOW, CASE, CHECKLIST, QUESTION, or TOOL)
+        /// This is a shared list API accessible by any module with read permission
         /// </summary>
         [HttpGet("all")]
-        [WFEAuthorize(PermissionConsts.Workflow.Read)]
+        [WFEAuthorize(
+            PermissionConsts.Workflow.Read,
+            PermissionConsts.Case.Read,
+            PermissionConsts.Checklist.Read,
+            PermissionConsts.Question.Read,
+            PermissionConsts.Tool.Read)]
         [ProducesResponseType<SuccessResponse<List<StageOutputDto>>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> GetAll()
         {

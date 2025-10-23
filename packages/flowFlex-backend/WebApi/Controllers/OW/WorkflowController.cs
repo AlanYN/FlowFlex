@@ -95,7 +95,8 @@ namespace FlowFlex.WebApi.Controllers.OW
 
         /// <summary>
         /// Get workflow list with pagination support
-        /// Requires WORKFLOW:READ permission
+        /// Requires any READ permission (WORKFLOW, CASE, CHECKLIST, QUESTION, or TOOL)
+        /// This is a shared list API accessible by any module with read permission
         /// </summary>
         /// <param name="pageIndex">Page index (starting from 1, default: 1)</param>
         /// <param name="pageSize">Page size (default: 15)</param>
@@ -107,7 +108,12 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// <param name="status">Filter by workflow status (e.g., active, inactive, draft)</param>
         /// <returns>Paged list of workflows or simple list when no pagination params provided</returns>
         [HttpGet]
-        [WFEAuthorize(PermissionConsts.Workflow.Read)]
+        [WFEAuthorize(
+            PermissionConsts.Workflow.Read,
+            PermissionConsts.Case.Read,
+            PermissionConsts.Checklist.Read,
+            PermissionConsts.Question.Read,
+            PermissionConsts.Tool.Read)]
         [ProducesResponseType<SuccessResponse<object>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> GetList(
             [FromQuery] int? pageIndex = null,
@@ -149,10 +155,16 @@ namespace FlowFlex.WebApi.Controllers.OW
 
         /// <summary>
         /// Get all workflows (no pagination)
-        /// Requires WORKFLOW:READ permission
+        /// Requires any READ permission (WORKFLOW, CASE, CHECKLIST, QUESTION, or TOOL)
+        /// This is a shared list API accessible by any module with read permission
         /// </summary>
         [HttpGet("all")]
-        [WFEAuthorize(PermissionConsts.Workflow.Read)]
+        [WFEAuthorize(
+            PermissionConsts.Workflow.Read,
+            PermissionConsts.Case.Read,
+            PermissionConsts.Checklist.Read,
+            PermissionConsts.Question.Read,
+            PermissionConsts.Tool.Read)]
         [ProducesResponseType<SuccessResponse<List<WorkflowOutputDto>>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> GetAll()
         {
