@@ -37,10 +37,16 @@ public class ChecklistTaskCompletionController : Controllers.ControllerBase
 
     /// <summary>
     /// Get all task completions or filter by onboardingId and stageId
-    /// Requires CHECKLIST:READ permission
+    /// Requires any READ permission (WORKFLOW, CASE, CHECKLIST, QUESTION, or TOOL)
+    /// This is a shared query API accessible by any module with read permission
     /// </summary>
     [HttpGet]
-    [WFEAuthorize(PermissionConsts.Checklist.Read)]
+    [WFEAuthorize(
+        PermissionConsts.Workflow.Read,
+        PermissionConsts.Case.Read,
+        PermissionConsts.Checklist.Read,
+        PermissionConsts.Question.Read,
+        PermissionConsts.Tool.Read)]
     [ProducesResponseType<SuccessResponse<List<ChecklistTaskCompletionOutputDto>>>((int)HttpStatusCode.OK)]
     public async Task<IActionResult> GetTaskCompletions([FromQuery] long? onboardingId = null, [FromQuery] long? stageId = null)
     {

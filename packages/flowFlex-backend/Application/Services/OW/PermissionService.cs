@@ -3,10 +3,12 @@ using FlowFlex.Application.Contracts.IServices.OW;
 using FlowFlex.Domain.Entities.OW;
 using FlowFlex.Domain.Repository.OW;
 using FlowFlex.Domain.Shared;
+using FlowFlex.Domain.Shared.Const;
 using FlowFlex.Domain.Shared.Enums.OW;
 using FlowFlex.Domain.Shared.Enums.Permission;
 using FlowFlex.Domain.Shared.Models;
 using FlowFlex.Domain.Shared.Models.Permission;
+using Item.ThirdParty.IdentityHub;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 using PermissionOperationType = FlowFlex.Domain.Shared.Enums.Permission.OperationTypeEnum;
@@ -15,36 +17,260 @@ namespace FlowFlex.Application.Services.OW
 {
     /// <summary>
     /// Permission service implementation
-    /// Function: Implement permission verification logic based on state machine design
+    /// Implements permission verification logic with multi-layered security:
+    /// - Layer 1 (Controller): WFEAuthorize - Module-level permission check
+    /// - Layer 2 (Service): Entity-level permission check (ViewPermissionMode, Teams, Ownership)
     /// </summary>
     public class PermissionService : IPermissionService, IScopedService
     {
+        #region Fields and Constructor
+
         private readonly ILogger<PermissionService> _logger;
         private readonly UserContext _userContext;
         private readonly IWorkflowRepository _workflowRepository;
         private readonly IStageRepository _stageRepository;
         private readonly IOnboardingRepository _onboardingRepository;
+        private readonly IdentityHubClient _identityHubClient;
 
         public PermissionService(
             ILogger<PermissionService> logger,
             UserContext userContext,
             IWorkflowRepository workflowRepository,
             IStageRepository stageRepository,
-            IOnboardingRepository onboardingRepository)
+            IOnboardingRepository onboardingRepository,
+            IdentityHubClient identityHubClient)
         {
             _logger = logger;
             _userContext = userContext;
             _workflowRepository = workflowRepository;
             _stageRepository = stageRepository;
             _onboardingRepository = onboardingRepository;
+            _identityHubClient = identityHubClient;
+        }
+
+        #endregion
+
+        #region Public API Methods
+
+        /// <summary>
+        /// Check resource permission (unified interface for HTTP API)
+        /// Checks both View and Operate permissions for the specified resource
+        /// First checks View permission, then checks Operate permission if View succeeds
+        /// </summary>
+        public async Task<CheckPermissionResponse> CheckResourcePermissionAsync(
+            long userId,
+            long resourceId,
+            PermissionEntityTypeEnum resourceType)
+        {
+            _logger.LogInformation(
+                "CheckResourcePermissionAsync - UserId: {UserId}, ResourceId: {ResourceId}, ResourceType: {ResourceType}",
+                userId, resourceId, resourceType);
+
+            try
+            {
+                // Step 1: Check View permission first
+                PermissionResult viewResult;
+
+                switch (resourceType)
+                {
+                    case PermissionEntityTypeEnum.Workflow:
+                        viewResult = await CheckWorkflowAccessAsync(userId, resourceId, PermissionOperationType.View);
+                        break;
+
+                    case PermissionEntityTypeEnum.Stage:
+                        viewResult = await CheckStageAccessAsync(userId, resourceId, PermissionOperationType.View);
+                        break;
+
+                    case PermissionEntityTypeEnum.Case:
+                        viewResult = await CheckCaseAccessAsync(userId, resourceId, PermissionOperationType.View);
+                        break;
+
+                    default:
+                        _logger.LogWarning(
+                            "Unsupported resource type: {ResourceType}",
+                            resourceType);
+                        return new CheckPermissionResponse
+                        {
+                            CanView = false,
+                            CanOperate = false,
+                            ErrorMessage = $"Unsupported resource type: {resourceType}"
+                        };
+                }
+
+                // If View permission check failed, return immediately
+                if (!viewResult.Success)
+                {
+                    _logger.LogInformation(
+                        "CheckResourcePermissionAsync - View permission check failed, skipping Operate check");
+                    return new CheckPermissionResponse
+                    {
+                        CanView = false,
+                        CanOperate = false,
+                        GrantReason = null,
+                        ErrorMessage = viewResult.ErrorMessage
+                    };
+                }
+
+                // Step 2: Check Operate permission (only if View succeeded)
+                PermissionResult operateResult;
+
+                switch (resourceType)
+                {
+                    case PermissionEntityTypeEnum.Workflow:
+                        operateResult = await CheckWorkflowAccessAsync(userId, resourceId, PermissionOperationType.Operate);
+                        break;
+
+                    case PermissionEntityTypeEnum.Stage:
+                        operateResult = await CheckStageAccessAsync(userId, resourceId, PermissionOperationType.Operate);
+                        break;
+
+                    case PermissionEntityTypeEnum.Case:
+                        operateResult = await CheckCaseAccessAsync(userId, resourceId, PermissionOperationType.Operate);
+                        break;
+
+                    default:
+                        // Should not reach here, but handle it anyway
+                        operateResult = PermissionResult.CreateFailure(
+                            "Unsupported resource type",
+                            "UNSUPPORTED_RESOURCE_TYPE");
+                        break;
+                }
+
+                // Build response with both View and Operate results
+                var response = new CheckPermissionResponse
+                {
+                    CanView = viewResult.Success,
+                    CanOperate = operateResult.Success,
+                    GrantReason = operateResult.Success ? operateResult.GrantReason : viewResult.GrantReason,
+                    ErrorMessage = null // No error if at least View succeeded
+                };
+
+                _logger.LogInformation(
+                    "CheckResourcePermissionAsync result - CanView: {CanView}, CanOperate: {CanOperate}, Reason: {Reason}",
+                    response.CanView, response.CanOperate, response.GrantReason);
+
+                return response;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex,
+                    "Error checking resource permission - UserId: {UserId}, ResourceId: {ResourceId}, ResourceType: {ResourceType}",
+                    userId, resourceId, resourceType);
+
+                return new CheckPermissionResponse
+                {
+                    CanView = false,
+                    CanOperate = false,
+                    ErrorMessage = "Internal error during permission check"
+                };
+            }
+        }
+
+        #endregion
+
+        #region Core Permission Check Methods (Workflow, Stage, Case)
+
+        /// <summary>
+        /// Check module-level permission via IdentityHub
+        /// This enforces WFEAuthorize permissions at the service layer
+        /// </summary>
+        private async Task<PermissionResult> CheckModulePermissionAsync(
+            long userId,
+            PermissionEntityTypeEnum entityType,
+            PermissionOperationType operationType)
+        {
+            // If no IAM token, deny access
+            if (_userContext?.IamToken == null)
+            {
+                _logger.LogWarning(
+                    "Module permission check failed: No IAM token available for user {UserId}",
+                    userId);
+                return PermissionResult.CreateFailure(
+                    "No IAM token available for permission check",
+                    "NO_IAM_TOKEN");
+            }
+
+            // Map entity type and operation to module permission code
+            var permissionCode = GetModulePermissionCode(entityType, operationType);
+            if (string.IsNullOrEmpty(permissionCode))
+            {
+                _logger.LogWarning(
+                    "Module permission check failed: Unsupported entity type {EntityType} or operation {Operation}",
+                    entityType, operationType);
+                return PermissionResult.CreateFailure(
+                    "Unsupported entity type or operation",
+                    "UNSUPPORTED_PERMISSION");
+            }
+
+            _logger.LogInformation(
+                "Checking module permission - UserId: {UserId}, Permission: {Permission}",
+                userId, permissionCode);
+
+            try
+            {
+                // Call IdentityHub to check module permission
+                var hasPermission = await _identityHubClient.UserRolePermissionCheck(
+                    _userContext.IamToken,
+                    new List<string> { permissionCode });
+
+                if (!hasPermission)
+                {
+                    _logger.LogWarning(
+                        "Module permission check failed: User {UserId} does not have permission {Permission}",
+                        userId, permissionCode);
+                    return PermissionResult.CreateFailure(
+                        $"User does not have required module permission: {permissionCode}",
+                        "MODULE_PERMISSION_DENIED");
+                }
+
+                _logger.LogInformation(
+                    "Module permission check passed: User {UserId} has permission {Permission}",
+                    userId, permissionCode);
+                return PermissionResult.CreateSuccess(true, false, "ModulePermission");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex,
+                    "Error checking module permission for user {UserId}, permission {Permission}",
+                    userId, permissionCode);
+                return PermissionResult.CreateFailure(
+                    "Internal error during module permission check",
+                    "MODULE_PERMISSION_CHECK_ERROR");
+            }
         }
 
         /// <summary>
-        /// Get current tenant ID from UserContext
+        /// Get module permission code from PermissionConsts based on entity type and operation
         /// </summary>
-        private string GetCurrentTenantId()
+        private string GetModulePermissionCode(
+            PermissionEntityTypeEnum entityType,
+            PermissionOperationType operationType)
         {
-            return _userContext?.TenantId ?? "DEFAULT";
+            return entityType switch
+            {
+                PermissionEntityTypeEnum.Workflow => operationType switch
+                {
+                    PermissionOperationType.View => PermissionConsts.Workflow.Read,
+                    PermissionOperationType.Operate => PermissionConsts.Workflow.Update,
+                    PermissionOperationType.Delete => PermissionConsts.Workflow.Delete,
+                    _ => null
+                },
+                PermissionEntityTypeEnum.Stage => operationType switch
+                {
+                    PermissionOperationType.View => PermissionConsts.Workflow.Read,
+                    PermissionOperationType.Operate => PermissionConsts.Workflow.Update,
+                    PermissionOperationType.Delete => PermissionConsts.Workflow.Delete,
+                    _ => null
+                },
+                PermissionEntityTypeEnum.Case => operationType switch
+                {
+                    PermissionOperationType.View => PermissionConsts.Case.Read,
+                    PermissionOperationType.Operate => PermissionConsts.Case.Update,
+                    PermissionOperationType.Delete => PermissionConsts.Case.Delete,
+                    _ => null
+                },
+                _ => null
+            };
         }
 
         /// <summary>
@@ -88,32 +314,22 @@ namespace FlowFlex.Application.Services.OW
                         "INVALID_INPUT");
                 }
 
-                // Step 2: Get user groups (from UserContext)
-                var userGroups = GetUserGroups();
-                if (userGroups == null || !userGroups.Any())
-                {
-                    _logger.LogInformation("User {UserId} does not belong to any Group, skipping Group permission check", userId);
-                    // If user has no Group, skip Group permission check and allow access
-                    // This is a temporary solution until Group management is fully implemented
-                }
-                else
-                {
-                    // Step 3: Check Group permission switch (前置检查) - only if user has groups
-                var groupCheckResult = await CheckGroupPermissionSwitchAsync(
-                    userGroups,
+                // Step 2: Check module-level permission (WFEAuthorize)
+                // This enforces that user has the required module permission before checking entity-level permissions
+                var modulePermissionResult = await CheckModulePermissionAsync(
+                    userId,
                     PermissionEntityTypeEnum.Workflow,
                     operationType);
 
-                if (!groupCheckResult.Success)
+                if (!modulePermissionResult.Success)
                 {
                     _logger.LogWarning(
-                        "Group permission switch check failed for user {UserId} - {ErrorMessage}",
-                        userId, groupCheckResult.ErrorMessage);
-                    return groupCheckResult;
-                }
+                        "Module permission check failed for user {UserId} - {ErrorMessage}",
+                        userId, modulePermissionResult.ErrorMessage);
+                    return modulePermissionResult;
                 }
 
-                // Step 4: Load Workflow entity
+                // Step 3: Load Workflow entity
                 var workflow = await _workflowRepository.GetByIdAsync(workflowId);
                 if (workflow == null)
                 {
@@ -122,7 +338,7 @@ namespace FlowFlex.Application.Services.OW
                         "WORKFLOW_NOT_FOUND");
                 }
 
-                // Step 5: Check permission based on ViewPermissionMode and operation type
+                // Step 4: Check permission based on ViewPermissionMode and operation type
                 var permissionCheck = CheckWorkflowPermission(workflow, userId, operationType);
                 
                 if (permissionCheck.Success)
@@ -191,30 +407,22 @@ namespace FlowFlex.Application.Services.OW
                         "INVALID_INPUT");
                 }
 
-                // Step 2: Get user groups
-                var userGroups = GetUserGroups();
-                if (userGroups == null || !userGroups.Any())
-                {
-                    _logger.LogInformation("User {UserId} does not belong to any Group, skipping Group permission check", userId);
-                }
-                else
-                {
-                    // Step 3: Check Group permission switch - only if user has groups
-                var groupCheckResult = await CheckGroupPermissionSwitchAsync(
-                    userGroups,
+                // Step 2: Check module-level permission (WFEAuthorize)
+                // Stage uses WORKFLOW permissions since it's part of workflow
+                var modulePermissionResult = await CheckModulePermissionAsync(
+                    userId,
                     PermissionEntityTypeEnum.Stage,
                     operationType);
 
-                if (!groupCheckResult.Success)
+                if (!modulePermissionResult.Success)
                 {
-                        _logger.LogWarning(
-                            "Group permission switch check failed for user {UserId} - {ErrorMessage}",
-                            userId, groupCheckResult.ErrorMessage);
-                    return groupCheckResult;
-                }
+                    _logger.LogWarning(
+                        "Module permission check failed for user {UserId} - {ErrorMessage}",
+                        userId, modulePermissionResult.ErrorMessage);
+                    return modulePermissionResult;
                 }
 
-                // Step 4: Load Stage entity
+                // Step 3: Load Stage entity
                 var stage = await _stageRepository.GetByIdAsync(stageId);
                 if (stage == null)
                 {
@@ -223,7 +431,7 @@ namespace FlowFlex.Application.Services.OW
                         "STAGE_NOT_FOUND");
                 }
 
-                // Step 5: Load parent Workflow entity
+                // Step 4: Load parent Workflow entity
                 var workflow = await _workflowRepository.GetByIdAsync(stage.WorkflowId);
                 if (workflow == null)
                 {
@@ -232,7 +440,7 @@ namespace FlowFlex.Application.Services.OW
                         "WORKFLOW_NOT_FOUND");
                 }
 
-                // Step 6: Check if user is the assigned user for this stage (special privilege)
+                // Step 5: Check if user is the assigned user for this stage (special privilege)
                 if (!string.IsNullOrWhiteSpace(stage.DefaultAssignee))
                 {
                     try
@@ -279,7 +487,7 @@ namespace FlowFlex.Application.Services.OW
                     }
                 }
 
-                // Step 7: Check Stage permission based on inheritance or narrowing
+                // Step 6: Check Stage permission based on inheritance or narrowing
                 var permissionCheck = CheckStagePermission(stage, workflow, userId, operationType);
                 
                 if (permissionCheck.Success)
@@ -347,28 +555,21 @@ namespace FlowFlex.Application.Services.OW
                         "INVALID_INPUT");
                 }
 
-                // Step 2: Get user groups
-                var userGroups = GetUserGroups();
-                if (userGroups == null || !userGroups.Any())
-                {
-                    _logger.LogInformation("User {UserId} does not belong to any Group, skipping Group permission check", userId);
-                    // If user has no Group, skip Group permission check and allow access
-                }
-                else
-                {
-                    // Step 3: Check Group permission switch - only if user has groups
-                var groupCheckResult = await CheckGroupPermissionSwitchAsync(
-                    userGroups,
+                // Step 2: Check module-level permission (WFEAuthorize)
+                var modulePermissionResult = await CheckModulePermissionAsync(
+                    userId,
                     PermissionEntityTypeEnum.Case,
                     operationType);
 
-                if (!groupCheckResult.Success)
+                if (!modulePermissionResult.Success)
                 {
-                    return groupCheckResult;
-                }
+                    _logger.LogWarning(
+                        "Module permission check failed for user {UserId} - {ErrorMessage}",
+                        userId, modulePermissionResult.ErrorMessage);
+                    return modulePermissionResult;
                 }
 
-                // Step 4: Load Case (Onboarding) entity
+                // Step 3: Load Case (Onboarding) entity
                 var onboarding = await _onboardingRepository.GetByIdAsync(caseId);
                 if (onboarding == null)
                 {
@@ -377,7 +578,7 @@ namespace FlowFlex.Application.Services.OW
                         "CASE_NOT_FOUND");
                 }
 
-                // Step 5: Check Case permission
+                // Step 4: Check Case permission
                 var permissionCheck = CheckCasePermission(onboarding, userId, operationType);
                 
                 if (permissionCheck.Success)
@@ -404,49 +605,9 @@ namespace FlowFlex.Application.Services.OW
             }
         }
 
-        /// <summary>
-        /// Get user groups from UserContext
-        /// </summary>
-        private List<string> GetUserGroups()
-        {
-            // Get user groups from UserContext.UserTeams
-            if (_userContext?.UserTeams == null)
-            {
-                return new List<string>();
-            }
+        #endregion
 
-            // Convert UserTeams to group list
-            var groups = new List<string>();
-            
-            // TODO: Implement actual group extraction logic based on UserTeams structure
-            // For now, return empty list as placeholder
-            
-            return groups;
-        }
-
-        /// <summary>
-        /// Check Group permission switch (前置检查)
-        /// </summary>
-        private async Task<PermissionResult> CheckGroupPermissionSwitchAsync(
-            List<string> userGroups,
-            PermissionEntityTypeEnum entityType,
-            PermissionOperationType operationType)
-        {
-            _logger.LogDebug(
-                "Checking Group permission switch - EntityType: {EntityType}, Operation: {Operation}",
-                entityType, operationType);
-
-            // TODO: Implement actual Group permission switch check from database
-            // For now, return success as default behavior
-            
-            // According to the design document:
-            // - Query user's Groups
-            // - Check if any Group has the permission switch enabled
-            // - If all Groups have the switch disabled, return failure
-            
-            // Temporary implementation: allow all operations
-            return PermissionResult.CreateSuccess(true, true, "GroupPermissionSwitch");
-        }
+        #region Workflow Permission Methods
 
         /// <summary>
         /// Check Workflow permission based on ViewPermissionMode and operation type
@@ -576,9 +737,7 @@ namespace FlowFlex.Application.Services.OW
                 workflow.ViewPermissionMode,
                 workflow.OperateTeams ?? "NULL");
 
-            // Special case: If ViewPermissionMode is Public and OperateTeams is NULL or empty,
-            // it means "Use same groups that have view permission" was checked for Public mode
-            // In this case, everyone who can view (everyone) can also operate
+            // Public mode: OperateTeams is whitelist
             if (workflow.ViewPermissionMode == ViewPermissionModeEnum.Public)
             {
                 if (string.IsNullOrWhiteSpace(workflow.OperateTeams))
@@ -596,36 +755,69 @@ namespace FlowFlex.Application.Services.OW
                     return true;
                 }
                 
-                // Public mode with specific teams - check membership
+                // Public mode with specific teams - check membership (whitelist)
+                var hasPermission = userTeamIds.Any(teamId => operateTeams.Contains(teamId));
                 _logger.LogDebug(
-                    "Public mode with specific OperateTeams: {Teams}",
-                    string.Join(", ", operateTeams));
-                return userTeamIds.Any(teamId => operateTeams.Contains(teamId));
+                    "Public mode with specific OperateTeams (whitelist): [{Teams}], Has permission: {HasPermission}",
+                    string.Join(", ", operateTeams),
+                    hasPermission);
+                return hasPermission;
             }
 
-            // Non-Public modes: OperateTeams must be specified
+            // InvisibleToTeams mode: OperateTeams is blacklist
+            if (workflow.ViewPermissionMode == ViewPermissionModeEnum.InvisibleToTeams)
+            {
+                if (string.IsNullOrWhiteSpace(workflow.OperateTeams))
+                {
+                    _logger.LogDebug("InvisibleToTeams mode with NULL OperateTeams - granting operate permission to all");
+                    return true;
+                }
+                
+                var operateTeams = DeserializeTeamList(workflow.OperateTeams);
+                if (operateTeams.Count == 0)
+                {
+                    _logger.LogDebug("InvisibleToTeams mode with empty OperateTeams array - granting operate permission to all");
+                    return true;
+                }
+                
+                // InvisibleToTeams mode: OperateTeams is blacklist - user must NOT be in any blocked team
+                var isBlocked = userTeamIds.Any(teamId => operateTeams.Contains(teamId));
+                var hasPermission = !isBlocked;
+                _logger.LogDebug(
+                    "InvisibleToTeams mode with OperateTeams (blacklist): [{Teams}], User blocked: {IsBlocked}, Has permission: {HasPermission}",
+                    string.Join(", ", operateTeams),
+                    isBlocked,
+                    hasPermission);
+                return hasPermission;
+            }
+
+            // VisibleToTeams and Private modes: OperateTeams is whitelist
             if (string.IsNullOrWhiteSpace(workflow.OperateTeams))
             {
-                _logger.LogDebug("Non-Public mode with NULL OperateTeams - denying operate permission");
+                _logger.LogDebug("VisibleToTeams/Private mode with NULL OperateTeams - denying operate permission");
                 return false;
             }
 
             var teams = DeserializeTeamList(workflow.OperateTeams);
             
             _logger.LogDebug(
-                "Deserialized OperateTeams count: {Count}, Teams: {Teams}",
+                "Deserialized OperateTeams count: {Count}, Teams: [{Teams}]",
                 teams.Count,
                 string.Join(", ", teams));
             
-            // Check if user belongs to any of the operate teams
-            var hasPermission = userTeamIds.Any(teamId => teams.Contains(teamId));
+            // Check if user belongs to any of the operate teams (whitelist)
+            var hasTeamPermission = userTeamIds.Any(teamId => teams.Contains(teamId));
             _logger.LogDebug(
-                "User teams: {UserTeams}, Has permission: {HasPermission}",
+                "VisibleToTeams/Private mode (whitelist) - User teams: [{UserTeams}], Has permission: {HasPermission}",
                 string.Join(", ", userTeamIds),
-                hasPermission);
+                hasTeamPermission);
             
-            return hasPermission;
+            return hasTeamPermission;
         }
+
+        #endregion
+
+        #region Stage Permission Methods
 
         /// <summary>
         /// Get user team IDs from UserContext
@@ -888,37 +1080,6 @@ namespace FlowFlex.Application.Services.OW
         }
 
         /// <summary>
-        /// Deserialize team list from JSON, handling double-escaped JSON
-        /// </summary>
-        private List<string> DeserializeTeamList(string json)
-        {
-            if (string.IsNullOrWhiteSpace(json))
-            {
-                return new List<string>();
-            }
-
-            try
-            {
-                // Try direct deserialization first
-                return JsonConvert.DeserializeObject<List<string>>(json) ?? new List<string>();
-            }
-            catch
-            {
-                try
-                {
-                    // If that fails, try double deserialization (for double-escaped JSON)
-                    var jsonString = JsonConvert.DeserializeObject<string>(json);
-                    return JsonConvert.DeserializeObject<List<string>>(jsonString) ?? new List<string>();
-                }
-                catch
-                {
-                    _logger.LogWarning("Failed to deserialize team list: {Json}", json);
-                    return new List<string>();
-                }
-            }
-        }
-
-        /// <summary>
         /// Check Stage's own operate permission (narrowed from Workflow)
         /// </summary>
         private bool CheckStageOperatePermission(Stage stage, List<string> userTeamIds)
@@ -930,9 +1091,7 @@ namespace FlowFlex.Application.Services.OW
                 stage.OperateTeams ?? "NULL",
                 string.Join(", ", userTeamIds));
 
-            // Special case: If ViewPermissionMode is Public and OperateTeams is NULL or empty,
-            // it means "Use same groups that have view permission" was checked for Public mode
-            // In this case, everyone who can view (everyone) can also operate
+            // Public mode: OperateTeams is whitelist
             if (stage.ViewPermissionMode == ViewPermissionModeEnum.Public)
             {
                 if (string.IsNullOrWhiteSpace(stage.OperateTeams))
@@ -948,30 +1107,61 @@ namespace FlowFlex.Application.Services.OW
                     return true;
                 }
                 
-                // Public mode with specific teams - check membership
+                // Public mode with specific teams - check membership (whitelist)
                 var hasOperateTeam = userTeamIds.Any(teamId => operateTeams.Contains(teamId));
                 _logger.LogDebug(
-                    "Stage operate permission: Public mode with specific teams - Required teams: [{RequiredTeams}], User has access: {HasAccess}",
+                    "Stage operate permission: Public mode with specific teams (whitelist) - Required teams: [{RequiredTeams}], User has access: {HasAccess}",
                     string.Join(", ", operateTeams),
                     hasOperateTeam);
                 return hasOperateTeam;
             }
 
-            // Non-Public modes: OperateTeams must be specified
+            // InvisibleToTeams mode: OperateTeams is blacklist
+            if (stage.ViewPermissionMode == ViewPermissionModeEnum.InvisibleToTeams)
+            {
+                if (string.IsNullOrWhiteSpace(stage.OperateTeams))
+                {
+                    _logger.LogDebug("Stage operate permission: InvisibleToTeams mode with NULL OperateTeams - granting access to all");
+                    return true;
+                }
+                
+                var operateTeams = DeserializeTeamList(stage.OperateTeams);
+                if (operateTeams.Count == 0)
+                {
+                    _logger.LogDebug("Stage operate permission: InvisibleToTeams mode with empty OperateTeams array - granting access to all");
+                    return true;
+                }
+                
+                // InvisibleToTeams mode: OperateTeams is blacklist - user must NOT be in any blocked team
+                var isBlocked = userTeamIds.Any(teamId => operateTeams.Contains(teamId));
+                var hasAccess = !isBlocked;
+                _logger.LogDebug(
+                    "Stage operate permission: InvisibleToTeams mode (blacklist) - Blocked teams: [{BlockedTeams}], User blocked: {IsBlocked}, Has access: {HasAccess}",
+                    string.Join(", ", operateTeams),
+                    isBlocked,
+                    hasAccess);
+                return hasAccess;
+            }
+
+            // VisibleToTeams and Private modes: OperateTeams is whitelist
             if (string.IsNullOrWhiteSpace(stage.OperateTeams))
             {
-                _logger.LogDebug("Stage operate permission: Non-Public mode with NULL OperateTeams - denying access");
+                _logger.LogDebug("Stage operate permission: VisibleToTeams/Private mode with NULL OperateTeams - denying access");
                 return false;
             }
 
             var teams = DeserializeTeamList(stage.OperateTeams);
             var hasTeamAccess = userTeamIds.Any(teamId => teams.Contains(teamId));
             _logger.LogDebug(
-                "Stage operate permission: Non-Public mode - Required teams: [{RequiredTeams}], User has access: {HasAccess}",
+                "Stage operate permission: VisibleToTeams/Private mode (whitelist) - Required teams: [{RequiredTeams}], User has access: {HasAccess}",
                 string.Join(", ", teams),
                 hasTeamAccess);
             return hasTeamAccess;
         }
+
+        #endregion
+
+        #region Case Permission Methods
 
         /// <summary>
         /// Check Case permission (independent from Workflow/Stage)
@@ -1169,7 +1359,7 @@ namespace FlowFlex.Application.Services.OW
                         return true;
                     }
                     
-                    // Public mode with specific teams - check membership
+                    // Public mode with specific teams - check membership (whitelist)
                     var hasOperateTeam = userTeamIds.Any(teamId => operateTeams.Contains(teamId));
                     _logger.LogDebug(
                         "Case operate permission: Public mode with specific teams - Required teams: [{RequiredTeams}], User has access: {HasAccess}",
@@ -1178,17 +1368,43 @@ namespace FlowFlex.Application.Services.OW
                     return hasOperateTeam;
                 }
 
-                // Non-Public modes: OperateTeams must be specified
+                // InvisibleToTeams mode: OperateTeams acts as blacklist
+                if (onboarding.ViewPermissionMode == ViewPermissionModeEnum.InvisibleToTeams)
+                {
+                    if (string.IsNullOrWhiteSpace(onboarding.OperateTeams))
+                    {
+                        _logger.LogDebug("Case operate permission: InvisibleToTeams mode with NULL OperateTeams - granting access to all");
+                        return true;
+                    }
+                    
+                    var operateTeams = DeserializeTeamList(onboarding.OperateTeams);
+                    if (operateTeams.Count == 0)
+                    {
+                        _logger.LogDebug("Case operate permission: InvisibleToTeams mode with empty OperateTeams array - granting access to all");
+                        return true;
+                    }
+                    
+                    // InvisibleToTeams mode: OperateTeams is blacklist - user must NOT be in any blocked team
+                    var isBlocked = userTeamIds.Any(teamId => operateTeams.Contains(teamId));
+                    var hasAccess = !isBlocked;
+                    _logger.LogDebug(
+                        "Case operate permission: InvisibleToTeams mode (blacklist) - Blocked teams: [{BlockedTeams}], User has access: {HasAccess}",
+                        string.Join(", ", operateTeams),
+                        hasAccess);
+                    return hasAccess;
+                }
+
+                // VisibleToTeams and Private modes: OperateTeams is whitelist
                 if (string.IsNullOrWhiteSpace(onboarding.OperateTeams))
                 {
-                    _logger.LogDebug("Case operate permission: Non-Public mode with NULL OperateTeams - denying access");
+                    _logger.LogDebug("Case operate permission: VisibleToTeams/Private mode with NULL OperateTeams - denying access");
                     return false;
                 }
 
                 var teams = DeserializeTeamList(onboarding.OperateTeams);
                 var hasTeamAccess = userTeamIds.Any(teamId => teams.Contains(teamId));
                 _logger.LogDebug(
-                    "Case operate permission: Team-based - Required teams: [{RequiredTeams}], User has access: {HasAccess}",
+                    "Case operate permission: VisibleToTeams/Private mode (whitelist) - Required teams: [{RequiredTeams}], User has access: {HasAccess}",
                     string.Join(", ", teams),
                     hasTeamAccess);
                 return hasTeamAccess;
@@ -1213,7 +1429,7 @@ namespace FlowFlex.Application.Services.OW
                         return true;
                     }
                     
-                    // Public mode with specific users - check membership
+                    // Public mode with specific users - check membership (whitelist)
                     var hasAccess = operateUsers.Contains(userId);
                     _logger.LogDebug(
                         "Case operate permission: Public mode with specific users - Required users: [{RequiredUsers}], User has access: {HasAccess}",
@@ -1222,96 +1438,93 @@ namespace FlowFlex.Application.Services.OW
                     return hasAccess;
                 }
 
-                // Non-Public modes: OperateUsers must be specified
+                // InvisibleToTeams mode: OperateUsers acts as blacklist
+                if (onboarding.ViewPermissionMode == ViewPermissionModeEnum.InvisibleToTeams)
+                {
+                    if (string.IsNullOrWhiteSpace(onboarding.OperateUsers))
+                    {
+                        _logger.LogDebug("Case operate permission: InvisibleToTeams mode with NULL OperateUsers - granting access to all");
+                        return true;
+                    }
+                    
+                    var operateUsers = DeserializeTeamList(onboarding.OperateUsers);
+                    if (operateUsers.Count == 0)
+                    {
+                        _logger.LogDebug("Case operate permission: InvisibleToTeams mode with empty OperateUsers array - granting access to all");
+                        return true;
+                    }
+                    
+                    // InvisibleToTeams mode: OperateUsers is blacklist - user must NOT be in list
+                    var isBlocked = operateUsers.Contains(userId);
+                    var hasAccess = !isBlocked;
+                    _logger.LogDebug(
+                        "Case operate permission: InvisibleToTeams mode (blacklist) - Blocked users: [{BlockedUsers}], User has access: {HasAccess}",
+                        string.Join(", ", operateUsers),
+                        hasAccess);
+                    return hasAccess;
+                }
+
+                // VisibleToTeams and Private modes: OperateUsers is whitelist
                 if (string.IsNullOrWhiteSpace(onboarding.OperateUsers))
                 {
-                    _logger.LogDebug("Case operate permission: Non-Public mode with NULL OperateUsers - denying access");
+                    _logger.LogDebug("Case operate permission: VisibleToTeams/Private mode with NULL OperateUsers - denying access");
                     return false;
                 }
 
                 var users = DeserializeTeamList(onboarding.OperateUsers);
                 var hasUserAccess = users.Contains(userId);
                 _logger.LogDebug(
-                    "Case operate permission: User-based - Required users: [{RequiredUsers}], User has access: {HasAccess}",
+                    "Case operate permission: VisibleToTeams/Private mode (whitelist) - Required users: [{RequiredUsers}], User has access: {HasAccess}",
                     string.Join(", ", users),
                     hasUserAccess);
                 return hasUserAccess;
             }
         }
 
+        #endregion
+
+        #region Helper Methods
+
         /// <summary>
-        /// Check resource permission (unified interface for HTTP API)
-        /// Checks both View and Operate permissions for the specified resource
+        /// Get current tenant ID from UserContext
         /// </summary>
-        public async Task<CheckPermissionResponse> CheckResourcePermissionAsync(
-            long userId,
-            long resourceId,
-            PermissionEntityTypeEnum resourceType)
+        private string GetCurrentTenantId()
         {
-            _logger.LogInformation(
-                "CheckResourcePermissionAsync - UserId: {UserId}, ResourceId: {ResourceId}, ResourceType: {ResourceType}",
-                userId, resourceId, resourceType);
+            return _userContext?.TenantId ?? "DEFAULT";
+        }
+
+        /// <summary>
+        /// Deserialize team list from JSON, handling double-escaped JSON
+        /// </summary>
+        private List<string> DeserializeTeamList(string json)
+        {
+            if (string.IsNullOrWhiteSpace(json))
+            {
+                return new List<string>();
+            }
 
             try
             {
-                PermissionResult result;
-
-                // Check permission based on resource type
-                switch (resourceType)
-                {
-                    case PermissionEntityTypeEnum.Workflow:
-                        result = await CheckWorkflowAccessAsync(userId, resourceId, PermissionOperationType.Operate);
-                        break;
-
-                    case PermissionEntityTypeEnum.Stage:
-                        result = await CheckStageAccessAsync(userId, resourceId, PermissionOperationType.Operate);
-                        break;
-
-                    case PermissionEntityTypeEnum.Case:
-                        result = await CheckCaseAccessAsync(userId, resourceId, PermissionOperationType.Operate);
-                        break;
-
-                    default:
-                        _logger.LogWarning(
-                            "Unsupported resource type: {ResourceType}",
-                            resourceType);
-                        return new CheckPermissionResponse
-                        {
-                            CanView = false,
-                            CanOperate = false,
-                            ErrorMessage = $"Unsupported resource type: {resourceType}"
-                        };
-                }
-
-                // Convert PermissionResult to CheckPermissionResponse
-                var response = new CheckPermissionResponse
-                {
-                    CanView = result.CanView,
-                    CanOperate = result.CanOperate,
-                    GrantReason = result.GrantReason,
-                    ErrorMessage = result.Success ? null : result.ErrorMessage
-                };
-
-                _logger.LogInformation(
-                    "CheckResourcePermissionAsync result - CanView: {CanView}, CanOperate: {CanOperate}, Reason: {Reason}",
-                    response.CanView, response.CanOperate, response.GrantReason ?? response.ErrorMessage);
-
-                return response;
+                // Try direct deserialization first
+                return JsonConvert.DeserializeObject<List<string>>(json) ?? new List<string>();
             }
-            catch (Exception ex)
+            catch
             {
-                _logger.LogError(ex,
-                    "Error checking resource permission - UserId: {UserId}, ResourceId: {ResourceId}, ResourceType: {ResourceType}",
-                    userId, resourceId, resourceType);
-
-                return new CheckPermissionResponse
+                try
                 {
-                    CanView = false,
-                    CanOperate = false,
-                    ErrorMessage = "Internal error during permission check"
-                };
+                    // If that fails, try double deserialization (for double-escaped JSON)
+                    var jsonString = JsonConvert.DeserializeObject<string>(json);
+                    return JsonConvert.DeserializeObject<List<string>>(jsonString) ?? new List<string>();
+                }
+                catch
+                {
+                    _logger.LogWarning("Failed to deserialize team list: {Json}", json);
+                    return new List<string>();
+                }
             }
         }
+
+        #endregion
     }
 }
 

@@ -111,10 +111,16 @@ namespace FlowFlex.WebApi.Controllers.OW
 
         /// <summary>
         /// Get all stages (no pagination)
-        /// Requires WORKFLOW:READ permission
+        /// Requires any READ permission (WORKFLOW, CASE, CHECKLIST, QUESTION, or TOOL)
+        /// This is a shared list API accessible by any module with read permission
         /// </summary>
         [HttpGet("all")]
-        [WFEAuthorize(PermissionConsts.Workflow.Read)]
+        [WFEAuthorize(
+            PermissionConsts.Workflow.Read,
+            PermissionConsts.Case.Read,
+            PermissionConsts.Checklist.Read,
+            PermissionConsts.Question.Read,
+            PermissionConsts.Tool.Read)]
         [ProducesResponseType<SuccessResponse<List<StageOutputDto>>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> GetAll()
         {
@@ -524,13 +530,20 @@ namespace FlowFlex.WebApi.Controllers.OW
 
         /// <summary>
         /// Generate AI Summary for stage with streaming response
+        /// Requires any READ permission (WORKFLOW, CASE, CHECKLIST, QUESTION, or TOOL)
+        /// This is a shared query API accessible by any module with read permission
         /// </summary>
         /// <param name="stageId">Stage ID</param>
         /// <param name="onboardingId">Onboarding ID (optional)</param>
         /// <param name="language">Preferred language for summary (optional)</param>
         /// <returns>Streaming AI summary response</returns>
         [HttpPost("{stageId}/ai-summary/stream")]
-        [WFEAuthorize(PermissionConsts.Workflow.Read)]
+        [WFEAuthorize(
+            PermissionConsts.Workflow.Read,
+            PermissionConsts.Case.Read,
+            PermissionConsts.Checklist.Read,
+            PermissionConsts.Question.Read,
+            PermissionConsts.Tool.Read)]
         [ProducesResponseType(200)]
         [ProducesResponseType(typeof(ErrorResponse), 400)]
         public async Task StreamAISummary(

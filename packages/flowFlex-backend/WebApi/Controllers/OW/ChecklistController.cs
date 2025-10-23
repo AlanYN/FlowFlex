@@ -155,11 +155,18 @@ namespace FlowFlex.WebApi.Controllers.OW
 
         /// <summary>
         /// Get checklists by multiple IDs (batch query)
+        /// Requires any READ permission (WORKFLOW, CASE, CHECKLIST, QUESTION, or TOOL)
+        /// This is a shared query API accessible by any module with read permission
         /// </summary>
         /// <param name="ids">List of checklist IDs</param>
         /// <returns>List of checklists</returns>
         [HttpPost("batch/by-ids")]
-        [WFEAuthorize(PermissionConsts.Checklist.Read)]
+        [WFEAuthorize(
+            PermissionConsts.Workflow.Read,
+            PermissionConsts.Case.Read,
+            PermissionConsts.Checklist.Read,
+            PermissionConsts.Question.Read,
+            PermissionConsts.Tool.Read)]
         [ProducesResponseType<SuccessResponse<List<ChecklistOutputDto>>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> GetByIds([FromBody] List<long> ids)
         {

@@ -35,7 +35,10 @@ namespace WebApi.Authorization
         /// This method is called when UnisAuthorize attribute is used on controllers/actions
         /// </summary>
         /// <param name="requestPermissions">Permissions requested by the controller/action</param>
-        /// <returns>True if user has all requested permissions, false otherwise</returns>
+        /// <returns>
+        /// True if user has ANY of the requested permissions (OR logic), false otherwise
+        /// When multiple permissions are provided, user only needs ONE to pass
+        /// </returns>
         protected override async Task<bool> CheckUserPermissionsAsync(IEnumerable<string> requestPermissions)
         {
             // For special authentication schemes, bypass permission check
@@ -65,12 +68,32 @@ namespace WebApi.Authorization
                 return false;
             }
 
+            var permissionList = requestPermissions.ToList();
+            if (!permissionList.Any())
+            {
+                // No permissions requested, deny by default
+                return false;
+            }
+
             try
             {
-                // Call IdentityHub to check if user has the requested permissions
-                return await _client.UserRolePermissionCheck(
-                    _userContext.IamToken,
-                    requestPermissions.ToList());
+                // OR Logic: Check each permission individually
+                // User passes if they have ANY of the requested permissions
+                foreach (var permission in permissionList)
+                {
+                    var hasPermission = await _client.UserRolePermissionCheck(
+                        _userContext.IamToken,
+                        new List<string> { permission });
+
+                    if (hasPermission)
+                    {
+                        // User has this permission, grant access
+                        return true;
+                    }
+                }
+
+                // User doesn't have any of the requested permissions
+                return false;
             }
             catch (Exception)
             {

@@ -513,10 +513,11 @@ namespace FlowFlex.Application.Service.OW
             // Debug logging handled by structured logging
             var list = await _workflowRepository.GetAllWorkflowsAsync();
             
-            // Apply permission filtering
-            var filteredList = await FilterWorkflowsByPermissionAsync(list);
+            // Note: Permission filtering removed for list APIs
+            // Module-level permission check is handled by WFEAuthorize at Controller layer
+            // Entity-level permission check should only be performed on specific operations (GetById, Update, Delete)
             
-            var result = _mapper.Map<List<WorkflowOutputDto>>(filteredList);
+            var result = _mapper.Map<List<WorkflowOutputDto>>(list);
 
             // 为了优化性能，工作流列表接口不返回Stage数据
             // Stage数据通过单独的接口获取: /api/ow/workflows/{id}/stages
@@ -557,10 +558,11 @@ namespace FlowFlex.Application.Service.OW
                     return new List<WorkflowOutputDto>();
                 }
 
-                // Apply permission filtering
-                var filteredList = await FilterWorkflowsByPermissionAsync(list);
+                // Note: Permission filtering removed for list APIs
+                // Module-level permission check is handled by WFEAuthorize at Controller layer
+                // Entity-level permission check should only be performed on specific operations (GetById, Update, Delete)
                 
-                var result = _mapper.Map<List<WorkflowOutputDto>>(filteredList);
+                var result = _mapper.Map<List<WorkflowOutputDto>>(list);
                 if (result == null)
                 {
                     // Debug logging handled by structured logging
@@ -605,10 +607,11 @@ namespace FlowFlex.Application.Service.OW
                 query.SortField,
                 query.SortDirection);
 
-            // Apply permission filtering
-            var filteredItems = await FilterWorkflowsByPermissionAsync(items);
+            // Note: Permission filtering removed for list APIs
+            // Module-level permission check is handled by WFEAuthorize at Controller layer
+            // Entity-level permission check should only be performed on specific operations (GetById, Update, Delete)
             
-            var result = _mapper.Map<List<WorkflowOutputDto>>(filteredItems);
+            var result = _mapper.Map<List<WorkflowOutputDto>>(items);
 
             // Batch load stages for all workflows to reduce database queries
             if (result.Any())
