@@ -14,6 +14,7 @@
 						placeholder="Enter Lead ID and press enter"
 						style-type="normal"
 						:limit="10"
+						clearable
 						@change="handleLeadIdTagsChange"
 						class="w-full rounded-xl"
 					/>
@@ -26,6 +27,7 @@
 						placeholder="Enter Company/Contact Name and press enter"
 						style-type="normal"
 						:limit="10"
+						clearable
 						@change="handleLeadNameTagsChange"
 						class="w-full rounded-xl"
 					/>
@@ -40,7 +42,6 @@
 						class="w-full filter-select"
 						@change="handleAutoSearch"
 					>
-						<el-option label="All Stages" value="" />
 						<el-option
 							v-for="stage in lifeCycleStage"
 							:key="stage.name"
@@ -59,7 +60,6 @@
 						class="w-full filter-select"
 						@change="handleWorkflowChangeWithSearch"
 					>
-						<el-option label="All Workflows" value="" />
 						<el-option
 							v-for="workflow in allWorkflows"
 							:key="workflow.id"
@@ -80,7 +80,6 @@
 						:loading="stagesLoading"
 						@change="handleAutoSearch"
 					>
-						<el-option label="All Stages" value="" />
 						<el-option
 							v-for="stage in dynamicOnboardingStages"
 							:key="stage.id"
@@ -97,6 +96,7 @@
 						placeholder="Enter User Name and press enter"
 						style-type="normal"
 						:limit="10"
+						clearable
 						@change="handleUpdatedByTagsChange"
 						class="w-full rounded-xl"
 					/>
@@ -111,7 +111,6 @@
 						class="w-full filter-select"
 						@change="handleAutoSearch"
 					>
-						<el-option label="All Priorities" value="" />
 						<el-option label="High" value="High" />
 						<el-option label="Medium" value="Medium" />
 						<el-option label="Low" value="Low" />

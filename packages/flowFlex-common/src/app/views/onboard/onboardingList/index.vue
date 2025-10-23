@@ -579,9 +579,11 @@
 				<el-form-item label="Ownership" prop="ownership">
 					<el-input
 						v-model="formData.ownership"
-						placeholder="Enter Ownership Name"
+						selection-type="user"
+						:max-count="1"
+						placeholder="Select user"
 						clearable
-						class="w-full rounded-xl"
+						check-strictly
 					/>
 				</el-form-item>
 

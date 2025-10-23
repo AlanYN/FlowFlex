@@ -440,7 +440,7 @@ const changeHistoryData = ref<ChangeHistoryItem[]>([]);
 // Search form
 const searchForm = reactive({
 	keyword: '',
-	type: 'all',
+	type: '',
 });
 
 // Tabs configuration
@@ -502,7 +502,6 @@ const getOperationTime = (item: any) => {
 // Get all available action type options
 const getActionTypeOptions = () => {
 	return [
-		{ label: 'All Types', value: 'all' },
 		...Object.entries(ACTION_TYPE_MAPPING).map(([key, value]) => ({
 			label: value,
 			value: key,
@@ -547,7 +546,7 @@ const handleExport = async () => {
 			if (searchForm.keyword) {
 				params.search = searchForm.keyword;
 			}
-			if (searchForm.type && searchForm.type !== 'all') {
+			if (searchForm.type) {
 				params.actionType = searchForm.type;
 			}
 			// Handle tab-based filtering
@@ -766,7 +765,7 @@ const loadActionsList = async () => {
 			params.search = searchForm.keyword;
 		}
 
-		if (searchForm.type && searchForm.type !== 'all') {
+		if (searchForm.type) {
 			// Use enum value directly, convert to string
 			params.actionType = searchForm.type;
 		}
