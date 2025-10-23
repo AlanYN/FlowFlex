@@ -117,11 +117,6 @@ const handleExpandClick = () => {
 
 const handleCheckChange = (checked: boolean | string | number) => {
 	const isChecked = Boolean(checked);
-	console.log('TreeNode: Check change', {
-		nodeId: props.node.id,
-		nodeName: props.node.name,
-		checked: isChecked,
-	});
 	emit('node-check', props.node, isChecked);
 };
 </script>

@@ -448,12 +448,6 @@ const initializeSelectedItems = () => {
 	isOriginallyArray.value = Array.isArray(props.modelValue);
 	const values = Array.isArray(props.modelValue) ? props.modelValue : [props.modelValue];
 
-	console.log('Initializing selected items:', {
-		modelValue: props.modelValue,
-		values,
-		userDataMapSize: userDataMap.value.size,
-	});
-
 	selectedItems.value = values
 		.map((id) => {
 			const user = userDataMap.value.get(id);
@@ -463,8 +457,6 @@ const initializeSelectedItems = () => {
 			return user;
 		})
 		.filter(Boolean) as FlowflexUser[];
-
-	console.log('Selected items after initialization:', selectedItems.value);
 };
 
 // 构建用户数据映射
@@ -534,6 +526,14 @@ const removeSelectedItem = (id: string) => {
 
 	selectedItems.value = selectedItems.value.filter((item) => item.id !== id);
 	updateModelValue();
+
+	// 如果弹窗打开且有树组件引用，同步更新树的选中状态
+	if (modalVisible.value && treeRef.value) {
+		nextTick(() => {
+			const shouldBeCheckedIds = selectedItems.value.map((item) => item.id);
+			treeRef.value.setCheckedKeys(shouldBeCheckedIds);
+		});
+	}
 
 	// 如果清空了所有选择，重置类型限制，允许重新选择不同类型
 	if (selectedItems.value.length === 0) {
@@ -614,29 +614,124 @@ const handleTreeCheck = (
 	tempSelectedItems.value = uniqueNodes;
 };
 
+// 获取所有节点（扁平化）
+const getAllNodes = (nodes: FlowflexUser[], result: FlowflexUser[] = []): FlowflexUser[] => {
+	nodes.forEach((node) => {
+		result.push(node);
+		if (node.children && node.children.length > 0) {
+			getAllNodes(node.children, result);
+		}
+	});
+	return result;
+};
+
 // 从右侧选择区域移除项目
 const removeFromSelection = (id: string) => {
-	tempSelectedItems.value = tempSelectedItems.value.filter((item) => item.id !== id);
+	// 找到要删除的节点
+	const nodeToRemove = tempSelectedItems.value.find((item) => item.id === id);
+
+	// 获取要删除的节点的所有子节点ID（递归）
+	const getAllChildIds = (nodeId: string): string[] => {
+		const childIds: string[] = [];
+		const allNodes = getAllNodes(treeData.value);
+
+		// 找到目标节点
+		const targetNode = allNodes.find((node) => node.id === nodeId);
+		if (!targetNode || !targetNode.children) {
+			return childIds;
+		}
+
+		// 递归收集所有子节点ID
+		const collectChildIds = (children: FlowflexUser[]) => {
+			children.forEach((child) => {
+				childIds.push(child.id);
+				if (child.children && child.children.length > 0) {
+					collectChildIds(child.children);
+				}
+			});
+		};
+
+		collectChildIds(targetNode.children);
+		return childIds;
+	};
+
+	// 根据严格模式决定删除逻辑
+	const checkStrictly =
+		props.checkStrictly !== undefined ? props.checkStrictly : props.maxCount === 1;
+
+	let idsToRemove = [id];
+
+	// 在非严格模式下，如果删除的是父节点且该父节点是通过父子联动选中的，
+	// 则需要删除所有子节点。但在严格模式下，父子节点独立，只删除指定节点
+	if (!checkStrictly && nodeToRemove && nodeToRemove.children) {
+		// 检查是否是通过父子联动选中的情况
+		// 这里我们简化处理：在非严格模式下，如果选择类型是team且删除的是team，
+		// 并且该team的所有子节点都在选择列表中，则认为是联动选中，需要一起删除
+		if (props.selectionType === 'team' && nodeToRemove.type === 'team') {
+			const childIds = getAllChildIds(id);
+			const allChildrenSelected = childIds.every((childId) =>
+				tempSelectedItems.value.some((item) => item.id === childId)
+			);
+			if (allChildrenSelected && childIds.length > 0) {
+				idsToRemove.push(...childIds);
+			}
+		}
+	}
+
+	// 从临时选择列表中移除相关节点
+	tempSelectedItems.value = tempSelectedItems.value.filter(
+		(item) => !idsToRemove.includes(item.id)
+	);
+
 	// 同步更新树的选中状态
 	nextTick(() => {
 		if (treeRef.value) {
-			treeRef.value.setChecked(id, false);
+			// 如果没有开启严格模式，需要处理父子关系
+			const checkStrictly =
+				props.checkStrictly !== undefined ? props.checkStrictly : props.maxCount === 1;
+
+			if (!checkStrictly && nodeToRemove) {
+				// 非严格模式下，直接取消该节点的选中状态，让树组件处理父子关系
+				treeRef.value.setChecked(id, false);
+
+				// 等待树组件更新完成后，重新同步右侧选择列表
+				setTimeout(() => {
+					if (treeRef.value) {
+						const allCheckedNodes = treeRef.value.getCheckedNodes();
+						const targetType = props.selectionType;
+
+						// 过滤出目标类型的节点并去重
+						const filteredNodes = allCheckedNodes.filter(
+							(node: FlowflexUser) => node.type === targetType
+						);
+
+						const uniqueNodes = filteredNodes.reduce(
+							(acc: FlowflexUser[], current: FlowflexUser) => {
+								const existingNode = acc.find((node) => node.id === current.id);
+								if (!existingNode) {
+									acc.push(current);
+								}
+								return acc;
+							},
+							[]
+						);
+
+						tempSelectedItems.value = uniqueNodes;
+					}
+				}, 0);
+			} else {
+				// 严格模式下，只设置当前应该选中的节点
+				const shouldBeCheckedIds = tempSelectedItems.value.map((item) => item.id);
+				treeRef.value.setCheckedKeys(shouldBeCheckedIds);
+			}
 		}
 	});
-
-	// 如果清空了所有选择，重置类型限制，允许重新选择不同类型
-	if (tempSelectedItems.value.length === 0) {
-		// 可以在这里添加一些UI提示表明现在可以选择任意类型
-		console.log('All selections cleared, you can now select any type');
-	}
 };
 
 // 处理节点点击事件
 const handleNodeClick = (node: FlowflexUser) => {
-	console.log('Node clicked:', node.name, node.id);
 	// 可以在这里添加节点点击的逻辑，比如展开/折叠等
 };
-
 // 确认选择
 const confirmSelection = () => {
 	// 检查最小数量限制

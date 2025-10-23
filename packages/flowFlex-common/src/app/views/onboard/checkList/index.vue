@@ -40,6 +40,7 @@
 							placeholder="Enter checklist name and press enter"
 							:disabled="loading"
 							style-type="normal"
+							clearable
 							:limit="10"
 							@change="handleSearchTagsChange"
 							class="w-full rounded-xl"
@@ -52,8 +53,8 @@
 							v-model="selectedTeam"
 							placeholder="Select team"
 							selectionType="team"
-							:clearable="true"
 							:max-count="1"
+							clearable
 							@change="handleSearchTagsChange"
 						/>
 					</div>
@@ -256,7 +257,7 @@ const loading = ref(false);
 
 // UI状态
 const searchTags = ref([]);
-const selectedTeam = ref('all');
+const selectedTeam = ref('');
 const activeDropdown = ref(null);
 
 // Task弹窗状态
@@ -328,7 +329,7 @@ const handleViewChange = (value) => {
 };
 
 const getEmptyStateMessage = () => {
-	if (searchTags.value.length > 0 || selectedTeam.value !== 'all') {
+	if ((searchTags.value && searchTags.value?.length > 0) || !selectedTeam.value) {
 		return 'Try adjusting your filters';
 	}
 	return 'No checklists have been created yet';
@@ -368,9 +369,8 @@ const loadChecklists = async (resetPage = false) => {
 			queryParams.name = searchTags.value.join(',');
 		}
 
-		// 只有当team不是'all'时才添加team参数
 		if (selectedTeam.value) {
-			queryParams.team = selectedTeam.value !== 'all' ? selectedTeam.value : null;
+			queryParams.team = selectedTeam.value;
 		}
 
 		const response = await getChecklists(queryParams);
