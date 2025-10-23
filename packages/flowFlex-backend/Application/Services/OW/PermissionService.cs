@@ -737,9 +737,7 @@ namespace FlowFlex.Application.Services.OW
                 workflow.ViewPermissionMode,
                 workflow.OperateTeams ?? "NULL");
 
-            // Special case: If ViewPermissionMode is Public and OperateTeams is NULL or empty,
-            // it means "Use same groups that have view permission" was checked for Public mode
-            // In this case, everyone who can view (everyone) can also operate
+            // Public mode: OperateTeams is whitelist
             if (workflow.ViewPermissionMode == ViewPermissionModeEnum.Public)
             {
                 if (string.IsNullOrWhiteSpace(workflow.OperateTeams))
@@ -757,35 +755,64 @@ namespace FlowFlex.Application.Services.OW
                     return true;
                 }
                 
-                // Public mode with specific teams - check membership
+                // Public mode with specific teams - check membership (whitelist)
+                var hasPermission = userTeamIds.Any(teamId => operateTeams.Contains(teamId));
                 _logger.LogDebug(
-                    "Public mode with specific OperateTeams: {Teams}",
-                    string.Join(", ", operateTeams));
-                return userTeamIds.Any(teamId => operateTeams.Contains(teamId));
+                    "Public mode with specific OperateTeams (whitelist): [{Teams}], Has permission: {HasPermission}",
+                    string.Join(", ", operateTeams),
+                    hasPermission);
+                return hasPermission;
             }
 
-            // Non-Public modes: OperateTeams must be specified
+            // InvisibleToTeams mode: OperateTeams is blacklist
+            if (workflow.ViewPermissionMode == ViewPermissionModeEnum.InvisibleToTeams)
+            {
+                if (string.IsNullOrWhiteSpace(workflow.OperateTeams))
+                {
+                    _logger.LogDebug("InvisibleToTeams mode with NULL OperateTeams - granting operate permission to all");
+                    return true;
+                }
+                
+                var operateTeams = DeserializeTeamList(workflow.OperateTeams);
+                if (operateTeams.Count == 0)
+                {
+                    _logger.LogDebug("InvisibleToTeams mode with empty OperateTeams array - granting operate permission to all");
+                    return true;
+                }
+                
+                // InvisibleToTeams mode: OperateTeams is blacklist - user must NOT be in any blocked team
+                var isBlocked = userTeamIds.Any(teamId => operateTeams.Contains(teamId));
+                var hasPermission = !isBlocked;
+                _logger.LogDebug(
+                    "InvisibleToTeams mode with OperateTeams (blacklist): [{Teams}], User blocked: {IsBlocked}, Has permission: {HasPermission}",
+                    string.Join(", ", operateTeams),
+                    isBlocked,
+                    hasPermission);
+                return hasPermission;
+            }
+
+            // VisibleToTeams and Private modes: OperateTeams is whitelist
             if (string.IsNullOrWhiteSpace(workflow.OperateTeams))
             {
-                _logger.LogDebug("Non-Public mode with NULL OperateTeams - denying operate permission");
+                _logger.LogDebug("VisibleToTeams/Private mode with NULL OperateTeams - denying operate permission");
                 return false;
             }
 
             var teams = DeserializeTeamList(workflow.OperateTeams);
             
             _logger.LogDebug(
-                "Deserialized OperateTeams count: {Count}, Teams: {Teams}",
+                "Deserialized OperateTeams count: {Count}, Teams: [{Teams}]",
                 teams.Count,
                 string.Join(", ", teams));
             
-            // Check if user belongs to any of the operate teams
-            var hasPermission = userTeamIds.Any(teamId => teams.Contains(teamId));
+            // Check if user belongs to any of the operate teams (whitelist)
+            var hasTeamPermission = userTeamIds.Any(teamId => teams.Contains(teamId));
             _logger.LogDebug(
-                "User teams: {UserTeams}, Has permission: {HasPermission}",
+                "VisibleToTeams/Private mode (whitelist) - User teams: [{UserTeams}], Has permission: {HasPermission}",
                 string.Join(", ", userTeamIds),
-                hasPermission);
+                hasTeamPermission);
             
-            return hasPermission;
+            return hasTeamPermission;
         }
 
         #endregion
@@ -1064,9 +1091,7 @@ namespace FlowFlex.Application.Services.OW
                 stage.OperateTeams ?? "NULL",
                 string.Join(", ", userTeamIds));
 
-            // Special case: If ViewPermissionMode is Public and OperateTeams is NULL or empty,
-            // it means "Use same groups that have view permission" was checked for Public mode
-            // In this case, everyone who can view (everyone) can also operate
+            // Public mode: OperateTeams is whitelist
             if (stage.ViewPermissionMode == ViewPermissionModeEnum.Public)
             {
                 if (string.IsNullOrWhiteSpace(stage.OperateTeams))
@@ -1082,26 +1107,53 @@ namespace FlowFlex.Application.Services.OW
                     return true;
                 }
                 
-                // Public mode with specific teams - check membership
+                // Public mode with specific teams - check membership (whitelist)
                 var hasOperateTeam = userTeamIds.Any(teamId => operateTeams.Contains(teamId));
                 _logger.LogDebug(
-                    "Stage operate permission: Public mode with specific teams - Required teams: [{RequiredTeams}], User has access: {HasAccess}",
+                    "Stage operate permission: Public mode with specific teams (whitelist) - Required teams: [{RequiredTeams}], User has access: {HasAccess}",
                     string.Join(", ", operateTeams),
                     hasOperateTeam);
                 return hasOperateTeam;
             }
 
-            // Non-Public modes: OperateTeams must be specified
+            // InvisibleToTeams mode: OperateTeams is blacklist
+            if (stage.ViewPermissionMode == ViewPermissionModeEnum.InvisibleToTeams)
+            {
+                if (string.IsNullOrWhiteSpace(stage.OperateTeams))
+                {
+                    _logger.LogDebug("Stage operate permission: InvisibleToTeams mode with NULL OperateTeams - granting access to all");
+                    return true;
+                }
+                
+                var operateTeams = DeserializeTeamList(stage.OperateTeams);
+                if (operateTeams.Count == 0)
+                {
+                    _logger.LogDebug("Stage operate permission: InvisibleToTeams mode with empty OperateTeams array - granting access to all");
+                    return true;
+                }
+                
+                // InvisibleToTeams mode: OperateTeams is blacklist - user must NOT be in any blocked team
+                var isBlocked = userTeamIds.Any(teamId => operateTeams.Contains(teamId));
+                var hasAccess = !isBlocked;
+                _logger.LogDebug(
+                    "Stage operate permission: InvisibleToTeams mode (blacklist) - Blocked teams: [{BlockedTeams}], User blocked: {IsBlocked}, Has access: {HasAccess}",
+                    string.Join(", ", operateTeams),
+                    isBlocked,
+                    hasAccess);
+                return hasAccess;
+            }
+
+            // VisibleToTeams and Private modes: OperateTeams is whitelist
             if (string.IsNullOrWhiteSpace(stage.OperateTeams))
             {
-                _logger.LogDebug("Stage operate permission: Non-Public mode with NULL OperateTeams - denying access");
+                _logger.LogDebug("Stage operate permission: VisibleToTeams/Private mode with NULL OperateTeams - denying access");
                 return false;
             }
 
             var teams = DeserializeTeamList(stage.OperateTeams);
             var hasTeamAccess = userTeamIds.Any(teamId => teams.Contains(teamId));
             _logger.LogDebug(
-                "Stage operate permission: Non-Public mode - Required teams: [{RequiredTeams}], User has access: {HasAccess}",
+                "Stage operate permission: VisibleToTeams/Private mode (whitelist) - Required teams: [{RequiredTeams}], User has access: {HasAccess}",
                 string.Join(", ", teams),
                 hasTeamAccess);
             return hasTeamAccess;
@@ -1307,7 +1359,7 @@ namespace FlowFlex.Application.Services.OW
                         return true;
                     }
                     
-                    // Public mode with specific teams - check membership
+                    // Public mode with specific teams - check membership (whitelist)
                     var hasOperateTeam = userTeamIds.Any(teamId => operateTeams.Contains(teamId));
                     _logger.LogDebug(
                         "Case operate permission: Public mode with specific teams - Required teams: [{RequiredTeams}], User has access: {HasAccess}",
@@ -1316,17 +1368,43 @@ namespace FlowFlex.Application.Services.OW
                     return hasOperateTeam;
                 }
 
-                // Non-Public modes: OperateTeams must be specified
+                // InvisibleToTeams mode: OperateTeams acts as blacklist
+                if (onboarding.ViewPermissionMode == ViewPermissionModeEnum.InvisibleToTeams)
+                {
+                    if (string.IsNullOrWhiteSpace(onboarding.OperateTeams))
+                    {
+                        _logger.LogDebug("Case operate permission: InvisibleToTeams mode with NULL OperateTeams - granting access to all");
+                        return true;
+                    }
+                    
+                    var operateTeams = DeserializeTeamList(onboarding.OperateTeams);
+                    if (operateTeams.Count == 0)
+                    {
+                        _logger.LogDebug("Case operate permission: InvisibleToTeams mode with empty OperateTeams array - granting access to all");
+                        return true;
+                    }
+                    
+                    // InvisibleToTeams mode: OperateTeams is blacklist - user must NOT be in any blocked team
+                    var isBlocked = userTeamIds.Any(teamId => operateTeams.Contains(teamId));
+                    var hasAccess = !isBlocked;
+                    _logger.LogDebug(
+                        "Case operate permission: InvisibleToTeams mode (blacklist) - Blocked teams: [{BlockedTeams}], User has access: {HasAccess}",
+                        string.Join(", ", operateTeams),
+                        hasAccess);
+                    return hasAccess;
+                }
+
+                // VisibleToTeams and Private modes: OperateTeams is whitelist
                 if (string.IsNullOrWhiteSpace(onboarding.OperateTeams))
                 {
-                    _logger.LogDebug("Case operate permission: Non-Public mode with NULL OperateTeams - denying access");
+                    _logger.LogDebug("Case operate permission: VisibleToTeams/Private mode with NULL OperateTeams - denying access");
                     return false;
                 }
 
                 var teams = DeserializeTeamList(onboarding.OperateTeams);
                 var hasTeamAccess = userTeamIds.Any(teamId => teams.Contains(teamId));
                 _logger.LogDebug(
-                    "Case operate permission: Team-based - Required teams: [{RequiredTeams}], User has access: {HasAccess}",
+                    "Case operate permission: VisibleToTeams/Private mode (whitelist) - Required teams: [{RequiredTeams}], User has access: {HasAccess}",
                     string.Join(", ", teams),
                     hasTeamAccess);
                 return hasTeamAccess;
@@ -1351,7 +1429,7 @@ namespace FlowFlex.Application.Services.OW
                         return true;
                     }
                     
-                    // Public mode with specific users - check membership
+                    // Public mode with specific users - check membership (whitelist)
                     var hasAccess = operateUsers.Contains(userId);
                     _logger.LogDebug(
                         "Case operate permission: Public mode with specific users - Required users: [{RequiredUsers}], User has access: {HasAccess}",
@@ -1360,17 +1438,43 @@ namespace FlowFlex.Application.Services.OW
                     return hasAccess;
                 }
 
-                // Non-Public modes: OperateUsers must be specified
+                // InvisibleToTeams mode: OperateUsers acts as blacklist
+                if (onboarding.ViewPermissionMode == ViewPermissionModeEnum.InvisibleToTeams)
+                {
+                    if (string.IsNullOrWhiteSpace(onboarding.OperateUsers))
+                    {
+                        _logger.LogDebug("Case operate permission: InvisibleToTeams mode with NULL OperateUsers - granting access to all");
+                        return true;
+                    }
+                    
+                    var operateUsers = DeserializeTeamList(onboarding.OperateUsers);
+                    if (operateUsers.Count == 0)
+                    {
+                        _logger.LogDebug("Case operate permission: InvisibleToTeams mode with empty OperateUsers array - granting access to all");
+                        return true;
+                    }
+                    
+                    // InvisibleToTeams mode: OperateUsers is blacklist - user must NOT be in list
+                    var isBlocked = operateUsers.Contains(userId);
+                    var hasAccess = !isBlocked;
+                    _logger.LogDebug(
+                        "Case operate permission: InvisibleToTeams mode (blacklist) - Blocked users: [{BlockedUsers}], User has access: {HasAccess}",
+                        string.Join(", ", operateUsers),
+                        hasAccess);
+                    return hasAccess;
+                }
+
+                // VisibleToTeams and Private modes: OperateUsers is whitelist
                 if (string.IsNullOrWhiteSpace(onboarding.OperateUsers))
                 {
-                    _logger.LogDebug("Case operate permission: Non-Public mode with NULL OperateUsers - denying access");
+                    _logger.LogDebug("Case operate permission: VisibleToTeams/Private mode with NULL OperateUsers - denying access");
                     return false;
                 }
 
                 var users = DeserializeTeamList(onboarding.OperateUsers);
                 var hasUserAccess = users.Contains(userId);
                 _logger.LogDebug(
-                    "Case operate permission: User-based - Required users: [{RequiredUsers}], User has access: {HasAccess}",
+                    "Case operate permission: VisibleToTeams/Private mode (whitelist) - Required users: [{RequiredUsers}], User has access: {HasAccess}",
                     string.Join(", ", users),
                     hasUserAccess);
                 return hasUserAccess;

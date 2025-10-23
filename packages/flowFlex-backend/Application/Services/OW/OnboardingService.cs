@@ -5257,9 +5257,8 @@ namespace FlowFlex.Application.Services.OW
                 // Always use the JSONB-safe approach to avoid type conversion errors
                 var db = _onboardingRepository.GetSqlSugarClient();
 
-                // First, update permission JSONB fields with explicit JSONB casting
-                // This must be done BEFORE updating permission_subject_type and view_permission_mode
-                // to avoid violating the chk_onboarding_view_subjects_required constraint
+                // First, update permission JSONB fields AND permission mode/type together with explicit JSONB casting
+                // This ensures that the database constraints are satisfied in a single transaction
                 try
                 {
                     var permissionSql = @"
@@ -5267,7 +5266,10 @@ namespace FlowFlex.Application.Services.OW
                         SET view_teams = @ViewTeams::jsonb,
                             view_users = @ViewUsers::jsonb,
                             operate_teams = @OperateTeams::jsonb,
-                            operate_users = @OperateUsers::jsonb
+                            operate_users = @OperateUsers::jsonb,
+                            view_permission_mode = @ViewPermissionMode,
+                            view_permission_subject_type = @ViewPermissionSubjectType,
+                            operate_permission_subject_type = @OperatePermissionSubjectType
                         WHERE id = @Id";
 
                     await db.Ado.ExecuteCommandAsync(permissionSql, new
@@ -5276,6 +5278,9 @@ namespace FlowFlex.Application.Services.OW
                         ViewUsers = entity.ViewUsers,
                         OperateTeams = entity.OperateTeams,
                         OperateUsers = entity.OperateUsers,
+                        ViewPermissionMode = (int)entity.ViewPermissionMode,
+                        ViewPermissionSubjectType = (int)entity.ViewPermissionSubjectType,
+                        OperatePermissionSubjectType = (int)entity.OperatePermissionSubjectType,
                         Id = entity.Id
                     });
                 }
@@ -5286,8 +5291,8 @@ namespace FlowFlex.Application.Services.OW
                     throw new CRMException($"Failed to update permission fields: {permEx.Message}");
                 }
 
-                // Then update all other fields (including permission_subject_type and view_permission_mode)
-                // Now the constraint will be satisfied because JSONB fields are already updated
+                // Then update all other fields (permission fields were already updated above)
+                // Now the constraint will be satisfied because JSONB fields and permission modes are already updated
                 var result = await _onboardingRepository.UpdateAsync(entity,
                     it => new
                     {
@@ -5323,9 +5328,7 @@ namespace FlowFlex.Application.Services.OW
                         it.CustomFieldsJson,
                         it.Notes,
                         it.IsActive,
-                        it.ViewPermissionSubjectType,
-                        it.OperatePermissionSubjectType,
-                        it.ViewPermissionMode,
+                        // Note: ViewPermissionSubjectType, OperatePermissionSubjectType, ViewPermissionMode were already updated above
                         // Note: ViewTeams, ViewUsers, OperateTeams, OperateUsers were already updated above
                         it.ModifyDate,
                         it.ModifyBy,
