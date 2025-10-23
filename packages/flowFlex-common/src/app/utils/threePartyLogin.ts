@@ -2,9 +2,9 @@ import { addLoginActivity } from '@/apis/pass/notify';
 import { useUserStoreWithOut } from '@/stores/modules/user';
 import { useGlobSetting } from '@/settings';
 import { getItem, isIframe, setItem } from './utils';
-import { verifyTicket, getSSOToken } from '@/apis/login/user';
+import { verifyTicket } from '@/apis/login/user';
 import { ProjectEnum } from '@/enums/appEnum';
-import { ElLoading } from 'element-plus';
+import WaveLoading from './waveLoading';
 import { router } from '@/router';
 import dayjs from 'dayjs';
 import { getEnv } from './env';
@@ -116,10 +116,8 @@ export async function formIDMLogin(ticket, oauth, state) {
 }
 
 export function toIDMLogin(type = 'Switch') {
-	ElLoading.service({
+	WaveLoading.service({
 		lock: true,
-		text: 'Loading',
-		background: 'rgba(0, 0, 0, 0.7)',
 	});
 
 	if (type != 'logout') {
@@ -178,10 +176,9 @@ export function detailUrlQuery() {
 }
 
 export function Logout(type?: string) {
-	ElLoading.service({
+	WaveLoading.service({
 		lock: true,
-		text: 'Loading',
-		background: 'rgba(0, 0, 0, 0.7)',
+		background: '#0f0f23',
 	});
 
 	if (type != 'logout') {

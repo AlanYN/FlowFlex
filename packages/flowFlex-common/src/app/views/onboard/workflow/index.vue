@@ -43,6 +43,7 @@
 							v-model="searchWorkflowName"
 							placeholder="Enter workflow name and press enter"
 							style-type="normal"
+							clearable
 							:limit="10"
 							@change="handleWorkflowChange"
 							class="w-full rounded-xl"
@@ -50,14 +51,14 @@
 					</div>
 
 					<div class="space-y-2">
-						<label class="text-sm font-medium">Workflow</label>
+						<label class="text-sm font-medium">Status</label>
 						<el-select
 							v-model="searceWorkflowStatus"
 							placeholder="Select workflow status"
 							class="w-full"
+							clearable
 							@change="handleWorkflowChange"
 						>
-							<el-option label="All Status" value="" />
 							<el-option label="Active" value="active" />
 							<el-option label="Inactive" value="inactive" />
 						</el-select>
@@ -887,7 +888,7 @@ onMounted(async () => {
 // 获取工作流列表（分页数据，用于列表视图）
 // 筛选
 const searchWorkflowName = ref<string[]>([]);
-const searceWorkflowStatus = ref<string>('all');
+const searceWorkflowStatus = ref<string>('');
 const handleWorkflowChange = () => {
 	fetchWorkflows(true);
 };
@@ -904,7 +905,7 @@ const fetchWorkflows = async (resetPage = false) => {
 		if (searchWorkflowName.value) {
 			searchParams.name = searchWorkflowName.value;
 		}
-		if (searceWorkflowStatus.value && searceWorkflowStatus.value !== 'all') {
+		if (searceWorkflowStatus.value && searceWorkflowStatus.value !== '') {
 			searchParams.status = searceWorkflowStatus.value;
 		}
 

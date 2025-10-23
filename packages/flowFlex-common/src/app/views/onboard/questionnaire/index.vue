@@ -37,6 +37,7 @@
 						placeholder="Enter questionnaire name and press enter"
 						style-type="normal"
 						:limit="10"
+						clearable
 						@change="handleSearchTagsChange"
 						class="w-full rounded-xl"
 					/>
@@ -48,9 +49,9 @@
 						v-model="selectedWorkflow"
 						placeholder="Select workflow"
 						class="w-full"
+						clearable
 						@change="handleWorkflowChange"
 					>
-						<el-option label="All Workflows" value="all" />
 						<el-option
 							v-for="workflow in workflows"
 							:key="workflow.id"
@@ -66,10 +67,10 @@
 						v-model="selectedStage"
 						placeholder="Select stage"
 						class="w-full"
-						:disabled="selectedWorkflow === 'all' || stagesLoading"
+						:disabled="!selectedWorkflow || stagesLoading"
 						:loading="stagesLoading"
+						clearable
 					>
-						<el-option label="All Stages" value="all" />
 						<el-option
 							v-for="stage in workflowStages"
 							:key="stage.id"
@@ -224,8 +225,8 @@ const deleteLoading = ref(false); // 专门的删除loading状态
 const stagesLoading = ref(false); // 新增：stages加载状态
 const searchTags = ref<string[]>([]);
 const searchQuery = ref('');
-const selectedWorkflow = ref('all');
-const selectedStage = ref('all');
+const selectedWorkflow = ref('');
+const selectedStage = ref('');
 const deleteDialogVisible = ref(false);
 const deleteQuestionnaireId = ref<string | null>(null);
 
@@ -253,7 +254,7 @@ const tabsConfig = ref([
 
 // 方法
 const getEmptyStateMessage = () => {
-	if (searchQuery.value || selectedWorkflow.value !== 'all' || selectedStage.value !== 'all') {
+	if (searchQuery.value || !selectedWorkflow.value || !selectedStage.value) {
 		return 'Try adjusting your filters';
 	}
 	return 'No questionnaires have been created yet';
@@ -288,7 +289,7 @@ const fetchWorkflows = async () => {
 
 // 获取阶段列表 - 修改为根据workflowId获取
 const fetchStages = async (workflowId?: string) => {
-	if (!workflowId || workflowId === 'all') {
+	if (!workflowId) {
 		workflowStages.value = [];
 		return;
 	}
@@ -311,7 +312,7 @@ const fetchStages = async (workflowId?: string) => {
 // 监听workflow变化
 const handleWorkflowChange = async (workflowId: string) => {
 	// 清空当前选择的stage
-	selectedStage.value = 'all';
+	selectedStage.value = '';
 	// 获取新的stages
 	await fetchStages(workflowId);
 };
@@ -361,13 +362,11 @@ const fetchQuestionnaires = async (resetPage = false) => {
 			queryParams.name = searchQuery.value.trim();
 		}
 
-		// 只有当workflow不是'all'时才添加workflow参数
-		if (selectedWorkflow.value && selectedWorkflow.value !== 'all') {
+		if (selectedWorkflow.value) {
 			queryParams.workflowId = selectedWorkflow.value;
 		}
 
-		// 只有当stage不是'all'时才添加stage参数
-		if (selectedStage.value && selectedStage.value !== 'all') {
+		if (selectedStage.value) {
 			queryParams.stageId = selectedStage.value;
 		}
 

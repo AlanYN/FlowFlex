@@ -245,6 +245,8 @@ const getCheckedNodes = (): TreeNode[] => {
 
 const setCheckedKeys = (keys: string[]) => {
 	checkedKeys.value = new Set(keys);
+	indeterminateKeys.value.clear();
+
 	// 如果不是严格模式，设置后重新评估所有父节点状态
 	if (!props.checkStrictly) {
 		updateAllParentStates();

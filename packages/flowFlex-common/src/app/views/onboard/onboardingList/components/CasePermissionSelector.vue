@@ -54,7 +54,8 @@
 					"
 					v-model="localPermissions.viewTeams"
 					selection-type="team"
-					:clearable="true"
+					clearable
+					check-strictly
 				/>
 
 				<!-- User 选择器 -->

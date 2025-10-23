@@ -338,6 +338,7 @@
 												"
 												:onboardingId="onboardingId"
 												@stage-updated="handleStageUpdated"
+												@question-submitted="handleQuestionSubmitted"
 												:questionnaire-answers="
 													getQuestionnaireAnswersForComponent(component)
 												"
@@ -564,7 +565,7 @@ const navigation = ref([
 // 存储批量查询到的数据
 const checklistsData = ref<any[]>([]);
 const questionnairesData = ref<any[]>([]);
-const questionnaireAnswersMap = ref<Record<string, SectionAnswer>>({});
+const questionnaireAnswersMap = ref<SectionAnswer[]>([]);
 
 // Loading状态管理
 const stageDataLoading = ref(false);
@@ -1678,7 +1679,7 @@ const loadQuestionnaireDataBatch = async (onboardingId: string, stageId: string)
 		await nextTick();
 		// 处理答案
 		if (answerRes.code === '200' && answerRes.data && Array.isArray(answerRes.data)) {
-			const map: Record<string, SectionAnswer> = {};
+			const map: SectionAnswer[] = [];
 			answerRes.data.forEach((item: any) => {
 				if (item.questionnaireId && item.answerJson) {
 					let parsed;
@@ -1956,6 +1957,55 @@ const saveQuestionnaireAndField = async () => {
 		loadOnboardingDetail();
 	} else {
 		ElMessage.error(t('sys.api.operationFailed'));
+	}
+};
+
+const questionnaireLoading = ref(false);
+const handleQuestionSubmitted = async (
+	onboardingId: string,
+	stageId: string,
+	questionnaireId: string
+) => {
+	try {
+		questionnaireLoading.value = true;
+		// 重新获取问卷答案数据
+		await refreshQuestionnaireAnswers(onboardingId, stageId, questionnaireId);
+		console.log('Questionnaire answers refreshed after submission');
+	} finally {
+		questionnaireLoading.value = false;
+	}
+};
+
+// 重新获取问卷答案数据（仅答案，不刷新结构）
+const refreshQuestionnaireAnswers = async (
+	onboardingId: string,
+	stageId: string,
+	questionnaireId?: string
+) => {
+	const answerRes = await getQuestionnaireAnswer(onboardingId, stageId);
+
+	if (answerRes.code === '200' && answerRes.data && Array.isArray(answerRes.data)) {
+		const map: SectionAnswer[] = [];
+		answerRes.data.forEach((item: any) => {
+			if (questionnaireId && item.questionnaireId === questionnaireId && item.answerJson) {
+				let parsed;
+				try {
+					parsed =
+						typeof item.answerJson === 'string'
+							? JSON.parse(item.answerJson)
+							: item.answerJson;
+				} catch {
+					parsed = null;
+				}
+				if (parsed && Array.isArray(parsed.responses)) {
+					map[item.questionnaireId] = {
+						answer: parsed.responses,
+						...item,
+					};
+				}
+			}
+		});
+		questionnaireAnswersMap.value = map;
 	}
 };
 

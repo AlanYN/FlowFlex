@@ -641,7 +641,8 @@
 						selection-type="user"
 						:max-count="1"
 						placeholder="Select user"
-						:clearable="true"
+						clearable
+						check-strictly
 					/>
 				</el-form-item>
 
