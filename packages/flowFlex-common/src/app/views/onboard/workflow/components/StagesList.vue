@@ -168,6 +168,9 @@
 											)
 										"
 										@command="(cmd) => handleCommand(cmd, element)"
+										@visible-change="
+											(visible) => visible && checkStagePermission(element.id)
+										"
 										@click.stop
 										:ref="(el) => (dropdownRefs[index] = el)"
 									>
@@ -184,7 +187,8 @@
 											<el-dropdown-menu>
 												<el-dropdown-item
 													v-if="
-														functionPermission(
+														hasStagePermission(
+															element.id,
 															ProjectPermissionEnum.workflow.update
 														)
 													"
@@ -197,7 +201,8 @@
 												</el-dropdown-item>
 												<el-dropdown-item
 													v-if="
-														functionPermission(
+														hasStagePermission(
+															element.id,
 															ProjectPermissionEnum.workflow.delete
 														)
 													"
@@ -386,7 +391,7 @@ import { defaultStr } from '@/settings/projectSetting';
 import { ElDropdown } from 'element-plus';
 import { FlowflexUser } from '#/golbal';
 import { getAvatarColor } from '@/utils';
-import { functionPermission } from '@/hooks';
+import { functionPermission, checkPermissionHook } from '@/hooks';
 import { ProjectPermissionEnum } from '@/enums/permissionEnum';
 
 // Portal权限枚举常量
@@ -429,6 +434,14 @@ const { scrollbarRef } = useAdaptiveScrollbar(100);
 
 // 内部状态
 const expandedStages = ref<string | null>(null);
+
+// 存储每个 stage 的操作权限检查结果
+const stagePermissions = ref<{
+	[stageId: string]: {
+		canOperate: boolean;
+		loading: boolean;
+	};
+}>({});
 
 // 计算loading状态
 const isLoading = computed(() => {
@@ -477,6 +490,35 @@ watch(
 );
 
 // 方法
+// 检查 stage 操作权限
+const checkStagePermission = async (stageId: string) => {
+	stagePermissions.value[stageId] = {
+		canOperate: false,
+		loading: true,
+	};
+
+	try {
+		const result = await checkPermissionHook(stageId, 2);
+		stagePermissions.value[stageId] = {
+			canOperate: result,
+			loading: false,
+		};
+	} catch (error) {
+		console.error('Failed to check stage permission:', error);
+		stagePermissions.value[stageId] = {
+			canOperate: false,
+			loading: false,
+		};
+	}
+};
+
+// 检查是否有权限（功能权限 && 数据权限）
+const hasStagePermission = (stageId: string, functionalPermission: string) => {
+	const permission = stagePermissions.value[stageId];
+	if (!permission || permission.loading) return false;
+	return functionPermission(functionalPermission) && permission.canOperate;
+};
+
 const toggleStage = (id: string) => {
 	if (expandedStages.value === id) {
 		// 如果点击的是当前展开的stage，则收起

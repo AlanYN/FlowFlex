@@ -167,6 +167,7 @@ export const useUserStore = defineStore({
 			const userInfo: UserInfo = {
 				...userDate.data,
 				userId: userDate?.data?.userId,
+				userName: userDate?.data?.userName,
 				// userName: userDate?.data?.firstName + userDate?.data?.lastName,
 				realName: `${userDate?.data?.firstName || ''}${
 					userDate?.data?.lastName
