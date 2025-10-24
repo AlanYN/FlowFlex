@@ -619,7 +619,7 @@
 		"cancelConfirm": "Are you sure you want to cancel the tenant switch?",
 		"retry": "Try Again",
 		"help": "Get Help",
-		"switchBack": "Switch Back to Previous",
+		"switchBack": "Switch Back to",
 		"steps": {
 			"validating": "Validating credentials...",
 			"loading": "Loading tenant data...",

@@ -616,7 +616,7 @@
 		"cancelConfirm": "确定要取消租户切换吗？",
 		"retry": "重试",
 		"help": "获取帮助",
-		"switchBack": "切换回原租户",
+		"switchBack": "切换回",
 		"steps": {
 			"validating": "验证凭证中...",
 			"loading": "加载租户数据中...",

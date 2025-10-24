@@ -60,7 +60,7 @@
 									{{ t('sys.tenant.retry') }}
 								</button>
 								<button class="help-btn" @click="handleHelp">
-									{{ t('sys.tenant.switchBack') }}
+									{{ switchBackText }}
 								</button>
 							</div>
 						</div>
@@ -100,6 +100,10 @@ const stepText = computed(() => {
 });
 const hasError = computed(() => !!switching.value.error);
 const isCancelling = computed(() => stepKey.value === 'cancelling');
+const switchBackText = computed(() => {
+	// 动态生成"切换回原租户"的文本，包含租户名称
+	return `${t('sys.tenant.switchBack')} ${fromTenantName.value}`;
+});
 
 const handleCancel = async () => {
 	try {
