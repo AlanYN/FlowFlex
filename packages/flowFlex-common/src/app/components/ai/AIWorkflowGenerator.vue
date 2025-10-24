@@ -3003,7 +3003,6 @@ const applyWorkflow = async (data: any) => {
 		});
 	} catch (error) {
 		console.error('Apply workflow error:', error);
-		ElMessage.error('Failed to apply workflow');
 	} finally {
 		applying.value = false;
 	}
