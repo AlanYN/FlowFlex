@@ -1641,6 +1641,7 @@ namespace FlowFlex.Application.Services.OW
 
         /// <summary>
         /// Get permission info for Stage (batch-optimized for list APIs)
+        /// Stage inherits Workflow view permissions, but requires explicit module permission for operate
         /// </summary>
         public async Task<PermissionInfoDto> GetStagePermissionInfoForListAsync(
             long userId, 
@@ -1656,17 +1657,6 @@ namespace FlowFlex.Application.Services.OW
                     CanView = true, 
                     CanOperate = true, 
                     ErrorMessage = null 
-                };
-            }
-
-            // Check View permission (module permission already checked by caller)
-            if (!hasViewModulePermission)
-            {
-                return new PermissionInfoDto
-                {
-                    CanView = false,
-                    CanOperate = false,
-                    ErrorMessage = $"User does not have required module permission: {PermissionConsts.Stage.Read}"
                 };
             }
 
@@ -1695,6 +1685,7 @@ namespace FlowFlex.Application.Services.OW
             }
 
             // Check entity-level view permission (includes workflow inheritance check)
+            // Stage view permission inherits from Workflow, so we don't strictly require STAGE:READ module permission
             var viewResult = CheckStagePermission(stage, workflow, userId, PermissionOperationType.View);
             if (!viewResult.Success)
             {
@@ -1706,7 +1697,8 @@ namespace FlowFlex.Application.Services.OW
                 };
             }
 
-            // Check Operate permission (module permission already checked by caller)
+            // Check Operate permission
+            // Operate requires explicit module permission AND entity-level permission
             bool canOperate = false;
             if (hasOperateModulePermission)
             {

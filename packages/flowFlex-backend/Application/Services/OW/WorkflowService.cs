@@ -640,15 +640,20 @@ namespace FlowFlex.Application.Service.OW
                 // Pre-check module permissions once (for performance optimization)
                 bool canViewWorkflows = false;
                 bool canOperateWorkflows = false;
+                bool canViewStages = false;
+                bool canOperateStages = false;
                 
                 if (userId > 0)
                 {
                     // Check module-level permissions only once
+                    // Stage inherits Workflow module permissions
                     canViewWorkflows = await _permissionService.CheckGroupPermissionAsync(userId, PermissionConsts.Workflow.Read);
                     canOperateWorkflows = await _permissionService.CheckGroupPermissionAsync(userId, PermissionConsts.Workflow.Update);
+                    canViewStages = canViewWorkflows; // Stage inherits Workflow view permission
+                    canOperateStages = canOperateWorkflows; // Stage inherits Workflow operate permission
                     
-                    _logger.LogDebug("Module permission check - UserId: {UserId}, CanView: {CanView}, CanOperate: {CanOperate}", 
-                        userId, canViewWorkflows, canOperateWorkflows);
+                    _logger.LogDebug("Module permission check - UserId: {UserId}, CanViewWorkflows: {CanViewWorkflows}, CanOperateWorkflows: {CanOperateWorkflows}, CanViewStages: {CanViewStages}, CanOperateStages: {CanOperateStages}", 
+                        userId, canViewWorkflows, canOperateWorkflows, canViewStages, canOperateStages);
                 }
                 
                 // Assign stages and permission info to each workflow
@@ -657,13 +662,38 @@ namespace FlowFlex.Application.Service.OW
                     if (stagesByWorkflow.TryGetValue(workflow.Id, out var stages))
                     {
                         workflow.Stages = _mapper.Map<List<StageOutputDto>>(stages);
+                        
+                        // Fill permission info for each stage and filter out stages user cannot view
+                        var visibleStages = new List<StageOutputDto>();
+                        
+                        if (userId > 0)
+                        {
+                            foreach (var stageDto in workflow.Stages)
+                            {
+                                var permissionInfo = await _permissionService.GetStagePermissionInfoForListAsync(
+                                    userId, 
+                                    stageDto.Id, 
+                                    canViewStages, 
+                                    canOperateStages);
+                                
+                                // Only include stages that user can view
+                                if (permissionInfo.CanView)
+                                {
+                                    stageDto.Permission = permissionInfo;
+                                    visibleStages.Add(stageDto);
+                                }
+                            }
+                        }
+                        // If user not authenticated, return empty stages list
+                        
+                        workflow.Stages = visibleStages;
                     }
                     else
                     {
                         workflow.Stages = new List<StageOutputDto>();
                     }
 
-                    // Fill permission info (batch-optimized: entity-level check only)
+                    // Fill permission info for workflow (batch-optimized: entity-level check only)
                     if (userId > 0)
                     {
                         workflow.Permission = await _permissionService.GetWorkflowPermissionInfoForListAsync(

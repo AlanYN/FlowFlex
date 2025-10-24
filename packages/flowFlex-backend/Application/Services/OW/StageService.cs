@@ -625,8 +625,9 @@ namespace FlowFlex.Application.Service.OW
             }
 
             // Pre-check module permissions once (batch optimization)
-            bool canViewStages = await _permissionService.CheckGroupPermissionAsync(userId, PermissionConsts.Stage.Read);
-            bool canOperateStages = await _permissionService.CheckGroupPermissionAsync(userId, PermissionConsts.Stage.Update);
+            // Stage inherits Workflow module permissions
+            bool canViewStages = await _permissionService.CheckGroupPermissionAsync(userId, PermissionConsts.Workflow.Read);
+            bool canOperateStages = await _permissionService.CheckGroupPermissionAsync(userId, PermissionConsts.Workflow.Update);
             
             _logger.LogDebug("Stage list module permission check - UserId: {UserId}, CanView: {CanView}, CanOperate: {CanOperate}", 
                 userId, canViewStages, canOperateStages);

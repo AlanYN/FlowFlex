@@ -273,17 +273,6 @@ namespace FlowFlex.Domain.Shared.Const
         }
 
         /// <summary>
-        /// Stage permissions
-        /// </summary>
-        public static class Stage
-        {
-            public const string Create = "STAGE:CREATE";
-            public const string Read = "STAGE:READ";
-            public const string Update = "STAGE:UPDATE";
-            public const string Delete = "STAGE:DELETE";
-        }
-
-        /// <summary>
         /// Checklist permission control
         /// </summary>
         public static class Checklist
