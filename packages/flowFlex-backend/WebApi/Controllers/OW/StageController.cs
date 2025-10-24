@@ -16,6 +16,7 @@ using System;
 using System.Linq;
 using Microsoft.Extensions.DependencyInjection;
 using FlowFlex.Infrastructure.Services;
+using FlowFlex.Application.Filter;
 
 namespace FlowFlex.WebApi.Controllers.OW
 {
@@ -26,6 +27,7 @@ namespace FlowFlex.WebApi.Controllers.OW
     [Route("ow/stages/v{version:apiVersion}")]
     [Display(Name = "stage")]
     [Authorize] // 添加授权特性，要求所有stage API都需要认证
+    [PortalAccess] // Allow Portal token access - Portal users can view stage information and AI summaries
     public class StageController : Controllers.ControllerBase
     {
         private readonly IStageService _stageService;
@@ -528,28 +530,25 @@ namespace FlowFlex.WebApi.Controllers.OW
             return Success(result);
         }
 
-        /// <summary>
-        /// Generate AI Summary for stage with streaming response
-        /// Requires any READ permission (WORKFLOW, CASE, CHECKLIST, QUESTION, or TOOL)
-        /// This is a shared query API accessible by any module with read permission
-        /// </summary>
-        /// <param name="stageId">Stage ID</param>
-        /// <param name="onboardingId">Onboarding ID (optional)</param>
-        /// <param name="language">Preferred language for summary (optional)</param>
-        /// <returns>Streaming AI summary response</returns>
-        [HttpPost("{stageId}/ai-summary/stream")]
-        [WFEAuthorize(
-            PermissionConsts.Workflow.Read,
-            PermissionConsts.Case.Read,
-            PermissionConsts.Checklist.Read,
-            PermissionConsts.Question.Read,
-            PermissionConsts.Tool.Read)]
-        [ProducesResponseType(200)]
-        [ProducesResponseType(typeof(ErrorResponse), 400)]
-        public async Task StreamAISummary(
-            [FromRoute] long stageId,
-            [FromQuery] long? onboardingId = null,
-            [FromQuery] string? language = null)
+    /// <summary>
+    /// Generate AI Summary for stage with streaming response
+    /// This endpoint is accessible by Portal tokens with [PortalAccess] attribute
+    /// Portal tokens bypass WFEAuthorize permission checks
+    /// </summary>
+    /// <param name="stageId">Stage ID</param>
+    /// <param name="onboardingId">Onboarding ID (optional)</param>
+    /// <param name="language">Preferred language for summary (optional)</param>
+    /// <returns>Streaming AI summary response</returns>
+   
+    [HttpPost("{stageId}/ai-summary/stream")]
+    [AllowAnonymous] // Allow anonymous to bypass JWT expiration check for Portal tokens
+    [PortalAccess] // Portal token validation happens in middleware
+    [ProducesResponseType(200)]
+    [ProducesResponseType(typeof(ErrorResponse), 400)]
+    public async Task StreamAISummary(
+        [FromRoute] long stageId,
+        [FromQuery] long? onboardingId = null,
+        [FromQuery] string? language = null)
         {
             // 设置流式响应头 - 纯文本流
             Response.ContentType = "text/plain; charset=utf-8";

@@ -61,22 +61,60 @@ namespace FlowFlex.Application.Services.OW
         /// </summary>
         private string GetCurrentUserName()
         {
-            // Priority 1: UserContext
+            var httpContext = _httpContextAccessor?.HttpContext;
+            var user = httpContext?.User;
+            
+            // Check if this is a Portal token (has scope=portal claim)
+            var scope = user?.Claims.FirstOrDefault(c => c.Type == "scope")?.Value;
+            var tokenType = user?.Claims.FirstOrDefault(c => c.Type == "token_type")?.Value;
+            bool isPortalToken = scope == "portal" && tokenType == "portal-access";
+            
+            if (isPortalToken)
+            {
+                // For Portal tokens, prioritize email/username claims over other claims
+                // to ensure we get the user's email address, not their ID
+                string[] portalClaimTypes = new[]
+                {
+                    System.Security.Claims.ClaimTypes.Email,
+                    "email",
+                    "username",
+                    System.Security.Claims.ClaimTypes.NameIdentifier
+                };
+                
+                foreach (var ct in portalClaimTypes)
+                {
+                    var v = user?.Claims.FirstOrDefault(c => c.Type == ct)?.Value;
+                    if (!string.IsNullOrWhiteSpace(v))
+                    {
+                        // Validate that it's an email address, not an ID
+                        if (v.Contains("@"))
+                        {
+                            return v;
+                        }
+                    }
+                }
+            }
+            
+            // Priority 1: UserContext (for ItemIAM and IdentityHub tokens)
             if (!string.IsNullOrWhiteSpace(_userContext?.UserName))
             {
                 return _userContext.UserName;
             }
+            
+            // Priority 2: UserContext.Email (fallback if UserName is not set)
+            if (!string.IsNullOrWhiteSpace(_userContext?.Email))
+            {
+                return _userContext.Email;
+            }
 
-            var httpContext = _httpContextAccessor?.HttpContext;
-            // Priority 2: Custom headers (fallback from gateway/frontend)
+            // Priority 3: Custom headers (fallback from gateway/frontend)
             var headerName = httpContext?.Request?.Headers["X-User-Name"].FirstOrDefault();
             if (!string.IsNullOrWhiteSpace(headerName))
             {
                 return headerName;
             }
 
-            // Priority 3: Claims from authenticated principal
-            var user = httpContext?.User;
+            // Priority 4: Claims from authenticated principal
             if (user != null)
             {
                 string[] claimTypes = new[]
