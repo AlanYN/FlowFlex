@@ -355,6 +355,8 @@ interface Props {
 	clearable?: boolean; // 是否可清除
 	checkStrictly?: boolean; // 是否严格模式，不遵循父子节点联动逻辑
 	choosableTreeData?: FlowflexUser[]; // 自定义可选择的树形数据，传入时优先使用此数据而不是缓存数据，支持动态更新
+	availableIds?: string[]; // 白名单：限制可选的 ID 范围，undefined 表示不限制，[] 表示无可选项
+	excludedIds?: string[]; // 黑名单：排除这些 ID，undefined 表示不限制
 }
 
 interface Emits {
