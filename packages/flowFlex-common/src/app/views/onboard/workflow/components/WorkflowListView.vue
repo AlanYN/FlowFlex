@@ -19,7 +19,6 @@
 					<el-dropdown
 						trigger="click"
 						@click.stop
-						@visible-change="(visible) => visible && checkWorkflowPermission(row.id)"
 						:disabled="isWorkflowActionLoading(row.id)"
 					>
 						<el-button
@@ -193,7 +192,7 @@
 </template>
 
 <script setup lang="ts">
-import { defineProps, defineEmits, ref } from 'vue';
+import { defineProps, defineEmits } from 'vue';
 import {
 	Edit,
 	CopyDocument,
@@ -209,15 +208,7 @@ import { Workflow } from '#/onboard';
 import { WFEMoudels } from '@/enums/appEnum';
 import StarIcon from '@assets/svg/workflow/star.svg';
 import { ProjectPermissionEnum } from '@/enums/permissionEnum';
-import { functionPermission, checkPermissionHook } from '@/hooks';
-
-// 存储每个 workflow 的操作权限检查结果
-const workflowPermissions = ref<{
-	[workflowId: string]: {
-		canOperate: boolean;
-		loading: boolean;
-	};
-}>({});
+import { functionPermission } from '@/hooks';
 
 // Props
 const props = defineProps<{
@@ -238,34 +229,14 @@ const emit = defineEmits<{
 	'select-workflow': [workflowId: string];
 }>();
 
-// 检查 workflow 操作权限
-const checkWorkflowPermission = async (workflowId: string) => {
-	// 设置加载状态
-	workflowPermissions.value[workflowId] = {
-		canOperate: false,
-		loading: true,
-	};
-
-	try {
-		const result = await checkPermissionHook(workflowId, 1); // resourceType: 0 = Workflow
-		workflowPermissions.value[workflowId] = {
-			canOperate: result,
-			loading: false,
-		};
-	} catch (error) {
-		console.error('Failed to check workflow permission:', error);
-		workflowPermissions.value[workflowId] = {
-			canOperate: false,
-			loading: false,
-		};
-	}
-};
-
 // 检查是否有权限（功能权限 && 数据权限）
 const hasPermission = (workflowId: string, functionalPermission: string) => {
-	const permission = workflowPermissions.value[workflowId];
-	if (!permission || permission.loading) return false;
-	return functionPermission(functionalPermission) && permission.canOperate;
+	// 从 workflows 列表中查找对应的 workflow
+	const workflow = props.workflows.find((w) => w.id === workflowId);
+	if (workflow && workflow.permission) {
+		return functionPermission(functionalPermission) && workflow.permission.canOperate;
+	}
+	return functionPermission(functionalPermission);
 };
 
 // Methods

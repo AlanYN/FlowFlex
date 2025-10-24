@@ -80,12 +80,7 @@
 						<el-table-column type="selection" fixed="left" width="50" align="center" />
 						<el-table-column label="Actions" fixed="left" width="80">
 							<template #default="{ row }">
-								<el-dropdown
-									trigger="click"
-									@visible-change="
-										(visible) => visible && checkCasePermission(row.id)
-									"
-								>
+								<el-dropdown trigger="click">
 									<el-button size="small" link :icon="ArrowDownBold" />
 
 									<template #dropdown>
@@ -757,7 +752,7 @@ import ProgressViewIcon from '@assets/svg/onboard/progressView.svg';
 import { pick, omitBy, isNil } from 'lodash-es';
 import StageFilter from './components/StageFilter.vue';
 import StageCardList from './components/StageCardList.vue';
-import { functionPermission, checkPermissionHook } from '@/hooks';
+import { functionPermission } from '@/hooks';
 
 type RuleType =
 	| 'string'
@@ -782,14 +777,6 @@ const { t } = useI18n();
 // Store 实例
 const userStore = useUserStore();
 const menuStore = menuRoles();
-
-// 存储每个 case 的操作权限检查结果
-const caseOperatePermissions = ref<{
-	[caseId: string]: {
-		canOperate: boolean;
-		loading: boolean;
-	};
-}>({});
 
 // 入职阶段定义
 const onboardingStages = ref<any[]>([]);
@@ -2145,33 +2132,16 @@ const getLifeCycleStage = async () => {
 
 const tabWorkflowId = ref('');
 
-// 检查 case 操作权限
-const checkCasePermission = async (caseId: string) => {
-	caseOperatePermissions.value[caseId] = {
-		canOperate: false,
-		loading: true,
-	};
-
-	try {
-		const result = await checkPermissionHook(caseId, 3);
-		caseOperatePermissions.value[caseId] = {
-			canOperate: result,
-			loading: false,
-		};
-	} catch (error) {
-		console.error('Failed to check case permission:', error);
-		caseOperatePermissions.value[caseId] = {
-			canOperate: false,
-			loading: false,
-		};
-	}
-};
-
 // 检查是否有权限（功能权限 && 数据权限）
 const hasCasePermission = (caseId: string, functionalPermission: string) => {
-	const permission = caseOperatePermissions.value[caseId];
-	if (!permission || permission.loading) return false;
-	return functionPermission(functionalPermission) && permission.canOperate;
+	// 从列表数据中查找对应的 case
+	const caseItem = onboardingList.value.find((item) => item.id === caseId);
+	if (caseItem && caseItem.permission) {
+		return functionPermission(functionalPermission) && caseItem.permission.canOperate;
+	}
+
+	// 使用列表数据中的 permission.canOperate 字段
+	return functionPermission(functionalPermission);
 };
 
 // 监听工作流切换，选中所有阶段

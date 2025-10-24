@@ -56,6 +56,11 @@ export interface OnboardingItem {
 	currentStageEndTime: string;
 	currentStageEstimatedDays: string;
 	isDisabled: boolean;
+	permission?: {
+		canView: boolean;
+		canOperate: boolean;
+		errorMessage?: string;
+	};
 }
 
 export interface SearchParams {
@@ -297,6 +302,11 @@ export interface Workflow {
 	viewPermissionMode: number;
 	viewTeams: string[];
 	operateTeams: string[];
+	permission?: {
+		canView: boolean;
+		canOperate: boolean;
+		errorMessage?: string;
+	};
 }
 
 export interface Checklist {
@@ -363,6 +373,11 @@ export interface Stage {
 	completedBy?: string;
 	actions?: ActionListItem[];
 	customEndTime?: string;
+	permission?: {
+		canView: boolean;
+		canOperate: boolean;
+		errorMessage?: string;
+	};
 }
 
 // 检查清单任务完成记录相关类型定义

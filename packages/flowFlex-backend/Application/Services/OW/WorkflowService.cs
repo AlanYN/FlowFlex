@@ -1240,6 +1240,21 @@ namespace FlowFlex.Application.Service.OW
                 return workflows;
             }
 
+            // Fast path: If user is Tenant Admin for current tenant, return all workflows
+            var currentTenantIdString = _userContext?.TenantId;
+            if (!string.IsNullOrEmpty(currentTenantIdString) && 
+                long.TryParse(currentTenantIdString, out var currentTenantId) &&
+                _userContext != null && 
+                _userContext.HasAdminPrivileges(currentTenantIdString))
+            {
+                _logger.LogDebug(
+                    "User {UserId} is Tenant Admin for tenant {TenantId}, skipping permission filtering for {Count} workflows",
+                    userId,
+                    currentTenantId,
+                    workflows.Count);
+                return workflows;
+            }
+
             var stopwatch = System.Diagnostics.Stopwatch.StartNew();
             
             // Optimization: Check module permission once instead of for each workflow

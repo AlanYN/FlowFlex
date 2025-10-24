@@ -1545,6 +1545,16 @@ namespace FlowFlex.Application.Services.OW
                 return true;
             }
 
+            // Tenant Admin has all permissions for their tenant
+            var currentTenantId = GetCurrentTenantId();
+            if (_userContext != null && _userContext.HasAdminPrivileges(currentTenantId))
+            {
+                _logger.LogDebug(
+                    "User {UserId} is Tenant Admin for tenant {TenantId}, granting view permission for Workflow {WorkflowId}",
+                    userId, currentTenantId, workflowId);
+                return true;
+            }
+
             // Load workflow if not provided
             if (workflow == null)
             {

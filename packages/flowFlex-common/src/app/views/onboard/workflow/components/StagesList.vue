@@ -168,9 +168,6 @@
 											)
 										"
 										@command="(cmd) => handleCommand(cmd, element)"
-										@visible-change="
-											(visible) => visible && checkStagePermission(element.id)
-										"
 										@click.stop
 										:ref="(el) => (dropdownRefs[index] = el)"
 									>
@@ -391,7 +388,7 @@ import { defaultStr } from '@/settings/projectSetting';
 import { ElDropdown } from 'element-plus';
 import { FlowflexUser } from '#/golbal';
 import { getAvatarColor } from '@/utils';
-import { functionPermission, checkPermissionHook } from '@/hooks';
+import { functionPermission } from '@/hooks';
 import { ProjectPermissionEnum } from '@/enums/permissionEnum';
 
 // Portal权限枚举常量
@@ -434,14 +431,6 @@ const { scrollbarRef } = useAdaptiveScrollbar(100);
 
 // 内部状态
 const expandedStages = ref<string | null>(null);
-
-// 存储每个 stage 的操作权限检查结果
-const stagePermissions = ref<{
-	[stageId: string]: {
-		canOperate: boolean;
-		loading: boolean;
-	};
-}>({});
 
 // 计算loading状态
 const isLoading = computed(() => {
@@ -490,33 +479,14 @@ watch(
 );
 
 // 方法
-// 检查 stage 操作权限
-const checkStagePermission = async (stageId: string) => {
-	stagePermissions.value[stageId] = {
-		canOperate: false,
-		loading: true,
-	};
-
-	try {
-		const result = await checkPermissionHook(stageId, 2);
-		stagePermissions.value[stageId] = {
-			canOperate: result,
-			loading: false,
-		};
-	} catch (error) {
-		console.error('Failed to check stage permission:', error);
-		stagePermissions.value[stageId] = {
-			canOperate: false,
-			loading: false,
-		};
-	}
-};
-
 // 检查是否有权限（功能权限 && 数据权限）
 const hasStagePermission = (stageId: string, functionalPermission: string) => {
-	const permission = stagePermissions.value[stageId];
-	if (!permission || permission.loading) return false;
-	return functionPermission(functionalPermission) && permission.canOperate;
+	// 从 stages 列表中查找对应的 stage
+	const stage = props.stages.find((s) => s.id === stageId);
+	if (stage && stage.permission) {
+		return functionPermission(functionalPermission) && stage.permission.canOperate;
+	}
+	return functionPermission(functionalPermission);
 };
 
 const toggleStage = (id: string) => {
