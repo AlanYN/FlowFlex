@@ -21,17 +21,13 @@
 						</div>
 
 						<!-- 进度条 -->
-						<div class="progress-bar-wrapper">
+						<div class="progress-bar">
 							<div class="progress-start">←</div>
-							<div class="progress-bar">
-								<div
-									class="progress-fill"
-									:class="{ 'progress-cancelling': isCancelling }"
-									:style="{ width: `${progress}%` }"
-								>
-									<div class="progress-arrow">→</div>
-								</div>
-							</div>
+							<div
+								class="progress-fill"
+								:class="{ 'progress-cancelling': isCancelling }"
+								:style="{ width: `${progress}%` }"
+							></div>
 						</div>
 
 						<div class="progress-text">{{ stepText }}</div>
@@ -260,34 +256,7 @@ const handleHelp = () => {
 </script>
 
 <style scoped lang="scss">
-/* CSS变量定义 - 支持主题切换 */
-.tenant-switching-overlay {
-	/* Light theme (default) */
-	--bg-primary: #ffffff;
-	--bg-secondary: #f8f8f8;
-	--bg-tertiary: #eeeeee;
-	--text-primary: #333333;
-	--text-secondary: #666666;
-	--accent-primary: #8b5cf6;
-	--accent-secondary: #ff6b6b;
-	--border-color: #e0e0e0;
-	--shadow: rgba(0, 0, 0, 0.1);
-
-	/* Dark theme */
-	&:global(.dark),
-	:global(.dark) & {
-		--bg-primary: #0f0f23;
-		--bg-secondary: #1a1a2e;
-		--bg-tertiary: #2d2d44;
-		--text-primary: #ffffff;
-		--text-secondary: #a0a0a0;
-		--accent-primary: #8b5cf6;
-		--accent-secondary: #ff6b6b;
-		--border-color: #2d2d44;
-		--shadow: rgba(0, 0, 0, 0.3);
-	}
-}
-
+// ✅ 使用项目规范的 Element Plus 语义变量
 .tenant-switching-overlay {
 	position: fixed;
 	top: 0;
@@ -299,7 +268,7 @@ const handleHelp = () => {
 	align-items: center;
 	justify-content: center;
 	padding: 20px;
-	background: var(--bg-primary);
+	background: var(--el-bg-color); // 使用 Element Plus 背景色
 	transition: background-color 0.3s ease;
 }
 
@@ -307,11 +276,11 @@ const handleHelp = () => {
 	max-width: 400px;
 	width: 100%;
 	text-align: center;
-	background: var(--bg-secondary);
-	border-radius: 12px;
+	background: var(--el-bg-color-page); // 使用页面背景色
+	border-radius: var(--el-border-radius-base); // 使用统一圆角
 	padding: 32px;
-	box-shadow: 0 8px 32px var(--shadow);
-	border: 1px solid var(--border-color);
+	box-shadow: var(--el-box-shadow-light); // 使用统一阴影
+	border: 1px solid var(--el-border-color); // 使用边框色
 	transition:
 		background-color 0.3s ease,
 		border-color 0.3s ease,
@@ -325,16 +294,16 @@ const handleHelp = () => {
 }
 
 .title {
-	font-size: 24px;
-	font-weight: 600;
+	font-size: var(--heading-4-size); // 使用 Typography 变量
+	font-weight: var(--heading-4-weight);
 	margin-bottom: 8px;
-	color: var(--text-primary);
+	color: var(--el-text-color-primary); // 使用主要文本色
 	transition: color 0.3s ease;
 }
 
 .subtitle {
-	font-size: 16px;
-	color: var(--text-secondary);
+	font-size: var(--text-base-size); // 使用 Typography 变量
+	color: var(--el-text-color-regular); // 使用常规文本色
 	margin-bottom: 24px;
 	transition: color 0.3s ease;
 }
@@ -351,7 +320,7 @@ const handleHelp = () => {
 }
 
 .tenant-from {
-	font-size: 14px;
+	font-size: var(--text-sm-size); // 使用 Typography 变量
 	font-weight: 500;
 	text-align: left;
 	transition: color 0.3s ease;
@@ -361,19 +330,19 @@ const handleHelp = () => {
 	gap: 4px;
 
 	.tenant-label {
-		font-size: 12px;
-		color: var(--text-secondary);
+		font-size: var(--text-xs-size); // 使用 Typography 变量
+		color: var(--el-text-color-secondary); // 使用次要文本色
 		opacity: 0.8;
 	}
 
 	.tenant-name {
-		color: var(--accent-secondary);
+		color: var(--el-color-danger); // 使用 Element Plus 危险色（红色，表示离开）
 		font-weight: 600;
 	}
 }
 
 .tenant-to {
-	font-size: 14px;
+	font-size: var(--text-sm-size); // 使用 Typography 变量
 	font-weight: 500;
 	text-align: right;
 	transition: color 0.3s ease;
@@ -383,55 +352,60 @@ const handleHelp = () => {
 	gap: 4px;
 
 	.tenant-label {
-		font-size: 12px;
-		color: var(--text-secondary);
+		font-size: var(--text-xs-size); // 使用 Typography 变量
+		color: var(--el-text-color-secondary); // 使用次要文本色
 		opacity: 0.8;
 	}
 
 	.tenant-name {
-		color: var(--accent-primary);
+		color: var(--primary-500); // 使用主题色（表示前往）
 		font-weight: 600;
 	}
-}
-
-.progress-bar-wrapper {
-	position: relative;
-	margin-bottom: 8px;
 }
 
 .progress-bar {
 	width: 100%;
 	height: 8px;
-	background: var(--bg-tertiary);
+	background: var(--el-fill-color); // 使用填充色
 	border-radius: 4px;
 	overflow: hidden;
 	position: relative;
 	transition: background-color 0.3s ease;
+	margin-bottom: 8px;
 }
 
 .progress-fill {
 	height: 100%;
-	background: linear-gradient(90deg, var(--accent-secondary), var(--accent-primary));
+	background: linear-gradient(
+		90deg,
+		var(--el-color-danger),
+		var(--primary-500)
+	); // 从危险色到主题色的渐变
 	border-radius: 4px;
 	transition: width 0.3s ease;
 	width: 0%;
 	position: relative;
 
+	&::after {
+		content: '→';
+		position: absolute;
+		right: -8px;
+		top: 50%;
+		transform: translateY(-50%);
+		color: var(--primary-500); // 使用主题色
+		font-weight: bold;
+		font-size: 12px;
+		transition: color 0.3s ease;
+	}
+
 	&.progress-cancelling {
-		background: linear-gradient(90deg, #f59e0b, #eab308);
+		background: linear-gradient(
+			90deg,
+			var(--el-color-warning-light-3),
+			var(--el-color-warning)
+		); // 使用警告色渐变
 		animation: pulse 1s ease-in-out infinite;
 	}
-}
-
-.progress-arrow {
-	position: absolute;
-	right: -8px;
-	top: 50%;
-	transform: translateY(-50%);
-	color: var(--accent-primary);
-	font-weight: bold;
-	font-size: 12px;
-	transition: color 0.3s ease;
 }
 
 .progress-start {
@@ -439,7 +413,7 @@ const handleHelp = () => {
 	left: -8px;
 	top: 50%;
 	transform: translateY(-50%);
-	color: var(--accent-secondary);
+	color: var(--el-color-danger); // 使用危险色
 	font-weight: bold;
 	font-size: 12px;
 	transition: color 0.3s ease;
@@ -447,8 +421,8 @@ const handleHelp = () => {
 }
 
 .progress-text {
-	font-size: 14px;
-	color: var(--text-secondary);
+	font-size: var(--text-sm-size); // 使用 Typography 变量
+	color: var(--el-text-color-secondary); // 使用次要文本色
 	margin-top: 8px;
 	transition: color 0.3s ease;
 }
@@ -456,8 +430,8 @@ const handleHelp = () => {
 .spinner {
 	width: 20px;
 	height: 20px;
-	border: 2px solid var(--bg-tertiary);
-	border-top: 2px solid var(--accent-primary);
+	border: 2px solid var(--el-fill-color); // 使用填充色
+	border-top: 2px solid var(--primary-500); // 使用主题色
 	border-radius: 50%;
 	animation: spin 1s linear infinite;
 	margin: 0 auto 16px;
@@ -493,30 +467,30 @@ const handleHelp = () => {
 
 .cancel-btn {
 	background: transparent;
-	color: var(--text-secondary);
-	border: 1px solid var(--border-color);
+	color: var(--el-text-color-regular); // 使用常规文本色
+	border: 1px solid var(--el-border-color); // 使用边框色
 	padding: 8px 16px;
-	border-radius: 6px;
-	font-size: 14px;
+	border-radius: var(--el-border-radius-small); // 使用小号圆角
+	font-size: var(--text-sm-size); // 使用 Typography 变量
 	cursor: pointer;
 	transition: all 0.3s ease;
 
 	&:hover {
-		background: var(--bg-tertiary);
-		border-color: var(--accent-primary);
-		color: var(--text-primary);
+		background: var(--el-fill-color-light); // 使用填充色
+		border-color: var(--primary-500); // 使用主题色
+		color: var(--el-text-color-primary); // 使用主要文本色
 	}
 }
 
 .error-message {
 	display: block;
-	background: var(--bg-tertiary);
-	border: 1px solid var(--accent-secondary);
-	border-radius: 8px;
+	background: var(--el-fill-color-light); // 使用填充色
+	border: 1px solid var(--el-color-danger); // 使用危险色边框
+	border-radius: var(--el-border-radius-small); // 使用小号圆角
 	padding: 20px;
 	margin-top: 16px;
-	color: var(--accent-secondary);
-	font-size: 14px;
+	color: var(--el-color-danger); // 使用危险色
+	font-size: var(--text-sm-size); // 使用 Typography 变量
 	transition:
 		background-color 0.3s ease,
 		border-color 0.3s ease,
@@ -535,17 +509,17 @@ const handleHelp = () => {
 
 	strong {
 		display: block;
-		font-size: 16px;
+		font-size: var(--text-base-size); // 使用 Typography 变量
 		font-weight: 600;
 		margin-bottom: 8px;
-		color: var(--text-primary);
+		color: var(--el-text-color-primary); // 使用主要文本色
 	}
 }
 
 .error-details {
 	margin: 8px 0;
-	color: var(--text-secondary);
-	font-size: 13px;
+	color: var(--el-text-color-regular); // 使用常规文本色
+	font-size: var(--text-xs-size); // 使用 Typography 变量
 }
 
 .error-actions {
@@ -557,33 +531,33 @@ const handleHelp = () => {
 }
 
 .retry-btn {
-	background: var(--accent-primary);
-	color: white;
+	background: var(--primary-500); // 使用主题色
+	color: var(--el-color-white); // 使用白色
 	border: none;
 	padding: 8px 16px;
-	border-radius: 6px;
-	font-size: 14px;
+	border-radius: var(--el-border-radius-small); // 使用小号圆角
+	font-size: var(--text-sm-size); // 使用 Typography 变量
 	cursor: pointer;
 	transition: all 0.3s ease;
 
 	&:hover {
-		opacity: 0.8;
+		background: var(--primary-600); // 使用深一级的主题色
 	}
 }
 
 .help-btn {
 	background: transparent;
-	color: var(--accent-secondary);
-	border: 1px solid var(--accent-secondary);
+	color: var(--el-color-danger); // 使用危险色
+	border: 1px solid var(--el-color-danger); // 使用危险色边框
 	padding: 8px 16px;
-	border-radius: 6px;
-	font-size: 14px;
+	border-radius: var(--el-border-radius-small); // 使用小号圆角
+	font-size: var(--text-sm-size); // 使用 Typography 变量
 	cursor: pointer;
 	transition: all 0.3s ease;
 
 	&:hover {
-		background: var(--accent-secondary);
-		color: white;
+		background: var(--el-color-danger); // 使用危险色
+		color: var(--el-color-white); // 使用白色
 	}
 }
 
