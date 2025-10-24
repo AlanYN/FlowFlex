@@ -421,6 +421,10 @@ const props = defineProps({
 		type: Array as PropType<FlowflexUser[]>,
 		required: true,
 	},
+	hasWorkflowPermission: {
+		type: Boolean,
+		default: true,
+	},
 });
 
 // Emits
@@ -479,8 +483,13 @@ watch(
 );
 
 // 方法
-// 检查是否有权限（功能权限 && 数据权限）
+// 检查是否有权限（功能权限 && workflow权限 && stage数据权限）
 const hasStagePermission = (stageId: string, functionalPermission: string) => {
+	// 首先检查 workflow 是否有操作权限
+	if (props.hasWorkflowPermission === false) {
+		return false;
+	}
+
 	// 从 stages 列表中查找对应的 stage
 	const stage = props.stages.find((s) => s.id === stageId);
 	if (stage && stage.permission) {

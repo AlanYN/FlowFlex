@@ -71,7 +71,9 @@
 									Set as Active
 								</el-dropdown-item>
 								<el-dropdown-item
-									v-if="functionPermission(ProjectPermissionEnum.workflow.create)"
+									v-if="
+										hasPermission(row.id, ProjectPermissionEnum.workflow.create)
+									"
 									@click="$emit('command', 'duplicate', row)"
 								>
 									<el-icon><CopyDocument /></el-icon>
