@@ -899,6 +899,11 @@ namespace FlowFlex.Application.Services.OW
                 {
                     LoggingExtensions.WriteLine($"[Permission Filter] User {userIdLong} is System Admin, skipping permission checks for {entities.Count} cases in GetListAsync");
                 }
+                // Fast path: If user is Tenant Admin for current tenant, skip permission checks
+                else if (_userContext != null && _userContext.HasAdminPrivileges(_userContext.TenantId))
+                {
+                    LoggingExtensions.WriteLine($"[Permission Filter] User {userIdLong} is Tenant Admin for tenant {_userContext.TenantId}, skipping permission checks for {entities.Count} cases in GetListAsync");
+                }
                 else
                 {
                     // Regular users need permission filtering
@@ -1135,6 +1140,11 @@ namespace FlowFlex.Application.Services.OW
                     if (_userContext?.IsSystemAdmin == true)
                     {
                         LoggingExtensions.WriteLine($"[Permission Filter] User {userIdLong} is System Admin, skipping permission checks for {pagedEntities.Count} cases");
+                    }
+                    // Fast path: If user is Tenant Admin for current tenant, skip permission checks
+                    else if (_userContext != null && _userContext.HasAdminPrivileges(_userContext.TenantId))
+                    {
+                        LoggingExtensions.WriteLine($"[Permission Filter] User {userIdLong} is Tenant Admin for tenant {_userContext.TenantId}, skipping permission checks for {pagedEntities.Count} cases");
                     }
                     else
                     {

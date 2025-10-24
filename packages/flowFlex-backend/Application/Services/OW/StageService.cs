@@ -624,6 +624,53 @@ namespace FlowFlex.Application.Service.OW
                 return new List<StageOutputDto>();
             }
 
+            // Fast path: If user is System Admin, return all stages without permission checks
+            if (_userContext?.IsSystemAdmin == true)
+            {
+                _logger.LogDebug(
+                    "User {UserId} is System Admin, skipping permission filtering for workflow {WorkflowId} stages",
+                    userId, workflowId);
+                var adminResult = _mapper.Map<List<StageOutputDto>>(list);
+                
+                // System Admin has full permissions on all stages
+                foreach (var stageDto in adminResult)
+                {
+                    stageDto.Permission = new PermissionInfoDto
+                    {
+                        CanView = true,
+                        CanOperate = true,
+                        ErrorMessage = null
+                    };
+                }
+                
+                return adminResult;
+            }
+
+            // Fast path: If user is Tenant Admin for current tenant, return all stages
+            var currentTenantIdString = _userContext?.TenantId;
+            if (!string.IsNullOrEmpty(currentTenantIdString) && 
+                _userContext != null && 
+                _userContext.HasAdminPrivileges(currentTenantIdString))
+            {
+                _logger.LogDebug(
+                    "User {UserId} is Tenant Admin for tenant {TenantId}, skipping permission filtering for workflow {WorkflowId} stages",
+                    userId, currentTenantIdString, workflowId);
+                var tenantAdminResult = _mapper.Map<List<StageOutputDto>>(list);
+                
+                // Tenant Admin has full permissions on all stages in their tenant
+                foreach (var stageDto in tenantAdminResult)
+                {
+                    stageDto.Permission = new PermissionInfoDto
+                    {
+                        CanView = true,
+                        CanOperate = true,
+                        ErrorMessage = null
+                    };
+                }
+                
+                return tenantAdminResult;
+            }
+
             // Pre-check module permissions once (batch optimization)
             // Stage inherits Workflow module permissions
             bool canViewStages = await _permissionService.CheckGroupPermissionAsync(userId, PermissionConsts.Workflow.Read);
