@@ -273,12 +273,12 @@ const handleHelp = () => {
 }
 
 .container {
-	max-width: 400px;
+	max-width: 500px;
 	width: 100%;
 	text-align: center;
 	background: var(--el-bg-color-page); // 使用页面背景色
 	border-radius: var(--el-border-radius-base); // 使用统一圆角
-	padding: 32px;
+	padding: 40px;
 	box-shadow: var(--el-box-shadow-light); // 使用统一阴影
 	border: 1px solid var(--el-border-color); // 使用边框色
 	transition:
