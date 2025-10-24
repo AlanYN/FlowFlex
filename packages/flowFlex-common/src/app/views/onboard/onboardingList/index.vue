@@ -1782,22 +1782,74 @@ const resetForm = () => {
 	}
 };
 
-// 权限检查：检查当前用户是否会被排除在 View 或 Operate 权限之外
-const checkCurrentUserPermissions = async (): Promise<{
+// 验证并检查权限：验证必填项 + 检查当前用户是否会被权限设置排除
+const validateAndCheckPermissions = async (): Promise<{
 	hasWarning: boolean;
+	showMessage: boolean;
 	warningMessage: string;
 }> => {
+	if (
+		formData.viewPermissionMode === CasePermissionModeEnum.InvisibleToTeams ||
+		formData.viewPermissionMode === CasePermissionModeEnum.VisibleToTeams
+	) {
+		// Validate View Permission selection
+		if (formData.viewPermissionSubjectType === PermissionSubjectTypeEnum.User) {
+			formData.viewTeams = [];
+			if (formData.viewUsers.length === 0) {
+				return {
+					hasWarning: false,
+					showMessage: true,
+					warningMessage: 'Please select at least one user for View Permission.',
+				};
+			}
+		} else if (formData.viewPermissionSubjectType === PermissionSubjectTypeEnum.Team) {
+			formData.viewUsers = [];
+			if (formData.viewTeams.length === 0) {
+				return {
+					hasWarning: false,
+					showMessage: true,
+					warningMessage: 'Please select at least one team for View Permission.',
+				};
+			}
+		}
+		// Validate Operate Permission selection
+		if (formData.operatePermissionSubjectType === PermissionSubjectTypeEnum.User) {
+			formData.operateTeams = [];
+			if (formData.operateUsers.length === 0) {
+				return {
+					hasWarning: false,
+					showMessage: true,
+					warningMessage: 'Please select at least one user for Operate Permission.',
+				};
+			}
+		} else if (formData.operatePermissionSubjectType === PermissionSubjectTypeEnum.Team) {
+			formData.operateUsers = [];
+			if (formData.operateTeams.length === 0) {
+				return {
+					hasWarning: false,
+					showMessage: true,
+					warningMessage: 'Please select at least one team for Operate Permission.',
+				};
+			}
+		}
+	} else {
+		formData.viewTeams = [];
+		formData.viewUsers = [];
+		formData.operateTeams = [];
+		formData.operateUsers = [];
+	}
+
 	// 只在 VisibleToTeams 或 InvisibleToTeams 模式下检查
 	if (
 		formData.viewPermissionMode !== CasePermissionModeEnum.VisibleToTeams &&
 		formData.viewPermissionMode !== CasePermissionModeEnum.InvisibleToTeams
 	) {
-		return { hasWarning: false, warningMessage: '' };
+		return { hasWarning: false, showMessage: false, warningMessage: '' };
 	}
 
 	const currentUser = userStore.getUserInfo;
 	if (!currentUser || !currentUser.userId) {
-		return { hasWarning: false, warningMessage: '' };
+		return { hasWarning: false, showMessage: false, warningMessage: '' };
 	}
 
 	// 递归查找用户所属团队的辅助函数
@@ -1875,13 +1927,13 @@ const checkCurrentUserPermissions = async (): Promise<{
 				warningMessage =
 					'Warning: You are setting permissions that will exclude yourself from operating this case. You will be able to view but not operate on this case after saving. Do you want to continue?';
 			}
-			return { hasWarning: true, warningMessage };
+			return { hasWarning: true, showMessage: false, warningMessage };
 		}
 	} catch (error) {
 		console.error('Failed to check user permissions:', error);
 	}
 
-	return { hasWarning: false, warningMessage: '' };
+	return { hasWarning: false, showMessage: false, warningMessage: '' };
 };
 
 const handleSave = async () => {
@@ -1891,20 +1943,25 @@ const handleSave = async () => {
 		// 表单验证
 		await formRef.value.validate();
 
-		// 权限检查：检查当前用户是否会被排除在权限之外
-		const permissionCheck = await checkCurrentUserPermissions();
-		if (permissionCheck.hasWarning) {
+		// 验证并检查权限：验证必填项 + 检查当前用户是否会被权限设置排除
+		const permissionCheck = await validateAndCheckPermissions();
+		if (permissionCheck.hasWarning || permissionCheck.showMessage) {
 			try {
-				await ElMessageBox.confirm(
-					permissionCheck.warningMessage,
-					'⚠️ Permission Warning',
-					{
-						confirmButtonText: 'Continue',
-						cancelButtonText: 'Cancel',
-						type: 'warning',
-						distinguishCancelAndClose: true,
-					}
-				);
+				if (permissionCheck.showMessage) {
+					ElMessage.warning(permissionCheck.warningMessage);
+					return;
+				} else {
+					await ElMessageBox.confirm(
+						permissionCheck.warningMessage,
+						'⚠️ Permission Warning',
+						{
+							confirmButtonText: 'Continue',
+							cancelButtonText: 'Cancel',
+							type: 'warning',
+							distinguishCancelAndClose: true,
+						}
+					);
+				}
 			} catch (error) {
 				// 用户点击取消
 				return;
@@ -1912,26 +1969,6 @@ const handleSave = async () => {
 		}
 
 		saving.value = true;
-		if (
-			formData.viewPermissionMode === CasePermissionModeEnum.InvisibleToTeams ||
-			formData.viewPermissionMode === CasePermissionModeEnum.VisibleToTeams
-		) {
-			if (formData.viewPermissionSubjectType === PermissionSubjectTypeEnum.User) {
-				formData.viewTeams = [];
-			} else if (formData.viewPermissionSubjectType === PermissionSubjectTypeEnum.Team) {
-				formData.viewUsers = [];
-			}
-			if (formData.operatePermissionSubjectType === PermissionSubjectTypeEnum.User) {
-				formData.operateTeams = [];
-			} else if (formData.operatePermissionSubjectType === PermissionSubjectTypeEnum.Team) {
-				formData.operateUsers = [];
-			}
-		} else {
-			formData.viewTeams = [];
-			formData.viewUsers = [];
-			formData.operateTeams = [];
-			formData.operateUsers = [];
-		}
 
 		// 处理 ownership 字段：如果为空字符串，转换为 null
 		const submitData = {
