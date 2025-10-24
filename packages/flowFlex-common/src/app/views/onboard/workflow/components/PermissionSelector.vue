@@ -4,7 +4,6 @@
 		<div class="space-y-4 w-full">
 			<div class="space-y-2">
 				<label class="text-base font-bold">View Permission</label>
-				<p class="text-sm">Controls who can view cases using this workflow</p>
 
 				<el-select
 					v-model="localPermissions.viewPermissionMode"
@@ -36,21 +35,23 @@
 		<div class="space-y-4 w-full">
 			<div class="space-y-2">
 				<label class="text-base font-bold">Operate Permission</label>
-				<p class="text-sm">Controls who can operate on cases using this workflow</p>
 
 				<el-checkbox v-model="localPermissions.useSameGroups">
-					Use same team that have view permission
+					{{ checkboxLabel }}
 				</el-checkbox>
 			</div>
 
-			<!-- Available Teams（仅在不勾选 useSameGroups 时显示）-->
+			<!-- Team（仅在不勾选 useSameGroups 时显示）-->
 			<div v-if="!localPermissions.useSameGroups" class="space-y-2">
-				<label class="text-base font-bold">Available Teams</label>
+				<label class="text-base font-bold">Team</label>
 				<FlowflexUserSelector
 					v-model="localPermissions.operateTeams"
 					selectionType="team"
 					:clearable="true"
 					checkStrictly
+					:available-ids="operateFilterConfig.availableIds"
+					:excluded-ids="operateFilterConfig.excludedIds"
+					@focus="handleOperateFocus"
 				/>
 			</div>
 		</div>
@@ -61,6 +62,7 @@
 import { reactive, computed, watch, nextTick, ref } from 'vue';
 import { ViewPermissionModeEnum } from '@/enums/permissionEnum';
 import FlowflexUserSelector from '@/components/form/flowflexUser/index.vue';
+import { ElMessage } from 'element-plus';
 
 // Props
 interface Props {
@@ -101,6 +103,15 @@ const shouldShowTeamSelector = computed(() => {
 	);
 });
 
+// 动态checkbox文案 - Invisible模式显示特殊文案
+const checkboxLabel = computed(() => {
+	const mode = localPermissions.viewPermissionMode;
+	if (mode === ViewPermissionModeEnum.InvisibleToTeams) {
+		return 'Use same team that have view permission (not editable)';
+	}
+	return 'Use same team that have view permission';
+});
+
 // 本地权限数据
 const localPermissions = reactive({
 	viewPermissionMode: props.modelValue.viewPermissionMode ?? ViewPermissionModeEnum.Public,
@@ -111,6 +122,35 @@ const localPermissions = reactive({
 
 // 使用一个 ref 来跟踪是否正在处理内部更新
 const isProcessingInternalUpdate = ref(false);
+
+// 跟踪上一次的viewPermissionMode和useSameGroups状态
+const previousViewPermissionMode = ref(localPermissions.viewPermissionMode);
+const previousUseSameGroups = ref(localPermissions.useSameGroups);
+
+const operateFilterConfig = computed(() => {
+	const mode = localPermissions.viewPermissionMode;
+
+	// Visible to 模式：白名单（只能从左侧已选team中选择）
+	if (mode === ViewPermissionModeEnum.VisibleToTeams) {
+		return { availableIds: localPermissions.viewTeams, excludedIds: undefined };
+	}
+
+	// Invisible to 模式：黑名单（排除左侧已选team）
+	if (mode === ViewPermissionModeEnum.InvisibleToTeams) {
+		return { availableIds: undefined, excludedIds: localPermissions.viewTeams };
+	}
+
+	// Public 或其他模式：不限制
+	return { availableIds: undefined, excludedIds: undefined };
+});
+
+// 处理右侧team选择器获得焦点事件
+const handleOperateFocus = () => {
+	// 如果左侧未选择team，显示提示
+	if (shouldShowTeamSelector.value && localPermissions.viewTeams.length === 0) {
+		ElMessage.warning('Please select View Permission teams first');
+	}
+};
 
 // 统一的数据处理函数
 const processPermissionChanges = () => {
@@ -126,8 +166,28 @@ const processPermissionChanges = () => {
 			localPermissions.viewTeams = [];
 		}
 
+		// 检测viewPermissionMode在VisibleToTeams和InvisibleToTeams之间切换，清空operateTeams
+		const currentMode = localPermissions.viewPermissionMode;
+		const previousMode = previousViewPermissionMode.value;
+		const isModeSwitchBetweenVisibleAndInvisible =
+			(currentMode === ViewPermissionModeEnum.VisibleToTeams &&
+				previousMode === ViewPermissionModeEnum.InvisibleToTeams) ||
+			(currentMode === ViewPermissionModeEnum.InvisibleToTeams &&
+				previousMode === ViewPermissionModeEnum.VisibleToTeams);
+
+		if (isModeSwitchBetweenVisibleAndInvisible) {
+			localPermissions.operateTeams = [];
+		}
+
+		// 更新previousViewPermissionMode
+		previousViewPermissionMode.value = currentMode;
+
+		// 检测useSameGroups变化
+		const currentUseSameGroups = localPermissions.useSameGroups;
+		const previousSameGroups = previousUseSameGroups.value;
+
 		// 处理 operateTeams 的同步
-		if (localPermissions.useSameGroups) {
+		if (currentUseSameGroups) {
 			// 勾选"使用相同团队"时，同步 viewTeams 到 operateTeams
 			const newOperateTeams = shouldShowTeamSelector.value
 				? [...localPermissions.viewTeams]
@@ -135,8 +195,14 @@ const processPermissionChanges = () => {
 			if (JSON.stringify(newOperateTeams) !== JSON.stringify(localPermissions.operateTeams)) {
 				localPermissions.operateTeams = newOperateTeams;
 			}
+		} else if (previousSameGroups && !currentUseSameGroups) {
+			// 从勾选变为取消勾选时，清空operateTeams
+			localPermissions.operateTeams = [];
 		}
-		// 不勾选时，左右两侧完全独立，无需任何过滤或限制
+		// 其他情况不做操作，保持operateTeams不变
+
+		// 更新previousUseSameGroups
+		previousUseSameGroups.value = currentUseSameGroups;
 
 		// emit 更新到父组件
 		emit('update:modelValue', {
@@ -158,35 +224,6 @@ watch(
 	localPermissions,
 	() => {
 		processPermissionChanges();
-	},
-	{ deep: true }
-);
-
-// 监听外部数据变化（从父组件接收更新）
-watch(
-	() => props.modelValue,
-	(newVal) => {
-		if (newVal && !isProcessingInternalUpdate.value) {
-			// 检查是否真的有变化，避免不必要的更新
-			const hasChanges =
-				localPermissions.viewPermissionMode !== newVal.viewPermissionMode ||
-				JSON.stringify(localPermissions.viewTeams) !== JSON.stringify(newVal.viewTeams) ||
-				localPermissions.useSameGroups !== newVal.useSameGroups ||
-				JSON.stringify(localPermissions.operateTeams) !==
-					JSON.stringify(newVal.operateTeams);
-
-			if (hasChanges) {
-				isProcessingInternalUpdate.value = true;
-				localPermissions.viewPermissionMode =
-					newVal.viewPermissionMode ?? ViewPermissionModeEnum.Public;
-				localPermissions.viewTeams = [...(newVal.viewTeams || [])];
-				localPermissions.useSameGroups = newVal.useSameGroups ?? true;
-				localPermissions.operateTeams = [...(newVal.operateTeams || [])];
-				nextTick(() => {
-					isProcessingInternalUpdate.value = false;
-				});
-			}
-		}
 	},
 	{ deep: true }
 );
