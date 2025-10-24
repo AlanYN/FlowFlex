@@ -298,7 +298,7 @@ import AISummary from './components/AISummary.vue';
 import EditableStageHeader from './components/EditableStageHeader.vue';
 import { getAppCode } from '@/utils/threePartyLogin';
 import { ProjectPermissionEnum } from '@/enums/permissionEnum';
-import { functionPermission, checkPermissionHook } from '@/hooks';
+import { functionPermission } from '@/hooks';
 
 const { t } = useI18n();
 const userStore = useUserStore();
@@ -307,15 +307,6 @@ const globSetting = useGlobSetting();
 // 常量定义
 const router = useRouter();
 const route = useRoute();
-
-// 存储当前 case 的操作权限检查结果
-const caseOperatePermission = ref<{
-	canOperate: boolean;
-	loading: boolean;
-}>({
-	canOperate: false,
-	loading: false,
-});
 
 // 响应式数据
 const onboardingData = ref<OnboardingItem | null>(null);
@@ -754,34 +745,12 @@ const loadCurrentStageData = async () => {
 	await loadStaticFieldValues();
 };
 
-// 检查 case 操作权限
-const checkCasePermission = async () => {
-	if (!onboardingId.value) return;
-
-	caseOperatePermission.value = {
-		canOperate: false,
-		loading: true,
-	};
-
-	try {
-		const result = await checkPermissionHook(onboardingId.value, 3);
-		caseOperatePermission.value = {
-			canOperate: result,
-			loading: false,
-		};
-	} catch (error) {
-		console.error('Failed to check case permission:', error);
-		caseOperatePermission.value = {
-			canOperate: false,
-			loading: false,
-		};
-	}
-};
-
 // 检查是否有权限（功能权限 && 数据权限）
 const hasCasePermission = (functionalPermission: string) => {
-	if (caseOperatePermission.value.loading) return false;
-	return functionPermission(functionalPermission) && caseOperatePermission.value.canOperate;
+	if (onboardingData.value && onboardingData.value.permission) {
+		return functionPermission(functionalPermission) && onboardingData.value.permission.canOperate;
+	}
+	return functionPermission(functionalPermission);
 };
 
 // 事件处理函数
@@ -1330,9 +1299,6 @@ onMounted(async () => {
 		router.push('/onboard/onboardList'); // 重定向到列表页
 		return;
 	}
-
-	// 检查 case 操作权限
-	await checkCasePermission();
 
 	// 加载入职详情，这会获取 workflowId，然后加载对应的 stages，设置 activeStage 并加载基于 stage 的数据
 	await loadOnboardingDetail();
