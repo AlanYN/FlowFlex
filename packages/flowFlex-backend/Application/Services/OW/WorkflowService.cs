@@ -27,6 +27,8 @@ using FlowFlex.Domain.Shared.Models;
 using Item.Redis;
 using FlowFlex.Application.Services.OW.Extensions;
 using FlowFlex.Application.Contracts.IServices.OW;
+using FlowFlex.Domain.Shared.Const;
+using FlowFlex.Application.Contracts.Dtos.OW.Permission;
 
 namespace FlowFlex.Application.Service.OW
 {
@@ -499,6 +501,12 @@ namespace FlowFlex.Application.Service.OW
             var entity = await _workflowRepository.GetWithStagesAsync(id);
             var result = _mapper.Map<WorkflowOutputDto>(entity);
 
+            // Fill permission info (optimized single call)
+            if (result != null && !string.IsNullOrEmpty(_userContext?.UserId) && long.TryParse(_userContext.UserId, out var userId))
+            {
+                result.Permission = await _permissionService.GetWorkflowPermissionInfoAsync(userId, result.Id);
+            }
+
             if (result != null)
             {
                 await _cacheService.SetAsync(cacheKey, result, TimeSpan.FromMinutes(15));
@@ -616,7 +624,7 @@ namespace FlowFlex.Application.Service.OW
             
             var result = _mapper.Map<List<WorkflowOutputDto>>(items);
 
-            // Batch load stages for all workflows to reduce database queries
+            // Batch load stages and fill permission info for all workflows
             if (result.Any())
             {
                 var workflowIds = result.Select(w => w.Id).ToList();
@@ -626,7 +634,24 @@ namespace FlowFlex.Application.Service.OW
                 var stagesByWorkflow = allStages.GroupBy(s => s.WorkflowId)
                     .ToDictionary(g => g.Key, g => g.ToList());
                 
-                // Assign stages to each workflow
+                // Get current user ID for permission checks
+                var userId = !string.IsNullOrEmpty(_userContext?.UserId) && long.TryParse(_userContext.UserId, out var uid) ? uid : 0;
+                
+                // Pre-check module permissions once (for performance optimization)
+                bool canViewWorkflows = false;
+                bool canOperateWorkflows = false;
+                
+                if (userId > 0)
+                {
+                    // Check module-level permissions only once
+                    canViewWorkflows = await _permissionService.CheckGroupPermissionAsync(userId, PermissionConsts.Workflow.Read);
+                    canOperateWorkflows = await _permissionService.CheckGroupPermissionAsync(userId, PermissionConsts.Workflow.Update);
+                    
+                    _logger.LogDebug("Module permission check - UserId: {UserId}, CanView: {CanView}, CanOperate: {CanOperate}", 
+                        userId, canViewWorkflows, canOperateWorkflows);
+                }
+                
+                // Assign stages and permission info to each workflow
                 foreach (var workflow in result)
                 {
                     if (stagesByWorkflow.TryGetValue(workflow.Id, out var stages))
@@ -636,6 +661,25 @@ namespace FlowFlex.Application.Service.OW
                     else
                     {
                         workflow.Stages = new List<StageOutputDto>();
+                    }
+
+                    // Fill permission info (batch-optimized: entity-level check only)
+                    if (userId > 0)
+                    {
+                        workflow.Permission = await _permissionService.GetWorkflowPermissionInfoForListAsync(
+                            userId, 
+                            workflow.Id, 
+                            canViewWorkflows, 
+                            canOperateWorkflows);
+                    }
+                    else
+                    {
+                        workflow.Permission = new PermissionInfoDto
+                        {
+                            CanView = false,
+                            CanOperate = false,
+                            ErrorMessage = "User not authenticated"
+                        };
                     }
                 }
             }
@@ -1126,7 +1170,7 @@ namespace FlowFlex.Application.Service.OW
         }
 
         /// <summary>
-        /// Filter workflows by user permission
+        /// Filter workflows by user permission (optimized with batch processing)
         /// </summary>
         private async Task<List<Workflow>> FilterWorkflowsByPermissionAsync(List<Workflow> workflows)
         {
@@ -1152,26 +1196,51 @@ namespace FlowFlex.Application.Service.OW
                 return workflows;
             }
 
+            var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+            
+            // Optimization: Check module permission once instead of for each workflow
+            // Module permission (WORKFLOW:READ) is same for all workflows in this list
+            var hasModulePermission = await _permissionService.CheckGroupPermissionAsync(
+                userId, 
+                Domain.Shared.Const.PermissionConsts.Workflow.Read);
+            
+            if (!hasModulePermission)
+            {
+                _logger.LogWarning(
+                    "User {UserId} does not have WORKFLOW:READ permission, returning empty list", 
+                    userId);
+                return new List<Workflow>();
+            }
+
+            // Pre-fetch user teams once to avoid repeated queries
+            var userTeamIds = _permissionService.GetUserTeamIds();
+            _logger.LogDebug(
+                "User {UserId} belongs to {TeamCount} teams for workflow filtering",
+                userId,
+                userTeamIds?.Count ?? 0);
+
             var filteredWorkflows = new List<Workflow>();
 
             foreach (var workflow in workflows)
             {
-                // Check view permission for each workflow
-                var permissionResult = await _permissionService.CheckWorkflowAccessAsync(
+                // Only check entity-level permission (skip module permission as already checked)
+                var hasViewPermission = await _permissionService.CheckWorkflowViewPermissionAsync(
                     userId,
                     workflow.Id,
-                    Domain.Shared.Enums.Permission.OperationTypeEnum.View);
+                    workflow);
 
-                if (permissionResult.Success && permissionResult.CanView)
+                if (hasViewPermission)
                 {
                     filteredWorkflows.Add(workflow);
                 }
             }
 
-            _logger.LogDebug(
-                "Filtered workflows - Total: {Total}, Accessible: {Accessible}",
+            stopwatch.Stop();
+            _logger.LogInformation(
+                "Filtered workflows - Total: {Total}, Accessible: {Accessible}, Elapsed: {Elapsed}ms",
                 workflows.Count,
-                filteredWorkflows.Count);
+                filteredWorkflows.Count,
+                stopwatch.ElapsedMilliseconds);
 
             return filteredWorkflows;
         }

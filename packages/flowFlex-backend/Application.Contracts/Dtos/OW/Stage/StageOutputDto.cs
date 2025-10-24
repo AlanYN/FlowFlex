@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using FlowFlex.Application.Contracts.Dtos.OW.Permission;
 using FlowFlex.Domain.Shared.Enums;
 using FlowFlex.Domain.Shared.Enums.OW;
 
@@ -162,6 +163,10 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.Stage
         /// </summary>
         public long ModifyUserId { get; set; }
 
-
+        /// <summary>
+        /// User's permission for this stage
+        /// Includes view and operate permissions
+        /// </summary>
+        public PermissionInfoDto Permission { get; set; }
     }
 }

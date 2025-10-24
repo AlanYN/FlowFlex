@@ -778,7 +778,7 @@ namespace FlowFlex.Application.Services.OW
         /// <summary>
         /// Get user team IDs from UserContext
         /// </summary>
-        private List<string> GetUserTeamIds()
+        public List<string> GetUserTeamIds()
         {
             _logger.LogDebug(
                 "GetUserTeamIds - UserContext: {HasContext}, UserTeams: {HasTeams}, UserId: {UserId}",
@@ -1171,6 +1171,136 @@ namespace FlowFlex.Application.Services.OW
 
         #endregion
 
+        #region Optimized Permission Info Methods (for DTO population)
+
+        /// <summary>
+        /// Get permission info for Workflow (optimized for DTO population)
+        /// Returns both view and operate permissions in a single call
+        /// </summary>
+        public async Task<PermissionInfoDto> GetWorkflowPermissionInfoAsync(long userId, long workflowId)
+        {
+            // Fast path: System Admin
+            if (_userContext?.IsSystemAdmin == true)
+            {
+                return new PermissionInfoDto
+                {
+                    CanView = true,
+                    CanOperate = true,
+                    ErrorMessage = null
+                };
+            }
+
+            // Check view permission (READ)
+            var viewResult = await CheckWorkflowAccessAsync(userId, workflowId, Domain.Shared.Enums.Permission.OperationTypeEnum.View);
+            
+            // If can't view, return immediately
+            if (!viewResult.CanView)
+            {
+                return new PermissionInfoDto
+                {
+                    CanView = false,
+                    CanOperate = false,
+                    ErrorMessage = viewResult.ErrorMessage
+                };
+            }
+
+            // Check operate permission (UPDATE) - only if view is granted
+            var operateResult = await CheckWorkflowAccessAsync(userId, workflowId, Domain.Shared.Enums.Permission.OperationTypeEnum.Operate);
+            
+            return new PermissionInfoDto
+            {
+                CanView = true,
+                CanOperate = operateResult.CanOperate,
+                ErrorMessage = null
+            };
+        }
+
+        /// <summary>
+        /// Get permission info for Stage (optimized for DTO population)
+        /// Returns both view and operate permissions in a single call
+        /// </summary>
+        public async Task<PermissionInfoDto> GetStagePermissionInfoAsync(long userId, long stageId)
+        {
+            // Fast path: System Admin
+            if (_userContext?.IsSystemAdmin == true)
+            {
+                return new PermissionInfoDto
+                {
+                    CanView = true,
+                    CanOperate = true,
+                    ErrorMessage = null
+                };
+            }
+
+            // Check view permission (READ)
+            var viewResult = await CheckStageAccessAsync(userId, stageId, Domain.Shared.Enums.Permission.OperationTypeEnum.View);
+            
+            // If can't view, return immediately
+            if (!viewResult.CanView)
+            {
+                return new PermissionInfoDto
+                {
+                    CanView = false,
+                    CanOperate = false,
+                    ErrorMessage = viewResult.ErrorMessage
+                };
+            }
+
+            // Check operate permission (UPDATE) - only if view is granted
+            var operateResult = await CheckStageAccessAsync(userId, stageId, Domain.Shared.Enums.Permission.OperationTypeEnum.Operate);
+            
+            return new PermissionInfoDto
+            {
+                CanView = true,
+                CanOperate = operateResult.CanOperate,
+                ErrorMessage = null
+            };
+        }
+
+        /// <summary>
+        /// Get permission info for Case (optimized for DTO population)
+        /// Returns both view and operate permissions in a single call
+        /// </summary>
+        public async Task<PermissionInfoDto> GetCasePermissionInfoAsync(long userId, long caseId)
+        {
+            // Fast path: System Admin
+            if (_userContext?.IsSystemAdmin == true)
+            {
+                return new PermissionInfoDto
+                {
+                    CanView = true,
+                    CanOperate = true,
+                    ErrorMessage = null
+                };
+            }
+
+            // Check view permission (READ)
+            var viewResult = await CheckCaseAccessAsync(userId, caseId, Domain.Shared.Enums.Permission.OperationTypeEnum.View);
+            
+            // If can't view, return immediately
+            if (!viewResult.CanView)
+            {
+                return new PermissionInfoDto
+                {
+                    CanView = false,
+                    CanOperate = false,
+                    ErrorMessage = viewResult.ErrorMessage
+                };
+            }
+
+            // Check operate permission (UPDATE) - only if view is granted
+            var operateResult = await CheckCaseAccessAsync(userId, caseId, Domain.Shared.Enums.Permission.OperationTypeEnum.Operate);
+            
+            return new PermissionInfoDto
+            {
+                CanView = true,
+                CanOperate = operateResult.CanOperate,
+                ErrorMessage = null
+            };
+        }
+
+        #endregion
+
         #region Helper Methods
 
         /// <summary>
@@ -1336,6 +1466,333 @@ namespace FlowFlex.Application.Services.OW
                     return new List<string>();
                 }
             }
+        }
+
+        /// <summary>
+        /// Check user's group permission (module-level permission check)
+        /// This method ONLY checks module permission, without Portal token bypass
+        /// Used for batch permission checking in list operations
+        /// </summary>
+        public async Task<bool> CheckGroupPermissionAsync(long userId, string permission)
+        {
+            _logger.LogDebug(
+                "CheckGroupPermissionAsync - UserId: {UserId}, Permission: {Permission}",
+                userId, permission);
+
+            // System Admin has all permissions
+            if (_userContext?.IsSystemAdmin == true)
+            {
+                _logger.LogDebug("User {UserId} is System Admin, granting permission {Permission}", userId, permission);
+                return true;
+            }
+
+            // If no IAM token, deny access
+            if (_userContext?.IamToken == null)
+            {
+                _logger.LogWarning(
+                    "Module permission check failed: No IAM token available for user {UserId}",
+                    userId);
+                return false;
+            }
+
+            try
+            {
+                // Call IdentityHub to check module permission
+                var hasPermission = await _identityHubClient.UserRolePermissionCheck(
+                    _userContext.IamToken,
+                    new List<string> { permission });
+
+                if (hasPermission)
+                {
+                    _logger.LogDebug(
+                        "Module permission check passed: User {UserId} has permission {Permission}",
+                        userId, permission);
+                    return true;
+                }
+                else
+                {
+                    _logger.LogWarning(
+                        "Module permission check failed: User {UserId} does not have permission {Permission}",
+                        userId, permission);
+                    return false;
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex,
+                    "Error checking group permission for user {UserId}, permission {Permission}",
+                    userId, permission);
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Check Workflow view permission at entity-level ONLY
+        /// This method skips module permission check and directly checks entity-level permission
+        /// Optimized for batch operations where module permission is already verified
+        /// </summary>
+        public async Task<bool> CheckWorkflowViewPermissionAsync(
+            long userId,
+            long workflowId,
+            Workflow workflow = null)
+        {
+            // System Admin has all permissions
+            if (_userContext?.IsSystemAdmin == true)
+            {
+                _logger.LogDebug(
+                    "User {UserId} is System Admin, granting view permission for Workflow {WorkflowId}",
+                    userId, workflowId);
+                return true;
+            }
+
+            // Load workflow if not provided
+            if (workflow == null)
+            {
+                workflow = await _workflowRepository.GetByIdAsync(workflowId);
+                if (workflow == null)
+                {
+                    _logger.LogWarning("Workflow {WorkflowId} not found", workflowId);
+                    return false;
+                }
+            }
+
+            // Get user teams
+            var userTeamIds = GetUserTeamIds();
+
+            // Check view permission only
+            return CheckViewPermission(workflow, userTeamIds);
+        }
+
+        /// <summary>
+        /// Get permission info for Workflow (batch-optimized for list APIs)
+        /// Skips redundant module permission checks by accepting pre-checked flags
+        /// This significantly improves performance for list queries by avoiding N IDM API calls
+        /// </summary>
+        public async Task<PermissionInfoDto> GetWorkflowPermissionInfoForListAsync(
+            long userId, 
+            long workflowId, 
+            bool hasViewModulePermission, 
+            bool hasOperateModulePermission)
+        {
+            // System Admin bypass
+            if (_userContext?.IsSystemAdmin == true)
+            {
+                return new PermissionInfoDto 
+                { 
+                    CanView = true, 
+                    CanOperate = true, 
+                    ErrorMessage = null 
+                };
+            }
+
+            // Check View permission (module permission already checked by caller)
+            if (!hasViewModulePermission)
+            {
+                return new PermissionInfoDto
+                {
+                    CanView = false,
+                    CanOperate = false,
+                    ErrorMessage = $"User does not have required module permission: {PermissionConsts.Workflow.Read}"
+                };
+            }
+
+            // Load workflow entity
+            var workflow = await _workflowRepository.GetByIdAsync(workflowId);
+            if (workflow == null)
+            {
+                return new PermissionInfoDto
+                {
+                    CanView = false,
+                    CanOperate = false,
+                    ErrorMessage = $"Workflow {workflowId} not found"
+                };
+            }
+
+            // Get user teams
+            var userTeamIds = GetUserTeamIds();
+
+            // Check entity-level view permission
+            bool canView = CheckViewPermission(workflow, userTeamIds);
+            if (!canView)
+            {
+                return new PermissionInfoDto
+                {
+                    CanView = false,
+                    CanOperate = false,
+                    ErrorMessage = "User is not in allowed teams to view this workflow"
+                };
+            }
+
+            // Check Operate permission (module permission already checked by caller)
+            bool canOperate = false;
+            if (hasOperateModulePermission)
+            {
+                // Check entity-level operate permission
+                canOperate = CheckOperatePermission(workflow, userTeamIds);
+            }
+
+            return new PermissionInfoDto
+            {
+                CanView = true,
+                CanOperate = canOperate,
+                ErrorMessage = null
+            };
+        }
+
+        /// <summary>
+        /// Get permission info for Stage (batch-optimized for list APIs)
+        /// </summary>
+        public async Task<PermissionInfoDto> GetStagePermissionInfoForListAsync(
+            long userId, 
+            long stageId, 
+            bool hasViewModulePermission, 
+            bool hasOperateModulePermission)
+        {
+            // System Admin bypass
+            if (_userContext?.IsSystemAdmin == true)
+            {
+                return new PermissionInfoDto 
+                { 
+                    CanView = true, 
+                    CanOperate = true, 
+                    ErrorMessage = null 
+                };
+            }
+
+            // Check View permission (module permission already checked by caller)
+            if (!hasViewModulePermission)
+            {
+                return new PermissionInfoDto
+                {
+                    CanView = false,
+                    CanOperate = false,
+                    ErrorMessage = $"User does not have required module permission: {PermissionConsts.Stage.Read}"
+                };
+            }
+
+            // Load stage entity
+            var stage = await _stageRepository.GetByIdAsync(stageId);
+            if (stage == null)
+            {
+                return new PermissionInfoDto
+                {
+                    CanView = false,
+                    CanOperate = false,
+                    ErrorMessage = $"Stage {stageId} not found"
+                };
+            }
+
+            // Load workflow entity (needed for permission inheritance check)
+            var workflow = await _workflowRepository.GetByIdAsync(stage.WorkflowId);
+            if (workflow == null)
+            {
+                return new PermissionInfoDto
+                {
+                    CanView = false,
+                    CanOperate = false,
+                    ErrorMessage = $"Workflow {stage.WorkflowId} not found"
+                };
+            }
+
+            // Check entity-level view permission (includes workflow inheritance check)
+            var viewResult = CheckStagePermission(stage, workflow, userId, PermissionOperationType.View);
+            if (!viewResult.Success)
+            {
+                return new PermissionInfoDto
+                {
+                    CanView = false,
+                    CanOperate = false,
+                    ErrorMessage = viewResult.ErrorMessage ?? "User is not allowed to view this stage"
+                };
+            }
+
+            // Check Operate permission (module permission already checked by caller)
+            bool canOperate = false;
+            if (hasOperateModulePermission)
+            {
+                // Check entity-level operate permission (includes workflow inheritance check)
+                var operateResult = CheckStagePermission(stage, workflow, userId, PermissionOperationType.Operate);
+                canOperate = operateResult.Success;
+            }
+
+            return new PermissionInfoDto
+            {
+                CanView = true,
+                CanOperate = canOperate,
+                ErrorMessage = null
+            };
+        }
+
+        /// <summary>
+        /// Get permission info for Case (batch-optimized for list APIs)
+        /// </summary>
+        public async Task<PermissionInfoDto> GetCasePermissionInfoForListAsync(
+            long userId, 
+            long caseId, 
+            bool hasViewModulePermission, 
+            bool hasOperateModulePermission)
+        {
+            // System Admin bypass
+            if (_userContext?.IsSystemAdmin == true)
+            {
+                return new PermissionInfoDto 
+                { 
+                    CanView = true, 
+                    CanOperate = true, 
+                    ErrorMessage = null 
+                };
+            }
+
+            // Check View permission (module permission already checked by caller)
+            if (!hasViewModulePermission)
+            {
+                return new PermissionInfoDto
+                {
+                    CanView = false,
+                    CanOperate = false,
+                    ErrorMessage = $"User does not have required module permission: {PermissionConsts.Case.Read}"
+                };
+            }
+
+            // Load case entity
+            var onboarding = await _onboardingRepository.GetByIdAsync(caseId);
+            if (onboarding == null)
+            {
+                return new PermissionInfoDto
+                {
+                    CanView = false,
+                    CanOperate = false,
+                    ErrorMessage = $"Case {caseId} not found"
+                };
+            }
+
+            // Check entity-level view permission (includes workflow/stage inheritance check)
+            var viewResult = CheckCasePermission(onboarding, userId, PermissionOperationType.View);
+            if (!viewResult.Success)
+            {
+                return new PermissionInfoDto
+                {
+                    CanView = false,
+                    CanOperate = false,
+                    ErrorMessage = viewResult.ErrorMessage ?? "User is not allowed to view this case"
+                };
+            }
+
+            // Check Operate permission (module permission already checked by caller)
+            bool canOperate = false;
+            if (hasOperateModulePermission)
+            {
+                // Check entity-level operate permission (includes workflow/stage inheritance check)
+                var operateResult = CheckCasePermission(onboarding, userId, PermissionOperationType.Operate);
+                canOperate = operateResult.Success;
+            }
+
+            return new PermissionInfoDto
+            {
+                CanView = true,
+                CanOperate = canOperate,
+                ErrorMessage = null
+            };
         }
 
         #endregion

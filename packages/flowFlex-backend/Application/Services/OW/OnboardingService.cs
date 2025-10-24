@@ -2,6 +2,7 @@ using FlowFlex.Infrastructure.Services;
 using AutoMapper;
 using MediatR;
 using FlowFlex.Application.Contracts.Dtos.OW.Onboarding;
+using FlowFlex.Application.Contracts.Dtos.OW.Permission;
 using FlowFlex.Application.Contracts.IServices.OW;
 using FlowFlex.Application.Contracts.Dtos;
 using FlowFlex.Domain.Entities.OW;
@@ -29,6 +30,7 @@ using FlowFlex.Domain.Shared.Utils;
 using Microsoft.Extensions.DependencyInjection;
 using FlowFlex.Infrastructure.Extensions;
 using PermissionOperationType = FlowFlex.Domain.Shared.Enums.Permission.OperationTypeEnum;
+using FlowFlex.Domain.Shared.Const;
 
 namespace FlowFlex.Application.Services.OW
 {
@@ -848,8 +850,24 @@ namespace FlowFlex.Application.Services.OW
                     }
                 }
 
-                // Check if current user has operate permission
-                result.IsDisabled = !await CheckCaseOperatePermissionAsync(id);
+                // Check permission and fill Permission field (optimized single call)
+                var userId = _userContext?.UserId;
+                
+                if (!string.IsNullOrEmpty(userId) && long.TryParse(userId, out var userIdLong))
+                {
+                    result.Permission = await _permissionService.GetCasePermissionInfoAsync(userIdLong, id);
+                    result.IsDisabled = !result.Permission.CanOperate;
+                }
+                else
+                {
+                    result.IsDisabled = true;
+                    result.Permission = new Application.Contracts.Dtos.OW.Permission.PermissionInfoDto
+                    {
+                        CanView = false,
+                        CanOperate = false,
+                        ErrorMessage = "User not authenticated"
+                    };
+                }
 
                 return result;
             }
@@ -6021,22 +6039,25 @@ namespace FlowFlex.Application.Services.OW
             var stageDict = stages.ToDictionary(s => s.Id, s => s.Name);
             var stageEstimatedDaysDict = stages.ToDictionary(s => s.Id, s => s.EstimatedDuration);
 
-            // Fast path: If user is System Admin, all cases are enabled
+            // Batch check permissions (batch-optimized: pre-check module permissions once)
             var userId = _userContext?.UserId;
             bool isSystemAdmin = _userContext?.IsSystemAdmin == true;
-            Dictionary<long, bool> operatePermissions = null;
+            Dictionary<long, PermissionInfoDto> permissions = null;
 
-            if (!isSystemAdmin && !string.IsNullOrEmpty(userId) && long.TryParse(userId, out var userIdLong))
+            if (!string.IsNullOrEmpty(userId) && long.TryParse(userId, out var userIdLong))
             {
-                // Batch check operate permissions for all cases to avoid N+1 queries
-                operatePermissions = new Dictionary<long, bool>();
+                // Pre-check module permissions once (batch optimization)
+                bool canViewCases = await _permissionService.CheckGroupPermissionAsync(userIdLong, PermissionConsts.Case.Read);
+                bool canOperateCases = await _permissionService.CheckGroupPermissionAsync(userIdLong, PermissionConsts.Case.Update);
+
+                // Batch check permissions for all cases (entity-level only, no redundant module checks)
+                permissions = new Dictionary<long, PermissionInfoDto>();
                 foreach (var result in results)
                 {
-                    var permissionResult = await _permissionService.CheckCaseAccessAsync(
-                        userIdLong,
-                        result.Id,
-                        PermissionOperationType.Operate);
-                    operatePermissions[result.Id] = permissionResult.Success && permissionResult.CanOperate;
+                    // Get permission info (batch-optimized: entity-level check only)
+                    var permissionInfo = await _permissionService.GetCasePermissionInfoForListAsync(
+                        userIdLong, result.Id, canViewCases, canOperateCases);
+                    permissions[result.Id] = permissionInfo;
                 }
             }
 
@@ -6056,18 +6077,31 @@ namespace FlowFlex.Application.Services.OW
                     }
                 }
 
-                // Set IsDisabled based on operate permission
+                // Set IsDisabled and Permission fields
                 if (isSystemAdmin)
                 {
                     result.IsDisabled = false; // System Admin can operate on all cases
+                    result.Permission = new Application.Contracts.Dtos.OW.Permission.PermissionInfoDto
+                    {
+                        CanView = true,
+                        CanOperate = true,
+                        ErrorMessage = null
+                    };
                 }
-                else if (operatePermissions != null)
+                else if (permissions != null && permissions.ContainsKey(result.Id))
                 {
-                    result.IsDisabled = !operatePermissions.GetValueOrDefault(result.Id, false);
+                    result.Permission = permissions[result.Id];
+                    result.IsDisabled = !result.Permission.CanOperate;
                 }
                 else
                 {
                     result.IsDisabled = true; // No user context, disable by default
+                    result.Permission = new Application.Contracts.Dtos.OW.Permission.PermissionInfoDto
+                    {
+                        CanView = false,
+                        CanOperate = false,
+                        ErrorMessage = "User not authenticated"
+                    };
                 }
             }
         }

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using FlowFlex.Application.Contracts.Dtos.OW.Permission;
 using FlowFlex.Application.Contracts.Dtos.OW.Stage;
 using FlowFlex.Domain.Shared.Enums.OW;
 
@@ -129,5 +130,11 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.Workflow
         /// Stage list
         /// </summary>
         public List<StageOutputDto> Stages { get; set; }
+
+        /// <summary>
+        /// User's permission for this workflow
+        /// Includes view and operate permissions
+        /// </summary>
+        public PermissionInfoDto Permission { get; set; }
     }
 }

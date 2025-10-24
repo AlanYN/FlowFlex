@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using FlowFlex.Application.Contracts.Dtos.OW.Permission;
 using FlowFlex.Domain.Shared.Enums.OW;
 using Newtonsoft.Json;
 
@@ -288,5 +289,11 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.Onboarding
         /// false: 用户有操作权限,前端可启用操作按钮
         /// </summary>
         public bool IsDisabled { get; set; }
+
+        /// <summary>
+        /// User's permission for this case
+        /// Includes view and operate permissions
+        /// </summary>
+        public PermissionInfoDto Permission { get; set; }
     }
 }

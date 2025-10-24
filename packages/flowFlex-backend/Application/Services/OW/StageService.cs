@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Net;
 using System.Threading.Tasks;
 using AutoMapper;
+using FlowFlex.Application.Contracts.Dtos.OW.Permission;
 using FlowFlex.Application.Contracts.Dtos.OW.Stage;
 using FlowFlex.Application.Contracts.Dtos.OW.QuestionnaireAnswer;
 using FlowFlex.Application.Contracts.IServices.OW;
@@ -27,6 +28,7 @@ using JsonSerializer = System.Text.Json.JsonSerializer;
 using JsonException = System.Text.Json.JsonException;
 using System.Text.RegularExpressions;
 using SqlSugar;
+using FlowFlex.Domain.Shared.Const;
 
 namespace FlowFlex.Application.Service.OW
 {
@@ -584,7 +586,26 @@ namespace FlowFlex.Application.Service.OW
         public async Task<StageOutputDto> GetByIdAsync(long id)
         {
             var entity = await _stageRepository.GetByIdAsync(id);
-            return _mapper.Map<StageOutputDto>(entity);
+            var result = _mapper.Map<StageOutputDto>(entity);
+
+            // Fill permission info (optimized single call)
+            var userId = _userContext?.UserId;
+
+            if (!string.IsNullOrEmpty(userId) && long.TryParse(userId, out var userIdLong))
+            {
+                result.Permission = await _permissionService.GetStagePermissionInfoAsync(userIdLong, id);
+            }
+            else
+            {
+                result.Permission = new Application.Contracts.Dtos.OW.Permission.PermissionInfoDto
+                {
+                    CanView = false,
+                    CanOperate = false,
+                    ErrorMessage = "User not authenticated"
+                };
+            }
+
+            return result;
         }
 
         public async Task<List<StageOutputDto>> GetListByWorkflowIdAsync(long workflowId)
@@ -603,19 +624,27 @@ namespace FlowFlex.Application.Service.OW
                 return new List<StageOutputDto>();
             }
 
-            // Filter stages based on user permissions
+            // Pre-check module permissions once (batch optimization)
+            bool canViewStages = await _permissionService.CheckGroupPermissionAsync(userId, PermissionConsts.Stage.Read);
+            bool canOperateStages = await _permissionService.CheckGroupPermissionAsync(userId, PermissionConsts.Stage.Update);
+            
+            _logger.LogDebug("Stage list module permission check - UserId: {UserId}, CanView: {CanView}, CanOperate: {CanOperate}", 
+                userId, canViewStages, canOperateStages);
+
+            // Filter stages and fill permission info (batch-optimized)
             var filteredStages = new List<Stage>();
+            var stagePermissions = new Dictionary<long, PermissionInfoDto>();
+            
             foreach (var stage in list)
             {
-                // Check if user has view permission for this stage
-                var permissionResult = await _permissionService.CheckStageAccessAsync(
-                    userId,
-                    stage.Id,
-                    FlowFlex.Domain.Shared.Enums.Permission.OperationTypeEnum.View);
+                // Get permission info (batch-optimized: entity-level check only)
+                var permissionInfo = await _permissionService.GetStagePermissionInfoForListAsync(
+                    userId, stage.Id, canViewStages, canOperateStages);
 
-                if (permissionResult.Success)
+                if (permissionInfo.CanView)
                 {
                     filteredStages.Add(stage);
+                    stagePermissions[stage.Id] = permissionInfo;
                     _logger.LogDebug(
                         "Stage {StageId} ({StageName}) included - User {UserId} has view permission",
                         stage.Id, stage.Name, userId);
@@ -624,11 +653,20 @@ namespace FlowFlex.Application.Service.OW
                 {
                     _logger.LogDebug(
                         "Stage {StageId} ({StageName}) filtered out - User {UserId} denied: {Reason}",
-                        stage.Id, stage.Name, userId, permissionResult.ErrorMessage);
+                        stage.Id, stage.Name, userId, permissionInfo.ErrorMessage);
                 }
             }
 
             var result = _mapper.Map<List<StageOutputDto>>(filteredStages);
+            
+            // Fill permission info for each stage
+            foreach (var stageDto in result)
+            {
+                if (stagePermissions.TryGetValue(stageDto.Id, out var permissionInfo))
+                {
+                    stageDto.Permission = permissionInfo;
+                }
+            }
             
             _logger.LogInformation(
                 "GetListByWorkflowIdAsync - WorkflowId: {WorkflowId}, Total stages: {TotalCount}, Visible to user {UserId}: {VisibleCount}",
