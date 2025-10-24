@@ -70,7 +70,8 @@
 										<el-dropdown-menu>
 											<el-dropdown-item
 												v-if="
-													functionPermission(
+													hasPermission(
+														workflow.id,
 														ProjectPermissionEnum.workflow.update
 													)
 												"
@@ -81,11 +82,12 @@
 											</el-dropdown-item>
 											<el-dropdown-item
 												v-if="
-													functionPermission(
-														ProjectPermissionEnum.workflow.update
-													) &&
 													!workflow.isDefault &&
-													workflow.status === 'active'
+													workflow.status === 'active' &&
+													hasPermission(
+														workflow.id,
+														ProjectPermissionEnum.workflow.update
+													)
 												"
 												command="setDefault"
 											>
@@ -94,9 +96,11 @@
 											</el-dropdown-item>
 											<el-dropdown-item
 												v-if="
-													functionPermission(
+													workflow.status === 'active' &&
+													hasPermission(
+														workflow.id,
 														ProjectPermissionEnum.workflow.update
-													) && workflow.status === 'active'
+													)
 												"
 												command="deactivate"
 											>
@@ -105,9 +109,11 @@
 											</el-dropdown-item>
 											<el-dropdown-item
 												v-if="
-													functionPermission(
+													workflow.status === 'inactive' &&
+													hasPermission(
+														workflow.id,
 														ProjectPermissionEnum.workflow.update
-													) && workflow.status === 'inactive'
+													)
 												"
 												command="activate"
 											>
@@ -116,7 +122,8 @@
 											</el-dropdown-item>
 											<el-dropdown-item
 												v-if="
-													functionPermission(
+													hasPermission(
+														workflow.id,
 														ProjectPermissionEnum.workflow.create
 													)
 												"
@@ -315,6 +322,16 @@ const emit = defineEmits<{
 	'select-workflow': [workflowId: string];
 	'new-workflow': [];
 }>();
+
+// 检查是否有权限（功能权限 && 数据权限）
+const hasPermission = (workflowId: string, functionalPermission: string) => {
+	// 从 workflows 列表中查找对应的 workflow
+	const workflow = props.workflows.find((w) => w.id === workflowId);
+	if (workflow && workflow.permission) {
+		return functionPermission(functionalPermission) && workflow.permission.canOperate;
+	}
+	return functionPermission(functionalPermission);
+};
 
 // Methods
 const handleCommand = (command: string, workflow: any) => {
