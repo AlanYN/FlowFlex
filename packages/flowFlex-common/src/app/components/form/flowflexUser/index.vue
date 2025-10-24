@@ -348,6 +348,7 @@ interface Props {
 	clearable?: boolean; // 是否可清除
 	availableIds?: string[]; // 限制可选的 ID 范围，undefined 表示不限制，[] 表示无可选项
 	checkStrictly?: boolean; // 是否严格模式，不遵循父子节点联动逻辑
+	choosableTreeData?: FlowflexUser[]; // 自定义可选择的树形数据，传入时优先使用此数据而不是缓存数据，支持动态更新
 }
 
 interface Emits {
@@ -829,15 +830,29 @@ const handleClear = () => {
 	emit('clear');
 };
 
-// 初始化加载数据（使用缓存优化版）
+// 初始化加载数据（支持传入数据或使用缓存）
 const initializeData = async (searchQuery = '') => {
 	if (loading.value) return; // 防止重复加载
 
 	try {
 		loading.value = true;
 
+<<<<<<< Updated upstream
 		// 使用 store 中的缓存方法
 		const data = await menuStore.getFlowflexUserDataWithCache(searchQuery);
+=======
+		let data: FlowflexUser[] = [];
+
+		// 如果传递了 choosableTreeData，优先使用传递的数据
+		if (props.choosableTreeData && props.choosableTreeData.length > 0) {
+			console.log('Using provided choosableTreeData instead of cache');
+			data = props.choosableTreeData;
+		} else {
+			// 使用 store 中的缓存方法
+			await menuStore.clearFlowflexUserData();
+			data = await menuStore.getFlowflexUserDataWithCache(searchQuery);
+		}
+>>>>>>> Stashed changes
 
 		if (data && data.length > 0) {
 			// 保存原始数据
@@ -1011,8 +1026,13 @@ watch(
 
 // 组件挂载时初始化
 onMounted(async () => {
-	// 监听modelValue变化（会自动处理初始值）
-	await handleModelValueChange();
+	// 如果传递了 choosableTreeData，优先初始化数据
+	if (props.choosableTreeData && props.choosableTreeData.length > 0) {
+		await initializeData();
+	} else {
+		// 监听modelValue变化（会自动处理初始值）
+		await handleModelValueChange();
+	}
 });
 
 // 组件卸载时清理
@@ -1028,14 +1048,33 @@ onUnmounted(() => {
 // 监听props.modelValue变化
 watch(() => props.modelValue, handleModelValueChange, { deep: true });
 
+// 监听 choosableTreeData 变化，重新初始化数据
+watch(
+	() => props.choosableTreeData,
+	async (newData) => {
+		if (newData && newData.length > 0) {
+			console.log('choosableTreeData changed, reinitializing data');
+			await initializeData();
+		} else if (newData !== undefined) {
+			// 如果传入了空数组，清空数据
+			treeData.value = [];
+			rawTreeData.value = [];
+			userDataMap.value.clear();
+		}
+	},
+	{ deep: true, immediate: false }
+);
+
 // 暴露方法供外部使用
 defineExpose({
-	getUserNameById,
-	getUserNamesByIds,
-	getUserById,
-	getUsersByIds,
-	refreshData: initializeData,
+	treeData: treeData.value, // 当前树形数据
+	getUserNameById, // 根据ID获取用户名称
+	getUserNamesByIds, // 根据ID数组获取用户名称数组
+	getUserById, // 根据ID获取用户详细信息
+	getUsersByIds, // 根据ID数组获取用户详细信息数组
+	refreshData: initializeData, // 刷新数据（重新加载）
 	clearCache: () => {
+		// 清空缓存和所有状态
 		userDataMap.value.clear();
 		treeData.value = [];
 		searchText.value = '';
@@ -1043,10 +1082,10 @@ defineExpose({
 		tempSelectedItems.value = [];
 		isOriginallyArray.value = false;
 	},
-	getSelectedData: () => selectedItems.value,
-	openModal,
-	closeModal: handleModalClose,
-	clearSelection: handleClear,
+	getSelectedData: () => selectedItems.value, // 获取当前选中的数据
+	openModal, // 打开选择弹窗
+	closeModal: handleModalClose, // 关闭选择弹窗
+	clearSelection: handleClear, // 清空选择
 });
 </script>
 
