@@ -1190,6 +1190,18 @@ namespace FlowFlex.Application.Services.OW
                 };
             }
 
+            // Fast path: Tenant Admin
+            var currentTenantId = GetCurrentTenantId();
+            if (_userContext != null && _userContext.HasAdminPrivileges(currentTenantId))
+            {
+                return new PermissionInfoDto
+                {
+                    CanView = true,
+                    CanOperate = true,
+                    ErrorMessage = null
+                };
+            }
+
             // Check view permission (READ)
             var viewResult = await CheckWorkflowAccessAsync(userId, workflowId, Domain.Shared.Enums.Permission.OperationTypeEnum.View);
             
@@ -1232,6 +1244,18 @@ namespace FlowFlex.Application.Services.OW
                 };
             }
 
+            // Fast path: Tenant Admin
+            var currentTenantId = GetCurrentTenantId();
+            if (_userContext != null && _userContext.HasAdminPrivileges(currentTenantId))
+            {
+                return new PermissionInfoDto
+                {
+                    CanView = true,
+                    CanOperate = true,
+                    ErrorMessage = null
+                };
+            }
+
             // Check view permission (READ)
             var viewResult = await CheckStageAccessAsync(userId, stageId, Domain.Shared.Enums.Permission.OperationTypeEnum.View);
             
@@ -1265,6 +1289,18 @@ namespace FlowFlex.Application.Services.OW
         {
             // Fast path: System Admin
             if (_userContext?.IsSystemAdmin == true)
+            {
+                return new PermissionInfoDto
+                {
+                    CanView = true,
+                    CanOperate = true,
+                    ErrorMessage = null
+                };
+            }
+
+            // Fast path: Tenant Admin
+            var currentTenantId = GetCurrentTenantId();
+            if (_userContext != null && _userContext.HasAdminPrivileges(currentTenantId))
             {
                 return new PermissionInfoDto
                 {
@@ -1595,6 +1631,18 @@ namespace FlowFlex.Application.Services.OW
                 };
             }
 
+            // Tenant Admin bypass
+            var currentTenantId = GetCurrentTenantId();
+            if (_userContext != null && _userContext.HasAdminPrivileges(currentTenantId))
+            {
+                return new PermissionInfoDto 
+                { 
+                    CanView = true, 
+                    CanOperate = true, 
+                    ErrorMessage = null 
+                };
+            }
+
             // Check View permission (module permission already checked by caller)
             if (!hasViewModulePermission)
             {
@@ -1661,6 +1709,18 @@ namespace FlowFlex.Application.Services.OW
         {
             // System Admin bypass
             if (_userContext?.IsSystemAdmin == true)
+            {
+                return new PermissionInfoDto 
+                { 
+                    CanView = true, 
+                    CanOperate = true, 
+                    ErrorMessage = null 
+                };
+            }
+
+            // Tenant Admin bypass
+            var currentTenantId = GetCurrentTenantId();
+            if (_userContext != null && _userContext.HasAdminPrivileges(currentTenantId))
             {
                 return new PermissionInfoDto 
                 { 
@@ -1747,6 +1807,18 @@ namespace FlowFlex.Application.Services.OW
                 };
             }
 
+            // Tenant Admin bypass
+            var currentTenantId = GetCurrentTenantId();
+            if (_userContext != null && _userContext.HasAdminPrivileges(currentTenantId))
+            {
+                return new PermissionInfoDto 
+                { 
+                    CanView = true, 
+                    CanOperate = true, 
+                    ErrorMessage = null 
+                };
+            }
+
             // Check entity-level view permission (includes workflow inheritance check)
             // Stage view permission inherits from Workflow, so we don't strictly require STAGE:READ module permission
             var viewResult = CheckStagePermission(stage, workflow, userId, PermissionOperationType.View);
@@ -1789,6 +1861,18 @@ namespace FlowFlex.Application.Services.OW
         {
             // System Admin bypass
             if (_userContext?.IsSystemAdmin == true)
+            {
+                return new PermissionInfoDto 
+                { 
+                    CanView = true, 
+                    CanOperate = true, 
+                    ErrorMessage = null 
+                };
+            }
+
+            // Tenant Admin bypass
+            var currentTenantId = GetCurrentTenantId();
+            if (_userContext != null && _userContext.HasAdminPrivileges(currentTenantId))
             {
                 return new PermissionInfoDto 
                 { 
