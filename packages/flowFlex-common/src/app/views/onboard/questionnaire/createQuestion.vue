@@ -26,19 +26,9 @@
 		</PageHeader>
 
 		<!-- 主要内容区域 -->
-		<div class="main-content">
-			<!-- 加载状态 -->
-			<div v-if="loading" class="loading-container">
-				<div
-					v-loading="loading"
-					element-loading-text="Loading questionnaire data..."
-					element-loading-background="rgba(0, 0, 0, 0.1)"
-					class="loading-content"
-				></div>
-			</div>
-
+		<div class="main-content" v-loading="loading">
 			<!-- 内容网格 -->
-			<div v-else class="content-grid">
+			<div class="content-grid">
 				<!-- 左侧配置面板 -->
 				<div class="config-panel">
 					<el-scrollbar ref="configScrollbarRef">
