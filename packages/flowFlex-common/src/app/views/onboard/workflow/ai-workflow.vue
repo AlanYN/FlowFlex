@@ -178,6 +178,12 @@ const handleWorkflowGenerated = (workflowData: AIWorkflowData) => {
 };
 
 const refreshWorkflowList = async () => {
+	// Only fetch workflow list if the list is visible
+	if (!showWorkflowList.value) {
+		console.log('Workflow list is hidden, skipping API call');
+		return;
+	}
+
 	try {
 		const response = await getWorkflowList();
 		if (response.success) {
@@ -219,7 +225,8 @@ const getStageCount = (workflow: Workflow) => {
 
 // Lifecycle
 onMounted(() => {
-	refreshWorkflowList();
+	// No need to load workflow list on mount since showWorkflowList is false by default
+	// refreshWorkflowList();
 });
 </script>
 

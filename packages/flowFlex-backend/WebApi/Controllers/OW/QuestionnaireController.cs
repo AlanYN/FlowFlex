@@ -163,10 +163,16 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// Supports comma-separated values for name field
         /// All text search queries are case-insensitive
         /// Example: {"name": "questionnaire1,questionnaire2"}
-        /// Requires QUESTION:READ permission
+        /// Requires any READ permission (WORKFLOW, CASE, CHECKLIST, QUESTION, or TOOL)
+        /// This is a shared query API accessible by any module with read permission
         /// </summary>
         [HttpPost("query")]
-        [WFEAuthorize(PermissionConsts.Question.Read)]
+        [WFEAuthorize(
+            PermissionConsts.Workflow.Read,
+            PermissionConsts.Case.Read,
+            PermissionConsts.Checklist.Read,
+            PermissionConsts.Question.Read,
+            PermissionConsts.Tool.Read)]
         [ProducesResponseType<SuccessResponse<List<QuestionnaireOutputDto>>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> Query([FromBody] QuestionnaireQueryRequest query)
         {

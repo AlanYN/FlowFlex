@@ -120,9 +120,15 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// <param name="name">Filter by name (supports comma-separated values)</param>
         /// <param name="team">Filter by team (optional)</param>
         /// <returns>Paged list of checklists or simple list when no pagination params provided</returns>
-        /// Requires CHECKLIST:READ permission
+        /// Requires any READ permission (WORKFLOW, CASE, CHECKLIST, QUESTION, or TOOL)
+        /// This is a shared list API accessible by any module with read permission
         [HttpGet]
-        [WFEAuthorize(PermissionConsts.Checklist.Read)]
+        [WFEAuthorize(
+            PermissionConsts.Workflow.Read,
+            PermissionConsts.Case.Read,
+            PermissionConsts.Checklist.Read,
+            PermissionConsts.Question.Read,
+            PermissionConsts.Tool.Read)]
         [ProducesResponseType<SuccessResponse<object>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> GetList(
             [FromQuery] int? pageIndex = null,
