@@ -292,7 +292,7 @@
 												divided
 												command="duplicate"
 												v-if="
-													functionPermission(
+													hasWorkflowPermission(
 														ProjectPermissionEnum.workflow.create
 													)
 												"
@@ -305,7 +305,7 @@
 											<el-dropdown-item
 												command="addStage"
 												v-if="
-													functionPermission(
+													hasWorkflowPermission(
 														ProjectPermissionEnum.workflow.create
 													)
 												"
@@ -390,7 +390,11 @@
 								</div>
 								<div class="action-buttons-group">
 									<el-button
-										v-permission="ProjectPermissionEnum.workflow.create"
+										v-if="
+											hasWorkflowPermission(
+												ProjectPermissionEnum.workflow.create
+											)
+										"
 										@click="addStage()"
 										:disabled="loading.createStage"
 										:icon="loading.createStage ? Loading : Plus"
@@ -415,6 +419,9 @@
 									sortStages: loading.sortStages,
 								}"
 								:userList="userList"
+								:has-workflow-permission="
+									workflow.permission ? workflow.permission.canOperate : true
+								"
 								@edit="(stage) => editStage(stage)"
 								@delete="(stageId) => deleteStage(stageId)"
 								@drag-start="onDragStart"
