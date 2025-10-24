@@ -193,6 +193,7 @@ export const useUserStore = defineStore({
 				email: userDate?.data?.email,
 				desc: '',
 				roles: userDate?.data?.roleIds,
+				userType: userDate?.data?.userType,
 			};
 			this.setUserInfo(userInfo);
 			const sessionTimeout = this.sessionTimeout;

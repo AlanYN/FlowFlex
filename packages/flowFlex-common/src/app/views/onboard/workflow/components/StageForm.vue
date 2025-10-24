@@ -154,7 +154,7 @@ import StagePermissions from './StagePermissions.vue';
 import { ViewPermissionModeEnum } from '@/enums/permissionEnum';
 import { useUserStore } from '@/stores/modules/user';
 import { menuRoles } from '@/stores/modules/menuFunction';
-import { ElMessageBox } from 'element-plus';
+import { ElMessage, ElMessageBox } from 'element-plus';
 import type { FlowflexUser as FlowflexUserType } from '#/golbal';
 
 // 颜色选项
@@ -346,9 +346,10 @@ function updateComponentsData(val: ComponentsData) {
 	formData.value.attachmentManagementNeeded = val.attachmentManagementNeeded ?? false;
 }
 
-// 权限检查：检查当前用户是否会被排除在权限之外
-const checkStagePermissions = async (): Promise<{
+// 验证并检查权限：验证必填项 + 检查当前用户是否会被权限设置排除
+const validateAndCheckStagePermissions = async (): Promise<{
 	hasWarning: boolean;
+	showMessage: boolean;
 	warningMessage: string;
 }> => {
 	const viewPermissionMode = formData.value.viewPermissionMode;
@@ -360,12 +361,28 @@ const checkStagePermissions = async (): Promise<{
 		viewPermissionMode !== ViewPermissionModeEnum.VisibleToTeams &&
 		viewPermissionMode !== ViewPermissionModeEnum.InvisibleToTeams
 	) {
-		return { hasWarning: false, warningMessage: '' };
+		return { hasWarning: false, showMessage: false, warningMessage: '' };
+	}
+
+	// Validate: 检查是否至少选择了一个团队
+	if (viewTeams.length === 0) {
+		return {
+			hasWarning: false,
+			showMessage: true,
+			warningMessage: 'Please select at least one team for View Permission of this stage.',
+		};
+	}
+	if (operateTeams.length === 0) {
+		return {
+			hasWarning: false,
+			showMessage: true,
+			warningMessage: 'Please select at least one team for Operate Permission of this stage.',
+		};
 	}
 
 	const currentUser = userStore.getUserInfo;
 	if (!currentUser || !currentUser.userId) {
-		return { hasWarning: false, warningMessage: '' };
+		return { hasWarning: false, showMessage: false, warningMessage: '' };
 	}
 
 	// 递归查找用户所属团队的辅助函数
@@ -425,30 +442,39 @@ const checkStagePermissions = async (): Promise<{
 				warningMessage =
 					'Warning: You are setting permissions that will exclude yourself from operating this stage. You will be able to view but not operate on this stage after saving. Do you want to continue?';
 			}
-			return { hasWarning: true, warningMessage };
+			return { hasWarning: true, showMessage: false, warningMessage };
 		}
 	} catch (error) {
 		console.error('Failed to check stage permissions:', error);
 	}
 
-	return { hasWarning: false, warningMessage: '' };
+	return { hasWarning: false, showMessage: false, warningMessage: '' };
 };
 
 // 提交
 async function submitForm() {
-	// 权限检查：检查当前用户是否会被排除在权限之外
-	const permissionCheck = await checkStagePermissions();
-	if (permissionCheck.hasWarning) {
-		try {
-			await ElMessageBox.confirm(permissionCheck.warningMessage, '⚠️ Permission Warning', {
-				confirmButtonText: 'Continue',
-				cancelButtonText: 'Cancel',
-				type: 'warning',
-				distinguishCancelAndClose: true,
-			});
-		} catch (error) {
-			// 用户点击取消，不提交表单
+	// 验证并检查权限：验证必填项 + 检查当前用户是否会被权限设置排除
+	const permissionCheck = await validateAndCheckStagePermissions();
+	if (permissionCheck.hasWarning || permissionCheck.showMessage) {
+		if (permissionCheck.showMessage) {
+			ElMessage.warning(permissionCheck.warningMessage);
 			return;
+		} else {
+			try {
+				await ElMessageBox.confirm(
+					permissionCheck.warningMessage,
+					'⚠️ Permission Warning',
+					{
+						confirmButtonText: 'Continue',
+						cancelButtonText: 'Cancel',
+						type: 'warning',
+						distinguishCancelAndClose: true,
+					}
+				);
+			} catch (error) {
+				// 用户点击取消，不提交表单
+				return;
+			}
 		}
 	}
 
