@@ -1716,37 +1716,37 @@ const autoFillCurrentUser = async () => {
 			console.warn('No current user info available');
 			return;
 		}
-		formData.ownership = currentUser.userName || '';
-		// // 获取用户数据列表（使用缓存）
-		// const userData = await menuStore.getFlowflexUserDataWithCache();
-		// if (!userData || userData.length === 0) {
-		// 	console.warn('No user data available');
-		// 	return;
-		// }
 
-		// // 递归查找当前用户
-		// const findUserById = (data: FlowflexUser[], userId: string): FlowflexUser | null => {
-		// 	for (const item of data) {
-		// 		if (item.type === 'user' && item.id === userId) {
-		// 			return item;
-		// 		}
-		// 		if (item.children && item.children.length > 0) {
-		// 			const found = findUserById(item.children, userId);
-		// 			if (found) return found;
-		// 		}
-		// 	}
-		// 	return null;
-		// };
+		// 获取用户数据列表（使用缓存）
+		const userData = await menuStore.getFlowflexUserDataWithCache();
+		if (!userData || userData.length === 0) {
+			console.warn('No user data available');
+			return;
+		}
 
-		// const currentUserData = findUserById(userData, String(currentUser.userId));
+		// 递归查找当前用户
+		const findUserById = (data: FlowflexUser[], userId: string): FlowflexUser | null => {
+			for (const item of data) {
+				if (item.type === 'user' && item.id === userId) {
+					return item;
+				}
+				if (item.children && item.children.length > 0) {
+					const found = findUserById(item.children, userId);
+					if (found) return found;
+				}
+			}
+			return null;
+		};
 
-		// // 如果找到用户，自动填充
-		// if (currentUserData) {
-		// 	formData.ownership = currentUserData.id;
-		// } else {
-		// 	console.warn('Current user not found in user data list');
-		// 	// 留空，不填充
-		// }
+		const currentUserData = findUserById(userData, String(currentUser.userId));
+
+		// 如果找到用户，自动填充
+		if (currentUserData) {
+			formData.ownership = currentUserData.id;
+		} else {
+			console.warn('Current user not found in user data list');
+			// 留空，不填充
+		}
 	} catch (error) {
 		console.error('Failed to auto-fill current user:', error);
 		// 出错时留空
