@@ -954,9 +954,14 @@ const fetchStages = async (workflowId: string | number) => {
 			await getUserGroup();
 		}
 		const res = await getStagesByWorkflow(workflowId);
-		if (res.code === '200' && workflow.value) {
-			workflow.value.stages = res.data || [];
+		if (res.code === '200') {
+			// 只有当 workflow 还存在时才更新（用户可能已经返回列表）
+			if (workflow.value) {
+				workflow.value.stages = res.data || [];
+			}
+			// workflow 为 null 时静默忽略（用户已返回列表）
 		} else {
+			// 只在 API 真正失败时显示错误
 			ElMessage.error(res.msg || t('sys.api.operationFailed'));
 		}
 	} finally {
