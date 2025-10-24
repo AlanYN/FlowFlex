@@ -20,6 +20,7 @@
 			</div>
 		</div>
 		<HistoryTable ref="historyTableRef" />
+		<TenantSwitchingOverlay />
 	</div>
 </template>
 
@@ -30,6 +31,7 @@ import navbar from './components/navbar.vue';
 import { useUserStore } from '@/stores/modules/user';
 import { usePermissionStore } from '@/stores/modules/permission';
 import HistoryTable from '@/components/changeHistory/historyTable.vue';
+import TenantSwitchingOverlay from '@/components/global/TenantSwitchingOverlay.vue';
 import { WFEMoudels } from '@/enums/appEnum';
 
 const userStore = useUserStore();

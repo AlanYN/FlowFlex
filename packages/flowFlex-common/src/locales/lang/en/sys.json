@@ -607,5 +607,33 @@
 		"notesTab": "Notes",
 		"task": "task",
 		"note": "note"
+	},
+	"tenant": {
+		"switching": "Switching Company...",
+		"switchFailed": "Failed to switch company",
+		"switchSuccess": "Company switched successfully",
+		"fromLabel": "From",
+		"toLabel": "To",
+		"pleaseWait": "Please wait while we switch your workspace",
+		"cancel": "Cancel Switch",
+		"cancelConfirm": "Are you sure you want to cancel the tenant switch?",
+		"retry": "Try Again",
+		"help": "Get Help",
+		"switchBack": "Switch Back to",
+		"steps": {
+			"validating": "Validating credentials...",
+			"loading": "Loading tenant data...",
+			"configuring": "Configuring workspace...",
+			"finalizing": "Finalizing switch...",
+			"cancelling": "Cancelling and switching back..."
+		},
+		"error": {
+			"title": "Switch Failed",
+			"network": "Network connection failed. Please check your internet connection.",
+			"permission": "You don't have permission to switch to this tenant.",
+			"general": "Unable to switch to the selected company.",
+			"noAccess": "No permission to access this tenant. Please contact your administrator.",
+			"noRole": "You can access this tenant, but you don't have any roles assigned. Please contact your administrator to assign appropriate roles."
+		}
 	}
 }
