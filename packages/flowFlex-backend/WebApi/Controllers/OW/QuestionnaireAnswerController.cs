@@ -8,6 +8,7 @@ using FlowFlex.Domain.Shared.Attr;
 using Item.Internal.StandardApi.Response;
 using FlowFlex.WebApi.Model.Response;
 using FlowFlex.Application.Filter;
+using Microsoft.AspNetCore.Authorization;
 
 
 namespace FlowFlex.WebApi.Controllers.OW
@@ -17,6 +18,7 @@ namespace FlowFlex.WebApi.Controllers.OW
     /// </summary>
 
     [ApiController]
+    [Authorize] // Require authentication - supports both ItemIAM and Portal tokens
     [PortalAccess] // Allow Portal token access - Portal users can submit and view questionnaire answers
     [Route("ow/questionnaire-answers/v{version:apiVersion}")]
     [Display(Name = "questionnaire-answers")]

@@ -129,7 +129,7 @@ public class ChecklistTaskCompletionController : Controllers.ControllerBase
     /// Toggle task completion
     /// </summary>
     [HttpPost("onboarding/{onboardingId}/task/{taskId}/toggle")]
-    [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
+    [ProducesResponseType<SuccessResponse<ChecklistTaskCompletionOutputDto>>((int)HttpStatusCode.OK)]
     public async Task<IActionResult> ToggleTaskCompletion(long onboardingId, long taskId, [FromBody] ToggleTaskCompletionRequest request)
     {
         var result = await _completionService.ToggleTaskCompletionAsync(onboardingId, taskId, request.IsCompleted, request.CompletionNotes, request.FilesJson);

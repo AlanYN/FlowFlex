@@ -518,9 +518,9 @@ namespace FlowFlex.WebApi.Controllers.Action
         /// <param name="pageIndex">Page index (default: 1)</param>
         /// <param name="pageSize">Page size (default: 10)</param>
         /// <returns>Paginated executions with action information</returns>
-        /// Requires TOOL:READ permission
+        /// Requires CASE:READ or TOOL:READ permission
         [HttpGet("executions/trigger-source/{triggerSourceId}")]
-        [WFEAuthorize(PermissionConsts.Tool.Read)]
+        [WFEAuthorize(PermissionConsts.Case.Read, PermissionConsts.Tool.Read)]
         [ProducesResponseType<SuccessResponse<PageModelDto<ActionExecutionWithActionInfoDto>>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> GetExecutionsByTriggerSourceId(
             long triggerSourceId,
@@ -538,9 +538,9 @@ namespace FlowFlex.WebApi.Controllers.Action
         /// <param name="triggerSourceId">Trigger source ID</param>
         /// <param name="request">Search request with JSON conditions</param>
         /// <returns>Paginated executions with action information</returns>
-        /// Requires TOOL:UPDATE permission
+        /// Requires CASE:READ or TOOL:READ permission
         [HttpPost("executions/trigger-source/{triggerSourceId}/search")]
-        [WFEAuthorize(PermissionConsts.Tool.Update)]
+        [WFEAuthorize(PermissionConsts.Case.Read, PermissionConsts.Tool.Read)]
         [ProducesResponseType<SuccessResponse<PageModelDto<ActionExecutionWithActionInfoDto>>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> GetExecutionsByTriggerSourceIdWithConditions(
             [FromRoute] long triggerSourceId,

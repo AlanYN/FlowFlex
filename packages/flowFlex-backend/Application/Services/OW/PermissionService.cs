@@ -1,3 +1,4 @@
+using System.Linq;
 using FlowFlex.Application.Contracts.Dtos.OW.Permission;
 using FlowFlex.Application.Contracts.IServices.OW;
 using FlowFlex.Domain.Entities.OW;
@@ -9,6 +10,7 @@ using FlowFlex.Domain.Shared.Enums.Permission;
 using FlowFlex.Domain.Shared.Models;
 using FlowFlex.Domain.Shared.Models.Permission;
 using Item.ThirdParty.IdentityHub;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 using PermissionOperationType = FlowFlex.Domain.Shared.Enums.Permission.OperationTypeEnum;
@@ -31,6 +33,7 @@ namespace FlowFlex.Application.Services.OW
         private readonly IStageRepository _stageRepository;
         private readonly IOnboardingRepository _onboardingRepository;
         private readonly IdentityHubClient _identityHubClient;
+        private readonly IHttpContextAccessor _httpContextAccessor;
 
         public PermissionService(
             ILogger<PermissionService> logger,
@@ -38,7 +41,8 @@ namespace FlowFlex.Application.Services.OW
             IWorkflowRepository workflowRepository,
             IStageRepository stageRepository,
             IOnboardingRepository onboardingRepository,
-            IdentityHubClient identityHubClient)
+            IdentityHubClient identityHubClient,
+            IHttpContextAccessor httpContextAccessor)
         {
             _logger = logger;
             _userContext = userContext;
@@ -46,6 +50,7 @@ namespace FlowFlex.Application.Services.OW
             _stageRepository = stageRepository;
             _onboardingRepository = onboardingRepository;
             _identityHubClient = identityHubClient;
+            _httpContextAccessor = httpContextAccessor;
         }
 
         #endregion
@@ -179,6 +184,16 @@ namespace FlowFlex.Application.Services.OW
             PermissionEntityTypeEnum entityType,
             PermissionOperationType operationType)
         {
+            // Check if this is a Portal token accessing a [PortalAccess] endpoint
+            // Portal tokens bypass module permission checks (they use endpoint-level authorization)
+            if (IsPortalTokenWithPortalAccess())
+            {
+                _logger.LogInformation(
+                    "Portal token detected - bypassing module permission check for user {UserId}",
+                    userId);
+                return PermissionResult.CreateSuccess(true, false, "PortalAccess");
+            }
+
             // If no IAM token, deny access
             if (_userContext?.IamToken == null)
             {
@@ -1491,6 +1506,62 @@ namespace FlowFlex.Application.Services.OW
         private string GetCurrentTenantId()
         {
             return _userContext?.TenantId ?? "DEFAULT";
+        }
+
+        /// <summary>
+        /// Check if current request is using a Portal token and accessing a [PortalAccess] endpoint
+        /// Portal tokens should bypass module permission checks on endpoints marked with [PortalAccess]
+        /// </summary>
+        private bool IsPortalTokenWithPortalAccess()
+        {
+            var httpContext = _httpContextAccessor.HttpContext;
+            if (httpContext == null)
+            {
+                _logger.LogDebug("IsPortalTokenWithPortalAccess: HttpContext is null");
+                return false;
+            }
+
+            var user = httpContext.User;
+            if (user == null || !user.Identity.IsAuthenticated)
+            {
+                _logger.LogDebug("IsPortalTokenWithPortalAccess: User is null or not authenticated");
+                return false;
+            }
+
+            // Check for Portal token indicators in claims
+            var scope = user.Claims.FirstOrDefault(c => c.Type == "scope")?.Value;
+            var tokenType = user.Claims.FirstOrDefault(c => c.Type == "token_type")?.Value;
+
+            _logger.LogDebug(
+                "IsPortalTokenWithPortalAccess: Checking claims - Scope: {Scope}, TokenType: {TokenType}",
+                scope ?? "NULL",
+                tokenType ?? "NULL");
+
+            // Portal token has scope="portal" and token_type="portal-access"
+            bool isPortalToken = scope == "portal" && tokenType == "portal-access";
+
+            if (!isPortalToken)
+            {
+                _logger.LogDebug("IsPortalTokenWithPortalAccess: Not a portal token");
+                return false;
+            }
+
+            // Check if endpoint has [PortalAccess] attribute
+            var endpoint = httpContext.GetEndpoint();
+            if (endpoint == null)
+            {
+                _logger.LogDebug("IsPortalTokenWithPortalAccess: Endpoint is null");
+                return false;
+            }
+
+            var portalAccessAttr = endpoint.Metadata.GetMetadata<FlowFlex.Application.Filter.PortalAccessAttribute>();
+            bool hasPortalAccess = portalAccessAttr != null;
+            
+            _logger.LogDebug(
+                "IsPortalTokenWithPortalAccess: Endpoint has [PortalAccess]: {HasPortalAccess}",
+                hasPortalAccess);
+            
+            return hasPortalAccess;
         }
 
         /// <summary>
