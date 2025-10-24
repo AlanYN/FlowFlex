@@ -816,7 +816,7 @@ namespace FlowFlex.Application.Services.OW
         /// Check Stage permission based on inheritance or narrowing from Workflow
         /// Stage can inherit (NULL) or narrow (subset) Workflow permissions
         /// </summary>
-        private PermissionResult CheckStagePermission(
+        public PermissionResult CheckStagePermission(
             Stage stage,
             Workflow workflow,
             long userId,
@@ -1681,6 +1681,59 @@ namespace FlowFlex.Application.Services.OW
                     CanView = false,
                     CanOperate = false,
                     ErrorMessage = $"Workflow {stage.WorkflowId} not found"
+                };
+            }
+
+            // Check entity-level view permission (includes workflow inheritance check)
+            // Stage view permission inherits from Workflow, so we don't strictly require STAGE:READ module permission
+            var viewResult = CheckStagePermission(stage, workflow, userId, PermissionOperationType.View);
+            if (!viewResult.Success)
+            {
+                return new PermissionInfoDto
+                {
+                    CanView = false,
+                    CanOperate = false,
+                    ErrorMessage = viewResult.ErrorMessage ?? "User is not allowed to view this stage"
+                };
+            }
+
+            // Check Operate permission
+            // Operate requires explicit module permission AND entity-level permission
+            bool canOperate = false;
+            if (hasOperateModulePermission)
+            {
+                // Check entity-level operate permission (includes workflow inheritance check)
+                var operateResult = CheckStagePermission(stage, workflow, userId, PermissionOperationType.Operate);
+                canOperate = operateResult.Success;
+            }
+
+            return new PermissionInfoDto
+            {
+                CanView = true,
+                CanOperate = canOperate,
+                ErrorMessage = null
+            };
+        }
+
+        /// <summary>
+        /// Get permission info for Stage (ultra-optimized for list APIs with pre-loaded entities)
+        /// Accepts entity objects to avoid database queries - SYNCHRONOUS method for performance
+        /// </summary>
+        public PermissionInfoDto GetStagePermissionInfoForList(
+            Stage stage,
+            Workflow workflow,
+            long userId,
+            bool hasViewModulePermission,
+            bool hasOperateModulePermission)
+        {
+            // System Admin bypass
+            if (_userContext?.IsSystemAdmin == true)
+            {
+                return new PermissionInfoDto 
+                { 
+                    CanView = true, 
+                    CanOperate = true, 
+                    ErrorMessage = null 
                 };
             }
 

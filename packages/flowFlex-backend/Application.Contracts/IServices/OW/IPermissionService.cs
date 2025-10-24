@@ -89,6 +89,15 @@ namespace FlowFlex.Application.Contracts.IServices.OW
         List<string> GetUserTeamIds();
 
         /// <summary>
+        /// Check Stage permission using entity objects (performance-optimized, no DB query)
+        /// </summary>
+        PermissionResult CheckStagePermission(
+            FlowFlex.Domain.Entities.OW.Stage stage,
+            FlowFlex.Domain.Entities.OW.Workflow workflow,
+            long userId,
+            FlowFlex.Domain.Shared.Enums.Permission.OperationTypeEnum operationType);
+
+        /// <summary>
         /// Get permission info for Workflow (optimized for DTO population)
         /// Returns both view and operate permissions in a single call
         /// </summary>
@@ -128,6 +137,17 @@ namespace FlowFlex.Application.Contracts.IServices.OW
             long userId, 
             long stageId, 
             bool hasViewModulePermission, 
+            bool hasOperateModulePermission);
+
+        /// <summary>
+        /// Get permission info for Stage (ultra-optimized for list APIs with pre-loaded entities)
+        /// Accepts entity objects to avoid database queries
+        /// </summary>
+        PermissionInfoDto GetStagePermissionInfoForList(
+            FlowFlex.Domain.Entities.OW.Stage stage,
+            FlowFlex.Domain.Entities.OW.Workflow workflow,
+            long userId,
+            bool hasViewModulePermission,
             bool hasOperateModulePermission);
 
         /// <summary>

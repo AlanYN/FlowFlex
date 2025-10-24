@@ -656,37 +656,51 @@ namespace FlowFlex.Application.Service.OW
                         userId, canViewWorkflows, canOperateWorkflows, canViewStages, canOperateStages);
                 }
                 
+                // Create workflow entity dictionary for permission checks (avoid repeated queries)
+                var workflowEntities = items.ToDictionary(w => w.Id);
+                
                 // Assign stages and permission info to each workflow
                 foreach (var workflow in result)
                 {
-                    if (stagesByWorkflow.TryGetValue(workflow.Id, out var stages))
+                    if (stagesByWorkflow.TryGetValue(workflow.Id, out var stages) && workflowEntities.TryGetValue(workflow.Id, out var workflowEntity))
                     {
-                        workflow.Stages = _mapper.Map<List<StageOutputDto>>(stages);
-                        
-                        // Fill permission info for each stage and filter out stages user cannot view
-                        var visibleStages = new List<StageOutputDto>();
+                        // Filter stages based on permissions BEFORE mapping
+                        var visibleStages = new List<Stage>();
+                        var stagePermissions = new Dictionary<long, PermissionInfoDto>();
                         
                         if (userId > 0)
                         {
-                            foreach (var stageDto in workflow.Stages)
+                            foreach (var stage in stages)
                             {
-                                var permissionInfo = await _permissionService.GetStagePermissionInfoForListAsync(
+                                // Use synchronous method with entity objects (no DB query!)
+                                var permissionInfo = _permissionService.GetStagePermissionInfoForList(
+                                    stage, 
+                                    workflowEntity, 
                                     userId, 
-                                    stageDto.Id, 
                                     canViewStages, 
                                     canOperateStages);
                                 
                                 // Only include stages that user can view
                                 if (permissionInfo.CanView)
                                 {
-                                    stageDto.Permission = permissionInfo;
-                                    visibleStages.Add(stageDto);
+                                    visibleStages.Add(stage);
+                                    stagePermissions[stage.Id] = permissionInfo;
                                 }
                             }
                         }
                         // If user not authenticated, return empty stages list
                         
-                        workflow.Stages = visibleStages;
+                        // Map only visible stages to DTOs
+                        workflow.Stages = _mapper.Map<List<StageOutputDto>>(visibleStages);
+                        
+                        // Fill permission info for each stage DTO
+                        foreach (var stageDto in workflow.Stages)
+                        {
+                            if (stagePermissions.TryGetValue(stageDto.Id, out var permissionInfo))
+                            {
+                                stageDto.Permission = permissionInfo;
+                            }
+                        }
                     }
                     else
                     {
