@@ -558,9 +558,10 @@ namespace FlowFlex.Application.Service.OW
                     return new List<WorkflowOutputDto>();
                 }
 
-                // Note: Permission filtering removed for list APIs
+                // Apply permission filtering for list APIs (consistent with Case list behavior)
                 // Module-level permission check is handled by WFEAuthorize at Controller layer
-                // Entity-level permission check should only be performed on specific operations (GetById, Update, Delete)
+                // Entity-level permission check filters out items user cannot view
+                list = await FilterWorkflowsByPermissionAsync(list);
                 
                 var result = _mapper.Map<List<WorkflowOutputDto>>(list);
                 if (result == null)
@@ -607,9 +608,11 @@ namespace FlowFlex.Application.Service.OW
                 query.SortField,
                 query.SortDirection);
 
-            // Note: Permission filtering removed for list APIs
+            // Apply permission filtering for list APIs (consistent with Case list behavior)
             // Module-level permission check is handled by WFEAuthorize at Controller layer
-            // Entity-level permission check should only be performed on specific operations (GetById, Update, Delete)
+            // Entity-level permission check filters out items user cannot view
+            items = await FilterWorkflowsByPermissionAsync(items);
+            total = items.Count; // Update total after filtering
             
             var result = _mapper.Map<List<WorkflowOutputDto>>(items);
 

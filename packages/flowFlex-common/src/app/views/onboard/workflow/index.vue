@@ -1104,14 +1104,15 @@ const handleWorkflowCancel = () => {
 	dialogVisible.workflowForm = false;
 };
 
-// 权限检查：检查当前用户是否会被排除在权限之外
-const checkWorkflowPermissions = async (
+// 验证并检查权限：验证必填项 + 检查当前用户是否会被权限设置排除
+const validateAndCheckWorkflowPermissions = async (
 	viewPermissionMode: number,
 	viewTeams: string[],
 	operateTeams: string[],
 	entityType: 'workflow' | 'stage' = 'workflow'
 ): Promise<{
 	hasWarning: boolean;
+	showMessage: boolean;
 	warningMessage: string;
 }> => {
 	// 只在 VisibleToTeams 或 InvisibleToTeams 模式下检查
@@ -1119,12 +1120,29 @@ const checkWorkflowPermissions = async (
 		viewPermissionMode !== ViewPermissionModeEnum.VisibleToTeams &&
 		viewPermissionMode !== ViewPermissionModeEnum.InvisibleToTeams
 	) {
-		return { hasWarning: false, warningMessage: '' };
+		return { hasWarning: false, showMessage: false, warningMessage: '' };
+	}
+
+	// Validate: 检查是否至少选择了一个团队
+	const entityName = entityType === 'workflow' ? 'workflow' : 'stage';
+	if (viewTeams.length === 0) {
+		return {
+			hasWarning: false,
+			showMessage: true,
+			warningMessage: `Please select at least one team for View Permission of this ${entityName}.`,
+		};
+	}
+	if (operateTeams.length === 0) {
+		return {
+			hasWarning: false,
+			showMessage: true,
+			warningMessage: `Please select at least one team for Operate Permission of this ${entityName}.`,
+		};
 	}
 
 	const currentUser = userStore.getUserInfo;
 	if (!currentUser || !currentUser.userId) {
-		return { hasWarning: false, warningMessage: '' };
+		return { hasWarning: false, showMessage: false, warningMessage: '' };
 	}
 
 	// 递归查找用户所属团队的辅助函数
@@ -1182,44 +1200,52 @@ const checkWorkflowPermissions = async (
 			} else {
 				warningMessage = `Warning: You are setting permissions that will exclude yourself from operating this ${entityName}. You will be able to view but not operate on this ${entityName} after saving. Do you want to continue?`;
 			}
-			return { hasWarning: true, warningMessage };
+
+			if (currentUser.userType === 1 || currentUser.userType === 2) {
+				return { hasWarning: false, showMessage: false, warningMessage };
+			}
+
+			return { hasWarning: true, showMessage: false, warningMessage };
 		}
 	} catch (error) {
 		console.error('Failed to check user permissions:', error);
 	}
 
-	return { hasWarning: false, warningMessage: '' };
+	return { hasWarning: false, showMessage: false, warningMessage: '' };
 };
 
 const createWorkflow = async (newWorkflow: Partial<Workflow>) => {
 	try {
-		loading.createWorkflow = true;
-
-		// 权限检查：检查当前用户是否会被排除在权限之外
-		const permissionCheck = await checkWorkflowPermissions(
+		// 验证并检查权限：验证必填项 + 检查当前用户是否会被权限设置排除
+		const permissionCheck = await validateAndCheckWorkflowPermissions(
 			newWorkflow.viewPermissionMode ?? ViewPermissionModeEnum.Public,
 			newWorkflow.viewTeams ?? [],
 			newWorkflow.operateTeams ?? [],
 			'workflow'
 		);
-		if (permissionCheck.hasWarning) {
+		if (permissionCheck.hasWarning || permissionCheck.showMessage) {
 			try {
-				await ElMessageBox.confirm(
-					permissionCheck.warningMessage,
-					'⚠️ Permission Warning',
-					{
-						confirmButtonText: 'Continue',
-						cancelButtonText: 'Cancel',
-						type: 'warning',
-						distinguishCancelAndClose: true,
-					}
-				);
+				if (permissionCheck.showMessage) {
+					ElMessage.warning(permissionCheck.warningMessage);
+					return;
+				} else {
+					await ElMessageBox.confirm(
+						permissionCheck.warningMessage,
+						'⚠️ Permission Warning',
+						{
+							confirmButtonText: 'Continue',
+							cancelButtonText: 'Cancel',
+							type: 'warning',
+							distinguishCancelAndClose: true,
+						}
+					);
+				}
 			} catch (error) {
 				// 用户点击取消
-				loading.createWorkflow = false;
 				return;
 			}
 		}
+		loading.createWorkflow = true;
 
 		// 检查系统中是否已有默认工作流
 		let shouldSetAsDefault = newWorkflow.isDefault || false;
@@ -1277,33 +1303,36 @@ const updateWorkflow = async (updatedWorkflow: Partial<Workflow>) => {
 	if (!workflow.value) return;
 
 	try {
-		loading.updateWorkflow = true;
-
-		// 权限检查：检查当前用户是否会被排除在权限之外
-		const permissionCheck = await checkWorkflowPermissions(
+		// 验证并检查权限：验证必填项 + 检查当前用户是否会被权限设置排除
+		const permissionCheck = await validateAndCheckWorkflowPermissions(
 			updatedWorkflow.viewPermissionMode ?? workflow.value.viewPermissionMode,
 			updatedWorkflow.viewTeams ?? workflow.value.viewTeams,
 			updatedWorkflow.operateTeams ?? workflow.value.operateTeams,
 			'workflow'
 		);
-		if (permissionCheck.hasWarning) {
+		if (permissionCheck.hasWarning || permissionCheck.showMessage) {
 			try {
-				await ElMessageBox.confirm(
-					permissionCheck.warningMessage,
-					'⚠️ Permission Warning',
-					{
-						confirmButtonText: 'Continue',
-						cancelButtonText: 'Cancel',
-						type: 'warning',
-						distinguishCancelAndClose: true,
-					}
-				);
+				if (permissionCheck.showMessage) {
+					ElMessage.warning(permissionCheck.warningMessage);
+					return;
+				} else {
+					await ElMessageBox.confirm(
+						permissionCheck.warningMessage,
+						'⚠️ Permission Warning',
+						{
+							confirmButtonText: 'Continue',
+							cancelButtonText: 'Cancel',
+							type: 'warning',
+							distinguishCancelAndClose: true,
+						}
+					);
+				}
 			} catch (error) {
 				// 用户点击取消
-				loading.updateWorkflow = false;
 				return;
 			}
 		}
+		loading.updateWorkflow = true;
 
 		// 准备接口参数
 		const params = {
