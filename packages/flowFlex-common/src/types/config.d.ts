@@ -239,6 +239,14 @@ export interface UserState {
 	tokenObj?: TokenObj;
 	layout: {};
 	isLogin: boolean;
+	tenantSwitching: {
+		isActive: boolean;
+		fromTenantId: string | null;
+		toTenantId: string | null;
+		progress: number;
+		currentStep: string;
+		error: string | null;
+	};
 }
 
 export interface ParametersToken {
