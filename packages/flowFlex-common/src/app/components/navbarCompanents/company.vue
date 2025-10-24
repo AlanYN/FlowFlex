@@ -121,4 +121,9 @@ const notifyTenantChange = () =>
 		width: 100%;
 	}
 }
+
+:deep(.el-check-tag.el-check-tag--primary.is-checked) {
+	background-color: var(--el-color-primary) !important;
+	color: var(--el-color-white) !important;
+}
 </style>

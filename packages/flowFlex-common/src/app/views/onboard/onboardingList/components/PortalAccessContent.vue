@@ -108,7 +108,7 @@
 					:limit="10"
 					@change="handleEmailTagsChange"
 					style="width: 100%; height: 32px"
-					class="w-full rounded-xl"
+					class="w-full"
 				/>
 				<div class="text-xs text-gray-500 mt-1">
 					Type email addresses and press Enter to add them. You can add multiple emails at

@@ -100,7 +100,7 @@
 </template>
 
 <script lang="ts" setup>
-import { computed, toRaw } from 'vue';
+import { computed, toRaw, ref } from 'vue';
 // import { Routes } from '@/router/routers';
 import { useI18n } from '@/hooks/useI18n';
 import { useRoute, useRouter } from 'vue-router';
@@ -118,6 +118,17 @@ import { PageEnum } from '@/enums/pageEnum';
 const { t } = useI18n();
 const currentRoute = useRoute();
 const router = useRouter();
+
+// 导航状态管理
+const isNavigating = ref(false);
+const pendingPath = ref('');
+
+// 定义 emit 事件
+const emit = defineEmits<{
+	navigationStart: [path: string];
+	navigationEnd: [path: string];
+	navigationError: [error: any, path: string];
+}>();
 
 defineProps({
 	uniqueOpened: {
@@ -144,8 +155,56 @@ const isLastMenu = (chil, item) => {
 };
 
 // 处理导航，使用 Vue Router 进行 SPA 导航
-const handleNavigate = (path: string) => {
-	router.push(path);
+const handleNavigate = async (indexPath: string) => {
+	// 如果正在导航中，忽略新的导航请求
+	if (isNavigating.value) {
+		return;
+	}
+
+	// 如果点击的是当前路由，不进行导航
+	if (currentRoute.path === indexPath) {
+		return;
+	}
+
+	// 保存当前路由，以便导航失败时恢复
+	const previousPath = currentRoute.path;
+
+	try {
+		isNavigating.value = true;
+		pendingPath.value = indexPath;
+
+		// 通知父组件开始导航
+		emit('navigationStart', indexPath);
+
+		// 执行路由导航
+		await router.push(indexPath);
+
+		// 通知父组件导航成功
+		emit('navigationEnd', indexPath);
+
+		// 导航成功后清除状态
+		pendingPath.value = '';
+	} catch (error) {
+		console.error('导航失败:', error);
+
+		// 导航失败时，尝试恢复到之前的路由
+		try {
+			if (currentRoute.path !== previousPath) {
+				await router.push(previousPath);
+				console.log('已恢复到之前的路由:', previousPath);
+			}
+		} catch (restoreError) {
+			console.error('恢复路由失败:', restoreError);
+		}
+
+		// 通知父组件导航失败
+		emit('navigationError', error, indexPath);
+
+		// 导航失败时也清除状态
+		pendingPath.value = '';
+	} finally {
+		isNavigating.value = false;
+	}
 };
 
 const menuRoutes = computed<any[]>(() => {
@@ -161,7 +220,8 @@ const menuRoutes = computed<any[]>(() => {
 
 // 计算活跃menu
 const computedActiveMenu = computed((): string => {
-	// console.log('currentRoute:', currentRoute.query);
+	// 始终基于当前路由计算活跃状态，不受导航状态影响
+	// 这样确保菜单状态与实际路由状态保持同步
 	let activePath = '';
 	activePath = currentRoute.meta.activeMenu
 		? (currentRoute.meta.activeMenu as string)
