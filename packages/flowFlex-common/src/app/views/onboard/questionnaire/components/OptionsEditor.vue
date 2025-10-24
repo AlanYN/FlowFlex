@@ -16,7 +16,7 @@
 							class="option-item"
 							:class="{ 'option-item-other': option.isOther }"
 						>
-							<div class="flex items-center gap-2">
+							<div class="flex items-center gap-2 flex-1 min-w-0">
 								<span class="option-item-number">{{ index + 1 }}.</span>
 
 								<!-- 选项标签显示/编辑 -->
@@ -24,8 +24,8 @@
 									v-if="!editingOptions[option.temporaryId]"
 									class="option-content"
 								>
-									<span class="option-label-text">
-										{{ option.label }}
+									<div class="option-label-text">
+										<span class="option-text">{{ option.label }}</span>
 										<el-tag
 											v-if="option.isOther"
 											size="small"
@@ -34,7 +34,7 @@
 										>
 											Other
 										</el-tag>
-									</span>
+									</div>
 								</div>
 								<el-input
 									v-else
@@ -267,7 +267,7 @@ const saveOptionEdit = (id: string) => {
 	border: 1px solid var(--primary-100);
 	background-color: var(--el-bg-color);
 	transition: background-color 0.2s;
-	@apply rounded-xl;
+	@apply rounded-xl w-full;
 }
 
 .option-item:hover {
@@ -290,6 +290,8 @@ const saveOptionEdit = (id: string) => {
 	align-items: center;
 	gap: 0.5rem;
 	flex: 1;
+	min-width: 0; /* 允许 flex 子项收缩 */
+	overflow: hidden; /* 确保内容不会溢出 */
 }
 
 .option-edit-input {
@@ -301,6 +303,7 @@ const saveOptionEdit = (id: string) => {
 	gap: 0.25rem;
 	opacity: 0.6;
 	transition: opacity 0.2s;
+	flex-shrink: 0; /* 防止被压缩 */
 }
 
 .option-item:hover .option-item-actions {
@@ -321,6 +324,17 @@ const saveOptionEdit = (id: string) => {
 	display: flex;
 	align-items: center;
 	gap: 0.5rem;
+	flex: 1;
+	min-width: 0; /* 允许 flex 子项收缩 */
+	overflow: hidden; /* 确保内容不会溢出 */
+}
+
+.option-text {
+	flex: 1;
+	min-width: 0; /* 允许 flex 子项收缩 */
+	overflow: hidden; /* 确保内容不会溢出 */
+	white-space: nowrap; /* 防止文本换行 */
+	text-overflow: ellipsis; /* 显示省略号 */
 }
 
 .other-tag {
