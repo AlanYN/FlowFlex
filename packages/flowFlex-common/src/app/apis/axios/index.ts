@@ -22,6 +22,7 @@ import { useWujie } from '@/hooks/wujie/micro-app.config';
 import axios from 'axios';
 import qs from 'qs';
 import { ProjectEnum } from '@/enums/appEnum';
+import { tokenRefreshManager } from './tokenRefresh';
 
 import { useGlobSetting } from '@/settings';
 import { getAppCode } from '@/utils/threePartyLogin';
@@ -203,32 +204,36 @@ const transform: AxiosTransform = {
 		const err: string = error?.toString?.() ?? '';
 		let errMessage = '';
 		const axiosCanceler = new AxiosCanceler();
-		if (Object.keys(error?.response?.headers).includes('token-expired')) {
-			console.log('token过期了'); // 只是token过期��� 不包含其他地方登录了
-			axiosCanceler.removeAllPending();
-			const { tokenExpiredLogOut } = useWujie();
-			if (tokenExpiredLogOut) {
-				tokenExpiredLogOut(true);
-			}
-			window.parent.postMessage({ exceedToken: true }, '*');
-		} else if (error.response?.status === 401) {
-			// Check if current page is Portal-related (public pages)
-			// Portal pages should not trigger logout on 401 errors
-			const isPortalPath =
-				window.location.pathname.startsWith('/portal-access') ||
-				window.location.pathname.startsWith('/customer-portal') ||
-				window.location.pathname.startsWith('/onboard/sub-portal');
+		// 检查是否是 401 未授权错误
+		if (error.response?.status === 401) {
+			console.log('收到401错误，尝试刷新token');
 
-			if (!isPortalPath) {
+			// 检查是否是刷新 token 请求本身失败，避免无限循环
+			if (config?.url?.includes('/api/v1/oauth/token')) {
+				console.log('刷新token请求失败，跳转登录');
 				axiosCanceler.removeAllPending();
 				const { tokenExpiredLogOut } = useWujie();
 				if (tokenExpiredLogOut) {
 					tokenExpiredLogOut(true);
 				}
 				window.parent.postMessage({ exceedToken: true }, '*');
-			} else {
-				console.log('[Portal] 401 error on Portal page - not triggering logout');
+				return Promise.reject(error);
 			}
+
+			// Check if current page is Portal-related (public pages)
+			// Portal pages should not trigger token refresh on 401 errors
+			const isPortalPath =
+				window.location.pathname.startsWith('/portal-access') ||
+				window.location.pathname.startsWith('/customer-portal') ||
+				window.location.pathname.startsWith('/onboard/sub-portal');
+
+			if (isPortalPath) {
+				console.log('[Portal] 401 error on Portal page - not triggering token refresh');
+				return Promise.reject(error);
+			}
+
+			// 尝试刷新 token 并重试请求
+			return tokenRefreshManager.refreshTokenAndRetry(axiosInstance, config);
 		}
 		if (axios.isCancel(error)) {
 			return Promise.reject(error);

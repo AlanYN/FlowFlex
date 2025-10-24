@@ -420,7 +420,6 @@ const addTask = async (checklistId) => {
 		emit('task-updated', checklistId);
 		cancelAddTask();
 	} catch (err) {
-		ElMessage.error(t('sys.api.operationFailed'));
 		cancelAddTask();
 	}
 };

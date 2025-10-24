@@ -16,7 +16,7 @@
 						:limit="10"
 						clearable
 						@change="handleLeadIdTagsChange"
-						class="w-full rounded-xl"
+						class="w-full"
 					/>
 				</div>
 
@@ -29,7 +29,7 @@
 						:limit="10"
 						clearable
 						@change="handleLeadNameTagsChange"
-						class="w-full rounded-xl"
+						class="w-full"
 					/>
 				</div>
 
@@ -98,7 +98,7 @@
 						:limit="10"
 						clearable
 						@change="handleUpdatedByTagsChange"
-						class="w-full rounded-xl"
+						class="w-full"
 					/>
 				</div>
 

@@ -23,6 +23,9 @@ import { getTokenobj } from '@/utils/auth';
 
 import nProgress from 'nprogress';
 
+// 配置 nProgress - 禁用右侧的旋转圆圈
+nProgress.configure({ showSpinner: false });
+
 const allPagePaths = getMenuListPath(Routes);
 
 export async function setupRouterGuard(router: Router) {

@@ -18,6 +18,9 @@
 					:uniqueOpened="true"
 					:collapseTransition="true"
 					mode="vertical"
+					@navigation-start="handleNavigationStart"
+					@navigation-end="handleNavigationEnd"
+					@navigation-error="handleNavigationError"
 				/>
 			</el-scrollbar>
 		</div>
@@ -41,6 +44,26 @@ const props = defineProps({
 		default: false,
 	},
 });
+
+// 定义 emit 事件
+const emit = defineEmits<{
+	navigationStart: [path: string];
+	navigationEnd: [path: string];
+	navigationError: [error: any, path: string];
+}>();
+
+// 处理菜单导航事件
+const handleNavigationStart = (path: string) => {
+	emit('navigationStart', path);
+};
+
+const handleNavigationEnd = (path: string) => {
+	emit('navigationEnd', path);
+};
+
+const handleNavigationError = (error: any, path: string) => {
+	emit('navigationError', error, path);
+};
 
 const goToHomePage = () => {
 	router.push(PageEnum.BASE_HOME as string);

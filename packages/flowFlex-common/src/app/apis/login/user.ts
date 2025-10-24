@@ -9,7 +9,7 @@ export const UnisApi = () => {
 		UserInfo: `${globSetting.idmUrl}/api/v1/users/current/info`,
 
 		// 获取新token
-		getNewToken: `${globSetting.idmUrl}/api/v1/oauth/token`,
+		refreshToken: `${globSetting.idmUrl}/api/v1/oauth/token`,
 
 		verifyTicket: `${globSetting.idmUrl}/api/v1/oauth/ticket`,
 
@@ -59,4 +59,8 @@ export function registerApi(params: {
 
 export function switchingCompany(params) {
 	return defHttp.put({ url: `${UnisApi().switchingCompany}/${params}` });
+}
+
+export function refreshToken(params) {
+	return defHttp.put({ url: `${UnisApi().refreshToken}`, params });
 }

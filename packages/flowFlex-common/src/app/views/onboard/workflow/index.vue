@@ -46,7 +46,7 @@
 							clearable
 							:limit="10"
 							@change="handleWorkflowChange"
-							class="w-full rounded-xl"
+							class="w-full"
 						/>
 					</div>
 
@@ -127,10 +127,7 @@
 				</div>
 
 				<!-- 加载中状态 -->
-				<div
-					v-if="loading.workflows"
-					class="loading-container rounded-xl bg-el-bg-color dark:bg-el-bg-color"
-				>
+				<div v-if="loading.workflows" class="rounded-xl bg-el-bg-color dark:bg-el-bg-color">
 					<el-skeleton style="width: 100%" :rows="10" animated />
 				</div>
 

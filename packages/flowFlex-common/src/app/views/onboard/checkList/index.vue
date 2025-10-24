@@ -43,7 +43,7 @@
 							clearable
 							:limit="10"
 							@change="handleSearchTagsChange"
-							class="w-full rounded-xl"
+							class="w-full"
 						/>
 					</div>
 
