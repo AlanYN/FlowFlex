@@ -1,10 +1,12 @@
 using FlowFlex.Application.Contracts.IServices.OW;
+using FlowFlex.Application.Filter;
 using FlowFlex.Domain.Shared;
 using FlowFlex.Domain.Shared.Enums.Permission;
 using FlowFlex.Domain.Shared.Models;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.Extensions.Logging;
+using System.Linq;
 
 namespace FlowFlex.WebApi.Filters
 {
@@ -44,6 +46,14 @@ namespace FlowFlex.WebApi.Filters
 
             try
             {
+                // Check if this is a Portal Token accessing a [PortalAccess] endpoint
+                if (IsPortalTokenWithPortalAccess(context.HttpContext))
+                {
+                    logger.LogInformation("Portal token accessing [PortalAccess] endpoint - bypassing RequirePermission check");
+                    await next();
+                    return;
+                }
+
                 // Step 1: Get entity ID from route parameters
                 if (!context.ActionArguments.TryGetValue(_entityIdParameterName, out var entityIdObj))
                 {
@@ -134,6 +144,57 @@ namespace FlowFlex.WebApi.Filters
                     StatusCode = 500
                 };
             }
+        }
+
+        /// <summary>
+        /// Check if current request is using a Portal token and accessing a [PortalAccess] endpoint
+        /// Portal tokens should bypass RequirePermission checks on endpoints marked with [PortalAccess]
+        /// </summary>
+        private bool IsPortalTokenWithPortalAccess(HttpContext httpContext)
+        {
+            if (httpContext == null)
+            {
+                return false;
+            }
+
+            var user = httpContext.User;
+            if (user == null || !user.Identity.IsAuthenticated)
+            {
+                return false;
+            }
+
+            // Check for Portal token indicators
+            var scope = user.Claims.FirstOrDefault(c => c.Type == "scope")?.Value;
+            var tokenType = user.Claims.FirstOrDefault(c => c.Type == "token_type")?.Value;
+
+            bool isPortalToken = scope == "portal" || tokenType == "portal-access";
+
+            if (!isPortalToken)
+            {
+                return false;
+            }
+
+            // Check if current endpoint has [PortalAccess] attribute
+            var endpoint = httpContext.GetEndpoint();
+            if (endpoint == null)
+            {
+                return false;
+            }
+
+            // Check controller-level [PortalAccess]
+            var controllerPortalAccess = endpoint.Metadata
+                .OfType<Microsoft.AspNetCore.Mvc.Controllers.ControllerActionDescriptor>()
+                .FirstOrDefault()
+                ?.ControllerTypeInfo
+                .GetCustomAttributes(typeof(PortalAccessAttribute), true)
+                .FirstOrDefault();
+
+            // Check action-level [PortalAccess]
+            var actionPortalAccess = endpoint.Metadata.GetMetadata<PortalAccessAttribute>();
+
+            bool hasPortalAccess = controllerPortalAccess != null || actionPortalAccess != null;
+
+            return hasPortalAccess;
         }
     }
 }

@@ -428,6 +428,43 @@ namespace FlowFlex.Application.Services.Action
                         _logger.LogError(ex, "Failed to record action definition update change log for action {ActionId}", entity.Id);
                     }
                 });
+
+                // If action name changed, sync the new name to related ChecklistTasks and Questionnaires
+                if (changedFields.Contains("Name") && originalName != entity.ActionName)
+                {
+                    _logger.LogInformation("Action name changed from '{OldName}' to '{NewName}', syncing to related entities", 
+                        originalName, entity.ActionName);
+
+                    // Capture action ID and name for background task
+                    var actionId = id;
+                    var newActionName = entity.ActionName;
+                    var tenantId = currentTenantId;
+
+                    // Async sync action name to related entities (fire-and-forget)
+                    _backgroundTaskQueue.QueueBackgroundWorkItem(async token =>
+                    {
+                        try
+                        {
+                            // Create a new scope for the background task to avoid disposed object issues
+                            using var scope = _serviceScopeFactory.CreateScope();
+                            var checklistTaskRepository = scope.ServiceProvider.GetRequiredService<IChecklistTaskRepository>();
+                            var questionnaireRepository = scope.ServiceProvider.GetRequiredService<IQuestionnaireRepository>();
+                            var logger = scope.ServiceProvider.GetRequiredService<ILogger<ActionManagementService>>();
+
+                            await SyncActionNameToRelatedEntitiesAsync(
+                                actionId, 
+                                newActionName, 
+                                tenantId, 
+                                checklistTaskRepository, 
+                                questionnaireRepository, 
+                                logger);
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogError(ex, "Failed to sync action name to related entities for action {ActionId}", actionId);
+                        }
+                    });
+                }
             }
 
             return resultDto;
@@ -1614,6 +1651,312 @@ namespace FlowFlex.Application.Services.Action
                     ActionTriggerType = "Task"
                 }
             };
+        }
+
+        #endregion
+
+        #region Action Name Synchronization
+
+        /// <summary>
+        /// Sync action name to related ChecklistTasks and Questionnaires
+        /// Uses scoped repositories to avoid disposed object issues in background tasks
+        /// </summary>
+        private async Task SyncActionNameToRelatedEntitiesAsync(
+            long actionDefinitionId, 
+            string newActionName, 
+            string tenantId,
+            IChecklistTaskRepository checklistTaskRepository,
+            IQuestionnaireRepository questionnaireRepository,
+            ILogger<ActionManagementService> logger)
+        {
+            logger.LogInformation("Starting action name sync for action {ActionId} to '{NewName}' in tenant {TenantId}", 
+                actionDefinitionId, newActionName, tenantId);
+
+            var totalTasksUpdated = 0;
+            var totalQuestionnairesUpdated = 0;
+
+            try
+            {
+                // Sync to ChecklistTasks
+                totalTasksUpdated = await SyncActionNameToChecklistTasksAsync(
+                    actionDefinitionId, newActionName, tenantId, checklistTaskRepository, logger);
+                logger.LogInformation("Synced action name to {Count} ChecklistTasks for action {ActionId}", 
+                    totalTasksUpdated, actionDefinitionId);
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Error syncing action name to ChecklistTasks for action {ActionId}", actionDefinitionId);
+            }
+
+            try
+            {
+                // Sync to Questionnaires
+                totalQuestionnairesUpdated = await SyncActionNameToQuestionnairesAsync(
+                    actionDefinitionId, newActionName, tenantId, questionnaireRepository, logger);
+                logger.LogInformation("Synced action name to {Count} Questionnaires for action {ActionId}", 
+                    totalQuestionnairesUpdated, actionDefinitionId);
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Error syncing action name to Questionnaires for action {ActionId}", actionDefinitionId);
+            }
+
+            logger.LogInformation("Completed action name sync for action {ActionId}: {TaskCount} tasks, {QuestionnaireCount} questionnaires updated", 
+                actionDefinitionId, totalTasksUpdated, totalQuestionnairesUpdated);
+        }
+
+        /// <summary>
+        /// Sync action name to ChecklistTasks
+        /// Uses scoped repository to avoid disposed object issues
+        /// </summary>
+        private async Task<int> SyncActionNameToChecklistTasksAsync(
+            long actionDefinitionId, 
+            string newActionName, 
+            string tenantId,
+            IChecklistTaskRepository checklistTaskRepository,
+            ILogger<ActionManagementService> logger)
+        {
+            var updatedCount = 0;
+
+            try
+            {
+                // Get all tasks that reference this action using scoped repository
+                var tasks = await checklistTaskRepository.GetTasksByActionIdAsync(actionDefinitionId);
+                
+                // Filter by tenant to ensure tenant isolation
+                tasks = tasks.Where(t => t.TenantId == tenantId && t.IsValid).ToList();
+
+                if (!tasks.Any())
+                {
+                    logger.LogDebug("No ChecklistTasks found for action {ActionId} in tenant {TenantId}", 
+                        actionDefinitionId, tenantId);
+                    return 0;
+                }
+
+                logger.LogInformation("Found {Count} ChecklistTasks to update for action {ActionId}", 
+                    tasks.Count, actionDefinitionId);
+
+                // Update each task's ActionName
+                // AOP will work correctly because we're using a scoped repository from a new scope
+                foreach (var task in tasks)
+                {
+                    try
+                    {
+                        var oldName = task.ActionName;
+                        task.ActionName = newActionName;
+                        task.ModifyDate = DateTimeOffset.UtcNow;
+
+                        await checklistTaskRepository.UpdateAsync(task);
+                        updatedCount++;
+
+                        logger.LogDebug("Updated ChecklistTask {TaskId} action name from '{OldName}' to '{NewName}'", 
+                            task.Id, oldName, newActionName);
+                    }
+                    catch (Exception ex)
+                    {
+                        logger.LogWarning(ex, "Failed to update ChecklistTask {TaskId} for action {ActionId}", 
+                            task.Id, actionDefinitionId);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Error in SyncActionNameToChecklistTasksAsync for action {ActionId}", actionDefinitionId);
+                throw;
+            }
+
+            return updatedCount;
+        }
+
+        /// <summary>
+        /// Sync action name to Questionnaires
+        /// Uses scoped repository to avoid disposed object issues
+        /// </summary>
+        private async Task<int> SyncActionNameToQuestionnairesAsync(
+            long actionDefinitionId, 
+            string newActionName, 
+            string tenantId,
+            IQuestionnaireRepository questionnaireRepository,
+            ILogger<ActionManagementService> logger)
+        {
+            var updatedCount = 0;
+
+            try
+            {
+                // Use GetListWithExplicitFiltersAsync to bypass HttpContext dependency
+                // Background tasks don't have HttpContext, so GetListAsync would return DEFAULT tenant
+                var questionnaires = await questionnaireRepository.GetListWithExplicitFiltersAsync(tenantId, "DEFAULT");
+                
+                logger.LogInformation("Retrieved {Count} questionnaires for tenant {TenantId} with AppCode=DEFAULT", 
+                    questionnaires.Count, tenantId);
+
+                if (!questionnaires.Any())
+                {
+                    logger.LogInformation("No Questionnaires found in tenant {TenantId}. " +
+                        "This is expected if no questionnaires exist or they use a different AppCode.", tenantId);
+                    return 0;
+                }
+                
+                // Log questionnaire IDs for debugging
+                logger.LogDebug("Questionnaire IDs found: {Ids}", 
+                    string.Join(", ", questionnaires.Select(q => q.Id)));
+
+                logger.LogInformation("Checking {Count} Questionnaires for action {ActionId} references in tenant {TenantId}", 
+                    questionnaires.Count, actionDefinitionId, tenantId);
+
+                foreach (var questionnaire in questionnaires)
+                {
+                    try
+                    {
+                        if (questionnaire.Structure == null)
+                            continue;
+
+                        var structureJson = questionnaire.Structure.ToString(Newtonsoft.Json.Formatting.None);
+                        var updated = UpdateActionNameInStructureJson(structureJson, actionDefinitionId, newActionName, out var newStructureJson, logger);
+
+                        if (updated)
+                        {
+                            questionnaire.Structure = Newtonsoft.Json.Linq.JToken.Parse(newStructureJson);
+                            questionnaire.ModifyDate = DateTimeOffset.UtcNow;
+
+                            await questionnaireRepository.UpdateAsync(questionnaire);
+                            updatedCount++;
+
+                            logger.LogDebug("Updated Questionnaire {QuestionnaireId} ('{Name}') with new action name '{NewName}'", 
+                                questionnaire.Id, questionnaire.Name, newActionName);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        logger.LogWarning(ex, "Failed to update Questionnaire {QuestionnaireId} for action {ActionId}", 
+                            questionnaire.Id, actionDefinitionId);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Error in SyncActionNameToQuestionnairesAsync for action {ActionId}", actionDefinitionId);
+                throw;
+            }
+
+            return updatedCount;
+        }
+
+        /// <summary>
+        /// Update action name in questionnaire structure JSON
+        /// </summary>
+        private bool UpdateActionNameInStructureJson(
+            string structureJson, 
+            long actionDefinitionId, 
+            string newActionName, 
+            out string newStructureJson,
+            ILogger<ActionManagementService> logger)
+        {
+            newStructureJson = structureJson;
+            var hasChanges = false;
+
+            try
+            {
+                using var document = JsonDocument.Parse(structureJson);
+                var root = document.RootElement;
+
+                // Create a mutable copy for modifications
+                var structureObj = Newtonsoft.Json.JsonConvert.DeserializeObject<dynamic>(structureJson);
+
+                if (root.TryGetProperty("sections", out var sectionsElement))
+                {
+                    var sectionIndex = 0;
+                    foreach (var section in sectionsElement.EnumerateArray())
+                    {
+                        // Process questions in sections
+                        hasChanges |= UpdateActionNameInQuestionArray(section, structureObj.sections[sectionIndex], 
+                            "questions", actionDefinitionId, newActionName, logger);
+
+                        // Process subsections if they exist
+                        if (section.TryGetProperty("subsections", out var subsectionsElement))
+                        {
+                            var subsectionIndex = 0;
+                            foreach (var subsection in subsectionsElement.EnumerateArray())
+                            {
+                                hasChanges |= UpdateActionNameInQuestionArray(subsection, 
+                                    structureObj.sections[sectionIndex].subsections[subsectionIndex],
+                                    "questions", actionDefinitionId, newActionName, logger);
+                                subsectionIndex++;
+                            }
+                        }
+                        sectionIndex++;
+                    }
+                }
+
+                if (hasChanges)
+                {
+                    newStructureJson = Newtonsoft.Json.JsonConvert.SerializeObject(structureObj);
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "Error updating action name in structure JSON for action {ActionId}", actionDefinitionId);
+                return false;
+            }
+
+            return hasChanges;
+        }
+
+        /// <summary>
+        /// Update action name in question array
+        /// </summary>
+        private bool UpdateActionNameInQuestionArray(
+            JsonElement section, 
+            dynamic sectionObj, 
+            string arrayName, 
+            long actionDefinitionId, 
+            string newActionName,
+            ILogger<ActionManagementService> logger)
+        {
+            var hasChanges = false;
+
+            if (section.TryGetProperty(arrayName, out var questionsElement) && questionsElement.ValueKind == JsonValueKind.Array)
+            {
+                var questionIndex = 0;
+                foreach (var question in questionsElement.EnumerateArray())
+                {
+                    // Check and update question action
+                    if (question.TryGetProperty("action", out var actionElement))
+                    {
+                        if (actionElement.TryGetProperty("id", out var actionIdEl) &&
+                            actionIdEl.GetString() == actionDefinitionId.ToString())
+                        {
+                            sectionObj[arrayName][questionIndex].action.name = newActionName;
+                            hasChanges = true;
+                            logger.LogDebug("Updated action name in question at index {Index}", questionIndex);
+                        }
+                    }
+
+                    // Check and update options actions
+                    if (question.TryGetProperty("options", out var optionsElement) && optionsElement.ValueKind == JsonValueKind.Array)
+                    {
+                        var optionIndex = 0;
+                        foreach (var option in optionsElement.EnumerateArray())
+                        {
+                            if (option.TryGetProperty("action", out var optionActionElement))
+                            {
+                                if (optionActionElement.TryGetProperty("id", out var optionActionIdEl) &&
+                                    optionActionIdEl.GetString() == actionDefinitionId.ToString())
+                                {
+                                    sectionObj[arrayName][questionIndex].options[optionIndex].action.name = newActionName;
+                                    hasChanges = true;
+                                    logger.LogDebug("Updated action name in option at question index {QuestionIndex}, option index {OptionIndex}", 
+                                        questionIndex, optionIndex);
+                                }
+                            }
+                            optionIndex++;
+                        }
+                    }
+                    questionIndex++;
+                }
+            }
+
+            return hasChanges;
         }
 
         #endregion

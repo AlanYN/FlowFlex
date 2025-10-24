@@ -1,9 +1,11 @@
 ﻿using FlowFlex.Domain.Shared.Const;
 using FlowFlex.Domain.Shared.Models;
+using FlowFlex.Application.Filter;
 using Item.Internal.Auth.Authorization;
 using Item.Internal.Auth.Authorization.BnpToken.Services;
 using Item.ThirdParty.IdentityHub;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.JsonWebTokens;
 
@@ -18,16 +20,19 @@ namespace WebApi.Authorization
         private readonly IdentityHubConfigOptions _options;
         private readonly UserContext _userContext;
         private readonly IdentityHubClient _client;
+        private readonly IHttpContextAccessor _httpContextAccessor;
 
         public WfeAuthorizationHandler(
             IBnpTokenService bnpTokenService,
             IOptions<IdentityHubConfigOptions> options,
             UserContext userContext,
-            IdentityHubClient client) : base(bnpTokenService)
+            IdentityHubClient client,
+            IHttpContextAccessor httpContextAccessor) : base(bnpTokenService)
         {
             _options = options.Value;
             _userContext = userContext;
             _client = client;
+            _httpContextAccessor = httpContextAccessor;
         }
 
         /// <summary>
@@ -41,6 +46,13 @@ namespace WebApi.Authorization
         /// </returns>
         protected override async Task<bool> CheckUserPermissionsAsync(IEnumerable<string> requestPermissions)
         {
+            // Check if this is a Portal Token accessing a [PortalAccess] endpoint
+            if (IsPortalTokenWithPortalAccess())
+            {
+                // Portal tokens bypass WFEAuthorize permission checks on [PortalAccess] endpoints
+                return true;
+            }
+
             // For special authentication schemes, bypass permission check
             // Similar to Unis CRM's approach with PassIdentification, IdentityClient, etc.
             if (IsSpecialAuthenticationScheme())
@@ -166,6 +178,60 @@ namespace WebApi.Authorization
             };
 
             return specialSchemes.Contains(scheme);
+        }
+
+        /// <summary>
+        /// Check if current request is using a Portal token and accessing a [PortalAccess] endpoint
+        /// Portal tokens should bypass WFEAuthorize permission checks on endpoints marked with [PortalAccess]
+        /// </summary>
+        /// <returns>True if Portal token accessing [PortalAccess] endpoint, false otherwise</returns>
+        private bool IsPortalTokenWithPortalAccess()
+        {
+            // Check if current token is a Portal token
+            var httpContext = _httpContextAccessor.HttpContext;
+            if (httpContext == null)
+            {
+                return false;
+            }
+
+            var user = httpContext.User;
+            if (user == null || !user.Identity.IsAuthenticated)
+            {
+                return false;
+            }
+
+            // Check for Portal token indicators
+            var scope = user.Claims.FirstOrDefault(c => c.Type == "scope")?.Value;
+            var tokenType = user.Claims.FirstOrDefault(c => c.Type == "token_type")?.Value;
+
+            bool isPortalToken = scope == "portal" || tokenType == "portal-access";
+
+            if (!isPortalToken)
+            {
+                return false;
+            }
+
+            // Check if current endpoint has [PortalAccess] attribute
+            var endpoint = httpContext.GetEndpoint();
+            if (endpoint == null)
+            {
+                return false;
+            }
+
+            // Check controller-level [PortalAccess]
+            var controllerPortalAccess = endpoint.Metadata
+                .OfType<Microsoft.AspNetCore.Mvc.Controllers.ControllerActionDescriptor>()
+                .FirstOrDefault()
+                ?.ControllerTypeInfo
+                .GetCustomAttributes(typeof(PortalAccessAttribute), true)
+                .FirstOrDefault();
+
+            // Check action-level [PortalAccess]
+            var actionPortalAccess = endpoint.Metadata.GetMetadata<PortalAccessAttribute>();
+
+            bool hasPortalAccess = controllerPortalAccess != null || actionPortalAccess != null;
+
+            return hasPortalAccess;
         }
     }
 }

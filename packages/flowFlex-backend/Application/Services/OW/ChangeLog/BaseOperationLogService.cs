@@ -289,7 +289,53 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
         /// </summary>
         protected virtual string GetOperatorDisplayName()
         {
-            return _userContext.UserName ?? "System";
+            var httpContext = _httpContextAccessor?.HttpContext;
+            var user = httpContext?.User;
+            
+            // Check if this is a Portal token (has scope=portal claim)
+            var scope = user?.Claims.FirstOrDefault(c => c.Type == "scope")?.Value;
+            var tokenType = user?.Claims.FirstOrDefault(c => c.Type == "token_type")?.Value;
+            bool isPortalToken = scope == "portal" && tokenType == "portal-access";
+            
+            if (isPortalToken)
+            {
+                // For Portal tokens, prioritize email/username claims over other claims
+                // to ensure we get the user's email address, not their ID
+                string[] portalClaimTypes = new[]
+                {
+                    System.Security.Claims.ClaimTypes.Email,
+                    "email",
+                    "username",
+                    System.Security.Claims.ClaimTypes.NameIdentifier
+                };
+                
+                foreach (var ct in portalClaimTypes)
+                {
+                    var v = user?.Claims.FirstOrDefault(c => c.Type == ct)?.Value;
+                    if (!string.IsNullOrWhiteSpace(v))
+                    {
+                        // Validate that it's an email address, not an ID
+                        if (v.Contains("@"))
+                        {
+                            return v;
+                        }
+                    }
+                }
+            }
+            
+            // For ItemIAM and IdentityHub tokens, use UserContext
+            if (!string.IsNullOrWhiteSpace(_userContext?.UserName))
+            {
+                return _userContext.UserName;
+            }
+            
+            // Fallback to UserContext.Email
+            if (!string.IsNullOrWhiteSpace(_userContext?.Email))
+            {
+                return _userContext.Email;
+            }
+            
+            return "System";
         }
 
         /// <summary>

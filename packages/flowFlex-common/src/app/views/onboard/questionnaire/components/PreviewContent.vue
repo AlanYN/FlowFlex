@@ -136,16 +136,16 @@
 			>
 				<!-- 章节标题 -->
 				<div class="section-header p-4 border-b" v-if="!section.isDefault">
-					<div class="flex items-center justify-between">
-						<div>
-							<h3 class="text-lg font-medium section-title">
+					<div class="flex items-center justify-between gap-4">
+						<div class="flex-1 min-w-0">
+							<h3 class="text-lg font-medium section-title truncate">
 								{{ section.name }}
 							</h3>
-							<p v-if="section.description" class="section-description mt-1">
+							<p v-if="section.description" class="section-description mt-1 truncate">
 								{{ section.description }}
 							</p>
 						</div>
-						<div class="text-sm text-secondary">
+						<div class="text-sm text-secondary flex-shrink-0">
 							{{ section.questions?.length || 0 }}
 							{{ section.questions?.length > 1 ? 'items' : 'item' }}
 						</div>
@@ -164,20 +164,27 @@
 							class="flex items-start justify-between"
 							v-if="item.type !== 'page_break'"
 						>
-							<h4 class="text-base font-medium question-title flex-1">
+							<h4
+								class="text-base font-medium question-title flex-1 flex items-baseline gap-1 min-w-0"
+							>
 								<span class="text-placeholder mr-2">
 									{{ getQuestionNumber(sectionIndex, itemIndex) }}.
 								</span>
-								<a :href="`#${item.id}`">{{ item.question || item.title }}</a>
+								<a :href="`#${item.id}`" class="truncate">
+									{{ item.question || item.title }}
+								</a>
 								<span v-if="item.required" class="text-red-500 ml-1">*</span>
 							</h4>
 							<!-- <el-tag v-if="item.type" size="small" type="info" class="ml-2">
-								{{ formatQuestionType(item.type) }}
-							</el-tag> -->
+							{{ formatQuestionType(item.type) }}
+						</el-tag> -->
 						</div>
 
 						<!-- 问题描述 -->
-						<p v-if="item.description" class="text-sm question-description pl-6">
+						<p
+							v-if="item.description"
+							class="text-sm question-description pl-6 truncate"
+						>
 							{{ item.description }}
 						</p>
 
@@ -275,7 +282,7 @@
 								@change="
 									handleCheckboxChange(sectionIndex, itemIndex, item, $event)
 								"
-								class="w-full"
+								class="w-full flex"
 							>
 								<div class="space-y-2">
 									<el-checkbox
@@ -294,8 +301,10 @@
 												:placeholder="item.placeholder || 'Your answer'"
 											/>
 										</div>
-										<div v-else>
-											{{ option.label || option.text || option.value }}
+										<div v-else class="min-w-0 flex">
+											<span class="truncate min-w-0">
+												{{ option.label || option.text || option.value }}
+											</span>
 										</div>
 									</el-checkbox>
 								</div>
@@ -416,9 +425,9 @@
 									}`"
 									class="preview-linear-scale"
 								/>
-								<div class="flex justify-between text-xs text-secondary">
-									<span>{{ item.minLabel || item.min }}</span>
-									<span>{{ item.maxLabel || item.max }}</span>
+								<div class="flex justify-between text-xs text-secondary min-w-0">
+									<span class="truncate">{{ item.minLabel || item.min }}</span>
+									<span class="truncate">{{ item.maxLabel || item.max }}</span>
 								</div>
 							</div>
 

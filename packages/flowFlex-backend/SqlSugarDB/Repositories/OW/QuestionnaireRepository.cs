@@ -521,14 +521,15 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
             try
             {
                 // 使用显式过滤条件
+                // Note: AppCode comparison is case-insensitive to handle both "DEFAULT" and "default"
                 var query = db.Queryable<Questionnaire>()
                     .Where(x => x.IsValid == true)
-                    .Where(x => x.TenantId == tenantId && x.AppCode == appCode);
+                    .Where(x => x.TenantId == tenantId && x.AppCode.ToLower() == appCode.ToLower());
 
                 // 执行查询
                 var result = await query.OrderByDescending(x => x.CreateDate).ToListAsync();
 
-                _logger.LogInformation($"[QuestionnaireRepository] GetListWithExplicitFiltersAsync returned {result.Count} questionnaires with explicit filters");
+                _logger.LogInformation($"[QuestionnaireRepository] GetListWithExplicitFiltersAsync returned {result.Count} questionnaires with explicit filters (case-insensitive AppCode)");
 
                 return result;
             }
