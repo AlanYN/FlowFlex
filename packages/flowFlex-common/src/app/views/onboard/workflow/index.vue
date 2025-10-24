@@ -1200,6 +1200,11 @@ const validateAndCheckWorkflowPermissions = async (
 			} else {
 				warningMessage = `Warning: You are setting permissions that will exclude yourself from operating this ${entityName}. You will be able to view but not operate on this ${entityName} after saving. Do you want to continue?`;
 			}
+
+			if (currentUser.userType === 1 || currentUser.userType === 2) {
+				return { hasWarning: false, showMessage: false, warningMessage };
+			}
+
 			return { hasWarning: true, showMessage: false, warningMessage };
 		}
 	} catch (error) {

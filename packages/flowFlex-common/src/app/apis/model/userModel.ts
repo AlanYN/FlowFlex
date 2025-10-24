@@ -76,6 +76,7 @@ export interface GetUserInfoModel {
 	message: string;
 	data: {
 		roleIds: string[];
+		userType: number;
 		// 用户id
 		userId: string | number;
 		firstName: string | null;

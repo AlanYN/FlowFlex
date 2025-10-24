@@ -26,7 +26,6 @@
 					v-model="localPermissions.viewTeams"
 					selectionType="team"
 					:clearable="true"
-					checkStrictly
 				/>
 			</div>
 		</div>
@@ -48,7 +47,6 @@
 					v-model="localPermissions.operateTeams"
 					selectionType="team"
 					:clearable="true"
-					checkStrictly
 					:available-ids="operateFilterConfig.availableIds"
 					:excluded-ids="operateFilterConfig.excludedIds"
 					@focus="handleOperateFocus"
