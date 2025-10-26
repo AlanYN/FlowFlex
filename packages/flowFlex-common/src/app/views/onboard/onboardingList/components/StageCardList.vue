@@ -103,7 +103,7 @@
 											<span>
 												Start:
 												{{
-													formatDate(lead.currentStageStartTime) ||
+													timeZoneConvert(lead.currentStageStartTime) ||
 													defaultStr
 												}}
 											</span>
@@ -113,8 +113,8 @@
 												<Calendar />
 											</el-icon>
 											<span>
-												ETA:
-												{{ lead.currentStageEstimatedDays || defaultStr }}
+												End:
+												{{ timeZoneConvert(lead.currentStageEndTime) }}
 											</span>
 										</div>
 									</div>
@@ -192,6 +192,7 @@ import { PropType } from 'vue';
 import { ArrowRight, User, Calendar, Warning } from '@element-plus/icons-vue';
 import { OnboardingItem } from '#/onboard';
 import { defaultStr } from '@/settings/projectSetting';
+import { timeZoneConvert } from '@/hooks/time';
 
 defineProps({
 	loading: {
@@ -204,10 +205,6 @@ defineProps({
 	},
 	groupedLeads: {
 		type: Object as PropType<Record<string, OnboardingItem[]>>,
-		required: true,
-	},
-	formatDate: {
-		type: Function,
 		required: true,
 	},
 	isOverdue: {
