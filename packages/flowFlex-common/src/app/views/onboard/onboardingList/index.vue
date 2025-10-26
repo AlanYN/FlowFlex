@@ -184,13 +184,9 @@
 									<div class="flex items-center">
 										<span
 											class="table-cell-content flex-1"
-											:title="
-												formatDate(row.currentStageStartTime) || defaultStr
-											"
+											:title="timeZoneConvert(row.currentStageStartTime)"
 										>
-											{{
-												formatDate(row.currentStageStartTime) || defaultStr
-											}}
+											{{ timeZoneConvert(row.currentStageStartTime) }}
 										</span>
 									</div>
 								</div>
@@ -202,11 +198,9 @@
 									<div class="flex items-center">
 										<span
 											class="table-cell-content flex-1"
-											:title="
-												formatDate(row.currentStageEndTime) || defaultStr
-											"
+											:title="timeZoneConvert(row.currentStageEndTime)"
 										>
-											{{ formatDate(row.currentStageEndTime) || defaultStr }}
+											{{ timeZoneConvert(row.currentStageEndTime) }}
 										</span>
 									</div>
 									<div
@@ -313,7 +307,6 @@
 					:loading="loading"
 					:active-stages="activeStages"
 					:grouped-leads="groupedLeads"
-					:format-date="formatDate"
 					:is-overdue="isOverdue"
 					:get-priority-tag-type="getPriorityTagType"
 					:get-priority-border-class="getPriorityBorderClass"
@@ -776,21 +769,6 @@ const isOverdue = (eta: string | null) => {
 	const today = new Date();
 	today.setHours(0, 0, 0, 0);
 	return etaDate < today;
-};
-
-const formatDate = (dateString: string | null) => {
-	if (!dateString) return '';
-	try {
-		const date = new Date(dateString);
-		if (isNaN(date.getTime())) return '';
-		return date.toLocaleDateString('en-US', {
-			month: '2-digit',
-			day: '2-digit',
-			year: 'numeric',
-		});
-	} catch {
-		return '';
-	}
 };
 
 const formatDateTime = (dateString: string | null) => {
