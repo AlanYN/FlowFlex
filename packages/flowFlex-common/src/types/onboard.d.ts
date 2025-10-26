@@ -34,7 +34,6 @@ export interface OnboardingItem {
 	currentStageId: string;
 	currentStageName: string;
 	currentStageOrder: number;
-	currentStageStartTime: string;
 	id: string;
 	isActive: boolean;
 	isOverdue: boolean;
@@ -46,12 +45,13 @@ export interface OnboardingItem {
 	modifyBy: string;
 	modifyDate: string;
 	priority: string;
-	startDate: string;
 	workflowName: string;
 	timelineDays: number;
 	workflowId: string;
 	stagesProgress: StageInfo[];
-	estimatedCompletionDate: string;
+	currentStageStartTime: string;
+	currentStageEndTime: string;
+	currentStageEstimatedDays: string;
 }
 
 export interface SearchParams {

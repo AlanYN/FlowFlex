@@ -102,7 +102,10 @@
 											</el-icon>
 											<span>
 												Start:
-												{{ formatDate(lead.startDate) || defaultStr }}
+												{{
+													formatDate(lead.currentStageStartTime) ||
+													defaultStr
+												}}
 											</span>
 										</div>
 										<div class="flex items-center">
@@ -111,10 +114,7 @@
 											</el-icon>
 											<span>
 												ETA:
-												{{
-													formatDate(lead.estimatedCompletionDate) ||
-													defaultStr
-												}}
+												{{ lead.currentStageEstimatedDays || defaultStr }}
 											</span>
 										</div>
 									</div>
@@ -122,12 +122,11 @@
 										<el-tag
 											:type="getPriorityTagType(lead.priority)"
 											size="small"
-											class="text-white"
 										>
 											{{ lead.priority }}
 										</el-tag>
 										<span
-											v-if="isOverdue(lead.estimatedCompletionDate)"
+											v-if="isOverdue(lead.currentStageEndTime)"
 											class="text-red-500 flex items-center"
 										>
 											<el-icon class="mr-1"><Warning /></el-icon>
@@ -141,7 +140,7 @@
 								class="pipeline-lead-button rounded-md"
 								:class="[
 									getPriorityBorderClass(lead.priority),
-									isOverdue(lead.estimatedCompletionDate) ? 'border-red-500' : '',
+									isOverdue(lead.currentStageEndTime) ? 'border-red-500' : '',
 								]"
 								@click="handleEdit(lead.id)"
 							>
@@ -150,7 +149,7 @@
 								</span>
 								<div class="flex items-center ml-1">
 									<el-icon
-										v-if="isOverdue(lead.estimatedCompletionDate)"
+										v-if="isOverdue(lead.currentStageEndTime)"
 										class="text-red-500 mr-1"
 									>
 										<Warning />

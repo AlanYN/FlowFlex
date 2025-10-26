@@ -20,36 +20,6 @@
 				/>
 			</el-form-item>
 
-			<div class="date-fields">
-				<el-form-item label="Start Date" prop="startDate" class="date-field">
-					<el-date-picker
-						v-model="formData.startDate"
-						:default-value="getTimeZoneOffsetForTimezone()"
-						:format="projectDate"
-						:value-format="projectDate"
-						type="date"
-						placeholder="Select start date"
-						style="width: 100%"
-						clearable
-					/>
-				</el-form-item>
-
-				<el-form-item label="End Date (Optional)" prop="endDate" class="date-field">
-					<el-date-picker
-						v-model="formData.endDate"
-						:default-value="getTimeZoneOffsetForTimezone()"
-						:format="projectDate"
-						:value-format="projectDate"
-						type="date"
-						placeholder="Select end date"
-						style="width: 100%"
-						clearable
-						:disabled="formData.isDefault"
-						:disabled-date="disabledEndDate"
-					/>
-				</el-form-item>
-			</div>
-
 			<el-form-item label="Set as active workflow" class="switch-group-item">
 				<div class="switch-container">
 					<el-switch
@@ -83,7 +53,7 @@
 					type="primary"
 					native-type="submit"
 					:loading="loading"
-					:disabled="!isFormValid || loading"
+					:disabled="loading"
 				>
 					{{ isEditing ? 'Update Workflow' : 'Create Workflow' }}
 				</el-button>
@@ -95,8 +65,6 @@
 <script setup lang="ts">
 import { ref, reactive, computed, watch, onMounted } from 'vue';
 import type { FormInstance, FormRules } from 'element-plus';
-import { getTimeZoneOffsetForTimezone, timeZoneConvert } from '@/hooks/time';
-import { projectDate } from '@/settings/projectSetting';
 import { getWorkflowList } from '@/apis/ow';
 
 // 定义 props
@@ -118,8 +86,6 @@ const props = withDefaults(defineProps<Props>(), {
 const formData = reactive({
 	name: '',
 	description: '',
-	startDate: '',
-	endDate: '',
 	status: 'active' as 'active' | 'inactive',
 	isDefault: false, // 初始值为 false，由后续逻辑决定
 });
@@ -181,8 +147,7 @@ watch(
 			// 编辑模式：有初始数据时使用初始数据
 			formData.name = newData.name || '';
 			formData.description = newData.description || '';
-			formData.startDate = timeZoneConvert(newData?.startDate || '');
-			formData.endDate = timeZoneConvert(newData?.endDate || '');
+
 			formData.status = newData.status || 'active';
 			formData.isDefault = Object.keys(newData).includes('isDefault')
 				? !!newData.isDefault
@@ -193,16 +158,6 @@ watch(
 		}
 	},
 	{ immediate: true, deep: true }
-);
-
-// 监听 isDefault 的变化
-watch(
-	() => formData.isDefault,
-	(newValue) => {
-		if (newValue) {
-			formData.endDate = '';
-		}
-	}
 );
 
 // 监听 status 的变化
@@ -233,42 +188,15 @@ const rules = reactive<FormRules>({
 	description: [
 		{ required: false, message: 'Please enter workflow description', trigger: 'blur' },
 	],
-	startDate: [{ required: true, message: 'Please select start date', trigger: 'change' }],
-	endDate: [
-		{
-			validator: (rule: any, value: string, callback: Function) => {
-				if (value && formData.startDate && new Date(value) < new Date(formData.startDate)) {
-					callback(new Error('End date cannot be earlier than start date'));
-				} else {
-					callback();
-				}
-			},
-			trigger: 'change',
-		},
-	],
 });
 
 // 表单引用
 const formRef = ref<FormInstance>();
 
-// 计算表单是否有效
-const isFormValid = computed(() => {
-	return !!formData.name && !!formData.startDate;
-});
-
 // 计算是否禁用默认工作流选项
 const isDefaultDisabled = computed(() => {
 	return formData.status === 'inactive';
 });
-
-// 禁用结束日期的函数 - 结束日期不能早于开始日期
-const disabledEndDate = (time: Date) => {
-	if (!formData.startDate) {
-		return false;
-	}
-	const startDate = new Date(formData.startDate);
-	return time < startDate;
-};
 
 // 提交表单
 const submitForm = async () => {
@@ -278,8 +206,6 @@ const submitForm = async () => {
 		if (valid) {
 			emit('submit', {
 				...formData,
-				startDate: timeZoneConvert(formData?.startDate || '', true),
-				endDate: timeZoneConvert(formData?.endDate || '', true),
 			});
 		}
 	});

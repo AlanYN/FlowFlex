@@ -82,7 +82,7 @@
 									<div
 										class="text-sm text-gray-900 truncate whitespace-nowrap max-w-full"
 									>
-										{{ task.name }}
+										<span :title="task?.name || ''">{{ task.name }}</span>
 									</div>
 									<!-- Action 绑定状态图标 -->
 									<el-tag
@@ -383,8 +383,7 @@ const saveTaskEdit = async () => {
 		// 通知父组件更新checklist数据
 		emit('task-updated', props.checklist.id);
 		cancelTaskEdit();
-	} catch (err) {
-		ElMessage.error(t('sys.api.operationFailed'));
+	} catch {
 		cancelTaskEdit();
 	}
 };
