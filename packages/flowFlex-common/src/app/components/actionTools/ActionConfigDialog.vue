@@ -49,10 +49,10 @@
 										@change="handleConfigModeChange"
 									>
 										<el-radio value="useExisting" :disabled="props.isEditing">
-											<span class="text-sm">Use Existing Tool</span>
+											<span class="text-sm">Use tool</span>
 										</el-radio>
 										<el-radio value="createAction" :disabled="props.isEditing">
-											<span class="text-sm">Create Regular Action</span>
+											<span class="text-sm">Create new action</span>
 										</el-radio>
 									</el-radio-group>
 								</div>
@@ -62,7 +62,7 @@
 									<label
 										class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
 									>
-										Select Existing Tool
+										Select Tool
 									</label>
 
 									<el-select
