@@ -262,27 +262,6 @@
 										</span>
 									</div>
 								</el-tooltip>
-								<div class="date-item">
-									<el-icon class="calendar-icon">
-										<Calendar />
-									</el-icon>
-									<span class="date-label">Start:</span>
-									<span class="date-value">
-										{{ timeZoneConvert(workflow.startDate || '') }}
-									</span>
-								</div>
-								<div v-if="workflow.endDate" class="date-item">
-									<el-icon
-										class="calendar-icon"
-										style="color: var(--el-color-danger)"
-									>
-										<Calendar />
-									</el-icon>
-									<span class="date-label">End:</span>
-									<span class="date-value">
-										{{ timeZoneConvert(workflow.endDate || '') }}
-									</span>
-								</div>
 							</div>
 							<div class="action-buttons-group">
 								<button
@@ -532,7 +511,6 @@ import { ElMessage, ElMessageBox } from 'element-plus';
 import {
 	Plus,
 	MoreFilled,
-	Calendar,
 	Edit,
 	CircleClose,
 	Check,
@@ -546,7 +524,7 @@ import {
 } from '@element-plus/icons-vue';
 
 import StarIcon from '@assets/svg/workflow/star.svg';
-import { formatDateUSOnly, timeZoneConvert } from '@/hooks/time';
+import { timeZoneConvert } from '@/hooks/time';
 import { dialogWidth, bigDialogWidth, projectTenMinuteDate } from '@/settings/projectSetting';
 import { useI18n } from '@/hooks/useI18n';
 
@@ -745,11 +723,6 @@ const fetchStages = async (workflowId: string | number) => {
 	}
 };
 
-// 方法
-const formatDate = (date: string) => {
-	return formatDateUSOnly(date);
-};
-
 const showNewWorkflowDialog = () => {
 	isEditingWorkflow.value = false;
 	dialogVisible.workflowForm = true;
@@ -832,8 +805,6 @@ const createWorkflow = async (newWorkflow: Partial<Workflow>) => {
 			description: newWorkflow.description || '',
 			isDefault: shouldSetAsDefault,
 			status: newWorkflow.status || 'Active',
-			startDate: newWorkflow.startDate || '',
-			endDate: newWorkflow.endDate || '',
 			isActive: newWorkflow.status === 'active',
 			version: 1,
 		};
@@ -867,11 +838,6 @@ const updateWorkflow = async (updatedWorkflow: Partial<Workflow>) => {
 					? updatedWorkflow.isDefault
 					: workflow.value.isDefault,
 			status: updatedWorkflow.status || workflow.value.status,
-			startDate: updatedWorkflow.startDate || workflow.value.startDate,
-			endDate:
-				updatedWorkflow.endDate !== undefined
-					? updatedWorkflow.endDate
-					: workflow.value.endDate,
 			isActive: (updatedWorkflow.status || workflow.value.status) === 'active',
 			version: workflow.value.version + 1,
 		};
@@ -894,66 +860,6 @@ const updateWorkflow = async (updatedWorkflow: Partial<Workflow>) => {
 
 const activateWorkflow = async () => {
 	if (!workflow.value) return;
-
-	// 检查end date是否已过期
-	if (workflow.value.endDate) {
-		const endDate = new Date(workflow.value.endDate);
-		const currentDate = new Date();
-
-		if (endDate < currentDate) {
-			// End date已过期，显示警告提示
-			ElMessageBox.confirm(
-				`⚠️ Warning: The workflow "${
-					workflow.value.name
-				}" has an expired end date (${formatDate(workflow.value.endDate)}). 
-
-Activating an expired workflow may cause issues with the onboarding process. Do you want to continue activating this workflow?`,
-				'End Date Expired',
-				{
-					confirmButtonText: 'Continue Activation',
-					cancelButtonText: 'Cancel',
-					confirmButtonClass: 'warning-confirm-btn',
-					cancelButtonClass: 'cancel-confirm-btn',
-					distinguishCancelAndClose: true,
-					customClass: 'expired-date-confirmation-dialog',
-					showCancelButton: true,
-					showConfirmButton: true,
-					beforeClose: async (action, instance, done) => {
-						if (action === 'confirm') {
-							// 显示loading状态
-							instance.confirmButtonLoading = true;
-							instance.confirmButtonText = 'Activating...';
-
-							try {
-								// 调用激活工作流API
-								const res = await activateWorkflowApi(workflow.value!.id);
-
-								if (res.code === '200') {
-									ElMessage.success(t('sys.api.operationSuccess'));
-									// 更新本地状态
-									workflow.value!.status = 'active';
-									workflow.value!.isActive = true;
-									fetchWorkflows(workflow.value!.id);
-									done(); // 关闭对话框
-								} else {
-									ElMessage.error(res.msg || t('sys.api.operationFailed'));
-									// 恢复按钮状态
-									instance.confirmButtonLoading = false;
-									instance.confirmButtonText = 'Continue Activation';
-								}
-							} catch (error) {
-								instance.confirmButtonLoading = false;
-								instance.confirmButtonText = 'Continue Activation';
-							}
-						} else {
-							done(); // 取消或关闭时直接关闭对话框
-						}
-					},
-				}
-			);
-			return; // 直接返回，不执行后面的代码
-		}
-	}
 
 	// 如果没有end date或者end date未过期，直接激活
 	try {
@@ -1005,7 +911,6 @@ const deactivateWorkflow = async () => {
 							// 更新本地状态
 							workflow.value!.status = 'inactive';
 							workflow.value!.isActive = false;
-							workflow.value!.endDate = new Date().toISOString();
 							fetchWorkflows(workflow.value!.id);
 							done(); // 关闭对话框
 						} else {

@@ -178,20 +178,39 @@
 								</el-tag>
 							</template>
 						</el-table-column>
-						<el-table-column label="Timeline" width="180" sortable="custom">
+						<el-table-column label="Start Date" width="180" sortable="custom">
 							<template #default="{ row }">
 								<div class="text-xs space-y-1">
 									<div class="flex items-center">
-										<span class="font-medium mr-1">Start:</span>
 										<span
 											class="table-cell-content flex-1"
-											:title="formatDate(row.startDate) || defaultStr"
+											:title="
+												formatDate(row.currentStageStartTime) || defaultStr
+											"
 										>
-											{{ formatDate(row.startDate) || defaultStr }}
+											{{
+												formatDate(row.currentStageStartTime) || defaultStr
+											}}
+										</span>
+									</div>
+								</div>
+							</template>
+						</el-table-column>
+						<el-table-column label="End Date" width="180" sortable="custom">
+							<template #default="{ row }">
+								<div class="text-xs space-y-1">
+									<div class="flex items-center">
+										<span
+											class="table-cell-content flex-1"
+											:title="
+												formatDate(row.currentStageEndTime) || defaultStr
+											"
+										>
+											{{ formatDate(row.currentStageEndTime) || defaultStr }}
 										</span>
 									</div>
 									<div
-										v-if="isOverdue(row.estimatedCompletionDate)"
+										v-if="isOverdue(row.currentStageEndTime)"
 										class="flex items-center text-red-500"
 									>
 										<el-icon class="mr-1"><Warning /></el-icon>
@@ -793,8 +812,7 @@ const getStageCountByPriority = (stage: string, priority: string) => {
 
 const getStageOverdueCount = (stage: string) => {
 	return (
-		groupedLeads.value[stage]?.filter((item) => isOverdue(item.estimatedCompletionDate))
-			.length || 0
+		groupedLeads.value[stage]?.filter((item) => isOverdue(item.currentStageEndTime)).length || 0
 	);
 };
 
