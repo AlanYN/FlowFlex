@@ -345,13 +345,14 @@
 													component?.checklistIds &&
 													component.checklistIds?.length > 0
 												"
-												:stage-id="activeStage"
 												:loading="checkLoading"
+												:stage-id="activeStage"
 												:checklist-data="
 													getChecklistDataForComponent(component)
 												"
 												:onboarding-id="onboardingId"
 												@task-toggled="handleTaskToggled"
+												@refresh-checklist="loadCheckListData"
 											/>
 
 											<!-- 问卷组件 -->
