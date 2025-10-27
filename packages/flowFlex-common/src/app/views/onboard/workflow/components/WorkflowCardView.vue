@@ -218,13 +218,10 @@
 									v-if="workflow.status === 'active'"
 									type="success"
 									size="small"
-									class="rounded-xl"
 								>
 									Active
 								</el-tag>
-								<el-tag v-else type="danger" size="small" class="rounded-xl">
-									Inactive
-								</el-tag>
+								<el-tag v-else type="danger" size="small">Inactive</el-tag>
 							</div>
 							<div class="flex items-center justify-between text-sm">
 								<el-tooltip class="flex-1" content="last modify by">

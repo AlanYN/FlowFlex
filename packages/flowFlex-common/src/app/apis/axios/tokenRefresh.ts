@@ -3,6 +3,7 @@ import { refreshToken as refreshTokenApi } from '@/apis/login/user';
 import { getTokenobj } from '@/utils/auth';
 import { useUserStoreWithOut } from '@/stores/modules/user';
 import type { TokenObj } from './axiosTransform';
+import { Logout } from '@/utils/threePartyLogin';
 
 interface PendingRequest {
 	config: AxiosRequestConfig;
@@ -136,6 +137,7 @@ class TokenRefreshManager {
 				})
 				.catch((error) => {
 					// 刷新失败，拒绝所有待处理的请求
+					Logout('logout');
 					this.processPendingRequests(error);
 				})
 				.finally(() => {

@@ -193,7 +193,6 @@ export default {
 					200: '#ffadbf',
 					300: '#ff839e',
 					400: '#ff5a7e',
-					400: '#ff315e',
 					500: '#ff083e',
 					600: '#cc0632',
 					700: '#990525',
@@ -284,58 +283,127 @@ export default {
 				},
 			},
 
-			/* ========== Typography 系统 ========== */
+			/* ========== Typography 系统 - 完全符合 Item 规范 ========== */
 			fontSize: {
-				// 标题层级
+				// Item 标题层级 (9x Large - 4x Large)
 				'heading-1': [
-					'var(--heading-1-size)',
+					'var(--heading-1-size)', // 128px
 					{
 						lineHeight: 'var(--heading-1-line-height)',
 						fontWeight: 'var(--heading-1-weight)',
+						letterSpacing: 'var(--heading-1-letter-spacing)',
 					},
 				],
 				'heading-2': [
-					'var(--heading-2-size)',
+					'var(--heading-2-size)', // 96px
 					{
 						lineHeight: 'var(--heading-2-line-height)',
 						fontWeight: 'var(--heading-2-weight)',
+						letterSpacing: 'var(--heading-2-letter-spacing)',
 					},
 				],
 				'heading-3': [
-					'var(--heading-3-size)',
+					'var(--heading-3-size)', // 64px
 					{
 						lineHeight: 'var(--heading-3-line-height)',
 						fontWeight: 'var(--heading-3-weight)',
+						letterSpacing: 'var(--heading-3-letter-spacing)',
 					},
 				],
 				'heading-4': [
-					'var(--heading-4-size)',
+					'var(--heading-4-size)', // 48px
 					{
 						lineHeight: 'var(--heading-4-line-height)',
 						fontWeight: 'var(--heading-4-weight)',
+						letterSpacing: 'var(--heading-4-letter-spacing)',
 					},
 				],
 				'heading-5': [
-					'var(--heading-5-size)',
+					'var(--heading-5-size)', // 36px
 					{
 						lineHeight: 'var(--heading-5-line-height)',
 						fontWeight: 'var(--heading-5-weight)',
+						letterSpacing: 'var(--heading-5-letter-spacing)',
 					},
 				],
 				'heading-6': [
-					'var(--heading-6-size)',
+					'var(--heading-6-size)', // 28px
 					{
 						lineHeight: 'var(--heading-6-line-height)',
 						fontWeight: 'var(--heading-6-weight)',
+						letterSpacing: 'var(--heading-6-letter-spacing)',
 					},
 				],
 
-				// 正文层级
+				// Item 副标题层级 (3x Large - 2x Large)
+				'subtitle-1': [
+					'var(--subtitle-1-size)', // 24px
+					{
+						lineHeight: 'var(--subtitle-1-line-height)',
+						fontWeight: 'var(--subtitle-1-weight)',
+						letterSpacing: 'var(--subtitle-1-letter-spacing)',
+					},
+				],
+				'subtitle-2': [
+					'var(--subtitle-2-size)', // 20px
+					{
+						lineHeight: 'var(--subtitle-2-line-height)',
+						fontWeight: 'var(--subtitle-2-weight)',
+						letterSpacing: 'var(--subtitle-2-letter-spacing)',
+					},
+				],
+
+				// Item 正文层级 (Extra Large - Extra Small)
+				'body-1': [
+					'var(--body-1-size)', // 20px
+					{
+						lineHeight: 'var(--body-1-line-height)',
+						fontWeight: 'var(--body-1-weight)',
+						letterSpacing: 'var(--body-1-letter-spacing)',
+					},
+				],
+				'body-2': [
+					'var(--body-2-size)', // 18px
+					{
+						lineHeight: 'var(--body-2-line-height)',
+						fontWeight: 'var(--body-2-weight)',
+						letterSpacing: 'var(--body-2-letter-spacing)',
+					},
+				],
+				'base-1': [
+					'var(--base-1-size)', // 16px
+					{
+						lineHeight: 'var(--base-1-line-height)',
+						fontWeight: 'var(--base-1-weight)',
+						letterSpacing: 'var(--base-1-letter-spacing)',
+					},
+				],
+				'button-1': [
+					'var(--button-1-size)', // 14px
+					{
+						lineHeight: 'var(--button-1-line-height)',
+						fontWeight: 'var(--button-1-weight)',
+						letterSpacing: 'var(--button-1-letter-spacing)',
+					},
+				],
+				'button-2': [
+					'var(--button-2-size)', // 12px
+					{
+						lineHeight: 'var(--button-2-line-height)',
+						fontWeight: 'var(--button-2-weight)',
+						letterSpacing: 'var(--button-2-letter-spacing)',
+					},
+				],
+
+				// 向后兼容的别名
 				xl: ['var(--text-xl-size)', { lineHeight: 'var(--text-xl-line-height)' }],
 				lg: ['var(--text-lg-size)', { lineHeight: 'var(--text-lg-line-height)' }],
 				base: ['var(--text-base-size)', { lineHeight: 'var(--text-base-line-height)' }],
 				sm: ['var(--text-sm-size)', { lineHeight: 'var(--text-sm-line-height)' }],
 				xs: ['var(--text-xs-size)', { lineHeight: 'var(--text-xs-line-height)' }],
+
+				// 特殊文本
+				caption: ['var(--caption-size)', { lineHeight: 'var(--caption-line-height)' }],
 			},
 
 			/* ========== 字体家族 ========== */
@@ -351,6 +419,23 @@ export default {
 					'Arial',
 					'sans-serif',
 				],
+			},
+
+			/* ========== 字重 - 完全符合 Item 规范 ========== */
+			fontWeight: {
+				light: 'var(--font-weight-light)', // 300 - Satoshi Light
+				regular: 'var(--font-weight-regular)', // 400 - Satoshi Regular
+				medium: 'var(--font-weight-medium)', // 500 - Satoshi Medium
+				bold: 'var(--font-weight-bold)', // 700 - Satoshi Bold
+				black: 'var(--font-weight-black)', // 900 - Satoshi Black
+				// 保持数值别名以兼容现有代码
+				300: 'var(--font-weight-light)',
+				400: 'var(--font-weight-regular)',
+				500: 'var(--font-weight-medium)',
+				600: 'var(--font-weight-medium)', // 映射到 medium
+				700: 'var(--font-weight-bold)',
+				800: 'var(--font-weight-bold)', // 映射到 bold
+				900: 'var(--font-weight-black)',
 			},
 
 			/* ========== 圆角 ========== */

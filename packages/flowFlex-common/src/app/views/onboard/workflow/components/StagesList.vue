@@ -757,7 +757,7 @@ html.dark .stage-item:hover {
 
 .stage-name {
 	@apply font-medium stage-text-primary whitespace-nowrap overflow-hidden text-ellipsis flex-1 min-w-0 flex items-center gap-1.5;
-	font-size: 15px;
+	font-size: var(--button-1-size); /* 14px - closest to 15px */
 }
 
 .portal-icon {

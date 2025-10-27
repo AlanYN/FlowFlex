@@ -1196,14 +1196,14 @@ defineExpose({
 }
 
 .change-log-title {
-	font-size: 14px;
+	font-size: var(--button-1-size); /* 14px - Item Button 1 */
 	font-weight: 600;
 	margin: 0;
 	color: var(--el-color-white);
 }
 
 .change-log-subtitle {
-	font-size: 14px;
+	font-size: var(--button-1-size); /* 14px - Item Button 1 */
 	margin: 4px 0 0 0;
 	color: rgba(255, 255, 255, 0.9);
 	font-weight: 400;

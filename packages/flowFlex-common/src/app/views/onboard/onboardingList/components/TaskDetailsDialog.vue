@@ -869,8 +869,8 @@ const formatFileSize = (bytes: number): string => {
 	display: flex;
 	align-items: center;
 	gap: 8px;
-	font-size: 16px;
-	font-weight: 600;
+	font-size: var(--base-1-size); /* 16px - Item Base 1 */
+	font-weight: var(--font-weight-medium);
 	color: var(--el-text-color-primary);
 	margin: 0;
 	flex: 1;
@@ -941,7 +941,7 @@ const formatFileSize = (bytes: number): string => {
 		display: flex;
 		align-items: center;
 		gap: 8px;
-		font-size: 12px;
+		font-size: var(--button-2-size); /* 12px - Item Button 2 */
 		color: var(--el-text-color-secondary);
 	}
 
@@ -1031,7 +1031,7 @@ const formatFileSize = (bytes: number): string => {
 
 	.attachment-icon {
 		color: var(--el-text-color-secondary);
-		font-size: 20px;
+		font-size: var(--body-1-size); /* 20px - Item Body 1 */
 		flex-shrink: 0;
 	}
 
@@ -1051,7 +1051,7 @@ const formatFileSize = (bytes: number): string => {
 	}
 
 	.attachment-size {
-		font-size: 12px;
+		font-size: var(--button-2-size); /* 12px - Item Button 2 */
 		color: var(--el-text-color-secondary);
 	}
 
@@ -1219,7 +1219,7 @@ const formatFileSize = (bytes: number): string => {
 
 .progress-icon {
 	color: var(--el-color-primary);
-	font-size: 16px;
+	font-size: var(--base-1-size); /* 16px - Item Base 1 */
 	flex-shrink: 0;
 }
 
@@ -1229,15 +1229,15 @@ const formatFileSize = (bytes: number): string => {
 }
 
 .progress-name {
-	font-size: 14px;
-	font-weight: 500;
+	font-size: var(--button-1-size); /* 14px - Item Button 1 */
+	font-weight: var(--font-weight-medium);
 	color: var(--el-text-color-primary);
 	display: block;
 	margin-bottom: 4px;
 }
 
 .progress-percentage {
-	font-size: 12px;
+	font-size: var(--button-2-size); /* 12px - Item Button 2 */
 	color: var(--el-text-color-secondary);
 	flex-shrink: 0;
 }

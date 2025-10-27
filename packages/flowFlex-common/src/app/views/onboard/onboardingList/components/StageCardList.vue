@@ -269,7 +269,7 @@ defineProps({
 	border-left-width: 4px;
 	background: var(--el-bg-color);
 	color: var(--el-text-color-regular);
-	font-size: 14px;
+	font-size: var(--button-1-size); /* 14px - Item Button 1 */
 	padding: 8px 12px;
 	margin: 2px;
 	transition: all 0.2s;

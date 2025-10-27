@@ -151,7 +151,7 @@
 										v-if="workflow.isAIGenerated"
 										type="primary"
 										size="small"
-										class="ai-tag rounded-xl"
+										class="ai-tag"
 									>
 										<div class="flex items-center gap-1">
 											<span class="ai-sparkles">✨</span>
@@ -162,7 +162,7 @@
 										v-if="workflow.isDefault"
 										type="warning"
 										size="small"
-										class="default-tag rounded-xl"
+										class="default-tag"
 									>
 										<div class="flex items-center gapx-2">
 											<StarIcon class="star-icon" />
@@ -173,13 +173,10 @@
 										v-if="workflow.status === 'active'"
 										type="success"
 										size="small"
-										class="rounded-xl"
 									>
 										Active
 									</el-tag>
-									<el-tag v-else type="danger" size="small" class="rounded-xl">
-										Inactive
-									</el-tag>
+									<el-tag v-else type="danger" size="small">Inactive</el-tag>
 								</div>
 								<span
 									class="workflow-desc text-el-text-color-regular dark:text-el-text-color-secondary"
@@ -1980,20 +1977,17 @@ const getUserGroup = async () => {
 	color: white;
 	border-color: transparent;
 	padding: 2px 8px;
-	font-size: 11px;
+	font-size: var(--caption-size); /* 10px - closest to 11px */
 	display: inline-flex;
 	align-items: center;
 	margin-left: 8px;
 }
 
 /* Increase specificity to override Element Plus tag presets */
-.ai-tag.el-tag,
-.ai-tag.el-tag--primary,
+.ai-tag,
 .ai-tag.is-light,
-.ai-tag.el-tag.el-tag--primary,
-.el-tag.ai-tag,
-.el-tag--primary.ai-tag,
-.el-tag--primary.is-light.ai-tag {
+.ai-tag,
+.is-light.ai-tag {
 	background: var(--el-color-primary) !important;
 	background-color: var(--el-color-primary) !important;
 	background-image: none !important;
@@ -2007,14 +2001,14 @@ const getUserGroup = async () => {
 	color: var(--el-color-white);
 	border-color: transparent;
 	padding: 2px 8px;
-	font-size: 11px;
+	font-size: var(--caption-size); /* 10px - closest to 11px */
 	display: inline-flex;
 	align-items: center;
 	margin-left: 8px;
 }
 
 .ai-sparkles {
-	font-size: 12px;
+	font-size: var(--button-2-size); /* 12px - Item Button 2 */
 	animation: sparkle 2s ease-in-out infinite;
 	display: inline-block;
 }
@@ -2053,7 +2047,7 @@ const getUserGroup = async () => {
 .calendar-icon {
 	color: var(--primary-500);
 	margin-right: 0;
-	font-size: 16px;
+	font-size: var(--base-1-size); /* 16px - Item Base 1 */
 }
 
 .delete-item {
@@ -2096,7 +2090,7 @@ const getUserGroup = async () => {
 
 .stages-header h3 {
 	margin: 0;
-	font-size: 16px;
+	font-size: var(--base-1-size); /* 16px - Item Base 1 */
 	color: var(--el-text-color-primary);
 	font-weight: 500;
 }
@@ -2108,16 +2102,16 @@ const getUserGroup = async () => {
 }
 
 .viewing-history-tag {
-	font-size: 12px;
+	font-size: var(--button-2-size); /* 12px - Item Button 2 */
 }
 
 .back-to-current-btn {
-	font-size: 12px;
+	font-size: var(--button-2-size); /* 12px - Item Button 2 */
 	padding: 4px 8px;
 }
 
 .version-tag {
-	font-size: 12px;
+	font-size: var(--button-2-size); /* 12px - Item Button 2 */
 	font-weight: 600;
 	background: var(--el-color-primary);
 	color: var(--el-color-white);
@@ -2197,14 +2191,14 @@ const getUserGroup = async () => {
 }
 
 .dialog-title {
-	font-size: 18px;
+	font-size: var(--body-2-size); /* 18px - Item Body 2 */
 	font-weight: 600;
 	margin: 0 0 4px 0;
 }
 
 .dialog-subtitle {
 	color: var(--el-text-color-regular);
-	font-size: 13px;
+	font-size: var(--button-2-size); /* 12px - closest to 13px */
 	margin: 0;
 	font-weight: normal;
 	line-height: 1.4;
@@ -2260,7 +2254,7 @@ const getUserGroup = async () => {
 }
 
 .version-dialog-title {
-	font-size: 20px;
+	font-size: var(--body-1-size); /* 20px - Item Body 1 */
 	font-weight: 600;
 	color: var(--el-text-color-primary);
 	margin: 0 0 8px 0;
@@ -2269,7 +2263,7 @@ const getUserGroup = async () => {
 
 .version-dialog-subtitle {
 	color: var(--el-text-color-secondary);
-	font-size: 14px;
+	font-size: var(--button-1-size); /* 14px - Item Button 1 */
 	margin: 0;
 	font-weight: normal;
 	line-height: 1.4;
@@ -2298,7 +2292,7 @@ const getUserGroup = async () => {
 	background-color: var(--el-fill-color-lighter) !important;
 	color: var(--el-text-color-primary);
 	font-weight: 600;
-	font-size: 13px;
+	font-size: var(--button-2-size); /* 12px - closest to 13px */
 	padding: 16px 12px;
 	border-bottom: 1px solid var(--el-border-color-light);
 }
@@ -2320,7 +2314,7 @@ const getUserGroup = async () => {
 .version-name {
 	font-weight: 500;
 	color: var(--el-text-color-primary);
-	font-size: 14px;
+	font-size: var(--button-1-size); /* 14px - Item Button 1 */
 	white-space: nowrap;
 	overflow: hidden;
 	text-overflow: ellipsis;
@@ -2328,7 +2322,7 @@ const getUserGroup = async () => {
 
 .status-tag {
 	font-weight: 500;
-	font-size: 12px;
+	font-size: var(--button-2-size); /* 12px - Item Button 2 */
 }
 
 .default-tag {
@@ -2336,18 +2330,18 @@ const getUserGroup = async () => {
 	color: var(--el-color-white);
 	border: none;
 	font-weight: 500;
-	font-size: 12px;
+	font-size: var(--button-2-size); /* 12px - Item Button 2 */
 }
 
 .date-text {
 	color: var(--el-text-color-secondary);
-	font-size: 13px;
+	font-size: var(--button-2-size); /* 12px - closest to 13px */
 	white-space: nowrap;
 }
 
 .created-by {
 	color: var(--el-text-color-primary);
-	font-size: 13px;
+	font-size: var(--button-2-size); /* 12px - closest to 13px */
 	font-weight: 500;
 	white-space: nowrap;
 	overflow: hidden;
@@ -2361,7 +2355,7 @@ const getUserGroup = async () => {
 }
 
 .view-btn {
-	font-size: 13px;
+	font-size: var(--button-2-size); /* 12px - closest to 13px */
 	font-weight: 500;
 }
 
@@ -2439,7 +2433,7 @@ const getUserGroup = async () => {
 }
 
 .version-badge {
-	font-size: 12px;
+	font-size: var(--button-2-size); /* 12px - Item Button 2 */
 	opacity: 0.7;
 }
 
@@ -2477,7 +2471,7 @@ const getUserGroup = async () => {
 
 	.el-message-box__message {
 		color: var(--el-text-color-regular);
-		font-size: 14px;
+		font-size: var(--button-1-size); /* 14px - Item Button 1 */
 		line-height: 1.5;
 	}
 }
@@ -2486,7 +2480,7 @@ const getUserGroup = async () => {
 .deactivate-confirmation-dialog {
 	.el-message-box__message {
 		color: var(--el-text-color-regular);
-		font-size: 14px;
+		font-size: var(--button-1-size); /* 14px - Item Button 1 */
 		line-height: 1.5;
 	}
 }
@@ -2495,7 +2489,7 @@ const getUserGroup = async () => {
 .expired-date-confirmation-dialog {
 	.el-message-box__message {
 		color: var(--el-text-color-regular);
-		font-size: 14px;
+		font-size: var(--button-1-size); /* 14px - Item Button 1 */
 		line-height: 1.5;
 		white-space: pre-line;
 		/* 保持换行格式 */
