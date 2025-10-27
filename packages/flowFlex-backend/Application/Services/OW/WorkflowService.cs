@@ -521,9 +521,8 @@ namespace FlowFlex.Application.Service.OW
             // Debug logging handled by structured logging
             var list = await _workflowRepository.GetAllWorkflowsAsync();
             
-            // Note: Permission filtering removed for list APIs
-            // Module-level permission check is handled by WFEAuthorize at Controller layer
-            // Entity-level permission check should only be performed on specific operations (GetById, Update, Delete)
+            // Apply permission filtering - filter out workflows user cannot view
+            list = await FilterWorkflowsByPermissionAsync(list);
             
             var result = _mapper.Map<List<WorkflowOutputDto>>(list);
 

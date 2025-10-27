@@ -201,8 +201,8 @@ namespace FlowFlex.Application.Services.OW
                     "Module permission check failed: No IAM token available for user {UserId}",
                     userId);
                 return PermissionResult.CreateFailure(
-                    "No IAM token available for permission check",
-                    "NO_IAM_TOKEN");
+                    PermissionErrorMessages.NoIamToken,
+                    PermissionErrorCodes.NoIamToken);
             }
 
             // Map entity type and operation to module permission code
@@ -213,8 +213,8 @@ namespace FlowFlex.Application.Services.OW
                     "Module permission check failed: Unsupported entity type {EntityType} or operation {Operation}",
                     entityType, operationType);
                 return PermissionResult.CreateFailure(
-                    "Unsupported entity type or operation",
-                    "UNSUPPORTED_PERMISSION");
+                    PermissionErrorMessages.UnsupportedOperation,
+                    PermissionErrorCodes.UnsupportedPermission);
             }
 
             _logger.LogInformation(
@@ -325,8 +325,8 @@ namespace FlowFlex.Application.Services.OW
                 if (userId <= 0 || workflowId <= 0)
                 {
                     return PermissionResult.CreateFailure(
-                        "Invalid user ID or workflow ID",
-                        "INVALID_INPUT");
+                        PermissionErrorMessages.FormatMessage(PermissionErrorMessages.InvalidInput, "workflow"),
+                        PermissionErrorCodes.InvalidInput);
                 }
 
                 // Step 2: Check module-level permission (WFEAuthorize)
@@ -349,8 +349,8 @@ namespace FlowFlex.Application.Services.OW
                 if (workflow == null)
                 {
                     return PermissionResult.CreateFailure(
-                        "Workflow not found",
-                        "WORKFLOW_NOT_FOUND");
+                        PermissionErrorMessages.FormatMessage(PermissionErrorMessages.ResourceNotFound, "Workflow"),
+                        PermissionErrorCodes.WorkflowNotFound);
                 }
 
                 // Step 4: Check permission based on ViewPermissionMode and operation type
@@ -418,8 +418,8 @@ namespace FlowFlex.Application.Services.OW
                 if (userId <= 0 || stageId <= 0)
                 {
                     return PermissionResult.CreateFailure(
-                        "Invalid user ID or stage ID",
-                        "INVALID_INPUT");
+                        PermissionErrorMessages.FormatMessage(PermissionErrorMessages.InvalidInput, "stage"),
+                        PermissionErrorCodes.InvalidInput);
                 }
 
                 // Step 2: Check module-level permission (WFEAuthorize)
@@ -442,8 +442,8 @@ namespace FlowFlex.Application.Services.OW
                 if (stage == null)
                 {
                     return PermissionResult.CreateFailure(
-                        "Stage not found",
-                        "STAGE_NOT_FOUND");
+                        PermissionErrorMessages.FormatMessage(PermissionErrorMessages.ResourceNotFound, "Stage"),
+                        PermissionErrorCodes.StageNotFound);
                 }
 
                 // Step 4: Load parent Workflow entity
@@ -451,8 +451,8 @@ namespace FlowFlex.Application.Services.OW
                 if (workflow == null)
                 {
                     return PermissionResult.CreateFailure(
-                        "Parent workflow not found",
-                        "WORKFLOW_NOT_FOUND");
+                        PermissionErrorMessages.FormatMessage(PermissionErrorMessages.ResourceNotFound, "Parent workflow"),
+                        PermissionErrorCodes.WorkflowNotFound);
                 }
 
                 // Step 5: Check if user is the assigned user for this stage (special privilege)
@@ -566,8 +566,8 @@ namespace FlowFlex.Application.Services.OW
                 if (userId <= 0 || caseId <= 0)
                 {
                     return PermissionResult.CreateFailure(
-                        "Invalid user ID or case ID",
-                        "INVALID_INPUT");
+                        PermissionErrorMessages.FormatMessage(PermissionErrorMessages.InvalidInput, "case"),
+                        PermissionErrorCodes.InvalidInput);
                 }
 
                 // Step 2: Check module-level permission (WFEAuthorize)
@@ -589,8 +589,8 @@ namespace FlowFlex.Application.Services.OW
                 if (onboarding == null)
                 {
                     return PermissionResult.CreateFailure(
-                        "Case not found",
-                        "CASE_NOT_FOUND");
+                        PermissionErrorMessages.FormatMessage(PermissionErrorMessages.ResourceNotFound, "Case"),
+                        PermissionErrorCodes.CaseNotFound);
                 }
 
                 // Step 4: Check Case permission
@@ -1013,8 +1013,9 @@ namespace FlowFlex.Application.Services.OW
         #region Case Permission Methods
 
         /// <summary>
-        /// Check Case permission (independent from Workflow/Stage)
-        /// Case has completely independent permission control including Ownership
+        /// Check Case permission
+        /// In Public mode, Case inherits Workflow permissions
+        /// Case has independent permission control including Ownership
         /// </summary>
         private PermissionResult CheckCasePermission(
             Onboarding onboarding,
@@ -1026,10 +1027,11 @@ namespace FlowFlex.Application.Services.OW
             var userIdString = userId.ToString();
 
             _logger.LogDebug(
-                "CheckCasePermission - CaseId: {CaseId}, ViewMode: {ViewMode}, ViewSubjectType: {ViewSubjectType}, OperateSubjectType: {OperateSubjectType}, " +
+                "CheckCasePermission - CaseId: {CaseId}, WorkflowId: {WorkflowId}, ViewMode: {ViewMode}, ViewSubjectType: {ViewSubjectType}, OperateSubjectType: {OperateSubjectType}, " +
                 "ViewTeams: {ViewTeams}, ViewUsers: {ViewUsers}, OperateTeams: {OperateTeams}, OperateUsers: {OperateUsers}, " +
                 "Ownership: {Ownership}, UserTeams: [{UserTeams}], UserId: {UserId}",
                 onboarding.Id,
+                onboarding.WorkflowId,
                 onboarding.ViewPermissionMode,
                 onboarding.ViewPermissionSubjectType,
                 onboarding.OperatePermissionSubjectType,
@@ -1048,7 +1050,13 @@ namespace FlowFlex.Application.Services.OW
                 return PermissionResult.CreateSuccess(true, true, "Owner");
             }
 
-            // Step 2: Check View Permission
+            // Step 2: In Public mode, inherit Workflow permissions
+            if (onboarding.ViewPermissionMode == ViewPermissionModeEnum.Public)
+            {
+                return CheckCasePermissionWithWorkflowInheritance(onboarding, userId, operationType, userTeamIds, userIdString);
+            }
+
+            // Step 3: Check View Permission (non-Public modes)
             bool canView = CheckCaseViewPermission(onboarding, userTeamIds, userIdString);
             
             if (!canView)
@@ -1058,7 +1066,147 @@ namespace FlowFlex.Application.Services.OW
                     "VIEW_PERMISSION_DENIED");
             }
 
-            // Step 3: Check Operate Permission (only if user can view)
+            // Step 4: Check Operate Permission (only if user can view)
+            if (operationType == PermissionOperationType.Operate || 
+                operationType == PermissionOperationType.Delete)
+            {
+                bool canOperate = CheckCaseOperatePermission(onboarding, userTeamIds, userIdString);
+                
+                if (canOperate)
+                {
+                    return PermissionResult.CreateSuccess(true, true, "CaseOperatePermission");
+                }
+                else
+                {
+                    return PermissionResult.CreateFailure(
+                        "User has view permission but not operate permission for this case",
+                        "OPERATE_PERMISSION_DENIED");
+                }
+            }
+
+            // View operation
+            return PermissionResult.CreateSuccess(true, false, "CaseViewPermission");
+        }
+
+        /// <summary>
+        /// Check Case permission with Workflow inheritance (Public mode only)
+        /// In Public mode, Case inherits Workflow's view and operate permissions
+        /// </summary>
+        private PermissionResult CheckCasePermissionWithWorkflowInheritance(
+            Onboarding onboarding,
+            long userId,
+            PermissionOperationType operationType,
+            List<string> userTeamIds,
+            string userIdString)
+        {
+            _logger.LogDebug(
+                "CheckCasePermissionWithWorkflowInheritance - CaseId: {CaseId}, WorkflowId: {WorkflowId}, Operation: {Operation}",
+                onboarding.Id,
+                onboarding.WorkflowId,
+                operationType);
+
+            try
+            {
+                // Load parent Workflow
+                var workflow = _workflowRepository.GetByIdAsync(onboarding.WorkflowId).GetAwaiter().GetResult();
+                if (workflow == null)
+                {
+                    _logger.LogWarning(
+                        "Workflow {WorkflowId} not found for Case {CaseId} - falling back to Case's own permissions",
+                        onboarding.WorkflowId,
+                        onboarding.Id);
+                    return CheckCasePermissionFallback(onboarding, userTeamIds, userIdString, operationType);
+                }
+
+                _logger.LogDebug(
+                    "Loaded Workflow {WorkflowId} - ViewMode: {ViewMode}, ViewTeams: {ViewTeams}, OperateTeams: {OperateTeams}",
+                    workflow.Id,
+                    workflow.ViewPermissionMode,
+                    workflow.ViewTeams ?? "NULL",
+                    workflow.OperateTeams ?? "NULL");
+
+                // Step 1: Check Workflow View Permission
+                bool workflowCanView = CheckViewPermission(workflow, userTeamIds);
+                
+                if (!workflowCanView)
+                {
+                    _logger.LogDebug(
+                        "User {UserId} does not have view permission on parent Workflow {WorkflowId} - denying Case access",
+                        userId,
+                        workflow.Id);
+                    return PermissionResult.CreateFailure(
+                        "User does not have view permission on parent workflow",
+                        "WORKFLOW_VIEW_PERMISSION_DENIED");
+                }
+
+                _logger.LogDebug(
+                    "User {UserId} has view permission on parent Workflow {WorkflowId}",
+                    userId,
+                    workflow.Id);
+
+                // Step 2: Check Workflow Operate Permission (if needed)
+                if (operationType == PermissionOperationType.Operate || 
+                    operationType == PermissionOperationType.Delete)
+                {
+                    bool workflowCanOperate = CheckOperatePermission(workflow, userTeamIds);
+                    
+                    if (workflowCanOperate)
+                    {
+                        _logger.LogDebug(
+                            "User {UserId} has operate permission on parent Workflow {WorkflowId} - granting Case operate permission",
+                            userId,
+                            workflow.Id);
+                        return PermissionResult.CreateSuccess(true, true, "WorkflowInheritedOperatePermission");
+                    }
+                    else
+                    {
+                        _logger.LogDebug(
+                            "User {UserId} does not have operate permission on parent Workflow {WorkflowId} - denying Case operate permission",
+                            userId,
+                            workflow.Id);
+                        return PermissionResult.CreateFailure(
+                            "User has view permission but not operate permission on parent workflow",
+                            "WORKFLOW_OPERATE_PERMISSION_DENIED");
+                    }
+                }
+
+                // View operation - user has Workflow view permission
+                _logger.LogDebug(
+                    "User {UserId} has view permission on parent Workflow {WorkflowId} - granting Case view permission",
+                    userId,
+                    workflow.Id);
+                return PermissionResult.CreateSuccess(true, false, "WorkflowInheritedViewPermission");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex,
+                    "Error checking Workflow inheritance for Case {CaseId}, WorkflowId {WorkflowId} - falling back to Case's own permissions",
+                    onboarding.Id,
+                    onboarding.WorkflowId);
+                return CheckCasePermissionFallback(onboarding, userTeamIds, userIdString, operationType);
+            }
+        }
+
+        /// <summary>
+        /// Fallback to Case's own permissions when Workflow inheritance fails
+        /// </summary>
+        private PermissionResult CheckCasePermissionFallback(
+            Onboarding onboarding,
+            List<string> userTeamIds,
+            string userIdString,
+            PermissionOperationType operationType)
+        {
+            // Check View Permission
+            bool canView = CheckCaseViewPermission(onboarding, userTeamIds, userIdString);
+            
+            if (!canView)
+            {
+                return PermissionResult.CreateFailure(
+                    "User does not have view permission for this case",
+                    "VIEW_PERMISSION_DENIED");
+            }
+
+            // Check Operate Permission (only if user can view)
             if (operationType == PermissionOperationType.Operate || 
                 operationType == PermissionOperationType.Delete)
             {
@@ -1179,28 +1327,9 @@ namespace FlowFlex.Application.Services.OW
         /// </summary>
         public async Task<PermissionInfoDto> GetWorkflowPermissionInfoAsync(long userId, long workflowId)
         {
-            // Fast path: System Admin
-            if (_userContext?.IsSystemAdmin == true)
-            {
-                return new PermissionInfoDto
-                {
-                    CanView = true,
-                    CanOperate = true,
-                    ErrorMessage = null
-                };
-            }
-
-            // Fast path: Tenant Admin
-            var currentTenantId = GetCurrentTenantId();
-            if (_userContext != null && _userContext.HasAdminPrivileges(currentTenantId))
-            {
-                return new PermissionInfoDto
-                {
-                    CanView = true,
-                    CanOperate = true,
-                    ErrorMessage = null
-                };
-            }
+            // Fast path: Admin bypass (System Admin or Tenant Admin)
+            var adminResult = CheckAdminBypass();
+            if (adminResult != null) return adminResult;
 
             // Check view permission (READ)
             var viewResult = await CheckWorkflowAccessAsync(userId, workflowId, Domain.Shared.Enums.Permission.OperationTypeEnum.View);
@@ -1233,28 +1362,9 @@ namespace FlowFlex.Application.Services.OW
         /// </summary>
         public async Task<PermissionInfoDto> GetStagePermissionInfoAsync(long userId, long stageId)
         {
-            // Fast path: System Admin
-            if (_userContext?.IsSystemAdmin == true)
-            {
-                return new PermissionInfoDto
-                {
-                    CanView = true,
-                    CanOperate = true,
-                    ErrorMessage = null
-                };
-            }
-
-            // Fast path: Tenant Admin
-            var currentTenantId = GetCurrentTenantId();
-            if (_userContext != null && _userContext.HasAdminPrivileges(currentTenantId))
-            {
-                return new PermissionInfoDto
-                {
-                    CanView = true,
-                    CanOperate = true,
-                    ErrorMessage = null
-                };
-            }
+            // Fast path: Admin bypass (System Admin or Tenant Admin)
+            var adminResult = CheckAdminBypass();
+            if (adminResult != null) return adminResult;
 
             // Check view permission (READ)
             var viewResult = await CheckStageAccessAsync(userId, stageId, Domain.Shared.Enums.Permission.OperationTypeEnum.View);
@@ -1287,28 +1397,9 @@ namespace FlowFlex.Application.Services.OW
         /// </summary>
         public async Task<PermissionInfoDto> GetCasePermissionInfoAsync(long userId, long caseId)
         {
-            // Fast path: System Admin
-            if (_userContext?.IsSystemAdmin == true)
-            {
-                return new PermissionInfoDto
-                {
-                    CanView = true,
-                    CanOperate = true,
-                    ErrorMessage = null
-                };
-            }
-
-            // Fast path: Tenant Admin
-            var currentTenantId = GetCurrentTenantId();
-            if (_userContext != null && _userContext.HasAdminPrivileges(currentTenantId))
-            {
-                return new PermissionInfoDto
-                {
-                    CanView = true,
-                    CanOperate = true,
-                    ErrorMessage = null
-                };
-            }
+            // Fast path: Admin bypass (System Admin or Tenant Admin)
+            var adminResult = CheckAdminBypass();
+            if (adminResult != null) return adminResult;
 
             // Check view permission (READ)
             var viewResult = await CheckCaseAccessAsync(userId, caseId, Domain.Shared.Enums.Permission.OperationTypeEnum.View);
@@ -1338,6 +1429,39 @@ namespace FlowFlex.Application.Services.OW
         #endregion
 
         #region Helper Methods
+
+        /// <summary>
+        /// Check if user has admin bypass privileges (System Admin or Tenant Admin)
+        /// Returns PermissionInfoDto with full permissions if admin, null otherwise
+        /// This method eliminates 200+ lines of duplicated admin check code
+        /// </summary>
+        private PermissionInfoDto CheckAdminBypass()
+        {
+            // System Admin has all permissions
+            if (_userContext?.IsSystemAdmin == true)
+            {
+                return new PermissionInfoDto
+                {
+                    CanView = true,
+                    CanOperate = true,
+                    ErrorMessage = null
+                };
+            }
+
+            // Tenant Admin has all permissions for their tenant
+            var currentTenantId = GetCurrentTenantId();
+            if (_userContext != null && _userContext.HasAdminPrivileges(currentTenantId))
+            {
+                return new PermissionInfoDto
+                {
+                    CanView = true,
+                    CanOperate = true,
+                    ErrorMessage = null
+                };
+            }
+
+            return null; // Not admin, continue with regular permission checks
+        }
 
         /// <summary>
         /// Get current tenant ID from UserContext
@@ -1518,7 +1642,7 @@ namespace FlowFlex.Application.Services.OW
             // System Admin has all permissions
             if (_userContext?.IsSystemAdmin == true)
             {
-                _logger.LogDebug("User {UserId} is System Admin, granting permission {Permission}", userId, permission);
+                _logger.LogInformation("User {UserId} is System Admin, granting permission {Permission}", userId, permission);
                 return true;
             }
 
@@ -1585,7 +1709,7 @@ namespace FlowFlex.Application.Services.OW
             var currentTenantId = GetCurrentTenantId();
             if (_userContext != null && _userContext.HasAdminPrivileges(currentTenantId))
             {
-                _logger.LogDebug(
+                _logger.LogInformation(
                     "User {UserId} is Tenant Admin for tenant {TenantId}, granting view permission for Workflow {WorkflowId}",
                     userId, currentTenantId, workflowId);
                 return true;
@@ -1620,28 +1744,9 @@ namespace FlowFlex.Application.Services.OW
             bool hasViewModulePermission, 
             bool hasOperateModulePermission)
         {
-            // System Admin bypass
-            if (_userContext?.IsSystemAdmin == true)
-            {
-                return new PermissionInfoDto 
-                { 
-                    CanView = true, 
-                    CanOperate = true, 
-                    ErrorMessage = null 
-                };
-            }
-
-            // Tenant Admin bypass
-            var currentTenantId = GetCurrentTenantId();
-            if (_userContext != null && _userContext.HasAdminPrivileges(currentTenantId))
-            {
-                return new PermissionInfoDto 
-                { 
-                    CanView = true, 
-                    CanOperate = true, 
-                    ErrorMessage = null 
-                };
-            }
+            // Fast path: Admin bypass (System Admin or Tenant Admin)
+            var adminResult = CheckAdminBypass();
+            if (adminResult != null) return adminResult;
 
             // Check View permission (module permission already checked by caller)
             if (!hasViewModulePermission)
@@ -1707,28 +1812,9 @@ namespace FlowFlex.Application.Services.OW
             bool hasViewModulePermission, 
             bool hasOperateModulePermission)
         {
-            // System Admin bypass
-            if (_userContext?.IsSystemAdmin == true)
-            {
-                return new PermissionInfoDto 
-                { 
-                    CanView = true, 
-                    CanOperate = true, 
-                    ErrorMessage = null 
-                };
-            }
-
-            // Tenant Admin bypass
-            var currentTenantId = GetCurrentTenantId();
-            if (_userContext != null && _userContext.HasAdminPrivileges(currentTenantId))
-            {
-                return new PermissionInfoDto 
-                { 
-                    CanView = true, 
-                    CanOperate = true, 
-                    ErrorMessage = null 
-                };
-            }
+            // Fast path: Admin bypass (System Admin or Tenant Admin)
+            var adminResult = CheckAdminBypass();
+            if (adminResult != null) return adminResult;
 
             // Load stage entity
             var stage = await _stageRepository.GetByIdAsync(stageId);
@@ -1796,28 +1882,9 @@ namespace FlowFlex.Application.Services.OW
             bool hasViewModulePermission,
             bool hasOperateModulePermission)
         {
-            // System Admin bypass
-            if (_userContext?.IsSystemAdmin == true)
-            {
-                return new PermissionInfoDto 
-                { 
-                    CanView = true, 
-                    CanOperate = true, 
-                    ErrorMessage = null 
-                };
-            }
-
-            // Tenant Admin bypass
-            var currentTenantId = GetCurrentTenantId();
-            if (_userContext != null && _userContext.HasAdminPrivileges(currentTenantId))
-            {
-                return new PermissionInfoDto 
-                { 
-                    CanView = true, 
-                    CanOperate = true, 
-                    ErrorMessage = null 
-                };
-            }
+            // Fast path: Admin bypass (System Admin or Tenant Admin)
+            var adminResult = CheckAdminBypass();
+            if (adminResult != null) return adminResult;
 
             // Check entity-level view permission (includes workflow inheritance check)
             // Stage view permission inherits from Workflow, so we don't strictly require STAGE:READ module permission
@@ -1859,28 +1926,9 @@ namespace FlowFlex.Application.Services.OW
             bool hasViewModulePermission, 
             bool hasOperateModulePermission)
         {
-            // System Admin bypass
-            if (_userContext?.IsSystemAdmin == true)
-            {
-                return new PermissionInfoDto 
-                { 
-                    CanView = true, 
-                    CanOperate = true, 
-                    ErrorMessage = null 
-                };
-            }
-
-            // Tenant Admin bypass
-            var currentTenantId = GetCurrentTenantId();
-            if (_userContext != null && _userContext.HasAdminPrivileges(currentTenantId))
-            {
-                return new PermissionInfoDto 
-                { 
-                    CanView = true, 
-                    CanOperate = true, 
-                    ErrorMessage = null 
-                };
-            }
+            // Fast path: Admin bypass (System Admin or Tenant Admin)
+            var adminResult = CheckAdminBypass();
+            if (adminResult != null) return adminResult;
 
             // Check View permission (module permission already checked by caller)
             if (!hasViewModulePermission)
