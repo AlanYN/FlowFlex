@@ -1,27 +1,31 @@
+using System;
+using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 using FlowFlex.Application.Contracts.Dtos.OW.Permission;
 using FlowFlex.Application.Contracts.IServices.OW;
+using FlowFlex.Application.Services.OW.Permission;
 using FlowFlex.Domain.Entities.OW;
 using FlowFlex.Domain.Repository.OW;
 using FlowFlex.Domain.Shared;
 using FlowFlex.Domain.Shared.Const;
-using FlowFlex.Domain.Shared.Enums.OW;
 using FlowFlex.Domain.Shared.Enums.Permission;
 using FlowFlex.Domain.Shared.Models;
 using FlowFlex.Domain.Shared.Models.Permission;
 using Item.ThirdParty.IdentityHub;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
-using Newtonsoft.Json;
 using PermissionOperationType = FlowFlex.Domain.Shared.Enums.Permission.OperationTypeEnum;
 
 namespace FlowFlex.Application.Services.OW
 {
     /// <summary>
-    /// Permission service implementation
-    /// Implements permission verification logic with multi-layered security:
-    /// - Layer 1 (Controller): WFEAuthorize - Module-level permission check
-    /// - Layer 2 (Service): Entity-level permission check (ViewPermissionMode, Teams, Ownership)
+    /// Main permission service - Coordinator pattern
+    /// Delegates permission checks to specialized services:
+    /// - WorkflowPermissionService: Workflow permission checks
+    /// - StagePermissionService: Stage permission checks
+    /// - CasePermissionService: Case permission checks
+    /// - PermissionHelpers: Common utility methods
     /// </summary>
     public class PermissionService : IPermissionService, IScopedService
     {
@@ -35,6 +39,12 @@ namespace FlowFlex.Application.Services.OW
         private readonly IdentityHubClient _identityHubClient;
         private readonly IHttpContextAccessor _httpContextAccessor;
 
+        // Specialized permission services
+        private readonly PermissionHelpers _helpers;
+        private readonly WorkflowPermissionService _workflowPermissionService;
+        private readonly StagePermissionService _stagePermissionService;
+        private readonly CasePermissionService _casePermissionService;
+
         public PermissionService(
             ILogger<PermissionService> logger,
             UserContext userContext,
@@ -42,7 +52,11 @@ namespace FlowFlex.Application.Services.OW
             IStageRepository stageRepository,
             IOnboardingRepository onboardingRepository,
             IdentityHubClient identityHubClient,
-            IHttpContextAccessor httpContextAccessor)
+            IHttpContextAccessor httpContextAccessor,
+            PermissionHelpers helpers,
+            WorkflowPermissionService workflowPermissionService,
+            StagePermissionService stagePermissionService,
+            CasePermissionService casePermissionService)
         {
             _logger = logger;
             _userContext = userContext;
@@ -51,6 +65,10 @@ namespace FlowFlex.Application.Services.OW
             _onboardingRepository = onboardingRepository;
             _identityHubClient = identityHubClient;
             _httpContextAccessor = httpContextAccessor;
+            _helpers = helpers;
+            _workflowPermissionService = workflowPermissionService;
+            _stagePermissionService = stagePermissionService;
+            _casePermissionService = casePermissionService;
         }
 
         #endregion
@@ -60,7 +78,6 @@ namespace FlowFlex.Application.Services.OW
         /// <summary>
         /// Check resource permission (unified interface for HTTP API)
         /// Checks both View and Operate permissions for the specified resource
-        /// First checks View permission, then checks Operate permission if View succeeds
         /// </summary>
         public async Task<CheckPermissionResponse> CheckResourcePermissionAsync(
             long userId,
@@ -91,9 +108,7 @@ namespace FlowFlex.Application.Services.OW
                         break;
 
                     default:
-                        _logger.LogWarning(
-                            "Unsupported resource type: {ResourceType}",
-                            resourceType);
+                        _logger.LogWarning("Unsupported resource type: {ResourceType}", resourceType);
                         return new CheckPermissionResponse
                         {
                             CanView = false,
@@ -105,8 +120,7 @@ namespace FlowFlex.Application.Services.OW
                 // If View permission check failed, return immediately
                 if (!viewResult.Success)
                 {
-                    _logger.LogInformation(
-                        "CheckResourcePermissionAsync - View permission check failed, skipping Operate check");
+                    _logger.LogInformation("CheckResourcePermissionAsync - View permission check failed, skipping Operate check");
                     return new CheckPermissionResponse
                     {
                         CanView = false,
@@ -134,10 +148,7 @@ namespace FlowFlex.Application.Services.OW
                         break;
 
                     default:
-                        // Should not reach here, but handle it anyway
-                        operateResult = PermissionResult.CreateFailure(
-                            "Unsupported resource type",
-                            "UNSUPPORTED_RESOURCE_TYPE");
+                        operateResult = PermissionResult.CreateFailure("Unsupported resource type", "UNSUPPORTED_RESOURCE_TYPE");
                         break;
                 }
 
@@ -147,7 +158,7 @@ namespace FlowFlex.Application.Services.OW
                     CanView = viewResult.Success,
                     CanOperate = operateResult.Success,
                     GrantReason = operateResult.Success ? operateResult.GrantReason : viewResult.GrantReason,
-                    ErrorMessage = null // No error if at least View succeeded
+                    ErrorMessage = null
                 };
 
                 _logger.LogInformation(
@@ -173,11 +184,456 @@ namespace FlowFlex.Application.Services.OW
 
         #endregion
 
-        #region Core Permission Check Methods (Workflow, Stage, Case)
+        #region Workflow Permission Methods
+
+        /// <summary>
+        /// Check Workflow access permission
+        /// Delegates to WorkflowPermissionService
+        /// </summary>
+        public async Task<PermissionResult> CheckWorkflowAccessAsync(
+            long userId,
+            long workflowId,
+            PermissionOperationType operationType)
+        {
+            _logger.LogInformation(
+                "Checking Workflow access - UserId: {UserId}, WorkflowId: {WorkflowId}, Operation: {Operation}",
+                userId, workflowId, operationType);
+
+            try
+            {
+                // Step 0: Admin bypass
+                if (_helpers.IsSystemAdmin())
+                {
+                    _logger.LogInformation("User {UserId} is System Admin, bypassing all permission checks", userId);
+                    return PermissionResult.CreateSuccess(true, true, "SystemAdmin");
+                }
+
+                if (_helpers.IsTenantAdmin())
+                {
+                    _logger.LogInformation("User {UserId} is Tenant Admin, bypassing all permission checks", userId);
+                    return PermissionResult.CreateSuccess(true, true, "TenantAdmin");
+                }
+
+                // Step 1: Validate input
+                if (userId <= 0 || workflowId <= 0)
+                {
+                    return PermissionResult.CreateFailure(
+                        PermissionErrorMessages.FormatMessage(PermissionErrorMessages.InvalidInput, "workflow"),
+                        PermissionErrorCodes.InvalidInput);
+                }
+
+                // Step 2: Check module-level permission
+                var modulePermissionResult = await CheckModulePermissionAsync(
+                    userId,
+                    PermissionEntityTypeEnum.Workflow,
+                    operationType);
+
+                if (!modulePermissionResult.Success)
+                {
+                    _logger.LogWarning("Module permission check failed for user {UserId} - {ErrorMessage}",
+                        userId, modulePermissionResult.ErrorMessage);
+                    return modulePermissionResult;
+                }
+
+                // Step 3: Load Workflow entity
+                var workflow = await _workflowRepository.GetByIdAsync(workflowId);
+                if (workflow == null)
+                {
+                    return PermissionResult.CreateFailure(
+                        PermissionErrorMessages.FormatMessage(PermissionErrorMessages.ResourceNotFound, "Workflow"),
+                        PermissionErrorCodes.WorkflowNotFound);
+                }
+
+                // Step 4: Delegate to WorkflowPermissionService
+                var permissionCheck = _workflowPermissionService.CheckWorkflowPermission(workflow, userId, operationType);
+                
+                if (permissionCheck.Success)
+                {
+                    _logger.LogInformation("Workflow permission check passed for user {UserId}, Reason: {Reason}",
+                        userId, permissionCheck.GrantReason);
+                }
+                else
+                {
+                    _logger.LogWarning("Workflow permission check failed for user {UserId}, Reason: {Reason}",
+                        userId, permissionCheck.ErrorMessage);
+                }
+
+                return permissionCheck;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error checking Workflow access");
+                return PermissionResult.CreateFailure("Internal error during permission check", "PERMISSION_CHECK_ERROR");
+            }
+        }
+
+        /// <summary>
+        /// Get permission info for Workflow (optimized for DTO population)
+        /// </summary>
+        public async Task<PermissionInfoDto> GetWorkflowPermissionInfoAsync(long userId, long workflowId)
+        {
+            // Admin bypass
+            var adminResult = CheckAdminBypass();
+            if (adminResult != null) return adminResult;
+
+            // Check view permission
+            var viewResult = await CheckWorkflowAccessAsync(userId, workflowId, PermissionOperationType.View);
+            
+            if (!viewResult.CanView)
+            {
+                return new PermissionInfoDto
+                {
+                    CanView = false,
+                    CanOperate = false,
+                    ErrorMessage = viewResult.ErrorMessage
+                };
+            }
+
+            // Check operate permission
+            var operateResult = await CheckWorkflowAccessAsync(userId, workflowId, PermissionOperationType.Operate);
+            
+            return new PermissionInfoDto
+            {
+                CanView = true,
+                CanOperate = operateResult.CanOperate,
+                ErrorMessage = null
+            };
+        }
+
+        /// <summary>
+        /// Check Workflow view permission at entity-level ONLY (for batch operations)
+        /// </summary>
+        public async Task<bool> CheckWorkflowViewPermissionAsync(
+            long userId,
+            long workflowId,
+            Workflow workflow = null)
+        {
+            return await _workflowPermissionService.CheckWorkflowViewPermissionAsync(userId, workflowId, workflow);
+        }
+
+        /// <summary>
+        /// Get permission info for Workflow (batch-optimized for list APIs)
+        /// </summary>
+        public async Task<PermissionInfoDto> GetWorkflowPermissionInfoForListAsync(
+            long userId, 
+            long workflowId, 
+            bool hasViewModulePermission, 
+            bool hasOperateModulePermission)
+        {
+            return await _workflowPermissionService.GetWorkflowPermissionInfoForListAsync(
+                userId, workflowId, hasViewModulePermission, hasOperateModulePermission);
+        }
+
+        #endregion
+
+        #region Stage Permission Methods
+
+        /// <summary>
+        /// Check Stage access permission
+        /// Delegates to StagePermissionService
+        /// </summary>
+        public async Task<PermissionResult> CheckStageAccessAsync(
+            long userId,
+            long stageId,
+            PermissionOperationType operationType)
+        {
+            _logger.LogInformation(
+                "Checking Stage access - UserId: {UserId}, StageId: {StageId}, Operation: {Operation}",
+                userId, stageId, operationType);
+
+            try
+            {
+                // Step 0: Admin bypass
+                if (_helpers.IsSystemAdmin())
+                {
+                    _logger.LogInformation("User {UserId} is System Admin, bypassing all permission checks", userId);
+                    return PermissionResult.CreateSuccess(true, true, "SystemAdmin");
+                }
+
+                if (_helpers.IsTenantAdmin())
+                {
+                    _logger.LogInformation("User {UserId} is Tenant Admin, bypassing all permission checks", userId);
+                    return PermissionResult.CreateSuccess(true, true, "TenantAdmin");
+                }
+
+                // Step 1: Validate input
+                if (userId <= 0 || stageId <= 0)
+                {
+                    return PermissionResult.CreateFailure(
+                        PermissionErrorMessages.FormatMessage(PermissionErrorMessages.InvalidInput, "stage"),
+                        PermissionErrorCodes.InvalidInput);
+                }
+
+                // Step 2: Check module-level permission
+                var modulePermissionResult = await CheckModulePermissionAsync(
+                    userId,
+                    PermissionEntityTypeEnum.Stage,
+                    operationType);
+
+                if (!modulePermissionResult.Success)
+                {
+                    _logger.LogWarning("Module permission check failed for user {UserId} - {ErrorMessage}",
+                        userId, modulePermissionResult.ErrorMessage);
+                    return modulePermissionResult;
+                }
+
+                // Step 3: Load Stage entity
+                var stage = await _stageRepository.GetByIdAsync(stageId);
+                if (stage == null)
+                {
+                    return PermissionResult.CreateFailure(
+                        PermissionErrorMessages.FormatMessage(PermissionErrorMessages.ResourceNotFound, "Stage"),
+                        PermissionErrorCodes.StageNotFound);
+                }
+
+                // Step 4: Load parent Workflow entity
+                var workflow = await _workflowRepository.GetByIdAsync(stage.WorkflowId);
+                if (workflow == null)
+                {
+                    return PermissionResult.CreateFailure(
+                        PermissionErrorMessages.FormatMessage(PermissionErrorMessages.ResourceNotFound, "Parent workflow"),
+                        PermissionErrorCodes.WorkflowNotFound);
+                }
+
+                // Step 5: Check if user is assigned to this stage
+                if (_stagePermissionService.CheckAssignedUser(stage, userId))
+                {
+                    _logger.LogInformation("User {UserId} is assigned to Stage {StageId}, granting access", userId, stageId);
+                    return PermissionResult.CreateSuccess(true, true, "AssignedTo");
+                }
+
+                // Step 6: Delegate to StagePermissionService
+                var permissionCheck = _stagePermissionService.CheckStagePermission(stage, workflow, userId, operationType);
+                
+                if (permissionCheck.Success)
+                {
+                    _logger.LogInformation("Stage permission check passed for user {UserId}, Reason: {Reason}",
+                        userId, permissionCheck.GrantReason);
+                }
+                else
+                {
+                    _logger.LogWarning("Stage permission check failed for user {UserId}, Reason: {Reason}",
+                        userId, permissionCheck.ErrorMessage);
+                }
+
+                return permissionCheck;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error checking Stage access");
+                return PermissionResult.CreateFailure("Internal error during permission check", "PERMISSION_CHECK_ERROR");
+            }
+        }
+
+        /// <summary>
+        /// Get permission info for Stage (optimized for DTO population)
+        /// </summary>
+        public async Task<PermissionInfoDto> GetStagePermissionInfoAsync(long userId, long stageId)
+        {
+            // Admin bypass
+            var adminResult = CheckAdminBypass();
+            if (adminResult != null) return adminResult;
+
+            // Check view permission
+            var viewResult = await CheckStageAccessAsync(userId, stageId, PermissionOperationType.View);
+            
+            if (!viewResult.CanView)
+            {
+                return new PermissionInfoDto
+                {
+                    CanView = false,
+                    CanOperate = false,
+                    ErrorMessage = viewResult.ErrorMessage
+                };
+            }
+
+            // Check operate permission
+            var operateResult = await CheckStageAccessAsync(userId, stageId, PermissionOperationType.Operate);
+            
+            return new PermissionInfoDto
+            {
+                CanView = true,
+                CanOperate = operateResult.CanOperate,
+                ErrorMessage = null
+            };
+        }
+
+        /// <summary>
+        /// Check Stage permission (public for direct access by services)
+        /// </summary>
+        public PermissionResult CheckStagePermission(
+            Stage stage,
+            Workflow workflow,
+            long userId,
+            PermissionOperationType operationType)
+        {
+            return _stagePermissionService.CheckStagePermission(stage, workflow, userId, operationType);
+        }
+
+        /// <summary>
+        /// Get permission info for Stage (batch-optimized for list APIs)
+        /// </summary>
+        public async Task<PermissionInfoDto> GetStagePermissionInfoForListAsync(
+            long userId, 
+            long stageId, 
+            bool hasViewModulePermission, 
+            bool hasOperateModulePermission)
+        {
+            return await _stagePermissionService.GetStagePermissionInfoForListAsync(
+                userId, stageId, hasViewModulePermission, hasOperateModulePermission);
+        }
+
+        /// <summary>
+        /// Get permission info for Stage (ultra-optimized with pre-loaded entities)
+        /// </summary>
+        public PermissionInfoDto GetStagePermissionInfoForList(
+            Stage stage,
+            Workflow workflow,
+            long userId,
+            bool hasViewModulePermission,
+            bool hasOperateModulePermission)
+        {
+            return _stagePermissionService.GetStagePermissionInfoForList(
+                stage, workflow, userId, hasViewModulePermission, hasOperateModulePermission);
+        }
+
+        #endregion
+
+        #region Case Permission Methods
+
+        /// <summary>
+        /// Check Case access permission
+        /// Delegates to CasePermissionService
+        /// </summary>
+        public async Task<PermissionResult> CheckCaseAccessAsync(
+            long userId,
+            long caseId,
+            PermissionOperationType operationType)
+        {
+            _logger.LogInformation(
+                "Checking Case access - UserId: {UserId}, CaseId: {CaseId}, Operation: {Operation}",
+                userId, caseId, operationType);
+
+            try
+            {
+                // Step 0: Admin bypass
+                if (_helpers.IsSystemAdmin())
+                {
+                    _logger.LogInformation("User {UserId} is System Admin, bypassing all permission checks", userId);
+                    return PermissionResult.CreateSuccess(true, true, "SystemAdmin");
+                }
+
+                if (_helpers.IsTenantAdmin())
+                {
+                    _logger.LogInformation("User {UserId} is Tenant Admin, bypassing all permission checks", userId);
+                    return PermissionResult.CreateSuccess(true, true, "TenantAdmin");
+                }
+
+                // Step 1: Validate input
+                if (userId <= 0 || caseId <= 0)
+                {
+                    return PermissionResult.CreateFailure(
+                        PermissionErrorMessages.FormatMessage(PermissionErrorMessages.InvalidInput, "case"),
+                        PermissionErrorCodes.InvalidInput);
+                }
+
+                // Step 2: Check module-level permission
+                var modulePermissionResult = await CheckModulePermissionAsync(
+                    userId,
+                    PermissionEntityTypeEnum.Case,
+                    operationType);
+
+                if (!modulePermissionResult.Success)
+                {
+                    _logger.LogWarning("Module permission check failed for user {UserId} - {ErrorMessage}",
+                        userId, modulePermissionResult.ErrorMessage);
+                    return modulePermissionResult;
+                }
+
+                // Step 3: Load Case entity
+                var onboarding = await _onboardingRepository.GetByIdAsync(caseId);
+                if (onboarding == null)
+                {
+                    return PermissionResult.CreateFailure(
+                        PermissionErrorMessages.FormatMessage(PermissionErrorMessages.ResourceNotFound, "Case"),
+                        PermissionErrorCodes.CaseNotFound);
+                }
+
+                // Step 4: Delegate to CasePermissionService
+                var permissionCheck = _casePermissionService.CheckCasePermission(onboarding, userId, operationType);
+                
+                if (permissionCheck.Success)
+                {
+                    _logger.LogInformation("Case permission check passed for user {UserId}, Reason: {Reason}",
+                        userId, permissionCheck.GrantReason);
+                }
+                else
+                {
+                    _logger.LogWarning("Case permission check failed for user {UserId}, Reason: {Reason}",
+                        userId, permissionCheck.ErrorMessage);
+                }
+
+                return permissionCheck;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error checking Case access");
+                return PermissionResult.CreateFailure("Internal error during permission check", "PERMISSION_CHECK_ERROR");
+            }
+        }
+
+        /// <summary>
+        /// Get permission info for Case (optimized for DTO population)
+        /// </summary>
+        public async Task<PermissionInfoDto> GetCasePermissionInfoAsync(long userId, long caseId)
+        {
+            // Admin bypass
+            var adminResult = CheckAdminBypass();
+            if (adminResult != null) return adminResult;
+
+            // Check view permission
+            var viewResult = await CheckCaseAccessAsync(userId, caseId, PermissionOperationType.View);
+            
+            if (!viewResult.CanView)
+            {
+                return new PermissionInfoDto
+                {
+                    CanView = false,
+                    CanOperate = false,
+                    ErrorMessage = viewResult.ErrorMessage
+                };
+            }
+
+            // Check operate permission
+            var operateResult = await CheckCaseAccessAsync(userId, caseId, PermissionOperationType.Operate);
+            
+            return new PermissionInfoDto
+            {
+                CanView = true,
+                CanOperate = operateResult.CanOperate,
+                ErrorMessage = null
+            };
+        }
+
+        /// <summary>
+        /// Get permission info for Case (batch-optimized for list APIs)
+        /// </summary>
+        public async Task<PermissionInfoDto> GetCasePermissionInfoForListAsync(
+            long userId, 
+            long caseId, 
+            bool hasViewModulePermission, 
+            bool hasOperateModulePermission)
+        {
+            return await _casePermissionService.GetCasePermissionInfoForListAsync(
+                userId, caseId, hasViewModulePermission, hasOperateModulePermission);
+        }
+
+        #endregion
+
+        #region Module Permission Methods
 
         /// <summary>
         /// Check module-level permission via IdentityHub
-        /// This enforces WFEAuthorize permissions at the service layer
         /// </summary>
         private async Task<PermissionResult> CheckModulePermissionAsync(
             long userId,
@@ -185,21 +641,16 @@ namespace FlowFlex.Application.Services.OW
             PermissionOperationType operationType)
         {
             // Check if this is a Portal token accessing a [PortalAccess] endpoint
-            // Portal tokens bypass module permission checks (they use endpoint-level authorization)
-            if (IsPortalTokenWithPortalAccess())
+            if (_helpers.IsPortalTokenWithPortalAccess())
             {
-                _logger.LogInformation(
-                    "Portal token detected - bypassing module permission check for user {UserId}",
-                    userId);
+                _logger.LogInformation("Portal token detected - bypassing module permission check for user {UserId}", userId);
                 return PermissionResult.CreateSuccess(true, false, "PortalAccess");
             }
 
             // If no IAM token, deny access
             if (_userContext?.IamToken == null)
             {
-                _logger.LogWarning(
-                    "Module permission check failed: No IAM token available for user {UserId}",
-                    userId);
+                _logger.LogWarning("Module permission check failed: No IAM token available for user {UserId}", userId);
                 return PermissionResult.CreateFailure(
                     PermissionErrorMessages.NoIamToken,
                     PermissionErrorCodes.NoIamToken);
@@ -209,53 +660,42 @@ namespace FlowFlex.Application.Services.OW
             var permissionCode = GetModulePermissionCode(entityType, operationType);
             if (string.IsNullOrEmpty(permissionCode))
             {
-                _logger.LogWarning(
-                    "Module permission check failed: Unsupported entity type {EntityType} or operation {Operation}",
+                _logger.LogWarning("Module permission check failed: Unsupported entity type {EntityType} or operation {Operation}",
                     entityType, operationType);
                 return PermissionResult.CreateFailure(
                     PermissionErrorMessages.UnsupportedOperation,
                     PermissionErrorCodes.UnsupportedPermission);
             }
 
-            _logger.LogInformation(
-                "Checking module permission - UserId: {UserId}, Permission: {Permission}",
-                userId, permissionCode);
+            _logger.LogInformation("Checking module permission - UserId: {UserId}, Permission: {Permission}", userId, permissionCode);
 
             try
             {
-                // Call IdentityHub to check module permission
                 var hasPermission = await _identityHubClient.UserRolePermissionCheck(
                     _userContext.IamToken,
                     new List<string> { permissionCode });
 
                 if (!hasPermission)
                 {
-                    _logger.LogWarning(
-                        "Module permission check failed: User {UserId} does not have permission {Permission}",
+                    _logger.LogWarning("Module permission check failed: User {UserId} does not have permission {Permission}",
                         userId, permissionCode);
                     return PermissionResult.CreateFailure(
                         $"User does not have required module permission: {permissionCode}",
                         "MODULE_PERMISSION_DENIED");
                 }
 
-                _logger.LogInformation(
-                    "Module permission check passed: User {UserId} has permission {Permission}",
-                    userId, permissionCode);
+                _logger.LogInformation("Module permission check passed: User {UserId} has permission {Permission}", userId, permissionCode);
                 return PermissionResult.CreateSuccess(true, false, "ModulePermission");
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex,
-                    "Error checking module permission for user {UserId}, permission {Permission}",
-                    userId, permissionCode);
-                return PermissionResult.CreateFailure(
-                    "Internal error during module permission check",
-                    "MODULE_PERMISSION_CHECK_ERROR");
+                _logger.LogError(ex, "Error checking module permission for user {UserId}, permission {Permission}", userId, permissionCode);
+                return PermissionResult.CreateFailure("Internal error during module permission check", "MODULE_PERMISSION_CHECK_ERROR");
             }
         }
 
         /// <summary>
-        /// Get module permission code from PermissionConsts based on entity type and operation
+        /// Get module permission code from PermissionConsts
         /// </summary>
         private string GetModulePermissionCode(
             PermissionEntityTypeEnum entityType,
@@ -289,1355 +729,12 @@ namespace FlowFlex.Application.Services.OW
         }
 
         /// <summary>
-        /// Check Workflow access permission
-        /// </summary>
-        public async Task<PermissionResult> CheckWorkflowAccessAsync(
-            long userId,
-            long workflowId,
-            PermissionOperationType operationType)
-        {
-            _logger.LogInformation(
-                "Checking Workflow access - UserId: {UserId}, WorkflowId: {WorkflowId}, Operation: {Operation}",
-                userId, workflowId, operationType);
-
-            try
-            {
-                // Step 0: Check if user is System Admin or Tenant Admin - bypass all permission checks
-                if (_userContext?.IsSystemAdmin == true)
-                {
-                    _logger.LogInformation(
-                        "User {UserId} is System Admin, bypassing all permission checks",
-                        userId);
-                    return PermissionResult.CreateSuccess(true, true, "SystemAdmin");
-                }
-
-                // Get current tenant ID to check tenant admin privileges
-                var currentTenantId = GetCurrentTenantId();
-                if (_userContext != null && _userContext.HasAdminPrivileges(currentTenantId))
-                {
-                    _logger.LogInformation(
-                        "User {UserId} is Tenant Admin for tenant {TenantId}, bypassing all permission checks",
-                        userId, currentTenantId);
-                    return PermissionResult.CreateSuccess(true, true, "TenantAdmin");
-                }
-
-                // Step 1: Validate input
-                if (userId <= 0 || workflowId <= 0)
-                {
-                    return PermissionResult.CreateFailure(
-                        PermissionErrorMessages.FormatMessage(PermissionErrorMessages.InvalidInput, "workflow"),
-                        PermissionErrorCodes.InvalidInput);
-                }
-
-                // Step 2: Check module-level permission (WFEAuthorize)
-                // This enforces that user has the required module permission before checking entity-level permissions
-                var modulePermissionResult = await CheckModulePermissionAsync(
-                    userId,
-                    PermissionEntityTypeEnum.Workflow,
-                    operationType);
-
-                if (!modulePermissionResult.Success)
-                {
-                    _logger.LogWarning(
-                        "Module permission check failed for user {UserId} - {ErrorMessage}",
-                        userId, modulePermissionResult.ErrorMessage);
-                    return modulePermissionResult;
-                }
-
-                // Step 3: Load Workflow entity
-                var workflow = await _workflowRepository.GetByIdAsync(workflowId);
-                if (workflow == null)
-                {
-                    return PermissionResult.CreateFailure(
-                        PermissionErrorMessages.FormatMessage(PermissionErrorMessages.ResourceNotFound, "Workflow"),
-                        PermissionErrorCodes.WorkflowNotFound);
-                }
-
-                // Step 4: Check permission based on ViewPermissionMode and operation type
-                var permissionCheck = CheckWorkflowPermission(workflow, userId, operationType);
-                
-                if (permissionCheck.Success)
-                {
-                _logger.LogInformation(
-                        "Workflow permission check passed for user {UserId}, Reason: {Reason}",
-                        userId, permissionCheck.GrantReason);
-                }
-                else
-                {
-                    _logger.LogWarning(
-                        "Workflow permission check failed for user {UserId}, Reason: {Reason}",
-                        userId, permissionCheck.ErrorMessage);
-                }
-
-                return permissionCheck;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error checking Workflow access");
-                return PermissionResult.CreateFailure(
-                    "Internal error during permission check",
-                    "PERMISSION_CHECK_ERROR");
-            }
-        }
-
-        /// <summary>
-        /// Check Stage access permission
-        /// Stage inherits or narrows Workflow permissions
-        /// </summary>
-        public async Task<PermissionResult> CheckStageAccessAsync(
-            long userId,
-            long stageId,
-            PermissionOperationType operationType)
-        {
-            _logger.LogInformation(
-                "Checking Stage access - UserId: {UserId}, StageId: {StageId}, Operation: {Operation}",
-                userId, stageId, operationType);
-
-            try
-            {
-                // Step 0: Check if user is System Admin or Tenant Admin - bypass all permission checks
-                if (_userContext?.IsSystemAdmin == true)
-                {
-                    _logger.LogInformation(
-                        "User {UserId} is System Admin, bypassing all permission checks",
-                        userId);
-                    return PermissionResult.CreateSuccess(true, true, "SystemAdmin");
-                }
-
-                // Get current tenant ID to check tenant admin privileges
-                var currentTenantId = GetCurrentTenantId();
-                if (_userContext != null && _userContext.HasAdminPrivileges(currentTenantId))
-                {
-                    _logger.LogInformation(
-                        "User {UserId} is Tenant Admin for tenant {TenantId}, bypassing all permission checks",
-                        userId, currentTenantId);
-                    return PermissionResult.CreateSuccess(true, true, "TenantAdmin");
-                }
-
-                // Step 1: Validate input
-                if (userId <= 0 || stageId <= 0)
-                {
-                    return PermissionResult.CreateFailure(
-                        PermissionErrorMessages.FormatMessage(PermissionErrorMessages.InvalidInput, "stage"),
-                        PermissionErrorCodes.InvalidInput);
-                }
-
-                // Step 2: Check module-level permission (WFEAuthorize)
-                // Stage uses WORKFLOW permissions since it's part of workflow
-                var modulePermissionResult = await CheckModulePermissionAsync(
-                    userId,
-                    PermissionEntityTypeEnum.Stage,
-                    operationType);
-
-                if (!modulePermissionResult.Success)
-                {
-                        _logger.LogWarning(
-                        "Module permission check failed for user {UserId} - {ErrorMessage}",
-                        userId, modulePermissionResult.ErrorMessage);
-                    return modulePermissionResult;
-                }
-
-                // Step 3: Load Stage entity
-                var stage = await _stageRepository.GetByIdAsync(stageId);
-                if (stage == null)
-                {
-                    return PermissionResult.CreateFailure(
-                        PermissionErrorMessages.FormatMessage(PermissionErrorMessages.ResourceNotFound, "Stage"),
-                        PermissionErrorCodes.StageNotFound);
-                }
-
-                // Step 4: Load parent Workflow entity
-                var workflow = await _workflowRepository.GetByIdAsync(stage.WorkflowId);
-                if (workflow == null)
-                {
-                    return PermissionResult.CreateFailure(
-                        PermissionErrorMessages.FormatMessage(PermissionErrorMessages.ResourceNotFound, "Parent workflow"),
-                        PermissionErrorCodes.WorkflowNotFound);
-                }
-
-                // Step 5: Check if user is the assigned user for this stage (special privilege)
-                if (!string.IsNullOrWhiteSpace(stage.DefaultAssignee))
-                {
-                    try
-                    {
-                        _logger.LogDebug(
-                            "Checking DefaultAssignee - Raw value: {DefaultAssignee}",
-                            stage.DefaultAssignee);
-                        
-                        // Handle double-escaped JSON: first deserialize to string, then to list
-                        List<string> assignedUserIds;
-                        try
-                        {
-                            // Try direct deserialization first
-                            assignedUserIds = JsonConvert.DeserializeObject<List<string>>(stage.DefaultAssignee) ?? new List<string>();
-                        }
-                        catch
-                        {
-                            // If that fails, try double deserialization (for double-escaped JSON)
-                            var jsonString = JsonConvert.DeserializeObject<string>(stage.DefaultAssignee);
-                            assignedUserIds = JsonConvert.DeserializeObject<List<string>>(jsonString) ?? new List<string>();
-                        }
-                        
-                        var currentUserIdString = _userContext?.UserId;
-                        
-                        _logger.LogDebug(
-                            "Parsed {Count} assigned users, current user: {UserId}",
-                            assignedUserIds.Count,
-                            currentUserIdString);
-                        
-                        if (!string.IsNullOrEmpty(currentUserIdString) && assignedUserIds.Contains(currentUserIdString))
-                        {
-                            _logger.LogInformation(
-                                "User {UserId} is assigned to Stage {StageId}, granting access",
-                                userId, stageId);
-                            return PermissionResult.CreateSuccess(true, true, "AssignedTo");
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogWarning(ex,
-                            "Failed to parse DefaultAssignee JSON for Stage {StageId}, skipping assigned user check. Value: {Value}",
-                            stageId, stage.DefaultAssignee);
-                        // Continue with normal permission check
-                    }
-                }
-
-                // Step 6: Check Stage permission based on inheritance or narrowing
-                var permissionCheck = CheckStagePermission(stage, workflow, userId, operationType);
-                
-                if (permissionCheck.Success)
-                {
-                    _logger.LogInformation(
-                        "Stage permission check passed for user {UserId}, Reason: {Reason}",
-                        userId, permissionCheck.GrantReason);
-                }
-                else
-                {
-                    _logger.LogWarning(
-                        "Stage permission check failed for user {UserId}, Reason: {Reason}",
-                        userId, permissionCheck.ErrorMessage);
-                }
-
-                return permissionCheck;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error checking Stage access");
-                return PermissionResult.CreateFailure(
-                    "Internal error during permission check",
-                    "PERMISSION_CHECK_ERROR");
-            }
-        }
-
-        /// <summary>
-        /// Check Case access permission
-        /// </summary>
-        public async Task<PermissionResult> CheckCaseAccessAsync(
-            long userId,
-            long caseId,
-            PermissionOperationType operationType)
-        {
-            _logger.LogInformation(
-                "Checking Case access - UserId: {UserId}, CaseId: {CaseId}, Operation: {Operation}",
-                userId, caseId, operationType);
-
-            try
-            {
-                // Step 0: Check if user is System Admin or Tenant Admin - bypass all permission checks
-                if (_userContext?.IsSystemAdmin == true)
-                {
-                    _logger.LogInformation(
-                        "User {UserId} is System Admin, bypassing all permission checks",
-                        userId);
-                    return PermissionResult.CreateSuccess(true, true, "SystemAdmin");
-                }
-
-                // Get current tenant ID to check tenant admin privileges
-                var currentTenantId = GetCurrentTenantId();
-                if (_userContext != null && _userContext.HasAdminPrivileges(currentTenantId))
-                {
-                    _logger.LogInformation(
-                        "User {UserId} is Tenant Admin for tenant {TenantId}, bypassing all permission checks",
-                        userId, currentTenantId);
-                    return PermissionResult.CreateSuccess(true, true, "TenantAdmin");
-                }
-
-                // Step 1: Validate input
-                if (userId <= 0 || caseId <= 0)
-                {
-                    return PermissionResult.CreateFailure(
-                        PermissionErrorMessages.FormatMessage(PermissionErrorMessages.InvalidInput, "case"),
-                        PermissionErrorCodes.InvalidInput);
-                }
-
-                // Step 2: Check module-level permission (WFEAuthorize)
-                var modulePermissionResult = await CheckModulePermissionAsync(
-                    userId,
-                    PermissionEntityTypeEnum.Case,
-                    operationType);
-
-                if (!modulePermissionResult.Success)
-                {
-                    _logger.LogWarning(
-                        "Module permission check failed for user {UserId} - {ErrorMessage}",
-                        userId, modulePermissionResult.ErrorMessage);
-                    return modulePermissionResult;
-                }
-
-                // Step 3: Load Case (Onboarding) entity
-                var onboarding = await _onboardingRepository.GetByIdAsync(caseId);
-                if (onboarding == null)
-                {
-                    return PermissionResult.CreateFailure(
-                        PermissionErrorMessages.FormatMessage(PermissionErrorMessages.ResourceNotFound, "Case"),
-                        PermissionErrorCodes.CaseNotFound);
-                }
-
-                // Step 4: Check Case permission
-                var permissionCheck = CheckCasePermission(onboarding, userId, operationType);
-                
-                if (permissionCheck.Success)
-                {
-                    _logger.LogInformation(
-                        "Case permission check passed for user {UserId}, Reason: {Reason}",
-                        userId, permissionCheck.GrantReason);
-                }
-                else
-                {
-                    _logger.LogWarning(
-                        "Case permission check failed for user {UserId}, Reason: {Reason}",
-                        userId, permissionCheck.ErrorMessage);
-                }
-
-                return permissionCheck;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error checking Case access");
-                return PermissionResult.CreateFailure(
-                    "Internal error during permission check",
-                    "PERMISSION_CHECK_ERROR");
-            }
-        }
-
-        #endregion
-
-        #region Workflow Permission Methods
-
-        /// <summary>
-        /// Check Workflow permission based on ViewPermissionMode and operation type
-        /// </summary>
-        private PermissionResult CheckWorkflowPermission(
-            Workflow workflow,
-            long userId,
-            PermissionOperationType operationType)
-        {
-            // Get user teams
-            var userTeamIds = GetUserTeamIds();
-
-            _logger.LogDebug(
-                "CheckWorkflowPermission - WorkflowId: {WorkflowId}, ViewMode: {ViewMode}, ViewTeams: {ViewTeams}, OperateTeams: {OperateTeams}, UserTeams: {UserTeams}",
-                workflow.Id,
-                workflow.ViewPermissionMode,
-                workflow.ViewTeams ?? "NULL",
-                workflow.OperateTeams ?? "NULL",
-                string.Join(", ", userTeamIds));
-
-            // Step 1: Check View Permission based on ViewPermissionMode
-            bool canView = CheckViewPermission(workflow, userTeamIds);
-            
-            _logger.LogDebug(
-                "View permission check result: {CanView}",
-                canView);
-
-            // Step 2: Check Operate Permission
-            bool canOperate = false;
-            if (canView && operationType == PermissionOperationType.Operate)
-            {
-                canOperate = CheckOperatePermission(workflow, userTeamIds);
-            }
-
-            // Step 3: Return result based on operation type
-            if (operationType == PermissionOperationType.View)
-            {
-                if (canView)
-                {
-                    return PermissionResult.CreateSuccess(true, false, "ViewPermission");
-                }
-                else
-                {
-                    return PermissionResult.CreateFailure(
-                        "User does not have view permission for this workflow",
-                        "VIEW_PERMISSION_DENIED");
-                }
-            }
-            else if (operationType == PermissionOperationType.Operate)
-            {
-                if (canOperate)
-                {
-                    return PermissionResult.CreateSuccess(true, true, "OperatePermission");
-                }
-                else if (canView)
-                {
-                    return PermissionResult.CreateFailure(
-                        "User has view permission but not operate permission",
-                        "OPERATE_PERMISSION_DENIED");
-                }
-                else
-                {
-                    return PermissionResult.CreateFailure(
-                        "User does not have permission for this workflow",
-                        "PERMISSION_DENIED");
-                }
-            }
-
-            return PermissionResult.CreateFailure(
-                "Unsupported operation type",
-                "UNSUPPORTED_OPERATION");
-        }
-
-        /// <summary>
-        /// Check view permission based on ViewPermissionMode
-        /// </summary>
-        private bool CheckViewPermission(Workflow workflow, List<string> userTeamIds)
-        {
-            return workflow.ViewPermissionMode switch
-            {
-                ViewPermissionModeEnum.Public => true,
-                
-                ViewPermissionModeEnum.VisibleToTeams => 
-                    CheckTeamWhitelist(workflow.ViewTeams, userTeamIds),
-                
-                ViewPermissionModeEnum.InvisibleToTeams => 
-                    CheckTeamBlacklist(workflow.ViewTeams, userTeamIds),
-                
-                ViewPermissionModeEnum.Private => 
-                    IsCurrentUserOwner(workflow.CreateUserId),
-                
-                _ => false
-            };
-        }
-
-        /// <summary>
-        /// Check operate permission
-        /// </summary>
-        private bool CheckOperatePermission(Workflow workflow, List<string> userTeamIds)
-        {
-            _logger.LogDebug(
-                "CheckOperatePermission - ViewMode: {ViewMode}, OperateTeams: {OperateTeams}",
-                workflow.ViewPermissionMode,
-                workflow.OperateTeams ?? "NULL");
-
-            return workflow.ViewPermissionMode switch
-            {
-                // Public mode: NULL/empty means everyone can operate, otherwise whitelist
-                ViewPermissionModeEnum.Public => 
-                    CheckOperateTeamsPublicMode(workflow.OperateTeams, userTeamIds),
-                
-                // InvisibleToTeams mode: OperateTeams is blacklist
-                ViewPermissionModeEnum.InvisibleToTeams => 
-                    CheckTeamBlacklist(workflow.OperateTeams, userTeamIds),
-                
-                // VisibleToTeams and Private modes: OperateTeams is whitelist (required)
-                _ => CheckTeamWhitelist(workflow.OperateTeams, userTeamIds)
-            };
-        }
-
-        /// <summary>
-        /// Check operate teams in Public mode
-        /// NULL or empty means everyone can operate, otherwise whitelist
-        /// </summary>
-        private bool CheckOperateTeamsPublicMode(string operateTeamsJson, List<string> userTeamIds)
-        {
-            if (string.IsNullOrWhiteSpace(operateTeamsJson))
-            {
-                _logger.LogDebug("Public mode with NULL OperateTeams - granting operate permission to all");
-                    return true;
-                }
-                
-            var operateTeams = DeserializeTeamList(operateTeamsJson);
-                if (operateTeams.Count == 0)
-                {
-                _logger.LogDebug("Public mode with empty OperateTeams array - granting operate permission to all");
-                    return true;
-                }
-                
-            // Public mode with specific teams - check membership (whitelist)
-            var hasPermission = userTeamIds.Any(teamId => operateTeams.Contains(teamId));
-                _logger.LogDebug(
-                "Public mode with specific OperateTeams (whitelist): [{Teams}], Has permission: {HasPermission}",
-                string.Join(", ", operateTeams),
-                hasPermission);
-            return hasPermission;
-        }
-
-        #endregion
-
-        #region Stage Permission Methods
-
-        /// <summary>
-        /// Get user team IDs from UserContext
-        /// </summary>
-        public List<string> GetUserTeamIds()
-        {
-            _logger.LogDebug(
-                "GetUserTeamIds - UserContext: {HasContext}, UserTeams: {HasTeams}, UserId: {UserId}",
-                _userContext != null,
-                _userContext?.UserTeams != null,
-                _userContext?.UserId);
-
-            if (_userContext?.UserTeams == null)
-            {
-                _logger.LogWarning(
-                    "UserContext.UserTeams is null for user {UserId}. " +
-                    "Team information is not loaded in the current context. " +
-                    "This may cause permission checks to fail for team-based permissions. " +
-                    "Consider loading team information during authentication or using a middleware to populate UserTeams.",
-                    _userContext?.UserId);
-                
-                // TODO: Implement dynamic team loading from IDM or cache
-                // For now, return empty list which will cause team-based permissions to fail
-                return new List<string>();
-            }
-
-            // Get all team IDs (including sub-teams)
-            var teamIds = _userContext.UserTeams.GetAllTeamIds();
-            var teamIdStrings = teamIds.Select(id => id.ToString()).ToList();
-            
-            _logger.LogDebug(
-                "GetUserTeamIds - Found {Count} teams: {Teams}",
-                teamIdStrings.Count,
-                string.Join(", ", teamIdStrings));
-            
-            return teamIdStrings;
-        }
-
-        /// <summary>
-        /// Check Stage permission based on inheritance or narrowing from Workflow
-        /// Stage can inherit (NULL) or narrow (subset) Workflow permissions
-        /// </summary>
-        public PermissionResult CheckStagePermission(
-            Stage stage,
-            Workflow workflow,
-            long userId,
-            PermissionOperationType operationType)
-        {
-            // Get user teams
-            var userTeamIds = GetUserTeamIds();
-
-            _logger.LogDebug(
-                "CheckStagePermission - StageId: {StageId}, ViewMode: {ViewMode}, ViewTeams: {ViewTeams}, OperateTeams: {OperateTeams}, UserTeams: {UserTeams}",
-                stage.Id,
-                stage.ViewPermissionMode,
-                stage.ViewTeams ?? "NULL",
-                stage.OperateTeams ?? "NULL",
-                string.Join(", ", userTeamIds));
-
-            // Step 1: Determine if Stage inherits or has its own permissions
-            bool stageInheritsView = string.IsNullOrWhiteSpace(stage.ViewTeams);
-            bool stageInheritsOperate = string.IsNullOrWhiteSpace(stage.OperateTeams);
-            
-            _logger.LogDebug(
-                "Stage inheritance - InheritsView: {InheritsView}, InheritsOperate: {InheritsOperate}",
-                stageInheritsView,
-                stageInheritsOperate);
-
-            // Step 2: Check View Permission (STRICT MODE)
-            // User must have BOTH Workflow AND Stage view permission
-            bool canView = false;
-            string viewReason = null;
-
-            // First, check Workflow permission (always required)
-            bool hasWorkflowViewPermission = CheckViewPermission(workflow, userTeamIds);
-            _logger.LogDebug(
-                "Stage strict check - Workflow view permission: {HasWorkflowPermission}",
-                hasWorkflowViewPermission);
-
-            if (!hasWorkflowViewPermission)
-            {
-                // If user doesn't have Workflow permission, deny immediately
-                _logger.LogDebug("Stage strict check - User denied: No Workflow view permission");
-                canView = false;
-                viewReason = "NoWorkflowViewPermission";
-            }
-            else
-            {
-                // User has Workflow permission, now check Stage permission
-                if (stageInheritsView)
-                {
-                    // Stage inherits view permission from Workflow
-                    canView = true;
-                    viewReason = "InheritedFromWorkflow";
-                    _logger.LogDebug("Stage strict check - Stage inherits Workflow permission, granted");
-                }
-                else
-                {
-                    // Stage has its own view permission (narrowed)
-                    // User must ALSO satisfy Stage's permission
-                    bool hasStageViewPermission = CheckStageViewPermission(stage, userTeamIds);
-                    _logger.LogDebug(
-                        "Stage strict check - Stage view permission: {HasStagePermission}",
-                        hasStageViewPermission);
-                    
-                    canView = hasStageViewPermission;
-                    viewReason = hasStageViewPermission ? "WorkflowAndStageViewPermission" : "NoStageViewPermission";
-                }
-            }
-
-            // Step 3: Check Operate Permission (STRICT MODE)
-            // User must have BOTH Workflow AND Stage operate permission
-            bool canOperate = false;
-            string operateReason = null;
-
-            if (canView && operationType == PermissionOperationType.Operate)
-            {
-                // First, check Workflow operate permission (always required)
-                bool hasWorkflowOperatePermission = CheckOperatePermission(workflow, userTeamIds);
-                _logger.LogDebug(
-                    "Stage strict check - Workflow operate permission: {HasWorkflowOperatePermission}",
-                    hasWorkflowOperatePermission);
-
-                if (!hasWorkflowOperatePermission)
-                {
-                    // If user doesn't have Workflow operate permission, deny immediately
-                    _logger.LogDebug("Stage strict check - User denied: No Workflow operate permission");
-                    canOperate = false;
-                    operateReason = "NoWorkflowOperatePermission";
-                }
-                else
-                {
-                    // User has Workflow operate permission, now check Stage permission
-                    if (stageInheritsOperate)
-                    {
-                        // Stage inherits operate permission from Workflow
-                        canOperate = true;
-                        operateReason = "InheritedFromWorkflow";
-                        _logger.LogDebug("Stage strict check - Stage inherits Workflow operate permission, granted");
-                    }
-                    else
-                    {
-                        // Stage has its own operate permission (narrowed)
-                        // User must ALSO satisfy Stage's permission
-                        bool hasStageOperatePermission = CheckStageOperatePermission(stage, userTeamIds);
-                        _logger.LogDebug(
-                            "Stage strict check - Stage operate permission: {HasStageOperatePermission}",
-                            hasStageOperatePermission);
-                        
-                        canOperate = hasStageOperatePermission;
-                        operateReason = hasStageOperatePermission ? "WorkflowAndStageOperatePermission" : "NoStageOperatePermission";
-                    }
-                }
-            }
-
-            // Step 4: Return result based on operation type
-            if (operationType == PermissionOperationType.View)
-            {
-                if (canView)
-                {
-                    return PermissionResult.CreateSuccess(true, false, viewReason);
-                }
-                else
-                {
-                    return PermissionResult.CreateFailure(
-                        "User does not have view permission for this stage",
-                        "VIEW_PERMISSION_DENIED");
-                }
-            }
-            else if (operationType == PermissionOperationType.Operate)
-            {
-                if (canOperate)
-                {
-                    return PermissionResult.CreateSuccess(true, true, operateReason);
-                }
-                else if (canView)
-                {
-                    return PermissionResult.CreateFailure(
-                        "User has view permission but not operate permission for this stage",
-                        "OPERATE_PERMISSION_DENIED");
-                }
-                else
-                {
-                    return PermissionResult.CreateFailure(
-                        "User does not have permission for this stage",
-                        "PERMISSION_DENIED");
-                }
-            }
-
-            return PermissionResult.CreateFailure(
-                "Unsupported operation type",
-                "UNSUPPORTED_OPERATION");
-        }
-
-        /// <summary>
-        /// Check Stage's own view permission (narrowed from Workflow)
-        /// </summary>
-        private bool CheckStageViewPermission(Stage stage, List<string> userTeamIds)
-        {
-            _logger.LogDebug(
-                "CheckStageViewPermission - StageId: {StageId}, ViewMode: {ViewMode}, ViewTeams: {ViewTeams}",
-                stage.Id,
-                stage.ViewPermissionMode,
-                stage.ViewTeams ?? "NULL");
-
-            return stage.ViewPermissionMode switch
-            {
-                ViewPermissionModeEnum.Public => true,
-                ViewPermissionModeEnum.VisibleToTeams => CheckTeamWhitelist(stage.ViewTeams, userTeamIds),
-                ViewPermissionModeEnum.InvisibleToTeams => CheckTeamBlacklist(stage.ViewTeams, userTeamIds),
-                ViewPermissionModeEnum.Private => IsCurrentUserOwner(stage.CreateUserId),
-                _ => false
-            };
-        }
-
-        /// <summary>
-        /// Check Stage's own operate permission (narrowed from Workflow)
-        /// </summary>
-        private bool CheckStageOperatePermission(Stage stage, List<string> userTeamIds)
-        {
-            _logger.LogDebug(
-                "CheckStageOperatePermission - StageId: {StageId}, ViewMode: {ViewMode}, OperateTeams: {OperateTeams}",
-                stage.Id,
-                stage.ViewPermissionMode,
-                stage.OperateTeams ?? "NULL");
-
-            return stage.ViewPermissionMode switch
-            {
-                ViewPermissionModeEnum.Public => CheckOperateTeamsPublicMode(stage.OperateTeams, userTeamIds),
-                ViewPermissionModeEnum.InvisibleToTeams => CheckTeamBlacklist(stage.OperateTeams, userTeamIds),
-                _ => CheckTeamWhitelist(stage.OperateTeams, userTeamIds)
-            };
-        }
-
-        #endregion
-
-        #region Case Permission Methods
-
-        /// <summary>
-        /// Check Case permission
-        /// In Public mode, Case inherits Workflow permissions
-        /// Case has independent permission control including Ownership
-        /// </summary>
-        private PermissionResult CheckCasePermission(
-            Onboarding onboarding,
-            long userId,
-            PermissionOperationType operationType)
-        {
-            // Get user teams or user IDs based on PermissionSubjectType
-            var userTeamIds = GetUserTeamIds();
-            var userIdString = userId.ToString();
-
-            _logger.LogDebug(
-                "CheckCasePermission - CaseId: {CaseId}, WorkflowId: {WorkflowId}, ViewMode: {ViewMode}, ViewSubjectType: {ViewSubjectType}, OperateSubjectType: {OperateSubjectType}, " +
-                "ViewTeams: {ViewTeams}, ViewUsers: {ViewUsers}, OperateTeams: {OperateTeams}, OperateUsers: {OperateUsers}, " +
-                "Ownership: {Ownership}, UserTeams: [{UserTeams}], UserId: {UserId}",
-                onboarding.Id,
-                onboarding.WorkflowId,
-                onboarding.ViewPermissionMode,
-                onboarding.ViewPermissionSubjectType,
-                onboarding.OperatePermissionSubjectType,
-                onboarding.ViewTeams ?? "NULL",
-                onboarding.ViewUsers ?? "NULL",
-                onboarding.OperateTeams ?? "NULL",
-                onboarding.OperateUsers ?? "NULL",
-                onboarding.Ownership,
-                string.Join(", ", userTeamIds),
-                userId);
-
-            // Step 1: Check Ownership (highest priority)
-            if (onboarding.Ownership.HasValue && onboarding.Ownership.Value == userId)
-            {
-                _logger.LogDebug("Case permission: User {UserId} is the owner - granting full access", userId);
-                return PermissionResult.CreateSuccess(true, true, "Owner");
-            }
-
-            // Step 2: In Public mode, inherit Workflow permissions
-            if (onboarding.ViewPermissionMode == ViewPermissionModeEnum.Public)
-            {
-                return CheckCasePermissionWithWorkflowInheritance(onboarding, userId, operationType, userTeamIds, userIdString);
-            }
-
-            // Step 3: Check View Permission (non-Public modes)
-            bool canView = CheckCaseViewPermission(onboarding, userTeamIds, userIdString);
-            
-            if (!canView)
-            {
-                return PermissionResult.CreateFailure(
-                    "User does not have view permission for this case",
-                    "VIEW_PERMISSION_DENIED");
-            }
-
-            // Step 4: Check Operate Permission (only if user can view)
-            if (operationType == PermissionOperationType.Operate || 
-                operationType == PermissionOperationType.Delete)
-            {
-                bool canOperate = CheckCaseOperatePermission(onboarding, userTeamIds, userIdString);
-                
-                if (canOperate)
-                {
-                    return PermissionResult.CreateSuccess(true, true, "CaseOperatePermission");
-                }
-                else
-                {
-                    return PermissionResult.CreateFailure(
-                        "User has view permission but not operate permission for this case",
-                        "OPERATE_PERMISSION_DENIED");
-                }
-            }
-
-            // View operation
-            return PermissionResult.CreateSuccess(true, false, "CaseViewPermission");
-        }
-
-        /// <summary>
-        /// Check Case permission with Workflow inheritance (Public mode only)
-        /// In Public mode, Case inherits Workflow's view and operate permissions
-        /// </summary>
-        private PermissionResult CheckCasePermissionWithWorkflowInheritance(
-            Onboarding onboarding,
-            long userId,
-            PermissionOperationType operationType,
-            List<string> userTeamIds,
-            string userIdString)
-        {
-            _logger.LogDebug(
-                "CheckCasePermissionWithWorkflowInheritance - CaseId: {CaseId}, WorkflowId: {WorkflowId}, Operation: {Operation}",
-                onboarding.Id,
-                onboarding.WorkflowId,
-                operationType);
-
-            try
-            {
-                // Load parent Workflow
-                var workflow = _workflowRepository.GetByIdAsync(onboarding.WorkflowId).GetAwaiter().GetResult();
-                if (workflow == null)
-                {
-                    _logger.LogWarning(
-                        "Workflow {WorkflowId} not found for Case {CaseId} - falling back to Case's own permissions",
-                        onboarding.WorkflowId,
-                        onboarding.Id);
-                    return CheckCasePermissionFallback(onboarding, userTeamIds, userIdString, operationType);
-                }
-
-                _logger.LogDebug(
-                    "Loaded Workflow {WorkflowId} - ViewMode: {ViewMode}, ViewTeams: {ViewTeams}, OperateTeams: {OperateTeams}",
-                    workflow.Id,
-                    workflow.ViewPermissionMode,
-                    workflow.ViewTeams ?? "NULL",
-                    workflow.OperateTeams ?? "NULL");
-
-                // Step 1: Check Workflow View Permission
-                bool workflowCanView = CheckViewPermission(workflow, userTeamIds);
-                
-                if (!workflowCanView)
-                {
-                    _logger.LogDebug(
-                        "User {UserId} does not have view permission on parent Workflow {WorkflowId} - denying Case access",
-                        userId,
-                        workflow.Id);
-                    return PermissionResult.CreateFailure(
-                        "User does not have view permission on parent workflow",
-                        "WORKFLOW_VIEW_PERMISSION_DENIED");
-                }
-
-                _logger.LogDebug(
-                    "User {UserId} has view permission on parent Workflow {WorkflowId}",
-                    userId,
-                    workflow.Id);
-
-                // Step 2: Check Workflow Operate Permission (if needed)
-                if (operationType == PermissionOperationType.Operate || 
-                    operationType == PermissionOperationType.Delete)
-                {
-                    bool workflowCanOperate = CheckOperatePermission(workflow, userTeamIds);
-                    
-                    if (workflowCanOperate)
-                    {
-                        _logger.LogDebug(
-                            "User {UserId} has operate permission on parent Workflow {WorkflowId} - granting Case operate permission",
-                            userId,
-                            workflow.Id);
-                        return PermissionResult.CreateSuccess(true, true, "WorkflowInheritedOperatePermission");
-                    }
-                    else
-                    {
-                        _logger.LogDebug(
-                            "User {UserId} does not have operate permission on parent Workflow {WorkflowId} - denying Case operate permission",
-                            userId,
-                            workflow.Id);
-                        return PermissionResult.CreateFailure(
-                            "User has view permission but not operate permission on parent workflow",
-                            "WORKFLOW_OPERATE_PERMISSION_DENIED");
-                    }
-                }
-
-                // View operation - user has Workflow view permission
-                _logger.LogDebug(
-                    "User {UserId} has view permission on parent Workflow {WorkflowId} - granting Case view permission",
-                    userId,
-                    workflow.Id);
-                return PermissionResult.CreateSuccess(true, false, "WorkflowInheritedViewPermission");
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex,
-                    "Error checking Workflow inheritance for Case {CaseId}, WorkflowId {WorkflowId} - falling back to Case's own permissions",
-                    onboarding.Id,
-                    onboarding.WorkflowId);
-                return CheckCasePermissionFallback(onboarding, userTeamIds, userIdString, operationType);
-            }
-        }
-
-        /// <summary>
-        /// Fallback to Case's own permissions when Workflow inheritance fails
-        /// </summary>
-        private PermissionResult CheckCasePermissionFallback(
-            Onboarding onboarding,
-            List<string> userTeamIds,
-            string userIdString,
-            PermissionOperationType operationType)
-        {
-            // Check View Permission
-            bool canView = CheckCaseViewPermission(onboarding, userTeamIds, userIdString);
-            
-            if (!canView)
-            {
-                return PermissionResult.CreateFailure(
-                    "User does not have view permission for this case",
-                    "VIEW_PERMISSION_DENIED");
-            }
-
-            // Check Operate Permission (only if user can view)
-            if (operationType == PermissionOperationType.Operate || 
-                operationType == PermissionOperationType.Delete)
-            {
-                bool canOperate = CheckCaseOperatePermission(onboarding, userTeamIds, userIdString);
-                
-                if (canOperate)
-                {
-                    return PermissionResult.CreateSuccess(true, true, "CaseOperatePermission");
-                }
-                else
-                {
-                    return PermissionResult.CreateFailure(
-                        "User has view permission but not operate permission for this case",
-                        "OPERATE_PERMISSION_DENIED");
-                }
-            }
-
-            // View operation
-            return PermissionResult.CreateSuccess(true, false, "CaseViewPermission");
-        }
-
-        /// <summary>
-        /// Check Case view permission
-        /// </summary>
-        private bool CheckCaseViewPermission(Onboarding onboarding, List<string> userTeamIds, string userId)
-        {
-            _logger.LogDebug(
-                "CheckCaseViewPermission - CaseId: {CaseId}, ViewMode: {ViewMode}, ViewSubjectType: {ViewSubjectType}",
-                onboarding.Id,
-                onboarding.ViewPermissionMode,
-                onboarding.ViewPermissionSubjectType);
-
-            return onboarding.ViewPermissionMode switch
-            {
-                ViewPermissionModeEnum.Public => true,
-                
-                ViewPermissionModeEnum.VisibleToTeams => 
-                    onboarding.ViewPermissionSubjectType == PermissionSubjectTypeEnum.Team
-                        ? CheckTeamWhitelist(onboarding.ViewTeams, userTeamIds)
-                        : CheckUserWhitelist(onboarding.ViewUsers, userId),
-                
-                ViewPermissionModeEnum.InvisibleToTeams => 
-                    onboarding.ViewPermissionSubjectType == PermissionSubjectTypeEnum.Team
-                        ? CheckTeamBlacklist(onboarding.ViewTeams, userTeamIds)
-                        : CheckUserBlacklist(onboarding.ViewUsers, userId),
-                
-                ViewPermissionModeEnum.Private => false, // Owner check is handled in CheckCasePermission
-                
-                _ => false
-            };
-        }
-
-        /// <summary>
-        /// Check Case operate permission
-        /// </summary>
-        private bool CheckCaseOperatePermission(Onboarding onboarding, List<string> userTeamIds, string userId)
-        {
-            _logger.LogDebug(
-                "CheckCaseOperatePermission - CaseId: {CaseId}, OperateSubjectType: {OperateSubjectType}",
-                onboarding.Id,
-                onboarding.OperatePermissionSubjectType);
-
-                        // Team-based permission
-            if (onboarding.OperatePermissionSubjectType == PermissionSubjectTypeEnum.Team)
-            {
-                return onboarding.ViewPermissionMode switch
-                {
-                    ViewPermissionModeEnum.Public => CheckOperateTeamsPublicMode(onboarding.OperateTeams, userTeamIds),
-                    ViewPermissionModeEnum.InvisibleToTeams => CheckTeamBlacklist(onboarding.OperateTeams, userTeamIds),
-                    _ => CheckTeamWhitelist(onboarding.OperateTeams, userTeamIds)
-                };
-            }
-            
-                        // User-based permission
-            return onboarding.ViewPermissionMode switch
-            {
-                ViewPermissionModeEnum.Public => CheckOperateUsersPublicMode(onboarding.OperateUsers, userId),
-                ViewPermissionModeEnum.InvisibleToTeams => CheckUserBlacklist(onboarding.OperateUsers, userId),
-                _ => CheckUserWhitelist(onboarding.OperateUsers, userId)
-            };
-        }
-
-        /// <summary>
-        /// Check operate users in Public mode
-        /// NULL or empty means everyone can operate, otherwise whitelist
-        /// </summary>
-        private bool CheckOperateUsersPublicMode(string operateUsersJson, string userId)
-        {
-            if (string.IsNullOrWhiteSpace(operateUsersJson))
-            {
-                _logger.LogDebug("Public mode with NULL OperateUsers - granting operate permission to all");
-                            return true;
-                        }
-            
-            var operateUsers = DeserializeTeamList(operateUsersJson);
-            if (operateUsers.Count == 0)
-            {
-                _logger.LogDebug("Public mode with empty OperateUsers array - granting operate permission to all");
-                            return true;
-                        }
-            
-            // Public mode with specific users - check membership (whitelist)
-            var hasPermission = operateUsers.Contains(userId);
-                        _logger.LogDebug(
-                "Public mode with specific OperateUsers (whitelist): [{Users}], Has permission: {HasPermission}",
-                string.Join(", ", operateUsers),
-                hasPermission);
-            return hasPermission;
-        }
-
-        #endregion
-
-        #region Optimized Permission Info Methods (for DTO population)
-
-        /// <summary>
-        /// Get permission info for Workflow (optimized for DTO population)
-        /// Returns both view and operate permissions in a single call
-        /// </summary>
-        public async Task<PermissionInfoDto> GetWorkflowPermissionInfoAsync(long userId, long workflowId)
-        {
-            // Fast path: Admin bypass (System Admin or Tenant Admin)
-            var adminResult = CheckAdminBypass();
-            if (adminResult != null) return adminResult;
-
-            // Check view permission (READ)
-            var viewResult = await CheckWorkflowAccessAsync(userId, workflowId, Domain.Shared.Enums.Permission.OperationTypeEnum.View);
-            
-            // If can't view, return immediately
-            if (!viewResult.CanView)
-            {
-                return new PermissionInfoDto
-                {
-                    CanView = false,
-                    CanOperate = false,
-                    ErrorMessage = viewResult.ErrorMessage
-                };
-            }
-
-            // Check operate permission (UPDATE) - only if view is granted
-            var operateResult = await CheckWorkflowAccessAsync(userId, workflowId, Domain.Shared.Enums.Permission.OperationTypeEnum.Operate);
-            
-            return new PermissionInfoDto
-            {
-                CanView = true,
-                CanOperate = operateResult.CanOperate,
-                ErrorMessage = null
-            };
-        }
-
-        /// <summary>
-        /// Get permission info for Stage (optimized for DTO population)
-        /// Returns both view and operate permissions in a single call
-        /// </summary>
-        public async Task<PermissionInfoDto> GetStagePermissionInfoAsync(long userId, long stageId)
-        {
-            // Fast path: Admin bypass (System Admin or Tenant Admin)
-            var adminResult = CheckAdminBypass();
-            if (adminResult != null) return adminResult;
-
-            // Check view permission (READ)
-            var viewResult = await CheckStageAccessAsync(userId, stageId, Domain.Shared.Enums.Permission.OperationTypeEnum.View);
-            
-            // If can't view, return immediately
-            if (!viewResult.CanView)
-            {
-                return new PermissionInfoDto
-                {
-                    CanView = false,
-                    CanOperate = false,
-                    ErrorMessage = viewResult.ErrorMessage
-                };
-            }
-
-            // Check operate permission (UPDATE) - only if view is granted
-            var operateResult = await CheckStageAccessAsync(userId, stageId, Domain.Shared.Enums.Permission.OperationTypeEnum.Operate);
-            
-            return new PermissionInfoDto
-            {
-                CanView = true,
-                CanOperate = operateResult.CanOperate,
-                ErrorMessage = null
-            };
-        }
-
-        /// <summary>
-        /// Get permission info for Case (optimized for DTO population)
-        /// Returns both view and operate permissions in a single call
-        /// </summary>
-        public async Task<PermissionInfoDto> GetCasePermissionInfoAsync(long userId, long caseId)
-        {
-            // Fast path: Admin bypass (System Admin or Tenant Admin)
-            var adminResult = CheckAdminBypass();
-            if (adminResult != null) return adminResult;
-
-            // Check view permission (READ)
-            var viewResult = await CheckCaseAccessAsync(userId, caseId, Domain.Shared.Enums.Permission.OperationTypeEnum.View);
-            
-            // If can't view, return immediately
-            if (!viewResult.CanView)
-            {
-                return new PermissionInfoDto
-                {
-                    CanView = false,
-                    CanOperate = false,
-                    ErrorMessage = viewResult.ErrorMessage
-                };
-            }
-
-            // Check operate permission (UPDATE) - only if view is granted
-            var operateResult = await CheckCaseAccessAsync(userId, caseId, Domain.Shared.Enums.Permission.OperationTypeEnum.Operate);
-            
-            return new PermissionInfoDto
-            {
-                CanView = true,
-                CanOperate = operateResult.CanOperate,
-                ErrorMessage = null
-            };
-        }
-
-        #endregion
-
-        #region Helper Methods
-
-        /// <summary>
-        /// Check if user has admin bypass privileges (System Admin or Tenant Admin)
-        /// Returns PermissionInfoDto with full permissions if admin, null otherwise
-        /// This method eliminates 200+ lines of duplicated admin check code
-        /// </summary>
-        private PermissionInfoDto CheckAdminBypass()
-        {
-            // System Admin has all permissions
-            if (_userContext?.IsSystemAdmin == true)
-            {
-                return new PermissionInfoDto
-                {
-                    CanView = true,
-                    CanOperate = true,
-                    ErrorMessage = null
-                };
-            }
-
-            // Tenant Admin has all permissions for their tenant
-            var currentTenantId = GetCurrentTenantId();
-            if (_userContext != null && _userContext.HasAdminPrivileges(currentTenantId))
-            {
-                return new PermissionInfoDto
-                {
-                    CanView = true,
-                    CanOperate = true,
-                    ErrorMessage = null
-                };
-            }
-
-            return null; // Not admin, continue with regular permission checks
-        }
-
-        /// <summary>
-        /// Get current tenant ID from UserContext
-        /// </summary>
-        private string GetCurrentTenantId()
-        {
-            return _userContext?.TenantId ?? "DEFAULT";
-        }
-
-        /// <summary>
-        /// Check if user belongs to any team in the whitelist
-        /// </summary>
-        private bool CheckTeamWhitelist(string teamsJson, List<string> userTeamIds)
-        {
-            if (string.IsNullOrWhiteSpace(teamsJson))
-            {
-                return false;
-            }
-            
-            var teams = DeserializeTeamList(teamsJson);
-            return userTeamIds.Any(teamId => teams.Contains(teamId));
-        }
-
-        /// <summary>
-        /// Check if user does NOT belong to any team in the blacklist
-        /// </summary>
-        private bool CheckTeamBlacklist(string teamsJson, List<string> userTeamIds)
-        {
-            if (string.IsNullOrWhiteSpace(teamsJson))
-            {
-                return true; // No blacklist means everyone can access
-            }
-            
-            var teams = DeserializeTeamList(teamsJson);
-            return !userTeamIds.Any(teamId => teams.Contains(teamId));
-        }
-
-        /// <summary>
-        /// Check if user is in the whitelist
-        /// </summary>
-        private bool CheckUserWhitelist(string usersJson, string userId)
-        {
-            if (string.IsNullOrWhiteSpace(usersJson))
-            {
-                    return false;
-                }
-
-            var users = DeserializeTeamList(usersJson);
-            return users.Contains(userId);
-        }
-
-        /// <summary>
-        /// Check if user is NOT in the blacklist
-        /// </summary>
-        private bool CheckUserBlacklist(string usersJson, string userId)
-        {
-            if (string.IsNullOrWhiteSpace(usersJson))
-            {
-                return true; // No blacklist means everyone can access
-            }
-            
-            var users = DeserializeTeamList(usersJson);
-            return !users.Contains(userId);
-        }
-
-        /// <summary>
-        /// Check if current user is the owner of the entity
-        /// </summary>
-        private bool IsCurrentUserOwner(long? createUserId)
-        {
-            if (string.IsNullOrEmpty(_userContext?.UserId) || !createUserId.HasValue)
-            {
-                    return false;
-                }
-
-            return long.TryParse(_userContext.UserId, out var currentUserId) && 
-                   createUserId.Value == currentUserId;
-        }
-
-        /// <summary>
-        /// Check if current request is using a Portal token and accessing a [PortalAccess] endpoint
-        /// Portal tokens should bypass module permission checks on endpoints marked with [PortalAccess]
-        /// </summary>
-        private bool IsPortalTokenWithPortalAccess()
-        {
-            var httpContext = _httpContextAccessor.HttpContext;
-            if (httpContext == null)
-            {
-                _logger.LogDebug("IsPortalTokenWithPortalAccess: HttpContext is null");
-                return false;
-            }
-
-            var user = httpContext.User;
-            if (user == null || !user.Identity.IsAuthenticated)
-            {
-                _logger.LogDebug("IsPortalTokenWithPortalAccess: User is null or not authenticated");
-                return false;
-            }
-
-            // Check for Portal token indicators in claims
-            var scope = user.Claims.FirstOrDefault(c => c.Type == "scope")?.Value;
-            var tokenType = user.Claims.FirstOrDefault(c => c.Type == "token_type")?.Value;
-
-            _logger.LogDebug(
-                "IsPortalTokenWithPortalAccess: Checking claims - Scope: {Scope}, TokenType: {TokenType}",
-                scope ?? "NULL",
-                tokenType ?? "NULL");
-
-            // Portal token has scope="portal" and token_type="portal-access"
-            bool isPortalToken = scope == "portal" && tokenType == "portal-access";
-
-            if (!isPortalToken)
-            {
-                _logger.LogDebug("IsPortalTokenWithPortalAccess: Not a portal token");
-                return false;
-            }
-
-            // Check if endpoint has [PortalAccess] attribute
-            var endpoint = httpContext.GetEndpoint();
-            if (endpoint == null)
-            {
-                _logger.LogDebug("IsPortalTokenWithPortalAccess: Endpoint is null");
-                return false;
-            }
-
-            var portalAccessAttr = endpoint.Metadata.GetMetadata<FlowFlex.Application.Filter.PortalAccessAttribute>();
-            bool hasPortalAccess = portalAccessAttr != null;
-            
-            _logger.LogDebug(
-                "IsPortalTokenWithPortalAccess: Endpoint has [PortalAccess]: {HasPortalAccess}",
-                hasPortalAccess);
-            
-            return hasPortalAccess;
-        }
-
-        /// <summary>
-        /// Deserialize team list from JSON, handling double-escaped JSON
-        /// </summary>
-        private List<string> DeserializeTeamList(string json)
-        {
-            if (string.IsNullOrWhiteSpace(json))
-            {
-                return new List<string>();
-            }
-
-            try
-            {
-                // Try direct deserialization first
-                return JsonConvert.DeserializeObject<List<string>>(json) ?? new List<string>();
-            }
-            catch
-            {
-                try
-                {
-                    // If that fails, try double deserialization (for double-escaped JSON)
-                    var jsonString = JsonConvert.DeserializeObject<string>(json);
-                    return JsonConvert.DeserializeObject<List<string>>(jsonString) ?? new List<string>();
-                }
-                catch
-                {
-                    _logger.LogWarning("Failed to deserialize team list: {Json}", json);
-                    return new List<string>();
-                }
-            }
-        }
-
-        /// <summary>
         /// Check user's group permission (module-level permission check)
-        /// This method ONLY checks module permission, without Portal token bypass
         /// Used for batch permission checking in list operations
         /// </summary>
         public async Task<bool> CheckGroupPermissionAsync(long userId, string permission)
         {
-            _logger.LogDebug(
-                "CheckGroupPermissionAsync - UserId: {UserId}, Permission: {Permission}",
-                userId, permission);
+            _logger.LogDebug("CheckGroupPermissionAsync - UserId: {UserId}, Permission: {Permission}", userId, permission);
 
             // System Admin has all permissions
             if (_userContext?.IsSystemAdmin == true)
@@ -1649,340 +746,65 @@ namespace FlowFlex.Application.Services.OW
             // If no IAM token, deny access
             if (_userContext?.IamToken == null)
             {
-                _logger.LogWarning(
-                    "Module permission check failed: No IAM token available for user {UserId}",
-                    userId);
+                _logger.LogWarning("Module permission check failed: No IAM token available for user {UserId}", userId);
                 return false;
             }
 
             try
             {
-                // Call IdentityHub to check module permission
                 var hasPermission = await _identityHubClient.UserRolePermissionCheck(
                     _userContext.IamToken,
                     new List<string> { permission });
 
                 if (hasPermission)
                 {
-                    _logger.LogDebug(
-                        "Module permission check passed: User {UserId} has permission {Permission}",
-                        userId, permission);
+                    _logger.LogDebug("Module permission check passed: User {UserId} has permission {Permission}", userId, permission);
                     return true;
                 }
                 else
                 {
-                    _logger.LogWarning(
-                        "Module permission check failed: User {UserId} does not have permission {Permission}",
-                        userId, permission);
+                    _logger.LogWarning("Module permission check failed: User {UserId} does not have permission {Permission}", userId, permission);
                     return false;
                 }
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex,
-                    "Error checking group permission for user {UserId}, permission {Permission}",
-                    userId, permission);
+                _logger.LogError(ex, "Error checking group permission for user {UserId}, permission {Permission}", userId, permission);
                 return false;
             }
         }
 
+        #endregion
+
+        #region Helper Methods
+
         /// <summary>
-        /// Check Workflow view permission at entity-level ONLY
-        /// This method skips module permission check and directly checks entity-level permission
-        /// Optimized for batch operations where module permission is already verified
+        /// Get user team IDs (delegates to PermissionHelpers)
         /// </summary>
-        public async Task<bool> CheckWorkflowViewPermissionAsync(
-            long userId,
-            long workflowId,
-            Workflow workflow = null)
+        public List<string> GetUserTeamIds()
         {
-            // System Admin has all permissions
-            if (_userContext?.IsSystemAdmin == true)
-            {
-                _logger.LogDebug(
-                    "User {UserId} is System Admin, granting view permission for Workflow {WorkflowId}",
-                    userId, workflowId);
-                return true;
-            }
-
-            // Tenant Admin has all permissions for their tenant
-            var currentTenantId = GetCurrentTenantId();
-            if (_userContext != null && _userContext.HasAdminPrivileges(currentTenantId))
-            {
-                _logger.LogInformation(
-                    "User {UserId} is Tenant Admin for tenant {TenantId}, granting view permission for Workflow {WorkflowId}",
-                    userId, currentTenantId, workflowId);
-                return true;
-            }
-
-            // Load workflow if not provided
-            if (workflow == null)
-            {
-                workflow = await _workflowRepository.GetByIdAsync(workflowId);
-                if (workflow == null)
-                {
-                    _logger.LogWarning("Workflow {WorkflowId} not found", workflowId);
-                    return false;
-                }
-            }
-
-            // Get user teams
-            var userTeamIds = GetUserTeamIds();
-
-            // Check view permission only
-            return CheckViewPermission(workflow, userTeamIds);
+            return _helpers.GetUserTeamIds();
         }
 
         /// <summary>
-        /// Get permission info for Workflow (batch-optimized for list APIs)
-        /// Skips redundant module permission checks by accepting pre-checked flags
-        /// This significantly improves performance for list queries by avoiding N IDM API calls
+        /// Check if user has admin bypass privileges
+        /// Returns PermissionInfoDto with full permissions if admin, null otherwise
         /// </summary>
-        public async Task<PermissionInfoDto> GetWorkflowPermissionInfoForListAsync(
-            long userId, 
-            long workflowId, 
-            bool hasViewModulePermission, 
-            bool hasOperateModulePermission)
+        private PermissionInfoDto CheckAdminBypass()
         {
-            // Fast path: Admin bypass (System Admin or Tenant Admin)
-            var adminResult = CheckAdminBypass();
-            if (adminResult != null) return adminResult;
-
-            // Check View permission (module permission already checked by caller)
-            if (!hasViewModulePermission)
+            if (_helpers.HasAdminPrivileges())
             {
                 return new PermissionInfoDto
                 {
-                    CanView = false,
-                    CanOperate = false,
-                    ErrorMessage = $"User does not have required module permission: {PermissionConsts.Workflow.Read}"
+                    CanView = true,
+                    CanOperate = true,
+                    ErrorMessage = null
                 };
             }
 
-            // Load workflow entity
-            var workflow = await _workflowRepository.GetByIdAsync(workflowId);
-            if (workflow == null)
-            {
-                return new PermissionInfoDto
-                {
-                    CanView = false,
-                    CanOperate = false,
-                    ErrorMessage = $"Workflow {workflowId} not found"
-                };
-            }
-
-            // Get user teams
-            var userTeamIds = GetUserTeamIds();
-
-            // Check entity-level view permission
-            bool canView = CheckViewPermission(workflow, userTeamIds);
-            if (!canView)
-            {
-                return new PermissionInfoDto
-                {
-                    CanView = false,
-                    CanOperate = false,
-                    ErrorMessage = "User is not in allowed teams to view this workflow"
-                };
-            }
-
-            // Check Operate permission (module permission already checked by caller)
-            bool canOperate = false;
-            if (hasOperateModulePermission)
-            {
-                // Check entity-level operate permission
-                canOperate = CheckOperatePermission(workflow, userTeamIds);
-            }
-
-            return new PermissionInfoDto
-            {
-                CanView = true,
-                CanOperate = canOperate,
-                ErrorMessage = null
-            };
-        }
-
-        /// <summary>
-        /// Get permission info for Stage (batch-optimized for list APIs)
-        /// Stage inherits Workflow view permissions, but requires explicit module permission for operate
-        /// </summary>
-        public async Task<PermissionInfoDto> GetStagePermissionInfoForListAsync(
-            long userId, 
-            long stageId, 
-            bool hasViewModulePermission, 
-            bool hasOperateModulePermission)
-        {
-            // Fast path: Admin bypass (System Admin or Tenant Admin)
-            var adminResult = CheckAdminBypass();
-            if (adminResult != null) return adminResult;
-
-            // Load stage entity
-            var stage = await _stageRepository.GetByIdAsync(stageId);
-            if (stage == null)
-            {
-                return new PermissionInfoDto
-                {
-                    CanView = false,
-                    CanOperate = false,
-                    ErrorMessage = $"Stage {stageId} not found"
-                };
-            }
-
-            // Load workflow entity (needed for permission inheritance check)
-            var workflow = await _workflowRepository.GetByIdAsync(stage.WorkflowId);
-            if (workflow == null)
-            {
-                return new PermissionInfoDto
-                {
-                    CanView = false,
-                    CanOperate = false,
-                    ErrorMessage = $"Workflow {stage.WorkflowId} not found"
-                };
-            }
-
-            // Check entity-level view permission (includes workflow inheritance check)
-            // Stage view permission inherits from Workflow, so we don't strictly require STAGE:READ module permission
-            var viewResult = CheckStagePermission(stage, workflow, userId, PermissionOperationType.View);
-            if (!viewResult.Success)
-            {
-                return new PermissionInfoDto
-                {
-                    CanView = false,
-                    CanOperate = false,
-                    ErrorMessage = viewResult.ErrorMessage ?? "User is not allowed to view this stage"
-                };
-            }
-
-            // Check Operate permission
-            // Operate requires explicit module permission AND entity-level permission
-            bool canOperate = false;
-            if (hasOperateModulePermission)
-            {
-                // Check entity-level operate permission (includes workflow inheritance check)
-                var operateResult = CheckStagePermission(stage, workflow, userId, PermissionOperationType.Operate);
-                canOperate = operateResult.Success;
-            }
-
-            return new PermissionInfoDto
-            {
-                CanView = true,
-                CanOperate = canOperate,
-                ErrorMessage = null
-            };
-        }
-
-        /// <summary>
-        /// Get permission info for Stage (ultra-optimized for list APIs with pre-loaded entities)
-        /// Accepts entity objects to avoid database queries - SYNCHRONOUS method for performance
-        /// </summary>
-        public PermissionInfoDto GetStagePermissionInfoForList(
-            Stage stage,
-            Workflow workflow,
-            long userId,
-            bool hasViewModulePermission,
-            bool hasOperateModulePermission)
-        {
-            // Fast path: Admin bypass (System Admin or Tenant Admin)
-            var adminResult = CheckAdminBypass();
-            if (adminResult != null) return adminResult;
-
-            // Check entity-level view permission (includes workflow inheritance check)
-            // Stage view permission inherits from Workflow, so we don't strictly require STAGE:READ module permission
-            var viewResult = CheckStagePermission(stage, workflow, userId, PermissionOperationType.View);
-            if (!viewResult.Success)
-            {
-                return new PermissionInfoDto
-                {
-                    CanView = false,
-                    CanOperate = false,
-                    ErrorMessage = viewResult.ErrorMessage ?? "User is not allowed to view this stage"
-                };
-            }
-
-            // Check Operate permission
-            // Operate requires explicit module permission AND entity-level permission
-            bool canOperate = false;
-            if (hasOperateModulePermission)
-            {
-                // Check entity-level operate permission (includes workflow inheritance check)
-                var operateResult = CheckStagePermission(stage, workflow, userId, PermissionOperationType.Operate);
-                canOperate = operateResult.Success;
-            }
-
-            return new PermissionInfoDto
-            {
-                CanView = true,
-                CanOperate = canOperate,
-                ErrorMessage = null
-            };
-        }
-
-        /// <summary>
-        /// Get permission info for Case (batch-optimized for list APIs)
-        /// </summary>
-        public async Task<PermissionInfoDto> GetCasePermissionInfoForListAsync(
-            long userId, 
-            long caseId, 
-            bool hasViewModulePermission, 
-            bool hasOperateModulePermission)
-        {
-            // Fast path: Admin bypass (System Admin or Tenant Admin)
-            var adminResult = CheckAdminBypass();
-            if (adminResult != null) return adminResult;
-
-            // Check View permission (module permission already checked by caller)
-            if (!hasViewModulePermission)
-            {
-                return new PermissionInfoDto
-                {
-                    CanView = false,
-                    CanOperate = false,
-                    ErrorMessage = $"User does not have required module permission: {PermissionConsts.Case.Read}"
-                };
-            }
-
-            // Load case entity
-            var onboarding = await _onboardingRepository.GetByIdAsync(caseId);
-            if (onboarding == null)
-            {
-                return new PermissionInfoDto
-                {
-                    CanView = false,
-                    CanOperate = false,
-                    ErrorMessage = $"Case {caseId} not found"
-                };
-            }
-
-            // Check entity-level view permission (includes workflow/stage inheritance check)
-            var viewResult = CheckCasePermission(onboarding, userId, PermissionOperationType.View);
-            if (!viewResult.Success)
-            {
-                return new PermissionInfoDto
-                {
-                    CanView = false,
-                    CanOperate = false,
-                    ErrorMessage = viewResult.ErrorMessage ?? "User is not allowed to view this case"
-                };
-            }
-
-            // Check Operate permission (module permission already checked by caller)
-            bool canOperate = false;
-            if (hasOperateModulePermission)
-            {
-                // Check entity-level operate permission (includes workflow/stage inheritance check)
-                var operateResult = CheckCasePermission(onboarding, userId, PermissionOperationType.Operate);
-                canOperate = operateResult.Success;
-            }
-
-            return new PermissionInfoDto
-            {
-                CanView = true,
-                CanOperate = canOperate,
-                ErrorMessage = null
-            };
+            return null;
         }
 
         #endregion
     }
 }
-
