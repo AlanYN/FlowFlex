@@ -5,7 +5,7 @@
 			<div v-if="!isEditing">
 				<!-- 头部标题和编辑按钮 -->
 				<div class="flex items-center justify-between">
-					<h2 class="text-primary font-bold">{{ displayTitle }}</h2>
+					<h2 class="font-bold text-xl">{{ displayTitle }}</h2>
 					<el-button
 						link
 						type="primary"

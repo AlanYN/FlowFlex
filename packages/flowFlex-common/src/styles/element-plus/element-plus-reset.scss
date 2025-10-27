@@ -80,3 +80,7 @@ html.dark .el-tag--primary {
   box-shadow: none !important;
   @apply  rounded-xl;
 }
+
+.el-drawer {
+  @apply border
+}

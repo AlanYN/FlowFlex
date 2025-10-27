@@ -301,9 +301,10 @@
 							:disabled="disabled"
 						>
 							<el-icon class="el-icon--upload text-4xl"><Upload /></el-icon>
-							<div class="el-upload__text">
-								Drop file here or
-								<em>click to select</em>
+							<div>
+								<text class="text-primary dark:text-white">Drop file here</text>
+								<text>or</text>
+								<em class="text-primary">click to select</em>
 							</div>
 							<div v-if="question.accept" class="el-upload__tip text-xs">
 								Accepted formats: {{ question.accept }}

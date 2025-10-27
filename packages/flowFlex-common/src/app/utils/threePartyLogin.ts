@@ -201,8 +201,6 @@ export function Logout(type?: string) {
 	}&action_type=${type}&theme=${localStorage.getItem('theme')}&primary=${localStorage.getItem(
 		'primary'
 	)}`;
-	const url = `${globSetting.idmUrl}/oauth?${urlParameter}`;
-	console.log('url:', url);
 	window.open(`${globSetting.idmUrl}/oauth?${urlParameter}`, '_self');
 	// }
 }
