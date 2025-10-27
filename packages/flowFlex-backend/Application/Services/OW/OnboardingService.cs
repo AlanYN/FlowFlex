@@ -403,7 +403,7 @@ namespace FlowFlex.Application.Services.OW
                     @CreateUserId, @ModifyUserId, @WorkflowId, @CurrentStageOrder,
                     @LeadId, @LeadName, @LeadEmail, @LeadPhone, @Status, @CompletionRate,
                     @Priority, @IsPrioritySet, 
-                    CASE WHEN @Ownership IS NULL THEN NULL ELSE @Ownership END,
+                    CASE WHEN @Ownership IS NULL OR @Ownership = '' THEN NULL ELSE @Ownership::bigint END,
                     @OwnershipName, @OwnershipEmail,
                     @Notes, @IsActive, @StagesProgressJson::jsonb, @Id,
                     CASE WHEN @CurrentStageId IS NULL OR @CurrentStageId = '' THEN NULL ELSE @CurrentStageId::bigint END,
@@ -429,33 +429,33 @@ namespace FlowFlex.Application.Services.OW
                             CurrentStageOrder = entity.CurrentStageOrder,
                             LeadId = entity.LeadId,
                             LeadName = entity.LeadName,
-                            LeadEmail = entity.LeadEmail,
-                            LeadPhone = entity.LeadPhone,
+                            LeadEmail = entity.LeadEmail ?? "",
+                            LeadPhone = entity.LeadPhone ?? "",
                             Status = entity.Status,
                             CompletionRate = entity.CompletionRate,
                             Priority = entity.Priority,
                             IsPrioritySet = entity.IsPrioritySet,
-                            Ownership = entity.Ownership,
-                            OwnershipName = entity.OwnershipName,
-                            OwnershipEmail = entity.OwnershipEmail,
+                            Ownership = entity.Ownership.HasValue && entity.Ownership.Value > 0 ? entity.Ownership.Value.ToString() : null,
+                            OwnershipName = entity.OwnershipName ?? "",
+                            OwnershipEmail = entity.OwnershipEmail ?? "",
                             Notes = entity.Notes ?? "",
                             IsActive = entity.IsActive,
                             StagesProgressJson = entity.StagesProgressJson,
                             Id = entity.Id,
                             CurrentStageId = entity.CurrentStageId?.ToString(),
-                            ContactPerson = entity.ContactPerson,
-                            ContactEmail = entity.ContactEmail,
+                            ContactPerson = entity.ContactPerson ?? "",
+                            ContactEmail = entity.ContactEmail ?? "",
                             LifeCycleStageId = entity.LifeCycleStageId?.ToString(),
-                            LifeCycleStageName = entity.LifeCycleStageName,
+                            LifeCycleStageName = entity.LifeCycleStageName ?? "",
                             StartDate = entity.StartDate,
                             CurrentStageStartTime = entity.CurrentStageStartTime,
                             ViewPermissionSubjectType = (int)entity.ViewPermissionSubjectType,
                             OperatePermissionSubjectType = (int)entity.OperatePermissionSubjectType,
                             ViewPermissionMode = (int)entity.ViewPermissionMode,
-                            ViewTeams = string.IsNullOrEmpty(entity.ViewTeams) ? "[]" : entity.ViewTeams,
-                            ViewUsers = string.IsNullOrEmpty(entity.ViewUsers) ? "[]" : entity.ViewUsers,
-                            OperateTeams = string.IsNullOrEmpty(entity.OperateTeams) ? "[]" : entity.OperateTeams,
-                            OperateUsers = string.IsNullOrEmpty(entity.OperateUsers) ? "[]" : entity.OperateUsers
+                            ViewTeams = ValidateAndFormatJsonArray(entity.ViewTeams),
+                            ViewUsers = ValidateAndFormatJsonArray(entity.ViewUsers),
+                            OperateTeams = ValidateAndFormatJsonArray(entity.OperateTeams),
+                            OperateUsers = ValidateAndFormatJsonArray(entity.OperateUsers)
                         };
                         // Debug logging handled by structured logging
                         insertedId = await sqlSugarClient.Ado.SqlQuerySingleAsync<long>(sql, parameters);
@@ -831,11 +831,17 @@ namespace FlowFlex.Application.Services.OW
                     }
                 }
 
-                // Get actions for each stage in stagesProgress
+                // Get user ID for permission checks
+                var userId = _userContext?.UserId;
+                long userIdLong = 0;
+                bool hasUserId = !string.IsNullOrEmpty(userId) && long.TryParse(userId, out userIdLong);
+
+                // Get actions and permissions for each stage in stagesProgress
                 if (result.StagesProgress != null)
                 {
                     foreach (var stageProgress in result.StagesProgress)
                     {
+                        // Get actions for this stage
                         try
                         {
                             var actions = await _actionManagementService.GetActionTriggerMappingsByTriggerSourceIdAsync(stageProgress.StageId);
@@ -847,13 +853,39 @@ namespace FlowFlex.Application.Services.OW
                             // Debug logging handled by structured logging
                             stageProgress.Actions = new List<ActionTriggerMappingWithActionInfo>();
                         }
+
+                        // Get permission for this stage (STRICT MODE: Workflow ∩ Stage)
+                        if (hasUserId)
+                        {
+                            try
+                            {
+                                stageProgress.Permission = await _permissionService.GetStagePermissionInfoAsync(userIdLong, stageProgress.StageId);
+                            }
+                            catch (Exception ex)
+                            {
+                                // Log error but don't fail the entire request
+                                stageProgress.Permission = new Application.Contracts.Dtos.OW.Permission.PermissionInfoDto
+                                {
+                                    CanView = false,
+                                    CanOperate = false,
+                                    ErrorMessage = $"Error checking stage permission: {ex.Message}"
+                                };
+                            }
+                        }
+                        else
+                        {
+                            stageProgress.Permission = new Application.Contracts.Dtos.OW.Permission.PermissionInfoDto
+                            {
+                                CanView = false,
+                                CanOperate = false,
+                                ErrorMessage = "User not authenticated"
+                            };
+                        }
                     }
                 }
 
-                // Check permission and fill Permission field (optimized single call)
-                var userId = _userContext?.UserId;
-                
-                if (!string.IsNullOrEmpty(userId) && long.TryParse(userId, out var userIdLong))
+                // Check Case permission and fill Permission field (optimized single call)
+                if (hasUserId)
                 {
                     result.Permission = await _permissionService.GetCasePermissionInfoAsync(userIdLong, id);
                     result.IsDisabled = !result.Permission.CanOperate;
@@ -906,20 +938,47 @@ namespace FlowFlex.Application.Services.OW
                 }
                 else
                 {
-                    // Regular users need permission filtering
+                    // 🚀 PERFORMANCE OPTIMIZATION: Batch load all unique Workflows first
+                    var uniqueWorkflowIds = entities.Select(e => e.WorkflowId).Distinct().ToList();
+                    var workflowEntities = await _workflowRepository.GetListAsync(w => uniqueWorkflowIds.Contains(w.Id));
+                    var workflowEntityDict = workflowEntities.ToDictionary(w => w.Id);
+                    
+                    LoggingExtensions.WriteLine($"[Performance] GetListAsync - Batch loaded {workflowEntities.Count} unique workflows for {entities.Count} cases");
+                    
+                    // Get user teams once
+                    var userTeams = _permissionService.GetUserTeamIds();
+                    var userTeamLongs = userTeams?.Select(t => long.TryParse(t, out var tid) ? tid : 0).Where(t => t > 0).ToList() ?? new List<long>();
+                    
+                    // Regular users need permission filtering (using in-memory workflow data)
                     var filteredEntities = new List<Onboarding>();
                     
                     foreach (var entity in entities)
                     {
-                        var permissionResult = await _permissionService.CheckCaseAccessAsync(
-                            userIdLong,
-                            entity.Id,
-                            PermissionOperationType.View);
-                        
-                        if (permissionResult.Success && permissionResult.CanView)
+                        // ⚡ In-memory permission check using pre-loaded Workflow
+                        if (!workflowEntityDict.TryGetValue(entity.WorkflowId, out var workflow))
                         {
-                            filteredEntities.Add(entity);
+                            LoggingExtensions.WriteLine($"[Permission Debug] GetListAsync - Case {entity.Id} - Workflow {entity.WorkflowId} not found");
+                            continue;
                         }
+                        
+                        // Check Workflow view permission (in-memory)
+                        bool hasWorkflowPerm = CheckWorkflowViewPermissionInMemory(workflow, userIdLong, userTeamLongs);
+                        LoggingExtensions.WriteLine($"[Permission Debug] GetListAsync - Case {entity.Id} - Workflow permission: {hasWorkflowPerm}");
+                        if (!hasWorkflowPerm)
+                        {
+                            continue;
+                        }
+                        
+                        // Check Case-level view permission (in-memory)
+                        bool hasCasePerm = CheckCaseViewPermissionInMemory(entity, userIdLong, userTeamLongs);
+                        LoggingExtensions.WriteLine($"[Permission Debug] GetListAsync - Case {entity.Id} - Case permission: {hasCasePerm}");
+                        if (!hasCasePerm)
+                        {
+                            continue;
+                        }
+                        
+                        // ✅ Both permissions passed
+                        filteredEntities.Add(entity);
                     }
                     
                     entities = filteredEntities;
@@ -1074,19 +1133,15 @@ namespace FlowFlex.Application.Services.OW
                 Expression<Func<Onboarding, object>> orderByExpression = GetOrderByExpression(request);
                 bool isAsc = GetSortDirection(request);
 
-                // Apply pagination or get all data
-                List<Onboarding> pagedEntities;
-                int totalCount;
+                // Step 1: Get all data matching query criteria (for accurate filtering and pagination)
                 int pageIndex = Math.Max(1, request.PageIndex > 0 ? request.PageIndex : 1);
                 int pageSize = Math.Max(1, Math.Min(100, request.PageSize > 0 ? request.PageSize : 10));
 
+                List<Onboarding> allEntities;
+                
                 if (request.AllData)
                 {
-                    // Get all data without pagination using the existing GetListAsync method
-                    // that accepts multiple where expressions
-                    var orderByType = isAsc ? OrderByType.Asc : OrderByType.Desc;
-
-                    // Use the SqlSugar client directly to build the query
+                    // Get all data without pagination
                     var queryable = _onboardingRepository.GetSqlSugarClient().Queryable<Onboarding>();
 
                     // Apply all where conditions
@@ -1105,72 +1160,121 @@ namespace FlowFlex.Application.Services.OW
                         queryable = queryable.OrderByDescending(orderByExpression);
                     }
 
-                    pagedEntities = await queryable.ToListAsync();
-                    totalCount = pagedEntities.Count;
+                    allEntities = await queryable.ToListAsync();
                 }
                 else
                 {
-                    // Use BaseRepository's safe pagination method
-                    var (entities, count) = await _onboardingRepository.GetPageListAsync(
-                        whereExpressions,
-                        pageIndex,
-                        pageSize,
-                        orderByExpression,
-                        isAsc
-                    );
-                    pagedEntities = entities;
-                    totalCount = count;
+                    // For pagination: Get all matching records first (not just one page)
+                    // This ensures accurate totalCount after permission filtering
+                    var queryable = _onboardingRepository.GetSqlSugarClient().Queryable<Onboarding>();
+
+                    // Apply all where conditions
+                    foreach (var whereExpression in whereExpressions)
+                    {
+                        queryable = queryable.Where(whereExpression);
+                    }
+
+                    // Apply sorting
+                    if (isAsc)
+                    {
+                        queryable = queryable.OrderBy(orderByExpression);
+                    }
+                    else
+                    {
+                        queryable = queryable.OrderByDescending(orderByExpression);
+                    }
+
+                    allEntities = await queryable.ToListAsync();
                 }
 
-                // Batch get Workflow and Stage information to avoid N+1 queries
-                var (workflows, stages) = await GetRelatedDataBatchOptimizedAsync(pagedEntities);
-
-                // Create lookup dictionaries to improve search performance
-                var workflowDict = workflows.ToDictionary(w => w.Id, w => w.Name);
-                var stageDict = stages.ToDictionary(s => s.Id, s => s.Name);
-
-                // Batch process JSON deserialization
-                ProcessStagesProgressParallel(pagedEntities);
-
-                // Apply permission filtering - filter out cases user cannot view
+                // Step 2: Apply permission filtering - filter out cases user cannot view
+                List<Onboarding> filteredEntities;
                 var userId = _userContext?.UserId;
                 if (!string.IsNullOrEmpty(userId) && long.TryParse(userId, out var userIdLong))
                 {
                     // Fast path: If user is System Admin, skip permission checks
                     if (_userContext?.IsSystemAdmin == true)
                     {
-                        LoggingExtensions.WriteLine($"[Permission Filter] User {userIdLong} is System Admin, skipping permission checks for {pagedEntities.Count} cases");
+                        LoggingExtensions.WriteLine($"[Permission Filter] User {userIdLong} is System Admin, skipping permission checks for {allEntities.Count} cases");
+                        filteredEntities = allEntities;
                     }
                     // Fast path: If user is Tenant Admin for current tenant, skip permission checks
                     else if (_userContext != null && _userContext.HasAdminPrivileges(_userContext.TenantId))
                     {
-                        LoggingExtensions.WriteLine($"[Permission Filter] User {userIdLong} is Tenant Admin for tenant {_userContext.TenantId}, skipping permission checks for {pagedEntities.Count} cases");
+                        LoggingExtensions.WriteLine($"[Permission Filter] User {userIdLong} is Tenant Admin for tenant {_userContext.TenantId}, skipping permission checks for {allEntities.Count} cases");
+                        filteredEntities = allEntities;
                     }
                     else
                     {
-                        // Regular users need permission filtering
-                        var filteredEntities = new List<Onboarding>();
+                        // 🚀 PERFORMANCE OPTIMIZATION: Batch load all unique Workflows first
+                        // This reduces N+1 queries from (N Cases × 2 Workflow queries) to (1 batch query)
+                        var uniqueWorkflowIds = allEntities.Select(e => e.WorkflowId).Distinct().ToList();
+                        var workflowEntities = await _workflowRepository.GetListAsync(w => uniqueWorkflowIds.Contains(w.Id));
+                        var workflowEntityDict = workflowEntities.ToDictionary(w => w.Id);
                         
-                        foreach (var entity in pagedEntities)
+                        LoggingExtensions.WriteLine($"[Performance] Batch loaded {workflowEntities.Count} unique workflows for {allEntities.Count} cases");
+                        
+                        // Get user teams once (avoid repeated calls)
+                        var userTeams = _permissionService.GetUserTeamIds();
+                        var userTeamLongs = userTeams?.Select(t => long.TryParse(t, out var tid) ? tid : 0).Where(t => t > 0).ToList() ?? new List<long>();
+                        
+                        // Regular users need permission filtering (now using in-memory workflow data)
+                        filteredEntities = new List<Onboarding>();
+                        
+                        foreach (var entity in allEntities)
                         {
-                            var permissionResult = await _permissionService.CheckCaseAccessAsync(
-                                userIdLong,
-                                entity.Id,
-                                PermissionOperationType.View);
-                            
-                            if (permissionResult.Success && permissionResult.CanView)
+                            // ⚡ In-memory permission check using pre-loaded Workflow
+                            if (!workflowEntityDict.TryGetValue(entity.WorkflowId, out var workflow))
                             {
-                                filteredEntities.Add(entity);
+                                LoggingExtensions.WriteLine($"[Permission Debug] Case {entity.Id} - Workflow {entity.WorkflowId} not found in dictionary");
+                                continue;
                             }
+                            
+                            // Check Workflow view permission (in-memory, no DB query)
+                            bool hasWorkflowViewPermission = CheckWorkflowViewPermissionInMemory(workflow, userIdLong, userTeamLongs);
+                            LoggingExtensions.WriteLine($"[Permission Debug] Case {entity.Id} - Workflow {workflow.Id} permission: {hasWorkflowViewPermission} (ViewMode={workflow.ViewPermissionMode}, ViewTeams={workflow.ViewTeams ?? "NULL"})");
+                            if (!hasWorkflowViewPermission)
+                            {
+                                continue; // No Workflow permission, skip this Case
+                            }
+                            
+                            // Check Case-level view permission (in-memory)
+                            bool hasCaseViewPermission = CheckCaseViewPermissionInMemory(entity, userIdLong, userTeamLongs);
+                            LoggingExtensions.WriteLine($"[Permission Debug] Case {entity.Id} - Case permission: {hasCaseViewPermission} (ViewMode={entity.ViewPermissionMode}, SubjectType={entity.ViewPermissionSubjectType}, ViewTeams={entity.ViewTeams ?? "NULL"}, ViewUsers={entity.ViewUsers ?? "NULL"}, Ownership={entity.Ownership})");
+                            if (!hasCaseViewPermission)
+                            {
+                                continue; // No Case permission, skip
+                            }
+                            
+                            // ✅ Both Workflow and Case permissions passed
+                            LoggingExtensions.WriteLine($"[Permission Debug] Case {entity.Id} - GRANTED (both checks passed)");
+                            filteredEntities.Add(entity);
                         }
                         
-                        // Update pagedEntities to filtered list
-                        pagedEntities = filteredEntities;
-                        totalCount = filteredEntities.Count;
-                        
-                        LoggingExtensions.WriteLine($"[Permission Filter] Original count: {pagedEntities.Count}, Filtered count: {filteredEntities.Count}");
+                        LoggingExtensions.WriteLine($"[Permission Filter] Original count: {allEntities.Count}, Filtered count: {filteredEntities.Count}");
                     }
                 }
+                else
+                {
+                    // No user context, return empty result
+                    filteredEntities = new List<Onboarding>();
+                }
+
+                // Step 3: Apply pagination to filtered results
+                var totalCount = filteredEntities.Count;
+                var pagedEntities = request.AllData 
+                    ? filteredEntities 
+                    : filteredEntities.Skip((pageIndex - 1) * pageSize).Take(pageSize).ToList();
+
+                // Batch get Workflow and Stage information to avoid N+1 queries (only for paged data)
+                var (workflows, stages) = await GetRelatedDataBatchOptimizedAsync(pagedEntities);
+
+                // Create lookup dictionaries to improve search performance
+                var workflowDict = workflows.ToDictionary(w => w.Id, w => w.Name);
+                var stageDict = stages.ToDictionary(s => s.Id, s => s.Name);
+
+                // Batch process JSON deserialization (only for paged data)
+                ProcessStagesProgressParallel(pagedEntities);
 
                 // Map to output DTOs
                 var results = _mapper.Map<List<OnboardingOutputDto>>(pagedEntities);
@@ -6049,7 +6153,7 @@ namespace FlowFlex.Application.Services.OW
             var stageDict = stages.ToDictionary(s => s.Id, s => s.Name);
             var stageEstimatedDaysDict = stages.ToDictionary(s => s.Id, s => s.EstimatedDuration);
 
-            // Batch check permissions (batch-optimized: pre-check module permissions once)
+            // 🚀 PERFORMANCE OPTIMIZATION: Batch check permissions using in-memory data (no DB queries)
             var userId = _userContext?.UserId;
             bool isSystemAdmin = _userContext?.IsSystemAdmin == true;
             Dictionary<long, PermissionInfoDto> permissions = null;
@@ -6060,14 +6164,52 @@ namespace FlowFlex.Application.Services.OW
                 bool canViewCases = await _permissionService.CheckGroupPermissionAsync(userIdLong, PermissionConsts.Case.Read);
                 bool canOperateCases = await _permissionService.CheckGroupPermissionAsync(userIdLong, PermissionConsts.Case.Update);
 
-                // Batch check permissions for all cases (entity-level only, no redundant module checks)
+                // Get user teams once (avoid repeated calls)
+                var userTeams = _permissionService.GetUserTeamIds();
+                var userTeamLongs = userTeams?.Select(t => long.TryParse(t, out var tid) ? tid : 0).Where(t => t > 0).ToList() ?? new List<long>();
+
+                // Batch check permissions using already-loaded workflow data (in-memory, no DB queries)
                 permissions = new Dictionary<long, PermissionInfoDto>();
+                
+                // Create entity lookup for fast access
+                var entityDict = entities.ToDictionary(e => e.Id);
+                
                 foreach (var result in results)
                 {
-                    // Get permission info (batch-optimized: entity-level check only)
-                    var permissionInfo = await _permissionService.GetCasePermissionInfoForListAsync(
-                        userIdLong, result.Id, canViewCases, canOperateCases);
-                    permissions[result.Id] = permissionInfo;
+                    if (!entityDict.TryGetValue(result.Id, out var entity))
+                    {
+                        // Fallback: entity not found, deny access
+                        permissions[result.Id] = new PermissionInfoDto { CanView = false, CanOperate = false };
+                        continue;
+                    }
+
+                    // Get workflow from already-loaded dictionary (no DB query)
+                    if (!workflows.Any(w => w.Id == entity.WorkflowId))
+                    {
+                        // Workflow not found, deny access
+                        permissions[result.Id] = new PermissionInfoDto { CanView = false, CanOperate = false };
+                        continue;
+                    }
+
+                    var workflow = workflows.First(w => w.Id == entity.WorkflowId);
+
+                    // In-memory permission checks (same logic as QueryAsync)
+                    bool canViewCase = CheckWorkflowViewPermissionInMemory(workflow, userIdLong, userTeamLongs) 
+                                     && CheckCaseViewPermissionInMemory(entity, userIdLong, userTeamLongs);
+                    
+                    bool canOperateCase = false;
+                    if (canViewCase)
+                    {
+                        // Check operate permission (workflow + case level)
+                        canOperateCase = CheckWorkflowOperatePermissionInMemory(workflow, userIdLong, userTeamLongs)
+                                       && CheckCaseOperatePermissionInMemory(entity, userIdLong, userTeamLongs);
+                    }
+
+                    permissions[result.Id] = new PermissionInfoDto 
+                    { 
+                        CanView = canViewCases && canViewCase, 
+                        CanOperate = canOperateCases && canOperateCase 
+                    };
                 }
             }
 
@@ -6512,6 +6654,296 @@ namespace FlowFlex.Application.Services.OW
             {
                 throw new CRMException(ErrorCodeEnum.SystemError,
                     $"Failed to safely update onboarding without stages progress changes: {ex.Message}");
+            }
+        }
+
+        #endregion
+
+        #region Helper Methods
+
+        /// <summary>
+        /// Validates and formats JSON array string for PostgreSQL JSONB
+        /// </summary>
+        /// <summary>
+        /// Parse JSON array that might be double-encoded (handles both "[...]" and "\"[...]\"")
+        /// </summary>
+        private static List<string> ParseJsonArraySafe(string jsonString)
+        {
+            if (string.IsNullOrWhiteSpace(jsonString))
+            {
+                return new List<string>();
+            }
+            
+            try
+            {
+                // Handle potential double-encoded JSON string
+                var workingString = jsonString.Trim();
+                
+                // If the string starts and ends with quotes, it's double-encoded, so deserialize twice
+                if (workingString.StartsWith("\"") && workingString.EndsWith("\""))
+                {
+                    // First deserialize to remove outer quotes and unescape
+                    workingString = Newtonsoft.Json.JsonConvert.DeserializeObject<string>(workingString);
+                }
+                
+                // Now deserialize to list
+                var result = Newtonsoft.Json.JsonConvert.DeserializeObject<List<string>>(workingString);
+                return result ?? new List<string>();
+            }
+            catch
+            {
+                return new List<string>();
+            }
+        }
+        
+        /// <summary>
+        /// Check Workflow view permission in-memory (no database query)
+        /// Used for batch permission filtering in list queries
+        /// </summary>
+        private bool CheckWorkflowViewPermissionInMemory(
+            Domain.Entities.OW.Workflow workflow,
+            long userId,
+            List<long> userTeamIds)
+        {
+            // Public view mode = everyone can view
+            if (workflow.ViewPermissionMode == ViewPermissionModeEnum.Public)
+            {
+                return true;
+            }
+            
+            // VisibleToTeams mode = check team whitelist
+            if (workflow.ViewPermissionMode == ViewPermissionModeEnum.VisibleToTeams)
+            {
+                if (string.IsNullOrWhiteSpace(workflow.ViewTeams))
+                {
+                    LoggingExtensions.WriteLine($"[Permission Debug] Workflow {workflow.Id} - VisibleToTeams mode with NULL ViewTeams = DENY");
+                    return false; // NULL ViewTeams in VisibleToTeams mode = deny all (whitelist is empty)
+                }
+                
+                // Parse ViewTeams JSON array (handles double-encoding)
+                var viewTeams = ParseJsonArraySafe(workflow.ViewTeams);
+                LoggingExtensions.WriteLine($"[Permission Debug] Workflow {workflow.Id} - Parsed ViewTeams: [{string.Join(", ", viewTeams)}]");
+                
+                if (viewTeams.Count == 0)
+                {
+                    LoggingExtensions.WriteLine($"[Permission Debug] Workflow {workflow.Id} - Empty ViewTeams = DENY");
+                    return false; // Empty whitelist = deny all
+                }
+                
+                var viewTeamLongs = viewTeams.Select(t => long.TryParse(t, out var tid) ? tid : 0).Where(t => t > 0).ToHashSet();
+                LoggingExtensions.WriteLine($"[Permission Debug] Workflow {workflow.Id} - ViewTeamLongs: [{string.Join(", ", viewTeamLongs)}]");
+                LoggingExtensions.WriteLine($"[Permission Debug] Workflow {workflow.Id} - UserTeamIds: [{string.Join(", ", userTeamIds)}]");
+                
+                bool hasMatch = userTeamIds.Any(ut => viewTeamLongs.Contains(ut));
+                LoggingExtensions.WriteLine($"[Permission Debug] Workflow {workflow.Id} - Team match result: {hasMatch}");
+                
+                return hasMatch;
+            }
+            
+            // Private mode or unknown mode
+            return false;
+        }
+        
+        /// <summary>
+        /// Check Case view permission in-memory (no database query)
+        /// Used for batch permission filtering in list queries
+        /// </summary>
+        private bool CheckCaseViewPermissionInMemory(
+            Domain.Entities.OW.Onboarding onboarding,
+            long userId,
+            List<long> userTeamIds)
+        {
+            // Owner always has permission
+            if (onboarding.Ownership.HasValue && onboarding.Ownership.Value == userId)
+            {
+                return true;
+            }
+            
+            // Public view mode = everyone can view (with possible subject restrictions)
+            if (onboarding.ViewPermissionMode == ViewPermissionModeEnum.Public)
+            {
+                // Check subject type restrictions
+                if (onboarding.ViewPermissionSubjectType == PermissionSubjectTypeEnum.Team)
+                {
+                    // Team-based restriction
+                    if (string.IsNullOrWhiteSpace(onboarding.ViewTeams))
+                    {
+                        return true; // NULL ViewTeams = all teams
+                    }
+                    
+                    var viewTeams = ParseJsonArraySafe(onboarding.ViewTeams);
+                    if (viewTeams.Count == 0)
+                    {
+                        return true; // Empty array = all teams
+                    }
+                    
+                    var viewTeamLongs = viewTeams.Select(t => long.TryParse(t, out var tid) ? tid : 0).Where(t => t > 0).ToHashSet();
+                    return userTeamIds.Any(ut => viewTeamLongs.Contains(ut));
+                }
+                else if (onboarding.ViewPermissionSubjectType == PermissionSubjectTypeEnum.User)
+                {
+                    // User-based restriction
+                    if (string.IsNullOrWhiteSpace(onboarding.ViewUsers))
+                    {
+                        return true; // NULL ViewUsers = all users
+                    }
+                    
+                    var viewUsers = ParseJsonArraySafe(onboarding.ViewUsers);
+                    if (viewUsers.Count == 0)
+                    {
+                        return true; // Empty array = all users
+                    }
+                    
+                    var viewUserLongs = viewUsers.Select(u => long.TryParse(u, out var uid) ? uid : 0).Where(u => u > 0).ToHashSet();
+                    return viewUserLongs.Contains(userId);
+                }
+                else
+                {
+                    // No subject type restriction = all users
+                    return true;
+                }
+            }
+            
+            // VisibleToTeams or Private mode = deny
+            return false;
+        }
+        
+        /// <summary>
+        /// Check Workflow operate permission in-memory (no database query)
+        /// Used for batch permission filtering in list queries
+        /// </summary>
+        private bool CheckWorkflowOperatePermissionInMemory(
+            Domain.Entities.OW.Workflow workflow,
+            long userId,
+            List<long> userTeamIds)
+        {
+            // Public mode with NULL OperateTeams = everyone can operate
+            if (workflow.ViewPermissionMode == ViewPermissionModeEnum.Public)
+            {
+                if (string.IsNullOrWhiteSpace(workflow.OperateTeams))
+                {
+                    return true; // NULL OperateTeams = all users
+                }
+                
+                // Parse OperateTeams JSON array (handles double-encoding)
+                var operateTeams = ParseJsonArraySafe(workflow.OperateTeams);
+                if (operateTeams.Count == 0)
+                {
+                    return true; // Empty whitelist = all users
+                }
+                
+                var operateTeamLongs = operateTeams.Select(t => long.TryParse(t, out var tid) ? tid : 0).Where(t => t > 0).ToHashSet();
+                return userTeamIds.Any(ut => operateTeamLongs.Contains(ut));
+            }
+            
+            // VisibleToTeams mode = check OperateTeams whitelist
+            if (workflow.ViewPermissionMode == ViewPermissionModeEnum.VisibleToTeams)
+            {
+                if (string.IsNullOrWhiteSpace(workflow.OperateTeams))
+                {
+                    return false; // NULL OperateTeams in VisibleToTeams mode = deny all
+                }
+                
+                var operateTeams = ParseJsonArraySafe(workflow.OperateTeams);
+                if (operateTeams.Count == 0)
+                {
+                    return false; // Empty whitelist = deny all
+                }
+                
+                var operateTeamLongs = operateTeams.Select(t => long.TryParse(t, out var tid) ? tid : 0).Where(t => t > 0).ToHashSet();
+                return userTeamIds.Any(ut => operateTeamLongs.Contains(ut));
+            }
+            
+            // Private mode or unknown mode
+            return false;
+        }
+        
+        /// <summary>
+        /// Check Case operate permission in-memory (no database query)
+        /// Used for batch permission filtering in list queries
+        /// </summary>
+        private bool CheckCaseOperatePermissionInMemory(
+            Domain.Entities.OW.Onboarding onboarding,
+            long userId,
+            List<long> userTeamIds)
+        {
+            // Owner always has permission
+            if (onboarding.Ownership.HasValue && onboarding.Ownership.Value == userId)
+            {
+                return true;
+            }
+            
+            // Public operate mode = everyone can operate (with possible subject restrictions)
+            if (onboarding.ViewPermissionMode == ViewPermissionModeEnum.Public)
+            {
+                // Check subject type restrictions
+                if (onboarding.OperatePermissionSubjectType == PermissionSubjectTypeEnum.Team)
+                {
+                    // Team-based restriction
+                    if (string.IsNullOrWhiteSpace(onboarding.OperateTeams))
+                    {
+                        return true; // NULL OperateTeams = all teams
+                    }
+                    
+                    var operateTeams = ParseJsonArraySafe(onboarding.OperateTeams);
+                    if (operateTeams.Count == 0)
+                    {
+                        return true; // Empty array = all teams
+                    }
+                    
+                    var operateTeamLongs = operateTeams.Select(t => long.TryParse(t, out var tid) ? tid : 0).Where(t => t > 0).ToHashSet();
+                    return userTeamIds.Any(ut => operateTeamLongs.Contains(ut));
+                }
+                else if (onboarding.OperatePermissionSubjectType == PermissionSubjectTypeEnum.User)
+                {
+                    // User-based restriction
+                    if (string.IsNullOrWhiteSpace(onboarding.OperateUsers))
+                    {
+                        return true; // NULL OperateUsers = all users
+                    }
+                    
+                    var operateUsers = ParseJsonArraySafe(onboarding.OperateUsers);
+                    if (operateUsers.Count == 0)
+                    {
+                        return true; // Empty array = all users
+                    }
+                    
+                    var operateUserLongs = operateUsers.Select(u => long.TryParse(u, out var uid) ? uid : 0).Where(u => u > 0).ToHashSet();
+                    return operateUserLongs.Contains(userId);
+                }
+                else
+                {
+                    // No subject type restriction = all users
+                    return true;
+                }
+            }
+            
+            // VisibleToTeams or Private mode = deny
+            return false;
+        }
+        
+        private static string ValidateAndFormatJsonArray(string jsonArray)
+        {
+            if (string.IsNullOrWhiteSpace(jsonArray))
+            {
+                return "[]";
+            }
+
+            try
+            {
+                // Try to parse and validate the JSON
+                var parsed = Newtonsoft.Json.JsonConvert.DeserializeObject(jsonArray);
+                if (parsed is Newtonsoft.Json.Linq.JArray)
+                {
+                    return jsonArray;
+                }
+                // If it's not an array, return empty array
+                return "[]";
+            }
+            catch
+            {
+                // If parsing fails, return empty array
+                return "[]";
             }
         }
 

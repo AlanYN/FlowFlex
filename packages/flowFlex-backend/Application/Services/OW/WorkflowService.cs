@@ -603,11 +603,10 @@ namespace FlowFlex.Application.Service.OW
 
         public async Task<PagedResult<WorkflowOutputDto>> QueryAsync(WorkflowQueryRequest query)
         {
-            // Temporarily disable expired workflow processing to avoid concurrent database operations
-            // Debug logging handled by structured logging
-            var (items, total) = await _workflowRepository.QueryPagedAsync(
-                query.PageIndex,
-                query.PageSize,
+            // Step 1: Get all workflows matching the query criteria (without pagination)
+            var (allItems, _) = await _workflowRepository.QueryPagedAsync(
+                1, // pageIndex
+                int.MaxValue, // pageSize - get all items
                 query.Name,
                 query.IsActive,
                 query.IsDefault,
@@ -615,13 +614,19 @@ namespace FlowFlex.Application.Service.OW
                 query.SortField,
                 query.SortDirection);
 
-            // Apply permission filtering for list APIs (consistent with Case list behavior)
+            // Step 2: Apply permission filtering for list APIs (consistent with Case list behavior)
             // Module-level permission check is handled by WFEAuthorize at Controller layer
             // Entity-level permission check filters out items user cannot view
-            items = await FilterWorkflowsByPermissionAsync(items);
-            total = items.Count; // Update total after filtering
+            var filteredItems = await FilterWorkflowsByPermissionAsync(allItems);
+            var totalAfterFiltering = filteredItems.Count;
             
-            var result = _mapper.Map<List<WorkflowOutputDto>>(items);
+            // Step 3: Apply pagination to the filtered results
+            var pagedItems = filteredItems
+                .Skip((query.PageIndex - 1) * query.PageSize)
+                .Take(query.PageSize)
+                .ToList();
+            
+            var result = _mapper.Map<List<WorkflowOutputDto>>(pagedItems);
 
             // Batch load stages and fill permission info for all workflows
             if (result.Any())
@@ -656,7 +661,10 @@ namespace FlowFlex.Application.Service.OW
                 }
                 
                 // Create workflow entity dictionary for permission checks (avoid repeated queries)
-                var workflowEntities = items.ToDictionary(w => w.Id);
+                var workflowEntities = pagedItems.ToDictionary(w => w.Id);
+                
+                // PERFORMANCE OPTIMIZATION: Pre-fetch user teams once for all stages
+                var userTeamIds = userId > 0 ? _permissionService.GetUserTeamIds() : null;
                 
                 // Assign stages and permission info to each workflow
                 foreach (var workflow in result)
@@ -671,13 +679,14 @@ namespace FlowFlex.Application.Service.OW
                         {
                             foreach (var stage in stages)
                             {
-                                // Use synchronous method with entity objects (no DB query!)
+                                // Use synchronous method with entity objects and pre-fetched user teams (no DB query, no repeated GetUserTeamIds!)
                                 var permissionInfo = _permissionService.GetStagePermissionInfoForList(
                                     stage, 
                                     workflowEntity, 
                                     userId, 
                                     canViewStages, 
-                                    canOperateStages);
+                                    canOperateStages,
+                                    userTeamIds);
                                 
                                 // Only include stages that user can view
                                 if (permissionInfo.CanView)
@@ -730,7 +739,7 @@ namespace FlowFlex.Application.Service.OW
             return new PagedResult<WorkflowOutputDto>
             {
                 Items = result,
-                TotalCount = total,
+                TotalCount = totalAfterFiltering,
                 PageIndex = query.PageIndex,
                 PageSize = query.PageSize
             };
@@ -1270,7 +1279,8 @@ namespace FlowFlex.Application.Service.OW
                 return new List<Workflow>();
             }
 
-            // Pre-fetch user teams once to avoid repeated queries
+            // PERFORMANCE OPTIMIZATION: Pre-fetch user teams once to avoid repeated queries
+            // This prevents calling GetUserTeamIds() for each workflow in the loop
             var userTeamIds = _permissionService.GetUserTeamIds();
             _logger.LogDebug(
                 "User {UserId} belongs to {TeamCount} teams for workflow filtering",
@@ -1282,10 +1292,12 @@ namespace FlowFlex.Application.Service.OW
             foreach (var workflow in workflows)
             {
                 // Only check entity-level permission (skip module permission as already checked)
+                // Pass userTeamIds to avoid repeated GetUserTeamIds() calls
                 var hasViewPermission = await _permissionService.CheckWorkflowViewPermissionAsync(
                     userId,
                     workflow.Id,
-                    workflow);
+                    workflow,
+                    userTeamIds);
 
                 if (hasViewPermission)
                 {

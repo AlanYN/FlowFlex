@@ -83,6 +83,21 @@ namespace FlowFlex.Application.Contracts.IServices.OW
             FlowFlex.Domain.Entities.OW.Workflow workflow = null);
 
         /// <summary>
+        /// Check Workflow view permission with pre-fetched user teams (performance-optimized)
+        /// Avoids repeated GetUserTeamIds() calls in batch operations
+        /// </summary>
+        /// <param name="userId">User ID</param>
+        /// <param name="workflowId">Workflow ID</param>
+        /// <param name="workflow">Workflow entity (optional, to avoid database query)</param>
+        /// <param name="userTeamIds">Pre-fetched user team IDs (optional)</param>
+        /// <returns>True if user has view permission, false otherwise</returns>
+        Task<bool> CheckWorkflowViewPermissionAsync(
+            long userId,
+            long workflowId,
+            FlowFlex.Domain.Entities.OW.Workflow workflow,
+            System.Collections.Generic.List<string> userTeamIds);
+
+        /// <summary>
         /// Get user team IDs from UserContext
         /// </summary>
         /// <returns>List of team IDs</returns>
@@ -149,6 +164,18 @@ namespace FlowFlex.Application.Contracts.IServices.OW
             long userId,
             bool hasViewModulePermission,
             bool hasOperateModulePermission);
+
+        /// <summary>
+        /// Get permission info for Stage (ultra-optimized with pre-fetched user teams)
+        /// Avoids repeated GetUserTeamIds() calls in batch operations
+        /// </summary>
+        PermissionInfoDto GetStagePermissionInfoForList(
+            FlowFlex.Domain.Entities.OW.Stage stage,
+            FlowFlex.Domain.Entities.OW.Workflow workflow,
+            long userId,
+            bool hasViewModulePermission,
+            bool hasOperateModulePermission,
+            System.Collections.Generic.List<string> userTeamIds);
 
         /// <summary>
         /// Get permission info for Case (batch-optimized for list APIs)

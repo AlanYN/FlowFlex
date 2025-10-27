@@ -151,5 +151,13 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.Onboarding
         /// 与此阶段关联的动作列表
         /// </summary>
         public List<ActionTriggerMappingWithActionInfo> Actions { get; set; } = new List<ActionTriggerMappingWithActionInfo>();
+
+        
+        /// <summary>
+        /// Permission information for this stage (STRICT MODE)
+        /// 当前用户对该 Stage 的权限信息
+        /// STRICT MODE: Stage permission = Workflow ∩ Stage (requires both levels)
+        /// </summary>
+        public FlowFlex.Application.Contracts.Dtos.OW.Permission.PermissionInfoDto Permission { get; set; }
     }
 }

@@ -15,8 +15,11 @@ using PermissionOperationType = FlowFlex.Domain.Shared.Enums.Permission.Operatio
 namespace FlowFlex.Application.Services.OW.Permission
 {
     /// <summary>
-    /// Workflow permission verification service
+    /// Workflow permission verification service - STRICT MODE (Scheme 1)
     /// Handles all Workflow-specific permission checks
+    /// 
+    /// STRICT MODE: Workflow permission is the FIRST layer of permission control.
+    /// Without Workflow permission, users cannot access Stages or Cases under this Workflow.
     /// </summary>
     public class WorkflowPermissionService : IScopedService
     {
@@ -150,6 +153,18 @@ namespace FlowFlex.Application.Services.OW.Permission
             long workflowId,
             Workflow workflow = null)
         {
+            return await CheckWorkflowViewPermissionAsync(userId, workflowId, workflow, null);
+        }
+
+        /// <summary>
+        /// Check workflow view permission (performance-optimized with pre-fetched user teams)
+        /// </summary>
+        public async Task<bool> CheckWorkflowViewPermissionAsync(
+            long userId,
+            long workflowId,
+            Workflow workflow = null,
+            List<string> userTeamIds = null)
+        {
             // Admin bypass
             if (_helpers.HasAdminPrivileges())
             {
@@ -170,8 +185,9 @@ namespace FlowFlex.Application.Services.OW.Permission
                 }
             }
 
-            // Get user teams
-            var userTeamIds = _helpers.GetUserTeamIds();
+            // PERFORMANCE OPTIMIZATION: Use pre-fetched user teams if provided
+            // This avoids repeated calls to GetUserTeamIds() in batch operations
+            userTeamIds ??= _helpers.GetUserTeamIds();
 
             // Check view permission only
             return CheckViewPermission(workflow, userTeamIds);

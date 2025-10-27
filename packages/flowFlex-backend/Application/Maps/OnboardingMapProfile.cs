@@ -203,12 +203,13 @@ namespace FlowFlex.Application.Maps
 
         /// <summary>
         /// Helper method to serialize List of strings to JSON string
+        /// Returns "[]" for null or empty lists to ensure JSONB compatibility
         /// </summary>
         private static string SerializeSubjectList(List<string> subjectList)
         {
             if (subjectList == null || subjectList.Count == 0)
             {
-                return null;
+                return "[]";
             }
             return JsonSerializer.Serialize(subjectList);
         }

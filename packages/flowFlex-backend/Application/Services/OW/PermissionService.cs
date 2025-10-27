@@ -20,12 +20,23 @@ using PermissionOperationType = FlowFlex.Domain.Shared.Enums.Permission.Operatio
 namespace FlowFlex.Application.Services.OW
 {
     /// <summary>
-    /// Main permission service - Coordinator pattern
+    /// Main permission service - Coordinator pattern - STRICT MODE (Scheme 1)
+    /// 
+    /// STRICT MODE RULES:
+    /// 1. No Workflow permission → Cannot view/modify Stage or Case
+    /// 2. No Stage permission → Cannot view/modify Case in that Stage
+    /// 3. Final permission = Workflow ∩ Stage ∩ Case (intersection of all three levels)
+    /// 
     /// Delegates permission checks to specialized services:
     /// - WorkflowPermissionService: Workflow permission checks
-    /// - StagePermissionService: Stage permission checks
-    /// - CasePermissionService: Case permission checks
+    /// - StagePermissionService: Stage permission checks (requires Workflow permission)
+    /// - CasePermissionService: Case permission checks (requires Workflow ∩ Stage permission)
     /// - PermissionHelpers: Common utility methods
+    /// 
+    /// Special Cases:
+    /// - Admin (System/Tenant): Bypasses all permission checks
+    /// - Owner: Bypasses all permission checks for owned resources
+    /// - Assigned User: Special privilege for assigned Stages
     /// </summary>
     public class PermissionService : IPermissionService, IScopedService
     {
@@ -308,7 +319,19 @@ namespace FlowFlex.Application.Services.OW
             long workflowId,
             Workflow workflow = null)
         {
-            return await _workflowPermissionService.CheckWorkflowViewPermissionAsync(userId, workflowId, workflow);
+            return await _workflowPermissionService.CheckWorkflowViewPermissionAsync(userId, workflowId, workflow, null);
+        }
+
+        /// <summary>
+        /// Check Workflow view permission with pre-fetched user teams (performance-optimized)
+        /// </summary>
+        public async Task<bool> CheckWorkflowViewPermissionAsync(
+            long userId,
+            long workflowId,
+            Workflow workflow,
+            List<string> userTeamIds)
+        {
+            return await _workflowPermissionService.CheckWorkflowViewPermissionAsync(userId, workflowId, workflow, userTeamIds);
         }
 
         /// <summary>
@@ -494,7 +517,22 @@ namespace FlowFlex.Application.Services.OW
             bool hasOperateModulePermission)
         {
             return _stagePermissionService.GetStagePermissionInfoForList(
-                stage, workflow, userId, hasViewModulePermission, hasOperateModulePermission);
+                stage, workflow, userId, hasViewModulePermission, hasOperateModulePermission, null);
+        }
+
+        /// <summary>
+        /// Get permission info for Stage (ultra-optimized with pre-fetched user teams)
+        /// </summary>
+        public PermissionInfoDto GetStagePermissionInfoForList(
+            Stage stage,
+            Workflow workflow,
+            long userId,
+            bool hasViewModulePermission,
+            bool hasOperateModulePermission,
+            List<string> userTeamIds)
+        {
+            return _stagePermissionService.GetStagePermissionInfoForList(
+                stage, workflow, userId, hasViewModulePermission, hasOperateModulePermission, userTeamIds);
         }
 
         #endregion

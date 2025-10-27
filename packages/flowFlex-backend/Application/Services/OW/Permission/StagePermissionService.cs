@@ -15,9 +15,14 @@ using PermissionOperationType = FlowFlex.Domain.Shared.Enums.Permission.Operatio
 namespace FlowFlex.Application.Services.OW.Permission
 {
     /// <summary>
-    /// Stage permission verification service
+    /// Stage permission verification service - STRICT MODE (Scheme 1)
     /// Handles all Stage-specific permission checks
-    /// Stage can inherit or narrow Workflow permissions
+    /// 
+    /// STRICT MODE: Stage permission is the SECOND layer of permission control.
+    /// User must have BOTH Workflow AND Stage permission to access the Stage.
+    /// Stage permission = Workflow ∩ Stage (intersection)
+    /// 
+    /// Stage can inherit (NULL) or narrow (subset) Workflow permissions.
     /// </summary>
     public class StagePermissionService : IScopedService
     {
@@ -56,8 +61,21 @@ namespace FlowFlex.Application.Services.OW.Permission
             long userId,
             PermissionOperationType operationType)
         {
-            // Get user teams
-            var userTeamIds = _helpers.GetUserTeamIds();
+            return CheckStagePermission(stage, workflow, userId, operationType, null);
+        }
+
+        /// <summary>
+        /// Check Stage permission with pre-fetched user teams (performance-optimized)
+        /// </summary>
+        public PermissionResult CheckStagePermission(
+            Stage stage,
+            Workflow workflow,
+            long userId,
+            PermissionOperationType operationType,
+            List<string> userTeamIds)
+        {
+            // PERFORMANCE OPTIMIZATION: Use pre-fetched user teams if provided
+            userTeamIds ??= _helpers.GetUserTeamIds();
 
             _logger.LogDebug(
                 "CheckStagePermission - StageId: {StageId}, ViewMode: {ViewMode}, ViewTeams: {ViewTeams}, OperateTeams: {OperateTeams}, UserTeams: {UserTeams}",
@@ -405,6 +423,20 @@ namespace FlowFlex.Application.Services.OW.Permission
             bool hasViewModulePermission,
             bool hasOperateModulePermission)
         {
+            return GetStagePermissionInfoForList(stage, workflow, userId, hasViewModulePermission, hasOperateModulePermission, null);
+        }
+
+        /// <summary>
+        /// Get permission info for Stage (ultra-optimized with pre-fetched user teams)
+        /// </summary>
+        public PermissionInfoDto GetStagePermissionInfoForList(
+            Stage stage,
+            Workflow workflow,
+            long userId,
+            bool hasViewModulePermission,
+            bool hasOperateModulePermission,
+            List<string> userTeamIds)
+        {
             // Fast path: Admin bypass
             if (_helpers.HasAdminPrivileges())
             {
@@ -428,7 +460,8 @@ namespace FlowFlex.Application.Services.OW.Permission
             }
 
             // Check entity-level view permission (includes workflow inheritance check)
-            var viewResult = CheckStagePermission(stage, workflow, userId, PermissionOperationType.View);
+            // PERFORMANCE OPTIMIZATION: Pass pre-fetched userTeamIds to avoid repeated calls
+            var viewResult = CheckStagePermission(stage, workflow, userId, PermissionOperationType.View, userTeamIds);
             if (!viewResult.Success)
             {
                 return new PermissionInfoDto
@@ -443,7 +476,7 @@ namespace FlowFlex.Application.Services.OW.Permission
             bool canOperate = false;
             if (hasOperateModulePermission)
             {
-                var operateResult = CheckStagePermission(stage, workflow, userId, PermissionOperationType.Operate);
+                var operateResult = CheckStagePermission(stage, workflow, userId, PermissionOperationType.Operate, userTeamIds);
                 canOperate = operateResult.Success;
             }
 
