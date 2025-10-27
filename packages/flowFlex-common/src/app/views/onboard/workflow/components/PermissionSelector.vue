@@ -151,6 +151,9 @@ onMounted(() => {
 const leftChange = async (value) => {
 	const mode = localPermissions.viewPermissionMode;
 
+	if (mode === ViewPermissionModeEnum.InvisibleToTeams ) {
+		localPermissions.useSameGroups = false;
+	}
 	// Build a map of selected IDs for quick lookup
 	const selectedIdSet = new Set<string>(value as string[]);
 

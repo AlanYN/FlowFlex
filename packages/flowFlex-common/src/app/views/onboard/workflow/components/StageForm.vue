@@ -224,12 +224,12 @@ const tabsConfig = computed(() => {
 			label: 'Basic Info',
 		},
 		{
-			value: 'permissions',
-			label: 'Permissions',
-		},
-		{
 			value: 'components',
 			label: 'Components',
+		},
+		{
+			value: 'permissions',
+			label: 'Permissions',
 		},
 	];
 });
