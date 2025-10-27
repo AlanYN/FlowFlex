@@ -25,7 +25,7 @@ import { ProjectEnum } from '@/enums/appEnum';
 import { tokenRefreshManager } from './tokenRefresh';
 
 import { useGlobSetting } from '@/settings';
-import { getAppCode } from '@/utils/threePartyLogin';
+import { getAppCode, Logout } from '@/utils/threePartyLogin';
 
 const globSetting = useGlobSetting();
 
@@ -207,7 +207,6 @@ const transform: AxiosTransform = {
 		// 检查是否是 401 未授权错误
 		if (error.response?.status === 401) {
 			console.log('收到401错误，尝试刷新token');
-
 			// 检查是否是刷新 token 请求本身失败，避免无限循环
 			if (config?.url?.includes('/api/v1/oauth/token')) {
 				console.log('刷新token请求失败，跳转登录');
@@ -216,6 +215,7 @@ const transform: AxiosTransform = {
 				if (tokenExpiredLogOut) {
 					tokenExpiredLogOut(true);
 				}
+				Logout('logout');
 				window.parent.postMessage({ exceedToken: true }, '*');
 				return Promise.reject(error);
 			}

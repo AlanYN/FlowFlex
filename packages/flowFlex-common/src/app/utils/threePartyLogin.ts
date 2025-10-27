@@ -39,7 +39,6 @@ export async function formIDMLogin(ticket, oauth, state) {
 	const currentEnv = getEnv();
 	let res;
 	let refreshToken, expiresIn, token, tokenType, userId;
-
 	if (currentEnv === 'development') {
 		// Development 环境：维持原逻辑
 		res = await verifyTicket({

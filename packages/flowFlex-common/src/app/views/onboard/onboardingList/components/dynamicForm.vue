@@ -1521,7 +1521,7 @@ defineExpose({
 <style scoped lang="scss">
 /* 问卷区域样式 */
 .error-indicator {
-	font-size: 14px;
+	font-size: var(--button-1-size); /* 14px - Item Button 1 */
 	font-weight: normal;
 	color: var(--el-color-danger);
 	background-color: var(--el-color-danger-light-9);
@@ -1600,14 +1600,14 @@ defineExpose({
 }
 
 .section-title {
-	font-size: 18px;
+	font-size: var(--body-2-size); /* 18px - Item Body 2 */
 	font-weight: 600;
 	color: var(--primary-800);
 	margin: 0;
 }
 
 .section-description {
-	font-size: 14px;
+	font-size: var(--button-1-size); /* 14px - Item Button 1 */
 	color: var(--primary-600);
 	margin: 0;
 	line-height: 1.5;

@@ -411,8 +411,8 @@ const getAssigneeInitials = (fullName: string) => {
 }
 
 .item-title {
-	font-size: 14px;
-	font-weight: 600;
+	font-size: var(--button-1-size); /* 14px - Item Button 1 */
+	font-weight: var(--font-weight-medium);
 	color: var(--el-text-color-primary);
 	line-height: 1.5;
 	/* 处理长文本，防止撑开容器 */
@@ -430,15 +430,15 @@ const getAssigneeInitials = (fullName: string) => {
 
 /* 新增的简化样式 */
 .completed-check {
-	font-size: 18px;
+	font-size: var(--body-2-size); /* 18px - Item Body 2 */
 	color: var(--el-color-success);
-	font-weight: bold;
+	font-weight: var(--font-weight-bold);
 }
 
 .task-meta {
 	display: flex;
 	gap: 12px;
-	font-size: 12px;
+	font-size: var(--button-2-size); /* 12px - Item Button 2 */
 	align-items: center;
 }
 
@@ -456,7 +456,7 @@ const getAssigneeInitials = (fullName: string) => {
 }
 
 .item-description {
-	font-size: 14px;
+	font-size: var(--button-1-size); /* 14px - Item Button 1 */
 	margin: 0 0 8px 0;
 	color: var(--el-text-color-secondary);
 	line-height: 1.4;
@@ -472,7 +472,7 @@ const getAssigneeInitials = (fullName: string) => {
 	display: flex;
 	align-items: center;
 	gap: 6px;
-	font-size: 12px;
+	font-size: var(--button-2-size); /* 12px - Item Button 2 */
 	color: var(--el-color-success);
 	/* 确保完成信息不会撑开容器 */
 	min-width: 0;
@@ -480,12 +480,12 @@ const getAssigneeInitials = (fullName: string) => {
 }
 
 .completion-icon {
-	font-size: 12px;
+	font-size: var(--button-2-size); /* 12px - Item Button 2 */
 	color: var(--el-color-success);
 }
 
 .completion-text {
-	font-size: 12px;
+	font-size: var(--button-2-size); /* 12px - Item Button 2 */
 	/* 防止长邮箱地址撑开容器 */
 	overflow: hidden;
 	text-overflow: ellipsis;

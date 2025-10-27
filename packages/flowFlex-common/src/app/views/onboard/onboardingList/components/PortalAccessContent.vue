@@ -495,7 +495,7 @@ watchEffect(async () => {
 	background-color: var(--el-fill-color-blank);
 	transition: all var(--el-transition-duration);
 	box-shadow: 0 0 0 1px transparent inset;
-	font-size: 14px;
+	font-size: var(--button-1-size); /* 14px - Item Button 1 */
 	display: flex;
 	align-items: center;
 	flex-wrap: wrap;
@@ -525,7 +525,7 @@ watchEffect(async () => {
 }
 
 :deep(.label-title) {
-	font-size: 12px;
+	font-size: var(--button-2-size); /* 12px - Item Button 2 */
 	padding: 0;
 	line-height: 24px;
 	color: var(--el-text-color-regular);
@@ -559,7 +559,7 @@ watchEffect(async () => {
 
 :deep(.label-close:after) {
 	content: '×';
-	font-size: 12px;
+	font-size: var(--button-2-size); /* 12px - Item Button 2 */
 	line-height: 1;
 	font-weight: bold;
 }

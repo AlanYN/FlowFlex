@@ -129,17 +129,10 @@
 									AI
 								</div>
 							</el-tag>
-							<el-tag
-								v-if="row.status === 'active'"
-								type="success"
-								size="small"
-								class="rounded-xl"
-							>
+							<el-tag v-if="row.status === 'active'" type="success" size="small">
 								Active
 							</el-tag>
-							<el-tag v-else type="danger" size="small" class="rounded-xl">
-								Inactive
-							</el-tag>
+							<el-tag v-else type="danger" size="small">Inactive</el-tag>
 						</div>
 					</div>
 				</template>
@@ -299,7 +292,7 @@ const isWorkflowActionLoading = (workflowId: string) => {
 }
 
 .ai-sparkles {
-	font-size: 12px;
+	font-size: var(--button-2-size); /* 12px - Item Button 2 */
 	animation: sparkle 2s ease-in-out infinite;
 	display: inline-block;
 }

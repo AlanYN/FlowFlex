@@ -163,9 +163,14 @@ export const useUserStore = defineStore({
 			}
 		},
 		async afterLoginAction(goHome?: boolean) {
-			const userDate = await userInfoApi();
+			let userDate = null as any;
+			try {
+				userDate = await userInfoApi();
+			} catch (error) {
+				console.log(error);
+			}
 			const userInfo: UserInfo = {
-				...userDate.data,
+				...userDate?.data,
 				userId: userDate?.data?.userId,
 				// userName: userDate?.data?.firstName + userDate?.data?.lastName,
 				realName: `${userDate?.data?.firstName || ''}${

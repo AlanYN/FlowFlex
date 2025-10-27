@@ -1,6 +1,6 @@
 /**
- * Typography 层级系统
- * 统一的标题和文本规范
+ * Typography 层级系统 - 完全符合 Item 设计规范
+ * 基于 https://design.item.com/guidelines/typography
  * 
  * 使用方式：
  * 1. CSS 变量：font-size: var(--heading-1-size);
@@ -10,79 +10,132 @@
 html,
 html.sub-app-body,
 html.flowflex-app {
-	/* ========== 标题层级（Headings H1-H6） ========== */
+	/* ========== Item 字重定义 ========== */
+	--font-weight-light: 300;    /* Satoshi Light */
+	--font-weight-regular: 400;  /* Satoshi Regular */
+	--font-weight-medium: 500;   /* Satoshi Medium */
+	--font-weight-bold: 700;     /* Satoshi Bold */
+	--font-weight-black: 900;    /* Satoshi Black */
 
-	/* H1 - 页面主标题 */
-	--heading-1-size: 32px;
-	--heading-1-weight: 700;
-	--heading-1-line-height: 40px;
-	--heading-1-letter-spacing: 0;
+	/* ========== Item 标题层级（完全按照规范） ========== */
 
-	/* H2 - 区域标题（卡片、对话框标题） */
-	--heading-2-size: 24px;
-	--heading-2-weight: 700;
-	--heading-2-line-height: 32px;
-	--heading-2-letter-spacing: 0;
+	/* 9x Large 128 - Heading 1 */
+	--heading-1-size: 128px;
+	--heading-1-weight: var(--font-weight-bold);
+	--heading-1-line-height: 1.2;
+	--heading-1-letter-spacing: -0.02em;
 
-	/* H3 - 小节标题 */
-	--heading-3-size: 20px;
-	--heading-3-weight: 600;
-	--heading-3-line-height: 28px;
-	--heading-3-letter-spacing: 0;
+	/* 8x Large 96 - Heading 2 */
+	--heading-2-size: 96px;
+	--heading-2-weight: var(--font-weight-bold);
+	--heading-2-line-height: 1.2;
+	--heading-2-letter-spacing: -0.02em;
 
-	/* H4 - 表单分组标题 */
-	--heading-4-size: 18px;
-	--heading-4-weight: 600;
-	--heading-4-line-height: 26px;
-	--heading-4-letter-spacing: 0;
+	/* 7x Large 64 - Heading 3 */
+	--heading-3-size: 64px;
+	--heading-3-weight: var(--font-weight-medium);
+	--heading-3-line-height: 1.3;
+	--heading-3-letter-spacing: -0.01em;
 
-	/* H5 - 小标题 */
-	--heading-5-size: 16px;
-	--heading-5-weight: 500;
-	--heading-5-line-height: 24px;
+	/* 6x Large 48 - Heading 4 */
+	--heading-4-size: 48px;
+	--heading-4-weight: var(--font-weight-medium);
+	--heading-4-line-height: 1.3;
+	--heading-4-letter-spacing: -0.01em;
+
+	/* 5x Large 36 - Heading 5 */
+	--heading-5-size: 36px;
+	--heading-5-weight: var(--font-weight-medium);
+	--heading-5-line-height: 1.4;
 	--heading-5-letter-spacing: 0;
 
-	/* H6 - 最小标题 */
-	--heading-6-size: 14px;
-	--heading-6-weight: 500;
-	--heading-6-line-height: 22px;
+	/* 4x Large 28 - Heading 6 */
+	--heading-6-size: 28px;
+	--heading-6-weight: var(--font-weight-medium);
+	--heading-6-line-height: 1.4;
 	--heading-6-letter-spacing: 0;
 
-	/* ========== 正文层级（Body Text） ========== */
+	/* ========== Item 副标题层级 ========== */
 
-	--text-xl-size: 18px;
-	--text-xl-line-height: 26px;
-	--text-xl-weight: 400;
+	/* 3x Large 24 - Subtitle 1 */
+	--subtitle-1-size: 24px;
+	--subtitle-1-weight: var(--font-weight-medium);
+	--subtitle-1-line-height: 1.5;
+	--subtitle-1-letter-spacing: 0;
 
-	--text-lg-size: 16px;
-	--text-lg-line-height: 24px;
-	--text-lg-weight: 400;
+	/* 2x Large 20 - Subtitle 2 */
+	--subtitle-2-size: 20px;
+	--subtitle-2-weight: var(--font-weight-regular);
+	--subtitle-2-line-height: 1.5;
+	--subtitle-2-letter-spacing: 0;
 
-	--text-base-size: 14px;
-	--text-base-line-height: 22px;
-	--text-base-weight: 400;
+	/* ========== Item 正文层级 ========== */
 
-	--text-sm-size: 12px;
-	--text-sm-line-height: 20px;
-	--text-sm-weight: 400;
+	/* Extra Large 20 - Body 1 */
+	--body-1-size: 20px;
+	--body-1-weight: var(--font-weight-regular);
+	--body-1-line-height: 1.6;
+	--body-1-letter-spacing: 0;
 
-	--text-xs-size: 10px;
-	--text-xs-line-height: 16px;
-	--text-xs-weight: 400;
+	/* Large 18 - Body 2 */
+	--body-2-size: 18px;
+	--body-2-weight: var(--font-weight-regular);
+	--body-2-line-height: 1.6;
+	--body-2-letter-spacing: 0;
 
-	/* ========== 特殊文本 ========== */
+	/* Base 16 - Base 1 */
+	--base-1-size: 16px;
+	--base-1-weight: var(--font-weight-regular);
+	--base-1-line-height: 1.6;
+	--base-1-letter-spacing: 0;
 
-	--label-size: 12px;
-	--label-weight: 500;
-	--label-line-height: 16px;
+	/* Small 14 - Button 1 */
+	--button-1-size: 14px;
+	--button-1-weight: var(--font-weight-medium);
+	--button-1-line-height: 1.4;
+	--button-1-letter-spacing: 0;
+
+	/* Extra Small 12 - Button 2 */
+	--button-2-size: 12px;
+	--button-2-weight: var(--font-weight-medium);
+	--button-2-line-height: 1.4;
+	--button-2-letter-spacing: 0;
+
+	/* ========== 向后兼容的别名 ========== */
+	/* 保持现有变量名以避免破坏现有代码 */
+	--text-xl-size: var(--body-1-size);
+	--text-xl-line-height: var(--body-1-line-height);
+	--text-xl-weight: var(--body-1-weight);
+
+	--text-lg-size: var(--body-2-size);
+	--text-lg-line-height: var(--body-2-line-height);
+	--text-lg-weight: var(--body-2-weight);
+
+	--text-base-size: var(--base-1-size);
+	--text-base-line-height: var(--base-1-line-height);
+	--text-base-weight: var(--base-1-weight);
+
+	--text-sm-size: var(--button-1-size);
+	--text-sm-line-height: var(--button-1-line-height);
+	--text-sm-weight: var(--button-1-weight);
+
+	--text-xs-size: var(--button-2-size);
+	--text-xs-line-height: var(--button-2-line-height);
+	--text-xs-weight: var(--button-2-weight);
+
+	/* ========== 特殊文本（保持兼容性） ========== */
+	--label-size: var(--button-2-size);
+	--label-weight: var(--font-weight-medium);
+	--label-line-height: var(--button-2-line-height);
 
 	--caption-size: 10px;
-	--caption-line-height: 14px;
+	--caption-weight: var(--font-weight-regular);
+	--caption-line-height: 1.4;
 }
 
-/* ========== Utility Classes ========== */
+/* ========== Item 规范 Utility Classes ========== */
 
-/* 标题 Utility Classes */
+/* 标题 Utility Classes - 完全按照 Item 规范 */
 .heading-1 {
 	font-size: var(--heading-1-size);
 	font-weight: var(--heading-1-weight);
@@ -131,7 +184,87 @@ html.flowflex-app {
 	color: var(--el-text-color-primary);
 }
 
+/* 副标题 Utility Classes */
+.subtitle-1 {
+	font-size: var(--subtitle-1-size);
+	font-weight: var(--subtitle-1-weight);
+	line-height: var(--subtitle-1-line-height);
+	letter-spacing: var(--subtitle-1-letter-spacing);
+	color: var(--el-text-color-primary);
+}
+
+.subtitle-2 {
+	font-size: var(--subtitle-2-size);
+	font-weight: var(--subtitle-2-weight);
+	line-height: var(--subtitle-2-line-height);
+	letter-spacing: var(--subtitle-2-letter-spacing);
+	color: var(--el-text-color-primary);
+}
+
 /* 正文 Utility Classes */
+.body-1 {
+	font-size: var(--body-1-size);
+	font-weight: var(--body-1-weight);
+	line-height: var(--body-1-line-height);
+	letter-spacing: var(--body-1-letter-spacing);
+	color: var(--el-text-color-regular);
+}
+
+.body-2 {
+	font-size: var(--body-2-size);
+	font-weight: var(--body-2-weight);
+	line-height: var(--body-2-line-height);
+	letter-spacing: var(--body-2-letter-spacing);
+	color: var(--el-text-color-regular);
+}
+
+.base-1 {
+	font-size: var(--base-1-size);
+	font-weight: var(--base-1-weight);
+	line-height: var(--base-1-line-height);
+	letter-spacing: var(--base-1-letter-spacing);
+	color: var(--el-text-color-regular);
+}
+
+.button-1 {
+	font-size: var(--button-1-size);
+	font-weight: var(--button-1-weight);
+	line-height: var(--button-1-line-height);
+	letter-spacing: var(--button-1-letter-spacing);
+	color: var(--el-text-color-regular);
+}
+
+.button-2 {
+	font-size: var(--button-2-size);
+	font-weight: var(--button-2-weight);
+	line-height: var(--button-2-line-height);
+	letter-spacing: var(--button-2-letter-spacing);
+	color: var(--el-text-color-regular);
+}
+
+/* 字重 Utility Classes */
+.font-light {
+	font-weight: var(--font-weight-light);
+}
+
+.font-regular {
+	font-weight: var(--font-weight-regular);
+}
+
+.font-medium {
+	font-weight: var(--font-weight-medium);
+}
+
+.font-bold {
+	font-weight: var(--font-weight-bold);
+}
+
+.font-black {
+	font-weight: var(--font-weight-black);
+}
+
+/* ========== 向后兼容的 Utility Classes ========== */
+/* 保持现有类名以避免破坏现有代码 */
 .text-xl {
 	font-size: var(--text-xl-size);
 	line-height: var(--text-xl-line-height);
@@ -171,5 +304,6 @@ html.flowflex-app {
 
 .caption {
 	font-size: var(--caption-size);
+	font-weight: var(--caption-weight);
 	line-height: var(--caption-line-height);
 }
