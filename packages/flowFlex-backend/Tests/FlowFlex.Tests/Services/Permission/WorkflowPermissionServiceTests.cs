@@ -256,15 +256,15 @@ namespace FlowFlex.Tests.Services.Permission
         }
 
         [Fact]
-        public void CheckWorkflowPermission_InvisibleToTeams_OperateBlacklist_UserNotInBlacklist_ShouldGrantOperate()
+        public void CheckWorkflowPermission_InvisibleToTeams_UserInOperateWhitelist_ShouldGrantOperate()
         {
             // Arrange
             var userContext = TestDataBuilder.CreateUserContext(
                 TestDataBuilder.DefaultUserId,
                 new List<string> { TestDataBuilder.TeamC });
             var workflow = TestDataBuilder.CreateInvisibleToTeamsWorkflow(
-                new List<string> { TestDataBuilder.TeamA },
-                new List<string> { TestDataBuilder.TeamB });
+                new List<string> { TestDataBuilder.TeamA }, // View blacklist (TeamC not in blacklist, can view)
+                new List<string> { TestDataBuilder.TeamC }); // Operate whitelist (TeamC in whitelist, can operate)
             var service = CreateService(userContext);
 
             // Act
@@ -277,15 +277,15 @@ namespace FlowFlex.Tests.Services.Permission
         }
 
         [Fact]
-        public void CheckWorkflowPermission_InvisibleToTeams_OperateBlacklist_UserInBlacklist_ShouldDenyOperate()
+        public void CheckWorkflowPermission_InvisibleToTeams_UserNotInOperateWhitelist_ShouldDenyOperate()
         {
             // Arrange
             var userContext = TestDataBuilder.CreateUserContext(
                 TestDataBuilder.DefaultUserId,
                 new List<string> { TestDataBuilder.TeamB });
             var workflow = TestDataBuilder.CreateInvisibleToTeamsWorkflow(
-                new List<string> { TestDataBuilder.TeamA },
-                new List<string> { TestDataBuilder.TeamB });
+                new List<string> { TestDataBuilder.TeamA }, // View blacklist (TeamB not in blacklist, can view)
+                new List<string> { TestDataBuilder.TeamC }); // Operate whitelist (TeamB NOT in whitelist, cannot operate)
             var service = CreateService(userContext);
 
             // Act

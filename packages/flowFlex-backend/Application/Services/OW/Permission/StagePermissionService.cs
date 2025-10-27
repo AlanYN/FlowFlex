@@ -236,6 +236,8 @@ namespace FlowFlex.Application.Services.OW.Permission
 
         /// <summary>
         /// Check Stage's own operate permission (narrowed from Workflow)
+        /// IMPORTANT: Operate permission is ALWAYS whitelist-based, regardless of ViewPermissionMode
+        /// ViewPermissionMode (blacklist/whitelist) only affects View permissions
         /// </summary>
         private bool CheckStageOperatePermission(Stage stage, List<string> userTeamIds)
         {
@@ -245,12 +247,14 @@ namespace FlowFlex.Application.Services.OW.Permission
                 stage.ViewPermissionMode,
                 stage.OperateTeams ?? "NULL");
 
-            return stage.ViewPermissionMode switch
+            // Special handling for Public mode: empty OperateTeams means everyone can operate
+            if (stage.ViewPermissionMode == ViewPermissionModeEnum.Public)
             {
-                ViewPermissionModeEnum.Public => _helpers.CheckOperateTeamsPublicMode(stage.OperateTeams, userTeamIds),
-                ViewPermissionModeEnum.InvisibleToTeams => _helpers.CheckTeamBlacklist(stage.OperateTeams, userTeamIds),
-                _ => _helpers.CheckTeamWhitelist(stage.OperateTeams, userTeamIds)
-            };
+                return _helpers.CheckOperateTeamsPublicMode(stage.OperateTeams, userTeamIds);
+            }
+            
+            // For all other modes: OperateTeams is ALWAYS whitelist
+            return _helpers.CheckTeamWhitelist(stage.OperateTeams, userTeamIds);
         }
 
         #endregion

@@ -316,6 +316,8 @@ namespace FlowFlex.Application.Services.OW.Permission
 
         /// <summary>
         /// Check Case operate permission
+        /// IMPORTANT: Operate permission is ALWAYS whitelist-based, regardless of ViewPermissionMode
+        /// ViewPermissionMode (blacklist/whitelist) only affects View permissions
         /// </summary>
         private bool CheckCaseOperatePermission(Onboarding onboarding, List<string> userTeamIds, string userId)
         {
@@ -324,24 +326,28 @@ namespace FlowFlex.Application.Services.OW.Permission
                 onboarding.Id,
                 onboarding.OperatePermissionSubjectType);
 
-            // Team-based permission
+            // Team-based permission - ALWAYS whitelist
             if (onboarding.OperatePermissionSubjectType == PermissionSubjectTypeEnum.Team)
             {
-                return onboarding.ViewPermissionMode switch
+                // Special handling for Public mode: empty OperateTeams means everyone can operate
+                if (onboarding.ViewPermissionMode == ViewPermissionModeEnum.Public)
                 {
-                    ViewPermissionModeEnum.Public => _helpers.CheckOperateTeamsPublicMode(onboarding.OperateTeams, userTeamIds),
-                    ViewPermissionModeEnum.InvisibleToTeams => _helpers.CheckTeamBlacklist(onboarding.OperateTeams, userTeamIds),
-                    _ => _helpers.CheckTeamWhitelist(onboarding.OperateTeams, userTeamIds)
-                };
+                    return _helpers.CheckOperateTeamsPublicMode(onboarding.OperateTeams, userTeamIds);
+                }
+                
+                // For all other modes: OperateTeams is whitelist
+                return _helpers.CheckTeamWhitelist(onboarding.OperateTeams, userTeamIds);
             }
             
-            // User-based permission
-            return onboarding.ViewPermissionMode switch
+            // User-based permission - ALWAYS whitelist
+            // Special handling for Public mode: empty OperateUsers means everyone can operate
+            if (onboarding.ViewPermissionMode == ViewPermissionModeEnum.Public)
             {
-                ViewPermissionModeEnum.Public => _helpers.CheckOperateUsersPublicMode(onboarding.OperateUsers, userId),
-                ViewPermissionModeEnum.InvisibleToTeams => _helpers.CheckUserBlacklist(onboarding.OperateUsers, userId),
-                _ => _helpers.CheckUserWhitelist(onboarding.OperateUsers, userId)
-            };
+                return _helpers.CheckOperateUsersPublicMode(onboarding.OperateUsers, userId);
+            }
+            
+            // For all other modes: OperateUsers is whitelist
+            return _helpers.CheckUserWhitelist(onboarding.OperateUsers, userId);
         }
 
         #endregion

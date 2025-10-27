@@ -354,7 +354,7 @@ namespace FlowFlex.Tests.Services.Permission
         }
 
         [Fact]
-        public void CheckCasePermission_InvisibleToTeams_TeamBased_UserInOperateBlacklist_ShouldDenyOperate()
+        public void CheckCasePermission_InvisibleToTeams_TeamBased_UserNotInOperateWhitelist_ShouldDenyOperate()
         {
             // Arrange
             var userContext = TestDataBuilder.CreateUserContext(
@@ -362,8 +362,8 @@ namespace FlowFlex.Tests.Services.Permission
                 new List<string> { TestDataBuilder.TeamB });
             var onboarding = TestDataBuilder.CreateOnboardingWithTeamPermissions(
                 ViewPermissionModeEnum.InvisibleToTeams,
-                new List<string> { TestDataBuilder.TeamA }, // View blacklist
-                new List<string> { TestDataBuilder.TeamB }); // Operate blacklist
+                new List<string> { TestDataBuilder.TeamA }, // View blacklist (TeamB not in blacklist, can view)
+                new List<string> { TestDataBuilder.TeamA }); // Operate whitelist (TeamB not in whitelist, cannot operate)
             var service = CreateService(userContext);
 
             // Act
@@ -373,7 +373,7 @@ namespace FlowFlex.Tests.Services.Permission
             result.Should().NotBeNull();
             result.Success.Should().BeFalse();
             result.CanView.Should().BeTrue(); // Not in view blacklist
-            result.CanOperate.Should().BeFalse(); // In operate blacklist
+            result.CanOperate.Should().BeFalse(); // NOT in operate whitelist (Operate is ALWAYS whitelist)
         }
 
         #endregion
