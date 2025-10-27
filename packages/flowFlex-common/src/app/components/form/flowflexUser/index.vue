@@ -837,10 +837,6 @@ const initializeData = async (searchQuery = '') => {
 	try {
 		loading.value = true;
 
-<<<<<<< Updated upstream
-		// 使用 store 中的缓存方法
-		const data = await menuStore.getFlowflexUserDataWithCache(searchQuery);
-=======
 		let data: FlowflexUser[] = [];
 
 		// 如果传递了 choosableTreeData，优先使用传递的数据
@@ -852,7 +848,6 @@ const initializeData = async (searchQuery = '') => {
 			await menuStore.clearFlowflexUserData();
 			data = await menuStore.getFlowflexUserDataWithCache(searchQuery);
 		}
->>>>>>> Stashed changes
 
 		if (data && data.length > 0) {
 			// 保存原始数据
