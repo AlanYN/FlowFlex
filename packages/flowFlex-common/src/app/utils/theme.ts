@@ -48,6 +48,7 @@ export function setTheme(theme?: string | null, isSet?: boolean) {
 					type: 'themeChange',
 					data: {
 						theme: state.theme,
+						primary: state.primary,
 					},
 				},
 				targetOrigin
