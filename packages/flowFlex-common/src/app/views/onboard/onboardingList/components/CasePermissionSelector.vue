@@ -110,18 +110,22 @@
 			</div>
 
 			<!-- Available Teams/Users（仅在不勾选 useSameGroups 时显示）-->
-			<div v-if="!localPermissions.useSameGroups && shouldShowSelector" class="space-y-2">
-				<label class="text-base font-bold">Available Teams</label>
+			<div
+				v-if="
+					(!localPermissions.useSameGroups && shouldShowSelector) ||
+					localPermissions.viewPermissionMode === CasePermissionModeEnum.InvisibleToTeams
+				"
+				class="space-y-2"
+			>
+				<label class="text-base font-bold">Teams</label>
 
 				<!-- 单选按钮：User Groups / Individual Users -->
 				<el-radio-group v-model="localPermissions.operatePermissionSubjectType">
 					<el-radio
 						:value="PermissionSubjectTypeEnum.Team"
 						:disabled="
-							localPermissions.viewPermissionMode ===
-								CasePermissionModeEnum.InvisibleToTeams &&
 							localPermissions.viewPermissionSubjectType ===
-								PermissionSubjectTypeEnum.User
+							PermissionSubjectTypeEnum.User
 						"
 					>
 						User Teams
@@ -158,7 +162,7 @@
 </template>
 
 <script setup lang="ts">
-import { reactive, computed, watch, nextTick, ref } from 'vue';
+import { reactive, computed, watch, nextTick, ref, onMounted } from 'vue';
 import { CasePermissionModeEnum, PermissionSubjectTypeEnum } from '@/enums/permissionEnum';
 import FlowflexUserSelector from '@/components/form/flowflexUser/index.vue';
 import { menuRoles } from '@/stores/modules/menuFunction';
@@ -243,15 +247,13 @@ const handleLeftChange = async () => {
 	const mode = localPermissions.viewPermissionMode;
 	const leftSubjectType = localPermissions.viewPermissionSubjectType;
 
-	// 获取左侧选中的数据
-	let selectedNodes: FlowflexUser[] = [];
+	// 获取左侧选中的 ID
 	let selectedIds: string[] = [];
 
 	if (leftSubjectType === PermissionSubjectTypeEnum.Team) {
-		selectedNodes = viewTeamSelectorRef.value?.getSelectedData() || [];
 		selectedIds = localPermissions.viewTeams;
 	} else {
-		selectedNodes = viewUserSelectorRef.value?.getSelectedData() || [];
+		localPermissions.operatePermissionSubjectType = PermissionSubjectTypeEnum.User;
 		selectedIds = localPermissions.viewUsers;
 	}
 
@@ -261,7 +263,16 @@ const handleLeftChange = async () => {
 		return;
 	}
 
-	// 构建节点映射和父子关系
+	// 如果没有选中数据，直接返回
+	if (selectedIds.length === 0) {
+		operateChoosableTreeData.value = undefined;
+		return;
+	}
+
+	// 获取完整树数据（不依赖 ref）
+	const fullTreeData = await menuStore.getFlowflexUserDataWithCache('');
+
+	// 构建节点映射和父子关系（使用完整树）
 	const nodeMap = new Map<string, FlowflexUser>();
 	const childToParentMap = new Map<string, string>();
 
@@ -277,7 +288,7 @@ const handleLeftChange = async () => {
 		});
 	}
 
-	buildMaps(Array.isArray(selectedNodes) ? selectedNodes : [selectedNodes]);
+	buildMaps(fullTreeData);
 	const selectedIdSet = new Set<string>(selectedIds);
 
 	// Visible 模式：白名单（右侧只能从左侧选中的子集中选择）
@@ -315,7 +326,6 @@ const handleLeftChange = async () => {
 
 	// Invisible 模式：黑名单（右侧排除左侧选中的）
 	if (mode === CasePermissionModeEnum.InvisibleToTeams) {
-		const fullTreeData = await menuStore.getFlowflexUserDataWithCache('');
 		const excludeIds = new Set<string>();
 
 		const collectNodeAndChildren = (nodeId: string) => {
@@ -340,6 +350,11 @@ const handleLeftChange = async () => {
 				const newNode: FlowflexUser = { ...node };
 				if (newNode.children && newNode.children.length > 0) {
 					newNode.children = filterTree(newNode.children);
+
+					// 如果是 Team 节点且所有 children 都被过滤掉了，不保留这个空 Team
+					if (newNode.type === 'team' && newNode.children.length === 0) {
+						continue;
+					}
 				}
 				result.push(newNode);
 			}
@@ -351,6 +366,14 @@ const handleLeftChange = async () => {
 		return;
 	}
 };
+
+onMounted(() => {
+	nextTick(() => {
+		if (shouldShowSelector.value && localPermissions.viewTeams.length > 0) {
+			handleLeftChange();
+		}
+	});
+});
 
 // 统一的数据处理函数
 const processPermissionChanges = () => {
@@ -399,7 +422,6 @@ const processPermissionChanges = () => {
 			localPermissions.operatePermissionSubjectType =
 				localPermissions.viewPermissionSubjectType;
 		}
-		// 注意：不勾选时，左右完全独立，无需任何过滤或限制
 
 		// emit 更新到父组件
 		emit('update:modelValue', {
