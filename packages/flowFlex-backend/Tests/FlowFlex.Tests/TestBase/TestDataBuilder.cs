@@ -189,6 +189,90 @@ namespace FlowFlex.Tests.TestBase
             };
         }
 
+        public static Onboarding CreateOnboardingWithOwnership(long ownerUserId, ViewPermissionModeEnum viewMode)
+        {
+            return new Onboarding
+            {
+                Id = 23,
+                WorkflowId = 1,
+                ViewPermissionMode = viewMode,
+                ViewPermissionSubjectType = Domain.Shared.Enums.OW.PermissionSubjectTypeEnum.Team,
+                OperatePermissionSubjectType = Domain.Shared.Enums.OW.PermissionSubjectTypeEnum.Team,
+                ViewTeams = null,
+                ViewUsers = null,
+                OperateTeams = null,
+                OperateUsers = null,
+                Ownership = ownerUserId
+            };
+        }
+
+        public static Onboarding CreateOnboardingInPublicMode(long workflowId, long? ownership = null)
+        {
+            return new Onboarding
+            {
+                Id = 24,
+                WorkflowId = workflowId,
+                ViewPermissionMode = ViewPermissionModeEnum.Public,
+                ViewPermissionSubjectType = Domain.Shared.Enums.OW.PermissionSubjectTypeEnum.Team,
+                OperatePermissionSubjectType = Domain.Shared.Enums.OW.PermissionSubjectTypeEnum.Team,
+                ViewTeams = null,
+                ViewUsers = null,
+                OperateTeams = null,
+                OperateUsers = null,
+                Ownership = ownership
+            };
+        }
+
+        public static Onboarding CreateOnboardingWithTeamPermissions(
+            ViewPermissionModeEnum viewMode,
+            List<string> viewTeams,
+            List<string> operateTeams,
+            long? ownership = null)
+        {
+            return new Onboarding
+            {
+                Id = 25,
+                WorkflowId = 1,
+                ViewPermissionMode = viewMode,
+                ViewPermissionSubjectType = Domain.Shared.Enums.OW.PermissionSubjectTypeEnum.Team,
+                OperatePermissionSubjectType = Domain.Shared.Enums.OW.PermissionSubjectTypeEnum.Team,
+                ViewTeams = viewTeams != null && viewTeams.Any() 
+                    ? Newtonsoft.Json.JsonConvert.SerializeObject(viewTeams) 
+                    : null,
+                ViewUsers = null,
+                OperateTeams = operateTeams != null && operateTeams.Any() 
+                    ? Newtonsoft.Json.JsonConvert.SerializeObject(operateTeams) 
+                    : null,
+                OperateUsers = null,
+                Ownership = ownership
+            };
+        }
+
+        public static Onboarding CreateOnboardingWithUserPermissions(
+            ViewPermissionModeEnum viewMode,
+            List<string> viewUsers,
+            List<string> operateUsers,
+            long? ownership = null)
+        {
+            return new Onboarding
+            {
+                Id = 26,
+                WorkflowId = 1,
+                ViewPermissionMode = viewMode,
+                ViewPermissionSubjectType = Domain.Shared.Enums.OW.PermissionSubjectTypeEnum.User,
+                OperatePermissionSubjectType = Domain.Shared.Enums.OW.PermissionSubjectTypeEnum.User,
+                ViewTeams = null,
+                ViewUsers = viewUsers != null && viewUsers.Any() 
+                    ? Newtonsoft.Json.JsonConvert.SerializeObject(viewUsers) 
+                    : null,
+                OperateTeams = null,
+                OperateUsers = operateUsers != null && operateUsers.Any() 
+                    ? Newtonsoft.Json.JsonConvert.SerializeObject(operateUsers) 
+                    : null,
+                Ownership = ownership
+            };
+        }
+
         #endregion
 
         #region UserContext Builders
