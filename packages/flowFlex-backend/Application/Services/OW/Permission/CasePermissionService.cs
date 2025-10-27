@@ -112,9 +112,12 @@ namespace FlowFlex.Application.Services.OW.Permission
                 }
                 else
                 {
-                    return PermissionResult.CreateFailure(
+                    // User has view permission but not operate permission
+                    var result = PermissionResult.CreateFailure(
                         "User has view permission but not operate permission for this case",
                         "OPERATE_PERMISSION_DENIED");
+                    result.CanView = true; // Set CanView to true since user can view
+                    return result;
                 }
             }
 
@@ -202,9 +205,12 @@ namespace FlowFlex.Application.Services.OW.Permission
                             "User {UserId} does not have operate permission on parent Workflow {WorkflowId} - denying Case operate permission",
                             userId,
                             workflow.Id);
-                        return PermissionResult.CreateFailure(
+                        // User has view permission but not operate permission
+                        var result = PermissionResult.CreateFailure(
                             "User has view permission but not operate permission on parent workflow",
                             "WORKFLOW_OPERATE_PERMISSION_DENIED");
+                        result.CanView = true; // Set CanView to true since user can view
+                        return result;
                     }
                 }
 
@@ -256,9 +262,12 @@ namespace FlowFlex.Application.Services.OW.Permission
                 }
                 else
                 {
-                    return PermissionResult.CreateFailure(
+                    // User has view permission but not operate permission
+                    var result = PermissionResult.CreateFailure(
                         "User has view permission but not operate permission for this case",
                         "OPERATE_PERMISSION_DENIED");
+                    result.CanView = true; // Set CanView to true since user can view
+                    return result;
                 }
             }
 
