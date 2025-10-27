@@ -504,8 +504,8 @@ const openModal = () => {
 	tempSelectedItems.value = [...selectedItems.value];
 	emit('modal-open');
 
-	// 如果没有数据，则加载数据
-	if (treeData.value.length === 0) {
+	// 如果没有数据，或者有 choosableTreeData（需要使用限定的数据），则加载数据
+	if (treeData.value.length === 0 || props.choosableTreeData) {
 		initializeData();
 	} else {
 		// 设置树的选中状态
@@ -1018,8 +1018,9 @@ watch(
 		if (newData && newData.length > 0) {
 			console.log('choosableTreeData changed, reinitializing data');
 			await initializeData();
-		} else if (newData !== undefined) {
-			// 如果传入了空数组，清空数据
+		} else {
+			// 如果传入了空数组或 undefined，清空数据
+			console.log('choosableTreeData cleared or undefined, clearing data');
 			treeData.value = [];
 			rawTreeData.value = [];
 			userDataMap.value.clear();
