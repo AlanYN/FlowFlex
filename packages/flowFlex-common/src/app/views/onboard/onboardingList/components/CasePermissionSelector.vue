@@ -254,10 +254,10 @@ const handleLeftChange = async () => {
 		selectedIds = localPermissions.viewTeams;
 	} else {
 		localPermissions.operatePermissionSubjectType = PermissionSubjectTypeEnum.User;
-		if (mode === CasePermissionModeEnum.InvisibleToTeams) {
-			localPermissions.useSameGroups = false;
-		}
 		selectedIds = localPermissions.viewUsers;
+	}
+	if (mode === CasePermissionModeEnum.InvisibleToTeams) {
+		localPermissions.useSameGroups = false;
 	}
 
 	// Public/Private 模式：不过滤
@@ -405,7 +405,7 @@ const processPermissionChanges = () => {
 			operateChoosableTreeData.value = undefined;
 		} else {
 			// VisibleToTeams/InvisibleToTeams 模式：更新过滤逻辑
-			handleLeftChange();
+			// handleLeftChange();
 		}
 
 		// 处理 operateTeams/operateUsers 的同步
