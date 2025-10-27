@@ -38,13 +38,26 @@
 			<div class="space-y-2">
 				<label class="text-base font-bold">Operate Permission</label>
 
-				<el-checkbox v-model="localPermissions.useSameGroups">
-					{{ checkboxLabel }}
+				<el-checkbox
+					:class="{
+						invisible:
+							localPermissions.viewPermissionMode ===
+							ViewPermissionModeEnum.InvisibleToTeams,
+					}"
+					v-model="localPermissions.useSameGroups"
+				>
+					Use same team that have view permission
 				</el-checkbox>
 			</div>
 
 			<!-- Team（仅在不勾选 useSameGroups 时显示）-->
-			<div v-if="!localPermissions.useSameGroups" class="space-y-2">
+			<div
+				v-if="
+					!localPermissions.useSameGroups ||
+					localPermissions.viewPermissionMode === ViewPermissionModeEnum.InvisibleToTeams
+				"
+				class="space-y-2"
+			>
 				<label class="text-base font-bold">Team</label>
 				<FlowflexUserSelector
 					v-model="localPermissions.operateTeams"
@@ -58,7 +71,7 @@
 </template>
 
 <script setup lang="ts">
-import { reactive, computed, ref, toRaw } from 'vue';
+import { reactive, computed, ref, watch, nextTick, onMounted } from 'vue';
 import { ViewPermissionModeEnum } from '@/enums/permissionEnum';
 import FlowflexUserSelector from '@/components/form/flowflexUser/index.vue';
 import { menuRoles } from '@/stores/modules/menuFunction';
@@ -84,7 +97,7 @@ const props = withDefaults(defineProps<Props>(), {
 });
 
 // Emits
-// const emit = defineEmits(['update:modelValue']);
+const emit = defineEmits(['update:modelValue']);
 
 // 权限类型选项
 const permissionTypeOptions = [
@@ -101,15 +114,6 @@ const shouldShowTeamSelector = computed(() => {
 		mode === ViewPermissionModeEnum.VisibleToTeams ||
 		mode === ViewPermissionModeEnum.InvisibleToTeams
 	);
-});
-
-// 动态checkbox文案 - Invisible模式显示特殊文案
-const checkboxLabel = computed(() => {
-	const mode = localPermissions.viewPermissionMode;
-	if (mode === ViewPermissionModeEnum.InvisibleToTeams) {
-		return 'Use same team that have view permission (not editable)';
-	}
-	return 'Use same team that have view permission';
 });
 
 // 本地权限数据
@@ -129,20 +133,36 @@ const menuStore = menuRoles();
 // 右侧可选的树形数据
 const operateChoosableTreeData = ref<FlowflexUser[] | undefined>(undefined);
 
+// 使用一个 ref 来跟踪是否正在处理内部更新
+const isProcessingInternalUpdate = ref(false);
+
 const leftTypeChange = () => {
-	const treedata = viewTeamSelectorRef.value?.getSelectedData() || [];
-	leftChange(localPermissions.viewTeams, treedata);
+	leftChange(localPermissions.viewTeams);
 };
 
-const leftChange = async (value, selectData) => {
-	const mode = localPermissions.viewPermissionMode;
+onMounted(() => {
+	nextTick(() => {
+		if (shouldShowTeamSelector.value && localPermissions.viewTeams.length > 0) {
+			leftTypeChange();
+		}
+	});
+});
 
-	// Convert selectData to array if it's not already
-	const selectedNodes = Array.isArray(selectData) ? toRaw(selectData) : [toRaw(selectData)];
-	console.log('selectedNodes:', selectedNodes);
+const leftChange = async (value) => {
+	const mode = localPermissions.viewPermissionMode;
 
 	// Build a map of selected IDs for quick lookup
 	const selectedIdSet = new Set<string>(value as string[]);
+
+	// 如果没有选中任何数据，直接返回
+	if (selectedIdSet.size === 0) {
+		operateChoosableTreeData.value = undefined;
+		return;
+	}
+
+	// 获取完整树数据（不依赖 ref）
+	const fullTreeData = await menuStore.getFlowflexUserDataWithCache('');
+	console.log('Using full tree data for building maps');
 
 	// Build parent-child relationship map
 	const nodeMap = new Map<string, FlowflexUser>();
@@ -160,7 +180,7 @@ const leftChange = async (value, selectData) => {
 		});
 	}
 
-	buildMaps(selectedNodes);
+	buildMaps(fullTreeData);
 
 	// Whitelist mode: only keep selected nodes (avoid parent-child duplicates)
 	if (mode === ViewPermissionModeEnum.VisibleToTeams) {
@@ -211,10 +231,6 @@ const leftChange = async (value, selectData) => {
 	// Blacklist mode: exclude selected nodes from full tree
 	if (mode === ViewPermissionModeEnum.InvisibleToTeams) {
 		console.log('Blacklist mode: excluding selected nodes from full tree');
-
-		// Get full tree data
-		const fullTreeData = await menuStore.getFlowflexUserDataWithCache('');
-		console.log('Full tree data:', fullTreeData);
 
 		// Extract all selected IDs (including children if parent is selected)
 		const excludeIds = new Set<string>();
@@ -268,6 +284,63 @@ const leftChange = async (value, selectData) => {
 	console.log('Public or other mode: no filtering');
 	operateChoosableTreeData.value = undefined;
 };
+
+// 统一的数据处理函数
+const processPermissionChanges = () => {
+	if (isProcessingInternalUpdate.value) return;
+
+	// 先设置标志位，防止内部修改触发 watch
+	isProcessingInternalUpdate.value = true;
+
+	// 使用 nextTick 确保在下一个事件循环中处理
+	nextTick(() => {
+		// 处理 viewPermissionMode 的变化
+		if (!shouldShowTeamSelector.value) {
+			// Public 模式清空
+			if (localPermissions.viewTeams.length > 0) {
+				localPermissions.viewTeams = [];
+			}
+			if (localPermissions.operateTeams.length > 0) {
+				localPermissions.operateTeams = [];
+			}
+			operateChoosableTreeData.value = undefined;
+		}
+
+		// 处理 operateTeams 的同步
+		if (localPermissions.useSameGroups) {
+			// 勾选"使用相同"时，同步 view 的选择到 operate
+			const newOperateTeams = shouldShowTeamSelector.value
+				? [...localPermissions.viewTeams]
+				: [];
+
+			if (JSON.stringify(newOperateTeams) !== JSON.stringify(localPermissions.operateTeams)) {
+				localPermissions.operateTeams = newOperateTeams;
+			}
+		}
+
+		// emit 更新到父组件
+		emit('update:modelValue', {
+			viewPermissionMode: localPermissions.viewPermissionMode,
+			viewTeams: [...localPermissions.viewTeams],
+			useSameGroups: localPermissions.useSameGroups,
+			operateTeams: [...localPermissions.operateTeams],
+		});
+
+		// 重置标志位
+		nextTick(() => {
+			isProcessingInternalUpdate.value = false;
+		});
+	});
+};
+
+// 监听 localPermissions 的变化，统一处理
+watch(
+	localPermissions,
+	() => {
+		processPermissionChanges();
+	},
+	{ deep: true }
+);
 </script>
 
 <style scoped>

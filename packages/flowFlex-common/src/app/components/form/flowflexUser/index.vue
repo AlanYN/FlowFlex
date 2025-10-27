@@ -504,8 +504,8 @@ const openModal = () => {
 	tempSelectedItems.value = [...selectedItems.value];
 	emit('modal-open');
 
-	// 如果没有数据，则加载数据
-	if (treeData.value.length === 0) {
+	// 如果没有数据，或者有 choosableTreeData（需要使用限定的数据），则加载数据
+	if (treeData.value.length === 0 || props.choosableTreeData) {
 		initializeData();
 	} else {
 		// 设置树的选中状态
