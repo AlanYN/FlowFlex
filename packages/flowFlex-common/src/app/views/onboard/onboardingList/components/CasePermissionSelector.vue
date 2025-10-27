@@ -254,6 +254,9 @@ const handleLeftChange = async () => {
 		selectedIds = localPermissions.viewTeams;
 	} else {
 		localPermissions.operatePermissionSubjectType = PermissionSubjectTypeEnum.User;
+		if (mode === CasePermissionModeEnum.InvisibleToTeams) {
+			localPermissions.useSameGroups = false;
+		}
 		selectedIds = localPermissions.viewUsers;
 	}
 
