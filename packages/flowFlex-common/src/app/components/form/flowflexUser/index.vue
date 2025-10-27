@@ -355,8 +355,6 @@ interface Props {
 	clearable?: boolean; // 是否可清除
 	checkStrictly?: boolean; // 是否严格模式，不遵循父子节点联动逻辑
 	choosableTreeData?: FlowflexUser[]; // 自定义可选择的树形数据，传入时优先使用此数据而不是缓存数据，支持动态更新
-	availableIds?: string[]; // 白名单：限制可选的 ID 范围，undefined 表示不限制，[] 表示无可选项
-	excludedIds?: string[]; // 黑名单：排除这些 ID，undefined 表示不限制
 }
 
 interface Emits {
@@ -383,8 +381,6 @@ const props = withDefaults(defineProps<Props>(), {
 	maxShowCount: 10,
 	readonlyNoDataText: 'No users selected',
 	checkStrictly: undefined,
-	availableIds: undefined,
-	excludedIds: undefined,
 });
 
 // 计算 placeholder
@@ -904,48 +900,6 @@ const processTreeData = (data: FlowflexUser[]): FlowflexUser[] => {
 						? filterNodesByType(item.children)
 						: [];
 
-				// 如果设置了 availableIds（不是 undefined），则进行白名单过滤
-				// undefined 表示不限制，[] 表示无可选项，[id1, id2] 表示只能选这些
-				if (props.availableIds !== undefined) {
-					// 判断当前节点是否是可选类型
-					const isSelectableType = props.selectionType === 'user' || item.type === 'team';
-
-					// 如果是可选类型且不在可用列表中，跳过该节点
-					if (isSelectableType && !props.availableIds.includes(item.id)) {
-						// 如果有子节点，返回 null 但子节点会被递归处理
-						// 如果没有子节点，直接跳过
-						if (filteredChildren.length > 0) {
-							// 返回容器节点（保留子节点）
-							return {
-								...item,
-								children: filteredChildren,
-							};
-						}
-						return null;
-					}
-				}
-
-				// 如果设置了 excludedIds（不是 undefined），则进行黑名单过滤
-				// undefined 表示不限制，[] 表示不排除任何项，[id1, id2] 表示排除这些
-				if (props.excludedIds !== undefined) {
-					// 判断当前节点是否是可选类型
-					const isSelectableType = props.selectionType === 'user' || item.type === 'team';
-
-					// 如果是可选类型且在排除列表中，跳过该节点
-					if (isSelectableType && props.excludedIds.includes(item.id)) {
-						// 如果有子节点，返回 null 但子节点会被递归处理
-						// 如果没有子节点，直接跳过
-						if (filteredChildren.length > 0) {
-							// 返回容器节点（保留子节点）
-							return {
-								...item,
-								children: filteredChildren,
-							};
-						}
-						return null;
-					}
-				}
-
 				// 根据选择类型决定显示逻辑
 				if (props.selectionType === 'user') {
 					// user 模式：显示所有数据，用户可以选择任何类型
@@ -1010,36 +964,6 @@ const handleModelValueChange = async () => {
 		await initializeData();
 	}
 };
-
-// 监听 availableIds 变化，重新处理树形数据
-watch(
-	() => props.availableIds,
-	() => {
-		// 如果有原始数据，重新处理
-		if (rawTreeData.value && rawTreeData.value.length > 0) {
-			const processedData = processTreeData(rawTreeData.value);
-			treeData.value = processedData;
-			// 重新构建数据映射
-			buildUserDataMap(processedData, true);
-		}
-	},
-	{ deep: true }
-);
-
-// 监听 excludedIds 变化，重新处理树形数据
-watch(
-	() => props.excludedIds,
-	() => {
-		// 如果有原始数据，重新处理
-		if (rawTreeData.value && rawTreeData.value.length > 0) {
-			const processedData = processTreeData(rawTreeData.value);
-			treeData.value = processedData;
-			// 重新构建数据映射
-			buildUserDataMap(processedData, true);
-		}
-	},
-	{ deep: true }
-);
 
 // 监听 selectionType 变化，重新处理树形数据
 watch(
