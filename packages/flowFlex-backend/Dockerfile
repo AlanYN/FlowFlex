@@ -32,6 +32,7 @@ COPY Domain.Shared/*.csproj ./Domain.Shared/
 COPY Infrastructure/*.csproj ./Infrastructure/
 COPY SqlSugarDB/*.csproj ./SqlSugarDB/
 COPY WebApi/*.csproj ./WebApi/
+COPY Tests/FlowFlex.Tests/*.csproj ./Tests/FlowFlex.Tests/
 
 # Set environment variables to avoid Windows-specific paths
 ENV NUGET_PACKAGES=/app/packages
