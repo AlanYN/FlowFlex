@@ -94,14 +94,14 @@ function handleTokenCheck(to, next) {
 		next({ path: '/portal-access' });
 		return true;
 	}
-
-	// 普通页面的Token检查
-	if (!accessToken || (accessToken && to.path === '/login')) {
-		toIDMLogin('login');
-		return true;
-	}
 	if (accessToken && to.path === '/login') {
 		next({ path: PageEnum.BASE_HOME });
+		return true;
+	}
+
+	// 普通页面的Token检查
+	if (!accessToken) {
+		toIDMLogin('login');
 		return true;
 	}
 
@@ -168,7 +168,11 @@ async function createDynamicRoutes(router: Router) {
 		}
 
 		const accessToken = getTokenobj()?.accessToken.token;
+		const userStore = useUserStoreWithOut();
 		if (!accessToken) return;
+		if (!userStore.getUserInfo || Object.keys(userStore.getUserInfo).length === 0) {
+			userStore.afterLoginAction(false);
+		}
 		const permissionStore = usePermissionStoreWithOut();
 		if (permissionStore.getFrontMenuList.length <= 0) {
 			const routes = await permissionStore.buildRoutesAction();
@@ -185,6 +189,7 @@ async function handleTripartiteToken() {
 	const parameterObj = parseUrlSearch(window.location.href)?.query as ParametersToken;
 
 	const userStore = useUserStoreWithOut();
+
 	// 直接检查无界环境，避免调用可能未初始化的 useWujie
 	if (window.__POWERED_BY_WUJIE__) {
 		userStore.setLayout({

@@ -39,9 +39,7 @@
 							class="mode-selection-section mb-6 p-4 bg-gray-50 dark:bg-gray-800 rounded-xl border"
 						>
 							<div class="flex items-center gap-4">
-								<span class="text-sm font-medium text-gray-700 dark:text-gray-300">
-									Configuration Mode:
-								</span>
+								<span class="text-sm font-medium">Configuration Mode:</span>
 								<el-radio-group
 									v-model="configMode"
 									@change="(value) => handleConfigModeChange(value as ToolsType)"
@@ -76,9 +74,7 @@
 
 							<!-- 选择已有工具的下拉框 -->
 							<div v-if="useExistingTool" class="mt-4">
-								<label
-									class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
-								>
+								<label class="block text-sm font-medium mb-2">
 									Select Tool {{ disabledActionForMyTool }}
 								</label>
 

@@ -806,7 +806,6 @@ const getJumpTargetName = (question: QuestionnaireSection, optionId: string) => 
 
 .empty-questions {
 	text-align: center;
-	padding: 2rem;
 }
 
 .delete-question-btn {

@@ -279,7 +279,7 @@ export const useUserStore = defineStore({
 						menuRolesStore.cancelWatchForm();
 						instance.confirmButtonLoading = true;
 						instance.confirmButtonText = 'Loading...';
-						await this.logout(true);
+						await this.logout(true, 'logout');
 						instance.confirmButtonLoading = false;
 						done();
 					} else {
