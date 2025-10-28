@@ -29,9 +29,6 @@ nProgress.configure({ showSpinner: false });
 const allPagePaths = getMenuListPath(Routes);
 
 export async function setupRouterGuard(router: Router) {
-	await handleTripartiteToken();
-	await createDynamicRoutes(router);
-
 	router.beforeEach(async (to, from, next) => {
 		nProgress.start();
 		handleHttpGuard();
@@ -95,7 +92,7 @@ function handleTokenCheck(to, next) {
 		return true;
 	}
 	if (accessToken && to.path === '/login') {
-		next({ path: PageEnum.BASE_HOME });
+		next({ path: PageEnum.BASE_HOME, query: {} });
 		return true;
 	}
 
@@ -153,7 +150,7 @@ async function handleRouterRoles(to) {
 	}
 }
 
-async function createDynamicRoutes(router: Router) {
+export async function createDynamicRoutes(router: Router) {
 	try {
 		// Skip dynamic route creation for Portal pages
 		// Portal pages don't need user permissions or dynamic routes
@@ -171,7 +168,7 @@ async function createDynamicRoutes(router: Router) {
 		const userStore = useUserStoreWithOut();
 		if (!accessToken) return;
 		if (!userStore.getUserInfo || Object.keys(userStore.getUserInfo).length === 0) {
-			userStore.afterLoginAction(false);
+			await userStore.afterLoginAction(false);
 		}
 		const permissionStore = usePermissionStoreWithOut();
 		if (permissionStore.getFrontMenuList.length <= 0) {
@@ -185,7 +182,7 @@ async function createDynamicRoutes(router: Router) {
 	}
 }
 
-async function handleTripartiteToken() {
+export async function handleTripartiteToken() {
 	const parameterObj = parseUrlSearch(window.location.href)?.query as ParametersToken;
 
 	const userStore = useUserStoreWithOut();

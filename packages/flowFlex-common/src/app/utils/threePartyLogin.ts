@@ -8,6 +8,7 @@ import WaveLoading from './waveLoading';
 import { router } from '@/router';
 import dayjs from 'dayjs';
 import { getEnv } from './env';
+import { removeIdmParams } from '@/utils/urlUtils';
 
 const globSetting = useGlobSetting();
 
@@ -38,7 +39,7 @@ export async function formIDMLogin(ticket, oauth, state) {
 
 	const currentEnv = getEnv();
 	let res;
-	let refreshToken, expiresIn, token, tokenType, userId;
+	let refreshToken, expiresIn, token, tokenType;
 	if (currentEnv === 'development') {
 		// Development 环境：维持原逻辑
 		res = await verifyTicket({
@@ -46,14 +47,14 @@ export async function formIDMLogin(ticket, oauth, state) {
 			appId: ProjectEnum.WFE,
 		});
 		// 旧逻辑的参数结构
-		({ refreshToken, expiresIn, token, tokenType, userId } = res);
+		({ refreshToken, expiresIn, token, tokenType } = res);
 	} else {
 		res = await verifyTicket({
 			ticket,
 			appId: ProjectEnum.WFE,
 		});
 		// 旧逻辑的参数结构
-		({ refreshToken, expiresIn, token, tokenType, userId } = res);
+		({ refreshToken, expiresIn, token, tokenType } = res);
 		// res = await getSSOToken({
 		// 	code: ticket,
 		// 	redirectUrl: window.location.origin,
@@ -73,10 +74,6 @@ export async function formIDMLogin(ticket, oauth, state) {
 		// 	userId = null;
 		// }
 	}
-	userStore.setUserInfo({
-		...userStore.getUserInfo,
-		userId,
-	});
 	const currentDate = dayjs(new Date()).unix();
 	userStore.setTokenobj({
 		accessToken: {
@@ -86,7 +83,7 @@ export async function formIDMLogin(ticket, oauth, state) {
 		},
 		refreshToken: refreshToken,
 	});
-	await userStore.afterLoginAction(false);
+	// await userStore.afterLoginAction(false);
 	detailUrlQuery();
 
 	// 获取当前URL，移除SSO参数，保留原始路径
@@ -169,9 +166,8 @@ export function detailUrlQuery() {
 	if (localStorage.getItem('href')) {
 		window.location.href = localStorage.getItem('href') as string;
 		localStorage.removeItem('href');
-	} else {
-		window.location.href = window.location.origin;
 	}
+	removeIdmParams();
 }
 
 export function Logout(type?: string) {
