@@ -1,5 +1,5 @@
 <template>
-	<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 p-1">
+	<div v-loading="loading" class="grid grid-cols-1 lg:grid-cols-2 gap-6 p-1">
 		<!-- 左侧：View Permission -->
 		<div class="space-y-4 w-full">
 			<div class="space-y-2">
@@ -253,6 +253,9 @@ const operateChoosableTreeData = ref<FlowflexUser[] | undefined>(undefined);
 // 使用一个 ref 来跟踪是否正在处理内部更新
 const isProcessingInternalUpdate = ref(false);
 
+// Loading 状态
+const loading = ref(false);
+
 // 获取 Workflow 数据
 const fetchWorkflowData = async () => {
 	if (!props.workflowId) {
@@ -261,11 +264,14 @@ const fetchWorkflowData = async () => {
 	}
 
 	try {
+		loading.value = true;
 		const result = await getWorkflowDetail(props.workflowId);
 		workflowData.value = result;
 	} catch (error) {
 		console.error('Failed to fetch workflow detail:', error);
 		workflowData.value = null;
+	} finally {
+		loading.value = false;
 	}
 };
 
@@ -409,14 +415,25 @@ const updateViewChoosableTreeData = async () => {
 		}
 	});
 
-	// 递归克隆并过滤子节点，只保留在 firstLayerFilteredIds 中的节点
+	// 递归克隆并过滤子节点
+	// Team 节点：必须在 firstLayerFilteredIds 中
+	// User 节点：直接保留（因为 workflow 的 viewTeams 只包含 Team ID，不包含 User ID）
 	const cloneNodeWithFilter = (node: FlowflexUser): FlowflexUser => {
 		const newNode: FlowflexUser = { ...node };
 
 		if (newNode.children && newNode.children.length > 0) {
-			// 递归克隆子节点，只保留在 firstLayerFilteredIds 中的
 			newNode.children = newNode.children
-				.filter((child) => firstLayerFilteredIds.has(child.id))
+				.filter((child) => {
+					// Team 节点：必须在 firstLayerFilteredIds 中
+					if (child.type === 'team') {
+						return firstLayerFilteredIds.has(child.id);
+					}
+					// User 节点：直接保留（因为父 Team 已经在白名单中）
+					if (child.type === 'user') {
+						return true;
+					}
+					return false;
+				})
 				.map((child) => cloneNodeWithFilter(child));
 		}
 
@@ -544,6 +561,36 @@ const handleLeftChange = async () => {
 			'Second layer VisibleTo result (with filtered children):',
 			operateChoosableTreeData.value
 		);
+
+		// 清理右侧已选数据：移除不在可选范围内的项
+		if (localPermissions.operatePermissionSubjectType === PermissionSubjectTypeEnum.Team) {
+			if (localPermissions.operateTeams.length > 0) {
+				const validOperateTeams = localPermissions.operateTeams.filter((teamId) =>
+					selectedIdSet.has(teamId)
+				);
+				if (validOperateTeams.length !== localPermissions.operateTeams.length) {
+					console.log(
+						'Removing invalid operate teams:',
+						localPermissions.operateTeams.filter((id) => !selectedIdSet.has(id))
+					);
+					localPermissions.operateTeams = validOperateTeams;
+				}
+			}
+		} else {
+			if (localPermissions.operateUsers.length > 0) {
+				const validOperateUsers = localPermissions.operateUsers.filter((userId) =>
+					selectedIdSet.has(userId)
+				);
+				if (validOperateUsers.length !== localPermissions.operateUsers.length) {
+					console.log(
+						'Removing invalid operate users:',
+						localPermissions.operateUsers.filter((id) => !selectedIdSet.has(id))
+					);
+					localPermissions.operateUsers = validOperateUsers;
+				}
+			}
+		}
+
 		return;
 	}
 
@@ -586,6 +633,36 @@ const handleLeftChange = async () => {
 
 		const filteredTreeData = filterTree(baseTreeData);
 		operateChoosableTreeData.value = filteredTreeData.length > 0 ? filteredTreeData : [];
+
+		// 清理右侧已选数据：移除在黑名单中的项
+		if (localPermissions.operatePermissionSubjectType === PermissionSubjectTypeEnum.Team) {
+			if (localPermissions.operateTeams.length > 0) {
+				const validOperateTeams = localPermissions.operateTeams.filter(
+					(teamId) => !excludeIds.has(teamId)
+				);
+				if (validOperateTeams.length !== localPermissions.operateTeams.length) {
+					console.log(
+						'Removing blacklisted operate teams:',
+						localPermissions.operateTeams.filter((id) => excludeIds.has(id))
+					);
+					localPermissions.operateTeams = validOperateTeams;
+				}
+			}
+		} else {
+			if (localPermissions.operateUsers.length > 0) {
+				const validOperateUsers = localPermissions.operateUsers.filter(
+					(userId) => !excludeIds.has(userId)
+				);
+				if (validOperateUsers.length !== localPermissions.operateUsers.length) {
+					console.log(
+						'Removing blacklisted operate users:',
+						localPermissions.operateUsers.filter((id) => excludeIds.has(id))
+					);
+					localPermissions.operateUsers = validOperateUsers;
+				}
+			}
+		}
+
 		return;
 	}
 };
@@ -594,12 +671,10 @@ onMounted(() => {
 	nextTick(async () => {
 		// 获取 workflow 数据
 		await fetchWorkflowData();
-		// 执行第一层过滤
+		// 执行第一层过滤（更新左侧可选数据）
 		await updateViewChoosableTreeData();
-		// 如果有选中数据，执行第二层过滤
-		if (shouldShowSelector.value && localPermissions.viewTeams.length > 0) {
-			handleLeftChange();
-		}
+		// 初始化时不调用 handleLeftChange，让右侧组件直接回显已保存的数据
+		// 只有当用户操作左侧选择器时，才会触发 handleLeftChange 进行过滤
 	});
 });
 

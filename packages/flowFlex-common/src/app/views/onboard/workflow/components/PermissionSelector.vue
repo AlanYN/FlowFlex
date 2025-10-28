@@ -301,11 +301,8 @@ const leftTypeChange = async () => {
 onMounted(() => {
 	nextTick(() => {
 		updateViewChoosableTreeData().then(() => {
-			// 如果需要显示 Team 选择器，总是调用 leftChange 来初始化右侧数据
-			// 这样可以确保右侧组件能正确回显已保存的数据
-			if (shouldShowTeamSelector.value) {
-				leftChange(localPermissions.viewTeams);
-			}
+			// 初始化时不调用 leftChange，让右侧组件直接回显已保存的数据
+			// 只有当用户操作左侧选择器时，才会触发 leftChange 进行过滤
 		});
 	});
 });
@@ -522,6 +519,22 @@ const leftChange = async (value) => {
 
 	console.log('Final result tree data (with filtered children):', newTreeData);
 	operateChoosableTreeData.value = newTreeData.length > 0 ? newTreeData : [];
+
+	// 清理右侧已选数据：移除不在可选范围内的项
+	if (localPermissions.operateTeams.length > 0) {
+		const validOperateTeams = localPermissions.operateTeams.filter((teamId) =>
+			baseAvailableIds.has(teamId)
+		);
+
+		// 如果有数据被过滤掉，更新 operateTeams
+		if (validOperateTeams.length !== localPermissions.operateTeams.length) {
+			console.log(
+				'Removing invalid operate teams:',
+				localPermissions.operateTeams.filter((id) => !baseAvailableIds.has(id))
+			);
+			localPermissions.operateTeams = validOperateTeams;
+		}
+	}
 };
 
 // 统一的数据处理函数
