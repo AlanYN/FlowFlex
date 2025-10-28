@@ -511,7 +511,10 @@ const loadResults = async () => {
 		});
 
 		if (response.success) {
-			const rawData = response.data?.data || [];
+			const rawData =
+				response.data?.data?.filter((item) => {
+					return item.actionDefinitionId === props.action?.id;
+				}) || [];
 
 			// Process and enhance the data with type detection
 			results.value = rawData.map((item: any) => {
