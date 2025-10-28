@@ -24,6 +24,7 @@ export interface Meat extends RouteMeta {
 	code?: string;
 	menuId?: string;
 	beta?: boolean;
+	ordinal?: number;
 }
 
 export interface MenuTag {
