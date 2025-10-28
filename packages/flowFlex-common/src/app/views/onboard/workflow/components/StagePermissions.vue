@@ -4,7 +4,12 @@
 			<h3 class="text-base font-bold">Stage Permissions</h3>
 			<p class="text-sm text-gray-600">Configure who can view and operate this stage</p>
 		</div>
-		<PermissionSelector v-model="permissionsData" />
+		<PermissionSelector
+			v-model="permissionsData"
+			:view-limit-data="workFlowViewTeams"
+			:operate-limit-data="workFlowOperateTeams"
+			:work-flow-view-permission-mode="workFlowViewPermissionMode"
+		/>
 	</div>
 </template>
 
@@ -19,6 +24,9 @@ interface Props {
 		viewTeams: string[];
 		operateTeams: string[];
 	};
+	workFlowOperateTeams?: string[];
+	workFlowViewTeams?: string[];
+	workFlowViewPermissionMode?: number;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -27,6 +35,9 @@ const props = withDefaults(defineProps<Props>(), {
 		viewTeams: [],
 		operateTeams: [],
 	}),
+	workFlowOperateTeams: () => [],
+	workFlowViewTeams: () => [],
+	viewPermissionMode: ViewPermissionModeEnum.Public,
 });
 
 const emit = defineEmits(['update:modelValue']);
