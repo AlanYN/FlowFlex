@@ -16,373 +16,373 @@
 			label-position="top"
 			@submit.prevent
 		>
-				<el-form-item label="Request URL" required class="request-url-input">
-					<el-input
-						:model-value="formConfig.url"
-						@update:model-value="setUrl"
-						placeholder="Enter URL, type '/' to insert variables"
-						class="w-full"
-						:disabled="disabled"
-					>
-						<template #prepend>
-							<el-select
-								:model-value="formConfig.method"
-								@update:model-value="setMethod"
-								style="width: 115px"
-								:disabled="disabled"
-							>
-								<el-option label="GET" value="GET" />
-								<el-option label="POST" value="POST" />
-								<el-option label="PUT" value="PUT" />
-								<el-option label="DELETE" value="DELETE" />
-								<el-option label="PATCH" value="PATCH" />
-							</el-select>
-						</template>
-					</el-input>
-				<div class="text-xs url-hint mt-1">
-						Use variables like &#123;&#123;onboarding.id&#125;&#125; or
-						&#123;&#123;stage.name&#125;&#125; in the URL
-					</div>
-				</el-form-item>
-
-				<!-- Headers Section -->
-				<el-form-item label="HEADERS">
-					<div class="params-section-enhanced">
-						<div class="params-header-enhanced">
-							<div class="param-col-key">Key</div>
-							<div class="param-col-value">Value</div>
-							<div class="param-actions-enhanced"></div>
-						</div>
-						<div class="params-body-enhanced">
-							<div
-								v-for="(header, index) in formConfig.headersList"
-								:key="index"
-								class="param-row-enhanced"
-							>
-								<div class="param-key-container">
-									<variable-auto-complete
-										v-model="header.key"
-										placeholder="Header key"
-										class="param-input-enhanced"
-										@update:model-value="updateHeaderKey(index, $event)"
-										:disabled="disabled"
-									/>
-								</div>
-								<div class="param-value-container">
-									<variable-auto-complete
-										v-if="!header.focused"
-										v-model="header.value"
-										placeholder="Header value"
-										class="param-input-enhanced"
-										@update:model-value="updateHeaderValue(index, $event)"
-										@focus="setHeaderFocused(index, true)"
-										:disabled="disabled"
-									/>
-									<el-input
-										v-else
-										v-model="header.value"
-										type="textarea"
-										placeholder="Header value"
-										class="param-textarea-auto-height"
-										@update:model-value="updateHeaderValue(index, $event)"
-										@blur="setHeaderFocused(index, false)"
-										:disabled="disabled"
-										:autosize="{ minRows: 1, maxRows: 10 }"
-										:ref="
-											(el) => {
-												if (el) headerTextareaRefs[index] = el;
-											}
-										"
-									/>
-								</div>
-								<div class="param-delete-container">
-									<el-button
-										type="danger"
-										text
-										@click="removeHeader(index)"
-										class="param-delete-enhanced"
-										:disabled="disabled"
-									>
-										<el-icon><Delete /></el-icon>
-									</el-button>
-								</div>
-							</div>
-						</div>
-					</div>
-				</el-form-item>
-
-				<!-- Params Section -->
-				<el-form-item label="PARAMS">
-					<div class="params-section-enhanced">
-						<div class="params-header-enhanced">
-							<div class="param-col-key">Key</div>
-							<div class="param-col-value">Value</div>
-							<div class="param-actions-enhanced"></div>
-						</div>
-						<div class="params-body-enhanced">
-							<div
-								v-for="(param, index) in formConfig.paramsList"
-								:key="index"
-								class="param-row-enhanced"
-							>
-								<div class="param-key-container">
-									<variable-auto-complete
-										v-model="param.key"
-										placeholder="Parameter key"
-										class="param-input-enhanced"
-										@update:model-value="updateParamKey(index, $event)"
-										:disabled="disabled"
-									/>
-								</div>
-								<div class="param-value-container">
-									<variable-auto-complete
-										v-if="!param.focused"
-										v-model="param.value"
-										placeholder="Parameter value"
-										class="param-input-enhanced"
-										@update:model-value="updateParamValue(index, $event)"
-										@focus="setParamFocused(index, true)"
-										:disabled="disabled"
-									/>
-									<el-input
-										v-else
-										v-model="param.value"
-										type="textarea"
-										placeholder="Parameter value"
-										class="param-textarea-auto-height"
-										@update:model-value="updateParamValue(index, $event)"
-										@blur="setParamFocused(index, false)"
-										:disabled="disabled"
-										:autosize="{ minRows: 1, maxRows: 10 }"
-										:ref="
-											(el) => {
-												if (el) paramTextareaRefs[index] = el;
-											}
-										"
-									/>
-								</div>
-								<div class="param-delete-container">
-									<el-button
-										type="danger"
-										text
-										@click="removeParam(index)"
-										class="param-delete-enhanced"
-										:disabled="disabled"
-									>
-										<el-icon><Delete /></el-icon>
-									</el-button>
-								</div>
-							</div>
-						</div>
-					</div>
-				</el-form-item>
-
-				<!-- Body Section -->
-				<el-form-item label="BODY">
-					<div class="body-section">
-						<!-- Body Type Selection -->
-						<el-radio-group
-							:model-value="formConfig.bodyType"
-							@update:model-value="setBodyType"
-							class="body-type-group"
+			<el-form-item label="Request URL" required class="request-url-input">
+				<el-input
+					:model-value="formConfig.url"
+					@update:model-value="setUrl"
+					placeholder="Enter URL, type '/' to insert variables"
+					class="w-full"
+					:disabled="disabled"
+				>
+					<template #prepend>
+						<el-select
+							:model-value="formConfig.method"
+							@update:model-value="setMethod"
+							style="width: 115px"
 							:disabled="disabled"
 						>
-							<el-radio value="none">none</el-radio>
-							<el-radio value="form-data">form-data</el-radio>
-							<el-radio value="x-www-form-urlencoded">x-www-form-urlencoded</el-radio>
-							<el-radio value="raw">raw</el-radio>
-						</el-radio-group>
+							<el-option label="GET" value="GET" />
+							<el-option label="POST" value="POST" />
+							<el-option label="PUT" value="PUT" />
+							<el-option label="DELETE" value="DELETE" />
+							<el-option label="PATCH" value="PATCH" />
+						</el-select>
+					</template>
+				</el-input>
+				<div class="text-xs url-hint mt-1">
+					Use variables like &#123;&#123;onboarding.id&#125;&#125; or
+					&#123;&#123;stage.name&#125;&#125; in the URL
+				</div>
+			</el-form-item>
 
-						<!-- Body Content based on type -->
-						<div class="body-content">
-							<!-- None - No content -->
-							<div v-if="formConfig.bodyType === 'none'" class="body-none">
+			<!-- Headers Section -->
+			<el-form-item label="HEADERS">
+				<div class="params-section-enhanced">
+					<div class="params-header-enhanced">
+						<div class="param-col-key">Key</div>
+						<div class="param-col-value">Value</div>
+						<div class="param-actions-enhanced"></div>
+					</div>
+					<div class="params-body-enhanced">
+						<div
+							v-for="(header, index) in formConfig.headersList"
+							:key="index"
+							class="param-row-enhanced"
+						>
+							<div class="param-key-container">
+								<variable-auto-complete
+									v-model="header.key"
+									placeholder="Header key"
+									class="param-input-enhanced"
+									@update:model-value="updateHeaderKey(index, $event)"
+									:disabled="disabled"
+								/>
+							</div>
+							<div class="param-value-container">
+								<variable-auto-complete
+									v-if="!header.focused"
+									v-model="header.value"
+									placeholder="Header value"
+									class="param-input-enhanced"
+									@update:model-value="updateHeaderValue(index, $event)"
+									@focus="setHeaderFocused(index, true)"
+									:disabled="disabled"
+								/>
+								<el-input
+									v-else
+									v-model="header.value"
+									type="textarea"
+									placeholder="Header value"
+									class="param-textarea-auto-height"
+									@update:model-value="updateHeaderValue(index, $event)"
+									@blur="setHeaderFocused(index, false)"
+									:disabled="disabled"
+									:autosize="{ minRows: 1, maxRows: 10 }"
+									:ref="
+										(el) => {
+											if (el) headerTextareaRefs[index] = el;
+										}
+									"
+								/>
+							</div>
+							<div class="param-delete-container">
+								<el-button
+									type="danger"
+									text
+									@click="removeHeader(index)"
+									class="param-delete-enhanced"
+									:disabled="disabled"
+								>
+									<el-icon><Delete /></el-icon>
+								</el-button>
+							</div>
+						</div>
+					</div>
+				</div>
+			</el-form-item>
+
+			<!-- Params Section -->
+			<el-form-item label="PARAMS">
+				<div class="params-section-enhanced">
+					<div class="params-header-enhanced">
+						<div class="param-col-key">Key</div>
+						<div class="param-col-value">Value</div>
+						<div class="param-actions-enhanced"></div>
+					</div>
+					<div class="params-body-enhanced">
+						<div
+							v-for="(param, index) in formConfig.paramsList"
+							:key="index"
+							class="param-row-enhanced"
+						>
+							<div class="param-key-container">
+								<variable-auto-complete
+									v-model="param.key"
+									placeholder="Parameter key"
+									class="param-input-enhanced"
+									@update:model-value="updateParamKey(index, $event)"
+									:disabled="disabled"
+								/>
+							</div>
+							<div class="param-value-container">
+								<variable-auto-complete
+									v-if="!param.focused"
+									v-model="param.value"
+									placeholder="Parameter value"
+									class="param-input-enhanced"
+									@update:model-value="updateParamValue(index, $event)"
+									@focus="setParamFocused(index, true)"
+									:disabled="disabled"
+								/>
+								<el-input
+									v-else
+									v-model="param.value"
+									type="textarea"
+									placeholder="Parameter value"
+									class="param-textarea-auto-height"
+									@update:model-value="updateParamValue(index, $event)"
+									@blur="setParamFocused(index, false)"
+									:disabled="disabled"
+									:autosize="{ minRows: 1, maxRows: 10 }"
+									:ref="
+										(el) => {
+											if (el) paramTextareaRefs[index] = el;
+										}
+									"
+								/>
+							</div>
+							<div class="param-delete-container">
+								<el-button
+									type="danger"
+									text
+									@click="removeParam(index)"
+									class="param-delete-enhanced"
+									:disabled="disabled"
+								>
+									<el-icon><Delete /></el-icon>
+								</el-button>
+							</div>
+						</div>
+					</div>
+				</div>
+			</el-form-item>
+
+			<!-- Body Section -->
+			<el-form-item label="BODY">
+				<div class="body-section">
+					<!-- Body Type Selection -->
+					<el-radio-group
+						:model-value="formConfig.bodyType"
+						@update:model-value="setBodyType"
+						class="body-type-group"
+						:disabled="disabled"
+					>
+						<el-radio value="none">none</el-radio>
+						<el-radio value="form-data">form-data</el-radio>
+						<el-radio value="x-www-form-urlencoded">x-www-form-urlencoded</el-radio>
+						<el-radio value="raw">raw</el-radio>
+					</el-radio-group>
+
+					<!-- Body Content based on type -->
+					<div class="body-content">
+						<!-- None - No content -->
+						<div v-if="formConfig.bodyType === 'none'" class="body-none">
 							<p class="text-sm body-none-text">This request has no body</p>
-							</div>
+						</div>
 
-							<!-- Form Data -->
-							<div
-								v-else-if="formConfig.bodyType === 'form-data'"
-								class="params-section-enhanced"
-							>
-								<div class="params-header-enhanced">
-									<div class="param-col-key">Key</div>
-									<div class="param-col-value">Value</div>
-									<div class="param-actions-enhanced"></div>
-								</div>
-								<div class="params-body-enhanced">
-									<div
-										v-for="(item, index) in formConfig.formDataList"
-										:key="index"
-										class="param-row-enhanced"
-									>
-										<div class="param-key-container">
-											<variable-auto-complete
-												v-model="item.key"
-												placeholder="Form data key"
-												class="param-input-enhanced"
+						<!-- Form Data -->
+						<div
+							v-else-if="formConfig.bodyType === 'form-data'"
+							class="params-section-enhanced"
+						>
+							<div class="params-header-enhanced">
+								<div class="param-col-key">Key</div>
+								<div class="param-col-value">Value</div>
+								<div class="param-actions-enhanced"></div>
+							</div>
+							<div class="params-body-enhanced">
+								<div
+									v-for="(item, index) in formConfig.formDataList"
+									:key="index"
+									class="param-row-enhanced"
+								>
+									<div class="param-key-container">
+										<variable-auto-complete
+											v-model="item.key"
+											placeholder="Form data key"
+											class="param-input-enhanced"
 											@update:model-value="updateFormDataKey(index, $event)"
-												:disabled="disabled"
-											/>
-										</div>
-										<div class="param-value-container">
-											<variable-auto-complete
-												v-if="!item.focused"
-												v-model="item.value"
-												placeholder="Form data value"
-												class="param-input-enhanced"
-											@update:model-value="updateFormDataValue(index, $event)"
-												@focus="setFormDataFocused(index, true)"
-												:disabled="disabled"
-											/>
-											<el-input
-												v-else
-												v-model="item.value"
-												type="textarea"
-												placeholder="Form data value"
-												class="param-textarea-auto-height"
-											@update:model-value="updateFormDataValue(index, $event)"
-												@blur="setFormDataFocused(index, false)"
-												:disabled="disabled"
-												:autosize="{ minRows: 1, maxRows: 10 }"
-												:ref="
-													(el) => {
-														if (el) formDataTextareaRefs[index] = el;
-													}
-												"
-											/>
-										</div>
-										<div class="param-delete-container">
-											<el-button
-												type="danger"
-												text
-												@click="removeFormData(index)"
-												class="param-delete-enhanced"
-												v-if="formConfig.formDataList.length > 1"
-												:disabled="disabled"
-											>
-												<el-icon><Delete /></el-icon>
-											</el-button>
-										</div>
+											:disabled="disabled"
+										/>
 									</div>
-								</div>
-							</div>
-
-							<!-- URL Encoded -->
-							<div
-								v-else-if="formConfig.bodyType === 'x-www-form-urlencoded'"
-								class="params-section-enhanced"
-							>
-								<div class="params-header-enhanced">
-									<div class="param-col-key">Key</div>
-									<div class="param-col-value">Value</div>
-									<div class="param-actions-enhanced"></div>
-								</div>
-								<div class="params-body-enhanced">
-									<div
-										v-for="(item, index) in formConfig.urlEncodedList"
-										:key="index"
-										class="param-row-enhanced"
-									>
-										<div class="param-key-container">
-											<variable-auto-complete
-												v-model="item.key"
-												placeholder="URL encoded key"
-												class="param-input-enhanced"
-											@update:model-value="updateUrlEncodedKey(index, $event)"
-												:disabled="disabled"
-											/>
-										</div>
-										<div class="param-value-container">
-											<variable-auto-complete
-												v-if="!item.focused"
-												v-model="item.value"
-												placeholder="URL encoded value"
-												class="param-input-enhanced"
-												@update:model-value="
-													updateUrlEncodedValue(index, $event)
-												"
-												@focus="setUrlEncodedFocused(index, true)"
-												:disabled="disabled"
-											/>
-											<el-input
-												v-else
-												v-model="item.value"
-												type="textarea"
-												placeholder="URL encoded value"
-												class="param-textarea-auto-height"
-												@update:model-value="
-													updateUrlEncodedValue(index, $event)
-												"
-												@blur="setUrlEncodedFocused(index, false)"
-												:disabled="disabled"
-												:autosize="{ minRows: 1, maxRows: 10 }"
-												:ref="
-													(el) => {
-														if (el) urlEncodedTextareaRefs[index] = el;
-													}
-												"
-											/>
-										</div>
-										<div class="param-delete-container">
-											<el-button
-												type="danger"
-												text
-												@click="removeUrlEncoded(index)"
-												class="param-delete-enhanced"
-												v-if="formConfig.urlEncodedList.length > 1"
-												:disabled="disabled"
-											>
-												<el-icon><Delete /></el-icon>
-											</el-button>
-										</div>
+									<div class="param-value-container">
+										<variable-auto-complete
+											v-if="!item.focused"
+											v-model="item.value"
+											placeholder="Form data value"
+											class="param-input-enhanced"
+											@update:model-value="updateFormDataValue(index, $event)"
+											@focus="setFormDataFocused(index, true)"
+											:disabled="disabled"
+										/>
+										<el-input
+											v-else
+											v-model="item.value"
+											type="textarea"
+											placeholder="Form data value"
+											class="param-textarea-auto-height"
+											@update:model-value="updateFormDataValue(index, $event)"
+											@blur="setFormDataFocused(index, false)"
+											:disabled="disabled"
+											:autosize="{ minRows: 1, maxRows: 10 }"
+											:ref="
+												(el) => {
+													if (el) formDataTextareaRefs[index] = el;
+												}
+											"
+										/>
 									</div>
-								</div>
-							</div>
-
-							<!-- Raw - with format selection -->
-							<div v-else-if="formConfig.bodyType === 'raw'" class="raw-section">
-								<div class="raw-header">
-									<div class="raw-format-controls">
-										<el-select
-											:model-value="formConfig.rawFormat"
-											@update:model-value="setRawFormat"
-											class="raw-format-select"
+									<div class="param-delete-container">
+										<el-button
+											type="danger"
+											text
+											@click="removeFormData(index)"
+											class="param-delete-enhanced"
+											v-if="formConfig.formDataList.length > 1"
 											:disabled="disabled"
 										>
-											<el-option label="JSON" value="json" />
-											<el-option label="Text" value="text" />
-											<el-option label="JavaScript" value="javascript" />
-											<el-option label="HTML" value="html" />
-											<el-option label="XML" value="xml" />
-										</el-select>
-										<el-button
-											type="primary"
-											@click="formatRawContent"
-											:disabled="disabled || !formConfig.body.trim()"
-											class="format-btn"
-											:icon="DocumentCopy"
-										>
-											Beautify
+											<el-icon><Delete /></el-icon>
 										</el-button>
 									</div>
 								</div>
-								<div class="raw-textarea-container">
-									<variable-auto-complete
-										:model-value="formConfig.body"
-										@update:model-value="setBody"
-										type="textarea"
-										:rows="8"
-										placeholder="Enter your content here, type '/' to insert variables..."
-										class="font-mono text-sm raw-textarea"
-										:disabled="disabled"
-									/>
+							</div>
+						</div>
+
+						<!-- URL Encoded -->
+						<div
+							v-else-if="formConfig.bodyType === 'x-www-form-urlencoded'"
+							class="params-section-enhanced"
+						>
+							<div class="params-header-enhanced">
+								<div class="param-col-key">Key</div>
+								<div class="param-col-value">Value</div>
+								<div class="param-actions-enhanced"></div>
+							</div>
+							<div class="params-body-enhanced">
+								<div
+									v-for="(item, index) in formConfig.urlEncodedList"
+									:key="index"
+									class="param-row-enhanced"
+								>
+									<div class="param-key-container">
+										<variable-auto-complete
+											v-model="item.key"
+											placeholder="URL encoded key"
+											class="param-input-enhanced"
+											@update:model-value="updateUrlEncodedKey(index, $event)"
+											:disabled="disabled"
+										/>
+									</div>
+									<div class="param-value-container">
+										<variable-auto-complete
+											v-if="!item.focused"
+											v-model="item.value"
+											placeholder="URL encoded value"
+											class="param-input-enhanced"
+											@update:model-value="
+												updateUrlEncodedValue(index, $event)
+											"
+											@focus="setUrlEncodedFocused(index, true)"
+											:disabled="disabled"
+										/>
+										<el-input
+											v-else
+											v-model="item.value"
+											type="textarea"
+											placeholder="URL encoded value"
+											class="param-textarea-auto-height"
+											@update:model-value="
+												updateUrlEncodedValue(index, $event)
+											"
+											@blur="setUrlEncodedFocused(index, false)"
+											:disabled="disabled"
+											:autosize="{ minRows: 1, maxRows: 10 }"
+											:ref="
+												(el) => {
+													if (el) urlEncodedTextareaRefs[index] = el;
+												}
+											"
+										/>
+									</div>
+									<div class="param-delete-container">
+										<el-button
+											type="danger"
+											text
+											@click="removeUrlEncoded(index)"
+											class="param-delete-enhanced"
+											v-if="formConfig.urlEncodedList.length > 1"
+											:disabled="disabled"
+										>
+											<el-icon><Delete /></el-icon>
+										</el-button>
+									</div>
 								</div>
 							</div>
 						</div>
+
+						<!-- Raw - with format selection -->
+						<div v-else-if="formConfig.bodyType === 'raw'" class="raw-section">
+							<div class="raw-header">
+								<div class="raw-format-controls">
+									<el-select
+										:model-value="formConfig.rawFormat"
+										@update:model-value="setRawFormat"
+										class="raw-format-select"
+										:disabled="disabled"
+									>
+										<el-option label="JSON" value="json" />
+										<el-option label="Text" value="text" />
+										<el-option label="JavaScript" value="javascript" />
+										<el-option label="HTML" value="html" />
+										<el-option label="XML" value="xml" />
+									</el-select>
+									<el-button
+										type="primary"
+										@click="formatRawContent"
+										:disabled="disabled || !formConfig.body.trim()"
+										class="format-btn"
+										:icon="DocumentCopy"
+									>
+										Beautify
+									</el-button>
+								</div>
+							</div>
+							<div class="raw-textarea-container">
+								<variable-auto-complete
+									:model-value="formConfig.body"
+									@update:model-value="setBody"
+									type="textarea"
+									:rows="8"
+									placeholder="Enter your content here, type '/' to insert variables..."
+									class="font-mono text-sm raw-textarea"
+									:disabled="disabled"
+								/>
+							</div>
+						</div>
 					</div>
-				</el-form-item>
-			</el-form>
+				</div>
+			</el-form-item>
+		</el-form>
 
 		<!-- Test Run Section -->
 		<div class="test-section">

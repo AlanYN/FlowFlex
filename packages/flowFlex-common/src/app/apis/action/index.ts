@@ -67,12 +67,6 @@ export interface TestResult {
 const Api = (id?: string) => {
 	return {
 		action: `${globSetting.apiProName}/action/${globSetting.apiVersion}/definitions`,
-		actionDetail: `${globSetting.apiProName}/action/${globSetting.apiVersion}/definitions`,
-		actionDelete: `${globSetting.apiProName}/action/${globSetting.apiVersion}/definitions`,
-		actionExport: `${globSetting.apiProName}/action/${globSetting.apiVersion}/definitions`,
-		actionTest: `${globSetting.apiProName}/action/${globSetting.apiVersion}/definitions`,
-		actionUpdate: `${globSetting.apiProName}/action/${globSetting.apiVersion}/definitions`,
-		actionCreate: `${globSetting.apiProName}/action/${globSetting.apiVersion}/definitions`,
 
 		textRun: `${globSetting.apiProName}/action/${globSetting.apiVersion}/test/direct`,
 
