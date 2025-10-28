@@ -25,6 +25,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Caching.Memory;
 using FlowFlex.Infrastructure.Services;
 using FlowFlex.Infrastructure.Extensions;
+using FlowFlex.Domain.Repository.Action;
 
 namespace FlowFlex.Application.Service.OW;
 
@@ -44,6 +45,8 @@ public class ChecklistService : IChecklistService, IScopedService
     private readonly IOperationChangeLogService _operationChangeLogService;
     private readonly ILogger<ChecklistService> _logger;
     private readonly IUserService _userService;
+    private readonly IActionTriggerMappingRepository _actionTriggerMappingRepository;
+    private readonly IActionDefinitionRepository _actionDefinitionRepository;
 
     public ChecklistService(
         IChecklistRepository checklistRepository,
@@ -56,7 +59,9 @@ public class ChecklistService : IChecklistService, IScopedService
         IBackgroundTaskQueue backgroundTaskQueue,
         IOperationChangeLogService operationChangeLogService,
         ILogger<ChecklistService> logger,
-        IUserService userService)
+        IUserService userService,
+        IActionTriggerMappingRepository actionTriggerMappingRepository,
+        IActionDefinitionRepository actionDefinitionRepository)
     {
         _checklistRepository = checklistRepository;
         _checklistTaskRepository = checklistTaskRepository;
@@ -69,6 +74,8 @@ public class ChecklistService : IChecklistService, IScopedService
         _operationChangeLogService = operationChangeLogService;
         _logger = logger;
         _userService = userService;
+        _actionTriggerMappingRepository = actionTriggerMappingRepository;
+        _actionDefinitionRepository = actionDefinitionRepository;
     }
 
     /// <summary>
@@ -955,7 +962,9 @@ ASSIGNMENTS:
 
             if (includeTasks && tasks.Count > 0)
             {
-                checklist.Tasks = _mapper.Map<List<ChecklistTaskOutputDto>>(tasks);
+                var taskDtos = _mapper.Map<List<ChecklistTaskOutputDto>>(tasks);
+                await FillActionMappingInfoAsync(taskDtos);
+                checklist.Tasks = taskDtos;
             }
             else
             {
@@ -986,6 +995,42 @@ ASSIGNMENTS:
         {
             LoggingExtensions.WriteError($"[ChecklistService] Error getting checklist IDs for stage {stageId}: {ex.Message}");
             return new List<long>();
+        }
+    }
+
+    /// <summary>
+    /// 填充任务的动作映射显示信息（从映射表读取，不落库）
+    /// </summary>
+    private async Task FillActionMappingInfoAsync(List<ChecklistTaskOutputDto> taskDtos)
+    {
+        if (taskDtos == null || !taskDtos.Any())
+            return;
+
+        var mappings = await _actionTriggerMappingRepository.GetByTriggerTypeAsync("Task");
+        var mappingByTaskId = mappings
+            .Where(m => m.IsValid && m.IsEnabled)
+            .GroupBy(m => m.TriggerSourceId)
+            .ToDictionary(
+                g => g.Key,
+                g => g.OrderByDescending(x => (x.ModifyDate > x.CreateDate) ? x.ModifyDate : x.CreateDate).First()
+            );
+
+        foreach (var dto in taskDtos)
+        {
+            if (mappingByTaskId.TryGetValue(dto.Id, out var mapping))
+            {
+                dto.ActionMappingId = mapping.Id;
+                dto.ActionId = mapping.ActionDefinitionId;
+
+                var action = await _actionDefinitionRepository.GetByIdAsync(mapping.ActionDefinitionId);
+                dto.ActionName = action?.ActionName;
+            }
+            else
+            {
+                dto.ActionMappingId = null;
+                dto.ActionId = null;
+                dto.ActionName = null;
+            }
         }
     }
 }
