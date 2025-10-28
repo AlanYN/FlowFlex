@@ -935,8 +935,7 @@ namespace FlowFlex.Application.Services.Action
                 _logger.LogInformation("Mapping already exists for ActionDefinitionId={ActionDefinitionId}, TriggerType={TriggerType}, TriggerSourceId={TriggerSourceId}, WorkFlowId={WorkFlowId}. Returning existing mapping: {MappingId}",
                     dto.ActionDefinitionId, dto.TriggerType, dto.TriggerSourceId, dto.WorkFlowId?.ToString() ?? "None", existingMapping.Id);
 
-                // Update the associated task/source entity with mapping information even for existing mappings
-                await UpdateTriggerSourceWithMappingInfoAsync(dto, existingMapping.Id, existingMapping.ActionDefinitionId);
+                // 显示层动态读取映射信息：不再把映射写回任务字段
 
                 return _mapper.Map<ActionTriggerMappingDto>(existingMapping);
             }
@@ -967,8 +966,7 @@ namespace FlowFlex.Application.Services.Action
             await _actionTriggerMappingRepository.InsertAsync(entity);
             _logger.LogInformation("Created action trigger mapping: {MappingId} with TriggerEvent: {TriggerEvent}", entity.Id, entity.TriggerEvent);
 
-            // Update the associated task/source entity with mapping information for new mappings
-            await UpdateTriggerSourceWithMappingInfoAsync(dto, entity.Id, dto.ActionDefinitionId);
+            // 显示层动态读取映射信息：不再把映射写回任务字段
 
             // Log action trigger mapping association using structured logging and change log
             try

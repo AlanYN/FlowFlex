@@ -13,6 +13,7 @@ using FlowFlex.Domain.Shared;
 using FlowFlex.Domain.Shared.Exceptions;
 using FlowFlex.Application.Services.OW.Extensions;
 using FlowFlex.Domain.Shared.Models;
+using FlowFlex.Domain.Repository.Action;
 
 namespace FlowFlex.Application.Service.OW;
 
@@ -27,6 +28,8 @@ public class ChecklistTaskService : IChecklistTaskService, IScopedService
     private readonly IOperationChangeLogService _operationChangeLogService;
     private readonly IChecklistTaskNoteRepository _noteRepository;
     private readonly IChecklistTaskCompletionRepository _completionRepository;
+    private readonly IActionTriggerMappingRepository _actionTriggerMappingRepository;
+    private readonly IActionDefinitionRepository _actionDefinitionRepository;
     private readonly IMapper _mapper;
     private readonly UserContext _userContext;
     private readonly IDistributedCacheService _cacheService;
@@ -38,6 +41,8 @@ public class ChecklistTaskService : IChecklistTaskService, IScopedService
         IOperationChangeLogService operationChangeLogService,
         IChecklistTaskNoteRepository noteRepository,
         IChecklistTaskCompletionRepository completionRepository,
+        IActionTriggerMappingRepository actionTriggerMappingRepository,
+        IActionDefinitionRepository actionDefinitionRepository,
         IMapper mapper,
         UserContext userContext,
         IDistributedCacheService cacheService)
@@ -48,6 +53,8 @@ public class ChecklistTaskService : IChecklistTaskService, IScopedService
         _operationChangeLogService = operationChangeLogService;
         _noteRepository = noteRepository;
         _completionRepository = completionRepository;
+        _actionTriggerMappingRepository = actionTriggerMappingRepository;
+        _actionDefinitionRepository = actionDefinitionRepository;
         _mapper = mapper;
         _userContext = userContext;
         _cacheService = cacheService;
@@ -91,6 +98,11 @@ public class ChecklistTaskService : IChecklistTaskService, IScopedService
         entity.Order = nextOrder; // Always use max+1 for new tasks, ignore input OrderIndex
         entity.Status = string.IsNullOrEmpty(entity.Status) ? "Pending" : entity.Status;
         entity.IsCompleted = false;
+
+        // Do not persist action mapping info on task entity
+        entity.ActionId = null;
+        entity.ActionName = null;
+        entity.ActionMappingId = null;
 
         // Initialize create information with proper ID and timestamps
         entity.InitCreateInfo(_userContext);
@@ -172,6 +184,11 @@ public class ChecklistTaskService : IChecklistTaskService, IScopedService
 
         _mapper.Map(input, existingTask);
         existingTask.InitUpdateInfo(_userContext);
+
+        // Ensure action mapping info is not persisted/updated on the task entity
+        existingTask.ActionId = originalTask.ActionId;
+        existingTask.ActionName = originalTask.ActionName;
+        existingTask.ActionMappingId = originalTask.ActionMappingId;
 
         // Check if there are any actual changes
         var hasChanges =
@@ -369,6 +386,7 @@ public class ChecklistTaskService : IChecklistTaskService, IScopedService
         }
 
         var result = _mapper.Map<ChecklistTaskOutputDto>(task);
+        await FillActionMappingInfoAsync(new List<ChecklistTaskOutputDto> { result });
         await _cacheService.SetAsync(cacheKey, result, TimeSpan.FromMinutes(10));
         return result;
     }
@@ -389,6 +407,9 @@ public class ChecklistTaskService : IChecklistTaskService, IScopedService
 
         // Fill files and notes count for each task
         await FillFilesAndNotesCountAsync(taskDtos);
+
+        // Fill action mapping info (do not read from task entity)
+        await FillActionMappingInfoAsync(taskDtos);
 
         await _cacheService.SetAsync(cacheKey, taskDtos, TimeSpan.FromMinutes(10));
         return taskDtos;
@@ -843,6 +864,44 @@ public class ChecklistTaskService : IChecklistTaskService, IScopedService
         {
             taskDto.FilesCount = filesCountMap.GetValueOrDefault(taskDto.Id, 0);
             taskDto.NotesCount = notesCountMap.GetValueOrDefault(taskDto.Id, 0);
+        }
+    }
+
+    /// <summary>
+    /// Fill action mapping display info (actionId, actionName, actionMappingId) for tasks from mapping table
+    /// </summary>
+    private async Task FillActionMappingInfoAsync(List<ChecklistTaskOutputDto> taskDtos)
+    {
+        if (taskDtos == null || !taskDtos.Any())
+            return;
+
+        // Get all task mappings of type "Task" once to reduce DB round-trips
+        var allTaskMappings = await _actionTriggerMappingRepository.GetByTriggerTypeAsync("Task");
+        var mappingByTaskId = allTaskMappings
+            .Where(m => m.IsValid && m.IsEnabled)
+            .GroupBy(m => m.TriggerSourceId)
+            .ToDictionary(
+                g => g.Key,
+                g => g.OrderByDescending(x => (x.ModifyDate > x.CreateDate) ? x.ModifyDate : x.CreateDate).First()
+            );
+
+        foreach (var dto in taskDtos)
+        {
+            if (mappingByTaskId.TryGetValue(dto.Id, out var mapping))
+            {
+                dto.ActionMappingId = mapping.Id;
+                dto.ActionId = mapping.ActionDefinitionId;
+
+                // Load action name when needed
+                var action = await _actionDefinitionRepository.GetByIdAsync(mapping.ActionDefinitionId);
+                dto.ActionName = action?.ActionName;
+            }
+            else
+            {
+                dto.ActionMappingId = null;
+                dto.ActionId = null;
+                dto.ActionName = null;
+            }
         }
     }
 

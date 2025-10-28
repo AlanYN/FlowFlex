@@ -3037,7 +3037,7 @@ const applyGeneratedConfig = async (httpConfig: any) => {
 	// 构建新的配置对象
 	const newConfig = { ...formConfig.value };
 
-	// 应用URL
+	// 应用URL和自动提取查询参数
 	if (httpConfig.url && typeof httpConfig.url === 'string' && httpConfig.url.trim() !== '') {
 		// 确保URL是有效的
 		let validUrl = httpConfig.url.trim();
@@ -3052,6 +3052,30 @@ const applyGeneratedConfig = async (httpConfig: any) => {
 				validUrl = 'https://' + validUrl;
 			}
 		}
+
+		// 自动从URL中提取查询参数（如果AI没有提供params字段）
+		if (!httpConfig.params || Object.keys(httpConfig.params).length === 0) {
+			try {
+				const urlObj = new URL(validUrl);
+				if (urlObj.search) {
+					const extractedParams: Record<string, string> = {};
+					urlObj.searchParams.forEach((value, key) => {
+						extractedParams[key] = value;
+					});
+
+					if (Object.keys(extractedParams).length > 0) {
+						console.log('🔍 Auto-extracted params from URL:', extractedParams);
+						httpConfig.params = extractedParams;
+						// 从URL中移除查询参数
+						validUrl = urlObj.origin + urlObj.pathname;
+						console.log('✅ Cleaned URL (params extracted):', validUrl);
+					}
+				}
+			} catch (err) {
+				console.warn('⚠️ Failed to parse URL for param extraction:', err);
+			}
+		}
+
 		newConfig.url = validUrl;
 		console.log('✅ Applied URL:', validUrl);
 	} else {
@@ -3083,6 +3107,19 @@ const applyGeneratedConfig = async (httpConfig: any) => {
 		headersList.push({ key: '', value: '' }); // 添加空行
 		newConfig.headersList = headersList;
 		console.log('✅ Applied Headers:', headersList);
+	}
+
+	// 应用Params（查询参数）
+	if (httpConfig.params && typeof httpConfig.params === 'object') {
+		const paramsList = Object.entries(httpConfig.params)
+			.filter(([key, value]) => key) // 过滤空key
+			.map(([key, value]) => ({
+				key: String(key).trim(),
+				value: String(value ?? '').trim(),
+			}));
+		paramsList.push({ key: '', value: '' }); // 添加空行
+		newConfig.paramsList = paramsList;
+		console.log('✅ Applied Params:', paramsList);
 	}
 
 	// 应用Body Type

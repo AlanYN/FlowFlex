@@ -8923,10 +8923,15 @@ Please return the results in JSON format with the following structure:
             var fileContentText = "";
             if (!string.IsNullOrEmpty(input.FileContent))
             {
-                var content = input.FileContent.Length > 2000
-                    ? input.FileContent.Substring(0, 2000) + "..."
+                // Increase limit for file content to avoid truncating large JSON bodies
+                // 10000 characters should be enough for most API request bodies
+                var content = input.FileContent.Length > 10000
+                    ? input.FileContent.Substring(0, 10000) + "...[truncated]"
                     : input.FileContent;
                 fileContentText = $"\n\nFILE CONTENT ({input.FileName ?? "uploaded file"}):\n{content}";
+                
+                _logger.LogInformation("📄 File content included, length: {Length} chars, truncated: {IsTruncated}", 
+                    input.FileContent.Length, input.FileContent.Length > 10000);
             }
 
             return $@"CRITICAL: Extract HTTP configuration from the following input and return ONLY valid JSON. DO NOT TRUNCATE OR USE '...' IN JSON FIELDS. Provide COMPLETE data content.
@@ -8937,18 +8942,34 @@ HEADER PARSING REQUIREMENTS:
 - Each -H flag in cURL represents a header that MUST be included
 - Headers object should contain ALL found headers with their exact values
 
+QUERY PARAMETERS PARSING REQUIREMENTS:
+- Parse ALL query parameters from the URL (after the ? symbol)
+- Extract each parameter as a separate key-value pair in the params object
+- URL should NOT contain query parameters - extract them to params instead
+- Example: URL ""https://api.example.com/users?page=1&size=10"" should become:
+  - url: ""https://api.example.com/users""
+  - params: {{ ""page"": ""1"", ""size"": ""10"" }}
+- Windows cURL may use ^& to escape ampersands - handle this correctly
+
 BODY PARSING REQUIREMENTS:
 - Extract the COMPLETE body content without any truncation
 - Include ALL JSON properties and nested objects in their entirety
 - Pay special attention to complex objects like 'components', 'defaultAssignee', 'estimatedDuration', etc.
 - Windows cURL uses ^"" for escaping quotes - handle this correctly
+- Body can be found in multiple places:
+  * cURL: -d flag, --data flag, --data-raw flag, --data-binary flag
+  * FILE CONTENT section: If a file is provided, it likely contains the request body
+  * Direct JSON: JSON content in the input that is not part of URL or headers
+- If FILE CONTENT is provided and contains JSON, treat it as the request body
+- If body content exists, set bodyType to ""raw"" (not ""none"")
 
 INPUT: {userInput}{fileContentText}
 
 CRITICAL REQUIREMENTS:
 1. Extract the ACTUAL URL from the input - DO NOT use placeholder URLs
 2. Extract the ACTUAL HTTP method from the input
-3. If no valid URL is found in input, return null instead of generating fake URLs
+3. Extract ALL query parameters from the URL and put them in params object
+4. If no valid URL is found in input, return null instead of generating fake URLs
 
 REQUIRED OUTPUT FORMAT (JSON only, no markdown, no explanation):
 {{
@@ -8956,11 +8977,14 @@ REQUIRED OUTPUT FORMAT (JSON only, no markdown, no explanation):
         ""actions"": [{{
             ""httpConfig"": {{
                 ""method"": ""[EXTRACTED_METHOD]"",
-                ""url"": ""[EXTRACTED_URL]"",
+                ""url"": ""[EXTRACTED_BASE_URL_WITHOUT_QUERY_PARAMS]"",
                 ""headers"": {{
                     ""Content-Type"": ""application/json"",
                     ""Accept"": ""application/json""
                     // INCLUDE ALL HEADERS found in the input (authorization, cache-control, origin, referer, user-agent, etc.)
+                }},
+                ""params"": {{
+                    // INCLUDE ALL QUERY PARAMETERS extracted from URL (e.g., ""pageIndex"": ""1"", ""pageSize"": ""15"", ""search"": ""cyn"")
                 }},
                 ""bodyType"": ""none"",
                 ""body"": """",
@@ -8975,18 +8999,26 @@ REQUIRED OUTPUT FORMAT (JSON only, no markdown, no explanation):
 
 EXTRACTION RULES:
 1. method: Extract from curl -X, HTTP verb, or default to GET
-2. url: Must be complete valid URL with protocol (https:// or http://) - EXTRACT FROM INPUT ONLY
+2. url: Must be complete valid URL with protocol (https:// or http://) - EXTRACT FROM INPUT ONLY, REMOVE QUERY PARAMETERS
 3. headers: Extract from -H flags, Content-Type required
-4. body: Extract from -d flag or JSON payload, empty string if none - EXTRACT AND INCLUDE THE COMPLETE BODY CONTENT, DO NOT TRUNCATE JSON DATA
-5. bodyType: ""raw"" for POST/PUT/PATCH with body, ""none"" for GET/DELETE
-6. actionName: Generate from URL path (e.g., get_users, post_data)
-7. timeout: Default to 30 seconds
-8. followRedirects: Default to true
+4. params: Extract ALL query parameters from URL (everything after ?) as key-value pairs
+5. body: Extract from -d/--data/--data-raw flags, FILE CONTENT, or direct JSON - EXTRACT AND INCLUDE THE COMPLETE BODY CONTENT, DO NOT TRUNCATE JSON DATA
+6. bodyType: MUST be ""raw"" if body content exists (from -d flag, FILE CONTENT, or any request payload), ""none"" ONLY if truly no body
+7. actionName: Generate from URL path (e.g., get_users, post_data, put_onboarding)
+8. timeout: Default to 30 seconds
+9. followRedirects: Default to true
+
+IMPORTANT BODY DETECTION:
+- If you see -d, --data, --data-raw, or --data-binary flags → bodyType = ""raw""
+- If FILE CONTENT section contains JSON or any data → bodyType = ""raw"", body = FILE CONTENT
+- If method is POST/PUT/PATCH and any payload exists → bodyType = ""raw""
+- ONLY use bodyType = ""none"" when there is absolutely no body content anywhere
 
 VALIDATION REQUIREMENTS:
-- url MUST be extracted from input - NO PLACEHOLDER URLS
+- url MUST be extracted from input - NO PLACEHOLDER URLS, NO QUERY PARAMETERS IN URL
 - method MUST be one of: GET, POST, PUT, DELETE, PATCH
 - headers MUST be object with string values
+- params MUST be object with string values (extracted from URL query string)
 - body MUST be string (empty if no body)
 - actionName MUST be valid identifier (alphanumeric + underscore)
 
@@ -8997,14 +9029,34 @@ FORBIDDEN PATTERNS:
 - Do NOT truncate any part of the JSON data
 - Do NOT end JSON fields with ""Ord..."", ""ExtendProperty..."" or similar patterns
 - Do NOT limit headers to only Content-Type and Accept
+- Do NOT include query parameters in the url field - they must be in params
 - Include ALL properties and values completely
 - Include ALL headers found in the cURL command
+- Include ALL query parameters in the params object
 
 EXAMPLE OF WHAT NOT TO DO:
 ""ExtendProperty"": {{ ""Order_Property"": """", ""Ord...""}}
+""url"": ""https://api.example.com/users?page=1&size=10""
+""bodyType"": ""none"" when FILE CONTENT has JSON data
 
 CORRECT APPROACH:
 ""ExtendProperty"": {{ ""Order_Property"": """", ""Order_Status"": ""pending"", ""Order_Notes"": ""sample""}}
+""url"": ""https://api.example.com/users"",
+""params"": {{ ""page"": ""1"", ""size"": ""10"" }}
+
+EXAMPLE - When FILE CONTENT is provided:
+If you see: FILE CONTENT (data.json): {{ ""name"": ""John"", ""age"": 30 }}
+Then output:
+""bodyType"": ""raw"",
+""body"": ""{{ \""name\"": \""John\"", \""age\"": 30 }}"",
+""rawFormat"": ""json""
+
+EXAMPLE - When cURL has --data-raw:
+If you see: curl -X POST ... --data-raw '{{ ""key"": ""value"" }}'
+Then output:
+""bodyType"": ""raw"",
+""body"": ""{{ \""key\"": \""value\"" }}"",
+""rawFormat"": ""json""
 
 IMPORTANT: If no valid URL can be extracted from the input, return null instead of any placeholder URL.
 
@@ -9226,6 +9278,7 @@ Return ONLY the JSON object, no additional text or formatting.";
             var method = "GET";
             string url = null;
             var actionName = "api_request";
+            var queryParams = new Dictionary<string, string>();
 
             // Enhanced method detection
             if (userInput.Contains("post") || userInput.Contains("create") || userInput.Contains("submit")) method = "POST";
@@ -9245,6 +9298,26 @@ Return ONLY the JSON object, no additional text or formatting.";
                     if (pathSegments.Length > 0)
                     {
                         actionName = $"{method.ToLowerInvariant()}_{pathSegments.Last().Replace("-", "_")}";
+                    }
+
+                    // Extract query parameters from URL
+                    if (!string.IsNullOrEmpty(uri.Query))
+                    {
+                        var query = uri.Query.TrimStart('?');
+                        var queryParts = query.Split('&');
+                        foreach (var part in queryParts)
+                        {
+                            var keyValue = part.Split('=');
+                            if (keyValue.Length == 2)
+                            {
+                                var key = System.Web.HttpUtility.UrlDecode(keyValue[0]);
+                                var value = System.Web.HttpUtility.UrlDecode(keyValue[1]);
+                                queryParams[key] = value;
+                            }
+                        }
+                        
+                        // Remove query parameters from URL
+                        url = uri.GetLeftPart(UriPartial.Path);
                     }
                 }
                 catch
@@ -9289,6 +9362,7 @@ Return ONLY the JSON object, no additional text or formatting.";
                                     ["Content-Type"] = "application/json",
                                     ["Accept"] = "application/json"
                                 },
+                                @params = queryParams,
                                 bodyType = method == "GET" || method == "DELETE" ? "none" : "raw",
                             body = "",
                             rawFormat = "json",

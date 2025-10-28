@@ -85,7 +85,7 @@ namespace FlowFlex.SqlSugarDB.Migrations
                     ("20251014000002_AddCasePermissionFields", (Action)(() => Migration_20251014000002_AddCasePermissionFields.Up(_db))),
                     ("20251020000001_AddOwnershipFieldsToOnboarding", (Action)(() => Migration_20251020000001_AddOwnershipFieldsToOnboarding.Up(_db))),
                     ("20251021000001_SplitPermissionSubjectType", (Action)(() => Migration_20251021000001_SplitPermissionSubjectType.Up(_db))),
-                    ("20251021000002_UpdatePermissionConstraints", (Action)(() => Migration_20251021000002_UpdatePermissionConstraints.Up(_db)))
+                    ("20251028000001_RemoveOnboardingCheckConstraints", (Action)(() => Migration_20251028000001_RemoveOnboardingCheckConstraints.Up(_db)))
                 };
 
                 // Pre-check all migrations to reduce individual SQL queries
