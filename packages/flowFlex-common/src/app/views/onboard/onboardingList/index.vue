@@ -663,7 +663,10 @@
 						</p>
 					</div>
 
-					<CasePermissionSelector v-model="casePermissions" />
+					<CasePermissionSelector
+						v-model="casePermissions"
+						:workflow-id="formData.workFlowId"
+					/>
 				</div>
 			</el-form>
 
@@ -1775,8 +1778,8 @@ const validateAndCheckPermissions = async (): Promise<{
 	warningMessage: string;
 }> => {
 	if (
-		formData.viewPermissionMode === CasePermissionModeEnum.InvisibleToTeams ||
-		formData.viewPermissionMode === CasePermissionModeEnum.VisibleToTeams
+		formData.viewPermissionMode === CasePermissionModeEnum.InvisibleTo ||
+		formData.viewPermissionMode === CasePermissionModeEnum.VisibleTo
 	) {
 		// Validate View Permission selection
 		if (formData.viewPermissionSubjectType === PermissionSubjectTypeEnum.User) {
@@ -1825,10 +1828,10 @@ const validateAndCheckPermissions = async (): Promise<{
 		formData.operateUsers = [];
 	}
 
-	// 只在 VisibleToTeams 或 InvisibleToTeams 模式下检查
+	// 只在 VisibleTo 或 InvisibleTo 模式下检查
 	if (
-		formData.viewPermissionMode !== CasePermissionModeEnum.VisibleToTeams &&
-		formData.viewPermissionMode !== CasePermissionModeEnum.InvisibleToTeams
+		formData.viewPermissionMode !== CasePermissionModeEnum.VisibleTo &&
+		formData.viewPermissionMode !== CasePermissionModeEnum.InvisibleTo
 	) {
 		return { hasWarning: false, showMessage: false, warningMessage: '' };
 	}
@@ -1871,14 +1874,14 @@ const validateAndCheckPermissions = async (): Promise<{
 			const isInList = formData.viewUsers.includes(currentUserId);
 			// 白名单：不在列表中 = 被排除；黑名单：在列表中 = 被排除
 			isUserExcludedFromView =
-				formData.viewPermissionMode === CasePermissionModeEnum.VisibleToTeams
+				formData.viewPermissionMode === CasePermissionModeEnum.VisibleTo
 					? !isInList
 					: isInList;
 		} else if (formData.viewPermissionSubjectType === PermissionSubjectTypeEnum.Team) {
 			const isInList = userTeams.some((teamId) => formData.viewTeams.includes(teamId));
 			// 白名单：不在列表中 = 被排除；黑名单：在列表中 = 被排除
 			isUserExcludedFromView =
-				formData.viewPermissionMode === CasePermissionModeEnum.VisibleToTeams
+				formData.viewPermissionMode === CasePermissionModeEnum.VisibleTo
 					? !isInList
 					: isInList;
 		}
@@ -1888,14 +1891,14 @@ const validateAndCheckPermissions = async (): Promise<{
 			const isInList = formData.operateUsers.includes(currentUserId);
 			// 白名单：不在列表中 = 被排除；黑名单：在列表中 = 被排除
 			isUserExcludedFromOperate =
-				formData.viewPermissionMode === CasePermissionModeEnum.VisibleToTeams
+				formData.viewPermissionMode === CasePermissionModeEnum.VisibleTo
 					? !isInList
 					: isInList;
 		} else if (formData.operatePermissionSubjectType === PermissionSubjectTypeEnum.Team) {
 			const isInList = userTeams.some((teamId) => formData.operateTeams.includes(teamId));
 			// 白名单：不在列表中 = 被排除；黑名单：在列表中 = 被排除
 			isUserExcludedFromOperate =
-				formData.viewPermissionMode === CasePermissionModeEnum.VisibleToTeams
+				formData.viewPermissionMode === CasePermissionModeEnum.VisibleTo
 					? !isInList
 					: isInList;
 		}
