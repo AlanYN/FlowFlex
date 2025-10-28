@@ -457,6 +457,9 @@ const validateAndCheckStagePermissions = async (): Promise<{
 				warningMessage =
 					'Warning: You are setting permissions that will exclude yourself from operating this stage. You will be able to view but not operate on this stage after saving. Do you want to continue?';
 			}
+			if (currentUser.userType === 1 || currentUser.userType === 2) {
+				return { hasWarning: false, showMessage: false, warningMessage };
+			}
 			return { hasWarning: true, showMessage: false, warningMessage };
 		}
 	} catch (error) {

@@ -49,14 +49,14 @@
 					</div>
 					<div>
 						<p class="text-sm font-medium text-el-text-color-secondary">Contact Name</p>
-						<p class="font-medium">{{ customerData.contactPerson || 'N/A' }}</p>
+						<p class="font-medium">{{ customerData.contactPerson || '' }}</p>
 					</div>
 					<div>
 						<p class="text-sm font-medium text-el-text-color-secondary">
 							Contact Email
 						</p>
 						<p class="font-medium">
-							{{ customerData.contactEmail || customerData.leadEmail || 'N/A' }}
+							{{ customerData.contactEmail || customerData.leadEmail || '' }}
 						</p>
 					</div>
 				</div>

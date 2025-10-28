@@ -89,6 +89,7 @@ interface Props {
 	viewLimitData?: string[];
 	operateLimitData?: string[];
 	workFlowViewPermissionMode?: number;
+	isWorkflowLevel?: boolean; // 是否是 workflow 级别调用，true 时不使用 workflow 过滤
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -101,6 +102,7 @@ const props = withDefaults(defineProps<Props>(), {
 	viewLimitData: () => [],
 	operateLimitData: () => [],
 	workFlowViewPermissionMode: undefined,
+	isWorkflowLevel: false,
 });
 
 // Emits
@@ -151,6 +153,12 @@ const getFullTreeData = async (): Promise<FlowflexUser[]> => {
 };
 
 const updateViewChoosableTreeData = async () => {
+	// 如果是 workflow 级别调用，左侧显示全部数据
+	if (props.isWorkflowLevel) {
+		viewChoosableTreeData.value = undefined; // undefined 表示不限制，显示全部数据
+		return;
+	}
+
 	// 第一层过滤：使用 viewLimitData 过滤全部数据，得到左侧可选数据 A
 	const limitIds = props.viewLimitData ?? [];
 	const mode =
@@ -293,8 +301,10 @@ const leftTypeChange = async () => {
 onMounted(() => {
 	nextTick(() => {
 		updateViewChoosableTreeData().then(() => {
-			if (shouldShowTeamSelector.value && localPermissions.viewTeams.length > 0) {
-				leftTypeChange();
+			// 如果需要显示 Team 选择器，总是调用 leftChange 来初始化右侧数据
+			// 这样可以确保右侧组件能正确回显已保存的数据
+			if (shouldShowTeamSelector.value) {
+				leftChange(localPermissions.viewTeams);
 			}
 		});
 	});
@@ -383,51 +393,71 @@ const leftChange = async (value) => {
 	}
 
 	// ========== 第二层过滤：计算数据 C ==========
-	const operateLimitData = new Set<string>(props.operateLimitData || []);
-	console.log('operateLimitData:', Array.from(operateLimitData));
-
 	let dataC = new Set<string>();
 
-	if (mode === ViewPermissionModeEnum.VisibleTo) {
-		// VisibleTo: C = B ∩ operateLimitData
-		console.log('=== VisibleTo Mode: C = B ∩ operateLimitData ===');
-		dataB.forEach((id) => {
-			if (operateLimitData.has(id)) {
-				dataC.add(id);
-			}
-		});
-		console.log('数据C (B ∩ operateLimitData):', Array.from(dataC));
+	if (props.isWorkflowLevel) {
+		// Workflow 级别：简化逻辑，不使用 operateLimitData
+		console.log('=== Workflow Level: Simplified Logic ===');
+		if (mode === ViewPermissionModeEnum.VisibleTo) {
+			// VisibleTo: C = B（直接使用左侧选中的）
+			dataC = dataB;
+			console.log('数据C = 数据B (VisibleTo):', Array.from(dataC));
 
-		if (dataC.size === 0) {
-			console.log('数据C is empty, no data available');
-			operateChoosableTreeData.value = [];
-			return;
+			// 如果没有选中数据，右侧显示全部数据（不限制）
+			if (dataC.size === 0) {
+				console.log('No data selected, right side shows all data');
+				operateChoosableTreeData.value = undefined;
+				return;
+			}
+		} else if (mode === ViewPermissionModeEnum.InvisibleTo) {
+			// InvisibleTo: C = A - B（全部数据减去左侧已选）
+			dataA.forEach((id) => {
+				if (!dataB.has(id)) {
+					dataC.add(id);
+				}
+			});
+			console.log('数据C = A - B (InvisibleTo):', Array.from(dataC));
 		}
-	} else if (mode === ViewPermissionModeEnum.InvisibleTo) {
-		// InvisibleTo: C = (A - B) ∩ operateLimitData
-		console.log('=== InvisibleTo Mode: C = (A - B) ∩ operateLimitData ===');
+	} else {
+		// Stage 级别：使用 operateLimitData 进行额外过滤
+		const operateLimitData = new Set<string>(props.operateLimitData || []);
+		console.log('operateLimitData:', Array.from(operateLimitData));
 
-		// 先计算 A - B
-		const aMinusB = new Set<string>();
-		dataA.forEach((id) => {
-			if (!dataB.has(id)) {
-				aMinusB.add(id);
+		if (mode === ViewPermissionModeEnum.VisibleTo) {
+			// VisibleTo: C = B ∩ operateLimitData
+			console.log('=== VisibleTo Mode: C = B ∩ operateLimitData ===');
+			dataB.forEach((id) => {
+				if (operateLimitData.has(id)) {
+					dataC.add(id);
+				}
+			});
+			console.log('数据C (B ∩ operateLimitData):', Array.from(dataC));
+
+			// 如果没有交集，右侧显示 operateLimitData 的数据
+			if (dataC.size === 0 && operateLimitData.size > 0) {
+				console.log('No intersection, right side shows operateLimitData');
+				dataC = operateLimitData;
 			}
-		});
-		console.log('A - B:', Array.from(aMinusB));
+		} else if (mode === ViewPermissionModeEnum.InvisibleTo) {
+			// InvisibleTo: C = (A - B) ∩ operateLimitData
+			console.log('=== InvisibleTo Mode: C = (A - B) ∩ operateLimitData ===');
 
-		// 再计算 (A - B) ∩ operateLimitData
-		aMinusB.forEach((id) => {
-			if (operateLimitData.has(id)) {
-				dataC.add(id);
-			}
-		});
-		console.log('数据C ((A - B) ∩ operateLimitData):', Array.from(dataC));
+			// 先计算 A - B
+			const aMinusB = new Set<string>();
+			dataA.forEach((id) => {
+				if (!dataB.has(id)) {
+					aMinusB.add(id);
+				}
+			});
+			console.log('A - B:', Array.from(aMinusB));
 
-		if (dataC.size === 0) {
-			console.log('数据C is empty, no data available');
-			operateChoosableTreeData.value = [];
-			return;
+			// 再计算 (A - B) ∩ operateLimitData
+			aMinusB.forEach((id) => {
+				if (operateLimitData.has(id)) {
+					dataC.add(id);
+				}
+			});
+			console.log('数据C ((A - B) ∩ operateLimitData):', Array.from(dataC));
 		}
 	}
 

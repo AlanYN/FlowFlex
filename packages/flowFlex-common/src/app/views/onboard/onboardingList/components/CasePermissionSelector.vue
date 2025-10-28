@@ -409,21 +409,27 @@ const updateViewChoosableTreeData = async () => {
 		}
 	});
 
-	const cloneNode = (node: FlowflexUser): FlowflexUser => {
+	// 递归克隆并过滤子节点，只保留在 firstLayerFilteredIds 中的节点
+	const cloneNodeWithFilter = (node: FlowflexUser): FlowflexUser => {
 		const newNode: FlowflexUser = { ...node };
+
 		if (newNode.children && newNode.children.length > 0) {
-			newNode.children = newNode.children.map((child) => cloneNode(child));
+			// 递归克隆子节点，只保留在 firstLayerFilteredIds 中的
+			newNode.children = newNode.children
+				.filter((child) => firstLayerFilteredIds.has(child.id))
+				.map((child) => cloneNodeWithFilter(child));
 		}
+
 		return newNode;
 	};
 
 	const newTreeData = Array.from(resultIds)
-		.map((id: string) => nodeMap.get(id)!)
+		.map((id: string) => nodeMap.get(id))
 		.filter(Boolean)
-		.map((node) => cloneNode(node));
+		.map((node) => cloneNodeWithFilter(node!));
 
 	viewChoosableTreeData.value = newTreeData.length > 0 ? newTreeData : [];
-	console.log('First layer result tree:', viewChoosableTreeData.value);
+	console.log('First layer result tree (with filtered children):', viewChoosableTreeData.value);
 };
 
 // 处理左侧选择变化的核心过滤逻辑（第二层过滤）
@@ -514,10 +520,30 @@ const handleLeftChange = async () => {
 			}
 		});
 
+		// 递归克隆并过滤子节点，只保留在 selectedIdSet 中的节点
+		const cloneNodeWithFilter = (node: FlowflexUser): FlowflexUser => {
+			const newNode: FlowflexUser = { ...node };
+
+			if (newNode.children && newNode.children.length > 0) {
+				// 递归克隆子节点，只保留在 selectedIdSet 中的
+				newNode.children = newNode.children
+					.filter((child) => selectedIdSet.has(child.id))
+					.map((child) => cloneNodeWithFilter(child));
+			}
+
+			return newNode;
+		};
+
 		const newTreeData = Array.from(resultIds)
-			.map((id: string) => nodeMap.get(id)!)
-			.filter(Boolean);
+			.map((id: string) => nodeMap.get(id))
+			.filter(Boolean)
+			.map((node) => cloneNodeWithFilter(node!));
+
 		operateChoosableTreeData.value = newTreeData.length > 0 ? newTreeData : [];
+		console.log(
+			'Second layer VisibleTo result (with filtered children):',
+			operateChoosableTreeData.value
+		);
 		return;
 	}
 
