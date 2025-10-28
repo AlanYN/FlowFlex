@@ -347,7 +347,6 @@ const saveOptionEdit = (id: string) => {
 .option-value-text {
 	font-size: 0.75rem;
 	color: var(--primary-500);
-	font-family: 'Courier New', monospace;
 }
 
 .delete-option-btn {

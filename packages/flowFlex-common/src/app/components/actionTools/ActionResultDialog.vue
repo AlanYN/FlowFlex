@@ -774,7 +774,6 @@ html.dark .status-default {
 
 .execution-code-block {
 	@apply rounded-xl;
-	font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
 	font-size: 12px;
 	line-height: 1.5;
 	background: var(--el-bg-color);

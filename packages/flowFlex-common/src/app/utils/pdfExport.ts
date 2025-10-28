@@ -722,7 +722,7 @@ const createPrintContent = (
 				}
 				
 				body {
-					font-family: Arial, sans-serif;
+					font-family: 'Satoshi', sans-serif;
 					background: white;
 					color: #333;
 					line-height: 1.4;
