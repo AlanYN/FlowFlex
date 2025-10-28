@@ -19,9 +19,9 @@ export enum ViewPermissionModeEnum {
 	/** All users can view */
 	Public = 0,
 	/** Only listed teams can view */
-	VisibleToTeams = 1,
+	VisibleTo = 1,
 	/** All teams except listed teams can view */
-	InvisibleToTeams = 2,
+	InvisibleTo = 2,
 	/** Only the creator/owner can view */
 	Private = 3,
 }
@@ -44,8 +44,8 @@ export const getPortalAvailabilityLabel = (value: PortalAvailabilityEnum): strin
 export const getViewPermissionModeLabel = (value: ViewPermissionModeEnum): string => {
 	const labels = {
 		[ViewPermissionModeEnum.Public]: 'Public',
-		[ViewPermissionModeEnum.VisibleToTeams]: 'Visible to',
-		[ViewPermissionModeEnum.InvisibleToTeams]: 'Invisible to',
+		[ViewPermissionModeEnum.VisibleTo]: 'Visible to',
+		[ViewPermissionModeEnum.InvisibleTo]: 'Invisible to',
 		[ViewPermissionModeEnum.Private]: 'Private',
 	};
 	return labels[value] || 'Unknown';
@@ -59,9 +59,9 @@ export enum CasePermissionModeEnum {
 	/** All users can access */
 	Public = 0,
 	/** Only listed teams can access */
-	VisibleToTeams = 1,
+	VisibleTo = 1,
 	/** All teams except listed teams can access */
-	InvisibleToTeams = 2,
+	InvisibleTo = 2,
 	/** Only the creator/owner can access */
 	Private = 3,
 }
@@ -72,8 +72,8 @@ export enum CasePermissionModeEnum {
 export const getCasePermissionModeLabel = (value: CasePermissionModeEnum): string => {
 	const labels = {
 		[CasePermissionModeEnum.Public]: 'Public',
-		[CasePermissionModeEnum.VisibleToTeams]: 'Visible to',
-		[CasePermissionModeEnum.InvisibleToTeams]: 'Invisible to',
+		[CasePermissionModeEnum.VisibleTo]: 'Visible to',
+		[CasePermissionModeEnum.InvisibleTo]: 'Invisible to',
 		[CasePermissionModeEnum.Private]: 'Private',
 	};
 	return labels[value] || 'Unknown';

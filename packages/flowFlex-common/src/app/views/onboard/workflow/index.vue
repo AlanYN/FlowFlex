@@ -534,6 +534,9 @@
 				<StageForm
 					v-if="dialogVisible.stageForm"
 					:stage="currentStage"
+					:work-flow-operate-teams="workflow?.operateTeams"
+					:work-flow-view-teams="workflow?.viewTeams"
+					:work-flow-view-permission-mode="workflow?.viewPermissionMode"
 					:is-editing="isEditingStage"
 					:loading="isEditingStage ? loading.updateStage : loading.createStage"
 					:checklists="checklists"
@@ -1107,10 +1110,10 @@ const validateAndCheckWorkflowPermissions = async (
 	showMessage: boolean;
 	warningMessage: string;
 }> => {
-	// 只在 VisibleToTeams 或 InvisibleToTeams 模式下检查
+	// 只在 VisibleTo 或 InvisibleTo 模式下检查
 	if (
-		viewPermissionMode !== ViewPermissionModeEnum.VisibleToTeams &&
-		viewPermissionMode !== ViewPermissionModeEnum.InvisibleToTeams
+		viewPermissionMode !== ViewPermissionModeEnum.VisibleTo &&
+		viewPermissionMode !== ViewPermissionModeEnum.InvisibleTo
 	) {
 		return { hasWarning: false, showMessage: false, warningMessage: '' };
 	}
@@ -1169,15 +1172,13 @@ const validateAndCheckWorkflowPermissions = async (
 		const isInViewList = userTeams.some((teamId) => viewTeams.includes(teamId));
 		// 白名单：不在列表中 = 被排除；黑名单：在列表中 = 被排除
 		isUserExcludedFromView =
-			viewPermissionMode === ViewPermissionModeEnum.VisibleToTeams
-				? !isInViewList
-				: isInViewList;
+			viewPermissionMode === ViewPermissionModeEnum.VisibleTo ? !isInViewList : isInViewList;
 
 		// 检查 Operate Permission（基于团队）
 		const isInOperateList = userTeams.some((teamId) => operateTeams.includes(teamId));
 		// 白名单：不在列表中 = 被排除；黑名单：在列表中 = 被排除
 		isUserExcludedFromOperate =
-			viewPermissionMode === ViewPermissionModeEnum.VisibleToTeams
+			viewPermissionMode === ViewPermissionModeEnum.VisibleTo
 				? !isInOperateList
 				: isInOperateList;
 

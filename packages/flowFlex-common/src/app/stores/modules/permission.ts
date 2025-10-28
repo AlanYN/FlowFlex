@@ -201,6 +201,7 @@ export const usePermissionStore = defineStore({
 			// 对一级路由再次根据角色权限过滤
 			routes = routes.filter(routeFilter);
 
+			routes = routes.sort((a, b) => (a.meta?.ordinal || 0) - (b.meta?.ordinal || 0));
 			// 将路由转换成菜单
 			// 移除掉 ignoreRoute: true 的路由 非一级路由
 			// routes = filter(routes, routeRemoveIgnoreFilter);

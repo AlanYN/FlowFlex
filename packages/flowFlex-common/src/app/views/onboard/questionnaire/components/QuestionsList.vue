@@ -268,7 +268,9 @@
 											v-if="
 												functionPermission(
 													ProjectPermissionEnum.question.update
-												)
+												) &&
+												(item.type == 'multiple_choice' ||
+													item.type == 'checkboxes')
 											"
 										>
 											<el-button :icon="MoreFilled" link size="small" />

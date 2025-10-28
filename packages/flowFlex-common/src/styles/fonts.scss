@@ -6,7 +6,7 @@
 /* Satoshi Font Face Declarations */
 @font-face {
   font-family: 'Satoshi', sans-serif;
-  src: url('/fonts/Satoshi-Variable.ttf') format('truetype');
+  src: url('@assets/fonts/Satoshi-Variable.ttf') format('truetype');
   font-weight: 300 900;
   font-display: swap;
   font-style: normal;
@@ -14,7 +14,7 @@
 
 @font-face {
   font-family: 'Satoshi', sans-serif;
-  src: url('/fonts/Satoshi-VariableItalic.ttf') format('truetype');
+  src: url('@assets/fonts/Satoshi-VariableItalic.ttf') format('truetype');
   font-weight: 300 900;
   font-display: swap;
   font-style: italic;
@@ -23,14 +23,14 @@
 /* ========== Font Family Application ========== */
 /* Font Family */
 body {
-  font-family: 'Satoshi', sans-serif;
+  font-family: 'Satoshi', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
   font-weight: 400;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
 #app {
-  font-family: 'Satoshi', sans-serif;
+  font-family: 'Satoshi', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
 }
 
 

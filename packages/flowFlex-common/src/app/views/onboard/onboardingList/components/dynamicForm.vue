@@ -190,20 +190,36 @@
 								:value="option.value"
 								class="w-full"
 							>
-								<div v-if="option.isOther">
-									<el-input
-										:disabled="
-											!formData[question.id]?.includes(option.value) ||
-											disabled
+								<div class="flex items-center gap-x-2">
+									<div v-if="option.isOther">
+										<el-input
+											:disabled="
+												!formData[question.id]?.includes(option.value) ||
+												disabled
+											"
+											v-model="formData[`${question.id}_${option.id}`]"
+											:maxlength="questionMaxlength"
+											placeholder="Enter other"
+										/>
+									</div>
+									<span v-else class="text-sm">
+										{{ option.label }}
+									</span>
+									<ActionTag
+										v-if="
+											option.action &&
+											option.action.id &&
+											option.action.name &&
+											onboardingId
 										"
-										v-model="formData[`${question.id}_${option.id}`]"
-										:maxlength="questionMaxlength"
-										placeholder="Enter other"
+										:action="option.action"
+										:trigger-source-id="option.id || option.temporaryId"
+										trigger-source-type="option"
+										:onboarding-id="onboardingId"
+										type="success"
+										size="small"
 									/>
 								</div>
-								<span v-else class="text-sm">
-									{{ option.label }}
-								</span>
 							</el-checkbox>
 						</div>
 					</el-checkbox-group>

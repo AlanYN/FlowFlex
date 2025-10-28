@@ -56,6 +56,7 @@
 					v-model="localPermissions.viewTeams"
 					selection-type="team"
 					clearable
+					:choosable-tree-data="viewChoosableTreeData"
 					@change="handleLeftChange"
 				/>
 
@@ -69,6 +70,7 @@
 					v-model="localPermissions.viewUsers"
 					selection-type="user"
 					:clearable="true"
+					:choosable-tree-data="viewChoosableTreeData"
 					@change="handleLeftChange"
 				/>
 			</div>
@@ -86,7 +88,7 @@
 					:class="{
 						invisible:
 							localPermissions.viewPermissionMode ===
-							CasePermissionModeEnum.InvisibleToTeams,
+							CasePermissionModeEnum.InvisibleTo,
 					}"
 				>
 					Use same teams and users that have view permission
@@ -113,7 +115,7 @@
 			<div
 				v-if="
 					(!localPermissions.useSameGroups && shouldShowSelector) ||
-					localPermissions.viewPermissionMode === CasePermissionModeEnum.InvisibleToTeams
+					localPermissions.viewPermissionMode === CasePermissionModeEnum.InvisibleTo
 				"
 				class="space-y-2"
 			>
@@ -163,10 +165,15 @@
 
 <script setup lang="ts">
 import { reactive, computed, watch, nextTick, ref, onMounted } from 'vue';
-import { CasePermissionModeEnum, PermissionSubjectTypeEnum } from '@/enums/permissionEnum';
+import {
+	CasePermissionModeEnum,
+	PermissionSubjectTypeEnum,
+	ViewPermissionModeEnum,
+} from '@/enums/permissionEnum';
 import FlowflexUserSelector from '@/components/form/flowflexUser/index.vue';
 import { menuRoles } from '@/stores/modules/menuFunction';
 import type { FlowflexUser } from '#/golbal';
+import { getWorkflowDetail } from '@/apis/ow/index';
 
 // Props
 interface Props {
@@ -180,6 +187,7 @@ interface Props {
 		operateUsers: string[];
 		operatePermissionSubjectType: number;
 	};
+	workflowId?: string | number;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -201,18 +209,15 @@ const emit = defineEmits(['update:modelValue']);
 // 权限类型选项
 const permissionTypeOptions = [
 	{ label: 'Public', value: CasePermissionModeEnum.Public },
-	{ label: 'Visible to', value: CasePermissionModeEnum.VisibleToTeams },
-	{ label: 'Invisible to', value: CasePermissionModeEnum.InvisibleToTeams },
+	{ label: 'Visible to', value: CasePermissionModeEnum.VisibleTo },
+	{ label: 'Invisible to', value: CasePermissionModeEnum.InvisibleTo },
 	{ label: 'Private', value: CasePermissionModeEnum.Private },
 ];
 
-// 是否需要显示选择器 - 只有 VisibleToTeams 和 InvisibleToTeams 需要选择
+// 是否需要显示选择器 - 只有 VisibleTo 和 InvisibleTo 需要选择
 const shouldShowSelector = computed(() => {
 	const mode = localPermissions.viewPermissionMode;
-	return (
-		mode === CasePermissionModeEnum.VisibleToTeams ||
-		mode === CasePermissionModeEnum.InvisibleToTeams
-	);
+	return mode === CasePermissionModeEnum.VisibleTo || mode === CasePermissionModeEnum.InvisibleTo;
 });
 
 // 本地权限数据
@@ -236,13 +241,198 @@ const viewUserSelectorRef = ref<InstanceType<typeof FlowflexUserSelector> | null
 // 获取 menuStore 实例
 const menuStore = menuRoles();
 
+// Workflow 数据状态
+const workflowData = ref<any>(null);
+
+// 左侧可选的树形数据（第一层过滤结果）
+const viewChoosableTreeData = ref<FlowflexUser[] | undefined>(undefined);
+
 // 右侧可选的树形数据
 const operateChoosableTreeData = ref<FlowflexUser[] | undefined>(undefined);
 
 // 使用一个 ref 来跟踪是否正在处理内部更新
 const isProcessingInternalUpdate = ref(false);
 
-// 处理左侧选择变化的核心过滤逻辑
+// 获取 Workflow 数据
+const fetchWorkflowData = async () => {
+	if (!props.workflowId) {
+		workflowData.value = null;
+		return;
+	}
+
+	try {
+		const result = await getWorkflowDetail(props.workflowId);
+		workflowData.value = result;
+	} catch (error) {
+		console.error('Failed to fetch workflow detail:', error);
+		workflowData.value = null;
+	}
+};
+
+// 第一层过滤：根据 workflow 权限过滤全部数据，得到左侧可选数据
+const updateViewChoosableTreeData = async () => {
+	// 获取完整树数据
+	const fullTreeData = await menuStore.getFlowflexUserDataWithCache('');
+
+	// 如果没有 workflow 数据或 workflow 是 Public 模式，左侧显示全部数据
+	if (
+		!workflowData.value ||
+		!workflowData.value.data ||
+		!workflowData.value.data.viewPermissionMode ||
+		workflowData.value.data.viewPermissionMode === ViewPermissionModeEnum.Public
+	) {
+		viewChoosableTreeData.value = undefined; // undefined 表示不限制
+		return;
+	}
+
+	const workflowMode = workflowData.value.data.viewPermissionMode;
+	const workflowViewTeams = workflowData.value.data.viewTeams || [];
+
+	console.log('=== First Layer Filter (Workflow Level) ===');
+	console.log('workflowMode:', workflowMode);
+	console.log('workflowViewTeams:', workflowViewTeams);
+
+	// 构建节点映射和父子关系
+	const nodeMap = new Map<string, FlowflexUser>();
+	const childToParentMap = new Map<string, string>();
+
+	const buildMaps = (nodes: FlowflexUser[], parentId?: string) => {
+		nodes.forEach((node) => {
+			nodeMap.set(node.id, node);
+			if (parentId) {
+				childToParentMap.set(node.id, parentId);
+			}
+			if (node.children && node.children.length > 0) {
+				buildMaps(node.children, node.id);
+			}
+		});
+	};
+	buildMaps(fullTreeData);
+
+	let firstLayerFilteredIds = new Set<string>();
+
+	// VisibleTo 模式（白名单）
+	if (workflowMode === ViewPermissionModeEnum.VisibleTo) {
+		if (!workflowViewTeams.length) {
+			console.log('VisibleTo mode with empty viewTeams, no data available');
+			viewChoosableTreeData.value = [];
+			return;
+		}
+
+		const limitSet = new Set(workflowViewTeams);
+		const resultIds = new Set<string>();
+
+		workflowViewTeams.forEach((nodeId: string) => {
+			if (!nodeMap.has(nodeId)) {
+				return;
+			}
+
+			let currentId = nodeId;
+			let hasSelectedParent = false;
+
+			while (childToParentMap.has(currentId)) {
+				const parentId = childToParentMap.get(currentId)!;
+				if (limitSet.has(parentId)) {
+					hasSelectedParent = true;
+					break;
+				}
+				currentId = parentId;
+			}
+
+			if (!hasSelectedParent) {
+				resultIds.add(nodeId);
+			}
+		});
+
+		firstLayerFilteredIds = resultIds;
+		console.log('First layer filtered IDs (whitelist):', Array.from(firstLayerFilteredIds));
+	}
+	// InvisibleTo 模式（黑名单）
+	else if (workflowMode === ViewPermissionModeEnum.InvisibleTo) {
+		if (!workflowViewTeams.length) {
+			// 黑名单为空，所有数据可用
+			nodeMap.forEach((node, id) => {
+				firstLayerFilteredIds.add(id);
+			});
+		} else {
+			const excludeIds = new Set<string>();
+			const collectNodeAndChildren = (nodeId: string) => {
+				if (excludeIds.has(nodeId)) return;
+				excludeIds.add(nodeId);
+				const node = nodeMap.get(nodeId);
+				if (node && node.children && node.children.length > 0) {
+					node.children.forEach((child) => collectNodeAndChildren(child.id));
+				}
+			};
+
+			workflowViewTeams.forEach((nodeId: string) => {
+				if (nodeMap.has(nodeId)) {
+					collectNodeAndChildren(nodeId);
+				}
+			});
+
+			nodeMap.forEach((node, id) => {
+				if (!excludeIds.has(id)) {
+					firstLayerFilteredIds.add(id);
+				}
+			});
+		}
+		console.log('First layer filtered IDs (blacklist):', Array.from(firstLayerFilteredIds));
+	}
+
+	// 构建过滤后的树结构
+	if (firstLayerFilteredIds.size === 0) {
+		viewChoosableTreeData.value = [];
+		return;
+	}
+
+	// 去除父子重复
+	const resultIds = new Set<string>();
+	firstLayerFilteredIds.forEach((nodeId: string) => {
+		const node = nodeMap.get(nodeId);
+		if (!node) return;
+
+		let currentId: string = nodeId;
+		let hasSelectedParent = false;
+
+		while (childToParentMap.has(currentId)) {
+			const parentId: string = childToParentMap.get(currentId)!;
+			if (firstLayerFilteredIds.has(parentId)) {
+				hasSelectedParent = true;
+				break;
+			}
+			currentId = parentId;
+		}
+
+		if (!hasSelectedParent) {
+			resultIds.add(nodeId);
+		}
+	});
+
+	// 递归克隆并过滤子节点，只保留在 firstLayerFilteredIds 中的节点
+	const cloneNodeWithFilter = (node: FlowflexUser): FlowflexUser => {
+		const newNode: FlowflexUser = { ...node };
+
+		if (newNode.children && newNode.children.length > 0) {
+			// 递归克隆子节点，只保留在 firstLayerFilteredIds 中的
+			newNode.children = newNode.children
+				.filter((child) => firstLayerFilteredIds.has(child.id))
+				.map((child) => cloneNodeWithFilter(child));
+		}
+
+		return newNode;
+	};
+
+	const newTreeData = Array.from(resultIds)
+		.map((id: string) => nodeMap.get(id))
+		.filter(Boolean)
+		.map((node) => cloneNodeWithFilter(node!));
+
+	viewChoosableTreeData.value = newTreeData.length > 0 ? newTreeData : [];
+	console.log('First layer result tree (with filtered children):', viewChoosableTreeData.value);
+};
+
+// 处理左侧选择变化的核心过滤逻辑（第二层过滤）
 const handleLeftChange = async () => {
 	const mode = localPermissions.viewPermissionMode;
 	const leftSubjectType = localPermissions.viewPermissionSubjectType;
@@ -256,7 +446,7 @@ const handleLeftChange = async () => {
 		localPermissions.operatePermissionSubjectType = PermissionSubjectTypeEnum.User;
 		selectedIds = localPermissions.viewUsers;
 	}
-	if (mode === CasePermissionModeEnum.InvisibleToTeams) {
+	if (mode === CasePermissionModeEnum.InvisibleTo) {
 		localPermissions.useSameGroups = false;
 	}
 
@@ -272,10 +462,20 @@ const handleLeftChange = async () => {
 		return;
 	}
 
-	// 获取完整树数据（不依赖 ref）
-	const fullTreeData = await menuStore.getFlowflexUserDataWithCache('');
+	console.log('=== Second Layer Filter (Case Level) ===');
+	console.log('mode:', mode);
+	console.log('selectedIds:', selectedIds);
 
-	// 构建节点映射和父子关系（使用完整树）
+	// 第二层过滤：基于第一层过滤结果（viewChoosableTreeData）进行过滤
+	// 如果 viewChoosableTreeData 是 undefined，说明没有 workflow 级别限制，使用全部数据
+	const baseTreeData =
+		viewChoosableTreeData.value !== undefined
+			? viewChoosableTreeData.value
+			: await menuStore.getFlowflexUserDataWithCache('');
+
+	console.log('baseTreeData (from first layer):', baseTreeData);
+
+	// 构建节点映射和父子关系（使用 baseTreeData）
 	const nodeMap = new Map<string, FlowflexUser>();
 	const childToParentMap = new Map<string, string>();
 
@@ -291,11 +491,11 @@ const handleLeftChange = async () => {
 		});
 	}
 
-	buildMaps(fullTreeData);
+	buildMaps(baseTreeData);
 	const selectedIdSet = new Set<string>(selectedIds);
 
 	// Visible 模式：白名单（右侧只能从左侧选中的子集中选择）
-	if (mode === CasePermissionModeEnum.VisibleToTeams) {
+	if (mode === CasePermissionModeEnum.VisibleTo) {
 		const resultIds = new Set<string>();
 
 		selectedIdSet.forEach((nodeId: string) => {
@@ -320,15 +520,35 @@ const handleLeftChange = async () => {
 			}
 		});
 
+		// 递归克隆并过滤子节点，只保留在 selectedIdSet 中的节点
+		const cloneNodeWithFilter = (node: FlowflexUser): FlowflexUser => {
+			const newNode: FlowflexUser = { ...node };
+
+			if (newNode.children && newNode.children.length > 0) {
+				// 递归克隆子节点，只保留在 selectedIdSet 中的
+				newNode.children = newNode.children
+					.filter((child) => selectedIdSet.has(child.id))
+					.map((child) => cloneNodeWithFilter(child));
+			}
+
+			return newNode;
+		};
+
 		const newTreeData = Array.from(resultIds)
-			.map((id: string) => nodeMap.get(id)!)
-			.filter(Boolean);
+			.map((id: string) => nodeMap.get(id))
+			.filter(Boolean)
+			.map((node) => cloneNodeWithFilter(node!));
+
 		operateChoosableTreeData.value = newTreeData.length > 0 ? newTreeData : [];
+		console.log(
+			'Second layer VisibleTo result (with filtered children):',
+			operateChoosableTreeData.value
+		);
 		return;
 	}
 
 	// Invisible 模式：黑名单（右侧排除左侧选中的）
-	if (mode === CasePermissionModeEnum.InvisibleToTeams) {
+	if (mode === CasePermissionModeEnum.InvisibleTo) {
 		const excludeIds = new Set<string>();
 
 		const collectNodeAndChildren = (nodeId: string) => {
@@ -364,14 +584,19 @@ const handleLeftChange = async () => {
 			return result;
 		};
 
-		const filteredTreeData = filterTree(fullTreeData);
+		const filteredTreeData = filterTree(baseTreeData);
 		operateChoosableTreeData.value = filteredTreeData.length > 0 ? filteredTreeData : [];
 		return;
 	}
 };
 
 onMounted(() => {
-	nextTick(() => {
+	nextTick(async () => {
+		// 获取 workflow 数据
+		await fetchWorkflowData();
+		// 执行第一层过滤
+		await updateViewChoosableTreeData();
+		// 如果有选中数据，执行第二层过滤
 		if (shouldShowSelector.value && localPermissions.viewTeams.length > 0) {
 			handleLeftChange();
 		}
@@ -404,7 +629,7 @@ const processPermissionChanges = () => {
 			}
 			operateChoosableTreeData.value = undefined;
 		} else {
-			// VisibleToTeams/InvisibleToTeams 模式：更新过滤逻辑
+			// VisibleTo/InvisibleTo 模式：更新过滤逻辑
 			// handleLeftChange();
 		}
 
@@ -444,6 +669,21 @@ const processPermissionChanges = () => {
 		});
 	});
 };
+
+// 监听 workflowId 变化
+watch(
+	() => props.workflowId,
+	async () => {
+		// 重新获取 workflow 数据
+		await fetchWorkflowData();
+		// 重新执行第一层过滤
+		await updateViewChoosableTreeData();
+		// 重新执行第二层过滤
+		if (shouldShowSelector.value && localPermissions.viewTeams.length > 0) {
+			handleLeftChange();
+		}
+	}
+);
 
 // 监听左侧 SubjectType 变化
 watch(

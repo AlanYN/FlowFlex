@@ -111,7 +111,12 @@
 				/>
 			</TabPane>
 			<TabPane value="permissions">
-				<StagePermissions v-model="permissionsData" />
+				<StagePermissions
+					v-model="permissionsData"
+					:work-flow-operate-teams="workFlowOperateTeams"
+					:work-flow-view-teams="workFlowViewTeams"
+					:work-flow-view-permission-mode="workFlowViewPermissionMode"
+				/>
 			</TabPane>
 			<TabPane value="actions">
 				<Action
@@ -189,6 +194,18 @@ const props = defineProps({
 	workflowId: {
 		type: String,
 		default: '',
+	},
+	workFlowOperateTeams: {
+		type: Array as PropType<string[]>,
+		default: () => [],
+	},
+	workFlowViewTeams: {
+		type: Array as PropType<string[]>,
+		default: () => [],
+	},
+	workFlowViewPermissionMode: {
+		type: Number as PropType<number>,
+		default: undefined,
 	},
 });
 
@@ -356,10 +373,10 @@ const validateAndCheckStagePermissions = async (): Promise<{
 	const viewTeams = formData.value.viewTeams;
 	const operateTeams = formData.value.operateTeams;
 
-	// 只在 VisibleToTeams 或 InvisibleToTeams 模式下检查
+	// 只在 VisibleTo 或 InvisibleTo 模式下检查
 	if (
-		viewPermissionMode !== ViewPermissionModeEnum.VisibleToTeams &&
-		viewPermissionMode !== ViewPermissionModeEnum.InvisibleToTeams
+		viewPermissionMode !== ViewPermissionModeEnum.VisibleTo &&
+		viewPermissionMode !== ViewPermissionModeEnum.InvisibleTo
 	) {
 		return { hasWarning: false, showMessage: false, warningMessage: '' };
 	}
@@ -417,15 +434,13 @@ const validateAndCheckStagePermissions = async (): Promise<{
 		const isInViewList = userTeams.some((teamId) => viewTeams.includes(teamId));
 		// 白名单：不在列表中 = 被排除；黑名单：在列表中 = 被排除
 		isUserExcludedFromView =
-			viewPermissionMode === ViewPermissionModeEnum.VisibleToTeams
-				? !isInViewList
-				: isInViewList;
+			viewPermissionMode === ViewPermissionModeEnum.VisibleTo ? !isInViewList : isInViewList;
 
 		// 检查 Operate Permission（基于团队）
 		const isInOperateList = userTeams.some((teamId) => operateTeams.includes(teamId));
 		// 白名单：不在列表中 = 被排除；黑名单：在列表中 = 被排除
 		isUserExcludedFromOperate =
-			viewPermissionMode === ViewPermissionModeEnum.VisibleToTeams
+			viewPermissionMode === ViewPermissionModeEnum.VisibleTo
 				? !isInOperateList
 				: isInOperateList;
 
@@ -441,6 +456,9 @@ const validateAndCheckStagePermissions = async (): Promise<{
 			} else {
 				warningMessage =
 					'Warning: You are setting permissions that will exclude yourself from operating this stage. You will be able to view but not operate on this stage after saving. Do you want to continue?';
+			}
+			if (currentUser.userType === 1 || currentUser.userType === 2) {
+				return { hasWarning: false, showMessage: false, warningMessage };
 			}
 			return { hasWarning: true, showMessage: false, warningMessage };
 		}
