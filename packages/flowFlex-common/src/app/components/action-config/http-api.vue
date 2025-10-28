@@ -152,7 +152,6 @@ const handleTestRun = async () => {
 			@apply rounded-xl;
 			background-color: var(--el-fill-color-light);
 			padding: 12px;
-			font-family: 'Courier New', monospace;
 			font-size: 14px;
 			line-height: 1.4;
 			white-space: pre-wrap;

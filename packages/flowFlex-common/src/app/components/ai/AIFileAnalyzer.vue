@@ -715,7 +715,6 @@ const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 	padding: 0.75rem;
 	background: var(--el-bg-color);
 	border: 1px solid var(--el-border-color);
-	font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
 	font-size: 13px;
 	line-height: 1.5;
 	color: var(--el-text-color-regular);
