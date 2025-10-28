@@ -844,9 +844,13 @@ const initializeData = async (searchQuery = '') => {
 		let data: FlowflexUser[] = [];
 
 		// 如果传递了 choosableTreeData，优先使用传递的数据
-		if (props.choosableTreeData && props.choosableTreeData.length > 0) {
+		if (props.choosableTreeData !== undefined) {
 			console.log('Using provided choosableTreeData instead of cache');
 			data = props.choosableTreeData;
+			// 如果是空数组，说明没有可选数据，不应该从缓存加载
+			if (data.length === 0) {
+				console.log('choosableTreeData is empty array, no data available');
+			}
 		} else {
 			// 使用 store 中的缓存方法
 			await menuStore.clearFlowflexUserData();
@@ -989,8 +993,8 @@ watch(
 
 // 组件挂载时初始化
 onMounted(async () => {
-	// 如果传递了 choosableTreeData，优先初始化数据
-	if (props.choosableTreeData && props.choosableTreeData.length > 0) {
+	// 如果传递了 choosableTreeData（包括空数组），优先初始化数据
+	if (props.choosableTreeData !== undefined) {
 		await initializeData();
 	} else {
 		// 监听modelValue变化（会自动处理初始值）
@@ -1015,12 +1019,13 @@ watch(() => props.modelValue, handleModelValueChange, { deep: true });
 watch(
 	() => props.choosableTreeData,
 	async (newData) => {
-		if (newData && newData.length > 0) {
+		if (newData !== undefined) {
+			// 只要 choosableTreeData 有定义（包括空数组），就重新初始化
 			console.log('choosableTreeData changed, reinitializing data');
 			await initializeData();
 		} else {
-			// 如果传入了空数组或 undefined，清空数据
-			console.log('choosableTreeData cleared or undefined, clearing data');
+			// 如果传入了 undefined，清空数据并从缓存加载
+			console.log('choosableTreeData is undefined, clearing data');
 			treeData.value = [];
 			rawTreeData.value = [];
 			userDataMap.value.clear();
