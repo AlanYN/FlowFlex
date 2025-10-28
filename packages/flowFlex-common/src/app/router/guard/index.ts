@@ -268,8 +268,11 @@ async function handlePermissionGuard(to, from, next) {
 	if (to.path.includes('Edit')) {
 		mergeQueryParams(from, to);
 	}
-
-	next();
+	if (to.query.status === '403' && rolePath && rolePath.length > 0) {
+		next({ path: rolePath[0] });
+	} else {
+		next();
+	}
 }
 
 function mergeQueryParams(from, to) {
