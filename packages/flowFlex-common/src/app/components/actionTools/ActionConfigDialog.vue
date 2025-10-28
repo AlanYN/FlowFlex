@@ -104,7 +104,7 @@
 								</el-select>
 							</div>
 						</div>
-
+						form{{ selectedToolId }}
 						<el-form
 							v-if="configMode !== ToolsType.SystemTools"
 							ref="formRef"
@@ -497,6 +497,7 @@ const handleConfigModeChange = async (mode: ToolsType) => {
 
 const disabledActionForMyTool = ref(false);
 const changeConfigModeChange = async (mode: ToolsType) => {
+	if (props.forceEditable) return;
 	console.log('mode:', mode);
 	if (mode === ToolsType.UseTool) {
 		// 使用已有工具：加载工具列表
