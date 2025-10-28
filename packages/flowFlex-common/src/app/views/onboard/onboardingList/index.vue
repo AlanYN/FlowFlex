@@ -390,38 +390,37 @@
 						<el-table-column
 							prop="currentStageEndTime"
 							label="End Date"
-							width="150"
+							width="180"
 							sortable="custom"
 						>
 							<template #default="{ row }">
-								<div class="text-xs space-y-1">
-									<div class="flex items-center">
-										<span
-											class="table-cell-content flex-1"
-											:title="
-												timeZoneConvert(
-													row.currentStageEndTime,
-													false,
-													projectTenMinutesSsecondsDate
-												)
-											"
-										>
-											{{
-												timeZoneConvert(
-													row.currentStageEndTime,
-													false,
-													projectTenMinutesSsecondsDate
-												)
-											}}
-										</span>
-									</div>
-									<div
+								<div class="text-xs flex items-center gap-x-2">
+									<el-tooltip
 										v-if="isOverdue(row.currentStageEndTime)"
-										class="flex items-center text-red-500"
+										content="Overdue"
 									>
-										<el-icon class="mr-1"><Warning /></el-icon>
-										<span>Overdue</span>
-									</div>
+										<el-icon class="flex items-center text-red-500">
+											<Warning />
+										</el-icon>
+									</el-tooltip>
+									<span
+										class="table-cell-content flex-1"
+										:title="
+											timeZoneConvert(
+												row.currentStageEndTime,
+												false,
+												projectTenMinutesSsecondsDate
+											)
+										"
+									>
+										{{
+											timeZoneConvert(
+												row.currentStageEndTime,
+												false,
+												projectTenMinutesSsecondsDate
+											)
+										}}
+									</span>
 								</div>
 							</template>
 						</el-table-column>

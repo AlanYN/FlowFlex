@@ -517,7 +517,7 @@ const sortedComponents = computed(() => {
 const processOnboardingData = (responseData: any) => {
 	onboardingData.value = responseData;
 
-	workflowStages.value = responseData.stagesProgress;
+	workflowStages.value = responseData.stagesProgress.filter((stage) => stage.permission?.canView);
 
 	// 根据 workflowStages 返回第一个未完成的 stageId
 	// 首先按 order 排序，然后找到第一个未完成的阶段
@@ -748,9 +748,12 @@ const loadCurrentStageData = async () => {
 // 检查是否有权限（功能权限 && 数据权限）
 const hasCasePermission = (functionalPermission: string) => {
 	if (onboardingData.value && onboardingData.value.permission) {
-		return functionPermission(functionalPermission) && onboardingData.value.permission.canOperate;
+		return (
+			functionPermission(functionalPermission) && onboardingData.value.permission.canOperate
+		);
 	}
-	return functionPermission(functionalPermission);
+	const currentStage = workflowStages.value?.find((stage) => stage.stageId === activeStage.value);
+	return functionPermission(functionalPermission) && !!currentStage?.permission?.canOperate;
 };
 
 // 事件处理函数

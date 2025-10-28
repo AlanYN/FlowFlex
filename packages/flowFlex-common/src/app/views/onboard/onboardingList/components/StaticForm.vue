@@ -44,6 +44,7 @@
 						<el-input
 							v-model="formData.leadId"
 							placeholder="Search or enter Lead ID"
+							disabled
 							clearable
 							class="text-sm min-w-[250px]"
 						/>
@@ -58,6 +59,7 @@
 							v-model="formData.customerName"
 							placeholder="Input Customer Name"
 							class="text-sm min-w-[250px]"
+							disabled
 						/>
 					</el-form-item>
 
@@ -70,6 +72,7 @@
 							v-model="formData.contactName"
 							placeholder="Input Contact Name"
 							class="text-sm min-w-[250px]"
+							disabled
 						/>
 					</el-form-item>
 
@@ -82,6 +85,7 @@
 							v-model="formData.contactEmail"
 							placeholder="Input Contact Email"
 							class="text-sm min-w-[250px]"
+							disabled
 						/>
 					</el-form-item>
 
@@ -107,6 +111,7 @@
 							placeholder="Select Life Cycle Stage"
 							clearable
 							class="text-sm min-w-[250px]"
+							disabled
 						>
 							<el-option
 								v-for="stage in lifeCycleStage"
@@ -127,6 +132,7 @@
 							placeholder="Select Priority"
 							clearable
 							class="text-sm min-w-[250px]"
+							disabled
 						>
 							<el-option label="Urgent" value="Urgent" />
 							<el-option label="High" value="High" />
