@@ -73,7 +73,7 @@
 							Configure who can view and operate cases using this workflow
 						</p>
 					</div>
-					<PermissionSelector v-model="permissionsData" />
+					<PermissionSelector v-model="permissionsData" :is-workflow-level="true" />
 				</div>
 			</TabPane>
 		</PrototypeTabs>

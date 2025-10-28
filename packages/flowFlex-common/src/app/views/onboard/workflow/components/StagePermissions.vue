@@ -9,6 +9,7 @@
 			:view-limit-data="workFlowViewTeams"
 			:operate-limit-data="workFlowOperateTeams"
 			:work-flow-view-permission-mode="workFlowViewPermissionMode"
+			:is-workflow-level="false"
 		/>
 	</div>
 </template>
