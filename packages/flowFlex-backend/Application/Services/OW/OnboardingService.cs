@@ -31,6 +31,7 @@ using Microsoft.Extensions.DependencyInjection;
 using FlowFlex.Infrastructure.Extensions;
 using PermissionOperationType = FlowFlex.Domain.Shared.Enums.Permission.OperationTypeEnum;
 using FlowFlex.Domain.Shared.Const;
+using Microsoft.AspNetCore.Http;
 
 namespace FlowFlex.Application.Services.OW
 {
@@ -59,6 +60,7 @@ namespace FlowFlex.Application.Services.OW
         private readonly IActionManagementService _actionManagementService;
         private readonly IOperationChangeLogService _operationChangeLogService;
         private readonly IPermissionService _permissionService;
+        private readonly IHttpContextAccessor _httpContextAccessor;
         // Cache key constants - temporarily disable Redis cache
         private const string WORKFLOW_CACHE_PREFIX = "ow:workflow";
         private const string STAGE_CACHE_PREFIX = "ow:stage";
@@ -84,7 +86,8 @@ namespace FlowFlex.Application.Services.OW
             IBackgroundTaskQueue backgroundTaskQueue,
             IActionManagementService actionManagementService,
             IOperationChangeLogService operationChangeLogService,
-            IPermissionService permissionService)
+            IPermissionService permissionService,
+            IHttpContextAccessor httpContextAccessor)
         {
             _onboardingRepository = onboardingRepository ?? throw new ArgumentNullException(nameof(onboardingRepository));
             _workflowRepository = workflowRepository ?? throw new ArgumentNullException(nameof(workflowRepository));
@@ -98,6 +101,7 @@ namespace FlowFlex.Application.Services.OW
             _checklistTaskCompletionService = checklistTaskCompletionService ?? throw new ArgumentNullException(nameof(checklistTaskCompletionService));
             _questionnaireAnswerService = questionnaireAnswerService ?? throw new ArgumentNullException(nameof(questionnaireAnswerService));
             _staticFieldValueService = staticFieldValueService ?? throw new ArgumentNullException(nameof(staticFieldValueService));
+            _httpContextAccessor = httpContextAccessor;
             _checklistService = checklistService ?? throw new ArgumentNullException(nameof(checklistService));
             _questionnaireService = questionnaireService ?? throw new ArgumentNullException(nameof(questionnaireService));
             _operatorContextService = operatorContextService ?? throw new ArgumentNullException(nameof(operatorContextService));
@@ -575,6 +579,15 @@ namespace FlowFlex.Application.Services.OW
                 // Record original workflow and stage ID for cache cleanup
                 var originalWorkflowId = entity.WorkflowId;
                 var originalStageId = entity.CurrentStageId;
+                
+                // Store original values for static field sync comparison
+                var originalLeadId = entity.LeadId;
+                var originalLeadName = entity.LeadName;
+                var originalContactPerson = entity.ContactPerson;
+                var originalContactEmail = entity.ContactEmail;
+                var originalLeadPhone = entity.LeadPhone;
+                var originalLifeCycleStageId = entity.LifeCycleStageId;
+                var originalPriority = entity.Priority;
 
                 // If workflow changed, validate new workflow and reset stages
                 if (entity.WorkflowId != input.WorkflowId)
@@ -614,6 +627,39 @@ namespace FlowFlex.Application.Services.OW
                 // Log onboarding update and clear cache
                 if (result)
                 {
+                    // Sync static field values
+                    // If current stage exists, use it; otherwise try to get the first stage from workflow
+                    long? targetStageId = entity.CurrentStageId;
+                    
+                    if (!targetStageId.HasValue && entity.WorkflowId > 0)
+                    {
+                        // Try to get first stage from workflow
+                        var stages = await _stageRepository.GetByWorkflowIdAsync(entity.WorkflowId);
+                        var firstStage = stages.OrderBy(s => s.Order).FirstOrDefault();
+                        targetStageId = firstStage?.Id;
+                    }
+                    
+                    if (targetStageId.HasValue)
+                    {
+                        await SyncStaticFieldValuesAsync(
+                            entity.Id,
+                            targetStageId.Value,
+                            originalLeadId,
+                            originalLeadName,
+                            originalContactPerson,
+                            originalContactEmail,
+                            originalLeadPhone,
+                            originalLifeCycleStageId,
+                            originalPriority,
+                            input
+                        );
+                    }
+                    else
+                    {
+                        // Log when static field sync is skipped
+                        Console.WriteLine($"[OnboardingService] Static field sync skipped - No stage found for Onboarding {entity.Id}");
+                    }
+
                     await LogOnboardingActionAsync(entity, "Update Onboarding", "onboarding_update", true, new
                     {
                         UpdatedFields = new
@@ -6945,6 +6991,216 @@ namespace FlowFlex.Application.Services.OW
                 // If parsing fails, return empty array
                 return "[]";
             }
+        }
+
+        /// <summary>
+        /// Sync Onboarding fields to Static Field Values when Onboarding is updated
+        /// </summary>
+        private async Task SyncStaticFieldValuesAsync(
+            long onboardingId,
+            long stageId,
+            string originalLeadId,
+            string originalLeadName,
+            string originalContactPerson,
+            string originalContactEmail,
+            string originalLeadPhone,
+            long? originalLifeCycleStageId,
+            string originalPriority,
+            OnboardingInputDto input)
+        {
+            try
+            {
+                Console.WriteLine($"[OnboardingService] Starting static field sync - OnboardingId: {onboardingId}, StageId: {stageId}");
+                
+                var staticFieldUpdates = new List<FlowFlex.Application.Contracts.Dtos.OW.StaticField.StaticFieldValueInputDto>();
+
+                // Field mapping: Onboarding field -> Static Field Name
+                // Only update fields that have changed
+                if (!string.Equals(originalLeadId, input.LeadId, StringComparison.Ordinal))
+                {
+                    Console.WriteLine($"[OnboardingService] LEADID changed: '{originalLeadId}' -> '{input.LeadId}'");
+                    staticFieldUpdates.Add(CreateStaticFieldInput(
+                        onboardingId,
+                        stageId,
+                        "LEADID",
+                        input.LeadId,
+                        "text",
+                        "Lead ID",
+                        isRequired: false
+                    ));
+                }
+
+                if (!string.Equals(originalLeadName, input.LeadName, StringComparison.Ordinal))
+                {
+                    Console.WriteLine($"[OnboardingService] CUSTOMERNAME changed: '{originalLeadName}' -> '{input.LeadName}'");
+                    staticFieldUpdates.Add(CreateStaticFieldInput(
+                        onboardingId,
+                        stageId,
+                        "CUSTOMERNAME",
+                        input.LeadName,
+                        "text",
+                        "Customer Name",
+                        isRequired: false
+                    ));
+                }
+
+                if (!string.Equals(originalContactPerson, input.ContactPerson, StringComparison.Ordinal))
+                {
+                    Console.WriteLine($"[OnboardingService] CONTACTNAME changed: '{originalContactPerson}' -> '{input.ContactPerson}'");
+                    staticFieldUpdates.Add(CreateStaticFieldInput(
+                        onboardingId,
+                        stageId,
+                        "CONTACTNAME",
+                        input.ContactPerson,
+                        "text",
+                        "Contact Name",
+                        isRequired: false
+                    ));
+                }
+
+                if (!string.Equals(originalContactEmail, input.ContactEmail, StringComparison.Ordinal))
+                {
+                    Console.WriteLine($"[OnboardingService] CONTACTEMAIL changed: '{originalContactEmail}' -> '{input.ContactEmail}'");
+                    staticFieldUpdates.Add(CreateStaticFieldInput(
+                        onboardingId,
+                        stageId,
+                        "CONTACTEMAIL",
+                        input.ContactEmail,
+                        "email",
+                        "Contact Email",
+                        isRequired: false
+                    ));
+                }
+
+                if (!string.Equals(originalLeadPhone, input.LeadPhone, StringComparison.Ordinal))
+                {
+                    Console.WriteLine($"[OnboardingService] CONTACTPHONE changed: '{originalLeadPhone}' -> '{input.LeadPhone}'");
+                    staticFieldUpdates.Add(CreateStaticFieldInput(
+                        onboardingId,
+                        stageId,
+                        "CONTACTPHONE",
+                        input.LeadPhone,
+                        "tel",
+                        "Contact Phone",
+                        isRequired: false
+                    ));
+                }
+
+                if (originalLifeCycleStageId != input.LifeCycleStageId)
+                {
+                    Console.WriteLine($"[OnboardingService] LIFECYCLESTAGE changed: '{originalLifeCycleStageId}' -> '{input.LifeCycleStageId}'");
+                    staticFieldUpdates.Add(CreateStaticFieldInput(
+                        onboardingId,
+                        stageId,
+                        "LIFECYCLESTAGE",
+                        input.LifeCycleStageId?.ToString() ?? "",
+                        "select",
+                        "Life Cycle Stage",
+                        isRequired: false
+                    ));
+                }
+
+                if (!string.Equals(originalPriority, input.Priority, StringComparison.Ordinal))
+                {
+                    Console.WriteLine($"[OnboardingService] PRIORITY changed: '{originalPriority}' -> '{input.Priority}'");
+                    staticFieldUpdates.Add(CreateStaticFieldInput(
+                        onboardingId,
+                        stageId,
+                        "PRIORITY",
+                        input.Priority,
+                        "select",
+                        "Priority",
+                        isRequired: false
+                    ));
+                }
+
+                // Batch update static field values if any fields changed
+                if (staticFieldUpdates.Any())
+                {
+                    Console.WriteLine($"[OnboardingService] Syncing {staticFieldUpdates.Count} static field(s) to database");
+                    
+                    var batchInput = new FlowFlex.Application.Contracts.Dtos.OW.StaticField.BatchStaticFieldValueInputDto
+                    {
+                        OnboardingId = onboardingId,
+                        StageId = stageId,
+                        FieldValues = staticFieldUpdates,
+                        Source = "onboarding_update",
+                        IpAddress = GetClientIpAddress(),
+                        UserAgent = GetUserAgent()
+                    };
+
+                    await _staticFieldValueService.BatchSaveAsync(batchInput);
+                    Console.WriteLine($"[OnboardingService] Static field sync completed successfully");
+                }
+                else
+                {
+                    Console.WriteLine($"[OnboardingService] No static field changes detected, sync skipped");
+                }
+            }
+            catch (Exception ex)
+            {
+                // Log error but don't fail the main update operation
+                Console.WriteLine($"[OnboardingService] Failed to sync static field values: {ex.Message}");
+                Console.WriteLine($"[OnboardingService] Stack trace: {ex.StackTrace}");
+            }
+        }
+
+        /// <summary>
+        /// Get client IP address from HTTP context
+        /// </summary>
+        private string GetClientIpAddress()
+        {
+            var httpContext = _httpContextAccessor?.HttpContext;
+            if (httpContext == null) return string.Empty;
+
+            var ipAddress = httpContext.Request.Headers["X-Forwarded-For"].FirstOrDefault();
+            if (string.IsNullOrEmpty(ipAddress))
+            {
+                ipAddress = httpContext.Request.Headers["X-Real-IP"].FirstOrDefault();
+            }
+            if (string.IsNullOrEmpty(ipAddress))
+            {
+                ipAddress = httpContext.Connection.RemoteIpAddress?.ToString();
+            }
+
+            return ipAddress ?? string.Empty;
+        }
+
+        /// <summary>
+        /// Get user agent from HTTP context
+        /// </summary>
+        private string GetUserAgent()
+        {
+            var httpContext = _httpContextAccessor?.HttpContext;
+            return httpContext?.Request.Headers["User-Agent"].ToString() ?? string.Empty;
+        }
+
+        /// <summary>
+        /// Create StaticFieldValueInputDto for static field sync
+        /// </summary>
+        private FlowFlex.Application.Contracts.Dtos.OW.StaticField.StaticFieldValueInputDto CreateStaticFieldInput(
+            long onboardingId,
+            long stageId,
+            string fieldName,
+            string fieldValue,
+            string fieldType,
+            string fieldLabel,
+            bool isRequired)
+        {
+            return new FlowFlex.Application.Contracts.Dtos.OW.StaticField.StaticFieldValueInputDto
+            {
+                OnboardingId = onboardingId,
+                StageId = stageId,
+                FieldName = fieldName,
+                FieldValueJson = JsonSerializer.Serialize(fieldValue),
+                FieldType = fieldType,
+                DisplayName = fieldLabel,
+                FieldLabel = fieldLabel,
+                IsRequired = isRequired,
+                Status = "Draft",
+                CompletionRate = string.IsNullOrWhiteSpace(fieldValue) ? 0 : 100,
+                ValidationStatus = "Pending"
+            };
         }
 
         #endregion
