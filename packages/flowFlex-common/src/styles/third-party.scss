@@ -18,7 +18,7 @@
 // }
 
 /* material-icons */
-@use 'material-icons/iconfont/material-icons.css';
+@import 'material-icons/iconfont/material-icons.css';
 /* 可根据项目需要，只引入所需的类型图标，减小体积 */
 /* @use 'material-icons/iconfont/filled.css';
 @use 'material-icons/iconfont/outlined.css';
@@ -27,7 +27,7 @@
 @use 'material-icons/iconfont/two-tone.css'; */
 
 /* fontawesome free icon，包含了所有的。 */
-@use '@fortawesome/fontawesome-free/css/all.min.css';
+@import '@fortawesome/fontawesome-free/css/all.min.css';
 /* 可根据项目需要，只引入所需类型的图标，减小体积 */
 /* @use '@fortawesome/fontawesome-free/css/fontawesome.min.css';
 @use '@fortawesome/fontawesome-free/css/regular.min.css';
