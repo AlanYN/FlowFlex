@@ -395,16 +395,8 @@
 						>
 							<template #default="{ row }">
 								<div class="text-xs flex items-center gap-x-2">
-									<el-tooltip
-										v-if="isOverdue(row.currentStageEndTime)"
-										content="Overdue"
-									>
-										<el-icon class="flex items-center text-red-500">
-											<Warning />
-										</el-icon>
-									</el-tooltip>
 									<span
-										class="table-cell-content flex-1"
+										class="table-cell-content"
 										:title="
 											timeZoneConvert(
 												row.currentStageEndTime,
@@ -421,6 +413,14 @@
 											)
 										}}
 									</span>
+									<el-tooltip
+										v-if="isOverdue(row.currentStageEndTime)"
+										content="Overdue"
+									>
+										<el-icon class="flex items-center text-red-500">
+											<Warning />
+										</el-icon>
+									</el-tooltip>
 								</div>
 							</template>
 						</el-table-column>
