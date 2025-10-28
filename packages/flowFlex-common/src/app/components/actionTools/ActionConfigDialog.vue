@@ -74,9 +74,7 @@
 
 							<!-- 选择已有工具的下拉框 -->
 							<div v-if="useExistingTool" class="mt-4">
-								<label class="block text-sm font-medium mb-2">
-									Select Tool {{ disabledActionForMyTool }}
-								</label>
+								<label class="block text-sm font-medium mb-2">Select Tool</label>
 
 								<el-select
 									v-model="selectedToolId"
@@ -623,10 +621,8 @@ const handleExistingToolSelect = async (toolId: string) => {
 			formData.actionType = toolDetail.actionType;
 			formData.actionConfig = JSON.parse(toolDetail.actionConfig || '{}');
 			formData.id = toolDetail.id;
-			formData.isTools = true;
+			formData.isTools = toolDetail.isTools || false;
 			disabledActionForMyTool.value = false;
-
-			ElMessage.success('Tool details loaded successfully');
 		} else {
 			ElMessage.error('Failed to load tool details');
 		}
@@ -674,11 +670,12 @@ const onSave = async () => {
 		saving.value = true;
 		// 判断是编辑模式还是新建模式，以及是否使用已有工具
 		if (
-			!props.action &&
-			(configMode.value === ToolsType.UseTool ||
-				configMode.value === ToolsType.SystemTools ||
-				configMode.value === ToolsType.MyTool) &&
-			!props.forceEditable
+			(!props.action &&
+				(configMode.value === ToolsType.UseTool ||
+					configMode.value === ToolsType.SystemTools ||
+					configMode.value === ToolsType.MyTool) &&
+				!props.forceEditable) ||
+			selectedToolId.value // 确保有选中的工具ID
 		) {
 			// 新建模式 + 使用已有工具：创建映射关系
 			if (!selectedToolId.value) {

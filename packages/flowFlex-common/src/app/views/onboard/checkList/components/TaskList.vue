@@ -8,7 +8,7 @@
 		</div>
 
 		<!-- 任务已加载完成时显示 -->
-		<div v-if="tasksLoaded">
+		<div v-if="tasksLoaded" v-loading="saveLoading">
 			<div class="flex items-center mb-4">
 				<h4 class="text-sm font-medium task-list-title">Tasks</h4>
 			</div>
@@ -669,9 +669,11 @@ const openActionEditor = async (task) => {
 };
 
 // Action 保存成功回调
+const saveLoading = ref(false);
 const onActionSave = async (actionResult) => {
 	if (actionResult.id && currentActionTask.value) {
 		try {
+			saveLoading.value = true;
 			const updateResponse = await updateChecklistTask(currentActionTask.value.id, {
 				...currentActionTask.value,
 				checklistId: props.checklist.id,
@@ -687,11 +689,12 @@ const onActionSave = async (actionResult) => {
 				// 通知父组件更新checklist数据
 				emit('task-updated', props.checklist.id);
 			} else {
-				ElMessage.error(t('sys.api.operationFailed'));
+				ElMessage.error(updateResponse?.msg || t('sys.api.operationFailed'));
 			}
 		} catch (error) {
 			console.error('Failed to bind action to task:', error);
-			ElMessage.error('Failed to bind action to task');
+		} finally {
+			saveLoading.value = false;
 		}
 	}
 	onActionCancel();
