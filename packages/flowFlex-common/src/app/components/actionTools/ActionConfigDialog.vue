@@ -440,8 +440,9 @@ const resetForm = () => {
 	formData.actionType = ActionType.PYTHON_SCRIPT;
 	formData.description = '';
 	formData.isTools = false; // 新建时默认为工具模式
-	visible.value = false;
 	formData.actionConfig = getDefaultConfig(ActionType.PYTHON_SCRIPT);
+	formRef.value?.resetFields();
+	visible.value = false;
 	testResult.value = null;
 	disabledActionForMyTool.value = false;
 
