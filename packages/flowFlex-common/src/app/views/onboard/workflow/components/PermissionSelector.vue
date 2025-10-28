@@ -423,23 +423,38 @@ const leftChange = async (value) => {
 		if (mode === ViewPermissionModeEnum.VisibleTo) {
 			// VisibleTo: C = B ∩ operateLimitData
 			console.log('=== VisibleTo Mode: C = B ∩ operateLimitData ===');
-			dataB.forEach((id) => {
-				if (operateLimitData.has(id)) {
-					dataC.add(id);
-				}
-			});
-			console.log('数据C (B ∩ operateLimitData):', Array.from(dataC));
 
-			// 如果没有交集，右侧显示 operateLimitData 的数据
-			if (dataC.size === 0 && operateLimitData.size > 0) {
-				console.log('No intersection, right side shows operateLimitData');
-				dataC = operateLimitData;
+			if (operateLimitData.size === 0) {
+				// 如果没有操作限制数据，直接使用左侧选中的数据
+				dataC = dataB;
+				console.log('No operateLimitData, using dataB directly:', Array.from(dataC));
+			} else {
+				// 计算交集
+				dataB.forEach((id) => {
+					if (operateLimitData.has(id)) {
+						dataC.add(id);
+					}
+				});
+				console.log('数据C (B ∩ operateLimitData):', Array.from(dataC));
+
+				// 如果没有交集且左侧有选择，右侧显示空（保持一致性）
+				if (dataC.size === 0 && dataB.size > 0) {
+					console.log('No intersection but dataB has selections, right side shows empty');
+					operateChoosableTreeData.value = [];
+					return;
+				}
+
+				// 如果左侧没有选择，右侧显示 operateLimitData 的数据
+				if (dataB.size === 0 && operateLimitData.size > 0) {
+					console.log('No left selection, right side shows operateLimitData');
+					dataC = operateLimitData;
+				}
 			}
 		} else if (mode === ViewPermissionModeEnum.InvisibleTo) {
-			// InvisibleTo: C = (A - B) ∩ operateLimitData
+			// InvisibleTo 黑名单模式：C = (A - B) ∩ operateLimitData
 			console.log('=== InvisibleTo Mode: C = (A - B) ∩ operateLimitData ===');
 
-			// 先计算 A - B
+			// 先计算 A - B（从可见数据中排除左侧选中的）
 			const aMinusB = new Set<string>();
 			dataA.forEach((id) => {
 				if (!dataB.has(id)) {
@@ -448,13 +463,19 @@ const leftChange = async (value) => {
 			});
 			console.log('A - B:', Array.from(aMinusB));
 
-			// 再计算 (A - B) ∩ operateLimitData
-			aMinusB.forEach((id) => {
-				if (operateLimitData.has(id)) {
-					dataC.add(id);
-				}
-			});
-			console.log('数据C ((A - B) ∩ operateLimitData):', Array.from(dataC));
+			if (operateLimitData.size === 0) {
+				// 如果没有操作限制数据，直接使用 A - B
+				dataC = aMinusB;
+				console.log('No operateLimitData, using A - B directly:', Array.from(dataC));
+			} else {
+				// 再计算 (A - B) ∩ operateLimitData
+				aMinusB.forEach((id) => {
+					if (operateLimitData.has(id)) {
+						dataC.add(id);
+					}
+				});
+				console.log('数据C ((A - B) ∩ operateLimitData):', Array.from(dataC));
+			}
 		}
 	}
 
@@ -552,9 +573,9 @@ const processPermissionChanges = () => {
 			if (localPermissions.viewTeams.length > 0) {
 				localPermissions.viewTeams = [];
 			}
-			if (localPermissions.operateTeams.length > 0) {
-				localPermissions.operateTeams = [];
-			}
+			// if (localPermissions.operateTeams.length > 0) {
+			// 	localPermissions.operateTeams = [];
+			// }
 			operateChoosableTreeData.value = undefined;
 		}
 
