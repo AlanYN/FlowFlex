@@ -39,6 +39,7 @@ public class ChecklistTaskCompletionService : IChecklistTaskCompletionService, I
     private readonly ILogger<ChecklistTaskCompletionService> _logger;
     private readonly IChecklistService _checklistService;
     private readonly IActionDefinitionRepository _actionDefinitionRepository;
+    private readonly IActionTriggerMappingRepository _actionTriggerMappingRepository;
     private readonly IServiceProvider _serviceProvider;
 
     public ChecklistTaskCompletionService(
@@ -56,6 +57,7 @@ public class ChecklistTaskCompletionService : IChecklistTaskCompletionService, I
     ILogger<ChecklistTaskCompletionService> logger,
     IChecklistService checklistService,
     IActionDefinitionRepository actionDefinitionRepository,
+    IActionTriggerMappingRepository actionTriggerMappingRepository,
     IServiceProvider serviceProvider)
     {
         _completionRepository = completionRepository;
@@ -72,6 +74,7 @@ public class ChecklistTaskCompletionService : IChecklistTaskCompletionService, I
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _checklistService = checklistService ?? throw new ArgumentNullException(nameof(checklistService));
         _actionDefinitionRepository = actionDefinitionRepository ?? throw new ArgumentNullException(nameof(actionDefinitionRepository));
+        _actionTriggerMappingRepository = actionTriggerMappingRepository ?? throw new ArgumentNullException(nameof(actionTriggerMappingRepository));
         _serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
     }
 
@@ -145,18 +148,19 @@ public class ChecklistTaskCompletionService : IChecklistTaskCompletionService, I
         {
             await LogTaskCompletionAsync(onboarding, task, completion.IsCompleted, completion.CompletionNotes);
 
-            // 只有当任务状态真正从未完成变为完成，且有 ActionId 时，才执行 ActionTriggerEvent
+            // 只有当任务状态真正从未完成变为完成，且有 ActionMapping 时，才执行 ActionTriggerEvent
             // 这避免了当 isCompleted 为 true 但没有变化时重复执行 action
-            if (completion.IsCompleted && task.ActionId.HasValue && statusChanged)
+            var taskActionMapping = await GetTaskActionMappingAsync(task.Id);
+            if (completion.IsCompleted && taskActionMapping != null && statusChanged)
             {
-                _logger.LogInformation("Task completion status changed from false to true, executing action: OnboardingId={OnboardingId}, TaskId={TaskId}, ActionId={ActionId}",
-                    completion.OnboardingId, completion.TaskId, task.ActionId);
-                await HandleTaskActionAsync(onboarding, task, completion);
+                _logger.LogInformation("Task completion status changed from false to true, executing action: OnboardingId={OnboardingId}, TaskId={TaskId}, ActionId={ActionId}, MappingId={MappingId}",
+                    completion.OnboardingId, completion.TaskId, taskActionMapping.ActionDefinitionId, taskActionMapping.Id);
+                await HandleTaskActionAsync(onboarding, task, completion, taskActionMapping);
             }
-            else if (completion.IsCompleted && task.ActionId.HasValue && !statusChanged)
+            else if (completion.IsCompleted && taskActionMapping != null && !statusChanged)
             {
                 _logger.LogDebug("Task completion status unchanged (already completed), skipping action execution: OnboardingId={OnboardingId}, TaskId={TaskId}, ActionId={ActionId}",
-                    completion.OnboardingId, completion.TaskId, task.ActionId);
+                    completion.OnboardingId, completion.TaskId, taskActionMapping.ActionDefinitionId);
             }
         }
 
@@ -745,12 +749,13 @@ public class ChecklistTaskCompletionService : IChecklistTaskCompletionService, I
                     {
                         totalTasksProcessed++;
 
-                        // 只为有 ActionId 的 task 创建 ActionTriggerEvent
-                        if (!task.ActionId.HasValue)
+                        // 只为有 ActionMapping 的 task 创建 ActionTriggerEvent
+                        var taskActionMapping = await GetTaskActionMappingAsync(task.Id);
+                        if (taskActionMapping == null)
                         {
-                            _logger.LogDebug("Task {TaskId} ({TaskName}) 没有配置 ActionId，跳过发布 ActionTriggerEvent",
+                            _logger.LogDebug("Task {TaskId} ({TaskName}) 没有配置 ActionMapping，跳过发布 ActionTriggerEvent",
                                 task.Id, task.Name);
-                            result.Messages.Add($"Task {task.Id} ({task.Name}) 没有配置 ActionId，跳过");
+                            result.Messages.Add($"Task {task.Id} ({task.Name}) 没有配置 ActionMapping，跳过");
                             continue;
                         }
 
@@ -842,17 +847,19 @@ public class ChecklistTaskCompletionService : IChecklistTaskCompletionService, I
     /// <summary>
     /// 处理任务完成时的 Action 逻辑（包括特殊处理和事件发布）
     /// </summary>
-    private async Task HandleTaskActionAsync(Onboarding onboarding, ChecklistTask task, ChecklistTaskCompletion completion)
+    private async Task HandleTaskActionAsync(Onboarding onboarding, ChecklistTask task, ChecklistTaskCompletion completion, Domain.Entities.Action.ActionTriggerMapping taskActionMapping)
     {
         try
         {
-            _logger.LogDebug("开始处理任务完成的 Action: TaskId={TaskId}, ActionId={ActionId}", task.Id, task.ActionId);
+            _logger.LogDebug("开始处理任务完成的 Action: TaskId={TaskId}, ActionId={ActionId}, MappingId={MappingId}", 
+                task.Id, taskActionMapping.ActionDefinitionId, taskActionMapping.Id);
 
             // 获取 Action 定义
-            var actionDefinition = await _actionDefinitionRepository.GetByIdAsync(task.ActionId.Value);
+            var actionDefinition = await _actionDefinitionRepository.GetByIdAsync(taskActionMapping.ActionDefinitionId);
             if (actionDefinition == null)
             {
-                _logger.LogWarning("Action 定义不存在: ActionId={ActionId}, TaskId={TaskId}", task.ActionId, task.Id);
+                _logger.LogWarning("Action 定义不存在: ActionId={ActionId}, TaskId={TaskId}, MappingId={MappingId}", 
+                    taskActionMapping.ActionDefinitionId, task.Id, taskActionMapping.Id);
                 return;
             }
 
@@ -863,17 +870,18 @@ public class ChecklistTaskCompletionService : IChecklistTaskCompletionService, I
             if (await IsCompleteStageSystemActionAsync(actionDefinition))
             {
                 _logger.LogInformation("检测到 CompleteStage System Action，开始自动完成 Stage: TaskId={TaskId}, ActionId={ActionId}, OnboardingId={OnboardingId}, StageId={StageId}",
-                    task.Id, task.ActionId, onboarding.Id, completion.StageId);
+                    task.Id, taskActionMapping.ActionDefinitionId, onboarding.Id, completion.StageId);
 
                 await ExecuteCompleteStageActionAsync(onboarding, task, completion, actionDefinition);
             }
 
             // 无论是否是特殊 action，都发布 ActionTriggerEvent
-            await PublishTaskActionTriggerEventAsync(onboarding, task, completion);
+            await PublishTaskActionTriggerEventAsync(onboarding, task, completion, taskActionMapping);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "处理任务 Action 时发生错误: TaskId={TaskId}, ActionId={ActionId}", task.Id, task.ActionId);
+            _logger.LogError(ex, "处理任务 Action 时发生错误: TaskId={TaskId}, ActionId={ActionId}, MappingId={MappingId}", 
+                task.Id, taskActionMapping.ActionDefinitionId, taskActionMapping.Id);
             // 不重新抛出异常，避免影响主业务流程
         }
     }
@@ -1069,15 +1077,19 @@ public class ChecklistTaskCompletionService : IChecklistTaskCompletionService, I
     /// <summary>
     /// 为完成的 task 发布 ActionTriggerEvent
     /// </summary>
-    private async Task PublishTaskActionTriggerEventAsync(Onboarding onboarding, ChecklistTask task, ChecklistTaskCompletion completion)
+    private async Task PublishTaskActionTriggerEventAsync(Onboarding onboarding, ChecklistTask task, ChecklistTaskCompletion completion, Domain.Entities.Action.ActionTriggerMapping taskActionMapping)
     {
         try
         {
-            _logger.LogDebug("开始为完成的 task 发布 ActionTriggerEvent: TaskId={TaskId}, TaskName={TaskName}, ActionId={ActionId}",
-                task.Id, task.Name, task.ActionId);
+            _logger.LogDebug("开始为完成的 task 发布 ActionTriggerEvent: TaskId={TaskId}, TaskName={TaskName}, ActionId={ActionId}, MappingId={MappingId}",
+                task.Id, task.Name, taskActionMapping.ActionDefinitionId, taskActionMapping.Id);
 
             // 获取当前用户ID
             var currentUserId = GetCurrentUserId();
+
+            // 获取 Action 名称
+            var actionDefinition = await _actionDefinitionRepository.GetByIdAsync(taskActionMapping.ActionDefinitionId);
+            var actionName = actionDefinition?.ActionName;
 
             // 构建上下文数据
             var contextData = new
@@ -1106,8 +1118,9 @@ public class ChecklistTaskCompletionService : IChecklistTaskCompletionService, I
                 TaskAssigneeId = task.AssigneeId,
                 TaskAssigneeName = task.AssigneeName,
                 TaskAssignedTeam = task.AssignedTeam,
-                TaskActionId = task.ActionId,
-                TaskActionName = task.ActionName,
+                TaskActionId = taskActionMapping.ActionDefinitionId,
+                TaskActionName = actionName,
+                TaskActionMappingId = taskActionMapping.Id,
 
                 // Completion 相关的上下文数据
                 CompletedTime = completion.CompletedTime,
@@ -1127,13 +1140,13 @@ public class ChecklistTaskCompletionService : IChecklistTaskCompletionService, I
 
             await _mediator.Publish(taskActionTriggerEvent);
 
-            _logger.LogInformation("成功发布 Task ActionTriggerEvent: TaskId={TaskId}, TaskName={TaskName}, ActionId={ActionId}, OnboardingId={OnboardingId}",
-                task.Id, task.Name, task.ActionId, onboarding.Id);
+            _logger.LogInformation("成功发布 Task ActionTriggerEvent: TaskId={TaskId}, TaskName={TaskName}, ActionId={ActionId}, MappingId={MappingId}, OnboardingId={OnboardingId}",
+                task.Id, task.Name, taskActionMapping.ActionDefinitionId, taskActionMapping.Id, onboarding.Id);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "发布 Task ActionTriggerEvent 时发生错误: TaskId={TaskId}, ActionId={ActionId}",
-                task.Id, task.ActionId);
+            _logger.LogError(ex, "发布 Task ActionTriggerEvent 时发生错误: TaskId={TaskId}, ActionId={ActionId}, MappingId={MappingId}",
+                task.Id, taskActionMapping.ActionDefinitionId, taskActionMapping.Id);
             // 不重新抛出异常，避免影响主业务流程
         }
     }
@@ -1175,17 +1188,18 @@ public class ChecklistTaskCompletionService : IChecklistTaskCompletionService, I
                     continue;
                 }
 
-                // 只为有 ActionId 的 task 发布事件
-                if (!task.ActionId.HasValue)
+                // 只为有 ActionMapping 的 task 发布事件
+                var taskActionMapping = await GetTaskActionMappingAsync(task.Id);
+                if (taskActionMapping == null)
                 {
-                    _logger.LogDebug("Task {TaskId} ({TaskName}) 没有配置 ActionId，跳过发布 ActionTriggerEvent",
+                    _logger.LogDebug("Task {TaskId} ({TaskName}) 没有配置 ActionMapping，跳过发布 ActionTriggerEvent",
                         task.Id, task.Name);
                     continue;
                 }
 
-                _logger.LogInformation("Batch task completion status changed from false to true, executing action: OnboardingId={OnboardingId}, TaskId={TaskId}, ActionId={ActionId}",
-                    input.OnboardingId, input.TaskId, task.ActionId);
-                await HandleTaskActionAsync(onboarding, task, completion);
+                _logger.LogInformation("Batch task completion status changed from false to true, executing action: OnboardingId={OnboardingId}, TaskId={TaskId}, ActionId={ActionId}, MappingId={MappingId}",
+                    input.OnboardingId, input.TaskId, taskActionMapping.ActionDefinitionId, taskActionMapping.Id);
+                await HandleTaskActionAsync(onboarding, task, completion, taskActionMapping);
             }
 
             _logger.LogDebug("完成为批量完成的 task 发布 ActionTriggerEvent");
@@ -1207,5 +1221,27 @@ public class ChecklistTaskCompletionService : IChecklistTaskCompletionService, I
             return userId;
         }
         return 0;
+    }
+
+    /// <summary>
+    /// 从映射表获取任务的动作映射（Task/Question 类型每个源只有一条映射）
+    /// </summary>
+    private async Task<Domain.Entities.Action.ActionTriggerMapping> GetTaskActionMappingAsync(long taskId)
+    {
+        try
+        {
+            var allTaskMappings = await _actionTriggerMappingRepository.GetByTriggerTypeAsync("Task");
+            var taskMapping = allTaskMappings
+                .Where(m => m.TriggerSourceId == taskId && m.IsValid && m.IsEnabled)
+                .OrderByDescending(m => (m.ModifyDate > m.CreateDate) ? m.ModifyDate : m.CreateDate)
+                .FirstOrDefault();
+
+            return taskMapping;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "获取任务动作映射失败: TaskId={TaskId}", taskId);
+            return null;
+        }
     }
 }

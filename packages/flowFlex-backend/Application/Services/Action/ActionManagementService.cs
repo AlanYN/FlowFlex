@@ -924,20 +924,66 @@ namespace FlowFlex.Application.Services.Action
 
         public async Task<ActionTriggerMappingDto> CreateActionTriggerMappingAsync(CreateActionTriggerMappingDto dto)
         {
-            // Check if mapping already exists
-            // If exists, return the existing mapping instead of creating a new one
-            var workflowIdForCheck = dto.WorkFlowId ?? 0;
-            var existingMapping = await _actionTriggerMappingRepository.GetExistingMappingAsync(
-                dto.ActionDefinitionId, dto.TriggerType, dto.TriggerSourceId, workflowIdForCheck);
-
-            if (existingMapping != null)
+            // Business rule: Task/Question type can only have ONE mapping per TriggerSourceId
+            // Stage type can have multiple mappings (checked by ActionDefinitionId + TriggerType + TriggerSourceId + WorkFlowId)
+            if (dto.TriggerType?.Trim().Equals("Task", StringComparison.OrdinalIgnoreCase) == true ||
+                dto.TriggerType?.Trim().Equals("Question", StringComparison.OrdinalIgnoreCase) == true)
             {
-                _logger.LogInformation("Mapping already exists for ActionDefinitionId={ActionDefinitionId}, TriggerType={TriggerType}, TriggerSourceId={TriggerSourceId}, WorkFlowId={WorkFlowId}. Returning existing mapping: {MappingId}",
-                    dto.ActionDefinitionId, dto.TriggerType, dto.TriggerSourceId, dto.WorkFlowId?.ToString() ?? "None", existingMapping.Id);
+                // For Task/Question: check if TriggerSourceId already has any valid mapping
+                var existingMappingsForSource = await _actionTriggerMappingRepository.GetByTriggerTypeAsync(dto.TriggerType);
+                var existingMappingForThisSource = existingMappingsForSource
+                    .FirstOrDefault(m => m.TriggerSourceId == dto.TriggerSourceId && m.IsValid);
 
-                // 显示层动态读取映射信息：不再把映射写回任务字段
+                if (existingMappingForThisSource != null)
+                {
+                    // If the existing mapping is for the same action, return it directly
+                    if (existingMappingForThisSource.ActionDefinitionId == dto.ActionDefinitionId)
+                    {
+                        _logger.LogInformation("Mapping already exists for {TriggerType} TriggerSourceId={TriggerSourceId}. " +
+                            "Returning existing mapping: {MappingId} (ActionDefinitionId={ExistingActionId}). " +
+                            "Task/Question type only allows ONE mapping per source.",
+                            dto.TriggerType, dto.TriggerSourceId, existingMappingForThisSource.Id, existingMappingForThisSource.ActionDefinitionId);
 
-                return _mapper.Map<ActionTriggerMappingDto>(existingMapping);
+                        // 显示层动态读取映射信息：不再把映射写回任务字段
+
+                        return _mapper.Map<ActionTriggerMappingDto>(existingMappingForThisSource);
+                    }
+                    else
+                    {
+                        // Conflict: different action, delete old mapping and create new one
+                        _logger.LogWarning("Mapping conflict detected for {TriggerType} TriggerSourceId={TriggerSourceId}. " +
+                            "Existing mapping {ExistingMappingId} (ActionDefinitionId={OldActionId}) will be deleted and replaced with new mapping (ActionDefinitionId={NewActionId}).",
+                            dto.TriggerType, dto.TriggerSourceId, existingMappingForThisSource.Id, 
+                            existingMappingForThisSource.ActionDefinitionId, dto.ActionDefinitionId);
+
+                        // Delete the old mapping
+                        existingMappingForThisSource.IsValid = false;
+                        existingMappingForThisSource.ModifyDate = DateTimeOffset.UtcNow;
+                        await _actionTriggerMappingRepository.UpdateAsync(existingMappingForThisSource);
+
+                        _logger.LogInformation("Deleted conflicting mapping {MappingId} for {TriggerType} TriggerSourceId={TriggerSourceId}",
+                            existingMappingForThisSource.Id, dto.TriggerType, dto.TriggerSourceId);
+
+                        // Continue to create new mapping below
+                    }
+                }
+            }
+            else
+            {
+                // For Stage or other types: check if exact mapping already exists (by ActionDefinitionId + TriggerType + TriggerSourceId + WorkFlowId)
+                var workflowIdForCheck = dto.WorkFlowId ?? 0;
+                var existingMapping = await _actionTriggerMappingRepository.GetExistingMappingAsync(
+                    dto.ActionDefinitionId, dto.TriggerType, dto.TriggerSourceId, workflowIdForCheck);
+
+                if (existingMapping != null)
+                {
+                    _logger.LogInformation("Mapping already exists for ActionDefinitionId={ActionDefinitionId}, TriggerType={TriggerType}, TriggerSourceId={TriggerSourceId}, WorkFlowId={WorkFlowId}. Returning existing mapping: {MappingId}",
+                        dto.ActionDefinitionId, dto.TriggerType, dto.TriggerSourceId, dto.WorkFlowId?.ToString() ?? "None", existingMapping.Id);
+
+                    // 显示层动态读取映射信息：不再把映射写回任务字段
+
+                    return _mapper.Map<ActionTriggerMappingDto>(existingMapping);
+                }
             }
 
             // Ensure TriggerEvent has a valid value - default to "Completed" if not provided or empty
