@@ -722,7 +722,7 @@ const createPrintContent = (
 				}
 				
 				body {
-					font-family: 'Satoshi', sans-serif;
+					 font-family: 'Satoshi', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
 					background: white;
 					color: #333;
 					line-height: 1.4;
