@@ -87,12 +87,40 @@ namespace FlowFlex.Application.Service.OW
 
         public async Task<long> CreateAsync(StageInputDto input)
         {
+        // Validate if workflow exists (outside transaction)
+        var workflow = await _workflowRepository.GetByIdAsync(input.WorkflowId);
+        if (workflow == null)
+        {
+            throw new CRMException(ErrorCodeEnum.NotFound, "Workflow not found");
+        }
+
+        // Check Workflow permission before creating stage
+        var userId = _userContext?.UserId;
+        if (string.IsNullOrEmpty(userId) || !long.TryParse(userId, out var userIdLong))
+        {
+            throw new CRMException(ErrorCodeEnum.AuthenticationFail, "User not authenticated");
+        }
+
+        var workflowPermission = await _permissionService.CheckWorkflowAccessAsync(
+            userIdLong, 
+            input.WorkflowId, 
+            Domain.Shared.Enums.Permission.OperationTypeEnum.Operate);
+
+        if (!workflowPermission.Success || !workflowPermission.CanOperate)
+        {
+            throw new CRMException(ErrorCodeEnum.BusinessError, 
+                $"No permission to create stage in workflow '{workflow.Name}': {workflowPermission.ErrorMessage}");
+        }
+
+        _logger.LogInformation("User {UserId} has permission to create stage in workflow {WorkflowId} ({WorkflowName})", 
+            userIdLong, input.WorkflowId, workflow.Name);
+
             // Use transaction to ensure data consistency
             var result = await _db.Ado.UseTranAsync(async () =>
             {
-                // Validate if workflow exists
-                var workflow = await _workflowRepository.GetByIdAsync(input.WorkflowId);
-                if (workflow == null)
+                // Re-validate workflow exists inside transaction
+                var workflowInTransaction = await _workflowRepository.GetByIdAsync(input.WorkflowId);
+                if (workflowInTransaction == null)
                 {
                     throw new CRMException(ErrorCodeEnum.NotFound, $"Workflow with ID {input.WorkflowId} not found");
                 }
@@ -194,12 +222,40 @@ namespace FlowFlex.Application.Service.OW
         /// </summary>
         public async Task<bool> UpdateAsync(long id, StageInputDto input)
         {
-            // Get current stage information first (outside transaction for validation)
-            var stage = await _stageRepository.GetByIdAsync(id);
-            if (stage == null)
-            {
-                throw new CRMException(ErrorCodeEnum.DataNotFound, "Stage not found");
-            }
+        // Get current stage information first (outside transaction for validation)
+        var stage = await _stageRepository.GetByIdAsync(id);
+        if (stage == null)
+        {
+            throw new CRMException(ErrorCodeEnum.DataNotFound, "Stage not found");
+        }
+
+        // Get workflow information for error messages
+        var workflow = await _workflowRepository.GetByIdAsync(stage.WorkflowId);
+        if (workflow == null)
+        {
+            throw new CRMException(ErrorCodeEnum.NotFound, "Workflow not found");
+        }
+
+        // Check Workflow permission before updating stage
+        var userId = _userContext?.UserId;
+        if (string.IsNullOrEmpty(userId) || !long.TryParse(userId, out var userIdLong))
+        {
+            throw new CRMException(ErrorCodeEnum.AuthenticationFail, "User not authenticated");
+        }
+
+        var workflowPermission = await _permissionService.CheckWorkflowAccessAsync(
+            userIdLong, 
+            stage.WorkflowId, 
+            Domain.Shared.Enums.Permission.OperationTypeEnum.Operate);
+
+        if (!workflowPermission.Success || !workflowPermission.CanOperate)
+        {
+            throw new CRMException(ErrorCodeEnum.BusinessError, 
+                $"No permission to update stage '{stage.Name}' in workflow '{workflow.Name}': {workflowPermission.ErrorMessage}");
+        }
+
+        _logger.LogInformation("User {UserId} has permission to update stage {StageId} ({StageName}) in workflow {WorkflowId} ({WorkflowName})", 
+            userIdLong, id, stage.Name, stage.WorkflowId, workflow.Name);
 
             // Validate stage name uniqueness within workflow (excluding current stage)
             if (await _stageRepository.IsNameExistsInWorkflowAsync(stage.WorkflowId, input.Name, id))

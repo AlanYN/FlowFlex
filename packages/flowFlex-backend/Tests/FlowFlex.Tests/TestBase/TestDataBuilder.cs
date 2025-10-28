@@ -350,6 +350,116 @@ namespace FlowFlex.Tests.TestBase
         }
 
         #endregion
+
+        #region Case (Onboarding) Builders
+
+        /// <summary>
+        /// Create a Case (Onboarding) with Public permission mode
+        /// In Public mode, Case inherits Workflow permissions
+        /// </summary>
+        public static Onboarding CreateCase(long workflowId, long? ownership = null)
+        {
+            return new Onboarding
+            {
+                Id = 10000,
+                WorkflowId = workflowId,
+                ViewPermissionMode = ViewPermissionModeEnum.Public,
+                ViewPermissionSubjectType = Domain.Shared.Enums.OW.PermissionSubjectTypeEnum.Team,
+                ViewTeams = null,
+                ViewUsers = null,
+                OperatePermissionSubjectType = Domain.Shared.Enums.OW.PermissionSubjectTypeEnum.Team,
+                OperateTeams = null,
+                OperateUsers = null,
+                Ownership = ownership,
+                TenantId = DefaultTenantId,
+                CreateUserId = OwnerUserId
+            };
+        }
+
+        /// <summary>
+        /// Create a Case (Onboarding) with VisibleToTeams permission mode and team restrictions
+        /// </summary>
+        public static Onboarding CreateCaseWithTeamPermissions(
+            long workflowId,
+            List<string> viewTeams,
+            List<string> operateTeams = null,
+            long? ownership = null)
+        {
+            return new Onboarding
+            {
+                Id = 10001,
+                WorkflowId = workflowId,
+                ViewPermissionMode = ViewPermissionModeEnum.VisibleToTeams,
+                ViewPermissionSubjectType = Domain.Shared.Enums.OW.PermissionSubjectTypeEnum.Team,
+                ViewTeams = Newtonsoft.Json.JsonConvert.SerializeObject(viewTeams),
+                ViewUsers = null,
+                OperatePermissionSubjectType = operateTeams != null 
+                    ? Domain.Shared.Enums.OW.PermissionSubjectTypeEnum.Team 
+                    : Domain.Shared.Enums.OW.PermissionSubjectTypeEnum.Team,
+                OperateTeams = operateTeams != null 
+                    ? Newtonsoft.Json.JsonConvert.SerializeObject(operateTeams) 
+                    : null,
+                OperateUsers = null,
+                Ownership = ownership,
+                TenantId = DefaultTenantId,
+                CreateUserId = OwnerUserId
+            };
+        }
+
+        /// <summary>
+        /// Create a Case (Onboarding) with VisibleToTeams permission mode and user restrictions
+        /// </summary>
+        public static Onboarding CreateCaseWithUserPermissions(
+            long workflowId,
+            List<long> viewUsers,
+            List<long> operateUsers = null,
+            long? ownership = null)
+        {
+            return new Onboarding
+            {
+                Id = 10002,
+                WorkflowId = workflowId,
+                ViewPermissionMode = ViewPermissionModeEnum.VisibleToTeams,
+                ViewPermissionSubjectType = Domain.Shared.Enums.OW.PermissionSubjectTypeEnum.User,
+                ViewTeams = null,
+                ViewUsers = Newtonsoft.Json.JsonConvert.SerializeObject(viewUsers),
+                OperatePermissionSubjectType = operateUsers != null 
+                    ? Domain.Shared.Enums.OW.PermissionSubjectTypeEnum.User 
+                    : Domain.Shared.Enums.OW.PermissionSubjectTypeEnum.Team,
+                OperateTeams = null,
+                OperateUsers = operateUsers != null 
+                    ? Newtonsoft.Json.JsonConvert.SerializeObject(operateUsers) 
+                    : null,
+                Ownership = ownership,
+                TenantId = DefaultTenantId,
+                CreateUserId = OwnerUserId
+            };
+        }
+
+        /// <summary>
+        /// Create a Case (Onboarding) owned by a specific user
+        /// Owner has full access regardless of other permission settings
+        /// </summary>
+        public static Onboarding CreateCaseWithOwnership(long workflowId, long ownerUserId)
+        {
+            return new Onboarding
+            {
+                Id = 10003,
+                WorkflowId = workflowId,
+                ViewPermissionMode = ViewPermissionModeEnum.VisibleToTeams,
+                ViewPermissionSubjectType = Domain.Shared.Enums.OW.PermissionSubjectTypeEnum.Team,
+                ViewTeams = null,
+                ViewUsers = null,
+                OperatePermissionSubjectType = Domain.Shared.Enums.OW.PermissionSubjectTypeEnum.Team,
+                OperateTeams = null,
+                OperateUsers = null,
+                Ownership = ownerUserId, // Owner has full permission
+                TenantId = DefaultTenantId,
+                CreateUserId = OwnerUserId
+            };
+        }
+
+        #endregion
     }
 }
 
