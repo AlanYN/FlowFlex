@@ -237,6 +237,7 @@ import ProgressViewIcon from '@assets/svg/onboard/progressView.svg';
 import FlowflexUserSelector from '@/components/form/flowflexUser/index.vue';
 import InputTag from '@/components/global/u-input-tags/index.vue';
 import { ProjectPermissionEnum } from '@/enums/permissionEnum';
+import { menuRoles } from '@/stores/modules/menuFunction';
 
 interface Workflow {
 	id: string;
@@ -583,6 +584,39 @@ const handleSortChange = (sort) => {
 	// 可以在这里处理排序逻辑
 };
 
+// 根据团队ID获取团队名称（异步版本，确保数据已加载）
+const getTeamNameById = async (teamId: string): Promise<string> => {
+	if (!teamId) return '';
+
+	// 从缓存的用户数据中查找团队名称
+	const findTeamName = (data: any[], id: string): string | null => {
+		for (const item of data) {
+			if (item.type === 'team' && item.id === id) {
+				return item.name;
+			}
+			if (item.children && item.children.length > 0) {
+				const found = findTeamName(item.children, id);
+				if (found) return found;
+			}
+		}
+		return null;
+	};
+
+	try {
+		const menuStore = menuRoles();
+		// 确保数据已加载
+		const userData = await menuStore.getFlowflexUserDataWithCache();
+		if (userData && userData.length > 0) {
+			const teamName = findTeamName(userData, teamId);
+			return teamName || teamId;
+		}
+	} catch (error) {
+		console.warn('Failed to get team name:', error);
+	}
+
+	return teamId;
+};
+
 // 导出PDF文件功能
 const exportChecklistItem = async (checklist: Checklist) => {
 	exportLoading.value = true;
@@ -595,9 +629,14 @@ const exportChecklistItem = async (checklist: Checklist) => {
 		} catch {
 			tasksData = [];
 		}
+
+		// 获取团队名称（异步加载）
+		const teamName = await getTeamNameById(checklist.team);
+
 		await exportChecklistToPdf(
 			{
 				...checklist,
+				team: teamName, // 使用团队名称而不是ID
 				tasks: tasksData,
 			},
 			{ workflows: workflows.value, stages: stages.value },
