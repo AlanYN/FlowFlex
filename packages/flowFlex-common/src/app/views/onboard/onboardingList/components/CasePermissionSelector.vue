@@ -223,14 +223,23 @@ const shouldShowSelector = computed(() => {
 });
 
 const handleBeforeOpen = async () => {
-	if (
-		localPermissions.viewPermissionMode !== CasePermissionModeEnum.Public &&
-		localPermissions.viewTeams.length === 0 &&
-		localPermissions.viewUsers.length === 0
-	) {
-		ElMessage.warning('Please select a team or user for view permission');
-		return false;
+	if (localPermissions.viewPermissionMode !== CasePermissionModeEnum.Public) {
+		if (
+			localPermissions.viewTeams.length === 0 &&
+			localPermissions.viewPermissionSubjectType === PermissionSubjectTypeEnum.Team
+		) {
+			ElMessage.warning('Please select a team for view permission');
+			return false;
+		}
+		if (
+			localPermissions.viewUsers.length === 0 &&
+			localPermissions.viewPermissionSubjectType === PermissionSubjectTypeEnum.User
+		) {
+			ElMessage.warning('Please select a user for view permission');
+			return false;
+		}
 	}
+
 	return true;
 };
 // 本地权限数据
@@ -550,15 +559,26 @@ const handleLeftChange = async (needEditLocalPermissions: boolean = true) => {
 			}
 		});
 
-		// 递归克隆并过滤子节点，只保留在 selectedIdSet 中的节点
-		const cloneNodeWithFilter = (node: FlowflexUser): FlowflexUser => {
+		// 递归克隆并过滤子节点：父节点被选中时保留全部子节点
+		const cloneNodeWithFilter = (
+			node: FlowflexUser,
+			parentSelected: boolean = false
+		): FlowflexUser => {
 			const newNode: FlowflexUser = { ...node };
+			const isSelected = selectedIdSet.has(node.id);
+			const shouldIncludeChildren = parentSelected || isSelected;
 
 			if (newNode.children && newNode.children.length > 0) {
-				// 递归克隆子节点，只保留在 selectedIdSet 中的
-				newNode.children = newNode.children
-					.filter((child) => selectedIdSet.has(child.id))
-					.map((child) => cloneNodeWithFilter(child));
+				if (shouldIncludeChildren) {
+					newNode.children = newNode.children.map((child) =>
+						cloneNodeWithFilter(child, shouldIncludeChildren)
+					);
+				} else {
+					// 父节点未选中时，只保留用户在白名单中的节点
+					newNode.children = newNode.children
+						.filter((child) => selectedIdSet.has(child.id))
+						.map((child) => cloneNodeWithFilter(child, shouldIncludeChildren));
+				}
 			}
 
 			return newNode;
@@ -567,7 +587,7 @@ const handleLeftChange = async (needEditLocalPermissions: boolean = true) => {
 		const newTreeData = Array.from(resultIds)
 			.map((id: string) => nodeMap.get(id))
 			.filter(Boolean)
-			.map((node) => cloneNodeWithFilter(node!));
+			.map((node) => cloneNodeWithFilter(node!, selectedIdSet.has(node!.id)));
 
 		operateChoosableTreeData.value = newTreeData.length > 0 ? newTreeData : [];
 		console.log(
@@ -759,8 +779,16 @@ watch(
 		await updateViewChoosableTreeData();
 		// 重新执行第二层过滤
 		if (shouldShowSelector.value && localPermissions.viewTeams.length > 0) {
-			handleLeftChange();
+			handleLeftChange(false);
 		}
+		localPermissions.viewPermissionMode = CasePermissionModeEnum.Public;
+		localPermissions.viewTeams = [];
+		localPermissions.viewUsers = [];
+		localPermissions.viewPermissionSubjectType = PermissionSubjectTypeEnum.Team;
+		localPermissions.useSameTeamForOperate = true;
+		localPermissions.operateTeams = [];
+		localPermissions.operateUsers = [];
+		localPermissions.operatePermissionSubjectType = PermissionSubjectTypeEnum.Team;
 	}
 );
 

@@ -90,6 +90,7 @@ interface Props {
 	viewLimitData?: string[];
 	operateLimitData?: string[];
 	workFlowViewPermissionMode?: number;
+	workFlowViewUseSameTeamForOperate?: boolean;
 	isWorkflowLevel?: boolean; // 是否是 workflow 级别调用，true 时不使用 workflow 过滤
 }
 
@@ -103,6 +104,7 @@ const props = withDefaults(defineProps<Props>(), {
 	viewLimitData: () => [],
 	operateLimitData: () => [],
 	workFlowViewPermissionMode: undefined,
+	workFlowViewUseSameTeamForOperate: undefined,
 	isWorkflowLevel: false,
 });
 
@@ -465,7 +467,14 @@ const leftChange = async (value, needEditLocalPermissions: boolean = true) => {
 			}
 		} else if (mode === ViewPermissionModeEnum.Public) {
 			// Public 模式：C = operateLimitData
-			dataC = operateLimitData;
+			if (
+				props.workFlowViewPermissionMode === ViewPermissionModeEnum.Public &&
+				props.workFlowViewUseSameTeamForOperate
+			) {
+				dataC = dataA;
+			} else {
+				dataC = operateLimitData;
+			}
 		} else if (mode === ViewPermissionModeEnum.InvisibleTo) {
 			// InvisibleTo 黑名单模式：C = (A - B) ∩ operateLimitData
 			console.log('=== InvisibleTo Mode: C = (A - B) ∩ operateLimitData ===');

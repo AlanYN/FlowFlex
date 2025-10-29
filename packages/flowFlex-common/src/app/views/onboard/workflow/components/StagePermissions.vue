@@ -9,6 +9,7 @@
 			:view-limit-data="workFlowViewTeams"
 			:operate-limit-data="workFlowOperateTeams"
 			:work-flow-view-permission-mode="workFlowViewPermissionMode"
+			:work-flow-view-use-same-team-for-operate="workFlowViewUseSameTeamForOperate"
 			:is-workflow-level="false"
 		/>
 	</div>
@@ -29,6 +30,7 @@ interface Props {
 	workFlowOperateTeams?: string[];
 	workFlowViewTeams?: string[];
 	workFlowViewPermissionMode?: number;
+	workFlowViewUseSameTeamForOperate?: boolean;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -40,7 +42,8 @@ const props = withDefaults(defineProps<Props>(), {
 	}),
 	workFlowOperateTeams: () => [],
 	workFlowViewTeams: () => [],
-	viewPermissionMode: ViewPermissionModeEnum.Public,
+	workFlowViewPermissionMode: ViewPermissionModeEnum.Public,
+	workFlowViewUseSameTeamForOperate: undefined,
 });
 
 const emit = defineEmits(['update:modelValue']);

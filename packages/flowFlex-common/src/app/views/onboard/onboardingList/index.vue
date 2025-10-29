@@ -653,7 +653,6 @@
 				</el-form-item>
 
 				<el-form-item label="Ownership" prop="ownership">
-					s
 					<FlowflexUserSelector
 						v-model="formData.ownership"
 						selection-type="user"
