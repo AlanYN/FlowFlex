@@ -29,7 +29,7 @@
 					selectionType="team"
 					:clearable="true"
 					:choosable-tree-data="viewChoosableTreeData"
-					@change="leftChange"
+					@change="leftChange(localPermissions.viewTeams)"
 				/>
 			</div>
 		</div>
@@ -65,6 +65,7 @@
 					selectionType="team"
 					:clearable="true"
 					:choosable-tree-data="operateChoosableTreeData"
+					:before-open="handleBeforeOpen"
 				/>
 			</div>
 		</div>
@@ -77,7 +78,7 @@ import { ViewPermissionModeEnum } from '@/enums/permissionEnum';
 import FlowflexUserSelector from '@/components/form/flowflexUser/index.vue';
 import { menuRoles } from '@/stores/modules/menuFunction';
 import type { FlowflexUser } from '#/golbal';
-
+import { ElMessage } from 'element-plus';
 // Props
 interface Props {
 	modelValue?: {
@@ -143,6 +144,17 @@ const fullTreeDataCache = ref<FlowflexUser[] | null>(null);
 
 // 使用一个 ref 来跟踪是否正在处理内部更新
 const isProcessingInternalUpdate = ref(false);
+
+const handleBeforeOpen = async () => {
+	if (
+		localPermissions.viewPermissionMode !== ViewPermissionModeEnum.Public &&
+		localPermissions.viewTeams.length === 0
+	) {
+		ElMessage.warning('Please select a team for view permission');
+		return false;
+	}
+	return true;
+};
 
 const getFullTreeData = async (): Promise<FlowflexUser[]> => {
 	if (!fullTreeDataCache.value) {
@@ -301,13 +313,12 @@ const leftTypeChange = async () => {
 onMounted(() => {
 	nextTick(() => {
 		updateViewChoosableTreeData().then(() => {
-			// 初始化时不调用 leftChange，让右侧组件直接回显已保存的数据
-			// 只有当用户操作左侧选择器时，才会触发 leftChange 进行过滤
+			leftChange(localPermissions.viewTeams, false);
 		});
 	});
 });
 
-const leftChange = async (value) => {
+const leftChange = async (value, needEditLocalPermissions: boolean = true) => {
 	const mode = localPermissions.viewPermissionMode;
 
 	if (mode === ViewPermissionModeEnum.InvisibleTo) {
@@ -406,6 +417,8 @@ const leftChange = async (value) => {
 				operateChoosableTreeData.value = undefined;
 				return;
 			}
+		} else if (mode === ViewPermissionModeEnum.Public) {
+			dataC = dataA;
 		} else if (mode === ViewPermissionModeEnum.InvisibleTo) {
 			// InvisibleTo: C = A - B（全部数据减去左侧已选）
 			dataA.forEach((id) => {
@@ -450,6 +463,9 @@ const leftChange = async (value) => {
 					dataC = operateLimitData;
 				}
 			}
+		} else if (mode === ViewPermissionModeEnum.Public) {
+			// Public 模式：C = operateLimitData
+			dataC = operateLimitData;
 		} else if (mode === ViewPermissionModeEnum.InvisibleTo) {
 			// InvisibleTo 黑名单模式：C = (A - B) ∩ operateLimitData
 			console.log('=== InvisibleTo Mode: C = (A - B) ∩ operateLimitData ===');
@@ -542,7 +558,7 @@ const leftChange = async (value) => {
 	operateChoosableTreeData.value = newTreeData.length > 0 ? newTreeData : [];
 
 	// 清理右侧已选数据：移除不在可选范围内的项
-	if (localPermissions.operateTeams.length > 0) {
+	if (localPermissions.operateTeams.length > 0 && needEditLocalPermissions) {
 		const validOperateTeams = localPermissions.operateTeams.filter((teamId) =>
 			baseAvailableIds.has(teamId)
 		);

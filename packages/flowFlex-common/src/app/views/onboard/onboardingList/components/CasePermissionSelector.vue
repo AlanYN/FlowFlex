@@ -57,7 +57,7 @@
 					selection-type="team"
 					clearable
 					:choosable-tree-data="viewChoosableTreeData"
-					@change="handleLeftChange"
+					@change="handleLeftChange(true)"
 				/>
 
 				<!-- User 选择器 -->
@@ -71,7 +71,7 @@
 					selection-type="user"
 					:clearable="true"
 					:choosable-tree-data="viewChoosableTreeData"
-					@change="handleLeftChange"
+					@change="handleLeftChange(true)"
 				/>
 			</div>
 		</div>
@@ -145,6 +145,7 @@
 					selection-type="team"
 					:clearable="true"
 					:choosable-tree-data="operateChoosableTreeData"
+					:before-open="handleBeforeOpen"
 				/>
 
 				<!-- User 选择器 -->
@@ -157,6 +158,7 @@
 					selection-type="user"
 					:clearable="true"
 					:choosable-tree-data="operateChoosableTreeData"
+					:before-open="handleBeforeOpen"
 				/>
 			</div>
 		</div>
@@ -174,7 +176,7 @@ import FlowflexUserSelector from '@/components/form/flowflexUser/index.vue';
 import { menuRoles } from '@/stores/modules/menuFunction';
 import type { FlowflexUser } from '#/golbal';
 import { getWorkflowDetail } from '@/apis/ow/index';
-
+import { ElMessage } from 'element-plus';
 // Props
 interface Props {
 	modelValue?: {
@@ -220,6 +222,17 @@ const shouldShowSelector = computed(() => {
 	return mode === CasePermissionModeEnum.VisibleTo || mode === CasePermissionModeEnum.InvisibleTo;
 });
 
+const handleBeforeOpen = async () => {
+	if (
+		localPermissions.viewPermissionMode !== CasePermissionModeEnum.Public &&
+		localPermissions.viewTeams.length === 0 &&
+		localPermissions.viewUsers.length === 0
+	) {
+		ElMessage.warning('Please select a team or user for view permission');
+		return false;
+	}
+	return true;
+};
 // 本地权限数据
 const localPermissions = reactive({
 	viewPermissionMode: props.modelValue.viewPermissionMode ?? CasePermissionModeEnum.Public,
@@ -450,7 +463,7 @@ const updateViewChoosableTreeData = async () => {
 };
 
 // 处理左侧选择变化的核心过滤逻辑（第二层过滤）
-const handleLeftChange = async () => {
+const handleLeftChange = async (needEditLocalPermissions: boolean = true) => {
 	const mode = localPermissions.viewPermissionMode;
 	const leftSubjectType = localPermissions.viewPermissionSubjectType;
 
@@ -562,31 +575,33 @@ const handleLeftChange = async () => {
 			operateChoosableTreeData.value
 		);
 
-		// 清理右侧已选数据：移除不在可选范围内的项
-		if (localPermissions.operatePermissionSubjectType === PermissionSubjectTypeEnum.Team) {
-			if (localPermissions.operateTeams.length > 0) {
-				const validOperateTeams = localPermissions.operateTeams.filter((teamId) =>
-					selectedIdSet.has(teamId)
-				);
-				if (validOperateTeams.length !== localPermissions.operateTeams.length) {
-					console.log(
-						'Removing invalid operate teams:',
-						localPermissions.operateTeams.filter((id) => !selectedIdSet.has(id))
+		if (needEditLocalPermissions) {
+			// 清理右侧已选数据：移除不在可选范围内的项
+			if (localPermissions.operatePermissionSubjectType === PermissionSubjectTypeEnum.Team) {
+				if (localPermissions.operateTeams.length > 0) {
+					const validOperateTeams = localPermissions.operateTeams.filter((teamId) =>
+						selectedIdSet.has(teamId)
 					);
-					localPermissions.operateTeams = validOperateTeams;
+					if (validOperateTeams.length !== localPermissions.operateTeams.length) {
+						console.log(
+							'Removing invalid operate teams:',
+							localPermissions.operateTeams.filter((id) => !selectedIdSet.has(id))
+						);
+						localPermissions.operateTeams = validOperateTeams;
+					}
 				}
-			}
-		} else {
-			if (localPermissions.operateUsers.length > 0) {
-				const validOperateUsers = localPermissions.operateUsers.filter((userId) =>
-					selectedIdSet.has(userId)
-				);
-				if (validOperateUsers.length !== localPermissions.operateUsers.length) {
-					console.log(
-						'Removing invalid operate users:',
-						localPermissions.operateUsers.filter((id) => !selectedIdSet.has(id))
+			} else {
+				if (localPermissions.operateUsers.length > 0) {
+					const validOperateUsers = localPermissions.operateUsers.filter((userId) =>
+						selectedIdSet.has(userId)
 					);
-					localPermissions.operateUsers = validOperateUsers;
+					if (validOperateUsers.length !== localPermissions.operateUsers.length) {
+						console.log(
+							'Removing invalid operate users:',
+							localPermissions.operateUsers.filter((id) => !selectedIdSet.has(id))
+						);
+						localPermissions.operateUsers = validOperateUsers;
+					}
 				}
 			}
 		}
@@ -673,8 +688,7 @@ onMounted(() => {
 		await fetchWorkflowData();
 		// 执行第一层过滤（更新左侧可选数据）
 		await updateViewChoosableTreeData();
-		// 初始化时不调用 handleLeftChange，让右侧组件直接回显已保存的数据
-		// 只有当用户操作左侧选择器时，才会触发 handleLeftChange 进行过滤
+		handleLeftChange(false);
 	});
 });
 

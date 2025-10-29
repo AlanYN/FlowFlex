@@ -355,6 +355,7 @@ interface Props {
 	clearable?: boolean; // 是否可清除
 	checkStrictly?: boolean; // 是否严格模式，不遵循父子节点联动逻辑
 	choosableTreeData?: FlowflexUser[]; // 自定义可选择的树形数据，传入时优先使用此数据而不是缓存数据，支持动态更新
+	beforeOpen?: () => boolean | string | Promise<boolean | string>; // 打开弹窗前的钩子函数，返回 false 或 string 则阻止打开，string 为错误提示信息
 }
 
 interface Emits {
@@ -497,19 +498,40 @@ const filterNode = (value: string, data: any): boolean => {
 // 搜索处理（现在通过 filteredTreeData 计算属性自动处理）
 
 // 打开弹窗
-const openModal = () => {
+const openModal = async () => {
 	if (props.disabled || props.readonly) return;
+
+	// 如果提供了 beforeOpen 钩子函数，先执行条件判断
+	if (props.beforeOpen) {
+		try {
+			const result = await props.beforeOpen();
+
+			// 如果返回 false，阻止打开弹窗
+			if (result === false) {
+				return;
+			}
+
+			// 如果返回字符串，显示错误提示并阻止打开弹窗
+			if (typeof result === 'string') {
+				ElMessage.warning(result);
+				return;
+			}
+
+			// 如果返回 true，继续打开弹窗
+		} catch (error) {
+			// 如果执行过程中出错，显示错误信息并阻止打开弹窗
+			console.error('Error in beforeOpen hook:', error);
+			ElMessage.error(error instanceof Error ? error.message : 'Failed to validate');
+			return;
+		}
+	}
 
 	modalVisible.value = true;
 	tempSelectedItems.value = [...selectedItems.value];
 	emit('modal-open');
 
 	// 如果没有数据，或者有 choosableTreeData（需要使用限定的数据），则加载数据
-	if (
-		treeData.value.length === 0 ||
-		!props.choosableTreeData ||
-		props.choosableTreeData.length === 0
-	) {
+	if (treeData.value.length === 0 || props.choosableTreeData) {
 		initializeData();
 	} else {
 		// 设置树的选中状态
@@ -848,12 +870,13 @@ const initializeData = async (searchQuery = '') => {
 		let data: FlowflexUser[] = [];
 
 		// 如果传递了 choosableTreeData，优先使用传递的数据
-		if (
-			props.choosableTreeData !== undefined &&
-			Array.isArray(props.choosableTreeData) &&
-			props.choosableTreeData.length > 0
-		) {
+		if (props.choosableTreeData !== undefined) {
+			console.log('Using provided choosableTreeData instead of cache');
 			data = props.choosableTreeData;
+			// 如果是空数组，说明没有可选数据，不应该从缓存加载
+			if (data.length === 0) {
+				console.log('choosableTreeData is empty array, no data available');
+			}
 		} else {
 			// 使用 store 中的缓存方法
 			await menuStore.clearFlowflexUserData();
@@ -997,12 +1020,7 @@ watch(
 // 组件挂载时初始化
 onMounted(async () => {
 	// 如果传递了 choosableTreeData（包括空数组），优先初始化数据
-	if (
-		props.choosableTreeData !== undefined ||
-		!props.choosableTreeData ||
-		(Array.isArray(props.choosableTreeData) &&
-			(props.choosableTreeData as FlowflexUser[]).length === 0)
-	) {
+	if (props.choosableTreeData !== undefined) {
 		await initializeData();
 	} else {
 		// 监听modelValue变化（会自动处理初始值）
@@ -1027,7 +1045,7 @@ watch(() => props.modelValue, handleModelValueChange, { deep: true });
 watch(
 	() => props.choosableTreeData,
 	async (newData) => {
-		if (newData !== undefined && Array.isArray(newData) && newData.length > 0) {
+		if (newData !== undefined) {
 			// 只要 choosableTreeData 有定义（包括空数组），就重新初始化
 			console.log('choosableTreeData changed, reinitializing data');
 			await initializeData();
