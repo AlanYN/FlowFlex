@@ -25,12 +25,12 @@
 						<!-- Assignments区域 -->
 						<div v-if="questionnaire.assignments" class="space-y-2 mt-3">
 							<div class="flex items-center text-sm">
-								<span class="assignment-label">Assignments:</span>
+								<span class="preview_assignment-label">Assignments:</span>
 							</div>
 							<div class="flex items-start gap-2 flex-wrap assignments-container">
 								<!-- 显示前5个组合的assignments -->
 								<span
-									class="assignment-tag"
+									class="preview_assignment-tag"
 									v-for="assignment in getDisplayedAssignments(
 										questionnaire.assignments
 									)"
@@ -60,15 +60,15 @@
 									trigger="click"
 								>
 									<template #reference>
-										<span class="assignment-tag-more">
+										<span class="preview_assignment-tag-more">
 											+{{ getRemainingCount(questionnaire.assignments) }}
 										</span>
 									</template>
 									<div class="popover-content">
-										<h4 class="popover-title">More Assignments</h4>
-										<div class="popover-tags">
+										<h4 class="preview_popover-title">More Assignments</h4>
+										<div class="preview_popover-tags">
 											<span
-												class="popover-tag"
+												class="preview_popover-tag"
 												v-for="assignment in getRemainingAssignments(
 													questionnaire.assignments
 												)"
@@ -1335,17 +1335,17 @@ const getQuestionNumber = (sectionIndex: number, itemIndex: number) => {
 }
 
 /* Assignments样式 */
-.assignment-label {
+.preview_assignment-label {
 	color: var(--el-text-color-secondary);
 	font-weight: 500;
 	min-width: 70px;
 }
 
-html.dark .assignment-label {
+html.dark .preview_assignment-label {
 	color: var(--el-text-color-placeholder);
 }
 
-.assignment-tag {
+.preview_assignment-tag {
 	@apply inline-flex items-center rounded-full border text-xs font-semibold transition-colors bg-primary-50 text-primary-500 border-primary-200 px-2 py-1;
 	white-space: nowrap;
 	max-width: 300px;
@@ -1356,11 +1356,11 @@ html.dark .assignment-label {
 	/* 增加右边距 */
 }
 
-.assignment-tag:hover {
+.preview_assignment-tag:hover {
 	@apply bg-primary-100 border-primary-300;
 }
 
-.assignment-tag-more {
+.preview_assignment-tag-more {
 	@apply inline-flex items-center rounded-full border text-xs font-semibold transition-colors bg-primary-50 text-primary-500 border-primary-200 px-2 py-1;
 	white-space: nowrap;
 	width: 40px;
@@ -1375,11 +1375,11 @@ html.dark .assignment-label {
 	/* 增加右边距 */
 }
 
-.assignment-tag-more:hover {
+.preview_assignment-tag-more:hover {
 	@apply bg-primary-100 border-primary-300;
 }
 
-.popover-title {
+.preview_popover-title {
 	font-size: 14px;
 	font-weight: 600;
 	color: var(--primary-700);
@@ -1387,13 +1387,13 @@ html.dark .assignment-label {
 	margin-bottom: 10px;
 }
 
-.popover-tags {
+.preview_popover-tags {
 	display: flex;
 	flex-wrap: wrap;
 	gap: 8px;
 }
 
-.popover-tag {
+.preview_popover-tag {
 	@apply inline-flex items-center rounded-full border text-xs font-semibold transition-colors bg-primary-50 text-primary-500 border-primary-200 px-2 py-1;
 	white-space: nowrap;
 	width: 150px;
@@ -1406,7 +1406,7 @@ html.dark .assignment-label {
 	/* 防止收缩 */
 }
 
-.popover-tag:hover {
+.preview_popover-tag:hover {
 	@apply bg-primary-100 border-primary-300;
 }
 
