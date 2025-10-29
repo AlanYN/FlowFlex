@@ -84,7 +84,7 @@
 
 				<el-checkbox
 					v-if="shouldShowSelector"
-					v-model="localPermissions.useSameGroups"
+					v-model="localPermissions.useSameTeamForOperate"
 					:class="{
 						invisible:
 							localPermissions.viewPermissionMode ===
@@ -111,10 +111,10 @@
 				</p>
 			</div>
 
-			<!-- Available Teams/Users（仅在不勾选 useSameGroups 时显示）-->
+			<!-- Available Teams/Users（仅在不勾选 useSameTeamForOperate 时显示）-->
 			<div
 				v-if="
-					(!localPermissions.useSameGroups && shouldShowSelector) ||
+					(!localPermissions.useSameTeamForOperate && shouldShowSelector) ||
 					localPermissions.viewPermissionMode === CasePermissionModeEnum.InvisibleTo
 				"
 				class="space-y-2"
@@ -184,7 +184,7 @@ interface Props {
 		viewTeams: string[];
 		viewUsers: string[];
 		viewPermissionSubjectType: number;
-		useSameGroups: boolean;
+		useSameTeamForOperate: boolean;
 		operateTeams: string[];
 		operateUsers: string[];
 		operatePermissionSubjectType: number;
@@ -198,7 +198,7 @@ const props = withDefaults(defineProps<Props>(), {
 		viewTeams: [],
 		viewUsers: [],
 		viewPermissionSubjectType: PermissionSubjectTypeEnum.Team,
-		useSameGroups: true,
+		useSameTeamForOperate: true,
 		operateTeams: [],
 		operateUsers: [],
 		operatePermissionSubjectType: PermissionSubjectTypeEnum.Team,
@@ -240,7 +240,7 @@ const localPermissions = reactive({
 	viewUsers: [...(props.modelValue.viewUsers || [])],
 	viewPermissionSubjectType:
 		props.modelValue.viewPermissionSubjectType ?? PermissionSubjectTypeEnum.Team,
-	useSameGroups: props.modelValue.useSameGroups ?? true,
+	useSameTeamForOperate: props.modelValue.useSameTeamForOperate ?? true,
 	operateTeams: [...(props.modelValue.operateTeams || [])],
 	operateUsers: [...(props.modelValue.operateUsers || [])],
 	operatePermissionSubjectType:
@@ -477,7 +477,7 @@ const handleLeftChange = async (needEditLocalPermissions: boolean = true) => {
 		selectedIds = localPermissions.viewUsers;
 	}
 	if (mode === CasePermissionModeEnum.InvisibleTo) {
-		localPermissions.useSameGroups = false;
+		localPermissions.useSameTeamForOperate = false;
 	}
 
 	// Public/Private 模式：不过滤
@@ -710,16 +710,10 @@ const processPermissionChanges = () => {
 			if (localPermissions.viewUsers.length > 0) {
 				localPermissions.viewUsers = [];
 			}
-			if (localPermissions.operateTeams.length > 0) {
-				localPermissions.operateTeams = [];
-			}
-			if (localPermissions.operateUsers.length > 0) {
-				localPermissions.operateUsers = [];
-			}
 		}
 
 		// 处理 operateTeams/operateUsers 的同步
-		if (localPermissions.useSameGroups) {
+		if (localPermissions.useSameTeamForOperate) {
 			// 勾选"使用相同"时，同步 view 的选择到 operate
 			const newOperateTeams = shouldShowSelector.value ? [...localPermissions.viewTeams] : [];
 			const newOperateUsers = shouldShowSelector.value ? [...localPermissions.viewUsers] : [];
@@ -742,7 +736,7 @@ const processPermissionChanges = () => {
 			viewTeams: [...localPermissions.viewTeams],
 			viewUsers: [...localPermissions.viewUsers],
 			viewPermissionSubjectType: localPermissions.viewPermissionSubjectType,
-			useSameGroups: localPermissions.useSameGroups,
+			useSameTeamForOperate: localPermissions.useSameTeamForOperate,
 			operateTeams: [...localPermissions.operateTeams],
 			operateUsers: [...localPermissions.operateUsers],
 			operatePermissionSubjectType: localPermissions.operatePermissionSubjectType,
@@ -806,7 +800,7 @@ watch(
 				JSON.stringify(localPermissions.viewTeams) !== JSON.stringify(newVal.viewTeams) ||
 				JSON.stringify(localPermissions.viewUsers) !== JSON.stringify(newVal.viewUsers) ||
 				localPermissions.viewPermissionSubjectType !== newVal.viewPermissionSubjectType ||
-				localPermissions.useSameGroups !== newVal.useSameGroups ||
+				localPermissions.useSameTeamForOperate !== newVal.useSameTeamForOperate ||
 				JSON.stringify(localPermissions.operateTeams) !==
 					JSON.stringify(newVal.operateTeams) ||
 				JSON.stringify(localPermissions.operateUsers) !==
@@ -822,7 +816,7 @@ watch(
 				localPermissions.viewUsers = [...(newVal.viewUsers || [])];
 				localPermissions.viewPermissionSubjectType =
 					newVal.viewPermissionSubjectType ?? PermissionSubjectTypeEnum.Team;
-				localPermissions.useSameGroups = newVal.useSameGroups ?? true;
+				localPermissions.useSameTeamForOperate = newVal.useSameTeamForOperate ?? true;
 				localPermissions.operateTeams = [...(newVal.operateTeams || [])];
 				localPermissions.operateUsers = [...(newVal.operateUsers || [])];
 				localPermissions.operatePermissionSubjectType =

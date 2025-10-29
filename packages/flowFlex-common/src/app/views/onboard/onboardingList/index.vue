@@ -848,6 +848,7 @@ const formData = reactive({
 	operateTeams: [] as string[],
 	operateUsers: [] as string[],
 	operatePermissionSubjectType: PermissionSubjectTypeEnum.Team,
+	useSameTeamForOperate: true,
 });
 
 const formRules = {
@@ -873,12 +874,10 @@ const casePermissions = computed({
 		viewTeams: formData.viewTeams,
 		viewUsers: formData.viewUsers,
 		viewPermissionSubjectType: formData.viewPermissionSubjectType,
-		useSameGroups:
-			JSON.stringify(formData.viewTeams) === JSON.stringify(formData.operateTeams) &&
-			JSON.stringify(formData.viewUsers) === JSON.stringify(formData.operateUsers),
 		operateTeams: formData.operateTeams,
 		operateUsers: formData.operateUsers,
 		operatePermissionSubjectType: formData.operatePermissionSubjectType,
+		useSameTeamForOperate: formData.useSameTeamForOperate,
 	}),
 	set: (value) => {
 		formData.viewPermissionMode = value.viewPermissionMode;
@@ -888,6 +887,7 @@ const casePermissions = computed({
 		formData.operateTeams = value.operateTeams;
 		formData.operateUsers = value.operateUsers;
 		formData.operatePermissionSubjectType = value.operatePermissionSubjectType;
+		formData.useSameTeamForOperate = value.useSameTeamForOperate;
 	},
 });
 
@@ -1701,7 +1701,7 @@ const handleEditCase = (row: any) => {
 	formData.operateUsers = row.operateUsers || [];
 	formData.operatePermissionSubjectType =
 		row.operatePermissionSubjectType ?? PermissionSubjectTypeEnum.Team;
-
+	formData.useSameTeamForOperate = row.useSameTeamForOperate ?? true;
 	// 打开弹窗
 	dialogVisible.value = true;
 };
@@ -1776,6 +1776,7 @@ const resetForm = () => {
 	formData.operateTeams = [];
 	formData.operateUsers = [];
 	formData.operatePermissionSubjectType = PermissionSubjectTypeEnum.Team;
+	formData.useSameTeamForOperate = true;
 	if (formRef.value) {
 		formRef.value.clearValidate();
 	}
@@ -1787,6 +1788,20 @@ const validateAndCheckPermissions = async (): Promise<{
 	showMessage: boolean;
 	warningMessage: string;
 }> => {
+	if (formData.viewPermissionMode === CasePermissionModeEnum.Public) {
+		if (
+			formData.useSameTeamForOperate == false &&
+			formData.operateTeams.length === 0 &&
+			formData.operateUsers.length === 0
+		) {
+			return {
+				hasWarning: false,
+				showMessage: true,
+				warningMessage: 'Please select at least one team or user for Operate Permission.',
+			};
+		}
+		return { hasWarning: false, showMessage: false, warningMessage: '' };
+	}
 	if (
 		formData.viewPermissionMode === CasePermissionModeEnum.InvisibleTo ||
 		formData.viewPermissionMode === CasePermissionModeEnum.VisibleTo

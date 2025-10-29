@@ -1104,7 +1104,7 @@ const validateAndCheckWorkflowPermissions = async (
 	viewPermissionMode: number,
 	viewTeams: string[],
 	operateTeams: string[],
-	useSameGroups: boolean,
+	useSameTeamForOperate: boolean,
 	entityType: 'workflow' | 'stage' = 'workflow'
 ): Promise<{
 	hasWarning: boolean;
@@ -1114,13 +1114,17 @@ const validateAndCheckWorkflowPermissions = async (
 	// Validate: 检查是否至少选择了一个团队
 	const entityName = entityType === 'workflow' ? 'workflow' : 'stage';
 
-	if (viewPermissionMode === ViewPermissionModeEnum.Public && useSameGroups == false) {
-		return {
-			hasWarning: false,
-			showMessage: true,
-			warningMessage: `Please select at least one team for Operate Permission of this ${entityName}.`,
-		};
+	if (viewPermissionMode === ViewPermissionModeEnum.Public) {
+		if (useSameTeamForOperate == false && operateTeams.length === 0) {
+			return {
+				hasWarning: false,
+				showMessage: true,
+				warningMessage: `Please select at least one team for Operate Permission of this ${entityName}.`,
+			};
+		}
+		return { hasWarning: false, showMessage: false, warningMessage: '' };
 	}
+
 	if (viewTeams.length === 0) {
 		return {
 			hasWarning: false,
@@ -1215,6 +1219,7 @@ const createWorkflow = async (newWorkflow: Partial<Workflow>) => {
 			newWorkflow.viewPermissionMode ?? ViewPermissionModeEnum.Public,
 			newWorkflow.viewTeams ?? [],
 			newWorkflow.operateTeams ?? [],
+			newWorkflow.useSameTeamForOperate ?? true,
 			'workflow'
 		);
 		if (permissionCheck.hasWarning || permissionCheck.showMessage) {
@@ -1276,6 +1281,7 @@ const createWorkflow = async (newWorkflow: Partial<Workflow>) => {
 			viewPermissionMode: newWorkflow.viewPermissionMode ?? 0, // 默认为 Public
 			viewTeams: newWorkflow.viewTeams ?? [],
 			operateTeams: newWorkflow.operateTeams ?? [],
+			useSameTeamForOperate: newWorkflow.useSameTeamForOperate ?? true,
 		};
 		// 调用创建工作流API
 		const res = await createWorkflowApi(params);
@@ -1302,7 +1308,7 @@ const updateWorkflow = async (updatedWorkflow: Partial<Workflow>) => {
 			updatedWorkflow.viewPermissionMode ?? workflow.value.viewPermissionMode,
 			updatedWorkflow.viewTeams ?? workflow.value.viewTeams,
 			updatedWorkflow.operateTeams ?? workflow.value.operateTeams,
-			updatedWorkflow.useSameGroups ?? workflow.value.useSameGroups,
+			updatedWorkflow.useSameTeamForOperate ?? workflow.value.useSameTeamForOperate,
 			'workflow'
 		);
 		if (permissionCheck.hasWarning || permissionCheck.showMessage) {
@@ -1345,6 +1351,8 @@ const updateWorkflow = async (updatedWorkflow: Partial<Workflow>) => {
 				updatedWorkflow.viewPermissionMode ?? workflow.value.viewPermissionMode,
 			viewTeams: updatedWorkflow.viewTeams ?? workflow.value.viewTeams,
 			operateTeams: updatedWorkflow.operateTeams ?? workflow.value.operateTeams,
+			useSameTeamForOperate:
+				updatedWorkflow.useSameTeamForOperate ?? workflow.value.useSameTeamForOperate,
 		};
 
 		// 调用更新工作流API
