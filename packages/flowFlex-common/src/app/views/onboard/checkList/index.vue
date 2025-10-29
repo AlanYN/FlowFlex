@@ -407,6 +407,10 @@ const loadWorkflowsAndStages = async () => {
 		// 处理workflows响应
 		if (workflowResponse.code === '200') {
 			workflows.value = workflowResponse.data || [];
+			const defaultWorkflow = workflows.value.find((item) => item.isDefault);
+			if (defaultWorkflow) {
+				defaultWorkflow.name = '⭐ ' + defaultWorkflow.name;
+			}
 		} else {
 			workflows.value = [];
 		}

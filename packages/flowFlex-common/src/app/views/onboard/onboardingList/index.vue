@@ -639,11 +639,21 @@
 							:key="workflow.id"
 							:label="workflow.name"
 							:value="workflow.id"
-						/>
+							:disabled="!workflow.isActive"
+						>
+							<div class="flex items-center justify-between">
+								<span>{{ workflow.name }}</span>
+								<el-tag v-if="!workflow.isActive" type="danger" size="small">
+									Inactive
+								</el-tag>
+								<el-tag v-else type="success" size="small">Active</el-tag>
+							</div>
+						</el-option>
 					</el-select>
 				</el-form-item>
 
 				<el-form-item label="Ownership" prop="ownership">
+					s
 					<FlowflexUserSelector
 						v-model="formData.ownership"
 						selection-type="user"
@@ -2098,7 +2108,7 @@ const allWorkflows = ref<any[]>([]);
 const fetchAllWorkflows = async () => {
 	const response = await getWorkflowList();
 	if (response.code === '200') {
-		allWorkflows.value = response.data.filter((item) => item.isActive) || [];
+		allWorkflows.value = response.data || [];
 		const defaultWorkflow = allWorkflows.value.find((item) => item.isDefault);
 		if (defaultWorkflow) {
 			defaultWorkflow.name = '⭐ ' + defaultWorkflow.name;

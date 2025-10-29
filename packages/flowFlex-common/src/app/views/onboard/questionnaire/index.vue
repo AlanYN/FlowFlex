@@ -57,7 +57,15 @@
 							:key="workflow.id"
 							:label="workflow.name"
 							:value="workflow.id"
-						/>
+						>
+							<div class="flex items-center justify-between">
+								<span>{{ workflow.name }}</span>
+								<el-tag v-if="!workflow.isActive" type="danger" size="small">
+									Inactive
+								</el-tag>
+								<el-tag v-else type="success" size="small">Active</el-tag>
+							</div>
+						</el-option>
 					</el-select>
 				</div>
 
@@ -278,6 +286,10 @@ const fetchWorkflows = async () => {
 
 		if (response.code === '200') {
 			workflows.value = response.data || [];
+			const defaultWorkflow = workflows.value.find((item) => item.isDefault);
+			if (defaultWorkflow) {
+				defaultWorkflow.name = '⭐ ' + defaultWorkflow.name;
+			}
 		} else {
 			workflows.value = [];
 			ElMessage.error(response.msg || 'Failed to fetch workflows');

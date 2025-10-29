@@ -1,5 +1,5 @@
 <template>
-	<div class="bg-white dark:bg-black">
+	<div class="">
 		<!-- 加载状态 -->
 		<div v-if="loading" class="text-center py-12">
 			<el-icon class="is-loading text-4xl text-primary-500 mb-4">
