@@ -384,6 +384,10 @@ const fetchWorkflows = async () => {
 		const response = await getWorkflows();
 		if (response.code === '200') {
 			workflows.value = response.data || [];
+			const defaultWorkflow = workflows.value.find((item) => item.isDefault);
+			if (defaultWorkflow) {
+				defaultWorkflow.name = '⭐ ' + defaultWorkflow.name;
+			}
 		} else {
 			console.error('Failed to fetch workflows:', response.msg);
 			workflows.value = [];

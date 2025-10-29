@@ -65,7 +65,15 @@
 							:key="workflow.id"
 							:label="workflow.name"
 							:value="workflow.id"
-						/>
+						>
+							<div class="flex items-center justify-between">
+								<span>{{ workflow.name }}</span>
+								<el-tag v-if="!workflow.isActive" type="danger" size="small">
+									Inactive
+								</el-tag>
+								<el-tag v-else type="success" size="small">Active</el-tag>
+							</div>
+						</el-option>
 					</el-select>
 				</div>
 
@@ -131,7 +139,7 @@ import { getStagesByWorkflow } from '@/apis/ow';
 // Props
 interface Props {
 	lifeCycleStage: Array<{ id: string; name: string }>;
-	allWorkflows: Array<{ id: string; name: string }>;
+	allWorkflows: Array<{ id: string; name: string; isActive: boolean }>;
 	onboardingStages: Array<{ id: string; name: string }>;
 	loading: boolean;
 	selectedItems: Array<any>;
