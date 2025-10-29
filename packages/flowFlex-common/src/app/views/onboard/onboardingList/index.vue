@@ -535,6 +535,7 @@
 			:show-close="true"
 			:close-on-click-modal="false"
 			draggable
+			@close="handleCancel"
 		>
 			<template #header>
 				<div class="dialog-header">

@@ -1,5 +1,5 @@
 <template>
-	<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 p-1">
+	<div class="grid grid-cols-2 gap-6 p-1 divide-x divide-gray-300">
 		<!-- 左侧：View Permission -->
 		<div class="space-y-4 w-full">
 			<div class="space-y-2">
@@ -35,7 +35,7 @@
 		</div>
 
 		<!-- 右侧：Operate Permission -->
-		<div class="space-y-4 w-full">
+		<div class="space-y-4 w-full pl-4">
 			<div class="space-y-2">
 				<label class="text-base font-bold">Operate Permission</label>
 
