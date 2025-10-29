@@ -583,20 +583,20 @@ const processPermissionChanges = () => {
 
 	// 使用 nextTick 确保在下一个事件循环中处理
 	nextTick(() => {
-		// 处理 viewPermissionMode 的变化
+		//处理 viewPermissionMode 的变化
 		if (!shouldShowTeamSelector.value) {
-			// Public 模式清空
+			//Public 模式清空
 			if (localPermissions.viewTeams.length > 0) {
 				localPermissions.viewTeams = [];
 			}
-			// if (localPermissions.operateTeams.length > 0) {
-			// 	localPermissions.operateTeams = [];
-			// }
-			operateChoosableTreeData.value = undefined;
+			if (localPermissions.operateTeams.length > 0) {
+				localPermissions.operateTeams = [];
+			}
 		}
 
 		// 处理 operateTeams 的同步
 		// InvisibleTo 模式下不同步，因为右侧是左侧的反选
+
 		if (
 			localPermissions.useSameGroups &&
 			localPermissions.viewPermissionMode !== ViewPermissionModeEnum.InvisibleTo

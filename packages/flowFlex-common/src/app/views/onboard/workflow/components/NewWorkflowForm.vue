@@ -128,6 +128,7 @@ const formData = reactive({
 	viewPermissionMode: ViewPermissionModeEnum.Public,
 	viewTeams: [] as string[],
 	operateTeams: [] as string[],
+	useSameGroups: true as boolean,
 });
 
 // 开关状态计算属性
@@ -143,7 +144,7 @@ const permissionsData = computed({
 	get: () => ({
 		viewPermissionMode: formData.viewPermissionMode,
 		viewTeams: formData.viewTeams,
-		useSameGroups: JSON.stringify(formData.viewTeams) === JSON.stringify(formData.operateTeams),
+		useSameGroups: formData.useSameGroups,
 		operateTeams: formData.operateTeams,
 	}),
 	set: (value: {
@@ -154,6 +155,7 @@ const permissionsData = computed({
 	}) => {
 		formData.viewPermissionMode = value.viewPermissionMode;
 		formData.viewTeams = value.viewTeams;
+		formData.useSameGroups = value.useSameGroups;
 		formData.operateTeams = value.operateTeams;
 	},
 });
@@ -218,6 +220,7 @@ watch(
 				newData.viewPermissionMode ?? ViewPermissionModeEnum.Public;
 			formData.viewTeams = newData.viewTeams || [];
 			formData.operateTeams = newData.operateTeams || [];
+			formData.useSameGroups = newData.useSameGroups ?? true;
 		} else if (!props.isEditing) {
 			// 创建模式：没有初始数据时检查默认值
 			checkAndSetDefaultValue();

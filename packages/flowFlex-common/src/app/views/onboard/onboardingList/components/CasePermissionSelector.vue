@@ -716,10 +716,6 @@ const processPermissionChanges = () => {
 			if (localPermissions.operateUsers.length > 0) {
 				localPermissions.operateUsers = [];
 			}
-			operateChoosableTreeData.value = undefined;
-		} else {
-			// VisibleTo/InvisibleTo 模式：更新过滤逻辑
-			// handleLeftChange();
 		}
 
 		// 处理 operateTeams/operateUsers 的同步

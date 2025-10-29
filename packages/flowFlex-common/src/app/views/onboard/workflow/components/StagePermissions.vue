@@ -24,6 +24,7 @@ interface Props {
 		viewPermissionMode: number;
 		viewTeams: string[];
 		operateTeams: string[];
+		useSameGroups: boolean;
 	};
 	workFlowOperateTeams?: string[];
 	workFlowViewTeams?: string[];
@@ -35,6 +36,7 @@ const props = withDefaults(defineProps<Props>(), {
 		viewPermissionMode: ViewPermissionModeEnum.Public,
 		viewTeams: [],
 		operateTeams: [],
+		useSameGroups: true,
 	}),
 	workFlowOperateTeams: () => [],
 	workFlowViewTeams: () => [],
@@ -48,6 +50,7 @@ const formData = reactive({
 	viewPermissionMode: props.modelValue.viewPermissionMode ?? ViewPermissionModeEnum.Public,
 	viewTeams: [...(props.modelValue.viewTeams || [])],
 	operateTeams: [...(props.modelValue.operateTeams || [])],
+	useSameGroups: props.modelValue.useSameGroups ?? true,
 });
 
 // 权限数据计算属性（用于 PermissionSelector 的 v-model）
@@ -55,7 +58,7 @@ const permissionsData = computed({
 	get: () => ({
 		viewPermissionMode: formData.viewPermissionMode,
 		viewTeams: formData.viewTeams,
-		useSameGroups: JSON.stringify(formData.viewTeams) === JSON.stringify(formData.operateTeams),
+		useSameGroups: formData.useSameGroups,
 		operateTeams: formData.operateTeams,
 	}),
 	set: (value: {
@@ -66,12 +69,14 @@ const permissionsData = computed({
 	}) => {
 		formData.viewPermissionMode = value.viewPermissionMode;
 		formData.viewTeams = value.viewTeams;
+		formData.useSameGroups = value.useSameGroups;
 		formData.operateTeams = value.operateTeams;
 
 		// 向父组件发送更新
 		emit('update:modelValue', {
 			viewPermissionMode: formData.viewPermissionMode,
 			viewTeams: formData.viewTeams,
+			useSameGroups: formData.useSameGroups,
 			operateTeams: formData.operateTeams,
 		});
 	},
@@ -86,6 +91,7 @@ watch(
 				newVal.viewPermissionMode ?? ViewPermissionModeEnum.Public;
 			formData.viewTeams = [...(newVal.viewTeams || [])];
 			formData.operateTeams = [...(newVal.operateTeams || [])];
+			formData.useSameGroups = newVal.useSameGroups ?? true;
 		}
 	},
 	{ deep: true }

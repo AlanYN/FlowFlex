@@ -1104,22 +1104,23 @@ const validateAndCheckWorkflowPermissions = async (
 	viewPermissionMode: number,
 	viewTeams: string[],
 	operateTeams: string[],
+	useSameGroups: boolean,
 	entityType: 'workflow' | 'stage' = 'workflow'
 ): Promise<{
 	hasWarning: boolean;
 	showMessage: boolean;
 	warningMessage: string;
 }> => {
-	// 只在 VisibleTo 或 InvisibleTo 模式下检查
-	if (
-		viewPermissionMode !== ViewPermissionModeEnum.VisibleTo &&
-		viewPermissionMode !== ViewPermissionModeEnum.InvisibleTo
-	) {
-		return { hasWarning: false, showMessage: false, warningMessage: '' };
-	}
-
 	// Validate: 检查是否至少选择了一个团队
 	const entityName = entityType === 'workflow' ? 'workflow' : 'stage';
+
+	if (viewPermissionMode === ViewPermissionModeEnum.Public && useSameGroups == false) {
+		return {
+			hasWarning: false,
+			showMessage: true,
+			warningMessage: `Please select at least one team for Operate Permission of this ${entityName}.`,
+		};
+	}
 	if (viewTeams.length === 0) {
 		return {
 			hasWarning: false,
@@ -1301,6 +1302,7 @@ const updateWorkflow = async (updatedWorkflow: Partial<Workflow>) => {
 			updatedWorkflow.viewPermissionMode ?? workflow.value.viewPermissionMode,
 			updatedWorkflow.viewTeams ?? workflow.value.viewTeams,
 			updatedWorkflow.operateTeams ?? workflow.value.operateTeams,
+			updatedWorkflow.useSameGroups ?? workflow.value.useSameGroups,
 			'workflow'
 		);
 		if (permissionCheck.hasWarning || permissionCheck.showMessage) {
