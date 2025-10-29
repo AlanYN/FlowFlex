@@ -2,7 +2,7 @@
 	<div v-loading="loading" class="grid grid-cols-2 gap-6 p-1 divide-x divide-gray-300">
 		<!-- 左侧：View Permission -->
 		<div class="space-y-4 w-full">
-			<div class="space-y-2 min-h-[110px]">
+			<div class="space-y-2 min-h-[90px]">
 				<label class="text-base font-bold">View Permission</label>
 				<p class="text-sm">Controls who can view this case</p>
 
@@ -37,7 +37,7 @@
 			</div>
 
 			<!-- Team/User 选择（仅在 VisibleToTeams 或 InvisibleToTeams 时显示）-->
-			<div v-if="shouldShowSelector" class="space-y-2">
+			<div v-if="shouldShowSelector" class="space-y-2 flex flex-col">
 				<label class="text-base font-bold">Team</label>
 
 				<!-- 单选按钮：User Groups / Individual Users -->
@@ -78,7 +78,7 @@
 
 		<!-- 右侧：Operate Permission -->
 		<div class="space-y-4 w-full pl-4">
-			<div class="space-y-2 min-h-[110px]">
+			<div class="space-y-2 min-h-[90px]">
 				<label class="text-base font-bold">Operate Permission</label>
 				<p class="text-sm">Controls who can operate on this case</p>
 
@@ -117,7 +117,7 @@
 					(!localPermissions.useSameTeamForOperate && shouldShowSelector) ||
 					localPermissions.viewPermissionMode === CasePermissionModeEnum.InvisibleTo
 				"
-				class="space-y-2"
+				class="space-y-2 flex flex-col"
 			>
 				<label class="text-base font-bold">Teams</label>
 

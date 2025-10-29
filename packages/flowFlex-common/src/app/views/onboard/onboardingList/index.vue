@@ -529,7 +529,7 @@
 		<el-dialog
 			v-model="dialogVisible"
 			title="Create New Cases"
-			:width="dialogWidth + 'px'"
+			:width="bigDialogWidth + 'px'"
 			destroy-on-close
 			custom-class="onboarding-dialog"
 			:show-close="true"
@@ -752,7 +752,7 @@ import {
 	defaultStr,
 	projectTenMinutesSsecondsDate,
 	tableMaxHeight,
-	dialogWidth,
+	bigDialogWidth,
 } from '@/settings/projectSetting';
 import CustomerPagination from '@/components/global/u-pagination/index.vue';
 import OnboardFilter from './components/OnboardFilter.vue';

@@ -21,7 +21,7 @@
 			</div>
 
 			<!-- Team（仅在 VisibleTo 或 InvisibleTo 时显示）-->
-			<div v-if="shouldShowTeamSelector" class="space-y-2">
+			<div v-if="shouldShowTeamSelector" class="space-y-2 flex flex-col">
 				<label class="text-base font-bold">Team</label>
 				<FlowflexUserSelector
 					ref="viewTeamSelectorRef"
@@ -57,7 +57,7 @@
 					!localPermissions.useSameTeamForOperate ||
 					localPermissions.viewPermissionMode === ViewPermissionModeEnum.InvisibleTo
 				"
-				class="space-y-2"
+				class="space-y-2 flex flex-col"
 			>
 				<label class="text-base font-bold">Team</label>
 				<FlowflexUserSelector
