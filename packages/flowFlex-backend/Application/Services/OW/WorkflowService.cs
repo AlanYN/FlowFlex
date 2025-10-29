@@ -203,8 +203,7 @@ namespace FlowFlex.Application.Service.OW
             var originalStatus = entity.Status;
             var originalIsDefault = entity.IsDefault;
             var originalIsActive = entity.IsActive;
-            var originalStartDate = entity.StartDate;
-            var originalEndDate = entity.EndDate;
+            // StartDate and EndDate are excluded from change log tracking
             var originalIsAIGenerated = entity.IsAIGenerated; // Preserve AI-generated flag
             var originalVisibleInPortal = entity.VisibleInPortal;
             var originalPortalPermission = entity.PortalPermission;
@@ -316,8 +315,6 @@ namespace FlowFlex.Application.Service.OW
                                     Status = originalStatus,
                                     IsDefault = originalIsDefault,
                                     IsActive = originalIsActive,
-                                    StartDate = originalStartDate,
-                                    EndDate = originalEndDate,
                                     VisibleInPortal = originalVisibleInPortal,
                                     PortalPermission = originalPortalPermission,
                                     ViewPermissionMode = originalViewPermissionMode,
@@ -332,8 +329,6 @@ namespace FlowFlex.Application.Service.OW
                                     Status = updatedWorkflow.Status,
                                     IsDefault = updatedWorkflow.IsDefault,
                                     IsActive = updatedWorkflow.IsActive,
-                                    StartDate = updatedWorkflow.StartDate,
-                                    EndDate = updatedWorkflow.EndDate,
                                     VisibleInPortal = updatedWorkflow.VisibleInPortal,
                                     PortalPermission = updatedWorkflow.PortalPermission,
                                     ViewPermissionMode = updatedWorkflow.ViewPermissionMode,
@@ -348,8 +343,6 @@ namespace FlowFlex.Application.Service.OW
                                 if (originalStatus != updatedWorkflow.Status) changedFields.Add("Status");
                                 if (originalIsDefault != updatedWorkflow.IsDefault) changedFields.Add("IsDefault");
                                 if (originalIsActive != updatedWorkflow.IsActive) changedFields.Add("IsActive");
-                                if (originalStartDate != updatedWorkflow.StartDate) changedFields.Add("StartDate");
-                                if (originalEndDate != updatedWorkflow.EndDate) changedFields.Add("EndDate");
                                 if (originalVisibleInPortal != updatedWorkflow.VisibleInPortal) changedFields.Add("VisibleInPortal");
                                 if (originalPortalPermission != updatedWorkflow.PortalPermission) changedFields.Add("PortalPermission");
                                 if (originalViewPermissionMode != updatedWorkflow.ViewPermissionMode) changedFields.Add("ViewPermissionMode");

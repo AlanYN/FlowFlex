@@ -63,7 +63,7 @@ namespace FlowFlex.Tests.Services.Permission
         #region Ownership Tests
 
         [Fact]
-        public void CheckCasePermission_Owner_ShouldGrantFullAccess()
+        public async Task CheckCasePermission_Owner_ShouldGrantFullAccess()
         {
             // Arrange
             var userContext = TestDataBuilder.CreateUserContext(TestDataBuilder.DefaultUserId);
@@ -73,7 +73,7 @@ namespace FlowFlex.Tests.Services.Permission
             var service = CreateService(userContext);
 
             // Act
-            var result = service.CheckCasePermission(onboarding, TestDataBuilder.DefaultUserId, PermissionOperationType.Operate);
+            var result = await service.CheckCasePermissionAsync(onboarding, TestDataBuilder.DefaultUserId, PermissionOperationType.Operate);
 
             // Assert
             result.Should().NotBeNull();
@@ -84,7 +84,7 @@ namespace FlowFlex.Tests.Services.Permission
         }
 
         [Fact]
-        public void CheckCasePermission_NotOwner_PrivateMode_ShouldDenyAccess()
+        public async Task CheckCasePermission_NotOwner_PrivateMode_ShouldDenyAccess()
         {
             // Arrange
             var userContext = TestDataBuilder.CreateUserContext(TestDataBuilder.DefaultUserId);
@@ -94,7 +94,7 @@ namespace FlowFlex.Tests.Services.Permission
             var service = CreateService(userContext);
 
             // Act
-            var result = service.CheckCasePermission(onboarding, TestDataBuilder.DefaultUserId, PermissionOperationType.View);
+            var result = await service.CheckCasePermissionAsync(onboarding, TestDataBuilder.DefaultUserId, PermissionOperationType.View);
 
             // Assert
             result.Should().NotBeNull();
@@ -108,7 +108,7 @@ namespace FlowFlex.Tests.Services.Permission
         #region Public Mode - Workflow Inheritance Tests
 
         [Fact]
-        public void CheckCasePermission_PublicMode_InheritsWorkflowViewPermission()
+        public async Task CheckCasePermission_PublicMode_InheritsWorkflowViewPermission()
         {
             // Arrange
             var userContext = TestDataBuilder.CreateUserContext(
@@ -122,7 +122,7 @@ namespace FlowFlex.Tests.Services.Permission
                 .ReturnsAsync(workflow);
 
             // Act
-            var result = service.CheckCasePermission(onboarding, TestDataBuilder.DefaultUserId, PermissionOperationType.View);
+            var result = await service.CheckCasePermissionAsync(onboarding, TestDataBuilder.DefaultUserId, PermissionOperationType.View);
 
             // Assert
             result.Should().NotBeNull();
@@ -133,7 +133,7 @@ namespace FlowFlex.Tests.Services.Permission
         }
 
         [Fact]
-        public void CheckCasePermission_PublicMode_InheritsWorkflowOperatePermission()
+        public async Task CheckCasePermission_PublicMode_InheritsWorkflowOperatePermission()
         {
             // Arrange
             var userContext = TestDataBuilder.CreateUserContext(
@@ -148,7 +148,7 @@ namespace FlowFlex.Tests.Services.Permission
                 .ReturnsAsync(workflow);
 
             // Act
-            var result = service.CheckCasePermission(onboarding, TestDataBuilder.DefaultUserId, PermissionOperationType.Operate);
+            var result = await service.CheckCasePermissionAsync(onboarding, TestDataBuilder.DefaultUserId, PermissionOperationType.Operate);
 
             // Assert
             result.Should().NotBeNull();
@@ -159,7 +159,7 @@ namespace FlowFlex.Tests.Services.Permission
         }
 
         [Fact]
-        public void CheckCasePermission_PublicMode_WorkflowOperateRestricted_UserNotInTeams_ShouldDenyOperate()
+        public async Task CheckCasePermission_PublicMode_WorkflowOperateRestricted_UserNotInTeams_ShouldDenyOperate()
         {
             // Arrange
             var userContext = TestDataBuilder.CreateUserContext(
@@ -175,7 +175,7 @@ namespace FlowFlex.Tests.Services.Permission
                 .ReturnsAsync(workflow);
 
             // Act
-            var result = service.CheckCasePermission(onboarding, TestDataBuilder.DefaultUserId, PermissionOperationType.Operate);
+            var result = await service.CheckCasePermissionAsync(onboarding, TestDataBuilder.DefaultUserId, PermissionOperationType.Operate);
 
             // Assert
             result.Should().NotBeNull();
@@ -189,7 +189,7 @@ namespace FlowFlex.Tests.Services.Permission
         #region VisibleToTeams Mode - Team-based Permission Tests
 
         [Fact]
-        public void CheckCasePermission_VisibleToTeams_TeamBased_UserInViewTeams_ShouldGrantView()
+        public async Task CheckCasePermission_VisibleToTeams_TeamBased_UserInViewTeams_ShouldGrantView()
         {
             // Arrange
             var userContext = TestDataBuilder.CreateUserContext(
@@ -202,7 +202,7 @@ namespace FlowFlex.Tests.Services.Permission
             var service = CreateService(userContext);
 
             // Act
-            var result = service.CheckCasePermission(onboarding, TestDataBuilder.DefaultUserId, PermissionOperationType.View);
+            var result = await service.CheckCasePermissionAsync(onboarding, TestDataBuilder.DefaultUserId, PermissionOperationType.View);
 
             // Assert
             result.Should().NotBeNull();
@@ -212,7 +212,7 @@ namespace FlowFlex.Tests.Services.Permission
         }
 
         [Fact]
-        public void CheckCasePermission_VisibleToTeams_TeamBased_UserNotInViewTeams_ShouldDenyView()
+        public async Task CheckCasePermission_VisibleToTeams_TeamBased_UserNotInViewTeams_ShouldDenyView()
         {
             // Arrange
             var userContext = TestDataBuilder.CreateUserContext(
@@ -225,7 +225,7 @@ namespace FlowFlex.Tests.Services.Permission
             var service = CreateService(userContext);
 
             // Act
-            var result = service.CheckCasePermission(onboarding, TestDataBuilder.DefaultUserId, PermissionOperationType.View);
+            var result = await service.CheckCasePermissionAsync(onboarding, TestDataBuilder.DefaultUserId, PermissionOperationType.View);
 
             // Assert
             result.Should().NotBeNull();
@@ -235,7 +235,7 @@ namespace FlowFlex.Tests.Services.Permission
         }
 
         [Fact]
-        public void CheckCasePermission_VisibleToTeams_TeamBased_UserInViewButNotOperate_ShouldDenyOperate()
+        public async Task CheckCasePermission_VisibleToTeams_TeamBased_UserInViewButNotOperate_ShouldDenyOperate()
         {
             // Arrange
             var userContext = TestDataBuilder.CreateUserContext(
@@ -248,7 +248,7 @@ namespace FlowFlex.Tests.Services.Permission
             var service = CreateService(userContext);
 
             // Act
-            var result = service.CheckCasePermission(onboarding, TestDataBuilder.DefaultUserId, PermissionOperationType.Operate);
+            var result = await service.CheckCasePermissionAsync(onboarding, TestDataBuilder.DefaultUserId, PermissionOperationType.Operate);
 
             // Assert
             result.Should().NotBeNull();
@@ -262,7 +262,7 @@ namespace FlowFlex.Tests.Services.Permission
         #region VisibleToTeams Mode - User-based Permission Tests
 
         [Fact]
-        public void CheckCasePermission_VisibleToTeams_UserBased_UserInViewUsers_ShouldGrantView()
+        public async Task CheckCasePermission_VisibleToTeams_UserBased_UserInViewUsers_ShouldGrantView()
         {
             // Arrange
             var userContext = TestDataBuilder.CreateUserContext(TestDataBuilder.DefaultUserId);
@@ -273,7 +273,7 @@ namespace FlowFlex.Tests.Services.Permission
             var service = CreateService(userContext);
 
             // Act
-            var result = service.CheckCasePermission(onboarding, TestDataBuilder.DefaultUserId, PermissionOperationType.View);
+            var result = await service.CheckCasePermissionAsync(onboarding, TestDataBuilder.DefaultUserId, PermissionOperationType.View);
 
             // Assert
             result.Should().NotBeNull();
@@ -283,7 +283,7 @@ namespace FlowFlex.Tests.Services.Permission
         }
 
         [Fact]
-        public void CheckCasePermission_VisibleToTeams_UserBased_UserNotInViewUsers_ShouldDenyView()
+        public async Task CheckCasePermission_VisibleToTeams_UserBased_UserNotInViewUsers_ShouldDenyView()
         {
             // Arrange
             var userContext = TestDataBuilder.CreateUserContext(TestDataBuilder.DefaultUserId);
@@ -294,7 +294,7 @@ namespace FlowFlex.Tests.Services.Permission
             var service = CreateService(userContext);
 
             // Act
-            var result = service.CheckCasePermission(onboarding, TestDataBuilder.DefaultUserId, PermissionOperationType.View);
+            var result = await service.CheckCasePermissionAsync(onboarding, TestDataBuilder.DefaultUserId, PermissionOperationType.View);
 
             // Assert
             result.Should().NotBeNull();
@@ -308,7 +308,7 @@ namespace FlowFlex.Tests.Services.Permission
         #region InvisibleToTeams Mode - Team-based Blacklist Tests
 
         [Fact]
-        public void CheckCasePermission_InvisibleToTeams_TeamBased_UserNotInBlacklist_ShouldGrantView()
+        public async Task CheckCasePermission_InvisibleToTeams_TeamBased_UserNotInBlacklist_ShouldGrantView()
         {
             // Arrange
             var userContext = TestDataBuilder.CreateUserContext(
@@ -321,7 +321,7 @@ namespace FlowFlex.Tests.Services.Permission
             var service = CreateService(userContext);
 
             // Act
-            var result = service.CheckCasePermission(onboarding, TestDataBuilder.DefaultUserId, PermissionOperationType.View);
+            var result = await service.CheckCasePermissionAsync(onboarding, TestDataBuilder.DefaultUserId, PermissionOperationType.View);
 
             // Assert
             result.Should().NotBeNull();
@@ -331,7 +331,7 @@ namespace FlowFlex.Tests.Services.Permission
         }
 
         [Fact]
-        public void CheckCasePermission_InvisibleToTeams_TeamBased_UserInBlacklist_ShouldDenyView()
+        public async Task CheckCasePermission_InvisibleToTeams_TeamBased_UserInBlacklist_ShouldDenyView()
         {
             // Arrange
             var userContext = TestDataBuilder.CreateUserContext(
@@ -344,7 +344,7 @@ namespace FlowFlex.Tests.Services.Permission
             var service = CreateService(userContext);
 
             // Act
-            var result = service.CheckCasePermission(onboarding, TestDataBuilder.DefaultUserId, PermissionOperationType.View);
+            var result = await service.CheckCasePermissionAsync(onboarding, TestDataBuilder.DefaultUserId, PermissionOperationType.View);
 
             // Assert
             result.Should().NotBeNull();
@@ -354,7 +354,7 @@ namespace FlowFlex.Tests.Services.Permission
         }
 
         [Fact]
-        public void CheckCasePermission_InvisibleToTeams_TeamBased_UserNotInOperateWhitelist_ShouldDenyOperate()
+        public async Task CheckCasePermission_InvisibleToTeams_TeamBased_UserNotInOperateWhitelist_ShouldDenyOperate()
         {
             // Arrange
             var userContext = TestDataBuilder.CreateUserContext(
@@ -367,7 +367,7 @@ namespace FlowFlex.Tests.Services.Permission
             var service = CreateService(userContext);
 
             // Act
-            var result = service.CheckCasePermission(onboarding, TestDataBuilder.DefaultUserId, PermissionOperationType.Operate);
+            var result = await service.CheckCasePermissionAsync(onboarding, TestDataBuilder.DefaultUserId, PermissionOperationType.Operate);
 
             // Assert
             result.Should().NotBeNull();
@@ -381,7 +381,7 @@ namespace FlowFlex.Tests.Services.Permission
         #region InvisibleToTeams Mode - User-based Blacklist Tests
 
         [Fact]
-        public void CheckCasePermission_InvisibleToTeams_UserBased_UserNotInBlacklist_ShouldGrantView()
+        public async Task CheckCasePermission_InvisibleToTeams_UserBased_UserNotInBlacklist_ShouldGrantView()
         {
             // Arrange
             var userContext = TestDataBuilder.CreateUserContext(TestDataBuilder.DefaultUserId);
@@ -392,7 +392,7 @@ namespace FlowFlex.Tests.Services.Permission
             var service = CreateService(userContext);
 
             // Act
-            var result = service.CheckCasePermission(onboarding, TestDataBuilder.DefaultUserId, PermissionOperationType.View);
+            var result = await service.CheckCasePermissionAsync(onboarding, TestDataBuilder.DefaultUserId, PermissionOperationType.View);
 
             // Assert
             result.Should().NotBeNull();
@@ -402,7 +402,7 @@ namespace FlowFlex.Tests.Services.Permission
         }
 
         [Fact]
-        public void CheckCasePermission_InvisibleToTeams_UserBased_UserInBlacklist_ShouldDenyView()
+        public async Task CheckCasePermission_InvisibleToTeams_UserBased_UserInBlacklist_ShouldDenyView()
         {
             // Arrange
             var userContext = TestDataBuilder.CreateUserContext(TestDataBuilder.DefaultUserId);
@@ -413,7 +413,7 @@ namespace FlowFlex.Tests.Services.Permission
             var service = CreateService(userContext);
 
             // Act
-            var result = service.CheckCasePermission(onboarding, TestDataBuilder.DefaultUserId, PermissionOperationType.View);
+            var result = await service.CheckCasePermissionAsync(onboarding, TestDataBuilder.DefaultUserId, PermissionOperationType.View);
 
             // Assert
             result.Should().NotBeNull();
@@ -427,7 +427,7 @@ namespace FlowFlex.Tests.Services.Permission
         #region Delete Permission Tests
 
         [Fact]
-        public void CheckCasePermission_DeleteOperation_SameAsOperatePermission()
+        public async Task CheckCasePermission_DeleteOperation_SameAsOperatePermission()
         {
             // Arrange
             var userContext = TestDataBuilder.CreateUserContext(
@@ -440,7 +440,7 @@ namespace FlowFlex.Tests.Services.Permission
             var service = CreateService(userContext);
 
             // Act
-            var result = service.CheckCasePermission(onboarding, TestDataBuilder.DefaultUserId, PermissionOperationType.Delete);
+            var result = await service.CheckCasePermissionAsync(onboarding, TestDataBuilder.DefaultUserId, PermissionOperationType.Delete);
 
             // Assert
             result.Should().NotBeNull();

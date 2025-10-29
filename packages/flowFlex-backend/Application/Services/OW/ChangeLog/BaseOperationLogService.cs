@@ -91,6 +91,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
         {
             try
             {
+                var currentUtcTime = DateTimeOffset.UtcNow;
                 var operationLog = new OperationChangeLog
                 {
                     OperationType = operationType.ToString(),
@@ -108,7 +109,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                     ExtendedData = extendedData,
                     OperatorId = customOperatorId ?? GetOperatorId(),
                     OperatorName = customOperatorName ?? GetOperatorDisplayName(),
-                    OperationTime = DateTimeOffset.UtcNow,
+                    OperationTime = currentUtcTime, // Store as UTC in database
                     IpAddress = GetClientIpAddress(),
                     UserAgent = GetUserAgent(),
                     TenantId = customTenantId ?? _userContext.TenantId,
@@ -128,8 +129,8 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                     operationLog.ModifyUserId = customOperatorId.Value;
                     operationLog.TenantId = customTenantId ?? "DEFAULT";
                     operationLog.AppCode = _userContext?.AppCode ?? "DEFAULT";
-                    operationLog.CreateDate = DateTimeOffset.UtcNow;
-                    operationLog.ModifyDate = DateTimeOffset.UtcNow;
+                    operationLog.CreateDate = currentUtcTime;
+                    operationLog.ModifyDate = currentUtcTime;
                     operationLog.IsValid = true;
                 }
                 else
@@ -145,8 +146,8 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                     operationLog.ModifyUserId = GetOperatorId();
                 }
 
-                _logger.LogDebug("Attempting to insert operation log with ID {LogId} for {BusinessModule} {BusinessId}",
-                    operationLog.Id, businessModule, businessId);
+                _logger.LogDebug("Attempting to insert operation log with ID {LogId} for {BusinessModule} {BusinessId} at {OperationTime}",
+                    operationLog.Id, businessModule, businessId, FormatToUSTime(currentUtcTime));
 
                 bool result = await InsertWithRetryAsync(operationLog);
 
@@ -514,12 +515,15 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
         }
 
         /// <summary>
-        /// Get relative time display
+        /// Get relative time display in US time format
         /// </summary>
         protected virtual string GetRelativeTimeDisplay(DateTimeOffset dateTime)
         {
-            var now = DateTimeOffset.UtcNow;
-            var timeSpan = now - dateTime;
+            // Convert UTC time to US Eastern Time (ET)
+            var easternZone = TimeZoneInfo.FindSystemTimeZoneById("Eastern Standard Time");
+            var easternTime = TimeZoneInfo.ConvertTime(dateTime, easternZone);
+            var now = TimeZoneInfo.ConvertTime(DateTimeOffset.UtcNow, easternZone);
+            var timeSpan = now - easternTime;
 
             if (timeSpan.TotalMinutes < 1)
                 return "Just now";
@@ -535,6 +539,28 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                 return $"{(int)(timeSpan.TotalDays / 30)} months ago";
 
             return $"{(int)(timeSpan.TotalDays / 365)} years ago";
+        }
+
+        /// <summary>
+        /// Format DateTimeOffset to US time format (MM/dd/yyyy hh:mm:ss tt ET)
+        /// </summary>
+        protected virtual string FormatToUSTime(DateTimeOffset dateTime)
+        {
+            try
+            {
+                // Convert UTC time to US Eastern Time (ET)
+                var easternZone = TimeZoneInfo.FindSystemTimeZoneById("Eastern Standard Time");
+                var easternTime = TimeZoneInfo.ConvertTime(dateTime, easternZone);
+                
+                // Format as US time: MM/dd/yyyy hh:mm:ss tt ET
+                return easternTime.ToString("MM/dd/yyyy hh:mm:ss tt") + " ET";
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to convert to US Eastern Time, using UTC");
+                // Fallback to UTC format if timezone conversion fails
+                return dateTime.ToString("MM/dd/yyyy hh:mm:ss tt") + " UTC";
+            }
         }
 
         /// <summary>
@@ -854,6 +880,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
             string errorMessage = null)
         {
             var httpContext = _httpContextAccessor.HttpContext;
+            var currentUtcTime = DateTimeOffset.UtcNow;
 
             var operationLog = new Domain.Entities.OW.OperationChangeLog
             {
@@ -869,7 +896,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                 ChangedFields = changedFields != null ? JsonSerializer.Serialize(changedFields) : null,
                 OperatorId = GetOperatorId(),
                 OperatorName = GetOperatorDisplayName(),
-                OperationTime = DateTimeOffset.UtcNow,
+                OperationTime = currentUtcTime, // Store as UTC in database
                 IpAddress = GetEnhancedClientIpAddress(httpContext),
                 UserAgent = httpContext?.Request.Headers["User-Agent"].FirstOrDefault() ?? string.Empty,
                 OperationSource = GetDetailedOperationSource(httpContext),
@@ -1862,11 +1889,12 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
             string description = null,
             List<string> changedFields = null)
         {
+            var currentTime = DateTimeOffset.UtcNow;
             var extendedDataObj = new Dictionary<string, object>
             {
                 { $"{businessModule}Id", businessId },
                 { $"{businessModule}Name", entityName },
-                { $"{operationAction}At", DateTimeOffset.UtcNow }
+                { $"{operationAction}At", FormatToUSTime(currentTime) }
             };
 
             if (relatedEntityId.HasValue && !string.IsNullOrEmpty(relatedEntityType))
