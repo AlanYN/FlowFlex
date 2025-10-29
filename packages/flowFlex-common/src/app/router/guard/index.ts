@@ -167,7 +167,13 @@ export async function createDynamicRoutes(router: Router) {
 		const accessToken = getTokenobj()?.accessToken.token;
 		const userStore = useUserStoreWithOut();
 		if (!accessToken) return;
-		if (!userStore.getUserInfo || Object.keys(userStore.getUserInfo).length === 0) {
+		if (
+			!userStore.getUserInfo ||
+			Object.keys(userStore.getUserInfo).length === 0 ||
+			!userStore.getUserInfo.userId ||
+			!userStore.getUserInfo.userName ||
+			!userStore.getUserInfo.tenants
+		) {
 			await userStore.afterLoginAction(false);
 		}
 		const permissionStore = usePermissionStoreWithOut();
