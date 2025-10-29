@@ -51,7 +51,7 @@ namespace FlowFlex.Application.Services.OW.Permission
         /// In Public mode, Case inherits Workflow permissions
         /// Case has independent permission control including Ownership
         /// </summary>
-        public PermissionResult CheckCasePermission(
+        public async Task<PermissionResult> CheckCasePermissionAsync(
             Onboarding onboarding,
             long userId,
             PermissionOperationType operationType)
@@ -87,7 +87,7 @@ namespace FlowFlex.Application.Services.OW.Permission
             // Step 2: In Public mode, inherit Workflow permissions
             if (onboarding.ViewPermissionMode == ViewPermissionModeEnum.Public)
             {
-                return CheckCasePermissionWithWorkflowInheritance(onboarding, userId, operationType, userTeamIds, userIdString);
+                return await CheckCasePermissionWithWorkflowInheritanceAsync(onboarding, userId, operationType, userTeamIds, userIdString);
             }
 
             // Step 3: Check View Permission (non-Public modes)
@@ -133,7 +133,7 @@ namespace FlowFlex.Application.Services.OW.Permission
         /// Check Case permission with Workflow inheritance (Public mode only)
         /// In Public mode, Case inherits Workflow's view and operate permissions
         /// </summary>
-        private PermissionResult CheckCasePermissionWithWorkflowInheritance(
+        private async Task<PermissionResult> CheckCasePermissionWithWorkflowInheritanceAsync(
             Onboarding onboarding,
             long userId,
             PermissionOperationType operationType,
@@ -148,8 +148,8 @@ namespace FlowFlex.Application.Services.OW.Permission
 
             try
             {
-                // Load parent Workflow
-                var workflow = _workflowRepository.GetByIdAsync(onboarding.WorkflowId).GetAwaiter().GetResult();
+                // Load parent Workflow (now properly async)
+                var workflow = await _workflowRepository.GetByIdAsync(onboarding.WorkflowId);
                 if (workflow == null)
                 {
                     _logger.LogWarning(
@@ -398,7 +398,7 @@ namespace FlowFlex.Application.Services.OW.Permission
             }
 
             // Check entity-level view permission (includes workflow/stage inheritance check)
-            var viewResult = CheckCasePermission(onboarding, userId, PermissionOperationType.View);
+            var viewResult = await CheckCasePermissionAsync(onboarding, userId, PermissionOperationType.View);
             if (!viewResult.Success)
             {
                 return new PermissionInfoDto
@@ -414,7 +414,7 @@ namespace FlowFlex.Application.Services.OW.Permission
             if (hasOperateModulePermission)
             {
                 // Check entity-level operate permission (includes workflow/stage inheritance check)
-                var operateResult = CheckCasePermission(onboarding, userId, PermissionOperationType.Operate);
+                var operateResult = await CheckCasePermissionAsync(onboarding, userId, PermissionOperationType.Operate);
                 canOperate = operateResult.Success;
             }
 

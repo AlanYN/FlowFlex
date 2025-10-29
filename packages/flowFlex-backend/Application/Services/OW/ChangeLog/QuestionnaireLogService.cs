@@ -692,9 +692,9 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
         // BuildDefaultExtendedData method has been moved to base class to eliminate code duplication
 
         /// <summary>
-        /// Override to provide questionnaire-specific enhanced operation descriptions
+        /// Override to provide questionnaire-specific enhanced operation descriptions (async version)
         /// </summary>
-        protected override string BuildEnhancedOperationDescription(
+        protected override async Task<string> BuildEnhancedOperationDescriptionAsync(
             BusinessModuleEnum businessModule,
             string entityName,
             string operationAction,
@@ -710,7 +710,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
             // Enhanced questionnaire-specific change details
             if (!string.IsNullOrEmpty(beforeData) && !string.IsNullOrEmpty(afterData) && changedFields?.Any() == true)
             {
-                var changeDetails = GetQuestionnaireSpecificChangeDetails(beforeData, afterData, changedFields);
+                var changeDetails = await GetQuestionnaireSpecificChangeDetailsAsync(beforeData, afterData, changedFields);
                 if (!string.IsNullOrEmpty(changeDetails))
                 {
                     description += $". {changeDetails}";
@@ -738,9 +738,9 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
         }
 
         /// <summary>
-        /// Get questionnaire-specific change details
+        /// Get questionnaire-specific change details (async version)
         /// </summary>
-        private string GetQuestionnaireSpecificChangeDetails(string beforeData, string afterData, List<string> changedFields)
+        private Task<string> GetQuestionnaireSpecificChangeDetailsAsync(string beforeData, string afterData, List<string> changedFields)
         {
             try
             {
@@ -810,7 +810,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                     {
                         result += $" and {changedFields.Count - 3} more";
                     }
-                    return result;
+                    return Task.FromResult(result);
                 }
             }
             catch (Exception ex)
@@ -818,7 +818,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                 _logger.LogWarning(ex, "Failed to parse questionnaire change details from JSON data");
             }
 
-            return string.Empty;
+            return Task.FromResult(string.Empty);
         }
 
         /// <summary>

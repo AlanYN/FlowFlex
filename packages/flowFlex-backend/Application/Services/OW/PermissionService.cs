@@ -598,7 +598,7 @@ namespace FlowFlex.Application.Services.OW
                 }
 
                 // Step 4: Delegate to CasePermissionService
-                var permissionCheck = _casePermissionService.CheckCasePermission(onboarding, userId, operationType);
+                var permissionCheck = await _casePermissionService.CheckCasePermissionAsync(onboarding, userId, operationType);
                 
                 if (permissionCheck.Success)
                 {

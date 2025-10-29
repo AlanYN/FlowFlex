@@ -280,6 +280,13 @@ namespace FlowFlex.Domain.Entities.OW
         public string OperateUsers { get; set; }
 
         /// <summary>
+        /// Use Same Team For Operate - Indicates whether operate teams/users should use the same teams/users as view permission
+        /// When true, OperateTeams/OperateUsers will be automatically synchronized with ViewTeams/ViewUsers based on the permission subject type
+        /// </summary>
+        [SugarColumn(ColumnName = "use_same_team_for_operate")]
+        public bool UseSameTeamForOperate { get; set; } = false;
+
+        /// <summary>
         /// Stage Progress Details (stored in JSONB format for better performance and querying)
         /// </summary>
         [SugarColumn(ColumnName = "stages_progress_json", ColumnDataType = "jsonb", IsJson = true)]

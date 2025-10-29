@@ -105,6 +105,12 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.Stage
         public List<string> OperateTeams { get; set; }
 
         /// <summary>
+        /// Use Same Team For Operate - Indicates whether operate teams should use the same teams as view permission
+        /// When true, OperateTeams will be automatically synchronized with ViewTeams
+        /// </summary>
+        public bool UseSameTeamForOperate { get; set; } = false;
+
+        /// <summary>
         /// Attachment Management Needed - Indicates whether file upload is required for this stage
         /// </summary>
         public bool AttachmentManagementNeeded { get; set; } = false;

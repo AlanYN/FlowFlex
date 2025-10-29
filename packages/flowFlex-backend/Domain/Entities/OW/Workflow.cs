@@ -102,6 +102,13 @@ namespace FlowFlex.Domain.Entities.OW
         public string OperateTeams { get; set; }
 
         /// <summary>
+        /// Use Same Team For Operate - Indicates whether operate teams should use the same teams as view permission
+        /// When true, OperateTeams will be automatically synchronized with ViewTeams
+        /// </summary>
+        [SugarColumn(ColumnName = "use_same_team_for_operate")]
+        public bool UseSameTeamForOperate { get; set; } = false;
+
+        /// <summary>
         /// Associated Stage Collection
         /// </summary>
         [Navigate(NavigateType.OneToMany, nameof(Stage.WorkflowId))]

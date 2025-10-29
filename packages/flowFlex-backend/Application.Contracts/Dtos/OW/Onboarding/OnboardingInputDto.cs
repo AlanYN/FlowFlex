@@ -213,6 +213,12 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.Onboarding
         public List<string> OperateUsers { get; set; }
 
         /// <summary>
+        /// Use Same Team For Operate - Indicates whether operate teams/users should use the same teams/users as view permission
+        /// When true, OperateTeams/OperateUsers will be automatically synchronized with ViewTeams/ViewUsers based on the permission subject type
+        /// </summary>
+        public bool UseSameTeamForOperate { get; set; } = false;
+
+        /// <summary>
         /// 验证邮箱格式（仅在邮箱不为空时验证）
         /// </summary>
         public bool IsValidContactEmail()

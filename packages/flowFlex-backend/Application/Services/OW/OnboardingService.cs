@@ -5447,7 +5447,8 @@ namespace FlowFlex.Application.Services.OW
                             operate_users = @OperateUsers::jsonb,
                             view_permission_mode = @ViewPermissionMode,
                             view_permission_subject_type = @ViewPermissionSubjectType,
-                            operate_permission_subject_type = @OperatePermissionSubjectType
+                            operate_permission_subject_type = @OperatePermissionSubjectType,
+                            use_same_team_for_operate = @UseSameTeamForOperate
                         WHERE id = @Id";
 
                     await db.Ado.ExecuteCommandAsync(permissionSql, new
@@ -5459,6 +5460,7 @@ namespace FlowFlex.Application.Services.OW
                         ViewPermissionMode = (int)entity.ViewPermissionMode,
                         ViewPermissionSubjectType = (int)entity.ViewPermissionSubjectType,
                         OperatePermissionSubjectType = (int)entity.OperatePermissionSubjectType,
+                        UseSameTeamForOperate = entity.UseSameTeamForOperate,
                         Id = entity.Id
                     });
                 }

@@ -491,21 +491,33 @@ namespace FlowFlex.SqlSugarDB.Repositories.OW
             return await _db.Queryable<Onboarding>().InSingleAsync(id);
         }
 
+        /// <summary>
+        /// Get all data (synchronous - avoid using, prefer GetListAsync)
+        /// </summary>
         public List<Onboarding> GetList()
         {
             return _db.Queryable<Onboarding>().ToList();
         }
 
+        /// <summary>
+        /// Get data list by condition (synchronous - avoid using, prefer GetListAsync)
+        /// </summary>
         public List<Onboarding> GetList(Expression<Func<Onboarding, bool>> whereExpression, bool copyNew = false)
         {
             return _db.Queryable<Onboarding>().Where(whereExpression).ToList();
         }
 
+        /// <summary>
+        /// Get single data by condition (synchronous - avoid using, prefer GetSingleAsync)
+        /// </summary>
         public Onboarding GetSingle(Expression<Func<Onboarding, bool>> whereExpression)
         {
             return _db.Queryable<Onboarding>().Single(whereExpression);
         }
 
+        /// <summary>
+        /// Get first data by condition (synchronous - avoid using, prefer GetFirstAsync)
+        /// </summary>
         public Onboarding GetFirst(Expression<Func<Onboarding, bool>> whereExpression, bool copyNew = false)
         {
             return _db.Queryable<Onboarding>().First(whereExpression);

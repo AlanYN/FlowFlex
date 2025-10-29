@@ -91,7 +91,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
             try
             {
                 var operationTitle = $"Workflow Updated: {workflowName}";
-                var operationDescription = BuildEnhancedWorkflowOperationDescription(
+                var operationDescription = await BuildEnhancedWorkflowOperationDescriptionAsync(
                     workflowName,
                     "Updated",
                     beforeData,
@@ -617,9 +617,9 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
         }
 
         /// <summary>
-        /// Build enhanced workflow operation description without showing IDs
+        /// Build enhanced workflow operation description without showing IDs (async version)
         /// </summary>
-        private string BuildEnhancedWorkflowOperationDescription(
+        private async Task<string> BuildEnhancedWorkflowOperationDescriptionAsync(
             string workflowName,
             string operationAction,
             string beforeData = null,
@@ -631,7 +631,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
             // Add specific change details instead of just field names
             if (!string.IsNullOrEmpty(beforeData) && !string.IsNullOrEmpty(afterData) && changedFields?.Any() == true)
             {
-                var changeDetails = GetChangeDetails(beforeData, afterData, changedFields);
+                var changeDetails = await GetChangeDetailsAsync(beforeData, afterData, changedFields);
                 if (!string.IsNullOrEmpty(changeDetails))
                 {
                     description += $". {changeDetails}";

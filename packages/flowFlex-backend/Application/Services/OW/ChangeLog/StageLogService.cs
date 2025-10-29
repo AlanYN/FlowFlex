@@ -141,7 +141,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                 string operationTitle = $"Stage Updated: {stageName}";
 
                 // Use enhanced description method that provides detailed change information
-                string operationDescription = BuildEnhancedStageOperationDescription(
+                string operationDescription = await BuildEnhancedStageOperationDescriptionAsync(
                     stageName,
                     "Updated",
                     beforeData,
@@ -720,7 +720,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
         /// <summary>
         /// Build enhanced stage operation description with detailed change information
         /// </summary>
-        private string BuildEnhancedStageOperationDescription(
+        private async Task<string> BuildEnhancedStageOperationDescriptionAsync(
             string stageName,
             string operationAction,
             string beforeData = null,
@@ -738,7 +738,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
             // Add specific change details instead of just field names
             if (!string.IsNullOrEmpty(beforeData) && !string.IsNullOrEmpty(afterData) && changedFields?.Any() == true)
             {
-                var changeDetails = GetStageSpecificChangeDetails(beforeData, afterData, changedFields);
+                var changeDetails = await GetStageSpecificChangeDetailsAsync(beforeData, afterData, changedFields);
                 if (!string.IsNullOrEmpty(changeDetails))
                 {
                     description += $". {changeDetails}";
@@ -754,9 +754,9 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
         }
 
         /// <summary>
-        /// Get stage-specific change details from before and after data
+        /// Get stage-specific change details from before and after data (async version)
         /// </summary>
-        private string GetStageSpecificChangeDetails(string beforeData, string afterData, List<string> changedFields)
+        private async Task<string> GetStageSpecificChangeDetailsAsync(string beforeData, string afterData, List<string> changedFields)
         {
             try
             {
@@ -800,8 +800,8 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                             var beforeJsonStr = beforeValue?.ToString() ?? string.Empty;
                             var afterJsonStr = afterValue?.ToString() ?? string.Empty;
 
-                            // Use the base class method for assignee change details
-                            var assigneeChange = GetAssigneeChangeDetailsAsync(beforeJsonStr, afterJsonStr).GetAwaiter().GetResult();
+                            // Use the base class method for assignee change details (now properly async)
+                            var assigneeChange = await GetAssigneeChangeDetailsAsync(beforeJsonStr, afterJsonStr);
                             changeList.Add(assigneeChange);
                         }
                         else if (field.Equals("AttachmentManagementNeeded", StringComparison.OrdinalIgnoreCase))
@@ -840,7 +840,8 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                         {
                             var beforeTeams = ParseTeamList(beforeValue?.ToString());
                             var afterTeams = ParseTeamList(afterValue?.ToString());
-                            var teamChanges = GetTeamChangesAsync(beforeTeams, afterTeams, "view").GetAwaiter().GetResult();
+                            // Now properly async
+                            var teamChanges = await GetTeamChangesAsync(beforeTeams, afterTeams, "view");
                             if (!string.IsNullOrEmpty(teamChanges))
                             {
                                 changeList.Add(teamChanges);
@@ -850,7 +851,8 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                         {
                             var beforeTeams = ParseTeamList(beforeValue?.ToString());
                             var afterTeams = ParseTeamList(afterValue?.ToString());
-                            var teamChanges = GetTeamChangesAsync(beforeTeams, afterTeams, "operate").GetAwaiter().GetResult();
+                            // Now properly async
+                            var teamChanges = await GetTeamChangesAsync(beforeTeams, afterTeams, "operate");
                             if (!string.IsNullOrEmpty(teamChanges))
                             {
                                 changeList.Add(teamChanges);

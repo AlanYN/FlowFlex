@@ -259,6 +259,12 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.Onboarding
         public List<string> OperateUsers { get; set; }
 
         /// <summary>
+        /// Use Same Team For Operate - Indicates whether operate teams/users should use the same teams/users as view permission
+        /// When true, OperateTeams/OperateUsers will be automatically synchronized with ViewTeams/ViewUsers based on the permission subject type
+        /// </summary>
+        public bool UseSameTeamForOperate { get; set; }
+
+        /// <summary>
         /// Stage进度详情
         /// </summary>
         public List<OnboardingStageProgressDto> StagesProgress { get; set; } = new List<OnboardingStageProgressDto>();

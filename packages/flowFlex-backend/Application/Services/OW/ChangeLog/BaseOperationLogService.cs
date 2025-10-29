@@ -892,9 +892,9 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
         }
 
         /// <summary>
-        /// Build enhanced operation description with specific change values
+        /// Build enhanced operation description with specific change values (async version)
         /// </summary>
-        protected virtual string BuildEnhancedOperationDescription(
+        protected virtual async Task<string> BuildEnhancedOperationDescriptionAsync(
             BusinessModuleEnum businessModule,
             string entityName,
             string operationAction,
@@ -910,7 +910,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
             // Add specific change details instead of just field names
             if (!string.IsNullOrEmpty(beforeData) && !string.IsNullOrEmpty(afterData) && changedFields?.Any() == true)
             {
-                var changeDetails = GetChangeDetails(beforeData, afterData, changedFields);
+                var changeDetails = await GetChangeDetailsAsync(beforeData, afterData, changedFields);
                 if (!string.IsNullOrEmpty(changeDetails))
                 {
                     description += $". {changeDetails}";
@@ -941,9 +941,9 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
         }
 
         /// <summary>
-        /// Get specific change details from before and after data
+        /// Get specific change details from before and after data (async version)
         /// </summary>
-        protected virtual string GetChangeDetails(string beforeData, string afterData, List<string> changedFields)
+        protected virtual async Task<string> GetChangeDetailsAsync(string beforeData, string afterData, List<string> changedFields)
         {
             try
             {
@@ -997,9 +997,8 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
 
                             if (IsJsonString(beforeJsonStr) && IsJsonString(afterJsonStr))
                             {
-                                // Note: This is called from a synchronous context, so we use GetAwaiter().GetResult()
-                                // This is safe here as it's only for display purposes in change details
-                                var assigneeChange = GetAssigneeChangeDetailsAsync(beforeJsonStr, afterJsonStr).GetAwaiter().GetResult();
+                                // Now properly async - no more deadlock risk
+                                var assigneeChange = await GetAssigneeChangeDetailsAsync(beforeJsonStr, afterJsonStr);
                                 changeList.Add(assigneeChange);
                             }
                             else
@@ -1019,7 +1018,8 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                         {
                             var beforeTeams = ParseTeamList(beforeValue?.ToString());
                             var afterTeams = ParseTeamList(afterValue?.ToString());
-                            var teamChanges = GetTeamChangesAsync(beforeTeams, afterTeams, "view").GetAwaiter().GetResult();
+                            // Now properly async
+                            var teamChanges = await GetTeamChangesAsync(beforeTeams, afterTeams, "view");
                             if (!string.IsNullOrEmpty(teamChanges))
                             {
                                 changeList.Add(teamChanges);
@@ -1029,7 +1029,8 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                         {
                             var beforeTeams = ParseTeamList(beforeValue?.ToString());
                             var afterTeams = ParseTeamList(afterValue?.ToString());
-                            var teamChanges = GetTeamChangesAsync(beforeTeams, afterTeams, "operate").GetAwaiter().GetResult();
+                            // Now properly async
+                            var teamChanges = await GetTeamChangesAsync(beforeTeams, afterTeams, "operate");
                             if (!string.IsNullOrEmpty(teamChanges))
                             {
                                 changeList.Add(teamChanges);
@@ -1792,7 +1793,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                 var operationTitle = $"{businessModule} {operationAction}: {entityName}";
 
                 // Use enhanced description method that can handle beforeData and afterData
-                var operationDescription = BuildEnhancedOperationDescription(
+                var operationDescription = await BuildEnhancedOperationDescriptionAsync(
                     businessModule,
                     entityName,
                     operationAction,

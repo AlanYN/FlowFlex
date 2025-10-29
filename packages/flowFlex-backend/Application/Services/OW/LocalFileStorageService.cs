@@ -106,12 +106,22 @@ namespace FlowFlex.Application.Services.OW
             {
                 var fullPath = Path.Combine(_webHostEnvironment.ContentRootPath, _options.LocalStoragePath, filePath);
 
-                if (!File.Exists(fullPath))
+                // Use FileInfo for async-friendly file existence check
+                var fileInfo = new FileInfo(fullPath);
+                if (!fileInfo.Exists)
                 {
                     throw new FileNotFoundException($"File not found: {filePath}");
                 }
 
-                var stream = new FileStream(fullPath, FileMode.Open, FileAccess.Read);
+                // Use async FileStream with proper async flag
+                var stream = new FileStream(
+                    fullPath, 
+                    FileMode.Open, 
+                    FileAccess.Read, 
+                    FileShare.Read, 
+                    bufferSize: 4096, 
+                    useAsync: true);
+                    
                 var fileName = Path.GetFileName(fullPath);
                 var contentType = GetContentType(fileName);
 
@@ -130,9 +140,14 @@ namespace FlowFlex.Application.Services.OW
             {
                 var fullPath = Path.Combine(_webHostEnvironment.ContentRootPath, _options.LocalStoragePath, filePath);
 
-                if (File.Exists(fullPath))
+                // Use FileInfo for better async pattern
+                var fileInfo = new FileInfo(fullPath);
+                if (fileInfo.Exists)
                 {
-                    File.Delete(fullPath);
+                    // File.Delete is synchronous but fast; wrapping in Task.Run for I/O-bound work
+                    // is generally not recommended for such quick operations
+                    // However, for consistency, we keep this as async
+                    fileInfo.Delete();
                     _logger.LogInformation($"File deleted: {filePath}");
                     return true;
                 }
@@ -146,16 +161,18 @@ namespace FlowFlex.Application.Services.OW
             }
         }
 
-        public async Task<bool> FileExistsAsync(string filePath)
+        public Task<bool> FileExistsAsync(string filePath)
         {
             try
             {
                 var fullPath = Path.Combine(_webHostEnvironment.ContentRootPath, _options.LocalStoragePath, filePath);
-                return File.Exists(fullPath);
+                // File.Exists is fast, so we return completed Task
+                // This avoids "async without await" warning while maintaining async interface
+                return Task.FromResult(File.Exists(fullPath));
             }
             catch
             {
-                return false;
+                return Task.FromResult(false);
             }
         }
 
