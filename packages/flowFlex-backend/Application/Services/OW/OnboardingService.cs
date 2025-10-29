@@ -592,7 +592,15 @@ namespace FlowFlex.Application.Services.OW
                 // If workflow changed, validate new workflow and reset stages
                 if (entity.WorkflowId != input.WorkflowId)
                 {
-                    // Business Rule: Only allow workflow change for cases that haven't started yet
+                    // Business Rule 1: Only allow workflow change for cases with status "Started"
+                    if (entity.Status != "Started")
+                    {
+                        throw new CRMException(
+                            ErrorCodeEnum.OperationNotAllowed, 
+                            $"Cannot change workflow for a case with status '{entity.Status}'. Only cases with status 'Started' can change workflow.");
+                    }
+
+                    // Business Rule 2: Only allow workflow change for cases that haven't started yet
                     // "Unstarted" is defined as all stages having isCompleted: false and isSaved: false
                     LoadStagesProgressFromJson(entity); // Ensure stagesProgress is loaded
                     
@@ -623,6 +631,9 @@ namespace FlowFlex.Application.Services.OW
                     entity.CurrentStageId = firstStage?.Id;
                     entity.CurrentStageOrder = firstStage?.Order ?? 1;
                     entity.CompletionRate = 0;
+                    
+                    // Re-initialize stagesProgress with new workflow's stages
+                    await InitializeStagesProgressAsync(entity, stages.ToList());
                 }
 
                 // Map the input to entity (this will update all the mappable fields)
