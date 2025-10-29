@@ -419,7 +419,9 @@ const importAll = async () => {
 					isActive: true,
 					assignments: [{ workflowId: createdWorkflowId, stageId: Number(target.id) }],
 				});
-			} catch {}
+			} catch (e) {
+				console.error(e);
+			}
 			try {
 				const qn = `${s.name} Questionnaire`;
 				await createQuestionnaire({
@@ -438,7 +440,9 @@ const importAll = async () => {
 					assignments: [{ workflowId: createdWorkflowId, stageId: Number(target.id) }],
 					sections: [],
 				});
-			} catch {}
+			} catch (e) {
+				console.error(e);
+			}
 
 			const staticFields: string[] = Array.isArray(s.requiredFields)
 				? s.requiredFields
@@ -474,7 +478,9 @@ const importAll = async () => {
 							},
 						],
 					});
-				} catch {}
+				} catch (e) {
+					console.error(e);
+				}
 			}
 		}
 		step.value = 3;
@@ -496,11 +502,15 @@ const goWorkflow = () => router.push('/onboard/onboardWorkflow');
 		const data = status?.data || {};
 		aiDefaultProvider.value = data?.provider || '';
 		aiDefaultModel.value = data?.model || '';
-	} catch {}
+	} catch (e) {
+		console.error(e);
+	}
 	try {
 		const res = await getAIModels();
 		modelOptions.value = Array.isArray(res?.data) ? res.data : [];
-	} catch {}
+	} catch (e) {
+		console.error(e);
+	}
 })();
 
 const mDisplay = (m: any) => `${m.provider || ''}/${m.modelName || ''} (ID:${m.id})`;

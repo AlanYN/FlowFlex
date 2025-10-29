@@ -170,36 +170,7 @@
 					<div class="">
 						<div class="space-y-3">
 							<!-- Stages区域 -->
-							<div class="space-y-2">
-								<div class="flex items-center text-sm">
-									<span class="flex items-center">
-										<text class="card-label">Stages:</text>
-										{{ workflow.stages.length }}
-									</span>
-								</div>
-								<div
-									class="stages-container"
-									style="height: 60px; overflow: hidden"
-								>
-									<div class="stages-list">
-										<span
-											v-for="stage in workflow.stages"
-											:key="stage.id"
-											class="stage-tag"
-											:style="{
-												borderColor:
-													stage?.color || 'var(--el-color-primary)',
-												color: stage?.color || 'var(--el-color-primary)',
-											}"
-											:title="stage.name"
-										>
-											<span class="stage-tag-text">
-												{{ stage.name }}
-											</span>
-										</span>
-									</div>
-								</div>
-							</div>
+							<StagesDisplay :stages="workflow.stages" container-height="60px" />
 							<!-- 状态标签区域 -->
 							<div class="flex items-center gap-2 text-sm">
 								<el-tag v-if="workflow.isAIGenerated" type="primary" size="small">
@@ -300,6 +271,7 @@ import { WFEMoudels } from '@/enums/appEnum';
 import StarIcon from '@assets/svg/workflow/star.svg';
 import { ProjectPermissionEnum } from '@/enums/permissionEnum';
 import { functionPermission } from '@/hooks';
+import StagesDisplay from '@/components/common/StagesDisplay.vue';
 
 // Props
 const props = defineProps<{
@@ -352,32 +324,6 @@ const isWorkflowActionLoading = (workflowId: string) => {
 </script>
 
 <style scoped lang="scss">
-/* stages列表样式 */
-.stages-list {
-	display: flex;
-	flex-wrap: wrap;
-	gap: 8px;
-	align-items: flex-start;
-}
-
-.stage-tag {
-	display: inline-flex;
-	align-items: center;
-	background-color: transparent;
-	font-size: 12px;
-	font-weight: 500;
-	transition: all 0.2s ease;
-	white-space: nowrap;
-	max-width: 120px;
-	@apply border px-2.5 py-0.5 rounded-full;
-}
-
-.stage-tag-text {
-	overflow: hidden;
-	text-overflow: ellipsis;
-	white-space: nowrap;
-}
-
 /* 工作流卡片网格布局 */
 .workflow-grid {
 	display: grid;

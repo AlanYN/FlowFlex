@@ -119,119 +119,13 @@
 					<div class="">
 						<div class="space-y-3">
 							<!-- Assignments区域 -->
-							<div class="space-y-2">
-								<div class="flex items-center text-sm">
-									<span class="card-label">Assignments:</span>
-								</div>
-								<div
-									class="assignments-container"
-									style="height: 60px; overflow: hidden"
-								>
-									<template
-										v-for="(assignment, index) in getDisplayedAssignments(
-											questionnaire.assignments
-										)"
-										:key="`${assignment.workflowId}-${assignment.stageId}`"
-									>
-										<!-- 第一个assignment独占一行 -->
-										<div v-if="index === 0" class="flex gap-2 mb-2">
-											<span
-												class="card-link card-link-full"
-												:title="`${getWorkflowName(
-													assignment.workflowId
-												)} → ${getStageName(assignment.stageId)}`"
-											>
-												<span
-													class="w-full text-center overflow-hidden text-ellipsis whitespace-nowrap block"
-												>
-													{{
-														`${getWorkflowName(
-															assignment.workflowId
-														)} → ${getStageName(assignment.stageId)}`
-													}}
-												</span>
-											</span>
-										</div>
-										<!-- 第二个assignment，根据是否有剩余内容决定是否与+几按钮共享一行 -->
-										<div v-if="index === 1" class="flex gap-2 items-center">
-											<span
-												:class="{
-													'card-link': true,
-													'card-link-full':
-														getUniqueAssignments(
-															questionnaire.assignments
-														).length <= 2,
-													'card-link-shared':
-														getUniqueAssignments(
-															questionnaire.assignments
-														).length > 2,
-												}"
-												:title="`${getWorkflowName(
-													assignment.workflowId
-												)} → ${getStageName(assignment.stageId)}`"
-											>
-												<span
-													class="w-full text-center overflow-hidden text-ellipsis whitespace-nowrap block"
-												>
-													{{
-														`${getWorkflowName(
-															assignment.workflowId
-														)} → ${getStageName(assignment.stageId)}`
-													}}
-												</span>
-											</span>
-											<!-- 显示剩余数量的按钮 -->
-											<el-popover
-												v-if="
-													questionnaire.assignments &&
-													getUniqueAssignments(questionnaire.assignments)
-														.length > 2
-												"
-												placement="top"
-												:width="400"
-												trigger="click"
-											>
-												<template #reference>
-													<span class="card-link-more">
-														+{{
-															getUniqueAssignments(
-																questionnaire.assignments
-															).length - 2
-														}}
-													</span>
-												</template>
-												<div class="popover-content">
-													<h4 class="popover-title">More Assignments</h4>
-													<div class="popover-tags">
-														<span
-															class="popover-tag"
-															v-for="moreAssignment in getUniqueAssignments(
-																questionnaire.assignments
-															).slice(2)"
-															:key="`${moreAssignment.workflowId}-${moreAssignment.stageId}`"
-															:title="`${getWorkflowName(
-																moreAssignment.workflowId
-															)} → ${getStageName(
-																moreAssignment.stageId
-															)}`"
-														>
-															<span class="popover-tag-text">
-																{{
-																	`${getWorkflowName(
-																		moreAssignment.workflowId
-																	)} → ${getStageName(
-																		moreAssignment.stageId
-																	)}`
-																}}
-															</span>
-														</span>
-													</div>
-												</div>
-											</el-popover>
-										</div>
-									</template>
-								</div>
-							</div>
+							<AssignmentsDisplay
+								:assignments="questionnaire.assignments"
+								:workflows="workflows"
+								:all-stages="allStages"
+								container-height="60px"
+								:display-count="2"
+							/>
 							<div class="flex items-center justify-between text-sm">
 								<el-tooltip class="flex-1" content="total number of sections">
 									<div class="flex flex-1 items-center gap-2">
@@ -334,12 +228,13 @@ import {
 } from '@element-plus/icons-vue';
 import { Icon } from '@iconify/vue';
 import { timeZoneConvert } from '@/hooks/time';
-import { projectTenMinuteDate, defaultStr } from '@/settings/projectSetting';
+import { projectTenMinuteDate } from '@/settings/projectSetting';
 import { WFEMoudels } from '@/enums/appEnum';
 import { functionPermission } from '@/hooks';
 import { ProjectPermissionEnum } from '@/enums/permissionEnum';
+import AssignmentsDisplay from '@/components/common/AssignmentsDisplay.vue';
 // Props
-const props = defineProps<{
+defineProps<{
 	questionnaires: any[];
 	loading: boolean;
 	emptyMessage: string;
@@ -358,54 +253,7 @@ const handleCommand = (command: string, questionnaire: any) => {
 	emit('command', command, questionnaire);
 };
 
-const getWorkflowName = (workflowId: string) => {
-	if (!workflowId || workflowId === '0') return defaultStr;
-	const workflow = props.workflows.find((w) => w.id === workflowId);
-	return workflow?.name || workflowId;
-};
-
-const getStageName = (stageId: string) => {
-	if (!stageId || stageId === '0') return defaultStr;
-	const stage = props.allStages.find((s) => s.id === stageId);
-	return stage ? stage.name : stageId;
-};
-
-// 获取显示的分配数量（去重）
-const getDisplayedAssignments = (assignments: any[]) => {
-	const displayedCount = 2; // 显示2个
-	if (!assignments || assignments.length === 0) {
-		return [];
-	}
-
-	// 根据workflowId+stageId组合进行去重
-	const uniqueAssignments = assignments.filter((assignment, index, self) => {
-		return (
-			index ===
-			self.findIndex(
-				(a) => a.workflowId === assignment.workflowId && a.stageId === assignment.stageId
-			)
-		);
-	});
-
-	// 返回前N个去重后的数据
-	return uniqueAssignments.slice(0, displayedCount);
-};
-
-// 获取去重后的所有数据
-const getUniqueAssignments = (assignments: any[]) => {
-	if (!assignments || assignments.length === 0) {
-		return [];
-	}
-
-	return assignments.filter((assignment, index, self) => {
-		return (
-			index ===
-			self.findIndex(
-				(a) => a.workflowId === assignment.workflowId && a.stageId === assignment.stageId
-			)
-		);
-	});
-};
+// 这些方法已经移动到 AssignmentsDisplay 组件中
 </script>
 
 <style scoped lang="scss">

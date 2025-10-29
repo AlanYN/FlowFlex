@@ -194,6 +194,7 @@
 								"
 								:icon="Document"
 								class="page-header-btn page-header-btn-primary"
+								v-if="!!activeStage"
 							>
 								Save
 							</el-button>
@@ -209,6 +210,7 @@
 								"
 								:icon="Check"
 								class="page-header-btn page-header-btn-primary"
+								v-if="!!activeStage"
 							>
 								Complete Stage
 							</el-button>

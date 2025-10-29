@@ -25,7 +25,7 @@
 					:disabled="isSaveDisabled || stageCanCompleted || onboardingData?.isDisabled"
 					:icon="Document"
 					class="page-header-btn page-header-btn-primary"
-					v-if="hasCasePermission(ProjectPermissionEnum.case.update)"
+					v-if="hasCasePermission(ProjectPermissionEnum.case.update) && !!activeStage"
 				>
 					Save
 				</el-button>
@@ -38,7 +38,7 @@
 					"
 					class="page-header-btn page-header-btn-primary"
 					:icon="Check"
-					v-if="hasCasePermission(ProjectPermissionEnum.case.update)"
+					v-if="hasCasePermission(ProjectPermissionEnum.case.update) && !!activeStage"
 				>
 					Complete
 				</el-button>
@@ -708,7 +708,8 @@ const loadQuestionnaireDataBatch = async (onboardingId: string, stageId: string)
 					}
 				}
 			});
-			questionnaireAnswersMap.value = map;
+			// 将新加载的答案合并到现有的 map 中，保留其他 stage 的答案
+			Object.assign(questionnaireAnswersMap.value, map);
 		}
 	} catch (error) {
 		ElMessage.error('Failed to load questionnaires');
@@ -992,7 +993,7 @@ const handleCompleteStage = async () => {
 				if (action === 'confirm') {
 					// 显示loading状态
 					instance.confirmButtonLoading = true;
-					instance.confirmButtonText = 'Deactivating...';
+					instance.confirmButtonText = 'Complete Stage';
 
 					completing.value = true;
 					try {
@@ -1290,7 +1291,9 @@ const refreshQuestionnaireAnswers = async (
 				}
 			}
 		});
-		questionnaireAnswersMap.value = map;
+		console.log('map:', map);
+		// 将新获取的答案合并到现有的 map 中，而不是完全替换
+		Object.assign(questionnaireAnswersMap.value, map);
 	}
 };
 
