@@ -87,6 +87,7 @@
 							@export-checklist="exportChecklistItem"
 							@duplicate-checklist="duplicateChecklistItem"
 							@view-tasks="openTaskDialog"
+							@new-checklist="openCreateDialog"
 						/>
 					</el-scrollbar>
 				</TabPane>
