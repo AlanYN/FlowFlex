@@ -302,6 +302,7 @@ export interface Workflow {
 	viewPermissionMode: number;
 	viewTeams: string[];
 	operateTeams: string[];
+	useSameTeamForOperate: boolean;
 	permission?: {
 		canView: boolean;
 		canOperate: boolean;

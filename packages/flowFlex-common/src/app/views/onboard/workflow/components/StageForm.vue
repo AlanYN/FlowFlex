@@ -270,6 +270,7 @@ const formData = ref({
 	viewPermissionMode: ViewPermissionModeEnum.Public,
 	viewTeams: [] as string[],
 	operateTeams: [] as string[],
+	useSameTeamForOperate: true,
 });
 
 // 表单验证规则
@@ -294,19 +295,18 @@ const permissionsData = computed({
 	get: () => ({
 		viewPermissionMode: formData.value.viewPermissionMode,
 		viewTeams: formData.value.viewTeams,
-		useSameGroups:
-			JSON.stringify(formData.value.viewTeams) ===
-			JSON.stringify(formData.value.operateTeams),
+		useSameTeamForOperate: formData.value.useSameTeamForOperate,
 		operateTeams: formData.value.operateTeams,
 	}),
 	set: (value: {
 		viewPermissionMode: number;
 		viewTeams: string[];
-		useSameGroups: boolean;
+		useSameTeamForOperate: boolean;
 		operateTeams: string[];
 	}) => {
 		formData.value.viewPermissionMode = value.viewPermissionMode;
 		formData.value.viewTeams = value.viewTeams;
+		formData.value.useSameTeamForOperate = value.useSameTeamForOperate;
 		formData.value.operateTeams = value.operateTeams;
 	},
 });
@@ -345,6 +345,8 @@ onMounted(() => {
 				formData.value[key] = (props.stage as any)?.viewTeams || [];
 			} else if (key === 'operateTeams') {
 				formData.value[key] = (props.stage as any)?.operateTeams || [];
+			} else if (key === 'useSameTeamForOperate') {
+				formData.value[key] = (props.stage as any)?.useSameTeamForOperate ?? true;
 			} else {
 				formData.value[key] = props.stage ? (props.stage as any)[key] : '';
 			}
@@ -372,14 +374,19 @@ const validateAndCheckStagePermissions = async (): Promise<{
 	const viewPermissionMode = formData.value.viewPermissionMode;
 	const viewTeams = formData.value.viewTeams;
 	const operateTeams = formData.value.operateTeams;
-
-	// 只在 VisibleTo 或 InvisibleTo 模式下检查
-	if (
-		viewPermissionMode !== ViewPermissionModeEnum.VisibleTo &&
-		viewPermissionMode !== ViewPermissionModeEnum.InvisibleTo
-	) {
+	const useSameTeamForOperate = formData.value.useSameTeamForOperate;
+	if (viewPermissionMode === ViewPermissionModeEnum.Public) {
+		if (useSameTeamForOperate == false && operateTeams.length === 0) {
+			return {
+				hasWarning: false,
+				showMessage: true,
+				warningMessage:
+					'Please select at least one team for Operate Permission of this stage.',
+			};
+		}
 		return { hasWarning: false, showMessage: false, warningMessage: '' };
 	}
+	// 只在 VisibleTo 或 InvisibleTo 模式下检查
 
 	// Validate: 检查是否至少选择了一个团队
 	if (viewTeams.length === 0) {

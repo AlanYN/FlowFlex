@@ -45,16 +45,16 @@
 							localPermissions.viewPermissionMode ===
 							ViewPermissionModeEnum.InvisibleTo,
 					}"
-					v-model="localPermissions.useSameGroups"
+					v-model="localPermissions.useSameTeamForOperate"
 				>
 					Use same team that have view permission
 				</el-checkbox>
 			</div>
 
-			<!-- Team（仅在不勾选 useSameGroups 时显示）-->
+			<!-- Team（仅在不勾选 useSameTeamForOperate 时显示）-->
 			<div
 				v-if="
-					!localPermissions.useSameGroups ||
+					!localPermissions.useSameTeamForOperate ||
 					localPermissions.viewPermissionMode === ViewPermissionModeEnum.InvisibleTo
 				"
 				class="space-y-2"
@@ -84,7 +84,7 @@ interface Props {
 	modelValue?: {
 		viewPermissionMode: number;
 		viewTeams: string[];
-		useSameGroups: boolean;
+		useSameTeamForOperate: boolean;
 		operateTeams: string[];
 	};
 	viewLimitData?: string[];
@@ -97,7 +97,7 @@ const props = withDefaults(defineProps<Props>(), {
 	modelValue: () => ({
 		viewPermissionMode: ViewPermissionModeEnum.Public,
 		viewTeams: [],
-		useSameGroups: true,
+		useSameTeamForOperate: true,
 		operateTeams: [],
 	}),
 	viewLimitData: () => [],
@@ -127,7 +127,7 @@ const shouldShowTeamSelector = computed(() => {
 const localPermissions = reactive({
 	viewPermissionMode: props.modelValue.viewPermissionMode ?? ViewPermissionModeEnum.Public,
 	viewTeams: [...(props.modelValue.viewTeams || [])],
-	useSameGroups: props.modelValue.useSameGroups ?? true,
+	useSameTeamForOperate: props.modelValue.useSameTeamForOperate ?? true,
 	operateTeams: [...(props.modelValue.operateTeams || [])],
 });
 
@@ -322,7 +322,7 @@ const leftChange = async (value, needEditLocalPermissions: boolean = true) => {
 	const mode = localPermissions.viewPermissionMode;
 
 	if (mode === ViewPermissionModeEnum.InvisibleTo) {
-		localPermissions.useSameGroups = false;
+		localPermissions.useSameTeamForOperate = false;
 	}
 
 	console.log('operateLimitData:', props.viewLimitData);
@@ -589,16 +589,13 @@ const processPermissionChanges = () => {
 			if (localPermissions.viewTeams.length > 0) {
 				localPermissions.viewTeams = [];
 			}
-			if (localPermissions.operateTeams.length > 0) {
-				localPermissions.operateTeams = [];
-			}
 		}
 
 		// 处理 operateTeams 的同步
 		// InvisibleTo 模式下不同步，因为右侧是左侧的反选
 
 		if (
-			localPermissions.useSameGroups &&
+			localPermissions.useSameTeamForOperate &&
 			localPermissions.viewPermissionMode !== ViewPermissionModeEnum.InvisibleTo
 		) {
 			// 勾选"使用相同"时，同步 view 的选择到 operate
@@ -615,7 +612,7 @@ const processPermissionChanges = () => {
 		emit('update:modelValue', {
 			viewPermissionMode: localPermissions.viewPermissionMode,
 			viewTeams: [...localPermissions.viewTeams],
-			useSameGroups: localPermissions.useSameGroups,
+			useSameTeamForOperate: localPermissions.useSameTeamForOperate,
 			operateTeams: [...localPermissions.operateTeams],
 		});
 
@@ -644,7 +641,7 @@ watch(
 		const hasChanges =
 			localPermissions.viewPermissionMode !== newVal.viewPermissionMode ||
 			JSON.stringify(localPermissions.viewTeams) !== JSON.stringify(newVal.viewTeams) ||
-			localPermissions.useSameGroups !== newVal.useSameGroups ||
+			localPermissions.useSameTeamForOperate !== newVal.useSameTeamForOperate ||
 			JSON.stringify(localPermissions.operateTeams) !== JSON.stringify(newVal.operateTeams);
 
 		if (hasChanges) {
@@ -652,7 +649,7 @@ watch(
 			localPermissions.viewPermissionMode =
 				newVal.viewPermissionMode ?? ViewPermissionModeEnum.Public;
 			localPermissions.viewTeams = [...(newVal.viewTeams || [])];
-			localPermissions.useSameGroups = newVal.useSameGroups ?? true;
+			localPermissions.useSameTeamForOperate = newVal.useSameTeamForOperate ?? true;
 			localPermissions.operateTeams = [...(newVal.operateTeams || [])];
 
 			nextTick(() => {
