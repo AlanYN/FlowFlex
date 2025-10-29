@@ -1245,9 +1245,51 @@ namespace FlowFlex.Application.Services.OW
 
                 _logger.LogInformation("IDM APIs call completed in {ElapsedMs}ms", elapsed.TotalMilliseconds);
 
+                // Handle case where team tree is empty but team users exist
                 if (teamTreeNodes == null || !teamTreeNodes.Any())
                 {
                     _logger.LogWarning("No team tree data returned from IDM API");
+                    
+                    // If we have team users, create "Other" team for them
+                    if (teamUsers != null && teamUsers.Any())
+                    {
+                        _logger.LogInformation("Creating 'Other' team for {UserCount} users without team structure", teamUsers.Count);
+                        
+                        var otherTeamNode = new UserTreeNodeDto
+                        {
+                            Id = "Other",
+                            Name = "Other",
+                            Type = "team",
+                            MemberCount = teamUsers.Count,
+                            Children = new List<UserTreeNodeDto>()
+                        };
+
+                        // Add all users to "Other" team, deduplicate by ID
+                        var uniqueUsers = teamUsers
+                            .GroupBy(tu => tu.Id)
+                            .Select(g => g.First())
+                            .ToList();
+
+                        foreach (var teamUser in uniqueUsers)
+                        {
+                            var userNode = new UserTreeNodeDto
+                            {
+                                Id = teamUser.Id,
+                                Name = teamUser.UserName,
+                                Type = "user",
+                                MemberCount = 0,
+                                Username = teamUser.UserName,
+                                Email = null,
+                                Children = null
+                            };
+
+                            otherTeamNode.Children.Add(userNode);
+                        }
+
+                        _logger.LogInformation("Created 'Other' team with {UserCount} users", uniqueUsers.Count);
+                        return new List<UserTreeNodeDto> { otherTeamNode };
+                    }
+                    
                     return new List<UserTreeNodeDto>();
                 }
 

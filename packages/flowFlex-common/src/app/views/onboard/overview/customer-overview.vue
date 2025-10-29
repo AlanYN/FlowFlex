@@ -1020,23 +1020,38 @@ const processQuestionnaireData = (
 								try {
 									const parsed = JSON.parse(ga.responseText);
 									Object.assign(merged, parsed);
-									// 从 key 里解析 row-...，并映射到题目配置的行 label
+									// 从 key 里解析 row，并映射到题目配置的行 label
 									const rowLabelMap = new Map<string, string>();
-									(question.rows || []).forEach((r: any) =>
-										rowLabelMap.set(r.id, r.label)
-									);
+									const columnLabelMap = new Map<string, string>();
+									(question.rows || []).forEach((r: any) => {
+										rowLabelMap.set(r.id, r.label);
+										rowLabelMap.set(String(r.id), r.label);
+									});
+									(question.columns || []).forEach((c: any) => {
+										columnLabelMap.set(c.id, c.label);
+										columnLabelMap.set(String(c.id), c.label);
+									});
+
 									Object.entries(parsed).forEach(([k, v]) => {
 										const parts = k.split('_');
-										const rowPart =
-											parts.find((p) => p.startsWith('row-')) || '';
-										const label =
-											rowLabelMap.get(rowPart) || rowPart.replace('row-', '');
-										if (String(v || '').trim() !== '') {
-											rowsMap[label] = String(v);
+										// 格式: questionId_columnId_rowId
+										if (parts.length >= 3) {
+											const rowPart = parts[2]; // 第三部分是 rowId
+											const columnPart = parts[1]; // 第二部分是 columnId
+
+											// 尝试多种方式匹配 row label
+											let label =
+												rowLabelMap.get(rowPart) ||
+												rowLabelMap.get(rowPart.replace('row-', '')) ||
+												rowPart.replace('row-', '');
+
+											if (String(v || '').trim() !== '') {
+												rowsMap[label] = String(v);
+											}
 										}
 									});
-								} catch {
-									console.error('Error parsing grid answer:');
+								} catch (e) {
+									console.error('Error parsing grid answer:', e);
 								}
 							}
 
@@ -1064,11 +1079,16 @@ const processQuestionnaireData = (
 							}
 						});
 
+						// Convert rowsMap to display text
+						const answerText = Object.entries(rowsMap)
+							.map(([row, value]) => `${row}: ${value}`)
+							.join('; ');
+
 						responses.push({
 							id: question.id,
 							question: question.title,
 							description: question.description,
-							answer: '',
+							answer: answerText, // Use formatted answer text to show Response Info
 							answeredBy: firstAnsweredBy || answer?.createBy || '',
 							answeredDate: answer?.createDate || '',
 							firstAnsweredDate: firstAnsweredDate || answer?.createDate || '',
@@ -1485,10 +1505,12 @@ const allQuestionsForExport = computed(() => {
 			}
 			// 如果是短答网格类型，转换为键值对显示
 			else if (response.questionType === 'short_answer_grid') {
-				const gridData = getShortAnswerGridData(response.responseText, response.id);
-				displayAnswer = gridData
-					.map((item) => `${item.row}-${item.column}: ${item.value}`)
-					.join('; ');
+				const gridData = getShortAnswerGridData(
+					response.responseText,
+					response.id,
+					response.questionConfig
+				);
+				displayAnswer = gridData.map((item) => `${item.row}: ${item.value}`).join('; ');
 			}
 			// 如果是多选类型，转换为label显示
 			else if (response.questionType === 'checkboxes' && response.answer) {
@@ -1521,16 +1543,20 @@ const allQuestionsForExport = computed(() => {
 			}
 
 			// Include ALL questions, regardless of whether they have answers
+			// Only show response info fields when there's a valid answer
+			const hasAnswer = hasValidAnswer(displayAnswer);
 			responses.push({
 				questionnaire: questionnaire.name,
 				section: response.section,
 				questionNumber: response.questionNumber,
 				question: response.question,
 				answer: displayAnswer,
-				answeredBy: response.answeredBy || '',
-				answeredDate: response.answeredDate ? formatDateUS(response.answeredDate) : '',
-				lastUpdated: response.lastUpdated ? formatDateUS(response.lastUpdated) : '',
-				updatedBy: response.updatedBy || '',
+				answeredBy: hasAnswer ? response.answeredBy || '' : '',
+				answeredDate:
+					hasAnswer && response.answeredDate ? formatDateUS(response.answeredDate) : '',
+				lastUpdated:
+					hasAnswer && response.lastUpdated ? formatDateUS(response.lastUpdated) : '',
+				updatedBy: hasAnswer ? response.updatedBy || '' : '',
 			});
 		});
 	});
@@ -1561,10 +1587,12 @@ const filteredQuestionsForExport = computed(() => {
 			}
 			// 如果是短答网格类型，转换为键值对显示
 			else if (response.questionType === 'short_answer_grid') {
-				const gridData = getShortAnswerGridData(response.responseText, response.id);
-				displayAnswer = gridData
-					.map((item) => `${item.row}-${item.column}: ${item.value}`)
-					.join('; ');
+				const gridData = getShortAnswerGridData(
+					response.responseText,
+					response.id,
+					response.questionConfig
+				);
+				displayAnswer = gridData.map((item) => `${item.row}: ${item.value}`).join('; ');
 			}
 			// 如果是多选类型，转换为label显示
 			else if (response.questionType === 'checkboxes' && response.answer) {
@@ -1597,16 +1625,20 @@ const filteredQuestionsForExport = computed(() => {
 			}
 
 			// Include ALL filtered questions, regardless of whether they have answers
+			// Only show response info fields when there's a valid answer
+			const hasAnswer = hasValidAnswer(displayAnswer);
 			responses.push({
 				questionnaire: questionnaire.name,
 				section: response.section,
 				questionNumber: response.questionNumber,
 				question: response.question,
 				answer: displayAnswer,
-				answeredBy: response.answeredBy || '',
-				answeredDate: response.answeredDate ? formatDateUS(response.answeredDate) : '',
-				lastUpdated: response.lastUpdated ? formatDateUS(response.lastUpdated) : '',
-				updatedBy: response.updatedBy || '',
+				answeredBy: hasAnswer ? response.answeredBy || '' : '',
+				answeredDate:
+					hasAnswer && response.answeredDate ? formatDateUS(response.answeredDate) : '',
+				lastUpdated:
+					hasAnswer && response.lastUpdated ? formatDateUS(response.lastUpdated) : '',
+				updatedBy: hasAnswer ? response.updatedBy || '' : '',
 			});
 		});
 	});
@@ -2665,27 +2697,41 @@ const getShortAnswerGridData = (
 
 	try {
 		const parsed = parseResponseText(responseText);
-		// 优先处理合并格式 { rows: { '1': '1A', '2': '2B' }, cells: {...} }
+		// 优先处理合并格式 { rows: { '问题1': '1-1', '问题2': '2-2' }, cells: {...} }
 		if (parsed && (parsed as any).rows && typeof (parsed as any).rows === 'object') {
 			const rowsObj = (parsed as any).rows as Record<string, any>;
-			const rows = (questionConfig?.rows || []) as Array<{ id: string; label: string }>;
-			if (rows.length > 0) {
-				const result: Array<{ column: string; value: string; row: string }> = [];
-				rows.forEach((r) => {
-					if (rowsObj[r.label] != null) {
-						result.push({ row: r.label, column: '', value: String(rowsObj[r.label]) });
-					}
-				});
-				return result;
-			}
-			return Object.entries(rowsObj).map(([row, value]) => ({
-				row: String(row),
-				column: '',
-				value: String(value),
-			}));
+			const result: Array<{ column: string; value: string; row: string }> = [];
+
+			// 直接使用 rowsObj 中的键值对，键已经是 label
+			Object.entries(rowsObj).forEach(([rowLabel, value]) => {
+				if (value != null && String(value).trim() !== '') {
+					result.push({
+						row: String(rowLabel),
+						column: '',
+						value: String(value),
+					});
+				}
+			});
+
+			return result;
 		}
 
+		// 处理原始 cells 格式
 		const gridData: Array<{ column: string; value: string; row: string }> = [];
+		const rows = (questionConfig?.rows || []) as Array<{ id: string; label: string }>;
+		const columns = (questionConfig?.columns || []) as Array<{ id: string; label: string }>;
+
+		// 创建 ID 到 label 的映射
+		const rowLabelMap = new Map<string, string>();
+		const columnLabelMap = new Map<string, string>();
+		rows.forEach((r) => {
+			rowLabelMap.set(r.id, r.label);
+			rowLabelMap.set(String(r.id), r.label);
+		});
+		columns.forEach((c) => {
+			columnLabelMap.set(c.id, c.label);
+			columnLabelMap.set(String(c.id), c.label);
+		});
 
 		// 遍历所有的键值对，查找属于当前问题的网格数据
 		Object.entries(parsed).forEach(([key, value]) => {
@@ -2704,24 +2750,16 @@ const getShortAnswerGridData = (
 						key.startsWith('question-' + questionId.replace('question-', ''));
 
 					if (isCurrentQuestion) {
-						// 生成显示用的列标题和行标题
-						let columnLabel = columnId;
-						let rowLabel = rowId;
+						// 使用映射获取真实的 label
+						let columnLabel =
+							columnLabelMap.get(columnId) ||
+							columnLabelMap.get(columnId.replace('column-', '')) ||
+							columnId.replace('column-', 'Col ');
 
-						// 美化显示标签
-						if (columnId.startsWith('column-')) {
-							columnLabel = columnId.replace('column-', 'Col ');
-						} else if (columnId.includes('column')) {
-							columnLabel = columnId.replace(/column/gi, 'Col');
-						}
-
-						// 优先用配置里的真实行标签
-						const rows = (questionConfig?.rows || []) as Array<{
-							id: string;
-							label: string;
-						}>;
-						const matched = rows.find((r) => r.id === rowId || rowId.endsWith(r.id));
-						rowLabel = matched?.label || rowId.replace('row-', '');
+						let rowLabel =
+							rowLabelMap.get(rowId) ||
+							rowLabelMap.get(rowId.replace('row-', '')) ||
+							rowId.replace('row-', '');
 
 						gridData.push({
 							column: columnLabel,
