@@ -669,31 +669,33 @@ const handleLeftChange = async (needEditLocalPermissions: boolean = true) => {
 		const filteredTreeData = filterTree(baseTreeData);
 		operateChoosableTreeData.value = filteredTreeData.length > 0 ? filteredTreeData : [];
 
-		// 清理右侧已选数据：移除在黑名单中的项
-		if (localPermissions.operatePermissionSubjectType === PermissionSubjectTypeEnum.Team) {
-			if (localPermissions.operateTeams.length > 0) {
-				const validOperateTeams = localPermissions.operateTeams.filter(
-					(teamId) => !excludeIds.has(teamId)
-				);
-				if (validOperateTeams.length !== localPermissions.operateTeams.length) {
-					console.log(
-						'Removing blacklisted operate teams:',
-						localPermissions.operateTeams.filter((id) => excludeIds.has(id))
+		if (needEditLocalPermissions) {
+			// 清理右侧已选数据：移除在黑名单中的项
+			if (localPermissions.operatePermissionSubjectType === PermissionSubjectTypeEnum.Team) {
+				if (localPermissions.operateTeams.length > 0) {
+					const validOperateTeams = localPermissions.operateTeams.filter(
+						(teamId) => !excludeIds.has(teamId)
 					);
-					localPermissions.operateTeams = validOperateTeams;
+					if (validOperateTeams.length !== localPermissions.operateTeams.length) {
+						console.log(
+							'Removing blacklisted operate teams:',
+							localPermissions.operateTeams.filter((id) => excludeIds.has(id))
+						);
+						localPermissions.operateTeams = validOperateTeams;
+					}
 				}
-			}
-		} else {
-			if (localPermissions.operateUsers.length > 0) {
-				const validOperateUsers = localPermissions.operateUsers.filter(
-					(userId) => !excludeIds.has(userId)
-				);
-				if (validOperateUsers.length !== localPermissions.operateUsers.length) {
-					console.log(
-						'Removing blacklisted operate users:',
-						localPermissions.operateUsers.filter((id) => excludeIds.has(id))
+			} else {
+				if (localPermissions.operateUsers.length > 0) {
+					const validOperateUsers = localPermissions.operateUsers.filter(
+						(userId) => !excludeIds.has(userId)
 					);
-					localPermissions.operateUsers = validOperateUsers;
+					if (validOperateUsers.length !== localPermissions.operateUsers.length) {
+						console.log(
+							'Removing blacklisted operate users:',
+							localPermissions.operateUsers.filter((id) => excludeIds.has(id))
+						);
+						localPermissions.operateUsers = validOperateUsers;
+					}
 				}
 			}
 		}

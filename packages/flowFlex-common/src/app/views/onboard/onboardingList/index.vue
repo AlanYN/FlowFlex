@@ -1787,20 +1787,6 @@ const validateAndCheckPermissions = async (): Promise<{
 	showMessage: boolean;
 	warningMessage: string;
 }> => {
-	if (formData.viewPermissionMode === CasePermissionModeEnum.Public) {
-		if (
-			formData.useSameTeamForOperate == false &&
-			formData.operateTeams.length === 0 &&
-			formData.operateUsers.length === 0
-		) {
-			return {
-				hasWarning: false,
-				showMessage: true,
-				warningMessage: 'Please select at least one team or user for Operate Permission.',
-			};
-		}
-		return { hasWarning: false, showMessage: false, warningMessage: '' };
-	}
 	if (
 		formData.viewPermissionMode === CasePermissionModeEnum.InvisibleTo ||
 		formData.viewPermissionMode === CasePermissionModeEnum.VisibleTo
