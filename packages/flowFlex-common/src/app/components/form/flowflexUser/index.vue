@@ -190,7 +190,7 @@
 								type="primary"
 								:icon="Refresh"
 								size="small"
-								@click="initializeData()"
+								@click="initializeData(searchText, true)"
 							/>
 						</div>
 						<el-scrollbar class="flex-1" v-loading="loading">
@@ -862,10 +862,19 @@ const handleClear = () => {
 };
 
 // 初始化加载数据（支持传入数据或使用缓存）
-const initializeData = async (searchQuery = '') => {
+const initializeData = async (searchQuery = '', forceRemote = false) => {
 	if (loading.value) return; // 防止重复加载
 	try {
 		loading.value = true;
+
+		const shouldFetchRemote = forceRemote || props.choosableTreeData === undefined;
+		let remoteData: FlowflexUser[] | null = null;
+
+		if (shouldFetchRemote) {
+			await menuStore.clearFlowflexUserData();
+			const fetched = await menuStore.getFlowflexUserDataWithCache(searchQuery);
+			remoteData = Array.isArray(fetched) ? fetched : [];
+		}
 
 		let data: FlowflexUser[] = [];
 
@@ -878,9 +887,11 @@ const initializeData = async (searchQuery = '') => {
 				console.log('choosableTreeData is empty array, no data available');
 			}
 		} else {
-			// 使用 store 中的缓存方法
-			await menuStore.clearFlowflexUserData();
-			data = await menuStore.getFlowflexUserDataWithCache(searchQuery);
+			// // 使用 store 中的缓存方法
+			// await menuStore.clearFlowflexUserData();
+			// data = await menuStore.getFlowflexUserDataWithCache(searchQuery);
+			// 未传 choosableTreeData 时使用远端/缓存数据
+			data = remoteData ?? [];
 		}
 
 		if (data && data.length > 0) {

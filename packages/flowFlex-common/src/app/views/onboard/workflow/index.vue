@@ -537,6 +537,7 @@
 					:work-flow-operate-teams="workflow?.operateTeams"
 					:work-flow-view-teams="workflow?.viewTeams"
 					:work-flow-view-permission-mode="workflow?.viewPermissionMode"
+					:work-flow-view-use-same-team-for-operate="workflow?.useSameTeamForOperate"
 					:is-editing="isEditingStage"
 					:loading="isEditingStage ? loading.updateStage : loading.createStage"
 					:checklists="checklists"

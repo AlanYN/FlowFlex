@@ -160,10 +160,12 @@
 										trigger="click"
 										:disabled="isLoading || isSorting"
 										v-if="
-											functionPermission(
+											hasStagePermission(
+												element.id,
 												ProjectPermissionEnum.workflow.update
 											) ||
-											functionPermission(
+											hasStagePermission(
+												element.id,
 												ProjectPermissionEnum.workflow.delete
 											)
 										"

@@ -116,6 +116,7 @@
 					:work-flow-operate-teams="workFlowOperateTeams"
 					:work-flow-view-teams="workFlowViewTeams"
 					:work-flow-view-permission-mode="workFlowViewPermissionMode"
+					:work-flow-view-use-same-team-for-operate="workFlowViewUseSameTeamForOperate"
 				/>
 			</TabPane>
 			<TabPane value="actions">
@@ -205,6 +206,10 @@ const props = defineProps({
 	},
 	workFlowViewPermissionMode: {
 		type: Number as PropType<number>,
+		default: undefined,
+	},
+	workFlowViewUseSameTeamForOperate: {
+		type: Boolean as PropType<boolean>,
 		default: undefined,
 	},
 });
