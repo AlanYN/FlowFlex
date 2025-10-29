@@ -77,7 +77,20 @@ namespace FlowFlex.Application.Services.OW.Permission
                 string.Join(", ", userTeamIds),
                 userId);
 
-            // Step 1: Check Ownership (highest priority)
+            // Step 0: Admin bypass (highest priority)
+            if (_helpers.IsSystemAdmin())
+            {
+                _logger.LogInformation("User {UserId} is System Admin - granting full access to Case {CaseId}", userId, onboarding.Id);
+                return PermissionResult.CreateSuccess(true, true, "SystemAdmin");
+            }
+
+            if (_helpers.IsTenantAdmin())
+            {
+                _logger.LogInformation("User {UserId} is Tenant Admin - granting full access to Case {CaseId}", userId, onboarding.Id);
+                return PermissionResult.CreateSuccess(true, true, "TenantAdmin");
+            }
+
+            // Step 1: Check Ownership
             if (onboarding.Ownership.HasValue && onboarding.Ownership.Value == userId)
             {
                 _logger.LogDebug("Case permission: User {UserId} is the owner - granting full access", userId);

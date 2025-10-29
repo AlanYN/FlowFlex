@@ -60,6 +60,74 @@ namespace FlowFlex.Tests.Services.Permission
                 workflowPermissionService);
         }
 
+        #region Admin Bypass Tests
+
+        [Fact]
+        public async Task CheckCasePermission_SystemAdmin_PrivateCase_ShouldGrantFullAccess()
+        {
+            // Arrange
+            var userContext = TestDataBuilder.CreateSystemAdminContext();
+            var onboarding = TestDataBuilder.CreateOnboardingWithOwnership(
+                999L, // Different owner
+                ViewPermissionModeEnum.Private);
+            var service = CreateService(userContext);
+
+            // Act
+            var result = await service.CheckCasePermissionAsync(onboarding, TestDataBuilder.DefaultUserId, PermissionOperationType.Operate);
+
+            // Assert
+            result.Should().NotBeNull();
+            result.Success.Should().BeTrue();
+            result.CanView.Should().BeTrue();
+            result.CanOperate.Should().BeTrue();
+            result.GrantReason.Should().Be("SystemAdmin");
+        }
+
+        [Fact]
+        public async Task CheckCasePermission_TenantAdmin_PrivateCase_ShouldGrantFullAccess()
+        {
+            // Arrange
+            var userContext = TestDataBuilder.CreateTenantAdminContext();
+            var onboarding = TestDataBuilder.CreateOnboardingWithOwnership(
+                999L, // Different owner
+                ViewPermissionModeEnum.Private);
+            var service = CreateService(userContext);
+
+            // Act
+            var result = await service.CheckCasePermissionAsync(onboarding, TestDataBuilder.DefaultUserId, PermissionOperationType.Operate);
+
+            // Assert
+            result.Should().NotBeNull();
+            result.Success.Should().BeTrue();
+            result.CanView.Should().BeTrue();
+            result.CanOperate.Should().BeTrue();
+            result.GrantReason.Should().Be("TenantAdmin");
+        }
+
+        [Fact]
+        public async Task CheckCasePermission_TenantAdmin_RestrictedCase_ShouldGrantFullAccess()
+        {
+            // Arrange
+            var userContext = TestDataBuilder.CreateTenantAdminContext();
+            var onboarding = TestDataBuilder.CreateOnboardingWithTeamPermissions(
+                ViewPermissionModeEnum.VisibleToTeams,
+                new List<string> { TestDataBuilder.TeamA }, // Admin not in this team
+                new List<string> { TestDataBuilder.TeamA });
+            var service = CreateService(userContext);
+
+            // Act
+            var result = await service.CheckCasePermissionAsync(onboarding, TestDataBuilder.DefaultUserId, PermissionOperationType.Operate);
+
+            // Assert
+            result.Should().NotBeNull();
+            result.Success.Should().BeTrue();
+            result.CanView.Should().BeTrue();
+            result.CanOperate.Should().BeTrue();
+            result.GrantReason.Should().Be("TenantAdmin");
+        }
+
+        #endregion
+
         #region Ownership Tests
 
         [Fact]

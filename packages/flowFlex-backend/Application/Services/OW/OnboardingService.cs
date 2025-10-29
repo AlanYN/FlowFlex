@@ -60,6 +60,7 @@ namespace FlowFlex.Application.Services.OW
         private readonly IActionManagementService _actionManagementService;
         private readonly IOperationChangeLogService _operationChangeLogService;
         private readonly IPermissionService _permissionService;
+        private readonly Permission.CasePermissionService _casePermissionService;
         private readonly IHttpContextAccessor _httpContextAccessor;
         // Cache key constants - temporarily disable Redis cache
         private const string WORKFLOW_CACHE_PREFIX = "ow:workflow";
@@ -87,6 +88,7 @@ namespace FlowFlex.Application.Services.OW
             IActionManagementService actionManagementService,
             IOperationChangeLogService operationChangeLogService,
             IPermissionService permissionService,
+            Permission.CasePermissionService casePermissionService,
             IHttpContextAccessor httpContextAccessor)
         {
             _onboardingRepository = onboardingRepository ?? throw new ArgumentNullException(nameof(onboardingRepository));
@@ -110,6 +112,7 @@ namespace FlowFlex.Application.Services.OW
             _actionManagementService = actionManagementService ?? throw new ArgumentNullException(nameof(actionManagementService));
             _operationChangeLogService = operationChangeLogService ?? throw new ArgumentNullException(nameof(operationChangeLogService));
             _permissionService = permissionService ?? throw new ArgumentNullException(nameof(permissionService));
+            _casePermissionService = casePermissionService ?? throw new ArgumentNullException(nameof(casePermissionService));
         }
 
         /// <summary>
@@ -271,7 +274,8 @@ namespace FlowFlex.Application.Services.OW
                 entity.CurrentStageOrder = firstStage?.Order ?? 0;
                 entity.Status = string.IsNullOrEmpty(entity.Status) ? "Inactive" : entity.Status;
 
-                // 添加调试日志
+                // 添加调试日志 - 检查 CurrentStageId 是否正确设置
+                LoggingExtensions.WriteLine($"[DEBUG] Onboarding Create - CurrentStageId set to: {entity.CurrentStageId}, CurrentStageOrder: {entity.CurrentStageOrder}, FirstStage: {firstStage?.Id}");
                 LoggingExtensions.WriteLine($"[DEBUG] Onboarding Status: ID={entity.Id}, Status={entity.Status}");
                 entity.StartDate = entity.StartDate ?? DateTimeOffset.UtcNow;
                 entity.CurrentStageStartTime = DateTimeOffset.UtcNow;
@@ -589,9 +593,16 @@ namespace FlowFlex.Application.Services.OW
                 var originalLifeCycleStageId = entity.LifeCycleStageId;
                 var originalPriority = entity.Priority;
 
+                // Track if workflow changed to preserve CurrentStageId after mapping
+                bool workflowChanged = false;
+                long? preservedCurrentStageId = null;
+                int? preservedCurrentStageOrder = null;
+
                 // If workflow changed, validate new workflow and reset stages
                 if (entity.WorkflowId != input.WorkflowId)
                 {
+                    workflowChanged = true;
+                    
                     // Business Rule 1: Only allow workflow change for cases with status "Started"
                     if (entity.Status != "Started")
                     {
@@ -628,8 +639,12 @@ namespace FlowFlex.Application.Services.OW
 
                     // Debug logging handled by structured logging}");
 
-                    entity.CurrentStageId = firstStage?.Id;
-                    entity.CurrentStageOrder = firstStage?.Order ?? 1;
+                    // Store the new stage ID and order to preserve after mapping
+                    preservedCurrentStageId = firstStage?.Id;
+                    preservedCurrentStageOrder = firstStage?.Order ?? 1;
+                    
+                    entity.CurrentStageId = preservedCurrentStageId;
+                    entity.CurrentStageOrder = preservedCurrentStageOrder.Value;
                     entity.CompletionRate = 0;
                     
                     // Re-initialize stagesProgress with new workflow's stages
@@ -638,6 +653,14 @@ namespace FlowFlex.Application.Services.OW
 
                 // Map the input to entity (this will update all the mappable fields)
                 _mapper.Map(input, entity);
+
+                // IMPORTANT: If workflow changed, restore the CurrentStageId to prevent input from overwriting it
+                // When workflow changes, CurrentStageId must be the first stage of the new workflow
+                if (workflowChanged && preservedCurrentStageId.HasValue)
+                {
+                    entity.CurrentStageId = preservedCurrentStageId;
+                    entity.CurrentStageOrder = preservedCurrentStageOrder.Value;
+                }
 
                 // Note: We preserve all permission fields (both Teams and Users) regardless of PermissionSubjectType
                 // This allows users to switch between Team/User modes without losing data
@@ -889,18 +912,95 @@ namespace FlowFlex.Application.Services.OW
                 var workflow = await _workflowRepository.GetByIdAsync(entity.WorkflowId);
                 result.WorkflowName = workflow?.Name;
 
+                // IMPORTANT: If CurrentStageId is null but stagesProgress exists, try to get current stage from stagesProgress
+                if (!entity.CurrentStageId.HasValue && result.StagesProgress != null && result.StagesProgress.Any())
+                {
+                    var currentStageProgress = result.StagesProgress.FirstOrDefault(sp => sp.IsCurrent);
+                    if (currentStageProgress != null)
+                    {
+                        entity.CurrentStageId = currentStageProgress.StageId;
+                        result.CurrentStageId = currentStageProgress.StageId;
+                        LoggingExtensions.WriteLine($"[DEBUG] GetByIdAsync - Recovered CurrentStageId from StagesProgress: {entity.CurrentStageId} for Onboarding {id}");
+                        
+                        // Update database to fix the missing CurrentStageId
+                        try
+                        {
+                            var updateSql = "UPDATE ff_onboarding SET current_stage_id = @CurrentStageId WHERE id = @Id";
+                            await _onboardingRepository.GetSqlSugarClient().Ado.ExecuteCommandAsync(updateSql, new 
+                            { 
+                                CurrentStageId = entity.CurrentStageId.Value, 
+                                Id = id 
+                            });
+                            LoggingExtensions.WriteLine($"[DEBUG] GetByIdAsync - Updated database with CurrentStageId: {entity.CurrentStageId} for Onboarding {id}");
+                        }
+                        catch (Exception ex)
+                        {
+                            LoggingExtensions.WriteLine($"[ERROR] GetByIdAsync - Failed to update CurrentStageId in database: {ex.Message}");
+                        }
+                    }
+                }
+                
+                // IMPORTANT: If CurrentStageStartTime is null but stagesProgress exists, try to recover from stagesProgress
+                if (!entity.CurrentStageStartTime.HasValue && entity.CurrentStageId.HasValue && result.StagesProgress != null && result.StagesProgress.Any())
+                {
+                    var currentStageProgress = result.StagesProgress.FirstOrDefault(sp => sp.StageId == entity.CurrentStageId.Value);
+                    if (currentStageProgress != null && currentStageProgress.StartTime.HasValue)
+                    {
+                        entity.CurrentStageStartTime = currentStageProgress.StartTime;
+                        result.CurrentStageStartTime = currentStageProgress.StartTime;
+                        LoggingExtensions.WriteLine($"[DEBUG] GetByIdAsync - Recovered CurrentStageStartTime from StagesProgress: {entity.CurrentStageStartTime} for Onboarding {id}");
+                        
+                        // Update database to fix the missing CurrentStageStartTime
+                        try
+                        {
+                            var updateSql = "UPDATE ff_onboarding SET current_stage_start_time = @CurrentStageStartTime WHERE id = @Id";
+                            await _onboardingRepository.GetSqlSugarClient().Ado.ExecuteCommandAsync(updateSql, new 
+                            { 
+                                CurrentStageStartTime = entity.CurrentStageStartTime.Value, 
+                                Id = id 
+                            });
+                            LoggingExtensions.WriteLine($"[DEBUG] GetByIdAsync - Updated database with CurrentStageStartTime: {entity.CurrentStageStartTime} for Onboarding {id}");
+                        }
+                        catch (Exception ex)
+                        {
+                            LoggingExtensions.WriteLine($"[ERROR] GetByIdAsync - Failed to update CurrentStageStartTime in database: {ex.Message}");
+                        }
+                    }
+                }
+                
                 // Get current stage name and estimated days
                 if (entity.CurrentStageId.HasValue)
                 {
                     var stage = await _stageRepository.GetByIdAsync(entity.CurrentStageId.Value);
                     result.CurrentStageName = stage?.Name;
-                    result.CurrentStageEstimatedDays = stage?.EstimatedDuration;
+                    
+                    // IMPORTANT: Priority for EstimatedDays: customEstimatedDays > stage.EstimatedDuration
+                    var currentStageProgress = result.StagesProgress?.FirstOrDefault(sp => sp.StageId == entity.CurrentStageId.Value);
+                    if (currentStageProgress != null && currentStageProgress.CustomEstimatedDays.HasValue && currentStageProgress.CustomEstimatedDays.Value > 0)
+                    {
+                        result.CurrentStageEstimatedDays = currentStageProgress.CustomEstimatedDays.Value;
+                        LoggingExtensions.WriteLine($"[DEBUG] GetByIdAsync - Using customEstimatedDays: {result.CurrentStageEstimatedDays} for Stage {entity.CurrentStageId}");
+                    }
+                    else
+                    {
+                        result.CurrentStageEstimatedDays = stage?.EstimatedDuration;
+                    }
 
                     // Calculate current stage end time based on start time + estimated days
-                    if (result.CurrentStageStartTime.HasValue && result.CurrentStageEstimatedDays.HasValue && result.CurrentStageEstimatedDays > 0)
+                    // Priority: customEndTime > calculated (startTime + estimatedDays)
+                    if (currentStageProgress != null && currentStageProgress.CustomEndTime.HasValue)
+                    {
+                        result.CurrentStageEndTime = currentStageProgress.CustomEndTime.Value;
+                        LoggingExtensions.WriteLine($"[DEBUG] GetByIdAsync - Using customEndTime: {result.CurrentStageEndTime} for Stage {entity.CurrentStageId}");
+                    }
+                    else if (result.CurrentStageStartTime.HasValue && result.CurrentStageEstimatedDays.HasValue && result.CurrentStageEstimatedDays > 0)
                     {
                         result.CurrentStageEndTime = result.CurrentStageStartTime.Value.AddDays((double)result.CurrentStageEstimatedDays.Value);
                     }
+                }
+                else
+                {
+                    LoggingExtensions.WriteLine($"[WARNING] GetByIdAsync - CurrentStageId is null for Onboarding {id} after fallback attempt");
                 }
 
                 // Get user ID for permission checks
@@ -2471,14 +2571,18 @@ namespace FlowFlex.Application.Services.OW
                 var currentStageIndex = orderedStages.FindIndex(x => x.Id == entity.CurrentStageId);
                 var nextStageIndex = currentStageIndex + 1;
 
+                LoggingExtensions.WriteLine($"[DEBUG] CompleteCurrentStageAsync - Before auto-advance: CurrentStageId={entity.CurrentStageId}, CompletedStageId={stageToComplete.Id}, NextIndex={nextStageIndex}");
+
                 // If current stage is the completed stage and there's a next stage, advance to it
                 if (entity.CurrentStageId == stageToComplete.Id && nextStageIndex < orderedStages.Count)
                 {
                     var nextStage = orderedStages[nextStageIndex];
+                    var oldStageId = entity.CurrentStageId;
                     entity.CurrentStageId = nextStage.Id;
                     entity.CurrentStageOrder = nextStage.Order;
                     entity.CurrentStageStartTime = DateTimeOffset.UtcNow;
                     // Debug logging handled by structured logging
+                    LoggingExtensions.WriteLine($"[DEBUG] CompleteCurrentStageAsync - Advanced to next stage: OldStageId={oldStageId}, NewStageId={entity.CurrentStageId}, StageName={nextStage.Name}");
                 }
                 else if (entity.CurrentStageId != stageToComplete.Id)
                 {
@@ -5458,6 +5562,8 @@ namespace FlowFlex.Application.Services.OW
         {
             try
             {
+                LoggingExtensions.WriteLine($"[DEBUG] SafeUpdateOnboardingAsync - Updating Onboarding {entity.Id}: CurrentStageId={entity.CurrentStageId}, Status={entity.Status}");
+                
                 // Always use the JSONB-safe approach to avoid type conversion errors
                 var db = _onboardingRepository.GetSqlSugarClient();
 
@@ -5499,6 +5605,8 @@ namespace FlowFlex.Application.Services.OW
 
                 // Then update all other fields (permission fields were already updated above)
                 // Now the constraint will be satisfied because JSONB fields and permission modes are already updated
+                LoggingExtensions.WriteLine($"[DEBUG] SafeUpdateOnboardingAsync - About to update repository with CurrentStageId={entity.CurrentStageId}");
+                
                 var result = await _onboardingRepository.UpdateAsync(entity,
                     it => new
                     {
@@ -6230,6 +6338,7 @@ namespace FlowFlex.Application.Services.OW
             // 🚀 PERFORMANCE OPTIMIZATION: Batch check permissions using in-memory data (no DB queries)
             var userId = _userContext?.UserId;
             bool isSystemAdmin = _userContext?.IsSystemAdmin == true;
+            bool isTenantAdmin = _userContext != null && _userContext.HasAdminPrivileges(_userContext.TenantId);
             Dictionary<long, PermissionInfoDto> permissions = null;
 
             if (!string.IsNullOrEmpty(userId) && long.TryParse(userId, out var userIdLong))
@@ -6242,7 +6351,7 @@ namespace FlowFlex.Application.Services.OW
                 var userTeams = _permissionService.GetUserTeamIds();
                 var userTeamLongs = userTeams?.Select(t => long.TryParse(t, out var tid) ? tid : 0).Where(t => t > 0).ToList() ?? new List<long>();
 
-                // Batch check permissions using already-loaded workflow data (in-memory, no DB queries)
+                // 🔄 Use unified CasePermissionService for permission checks
                 permissions = new Dictionary<long, PermissionInfoDto>();
                 
                 // Create entity lookup for fast access
@@ -6257,31 +6366,21 @@ namespace FlowFlex.Application.Services.OW
                         continue;
                     }
 
-                    // Get workflow from already-loaded dictionary (no DB query)
-                    if (!workflows.Any(w => w.Id == entity.WorkflowId))
-                    {
-                        // Workflow not found, deny access
-                        permissions[result.Id] = new PermissionInfoDto { CanView = false, CanOperate = false };
-                        continue;
-                    }
-
-                    var workflow = workflows.First(w => w.Id == entity.WorkflowId);
-
-                    // In-memory permission checks (same logic as QueryAsync)
-                    bool canViewCase = CheckWorkflowViewPermissionInMemory(workflow, userIdLong, userTeamLongs) 
-                                     && CheckCaseViewPermissionInMemory(entity, userIdLong, userTeamLongs);
+                    // ✅ Use unified CasePermissionService - includes admin bypass
+                    var viewResult = await _casePermissionService.CheckCasePermissionAsync(
+                        entity, userIdLong, PermissionOperationType.View);
                     
                     bool canOperateCase = false;
-                    if (canViewCase)
+                    if (viewResult.Success && viewResult.CanView)
                     {
-                        // Check operate permission (workflow + case level)
-                        canOperateCase = CheckWorkflowOperatePermissionInMemory(workflow, userIdLong, userTeamLongs)
-                                       && CheckCaseOperatePermissionInMemory(entity, userIdLong, userTeamLongs);
+                        var operateResult = await _casePermissionService.CheckCasePermissionAsync(
+                            entity, userIdLong, PermissionOperationType.Operate);
+                        canOperateCase = operateResult.Success && operateResult.CanOperate;
                     }
 
                     permissions[result.Id] = new PermissionInfoDto 
                     { 
-                        CanView = canViewCases && canViewCase, 
+                        CanView = canViewCases && viewResult.Success && viewResult.CanView, 
                         CanOperate = canOperateCases && canOperateCase 
                     };
                 }
@@ -6291,22 +6390,75 @@ namespace FlowFlex.Application.Services.OW
             foreach (var result in results)
             {
                 result.WorkflowName = workflowDict.GetValueOrDefault(result.WorkflowId);
+                
+                // IMPORTANT: If CurrentStageId is null but stagesProgress exists, try to get current stage from stagesProgress
+                if (!result.CurrentStageId.HasValue && result.StagesProgress != null && result.StagesProgress.Any())
+                {
+                    var currentStageProgress = result.StagesProgress.FirstOrDefault(sp => sp.IsCurrent);
+                    if (currentStageProgress != null)
+                    {
+                        result.CurrentStageId = currentStageProgress.StageId;
+                        LoggingExtensions.WriteLine($"[DEBUG] PopulateOnboardingOutputDto - Recovered CurrentStageId from StagesProgress: {result.CurrentStageId} for Onboarding {result.Id}");
+                    }
+                }
+                
+                // IMPORTANT: If CurrentStageStartTime is null but stagesProgress exists, try to recover from stagesProgress
+                if (!result.CurrentStageStartTime.HasValue && result.CurrentStageId.HasValue && result.StagesProgress != null && result.StagesProgress.Any())
+                {
+                    var currentStageProgress = result.StagesProgress.FirstOrDefault(sp => sp.StageId == result.CurrentStageId.Value);
+                    if (currentStageProgress != null && currentStageProgress.StartTime.HasValue)
+                    {
+                        result.CurrentStageStartTime = currentStageProgress.StartTime;
+                        LoggingExtensions.WriteLine($"[DEBUG] PopulateOnboardingOutputDto - Recovered CurrentStageStartTime from StagesProgress: {result.CurrentStageStartTime} for Onboarding {result.Id}");
+                    }
+                }
+                
                 if (result.CurrentStageId.HasValue)
                 {
                     result.CurrentStageName = stageDict.GetValueOrDefault(result.CurrentStageId.Value);
-                    result.CurrentStageEstimatedDays = stageEstimatedDaysDict.GetValueOrDefault(result.CurrentStageId.Value);
+                    
+                    // IMPORTANT: Priority for EstimatedDays: customEstimatedDays > stage.EstimatedDuration
+                    var currentStageProgress = result.StagesProgress?.FirstOrDefault(sp => sp.StageId == result.CurrentStageId.Value);
+                    if (currentStageProgress != null && currentStageProgress.CustomEstimatedDays.HasValue && currentStageProgress.CustomEstimatedDays.Value > 0)
+                    {
+                        result.CurrentStageEstimatedDays = currentStageProgress.CustomEstimatedDays.Value;
+                    }
+                    else
+                    {
+                        result.CurrentStageEstimatedDays = stageEstimatedDaysDict.GetValueOrDefault(result.CurrentStageId.Value);
+                    }
 
                     // Calculate current stage end time based on start time + estimated days
-                    if (result.CurrentStageStartTime.HasValue && result.CurrentStageEstimatedDays.HasValue && result.CurrentStageEstimatedDays > 0)
+                    // Priority: customEndTime > calculated (startTime + estimatedDays)
+                    if (currentStageProgress != null && currentStageProgress.CustomEndTime.HasValue)
+                    {
+                        result.CurrentStageEndTime = currentStageProgress.CustomEndTime.Value;
+                    }
+                    else if (result.CurrentStageStartTime.HasValue && result.CurrentStageEstimatedDays.HasValue && result.CurrentStageEstimatedDays > 0)
                     {
                         result.CurrentStageEndTime = result.CurrentStageStartTime.Value.AddDays((double)result.CurrentStageEstimatedDays.Value);
                     }
+                }
+                else
+                {
+                    // Log when CurrentStageId is still null after fallback attempt
+                    LoggingExtensions.WriteLine($"[WARNING] PopulateOnboardingOutputDto - CurrentStageId is null for Onboarding {result.Id}, StagesProgress count: {result.StagesProgress?.Count ?? 0}");
                 }
 
                 // Set IsDisabled and Permission fields
                 if (isSystemAdmin)
                 {
                     result.IsDisabled = false; // System Admin can operate on all cases
+                    result.Permission = new Application.Contracts.Dtos.OW.Permission.PermissionInfoDto
+                    {
+                        CanView = true,
+                        CanOperate = true,
+                        ErrorMessage = null
+                    };
+                }
+                else if (isTenantAdmin)
+                {
+                    result.IsDisabled = false; // Tenant Admin can operate on all cases in their tenant
                     result.Permission = new Application.Contracts.Dtos.OW.Permission.PermissionInfoDto
                     {
                         CanView = true,
