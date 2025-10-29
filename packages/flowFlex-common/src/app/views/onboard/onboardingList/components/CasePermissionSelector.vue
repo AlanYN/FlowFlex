@@ -759,8 +759,16 @@ watch(
 		await updateViewChoosableTreeData();
 		// 重新执行第二层过滤
 		if (shouldShowSelector.value && localPermissions.viewTeams.length > 0) {
-			handleLeftChange();
+			handleLeftChange(false);
 		}
+		localPermissions.viewPermissionMode = CasePermissionModeEnum.Public;
+		localPermissions.viewTeams = [];
+		localPermissions.viewUsers = [];
+		localPermissions.viewPermissionSubjectType = PermissionSubjectTypeEnum.Team;
+		localPermissions.useSameTeamForOperate = true;
+		localPermissions.operateTeams = [];
+		localPermissions.operateUsers = [];
+		localPermissions.operatePermissionSubjectType = PermissionSubjectTypeEnum.Team;
 	}
 );
 
