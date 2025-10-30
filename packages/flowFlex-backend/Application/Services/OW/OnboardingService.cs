@@ -1,37 +1,38 @@
-using FlowFlex.Infrastructure.Services;
 using AutoMapper;
-using MediatR;
+using FlowFlex.Application.Contracts.Dtos;
+using FlowFlex.Application.Contracts.Dtos.Action;
 using FlowFlex.Application.Contracts.Dtos.OW.Onboarding;
 using FlowFlex.Application.Contracts.Dtos.OW.Permission;
+using FlowFlex.Application.Contracts.IServices.Action;
 using FlowFlex.Application.Contracts.IServices.OW;
-using FlowFlex.Application.Contracts.Dtos;
+using FlowFlex.Application.Contracts.IServices.OW;
+using FlowFlex.Application.Services.OW.Extensions;
 using FlowFlex.Domain.Entities.OW;
 using FlowFlex.Domain.Repository.OW;
 using FlowFlex.Domain.Shared;
-using FlowFlex.Domain.Shared.Events;
-using System.Linq;
-using SqlSugar;
 using FlowFlex.Domain.Shared.Attr;
-using System.Text;
-using System.IO;
-using System.Globalization;
+using FlowFlex.Domain.Shared.Const;
+using FlowFlex.Domain.Shared.Enums.OW;
+using FlowFlex.Domain.Shared.Events;
+using FlowFlex.Domain.Shared.Models;
+using FlowFlex.Domain.Shared.Utils;
+using FlowFlex.Infrastructure.Extensions;
+using FlowFlex.Infrastructure.Services;
+using MediatR;
+using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.OpenApi.Models;
 using OfficeOpenXml;
+using SqlSugar;
+using System.Diagnostics;
+using System.Globalization;
+using System.IO;
+using System.Linq;
+using System.Linq.Expressions;
+using System.Text;
 // using Item.Redis; // Temporarily disable Redis
 using System.Text.Json;
-using System.Diagnostics;
-using FlowFlex.Domain.Shared.Models;
-using System.Linq.Expressions;
-using FlowFlex.Application.Services.OW.Extensions;
-using FlowFlex.Application.Contracts.IServices.OW;
-using FlowFlex.Application.Contracts.IServices.Action;
-using FlowFlex.Domain.Shared.Enums.OW;
-using FlowFlex.Application.Contracts.Dtos.Action;
-using FlowFlex.Domain.Shared.Utils;
-using Microsoft.Extensions.DependencyInjection;
-using FlowFlex.Infrastructure.Extensions;
 using PermissionOperationType = FlowFlex.Domain.Shared.Enums.Permission.OperationTypeEnum;
-using FlowFlex.Domain.Shared.Const;
-using Microsoft.AspNetCore.Http;
 
 namespace FlowFlex.Application.Services.OW
 {
@@ -1439,8 +1440,12 @@ namespace FlowFlex.Application.Services.OW
                                 continue; // No Workflow permission, skip this Case
                             }
 
+                            var viewResult = await _casePermissionService.CheckCasePermissionAsync(
+                     entity, userIdLong, PermissionOperationType.View);
+                            bool hasCaseViewPermission = viewResult.CanView;
                             // Check Case-level view permission (in-memory)
-                            bool hasCaseViewPermission = CheckCaseViewPermissionInMemory(entity, userIdLong, userTeamLongs);
+                            //bool hasCaseViewPermission = CheckCaseViewPermissionInMemory(entity, userIdLong, userTeamLongs);
+
                             LoggingExtensions.WriteLine($"[Permission Debug] Case {entity.Id} - Case permission: {hasCaseViewPermission} (ViewMode={entity.ViewPermissionMode}, SubjectType={entity.ViewPermissionSubjectType}, ViewTeams={entity.ViewTeams ?? "NULL"}, ViewUsers={entity.ViewUsers ?? "NULL"}, Ownership={entity.Ownership})");
                             if (!hasCaseViewPermission)
                             {
@@ -7088,8 +7093,14 @@ namespace FlowFlex.Application.Services.OW
                 return true;
             }
 
-            // Public view mode = everyone can view (with possible subject restrictions)
             if (onboarding.ViewPermissionMode == ViewPermissionModeEnum.Public)
+            {
+                var workflow = _workflowRepository.GetById(onboarding.WorkflowId);
+                return CheckWorkflowOperatePermissionInMemory(workflow, userId, userTeamIds);
+            }
+
+            // Public view mode = everyone can view (with possible subject restrictions)
+            else
             {
                 // Check subject type restrictions
                 if (onboarding.ViewPermissionSubjectType == PermissionSubjectTypeEnum.Team)

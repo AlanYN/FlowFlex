@@ -1,11 +1,12 @@
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Authorization;
-using System.ComponentModel.DataAnnotations;
 using FlowFlex.Application.Contracts.Dtos.OW.ChecklistTask;
 using FlowFlex.Application.Contracts.IServices.OW;
-using Item.Internal.StandardApi.Response;
-using System.Net;
+using FlowFlex.Application.Filter;
 using FlowFlex.Domain.Shared.Attr;
+using Item.Internal.StandardApi.Response;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using System.ComponentModel.DataAnnotations;
+using System.Net;
 
 namespace FlowFlex.WebApi.Controllers.OW;
 
@@ -16,6 +17,7 @@ namespace FlowFlex.WebApi.Controllers.OW;
 [Route("ow/checklist-task-notes/v{version:apiVersion}")]
 [Display(Name = "checklist-task-note")]
 [Authorize] // 添加授权特性，要求所有note API都需要认证
+[PortalAccess]
 public class ChecklistTaskNoteController : Controllers.ControllerBase
 {
     private readonly IChecklistTaskNoteService _noteService;
