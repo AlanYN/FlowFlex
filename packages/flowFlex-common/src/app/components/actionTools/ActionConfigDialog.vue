@@ -104,7 +104,6 @@
 								</el-select>
 							</div>
 						</div>
-						form{{ selectedToolId }}
 						<el-form
 							v-if="configMode !== ToolsType.SystemTools"
 							ref="formRef"
