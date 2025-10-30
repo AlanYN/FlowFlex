@@ -279,14 +279,14 @@ namespace FlowFlex.Application.Services.OW
                 LoggingExtensions.WriteLine($"[DEBUG] Onboarding Create - CurrentStageId set to: {entity.CurrentStageId}, CurrentStageOrder: {entity.CurrentStageOrder}, FirstStage: {firstStage?.Id}");
                 LoggingExtensions.WriteLine($"[DEBUG] Onboarding Status: ID={entity.Id}, Status={entity.Status}");
                 entity.StartDate = entity.StartDate ?? DateTimeOffset.UtcNow;
-                
+
                 // IMPORTANT: Do NOT set CurrentStageStartTime during creation
                 // CurrentStageStartTime should only be set when:
                 // 1. Onboarding is started (status changes to Active/InProgress/Started)
                 // 2. Stage is saved for the first time
                 // 3. Stage is completed and advances to next stage
                 entity.CurrentStageStartTime = null;
-                
+
                 entity.CompletionRate = 0;
                 entity.IsPrioritySet = false;
                 entity.Priority = string.IsNullOrEmpty(entity.Priority) ? "Medium" : entity.Priority;
@@ -591,7 +591,7 @@ namespace FlowFlex.Application.Services.OW
                 // Record original workflow and stage ID for cache cleanup
                 var originalWorkflowId = entity.WorkflowId;
                 var originalStageId = entity.CurrentStageId;
-                
+
                 // Store original values for static field sync comparison
                 var originalLeadId = entity.LeadId;
                 var originalLeadName = entity.LeadName;
@@ -610,27 +610,27 @@ namespace FlowFlex.Application.Services.OW
                 if (entity.WorkflowId != input.WorkflowId)
                 {
                     workflowChanged = true;
-                    
+
                     // Business Rule 1: Only allow workflow change for cases with status "Started"
                     if (entity.Status != "Started")
                     {
                         throw new CRMException(
-                            ErrorCodeEnum.OperationNotAllowed, 
+                            ErrorCodeEnum.OperationNotAllowed,
                             $"Cannot change workflow for a case with status '{entity.Status}'. Only cases with status 'Started' can change workflow.");
                     }
 
                     // Business Rule 2: Only allow workflow change for cases that haven't started yet
                     // "Unstarted" is defined as all stages having isCompleted: false and isSaved: false
                     LoadStagesProgressFromJson(entity); // Ensure stagesProgress is loaded
-                    
-                    bool isUnstarted = entity.StagesProgress == null || 
-                                       entity.StagesProgress.Count == 0 || 
+
+                    bool isUnstarted = entity.StagesProgress == null ||
+                                       entity.StagesProgress.Count == 0 ||
                                        entity.StagesProgress.All(sp => !sp.IsCompleted && !sp.IsSaved);
 
                     if (!isUnstarted)
                     {
                         throw new CRMException(
-                            ErrorCodeEnum.OperationNotAllowed, 
+                            ErrorCodeEnum.OperationNotAllowed,
                             $"Cannot change workflow for a case that has already started or has saved progress. Current status: {entity.Status}");
                     }
 
@@ -650,11 +650,11 @@ namespace FlowFlex.Application.Services.OW
                     // Store the new stage ID and order to preserve after mapping
                     preservedCurrentStageId = firstStage?.Id;
                     preservedCurrentStageOrder = firstStage?.Order ?? 1;
-                    
+
                     entity.CurrentStageId = preservedCurrentStageId;
                     entity.CurrentStageOrder = preservedCurrentStageOrder.Value;
                     entity.CompletionRate = 0;
-                    
+
                     // Re-initialize stagesProgress with new workflow's stages
                     await InitializeStagesProgressAsync(entity, stages.ToList());
                 }
@@ -687,7 +687,7 @@ namespace FlowFlex.Application.Services.OW
                     // Sync static field values
                     // If current stage exists, use it; otherwise try to get the first stage from workflow
                     long? targetStageId = entity.CurrentStageId;
-                    
+
                     if (!targetStageId.HasValue && entity.WorkflowId > 0)
                     {
                         // Try to get first stage from workflow
@@ -695,7 +695,7 @@ namespace FlowFlex.Application.Services.OW
                         var firstStage = stages.OrderBy(s => s.Order).FirstOrDefault();
                         targetStageId = firstStage?.Id;
                     }
-                    
+
                     if (targetStageId.HasValue)
                     {
                         await SyncStaticFieldValuesAsync(
@@ -928,15 +928,15 @@ namespace FlowFlex.Application.Services.OW
                         entity.CurrentStageId = currentStageProgress.StageId;
                         result.CurrentStageId = currentStageProgress.StageId;
                         LoggingExtensions.WriteLine($"[DEBUG] GetByIdAsync - Recovered CurrentStageId from StagesProgress: {entity.CurrentStageId} for Onboarding {id}");
-                        
+
                         // Update database to fix the missing CurrentStageId
                         try
                         {
                             var updateSql = "UPDATE ff_onboarding SET current_stage_id = @CurrentStageId WHERE id = @Id";
-                            await _onboardingRepository.GetSqlSugarClient().Ado.ExecuteCommandAsync(updateSql, new 
-                            { 
-                                CurrentStageId = entity.CurrentStageId.Value, 
-                                Id = id 
+                            await _onboardingRepository.GetSqlSugarClient().Ado.ExecuteCommandAsync(updateSql, new
+                            {
+                                CurrentStageId = entity.CurrentStageId.Value,
+                                Id = id
                             });
                             LoggingExtensions.WriteLine($"[DEBUG] GetByIdAsync - Updated database with CurrentStageId: {entity.CurrentStageId} for Onboarding {id}");
                         }
@@ -946,7 +946,7 @@ namespace FlowFlex.Application.Services.OW
                         }
                     }
                 }
-                
+
                 // currentStageStartTime 只取 startTime（无则为null）
                 result.CurrentStageStartTime = null;
                 result.CurrentStageEndTime = null;
@@ -991,13 +991,13 @@ namespace FlowFlex.Application.Services.OW
                 {
                     result.CurrentStageEndTime = result.CurrentStageStartTime.Value.AddDays(estimatedDays.Value);
                 }
-                
+
                 // Get current stage name and estimated days
                 if (entity.CurrentStageId.HasValue)
                 {
                     var stage = await _stageRepository.GetByIdAsync(entity.CurrentStageId.Value);
                     result.CurrentStageName = stage?.Name;
-                    
+
                     // IMPORTANT: Priority for EstimatedDays: customEstimatedDays > stage.EstimatedDuration
                     var currentStageProgress = result.StagesProgress?.FirstOrDefault(sp => sp.StageId == entity.CurrentStageId.Value);
                     if (currentStageProgress != null && currentStageProgress.CustomEstimatedDays.HasValue && currentStageProgress.CustomEstimatedDays.Value > 0)
@@ -1022,7 +1022,7 @@ namespace FlowFlex.Application.Services.OW
                                 LoggingExtensions.WriteLine($"[DEBUG] GetByIdAsync - Fallback EstimatedDays from Stage fetch: {result.CurrentStageEstimatedDays} for Onboarding {id}");
                             }
                         }
-                        catch {}
+                        catch { }
                     }
 
                     // End time already derived strictly from stagesProgress above
@@ -1143,16 +1143,16 @@ namespace FlowFlex.Application.Services.OW
                     var uniqueWorkflowIds = entities.Select(e => e.WorkflowId).Distinct().ToList();
                     var workflowEntities = await _workflowRepository.GetListAsync(w => uniqueWorkflowIds.Contains(w.Id));
                     var workflowEntityDict = workflowEntities.ToDictionary(w => w.Id);
-                    
+
                     LoggingExtensions.WriteLine($"[Performance] GetListAsync - Batch loaded {workflowEntities.Count} unique workflows for {entities.Count} cases");
-                    
+
                     // Get user teams once
                     var userTeams = _permissionService.GetUserTeamIds();
                     var userTeamLongs = userTeams?.Select(t => long.TryParse(t, out var tid) ? tid : 0).Where(t => t > 0).ToList() ?? new List<long>();
-                    
+
                     // Regular users need permission filtering (using in-memory workflow data)
                     var filteredEntities = new List<Onboarding>();
-                    
+
                     foreach (var entity in entities)
                     {
                         // ⚡ In-memory permission check using pre-loaded Workflow
@@ -1161,7 +1161,7 @@ namespace FlowFlex.Application.Services.OW
                             LoggingExtensions.WriteLine($"[Permission Debug] GetListAsync - Case {entity.Id} - Workflow {entity.WorkflowId} not found");
                             continue;
                         }
-                        
+
                         // Check Workflow view permission (in-memory)
                         bool hasWorkflowPerm = CheckWorkflowViewPermissionInMemory(workflow, userIdLong, userTeamLongs);
                         LoggingExtensions.WriteLine($"[Permission Debug] GetListAsync - Case {entity.Id} - Workflow permission: {hasWorkflowPerm}");
@@ -1169,7 +1169,7 @@ namespace FlowFlex.Application.Services.OW
                         {
                             continue;
                         }
-                        
+
                         // Check Case-level view permission (in-memory)
                         bool hasCasePerm = CheckCaseViewPermissionInMemory(entity, userIdLong, userTeamLongs);
                         LoggingExtensions.WriteLine($"[Permission Debug] GetListAsync - Case {entity.Id} - Case permission: {hasCasePerm}");
@@ -1177,11 +1177,11 @@ namespace FlowFlex.Application.Services.OW
                         {
                             continue;
                         }
-                        
+
                         // ✅ Both permissions passed
                         filteredEntities.Add(entity);
                     }
-                    
+
                     entities = filteredEntities;
                     LoggingExtensions.WriteLine($"[Permission Filter] GetListAsync - Filtered count: {filteredEntities.Count}");
                 }
@@ -1339,7 +1339,7 @@ namespace FlowFlex.Application.Services.OW
                 int pageSize = Math.Max(1, Math.Min(100, request.PageSize > 0 ? request.PageSize : 10));
 
                 List<Onboarding> allEntities;
-                
+
                 if (request.AllData)
                 {
                     // Get all data without pagination
@@ -1412,16 +1412,16 @@ namespace FlowFlex.Application.Services.OW
                         var uniqueWorkflowIds = allEntities.Select(e => e.WorkflowId).Distinct().ToList();
                         var workflowEntities = await _workflowRepository.GetListAsync(w => uniqueWorkflowIds.Contains(w.Id));
                         var workflowEntityDict = workflowEntities.ToDictionary(w => w.Id);
-                        
+
                         LoggingExtensions.WriteLine($"[Performance] Batch loaded {workflowEntities.Count} unique workflows for {allEntities.Count} cases");
-                        
+
                         // Get user teams once (avoid repeated calls)
                         var userTeams = _permissionService.GetUserTeamIds();
                         var userTeamLongs = userTeams?.Select(t => long.TryParse(t, out var tid) ? tid : 0).Where(t => t > 0).ToList() ?? new List<long>();
-                        
+
                         // Regular users need permission filtering (now using in-memory workflow data)
                         filteredEntities = new List<Onboarding>();
-                        
+
                         foreach (var entity in allEntities)
                         {
                             // ⚡ In-memory permission check using pre-loaded Workflow
@@ -1430,7 +1430,7 @@ namespace FlowFlex.Application.Services.OW
                                 LoggingExtensions.WriteLine($"[Permission Debug] Case {entity.Id} - Workflow {entity.WorkflowId} not found in dictionary");
                                 continue;
                             }
-                            
+
                             // Check Workflow view permission (in-memory, no DB query)
                             bool hasWorkflowViewPermission = CheckWorkflowViewPermissionInMemory(workflow, userIdLong, userTeamLongs);
                             LoggingExtensions.WriteLine($"[Permission Debug] Case {entity.Id} - Workflow {workflow.Id} permission: {hasWorkflowViewPermission} (ViewMode={workflow.ViewPermissionMode}, ViewTeams={workflow.ViewTeams ?? "NULL"})");
@@ -1438,7 +1438,7 @@ namespace FlowFlex.Application.Services.OW
                             {
                                 continue; // No Workflow permission, skip this Case
                             }
-                            
+
                             // Check Case-level view permission (in-memory)
                             bool hasCaseViewPermission = CheckCaseViewPermissionInMemory(entity, userIdLong, userTeamLongs);
                             LoggingExtensions.WriteLine($"[Permission Debug] Case {entity.Id} - Case permission: {hasCaseViewPermission} (ViewMode={entity.ViewPermissionMode}, SubjectType={entity.ViewPermissionSubjectType}, ViewTeams={entity.ViewTeams ?? "NULL"}, ViewUsers={entity.ViewUsers ?? "NULL"}, Ownership={entity.Ownership})");
@@ -1446,12 +1446,12 @@ namespace FlowFlex.Application.Services.OW
                             {
                                 continue; // No Case permission, skip
                             }
-                            
+
                             // ✅ Both Workflow and Case permissions passed
                             LoggingExtensions.WriteLine($"[Permission Debug] Case {entity.Id} - GRANTED (both checks passed)");
                             filteredEntities.Add(entity);
                         }
-                        
+
                         LoggingExtensions.WriteLine($"[Permission Filter] Original count: {allEntities.Count}, Filtered count: {filteredEntities.Count}");
                     }
                 }
@@ -1463,8 +1463,8 @@ namespace FlowFlex.Application.Services.OW
 
                 // Step 3: Apply pagination to filtered results
                 var totalCount = filteredEntities.Count;
-                var pagedEntities = request.AllData 
-                    ? filteredEntities 
+                var pagedEntities = request.AllData
+                    ? filteredEntities
                     : filteredEntities.Skip((pageIndex - 1) * pageSize).Take(pageSize).ToList();
 
                 // Batch get Workflow and Stage information to avoid N+1 queries (only for paged data)
@@ -1966,7 +1966,7 @@ namespace FlowFlex.Application.Services.OW
             // Check permission
             if (!await CheckCaseOperatePermissionAsync(id))
             {
-                throw new CRMException(ErrorCodeEnum.OperationNotAllowed, 
+                throw new CRMException(ErrorCodeEnum.OperationNotAllowed,
                     $"User does not have permission to operate on case {id}");
             }
 
@@ -2005,7 +2005,7 @@ namespace FlowFlex.Application.Services.OW
             // Check permission
             if (!await CheckCaseOperatePermissionAsync(id))
             {
-                throw new CRMException(ErrorCodeEnum.OperationNotAllowed, 
+                throw new CRMException(ErrorCodeEnum.OperationNotAllowed,
                     $"User does not have permission to operate on case {id}");
             }
 
@@ -2036,7 +2036,7 @@ namespace FlowFlex.Application.Services.OW
             // Check permission
             if (!await CheckCaseOperatePermissionAsync(id))
             {
-                throw new CRMException(ErrorCodeEnum.OperationNotAllowed, 
+                throw new CRMException(ErrorCodeEnum.OperationNotAllowed,
                     $"User does not have permission to operate on case {id}");
             }
 
@@ -2063,7 +2063,7 @@ namespace FlowFlex.Application.Services.OW
             // Check permission
             if (!await CheckCaseOperatePermissionAsync(id))
             {
-                throw new CRMException(ErrorCodeEnum.OperationNotAllowed, 
+                throw new CRMException(ErrorCodeEnum.OperationNotAllowed,
                     $"User does not have permission to operate on case {id}");
             }
 
@@ -2392,7 +2392,7 @@ namespace FlowFlex.Application.Services.OW
             // Check permission
             if (!await CheckCaseOperatePermissionAsync(id))
             {
-                throw new CRMException(ErrorCodeEnum.OperationNotAllowed, 
+                throw new CRMException(ErrorCodeEnum.OperationNotAllowed,
                     $"User does not have permission to operate on case {id}");
             }
 
@@ -2662,7 +2662,7 @@ namespace FlowFlex.Application.Services.OW
             // Check permission
             if (!await CheckCaseOperatePermissionAsync(id))
             {
-                throw new CRMException(ErrorCodeEnum.OperationNotAllowed, 
+                throw new CRMException(ErrorCodeEnum.OperationNotAllowed,
                     $"User does not have permission to operate on case {id}");
             }
 
@@ -2769,7 +2769,7 @@ namespace FlowFlex.Application.Services.OW
             // Check permission
             if (!await CheckCaseOperatePermissionAsync(id))
             {
-                throw new CRMException(ErrorCodeEnum.OperationNotAllowed, 
+                throw new CRMException(ErrorCodeEnum.OperationNotAllowed,
                     $"User does not have permission to operate on case {id}");
             }
 
@@ -2795,7 +2795,7 @@ namespace FlowFlex.Application.Services.OW
             // Check permission
             if (!await CheckCaseOperatePermissionAsync(id))
             {
-                throw new CRMException(ErrorCodeEnum.OperationNotAllowed, 
+                throw new CRMException(ErrorCodeEnum.OperationNotAllowed,
                     $"User does not have permission to operate on case {id}");
             }
 
@@ -2821,7 +2821,7 @@ namespace FlowFlex.Application.Services.OW
             // Check permission
             if (!await CheckCaseOperatePermissionAsync(id))
             {
-                throw new CRMException(ErrorCodeEnum.OperationNotAllowed, 
+                throw new CRMException(ErrorCodeEnum.OperationNotAllowed,
                     $"User does not have permission to operate on case {id}");
             }
 
@@ -2847,7 +2847,7 @@ namespace FlowFlex.Application.Services.OW
             // Check permission
             if (!await CheckCaseOperatePermissionAsync(id))
             {
-                throw new CRMException(ErrorCodeEnum.OperationNotAllowed, 
+                throw new CRMException(ErrorCodeEnum.OperationNotAllowed,
                     $"User does not have permission to operate on case {id}");
             }
 
@@ -2900,7 +2900,7 @@ namespace FlowFlex.Application.Services.OW
             // Check permission
             if (!await CheckCaseOperatePermissionAsync(id))
             {
-                throw new CRMException(ErrorCodeEnum.OperationNotAllowed, 
+                throw new CRMException(ErrorCodeEnum.OperationNotAllowed,
                     $"User does not have permission to operate on case {id}");
             }
 
@@ -3313,7 +3313,7 @@ namespace FlowFlex.Application.Services.OW
             // Check permission
             if (!await CheckCaseOperatePermissionAsync(id))
             {
-                throw new CRMException(ErrorCodeEnum.OperationNotAllowed, 
+                throw new CRMException(ErrorCodeEnum.OperationNotAllowed,
                     $"User does not have permission to operate on case {id}");
             }
 
@@ -3375,7 +3375,7 @@ namespace FlowFlex.Application.Services.OW
             // Check permission
             if (!await CheckCaseOperatePermissionAsync(id))
             {
-                throw new CRMException(ErrorCodeEnum.OperationNotAllowed, 
+                throw new CRMException(ErrorCodeEnum.OperationNotAllowed,
                     $"User does not have permission to operate on case {id}");
             }
 
@@ -4379,8 +4379,8 @@ namespace FlowFlex.Application.Services.OW
                 WorkFlow = item.WorkflowName,
                 OnboardStage = item.CurrentStageName,
                 Priority = item.Priority,
-                Ownership = !string.IsNullOrWhiteSpace(item.OwnershipName) 
-                    ? $"{item.OwnershipName} ({item.OwnershipEmail})" 
+                Ownership = !string.IsNullOrWhiteSpace(item.OwnershipName)
+                    ? $"{item.OwnershipName} ({item.OwnershipEmail})"
                     : string.Empty,
                 Status = GetDisplayStatus(item.Status),
                 StartDate = FormatDateForExport(item.CurrentStageStartTime),
@@ -4438,8 +4438,8 @@ namespace FlowFlex.Application.Services.OW
                 WorkFlow = item.WorkflowName,
                 OnboardStage = item.CurrentStageName,
                 Priority = item.Priority,
-                Ownership = !string.IsNullOrWhiteSpace(item.OwnershipName) 
-                    ? $"{item.OwnershipName} ({item.OwnershipEmail})" 
+                Ownership = !string.IsNullOrWhiteSpace(item.OwnershipName)
+                    ? $"{item.OwnershipName} ({item.OwnershipEmail})"
                     : string.Empty,
                 Status = GetDisplayStatus(item.Status),
                 StartDate = FormatDateForExport(item.CurrentStageStartTime),
@@ -4748,6 +4748,7 @@ namespace FlowFlex.Application.Services.OW
                 }
 
                 // Serialize back to JSON (only progress fields)
+                await FilterValidStagesProgress(entity);
                 entity.StagesProgressJson = SerializeStagesProgress(entity.StagesProgress);
             }
             catch (Exception ex)
@@ -5446,6 +5447,7 @@ namespace FlowFlex.Application.Services.OW
                     return;
                 }
 
+
                 // Load current stages progress
                 LoadStagesProgressFromJson(entity);
 
@@ -5453,6 +5455,9 @@ namespace FlowFlex.Application.Services.OW
                 {
                     entity.StagesProgress = new List<OnboardingStageProgress>();
                 }
+                // 过滤无效的 stageId
+                var validStageIds = stages.Select(s => s.Id).ToHashSet();
+                entity.StagesProgress?.RemoveAll(x => !validStageIds.Contains(x.StageId));
 
                 // Get existing stage IDs
                 var existingStageIds = entity.StagesProgress.Select(sp => sp.StageId).ToHashSet();
@@ -5483,6 +5488,7 @@ namespace FlowFlex.Application.Services.OW
                             Notes = null,
                             IsCurrent = false
                         };
+
 
                         // Insert at the correct position to maintain order
                         if (stageIndex < entity.StagesProgress.Count)
@@ -5582,7 +5588,7 @@ namespace FlowFlex.Application.Services.OW
             try
             {
                 LoggingExtensions.WriteLine($"[DEBUG] SafeUpdateOnboardingAsync - Updating Onboarding {entity.Id}: CurrentStageId={entity.CurrentStageId}, Status={entity.Status}");
-                
+
                 // Always use the JSONB-safe approach to avoid type conversion errors
                 var db = _onboardingRepository.GetSqlSugarClient();
 
@@ -5625,7 +5631,9 @@ namespace FlowFlex.Application.Services.OW
                 // Then update all other fields (permission fields were already updated above)
                 // Now the constraint will be satisfied because JSONB fields and permission modes are already updated
                 LoggingExtensions.WriteLine($"[DEBUG] SafeUpdateOnboardingAsync - About to update repository with CurrentStageId={entity.CurrentStageId}");
-                
+
+                // Serialize back to JSON (only progress fields)
+                await FilterValidStagesProgress(entity);
                 var result = await _onboardingRepository.UpdateAsync(entity,
                     it => new
                     {
@@ -6085,10 +6093,10 @@ namespace FlowFlex.Application.Services.OW
 
                 // Update in database
                 var result = await SafeUpdateOnboardingAsync(onboarding);
-                
+
                 if (result)
                 {
-                LoggingExtensions.WriteLine($"✅ Successfully updated AI summary for stage {stageId} in onboarding {onboardingId}");
+                    LoggingExtensions.WriteLine($"✅ Successfully updated AI summary for stage {stageId} in onboarding {onboardingId}");
                 }
                 else
                 {
@@ -6271,7 +6279,7 @@ namespace FlowFlex.Application.Services.OW
             // Check permission
             if (!await CheckCaseOperatePermissionAsync(onboardingId))
             {
-                throw new CRMException(ErrorCodeEnum.OperationNotAllowed, 
+                throw new CRMException(ErrorCodeEnum.OperationNotAllowed,
                     $"User does not have permission to operate on case {onboardingId}");
             }
 
@@ -6306,7 +6314,7 @@ namespace FlowFlex.Application.Services.OW
                 {
                     stageProgress.StartTime = DateTimeOffset.UtcNow;
                 }
-                
+
                 // IMPORTANT: If this is the current stage and CurrentStageStartTime is not set, set it now
                 if (stageProgress.StageId == onboarding.CurrentStageId && !onboarding.CurrentStageStartTime.HasValue)
                 {
@@ -6315,6 +6323,7 @@ namespace FlowFlex.Application.Services.OW
                 }
 
                 // Save stages progress back to JSON
+                await FilterValidStagesProgress(onboarding);
                 onboarding.StagesProgressJson = SerializeStagesProgress(onboarding.StagesProgress);
 
                 // Update in database
@@ -6326,6 +6335,17 @@ namespace FlowFlex.Application.Services.OW
             {
                 throw new CRMException(ErrorCodeEnum.SystemError, $"Failed to save stage {stageId} in onboarding {onboardingId}: {ex.Message}");
             }
+        }
+
+        /// <summary>
+        /// 过滤无效的 stagesProgress，保留当前 workflow 中有效 stage 的进度
+        /// </summary>
+        private async Task FilterValidStagesProgress(Onboarding entity)
+        {
+            var stages = await _stageRepository.GetByWorkflowIdAsync(entity.WorkflowId);
+            if (stages == null || !stages.Any()) return;
+            var validStageIds = stages.Select(s => s.Id).ToHashSet();
+            entity.StagesProgress?.RemoveAll(x => !validStageIds.Contains(x.StageId));
         }
 
         /// <summary>
@@ -6378,10 +6398,10 @@ namespace FlowFlex.Application.Services.OW
 
                 // 🔄 Use unified CasePermissionService for permission checks
                 permissions = new Dictionary<long, PermissionInfoDto>();
-                
+
                 // Create entity lookup for fast access
                 var entityDict = entities.ToDictionary(e => e.Id);
-                
+
                 foreach (var result in results)
                 {
                     if (!entityDict.TryGetValue(result.Id, out var entity))
@@ -6394,7 +6414,7 @@ namespace FlowFlex.Application.Services.OW
                     // ✅ Use unified CasePermissionService - includes admin bypass
                     var viewResult = await _casePermissionService.CheckCasePermissionAsync(
                         entity, userIdLong, PermissionOperationType.View);
-                    
+
                     bool canOperateCase = false;
                     if (viewResult.Success && viewResult.CanView)
                     {
@@ -6403,10 +6423,10 @@ namespace FlowFlex.Application.Services.OW
                         canOperateCase = operateResult.Success && operateResult.CanOperate;
                     }
 
-                    permissions[result.Id] = new PermissionInfoDto 
-                    { 
-                        CanView = canViewCases && viewResult.Success && viewResult.CanView, 
-                        CanOperate = canOperateCases && canOperateCase 
+                    permissions[result.Id] = new PermissionInfoDto
+                    {
+                        CanView = canViewCases && viewResult.Success && viewResult.CanView,
+                        CanOperate = canOperateCases && canOperateCase
                     };
                 }
             }
@@ -6415,7 +6435,7 @@ namespace FlowFlex.Application.Services.OW
             foreach (var result in results)
             {
                 result.WorkflowName = workflowDict.GetValueOrDefault(result.WorkflowId);
-                
+
                 // IMPORTANT: If CurrentStageId is null but stagesProgress exists, try to get current stage from stagesProgress
                 if (!result.CurrentStageId.HasValue && result.StagesProgress != null && result.StagesProgress.Any())
                 {
@@ -6426,7 +6446,7 @@ namespace FlowFlex.Application.Services.OW
                         LoggingExtensions.WriteLine($"[DEBUG] PopulateOnboardingOutputDto - Recovered CurrentStageId from StagesProgress: {result.CurrentStageId} for Onboarding {result.Id}");
                     }
                 }
-                
+
                 // currentStageStartTime 只取 startTime（无则为null）
                 result.CurrentStageStartTime = null;
                 result.CurrentStageEndTime = null;
@@ -6473,11 +6493,11 @@ namespace FlowFlex.Application.Services.OW
                 {
                     result.CurrentStageEndTime = result.CurrentStageStartTime.Value.AddDays(estimatedDays.Value);
                 }
-                
+
                 if (result.CurrentStageId.HasValue)
                 {
                     result.CurrentStageName = stageDict.GetValueOrDefault(result.CurrentStageId.Value);
-                    
+
                     // Fallback: if name missing from dictionary, fetch directly
                     if (string.IsNullOrEmpty(result.CurrentStageName))
                     {
@@ -6490,9 +6510,9 @@ namespace FlowFlex.Application.Services.OW
                                 LoggingExtensions.WriteLine($"[DEBUG] PopulateOnboardingOutputDto - Fallback CurrentStageName='{result.CurrentStageName}' for Onboarding {result.Id}");
                             }
                         }
-                        catch {}
+                        catch { }
                     }
-                    
+
                     // IMPORTANT: Priority for EstimatedDays: customEstimatedDays > stage.EstimatedDuration
                     var currentStageProgress = result.StagesProgress?.FirstOrDefault(sp => sp.StageId == result.CurrentStageId.Value);
                     if (currentStageProgress != null && currentStageProgress.CustomEstimatedDays.HasValue && currentStageProgress.CustomEstimatedDays.Value > 0)
@@ -6516,7 +6536,7 @@ namespace FlowFlex.Application.Services.OW
                                 LoggingExtensions.WriteLine($"[DEBUG] PopulateOnboardingOutputDto - Fallback EstimatedDays from Stage fetch: {result.CurrentStageEstimatedDays} for Onboarding {result.Id}");
                             }
                         }
-                        catch {}
+                        catch { }
                     }
 
                     // End time already derived strictly from stagesProgress above
@@ -6576,7 +6596,7 @@ namespace FlowFlex.Application.Services.OW
             // Check permission
             if (!await CheckCaseOperatePermissionAsync(id))
             {
-                throw new CRMException(ErrorCodeEnum.OperationNotAllowed, 
+                throw new CRMException(ErrorCodeEnum.OperationNotAllowed,
                     $"User does not have permission to operate on case {id}");
             }
 
@@ -6599,7 +6619,7 @@ namespace FlowFlex.Application.Services.OW
             // Update status to Active
             entity.Status = "Active";
             entity.StartDate = DateTimeOffset.UtcNow;
-            
+
             // IMPORTANT: Set CurrentStageStartTime when starting onboarding
             // This marks the beginning of the current stage timeline
             entity.CurrentStageStartTime = DateTimeOffset.UtcNow;
@@ -6644,7 +6664,7 @@ namespace FlowFlex.Application.Services.OW
             // Check permission
             if (!await CheckCaseOperatePermissionAsync(id))
             {
-                throw new CRMException(ErrorCodeEnum.OperationNotAllowed, 
+                throw new CRMException(ErrorCodeEnum.OperationNotAllowed,
                     $"User does not have permission to operate on case {id}");
             }
 
@@ -6695,7 +6715,7 @@ namespace FlowFlex.Application.Services.OW
             // Check permission
             if (!await CheckCaseOperatePermissionAsync(id))
             {
-                throw new CRMException(ErrorCodeEnum.OperationNotAllowed, 
+                throw new CRMException(ErrorCodeEnum.OperationNotAllowed,
                     $"User does not have permission to operate on case {id}");
             }
 
@@ -6751,7 +6771,7 @@ namespace FlowFlex.Application.Services.OW
             // Check permission
             if (!await CheckCaseOperatePermissionAsync(id))
             {
-                throw new CRMException(ErrorCodeEnum.OperationNotAllowed, 
+                throw new CRMException(ErrorCodeEnum.OperationNotAllowed,
                     $"User does not have permission to operate on case {id}");
             }
 
@@ -6804,7 +6824,7 @@ namespace FlowFlex.Application.Services.OW
             // Check permission
             if (!await CheckCaseOperatePermissionAsync(id))
             {
-                throw new CRMException(ErrorCodeEnum.OperationNotAllowed, 
+                throw new CRMException(ErrorCodeEnum.OperationNotAllowed,
                     $"User does not have permission to operate on case {id}");
             }
 
@@ -6982,19 +7002,19 @@ namespace FlowFlex.Application.Services.OW
             {
                 return new List<string>();
             }
-            
+
             try
             {
                 // Handle potential double-encoded JSON string
                 var workingString = jsonString.Trim();
-                
+
                 // If the string starts and ends with quotes, it's double-encoded, so deserialize twice
                 if (workingString.StartsWith("\"") && workingString.EndsWith("\""))
                 {
                     // First deserialize to remove outer quotes and unescape
                     workingString = Newtonsoft.Json.JsonConvert.DeserializeObject<string>(workingString);
                 }
-                
+
                 // Now deserialize to list
                 var result = Newtonsoft.Json.JsonConvert.DeserializeObject<List<string>>(workingString);
                 return result ?? new List<string>();
@@ -7004,7 +7024,7 @@ namespace FlowFlex.Application.Services.OW
                 return new List<string>();
             }
         }
-        
+
         /// <summary>
         /// Check Workflow view permission in-memory (no database query)
         /// Used for batch permission filtering in list queries
@@ -7019,7 +7039,7 @@ namespace FlowFlex.Application.Services.OW
             {
                 return true;
             }
-            
+
             // VisibleToTeams mode = check team whitelist
             if (workflow.ViewPermissionMode == ViewPermissionModeEnum.VisibleToTeams)
             {
@@ -7028,31 +7048,31 @@ namespace FlowFlex.Application.Services.OW
                     LoggingExtensions.WriteLine($"[Permission Debug] Workflow {workflow.Id} - VisibleToTeams mode with NULL ViewTeams = DENY");
                     return false; // NULL ViewTeams in VisibleToTeams mode = deny all (whitelist is empty)
                 }
-                
+
                 // Parse ViewTeams JSON array (handles double-encoding)
                 var viewTeams = ParseJsonArraySafe(workflow.ViewTeams);
                 LoggingExtensions.WriteLine($"[Permission Debug] Workflow {workflow.Id} - Parsed ViewTeams: [{string.Join(", ", viewTeams)}]");
-                
+
                 if (viewTeams.Count == 0)
                 {
                     LoggingExtensions.WriteLine($"[Permission Debug] Workflow {workflow.Id} - Empty ViewTeams = DENY");
                     return false; // Empty whitelist = deny all
                 }
-                
+
                 var viewTeamLongs = viewTeams.Select(t => long.TryParse(t, out var tid) ? tid : 0).Where(t => t > 0).ToHashSet();
                 LoggingExtensions.WriteLine($"[Permission Debug] Workflow {workflow.Id} - ViewTeamLongs: [{string.Join(", ", viewTeamLongs)}]");
                 LoggingExtensions.WriteLine($"[Permission Debug] Workflow {workflow.Id} - UserTeamIds: [{string.Join(", ", userTeamIds)}]");
-                
+
                 bool hasMatch = userTeamIds.Any(ut => viewTeamLongs.Contains(ut));
                 LoggingExtensions.WriteLine($"[Permission Debug] Workflow {workflow.Id} - Team match result: {hasMatch}");
-                
+
                 return hasMatch;
             }
-            
+
             // Private mode or unknown mode
             return false;
         }
-        
+
         /// <summary>
         /// Check Case view permission in-memory (no database query)
         /// Used for batch permission filtering in list queries
@@ -7067,7 +7087,7 @@ namespace FlowFlex.Application.Services.OW
             {
                 return true;
             }
-            
+
             // Public view mode = everyone can view (with possible subject restrictions)
             if (onboarding.ViewPermissionMode == ViewPermissionModeEnum.Public)
             {
@@ -7079,13 +7099,13 @@ namespace FlowFlex.Application.Services.OW
                     {
                         return true; // NULL ViewTeams = all teams
                     }
-                    
+
                     var viewTeams = ParseJsonArraySafe(onboarding.ViewTeams);
                     if (viewTeams.Count == 0)
                     {
                         return true; // Empty array = all teams
                     }
-                    
+
                     var viewTeamLongs = viewTeams.Select(t => long.TryParse(t, out var tid) ? tid : 0).Where(t => t > 0).ToHashSet();
                     return userTeamIds.Any(ut => viewTeamLongs.Contains(ut));
                 }
@@ -7096,13 +7116,13 @@ namespace FlowFlex.Application.Services.OW
                     {
                         return true; // NULL ViewUsers = all users
                     }
-                    
+
                     var viewUsers = ParseJsonArraySafe(onboarding.ViewUsers);
                     if (viewUsers.Count == 0)
                     {
                         return true; // Empty array = all users
                     }
-                    
+
                     var viewUserLongs = viewUsers.Select(u => long.TryParse(u, out var uid) ? uid : 0).Where(u => u > 0).ToHashSet();
                     return viewUserLongs.Contains(userId);
                 }
@@ -7112,11 +7132,11 @@ namespace FlowFlex.Application.Services.OW
                     return true;
                 }
             }
-            
+
             // VisibleToTeams or Private mode = deny
             return false;
         }
-        
+
         /// <summary>
         /// Check Workflow operate permission in-memory (no database query)
         /// Used for batch permission filtering in list queries
@@ -7133,18 +7153,18 @@ namespace FlowFlex.Application.Services.OW
                 {
                     return true; // NULL OperateTeams = all users
                 }
-                
+
                 // Parse OperateTeams JSON array (handles double-encoding)
                 var operateTeams = ParseJsonArraySafe(workflow.OperateTeams);
                 if (operateTeams.Count == 0)
                 {
                     return true; // Empty whitelist = all users
                 }
-                
+
                 var operateTeamLongs = operateTeams.Select(t => long.TryParse(t, out var tid) ? tid : 0).Where(t => t > 0).ToHashSet();
                 return userTeamIds.Any(ut => operateTeamLongs.Contains(ut));
             }
-            
+
             // VisibleToTeams mode = check OperateTeams whitelist
             if (workflow.ViewPermissionMode == ViewPermissionModeEnum.VisibleToTeams)
             {
@@ -7152,21 +7172,21 @@ namespace FlowFlex.Application.Services.OW
                 {
                     return false; // NULL OperateTeams in VisibleToTeams mode = deny all
                 }
-                
+
                 var operateTeams = ParseJsonArraySafe(workflow.OperateTeams);
                 if (operateTeams.Count == 0)
                 {
                     return false; // Empty whitelist = deny all
                 }
-                
+
                 var operateTeamLongs = operateTeams.Select(t => long.TryParse(t, out var tid) ? tid : 0).Where(t => t > 0).ToHashSet();
                 return userTeamIds.Any(ut => operateTeamLongs.Contains(ut));
             }
-            
+
             // Private mode or unknown mode
             return false;
         }
-        
+
         /// <summary>
         /// Check Case operate permission in-memory (no database query)
         /// Used for batch permission filtering in list queries
@@ -7181,7 +7201,7 @@ namespace FlowFlex.Application.Services.OW
             {
                 return true;
             }
-            
+
             // Public operate mode = everyone can operate (with possible subject restrictions)
             if (onboarding.ViewPermissionMode == ViewPermissionModeEnum.Public)
             {
@@ -7193,13 +7213,13 @@ namespace FlowFlex.Application.Services.OW
                     {
                         return true; // NULL OperateTeams = all teams
                     }
-                    
+
                     var operateTeams = ParseJsonArraySafe(onboarding.OperateTeams);
                     if (operateTeams.Count == 0)
                     {
                         return true; // Empty array = all teams
                     }
-                    
+
                     var operateTeamLongs = operateTeams.Select(t => long.TryParse(t, out var tid) ? tid : 0).Where(t => t > 0).ToHashSet();
                     return userTeamIds.Any(ut => operateTeamLongs.Contains(ut));
                 }
@@ -7210,13 +7230,13 @@ namespace FlowFlex.Application.Services.OW
                     {
                         return true; // NULL OperateUsers = all users
                     }
-                    
+
                     var operateUsers = ParseJsonArraySafe(onboarding.OperateUsers);
                     if (operateUsers.Count == 0)
                     {
                         return true; // Empty array = all users
                     }
-                    
+
                     var operateUserLongs = operateUsers.Select(u => long.TryParse(u, out var uid) ? uid : 0).Where(u => u > 0).ToHashSet();
                     return operateUserLongs.Contains(userId);
                 }
@@ -7226,11 +7246,11 @@ namespace FlowFlex.Application.Services.OW
                     return true;
                 }
             }
-            
+
             // VisibleToTeams or Private mode = deny
             return false;
         }
-        
+
         private static string ValidateAndFormatJsonArray(string jsonArray)
         {
             if (string.IsNullOrWhiteSpace(jsonArray))
@@ -7274,7 +7294,7 @@ namespace FlowFlex.Application.Services.OW
             try
             {
                 Console.WriteLine($"[OnboardingService] Starting static field sync - OnboardingId: {onboardingId}, StageId: {stageId}");
-                
+
                 var staticFieldUpdates = new List<FlowFlex.Application.Contracts.Dtos.OW.StaticField.StaticFieldValueInputDto>();
 
                 // Field mapping: Onboarding field -> Static Field Name
@@ -7381,7 +7401,7 @@ namespace FlowFlex.Application.Services.OW
                 if (staticFieldUpdates.Any())
                 {
                     Console.WriteLine($"[OnboardingService] Syncing {staticFieldUpdates.Count} static field(s) to database");
-                    
+
                     var batchInput = new FlowFlex.Application.Contracts.Dtos.OW.StaticField.BatchStaticFieldValueInputDto
                     {
                         OnboardingId = onboardingId,
