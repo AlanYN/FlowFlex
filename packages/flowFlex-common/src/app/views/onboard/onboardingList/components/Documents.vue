@@ -172,7 +172,7 @@
 										size="small"
 										type="primary"
 										link
-										:disabled="viewDocumentIds.includes(row.id) || disabled"
+										:disabled="viewDocumentIds.includes(row.id)"
 										:loading="viewDocumentIds.includes(row.id)"
 										@click="handleViewDocument(row)"
 									>
