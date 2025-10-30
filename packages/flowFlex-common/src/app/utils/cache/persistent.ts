@@ -15,9 +15,10 @@ import {
 	MENU_MENUTYPE,
 	ISLOGIN_KEY,
 } from '@/enums/cacheEnum';
-import { DEFAULT_CACHE_TIME } from '@/settings/encryptionSetting';
+import { DEFAULT_CACHE_TIME, getCommonStoragePrefix } from '@/settings/encryptionSetting';
 import { toRaw } from 'vue';
 import { pick, omit } from 'lodash-es';
+import { useUserStore } from '@/stores/modules/user';
 
 export interface LockInfo {
 	// Password required
@@ -151,20 +152,57 @@ window.addEventListener('beforeunload', function () {
 });
 
 function storageChange(e: any) {
-	const { key, newValue, oldValue } = e;
-	// console.log('更新缓存', key, newValue, oldValue);
+	const { key, newValue } = e;
+
 	if (!key) {
 		Persistent.clearAll();
 		return;
 	}
 
-	if (!!newValue && !!oldValue) {
-		if (APP_LOCAL_CACHE_KEY === key) {
-			Persistent.clearLocal();
+	if (key === `${getCommonStoragePrefix}${APP_LOCAL_CACHE_KEY}`) {
+		try {
+			if (newValue) {
+				const cacheData = JSON.parse(newValue);
+				const cacheValues = cacheData?.value || {};
+
+				try {
+					const userStore = useUserStore();
+
+					if (cacheValues[TOKENOBJ_KEY]?.value) {
+						userStore.$patch({ tokenObj: cacheValues[TOKENOBJ_KEY].value });
+						// console.log('✅ Token 已从其他标签页同步');
+					}
+
+					if (cacheValues[USER_INFO_KEY]?.value) {
+						userStore.$patch({ userInfo: cacheValues[USER_INFO_KEY].value });
+						// console.log('✅ 用户信息已从其他标签页同步');
+					}
+
+					if (cacheValues[ISLOGIN_KEY]?.value !== undefined) {
+						userStore.$patch({ isLogin: cacheValues[ISLOGIN_KEY].value });
+					}
+				} catch (storeError) {
+					console.warn('Pinia store 未就绪，仅更新内存缓存:', storeError);
+				}
+
+				localMemory.resetCache(cacheValues);
+			} else {
+				Persistent.clearLocal();
+				try {
+					const userStore = useUserStore();
+					userStore.$patch({
+						tokenObj: undefined,
+						userInfo: null,
+						isLogin: false,
+					});
+				} catch (storeError) {
+					console.warn('Pinia store 未就绪:', storeError);
+				}
+			}
+		} catch (error) {
+			console.error('同步缓存失败:', error);
 		}
-		if (APP_SESSION_CACHE_KEY === key) {
-			Persistent.clearSession();
-		}
+		return;
 	}
 }
 

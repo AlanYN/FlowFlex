@@ -420,6 +420,9 @@ const defaultCheckedKeys = computed(() => {
 // 过滤后的树数据（用于搜索）
 const filteredTreeData = computed(() => {
 	if (!searchText.value) {
+		if (props.selectionType == 'team') {
+			return treeData.value.filter((item) => item.id !== 'Other');
+		}
 		return treeData.value;
 	}
 
@@ -440,6 +443,9 @@ const filteredTreeData = computed(() => {
 		}, []);
 	};
 
+	if (props.selectionType == 'team') {
+		return filterTree(treeData.value).filter((item) => item.id !== 'Other');
+	}
 	return filterTree(treeData.value);
 });
 
