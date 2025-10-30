@@ -739,6 +739,7 @@ const updateItemsDisplay = () => {
 				case 'fields':
 					// Required Fields 保持显示为一个模块
 					newSelectedItems.push({
+						...component,
 						id: component.key,
 						name: 'Required Fields',
 						description: `${component.staticFields.length} fields selected`,
@@ -762,6 +763,7 @@ const updateItemsDisplay = () => {
 						}
 
 						newSelectedItems.push({
+							...component,
 							id: `checklist-${checklistId}`,
 							name: checklistName,
 							description: checklistDescription,
@@ -790,6 +792,7 @@ const updateItemsDisplay = () => {
 						}
 
 						newSelectedItems.push({
+							...component,
 							id: `questionnaire-${questionnaireId}`,
 							name: questionnaireName,
 							description: questionnaireDescription,
@@ -805,6 +808,7 @@ const updateItemsDisplay = () => {
 				case 'files':
 					// Files 保持显示为一个模块
 					newSelectedItems.push({
+						...component,
 						id: component.key,
 						name: 'File Attachments',
 						description: 'Upload and manage files in this stage',
@@ -853,7 +857,7 @@ const removeItem = (item: SelectedItem) => {
 const updateItemOrder = () => {
 	// 重新构建components数组
 	const newComponents: StageComponentData[] = [];
-
+	console.log('selectedItems.value', selectedItems.value);
 	selectedItems.value.forEach((item, index) => {
 		const order = index + 1;
 
@@ -868,6 +872,7 @@ const updateItemOrder = () => {
 		} else if (item.type === 'checklist') {
 			// 为每个checklist项创建一个组件
 			newComponents.push({
+				...item,
 				key: 'checklist',
 				order,
 				isEnabled: true,
@@ -879,6 +884,7 @@ const updateItemOrder = () => {
 		} else if (item.type === 'questionnaires') {
 			// 为每个questionnaire项创建一个组件
 			newComponents.push({
+				...item,
 				key: 'questionnaires',
 				order,
 				isEnabled: true,
