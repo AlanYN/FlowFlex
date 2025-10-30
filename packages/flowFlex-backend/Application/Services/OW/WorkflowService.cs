@@ -746,8 +746,23 @@ namespace FlowFlex.Application.Service.OW
                 throw new CRMException(ErrorCodeEnum.NotFound, $"Workflow with ID {id} not found");
             }
 
+            // 保留需要保证不变的字段
+            var backupViewTeams = entity.ViewTeams;
+            var backupOperateTeams = entity.OperateTeams;
+            var backupPortalPermission = entity.PortalPermission;
+            var backupViewPermissionMode = entity.ViewPermissionMode;
+            var backupUseSameTeamForOperate = entity.UseSameTeamForOperate;
+
             entity.IsActive = true;
             entity.Status = "active";
+
+            // 恢复字段（用标准化方法处理防止多重转义）
+            entity.ViewTeams = NormalizeJsonStringField(backupViewTeams);
+            entity.OperateTeams = NormalizeJsonStringField(backupOperateTeams);
+            entity.PortalPermission = backupPortalPermission;
+            entity.ViewPermissionMode = backupViewPermissionMode;
+            entity.UseSameTeamForOperate = backupUseSameTeamForOperate;
+
             var result = await _workflowRepository.UpdateAsync(entity);
 
             // Clear related cache after successful activation
@@ -779,8 +794,23 @@ namespace FlowFlex.Application.Service.OW
                 throw new CRMException(ErrorCodeEnum.NotFound, $"Workflow with ID {id} not found");
             }
 
+            // 保留需要保证不变的字段
+            var backupViewTeams = entity.ViewTeams;
+            var backupOperateTeams = entity.OperateTeams;
+            var backupPortalPermission = entity.PortalPermission;
+            var backupViewPermissionMode = entity.ViewPermissionMode;
+            var backupUseSameTeamForOperate = entity.UseSameTeamForOperate;
+
             entity.IsActive = false;
             entity.Status = "inactive";
+
+            // 恢复字段（用标准化方法处理防止多重转义）
+            entity.ViewTeams = NormalizeJsonStringField(backupViewTeams);
+            entity.OperateTeams = NormalizeJsonStringField(backupOperateTeams);
+            entity.PortalPermission = backupPortalPermission;
+            entity.ViewPermissionMode = backupViewPermissionMode;
+            entity.UseSameTeamForOperate = backupUseSameTeamForOperate;
+
             var result = await _workflowRepository.UpdateAsync(entity);
 
             // Clear related cache after successful deactivation
@@ -1468,6 +1498,22 @@ namespace FlowFlex.Application.Service.OW
             }
 
             return userIds;
+        }
+
+        // 辅助方法：清理 JSON 存储字段的多重引号
+        private string NormalizeJsonStringField(string value)
+        {
+            if (!string.IsNullOrWhiteSpace(value) && value.StartsWith("\"") && value.EndsWith("\""))
+            {
+                try
+                {
+                    var inner = JsonSerializer.Deserialize<string>(value);
+                    if (!string.IsNullOrEmpty(inner) && inner.StartsWith("[") && inner.EndsWith("]"))
+                        return inner;
+                }
+                catch { /* ignore and fallback */ }
+            }
+            return value;
         }
 
         // 缓存相关方法已移除
