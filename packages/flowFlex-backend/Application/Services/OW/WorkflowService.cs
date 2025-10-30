@@ -869,6 +869,8 @@ namespace FlowFlex.Application.Service.OW
                 IsDefault = false, // Duplicated workflows are not default
                 Version = 1 // Reset version for duplicated workflow
             };
+            // 新增：duplicate 操作必须 useSameTeamForOperate = true
+            duplicatedWorkflow.UseSameTeamForOperate = true;
 
             // Initialize create information with proper ID and timestamps, including AppCode and TenantId from current context
             duplicatedWorkflow.InitCreateInfo(_userContext);
