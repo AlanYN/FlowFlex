@@ -9,7 +9,7 @@
 					v-model="localPermissions.viewPermissionMode"
 					placeholder="Select permission type"
 					class="w-full"
-					@change="leftTypeChange"
+					@change="updateViewPermissionMode"
 				>
 					<el-option
 						v-for="option in permissionTypeOptions"
@@ -29,7 +29,7 @@
 					selectionType="team"
 					:clearable="true"
 					:choosable-tree-data="viewChoosableTreeData"
-					@change="leftChange(localPermissions.viewTeams)"
+					@change="updateOperateTeamOptions()"
 				/>
 			</div>
 		</div>
@@ -317,24 +317,24 @@ const updateViewChoosableTreeData = async () => {
 	viewChoosableTreeData.value = filteredTree.length > 0 ? filteredTree : [];
 };
 //
-const leftTypeChange = async () => {
+const updateViewPermissionMode = async () => {
 	// 清空右侧已选的 operateTeams
 	localPermissions.operateTeams = [];
 	// 先更新左侧可选数据（第一层过滤）
 	await updateViewChoosableTreeData();
 	// 再根据左侧已选数据过滤右侧（第二层过滤）
-	await leftChange(localPermissions.viewTeams);
+	await updateOperateTeamOptions();
 };
 
 onMounted(() => {
 	nextTick(() => {
 		updateViewChoosableTreeData().then(() => {
-			leftChange(localPermissions.viewTeams, false);
+			updateOperateTeamOptions(false);
 		});
 	});
 });
 
-const leftChange = async (value: string[], needEditLocalPermissions: boolean = true) => {
+const updateOperateTeamOptions = async (needEditLocalPermissions: boolean = true) => {
 	const mode = localPermissions.viewPermissionMode;
 
 	// InvisibleTo 模式下不能复用“查看”team
@@ -375,7 +375,7 @@ const leftChange = async (value: string[], needEditLocalPermissions: boolean = t
 		return;
 	}
 
-	const selectedViewTeams = new Set<string>(value);
+	const selectedViewTeams = new Set<string>(localPermissions.viewTeams);
 
 	// VisibleTo 但左边未选时直接清空右边
 	if (selectedViewTeams.size === 0 && mode === ViewPermissionModeEnum.VisibleTo) {

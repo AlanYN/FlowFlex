@@ -589,7 +589,7 @@
 											<!-- 回答人信息 -->
 											<div
 												class="flex items-center text-el-text-color-regular"
-												v-if="row.answeredBy"
+												v-if="row.answeredBy && row.answeredBy !== 'System'"
 											>
 												<el-icon class="mr-1"><User /></el-icon>
 												<span class="font-medium">
@@ -600,7 +600,10 @@
 											<!-- 首次回答时间 -->
 											<div
 												class="flex items-center text-el-text-color-regular"
-												v-if="row.firstAnsweredDate"
+												v-if="
+													row.firstAnsweredDate &&
+													row.answeredBy !== 'System'
+												"
 											>
 												<el-icon class="mr-1"><Clock /></el-icon>
 												<span>{{ formatDate(row.firstAnsweredDate) }}</span>
@@ -624,7 +627,9 @@
 											<!-- 如果没有修改过，只显示创建时间 -->
 											<div
 												v-else-if="
-													row.answeredDate && !row.firstAnsweredDate
+													row.answeredDate &&
+													!row.firstAnsweredDate &&
+													row.answeredBy !== 'System'
 												"
 												class="flex items-center text-el-text-color-regular"
 											>
