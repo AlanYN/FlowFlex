@@ -37,7 +37,7 @@
 			</div>
 
 			<!-- Team/User 选择（仅在 VisibleToTeams 或 InvisibleToTeams 时显示）-->
-			<div v-if="shouldShowSelector" class="space-y-2 flex flex-col">
+			<div v-if="isViewSelectorVisible" class="space-y-2 flex flex-col">
 				<label class="text-base font-bold">Team</label>
 
 				<!-- 单选按钮：User Groups / Individual Users -->
@@ -57,7 +57,7 @@
 					selection-type="team"
 					clearable
 					:choosable-tree-data="viewChoosableTreeData"
-					@change="handleLeftChange(true)"
+					@change="refreshOperateChoosableTree(true)"
 				/>
 
 				<!-- User 选择器 -->
@@ -71,7 +71,7 @@
 					selection-type="user"
 					:clearable="true"
 					:choosable-tree-data="viewChoosableTreeData"
-					@change="handleLeftChange(true)"
+					@change="refreshOperateChoosableTree(true)"
 				/>
 			</div>
 		</div>
@@ -83,7 +83,7 @@
 				<p class="text-sm">Controls who can operate on this case</p>
 
 				<el-checkbox
-					v-if="shouldShowSelector"
+					v-if="isViewSelectorVisible"
 					v-model="localPermissions.useSameTeamForOperate"
 					:class="{
 						invisible:
@@ -114,7 +114,7 @@
 			<!-- Available Teams/Users（仅在不勾选 useSameTeamForOperate 时显示）-->
 			<div
 				v-if="
-					(!localPermissions.useSameTeamForOperate && shouldShowSelector) ||
+					(!localPermissions.useSameTeamForOperate && isViewSelectorVisible) ||
 					localPermissions.viewPermissionMode === CasePermissionModeEnum.InvisibleTo
 				"
 				class="space-y-2 flex flex-col"
@@ -145,7 +145,7 @@
 					selection-type="team"
 					:clearable="true"
 					:choosable-tree-data="operateChoosableTreeData"
-					:before-open="handleBeforeOpen"
+					:before-open="validateOperateSelectorBeforeOpen"
 				/>
 
 				<!-- User 选择器 -->
@@ -158,7 +158,7 @@
 					selection-type="user"
 					:clearable="true"
 					:choosable-tree-data="operateChoosableTreeData"
-					:before-open="handleBeforeOpen"
+					:before-open="validateOperateSelectorBeforeOpen"
 				/>
 			</div>
 		</div>
@@ -216,13 +216,14 @@ const permissionTypeOptions = [
 	{ label: 'Private', value: CasePermissionModeEnum.Private },
 ];
 
-// 是否需要显示选择器 - 只有 VisibleTo 和 InvisibleTo 需要选择
-const shouldShowSelector = computed(() => {
+// 控制是否显示查看权限选择器（仅 VisibleTo 与 InvisibleTo 需要显式指定主体）
+const isViewSelectorVisible = computed(() => {
 	const mode = localPermissions.viewPermissionMode;
 	return mode === CasePermissionModeEnum.VisibleTo || mode === CasePermissionModeEnum.InvisibleTo;
 });
 
-const handleBeforeOpen = async () => {
+// Operate 权限侧在展开前需要确保 View 权限已经指定主体
+const validateOperateSelectorBeforeOpen = async () => {
 	if (localPermissions.viewPermissionMode !== CasePermissionModeEnum.Public) {
 		if (
 			localPermissions.viewTeams.length === 0 &&
@@ -278,8 +279,8 @@ const isProcessingInternalUpdate = ref(false);
 // Loading 状态
 const loading = ref(false);
 
-// 获取 Workflow 数据
-const fetchWorkflowData = async () => {
+// 拉取 Workflow 权限配置，用于第一层过滤
+const loadWorkflowPermissionData = async () => {
 	if (!props.workflowId) {
 		workflowData.value = null;
 		return;
@@ -298,7 +299,7 @@ const fetchWorkflowData = async () => {
 };
 
 // 第一层过滤：根据 workflow 权限过滤全部数据，得到左侧可选数据
-const updateViewChoosableTreeData = async () => {
+const refreshViewChoosableTreeData = async () => {
 	// 获取完整树数据
 	const fullTreeData = await menuStore.getFlowflexUserDataWithCache('');
 
@@ -471,8 +472,9 @@ const updateViewChoosableTreeData = async () => {
 	console.log('First layer result tree (with filtered children):', viewChoosableTreeData.value);
 };
 
-// 处理左侧选择变化的核心过滤逻辑（第二层过滤）
-const handleLeftChange = async (needEditLocalPermissions: boolean = true) => {
+// 第二层过滤：当左侧选择变化时，动态计算 Operate 权限的可选范围
+const refreshOperateChoosableTree = async (shouldAdjustOperateSelection: boolean = true) => {
+	// shouldAdjustOperateSelection=false 时仅刷新可选范围，不改动已选中的 Operate 数据
 	const mode = localPermissions.viewPermissionMode;
 	const leftSubjectType = localPermissions.viewPermissionSubjectType;
 
@@ -595,7 +597,7 @@ const handleLeftChange = async (needEditLocalPermissions: boolean = true) => {
 			operateChoosableTreeData.value
 		);
 
-		if (needEditLocalPermissions) {
+		if (shouldAdjustOperateSelection) {
 			// 清理右侧已选数据：移除不在可选范围内的项
 			if (localPermissions.operatePermissionSubjectType === PermissionSubjectTypeEnum.Team) {
 				if (localPermissions.operateTeams.length > 0) {
@@ -669,7 +671,7 @@ const handleLeftChange = async (needEditLocalPermissions: boolean = true) => {
 		const filteredTreeData = filterTree(baseTreeData);
 		operateChoosableTreeData.value = filteredTreeData.length > 0 ? filteredTreeData : [];
 
-		if (needEditLocalPermissions) {
+		if (shouldAdjustOperateSelection) {
 			// 清理右侧已选数据：移除在黑名单中的项
 			if (localPermissions.operatePermissionSubjectType === PermissionSubjectTypeEnum.Team) {
 				if (localPermissions.operateTeams.length > 0) {
@@ -706,16 +708,16 @@ const handleLeftChange = async (needEditLocalPermissions: boolean = true) => {
 
 onMounted(() => {
 	nextTick(async () => {
-		// 获取 workflow 数据
-		await fetchWorkflowData();
+		// 获取 workflow 权限数据
+		await loadWorkflowPermissionData();
 		// 执行第一层过滤（更新左侧可选数据）
-		await updateViewChoosableTreeData();
-		handleLeftChange(false);
+		await refreshViewChoosableTreeData();
+		refreshOperateChoosableTree(false);
 	});
 });
 
-// 统一的数据处理函数
-const processPermissionChanges = () => {
+// 将本地权限状态与父组件同步，并处理 View 与 Operate 之间的联动关系
+const syncPermissionsToParent = () => {
 	if (isProcessingInternalUpdate.value) return;
 
 	// 先设置标志位，防止内部修改触发 watch
@@ -724,7 +726,7 @@ const processPermissionChanges = () => {
 	// 使用 nextTick 确保在下一个事件循环中处理
 	nextTick(() => {
 		// 处理 viewPermissionMode 的变化 - 切换模式时保留选择，只更新过滤
-		if (!shouldShowSelector.value) {
+		if (!isViewSelectorVisible.value) {
 			// Public/Private 模式清空
 			if (localPermissions.viewTeams.length > 0) {
 				localPermissions.viewTeams = [];
@@ -737,8 +739,8 @@ const processPermissionChanges = () => {
 		// 处理 operateTeams/operateUsers 的同步
 		if (localPermissions.useSameTeamForOperate) {
 			// 勾选"使用相同"时，同步 view 的选择到 operate
-			const newOperateTeams = shouldShowSelector.value ? [...localPermissions.viewTeams] : [];
-			const newOperateUsers = shouldShowSelector.value ? [...localPermissions.viewUsers] : [];
+			const newOperateTeams = isViewSelectorVisible.value ? [...localPermissions.viewTeams] : [];
+			const newOperateUsers = isViewSelectorVisible.value ? [...localPermissions.viewUsers] : [];
 
 			if (JSON.stringify(newOperateTeams) !== JSON.stringify(localPermissions.operateTeams)) {
 				localPermissions.operateTeams = newOperateTeams;
@@ -771,17 +773,17 @@ const processPermissionChanges = () => {
 	});
 };
 
-// 监听 workflowId 变化
+// workflow 发生切换时重置权限配置并重新计算可选范围
 watch(
 	() => props.workflowId,
 	async () => {
-		// 重新获取 workflow 数据
-		await fetchWorkflowData();
+		// 重新获取 workflow 权限数据
+		await loadWorkflowPermissionData();
 		// 重新执行第一层过滤
-		await updateViewChoosableTreeData();
+		await refreshViewChoosableTreeData();
 		// 重新执行第二层过滤
-		if (shouldShowSelector.value && localPermissions.viewTeams.length > 0) {
-			handleLeftChange(false);
+		if (isViewSelectorVisible.value && localPermissions.viewTeams.length > 0) {
+			refreshOperateChoosableTree(false);
 		}
 		localPermissions.viewPermissionMode = CasePermissionModeEnum.Public;
 		localPermissions.viewTeams = [];
@@ -794,27 +796,27 @@ watch(
 	}
 );
 
-// 监听左侧 SubjectType 变化
+// 左侧主体类型更新时，重新计算 Operate 可选数据
 watch(
 	() => localPermissions.viewPermissionSubjectType,
 	() => {
-		handleLeftChange();
+		refreshOperateChoosableTree();
 	}
 );
 
-// 监听 viewPermissionMode 变化
+// 模式切换时，重新计算 Operate 可选数据
 watch(
 	() => localPermissions.viewPermissionMode,
 	() => {
-		handleLeftChange();
+		refreshOperateChoosableTree();
 	}
 );
 
-// 只监听 localPermissions 的变化，统一处理
+// 深度监听本地权限变动，统一同步给父组件
 watch(
 	localPermissions,
 	() => {
-		processPermissionChanges();
+		syncPermissionsToParent();
 	},
 	{ deep: true }
 );
