@@ -567,6 +567,14 @@ namespace FlowFlex.Application.Services.OW
                     return PermissionResult.CreateSuccess(true, true, "TenantAdmin");
                 }
 
+                // Step 0.1: Portal token bypass for [PortalAccess] endpoints
+                // Portal 场景下，进入带有 [PortalAccess] 的接口时，直接放行个案级权限
+                if (_helpers.IsPortalTokenWithPortalAccess())
+                {
+                    _logger.LogInformation("Portal token detected - bypassing case permission check for user {UserId}", userId);
+                    return PermissionResult.CreateSuccess(true, true, "PortalAccess");
+                }
+
                 // Step 1: Validate input
                 if (userId <= 0 || caseId <= 0)
                 {
