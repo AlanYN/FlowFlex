@@ -25,15 +25,17 @@
 									class="option-content"
 								>
 									<div class="option-label-text">
-										<span class="option-text">{{ option.label }}</span>
-										<el-tag
-											v-if="option.isOther"
-											size="small"
-											type="primary"
-											class="other-tag"
-										>
-											Other
-										</el-tag>
+										<div>
+											<span class="option-text">{{ option.label }}</span>
+											<el-tag
+												v-if="option.isOther"
+												size="small"
+												type="primary"
+												class="other-tag"
+											>
+												Other
+											</el-tag>
+										</div>
 									</div>
 								</div>
 								<el-input
