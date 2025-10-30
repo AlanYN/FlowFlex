@@ -379,7 +379,16 @@ const loadChecklists = async (resetPage = false) => {
 
 		// 处理API响应
 		if (response.code === '200' || response.data) {
-			checklists.value = response.data?.items || [];
+			checklists.value =
+				response.data?.items.map((item) => ({
+					...item,
+					assignments: item.assignments.filter(
+						(assignment) =>
+							workflows.value.some(
+								(workflow) => workflow.id === assignment.workflowId
+							) && stages.value.some((stage) => stage.id === assignment.stageId)
+					),
+				})) || [];
 			pagination.value.total = response.data?.totalCount || 0;
 		} else {
 			checklists.value = [];
@@ -775,8 +784,14 @@ const handleSearchTagsChange = () => {
 	handleSearch();
 };
 
-onMounted(() => {
-	Promise.all([loadWorkflowsAndStages(), loadChecklists()]);
+onMounted(async () => {
+	try {
+		loading.value = true;
+		await loadWorkflowsAndStages();
+		await loadChecklists();
+	} finally {
+		loading.value = false;
+	}
 });
 </script>
 

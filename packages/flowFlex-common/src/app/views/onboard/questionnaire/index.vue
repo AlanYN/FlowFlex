@@ -275,8 +275,15 @@ const handleSearchTagsChange = (tags: string[]) => {
 
 // 初始化数据
 onMounted(async () => {
-	// 只加载工作流和问卷数据，不预加载stages
-	await Promise.all([fetchWorkflows(), fetchQuestionnaires(), fetchAllStages()]);
+	try {
+		loading.value = true;
+		// 只加载工作流和问卷数据，不预加载stages
+		await fetchWorkflows();
+		await fetchAllStages();
+		await fetchQuestionnaires();
+	} finally {
+		loading.value = false;
+	}
 });
 
 // 获取工作流列表
@@ -386,7 +393,16 @@ const fetchQuestionnaires = async (resetPage = false) => {
 		if (response.code === '200') {
 			// 适配API数据格式
 			const data = response.data;
-			filteredQuestionnaires.value = data.items;
+			filteredQuestionnaires.value =
+				data.items.map((item) => ({
+					...item,
+					assignments: item.assignments.filter(
+						(assignment) =>
+							workflows.value.some(
+								(workflow) => workflow.id === assignment.workflowId
+							) && allStages.value.some((stage) => stage.id === assignment.stageId)
+					),
+				})) || [];
 			pagination.value.total = data.totalCount || 0;
 		} else {
 			ElMessage.error(response.msg || 'Failed to fetch questionnaires');
