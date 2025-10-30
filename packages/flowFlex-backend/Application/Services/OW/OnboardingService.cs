@@ -62,6 +62,7 @@ namespace FlowFlex.Application.Services.OW
         private readonly IPermissionService _permissionService;
         private readonly Permission.CasePermissionService _casePermissionService;
         private readonly IHttpContextAccessor _httpContextAccessor;
+
         // Cache key constants - temporarily disable Redis cache
         private const string WORKFLOW_CACHE_PREFIX = "ow:workflow";
         private const string STAGE_CACHE_PREFIX = "ow:stage";
@@ -278,7 +279,14 @@ namespace FlowFlex.Application.Services.OW
                 LoggingExtensions.WriteLine($"[DEBUG] Onboarding Create - CurrentStageId set to: {entity.CurrentStageId}, CurrentStageOrder: {entity.CurrentStageOrder}, FirstStage: {firstStage?.Id}");
                 LoggingExtensions.WriteLine($"[DEBUG] Onboarding Status: ID={entity.Id}, Status={entity.Status}");
                 entity.StartDate = entity.StartDate ?? DateTimeOffset.UtcNow;
-                entity.CurrentStageStartTime = DateTimeOffset.UtcNow;
+                
+                // IMPORTANT: Do NOT set CurrentStageStartTime during creation
+                // CurrentStageStartTime should only be set when:
+                // 1. Onboarding is started (status changes to Active/InProgress/Started)
+                // 2. Stage is saved for the first time
+                // 3. Stage is completed and advances to next stage
+                entity.CurrentStageStartTime = null;
+                
                 entity.CompletionRate = 0;
                 entity.IsPrioritySet = false;
                 entity.Priority = string.IsNullOrEmpty(entity.Priority) ? "Medium" : entity.Priority;
@@ -783,7 +791,6 @@ namespace FlowFlex.Application.Services.OW
                 throw;
             }
         }
-
         /// <summary>
         /// Delete an onboarding (with confirmation)
         /// </summary>
@@ -984,6 +991,21 @@ namespace FlowFlex.Application.Services.OW
                     else
                     {
                         result.CurrentStageEstimatedDays = stage?.EstimatedDuration;
+                    }
+
+                    // Fallback: if still missing, fetch stage directly
+                    if ((!result.CurrentStageEstimatedDays.HasValue || result.CurrentStageEstimatedDays.Value <= 0) && entity.CurrentStageId.HasValue)
+                    {
+                        try
+                        {
+                            var stageFallback = await _stageRepository.GetByIdAsync(entity.CurrentStageId.Value);
+                            if (stageFallback?.EstimatedDuration != null && stageFallback.EstimatedDuration > 0)
+                            {
+                                result.CurrentStageEstimatedDays = stageFallback.EstimatedDuration;
+                                LoggingExtensions.WriteLine($"[DEBUG] GetByIdAsync - Fallback EstimatedDays from Stage fetch: {result.CurrentStageEstimatedDays} for Onboarding {id}");
+                            }
+                        }
+                        catch {}
                     }
 
                     // Calculate current stage end time based on start time + estimated days
@@ -1572,7 +1594,6 @@ namespace FlowFlex.Application.Services.OW
             }
             return null;
         }
-
         /// <summary>
         /// Cache query results
         /// </summary>
@@ -2359,7 +2380,6 @@ namespace FlowFlex.Application.Services.OW
 
             return result;
         }
-
         /// <summary>
         /// Complete specified stage with validation (supports non-sequential completion)
         /// </summary>
@@ -3150,7 +3170,6 @@ namespace FlowFlex.Application.Services.OW
                 entity.StagesProgressJson = SerializeStagesProgress(entity.StagesProgress);
             }
         }
-
         /// <summary>
         /// Get onboarding timeline
         /// </summary>
@@ -3822,7 +3841,6 @@ namespace FlowFlex.Application.Services.OW
 
             return payload;
         }
-
         /// <summary>
         /// Parse components from JSON with lenient parsing for both camelCase and PascalCase
         /// </summary>
@@ -4560,7 +4578,6 @@ namespace FlowFlex.Application.Services.OW
                 throw new CRMException(ErrorCodeEnum.SystemError, $"Error syncing stages progress for onboarding {id}: {ex.Message}");
             }
         }
-
         /// <summary>
         /// Initialize stages progress array for a new onboarding
         /// </summary>
@@ -4627,7 +4644,6 @@ namespace FlowFlex.Application.Services.OW
                 entity.StagesProgressJson = "[]";
             }
         }
-
         /// <summary>
         /// Update stages progress - supports non-sequential stage completion
         /// </summary>
@@ -6011,7 +6027,6 @@ namespace FlowFlex.Application.Services.OW
             // Generate the short URL format: {baseUrl}/portal/{tenantId}/{appCode}/invite/{shortUrlId}
             return $"{effectiveBaseUrl.TrimEnd('/')}/portal/{tenantId}/{appCode}/invite/{shortUrlId}";
         }
-
         /// <summary>
         /// Update AI Summary for a specific stage in onboarding's stagesProgress
         /// </summary>
@@ -6288,6 +6303,13 @@ namespace FlowFlex.Application.Services.OW
                 {
                     stageProgress.StartTime = DateTimeOffset.UtcNow;
                 }
+                
+                // IMPORTANT: If this is the current stage and CurrentStageStartTime is not set, set it now
+                if (stageProgress.StageId == onboarding.CurrentStageId && !onboarding.CurrentStageStartTime.HasValue)
+                {
+                    onboarding.CurrentStageStartTime = stageProgress.StartTime;
+                    LoggingExtensions.WriteLine($"[DEBUG] SaveStageAsync - Set CurrentStageStartTime to {onboarding.CurrentStageStartTime} for Stage {stageId}");
+                }
 
                 // Save stages progress back to JSON
                 onboarding.StagesProgressJson = SerializeStagesProgress(onboarding.StagesProgress);
@@ -6417,6 +6439,21 @@ namespace FlowFlex.Application.Services.OW
                 {
                     result.CurrentStageName = stageDict.GetValueOrDefault(result.CurrentStageId.Value);
                     
+                    // Fallback: if name missing from dictionary, fetch directly
+                    if (string.IsNullOrEmpty(result.CurrentStageName))
+                    {
+                        try
+                        {
+                            var stageNameFallback = await _stageRepository.GetByIdAsync(result.CurrentStageId.Value);
+                            if (!string.IsNullOrEmpty(stageNameFallback?.Name))
+                            {
+                                result.CurrentStageName = stageNameFallback.Name;
+                                LoggingExtensions.WriteLine($"[DEBUG] PopulateOnboardingOutputDto - Fallback CurrentStageName='{result.CurrentStageName}' for Onboarding {result.Id}");
+                            }
+                        }
+                        catch {}
+                    }
+                    
                     // IMPORTANT: Priority for EstimatedDays: customEstimatedDays > stage.EstimatedDuration
                     var currentStageProgress = result.StagesProgress?.FirstOrDefault(sp => sp.StageId == result.CurrentStageId.Value);
                     if (currentStageProgress != null && currentStageProgress.CustomEstimatedDays.HasValue && currentStageProgress.CustomEstimatedDays.Value > 0)
@@ -6426,6 +6463,21 @@ namespace FlowFlex.Application.Services.OW
                     else
                     {
                         result.CurrentStageEstimatedDays = stageEstimatedDaysDict.GetValueOrDefault(result.CurrentStageId.Value);
+                    }
+
+                    // Fallback: if still missing, fetch stage directly
+                    if ((!result.CurrentStageEstimatedDays.HasValue || result.CurrentStageEstimatedDays.Value <= 0) && result.CurrentStageId.HasValue)
+                    {
+                        try
+                        {
+                            var stageFallback = await _stageRepository.GetByIdAsync(result.CurrentStageId.Value);
+                            if (stageFallback?.EstimatedDuration != null && stageFallback.EstimatedDuration > 0)
+                            {
+                                result.CurrentStageEstimatedDays = stageFallback.EstimatedDuration;
+                                LoggingExtensions.WriteLine($"[DEBUG] PopulateOnboardingOutputDto - Fallback EstimatedDays from Stage fetch: {result.CurrentStageEstimatedDays} for Onboarding {result.Id}");
+                            }
+                        }
+                        catch {}
                     }
 
                     // Calculate current stage end time based on start time + estimated days
@@ -6517,6 +6569,10 @@ namespace FlowFlex.Application.Services.OW
             // Update status to Active
             entity.Status = "Active";
             entity.StartDate = DateTimeOffset.UtcNow;
+            
+            // IMPORTANT: Set CurrentStageStartTime when starting onboarding
+            // This marks the beginning of the current stage timeline
+            entity.CurrentStageStartTime = DateTimeOffset.UtcNow;
 
             // Reset progress if requested
             if (input.ResetProgress)
@@ -6524,7 +6580,6 @@ namespace FlowFlex.Application.Services.OW
                 entity.CurrentStageId = null;
                 entity.CurrentStageOrder = 0;
                 entity.CompletionRate = 0;
-                entity.CurrentStageStartTime = DateTimeOffset.UtcNow;
             }
 
             // Add start notes
@@ -6786,7 +6841,6 @@ namespace FlowFlex.Application.Services.OW
             // Use special update method that excludes stages_progress_json field
             return await SafeUpdateOnboardingWithoutStagesProgressAsync(entity, originalStagesProgressJson);
         }
-
         /// <summary>
         /// Safely update onboarding entity without modifying stages_progress_json
         /// This method is specifically designed for operations where stages progress should not be changed

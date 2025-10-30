@@ -328,11 +328,11 @@ namespace FlowFlex.Application.Services.Action
                     entity.IsEnabled = dto.IsEnabled;
                     changedFields.Add("IsEnabled");
                 }
-                if (entity.IsTools != dto.IsTools)
-                {
-                    entity.IsTools = dto.IsTools;
-                    changedFields.Add("IsTools");
-                }
+                //if (entity.IsTools != dto.IsTools)
+                //{
+                //    entity.IsTools = dto.IsTools;
+                //    changedFields.Add("IsTools");
+                //}
 
                 // Initialize update information with proper tenant and app context
                 entity.InitUpdateInfo(_userContext);

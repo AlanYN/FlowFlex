@@ -1689,6 +1689,7 @@ const handleEditCase = (row: any) => {
 	formData.ContactPerson = row.contactPerson || '';
 	formData.ContactEmail = row.contactEmail || '';
 	formData.lifeCycleStageId = row.lifeCycleStageId || '';
+	formData.lifeCycleStageName = row.lifeCycleStageName || ''; // ✅ 添加 lifeCycleStageName 回显
 	formData.priority = row.priority || '';
 	formData.workFlowId = row.workflowId || '';
 	formData.ownership = row.ownership || '';

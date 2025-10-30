@@ -1,19 +1,23 @@
+using AutoMapper;
+using FlowFlex.Application.Contracts.Dtos.Action;
+using FlowFlex.Application.Contracts.Dtos.OW.Checklist;
+using FlowFlex.Application.Contracts.Dtos.OW.ChecklistTask;
+using FlowFlex.Application.Contracts.IServices;
+using FlowFlex.Application.Contracts.IServices.Action;
+using FlowFlex.Application.Contracts.IServices.OW;
+using FlowFlex.Application.Services.OW.Extensions;
+using FlowFlex.Application.Services.OW.Permission;
+using FlowFlex.Domain.Entities.OW;
+using FlowFlex.Domain.Repository.Action;
+using FlowFlex.Domain.Repository.OW;
+using FlowFlex.Domain.Shared;
+using FlowFlex.Domain.Shared.Exceptions;
+using FlowFlex.Domain.Shared.Models;
+using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using AutoMapper;
-using FlowFlex.Application.Contracts.IServices;
-using FlowFlex.Application.Contracts.Dtos.OW.Checklist;
-using FlowFlex.Application.Contracts.Dtos.OW.ChecklistTask;
-using FlowFlex.Application.Contracts.IServices.OW;
-using FlowFlex.Domain.Entities.OW;
-using FlowFlex.Domain.Repository.OW;
-using FlowFlex.Domain.Shared;
-using FlowFlex.Domain.Shared.Exceptions;
-using FlowFlex.Application.Services.OW.Extensions;
-using FlowFlex.Domain.Shared.Models;
-using FlowFlex.Domain.Repository.Action;
 
 namespace FlowFlex.Application.Service.OW;
 
@@ -33,8 +37,11 @@ public class ChecklistTaskService : IChecklistTaskService, IScopedService
     private readonly IMapper _mapper;
     private readonly UserContext _userContext;
     private readonly IDistributedCacheService _cacheService;
+    private readonly ILogger<CasePermissionService> _logger;
+    private readonly IActionManagementService _actionManagementService;
 
     public ChecklistTaskService(
+        ILogger<CasePermissionService> logger,
         IChecklistTaskRepository checklistTaskRepository,
         IChecklistRepository checklistRepository,
         IChecklistService checklistService,
@@ -44,9 +51,11 @@ public class ChecklistTaskService : IChecklistTaskService, IScopedService
         IActionTriggerMappingRepository actionTriggerMappingRepository,
         IActionDefinitionRepository actionDefinitionRepository,
         IMapper mapper,
+        IActionManagementService actionManagementService,
         UserContext userContext,
         IDistributedCacheService cacheService)
     {
+        _logger = logger;
         _checklistTaskRepository = checklistTaskRepository;
         _checklistRepository = checklistRepository;
         _checklistService = checklistService;
@@ -55,6 +64,7 @@ public class ChecklistTaskService : IChecklistTaskService, IScopedService
         _completionRepository = completionRepository;
         _actionTriggerMappingRepository = actionTriggerMappingRepository;
         _actionDefinitionRepository = actionDefinitionRepository;
+        _actionManagementService = actionManagementService;
         _mapper = mapper;
         _userContext = userContext;
         _cacheService = cacheService;
@@ -76,7 +86,7 @@ public class ChecklistTaskService : IChecklistTaskService, IScopedService
         // Check for duplicate task name in the same checklist
         if (await _checklistTaskRepository.IsTaskNameExistsAsync(input.ChecklistId, input.Name))
         {
-            throw new CRMException(ErrorCodeEnum.BusinessError, 
+            throw new CRMException(ErrorCodeEnum.BusinessError,
                 $"Task name '{input.Name}' already exists in this checklist");
         }
 
@@ -108,6 +118,66 @@ public class ChecklistTaskService : IChecklistTaskService, IScopedService
         entity.InitCreateInfo(_userContext);
 
         await _checklistTaskRepository.InsertAsync(entity);
+
+        // Handle ActionTriggerMapping auto-creation if actionId is provided
+        if (input.ActionId.HasValue)
+        {
+            _logger.LogInformation("检测到新创建的任务包含 actionId={ActionId}，将自动检查并创建 ActionTriggerMapping: TaskId={TaskId}, TaskName={TaskName}",
+                input.ActionId.Value, entity.Id, entity.Name);
+
+            try
+            {
+                // 检查是否已存在 ActionTriggerMapping
+                var existingMappings = await _actionManagementService.GetActionTriggerMappingsByTriggerSourceIdAsync(entity.Id);
+                var hasMapping = existingMappings.Any(m =>
+                    m.ActionDefinitionId == input.ActionId.Value &&
+                    m.TriggerType == "Task" &&
+                    m.TriggerSourceId == entity.Id &&
+                    m.IsEnabled);
+
+                if (hasMapping)
+                {
+                    _logger.LogInformation("ActionTriggerMapping 已存在: TaskId={TaskId}, ActionId={ActionId}",
+                        entity.Id, input.ActionId.Value);
+                }
+                else
+                {
+                    // 自动创建 ActionTriggerMapping
+                    _logger.LogInformation("开始自动创建 ActionTriggerMapping: TaskId={TaskId}, ActionId={ActionId}",
+                        entity.Id, input.ActionId.Value);
+
+                    var createMappingDto = new CreateActionTriggerMappingDto
+                    {
+                        ActionDefinitionId = input.ActionId.Value,
+                        TriggerType = "Task",
+                        TriggerSourceId = entity.Id,
+                        WorkFlowId = 0,
+                        StageId = 0, // Task 不特定于某个 Stage
+                        TriggerEvent = "Completed",
+                        ExecutionOrder = 1,
+                        IsEnabled = true,
+                    };
+
+                    var createdMapping = await _actionManagementService.CreateActionTriggerMappingAsync(createMappingDto);
+                    if (createdMapping != null)
+                    {
+                        _logger.LogInformation("成功自动创建 ActionTriggerMapping: MappingId={MappingId}, TaskId={TaskId}, ActionId={ActionId}",
+                            createdMapping.Id, entity.Id, input.ActionId.Value);
+                    }
+                    else
+                    {
+                        _logger.LogWarning("自动创建 ActionTriggerMapping 失败: TaskId={TaskId}, ActionId={ActionId}",
+                            entity.Id, input.ActionId.Value);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "自动检查或创建 ActionTriggerMapping 时发生错误: TaskId={TaskId}, ActionId={ActionId}",
+                    entity.Id, input.ActionId);
+                // 不抛出异常，允许任务创建继续
+            }
+        }
 
         // Log checklist task create operation (fire-and-forget)
         _ = Task.Run(async () =>
@@ -147,7 +217,7 @@ public class ChecklistTaskService : IChecklistTaskService, IScopedService
         // Check for duplicate task name in the same checklist (excluding current task)
         if (await _checklistTaskRepository.IsTaskNameExistsAsync(existingTask.ChecklistId, input.Name, id))
         {
-            throw new CRMException(ErrorCodeEnum.BusinessError, 
+            throw new CRMException(ErrorCodeEnum.BusinessError,
                 $"Task name '{input.Name}' already exists in this checklist");
         }
 
@@ -182,13 +252,82 @@ public class ChecklistTaskService : IChecklistTaskService, IScopedService
             }
         }
 
+        // Handle ActionTriggerMapping auto-creation if actionId is provided without actionMappingId
+        if (input.ActionId.HasValue && !input.ActionMappingId.HasValue)
+        {
+            _logger.LogInformation("检测到 actionId={ActionId} 但缺少 actionMappingId，将自动检查并创建 ActionTriggerMapping: TaskId={TaskId}, TaskName={TaskName}",
+                input.ActionId.Value, id, input.Name);
+
+            try
+            {
+                // 获取 Checklist 的 Workflow 和 Stage 信息
+                var checklist = await _checklistService.GetByIdAsync(existingTask.ChecklistId);
+                if (checklist == null)
+                {
+                    _logger.LogWarning("无法找到 Checklist {ChecklistId}，跳过自动创建 ActionTriggerMapping", existingTask.ChecklistId);
+                }
+                else
+                {
+                    // 检查是否已存在 ActionTriggerMapping
+                    var existingMappings = await _actionManagementService.GetActionTriggerMappingsByTriggerSourceIdAsync(id);
+                    var hasMapping = existingMappings.Any(m =>
+                        m.ActionDefinitionId == input.ActionId.Value &&
+                        m.TriggerType == "Task" &&
+                        m.TriggerSourceId == id &&
+                        m.IsEnabled);
+
+                    if (hasMapping)
+                    {
+                        _logger.LogInformation("ActionTriggerMapping 已存在: TaskId={TaskId}, ActionId={ActionId}",
+                            id, input.ActionId.Value);
+                    }
+                    else
+                    {
+                        // 自动创建 ActionTriggerMapping
+                        _logger.LogInformation("开始自动创建 ActionTriggerMapping: TaskId={TaskId}, ActionId={ActionId}",
+                            id, input.ActionId.Value);
+
+                        var createMappingDto = new CreateActionTriggerMappingDto
+                        {
+                            ActionDefinitionId = input.ActionId.Value,
+                            TriggerType = "Task",
+                            TriggerSourceId = id,
+                            WorkFlowId = 0,
+                            StageId = 0, // Task 不特定于某个 Stage
+                            TriggerEvent = "Completed",
+                            ExecutionOrder = 1,
+                            IsEnabled = true,
+                        };
+
+                        var createdMapping = await _actionManagementService.CreateActionTriggerMappingAsync(createMappingDto);
+                        if (createdMapping != null)
+                        {
+                            _logger.LogInformation("成功自动创建 ActionTriggerMapping: MappingId={MappingId}, TaskId={TaskId}, ActionId={ActionId}",
+                                createdMapping.Id, id, input.ActionId.Value);
+                        }
+                        else
+                        {
+                            _logger.LogWarning("自动创建 ActionTriggerMapping 失败: TaskId={TaskId}, ActionId={ActionId}",
+                                id, input.ActionId.Value);
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "自动检查或创建 ActionTriggerMapping 时发生错误: TaskId={TaskId}, ActionId={ActionId}",
+                    id, input.ActionId);
+                // 不抛出异常，允许任务更新继续
+            }
+        }
+
         _mapper.Map(input, existingTask);
         existingTask.InitUpdateInfo(_userContext);
 
         // Ensure action mapping info is not persisted/updated on the task entity
-        existingTask.ActionId = originalTask.ActionId;
-        existingTask.ActionName = originalTask.ActionName;
-        existingTask.ActionMappingId = originalTask.ActionMappingId;
+        existingTask.ActionId = null;
+        existingTask.ActionName = null;
+        existingTask.ActionMappingId = null;
 
         // Check if there are any actual changes
         var hasChanges =
