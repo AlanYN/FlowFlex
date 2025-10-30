@@ -174,5 +174,6 @@
 	"scss.lint.unknownAtRules": "ignore",
 	"[json]": {
 		"editor.defaultFormatter": "vscode.json-language-features"
-	}
+	},
+	"chatgpt.runCodexInWindowsSubsystemForLinux": true
 }

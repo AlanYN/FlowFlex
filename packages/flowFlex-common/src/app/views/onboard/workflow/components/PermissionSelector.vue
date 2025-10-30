@@ -1,4 +1,4 @@
-<template>
+﻿<template>
 	<div class="grid grid-cols-2 gap-6 p-1 divide-x divide-gray-300">
 		<!-- 左侧：View Permission -->
 		<div class="space-y-4 w-full">
@@ -147,6 +147,11 @@ const fullTreeDataCache = ref<FlowflexUser[] | null>(null);
 // 使用一个 ref 来跟踪是否正在处理内部更新
 const isProcessingInternalUpdate = ref(false);
 
+interface TreeMaps {
+	nodeMap: Map<string, FlowflexUser>;
+	childToParentMap: Map<string, string>;
+}
+
 const handleBeforeOpen = async () => {
 	if (
 		localPermissions.viewPermissionMode !== ViewPermissionModeEnum.Public &&
@@ -166,6 +171,28 @@ const getFullTreeData = async (): Promise<FlowflexUser[]> => {
 	return fullTreeDataCache.value!;
 };
 
+// 将树形用户数据扁平化，方便做 ID 级别的集合运算
+const buildTreeMaps = (nodes: FlowflexUser[]): TreeMaps => {
+	const nodeMap = new Map<string, FlowflexUser>();
+	const childToParentMap = new Map<string, string>();
+
+	const walk = (items: FlowflexUser[], parentId?: string) => {
+		items.forEach((node) => {
+			nodeMap.set(node.id, node);
+			if (parentId) {
+				childToParentMap.set(node.id, parentId);
+			}
+			if (node.children && node.children.length > 0) {
+				walk(node.children, node.id);
+			}
+		});
+	};
+
+	walk(nodes);
+	return { nodeMap, childToParentMap };
+};
+
+// 第一层过滤：根据 view 限制确定左侧可选的团队树
 const updateViewChoosableTreeData = async () => {
 	// 如果是 workflow 级别调用，左侧显示全部数据
 	if (props.isWorkflowLevel) {
@@ -191,20 +218,7 @@ const updateViewChoosableTreeData = async () => {
 		return;
 	}
 
-	const nodeMap = new Map<string, FlowflexUser>();
-	const childToParentMap = new Map<string, string>();
-	const buildMaps = (nodes: FlowflexUser[], parentId?: string) => {
-		nodes.forEach((node) => {
-			nodeMap.set(node.id, node);
-			if (parentId) {
-				childToParentMap.set(node.id, parentId);
-			}
-			if (node.children && node.children.length > 0) {
-				buildMaps(node.children, node.id);
-			}
-		});
-	};
-	buildMaps(fullTreeData);
+	const { nodeMap, childToParentMap } = buildTreeMaps(fullTreeData);
 
 	if (mode === ViewPermissionModeEnum.VisibleTo) {
 		if (!limitIds.length) {
@@ -302,7 +316,7 @@ const updateViewChoosableTreeData = async () => {
 	const filteredTree = filterTree(fullTreeData);
 	viewChoosableTreeData.value = filteredTree.length > 0 ? filteredTree : [];
 };
-
+//
 const leftTypeChange = async () => {
 	// 清空右侧已选的 operateTeams
 	localPermissions.operateTeams = [];
@@ -320,264 +334,167 @@ onMounted(() => {
 	});
 });
 
-const leftChange = async (value, needEditLocalPermissions: boolean = true) => {
+const leftChange = async (value: string[], needEditLocalPermissions: boolean = true) => {
 	const mode = localPermissions.viewPermissionMode;
 
+	// InvisibleTo 模式下不能复用“查看”team
 	if (mode === ViewPermissionModeEnum.InvisibleTo) {
 		localPermissions.useSameTeamForOperate = false;
 	}
 
-	console.log('operateLimitData:', props.viewLimitData);
-	console.log('=== leftChange Start ===');
-	console.log('localPermissions.viewPermissionMode:', mode);
-	console.log('Left selected (value - 数据B):', value);
-	console.log('operateLimitData:', props.operateLimitData);
-
-	// 获取完整树数据
 	const fullTreeData = await getFullTreeData();
+	const { nodeMap, childToParentMap } = buildTreeMaps(fullTreeData);
 
-	// Build node map and parent-child relationship
-	const nodeMap = new Map<string, FlowflexUser>();
-	const childToParentMap = new Map<string, string>();
+	const collectTeamIds = (nodes?: FlowflexUser[]): Set<string> => {
+		const ids = new Set<string>();
+		if (!nodes) return ids;
 
-	const buildMaps = (nodes: FlowflexUser[], parentId?: string) => {
-		nodes.forEach((node) => {
-			nodeMap.set(node.id, node);
-			if (parentId) {
-				childToParentMap.set(node.id, parentId);
-			}
-			if (node.children && node.children.length > 0) {
-				buildMaps(node.children, node.id);
-			}
-		});
-	};
-	buildMaps(fullTreeData);
+		const traverse = (items: FlowflexUser[]) => {
+			items.forEach((item) => {
+				if (item.type === 'team') {
+					ids.add(item.id);
+				}
+				if (item.children && item.children.length > 0) {
+					traverse(item.children);
+				}
+			});
+		};
 
-	// ========== 获取左侧可选数据 A (viewChoosableTreeData) ==========
-	// 从 viewChoosableTreeData 中提取所有 ID（只提取 team，过滤掉 user）
-	const dataA = new Set<string>();
-	const extractIds = (nodes: FlowflexUser[] | undefined) => {
-		if (!nodes || nodes.length === 0) return;
-		nodes.forEach((node) => {
-			// 只添加 team 类型的节点，跳过 user 类型
-			if (node.type === 'team') {
-				dataA.add(node.id);
-			}
-			// 递归处理子节点
-			if (node.children && node.children.length > 0) {
-				extractIds(node.children);
-			}
-		});
+		traverse(nodes);
+		return ids;
 	};
 
-	// 修复：如果 viewChoosableTreeData 是 undefined（表示不限制），使用 fullTreeData
-	if (viewChoosableTreeData.value === undefined) {
-		console.log('viewChoosableTreeData is undefined, using fullTreeData as 数据A');
-		extractIds(fullTreeData);
-	} else {
-		console.log('viewChoosableTreeData has data, using it as 数据A');
-		extractIds(viewChoosableTreeData.value);
-	}
+	// 第一层数据A：根据 view 支持的数据权限集
+	const availableViewTeams =
+		viewChoosableTreeData.value === undefined
+			? collectTeamIds(fullTreeData)
+			: collectTeamIds(viewChoosableTreeData.value);
 
-	console.log('数据A (left side available):', Array.from(dataA));
-
-	// 如果数据A为空（这种情况不应该发生，除非 fullTreeData 也为空）
-	if (dataA.size === 0) {
-		console.log('数据A is empty, right side should be empty');
+	if (availableViewTeams.size === 0) {
 		operateChoosableTreeData.value = [];
 		return;
 	}
 
-	// ========== 获取左侧已选数据 B ==========
-	const dataB = new Set<string>(value as string[]);
-	console.log('数据B (left selected):', Array.from(dataB));
+	const selectedViewTeams = new Set<string>(value);
 
-	// 如果没有选中数据
-	if (dataB.size === 0) {
-		if (mode === ViewPermissionModeEnum.VisibleTo) {
-			// VisibleTo 模式：没选择，右侧没有可选数据
-			operateChoosableTreeData.value = undefined;
-			return;
-		}
-		// InvisibleTo 模式：没选择（黑名单为空），继续处理
+	// VisibleTo 但左边未选时直接清空右边
+	if (selectedViewTeams.size === 0 && mode === ViewPermissionModeEnum.VisibleTo) {
+		operateChoosableTreeData.value = undefined;
+		return;
 	}
 
-	// ========== 第二层过滤：计算数据 C ==========
-	let dataC = new Set<string>();
+	const subtractSets = (source: Set<string>, toRemove: Set<string>) => {
+		const result = new Set<string>();
+		source.forEach((id) => {
+			if (!toRemove.has(id)) {
+				result.add(id);
+			}
+		});
+		return result;
+	};
+
+	const intersectSets = (a: Set<string>, b: Set<string>) => {
+		const result = new Set<string>();
+		a.forEach((id) => {
+			if (b.has(id)) {
+				result.add(id);
+			}
+		});
+		return result;
+	};
+
+	let baseAvailableIds = new Set<string>();
 
 	if (props.isWorkflowLevel) {
-		// Workflow 级别：简化逻辑，不使用 operateLimitData
-		console.log('=== Workflow Level: Simplified Logic ===');
+		// 工作流级别：右边仅取决于左边勾选
 		if (mode === ViewPermissionModeEnum.VisibleTo) {
-			// VisibleTo: C = B（直接使用左侧选中的）
-			dataC = dataB;
-			console.log('数据C = 数据B (VisibleTo):', Array.from(dataC));
-
-			// 如果没有选中数据，右侧显示全部数据（不限制）
-			if (dataC.size === 0) {
-				console.log('No data selected, right side shows all data');
+			baseAvailableIds = selectedViewTeams;
+			if (baseAvailableIds.size === 0) {
 				operateChoosableTreeData.value = undefined;
 				return;
 			}
 		} else if (mode === ViewPermissionModeEnum.Public) {
-			dataC = dataA;
-		} else if (mode === ViewPermissionModeEnum.InvisibleTo) {
-			// InvisibleTo: C = A - B（全部数据减去左侧已选）
-			dataA.forEach((id) => {
-				if (!dataB.has(id)) {
-					dataC.add(id);
-				}
-			});
-			console.log('数据C = A - B (InvisibleTo):', Array.from(dataC));
+			baseAvailableIds = availableViewTeams;
+		} else {
+			baseAvailableIds = subtractSets(availableViewTeams, selectedViewTeams);
 		}
 	} else {
-		// Stage 级别：使用 operateLimitData 进行额外过滤
+		// Stage 级别：叠加 operateLimitData 限制
 		const operateLimitData = new Set<string>(props.operateLimitData || []);
-		console.log('operateLimitData:', Array.from(operateLimitData));
 
 		if (mode === ViewPermissionModeEnum.VisibleTo) {
-			// VisibleTo: C = B ∩ operateLimitData
-			console.log('=== VisibleTo Mode: C = B ∩ operateLimitData ===');
+			baseAvailableIds =
+				operateLimitData.size === 0
+					? selectedViewTeams
+					: intersectSets(selectedViewTeams, operateLimitData);
 
-			if (operateLimitData.size === 0) {
-				// 如果没有操作限制数据，直接使用左侧选中的数据
-				dataC = dataB;
-				console.log('No operateLimitData, using dataB directly:', Array.from(dataC));
-			} else {
-				// 计算交集
-				dataB.forEach((id) => {
-					if (operateLimitData.has(id)) {
-						dataC.add(id);
-					}
-				});
-				console.log('数据C (B ∩ operateLimitData):', Array.from(dataC));
+			if (selectedViewTeams.size === 0 && operateLimitData.size > 0) {
+				baseAvailableIds = operateLimitData;
+			}
 
-				// 如果没有交集且左侧有选择，右侧显示空（保持一致性）
-				if (dataC.size === 0 && dataB.size > 0) {
-					console.log('No intersection but dataB has selections, right side shows empty');
-					operateChoosableTreeData.value = [];
-					return;
-				}
-
-				// 如果左侧没有选择，右侧显示 operateLimitData 的数据
-				if (dataB.size === 0 && operateLimitData.size > 0) {
-					console.log('No left selection, right side shows operateLimitData');
-					dataC = operateLimitData;
-				}
+			if (baseAvailableIds.size === 0 && selectedViewTeams.size > 0) {
+				operateChoosableTreeData.value = [];
+				return;
 			}
 		} else if (mode === ViewPermissionModeEnum.Public) {
-			// Public 模式：C = operateLimitData
-			if (
+			const shouldInheritWorkflow =
 				props.workFlowViewPermissionMode === ViewPermissionModeEnum.Public &&
-				props.workFlowViewUseSameTeamForOperate
-			) {
-				dataC = dataA;
-			} else {
-				dataC = operateLimitData;
-			}
-		} else if (mode === ViewPermissionModeEnum.InvisibleTo) {
-			// InvisibleTo 黑名单模式：C = (A - B) ∩ operateLimitData
-			console.log('=== InvisibleTo Mode: C = (A - B) ∩ operateLimitData ===');
-
-			// 先计算 A - B（从可见数据中排除左侧选中的）
-			const aMinusB = new Set<string>();
-			dataA.forEach((id) => {
-				if (!dataB.has(id)) {
-					aMinusB.add(id);
-				}
-			});
-			console.log('A - B:', Array.from(aMinusB));
-
-			if (operateLimitData.size === 0) {
-				// 如果没有操作限制数据，直接使用 A - B
-				dataC = aMinusB;
-				console.log('No operateLimitData, using A - B directly:', Array.from(dataC));
-			} else {
-				// 再计算 (A - B) ∩ operateLimitData
-				aMinusB.forEach((id) => {
-					if (operateLimitData.has(id)) {
-						dataC.add(id);
-					}
-				});
-				console.log('数据C ((A - B) ∩ operateLimitData):', Array.from(dataC));
-			}
+				props.workFlowViewUseSameTeamForOperate;
+			baseAvailableIds = shouldInheritWorkflow ? availableViewTeams : operateLimitData;
+		} else {
+			const remainingTeams = subtractSets(availableViewTeams, selectedViewTeams);
+			baseAvailableIds =
+				operateLimitData.size === 0
+					? remainingTeams
+					: intersectSets(remainingTeams, operateLimitData);
 		}
 	}
 
-	// Use dataC as the final base for building tree
-	const baseAvailableIds = dataC;
-
-	console.log('=== Building Final Tree Structure ===');
-	console.log('Base available IDs for tree building:', Array.from(baseAvailableIds));
-
-	// 构建最终树形结构：避免父子重复（如果父节点已在结果中，子节点不再单独显示）
+	// 构建树：保证父子不重复
 	const resultIds = new Set<string>();
-
-	baseAvailableIds.forEach((nodeId: string) => {
+	baseAvailableIds.forEach((nodeId) => {
 		const node = nodeMap.get(nodeId);
-		if (!node) {
-			console.log(`Node ${nodeId} not found in map`);
-			return;
-		}
+		if (!node) return;
 
-		// 检查是否有父节点也在基础可选数据中
-		let currentId: string = nodeId;
+		let currentId: string | undefined = nodeId;
 		let hasSelectedParent = false;
 
-		while (childToParentMap.has(currentId)) {
-			const parentId: string = childToParentMap.get(currentId)!;
+		while (currentId && childToParentMap.has(currentId)) {
+			const parentId = childToParentMap.get(currentId)!;
 			if (baseAvailableIds.has(parentId)) {
-				console.log(
-					`Node ${nodeId} (${node.name}) has parent ${parentId} in base, skipping`
-				);
 				hasSelectedParent = true;
 				break;
 			}
 			currentId = parentId;
 		}
 
-		// 只添加没有父节点在基础可选数据中的节点
 		if (!hasSelectedParent) {
-			console.log(`Adding node ${nodeId} (${node.name}) to final result`);
 			resultIds.add(nodeId);
 		}
 	});
 
-	// 构建最终结果数组 - 递归过滤子节点
-	// 确保父节点的 children 只包含在 baseAvailableIds 中的节点
-	const cloneNodeWithFilter = (node: FlowflexUser): FlowflexUser => {
-		const newNode: FlowflexUser = { ...node };
-
-		if (newNode.children && newNode.children.length > 0) {
-			// 递归克隆子节点，只保留在 baseAvailableIds 中的
-			newNode.children = newNode.children
+	const buildFilteredNode = (node: FlowflexUser): FlowflexUser => {
+		const cloned: FlowflexUser = { ...node };
+		if (cloned.children && cloned.children.length > 0) {
+			cloned.children = cloned.children
 				.filter((child) => baseAvailableIds.has(child.id))
-				.map((child) => cloneNodeWithFilter(child));
+				.map((child) => buildFilteredNode(child));
 		}
-
-		return newNode;
+		return cloned;
 	};
 
 	const newTreeData = Array.from(resultIds)
-		.map((id: string) => nodeMap.get(id))
+		.map((id) => nodeMap.get(id))
 		.filter(Boolean)
-		.map((node) => cloneNodeWithFilter(node!));
+		.map((node) => buildFilteredNode(node!));
 
-	console.log('Final result tree data (with filtered children):', newTreeData);
 	operateChoosableTreeData.value = newTreeData.length > 0 ? newTreeData : [];
 
-	// 清理右侧已选数据：移除不在可选范围内的项
 	if (localPermissions.operateTeams.length > 0 && needEditLocalPermissions) {
 		const validOperateTeams = localPermissions.operateTeams.filter((teamId) =>
 			baseAvailableIds.has(teamId)
 		);
-
-		// 如果有数据被过滤掉，更新 operateTeams
 		if (validOperateTeams.length !== localPermissions.operateTeams.length) {
-			console.log(
-				'Removing invalid operate teams:',
-				localPermissions.operateTeams.filter((id) => !baseAvailableIds.has(id))
-			);
 			localPermissions.operateTeams = validOperateTeams;
 		}
 	}
