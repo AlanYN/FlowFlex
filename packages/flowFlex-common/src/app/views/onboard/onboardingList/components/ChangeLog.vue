@@ -101,7 +101,15 @@
 																<span
 																	class="after-value px-2 py-1 rounded"
 																>
-																	{{ change.afterValue || 'N/A' }}
+																	{{
+																		change.afterValue !==
+																			undefined &&
+																		change.afterValue !==
+																			null &&
+																		change.afterValue !== ''
+																			? change.afterValue
+																			: ''
+																	}}
 																</span>
 															</div>
 														</template>
@@ -116,7 +124,15 @@
 																<span
 																	class="value-set-value px-2 py-1 rounded"
 																>
-																	{{ change.afterValue || 'N/A' }}
+																	{{
+																		change.afterValue !==
+																			undefined &&
+																		change.afterValue !==
+																			null &&
+																		change.afterValue !== ''
+																			? change.afterValue
+																			: ''
+																	}}
 																</span>
 															</div>
 														</template>

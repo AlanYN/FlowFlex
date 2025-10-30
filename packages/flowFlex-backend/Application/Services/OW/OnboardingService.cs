@@ -947,32 +947,49 @@ namespace FlowFlex.Application.Services.OW
                     }
                 }
                 
-                // IMPORTANT: If CurrentStageStartTime is null but stagesProgress exists, try to recover from stagesProgress
-                if (!entity.CurrentStageStartTime.HasValue && entity.CurrentStageId.HasValue && result.StagesProgress != null && result.StagesProgress.Any())
+                // currentStageStartTime 只取 startTime（无则为null）
+                result.CurrentStageStartTime = null;
+                result.CurrentStageEndTime = null;
+                double? estimatedDays = null;
+                if (entity.CurrentStageId.HasValue && result.StagesProgress != null && result.StagesProgress.Any())
                 {
                     var currentStageProgress = result.StagesProgress.FirstOrDefault(sp => sp.StageId == entity.CurrentStageId.Value);
-                    if (currentStageProgress != null && currentStageProgress.StartTime.HasValue)
+                    if (currentStageProgress != null)
                     {
-                        entity.CurrentStageStartTime = currentStageProgress.StartTime;
-                        result.CurrentStageStartTime = currentStageProgress.StartTime;
-                        LoggingExtensions.WriteLine($"[DEBUG] GetByIdAsync - Recovered CurrentStageStartTime from StagesProgress: {entity.CurrentStageStartTime} for Onboarding {id}");
-                        
-                        // Update database to fix the missing CurrentStageStartTime
-                        try
+                        if (currentStageProgress.StartTime.HasValue)
                         {
-                            var updateSql = "UPDATE ff_onboarding SET current_stage_start_time = @CurrentStageStartTime WHERE id = @Id";
-                            await _onboardingRepository.GetSqlSugarClient().Ado.ExecuteCommandAsync(updateSql, new 
-                            { 
-                                CurrentStageStartTime = entity.CurrentStageStartTime.Value, 
-                                Id = id 
-                            });
-                            LoggingExtensions.WriteLine($"[DEBUG] GetByIdAsync - Updated database with CurrentStageStartTime: {entity.CurrentStageStartTime} for Onboarding {id}");
+                            result.CurrentStageStartTime = currentStageProgress.StartTime;
                         }
-                        catch (Exception ex)
+                        // currentStageEndTime 优先级: customEndTime > endTime > (startTime+estimatedDays) > null
+                        if (currentStageProgress.CustomEndTime.HasValue)
                         {
-                            LoggingExtensions.WriteLine($"[ERROR] GetByIdAsync - Failed to update CurrentStageStartTime in database: {ex.Message}");
+                            result.CurrentStageEndTime = currentStageProgress.CustomEndTime.Value;
+                        }
+                        else if (currentStageProgress.EndTime.HasValue)
+                        {
+                            result.CurrentStageEndTime = currentStageProgress.EndTime.Value;
+                        }
+                        else
+                        {
+                            // 三级优先：json.customEstimatedDays > json.estimatedDays > stage实体
+                            estimatedDays = (double?)currentStageProgress.CustomEstimatedDays;
+                            if (!estimatedDays.HasValue || estimatedDays.Value <= 0)
+                            {
+                                estimatedDays = (double?)currentStageProgress.EstimatedDays;
+                                if ((!estimatedDays.HasValue || estimatedDays.Value <= 0) && entity.CurrentStageId.HasValue)
+                                {
+                                    var stage = await _stageRepository.GetByIdAsync(entity.CurrentStageId.Value);
+                                    if (stage?.EstimatedDuration != null && stage.EstimatedDuration > 0)
+                                        estimatedDays = (double?)stage.EstimatedDuration;
+                                }
+                            }
                         }
                     }
+                }
+                // 单独推算 currentStageEndTime——仅当startTime和estimatedDays都存在
+                if (result.CurrentStageEndTime == null && result.CurrentStageStartTime.HasValue && (estimatedDays.HasValue && estimatedDays.Value > 0))
+                {
+                    result.CurrentStageEndTime = result.CurrentStageStartTime.Value.AddDays(estimatedDays.Value);
                 }
                 
                 // Get current stage name and estimated days
@@ -1008,17 +1025,7 @@ namespace FlowFlex.Application.Services.OW
                         catch {}
                     }
 
-                    // Calculate current stage end time based on start time + estimated days
-                    // Priority: customEndTime > calculated (startTime + estimatedDays)
-                    if (currentStageProgress != null && currentStageProgress.CustomEndTime.HasValue)
-                    {
-                        result.CurrentStageEndTime = currentStageProgress.CustomEndTime.Value;
-                        LoggingExtensions.WriteLine($"[DEBUG] GetByIdAsync - Using customEndTime: {result.CurrentStageEndTime} for Stage {entity.CurrentStageId}");
-                    }
-                    else if (result.CurrentStageStartTime.HasValue && result.CurrentStageEstimatedDays.HasValue && result.CurrentStageEstimatedDays > 0)
-                    {
-                        result.CurrentStageEndTime = result.CurrentStageStartTime.Value.AddDays((double)result.CurrentStageEstimatedDays.Value);
-                    }
+                    // End time already derived strictly from stagesProgress above
                 }
                 else
                 {
@@ -1567,7 +1574,6 @@ namespace FlowFlex.Application.Services.OW
             };
             return string.Join(":", keyParts);
         }
-
         /// <summary>
         /// Try to get query results from cache
         /// </summary>
@@ -1610,7 +1616,6 @@ namespace FlowFlex.Application.Services.OW
                 // Debug logging handled by structured logging
             }
         }
-
         /// <summary>
         /// Optimized total count query
         /// </summary>
@@ -2260,7 +2265,6 @@ namespace FlowFlex.Application.Services.OW
                 return result;
             }
         }
-
         /// <summary>
         /// Complete specified stage with validation (supports non-sequential completion) - Internal version without event publishing
         /// </summary>
@@ -3044,7 +3048,6 @@ namespace FlowFlex.Application.Services.OW
                 throw new CRMException(ErrorCodeEnum.SystemError, $"Error getting statistics: {ex.Message}");
             }
         }
-
         /// <summary>
         /// Update completion rate based on stage progress
         /// </summary>
@@ -6424,15 +6427,51 @@ namespace FlowFlex.Application.Services.OW
                     }
                 }
                 
-                // IMPORTANT: If CurrentStageStartTime is null but stagesProgress exists, try to recover from stagesProgress
-                if (!result.CurrentStageStartTime.HasValue && result.CurrentStageId.HasValue && result.StagesProgress != null && result.StagesProgress.Any())
+                // currentStageStartTime 只取 startTime（无则为null）
+                result.CurrentStageStartTime = null;
+                result.CurrentStageEndTime = null;
+                double? estimatedDays = null;
+                if (result.CurrentStageId.HasValue && result.StagesProgress != null && result.StagesProgress.Any())
                 {
                     var currentStageProgress = result.StagesProgress.FirstOrDefault(sp => sp.StageId == result.CurrentStageId.Value);
-                    if (currentStageProgress != null && currentStageProgress.StartTime.HasValue)
+                    if (currentStageProgress != null)
                     {
-                        result.CurrentStageStartTime = currentStageProgress.StartTime;
-                        LoggingExtensions.WriteLine($"[DEBUG] PopulateOnboardingOutputDto - Recovered CurrentStageStartTime from StagesProgress: {result.CurrentStageStartTime} for Onboarding {result.Id}");
+                        if (currentStageProgress.StartTime.HasValue)
+                        {
+                            result.CurrentStageStartTime = currentStageProgress.StartTime;
+                        }
+                        // currentStageEndTime 优先级: customEndTime > endTime > (startTime+estimatedDays) > null
+                        if (currentStageProgress.CustomEndTime.HasValue)
+                        {
+                            result.CurrentStageEndTime = currentStageProgress.CustomEndTime.Value;
+                        }
+                        else if (currentStageProgress.EndTime.HasValue)
+                        {
+                            result.CurrentStageEndTime = currentStageProgress.EndTime.Value;
+                        }
+                        else
+                        {
+                            // 三级优先：json.customEstimatedDays > json.estimatedDays > stageDict
+                            estimatedDays = (double?)currentStageProgress.CustomEstimatedDays;
+                            if (!estimatedDays.HasValue || estimatedDays.Value <= 0)
+                            {
+                                estimatedDays = (double?)currentStageProgress.EstimatedDays;
+                                if ((!estimatedDays.HasValue || estimatedDays.Value <= 0) && result.CurrentStageId.HasValue)
+                                {
+                                    // stageEstimatedDaysDict key: stageId -> EstimatedDuration
+                                    if (stageEstimatedDaysDict.TryGetValue(result.CurrentStageId.Value, out var val) && val != null && val > 0)
+                                    {
+                                        estimatedDays = (double?)val;
+                                    }
+                                }
+                            }
+                        }
                     }
+                }
+                // 单独推算 currentStageEndTime——仅当startTime和estimatedDays都存在
+                if (result.CurrentStageEndTime == null && result.CurrentStageStartTime.HasValue && (estimatedDays.HasValue && estimatedDays.Value > 0))
+                {
+                    result.CurrentStageEndTime = result.CurrentStageStartTime.Value.AddDays(estimatedDays.Value);
                 }
                 
                 if (result.CurrentStageId.HasValue)
@@ -6480,16 +6519,7 @@ namespace FlowFlex.Application.Services.OW
                         catch {}
                     }
 
-                    // Calculate current stage end time based on start time + estimated days
-                    // Priority: customEndTime > calculated (startTime + estimatedDays)
-                    if (currentStageProgress != null && currentStageProgress.CustomEndTime.HasValue)
-                    {
-                        result.CurrentStageEndTime = currentStageProgress.CustomEndTime.Value;
-                    }
-                    else if (result.CurrentStageStartTime.HasValue && result.CurrentStageEstimatedDays.HasValue && result.CurrentStageEstimatedDays > 0)
-                    {
-                        result.CurrentStageEndTime = result.CurrentStageStartTime.Value.AddDays((double)result.CurrentStageEstimatedDays.Value);
-                    }
+                    // End time already derived strictly from stagesProgress above
                 }
                 else
                 {
@@ -6766,7 +6796,6 @@ namespace FlowFlex.Application.Services.OW
             // Use SafeUpdateOnboardingWithoutStagesProgressAsync to preserve stagesProgress
             return await SafeUpdateOnboardingWithoutStagesProgressAsync(entity, originalStagesProgressJson);
         }
-
         /// <summary>
         /// Force complete onboarding (bypass normal validation and set to Force Completed status)
         /// </summary>
