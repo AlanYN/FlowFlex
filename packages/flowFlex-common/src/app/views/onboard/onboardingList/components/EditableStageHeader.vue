@@ -17,6 +17,7 @@
 				<div
 					v-if="currentStage?.stageDescription"
 					class="text-sm text-[var(--el-text-color-secondary)] truncate"
+					:title="currentStage?.stageDescription"
 				>
 					{{ currentStage?.stageDescription }}
 				</div>

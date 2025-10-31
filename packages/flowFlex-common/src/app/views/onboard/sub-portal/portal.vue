@@ -228,6 +228,7 @@
 								<div
 									v-if="onboardingActiveStageInfo?.stageDescription"
 									class="text-sm text-[var(--el-text-color-secondary)] truncate"
+									:title="onboardingActiveStageInfo?.stageDescription"
 								>
 									{{ onboardingActiveStageInfo?.stageDescription }}
 								</div>
