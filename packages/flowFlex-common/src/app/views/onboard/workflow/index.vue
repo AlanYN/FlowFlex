@@ -1101,7 +1101,7 @@ const handleWorkflowCancel = () => {
 };
 
 // 验证并检查权限：验证必填项 + 检查当前用户是否会被权限设置排除
-const validateAndCheckWorkflowPermissions = async (
+const validateAndCheckPermissions = async (
 	viewPermissionMode: number,
 	viewTeams: string[],
 	operateTeams: string[],
@@ -1123,6 +1123,14 @@ const validateAndCheckWorkflowPermissions = async (
 				warningMessage: `Please select at least one team for Operate Permission of this ${entityName}.`,
 			};
 		}
+
+		if (viewTeams.length > 0) {
+			viewTeams.splice(0, viewTeams.length);
+		}
+		if (useSameTeamForOperate && operateTeams.length > 0) {
+			operateTeams.splice(0, operateTeams.length);
+		}
+
 		return { hasWarning: false, showMessage: false, warningMessage: '' };
 	}
 
@@ -1169,7 +1177,40 @@ const validateAndCheckWorkflowPermissions = async (
 		// 获取用户数据
 		const userData = await menuStore.getFlowflexUserDataWithCache();
 		const currentUserId = String(currentUser.userId);
-		const userTeams = findUserTeams(userData, currentUserId);
+		//是否包含不可用team, 如果包含，则返回警告
+		const collectTeamIds = (nodes: FlowflexUser[]): Set<string> => {
+			const teamIds = new Set<string>();
+			const traverse = (items: FlowflexUser[]) => {
+				items.forEach((item) => {
+					if (item.type === 'team') {
+						teamIds.add(item.id);
+					}
+					if (item.children && item.children.length > 0) {
+						traverse(item.children);
+					}
+				});
+			};
+			traverse(nodes);
+			return teamIds;
+		};
+
+		const normalizedUserData = Array.isArray(userData) ? userData : [];
+		const teamIds = collectTeamIds(normalizedUserData);
+		const missingTeams = [
+			...viewTeams.filter((id) => !teamIds.has(id)),
+			...operateTeams.filter((id) => !teamIds.has(id)),
+		];
+
+		if (missingTeams.length > 0) {
+			return {
+				hasWarning: false,
+				showMessage: true,
+				warningMessage:
+					'Some selected teams no longer exist. Please update your selection.',
+			};
+		}
+
+		const userTeams = findUserTeams(normalizedUserData, currentUserId);
 
 		let isUserExcludedFromView = false;
 		let isUserExcludedFromOperate = false;
@@ -1216,7 +1257,7 @@ const validateAndCheckWorkflowPermissions = async (
 const createWorkflow = async (newWorkflow: Partial<Workflow>) => {
 	try {
 		// 验证并检查权限：验证必填项 + 检查当前用户是否会被权限设置排除
-		const permissionCheck = await validateAndCheckWorkflowPermissions(
+		const permissionCheck = await validateAndCheckPermissions(
 			newWorkflow.viewPermissionMode ?? ViewPermissionModeEnum.Public,
 			newWorkflow.viewTeams ?? [],
 			newWorkflow.operateTeams ?? [],
@@ -1305,7 +1346,7 @@ const updateWorkflow = async (updatedWorkflow: Partial<Workflow>) => {
 
 	try {
 		// 验证并检查权限：验证必填项 + 检查当前用户是否会被权限设置排除
-		const permissionCheck = await validateAndCheckWorkflowPermissions(
+		const permissionCheck = await validateAndCheckPermissions(
 			updatedWorkflow.viewPermissionMode ?? workflow.value.viewPermissionMode,
 			updatedWorkflow.viewTeams ?? workflow.value.viewTeams,
 			updatedWorkflow.operateTeams ?? workflow.value.operateTeams,

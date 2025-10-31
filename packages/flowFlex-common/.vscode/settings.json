@@ -175,5 +175,6 @@
 	"[json]": {
 		"editor.defaultFormatter": "vscode.json-language-features"
 	},
-	"chatgpt.runCodexInWindowsSubsystemForLinux": true
+	"chatgpt.runCodexInWindowsSubsystemForLinux": true,
+	"chatgpt.openOnStartup": true
 }
