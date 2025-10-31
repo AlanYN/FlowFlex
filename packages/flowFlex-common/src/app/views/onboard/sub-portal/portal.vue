@@ -221,13 +221,15 @@
 					<div class="flex w-full gap-x-4">
 						<!-- 左侧阶段详情 (2/3 宽度) -->
 						<div class="flex-[2] min-w-0 overflow-hidden">
-							<div
-								class="rounded-xl el-card is-always-shadow rounded-xl el-card__header"
-							>
+							<div class="case-header rounded-xl p-2.5">
+								<div class="-mx-5 -my-5 px-5 py-4 rounded-t-lg">
+									<h2 class="font-bold text-xl">{{ currentStageTitle }}</h2>
+								</div>
 								<div
-									class="editable-header-card text-white -mx-5 -my-5 px-5 py-4 rounded-t-lg"
+									v-if="onboardingActiveStageInfo?.stageDescription"
+									class="text-sm text-[var(--el-text-color-secondary)] truncate"
 								>
-									<h2 class="text-lg font-semibold">{{ currentStageTitle }}</h2>
+									{{ onboardingActiveStageInfo?.stageDescription }}
 								</div>
 							</div>
 							<el-scrollbar ref="leftScrollbarRef" class="h-full px-2 w-full">
@@ -2112,19 +2114,6 @@ html.dark .portal-loading-text {
 	color: var(--el-text-color-placeholder);
 }
 
-.editable-header-card {
-	background: var(--el-color-primary);
-	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-	display: flex;
-	flex-direction: column;
-	gap: 16px;
-	transition: all 0.2s ease;
-
-	&:hover {
-		box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15);
-		transform: translateY(-1px);
-	}
-}
 /* Smooth transitions */
 .transition-colors {
 	transition-property: color, background-color, border-color, text-decoration-color, fill, stroke;

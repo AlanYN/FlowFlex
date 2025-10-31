@@ -16,7 +16,7 @@
 				</div>
 				<div
 					v-if="currentStage?.stageDescription"
-					class="text-sm text-[var(--el-text-color-secondary)]"
+					class="text-sm text-[var(--el-text-color-secondary)] truncate"
 				>
 					{{ currentStage?.stageDescription }}
 				</div>
