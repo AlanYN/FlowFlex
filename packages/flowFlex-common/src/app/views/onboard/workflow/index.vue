@@ -1123,6 +1123,14 @@ const validateAndCheckPermissions = async (
 				warningMessage: `Please select at least one team for Operate Permission of this ${entityName}.`,
 			};
 		}
+
+		if (viewTeams.length > 0) {
+			viewTeams.splice(0, viewTeams.length);
+		}
+		if (useSameTeamForOperate && operateTeams.length > 0) {
+			operateTeams.splice(0, operateTeams.length);
+		}
+
 		return { hasWarning: false, showMessage: false, warningMessage: '' };
 	}
 

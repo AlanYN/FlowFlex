@@ -389,9 +389,15 @@ const validateAndCheckPermissions = async (): Promise<{
 					'Please select at least one team for Operate Permission of this stage.',
 			};
 		}
+
+		if (viewTeams.length > 0) {
+			formData.value.viewTeams = [];
+		}
+		if (useSameTeamForOperate && operateTeams.length > 0) {
+			formData.value.operateTeams = [];
+		}
+
 		return { hasWarning: false, showMessage: false, warningMessage: '' };
-
-
 	}
 	// 只在 VisibleTo 或 InvisibleTo 模式下检查
 
