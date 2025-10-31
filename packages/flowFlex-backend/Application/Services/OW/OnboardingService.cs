@@ -33,6 +33,7 @@ using System.Text;
 // using Item.Redis; // Temporarily disable Redis
 using System.Text.Json;
 using PermissionOperationType = FlowFlex.Domain.Shared.Enums.Permission.OperationTypeEnum;
+using FlowFlex.Application.Contracts.Dtos.OW.User;
 
 namespace FlowFlex.Application.Services.OW
 {
@@ -63,6 +64,7 @@ namespace FlowFlex.Application.Services.OW
         private readonly IPermissionService _permissionService;
         private readonly Permission.CasePermissionService _casePermissionService;
         private readonly IHttpContextAccessor _httpContextAccessor;
+        private readonly IUserService _userService;
 
         // Cache key constants - temporarily disable Redis cache
         private const string WORKFLOW_CACHE_PREFIX = "ow:workflow";
@@ -91,7 +93,8 @@ namespace FlowFlex.Application.Services.OW
             IOperationChangeLogService operationChangeLogService,
             IPermissionService permissionService,
             Permission.CasePermissionService casePermissionService,
-            IHttpContextAccessor httpContextAccessor)
+            IHttpContextAccessor httpContextAccessor,
+            IUserService userService)
         {
             _onboardingRepository = onboardingRepository ?? throw new ArgumentNullException(nameof(onboardingRepository));
             _workflowRepository = workflowRepository ?? throw new ArgumentNullException(nameof(workflowRepository));
@@ -115,6 +118,7 @@ namespace FlowFlex.Application.Services.OW
             _operationChangeLogService = operationChangeLogService ?? throw new ArgumentNullException(nameof(operationChangeLogService));
             _permissionService = permissionService ?? throw new ArgumentNullException(nameof(permissionService));
             _casePermissionService = casePermissionService ?? throw new ArgumentNullException(nameof(casePermissionService));
+            _userService = userService ?? throw new ArgumentNullException(nameof(userService));
         }
 
         /// <summary>
@@ -431,6 +435,8 @@ namespace FlowFlex.Application.Services.OW
                     @ViewPermissionMode, @ViewTeams::jsonb, @ViewUsers::jsonb, @OperateTeams::jsonb, @OperateUsers::jsonb
                 ) RETURNING id";
 
+                        await ValidateTeamSelectionsFromJsonAsync(entity.ViewTeams, entity.OperateTeams);
+
                         var parameters = new
                         {
                             TenantId = entity.TenantId,
@@ -674,6 +680,10 @@ namespace FlowFlex.Application.Services.OW
                 // Note: We preserve all permission fields (both Teams and Users) regardless of PermissionSubjectType
                 // This allows users to switch between Team/User modes without losing data
                 // The frontend will use PermissionSubjectType to determine which fields to display/use
+
+                // Update system fields
+                // Validate team IDs in ViewTeams and OperateTeams (JSON arrays)
+                await ValidateTeamSelectionsFromJsonAsync(entity.ViewTeams, entity.OperateTeams);
 
                 // Update system fields
                 entity.ModifyDate = DateTimeOffset.UtcNow;
@@ -5584,6 +5594,81 @@ namespace FlowFlex.Application.Services.OW
                 // If parsing fails, return empty array
                 return "[]";
             }
+        }
+
+        /// <summary>
+        /// Validate that team IDs from JSON arrays exist in the team tree from UserService.
+        /// Accepts JSON arrays (possibly double-encoded) like ["team1","team2"].
+        /// Throws BusinessError if any invalid IDs are found.
+        /// </summary>
+        private async Task ValidateTeamSelectionsFromJsonAsync(string viewTeamsJson, string operateTeamsJson)
+        {
+            var viewTeams = ParseJsonArraySafe(viewTeamsJson) ?? new List<string>();
+            var operateTeams = ParseJsonArraySafe(operateTeamsJson) ?? new List<string>();
+
+            var needsValidation = (viewTeams.Any() || operateTeams.Any());
+            if (!needsValidation)
+            {
+                return;
+            }
+
+            HashSet<string> allTeamIds;
+            try
+            {
+                allTeamIds = await GetAllTeamIdsFromUserTreeAsync();
+            }
+            catch (Exception ex)
+            {
+                // Do not block the operation if IDM is unavailable; just log
+                LoggingExtensions.WriteLine($"[TeamValidation] Skipped due to error fetching team tree: {ex.Message}");
+                return;
+            }
+
+            var invalid = new List<string>();
+            invalid.AddRange(viewTeams.Where(id => !string.IsNullOrWhiteSpace(id) && !allTeamIds.Contains(id)));
+            invalid.AddRange(operateTeams.Where(id => !string.IsNullOrWhiteSpace(id) && !allTeamIds.Contains(id)));
+            invalid = invalid.Distinct(StringComparer.Ordinal).ToList();
+
+            if (invalid.Any())
+            {
+                throw new CRMException(ErrorCodeEnum.BusinessError,
+                    $"The following team IDs do not exist: {string.Join(", ", invalid)}");
+            }
+        }
+
+        /// <summary>
+        /// Get all valid team IDs from UserService team tree (excludes placeholder teams like 'Other').
+        /// </summary>
+        private async Task<HashSet<string>> GetAllTeamIdsFromUserTreeAsync()
+        {
+            var tree = await _userService.GetUserTreeAsync();
+            var ids = new HashSet<string>(StringComparer.Ordinal);
+            if (tree == null || !tree.Any())
+            {
+                return ids;
+            }
+
+            void Traverse(IEnumerable<UserTreeNodeDto> nodes)
+            {
+                foreach (var node in nodes)
+                {
+                    if (node == null) continue;
+                    if (string.Equals(node.Type, "team", StringComparison.OrdinalIgnoreCase))
+                    {
+                        if (!string.IsNullOrWhiteSpace(node.Id) && !string.Equals(node.Id, "Other", StringComparison.Ordinal))
+                        {
+                            ids.Add(node.Id);
+                        }
+                    }
+                    if (node.Children != null && node.Children.Any())
+                    {
+                        Traverse(node.Children);
+                    }
+                }
+            }
+
+            Traverse(tree);
+            return ids;
         }
 
         /// <summary>

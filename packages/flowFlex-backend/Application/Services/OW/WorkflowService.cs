@@ -29,6 +29,7 @@ using FlowFlex.Application.Services.OW.Extensions;
 using FlowFlex.Application.Contracts.IServices.OW;
 using FlowFlex.Domain.Shared.Const;
 using FlowFlex.Application.Contracts.Dtos.OW.Permission;
+using FlowFlex.Application.Contracts.Dtos.OW.User;
 
 namespace FlowFlex.Application.Service.OW
 {
@@ -78,6 +79,9 @@ namespace FlowFlex.Application.Service.OW
             {
                 throw new CRMException(ErrorCodeEnum.BusinessError, $"Workflow name '{input.Name}' already exists");
             }
+
+            // Validate team IDs in ViewTeams and OperateTeams against IDM team tree
+            await ValidateTeamSelectionsAsync(input.ViewTeams, input.OperateTeams);
 
             // If set as default, need to cancel other default workflows first
             if (input.IsDefault)
@@ -171,6 +175,9 @@ namespace FlowFlex.Application.Service.OW
             {
                 throw new CRMException(ErrorCodeEnum.BusinessError, $"Workflow name '{input.Name}' already exists");
             }
+
+            // Validate team IDs in ViewTeams and OperateTeams against IDM team tree (only when provided)
+            await ValidateTeamSelectionsAsync(input.ViewTeams, input.OperateTeams);
 
             // Detect if there are actual changes
             bool hasChanges = HasWorkflowChanges(entity, input);
@@ -1519,5 +1526,90 @@ namespace FlowFlex.Application.Service.OW
         }
 
         // 缓存相关方法已移除
+
+        /// <summary>
+        /// Validate that provided team IDs exist in IDM/UserService team tree.
+        /// Throws BusinessError if any invalid IDs are found.
+        /// </summary>
+        private async Task ValidateTeamSelectionsAsync(List<string> viewTeams, List<string> operateTeams)
+        {
+            // Nothing to validate
+            var needsValidation = (viewTeams != null && viewTeams.Any()) || (operateTeams != null && operateTeams.Any());
+            if (!needsValidation)
+            {
+                return;
+            }
+
+            HashSet<string> allTeamIds;
+            try
+            {
+                allTeamIds = await GetAllTeamIdsFromUserTreeAsync();
+            }
+            catch (Exception ex)
+            {
+                // Log and do not block main flow if IDM service is temporarily unavailable
+                _logger.LogWarning(ex, "Failed to fetch team tree for validation. Skipping team ID validation.");
+                return;
+            }
+
+            var invalidIds = new List<string>();
+
+            if (viewTeams != null && viewTeams.Any())
+            {
+                invalidIds.AddRange(viewTeams.Where(id => !string.IsNullOrWhiteSpace(id) && !allTeamIds.Contains(id)));
+            }
+
+            if (operateTeams != null && operateTeams.Any())
+            {
+                invalidIds.AddRange(operateTeams.Where(id => !string.IsNullOrWhiteSpace(id) && !allTeamIds.Contains(id)));
+            }
+
+            // Deduplicate
+            invalidIds = invalidIds.Distinct(StringComparer.Ordinal).ToList();
+
+            if (invalidIds.Any())
+            {
+                throw new CRMException(ErrorCodeEnum.BusinessError,
+                    $"The following team IDs do not exist: {string.Join(", ", invalidIds)}");
+            }
+        }
+
+        /// <summary>
+        /// Get all valid team IDs from UserService team tree (excludes placeholder teams like 'Other').
+        /// </summary>
+        private async Task<HashSet<string>> GetAllTeamIdsFromUserTreeAsync()
+        {
+            var tree = await _userService.GetUserTreeAsync();
+            var ids = new HashSet<string>(StringComparer.Ordinal);
+
+            if (tree == null || !tree.Any())
+            {
+                return ids;
+            }
+
+            void Traverse(IEnumerable<UserTreeNodeDto> nodes)
+            {
+                foreach (var node in nodes)
+                {
+                    if (node == null) continue;
+                    if (string.Equals(node.Type, "team", StringComparison.OrdinalIgnoreCase))
+                    {
+                        // Exclude placeholder team id 'Other'
+                        if (!string.IsNullOrWhiteSpace(node.Id) && !string.Equals(node.Id, "Other", StringComparison.Ordinal))
+                        {
+                            ids.Add(node.Id);
+                        }
+                    }
+
+                    if (node.Children != null && node.Children.Any())
+                    {
+                        Traverse(node.Children);
+                    }
+                }
+            }
+
+            Traverse(tree);
+            return ids;
+        }
     }
 }
