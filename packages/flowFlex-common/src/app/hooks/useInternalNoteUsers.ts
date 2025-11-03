@@ -29,9 +29,9 @@ export function useInternalNoteUsers(id: string) {
 	const fetchOptions = async (text?: string) => {
 		optionsLoading.value = true;
 		try {
-			const finUser = await findUserList(id);
-			if (finUser.code === '200') {
-				const data = finUser.data.map((item) => ({
+			const findUser = await findUserList(id);
+			if (findUser.code === '200') {
+				const data = findUser.data.map((item) => ({
 					key: item.id,
 					value: item.name,
 					email: item.email,
