@@ -591,7 +591,8 @@
 							<el-icon class="ml-1"><ArrowRight /></el-icon>
 						</el-button>
 						<el-button
-							@click="handleSave()"
+							v-if="isLastSection"
+							@click="Submit()"
 							type="primary"
 							:icon="Document"
 							:loading="loading"
@@ -1513,7 +1514,7 @@ const isQuestionSkipped = (question: any): boolean => {
 	return props.skippedQuestions.has(questionId);
 };
 
-const handleSave = () => {
+const Submit = () => {
 	emit('submit');
 };
 

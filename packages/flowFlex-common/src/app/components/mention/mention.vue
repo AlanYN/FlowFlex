@@ -27,14 +27,15 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
 import { ElMention } from 'element-plus';
-import { assginToOprions } from '@/hooks/searchAssginTo';
+import { useInternalNoteUsers } from '@/hooks/useInternalNoteUsers';
 import { textraTwoHundredLength, inputTextraAutosize } from '@/settings/projectSetting';
-
-const { assignOptions, optionsLoading, remoteMethod } = assginToOprions();
 
 const props = defineProps<{
 	modelValue: string;
+	id: string;
 }>();
+
+const { assignOptions, optionsLoading, remoteMethod } = useInternalNoteUsers(props.id);
 
 const emit = defineEmits(['update:modelValue', 'blur']);
 
