@@ -263,6 +263,7 @@ import QuestionsList from './components/QuestionsList.vue';
 import { Section } from '#/section';
 import { functionPermission } from '@/hooks';
 import { ProjectPermissionEnum } from '@/enums/permissionEnum';
+import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard';
 
 // 引入API
 import {
@@ -364,10 +365,14 @@ const loadQuestionnaireData = async () => {
 
 			// 设置当前分区索引
 			currentSectionIndex.value = 0;
+
+			resetQuestionnaireDirty(questionnaire);
 		} else {
+			resetQuestionnaireDirty(questionnaire);
 			router.push('/onboard/questionnaire');
 		}
 	} catch (error) {
+		resetQuestionnaireDirty(questionnaire);
 		router.push('/onboard/questionnaire');
 	} finally {
 		loading.value = false;
@@ -528,6 +533,12 @@ const questionnaire = reactive({
 	] as Section[],
 });
 
+const { resetDirty: resetQuestionnaireDirty, guardNavigation } = useUnsavedChangesGuard({
+	initialState: questionnaire,
+	currentState: questionnaire,
+	dialogMessage: 'Your questionnaire has unsaved changes. Leave without saving?',
+});
+
 // 当前分区
 const currentSection = computed(() => {
 	return questionnaire?.sections[currentSectionIndex.value] || questionnaire?.sections[0];
@@ -604,8 +615,8 @@ const sectionsForJumpRules = computed(() => {
 });
 
 // 方法定义
-const handleGoBack = () => {
-	router.push('/onboard/questionnaire');
+const handleGoBack = async () => {
+	await guardNavigation('/onboard/questionnaire');
 };
 
 const handleAddSection = async () => {
@@ -899,6 +910,7 @@ const handleSaveQuestionnaire = async () => {
 					? 'Questionnaire updated successfully'
 					: 'Questionnaire created successfully'
 			);
+			resetQuestionnaireDirty(questionnaire);
 			router.push('/onboard/questionnaire');
 		}
 	} finally {
