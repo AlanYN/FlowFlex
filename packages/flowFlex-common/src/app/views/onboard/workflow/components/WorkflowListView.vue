@@ -97,13 +97,7 @@
 					</el-dropdown>
 				</template>
 			</el-table-column>
-			<el-table-column
-				prop="name"
-				label="Name"
-				sortable="custom"
-				min-width="280"
-				fixed="left"
-			>
+			<el-table-column prop="name" label="Name" min-width="280" fixed="left">
 				<template #default="{ row }">
 					<div class="workflow-name-cell">
 						<!-- 名称区域（左侧，可收缩） -->
@@ -141,21 +135,21 @@
 					</div>
 				</template>
 			</el-table-column>
-			<el-table-column label="Stage Number" sortable="custom" width="160" align="center">
+			<el-table-column label="Stage Number" width="160" align="center">
 				<template #default="{ row }">
 					<div class="table-cell-content">
 						{{ row.stages?.length || 0 }}
 					</div>
 				</template>
 			</el-table-column>
-			<el-table-column prop="createBy" label="Created By" sortable="custom" min-width="140">
+			<el-table-column prop="createBy" label="Created By" min-width="140">
 				<template #default="{ row }">
 					<div class="table-cell-content" :title="row.createBy">
 						{{ row.createBy || 'Unknown' }}
 					</div>
 				</template>
 			</el-table-column>
-			<el-table-column prop="createDate" label="Create Time" sortable="custom" width="180">
+			<el-table-column prop="createDate" label="Create Time" width="180">
 				<template #default="{ row }">
 					<div
 						class="table-cell-content"
@@ -165,14 +159,14 @@
 					</div>
 				</template>
 			</el-table-column>
-			<el-table-column prop="modifyBy" label="Modified By" sortable="custom" min-width="140">
+			<el-table-column prop="modifyBy" label="Modified By" min-width="140">
 				<template #default="{ row }">
 					<div class="table-cell-content" :title="row.modifyBy">
 						{{ row.modifyBy || 'Unknown' }}
 					</div>
 				</template>
 			</el-table-column>
-			<el-table-column prop="modifyDate" label="Modified Time" sortable="custom" width="180">
+			<el-table-column prop="modifyDate" label="Modified Time" width="180">
 				<template #default="{ row }">
 					<div
 						class="table-cell-content"

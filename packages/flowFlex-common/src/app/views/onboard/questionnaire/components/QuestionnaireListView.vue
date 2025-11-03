@@ -67,13 +67,7 @@
 					</el-dropdown>
 				</template>
 			</el-table-column>
-			<el-table-column
-				prop="name"
-				label="Questionnaire Name"
-				sortable="custom"
-				min-width="220"
-				fixed="left"
-			>
+			<el-table-column prop="name" label="Questionnaire Name" min-width="220" fixed="left">
 				<template #default="{ row }">
 					<el-link
 						type="primary"
@@ -87,12 +81,7 @@
 					</el-link>
 				</template>
 			</el-table-column>
-			<el-table-column
-				prop="description"
-				label="Description"
-				sortable="custom"
-				min-width="200"
-			>
+			<el-table-column prop="description" label="Description" min-width="200">
 				<template #default="{ row }">
 					<div class="table-cell-content" :title="row.description">
 						{{ row.description }}
@@ -168,7 +157,7 @@
 					</div>
 				</template>
 			</el-table-column>
-			<el-table-column label="Sections" sortable="custom" width="120" align="center">
+			<el-table-column label="Sections" width="120" align="center">
 				<template #default="{ row }">
 					<div class="table-cell-content">
 						{{
@@ -181,27 +170,21 @@
 					</div>
 				</template>
 			</el-table-column>
-			<el-table-column
-				prop="totalQuestions"
-				label="Questions"
-				sortable="custom"
-				width="120"
-				align="center"
-			>
+			<el-table-column prop="totalQuestions" label="Questions" width="120" align="center">
 				<template #default="{ row }">
 					<div class="table-cell-content">
 						{{ row.totalQuestions }}
 					</div>
 				</template>
 			</el-table-column>
-			<el-table-column prop="modifyBy" label="Modified By" sortable="custom" width="140">
+			<el-table-column prop="modifyBy" label="Modified By" width="140">
 				<template #default="{ row }">
 					<div class="table-cell-content" :title="row.modifyBy">
 						{{ row.modifyBy }}
 					</div>
 				</template>
 			</el-table-column>
-			<el-table-column prop="modifyDate" label="Modified Time" sortable="custom" width="250">
+			<el-table-column prop="modifyDate" label="Modified Time" width="250">
 				<template #default="{ row }">
 					<div
 						class="table-cell-content"
