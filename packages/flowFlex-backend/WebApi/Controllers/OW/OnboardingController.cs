@@ -16,6 +16,7 @@ using FlowFlex.Domain.Shared.Enums.Permission;
 using FlowFlex.WebApi.Filters;
 using FlowFlex.Domain.Shared.Const;
 using WebApi.Authorization;
+using FlowFlex.Application.Contracts.Dtos.OW.User;
 
 namespace FlowFlex.WebApi.Controllers.OW
 {
@@ -412,6 +413,21 @@ namespace FlowFlex.WebApi.Controllers.OW
             }
 
             bool result = await _onboardingService.SaveStageAsync(input.OnboardingId, input.StageId);
+            return Success(result);
+        }
+
+        /// <summary>
+        /// Get authorized users for onboarding based on permission configuration
+        /// If case has no permission restrictions (Public mode), returns all users
+        /// If case has permission restrictions, returns only authorized users based on ViewPermissionMode and ViewPermissionSubjectType
+        /// Requires CASE:READ permission
+        /// </summary>
+        [HttpGet("{id}/authorized-users")]
+        [WFEAuthorize(PermissionConsts.Case.Read)]
+        [ProducesResponseType<SuccessResponse<List<UserTreeNodeDto>>>((int)HttpStatusCode.OK)]
+        public async Task<IActionResult> GetAuthorizedUsersAsync(long id)
+        {
+            var result = await _onboardingService.GetAuthorizedUsersAsync(id);
             return Success(result);
         }
     }

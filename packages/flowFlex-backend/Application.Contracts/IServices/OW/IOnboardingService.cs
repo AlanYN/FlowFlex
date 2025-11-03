@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Threading.Tasks;
 using FlowFlex.Application.Contracts.Dtos.OW.Onboarding;
+using FlowFlex.Application.Contracts.Dtos.OW.User;
 using FlowFlex.Domain.Shared;
 using FlowFlex.Domain.Shared.Models;
 
@@ -152,5 +153,14 @@ namespace FlowFlex.Application.Contracts.IServices.OW
         /// Force complete onboarding (bypass normal validation and set to Force Completed status)
         /// </summary>
         Task<bool> ForceCompleteAsync(long id, ForceCompleteOnboardingInputDto input);
+
+        /// <summary>
+        /// Get authorized users for onboarding based on permission configuration
+        /// If case has no permission restrictions (Public mode), returns all users
+        /// If case has permission restrictions, returns only authorized users based on ViewPermissionMode and ViewPermissionSubjectType
+        /// </summary>
+        /// <param name="id">Onboarding ID</param>
+        /// <returns>Tree structure with authorized teams and users</returns>
+        Task<List<UserTreeNodeDto>> GetAuthorizedUsersAsync(long id);
     }
 }
