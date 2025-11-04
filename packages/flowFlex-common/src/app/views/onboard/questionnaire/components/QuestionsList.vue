@@ -17,14 +17,15 @@
 						"
 					>
 						<div class="w-full">
-							<QuestionEditor
-								:question-types="questionTypes"
-								:pressent-question-type="item.type"
-								:editing-question="editingQuestion"
-								:is-editing="true"
-								@update-question="handleUpdateQuestion"
-								@cancel-edit="cancelEditQuestion"
-							/>
+					<QuestionEditor
+						:question-types="questionTypes"
+						:pressent-question-type="item.type"
+						:editing-question="editingQuestion"
+						:is-editing="true"
+						@update-question="handleUpdateQuestion"
+						@cancel-edit="cancelEditQuestion"
+						@editing-dirty-change="handleEditorDirtyChange"
+					/>
 						</div>
 					</template>
 					<template v-else>
@@ -378,6 +379,7 @@ const emits = defineEmits<{
 	'drag-end': [questions: QuestionnaireSection[]];
 	'update-jump-rules': [questionIndex: number, rules: JumpRule[]];
 	'update-question': [index: number, question: QuestionnaireSection];
+	'editing-dirty-change': [dirty: boolean];
 }>();
 
 // 编辑状态管理 - 使用ID而不是索引
@@ -431,6 +433,10 @@ const handleUpdateQuestion = (updatedQuestion: QuestionnaireSection) => {
 const cancelEditQuestion = () => {
 	editingQuestionId.value = null;
 	editingQuestion.value = null;
+};
+
+const handleEditorDirtyChange = (dirty: boolean) => {
+	emits('editing-dirty-change', dirty);
 };
 
 const handleQuestionDragEnd = () => {

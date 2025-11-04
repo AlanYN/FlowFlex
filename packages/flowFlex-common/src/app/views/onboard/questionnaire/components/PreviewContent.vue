@@ -97,7 +97,7 @@
 							:loading="isExportingPdf"
 							@click="printQuestionnaire"
 						>
-							打印 PDF
+							print
 						</el-button>
 					</div>
 					<div class="ml-6 text-right text-sm space-y-1">
@@ -847,7 +847,7 @@ const printQuestionnaire = () => {
 	if (isExportingPdf.value) return;
 	const container = printableRef.value;
 	if (!container) {
-		ElMessage.warning('暂无可打印的内容');
+		ElMessage.warning('No printable content available');
 		return;
 	}
 
@@ -866,8 +866,8 @@ const printQuestionnaire = () => {
 
 		const printStyles = `
 			@page {
-				size: auto;
-				margin: 0;
+				size: A4;
+				margin: 12mm 14mm 15mm;
 			}
 			@media print {
 				html,
@@ -877,7 +877,7 @@ const printQuestionnaire = () => {
 					background: #ffffff !important;
 				}
 				body {
-					padding: 12mm;
+					padding: 0;
 				}
 				.print-wrapper {
 					width: 100%;
@@ -911,7 +911,9 @@ const printQuestionnaire = () => {
 
 		const printWindow = window.open('', '_blank');
 		if (!printWindow) {
-			ElMessage.warning('浏览器阻止了打印窗口，请允许弹窗后再次尝试');
+			ElMessage.warning(
+				'The browser blocked the print window, please allow pop-ups and try again'
+			);
 			return;
 		}
 
@@ -934,8 +936,8 @@ const printQuestionnaire = () => {
 			setTimeout(handlePrint, PRINT_DELAY);
 		}
 	} catch (error) {
-		console.error('打印预览失败:', error);
-		ElMessage.error('打印预览失败，请稍后重试');
+		console.error('Failed to render print preview:', error);
+		ElMessage.error('Failed to render print preview, please try again later');
 	} finally {
 		isExportingPdf.value = false;
 	}
