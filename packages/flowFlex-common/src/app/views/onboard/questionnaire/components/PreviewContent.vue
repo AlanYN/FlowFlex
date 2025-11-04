@@ -97,7 +97,7 @@
 							:loading="isExportingPdf"
 							@click="printQuestionnaire"
 						>
-							print
+							Print
 						</el-button>
 					</div>
 					<div class="ml-6 text-right text-sm space-y-1">
@@ -868,6 +868,14 @@ const printQuestionnaire = () => {
 			@page {
 				size: A4;
 				margin: 12mm 14mm 15mm;
+				@top-center {
+    				content: ""; /* 设置页眉内容 */
+    				font-size: 12pt;
+  				}
+  				@bottom-center {
+    				content:  counter(page); /* 设置页脚内容，包含页码 */
+    				font-size: 10pt;
+  				}
 			}
 			@media print {
 				html,
@@ -906,6 +914,7 @@ const printQuestionnaire = () => {
 					-webkit-print-color-adjust: exact !important;
 					print-color-adjust: exact !important;
 				}
+
 			}
 		`;
 
