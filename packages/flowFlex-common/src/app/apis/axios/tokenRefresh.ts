@@ -51,11 +51,11 @@ class TokenRefreshManager {
 			const currentDate = Math.floor(Date.now() / 1000);
 			const newTokenObj: TokenObj = {
 				accessToken: {
-					token: response.access_token || response.token,
-					expire: currentDate + (response.expires_in || 3600),
-					tokenType: response.token_type || 'Bearer',
+					token: response?.token || response?.access_token || '',
+					expire: currentDate + (response?.expiresIn || 3600),
+					tokenType: response?.tokenType || 'Bearer',
 				},
-				refreshToken: response.refresh_token || tokenObj.refreshToken,
+				refreshToken: response?.refreshToken || '',
 			};
 
 			userStore.setTokenobj(newTokenObj);
