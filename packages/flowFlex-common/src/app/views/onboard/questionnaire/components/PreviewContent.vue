@@ -89,9 +89,10 @@
 							</div>
 						</div>
 					</div>
-					<div>
+
+					<div class="ml-6 text-left text-sm space-y-1">
 						<el-button
-							class="print:hidden pdf-exclude"
+							class="print:hidden pdf-exclude w-full"
 							type="primary"
 							size="default"
 							:loading="isExportingPdf"
@@ -99,8 +100,6 @@
 						>
 							Print
 						</el-button>
-					</div>
-					<div class="ml-6 text-right text-sm space-y-1">
 						<div
 							v-if="questionnaire.totalQuestions"
 							class="flex items-center text-regular"
