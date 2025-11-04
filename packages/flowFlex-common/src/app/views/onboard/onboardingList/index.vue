@@ -568,9 +568,9 @@
 					/>
 				</el-form-item>
 
-				<el-form-item label="Lead ID" prop="leadId">
+				<el-form-item label="Case Code" prop="caseCode">
 					<el-input
-						v-model="formData.leadId"
+						v-model="formData.caseCode"
 						placeholder="Enter Lead ID"
 						clearable
 						class="w-full rounded-xl"
@@ -831,7 +831,7 @@ const isEditMode = ref(false);
 const editingCaseId = ref<string | null>(null);
 
 const formData = reactive({
-	leadId: '',
+	caseCode: '',
 	leadName: '',
 	lifeCycleStageName: '',
 	lifeCycleStageId: '',
@@ -852,7 +852,7 @@ const formData = reactive({
 });
 
 const formRules = {
-	leadId: [{ required: true, message: 'Lead ID is required', trigger: 'blur' }],
+	caseCode: [{ required: false, message: 'Lead ID is required', trigger: 'blur' }],
 	priority: [{ required: true, message: 'Priority is required', trigger: 'change' }],
 	leadName: [{ required: true, message: 'Customer Name is required', trigger: 'blur' }],
 	ContactPerson: [{ required: false, message: 'Contact Name is required', trigger: 'blur' }], // 必填
@@ -903,7 +903,7 @@ const saving = ref(false);
 // 搜索参数
 const searchParams = reactive<SearchParams>({
 	workFlowId: '',
-	leadId: '',
+	caseCode: '',
 	leadName: '',
 	lifeCycleStageName: '',
 	currentStageId: '',
@@ -1039,7 +1039,7 @@ const getTableViewOnboarding = async (event) => {
 			...event,
 			...omitBy(
 				pick(searchParams, [
-					'leadId',
+					'caseCode',
 					'leadName',
 					'lifeCycleStageName',
 					'currentStageId',
@@ -1085,7 +1085,7 @@ const getPipelineViewOnboarding = async () => {
 			allData: true,
 			...omitBy(
 				pick(searchParams, [
-					'leadId',
+					'caseCode',
 					'leadName',
 					'lifeCycleStageName',
 					'currentStageId',
@@ -1614,7 +1614,7 @@ const handleExport = async () => {
 			exportParams = {
 				...omitBy(
 					pick(searchParams, [
-						'leadId',
+						'caseCode',
 						'leadName',
 						'lifeCycleStageName',
 						'currentStageId',
@@ -1685,7 +1685,7 @@ const handleEditCase = (row: any) => {
 
 	// 使用列表数据直接回显
 	formData.leadName = row.leadName || '';
-	formData.leadId = row.leadId || '';
+	formData.caseCode = row.caseCode || '';
 	formData.ContactPerson = row.contactPerson || '';
 	formData.ContactEmail = row.contactEmail || '';
 	formData.lifeCycleStageId = row.lifeCycleStageId || '';
@@ -1761,7 +1761,7 @@ const handleCancel = () => {
 };
 
 const resetForm = () => {
-	formData.leadId = '';
+	formData.caseCode = '';
 	formData.leadName = '';
 	formData.lifeCycleStageName = '';
 	formData.lifeCycleStageId = '';
@@ -2006,12 +2006,6 @@ const handleSave = async () => {
 
 					// 字段映射关系
 					const fieldMapping = {
-						leadId: {
-							apiField: 'LEADID',
-							type: 'text',
-							required: true,
-							label: 'Lead ID',
-						},
 						leadName: {
 							apiField: 'CUSTOMERNAME',
 							type: 'text',

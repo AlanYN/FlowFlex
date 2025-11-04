@@ -65,7 +65,7 @@ export interface OnboardingItem {
 
 export interface SearchParams {
 	workFlowId: string;
-	leadId: string;
+	caseCode: string;
 	leadName: string;
 	lifeCycleStageName: string;
 	currentStageId: string;
