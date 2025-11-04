@@ -146,7 +146,7 @@
 </template>
 
 <script setup lang="ts">
-import { reactive, computed, onMounted } from 'vue';
+import { reactive, computed, onMounted, watch, ref, onBeforeUnmount } from 'vue';
 import { Plus } from '@element-plus/icons-vue';
 import OptionsEditor from './OptionsEditor.vue';
 import GridEditor from './GridEditor.vue';
@@ -174,6 +174,7 @@ const emits = defineEmits<{
 	'update-question': [question: any];
 	'change-question-type': [type: string];
 	'cancel-edit': [];
+	'editing-dirty-change': [dirty: boolean];
 }>();
 
 // 初始化表单数据的函数
@@ -252,9 +253,12 @@ const loadEditingData = () => {
 			maxLabel: props.editingQuestion.maxLabel || '',
 			iconType: props.editingQuestion.iconType || 'star',
 		});
+		captureEditingSnapshot();
 	} else if (!props.isEditing) {
 		// 非编辑模式时使用当前选中的问题类型
 		newQuestion.type = props.pressentQuestionType;
+		editingSnapshot.value = null;
+		emitDirtyState(false);
 	}
 };
 
@@ -264,6 +268,24 @@ const resetForm = () => {
 	newOption.label = '';
 	newRow.label = '';
 	newColumn.label = '';
+};
+
+const editingSnapshot = ref<any | null>(null);
+const editingDirty = ref(false);
+
+const cloneQuestionState = () => JSON.parse(JSON.stringify(newQuestion));
+
+const emitDirtyState = (dirty: boolean) => {
+	if (editingDirty.value === dirty) return;
+	editingDirty.value = dirty;
+	emits('editing-dirty-change', dirty);
+};
+
+const captureEditingSnapshot = () => {
+	if (!props.isEditing) return;
+	editingSnapshot.value = cloneQuestionState();
+	editingDirty.value = false;
+	emits('editing-dirty-change', false);
 };
 
 // 生成选项 value 的工具函数
@@ -453,6 +475,8 @@ const handleAddQuestion = () => {
 	if (props.isEditing) {
 		emits('update-question', questionData);
 		resetForm();
+		editingSnapshot.value = null;
+		emitDirtyState(false);
 	} else {
 		emits('add-question', questionData);
 		resetForm();
@@ -461,6 +485,8 @@ const handleAddQuestion = () => {
 
 // 取消编辑
 const handleCancelEdit = () => {
+	emitDirtyState(false);
+	editingSnapshot.value = null;
 	emits('cancel-edit');
 	resetForm();
 };
@@ -492,6 +518,39 @@ onMounted(() => {
 	if (props.isEditing && props.editingQuestion) {
 		loadEditingData();
 	}
+});
+
+watch(
+	() => props.editingQuestion,
+	() => {
+		if (props.isEditing && props.editingQuestion) {
+			loadEditingData();
+		}
+	}
+);
+
+watch(
+	() => newQuestion,
+	() => {
+		if (!props.isEditing || !editingSnapshot.value) return;
+		const dirty = JSON.stringify(newQuestion) !== JSON.stringify(editingSnapshot.value);
+		emitDirtyState(dirty);
+	},
+	{ deep: true }
+);
+
+watch(
+	() => props.isEditing,
+	(isEditingNow) => {
+		if (!isEditingNow) {
+			editingSnapshot.value = null;
+			emitDirtyState(false);
+		}
+	}
+);
+
+onBeforeUnmount(() => {
+	emitDirtyState(false);
 });
 
 // 暴露方法给父组件调用（替代 watch）
