@@ -1,5 +1,5 @@
 <template>
-	<div class="">
+	<div ref="printableRef" class="">
 		<!-- 加载状态 -->
 		<div v-if="loading" class="text-center py-12">
 			<el-icon class="is-loading text-4xl text-primary-500 mb-4">
@@ -88,6 +88,17 @@
 								</el-popover>
 							</div>
 						</div>
+					</div>
+					<div>
+						<el-button
+							class="print:hidden pdf-exclude"
+							type="primary"
+							size="default"
+							:loading="isExportingPdf"
+							@click="printQuestionnaire"
+						>
+							print
+						</el-button>
 					</div>
 					<div class="ml-6 text-right text-sm space-y-1">
 						<div
@@ -776,6 +787,7 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue';
 import { Document, Upload, Loading, Star, Warning } from '@element-plus/icons-vue';
+import { ElMessage } from 'element-plus';
 import { projectDate } from '@/settings/projectSetting';
 import { Workflow } from '#/onboard';
 
@@ -800,6 +812,136 @@ const props = withDefaults(defineProps<Props>(), {
 	allStages: () => [],
 });
 
+const printableRef = ref<HTMLDivElement | null>(null);
+const isExportingPdf = ref(false);
+
+const buildAttributeString = (element: Element, excludes: string[] = []) =>
+	Array.from(element.attributes)
+		.filter((attr) => !excludes.includes(attr.name))
+		.map((attr) => `${attr.name}="${attr.value}"`)
+		.join(' ');
+
+const appendClassAndAttributes = (className: string, attributes: string) => {
+	const parts: string[] = [];
+	if (className) {
+		parts.push(`class="${className}"`);
+	}
+	if (attributes) {
+		parts.push(attributes);
+	}
+	return parts.length ? ` ${parts.join(' ')}` : '';
+};
+
+const collectPrintableHead = () =>
+	Array.from(
+		document.head.querySelectorAll<HTMLStyleElement | HTMLLinkElement>(
+			'style, link[rel="stylesheet"]'
+		)
+	)
+		.map((node) => node.outerHTML)
+		.join('');
+
+const PRINT_DELAY = 300;
+
+const printQuestionnaire = () => {
+	if (isExportingPdf.value) return;
+	const container = printableRef.value;
+	if (!container) {
+		ElMessage.warning('No printable content available');
+		return;
+	}
+
+	try {
+		isExportingPdf.value = true;
+		const headContent = collectPrintableHead();
+		const htmlAttributes = appendClassAndAttributes(
+			document.documentElement.className,
+			buildAttributeString(document.documentElement, ['class'])
+		);
+		const bodyClassList = [document.body.className, 'print-body'].filter(Boolean).join(' ');
+		const bodyAttributes = appendClassAndAttributes(
+			bodyClassList,
+			buildAttributeString(document.body, ['class'])
+		);
+
+		const printStyles = `
+			@page {
+				size: A4;
+				margin: 12mm 14mm 15mm;
+			}
+			@media print {
+				html,
+				body {
+					height: auto !important;
+					overflow: visible !important;
+					background: #ffffff !important;
+				}
+				body {
+					padding: 0;
+				}
+				.print-wrapper {
+					width: 100%;
+				}
+				.pdf-exclude {
+					display: none !important;
+				}
+				.questionnaire-header {
+					break-after: avoid;
+					page-break-after: avoid;
+				}
+				.section-container,
+				.question-item {
+					break-inside: avoid;
+					page-break-inside: avoid;
+				}
+				.max-h-[500px],
+				.overflow-hidden,
+				.overflow-y-auto,
+				.overflow-y-scroll,
+				.overflow-auto {
+					max-height: none !important;
+					overflow: visible !important;
+				}
+				* {
+					-webkit-print-color-adjust: exact !important;
+					print-color-adjust: exact !important;
+				}
+			}
+		`;
+
+		const printWindow = window.open('', '_blank');
+		if (!printWindow) {
+			ElMessage.warning(
+				'The browser blocked the print window, please allow pop-ups and try again'
+			);
+			return;
+		}
+
+		printWindow.document.open();
+		printWindow.document.write(
+			`<!DOCTYPE html><html${htmlAttributes}><head><meta charset="utf-8" /><title></title>${headContent}<style>${printStyles}</style></head><body${bodyAttributes}><div class="print-wrapper">${container.innerHTML}</div></body></html>`
+		);
+		printWindow.document.close();
+		printWindow.document.title = '';
+
+		const handlePrint = () => {
+			printWindow.focus();
+			printWindow.print();
+			printWindow.close();
+		};
+
+		if ('onload' in printWindow) {
+			printWindow.onload = () => setTimeout(handlePrint, PRINT_DELAY);
+		} else {
+			setTimeout(handlePrint, PRINT_DELAY);
+		}
+	} catch (error) {
+		console.error('Failed to render print preview:', error);
+		ElMessage.error('Failed to render print preview, please try again later');
+	} finally {
+		isExportingPdf.value = false;
+	}
+};
 // 预览数据存储 - 独立于原始问卷数据
 const previewData = ref<Record<string, any>>({});
 
@@ -1669,6 +1811,46 @@ html.dark .preview_assignment-label {
 		width: auto;
 		height: auto;
 		object-fit: contain;
+	}
+}
+
+@media print {
+	:deep(.max-h-\[500px\]) {
+		max-height: none !important;
+		overflow: visible !important;
+	}
+
+	:deep(.overflow-hidden),
+	:deep(.overflow-y-auto),
+	:deep(.overflow-y-scroll),
+	:deep(.overflow-auto) {
+		overflow: visible !important;
+	}
+
+	:deep(.section-container),
+	:deep(.question-item) {
+		break-inside: avoid;
+		page-break-inside: avoid;
+	}
+
+	:deep(.print\:hidden) {
+		display: none !important;
+	}
+
+	:deep(.pdf-exclude) {
+		display: none !important;
+	}
+
+	:deep(.questionnaire-header) {
+		background-color: var(--primary-50) !important;
+		border-color: var(--primary-100) !important;
+		break-after: avoid;
+		page-break-after: avoid;
+	}
+
+	:global(html),
+	:global(body) {
+		background: #ffffff !important;
 	}
 }
 
