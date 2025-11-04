@@ -205,7 +205,6 @@
 										@drag-end="handleQuestionDragEnd"
 										@update-jump-rules="handleUpdateJumpRules"
 										@update-question="handleUpdateQuestionFromList"
-										@editing-dirty-change="handleQuestionEditDirtyChange"
 									/>
 
 									<el-divider />
@@ -226,7 +225,6 @@
 										@add-question="handleAddQuestion"
 										@update-question="handleUpdateQuestion"
 										@cancel-edit="cancelEditQuestion"
-										@editing-dirty-change="handleQuestionEditDirtyChange"
 									/>
 								</el-card>
 							</TabPane>
@@ -265,7 +263,6 @@ import QuestionsList from './components/QuestionsList.vue';
 import { Section } from '#/section';
 import { functionPermission } from '@/hooks';
 import { ProjectPermissionEnum } from '@/enums/permissionEnum';
-import { useQuestionnaireStoreWithOut } from '@/stores/modules/questionnaire';
 
 // 引入API
 import {
@@ -367,14 +364,10 @@ const loadQuestionnaireData = async () => {
 
 			// 设置当前分区索引
 			currentSectionIndex.value = 0;
-
-			resetQuestionnaireDirty(questionnaire);
 		} else {
-			resetQuestionnaireDirty(questionnaire);
 			router.push('/onboard/questionnaire');
 		}
 	} catch (error) {
-		resetQuestionnaireDirty(questionnaire);
 		router.push('/onboard/questionnaire');
 	} finally {
 		loading.value = false;
@@ -534,15 +527,6 @@ const questionnaire = reactive({
 		},
 	] as Section[],
 });
-// 离开页面校验提醒
-const questionnaireStore = useQuestionnaireStoreWithOut();
-const QUESTION_EDIT_DIRTY_KEY = 'question-editor';
-
-const { resetDirty: resetQuestionnaireDirty, guardNavigation } =
-	questionnaireStore.useQuestionnaireUnsavedChangesGuard({
-		initialState: questionnaire,
-		currentState: questionnaire,
-	});
 
 // 当前分区
 const currentSection = computed(() => {
@@ -620,8 +604,8 @@ const sectionsForJumpRules = computed(() => {
 });
 
 // 方法定义
-const handleGoBack = async () => {
-	await guardNavigation('/onboard/questionnaire');
+const handleGoBack = () => {
+	router.push('/onboard/questionnaire');
 };
 
 const handleAddSection = async () => {
@@ -826,10 +810,6 @@ const handleQuestionDragEnd = (questions: any[]) => {
 	questionnaire.sections[currentSectionIndex.value].questions = questions;
 };
 
-const handleQuestionEditDirtyChange = (dirty: boolean) => {
-	questionnaireStore.updateExternalDirtyFlag(QUESTION_EDIT_DIRTY_KEY, dirty);
-};
-
 const handleUpdateJumpRules = (questionIndex: number, rules: any[]) => {
 	console.log('rules:', rules);
 	// 更新指定问题的跳转规则
@@ -919,8 +899,6 @@ const handleSaveQuestionnaire = async () => {
 					? 'Questionnaire updated successfully'
 					: 'Questionnaire created successfully'
 			);
-			resetQuestionnaireDirty(questionnaire);
-			questionnaireStore.clearStatusData();
 			router.push('/onboard/questionnaire');
 		}
 	} finally {

@@ -1,6 +1,5 @@
 <template>
 	<el-menu
-		:key="menuKey"
 		:default-active="computedActiveMenu"
 		:collapse="collapse"
 		:unique-opened="uniqueOpened"
@@ -115,19 +114,14 @@ import parent from '@assets/svg/menu/parent.svg';
 import { usePermissionStore } from '@/stores/modules/permission';
 
 import { PageEnum } from '@/enums/pageEnum';
-import { useQuestionnaireStoreWithOut } from '@/stores/modules/questionnaire';
-import type { ElMenu } from 'element-plus';
 
 const { t } = useI18n();
 const currentRoute = useRoute();
 const router = useRouter();
-const questionnaireStore = useQuestionnaireStoreWithOut();
 
 // 导航状态管理
 const isNavigating = ref(false);
 const pendingPath = ref('');
-// 菜单key，用于强制重新渲染以恢复正确的选中状态
-const menuKey = ref(0);
 
 // 定义 emit 事件
 const emit = defineEmits<{
@@ -164,15 +158,11 @@ const isLastMenu = (chil, item) => {
 const handleNavigate = async (indexPath: string) => {
 	// 如果正在导航中，忽略新的导航请求
 	if (isNavigating.value) {
-		// 更新menuKey强制重新渲染，恢复正确的选中状态
-		menuKey.value++;
 		return;
 	}
 
 	// 如果点击的是当前路由，不进行导航
 	if (currentRoute.path === indexPath) {
-		// 更新menuKey强制重新渲染，恢复正确的选中状态
-		menuKey.value++;
 		return;
 	}
 
@@ -180,15 +170,6 @@ const handleNavigate = async (indexPath: string) => {
 	const previousPath = currentRoute.path;
 
 	try {
-		const isQuestionnairePage = currentRoute.path.includes('/onboard/createQuestion');
-		if (isQuestionnairePage) {
-			const canLeave = await questionnaireStore.confirmLeave();
-			if (!canLeave) {
-				// 用户取消离开，更新menuKey强制重新渲染，恢复正确的选中状态
-				menuKey.value++;
-				return;
-			}
-		}
 		isNavigating.value = true;
 		pendingPath.value = indexPath;
 
