@@ -1206,10 +1206,15 @@ namespace FlowFlex.Application.Services.OW
                     }
                 }
 
-                // Filter by Case Code (fuzzy matching)
+                // Support comma-separated Case Codes with fuzzy matching
                 if (!string.IsNullOrEmpty(request.CaseCode) && request.CaseCode != "string")
                 {
-                    whereExpressions.Add(x => x.CaseCode != null && x.CaseCode.ToLower().Contains(request.CaseCode.ToLower()));
+                    var caseCodes = request.GetCaseCodesList();
+                    if (caseCodes.Any())
+                    {
+                        // Use OR condition to match any of the case codes (case-insensitive)
+                        whereExpressions.Add(x => x.CaseCode != null && caseCodes.Any(code => x.CaseCode.ToLower().Contains(code.ToLower())));
+                    }
                 }
 
                 if (request.LifeCycleStageId.HasValue && request.LifeCycleStageId.Value > 0)
