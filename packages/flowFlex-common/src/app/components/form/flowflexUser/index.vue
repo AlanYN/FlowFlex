@@ -971,6 +971,8 @@ const processTreeData = (data: FlowflexUser[]): FlowflexUser[] => {
 					// user 模式：显示所有数据，用户可以选择任何类型
 					return {
 						...item,
+						childrenLength:
+							item.children?.filter((child) => child.type === 'user')?.length ?? 0,
 						children: filteredChildren,
 					};
 				} else {
