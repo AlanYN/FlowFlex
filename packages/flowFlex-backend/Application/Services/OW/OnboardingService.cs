@@ -65,6 +65,7 @@ namespace FlowFlex.Application.Services.OW
         private readonly Permission.CasePermissionService _casePermissionService;
         private readonly IHttpContextAccessor _httpContextAccessor;
         private readonly IUserService _userService;
+        private readonly ICaseCodeGeneratorService _caseCodeGeneratorService;
 
         // Cache key constants - temporarily disable Redis cache
         private const string WORKFLOW_CACHE_PREFIX = "ow:workflow";
@@ -94,7 +95,8 @@ namespace FlowFlex.Application.Services.OW
             IPermissionService permissionService,
             Permission.CasePermissionService casePermissionService,
             IHttpContextAccessor httpContextAccessor,
-            IUserService userService)
+            IUserService userService,
+            ICaseCodeGeneratorService caseCodeGeneratorService)
         {
             _onboardingRepository = onboardingRepository ?? throw new ArgumentNullException(nameof(onboardingRepository));
             _workflowRepository = workflowRepository ?? throw new ArgumentNullException(nameof(workflowRepository));
@@ -119,6 +121,7 @@ namespace FlowFlex.Application.Services.OW
             _permissionService = permissionService ?? throw new ArgumentNullException(nameof(permissionService));
             _casePermissionService = casePermissionService ?? throw new ArgumentNullException(nameof(casePermissionService));
             _userService = userService ?? throw new ArgumentNullException(nameof(userService));
+            _caseCodeGeneratorService = caseCodeGeneratorService ?? throw new ArgumentNullException(nameof(caseCodeGeneratorService));
         }
 
         /// <summary>
@@ -274,6 +277,10 @@ namespace FlowFlex.Application.Services.OW
 
                 // Create new onboarding entity
                 var entity = _mapper.Map<Onboarding>(input);
+                
+                // Generate Case Code from Lead Name
+                entity.CaseCode = await _caseCodeGeneratorService.GenerateCaseCodeAsync(input.LeadName);
+                
                 // Debug logging handled by structured logging
                 // Set initial values with explicit null checks
                 entity.CurrentStageId = firstStage?.Id;
@@ -412,7 +419,7 @@ namespace FlowFlex.Application.Services.OW
                 INSERT INTO ff_onboarding (
                     tenant_id, app_code, is_valid, create_date, modify_date, create_by, modify_by,
                     create_user_id, modify_user_id, workflow_id, current_stage_order,
-                    lead_id, lead_name, lead_email, lead_phone, status, completion_rate,
+                    lead_id, lead_name, case_code, lead_email, lead_phone, status, completion_rate,
                     priority, is_priority_set, ownership, ownership_name, ownership_email,
                     notes, is_active, stages_progress_json, id,
                     current_stage_id, contact_person, contact_email, life_cycle_stage_id, 
@@ -422,7 +429,7 @@ namespace FlowFlex.Application.Services.OW
                 ) VALUES (
                     @TenantId, @AppCode, @IsValid, @CreateDate, @ModifyDate, @CreateBy, @ModifyBy,
                     @CreateUserId, @ModifyUserId, @WorkflowId, @CurrentStageOrder,
-                    @LeadId, @LeadName, @LeadEmail, @LeadPhone, @Status, @CompletionRate,
+                    @LeadId, @LeadName, @CaseCode, @LeadEmail, @LeadPhone, @Status, @CompletionRate,
                     @Priority, @IsPrioritySet, 
                     CASE WHEN @Ownership IS NULL OR @Ownership = '' THEN NULL ELSE @Ownership::bigint END,
                     @OwnershipName, @OwnershipEmail,
@@ -452,6 +459,7 @@ namespace FlowFlex.Application.Services.OW
                             CurrentStageOrder = entity.CurrentStageOrder,
                             LeadId = entity.LeadId,
                             LeadName = entity.LeadName,
+                            CaseCode = entity.CaseCode,
                             LeadEmail = entity.LeadEmail ?? "",
                             LeadPhone = entity.LeadPhone ?? "",
                             Status = entity.Status,
@@ -920,6 +928,9 @@ namespace FlowFlex.Application.Services.OW
                 {
                     throw new CRMException(ErrorCodeEnum.DataNotFound, "Onboarding not found");
                 }
+
+                // Auto-generate CaseCode for legacy data
+                await EnsureCaseCodeAsync(entity);
 
                 // Ensure stages progress is properly initialized and synced
                 await EnsureStagesProgressInitializedAsync(entity);
@@ -1455,20 +1466,25 @@ namespace FlowFlex.Application.Services.OW
                 "id" => x => x.Id,
                 "leadid" => x => x.LeadId,
                 "leadname" => x => x.LeadName,
+                "casecode" => x => x.CaseCode ?? "",
+                "contactperson" => x => x.ContactPerson ?? "",
+                "contactemail" => x => x.ContactEmail ?? "",
+                "leademail" => x => x.LeadEmail ?? "",
+                "leadphone" => x => x.LeadPhone ?? "",
                 "workflowid" => x => x.WorkflowId,
                 "currentstageid" => x => x.CurrentStageId,
                 "lifecyclestageid" => x => x.LifeCycleStageId,
-                "lifecyclestagename" => x => x.LifeCycleStageName,
-                "priority" => x => x.Priority,
-                "status" => x => x.Status,
+                "lifecyclestagename" => x => x.LifeCycleStageName ?? "",
+                "priority" => x => x.Priority ?? "",
+                "status" => x => x.Status ?? "",
                 "isactive" => x => x.IsActive,
                 "completionrate" => x => x.CompletionRate,
                 "ownership" => x => x.Ownership,
-                "ownershipname" => x => x.OwnershipName,
+                "ownershipname" => x => x.OwnershipName ?? "",
                 "createdate" => x => x.CreateDate,
                 "modifydate" => x => x.ModifyDate,
-                "createby" => x => x.CreateBy,
-                "modifyby" => x => x.ModifyBy,
+                "createby" => x => x.CreateBy ?? "",
+                "modifyby" => x => x.ModifyBy ?? "",
                 _ => x => x.CreateDate
             };
         }
@@ -4876,6 +4892,16 @@ namespace FlowFlex.Application.Services.OW
         {
             if (!results.Any() || !entities.Any()) return;
 
+            // Auto-generate CaseCode for legacy data (batch processing)
+            var entitiesWithoutCaseCode = entities.Where(e => string.IsNullOrWhiteSpace(e.CaseCode)).ToList();
+            if (entitiesWithoutCaseCode.Any())
+            {
+                foreach (var entity in entitiesWithoutCaseCode)
+                {
+                    await EnsureCaseCodeAsync(entity);
+                }
+            }
+
             // Batch get related data to avoid N+1 queries
             var (workflows, stages) = await GetRelatedDataBatchOptimizedAsync(entities);
             var workflowDict = workflows.ToDictionary(w => w.Id, w => w.Name);
@@ -6394,6 +6420,40 @@ namespace FlowFlex.Application.Services.OW
             }
 
             return null;
+        }
+
+        #endregion
+
+        #region Case Code Auto-Fill for Legacy Data
+
+        /// <summary>
+        /// Ensure case code is generated for legacy data (if CaseCode is null or empty)
+        /// </summary>
+        private async Task EnsureCaseCodeAsync(Onboarding entity)
+        {
+            if (string.IsNullOrWhiteSpace(entity.CaseCode))
+            {
+                try
+                {
+                    // Generate case code from lead name
+                    entity.CaseCode = await _caseCodeGeneratorService.GenerateCaseCodeAsync(entity.LeadName);
+
+                    // Update database
+                    var updateSql = "UPDATE ff_onboarding SET case_code = @CaseCode WHERE id = @Id";
+                    await _onboardingRepository.GetSqlSugarClient().Ado.ExecuteCommandAsync(updateSql, new
+                    {
+                        CaseCode = entity.CaseCode,
+                        Id = entity.Id
+                    });
+
+                    LoggingExtensions.WriteLine($"[INFO] Auto-generated CaseCode '{entity.CaseCode}' for Onboarding {entity.Id}");
+                }
+                catch (Exception ex)
+                {
+                    LoggingExtensions.WriteLine($"[ERROR] Failed to auto-generate CaseCode for Onboarding {entity.Id}: {ex.Message}");
+                    // Don't throw - this is a background enhancement, not critical
+                }
+            }
         }
 
         #endregion

@@ -52,6 +52,11 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.Onboarding
         public string LeadName { get; set; }
 
         /// <summary>
+        /// Case Code - 唯一标识符，根据 Lead Name 生成
+        /// </summary>
+        public string CaseCode { get; set; }
+
+        /// <summary>
         /// 客户/线索邮箱
         /// </summary>
         public string LeadEmail { get; set; }
