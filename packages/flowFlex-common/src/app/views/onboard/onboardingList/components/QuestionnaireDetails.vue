@@ -16,7 +16,7 @@
 							<ArrowRight />
 						</el-icon>
 						<h3 class="case-component-title">{{ questionnaireData.name }}</h3>
-						<el-button
+						<!-- <el-button
 							@click="handleSubmit()"
 							type="primary"
 							:icon="Document"
@@ -30,7 +30,7 @@
 							class="ml-2"
 						>
 							Submit
-						</el-button>
+						</el-button> -->
 					</div>
 					<div class="case-component-subtitle">
 						{{ completionStatus }}
@@ -86,7 +86,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue';
 import { ElMessage, ElNotification, ElMessageBox } from 'element-plus';
-import { ArrowRight, Document } from '@element-plus/icons-vue';
+import { ArrowRight } from '@element-plus/icons-vue';
 import { OnboardingItem, SectionAnswer } from '#/onboard';
 
 import { saveQuestionnaireAnswer } from '@/apis/ow/onboarding';
