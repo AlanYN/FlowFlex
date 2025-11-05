@@ -2007,7 +2007,8 @@ const refreshQuestionnaireAnswers = async (
 				}
 			}
 		});
-		questionnaireAnswersMap.value = map;
+
+		Object.assign(questionnaireAnswersMap.value, map);
 	}
 };
 

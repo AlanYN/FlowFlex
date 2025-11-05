@@ -136,13 +136,13 @@
 										class="completion-info-text block min-w-0"
 										:title="
 											stage.showSaveOrComplete
-												? `Save by ${stage.savedBy} on ${stage.saveTime}`
+												? `Saved by ${stage.savedBy} on ${stage.saveTime}`
 												: `Completed by ${stage.completedBy} on ${stage.date}`
 										"
 									>
 										{{
 											stage.showSaveOrComplete
-												? `Save by ${stage.savedBy} on ${stage.saveTime}`
+												? `Saved by ${stage.savedBy} on ${stage.saveTime}`
 												: `Completed by ${stage.completedBy} on ${stage.date}`
 										}}
 									</span>

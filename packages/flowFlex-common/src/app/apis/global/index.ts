@@ -25,6 +25,8 @@ const Api = (id?: string | number) => {
 		userPermissionsByMenu: `${globSetting.idmUrl}/api/v1/menus`,
 
 		userPermissions: `${globSetting.idmUrl}/api/v1/users/current/permissions`,
+
+		userList: `${globSetting.apiProName}/ow/onboardings/${globSetting.apiVersion}/${id}/authorized-users`,
 	};
 };
 
@@ -84,4 +86,8 @@ export function menuFunctionPermission(menuId: string) {
 
 export function userPermissions() {
 	return defHttp.get({ url: `${Api().userPermissions}` });
+}
+
+export function findUserList(id: string) {
+	return defHttp.get({ url: `${Api(id).userList}` });
 }

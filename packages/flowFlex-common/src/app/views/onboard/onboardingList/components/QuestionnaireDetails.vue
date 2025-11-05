@@ -16,6 +16,21 @@
 							<ArrowRight />
 						</el-icon>
 						<h3 class="case-component-title">{{ questionnaireData.name }}</h3>
+						<!-- <el-button
+							@click="handleSubmit()"
+							type="primary"
+							:icon="Document"
+							size="small"
+							:loading="loading"
+							:disabled="
+								!canSubmitQuestionnaire ||
+								disabled ||
+								questionnaireAnswers?.status === 'Submitted'
+							"
+							class="ml-2"
+						>
+							Submit
+						</el-button> -->
 					</div>
 					<div class="case-component-subtitle">
 						{{ completionStatus }}
@@ -70,7 +85,7 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue';
-import { ElMessage, ElNotification } from 'element-plus';
+import { ElMessage, ElNotification, ElMessageBox } from 'element-plus';
 import { ArrowRight } from '@element-plus/icons-vue';
 import { OnboardingItem, SectionAnswer } from '#/onboard';
 
@@ -721,6 +736,34 @@ const handleSave = async (isTip: boolean = true, isValidate: boolean = true) => 
 const submitting = ref(false);
 const handleSubmit = async () => {
 	try {
+		// Calculate unanswered questions count
+		const stats = completionStats.value;
+		const unansweredCount = stats.totalQuestions - stats.answeredQuestions;
+
+		// If there are unanswered questions, show confirmation dialog
+		if (unansweredCount > 0) {
+			try {
+				await ElMessageBox.confirm(
+					`There are ${unansweredCount} unanswered question${
+						unansweredCount > 1 ? 's' : ''
+					}. Are you sure you want to submit?`,
+					'Confirm Submission',
+					{
+						confirmButtonText: 'Submit',
+						cancelButtonText: 'Cancel',
+						type: 'warning',
+						distinguishCancelAndClose: true,
+					}
+				);
+			} catch (error) {
+				// User cancelled or closed the dialog
+				if (error === 'cancel') {
+					return false;
+				}
+				throw error;
+			}
+		}
+
 		submitting.value = true;
 		const saveRes = await handleSave(false, true);
 		if (!saveRes) {

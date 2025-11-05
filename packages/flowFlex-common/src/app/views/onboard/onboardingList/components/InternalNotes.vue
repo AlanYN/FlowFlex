@@ -94,6 +94,7 @@
 										v-model="editingContent"
 										placeholder="Edit note content..."
 										:disabled="savingNote"
+										:id="props.onboardingId"
 										class="w-full"
 									/>
 									<div class="flex justify-end space-x-2">
@@ -138,6 +139,7 @@
 								v-model="newNote"
 								placeholder="Add a note... Use @username to mention someone"
 								:disabled="addingNote || props.disabled"
+								:id="props.onboardingId"
 								class="w-full"
 							/>
 						</el-form-item>
