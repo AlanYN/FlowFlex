@@ -166,7 +166,9 @@
 				<div class="pb-6">
 					<!-- 统一页面头部 -->
 					<PageHeader
-						:title="`${onboardingData?.leadId || ''} ${onboardingData?.leadName || ''}`"
+						:title="`${onboardingData?.caseCode || ''} ${
+							onboardingData?.leadName || ''
+						}`"
 						:show-back-button="true"
 						@go-back="handleBack"
 					>

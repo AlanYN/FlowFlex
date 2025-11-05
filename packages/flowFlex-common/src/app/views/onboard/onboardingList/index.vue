@@ -266,6 +266,18 @@
 							</template>
 						</el-table-column>
 						<el-table-column
+							prop="caseCode"
+							label="Case Code"
+							sortable="custom"
+							width="120"
+						>
+							<template #default="{ row }">
+								<div class="table-cell-content" :title="row.caseCode">
+									{{ row.caseCode }}
+								</div>
+							</template>
+						</el-table-column>
+						<el-table-column
 							prop="leadId"
 							label="Lead ID"
 							sortable="custom"
@@ -539,9 +551,14 @@
 		>
 			<template #header>
 				<div class="dialog-header">
-					<h2 class="dialog-title">
-						{{ isEditMode ? 'Edit Case' : 'Create New Case' }}
-					</h2>
+					<div class="flex items-center gap-x-2">
+						<h2 class="dialog-title">
+							{{ isEditMode ? 'Edit Case' : 'Create New Case' }}
+						</h2>
+						<div v-if="isEditMode">
+							<el-tag type="primary">{{ formData.caseCode }}</el-tag>
+						</div>
+					</div>
 					<p class="dialog-subtitle">
 						{{
 							isEditMode
@@ -563,15 +580,6 @@
 					<el-input
 						v-model="formData.leadName"
 						placeholder="Input Customer Name"
-						clearable
-						class="w-full rounded-xl"
-					/>
-				</el-form-item>
-
-				<el-form-item label="Case Code" prop="caseCode">
-					<el-input
-						v-model="formData.caseCode"
-						placeholder="Enter Lead ID"
 						clearable
 						class="w-full rounded-xl"
 					/>
@@ -1037,6 +1045,7 @@ const getTableViewOnboarding = async (event) => {
 			pageIndex: currentPage.value,
 			pageSize: pageSize.value,
 			...event,
+			...sortordObj.value,
 			...omitBy(
 				pick(searchParams, [
 					'caseCode',
@@ -1233,14 +1242,16 @@ const handleSelectionChange = (selection: OnboardingItem[]) => {
 	selectedItems.value = selection;
 };
 
+const sortordObj = ref<any>({});
 const handleSortChange = (event: any) => {
 	// 这里可以添加排序逻辑，发送到后端
-	// 暂时使用前端排序
-	const sortord = {
-		sortDirection: event.order && event.order == 'ascending' ? 'asc' : 'desc',
-		sortField: event.order ? event.prop : '',
-	};
-	loadOnboardingList(sortord);
+	sortordObj.value = event.order
+		? {
+				sortDirection: event.order && event.order == 'ascending' ? 'asc' : 'desc',
+				sortField: event.order ? event.prop : '',
+		  }
+		: {};
+	loadOnboardingList();
 	return false;
 };
 
@@ -2195,7 +2206,6 @@ onMounted(async () => {
 	font-size: 18px;
 	font-weight: 600;
 	color: var(--el-text-color-primary);
-	margin: 0 0 4px 0;
 }
 
 .dialog-subtitle {

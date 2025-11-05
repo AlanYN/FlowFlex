@@ -56,6 +56,7 @@ export interface OnboardingItem {
 	currentStageEndTime: string;
 	currentStageEstimatedDays: string;
 	isDisabled: boolean;
+	caseCode: string;
 	permission?: {
 		canView: boolean;
 		canOperate: boolean;
