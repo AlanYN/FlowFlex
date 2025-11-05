@@ -3,9 +3,9 @@ import { useI18n } from '@/hooks/useI18n';
 // import router from '@/router';
 // import { PageEnum } from '@/enums/pageEnum';
 import { useUserStoreWithOut } from '@/stores/modules/user';
-import { SingleCaseMessage } from '@/utils/singleCaseMessage';
+// import { SingleCaseMessage } from '@/utils/singleCaseMessage';
 
-const singleCaseMessage = new SingleCaseMessage();
+// const singleCaseMessage = new SingleCaseMessage();
 
 export type ErrorMessageMode = 'none' | 'modal' | 'message' | 'error-page' | undefined;
 
@@ -33,7 +33,7 @@ export function checkStatus(
 			// errMessage = msg || t('sys.api.errMsg401');
 			userStore.setTokenobj(undefined);
 			userStore.logout(true, 'logout');
-			singleCaseMessage.showMessage(t('sys.api.tokenExpired'), 'info');
+			// singleCaseMessage.showMessage(t('sys.api.tokenExpired'), 'info');
 			break;
 		case 403:
 			errMessage = t('sys.api.errMsg403');

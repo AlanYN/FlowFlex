@@ -266,6 +266,18 @@
 							</template>
 						</el-table-column>
 						<el-table-column
+							prop="caseCode"
+							label="Case Code"
+							sortable="custom"
+							width="120"
+						>
+							<template #default="{ row }">
+								<div class="table-cell-content" :title="row.caseCode">
+									{{ row.caseCode }}
+								</div>
+							</template>
+						</el-table-column>
+						<el-table-column
 							prop="leadId"
 							label="Lead ID"
 							sortable="custom"
@@ -539,9 +551,14 @@
 		>
 			<template #header>
 				<div class="dialog-header">
-					<h2 class="dialog-title">
-						{{ isEditMode ? 'Edit Case' : 'Create New Case' }}
-					</h2>
+					<div class="flex items-center gap-x-2">
+						<h2 class="dialog-title">
+							{{ isEditMode ? 'Edit Case' : 'Create New Case' }}
+						</h2>
+						<div v-if="isEditMode">
+							<el-tag type="primary">{{ formData.caseCode }}</el-tag>
+						</div>
+					</div>
 					<p class="dialog-subtitle">
 						{{
 							isEditMode
@@ -563,15 +580,6 @@
 					<el-input
 						v-model="formData.leadName"
 						placeholder="Input Customer Name"
-						clearable
-						class="w-full rounded-xl"
-					/>
-				</el-form-item>
-
-				<el-form-item label="Lead ID" prop="leadId">
-					<el-input
-						v-model="formData.leadId"
-						placeholder="Enter Lead ID"
 						clearable
 						class="w-full rounded-xl"
 					/>
@@ -831,7 +839,7 @@ const isEditMode = ref(false);
 const editingCaseId = ref<string | null>(null);
 
 const formData = reactive({
-	leadId: '',
+	caseCode: '',
 	leadName: '',
 	lifeCycleStageName: '',
 	lifeCycleStageId: '',
@@ -852,7 +860,7 @@ const formData = reactive({
 });
 
 const formRules = {
-	leadId: [{ required: true, message: 'Lead ID is required', trigger: 'blur' }],
+	caseCode: [{ required: false, message: 'Lead ID is required', trigger: 'blur' }],
 	priority: [{ required: true, message: 'Priority is required', trigger: 'change' }],
 	leadName: [{ required: true, message: 'Customer Name is required', trigger: 'blur' }],
 	ContactPerson: [{ required: false, message: 'Contact Name is required', trigger: 'blur' }], // 必填
@@ -903,7 +911,7 @@ const saving = ref(false);
 // 搜索参数
 const searchParams = reactive<SearchParams>({
 	workFlowId: '',
-	leadId: '',
+	caseCode: '',
 	leadName: '',
 	lifeCycleStageName: '',
 	currentStageId: '',
@@ -1037,9 +1045,10 @@ const getTableViewOnboarding = async (event) => {
 			pageIndex: currentPage.value,
 			pageSize: pageSize.value,
 			...event,
+			...sortordObj.value,
 			...omitBy(
 				pick(searchParams, [
-					'leadId',
+					'caseCode',
 					'leadName',
 					'lifeCycleStageName',
 					'currentStageId',
@@ -1085,7 +1094,7 @@ const getPipelineViewOnboarding = async () => {
 			allData: true,
 			...omitBy(
 				pick(searchParams, [
-					'leadId',
+					'caseCode',
 					'leadName',
 					'lifeCycleStageName',
 					'currentStageId',
@@ -1233,14 +1242,16 @@ const handleSelectionChange = (selection: OnboardingItem[]) => {
 	selectedItems.value = selection;
 };
 
+const sortordObj = ref<any>({});
 const handleSortChange = (event: any) => {
 	// 这里可以添加排序逻辑，发送到后端
-	// 暂时使用前端排序
-	const sortord = {
-		sortDirection: event.order && event.order == 'ascending' ? 'asc' : 'desc',
-		sortField: event.order ? event.prop : '',
-	};
-	loadOnboardingList(sortord);
+	sortordObj.value = event.order
+		? {
+				sortDirection: event.order && event.order == 'ascending' ? 'asc' : 'desc',
+				sortField: event.order ? event.prop : '',
+		  }
+		: {};
+	loadOnboardingList();
 	return false;
 };
 
@@ -1614,7 +1625,7 @@ const handleExport = async () => {
 			exportParams = {
 				...omitBy(
 					pick(searchParams, [
-						'leadId',
+						'caseCode',
 						'leadName',
 						'lifeCycleStageName',
 						'currentStageId',
@@ -1685,7 +1696,7 @@ const handleEditCase = (row: any) => {
 
 	// 使用列表数据直接回显
 	formData.leadName = row.leadName || '';
-	formData.leadId = row.leadId || '';
+	formData.caseCode = row.caseCode || '';
 	formData.ContactPerson = row.contactPerson || '';
 	formData.ContactEmail = row.contactEmail || '';
 	formData.lifeCycleStageId = row.lifeCycleStageId || '';
@@ -1761,7 +1772,7 @@ const handleCancel = () => {
 };
 
 const resetForm = () => {
-	formData.leadId = '';
+	formData.caseCode = '';
 	formData.leadName = '';
 	formData.lifeCycleStageName = '';
 	formData.lifeCycleStageId = '';
@@ -2006,12 +2017,6 @@ const handleSave = async () => {
 
 					// 字段映射关系
 					const fieldMapping = {
-						leadId: {
-							apiField: 'LEADID',
-							type: 'text',
-							required: true,
-							label: 'Lead ID',
-						},
 						leadName: {
 							apiField: 'CUSTOMERNAME',
 							type: 'text',
@@ -2201,7 +2206,6 @@ onMounted(async () => {
 	font-size: 18px;
 	font-weight: 600;
 	color: var(--el-text-color-primary);
-	margin: 0 0 4px 0;
 }
 
 .dialog-subtitle {

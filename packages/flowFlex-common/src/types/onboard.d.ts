@@ -56,6 +56,7 @@ export interface OnboardingItem {
 	currentStageEndTime: string;
 	currentStageEstimatedDays: string;
 	isDisabled: boolean;
+	caseCode: string;
 	permission?: {
 		canView: boolean;
 		canOperate: boolean;
@@ -65,7 +66,7 @@ export interface OnboardingItem {
 
 export interface SearchParams {
 	workFlowId: string;
-	leadId: string;
+	caseCode: string;
 	leadName: string;
 	lifeCycleStageName: string;
 	currentStageId: string;
