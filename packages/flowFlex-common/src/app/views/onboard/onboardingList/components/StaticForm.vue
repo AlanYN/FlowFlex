@@ -44,7 +44,6 @@
 						<el-input
 							v-model="formData.leadId"
 							placeholder="Search or enter Lead ID"
-							disabled
 							clearable
 							class="text-sm min-w-[250px]"
 						/>
@@ -503,7 +502,6 @@ const formData = reactive({
 
 // 表单验证规则
 const formRules: FormRules = {
-	leadId: [{ required: true, message: 'Please select lead', trigger: 'change' }],
 	customerName: [{ required: true, message: 'Please enter customer name', trigger: 'blur' }],
 	priority: [{ required: true, message: 'Please select priority', trigger: 'change' }],
 	requestedCreditLimit: [
@@ -606,7 +604,6 @@ const getFormData = () => {
 
 	// 必填字段定义
 	const requiredFields = new Set([
-		'leadId',
 		'customerName',
 		'priority',
 		'requestedCreditLimit',
