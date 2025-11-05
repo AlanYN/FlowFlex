@@ -31,9 +31,8 @@ namespace FlowFlex.Domain.Entities.OW
         public int CurrentStageOrder { get; set; } = 1;
 
         /// <summary>
-        /// Customer/Lead ID
+        /// Customer/Lead ID (optional - Case Code is the primary identifier)
         /// </summary>
-        [Required]
         [StringLength(100)]
         [SugarColumn(ColumnName = "lead_id")]
         public string LeadId { get; set; }
