@@ -208,24 +208,28 @@ namespace FlowFlex.Application.Services.OW
                     }
                 }
                 // Debug logging handled by structured logging
-                // Check if Lead ID already exists for this tenant with enhanced checking
+                // Check if Lead ID already exists for this tenant with enhanced checking (only if LeadId is provided)
                 // Debug logging handled by structured logging
                 // Use SqlSugar client directly for more precise checking
                 var sqlSugarClient = _onboardingRepository.GetSqlSugarClient();
-                var existingActiveOnboarding = await sqlSugarClient.Queryable<Onboarding>()
-                    .Where(x => x.TenantId == tenantId &&
-                               x.AppCode == appCode &&
-                               x.LeadId == input.LeadId &&
-                               x.IsValid == true &&
-                               x.IsActive == true)
-                    .FirstAsync();
-
-                if (existingActiveOnboarding != null)
+                
+                if (!string.IsNullOrWhiteSpace(input.LeadId))
                 {
-                    // Debug logging handled by structured logging
-                    throw new CRMException(ErrorCodeEnum.BusinessError,
-                        $"An active onboarding already exists for Lead ID '{input.LeadId}' in tenant '{tenantId}', app '{appCode}'. " +
-                        $"Existing onboarding ID: {existingActiveOnboarding.Id}, Status: {existingActiveOnboarding.Status}");
+                    var existingActiveOnboarding = await sqlSugarClient.Queryable<Onboarding>()
+                        .Where(x => x.TenantId == tenantId &&
+                                   x.AppCode == appCode &&
+                                   x.LeadId == input.LeadId &&
+                                   x.IsValid == true &&
+                                   x.IsActive == true)
+                        .FirstAsync();
+
+                    if (existingActiveOnboarding != null)
+                    {
+                        // Debug logging handled by structured logging
+                        throw new CRMException(ErrorCodeEnum.BusinessError,
+                            $"An active onboarding already exists for Lead ID '{input.LeadId}' in tenant '{tenantId}', app '{appCode}'. " +
+                            $"Existing onboarding ID: {existingActiveOnboarding.Id}, Status: {existingActiveOnboarding.Status}");
+                    }
                 }
                 // Debug logging handled by structured logging
                 // Validate workflow exists with detailed logging
@@ -325,10 +329,11 @@ namespace FlowFlex.Application.Services.OW
                     throw new CRMException(ErrorCodeEnum.ParamInvalid, "WorkflowId must be greater than 0");
                 }
 
-                if (string.IsNullOrWhiteSpace(entity.LeadId))
-                {
-                    throw new CRMException(ErrorCodeEnum.ParamInvalid, "LeadId cannot be null or empty");
-                }
+                // LeadId is now optional since Case Code is the primary identifier
+                // if (string.IsNullOrWhiteSpace(entity.LeadId))
+                // {
+                //     throw new CRMException(ErrorCodeEnum.ParamInvalid, "LeadId cannot be null or empty");
+                // }
 
                 if (string.IsNullOrWhiteSpace(entity.TenantId))
                 {
@@ -367,10 +372,9 @@ namespace FlowFlex.Application.Services.OW
                     if (insertResult > 0)
                     {
                         // Debug logging handled by structured logging
-                        // Get the last inserted record by combining unique fields
+                        // Get the last inserted record by Case Code (unique identifier)
                         var lastInserted = await sqlSugarClient.Queryable<Onboarding>()
-                            .Where(x => x.LeadId == entity.LeadId &&
-                                       x.WorkflowId == entity.WorkflowId &&
+                            .Where(x => x.CaseCode == entity.CaseCode &&
                                        x.TenantId == entity.TenantId &&
                                        x.AppCode == entity.AppCode)
                             .OrderByDescending(x => x.CreateDate)
