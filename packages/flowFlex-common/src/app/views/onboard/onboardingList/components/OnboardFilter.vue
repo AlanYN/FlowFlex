@@ -8,14 +8,14 @@
 		>
 			<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
 				<div class="space-y-2">
-					<label class="text-sm font-medium">Lead ID</label>
+					<label class="text-sm font-medium">Case Code</label>
 					<InputTag
-						v-model="leadIdTags"
-						placeholder="Enter Lead ID and press enter"
+						v-model="caseCodeTags"
+						placeholder="Enter Case Code and press enter"
 						style-type="normal"
 						:limit="10"
 						clearable
-						@change="handleLeadIdTagsChange"
+						@change="handleCaseCodeTagsChange"
 						class="w-full"
 					/>
 				</div>
@@ -166,7 +166,7 @@ const searchFormRef = ref();
 // 搜索参数
 const searchParams = reactive<SearchParams>({
 	workFlowId: '',
-	leadId: '',
+	caseCode: '',
 	leadName: '',
 	lifeCycleStageName: '',
 	currentStageId: '',
@@ -177,7 +177,7 @@ const searchParams = reactive<SearchParams>({
 });
 
 // 标签数组
-const leadIdTags = ref<string[]>([]);
+const caseCodeTags = ref<string[]>([]);
 const leadNameTags = ref<string[]>([]);
 const updatedByTags = ref<string[]>([]);
 
@@ -250,8 +250,8 @@ const handleAutoSearch = () => {
 };
 
 // 标签变化处理函数
-const handleLeadIdTagsChange = (tags: string[]) => {
-	searchParams.leadId = tags.join(',');
+const handleCaseCodeTagsChange = (tags: string[]) => {
+	searchParams.caseCode = tags.join(',');
 	handleAutoSearch();
 };
 
@@ -270,7 +270,7 @@ const handleSearch = () => {
 	// 将标签数组转换为搜索参数
 	const searchParamsWithTags = {
 		...searchParams,
-		leadIdTags: leadIdTags.value,
+		caseCodeTags: caseCodeTags.value,
 		leadNameTags: leadNameTags.value,
 		updatedByTags: updatedByTags.value,
 	};
