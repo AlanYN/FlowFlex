@@ -6129,11 +6129,13 @@ namespace FlowFlex.Application.Services.OW
         }
 
         /// <summary>
-        /// Extract flat list of user nodes from a (team+user) tree
+        /// Extract flat list of user nodes from a (team+user) tree, with deduplication by user ID
         /// </summary>
         private List<UserTreeNodeDto> ExtractUserNodes(List<UserTreeNodeDto> nodes)
         {
             var result = new List<UserTreeNodeDto>();
+            var seenUserIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            
             if (nodes == null || nodes.Count == 0) return result;
 
             void Traverse(UserTreeNodeDto node)
@@ -6141,17 +6143,22 @@ namespace FlowFlex.Application.Services.OW
                 if (node == null) return;
                 if (node.Type == "user")
                 {
-                    result.Add(new UserTreeNodeDto
+                    // Deduplicate by user ID
+                    if (!string.IsNullOrEmpty(node.Id) && !seenUserIds.Contains(node.Id))
                     {
-                        Id = node.Id,
-                        Name = node.Name,
-                        Type = node.Type,
-                        Username = node.Username,
-                        Email = node.Email,
-                        UserDetails = node.UserDetails,
-                        MemberCount = 0,
-                        Children = null
-                    });
+                        seenUserIds.Add(node.Id);
+                        result.Add(new UserTreeNodeDto
+                        {
+                            Id = node.Id,
+                            Name = node.Name,
+                            Type = node.Type,
+                            Username = node.Username,
+                            Email = node.Email,
+                            UserDetails = node.UserDetails,
+                            MemberCount = 0,
+                            Children = null
+                        });
+                    }
                 }
                 if (node.Children != null)
                 {
