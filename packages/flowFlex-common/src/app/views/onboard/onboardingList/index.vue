@@ -278,18 +278,6 @@
 							</template>
 						</el-table-column>
 						<el-table-column
-							prop="leadId"
-							label="Lead ID"
-							sortable="custom"
-							width="100"
-						>
-							<template #default="{ row }">
-								<div class="table-cell-content" :title="row.leadId">
-									{{ row.leadId }}
-								</div>
-							</template>
-						</el-table-column>
-						<el-table-column
 							prop="contactPerson"
 							sortable="custom"
 							label="Contact Name"
