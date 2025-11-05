@@ -244,6 +244,7 @@
 
 												<div
 													v-if="
+														selectionType === 'user' &&
 														data.type === 'team' &&
 														data.memberCount !== undefined &&
 														data.memberCount !== null &&
@@ -251,16 +252,6 @@
 													"
 													class="flex items-center gap-1"
 												>
-													<el-tooltip
-														v-if="
-															data.memberCount != data.childrenLength
-														"
-														placement="top-end"
-														:show-after="500"
-														content="The quantity is the total sum of users under all teams"
-													>
-														<el-icon><QuestionFilled /></el-icon>
-													</el-tooltip>
 													<span
 														class="text-gray-500 dark:text-gray-400 text-xs flex-shrink-0"
 													>
@@ -353,7 +344,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue';
-import { Search, Close, Refresh, QuestionFilled } from '@element-plus/icons-vue';
+import { Search, Close, Refresh } from '@element-plus/icons-vue';
 import CustomTree from './CustomTree.vue';
 import { ElMessage } from 'element-plus';
 import { menuRoles } from '@/stores/modules/menuFunction';
