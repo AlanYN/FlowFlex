@@ -43,7 +43,7 @@
 					>
 						<el-input
 							v-model="formData.leadId"
-							placeholder="Search or enter Lead ID"
+							placeholder="Enter Lead ID"
 							clearable
 							class="text-sm min-w-[250px]"
 						/>
