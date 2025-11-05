@@ -242,12 +242,31 @@
 													</div>
 												</div>
 
-												<span
-													v-if="data.type === 'team' && data.memberCount"
-													class="text-gray-500 dark:text-gray-400 text-xs flex-shrink-0"
+												<div
+													v-if="
+														data.type === 'team' &&
+														data.memberCount !== undefined &&
+														data.memberCount !== null &&
+														!isNaN(data.memberCount)
+													"
+													class="flex items-center gap-1"
 												>
-													({{ data.memberCount }})
-												</span>
+													<el-tooltip
+														v-if="
+															data.memberCount != data.childrenLength
+														"
+														placement="top-end"
+														:show-after="500"
+														content="The quantity is the total sum of users under all teams"
+													>
+														<el-icon><QuestionFilled /></el-icon>
+													</el-tooltip>
+													<span
+														class="text-gray-500 dark:text-gray-400 text-xs flex-shrink-0"
+													>
+														({{ data.memberCount }})
+													</span>
+												</div>
 											</div>
 										</div>
 									</template>
@@ -334,7 +353,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue';
-import { Search, Close, Refresh } from '@element-plus/icons-vue';
+import { Search, Close, Refresh, QuestionFilled } from '@element-plus/icons-vue';
 import CustomTree from './CustomTree.vue';
 import { ElMessage } from 'element-plus';
 import { menuRoles } from '@/stores/modules/menuFunction';
@@ -959,6 +978,9 @@ const processTreeData = (data: FlowflexUser[]): FlowflexUser[] => {
 					if (item.type === 'team') {
 						return {
 							...item,
+							childrenLength:
+								item.children?.filter((child) => child.type === 'user')?.length ??
+								0,
 							children: filteredChildren,
 						};
 					}
@@ -967,6 +989,9 @@ const processTreeData = (data: FlowflexUser[]): FlowflexUser[] => {
 					if (filteredChildren.length > 0) {
 						return {
 							...item,
+							childrenLength:
+								item.children?.filter((child) => child.type === 'user')?.length ??
+								0,
 							children: filteredChildren,
 						};
 					}
