@@ -68,7 +68,7 @@
 							<el-button size="small" @click="editConfig(row)">Edit</el-button>
 							<el-button
 								size="small"
-								type="success"
+								type="primary"
 								@click="setDefault(row.id)"
 								:disabled="row.isDefault"
 							>
@@ -569,16 +569,6 @@ onMounted(async () => {
 	flex-wrap: nowrap;
 	align-items: center;
 	justify-content: flex-start;
-}
-
-.action-buttons .el-button {
-	font-size: 11px;
-	padding: 4px 8px;
-	white-space: nowrap;
-	flex-shrink: 0;
-	min-width: auto;
-	height: 28px;
-	line-height: 1.2;
 }
 
 .el-slider {
