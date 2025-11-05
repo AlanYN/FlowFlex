@@ -739,12 +739,8 @@ const syncPermissionsToParent = () => {
 		// 处理 operateTeams/operateUsers 的同步
 		if (localPermissions.useSameTeamForOperate) {
 			// 勾选"使用相同"时，同步 view 的选择到 operate
-			const newOperateTeams = isViewSelectorVisible.value
-				? [...localPermissions.viewTeams]
-				: [];
-			const newOperateUsers = isViewSelectorVisible.value
-				? [...localPermissions.viewUsers]
-				: [];
+			const newOperateTeams = isViewSelectorVisible.value ? [...localPermissions.viewTeams] : [];
+			const newOperateUsers = isViewSelectorVisible.value ? [...localPermissions.viewUsers] : [];
 
 			if (JSON.stringify(newOperateTeams) !== JSON.stringify(localPermissions.operateTeams)) {
 				localPermissions.operateTeams = newOperateTeams;

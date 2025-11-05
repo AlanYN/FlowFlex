@@ -258,7 +258,6 @@ export interface StageInfo {
 	aiSummaryModel?: string;
 	aiSummaryData?: string;
 	visibleInPortal?: boolean;
-	stageDescription?: string;
 }
 
 export interface ComponentsData {

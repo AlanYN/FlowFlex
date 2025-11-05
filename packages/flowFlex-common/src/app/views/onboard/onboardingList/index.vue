@@ -1888,43 +1888,6 @@ const validateAndCheckPermissions = async (): Promise<{
 		const userData = await menuStore.getFlowflexUserDataWithCache();
 		const currentUserId = String(currentUser.userId);
 		const userTeams = findUserTeams(userData, currentUserId);
-		//是否包含不可用team 和 user, 如果包含，则返回警告
-		const collectNodeIds = (nodes: FlowflexUser[]) => {
-			const teamIds = new Set<string>();
-			const userIds = new Set<string>();
-			const traverse = (items: FlowflexUser[]) => {
-				items.forEach((item) => {
-					if (item.type === 'team') {
-						teamIds.add(item.id);
-					}
-					if (item.type === 'user') {
-						userIds.add(item.id);
-					}
-					if (item.children && item.children.length > 0) {
-						traverse(item.children);
-					}
-				});
-			};
-			traverse(nodes);
-			return { teamIds, userIds };
-		};
-
-		const { teamIds, userIds } = collectNodeIds(userData);
-		const missingSelections = [
-			...formData.viewUsers.filter((id) => !userIds.has(id)),
-			...formData.operateUsers.filter((id) => !userIds.has(id)),
-			...formData.viewTeams.filter((id) => !teamIds.has(id)),
-			...formData.operateTeams.filter((id) => !teamIds.has(id)),
-		];
-
-		if (missingSelections.length > 0) {
-			return {
-				hasWarning: false,
-				showMessage: true,
-				warningMessage:
-					'Some selected teams or users no longer exist. Please update your selection.',
-			};
-		}
 
 		let isUserExcludedFromView = false;
 		let isUserExcludedFromOperate = false;
