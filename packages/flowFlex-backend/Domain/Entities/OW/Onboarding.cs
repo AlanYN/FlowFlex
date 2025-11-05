@@ -46,6 +46,13 @@ namespace FlowFlex.Domain.Entities.OW
         public string LeadName { get; set; }
 
         /// <summary>
+        /// Case Code - Unique identifier generated from Lead Name
+        /// </summary>
+        [StringLength(50)]
+        [SugarColumn(ColumnName = "case_code")]
+        public string CaseCode { get; set; }
+
+        /// <summary>
         /// Customer/Lead Email
         /// </summary>
         [StringLength(200)]

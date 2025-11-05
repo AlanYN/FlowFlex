@@ -29,6 +29,8 @@ using JsonException = System.Text.Json.JsonException;
 using System.Text.RegularExpressions;
 using SqlSugar;
 using FlowFlex.Domain.Shared.Const;
+using FlowFlex.Application.Contracts.IServices.OW;
+using FlowFlex.Application.Contracts.Dtos.OW.User;
 
 namespace FlowFlex.Application.Service.OW
 {
@@ -59,12 +61,13 @@ namespace FlowFlex.Application.Service.OW
         private readonly IOperationChangeLogService _operationChangeLogService;
         private readonly IPermissionService _permissionService;
         private readonly ILogger<StageService> _logger;
+        private readonly IUserService _userService;
 
         // Cache key constants
         private const string STAGE_CACHE_PREFIX = "ow:stage";
         private static readonly TimeSpan STAGE_CACHE_DURATION = TimeSpan.FromMinutes(10);
 
-        public StageService(IStageRepository stageRepository, IWorkflowRepository workflowRepository, IMapper mapper, IStagesProgressSyncService stagesProgressSyncService, IChecklistService checklistService, IQuestionnaireService questionnaireService, IQuestionnaireAnswerService questionnaireAnswerService, IAIService aiService, IChecklistTaskCompletionRepository checklistTaskCompletionRepository, UserContext userContext, IComponentMappingService mappingService, ISqlSugarClient db, IDistributedCacheService cacheService, IBackgroundTaskQueue backgroundTaskQueue, IOperationChangeLogService operationChangeLogService, IPermissionService permissionService, ILogger<StageService> logger)
+        public StageService(IStageRepository stageRepository, IWorkflowRepository workflowRepository, IMapper mapper, IStagesProgressSyncService stagesProgressSyncService, IChecklistService checklistService, IQuestionnaireService questionnaireService, IQuestionnaireAnswerService questionnaireAnswerService, IAIService aiService, IChecklistTaskCompletionRepository checklistTaskCompletionRepository, UserContext userContext, IComponentMappingService mappingService, ISqlSugarClient db, IDistributedCacheService cacheService, IBackgroundTaskQueue backgroundTaskQueue, IOperationChangeLogService operationChangeLogService, IPermissionService permissionService, ILogger<StageService> logger, IUserService userService)
         {
             _stageRepository = stageRepository;
             _workflowRepository = workflowRepository;
@@ -83,6 +86,7 @@ namespace FlowFlex.Application.Service.OW
             _operationChangeLogService = operationChangeLogService;
             _permissionService = permissionService;
             _logger = logger;
+            _userService = userService;
         }
 
         public async Task<long> CreateAsync(StageInputDto input)
@@ -114,6 +118,9 @@ namespace FlowFlex.Application.Service.OW
 
         _logger.LogInformation("User {UserId} has permission to create stage in workflow {WorkflowId} ({WorkflowName})", 
             userIdLong, input.WorkflowId, workflow.Name);
+
+            // Validate team IDs in ViewTeams and OperateTeams
+            await ValidateTeamSelectionsAsync(input.ViewTeams, input.OperateTeams);
 
             // Use transaction to ensure data consistency
             var result = await _db.Ado.UseTranAsync(async () =>
@@ -256,6 +263,9 @@ namespace FlowFlex.Application.Service.OW
 
         _logger.LogInformation("User {UserId} has permission to update stage {StageId} ({StageName}) in workflow {WorkflowId} ({WorkflowName})", 
             userIdLong, id, stage.Name, stage.WorkflowId, workflow.Name);
+
+            // Validate team IDs in ViewTeams and OperateTeams (only when provided)
+            await ValidateTeamSelectionsAsync(input.ViewTeams, input.OperateTeams);
 
             // Validate stage name uniqueness within workflow (excluding current stage)
             if (await _stageRepository.IsNameExistsInWorkflowAsync(stage.WorkflowId, input.Name, id))
@@ -1653,6 +1663,79 @@ namespace FlowFlex.Application.Service.OW
         }
 
         // Cache cleanup methods have been removed
+
+        /// <summary>
+        /// Validate that provided team IDs exist in team tree from UserService.
+        /// Throws BusinessError if any invalid IDs are found.
+        /// </summary>
+        private async Task ValidateTeamSelectionsAsync(List<string> viewTeams, List<string> operateTeams)
+        {
+            var needsValidation = (viewTeams != null && viewTeams.Any()) || (operateTeams != null && operateTeams.Any());
+            if (!needsValidation)
+            {
+                return;
+            }
+
+            HashSet<string> allTeamIds;
+            try
+            {
+                allTeamIds = await GetAllTeamIdsFromUserTreeAsync();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to fetch team tree for validation in StageService. Skipping team ID validation.");
+                return;
+            }
+
+            var invalidIds = new List<string>();
+            if (viewTeams != null && viewTeams.Any())
+            {
+                invalidIds.AddRange(viewTeams.Where(id => !string.IsNullOrWhiteSpace(id) && !allTeamIds.Contains(id)));
+            }
+            if (operateTeams != null && operateTeams.Any())
+            {
+                invalidIds.AddRange(operateTeams.Where(id => !string.IsNullOrWhiteSpace(id) && !allTeamIds.Contains(id)));
+            }
+            invalidIds = invalidIds.Distinct(StringComparer.Ordinal).ToList();
+
+            if (invalidIds.Any())
+            {
+                throw new CRMException(ErrorCodeEnum.BusinessError,
+                    $"The following team IDs do not exist: {string.Join(", ", invalidIds)}");
+            }
+        }
+
+        /// <summary>
+        /// Get all valid team IDs from UserService team tree (excludes placeholder teams like 'Other').
+        /// </summary>
+        private async Task<HashSet<string>> GetAllTeamIdsFromUserTreeAsync()
+        {
+            var tree = await _userService.GetUserTreeAsync();
+            var ids = new HashSet<string>(StringComparer.Ordinal);
+            if (tree == null || !tree.Any()) return ids;
+
+            void Traverse(IEnumerable<UserTreeNodeDto> nodes)
+            {
+                foreach (var node in nodes)
+                {
+                    if (node == null) continue;
+                    if (string.Equals(node.Type, "team", StringComparison.OrdinalIgnoreCase))
+                    {
+                        if (!string.IsNullOrWhiteSpace(node.Id) && !string.Equals(node.Id, "Other", StringComparison.Ordinal))
+                        {
+                            ids.Add(node.Id);
+                        }
+                    }
+                    if (node.Children != null && node.Children.Any())
+                    {
+                        Traverse(node.Children);
+                    }
+                }
+            }
+
+            Traverse(tree);
+            return ids;
+        }
 
         /// <summary>
         /// Generate AI summary for stage based on its content

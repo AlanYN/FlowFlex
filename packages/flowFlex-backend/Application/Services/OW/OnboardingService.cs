@@ -33,6 +33,7 @@ using System.Text;
 // using Item.Redis; // Temporarily disable Redis
 using System.Text.Json;
 using PermissionOperationType = FlowFlex.Domain.Shared.Enums.Permission.OperationTypeEnum;
+using FlowFlex.Application.Contracts.Dtos.OW.User;
 
 namespace FlowFlex.Application.Services.OW
 {
@@ -63,6 +64,8 @@ namespace FlowFlex.Application.Services.OW
         private readonly IPermissionService _permissionService;
         private readonly Permission.CasePermissionService _casePermissionService;
         private readonly IHttpContextAccessor _httpContextAccessor;
+        private readonly IUserService _userService;
+        private readonly ICaseCodeGeneratorService _caseCodeGeneratorService;
 
         // Cache key constants - temporarily disable Redis cache
         private const string WORKFLOW_CACHE_PREFIX = "ow:workflow";
@@ -91,7 +94,9 @@ namespace FlowFlex.Application.Services.OW
             IOperationChangeLogService operationChangeLogService,
             IPermissionService permissionService,
             Permission.CasePermissionService casePermissionService,
-            IHttpContextAccessor httpContextAccessor)
+            IHttpContextAccessor httpContextAccessor,
+            IUserService userService,
+            ICaseCodeGeneratorService caseCodeGeneratorService)
         {
             _onboardingRepository = onboardingRepository ?? throw new ArgumentNullException(nameof(onboardingRepository));
             _workflowRepository = workflowRepository ?? throw new ArgumentNullException(nameof(workflowRepository));
@@ -115,6 +120,8 @@ namespace FlowFlex.Application.Services.OW
             _operationChangeLogService = operationChangeLogService ?? throw new ArgumentNullException(nameof(operationChangeLogService));
             _permissionService = permissionService ?? throw new ArgumentNullException(nameof(permissionService));
             _casePermissionService = casePermissionService ?? throw new ArgumentNullException(nameof(casePermissionService));
+            _userService = userService ?? throw new ArgumentNullException(nameof(userService));
+            _caseCodeGeneratorService = caseCodeGeneratorService ?? throw new ArgumentNullException(nameof(caseCodeGeneratorService));
         }
 
         /// <summary>
@@ -270,6 +277,10 @@ namespace FlowFlex.Application.Services.OW
 
                 // Create new onboarding entity
                 var entity = _mapper.Map<Onboarding>(input);
+                
+                // Generate Case Code from Lead Name
+                entity.CaseCode = await _caseCodeGeneratorService.GenerateCaseCodeAsync(input.LeadName);
+                
                 // Debug logging handled by structured logging
                 // Set initial values with explicit null checks
                 entity.CurrentStageId = firstStage?.Id;
@@ -408,7 +419,7 @@ namespace FlowFlex.Application.Services.OW
                 INSERT INTO ff_onboarding (
                     tenant_id, app_code, is_valid, create_date, modify_date, create_by, modify_by,
                     create_user_id, modify_user_id, workflow_id, current_stage_order,
-                    lead_id, lead_name, lead_email, lead_phone, status, completion_rate,
+                    lead_id, lead_name, case_code, lead_email, lead_phone, status, completion_rate,
                     priority, is_priority_set, ownership, ownership_name, ownership_email,
                     notes, is_active, stages_progress_json, id,
                     current_stage_id, contact_person, contact_email, life_cycle_stage_id, 
@@ -418,7 +429,7 @@ namespace FlowFlex.Application.Services.OW
                 ) VALUES (
                     @TenantId, @AppCode, @IsValid, @CreateDate, @ModifyDate, @CreateBy, @ModifyBy,
                     @CreateUserId, @ModifyUserId, @WorkflowId, @CurrentStageOrder,
-                    @LeadId, @LeadName, @LeadEmail, @LeadPhone, @Status, @CompletionRate,
+                    @LeadId, @LeadName, @CaseCode, @LeadEmail, @LeadPhone, @Status, @CompletionRate,
                     @Priority, @IsPrioritySet, 
                     CASE WHEN @Ownership IS NULL OR @Ownership = '' THEN NULL ELSE @Ownership::bigint END,
                     @OwnershipName, @OwnershipEmail,
@@ -430,6 +441,8 @@ namespace FlowFlex.Application.Services.OW
                     @ViewPermissionSubjectType, @OperatePermissionSubjectType,
                     @ViewPermissionMode, @ViewTeams::jsonb, @ViewUsers::jsonb, @OperateTeams::jsonb, @OperateUsers::jsonb
                 ) RETURNING id";
+
+                        await ValidateTeamSelectionsFromJsonAsync(entity.ViewTeams, entity.OperateTeams);
 
                         var parameters = new
                         {
@@ -446,6 +459,7 @@ namespace FlowFlex.Application.Services.OW
                             CurrentStageOrder = entity.CurrentStageOrder,
                             LeadId = entity.LeadId,
                             LeadName = entity.LeadName,
+                            CaseCode = entity.CaseCode,
                             LeadEmail = entity.LeadEmail ?? "",
                             LeadPhone = entity.LeadPhone ?? "",
                             Status = entity.Status,
@@ -674,6 +688,10 @@ namespace FlowFlex.Application.Services.OW
                 // Note: We preserve all permission fields (both Teams and Users) regardless of PermissionSubjectType
                 // This allows users to switch between Team/User modes without losing data
                 // The frontend will use PermissionSubjectType to determine which fields to display/use
+
+                // Update system fields
+                // Validate team IDs in ViewTeams and OperateTeams (JSON arrays)
+                await ValidateTeamSelectionsFromJsonAsync(entity.ViewTeams, entity.OperateTeams);
 
                 // Update system fields
                 entity.ModifyDate = DateTimeOffset.UtcNow;
@@ -911,6 +929,9 @@ namespace FlowFlex.Application.Services.OW
                     throw new CRMException(ErrorCodeEnum.DataNotFound, "Onboarding not found");
                 }
 
+                // Auto-generate CaseCode for legacy data
+                await EnsureCaseCodeAsync(entity);
+
                 // Ensure stages progress is properly initialized and synced
                 await EnsureStagesProgressInitializedAsync(entity);
 
@@ -1112,92 +1133,6 @@ namespace FlowFlex.Application.Services.OW
         }
 
         /// <summary>
-        /// Get onboarding list
-        /// </summary>
-        public async Task<List<OnboardingOutputDto>> GetListAsync()
-        {
-            var entities = await _onboardingRepository.GetListAsync(x => x.IsValid);
-
-            // Ensure stages progress is properly initialized for each entity
-            foreach (var entity in entities)
-            {
-                await EnsureStagesProgressInitializedAsync(entity);
-            }
-
-            // Apply permission filtering - filter out cases user cannot view
-            var userId = _userContext?.UserId;
-            if (!string.IsNullOrEmpty(userId) && long.TryParse(userId, out var userIdLong))
-            {
-                // Fast path: If user is System Admin, skip permission checks
-                if (_userContext?.IsSystemAdmin == true)
-                {
-                    LoggingExtensions.WriteLine($"[Permission Filter] User {userIdLong} is System Admin, skipping permission checks for {entities.Count} cases in GetListAsync");
-                }
-                // Fast path: If user is Tenant Admin for current tenant, skip permission checks
-                else if (_userContext != null && _userContext.HasAdminPrivileges(_userContext.TenantId))
-                {
-                    LoggingExtensions.WriteLine($"[Permission Filter] User {userIdLong} is Tenant Admin for tenant {_userContext.TenantId}, skipping permission checks for {entities.Count} cases in GetListAsync");
-                }
-                else
-                {
-                    // 🚀 PERFORMANCE OPTIMIZATION: Batch load all unique Workflows first
-                    var uniqueWorkflowIds = entities.Select(e => e.WorkflowId).Distinct().ToList();
-                    var workflowEntities = await _workflowRepository.GetListAsync(w => uniqueWorkflowIds.Contains(w.Id));
-                    var workflowEntityDict = workflowEntities.ToDictionary(w => w.Id);
-
-                    LoggingExtensions.WriteLine($"[Performance] GetListAsync - Batch loaded {workflowEntities.Count} unique workflows for {entities.Count} cases");
-
-                    // Get user teams once
-                    var userTeams = _permissionService.GetUserTeamIds();
-                    var userTeamLongs = userTeams?.Select(t => long.TryParse(t, out var tid) ? tid : 0).Where(t => t > 0).ToList() ?? new List<long>();
-
-                    // Regular users need permission filtering (using in-memory workflow data)
-                    var filteredEntities = new List<Onboarding>();
-
-                    foreach (var entity in entities)
-                    {
-                        // ⚡ In-memory permission check using pre-loaded Workflow
-                        if (!workflowEntityDict.TryGetValue(entity.WorkflowId, out var workflow))
-                        {
-                            LoggingExtensions.WriteLine($"[Permission Debug] GetListAsync - Case {entity.Id} - Workflow {entity.WorkflowId} not found");
-                            continue;
-                        }
-
-                        // Check Workflow view permission (in-memory)
-                        bool hasWorkflowPerm = CheckWorkflowViewPermissionInMemory(workflow, userIdLong, userTeamLongs);
-                        LoggingExtensions.WriteLine($"[Permission Debug] GetListAsync - Case {entity.Id} - Workflow permission: {hasWorkflowPerm}");
-                        if (!hasWorkflowPerm)
-                        {
-                            continue;
-                        }
-
-                        // Check Case-level view permission (in-memory)
-                        bool hasCasePerm = CheckCaseViewPermissionInMemory(entity, userIdLong, userTeamLongs);
-                        LoggingExtensions.WriteLine($"[Permission Debug] GetListAsync - Case {entity.Id} - Case permission: {hasCasePerm}");
-                        if (!hasCasePerm)
-                        {
-                            continue;
-                        }
-
-                        // ✅ Both permissions passed
-                        filteredEntities.Add(entity);
-                    }
-
-                    entities = filteredEntities;
-                    LoggingExtensions.WriteLine($"[Permission Filter] GetListAsync - Filtered count: {filteredEntities.Count}");
-                }
-            }
-
-            // Map to output DTOs
-            var results = _mapper.Map<List<OnboardingOutputDto>>(entities);
-
-            // Populate workflow/stage names and calculate current stage end time
-            await PopulateOnboardingOutputDtoAsync(results, entities);
-
-            return results;
-        }
-
-        /// <summary>
         /// Query onboarding with pagination
         /// </summary>
         public async Task<PageModelDto<OnboardingOutputDto>> QueryAsync(OnboardingQueryRequest request)
@@ -1265,6 +1200,12 @@ namespace FlowFlex.Application.Services.OW
                         // Use OR condition to match any of the lead names (case-insensitive)
                         whereExpressions.Add(x => leadNames.Any(name => x.LeadName.ToLower().Contains(name.ToLower())));
                     }
+                }
+
+                // Filter by Case Code (fuzzy matching)
+                if (!string.IsNullOrEmpty(request.CaseCode) && request.CaseCode != "string")
+                {
+                    whereExpressions.Add(x => x.CaseCode != null && x.CaseCode.ToLower().Contains(request.CaseCode.ToLower()));
                 }
 
                 if (request.LifeCycleStageId.HasValue && request.LifeCycleStageId.Value > 0)
@@ -1531,20 +1472,25 @@ namespace FlowFlex.Application.Services.OW
                 "id" => x => x.Id,
                 "leadid" => x => x.LeadId,
                 "leadname" => x => x.LeadName,
+                "casecode" => x => x.CaseCode ?? "",
+                "contactperson" => x => x.ContactPerson ?? "",
+                "contactemail" => x => x.ContactEmail ?? "",
+                "leademail" => x => x.LeadEmail ?? "",
+                "leadphone" => x => x.LeadPhone ?? "",
                 "workflowid" => x => x.WorkflowId,
                 "currentstageid" => x => x.CurrentStageId,
                 "lifecyclestageid" => x => x.LifeCycleStageId,
-                "lifecyclestagename" => x => x.LifeCycleStageName,
-                "priority" => x => x.Priority,
-                "status" => x => x.Status,
+                "lifecyclestagename" => x => x.LifeCycleStageName ?? "",
+                "priority" => x => x.Priority ?? "",
+                "status" => x => x.Status ?? "",
                 "isactive" => x => x.IsActive,
                 "completionrate" => x => x.CompletionRate,
                 "ownership" => x => x.Ownership,
-                "ownershipname" => x => x.OwnershipName,
+                "ownershipname" => x => x.OwnershipName ?? "",
                 "createdate" => x => x.CreateDate,
                 "modifydate" => x => x.ModifyDate,
-                "createby" => x => x.CreateBy,
-                "modifyby" => x => x.ModifyBy,
+                "createby" => x => x.CreateBy ?? "",
+                "modifyby" => x => x.ModifyBy ?? "",
                 _ => x => x.CreateDate
             };
         }
@@ -1556,111 +1502,6 @@ namespace FlowFlex.Application.Services.OW
         {
             var sortDirection = request.SortDirection?.ToLower() ?? "desc";
             return sortDirection == "asc";
-        }
-
-        /// <summary>
-        /// Build query cache key
-        /// </summary>
-        private string BuildQueryCacheKey(OnboardingQueryRequest request, string tenantId)
-        {
-            var keyParts = new List<string>
-            {
-                "ow:onboarding:query",
-                tenantId,
-                request.PageIndex.ToString(),
-                request.PageSize.ToString(),
-                request.WorkflowId?.ToString() ?? "null",
-                request.CurrentStageId?.ToString() ?? "null",
-                request.LeadId ?? "null",
-                request.Status ?? "null",
-                request.Priority ?? "null",
-                request.SortField ?? "createdate",
-                request.SortDirection ?? "desc"
-            };
-            return string.Join(":", keyParts);
-        }
-        /// <summary>
-        /// Try to get query results from cache
-        /// </summary>
-        private async Task<PageModelDto<OnboardingOutputDto>> TryGetCachedQueryResultAsync(string cacheKey)
-        {
-            try
-            {
-                // Redis cache temporarily disabled
-                string cachedJson = null;
-                if (!string.IsNullOrEmpty(cachedJson))
-                {
-                    var cached = JsonSerializer.Deserialize<PageModelDto<OnboardingOutputDto>>(cachedJson);
-                    if (cached != null)
-                    {
-                        // Debug logging handled by structured logging
-                        return cached;
-                    }
-                }
-                // Debug logging handled by structured logging
-            }
-            catch (Exception ex)
-            {
-                // Debug logging handled by structured logging
-            }
-            return null;
-        }
-        /// <summary>
-        /// Cache query results
-        /// </summary>
-        private async Task CacheQueryResultAsync(string cacheKey, PageModelDto<OnboardingOutputDto> result, TimeSpan expiry)
-        {
-            try
-            {
-                var json = JsonSerializer.Serialize(result);
-                // Redis cache temporarily disabled
-                await Task.CompletedTask;
-            }
-            catch (Exception ex)
-            {
-                // Debug logging handled by structured logging
-            }
-        }
-        /// <summary>
-        /// Optimized total count query
-        /// </summary>
-        private async Task<int> GetOptimizedTotalCountAsync(ISugarQueryable<Onboarding> queryable)
-        {
-            // Use optimized count query, avoid complex JOINs
-            return await queryable.CountAsync();
-        }
-
-        /// <summary>
-        /// Apply optimized sorting
-        /// </summary>
-        private ISugarQueryable<Onboarding> ApplyOptimizedSorting(ISugarQueryable<Onboarding> queryable, OnboardingQueryRequest request)
-        {
-            switch (request.SortField?.ToLower())
-            {
-                case "leadname":
-                    return request.SortDirection?.ToLower() == "asc"
-                            ? queryable.OrderBy(x => x.LeadName)
-                            : queryable.OrderByDescending(x => x.LeadName);
-                case "status":
-                    return request.SortDirection?.ToLower() == "asc"
-                            ? queryable.OrderBy(x => x.Status)
-                            : queryable.OrderByDescending(x => x.Status);
-                case "completionrate":
-                    return request.SortDirection?.ToLower() == "asc"
-                            ? queryable.OrderBy(x => x.CompletionRate)
-                            : queryable.OrderByDescending(x => x.CompletionRate);
-                case "startdate":
-                    return request.SortDirection?.ToLower() == "asc"
-                            ? queryable.OrderBy(x => x.StartDate)
-                            : queryable.OrderByDescending(x => x.StartDate);
-                case "string":
-                case null:
-                case "":
-                default:
-                    return request.SortDirection?.ToLower() == "asc"
-                            ? queryable.OrderBy(x => x.CreateDate)
-                            : queryable.OrderByDescending(x => x.CreateDate);
-            }
         }
 
         /// <summary>
@@ -1925,45 +1766,6 @@ namespace FlowFlex.Application.Services.OW
         }
 
         /// <summary>
-        /// Check if leads have onboarding (batch operation)
-        /// </summary>
-        public async Task<Dictionary<string, bool>> BatchCheckLeadOnboardingAsync(List<string> leadIds)
-        {
-            var result = new Dictionary<string, bool>();
-
-            if (leadIds == null || !leadIds.Any())
-            {
-                return result;
-            }
-
-            try
-            {
-                // Batch query all Lead's Onboarding records
-                var onboardings = await _onboardingRepository.GetByLeadIdsAsync(leadIds);
-                var existingLeadIds = onboardings.Select(o => o.LeadId).ToHashSet();
-
-                // Set status for all Leads
-                foreach (var leadId in leadIds)
-                {
-                    result[leadId] = existingLeadIds.Contains(leadId);
-                }
-
-                return result;
-            }
-            catch (Exception ex)
-            {
-                // Debug logging handled by structured logging
-                // If batch query fails, set default status for all Leads
-                foreach (var leadId in leadIds)
-                {
-                    result[leadId] = false;
-                }
-
-                return result;
-            }
-        }
-
-        /// <summary>
         /// Move to next stage
         /// </summary>
         public async Task<bool> MoveToNextStageAsync(long id)
@@ -2003,37 +1805,6 @@ namespace FlowFlex.Application.Services.OW
         }
 
         /// <summary>
-        /// Move to previous stage
-        /// </summary>
-        public async Task<bool> MoveToPreviousStageAsync(long id)
-        {
-            // Check permission
-            if (!await CheckCaseOperatePermissionAsync(id))
-            {
-                throw new CRMException(ErrorCodeEnum.OperationNotAllowed,
-                    $"User does not have permission to operate on case {id}");
-            }
-
-            var entity = await _onboardingRepository.GetByIdAsync(id);
-            if (entity == null || !entity.IsValid)
-            {
-                throw new CRMException(ErrorCodeEnum.DataNotFound, "Onboarding not found");
-            }
-
-            var stages = await _stageRepository.GetByWorkflowIdAsync(entity.WorkflowId);
-            var orderedStages = stages.OrderBy(x => x.Order).ToList();
-            var currentStageIndex = orderedStages.FindIndex(x => x.Id == entity.CurrentStageId);
-
-            if (currentStageIndex <= 0)
-            {
-                throw new CRMException(ErrorCodeEnum.BusinessError, "No previous stage available");
-            }
-
-            var previousStage = orderedStages[currentStageIndex - 1];
-            return await _onboardingRepository.UpdateStageAsync(id, previousStage.Id, previousStage.Order);
-        }
-
-        /// <summary>
         /// Move to specific stage
         /// </summary>
         public async Task<bool> MoveToStageAsync(long id, MoveToStageInputDto input)
@@ -2060,219 +1831,6 @@ namespace FlowFlex.Application.Services.OW
             return await _onboardingRepository.UpdateStageAsync(id, stage.Id, stage.Order);
         }
 
-        /// <summary>
-        /// Complete current stage
-        /// </summary>
-        public async Task<bool> CompleteCurrentStageAsync(long id)
-        {
-            // Check permission
-            if (!await CheckCaseOperatePermissionAsync(id))
-            {
-                throw new CRMException(ErrorCodeEnum.OperationNotAllowed,
-                    $"User does not have permission to operate on case {id}");
-            }
-
-            var entity = await _onboardingRepository.GetByIdAsync(id);
-            if (entity == null || !entity.IsValid)
-            {
-                throw new CRMException(ErrorCodeEnum.DataNotFound, "Onboarding not found");
-            }
-            // Debug logging handled by structured logging
-            // Check if onboarding is already completed
-            if (entity.Status == "Completed")
-            {
-                // Debug logging handled by structured logging
-                return true; // Return success since the desired outcome (completion) is already achieved
-            }
-
-            // Removed validation that priority must be set before completing Stage 1
-            // if (entity.CurrentStageOrder == 1 && !entity.IsPrioritySet)
-            // {
-            //     throw new CRMException(ErrorCodeEnum.BusinessError, "Priority must be set before completing Stage 1. Please set priority first.");
-            // }
-
-            // Get all stages for this workflow
-            var stages = await _stageRepository.GetByWorkflowIdAsync(entity.WorkflowId);
-            var orderedStages = stages.OrderBy(x => x.Order).ToList();
-            var totalStages = orderedStages.Count;
-            // Debug logging handled by structured logging
-            // Debug logging handled by structured logging)}");
-
-            // Find current stage index
-            var currentStageIndex = orderedStages.FindIndex(x => x.Id == entity.CurrentStageId);
-            // Debug logging handled by structured logging
-            if (currentStageIndex == -1)
-            {
-                throw new CRMException(ErrorCodeEnum.DataNotFound, "Current stage not found in workflow");
-            }
-
-            // Get current stage details
-            var currentStage = orderedStages[currentStageIndex];
-            // Debug logging handled by structured logging");
-
-            // Check if current stage is already completed by comparing completion rate and stage progression
-            var expectedCompletionRateForCurrentStage = totalStages > 0 ? Math.Round((decimal)currentStageIndex / totalStages * 100, 2) : 0;
-            var expectedCompletionRateAfterCompletion = totalStages > 0 ? Math.Round((decimal)(currentStageIndex + 1) / totalStages * 100, 2) : 0;
-            // Debug logging handled by structured logging
-            // More precise check: if completion rate is already at or above what it should be after completing this stage,
-            // check if force completion is enabled
-            if (entity.CompletionRate >= expectedCompletionRateAfterCompletion)
-            {
-                // Debug logging handled by structured logging");
-                // Debug logging handled by structured logging
-                // Always allow re-completion for flexibility, just log the warning
-            }
-
-            // Additional check: if the current stage order doesn't match the expected stage based on completion rate
-            var expectedCurrentStageIndex = entity.CompletionRate > 0 ? (int)Math.Floor((decimal)entity.CompletionRate / 100 * totalStages) : 0;
-            if (currentStageIndex < expectedCurrentStageIndex)
-            {
-                // Debug logging handled by structured logging
-                // Don't throw exception, just log the warning and continue
-            }
-
-
-
-            // Check if this is the last stage
-            var isLastStage = currentStageIndex >= totalStages - 1;
-            // Debug logging handled by structured logging
-            if (isLastStage)
-            {
-                // Complete the entire onboarding
-                // Debug logging handled by structured logging");
-                entity.Status = "Completed";
-                entity.CompletionRate = 100;
-                entity.ActualCompletionDate = DateTimeOffset.UtcNow;
-
-                // Update stage tracking info
-                await UpdateStageTrackingInfoAsync(entity);
-
-                var result = await SafeUpdateOnboardingAsync(entity);
-                // Debug logging handled by structured logging
-                // Publish stage completion event for final stage completion
-                if (result)
-                {
-                    // Debug logging handled by structured logging
-                    await PublishStageCompletionEventForCurrentStageAsync(entity, currentStage, isLastStage);
-                }
-
-                // Fire-and-forget: generate and persist AI Summary only for this onboarding (do not update Stage entity)
-                // Only generate if AI Summary doesn't exist yet
-                try
-                {
-                    LoadStagesProgressFromJson(entity);
-                    var currentStageProgress = entity.StagesProgress?.FirstOrDefault(s => s.StageId == currentStage.Id);
-
-                    // Only generate AI Summary if it doesn't exist yet
-                    if (currentStageProgress != null && string.IsNullOrWhiteSpace(currentStageProgress.AiSummary))
-                    {
-                        var opts = new StageSummaryOptions { Language = "auto", SummaryLength = "short", IncludeTaskAnalysis = true, IncludeQuestionnaireInsights = true };
-                        _backgroundTaskQueue.QueueBackgroundWorkItem(async token =>
-                        {
-                            var ai = await _stageService.GenerateAISummaryAsync(currentStage.Id, null, opts);
-                            if (ai != null && ai.Success)
-                            {
-                                LoadStagesProgressFromJson(entity);
-                                var sp = entity.StagesProgress?.FirstOrDefault(s => s.StageId == currentStage.Id);
-                                if (sp != null && string.IsNullOrWhiteSpace(sp.AiSummary))
-                                {
-                                    sp.AiSummary = ai.Summary;
-                                    sp.AiSummaryGeneratedAt = DateTime.UtcNow;
-                                    sp.AiSummaryConfidence = (decimal?)Convert.ToDecimal(ai.ConfidenceScore);
-                                    sp.AiSummaryModel = ai.ModelUsed;
-                                    var detailedData = new { ai.Breakdown, ai.KeyInsights, ai.Recommendations, ai.CompletionStatus, generatedAt = DateTime.UtcNow };
-                                    sp.AiSummaryData = System.Text.Json.JsonSerializer.Serialize(detailedData);
-                                    entity.StagesProgressJson = SerializeStagesProgress(entity.StagesProgress);
-                                    await SafeUpdateOnboardingAsync(entity);
-                                }
-                            }
-                        });
-                    }
-                }
-                catch { /* fire-and-forget */ }
-
-                return result;
-            }
-            else
-            {
-                // Move to next stage
-                var nextStage = orderedStages[currentStageIndex + 1];
-                // Debug logging handled by structured logging");
-
-                entity.CurrentStageId = nextStage.Id;
-                entity.CurrentStageOrder = nextStage.Order;
-                entity.CurrentStageStartTime = DateTimeOffset.UtcNow;
-
-                // Update stages progress and calculate completion rate based on stage order progression
-                await UpdateStagesProgressAsync(entity, currentStage.Id, GetCurrentUserName(), GetCurrentUserId(), "Stage completed via customer portal");
-                LoadStagesProgressFromJson(entity);
-                entity.CompletionRate = CalculateCompletionRateByStageOrder(entity.StagesProgress);
-
-                // Fire-and-forget: generate and persist AI Summary only for this onboarding (do not update Stage entity)
-                // Only generate if AI Summary doesn't exist yet
-                try
-                {
-                    LoadStagesProgressFromJson(entity);
-                    var currentStageProgress = entity.StagesProgress?.FirstOrDefault(s => s.StageId == currentStage.Id);
-
-                    // Only generate AI Summary if it doesn't exist yet
-                    if (currentStageProgress != null && string.IsNullOrWhiteSpace(currentStageProgress.AiSummary))
-                    {
-                        var opts = new StageSummaryOptions { Language = "auto", SummaryLength = "short", IncludeTaskAnalysis = true, IncludeQuestionnaireInsights = true };
-                        _backgroundTaskQueue.QueueBackgroundWorkItem(async token =>
-                        {
-                            var ai = await _stageService.GenerateAISummaryAsync(currentStage.Id, null, opts);
-                            if (ai != null && ai.Success)
-                            {
-                                LoadStagesProgressFromJson(entity);
-                                var sp = entity.StagesProgress?.FirstOrDefault(s => s.StageId == currentStage.Id);
-                                if (sp != null && string.IsNullOrWhiteSpace(sp.AiSummary))
-                                {
-                                    sp.AiSummary = ai.Summary;
-                                    sp.AiSummaryGeneratedAt = DateTime.UtcNow;
-                                    sp.AiSummaryConfidence = (decimal?)Convert.ToDecimal(ai.ConfidenceScore);
-                                    sp.AiSummaryModel = ai.ModelUsed;
-                                    var detailedData = new { ai.Breakdown, ai.KeyInsights, ai.Recommendations, ai.CompletionStatus, generatedAt = DateTime.UtcNow };
-                                    sp.AiSummaryData = System.Text.Json.JsonSerializer.Serialize(detailedData);
-                                    entity.StagesProgressJson = SerializeStagesProgress(entity.StagesProgress);
-                                    await SafeUpdateOnboardingAsync(entity);
-                                }
-                            }
-                        });
-                    }
-                }
-                catch { /* fire-and-forget */ }
-
-                // Log stage completion to Change Log
-                await LogStageCompletionForCurrentStageAsync(entity, currentStage, GetCurrentUserName(), GetCurrentUserId(), "Stage completed via customer portal");
-
-                var completedCount = entity.StagesProgress.Count(s => s.IsCompleted);
-                // Debug logging handled by structured logging
-                // Update status to InProgress if it was Started
-                if (entity.Status == "Started")
-                {
-                    entity.Status = "InProgress";
-                    // Debug logging handled by structured logging
-                }
-
-                // Update stage tracking info
-                await UpdateStageTrackingInfoAsync(entity);
-
-                var result = await SafeUpdateOnboardingAsync(entity);
-                // Debug logging handled by structured logging
-                // Publish stage completion event
-                if (result)
-                {
-                    // Debug logging handled by structured logging
-                    await PublishStageCompletionEventForCurrentStageAsync(entity, currentStage, isLastStage);
-                }
-                // Debug logging handled by structured logging
-                return result;
-            }
-        }
-        /// <summary>
-        /// Complete specified stage with validation (supports non-sequential completion) - Internal version without event publishing
-        /// </summary>
         public async Task<bool> CompleteCurrentStageInternalAsync(long id, CompleteCurrentStageInputDto input)
         {
             var entity = await _onboardingRepository.GetByIdAsync(id);
@@ -2660,139 +2218,6 @@ namespace FlowFlex.Application.Services.OW
         }
 
         /// <summary>
-        /// Complete current stage with details
-        /// </summary>
-        public async Task<bool> CompleteStageAsync(long id, CompleteStageInputDto input)
-        {
-            // Check permission
-            if (!await CheckCaseOperatePermissionAsync(id))
-            {
-                throw new CRMException(ErrorCodeEnum.OperationNotAllowed,
-                    $"User does not have permission to operate on case {id}");
-            }
-
-            var entity = await _onboardingRepository.GetByIdAsync(id);
-            if (entity == null || !entity.IsValid)
-            {
-                throw new CRMException(ErrorCodeEnum.DataNotFound, "Onboarding not found");
-            }
-
-            if (entity.Status == "Completed")
-            {
-                throw new CRMException(ErrorCodeEnum.BusinessError, "Onboarding is already completed");
-            }
-
-            // Get current stage info
-            var currentStage = await _stageRepository.GetByIdAsync(entity.CurrentStageId ?? 0);
-            if (currentStage == null)
-            {
-                throw new CRMException(ErrorCodeEnum.DataNotFound, "Current stage not found");
-            }
-
-            // Validate if this stage can be completed
-            var (canComplete, validationError) = await ValidateStageCanBeCompletedAsync(entity, currentStage.Id);
-            if (!canComplete)
-            {
-                // Debug logging handled by structured logging
-                throw new CRMException(ErrorCodeEnum.BusinessError, validationError);
-            }
-            // Debug logging handled by structured logging
-            // Check if this is the last stage
-            var stages = await _stageRepository.GetByWorkflowIdAsync(entity.WorkflowId);
-            var orderedStages = stages.OrderBy(x => x.Order).ToList();
-            var currentStageIndex = orderedStages.FindIndex(x => x.Id == entity.CurrentStageId);
-
-            if (currentStageIndex == orderedStages.Count - 1)
-            {
-                // This is the last stage, complete the entire onboarding
-                entity.Status = "Completed";
-                entity.CompletionRate = 100;
-                entity.ActualCompletionDate = DateTimeOffset.UtcNow;
-            }
-            else if (input.AutoMoveToNext)
-            {
-                // Move to next stage (only advance forward in sequence)
-                var nextStage = orderedStages[currentStageIndex + 1];
-                entity.CurrentStageId = nextStage.Id;
-                entity.CurrentStageOrder = nextStage.Order;
-                entity.CurrentStageStartTime = DateTimeOffset.UtcNow;
-
-                // Update completion rate based on stage order progression
-                await UpdateStagesProgressAsync(entity, currentStage.Id, input.CompletedBy ?? GetCurrentUserName(), input.CompletedById ?? GetCurrentUserId(), input.CompletionNotes);
-
-                // Calculate completion rate based on completed stages count
-                LoadStagesProgressFromJson(entity);
-                entity.CompletionRate = CalculateCompletionRateByCompletedStages(entity.StagesProgress);
-
-                // Update status to InProgress if it was Started
-                if (entity.Status == "Started")
-                {
-                    entity.Status = "InProgress";
-                }
-            }
-
-            // Add completion notes to onboarding notes
-            if (!string.IsNullOrEmpty(input.CompletionNotes))
-            {
-                var noteText = $"[Stage Completed] {currentStage.Name}: {input.CompletionNotes}";
-                SafeAppendToNotes(entity, noteText);
-            }
-
-            // Add rating if provided
-            if (input.Rating.HasValue)
-            {
-                var ratingText = $"[Stage Rating] {currentStage.Name}: {input.Rating}/5 stars";
-                SafeAppendToNotes(entity, ratingText);
-            }
-
-            // Add feedback if provided
-            if (!string.IsNullOrEmpty(input.Feedback))
-            {
-                var feedbackText = $"[Stage Feedback] {currentStage.Name}: {input.Feedback}";
-                SafeAppendToNotes(entity, feedbackText);
-            }
-
-            // Update stage tracking info
-            await UpdateStageTrackingInfoAsync(entity);
-
-            var result = await SafeUpdateOnboardingAsync(entity);
-
-            // Publish Kafka event for stage completion
-            if (result)
-            {
-                await PublishStageCompletionEventAsync(entity, currentStage, input);
-            }
-
-            return result;
-        }
-
-        /// <summary>
-        /// Complete onboarding
-        /// </summary>
-        public async Task<bool> CompleteAsync(long id)
-        {
-            // Check permission
-            if (!await CheckCaseOperatePermissionAsync(id))
-            {
-                throw new CRMException(ErrorCodeEnum.OperationNotAllowed,
-                    $"User does not have permission to operate on case {id}");
-            }
-
-            var entity = await _onboardingRepository.GetByIdAsync(id);
-            if (entity == null || !entity.IsValid)
-            {
-                throw new CRMException(ErrorCodeEnum.DataNotFound, "Onboarding not found");
-            }
-
-            if (entity.Status == "Completed")
-            {
-                throw new CRMException(ErrorCodeEnum.BusinessError, "Onboarding is already completed");
-            }
-
-            return await _onboardingRepository.UpdateStatusAsync(id, "Completed");
-        }
-
-        /// <summary>
         /// Pause onboarding
         /// </summary>
         public async Task<bool> PauseAsync(long id)
@@ -3024,36 +2449,6 @@ namespace FlowFlex.Application.Services.OW
         }
 
         /// <summary>
-        /// Get onboarding statistics
-        /// </summary>
-        public async Task<OnboardingStatisticsDto> GetStatisticsAsync()
-        {
-            try
-            {
-                var stats = await _onboardingRepository.GetStatisticsAsync();
-                var statusCount = await _onboardingRepository.GetCountByStatusAsync();
-
-                return new OnboardingStatisticsDto
-                {
-                    TotalCount = (int)stats["TotalCount"],
-                    InProgressCount = (int)stats["InProgressCount"],
-                    CompletedCount = (int)stats["CompletedCount"],
-                    PausedCount = (int)stats["PausedCount"],
-                    CancelledCount = (int)stats["CancelledCount"],
-                    OverdueCount = (int)stats["OverdueCount"],
-                    AverageCompletionRate = (decimal)stats["AverageCompletionRate"],
-                    StatusStatistics = statusCount,
-                    PriorityStatistics = new Dictionary<string, int>(),
-                    TeamStatistics = new Dictionary<string, int>(),
-                    StageStatistics = new Dictionary<string, int>()
-                };
-            }
-            catch (Exception ex)
-            {
-                throw new CRMException(ErrorCodeEnum.SystemError, $"Error getting statistics: {ex.Message}");
-            }
-        }
-        /// <summary>
         /// Update completion rate based on stage progress
         /// </summary>
         public async Task<bool> UpdateCompletionRateAsync(long id)
@@ -3077,66 +2472,6 @@ namespace FlowFlex.Application.Services.OW
             // Always update to the stage-based completion rate
             // Debug logging handled by structured logging
             return await _onboardingRepository.UpdateCompletionRateAsync(id, stageBasedCompletionRate);
-        }
-
-        /// <summary>
-        /// Get overdue onboarding list
-        /// </summary>
-        public async Task<List<OnboardingOutputDto>> GetOverdueListAsync()
-        {
-            var entities = await _onboardingRepository.GetOverdueListAsync();
-            var results = _mapper.Map<List<OnboardingOutputDto>>(entities);
-
-            // Populate workflow/stage names and calculate current stage end time
-            await PopulateOnboardingOutputDtoAsync(results, entities);
-
-            return results;
-        }
-
-        /// <summary>
-        /// Batch update status
-        /// </summary>
-        public async Task<bool> BatchUpdateStatusAsync(List<long> ids, string status)
-        {
-            if (!ids.Any())
-            {
-                throw new CRMException(ErrorCodeEnum.ParamInvalid, "No onboarding IDs provided");
-            }
-
-            var validStatuses = new[] { "Inactive", "Active", "Completed", "Force Completed", "Paused", "Aborted",
-                                       "Started", "InProgress", "Cancelled" }; // Include legacy statuses for backward compatibility
-            if (!validStatuses.Contains(status))
-            {
-                throw new CRMException(ErrorCodeEnum.ParamInvalid, "Invalid status");
-            }
-
-            return await _onboardingRepository.BatchUpdateStatusAsync(ids, status);
-        }
-
-        /// <summary>
-        /// Set priority for onboarding (required for Stage 1 completion)
-        /// </summary>
-        public async Task<bool> SetPriorityAsync(long id, string priority)
-        {
-            var entity = await _onboardingRepository.GetByIdAsync(id);
-            if (entity == null || !entity.IsValid)
-            {
-                throw new CRMException(ErrorCodeEnum.DataNotFound, "Onboarding not found");
-            }
-
-            var validPriorities = new[] { "Low", "Medium", "High", "Critical" };
-            if (!validPriorities.Contains(priority))
-            {
-                throw new CRMException(ErrorCodeEnum.BusinessError, "Invalid priority. Must be one of: Low, Medium, High, Critical");
-            }
-
-            entity.Priority = priority;
-            entity.IsPrioritySet = true;
-
-            // Update stage tracking info
-            await UpdateStageTrackingInfoAsync(entity);
-
-            return await SafeUpdateOnboardingAsync(entity);
         }
 
         /// <summary>
@@ -3177,259 +2512,6 @@ namespace FlowFlex.Application.Services.OW
                 // Serialize back to JSON (only progress fields)
                 entity.StagesProgressJson = SerializeStagesProgress(entity.StagesProgress);
             }
-        }
-        /// <summary>
-        /// Get onboarding timeline
-        /// </summary>
-        public async Task<List<OnboardingTimelineDto>> GetTimelineAsync(long id)
-        {
-            var entity = await _onboardingRepository.GetByIdAsync(id);
-            if (entity == null || !entity.IsValid)
-            {
-                throw new CRMException(ErrorCodeEnum.DataNotFound, "Onboarding not found");
-            }
-
-            // Timeline repository implementation - future enhancement
-            // For now, return a sample timeline based on onboarding data
-            var timeline = new List<OnboardingTimelineDto>
-            {
-                new OnboardingTimelineDto
-                {
-                    Id = 1,
-                    EventType = "Created",
-                    Description = "Onboarding created",
-                    EventTime = entity.CreateDate,
-                    UserId = entity.CreateUserId,
-                    UserName = entity.CreateBy,
-                    Details = $"Onboarding created for {entity.LeadName}"
-                }
-            };
-
-            if (entity.StageUpdatedTime.HasValue)
-            {
-                timeline.Add(new OnboardingTimelineDto
-                {
-                    Id = 2,
-                    EventType = "StageUpdated",
-                    Description = "Stage updated",
-                    EventTime = entity.StageUpdatedTime.Value,
-                    UserId = entity.StageUpdatedById,
-                    UserName = entity.StageUpdatedBy,
-                    StageId = entity.CurrentStageId,
-                    Details = $"Stage updated by {entity.StageUpdatedBy}"
-                });
-            }
-
-            return timeline.OrderByDescending(t => t.EventTime).ToList();
-        }
-
-        /// <summary>
-        /// Add note to onboarding
-        /// </summary>
-        public async Task<bool> AddNoteAsync(long id, AddNoteInputDto input)
-        {
-            var entity = await _onboardingRepository.GetByIdAsync(id);
-            if (entity == null || !entity.IsValid)
-            {
-                throw new CRMException(ErrorCodeEnum.DataNotFound, "Onboarding not found");
-            }
-
-            // Add note to existing notes
-            var noteText = $"[{DateTimeOffset.UtcNow:yyyy-MM-dd HH:mm}] {input.Content}";
-            if (!string.IsNullOrEmpty(input.Type))
-            {
-                noteText = $"[{input.Type}] {noteText}";
-            }
-
-            SafeAppendToNotes(entity, noteText);
-
-            return await SafeUpdateOnboardingAsync(entity);
-        }
-
-        /// <summary>
-        /// Update onboarding status
-        /// </summary>
-        public async Task<bool> UpdateStatusAsync(long id, UpdateStatusInputDto input)
-        {
-            var entity = await _onboardingRepository.GetByIdAsync(id);
-            if (entity == null || !entity.IsValid)
-            {
-                throw new CRMException(ErrorCodeEnum.DataNotFound, "Onboarding not found");
-            }
-
-            var validStatuses = new[] { "Inactive", "Active", "Completed", "Force Completed", "Paused", "Aborted",
-                                       "Started", "InProgress", "Cancelled" }; // Include legacy statuses for backward compatibility
-            if (!validStatuses.Contains(input.Status))
-            {
-                throw new CRMException(ErrorCodeEnum.ParamInvalid, "Invalid status");
-            }
-
-            entity.Status = input.Status;
-
-            if (!string.IsNullOrEmpty(input.Remarks))
-            {
-                var remarkText = $"[Status Update] {input.Remarks}";
-                SafeAppendToNotes(entity, remarkText);
-            }
-
-            // Update stage tracking info
-            await UpdateStageTrackingInfoAsync(entity);
-
-            return await SafeUpdateOnboardingAsync(entity);
-        }
-
-        /// <summary>
-        /// Update onboarding priority
-        /// </summary>
-        public async Task<bool> UpdatePriorityAsync(long id, UpdatePriorityInputDto input)
-        {
-            var entity = await _onboardingRepository.GetByIdAsync(id);
-            if (entity == null || !entity.IsValid)
-            {
-                throw new CRMException(ErrorCodeEnum.DataNotFound, "Onboarding not found");
-            }
-
-            var validPriorities = new[] { "Low", "Medium", "High", "Critical" };
-            if (!validPriorities.Contains(input.Priority))
-            {
-                throw new CRMException(ErrorCodeEnum.BusinessError, "Invalid priority. Must be one of: Low, Medium, High, Critical");
-            }
-
-            entity.Priority = input.Priority;
-            entity.IsPrioritySet = true;
-
-            if (!string.IsNullOrEmpty(input.Remarks))
-            {
-                var remarkText = $"[Priority Update] Priority set to {input.Priority}. {input.Remarks}";
-                SafeAppendToNotes(entity, remarkText);
-            }
-
-            // Update stage tracking info
-            await UpdateStageTrackingInfoAsync(entity);
-
-            return await SafeUpdateOnboardingAsync(entity);
-        }
-
-        /// <summary>
-        /// Complete onboarding with details
-        /// </summary>
-        public async Task<bool> CompleteAsync(long id, CompleteOnboardingInputDto input)
-        {
-            // Check permission
-            if (!await CheckCaseOperatePermissionAsync(id))
-            {
-                throw new CRMException(ErrorCodeEnum.OperationNotAllowed,
-                    $"User does not have permission to operate on case {id}");
-            }
-
-            var entity = await _onboardingRepository.GetByIdAsync(id);
-            if (entity == null || !entity.IsValid)
-            {
-                throw new CRMException(ErrorCodeEnum.DataNotFound, "Onboarding not found");
-            }
-
-            if (entity.Status == "Completed")
-            {
-                // Debug logging handled by structured logging
-                return true; // Return success since the desired outcome (completion) is already achieved
-            }
-
-            // Preserve the original stages_progress_json to avoid any modifications
-            var originalStagesProgressJson = entity.StagesProgressJson;
-
-            entity.Status = "Completed";
-            entity.CompletionRate = 100;
-            entity.ActualCompletionDate = DateTimeOffset.UtcNow;
-
-            // Add completion notes
-            if (!string.IsNullOrEmpty(input.CompletionNotes))
-            {
-                var noteText = $"[Completion] {input.CompletionNotes}";
-                SafeAppendToNotes(entity, noteText);
-            }
-
-            // Add rating if provided
-            if (input.Rating.HasValue)
-            {
-                var ratingText = $"[Rating] {input.Rating}/5 stars";
-                SafeAppendToNotes(entity, ratingText);
-            }
-
-            // Add feedback if provided
-            if (!string.IsNullOrEmpty(input.Feedback))
-            {
-                var feedbackText = $"[Feedback] {input.Feedback}";
-                SafeAppendToNotes(entity, feedbackText);
-            }
-
-            // Update stage tracking info (without modifying stagesProgress)
-            entity.StageUpdatedTime = DateTimeOffset.UtcNow;
-            entity.StageUpdatedBy = _operatorContextService.GetOperatorDisplayName();
-            entity.StageUpdatedById = _operatorContextService.GetOperatorId();
-            entity.StageUpdatedByEmail = GetCurrentUserEmail();
-
-            // Use SafeUpdateOnboardingWithoutStagesProgressAsync to preserve stagesProgress
-            return await SafeUpdateOnboardingWithoutStagesProgressAsync(entity, originalStagesProgressJson);
-        }
-
-        /// <summary>
-        /// Restart onboarding
-        /// </summary>
-        public async Task<bool> RestartAsync(long id, RestartOnboardingInputDto input)
-        {
-            // Check permission
-            if (!await CheckCaseOperatePermissionAsync(id))
-            {
-                throw new CRMException(ErrorCodeEnum.OperationNotAllowed,
-                    $"User does not have permission to operate on case {id}");
-            }
-
-            var entity = await _onboardingRepository.GetByIdAsync(id);
-            if (entity == null || !entity.IsValid)
-            {
-                throw new CRMException(ErrorCodeEnum.DataNotFound, "Onboarding not found");
-            }
-
-            if (entity.Status == "InProgress")
-            {
-                throw new CRMException(ErrorCodeEnum.BusinessError, "Onboarding is already in progress");
-            }
-
-            // Preserve the original stages_progress_json to avoid any modifications
-            var originalStagesProgressJson = entity.StagesProgressJson;
-
-            entity.Status = "InProgress";
-            entity.ActualCompletionDate = null;
-
-            if (input.ResetProgress)
-            {
-                entity.CurrentStageId = null;
-                entity.CurrentStageOrder = 0;
-                entity.CompletionRate = 0;
-                entity.CurrentStageStartTime = DateTimeOffset.UtcNow;
-            }
-
-            // Add restart notes
-            var restartText = $"[Restart] Onboarding restarted";
-            if (!string.IsNullOrEmpty(input.Reason))
-            {
-                restartText += $" - Reason: {input.Reason}";
-            }
-            if (!string.IsNullOrEmpty(input.Notes))
-            {
-                restartText += $" - Notes: {input.Notes}";
-            }
-
-            SafeAppendToNotes(entity, restartText);
-
-            // Update stage tracking info (without modifying stagesProgress)
-            entity.StageUpdatedTime = DateTimeOffset.UtcNow;
-            entity.StageUpdatedBy = _operatorContextService.GetOperatorDisplayName();
-            entity.StageUpdatedById = _operatorContextService.GetOperatorId();
-            entity.StageUpdatedByEmail = GetCurrentUserEmail();
-
-            // Use SafeUpdateOnboardingWithoutStagesProgressAsync to preserve stagesProgress
-            return await SafeUpdateOnboardingWithoutStagesProgressAsync(entity, originalStagesProgressJson);
         }
 
         /// <summary>
@@ -3523,164 +2605,6 @@ namespace FlowFlex.Application.Services.OW
             }
             catch (Exception ex)
             {
-                // Debug logging handled by structured logging
-            }
-        }
-
-        /// <summary>
-        /// Log task completion to change log
-        /// </summary>
-        private async Task LogTaskCompletionAsync(long onboardingId, long stageId, string stageName, long taskId, string taskName, bool isCompleted, string completionNotes = "", string completedBy = null)
-        {
-            try
-            {
-                var logData = new
-                {
-                    OnboardingId = onboardingId,
-                    StageId = stageId,
-                    StageName = stageName,
-                    TaskId = taskId,
-                    TaskName = taskName,
-                    IsCompleted = isCompleted,
-                    CompletionNotes = completionNotes,
-                    CompletedTime = DateTimeOffset.UtcNow,
-                    CompletedBy = completedBy ?? _operatorContextService.GetOperatorDisplayName(),
-                    Action = isCompleted ? "Task Completed" : "Task Marked Incomplete"
-                };
-
-                // Stage completion log functionality removed
-                // Debug logging handled by structured logging}");
-            }
-            catch (Exception ex)
-            {
-                // Debug logging handled by structured logging
-            }
-        }
-
-        /// <summary>
-        /// Log stage completion for current stage async
-        /// </summary>
-        private async Task LogStageCompletionForCurrentStageAsync(Onboarding onboarding, Stage stage, string completedBy, long? completedById, string completionNotes)
-        {
-            try
-            {
-                // Get real user information, use default if parameter not provided
-                var actualCompletedBy = !string.IsNullOrEmpty(completedBy) ? completedBy : _operatorContextService.GetOperatorDisplayName();
-                var actualCompletedById = completedById ?? _operatorContextService.GetOperatorId();
-
-                var logData = new
-                {
-                    OnboardingId = onboarding.Id,
-                    LeadId = onboarding.LeadId,
-                    LeadName = onboarding.LeadName,
-                    StageId = stage.Id,
-                    StageName = stage.Name,
-                    StageOrder = stage.Order,
-                    CompletionNotes = completionNotes,
-                    CompletedTime = DateTimeOffset.UtcNow,
-                    CompletedBy = actualCompletedBy,
-                    CompletedById = actualCompletedById,
-                    CompletionMethod = "Manual",
-                    PreviousStatus = "InProgress",
-                    NewStatus = "Completed",
-                    CompletionRate = onboarding.CompletionRate,
-                    WorkflowId = onboarding.WorkflowId,
-                    Priority = onboarding.Priority
-                };
-
-                // Stage completion log functionality removed
-                // Debug logging handled by structured logging
-            }
-            catch (Exception ex)
-            {
-                // Debug logging handled by structured logging
-            }
-        }
-
-        /// <summary>
-        /// Publish stage completion event
-        /// </summary>
-        private async Task PublishStageCompletionEventAsync(Onboarding onboarding, Stage stage, CompleteStageInputDto input)
-        {
-            try
-            {
-                // Get next stage info if auto-moving
-                string nextStageName = null;
-                if (input.AutoMoveToNext && onboarding.CurrentStageId.HasValue)
-                {
-                    var nextStage = await _stageRepository.GetByIdAsync(onboarding.CurrentStageId.Value);
-                    nextStageName = nextStage?.Name;
-                }
-
-                // Build components payload
-                var componentsPayload = await BuildStageCompletionComponentsAsync(onboarding.Id, stage.Id, stage.Components, stage.ComponentsJson);
-
-                // Publish the OnboardingStageCompletedEvent for enhanced event handling
-                var onboardingStageCompletedEvent = new OnboardingStageCompletedEvent
-                {
-                    EventId = Guid.NewGuid().ToString(),
-                    Timestamp = DateTimeOffset.UtcNow,
-                    Version = "1.0",
-                    TenantId = onboarding.TenantId,
-                    OnboardingId = onboarding.Id,
-                    LeadId = onboarding.LeadId,
-                    WorkflowId = onboarding.WorkflowId,
-                    WorkflowName = (await _workflowRepository.GetByIdAsync(onboarding.WorkflowId))?.Name ?? "Unknown",
-                    CompletedStageId = stage.Id,
-                    CompletedStageName = stage.Name,
-                    StageCategory = stage.Name ?? "Unknown",
-                    NextStageId = input.AutoMoveToNext ? onboarding.CurrentStageId : null,
-                    NextStageName = nextStageName,
-                    CompletionRate = onboarding.CompletionRate,
-                    IsFinalStage = onboarding.Status == "Completed",
-                    AssigneeName = _operatorContextService.GetOperatorDisplayName(),
-                    ResponsibleTeam = onboarding.CurrentTeam ?? "Default",
-                    Priority = onboarding.Priority ?? "Medium",
-                    Source = "CustomerPortal",
-                    BusinessContext = new Dictionary<string, object>
-                    {
-                        ["CompletionNotes"] = input.CompletionNotes ?? "",
-                        ["Rating"] = input.Rating?.ToString() ?? "",
-                        ["Feedback"] = input.Feedback ?? "",
-                        ["AutoMoveToNext"] = input.AutoMoveToNext
-                    },
-                    RoutingTags = new List<string> { "onboarding", "stage-completion", "customer-portal" },
-                    Description = $"Stage '{stage.Name}' completed for Onboarding {onboarding.Id}",
-                    Tags = new List<string> { "onboarding", "stage-completion", "unknown" },
-                    Components = componentsPayload
-                };
-
-                // Append lightweight debug metrics into business context for verification
-                try
-                {
-                    onboardingStageCompletedEvent.BusinessContext["Components.ChecklistsCount"] = componentsPayload?.Checklists?.Count ?? 0;
-                    onboardingStageCompletedEvent.BusinessContext["Components.QuestionnairesCount"] = componentsPayload?.Questionnaires?.Count ?? 0;
-                    onboardingStageCompletedEvent.BusinessContext["Components.TaskCompletionsCount"] = componentsPayload?.TaskCompletions?.Count ?? 0;
-                    onboardingStageCompletedEvent.BusinessContext["Components.RequiredFieldsCount"] = componentsPayload?.RequiredFields?.Count ?? 0;
-                }
-                catch { }
-
-                // 使用 fire-and-forget 方式异步处理事件，不阻塞主流程
-                _backgroundTaskQueue.QueueBackgroundWorkItem(async token =>
-                {
-                    try
-                    {
-                        // 创建新的作用域来避免 ServiceProvider disposed 错误
-                        using var scope = _serviceScopeFactory.CreateScope();
-                        var scopedMediator = scope.ServiceProvider.GetRequiredService<IMediator>();
-                        await scopedMediator.Publish(onboardingStageCompletedEvent);
-                    }
-                    catch (Exception ex)
-                    {
-                        // 记录错误但不影响主流程
-                        // TODO: 可以考虑添加重试机制或者使用消息队列
-                        // 这里可以添加日志记录，但要确保不抛出异常
-                    }
-                });
-            }
-            catch (Exception ex)
-            {
-                // Log error but don't fail the stage completion
                 // Debug logging handled by structured logging
             }
         }
@@ -4013,8 +2937,6 @@ namespace FlowFlex.Application.Services.OW
             if (elem.TryGetProperty(pascalCase, out var propPascal)) return propPascal.GetString();
             return null;
         }
-
-
 
         /// <summary>
         /// Get JSON array property with support for both camelCase and PascalCase
@@ -4366,65 +3288,6 @@ namespace FlowFlex.Application.Services.OW
         }
 
         /// <summary>
-        /// Export onboarding data to CSV
-        /// </summary>
-        public async Task<Stream> ExportToCsvAsync(OnboardingQueryRequest query)
-        {
-            // Get data using existing query method
-            var result = await QueryAsync(query);
-            var data = result.Data;
-
-            // Transform to export format
-            var exportData = data.Select(item => new OnboardingExportDto
-            {
-                CustomerName = item.LeadName,
-                Id = item.LeadId,
-                ContactName = item.ContactPerson,
-                LifeCycleStage = item.LifeCycleStageName,
-                WorkFlow = item.WorkflowName,
-                OnboardStage = item.CurrentStageName,
-                Priority = item.Priority,
-                Ownership = !string.IsNullOrWhiteSpace(item.OwnershipName)
-                    ? $"{item.OwnershipName} ({item.OwnershipEmail})"
-                    : string.Empty,
-                Status = GetDisplayStatus(item.Status),
-                StartDate = FormatDateForExport(item.CurrentStageStartTime),
-                EndDate = FormatDateForExport(item.CurrentStageEndTime),
-                // Keep consistency with frontend index.vue display logic:
-                // Updated By => stageUpdatedBy || modifyBy
-                // Update Time => stageUpdatedTime || modifyDate
-                UpdatedBy = string.IsNullOrWhiteSpace(item.StageUpdatedBy) ? item.ModifyBy : item.StageUpdatedBy,
-                UpdateTime = (item.StageUpdatedTime.HasValue ? item.StageUpdatedTime.Value : item.ModifyDate)
-                    .ToString("MM/dd/yyyy HH:mm:ss")
-            }).ToList();
-
-            // Generate CSV content
-            var csvContent = new StringBuilder();
-            csvContent.AppendLine("Customer Name,Lead ID,Contact Name,Life Cycle Stage,Workflow,Stage,Priority,Ownership,Status,Start Date,End Date,Updated By,Update Time");
-
-            foreach (var item in exportData)
-            {
-                csvContent.AppendLine($"\"{item.CustomerName?.Replace("\"", "\"\"")}\"," +
-                    $"\"{item.Id}\"," +
-                    $"\"{item.ContactName?.Replace("\"", "\"\"")}\"," +
-                    $"\"{item.LifeCycleStage?.Replace("\"", "\"\"")}\"," +
-                    $"\"{item.WorkFlow?.Replace("\"", "\"\"")}\"," +
-                    $"\"{item.OnboardStage?.Replace("\"", "\"\"")}\"," +
-                    $"\"{item.Priority?.Replace("\"", "\"\"")}\"," +
-                    $"\"{item.Ownership?.Replace("\"", "\"\"")}\"," +
-                    $"\"{item.Status?.Replace("\"", "\"\"")}\"," +
-                    $"\"{item.StartDate?.Replace("\"", "\"\"")}\"," +
-                    $"\"{item.EndDate?.Replace("\"", "\"\"")}\"," +
-                    $"\"{item.UpdatedBy?.Replace("\"", "\"\"")}\"," +
-                    $"\"{item.UpdateTime}\"");
-            }
-
-            // Convert to stream
-            var bytes = Encoding.UTF8.GetBytes(csvContent.ToString());
-            return new MemoryStream(bytes);
-        }
-
-        /// <summary>
         /// Export onboarding data to Excel
         /// </summary>
         public async Task<Stream> ExportToExcelAsync(OnboardingQueryRequest query)
@@ -4438,6 +3301,7 @@ namespace FlowFlex.Application.Services.OW
             {
                 CustomerName = item.LeadName,
                 Id = item.LeadId,
+                CaseCode = item.CaseCode,
                 ContactName = item.ContactPerson,
                 LifeCycleStage = item.LifeCycleStageName,
                 WorkFlow = item.WorkflowName,
@@ -4497,8 +3361,8 @@ namespace FlowFlex.Application.Services.OW
             // Set headers
             var headers = new[]
             {
-                "Customer Name", "Lead ID", "Contact Name", "Life Cycle Stage", "Workflow", "Stage",
-                "Priority", "Status", "Start Date", "End Date", "Updated By", "Update Time"
+                "Customer Name", "Lead ID", "Case Code", "Contact Name", "Life Cycle Stage", "Workflow", "Stage",
+                "Priority", "Ownership", "Status", "Start Date", "End Date", "Updated By", "Update Time"
             };
 
             for (int i = 0; i < headers.Length; i++)
@@ -4513,16 +3377,18 @@ namespace FlowFlex.Application.Services.OW
                 var item = data[row];
                 worksheet.Cells[row + 2, 1].Value = item.CustomerName;
                 worksheet.Cells[row + 2, 2].Value = item.Id;
-                worksheet.Cells[row + 2, 3].Value = item.ContactName;
-                worksheet.Cells[row + 2, 4].Value = item.LifeCycleStage;
-                worksheet.Cells[row + 2, 5].Value = item.WorkFlow;
-                worksheet.Cells[row + 2, 6].Value = item.OnboardStage;
-                worksheet.Cells[row + 2, 7].Value = item.Priority;
-                worksheet.Cells[row + 2, 8].Value = item.Status;
-                worksheet.Cells[row + 2, 9].Value = item.StartDate;
-                worksheet.Cells[row + 2, 10].Value = item.EndDate;
-                worksheet.Cells[row + 2, 11].Value = item.UpdatedBy;
-                worksheet.Cells[row + 2, 12].Value = item.UpdateTime;
+                worksheet.Cells[row + 2, 3].Value = item.CaseCode;
+                worksheet.Cells[row + 2, 4].Value = item.ContactName;
+                worksheet.Cells[row + 2, 5].Value = item.LifeCycleStage;
+                worksheet.Cells[row + 2, 6].Value = item.WorkFlow;
+                worksheet.Cells[row + 2, 7].Value = item.OnboardStage;
+                worksheet.Cells[row + 2, 8].Value = item.Priority;
+                worksheet.Cells[row + 2, 9].Value = item.Ownership;
+                worksheet.Cells[row + 2, 10].Value = item.Status;
+                worksheet.Cells[row + 2, 11].Value = item.StartDate;
+                worksheet.Cells[row + 2, 12].Value = item.EndDate;
+                worksheet.Cells[row + 2, 13].Value = item.UpdatedBy;
+                worksheet.Cells[row + 2, 14].Value = item.UpdateTime;
             }
 
             // Auto-fit columns
@@ -4534,58 +3400,6 @@ namespace FlowFlex.Application.Services.OW
             return stream;
         }
 
-        /// <summary>
-        /// Sync stages progress from workflow stages configuration
-        /// Updates existing stages and adds new stages from workflow
-        /// </summary>
-        public async Task<bool> SyncStagesProgressAsync(long id)
-        {
-            try
-            {
-                var entity = await _onboardingRepository.GetByIdAsync(id);
-                if (entity == null || !entity.IsValid)
-                {
-                    throw new CRMException(ErrorCodeEnum.DataNotFound, "Onboarding not found");
-                }
-
-                // Get current workflow stages
-                var stages = await _stageRepository.GetByWorkflowIdAsync(entity.WorkflowId);
-                if (stages == null || !stages.Any())
-                {
-                    throw new CRMException(ErrorCodeEnum.DataNotFound, "No stages found for workflow");
-                }
-
-                // Load current stages progress
-                LoadStagesProgressFromJson(entity);
-
-                if (entity.StagesProgress == null || !entity.StagesProgress.Any())
-                {
-                    // If no stages progress exists, initialize it
-                    await InitializeStagesProgressAsync(entity, stages);
-                }
-                else
-                {
-                    // Sync with workflow stages (handle new stages addition)
-                    await SyncStagesProgressWithWorkflowAsync(entity);
-
-                    // Note: Dynamic fields are now populated via EnrichStagesProgressWithStageDataAsync
-                    // This method focuses on essential progress data only
-                }
-
-                // Enrich with stage data
-                await EnrichStagesProgressWithStageDataAsync(entity);
-
-                // Update tracking info
-                await UpdateStageTrackingInfoAsync(entity);
-
-                // Save changes
-                return await SafeUpdateOnboardingAsync(entity);
-            }
-            catch (Exception ex)
-            {
-                throw new CRMException(ErrorCodeEnum.SystemError, $"Error syncing stages progress for onboarding {id}: {ex.Message}");
-            }
-        }
         /// <summary>
         /// Initialize stages progress array for a new onboarding
         /// </summary>
@@ -4956,142 +3770,6 @@ namespace FlowFlex.Application.Services.OW
         }
 
         /// <summary>
-        /// Validate stage completion order - ensures stages are completed in sequence
-        /// </summary>
-        private bool ValidateStageCompletionOrder(List<OnboardingStageProgress> stagesProgress, OnboardingStageProgress stageToComplete)
-        {
-            try
-            {
-                if (stagesProgress == null || !stagesProgress.Any() || stageToComplete == null)
-                {
-                    return false;
-                }
-
-                // If this is the first stage (order 1), it can always be completed
-                if (stageToComplete.StageOrder == 1)
-                {
-                    // Debug logging handled by structured logging
-                    return true;
-                }
-
-                // Check if all previous stages are completed
-                var previousStages = stagesProgress
-                    .Where(s => s.StageOrder < stageToComplete.StageOrder)
-                    .OrderBy(s => s.StageOrder)
-                    .ToList();
-
-                var incompleteStages = previousStages.Where(s => !s.IsCompleted).ToList();
-
-                if (incompleteStages.Any())
-                {
-                    // Debug logging handled by structured logging
-                    foreach (var incompleteStage in incompleteStages)
-                    {
-                        // Debug logging handled by structured logging is {incompleteStage.Status}");
-                    }
-                    return false;
-                }
-                // Debug logging handled by structured logging
-                return true;
-            }
-            catch (Exception ex)
-            {
-                // Debug logging handled by structured logging
-                return false;
-            }
-        }
-
-        /// <summary>
-        /// Calculate completion rate based on stage order progression
-        /// This method ensures that progress is calculated correctly even when stage orders are not consecutive (e.g., 1, 3, 4, 5)
-        /// </summary>
-        private decimal CalculateCompletionRateByStageOrder(List<OnboardingStageProgress> stagesProgress)
-        {
-            try
-            {
-                if (stagesProgress == null || !stagesProgress.Any())
-                {
-                    return 0;
-                }
-
-                // Sort stages by order to ensure correct progression calculation
-                var orderedStages = stagesProgress.OrderBy(s => s.StageOrder).ToList();
-
-                // Get all unique stage orders
-                var stageOrders = orderedStages.Select(s => s.StageOrder).Distinct().OrderBy(o => o).ToList();
-
-                if (!stageOrders.Any())
-                {
-                    return 0;
-                }
-
-                // Calculate completion based on stage order progression
-                var completedStageOrders = orderedStages
-                    .Where(s => s.IsCompleted)
-                    .Select(s => s.StageOrder)
-                    .Distinct()
-                    .OrderBy(o => o)
-                    .ToList();
-
-                if (!completedStageOrders.Any())
-                {
-                    return 0;
-                }
-
-                // Find the highest completed stage order
-                var highestCompletedOrder = completedStageOrders.Max();
-
-                // Calculate progress based on stage order position
-                var totalStageOrderRange = stageOrders.Max() - stageOrders.Min() + 1;
-                var completedStageOrderRange = highestCompletedOrder - stageOrders.Min() + 1;
-
-                // Alternative calculation: based on completed stages count vs total stages count
-                var completedStagesCount = completedStageOrders.Count;
-                var totalStagesCount = stageOrders.Count;
-
-                // Use the more accurate calculation method
-                decimal completionRate;
-
-                if (totalStagesCount > 0)
-                {
-                    // Method 1: Simple count-based calculation (more intuitive)
-                    completionRate = Math.Round((decimal)completedStagesCount / totalStagesCount * 100, 2);
-                    // Debug logging handled by structured logging
-                    // Debug logging handled by structured logging}]");
-                    // Debug logging handled by structured logging}]");
-                    // Debug logging handled by structured logging
-                }
-                else
-                {
-                    completionRate = 0;
-                }
-
-                return completionRate;
-            }
-            catch (Exception ex)
-            {
-                // Debug logging handled by structured logging
-                return 0;
-            }
-        }
-
-        /// <summary>
-        /// Get TenantId from onboarding
-        /// </summary>
-        private async Task<string> GetTenantIdFromOnboardingAsync(long onboardingId)
-        {
-            try
-            {
-                var onboarding = await _onboardingRepository.GetByIdAsync(onboardingId);
-                return onboarding?.TenantId ?? "default";
-            }
-            catch
-            {
-                return "default";
-            }
-        }
-
-        /// <summary>
         /// Get current user name from OperatorContextService
         /// </summary>
         private string GetCurrentUserName()
@@ -5206,44 +3884,6 @@ namespace FlowFlex.Application.Services.OW
             {
                 // Debug logging handled by structured logging
                 // Cache cleanup failure should not affect main flow
-            }
-        }
-
-        /// <summary>
-        /// Batch clear all workflow-related cache
-        /// </summary>
-        private async Task ClearWorkflowRelatedCacheAsync(long workflowId)
-        {
-            try
-            {
-                // Safely get tenant ID
-                var tenantId = !string.IsNullOrEmpty(_userContext?.TenantId)
-                    ? _userContext.TenantId.ToLowerInvariant()
-                    : "default";
-
-                // Clear workflow cache
-                var workflowCacheKey = $"{WORKFLOW_CACHE_PREFIX}:{tenantId}:{workflowId}";
-                // Redis cache temporarily disabled
-                await Task.CompletedTask;
-
-                // Get all stages under this workflow and clear cache
-                var stages = await _stageRepository.GetByWorkflowIdAsync(workflowId);
-                var stageCacheTasks = stages.Select(stage =>
-                {
-                    var stageCacheKey = $"{STAGE_CACHE_PREFIX}:{tenantId}:{stage.Id}";
-                    // Redis cache temporarily disabled
-                    return Task.CompletedTask;
-                });
-
-                await Task.WhenAll(stageCacheTasks);
-
-#if DEBUG
-                // Debug logging handled by structured logging
-#endif
-            }
-            catch (Exception ex)
-            {
-                // Debug logging handled by structured logging
             }
         }
 
@@ -5828,124 +4468,6 @@ namespace FlowFlex.Application.Services.OW
         }
 
         /// <summary>
-        /// Query onboardings by stage status using JSONB operators
-        /// Utilizes PostgreSQL JSONB querying capabilities for efficient filtering
-        /// </summary>
-        public async Task<List<OnboardingOutputDto>> QueryByStageStatusAsync(string status)
-        {
-            try
-            {
-                // Use JSONB containment operator for efficient querying
-                var sql = @"
-                    SELECT * FROM ff_onboarding 
-                    WHERE is_valid = true 
-                    AND stages_progress_json @> '[{""status"": """ + status + @"""}]'
-                    ORDER BY create_date DESC
-                ";
-
-                var db = _onboardingRepository.GetSqlSugarClient();
-                var entities = await db.Ado.SqlQueryAsync<Onboarding>(sql);
-
-                // Load and enrich stages progress for each entity
-                foreach (var entity in entities)
-                {
-                    LoadStagesProgressFromJson(entity);
-                    await SyncStagesProgressWithWorkflowAsync(entity);
-                    await EnrichStagesProgressWithStageDataAsync(entity);
-                }
-
-                var results = _mapper.Map<List<OnboardingOutputDto>>(entities);
-
-                // Populate workflow/stage names and calculate current stage end time
-                await PopulateOnboardingOutputDtoAsync(results, entities);
-
-                return results;
-            }
-            catch (Exception ex)
-            {
-                throw new CRMException(ErrorCodeEnum.SystemError, $"Error querying onboardings by stage status {status}: {ex.Message}");
-            }
-        }
-
-        /// <summary>
-        /// Query onboardings by completion status using JSONB operators
-        /// </summary>
-        public async Task<List<OnboardingOutputDto>> QueryByCompletionStatusAsync(bool isCompleted)
-        {
-            try
-            {
-                // Use JSONB containment operator for efficient querying
-                var sql = @"
-                    SELECT * FROM ff_onboarding 
-                    WHERE is_valid = true 
-                    AND stages_progress_json @> '[{""isCompleted"": " + isCompleted.ToString().ToLower() + @"}]'
-                    ORDER BY create_date DESC
-                ";
-
-                var db = _onboardingRepository.GetSqlSugarClient();
-                var entities = await db.Ado.SqlQueryAsync<Onboarding>(sql);
-
-                // Load and enrich stages progress for each entity
-                foreach (var entity in entities)
-                {
-                    LoadStagesProgressFromJson(entity);
-                    await SyncStagesProgressWithWorkflowAsync(entity);
-                    await EnrichStagesProgressWithStageDataAsync(entity);
-                }
-
-                var results = _mapper.Map<List<OnboardingOutputDto>>(entities);
-
-                // Populate workflow/stage names and calculate current stage end time
-                await PopulateOnboardingOutputDtoAsync(results, entities);
-
-                return results;
-            }
-            catch (Exception ex)
-            {
-                throw new CRMException(ErrorCodeEnum.SystemError, $"Error querying onboardings by completion status {isCompleted}: {ex.Message}");
-            }
-        }
-
-        /// <summary>
-        /// Query onboardings by specific stage ID using JSONB operators
-        /// </summary>
-        public async Task<List<OnboardingOutputDto>> QueryByStageIdAsync(long stageId)
-        {
-            try
-            {
-                // Use JSONB containment operator for efficient querying
-                var sql = @"
-                    SELECT * FROM ff_onboarding 
-                    WHERE is_valid = true 
-                    AND stages_progress_json @> '[{""stageId"": " + stageId + @"}]'
-                    ORDER BY create_date DESC
-                ";
-
-                var db = _onboardingRepository.GetSqlSugarClient();
-                var entities = await db.Ado.SqlQueryAsync<Onboarding>(sql);
-
-                // Load and enrich stages progress for each entity
-                foreach (var entity in entities)
-                {
-                    LoadStagesProgressFromJson(entity);
-                    await SyncStagesProgressWithWorkflowAsync(entity);
-                    await EnrichStagesProgressWithStageDataAsync(entity);
-                }
-
-                var results = _mapper.Map<List<OnboardingOutputDto>>(entities);
-
-                // Populate workflow/stage names and calculate current stage end time
-                await PopulateOnboardingOutputDtoAsync(results, entities);
-
-                return results;
-            }
-            catch (Exception ex)
-            {
-                throw new CRMException(ErrorCodeEnum.SystemError, $"Error querying onboardings by stage ID {stageId}: {ex.Message}");
-            }
-        }
-
-        /// <summary>
         /// Create default UserInvitation record without sending email
         /// </summary>
         /// <param name="onboarding">Onboarding entity</param>
@@ -6379,6 +4901,16 @@ namespace FlowFlex.Application.Services.OW
         {
             if (!results.Any() || !entities.Any()) return;
 
+            // Auto-generate CaseCode for legacy data (batch processing)
+            var entitiesWithoutCaseCode = entities.Where(e => string.IsNullOrWhiteSpace(e.CaseCode)).ToList();
+            if (entitiesWithoutCaseCode.Any())
+            {
+                foreach (var entity in entitiesWithoutCaseCode)
+                {
+                    await EnsureCaseCodeAsync(entity);
+                }
+            }
+
             // Batch get related data to avoid N+1 queries
             var (workflows, stages) = await GetRelatedDataBatchOptimizedAsync(entities);
             var workflowDict = workflows.ToDictionary(w => w.Id, w => w.Name);
@@ -6659,7 +5191,6 @@ namespace FlowFlex.Application.Services.OW
             // Use SafeUpdateOnboardingWithoutStagesProgressAsync to preserve stagesProgress
             return await SafeUpdateOnboardingWithoutStagesProgressAsync(entity, originalStagesProgressJson);
         }
-
 
         /// <summary>
         /// Abort onboarding (terminate the process)
@@ -6991,10 +5522,6 @@ namespace FlowFlex.Application.Services.OW
             }
         }
 
-        #endregion
-
-        #region Helper Methods
-
         /// <summary>
         /// Validates and formats JSON array string for PostgreSQL JSONB
         /// </summary>
@@ -7077,190 +5604,7 @@ namespace FlowFlex.Application.Services.OW
             // Private mode or unknown mode
             return false;
         }
-
-        /// <summary>
-        /// Check Case view permission in-memory (no database query)
-        /// Used for batch permission filtering in list queries
-        /// </summary>
-        private bool CheckCaseViewPermissionInMemory(
-            Domain.Entities.OW.Onboarding onboarding,
-            long userId,
-            List<long> userTeamIds)
-        {
-            // Owner always has permission
-            if (onboarding.Ownership.HasValue && onboarding.Ownership.Value == userId)
-            {
-                return true;
-            }
-
-            if (onboarding.ViewPermissionMode == ViewPermissionModeEnum.Public)
-            {
-                var workflow = _workflowRepository.GetById(onboarding.WorkflowId);
-                return CheckWorkflowOperatePermissionInMemory(workflow, userId, userTeamIds);
-            }
-
-            // Public view mode = everyone can view (with possible subject restrictions)
-            else
-            {
-                // Check subject type restrictions
-                if (onboarding.ViewPermissionSubjectType == PermissionSubjectTypeEnum.Team)
-                {
-                    // Team-based restriction
-                    if (string.IsNullOrWhiteSpace(onboarding.ViewTeams))
-                    {
-                        return true; // NULL ViewTeams = all teams
-                    }
-
-                    var viewTeams = ParseJsonArraySafe(onboarding.ViewTeams);
-                    if (viewTeams.Count == 0)
-                    {
-                        return true; // Empty array = all teams
-                    }
-
-                    var viewTeamLongs = viewTeams.Select(t => long.TryParse(t, out var tid) ? tid : 0).Where(t => t > 0).ToHashSet();
-                    return userTeamIds.Any(ut => viewTeamLongs.Contains(ut));
-                }
-                else if (onboarding.ViewPermissionSubjectType == PermissionSubjectTypeEnum.User)
-                {
-                    // User-based restriction
-                    if (string.IsNullOrWhiteSpace(onboarding.ViewUsers))
-                    {
-                        return true; // NULL ViewUsers = all users
-                    }
-
-                    var viewUsers = ParseJsonArraySafe(onboarding.ViewUsers);
-                    if (viewUsers.Count == 0)
-                    {
-                        return true; // Empty array = all users
-                    }
-
-                    var viewUserLongs = viewUsers.Select(u => long.TryParse(u, out var uid) ? uid : 0).Where(u => u > 0).ToHashSet();
-                    return viewUserLongs.Contains(userId);
-                }
-                else
-                {
-                    // No subject type restriction = all users
-                    return true;
-                }
-            }
-
-            // VisibleToTeams or Private mode = deny
-            return false;
-        }
-
-        /// <summary>
-        /// Check Workflow operate permission in-memory (no database query)
-        /// Used for batch permission filtering in list queries
-        /// </summary>
-        private bool CheckWorkflowOperatePermissionInMemory(
-            Domain.Entities.OW.Workflow workflow,
-            long userId,
-            List<long> userTeamIds)
-        {
-            // Public mode with NULL OperateTeams = everyone can operate
-            if (workflow.ViewPermissionMode == ViewPermissionModeEnum.Public)
-            {
-                if (string.IsNullOrWhiteSpace(workflow.OperateTeams))
-                {
-                    return true; // NULL OperateTeams = all users
-                }
-
-                // Parse OperateTeams JSON array (handles double-encoding)
-                var operateTeams = ParseJsonArraySafe(workflow.OperateTeams);
-                if (operateTeams.Count == 0)
-                {
-                    return true; // Empty whitelist = all users
-                }
-
-                var operateTeamLongs = operateTeams.Select(t => long.TryParse(t, out var tid) ? tid : 0).Where(t => t > 0).ToHashSet();
-                return userTeamIds.Any(ut => operateTeamLongs.Contains(ut));
-            }
-
-            // VisibleToTeams mode = check OperateTeams whitelist
-            if (workflow.ViewPermissionMode == ViewPermissionModeEnum.VisibleToTeams)
-            {
-                if (string.IsNullOrWhiteSpace(workflow.OperateTeams))
-                {
-                    return false; // NULL OperateTeams in VisibleToTeams mode = deny all
-                }
-
-                var operateTeams = ParseJsonArraySafe(workflow.OperateTeams);
-                if (operateTeams.Count == 0)
-                {
-                    return false; // Empty whitelist = deny all
-                }
-
-                var operateTeamLongs = operateTeams.Select(t => long.TryParse(t, out var tid) ? tid : 0).Where(t => t > 0).ToHashSet();
-                return userTeamIds.Any(ut => operateTeamLongs.Contains(ut));
-            }
-
-            // Private mode or unknown mode
-            return false;
-        }
-
-        /// <summary>
-        /// Check Case operate permission in-memory (no database query)
-        /// Used for batch permission filtering in list queries
-        /// </summary>
-        private bool CheckCaseOperatePermissionInMemory(
-            Domain.Entities.OW.Onboarding onboarding,
-            long userId,
-            List<long> userTeamIds)
-        {
-            // Owner always has permission
-            if (onboarding.Ownership.HasValue && onboarding.Ownership.Value == userId)
-            {
-                return true;
-            }
-
-            // Public operate mode = everyone can operate (with possible subject restrictions)
-            if (onboarding.ViewPermissionMode == ViewPermissionModeEnum.Public)
-            {
-                // Check subject type restrictions
-                if (onboarding.OperatePermissionSubjectType == PermissionSubjectTypeEnum.Team)
-                {
-                    // Team-based restriction
-                    if (string.IsNullOrWhiteSpace(onboarding.OperateTeams))
-                    {
-                        return true; // NULL OperateTeams = all teams
-                    }
-
-                    var operateTeams = ParseJsonArraySafe(onboarding.OperateTeams);
-                    if (operateTeams.Count == 0)
-                    {
-                        return true; // Empty array = all teams
-                    }
-
-                    var operateTeamLongs = operateTeams.Select(t => long.TryParse(t, out var tid) ? tid : 0).Where(t => t > 0).ToHashSet();
-                    return userTeamIds.Any(ut => operateTeamLongs.Contains(ut));
-                }
-                else if (onboarding.OperatePermissionSubjectType == PermissionSubjectTypeEnum.User)
-                {
-                    // User-based restriction
-                    if (string.IsNullOrWhiteSpace(onboarding.OperateUsers))
-                    {
-                        return true; // NULL OperateUsers = all users
-                    }
-
-                    var operateUsers = ParseJsonArraySafe(onboarding.OperateUsers);
-                    if (operateUsers.Count == 0)
-                    {
-                        return true; // Empty array = all users
-                    }
-
-                    var operateUserLongs = operateUsers.Select(u => long.TryParse(u, out var uid) ? uid : 0).Where(u => u > 0).ToHashSet();
-                    return operateUserLongs.Contains(userId);
-                }
-                else
-                {
-                    // No subject type restriction = all users
-                    return true;
-                }
-            }
-
-            // VisibleToTeams or Private mode = deny
-            return false;
-        }
+      
 
         private static string ValidateAndFormatJsonArray(string jsonArray)
         {
@@ -7285,6 +5629,81 @@ namespace FlowFlex.Application.Services.OW
                 // If parsing fails, return empty array
                 return "[]";
             }
+        }
+
+        /// <summary>
+        /// Validate that team IDs from JSON arrays exist in the team tree from UserService.
+        /// Accepts JSON arrays (possibly double-encoded) like ["team1","team2"].
+        /// Throws BusinessError if any invalid IDs are found.
+        /// </summary>
+        private async Task ValidateTeamSelectionsFromJsonAsync(string viewTeamsJson, string operateTeamsJson)
+        {
+            var viewTeams = ParseJsonArraySafe(viewTeamsJson) ?? new List<string>();
+            var operateTeams = ParseJsonArraySafe(operateTeamsJson) ?? new List<string>();
+
+            var needsValidation = (viewTeams.Any() || operateTeams.Any());
+            if (!needsValidation)
+            {
+                return;
+            }
+
+            HashSet<string> allTeamIds;
+            try
+            {
+                allTeamIds = await GetAllTeamIdsFromUserTreeAsync();
+            }
+            catch (Exception ex)
+            {
+                // Do not block the operation if IDM is unavailable; just log
+                LoggingExtensions.WriteLine($"[TeamValidation] Skipped due to error fetching team tree: {ex.Message}");
+                return;
+            }
+
+            var invalid = new List<string>();
+            invalid.AddRange(viewTeams.Where(id => !string.IsNullOrWhiteSpace(id) && !allTeamIds.Contains(id)));
+            invalid.AddRange(operateTeams.Where(id => !string.IsNullOrWhiteSpace(id) && !allTeamIds.Contains(id)));
+            invalid = invalid.Distinct(StringComparer.Ordinal).ToList();
+
+            if (invalid.Any())
+            {
+                throw new CRMException(ErrorCodeEnum.BusinessError,
+                    $"The following team IDs do not exist: {string.Join(", ", invalid)}");
+            }
+        }
+
+        /// <summary>
+        /// Get all valid team IDs from UserService team tree (excludes placeholder teams like 'Other').
+        /// </summary>
+        private async Task<HashSet<string>> GetAllTeamIdsFromUserTreeAsync()
+        {
+            var tree = await _userService.GetUserTreeAsync();
+            var ids = new HashSet<string>(StringComparer.Ordinal);
+            if (tree == null || !tree.Any())
+            {
+                return ids;
+            }
+
+            void Traverse(IEnumerable<UserTreeNodeDto> nodes)
+            {
+                foreach (var node in nodes)
+                {
+                    if (node == null) continue;
+                    if (string.Equals(node.Type, "team", StringComparison.OrdinalIgnoreCase))
+                    {
+                        if (!string.IsNullOrWhiteSpace(node.Id) && !string.Equals(node.Id, "Other", StringComparison.Ordinal))
+                        {
+                            ids.Add(node.Id);
+                        }
+                    }
+                    if (node.Children != null && node.Children.Any())
+                    {
+                        Traverse(node.Children);
+                    }
+                }
+            }
+
+            Traverse(tree);
+            return ids;
         }
 
         /// <summary>
@@ -7495,6 +5914,555 @@ namespace FlowFlex.Application.Services.OW
                 CompletionRate = string.IsNullOrWhiteSpace(fieldValue) ? 0 : 100,
                 ValidationStatus = "Pending"
             };
+        }
+
+        /// <summary>
+        /// Get authorized users for onboarding based on permission configuration
+        /// If case has no permission restrictions (Public mode), returns all users
+        /// If case has permission restrictions, returns only authorized users based on ViewPermissionMode and ViewPermissionSubjectType
+        /// </summary>
+        public async Task<List<UserTreeNodeDto>> GetAuthorizedUsersAsync(long id)
+        {
+            // Get onboarding entity
+            var onboarding = await _onboardingRepository.GetByIdAsync(id);
+            if (onboarding == null)
+            {
+                throw new CRMException(System.Net.HttpStatusCode.NotFound, $"Onboarding with ID {id} not found");
+            }
+
+            // Get all users tree
+            var allUsersTree = await _userService.GetUserTreeAsync();
+
+            // If permission mode is Public, return all users (flatten to user-only list)
+            if (onboarding.ViewPermissionMode == ViewPermissionModeEnum.Public)
+            {
+                return ExtractUserNodes(allUsersTree);
+            }
+
+            // Parse permission fields
+            var viewTeams = ParseJsonArraySafe(onboarding.ViewTeams) ?? new List<string>();
+            var viewUsers = ParseJsonArraySafe(onboarding.ViewUsers) ?? new List<string>();
+
+            // Filter users based on permission configuration
+            var filteredTree = await FilterUserTreeByPermissionAsync(
+                allUsersTree,
+                onboarding.ViewPermissionMode,
+                onboarding.ViewPermissionSubjectType,
+                viewTeams,
+                viewUsers,
+                onboarding.Ownership
+            );
+
+            // Always return flat user-only list
+            return ExtractUserNodes(filteredTree);
+        }
+
+        /// <summary>
+        /// Filter user tree based on permission configuration
+        /// </summary>
+        private async Task<List<UserTreeNodeDto>> FilterUserTreeByPermissionAsync(
+            List<UserTreeNodeDto> allUsersTree,
+            ViewPermissionModeEnum viewPermissionMode,
+            PermissionSubjectTypeEnum viewPermissionSubjectType,
+            List<string> viewTeams,
+            List<string> viewUsers,
+            long? ownership)
+        {
+            if (allUsersTree == null || !allUsersTree.Any())
+            {
+                return new List<UserTreeNodeDto>();
+            }
+
+            // Private mode: return ownership user only
+            if (viewPermissionMode == ViewPermissionModeEnum.Private)
+            {
+                return await FilterUserTreeByOwnershipAsync(allUsersTree, ownership);
+            }
+
+            // Team-based permission
+            if (viewPermissionSubjectType == PermissionSubjectTypeEnum.Team)
+            {
+                return FilterUserTreeByTeams(allUsersTree, viewPermissionMode, viewTeams);
+            }
+            // User-based permission
+            else if (viewPermissionSubjectType == PermissionSubjectTypeEnum.User)
+            {
+                return FilterUserTreeByUsers(allUsersTree, viewPermissionMode, viewUsers);
+            }
+
+            // Default: return all users
+            return allUsersTree;
+        }
+
+        /// <summary>
+        /// Filter user tree to return only ownership user
+        /// </summary>
+        private async Task<List<UserTreeNodeDto>> FilterUserTreeByOwnershipAsync(
+            List<UserTreeNodeDto> allUsersTree,
+            long? ownership)
+        {
+            if (!ownership.HasValue || ownership.Value <= 0)
+            {
+                // No ownership set, return empty tree
+                return new List<UserTreeNodeDto>();
+            }
+
+            var ownershipUserId = ownership.Value.ToString();
+            var ownershipUserNode = FindUserNodeInTree(allUsersTree, ownershipUserId);
+
+            if (ownershipUserNode == null)
+            {
+                // Ownership user not found in tree, try to get from UserService
+                try
+                {
+                    var userDto = await _userService.GetUserByIdAsync(ownership.Value);
+                    if (userDto != null)
+                    {
+                        // Create a user node from UserDto
+                        ownershipUserNode = new UserTreeNodeDto
+                        {
+                            Id = userDto.Id.ToString(),
+                            Name = userDto.Username ?? userDto.Email,
+                            Type = "user",
+                            Username = userDto.Username,
+                            Email = userDto.Email,
+                            UserDetails = userDto,
+                            MemberCount = 0,
+                            Children = null
+                        };
+                    }
+                }
+                catch
+                {
+                    // If user not found, return empty tree
+                    return new List<UserTreeNodeDto>();
+                }
+            }
+
+            if (ownershipUserNode == null)
+            {
+                return new List<UserTreeNodeDto>();
+            }
+
+            // Return only the ownership user as a flat list (no team structure)
+            return new List<UserTreeNodeDto>
+            {
+                new UserTreeNodeDto
+                {
+                    Id = ownershipUserNode.Id,
+                    Name = ownershipUserNode.Name,
+                    Type = "user",
+                    Username = ownershipUserNode.Username,
+                    Email = ownershipUserNode.Email,
+                    UserDetails = ownershipUserNode.UserDetails,
+                    MemberCount = 0,
+                    Children = null
+                }
+            };
+        }
+
+        /// <summary>
+        /// Find user node in the tree by user ID
+        /// </summary>
+        private UserTreeNodeDto FindUserNodeInTree(List<UserTreeNodeDto> tree, string userId)
+        {
+            if (tree == null || !tree.Any())
+            {
+                return null;
+            }
+
+            foreach (var node in tree)
+            {
+                // Check if current node is the user
+                if (node.Type == "user" && node.Id == userId)
+                {
+                    return node;
+                }
+
+                // Recursively search in children
+                if (node.Children != null && node.Children.Any())
+                {
+                    var found = FindUserNodeInTree(node.Children, userId);
+                    if (found != null)
+                    {
+                        return found;
+                    }
+                }
+            }
+
+            return null;
+        }
+
+        /// <summary>
+        /// Build tree structure for a single user, preserving team hierarchy if possible
+        /// </summary>
+        private List<UserTreeNodeDto> BuildTreeForSingleUser(UserTreeNodeDto userNode, List<UserTreeNodeDto> allUsersTree)
+        {
+            if (userNode == null)
+            {
+                return new List<UserTreeNodeDto>();
+            }
+
+            // Try to find the team that contains this user
+            var userTeam = FindUserTeam(allUsersTree, userNode.Id);
+
+            if (userTeam != null)
+            {
+                // Create a team node with only this user
+                var teamNode = new UserTreeNodeDto
+                {
+                    Id = userTeam.Id,
+                    Name = userTeam.Name,
+                    Type = "team",
+                    MemberCount = 1,
+                    Children = new List<UserTreeNodeDto>
+                    {
+                        new UserTreeNodeDto
+                        {
+                            Id = userNode.Id,
+                            Name = userNode.Name,
+                            Type = "user",
+                            Username = userNode.Username,
+                            Email = userNode.Email,
+                            UserDetails = userNode.UserDetails,
+                            MemberCount = 0,
+                            Children = null
+                        }
+                    }
+                };
+
+                return new List<UserTreeNodeDto> { teamNode };
+            }
+            else
+            {
+                // User not in any team, create a simple user node
+                // Put it in "Other" team for consistency
+                var otherTeamNode = new UserTreeNodeDto
+                {
+                    Id = "Other",
+                    Name = "Other",
+                    Type = "team",
+                    MemberCount = 1,
+                    Children = new List<UserTreeNodeDto>
+                    {
+                        new UserTreeNodeDto
+                        {
+                            Id = userNode.Id,
+                            Name = userNode.Name,
+                            Type = "user",
+                            Username = userNode.Username,
+                            Email = userNode.Email,
+                            UserDetails = userNode.UserDetails,
+                            MemberCount = 0,
+                            Children = null
+                        }
+                    }
+                };
+
+                return new List<UserTreeNodeDto> { otherTeamNode };
+            }
+        }
+
+        /// <summary>
+        /// Extract flat list of user nodes from a (team+user) tree, with deduplication by user ID
+        /// </summary>
+        private List<UserTreeNodeDto> ExtractUserNodes(List<UserTreeNodeDto> nodes)
+        {
+            var result = new List<UserTreeNodeDto>();
+            var seenUserIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            
+            if (nodes == null || nodes.Count == 0) return result;
+
+            void Traverse(UserTreeNodeDto node)
+            {
+                if (node == null) return;
+                if (node.Type == "user")
+                {
+                    // Deduplicate by user ID
+                    if (!string.IsNullOrEmpty(node.Id) && !seenUserIds.Contains(node.Id))
+                    {
+                        seenUserIds.Add(node.Id);
+                        result.Add(new UserTreeNodeDto
+                        {
+                            Id = node.Id,
+                            Name = node.Name,
+                            Type = node.Type,
+                            Username = node.Username,
+                            Email = node.Email,
+                            UserDetails = node.UserDetails,
+                            MemberCount = 0,
+                            Children = null
+                        });
+                    }
+                }
+                if (node.Children != null)
+                {
+                    foreach (var child in node.Children)
+                    {
+                        Traverse(child);
+                    }
+                }
+            }
+
+            foreach (var root in nodes)
+            {
+                Traverse(root);
+            }
+
+            return result;
+        }
+
+        /// <summary>
+        /// Find the team that contains a specific user
+        /// </summary>
+        private UserTreeNodeDto FindUserTeam(List<UserTreeNodeDto> tree, string userId)
+        {
+            if (tree == null || !tree.Any())
+            {
+                return null;
+            }
+
+            foreach (var node in tree)
+            {
+                if (node.Type == "team" && node.Children != null && node.Children.Any())
+                {
+                    // Check if this team contains the user
+                    var containsUser = FindUserNodeInTree(node.Children, userId);
+                    if (containsUser != null)
+                    {
+                        return node;
+                    }
+
+                    // Recursively search in child teams
+                    var childTeam = FindUserTeam(node.Children, userId);
+                    if (childTeam != null)
+                    {
+                        return childTeam;
+                    }
+                }
+            }
+
+            return null;
+        }
+
+        /// <summary>
+        /// Filter user tree by teams based on permission mode
+        /// </summary>
+        private List<UserTreeNodeDto> FilterUserTreeByTeams(
+            List<UserTreeNodeDto> allUsersTree,
+            ViewPermissionModeEnum viewPermissionMode,
+            List<string> viewTeams)
+        {
+            var viewTeamsSet = new HashSet<string>(viewTeams ?? new List<string>(), StringComparer.OrdinalIgnoreCase);
+            var result = new List<UserTreeNodeDto>();
+
+            foreach (var teamNode in allUsersTree)
+            {
+                if (teamNode.Type != "team")
+                {
+                    continue;
+                }
+
+                bool includeTeam = false;
+
+                if (viewPermissionMode == ViewPermissionModeEnum.VisibleToTeams)
+                {
+                    // Only include teams in the whitelist
+                    includeTeam = viewTeamsSet.Contains(teamNode.Id);
+                }
+                else if (viewPermissionMode == ViewPermissionModeEnum.InvisibleToTeams)
+                {
+                    // Exclude teams in the blacklist
+                    includeTeam = !viewTeamsSet.Contains(teamNode.Id);
+                }
+
+                if (includeTeam)
+                {
+                    // Create a copy of the team node with filtered children
+                    var filteredTeamNode = new UserTreeNodeDto
+                    {
+                        Id = teamNode.Id,
+                        Name = teamNode.Name,
+                        Type = teamNode.Type,
+                        MemberCount = 0,
+                        Children = new List<UserTreeNodeDto>()
+                    };
+
+                    // Recursively filter child teams and include all users under this team
+                    if (teamNode.Children != null && teamNode.Children.Any())
+                    {
+                        foreach (var child in teamNode.Children)
+                        {
+                            if (child.Type == "team")
+                            {
+                                // Recursively filter child teams
+                                var filteredChildTeams = FilterUserTreeByTeams(
+                                    new List<UserTreeNodeDto> { child },
+                                    viewPermissionMode,
+                                    viewTeams);
+                                if (filteredChildTeams.Any())
+                                {
+                                    filteredTeamNode.Children.AddRange(filteredChildTeams);
+                                }
+                            }
+                            else if (child.Type == "user")
+                            {
+                                // Include all users under the team
+                                filteredTeamNode.Children.Add(child);
+                            }
+                        }
+                    }
+
+                    // Update member count
+                    filteredTeamNode.MemberCount = filteredTeamNode.Children.Count;
+
+                    // Only add team if it has members or child teams
+                    if (filteredTeamNode.Children.Any())
+                    {
+                        result.Add(filteredTeamNode);
+                    }
+                }
+            }
+
+            return result;
+        }
+
+        /// <summary>
+        /// Filter user tree by users based on permission mode
+        /// </summary>
+        private List<UserTreeNodeDto> FilterUserTreeByUsers(
+            List<UserTreeNodeDto> allUsersTree,
+            ViewPermissionModeEnum viewPermissionMode,
+            List<string> viewUsers)
+        {
+            var viewUsersSet = new HashSet<string>(viewUsers ?? new List<string>(), StringComparer.OrdinalIgnoreCase);
+            var result = new List<UserTreeNodeDto>();
+
+            foreach (var rootNode in allUsersTree)
+            {
+                var filteredNode = FilterNodeByUsers(rootNode, viewPermissionMode, viewUsersSet);
+                if (filteredNode != null)
+                {
+                    result.Add(filteredNode);
+                }
+            }
+
+            return result;
+        }
+
+        /// <summary>
+        /// Recursively filter a node and its children by users
+        /// </summary>
+        private UserTreeNodeDto FilterNodeByUsers(
+            UserTreeNodeDto node,
+            ViewPermissionModeEnum viewPermissionMode,
+            HashSet<string> viewUsersSet)
+        {
+            if (node == null)
+            {
+                return null;
+            }
+
+            // If it's a user node, check if it should be included
+            if (node.Type == "user")
+            {
+                bool includeUser = false;
+
+                if (viewPermissionMode == ViewPermissionModeEnum.VisibleToTeams)
+                {
+                    // Only include users in the whitelist
+                    includeUser = viewUsersSet.Contains(node.Id);
+                }
+                else if (viewPermissionMode == ViewPermissionModeEnum.InvisibleToTeams)
+                {
+                    // Exclude users in the blacklist
+                    includeUser = !viewUsersSet.Contains(node.Id);
+                }
+
+                if (includeUser)
+                {
+                    return new UserTreeNodeDto
+                    {
+                        Id = node.Id,
+                        Name = node.Name,
+                        Type = node.Type,
+                        Username = node.Username,
+                        Email = node.Email,
+                        UserDetails = node.UserDetails,
+                        MemberCount = 0,
+                        Children = null
+                    };
+                }
+
+                return null;
+            }
+
+            // If it's a team node, filter its children
+            if (node.Type == "team")
+            {
+                var filteredChildren = new List<UserTreeNodeDto>();
+
+                if (node.Children != null && node.Children.Any())
+                {
+                    foreach (var child in node.Children)
+                    {
+                        var filteredChild = FilterNodeByUsers(child, viewPermissionMode, viewUsersSet);
+                        if (filteredChild != null)
+                        {
+                            filteredChildren.Add(filteredChild);
+                        }
+                    }
+                }
+
+                // Only include team if it has filtered children
+                if (filteredChildren.Any())
+                {
+                    return new UserTreeNodeDto
+                    {
+                        Id = node.Id,
+                        Name = node.Name,
+                        Type = node.Type,
+                        MemberCount = filteredChildren.Count,
+                        Children = filteredChildren
+                    };
+                }
+            }
+
+            return null;
+        }
+
+        #endregion
+
+        #region Case Code Auto-Fill for Legacy Data
+
+        /// <summary>
+        /// Ensure case code is generated for legacy data (if CaseCode is null or empty)
+        /// </summary>
+        private async Task EnsureCaseCodeAsync(Onboarding entity)
+        {
+            if (string.IsNullOrWhiteSpace(entity.CaseCode))
+            {
+                try
+                {
+                    // Generate case code from lead name
+                    entity.CaseCode = await _caseCodeGeneratorService.GenerateCaseCodeAsync(entity.LeadName);
+
+                    // Update database
+                    var updateSql = "UPDATE ff_onboarding SET case_code = @CaseCode WHERE id = @Id";
+                    await _onboardingRepository.GetSqlSugarClient().Ado.ExecuteCommandAsync(updateSql, new
+                    {
+                        CaseCode = entity.CaseCode,
+                        Id = entity.Id
+                    });
+
+                    LoggingExtensions.WriteLine($"[INFO] Auto-generated CaseCode '{entity.CaseCode}' for Onboarding {entity.Id}");
+                }
+                catch (Exception ex)
+                {
+                    LoggingExtensions.WriteLine($"[ERROR] Failed to auto-generate CaseCode for Onboarding {entity.Id}: {ex.Message}");
+                    // Don't throw - this is a background enhancement, not critical
+                }
+            }
         }
 
         #endregion

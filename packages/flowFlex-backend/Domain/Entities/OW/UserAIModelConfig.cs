@@ -85,5 +85,43 @@ namespace FlowFlex.Domain.Entities.OW
         /// </summary>
         [StringLength(500)]
         public string Remarks { get; set; } = string.Empty;
+
+        /// <summary>
+        /// 创建人ID
+        /// </summary>
+        [SugarColumn(ColumnName = "created_by")]
+        public long? CreatedBy { get; set; }
+
+        /// <summary>
+        /// 创建人用户名
+        /// </summary>
+        [StringLength(100)]
+        [SugarColumn(ColumnName = "created_by_name")]
+        public string CreatedByName { get; set; } = string.Empty;
+
+        /// <summary>
+        /// 创建时间
+        /// </summary>
+        [SugarColumn(ColumnName = "created_time")]
+        public DateTime? CreatedTime { get; set; }
+
+        /// <summary>
+        /// 修改人ID
+        /// </summary>
+        [SugarColumn(ColumnName = "updated_by")]
+        public long? UpdatedBy { get; set; }
+
+        /// <summary>
+        /// 修改人用户名
+        /// </summary>
+        [StringLength(100)]
+        [SugarColumn(ColumnName = "updated_by_name")]
+        public string UpdatedByName { get; set; } = string.Empty;
+
+        /// <summary>
+        /// 修改时间
+        /// </summary>
+        [SugarColumn(ColumnName = "updated_time")]
+        public DateTime? UpdatedTime { get; set; }
     }
 }

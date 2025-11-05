@@ -5,14 +5,12 @@
 				<div class="ai_card-header">
 					<div class="header-left">
 						<span class="assistant-title">AI Workflow Assistant</span>
-						<span class="status-indicator">
+						<span v-if="currentAIModel" class="status-indicator">
 							<span class="pulse-dot"></span>
 							{{
-								currentAIModel
-									? `${currentAIModel.provider.toLowerCase()} ${
-											currentAIModel.modelName
-									  }`
-									: 'Online'
+								`${currentAIModel.provider.toLowerCase()} ${
+									currentAIModel.modelName
+								}`
 							}}
 						</span>
 					</div>
@@ -20,8 +18,28 @@
 			</template>
 
 			<div class="assistant-container">
+				<!-- AI Model Setup Guide -->
+				<div v-if="!currentAIModel && !isLoadingModel" class="model-setup-guide">
+					<div class="guide-content">
+						<h3 class="guide-title">AI Model Configuration Required</h3>
+						<p class="guide-description">
+							To use the AI Workflow Assistant, you need to configure an AI model
+							first.
+						</p>
+						<el-button
+							type="primary"
+							size="large"
+							class="guide-action-btn"
+							@click="navigateToAIModelConfig"
+						>
+							<el-icon><Setting /></el-icon>
+							<span>Configure AI Model Now</span>
+						</el-button>
+					</div>
+				</div>
+
 				<!-- Chat Area -->
-				<div class="chat-area">
+				<div v-else class="chat-area">
 					<!-- Chat Messages -->
 					<div class="chat-messages" ref="chatMessagesRef">
 						<div
@@ -1228,6 +1246,7 @@ import {
 	MoreFilled,
 	Search,
 	Edit,
+	Setting,
 } from '@element-plus/icons-vue';
 import { createWorkflow, getWorkflowList } from '@/apis/ow';
 import { defHttp } from '@/apis/axios';
@@ -1355,6 +1374,7 @@ const emit = defineEmits<{
 			selectedWorkflowId?: number;
 		},
 	];
+	'open-ai-config': [];
 }>();
 
 // User Store
@@ -1381,6 +1401,7 @@ const conversationId = ref<string>('');
 const uploadedFile = ref<File | null>(null);
 const currentAIModel = ref<AIModelConfig | null>(null);
 const availableModels = ref<AIModelConfig[]>([]);
+const isLoadingModel = ref(true);
 
 // Workflow modification data
 const searchedWorkflows = ref<any[]>([]);
@@ -2881,6 +2902,7 @@ const applyWorkflow = async (data: any) => {
 			isAIGenerated: true,
 			status: 'active',
 			startDate: new Date().toISOString(),
+			useSameTeamForOperate: true,
 			stages: data.stages.map((stage: WorkflowStage, index: number) => ({
 				name: stage.name,
 				description: stage.description,
@@ -2889,6 +2911,7 @@ const applyWorkflow = async (data: any) => {
 				estimatedDuration: stage.estimatedDuration || 1,
 				isActive: true,
 				workflowVersion: '1',
+				useSameTeamForOperate: true,
 			})),
 		};
 
@@ -3405,6 +3428,7 @@ const saveWorkflowChanges = async (messageData: any) => {
 				name: messageData.workflow.name,
 				description: messageData.workflow.description,
 				isActive: messageData.workflow.isActive,
+				useSameTeamForOperate: true,
 			},
 		});
 
@@ -3424,6 +3448,7 @@ const saveWorkflowChanges = async (messageData: any) => {
 						workflowId: messageData.workflow.id, // Explicitly include workflow ID
 						defaultAssignedGroup: stage.assignedGroup || stage.defaultAssignedGroup,
 						estimatedDuration: stage.estimatedDuration,
+						useSameTeamForOperate: true,
 					};
 
 					console.log('Updating stage:', stage.id, 'with data:', stageUpdateData);
@@ -3467,6 +3492,7 @@ const saveWorkflowChanges = async (messageData: any) => {
 											serverStageData.defaultAssignedGroup
 												? stage.assignedGroup
 												: serverStageData.defaultAssignedGroup,
+										useSameTeamForOperate: true,
 									},
 								});
 							} else {
@@ -3482,6 +3508,7 @@ const saveWorkflowChanges = async (messageData: any) => {
 									description: stage.description,
 									order: stage.order,
 									estimatedDuration: stage.estimatedDuration,
+									useSameTeamForOperate: true,
 								},
 							});
 						}
@@ -3793,6 +3820,12 @@ const handleModelChange = (model: AIModelConfig) => {
 	console.log('Model changed to:', model);
 };
 
+// Open AI Model Configuration dialog
+const navigateToAIModelConfig = () => {
+	console.log('🔧 Opening AI Model Configuration...');
+	emit('open-ai-config');
+};
+
 // Keyboard event handling
 const handleKeydown = (event: KeyboardEvent) => {
 	if (event.key === 'Enter') {
@@ -3828,10 +3861,15 @@ onMounted(async () => {
 		if (modelResponse.success && modelResponse.data) {
 			currentAIModel.value = modelResponse.data;
 			console.log('Loaded default AI model:', modelResponse.data.modelName);
+		} else {
+			console.log('⚠️ No AI model configured');
 		}
 	} catch (error) {
 		console.warn('Failed to load default AI model:', error);
 	}
+
+	// Set loading complete
+	isLoadingModel.value = false;
 
 	// Load chat history from localStorage with tenant and user isolation
 	const storageKey = getChatHistoryStorageKey();
@@ -3915,6 +3953,24 @@ onMounted(async () => {
 	font-size: 14px;
 }
 
+.add-model-btn {
+	font-size: 13px;
+	padding: 6px 16px;
+	border-radius: 8px;
+	font-weight: 600;
+	transition: all 0.3s ease;
+	box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+}
+
+.add-model-btn:hover {
+	transform: translateY(-1px);
+	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.add-model-btn .el-icon {
+	margin-right: 4px;
+}
+
 .pulse-dot {
 	width: 8px;
 	height: 8px;
@@ -3942,6 +3998,55 @@ onMounted(async () => {
 	height: clamp(500px, calc(100vh - 200px), 800px);
 	min-height: 500px;
 	max-height: 800px;
+}
+
+/* Model Setup Guide */
+.model-setup-guide {
+	flex: 1;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	height: 100%;
+	background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+	border-radius: 12px;
+	padding: 2rem;
+}
+
+.guide-content {
+	text-align: center;
+	max-width: 500px;
+}
+
+.guide-title {
+	font-size: 24px;
+	font-weight: 700;
+	color: #303133;
+	margin-bottom: 1rem;
+}
+
+.guide-description {
+	font-size: 16px;
+	color: #606266;
+	margin-bottom: 2rem;
+	line-height: 1.6;
+}
+
+.guide-action-btn {
+	font-size: 16px;
+	padding: 12px 32px;
+	border-radius: 8px;
+	font-weight: 600;
+	box-shadow: 0 4px 12px rgba(64, 158, 255, 0.3);
+	transition: all 0.3s ease;
+}
+
+.guide-action-btn:hover {
+	transform: translateY(-2px);
+	box-shadow: 0 6px 16px rgba(64, 158, 255, 0.4);
+}
+
+.guide-action-btn .el-icon {
+	margin-right: 8px;
 }
 
 /* 针对笔记本电脑屏幕 */
