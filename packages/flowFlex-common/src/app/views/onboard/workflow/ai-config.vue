@@ -1,22 +1,26 @@
 <template>
 	<div class="ai-config-page">
 		<!-- Page Header -->
-		<div class="page-header">
-			<div class="header-content">
-				<h1>🤖 AI Model Configuration</h1>
-				<p>Manage your AI model settings and test connections</p>
-			</div>
-			<div class="header-actions">
-				<el-button type="primary" @click="addNewConfig">
-					<el-icon class="mr-1"><Plus /></el-icon>
+		<PageHeader
+			title="AI Model Configuration"
+			description="Manage your AI model settings and test connections"
+		>
+			<template #actions>
+				<el-button
+					@click="addNewConfig"
+					type="primary"
+					size="default"
+					class="page-header-btn page-header-btn-primary"
+					:icon="Plus"
+				>
 					Add New Model
 				</el-button>
-			</div>
-		</div>
+			</template>
+		</PageHeader>
 
 		<!-- Models Table -->
-		<div class="models-table">
-			<el-table :data="modelConfigs" v-loading="loading" stripe border>
+		<el-card shadow="hover">
+			<el-table :data="modelConfigs" v-loading="loading" stripe>
 				<el-table-column prop="provider" label="Provider" width="120">
 					<template #default="{ row }">
 						<el-tag :type="getProviderType(row.provider)">
@@ -82,7 +86,7 @@
 					</template>
 				</el-table-column>
 			</el-table>
-		</div>
+		</el-card>
 
 		<!-- Add/Edit Dialog -->
 		<el-dialog
@@ -186,6 +190,7 @@
 import { ref, reactive, onMounted, computed } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { Plus, Check } from '@element-plus/icons-vue';
+import PageHeader from '@/components/global/PageHeader/index.vue';
 import {
 	getUserAIModels,
 	createAIModel,
@@ -554,47 +559,8 @@ onMounted(async () => {
 
 <style scoped lang="scss">
 .ai-config-page {
-	padding: 16px 24px;
-	width: 100%;
-	box-sizing: border-box;
-}
-
-.page-header {
-	display: flex;
-	justify-content: space-between;
-	align-items: center;
-	margin-bottom: 20px;
-	padding: 20px 32px;
-	background: var(--el-color-success);
-	color: var(--el-color-white);
-	width: 100%;
-	box-sizing: border-box;
-	@apply rounded-xl;
-}
-
-.header-content h1 {
-	margin: 0 0 8px 0;
-	font-size: 28px;
-	font-weight: 700;
-}
-
-.header-content p {
-	margin: 0;
-	opacity: 0.9;
-	font-size: 16px;
-}
-
-.models-table {
-	background: var(--el-bg-color);
-	padding: 20px;
-	box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-	width: 100%;
-	box-sizing: border-box;
-	@apply rounded-xl;
-}
-
-.models-table :deep(.el-table__body-wrapper) {
-	width: 100%;
+	max-width: 1400px;
+	margin: 0 auto;
 }
 
 .action-buttons {
@@ -615,92 +581,7 @@ onMounted(async () => {
 	line-height: 1.2;
 }
 
-/* 确保按钮在不同状态下保持一致的样式 */
-.action-buttons .el-button:disabled {
-	opacity: 0.5;
-}
-
-/* 响应式设计优化 */
-@media (max-width: 1400px) {
-	.ai-config-page {
-		padding: 12px 16px;
-	}
-
-	.page-header {
-		padding: 16px 24px;
-		margin-bottom: 16px;
-	}
-
-	.models-table {
-		padding: 16px;
-	}
-}
-
-@media (max-width: 1200px) {
-	.action-buttons {
-		gap: 4px;
-	}
-
-	.action-buttons .el-button {
-		font-size: 10px;
-		padding: 2px 6px;
-		height: 24px;
-	}
-}
-
-@media (max-width: 768px) {
-	.ai-config-page {
-		padding: 8px 12px;
-	}
-
-	.page-header {
-		flex-direction: column;
-		gap: 16px;
-		text-align: center;
-		padding: 16px;
-	}
-
-	.header-content h1 {
-		font-size: 24px;
-	}
-
-	.models-table {
-		padding: 12px;
-		overflow-x: auto;
-	}
-
-	.action-buttons {
-		flex-wrap: wrap;
-		gap: 2px;
-	}
-
-	.action-buttons .el-button {
-		font-size: 9px;
-		padding: 1px 4px;
-		height: 20px;
-	}
-}
-
 .el-slider {
 	width: 100%;
-}
-
-/* 对话框优化 */
-:deep(.el-dialog) {
-	max-width: 90vw;
-	margin: 5vh auto;
-}
-
-:deep(.el-dialog__body) {
-	padding: 20px;
-}
-
-/* 表单优化 */
-:deep(.el-form-item) {
-	margin-bottom: 18px;
-}
-
-:deep(.el-form-item__label) {
-	font-weight: 500;
 }
 </style>
