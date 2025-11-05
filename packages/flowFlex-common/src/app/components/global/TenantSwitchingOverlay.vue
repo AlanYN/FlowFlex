@@ -294,7 +294,7 @@ const handleHelp = () => {
 }
 
 .title {
-	font-size: var(--heading-4-size); // 使用 Typography 变量
+	font-size: var(--subtitle-1-size); // 使用 Typography 变量
 	font-weight: var(--heading-4-weight);
 	margin-bottom: 8px;
 	color: var(--el-text-color-primary); // 使用主要文本色
