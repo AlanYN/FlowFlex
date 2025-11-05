@@ -198,6 +198,20 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.Onboarding
         }
 
         /// <summary>
+        /// Get Case Codes as list (splits comma-separated values)
+        /// </summary>
+        public List<string> GetCaseCodesList()
+        {
+            if (string.IsNullOrEmpty(CaseCode))
+                return new List<string>();
+
+            return CaseCode.Split(',', StringSplitOptions.RemoveEmptyEntries)
+                          .Select(code => code.Trim())
+                          .Where(code => !string.IsNullOrEmpty(code))
+                          .ToList();
+        }
+
+        /// <summary>
         /// Get Updated By users as list (splits comma-separated values)
         /// </summary>
         public List<string> GetUpdatedByList()
