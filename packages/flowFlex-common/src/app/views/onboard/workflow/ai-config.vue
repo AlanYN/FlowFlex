@@ -29,9 +29,9 @@
 					</template>
 				</el-table-column>
 
-				<el-table-column prop="modelName" label="Model" width="150" />
+				<el-table-column prop="modelName" label="Model" width="180" />
 
-				<el-table-column prop="baseUrl" label="API URL" width="200" show-overflow-tooltip />
+				<el-table-column prop="baseUrl" label="API URL" min-width="200" show-overflow-tooltip />
 
 				<el-table-column label="Status" width="100">
 					<template #default="{ row }">
@@ -41,7 +41,7 @@
 					</template>
 				</el-table-column>
 
-				<el-table-column label="Default" width="80">
+				<el-table-column label="Default" width="80" align="center">
 					<template #default="{ row }">
 						<el-icon v-if="row.isDefault" class="text-green-500">
 							<Check />
@@ -49,13 +49,13 @@
 					</template>
 				</el-table-column>
 
-				<el-table-column prop="lastCheckTime" label="Last Check" width="150">
+				<el-table-column prop="lastCheckTime" label="Last Check" width="180">
 					<template #default="{ row }">
 						{{ formatDateTime(row.lastCheckTime) }}
 					</template>
 				</el-table-column>
 
-				<el-table-column label="Actions" width="280">
+				<el-table-column label="Actions" min-width="320" fixed="right">
 					<template #default="{ row }">
 						<div class="action-buttons">
 							<el-button
@@ -565,13 +565,27 @@ onMounted(async () => {
 
 .action-buttons {
 	display: flex;
-	gap: 6px;
+	gap: 8px;
 	flex-wrap: nowrap;
 	align-items: center;
 	justify-content: flex-start;
 }
 
+.action-buttons .el-button {
+	white-space: nowrap;
+}
+
 .el-slider {
 	width: 100%;
+}
+
+/* 确保表格内容完整显示 */
+:deep(.el-table) {
+	width: 100%;
+}
+
+:deep(.el-card__body) {
+	padding: 20px;
+	overflow-x: auto;
 }
 </style>
