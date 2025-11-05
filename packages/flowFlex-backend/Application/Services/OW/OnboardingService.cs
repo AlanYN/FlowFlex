@@ -1202,6 +1202,12 @@ namespace FlowFlex.Application.Services.OW
                     }
                 }
 
+                // Filter by Case Code (fuzzy matching)
+                if (!string.IsNullOrEmpty(request.CaseCode) && request.CaseCode != "string")
+                {
+                    whereExpressions.Add(x => x.CaseCode != null && x.CaseCode.ToLower().Contains(request.CaseCode.ToLower()));
+                }
+
                 if (request.LifeCycleStageId.HasValue && request.LifeCycleStageId.Value > 0)
                 {
                     whereExpressions.Add(x => x.LifeCycleStageId == request.LifeCycleStageId.Value);
@@ -3295,6 +3301,7 @@ namespace FlowFlex.Application.Services.OW
             {
                 CustomerName = item.LeadName,
                 Id = item.LeadId,
+                CaseCode = item.CaseCode,
                 ContactName = item.ContactPerson,
                 LifeCycleStage = item.LifeCycleStageName,
                 WorkFlow = item.WorkflowName,
@@ -3354,8 +3361,8 @@ namespace FlowFlex.Application.Services.OW
             // Set headers
             var headers = new[]
             {
-                "Customer Name", "Lead ID", "Contact Name", "Life Cycle Stage", "Workflow", "Stage",
-                "Priority", "Status", "Start Date", "End Date", "Updated By", "Update Time"
+                "Customer Name", "Lead ID", "Case Code", "Contact Name", "Life Cycle Stage", "Workflow", "Stage",
+                "Priority", "Ownership", "Status", "Start Date", "End Date", "Updated By", "Update Time"
             };
 
             for (int i = 0; i < headers.Length; i++)
@@ -3370,16 +3377,18 @@ namespace FlowFlex.Application.Services.OW
                 var item = data[row];
                 worksheet.Cells[row + 2, 1].Value = item.CustomerName;
                 worksheet.Cells[row + 2, 2].Value = item.Id;
-                worksheet.Cells[row + 2, 3].Value = item.ContactName;
-                worksheet.Cells[row + 2, 4].Value = item.LifeCycleStage;
-                worksheet.Cells[row + 2, 5].Value = item.WorkFlow;
-                worksheet.Cells[row + 2, 6].Value = item.OnboardStage;
-                worksheet.Cells[row + 2, 7].Value = item.Priority;
-                worksheet.Cells[row + 2, 8].Value = item.Status;
-                worksheet.Cells[row + 2, 9].Value = item.StartDate;
-                worksheet.Cells[row + 2, 10].Value = item.EndDate;
-                worksheet.Cells[row + 2, 11].Value = item.UpdatedBy;
-                worksheet.Cells[row + 2, 12].Value = item.UpdateTime;
+                worksheet.Cells[row + 2, 3].Value = item.CaseCode;
+                worksheet.Cells[row + 2, 4].Value = item.ContactName;
+                worksheet.Cells[row + 2, 5].Value = item.LifeCycleStage;
+                worksheet.Cells[row + 2, 6].Value = item.WorkFlow;
+                worksheet.Cells[row + 2, 7].Value = item.OnboardStage;
+                worksheet.Cells[row + 2, 8].Value = item.Priority;
+                worksheet.Cells[row + 2, 9].Value = item.Ownership;
+                worksheet.Cells[row + 2, 10].Value = item.Status;
+                worksheet.Cells[row + 2, 11].Value = item.StartDate;
+                worksheet.Cells[row + 2, 12].Value = item.EndDate;
+                worksheet.Cells[row + 2, 13].Value = item.UpdatedBy;
+                worksheet.Cells[row + 2, 14].Value = item.UpdateTime;
             }
 
             // Auto-fit columns

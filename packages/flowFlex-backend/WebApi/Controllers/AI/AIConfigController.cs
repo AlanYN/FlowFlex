@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
 using System.ComponentModel.DataAnnotations;
 using FlowFlex.Application.Contracts.IServices;
+using FlowFlex.Application.Contracts.IServices.OW;
 using Item.Internal.StandardApi.Response;
 using System.Net;
 using FlowFlex.Domain.Entities.OW;
@@ -25,11 +26,16 @@ namespace FlowFlex.WebApi.Controllers.AI
     {
         private readonly IAIModelConfigService _configService;
         private readonly ILogger<AIConfigController> _logger;
+        private readonly IOperatorContextService _operatorContextService;
 
-        public AIConfigController(IAIModelConfigService configService, ILogger<AIConfigController> logger)
+        public AIConfigController(
+            IAIModelConfigService configService, 
+            ILogger<AIConfigController> logger,
+            IOperatorContextService operatorContextService)
         {
             _configService = configService;
             _logger = logger;
+            _operatorContextService = operatorContextService;
         }
 
         /// <summary>
@@ -98,7 +104,18 @@ namespace FlowFlex.WebApi.Controllers.AI
             {
                 // 使用租户隔离，UserContext会自动处理租户信息
                 // 服务层会从UserContext自动获取TenantId和AppCode
-                config.UserId = GetCurrentUserId(); // 保留用于审计追踪
+                var operatorId = _operatorContextService.GetOperatorId();
+                var operatorName = _operatorContextService.GetOperatorDisplayName();
+                var currentTime = DateTime.UtcNow;
+
+                config.UserId = operatorId; // 保留用于审计追踪
+                config.CreatedBy = operatorId;
+                config.CreatedByName = operatorName;
+                config.CreatedTime = currentTime;
+                config.UpdatedBy = operatorId;
+                config.UpdatedByName = operatorName;
+                config.UpdatedTime = currentTime;
+
                 var id = await _configService.CreateConfigAsync(config);
                 return Success(id);
             }
@@ -124,7 +141,15 @@ namespace FlowFlex.WebApi.Controllers.AI
             {
                 config.Id = id;
                 // 使用租户隔离，UserContext会自动处理租户信息
-                config.UserId = GetCurrentUserId();
+                var operatorId = _operatorContextService.GetOperatorId();
+                var operatorName = _operatorContextService.GetOperatorDisplayName();
+                var currentTime = DateTime.UtcNow;
+
+                config.UserId = operatorId;
+                config.UpdatedBy = operatorId;
+                config.UpdatedByName = operatorName;
+                config.UpdatedTime = currentTime;
+
                 var result = await _configService.UpdateConfigAsync(config);
                 return Success(result);
             }

@@ -1,17 +1,13 @@
 using FlowFlex.Application.Contracts.IServices.OW;
-using Infrastructure.CodeGenerator;
 using Item.Redis;
 using Microsoft.Extensions.Configuration;
-using static Infrastructure.CodeGenerator.AutoCodeExtension;
 
 namespace FlowFlex.Application.Services.OW
 {
     /// <summary>
     /// Case code generator service implementation
-    /// Generates unique case codes based on lead names following the pattern:
-    /// - Extract prefix from lead name (similar to customer code generation)
-    /// - Append sequential number with padding
-    /// - Example: "TP-link1" -> "TPLINK0001", "C.H.Robinson" -> "CHRRES0001"
+    /// Generates unique case codes with fixed prefix "C" and auto-increment number
+    /// Format: C00001, C00002, ..., C99999, C100000, C100001, ...
     /// </summary>
     public class CaseCodeGeneratorService : ICaseCodeGeneratorService
     {
@@ -19,16 +15,9 @@ namespace FlowFlex.Application.Services.OW
         private readonly IConfiguration _configuration;
 
         // Configuration constants
-        private const int CodeMaxNum = 10;              // Total code length
-        private const int PrefixPartCount = 2;          // Number of prefix parts (words to take)
-        private const int OnePrefixCount = 3;           // Characters per prefix part
-        private const string CodeDefaultPrefix = "C";   // Default prefix when name processing results in empty
-        private const string Replacement = " ";
+        private const string CodePrefix = "C";          // Fixed prefix
+        private const int InitialNumberLength = 5;      // Initial number length (00001-99999)
         private const char PaddingChar = '0';
-        private static readonly char[] Customize = ['.'];
-
-        private int CodePrefixLength => PrefixPartCount * OnePrefixCount;
-        private int UniqueIdLength => CodeMaxNum - CodePrefixLength;
 
         public CaseCodeGeneratorService(IRedisService redisService, IConfiguration configuration)
         {
@@ -37,21 +26,19 @@ namespace FlowFlex.Application.Services.OW
         }
 
         /// <summary>
-        /// Generate case code from lead name
+        /// Generate case code with format: C00001, C00002, ..., C99999, C100000, ...
         /// </summary>
         public async Task<string> GenerateCaseCodeAsync(string leadName)
         {
-            if (string.IsNullOrWhiteSpace(leadName))
-            {
-                leadName = CodeDefaultPrefix;
-            }
-
-            var caseCodePrefix = GeneratePrefix(leadName);
-            var counterKey = GetCounterKey(caseCodePrefix);
+            var counterKey = GetCounterKey();
             var uniqueId = await GenerateUniqueIdAsync(counterKey);
-            var uniqueIdLength = UniqueIdLength;
-
-            return $"{caseCodePrefix}{uniqueId.ToString().PadLeft(uniqueIdLength, PaddingChar)}";
+            
+            // Determine padding length based on number size
+            // For numbers 1-99999: use 5 digits (C00001)
+            // For numbers >= 100000: use actual length (C100000)
+            var numberLength = Math.Max(InitialNumberLength, uniqueId.ToString().Length);
+            
+            return $"{CodePrefix}{uniqueId.ToString().PadLeft(numberLength, PaddingChar)}";
         }
 
         /// <summary>
@@ -63,118 +50,14 @@ namespace FlowFlex.Application.Services.OW
         }
 
         /// <summary>
-        /// Get Redis counter key for the prefix
+        /// Get Redis counter key (single global counter for all cases)
         /// </summary>
-        private string GetCounterKey(string caseCodePrefix)
+        private string GetCounterKey()
         {
             var sysPrefix = string.IsNullOrEmpty(_configuration["Redis:KeyPrefix"]) 
                 ? "" 
                 : $"{_configuration["Redis:KeyPrefix"]}:";
-            return $"{sysPrefix}ow:case:{caseCodePrefix}:count";
-        }
-
-        /// <summary>
-        /// Generate prefix from lead name
-        /// </summary>
-        private string GeneratePrefix(string leadName)
-        {
-            // Process the string: remove special chars, merge spaces, remove customize chars
-            var formattedString = leadName
-                .ReplaceSpecialCharacter(Replacement, Customize)
-                .ReplaceRepeatWhiteSpace(Replacement)
-                .RemoveChars(Customize);
-
-            if (string.IsNullOrWhiteSpace(formattedString))
-            {
-                formattedString = CodeDefaultPrefix;
-            }
-
-            var separatorArray = formattedString.Split(Replacement);
-
-            var result = GenerateCore(separatorArray.ToList());
-
-            return string.Concat(result).ToUpperInvariant();
-        }
-
-        /// <summary>
-        /// Core generation logic - extract prefix parts from word array
-        /// </summary>
-        private string[] GenerateCore(List<string> originalArray)
-        {
-            // If single word longer than OnePrefixCount, split it into groups
-            if (originalArray.Count == 1 && originalArray[0].Length > OnePrefixCount)
-            {
-                originalArray = SplitStringSingle(originalArray[0]);
-            }
-
-            var targetArray = AppendArray(originalArray, PrefixPartCount);
-
-            var newArray = new string[targetArray.Length];
-
-            for (var i = 0; i < targetArray.Length; i++)
-            {
-                if (i >= PrefixPartCount) break;
-
-                var currentLength = targetArray[i].Length;
-
-                if (currentLength >= OnePrefixCount)
-                {
-                    // Take first OnePrefixCount characters
-                    newArray[i] = targetArray[i].Substring(0, OnePrefixCount);
-                }
-                else
-                {
-                    // Not enough characters, borrow from next words
-                    var missingChars = OnePrefixCount - currentLength;
-                    for (var j = i + 1; j < targetArray.Length && missingChars > 0; j++)
-                    {
-                        var nextString = targetArray[j];
-                        var takeChars = Math.Min(missingChars, nextString.Length);
-                        targetArray[i] += nextString.Substring(0, takeChars);
-                        missingChars -= takeChars;
-
-                        targetArray[j] = nextString.Substring(takeChars);
-                    }
-
-                    // If still not enough, pad with '0'
-                    if (targetArray[i].Length < OnePrefixCount)
-                    {
-                        targetArray[i] = targetArray[i].PadRight(OnePrefixCount, PaddingChar);
-                    }
-
-                    newArray[i] = targetArray[i];
-                }
-            }
-
-            return newArray;
-        }
-
-        /// <summary>
-        /// Append empty strings to reach target array count
-        /// </summary>
-        private static string[] AppendArray(List<string> originalArray, int targetArrayCount)
-        {
-            var count = targetArrayCount - originalArray.Count;
-            if (count > 0)
-            {
-                for (int i = 0; i < count; i++)
-                {
-                    originalArray.Add(string.Empty);
-                }
-            }
-            return originalArray.ToArray();
-        }
-
-        /// <summary>
-        /// Split single string into groups of OnePrefixCount characters
-        /// </summary>
-        private List<string> SplitStringSingle(string input)
-        {
-            var groups = Enumerable.Range(0, input.Length / OnePrefixCount)
-                .Select(i => input.Substring(i * OnePrefixCount, OnePrefixCount))
-                .Concat(new[] { input.Substring(input.Length / OnePrefixCount * OnePrefixCount) });
-
-            return groups.ToList();
+            return $"{sysPrefix}ow:case:global:count";
         }
     }
 }

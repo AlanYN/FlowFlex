@@ -22,7 +22,10 @@
 		<div class="grid grid-cols-12 gap-6">
 			<!-- AI Generator -->
 			<div :class="showWorkflowList ? 'col-span-8' : 'col-span-12'">
-				<AIWorkflowGenerator @workflow-generated="handleWorkflowGenerated" />
+			<AIWorkflowGenerator
+				@workflow-generated="handleWorkflowGenerated"
+				@open-ai-config="showAIConfig"
+			/>
 			</div>
 
 			<!-- Workflow List -->
@@ -195,6 +198,7 @@ const refreshWorkflowList = async () => {
 };
 
 const showAIConfig = () => {
+	console.log('📝 showAIConfig called, opening dialog...');
 	showAIConfigDialog.value = true;
 };
 

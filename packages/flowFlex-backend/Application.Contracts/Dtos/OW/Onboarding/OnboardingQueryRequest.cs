@@ -60,6 +60,11 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.Onboarding
         public string? LeadName { get; set; }
 
         /// <summary>
+        /// Filter by case code (fuzzy matching)
+        /// </summary>
+        public string? CaseCode { get; set; }
+
+        /// <summary>
         /// Filter by lead email
         /// </summary>
         public string? LeadEmail { get; set; }

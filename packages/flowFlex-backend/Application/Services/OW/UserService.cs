@@ -1386,8 +1386,8 @@ namespace FlowFlex.Application.Services.OW
                     }
                 }
 
-                // Update member count (including child teams and users)
-                userTreeNode.MemberCount = userTreeNode.Children.Count;
+                // Update member count: count all unique users in this team and all sub-teams
+                userTreeNode.MemberCount = CountUniqueUsersInTree(userTreeNode);
 
                 result.Add(userTreeNode);
             }
@@ -1440,6 +1440,46 @@ namespace FlowFlex.Application.Services.OW
             }
 
             return result;
+        }
+
+        /// <summary>
+        /// Count all unique users in a team tree (including all sub-teams, with deduplication)
+        /// </summary>
+        private int CountUniqueUsersInTree(UserTreeNodeDto node)
+        {
+            if (node == null || node.Children == null || !node.Children.Any())
+            {
+                return 0;
+            }
+
+            var uniqueUserIds = new HashSet<string>();
+            CollectUniqueUserIds(node, uniqueUserIds);
+            return uniqueUserIds.Count;
+        }
+
+        /// <summary>
+        /// Recursively collect all unique user IDs from a tree node and its descendants
+        /// </summary>
+        private void CollectUniqueUserIds(UserTreeNodeDto node, HashSet<string> userIds)
+        {
+            if (node == null || node.Children == null || !node.Children.Any())
+            {
+                return;
+            }
+
+            foreach (var child in node.Children)
+            {
+                if (child.Type == "user" && !string.IsNullOrEmpty(child.Id))
+                {
+                    // Add user ID to the set (automatically deduplicates)
+                    userIds.Add(child.Id);
+                }
+                else if (child.Type == "team")
+                {
+                    // Recursively collect from sub-teams
+                    CollectUniqueUserIds(child, userIds);
+                }
+            }
         }
 
         /// <summary>

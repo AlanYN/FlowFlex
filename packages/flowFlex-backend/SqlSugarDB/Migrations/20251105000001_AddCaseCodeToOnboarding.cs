@@ -4,7 +4,7 @@ namespace FlowFlex.SqlSugarDB.Migrations
 {
     /// <summary>
     /// Add CaseCode field to onboarding (case) table
-    /// Adds: case_code - Unique identifier generated from Lead Name
+    /// Adds: case_code - Unique identifier with format C00001, C00002, ..., C99999, C100000, ...
     /// </summary>
     public class Migration_20251105000001_AddCaseCodeToOnboarding
     {
@@ -18,7 +18,7 @@ namespace FlowFlex.SqlSugarDB.Migrations
 
             // Add comment to case_code column
             db.Ado.ExecuteCommand(@"
-                COMMENT ON COLUMN ff_onboarding.case_code IS 'Unique case code generated from Lead Name. Format: PREFIX + Sequential Number (e.g., TPLINK0001, CHRRES0001). Cannot be modified after creation.';
+                COMMENT ON COLUMN ff_onboarding.case_code IS 'Unique case code with fixed prefix C and auto-increment number. Format: C00001, C00002, ..., C99999, C100000, ... Cannot be modified after creation.';
             ");
 
             // Create index for better query performance

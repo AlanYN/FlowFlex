@@ -20,6 +20,12 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.Onboarding
         public string Id { get; set; }
 
         /// <summary>
+        /// Case Code
+        /// </summary>
+        [ExcelColumn(Name = "Case Code")]
+        public string CaseCode { get; set; }
+
+        /// <summary>
         /// Contact Name
         /// </summary>
         [ExcelColumn(Name = "Contact Name")]
