@@ -1506,16 +1506,6 @@ const generateWorkflow = async () => {
 
 	generating.value = true;
 
-	// Performance tip for DeepSeek model
-	if (currentAIModel.value?.provider?.toLowerCase() === 'deepseek') {
-		ElMessage({
-			message: '🚀 DeepSeek streaming processing: Real-time progress updates (20-30 seconds)',
-			type: 'info',
-			duration: 5000,
-			showClose: true,
-		});
-	}
-
 	// Only add user message when there's new input
 	if (hasInput || hasFile) {
 		const userMessage: ChatMessage = {
