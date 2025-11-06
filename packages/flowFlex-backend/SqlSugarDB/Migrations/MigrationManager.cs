@@ -91,7 +91,8 @@ namespace FlowFlex.SqlSugarDB.Migrations
                     ("20251029000003_AddUseSameTeamForOperateToOnboarding", (Action)(() => Migration_20251029000003_AddUseSameTeamForOperateToOnboarding.Up(_db))),
                     ("20251105000001_AddCaseCodeToOnboarding", (Action)(() => Migration_20251105000001_AddCaseCodeToOnboarding.Up(_db))),
                     ("20251106000001_AddAuditFieldsToAIModelConfig", (Action)(() => Migration_20251106000001_AddAuditFieldsToAIModelConfig.Up(_db))),
-                    ("20251106000002_MakeLeadIdNullableInChecklistTaskCompletion", (Action)(() => Migration_20251106000002_MakeLeadIdNullableInChecklistTaskCompletion.Up(_db)))
+                    ("20251106000002_MakeLeadIdNullableInChecklistTaskCompletion", (Action)(() => Migration_20251106000002_MakeLeadIdNullableInChecklistTaskCompletion.Up(_db))),
+                    ("20251106000003_MakeSentDateNullableInUserInvitations", (Action)(() => MakeSentDateNullableInUserInvitations_20251106000003.Up(_db)))
                 };
 
                 // Pre-check all migrations to reduce individual SQL queries
