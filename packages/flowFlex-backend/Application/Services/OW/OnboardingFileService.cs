@@ -33,6 +33,7 @@ namespace FlowFlex.Application.Services.OW
         private readonly IMapper _mapper;
         private readonly ILogger<OnboardingFileService> _logger;
         private readonly UserContext _userContext;
+        private readonly IOperatorContextService _operatorContextService;
 
         public OnboardingFileService(
             IOnboardingFileRepository onboardingFileRepository,
@@ -43,7 +44,8 @@ namespace FlowFlex.Application.Services.OW
             IOperationChangeLogService operationChangeLogService,
             IMapper mapper,
             ILogger<OnboardingFileService> logger,
-            UserContext userContext)
+            UserContext userContext,
+            IOperatorContextService operatorContextService)
         {
             _onboardingFileRepository = onboardingFileRepository;
 
@@ -54,6 +56,7 @@ namespace FlowFlex.Application.Services.OW
             _mapper = mapper;
             _logger = logger;
             _userContext = userContext;
+            _operatorContextService = operatorContextService;
         }
 
         /// <summary>
@@ -114,7 +117,7 @@ namespace FlowFlex.Application.Services.OW
                 var attachmentDto = new AttachmentDto
                 {
                     FileData = input.FormFile,
-                    CreateBy = _userContext.UserId
+                    CreateBy = _operatorContextService.GetOperatorDisplayName()
                 };
 
                 var attachment = await _attachmentService.CreateAttachmentAsync(
@@ -341,8 +344,8 @@ namespace FlowFlex.Application.Services.OW
                 // Soft delete
                 onboardingFile.IsValid = false;
                 onboardingFile.Status = "Deleted";
-                onboardingFile.ModifyBy = _userContext.UserId;
-                onboardingFile.ModifyUserId = long.Parse(_userContext.UserId);
+                onboardingFile.ModifyBy = _operatorContextService.GetOperatorDisplayName();
+                onboardingFile.ModifyUserId = _operatorContextService.GetOperatorId();
                 onboardingFile.ModifyDate = DateTimeOffset.UtcNow;
 
                 await _onboardingFileRepository.UpdateAsync(onboardingFile);
@@ -429,8 +432,8 @@ namespace FlowFlex.Application.Services.OW
                     changedFields.Add("Status");
                 }
 
-                onboardingFile.ModifyBy = _userContext.UserId;
-                onboardingFile.ModifyUserId = long.Parse(_userContext.UserId);
+                onboardingFile.ModifyBy = _operatorContextService.GetOperatorDisplayName();
+                onboardingFile.ModifyUserId = _operatorContextService.GetOperatorId();
                 onboardingFile.ModifyDate = DateTimeOffset.UtcNow;
 
                 await _onboardingFileRepository.UpdateAsync(onboardingFile);

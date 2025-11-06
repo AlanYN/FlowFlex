@@ -919,6 +919,21 @@ namespace FlowFlex.Application.Services.OW
 
                 // Serialize back to JSON (only progress fields)
                 await FilterValidStagesProgress(entity);
+                
+                // IMPORTANT: Get fresh audit values and save them to local variables BEFORE any update
+                // This prevents SqlSugar from resetting entity values
+                var modifyDate = DateTimeOffset.UtcNow;
+                var modifyBy = _operatorContextService.GetOperatorDisplayName();
+                var modifyUserId = _operatorContextService.GetOperatorId();
+                
+                LoggingExtensions.WriteLine($"[DEBUG] SafeUpdateOnboardingAsync - Using ModifyBy: '{modifyBy}'");
+                
+                // Update entity with fresh audit values
+                entity.ModifyDate = modifyDate;
+                entity.ModifyBy = modifyBy;
+                entity.ModifyUserId = modifyUserId;
+                
+                // Use UpdateColumns with the entity (now with fresh audit values)
                 var result = await _onboardingRepository.UpdateAsync(entity,
                     it => new
                     {
@@ -961,6 +976,33 @@ namespace FlowFlex.Application.Services.OW
                         it.ModifyUserId,
                         it.IsValid
                     });
+                
+                // WORKAROUND: Update audit fields again with manual SQL using saved local variables
+                // This ensures the correct values are used, not the entity's potentially reset values
+                try
+                {
+                    var auditSql = @"
+                        UPDATE ff_onboarding 
+                        SET modify_date = @ModifyDate,
+                            modify_by = @ModifyBy,
+                            modify_user_id = @ModifyUserId
+                        WHERE id = @Id";
+                    
+                    await db.Ado.ExecuteCommandAsync(auditSql, new
+                    {
+                        ModifyDate = modifyDate,  // Use local variable, not entity property
+                        ModifyBy = modifyBy,      // Use local variable, not entity property
+                        ModifyUserId = modifyUserId,  // Use local variable, not entity property
+                        Id = entity.Id
+                    });
+                    
+                    LoggingExtensions.WriteLine($"[DEBUG] SafeUpdateOnboardingAsync - Audit fields updated via SQL: ModifyBy='{modifyBy}'");
+                }
+                catch (Exception auditEx)
+                {
+                    LoggingExtensions.WriteLine($"Warning: Failed to update audit fields via SQL: {auditEx.Message}");
+                    // Don't fail the entire update if audit field update fails
+                }
 
                 // Update stages_progress_json separately with explicit JSONB casting
                 if (!string.IsNullOrEmpty(entity.StagesProgressJson))

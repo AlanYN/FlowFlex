@@ -53,11 +53,11 @@ namespace FlowFlex.Application.Services.OW
         }
 
         /// <summary>
-        /// Get current user name from UserContext
+        /// Get current user name from OperatorContextService (FirstName + LastName > UserName > Email)
         /// </summary>
         private string GetCurrentUserName()
         {
-            return !string.IsNullOrEmpty(_userContext?.UserName) ? _userContext.UserName : "System";
+            return _operatorContextService.GetOperatorDisplayName();
         }
 
         /// <summary>

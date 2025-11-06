@@ -27,6 +27,7 @@ public class InternalNoteService : IInternalNoteService, IScopedService
     private readonly IMapper _mapper;
     private readonly IHttpContextAccessor _httpContextAccessor;
     private readonly UserContext _userContext;
+    private readonly IOperatorContextService _operatorContextService;
 
     public InternalNoteService(
         IInternalNoteRepository noteRepository,
@@ -34,7 +35,8 @@ public class InternalNoteService : IInternalNoteService, IScopedService
         IStageRepository stageRepository,
         IMapper mapper,
         IHttpContextAccessor httpContextAccessor,
-        UserContext userContext)
+        UserContext userContext,
+        IOperatorContextService operatorContextService)
     {
         _noteRepository = noteRepository;
         _onboardingRepository = onboardingRepository;
@@ -42,6 +44,7 @@ public class InternalNoteService : IInternalNoteService, IScopedService
         _mapper = mapper;
         _httpContextAccessor = httpContextAccessor;
         _userContext = userContext;
+        _operatorContextService = operatorContextService;
     }
 
     /// <summary>
@@ -401,11 +404,11 @@ public class InternalNoteService : IInternalNoteService, IScopedService
     }
 
     /// <summary>
-    /// Get current user name
+    /// Get current user name (FirstName + LastName > UserName > Email)
     /// </summary>
     private string GetCurrentUser()
     {
-        return !string.IsNullOrEmpty(_userContext?.UserName) ? _userContext.UserName : "System";
+        return _operatorContextService.GetOperatorDisplayName();
     }
 
     /// <summary>

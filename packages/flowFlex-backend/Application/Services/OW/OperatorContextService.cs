@@ -23,20 +23,38 @@ namespace FlowFlex.Application.Services.OW
         public string GetOperatorDisplayName()
         {
             Console.WriteLine($"[OperatorContextService] GetOperatorDisplayName called");
-            Console.WriteLine($"[OperatorContextService] UserContext.Email: '{_userContext?.Email ?? "null"}'");
+            Console.WriteLine($"[OperatorContextService] UserContext.FirstName: '{_userContext?.FirstName ?? "null"}'");
+            Console.WriteLine($"[OperatorContextService] UserContext.LastName: '{_userContext?.LastName ?? "null"}'");
             Console.WriteLine($"[OperatorContextService] UserContext.UserName: '{_userContext?.UserName ?? "null"}'");
+            Console.WriteLine($"[OperatorContextService] UserContext.Email: '{_userContext?.Email ?? "null"}'");
             Console.WriteLine($"[OperatorContextService] UserContext.UserId: '{_userContext?.UserId ?? "null"}'");
             
-            // Prefer explicit email then username from UserContext
-            if (!string.IsNullOrWhiteSpace(_userContext?.Email))
+            // Priority 1: FirstName + LastName
+            if (!string.IsNullOrWhiteSpace(_userContext?.FirstName) || !string.IsNullOrWhiteSpace(_userContext?.LastName))
             {
-                Console.WriteLine($"[OperatorContextService] Returning Email: '{_userContext.Email}'");
-                return _userContext.Email;
+                var firstName = _userContext?.FirstName?.Trim() ?? "";
+                var lastName = _userContext?.LastName?.Trim() ?? "";
+                var fullName = $"{firstName} {lastName}".Trim();
+                
+                if (!string.IsNullOrWhiteSpace(fullName))
+                {
+                    Console.WriteLine($"[OperatorContextService] Returning FirstName + LastName: '{fullName}'");
+                    return fullName;
+                }
             }
+            
+            // Priority 2: UserName
             if (!string.IsNullOrWhiteSpace(_userContext?.UserName))
             {
                 Console.WriteLine($"[OperatorContextService] Returning UserName: '{_userContext.UserName}'");
                 return _userContext.UserName;
+            }
+            
+            // Priority 3: Email
+            if (!string.IsNullOrWhiteSpace(_userContext?.Email))
+            {
+                Console.WriteLine($"[OperatorContextService] Returning Email: '{_userContext.Email}'");
+                return _userContext.Email;
             }
 
             var httpContext = _httpContextAccessor?.HttpContext;

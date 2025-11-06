@@ -29,8 +29,9 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
             IMapper mapper,
             ILogCacheService logCacheService,
             IActionExecutionService actionExecutionService,
-            IUserService userService)
-            : base(operationChangeLogRepository, logger, userContext, httpContextAccessor, mapper, logCacheService, userService)
+            IUserService userService,
+            IOperatorContextService operatorContextService)
+            : base(operationChangeLogRepository, logger, userContext, httpContextAccessor, mapper, logCacheService, userService, operatorContextService)
         {
             _stageLogger = logger;
             _actionExecutionService = actionExecutionService;

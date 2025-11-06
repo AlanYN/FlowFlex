@@ -38,9 +38,10 @@ namespace FlowFlex.Application.Services.OW.Extensions
             createInfo.CreateDate = now;
             createInfo.ModifyDate = now;
 
-            // Set user information
-            createInfo.CreateBy = userContext?.UserName ?? "SYSTEM";
-            createInfo.ModifyBy = userContext?.UserName ?? "SYSTEM";
+            // Set user information (Priority: FirstName + LastName > UserName)
+            var displayName = GetDisplayName(userContext);
+            createInfo.CreateBy = displayName;
+            createInfo.ModifyBy = displayName;
             createInfo.CreateUserId = ParseToLong(userContext?.UserId);
             createInfo.ModifyUserId = ParseToLong(userContext?.UserId);
 
@@ -53,6 +54,37 @@ namespace FlowFlex.Application.Services.OW.Extensions
             {
                 abstractEntity.AppCode = userContext?.AppCode ?? "DEFAULT";
             }
+        }
+        
+        /// <summary>
+        /// Get display name from UserContext (Priority: FirstName + LastName > UserName)
+        /// </summary>
+        private static string GetDisplayName(UserContext userContext)
+        {
+            if (userContext == null) return "SYSTEM";
+            
+            // Priority 1: FirstName + LastName
+            var firstName = userContext.FirstName?.Trim();
+            var lastName = userContext.LastName?.Trim();
+            var fullName = $"{firstName} {lastName}".Trim();
+            if (!string.IsNullOrEmpty(fullName))
+            {
+                return fullName;
+            }
+            
+            // Priority 2: UserName
+            if (!string.IsNullOrEmpty(userContext.UserName))
+            {
+                return userContext.UserName;
+            }
+            
+            // Priority 3: Email
+            if (!string.IsNullOrEmpty(userContext.Email))
+            {
+                return userContext.Email;
+            }
+            
+            return "SYSTEM";
         }
 
         /// <summary>
@@ -90,36 +122,6 @@ namespace FlowFlex.Application.Services.OW.Extensions
         }
 
         /// <summary>
-        /// Initialize create information for new entity with simple parameters
-        /// </summary>
-        /// <param name="createInfo">Entity to initialize</param>
-        /// <param name="tenantId">Tenant ID</param>
-        /// <param name="userId">User ID</param>
-        /// <param name="userName">User name</param>
-        public static void InitCreateInfo(this EntityBaseCreateInfo createInfo, string tenantId, long userId, string userName)
-        {
-            // Generate snowflake ID using entity's InitNewId method if available
-            if (createInfo is IdEntityBase entityBase)
-            {
-                entityBase.InitNewId();
-            }
-            else
-            {
-                // Fallback: generate a simple timestamp-based ID
-                createInfo.Id = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-            }
-
-            createInfo.TenantId = tenantId;
-            createInfo.CreateBy = userName;
-            createInfo.CreateDate = DateTimeOffset.Now;
-            createInfo.ModifyBy = userName;
-            createInfo.ModifyDate = DateTimeOffset.Now;
-            createInfo.CreateUserId = userId;
-            createInfo.ModifyUserId = userId;
-            createInfo.IsValid = true;
-        }
-
-        /// <summary>
         /// Initialize update information for existing entity
         /// </summary>
         /// <param name="createInfo">Entity to update</param>
@@ -131,8 +133,8 @@ namespace FlowFlex.Application.Services.OW.Extensions
             // Update timestamps
             createInfo.ModifyDate = now;
 
-            // Update user information
-            createInfo.ModifyBy = userContext?.UserName ?? "SYSTEM";
+            // Update user information (Priority: FirstName + LastName > UserName)
+            createInfo.ModifyBy = GetDisplayName(userContext);
             createInfo.ModifyUserId = ParseToLong(userContext?.UserId);
         }
 
@@ -182,9 +184,10 @@ namespace FlowFlex.Application.Services.OW.Extensions
             entity.CreateDate = now;
             entity.ModifyDate = now;
 
-            // Set user information
-            entity.CreateBy = userContext?.UserName ?? "SYSTEM";
-            entity.ModifyBy = userContext?.UserName ?? "SYSTEM";
+            // Set user information (Priority: FirstName + LastName > UserName)
+            var displayName = GetDisplayName(userContext);
+            entity.CreateBy = displayName;
+            entity.ModifyBy = displayName;
             entity.CreateUserId = ParseToLong(userContext?.UserId);
             entity.ModifyUserId = ParseToLong(userContext?.UserId);
 
@@ -206,8 +209,8 @@ namespace FlowFlex.Application.Services.OW.Extensions
             // Update timestamps
             entity.ModifyDate = now;
 
-            // Update user information
-            entity.ModifyBy = userContext?.UserName ?? "SYSTEM";
+            // Update user information (Priority: FirstName + LastName > UserName)
+            entity.ModifyBy = GetDisplayName(userContext);
             entity.ModifyUserId = ParseToLong(userContext?.UserId);
         }
 
@@ -227,9 +230,10 @@ namespace FlowFlex.Application.Services.OW.Extensions
             user.CreateDate = now;
             user.ModifyDate = now;
 
-            // Set user information
-            user.CreateBy = userContext?.UserName ?? "SYSTEM";
-            user.ModifyBy = userContext?.UserName ?? "SYSTEM";
+            // Set user information (Priority: FirstName + LastName > UserName)
+            var displayName = GetDisplayName(userContext);
+            user.CreateBy = displayName;
+            user.ModifyBy = displayName;
             user.CreateUserId = ParseToLong(userContext?.UserId);
             user.ModifyUserId = ParseToLong(userContext?.UserId);
 
@@ -251,8 +255,8 @@ namespace FlowFlex.Application.Services.OW.Extensions
             // Update timestamps
             user.ModifyDate = now;
 
-            // Update user information
-            user.ModifyBy = userContext?.UserName ?? "SYSTEM";
+            // Update user information (Priority: FirstName + LastName > UserName)
+            user.ModifyBy = GetDisplayName(userContext);
             user.ModifyUserId = ParseToLong(userContext?.UserId);
         }
 
@@ -272,9 +276,10 @@ namespace FlowFlex.Application.Services.OW.Extensions
             note.CreateDate = now;
             note.ModifyDate = now;
 
-            // Set user information
-            note.CreateBy = userContext?.UserName ?? "SYSTEM";
-            note.ModifyBy = userContext?.UserName ?? "SYSTEM";
+            // Set user information (Priority: FirstName + LastName > UserName)
+            var displayName = GetDisplayName(userContext);
+            note.CreateBy = displayName;
+            note.ModifyBy = displayName;
             note.CreateUserId = ParseToLong(userContext?.UserId);
             note.ModifyUserId = ParseToLong(userContext?.UserId);
 
@@ -300,9 +305,10 @@ namespace FlowFlex.Application.Services.OW.Extensions
             invitation.CreateDate = now;
             invitation.ModifyDate = now;
 
-            // Set user information
-            invitation.CreateBy = userContext?.UserName ?? "SYSTEM";
-            invitation.ModifyBy = userContext?.UserName ?? "SYSTEM";
+            // Set user information (Priority: FirstName + LastName > UserName)
+            var displayName = GetDisplayName(userContext);
+            invitation.CreateBy = displayName;
+            invitation.ModifyBy = displayName;
             invitation.CreateUserId = ParseToLong(userContext?.UserId);
             invitation.ModifyUserId = ParseToLong(userContext?.UserId);
 
@@ -324,8 +330,8 @@ namespace FlowFlex.Application.Services.OW.Extensions
             // Update timestamps
             note.ModifyDate = now;
 
-            // Update user information
-            note.ModifyBy = userContext?.UserName ?? "SYSTEM";
+            // Update user information (Priority: FirstName + LastName > UserName)
+            note.ModifyBy = GetDisplayName(userContext);
             note.ModifyUserId = ParseToLong(userContext?.UserId);
         }
 
@@ -345,9 +351,10 @@ namespace FlowFlex.Application.Services.OW.Extensions
             log.CreateDate = now;
             log.ModifyDate = now;
 
-            // Set user information
-            log.CreateBy = userContext?.UserName ?? "SYSTEM";
-            log.ModifyBy = userContext?.UserName ?? "SYSTEM";
+            // Set user information (Priority: FirstName + LastName > UserName)
+            var displayName = GetDisplayName(userContext);
+            log.CreateBy = displayName;
+            log.ModifyBy = displayName;
             log.CreateUserId = ParseToLong(userContext?.UserId);
             log.ModifyUserId = ParseToLong(userContext?.UserId);
 
@@ -368,8 +375,8 @@ namespace FlowFlex.Application.Services.OW.Extensions
             // Update timestamps
             log.ModifyDate = now;
 
-            // Update user information
-            log.ModifyBy = userContext?.UserName ?? "SYSTEM";
+            // Update user information (Priority: FirstName + LastName > UserName)
+            log.ModifyBy = GetDisplayName(userContext);
             log.ModifyUserId = ParseToLong(userContext?.UserId);
         }
 
