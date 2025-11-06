@@ -21,6 +21,7 @@ public class ChecklistTaskNoteService : IChecklistTaskNoteService, IScopedServic
     private readonly IMapper _mapper;
     private readonly IHttpContextAccessor _httpContextAccessor;
     private readonly UserContext _userContext;
+    private readonly IOperatorContextService _operatorContextService;
 
     public ChecklistTaskNoteService(
         IChecklistTaskNoteRepository noteRepository,
@@ -28,7 +29,8 @@ public class ChecklistTaskNoteService : IChecklistTaskNoteService, IScopedServic
         IOnboardingRepository onboardingRepository,
         IMapper mapper,
         IHttpContextAccessor httpContextAccessor,
-        UserContext userContext)
+        UserContext userContext,
+        IOperatorContextService operatorContextService)
     {
         _noteRepository = noteRepository;
         _taskRepository = taskRepository;
@@ -36,6 +38,7 @@ public class ChecklistTaskNoteService : IChecklistTaskNoteService, IScopedServic
         _mapper = mapper;
         _httpContextAccessor = httpContextAccessor;
         _userContext = userContext;
+        _operatorContextService = operatorContextService;
     }
 
     /// <summary>
@@ -254,10 +257,10 @@ public class ChecklistTaskNoteService : IChecklistTaskNoteService, IScopedServic
     }
 
     /// <summary>
-    /// Get current user name
+    /// Get current user name (FirstName + LastName > UserName > Email)
     /// </summary>
     private string GetCurrentUserName()
     {
-        return _userContext?.UserName ?? "System";
+        return _operatorContextService.GetOperatorDisplayName();
     }
 }

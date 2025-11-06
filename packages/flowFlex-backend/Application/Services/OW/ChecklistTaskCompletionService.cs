@@ -41,6 +41,7 @@ public class ChecklistTaskCompletionService : IChecklistTaskCompletionService, I
     private readonly IActionDefinitionRepository _actionDefinitionRepository;
     private readonly IActionTriggerMappingRepository _actionTriggerMappingRepository;
     private readonly IServiceProvider _serviceProvider;
+    private readonly IOperatorContextService _operatorContextService;
 
     public ChecklistTaskCompletionService(
     IChecklistTaskCompletionRepository completionRepository,
@@ -58,7 +59,8 @@ public class ChecklistTaskCompletionService : IChecklistTaskCompletionService, I
     IChecklistService checklistService,
     IActionDefinitionRepository actionDefinitionRepository,
     IActionTriggerMappingRepository actionTriggerMappingRepository,
-    IServiceProvider serviceProvider)
+    IServiceProvider serviceProvider,
+    IOperatorContextService operatorContextService)
     {
         _completionRepository = completionRepository;
         _taskRepository = taskRepository;
@@ -72,6 +74,7 @@ public class ChecklistTaskCompletionService : IChecklistTaskCompletionService, I
         _userContext = userContext;
         _mediator = mediator ?? throw new ArgumentNullException(nameof(mediator));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _operatorContextService = operatorContextService;
         _checklistService = checklistService ?? throw new ArgumentNullException(nameof(checklistService));
         _actionDefinitionRepository = actionDefinitionRepository ?? throw new ArgumentNullException(nameof(actionDefinitionRepository));
         _actionTriggerMappingRepository = actionTriggerMappingRepository ?? throw new ArgumentNullException(nameof(actionTriggerMappingRepository));
@@ -79,11 +82,11 @@ public class ChecklistTaskCompletionService : IChecklistTaskCompletionService, I
     }
 
     /// <summary>
-    /// Get current user name from UserContext
+    /// Get current user name from OperatorContextService (FirstName + LastName > UserName > Email)
     /// </summary>
     private string GetCurrentUserName()
     {
-        return !string.IsNullOrEmpty(_userContext?.UserName) ? _userContext.UserName : "System";
+        return _operatorContextService.GetOperatorDisplayName();
     }
 
     /// <summary>

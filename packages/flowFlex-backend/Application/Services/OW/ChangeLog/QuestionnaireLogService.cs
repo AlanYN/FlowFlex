@@ -29,8 +29,9 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
             ILogCacheService logCacheService,
             IUserService userService,
             QuestionnaireAnswerParser answerParser,
-            IQuestionnaireRepository questionnaireRepository)
-            : base(operationChangeLogRepository, logger, userContext, httpContextAccessor, mapper, logCacheService, userService)
+            IQuestionnaireRepository questionnaireRepository,
+            IOperatorContextService operatorContextService)
+            : base(operationChangeLogRepository, logger, userContext, httpContextAccessor, mapper, logCacheService, userService, operatorContextService)
         {
             _answerParser = answerParser;
             _questionnaireRepository = questionnaireRepository;
