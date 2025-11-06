@@ -73,9 +73,9 @@ namespace FlowFlex.Application.Contracts.Dtos.OW
         public string Status { get; set; }
 
         /// <summary>
-        /// Invitation sent date
+        /// Invitation sent date (nullable - only set when invitation is actually sent)
         /// </summary>
-        public DateTimeOffset SentDate { get; set; }
+        public DateTimeOffset? SentDate { get; set; }
 
         /// <summary>
         /// Invitation token

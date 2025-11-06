@@ -1,0 +1,686 @@
+﻿using AutoMapper;
+using FlowFlex.Application.Contracts.Dtos;
+using FlowFlex.Application.Contracts.Dtos.Action;
+using FlowFlex.Application.Contracts.Dtos.OW.Onboarding;
+using FlowFlex.Application.Contracts.Dtos.OW.Permission;
+using FlowFlex.Application.Contracts.IServices.Action;
+using FlowFlex.Application.Contracts.IServices.OW;
+using FlowFlex.Application.Contracts.IServices.OW;
+using FlowFlex.Application.Services.OW.Extensions;
+using FlowFlex.Domain.Entities.OW;
+using FlowFlex.Domain.Repository.OW;
+using FlowFlex.Domain.Shared;
+using FlowFlex.Domain.Shared.Attr;
+using FlowFlex.Domain.Shared.Const;
+using FlowFlex.Domain.Shared.Enums.OW;
+using FlowFlex.Domain.Shared.Events;
+using FlowFlex.Domain.Shared.Models;
+using FlowFlex.Domain.Shared.Utils;
+using FlowFlex.Infrastructure.Extensions;
+using FlowFlex.Infrastructure.Services;
+using MediatR;
+using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.OpenApi.Models;
+using OfficeOpenXml;
+using SqlSugar;
+using System.Diagnostics;
+using System.Globalization;
+using System.IO;
+using System.Linq;
+using System.Linq.Expressions;
+using System.Text;
+// using Item.Redis; // Temporarily disable Redis
+using System.Text.Json;
+using PermissionOperationType = FlowFlex.Domain.Shared.Enums.Permission.OperationTypeEnum;
+using FlowFlex.Application.Contracts.Dtos.OW.User;
+
+
+namespace FlowFlex.Application.Services.OW
+{
+    /// <summary>
+    /// Onboarding service - Query and export operations
+    /// </summary>
+    public partial class OnboardingService
+    {
+        public async Task<PageModelDto<OnboardingOutputDto>> QueryAsync(OnboardingQueryRequest request)
+        {
+            var stopwatch = Stopwatch.StartNew();
+            var tenantId = _userContext?.TenantId ?? "default";
+            var appCode = _userContext?.AppCode ?? "default";
+            try
+            {
+                // Debug logging handled by structured logging
+                // Build query conditions list - using safe BaseRepository approach
+                var whereExpressions = new List<Expression<Func<Onboarding, bool>>>();
+
+                // Basic filter conditions
+                whereExpressions.Add(x => x.IsValid == true);
+                // Apply tenant isolation
+                if (!string.IsNullOrEmpty(tenantId))
+                {
+                    whereExpressions.Add(x => x.TenantId.ToLower() == tenantId.ToLower());
+                }
+                if (!string.IsNullOrEmpty(appCode))
+                {
+                    whereExpressions.Add(x => x.AppCode.ToLower() == appCode.ToLower());
+                }
+                // Apply filter conditions
+                if (request.WorkflowId.HasValue && request.WorkflowId.Value > 0)
+                {
+                    whereExpressions.Add(x => x.WorkflowId == request.WorkflowId.Value);
+                }
+
+                if (request.CurrentStageId.HasValue && request.CurrentStageId.Value > 0)
+                {
+                    whereExpressions.Add(x => x.CurrentStageId == request.CurrentStageId.Value);
+                }
+
+                // Support comma-separated Lead IDs with fuzzy matching
+                if (!string.IsNullOrEmpty(request.LeadId) && request.LeadId != "string")
+                {
+                    var leadIds = request.GetLeadIdsList();
+                    if (leadIds.Any())
+                    {
+                        // Use OR condition to match any of the lead IDs with fuzzy matching (case-insensitive)
+                        whereExpressions.Add(x => leadIds.Any(id => x.LeadId.ToLower().Contains(id.ToLower())));
+                    }
+                }
+
+                // Support batch LeadIds query for performance optimization
+                if (request.LeadIds?.Any() == true)
+                {
+                    whereExpressions.Add(x => request.LeadIds.Contains(x.LeadId));
+                }
+
+                // Support batch OnboardingIds query for exporting selected records
+                if (request.OnboardingIds?.Any() == true)
+                {
+                    whereExpressions.Add(x => request.OnboardingIds.Contains(x.Id));
+                }
+
+                // Support comma-separated Lead Names
+                if (!string.IsNullOrEmpty(request.LeadName) && request.LeadName != "string")
+                {
+                    var leadNames = request.GetLeadNamesList();
+                    if (leadNames.Any())
+                    {
+                        // Use OR condition to match any of the lead names (case-insensitive)
+                        whereExpressions.Add(x => leadNames.Any(name => x.LeadName.ToLower().Contains(name.ToLower())));
+                    }
+                }
+
+                // Support comma-separated Case Codes with fuzzy matching
+                if (!string.IsNullOrEmpty(request.CaseCode) && request.CaseCode != "string")
+                {
+                    var caseCodes = request.GetCaseCodesList();
+                    if (caseCodes.Any())
+                    {
+                        // Use OR condition to match any of the case codes (case-insensitive)
+                        whereExpressions.Add(x => x.CaseCode != null && caseCodes.Any(code => x.CaseCode.ToLower().Contains(code.ToLower())));
+                    }
+                }
+
+                if (request.LifeCycleStageId.HasValue && request.LifeCycleStageId.Value > 0)
+                {
+                    whereExpressions.Add(x => x.LifeCycleStageId == request.LifeCycleStageId.Value);
+                }
+
+                if (!string.IsNullOrEmpty(request.LifeCycleStageName) && request.LifeCycleStageName != "string")
+                {
+                    whereExpressions.Add(x => x.LifeCycleStageName.ToLower().Contains(request.LifeCycleStageName.ToLower()));
+                }
+
+                if (!string.IsNullOrEmpty(request.Priority) && request.Priority != "string")
+                {
+                    whereExpressions.Add(x => x.Priority == request.Priority);
+                }
+
+                if (!string.IsNullOrEmpty(request.Status) && request.Status != "string")
+                {
+                    whereExpressions.Add(x => x.Status == request.Status);
+                }
+
+                if (request.IsActive.HasValue)
+                {
+                    whereExpressions.Add(x => x.IsActive == request.IsActive.Value);
+                }
+
+                // Support comma-separated Updated By users
+                if (!string.IsNullOrEmpty(request.UpdatedBy) && request.UpdatedBy != "string")
+                {
+                    var updatedByUsers = request.GetUpdatedByList();
+                    if (updatedByUsers.Any())
+                    {
+                        // Match by StageUpdatedBy first; fallback to ModifyBy (case-insensitive)
+                        whereExpressions.Add(x => updatedByUsers.Any(user =>
+                            (!string.IsNullOrEmpty(x.StageUpdatedBy) && x.StageUpdatedBy.ToLower().Contains(user.ToLower()))
+                            || x.ModifyBy.ToLower().Contains(user.ToLower())));
+                    }
+                }
+
+                if (request.UpdatedByUserId.HasValue && request.UpdatedByUserId.Value > 0)
+                {
+                    whereExpressions.Add(x => x.ModifyUserId == request.UpdatedByUserId.Value);
+                }
+
+                if (!string.IsNullOrEmpty(request.CreatedBy) && request.CreatedBy != "string")
+                {
+                    whereExpressions.Add(x => x.CreateBy.ToLower().Contains(request.CreatedBy.ToLower()));
+                }
+
+                if (request.CreatedByUserId.HasValue && request.CreatedByUserId.Value > 0)
+                {
+                    whereExpressions.Add(x => x.CreateUserId == request.CreatedByUserId.Value);
+                }
+
+                // Filter by Ownership
+                if (request.Ownership.HasValue && request.Ownership.Value > 0)
+                {
+                    whereExpressions.Add(x => x.Ownership == request.Ownership.Value);
+                }
+
+                if (!string.IsNullOrEmpty(request.OwnershipName) && request.OwnershipName != "string")
+                {
+                    whereExpressions.Add(x => x.OwnershipName.ToLower().Contains(request.OwnershipName.ToLower()));
+                }
+
+                // Determine sort field and direction
+                Expression<Func<Onboarding, object>> orderByExpression = GetOrderByExpression(request);
+                bool isAsc = GetSortDirection(request);
+
+                // Step 1: Get all data matching query criteria (for accurate filtering and pagination)
+                int pageIndex = Math.Max(1, request.PageIndex > 0 ? request.PageIndex : 1);
+                int pageSize = Math.Max(1, Math.Min(100, request.PageSize > 0 ? request.PageSize : 10));
+
+                List<Onboarding> allEntities;
+
+                if (request.AllData)
+                {
+                    // Get all data without pagination
+                    var queryable = _onboardingRepository.GetSqlSugarClient().Queryable<Onboarding>();
+
+                    // Apply all where conditions
+                    foreach (var whereExpression in whereExpressions)
+                    {
+                        queryable = queryable.Where(whereExpression);
+                    }
+
+                    // Apply sorting
+                    if (isAsc)
+                    {
+                        queryable = queryable.OrderBy(orderByExpression);
+                    }
+                    else
+                    {
+                        queryable = queryable.OrderByDescending(orderByExpression);
+                    }
+
+                    allEntities = await queryable.ToListAsync();
+                }
+                else
+                {
+                    // For pagination: Get all matching records first (not just one page)
+                    // This ensures accurate totalCount after permission filtering
+                    var queryable = _onboardingRepository.GetSqlSugarClient().Queryable<Onboarding>();
+
+                    // Apply all where conditions
+                    foreach (var whereExpression in whereExpressions)
+                    {
+                        queryable = queryable.Where(whereExpression);
+                    }
+
+                    // Apply sorting
+                    if (isAsc)
+                    {
+                        queryable = queryable.OrderBy(orderByExpression);
+                    }
+                    else
+                    {
+                        queryable = queryable.OrderByDescending(orderByExpression);
+                    }
+
+                    allEntities = await queryable.ToListAsync();
+                }
+
+                // Step 2: Apply permission filtering - filter out cases user cannot view
+                List<Onboarding> filteredEntities;
+                var userId = _userContext?.UserId;
+                if (!string.IsNullOrEmpty(userId) && long.TryParse(userId, out var userIdLong))
+                {
+                    // Fast path: If user is System Admin, skip permission checks
+                    if (_userContext?.IsSystemAdmin == true)
+                    {
+                        LoggingExtensions.WriteLine($"[Permission Filter] User {userIdLong} is System Admin, skipping permission checks for {allEntities.Count} cases");
+                        filteredEntities = allEntities;
+                    }
+                    // Fast path: If user is Tenant Admin for current tenant, skip permission checks
+                    else if (_userContext != null && _userContext.HasAdminPrivileges(_userContext.TenantId))
+                    {
+                        LoggingExtensions.WriteLine($"[Permission Filter] User {userIdLong} is Tenant Admin for tenant {_userContext.TenantId}, skipping permission checks for {allEntities.Count} cases");
+                        filteredEntities = allEntities;
+                    }
+                    else
+                    {
+                        // 馃殌 PERFORMANCE OPTIMIZATION: Batch load all unique Workflows first
+                        // This reduces N+1 queries from (N Cases 脳 2 Workflow queries) to (1 batch query)
+                        var uniqueWorkflowIds = allEntities.Select(e => e.WorkflowId).Distinct().ToList();
+                        var workflowEntities = await _workflowRepository.GetListAsync(w => uniqueWorkflowIds.Contains(w.Id));
+                        var workflowEntityDict = workflowEntities.ToDictionary(w => w.Id);
+
+                        LoggingExtensions.WriteLine($"[Performance] Batch loaded {workflowEntities.Count} unique workflows for {allEntities.Count} cases");
+
+                        // Get user teams once (avoid repeated calls)
+                        var userTeams = _permissionService.GetUserTeamIds();
+                        var userTeamLongs = userTeams?.Select(t => long.TryParse(t, out var tid) ? tid : 0).Where(t => t > 0).ToList() ?? new List<long>();
+
+                        // Regular users need permission filtering (now using in-memory workflow data)
+                        filteredEntities = new List<Onboarding>();
+
+                        foreach (var entity in allEntities)
+                        {
+                            // 鈿?In-memory permission check using pre-loaded Workflow
+                            if (!workflowEntityDict.TryGetValue(entity.WorkflowId, out var workflow))
+                            {
+                                LoggingExtensions.WriteLine($"[Permission Debug] Case {entity.Id} - Workflow {entity.WorkflowId} not found in dictionary");
+                                continue;
+                            }
+
+                            // Check Workflow view permission (in-memory, no DB query)
+                            bool hasWorkflowViewPermission = CheckWorkflowViewPermissionInMemory(workflow, userIdLong, userTeamLongs);
+                            LoggingExtensions.WriteLine($"[Permission Debug] Case {entity.Id} - Workflow {workflow.Id} permission: {hasWorkflowViewPermission} (ViewMode={workflow.ViewPermissionMode}, ViewTeams={workflow.ViewTeams ?? "NULL"})");
+                            if (!hasWorkflowViewPermission)
+                            {
+                                continue; // No Workflow permission, skip this Case
+                            }
+
+                            var viewResult = await _casePermissionService.CheckCasePermissionAsync(
+                     entity, userIdLong, PermissionOperationType.View);
+                            bool hasCaseViewPermission = viewResult.CanView;
+                            // Check Case-level view permission (in-memory)
+                            //bool hasCaseViewPermission = CheckCaseViewPermissionInMemory(entity, userIdLong, userTeamLongs);
+
+                            LoggingExtensions.WriteLine($"[Permission Debug] Case {entity.Id} - Case permission: {hasCaseViewPermission} (ViewMode={entity.ViewPermissionMode}, SubjectType={entity.ViewPermissionSubjectType}, ViewTeams={entity.ViewTeams ?? "NULL"}, ViewUsers={entity.ViewUsers ?? "NULL"}, Ownership={entity.Ownership})");
+                            if (!hasCaseViewPermission)
+                            {
+                                continue; // No Case permission, skip
+                            }
+
+                            // 鉁?Both Workflow and Case permissions passed
+                            LoggingExtensions.WriteLine($"[Permission Debug] Case {entity.Id} - GRANTED (both checks passed)");
+                            filteredEntities.Add(entity);
+                        }
+
+                        LoggingExtensions.WriteLine($"[Permission Filter] Original count: {allEntities.Count}, Filtered count: {filteredEntities.Count}");
+                    }
+                }
+                else
+                {
+                    // No user context, return empty result
+                    filteredEntities = new List<Onboarding>();
+                }
+
+                // Step 3: Apply pagination to filtered results
+                var totalCount = filteredEntities.Count;
+                var pagedEntities = request.AllData
+                    ? filteredEntities
+                    : filteredEntities.Skip((pageIndex - 1) * pageSize).Take(pageSize).ToList();
+
+                // Batch get Workflow and Stage information to avoid N+1 queries (only for paged data)
+                var (workflows, stages) = await GetRelatedDataBatchOptimizedAsync(pagedEntities);
+
+                // Create lookup dictionaries to improve search performance
+                var workflowDict = workflows.ToDictionary(w => w.Id, w => w.Name);
+                var stageDict = stages.ToDictionary(s => s.Id, s => s.Name);
+
+                // Batch process JSON deserialization (only for paged data)
+                ProcessStagesProgressParallel(pagedEntities);
+
+                // Map to output DTOs
+                var results = _mapper.Map<List<OnboardingOutputDto>>(pagedEntities);
+
+                // 娣诲姞璋冭瘯鏃ュ織 - 妫€鏌ョ姸鎬佹槧灏?
+                LoggingExtensions.WriteLine($"[DEBUG] Query Results Count: {results.Count}");
+                LoggingExtensions.WriteLine($"[DEBUG] Original Entities Count: {pagedEntities.Count}");
+
+                for (int i = 0; i < Math.Min(3, pagedEntities.Count); i++)
+                {
+                    var entity = pagedEntities[i];
+                    var result = results[i];
+                    LoggingExtensions.WriteLine($"[DEBUG] Entity[{i}]: ID={entity.Id}, LeadName={entity.LeadName}, Status={entity.Status}");
+                    LoggingExtensions.WriteLine($"[DEBUG] Result[{i}]: ID={result.Id}, LeadName={result.LeadName}, Status={result.Status}");
+                }
+
+                // Populate workflow/stage names and calculate current stage end time
+                await PopulateOnboardingOutputDtoAsync(results, pagedEntities);
+
+                // Create page model with appropriate pagination info
+                var pageModel = request.AllData
+                    ? new PageModelDto<OnboardingOutputDto>(1, totalCount, results, totalCount)
+                    : new PageModelDto<OnboardingOutputDto>(pageIndex, pageSize, results, totalCount);
+
+                // Record performance statistics
+                stopwatch.Stop();
+                // Debug logging handled by structured logging
+                return pageModel;
+            }
+            catch (Exception ex)
+            {
+                stopwatch.Stop();
+                // Debug logging handled by structured logging
+                throw new CRMException(ErrorCodeEnum.SystemError,
+                    $"Error querying onboardings: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Get sort expression
+        /// </summary>
+        private Expression<Func<Onboarding, object>> GetOrderByExpression(OnboardingQueryRequest request)
+        {
+            var sortBy = request.SortField?.ToLower() ?? "createdate";
+
+            return sortBy switch
+            {
+                "id" => x => x.Id,
+                "leadid" => x => x.LeadId,
+                "leadname" => x => x.LeadName,
+                "casecode" => x => x.CaseCode ?? "",
+                "contactperson" => x => x.ContactPerson ?? "",
+                "contactemail" => x => x.ContactEmail ?? "",
+                "leademail" => x => x.LeadEmail ?? "",
+                "leadphone" => x => x.LeadPhone ?? "",
+                "workflowid" => x => x.WorkflowId,
+                "currentstageid" => x => x.CurrentStageId,
+                "lifecyclestageid" => x => x.LifeCycleStageId,
+                "lifecyclestagename" => x => x.LifeCycleStageName ?? "",
+                "priority" => x => x.Priority ?? "",
+                "status" => x => x.Status ?? "",
+                "isactive" => x => x.IsActive,
+                "completionrate" => x => x.CompletionRate,
+                "ownership" => x => x.Ownership,
+                "ownershipname" => x => x.OwnershipName ?? "",
+                "createdate" => x => x.CreateDate,
+                "modifydate" => x => x.ModifyDate,
+                "createby" => x => x.CreateBy ?? "",
+                "modifyby" => x => x.ModifyBy ?? "",
+                _ => x => x.CreateDate
+            };
+        }
+
+        /// <summary>
+        /// Get sort direction
+        /// </summary>
+        private bool GetSortDirection(OnboardingQueryRequest request)
+        {
+            var sortDirection = request.SortDirection?.ToLower() ?? "desc";
+            return sortDirection == "asc";
+        }
+
+        /// <summary>
+        /// Batch get related Workflow and Stage data (avoid N+1 queries) - Sequential execution to avoid concurrency issues
+        /// </summary>
+        private async Task<(List<Workflow> workflows, List<Stage> stages)> GetRelatedDataBatchOptimizedAsync(List<Onboarding> entities)
+        {
+            var workflowIds = entities.Select(x => x.WorkflowId).Distinct().ToList();
+            var stageIds = entities.Where(x => x.CurrentStageId.HasValue)
+                    .Select(x => x.CurrentStageId.Value).Distinct().ToList();
+
+            // Sequential execution to avoid SQL concurrency conflicts
+            var workflows = await GetWorkflowsBatchAsync(workflowIds);
+            var stages = await GetStagesBatchAsync(stageIds);
+
+            return (workflows, stages);
+        }
+
+        /// <summary>
+        /// Parallel processing of stage progress
+        /// </summary>
+        private void ProcessStagesProgressParallel(List<Onboarding> entities)
+        {
+            try
+            {
+                if (entities.Count <= 10)
+                {
+                    // Direct processing for small datasets
+                    foreach (var entity in entities)
+                    {
+                        LoadStagesProgressFromJson(entity);
+                    }
+                }
+                else
+                {
+                    // Parallel processing for large datasets, but using safer approach
+                    // Create copy of entities list to avoid collection modification exceptions
+                    var entitiesCopy = entities.ToList();
+                    Parallel.ForEach(entitiesCopy, new ParallelOptions
+                    {
+                        MaxDegreeOfParallelism = Math.Min(Environment.ProcessorCount, 4) // Limit parallelism degree
+                    }, entity =>
+                    {
+                        try
+                        {
+                            LoadStagesProgressFromJson(entity);
+                        }
+                        catch (Exception ex)
+                        {
+                            // Debug logging handled by structured logging
+                            // Ensure that even if single entity processing fails, it doesn't affect other entities
+                            entity.StagesProgress = new List<OnboardingStageProgress>();
+                        }
+                    });
+                }
+            }
+            catch (Exception ex)
+            {
+                // Debug logging handled by structured logging
+                // If parallel processing fails, fallback to sequential processing
+                foreach (var entity in entities)
+                {
+                    try
+                    {
+                        LoadStagesProgressFromJson(entity);
+                    }
+                    catch (Exception entityEx)
+                    {
+                        // Debug logging handled by structured logging
+                        entity.StagesProgress = new List<OnboardingStageProgress>();
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// Batch retrieve Workflows information, avoid N+1 queries, support caching
+        /// </summary>
+        private async Task<List<Workflow>> GetWorkflowsBatchAsync(List<long> workflowIds)
+        {
+            if (!workflowIds.Any())
+                return new List<Workflow>();
+
+            try
+            {
+                var workflows = new List<Workflow>();
+                var uncachedIds = new List<long>();
+
+                // Safely get tenant ID
+                var tenantId = !string.IsNullOrEmpty(_userContext?.TenantId)
+                    ? _userContext.TenantId.ToLowerInvariant()
+                    : "default";
+
+                // First get from cache
+                foreach (var id in workflowIds)
+                {
+                    try
+                    {
+                        var cacheKey = $"{WORKFLOW_CACHE_PREFIX}:{tenantId}:{id}";
+                        // Redis cache temporarily disabled
+                        string cachedWorkflow = null;
+
+                        if (!string.IsNullOrEmpty(cachedWorkflow))
+                        {
+                            var workflow = JsonSerializer.Deserialize<Workflow>(cachedWorkflow);
+                            if (workflow != null)
+                            {
+                                workflows.Add(workflow);
+                            }
+                        }
+                        else
+                        {
+                            uncachedIds.Add(id);
+                        }
+                    }
+                    catch (Exception cacheEx)
+                    {
+                        // Debug logging handled by structured logging
+                        uncachedIds.Add(id);
+                    }
+                }
+
+                // Get uncached data from database - use direct query to avoid repository conflicts
+                if (uncachedIds.Any())
+                {
+                    List<Workflow> dbWorkflows;
+                    try
+                    {
+                        // Use direct repository method to avoid connection conflicts
+                        dbWorkflows = await _workflowRepository.GetListAsync(w => uncachedIds.Contains(w.Id) && w.IsValid);
+                        workflows.AddRange(dbWorkflows);
+                    }
+                    catch (Exception dbEx)
+                    {
+                        // Debug logging handled by structured logging
+                        // Fallback to repository method if direct query fails
+                        dbWorkflows = await _workflowRepository.GetListAsync(w => uncachedIds.Contains(w.Id) && w.IsValid);
+                        workflows.AddRange(dbWorkflows);
+                    }
+                    // Cache newly retrieved data
+                    var cacheExpiry = TimeSpan.FromMinutes(CACHE_EXPIRY_MINUTES);
+                    var cacheTasks = dbWorkflows.Select(async workflow =>
+                    {
+                        try
+                        {
+                            var cacheKey = $"{WORKFLOW_CACHE_PREFIX}:{tenantId}:{workflow.Id}";
+                            var serializedWorkflow = JsonSerializer.Serialize(workflow);
+                            // Redis cache temporarily disabled
+                            await Task.CompletedTask;
+                        }
+                        catch (Exception cacheEx)
+                        {
+                            // Debug logging handled by structured logging
+                        }
+                    });
+
+                    await Task.WhenAll(cacheTasks);
+                }
+
+                return workflows;
+            }
+            catch (Exception ex)
+            {
+                // Debug logging handled by structured logging
+                // If cache fails, get directly from database
+                return await _workflowRepository.GetListAsync(w => workflowIds.Contains(w.Id) && w.IsValid);
+            }
+        }
+
+        /// <summary>
+        /// Batch get Stages information, avoid N+1 queries, support caching
+        /// </summary>
+        private async Task<List<Stage>> GetStagesBatchAsync(List<long> stageIds)
+        {
+            if (!stageIds.Any())
+                return new List<Stage>();
+
+            try
+            {
+                var stages = new List<Stage>();
+                var uncachedIds = new List<long>();
+
+                // Safely get tenant ID
+                var tenantId = !string.IsNullOrEmpty(_userContext?.TenantId)
+                    ? _userContext.TenantId.ToLowerInvariant()
+                    : "default";
+
+                // First get from cache
+                foreach (var id in stageIds)
+                {
+                    try
+                    {
+                        var cacheKey = $"{STAGE_CACHE_PREFIX}:{tenantId}:{id}";
+                        // Redis cache temporarily disabled
+                        string cachedStage = null;
+
+                        if (!string.IsNullOrEmpty(cachedStage))
+                        {
+                            var stage = JsonSerializer.Deserialize<Stage>(cachedStage);
+                            if (stage != null)
+                            {
+                                stages.Add(stage);
+                            }
+                        }
+                        else
+                        {
+                            uncachedIds.Add(id);
+                        }
+                    }
+                    catch (Exception cacheEx)
+                    {
+                        // Debug logging handled by structured logging
+                        uncachedIds.Add(id);
+                    }
+                }
+
+                // Get uncached data from database - use direct query to avoid repository conflicts
+                if (uncachedIds.Any())
+                {
+                    List<Stage> dbStages;
+                    try
+                    {
+                        // Use direct repository method to avoid connection conflicts
+                        dbStages = await _stageRepository.GetListAsync(s => uncachedIds.Contains(s.Id) && s.IsValid);
+                        stages.AddRange(dbStages);
+                    }
+                    catch (Exception dbEx)
+                    {
+                        // Debug logging handled by structured logging
+                        // Fallback to repository method if direct query fails
+                        dbStages = await _stageRepository.GetListAsync(s => uncachedIds.Contains(s.Id) && s.IsValid);
+                        stages.AddRange(dbStages);
+                    }
+                    // Cache newly retrieved data
+                    var cacheExpiry = TimeSpan.FromMinutes(CACHE_EXPIRY_MINUTES);
+                    var cacheTasks = dbStages.Select(async stage =>
+                    {
+                        try
+                        {
+                            var cacheKey = $"{STAGE_CACHE_PREFIX}:{tenantId}:{stage.Id}";
+                            var serializedStage = JsonSerializer.Serialize(stage);
+                            // Redis cache temporarily disabled
+                            await Task.CompletedTask;
+                        }
+                        catch (Exception cacheEx)
+                        {
+                            // Debug logging handled by structured logging
+                        }
+                    });
+
+                    await Task.WhenAll(cacheTasks);
+                }
+
+                return stages;
+            }
+            catch (Exception ex)
+            {
+                // Debug logging handled by structured logging
+                // If cache fails, get directly from database
+                return await _stageRepository.GetListAsync(s => stageIds.Contains(s.Id) && s.IsValid);
+            }
+        }
+
+        /// <summary>
+        /// Move to next stage
+        /// </summary>
+    }
+}
+
