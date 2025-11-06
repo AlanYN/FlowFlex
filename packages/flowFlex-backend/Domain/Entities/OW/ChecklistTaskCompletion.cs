@@ -18,12 +18,12 @@ public class ChecklistTaskCompletion : EntityBaseCreateInfo
     public long OnboardingId { get; set; }
 
     /// <summary>
-    /// Lead ID
+    /// Lead ID (optional - Case Code is the primary identifier)
     /// </summary>
 
     [StringLength(100)]
-    [SugarColumn(ColumnName = "lead_id")]
-    public string LeadId { get; set; }
+    [SugarColumn(ColumnName = "lead_id", IsNullable = true)]
+    public string? LeadId { get; set; }
 
     /// <summary>
     /// Checklist ID
