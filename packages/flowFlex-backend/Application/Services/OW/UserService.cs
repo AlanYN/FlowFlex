@@ -1250,44 +1250,48 @@ namespace FlowFlex.Application.Services.OW
                 {
                     _logger.LogWarning("No team tree data returned from IDM API");
                     
-                    // If we have team users, create "Other" team for them
+                    // If we have team users, create "Other" team for them (filter out UserType == 1)
                     if (teamUsers != null && teamUsers.Any())
                     {
-                        _logger.LogInformation("Creating 'Other' team for {UserCount} users without team structure", teamUsers.Count);
+                        _logger.LogInformation("Creating 'Other' team for users without team structure");
                         
-                        var otherTeamNode = new UserTreeNodeDto
-                        {
-                            Id = "Other",
-                            Name = "Other",
-                            Type = "team",
-                            MemberCount = teamUsers.Count,
-                            Children = new List<UserTreeNodeDto>()
-                        };
-
-                        // Add all users to "Other" team, deduplicate by ID
+                        // Add all users to "Other" team, deduplicate by ID and filter out UserType == 1
                         var uniqueUsers = teamUsers
+                            .Where(tu => tu.UserType != 1) // Filter out UserType == 1
                             .GroupBy(tu => tu.Id)
                             .Select(g => g.First())
                             .ToList();
 
-                        foreach (var teamUser in uniqueUsers)
+                        if (uniqueUsers.Any())
                         {
-                            var userNode = new UserTreeNodeDto
+                            var otherTeamNode = new UserTreeNodeDto
                             {
-                                Id = teamUser.Id,
-                                Name = teamUser.UserName,
-                                Type = "user",
-                                MemberCount = 0,
-                                Username = teamUser.UserName,
-                                Email = null,
-                                Children = null
+                                Id = "Other",
+                                Name = "Other",
+                                Type = "team",
+                                MemberCount = uniqueUsers.Count,
+                                Children = new List<UserTreeNodeDto>()
                             };
 
-                            otherTeamNode.Children.Add(userNode);
-                        }
+                            foreach (var teamUser in uniqueUsers)
+                            {
+                                var userNode = new UserTreeNodeDto
+                                {
+                                    Id = teamUser.Id,
+                                    Name = GetUserDisplayName(teamUser), // Use priority: FirstName + LastName > UserName
+                                    Type = "user",
+                                    MemberCount = 0,
+                                    Username = teamUser.UserName,
+                                    Email = teamUser.Email,
+                                    Children = null
+                                };
 
-                        _logger.LogInformation("Created 'Other' team with {UserCount} users", uniqueUsers.Count);
-                        return new List<UserTreeNodeDto> { otherTeamNode };
+                                otherTeamNode.Children.Add(userNode);
+                            }
+
+                            _logger.LogInformation("Created 'Other' team with {UserCount} users (excluding UserType=1)", uniqueUsers.Count);
+                            return new List<UserTreeNodeDto> { otherTeamNode };
+                        }
                     }
                     
                     return new List<UserTreeNodeDto>();
@@ -1315,6 +1319,24 @@ namespace FlowFlex.Application.Services.OW
                 _logger.LogInformation("Falling back to local database users due to IDM error");
                 return await GetUserTreeFromLocalDatabaseAsync();
             }
+        }
+
+        /// <summary>
+        /// Get user display name with priority: FirstName + LastName > UserName
+        /// </summary>
+        private string GetUserDisplayName(IdmTeamUserDto teamUser)
+        {
+            // Priority 1: FirstName + LastName (if both or either is not empty)
+            var firstName = teamUser.FirstName?.Trim() ?? string.Empty;
+            var lastName = teamUser.LastName?.Trim() ?? string.Empty;
+            
+            if (!string.IsNullOrEmpty(firstName) || !string.IsNullOrEmpty(lastName))
+            {
+                return $"{firstName} {lastName}".Trim();
+            }
+            
+            // Priority 2: UserName
+            return teamUser.UserName ?? string.Empty;
         }
 
         /// <summary>
@@ -1365,20 +1387,23 @@ namespace FlowFlex.Application.Services.OW
                     userTreeNode.Children.AddRange(childTeams);
                 }
 
-                // Then, add users for this team
+                // Then, add users for this team (filter out UserType == 1)
                 if (teamUserLookup.ContainsKey(idmNode.Value))
                 {
-                    var usersInTeam = teamUserLookup[idmNode.Value];
+                    var usersInTeam = teamUserLookup[idmNode.Value]
+                        .Where(tu => tu.UserType != 1) // Filter out UserType == 1
+                        .ToList();
+                    
                     foreach (var teamUser in usersInTeam)
                     {
                         var userNode = new UserTreeNodeDto
                         {
                             Id = teamUser.Id,
-                            Name = teamUser.UserName,
+                            Name = GetUserDisplayName(teamUser), // Use priority: FirstName + LastName > UserName
                             Type = "user",
                             MemberCount = 0,
                             Username = teamUser.UserName,
-                            Email = null, // Not available in teamuser API
+                            Email = teamUser.Email,
                             Children = null // Users have no children
                         };
 
@@ -1399,16 +1424,16 @@ namespace FlowFlex.Application.Services.OW
                 var allTeamIds = new HashSet<string>();
                 CollectAllTeamIds(idmNodes, allTeamIds);
 
-                // Find users without team or users whose team is not in the tree
+                // Find users without team or users whose team is not in the tree (filter out UserType == 1)
                 var usersWithoutTeam = teamUsers
-                    .Where(tu => string.IsNullOrEmpty(tu.TeamId) || !allTeamIds.Contains(tu.TeamId))
+                    .Where(tu => (string.IsNullOrEmpty(tu.TeamId) || !allTeamIds.Contains(tu.TeamId)) && tu.UserType != 1) // Filter out UserType == 1
                     .GroupBy(u => u.Id) // Deduplicate users by ID
                     .Select(g => g.First())
                     .ToList();
 
                 if (usersWithoutTeam.Any())
                 {
-                    _logger.LogInformation("Found {Count} users without team, adding to 'Other' team at root level", usersWithoutTeam.Count);
+                    _logger.LogInformation("Found {Count} users without team (excluding UserType=1), adding to 'Other' team at root level", usersWithoutTeam.Count);
 
                     var otherTeamNode = new UserTreeNodeDto
                     {
@@ -1424,11 +1449,11 @@ namespace FlowFlex.Application.Services.OW
                         var userNode = new UserTreeNodeDto
                         {
                             Id = teamUser.Id,
-                            Name = teamUser.UserName,
+                            Name = GetUserDisplayName(teamUser), // Use priority: FirstName + LastName > UserName
                             Type = "user",
                             MemberCount = 0,
                             Username = teamUser.UserName,
-                            Email = null,
+                            Email = teamUser.Email,
                             Children = null
                         };
 
@@ -1737,24 +1762,42 @@ namespace FlowFlex.Application.Services.OW
                             {
                                 // Convert string IDs to long for comparison
                                 // Note: Same user may appear multiple times (one per team), so we need to deduplicate
+                                // Filter out UserType == 1
                                 var idmUsers = teamUsersResponse
-                                    .Where(tu => long.TryParse(tu.Id, out var userId) && missingUserIds.Contains(userId))
+                                    .Where(tu => long.TryParse(tu.Id, out var userId) && missingUserIds.Contains(userId) && tu.UserType != 1) // Filter out UserType == 1
                                     .GroupBy(tu => tu.Id) // Group by user ID to deduplicate
                                     .Select(g => g.First()) // Take first occurrence of each user
-                                    .Select(tu => new UserDto
+                                    .Select(tu =>
                                     {
-                                        Id = long.Parse(tu.Id),
-                                        Username = tu.UserName,
-                                        Email = null, // Not available in teamuser API
-                                        EmailVerified = true,
-                                        Status = "active"
+                                        // Get display name with priority: FirstName + LastName > UserName
+                                        var firstName = tu.FirstName?.Trim() ?? string.Empty;
+                                        var lastName = tu.LastName?.Trim() ?? string.Empty;
+                                        var displayName = string.Empty;
+                                        
+                                        if (!string.IsNullOrEmpty(firstName) || !string.IsNullOrEmpty(lastName))
+                                        {
+                                            displayName = $"{firstName} {lastName}".Trim();
+                                        }
+                                        else
+                                        {
+                                            displayName = tu.UserName ?? string.Empty;
+                                        }
+                                        
+                                        return new UserDto
+                                        {
+                                            Id = long.Parse(tu.Id),
+                                            Username = displayName, // Use display name with priority
+                                            Email = tu.Email,
+                                            EmailVerified = true,
+                                            Status = "active"
+                                        };
                                     })
                                     .ToList();
 
                                 if (idmUsers.Any())
                                 {
                                     userDtos.AddRange(idmUsers);
-                                    _logger.LogInformation("Found {IdmCount} additional users from IDM (after deduplication)", idmUsers.Count);
+                                    _logger.LogInformation("Found {IdmCount} additional users from IDM (after deduplication and filtering UserType=1)", idmUsers.Count);
                                 }
                             }
                         }

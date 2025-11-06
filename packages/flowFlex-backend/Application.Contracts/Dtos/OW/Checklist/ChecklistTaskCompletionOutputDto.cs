@@ -18,9 +18,9 @@ public class ChecklistTaskCompletionOutputDto
     public long OnboardingId { get; set; }
 
     /// <summary>
-    /// Lead ID
+    /// Lead ID (optional - Case Code is the primary identifier)
     /// </summary>
-    public string LeadId { get; set; }
+    public string? LeadId { get; set; }
 
     /// <summary>
     /// Checklist ID

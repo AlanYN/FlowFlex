@@ -56,9 +56,10 @@
 								:disabled="row.status === 'Inactive'"
 							>
 								<el-icon class="h-3 w-3 mr-1">
-									<Refresh />
+									<Promotion v-if="!row.sentDate" />
+									<Refresh v-else />
 								</el-icon>
-								Resend
+								{{ row.sentDate ? 'Resend' : 'Send Access' }}
 							</el-button>
 							<el-button
 								size="small"
@@ -197,7 +198,7 @@
 <script setup lang="ts">
 import { ref, watchEffect } from 'vue';
 import { ElMessage } from 'element-plus';
-import { Plus, Refresh, View, Message, Switch } from '@element-plus/icons-vue';
+import { Plus, Refresh, View, Message, Switch, Promotion } from '@element-plus/icons-vue';
 import * as userInvitationApi from '@/apis/ow/userInvitation';
 import type { PortalUser } from '@/apis/ow/userInvitation';
 import InputTag from '@/components/global/u-input-tags/index.vue';
@@ -220,7 +221,7 @@ const successMessage = ref('');
 const loading = ref(false);
 
 // Utility functions
-const formatDate = (dateString: string) => {
+const formatDate = (dateString?: string) => {
 	if (!dateString) return '--';
 
 	try {

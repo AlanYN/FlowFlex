@@ -1,0 +1,841 @@
+﻿using AutoMapper;
+using FlowFlex.Application.Contracts.Dtos;
+using FlowFlex.Application.Contracts.Dtos.Action;
+using FlowFlex.Application.Contracts.Dtos.OW.Onboarding;
+using FlowFlex.Application.Contracts.Dtos.OW.Permission;
+using FlowFlex.Application.Contracts.IServices.Action;
+using FlowFlex.Application.Contracts.IServices.OW;
+using FlowFlex.Application.Contracts.IServices.OW;
+using FlowFlex.Application.Services.OW.Extensions;
+using FlowFlex.Domain.Entities.OW;
+using FlowFlex.Domain.Repository.OW;
+using FlowFlex.Domain.Shared;
+using FlowFlex.Domain.Shared.Attr;
+using FlowFlex.Domain.Shared.Const;
+using FlowFlex.Domain.Shared.Enums.OW;
+using FlowFlex.Domain.Shared.Events;
+using FlowFlex.Domain.Shared.Models;
+using FlowFlex.Domain.Shared.Utils;
+using FlowFlex.Infrastructure.Extensions;
+using FlowFlex.Infrastructure.Services;
+using MediatR;
+using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.OpenApi.Models;
+using OfficeOpenXml;
+using SqlSugar;
+using System.Diagnostics;
+using System.Globalization;
+using System.IO;
+using System.Linq;
+using System.Linq.Expressions;
+using System.Text;
+// using Item.Redis; // Temporarily disable Redis
+using System.Text.Json;
+using PermissionOperationType = FlowFlex.Domain.Shared.Enums.Permission.OperationTypeEnum;
+using FlowFlex.Application.Contracts.Dtos.OW.User;
+
+
+namespace FlowFlex.Application.Services.OW
+{
+    /// <summary>
+    /// Onboarding service - Additional status operations
+    /// </summary>
+    public partial class OnboardingService
+    {
+        public async Task<bool> StartOnboardingAsync(long id, StartOnboardingInputDto input)
+        {
+            // Check permission
+            if (!await CheckCaseOperatePermissionAsync(id))
+            {
+                throw new CRMException(ErrorCodeEnum.OperationNotAllowed,
+                    $"User does not have permission to operate on case {id}");
+            }
+
+            var entity = await _onboardingRepository.GetByIdAsync(id);
+            if (entity == null || !entity.IsValid)
+            {
+                throw new CRMException(ErrorCodeEnum.DataNotFound, "Onboarding not found");
+            }
+
+            // Validate current status - only Inactive onboardings can be started
+            if (entity.Status != "Inactive")
+            {
+                throw new CRMException(ErrorCodeEnum.BusinessError,
+                    $"Cannot start onboarding. Current status is '{entity.Status}'. Only 'Inactive' onboardings can be started.");
+            }
+
+            // Preserve the original stages_progress_json to avoid any modifications
+            var originalStagesProgressJson = entity.StagesProgressJson;
+
+            // Update status to Active
+            entity.Status = "Active";
+            entity.StartDate = DateTimeOffset.UtcNow;
+
+            // IMPORTANT: Set CurrentStageStartTime when starting onboarding
+            // This marks the beginning of the current stage timeline
+            entity.CurrentStageStartTime = DateTimeOffset.UtcNow;
+
+            // Reset progress if requested
+            if (input.ResetProgress)
+            {
+                entity.CurrentStageId = null;
+                entity.CurrentStageOrder = 0;
+                entity.CompletionRate = 0;
+            }
+
+            // Add start notes
+            var startText = $"[Start Onboarding] Onboarding activated";
+            if (!string.IsNullOrEmpty(input.Reason))
+            {
+                startText += $" - Reason: {input.Reason}";
+            }
+            if (!string.IsNullOrEmpty(input.Notes))
+            {
+                startText += $" - Notes: {input.Notes}";
+            }
+
+            SafeAppendToNotes(entity, startText);
+
+            // Update stage tracking info (without modifying stagesProgress)
+            entity.StageUpdatedTime = DateTimeOffset.UtcNow;
+            entity.StageUpdatedBy = _operatorContextService.GetOperatorDisplayName();
+            entity.StageUpdatedById = _operatorContextService.GetOperatorId();
+            entity.StageUpdatedByEmail = GetCurrentUserEmail();
+
+            // Use SafeUpdateOnboardingWithoutStagesProgressAsync to preserve stagesProgress
+            return await SafeUpdateOnboardingWithoutStagesProgressAsync(entity, originalStagesProgressJson);
+        }
+
+        /// <summary>
+        /// Abort onboarding (terminate the process)
+        /// </summary>
+        public async Task<bool> AbortAsync(long id, AbortOnboardingInputDto input)
+        {
+            // Check permission
+            if (!await CheckCaseOperatePermissionAsync(id))
+            {
+                throw new CRMException(ErrorCodeEnum.OperationNotAllowed,
+                    $"User does not have permission to operate on case {id}");
+            }
+
+            var entity = await _onboardingRepository.GetByIdAsync(id);
+            if (entity == null || !entity.IsValid)
+            {
+                throw new CRMException(ErrorCodeEnum.DataNotFound, "Onboarding not found");
+            }
+
+            // Validate current status - cannot abort already completed or aborted onboardings
+            if (entity.Status == "Completed" || entity.Status == "Aborted")
+            {
+                throw new CRMException(ErrorCodeEnum.BusinessError,
+                    $"Cannot abort onboarding with status '{entity.Status}'");
+            }
+
+            // Preserve the original stages_progress_json to avoid any modifications
+            var originalStagesProgressJson = entity.StagesProgressJson;
+
+            // Update status to Aborted
+            entity.Status = "Aborted";
+            entity.EstimatedCompletionDate = null; // Remove ETA
+
+            // Add abort notes
+            var abortText = $"[Abort] Onboarding terminated - Reason: {input.Reason}";
+            if (!string.IsNullOrEmpty(input.Notes))
+            {
+                abortText += $" - Notes: {input.Notes}";
+            }
+
+            SafeAppendToNotes(entity, abortText);
+
+            // Update stage tracking info (without modifying stagesProgress)
+            entity.StageUpdatedTime = DateTimeOffset.UtcNow;
+            entity.StageUpdatedBy = _operatorContextService.GetOperatorDisplayName();
+            entity.StageUpdatedById = _operatorContextService.GetOperatorId();
+            entity.StageUpdatedByEmail = GetCurrentUserEmail();
+
+            // Use SafeUpdateOnboardingWithoutStagesProgressAsync to preserve stagesProgress
+            return await SafeUpdateOnboardingWithoutStagesProgressAsync(entity, originalStagesProgressJson);
+        }
+
+        /// <summary>
+        /// Reactivate onboarding (restart an aborted onboarding)
+        /// </summary>
+        public async Task<bool> ReactivateAsync(long id, ReactivateOnboardingInputDto input)
+        {
+            // Check permission
+            if (!await CheckCaseOperatePermissionAsync(id))
+            {
+                throw new CRMException(ErrorCodeEnum.OperationNotAllowed,
+                    $"User does not have permission to operate on case {id}");
+            }
+
+            var entity = await _onboardingRepository.GetByIdAsync(id);
+            if (entity == null || !entity.IsValid)
+            {
+                throw new CRMException(ErrorCodeEnum.DataNotFound, "Onboarding not found");
+            }
+
+            // Validate current status - only Aborted onboardings can be reactivated
+            if (entity.Status != "Aborted")
+            {
+                throw new CRMException(ErrorCodeEnum.BusinessError,
+                    $"Cannot reactivate onboarding. Current status is '{entity.Status}'. Only 'Aborted' onboardings can be reactivated.");
+            }
+
+            // Preserve the original stages_progress_json to avoid any modifications
+            var originalStagesProgressJson = entity.StagesProgressJson;
+
+            // Update status to Active
+            entity.Status = "Active";
+            entity.ActualCompletionDate = null;
+
+            // Update stage tracking info (without modifying stagesProgress)
+            entity.StageUpdatedTime = DateTimeOffset.UtcNow;
+            entity.StageUpdatedBy = _operatorContextService.GetOperatorDisplayName();
+            entity.StageUpdatedById = _operatorContextService.GetOperatorId();
+            entity.StageUpdatedByEmail = GetCurrentUserEmail();
+
+            // Add reactivation notes
+            var reactivateText = $"[Reactivate] Onboarding reactivated from Aborted status - Reason: {input.Reason}";
+            if (!string.IsNullOrEmpty(input.Notes))
+            {
+                reactivateText += $" - Notes: {input.Notes}";
+            }
+            if (input.PreserveAnswers)
+            {
+                reactivateText += " - Questionnaire answers preserved";
+            }
+
+            SafeAppendToNotes(entity, reactivateText);
+
+            // CRITICAL: Use SafeUpdateOnboardingWithoutStagesProgressAsync to ensure stages_progress_json is NOT modified
+            // This preserves all existing progress state (IsCompleted, Status, CompletionTime, etc.)
+            return await SafeUpdateOnboardingWithoutStagesProgressAsync(entity, originalStagesProgressJson);
+        }
+
+        /// <summary>
+        /// Resume onboarding with confirmation
+        /// </summary>
+        public async Task<bool> ResumeWithConfirmationAsync(long id, ResumeOnboardingInputDto input)
+        {
+            // Check permission
+            if (!await CheckCaseOperatePermissionAsync(id))
+            {
+                throw new CRMException(ErrorCodeEnum.OperationNotAllowed,
+                    $"User does not have permission to operate on case {id}");
+            }
+
+            var entity = await _onboardingRepository.GetByIdAsync(id);
+            if (entity == null || !entity.IsValid)
+            {
+                throw new CRMException(ErrorCodeEnum.DataNotFound, "Onboarding not found");
+            }
+
+            // Validate current status - only Paused onboardings can be resumed
+            if (entity.Status != "Paused")
+            {
+                throw new CRMException(ErrorCodeEnum.BusinessError,
+                    $"Cannot resume onboarding. Current status is '{entity.Status}'. Only 'Paused' onboardings can be resumed.");
+            }
+
+            // Preserve the original stages_progress_json to avoid any modifications
+            var originalStagesProgressJson = entity.StagesProgressJson;
+
+            // Update status to Active
+            entity.Status = "Active";
+
+            // Add resume notes
+            var resumeText = $"[Resume] Onboarding resumed from Paused status";
+            if (!string.IsNullOrEmpty(input.Reason))
+            {
+                resumeText += $" - Reason: {input.Reason}";
+            }
+            if (!string.IsNullOrEmpty(input.Notes))
+            {
+                resumeText += $" - Notes: {input.Notes}";
+            }
+
+            SafeAppendToNotes(entity, resumeText);
+
+            // Update stage tracking info (without modifying stagesProgress)
+            entity.StageUpdatedTime = DateTimeOffset.UtcNow;
+            entity.StageUpdatedBy = _operatorContextService.GetOperatorDisplayName();
+            entity.StageUpdatedById = _operatorContextService.GetOperatorId();
+            entity.StageUpdatedByEmail = GetCurrentUserEmail();
+
+            // Use SafeUpdateOnboardingWithoutStagesProgressAsync to preserve stagesProgress
+            return await SafeUpdateOnboardingWithoutStagesProgressAsync(entity, originalStagesProgressJson);
+        }
+        /// <summary>
+        /// Force complete onboarding (bypass normal validation and set to Force Completed status)
+        /// </summary>
+        public async Task<bool> ForceCompleteAsync(long id, ForceCompleteOnboardingInputDto input)
+        {
+            // Check permission
+            if (!await CheckCaseOperatePermissionAsync(id))
+            {
+                throw new CRMException(ErrorCodeEnum.OperationNotAllowed,
+                    $"User does not have permission to operate on case {id}");
+            }
+
+            var entity = await _onboardingRepository.GetByIdAsync(id);
+            if (entity == null || !entity.IsValid)
+            {
+                throw new CRMException(ErrorCodeEnum.DataNotFound, "Onboarding not found");
+            }
+
+            // Validate current status - cannot force complete already completed or force completed onboardings
+            if (entity.Status == "Completed" || entity.Status == "Force Completed")
+            {
+                throw new CRMException(ErrorCodeEnum.BusinessError,
+                    $"Cannot force complete onboarding with status '{entity.Status}'");
+            }
+
+            // Update status to Force Completed
+            entity.Status = "Force Completed";
+            entity.ActualCompletionDate = DateTimeOffset.UtcNow;
+            entity.CompletionRate = 100; // Set completion rate to 100%
+
+            // Add completion notes
+            var completionText = $"[Force Complete] Onboarding force completed - Reason: {input.Reason}";
+            if (!string.IsNullOrEmpty(input.CompletionNotes))
+            {
+                completionText += $" - Notes: {input.CompletionNotes}";
+            }
+            if (input.Rating.HasValue)
+            {
+                completionText += $" - Rating: {input.Rating}/5";
+            }
+            if (!string.IsNullOrEmpty(input.Feedback))
+            {
+                completionText += $" - Feedback: {input.Feedback}";
+            }
+
+            SafeAppendToNotes(entity, completionText);
+
+            // Important: Do NOT modify stagesProgress data - keep it as is
+            // This ensures that the stage progress remains unchanged as per requirement
+            // Preserve the original stages progress data to prevent any changes
+            var originalStagesProgressJson = entity.StagesProgressJson;
+            var originalStagesProgress = entity.StagesProgress?.ToList(); // Create a copy
+
+            // Update stage tracking info (this may modify stages progress, so we'll restore it afterward)
+            await UpdateStageTrackingInfoAsync(entity);
+
+            // CRITICAL: Restore the original stages progress to ensure no changes
+            entity.StagesProgressJson = originalStagesProgressJson;
+            entity.StagesProgress = originalStagesProgress;
+
+            // Log the force completion action
+            await LogOnboardingActionAsync(entity, "Force Complete", "Status Change", true, new
+            {
+                Reason = input.Reason,
+                CompletionNotes = input.CompletionNotes,
+                Rating = input.Rating,
+                Feedback = input.Feedback,
+                CompletedBy = GetCurrentUserFullName(),
+                CompletedAt = DateTimeOffset.UtcNow
+            });
+
+            // Use special update method that excludes stages_progress_json field
+            return await SafeUpdateOnboardingWithoutStagesProgressAsync(entity, originalStagesProgressJson);
+        }
+        /// <summary>
+        /// Safely update onboarding entity without modifying stages_progress_json
+        /// This method is specifically designed for operations where stages progress should not be changed
+        /// </summary>
+        private async Task<bool> SafeUpdateOnboardingWithoutStagesProgressAsync(Onboarding entity, string preserveStagesProgressJson)
+        {
+            try
+            {
+                // Always use the JSONB-safe approach to avoid type conversion errors
+                var db = _onboardingRepository.GetSqlSugarClient();
+
+                // Update all fields except stages_progress_json first
+                var result = await _onboardingRepository.UpdateAsync(entity,
+                    it => new
+                    {
+                        it.WorkflowId,
+                        it.CurrentStageId,
+                        it.CurrentStageOrder,
+                        it.LeadId,
+                        it.LeadName,
+                        it.LeadEmail,
+                        it.LeadPhone,
+                        it.ContactPerson,
+                        it.ContactEmail,
+                        it.LifeCycleStageId,
+                        it.LifeCycleStageName,
+                        it.Status,
+                        it.CompletionRate,
+                        it.StartDate,
+                        it.EstimatedCompletionDate,
+                        it.ActualCompletionDate,
+                        it.CurrentAssigneeId,
+                        it.CurrentAssigneeName,
+                        it.CurrentTeam,
+                        it.StageUpdatedById,
+                        it.StageUpdatedBy,
+                        it.StageUpdatedByEmail,
+                        it.StageUpdatedTime,
+                        it.CurrentStageStartTime,
+                        it.Priority,
+                        it.IsPrioritySet,
+                        it.Ownership,
+                        it.OwnershipName,
+                        it.OwnershipEmail,
+                        it.CustomFieldsJson,
+                        it.Notes,
+                        it.IsActive,
+                        it.ModifyDate,
+                        it.ModifyBy,
+                        it.ModifyUserId,
+                        it.IsValid
+                    });
+
+                // IMPORTANT: Restore the original stages_progress_json to ensure no changes to stages progress
+                if (!string.IsNullOrEmpty(preserveStagesProgressJson))
+                {
+                    try
+                    {
+                        var progressSql = "UPDATE ff_onboarding SET stages_progress_json = @StagesProgressJson::jsonb WHERE id = @Id";
+                        await db.Ado.ExecuteCommandAsync(progressSql, new
+                        {
+                            StagesProgressJson = preserveStagesProgressJson,
+                            Id = entity.Id
+                        });
+
+                        LoggingExtensions.WriteLine($"[ForceComplete] Preserved original stages_progress_json for onboarding {entity.Id}");
+                    }
+                    catch (Exception progressEx)
+                    {
+                        // Log but don't fail the main update
+                        LoggingExtensions.WriteLine($"Warning: Failed to preserve stages_progress_json: {progressEx.Message}");
+                        // Try alternative approach with parameter substitution
+                        try
+                        {
+                            var escapedJson = preserveStagesProgressJson.Replace("'", "''");
+                            var directSql = $"UPDATE ff_onboarding SET stages_progress_json = '{escapedJson}'::jsonb WHERE id = {entity.Id}";
+                            await db.Ado.ExecuteCommandAsync(directSql);
+
+                            LoggingExtensions.WriteLine($"[ForceComplete] Preserved original stages_progress_json for onboarding {entity.Id} using direct SQL");
+                        }
+                        catch (Exception directEx)
+                        {
+                            LoggingExtensions.WriteLine($"Error: Both parameterized and direct JSONB preserve failed: {directEx.Message}");
+                        }
+                    }
+                }
+
+                return result;
+            }
+            catch (Exception ex)
+            {
+                throw new CRMException(ErrorCodeEnum.SystemError,
+                    $"Failed to safely update onboarding without stages progress changes: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Validates and formats JSON array string for PostgreSQL JSONB
+        /// </summary>
+        /// <summary>
+        /// Parse JSON array that might be double-encoded (handles both "[...]" and "\"[...]\"")
+        /// </summary>
+        private static List<string> ParseJsonArraySafe(string jsonString)
+        {
+            if (string.IsNullOrWhiteSpace(jsonString))
+            {
+                return new List<string>();
+            }
+
+            try
+            {
+                // Handle potential double-encoded JSON string
+                var workingString = jsonString.Trim();
+
+                // If the string starts and ends with quotes, it's double-encoded, so deserialize twice
+                if (workingString.StartsWith("\"") && workingString.EndsWith("\""))
+                {
+                    // First deserialize to remove outer quotes and unescape
+                    workingString = Newtonsoft.Json.JsonConvert.DeserializeObject<string>(workingString);
+                }
+
+                // Now deserialize to list
+                var result = Newtonsoft.Json.JsonConvert.DeserializeObject<List<string>>(workingString);
+                return result ?? new List<string>();
+            }
+            catch
+            {
+                return new List<string>();
+            }
+        }
+
+        /// <summary>
+        /// Check Workflow view permission in-memory (no database query)
+        /// Used for batch permission filtering in list queries
+        /// </summary>
+        private bool CheckWorkflowViewPermissionInMemory(
+            Domain.Entities.OW.Workflow workflow,
+            long userId,
+            List<long> userTeamIds)
+        {
+            // Public view mode = everyone can view
+            if (workflow.ViewPermissionMode == ViewPermissionModeEnum.Public)
+            {
+                return true;
+            }
+
+            // VisibleToTeams mode = check team whitelist
+            if (workflow.ViewPermissionMode == ViewPermissionModeEnum.VisibleToTeams)
+            {
+                if (string.IsNullOrWhiteSpace(workflow.ViewTeams))
+                {
+                    LoggingExtensions.WriteLine($"[Permission Debug] Workflow {workflow.Id} - VisibleToTeams mode with NULL ViewTeams = DENY");
+                    return false; // NULL ViewTeams in VisibleToTeams mode = deny all (whitelist is empty)
+                }
+
+                // Parse ViewTeams JSON array (handles double-encoding)
+                var viewTeams = ParseJsonArraySafe(workflow.ViewTeams);
+                LoggingExtensions.WriteLine($"[Permission Debug] Workflow {workflow.Id} - Parsed ViewTeams: [{string.Join(", ", viewTeams)}]");
+
+                if (viewTeams.Count == 0)
+                {
+                    LoggingExtensions.WriteLine($"[Permission Debug] Workflow {workflow.Id} - Empty ViewTeams = DENY");
+                    return false; // Empty whitelist = deny all
+                }
+
+                var viewTeamLongs = viewTeams.Select(t => long.TryParse(t, out var tid) ? tid : 0).Where(t => t > 0).ToHashSet();
+                LoggingExtensions.WriteLine($"[Permission Debug] Workflow {workflow.Id} - ViewTeamLongs: [{string.Join(", ", viewTeamLongs)}]");
+                LoggingExtensions.WriteLine($"[Permission Debug] Workflow {workflow.Id} - UserTeamIds: [{string.Join(", ", userTeamIds)}]");
+
+                bool hasMatch = userTeamIds.Any(ut => viewTeamLongs.Contains(ut));
+                LoggingExtensions.WriteLine($"[Permission Debug] Workflow {workflow.Id} - Team match result: {hasMatch}");
+
+                return hasMatch;
+            }
+
+            // Private mode or unknown mode
+            return false;
+        }
+      
+
+        private static string ValidateAndFormatJsonArray(string jsonArray)
+        {
+            if (string.IsNullOrWhiteSpace(jsonArray))
+            {
+                return "[]";
+            }
+
+            try
+            {
+                // Try to parse and validate the JSON
+                var parsed = Newtonsoft.Json.JsonConvert.DeserializeObject(jsonArray);
+                if (parsed is Newtonsoft.Json.Linq.JArray)
+                {
+                    return jsonArray;
+                }
+                // If it's not an array, return empty array
+                return "[]";
+            }
+            catch
+            {
+                // If parsing fails, return empty array
+                return "[]";
+            }
+        }
+
+        /// <summary>
+        /// Validate that team IDs from JSON arrays exist in the team tree from UserService.
+        /// Accepts JSON arrays (possibly double-encoded) like ["team1","team2"].
+        /// Throws BusinessError if any invalid IDs are found.
+        /// </summary>
+        private async Task ValidateTeamSelectionsFromJsonAsync(string viewTeamsJson, string operateTeamsJson)
+        {
+            var viewTeams = ParseJsonArraySafe(viewTeamsJson) ?? new List<string>();
+            var operateTeams = ParseJsonArraySafe(operateTeamsJson) ?? new List<string>();
+
+            var needsValidation = (viewTeams.Any() || operateTeams.Any());
+            if (!needsValidation)
+            {
+                return;
+            }
+
+            HashSet<string> allTeamIds;
+            try
+            {
+                allTeamIds = await GetAllTeamIdsFromUserTreeAsync();
+            }
+            catch (Exception ex)
+            {
+                // Do not block the operation if IDM is unavailable; just log
+                LoggingExtensions.WriteLine($"[TeamValidation] Skipped due to error fetching team tree: {ex.Message}");
+                return;
+            }
+
+            var invalid = new List<string>();
+            invalid.AddRange(viewTeams.Where(id => !string.IsNullOrWhiteSpace(id) && !allTeamIds.Contains(id)));
+            invalid.AddRange(operateTeams.Where(id => !string.IsNullOrWhiteSpace(id) && !allTeamIds.Contains(id)));
+            invalid = invalid.Distinct(StringComparer.Ordinal).ToList();
+
+            if (invalid.Any())
+            {
+                throw new CRMException(ErrorCodeEnum.BusinessError,
+                    $"The following team IDs do not exist: {string.Join(", ", invalid)}");
+            }
+        }
+
+        /// <summary>
+        /// Get all valid team IDs from UserService team tree (excludes placeholder teams like 'Other').
+        /// </summary>
+        private async Task<HashSet<string>> GetAllTeamIdsFromUserTreeAsync()
+        {
+            var tree = await _userService.GetUserTreeAsync();
+            var ids = new HashSet<string>(StringComparer.Ordinal);
+            if (tree == null || !tree.Any())
+            {
+                return ids;
+            }
+
+            void Traverse(IEnumerable<UserTreeNodeDto> nodes)
+            {
+                foreach (var node in nodes)
+                {
+                    if (node == null) continue;
+                    if (string.Equals(node.Type, "team", StringComparison.OrdinalIgnoreCase))
+                    {
+                        if (!string.IsNullOrWhiteSpace(node.Id) && !string.Equals(node.Id, "Other", StringComparison.Ordinal))
+                        {
+                            ids.Add(node.Id);
+                        }
+                    }
+                    if (node.Children != null && node.Children.Any())
+                    {
+                        Traverse(node.Children);
+                    }
+                }
+            }
+
+            Traverse(tree);
+            return ids;
+        }
+
+        /// <summary>
+        /// Sync Onboarding fields to Static Field Values when Onboarding is updated
+        /// </summary>
+        private async Task SyncStaticFieldValuesAsync(
+            long onboardingId,
+            long stageId,
+            string originalLeadId,
+            string originalLeadName,
+            string originalContactPerson,
+            string originalContactEmail,
+            string originalLeadPhone,
+            long? originalLifeCycleStageId,
+            string originalPriority,
+            OnboardingInputDto input)
+        {
+            try
+            {
+                Console.WriteLine($"[OnboardingService] Starting static field sync - OnboardingId: {onboardingId}, StageId: {stageId}");
+
+                var staticFieldUpdates = new List<FlowFlex.Application.Contracts.Dtos.OW.StaticField.StaticFieldValueInputDto>();
+
+                // Field mapping: Onboarding field -> Static Field Name
+                // Only update fields that have changed
+                if (!string.Equals(originalLeadId, input.LeadId, StringComparison.Ordinal))
+                {
+                    Console.WriteLine($"[OnboardingService] LEADID changed: '{originalLeadId}' -> '{input.LeadId}'");
+                    staticFieldUpdates.Add(CreateStaticFieldInput(
+                        onboardingId,
+                        stageId,
+                        "LEADID",
+                        input.LeadId,
+                        "text",
+                        "Lead ID",
+                        isRequired: false
+                    ));
+                }
+
+                if (!string.Equals(originalLeadName, input.LeadName, StringComparison.Ordinal))
+                {
+                    Console.WriteLine($"[OnboardingService] CUSTOMERNAME changed: '{originalLeadName}' -> '{input.LeadName}'");
+                    staticFieldUpdates.Add(CreateStaticFieldInput(
+                        onboardingId,
+                        stageId,
+                        "CUSTOMERNAME",
+                        input.LeadName,
+                        "text",
+                        "Customer Name",
+                        isRequired: false
+                    ));
+                }
+
+                if (!string.Equals(originalContactPerson, input.ContactPerson, StringComparison.Ordinal))
+                {
+                    Console.WriteLine($"[OnboardingService] CONTACTNAME changed: '{originalContactPerson}' -> '{input.ContactPerson}'");
+                    staticFieldUpdates.Add(CreateStaticFieldInput(
+                        onboardingId,
+                        stageId,
+                        "CONTACTNAME",
+                        input.ContactPerson,
+                        "text",
+                        "Contact Name",
+                        isRequired: false
+                    ));
+                }
+
+                if (!string.Equals(originalContactEmail, input.ContactEmail, StringComparison.Ordinal))
+                {
+                    Console.WriteLine($"[OnboardingService] CONTACTEMAIL changed: '{originalContactEmail}' -> '{input.ContactEmail}'");
+                    staticFieldUpdates.Add(CreateStaticFieldInput(
+                        onboardingId,
+                        stageId,
+                        "CONTACTEMAIL",
+                        input.ContactEmail,
+                        "email",
+                        "Contact Email",
+                        isRequired: false
+                    ));
+                }
+
+                if (!string.Equals(originalLeadPhone, input.LeadPhone, StringComparison.Ordinal))
+                {
+                    Console.WriteLine($"[OnboardingService] CONTACTPHONE changed: '{originalLeadPhone}' -> '{input.LeadPhone}'");
+                    staticFieldUpdates.Add(CreateStaticFieldInput(
+                        onboardingId,
+                        stageId,
+                        "CONTACTPHONE",
+                        input.LeadPhone,
+                        "tel",
+                        "Contact Phone",
+                        isRequired: false
+                    ));
+                }
+
+                if (originalLifeCycleStageId != input.LifeCycleStageId)
+                {
+                    Console.WriteLine($"[OnboardingService] LIFECYCLESTAGE changed: '{originalLifeCycleStageId}' -> '{input.LifeCycleStageId}'");
+                    staticFieldUpdates.Add(CreateStaticFieldInput(
+                        onboardingId,
+                        stageId,
+                        "LIFECYCLESTAGE",
+                        input.LifeCycleStageId?.ToString() ?? "",
+                        "select",
+                        "Life Cycle Stage",
+                        isRequired: false
+                    ));
+                }
+
+                if (!string.Equals(originalPriority, input.Priority, StringComparison.Ordinal))
+                {
+                    Console.WriteLine($"[OnboardingService] PRIORITY changed: '{originalPriority}' -> '{input.Priority}'");
+                    staticFieldUpdates.Add(CreateStaticFieldInput(
+                        onboardingId,
+                        stageId,
+                        "PRIORITY",
+                        input.Priority,
+                        "select",
+                        "Priority",
+                        isRequired: false
+                    ));
+                }
+
+                // Batch update static field values if any fields changed
+                if (staticFieldUpdates.Any())
+                {
+                    Console.WriteLine($"[OnboardingService] Syncing {staticFieldUpdates.Count} static field(s) to database");
+
+                    var batchInput = new FlowFlex.Application.Contracts.Dtos.OW.StaticField.BatchStaticFieldValueInputDto
+                    {
+                        OnboardingId = onboardingId,
+                        StageId = stageId,
+                        FieldValues = staticFieldUpdates,
+                        Source = "onboarding_update",
+                        IpAddress = GetClientIpAddress(),
+                        UserAgent = GetUserAgent()
+                    };
+
+                    await _staticFieldValueService.BatchSaveAsync(batchInput);
+                    Console.WriteLine($"[OnboardingService] Static field sync completed successfully");
+                }
+                else
+                {
+                    Console.WriteLine($"[OnboardingService] No static field changes detected, sync skipped");
+                }
+            }
+            catch (Exception ex)
+            {
+                // Log error but don't fail the main update operation
+                Console.WriteLine($"[OnboardingService] Failed to sync static field values: {ex.Message}");
+                Console.WriteLine($"[OnboardingService] Stack trace: {ex.StackTrace}");
+            }
+        }
+
+        /// <summary>
+        /// Get client IP address from HTTP context
+        /// </summary>
+        private string GetClientIpAddress()
+        {
+            var httpContext = _httpContextAccessor?.HttpContext;
+            if (httpContext == null) return string.Empty;
+
+            var ipAddress = httpContext.Request.Headers["X-Forwarded-For"].FirstOrDefault();
+            if (string.IsNullOrEmpty(ipAddress))
+            {
+                ipAddress = httpContext.Request.Headers["X-Real-IP"].FirstOrDefault();
+            }
+            if (string.IsNullOrEmpty(ipAddress))
+            {
+                ipAddress = httpContext.Connection.RemoteIpAddress?.ToString();
+            }
+
+            return ipAddress ?? string.Empty;
+        }
+
+        /// <summary>
+        /// Get user agent from HTTP context
+        /// </summary>
+        private string GetUserAgent()
+        {
+            var httpContext = _httpContextAccessor?.HttpContext;
+            return httpContext?.Request.Headers["User-Agent"].ToString() ?? string.Empty;
+        }
+
+        /// <summary>
+        /// Create StaticFieldValueInputDto for static field sync
+        /// </summary>
+        private FlowFlex.Application.Contracts.Dtos.OW.StaticField.StaticFieldValueInputDto CreateStaticFieldInput(
+            long onboardingId,
+            long stageId,
+            string fieldName,
+            string fieldValue,
+            string fieldType,
+            string fieldLabel,
+            bool isRequired)
+        {
+            return new FlowFlex.Application.Contracts.Dtos.OW.StaticField.StaticFieldValueInputDto
+            {
+                OnboardingId = onboardingId,
+                StageId = stageId,
+                FieldName = fieldName,
+                FieldValueJson = JsonSerializer.Serialize(fieldValue),
+                FieldType = fieldType,
+                DisplayName = fieldLabel,
+                FieldLabel = fieldLabel,
+                IsRequired = isRequired,
+                Status = "Draft",
+                CompletionRate = string.IsNullOrWhiteSpace(fieldValue) ? 0 : 100,
+                ValidationStatus = "Pending"
+            };
+        }
+
+        /// <summary>
+        /// Get authorized users for onboarding based on permission configuration
+        /// If case has no permission restrictions (Public mode), returns all users
+        /// If case has permission restrictions, returns only authorized users based on ViewPermissionMode and ViewPermissionSubjectType
+        /// </summary>
+    }
+}
+

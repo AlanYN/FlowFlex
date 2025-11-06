@@ -22,10 +22,10 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.Onboarding
         public long? CurrentStageId { get; set; }
 
         /// <summary>
-        /// 客户/线索ID
+        /// 客户/线索ID (optional - Case Code is the primary identifier)
         /// </summary>
         [StringLength(100)]
-        public string LeadId { get; set; }
+        public string? LeadId { get; set; }
 
         /// <summary>
         /// 客户/线索名称
