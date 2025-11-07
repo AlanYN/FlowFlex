@@ -65,7 +65,7 @@ class TokenRefreshManager {
 			// 刷新失败，清除 token 并跳转登录
 			const userStore = useUserStoreWithOut();
 			userStore.setTokenobj(undefined);
-			userStore.logout(true, 'logout');
+			userStore.logout(true, 'Oauth');
 
 			// 通知微前端或父窗口 token 过期
 			const { useWujie } = await import('@/hooks/wujie/micro-app.config');
@@ -137,7 +137,7 @@ class TokenRefreshManager {
 				})
 				.catch((error) => {
 					// 刷新失败，拒绝所有待处理的请求
-					Logout('logout');
+					Logout('login');
 					this.processPendingRequests(error);
 				})
 				.finally(() => {
