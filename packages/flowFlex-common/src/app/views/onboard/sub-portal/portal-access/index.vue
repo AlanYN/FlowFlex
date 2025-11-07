@@ -1,8 +1,8 @@
 <template>
-	<div
-		class="min-h-screen bg-gradient-to-br from-primary-50 to-indigo-100 flex items-center justify-center p-4"
-	>
-		<div class="max-w-md w-full bg-white rounded-xl shadow-lg overflow-hidden">
+	<div class="min-h-screen bg-siderbarGray dark:bg-black flex items-center justify-center p-4">
+		<div
+			class="max-w-md w-full bg-siderbarGray dark:bg-black-400 rounded-xl shadow-lg overflow-hidden"
+		>
 			<!-- Header -->
 			<div class="bg-primary px-6 py-4">
 				<h1 class="text-xl font-semibold text-white text-center">
@@ -84,17 +84,17 @@
 						</div>
 
 						<div>
-							<el-button size="large" class="w-full" @click="switchToEmailForm">
+							<el-button
+								size="large"
+								type="primary"
+								class="w-full"
+								@click="switchToEmailForm"
+							>
 								Use Different Email Address
 							</el-button>
 						</div>
 
-						<el-button
-							type="text"
-							size="small"
-							class="w-full text-gray-500"
-							@click="logoutAndContinue"
-						>
+						<el-button link size="small" class="w-full" @click="logoutAndContinue">
 							Logout Current User
 						</el-button>
 					</div>
@@ -155,7 +155,7 @@
 
 						<el-button
 							v-if="currentLoggedUser"
-							type="text"
+							link
 							size="small"
 							class="w-full text-gray-500 mt-2"
 							@click="backToUserSelection"
@@ -582,11 +582,4 @@ onMounted(() => {
 });
 </script>
 
-<style scoped lang="scss">
-.disabled-input {
-	:deep(.el-input__inner) {
-		background-color: #f5f7fa;
-		color: #909399;
-	}
-}
-</style>
+<style scoped lang="scss"></style>
