@@ -28,7 +28,7 @@ namespace FlowFlex.SqlSugarDB.Migrations
             db.Ado.ExecuteCommand(@"
                 COMMENT ON COLUMN ff_onboarding.lead_id IS 'Customer/Lead ID';
             ");
-            
+
             // Restore NOT NULL only if all existing records have lead_id
             db.Ado.ExecuteCommand(@"
                 DO $$

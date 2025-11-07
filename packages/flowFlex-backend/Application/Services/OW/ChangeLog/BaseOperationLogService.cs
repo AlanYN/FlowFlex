@@ -508,7 +508,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                 // Convert UTC time to US Eastern Time (ET)
                 var easternZone = TimeZoneInfo.FindSystemTimeZoneById("Eastern Standard Time");
                 var easternTime = TimeZoneInfo.ConvertTime(dateTime, easternZone);
-                
+
                 // Format as US time: MM/dd/yyyy hh:mm:ss tt ET
                 return easternTime.ToString("MM/dd/yyyy hh:mm:ss tt") + " ET";
             }
@@ -1075,7 +1075,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
             }
 
             // For Name fields, use longer limit to avoid truncation of important titles
-            if (!string.IsNullOrEmpty(fieldName) && 
+            if (!string.IsNullOrEmpty(fieldName) &&
                 fieldName.Equals("Name", StringComparison.OrdinalIgnoreCase))
             {
                 // Allow up to 200 characters for Name fields
@@ -1512,10 +1512,10 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                             // Get tenant ID from UserContext (works in background tasks)
                             var tenantId = _userContext?.TenantId ?? "999";
                             _logger.LogDebug("Using TenantId: {TenantId} for fetching user names", tenantId);
-                            
+
                             // Fixed: Properly await async operation instead of blocking
                             var users = await _userService.GetUsersByIdsAsync(changedUserIds, tenantId);
-                            
+
                             // Group by ID to handle potential duplicates (shouldn't happen after UserService fix, but defensive)
                             userNameMap = users
                                 .GroupBy(u => u.Id)
@@ -1528,7 +1528,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                                                (!string.IsNullOrEmpty(user.Email) ? user.Email : $"User_{user.Id}");
                                     }
                                 );
-                                
+
                             _logger.LogDebug("Fetched {Count} user names for assignee change details", userNameMap.Count);
                         }
                         catch (Exception ex)
@@ -1692,30 +1692,30 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                     {
                         // Clean up the code by removing extra whitespace
                         var cleanedCode = sourceCode.Replace("\r\n", " ").Replace("\n", " ").Replace("  ", " ").Trim();
-                        
+
                         // Limit the length to avoid overly long descriptions
                         if (cleanedCode.Length > 150)
                         {
                             return $"[Python: {cleanedCode.Substring(0, 147)}...]";
                         }
-                        
+
                         return $"[Python: {cleanedCode}]";
                     }
                 }
 
                 // Try to extract other common config properties
                 var properties = new List<string>();
-                
+
                 if (config.TryGetProperty("url", out var urlElement))
                 {
                     properties.Add($"url: {urlElement.GetString()}");
                 }
-                
+
                 if (config.TryGetProperty("method", out var methodElement))
                 {
                     properties.Add($"method: {methodElement.GetString()}");
                 }
-                
+
                 if (config.TryGetProperty("endpoint", out var endpointElement))
                 {
                     properties.Add($"endpoint: {endpointElement.GetString()}");
@@ -2302,13 +2302,13 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                         return teams;
                     }
                 }
-                
+
                 // Fallback: treat as comma-separated string
                 var teamList = trimmedData.Split(',', StringSplitOptions.RemoveEmptyEntries)
                     .Select(t => t.Trim())
                     .Where(t => !string.IsNullOrEmpty(t))
                     .ToList();
-                
+
                 _logger.LogDebug("Parsed {Count} teams from comma-separated string", teamList.Count);
                 return teamList;
             }

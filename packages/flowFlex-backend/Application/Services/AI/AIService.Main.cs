@@ -24,7 +24,7 @@ namespace FlowFlex.Application.Services.AI
     /// <summary>
     /// AI service implementation supporting multiple AI providers
     /// </summary>
-     public partial class AIService : IAIService, IScopedService
+    public partial class AIService : IAIService, IScopedService
     {
         private readonly AIOptions _aiOptions;
         private readonly ILogger<AIService> _logger;
@@ -1051,10 +1051,10 @@ namespace FlowFlex.Application.Services.AI
                 };
             }
         }
-              
+
 
         #endregion
-       
+
 
         #region Helper Classes
 
@@ -1332,6 +1332,6 @@ namespace FlowFlex.Application.Services.AI
 
         #endregion
 
-        
+
     }
 }

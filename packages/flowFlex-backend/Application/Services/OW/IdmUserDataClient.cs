@@ -520,7 +520,7 @@ namespace FlowFlex.Application.Services.OW
 
                 _client.DefaultRequestHeaders.Authorization =
                     new AuthenticationHeaderValue(tokenInfo.TokenType, tokenInfo.AccessToken);
-                
+
                 // Add X-App-Id header for public API endpoints
                 if (!string.IsNullOrEmpty(_options.AppId))
                 {
@@ -652,7 +652,7 @@ namespace FlowFlex.Application.Services.OW
 
                 _client.DefaultRequestHeaders.Authorization =
                     new AuthenticationHeaderValue(tokenInfo.TokenType, tokenInfo.AccessToken);
-                
+
                 // Add X-App-Id header for public API endpoints
                 if (!string.IsNullOrEmpty(_options.AppId))
                 {
@@ -771,7 +771,7 @@ namespace FlowFlex.Application.Services.OW
                 // Endpoint: /api/v1/users/{userId}
                 var endpoint = $"/api/v1/users/{userId}";
                 var url = $"{_options.BaseUrl}{endpoint}";
-                
+
                 _logger.LogInformation("Requesting user info from: {Url}", url);
 
                 // Create request with user's authorization token
@@ -788,7 +788,7 @@ namespace FlowFlex.Application.Services.OW
                 if (!resp.IsSuccessStatusCode)
                 {
                     var errorContent = await resp.Content.ReadAsStringAsync();
-                    
+
                     // If Forbidden (403), try fallback to /api/v1/users/current/info
                     // This happens when a normal user tries to view their own info
                     if (resp.StatusCode == System.Net.HttpStatusCode.Forbidden)
@@ -796,7 +796,7 @@ namespace FlowFlex.Application.Services.OW
                         _logger.LogInformation(
                             "User {UserId} got Forbidden (403) from /api/v1/users/{UserId}, falling back to /api/v1/users/current/info",
                             userId, userId);
-                        
+
                         try
                         {
                             // Fallback to current user info endpoint
@@ -812,8 +812,8 @@ namespace FlowFlex.Application.Services.OW
                             _logger.LogWarning(fallbackEx, "Fallback to /api/v1/users/current/info also failed");
                         }
                     }
-                    
-                    _logger.LogError("IDM user info API request failed: {StatusCode} - {ErrorContent}", 
+
+                    _logger.LogError("IDM user info API request failed: {StatusCode} - {ErrorContent}",
                         resp.StatusCode, errorContent);
                     throw new HttpRequestException($"IDM user info API request failed: {resp.StatusCode} - {errorContent}");
                 }
@@ -882,11 +882,11 @@ namespace FlowFlex.Application.Services.OW
             try
             {
                 _logger.LogInformation("=== GetCurrentUserInfoAsync Started ===");
-                
+
                 // Endpoint: /api/v1/users/current/info
                 var endpoint = "/api/v1/users/current/info";
                 var url = $"{_options.BaseUrl}{endpoint}";
-                
+
                 _logger.LogInformation("Requesting current user info from: {Url}", url);
 
                 // Create request with user's authorization token
@@ -978,7 +978,7 @@ namespace FlowFlex.Application.Services.OW
 
                 _client.DefaultRequestHeaders.Authorization =
                     new AuthenticationHeaderValue(tokenInfo.TokenType, tokenInfo.AccessToken);
-                
+
                 // Add X-App-Id header for public API endpoints
                 if (!string.IsNullOrEmpty(_options.AppId))
                 {

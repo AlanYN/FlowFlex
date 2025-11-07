@@ -273,8 +273,8 @@ public class ChecklistTaskRepository : BaseRepository<ChecklistTask>, IChecklist
             return false;
 
         var query = db.Queryable<ChecklistTask>()
-            .Where(x => x.ChecklistId == checklistId 
-                && x.Name == taskName.Trim() 
+            .Where(x => x.ChecklistId == checklistId
+                && x.Name == taskName.Trim()
                 && x.IsValid == true);
 
         if (excludeTaskId.HasValue)

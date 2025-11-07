@@ -299,10 +299,10 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
             }
 
             var operationTitle = $"Action Updated: {actionName}";
-            
+
             // Build enhanced description with specific value changes
             var operationDescription = $"Action '{actionName}' has been updated by {customOperatorName}";
-            
+
             // Add specific change details
             if (!string.IsNullOrEmpty(beforeData) && !string.IsNullOrEmpty(afterData) && changedFields?.Any() == true)
             {

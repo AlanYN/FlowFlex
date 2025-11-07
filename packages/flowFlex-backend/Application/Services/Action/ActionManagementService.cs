@@ -436,7 +436,7 @@ namespace FlowFlex.Application.Services.Action
                 // If action name changed, sync the new name to related ChecklistTasks and Questionnaires
                 if (changedFields.Contains("Name") && originalName != entity.ActionName)
                 {
-                    _logger.LogInformation("Action name changed from '{OldName}' to '{NewName}', syncing to related entities", 
+                    _logger.LogInformation("Action name changed from '{OldName}' to '{NewName}', syncing to related entities",
                         originalName, entity.ActionName);
 
                     // Capture action ID and name for background task
@@ -456,11 +456,11 @@ namespace FlowFlex.Application.Services.Action
                             var logger = scope.ServiceProvider.GetRequiredService<ILogger<ActionManagementService>>();
 
                             await SyncActionNameToRelatedEntitiesAsync(
-                                actionId, 
-                                newActionName, 
-                                tenantId, 
-                                checklistTaskRepository, 
-                                questionnaireRepository, 
+                                actionId,
+                                newActionName,
+                                tenantId,
+                                checklistTaskRepository,
+                                questionnaireRepository,
                                 logger);
                         }
                         catch (Exception ex)
@@ -957,7 +957,7 @@ namespace FlowFlex.Application.Services.Action
                         // Conflict: different action, delete old mapping and create new one
                         _logger.LogWarning("Mapping conflict detected for {TriggerType} TriggerSourceId={TriggerSourceId}. " +
                             "Existing mapping {ExistingMappingId} (ActionDefinitionId={OldActionId}) will be deleted and replaced with new mapping (ActionDefinitionId={NewActionId}).",
-                            dto.TriggerType, dto.TriggerSourceId, existingMappingForThisSource.Id, 
+                            dto.TriggerType, dto.TriggerSourceId, existingMappingForThisSource.Id,
                             existingMappingForThisSource.ActionDefinitionId, dto.ActionDefinitionId);
 
                         // Delete the old mapping
@@ -1711,14 +1711,14 @@ namespace FlowFlex.Application.Services.Action
         /// Uses scoped repositories to avoid disposed object issues in background tasks
         /// </summary>
         private async Task SyncActionNameToRelatedEntitiesAsync(
-            long actionDefinitionId, 
-            string newActionName, 
+            long actionDefinitionId,
+            string newActionName,
             string tenantId,
             IChecklistTaskRepository checklistTaskRepository,
             IQuestionnaireRepository questionnaireRepository,
             ILogger<ActionManagementService> logger)
         {
-            logger.LogInformation("Starting action name sync for action {ActionId} to '{NewName}' in tenant {TenantId}", 
+            logger.LogInformation("Starting action name sync for action {ActionId} to '{NewName}' in tenant {TenantId}",
                 actionDefinitionId, newActionName, tenantId);
 
             var totalTasksUpdated = 0;
@@ -1729,7 +1729,7 @@ namespace FlowFlex.Application.Services.Action
                 // Sync to ChecklistTasks
                 totalTasksUpdated = await SyncActionNameToChecklistTasksAsync(
                     actionDefinitionId, newActionName, tenantId, checklistTaskRepository, logger);
-                logger.LogInformation("Synced action name to {Count} ChecklistTasks for action {ActionId}", 
+                logger.LogInformation("Synced action name to {Count} ChecklistTasks for action {ActionId}",
                     totalTasksUpdated, actionDefinitionId);
             }
             catch (Exception ex)
@@ -1742,7 +1742,7 @@ namespace FlowFlex.Application.Services.Action
                 // Sync to Questionnaires
                 totalQuestionnairesUpdated = await SyncActionNameToQuestionnairesAsync(
                     actionDefinitionId, newActionName, tenantId, questionnaireRepository, logger);
-                logger.LogInformation("Synced action name to {Count} Questionnaires for action {ActionId}", 
+                logger.LogInformation("Synced action name to {Count} Questionnaires for action {ActionId}",
                     totalQuestionnairesUpdated, actionDefinitionId);
             }
             catch (Exception ex)
@@ -1750,7 +1750,7 @@ namespace FlowFlex.Application.Services.Action
                 logger.LogError(ex, "Error syncing action name to Questionnaires for action {ActionId}", actionDefinitionId);
             }
 
-            logger.LogInformation("Completed action name sync for action {ActionId}: {TaskCount} tasks, {QuestionnaireCount} questionnaires updated", 
+            logger.LogInformation("Completed action name sync for action {ActionId}: {TaskCount} tasks, {QuestionnaireCount} questionnaires updated",
                 actionDefinitionId, totalTasksUpdated, totalQuestionnairesUpdated);
         }
 
@@ -1759,8 +1759,8 @@ namespace FlowFlex.Application.Services.Action
         /// Uses scoped repository to avoid disposed object issues
         /// </summary>
         private async Task<int> SyncActionNameToChecklistTasksAsync(
-            long actionDefinitionId, 
-            string newActionName, 
+            long actionDefinitionId,
+            string newActionName,
             string tenantId,
             IChecklistTaskRepository checklistTaskRepository,
             ILogger<ActionManagementService> logger)
@@ -1771,18 +1771,18 @@ namespace FlowFlex.Application.Services.Action
             {
                 // Get all tasks that reference this action using scoped repository
                 var tasks = await checklistTaskRepository.GetTasksByActionIdAsync(actionDefinitionId);
-                
+
                 // Filter by tenant to ensure tenant isolation
                 tasks = tasks.Where(t => t.TenantId == tenantId && t.IsValid).ToList();
 
                 if (!tasks.Any())
                 {
-                    logger.LogDebug("No ChecklistTasks found for action {ActionId} in tenant {TenantId}", 
+                    logger.LogDebug("No ChecklistTasks found for action {ActionId} in tenant {TenantId}",
                         actionDefinitionId, tenantId);
                     return 0;
                 }
 
-                logger.LogInformation("Found {Count} ChecklistTasks to update for action {ActionId}", 
+                logger.LogInformation("Found {Count} ChecklistTasks to update for action {ActionId}",
                     tasks.Count, actionDefinitionId);
 
                 // Update each task's ActionName
@@ -1798,12 +1798,12 @@ namespace FlowFlex.Application.Services.Action
                         await checklistTaskRepository.UpdateAsync(task);
                         updatedCount++;
 
-                        logger.LogDebug("Updated ChecklistTask {TaskId} action name from '{OldName}' to '{NewName}'", 
+                        logger.LogDebug("Updated ChecklistTask {TaskId} action name from '{OldName}' to '{NewName}'",
                             task.Id, oldName, newActionName);
                     }
                     catch (Exception ex)
                     {
-                        logger.LogWarning(ex, "Failed to update ChecklistTask {TaskId} for action {ActionId}", 
+                        logger.LogWarning(ex, "Failed to update ChecklistTask {TaskId} for action {ActionId}",
                             task.Id, actionDefinitionId);
                     }
                 }
@@ -1822,8 +1822,8 @@ namespace FlowFlex.Application.Services.Action
         /// Uses scoped repository to avoid disposed object issues
         /// </summary>
         private async Task<int> SyncActionNameToQuestionnairesAsync(
-            long actionDefinitionId, 
-            string newActionName, 
+            long actionDefinitionId,
+            string newActionName,
             string tenantId,
             IQuestionnaireRepository questionnaireRepository,
             ILogger<ActionManagementService> logger)
@@ -1835,8 +1835,8 @@ namespace FlowFlex.Application.Services.Action
                 // Use GetListWithExplicitFiltersAsync to bypass HttpContext dependency
                 // Background tasks don't have HttpContext, so GetListAsync would return DEFAULT tenant
                 var questionnaires = await questionnaireRepository.GetListWithExplicitFiltersAsync(tenantId, "DEFAULT");
-                
-                logger.LogInformation("Retrieved {Count} questionnaires for tenant {TenantId} with AppCode=DEFAULT", 
+
+                logger.LogInformation("Retrieved {Count} questionnaires for tenant {TenantId} with AppCode=DEFAULT",
                     questionnaires.Count, tenantId);
 
                 if (!questionnaires.Any())
@@ -1845,12 +1845,12 @@ namespace FlowFlex.Application.Services.Action
                         "This is expected if no questionnaires exist or they use a different AppCode.", tenantId);
                     return 0;
                 }
-                
+
                 // Log questionnaire IDs for debugging
-                logger.LogDebug("Questionnaire IDs found: {Ids}", 
+                logger.LogDebug("Questionnaire IDs found: {Ids}",
                     string.Join(", ", questionnaires.Select(q => q.Id)));
 
-                logger.LogInformation("Checking {Count} Questionnaires for action {ActionId} references in tenant {TenantId}", 
+                logger.LogInformation("Checking {Count} Questionnaires for action {ActionId} references in tenant {TenantId}",
                     questionnaires.Count, actionDefinitionId, tenantId);
 
                 foreach (var questionnaire in questionnaires)
@@ -1871,13 +1871,13 @@ namespace FlowFlex.Application.Services.Action
                             await questionnaireRepository.UpdateAsync(questionnaire);
                             updatedCount++;
 
-                            logger.LogDebug("Updated Questionnaire {QuestionnaireId} ('{Name}') with new action name '{NewName}'", 
+                            logger.LogDebug("Updated Questionnaire {QuestionnaireId} ('{Name}') with new action name '{NewName}'",
                                 questionnaire.Id, questionnaire.Name, newActionName);
                         }
                     }
                     catch (Exception ex)
                     {
-                        logger.LogWarning(ex, "Failed to update Questionnaire {QuestionnaireId} for action {ActionId}", 
+                        logger.LogWarning(ex, "Failed to update Questionnaire {QuestionnaireId} for action {ActionId}",
                             questionnaire.Id, actionDefinitionId);
                     }
                 }
@@ -1895,9 +1895,9 @@ namespace FlowFlex.Application.Services.Action
         /// Update action name in questionnaire structure JSON
         /// </summary>
         private bool UpdateActionNameInStructureJson(
-            string structureJson, 
-            long actionDefinitionId, 
-            string newActionName, 
+            string structureJson,
+            long actionDefinitionId,
+            string newActionName,
             out string newStructureJson,
             ILogger<ActionManagementService> logger)
         {
@@ -1918,7 +1918,7 @@ namespace FlowFlex.Application.Services.Action
                     foreach (var section in sectionsElement.EnumerateArray())
                     {
                         // Process questions in sections
-                        hasChanges |= UpdateActionNameInQuestionArray(section, structureObj.sections[sectionIndex], 
+                        hasChanges |= UpdateActionNameInQuestionArray(section, structureObj.sections[sectionIndex],
                             "questions", actionDefinitionId, newActionName, logger);
 
                         // Process subsections if they exist
@@ -1927,7 +1927,7 @@ namespace FlowFlex.Application.Services.Action
                             var subsectionIndex = 0;
                             foreach (var subsection in subsectionsElement.EnumerateArray())
                             {
-                                hasChanges |= UpdateActionNameInQuestionArray(subsection, 
+                                hasChanges |= UpdateActionNameInQuestionArray(subsection,
                                     structureObj.sections[sectionIndex].subsections[subsectionIndex],
                                     "questions", actionDefinitionId, newActionName, logger);
                                 subsectionIndex++;
@@ -1955,10 +1955,10 @@ namespace FlowFlex.Application.Services.Action
         /// Update action name in question array
         /// </summary>
         private bool UpdateActionNameInQuestionArray(
-            JsonElement section, 
-            dynamic sectionObj, 
-            string arrayName, 
-            long actionDefinitionId, 
+            JsonElement section,
+            dynamic sectionObj,
+            string arrayName,
+            long actionDefinitionId,
             string newActionName,
             ILogger<ActionManagementService> logger)
         {
@@ -1994,7 +1994,7 @@ namespace FlowFlex.Application.Services.Action
                                 {
                                     sectionObj[arrayName][questionIndex].options[optionIndex].action.name = newActionName;
                                     hasChanges = true;
-                                    logger.LogDebug("Updated action name in option at question index {QuestionIndex}, option index {OptionIndex}", 
+                                    logger.LogDebug("Updated action name in option at question index {QuestionIndex}, option index {OptionIndex}",
                                         questionIndex, optionIndex);
                                 }
                             }

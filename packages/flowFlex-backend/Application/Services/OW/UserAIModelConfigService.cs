@@ -859,7 +859,7 @@ namespace FlowFlex.Application.Services.OW
             {
                 // Step 1: Get JWT Token
                 var jwtUrl = $"{config.BaseUrl.TrimEnd('/')}/admin/api/credentials/jwt";
-                
+
                 var jwtRequestBody = new
                 {
                     apiKey = config.ApiKey,
@@ -904,7 +904,7 @@ namespace FlowFlex.Application.Services.OW
 
                 // Step 2: Test chat completions API with JWT token
                 var chatUrl = $"{config.BaseUrl.TrimEnd('/')}/openai/v1/chat/completions";
-                
+
                 var chatRequestBody = new
                 {
                     model = config.ModelName ?? "openai/gpt-4o-mini", // Use a small model for testing
@@ -920,7 +920,7 @@ namespace FlowFlex.Application.Services.OW
 
                 httpClient.DefaultRequestHeaders.Clear();
                 httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {jwtToken}");
-                
+
                 var chatResponse = await httpClient.PostAsync(chatUrl, chatContent);
                 var chatResponseContent = await chatResponse.Content.ReadAsStringAsync();
 

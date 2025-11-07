@@ -29,7 +29,7 @@ namespace FlowFlex.WebApi.Controllers.AI
         private readonly IOperatorContextService _operatorContextService;
 
         public AIConfigController(
-            IAIModelConfigService configService, 
+            IAIModelConfigService configService,
             ILogger<AIConfigController> logger,
             IOperatorContextService operatorContextService)
         {
@@ -261,7 +261,7 @@ namespace FlowFlex.WebApi.Controllers.AI
                         Website = "https://openai.com",
                         SupportedModels = new[] { "gpt-4o", "gpt-4o-mini", "gpt-4-turbo", "gpt-4", "gpt-3.5-turbo", "o1-preview", "o1-mini" }
                     },
-                    
+
                     new AIProviderInfo
                     {
                         Name = "deepseek",
@@ -278,19 +278,19 @@ namespace FlowFlex.WebApi.Controllers.AI
                         Icon = "🏢",
                         Description = "Company internal LLM Gateway service supporting multiple AI providers. Unified access to OpenAI and Gemini models. BaseURL example: https://aiop-gateway.item.com (default). API Key format: gw-wfe-{env}-{id}",
                         Website = "https://aiop-gateway.item.com",
-                        SupportedModels = new[] { 
-                            "openai/gpt-4o", 
-                            "openai/gpt-4o-mini", 
-                            "openai/gpt-4-turbo", 
-                            "openai/gpt-4", 
-                            "openai/gpt-3.5-turbo", 
-                            "gemini/gemini-2.5-flash", 
-                            "gemini/gemini-2.5-pro", 
-                            "gemini/gemini-2.0-flash-exp", 
-                            "gemini/gemini-1.5-pro", 
-                            "gemini/gemini-1.5-flash" 
+                        SupportedModels = new[] {
+                            "openai/gpt-4o",
+                            "openai/gpt-4o-mini",
+                            "openai/gpt-4-turbo",
+                            "openai/gpt-4",
+                            "openai/gpt-3.5-turbo",
+                            "gemini/gemini-2.5-flash",
+                            "gemini/gemini-2.5-pro",
+                            "gemini/gemini-2.0-flash-exp",
+                            "gemini/gemini-1.5-pro",
+                            "gemini/gemini-1.5-flash"
                         }
-                    }                   
+                    }
                 };
 
                 return Success(providers);

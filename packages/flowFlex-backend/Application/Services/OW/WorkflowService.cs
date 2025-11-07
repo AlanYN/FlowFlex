@@ -394,21 +394,21 @@ namespace FlowFlex.Application.Service.OW
             if (entity.EndDate != input.EndDate) return true;
             if (entity.IsActive != input.IsActive) return true;
             if (entity.ConfigJson != input.ConfigJson) return true;
-            
+
             // Check permission-related fields
             if (entity.VisibleInPortal != input.VisibleInPortal) return true;
             if (entity.PortalPermission != input.PortalPermission) return true;
             if (entity.ViewPermissionMode != input.ViewPermissionMode) return true;
-            
+
             // Compare ViewTeams (entity is string, input is List<string>)
-            var inputViewTeamsJson = input.ViewTeams != null && input.ViewTeams.Any() 
-                ? JsonSerializer.Serialize(input.ViewTeams) 
+            var inputViewTeamsJson = input.ViewTeams != null && input.ViewTeams.Any()
+                ? JsonSerializer.Serialize(input.ViewTeams)
                 : null;
             if (entity.ViewTeams != inputViewTeamsJson) return true;
-            
+
             // Compare OperateTeams (entity is string, input is List<string>)
-            var inputOperateTeamsJson = input.OperateTeams != null && input.OperateTeams.Any() 
-                ? JsonSerializer.Serialize(input.OperateTeams) 
+            var inputOperateTeamsJson = input.OperateTeams != null && input.OperateTeams.Any()
+                ? JsonSerializer.Serialize(input.OperateTeams)
                 : null;
             if (entity.OperateTeams != inputOperateTeamsJson) return true;
 
@@ -515,10 +515,10 @@ namespace FlowFlex.Application.Service.OW
             // Temporarily disable expired workflow processing to avoid concurrent database operations
             // Debug logging handled by structured logging
             var list = await _workflowRepository.GetAllWorkflowsAsync();
-            
+
             // Apply permission filtering - filter out workflows user cannot view
             list = await FilterWorkflowsByPermissionAsync(list);
-            
+
             var result = _mapper.Map<List<WorkflowOutputDto>>(list);
 
             // 为了优化性能，工作流列表接口不返回Stage数据
@@ -564,7 +564,7 @@ namespace FlowFlex.Application.Service.OW
                 // Module-level permission check is handled by WFEAuthorize at Controller layer
                 // Entity-level permission check filters out items user cannot view
                 list = await FilterWorkflowsByPermissionAsync(list);
-                
+
                 var result = _mapper.Map<List<WorkflowOutputDto>>(list);
                 if (result == null)
                 {
@@ -614,13 +614,13 @@ namespace FlowFlex.Application.Service.OW
             // Entity-level permission check filters out items user cannot view
             var filteredItems = await FilterWorkflowsByPermissionAsync(allItems);
             var totalAfterFiltering = filteredItems.Count;
-            
+
             // Step 3: Apply pagination to the filtered results
             var pagedItems = filteredItems
                 .Skip((query.PageIndex - 1) * query.PageSize)
                 .Take(query.PageSize)
                 .ToList();
-            
+
             var result = _mapper.Map<List<WorkflowOutputDto>>(pagedItems);
 
             // Batch load stages and fill permission info for all workflows
@@ -628,20 +628,20 @@ namespace FlowFlex.Application.Service.OW
             {
                 var workflowIds = result.Select(w => w.Id).ToList();
                 var allStages = await _stageRepository.GetByWorkflowIdsAsync(workflowIds);
-                
+
                 // Group stages by workflow ID
                 var stagesByWorkflow = allStages.GroupBy(s => s.WorkflowId)
                     .ToDictionary(g => g.Key, g => g.ToList());
-                
+
                 // Get current user ID for permission checks
                 var userId = !string.IsNullOrEmpty(_userContext?.UserId) && long.TryParse(_userContext.UserId, out var uid) ? uid : 0;
-                
+
                 // Pre-check module permissions once (for performance optimization)
                 bool canViewWorkflows = false;
                 bool canOperateWorkflows = false;
                 bool canViewStages = false;
                 bool canOperateStages = false;
-                
+
                 if (userId > 0)
                 {
                     // Check module-level permissions only once
@@ -650,17 +650,17 @@ namespace FlowFlex.Application.Service.OW
                     canOperateWorkflows = await _permissionService.CheckGroupPermissionAsync(userId, PermissionConsts.Workflow.Update);
                     canViewStages = canViewWorkflows; // Stage inherits Workflow view permission
                     canOperateStages = canOperateWorkflows; // Stage inherits Workflow operate permission
-                    
-                    _logger.LogDebug("Module permission check - UserId: {UserId}, CanViewWorkflows: {CanViewWorkflows}, CanOperateWorkflows: {CanOperateWorkflows}, CanViewStages: {CanViewStages}, CanOperateStages: {CanOperateStages}", 
+
+                    _logger.LogDebug("Module permission check - UserId: {UserId}, CanViewWorkflows: {CanViewWorkflows}, CanOperateWorkflows: {CanOperateWorkflows}, CanViewStages: {CanViewStages}, CanOperateStages: {CanOperateStages}",
                         userId, canViewWorkflows, canOperateWorkflows, canViewStages, canOperateStages);
                 }
-                
+
                 // Create workflow entity dictionary for permission checks (avoid repeated queries)
                 var workflowEntities = pagedItems.ToDictionary(w => w.Id);
-                
+
                 // PERFORMANCE OPTIMIZATION: Pre-fetch user teams once for all stages
                 var userTeamIds = userId > 0 ? _permissionService.GetUserTeamIds() : null;
-                
+
                 // Assign stages and permission info to each workflow
                 foreach (var workflow in result)
                 {
@@ -669,20 +669,20 @@ namespace FlowFlex.Application.Service.OW
                         // Filter stages based on permissions BEFORE mapping
                         var visibleStages = new List<Stage>();
                         var stagePermissions = new Dictionary<long, PermissionInfoDto>();
-                        
+
                         if (userId > 0)
                         {
                             foreach (var stage in stages)
                             {
                                 // Use synchronous method with entity objects and pre-fetched user teams (no DB query, no repeated GetUserTeamIds!)
                                 var permissionInfo = _permissionService.GetStagePermissionInfoForList(
-                                    stage, 
-                                    workflowEntity, 
-                                    userId, 
-                                    canViewStages, 
+                                    stage,
+                                    workflowEntity,
+                                    userId,
+                                    canViewStages,
                                     canOperateStages,
                                     userTeamIds);
-                                
+
                                 // Only include stages that user can view
                                 if (permissionInfo.CanView)
                                 {
@@ -692,10 +692,10 @@ namespace FlowFlex.Application.Service.OW
                             }
                         }
                         // If user not authenticated, return empty stages list
-                        
+
                         // Map only visible stages to DTOs
                         workflow.Stages = _mapper.Map<List<StageOutputDto>>(visibleStages);
-                        
+
                         // Fill permission info for each stage DTO
                         foreach (var stageDto in workflow.Stages)
                         {
@@ -714,9 +714,9 @@ namespace FlowFlex.Application.Service.OW
                     if (userId > 0)
                     {
                         workflow.Permission = await _permissionService.GetWorkflowPermissionInfoForListAsync(
-                            userId, 
-                            workflow.Id, 
-                            canViewWorkflows, 
+                            userId,
+                            workflow.Id,
+                            canViewWorkflows,
                             canOperateWorkflows);
                     }
                     else
@@ -1004,14 +1004,14 @@ namespace FlowFlex.Application.Service.OW
         public async Task<Stream> ExportDetailedToExcelAsync(long workflowId)
         {
             _logger.LogInformation("ExportDetailedToExcelAsync called for workflow {WorkflowId}", workflowId);
-            
+
             var workflow = await _workflowRepository.GetWithStagesAsync(workflowId);
             if (workflow == null)
             {
                 throw new CRMException(ErrorCodeEnum.NotFound, $"Workflow with ID {workflowId} not found");
             }
 
-            _logger.LogInformation("Workflow loaded with {StageCount} stages, starting assignee ID to name conversion", 
+            _logger.LogInformation("Workflow loaded with {StageCount} stages, starting assignee ID to name conversion",
                 workflow.Stages?.Count ?? 0);
 
             // Convert Assignee IDs to user names before export
@@ -1277,9 +1277,9 @@ namespace FlowFlex.Application.Service.OW
 
             // Fast path: If user is Tenant Admin for current tenant, return all workflows
             var currentTenantIdString = _userContext?.TenantId;
-            if (!string.IsNullOrEmpty(currentTenantIdString) && 
+            if (!string.IsNullOrEmpty(currentTenantIdString) &&
                 long.TryParse(currentTenantIdString, out var currentTenantId) &&
-                _userContext != null && 
+                _userContext != null &&
                 _userContext.HasAdminPrivileges(currentTenantIdString))
             {
                 _logger.LogDebug(
@@ -1291,17 +1291,17 @@ namespace FlowFlex.Application.Service.OW
             }
 
             var stopwatch = System.Diagnostics.Stopwatch.StartNew();
-            
+
             // Optimization: Check module permission once instead of for each workflow
             // Module permission (WORKFLOW:READ) is same for all workflows in this list
             var hasModulePermission = await _permissionService.CheckGroupPermissionAsync(
-                userId, 
+                userId,
                 Domain.Shared.Const.PermissionConsts.Workflow.Read);
-            
+
             if (!hasModulePermission)
             {
                 _logger.LogWarning(
-                    "User {UserId} does not have WORKFLOW:READ permission, returning empty list", 
+                    "User {UserId} does not have WORKFLOW:READ permission, returning empty list",
                     userId);
                 return new List<Workflow>();
             }
@@ -1348,7 +1348,7 @@ namespace FlowFlex.Application.Service.OW
         private async Task ConvertAssigneeIdsToNamesAsync(Workflow workflow)
         {
             _logger.LogInformation("ConvertAssigneeIdsToNamesAsync started for workflow {WorkflowId}", workflow?.Id);
-            
+
             if (workflow?.Stages == null || !workflow.Stages.Any())
             {
                 _logger.LogWarning("Workflow has no stages, skipping assignee conversion");
@@ -1361,13 +1361,13 @@ namespace FlowFlex.Application.Service.OW
             {
                 if (!string.IsNullOrWhiteSpace(stage.DefaultAssignee))
                 {
-                    _logger.LogDebug("Stage {StageName} has DefaultAssignee: {DefaultAssignee}", 
+                    _logger.LogDebug("Stage {StageName} has DefaultAssignee: {DefaultAssignee}",
                         stage.Name, stage.DefaultAssignee);
-                    
+
                     var userIds = ParseAssigneeIds(stage.DefaultAssignee);
-                    _logger.LogDebug("Parsed {Count} user IDs from stage {StageName}: {UserIds}", 
+                    _logger.LogDebug("Parsed {Count} user IDs from stage {StageName}: {UserIds}",
                         userIds.Count, stage.Name, string.Join(", ", userIds));
-                    
+
                     foreach (var id in userIds)
                     {
                         allUserIds.Add(id);
@@ -1381,25 +1381,25 @@ namespace FlowFlex.Application.Service.OW
                 return;
             }
 
-            _logger.LogInformation("Collected {Count} unique user IDs: {UserIds}", 
+            _logger.LogInformation("Collected {Count} unique user IDs: {UserIds}",
                 allUserIds.Count, string.Join(", ", allUserIds));
 
             // Batch fetch user information
             try
             {
                 _logger.LogInformation("Calling UserService.GetUsersByIdsAsync with {Count} IDs", allUserIds.Count);
-                
+
                 var users = await _userService.GetUsersByIdsAsync(allUserIds.ToList());
-                
-                _logger.LogInformation("UserService returned {UserCount} users for {IdCount} IDs", 
+
+                _logger.LogInformation("UserService returned {UserCount} users for {IdCount} IDs",
                     users.Count, allUserIds.Count);
-                
+
                 if (users.Any())
                 {
-                    _logger.LogDebug("Retrieved users: {Users}", 
+                    _logger.LogDebug("Retrieved users: {Users}",
                         string.Join(", ", users.Select(u => $"{u.Id}:{u.Username}")));
                 }
-                
+
                 var userDict = users.ToDictionary(u => u.Id, u => u.Username ?? u.Email ?? u.Id.ToString());
 
                 // Convert IDs to names for each stage
@@ -1415,12 +1415,12 @@ namespace FlowFlex.Application.Service.OW
 
                         // Replace the DefaultAssignee field with comma-separated user names
                         stage.DefaultAssignee = string.Join(", ", userNames);
-                        
-                        _logger.LogInformation("Stage {StageName}: Converted '{Original}' to '{Converted}'", 
+
+                        _logger.LogInformation("Stage {StageName}: Converted '{Original}' to '{Converted}'",
                             stage.Name, originalAssignee, stage.DefaultAssignee);
                     }
                 }
-                
+
                 _logger.LogInformation("ConvertAssigneeIdsToNamesAsync completed successfully");
             }
             catch (Exception ex)
@@ -1445,7 +1445,7 @@ namespace FlowFlex.Application.Service.OW
             try
             {
                 var trimmedData = assigneeData.Trim();
-                
+
                 // Handle double-encoded JSON string (e.g., "\"[\\\"123\\\",\\\"456\\\"]\"")
                 // First, try to deserialize as a JSON string to get the actual JSON array string
                 if (trimmedData.StartsWith("\"") && trimmedData.EndsWith("\""))
@@ -1465,7 +1465,7 @@ namespace FlowFlex.Application.Service.OW
                         _logger.LogDebug("Failed to unescape as double-encoded JSON, using original data");
                     }
                 }
-                
+
                 // Try to parse as JSON array
                 if (trimmedData.StartsWith("["))
                 {
@@ -1493,7 +1493,7 @@ namespace FlowFlex.Application.Service.OW
                         }
                     }
                 }
-                
+
                 _logger.LogDebug("Successfully parsed {Count} user IDs from assignee data", userIds.Count);
             }
             catch (Exception ex)

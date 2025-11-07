@@ -627,7 +627,7 @@ namespace FlowFlex.Application.Services.AI
         private async Task<string> GetLLMGatewayJwtTokenAsync(AIModelConfig config)
         {
             var cacheKey = $"{config.Provider}_{config.ApiKey}";
-            
+
             // Check if we have a valid cached token
             if (_jwtTokenCache.TryGetValue(cacheKey, out var cachedToken))
             {
@@ -640,7 +640,7 @@ namespace FlowFlex.Application.Services.AI
 
             // Request new JWT token
             _logger.LogInformation("Requesting new JWT token for Item Gateway");
-            
+
             var requestBody = new
             {
                 apiKey = config.ApiKey,
@@ -656,8 +656,8 @@ namespace FlowFlex.Application.Services.AI
             var content = new StringContent(json, Encoding.UTF8, "application/json");
 
             // Use the base URL from config or default to production
-            var baseUrl = string.IsNullOrEmpty(config.BaseUrl) 
-                ? "https://aiop-gateway.item.com" 
+            var baseUrl = string.IsNullOrEmpty(config.BaseUrl)
+                ? "https://aiop-gateway.item.com"
                 : config.BaseUrl.TrimEnd('/');
             var jwtUrl = $"{baseUrl}/admin/api/credentials/jwt";
 
@@ -682,7 +682,7 @@ namespace FlowFlex.Application.Services.AI
                 }
             }
 
-            _logger.LogError("Failed to obtain JWT token for Item Gateway: {StatusCode} - {Content}", 
+            _logger.LogError("Failed to obtain JWT token for Item Gateway: {StatusCode} - {Content}",
                 response.StatusCode, responseContent);
             throw new Exception($"Failed to obtain JWT token: {response.StatusCode} - {responseContent}");
         }
@@ -709,8 +709,8 @@ namespace FlowFlex.Application.Services.AI
                 var content = new StringContent(json, Encoding.UTF8, "application/json");
 
                 // Use the base URL from config or default to production
-                var baseUrl = string.IsNullOrEmpty(config.BaseUrl) 
-                    ? "https://aiop-gateway.item.com" 
+                var baseUrl = string.IsNullOrEmpty(config.BaseUrl)
+                    ? "https://aiop-gateway.item.com"
                     : config.BaseUrl.TrimEnd('/');
                 var apiUrl = $"{baseUrl}/openai/v1/chat/completions";
 
@@ -740,7 +740,7 @@ namespace FlowFlex.Application.Services.AI
                 }
                 else
                 {
-                    _logger.LogWarning("Item Gateway API call failed: {StatusCode} - {Content}", 
+                    _logger.LogWarning("Item Gateway API call failed: {StatusCode} - {Content}",
                         response.StatusCode, responseContent);
                     return new AIProviderResponse
                     {
@@ -767,7 +767,7 @@ namespace FlowFlex.Application.Services.AI
         {
             string jwtToken = null;
             string errorMessage = null;
-            
+
             // Get JWT token outside of the streaming loop
             try
             {
@@ -799,8 +799,8 @@ namespace FlowFlex.Application.Services.AI
             var httpContent = new StringContent(json, Encoding.UTF8, "application/json");
 
             // Use the base URL from config or default to production
-            var baseUrl = string.IsNullOrEmpty(config.BaseUrl) 
-                ? "https://aiop-gateway.item.com" 
+            var baseUrl = string.IsNullOrEmpty(config.BaseUrl)
+                ? "https://aiop-gateway.item.com"
                 : config.BaseUrl.TrimEnd('/');
             var apiUrl = $"{baseUrl}/openai/v1/chat/completions";
 
@@ -819,7 +819,7 @@ namespace FlowFlex.Application.Services.AI
             if (!response.IsSuccessStatusCode)
             {
                 var errorContent = await response.Content.ReadAsStringAsync();
-                _logger.LogWarning("Item Gateway Stream API failed: {StatusCode} - {Content}", 
+                _logger.LogWarning("Item Gateway Stream API failed: {StatusCode} - {Content}",
                     response.StatusCode, errorContent);
                 yield return "I'm having trouble connecting to the Item Gateway service. Please try again.";
                 yield break;
@@ -853,7 +853,7 @@ namespace FlowFlex.Application.Services.AI
                 catch (OperationCanceledException)
                 {
                     var readDuration = (DateTime.UtcNow - readStartTime).TotalMilliseconds;
-                    _logger.LogWarning("⏰ Item Gateway stream line read timeout after {Duration}ms (expected {Timeout}s), breaking stream", 
+                    _logger.LogWarning("⏰ Item Gateway stream line read timeout after {Duration}ms (expected {Timeout}s), breaking stream",
                         readDuration, lineTimeout.TotalSeconds);
                     shouldBreak = true;
                 }

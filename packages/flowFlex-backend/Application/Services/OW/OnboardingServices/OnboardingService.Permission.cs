@@ -285,7 +285,7 @@ namespace FlowFlex.Application.Services.OW
             }
         }
 
-         /// <summary>
+        /// <summary>
         /// Validate that team IDs from JSON arrays exist in the team tree from UserService.
         /// Accepts JSON arrays (possibly double-encoded) like ["team1","team2"].
         /// Throws BusinessError if any invalid IDs are found.

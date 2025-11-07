@@ -78,7 +78,7 @@ namespace FlowFlex.Domain.Shared.Models
             }
 
             // Check if user has tenant admin permission (UserType = 2) for the specified tenant
-            return UserPermissions?.Any(p => 
+            return UserPermissions?.Any(p =>
                 p.TenantId == tenantId && p.UserType == 2) ?? false;
         }
 

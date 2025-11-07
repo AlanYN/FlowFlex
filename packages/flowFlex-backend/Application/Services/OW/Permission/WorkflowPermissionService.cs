@@ -63,7 +63,7 @@ namespace FlowFlex.Application.Services.OW.Permission
 
             // Step 1: Check View Permission based on ViewPermissionMode
             bool canView = CheckViewPermission(workflow, userTeamIds);
-            
+
             _logger.LogDebug(
                 "View permission check result: {CanView}",
                 canView);
@@ -129,16 +129,16 @@ namespace FlowFlex.Application.Services.OW.Permission
             return workflow.ViewPermissionMode switch
             {
                 ViewPermissionModeEnum.Public => true,
-                
-                ViewPermissionModeEnum.VisibleToTeams => 
+
+                ViewPermissionModeEnum.VisibleToTeams =>
                     _helpers.CheckTeamWhitelist(workflow.ViewTeams, userTeamIds),
-                
-                ViewPermissionModeEnum.InvisibleToTeams => 
+
+                ViewPermissionModeEnum.InvisibleToTeams =>
                     _helpers.CheckTeamBlacklist(workflow.ViewTeams, userTeamIds),
-                
-                ViewPermissionModeEnum.Private => 
+
+                ViewPermissionModeEnum.Private =>
                     _helpers.IsCurrentUserOwner(workflow.CreateUserId),
-                
+
                 _ => false
             };
         }
@@ -214,7 +214,7 @@ namespace FlowFlex.Application.Services.OW.Permission
             {
                 return _helpers.CheckOperateTeamsPublicMode(workflow.OperateTeams, userTeamIds);
             }
-            
+
             // For all other modes: OperateTeams is ALWAYS whitelist
             return _helpers.CheckTeamWhitelist(workflow.OperateTeams, userTeamIds);
         }
@@ -229,9 +229,9 @@ namespace FlowFlex.Application.Services.OW.Permission
         /// This significantly improves performance for list queries by avoiding N IDM API calls
         /// </summary>
         public async Task<PermissionInfoDto> GetWorkflowPermissionInfoForListAsync(
-            long userId, 
-            long workflowId, 
-            bool hasViewModulePermission, 
+            long userId,
+            long workflowId,
+            bool hasViewModulePermission,
             bool hasOperateModulePermission)
         {
             // Fast path: Admin bypass

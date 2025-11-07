@@ -21,6 +21,7 @@ using FlowFlex.Infrastructure.Services;
 using MediatR;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Microsoft.OpenApi.Models;
 using OfficeOpenXml;
 using SqlSugar;
@@ -481,9 +482,67 @@ namespace FlowFlex.Application.Services.OW
             // Update the entity using safe method
             var result = await SafeUpdateOnboardingAsync(entity);
             // Debug logging handled by structured logging
-            // Publish stage completion event
+            // Log stage completion to operation_change_log
             if (result)
             {
+                try
+                {
+                    var beforeData = new
+                    {
+                        StageId = stageToComplete.Id,
+                        StageName = stageToComplete.Name,
+                        IsCompleted = false,
+                        Status = "InProgress",
+                        CompletionRate = entity.CompletionRate - (100.0m / totalStages)
+                    };
+
+                    var afterData = new
+                    {
+                        StageId = stageToComplete.Id,
+                        StageName = stageToComplete.Name,
+                        IsCompleted = true,
+                        Status = allStagesCompleted ? "Completed" : "InProgress",
+                        CompletionRate = entity.CompletionRate,
+                        CompletedTime = DateTimeOffset.UtcNow,
+                        CompletedBy = GetCurrentUserName()
+                    };
+
+                    var extendedData = new
+                    {
+                        WorkflowId = entity.WorkflowId,
+                        TotalStages = totalStages,
+                        CompletedStages = completedCount,
+                        AllStagesCompleted = allStagesCompleted,
+                        CompletionNotes = input.CompletionNotes,
+                        NextStageId = entity.CurrentStageId != stageToComplete.Id ? entity.CurrentStageId : (long?)null,
+                        Source = "manual_completion"
+                    };
+
+                    await _operationChangeLogService.LogOperationAsync(
+                        operationType: OperationTypeEnum.StageComplete,
+                        businessModule: BusinessModuleEnum.Stage,
+                        businessId: stageToComplete.Id,
+                        onboardingId: entity.Id,
+                        stageId: stageToComplete.Id,
+                        operationTitle: $"Stage Completed: {stageToComplete.Name}",
+                        operationDescription: $"Stage '{stageToComplete.Name}' has been completed by {GetCurrentUserName()}" +
+                            (allStagesCompleted ? " (Final stage - Onboarding completed)" : ""),
+                        beforeData: System.Text.Json.JsonSerializer.Serialize(beforeData),
+                        afterData: System.Text.Json.JsonSerializer.Serialize(afterData),
+                        changedFields: new List<string> { "IsCompleted", "Status", "CompletionRate", "CompletedTime" },
+                        extendedData: System.Text.Json.JsonSerializer.Serialize(extendedData)
+                    );
+
+                    _logger.LogInformation("已记录 Stage 完成日志: OnboardingId={OnboardingId}, StageId={StageId}, StageName={StageName}",
+                        entity.Id, stageToComplete.Id, stageToComplete.Name);
+                }
+                catch (Exception logEx)
+                {
+                    _logger.LogError(logEx, "记录 Stage 完成日志失败: OnboardingId={OnboardingId}, StageId={StageId}",
+                        entity.Id, stageToComplete.Id);
+                    // Don't re-throw to avoid breaking the main flow
+                }
+
                 // Debug logging handled by structured logging
                 await PublishStageCompletionEventForCurrentStageAsync(entity, stageToComplete, allStagesCompleted);
             }

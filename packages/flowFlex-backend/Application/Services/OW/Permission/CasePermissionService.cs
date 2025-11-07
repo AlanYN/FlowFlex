@@ -105,7 +105,7 @@ namespace FlowFlex.Application.Services.OW.Permission
 
             // Step 3: Check View Permission (non-Public modes)
             bool canView = CheckCaseViewPermission(onboarding, userTeamIds, userIdString);
-            
+
             if (!canView)
             {
                 return PermissionResult.CreateFailure(
@@ -114,11 +114,11 @@ namespace FlowFlex.Application.Services.OW.Permission
             }
 
             // Step 4: Check Operate Permission (only if user can view)
-            if (operationType == PermissionOperationType.Operate || 
+            if (operationType == PermissionOperationType.Operate ||
                 operationType == PermissionOperationType.Delete)
             {
                 bool canOperate = CheckCaseOperatePermission(onboarding, userTeamIds, userIdString);
-                
+
                 if (canOperate)
                 {
                     return PermissionResult.CreateSuccess(true, true, "CaseOperatePermission");
@@ -181,7 +181,7 @@ namespace FlowFlex.Application.Services.OW.Permission
 
                 // Step 1: Check Workflow View Permission
                 bool workflowCanView = _workflowPermissionService.CheckViewPermission(workflow, userTeamIds);
-                
+
                 if (!workflowCanView)
                 {
                     _logger.LogDebug(
@@ -199,11 +199,11 @@ namespace FlowFlex.Application.Services.OW.Permission
                     workflow.Id);
 
                 // Step 2: Check Workflow Operate Permission (if needed)
-                if (operationType == PermissionOperationType.Operate || 
+                if (operationType == PermissionOperationType.Operate ||
                     operationType == PermissionOperationType.Delete)
                 {
                     bool workflowCanOperate = _workflowPermissionService.CheckOperatePermission(workflow, userTeamIds);
-                    
+
                     if (workflowCanOperate)
                     {
                         _logger.LogDebug(
@@ -255,7 +255,7 @@ namespace FlowFlex.Application.Services.OW.Permission
         {
             // Check View Permission
             bool canView = CheckCaseViewPermission(onboarding, userTeamIds, userIdString);
-            
+
             if (!canView)
             {
                 return PermissionResult.CreateFailure(
@@ -264,11 +264,11 @@ namespace FlowFlex.Application.Services.OW.Permission
             }
 
             // Check Operate Permission (only if user can view)
-            if (operationType == PermissionOperationType.Operate || 
+            if (operationType == PermissionOperationType.Operate ||
                 operationType == PermissionOperationType.Delete)
             {
                 bool canOperate = CheckCaseOperatePermission(onboarding, userTeamIds, userIdString);
-                
+
                 if (canOperate)
                 {
                     return PermissionResult.CreateSuccess(true, true, "CaseOperatePermission");
@@ -306,19 +306,19 @@ namespace FlowFlex.Application.Services.OW.Permission
             return onboarding.ViewPermissionMode switch
             {
                 ViewPermissionModeEnum.Public => true,
-                
-                ViewPermissionModeEnum.VisibleToTeams => 
+
+                ViewPermissionModeEnum.VisibleToTeams =>
                     onboarding.ViewPermissionSubjectType == PermissionSubjectTypeEnum.Team
                         ? _helpers.CheckTeamWhitelist(onboarding.ViewTeams, userTeamIds)
                         : _helpers.CheckUserWhitelist(onboarding.ViewUsers, userId),
-                
-                ViewPermissionModeEnum.InvisibleToTeams => 
+
+                ViewPermissionModeEnum.InvisibleToTeams =>
                     onboarding.ViewPermissionSubjectType == PermissionSubjectTypeEnum.Team
                         ? _helpers.CheckTeamBlacklist(onboarding.ViewTeams, userTeamIds)
                         : _helpers.CheckUserBlacklist(onboarding.ViewUsers, userId),
-                
+
                 ViewPermissionModeEnum.Private => false, // Owner check is handled in CheckCasePermission
-                
+
                 _ => false
             };
         }
@@ -347,18 +347,18 @@ namespace FlowFlex.Application.Services.OW.Permission
                 {
                     return _helpers.CheckOperateTeamsPublicMode(onboarding.OperateTeams, userTeamIds);
                 }
-                
+
                 // For all other modes: OperateTeams is whitelist
                 return _helpers.CheckTeamWhitelist(onboarding.OperateTeams, userTeamIds);
             }
-            
+
             // User-based permission - ALWAYS whitelist
             // Special handling for Public mode: empty OperateUsers means everyone can operate
             if (onboarding.ViewPermissionMode == ViewPermissionModeEnum.Public)
             {
                 return _helpers.CheckOperateUsersPublicMode(onboarding.OperateUsers, userId);
             }
-            
+
             // For all other modes: OperateUsers is whitelist
             return _helpers.CheckUserWhitelist(onboarding.OperateUsers, userId);
         }
@@ -371,9 +371,9 @@ namespace FlowFlex.Application.Services.OW.Permission
         /// Get permission info for Case (batch-optimized for list APIs)
         /// </summary>
         public async Task<PermissionInfoDto> GetCasePermissionInfoForListAsync(
-            long userId, 
-            long caseId, 
-            bool hasViewModulePermission, 
+            long userId,
+            long caseId,
+            bool hasViewModulePermission,
             bool hasOperateModulePermission)
         {
             // Fast path: Admin bypass

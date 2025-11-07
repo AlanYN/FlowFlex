@@ -20,6 +20,7 @@ using FlowFlex.Infrastructure.Services;
 using MediatR;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Microsoft.OpenApi.Models;
 using OfficeOpenXml;
 using SqlSugar;
@@ -67,6 +68,7 @@ namespace FlowFlex.Application.Services.OW
         internal readonly IHttpContextAccessor _httpContextAccessor;
         internal readonly IUserService _userService;
         internal readonly ICaseCodeGeneratorService _caseCodeGeneratorService;
+        internal readonly ILogger<OnboardingService> _logger;
 
         // Cache key constants - temporarily disable Redis cache
         internal const string WORKFLOW_CACHE_PREFIX = "ow:workflow";
@@ -105,7 +107,8 @@ namespace FlowFlex.Application.Services.OW
             Permission.CasePermissionService casePermissionService,
             IHttpContextAccessor httpContextAccessor,
             IUserService userService,
-            ICaseCodeGeneratorService caseCodeGeneratorService)
+            ICaseCodeGeneratorService caseCodeGeneratorService,
+            ILogger<OnboardingService> logger)
         {
             _onboardingRepository = onboardingRepository ?? throw new ArgumentNullException(nameof(onboardingRepository));
             _workflowRepository = workflowRepository ?? throw new ArgumentNullException(nameof(workflowRepository));
@@ -131,6 +134,7 @@ namespace FlowFlex.Application.Services.OW
             _casePermissionService = casePermissionService ?? throw new ArgumentNullException(nameof(casePermissionService));
             _userService = userService ?? throw new ArgumentNullException(nameof(userService));
             _caseCodeGeneratorService = caseCodeGeneratorService ?? throw new ArgumentNullException(nameof(caseCodeGeneratorService));
+            _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
 
         #endregion

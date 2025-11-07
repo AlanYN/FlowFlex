@@ -18,7 +18,7 @@ namespace FlowFlex.Tests.TestBase
         public const string TeamA = "1001";
         public const string TeamB = "1002";
         public const string TeamC = "1003";
-        
+
         // Numeric team IDs for UserTeamModel
         public const long TeamAId = 1001;
         public const long TeamBId = 1002;
@@ -236,12 +236,12 @@ namespace FlowFlex.Tests.TestBase
                 ViewPermissionMode = viewMode,
                 ViewPermissionSubjectType = Domain.Shared.Enums.OW.PermissionSubjectTypeEnum.Team,
                 OperatePermissionSubjectType = Domain.Shared.Enums.OW.PermissionSubjectTypeEnum.Team,
-                ViewTeams = viewTeams != null && viewTeams.Any() 
-                    ? Newtonsoft.Json.JsonConvert.SerializeObject(viewTeams) 
+                ViewTeams = viewTeams != null && viewTeams.Any()
+                    ? Newtonsoft.Json.JsonConvert.SerializeObject(viewTeams)
                     : null,
                 ViewUsers = null,
-                OperateTeams = operateTeams != null && operateTeams.Any() 
-                    ? Newtonsoft.Json.JsonConvert.SerializeObject(operateTeams) 
+                OperateTeams = operateTeams != null && operateTeams.Any()
+                    ? Newtonsoft.Json.JsonConvert.SerializeObject(operateTeams)
                     : null,
                 OperateUsers = null,
                 Ownership = ownership
@@ -262,12 +262,12 @@ namespace FlowFlex.Tests.TestBase
                 ViewPermissionSubjectType = Domain.Shared.Enums.OW.PermissionSubjectTypeEnum.User,
                 OperatePermissionSubjectType = Domain.Shared.Enums.OW.PermissionSubjectTypeEnum.User,
                 ViewTeams = null,
-                ViewUsers = viewUsers != null && viewUsers.Any() 
-                    ? Newtonsoft.Json.JsonConvert.SerializeObject(viewUsers) 
+                ViewUsers = viewUsers != null && viewUsers.Any()
+                    ? Newtonsoft.Json.JsonConvert.SerializeObject(viewUsers)
                     : null,
                 OperateTeams = null,
-                OperateUsers = operateUsers != null && operateUsers.Any() 
-                    ? Newtonsoft.Json.JsonConvert.SerializeObject(operateUsers) 
+                OperateUsers = operateUsers != null && operateUsers.Any()
+                    ? Newtonsoft.Json.JsonConvert.SerializeObject(operateUsers)
                     : null,
                 Ownership = ownership
             };
@@ -316,13 +316,13 @@ namespace FlowFlex.Tests.TestBase
                 // Use the first team as root and remaining teams as sub-teams
                 var firstTeamId = teamIds.First();
                 var firstTeamNumId = long.Parse(firstTeamId); // teamIds are now numeric strings
-                
+
                 var subTeams = teamIds.Skip(1).Select(id => new UserTeamModel
                 {
                     TeamId = long.Parse(id),
                     SubTeam = null
                 }).ToList();
-                
+
                 userContext.UserTeams = new UserTeamModel
                 {
                     TeamId = firstTeamNumId,
@@ -393,11 +393,11 @@ namespace FlowFlex.Tests.TestBase
                 ViewPermissionSubjectType = Domain.Shared.Enums.OW.PermissionSubjectTypeEnum.Team,
                 ViewTeams = Newtonsoft.Json.JsonConvert.SerializeObject(viewTeams),
                 ViewUsers = null,
-                OperatePermissionSubjectType = operateTeams != null 
-                    ? Domain.Shared.Enums.OW.PermissionSubjectTypeEnum.Team 
+                OperatePermissionSubjectType = operateTeams != null
+                    ? Domain.Shared.Enums.OW.PermissionSubjectTypeEnum.Team
                     : Domain.Shared.Enums.OW.PermissionSubjectTypeEnum.Team,
-                OperateTeams = operateTeams != null 
-                    ? Newtonsoft.Json.JsonConvert.SerializeObject(operateTeams) 
+                OperateTeams = operateTeams != null
+                    ? Newtonsoft.Json.JsonConvert.SerializeObject(operateTeams)
                     : null,
                 OperateUsers = null,
                 Ownership = ownership,
@@ -423,12 +423,12 @@ namespace FlowFlex.Tests.TestBase
                 ViewPermissionSubjectType = Domain.Shared.Enums.OW.PermissionSubjectTypeEnum.User,
                 ViewTeams = null,
                 ViewUsers = Newtonsoft.Json.JsonConvert.SerializeObject(viewUsers),
-                OperatePermissionSubjectType = operateUsers != null 
-                    ? Domain.Shared.Enums.OW.PermissionSubjectTypeEnum.User 
+                OperatePermissionSubjectType = operateUsers != null
+                    ? Domain.Shared.Enums.OW.PermissionSubjectTypeEnum.User
                     : Domain.Shared.Enums.OW.PermissionSubjectTypeEnum.Team,
                 OperateTeams = null,
-                OperateUsers = operateUsers != null 
-                    ? Newtonsoft.Json.JsonConvert.SerializeObject(operateUsers) 
+                OperateUsers = operateUsers != null
+                    ? Newtonsoft.Json.JsonConvert.SerializeObject(operateUsers)
                     : null,
                 Ownership = ownership,
                 TenantId = DefaultTenantId,

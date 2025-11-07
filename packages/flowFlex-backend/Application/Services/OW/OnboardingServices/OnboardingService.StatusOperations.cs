@@ -519,7 +519,7 @@ namespace FlowFlex.Application.Services.OW
             // Private mode or unknown mode
             return false;
         }
-      
+
 
         private static string ValidateAndFormatJsonArray(string jsonArray)
         {
@@ -545,7 +545,7 @@ namespace FlowFlex.Application.Services.OW
                 return "[]";
             }
         }
-       
+
         /// <summary>
         /// Sync Onboarding fields to Static Field Values when Onboarding is updated
         /// </summary>

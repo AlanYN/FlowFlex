@@ -21,6 +21,7 @@ using FlowFlex.Infrastructure.Services;
 using MediatR;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Microsoft.OpenApi.Models;
 using OfficeOpenXml;
 using SqlSugar;
@@ -919,20 +920,20 @@ namespace FlowFlex.Application.Services.OW
 
                 // Serialize back to JSON (only progress fields)
                 await FilterValidStagesProgress(entity);
-                
+
                 // IMPORTANT: Get fresh audit values and save them to local variables BEFORE any update
                 // This prevents SqlSugar from resetting entity values
                 var modifyDate = DateTimeOffset.UtcNow;
                 var modifyBy = _operatorContextService.GetOperatorDisplayName();
                 var modifyUserId = _operatorContextService.GetOperatorId();
-                
+
                 LoggingExtensions.WriteLine($"[DEBUG] SafeUpdateOnboardingAsync - Using ModifyBy: '{modifyBy}'");
-                
+
                 // Update entity with fresh audit values
                 entity.ModifyDate = modifyDate;
                 entity.ModifyBy = modifyBy;
                 entity.ModifyUserId = modifyUserId;
-                
+
                 // Use UpdateColumns with the entity (now with fresh audit values)
                 var result = await _onboardingRepository.UpdateAsync(entity,
                     it => new
@@ -976,7 +977,7 @@ namespace FlowFlex.Application.Services.OW
                         it.ModifyUserId,
                         it.IsValid
                     });
-                
+
                 // WORKAROUND: Update audit fields again with manual SQL using saved local variables
                 // This ensures the correct values are used, not the entity's potentially reset values
                 try
@@ -987,7 +988,7 @@ namespace FlowFlex.Application.Services.OW
                             modify_by = @ModifyBy,
                             modify_user_id = @ModifyUserId
                         WHERE id = @Id";
-                    
+
                     await db.Ado.ExecuteCommandAsync(auditSql, new
                     {
                         ModifyDate = modifyDate,  // Use local variable, not entity property
@@ -995,7 +996,7 @@ namespace FlowFlex.Application.Services.OW
                         ModifyUserId = modifyUserId,  // Use local variable, not entity property
                         Id = entity.Id
                     });
-                    
+
                     LoggingExtensions.WriteLine($"[DEBUG] SafeUpdateOnboardingAsync - Audit fields updated via SQL: ModifyBy='{modifyBy}'");
                 }
                 catch (Exception auditEx)
@@ -1534,6 +1535,63 @@ namespace FlowFlex.Application.Services.OW
 
                 // Update in database
                 var result = await SafeUpdateOnboardingAsync(onboarding);
+
+                // Log stage save to operation_change_log
+                if (result)
+                {
+                    try
+                    {
+                        var stage = await _stageRepository.GetByIdAsync(stageId);
+                        var beforeData = new
+                        {
+                            StageId = stageId,
+                            StageName = stage?.Name,
+                            IsSaved = false,
+                            SaveTime = (DateTimeOffset?)null
+                        };
+
+                        var afterData = new
+                        {
+                            StageId = stageId,
+                            StageName = stage?.Name,
+                            IsSaved = true,
+                            SaveTime = stageProgress.SaveTime,
+                            SavedBy = stageProgress.SavedBy,
+                            StartTime = stageProgress.StartTime
+                        };
+
+                        var extendedData = new
+                        {
+                            WorkflowId = onboarding.WorkflowId,
+                            IsCurrentStage = stageProgress.StageId == onboarding.CurrentStageId,
+                            CurrentStageStartTime = onboarding.CurrentStageStartTime,
+                            Source = "manual_save"
+                        };
+
+                        await _operationChangeLogService.LogOperationAsync(
+                            operationType: OperationTypeEnum.StageSave,
+                            businessModule: BusinessModuleEnum.Stage,
+                            businessId: stageId,
+                            onboardingId: onboardingId,
+                            stageId: stageId,
+                            operationTitle: $"Stage Saved: {stage?.Name ?? "Unknown"}",
+                            operationDescription: $"Stage '{stage?.Name}' has been saved by {stageProgress.SavedBy}",
+                            beforeData: System.Text.Json.JsonSerializer.Serialize(beforeData),
+                            afterData: System.Text.Json.JsonSerializer.Serialize(afterData),
+                            changedFields: new List<string> { "IsSaved", "SaveTime", "SavedBy" },
+                            extendedData: System.Text.Json.JsonSerializer.Serialize(extendedData)
+                        );
+
+                        _logger.LogInformation("已记录 Stage 保存日志: OnboardingId={OnboardingId}, StageId={StageId}, StageName={StageName}",
+                            onboardingId, stageId, stage?.Name);
+                    }
+                    catch (Exception logEx)
+                    {
+                        _logger.LogError(logEx, "记录 Stage 保存日志失败: OnboardingId={OnboardingId}, StageId={StageId}",
+                            onboardingId, stageId);
+                        // Don't re-throw to avoid breaking the main flow
+                    }
+                }
 
                 return result;
             }

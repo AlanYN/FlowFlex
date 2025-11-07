@@ -292,8 +292,8 @@ namespace FlowFlex.WebApi.Controllers.OW
         {
             bool result = await _onboardingService.ForceCompleteAsync(id, input);
             return Success(result);
-        }      
-             
+        }
+
         /// <summary>
         /// Get onboarding progress
         /// Requires CASE:READ permission
@@ -394,7 +394,7 @@ namespace FlowFlex.WebApi.Controllers.OW
             bool result = await _onboardingService.UpdateStageCustomFieldsAsync(id, input);
             return Success(result);
         }
-        
+
 
         /// <summary>
         /// Save a specific stage in onboarding's stagesProgress

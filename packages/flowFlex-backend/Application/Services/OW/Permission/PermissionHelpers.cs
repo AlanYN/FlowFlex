@@ -50,7 +50,7 @@ namespace FlowFlex.Application.Services.OW.Permission
                     "User is not assigned to any team, treating as member of 'Other' team. " +
                     "This allows permission checks to work for users without team assignments.",
                     _userContext?.UserId);
-                
+
                 // User not in any team, return "Other" to represent users without team assignment
                 return new List<string> { "Other" };
             }
@@ -58,7 +58,7 @@ namespace FlowFlex.Application.Services.OW.Permission
             // Get all team IDs (including sub-teams)
             var teamIds = _userContext.UserTeams.GetAllTeamIds();
             var teamIdStrings = teamIds.Select(id => id.ToString()).ToList();
-            
+
             // If user has no teams (empty list), treat as "Other" team member
             if (!teamIdStrings.Any())
             {
@@ -67,12 +67,12 @@ namespace FlowFlex.Application.Services.OW.Permission
                     _userContext?.UserId);
                 return new List<string> { "Other" };
             }
-            
+
             _logger.LogDebug(
                 "GetUserTeamIds - Found {Count} teams: {Teams}",
                 teamIdStrings.Count,
                 string.Join(", ", teamIdStrings));
-            
+
             return teamIdStrings;
         }
 
@@ -85,7 +85,7 @@ namespace FlowFlex.Application.Services.OW.Permission
             {
                 return false;
             }
-            
+
             var teams = DeserializeTeamList(teamsJson);
             return userTeamIds.Any(teamId => teams.Contains(teamId));
         }
@@ -99,7 +99,7 @@ namespace FlowFlex.Application.Services.OW.Permission
             {
                 return true; // No blacklist means everyone can access
             }
-            
+
             var teams = DeserializeTeamList(teamsJson);
             return !userTeamIds.Any(teamId => teams.Contains(teamId));
         }
@@ -127,7 +127,7 @@ namespace FlowFlex.Application.Services.OW.Permission
             {
                 return true; // No blacklist means everyone can access
             }
-            
+
             var users = DeserializeTeamList(usersJson);
             return !users.Contains(userId);
         }
@@ -142,7 +142,7 @@ namespace FlowFlex.Application.Services.OW.Permission
                 return false;
             }
 
-            return long.TryParse(_userContext.UserId, out var currentUserId) && 
+            return long.TryParse(_userContext.UserId, out var currentUserId) &&
                    createUserId.Value == currentUserId;
         }
 
@@ -157,14 +157,14 @@ namespace FlowFlex.Application.Services.OW.Permission
                 _logger.LogDebug("Public mode with NULL OperateTeams - granting operate permission to all");
                 return true;
             }
-            
+
             var operateTeams = DeserializeTeamList(operateTeamsJson);
             if (operateTeams.Count == 0)
             {
                 _logger.LogDebug("Public mode with empty OperateTeams array - granting operate permission to all");
                 return true;
             }
-            
+
             // Public mode with specific teams - check membership (whitelist)
             var hasPermission = userTeamIds.Any(teamId => operateTeams.Contains(teamId));
             _logger.LogDebug(
@@ -185,14 +185,14 @@ namespace FlowFlex.Application.Services.OW.Permission
                 _logger.LogDebug("Public mode with NULL OperateUsers - granting operate permission to all");
                 return true;
             }
-            
+
             var operateUsers = DeserializeTeamList(operateUsersJson);
             if (operateUsers.Count == 0)
             {
                 _logger.LogDebug("Public mode with empty OperateUsers array - granting operate permission to all");
                 return true;
             }
-            
+
             // Public mode with specific users - check membership (whitelist)
             var hasPermission = operateUsers.Contains(userId);
             _logger.LogDebug(
@@ -291,11 +291,11 @@ namespace FlowFlex.Application.Services.OW.Permission
 
             var portalAccessAttr = endpoint.Metadata.GetMetadata<FlowFlex.Application.Filter.PortalAccessAttribute>();
             bool hasPortalAccess = portalAccessAttr != null;
-            
+
             _logger.LogDebug(
                 "IsPortalTokenWithPortalAccess: Endpoint has [PortalAccess]: {HasPortalAccess}",
                 hasPortalAccess);
-            
+
             return hasPortalAccess;
         }
 

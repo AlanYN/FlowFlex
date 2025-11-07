@@ -192,7 +192,7 @@ namespace FlowFlex.Application.Services.OW
                 // Initialize create/update information
                 entity.InitCreateInfo(_userContext);
                 AuditHelper.ApplyCreateAudit(entity, _operatorContextService);
-                
+
                 // Debug logging for audit fields
                 Console.WriteLine($"[StaticFieldValueService] After audit - Field: {entity.FieldName}, CreateBy: '{entity.CreateBy}', ModifyBy: '{entity.ModifyBy}', CreateUserId: {entity.CreateUserId}, ModifyUserId: {entity.ModifyUserId}");
 

@@ -90,7 +90,7 @@ namespace WebApi.Authentication
                     userContext.CompanyId = "";
                     userContext.Schema = AuthSchemes.Identification;
                     userContext.AppCode = context.HttpContext.Request.Headers["X-App-Code"].FirstOrDefault() ?? "DEFAULT";
-                    
+
                     // Load user teams and user type in parallel to reduce latency
                     var loadTeamsTask = LoadUserTeamsAsync(context, userContext);
                     var loadUserTypeTask = LoadUserTypeAsync(context, userContext, authorization);
@@ -145,7 +145,7 @@ namespace WebApi.Authentication
                         userContext.LastName = userInfo.LastName;
                         userContext.FirstName = userInfo.FirstName;
                         userContext.Email = userInfo.Email;
-                        
+
                         var iamClientId = claims!.FirstOrDefault(x => x.Type == "client_id")?.Value;
                         foreach (var item in userInfo.Tenants)
                         {
@@ -163,7 +163,7 @@ namespace WebApi.Authentication
                             userContext.CompanyId = userInfo.TenantId.ToString();
                         }
                         userContext.AppCode = context.HttpContext.Request.Headers["X-App-Code"].FirstOrDefault() ?? "DEFAULT";
-                        
+
                         // Load user teams and user type in parallel to reduce latency
                         var loadTeamsTask = LoadUserTeamsAsync(context, userContext);
                         var loadUserTypeTask = LoadUserTypeAsync(context, userContext, authorization);
@@ -196,11 +196,11 @@ namespace WebApi.Authentication
             // Set default value first
             userContext.UserType = 2; // Default to normal user
             userContext.UserPermissions = new List<FlowFlex.Domain.Shared.Models.UserPermissionModel>();
-            
+
             try
             {
                 Console.WriteLine($"[TokenValidatedHandler] LoadUserTypeAsync started for user {userContext.UserId}");
-                
+
                 // Get IdmUserDataClient to fetch user information
                 var idmUserDataClient = context.HttpContext.RequestServices.GetService<FlowFlex.Application.Services.OW.IdmUserDataClient>();
                 if (idmUserDataClient == null)
@@ -212,7 +212,7 @@ namespace WebApi.Authentication
                 // Call /api/v1/users/{userId} to get user permissions
                 Console.WriteLine($"[TokenValidatedHandler] Calling GetUserByIdAsync for user {userContext.UserId}");
                 var userInfo = await idmUserDataClient.GetUserByIdAsync(userContext.UserId, authorization);
-                
+
                 if (userInfo == null)
                 {
                     Console.WriteLine($"[TokenValidatedHandler] GetUserByIdAsync returned null, using default permissions");

@@ -98,7 +98,7 @@ namespace FlowFlex.Tests.Services.Permission
                 _mockLogger.Object,
                 userContext,
                 mockHttpContextAccessor.Object);
-            
+
             var teamsJson = "[\"team-a\", \"team-b\"]";
             var userTeamIds = new List<string> { "team-a" };
 
@@ -119,7 +119,7 @@ namespace FlowFlex.Tests.Services.Permission
                 _mockLogger.Object,
                 userContext,
                 mockHttpContextAccessor.Object);
-            
+
             var teamsJson = "[\"team-a\", \"team-b\"]";
             var userTeamIds = new List<string> { "team-c" };
 
@@ -140,7 +140,7 @@ namespace FlowFlex.Tests.Services.Permission
                 _mockLogger.Object,
                 userContext,
                 mockHttpContextAccessor.Object);
-            
+
             var userTeamIds = new List<string> { "team-a" };
 
             // Act
@@ -164,7 +164,7 @@ namespace FlowFlex.Tests.Services.Permission
                 _mockLogger.Object,
                 userContext,
                 mockHttpContextAccessor.Object);
-            
+
             var teamsJson = "[\"team-a\", \"team-b\"]";
             var userTeamIds = new List<string> { "team-c" };
 
@@ -185,7 +185,7 @@ namespace FlowFlex.Tests.Services.Permission
                 _mockLogger.Object,
                 userContext,
                 mockHttpContextAccessor.Object);
-            
+
             var teamsJson = "[\"team-a\", \"team-b\"]";
             var userTeamIds = new List<string> { "team-a" };
 
@@ -206,7 +206,7 @@ namespace FlowFlex.Tests.Services.Permission
                 _mockLogger.Object,
                 userContext,
                 mockHttpContextAccessor.Object);
-            
+
             var userTeamIds = new List<string> { "team-a" };
 
             // Act
@@ -230,7 +230,7 @@ namespace FlowFlex.Tests.Services.Permission
                 _mockLogger.Object,
                 userContext,
                 mockHttpContextAccessor.Object);
-            
+
             var usersJson = "[\"123\", \"456\"]";
             var userId = "123";
 
@@ -251,7 +251,7 @@ namespace FlowFlex.Tests.Services.Permission
                 _mockLogger.Object,
                 userContext,
                 mockHttpContextAccessor.Object);
-            
+
             var usersJson = "[\"123\", \"456\"]";
             var userId = "789";
 
@@ -276,7 +276,7 @@ namespace FlowFlex.Tests.Services.Permission
                 _mockLogger.Object,
                 userContext,
                 mockHttpContextAccessor.Object);
-            
+
             var usersJson = "[\"123\", \"456\"]";
             var userId = "789";
 
@@ -297,7 +297,7 @@ namespace FlowFlex.Tests.Services.Permission
                 _mockLogger.Object,
                 userContext,
                 mockHttpContextAccessor.Object);
-            
+
             var usersJson = "[\"123\", \"456\"]";
             var userId = "123";
 
@@ -502,7 +502,7 @@ namespace FlowFlex.Tests.Services.Permission
                 _mockLogger.Object,
                 userContext,
                 mockHttpContextAccessor.Object);
-            
+
             var json = "[\"team-a\", \"team-b\"]";
 
             // Act
@@ -525,7 +525,7 @@ namespace FlowFlex.Tests.Services.Permission
                 _mockLogger.Object,
                 userContext,
                 mockHttpContextAccessor.Object);
-            
+
             var json = "\"[\\\"team-a\\\", \\\"team-b\\\"]\"";
 
             // Act
@@ -567,7 +567,7 @@ namespace FlowFlex.Tests.Services.Permission
                 _mockLogger.Object,
                 userContext,
                 mockHttpContextAccessor.Object);
-            
+
             var json = "invalid-json";
 
             // Act
