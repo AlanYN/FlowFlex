@@ -2918,23 +2918,23 @@ const applyWorkflow = async (data: any) => {
 		try {
 			const { apiVersion } = useGlobSetting();
 
-			// Transform checklists to the expected backend format with stage association
-			const transformedChecklists = data.checklists.map((checklist, index) => ({
-				Success: true,
-				Message: `Checklist generated for ${checklist.name}`,
-				GeneratedChecklist: {
-					Name: checklist.name,
-					Description: checklist.description,
-					Team: checklist.team || 'Default Team',
-					IsActive: true,
-					Assignments: [], // Will be set by backend
-				},
-				Tasks: checklist.tasks || [],
-				ConfidenceScore: 0.85,
-				// Add stage association - match by index since they're generated in the same order
-				StageName: data.stages[index]?.name || '',
-				StageOrder: data.stages[index]?.order || index + 1,
-			}));
+		// Transform checklists to the expected backend format with stage association
+		const transformedChecklists = data.checklists.map((checklist, index) => ({
+			Success: true,
+			Message: `Checklist generated for ${checklist.name}`,
+			GeneratedChecklist: {
+				Name: checklist.name,
+				Description: checklist.description,
+				Team: checklist.team || 'Other',
+				IsActive: true,
+				Assignments: [], // Will be set by backend
+			},
+			Tasks: checklist.tasks || [],
+			ConfidenceScore: 0.85,
+			// Add stage association - match by index since they're generated in the same order
+			StageName: data.stages[index]?.name || '',
+			StageOrder: data.stages[index]?.order || index + 1,
+		}));
 
 			// Transform questionnaires to the expected backend format with stage association
 			const transformedQuestionnaires = data.questionnaires.map((questionnaire, index) => ({
