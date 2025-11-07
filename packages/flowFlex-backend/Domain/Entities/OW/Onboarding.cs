@@ -34,8 +34,8 @@ namespace FlowFlex.Domain.Entities.OW
         /// Customer/Lead ID (optional - Case Code is the primary identifier)
         /// </summary>
         [StringLength(100)]
-        [SugarColumn(ColumnName = "lead_id")]
-        public string LeadId { get; set; }
+        [SugarColumn(ColumnName = "lead_id", IsNullable = true)]
+        public string? LeadId { get; set; }
 
         /// <summary>
         /// Customer/Lead Name

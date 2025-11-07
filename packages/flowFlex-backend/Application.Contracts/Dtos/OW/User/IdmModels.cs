@@ -120,6 +120,22 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.User
         [JsonPropertyName("userName")]
         public string UserName { get; set; }
 
+        [JsonProperty("email")]
+        [JsonPropertyName("email")]
+        public string Email { get; set; }
+
+        [JsonProperty("firstName")]
+        [JsonPropertyName("firstName")]
+        public string FirstName { get; set; }
+
+        [JsonProperty("lastName")]
+        [JsonPropertyName("lastName")]
+        public string LastName { get; set; }
+
+        [JsonProperty("userType")]
+        [JsonPropertyName("userType")]
+        public int? UserType { get; set; }
+
         [JsonProperty("teamId")]
         [JsonPropertyName("teamId")]
         public string TeamId { get; set; }

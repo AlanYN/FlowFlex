@@ -2,7 +2,7 @@ import { ElMessage } from 'element-plus';
 import { useI18n } from '@/hooks/useI18n';
 // import router from '@/router';
 // import { PageEnum } from '@/enums/pageEnum';
-import { useUserStoreWithOut } from '@/stores/modules/user';
+// import { useUserStoreWithOut } from '@/stores/modules/user';
 // import { SingleCaseMessage } from '@/utils/singleCaseMessage';
 
 // const singleCaseMessage = new SingleCaseMessage();
@@ -19,7 +19,7 @@ export function checkStatus(
 		params?: any;
 	}
 ): void {
-	const userStore = useUserStoreWithOut();
+	// const userStore = useUserStoreWithOut();
 	let errMessage = '';
 	const { t } = useI18n();
 	switch (status) {
@@ -29,12 +29,13 @@ export function checkStatus(
 		// 401: Not logged in
 		// Jump to the login page if not logged in, and carry the path of the current page
 		// Return to the current page after successful login. This step needs to be operated on the login page.
-		case 401:
-			// errMessage = msg || t('sys.api.errMsg401');
-			userStore.setTokenobj(undefined);
-			userStore.logout(true, 'logout');
-			// singleCaseMessage.showMessage(t('sys.api.tokenExpired'), 'info');
-			break;
+		// case 401:
+		// 	// errMessage = msg || t('sys.api.errMsg401');
+		// 	// userStore.setTokenobj(undefined);
+		// 	// userStore.logout(true, 'Oauth');
+		// 	// 401已经在index.ts进行了错误拦截，这里不需要再处理了
+		// 	// singleCaseMessage.showMessage(t('sys.api.tokenExpired'), 'info');
+		// 	break;
 		case 403:
 			errMessage = t('sys.api.errMsg403');
 			break;

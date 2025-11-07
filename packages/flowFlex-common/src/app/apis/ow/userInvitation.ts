@@ -5,7 +5,7 @@ export interface PortalUser {
 	id: string;
 	email: string;
 	status: string; // Only 'Active' or 'Inactive'
-	sentDate: string;
+	sentDate?: string; // Nullable - only set when invitation is actually sent
 	invitationToken: string;
 	lastLoginDate?: string;
 }

@@ -48,10 +48,10 @@ namespace FlowFlex.Domain.Entities.OW
         public string? EncryptedAccessToken { get; set; }
 
         /// <summary>
-        /// Invitation sent date
+        /// Invitation sent date (nullable - only set when invitation is actually sent)
         /// </summary>
         [SugarColumn(ColumnName = "sent_date")]
-        public DateTimeOffset SentDate { get; set; }
+        public DateTimeOffset? SentDate { get; set; }
 
         /// <summary>
         /// Token expiry date (null means no expiry)

@@ -153,7 +153,13 @@ namespace FlowFlex.WebApi.Extensions
                             if (userContext == null) return;
 
                             var now = DateTimeOffset.UtcNow;
-                            var userName = userContext.UserName ?? "SYSTEM";
+                            // Priority: FirstName + LastName > UserName > Email > "SYSTEM"
+                            var firstName = userContext.FirstName?.Trim();
+                            var lastName = userContext.LastName?.Trim();
+                            var fullName = $"{firstName} {lastName}".Trim();
+                            var userName = !string.IsNullOrEmpty(fullName) ? fullName :
+                                          (!string.IsNullOrEmpty(userContext.UserName) ? userContext.UserName :
+                                          (!string.IsNullOrEmpty(userContext.Email) ? userContext.Email : "SYSTEM"));
                             var userId = long.TryParse(userContext.UserId, out var parsedUserId) ? parsedUserId : 0;
                             var tenantId = userContext.TenantId ?? "DEFAULT";
 

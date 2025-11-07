@@ -41,6 +41,7 @@ public class ChecklistTaskCompletionService : IChecklistTaskCompletionService, I
     private readonly IActionDefinitionRepository _actionDefinitionRepository;
     private readonly IActionTriggerMappingRepository _actionTriggerMappingRepository;
     private readonly IServiceProvider _serviceProvider;
+    private readonly IOperatorContextService _operatorContextService;
 
     public ChecklistTaskCompletionService(
     IChecklistTaskCompletionRepository completionRepository,
@@ -58,7 +59,8 @@ public class ChecklistTaskCompletionService : IChecklistTaskCompletionService, I
     IChecklistService checklistService,
     IActionDefinitionRepository actionDefinitionRepository,
     IActionTriggerMappingRepository actionTriggerMappingRepository,
-    IServiceProvider serviceProvider)
+    IServiceProvider serviceProvider,
+    IOperatorContextService operatorContextService)
     {
         _completionRepository = completionRepository;
         _taskRepository = taskRepository;
@@ -72,6 +74,7 @@ public class ChecklistTaskCompletionService : IChecklistTaskCompletionService, I
         _userContext = userContext;
         _mediator = mediator ?? throw new ArgumentNullException(nameof(mediator));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _operatorContextService = operatorContextService;
         _checklistService = checklistService ?? throw new ArgumentNullException(nameof(checklistService));
         _actionDefinitionRepository = actionDefinitionRepository ?? throw new ArgumentNullException(nameof(actionDefinitionRepository));
         _actionTriggerMappingRepository = actionTriggerMappingRepository ?? throw new ArgumentNullException(nameof(actionTriggerMappingRepository));
@@ -79,11 +82,11 @@ public class ChecklistTaskCompletionService : IChecklistTaskCompletionService, I
     }
 
     /// <summary>
-    /// Get current user name from UserContext
+    /// Get current user name from OperatorContextService (FirstName + LastName > UserName > Email)
     /// </summary>
     private string GetCurrentUserName()
     {
-        return !string.IsNullOrEmpty(_userContext?.UserName) ? _userContext.UserName : "System";
+        return _operatorContextService.GetOperatorDisplayName();
     }
 
     /// <summary>
@@ -116,7 +119,8 @@ public class ChecklistTaskCompletionService : IChecklistTaskCompletionService, I
 
         var completion = _mapper.Map<ChecklistTaskCompletion>(input);
 
-        // Ensure LeadId is set from onboarding if not provided in input
+        // Set LeadId from onboarding if not provided in input
+        // LeadId is optional since Case Code is the primary identifier
         if (string.IsNullOrEmpty(completion.LeadId))
         {
             completion.LeadId = onboarding.LeadId;
@@ -146,7 +150,7 @@ public class ChecklistTaskCompletionService : IChecklistTaskCompletionService, I
         // Log task completion
         if (success)
         {
-            await LogTaskCompletionAsync(onboarding, task, completion.IsCompleted, completion.CompletionNotes);
+            await LogTaskCompletionAsync(onboarding, task, completion);
 
             // 只有当任务状态真正从未完成变为完成，且有 ActionMapping 时，才执行 ActionTriggerEvent
             // 这避免了当 isCompleted 为 true 但没有变化时重复执行 action
@@ -194,7 +198,8 @@ public class ChecklistTaskCompletionService : IChecklistTaskCompletionService, I
 
             var completion = _mapper.Map<ChecklistTaskCompletion>(input);
 
-            // Ensure LeadId is set from onboarding if not provided in input
+            // Set LeadId from onboarding if not provided in input
+            // LeadId is optional since Case Code is the primary identifier
             if (string.IsNullOrEmpty(completion.LeadId))
             {
                 completion.LeadId = onboarding.LeadId;
@@ -335,17 +340,20 @@ public class ChecklistTaskCompletionService : IChecklistTaskCompletionService, I
     /// <summary>
     /// Log task completion to Change Log
     /// </summary>
-    private async Task LogTaskCompletionAsync(Onboarding onboarding, ChecklistTask task, bool isCompleted, string completionNotes)
+    private async Task LogTaskCompletionAsync(Onboarding onboarding, ChecklistTask task, ChecklistTaskCompletion completion)
     {
         try
         {
             var tenantId = GetTenantId();
             // Debug logging handled by structured logging
-            // Get current stage information
+            // Get stage information from completion.StageId (user-specified stage)
+            // This ensures we log the correct stage where the task was completed
             Stage currentStage = null;
-            if (onboarding.CurrentStageId.HasValue)
+            var stageIdToUse = completion.StageId ?? onboarding.CurrentStageId;
+            
+            if (stageIdToUse.HasValue)
             {
-                currentStage = await _stageRepository.GetByIdAsync(onboarding.CurrentStageId.Value);
+                currentStage = await _stageRepository.GetByIdAsync(stageIdToUse.Value);
                 // Debug logging handled by structured logging
             }
             else
@@ -365,11 +373,11 @@ public class ChecklistTaskCompletionService : IChecklistTaskCompletionService, I
                 TaskName = task.Name,
                 TaskDescription = task.Description,
                 IsRequired = task.IsRequired,
-                IsCompleted = isCompleted,
-                CompletionNotes = completionNotes,
+                IsCompleted = completion.IsCompleted,
+                CompletionNotes = completion.CompletionNotes,
                 CompletedTime = DateTimeOffset.UtcNow,
                 CompletedBy = GetCurrentUserName(),
-                Action = isCompleted ? "Task Completed" : "Task Marked Incomplete",
+                Action = completion.IsCompleted ? "Task Completed" : "Task Marked Incomplete",
                 WorkflowId = onboarding.WorkflowId,
                 Priority = onboarding.Priority
             };
@@ -381,15 +389,15 @@ public class ChecklistTaskCompletionService : IChecklistTaskCompletionService, I
             // 2. Also log to ff_operation_change_log table (new functionality)
             try
             {
-                var operationType = isCompleted ? OperationTypeEnum.ChecklistTaskComplete : OperationTypeEnum.ChecklistTaskUncomplete;
-                var operationDescription = $"Checklist task '{task.Name}' has been {(isCompleted ? "completed" : "marked as incomplete")} by {GetCurrentUserName()}";
+                var operationType = completion.IsCompleted ? OperationTypeEnum.ChecklistTaskComplete : OperationTypeEnum.ChecklistTaskUncomplete;
+                var operationDescription = $"Checklist task '{task.Name}' has been {(completion.IsCompleted ? "completed" : "marked as incomplete")} by {GetCurrentUserName()}";
 
                 // Prepare before_data and after_data
                 var beforeData = new
                 {
                     TaskId = task.Id,
                     TaskName = task.Name,
-                    IsCompleted = !isCompleted, // Opposite state
+                    IsCompleted = !completion.IsCompleted, // Opposite state
                     CompletionNotes = "",
                     CompletedTime = (DateTimeOffset?)null
                 };
@@ -398,17 +406,17 @@ public class ChecklistTaskCompletionService : IChecklistTaskCompletionService, I
                 {
                     TaskId = task.Id,
                     TaskName = task.Name,
-                    IsCompleted = isCompleted,
-                    CompletionNotes = completionNotes ?? "",
-                    CompletedTime = isCompleted ? DateTimeOffset.UtcNow : (DateTimeOffset?)null
+                    IsCompleted = completion.IsCompleted,
+                    CompletionNotes = completion.CompletionNotes ?? "",
+                    CompletedTime = completion.IsCompleted ? DateTimeOffset.UtcNow : (DateTimeOffset?)null
                 };
 
                 var changedFields = new List<string> { "IsCompleted" };
-                if (!string.IsNullOrEmpty(completionNotes))
+                if (!string.IsNullOrEmpty(completion.CompletionNotes))
                 {
                     changedFields.Add("CompletionNotes");
                 }
-                if (isCompleted)
+                if (completion.IsCompleted)
                 {
                     changedFields.Add("CompletedTime");
                 }
@@ -429,7 +437,7 @@ public class ChecklistTaskCompletionService : IChecklistTaskCompletionService, I
                     businessId: task.Id,
                     onboardingId: onboarding.Id,
                     stageId: currentStage?.Id ?? 0,
-                    operationTitle: $"Task {(isCompleted ? "Completed" : "Incomplete")}: {task.Name}",
+                    operationTitle: $"Task {(completion.IsCompleted ? "Completed" : "Incomplete")}: {task.Name}",
                     operationDescription: operationDescription,
                     beforeData: System.Text.Json.JsonSerializer.Serialize(beforeData),
                     afterData: System.Text.Json.JsonSerializer.Serialize(afterData),

@@ -98,7 +98,6 @@ namespace FlowFlex.Application.Service.OW
 
             // Initialize create information with proper ID and timestamps
             entity.InitCreateInfo(_userContext);
-            AuditHelper.ApplyCreateAudit(entity, _operatorContextService);
 
             await _workflowRepository.InsertAsync(entity);
 
@@ -112,7 +111,6 @@ namespace FlowFlex.Application.Service.OW
 
                     // Initialize create information
                     stage.InitCreateInfo(_userContext);
-                    AuditHelper.ApplyCreateAudit(stage, _operatorContextService);
 
                     await _stageRepository.InsertAsync(stage);
                 }
@@ -234,7 +232,6 @@ namespace FlowFlex.Application.Service.OW
 
             // Initialize update information with proper timestamps
             entity.InitUpdateInfo(_userContext);
-            AuditHelper.ApplyModifyAudit(entity, _operatorContextService);
 
             var updateResult = await _workflowRepository.UpdateAsync(entity);
 
@@ -266,7 +263,6 @@ namespace FlowFlex.Application.Service.OW
                         _mapper.Map(stageInput, existingStage);
                         existingStage.WorkflowId = id;
                         existingStage.InitUpdateInfo(_userContext);
-                        AuditHelper.ApplyModifyAudit(existingStage, _operatorContextService);
 
                         await _stageRepository.UpdateAsync(existingStage);
                     }
@@ -276,7 +272,6 @@ namespace FlowFlex.Application.Service.OW
                         var newStage = _mapper.Map<Stage>(stageInput);
                         newStage.WorkflowId = id;
                         newStage.InitCreateInfo(_userContext);
-                        AuditHelper.ApplyCreateAudit(newStage, _operatorContextService);
 
                         await _stageRepository.InsertAsync(newStage);
                     }
@@ -421,11 +416,11 @@ namespace FlowFlex.Application.Service.OW
         }
 
         /// <summary>
-        /// Get current user name from UserContext
+        /// Get current user name from OperatorContextService (FirstName + LastName > UserName > Email)
         /// </summary>
         private string GetCurrentUserName()
         {
-            return !string.IsNullOrEmpty(_userContext?.UserName) ? _userContext.UserName : "System";
+            return _operatorContextService.GetOperatorDisplayName();
         }
 
         /// <summary>

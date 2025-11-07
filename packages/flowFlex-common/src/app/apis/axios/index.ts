@@ -215,7 +215,7 @@ const transform: AxiosTransform = {
 				if (tokenExpiredLogOut) {
 					tokenExpiredLogOut(true);
 				}
-				Logout('logout');
+				Logout('login');
 				window.parent.postMessage({ exceedToken: true }, '*');
 				return Promise.reject(error);
 			}
