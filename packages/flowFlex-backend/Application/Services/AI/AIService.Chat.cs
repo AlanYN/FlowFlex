@@ -3,11 +3,15 @@ using FlowFlex.Domain.Entities.OW;
 using Microsoft.Extensions.Logging;
 using System.Text;
 using System.Text.Json;
+using System.Collections.Concurrent;
 
 namespace FlowFlex.Application.Services.AI
 {
     public partial class AIService
     {
+        // JWT Token cache for Item Gateway (provider -> token with expiry)
+        private static readonly ConcurrentDictionary<string, (string Token, DateTime Expiry)> _jwtTokenCache = new();
+        private static readonly TimeSpan _jwtTokenLifetime = TimeSpan.FromHours(1); // JWT tokens typically expire after 1 hour
         /// <summary>
         /// Send message to AI chat and get response
         /// </summary>
@@ -309,6 +313,8 @@ namespace FlowFlex.Application.Services.AI
                         "openai" => await CallOpenAIWithConfigAsync(messages, userConfig),
                         "claude" => await CallClaudeWithConfigAsync(messages, userConfig),
                         "deepseek" => await CallDeepSeekWithConfigAsync(messages, userConfig),
+                        "item" => await CallLLMGatewayWithConfigAsync(messages, userConfig),
+                        "llmgateway" => await CallLLMGatewayWithConfigAsync(messages, userConfig), // Backward compatibility
                         _ => await CallZhipuAIAsync(messages) // Default to ZhipuAI
                     };
 
@@ -616,6 +622,297 @@ namespace FlowFlex.Application.Services.AI
         }
 
         /// <summary>
+        /// Get or refresh JWT token for Item Gateway
+        /// </summary>
+        private async Task<string> GetLLMGatewayJwtTokenAsync(AIModelConfig config)
+        {
+            var cacheKey = $"{config.Provider}_{config.ApiKey}";
+            
+            // Check if we have a valid cached token
+            if (_jwtTokenCache.TryGetValue(cacheKey, out var cachedToken))
+            {
+                if (cachedToken.Expiry > DateTime.UtcNow.AddMinutes(5)) // Refresh if less than 5 minutes remaining
+                {
+                    _logger.LogDebug("Using cached JWT token for Item Gateway");
+                    return cachedToken.Token;
+                }
+            }
+
+            // Request new JWT token
+            _logger.LogInformation("Requesting new JWT token for Item Gateway");
+            
+            var requestBody = new
+            {
+                apiKey = config.ApiKey,
+                tenantId = "",
+                agentCode = "w",
+                agentName = "w",
+                appCode = "wfe",
+                userId = "",
+                userName = ""
+            };
+
+            var json = JsonSerializer.Serialize(requestBody);
+            var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+            // Use the base URL from config or default to production
+            var baseUrl = string.IsNullOrEmpty(config.BaseUrl) 
+                ? "https://aiop-gateway.item.com" 
+                : config.BaseUrl.TrimEnd('/');
+            var jwtUrl = $"{baseUrl}/admin/api/credentials/jwt";
+
+            using var httpClient = _httpClientFactory.CreateClient();
+            var response = await httpClient.PostAsync(jwtUrl, content);
+            var responseContent = await response.Content.ReadAsStringAsync();
+
+            if (response.IsSuccessStatusCode)
+            {
+                var jwtResponse = JsonSerializer.Deserialize<JsonElement>(responseContent);
+                if (jwtResponse.TryGetProperty("code", out var code) && code.GetInt32() == 0)
+                {
+                    var token = jwtResponse.GetProperty("data").GetString();
+                    if (!string.IsNullOrEmpty(token))
+                    {
+                        // Cache the token
+                        var expiry = DateTime.UtcNow.Add(_jwtTokenLifetime);
+                        _jwtTokenCache[cacheKey] = (token, expiry);
+                        _logger.LogInformation("Successfully obtained JWT token for Item Gateway");
+                        return token;
+                    }
+                }
+            }
+
+            _logger.LogError("Failed to obtain JWT token for Item Gateway: {StatusCode} - {Content}", 
+                response.StatusCode, responseContent);
+            throw new Exception($"Failed to obtain JWT token: {response.StatusCode} - {responseContent}");
+        }
+
+        /// <summary>
+        /// Call Item Gateway API using user configuration
+        /// </summary>
+        private async Task<AIProviderResponse> CallLLMGatewayWithConfigAsync(List<object> messages, AIModelConfig config)
+        {
+            try
+            {
+                // Get JWT token
+                var jwtToken = await GetLLMGatewayJwtTokenAsync(config);
+
+                var requestBody = new
+                {
+                    model = config.ModelName, // e.g., "openai/gpt-4" or "gemini/gemini-2.5-flash"
+                    messages = messages.ToArray(),
+                    temperature = config.Temperature > 0 ? config.Temperature : 0.7,
+                    max_tokens = config.MaxTokens > 0 ? config.MaxTokens : 4000
+                };
+
+                var json = JsonSerializer.Serialize(requestBody);
+                var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+                // Use the base URL from config or default to production
+                var baseUrl = string.IsNullOrEmpty(config.BaseUrl) 
+                    ? "https://aiop-gateway.item.com" 
+                    : config.BaseUrl.TrimEnd('/');
+                var apiUrl = $"{baseUrl}/openai/v1/chat/completions";
+
+                _logger.LogInformation("Calling Item Gateway API: {Url} - Model: {Model}", apiUrl, config.ModelName);
+
+                using var httpClient = _httpClientFactory.CreateClient();
+                httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {jwtToken}");
+                var response = await httpClient.PostAsync(apiUrl, content);
+                var responseContent = await response.Content.ReadAsStringAsync();
+
+                if (response.IsSuccessStatusCode)
+                {
+                    var aiResponse = JsonSerializer.Deserialize<JsonElement>(responseContent);
+                    var messageContent = aiResponse
+                        .GetProperty("choices")[0]
+                        .GetProperty("message")
+                        .GetProperty("content")
+                        .GetString() ?? "";
+
+                    return new AIProviderResponse
+                    {
+                        Success = true,
+                        Content = messageContent,
+                        Provider = "Item",
+                        ModelName = config.ModelName
+                    };
+                }
+                else
+                {
+                    _logger.LogWarning("Item Gateway API call failed: {StatusCode} - {Content}", 
+                        response.StatusCode, responseContent);
+                    return new AIProviderResponse
+                    {
+                        Success = false,
+                        ErrorMessage = $"API call failed: {response.StatusCode} - {responseContent}"
+                    };
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error calling Item Gateway API");
+                return new AIProviderResponse
+                {
+                    Success = false,
+                    ErrorMessage = $"Item Gateway API error: {ex.Message}"
+                };
+            }
+        }
+
+        /// <summary>
+        /// Call Item Gateway API with real streaming support
+        /// </summary>
+        private async IAsyncEnumerable<string> CallLLMGatewayStreamAsync(List<object> messages, AIModelConfig config)
+        {
+            string jwtToken = null;
+            string errorMessage = null;
+            
+            // Get JWT token outside of the streaming loop
+            try
+            {
+                jwtToken = await GetLLMGatewayJwtTokenAsync(config);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to obtain JWT token for Item Gateway streaming");
+                errorMessage = "Failed to authenticate with Item Gateway. Please check your API key.";
+            }
+
+            // If JWT token acquisition failed, yield error and return
+            if (!string.IsNullOrEmpty(errorMessage))
+            {
+                yield return errorMessage;
+                yield break;
+            }
+
+            var requestBody = new
+            {
+                model = config.ModelName,
+                messages = messages.ToArray(),
+                temperature = config.Temperature > 0 ? config.Temperature : 0.7,
+                max_tokens = config.MaxTokens > 0 ? config.MaxTokens : 4000,
+                stream = true // Enable streaming
+            };
+
+            var json = JsonSerializer.Serialize(requestBody);
+            var httpContent = new StringContent(json, Encoding.UTF8, "application/json");
+
+            // Use the base URL from config or default to production
+            var baseUrl = string.IsNullOrEmpty(config.BaseUrl) 
+                ? "https://aiop-gateway.item.com" 
+                : config.BaseUrl.TrimEnd('/');
+            var apiUrl = $"{baseUrl}/openai/v1/chat/completions";
+
+            _logger.LogInformation("Calling Item Gateway Stream API: {Url} - Model: {Model}", apiUrl, config.ModelName);
+
+            using var httpClient = _httpClientFactory.CreateClient();
+            using var request = new HttpRequestMessage(HttpMethod.Post, apiUrl)
+            {
+                Content = httpContent
+            };
+            request.Headers.Add("Authorization", $"Bearer {jwtToken}");
+            request.Headers.Add("Accept", "text/event-stream");
+
+            using var response = await httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                var errorContent = await response.Content.ReadAsStringAsync();
+                _logger.LogWarning("Item Gateway Stream API failed: {StatusCode} - {Content}", 
+                    response.StatusCode, errorContent);
+                yield return "I'm having trouble connecting to the Item Gateway service. Please try again.";
+                yield break;
+            }
+
+            using var stream = await response.Content.ReadAsStreamAsync();
+            using var reader = new StreamReader(stream);
+
+            string line;
+            var lineTimeout = TimeSpan.FromSeconds(30);
+
+            while (true)
+            {
+                string readLine = null;
+                bool shouldBreak = false;
+                string contentToYield = null;
+
+                var readStartTime = DateTime.UtcNow;
+                try
+                {
+                    using var cts = new CancellationTokenSource(lineTimeout);
+                    _logger.LogDebug("🔍 Item Gateway: Starting to read line with {Timeout}s timeout", lineTimeout.TotalSeconds);
+                    readLine = await reader.ReadLineAsync().WaitAsync(cts.Token);
+                    var readDuration = (DateTime.UtcNow - readStartTime).TotalMilliseconds;
+                    const double slowReadInfoThresholdMs = 50d;
+                    if (readDuration >= slowReadInfoThresholdMs)
+                        _logger.LogInformation("✅ Item Gateway: Line read completed in {Duration}ms", readDuration);
+                    else
+                        _logger.LogDebug("✅ Item Gateway: Line read completed in {Duration}ms", readDuration);
+                }
+                catch (OperationCanceledException)
+                {
+                    var readDuration = (DateTime.UtcNow - readStartTime).TotalMilliseconds;
+                    _logger.LogWarning("⏰ Item Gateway stream line read timeout after {Duration}ms (expected {Timeout}s), breaking stream", 
+                        readDuration, lineTimeout.TotalSeconds);
+                    shouldBreak = true;
+                }
+                catch (Exception ex)
+                {
+                    var readDuration = (DateTime.UtcNow - readStartTime).TotalMilliseconds;
+                    _logger.LogWarning(ex, "❌ Error reading Item Gateway stream line after {Duration}ms, breaking stream", readDuration);
+                    shouldBreak = true;
+                }
+
+                if (shouldBreak)
+                    break;
+
+                if (readLine == null)
+                    break;
+
+                if (readLine.StartsWith("data: "))
+                {
+                    var data = readLine.Substring(6).Trim();
+
+                    if (data == "[DONE]")
+                        break;
+
+                    if (string.IsNullOrEmpty(data))
+                        continue;
+
+                    try
+                    {
+                        var jsonData = JsonSerializer.Deserialize<JsonElement>(data);
+
+                        if (jsonData.TryGetProperty("choices", out var choices) && choices.GetArrayLength() > 0)
+                        {
+                            var choice = choices[0];
+                            if (choice.TryGetProperty("delta", out var delta) &&
+                                delta.TryGetProperty("content", out var contentProp))
+                            {
+                                var content = contentProp.GetString();
+                                if (!string.IsNullOrEmpty(content))
+                                {
+                                    contentToYield = content;
+                                }
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Error parsing Item Gateway stream JSON, skipping line");
+                        continue;
+                    }
+                }
+
+                if (!string.IsNullOrEmpty(contentToYield))
+                {
+                    yield return contentToYield;
+                }
+            }
+        }
+
+        /// <summary>
         /// Call DeepSeek API using user configuration
         /// </summary>
         private async Task<AIProviderResponse> CallDeepSeekWithConfigAsync(List<object> messages, AIModelConfig config)
@@ -702,6 +999,14 @@ namespace FlowFlex.Application.Services.AI
                     }
                     yield break;
                 }
+                else if (provider == "item" || provider == "llmgateway") // Support both new and old names
+                {
+                    await foreach (var chunk in CallLLMGatewayStreamAsync(messages, userConfig))
+                    {
+                        yield return chunk;
+                    }
+                    yield break;
+                }
                 else if (provider == "zhipuai")
                 {
                     // ZhipuAI doesn't have streaming API, use simulated streaming
@@ -778,6 +1083,14 @@ namespace FlowFlex.Application.Services.AI
                 else if (provider == "openai")
                 {
                     await foreach (var chunk in CallOpenAIStreamAsync(messages, userConfig))
+                    {
+                        yield return chunk;
+                    }
+                    yield break;
+                }
+                else if (provider == "item" || provider == "llmgateway") // Support both new and old names
+                {
+                    await foreach (var chunk in CallLLMGatewayStreamAsync(messages, userConfig))
                     {
                         yield return chunk;
                     }

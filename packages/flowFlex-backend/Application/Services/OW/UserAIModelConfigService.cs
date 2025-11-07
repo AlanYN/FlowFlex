@@ -557,6 +557,10 @@ namespace FlowFlex.Application.Services.OW
                             case "deepseek":
                                 result = await TestDeepSeekAsync(httpClient, config);
                                 break;
+                            case "item":
+                            case "llmgateway": // Backward compatibility
+                                result = await TestItemGatewayAsync(httpClient, config);
+                                break;
                             default:
                                 result.Message = $"Unsupported AI provider: {config.Provider}";
                                 break;
@@ -833,6 +837,103 @@ namespace FlowFlex.Application.Services.OW
                 {
                     result.Success = false;
                     result.Message = $"Connection failed, Status code: {response.StatusCode}, Reason: {await response.Content.ReadAsStringAsync()}";
+                }
+            }
+            catch (Exception ex)
+            {
+                result.Success = false;
+                result.Message = $"Connection exception: {ex.Message}";
+            }
+
+            return result;
+        }
+
+        /// <summary>
+        /// 测试 Item Gateway 连接
+        /// </summary>
+        private async Task<AIModelTestResult> TestItemGatewayAsync(HttpClient httpClient, AIModelConfig config)
+        {
+            var result = new AIModelTestResult();
+
+            try
+            {
+                // Step 1: Get JWT Token
+                var jwtUrl = $"{config.BaseUrl.TrimEnd('/')}/admin/api/credentials/jwt";
+                
+                var jwtRequestBody = new
+                {
+                    apiKey = config.ApiKey,
+                    tenantId = "",
+                    agentCode = "w",
+                    agentName = "w",
+                    appCode = "wfe",
+                    userId = "",
+                    userName = ""
+                };
+
+                var jwtJson = JsonSerializer.Serialize(jwtRequestBody);
+                var jwtContent = new StringContent(jwtJson, Encoding.UTF8, "application/json");
+
+                httpClient.DefaultRequestHeaders.Clear();
+                var jwtResponse = await httpClient.PostAsync(jwtUrl, jwtContent);
+                var jwtResponseContent = await jwtResponse.Content.ReadAsStringAsync();
+
+                if (!jwtResponse.IsSuccessStatusCode)
+                {
+                    result.Success = false;
+                    result.Message = $"Failed to obtain JWT token, Status code: {jwtResponse.StatusCode}, Reason: {jwtResponseContent}";
+                    return result;
+                }
+
+                // Parse JWT response
+                var jwtData = JsonSerializer.Deserialize<JsonElement>(jwtResponseContent);
+                if (!jwtData.TryGetProperty("code", out var code) || code.GetInt32() != 0)
+                {
+                    result.Success = false;
+                    result.Message = $"JWT token request failed: {jwtResponseContent}";
+                    return result;
+                }
+
+                var jwtToken = jwtData.GetProperty("data").GetString();
+                if (string.IsNullOrEmpty(jwtToken))
+                {
+                    result.Success = false;
+                    result.Message = "JWT token is empty";
+                    return result;
+                }
+
+                // Step 2: Test chat completions API with JWT token
+                var chatUrl = $"{config.BaseUrl.TrimEnd('/')}/openai/v1/chat/completions";
+                
+                var chatRequestBody = new
+                {
+                    model = config.ModelName ?? "openai/gpt-4o-mini", // Use a small model for testing
+                    messages = new[]
+                    {
+                        new { role = "user", content = "Hello" }
+                    },
+                    max_tokens = 10
+                };
+
+                var chatJson = JsonSerializer.Serialize(chatRequestBody);
+                var chatContent = new StringContent(chatJson, Encoding.UTF8, "application/json");
+
+                httpClient.DefaultRequestHeaders.Clear();
+                httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {jwtToken}");
+                
+                var chatResponse = await httpClient.PostAsync(chatUrl, chatContent);
+                var chatResponseContent = await chatResponse.Content.ReadAsStringAsync();
+
+                if (chatResponse.IsSuccessStatusCode)
+                {
+                    result.Success = true;
+                    result.Message = "Connection successful";
+                    result.ModelInfo = $"JWT Token obtained and chat API tested successfully. Model: {config.ModelName}";
+                }
+                else
+                {
+                    result.Success = false;
+                    result.Message = $"Chat API test failed, Status code: {chatResponse.StatusCode}, Reason: {chatResponseContent}";
                 }
             }
             catch (Exception ex)
