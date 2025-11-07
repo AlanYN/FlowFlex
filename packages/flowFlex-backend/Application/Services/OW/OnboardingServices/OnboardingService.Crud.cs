@@ -551,7 +551,7 @@ namespace FlowFlex.Application.Services.OW
                     {
                         throw new CRMException(
                             ErrorCodeEnum.OperationNotAllowed,
-                            $"Cannot change workflow for a case with status '{entity.Status}'. Only cases with status 'Started' can change workflow.");
+                            $"Cannot change workflow for a case with status '{entity.Status}'.");
                     }
 
                     // Business Rule 2: Only allow workflow change for cases that haven't started yet

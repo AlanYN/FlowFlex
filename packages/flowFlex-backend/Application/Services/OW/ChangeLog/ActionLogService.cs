@@ -299,7 +299,24 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
             }
 
             var operationTitle = $"Action Updated: {actionName}";
-            var operationDescription = $"Action '{actionName}' has been updated by {customOperatorName}. Changes: {string.Join(", ", changedFields)}";
+            
+            // Build enhanced description with specific value changes
+            var operationDescription = $"Action '{actionName}' has been updated by {customOperatorName}";
+            
+            // Add specific change details
+            if (!string.IsNullOrEmpty(beforeData) && !string.IsNullOrEmpty(afterData) && changedFields?.Any() == true)
+            {
+                var changeDetails = await GetChangeDetailsAsync(beforeData, afterData, changedFields);
+                if (!string.IsNullOrEmpty(changeDetails))
+                {
+                    operationDescription += $". {changeDetails}";
+                }
+            }
+            else if (changedFields?.Any() == true)
+            {
+                // Fallback to field names if no before/after data
+                operationDescription += $". Changes: {string.Join(", ", changedFields)}";
+            }
 
             return await LogOperationWithUserContextAsync(
                 OperationTypeEnum.ActionDefinitionUpdate,

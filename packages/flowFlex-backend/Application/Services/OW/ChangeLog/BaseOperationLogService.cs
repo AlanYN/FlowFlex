@@ -1122,6 +1122,9 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                     case "config":
                         return GetConfigSummary(jsonString);
 
+                    case "actionconfig":
+                        return GetActionConfigSummary(jsonString);
+
                     case "tagsjson":
                     case "tags":
                         return GetTagsSummary(jsonString);
@@ -1669,6 +1672,66 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
             catch
             {
                 return "[Config data]";
+            }
+        }
+
+        /// <summary>
+        /// Get summary of action configuration JSON
+        /// </summary>
+        protected virtual string GetActionConfigSummary(string actionConfigJson)
+        {
+            try
+            {
+                var config = JsonSerializer.Deserialize<JsonElement>(actionConfigJson);
+
+                // Try to extract sourceCode for Python actions
+                if (config.TryGetProperty("sourceCode", out var sourceCodeElement))
+                {
+                    var sourceCode = sourceCodeElement.GetString();
+                    if (!string.IsNullOrEmpty(sourceCode))
+                    {
+                        // Clean up the code by removing extra whitespace
+                        var cleanedCode = sourceCode.Replace("\r\n", " ").Replace("\n", " ").Replace("  ", " ").Trim();
+                        
+                        // Limit the length to avoid overly long descriptions
+                        if (cleanedCode.Length > 150)
+                        {
+                            return $"[Python: {cleanedCode.Substring(0, 147)}...]";
+                        }
+                        
+                        return $"[Python: {cleanedCode}]";
+                    }
+                }
+
+                // Try to extract other common config properties
+                var properties = new List<string>();
+                
+                if (config.TryGetProperty("url", out var urlElement))
+                {
+                    properties.Add($"url: {urlElement.GetString()}");
+                }
+                
+                if (config.TryGetProperty("method", out var methodElement))
+                {
+                    properties.Add($"method: {methodElement.GetString()}");
+                }
+                
+                if (config.TryGetProperty("endpoint", out var endpointElement))
+                {
+                    properties.Add($"endpoint: {endpointElement.GetString()}");
+                }
+
+                if (properties.Any())
+                {
+                    return $"[{string.Join(", ", properties.Take(3))}]";
+                }
+
+                return "[Action config]";
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to parse action config JSON");
+                return "[Action config]";
             }
         }
 

@@ -19,6 +19,7 @@ using FlowFlex.Application.Services.OW.Extensions;
 using FlowFlex.Application.Contracts.IServices.OW.ChangeLog;
 using FlowFlex.Infrastructure.Services;
 using Microsoft.Extensions.DependencyInjection;
+using FlowFlex.Application.Contracts.IServices.OW;
 
 namespace FlowFlex.Application.Services.Action
 {
@@ -39,6 +40,7 @@ namespace FlowFlex.Application.Services.Action
         private readonly IMapper _mapper;
         private readonly ILogger<ActionManagementService> _logger;
         private readonly UserContext _userContext;
+        private readonly IOperatorContextService _operatorContextService;
 
         public ActionManagementService(
             IActionDefinitionRepository actionDefinitionRepository,
@@ -52,7 +54,8 @@ namespace FlowFlex.Application.Services.Action
             IServiceScopeFactory serviceScopeFactory,
             IMapper mapper,
             UserContext userContext,
-            ILogger<ActionManagementService> logger)
+            ILogger<ActionManagementService> logger,
+            IOperatorContextService operatorContextService)
         {
             _actionDefinitionRepository = actionDefinitionRepository;
             _actionTriggerMappingRepository = actionTriggerMappingRepository;
@@ -66,6 +69,7 @@ namespace FlowFlex.Application.Services.Action
             _mapper = mapper;
             _userContext = userContext;
             _logger = logger;
+            _operatorContextService = operatorContextService;
         }
 
         #region Action Definition Management
@@ -179,8 +183,8 @@ namespace FlowFlex.Application.Services.Action
 
             // Capture current user context for async operation
             var currentUserContext = _userContext;
-            var currentUserName = currentUserContext?.UserName ?? "SYSTEM";
-            var currentUserId = long.TryParse(currentUserContext?.UserId, out var parsedUserId) ? parsedUserId : 0L;
+            var currentUserName = _operatorContextService.GetOperatorDisplayName();
+            var currentUserId = _operatorContextService.GetOperatorId();
             var currentTenantId = currentUserContext?.TenantId ?? "DEFAULT";
 
             // Async change log recording to database using IActionLogService (fire-and-forget)
@@ -364,8 +368,8 @@ namespace FlowFlex.Application.Services.Action
 
                 // Capture current user context for async operation
                 var currentUserContext = _userContext;
-                var currentUserName = currentUserContext?.UserName ?? "SYSTEM";
-                var currentUserId = long.TryParse(currentUserContext?.UserId, out var parsedUserId) ? parsedUserId : 0L;
+                var currentUserName = _operatorContextService.GetOperatorDisplayName();
+                var currentUserId = _operatorContextService.GetOperatorId();
                 var currentTenantId = currentUserContext?.TenantId ?? "DEFAULT";
 
                 // Async change log recording to database using IActionLogService (fire-and-forget)
@@ -690,8 +694,8 @@ namespace FlowFlex.Application.Services.Action
 
             // Capture current user context for async operation
             var currentUserContext = _userContext;
-            var currentUserName = currentUserContext?.UserName ?? "SYSTEM";
-            var currentUserId = long.TryParse(currentUserContext?.UserId, out var parsedUserId) ? parsedUserId : 0L;
+            var currentUserName = _operatorContextService.GetOperatorDisplayName();
+            var currentUserId = _operatorContextService.GetOperatorId();
             var currentTenantId = currentUserContext?.TenantId ?? "DEFAULT";
 
             // Async change log recording to database using IActionLogService (fire-and-forget)
@@ -776,8 +780,8 @@ namespace FlowFlex.Application.Services.Action
 
             // Capture current user context for async operation
             var currentUserContext = _userContext;
-            var currentUserName = currentUserContext?.UserName ?? "SYSTEM";
-            var currentUserId = long.TryParse(currentUserContext?.UserId, out var parsedUserId) ? parsedUserId : 0L;
+            var currentUserName = _operatorContextService.GetOperatorDisplayName();
+            var currentUserId = _operatorContextService.GetOperatorId();
             var currentTenantId = currentUserContext?.TenantId ?? "DEFAULT";
 
             // Async change log recording to database using IActionLogService (fire-and-forget)
@@ -1600,8 +1604,9 @@ namespace FlowFlex.Application.Services.Action
                 _logger.LogInformation("Checking for system predefined actions for tenant: {TenantId}", currentTenantId);
 
                 // Get existing system actions for current tenant to check which ones exist
+                // IMPORTANT: Pass isTools=null to avoid filtering by CreateUserId (which would cause duplicate system actions for different users)
                 var (existingData, _) = await _actionDefinitionRepository.GetPagedAsync(1, 1000,
-                    ActionTypeEnum.System.ToString(), null, null, null, null, null, false);
+                    ActionTypeEnum.System.ToString(), null, null, null, null, null, null);
 
                 // Filter by current tenant and get action names
                 var existingActionNames = existingData
