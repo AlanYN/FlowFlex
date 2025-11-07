@@ -1687,6 +1687,9 @@ namespace FlowFlex.Application.Service.OW
                 return;
             }
 
+            // Add "Other" as a valid special team ID (for users without team assignment)
+            allTeamIds.Add("Other");
+
             var invalidIds = new List<string>();
             if (viewTeams != null && viewTeams.Any())
             {

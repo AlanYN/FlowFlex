@@ -33,6 +33,7 @@ namespace FlowFlex.Application.Services.OW.Permission
 
         /// <summary>
         /// Get user team IDs from UserContext
+        /// If user is not in any team, returns ["Other"] to represent users without team assignment
         /// </summary>
         public List<string> GetUserTeamIds()
         {
@@ -46,17 +47,26 @@ namespace FlowFlex.Application.Services.OW.Permission
             {
                 _logger.LogWarning(
                     "UserContext.UserTeams is null for user {UserId}. " +
-                    "Team information is not loaded in the current context. " +
-                    "This may cause permission checks to fail for team-based permissions. " +
-                    "Consider loading team information during authentication or using a middleware to populate UserTeams.",
+                    "User is not assigned to any team, treating as member of 'Other' team. " +
+                    "This allows permission checks to work for users without team assignments.",
                     _userContext?.UserId);
                 
-                return new List<string>();
+                // User not in any team, return "Other" to represent users without team assignment
+                return new List<string> { "Other" };
             }
 
             // Get all team IDs (including sub-teams)
             var teamIds = _userContext.UserTeams.GetAllTeamIds();
             var teamIdStrings = teamIds.Select(id => id.ToString()).ToList();
+            
+            // If user has no teams (empty list), treat as "Other" team member
+            if (!teamIdStrings.Any())
+            {
+                _logger.LogDebug(
+                    "GetUserTeamIds - User {UserId} has no team assignments, treating as member of 'Other' team",
+                    _userContext?.UserId);
+                return new List<string> { "Other" };
+            }
             
             _logger.LogDebug(
                 "GetUserTeamIds - Found {Count} teams: {Teams}",
