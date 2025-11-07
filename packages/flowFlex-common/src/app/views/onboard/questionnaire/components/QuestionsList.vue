@@ -4,10 +4,15 @@
 			v-model="questionsData"
 			item-key="temporaryId"
 			handle=".drag-handle"
+			:group="dragGroup"
 			@change="handleQuestionDragEnd"
+			@end="handleDragEnd"
+			@start="handleDragStart"
+			@remove="handleRemove"
 			ghost-class="ghost-question"
 			class="questions-draggable"
 			:animation="300"
+			:sort="true"
 		>
 			<template #item="{ element: item, index }">
 				<div class="question-item flex max-w-full">
@@ -336,7 +341,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue';
+import { ref, watch, nextTick } from 'vue';
 import { Delete, Document, Edit, MoreFilled } from '@element-plus/icons-vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import draggable from 'vuedraggable';
@@ -378,6 +383,7 @@ const emits = defineEmits<{
 	'drag-end': [questions: QuestionnaireSection[]];
 	'update-jump-rules': [questionIndex: number, rules: JumpRule[]];
 	'update-question': [index: number, question: QuestionnaireSection];
+	'drag-start': [question: QuestionnaireSection, questionIndex: number];
 }>();
 
 // 编辑状态管理 - 使用ID而不是索引
@@ -392,15 +398,44 @@ const currentEditingIndex = ref(-1);
 // 当前问题索引（用于文件上传）
 const currentQuestionIndex = ref<number>(-1);
 
+// 拖拽状态
+const isDragging = ref(false);
+const draggedQuestionId = ref<string | null>(null);
+
 const questionsData = ref([...props.questions]);
+
+// 拖拽组配置
+const dragGroup = { name: 'questions', pull: true, put: false };
 
 // 监听 props 变化
 watch(
 	() => props.questions,
-	(newQuestions) => {
-		questionsData.value = [...newQuestions];
+	(newQuestions, oldQuestions) => {
+		// 检查是否是真正的变化（避免不必要的更新）
+		if (newQuestions.length !== questionsData.value.length) {
+			questionsData.value = [...newQuestions];
+		} else {
+			// 长度相同，检查是否有问题被替换
+			const hasChanged = newQuestions.some((q, index) => {
+				return q.temporaryId !== questionsData.value[index]?.temporaryId;
+			});
+			if (hasChanged) {
+				questionsData.value = [...newQuestions];
+			}
+		}
 	},
-	{ deep: true }
+	{ deep: true, immediate: true }
+);
+
+// 监听 currentSectionIndex 变化，确保在切换 section 时更新问题列表
+watch(
+	() => props.currentSectionIndex,
+	(newIndex, oldIndex) => {
+		// 当 section 切换时，立即同步问题列表
+		if (newIndex !== oldIndex && !isDragging.value) {
+			questionsData.value = [...props.questions];
+		}
+	}
 );
 
 const removeQuestion = (index: number) => {
@@ -434,7 +469,78 @@ const cancelEditQuestion = () => {
 };
 
 const handleQuestionDragEnd = () => {
-	emits('drag-end', questionsData.value);
+	// 只有在非跨组件拖拽时才更新
+	// 如果问题还在列表中，说明是正常拖拽（列表内排序）
+	if (draggedQuestionId.value) {
+		const questionStillExists = questionsData.value.some(
+			(q) => q.temporaryId === draggedQuestionId.value
+		);
+		// 只有在问题还在列表中时才发送 drag-end 事件
+		// 如果问题不在列表中，说明是跨组件拖拽，不应该发送 drag-end 事件
+		if (questionStillExists) {
+			emits('drag-end', questionsData.value);
+		}
+	} else {
+		// 如果没有 draggedQuestionId，可能是列表内排序
+		emits('drag-end', questionsData.value);
+	}
+};
+
+// 处理拖拽开始事件（vuedraggable）
+const handleDragStart = (evt: any) => {
+	const draggedQuestion = questionsData.value[evt.oldIndex];
+	if (draggedQuestion) {
+		isDragging.value = true;
+		draggedQuestionId.value = draggedQuestion.temporaryId;
+		emits('drag-start', draggedQuestion, evt.oldIndex);
+	}
+};
+
+// 处理问题被移除（跨组件拖拽时）
+const handleRemove = (evt: any) => {
+	// 当问题被拖到其他组件时，vuedraggable 会触发 remove 事件
+	// 注意：此时问题已经从 questionsData 中移除了，但 props.questions 可能还没有更新
+	// 我们需要从 questionsData 中移除被拖走的问题，而不是同步整个 props.questions
+	// 因为 props.questions 可能还没有更新，同步会导致数据不一致
+	if (evt.removed && evt.removed.element) {
+		// 问题已经被 vuedraggable 从 questionsData 中移除了
+		// 我们只需要确保 questionsData 与当前的 questionsData 保持一致
+		// 不需要同步 props.questions，因为父组件会通过 handleQuestionDropToSection 更新
+		// 这里不做任何操作，让 vuedraggable 自然处理移除
+	}
+};
+
+// 处理拖拽结束事件（vuedraggable）
+const handleDragEnd = async (evt: any) => {
+	// 检查被拖拽的问题是否还在列表中
+	if (draggedQuestionId.value) {
+		const questionStillExists = questionsData.value.some(
+			(q) => q.temporaryId === draggedQuestionId.value
+		);
+
+		// 如果问题不在列表中，说明是跨组件拖拽（问题已被移动到其他分区）
+		// 此时不应该同步 questionsData，因为父组件会通过 handleQuestionDropToSection 更新 props.questions
+		// 我们只需要等待父组件更新完成后再同步
+		if (!questionStillExists) {
+			// 等待父组件处理完成（通过 nextTick 确保父组件的更新已经完成）
+			await nextTick();
+			await nextTick(); // 多等待一个 tick，确保父组件完全更新
+			// 然后同步 questionsData 到 props.questions
+			// 但是要确保只同步当前 section 的问题，而不是所有问题
+			questionsData.value = [...props.questions];
+		} else {
+			// 如果是正常拖拽（列表内排序），确保数据同步
+			// 注意：这里不应该发送 drag-end 事件，因为 handleQuestionDragEnd 已经处理了
+		}
+	} else {
+		// 如果没有 draggedQuestionId，确保数据同步
+		questionsData.value = [...props.questions];
+		await nextTick();
+	}
+
+	// 重置拖拽状态
+	isDragging.value = false;
+	draggedQuestionId.value = null;
 };
 
 const getQuestionTypeName = (type: string) => {
