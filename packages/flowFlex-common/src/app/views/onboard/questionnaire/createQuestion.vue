@@ -53,6 +53,7 @@
 								@remove-section="handleRemoveSection"
 								@set-current-section="setCurrentSection"
 								@drag-end="handleSectionDragEnd"
+								@question-drop="handleQuestionDropToSection"
 							/>
 
 							<!-- 添加分区按钮（仅在简单模式下显示） -->
@@ -203,6 +204,7 @@
 										@remove-question="handleRemoveQuestion"
 										@edit-question="handleEditQuestion"
 										@drag-end="handleQuestionDragEnd"
+										@drag-start="handleQuestionDragStart"
 										@update-jump-rules="handleUpdateJumpRules"
 										@update-question="handleUpdateQuestionFromList"
 									/>
@@ -807,7 +809,12 @@ const handleRemoveQuestion = (index: number) => {
 
 const handleQuestionDragEnd = (questions: any[]) => {
 	// 更新当前分区的问题列表
-	questionnaire.sections[currentSectionIndex.value].questions = questions;
+	// 注意：只有在列表内排序时才调用此函数，跨组件拖拽不会触发此函数
+	// 确保只更新当前 section 的问题，而不是所有问题
+	if (questions && Array.isArray(questions)) {
+		// 使用展开运算符创建新数组，确保响应式更新
+		questionnaire.sections[currentSectionIndex.value].questions = [...questions];
+	}
 };
 
 const handleUpdateJumpRules = (questionIndex: number, rules: any[]) => {
@@ -950,6 +957,184 @@ const handleUpdateQuestion = (updatedQuestion: any) => {
 
 const handleUpdateQuestionFromList = (index: number, updatedQuestion: any) => {
 	questionnaire.sections[currentSectionIndex.value].questions[index] = updatedQuestion;
+};
+
+// 拖拽相关状态
+const draggingQuestion = ref<any>(null);
+const draggingQuestionIndex = ref<number>(-1);
+const draggingFromSectionIndex = ref<number>(-1);
+const isProcessingDrop = ref<boolean>(false);
+
+// 处理问题拖拽开始
+const handleQuestionDragStart = (question: any, questionIndex: number) => {
+	draggingQuestion.value = { ...question };
+	draggingQuestionIndex.value = questionIndex;
+	draggingFromSectionIndex.value = currentSectionIndex.value;
+};
+
+// 处理问题拖拽到分区
+const handleQuestionDropToSection = async (targetSectionIndex: number) => {
+	if (!draggingQuestion.value || draggingQuestionIndex.value === -1) {
+		return;
+	}
+	// 防止重复处理
+	if (isProcessingDrop.value) {
+		return;
+	}
+	isProcessingDrop.value = true;
+
+	const question = draggingQuestion.value;
+	const sourceSectionIndex = draggingFromSectionIndex.value;
+
+	// 检查是否是拖拽到同一个分区
+	if (sourceSectionIndex === targetSectionIndex) {
+		// 重置拖拽状态
+		draggingQuestion.value = null;
+		draggingQuestionIndex.value = -1;
+		draggingFromSectionIndex.value = -1;
+		isProcessingDrop.value = false;
+		return;
+	}
+
+	// 检查问题是否有跳转规则
+	const hasJumpRules = question.jumpRules && question.jumpRules.length > 0;
+
+	if (hasJumpRules) {
+		// 检查跳转规则是否引用了当前分区或其他分区
+		const affectedRules = question.jumpRules.filter((rule: any) => {
+			// 检查规则是否引用了源分区或目标分区
+			const sourceSection = questionnaire.sections[sourceSectionIndex];
+			const targetSection = questionnaire.sections[targetSectionIndex];
+
+			return (
+				rule.targetSectionId === sourceSection?.temporaryId ||
+				rule.targetSectionId === targetSection?.temporaryId
+			);
+		});
+
+		if (affectedRules.length > 0) {
+			// 构建提示消息
+			const ruleCount = question.jumpRules.length;
+			const affectedCount = affectedRules.length;
+			const targetSectionName =
+				questionnaire.sections[targetSectionIndex]?.name || 'target section';
+
+			let confirmMessage = `The question "${question.question}" has ${ruleCount} jump rule${
+				ruleCount > 1 ? 's' : ''
+			} configured.`;
+			if (affectedCount > 0) {
+				confirmMessage += `\n\n${affectedCount} of these rule${
+					affectedCount > 1 ? 's' : ''
+				} reference section-related settings that may need adjustment after moving to "${targetSectionName}".`;
+			}
+			confirmMessage += `\n\nDo you want to move this question to "${targetSectionName}"? The jump rules will be preserved, but you may need to review them.`;
+
+			try {
+				await ElMessageBox.confirm(confirmMessage, 'Move Question to Section', {
+					confirmButtonText: 'Move',
+					cancelButtonText: 'Cancel',
+					type: 'warning',
+					customClass: 'question-move-dialog',
+				});
+			} catch {
+				// 用户取消操作，重置拖拽状态
+				draggingQuestion.value = null;
+				draggingQuestionIndex.value = -1;
+				draggingFromSectionIndex.value = -1;
+				isProcessingDrop.value = false;
+				return;
+			}
+		}
+	}
+
+	// 执行移动操作
+	try {
+		// 从源分区找到并移除问题（使用 temporaryId 来查找，因为索引可能已变化）
+		const sourceSection = questionnaire.sections[sourceSectionIndex];
+		if (!sourceSection) {
+			ElMessage.warning('Source section not found');
+			return;
+		}
+
+		const questionIndex = sourceSection.questions.findIndex(
+			(q) => q.temporaryId === question.temporaryId
+		);
+
+		if (questionIndex === -1) {
+			// 问题不存在，可能已经被移动或删除
+			ElMessage.warning('Question not found in source section');
+			return;
+		}
+
+		const questionToMove = sourceSection.questions.splice(questionIndex, 1)[0];
+
+		// 确保问题数据正确
+		if (!questionToMove || questionToMove.temporaryId !== question.temporaryId) {
+			console.error('Error: Question mismatch during move', {
+				questionToMove,
+				question,
+				questionIndex,
+			});
+			// 如果出错，将问题还原
+			sourceSection.questions.splice(questionIndex, 0, questionToMove);
+			return;
+		}
+		// 调整跳转规则（如果需要）
+		if (hasJumpRules && questionToMove.jumpRules) {
+			// 更新跳转规则中的目标分区名称
+			questionToMove.jumpRules = questionToMove.jumpRules.map((rule: any) => {
+				const targetSection = questionnaire.sections.find(
+					(s) => s.temporaryId === rule.targetSectionId
+				);
+				if (targetSection) {
+					return {
+						...rule,
+						targetSectionName: targetSection.name,
+					};
+				}
+				return rule;
+			});
+		}
+
+		// 添加到目标分区（在底部添加）
+		const targetSection = questionnaire.sections[targetSectionIndex];
+		if (!targetSection) {
+			ElMessage.warning('Target section not found');
+			// 如果目标分区不存在，将问题还原到源分区
+			if (questionIndex !== -1) {
+				sourceSection.questions.splice(questionIndex, 0, questionToMove);
+			}
+			return;
+		}
+
+		// 确保只添加一个问题到目标分区的底部，而不是替换整个列表
+		// 检查问题是否已经在目标分区中（避免重复添加）
+		const alreadyInTarget = targetSection.questions.some(
+			(q) => q.temporaryId === questionToMove.temporaryId
+		);
+		if (!alreadyInTarget) {
+			targetSection.questions.push(questionToMove);
+		}
+
+		// 切换到目标分区
+		// 使用 setCurrentSection 确保正确切换并取消编辑状态
+		// setCurrentSection(targetSectionIndex);
+
+		// 等待 DOM 更新完成
+
+		// 强制更新滚动条高度
+		updateConfigScrollbar();
+		updateEditorScrollbar();
+	} catch (error) {
+		console.error('Error moving question:', error);
+		ElMessage.error('Failed to move question');
+	} finally {
+		// 重置拖拽状态
+		draggingQuestion.value = null;
+		draggingQuestionIndex.value = -1;
+		draggingFromSectionIndex.value = -1;
+		isProcessingDrop.value = false;
+	}
 };
 
 // 获取所有stages
