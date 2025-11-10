@@ -876,7 +876,15 @@ ASSIGNMENTS:
             {
                 if (!string.IsNullOrWhiteSpace(checklist.Team))
                 {
-                    checklist.TeamName = teamNameMap.GetValueOrDefault(checklist.Team, checklist.Team);
+                    // For "Other" team, use the value directly without fetching from IDM
+                    if (checklist.Team.Equals("Other", StringComparison.OrdinalIgnoreCase))
+                    {
+                        checklist.TeamName = "Other";
+                    }
+                    else
+                    {
+                        checklist.TeamName = teamNameMap.GetValueOrDefault(checklist.Team, checklist.Team);
+                    }
                 }
             }
 
@@ -890,7 +898,15 @@ ASSIGNMENTS:
             {
                 if (!string.IsNullOrWhiteSpace(checklist.Team) && string.IsNullOrWhiteSpace(checklist.TeamName))
                 {
-                    checklist.TeamName = $"Team_{checklist.Team}";
+                    // For "Other" team, use the value directly without prefix
+                    if (checklist.Team.Equals("Other", StringComparison.OrdinalIgnoreCase))
+                    {
+                        checklist.TeamName = "Other";
+                    }
+                    else
+                    {
+                        checklist.TeamName = $"Team_{checklist.Team}";
+                    }
                 }
             }
         }
