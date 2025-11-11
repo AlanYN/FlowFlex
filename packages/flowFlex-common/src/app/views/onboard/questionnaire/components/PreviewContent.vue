@@ -831,6 +831,13 @@ const appendClassAndAttributes = (className: string, attributes: string) => {
 	return parts.length ? ` ${parts.join(' ')}` : '';
 };
 
+// 打印窗口必须剥离 dark 主题相关 class，避免继承暗色样式
+const enforceLightThemeClasses = (className?: string) =>
+	className
+		?.split(/\s+/)
+		.filter((item) => item && item !== 'dark')
+		.join(' ') ?? '';
+
 const collectPrintableHead = () =>
 	Array.from(
 		document.head.querySelectorAll<HTMLStyleElement | HTMLLinkElement>(
@@ -854,12 +861,12 @@ const printQuestionnaire = () => {
 		isExportingPdf.value = true;
 		const headContent = collectPrintableHead();
 		const htmlAttributes = appendClassAndAttributes(
-			document.documentElement.className,
+			enforceLightThemeClasses(document.documentElement.className),
 			buildAttributeString(document.documentElement, ['class'])
 		);
 		const bodyClassList = [document.body.className, 'print-body'].filter(Boolean).join(' ');
 		const bodyAttributes = appendClassAndAttributes(
-			bodyClassList,
+			enforceLightThemeClasses(bodyClassList),
 			buildAttributeString(document.body, ['class'])
 		);
 
@@ -877,6 +884,9 @@ const printQuestionnaire = () => {
   				}
 			}
 			@media print {
+				:root {
+					color-scheme: light;
+				}
 				html,
 				body {
 					height: auto !important;
