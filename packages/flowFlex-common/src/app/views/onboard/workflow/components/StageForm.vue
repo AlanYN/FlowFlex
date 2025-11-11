@@ -371,7 +371,7 @@ function updateComponentsData(val: ComponentsData) {
 }
 
 // 验证并检查权限：验证必填项 + 检查当前用户是否会被权限设置排除
-const validateAndCheckStagePermissions = async (): Promise<{
+const validateAndCheckPermissions = async (): Promise<{
 	hasWarning: boolean;
 	showMessage: boolean;
 	warningMessage: string;
@@ -389,6 +389,14 @@ const validateAndCheckStagePermissions = async (): Promise<{
 					'Please select at least one team for Operate Permission of this stage.',
 			};
 		}
+
+		if (viewTeams.length > 0) {
+			formData.value.viewTeams = [];
+		}
+		if (useSameTeamForOperate && operateTeams.length > 0) {
+			formData.value.operateTeams = [];
+		}
+
 		return { hasWarning: false, showMessage: false, warningMessage: '' };
 	}
 	// 只在 VisibleTo 或 InvisibleTo 模式下检查
@@ -437,7 +445,40 @@ const validateAndCheckStagePermissions = async (): Promise<{
 		// 获取用户数据
 		const userData = await menuStore.getFlowflexUserDataWithCache();
 		const currentUserId = String(currentUser.userId);
-		const userTeams = findUserTeams(userData, currentUserId);
+		//是否包含不可用team, 如果包含，则返回警告
+		const collectTeamIds = (nodes: FlowflexUserType[]): Set<string> => {
+			const teamIds = new Set<string>();
+			const traverse = (items: FlowflexUserType[]) => {
+				items.forEach((item) => {
+					if (item.type === 'team') {
+						teamIds.add(item.id);
+					}
+					if (item.children && item.children.length > 0) {
+						traverse(item.children);
+					}
+				});
+			};
+			traverse(nodes);
+			return teamIds;
+		};
+
+		const normalizedUserData = Array.isArray(userData) ? userData : [];
+		const teamIds = collectTeamIds(normalizedUserData);
+		const missingTeams = [
+			...viewTeams.filter((id) => !teamIds.has(id)),
+			...operateTeams.filter((id) => !teamIds.has(id)),
+		];
+
+		if (missingTeams.length > 0) {
+			return {
+				hasWarning: false,
+				showMessage: true,
+				warningMessage:
+					'Some selected teams no longer exist. Please update your selection.',
+			};
+		}
+
+		const userTeams = findUserTeams(normalizedUserData, currentUserId);
 
 		let isUserExcludedFromView = false;
 		let isUserExcludedFromOperate = false;
@@ -484,7 +525,7 @@ const validateAndCheckStagePermissions = async (): Promise<{
 // 提交
 async function submitForm() {
 	// 验证并检查权限：验证必填项 + 检查当前用户是否会被权限设置排除
-	const permissionCheck = await validateAndCheckStagePermissions();
+	const permissionCheck = await validateAndCheckPermissions();
 	if (permissionCheck.hasWarning || permissionCheck.showMessage) {
 		if (permissionCheck.showMessage) {
 			ElMessage.warning(permissionCheck.warningMessage);
