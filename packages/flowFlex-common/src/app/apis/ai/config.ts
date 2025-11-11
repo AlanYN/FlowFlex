@@ -62,6 +62,7 @@ export interface AIProviderInfo {
 	icon: string;
 	description: string;
 	website: string;
+	defaultBaseUrl: string;
 	supportedModels: string[];
 }
 

@@ -542,28 +542,39 @@ namespace Application.Services.AI
                                 attempt, maxRetries + 1);
                         }
 
-                        // 根据不同的提供商，使用不同的测试端点和方法
-                        switch (config.Provider.ToLower())
+                        // 检查是否使用 Item Gateway（基于 BaseURL）
+                        var isItemGateway = !string.IsNullOrEmpty(config.BaseUrl) && 
+                                          config.BaseUrl.Contains("aiop-gateway.item.com", StringComparison.OrdinalIgnoreCase);
+
+                        if (isItemGateway)
                         {
-                            case "zhipuai":
-                                result = await TestZhipuAIAsync(httpClient, config);
-                                break;
-                            case "openai":
-                                result = await TestOpenAIAsync(httpClient, config);
-                                break;
-                            case "claude":
-                                result = await TestClaudeAsync(httpClient, config);
-                                break;
-                            case "deepseek":
-                                result = await TestDeepSeekAsync(httpClient, config);
-                                break;
-                            case "item":
-                            case "llmgateway": // Backward compatibility
-                                result = await TestItemGatewayAsync(httpClient, config);
-                                break;
-                            default:
-                                result.Message = $"Unsupported AI provider: {config.Provider}";
-                                break;
+                            // 使用 Item Gateway 的测试方法
+                            result = await TestItemGatewayAsync(httpClient, config);
+                        }
+                        else
+                        {
+                            // 根据不同的提供商，使用不同的测试端点和方法
+                            switch (config.Provider.ToLower())
+                            {
+                                case "zhipuai":
+                                    result = await TestZhipuAIAsync(httpClient, config);
+                                    break;
+                                case "openai":
+                                    result = await TestOpenAIAsync(httpClient, config);
+                                    break;
+                                case "gemini":
+                                    result = await TestGeminiAsync(httpClient, config);
+                                    break;
+                                case "claude":
+                                    result = await TestClaudeAsync(httpClient, config);
+                                    break;
+                                case "deepseek":
+                                    result = await TestDeepSeekAsync(httpClient, config);
+                                    break;
+                                default:
+                                    result.Message = $"Unsupported AI provider: {config.Provider}";
+                                    break;
+                            }
                         }
 
                         // If successful or this is the last attempt, break the retry loop
@@ -837,6 +848,66 @@ namespace Application.Services.AI
                 {
                     result.Success = false;
                     result.Message = $"Connection failed, Status code: {response.StatusCode}, Reason: {await response.Content.ReadAsStringAsync()}";
+                }
+            }
+            catch (Exception ex)
+            {
+                result.Success = false;
+                result.Message = $"Connection exception: {ex.Message}";
+            }
+
+            return result;
+        }
+
+        /// <summary>
+        /// 测试Gemini连接
+        /// </summary>
+        private async Task<AIModelTestResult> TestGeminiAsync(HttpClient httpClient, AIModelConfig config)
+        {
+            var result = new AIModelTestResult();
+
+            try
+            {
+                // Gemini uses chat completions endpoint for testing
+                var url = $"{config.BaseUrl.TrimEnd('/')}/v1/chat/completions";
+
+                // 设置请求头
+                httpClient.DefaultRequestHeaders.Clear();
+                httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {config.ApiKey}");
+
+                // 创建测试请求体
+                var testPayload = new
+                {
+                    model = config.ModelName,
+                    messages = new[]
+                    {
+                        new { role = "user", content = "Hello" }
+                    },
+                    max_tokens = 10
+                };
+
+                var jsonContent = new StringContent(
+                    JsonSerializer.Serialize(testPayload),
+                    Encoding.UTF8,
+                    "application/json"
+                );
+
+                // 发送POST请求测试连接
+                var response = await httpClient.PostAsync(url, jsonContent);
+
+                // 检查响应
+                if (response.IsSuccessStatusCode)
+                {
+                    var content = await response.Content.ReadAsStringAsync();
+                    result.Success = true;
+                    result.Message = "Connection successful";
+                    result.ModelInfo = content;
+                }
+                else
+                {
+                    var errorContent = await response.Content.ReadAsStringAsync();
+                    result.Success = false;
+                    result.Message = $"Connection failed, Status code: {response.StatusCode}, Reason: {errorContent}";
                 }
             }
             catch (Exception ex)

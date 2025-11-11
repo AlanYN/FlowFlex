@@ -371,6 +371,14 @@ namespace FlowFlex.Application.Services.AI
                             r.ModelId = effectiveModelId ?? string.Empty;
                             return r;
                         }
+                    case "gemini":
+                        {
+                            var r = await CallGeminiAsync(prompt, effectiveModelId, effectiveModelName);
+                            r.Provider = "gemini";
+                            r.ModelName = effectiveModelName ?? string.Empty;
+                            r.ModelId = effectiveModelId ?? string.Empty;
+                            return r;
+                        }
                     case "claude":
                     case "anthropic":
                         {
@@ -632,6 +640,107 @@ namespace FlowFlex.Application.Services.AI
                 {
                     Success = false,
                     ErrorMessage = $"OpenAI call failed: {ex.Message}"
+                };
+            }
+        }
+
+        private async Task<AIProviderResponse> CallGeminiAsync(string prompt, string? modelId, string? modelName)
+        {
+            try
+            {
+                // Get user's AI model configuration if modelId is provided
+                AIModelConfig? userConfig = null;
+                if (!string.IsNullOrEmpty(modelId) && long.TryParse(modelId, out var configId))
+                {
+                    _logger.LogInformation("Attempting to get Gemini configuration for ID: {ConfigId}", configId);
+                    userConfig = await _configService.GetConfigByIdAsync(configId);
+
+                    if (userConfig != null)
+                    {
+                        _logger.LogInformation("Successfully retrieved Gemini configuration: {ConfigId}, Provider: {Provider}, ModelName: {ModelName}",
+                            configId, userConfig.Provider, userConfig.ModelName);
+                    }
+                    else
+                    {
+                        _logger.LogWarning("Failed to retrieve Gemini configuration for ID: {ConfigId} - configuration not found or access denied", configId);
+                    }
+                }
+
+                // Use user config if available
+                if (userConfig == null)
+                {
+                    _logger.LogWarning("No Gemini configuration found for model ID: {ModelId}. Attempting to use OpenAI-compatible fallback.", modelId);
+                    return await CallGenericOpenAICompatibleAsync(prompt, modelId, modelName, "gemini");
+                }
+
+                var apiKey = userConfig.ApiKey;
+                var baseUrl = userConfig.BaseUrl;
+                var model = userConfig.ModelName ?? modelName ?? "gemini-2.5-flash";
+                var temperature = userConfig.Temperature > 0 ? userConfig.Temperature : 0.7;
+                var maxTokens = userConfig.MaxTokens > 0 ? userConfig.MaxTokens : 2000;
+
+                _logger.LogInformation("Gemini Request - Model: {Model}, BaseUrl: {BaseUrl}", model, baseUrl);
+
+                var requestBody = new
+                {
+                    model = model,
+                    messages = new[]
+                    {
+                        new { role = "system", content = "You are a professional workflow design expert. Please generate structured workflow definitions based on user requirements. Output the result according to the language input by the user." },
+                        new { role = "user", content = prompt }
+                    },
+                    temperature = temperature,
+                    max_tokens = maxTokens
+                };
+
+                var json = JsonSerializer.Serialize(requestBody);
+                var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+                // Gemini uses OpenAI-compatible API format
+                var apiUrl = $"{baseUrl.TrimEnd('/')}/v1/chat/completions";
+
+                _logger.LogInformation("Calling Gemini API: {Url} with model: {Model}", apiUrl, model);
+
+                using var httpClient = _httpClientFactory.CreateClient();
+                httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {apiKey}");
+                var response = await httpClient.PostAsync(apiUrl, content);
+                var responseContent = await response.Content.ReadAsStringAsync();
+
+                _logger.LogInformation("Gemini API Response: {StatusCode} - {Content}",
+                    response.StatusCode, responseContent.Length > 200 ? responseContent.Substring(0, 200) + "..." : responseContent);
+
+                if (response.IsSuccessStatusCode)
+                {
+                    var aiResponse = JsonSerializer.Deserialize<JsonElement>(responseContent);
+                    var messageContent = aiResponse
+                        .GetProperty("choices")[0]
+                        .GetProperty("message")
+                        .GetProperty("content")
+                        .GetString() ?? "";
+
+                    return new AIProviderResponse
+                    {
+                        Success = true,
+                        Content = messageContent
+                    };
+                }
+                else
+                {
+                    _logger.LogWarning("Gemini API call failed: {StatusCode} - {Content}", response.StatusCode, responseContent);
+                    return new AIProviderResponse
+                    {
+                        Success = false,
+                        ErrorMessage = $"Gemini API call failed: {response.StatusCode} - {responseContent}"
+                    };
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error calling Gemini API");
+                return new AIProviderResponse
+                {
+                    Success = false,
+                    ErrorMessage = $"Gemini call failed: {ex.Message}"
                 };
             }
         }

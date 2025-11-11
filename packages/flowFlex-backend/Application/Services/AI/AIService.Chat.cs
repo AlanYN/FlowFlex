@@ -306,17 +306,28 @@ namespace FlowFlex.Application.Services.AI
 
                 if (userConfig != null)
                 {
-                    // Call corresponding API based on provider
-                    response = userConfig.Provider?.ToLower() switch
+                    // Check if using Item Gateway based on BaseURL
+                    var isItemGateway = !string.IsNullOrEmpty(userConfig.BaseUrl) && 
+                                      userConfig.BaseUrl.Contains("aiop-gateway.item.com", StringComparison.OrdinalIgnoreCase);
+
+                    if (isItemGateway)
                     {
-                        "zhipuai" => await CallZhipuAIWithConfigAsync(messages, userConfig),
-                        "openai" => await CallOpenAIWithConfigAsync(messages, userConfig),
-                        "claude" => await CallClaudeWithConfigAsync(messages, userConfig),
-                        "deepseek" => await CallDeepSeekWithConfigAsync(messages, userConfig),
-                        "item" => await CallLLMGatewayWithConfigAsync(messages, userConfig),
-                        "llmgateway" => await CallLLMGatewayWithConfigAsync(messages, userConfig), // Backward compatibility
-                        _ => await CallZhipuAIAsync(messages) // Default to ZhipuAI
-                    };
+                        // Use Item Gateway for any provider when BaseURL is Item Gateway
+                        response = await CallLLMGatewayWithConfigAsync(messages, userConfig);
+                    }
+                    else
+                    {
+                        // Call corresponding API based on provider
+                        response = userConfig.Provider?.ToLower() switch
+                        {
+                            "zhipuai" => await CallZhipuAIWithConfigAsync(messages, userConfig),
+                            "openai" => await CallOpenAIWithConfigAsync(messages, userConfig),
+                            "gemini" => await CallGeminiWithConfigAsync(messages, userConfig),
+                            "claude" => await CallClaudeWithConfigAsync(messages, userConfig),
+                            "deepseek" => await CallDeepSeekWithConfigAsync(messages, userConfig),
+                            _ => await CallOpenAIWithConfigAsync(messages, userConfig) // Default to OpenAI compatible
+                        };
+                    }
 
                     // Check if it's a rate limit error and try fallback
                     if (!response.Success && (response.ErrorMessage?.Contains("rate_limit_exceeded") == true ||
@@ -551,6 +562,70 @@ namespace FlowFlex.Application.Services.AI
         }
 
         /// <summary>
+        /// Call Gemini API using user configuration
+        /// </summary>
+        private async Task<AIProviderResponse> CallGeminiWithConfigAsync(List<object> messages, AIModelConfig config)
+        {
+            var requestBody = new
+            {
+                model = config.ModelName,
+                messages = messages.ToArray(),
+                temperature = config.Temperature > 0 ? config.Temperature : 0.7,
+                max_tokens = config.MaxTokens > 0 ? config.MaxTokens : 4000
+            };
+
+            var json = JsonSerializer.Serialize(requestBody);
+            var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+            // Gemini uses OpenAI-compatible API format
+            var baseUrl = config.BaseUrl.TrimEnd('/');
+            string apiUrl;
+            if (baseUrl.EndsWith("/v1/chat/completions") || baseUrl.EndsWith("/chat/completions"))
+            {
+                apiUrl = baseUrl;
+            }
+            else if (baseUrl.Contains("/v1"))
+            {
+                apiUrl = $"{baseUrl}/chat/completions";
+            }
+            else
+            {
+                apiUrl = $"{baseUrl}/v1/chat/completions";
+            }
+            _logger.LogInformation("Calling Gemini API with user config: {Url} - Model: {Model}", apiUrl, config.ModelName);
+
+            using var httpClient = _httpClientFactory.CreateClient();
+            httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {config.ApiKey}");
+            var response = await httpClient.PostAsync(apiUrl, content);
+            var responseContent = await response.Content.ReadAsStringAsync();
+
+            if (response.IsSuccessStatusCode)
+            {
+                var aiResponse = JsonSerializer.Deserialize<JsonElement>(responseContent);
+                var messageContent = aiResponse
+                    .GetProperty("choices")[0]
+                    .GetProperty("message")
+                    .GetProperty("content")
+                    .GetString() ?? "";
+
+                return new AIProviderResponse
+                {
+                    Success = true,
+                    Content = messageContent
+                };
+            }
+            else
+            {
+                _logger.LogWarning("Gemini API call failed: {StatusCode} - {Content}", response.StatusCode, responseContent);
+                return new AIProviderResponse
+                {
+                    Success = false,
+                    ErrorMessage = $"API call failed: {response.StatusCode} - {responseContent}"
+                };
+            }
+        }
+
+        /// <summary>
         /// Call Claude API using user configuration
         /// </summary>
         private async Task<AIProviderResponse> CallClaudeWithConfigAsync(List<object> messages, AIModelConfig config)
@@ -757,6 +832,17 @@ namespace FlowFlex.Application.Services.AI
                     Success = false,
                     ErrorMessage = $"Item Gateway API error: {ex.Message}"
                 };
+            }
+        }
+
+        /// <summary>
+        /// Call Item Gateway API with real streaming support (alias for CallLLMGatewayStreamAsync)
+        /// </summary>
+        private async IAsyncEnumerable<string> CallItemGatewayStreamAsync(List<object> messages, AIModelConfig config)
+        {
+            await foreach (var chunk in CallLLMGatewayStreamAsync(messages, config))
+            {
+                yield return chunk;
             }
         }
 
@@ -1274,6 +1360,21 @@ namespace FlowFlex.Application.Services.AI
         /// </summary>
         private async IAsyncEnumerable<string> CallOpenAIStreamAsync(List<object> messages, AIModelConfig config)
         {
+            // Check if using Item Gateway
+            var isItemGateway = !string.IsNullOrEmpty(config.BaseUrl) && 
+                              config.BaseUrl.Contains("aiop-gateway.item.com", StringComparison.OrdinalIgnoreCase);
+
+            if (isItemGateway)
+            {
+                // Use Item Gateway streaming method
+                await foreach (var chunk in CallItemGatewayStreamAsync(messages, config))
+                {
+                    yield return chunk;
+                }
+                yield break;
+            }
+
+            // Standard OpenAI API call
             var requestBody = new
             {
                 model = config.ModelName,

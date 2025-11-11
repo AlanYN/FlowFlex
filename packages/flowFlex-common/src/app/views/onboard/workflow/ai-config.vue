@@ -127,10 +127,10 @@
 						:disabled="!configForm.provider"
 					>
 						<el-option
-							v-for="model in supportedModels"
-							:key="model"
-							:label="model"
-							:value="model"
+							v-for="model in displayModels"
+							:key="model.value"
+							:label="model.label"
+							:value="model.value"
 						/>
 					</el-select>
 				</el-form-item>
@@ -140,12 +140,25 @@
 						v-model="configForm.apiKey"
 						type="password"
 						placeholder="Enter your API key"
-						show-password
+						:show-password="!editingConfig"
 					/>
 				</el-form-item>
 
 				<el-form-item label="Base URL">
-					<el-input v-model="configForm.baseUrl" placeholder="API base URL (optional)" />
+					<el-input
+						v-model="configForm.baseUrl"
+						placeholder="API base URL"
+						:disabled="!configForm.provider"
+					>
+						<template #append>
+							<el-button @click="resetToDefaultBaseUrl" :disabled="!configForm.provider">
+								Reset to Default
+							</el-button>
+						</template>
+					</el-input>
+					<div v-if="currentProviderDefaultUrl" class="base-url-hint">
+						Default: {{ currentProviderDefaultUrl }}
+					</div>
 				</el-form-item>
 
 				<el-form-item label="Temperature">
@@ -240,6 +253,39 @@ const supportedModels = computed(() => {
 	if (!configForm.provider) return [];
 	const provider = providers.value.find((p) => p.name === configForm.provider);
 	return provider?.supportedModels || [];
+});
+
+const currentProviderDefaultUrl = computed(() => {
+	if (!configForm.provider) return '';
+	const provider = providers.value.find((p) => p.name === configForm.provider);
+	return provider?.defaultBaseUrl || '';
+});
+
+const isUsingItemGateway = computed(() => {
+	return configForm.baseUrl?.includes('aiop-gateway.item.com');
+});
+
+const displayModels = computed(() => {
+	const models = supportedModels.value;
+	const isGateway = isUsingItemGateway.value;
+	const providerPrefix = configForm.provider;
+
+	return models.map((model) => {
+		if (isGateway) {
+			// Using Item Gateway: add prefix
+			const modelWithPrefix = `${providerPrefix}/${model}`;
+			return {
+				label: modelWithPrefix,
+				value: modelWithPrefix,
+			};
+		} else {
+			// Using official API: no prefix
+			return {
+				label: model,
+				value: model,
+			};
+		}
+	});
 });
 
 // Methods
@@ -522,24 +568,56 @@ const onProviderChange = () => {
 	configForm.modelName = '';
 	const provider = providers.value.find((p) => p.name === configForm.provider);
 	if (provider) {
-		// Use default base URL if available
+		// Set default base URL
+		if (provider.defaultBaseUrl) {
+			configForm.baseUrl = provider.defaultBaseUrl;
+		}
+		// Select first model as default with appropriate prefix
 		if (provider.supportedModels && provider.supportedModels.length > 0) {
-			configForm.modelName = provider.supportedModels[0];
+			const firstModel = provider.supportedModels[0];
+			const isGateway = configForm.baseUrl?.includes('aiop-gateway.item.com');
+			configForm.modelName = isGateway
+				? `${configForm.provider}/${firstModel}`
+				: firstModel;
 		}
 	}
 };
 
+const resetToDefaultBaseUrl = () => {
+	const provider = providers.value.find((p) => p.name === configForm.provider);
+	if (provider?.defaultBaseUrl) {
+		const oldBaseUrl = configForm.baseUrl;
+		const oldIsGateway = oldBaseUrl?.includes('aiop-gateway.item.com');
+		const newIsGateway = provider.defaultBaseUrl.includes('aiop-gateway.item.com');
+
+		configForm.baseUrl = provider.defaultBaseUrl;
+
+		// If switching between gateway and non-gateway, update model name
+		if (oldIsGateway !== newIsGateway && configForm.modelName) {
+			if (newIsGateway) {
+				// Add prefix if not already present
+				if (!configForm.modelName.includes('/')) {
+					configForm.modelName = `${configForm.provider}/${configForm.modelName}`;
+				}
+			} else {
+				// Remove prefix if present
+				if (configForm.modelName.includes('/')) {
+					configForm.modelName = configForm.modelName.split('/')[1];
+				}
+			}
+		}
+
+		ElMessage.success('Base URL reset to default');
+	}
+};
+
 const getProviderType = (provider: string) => {
-	const types: Record<
-		'OpenAI' | 'ZhipuAI' | 'Claude' | 'DeepSeek',
-		'success' | 'warning' | 'info' | 'primary' | 'danger'
-	> = {
-		OpenAI: 'success',
-		ZhipuAI: 'primary',
-		Claude: 'warning',
-		DeepSeek: 'info',
+	const types: Record<string, 'success' | 'warning' | 'info' | 'primary' | 'danger'> = {
+		openai: 'success',
+		gemini: 'primary',
+		deepseek: 'info',
 	};
-	return types[provider] || 'default';
+	return types[provider.toLowerCase()] || 'default';
 };
 
 const formatDateTime = (dateTime: string | undefined) => {
@@ -582,6 +660,14 @@ onMounted(async () => {
 
 .el-slider {
 	width: 100%;
+}
+
+.base-url-hint,
+.model-name-hint {
+	margin-top: 4px;
+	font-size: 12px;
+	color: #909399;
+	line-height: 1.5;
 }
 
 /* 确保表格内容完整显示 */
