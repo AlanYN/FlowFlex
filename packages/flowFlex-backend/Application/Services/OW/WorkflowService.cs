@@ -1258,6 +1258,17 @@ namespace FlowFlex.Application.Service.OW
                 return workflows;
             }
 
+            // Fast path: If using Client Credentials token (special authentication scheme), skip permission filtering
+            // Client tokens are used for service-to-service communication and have full access
+            if (_userContext?.Schema == Domain.Shared.Const.AuthSchemes.ItemIamClientIdentification)
+            {
+                _logger.LogInformation(
+                    "Client Credentials token detected (Schema: {Schema}), skipping permission filtering for {Count} workflows",
+                    _userContext.Schema,
+                    workflows.Count);
+                return workflows;
+            }
+
             var userIdString = _userContext?.UserId;
             if (string.IsNullOrEmpty(userIdString) || !long.TryParse(userIdString, out var userId) || userId <= 0)
             {

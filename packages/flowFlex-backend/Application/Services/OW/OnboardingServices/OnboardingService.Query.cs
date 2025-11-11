@@ -245,24 +245,34 @@ namespace FlowFlex.Application.Services.OW
 
                 // Step 2: Apply permission filtering - filter out cases user cannot view
                 List<Onboarding> filteredEntities;
-                var userId = _userContext?.UserId;
-                if (!string.IsNullOrEmpty(userId) && long.TryParse(userId, out var userIdLong))
+                
+                // Fast path: If using Client Credentials token (special authentication scheme), skip permission filtering
+                // Client tokens are used for service-to-service communication and have full access
+                if (_userContext?.Schema == Domain.Shared.Const.AuthSchemes.ItemIamClientIdentification)
                 {
-                    // Fast path: If user is System Admin, skip permission checks
-                    if (_userContext?.IsSystemAdmin == true)
+                    LoggingExtensions.WriteLine($"[Permission Filter] Client Credentials token detected (Schema: {_userContext.Schema}), skipping permission checks for {allEntities.Count} cases");
+                    filteredEntities = allEntities;
+                }
+                else
+                {
+                    var userId = _userContext?.UserId;
+                    if (!string.IsNullOrEmpty(userId) && long.TryParse(userId, out var userIdLong))
                     {
-                        LoggingExtensions.WriteLine($"[Permission Filter] User {userIdLong} is System Admin, skipping permission checks for {allEntities.Count} cases");
-                        filteredEntities = allEntities;
-                    }
-                    // Fast path: If user is Tenant Admin for current tenant, skip permission checks
-                    else if (_userContext != null && _userContext.HasAdminPrivileges(_userContext.TenantId))
-                    {
-                        LoggingExtensions.WriteLine($"[Permission Filter] User {userIdLong} is Tenant Admin for tenant {_userContext.TenantId}, skipping permission checks for {allEntities.Count} cases");
-                        filteredEntities = allEntities;
-                    }
-                    else
-                    {
-                        // 馃殌 PERFORMANCE OPTIMIZATION: Batch load all unique Workflows first
+                        // Fast path: If user is System Admin, skip permission checks
+                        if (_userContext?.IsSystemAdmin == true)
+                        {
+                            LoggingExtensions.WriteLine($"[Permission Filter] User {userIdLong} is System Admin, skipping permission checks for {allEntities.Count} cases");
+                            filteredEntities = allEntities;
+                        }
+                        // Fast path: If user is Tenant Admin for current tenant, skip permission checks
+                        else if (_userContext != null && _userContext.HasAdminPrivileges(_userContext.TenantId))
+                        {
+                            LoggingExtensions.WriteLine($"[Permission Filter] User {userIdLong} is Tenant Admin for tenant {_userContext.TenantId}, skipping permission checks for {allEntities.Count} cases");
+                            filteredEntities = allEntities;
+                        }
+                        else
+                        {
+                            // 馃殌 PERFORMANCE OPTIMIZATION: Batch load all unique Workflows first
                         // This reduces N+1 queries from (N Cases 脳 2 Workflow queries) to (1 batch query)
                         var uniqueWorkflowIds = allEntities.Select(e => e.WorkflowId).Distinct().ToList();
                         var workflowEntities = await _workflowRepository.GetListAsync(w => uniqueWorkflowIds.Contains(w.Id));
@@ -311,13 +321,14 @@ namespace FlowFlex.Application.Services.OW
                             filteredEntities.Add(entity);
                         }
 
-                        LoggingExtensions.WriteLine($"[Permission Filter] Original count: {allEntities.Count}, Filtered count: {filteredEntities.Count}");
+                            LoggingExtensions.WriteLine($"[Permission Filter] Original count: {allEntities.Count}, Filtered count: {filteredEntities.Count}");
+                        }
                     }
-                }
-                else
-                {
-                    // No user context, return empty result
-                    filteredEntities = new List<Onboarding>();
+                    else
+                    {
+                        // No user context, return empty result
+                        filteredEntities = new List<Onboarding>();
+                    }
                 }
 
                 // Step 3: Apply pagination to filtered results
