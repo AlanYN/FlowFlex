@@ -5,6 +5,7 @@ using FlowFlex.Tests.TestBase;
 using FluentAssertions;
 using Moq;
 using Xunit;
+using static FlowFlex.Application.Services.OW.Permission.PermissionHelpers;
 
 namespace FlowFlex.Tests.Services.Permission
 {
@@ -65,7 +66,7 @@ namespace FlowFlex.Tests.Services.Permission
         }
 
         [Fact]
-        public void GetUserTeamIds_WithNullUserTeams_ShouldReturnEmptyList()
+        public void GetUserTeamIds_WithNullUserTeams_ShouldReturnOtherTeam()
         {
             // Arrange
             var userContext = TestDataBuilder.CreateUserContext(TestDataBuilder.DefaultUserId);
@@ -81,7 +82,8 @@ namespace FlowFlex.Tests.Services.Permission
 
             // Assert
             result.Should().NotBeNull();
-            result.Should().BeEmpty();
+            result.Should().HaveCount(1);
+            result.Should().Contain(DEFAULT_TEAM_OTHER);
         }
 
         #endregion

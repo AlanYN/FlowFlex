@@ -365,6 +365,100 @@ namespace FlowFlex.Application.Services.OW.Permission
 
         #endregion
 
+        #region Batch Permission Checking
+
+        /// <summary>
+        /// Check case permissions in batch for multiple cases
+        /// Optimized for list APIs to avoid N+1 queries
+        /// </summary>
+        public async Task<Dictionary<long, PermissionInfoDto>> CheckBatchCasePermissionsAsync(
+            List<Onboarding> entities,
+            long userId,
+            bool hasViewModulePermission,
+            bool hasOperateModulePermission)
+        {
+            var permissions = new Dictionary<long, PermissionInfoDto>();
+
+            if (entities == null || !entities.Any())
+            {
+                return permissions;
+            }
+
+            _logger.LogDebug(
+                "CheckBatchCasePermissions - Checking permissions for {Count} cases, User: {UserId}",
+                entities.Count,
+                userId);
+
+            // Fast path: Admin bypass
+            if (_helpers.HasAdminPrivileges())
+            {
+                _logger.LogDebug("User {UserId} has admin privileges - granting full access to all cases", userId);
+                foreach (var entity in entities)
+                {
+                    permissions[entity.Id] = new PermissionInfoDto
+                    {
+                        CanView = true,
+                        CanOperate = true,
+                        ErrorMessage = null
+                    };
+                }
+                return permissions;
+            }
+
+            // Check each case's permissions
+            foreach (var entity in entities)
+            {
+                // Check View permission
+                if (!hasViewModulePermission)
+                {
+                    permissions[entity.Id] = new PermissionInfoDto
+                    {
+                        CanView = false,
+                        CanOperate = false,
+                        ErrorMessage = "User does not have required module permission: CASE:READ"
+                    };
+                    continue;
+                }
+
+                var viewResult = await CheckCasePermissionAsync(entity, userId, PermissionOperationType.View);
+
+                // If user cannot view, deny all access
+                if (!viewResult.Success || !viewResult.CanView)
+                {
+                    permissions[entity.Id] = new PermissionInfoDto
+                    {
+                        CanView = false,
+                        CanOperate = false,
+                        ErrorMessage = viewResult.ErrorMessage ?? "User is not allowed to view this case"
+                    };
+                    continue;
+                }
+
+                // Check Operate permission (only if user can view and has module permission)
+                bool canOperate = false;
+                if (hasOperateModulePermission)
+                {
+                    var operateResult = await CheckCasePermissionAsync(entity, userId, PermissionOperationType.Operate);
+                    canOperate = operateResult.Success && operateResult.CanOperate;
+                }
+
+                permissions[entity.Id] = new PermissionInfoDto
+                {
+                    CanView = true,
+                    CanOperate = canOperate,
+                    ErrorMessage = null
+                };
+            }
+
+            _logger.LogDebug(
+                "CheckBatchCasePermissions - Completed checking {Count} cases",
+                permissions.Count);
+
+            return permissions;
+        }
+
+        #endregion
+
         #region Optimized Methods for List APIs
 
         /// <summary>

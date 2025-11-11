@@ -1194,7 +1194,7 @@ namespace FlowFlex.Application.Service.OW
                     .ToList();
 
                 // Update components
-                // ComponentsJson 将由 AutoMapper 的 SerializeComponents 统一生成，避免重复/多层序列化
+                // ComponentsJson will be generated uniformly by AutoMapper SerializeComponents to avoid duplicate/multi-layer serialization
                 entity.Components = input.Components;
                 entity.InitUpdateInfo(_userContext);
 
@@ -1298,7 +1298,7 @@ namespace FlowFlex.Application.Service.OW
                     // Update the entity with filled names for future use
                     try
                     {
-                        // ComponentsJson 由映射层统一生成，避免重复序列化
+                        // ComponentsJson is generated uniformly by the mapping layer to avoid duplicate serialization
                         entity.Components = components;
                         await _stageRepository.UpdateAsync(entity);
                     }
@@ -1834,7 +1834,7 @@ namespace FlowFlex.Application.Service.OW
         }
 
         /// <summary>
-        /// Store the generated AI summary - AI摘要字段已从Stage实体中移除
+        /// Store the generated AI summary - AI summary fields have been removed from Stage entity
         /// </summary>
         /// <param name="stageId">Stage ID</param>
         /// <param name="summaryResult">AI summary result</param>
@@ -1843,10 +1843,10 @@ namespace FlowFlex.Application.Service.OW
         {
             try
             {
-                // AI摘要字段已从Stage实体中移除
-                // Stage不再存储AI摘要数据，所有AI摘要数据现在仅存储在Onboarding的StageProgress中
+                // AI summary fields have been removed from Stage entity
+                // Stage no longer stores AI summary data, all AI summary data is now only stored in Onboarding StageProgress
                 Console.WriteLine($"StoreStageSummaryAsync: Stage {stageId} - AI summary storage skipped (fields removed from Stage entity)");
-                // 所有AI摘要数据现在仅存储在Onboarding的StageProgress中
+                // All AI summary data is now only stored in Onboarding StageProgress
             }
             catch (Exception ex)
             {
@@ -1988,10 +1988,10 @@ namespace FlowFlex.Application.Service.OW
         /// <returns>Success status</returns>
         public async Task<bool> UpdateStageAISummaryIfEmptyAsync(long stageId, string aiSummary, DateTime generatedAt, double? confidence, string modelUsed)
         {
-            // AI摘要字段已从Stage实体中移除
-            // Stage不再存储AI摘要数据，所有AI摘要数据现在仅存储在Onboarding的StageProgress中
+            // AI summary fields have been removed from Stage entity
+            // Stage no longer stores AI summary data, all AI summary data is now only stored in Onboarding StageProgress
             Console.WriteLine($"UpdateStageAISummaryIfEmptyAsync: Stage {stageId} - AI summary fields removed from Stage entity");
-            return true; // 返回true避免破坏现有流程
+            return true; // Return true to avoid breaking existing flow
         }
 
         /// <summary>

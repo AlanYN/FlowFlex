@@ -16,7 +16,7 @@ using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
 
-namespace FlowFlex.Application.Services.OW
+namespace Application.Services.AI
 {
     /// <summary>
     /// AI模型配置服务实现
@@ -689,8 +689,8 @@ namespace FlowFlex.Application.Services.OW
                 };
 
                 var jsonContent = new StringContent(
-                    System.Text.Json.JsonSerializer.Serialize(testPayload),
-                    System.Text.Encoding.UTF8,
+                    JsonSerializer.Serialize(testPayload),
+                    Encoding.UTF8,
                     "application/json"
                 );
 

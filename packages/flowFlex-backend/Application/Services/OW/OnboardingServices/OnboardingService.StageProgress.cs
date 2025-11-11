@@ -1582,12 +1582,12 @@ namespace FlowFlex.Application.Services.OW
                             extendedData: System.Text.Json.JsonSerializer.Serialize(extendedData)
                         );
 
-                        _logger.LogInformation("已记录 Stage 保存日志: OnboardingId={OnboardingId}, StageId={StageId}, StageName={StageName}",
+                        _logger.LogInformation("Stage save log recorded: OnboardingId={OnboardingId}, StageId={StageId}, StageName={StageName}",
                             onboardingId, stageId, stage?.Name);
                     }
                     catch (Exception logEx)
                     {
-                        _logger.LogError(logEx, "记录 Stage 保存日志失败: OnboardingId={OnboardingId}, StageId={StageId}",
+                        _logger.LogError(logEx, "Failed to record Stage save log: OnboardingId={OnboardingId}, StageId={StageId}",
                             onboardingId, stageId);
                         // Don't re-throw to avoid breaking the main flow
                     }

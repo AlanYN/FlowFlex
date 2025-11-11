@@ -32,6 +32,7 @@ using FlowFlex.Application.Services.OW.Extensions;
 using FlowFlex.Application.Contracts.IServices;
 using AppContext = FlowFlex.Domain.Shared.Models.AppContext;
 using Item.ThirdParty;
+using Application.Services.AI;
 
 namespace FlowFlex.WebApi.Extensions
 {

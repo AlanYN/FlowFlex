@@ -521,8 +521,8 @@ namespace FlowFlex.Application.Service.OW
 
             var result = _mapper.Map<List<WorkflowOutputDto>>(list);
 
-            // 为了优化性能，工作流列表接口不返回Stage数据
-            // Stage数据通过单独的接口获取: /api/ow/workflows/{id}/stages
+            // For performance optimization, workflow list API does not return Stage data
+            // Stage data is retrieved through a separate API: /api/ow/workflows/{id}/stages
             foreach (var workflow in result)
             {
                 workflow.Stages = new List<StageOutputDto>();
@@ -572,8 +572,8 @@ namespace FlowFlex.Application.Service.OW
                     return new List<WorkflowOutputDto>();
                 }
 
-                // 为了优化性能，工作流列表接口不返回Stage数据
-                // Stage数据通过单独的接口获取: /api/ow/workflows/{id}/stages
+                // For performance optimization, workflow list API does not return Stage data
+                // Stage data is retrieved through a separate API: /api/ow/workflows/{id}/stages
                 foreach (var workflow in result)
                 {
                     workflow.Stages = new List<StageOutputDto>();
@@ -748,7 +748,7 @@ namespace FlowFlex.Application.Service.OW
                 throw new CRMException(ErrorCodeEnum.NotFound, $"Workflow with ID {id} not found");
             }
 
-            // 保留需要保证不变的字段
+            // Preserve fields that need to remain unchanged
             var backupViewTeams = entity.ViewTeams;
             var backupOperateTeams = entity.OperateTeams;
             var backupPortalPermission = entity.PortalPermission;
@@ -758,7 +758,7 @@ namespace FlowFlex.Application.Service.OW
             entity.IsActive = true;
             entity.Status = "active";
 
-            // 恢复字段（用标准化方法处理防止多重转义）
+            // Restore fields (using normalization method to prevent multiple escaping)
             entity.ViewTeams = NormalizeJsonStringField(backupViewTeams);
             entity.OperateTeams = NormalizeJsonStringField(backupOperateTeams);
             entity.PortalPermission = backupPortalPermission;
@@ -796,7 +796,7 @@ namespace FlowFlex.Application.Service.OW
                 throw new CRMException(ErrorCodeEnum.NotFound, $"Workflow with ID {id} not found");
             }
 
-            // 保留需要保证不变的字段
+            // Preserve fields that need to remain unchanged
             var backupViewTeams = entity.ViewTeams;
             var backupOperateTeams = entity.OperateTeams;
             var backupPortalPermission = entity.PortalPermission;
@@ -806,7 +806,7 @@ namespace FlowFlex.Application.Service.OW
             entity.IsActive = false;
             entity.Status = "inactive";
 
-            // 恢复字段（用标准化方法处理防止多重转义）
+            // Restore fields (using normalization method to prevent multiple escaping)
             entity.ViewTeams = NormalizeJsonStringField(backupViewTeams);
             entity.OperateTeams = NormalizeJsonStringField(backupOperateTeams);
             entity.PortalPermission = backupPortalPermission;
@@ -871,7 +871,7 @@ namespace FlowFlex.Application.Service.OW
                 IsDefault = false, // Duplicated workflows are not default
                 Version = 1 // Reset version for duplicated workflow
             };
-            // 新增：duplicate 操作必须 useSameTeamForOperate = true
+            // New: duplicate operation must set useSameTeamForOperate = true
             duplicatedWorkflow.UseSameTeamForOperate = true;
 
             // Initialize create information with proper ID and timestamps, including AppCode and TenantId from current context
@@ -942,7 +942,7 @@ namespace FlowFlex.Application.Service.OW
         }
 
         /// <summary>
-        /// 处理过期的工作流，将其设置为inactive
+        /// Process expired workflows and set them to inactive
         /// </summary>
         public async Task<int> ProcessExpiredWorkflowsAsync()
         {
@@ -972,7 +972,7 @@ namespace FlowFlex.Application.Service.OW
                         var cacheKey = $"workflow:get_by_id:{workflow.Id}:{workflow.AppCode}";
                         await _cacheService.RemoveAsync(cacheKey);
 
-                        // 记录日志
+                        // Log record
                         // Debug logging handled by structured logging has been set to inactive due to expiration. End Date: {workflow.EndDate}");
                     }
                 }
@@ -986,7 +986,7 @@ namespace FlowFlex.Application.Service.OW
         }
 
         /// <summary>
-        /// 获取即将过期的工作流（提�?天提醒）
+        /// Get workflows that are about to expire (reminder N days in advance)
         /// </summary>
         public async Task<List<WorkflowOutputDto>> GetExpiringWorkflowsAsync(int daysAhead = 7)
         {
@@ -1019,7 +1019,7 @@ namespace FlowFlex.Application.Service.OW
 
             _logger.LogInformation("Assignee conversion completed, generating Excel file");
 
-            // 使用专门?WorkflowExcelExportHelper 来生成详细格式的 Excel
+            // Use dedicated WorkflowExcelExportHelper to generate detailed format Excel
             return WorkflowExcelExportHelper.ExportToExcel(workflow);
         }
 
@@ -1054,7 +1054,7 @@ namespace FlowFlex.Application.Service.OW
                 await ConvertAssigneeIdsToNamesAsync(workflow);
             }
 
-            // 使用专门?WorkflowExcelExportHelper 来生成详细格式的 Excel
+            // Use dedicated WorkflowExcelExportHelper to generate detailed format Excel
             return WorkflowExcelExportHelper.ExportMultipleToExcel(workflows);
         }
 
@@ -1063,27 +1063,27 @@ namespace FlowFlex.Application.Service.OW
         /// </summary>
         public async Task<long> CreateFromVersionAsync(CreateWorkflowFromVersionInputDto input)
         {
-            // 验证原始工作流是否存?
+            // Verify that the original workflow exists
             var originalWorkflow = await _workflowRepository.GetByIdAsync(input.OriginalWorkflowId);
             if (originalWorkflow == null)
             {
                 throw new CRMException(ErrorCodeEnum.NotFound, $"Original workflow with ID {input.OriginalWorkflowId} not found");
             }
 
-            // 验证版本是否存在
+            // Verify that the version exists
             // var version = await _workflowVersionRepository.GetVersionDetailAsync(input.VersionId); // Removed
             // if (version == null || version.OriginalWorkflowId != input.OriginalWorkflowId) // Removed
             // {
             //     throw new CRMException(ErrorCodeEnum.NotFound, $"Version with ID {input.VersionId} not found for workflow {input.OriginalWorkflowId}"); // Removed
             // } // Removed
 
-            // 验证新工作流名称唯一?
+            // Verify that the new workflow name is unique
             if (await _workflowRepository.ExistsNameAsync(input.Name))
             {
                 throw new CRMException(ErrorCodeEnum.BusinessError, $"Workflow name '{input.Name}' already exists");
             }
 
-            // 如果设置为默认，需要先取消其他默认工作?
+            // If set as default, need to cancel other default workflows first
             if (input.IsDefault)
             {
                 var existingDefault = await _workflowRepository.GetDefaultWorkflowAsync();
@@ -1093,7 +1093,7 @@ namespace FlowFlex.Application.Service.OW
                 }
             }
 
-            // 创建新工作流
+            // Create new workflow
             var newWorkflow = new Workflow
             {
                 Name = input.Name,
@@ -1108,7 +1108,7 @@ namespace FlowFlex.Application.Service.OW
 
             await _workflowRepository.InsertAsync(newWorkflow);
 
-            // 创建阶段
+            // Create stages
             if (input.Stages?.Any() == true)
             {
                 foreach (var stageInput in input.Stages.OrderBy(x => x.Order))
@@ -1134,7 +1134,7 @@ namespace FlowFlex.Application.Service.OW
                 }
             }
 
-            // 创建版本历史记录
+            // Create version history record
             // await _workflowVersionRepository.CreateVersionHistoryAsync(newWorkflow, "Created", $"Created from version {version.Version} of workflow '{version.Name}'"); // Removed
 
             return newWorkflow.Id;
@@ -1515,7 +1515,7 @@ namespace FlowFlex.Application.Service.OW
             return userIds;
         }
 
-        // 辅助方法：清理 JSON 存储字段的多重引号
+        // Helper method: Clean up multiple quotes in JSON storage fields
         private string NormalizeJsonStringField(string value)
         {
             if (!string.IsNullOrWhiteSpace(value) && value.StartsWith("\"") && value.EndsWith("\""))
@@ -1531,7 +1531,7 @@ namespace FlowFlex.Application.Service.OW
             return value;
         }
 
-        // 缓存相关方法已移除
+        // Cache-related methods have been removed
 
         /// <summary>
         /// Validate that provided team IDs exist in IDM/UserService team tree.

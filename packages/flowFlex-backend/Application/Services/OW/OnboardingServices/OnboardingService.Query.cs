@@ -245,7 +245,7 @@ namespace FlowFlex.Application.Services.OW
 
                 // Step 2: Apply permission filtering - filter out cases user cannot view
                 List<Onboarding> filteredEntities;
-                
+
                 // Fast path: If using Client Credentials token (special authentication scheme), skip permission filtering
                 // Client tokens are used for service-to-service communication and have full access
                 if (_userContext?.Schema == Domain.Shared.Const.AuthSchemes.ItemIamClientIdentification)
@@ -272,54 +272,54 @@ namespace FlowFlex.Application.Services.OW
                         }
                         else
                         {
-                            // 馃殌 PERFORMANCE OPTIMIZATION: Batch load all unique Workflows first
-                        // This reduces N+1 queries from (N Cases 脳 2 Workflow queries) to (1 batch query)
-                        var uniqueWorkflowIds = allEntities.Select(e => e.WorkflowId).Distinct().ToList();
-                        var workflowEntities = await _workflowRepository.GetListAsync(w => uniqueWorkflowIds.Contains(w.Id));
-                        var workflowEntityDict = workflowEntities.ToDictionary(w => w.Id);
+                            // PERFORMANCE OPTIMIZATION: Batch load all unique Workflows first
+                            // This reduces N+1 queries from (N Cases x 2 Workflow queries) to (1 batch query)
+                            var uniqueWorkflowIds = allEntities.Select(e => e.WorkflowId).Distinct().ToList();
+                            var workflowEntities = await _workflowRepository.GetListAsync(w => uniqueWorkflowIds.Contains(w.Id));
+                            var workflowEntityDict = workflowEntities.ToDictionary(w => w.Id);
 
-                        LoggingExtensions.WriteLine($"[Performance] Batch loaded {workflowEntities.Count} unique workflows for {allEntities.Count} cases");
+                            LoggingExtensions.WriteLine($"[Performance] Batch loaded {workflowEntities.Count} unique workflows for {allEntities.Count} cases");
 
-                        // Get user teams once (avoid repeated calls)
-                        var userTeams = _permissionService.GetUserTeamIds();
-                        var userTeamLongs = userTeams?.Select(t => long.TryParse(t, out var tid) ? tid : 0).Where(t => t > 0).ToList() ?? new List<long>();
+                            // Get user teams once (avoid repeated calls)
+                            var userTeams = _permissionService.GetUserTeamIds();
+                            var userTeamLongs = userTeams?.Select(t => long.TryParse(t, out var tid) ? tid : 0).Where(t => t > 0).ToList() ?? new List<long>();
 
-                        // Regular users need permission filtering (now using in-memory workflow data)
-                        filteredEntities = new List<Onboarding>();
+                            // Regular users need permission filtering (now using in-memory workflow data)
+                            filteredEntities = new List<Onboarding>();
 
-                        foreach (var entity in allEntities)
-                        {
-                            // 鈿?In-memory permission check using pre-loaded Workflow
-                            if (!workflowEntityDict.TryGetValue(entity.WorkflowId, out var workflow))
+                            foreach (var entity in allEntities)
                             {
-                                LoggingExtensions.WriteLine($"[Permission Debug] Case {entity.Id} - Workflow {entity.WorkflowId} not found in dictionary");
-                                continue;
+                                // In-memory permission check using pre-loaded Workflow
+                                if (!workflowEntityDict.TryGetValue(entity.WorkflowId, out var workflow))
+                                {
+                                    LoggingExtensions.WriteLine($"[Permission Debug] Case {entity.Id} - Workflow {entity.WorkflowId} not found in dictionary");
+                                    continue;
+                                }
+
+                                // Check Workflow view permission (in-memory, no DB query)
+                                bool hasWorkflowViewPermission = CheckWorkflowViewPermissionInMemory(workflow, userIdLong, userTeamLongs);
+                                LoggingExtensions.WriteLine($"[Permission Debug] Case {entity.Id} - Workflow {workflow.Id} permission: {hasWorkflowViewPermission} (ViewMode={workflow.ViewPermissionMode}, ViewTeams={workflow.ViewTeams ?? "NULL"})");
+                                if (!hasWorkflowViewPermission)
+                                {
+                                    continue; // No Workflow permission, skip this Case
+                                }
+
+                                var viewResult = await _casePermissionService.CheckCasePermissionAsync(
+                         entity, userIdLong, PermissionOperationType.View);
+                                bool hasCaseViewPermission = viewResult.CanView;
+                                // Check Case-level view permission (in-memory)
+                                //bool hasCaseViewPermission = CheckCaseViewPermissionInMemory(entity, userIdLong, userTeamLongs);
+
+                                LoggingExtensions.WriteLine($"[Permission Debug] Case {entity.Id} - Case permission: {hasCaseViewPermission} (ViewMode={entity.ViewPermissionMode}, SubjectType={entity.ViewPermissionSubjectType}, ViewTeams={entity.ViewTeams ?? "NULL"}, ViewUsers={entity.ViewUsers ?? "NULL"}, Ownership={entity.Ownership})");
+                                if (!hasCaseViewPermission)
+                                {
+                                    continue; // No Case permission, skip
+                                }
+
+                                // Both Workflow and Case permissions passed
+                                LoggingExtensions.WriteLine($"[Permission Debug] Case {entity.Id} - GRANTED (both checks passed)");
+                                filteredEntities.Add(entity);
                             }
-
-                            // Check Workflow view permission (in-memory, no DB query)
-                            bool hasWorkflowViewPermission = CheckWorkflowViewPermissionInMemory(workflow, userIdLong, userTeamLongs);
-                            LoggingExtensions.WriteLine($"[Permission Debug] Case {entity.Id} - Workflow {workflow.Id} permission: {hasWorkflowViewPermission} (ViewMode={workflow.ViewPermissionMode}, ViewTeams={workflow.ViewTeams ?? "NULL"})");
-                            if (!hasWorkflowViewPermission)
-                            {
-                                continue; // No Workflow permission, skip this Case
-                            }
-
-                            var viewResult = await _casePermissionService.CheckCasePermissionAsync(
-                     entity, userIdLong, PermissionOperationType.View);
-                            bool hasCaseViewPermission = viewResult.CanView;
-                            // Check Case-level view permission (in-memory)
-                            //bool hasCaseViewPermission = CheckCaseViewPermissionInMemory(entity, userIdLong, userTeamLongs);
-
-                            LoggingExtensions.WriteLine($"[Permission Debug] Case {entity.Id} - Case permission: {hasCaseViewPermission} (ViewMode={entity.ViewPermissionMode}, SubjectType={entity.ViewPermissionSubjectType}, ViewTeams={entity.ViewTeams ?? "NULL"}, ViewUsers={entity.ViewUsers ?? "NULL"}, Ownership={entity.Ownership})");
-                            if (!hasCaseViewPermission)
-                            {
-                                continue; // No Case permission, skip
-                            }
-
-                            // 鉁?Both Workflow and Case permissions passed
-                            LoggingExtensions.WriteLine($"[Permission Debug] Case {entity.Id} - GRANTED (both checks passed)");
-                            filteredEntities.Add(entity);
-                        }
 
                             LoggingExtensions.WriteLine($"[Permission Filter] Original count: {allEntities.Count}, Filtered count: {filteredEntities.Count}");
                         }
@@ -350,7 +350,7 @@ namespace FlowFlex.Application.Services.OW
                 // Map to output DTOs
                 var results = _mapper.Map<List<OnboardingOutputDto>>(pagedEntities);
 
-                // 娣诲姞璋冭瘯鏃ュ織 - 妫€鏌ョ姸鎬佹槧灏?
+                // Add debug log - Check status mapping
                 LoggingExtensions.WriteLine($"[DEBUG] Query Results Count: {results.Count}");
                 LoggingExtensions.WriteLine($"[DEBUG] Original Entities Count: {pagedEntities.Count}");
 
