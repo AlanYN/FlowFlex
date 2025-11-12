@@ -254,7 +254,9 @@
 												{{
 													getMultipleChoiceLabel(
 														row.answer,
-														row.questionConfig
+														row.questionConfig,
+														row.responseText,
+														row.id
 													)
 												}}
 											</el-tag>
@@ -612,7 +614,8 @@
 												v-if="
 													row.lastUpdated &&
 													row.updatedBy &&
-													row.lastUpdated !== row.firstAnsweredDate
+													row.firstAnsweredDate &&
+													!isSameTime(row.lastUpdated, row.firstAnsweredDate)
 												"
 												class="text-primary"
 											>
@@ -1029,27 +1032,67 @@ const processQuestionnaireData = (
 									(question.rows || []).forEach((r: any) => {
 										rowLabelMap.set(r.id, r.label);
 										rowLabelMap.set(String(r.id), r.label);
+										// 支持多种ID格式
+										if (r.id && !r.id.startsWith('row-')) {
+											rowLabelMap.set(`row-${r.id}`, r.label);
+										}
 									});
 									(question.columns || []).forEach((c: any) => {
 										columnLabelMap.set(c.id, c.label);
 										columnLabelMap.set(String(c.id), c.label);
+										// 支持多种ID格式
+										if (c.id && !c.id.startsWith('column-')) {
+											columnLabelMap.set(`column-${c.id}`, c.label);
+										}
 									});
 
 									Object.entries(parsed).forEach(([k, v]) => {
 										const parts = k.split('_');
-										// 格式: questionId_columnId_rowId
+										// 格式: questionId_columnId_rowId 或 questionId_rowId_columnId
 										if (parts.length >= 3) {
-											const rowPart = parts[2]; // 第三部分是 rowId
-											const columnPart = parts[1]; // 第二部分是 columnId
+											// 尝试两种可能的格式
+											let rowPart = '';
+											let columnPart = '';
+											
+											// 格式1: questionId_columnId_rowId
+											if (parts[1]?.startsWith('column') || parts[1]?.startsWith('row')) {
+												columnPart = parts[1];
+												rowPart = parts[2];
+											}
+											// 格式2: questionId_rowId_columnId
+											else if (parts[2]?.startsWith('column') || parts[1]?.startsWith('row')) {
+												rowPart = parts[1];
+												columnPart = parts[2];
+											}
+											// 默认格式: questionId_columnId_rowId
+											else {
+												columnPart = parts[1];
+												rowPart = parts[2];
+											}
 
 											// 尝试多种方式匹配 row label
 											let label =
 												rowLabelMap.get(rowPart) ||
 												rowLabelMap.get(rowPart.replace('row-', '')) ||
+												rowLabelMap.get(`row-${rowPart}`) ||
 												rowPart.replace('row-', '');
 
+											// 尝试匹配 column label
+											let columnLabel =
+												columnLabelMap.get(columnPart) ||
+												columnLabelMap.get(columnPart.replace('column-', '')) ||
+												columnLabelMap.get(`column-${columnPart}`) ||
+												columnPart.replace('column-', '');
+
 											if (String(v || '').trim() !== '') {
-												rowsMap[label] = String(v);
+												// 对于短答网格，同一行可能有多个列的值
+												// 使用行的label作为key，如果有多个列的值，用逗号分隔
+												if (rowsMap[label]) {
+													// 如果该行已有值，追加到现有值（用逗号分隔）
+													rowsMap[label] = `${rowsMap[label]}, ${String(v)}`;
+												} else {
+													rowsMap[label] = String(v);
+												}
 											}
 										}
 									});
@@ -1380,18 +1423,50 @@ const questionnaires = computed(() => {
 });
 
 const sections = computed(() => {
-	const cacheKey = `sections_${processedData.value.length}`;
+	// 从所有问卷的structureJson中提取所有sections，使用id去重
+	const cacheKey = `sections_all_${questionnairesData.value.length}`;
 	if (computedCache.has(cacheKey)) {
 		return computedCache.get(cacheKey);
 	}
 
-	const allSections = new Set<string>();
-	processedData.value.forEach((q) => {
-		q.responses.forEach((r) => {
-			allSections.add(r.section);
-		});
+	const sectionIdSet = new Set<string>(); // 使用id去重
+	const sectionIdToNameMap = new Map<string, string>(); // id -> name 映射，用于显示
+	
+	// 从所有问卷的structureJson中提取sections
+	questionnairesData.value.forEach((questionnaire) => {
+		try {
+			const structure = JSON.parse(questionnaire.structureJson);
+			if (structure.sections && Array.isArray(structure.sections)) {
+				structure.sections.forEach((section: any) => {
+					// 优先使用id去重，支持多种id字段
+					const sectionId = section.id || section.temporaryId || String(section.order) || '';
+					const sectionName = section.name || section.title || '';
+					
+					if (sectionId) {
+						// 使用id去重，即使name为空也统计
+						if (!sectionIdSet.has(sectionId)) {
+							sectionIdSet.add(sectionId);
+							// 保存id到name的映射，如果name为空则使用id作为显示名称
+							sectionIdToNameMap.set(sectionId, sectionName || sectionId);
+						}
+					} else if (sectionName) {
+						// 如果没有id，使用name去重（兜底逻辑）
+						sectionIdSet.add(sectionName);
+						sectionIdToNameMap.set(sectionName, sectionName);
+					}
+				});
+			}
+		} catch (e) {
+			console.error('Error parsing questionnaire structure:', e);
+		}
 	});
-	const result = Array.from(allSections).sort();
+	
+	// 转换为名称数组（如果name为空则使用id）
+	const result = Array.from(sectionIdSet)
+		.map((id) => sectionIdToNameMap.get(id) || id)
+		.filter(Boolean)
+		.sort();
+	
 	computedCache.set(cacheKey, result);
 	return result;
 });
@@ -1527,11 +1602,24 @@ const allQuestionsForExport = computed(() => {
 			}
 			// 如果是单选类型，转换为label显示
 			else if (response.questionType === 'multiple_choice' && response.answer) {
-				displayAnswer = getMultipleChoiceLabel(response.answer, response.questionConfig);
+				displayAnswer = getMultipleChoiceLabel(
+					response.answer,
+					response.questionConfig,
+					response.responseText,
+					response.id
+				);
 			}
 			// 如果是下拉选择类型，转换为label显示
 			else if (response.questionType === 'dropdown' && response.answer) {
 				displayAnswer = getDropdownLabel(response.answer, response.questionConfig);
+			}
+			// 如果是文件上传类型，显示文件名
+			else if (
+				(response.questionType === 'file' || response.questionType === 'file_upload') &&
+				response.answer
+			) {
+				const files = getFileAnswers(response.answer);
+				displayAnswer = files.map((file) => file.name).join(', ');
 			}
 			// 如果是日期/时间类型，格式化为美国格式
 			else if (
@@ -1609,11 +1697,24 @@ const filteredQuestionsForExport = computed(() => {
 			}
 			// 如果是单选类型，转换为label显示
 			else if (response.questionType === 'multiple_choice' && response.answer) {
-				displayAnswer = getMultipleChoiceLabel(response.answer, response.questionConfig);
+				displayAnswer = getMultipleChoiceLabel(
+					response.answer,
+					response.questionConfig,
+					response.responseText,
+					response.id
+				);
 			}
 			// 如果是下拉选择类型，转换为label显示
 			else if (response.questionType === 'dropdown' && response.answer) {
 				displayAnswer = getDropdownLabel(response.answer, response.questionConfig);
+			}
+			// 如果是文件上传类型，显示文件名
+			else if (
+				(response.questionType === 'file' || response.questionType === 'file_upload') &&
+				response.answer
+			) {
+				const files = getFileAnswers(response.answer);
+				displayAnswer = files.map((file) => file.name).join(', ');
 			}
 			// 如果是日期/时间类型，格式化为美国格式
 			else if (
@@ -1697,29 +1798,67 @@ const extractOtherValues = (
 	const parsed = parseResponseText(responseText);
 	const otherValues: { [key: string]: string } = {};
 
-	// 查找包含questionId的键
+	// 提取基础questionId（去掉行信息，如 question-xxx_row-xxx -> question-xxx）
+	const baseQuestionId = questionId.split('_row-')[0].split('_')[0];
+
+	// 查找包含questionId或baseQuestionId的键
 	Object.keys(parsed).forEach((key) => {
-		if (key.includes(questionId)) {
-			// 对于网格类型：查找包含"other"的键
-			if (key.includes('other')) {
-				// 提取column ID，格式如：question-xxx_row-xxx_column-other-xxx
-				const parts = key.split('_');
-				const columnPart = parts.find((part) => part.startsWith('column-other-'));
-				if (columnPart) {
-					otherValues[columnPart] = parsed[key];
-				}
+		// 匹配questionId或baseQuestionId
+		if (key.includes(questionId) || key.includes(baseQuestionId)) {
+			const customValue = parsed[key];
+			const parts = key.split('_');
+			
+			// 存储完整的key，用于精确匹配
+			otherValues[key] = customValue;
+			
+			// 格式1: questionId_optionId (单选/多选)
+			// 例如: "1988483416273850373_1988483416273850372"
+			if (parts.length === 2 && parts[0] === questionId) {
+				const optionId = parts[1];
+				otherValues[optionId] = customValue;
+				otherValues['other'] = customValue; // 通用兜底
 			}
-			// 对于多选题：查找option类型的键
-			else if (key.includes('option-') || key.includes('option_')) {
-				// 提取option ID，格式如：question-xxx_option-xxx
-				const parts = key.split('_');
-				let optionPart = parts.find((part) => part.startsWith('option-'));
-				if (optionPart) {
-					// 同时支持 option- 和 option_ 格式
-					const alternativeKey = optionPart.replace('option-', 'option_');
-					otherValues[optionPart] = parsed[key];
-					otherValues[alternativeKey] = parsed[key];
-				}
+			
+			// 格式2: questionId_rowId_columnId (网格类型)
+			// 例如: "1988483416273850381_1988483416273850376_1988483416273850380"
+			if (parts.length === 3) {
+				const columnId = parts[2]; // 最后一部分是column ID
+				otherValues[columnId] = customValue;
+				otherValues[`column-${columnId}`] = customValue;
+				otherValues[`column-other-${columnId}`] = customValue;
+				// 也存储完整的key格式，用于匹配
+				const fullKey = `${questionId}_${parts[1]}_${columnId}`;
+				otherValues[fullKey] = customValue;
+			}
+			
+			// 格式3: 包含column-other-的格式
+			const columnPart = parts.find((part) => part.startsWith('column-other-'));
+			if (columnPart) {
+				const columnId = columnPart.replace('column-other-', '');
+				otherValues[columnPart] = customValue;
+				otherValues[columnId] = customValue;
+				otherValues[`column-${columnId}`] = customValue;
+			}
+			
+			// 格式4: 包含option-的格式
+			const optionPart = parts.find((part) => part.startsWith('option-'));
+			if (optionPart) {
+				const optionId = optionPart.replace('option-', '');
+				otherValues[optionPart] = customValue;
+				otherValues[optionId] = customValue;
+				const alternativeKey = optionPart.replace('option-', 'option_');
+				otherValues[alternativeKey] = customValue;
+			}
+			
+			// 存储最后一部分（通常是ID），用于匹配
+			const lastPart = parts[parts.length - 1];
+			if (lastPart) {
+				otherValues[lastPart] = customValue;
+			}
+			
+			// 存储通用的"other"键，作为最后的兜底
+			if (!otherValues['other']) {
+				otherValues['other'] = customValue;
 			}
 		}
 	});
@@ -1752,6 +1891,34 @@ const formatDateUS = (dateString: string) => {
 // Legacy function kept for compatibility, now uses US format
 const formatDate = (dateString: string) => {
 	return formatDateUS(dateString);
+};
+
+// 比较两个时间字符串是否相同（忽略毫秒差异）
+const isSameTime = (time1: string, time2: string): boolean => {
+	if (!time1 || !time2) return false;
+	if (time1 === time2) return true;
+	
+	try {
+		const date1 = new Date(time1);
+		const date2 = new Date(time2);
+		
+		// 如果日期无效，使用字符串比较
+		if (isNaN(date1.getTime()) || isNaN(date2.getTime())) {
+			return time1 === time2;
+		}
+		
+		// 比较到秒级别（忽略毫秒）
+		return (
+			date1.getFullYear() === date2.getFullYear() &&
+			date1.getMonth() === date2.getMonth() &&
+			date1.getDate() === date2.getDate() &&
+			date1.getHours() === date2.getHours() &&
+			date1.getMinutes() === date2.getMinutes() &&
+			date1.getSeconds() === date2.getSeconds()
+		);
+	} catch {
+		return time1 === time2;
+	}
 };
 
 // 判断答案是否有效（有实际内容）
@@ -2483,7 +2650,12 @@ const getCheckboxAnswers = (answer: any): string[] => {
 };
 
 // Get label for multiple choice answer
-const getMultipleChoiceLabel = (answer: string, questionConfig: any): string => {
+const getMultipleChoiceLabel = (
+	answer: string,
+	questionConfig: any,
+	responseText?: string,
+	questionId?: string
+): string => {
 	if (!answer || !questionConfig?.options) return answer;
 
 	// 检查是否是空的JSON对象字符串
@@ -2493,6 +2665,42 @@ const getMultipleChoiceLabel = (answer: string, questionConfig: any): string => 
 
 	// Find the option with matching value
 	const option = questionConfig.options.find((opt: any) => opt.value === answer);
+	
+	// 如果答案是"other"或选项是Other类型，尝试从responseText中提取自定义值
+	if (
+		(answer === 'other' || answer.toLowerCase().includes('other')) ||
+		(option && (
+			option.isOther ||
+			option.type === 'other' ||
+			option.allowCustom ||
+			option.hasInput ||
+			(option.label && option.label.toLowerCase().includes('other'))
+		))
+	) {
+		if (responseText && questionId) {
+			const otherValues = extractOtherValues(responseText, questionId);
+			// 尝试多种方式查找自定义值
+			const customValue =
+				otherValues[answer] ||
+				otherValues['other'] ||
+				otherValues[option?.value] ||
+				// 查找包含questionId和option value的完整key
+				(option?.value ? Object.entries(otherValues).find(([key]) => {
+					return key.includes(questionId) && key.includes(option.value);
+				})?.[1] : null) ||
+				// 查找任何包含other的值
+				Object.entries(otherValues).find(([key]) =>
+					key.toLowerCase().includes('other')
+				)?.[1] ||
+				// 最后使用第一个值
+				Object.values(otherValues)[0];
+			
+			if (customValue) {
+				return `Other: ${customValue}`;
+			}
+		}
+	}
+	
 	return option?.label || answer;
 };
 
@@ -2648,12 +2856,40 @@ const getGridAnswerLabels = (
 				idLower.includes('other') ||
 				columnLabel.toLowerCase().includes('other')
 			) {
-				const customValue =
+				// 尝试多种匹配方式查找自定义值
+				// 首先尝试直接匹配column ID的各种格式
+				let customValue =
+					// 直接匹配column ID
 					otherValues[id] ||
+					otherValues[`column-${id}`] ||
+					otherValues[`column-other-${id}`] ||
+					// 尝试匹配完整key格式: questionId_rowId_columnId
+					(questionId ? Object.entries(otherValues).find(([key]) => {
+						// 匹配格式: questionId_*_columnId 或 *_columnId
+						return key.endsWith(`_${id}`) || key === `${questionId}_${id}`;
+					})?.[1] : null) ||
+					// 格式转换匹配
 					otherValues[id.replace('column-', 'column-other-')] ||
+					otherValues[id.replace('column-other-', '')] ||
+					// 如果id是column-other-xxx格式，尝试提取xxx部分
+					(idLower.startsWith('column-other-') ? otherValues[idLower.replace('column-other-', '')] : null) ||
+					// 查找包含该column id的完整key
+					Object.entries(otherValues).find(([key]) => {
+						const keyLower = key.toLowerCase();
+						return (
+							keyLower.includes(idLower) ||
+							keyLower.includes(`column-other-${idLower}`) ||
+							keyLower.includes(`_${idLower}_`) ||
+							keyLower.endsWith(`_${idLower}`) ||
+							keyLower.endsWith(idLower)
+						);
+					})?.[1] ||
+					// 如果还是找不到，尝试查找任何包含other的值（作为最后兜底）
 					Object.entries(otherValues).find(([key]) =>
-						key.toLowerCase().includes(idLower)
-					)?.[1];
+						key.toLowerCase().includes('other')
+					)?.[1] ||
+					// 最后使用第一个值
+					Object.values(otherValues)[0];
 
 				if (customValue) {
 					labels.push(`Other: ${customValue}`);
@@ -2666,18 +2902,43 @@ const getGridAnswerLabels = (
 		} else {
 			// 未在 columnMap 中找到，可能是直接返回了 "Other"
 			if (idLower === 'other' || idLower.includes('other')) {
-				const customValue = otherValues[id] || Object.values(otherValues)[0];
+				// 尝试多种方式查找自定义值
+				// 首先尝试直接匹配
+				let customValue =
+					otherValues[id] ||
+					otherValues[`column-other-${id}`] ||
+					otherValues[`column-${id}`] ||
+					// 查找包含other的完整key
+					Object.entries(otherValues).find(([key]) => {
+						const keyLower = key.toLowerCase();
+						return (
+							keyLower.includes('other') &&
+							(keyLower.includes(idLower) || keyLower.endsWith('other') || keyLower.includes('column-other-'))
+						);
+					})?.[1] ||
+					// 如果还是找不到，尝试查找任何包含other的值
+					Object.entries(otherValues).find(([key]) =>
+						key.toLowerCase().includes('other')
+					)?.[1] ||
+					// 最后兜底：使用第一个值
+					Object.values(otherValues)[0];
 				labels.push(customValue ? `Other: ${customValue}` : 'Other');
 				return;
 			}
 
 			// 兜底：大小写不敏感地匹配 otherValues 的键
 			const hasRelatedOther = Object.keys(otherValues).some((k) =>
-				k.toLowerCase().includes(idLower)
+				k.toLowerCase().includes(idLower) ||
+				k.toLowerCase().includes(`column-other-${idLower}`) ||
+				k.toLowerCase().includes(`_${idLower}_`) ||
+				k.toLowerCase().endsWith(`_${idLower}`)
 			);
 			if (hasRelatedOther) {
 				const customValue = Object.entries(otherValues).find(([key]) =>
-					key.toLowerCase().includes(idLower)
+					key.toLowerCase().includes(idLower) ||
+					key.toLowerCase().includes(`column-other-${idLower}`) ||
+					key.toLowerCase().includes(`_${idLower}_`) ||
+					key.toLowerCase().endsWith(`_${idLower}`)
 				)?.[1];
 				labels.push(customValue ? `Other: ${customValue}` : String(id));
 			} else {
