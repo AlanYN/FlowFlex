@@ -77,11 +77,15 @@
 													assignment.workflowId
 												)} → ${getStageName(assignment.stageId)}`"
 											>
-												{{
-													`${getWorkflowName(
-														assignment.workflowId
-													)} → ${getStageName(assignment.stageId)}`
-												}}
+												<span
+													class="w-full overflow-hidden text-ellipsis whitespace-nowrap"
+												>
+													{{
+														`${getWorkflowName(
+															assignment.workflowId
+														)} → ${getStageName(assignment.stageId)}`
+													}}
+												</span>
 											</span>
 										</div>
 									</div>
@@ -1508,7 +1512,7 @@ html.dark .preview_assignment-label {
 .preview_assignment-tag {
 	@apply inline-flex items-center rounded-full border text-xs font-semibold transition-colors bg-primary-50 text-primary-500 border-primary-200 px-2 py-1;
 	white-space: nowrap;
-	max-width: 300px;
+	max-width: 200px;
 	/* 固定宽度 */
 	flex-shrink: 0;
 	/* 防止收缩 */
@@ -1573,6 +1577,14 @@ html.dark .preview_assignment-label {
 /* Assignments容器样式 */
 .assignments-container {
 	overflow: hidden;
+}
+.questionnaire-header .assignments-container {
+	height: 63px !important;
+}
+.questionnaire-header .assignments-container span {
+	overflow: hidden !important;
+	text-overflow: ellipsis !important;
+	white-space: nowrap;
 }
 
 /* 章节样式 */
@@ -1857,6 +1869,16 @@ html.dark .preview_assignment-label {
 
 	:deep(.pdf-exclude) {
 		display: none !important;
+	}
+
+	.preview_assignment-tag {
+		max-width: 150px !important;
+	}
+
+	.preview_assignment-tag text {
+		overflow: hidden !important;
+		text-overflow: ellipsis !important;
+		white-space: nowrap !important;
 	}
 
 	:deep(.questionnaire-header) {
