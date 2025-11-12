@@ -1002,7 +1002,7 @@ const validateForm = (presentQuestionIndex?: number) => {
 						}
 					} else if (question.type == 'rating') {
 						const value = formData.value[question.id];
-						if ((typeof value === 'number' && value < 1) || !value) {
+						if (value == null || value == undefined) {
 							isValid = false;
 							const errorMsg = `${sIndex + 1} - ${qIdx + 1}`;
 							errors.push(errorMsg);
