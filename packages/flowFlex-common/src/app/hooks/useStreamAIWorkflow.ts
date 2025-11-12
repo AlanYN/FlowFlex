@@ -94,6 +94,23 @@ export function useStreamAIWorkflow() {
 							data?.data?.stages;
 						const success = data?.Success !== false && data?.success !== false;
 
+						// Extract checklists and questionnaires from various possible locations
+						const checklists =
+							data?.Checklists ||
+							data?.checklists ||
+							data?.Data?.Checklists ||
+							data?.data?.checklists ||
+							[];
+						const questionnaires =
+							data?.Questionnaires ||
+							data?.questionnaires ||
+							data?.Data?.Questionnaires ||
+							data?.data?.questionnaires ||
+							[];
+
+						console.log('📋 Extracted checklists:', checklists);
+						console.log('📋 Extracted questionnaires:', questionnaires);
+
 						if (success && Array.isArray(stages) && stages.length > 0) {
 							// 构建标准化的响应格式
 							const normalizedData = {
@@ -108,6 +125,8 @@ export function useStreamAIWorkflow() {
 									data?.Data?.GeneratedWorkflow ||
 									data?.data?.generatedWorkflow,
 								stages: stages,
+								checklists: Array.isArray(checklists) ? checklists : [],
+								questionnaires: Array.isArray(questionnaires) ? questionnaires : [],
 								suggestions:
 									data?.Suggestions ||
 									data?.suggestions ||
@@ -121,6 +140,8 @@ export function useStreamAIWorkflow() {
 									data?.data?.confidenceScore ||
 									0.8,
 							};
+
+							console.log('📦 Normalized data with checklists/questionnaires:', normalizedData);
 
 							onComplete(normalizedData);
 							streamSuccess = true;
