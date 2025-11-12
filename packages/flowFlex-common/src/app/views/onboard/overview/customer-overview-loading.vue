@@ -48,7 +48,7 @@
 		<div class="space-y-6">
 			<el-card v-for="i in 3" :key="i">
 				<template #header>
-					<div class="flex justify-between items-center bg-blue-50 -m-4 p-4">
+					<div class="flex justify-between items-center bg-primary -m-4 p-4">
 						<div class="flex-1">
 							<el-skeleton-item variant="h3" class="w-64 h-6 mb-2" />
 							<el-skeleton-item variant="text" class="w-32 h-4 mb-1" />
@@ -87,7 +87,7 @@
 							<el-skeleton-item variant="text" class="w-3/4 h-3" />
 						</div>
 						<div class="flex-1 mr-4">
-							<div class="bg-blue-50 p-2 rounded">
+							<div class="p-2 rounded">
 								<el-skeleton-item variant="text" class="w-full h-4 mb-1" />
 								<el-skeleton-item variant="text" class="w-2/3 h-4" />
 							</div>

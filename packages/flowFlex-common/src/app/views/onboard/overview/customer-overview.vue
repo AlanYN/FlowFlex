@@ -170,16 +170,20 @@
 			<!-- Questionnaire Responses -->
 			<div class="space-y-6">
 				<template v-if="paginatedData.length > 0">
-					<el-card v-for="questionnaire in paginatedData" :key="questionnaire.id">
+					<el-card
+						v-for="questionnaire in paginatedData"
+						:key="questionnaire.id"
+						class="questionnaire-response-card"
+					>
 						<template #header>
-							<div class="flex justify-between items-center bg-blue-50 -m-4 p-4">
+							<div class="flex justify-between items-center">
 								<div>
 									<div class="text-lg font-medium">
 										{{ questionnaire.name }}
 									</div>
 								</div>
 								<div class="flex flex-col items-end space-y-1">
-									<el-tag type="info" class="questionnaire-tag">
+									<el-tag type="info">
 										{{
 											questionnaire.responses.filter((r) =>
 												hasValidAnswer(r.answer)
@@ -220,7 +224,7 @@
 							</el-table-column>
 							<el-table-column label="Answer" show-overflow-tooltip min-width="200">
 								<template #default="{ row }">
-									<div class="answer-cell bg-blue-50 p-2 rounded-xl text-sm">
+									<div class="answer-cell p-2 rounded-xl text-sm">
 										<!-- 短答题 -->
 										<div
 											v-if="isShortAnswerType(row.questionType)"
@@ -395,7 +399,7 @@
 													class="flex-1 bg-el-fill-color-light rounded-full h-2 mr-2"
 												>
 													<div
-														class="bg-blue-500 h-2 rounded-full"
+														class="h-2 rounded-full"
 														:style="`width: ${
 															(parseFloat(String(row.answer)) /
 																getLinearScaleMax(
@@ -424,7 +428,7 @@
 													:key="file.name + (file.url || '')"
 													class="flex items-center text-sm overview-file-item p-1 rounded"
 												>
-													<el-icon class="mr-1 text-blue-500">
+													<el-icon class="mr-1 text-primary">
 														<Document />
 													</el-icon>
 													<span class="truncate">{{ file.name }}</span>
@@ -443,7 +447,7 @@
 															:href="file.url"
 															target="_blank"
 															rel="noopener"
-															class="text-blue-600 hover:underline"
+															class="text-primary hover:underline"
 															@click.stop
 														>
 															Preview
@@ -452,7 +456,7 @@
 															v-if="file.url"
 															:href="file.url"
 															:download="file.name || 'download'"
-															class="text-blue-600 hover:underline"
+															class="text-primary hover:underline"
 															@click.stop
 														>
 															Download
@@ -560,7 +564,7 @@
 																{{ gridData.row }}:
 															</span>
 															<span
-																class="overview-grid-value px-2 py-1 rounded-xl flex-1"
+																class="px-2 py-1 rounded-xl flex-1"
 															>
 																{{ gridData.value }}
 															</span>
@@ -616,7 +620,7 @@
 													row.updatedBy &&
 													row.lastUpdated !== row.firstAnsweredDate
 												"
-												class="text-blue-600"
+												class="text-primary"
 											>
 												<div>
 													Updated: {{ formatDate(row.lastUpdated) }}
@@ -668,23 +672,23 @@
 				</template>
 				<div class="grid grid-cols-1 md:grid-cols-4 gap-4">
 					<div class="text-center">
-						<div class="text-2xl font-bold text-blue-600">
+						<div class="text-2xl font-bold text-primary">
 							{{ filteredData.length }}
 						</div>
 						<div class="text-sm text-el-text-color-secondary">Questionnaires</div>
 					</div>
 					<div class="text-center">
-						<div class="text-2xl font-bold text-green-600">
+						<div class="text-2xl font-bold text-primary">
 							{{ totalResponsesCount }}
 						</div>
 						<div class="text-sm text-el-text-color-secondary">Total Responses</div>
 					</div>
 					<div class="text-center">
-						<div class="text-2xl font-bold text-purple-600">{{ sections.length }}</div>
+						<div class="text-2xl font-bold text-primary">{{ sections.length }}</div>
 						<div class="text-sm text-el-text-color-secondary">Sections</div>
 					</div>
 					<div class="text-center">
-						<div class="text-2xl font-bold text-orange-600">
+						<div class="text-2xl font-bold text-primary">
 							{{ uniqueContributors }}
 						</div>
 						<div class="text-sm text-el-text-color-secondary">Contributors</div>
@@ -3013,10 +3017,6 @@ onUnmounted(() => {
 		}
 	}
 
-	.flex {
-		max-width: 100%;
-	}
-
 	/* 短答网格特殊样式 */
 	&.short-answer-grid {
 		.grid-row-data {
@@ -3034,13 +3034,12 @@ onUnmounted(() => {
 			}
 
 			span:last-child {
-				background-color: var(--el-fill-color-lighter);
 				border: 1px solid var(--el-border-color-light);
 				padding: 2px 8px;
 				font-size: 0.875rem;
 				color: var(--el-text-color-regular);
 				word-break: break-word;
-				@apply rounded-xl;
+				@apply rounded-xl bg-primary;
 			}
 		}
 	}
@@ -3128,10 +3127,6 @@ html.dark :deep(.filter-select .el-input__inner) {
 	background: var(--el-bg-color-page);
 }
 
-.questionnaire-tag {
-	color: var(--el-text-color-primary);
-}
-
 /* Overview custom classes */
 .overview-file-item {
 	background-color: var(--el-fill-color-light);
@@ -3139,10 +3134,16 @@ html.dark :deep(.filter-select .el-input__inner) {
 
 .overview-grid-value {
 	color: var(--el-text-color-primary);
-	background-color: var(--el-fill-color-blank);
+	background-color: var(--primary);
 }
 
 .overview-empty-icon {
 	color: var(--el-text-color-placeholder);
+}
+
+/* Questionnaire Response Card Header */
+.questionnaire-response-card :deep(.el-card__header) {
+	background-color: var(--primary-500);
+	color: var(--el-color-white);
 }
 </style>
