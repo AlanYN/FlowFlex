@@ -230,6 +230,12 @@
 									class="editable-header-card text-white -mx-5 -my-5 px-5 py-4 rounded-t-lg"
 								>
 									<h2 class="text-lg font-semibold">{{ currentStageTitle }}</h2>
+									<div
+										v-if="currentStageDescription"
+										class="text-sm text-[var(--el-text-color-secondary)]"
+									>
+										{{ currentStageDescription }}
+									</div>
 								</div>
 							</div>
 							<el-scrollbar ref="leftScrollbarRef" class="h-full px-2 w-full">
@@ -620,6 +626,11 @@ onBeforeUpdate(() => {
 const currentStageTitle = computed(() => {
 	const currentStage = workflowStages.value.find((stage) => stage.stageId === activeStage.value);
 	return currentStage?.stageName || defaultStr;
+});
+
+const currentStageDescription = computed(() => {
+	const currentStage = workflowStages.value.find((stage) => stage.stageId === activeStage.value);
+	return currentStage?.stageDescription || '';
 });
 
 // 计算是否禁用保存按钮 - 与detail.vue保持一致
@@ -2119,7 +2130,6 @@ html.dark .portal-loading-text {
 }
 
 .editable-header-card {
-	background: var(--el-color-primary);
 	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 	display: flex;
 	flex-direction: column;
