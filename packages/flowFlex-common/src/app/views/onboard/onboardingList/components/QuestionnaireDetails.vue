@@ -158,7 +158,7 @@ const getQuestionId = (question: any): string => {
  * @returns 是否有效
  */
 const isAnswerValid = (response: any): boolean => {
-	if (!response) return false;
+	if (!response && response !== 0) return false;
 
 	// 处理数组类型答案
 	if (Array.isArray(response.answer)) {
