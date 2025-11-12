@@ -37,12 +37,6 @@
 				<div class="grid grid-cols-1 md:grid-cols-4 gap-4">
 					<div>
 						<p class="text-sm font-medium text-el-text-color-secondary">
-							Lead/Customer ID
-						</p>
-						<p class="font-medium">{{ customerData.leadId }}</p>
-					</div>
-					<div>
-						<p class="text-sm font-medium text-el-text-color-secondary">
 							Customer Name
 						</p>
 						<p class="font-medium">{{ customerData.leadName }}</p>
