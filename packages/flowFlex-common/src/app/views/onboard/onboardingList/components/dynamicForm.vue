@@ -1009,11 +1009,7 @@ const validateForm = (presentQuestionIndex?: number) => {
 						}
 					} else if (question.type == 'linear_scale') {
 						const value = formData.value[question.id];
-						if (
-							(typeof value === 'number' && value <= question.min) ||
-							value == null ||
-							value == undefined
-						) {
+						if (value == null || value == undefined) {
 							isValid = false;
 							const errorMsg = `${sIndex + 1} - ${qIdx + 1}`;
 							errors.push(errorMsg);
