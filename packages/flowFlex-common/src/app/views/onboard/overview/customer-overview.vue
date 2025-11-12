@@ -395,11 +395,16 @@
 											class="space-y-2"
 										>
 											<div v-if="row.answer" class="flex items-center">
+												<span class="text-sm font-medium">
+													{{ row.answer }}/{{
+														getLinearScaleMax(row.questionConfig)
+													}}
+												</span>
 												<div
-													class="flex-1 bg-el-fill-color-light rounded-full h-2 mr-2"
+													class="flex-1 bg-el-fill-color-light rounded-full h-2 ml-2 bg-gray-200"
 												>
 													<div
-														class="h-2 rounded-full"
+														class="h-2 rounded-full bg-primary"
 														:style="`width: ${
 															(parseFloat(String(row.answer)) /
 																getLinearScaleMax(
@@ -409,11 +414,6 @@
 														}%`"
 													></div>
 												</div>
-												<span class="text-sm font-medium">
-													{{ row.answer }}/{{
-														getLinearScaleMax(row.questionConfig)
-													}}
-												</span>
 											</div>
 										</div>
 
@@ -1630,7 +1630,7 @@ const filteredQuestionsForExport = computed(() => {
 			}
 			// 其他类型保持原样
 			else {
-				displayAnswer = response.answer || '';
+				displayAnswer = `${response.answer}` || '';
 			}
 
 			// Include ALL filtered questions, regardless of whether they have answers
@@ -1801,7 +1801,6 @@ const handleExportExcel = () => {
 	try {
 		// Use filtered data to match what user sees on screen
 		const exportData = filteredQuestionsForExport.value;
-
 		if (exportData.length === 0) {
 			ElMessage.warning('No questionnaire data available to export with current filters');
 			return;
