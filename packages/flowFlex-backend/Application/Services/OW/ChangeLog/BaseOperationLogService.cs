@@ -1394,6 +1394,9 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
             public string Description { get; set; }
             public bool Required { get; set; }
             public List<string> Options { get; set; } = new List<string>();
+            public List<OptionInfo> OptionDetails { get; set; } = new List<OptionInfo>();
+            public List<OptionInfo> Rows { get; set; } = new List<OptionInfo>();
+            public List<OptionInfo> Columns { get; set; } = new List<OptionInfo>();
             public Dictionary<string, object> Properties { get; set; } = new Dictionary<string, object>();
 
             public override bool Equals(object obj)
@@ -1408,6 +1411,54 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
             public override int GetHashCode()
             {
                 return string.IsNullOrEmpty(Id) ? Title?.GetHashCode() ?? 0 : Id.GetHashCode();
+            }
+        }
+
+        /// <summary>
+        /// Helper class to represent an option with label and value
+        /// </summary>
+        protected class OptionInfo
+        {
+            public string Id { get; set; }
+            public string Label { get; set; }
+            public string Value { get; set; }
+            public bool IsOther { get; set; }
+
+            public override bool Equals(object obj)
+            {
+                if (obj is OptionInfo other)
+                {
+                    // Compare by ID first, then by value, then by label
+                    if (!string.IsNullOrEmpty(Id) && !string.IsNullOrEmpty(other.Id))
+                        return Id == other.Id;
+                    if (!string.IsNullOrEmpty(Value) && !string.IsNullOrEmpty(other.Value))
+                        return Value == other.Value;
+                    return Label == other.Label;
+                }
+                return false;
+            }
+
+            public override int GetHashCode()
+            {
+                if (!string.IsNullOrEmpty(Id)) return Id.GetHashCode();
+                if (!string.IsNullOrEmpty(Value)) return Value.GetHashCode();
+                return Label?.GetHashCode() ?? 0;
+            }
+
+            public string GetDisplayText()
+            {
+                // If label is not empty, use it
+                if (!string.IsNullOrEmpty(Label)) return Label;
+                
+                // If value is "other" (case-insensitive), display "Other"
+                if (!string.IsNullOrEmpty(Value))
+                {
+                    if (Value.Equals("other", StringComparison.OrdinalIgnoreCase) || IsOther)
+                        return "Other";
+                    return Value;
+                }
+                
+                return "Option";
             }
         }
 
@@ -2040,18 +2091,103 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
             if (question.TryGetProperty("options", out var optionsElement) &&
                 optionsElement.ValueKind == JsonValueKind.Array)
             {
-                questionInfo.Options = optionsElement.EnumerateArray()
-                    .Where(o => o.ValueKind == JsonValueKind.String)
-                    .Select(o => o.GetString())
-                    .Where(o => !string.IsNullOrEmpty(o))
-                    .ToList();
+                foreach (var option in optionsElement.EnumerateArray())
+                {
+                    var optionInfo = new OptionInfo();
+                    
+                    // Extract option properties
+                    if (option.TryGetProperty("id", out var optionId))
+                        optionInfo.Id = optionId.GetString() ?? string.Empty;
+                    
+                    if (option.TryGetProperty("label", out var optionLabel))
+                        optionInfo.Label = optionLabel.GetString() ?? string.Empty;
+                    
+                    if (option.TryGetProperty("value", out var optionValue))
+                        optionInfo.Value = optionValue.GetString() ?? string.Empty;
+                    
+                    if (option.TryGetProperty("isOther", out var isOther))
+                        optionInfo.IsOther = isOther.ValueKind == JsonValueKind.True;
+                    
+                    // For string options (backward compatibility)
+                    if (option.ValueKind == JsonValueKind.String)
+                    {
+                        var strValue = option.GetString();
+                        optionInfo.Value = strValue ?? string.Empty;
+                        optionInfo.Label = strValue ?? string.Empty;
+                    }
+                    
+                    // Add to both lists for backward compatibility
+                    var displayText = optionInfo.GetDisplayText();
+                    if (!string.IsNullOrEmpty(displayText))
+                    {
+                        questionInfo.Options.Add(displayText);
+                        questionInfo.OptionDetails.Add(optionInfo);
+                    }
+                }
+            }
+
+            // Extract rows for grid type questions
+            if (question.TryGetProperty("rows", out var rowsElement) &&
+                rowsElement.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var row in rowsElement.EnumerateArray())
+                {
+                    var rowInfo = new OptionInfo();
+                    
+                    if (row.TryGetProperty("id", out var rowId))
+                        rowInfo.Id = rowId.GetString() ?? string.Empty;
+                    
+                    if (row.TryGetProperty("label", out var rowLabel))
+                        rowInfo.Label = rowLabel.GetString() ?? string.Empty;
+                    
+                    if (row.ValueKind == JsonValueKind.String)
+                    {
+                        var strValue = row.GetString();
+                        rowInfo.Label = strValue ?? string.Empty;
+                    }
+                    
+                    if (!string.IsNullOrEmpty(rowInfo.Label))
+                    {
+                        questionInfo.Rows.Add(rowInfo);
+                    }
+                }
+            }
+
+            // Extract columns for grid type questions
+            if (question.TryGetProperty("columns", out var columnsElement) &&
+                columnsElement.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var column in columnsElement.EnumerateArray())
+                {
+                    var columnInfo = new OptionInfo();
+                    
+                    if (column.TryGetProperty("id", out var columnId))
+                        columnInfo.Id = columnId.GetString() ?? string.Empty;
+                    
+                    if (column.TryGetProperty("label", out var columnLabel))
+                        columnInfo.Label = columnLabel.GetString() ?? string.Empty;
+                    
+                    if (column.TryGetProperty("isOther", out var isOther))
+                        columnInfo.IsOther = isOther.ValueKind == JsonValueKind.True;
+                    
+                    if (column.ValueKind == JsonValueKind.String)
+                    {
+                        var strValue = column.GetString();
+                        columnInfo.Label = strValue ?? string.Empty;
+                    }
+                    
+                    if (!string.IsNullOrEmpty(columnInfo.Label))
+                    {
+                        questionInfo.Columns.Add(columnInfo);
+                    }
+                }
             }
 
             // Extract additional properties for detailed comparison
             foreach (var property in question.EnumerateObject())
             {
                 // Exclude basic properties but include important ones like 'question' for comparison
-                if (!new[] { "id", "title", "text", "type", "description", "required", "options" }
+                if (!new[] { "id", "title", "text", "type", "description", "required", "options", "rows", "columns" }
                     .Contains(property.Name, StringComparer.OrdinalIgnoreCase))
                 {
                     try
@@ -2101,16 +2237,22 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                 var addedQuestions = afterDict.Keys.Except(beforeDict.Keys).Take(2).ToList();
                 if (addedQuestions.Any())
                 {
-                    var addedTitles = addedQuestions.Select(k => GetDisplayTitle(afterDict[k])).Where(t => !string.IsNullOrEmpty(t));
-                    changes.Add($"added questions: {string.Join(", ", addedTitles.Select(t => $"'{t}'"))}");
+                    var addedInfo = addedQuestions.Select(k => GetFormattedQuestionInfo(afterDict[k])).Where(t => !string.IsNullOrEmpty(t));
+                    if (addedQuestions.Count == 1)
+                        changes.Add($"added question: {string.Join("; ", addedInfo)}");
+                    else
+                        changes.Add($"added questions: {string.Join("; ", addedInfo)}");
                 }
 
                 // Find removed questions
                 var removedQuestions = beforeDict.Keys.Except(afterDict.Keys).Take(2).ToList();
                 if (removedQuestions.Any())
                 {
-                    var removedTitles = removedQuestions.Select(k => GetDisplayTitle(beforeDict[k])).Where(t => !string.IsNullOrEmpty(t));
-                    changes.Add($"removed questions: {string.Join(", ", removedTitles.Select(t => $"'{t}'"))}");
+                    var removedInfo = removedQuestions.Select(k => GetFormattedQuestionInfo(beforeDict[k])).Where(t => !string.IsNullOrEmpty(t));
+                    if (removedQuestions.Count == 1)
+                        changes.Add($"removed question: {string.Join("; ", removedInfo)}");
+                    else
+                        changes.Add($"removed questions: {string.Join("; ", removedInfo)}");
                 }
 
                 // Find modified questions
@@ -2171,6 +2313,157 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
         }
 
         /// <summary>
+        /// Get formatted question info with type and options
+        /// </summary>
+        protected virtual string GetFormattedQuestionInfo(DetailedQuestionInfo question)
+        {
+            var title = GetDisplayTitle(question);
+            var parts = new List<string> { $"'{title}'" };
+
+            // Add question type
+            if (!string.IsNullOrEmpty(question.Type))
+            {
+                parts.Add($"type: {question.Type}");
+            }
+
+            // For grid type questions, show rows and columns instead of options
+            var isGridType = question.Type != null && 
+                (question.Type.Equals("multiple_choice_grid", StringComparison.OrdinalIgnoreCase) ||
+                 question.Type.Equals("checkbox_grid", StringComparison.OrdinalIgnoreCase) ||
+                 question.Type.Equals("short_answer_grid", StringComparison.OrdinalIgnoreCase));
+
+            if (isGridType)
+            {
+                // Add rows if available
+                if (question.Rows != null && question.Rows.Count > 0)
+                {
+                    var rowTexts = question.Rows.Select(r => r.GetDisplayText()).Where(t => !string.IsNullOrEmpty(t)).ToList();
+                    if (rowTexts.Any())
+                    {
+                        var rowsStr = string.Join(", ", rowTexts.Take(5).Select(r => $"'{r}'"));
+                        if (rowTexts.Count > 5)
+                        {
+                            rowsStr += $" and {rowTexts.Count - 5} more";
+                        }
+                        parts.Add($"rows: {rowsStr}");
+                    }
+                }
+
+                // Add columns if available
+                if (question.Columns != null && question.Columns.Count > 0)
+                {
+                    var columnTexts = question.Columns.Select(c => c.GetDisplayText()).Where(t => !string.IsNullOrEmpty(t)).ToList();
+                    if (columnTexts.Any())
+                    {
+                        var columnsStr = string.Join(", ", columnTexts.Take(5).Select(c => $"'{c}'"));
+                        if (columnTexts.Count > 5)
+                        {
+                            columnsStr += $" and {columnTexts.Count - 5} more";
+                        }
+                        parts.Add($"columns: {columnsStr}");
+                    }
+                }
+            }
+            else
+            {
+                // Add options if available (for non-grid questions)
+                if (question.OptionDetails != null && question.OptionDetails.Count > 0)
+                {
+                    var optionTexts = question.OptionDetails.Select(o => o.GetDisplayText()).Where(t => !string.IsNullOrEmpty(t)).ToList();
+                    if (optionTexts.Any())
+                    {
+                        var optionsStr = string.Join(", ", optionTexts.Take(5).Select(o => $"'{o}'"));
+                        if (optionTexts.Count > 5)
+                        {
+                            optionsStr += $" and {optionTexts.Count - 5} more";
+                        }
+                        parts.Add($"options: {optionsStr}");
+                    }
+                }
+                else if (question.Options != null && question.Options.Count > 0)
+                {
+                    var optionsStr = string.Join(", ", question.Options.Take(5).Select(o => $"'{o}'"));
+                    if (question.Options.Count > 5)
+                    {
+                        optionsStr += $" and {question.Options.Count - 5} more";
+                    }
+                    parts.Add($"options: {optionsStr}");
+                }
+            }
+
+            return string.Join(", ", parts);
+        }
+
+        /// <summary>
+        /// Get detailed option changes between before and after option lists
+        /// </summary>
+        protected virtual List<string> GetDetailedOptionChanges(List<OptionInfo> beforeOptions, List<OptionInfo> afterOptions)
+        {
+            var changes = new List<string>();
+            
+            try
+            {
+                // Find added options
+                var addedOptions = afterOptions.Except(beforeOptions).Take(3).ToList();
+                if (addedOptions.Any())
+                {
+                    var addedTexts = addedOptions.Select(o => $"'{o.GetDisplayText()}'").ToList();
+                    if (addedOptions.Count == 1)
+                        changes.Add($"added option: {addedTexts[0]}");
+                    else
+                        changes.Add($"added options: {string.Join(", ", addedTexts)}");
+                }
+
+                // Find removed options
+                var removedOptions = beforeOptions.Except(afterOptions).Take(3).ToList();
+                if (removedOptions.Any())
+                {
+                    var removedTexts = removedOptions.Select(o => $"'{o.GetDisplayText()}'").ToList();
+                    if (removedOptions.Count == 1)
+                        changes.Add($"removed option: {removedTexts[0]}");
+                    else
+                        changes.Add($"removed options: {string.Join(", ", removedTexts)}");
+                }
+
+                // Find modified options (label or value changed)
+                var modifiedOptions = new List<string>();
+                foreach (var beforeOption in beforeOptions)
+                {
+                    var afterOption = afterOptions.FirstOrDefault(o => o.Equals(beforeOption));
+                    if (afterOption != null && beforeOption.GetDisplayText() != afterOption.GetDisplayText())
+                    {
+                        modifiedOptions.Add($"'{beforeOption.GetDisplayText()}' → '{afterOption.GetDisplayText()}'");
+                        if (modifiedOptions.Count >= 2) break; // Limit to 2 for readability
+                    }
+                }
+                
+                if (modifiedOptions.Any())
+                {
+                    if (modifiedOptions.Count == 1)
+                        changes.Add($"modified option: {modifiedOptions[0]}");
+                    else
+                        changes.Add($"modified options: {string.Join(", ", modifiedOptions)}");
+                }
+
+                // If no detailed changes found but count changed, report count change
+                if (!changes.Any() && beforeOptions.Count != afterOptions.Count)
+                {
+                    changes.Add($"options: {beforeOptions.Count} → {afterOptions.Count}");
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to analyze detailed option changes");
+                if (beforeOptions.Count != afterOptions.Count)
+                {
+                    changes.Add($"options: {beforeOptions.Count} → {afterOptions.Count}");
+                }
+            }
+
+            return changes;
+        }
+
+        /// <summary>
         /// Get specific changes within a question
         /// </summary>
         protected virtual List<string> GetQuestionSpecificChanges(DetailedQuestionInfo before, DetailedQuestionInfo after)
@@ -2201,8 +2494,16 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                 changes.Add("description changed");
             }
 
-            // Check options changes for multiple choice questions
-            if (before.Options.Count != after.Options.Count)
+            // Check options changes for multiple choice questions with detailed information
+            if (before.OptionDetails.Count > 0 || after.OptionDetails.Count > 0)
+            {
+                var optionChanges = GetDetailedOptionChanges(before.OptionDetails, after.OptionDetails);
+                if (optionChanges.Any())
+                {
+                    changes.AddRange(optionChanges);
+                }
+            }
+            else if (before.Options.Count != after.Options.Count)
             {
                 changes.Add($"options: {before.Options.Count} → {after.Options.Count}");
             }
