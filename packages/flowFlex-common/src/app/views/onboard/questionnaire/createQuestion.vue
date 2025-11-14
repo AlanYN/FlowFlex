@@ -666,6 +666,57 @@ const handleRemoveSection = async (index: number) => {
 	const sectionToRemove = questionnaire.sections[index];
 	const questionCount = sectionToRemove.questions.length;
 	const sectionName = sectionToRemove.name || 'Untitled Section';
+	const sectionId = sectionToRemove.temporaryId;
+
+	// 检查是否有其他分区的问题跳转到当前分区
+	const jumpReferences: Array<{ sectionName: string; questionTitle: string }> = [];
+
+	questionnaire.sections.forEach((section, sectionIndex) => {
+		// 跳过当前要删除的分区
+		if (sectionIndex === index) return;
+
+		section.questions.forEach((question) => {
+			if (question.jumpRules && question.jumpRules.length > 0) {
+				const hasJumpToTarget = question.jumpRules.some(
+					(rule: any) => rule.targetSectionId === sectionId
+				);
+
+				if (hasJumpToTarget) {
+					jumpReferences.push({
+						sectionName: section.name || 'Untitled Section',
+						questionTitle: question.question || 'Untitled Question',
+					});
+				}
+			}
+		});
+	});
+
+	// 如果有跳转引用，显示警告并阻止删除
+	if (jumpReferences.length > 0) {
+		const message = `
+			<div style="text-align: left;">
+				<p style="margin-bottom: 12px;">This section cannot be deleted because other questions have jump rules targeting it.</p>
+				<div style="padding-left: 8px; line-height: 1.8;">
+					${jumpReferences
+						.map(
+							(ref, idx) =>
+								`<div>${idx + 1}. ${ref.sectionName} <span class="text-gray-500">(${
+									ref.questionTitle
+								})</span></div>`
+						)
+						.join('')}
+				</div>
+			</div>
+		`;
+
+		ElMessageBox.alert(message, 'Cannot Delete Section', {
+			confirmButtonText: 'OK',
+			type: 'warning',
+			dangerouslyUseHTMLString: true,
+			customClass: 'section-delete-blocked-dialog',
+		});
+		return;
+	}
 
 	// 构建确认消息
 	let confirmMessage = `Are you sure you want to delete "${sectionName}"?`;

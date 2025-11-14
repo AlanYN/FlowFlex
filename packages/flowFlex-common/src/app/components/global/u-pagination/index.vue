@@ -11,8 +11,8 @@
 		class="flex flex-row justify-between pr-4 py-2 items-center mb-4"
 	>
 		<span class="text-sm">
-			{{ total > limit ? limit : total }} Results • Showing {{ page }}-{{ limit }} of
-			{{ total }}
+			{{ Math.min(page * limit, total) - (page - 1) * limit }}Results • Showing
+			{{ (page - 1) * limit + 1 }}-{{ Math.min(page * limit, total) }}of {{ total }}
 		</span>
 		<div class="flex items-center">
 			<span class="leading-4 px-2 font-bold text-sm mr-4">Show:</span>
