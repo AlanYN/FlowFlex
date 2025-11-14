@@ -50,14 +50,16 @@
 								data-active="false"
 								class="flex items-center gap-2 w-full"
 							>
-								<span class="item-menu-icon">
+								<span
+									class="w-[18px] h-full"
+									:class="{
+										'flex mb-auto': isLastMenu(chil, item.children),
+									}"
+								>
 									<component
-										v-if="!collapse"
 										:is="
 											isLastMenu(chil, item.children) ? parent : customerICon
 										"
-										width="18"
-										height="50"
 									/>
 								</span>
 								<span :class="{ 'beta-label': chil.meta.beta }">
