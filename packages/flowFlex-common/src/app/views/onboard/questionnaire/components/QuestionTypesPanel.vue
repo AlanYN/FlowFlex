@@ -93,6 +93,10 @@ const selectQuestionType = (typeId: string) => {
 	background-color: var(--primary-100);
 	border-color: var(--primary-500);
 	@apply dark:bg-primary-700 dark:border-primary-400;
+
+	.type-icon {
+		@apply text-white;
+	}
 }
 
 .type-content {
