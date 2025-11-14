@@ -179,9 +179,23 @@ namespace FlowFlex.Application.Service.OW
             {
                 try
                 {
+                    // Build afterData JSON with questionnaire details
+                    var afterDataDict = new Dictionary<string, object>
+                    {
+                        ["Name"] = entity.Name,
+                        ["Description"] = entity.Description ?? string.Empty,
+                        ["Status"] = entity.Status?.ToString() ?? string.Empty,
+                        ["Category"] = entity.Category ?? string.Empty,
+                        ["EstimatedMinutes"] = entity.EstimatedMinutes,
+                        ["IsActive"] = entity.IsActive,
+                        ["StructureJson"] = entity.Structure?.ToString() ?? string.Empty
+                    };
+                    var afterData = System.Text.Json.JsonSerializer.Serialize(afterDataDict);
+
                     await _operationChangeLogService.LogQuestionnaireCreateAsync(
                         questionnaireId: entity.Id,
                         questionnaireName: entity.Name,
+                        afterData: afterData,
                         extendedData: entity.Description
                     );
                 }

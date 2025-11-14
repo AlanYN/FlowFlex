@@ -409,9 +409,9 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
         }
 
         // Questionnaire methods
-        public Task<bool> LogQuestionnaireCreateAsync(long questionnaireId, string questionnaireName, string extendedData = null)
+        public Task<bool> LogQuestionnaireCreateAsync(long questionnaireId, string questionnaireName, string afterData = null, string extendedData = null)
         {
-            return _questionnaireLogService.LogQuestionnaireCreateAsync(questionnaireId, questionnaireName, extendedData);
+            return _questionnaireLogService.LogQuestionnaireCreateAsync(questionnaireId, questionnaireName, afterData, extendedData);
         }
 
         public Task<bool> LogQuestionnaireUpdateAsync(long questionnaireId, string questionnaireName, string beforeData, string afterData, List<string> changedFields, string extendedData = null)

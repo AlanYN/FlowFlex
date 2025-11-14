@@ -440,9 +440,10 @@ namespace FlowFlex.Application.Contracts.IServices.OW
         /// </summary>
         /// <param name="questionnaireId">Questionnaire ID</param>
         /// <param name="questionnaireName">Questionnaire name</param>
+        /// <param name="afterData">After data (questionnaire JSON)</param>
         /// <param name="extendedData">Extended data</param>
         /// <returns>Whether successful</returns>
-        Task<bool> LogQuestionnaireCreateAsync(long questionnaireId, string questionnaireName, string extendedData = null);
+        Task<bool> LogQuestionnaireCreateAsync(long questionnaireId, string questionnaireName, string afterData = null, string extendedData = null);
 
         /// <summary>
         /// Log questionnaire update operation

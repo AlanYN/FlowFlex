@@ -936,7 +936,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
 
                 var changeList = new List<string>();
 
-                foreach (var field in changedFields.Take(3)) // Limit to first 3 changes to avoid overly long descriptions
+                foreach (var field in changedFields)
                 {
                     if (beforeJson.TryGetValue(field, out var beforeValue) &&
                         afterJson.TryGetValue(field, out var afterValue))
@@ -1160,41 +1160,40 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                     var sectionNames = sections
                         .Where(s => s.TryGetProperty("name", out var nameElement))
                         .Select(s => s.GetProperty("name").GetString())
-                        .Where(name => !string.IsNullOrEmpty(name))
-                        .Take(3)
+                        .Where(name => !string.IsNullOrEmpty(name) && 
+                                      !name.Equals("Untitled Section", StringComparison.OrdinalIgnoreCase))
                         .ToList();
 
-                    // Count total questions across all sections
-                    var totalQuestions = sections
-                        .Where(s => s.TryGetProperty("questions", out var questionsElement) && questionsElement.ValueKind == JsonValueKind.Array)
-                        .Sum(s => s.GetProperty("questions").EnumerateArray().Count());
+                    // Get detailed questions information
+                    var afterQuestions = GetAllQuestionsDetailed(sections);
+                    var totalQuestions = afterQuestions.Count;
 
+                    var changes = new List<string>();
+
+                    // Section count and names (only show if there are named sections other than default)
                     if (sectionNames.Any())
                     {
-                        var summary = $"{sections.Count} sections";
-                        if (sectionNames.Count <= 3)
-                        {
-                            summary += $": {string.Join(", ", sectionNames.Select(n => $"'{n}'"))}";
-                        }
-                        else
-                        {
-                            summary += $": '{sectionNames[0]}', '{sectionNames[1]}', '{sectionNames[2]}' and {sections.Count - 3} more";
-                        }
-
-                        if (totalQuestions > 0)
-                        {
-                            summary += $" ({totalQuestions} questions)";
-                        }
-
-                        return summary;
+                        changes.Add($"sections: {string.Join(", ", sectionNames.Select(n => $"'{n}'"))}");
                     }
+                    // Don't show section count if only default sections exist
 
-                    var result = $"{sections.Count} sections";
+                    // Question count
                     if (totalQuestions > 0)
                     {
-                        result += $" ({totalQuestions} questions)";
+                        changes.Add($"questions: {totalQuestions}");
                     }
-                    return result;
+
+                    // Show detailed question information (similar to update)
+                    if (afterQuestions.Any())
+                    {
+                        var questionDetails = afterQuestions.Select(q => GetFormattedQuestionInfo(q)).Where(t => !string.IsNullOrEmpty(t)).ToList();
+                        if (questionDetails.Any())
+                        {
+                            changes.Add($"added questions: {string.Join("; ", questionDetails)}");
+                        }
+                    }
+
+                    return string.Join("; ", changes);
                 }
 
                 return "[Structure data]";
@@ -1232,28 +1231,30 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                         changes.Add($"sections changed from {beforeSectionsList.Count} to {afterSectionsList.Count}");
                     }
 
-                    // Section name changes
+                    // Section name changes (skip default "Untitled Section")
                     var beforeSectionNames = beforeSectionsList
                         .Where(s => s.TryGetProperty("name", out var _))
                         .Select(s => s.GetProperty("name").GetString())
-                        .Where(name => !string.IsNullOrEmpty(name))
+                        .Where(name => !string.IsNullOrEmpty(name) && 
+                                      !name.Equals("Untitled Section", StringComparison.OrdinalIgnoreCase))
                         .ToList();
 
                     var afterSectionNames = afterSectionsList
                         .Where(s => s.TryGetProperty("name", out var _))
                         .Select(s => s.GetProperty("name").GetString())
-                        .Where(name => !string.IsNullOrEmpty(name))
+                        .Where(name => !string.IsNullOrEmpty(name) && 
+                                      !name.Equals("Untitled Section", StringComparison.OrdinalIgnoreCase))
                         .ToList();
 
                     // Find added sections
-                    var addedSections = afterSectionNames.Except(beforeSectionNames).Take(2).ToList();
+                    var addedSections = afterSectionNames.Except(beforeSectionNames).ToList();
                     if (addedSections.Any())
                     {
                         changes.Add($"added sections: {string.Join(", ", addedSections.Select(n => $"'{n}'"))}");
                     }
 
                     // Find removed sections
-                    var removedSections = beforeSectionNames.Except(afterSectionNames).Take(2).ToList();
+                    var removedSections = beforeSectionNames.Except(afterSectionNames).ToList();
                     if (removedSections.Any())
                     {
                         changes.Add($"removed sections: {string.Join(", ", removedSections.Select(n => $"'{n}'"))}");
@@ -1279,14 +1280,16 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                 if (changes.Any())
                 {
                     // Format the structure changes in a more readable way
-                    var formattedChanges = changes.Take(5).ToList();
-                    if (formattedChanges.Count == 1)
+                    // Show all changes, but limit individual change descriptions if needed
+                    if (changes.Count == 1)
                     {
-                        return $"Structure modified: {formattedChanges[0]}";
+                        return $"Structure modified: {changes[0]}";
                     }
                     else
                     {
-                        return $"Structure modified: {string.Join("; ", formattedChanges)}";
+                        // Join all changes - show everything
+                        var allChanges = string.Join("; ", changes);
+                        return $"Structure modified: {allChanges}";
                     }
                 }
 
@@ -1389,6 +1392,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
         protected class DetailedQuestionInfo
         {
             public string Id { get; set; }
+            public string TemporaryId { get; set; }
             public string Title { get; set; }
             public string Type { get; set; }
             public string Description { get; set; }
@@ -1403,14 +1407,25 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
             {
                 if (obj is DetailedQuestionInfo other)
                 {
-                    return Id == other.Id || (string.IsNullOrEmpty(Id) && string.IsNullOrEmpty(other.Id) && Title == other.Title);
+                    // Match by ID first, then temporaryId, then title
+                    if (!string.IsNullOrEmpty(Id) && !string.IsNullOrEmpty(other.Id))
+                        return Id == other.Id;
+                    if (!string.IsNullOrEmpty(TemporaryId) && !string.IsNullOrEmpty(other.TemporaryId))
+                        return TemporaryId == other.TemporaryId;
+                    return string.IsNullOrEmpty(Id) && string.IsNullOrEmpty(other.Id) && 
+                           string.IsNullOrEmpty(TemporaryId) && string.IsNullOrEmpty(other.TemporaryId) && 
+                           Title == other.Title;
                 }
                 return false;
             }
 
             public override int GetHashCode()
             {
-                return string.IsNullOrEmpty(Id) ? Title?.GetHashCode() ?? 0 : Id.GetHashCode();
+                if (!string.IsNullOrEmpty(Id))
+                    return Id.GetHashCode();
+                if (!string.IsNullOrEmpty(TemporaryId))
+                    return TemporaryId.GetHashCode();
+                return Title?.GetHashCode() ?? 0;
             }
         }
 
@@ -1884,23 +1899,26 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
             string description = null,
             long? relatedEntityId = null,
             string relatedEntityType = null,
-            string extendedData = null)
+            string extendedData = null,
+            string customDescription = null)
         {
             try
             {
                 var operationTitle = $"{businessModule} {operationAction}: {entityName}";
 
-                // Use enhanced description method that can handle beforeData and afterData
-                var operationDescription = await BuildEnhancedOperationDescriptionAsync(
-                    businessModule,
-                    entityName,
-                    operationAction,
-                    beforeData,
-                    afterData,
-                    changedFields,
-                    relatedEntityId,
-                    relatedEntityType,
-                    reason);
+                // Use custom description if provided, otherwise use enhanced description method
+                var operationDescription = !string.IsNullOrEmpty(customDescription)
+                    ? customDescription
+                    : await BuildEnhancedOperationDescriptionAsync(
+                        businessModule,
+                        entityName,
+                        operationAction,
+                        beforeData,
+                        afterData,
+                        changedFields,
+                        relatedEntityId,
+                        relatedEntityType,
+                        reason);
 
                 // Add module-specific additions
                 if (!string.IsNullOrEmpty(description))
@@ -2059,6 +2077,11 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                 questionInfo.Id = idElement.GetString() ?? string.Empty;
             }
 
+            if (question.TryGetProperty("temporaryId", out var temporaryIdElement))
+            {
+                questionInfo.TemporaryId = temporaryIdElement.GetString() ?? string.Empty;
+            }
+
             if (question.TryGetProperty("title", out var titleElement))
             {
                 questionInfo.Title = titleElement.GetString() ?? string.Empty;
@@ -2117,11 +2140,21 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                     }
                     
                     // Add to both lists for backward compatibility
+                    // Always add optionInfo to OptionDetails, even if displayText is empty
+                    questionInfo.OptionDetails.Add(optionInfo);
+                    
                     var displayText = optionInfo.GetDisplayText();
                     if (!string.IsNullOrEmpty(displayText))
                     {
                         questionInfo.Options.Add(displayText);
-                        questionInfo.OptionDetails.Add(optionInfo);
+                    }
+                    else
+                    {
+                        // Fallback: use value or label if displayText is empty
+                        var fallbackText = !string.IsNullOrEmpty(optionInfo.Value) 
+                            ? optionInfo.Value 
+                            : (!string.IsNullOrEmpty(optionInfo.Label) ? optionInfo.Label : "Option");
+                        questionInfo.Options.Add(fallbackText);
                     }
                 }
             }
@@ -2215,9 +2248,12 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
         /// </summary>
         protected virtual string GetQuestionDeduplicationKey(DetailedQuestionInfo question)
         {
-            // Use title as primary key, fall back to ID if title is empty
-            var key = !string.IsNullOrEmpty(question.Title) ? question.Title.Trim() : question.Id?.Trim();
-            return key?.ToLowerInvariant() ?? string.Empty;
+            // Use ID first, then temporaryId, then title as fallback
+            if (!string.IsNullOrEmpty(question.Id))
+                return question.Id.Trim().ToLowerInvariant();
+            if (!string.IsNullOrEmpty(question.TemporaryId))
+                return question.TemporaryId.Trim().ToLowerInvariant();
+            return question.Title?.Trim().ToLowerInvariant() ?? string.Empty;
         }
 
         /// <summary>
@@ -2234,18 +2270,24 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                 var afterDict = afterQuestions.ToDictionary(q => GetQuestionKey(q), q => q);
 
                 // Find added questions
-                var addedQuestions = afterDict.Keys.Except(beforeDict.Keys).Take(2).ToList();
-                if (addedQuestions.Any())
+                var allAddedQuestions = afterDict.Keys.Except(beforeDict.Keys).ToList();
+                if (allAddedQuestions.Any())
                 {
-                    var addedInfo = addedQuestions.Select(k => GetFormattedQuestionInfo(afterDict[k])).Where(t => !string.IsNullOrEmpty(t));
-                    if (addedQuestions.Count == 1)
+                    // Show all added questions
+                    var addedInfo = allAddedQuestions.Select(k => GetFormattedQuestionInfo(afterDict[k])).Where(t => !string.IsNullOrEmpty(t));
+                    
+                    if (allAddedQuestions.Count == 1)
+                    {
                         changes.Add($"added question: {string.Join("; ", addedInfo)}");
+                    }
                     else
+                    {
                         changes.Add($"added questions: {string.Join("; ", addedInfo)}");
+                    }
                 }
 
                 // Find removed questions
-                var removedQuestions = beforeDict.Keys.Except(afterDict.Keys).Take(2).ToList();
+                var removedQuestions = beforeDict.Keys.Except(afterDict.Keys).ToList();
                 if (removedQuestions.Any())
                 {
                     var removedInfo = removedQuestions.Select(k => GetFormattedQuestionInfo(beforeDict[k])).Where(t => !string.IsNullOrEmpty(t));
@@ -2271,8 +2313,6 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                             modifiedQuestions.Add($"'{title}' ({string.Join(", ", questionChanges)})");
                         }
                     }
-
-                    if (modifiedQuestions.Count >= 2) break; // Limit to 2 modified questions for readability
                 }
 
                 if (modifiedQuestions.Any())
@@ -2326,6 +2366,12 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                 parts.Add($"type: {question.Type}");
             }
 
+            // Add description if available
+            if (!string.IsNullOrEmpty(question.Description))
+            {
+                parts.Add($"description: '{question.Description}'");
+            }
+
             // For grid type questions, show rows and columns instead of options
             var isGridType = question.Type != null && 
                 (question.Type.Equals("multiple_choice_grid", StringComparison.OrdinalIgnoreCase) ||
@@ -2340,11 +2386,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                     var rowTexts = question.Rows.Select(r => r.GetDisplayText()).Where(t => !string.IsNullOrEmpty(t)).ToList();
                     if (rowTexts.Any())
                     {
-                        var rowsStr = string.Join(", ", rowTexts.Take(5).Select(r => $"'{r}'"));
-                        if (rowTexts.Count > 5)
-                        {
-                            rowsStr += $" and {rowTexts.Count - 5} more";
-                        }
+                        var rowsStr = string.Join(", ", rowTexts.Select(r => $"'{r}'"));
                         parts.Add($"rows: {rowsStr}");
                     }
                 }
@@ -2355,11 +2397,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                     var columnTexts = question.Columns.Select(c => c.GetDisplayText()).Where(t => !string.IsNullOrEmpty(t)).ToList();
                     if (columnTexts.Any())
                     {
-                        var columnsStr = string.Join(", ", columnTexts.Take(5).Select(c => $"'{c}'"));
-                        if (columnTexts.Count > 5)
-                        {
-                            columnsStr += $" and {columnTexts.Count - 5} more";
-                        }
+                        var columnsStr = string.Join(", ", columnTexts.Select(c => $"'{c}'"));
                         parts.Add($"columns: {columnsStr}");
                     }
                 }
@@ -2372,21 +2410,13 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                     var optionTexts = question.OptionDetails.Select(o => o.GetDisplayText()).Where(t => !string.IsNullOrEmpty(t)).ToList();
                     if (optionTexts.Any())
                     {
-                        var optionsStr = string.Join(", ", optionTexts.Take(5).Select(o => $"'{o}'"));
-                        if (optionTexts.Count > 5)
-                        {
-                            optionsStr += $" and {optionTexts.Count - 5} more";
-                        }
+                        var optionsStr = string.Join(", ", optionTexts.Select(o => $"'{o}'"));
                         parts.Add($"options: {optionsStr}");
                     }
                 }
                 else if (question.Options != null && question.Options.Count > 0)
                 {
-                    var optionsStr = string.Join(", ", question.Options.Take(5).Select(o => $"'{o}'"));
-                    if (question.Options.Count > 5)
-                    {
-                        optionsStr += $" and {question.Options.Count - 5} more";
-                    }
+                    var optionsStr = string.Join(", ", question.Options.Select(o => $"'{o}'"));
                     parts.Add($"options: {optionsStr}");
                 }
             }
@@ -2404,7 +2434,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
             try
             {
                 // Find added options
-                var addedOptions = afterOptions.Except(beforeOptions).Take(3).ToList();
+                var addedOptions = afterOptions.Except(beforeOptions).ToList();
                 if (addedOptions.Any())
                 {
                     var addedTexts = addedOptions.Select(o => $"'{o.GetDisplayText()}'").ToList();
@@ -2415,7 +2445,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                 }
 
                 // Find removed options
-                var removedOptions = beforeOptions.Except(afterOptions).Take(3).ToList();
+                var removedOptions = beforeOptions.Except(afterOptions).ToList();
                 if (removedOptions.Any())
                 {
                     var removedTexts = removedOptions.Select(o => $"'{o.GetDisplayText()}'").ToList();
@@ -2433,7 +2463,6 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                     if (afterOption != null && beforeOption.GetDisplayText() != afterOption.GetDisplayText())
                     {
                         modifiedOptions.Add($"'{beforeOption.GetDisplayText()}' → '{afterOption.GetDisplayText()}'");
-                        if (modifiedOptions.Count >= 2) break; // Limit to 2 for readability
                     }
                 }
                 
@@ -2457,6 +2486,74 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                 if (beforeOptions.Count != afterOptions.Count)
                 {
                     changes.Add($"options: {beforeOptions.Count} → {afterOptions.Count}");
+                }
+            }
+
+            return changes;
+        }
+
+        /// <summary>
+        /// Get detailed row/column changes between before and after lists
+        /// </summary>
+        protected virtual List<string> GetDetailedRowColumnChanges(List<OptionInfo> beforeItems, List<OptionInfo> afterItems, string itemType)
+        {
+            var changes = new List<string>();
+            
+            try
+            {
+                // Find added items
+                var addedItems = afterItems.Except(beforeItems).ToList();
+                if (addedItems.Any())
+                {
+                    var addedTexts = addedItems.Select(o => $"'{o.GetDisplayText()}'").ToList();
+                    if (addedItems.Count == 1)
+                        changes.Add($"added {itemType}: {addedTexts[0]}");
+                    else
+                        changes.Add($"added {itemType}s: {string.Join(", ", addedTexts)}");
+                }
+
+                // Find removed items
+                var removedItems = beforeItems.Except(afterItems).ToList();
+                if (removedItems.Any())
+                {
+                    var removedTexts = removedItems.Select(o => $"'{o.GetDisplayText()}'").ToList();
+                    if (removedItems.Count == 1)
+                        changes.Add($"removed {itemType}: {removedTexts[0]}");
+                    else
+                        changes.Add($"removed {itemType}s: {string.Join(", ", removedTexts)}");
+                }
+
+                // Find modified items (label or value changed)
+                var modifiedItems = new List<string>();
+                foreach (var beforeItem in beforeItems)
+                {
+                    var afterItem = afterItems.FirstOrDefault(o => o.Equals(beforeItem));
+                    if (afterItem != null && beforeItem.GetDisplayText() != afterItem.GetDisplayText())
+                    {
+                        modifiedItems.Add($"'{beforeItem.GetDisplayText()}' → '{afterItem.GetDisplayText()}'");
+                    }
+                }
+                
+                if (modifiedItems.Any())
+                {
+                    if (modifiedItems.Count == 1)
+                        changes.Add($"modified {itemType}: {modifiedItems[0]}");
+                    else
+                        changes.Add($"modified {itemType}s: {string.Join(", ", modifiedItems)}");
+                }
+
+                // If no detailed changes found but count changed, report count change
+                if (!changes.Any() && beforeItems.Count != afterItems.Count)
+                {
+                    changes.Add($"{itemType}s: {beforeItems.Count} → {afterItems.Count}");
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to analyze detailed {ItemType} changes", itemType);
+                if (beforeItems.Count != afterItems.Count)
+                {
+                    changes.Add($"{itemType}s: {beforeItems.Count} → {afterItems.Count}");
                 }
             }
 
@@ -2491,7 +2588,21 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
             // Check description changes
             if (before.Description != after.Description)
             {
-                changes.Add("description changed");
+                var beforeDesc = string.IsNullOrEmpty(before.Description) ? "[empty]" : $"'{before.Description}'";
+                var afterDesc = string.IsNullOrEmpty(after.Description) ? "[empty]" : $"'{after.Description}'";
+                
+                if (string.IsNullOrEmpty(before.Description))
+                {
+                    changes.Add($"description added: {afterDesc}");
+                }
+                else if (string.IsNullOrEmpty(after.Description))
+                {
+                    changes.Add($"description removed: {beforeDesc}");
+                }
+                else
+                {
+                    changes.Add($"description changed: {beforeDesc} → {afterDesc}");
+                }
             }
 
             // Check options changes for multiple choice questions with detailed information
@@ -2510,6 +2621,26 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
             else if (!before.Options.SequenceEqual(after.Options))
             {
                 changes.Add("options modified");
+            }
+
+            // Check rows changes for grid type questions
+            if (before.Rows.Count > 0 || after.Rows.Count > 0)
+            {
+                var rowChanges = GetDetailedRowColumnChanges(before.Rows, after.Rows, "row");
+                if (rowChanges.Any())
+                {
+                    changes.AddRange(rowChanges);
+                }
+            }
+
+            // Check columns changes for grid type questions
+            if (before.Columns.Count > 0 || after.Columns.Count > 0)
+            {
+                var columnChanges = GetDetailedRowColumnChanges(before.Columns, after.Columns, "column");
+                if (columnChanges.Any())
+                {
+                    changes.AddRange(columnChanges);
+                }
             }
 
             // Check specific important property changes

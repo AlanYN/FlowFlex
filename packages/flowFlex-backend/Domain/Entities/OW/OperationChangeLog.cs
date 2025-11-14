@@ -55,7 +55,7 @@ namespace FlowFlex.Domain.Entities.OW
         /// <summary>
         /// Operation Description
         /// </summary>
-        [StringLength(500)]
+        [StringLength(4000)]
         [SugarColumn(ColumnName = "operation_description")]
         public string OperationDescription { get; set; }
 
