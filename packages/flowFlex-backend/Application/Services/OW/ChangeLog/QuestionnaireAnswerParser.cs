@@ -36,14 +36,27 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                 var after = ParseJsonData(afterData);
                 var before = ParseJsonData(beforeData);
 
-                if (after == null)
+                // Safely check if after is null (handles JsonElement case)
+                if (ReferenceEquals(after, null))
                 {
                     _logger.LogError("Failed to parse afterData JSON");
                     return new List<string> { "Questionnaire updated (JSON parse error)" };
                 }
 
                 // Process answer submission (only afterData)
-                if (before == null && after?.responses != null)
+                // Safely check if before is null and after has responses
+                bool beforeIsNull = ReferenceEquals(before, null);
+                bool afterHasResponsesForSubmit = false;
+                try
+                {
+                    afterHasResponsesForSubmit = after?.responses != null;
+                }
+                catch
+                {
+                    afterHasResponsesForSubmit = false;
+                }
+
+                if (beforeIsNull && afterHasResponsesForSubmit)
                 {
                     foreach (var response in after.responses)
                     {
@@ -58,16 +71,41 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                 }
 
                 // Process answer updates (both beforeData and afterData)
-                if (before?.responses != null && after?.responses != null)
+                // Safely check if both before and after have responses
+                bool beforeHasResponses = false;
+                bool afterHasResponsesForUpdate = false;
+                try
+                {
+                    beforeHasResponses = before?.responses != null;
+                }
+                catch
+                {
+                    beforeHasResponses = false;
+                }
+                try
+                {
+                    afterHasResponsesForUpdate = after?.responses != null;
+                }
+                catch
+                {
+                    afterHasResponsesForUpdate = false;
+                }
+
+                if (beforeHasResponses && afterHasResponsesForUpdate)
                 {
                     // Debug: Processing answer updates
 
+                    // Use questionId + question as key for grid type questions to handle multiple sub-questions
                     var beforeMap = new Dictionary<string, dynamic>();
                     foreach (var resp in before.responses)
                     {
                         if (resp?.questionId != null)
                         {
-                            beforeMap[resp.questionId.ToString()] = resp;
+                            var questionId = resp.questionId.ToString();
+                            var question = resp?.question?.ToString() ?? string.Empty;
+                            // For grid type questions, use questionId + question as key to distinguish sub-questions
+                            var key = string.IsNullOrEmpty(question) ? questionId : $"{questionId}_{question}";
+                            beforeMap[key] = resp;
                         }
                     }
 
@@ -79,7 +117,11 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                         if (string.IsNullOrEmpty(questionId))
                             continue;
 
-                        if (!beforeMap.TryGetValue(questionId, out dynamic beforeResp))
+                        // Use questionId + question as key to match with beforeMap
+                        var question = afterResp?.question?.ToString() ?? string.Empty;
+                        var key = string.IsNullOrEmpty(question) ? questionId : $"{questionId}_{question}";
+                        
+                        if (!beforeMap.TryGetValue(key, out dynamic beforeResp))
                         {
                             // New answer - but skip file upload questions
                             if (IsFileUploadQuestion(afterResp))
@@ -958,21 +1000,52 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                 if (questionConfig != null)
                 {
                     try
-                {
-                    var rows = GetRowsFromConfig(questionConfig);
-                    foreach (var row in rows)
                     {
-                        var id = row.id?.ToString();
-                        var label = row.label?.ToString();
-                        if (!string.IsNullOrEmpty(id) && !string.IsNullOrEmpty(label))
+                        // Use JsonElement directly for safer access
+                        var configObj = JsonSerializer.Deserialize<JsonElement>(JsonSerializer.Serialize(questionConfig));
+                        if (configObj.TryGetProperty("rows", out JsonElement rowsElement) && 
+                            rowsElement.ValueKind == JsonValueKind.Array)
                         {
-                            rowIdToLabel[id] = label;
-                        }
+                            foreach (var rowElement in rowsElement.EnumerateArray())
+                            {
+                                try
+                                {
+                                    string id = null;
+                                    string label = null;
+                                    
+                                    // Extract id property
+                                    if (rowElement.TryGetProperty("id", out JsonElement idElement))
+                                    {
+                                        id = idElement.ValueKind == JsonValueKind.String 
+                                            ? idElement.GetString() 
+                                            : idElement.ToString();
+                                    }
+                                    
+                                    // Extract label property
+                                    if (rowElement.TryGetProperty("label", out JsonElement labelElement))
+                                    {
+                                        label = labelElement.ValueKind == JsonValueKind.String 
+                                            ? labelElement.GetString() 
+                                            : labelElement.ToString();
+                                    }
+                                    
+                                    if (!string.IsNullOrEmpty(id) && !string.IsNullOrEmpty(label))
+                                    {
+                                        rowIdToLabel[id] = label;
+                                    }
+                                }
+                                catch
+                                {
+                                    // Skip this row if we can't extract its properties
+                                    continue;
+                                }
+                            }
                         }
                     }
                     catch (Exception ex)
                     {
-                        _logger.LogWarning(ex, "Failed to extract rows from question config");
+                        Exception exception = ex;
+                        _logger.LogWarning(exception, "Failed to extract rows from question config");
                     }
                 }
 
@@ -1653,8 +1726,29 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "Failed to compare responseTexts, falling back to string comparison");
-                return responseText1 == responseText2;
+                // Try to normalize JSON by parsing and re-serializing before string comparison
+                try
+                {
+                    var dict1 = ParseResponseText(responseText1?.Trim() ?? string.Empty);
+                    var dict2 = ParseResponseText(responseText2?.Trim() ?? string.Empty);
+                    
+                    if (dict1.Count != dict2.Count) return false;
+                    
+                    foreach (var kvp in dict1)
+                    {
+                        if (!dict2.TryGetValue(kvp.Key, out string value2) || kvp.Value != value2)
+                        {
+                            return false;
+                        }
+                    }
+                    
+                    return true;
+                }
+                catch
+                {
+                    _logger.LogWarning(ex, "Failed to compare responseTexts, falling back to string comparison");
+                    return responseText1 == responseText2;
+                }
             }
         }
 
