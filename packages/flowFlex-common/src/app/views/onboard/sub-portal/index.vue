@@ -732,7 +732,7 @@ export default {
 					: data.targetCompletionDate
 					? formatDateUS(data.targetCompletionDate)
 					: '',
-				accountManager: data.stageUpdatedBy || '',
+				accountManager: data.ownershipName || data.createBy || '',
 				onboardingId: data.id,
 			};
 		});

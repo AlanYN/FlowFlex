@@ -107,6 +107,13 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
         {
             try
             {
+                // Check if both before and after values are empty - skip logging if so
+                if (AreBothValuesEmpty(beforeData, afterData))
+                {
+                    _logger.LogDebug("Skipping operation log for field {FieldName} as both before and after values are empty", fieldName);
+                    return true;
+                }
+
                 // Check if there's actually a meaningful change
                 if (!HasMeaningfulValueChangeEnhanced(beforeData, afterData))
                 {
@@ -786,9 +793,11 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                             {
                                 changeList.Add($"category changed to '{afterStr}'");
                             }
+                            // Skip EstimatedMinutes - don't show estimated time changes
                             else if (field.Equals("EstimatedMinutes", StringComparison.OrdinalIgnoreCase))
                             {
-                                changeList.Add($"estimated time: {beforeStr} → {afterStr} minutes");
+                                // Skip this field - don't add to changeList
+                                continue;
                             }
                             else
                             {
@@ -836,6 +845,77 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                 "UpdatedAt" => "Updated Time",
                 _ => fieldName
             };
+        }
+
+        /// <summary>
+        /// Check if both before and after values are empty
+        /// </summary>
+        private bool AreBothValuesEmpty(string beforeData, string afterData)
+        {
+            try
+            {
+                // Extract value from JSON if it's JSON format
+                string beforeValue = ExtractValueFromJson(beforeData);
+                string afterValue = ExtractValueFromJson(afterData);
+
+                // Check if both values are empty (null, empty string, or whitespace)
+                bool beforeEmpty = string.IsNullOrWhiteSpace(beforeValue);
+                bool afterEmpty = string.IsNullOrWhiteSpace(afterValue);
+
+                return beforeEmpty && afterEmpty;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to check if values are empty, proceeding with normal check");
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Extract value from JSON data (handles both raw strings and JSON objects)
+        /// </summary>
+        private string ExtractValueFromJson(string data)
+        {
+            if (string.IsNullOrEmpty(data))
+                return null;
+
+            try
+            {
+                // Try to parse as JSON object first
+                var jsonDoc = JsonDocument.Parse(data);
+                var root = jsonDoc.RootElement;
+
+                // Check if it has a "value" property
+                if (root.TryGetProperty("value", out var valueElement))
+                {
+                    if (valueElement.ValueKind == JsonValueKind.String)
+                    {
+                        var value = valueElement.GetString();
+                        // Handle escaped empty string: "\"\""
+                        if (value == "\"\"")
+                            return string.Empty;
+                        return value;
+                    }
+                    return valueElement.ToString();
+                }
+
+                // If no "value" property, try to get the string value directly
+                if (root.ValueKind == JsonValueKind.String)
+                {
+                    return root.GetString();
+                }
+            }
+            catch
+            {
+                // If parsing fails, treat as raw string
+            }
+
+            // If not JSON or parsing failed, return as-is (might be a raw string)
+            // Handle escaped empty string
+            if (data == "\"\"")
+                return string.Empty;
+
+            return data;
         }
 
         #endregion

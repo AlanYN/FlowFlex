@@ -92,7 +92,14 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                             changesList.Add($"{questionTitle}: {formattedAnswer}");
                             // Debug: Added new answer
                         }
-                        else if (!AreAnswersEqual(beforeResp?.answer, afterResp?.answer))
+                        else
+                        {
+                            // Check if answer or responseText has changed
+                            // responseText contains custom values for "Other" options
+                            var answerChanged = !AreAnswersEqual(beforeResp?.answer, afterResp?.answer);
+                            var responseTextChanged = !AreResponseTextsEqual(beforeResp?.responseText?.ToString(), afterResp?.responseText?.ToString());
+                            
+                            if (answerChanged || responseTextChanged)
                         {
                             // Modified answer - but skip file upload questions
                             if (IsFileUploadQuestion(afterResp) || IsFileUploadQuestion(beforeResp))
@@ -109,6 +116,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                         else
                         {
                             // Debug: No change detected
+                            }
                         }
                     }
                 }
@@ -210,10 +218,6 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
             if (response == null)
                 return "No answer";
 
-            var answer = response.answer ?? response.responseText;
-            if (!HasValidAnswer(answer))
-                return "No answer";
-
             var type = response.type?.ToString();
             var questionId = response.questionId?.ToString();
 
@@ -224,10 +228,20 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                 questionConfig = FindQuestionConfig(questionnaireConfig, questionId);
             }
 
+            // For short_answer_grid, answer is stored in responseText, not answer field
+            if (type == "short_answer_grid")
+            {
+                return GetShortAnswerGridSummary(response, questionConfig);
+            }
+
+            var answer = response.answer ?? response.responseText;
+            if (!HasValidAnswer(answer))
+                return "No answer";
+
             switch (type)
             {
                 case "multiple_choice":
-                    return GetMultipleChoiceLabel(answer, questionConfig);
+                    return GetMultipleChoiceLabel(answer, questionConfig, response.responseText?.ToString(), questionId);
 
                 case "dropdown":
                     return GetDropdownLabel(answer, questionConfig);
@@ -238,9 +252,6 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                 case "multiple_choice_grid":
                 case "checkbox_grid":
                     return GetGridAnswerLabels(answer, questionConfig, response.responseText?.ToString(), questionId);
-
-                case "short_answer_grid":
-                    return GetShortAnswerGridSummary(response, questionConfig);
 
                 case "date":
                     return FormatAnswerDate(answer, "date");
@@ -316,9 +327,9 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
         }
 
         /// <summary>
-        /// Get multiple choice label
+        /// Get multiple choice label (aligned with frontend getMultipleChoiceLabel logic)
         /// </summary>
-        private string GetMultipleChoiceLabel(dynamic answer, dynamic questionConfig)
+        private string GetMultipleChoiceLabel(dynamic answer, dynamic questionConfig, string responseText = null, string questionId = null)
         {
             if (answer == null)
                 return "No answer";
@@ -334,57 +345,145 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                 configIsNull = true;
             }
 
-            if (configIsNull)
-                return answer?.ToString() ?? "No answer";
+            var answerStr = answer.ToString();
+            var answerLower = answerStr?.ToLower() ?? "";
 
+            // Find the option with matching value
+            dynamic matchedOption = null;
+            if (!configIsNull)
+            {
             try
             {
                 var options = GetOptionsFromConfig(questionConfig);
-                var answerStr = answer.ToString();
-
                 foreach (var option in options)
                 {
                     string value = null;
-                    string label = null;
-
                     try
                     {
-                        // Safely extract value and label from dynamic object
                         var optionObj = JsonSerializer.Deserialize<JsonElement>(JsonSerializer.Serialize(option));
-
                         if (optionObj.TryGetProperty("value", out JsonElement valueElement))
                         {
                             value = valueElement.GetString();
                         }
-
-                        if (optionObj.TryGetProperty("label", out JsonElement labelElement))
-                        {
-                            label = labelElement.GetString();
-                        }
                     }
                     catch
                     {
-                        // Fallback to dynamic access if JSON approach fails
                         try
                         {
                             value = option.value?.ToString();
-                            label = option.label?.ToString();
                         }
                         catch
                         {
-                            continue; // Skip this option if we can't extract value/label
+                                continue;
                         }
                     }
 
                     if (value == answerStr)
                     {
-                        return label ?? answerStr;
+                            matchedOption = option;
+                            break;
                     }
                 }
             }
             catch { }
+            }
 
-            return answer.ToString();
+            // If answer is "other" or option is Other type, try to extract custom value from responseText
+            bool isOtherAnswer = answerLower == "other" || answerLower.Contains("other");
+            bool isOtherOption = false;
+            string optionLabel = null;
+            bool hasMatchedOption = false;
+
+            // Safe null check for dynamic type
+            try
+            {
+                hasMatchedOption = !ReferenceEquals(matchedOption, null);
+            }
+            catch
+            {
+                hasMatchedOption = false;
+            }
+
+            if (hasMatchedOption)
+            {
+                try
+                {
+                    var optionObj = JsonSerializer.Deserialize<JsonElement>(JsonSerializer.Serialize(matchedOption));
+                    optionLabel = optionObj.TryGetProperty("label", out JsonElement labelElement) 
+                        ? labelElement.GetString() 
+                        : null;
+                    
+                    if (string.IsNullOrEmpty(optionLabel))
+                    {
+                        try
+                        {
+                            optionLabel = matchedOption.label?.ToString();
+                        }
+                        catch { }
+                    }
+                    
+                    isOtherOption = IsOtherOption(matchedOption);
+                }
+                catch
+                {
+                    try
+                    {
+                        optionLabel = matchedOption.label?.ToString();
+                        isOtherOption = IsOtherOption(matchedOption);
+                    }
+                    catch { }
+                }
+            }
+
+            if ((isOtherAnswer || isOtherOption) && !string.IsNullOrEmpty(responseText) && !string.IsNullOrEmpty(questionId))
+            {
+                var otherValues = ExtractOtherValues(responseText, questionId);
+                // Try multiple ways to find custom value
+                string customValue = null;
+                
+                if (otherValues.TryGetValue(answerStr, out customValue) ||
+                    otherValues.TryGetValue("other", out customValue) ||
+                    (hasMatchedOption && otherValues.TryGetValue(answerStr, out customValue)))
+                {
+                    // Found
+                }
+                // Find key containing questionId and option value
+                else if (hasMatchedOption)
+                {
+                    var optionValue = answerStr;
+                    var matchingKey = otherValues.Keys.FirstOrDefault(k => 
+                        k.Contains(questionId) && k.Contains(optionValue));
+                    if (matchingKey != null)
+                    {
+                        otherValues.TryGetValue(matchingKey, out customValue);
+                    }
+                }
+                // Find any key containing "other"
+                if (customValue == null)
+                {
+                    var otherEntry = otherValues.FirstOrDefault(kvp =>
+                        kvp.Key.ToLower().Contains("other"));
+                    customValue = otherEntry.Value;
+                }
+                // Finally use first value
+                if (customValue == null && otherValues.Count > 0)
+                {
+                    customValue = otherValues.Values.First();
+                }
+
+                if (!string.IsNullOrEmpty(customValue))
+                {
+                    return $"Other: {customValue}";
+                }
+            }
+
+            // Return option label if found, otherwise return answer
+            if (!string.IsNullOrEmpty(optionLabel))
+            {
+                return optionLabel;
+            }
+
+            return answerStr ?? "No answer";
         }
 
         /// <summary>
@@ -483,7 +582,39 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                     {
                         if (otherOptionIds.Contains(value))
                         {
-                            if (otherValues.TryGetValue(value, out string customValue))
+                            // Try multiple ways to find custom value
+                            string customValue = null;
+                            
+                            // Direct match with value (option ID or "other")
+                            if (otherValues.TryGetValue(value, out customValue) ||
+                                otherValues.TryGetValue("other", out customValue))
+                            {
+                                // Found
+                            }
+                            // Find key containing questionId and option value
+                            else if (!string.IsNullOrEmpty(questionId))
+                            {
+                                var matchingKey = otherValues.Keys.FirstOrDefault(k => 
+                                    k.Contains(questionId) && k.Contains(value));
+                                if (matchingKey != null)
+                                {
+                                    otherValues.TryGetValue(matchingKey, out customValue);
+                                }
+                            }
+                            // Find any key containing "other"
+                            if (customValue == null)
+                            {
+                                var otherEntry = otherValues.FirstOrDefault(kvp =>
+                                    kvp.Key.ToLower().Contains("other"));
+                                customValue = otherEntry.Value;
+                            }
+                            // Finally use first value
+                            if (customValue == null && otherValues.Count > 0)
+                            {
+                                customValue = otherValues.Values.First();
+                            }
+
+                            if (!string.IsNullOrEmpty(customValue))
                             {
                                 labels.Add($"Other: {customValue}");
                             }
@@ -499,7 +630,58 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                     }
                     else
                     {
+                        // Value not found in optionMap, might be "other" directly
+                        var valueLower = value?.ToLower() ?? "";
+                        if (valueLower == "other" || valueLower.Contains("other"))
+                        {
+                            // Try multiple ways to find custom value
+                            string customValue = null;
+                            
+                            // Direct match with value or "other"
+                            if (otherValues.TryGetValue(value, out customValue) ||
+                                otherValues.TryGetValue("other", out customValue))
+                            {
+                                // Found
+                            }
+                            // Find key containing questionId (for format questionId_optionId)
+                            else if (!string.IsNullOrEmpty(questionId))
+                            {
+                                // Try to find key that starts with questionId or baseQuestionId
+                                var baseQuestionId = questionId.Contains("_row-") 
+                                    ? questionId.Split(new[] { "_row-" }, StringSplitOptions.None)[0].Split('_')[0]
+                                    : questionId.Split('_')[0];
+                                
+                                var matchingKey = otherValues.Keys.FirstOrDefault(k => 
+                                    k.StartsWith(questionId + "_") || 
+                                    k.StartsWith(baseQuestionId + "_") ||
+                                    k.Contains(questionId) ||
+                                    k.Contains(baseQuestionId));
+                                if (matchingKey != null)
+                                {
+                                    otherValues.TryGetValue(matchingKey, out customValue);
+                                }
+                            }
+                            // Find any key containing "other"
+                            if (customValue == null)
+                            {
+                                var otherEntry = otherValues.FirstOrDefault(kvp =>
+                                    kvp.Key.ToLower().Contains("other"));
+                                customValue = otherEntry.Value;
+                            }
+                            // Finally use first value (as last resort)
+                            if (customValue == null && otherValues.Count > 0)
+                            {
+                                customValue = otherValues.Values.First();
+                            }
+                            
+                            labels.Add(!string.IsNullOrEmpty(customValue) 
+                                ? $"Other: {customValue}" 
+                                : "Other");
+                    }
+                    else
+                    {
                         labels.Add(value);
+                        }
                     }
                 }
 
@@ -603,11 +785,72 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
 
                 foreach (var id in answerValues)
                 {
+                    var idLower = id?.ToLower() ?? "";
                     if (columnMap.TryGetValue(id, out string label))
                     {
-                        if (otherColumnIds.Contains(id))
+                        // If it's an Other type column, prioritize showing user input value
+                        if (otherColumnIds.Contains(id) || idLower.Contains("other") || 
+                            (label != null && label.ToLower().Contains("other")))
                         {
-                            if (otherValues.TryGetValue(id, out string customValue))
+                            // Try multiple matching ways to find custom value
+                            string customValue = null;
+                            
+                            // Direct match column ID in various formats
+                            if (otherValues.TryGetValue(id, out customValue) ||
+                                otherValues.TryGetValue($"column-{id}", out customValue) ||
+                                otherValues.TryGetValue($"column-other-{id}", out customValue) ||
+                                otherValues.TryGetValue(id.Replace("column-", "column-other-"), out customValue) ||
+                                otherValues.TryGetValue(id.Replace("column-other-", ""), out customValue))
+                            {
+                                // Found custom value
+                            }
+                            // Try matching full key format: questionId_rowId_columnId
+                            else if (!string.IsNullOrEmpty(questionId))
+                            {
+                                var matchingKey = otherValues.Keys.FirstOrDefault(k => 
+                                    k.EndsWith($"_{id}") || k == $"{questionId}_{id}");
+                                if (matchingKey != null)
+                                {
+                                    otherValues.TryGetValue(matchingKey, out customValue);
+                                }
+                            }
+                            // Format conversion matching
+                            if (customValue == null)
+                            {
+                                if (idLower.StartsWith("column-other-"))
+                                {
+                                    var extractedId = idLower.Replace("column-other-", "");
+                                    otherValues.TryGetValue(extractedId, out customValue);
+                                }
+                            }
+                            // Find key containing the column id
+                            if (customValue == null)
+                            {
+                                var matchingEntry = otherValues.FirstOrDefault(kvp =>
+                                {
+                                    var keyLower = kvp.Key.ToLower();
+                                    return keyLower.Contains(idLower) ||
+                                           keyLower.Contains($"column-other-{idLower}") ||
+                                           keyLower.Contains($"_{idLower}_") ||
+                                           keyLower.EndsWith($"_{idLower}") ||
+                                           keyLower.EndsWith(idLower);
+                                });
+                                customValue = matchingEntry.Value;
+                            }
+                            // If still not found, try finding any value containing "other" as fallback
+                            if (customValue == null)
+                            {
+                                var otherEntry = otherValues.FirstOrDefault(kvp =>
+                                    kvp.Key.ToLower().Contains("other"));
+                                customValue = otherEntry.Value;
+                            }
+                            // Finally use first value as last resort
+                            if (customValue == null && otherValues.Count > 0)
+                            {
+                                customValue = otherValues.Values.First();
+                            }
+
+                            if (!string.IsNullOrEmpty(customValue))
                             {
                                 labels.Add($"Other: {customValue}");
                             }
@@ -623,10 +866,65 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                     }
                     else
                     {
-                        // If no exact match found, keep the original ID
-                        // This is where IDs like "1963784695460270089" would remain as-is
-                        // _logger.LogDebug("No label found for answer ID: {AnswerId} in questionId: {QuestionId}", id, questionId);
+                        // Not found in columnMap, might be directly "Other"
+                        if (idLower == "other" || idLower.Contains("other"))
+                        {
+                            // Try multiple ways to find custom value
+                            string customValue = null;
+                            
+                            if (otherValues.TryGetValue(id, out customValue) ||
+                                otherValues.TryGetValue($"column-other-{id}", out customValue) ||
+                                otherValues.TryGetValue($"column-{id}", out customValue))
+                            {
+                                // Found
+                            }
+                            else
+                            {
+                                // Find key containing "other"
+                                var otherEntry = otherValues.FirstOrDefault(kvp =>
+                                    kvp.Key.ToLower().Contains("other") &&
+                                    (kvp.Key.ToLower().Contains(idLower) || 
+                                     kvp.Key.ToLower().EndsWith("other") || 
+                                     kvp.Key.ToLower().Contains("column-other-")));
+                                customValue = otherEntry.Value;
+                            }
+                            
+                            // If still not found, use first value or "Other"
+                            if (string.IsNullOrEmpty(customValue) && otherValues.Count > 0)
+                            {
+                                customValue = otherValues.Values.First();
+                            }
+                            
+                            labels.Add(!string.IsNullOrEmpty(customValue) 
+                                ? $"Other: {customValue}" 
+                                : "Other");
+                        }
+                        else
+                        {
+                            // Fallback: case-insensitive match otherValues keys
+                            var hasRelatedOther = otherValues.Keys.Any(k =>
+                                k.ToLower().Contains(idLower) ||
+                                k.ToLower().Contains($"column-other-{idLower}") ||
+                                k.ToLower().Contains($"_{idLower}_") ||
+                                k.ToLower().EndsWith($"_{idLower}"));
+                            
+                            if (hasRelatedOther)
+                            {
+                                var matchingEntry = otherValues.FirstOrDefault(kvp =>
+                                    kvp.Key.ToLower().Contains(idLower) ||
+                                    kvp.Key.ToLower().Contains($"column-other-{idLower}") ||
+                                    kvp.Key.ToLower().Contains($"_{idLower}_") ||
+                                    kvp.Key.ToLower().EndsWith($"_{idLower}"));
+                                var customValue = matchingEntry.Value;
+                                labels.Add(!string.IsNullOrEmpty(customValue) 
+                                    ? $"Other: {customValue}" 
+                                    : id);
+                            }
+                            else
+                            {
                         labels.Add(id);
+                            }
+                        }
                     }
                 }
 
@@ -649,7 +947,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
             try
             {
                 var responseText = response?.responseText?.ToString();
-                if (string.IsNullOrEmpty(responseText))
+                if (string.IsNullOrEmpty(responseText) || responseText.Trim() == "{}")
                     return "No answer";
 
                 var parsed = ParseResponseText(responseText);
@@ -658,6 +956,8 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
 
                 var rowIdToLabel = new Dictionary<string, string>();
                 if (questionConfig != null)
+                {
+                    try
                 {
                     var rows = GetRowsFromConfig(questionConfig);
                     foreach (var row in rows)
@@ -668,32 +968,163 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                         {
                             rowIdToLabel[id] = label;
                         }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Failed to extract rows from question config");
                     }
                 }
 
-                var results = new List<string>();
-                foreach (var kvp in parsed)
+                // Group values by row ID
+                var rowValues = new Dictionary<string, List<string>>();
+                
+                foreach (KeyValuePair<string, string> kvp in parsed)
+                {
+                    try
                 {
                     var parts = kvp.Key.Split('_');
+                        string rowId = null;
+                        
+                        // Handle format: questionId_rowId_columnId (3 parts)
+                        if (parts.Length >= 3)
+                        {
+                            rowId = parts[1]; // Second part is rowId
+                        }
+                        // Handle format with "row-" prefix
+                        else if (parts.Length > 0)
+                        {
                     var rowPart = parts.FirstOrDefault((Func<string, bool>)(p => p.StartsWith("row-")));
                     if (!string.IsNullOrEmpty(rowPart))
                     {
-                        var label = rowIdToLabel.TryGetValue(rowPart, out string rowLabel)
-                            ? rowLabel
-                            : rowPart.Replace("row-", "");
+                                rowId = rowPart;
+                            }
+                            else if (parts.Length == 2)
+                            {
+                                // Fallback: use second part as rowId
+                                rowId = parts[1];
+                            }
+                        }
+                        
+                        if (!string.IsNullOrEmpty(rowId))
+                        {
                         var value = kvp.Value?.ToString()?.Trim();
                         if (!string.IsNullOrEmpty(value))
                         {
-                            results.Add($"{label}: {value}");
+                                if (!rowValues.ContainsKey(rowId))
+                                {
+                                    rowValues[rowId] = new List<string>();
+                                }
+                                rowValues[rowId].Add(value);
+                            }
                         }
                     }
+                    catch (Exception ex)
+                    {
+                        string keyStr = kvp.Key?.ToString() ?? "unknown";
+                        _logger.LogWarning(ex, "Failed to process key-value pair in short answer grid: {Key}", keyStr);
+                        // Continue processing other entries
+                    }
+                }
+
+                if (rowValues.Count == 0)
+                    return "No answer";
+
+                // Build results with row labels
+                var results = new List<string>();
+                foreach (var kvp in rowValues)
+                {
+                    var rowId = kvp.Key;
+                    var values = kvp.Value;
+                    
+                    // Get row label
+                    string rowLabel = null;
+                    if (rowIdToLabel.TryGetValue(rowId, out string label))
+                    {
+                        rowLabel = label;
+                    }
+                    else if (rowId.StartsWith("row-"))
+                    {
+                        rowLabel = rowId.Replace("row-", "");
+                        }
+                    else
+                    {
+                        // Use a more user-friendly label
+                        // Try to extract from question title if available
+                        var questionTitle = response?.question?.ToString();
+                        if (!string.IsNullOrEmpty(questionTitle) && questionTitle.Contains(" - "))
+                        {
+                            var titleParts = questionTitle.Split(new[] { " - " }, StringSplitOptions.None);
+                            if (titleParts.Length > 1)
+                            {
+                                rowLabel = titleParts[1]; // Use the part after " - "
+                            }
+                            else
+                            {
+                                rowLabel = $"Row {rowId}";
+                            }
+                        }
+                        else
+                        {
+                            rowLabel = $"Row {rowId}";
+                        }
+                    }
+                    
+                    // Join multiple values for the same row
+                    var valuesStr = string.Join(", ", values);
+                    results.Add($"{rowLabel}: {valuesStr}");
                 }
 
                 return results.Count > 0 ? string.Join("; ", results) : "No answer";
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "Failed to format short answer grid");
+                var responseTextPreview = string.Empty;
+                try
+                {
+                    var responseTextStr = response?.responseText?.ToString();
+                    if (!string.IsNullOrEmpty(responseTextStr))
+                    {
+                        var length = Math.Min(200, responseTextStr.Length);
+                        responseTextPreview = responseTextStr.Substring(0, length);
+                    }
+                }
+                catch
+                {
+                    // Ignore preview errors
+                }
+                Exception exception = ex; // Explicit type to avoid dynamic dispatch issue
+                _logger.LogWarning(exception, "Failed to format short answer grid. ResponseText: {ResponseText}", responseTextPreview);
+                
+                // Try to return at least some information
+                try
+                {
+                    var responseText = response?.responseText?.ToString();
+                    if (!string.IsNullOrEmpty(responseText) && responseText.Trim() != "{}")
+                    {
+                        var parsed = ParseResponseText(responseText);
+                        if (parsed != null && parsed.Count > 0)
+                        {
+                            var values = new List<string>();
+                            foreach (var kvp in parsed)
+                            {
+                                var valueStr = kvp.Value?.ToString();
+                                if (!string.IsNullOrWhiteSpace(valueStr))
+                                {
+                                    values.Add(valueStr);
+                                }
+                            }
+                            if (values.Count > 0)
+                            {
+                                return string.Join(", ", values.Take(5));
+                            }
+                        }
+                    }
+                }
+                catch
+                {
+                    // Ignore fallback errors
+                }
                 return "Grid answer provided";
             }
         }
@@ -997,7 +1428,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
         }
 
         /// <summary>
-        /// Extract other values from responseText
+        /// Extract other values from responseText (aligned with frontend extractOtherValues logic)
         /// </summary>
         private Dictionary<string, string> ExtractOtherValues(string responseText, string questionId)
         {
@@ -1008,17 +1439,91 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
             try
             {
                 var parsed = ParseResponseText(responseText);
+                
+                // Extract base questionId (remove row info, e.g., question-xxx_row-xxx -> question-xxx)
+                var baseQuestionId = questionId.Contains("_row-") 
+                    ? questionId.Split(new[] { "_row-" }, StringSplitOptions.None)[0].Split('_')[0]
+                    : questionId.Split('_')[0];
+
                 foreach (var kvp in parsed)
                 {
-                    if (kvp.Key.Contains(questionId) && (kvp.Key.Contains("other") || kvp.Key.Contains("option")))
-                    {
-                        // Extract option ID from key
+                    // Match questionId or baseQuestionId
+                    if (!kvp.Key.Contains(questionId) && !kvp.Key.Contains(baseQuestionId))
+                        continue;
+
+                    var customValue = kvp.Value;
                         var parts = kvp.Key.Split('_');
-                        var optionPart = parts.FirstOrDefault(p => p.StartsWith("option-") || p.StartsWith("column-other-"));
+
+                    // Store full key for exact matching
+                    otherValues[kvp.Key] = customValue;
+                    
+                    // Always store "other" as fallback if we have a matching key
+                    if (!otherValues.ContainsKey("other"))
+                    {
+                        otherValues["other"] = customValue;
+                    }
+
+                    // Format 1: questionId_optionId (single/multiple choice)
+                    // Example: "1988483416273850373_1988483416273850372"
+                    // Also handle cases where questionId might be a substring match
+                    if (parts.Length == 2 && (parts[0] == questionId || parts[0] == baseQuestionId || kvp.Key.StartsWith(questionId + "_") || kvp.Key.StartsWith(baseQuestionId + "_")))
+                    {
+                        var optionId = parts[1];
+                        otherValues[optionId] = customValue;
+                        if (!otherValues.ContainsKey("other"))
+                        {
+                            otherValues["other"] = customValue; // Generic fallback
+                        }
+                    }
+
+                    // Format 2: questionId_rowId_columnId (grid type)
+                    // Example: "1988483416273850381_1988483416273850376_1988483416273850380"
+                    if (parts.Length == 3)
+                    {
+                        var columnId = parts[2]; // Last part is column ID
+                        otherValues[columnId] = customValue;
+                        otherValues[$"column-{columnId}"] = customValue;
+                        otherValues[$"column-other-{columnId}"] = customValue;
+                        // Also store full key format for matching
+                        var fullKey = $"{questionId}_{parts[1]}_{columnId}";
+                        otherValues[fullKey] = customValue;
+                    }
+
+                    // Format 3: Contains column-other- format
+                    var columnPart = parts.FirstOrDefault(p => p.StartsWith("column-other-"));
+                    if (!string.IsNullOrEmpty(columnPart))
+                    {
+                        var columnId = columnPart.Replace("column-other-", "");
+                        otherValues[columnPart] = customValue;
+                        otherValues[columnId] = customValue;
+                        otherValues[$"column-{columnId}"] = customValue;
+                    }
+
+                    // Format 4: Contains option- format
+                    var optionPart = parts.FirstOrDefault(p => p.StartsWith("option-"));
                         if (!string.IsNullOrEmpty(optionPart))
                         {
-                            otherValues[optionPart] = kvp.Value;
+                        var optionId = optionPart.Replace("option-", "");
+                        otherValues[optionPart] = customValue;
+                        otherValues[optionId] = customValue;
+                        var alternativeKey = optionPart.Replace("option-", "option_");
+                        otherValues[alternativeKey] = customValue;
                         }
+
+                    // Store last part (usually ID) for matching
+                    if (parts.Length > 0)
+                    {
+                        var lastPart = parts[parts.Length - 1];
+                        if (!string.IsNullOrEmpty(lastPart))
+                        {
+                            otherValues[lastPart] = customValue;
+                        }
+                    }
+
+                    // Store generic "other" key as final fallback
+                    if (!otherValues.ContainsKey("other"))
+                    {
+                        otherValues["other"] = customValue;
                     }
                 }
             }
@@ -1110,6 +1615,46 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
             {
                 _logger.LogWarning(ex, "Failed to compare answers using JSON serialization, falling back to string comparison");
                 return answer1?.ToString() == answer2?.ToString();
+            }
+        }
+
+        /// <summary>
+        /// Check if responseTexts are equal (for detecting changes in "Other" custom values)
+        /// </summary>
+        private bool AreResponseTextsEqual(string responseText1, string responseText2)
+        {
+            try
+            {
+                // Handle null/empty cases
+                if (string.IsNullOrEmpty(responseText1) && string.IsNullOrEmpty(responseText2)) return true;
+                if (string.IsNullOrEmpty(responseText1) || string.IsNullOrEmpty(responseText2)) return false;
+
+                // Normalize empty JSON objects
+                var normalized1 = responseText1.Trim();
+                var normalized2 = responseText2.Trim();
+                if (normalized1 == "{}" && normalized2 == "{}") return true;
+                if (normalized1 == "{}" || normalized2 == "{}") return false;
+
+                // Parse and compare JSON dictionaries
+                var dict1 = ParseResponseText(normalized1);
+                var dict2 = ParseResponseText(normalized2);
+
+                if (dict1.Count != dict2.Count) return false;
+
+                foreach (var kvp in dict1)
+                {
+                    if (!dict2.TryGetValue(kvp.Key, out string value2) || kvp.Value != value2)
+                    {
+                        return false;
+                    }
+                }
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to compare responseTexts, falling back to string comparison");
+                return responseText1 == responseText2;
             }
         }
 
