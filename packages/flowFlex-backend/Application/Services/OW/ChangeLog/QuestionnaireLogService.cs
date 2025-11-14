@@ -659,7 +659,18 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
             {
                 _logger.LogError(ex, "Failed to build detailed answer operation description for questionnaire {QuestionnaireId}", questionnaireId);
 
-                // Fallback to simple description
+                // For update operations, check if there are actual changes before returning fallback description
+                if (operationAction.Equals("Updated", StringComparison.OrdinalIgnoreCase))
+                {
+                    // Check if there are meaningful changes
+                    if (!HasMeaningfulValueChangeEnhanced(beforeData, afterData))
+                    {
+                        // No meaningful changes, return null to skip logging
+                        return null;
+                    }
+                }
+
+                // Fallback to simple description (for submit operations or when we can't determine changes)
                 var fallbackDescription = $"Questionnaire answer has been {operationAction.ToLower()} by {GetOperatorDisplayName()}";
                 if (questionnaireId.HasValue)
                 {
