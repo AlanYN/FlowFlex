@@ -135,10 +135,24 @@ namespace FlowFlex.Application.Service.OW
             {
                 try
                 {
+                    // Prepare after data for logging with workflow fields
+                    var afterData = JsonSerializer.Serialize(new
+                    {
+                        Name = entity.Name,
+                        Description = entity.Description,
+                        Status = entity.Status,
+                        IsDefault = entity.IsDefault,
+                        ViewPermissionMode = entity.ViewPermissionMode,
+                        ViewTeams = entity.ViewTeams,
+                        OperateTeams = entity.OperateTeams,
+                        UseSameTeamForOperate = entity.UseSameTeamForOperate
+                    });
+
                     await _operationChangeLogService.LogWorkflowCreateAsync(
                         workflowId: entity.Id,
                         workflowName: entity.Name,
-                        workflowDescription: entity.Description
+                        workflowDescription: entity.Description,
+                        afterData: afterData
                     );
                 }
                 catch

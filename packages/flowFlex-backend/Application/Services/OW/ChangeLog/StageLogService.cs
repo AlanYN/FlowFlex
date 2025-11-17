@@ -90,12 +90,135 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
 
         #region Stage Lifecycle Operations
 
-        public async Task<bool> LogStageCreateAsync(long stageId, string stageName, long? workflowId = null, string extendedData = null)
+        public async Task<bool> LogStageCreateAsync(long stageId, string stageName, long? workflowId = null, string afterData = null, string extendedData = null)
         {
             try
             {
                 string operationTitle = $"Stage Created: {stageName}";
                 string operationDescription = $"Stage '{stageName}' has been created by {GetOperatorDisplayName()}";
+
+                // Add ViewPermissionMode and other important fields if afterData is provided
+                if (!string.IsNullOrEmpty(afterData))
+                {
+                    try
+                    {
+                        var afterJson = JsonSerializer.Deserialize<JsonElement>(afterData);
+                        var details = new List<string>();
+
+                        // Extract ViewPermissionMode and Teams (combine them together)
+                        string viewPermissionMode = null;
+                        if (afterJson.TryGetProperty("ViewPermissionMode", out var viewPermissionModeElement) ||
+                            afterJson.TryGetProperty("viewPermissionMode", out viewPermissionModeElement))
+                        {
+                            viewPermissionMode = GetViewPermissionModeDisplayName(viewPermissionModeElement);
+                        }
+
+                        string viewTeamsSummary = null;
+                        if (afterJson.TryGetProperty("ViewTeams", out var viewTeamsElement) ||
+                            afterJson.TryGetProperty("viewTeams", out viewTeamsElement))
+                        {
+                            viewTeamsSummary = GetTeamsSummary(viewTeamsElement);
+                        }
+
+                        string operateTeamsSummary = null;
+                        if (afterJson.TryGetProperty("OperateTeams", out var operateTeamsElement) ||
+                            afterJson.TryGetProperty("operateTeams", out operateTeamsElement))
+                        {
+                            operateTeamsSummary = GetTeamsSummary(operateTeamsElement);
+                        }
+
+                        // Combine view permission mode and teams information
+                        if (!string.IsNullOrEmpty(viewPermissionMode))
+                        {
+                            var permissionParts = new List<string> { viewPermissionMode };
+                            
+                            if (!string.IsNullOrEmpty(viewTeamsSummary))
+                            {
+                                permissionParts.Add($"view teams: {viewTeamsSummary}");
+                            }
+                            
+                            if (!string.IsNullOrEmpty(operateTeamsSummary))
+                            {
+                                permissionParts.Add($"operate teams: {operateTeamsSummary}");
+                            }
+                            
+                            details.Add(string.Join("; ", permissionParts));
+                        }
+                        else
+                        {
+                            // If no view permission mode, still show teams if they exist
+                            if (!string.IsNullOrEmpty(viewTeamsSummary))
+                            {
+                                details.Add($"view teams: {viewTeamsSummary}");
+                            }
+                            if (!string.IsNullOrEmpty(operateTeamsSummary))
+                            {
+                                details.Add($"operate teams: {operateTeamsSummary}");
+                            }
+                        }
+
+                        // Extract UseSameTeamForOperate
+                        if (afterJson.TryGetProperty("UseSameTeamForOperate", out var useSameTeamElement) ||
+                            afterJson.TryGetProperty("useSameTeamForOperate", out useSameTeamElement))
+                        {
+                            var useSameTeam = useSameTeamElement.ValueKind == JsonValueKind.True;
+                            if (useSameTeam)
+                            {
+                                details.Add("use same team for operate: Yes");
+                            }
+                        }
+
+                        // Extract other important fields if needed
+                        if (afterJson.TryGetProperty("Description", out var descElement) ||
+                            afterJson.TryGetProperty("description", out descElement))
+                        {
+                            var desc = descElement.GetString();
+                            if (!string.IsNullOrEmpty(desc))
+                            {
+                                details.Add($"description: '{desc}'");
+                            }
+                        }
+
+                        // Extract VisibleInPortal (Available in Customer Portal)
+                        if (afterJson.TryGetProperty("VisibleInPortal", out var visibleInPortalElement) ||
+                            afterJson.TryGetProperty("visibleInPortal", out visibleInPortalElement))
+                        {
+                            var visibleInPortal = visibleInPortalElement.ValueKind == JsonValueKind.True;
+                            details.Add($"Available in Customer Portal: {(visibleInPortal ? "Yes" : "No")}");
+                        }
+
+                        // Extract DefaultAssignee
+                        if (afterJson.TryGetProperty("DefaultAssignee", out var defaultAssigneeElement) ||
+                            afterJson.TryGetProperty("defaultAssignee", out defaultAssigneeElement))
+                        {
+                            var defaultAssigneeSummary = GetDefaultAssigneeSummary(defaultAssigneeElement);
+                            if (!string.IsNullOrEmpty(defaultAssigneeSummary))
+                            {
+                                details.Add($"default assignee: {defaultAssigneeSummary}");
+                            }
+                        }
+
+                        // Extract Components
+                        if (afterJson.TryGetProperty("Components", out var componentsElement) ||
+                            afterJson.TryGetProperty("components", out componentsElement))
+                        {
+                            var componentsSummary = GetComponentsSummary(componentsElement);
+                            if (!string.IsNullOrEmpty(componentsSummary))
+                            {
+                                details.Add($"components: {componentsSummary}");
+                            }
+                        }
+
+                        if (details.Any())
+                        {
+                            operationDescription += $". {string.Join("; ", details)}";
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Failed to parse afterData for stage create log");
+                    }
+                }
 
                 if (workflowId.HasValue)
                 {
@@ -118,6 +241,9 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                     stageId,
                     operationTitle,
                     operationDescription,
+                    beforeData: null,
+                    afterData: afterData,
+                    changedFields: null,
                     extendedData: extendedDataObj
                 );
             }

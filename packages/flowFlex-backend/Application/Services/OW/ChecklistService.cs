@@ -111,9 +111,24 @@ public class ChecklistService : IChecklistService, IScopedService
         {
             try
             {
+                // Prepare after data for logging with all checklist fields
+                var afterData = JsonSerializer.Serialize(new
+                {
+                    Name = entity.Name,
+                    Description = entity.Description,
+                    Team = entity.Team,
+                    Type = entity.Type,
+                    Status = entity.Status,
+                    IsTemplate = entity.IsTemplate,
+                    TemplateId = entity.TemplateId,
+                    EstimatedHours = entity.EstimatedHours,
+                    IsActive = entity.IsActive
+                });
+
                 await _operationChangeLogService.LogChecklistCreateAsync(
                     checklistId: entity.Id,
-                    checklistName: entity.Name
+                    checklistName: entity.Name,
+                    afterData: afterData
                 );
             }
             catch
@@ -147,6 +162,10 @@ public class ChecklistService : IChecklistService, IScopedService
         var originalName = entity.Name;
         var originalDescription = entity.Description;
         var originalTeam = entity.Team;
+        var originalType = entity.Type;
+        var originalStatus = entity.Status;
+        var originalIsTemplate = entity.IsTemplate;
+        var originalTemplateId = entity.TemplateId;
         var originalEstimatedHours = entity.EstimatedHours;
         var originalIsActive = entity.IsActive;
 
@@ -206,6 +225,10 @@ public class ChecklistService : IChecklistService, IScopedService
                         Name = originalName,
                         Description = originalDescription,
                         Team = originalTeam,
+                        Type = originalType,
+                        Status = originalStatus,
+                        IsTemplate = originalIsTemplate,
+                        TemplateId = originalTemplateId,
                         EstimatedHours = originalEstimatedHours,
                         IsActive = originalIsActive
                     });
@@ -215,6 +238,10 @@ public class ChecklistService : IChecklistService, IScopedService
                         Name = entity.Name,
                         Description = entity.Description,
                         Team = entity.Team,
+                        Type = entity.Type,
+                        Status = entity.Status,
+                        IsTemplate = entity.IsTemplate,
+                        TemplateId = entity.TemplateId,
                         EstimatedHours = entity.EstimatedHours,
                         IsActive = entity.IsActive
                     });
@@ -224,6 +251,10 @@ public class ChecklistService : IChecklistService, IScopedService
                     if (originalName != entity.Name) changedFields.Add("Name");
                     if (originalDescription != entity.Description) changedFields.Add("Description");
                     if (originalTeam != entity.Team) changedFields.Add("Team");
+                    if (originalType != entity.Type) changedFields.Add("Type");
+                    if (originalStatus != entity.Status) changedFields.Add("Status");
+                    if (originalIsTemplate != entity.IsTemplate) changedFields.Add("IsTemplate");
+                    if (originalTemplateId != entity.TemplateId) changedFields.Add("TemplateId");
                     if (originalEstimatedHours != entity.EstimatedHours) changedFields.Add("EstimatedHours");
                     if (originalIsActive != entity.IsActive) changedFields.Add("IsActive");
 

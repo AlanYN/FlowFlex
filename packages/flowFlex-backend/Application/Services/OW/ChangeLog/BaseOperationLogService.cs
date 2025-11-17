@@ -894,7 +894,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
             // Add specific change details instead of just field names
             if (!string.IsNullOrEmpty(beforeData) && !string.IsNullOrEmpty(afterData) && changedFields?.Any() == true)
             {
-                var changeDetails = await GetChangeDetailsAsync(beforeData, afterData, changedFields);
+                var changeDetails = await GetChangeDetailsAsync(beforeData, afterData, changedFields, businessModule);
                 if (!string.IsNullOrEmpty(changeDetails))
                 {
                     description += $". {changeDetails}";
@@ -903,7 +903,319 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
             else if (changedFields?.Any() == true)
             {
                 // Fallback to field names if no before/after data
-                description += $". Changed fields: {string.Join(", ", changedFields)}";
+                // For Checklist module, only show Name, Description, and Team
+                var fieldsToShow = changedFields;
+                if (businessModule == BusinessModuleEnum.Checklist)
+                {
+                    fieldsToShow = changedFields.Where(f => 
+                        f.Equals("Name", StringComparison.OrdinalIgnoreCase) ||
+                        f.Equals("Description", StringComparison.OrdinalIgnoreCase) ||
+                        f.Equals("Team", StringComparison.OrdinalIgnoreCase)
+                    ).ToList();
+                }
+                
+                if (fieldsToShow.Any())
+                {
+                    description += $". Changed fields: {string.Join(", ", fieldsToShow)}";
+                }
+            }
+            // For create operations, show important fields from afterData
+            else if (string.IsNullOrEmpty(beforeData) && !string.IsNullOrEmpty(afterData) && 
+                     operationAction.Equals("Created", StringComparison.OrdinalIgnoreCase))
+            {
+                try
+                {
+                    var afterJson = JsonSerializer.Deserialize<JsonElement>(afterData);
+                    var details = new List<string>();
+
+                    // Extract ViewPermissionMode and Teams for Stage (combine them together)
+                    if (businessModule == BusinessModuleEnum.Stage)
+                    {
+                        string viewPermissionMode = null;
+                        if (afterJson.TryGetProperty("ViewPermissionMode", out var viewPermissionModeElement) ||
+                            afterJson.TryGetProperty("viewPermissionMode", out viewPermissionModeElement))
+                        {
+                            viewPermissionMode = GetViewPermissionModeDisplayName(viewPermissionModeElement);
+                        }
+
+                        string viewTeamsSummary = null;
+                        if (afterJson.TryGetProperty("ViewTeams", out var viewTeamsElement) ||
+                            afterJson.TryGetProperty("viewTeams", out viewTeamsElement))
+                        {
+                            viewTeamsSummary = await GetTeamsSummaryAsync(viewTeamsElement);
+                        }
+
+                        string operateTeamsSummary = null;
+                        if (afterJson.TryGetProperty("OperateTeams", out var operateTeamsElement) ||
+                            afterJson.TryGetProperty("operateTeams", out operateTeamsElement))
+                        {
+                            operateTeamsSummary = await GetTeamsSummaryAsync(operateTeamsElement);
+                        }
+
+                        // Combine view permission mode and teams information
+                        var permissionInfo = new List<string>();
+                        if (!string.IsNullOrEmpty(viewPermissionMode))
+                        {
+                            var permissionParts = new List<string> { viewPermissionMode };
+                            
+                            if (!string.IsNullOrEmpty(viewTeamsSummary))
+                            {
+                                permissionParts.Add($"view teams: {viewTeamsSummary}");
+                            }
+                            
+                            if (!string.IsNullOrEmpty(operateTeamsSummary))
+                            {
+                                permissionParts.Add($"operate teams: {operateTeamsSummary}");
+                            }
+                            
+                            details.Add(string.Join("; ", permissionParts));
+                        }
+                        else
+                        {
+                            // If no view permission mode, still show teams if they exist
+                            if (!string.IsNullOrEmpty(viewTeamsSummary))
+                            {
+                                details.Add($"view teams: {viewTeamsSummary}");
+                            }
+                            if (!string.IsNullOrEmpty(operateTeamsSummary))
+                            {
+                                details.Add($"operate teams: {operateTeamsSummary}");
+                            }
+                        }
+
+                        // Extract UseSameTeamForOperate
+                        if (afterJson.TryGetProperty("UseSameTeamForOperate", out var useSameTeamElement) ||
+                            afterJson.TryGetProperty("useSameTeamForOperate", out useSameTeamElement))
+                        {
+                            var useSameTeam = useSameTeamElement.ValueKind == JsonValueKind.True;
+                            if (useSameTeam)
+                            {
+                                details.Add("use same team for operate: Yes");
+                            }
+                        }
+                    }
+                    else if (businessModule == BusinessModuleEnum.Workflow)
+                    {
+                        // Extract Description for Workflow (if not empty)
+                        if (afterJson.TryGetProperty("Description", out var descriptionElement) ||
+                            afterJson.TryGetProperty("description", out descriptionElement))
+                        {
+                            var workflowDescription = descriptionElement.GetString();
+                            if (!string.IsNullOrEmpty(workflowDescription) && workflowDescription.Length <= 100)
+                            {
+                                details.Add($"description: '{workflowDescription}'");
+                            }
+                        }
+
+                        // Extract Status for Workflow
+                        if (afterJson.TryGetProperty("Status", out var statusElement) ||
+                            afterJson.TryGetProperty("status", out statusElement))
+                        {
+                            var status = statusElement.GetString();
+                            if (!string.IsNullOrEmpty(status))
+                            {
+                                details.Add($"status: {status}");
+                            }
+                        }
+
+                        // Extract IsDefault for Workflow
+                        if (afterJson.TryGetProperty("IsDefault", out var isDefaultElement) ||
+                            afterJson.TryGetProperty("isDefault", out isDefaultElement))
+                        {
+                            var isDefault = isDefaultElement.ValueKind == JsonValueKind.True;
+                            details.Add($"set as default workflow: {(isDefault ? "Default" : "Not Default")}");
+                        }
+
+                        // Extract ViewPermissionMode and Teams for Workflow
+                        string viewPermissionMode = null;
+                        if (afterJson.TryGetProperty("ViewPermissionMode", out var viewPermissionModeElement) ||
+                            afterJson.TryGetProperty("viewPermissionMode", out viewPermissionModeElement))
+                        {
+                            viewPermissionMode = GetViewPermissionModeDisplayName(viewPermissionModeElement);
+                        }
+
+                        string viewTeamsSummary = null;
+                        if (afterJson.TryGetProperty("ViewTeams", out var viewTeamsElement) ||
+                            afterJson.TryGetProperty("viewTeams", out viewTeamsElement))
+                        {
+                            viewTeamsSummary = await GetTeamsSummaryAsync(viewTeamsElement);
+                        }
+
+                        string operateTeamsSummary = null;
+                        if (afterJson.TryGetProperty("OperateTeams", out var operateTeamsElement) ||
+                            afterJson.TryGetProperty("operateTeams", out operateTeamsElement))
+                        {
+                            operateTeamsSummary = await GetTeamsSummaryAsync(operateTeamsElement);
+                        }
+
+                        // Combine view permission mode and teams information
+                        var permissionInfo = new List<string>();
+                        if (!string.IsNullOrEmpty(viewPermissionMode))
+                        {
+                            var permissionParts = new List<string> { viewPermissionMode };
+                            
+                            if (!string.IsNullOrEmpty(viewTeamsSummary))
+                            {
+                                permissionParts.Add($"view teams: {viewTeamsSummary}");
+                            }
+                            
+                            if (!string.IsNullOrEmpty(operateTeamsSummary))
+                            {
+                                permissionParts.Add($"operate teams: {operateTeamsSummary}");
+                            }
+                            
+                            details.Add(string.Join("; ", permissionParts));
+                        }
+                        else
+                        {
+                            // If no view permission mode, still show teams if they exist
+                            if (!string.IsNullOrEmpty(viewTeamsSummary))
+                            {
+                                details.Add($"view teams: {viewTeamsSummary}");
+                            }
+                            if (!string.IsNullOrEmpty(operateTeamsSummary))
+                            {
+                                details.Add($"operate teams: {operateTeamsSummary}");
+                            }
+                        }
+
+                        // Extract UseSameTeamForOperate
+                        if (afterJson.TryGetProperty("UseSameTeamForOperate", out var useSameTeamElement) ||
+                            afterJson.TryGetProperty("useSameTeamForOperate", out useSameTeamElement))
+                        {
+                            var useSameTeam = useSameTeamElement.ValueKind == JsonValueKind.True;
+                            if (useSameTeam)
+                            {
+                                details.Add("use same team for operate: Yes");
+                            }
+                        }
+                    }
+                    else if (businessModule == BusinessModuleEnum.Checklist)
+                    {
+                        // Extract Description for Checklist (if not empty)
+                        if (afterJson.TryGetProperty("Description", out var descriptionElement) ||
+                            afterJson.TryGetProperty("description", out descriptionElement))
+                        {
+                            var checklistDescription = descriptionElement.GetString();
+                            if (!string.IsNullOrEmpty(checklistDescription) && checklistDescription.Length <= 100)
+                            {
+                                details.Add($"description: '{checklistDescription}'");
+                            }
+                        }
+
+                        // Extract Team for Checklist - try to get team name
+                        if (afterJson.TryGetProperty("Team", out var teamElement) ||
+                            afterJson.TryGetProperty("team", out teamElement))
+                        {
+                            string teamValue = null;
+                            if (teamElement.ValueKind == JsonValueKind.String)
+                            {
+                                teamValue = teamElement.GetString();
+                            }
+                            else if (teamElement.ValueKind == JsonValueKind.Number)
+                            {
+                                teamValue = teamElement.GetInt64().ToString();
+                            }
+
+                            if (!string.IsNullOrEmpty(teamValue))
+                            {
+                                // Try to get team name from UserService
+                                string teamDisplayName = teamValue;
+                                try
+                                {
+                                    if (_userService != null && !teamValue.Equals("Other", StringComparison.OrdinalIgnoreCase))
+                                    {
+                                        var tenantId = _userContext?.TenantId ?? "999";
+                                        var teamNameMap = await _userService.GetTeamNamesByIdsAsync(
+                                            new List<string> { teamValue }, tenantId);
+                                        if (teamNameMap != null && teamNameMap.TryGetValue(teamValue, out var teamName) && 
+                                            !string.IsNullOrEmpty(teamName))
+                                        {
+                                            teamDisplayName = teamName;
+                                        }
+                                    }
+                                    else if (teamValue.Equals("Other", StringComparison.OrdinalIgnoreCase))
+                                    {
+                                        teamDisplayName = "Other";
+                                    }
+                                }
+                                catch (Exception ex)
+                                {
+                                    _logger.LogDebug(ex, "Failed to get team name for team ID {TeamId}, using ID as fallback", teamValue);
+                                }
+
+                                details.Add($"team: {teamDisplayName}");
+                            }
+                        }
+                    }
+                    else if (businessModule == BusinessModuleEnum.Task)
+                    {
+                        // Extract Description for Task (if not empty)
+                        if (afterJson.TryGetProperty("Description", out var descriptionElement) ||
+                            afterJson.TryGetProperty("description", out descriptionElement))
+                        {
+                            var taskDescription = descriptionElement.GetString();
+                            if (!string.IsNullOrEmpty(taskDescription) && taskDescription.Length <= 100)
+                            {
+                                details.Add($"description: '{taskDescription}'");
+                            }
+                        }
+
+                        // Extract AssigneeName for Task
+                        if (afterJson.TryGetProperty("AssigneeName", out var assigneeNameElement) ||
+                            afterJson.TryGetProperty("assigneeName", out assigneeNameElement))
+                        {
+                            var assigneeName = assigneeNameElement.GetString();
+                            if (!string.IsNullOrEmpty(assigneeName))
+                            {
+                                details.Add($"assignee: {assigneeName}");
+                            }
+                        }
+                    }
+
+                    // Extract VisibleInPortal for Stage (Available in Customer Portal)
+                    if (businessModule == BusinessModuleEnum.Stage &&
+                        (afterJson.TryGetProperty("VisibleInPortal", out var visibleInPortalElement) ||
+                         afterJson.TryGetProperty("visibleInPortal", out visibleInPortalElement)))
+                    {
+                        var visibleInPortal = visibleInPortalElement.ValueKind == JsonValueKind.True;
+                        details.Add($"Available in Customer Portal: {(visibleInPortal ? "Yes" : "No")}");
+                    }
+
+                    // Extract DefaultAssignee for Stage
+                    if (businessModule == BusinessModuleEnum.Stage &&
+                        (afterJson.TryGetProperty("DefaultAssignee", out var defaultAssigneeElement) ||
+                         afterJson.TryGetProperty("defaultAssignee", out defaultAssigneeElement)))
+                    {
+                        var defaultAssigneeSummary = GetDefaultAssigneeSummary(defaultAssigneeElement);
+                        if (!string.IsNullOrEmpty(defaultAssigneeSummary))
+                        {
+                            details.Add($"default assignee: {defaultAssigneeSummary}");
+                        }
+                    }
+
+                    // Extract Components for Stage
+                    if (businessModule == BusinessModuleEnum.Stage &&
+                        (afterJson.TryGetProperty("Components", out var componentsElement) ||
+                         afterJson.TryGetProperty("components", out componentsElement)))
+                    {
+                        var componentsSummary = GetComponentsSummary(componentsElement);
+                        if (!string.IsNullOrEmpty(componentsSummary))
+                        {
+                            details.Add($"components: {componentsSummary}");
+                        }
+                    }
+
+                    if (details.Any())
+                    {
+                        description += $". {string.Join("; ", details)}";
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to extract creation details from afterData for {BusinessModule} {EntityName}", 
+                        businessModule, entityName);
+                }
             }
 
             // Add related entity info without showing ID
@@ -927,7 +1239,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
         /// <summary>
         /// Get specific change details from before and after data (async version)
         /// </summary>
-        protected virtual async Task<string> GetChangeDetailsAsync(string beforeData, string afterData, List<string> changedFields)
+        protected virtual async Task<string> GetChangeDetailsAsync(string beforeData, string afterData, List<string> changedFields, BusinessModuleEnum? businessModule = null)
         {
             try
             {
@@ -936,7 +1248,26 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
 
                 var changeList = new List<string>();
 
-                foreach (var field in changedFields)
+                // For Checklist module, only show Name, Description, and Team changes
+                // For Workflow module, filter out IsActive field
+                var fieldsToProcess = changedFields;
+                if (businessModule == BusinessModuleEnum.Checklist)
+                {
+                    fieldsToProcess = changedFields.Where(f => 
+                        f.Equals("Name", StringComparison.OrdinalIgnoreCase) ||
+                        f.Equals("Description", StringComparison.OrdinalIgnoreCase) ||
+                        f.Equals("Team", StringComparison.OrdinalIgnoreCase)
+                    ).ToList();
+                }
+                else if (businessModule == BusinessModuleEnum.Workflow)
+                {
+                    // Filter out IsActive field for Workflow
+                    fieldsToProcess = changedFields.Where(f => 
+                        !f.Equals("IsActive", StringComparison.OrdinalIgnoreCase)
+                    ).ToList();
+                }
+
+                foreach (var field in fieldsToProcess)
                 {
                     if (beforeJson.TryGetValue(field, out var beforeValue) &&
                         afterJson.TryGetValue(field, out var afterValue))
@@ -994,9 +1325,15 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                         }
                         else if (field.Equals("ViewPermissionMode", StringComparison.OrdinalIgnoreCase))
                         {
-                            var beforeStr = beforeValue?.ToString() ?? "Public";
-                            var afterStr = afterValue?.ToString() ?? "Public";
+                            var beforeStr = GetViewPermissionModeDisplayName(beforeValue);
+                            var afterStr = GetViewPermissionModeDisplayName(afterValue);
                             changeList.Add($"view permission mode from {beforeStr} to {afterStr}");
+                        }
+                        else if (field.Equals("VisibleInPortal", StringComparison.OrdinalIgnoreCase))
+                        {
+                            var beforeStr = GetBooleanDisplayValue(beforeValue, "Yes", "No");
+                            var afterStr = GetBooleanDisplayValue(afterValue, "Yes", "No");
+                            changeList.Add($"Available in Customer Portal from {beforeStr} to {afterStr}");
                         }
                         else if (field.Equals("ViewTeams", StringComparison.OrdinalIgnoreCase))
                         {
@@ -1019,6 +1356,101 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                             {
                                 changeList.Add(teamChanges);
                             }
+                        }
+                        else if (field.Equals("Team", StringComparison.OrdinalIgnoreCase) && businessModule == BusinessModuleEnum.Checklist)
+                        {
+                            // For Checklist Team field, try to get team names instead of IDs
+                            string beforeTeamDisplay = GetDisplayValue(beforeValue, field);
+                            string afterTeamDisplay = GetDisplayValue(afterValue, field);
+
+                            try
+                            {
+                                if (_userService != null)
+                                {
+                                    var tenantId = _userContext?.TenantId ?? "999";
+                                    var teamIds = new List<string>();
+
+                                    // Get before team ID
+                                    string beforeTeamId = null;
+                                    if (beforeValue != null)
+                                    {
+                                        beforeTeamId = beforeValue.ToString();
+                                        if (!string.IsNullOrEmpty(beforeTeamId) && !beforeTeamId.Equals("Other", StringComparison.OrdinalIgnoreCase))
+                                        {
+                                            teamIds.Add(beforeTeamId);
+                                        }
+                                    }
+
+                                    // Get after team ID
+                                    string afterTeamId = null;
+                                    if (afterValue != null)
+                                    {
+                                        afterTeamId = afterValue.ToString();
+                                        if (!string.IsNullOrEmpty(afterTeamId) && !afterTeamId.Equals("Other", StringComparison.OrdinalIgnoreCase) && 
+                                            !teamIds.Contains(afterTeamId))
+                                        {
+                                            teamIds.Add(afterTeamId);
+                                        }
+                                    }
+
+                                    // Fetch team names if we have IDs to look up
+                                    if (teamIds.Any())
+                                    {
+                                        var teamNameMap = await _userService.GetTeamNamesByIdsAsync(teamIds, tenantId);
+                                        
+                                        if (beforeTeamId != null)
+                                        {
+                                            if (beforeTeamId.Equals("Other", StringComparison.OrdinalIgnoreCase))
+                                            {
+                                                beforeTeamDisplay = "Other";
+                                            }
+                                            else if (teamNameMap != null && teamNameMap.TryGetValue(beforeTeamId, out var beforeTeamName) && 
+                                                     !string.IsNullOrEmpty(beforeTeamName))
+                                            {
+                                                beforeTeamDisplay = beforeTeamName;
+                                            }
+                                        }
+
+                                        if (afterTeamId != null)
+                                        {
+                                            if (afterTeamId.Equals("Other", StringComparison.OrdinalIgnoreCase))
+                                            {
+                                                afterTeamDisplay = "Other";
+                                            }
+                                            else if (teamNameMap != null && teamNameMap.TryGetValue(afterTeamId, out var afterTeamName) && 
+                                                     !string.IsNullOrEmpty(afterTeamName))
+                                            {
+                                                afterTeamDisplay = afterTeamName;
+                                            }
+                                        }
+                                    }
+                                    else
+                                    {
+                                        // Handle "Other" case
+                                        if (beforeTeamId != null && beforeTeamId.Equals("Other", StringComparison.OrdinalIgnoreCase))
+                                        {
+                                            beforeTeamDisplay = "Other";
+                                        }
+                                        if (afterTeamId != null && afterTeamId.Equals("Other", StringComparison.OrdinalIgnoreCase))
+                                        {
+                                            afterTeamDisplay = "Other";
+                                        }
+                                    }
+                                }
+                            }
+                            catch (Exception ex)
+                            {
+                                _logger.LogDebug(ex, "Failed to get team names for Team field change, using IDs as fallback");
+                            }
+
+                            changeList.Add($"{field} from '{beforeTeamDisplay}' to '{afterTeamDisplay}'");
+                        }
+                        else if (field.Equals("IsDefault", StringComparison.OrdinalIgnoreCase) && businessModule == BusinessModuleEnum.Workflow)
+                        {
+                            // For Workflow IsDefault field, show "Default" or "Not Default"
+                            var beforeStr = GetBooleanDisplayValue(beforeValue, "Default", "Not Default");
+                            var afterStr = GetBooleanDisplayValue(afterValue, "Default", "Not Default");
+                            changeList.Add($"Set as default workflow from {beforeStr} to {afterStr}");
                         }
                         else if (field.Equals("AssigneeId", StringComparison.OrdinalIgnoreCase))
                         {
@@ -1044,7 +1476,8 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                 if (changeList.Any())
                 {
                     var result = $"Changes: {string.Join(", ", changeList)}";
-                    if (changedFields.Count > 3)
+                    // Don't show "and X more fields" for Workflow module
+                    if (businessModule != BusinessModuleEnum.Workflow && changedFields.Count > 3)
                     {
                         result += $" and {changedFields.Count - 3} more fields";
                     }
@@ -1093,6 +1526,90 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
             }
 
             return str;
+        }
+
+        /// <summary>
+        /// Get display name for ViewPermissionMode enum value
+        /// </summary>
+        protected virtual string GetViewPermissionModeDisplayName(object value)
+        {
+            if (value == null)
+                return "Public";
+
+            try
+            {
+                // Try to parse as integer first
+                if (int.TryParse(value.ToString(), out int intValue))
+                {
+                    // Check if the value is a valid enum value
+                    if (Enum.IsDefined(typeof(ViewPermissionModeEnum), intValue))
+                    {
+                        var enumValue = (ViewPermissionModeEnum)intValue;
+                        return enumValue.ToString();
+                    }
+                }
+
+                // Try to parse as enum directly
+                if (Enum.TryParse<ViewPermissionModeEnum>(value.ToString(), true, out var parsedEnum))
+                {
+                    return parsedEnum.ToString();
+                }
+
+                // Fallback to original value if parsing fails
+                return value.ToString();
+            }
+            catch
+            {
+                // Fallback to original value if any error occurs
+                return value.ToString();
+            }
+        }
+
+        /// <summary>
+        /// Get display value for boolean with custom true/false labels
+        /// </summary>
+        protected virtual string GetBooleanDisplayValue(object value, string trueLabel = "Yes", string falseLabel = "No")
+        {
+            if (value == null)
+                return falseLabel;
+
+            try
+            {
+                // Try to parse as boolean
+                if (bool.TryParse(value.ToString(), out bool boolValue))
+                {
+                    return boolValue ? trueLabel : falseLabel;
+                }
+
+                // Try to parse as integer (0 = false, 1 = true)
+                if (int.TryParse(value.ToString(), out int intValue))
+                {
+                    return intValue != 0 ? trueLabel : falseLabel;
+                }
+
+                // Try to parse as string (case-insensitive)
+                var str = value.ToString().Trim();
+                if (str.Equals("true", StringComparison.OrdinalIgnoreCase) ||
+                    str.Equals("1", StringComparison.OrdinalIgnoreCase) ||
+                    str.Equals("yes", StringComparison.OrdinalIgnoreCase))
+                {
+                    return trueLabel;
+                }
+                if (str.Equals("false", StringComparison.OrdinalIgnoreCase) ||
+                    str.Equals("0", StringComparison.OrdinalIgnoreCase) ||
+                    str.Equals("no", StringComparison.OrdinalIgnoreCase))
+                {
+                    return falseLabel;
+                }
+
+                // Fallback to original value if parsing fails
+                return value.ToString();
+            }
+            catch
+            {
+                // Fallback to original value if any error occurs
+                return value.ToString();
+            }
         }
 
         /// <summary>
@@ -1373,6 +1890,324 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
             {
                 _logger.LogWarning(ex, "Failed to analyze components changes");
                 return "Components modified";
+            }
+        }
+
+        /// <summary>
+        /// Get summary of components for display in creation logs
+        /// </summary>
+        protected virtual string GetComponentsSummary(JsonElement componentsElement)
+        {
+            try
+            {
+                if (componentsElement.ValueKind != JsonValueKind.Array)
+                {
+                    return string.Empty;
+                }
+
+                var components = new List<string>();
+                foreach (var component in componentsElement.EnumerateArray())
+                {
+                    if (!component.TryGetProperty("key", out var keyElement) &&
+                        !component.TryGetProperty("Key", out keyElement))
+                    {
+                        continue;
+                    }
+
+                    var key = keyElement.GetString();
+                    if (string.IsNullOrEmpty(key))
+                    {
+                        continue;
+                    }
+
+                    var componentDetails = new List<string>();
+
+                    // Extract checklist names
+                    if ((component.TryGetProperty("checklistNames", out var checklistNamesElement) ||
+                         component.TryGetProperty("ChecklistNames", out checklistNamesElement)) &&
+                        checklistNamesElement.ValueKind == JsonValueKind.Array)
+                    {
+                        var checklistNames = checklistNamesElement.EnumerateArray()
+                            .Select(n => n.GetString())
+                            .Where(n => !string.IsNullOrEmpty(n))
+                            .ToList();
+                        if (checklistNames.Any())
+                        {
+                            componentDetails.Add($"checklists: {string.Join(", ", checklistNames.Select(n => $"'{n}'"))}");
+                        }
+                    }
+
+                    // Extract questionnaire names
+                    if ((component.TryGetProperty("questionnaireNames", out var questionnaireNamesElement) ||
+                         component.TryGetProperty("QuestionnaireNames", out questionnaireNamesElement)) &&
+                        questionnaireNamesElement.ValueKind == JsonValueKind.Array)
+                    {
+                        var questionnaireNames = questionnaireNamesElement.EnumerateArray()
+                            .Select(n => n.GetString())
+                            .Where(n => !string.IsNullOrEmpty(n))
+                            .ToList();
+                        if (questionnaireNames.Any())
+                        {
+                            componentDetails.Add($"questionnaires: {string.Join(", ", questionnaireNames.Select(n => $"'{n}'"))}");
+                        }
+                    }
+
+                    // Extract static fields
+                    if ((component.TryGetProperty("staticFields", out var staticFieldsElement) ||
+                         component.TryGetProperty("StaticFields", out staticFieldsElement)) &&
+                        staticFieldsElement.ValueKind == JsonValueKind.Array)
+                    {
+                        var staticFields = staticFieldsElement.EnumerateArray()
+                            .Select(f => f.GetString())
+                            .Where(f => !string.IsNullOrEmpty(f))
+                            .ToList();
+                        if (staticFields.Any())
+                        {
+                            componentDetails.Add($"fields: {string.Join(", ", staticFields)}");
+                        }
+                    }
+
+                    // Check if component is enabled
+                    var isEnabled = true;
+                    if (component.TryGetProperty("isEnabled", out var isEnabledElement) ||
+                        component.TryGetProperty("IsEnabled", out isEnabledElement))
+                    {
+                        isEnabled = isEnabledElement.ValueKind == JsonValueKind.True;
+                    }
+
+                    var componentInfo = key;
+                    if (componentDetails.Any())
+                    {
+                        componentInfo += $" ({string.Join("; ", componentDetails)})";
+                    }
+                    if (!isEnabled)
+                    {
+                        componentInfo += " [disabled]";
+                    }
+
+                    components.Add(componentInfo);
+                }
+
+                if (components.Any())
+                {
+                    return string.Join("; ", components);
+                }
+
+                return string.Empty;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to get components summary");
+                return string.Empty;
+            }
+        }
+
+        /// <summary>
+        /// Get summary of teams for display in creation logs (async version)
+        /// </summary>
+        protected virtual async Task<string> GetTeamsSummaryAsync(JsonElement teamsElement)
+        {
+            try
+            {
+                var teamIds = new List<string>();
+
+                // Handle different JSON value kinds
+                if (teamsElement.ValueKind == JsonValueKind.Array)
+                {
+                    // Direct array
+                    foreach (var teamIdElement in teamsElement.EnumerateArray())
+                    {
+                        var teamId = teamIdElement.GetString();
+                        if (!string.IsNullOrEmpty(teamId))
+                        {
+                            teamIds.Add(teamId);
+                        }
+                    }
+                }
+                else if (teamsElement.ValueKind == JsonValueKind.String)
+                {
+                    // String that contains JSON array (double-encoded)
+                    var teamsJson = teamsElement.GetString();
+                    if (!string.IsNullOrEmpty(teamsJson))
+                    {
+                        // Parse the JSON string to get the actual array
+                        var parsedTeams = ParseTeamList(teamsJson);
+                        teamIds.AddRange(parsedTeams);
+                    }
+                }
+                else if (teamsElement.ValueKind == JsonValueKind.Null)
+                {
+                    return string.Empty;
+                }
+
+                if (teamIds.Any())
+                {
+                    // Try to get team names if UserService is available
+                    try
+                    {
+                        if (_userService != null)
+                        {
+                            var tenantId = _userContext?.TenantId ?? "999";
+                            var teamNameMap = await _userService.GetTeamNamesByIdsAsync(teamIds, tenantId);
+                            
+                            if (teamNameMap != null && teamNameMap.Any())
+                            {
+                                var teamNames = teamIds
+                                    .Select(id => teamNameMap.TryGetValue(id, out var name) && !string.IsNullOrEmpty(name) 
+                                        ? name 
+                                        : id)
+                                    .ToList();
+                                return string.Join(", ", teamNames.Select(n => $"'{n}'"));
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogDebug(ex, "Failed to get team names for teams summary, using IDs as fallback");
+                    }
+
+                    // Fallback to IDs if team names are not available
+                    return string.Join(", ", teamIds.Select(id => $"'{id}'"));
+                }
+
+                return string.Empty;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to get teams summary");
+                return string.Empty;
+            }
+        }
+
+        /// <summary>
+        /// Get summary of teams for display in creation logs (synchronous version - for backward compatibility)
+        /// </summary>
+        protected virtual string GetTeamsSummary(JsonElement teamsElement)
+        {
+            try
+            {
+                if (teamsElement.ValueKind != JsonValueKind.Array)
+                {
+                    return string.Empty;
+                }
+
+                var teamIds = new List<string>();
+                foreach (var teamIdElement in teamsElement.EnumerateArray())
+                {
+                    var teamId = teamIdElement.GetString();
+                    if (!string.IsNullOrEmpty(teamId))
+                    {
+                        teamIds.Add(teamId);
+                    }
+                }
+
+                if (teamIds.Any())
+                {
+                    // Try to get team names if UserService is available
+                    try
+                    {
+                        var tenantId = _userContext?.TenantId ?? "999";
+                        var teamNameMap = _userService?.GetTeamNamesByIdsAsync(teamIds, tenantId).GetAwaiter().GetResult();
+                        
+                        if (teamNameMap != null && teamNameMap.Any())
+                        {
+                            var teamNames = teamIds
+                                .Select(id => teamNameMap.TryGetValue(id, out var name) && !string.IsNullOrEmpty(name) 
+                                    ? name 
+                                    : id)
+                                .ToList();
+                            return string.Join(", ", teamNames.Select(n => $"'{n}'"));
+                        }
+                    }
+                    catch
+                    {
+                        // If team name lookup fails, use IDs
+                    }
+
+                    // Fallback to IDs if team names are not available
+                    return string.Join(", ", teamIds.Select(id => $"'{id}'"));
+                }
+
+                return string.Empty;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to get teams summary");
+                return string.Empty;
+            }
+        }
+
+        /// <summary>
+        /// Get summary of default assignees for display in creation logs
+        /// </summary>
+        protected virtual string GetDefaultAssigneeSummary(JsonElement assigneeElement)
+        {
+            try
+            {
+                if (assigneeElement.ValueKind != JsonValueKind.Array)
+                {
+                    return string.Empty;
+                }
+
+                var userIds = new List<string>();
+                foreach (var userIdElement in assigneeElement.EnumerateArray())
+                {
+                    var userId = userIdElement.GetString();
+                    if (!string.IsNullOrEmpty(userId))
+                    {
+                        userIds.Add(userId);
+                    }
+                }
+
+                if (userIds.Any())
+                {
+                    // Try to get user names if UserService is available
+                    try
+                    {
+                        var tenantId = _userContext?.TenantId ?? "999";
+                        var userIdsLong = userIds.Where(id => long.TryParse(id, out _))
+                            .Select(id => long.Parse(id))
+                            .ToList();
+                        
+                        if (userIdsLong.Any() && _userService != null)
+                        {
+                            var users = _userService.GetUsersByIdsAsync(userIdsLong, tenantId).GetAwaiter().GetResult();
+                            
+                            if (users != null && users.Any())
+                            {
+                                // GetUsersByIdsAsync already sets display name to Username field with priority:
+                                // FirstName + LastName > UserName (same as GetUserTreeAsync logic)
+                                // So we can directly use Username field
+                                var userMap = users.ToDictionary(u => u.Id.ToString(), u => 
+                                    !string.IsNullOrEmpty(u.Username) ? u.Username : 
+                                    !string.IsNullOrEmpty(u.Email) ? u.Email : 
+                                    u.Id.ToString());
+                                
+                                var userNames = userIds
+                                    .Select(id => userMap.TryGetValue(id, out var name) && !string.IsNullOrEmpty(name) 
+                                        ? name 
+                                        : id)
+                                    .ToList();
+                                return string.Join(", ", userNames.Select(n => $"'{n}'"));
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Failed to get user names for default assignees");
+                        // If user name lookup fails, use IDs
+                    }
+
+                    // Fallback to IDs if user names are not available
+                    return string.Join(", ", userIds.Select(id => $"'{id}'"));
+                }
+
+                return string.Empty;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to get default assignee summary");
+                return string.Empty;
             }
         }
 

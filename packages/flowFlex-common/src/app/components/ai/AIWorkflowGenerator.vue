@@ -1584,15 +1584,11 @@ const generateWorkflow = async () => {
 
 			// Extract checklists and questionnaires from backend response
 			// Try multiple possible field names (case variations)
-			const backendChecklists = 
-				data.checklists || 
-				data.Checklists || 
-				data.checkLists ||
-				data.CheckLists ||
-				[];
-			const backendQuestionnaires = 
-				data.questionnaires || 
-				data.Questionnaires || 
+			const backendChecklists =
+				data.checklists || data.Checklists || data.checkLists || data.CheckLists || [];
+			const backendQuestionnaires =
+				data.questionnaires ||
+				data.Questionnaires ||
 				data.questionNaires ||
 				data.QuestionNaires ||
 				[];
@@ -1606,8 +1602,12 @@ const generateWorkflow = async () => {
 			streamingWorkflowData.checklists = [];
 			streamingWorkflowData.questionnaires = [];
 			streamingWorkflowData.originalStagesData = [];
-			streamingWorkflowData.backendChecklists = Array.isArray(backendChecklists) ? backendChecklists : [];
-			streamingWorkflowData.backendQuestionnaires = Array.isArray(backendQuestionnaires) ? backendQuestionnaires : [];
+			streamingWorkflowData.backendChecklists = Array.isArray(backendChecklists)
+				? backendChecklists
+				: [];
+			streamingWorkflowData.backendQuestionnaires = Array.isArray(backendQuestionnaires)
+				? backendQuestionnaires
+				: [];
 
 			// Create initial generation complete message
 			const completeMessage: ChatMessage = {
@@ -2356,7 +2356,12 @@ const generateWorkflow = async () => {
 				id: task.id || `task-${Date.now()}-${index}`,
 				title: task.title || task.Title || '',
 				description: task.description || task.Description || '',
-				isRequired: task.isRequired !== undefined ? task.isRequired : task.IsRequired !== undefined ? task.IsRequired : true,
+				isRequired:
+					task.isRequired !== undefined
+						? task.isRequired
+						: task.IsRequired !== undefined
+						? task.IsRequired
+						: true,
 				completed: false,
 				estimatedMinutes: task.estimatedMinutes || task.EstimatedMinutes || 60,
 				category: task.category || task.Category || 'Execution',
@@ -2364,7 +2369,10 @@ const generateWorkflow = async () => {
 		};
 
 		// Helper function to convert AI question format to frontend format
-		const convertQuestionToFrontendFormat = (question: any, index: number): QuestionnaireQuestion => {
+		const convertQuestionToFrontendFormat = (
+			question: any,
+			index: number
+		): QuestionnaireQuestion => {
 			const questionType = question.type || question.Type || 'paragraph';
 			// Map AI question types to frontend types
 			const typeMapping: Record<string, string> = {
@@ -2379,7 +2387,12 @@ const generateWorkflow = async () => {
 				question: question.question || question.Question || '',
 				type: (typeMapping[questionType] || questionType) as QuestionnaireQuestion['type'],
 				options: question.options || question.Options || undefined,
-				isRequired: question.isRequired !== undefined ? question.isRequired : question.IsRequired !== undefined ? question.IsRequired : true,
+				isRequired:
+					question.isRequired !== undefined
+						? question.isRequired
+						: question.IsRequired !== undefined
+						? question.IsRequired
+						: true,
 				category: question.category || question.Category || 'Requirements',
 				helpText: question.helpText || question.HelpText,
 				description: question.description || question.Description,
@@ -2393,7 +2406,7 @@ const generateWorkflow = async () => {
 				(stage: WorkflowStage, index: number) => {
 					// First try to get checklist from backend separate array (by index)
 					const backendChecklist = streamingWorkflowData.backendChecklists[index];
-					
+
 					// Then try to get from original stage data (embedded format)
 					const originalStage = streamingWorkflowData.originalStagesData[index];
 					const embeddedChecklist = originalStage?.checklist || originalStage?.Checklist;
@@ -2409,16 +2422,31 @@ const generateWorkflow = async () => {
 
 						// Backend array format: { GeneratedChecklist: {...}, Tasks: [...] }
 						if (backendChecklist) {
-							const checklistData = backendChecklist.GeneratedChecklist || backendChecklist.generatedChecklist || backendChecklist;
+							const checklistData =
+								backendChecklist.GeneratedChecklist ||
+								backendChecklist.generatedChecklist ||
+								backendChecklist;
 							tasks = backendChecklist.Tasks || backendChecklist.tasks || [];
-							checklistName = checklistData.Name || checklistData.name || `${stage.name} Checklist`;
-							checklistDescription = checklistData.Description || checklistData.description || `Essential tasks to complete during the ${stage.name} stage`;
+							checklistName =
+								checklistData.Name ||
+								checklistData.name ||
+								`${stage.name} Checklist`;
+							checklistDescription =
+								checklistData.Description ||
+								checklistData.description ||
+								`Essential tasks to complete during the ${stage.name} stage`;
 						}
 						// Embedded format: { name: "...", tasks: [...] }
 						else if (embeddedChecklist) {
 							tasks = embeddedChecklist.tasks || embeddedChecklist.Tasks || [];
-							checklistName = embeddedChecklist.name || embeddedChecklist.Name || `${stage.name} Checklist`;
-							checklistDescription = embeddedChecklist.description || embeddedChecklist.Description || `Essential tasks to complete during the ${stage.name} stage`;
+							checklistName =
+								embeddedChecklist.name ||
+								embeddedChecklist.Name ||
+								`${stage.name} Checklist`;
+							checklistDescription =
+								embeddedChecklist.description ||
+								embeddedChecklist.Description ||
+								`Essential tasks to complete during the ${stage.name} stage`;
 						}
 
 						if (tasks && Array.isArray(tasks) && tasks.length > 0) {
@@ -2426,7 +2454,7 @@ const generateWorkflow = async () => {
 							return {
 								name: checklistName,
 								description: checklistDescription,
-								tasks: tasks.map((task: any, taskIndex: number) => 
+								tasks: tasks.map((task: any, taskIndex: number) =>
 									convertTaskToFrontendFormat(task, taskIndex)
 								),
 							};
@@ -2450,10 +2478,11 @@ const generateWorkflow = async () => {
 				(stage: WorkflowStage, index: number) => {
 					// First try to get questionnaire from backend separate array (by index)
 					const backendQuestionnaire = streamingWorkflowData.backendQuestionnaires[index];
-					
+
 					// Then try to get from original stage data (embedded format)
 					const originalStage = streamingWorkflowData.originalStagesData[index];
-					const embeddedQuestionnaire = originalStage?.questionnaire || originalStage?.Questionnaire;
+					const embeddedQuestionnaire =
+						originalStage?.questionnaire || originalStage?.Questionnaire;
 
 					// Prefer backend array format, fallback to embedded format, then template
 					const aiQuestionnaire = backendQuestionnaire || embeddedQuestionnaire;
@@ -2466,16 +2495,37 @@ const generateWorkflow = async () => {
 
 						// Backend array format: { GeneratedQuestionnaire: {...}, Questions: [...] }
 						if (backendQuestionnaire) {
-							const questionnaireData = backendQuestionnaire.GeneratedQuestionnaire || backendQuestionnaire.generatedQuestionnaire || backendQuestionnaire;
-							questions = backendQuestionnaire.Questions || backendQuestionnaire.questions || [];
-							questionnaireName = questionnaireData.Name || questionnaireData.name || `${stage.name} Questionnaire`;
-							questionnaireDescription = questionnaireData.Description || questionnaireData.description || `Key questions to gather information for the ${stage.name} stage`;
+							const questionnaireData =
+								backendQuestionnaire.GeneratedQuestionnaire ||
+								backendQuestionnaire.generatedQuestionnaire ||
+								backendQuestionnaire;
+							questions =
+								backendQuestionnaire.Questions ||
+								backendQuestionnaire.questions ||
+								[];
+							questionnaireName =
+								questionnaireData.Name ||
+								questionnaireData.name ||
+								`${stage.name} Questionnaire`;
+							questionnaireDescription =
+								questionnaireData.Description ||
+								questionnaireData.description ||
+								`Key questions to gather information for the ${stage.name} stage`;
 						}
 						// Embedded format: { name: "...", questions: [...] }
 						else if (embeddedQuestionnaire) {
-							questions = embeddedQuestionnaire.questions || embeddedQuestionnaire.Questions || [];
-							questionnaireName = embeddedQuestionnaire.name || embeddedQuestionnaire.Name || `${stage.name} Questionnaire`;
-							questionnaireDescription = embeddedQuestionnaire.description || embeddedQuestionnaire.Description || `Key questions to gather information for the ${stage.name} stage`;
+							questions =
+								embeddedQuestionnaire.questions ||
+								embeddedQuestionnaire.Questions ||
+								[];
+							questionnaireName =
+								embeddedQuestionnaire.name ||
+								embeddedQuestionnaire.Name ||
+								`${stage.name} Questionnaire`;
+							questionnaireDescription =
+								embeddedQuestionnaire.description ||
+								embeddedQuestionnaire.Description ||
+								`Key questions to gather information for the ${stage.name} stage`;
 						}
 
 						if (questions && Array.isArray(questions) && questions.length > 0) {
@@ -2483,7 +2533,7 @@ const generateWorkflow = async () => {
 							return {
 								name: questionnaireName,
 								description: questionnaireDescription,
-								questions: questions.map((question: any, questionIndex: number) => 
+								questions: questions.map((question: any, questionIndex: number) =>
 									convertQuestionToFrontendFormat(question, questionIndex)
 								),
 							};
@@ -3080,23 +3130,23 @@ const applyWorkflow = async (data: any) => {
 		try {
 			const { apiVersion } = useGlobSetting();
 
-		// Transform checklists to the expected backend format with stage association
-		const transformedChecklists = data.checklists.map((checklist, index) => ({
-			Success: true,
-			Message: `Checklist generated for ${checklist.name}`,
-			GeneratedChecklist: {
-				Name: checklist.name,
-				Description: checklist.description,
-				Team: checklist.team || 'Other',
-				IsActive: true,
-				Assignments: [], // Will be set by backend
-			},
-			Tasks: checklist.tasks || [],
-			ConfidenceScore: 0.85,
-			// Add stage association - match by index since they're generated in the same order
-			StageName: data.stages[index]?.name || '',
-			StageOrder: data.stages[index]?.order || index + 1,
-		}));
+			// Transform checklists to the expected backend format with stage association
+			const transformedChecklists = data.checklists.map((checklist, index) => ({
+				Success: true,
+				Message: `Checklist generated for ${checklist.name}`,
+				GeneratedChecklist: {
+					Name: checklist.name,
+					Description: checklist.description,
+					Team: checklist.team || 'Other',
+					IsActive: true,
+					Assignments: [], // Will be set by backend
+				},
+				Tasks: checklist.tasks || [],
+				ConfidenceScore: 0.85,
+				// Add stage association - match by index since they're generated in the same order
+				StageName: data.stages[index]?.name || '',
+				StageOrder: data.stages[index]?.order || index + 1,
+			}));
 
 			// Transform questionnaires to the expected backend format with stage association
 			const transformedQuestionnaires = data.questionnaires.map((questionnaire, index) => ({
@@ -4159,7 +4209,7 @@ onMounted(async () => {
 	align-items: center;
 	justify-content: center;
 	height: 100%;
-	background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+	background: var(--el-fill-color-light);
 	border-radius: 12px;
 	padding: 2rem;
 }
@@ -4172,13 +4222,13 @@ onMounted(async () => {
 .guide-title {
 	font-size: 24px;
 	font-weight: 700;
-	color: #303133;
+	color: var(--el-text-color-primary);
 	margin-bottom: 1rem;
 }
 
 .guide-description {
 	font-size: 16px;
-	color: #606266;
+	color: var(--el-text-color-secondary);
 	margin-bottom: 2rem;
 	line-height: 1.6;
 }

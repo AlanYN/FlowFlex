@@ -10,12 +10,12 @@ namespace FlowFlex.Application.Contracts.IServices.OW.ChangeLog
     public interface IChecklistLogService : IBaseOperationLogService
     {
         // Checklist lifecycle operations
-        Task<bool> LogChecklistCreateAsync(long checklistId, string checklistName, string extendedData = null);
+        Task<bool> LogChecklistCreateAsync(long checklistId, string checklistName, string afterData = null, string extendedData = null);
         Task<bool> LogChecklistUpdateAsync(long checklistId, string checklistName, string beforeData, string afterData, List<string> changedFields, string extendedData = null);
         Task<bool> LogChecklistDeleteAsync(long checklistId, string checklistName, string reason = null, string extendedData = null);
 
         // Checklist task operations
-        Task<bool> LogChecklistTaskCreateAsync(long taskId, string taskName, long checklistId, string extendedData = null);
+        Task<bool> LogChecklistTaskCreateAsync(long taskId, string taskName, long checklistId, string afterData = null, string extendedData = null);
         Task<bool> LogChecklistTaskUpdateAsync(long taskId, string taskName, string beforeData, string afterData, List<string> changedFields, long checklistId, string extendedData = null);
         Task<bool> LogChecklistTaskDeleteAsync(long taskId, string taskName, long checklistId, string reason = null, string extendedData = null);
 

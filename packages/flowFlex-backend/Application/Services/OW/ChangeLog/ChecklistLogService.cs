@@ -108,7 +108,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
         /// <summary>
         /// Log checklist create operation (independent of onboarding)
         /// </summary>
-        public async Task<bool> LogChecklistCreateAsync(long checklistId, string checklistName, string extendedData = null)
+        public async Task<bool> LogChecklistCreateAsync(long checklistId, string checklistName, string afterData = null, string extendedData = null)
         {
             return await LogIndependentOperationAsync(
                 OperationTypeEnum.ChecklistCreate,
@@ -116,6 +116,9 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                 checklistId,
                 checklistName,
                 "Created",
+                beforeData: null,
+                afterData: afterData,
+                changedFields: null,
                 extendedData: extendedData
             );
         }
@@ -163,7 +166,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
         /// <summary>
         /// Log checklist task create operation (independent of onboarding)
         /// </summary>
-        public async Task<bool> LogChecklistTaskCreateAsync(long taskId, string taskName, long checklistId, string extendedData = null)
+        public async Task<bool> LogChecklistTaskCreateAsync(long taskId, string taskName, long checklistId, string afterData = null, string extendedData = null)
         {
             return await LogIndependentOperationAsync(
                 OperationTypeEnum.ChecklistTaskCreate,
@@ -171,6 +174,9 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                 taskId,
                 taskName,
                 "Created",
+                beforeData: null,
+                afterData: afterData,
+                changedFields: null,
                 relatedEntityId: checklistId,
                 relatedEntityType: "checklist",
                 extendedData: extendedData

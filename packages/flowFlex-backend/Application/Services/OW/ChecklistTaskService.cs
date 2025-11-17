@@ -17,6 +17,7 @@ using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.Json;
 using System.Threading.Tasks;
 
 namespace FlowFlex.Application.Service.OW;
@@ -184,10 +185,19 @@ public class ChecklistTaskService : IChecklistTaskService, IScopedService
         {
             try
             {
+                // Prepare after data for logging with task fields including assigneeName
+                var afterData = JsonSerializer.Serialize(new
+                {
+                    Name = entity.Name,
+                    Description = entity.Description,
+                    AssigneeName = entity.AssigneeName
+                });
+
                 await _operationChangeLogService.LogChecklistTaskCreateAsync(
                     taskId: entity.Id,
                     taskName: entity.Name,
-                    checklistId: entity.ChecklistId
+                    checklistId: entity.ChecklistId,
+                    afterData: afterData
                 );
             }
             catch
