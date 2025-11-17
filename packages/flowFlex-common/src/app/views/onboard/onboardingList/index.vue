@@ -61,7 +61,7 @@
 					@search="handleFilterSearch"
 					@export="handleExport"
 				/>
-				<div class="wfe-global-block-bg !p-0 !ml-0">
+				<div class="">
 					<el-table
 						:data="onboardingList"
 						@selection-change="handleSelectionChange"

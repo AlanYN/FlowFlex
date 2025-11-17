@@ -206,7 +206,23 @@ const handleDropOnSection = (evt: DragEvent, sectionIndex: number) => {
 
 .section-item.drag-over {
 	border-color: var(--el-color-primary);
-	background-color: var(--el-color-primary-light-9);
+	background-color: var(--el-color-primary-light-5);
+
+	.section-name {
+		color: var(--el-color-white);
+	}
+
+	.section-count {
+		color: var(--el-color-white);
+	}
+
+	.dark .sections-list-container {
+		background-color: transparent;
+	}
+
+	.delete-btn {
+		color: var(--el-color-white);
+	}
 }
 
 .section-item:hover {
@@ -215,8 +231,24 @@ const handleDropOnSection = (evt: DragEvent, sectionIndex: number) => {
 }
 
 .section-item.active {
-	border-color: var(--el-color-primary);
-	background-color: var(--el-bg-color-light);
+	border-color: var(--el-border-color-dark);
+	background-color: var(--el-color-primary);
+
+	.section-name {
+		color: var(--el-color-white);
+	}
+
+	.section-count {
+		color: var(--el-color-white);
+	}
+
+	.dark .sections-list-container {
+		background-color: transparent;
+	}
+
+	.delete-btn {
+		color: var(--el-color-white);
+	}
 }
 
 .section-info {
@@ -245,37 +277,6 @@ const handleDropOnSection = (evt: DragEvent, sectionIndex: number) => {
 /* 深色模式支持 */
 .dark .section-title {
 	color: var(--primary-200);
-}
-
-.dark .section-item {
-	border-color: var(--el-border-color-dark);
-	background-color: var(--black);
-}
-
-.dark .section-item:hover {
-	border-color: var(--el-border-color-dark);
-	background-color: var(--el-color-primary);
-
-	.delete-btn {
-		color: var(--el-color-white);
-	}
-}
-
-.dark .section-item.active {
-	border-color: var(--el-border-color-dark);
-	background-color: var(--el-color-primary);
-}
-
-.dark .section-name {
-	color: var(--el-color-white);
-}
-
-.dark .section-count {
-	color: var(--el-color-white);
-}
-
-.dark .sections-list-container {
-	background-color: transparent;
 }
 
 /* 拖拽相关样式 */
