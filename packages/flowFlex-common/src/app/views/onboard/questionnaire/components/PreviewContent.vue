@@ -1483,9 +1483,7 @@ const getQuestionNumber = (sectionIndex: number, itemIndex: number) => {
 <style scoped lang="scss">
 /* 问卷头部样式 */
 .questionnaire-header {
-	background-color: var(--primary-50);
-	border-color: var(--primary-100);
-	@apply dark:bg-primary-800 dark:border-primary-600;
+	background-color: var(--black-300);
 }
 
 .questionnaire-title {
@@ -1594,9 +1592,7 @@ html.dark .preview_assignment-label {
 }
 
 .section-header {
-	background-color: var(--primary-50);
-	border-color: var(--primary-100);
-	@apply dark:bg-primary-800 dark:border-primary-600;
+	background-color: var(--black-300);
 }
 
 .section-title {

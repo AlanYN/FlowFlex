@@ -1292,18 +1292,12 @@ onMounted(async () => {
 .current-section-info {
 	margin-bottom: 1.5rem;
 	padding: 1rem;
-	background-color: var(--primary-50);
-	border: 1px solid var(--primary-100);
+	background-color: var(--black-300);
 	@apply rounded-xl;
 }
 
 .dark .section-title {
 	color: var(--primary-200);
-}
-
-.dark .current-section-info {
-	background-color: var(--primary-700);
-	border-color: var(--primary-600);
 }
 
 .title-display {
