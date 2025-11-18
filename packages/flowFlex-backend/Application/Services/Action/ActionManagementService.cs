@@ -1066,57 +1066,65 @@ namespace FlowFlex.Application.Services.Action
                     dto.StageId?.ToString() ?? "None");
 
                 // Change log recording (new) - get additional context for better log association
-                long? onboardingId = dto.WorkFlowId; // Use WorkFlowId as onboardingId for workflow-related logs
-                long? checklistId = null;
-
-                // For Task triggers, get associated checklist and onboarding information
-                if (dto.TriggerType?.ToLower() == "task")
+                // Skip logging for Question type triggers (questions handle their own logging through questionnaire updates)
+                if (dto.TriggerType?.Trim().Equals("Question", StringComparison.OrdinalIgnoreCase) == true)
                 {
-                    try
+                    _logger.LogInformation("Skipping ActionMappingCreate log for Question type trigger. Question action changes are logged through QuestionnaireUpdate.");
+                }
+                else
+                {
+                    long? onboardingId = dto.WorkFlowId; // Use WorkFlowId as onboardingId for workflow-related logs
+                    long? checklistId = null;
+
+                    // For Task triggers, get associated checklist and onboarding information
+                    if (dto.TriggerType?.ToLower() == "task")
                     {
-                        var task = await _checklistTaskRepository.GetByIdAsync(dto.TriggerSourceId);
-                        if (task != null)
+                        try
                         {
-                            checklistId = task.ChecklistId;
-                            // You might need to add a method to get onboarding ID from checklist ID
-                            // onboardingId = await GetOnboardingIdByChecklistIdAsync(task.ChecklistId);
+                            var task = await _checklistTaskRepository.GetByIdAsync(dto.TriggerSourceId);
+                            if (task != null)
+                            {
+                                checklistId = task.ChecklistId;
+                                // You might need to add a method to get onboarding ID from checklist ID
+                                // onboardingId = await GetOnboardingIdByChecklistIdAsync(task.ChecklistId);
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogWarning(ex, "Failed to get task context for action mapping log: TaskId={TaskId}", dto.TriggerSourceId);
                         }
                     }
-                    catch (Exception ex)
+                    // For Stage triggers, the workflow ID is already set as onboardingId above
+
+                    // Create extended data with additional context
+                    var extendedDataWithContext = JsonSerializer.Serialize(new
                     {
-                        _logger.LogWarning(ex, "Failed to get task context for action mapping log: TaskId={TaskId}", dto.TriggerSourceId);
-                    }
+                        MappingId = entity.Id,
+                        ActionDefinitionId = dto.ActionDefinitionId,
+                        ActionName = actionName,
+                        TriggerType = dto.TriggerType,
+                        TriggerSourceId = dto.TriggerSourceId,
+                        TriggerSourceName = triggerSourceName,
+                        TriggerEvent = dto.TriggerEvent,
+                        WorkflowId = dto.WorkFlowId,
+                        StageId = dto.StageId,
+                        ChecklistId = checklistId,
+                        OnboardingId = onboardingId,
+                        AssociatedAt = DateTimeOffset.UtcNow
+                    });
+
+                    await _actionLogService.LogActionMappingAssociateAsync(
+                        entity.Id,
+                        dto.ActionDefinitionId,
+                        actionName,
+                        dto.TriggerType,
+                        dto.TriggerSourceId,
+                        triggerSourceName,
+                        dto.TriggerEvent,
+                        dto.WorkFlowId,
+                        dto.StageId,
+                        extendedDataWithContext);
                 }
-                // For Stage triggers, the workflow ID is already set as onboardingId above
-
-                // Create extended data with additional context
-                var extendedDataWithContext = JsonSerializer.Serialize(new
-                {
-                    MappingId = entity.Id,
-                    ActionDefinitionId = dto.ActionDefinitionId,
-                    ActionName = actionName,
-                    TriggerType = dto.TriggerType,
-                    TriggerSourceId = dto.TriggerSourceId,
-                    TriggerSourceName = triggerSourceName,
-                    TriggerEvent = dto.TriggerEvent,
-                    WorkflowId = dto.WorkFlowId,
-                    StageId = dto.StageId,
-                    ChecklistId = checklistId,
-                    OnboardingId = onboardingId,
-                    AssociatedAt = DateTimeOffset.UtcNow
-                });
-
-                await _actionLogService.LogActionMappingAssociateAsync(
-                    entity.Id,
-                    dto.ActionDefinitionId,
-                    actionName,
-                    dto.TriggerType,
-                    dto.TriggerSourceId,
-                    triggerSourceName,
-                    dto.TriggerEvent,
-                    dto.WorkFlowId,
-                    dto.StageId,
-                    extendedDataWithContext);
             }
             catch (Exception ex)
             {
@@ -1158,17 +1166,25 @@ namespace FlowFlex.Application.Services.Action
                     entity.IsEnabled);
 
                 // Change log recording (new)
-                await _actionLogService.LogActionMappingDisassociateAsync(
-                    entity.Id,
-                    entity.ActionDefinitionId,
-                    actionName,
-                    entity.TriggerType,
-                    entity.TriggerSourceId,
-                    triggerSourceName,
-                    entity.TriggerEvent,
-                    entity.WorkFlowId,
-                    entity.StageId,
-                    entity.IsEnabled);
+                // Skip logging for Question type triggers (questions handle their own logging through questionnaire updates)
+                if (entity.TriggerType?.Trim().Equals("Question", StringComparison.OrdinalIgnoreCase) == true)
+                {
+                    _logger.LogInformation("Skipping ActionMappingDelete log for Question type trigger. Question action changes are logged through QuestionnaireUpdate.");
+                }
+                else
+                {
+                    await _actionLogService.LogActionMappingDisassociateAsync(
+                        entity.Id,
+                        entity.ActionDefinitionId,
+                        actionName,
+                        entity.TriggerType,
+                        entity.TriggerSourceId,
+                        triggerSourceName,
+                        entity.TriggerEvent,
+                        entity.WorkFlowId,
+                        entity.StageId,
+                        entity.IsEnabled);
+                }
             }
             catch (Exception ex)
             {
@@ -1550,8 +1566,94 @@ namespace FlowFlex.Application.Services.Action
                         return task?.Name ?? $"Task {triggerSourceId}";
 
                     case "question":
-                        var questionnaire = await _questionnaireRepository.GetByIdAsync(triggerSourceId);
-                        return questionnaire?.Name ?? $"Question {triggerSourceId}";
+                        // For questions, we need to find the questionnaire that contains this question
+                        // and extract the question title from Structure
+                        var questionnaires = await _questionnaireRepository.GetListAsync();
+                        foreach (var questionnaire in questionnaires)
+                        {
+                            if (questionnaire.Structure == null)
+                                continue;
+
+                            try
+                            {
+                                // Convert JToken to string, then parse as JsonDocument
+                                var structureJson = questionnaire.Structure.ToString();
+                                if (string.IsNullOrEmpty(structureJson))
+                                    continue;
+                                    
+                                var structureDoc = JsonDocument.Parse(structureJson);
+                                if (structureDoc.RootElement.TryGetProperty("sections", out var sections) &&
+                                    sections.ValueKind == JsonValueKind.Array)
+                                {
+                                    foreach (var section in sections.EnumerateArray())
+                                    {
+                                        if (section.TryGetProperty("questions", out var questions) &&
+                                            questions.ValueKind == JsonValueKind.Array)
+                                        {
+                                            foreach (var question in questions.EnumerateArray())
+                                            {
+                                                // Check if this question matches the triggerSourceId
+                                                if (question.TryGetProperty("id", out var questionIdElement))
+                                                {
+                                                    long questionId = 0;
+                                                    if (questionIdElement.ValueKind == JsonValueKind.Number &&
+                                                        questionIdElement.TryGetInt64(out questionId))
+                                                    {
+                                                        if (questionId == triggerSourceId)
+                                                        {
+                                                            // Found the question, extract its title
+                                                            if (question.TryGetProperty("title", out var titleElement))
+                                                            {
+                                                                var title = titleElement.GetString();
+                                                                if (!string.IsNullOrEmpty(title))
+                                                                    return title;
+                                                            }
+                                                            if (question.TryGetProperty("question", out var questionElement))
+                                                            {
+                                                                var questionText = questionElement.GetString();
+                                                                if (!string.IsNullOrEmpty(questionText))
+                                                                    return questionText;
+                                                            }
+                                                            // If no title found, return with question ID
+                                                            return $"Question {triggerSourceId}";
+                                                        }
+                                                    }
+                                                    else if (questionIdElement.ValueKind == JsonValueKind.String)
+                                                    {
+                                                        var questionIdStr = questionIdElement.GetString();
+                                                        if (long.TryParse(questionIdStr, out questionId) && questionId == triggerSourceId)
+                                                        {
+                                                            // Found the question, extract its title
+                                                            if (question.TryGetProperty("title", out var titleElement))
+                                                            {
+                                                                var title = titleElement.GetString();
+                                                                if (!string.IsNullOrEmpty(title))
+                                                                    return title;
+                                                            }
+                                                            if (question.TryGetProperty("question", out var questionElement))
+                                                            {
+                                                                var questionText = questionElement.GetString();
+                                                                if (!string.IsNullOrEmpty(questionText))
+                                                                    return questionText;
+                                                            }
+                                                            // If no title found, return with question ID
+                                                            return $"Question {triggerSourceId}";
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            catch (Exception ex)
+                            {
+                                _logger.LogWarning(ex, "Failed to parse StructureJson for questionnaire {QuestionnaireId}", questionnaire.Id);
+                                continue;
+                            }
+                        }
+                        // If question not found in any questionnaire, return default
+                        return $"Question {triggerSourceId}";
 
                     case "stage":
                         var stage = await _stageRepository.GetByIdAsync(triggerSourceId);
