@@ -21,6 +21,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
         private readonly IWorkflowLogService _workflowLogService;
         private readonly IStageLogService _stageLogService;
         private readonly IActionLogService _actionLogService;
+        private readonly IOnboardingLogService _onboardingLogService;
         private readonly ILogAggregationService _logAggregationService;
         private readonly IOperationChangeLogRepository _operationChangeLogRepository;
         private readonly ILogger<OperationChangeLogServiceLegacyAdapter> _logger;
@@ -31,6 +32,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
             IWorkflowLogService workflowLogService,
             IStageLogService stageLogService,
             IActionLogService actionLogService,
+            IOnboardingLogService onboardingLogService,
             ILogAggregationService logAggregationService,
             IOperationChangeLogRepository operationChangeLogRepository,
             ILogger<OperationChangeLogServiceLegacyAdapter> logger)
@@ -40,6 +42,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
             _workflowLogService = workflowLogService;
             _stageLogService = stageLogService;
             _actionLogService = actionLogService;
+            _onboardingLogService = onboardingLogService;
             _logAggregationService = logAggregationService;
             _operationChangeLogRepository = operationChangeLogRepository;
             _logger = logger;
@@ -240,6 +243,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                     BusinessTypeEnum.ChecklistTask => await _checklistLogService.GetChecklistTaskLogsAsync(businessId, null, pageIndex, pageSize, true),
                     BusinessTypeEnum.Questionnaire => await GetQuestionnaireWithRelatedLogsAsync(businessId, pageIndex, pageSize),
                     BusinessTypeEnum.Stage => await GetStageLogsAsync(businessId, pageIndex, pageSize),
+                    BusinessTypeEnum.Onboarding => await _onboardingLogService.GetOnboardingLogsAsync(businessId, pageIndex, pageSize),
                     BusinessTypeEnum.Action => await _actionLogService.GetActionDefinitionLogsAsync(businessId, pageIndex, pageSize),
                     BusinessTypeEnum.ActionMapping => await _actionLogService.GetActionMappingLogsAsync(businessId, pageIndex, pageSize),
                     _ => throw new NotSupportedException($"Business type {businessType} is not supported.")

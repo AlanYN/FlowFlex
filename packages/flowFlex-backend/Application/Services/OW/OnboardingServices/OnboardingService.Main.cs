@@ -63,6 +63,7 @@ namespace FlowFlex.Application.Services.OW
         internal readonly IBackgroundTaskQueue _backgroundTaskQueue;
         internal readonly IActionManagementService _actionManagementService;
         internal readonly IOperationChangeLogService _operationChangeLogService;
+        internal readonly Application.Contracts.IServices.OW.ChangeLog.IOnboardingLogService _onboardingLogService;
         internal readonly IPermissionService _permissionService;
         internal readonly Permission.CasePermissionService _casePermissionService;
         internal readonly IHttpContextAccessor _httpContextAccessor;
@@ -103,6 +104,7 @@ namespace FlowFlex.Application.Services.OW
             IBackgroundTaskQueue backgroundTaskQueue,
             IActionManagementService actionManagementService,
             IOperationChangeLogService operationChangeLogService,
+            Application.Contracts.IServices.OW.ChangeLog.IOnboardingLogService onboardingLogService,
             IPermissionService permissionService,
             Permission.CasePermissionService casePermissionService,
             IHttpContextAccessor httpContextAccessor,
@@ -130,6 +132,7 @@ namespace FlowFlex.Application.Services.OW
             _backgroundTaskQueue = backgroundTaskQueue ?? throw new ArgumentNullException(nameof(backgroundTaskQueue));
             _actionManagementService = actionManagementService ?? throw new ArgumentNullException(nameof(actionManagementService));
             _operationChangeLogService = operationChangeLogService ?? throw new ArgumentNullException(nameof(operationChangeLogService));
+            _onboardingLogService = onboardingLogService ?? throw new ArgumentNullException(nameof(onboardingLogService));
             _permissionService = permissionService ?? throw new ArgumentNullException(nameof(permissionService));
             _casePermissionService = casePermissionService ?? throw new ArgumentNullException(nameof(casePermissionService));
             _userService = userService ?? throw new ArgumentNullException(nameof(userService));

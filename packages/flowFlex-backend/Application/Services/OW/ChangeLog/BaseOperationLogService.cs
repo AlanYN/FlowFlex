@@ -1522,11 +1522,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                 if (changeList.Any())
                 {
                     var result = $"Changes: {string.Join(", ", changeList)}";
-                    // Don't show "and X more fields" for Workflow module
-                    if (businessModule != BusinessModuleEnum.Workflow && changedFields.Count > 3)
-                    {
-                        result += $" and {changedFields.Count - 3} more fields";
-                    }
+                    // Don't show "and X more fields" - show all changes
                     return result;
                 }
             }
@@ -2283,6 +2279,8 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
             public List<OptionInfo> Rows { get; set; } = new List<OptionInfo>();
             public List<OptionInfo> Columns { get; set; } = new List<OptionInfo>();
             public Dictionary<string, object> Properties { get; set; } = new Dictionary<string, object>();
+            public string SectionId { get; set; }
+            public string SectionName { get; set; }
 
             public override bool Equals(object obj)
             {
@@ -2905,6 +2903,20 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
 
             foreach (var section in sections)
             {
+                // Extract section information
+                string sectionId = null;
+                string sectionName = null;
+                
+                if (section.TryGetProperty("id", out var sectionIdElement))
+                {
+                    sectionId = sectionIdElement.GetString();
+                }
+                
+                if (section.TryGetProperty("name", out var sectionNameElement))
+                {
+                    sectionName = sectionNameElement.GetString();
+                }
+
                 // Process both 'questions' and 'items' arrays, but avoid duplicates
                 var questionArrays = new List<(string arrayName, JsonElement array)>();
 
@@ -2929,6 +2941,10 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
 
                         if (questionInfo != null)
                         {
+                            // Set section information
+                            questionInfo.SectionId = sectionId;
+                            questionInfo.SectionName = sectionName;
+
                             // Use title as the primary key for deduplication
                             var questionKey = GetQuestionDeduplicationKey(questionInfo);
 
@@ -3178,15 +3194,34 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                         changes.Add($"removed questions: {string.Join("; ", removedInfo)}");
                 }
 
-                // Find modified questions
+                // Find modified questions and section movements
                 var modifiedQuestions = new List<string>();
+                var movedQuestions = new List<string>();
+                
                 foreach (var key in beforeDict.Keys.Intersect(afterDict.Keys))
                 {
                     var beforeQ = beforeDict[key];
                     var afterQ = afterDict[key];
 
+                    // Check if question moved to a different section
+                    bool sectionChanged = false;
+                    string beforeSection = GetSectionDisplayName(beforeQ);
+                    string afterSection = GetSectionDisplayName(afterQ);
+                    
+                    if (!string.IsNullOrEmpty(beforeSection) && !string.IsNullOrEmpty(afterSection) && 
+                        beforeSection != afterSection)
+                    {
+                        sectionChanged = true;
+                        var title = GetDisplayTitle(afterQ);
+                        if (!string.IsNullOrEmpty(title))
+                        {
+                            movedQuestions.Add($"'{title}' moved from '{beforeSection}' to '{afterSection}'");
+                        }
+                    }
+
+                    // Check for other question-specific changes (excluding section movement)
                     var questionChanges = GetQuestionSpecificChanges(beforeQ, afterQ);
-                    if (questionChanges.Any())
+                    if (questionChanges.Any() && !sectionChanged)
                     {
                         var title = GetDisplayTitle(afterQ);
                         if (!string.IsNullOrEmpty(title))
@@ -3194,6 +3229,21 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                             modifiedQuestions.Add($"'{title}' ({string.Join(", ", questionChanges)})");
                         }
                     }
+                    else if (questionChanges.Any() && sectionChanged)
+                    {
+                        // If question moved and has other changes, include both
+                        var title = GetDisplayTitle(afterQ);
+                        if (!string.IsNullOrEmpty(title))
+                        {
+                            modifiedQuestions.Add($"'{title}' ({string.Join(", ", questionChanges)})");
+                        }
+                    }
+                }
+
+                // Add moved questions first (as they are more significant)
+                if (movedQuestions.Any())
+                {
+                    changes.AddRange(movedQuestions);
                 }
 
                 if (modifiedQuestions.Any())
@@ -3231,6 +3281,20 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                 return $"Question {question.Id}";
 
             return "Unknown Question";
+        }
+
+        /// <summary>
+        /// Get display name for a section
+        /// </summary>
+        protected virtual string GetSectionDisplayName(DetailedQuestionInfo question)
+        {
+            if (!string.IsNullOrEmpty(question.SectionName))
+                return question.SectionName;
+
+            if (!string.IsNullOrEmpty(question.SectionId))
+                return $"Section {question.SectionId}";
+
+            return "Unknown Section";
         }
 
         /// <summary>

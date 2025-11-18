@@ -6,6 +6,7 @@ using FlowFlex.Application.Contracts.Dtos.OW.Permission;
 using FlowFlex.Application.Contracts.IServices.Action;
 using FlowFlex.Application.Contracts.IServices.OW;
 using FlowFlex.Application.Contracts.IServices.OW;
+using FlowFlex.Application.Contracts.IServices.OW.ChangeLog;
 using FlowFlex.Application.Services.OW.Extensions;
 using FlowFlex.Domain.Entities.OW;
 using FlowFlex.Domain.Repository.OW;
@@ -34,6 +35,7 @@ using System.Text;
 using System.Text.Json;
 using PermissionOperationType = FlowFlex.Domain.Shared.Enums.Permission.OperationTypeEnum;
 using FlowFlex.Application.Contracts.Dtos.OW.User;
+using Microsoft.Extensions.Logging;
 
 
 namespace FlowFlex.Application.Services.OW
@@ -490,6 +492,61 @@ namespace FlowFlex.Application.Services.OW
                             // Debug logging handled by structured logging
                         }
                     });
+
+                    // Log onboarding creation
+                    _backgroundTaskQueue.QueueBackgroundWorkItem(async token =>
+                    {
+                        try
+                        {
+                            var insertedEntity = await _onboardingRepository.GetByIdAsync(insertedId);
+                            if (insertedEntity != null)
+                            {
+                                // Get workflow name
+                                string workflowName = null;
+                                try
+                                {
+                                    var workflow = await _workflowRepository.GetByIdAsync(insertedEntity.WorkflowId);
+                                    workflowName = workflow?.Name;
+                                }
+                                catch
+                                {
+                                    // Ignore if workflow not found
+                                }
+
+                                var afterData = JsonSerializer.Serialize(new
+                                {
+                                    LeadName = insertedEntity.LeadName,
+                                    CaseCode = insertedEntity.CaseCode,
+                                    WorkflowId = insertedEntity.WorkflowId,
+                                    WorkflowName = workflowName,
+                                    Status = insertedEntity.Status,
+                                    Priority = insertedEntity.Priority,
+                                    LifeCycleStageName = insertedEntity.LifeCycleStageName,
+                                    ContactPerson = insertedEntity.ContactPerson,
+                                    ContactEmail = insertedEntity.ContactEmail,
+                                    CurrentStageId = insertedEntity.CurrentStageId,
+                                    Ownership = insertedEntity.Ownership,
+                                    OwnershipName = insertedEntity.OwnershipName,
+                                    ViewPermissionMode = insertedEntity.ViewPermissionMode,
+                                    ViewTeams = insertedEntity.ViewTeams,
+                                    ViewUsers = insertedEntity.ViewUsers,
+                                    ViewPermissionSubjectType = insertedEntity.ViewPermissionSubjectType,
+                                    OperateTeams = insertedEntity.OperateTeams,
+                                    OperateUsers = insertedEntity.OperateUsers,
+                                    OperatePermissionSubjectType = insertedEntity.OperatePermissionSubjectType
+                                });
+                                await _onboardingLogService.LogOnboardingCreateAsync(
+                                    insertedId,
+                                    insertedEntity.LeadName ?? insertedEntity.CaseCode ?? "Unknown",
+                                    afterData: afterData
+                                );
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogError(ex, "Failed to log onboarding create operation for onboarding {OnboardingId}", insertedId);
+                        }
+                    });
                 }
 
                 return insertedId;
@@ -527,7 +584,7 @@ namespace FlowFlex.Application.Services.OW
                 var originalWorkflowId = entity.WorkflowId;
                 var originalStageId = entity.CurrentStageId;
 
-                // Store original values for static field sync comparison
+                // Store original values for static field sync comparison and logging
                 var originalLeadId = entity.LeadId;
                 var originalLeadName = entity.LeadName;
                 var originalContactPerson = entity.ContactPerson;
@@ -535,6 +592,53 @@ namespace FlowFlex.Application.Services.OW
                 var originalLeadPhone = entity.LeadPhone;
                 var originalLifeCycleStageId = entity.LifeCycleStageId;
                 var originalPriority = entity.Priority;
+                var originalLifeCycleStageName = entity.LifeCycleStageName;
+                var originalOwnership = entity.Ownership;
+                var originalCurrentStageId = entity.CurrentStageId;
+                var originalViewPermissionMode = entity.ViewPermissionMode;
+                var originalViewTeams = entity.ViewTeams;
+                var originalViewUsers = entity.ViewUsers;
+                var originalViewPermissionSubjectType = entity.ViewPermissionSubjectType;
+                var originalOperateTeams = entity.OperateTeams;
+                var originalOperateUsers = entity.OperateUsers;
+                var originalOperatePermissionSubjectType = entity.OperatePermissionSubjectType;
+                var originalOwnershipName = entity.OwnershipName;
+                
+                // Get workflow name for beforeData
+                string beforeWorkflowName = null;
+                try
+                {
+                    var beforeWorkflow = await _workflowRepository.GetByIdAsync(entity.WorkflowId);
+                    beforeWorkflowName = beforeWorkflow?.Name;
+                }
+                catch
+                {
+                    // Ignore if workflow not found
+                }
+                
+                // Prepare beforeData for logging
+                var beforeData = JsonSerializer.Serialize(new
+                {
+                    LeadName = entity.LeadName,
+                    CaseCode = entity.CaseCode,
+                    WorkflowId = entity.WorkflowId,
+                    WorkflowName = beforeWorkflowName,
+                    Status = entity.Status,
+                    Priority = entity.Priority,
+                    LifeCycleStageName = entity.LifeCycleStageName,
+                    ContactPerson = entity.ContactPerson,
+                    ContactEmail = entity.ContactEmail,
+                    CurrentStageId = entity.CurrentStageId,
+                    Ownership = entity.Ownership,
+                    OwnershipName = entity.OwnershipName,
+                    ViewPermissionMode = entity.ViewPermissionMode,
+                    ViewTeams = entity.ViewTeams,
+                    ViewUsers = entity.ViewUsers,
+                    ViewPermissionSubjectType = entity.ViewPermissionSubjectType,
+                    OperateTeams = entity.OperateTeams,
+                    OperateUsers = entity.OperateUsers,
+                    OperatePermissionSubjectType = entity.OperatePermissionSubjectType
+                });
 
                 // Track if workflow changed to preserve CurrentStageId after mapping
                 bool workflowChanged = false;
@@ -656,19 +760,76 @@ namespace FlowFlex.Application.Services.OW
                         Console.WriteLine($"[OnboardingService] Static field sync skipped - No stage found for Onboarding {entity.Id}");
                     }
 
-                    await LogOnboardingActionAsync(entity, "Update Onboarding", "onboarding_update", true, new
+                    // Log onboarding update
+                    _backgroundTaskQueue.QueueBackgroundWorkItem(async token =>
                     {
-                        UpdatedFields = new
+                        try
                         {
-                            input.LeadName,
-                            input.Priority,
-                            input.CurrentAssigneeName,
-                            input.CurrentTeam,
-                            input.Notes,
-                            input.CustomFieldsJson
-                        },
-                        UpdatedBy = _operatorContextService.GetOperatorDisplayName(),
-                        UpdatedAt = DateTimeOffset.UtcNow
+                            // Get workflow name for afterData
+                            string afterWorkflowName = null;
+                            try
+                            {
+                                var afterWorkflow = await _workflowRepository.GetByIdAsync(entity.WorkflowId);
+                                afterWorkflowName = afterWorkflow?.Name;
+                            }
+                            catch
+                            {
+                                // Ignore if workflow not found
+                            }
+
+                            var afterData = JsonSerializer.Serialize(new
+                            {
+                                LeadName = entity.LeadName,
+                                CaseCode = entity.CaseCode,
+                                WorkflowId = entity.WorkflowId,
+                                WorkflowName = afterWorkflowName,
+                                Status = entity.Status,
+                                Priority = entity.Priority,
+                                LifeCycleStageName = entity.LifeCycleStageName,
+                                ContactPerson = entity.ContactPerson,
+                                ContactEmail = entity.ContactEmail,
+                                CurrentStageId = entity.CurrentStageId,
+                                Ownership = entity.Ownership,
+                                OwnershipName = entity.OwnershipName,
+                                ViewPermissionMode = entity.ViewPermissionMode,
+                                ViewTeams = entity.ViewTeams,
+                                ViewUsers = entity.ViewUsers,
+                                ViewPermissionSubjectType = entity.ViewPermissionSubjectType,
+                                OperateTeams = entity.OperateTeams,
+                                OperateUsers = entity.OperateUsers,
+                                OperatePermissionSubjectType = entity.OperatePermissionSubjectType
+                            });
+
+                            var changedFields = new List<string>();
+                            if (originalLeadName != entity.LeadName) changedFields.Add("LeadName");
+                            if (originalContactPerson != entity.ContactPerson) changedFields.Add("ContactPerson");
+                            if (originalContactEmail != entity.ContactEmail) changedFields.Add("ContactEmail");
+                            if (originalPriority != entity.Priority) changedFields.Add("Priority");
+                            // Skip LifeCycleStageId - don't log this field
+                            if (originalLifeCycleStageName != entity.LifeCycleStageName) changedFields.Add("LifeCycleStageName");
+                            if (originalWorkflowId != entity.WorkflowId) changedFields.Add("WorkflowId");
+                            if (originalOwnership != entity.Ownership) changedFields.Add("Ownership");
+                            // Skip CurrentStageId - don't log this field
+                            if (originalViewPermissionMode != entity.ViewPermissionMode) changedFields.Add("ViewPermissionMode");
+                            if (originalViewTeams != entity.ViewTeams) changedFields.Add("ViewTeams");
+                            if (originalViewUsers != entity.ViewUsers) changedFields.Add("ViewUsers");
+                            if (originalViewPermissionSubjectType != entity.ViewPermissionSubjectType) changedFields.Add("ViewPermissionSubjectType");
+                            if (originalOperateTeams != entity.OperateTeams) changedFields.Add("OperateTeams");
+                            if (originalOperateUsers != entity.OperateUsers) changedFields.Add("OperateUsers");
+                            if (originalOperatePermissionSubjectType != entity.OperatePermissionSubjectType) changedFields.Add("OperatePermissionSubjectType");
+
+                            await _onboardingLogService.LogOnboardingUpdateAsync(
+                                entity.Id,
+                                entity.LeadName ?? entity.CaseCode ?? "Unknown",
+                                beforeData: beforeData,
+                                afterData: afterData,
+                                changedFields: changedFields
+                            );
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogError(ex, "Failed to log onboarding update operation for onboarding {OnboardingId}", entity.Id);
+                        }
                     });
 
                     // Clear related cache data (async execution, doesn't affect main flow)
@@ -829,6 +990,23 @@ namespace FlowFlex.Application.Services.OW
             // Clear related cache after successful deletion
             if (result)
             {
+                // Log onboarding deletion
+                _backgroundTaskQueue.QueueBackgroundWorkItem(async token =>
+                {
+                    try
+                    {
+                        await _onboardingLogService.LogOnboardingDeleteAsync(
+                            entity.Id,
+                            entity.LeadName ?? entity.CaseCode ?? "Unknown",
+                            reason: "Deleted by user"
+                        );
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Failed to log onboarding delete operation for onboarding {OnboardingId}", entity.Id);
+                    }
+                });
+
                 await ClearOnboardingQueryCacheAsync();
                 await ClearRelatedCacheAsync(entity.WorkflowId, entity.CurrentStageId);
             }

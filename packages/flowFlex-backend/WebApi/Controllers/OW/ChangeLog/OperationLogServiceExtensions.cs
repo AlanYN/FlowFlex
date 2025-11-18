@@ -27,6 +27,7 @@ namespace FlowFlex.WebApi.Controllers.OW.ChangeLog
             services.AddScoped<IChecklistLogService, FlowFlex.Application.Services.OW.ChangeLog.ChecklistLogService>();
             services.AddScoped<IQuestionnaireLogService, FlowFlex.Application.Services.OW.ChangeLog.QuestionnaireLogService>();
             services.AddScoped<IActionLogService, FlowFlex.Application.Services.OW.ChangeLog.ActionLogService>();
+            services.AddScoped<IOnboardingLogService, FlowFlex.Application.Services.OW.ChangeLog.OnboardingLogService>();
 
             // Legacy service adapter for backward compatibility
             services.AddScoped<IOperationChangeLogService, FlowFlex.Application.Services.OW.ChangeLog.OperationChangeLogServiceLegacyAdapter>();

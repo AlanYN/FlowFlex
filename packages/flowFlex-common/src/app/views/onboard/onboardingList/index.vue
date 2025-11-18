@@ -226,6 +226,20 @@
 
 											<el-divider title="Delete" class="my-0" />
 
+											<!-- Change History -->
+											<el-dropdown-item
+												v-if="
+													functionPermission(
+														ProjectPermissionEnum.case.read
+													)
+												"
+											>
+												<HistoryButton
+													:id="row.id"
+													:type="WFEMoudels.Onboarding"
+												/>
+											</el-dropdown-item>
+
 											<!-- Delete - 对所有状态显示，但有不同的限制 -->
 											<el-dropdown-item
 												@click="handleDelete(row.id)"
@@ -762,6 +776,7 @@ import { pick, omitBy, isNil } from 'lodash-es';
 import StageFilter from './components/StageFilter.vue';
 import StageCardList from './components/StageCardList.vue';
 import { functionPermission } from '@/hooks';
+import { WFEMoudels } from '@/enums/appEnum';
 
 type RuleType =
 	| 'string'

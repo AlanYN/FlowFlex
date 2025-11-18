@@ -292,7 +292,62 @@ namespace FlowFlex.Domain.Shared.Enums.OW
         /// Action mapping updated
         /// </summary>
         [Description("Action Mapping Update")]
-        ActionMappingUpdate = 46
+        ActionMappingUpdate = 46,
+
+        // Onboarding Operations (CRUD)
+        /// <summary>
+        /// Onboarding created
+        /// </summary>
+        [Description("Onboarding Create")]
+        OnboardingCreate = 48,
+
+        /// <summary>
+        /// Onboarding updated
+        /// </summary>
+        [Description("Onboarding Update")]
+        OnboardingUpdate = 49,
+
+        /// <summary>
+        /// Onboarding deleted
+        /// </summary>
+        [Description("Onboarding Delete")]
+        OnboardingDelete = 50,
+
+        /// <summary>
+        /// Onboarding started
+        /// </summary>
+        [Description("Onboarding Start")]
+        OnboardingStart = 51,
+
+        /// <summary>
+        /// Onboarding paused
+        /// </summary>
+        [Description("Onboarding Pause")]
+        OnboardingPause = 52,
+
+        /// <summary>
+        /// Onboarding resumed
+        /// </summary>
+        [Description("Onboarding Resume")]
+        OnboardingResume = 53,
+
+        /// <summary>
+        /// Onboarding aborted
+        /// </summary>
+        [Description("Onboarding Abort")]
+        OnboardingAbort = 54,
+
+        /// <summary>
+        /// Onboarding reactivated
+        /// </summary>
+        [Description("Onboarding Reactivate")]
+        OnboardingReactivate = 55,
+
+        /// <summary>
+        /// Onboarding force completed
+        /// </summary>
+        [Description("Onboarding Force Complete")]
+        OnboardingForceComplete = 56
     }
 
     /// <summary>

@@ -366,7 +366,7 @@ namespace FlowFlex.WebApi.Controllers.OW
             [FromQuery] int pageIndex = 1,
             [FromQuery] int pageSize = 20)
         {
-            // Get logs for Action type (BusinessTypeEnum.Action = 6)
+            // Get logs for Action type (BusinessTypeEnum.Action = 8)
             var result = await _operationChangeLogService.GetLogsByBusinessIdWithTypeAsync(
                 actionId,
                 BusinessTypeEnum.Action,

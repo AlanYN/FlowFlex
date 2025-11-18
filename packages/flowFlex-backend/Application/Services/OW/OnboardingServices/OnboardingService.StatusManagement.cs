@@ -6,6 +6,7 @@ using FlowFlex.Application.Contracts.Dtos.OW.Permission;
 using FlowFlex.Application.Contracts.IServices.Action;
 using FlowFlex.Application.Contracts.IServices.OW;
 using FlowFlex.Application.Contracts.IServices.OW;
+using FlowFlex.Application.Contracts.IServices.OW.ChangeLog;
 using FlowFlex.Application.Services.OW.Extensions;
 using FlowFlex.Domain.Entities.OW;
 using FlowFlex.Domain.Repository.OW;
@@ -34,6 +35,7 @@ using System.Text;
 using System.Text.Json;
 using PermissionOperationType = FlowFlex.Domain.Shared.Enums.Permission.OperationTypeEnum;
 using FlowFlex.Application.Contracts.Dtos.OW.User;
+using Microsoft.Extensions.Logging;
 
 
 namespace FlowFlex.Application.Services.OW
@@ -63,7 +65,29 @@ namespace FlowFlex.Application.Services.OW
                 throw new CRMException(ErrorCodeEnum.BusinessError, "Cannot pause completed onboarding");
             }
 
-            return await _onboardingRepository.UpdateStatusAsync(id, "Paused");
+            var result = await _onboardingRepository.UpdateStatusAsync(id, "Paused");
+            
+            // Log pause operation
+            if (result)
+            {
+                _backgroundTaskQueue.QueueBackgroundWorkItem(async token =>
+                {
+                    try
+                    {
+                        await _onboardingLogService.LogOnboardingPauseAsync(
+                            id,
+                            entity.LeadName ?? entity.CaseCode ?? "Unknown",
+                            reason: null
+                        );
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Failed to log onboarding pause operation for onboarding {OnboardingId}", id);
+                    }
+                });
+            }
+
+            return result;
         }
 
         /// <summary>
@@ -89,7 +113,29 @@ namespace FlowFlex.Application.Services.OW
                 throw new CRMException(ErrorCodeEnum.BusinessError, "Only paused onboarding can be resumed");
             }
 
-            return await _onboardingRepository.UpdateStatusAsync(id, "InProgress");
+            var result = await _onboardingRepository.UpdateStatusAsync(id, "InProgress");
+            
+            // Log resume operation
+            if (result)
+            {
+                _backgroundTaskQueue.QueueBackgroundWorkItem(async token =>
+                {
+                    try
+                    {
+                        await _onboardingLogService.LogOnboardingResumeAsync(
+                            id,
+                            entity.LeadName ?? entity.CaseCode ?? "Unknown",
+                            reason: null
+                        );
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Failed to log onboarding resume operation for onboarding {OnboardingId}", id);
+                    }
+                });
+            }
+
+            return result;
         }
 
         /// <summary>
