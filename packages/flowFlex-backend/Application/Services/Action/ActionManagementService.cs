@@ -195,6 +195,32 @@ namespace FlowFlex.Application.Services.Action
                     using var scope = _serviceScopeFactory.CreateScope();
                     var actionLogService = scope.ServiceProvider.GetRequiredService<IActionLogService>();
 
+                    // Extract sourceCode from ActionConfig for Python actions
+                    string sourceCode = null;
+                    if (dto.ActionType == ActionTypeEnum.Python && !string.IsNullOrEmpty(dto.ActionConfig))
+                    {
+                        try
+                        {
+                            var configJson = System.Text.Json.JsonSerializer.Deserialize<System.Text.Json.JsonElement>(dto.ActionConfig);
+                            if (configJson.TryGetProperty("sourceCode", out var sourceCodeElement))
+                            {
+                                sourceCode = sourceCodeElement.GetString();
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogDebug(ex, "Failed to extract sourceCode from ActionConfig");
+                        }
+                    }
+
+                    var afterData = JsonSerializer.Serialize(new
+                    {
+                        Name = entity.ActionName,
+                        Description = entity.Description,
+                        ActionType = dto.ActionType.ToString(),
+                        SourceCode = sourceCode
+                    });
+
                     var extendedData = JsonSerializer.Serialize(new
                     {
                         ActionId = entity.Id,
@@ -217,6 +243,7 @@ namespace FlowFlex.Application.Services.Action
                         currentUserName,
                         currentUserId,
                         currentTenantId,
+                        afterData,
                         extendedData
                     );
                 }
