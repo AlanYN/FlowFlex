@@ -79,8 +79,8 @@
 												<el-icon class="mr-2"><CopyDocument /></el-icon>
 												Duplicate
 											</el-dropdown-item>
+											<el-divider class="my-0" />
 											<el-dropdown-item
-												divided
 												v-if="
 													functionPermission(
 														ProjectPermissionEnum.question.read
@@ -92,15 +92,15 @@
 													:type="WFEMoudels.Questionnaire"
 												/>
 											</el-dropdown-item>
+											<el-divider class="my-0" />
 											<el-dropdown-item
-												divided
 												command="delete"
-												class="text-red-500"
 												v-if="
 													functionPermission(
 														ProjectPermissionEnum.question.delete
 													)
 												"
+												class="text-red-500 hover:!bg-red-500 hover:!text-white"
 											>
 												<el-icon class="mr-2"><Delete /></el-icon>
 												Delete

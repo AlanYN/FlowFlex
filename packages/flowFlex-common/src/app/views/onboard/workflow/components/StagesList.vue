@@ -198,6 +198,15 @@
 														Edit
 													</div>
 												</el-dropdown-item>
+												<el-divider
+													class="my-0"
+													v-if="
+														hasStagePermission(
+															element.id,
+															ProjectPermissionEnum.workflow.delete
+														)
+													"
+												/>
 												<el-dropdown-item
 													v-if="
 														hasStagePermission(
@@ -206,7 +215,7 @@
 														)
 													"
 													command="delete"
-													class="delete-item"
+													class="text-red-500 hover:!bg-red-500 hover:!text-white"
 												>
 													<div class="flex items-center gap-2 font-bold">
 														<Delete class="w-4 h-4" />
@@ -800,10 +809,6 @@ html.dark .stage-item:hover {
 	opacity: 0.6;
 	background: var(--el-color-primary-light-9);
 	border: 1px dashed var(--el-color-primary);
-}
-
-.delete-item {
-	color: var(--el-color-danger);
 }
 
 /* 展开详情样式 */

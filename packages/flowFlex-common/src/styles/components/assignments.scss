@@ -82,23 +82,6 @@
 	text-align: center;
 }
 
-
-/* 表格视图样式 */
-.table-assignment-tag {
-	@apply block text-sm text-center font-medium truncate;
-	transition: all 0.3s ease;
-}
-
-.table-assignment-text {
-	white-space: nowrap;
-	overflow: hidden;
-	text-overflow: ellipsis;
-	max-width: 100%;
-	text-align: center;
-	display: block;
-  @apply text-white;
-}
-
 .table-assignment-more {
 	@apply inline-flex items-center rounded-full border text-xs font-semibold transition-colors text-white px-2 py-1;
 	white-space: nowrap;

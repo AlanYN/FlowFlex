@@ -70,8 +70,8 @@
 										<el-icon class="mr-2"><CopyDocument /></el-icon>
 										{{ duplicateLoading ? 'Duplicating...' : 'Duplicate' }}
 									</el-dropdown-item>
+									<el-divider class="my-0" />
 									<el-dropdown-item
-										divided
 										v-if="
 											functionPermission(ProjectPermissionEnum.checkList.read)
 										"
@@ -81,10 +81,10 @@
 											:type="WFEMoudels.Checklist"
 										/>
 									</el-dropdown-item>
+									<el-divider class="my-0" />
 									<el-dropdown-item
-										divided
 										command="delete"
-										class="text-red-500"
+										class="text-red-500 hover:!bg-red-500 hover:!text-white"
 										:disabled="deleteLoading"
 										v-if="
 											functionPermission(
