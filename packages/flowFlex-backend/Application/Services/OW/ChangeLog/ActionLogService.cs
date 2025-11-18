@@ -228,10 +228,31 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
             string customOperatorName,
             long customOperatorId,
             string customTenantId,
+            string afterData = null,
             string extendedData = null)
         {
             var operationTitle = $"Action Created: {actionName}";
-            var operationDescription = $"Action '{actionName}' of type {actionType} has been created by {customOperatorName}";
+            
+            // Build enhanced description with field details
+            var operationDescription = $"Action '{actionName}' has been created by {customOperatorName}";
+            if (!string.IsNullOrEmpty(afterData))
+            {
+                var enhancedDescription = await BuildEnhancedOperationDescriptionAsync(
+                    BusinessModuleEnum.Action,
+                    actionName,
+                    "Created",
+                    beforeData: null,
+                    afterData: afterData,
+                    changedFields: null,
+                    relatedEntityId: null,
+                    relatedEntityType: null,
+                    reason: null);
+                
+                if (!string.IsNullOrEmpty(enhancedDescription) && enhancedDescription != operationDescription)
+                {
+                    operationDescription = enhancedDescription;
+                }
+            }
 
             return await LogOperationWithUserContextAsync(
                 OperationTypeEnum.ActionDefinitionCreate,
@@ -241,6 +262,9 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                 null, // No stage context
                 operationTitle,
                 operationDescription,
+                beforeData: null,
+                afterData: afterData,
+                changedFields: null,
                 extendedData: extendedData,
                 customOperatorName: customOperatorName,
                 customOperatorId: customOperatorId,

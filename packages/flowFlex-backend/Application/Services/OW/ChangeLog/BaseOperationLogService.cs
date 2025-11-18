@@ -1172,6 +1172,52 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                             }
                         }
                     }
+                    else if (businessModule == BusinessModuleEnum.Action)
+                    {
+                        // Extract Description for Action (if not empty)
+                        if (afterJson.TryGetProperty("Description", out var descriptionElement) ||
+                            afterJson.TryGetProperty("description", out descriptionElement))
+                        {
+                            var actionDescription = descriptionElement.GetString();
+                            if (!string.IsNullOrEmpty(actionDescription) && actionDescription.Length <= 100)
+                            {
+                                details.Add($"description: '{actionDescription}'");
+                            }
+                        }
+
+                        // Extract ActionType for Action
+                        if (afterJson.TryGetProperty("ActionType", out var actionTypeElement) ||
+                            afterJson.TryGetProperty("actionType", out actionTypeElement))
+                        {
+                            var actionType = actionTypeElement.GetString();
+                            if (!string.IsNullOrEmpty(actionType))
+                            {
+                                details.Add($"type: {actionType}");
+                            }
+                        }
+
+                        // Extract SourceCode for Python actions
+                        if (afterJson.TryGetProperty("SourceCode", out var sourceCodeElement) ||
+                            afterJson.TryGetProperty("sourceCode", out sourceCodeElement))
+                        {
+                            var sourceCode = sourceCodeElement.GetString();
+                            if (!string.IsNullOrEmpty(sourceCode))
+                            {
+                                // Clean up the code by replacing newlines with spaces and trimming
+                                var cleanedCode = sourceCode.Replace("\r\n", " ").Replace("\n", " ").Replace("  ", " ").Trim();
+                                
+                                // Limit the length to avoid overly long descriptions (keep reasonable length)
+                                if (cleanedCode.Length > 200)
+                                {
+                                    details.Add($"Python: {cleanedCode.Substring(0, 197)}...");
+                                }
+                                else
+                                {
+                                    details.Add($"Python: {cleanedCode}");
+                                }
+                            }
+                        }
+                    }
 
                     // Extract VisibleInPortal for Stage (Available in Customer Portal)
                     if (businessModule == BusinessModuleEnum.Stage &&
