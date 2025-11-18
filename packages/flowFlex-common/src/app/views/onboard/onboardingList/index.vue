@@ -235,7 +235,7 @@
 														ProjectPermissionEnum.case.delete
 													)
 												"
-												class="hover:!bg-red-500 hover:!text-white"
+												class="text-red-500 hover:!bg-red-500 hover:!text-white"
 											>
 												<el-icon><Delete /></el-icon>
 												Delete

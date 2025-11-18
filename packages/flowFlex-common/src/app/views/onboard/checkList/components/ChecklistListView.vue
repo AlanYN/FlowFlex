@@ -63,18 +63,17 @@
 									Duplicate
 								</el-dropdown-item>
 								<el-dropdown-item
-									divided
 									v-if="functionPermission(ProjectPermissionEnum.checkList.read)"
 								>
 									<HistoryButton :id="row.id" :type="WFEMoudels.Checklist" />
 								</el-dropdown-item>
+								<el-divider class="my-0" />
 								<el-dropdown-item
-									divided
 									@click="handleCommand('delete', row)"
-									class="text-red-500"
 									v-if="
 										functionPermission(ProjectPermissionEnum.checkList.delete)
 									"
+									class="text-red-500 hover:!bg-red-500 hover:!text-white"
 								>
 									<el-icon><Delete /></el-icon>
 									Delete
@@ -117,7 +116,6 @@
 					<div class="flex items-center gap-1 max-w-full">
 						<!-- 只显示第一个assignment -->
 						<el-tag
-							class="table-assignment-tag"
 							v-if="getDisplayedAssignments(row.assignments).length > 0"
 							:key="`${getDisplayedAssignments(row.assignments)[0].workflowId}-${
 								getDisplayedAssignments(row.assignments)[0].stageId
@@ -129,7 +127,7 @@
 							)}`"
 							type="primary"
 						>
-							<span class="table-assignment-text">
+							<span>
 								{{
 									`${getWorkflowName(
 										getDisplayedAssignments(row.assignments)[0].workflowId
