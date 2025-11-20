@@ -519,7 +519,7 @@ namespace FlowFlex.Application.Services.OW
             // Private mode or unknown mode
             return false;
         }
-      
+
 
         private static string ValidateAndFormatJsonArray(string jsonArray)
         {

@@ -53,8 +53,8 @@ namespace FlowFlex.Domain.Shared.Models.Permission
                 Success = true,
                 CanView = canView,
                 CanOperate = canOperate,
-                PermissionLevel = canOperate ? PermissionLevelEnum.Operate : 
-                                 canView ? PermissionLevelEnum.ViewOnly : 
+                PermissionLevel = canOperate ? PermissionLevelEnum.Operate :
+                                 canView ? PermissionLevelEnum.ViewOnly :
                                  PermissionLevelEnum.None,
                 GrantReason = grantReason
             };

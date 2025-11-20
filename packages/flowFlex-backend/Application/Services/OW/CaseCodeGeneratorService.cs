@@ -23,7 +23,7 @@ namespace FlowFlex.Application.Services.OW
         private const char PaddingChar = '0';
 
         public CaseCodeGeneratorService(
-            IRedisService redisService, 
+            IRedisService redisService,
             IConfiguration configuration,
             IHttpContextAccessor httpContextAccessor)
         {
@@ -39,12 +39,12 @@ namespace FlowFlex.Application.Services.OW
         {
             var counterKey = GetCounterKey();
             var uniqueId = await GenerateUniqueIdAsync(counterKey);
-            
+
             // Determine padding length based on number size
             // For numbers 1-99999: use 5 digits (C00001)
             // For numbers >= 100000: use actual length (C100000)
             var numberLength = Math.Max(InitialNumberLength, uniqueId.ToString().Length);
-            
+
             return $"{CodePrefix}{uniqueId.ToString().PadLeft(numberLength, PaddingChar)}";
         }
 
@@ -62,13 +62,13 @@ namespace FlowFlex.Application.Services.OW
         /// </summary>
         private string GetCounterKey()
         {
-            var sysPrefix = string.IsNullOrEmpty(_configuration["Redis:KeyPrefix"]) 
-                ? "" 
+            var sysPrefix = string.IsNullOrEmpty(_configuration["Redis:KeyPrefix"])
+                ? ""
                 : $"{_configuration["Redis:KeyPrefix"]}:";
-            
+
             var tenantId = GetCurrentTenantId();
             var appCode = GetCurrentAppCode();
-            
+
             return $"{sysPrefix}ow:case:{tenantId}:{appCode}:count";
         }
 

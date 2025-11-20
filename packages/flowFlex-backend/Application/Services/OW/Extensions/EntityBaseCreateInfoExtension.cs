@@ -55,14 +55,14 @@ namespace FlowFlex.Application.Services.OW.Extensions
                 abstractEntity.AppCode = userContext?.AppCode ?? "DEFAULT";
             }
         }
-        
+
         /// <summary>
         /// Get display name from UserContext (Priority: FirstName + LastName > UserName)
         /// </summary>
         private static string GetDisplayName(UserContext userContext)
         {
             if (userContext == null) return "SYSTEM";
-            
+
             // Priority 1: FirstName + LastName
             var firstName = userContext.FirstName?.Trim();
             var lastName = userContext.LastName?.Trim();
@@ -71,19 +71,19 @@ namespace FlowFlex.Application.Services.OW.Extensions
             {
                 return fullName;
             }
-            
+
             // Priority 2: UserName
             if (!string.IsNullOrEmpty(userContext.UserName))
             {
                 return userContext.UserName;
             }
-            
+
             // Priority 3: Email
             if (!string.IsNullOrEmpty(userContext.Email))
             {
                 return userContext.Email;
             }
-            
+
             return "SYSTEM";
         }
 

@@ -1166,8 +1166,8 @@ const refreshAISummary = async () => {
 
 			// 检查是否是错误信息
 			if (chunk.startsWith('Error:')) {
-				console.error('❌ [AI Summary] Server error:', chunk);
-				ElMessage.error(chunk.replace('Error: ', '') || 'Failed to generate AI summary');
+				console.warn('⚠️ [AI Summary] AI service unavailable:', chunk);
+				// 不显示错误弹窗，只记录日志
 				aiSummaryLoading.value = false;
 				return;
 			}
@@ -1211,9 +1211,9 @@ const refreshAISummary = async () => {
 			return;
 		}
 
-		console.error('Error generating AI summary:', error);
+		console.warn('⚠️ [AI Summary] Generation failed:', error);
 		aiSummaryLoading.value = false;
-		ElMessage.error('Failed to generate AI summary');
+		// 不显示错误弹窗，只记录日志
 	} finally {
 		// 清理AbortController引用
 		aiSummaryAbortController = null;

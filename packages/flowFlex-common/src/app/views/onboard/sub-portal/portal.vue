@@ -539,7 +539,7 @@ const customerData = computed(() => {
 		contactName: data.contactPerson,
 		email: data.contactEmail,
 		phone: '',
-		accountManager: data.createBy || 'N/A',
+		accountManager: data.ownershipName || data.createBy || '',
 	};
 });
 

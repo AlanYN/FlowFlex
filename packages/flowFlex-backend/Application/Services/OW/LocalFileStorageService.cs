@@ -115,13 +115,13 @@ namespace FlowFlex.Application.Services.OW
 
                 // Use async FileStream with proper async flag
                 var stream = new FileStream(
-                    fullPath, 
-                    FileMode.Open, 
-                    FileAccess.Read, 
-                    FileShare.Read, 
-                    bufferSize: 4096, 
+                    fullPath,
+                    FileMode.Open,
+                    FileAccess.Read,
+                    FileShare.Read,
+                    bufferSize: 4096,
                     useAsync: true);
-                    
+
                 var fileName = Path.GetFileName(fullPath);
                 var contentType = GetContentType(fileName);
 

@@ -128,7 +128,7 @@ namespace FlowFlex.Application.Services.OW
                 // Debug logging handled by structured logging
                 // Use SqlSugar client directly for more precise checking
                 var sqlSugarClient = _onboardingRepository.GetSqlSugarClient();
-                
+
                 if (!string.IsNullOrWhiteSpace(input.LeadId))
                 {
                     var existingActiveOnboarding = await sqlSugarClient.Queryable<Onboarding>()
@@ -197,10 +197,10 @@ namespace FlowFlex.Application.Services.OW
 
                 // Create new onboarding entity
                 var entity = _mapper.Map<Onboarding>(input);
-                
+
                 // Generate Case Code from Lead Name
                 entity.CaseCode = await _caseCodeGeneratorService.GenerateCaseCodeAsync(input.LeadName);
-                
+
                 // Debug logging handled by structured logging
                 // Set initial values with explicit null checks
                 entity.CurrentStageId = firstStage?.Id;
@@ -551,7 +551,7 @@ namespace FlowFlex.Application.Services.OW
                     {
                         throw new CRMException(
                             ErrorCodeEnum.OperationNotAllowed,
-                            $"Cannot change workflow for a case with status '{entity.Status}'. Only cases with status 'Started' can change workflow.");
+                            $"Cannot change workflow for a case with status '{entity.Status}'.");
                     }
 
                     // Business Rule 2: Only allow workflow change for cases that haven't started yet

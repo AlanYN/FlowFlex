@@ -139,9 +139,9 @@ namespace FlowFlex.Application.Contracts.IServices.OW
         /// <param name="hasViewModulePermission">Pre-checked module-level view permission</param>
         /// <param name="hasOperateModulePermission">Pre-checked module-level operate permission</param>
         Task<PermissionInfoDto> GetWorkflowPermissionInfoForListAsync(
-            long userId, 
-            long workflowId, 
-            bool hasViewModulePermission, 
+            long userId,
+            long workflowId,
+            bool hasViewModulePermission,
             bool hasOperateModulePermission);
 
         /// <summary>
@@ -149,9 +149,9 @@ namespace FlowFlex.Application.Contracts.IServices.OW
         /// Skips redundant module permission checks by accepting pre-checked flags
         /// </summary>
         Task<PermissionInfoDto> GetStagePermissionInfoForListAsync(
-            long userId, 
-            long stageId, 
-            bool hasViewModulePermission, 
+            long userId,
+            long stageId,
+            bool hasViewModulePermission,
             bool hasOperateModulePermission);
 
         /// <summary>
@@ -182,9 +182,9 @@ namespace FlowFlex.Application.Contracts.IServices.OW
         /// Skips redundant module permission checks by accepting pre-checked flags
         /// </summary>
         Task<PermissionInfoDto> GetCasePermissionInfoForListAsync(
-            long userId, 
-            long caseId, 
-            bool hasViewModulePermission, 
+            long userId,
+            long caseId,
+            bool hasViewModulePermission,
             bool hasOperateModulePermission);
     }
 }

@@ -350,7 +350,7 @@ public class ChecklistTaskCompletionService : IChecklistTaskCompletionService, I
             // This ensures we log the correct stage where the task was completed
             Stage currentStage = null;
             var stageIdToUse = completion.StageId ?? onboarding.CurrentStageId;
-            
+
             if (stageIdToUse.HasValue)
             {
                 currentStage = await _stageRepository.GetByIdAsync(stageIdToUse.Value);
@@ -859,14 +859,14 @@ public class ChecklistTaskCompletionService : IChecklistTaskCompletionService, I
     {
         try
         {
-            _logger.LogDebug("开始处理任务完成的 Action: TaskId={TaskId}, ActionId={ActionId}, MappingId={MappingId}", 
+            _logger.LogDebug("开始处理任务完成的 Action: TaskId={TaskId}, ActionId={ActionId}, MappingId={MappingId}",
                 task.Id, taskActionMapping.ActionDefinitionId, taskActionMapping.Id);
 
             // 获取 Action 定义
             var actionDefinition = await _actionDefinitionRepository.GetByIdAsync(taskActionMapping.ActionDefinitionId);
             if (actionDefinition == null)
             {
-                _logger.LogWarning("Action 定义不存在: ActionId={ActionId}, TaskId={TaskId}, MappingId={MappingId}", 
+                _logger.LogWarning("Action 定义不存在: ActionId={ActionId}, TaskId={TaskId}, MappingId={MappingId}",
                     taskActionMapping.ActionDefinitionId, task.Id, taskActionMapping.Id);
                 return;
             }
@@ -888,7 +888,7 @@ public class ChecklistTaskCompletionService : IChecklistTaskCompletionService, I
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "处理任务 Action 时发生错误: TaskId={TaskId}, ActionId={ActionId}, MappingId={MappingId}", 
+            _logger.LogError(ex, "处理任务 Action 时发生错误: TaskId={TaskId}, ActionId={ActionId}, MappingId={MappingId}",
                 task.Id, taskActionMapping.ActionDefinitionId, taskActionMapping.Id);
             // 不重新抛出异常，避免影响主业务流程
         }
@@ -951,6 +951,33 @@ public class ChecklistTaskCompletionService : IChecklistTaskCompletionService, I
 
                         _logger.LogInformation("已修复数据不一致性: OnboardingId={OnboardingId}, StageId={StageId}, 现在标记为已完成",
                             onboarding.Id, stageId);
+
+                        // Log the stage completion inconsistency fix to operation_change_log
+                        try
+                        {
+                            var stage = await _stageRepository.GetByIdAsync(stageId);
+                            var beforeData = new { IsCompleted = false, Status = stageProgress.Status };
+                            var afterData = new { IsCompleted = true, Status = "Completed" };
+
+                            await _operationChangeLogService.LogOperationAsync(
+                                operationType: OperationTypeEnum.StageComplete,
+                                businessModule: BusinessModuleEnum.Stage,
+                                businessId: stageId,
+                                onboardingId: onboarding.Id,
+                                stageId: stageId,
+                                operationTitle: $"Stage Completion Inconsistency Fixed: {stage?.Name ?? "Unknown"}",
+                                operationDescription: $"Fixed data inconsistency - Stage marked as completed (auto-fix by system)",
+                                beforeData: System.Text.Json.JsonSerializer.Serialize(beforeData),
+                                afterData: System.Text.Json.JsonSerializer.Serialize(afterData),
+                                changedFields: new List<string> { "IsCompleted", "Status" },
+                                extendedData: System.Text.Json.JsonSerializer.Serialize(new { Reason = "Auto-fix inconsistency", Source = "CheckAndFixStageCompletionInconsistencyAsync" })
+                            );
+                        }
+                        catch (Exception logEx)
+                        {
+                            _logger.LogError(logEx, "记录 Stage 完成不一致修复日志失败: OnboardingId={OnboardingId}, StageId={StageId}",
+                                onboarding.Id, stageId);
+                        }
                     }
                     catch (Exception updateEx)
                     {
@@ -1073,6 +1100,65 @@ public class ChecklistTaskCompletionService : IChecklistTaskCompletionService, I
             {
                 _logger.LogWarning("Stage 完成操作未成功: OnboardingId={OnboardingId}, StageId={StageId}, TaskId={TaskId}",
                     onboarding.Id, stageIdToComplete, task.Id);
+            }
+            else
+            {
+                // Log the auto stage completion to operation_change_log
+                try
+                {
+                    var stage = await _stageRepository.GetByIdAsync(stageIdToComplete);
+                    var beforeData = new
+                    {
+                        StageId = stageIdToComplete,
+                        StageName = stage?.Name,
+                        IsCompleted = false,
+                        Status = "InProgress"
+                    };
+
+                    var afterData = new
+                    {
+                        StageId = stageIdToComplete,
+                        StageName = stage?.Name,
+                        IsCompleted = true,
+                        Status = "Completed",
+                        CompletedTime = DateTimeOffset.UtcNow
+                    };
+
+                    var extendedData = new
+                    {
+                        TriggerSource = "TaskCompletion",
+                        TriggerTaskId = task.Id,
+                        TriggerTaskName = task.Name,
+                        TriggerActionId = task.ActionId,
+                        ActionType = "System",
+                        ActionName = "CompleteStage",
+                        AutoCompleted = true,
+                        CompletionNotes = completeStageContext.CompletionNotes
+                    };
+
+                    await _operationChangeLogService.LogOperationAsync(
+                        operationType: OperationTypeEnum.StageComplete,
+                        businessModule: BusinessModuleEnum.Stage,
+                        businessId: stageIdToComplete,
+                        onboardingId: onboarding.Id,
+                        stageId: stageIdToComplete,
+                        operationTitle: $"Stage Auto-Completed: {stage?.Name ?? "Unknown"}",
+                        operationDescription: $"Stage '{stage?.Name}' was automatically completed by task '{task.Name}' (TaskId: {task.Id})",
+                        beforeData: System.Text.Json.JsonSerializer.Serialize(beforeData),
+                        afterData: System.Text.Json.JsonSerializer.Serialize(afterData),
+                        changedFields: new List<string> { "IsCompleted", "Status", "CompletedTime" },
+                        extendedData: System.Text.Json.JsonSerializer.Serialize(extendedData)
+                    );
+
+                    _logger.LogInformation("已记录 Stage 自动完成日志: OnboardingId={OnboardingId}, StageId={StageId}, TaskId={TaskId}",
+                        onboarding.Id, stageIdToComplete, task.Id);
+                }
+                catch (Exception logEx)
+                {
+                    _logger.LogError(logEx, "记录 Stage 自动完成日志失败: OnboardingId={OnboardingId}, StageId={StageId}, TaskId={TaskId}",
+                        onboarding.Id, stageIdToComplete, task.Id);
+                    // Don't re-throw to avoid breaking the main flow
+                }
             }
         }
         catch (Exception ex)

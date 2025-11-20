@@ -167,7 +167,7 @@ namespace WebApi.Authorization
         private bool IsSpecialAuthenticationScheme()
         {
             var scheme = _userContext?.Schema;
-            
+
             // Add special authentication schemes that bypass permission checks
             // Similar to Unis CRM's PassIdentification, IdentityClient, ItemIamClientIdentification
             var specialSchemes = new[]

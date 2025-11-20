@@ -105,7 +105,7 @@ namespace FlowFlex.Application.Services.OW.Permission
 
             // Step 3: Check View Permission (non-Public modes)
             bool canView = CheckCaseViewPermission(onboarding, userTeamIds, userIdString);
-            
+
             if (!canView)
             {
                 return PermissionResult.CreateFailure(
@@ -114,11 +114,11 @@ namespace FlowFlex.Application.Services.OW.Permission
             }
 
             // Step 4: Check Operate Permission (only if user can view)
-            if (operationType == PermissionOperationType.Operate || 
+            if (operationType == PermissionOperationType.Operate ||
                 operationType == PermissionOperationType.Delete)
             {
                 bool canOperate = CheckCaseOperatePermission(onboarding, userTeamIds, userIdString);
-                
+
                 if (canOperate)
                 {
                     return PermissionResult.CreateSuccess(true, true, "CaseOperatePermission");
@@ -181,7 +181,7 @@ namespace FlowFlex.Application.Services.OW.Permission
 
                 // Step 1: Check Workflow View Permission
                 bool workflowCanView = _workflowPermissionService.CheckViewPermission(workflow, userTeamIds);
-                
+
                 if (!workflowCanView)
                 {
                     _logger.LogDebug(
@@ -199,11 +199,11 @@ namespace FlowFlex.Application.Services.OW.Permission
                     workflow.Id);
 
                 // Step 2: Check Workflow Operate Permission (if needed)
-                if (operationType == PermissionOperationType.Operate || 
+                if (operationType == PermissionOperationType.Operate ||
                     operationType == PermissionOperationType.Delete)
                 {
                     bool workflowCanOperate = _workflowPermissionService.CheckOperatePermission(workflow, userTeamIds);
-                    
+
                     if (workflowCanOperate)
                     {
                         _logger.LogDebug(
@@ -255,7 +255,7 @@ namespace FlowFlex.Application.Services.OW.Permission
         {
             // Check View Permission
             bool canView = CheckCaseViewPermission(onboarding, userTeamIds, userIdString);
-            
+
             if (!canView)
             {
                 return PermissionResult.CreateFailure(
@@ -264,11 +264,11 @@ namespace FlowFlex.Application.Services.OW.Permission
             }
 
             // Check Operate Permission (only if user can view)
-            if (operationType == PermissionOperationType.Operate || 
+            if (operationType == PermissionOperationType.Operate ||
                 operationType == PermissionOperationType.Delete)
             {
                 bool canOperate = CheckCaseOperatePermission(onboarding, userTeamIds, userIdString);
-                
+
                 if (canOperate)
                 {
                     return PermissionResult.CreateSuccess(true, true, "CaseOperatePermission");
@@ -306,19 +306,19 @@ namespace FlowFlex.Application.Services.OW.Permission
             return onboarding.ViewPermissionMode switch
             {
                 ViewPermissionModeEnum.Public => true,
-                
-                ViewPermissionModeEnum.VisibleToTeams => 
+
+                ViewPermissionModeEnum.VisibleToTeams =>
                     onboarding.ViewPermissionSubjectType == PermissionSubjectTypeEnum.Team
                         ? _helpers.CheckTeamWhitelist(onboarding.ViewTeams, userTeamIds)
                         : _helpers.CheckUserWhitelist(onboarding.ViewUsers, userId),
-                
-                ViewPermissionModeEnum.InvisibleToTeams => 
+
+                ViewPermissionModeEnum.InvisibleToTeams =>
                     onboarding.ViewPermissionSubjectType == PermissionSubjectTypeEnum.Team
                         ? _helpers.CheckTeamBlacklist(onboarding.ViewTeams, userTeamIds)
                         : _helpers.CheckUserBlacklist(onboarding.ViewUsers, userId),
-                
+
                 ViewPermissionModeEnum.Private => false, // Owner check is handled in CheckCasePermission
-                
+
                 _ => false
             };
         }
@@ -347,20 +347,114 @@ namespace FlowFlex.Application.Services.OW.Permission
                 {
                     return _helpers.CheckOperateTeamsPublicMode(onboarding.OperateTeams, userTeamIds);
                 }
-                
+
                 // For all other modes: OperateTeams is whitelist
                 return _helpers.CheckTeamWhitelist(onboarding.OperateTeams, userTeamIds);
             }
-            
+
             // User-based permission - ALWAYS whitelist
             // Special handling for Public mode: empty OperateUsers means everyone can operate
             if (onboarding.ViewPermissionMode == ViewPermissionModeEnum.Public)
             {
                 return _helpers.CheckOperateUsersPublicMode(onboarding.OperateUsers, userId);
             }
-            
+
             // For all other modes: OperateUsers is whitelist
             return _helpers.CheckUserWhitelist(onboarding.OperateUsers, userId);
+        }
+
+        #endregion
+
+        #region Batch Permission Checking
+
+        /// <summary>
+        /// Check case permissions in batch for multiple cases
+        /// Optimized for list APIs to avoid N+1 queries
+        /// </summary>
+        public async Task<Dictionary<long, PermissionInfoDto>> CheckBatchCasePermissionsAsync(
+            List<Onboarding> entities,
+            long userId,
+            bool hasViewModulePermission,
+            bool hasOperateModulePermission)
+        {
+            var permissions = new Dictionary<long, PermissionInfoDto>();
+
+            if (entities == null || !entities.Any())
+            {
+                return permissions;
+            }
+
+            _logger.LogDebug(
+                "CheckBatchCasePermissions - Checking permissions for {Count} cases, User: {UserId}",
+                entities.Count,
+                userId);
+
+            // Fast path: Admin bypass
+            if (_helpers.HasAdminPrivileges())
+            {
+                _logger.LogDebug("User {UserId} has admin privileges - granting full access to all cases", userId);
+                foreach (var entity in entities)
+                {
+                    permissions[entity.Id] = new PermissionInfoDto
+                    {
+                        CanView = true,
+                        CanOperate = true,
+                        ErrorMessage = null
+                    };
+                }
+                return permissions;
+            }
+
+            // Check each case's permissions
+            foreach (var entity in entities)
+            {
+                // Check View permission
+                if (!hasViewModulePermission)
+                {
+                    permissions[entity.Id] = new PermissionInfoDto
+                    {
+                        CanView = false,
+                        CanOperate = false,
+                        ErrorMessage = "User does not have required module permission: CASE:READ"
+                    };
+                    continue;
+                }
+
+                var viewResult = await CheckCasePermissionAsync(entity, userId, PermissionOperationType.View);
+
+                // If user cannot view, deny all access
+                if (!viewResult.Success || !viewResult.CanView)
+                {
+                    permissions[entity.Id] = new PermissionInfoDto
+                    {
+                        CanView = false,
+                        CanOperate = false,
+                        ErrorMessage = viewResult.ErrorMessage ?? "User is not allowed to view this case"
+                    };
+                    continue;
+                }
+
+                // Check Operate permission (only if user can view and has module permission)
+                bool canOperate = false;
+                if (hasOperateModulePermission)
+                {
+                    var operateResult = await CheckCasePermissionAsync(entity, userId, PermissionOperationType.Operate);
+                    canOperate = operateResult.Success && operateResult.CanOperate;
+                }
+
+                permissions[entity.Id] = new PermissionInfoDto
+                {
+                    CanView = true,
+                    CanOperate = canOperate,
+                    ErrorMessage = null
+                };
+            }
+
+            _logger.LogDebug(
+                "CheckBatchCasePermissions - Completed checking {Count} cases",
+                permissions.Count);
+
+            return permissions;
         }
 
         #endregion
@@ -371,9 +465,9 @@ namespace FlowFlex.Application.Services.OW.Permission
         /// Get permission info for Case (batch-optimized for list APIs)
         /// </summary>
         public async Task<PermissionInfoDto> GetCasePermissionInfoForListAsync(
-            long userId, 
-            long caseId, 
-            bool hasViewModulePermission, 
+            long userId,
+            long caseId,
+            bool hasViewModulePermission,
             bool hasOperateModulePermission)
         {
             // Fast path: Admin bypass

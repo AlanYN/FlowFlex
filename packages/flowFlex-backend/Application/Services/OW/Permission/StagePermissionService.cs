@@ -88,7 +88,7 @@ namespace FlowFlex.Application.Services.OW.Permission
             // Step 1: Determine if Stage inherits or has its own permissions
             bool stageInheritsView = string.IsNullOrWhiteSpace(stage.ViewTeams);
             bool stageInheritsOperate = string.IsNullOrWhiteSpace(stage.OperateTeams);
-            
+
             _logger.LogDebug(
                 "Stage inheritance - InheritsView: {InheritsView}, InheritsOperate: {InheritsOperate}",
                 stageInheritsView,
@@ -130,7 +130,7 @@ namespace FlowFlex.Application.Services.OW.Permission
                     _logger.LogDebug(
                         "Stage strict check - Stage view permission: {HasStagePermission}",
                         hasStageViewPermission);
-                    
+
                     canView = hasStageViewPermission;
                     viewReason = hasStageViewPermission ? "WorkflowAndStageViewPermission" : "NoStageViewPermission";
                 }
@@ -174,7 +174,7 @@ namespace FlowFlex.Application.Services.OW.Permission
                         _logger.LogDebug(
                             "Stage strict check - Stage operate permission: {HasStageOperatePermission}",
                             hasStageOperatePermission);
-                        
+
                         canOperate = hasStageOperatePermission;
                         operateReason = hasStageOperatePermission ? "WorkflowAndStageOperatePermission" : "NoStageOperatePermission";
                     }
@@ -270,7 +270,7 @@ namespace FlowFlex.Application.Services.OW.Permission
             {
                 return _helpers.CheckOperateTeamsPublicMode(stage.OperateTeams, userTeamIds);
             }
-            
+
             // For all other modes: OperateTeams is ALWAYS whitelist
             return _helpers.CheckTeamWhitelist(stage.OperateTeams, userTeamIds);
         }
@@ -286,36 +286,27 @@ namespace FlowFlex.Application.Services.OW.Permission
         {
             if (string.IsNullOrWhiteSpace(stage.DefaultAssignee))
             {
+                _logger.LogDebug("Stage {StageId} has no DefaultAssignee configured", stage.Id);
                 return false;
             }
 
             try
             {
                 _logger.LogDebug(
-                    "Checking DefaultAssignee - Raw value: {DefaultAssignee}",
+                    "Checking DefaultAssignee for Stage {StageId} - Raw value: {DefaultAssignee}",
+                    stage.Id,
                     stage.DefaultAssignee);
-                
-                // Handle double-escaped JSON: first deserialize to string, then to list
-                List<string> assignedUserIds;
-                try
-                {
-                    // Try direct deserialization first
-                    assignedUserIds = JsonConvert.DeserializeObject<List<string>>(stage.DefaultAssignee) ?? new List<string>();
-                }
-                catch
-                {
-                    // If that fails, try double deserialization (for double-escaped JSON)
-                    var jsonString = JsonConvert.DeserializeObject<string>(stage.DefaultAssignee);
-                    assignedUserIds = JsonConvert.DeserializeObject<List<string>>(jsonString) ?? new List<string>();
-                }
-                
+
+                // Reuse PermissionHelpers' robust JSON deserialization
+                var assignedUserIds = _helpers.DeserializeTeamList(stage.DefaultAssignee);
                 var currentUserIdString = _userContext?.UserId;
-                
+
                 _logger.LogDebug(
-                    "Parsed {Count} assigned users, current user: {UserId}",
+                    "Parsed {Count} assigned users for Stage {StageId}, current user: {UserId}",
                     assignedUserIds.Count,
+                    stage.Id,
                     currentUserIdString);
-                
+
                 if (!string.IsNullOrEmpty(currentUserIdString) && assignedUserIds.Contains(currentUserIdString))
                 {
                     _logger.LogInformation(
@@ -324,12 +315,15 @@ namespace FlowFlex.Application.Services.OW.Permission
                     return true;
                 }
 
+                _logger.LogDebug(
+                    "User {UserId} is not in the assigned users list for Stage {StageId}",
+                    userId, stage.Id);
                 return false;
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex,
-                    "Failed to parse DefaultAssignee JSON for Stage {StageId}, skipping assigned user check. Value: {Value}",
+                _logger.LogError(ex,
+                    "Unexpected error checking assigned user for Stage {StageId}. DefaultAssignee value: {Value}",
                     stage.Id, stage.DefaultAssignee);
                 return false;
             }
@@ -344,9 +338,9 @@ namespace FlowFlex.Application.Services.OW.Permission
         /// Stage inherits Workflow view permissions, but requires explicit module permission for operate
         /// </summary>
         public async Task<PermissionInfoDto> GetStagePermissionInfoForListAsync(
-            long userId, 
-            long stageId, 
-            bool hasViewModulePermission, 
+            long userId,
+            long stageId,
+            bool hasViewModulePermission,
             bool hasOperateModulePermission)
         {
             // Fast path: Admin bypass

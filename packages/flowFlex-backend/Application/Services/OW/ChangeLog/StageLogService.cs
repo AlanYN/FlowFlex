@@ -1571,13 +1571,13 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                         return teams;
                     }
                 }
-                
+
                 // Fallback: treat as comma-separated string
                 var teamList = trimmedData.Split(',', StringSplitOptions.RemoveEmptyEntries)
                     .Select(t => t.Trim())
                     .Where(t => !string.IsNullOrEmpty(t))
                     .ToList();
-                
+
                 _stageLogger.LogDebug("Parsed {Count} teams from comma-separated string", teamList.Count);
                 return teamList;
             }

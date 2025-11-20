@@ -63,12 +63,12 @@ namespace FlowFlex.Application.Services.OW
         {
             var httpContext = _httpContextAccessor?.HttpContext;
             var user = httpContext?.User;
-            
+
             // Check if this is a Portal token (has scope=portal claim)
             var scope = user?.Claims.FirstOrDefault(c => c.Type == "scope")?.Value;
             var tokenType = user?.Claims.FirstOrDefault(c => c.Type == "token_type")?.Value;
             bool isPortalToken = scope == "portal" && tokenType == "portal-access";
-            
+
             if (isPortalToken)
             {
                 // For Portal tokens, prioritize email/username claims over other claims
@@ -80,7 +80,7 @@ namespace FlowFlex.Application.Services.OW
                     "username",
                     System.Security.Claims.ClaimTypes.NameIdentifier
                 };
-                
+
                 foreach (var ct in portalClaimTypes)
                 {
                     var v = user?.Claims.FirstOrDefault(c => c.Type == ct)?.Value;
@@ -94,13 +94,13 @@ namespace FlowFlex.Application.Services.OW
                     }
                 }
             }
-            
+
             // Priority 1: UserContext (for ItemIAM and IdentityHub tokens)
             if (!string.IsNullOrWhiteSpace(_userContext?.UserName))
             {
                 return _userContext.UserName;
             }
-            
+
             // Priority 2: UserContext.Email (fallback if UserName is not set)
             if (!string.IsNullOrWhiteSpace(_userContext?.Email))
             {

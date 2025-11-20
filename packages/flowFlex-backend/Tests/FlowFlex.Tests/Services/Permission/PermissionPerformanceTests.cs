@@ -73,7 +73,7 @@ namespace FlowFlex.Tests.Services.Permission
             var (service, helpers) = CreateService(userContext);
             var workflow = TestDataBuilder.CreatePublicWorkflow();
             var stages = new List<Stage>();
-            
+
             // Create 10 stages
             for (int i = 0; i < 10; i++)
             {
@@ -112,7 +112,7 @@ namespace FlowFlex.Tests.Services.Permission
             var (service, helpers) = CreateService(userContext);
             var workflow = TestDataBuilder.CreatePublicWorkflow();
             var stages = new List<Stage>();
-            
+
             // Create 10 stages
             for (int i = 0; i < 10; i++)
             {
@@ -168,7 +168,7 @@ namespace FlowFlex.Tests.Services.Permission
             {
                 var workflow = TestDataBuilder.CreatePublicWorkflow();
                 workflows.Add(workflow);
-                
+
                 var stages = new List<Stage>();
                 for (int j = 0; j < stagesPerWorkflow; j++)
                 {
@@ -197,7 +197,7 @@ namespace FlowFlex.Tests.Services.Permission
                         hasViewModulePermission: true,
                         hasOperateModulePermission: true,
                         userTeamIds); // Pass pre-fetched teams
-                    
+
                     permissionResults.Add(permissionInfo);
                 }
             }
@@ -206,7 +206,7 @@ namespace FlowFlex.Tests.Services.Permission
             // Assert
             permissionResults.Count.Should().Be(totalStageCount);
             permissionResults.All(p => p.CanView).Should().BeTrue();
-            
+
             _output.WriteLine($"✅ Performance Test Results:");
             _output.WriteLine($"   - Workflows: {workflowCount}");
             _output.WriteLine($"   - Stages per workflow: {stagesPerWorkflow}");
@@ -235,7 +235,7 @@ namespace FlowFlex.Tests.Services.Permission
             const int stageCount = 20;
             var workflow = TestDataBuilder.CreatePublicWorkflow();
             var stages = new List<Stage>();
-            
+
             for (int i = 0; i < stageCount; i++)
             {
                 stages.Add(TestDataBuilder.CreateStageWithInheritedPermissions(workflow.Id));
@@ -264,13 +264,13 @@ namespace FlowFlex.Tests.Services.Permission
             _output.WriteLine($"📊 Performance Comparison ({stageCount} stages):");
             _output.WriteLine($"   WITHOUT optimization: {timeWithoutOptimization}ms");
             _output.WriteLine($"   WITH optimization:    {timeWithOptimization}ms");
-            
+
             if (timeWithoutOptimization > 0 && timeWithOptimization > 0)
             {
                 var improvement = ((double)(timeWithoutOptimization - timeWithOptimization) / timeWithoutOptimization) * 100;
                 _output.WriteLine($"   Improvement:         {improvement:F1}%");
             }
-            
+
             _output.WriteLine($"");
             _output.WriteLine($"📈 Call Reduction:");
             _output.WriteLine($"   WITHOUT optimization: GetUserTeamIds() called {stageCount} times");
@@ -278,7 +278,7 @@ namespace FlowFlex.Tests.Services.Permission
             _output.WriteLine($"   Reduction:           {stageCount - 1} fewer calls ({((double)(stageCount - 1) / stageCount * 100):F1}%)");
 
             // The optimized version should be at least as fast (or faster in real scenarios)
-            timeWithOptimization.Should().BeLessThanOrEqualTo((long)(timeWithoutOptimization * 1.2), 
+            timeWithOptimization.Should().BeLessThanOrEqualTo((long)(timeWithoutOptimization * 1.2),
                 "Optimized version should not be significantly slower");
         }
 
@@ -297,7 +297,7 @@ namespace FlowFlex.Tests.Services.Permission
                 TestDataBuilder.DefaultUserId,
                 new List<string> { TestDataBuilder.TeamA, TestDataBuilder.TeamB });
             var (_, helpers) = CreateService(userContext);
-            
+
             var workflowService = new WorkflowPermissionService(
                 _mockWorkflowLogger.Object,
                 userContext,
@@ -306,7 +306,7 @@ namespace FlowFlex.Tests.Services.Permission
 
             const int workflowCount = 15;
             var workflows = new List<Workflow>();
-            
+
             for (int i = 0; i < workflowCount; i++)
             {
                 workflows.Add(TestDataBuilder.CreateVisibleToTeamsWorkflow(
@@ -358,19 +358,19 @@ namespace FlowFlex.Tests.Services.Permission
             var totalChecks = workflowCount * stagesPerWorkflow;
 
             var testData = new List<(Workflow workflow, List<Stage> stages)>();
-            
+
             // Create large dataset
             for (int i = 0; i < workflowCount; i++)
             {
                 var workflow = TestDataBuilder.CreateVisibleToTeamsWorkflow(
                     new List<string> { TestDataBuilder.TeamA, TestDataBuilder.TeamB });
-                
+
                 var stages = new List<Stage>();
                 for (int j = 0; j < stagesPerWorkflow; j++)
                 {
                     stages.Add(TestDataBuilder.CreateStageWithInheritedPermissions(workflow.Id));
                 }
-                
+
                 testData.Add((workflow, stages));
             }
 
@@ -392,7 +392,7 @@ namespace FlowFlex.Tests.Services.Permission
                         hasViewModulePermission: true,
                         hasOperateModulePermission: true,
                         userTeamIds);
-                    
+
                     if (permissionInfo.CanView) successCount++;
                 }
             }
@@ -436,7 +436,7 @@ namespace FlowFlex.Tests.Services.Permission
 
             var workflow = TestDataBuilder.CreatePublicWorkflow();
             var stages = new List<Stage>();
-            
+
             for (int i = 0; i < 50; i++)
             {
                 stages.Add(TestDataBuilder.CreateStageWithInheritedPermissions(workflow.Id));

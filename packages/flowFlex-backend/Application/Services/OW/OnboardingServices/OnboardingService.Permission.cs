@@ -1,39 +1,15 @@
-﻿using AutoMapper;
-using FlowFlex.Application.Contracts.Dtos;
-using FlowFlex.Application.Contracts.Dtos.Action;
-using FlowFlex.Application.Contracts.Dtos.OW.Onboarding;
+﻿using FlowFlex.Application.Contracts.Dtos.OW.Onboarding;
 using FlowFlex.Application.Contracts.Dtos.OW.Permission;
-using FlowFlex.Application.Contracts.IServices.Action;
-using FlowFlex.Application.Contracts.IServices.OW;
-using FlowFlex.Application.Contracts.IServices.OW;
-using FlowFlex.Application.Services.OW.Extensions;
-using FlowFlex.Domain.Entities.OW;
-using FlowFlex.Domain.Repository.OW;
-using FlowFlex.Domain.Shared;
-using FlowFlex.Domain.Shared.Attr;
-using FlowFlex.Domain.Shared.Const;
-using FlowFlex.Domain.Shared.Enums.OW;
-using FlowFlex.Domain.Shared.Events;
-using FlowFlex.Domain.Shared.Models;
-using FlowFlex.Domain.Shared.Utils;
-using FlowFlex.Infrastructure.Extensions;
-using FlowFlex.Infrastructure.Services;
-using MediatR;
-using Microsoft.AspNetCore.Http;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.OpenApi.Models;
-using OfficeOpenXml;
-using SqlSugar;
-using System.Diagnostics;
-using System.Globalization;
-using System.IO;
-using System.Linq;
-using System.Linq.Expressions;
-using System.Text;
-// using Item.Redis; // Temporarily disable Redis
-using System.Text.Json;
-using PermissionOperationType = FlowFlex.Domain.Shared.Enums.Permission.OperationTypeEnum;
 using FlowFlex.Application.Contracts.Dtos.OW.User;
+using FlowFlex.Application.Contracts.IServices.OW;
+using FlowFlex.Domain.Entities.OW;
+using FlowFlex.Domain.Shared;
+using FlowFlex.Domain.Shared.Const;
+using FlowFlex.Infrastructure.Extensions;
+using Microsoft.Extensions.Logging;
+using System.Collections.Generic;
+using System.Linq;
+using PermissionOperationType = FlowFlex.Domain.Shared.Enums.Permission.OperationTypeEnum;
 
 
 namespace FlowFlex.Application.Services.OW
@@ -61,231 +37,242 @@ namespace FlowFlex.Application.Services.OW
 
         private async Task PopulateOnboardingOutputDtoAsync(List<OnboardingOutputDto> results, List<Onboarding> entities)
         {
-            if (!results.Any() || !entities.Any()) return;
-
-            // Auto-generate CaseCode for legacy data (batch processing)
-            var entitiesWithoutCaseCode = entities.Where(e => string.IsNullOrWhiteSpace(e.CaseCode)).ToList();
-            if (entitiesWithoutCaseCode.Any())
+            if (!results.Any() || !entities.Any())
             {
-                foreach (var entity in entitiesWithoutCaseCode)
-                {
-                    await EnsureCaseCodeAsync(entity);
-                }
+                _logger.LogDebug("PopulateOnboardingOutputDtoAsync - No results or entities to populate");
+                return;
             }
 
-            // Batch get related data to avoid N+1 queries
+            _logger.LogDebug(
+                "PopulateOnboardingOutputDtoAsync - Processing {ResultCount} results and {EntityCount} entities",
+                results.Count,
+                entities.Count);
+
+            // Step 1: Auto-generate CaseCode for legacy data (batch processing)
+            await EnsureCaseCodesAsync(entities);
+
+            // Step 2: Batch get related data to avoid N+1 queries
+            var (workflowDict, stageDict, stageEstimatedDaysDict) = await GetRelatedDataDictionariesAsync(entities);
+
+            // Step 3: Batch check permissions using in-memory data (no DB queries)
+            var permissionContext = await BuildPermissionContextAsync(results, entities);
+
+            // Step 4: Populate each result DTO
+            foreach (var result in results)
+            {
+                PopulateOnboardingOutputDtoFields(result, workflowDict, stageDict, stageEstimatedDaysDict, permissionContext);
+            }
+
+            _logger.LogDebug("PopulateOnboardingOutputDtoAsync - Completed successfully");
+        }
+
+        /// <summary>
+        /// Ensure CaseCode exists for all entities (batch processing)
+        /// </summary>
+        private async Task EnsureCaseCodesAsync(List<Onboarding> entities)
+        {
+            var entitiesWithoutCaseCode = entities.Where(e => string.IsNullOrWhiteSpace(e.CaseCode)).ToList();
+            if (!entitiesWithoutCaseCode.Any())
+            {
+                return;
+            }
+
+            _logger.LogInformation(
+                "Auto-generating CaseCode for {Count} legacy entities",
+                entitiesWithoutCaseCode.Count);
+
+            foreach (var entity in entitiesWithoutCaseCode)
+            {
+                await EnsureCaseCodeAsync(entity);
+            }
+        }
+
+        /// <summary>
+        /// Get related data dictionaries for fast lookup
+        /// </summary>
+        private async Task<(Dictionary<long, string> workflowDict, Dictionary<long, string> stageDict, Dictionary<long, decimal?> stageEstimatedDaysDict)>
+            GetRelatedDataDictionariesAsync(List<Onboarding> entities)
+        {
             var (workflows, stages) = await GetRelatedDataBatchOptimizedAsync(entities);
+
             var workflowDict = workflows.ToDictionary(w => w.Id, w => w.Name);
             var stageDict = stages.ToDictionary(s => s.Id, s => s.Name);
             var stageEstimatedDaysDict = stages.ToDictionary(s => s.Id, s => s.EstimatedDuration);
 
-            // 馃殌 PERFORMANCE OPTIMIZATION: Batch check permissions using in-memory data (no DB queries)
-            var userId = _userContext?.UserId;
-            bool isSystemAdmin = _userContext?.IsSystemAdmin == true;
-            bool isTenantAdmin = _userContext != null && _userContext.HasAdminPrivileges(_userContext.TenantId);
-            Dictionary<long, PermissionInfoDto> permissions = null;
+            _logger.LogDebug(
+                "GetRelatedDataDictionariesAsync - Loaded {WorkflowCount} workflows and {StageCount} stages",
+                workflowDict.Count,
+                stageDict.Count);
 
-            if (!string.IsNullOrEmpty(userId) && long.TryParse(userId, out var userIdLong))
+            return (workflowDict, stageDict, stageEstimatedDaysDict);
+        }
+
+        /// <summary>
+        /// Build permission context for batch permission checking
+        /// </summary>
+        private async Task<PermissionBatchContext> BuildPermissionContextAsync(
+            List<OnboardingOutputDto> results,
+            List<Onboarding> entities)
+        {
+            var context = new PermissionBatchContext
             {
-                // Pre-check module permissions once (batch optimization)
-                bool canViewCases = await _permissionService.CheckGroupPermissionAsync(userIdLong, PermissionConsts.Case.Read);
-                bool canOperateCases = await _permissionService.CheckGroupPermissionAsync(userIdLong, PermissionConsts.Case.Update);
+                UserId = _userContext?.UserId,
+                IsSystemAdmin = _userContext?.IsSystemAdmin == true,
+                IsTenantAdmin = _userContext != null && _userContext.HasAdminPrivileges(_userContext.TenantId)
+            };
 
-                // Get user teams once (avoid repeated calls)
-                var userTeams = _permissionService.GetUserTeamIds();
-                var userTeamLongs = userTeams?.Select(t => long.TryParse(t, out var tid) ? tid : 0).Where(t => t > 0).ToList() ?? new List<long>();
+            if (string.IsNullOrEmpty(context.UserId) || !long.TryParse(context.UserId, out var userIdLong))
+            {
+                _logger.LogDebug("BuildPermissionContextAsync - No valid user context, skipping permission checks");
+                context.Permissions = new Dictionary<long, PermissionInfoDto>();
+                return context;
+            }
 
-                // 馃攧 Use unified CasePermissionService for permission checks
-                permissions = new Dictionary<long, PermissionInfoDto>();
+            context.UserIdLong = userIdLong;
 
-                // Create entity lookup for fast access
-                var entityDict = entities.ToDictionary(e => e.Id);
+            // Pre-check module permissions once (batch optimization)
+            context.CanViewCases = await _permissionService.CheckGroupPermissionAsync(userIdLong, PermissionConsts.Case.Read);
+            context.CanOperateCases = await _permissionService.CheckGroupPermissionAsync(userIdLong, PermissionConsts.Case.Update);
 
-                foreach (var result in results)
+            _logger.LogDebug(
+                "BuildPermissionContextAsync - User {UserId} module permissions: CanView={CanView}, CanOperate={CanOperate}",
+                userIdLong,
+                context.CanViewCases,
+                context.CanOperateCases);
+
+            // Delegate to CasePermissionService for batch permission checking
+            context.Permissions = await _casePermissionService.CheckBatchCasePermissionsAsync(
+                entities,
+                userIdLong,
+                context.CanViewCases,
+                context.CanOperateCases);
+
+            return context;
+        }
+
+        /// <summary>
+        /// Permission batch context for efficient permission checking
+        /// </summary>
+        private class PermissionBatchContext
+        {
+            public string UserId { get; set; }
+            public long UserIdLong { get; set; }
+            public bool IsSystemAdmin { get; set; }
+            public bool IsTenantAdmin { get; set; }
+            public bool CanViewCases { get; set; }
+            public bool CanOperateCases { get; set; }
+            public Dictionary<long, PermissionInfoDto> Permissions { get; set; }
+        }
+
+        /// <summary>
+        /// Populate individual onboarding output DTO fields
+        /// </summary>
+        private void PopulateOnboardingOutputDtoFields(
+            OnboardingOutputDto result,
+            Dictionary<long, string> workflowDict,
+            Dictionary<long, string> stageDict,
+            Dictionary<long, decimal?> stageEstimatedDaysDict,
+            PermissionBatchContext permissionContext)
+        {
+            // Populate workflow name
+            result.WorkflowName = workflowDict.GetValueOrDefault(result.WorkflowId);
+
+            // Populate permission info from context
+            if (permissionContext.Permissions.TryGetValue(result.Id, out var permission))
+            {
+                result.Permission = permission;
+                result.IsDisabled = !permission.CanOperate;
+            }
+            else
+            {
+                // Fallback: deny all permissions if not found in context
+                result.Permission = new PermissionInfoDto { CanView = false, CanOperate = false };
+                result.IsDisabled = true;
+            }
+
+            // IMPORTANT: If CurrentStageId is null but stagesProgress exists, try to get current stage from stagesProgress
+            if (!result.CurrentStageId.HasValue && result.StagesProgress != null && result.StagesProgress.Any())
+            {
+                var currentStageProgress = result.StagesProgress.FirstOrDefault(sp => sp.IsCurrent);
+                if (currentStageProgress != null)
                 {
-                    if (!entityDict.TryGetValue(result.Id, out var entity))
-                    {
-                        // Fallback: entity not found, deny access
-                        permissions[result.Id] = new PermissionInfoDto { CanView = false, CanOperate = false };
-                        continue;
-                    }
-
-                    // 鉁?Use unified CasePermissionService - includes admin bypass
-                    var viewResult = await _casePermissionService.CheckCasePermissionAsync(
-                        entity, userIdLong, PermissionOperationType.View);
-
-                    bool canOperateCase = false;
-                    if (viewResult.Success && viewResult.CanView)
-                    {
-                        var operateResult = await _casePermissionService.CheckCasePermissionAsync(
-                            entity, userIdLong, PermissionOperationType.Operate);
-                        canOperateCase = operateResult.Success && operateResult.CanOperate;
-                    }
-
-                    permissions[result.Id] = new PermissionInfoDto
-                    {
-                        CanView = canViewCases && viewResult.Success && viewResult.CanView,
-                        CanOperate = canOperateCases && canOperateCase
-                    };
+                    result.CurrentStageId = currentStageProgress.StageId;
+                    LoggingExtensions.WriteLine($"[DEBUG] PopulateOnboardingOutputDto - Recovered CurrentStageId from StagesProgress: {result.CurrentStageId} for Onboarding {result.Id}");
                 }
             }
 
-            // Populate workflow and stage names, calculate current stage end time, and check permissions
-            foreach (var result in results)
+            // currentStageStartTime only takes startTime (null if none)
+            result.CurrentStageStartTime = null;
+            result.CurrentStageEndTime = null;
+            double? estimatedDays = null;
+            if (result.CurrentStageId.HasValue && result.StagesProgress != null && result.StagesProgress.Any())
             {
-                result.WorkflowName = workflowDict.GetValueOrDefault(result.WorkflowId);
-
-                // IMPORTANT: If CurrentStageId is null but stagesProgress exists, try to get current stage from stagesProgress
-                if (!result.CurrentStageId.HasValue && result.StagesProgress != null && result.StagesProgress.Any())
+                var currentStageProgress = result.StagesProgress.FirstOrDefault(sp => sp.StageId == result.CurrentStageId.Value);
+                if (currentStageProgress != null)
                 {
-                    var currentStageProgress = result.StagesProgress.FirstOrDefault(sp => sp.IsCurrent);
-                    if (currentStageProgress != null)
+                    if (currentStageProgress.StartTime.HasValue)
                     {
-                        result.CurrentStageId = currentStageProgress.StageId;
-                        LoggingExtensions.WriteLine($"[DEBUG] PopulateOnboardingOutputDto - Recovered CurrentStageId from StagesProgress: {result.CurrentStageId} for Onboarding {result.Id}");
+                        result.CurrentStageStartTime = currentStageProgress.StartTime;
                     }
-                }
-
-                // currentStageStartTime 鍙彇 startTime锛堟棤鍒欎负null锛?
-                result.CurrentStageStartTime = null;
-                result.CurrentStageEndTime = null;
-                double? estimatedDays = null;
-                if (result.CurrentStageId.HasValue && result.StagesProgress != null && result.StagesProgress.Any())
-                {
-                    var currentStageProgress = result.StagesProgress.FirstOrDefault(sp => sp.StageId == result.CurrentStageId.Value);
-                    if (currentStageProgress != null)
+                    // currentStageEndTime priority: customEndTime > endTime > (startTime+estimatedDays) > null
+                    if (currentStageProgress.CustomEndTime.HasValue)
                     {
-                        if (currentStageProgress.StartTime.HasValue)
+                        result.CurrentStageEndTime = currentStageProgress.CustomEndTime.Value;
+                    }
+                    else if (currentStageProgress.EndTime.HasValue)
+                    {
+                        result.CurrentStageEndTime = currentStageProgress.EndTime.Value;
+                    }
+                    else
+                    {
+                        // Three-level priority: json.customEstimatedDays > json.estimatedDays > stageDict
+                        estimatedDays = (double?)currentStageProgress.CustomEstimatedDays;
+                        if (!estimatedDays.HasValue || estimatedDays.Value <= 0)
                         {
-                            result.CurrentStageStartTime = currentStageProgress.StartTime;
-                        }
-                        // currentStageEndTime 浼樺厛绾? customEndTime > endTime > (startTime+estimatedDays) > null
-                        if (currentStageProgress.CustomEndTime.HasValue)
-                        {
-                            result.CurrentStageEndTime = currentStageProgress.CustomEndTime.Value;
-                        }
-                        else if (currentStageProgress.EndTime.HasValue)
-                        {
-                            result.CurrentStageEndTime = currentStageProgress.EndTime.Value;
-                        }
-                        else
-                        {
-                            // 涓夌骇浼樺厛锛歫son.customEstimatedDays > json.estimatedDays > stageDict
-                            estimatedDays = (double?)currentStageProgress.CustomEstimatedDays;
-                            if (!estimatedDays.HasValue || estimatedDays.Value <= 0)
+                            estimatedDays = (double?)currentStageProgress.EstimatedDays;
+                            if ((!estimatedDays.HasValue || estimatedDays.Value <= 0) && result.CurrentStageId.HasValue)
                             {
-                                estimatedDays = (double?)currentStageProgress.EstimatedDays;
-                                if ((!estimatedDays.HasValue || estimatedDays.Value <= 0) && result.CurrentStageId.HasValue)
+                                // stageEstimatedDaysDict key: stageId -> EstimatedDuration
+                                if (stageEstimatedDaysDict.TryGetValue(result.CurrentStageId.Value, out var val) && val != null && val > 0)
                                 {
-                                    // stageEstimatedDaysDict key: stageId -> EstimatedDuration
-                                    if (stageEstimatedDaysDict.TryGetValue(result.CurrentStageId.Value, out var val) && val != null && val > 0)
-                                    {
-                                        estimatedDays = (double?)val;
-                                    }
+                                    estimatedDays = (double?)val;
                                 }
                             }
                         }
                     }
                 }
-                // 鍗曠嫭鎺ㄧ畻 currentStageEndTime鈥斺€斾粎褰搒tartTime鍜宔stimatedDays閮藉瓨鍦?
-                if (result.CurrentStageEndTime == null && result.CurrentStageStartTime.HasValue && (estimatedDays.HasValue && estimatedDays.Value > 0))
+            }
+            // Calculate currentStageEndTime separately - only when both startTime and estimatedDays exist
+            if (result.CurrentStageEndTime == null && result.CurrentStageStartTime.HasValue && (estimatedDays.HasValue && estimatedDays.Value > 0))
+            {
+                result.CurrentStageEndTime = result.CurrentStageStartTime.Value.AddDays(estimatedDays.Value);
+            }
+
+            if (result.CurrentStageId.HasValue)
+            {
+                result.CurrentStageName = stageDict.GetValueOrDefault(result.CurrentStageId.Value);
+
+                // IMPORTANT: Priority for EstimatedDays: customEstimatedDays > stage.EstimatedDuration
+                var currentStageProgress = result.StagesProgress?.FirstOrDefault(sp => sp.StageId == result.CurrentStageId.Value);
+                if (currentStageProgress != null && currentStageProgress.CustomEstimatedDays.HasValue && currentStageProgress.CustomEstimatedDays.Value > 0)
                 {
-                    result.CurrentStageEndTime = result.CurrentStageStartTime.Value.AddDays(estimatedDays.Value);
-                }
-
-                if (result.CurrentStageId.HasValue)
-                {
-                    result.CurrentStageName = stageDict.GetValueOrDefault(result.CurrentStageId.Value);
-
-                    // Fallback: if name missing from dictionary, fetch directly
-                    if (string.IsNullOrEmpty(result.CurrentStageName))
-                    {
-                        try
-                        {
-                            var stageNameFallback = await _stageRepository.GetByIdAsync(result.CurrentStageId.Value);
-                            if (!string.IsNullOrEmpty(stageNameFallback?.Name))
-                            {
-                                result.CurrentStageName = stageNameFallback.Name;
-                                LoggingExtensions.WriteLine($"[DEBUG] PopulateOnboardingOutputDto - Fallback CurrentStageName='{result.CurrentStageName}' for Onboarding {result.Id}");
-                            }
-                        }
-                        catch { }
-                    }
-
-                    // IMPORTANT: Priority for EstimatedDays: customEstimatedDays > stage.EstimatedDuration
-                    var currentStageProgress = result.StagesProgress?.FirstOrDefault(sp => sp.StageId == result.CurrentStageId.Value);
-                    if (currentStageProgress != null && currentStageProgress.CustomEstimatedDays.HasValue && currentStageProgress.CustomEstimatedDays.Value > 0)
-                    {
-                        result.CurrentStageEstimatedDays = currentStageProgress.CustomEstimatedDays.Value;
-                    }
-                    else
-                    {
-                        result.CurrentStageEstimatedDays = stageEstimatedDaysDict.GetValueOrDefault(result.CurrentStageId.Value);
-                    }
-
-                    // Fallback: if still missing, fetch stage directly
-                    if ((!result.CurrentStageEstimatedDays.HasValue || result.CurrentStageEstimatedDays.Value <= 0) && result.CurrentStageId.HasValue)
-                    {
-                        try
-                        {
-                            var stageFallback = await _stageRepository.GetByIdAsync(result.CurrentStageId.Value);
-                            if (stageFallback?.EstimatedDuration != null && stageFallback.EstimatedDuration > 0)
-                            {
-                                result.CurrentStageEstimatedDays = stageFallback.EstimatedDuration;
-                                LoggingExtensions.WriteLine($"[DEBUG] PopulateOnboardingOutputDto - Fallback EstimatedDays from Stage fetch: {result.CurrentStageEstimatedDays} for Onboarding {result.Id}");
-                            }
-                        }
-                        catch { }
-                    }
-
-                    // End time already derived strictly from stagesProgress above
+                    result.CurrentStageEstimatedDays = currentStageProgress.CustomEstimatedDays.Value;
                 }
                 else
                 {
-                    // Log when CurrentStageId is still null after fallback attempt
-                    LoggingExtensions.WriteLine($"[WARNING] PopulateOnboardingOutputDto - CurrentStageId is null for Onboarding {result.Id}, StagesProgress count: {result.StagesProgress?.Count ?? 0}");
+                    result.CurrentStageEstimatedDays = stageEstimatedDaysDict.GetValueOrDefault(result.CurrentStageId.Value);
                 }
 
-                // Set IsDisabled and Permission fields
-                if (isSystemAdmin)
-                {
-                    result.IsDisabled = false; // System Admin can operate on all cases
-                    result.Permission = new Application.Contracts.Dtos.OW.Permission.PermissionInfoDto
-                    {
-                        CanView = true,
-                        CanOperate = true,
-                        ErrorMessage = null
-                    };
-                }
-                else if (isTenantAdmin)
-                {
-                    result.IsDisabled = false; // Tenant Admin can operate on all cases in their tenant
-                    result.Permission = new Application.Contracts.Dtos.OW.Permission.PermissionInfoDto
-                    {
-                        CanView = true,
-                        CanOperate = true,
-                        ErrorMessage = null
-                    };
-                }
-                else if (permissions != null && permissions.ContainsKey(result.Id))
-                {
-                    result.Permission = permissions[result.Id];
-                    result.IsDisabled = !result.Permission.CanOperate;
-                }
-                else
-                {
-                    result.IsDisabled = true; // No user context, disable by default
-                    result.Permission = new Application.Contracts.Dtos.OW.Permission.PermissionInfoDto
-                    {
-                        CanView = false,
-                        CanOperate = false,
-                        ErrorMessage = "User not authenticated"
-                    };
-                }
+                // End time already derived strictly from stagesProgress above
+            }
+            else
+            {
+                // Log when CurrentStageId is still null after fallback attempt
+                LoggingExtensions.WriteLine($"[WARNING] PopulateOnboardingOutputDto - CurrentStageId is null for Onboarding {result.Id}, StagesProgress count: {result.StagesProgress?.Count ?? 0}");
             }
         }
 
-         /// <summary>
+        /// <summary>
         /// Validate that team IDs from JSON arrays exist in the team tree from UserService.
         /// Accepts JSON arrays (possibly double-encoded) like ["team1","team2"].
         /// Throws BusinessError if any invalid IDs are found.

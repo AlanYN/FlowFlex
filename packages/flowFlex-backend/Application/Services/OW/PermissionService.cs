@@ -257,7 +257,7 @@ namespace FlowFlex.Application.Services.OW
 
                 // Step 4: Delegate to WorkflowPermissionService
                 var permissionCheck = _workflowPermissionService.CheckWorkflowPermission(workflow, userId, operationType);
-                
+
                 if (permissionCheck.Success)
                 {
                     _logger.LogInformation("Workflow permission check passed for user {UserId}, Reason: {Reason}",
@@ -289,7 +289,7 @@ namespace FlowFlex.Application.Services.OW
 
             // Check view permission
             var viewResult = await CheckWorkflowAccessAsync(userId, workflowId, PermissionOperationType.View);
-            
+
             if (!viewResult.CanView)
             {
                 return new PermissionInfoDto
@@ -302,7 +302,7 @@ namespace FlowFlex.Application.Services.OW
 
             // Check operate permission
             var operateResult = await CheckWorkflowAccessAsync(userId, workflowId, PermissionOperationType.Operate);
-            
+
             return new PermissionInfoDto
             {
                 CanView = true,
@@ -338,9 +338,9 @@ namespace FlowFlex.Application.Services.OW
         /// Get permission info for Workflow (batch-optimized for list APIs)
         /// </summary>
         public async Task<PermissionInfoDto> GetWorkflowPermissionInfoForListAsync(
-            long userId, 
-            long workflowId, 
-            bool hasViewModulePermission, 
+            long userId,
+            long workflowId,
+            bool hasViewModulePermission,
             bool hasOperateModulePermission)
         {
             return await _workflowPermissionService.GetWorkflowPermissionInfoForListAsync(
@@ -427,7 +427,7 @@ namespace FlowFlex.Application.Services.OW
 
                 // Step 6: Delegate to StagePermissionService
                 var permissionCheck = _stagePermissionService.CheckStagePermission(stage, workflow, userId, operationType);
-                
+
                 if (permissionCheck.Success)
                 {
                     _logger.LogInformation("Stage permission check passed for user {UserId}, Reason: {Reason}",
@@ -459,7 +459,7 @@ namespace FlowFlex.Application.Services.OW
 
             // Check view permission
             var viewResult = await CheckStageAccessAsync(userId, stageId, PermissionOperationType.View);
-            
+
             if (!viewResult.CanView)
             {
                 return new PermissionInfoDto
@@ -472,7 +472,7 @@ namespace FlowFlex.Application.Services.OW
 
             // Check operate permission
             var operateResult = await CheckStageAccessAsync(userId, stageId, PermissionOperationType.Operate);
-            
+
             return new PermissionInfoDto
             {
                 CanView = true,
@@ -497,9 +497,9 @@ namespace FlowFlex.Application.Services.OW
         /// Get permission info for Stage (batch-optimized for list APIs)
         /// </summary>
         public async Task<PermissionInfoDto> GetStagePermissionInfoForListAsync(
-            long userId, 
-            long stageId, 
-            bool hasViewModulePermission, 
+            long userId,
+            long stageId,
+            bool hasViewModulePermission,
             bool hasOperateModulePermission)
         {
             return await _stagePermissionService.GetStagePermissionInfoForListAsync(
@@ -607,7 +607,7 @@ namespace FlowFlex.Application.Services.OW
 
                 // Step 4: Delegate to CasePermissionService
                 var permissionCheck = await _casePermissionService.CheckCasePermissionAsync(onboarding, userId, operationType);
-                
+
                 if (permissionCheck.Success)
                 {
                     _logger.LogInformation("Case permission check passed for user {UserId}, Reason: {Reason}",
@@ -639,7 +639,7 @@ namespace FlowFlex.Application.Services.OW
 
             // Check view permission
             var viewResult = await CheckCaseAccessAsync(userId, caseId, PermissionOperationType.View);
-            
+
             if (!viewResult.CanView)
             {
                 return new PermissionInfoDto
@@ -652,7 +652,7 @@ namespace FlowFlex.Application.Services.OW
 
             // Check operate permission
             var operateResult = await CheckCaseAccessAsync(userId, caseId, PermissionOperationType.Operate);
-            
+
             return new PermissionInfoDto
             {
                 CanView = true,
@@ -665,9 +665,9 @@ namespace FlowFlex.Application.Services.OW
         /// Get permission info for Case (batch-optimized for list APIs)
         /// </summary>
         public async Task<PermissionInfoDto> GetCasePermissionInfoForListAsync(
-            long userId, 
-            long caseId, 
-            bool hasViewModulePermission, 
+            long userId,
+            long caseId,
+            bool hasViewModulePermission,
             bool hasOperateModulePermission)
         {
             return await _casePermissionService.GetCasePermissionInfoForListAsync(

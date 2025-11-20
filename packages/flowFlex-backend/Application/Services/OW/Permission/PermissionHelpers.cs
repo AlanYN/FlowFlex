@@ -19,6 +19,35 @@ namespace FlowFlex.Application.Services.OW.Permission
         private readonly UserContext _userContext;
         private readonly IHttpContextAccessor _httpContextAccessor;
 
+        #region Constants
+
+        /// <summary>
+        /// Default team name for users without team assignment
+        /// </summary>
+        public const string DEFAULT_TEAM_OTHER = "Other";
+
+        /// <summary>
+        /// Portal token scope claim value
+        /// </summary>
+        private const string PORTAL_SCOPE = "portal";
+
+        /// <summary>
+        /// Portal token type claim value
+        /// </summary>
+        private const string PORTAL_TOKEN_TYPE = "portal-access";
+
+        /// <summary>
+        /// Scope claim type
+        /// </summary>
+        private const string CLAIM_TYPE_SCOPE = "scope";
+
+        /// <summary>
+        /// Token type claim type
+        /// </summary>
+        private const string CLAIM_TYPE_TOKEN_TYPE = "token_type";
+
+        #endregion
+
         public PermissionHelpers(
             ILogger<PermissionHelpers> logger,
             UserContext userContext,
@@ -47,32 +76,34 @@ namespace FlowFlex.Application.Services.OW.Permission
             {
                 _logger.LogWarning(
                     "UserContext.UserTeams is null for user {UserId}. " +
-                    "User is not assigned to any team, treating as member of 'Other' team. " +
+                    "User is not assigned to any team, treating as member of '{DefaultTeam}' team. " +
                     "This allows permission checks to work for users without team assignments.",
-                    _userContext?.UserId);
-                
-                // User not in any team, return "Other" to represent users without team assignment
-                return new List<string> { "Other" };
+                    _userContext?.UserId,
+                    DEFAULT_TEAM_OTHER);
+
+                // User not in any team, return default team to represent users without team assignment
+                return new List<string> { DEFAULT_TEAM_OTHER };
             }
 
             // Get all team IDs (including sub-teams)
             var teamIds = _userContext.UserTeams.GetAllTeamIds();
             var teamIdStrings = teamIds.Select(id => id.ToString()).ToList();
-            
-            // If user has no teams (empty list), treat as "Other" team member
+
+            // If user has no teams (empty list), treat as default team member
             if (!teamIdStrings.Any())
             {
                 _logger.LogDebug(
-                    "GetUserTeamIds - User {UserId} has no team assignments, treating as member of 'Other' team",
-                    _userContext?.UserId);
-                return new List<string> { "Other" };
+                    "GetUserTeamIds - User {UserId} has no team assignments, treating as member of '{DefaultTeam}' team",
+                    _userContext?.UserId,
+                    DEFAULT_TEAM_OTHER);
+                return new List<string> { DEFAULT_TEAM_OTHER };
             }
-            
+
             _logger.LogDebug(
                 "GetUserTeamIds - Found {Count} teams: {Teams}",
                 teamIdStrings.Count,
                 string.Join(", ", teamIdStrings));
-            
+
             return teamIdStrings;
         }
 
@@ -85,7 +116,7 @@ namespace FlowFlex.Application.Services.OW.Permission
             {
                 return false;
             }
-            
+
             var teams = DeserializeTeamList(teamsJson);
             return userTeamIds.Any(teamId => teams.Contains(teamId));
         }
@@ -99,7 +130,7 @@ namespace FlowFlex.Application.Services.OW.Permission
             {
                 return true; // No blacklist means everyone can access
             }
-            
+
             var teams = DeserializeTeamList(teamsJson);
             return !userTeamIds.Any(teamId => teams.Contains(teamId));
         }
@@ -127,7 +158,7 @@ namespace FlowFlex.Application.Services.OW.Permission
             {
                 return true; // No blacklist means everyone can access
             }
-            
+
             var users = DeserializeTeamList(usersJson);
             return !users.Contains(userId);
         }
@@ -142,7 +173,7 @@ namespace FlowFlex.Application.Services.OW.Permission
                 return false;
             }
 
-            return long.TryParse(_userContext.UserId, out var currentUserId) && 
+            return long.TryParse(_userContext.UserId, out var currentUserId) &&
                    createUserId.Value == currentUserId;
         }
 
@@ -157,14 +188,14 @@ namespace FlowFlex.Application.Services.OW.Permission
                 _logger.LogDebug("Public mode with NULL OperateTeams - granting operate permission to all");
                 return true;
             }
-            
+
             var operateTeams = DeserializeTeamList(operateTeamsJson);
             if (operateTeams.Count == 0)
             {
                 _logger.LogDebug("Public mode with empty OperateTeams array - granting operate permission to all");
                 return true;
             }
-            
+
             // Public mode with specific teams - check membership (whitelist)
             var hasPermission = userTeamIds.Any(teamId => operateTeams.Contains(teamId));
             _logger.LogDebug(
@@ -185,14 +216,14 @@ namespace FlowFlex.Application.Services.OW.Permission
                 _logger.LogDebug("Public mode with NULL OperateUsers - granting operate permission to all");
                 return true;
             }
-            
+
             var operateUsers = DeserializeTeamList(operateUsersJson);
             if (operateUsers.Count == 0)
             {
                 _logger.LogDebug("Public mode with empty OperateUsers array - granting operate permission to all");
                 return true;
             }
-            
+
             // Public mode with specific users - check membership (whitelist)
             var hasPermission = operateUsers.Contains(userId);
             _logger.LogDebug(
@@ -264,16 +295,16 @@ namespace FlowFlex.Application.Services.OW.Permission
             }
 
             // Check for Portal token indicators in claims
-            var scope = user.Claims.FirstOrDefault(c => c.Type == "scope")?.Value;
-            var tokenType = user.Claims.FirstOrDefault(c => c.Type == "token_type")?.Value;
+            var scope = user.Claims.FirstOrDefault(c => c.Type == CLAIM_TYPE_SCOPE)?.Value;
+            var tokenType = user.Claims.FirstOrDefault(c => c.Type == CLAIM_TYPE_TOKEN_TYPE)?.Value;
 
             _logger.LogDebug(
                 "IsPortalTokenWithPortalAccess: Checking claims - Scope: {Scope}, TokenType: {TokenType}",
                 scope ?? "NULL",
                 tokenType ?? "NULL");
 
-            // Portal token has scope="portal" and token_type="portal-access"
-            bool isPortalToken = scope == "portal" && tokenType == "portal-access";
+            // Portal token has specific scope and token type
+            bool isPortalToken = scope == PORTAL_SCOPE && tokenType == PORTAL_TOKEN_TYPE;
 
             if (!isPortalToken)
             {
@@ -291,11 +322,11 @@ namespace FlowFlex.Application.Services.OW.Permission
 
             var portalAccessAttr = endpoint.Metadata.GetMetadata<FlowFlex.Application.Filter.PortalAccessAttribute>();
             bool hasPortalAccess = portalAccessAttr != null;
-            
+
             _logger.LogDebug(
                 "IsPortalTokenWithPortalAccess: Endpoint has [PortalAccess]: {HasPortalAccess}",
                 hasPortalAccess);
-            
+
             return hasPortalAccess;
         }
 
@@ -316,21 +347,50 @@ namespace FlowFlex.Application.Services.OW.Permission
             try
             {
                 // Try direct deserialization first
-                return JsonConvert.DeserializeObject<List<string>>(json) ?? new List<string>();
+                var result = JsonConvert.DeserializeObject<List<string>>(json);
+                if (result != null)
+                {
+                    _logger.LogDebug("Successfully deserialized team list with {Count} items", result.Count);
+                    return result;
+                }
+
+                _logger.LogWarning("Deserialization returned null for JSON: {Json}", json);
+                return new List<string>();
             }
-            catch
+            catch (JsonException ex)
             {
+                _logger.LogDebug(ex, "Direct deserialization failed, attempting double-escaped JSON parsing");
+
                 try
                 {
                     // If that fails, try double deserialization (for double-escaped JSON)
                     var jsonString = JsonConvert.DeserializeObject<string>(json);
-                    return JsonConvert.DeserializeObject<List<string>>(jsonString) ?? new List<string>();
-                }
-                catch
-                {
-                    _logger.LogWarning("Failed to deserialize team list: {Json}", json);
+                    if (string.IsNullOrWhiteSpace(jsonString))
+                    {
+                        _logger.LogWarning("Double deserialization resulted in empty string");
+                        return new List<string>();
+                    }
+
+                    var result = JsonConvert.DeserializeObject<List<string>>(jsonString);
+                    if (result != null)
+                    {
+                        _logger.LogDebug("Successfully deserialized double-escaped JSON with {Count} items", result.Count);
+                        return result;
+                    }
+
+                    _logger.LogWarning("Double deserialization returned null");
                     return new List<string>();
                 }
+                catch (Exception innerEx)
+                {
+                    _logger.LogWarning(innerEx, "Failed to deserialize team list (both direct and double-escaped): {Json}", json);
+                    return new List<string>();
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Unexpected error deserializing team list: {Json}", json);
+                return new List<string>();
             }
         }
 

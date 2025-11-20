@@ -152,7 +152,7 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.Onboarding
         /// </summary>
         public List<ActionTriggerMappingWithActionInfo> Actions { get; set; } = new List<ActionTriggerMappingWithActionInfo>();
 
-        
+
         /// <summary>
         /// Permission information for this stage (STRICT MODE)
         /// 当前用户对该 Stage 的权限信息

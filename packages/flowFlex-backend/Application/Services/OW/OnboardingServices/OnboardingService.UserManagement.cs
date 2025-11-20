@@ -292,7 +292,7 @@ namespace FlowFlex.Application.Services.OW
         {
             var result = new List<UserTreeNodeDto>();
             var seenUserIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            
+
             if (nodes == null || nodes.Count == 0) return result;
 
             void Traverse(UserTreeNodeDto node)

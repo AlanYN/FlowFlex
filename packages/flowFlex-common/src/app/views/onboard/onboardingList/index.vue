@@ -2011,11 +2011,45 @@ const handleSave = async () => {
 
 		saving.value = true;
 
+		// 根据 ownership ID 获取用户名
+		let ownershipName = '';
+		if (formData.ownership && formData.ownership.trim() !== '') {
+			try {
+				const userData = await menuStore.getFlowflexUserDataWithCache();
+				if (userData && userData.length > 0) {
+					// 递归查找用户
+					const findUserById = (
+						data: FlowflexUser[],
+						userId: string
+					): FlowflexUser | null => {
+						for (const item of data) {
+							if (item.type === 'user' && item.id === userId) {
+								return item;
+							}
+							if (item.children && item.children.length > 0) {
+								const found = findUserById(item.children, userId);
+								if (found) return found;
+							}
+						}
+						return null;
+					};
+
+					const ownershipUser = findUserById(userData, formData.ownership);
+					if (ownershipUser) {
+						ownershipName = ownershipUser.name || '';
+					}
+				}
+			} catch (error) {
+				console.error('Failed to get ownership name:', error);
+			}
+		}
+
 		// 处理 ownership 字段：如果为空字符串，转换为 null
 		const submitData = {
 			...formData,
 			ownership:
 				formData.ownership && formData.ownership.trim() !== '' ? formData.ownership : null,
+			ownershipName: ownershipName || null,
 		};
 
 		let res;

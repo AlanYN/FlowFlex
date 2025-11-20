@@ -43,11 +43,11 @@ namespace FlowFlex.Tests.TestBase
             bool hasPortalAccessAttribute = false)
         {
             var mock = new Mock<IHttpContextAccessor>();
-            
+
             if (isPortalToken || hasPortalAccessAttribute)
             {
                 var httpContext = new DefaultHttpContext();
-                
+
                 // Set up user claims for portal token
                 if (isPortalToken)
                 {
@@ -59,7 +59,7 @@ namespace FlowFlex.Tests.TestBase
                     var identity = new ClaimsIdentity(claims, "TestAuth");
                     httpContext.User = new ClaimsPrincipal(identity);
                 }
-                
+
                 // Set up endpoint metadata for PortalAccess attribute
                 if (hasPortalAccessAttribute)
                 {
@@ -70,14 +70,14 @@ namespace FlowFlex.Tests.TestBase
                         displayName: "Test Portal Endpoint");
                     httpContext.SetEndpoint(endpoint);
                 }
-                
+
                 mock.Setup(x => x.HttpContext).Returns(httpContext);
             }
             else
             {
                 mock.Setup(x => x.HttpContext).Returns((HttpContext)null);
             }
-            
+
             return mock;
         }
 

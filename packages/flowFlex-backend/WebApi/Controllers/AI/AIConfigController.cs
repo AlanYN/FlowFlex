@@ -29,7 +29,7 @@ namespace FlowFlex.WebApi.Controllers.AI
         private readonly IOperatorContextService _operatorContextService;
 
         public AIConfigController(
-            IAIModelConfigService configService, 
+            IAIModelConfigService configService,
             ILogger<AIConfigController> logger,
             IOperatorContextService operatorContextService)
         {
@@ -257,90 +257,46 @@ namespace FlowFlex.WebApi.Controllers.AI
                         Name = "openai",
                         DisplayName = "OpenAI",
                         Icon = "🚀",
-                        Description = "Industry-leading large language models from OpenAI, including GPT-4 and GPT-3.5. BaseURL example: https://api.openai.com/v1",
+                        Description = "Industry-leading large language models from OpenAI. GPT-4o is the flagship model with 128K context. Default uses Item Gateway (prefix required: openai/model-name). For official API, use model name directly.",
                         Website = "https://openai.com",
-                        SupportedModels = new[] { "gpt-4", "gpt-4-turbo", "gpt-4o", "gpt-4o-mini", "gpt-3.5-turbo" }
+                        DefaultBaseUrl = "https://aiop-gateway.item.com",
+                        SupportedModels = new[] { 
+                            "gpt-4o", 
+                            "gpt-4o-mini", 
+                            "gpt-4-turbo", 
+                            "gpt-4", 
+                            "gpt-3.5-turbo", 
+                            "o1-preview", 
+                            "o1-mini" 
+                        }
                     },
+
                     new AIProviderInfo
                     {
-                        Name = "claude",
-                        DisplayName = "Claude (Anthropic)",
-                        Icon = "🎭",
-                        Description = "Advanced AI models by Anthropic, focusing on safety and helpfulness. BaseURL example: https://api.anthropic.com",
-                        Website = "https://claude.ai",
-                        SupportedModels = new[] { "claude-3-opus-20240229", "claude-3-sonnet-20240229", "claude-3-haiku-20240307", "claude-3-5-sonnet-20241022" }
+                        Name = "gemini",
+                        DisplayName = "Gemini",
+                        Icon = "💎",
+                        Description = "Google's advanced multimodal AI models with strong reasoning capabilities. Default uses Item Gateway (prefix required: gemini/model-name).",
+                        Website = "https://ai.google.dev",
+                        DefaultBaseUrl = "https://aiop-gateway.item.com",
+                        SupportedModels = new[] {
+                            "gemini-2.5-flash",
+                            "gemini-2.5-pro",
+                            "gemini-2.0-flash-exp",
+                            "gemini-1.5-pro",
+                            "gemini-1.5-flash"
+                        }
                     },
-                    new AIProviderInfo
-                    {
-                        Name = "zhipuai",
-                        DisplayName = "ZhipuAI (GLM)",
-                        Icon = "🤖",
-                        Description = "Chinese AI models from ZhipuAI, supporting text generation and conversation. BaseURL example: https://open.bigmodel.cn/api/paas/v4",
-                        Website = "https://zhipuai.cn",
-                        SupportedModels = new[] { "glm-4", "glm-4v", "glm-4-plus", "glm-3-turbo" }
-                    },
+
                     new AIProviderInfo
                     {
                         Name = "deepseek",
                         DisplayName = "DeepSeek",
                         Icon = "🔍",
-                        Description = "Specialized in code generation and mathematical reasoning. BaseURL example: https://api.deepseek.com/v1",
+                        Description = "Cost-effective models specialized in code generation and reasoning. DeepSeek-V3 offers GPT-4 level performance at lower cost.",
                         Website = "https://deepseek.com",
-                        SupportedModels = new[] { "deepseek-chat", "deepseek-coder", "deepseek-math" }
-                    },
-                    new AIProviderInfo
-                    {
-                        Name = "gemini",
-                        DisplayName = "Google Gemini (coming soon)",
-                        Icon = "💎",
-                        Description = "Google's multimodal AI models with advanced reasoning capabilities. BaseURL example: https://generativelanguage.googleapis.com/v1beta",
-                        Website = "https://ai.google.dev",
-                        SupportedModels = new[] { "gemini-pro", "gemini-pro-vision", "gemini-ultra (coming soon)" }
-                    },
-                    new AIProviderInfo
-                    {
-                        Name = "mistral",
-                        DisplayName = "Mistral AI (coming soon)",
-                        Icon = "🌪️",
-                        Description = "European AI company providing efficient and powerful language models. BaseURL example: https://api.mistral.ai/v1",
-                        Website = "https://mistral.ai",
-                        SupportedModels = new[] { "mistral-large", "mistral-medium", "mistral-small (coming soon)" }
-                    },
-                    new AIProviderInfo
-                    {
-                        Name = "cohere",
-                        DisplayName = "Cohere (coming soon)",
-                        Icon = "🧠",
-                        Description = "Enterprise-focused language models with strong multilingual capabilities. BaseURL example: https://api.cohere.ai/v1",
-                        Website = "https://cohere.com",
-                        SupportedModels = new[] { "command", "command-light", "command-nightly (coming soon)" }
-                    },
-                    new AIProviderInfo
-                    {
-                        Name = "qwen",
-                        DisplayName = "Alibaba Qwen (coming soon)",
-                        Icon = "☁️",
-                        Description = "Alibaba's Qwen series models with strong Chinese and English capabilities. BaseURL example: https://dashscope.aliyuncs.com/api/v1",
-                        Website = "https://tongyi.aliyun.com",
-                        SupportedModels = new[] { "qwen-turbo", "qwen-plus", "qwen-max (coming soon)" }
-                    },
-                    new AIProviderInfo
-                    {
-                        Name = "baidu",
-                        DisplayName = "Baidu ERNIE (coming soon)",
-                        Icon = "🐻",
-                        Description = "Baidu's ERNIE series models optimized for Chinese language understanding. BaseURL example: https://aip.baidubce.com/rpc/2.0/ai_custom/v1",
-                        Website = "https://cloud.baidu.com/product/wenxinworkshop",
-                        SupportedModels = new[] { "ernie-bot", "ernie-bot-turbo", "ernie-bot-4 (coming soon)" }
-                    },
-                    new AIProviderInfo
-                    {
-                        Name = "moonshot",
-                        DisplayName = "Moonshot AI (coming soon)",
-                        Icon = "🌙",
-                        Description = "Kimi models with exceptional long-context capabilities up to 2M tokens. BaseURL example: https://api.moonshot.cn/v1",
-                        Website = "https://kimi.moonshot.cn",
-                        SupportedModels = new[] { "moonshot-v1-8k", "moonshot-v1-32k", "moonshot-v1-128k (coming soon)" }
+                        DefaultBaseUrl = "https://api.deepseek.com",
+                        SupportedModels = new[] { "deepseek-chat", "deepseek-reasoner", "deepseek-coder" }
                     }
                 };
 
@@ -383,6 +339,11 @@ namespace FlowFlex.WebApi.Controllers.AI
         /// 官网地址
         /// </summary>
         public string Website { get; set; } = string.Empty;
+
+        /// <summary>
+        /// 默认BaseURL地址
+        /// </summary>
+        public string DefaultBaseUrl { get; set; } = string.Empty;
 
         /// <summary>
         /// 支持的模型列表

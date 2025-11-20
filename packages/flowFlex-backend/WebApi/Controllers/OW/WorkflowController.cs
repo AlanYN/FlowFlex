@@ -129,7 +129,7 @@ namespace FlowFlex.WebApi.Controllers.OW
             if (pageIndex.HasValue || pageSize.HasValue)
             {
                 // Combine multiple name parameters into comma-separated string
-                var nameFilter = name != null && name.Any() 
+                var nameFilter = name != null && name.Any()
                     ? string.Join(",", name.Where(n => !string.IsNullOrWhiteSpace(n)))
                     : null;
 

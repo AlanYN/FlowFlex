@@ -1,8 +1,12 @@
-﻿using FlowFlex.Application.Contracts.IServices.OW;
+﻿using Application.Contracts.Options;
+using FlowFlex.Application.Contracts.IServices.OW;
 using FlowFlex.Domain.Shared.Const;
+using FlowFlex.Domain.Shared.Enums.Item;
 using FlowFlex.Domain.Shared.Models;
 using Item.ThirdParty.IdentityHub;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.Extensions.Options;
+using Microsoft.Extensions.Primitives;
 using Newtonsoft.Json;
 using System.Security.Claims;
 
@@ -90,7 +94,7 @@ namespace WebApi.Authentication
                     userContext.CompanyId = "";
                     userContext.Schema = AuthSchemes.Identification;
                     userContext.AppCode = context.HttpContext.Request.Headers["X-App-Code"].FirstOrDefault() ?? "DEFAULT";
-                    
+
                     // Load user teams and user type in parallel to reduce latency
                     var loadTeamsTask = LoadUserTeamsAsync(context, userContext);
                     var loadUserTypeTask = LoadUserTypeAsync(context, userContext, authorization);
@@ -145,7 +149,7 @@ namespace WebApi.Authentication
                         userContext.LastName = userInfo.LastName;
                         userContext.FirstName = userInfo.FirstName;
                         userContext.Email = userInfo.Email;
-                        
+
                         var iamClientId = claims!.FirstOrDefault(x => x.Type == "client_id")?.Value;
                         foreach (var item in userInfo.Tenants)
                         {
@@ -163,7 +167,7 @@ namespace WebApi.Authentication
                             userContext.CompanyId = userInfo.TenantId.ToString();
                         }
                         userContext.AppCode = context.HttpContext.Request.Headers["X-App-Code"].FirstOrDefault() ?? "DEFAULT";
-                        
+
                         // Load user teams and user type in parallel to reduce latency
                         var loadTeamsTask = LoadUserTeamsAsync(context, userContext);
                         var loadUserTypeTask = LoadUserTypeAsync(context, userContext, authorization);
@@ -171,12 +175,8 @@ namespace WebApi.Authentication
                         break;
                     case "client_credentials":
                         userContext.Schema = AuthSchemes.ItemIamClientIdentification;
-                        if (context.Request.Headers.ContainsKey("X-Tenant-Id"))
-                        {
-                            var headerTenantId = context.Request.Headers["X-Tenant-Id"].FirstOrDefault();
-                            userContext.TenantId = headerTenantId;
-                            userContext.CompanyId = headerTenantId;
-                        }
+                        userContext.SystemSource = SourceEnum.Client;
+                        await SetTenantIdAndUserName(identityHubClient, userContext, context.HttpContext, claims);
                         userContext.AppCode = context.HttpContext.Request.Headers["X-App-Code"].FirstOrDefault() ?? "DEFAULT";
                         break;
                 }
@@ -184,6 +184,37 @@ namespace WebApi.Authentication
             catch
             {
                 context.Fail("Version mismatch");
+            }
+        }
+
+        private static async Task SetTenantIdAndUserName(
+         IdentityHubClient client,
+         UserContext userContext,
+         HttpContext httpContext,
+         List<Claim> claims)
+        {
+            if (httpContext.Request.Headers.TryGetValue("X-Tenant-Id", out StringValues tenantId))
+            {
+                userContext.TenantId = tenantId;
+                userContext.CompanyId = tenantId;
+                userContext.UserId = "0";
+                userContext.UserName = "";
+                if (claims.Count != 0)
+                {
+                    var scope = claims.FirstOrDefault(x => x.Type == CustomClaimTypes.ClientName);
+                    if (scope != null)
+                    {
+                        userContext.UserName += $"{scope.Value}";
+                    }
+                    if (string.IsNullOrEmpty(userContext.UserName))
+                    {
+                        scope = claims.FirstOrDefault(x => x.Type == CustomClaimTypes.ClientId);
+                        if (scope != null)
+                        {
+                            userContext.UserName += $"{scope.Value}";
+                        }
+                    }
+                }
             }
         }
 
@@ -196,11 +227,11 @@ namespace WebApi.Authentication
             // Set default value first
             userContext.UserType = 2; // Default to normal user
             userContext.UserPermissions = new List<FlowFlex.Domain.Shared.Models.UserPermissionModel>();
-            
+
             try
             {
                 Console.WriteLine($"[TokenValidatedHandler] LoadUserTypeAsync started for user {userContext.UserId}");
-                
+
                 // Get IdmUserDataClient to fetch user information
                 var idmUserDataClient = context.HttpContext.RequestServices.GetService<FlowFlex.Application.Services.OW.IdmUserDataClient>();
                 if (idmUserDataClient == null)
@@ -212,7 +243,7 @@ namespace WebApi.Authentication
                 // Call /api/v1/users/{userId} to get user permissions
                 Console.WriteLine($"[TokenValidatedHandler] Calling GetUserByIdAsync for user {userContext.UserId}");
                 var userInfo = await idmUserDataClient.GetUserByIdAsync(userContext.UserId, authorization);
-                
+
                 if (userInfo == null)
                 {
                     Console.WriteLine($"[TokenValidatedHandler] GetUserByIdAsync returned null, using default permissions");

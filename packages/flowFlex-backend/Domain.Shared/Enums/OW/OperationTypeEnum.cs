@@ -68,6 +68,12 @@ namespace FlowFlex.Domain.Shared.Enums.OW
         StageReopen = 10,
 
         /// <summary>
+        /// Stage saved
+        /// </summary>
+        [Description("Stage Save")]
+        StageSave = 47,
+
+        /// <summary>
         /// Onboarding status changed
         /// </summary>
         [Description("Onboarding Status Change")]

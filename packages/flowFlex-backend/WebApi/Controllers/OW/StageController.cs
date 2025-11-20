@@ -530,25 +530,25 @@ namespace FlowFlex.WebApi.Controllers.OW
             return Success(result);
         }
 
-    /// <summary>
-    /// Generate AI Summary for stage with streaming response
-    /// This endpoint is accessible by Portal tokens with [PortalAccess] attribute
-    /// Portal tokens bypass WFEAuthorize permission checks
-    /// </summary>
-    /// <param name="stageId">Stage ID</param>
-    /// <param name="onboardingId">Onboarding ID (optional)</param>
-    /// <param name="language">Preferred language for summary (optional)</param>
-    /// <returns>Streaming AI summary response</returns>
-   
-    [HttpPost("{stageId}/ai-summary/stream")]
-    [AllowAnonymous] // Allow anonymous to bypass JWT expiration check for Portal tokens
-    [PortalAccess] // Portal token validation happens in middleware
-    [ProducesResponseType(200)]
-    [ProducesResponseType(typeof(ErrorResponse), 400)]
-    public async Task StreamAISummary(
-        [FromRoute] long stageId,
-        [FromQuery] long? onboardingId = null,
-        [FromQuery] string? language = null)
+        /// <summary>
+        /// Generate AI Summary for stage with streaming response
+        /// This endpoint is accessible by Portal tokens with [PortalAccess] attribute
+        /// Portal tokens bypass WFEAuthorize permission checks
+        /// </summary>
+        /// <param name="stageId">Stage ID</param>
+        /// <param name="onboardingId">Onboarding ID (optional)</param>
+        /// <param name="language">Preferred language for summary (optional)</param>
+        /// <returns>Streaming AI summary response</returns>
+
+        [HttpPost("{stageId}/ai-summary/stream")]
+        [AllowAnonymous] // Allow anonymous to bypass JWT expiration check for Portal tokens
+        [PortalAccess] // Portal token validation happens in middleware
+        [ProducesResponseType(200)]
+        [ProducesResponseType(typeof(ErrorResponse), 400)]
+        public async Task StreamAISummary(
+            [FromRoute] long stageId,
+            [FromQuery] long? onboardingId = null,
+            [FromQuery] string? language = null)
         {
             // 设置流式响应头 - 纯文本流
             Response.ContentType = "text/plain; charset=utf-8";
@@ -568,14 +568,14 @@ namespace FlowFlex.WebApi.Controllers.OW
                 }
 
                 // Check if stage has any components with data
-                var hasChecklistData = stage.Components?.Any(c => 
-                    c.Key == "checklist" && 
-                    c.ChecklistIds != null && 
+                var hasChecklistData = stage.Components?.Any(c =>
+                    c.Key == "checklist" &&
+                    c.ChecklistIds != null &&
                     c.ChecklistIds.Any()) == true;
-                
-                var hasQuestionnaireData = stage.Components?.Any(c => 
-                    c.Key == "questionnaires" && 
-                    c.QuestionnaireIds != null && 
+
+                var hasQuestionnaireData = stage.Components?.Any(c =>
+                    c.Key == "questionnaires" &&
+                    c.QuestionnaireIds != null &&
                     c.QuestionnaireIds.Any()) == true;
 
                 if (!hasChecklistData && !hasQuestionnaireData)
@@ -584,7 +584,7 @@ namespace FlowFlex.WebApi.Controllers.OW
                     await Response.WriteAsync("");
                     await Response.Body.FlushAsync();
                     Console.WriteLine($"⚠️ Skipped AI summary generation for stage {stageId} - no associated checklists or questionnaires");
-                    
+
                     // Update empty AI summary to database
                     if (onboardingId.HasValue)
                     {
@@ -601,7 +601,7 @@ namespace FlowFlex.WebApi.Controllers.OW
                             }
                         });
                     }
-                    
+
                     return;
                 }
 

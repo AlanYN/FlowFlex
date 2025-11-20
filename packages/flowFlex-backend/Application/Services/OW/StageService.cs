@@ -91,33 +91,33 @@ namespace FlowFlex.Application.Service.OW
 
         public async Task<long> CreateAsync(StageInputDto input)
         {
-        // Validate if workflow exists (outside transaction)
-        var workflow = await _workflowRepository.GetByIdAsync(input.WorkflowId);
-        if (workflow == null)
-        {
-            throw new CRMException(ErrorCodeEnum.NotFound, "Workflow not found");
-        }
+            // Validate if workflow exists (outside transaction)
+            var workflow = await _workflowRepository.GetByIdAsync(input.WorkflowId);
+            if (workflow == null)
+            {
+                throw new CRMException(ErrorCodeEnum.NotFound, "Workflow not found");
+            }
 
-        // Check Workflow permission before creating stage
-        var userId = _userContext?.UserId;
-        if (string.IsNullOrEmpty(userId) || !long.TryParse(userId, out var userIdLong))
-        {
-            throw new CRMException(ErrorCodeEnum.AuthenticationFail, "User not authenticated");
-        }
+            // Check Workflow permission before creating stage
+            var userId = _userContext?.UserId;
+            if (string.IsNullOrEmpty(userId) || !long.TryParse(userId, out var userIdLong))
+            {
+                throw new CRMException(ErrorCodeEnum.AuthenticationFail, "User not authenticated");
+            }
 
-        var workflowPermission = await _permissionService.CheckWorkflowAccessAsync(
-            userIdLong, 
-            input.WorkflowId, 
-            Domain.Shared.Enums.Permission.OperationTypeEnum.Operate);
+            var workflowPermission = await _permissionService.CheckWorkflowAccessAsync(
+                userIdLong,
+                input.WorkflowId,
+                Domain.Shared.Enums.Permission.OperationTypeEnum.Operate);
 
-        if (!workflowPermission.Success || !workflowPermission.CanOperate)
-        {
-            throw new CRMException(ErrorCodeEnum.BusinessError, 
-                $"No permission to create stage in workflow '{workflow.Name}': {workflowPermission.ErrorMessage}");
-        }
+            if (!workflowPermission.Success || !workflowPermission.CanOperate)
+            {
+                throw new CRMException(ErrorCodeEnum.BusinessError,
+                    $"No permission to create stage in workflow '{workflow.Name}': {workflowPermission.ErrorMessage}");
+            }
 
-        _logger.LogInformation("User {UserId} has permission to create stage in workflow {WorkflowId} ({WorkflowName})", 
-            userIdLong, input.WorkflowId, workflow.Name);
+            _logger.LogInformation("User {UserId} has permission to create stage in workflow {WorkflowId} ({WorkflowName})",
+                userIdLong, input.WorkflowId, workflow.Name);
 
             // Validate team IDs in ViewTeams and OperateTeams
             await ValidateTeamSelectionsAsync(input.ViewTeams, input.OperateTeams);
@@ -229,40 +229,40 @@ namespace FlowFlex.Application.Service.OW
         /// </summary>
         public async Task<bool> UpdateAsync(long id, StageInputDto input)
         {
-        // Get current stage information first (outside transaction for validation)
-        var stage = await _stageRepository.GetByIdAsync(id);
-        if (stage == null)
-        {
-            throw new CRMException(ErrorCodeEnum.DataNotFound, "Stage not found");
-        }
+            // Get current stage information first (outside transaction for validation)
+            var stage = await _stageRepository.GetByIdAsync(id);
+            if (stage == null)
+            {
+                throw new CRMException(ErrorCodeEnum.DataNotFound, "Stage not found");
+            }
 
-        // Get workflow information for error messages
-        var workflow = await _workflowRepository.GetByIdAsync(stage.WorkflowId);
-        if (workflow == null)
-        {
-            throw new CRMException(ErrorCodeEnum.NotFound, "Workflow not found");
-        }
+            // Get workflow information for error messages
+            var workflow = await _workflowRepository.GetByIdAsync(stage.WorkflowId);
+            if (workflow == null)
+            {
+                throw new CRMException(ErrorCodeEnum.NotFound, "Workflow not found");
+            }
 
-        // Check Workflow permission before updating stage
-        var userId = _userContext?.UserId;
-        if (string.IsNullOrEmpty(userId) || !long.TryParse(userId, out var userIdLong))
-        {
-            throw new CRMException(ErrorCodeEnum.AuthenticationFail, "User not authenticated");
-        }
+            // Check Workflow permission before updating stage
+            var userId = _userContext?.UserId;
+            if (string.IsNullOrEmpty(userId) || !long.TryParse(userId, out var userIdLong))
+            {
+                throw new CRMException(ErrorCodeEnum.AuthenticationFail, "User not authenticated");
+            }
 
-        var workflowPermission = await _permissionService.CheckWorkflowAccessAsync(
-            userIdLong, 
-            stage.WorkflowId, 
-            Domain.Shared.Enums.Permission.OperationTypeEnum.Operate);
+            var workflowPermission = await _permissionService.CheckWorkflowAccessAsync(
+                userIdLong,
+                stage.WorkflowId,
+                Domain.Shared.Enums.Permission.OperationTypeEnum.Operate);
 
-        if (!workflowPermission.Success || !workflowPermission.CanOperate)
-        {
-            throw new CRMException(ErrorCodeEnum.BusinessError, 
-                $"No permission to update stage '{stage.Name}' in workflow '{workflow.Name}': {workflowPermission.ErrorMessage}");
-        }
+            if (!workflowPermission.Success || !workflowPermission.CanOperate)
+            {
+                throw new CRMException(ErrorCodeEnum.BusinessError,
+                    $"No permission to update stage '{stage.Name}' in workflow '{workflow.Name}': {workflowPermission.ErrorMessage}");
+            }
 
-        _logger.LogInformation("User {UserId} has permission to update stage {StageId} ({StageName}) in workflow {WorkflowId} ({WorkflowName})", 
-            userIdLong, id, stage.Name, stage.WorkflowId, workflow.Name);
+            _logger.LogInformation("User {UserId} has permission to update stage {StageId} ({StageName}) in workflow {WorkflowId} ({WorkflowName})",
+                userIdLong, id, stage.Name, stage.WorkflowId, workflow.Name);
 
             // Validate team IDs in ViewTeams and OperateTeams (only when provided)
             await ValidateTeamSelectionsAsync(input.ViewTeams, input.OperateTeams);
@@ -678,10 +678,10 @@ namespace FlowFlex.Application.Service.OW
         {
             // Note: Cache is disabled for this method because Stage permissions are user-specific
             // Each user may see different stages based on their team membership
-            
+
             // Get all stages for the workflow
             var list = await _stageRepository.GetByWorkflowIdAsync(workflowId);
-            
+
             // Get current user ID
             var userIdString = _userContext?.UserId;
             if (string.IsNullOrEmpty(userIdString) || !long.TryParse(userIdString, out var userId) || userId <= 0)
@@ -697,7 +697,7 @@ namespace FlowFlex.Application.Service.OW
                     "User {UserId} is System Admin, skipping permission filtering for workflow {WorkflowId} stages",
                     userId, workflowId);
                 var adminResult = _mapper.Map<List<StageOutputDto>>(list);
-                
+
                 // System Admin has full permissions on all stages
                 foreach (var stageDto in adminResult)
                 {
@@ -708,21 +708,21 @@ namespace FlowFlex.Application.Service.OW
                         ErrorMessage = null
                     };
                 }
-                
+
                 return adminResult;
             }
 
             // Fast path: If user is Tenant Admin for current tenant, return all stages
             var currentTenantIdString = _userContext?.TenantId;
-            if (!string.IsNullOrEmpty(currentTenantIdString) && 
-                _userContext != null && 
+            if (!string.IsNullOrEmpty(currentTenantIdString) &&
+                _userContext != null &&
                 _userContext.HasAdminPrivileges(currentTenantIdString))
             {
                 _logger.LogDebug(
                     "User {UserId} is Tenant Admin for tenant {TenantId}, skipping permission filtering for workflow {WorkflowId} stages",
                     userId, currentTenantIdString, workflowId);
                 var tenantAdminResult = _mapper.Map<List<StageOutputDto>>(list);
-                
+
                 // Tenant Admin has full permissions on all stages in their tenant
                 foreach (var stageDto in tenantAdminResult)
                 {
@@ -733,7 +733,7 @@ namespace FlowFlex.Application.Service.OW
                         ErrorMessage = null
                     };
                 }
-                
+
                 return tenantAdminResult;
             }
 
@@ -741,14 +741,14 @@ namespace FlowFlex.Application.Service.OW
             // Stage inherits Workflow module permissions
             bool canViewStages = await _permissionService.CheckGroupPermissionAsync(userId, PermissionConsts.Workflow.Read);
             bool canOperateStages = await _permissionService.CheckGroupPermissionAsync(userId, PermissionConsts.Workflow.Update);
-            
-            _logger.LogDebug("Stage list module permission check - UserId: {UserId}, CanView: {CanView}, CanOperate: {CanOperate}", 
+
+            _logger.LogDebug("Stage list module permission check - UserId: {UserId}, CanView: {CanView}, CanOperate: {CanOperate}",
                 userId, canViewStages, canOperateStages);
 
             // Filter stages and fill permission info (batch-optimized)
             var filteredStages = new List<Stage>();
             var stagePermissions = new Dictionary<long, PermissionInfoDto>();
-            
+
             foreach (var stage in list)
             {
                 // Get permission info (batch-optimized: entity-level check only)
@@ -772,7 +772,7 @@ namespace FlowFlex.Application.Service.OW
             }
 
             var result = _mapper.Map<List<StageOutputDto>>(filteredStages);
-            
+
             // Fill permission info for each stage
             foreach (var stageDto in result)
             {
@@ -781,7 +781,7 @@ namespace FlowFlex.Application.Service.OW
                     stageDto.Permission = permissionInfo;
                 }
             }
-            
+
             _logger.LogInformation(
                 "GetListByWorkflowIdAsync - WorkflowId: {WorkflowId}, Total stages: {TotalCount}, Visible to user {UserId}: {VisibleCount}",
                 workflowId, list.Count, userId, filteredStages.Count);
@@ -1194,7 +1194,7 @@ namespace FlowFlex.Application.Service.OW
                     .ToList();
 
                 // Update components
-                // ComponentsJson 将由 AutoMapper 的 SerializeComponents 统一生成，避免重复/多层序列化
+                // ComponentsJson will be generated uniformly by AutoMapper SerializeComponents to avoid duplicate/multi-layer serialization
                 entity.Components = input.Components;
                 entity.InitUpdateInfo(_userContext);
 
@@ -1298,7 +1298,7 @@ namespace FlowFlex.Application.Service.OW
                     // Update the entity with filled names for future use
                     try
                     {
-                        // ComponentsJson 由映射层统一生成，避免重复序列化
+                        // ComponentsJson is generated uniformly by the mapping layer to avoid duplicate serialization
                         entity.Components = components;
                         await _stageRepository.UpdateAsync(entity);
                     }
@@ -1834,7 +1834,7 @@ namespace FlowFlex.Application.Service.OW
         }
 
         /// <summary>
-        /// Store the generated AI summary - AI摘要字段已从Stage实体中移除
+        /// Store the generated AI summary - AI summary fields have been removed from Stage entity
         /// </summary>
         /// <param name="stageId">Stage ID</param>
         /// <param name="summaryResult">AI summary result</param>
@@ -1843,10 +1843,10 @@ namespace FlowFlex.Application.Service.OW
         {
             try
             {
-                // AI摘要字段已从Stage实体中移除
-                // Stage不再存储AI摘要数据，所有AI摘要数据现在仅存储在Onboarding的StageProgress中
+                // AI summary fields have been removed from Stage entity
+                // Stage no longer stores AI summary data, all AI summary data is now only stored in Onboarding StageProgress
                 Console.WriteLine($"StoreStageSummaryAsync: Stage {stageId} - AI summary storage skipped (fields removed from Stage entity)");
-                // 所有AI摘要数据现在仅存储在Onboarding的StageProgress中
+                // All AI summary data is now only stored in Onboarding StageProgress
             }
             catch (Exception ex)
             {
@@ -1988,10 +1988,10 @@ namespace FlowFlex.Application.Service.OW
         /// <returns>Success status</returns>
         public async Task<bool> UpdateStageAISummaryIfEmptyAsync(long stageId, string aiSummary, DateTime generatedAt, double? confidence, string modelUsed)
         {
-            // AI摘要字段已从Stage实体中移除
-            // Stage不再存储AI摘要数据，所有AI摘要数据现在仅存储在Onboarding的StageProgress中
+            // AI summary fields have been removed from Stage entity
+            // Stage no longer stores AI summary data, all AI summary data is now only stored in Onboarding StageProgress
             Console.WriteLine($"UpdateStageAISummaryIfEmptyAsync: Stage {stageId} - AI summary fields removed from Stage entity");
-            return true; // 返回true避免破坏现有流程
+            return true; // Return true to avoid breaking existing flow
         }
 
         /// <summary>

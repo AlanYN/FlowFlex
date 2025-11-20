@@ -1249,12 +1249,12 @@ namespace FlowFlex.Application.Services.OW
                 if (teamTreeNodes == null || !teamTreeNodes.Any())
                 {
                     _logger.LogWarning("No team tree data returned from IDM API");
-                    
+
                     // If we have team users, create "Other" team for them (filter out UserType == 1)
                     if (teamUsers != null && teamUsers.Any())
                     {
                         _logger.LogInformation("Creating 'Other' team for users without team structure");
-                        
+
                         // Add all users to "Other" team, deduplicate by ID and filter out UserType == 1
                         var uniqueUsers = teamUsers
                             .Where(tu => tu.UserType != 1) // Filter out UserType == 1
@@ -1293,11 +1293,11 @@ namespace FlowFlex.Application.Services.OW
                             return new List<UserTreeNodeDto> { otherTeamNode };
                         }
                     }
-                    
+
                     return new List<UserTreeNodeDto>();
                 }
 
-                _logger.LogInformation("Retrieved {TeamCount} root team nodes and {UserCount} team users from IDM", 
+                _logger.LogInformation("Retrieved {TeamCount} root team nodes and {UserCount} team users from IDM",
                     teamTreeNodes.Count, teamUsers?.Count ?? 0);
 
                 // Convert IdmTeamTreeNodeDto to UserTreeNodeDto and populate with users
@@ -1329,12 +1329,12 @@ namespace FlowFlex.Application.Services.OW
             // Priority 1: FirstName + LastName (if both or either is not empty)
             var firstName = teamUser.FirstName?.Trim() ?? string.Empty;
             var lastName = teamUser.LastName?.Trim() ?? string.Empty;
-            
+
             if (!string.IsNullOrEmpty(firstName) || !string.IsNullOrEmpty(lastName))
             {
                 return $"{firstName} {lastName}".Trim();
             }
-            
+
             // Priority 2: UserName
             return teamUser.UserName ?? string.Empty;
         }
@@ -1354,8 +1354,8 @@ namespace FlowFlex.Application.Services.OW
         /// <param name="teamUsers">All team users</param>
         /// <param name="isRootLevel">Whether this is the root level (only add "Other" team at root level)</param>
         private List<UserTreeNodeDto> ConvertIdmTeamTreeToUserTreeInternal(
-            List<IdmTeamTreeNodeDto> idmNodes, 
-            List<IdmTeamUserDto> teamUsers, 
+            List<IdmTeamTreeNodeDto> idmNodes,
+            List<IdmTeamUserDto> teamUsers,
             bool isRootLevel)
         {
             if (idmNodes == null || !idmNodes.Any())
@@ -1393,7 +1393,7 @@ namespace FlowFlex.Application.Services.OW
                     var usersInTeam = teamUserLookup[idmNode.Value]
                         .Where(tu => tu.UserType != 1) // Filter out UserType == 1
                         .ToList();
-                    
+
                     foreach (var teamUser in usersInTeam)
                     {
                         var userNode = new UserTreeNodeDto
@@ -1719,7 +1719,7 @@ namespace FlowFlex.Application.Services.OW
         {
             try
             {
-                _logger.LogInformation("GetUsersByIdsAsync called with {Count} user IDs, TenantId: {TenantId}", 
+                _logger.LogInformation("GetUsersByIdsAsync called with {Count} user IDs, TenantId: {TenantId}",
                     userIds?.Count ?? 0, tenantId);
 
                 if (userIds == null || userIds.Count == 0)
@@ -1749,7 +1749,7 @@ namespace FlowFlex.Application.Services.OW
                 var missingUserIds = validUserIds.Where(id => !foundUserIds.Contains(id)).ToList();
                 if (missingUserIds.Any())
                 {
-                    _logger.LogInformation("Attempting to fetch {MissingCount} missing users from IDM with TenantId: {TenantId}", 
+                    _logger.LogInformation("Attempting to fetch {MissingCount} missing users from IDM with TenantId: {TenantId}",
                         missingUserIds.Count, tenantId);
 
                     try
@@ -1773,7 +1773,7 @@ namespace FlowFlex.Application.Services.OW
                                         var firstName = tu.FirstName?.Trim() ?? string.Empty;
                                         var lastName = tu.LastName?.Trim() ?? string.Empty;
                                         var displayName = string.Empty;
-                                        
+
                                         if (!string.IsNullOrEmpty(firstName) || !string.IsNullOrEmpty(lastName))
                                         {
                                             displayName = $"{firstName} {lastName}".Trim();
@@ -1782,7 +1782,7 @@ namespace FlowFlex.Application.Services.OW
                                         {
                                             displayName = tu.UserName ?? string.Empty;
                                         }
-                                        
+
                                         return new UserDto
                                         {
                                             Id = long.Parse(tu.Id),
