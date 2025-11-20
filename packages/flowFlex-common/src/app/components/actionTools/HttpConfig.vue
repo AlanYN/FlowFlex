@@ -399,7 +399,7 @@
 			</div>
 
 			<div v-if="testResult" class="test-result">
-				<div class="test-result-box rounded-xl p-3">
+				<div class="bg-black-400 rounded-xl p-3">
 					<h6 class="font-medium text-sm mb-2">Test Result:</h6>
 					<pre class="text-xs test-result-text whitespace-pre-wrap">
 						{{ testResult.stdout || testResult }}
@@ -4034,14 +4034,6 @@ html.dark .file-info {
 .url-hint,
 .body-none-text {
 	color: var(--el-text-color-secondary);
-}
-
-.test-result-box {
-	background: var(--el-fill-color-lighter);
-}
-
-html.dark .test-result-box {
-	background: var(--el-fill-color-darker);
 }
 
 .test-result-text {

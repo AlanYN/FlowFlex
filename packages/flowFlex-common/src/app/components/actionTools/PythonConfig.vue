@@ -39,7 +39,7 @@
 			</div>
 
 			<div v-if="testResult" class="test-result">
-				<div class="bg-gray-50 dark:bg-gray-800 rounded-xl p-3">
+				<div class="bg-black-400 rounded-xl p-3">
 					<h6 class="font-medium text-sm mb-2">Test Result:</h6>
 					<pre class="text-xs text-gray-700 dark:text-gray-300 whitespace-pre-wrap">{{
 						testResult.stdout || testResult
