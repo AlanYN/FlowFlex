@@ -33,7 +33,7 @@
 
 				<!-- 集成卡片骨架（显示3个） -->
 				<div
-					v-for="i in 3"
+					v-for="i in 15"
 					:key="`skeleton-${i}`"
 					class="bg-bg-overlay border rounded-xl p-6 min-h-[280px] flex flex-col"
 				>

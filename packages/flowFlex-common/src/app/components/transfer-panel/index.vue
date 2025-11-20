@@ -49,18 +49,18 @@
 		<!-- 中间：控制按钮 -->
 		<div class="flex flex-col justify-center items-center gap-3">
 			<div>
-				<el-button
-					:icon="ArrowLeft"
-					:disabled="rightItems.length === 0"
-					@click="handleMoveToLeft"
-				/>
+				<el-button :disabled="rightItems.length === 0" @click="handleMoveToLeft">
+					<el-icon>
+						<Icon icon="lucide:chevrons-left" class="w-4 h-4" />
+					</el-icon>
+				</el-button>
 			</div>
 			<div>
-				<el-button
-					:icon="ArrowRight"
-					:disabled="leftItems.length === 0"
-					@click="handleMoveToRight"
-				/>
+				<el-button :disabled="leftItems.length === 0" @click="handleMoveToRight">
+					<el-icon>
+						<Icon icon="lucide:chevrons-right" class="w-4 h-4" />
+					</el-icon>
+				</el-button>
 			</div>
 		</div>
 
@@ -101,7 +101,6 @@
 
 <script setup lang="ts">
 import { computed } from 'vue';
-import { ArrowLeft, ArrowRight } from '@element-plus/icons-vue';
 import type { ITransferItem } from './types';
 
 /**
