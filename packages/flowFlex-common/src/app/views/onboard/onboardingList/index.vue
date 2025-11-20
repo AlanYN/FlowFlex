@@ -61,7 +61,7 @@
 					@search="handleFilterSearch"
 					@export="handleExport"
 				/>
-				<div class="wfe-global-block-bg !p-0 !ml-0">
+				<div class="">
 					<el-table
 						:data="onboardingList"
 						@selection-change="handleSelectionChange"
@@ -111,7 +111,7 @@
 												"
 												@click="handleEdit(row.id)"
 											>
-												<el-icon><Edit /></el-icon>
+												<el-icon><Link /></el-icon>
 												Proceed
 											</el-dropdown-item>
 
@@ -146,6 +146,7 @@
 												View
 											</el-dropdown-item>
 
+											<el-divider title="Continue" class="my-0" />
 											<!-- Pause - 对进行中状态显示 -->
 											<el-dropdown-item
 												v-if="
@@ -176,23 +177,6 @@
 												Resume
 											</el-dropdown-item>
 
-											<!-- Force Complete - 对进行中状态和暂停状态显示 -->
-											<el-dropdown-item
-												v-if="
-													(isInProgressStatus(row.status) ||
-														row.status === 'Paused') &&
-													hasCasePermission(
-														row.id,
-														ProjectPermissionEnum.case.update
-													)
-												"
-												@click="handleForceComplete(row)"
-												class="text-green-500"
-											>
-												<el-icon><Check /></el-icon>
-												Force Complete
-											</el-dropdown-item>
-
 											<!-- Abort - 对进行中状态和暂停状态显示 -->
 											<el-dropdown-item
 												v-if="
@@ -204,10 +188,25 @@
 													)
 												"
 												@click="handleAbort(row)"
-												class="text-red-500"
 											>
 												<el-icon><Close /></el-icon>
 												Abort
+											</el-dropdown-item>
+
+											<!-- Force Complete - 对进行中状态和暂停状态显示 -->
+											<el-dropdown-item
+												v-if="
+													(isInProgressStatus(row.status) ||
+														row.status === 'Paused') &&
+													hasCasePermission(
+														row.id,
+														ProjectPermissionEnum.case.update
+													)
+												"
+												@click="handleForceComplete(row)"
+											>
+												<el-icon><Check /></el-icon>
+												Force Complete
 											</el-dropdown-item>
 
 											<!-- Reactivate - 只对已中止状态显示 -->
@@ -225,16 +224,18 @@
 												Reactivate
 											</el-dropdown-item>
 
+											<el-divider title="Delete" class="my-0" />
+
 											<!-- Delete - 对所有状态显示，但有不同的限制 -->
 											<el-dropdown-item
 												@click="handleDelete(row.id)"
-												class="text-red-500"
 												v-if="
 													hasCasePermission(
 														row.id,
 														ProjectPermissionEnum.case.delete
 													)
 												"
+												class="text-red-500 hover:!bg-red-500 hover:!text-white"
 											>
 												<el-icon><Delete /></el-icon>
 												Delete
@@ -311,7 +312,6 @@
 								<el-tag
 									v-if="row.workflowName"
 									type="primary"
-									class="workflow-name-tag"
 									:title="row.workflowName"
 								>
 									{{ row.workflowName }}
@@ -706,6 +706,7 @@ import { ElMessage, ElMessageBox } from 'element-plus';
 import '../styles/errorDialog.css';
 import {
 	ArrowDownBold,
+	Link,
 	Edit,
 	Delete,
 	Plus,
@@ -2341,12 +2342,6 @@ html.dark {
 	.stage-content {
 		background-color: var(--black-400) !important;
 	}
-}
-
-/* 工作流名称标签样式 */
-.workflow-name-tag {
-	@apply block text-sm text-center font-medium truncate;
-	transition: all 0.3s ease;
 }
 
 /* Access Control 样式 */

@@ -12,8 +12,6 @@
 				v-if="!item.meta.hideChildrenInMenu && !item.meta.hidden"
 				v-show="!item.hidden"
 				:disabled="!item.meta.status"
-				:expand-open-icon="OpenIcon"
-				:expand-close-icon="CloseIcon"
 				:index="item.path"
 			>
 				<template #title>
@@ -50,16 +48,6 @@
 								data-active="false"
 								class="flex items-center gap-2 w-full"
 							>
-								<span class="item-menu-icon">
-									<component
-										v-if="!collapse"
-										:is="
-											isLastMenu(chil, item.children) ? parent : customerICon
-										"
-										width="18"
-										height="50"
-									/>
-								</span>
 								<span :class="{ 'beta-label': chil.meta.beta }">
 									{{ t(chil.meta.title) }}
 								</span>
@@ -105,12 +93,6 @@ import { computed, toRaw, ref } from 'vue';
 import { useI18n } from '@/hooks/useI18n';
 import { useRoute, useRouter } from 'vue-router';
 
-import OpenIcon from '@assets/svg/global/open.svg';
-import CloseIcon from '@assets/svg/global/close.svg';
-
-import customerICon from '@assets/svg/menu/customer.svg';
-import parent from '@assets/svg/menu/parent.svg';
-
 import { usePermissionStore } from '@/stores/modules/permission';
 
 import { PageEnum } from '@/enums/pageEnum';
@@ -148,11 +130,6 @@ defineProps({
 		default: false,
 	},
 });
-
-const isLastMenu = (chil, item) => {
-	const arr = item.filter((chil) => !chil.meta?.hidden && !chil.hidden) || [];
-	return chil.path == arr[arr.length - 1].path;
-};
 
 // 处理导航，使用 Vue Router 进行 SPA 导航
 const handleNavigate = async (indexPath: string) => {

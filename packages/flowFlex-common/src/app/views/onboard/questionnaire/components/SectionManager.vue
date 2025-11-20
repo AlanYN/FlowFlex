@@ -27,8 +27,16 @@
 				<template #item="{ element: section, index }">
 					<div
 						class="section-item"
-						:class="{ active: currentSectionIndex === index }"
+						:class="{
+							active: currentSectionIndex === index,
+							'drag-over': dragOverSectionIndex === index,
+						}"
 						@click="setCurrentSection(index)"
+						:data-section-index="index"
+						@drop="handleDropOnSection($event, index)"
+						@dragover.prevent="handleDragOver($event, index)"
+						@dragenter.prevent="handleDragEnter(index, $event)"
+						@dragleave="handleDragLeave(index, $event)"
 					>
 						<div class="drag-handle">
 							<Icon icon="mdi:drag-vertical" class="drag-icon" />
@@ -76,6 +84,7 @@ const emits = defineEmits<{
 	'remove-section': [index: number];
 	'set-current-section': [index: number];
 	'drag-end': [sections: Section[], dragInfo: { oldIndex: number; newIndex: number }];
+	'question-drop': [targetSectionIndex: number];
 }>();
 
 // 本地sections数据，用于拖拽
@@ -89,6 +98,7 @@ const localSections = computed({
 });
 
 const tempSections = ref<Section[]>([]);
+const dragOverSectionIndex = ref<number>(-1);
 
 const addSection = () => {
 	emits('add-section');
@@ -104,6 +114,51 @@ const setCurrentSection = (index: number) => {
 
 const handleDragEnd = (evt: any) => {
 	emits('drag-end', tempSections.value, { oldIndex: evt?.oldIndex, newIndex: evt?.newIndex });
+};
+
+// 处理拖拽进入分区
+const handleDragEnter = (sectionIndex: number, evt: DragEvent) => {
+	evt.preventDefault();
+	// 检查是否是问题拖拽（通过检查拖拽数据或事件类型）
+	if (
+		evt.dataTransfer?.types?.includes('text/plain') ||
+		evt.dataTransfer?.effectAllowed === 'move'
+	) {
+		dragOverSectionIndex.value = sectionIndex;
+	}
+};
+
+// 处理拖拽离开分区
+const handleDragLeave = (sectionIndex: number, evt: DragEvent) => {
+	// 只有当离开的是当前悬停的分区时才清除
+	if (dragOverSectionIndex.value === sectionIndex) {
+		// 检查是否真的离开了分区（而不是进入子元素）
+		const relatedTarget = evt.relatedTarget as HTMLElement;
+		const currentTarget = evt.currentTarget as HTMLElement;
+		if (!relatedTarget || !currentTarget?.contains(relatedTarget)) {
+			dragOverSectionIndex.value = -1;
+		}
+	}
+};
+
+// 处理拖拽悬停在分区上
+const handleDragOver = (evt: DragEvent, sectionIndex: number) => {
+	evt.preventDefault();
+	evt.stopPropagation();
+	if (evt.dataTransfer) {
+		evt.dataTransfer.dropEffect = 'move';
+	}
+};
+
+// 处理问题拖拽到分区（使用原生拖拽API）
+const handleDropOnSection = (evt: DragEvent, sectionIndex: number) => {
+	evt.preventDefault();
+	evt.stopPropagation();
+	dragOverSectionIndex.value = -1;
+
+	// 通知父组件有问题被拖拽到分区
+	// 父组件会通过 drag-start 事件记录的问题数据来处理
+	emits('question-drop', sectionIndex);
 };
 </script>
 
@@ -146,6 +201,28 @@ const handleDragEnd = (evt: any) => {
 	transition: all 0.2s;
 	gap: 0.5rem;
 	@apply rounded-xl;
+	position: relative;
+}
+
+.section-item.drag-over {
+	border-color: var(--el-color-primary);
+	background-color: var(--el-color-primary-light-5);
+
+	.section-name {
+		color: var(--el-color-white);
+	}
+
+	.section-count {
+		color: var(--el-color-white);
+	}
+
+	.dark .sections-list-container {
+		background-color: transparent;
+	}
+
+	.delete-btn {
+		color: var(--el-color-white);
+	}
 }
 
 .section-item:hover {
@@ -154,8 +231,24 @@ const handleDragEnd = (evt: any) => {
 }
 
 .section-item.active {
-	border-color: var(--el-color-primary);
-	background-color: var(--el-bg-color-light);
+	border-color: var(--el-border-color-dark);
+	background-color: var(--el-color-primary);
+
+	.section-name {
+		color: var(--el-color-white);
+	}
+
+	.section-count {
+		color: var(--el-color-white);
+	}
+
+	.dark .sections-list-container {
+		background-color: transparent;
+	}
+
+	.delete-btn {
+		color: var(--el-color-white);
+	}
 }
 
 .section-info {
@@ -184,37 +277,6 @@ const handleDragEnd = (evt: any) => {
 /* 深色模式支持 */
 .dark .section-title {
 	color: var(--primary-200);
-}
-
-.dark .section-item {
-	border-color: var(--el-border-color-dark);
-	background-color: var(--black);
-}
-
-.dark .section-item:hover {
-	border-color: var(--el-border-color-dark);
-	background-color: var(--el-color-primary);
-
-	.delete-btn {
-		color: var(--el-color-white);
-	}
-}
-
-.dark .section-item.active {
-	border-color: var(--el-border-color-dark);
-	background-color: var(--el-color-primary);
-}
-
-.dark .section-name {
-	color: var(--el-color-white);
-}
-
-.dark .section-count {
-	color: var(--el-color-white);
-}
-
-.dark .sections-list-container {
-	background-color: transparent;
 }
 
 /* 拖拽相关样式 */
