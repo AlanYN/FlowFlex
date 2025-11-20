@@ -570,6 +570,16 @@ namespace FlowFlex.Application.Services.AI
 
                 _logger.LogInformation("OpenAI Request - Model: {Model}, BaseUrl: {BaseUrl}", model, baseUrl);
 
+                // Check if using Item Gateway
+                var isItemGateway = !string.IsNullOrEmpty(baseUrl) && 
+                                  baseUrl.Contains("aiop-gateway.item.com", StringComparison.OrdinalIgnoreCase);
+
+                if (isItemGateway)
+                {
+                    // Use Item Gateway method
+                    return await CallItemGatewayForMainAsync(prompt, userConfig);
+                }
+
                 var requestBody = new
                 {
                     model = model,
@@ -681,6 +691,16 @@ namespace FlowFlex.Application.Services.AI
 
                 _logger.LogInformation("Gemini Request - Model: {Model}, BaseUrl: {BaseUrl}", model, baseUrl);
 
+                // Check if using Item Gateway
+                var isItemGateway = !string.IsNullOrEmpty(baseUrl) && 
+                                  baseUrl.Contains("aiop-gateway.item.com", StringComparison.OrdinalIgnoreCase);
+
+                if (isItemGateway)
+                {
+                    // Use Item Gateway method
+                    return await CallItemGatewayForMainAsync(prompt, userConfig);
+                }
+
                 var requestBody = new
                 {
                     model = model,
@@ -741,6 +761,80 @@ namespace FlowFlex.Application.Services.AI
                 {
                     Success = false,
                     ErrorMessage = $"Gemini call failed: {ex.Message}"
+                };
+            }
+        }
+
+        /// <summary>
+        /// Call Item Gateway API for Main service (non-streaming)
+        /// </summary>
+        private async Task<AIProviderResponse> CallItemGatewayForMainAsync(string prompt, AIModelConfig config)
+        {
+            try
+            {
+                // Get JWT token
+                var jwtToken = await GetLLMGatewayJwtTokenAsync(config);
+
+                var requestBody = new
+                {
+                    model = config.ModelName, // e.g., "openai/gpt-4" or "gemini/gemini-2.5-flash"
+                    messages = new[]
+                    {
+                        new { role = "system", content = "You are a professional workflow design expert. Please generate structured workflow definitions based on user requirements. Output the result according to the language input by the user." },
+                        new { role = "user", content = prompt }
+                    },
+                    temperature = config.Temperature > 0 ? config.Temperature : 0.7,
+                    max_tokens = config.MaxTokens > 0 ? config.MaxTokens : 2000,
+                    stream = false
+                };
+
+                var json = JsonSerializer.Serialize(requestBody);
+                var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+                var baseUrl = string.IsNullOrEmpty(config.BaseUrl)
+                    ? "https://aiop-gateway.item.com"
+                    : config.BaseUrl.TrimEnd('/');
+                var apiUrl = $"{baseUrl}/openai/v1/chat/completions";
+
+                _logger.LogInformation("Calling Item Gateway API: {Url} - Model: {Model}", apiUrl, config.ModelName);
+
+                using var httpClient = _httpClientFactory.CreateClient();
+                httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {jwtToken}");
+                var response = await httpClient.PostAsync(apiUrl, content);
+                var responseContent = await response.Content.ReadAsStringAsync();
+
+                if (response.IsSuccessStatusCode)
+                {
+                    var aiResponse = JsonSerializer.Deserialize<JsonElement>(responseContent);
+                    var messageContent = aiResponse
+                        .GetProperty("choices")[0]
+                        .GetProperty("message")
+                        .GetProperty("content")
+                        .GetString() ?? "";
+
+                    return new AIProviderResponse
+                    {
+                        Success = true,
+                        Content = messageContent
+                    };
+                }
+                else
+                {
+                    _logger.LogError("Item Gateway API call failed: {StatusCode} - {Content}", response.StatusCode, responseContent);
+                    return new AIProviderResponse
+                    {
+                        Success = false,
+                        ErrorMessage = $"Item Gateway API error: {response.StatusCode} - {responseContent}"
+                    };
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error calling Item Gateway API");
+                return new AIProviderResponse
+                {
+                    Success = false,
+                    ErrorMessage = $"Item Gateway call failed: {ex.Message}"
                 };
             }
         }
