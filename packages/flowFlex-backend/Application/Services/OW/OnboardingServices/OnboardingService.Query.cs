@@ -283,6 +283,7 @@ namespace FlowFlex.Application.Services.OW
                             // Get user teams once (avoid repeated calls)
                             var userTeams = _permissionService.GetUserTeamIds();
                             var userTeamLongs = userTeams?.Select(t => long.TryParse(t, out var tid) ? tid : 0).Where(t => t > 0).ToList() ?? new List<long>();
+                            var userIdString = userIdLong.ToString();
 
                             // Regular users need permission filtering (now using in-memory workflow data)
                             filteredEntities = new List<Onboarding>();
@@ -304,11 +305,9 @@ namespace FlowFlex.Application.Services.OW
                                     continue; // No Workflow permission, skip this Case
                                 }
 
-                                var viewResult = await _casePermissionService.CheckCasePermissionAsync(
-                         entity, userIdLong, PermissionOperationType.View);
-                                bool hasCaseViewPermission = viewResult.CanView;
-                                // Check Case-level view permission (in-memory)
-                                //bool hasCaseViewPermission = CheckCaseViewPermissionInMemory(entity, userIdLong, userTeamLongs);
+                                // PERFORMANCE FIX: Use in-memory Case permission check instead of async DB query
+                                // This eliminates N+1 queries (was: N async calls to CheckCasePermissionAsync)
+                                bool hasCaseViewPermission = CheckCaseViewPermissionInMemory(entity, workflow, userIdLong, userTeamLongs, userIdString);
 
                                 LoggingExtensions.WriteLine($"[Permission Debug] Case {entity.Id} - Case permission: {hasCaseViewPermission} (ViewMode={entity.ViewPermissionMode}, SubjectType={entity.ViewPermissionSubjectType}, ViewTeams={entity.ViewTeams ?? "NULL"}, ViewUsers={entity.ViewUsers ?? "NULL"}, Ownership={entity.Ownership})");
                                 if (!hasCaseViewPermission)
@@ -692,6 +691,91 @@ namespace FlowFlex.Application.Services.OW
         /// <summary>
         /// Move to next stage
         /// </summary>
+
+        #region Permission Check Helper Methods
+
+        /// <summary>
+        /// Check Case view permission in memory (no DB queries)
+        /// Mirrors the logic from CasePermissionService.CheckCasePermissionAsync but without async DB calls
+        /// </summary>
+        private bool CheckCaseViewPermissionInMemory(
+            Onboarding entity,
+            Domain.Entities.OW.Workflow workflow,
+            long userId,
+            List<long> userTeamIds,
+            string userIdString)
+        {
+            // Step 1: Check Ownership (owner has full access)
+            if (entity.Ownership.HasValue && entity.Ownership.Value == userId)
+            {
+                return true;
+            }
+
+            // Step 2: In Public mode, inherit Workflow permissions
+            if (entity.ViewPermissionMode == ViewPermissionModeEnum.Public)
+            {
+                // In Public mode, if user can view Workflow, they can view Case
+                // Note: CheckWorkflowViewPermissionInMemory is defined in OnboardingService.StatusOperations.cs
+                return CheckWorkflowViewPermissionInMemory(workflow, userId, userTeamIds);
+            }
+
+            // Step 3: Check Case-specific view permissions (non-Public modes)
+            return CheckCaseViewPermissionBySubjectType(entity, userTeamIds, userIdString);
+        }
+
+        /// <summary>
+        /// Check Case view permission based on SubjectType (Team or User)
+        /// </summary>
+        private bool CheckCaseViewPermissionBySubjectType(
+            Onboarding entity,
+            List<long> userTeamIds,
+            string userIdString)
+        {
+            // If SubjectType is Team, check ViewTeams
+            if (entity.ViewPermissionSubjectType == PermissionSubjectTypeEnum.Team)
+            {
+                if (string.IsNullOrWhiteSpace(entity.ViewTeams))
+                {
+                    return false; // No teams specified = no access
+                }
+
+                // Note: ParseJsonArraySafe is defined in OnboardingService.StatusOperations.cs
+                var viewTeams = ParseJsonArraySafe(entity.ViewTeams);
+                if (viewTeams.Count == 0)
+                {
+                    return false; // Empty whitelist = no access
+                }
+
+                var viewTeamLongs = viewTeams
+                    .Select(t => long.TryParse(t, out var tid) ? tid : 0)
+                    .Where(t => t > 0)
+                    .ToHashSet();
+
+                return userTeamIds.Any(ut => viewTeamLongs.Contains(ut));
+            }
+
+            // If SubjectType is User, check ViewUsers
+            if (entity.ViewPermissionSubjectType == PermissionSubjectTypeEnum.User)
+            {
+                if (string.IsNullOrWhiteSpace(entity.ViewUsers))
+                {
+                    return false; // No users specified = no access
+                }
+
+                var viewUsers = ParseJsonArraySafe(entity.ViewUsers);
+                if (viewUsers.Count == 0)
+                {
+                    return false; // Empty whitelist = no access
+                }
+
+                return viewUsers.Contains(userIdString, StringComparer.OrdinalIgnoreCase);
+            }
+
+            // Unknown SubjectType = deny access
+            return false;
+        }
+
+        #endregion
     }
 }
 
