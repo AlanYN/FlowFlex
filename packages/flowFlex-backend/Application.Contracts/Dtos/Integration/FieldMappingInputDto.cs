@@ -47,11 +47,6 @@ namespace FlowFlex.Application.Contracts.Dtos.Integration
         public SyncDirection SyncDirection { get; set; }
 
         /// <summary>
-        /// Associated workflow IDs
-        /// </summary>
-        public List<long> WorkflowIds { get; set; } = new();
-
-        /// <summary>
         /// Transformation rules
         /// </summary>
         public Dictionary<string, object> TransformRules { get; set; } = new();
@@ -65,6 +60,12 @@ namespace FlowFlex.Application.Contracts.Dtos.Integration
         /// Whether this field is required
         /// </summary>
         public bool IsRequired { get; set; }
+
+        /// <summary>
+        /// Default value for this field
+        /// </summary>
+        [StringLength(500)]
+        public string? DefaultValue { get; set; }
     }
 }
 

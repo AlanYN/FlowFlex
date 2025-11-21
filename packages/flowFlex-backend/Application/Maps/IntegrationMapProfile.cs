@@ -53,14 +53,14 @@ namespace FlowFlex.Application.Maps
                 .ForMember(dest => dest.KeyMappings, opt => opt.Ignore())
                 .ForMember(dest => dest.FieldMappings, opt => opt.Ignore());
 
-            // FieldMapping mappings
+            // FieldMapping mappings (WorkflowIds removed in V2)
             CreateMap<FieldMapping, FieldMappingOutputDto>()
-                .ForMember(dest => dest.WorkflowIds, opt => opt.Ignore())
-                .ForMember(dest => dest.TransformRules, opt => opt.Ignore());
+                .ForMember(dest => dest.TransformRules, opt => opt.Ignore())
+                .ForMember(dest => dest.WfeFieldName, opt => opt.Ignore())
+                .ForMember(dest => dest.IsStaticField, opt => opt.Ignore());
 
             CreateMap<FieldMappingInputDto, FieldMapping>()
                 .ForMember(dest => dest.Id, opt => opt.Ignore())
-                .ForMember(dest => dest.WorkflowIds, opt => opt.Ignore())
                 .ForMember(dest => dest.TransformRules, opt => opt.Ignore())
                 .ForMember(dest => dest.IsValid, opt => opt.Ignore())
                 .ForMember(dest => dest.CreateDate, opt => opt.Ignore())
@@ -99,6 +99,24 @@ namespace FlowFlex.Application.Maps
                 .ForMember(dest => dest.CreateUserId, opt => opt.Ignore())
                 .ForMember(dest => dest.ModifyUserId, opt => opt.Ignore())
                 .ForMember(dest => dest.IsValid, opt => opt.Ignore());
+
+            // ReceiveExternalDataConfig mappings (V2)
+            CreateMap<ReceiveExternalDataConfig, ReceiveExternalDataConfigOutputDto>()
+                .ForMember(dest => dest.TriggerWorkflowName, opt => opt.Ignore())
+                .ForMember(dest => dest.FieldMappings, opt => opt.Ignore());
+
+            CreateMap<ReceiveExternalDataConfigInputDto, ReceiveExternalDataConfig>()
+                .ForMember(dest => dest.Id, opt => opt.Ignore())
+                .ForMember(dest => dest.IntegrationId, opt => opt.Ignore())
+                .ForMember(dest => dest.FieldMappingConfig, opt => opt.Ignore())
+                .ForMember(dest => dest.IsValid, opt => opt.Ignore())
+                .ForMember(dest => dest.CreateDate, opt => opt.Ignore())
+                .ForMember(dest => dest.ModifyDate, opt => opt.Ignore())
+                .ForMember(dest => dest.CreateBy, opt => opt.Ignore())
+                .ForMember(dest => dest.ModifyBy, opt => opt.Ignore())
+                .ForMember(dest => dest.CreateUserId, opt => opt.Ignore())
+                .ForMember(dest => dest.ModifyUserId, opt => opt.Ignore())
+                .ForMember(dest => dest.Integration, opt => opt.Ignore());
         }
 
     }

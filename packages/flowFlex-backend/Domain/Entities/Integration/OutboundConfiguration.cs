@@ -13,6 +13,11 @@ public class OutboundConfiguration : EntityBase
     public long IntegrationId { get; set; }
     
     /// <summary>
+    /// Action ID - associates this configuration with a specific action
+    /// </summary>
+    public long ActionId { get; set; }
+    
+    /// <summary>
     /// Shared master data types (JSON array)
     /// </summary>
     public string SharedMasterDataTypes { get; set; } = "[]";
@@ -48,6 +53,11 @@ public class OutboundConfiguration : EntityBase
     /// Parent integration
     /// </summary>
     public virtual Integration? Integration { get; set; }
+    
+    /// <summary>
+    /// Associated action
+    /// </summary>
+    public virtual IntegrationAction? Action { get; set; }
     
     /// <summary>
     /// Field configurations

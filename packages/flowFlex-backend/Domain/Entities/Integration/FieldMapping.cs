@@ -39,11 +39,6 @@ public class FieldMapping : EntityBaseCreateInfo
     public SyncDirection SyncDirection { get; set; }
     
     /// <summary>
-    /// Associated workflow IDs (JSON array)
-    /// </summary>
-    public string WorkflowIds { get; set; } = "[]";
-    
-    /// <summary>
     /// Transformation rules (JSON)
     /// </summary>
     public string TransformRules { get; set; } = "{}";
@@ -57,6 +52,11 @@ public class FieldMapping : EntityBaseCreateInfo
     /// Whether this field is required
     /// </summary>
     public bool IsRequired { get; set; }
+    
+    /// <summary>
+    /// Default value for this field
+    /// </summary>
+    public string? DefaultValue { get; set; }
     
     // Navigation Properties
     

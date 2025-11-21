@@ -13,6 +13,11 @@ public class InboundConfiguration : EntityBase
     public long IntegrationId { get; set; }
     
     /// <summary>
+    /// Action ID - associates this configuration with a specific action
+    /// </summary>
+    public long ActionId { get; set; }
+    
+    /// <summary>
     /// Attachment sharing configuration (JSON)
     /// </summary>
     public string AttachmentSharingConfig { get; set; } = "{}";
@@ -33,5 +38,10 @@ public class InboundConfiguration : EntityBase
     /// Parent integration
     /// </summary>
     public virtual Integration? Integration { get; set; }
+    
+    /// <summary>
+    /// Associated action
+    /// </summary>
+    public virtual IntegrationAction? Action { get; set; }
 }
 

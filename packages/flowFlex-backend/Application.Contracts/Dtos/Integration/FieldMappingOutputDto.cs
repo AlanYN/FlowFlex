@@ -43,11 +43,6 @@ namespace FlowFlex.Application.Contracts.Dtos.Integration
         public SyncDirection SyncDirection { get; set; }
 
         /// <summary>
-        /// Associated workflow IDs
-        /// </summary>
-        public List<long> WorkflowIds { get; set; } = new();
-
-        /// <summary>
         /// Transformation rules
         /// </summary>
         public Dictionary<string, object> TransformRules { get; set; } = new();
@@ -61,6 +56,21 @@ namespace FlowFlex.Application.Contracts.Dtos.Integration
         /// Whether this field is required
         /// </summary>
         public bool IsRequired { get; set; }
+
+        /// <summary>
+        /// Default value for this field
+        /// </summary>
+        public string? DefaultValue { get; set; }
+
+        /// <summary>
+        /// WFE field display name
+        /// </summary>
+        public string WfeFieldName { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Whether this is a static field (Basic Level)
+        /// </summary>
+        public bool IsStaticField { get; set; }
 
         /// <summary>
         /// Create date

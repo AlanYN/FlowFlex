@@ -63,7 +63,6 @@ namespace FlowFlex.Application.Services.Integration
             }
 
             var entity = _mapper.Map<FieldMapping>(input);
-            entity.WorkflowIds = JsonConvert.SerializeObject(input.WorkflowIds);
             entity.TransformRules = JsonConvert.SerializeObject(input.TransformRules);
             entity.InitCreateInfo(_userContext);
 
@@ -98,10 +97,10 @@ namespace FlowFlex.Application.Services.Integration
             entity.WfeFieldId = input.WfeFieldId;
             entity.FieldType = input.FieldType;
             entity.SyncDirection = input.SyncDirection;
-            entity.WorkflowIds = JsonConvert.SerializeObject(input.WorkflowIds);
             entity.TransformRules = JsonConvert.SerializeObject(input.TransformRules);
             entity.SortOrder = input.SortOrder;
             entity.IsRequired = input.IsRequired;
+            entity.DefaultValue = input.DefaultValue;
             entity.InitModifyInfo(_userContext);
 
             var result = await _fieldMappingRepository.UpdateAsync(entity);
@@ -139,7 +138,6 @@ namespace FlowFlex.Application.Services.Integration
             }
 
             var dto = _mapper.Map<FieldMappingOutputDto>(entity);
-            dto.WorkflowIds = JsonConvert.DeserializeObject<List<long>>(entity.WorkflowIds) ?? new List<long>();
             dto.TransformRules = JsonConvert.DeserializeObject<Dictionary<string, object>>(entity.TransformRules) 
                 ?? new Dictionary<string, object>();
 
@@ -156,7 +154,6 @@ namespace FlowFlex.Application.Services.Integration
                 var entity = entities.FirstOrDefault(e => e.Id == dto.Id);
                 if (entity != null)
                 {
-                    dto.WorkflowIds = JsonConvert.DeserializeObject<List<long>>(entity.WorkflowIds) ?? new List<long>();
                     dto.TransformRules = JsonConvert.DeserializeObject<Dictionary<string, object>>(entity.TransformRules) 
                         ?? new Dictionary<string, object>();
                 }
@@ -175,7 +172,6 @@ namespace FlowFlex.Application.Services.Integration
                 var entity = entities.FirstOrDefault(e => e.Id == dto.Id);
                 if (entity != null)
                 {
-                    dto.WorkflowIds = JsonConvert.DeserializeObject<List<long>>(entity.WorkflowIds) ?? new List<long>();
                     dto.TransformRules = JsonConvert.DeserializeObject<Dictionary<string, object>>(entity.TransformRules) 
                         ?? new Dictionary<string, object>();
                 }
@@ -196,7 +192,6 @@ namespace FlowFlex.Application.Services.Integration
                 foreach (var input in inputs)
                 {
                     var entity = _mapper.Map<FieldMapping>(input);
-                    entity.WorkflowIds = JsonConvert.SerializeObject(input.WorkflowIds);
                     entity.TransformRules = JsonConvert.SerializeObject(input.TransformRules);
 
                     if (entity.Id > 0)
@@ -237,7 +232,6 @@ namespace FlowFlex.Application.Services.Integration
                 var entity = entities.FirstOrDefault(e => e.Id == dto.Id);
                 if (entity != null)
                 {
-                    dto.WorkflowIds = JsonConvert.DeserializeObject<List<long>>(entity.WorkflowIds) ?? new List<long>();
                     dto.TransformRules = JsonConvert.DeserializeObject<Dictionary<string, object>>(entity.TransformRules) 
                         ?? new Dictionary<string, object>();
                 }

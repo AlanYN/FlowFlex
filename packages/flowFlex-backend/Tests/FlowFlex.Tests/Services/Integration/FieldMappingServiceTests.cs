@@ -64,7 +64,6 @@ namespace FlowFlex.Tests.Services.Integration
                 EntityMappingId = input.EntityMappingId,
                 ExternalFieldName = input.ExternalFieldName,
                 WfeFieldId = input.WfeFieldId,
-                WorkflowIds = "[]",
                 TransformRules = "{}"
             };
 
@@ -100,8 +99,8 @@ namespace FlowFlex.Tests.Services.Integration
             var entityMappingId = 456L;
             var entities = new List<FieldMapping>
             {
-                new FieldMapping { Id = 1, EntityMappingId = entityMappingId, ExternalFieldName = "email", WorkflowIds = "[]", TransformRules = "{}" },
-                new FieldMapping { Id = 2, EntityMappingId = entityMappingId, ExternalFieldName = "phone", WorkflowIds = "[]", TransformRules = "{}" }
+                new FieldMapping { Id = 1, EntityMappingId = entityMappingId, ExternalFieldName = "email", TransformRules = "{}" },
+                new FieldMapping { Id = 2, EntityMappingId = entityMappingId, ExternalFieldName = "phone", TransformRules = "{}" }
             };
 
             var dtos = new List<FieldMappingOutputDto>
@@ -135,13 +134,12 @@ namespace FlowFlex.Tests.Services.Integration
             var entityMappingId = 456L;
             var entities = new List<FieldMapping>
             {
-                new FieldMapping 
-                { 
-                    Id = 1, 
-                    EntityMappingId = entityMappingId, 
+                new FieldMapping
+                {
+                    Id = 1,
+                    EntityMappingId = entityMappingId,
                     ExternalFieldName = "email",
                     SyncDirection = SyncDirection.Editable,
-                    WorkflowIds = "[]",
                     TransformRules = "{}"
                 }
             };
