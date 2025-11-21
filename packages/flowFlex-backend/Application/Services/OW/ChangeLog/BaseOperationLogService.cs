@@ -1217,6 +1217,40 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                                 }
                             }
                         }
+
+                        // Extract HttpUrl and HttpMethod for HttpApi actions
+                        string httpUrl = null;
+                        string httpMethod = null;
+                        
+                        if (afterJson.TryGetProperty("HttpUrl", out var httpUrlElement) ||
+                            afterJson.TryGetProperty("httpUrl", out httpUrlElement))
+                        {
+                            httpUrl = httpUrlElement.GetString();
+                        }
+                        
+                        if (afterJson.TryGetProperty("HttpMethod", out var httpMethodElement) ||
+                            afterJson.TryGetProperty("httpMethod", out httpMethodElement))
+                        {
+                            httpMethod = httpMethodElement.GetString();
+                        }
+                        
+                        if (!string.IsNullOrEmpty(httpUrl) || !string.IsNullOrEmpty(httpMethod))
+                        {
+                            var httpInfo = new List<string>();
+                            if (!string.IsNullOrEmpty(httpMethod))
+                            {
+                                httpInfo.Add(httpMethod.ToUpper());
+                            }
+                            if (!string.IsNullOrEmpty(httpUrl))
+                            {
+                                // Display full URL (no truncation)
+                                httpInfo.Add(httpUrl);
+                            }
+                            if (httpInfo.Any())
+                            {
+                                details.Add($"HttpApi: {string.Join(" ", httpInfo)}");
+                            }
+                        }
                     }
 
                     // Extract VisibleInPortal for Stage (Available in Customer Portal)
@@ -1497,6 +1531,44 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                             var beforeStr = GetBooleanDisplayValue(beforeValue, "Default", "Not Default");
                             var afterStr = GetBooleanDisplayValue(afterValue, "Default", "Not Default");
                             changeList.Add($"Set as default workflow from {beforeStr} to {afterStr}");
+                        }
+                        else if (field.Equals("SourceCode", StringComparison.OrdinalIgnoreCase) && businessModule == BusinessModuleEnum.Action)
+                        {
+                            // For Action SourceCode field (Python), show cleaned code
+                            var beforeCode = beforeValue?.ToString() ?? string.Empty;
+                            var afterCode = afterValue?.ToString() ?? string.Empty;
+                            
+                            if (!string.IsNullOrEmpty(beforeCode))
+                            {
+                                beforeCode = beforeCode.Replace("\r\n", " ").Replace("\n", " ").Replace("  ", " ").Trim();
+                                if (beforeCode.Length > 100) beforeCode = beforeCode.Substring(0, 97) + "...";
+                            }
+                            if (!string.IsNullOrEmpty(afterCode))
+                            {
+                                afterCode = afterCode.Replace("\r\n", " ").Replace("\n", " ").Replace("  ", " ").Trim();
+                                if (afterCode.Length > 100) afterCode = afterCode.Substring(0, 97) + "...";
+                            }
+                            
+                            changeList.Add($"Python code from '{beforeCode}' to '{afterCode}'");
+                        }
+                        else if (field.Equals("HttpUrl", StringComparison.OrdinalIgnoreCase) && businessModule == BusinessModuleEnum.Action)
+                        {
+                            // For Action HttpUrl field, show URL changes (display full URL)
+                            var beforeUrl = beforeValue?.ToString() ?? string.Empty;
+                            var afterUrl = afterValue?.ToString() ?? string.Empty;
+                            
+                            changeList.Add($"HttpApi URL from '{beforeUrl}' to '{afterUrl}'");
+                        }
+                        else if (field.Equals("HttpMethod", StringComparison.OrdinalIgnoreCase) && businessModule == BusinessModuleEnum.Action)
+                        {
+                            // For Action HttpMethod field, show method changes
+                            var beforeMethod = beforeValue?.ToString() ?? string.Empty;
+                            var afterMethod = afterValue?.ToString() ?? string.Empty;
+                            
+                            if (!string.IsNullOrEmpty(beforeMethod)) beforeMethod = beforeMethod.ToUpper();
+                            if (!string.IsNullOrEmpty(afterMethod)) afterMethod = afterMethod.ToUpper();
+                            
+                            changeList.Add($"HttpApi method from '{beforeMethod}' to '{afterMethod}'");
                         }
                         else if (field.Equals("AssigneeId", StringComparison.OrdinalIgnoreCase))
                         {

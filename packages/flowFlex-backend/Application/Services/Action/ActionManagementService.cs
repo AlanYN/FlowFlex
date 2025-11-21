@@ -197,19 +197,38 @@ namespace FlowFlex.Application.Services.Action
 
                     // Extract sourceCode from ActionConfig for Python actions
                     string sourceCode = null;
-                    if (dto.ActionType == ActionTypeEnum.Python && !string.IsNullOrEmpty(dto.ActionConfig))
+                    // Extract url and method from ActionConfig for HttpApi actions
+                    string httpUrl = null;
+                    string httpMethod = null;
+                    
+                    if (!string.IsNullOrEmpty(dto.ActionConfig))
                     {
                         try
                         {
                             var configJson = System.Text.Json.JsonSerializer.Deserialize<System.Text.Json.JsonElement>(dto.ActionConfig);
-                            if (configJson.TryGetProperty("sourceCode", out var sourceCodeElement))
+                            
+                            if (dto.ActionType == ActionTypeEnum.Python)
                             {
-                                sourceCode = sourceCodeElement.GetString();
+                                if (configJson.TryGetProperty("sourceCode", out var sourceCodeElement))
+                                {
+                                    sourceCode = sourceCodeElement.GetString();
+                                }
+                            }
+                            else if (dto.ActionType == ActionTypeEnum.HttpApi)
+                            {
+                                if (configJson.TryGetProperty("url", out var urlElement))
+                                {
+                                    httpUrl = urlElement.GetString();
+                                }
+                                if (configJson.TryGetProperty("method", out var methodElement))
+                                {
+                                    httpMethod = methodElement.GetString();
+                                }
                             }
                         }
                         catch (Exception ex)
                         {
-                            _logger.LogDebug(ex, "Failed to extract sourceCode from ActionConfig");
+                            _logger.LogDebug(ex, "Failed to extract configuration from ActionConfig");
                         }
                     }
 
@@ -218,7 +237,9 @@ namespace FlowFlex.Application.Services.Action
                         Name = entity.ActionName,
                         Description = entity.Description,
                         ActionType = dto.ActionType.ToString(),
-                        SourceCode = sourceCode
+                        SourceCode = sourceCode,
+                        HttpUrl = httpUrl,
+                        HttpMethod = httpMethod
                     });
 
                     var extendedData = JsonSerializer.Serialize(new
@@ -351,8 +372,60 @@ namespace FlowFlex.Application.Services.Action
                 }
                 if (entity.ActionConfig?.ToString() != dto.ActionConfig)
                 {
+                    // Check which specific configuration fields changed
+                    try
+                    {
+                        var originalConfig = originalActionConfig?.ToString();
+                        var newConfig = dto.ActionConfig;
+                        
+                        if (!string.IsNullOrEmpty(originalConfig) && !string.IsNullOrEmpty(newConfig))
+                        {
+                            var originalConfigJson = System.Text.Json.JsonSerializer.Deserialize<System.Text.Json.JsonElement>(originalConfig);
+                            var newConfigJson = System.Text.Json.JsonSerializer.Deserialize<System.Text.Json.JsonElement>(newConfig);
+                            
+                            // Check Python sourceCode changes
+                            if (entity.ActionType == ActionTypeEnum.Python.ToString() || dto.ActionType == ActionTypeEnum.Python)
+                            {
+                                var originalSourceCode = originalConfigJson.TryGetProperty("sourceCode", out var origSc) ? origSc.GetString() : null;
+                                var newSourceCode = newConfigJson.TryGetProperty("sourceCode", out var newSc) ? newSc.GetString() : null;
+                                
+                                if (originalSourceCode != newSourceCode)
+                                {
+                                    changedFields.Add("SourceCode");
+                                }
+                            }
+                            
+                            // Check HttpApi url and method changes
+                            if (entity.ActionType == ActionTypeEnum.HttpApi.ToString() || dto.ActionType == ActionTypeEnum.HttpApi)
+                            {
+                                var originalUrl = originalConfigJson.TryGetProperty("url", out var origUrl) ? origUrl.GetString() : null;
+                                var newUrl = newConfigJson.TryGetProperty("url", out var newUrlEl) ? newUrlEl.GetString() : null;
+                                
+                                var originalMethod = originalConfigJson.TryGetProperty("method", out var origMethod) ? origMethod.GetString() : null;
+                                var newMethod = newConfigJson.TryGetProperty("method", out var newMethodEl) ? newMethodEl.GetString() : null;
+                                
+                                if (originalUrl != newUrl)
+                                {
+                                    changedFields.Add("HttpUrl");
+                                }
+                                if (originalMethod != newMethod)
+                                {
+                                    changedFields.Add("HttpMethod");
+                                }
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogDebug(ex, "Failed to detect specific ActionConfig field changes, using generic ActionConfig");
+                    }
+                    
                     entity.ActionConfig = JToken.Parse(dto.ActionConfig ?? "{}");
-                    changedFields.Add("ActionConfig");
+                    // Only add "ActionConfig" if no specific fields were added
+                    if (!changedFields.Contains("SourceCode") && !changedFields.Contains("HttpUrl") && !changedFields.Contains("HttpMethod"))
+                    {
+                        changedFields.Add("ActionConfig");
+                    }
                 }
                 if (entity.IsEnabled != dto.IsEnabled)
                 {
@@ -407,13 +480,87 @@ namespace FlowFlex.Application.Services.Action
                         using var scope = _serviceScopeFactory.CreateScope();
                         var actionLogService = scope.ServiceProvider.GetRequiredService<IActionLogService>();
 
+                        // Extract configuration details from original ActionConfig for beforeData
+                        string originalSourceCode = null;
+                        string originalHttpUrl = null;
+                        string originalHttpMethod = null;
+                        
+                        if (originalActionConfig != null && !string.IsNullOrEmpty(originalActionConfig.ToString()))
+                        {
+                            try
+                            {
+                                var originalConfigJson = System.Text.Json.JsonSerializer.Deserialize<System.Text.Json.JsonElement>(originalActionConfig.ToString());
+                                
+                                if (originalActionType == ActionTypeEnum.Python.ToString())
+                                {
+                                    if (originalConfigJson.TryGetProperty("sourceCode", out var sourceCodeElement))
+                                    {
+                                        originalSourceCode = sourceCodeElement.GetString();
+                                    }
+                                }
+                                else if (originalActionType == ActionTypeEnum.HttpApi.ToString())
+                                {
+                                    if (originalConfigJson.TryGetProperty("url", out var urlElement))
+                                    {
+                                        originalHttpUrl = urlElement.GetString();
+                                    }
+                                    if (originalConfigJson.TryGetProperty("method", out var methodElement))
+                                    {
+                                        originalHttpMethod = methodElement.GetString();
+                                    }
+                                }
+                            }
+                            catch (Exception ex)
+                            {
+                                _logger.LogDebug(ex, "Failed to extract configuration from original ActionConfig");
+                            }
+                        }
+
+                        // Extract configuration details from updated ActionConfig for afterData
+                        string updatedSourceCode = null;
+                        string updatedHttpUrl = null;
+                        string updatedHttpMethod = null;
+                        
+                        if (entity.ActionConfig != null && !string.IsNullOrEmpty(entity.ActionConfig.ToString()))
+                        {
+                            try
+                            {
+                                var updatedConfigJson = System.Text.Json.JsonSerializer.Deserialize<System.Text.Json.JsonElement>(entity.ActionConfig.ToString());
+                                
+                                if (entity.ActionType == ActionTypeEnum.Python.ToString())
+                                {
+                                    if (updatedConfigJson.TryGetProperty("sourceCode", out var sourceCodeElement))
+                                    {
+                                        updatedSourceCode = sourceCodeElement.GetString();
+                                    }
+                                }
+                                else if (entity.ActionType == ActionTypeEnum.HttpApi.ToString())
+                                {
+                                    if (updatedConfigJson.TryGetProperty("url", out var urlElement))
+                                    {
+                                        updatedHttpUrl = urlElement.GetString();
+                                    }
+                                    if (updatedConfigJson.TryGetProperty("method", out var methodElement))
+                                    {
+                                        updatedHttpMethod = methodElement.GetString();
+                                    }
+                                }
+                            }
+                            catch (Exception ex)
+                            {
+                                _logger.LogDebug(ex, "Failed to extract configuration from updated ActionConfig");
+                            }
+                        }
+
                         // Prepare before and after data for logging using original values
                         var beforeData = JsonSerializer.Serialize(new
                         {
                             Name = originalName,
                             Description = originalDescription,
                             ActionType = originalActionType,
-                            ActionConfig = originalActionConfig?.ToString(),
+                            SourceCode = originalSourceCode,
+                            HttpUrl = originalHttpUrl,
+                            HttpMethod = originalHttpMethod,
                             IsEnabled = originalIsEnabled,
                             IsTools = originalIsTools
                         });
@@ -423,7 +570,9 @@ namespace FlowFlex.Application.Services.Action
                             Name = entity.ActionName,
                             Description = entity.Description,
                             ActionType = entity.ActionType,
-                            ActionConfig = entity.ActionConfig?.ToString(),
+                            SourceCode = updatedSourceCode,
+                            HttpUrl = updatedHttpUrl,
+                            HttpMethod = updatedHttpMethod,
                             IsEnabled = entity.IsEnabled,
                             IsTools = entity.IsTools
                         });
