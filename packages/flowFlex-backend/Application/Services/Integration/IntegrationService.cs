@@ -732,7 +732,8 @@ namespace FlowFlex.Application.Services.Integration
                 var entityMappings = await _entityMappingRepository.GetByIntegrationIdAsync(dto.Id);
                 dto.ConfiguredEntityTypeNames = entityMappings
                     .Where(em => em.IsActive && em.IsValid)
-                    .Select(em => em.WfeEntityType)
+                    .Select(em => em.ExternalEntityType)
+                    .Where(name => !string.IsNullOrEmpty(name))
                     .Distinct()
                     .OrderBy(name => name)
                     .ToList();

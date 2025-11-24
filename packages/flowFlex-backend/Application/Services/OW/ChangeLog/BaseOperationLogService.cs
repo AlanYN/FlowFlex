@@ -1306,8 +1306,9 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
 
             if (!string.IsNullOrEmpty(reason))
             {
-                // Skip reason display for ChecklistTask delete operations to avoid redundant information
-                if (!(businessModule == BusinessModuleEnum.Task && operationAction.ToLower() == "deleted"))
+                // Skip reason display for ChecklistTask and Stage delete operations to avoid redundant information
+                if (!(businessModule == BusinessModuleEnum.Task && operationAction.ToLower() == "deleted") &&
+                    !(businessModule == BusinessModuleEnum.Stage && operationAction.ToLower() == "deleted"))
                 {
                     description += $" with reason: {reason}";
                 }
@@ -1373,10 +1374,25 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                             var beforeJsonStr = beforeValue?.ToString() ?? string.Empty;
                             var afterJsonStr = afterValue?.ToString() ?? string.Empty;
 
-                            if (IsJsonString(beforeJsonStr) && IsJsonString(afterJsonStr))
+                            // Handle ComponentsJson: allow null/empty beforeJson (components added) or afterJson (components removed)
+                            // Also handle when both are valid JSON strings
+                            if (string.IsNullOrEmpty(beforeJsonStr) || beforeJsonStr == "null" || IsJsonString(beforeJsonStr))
                             {
-                                var componentsChange = GetComponentsChangeDetails(beforeJsonStr, afterJsonStr);
-                                changeList.Add(componentsChange);
+                                if (string.IsNullOrEmpty(afterJsonStr) || afterJsonStr == "null" || IsJsonString(afterJsonStr))
+                                {
+                                    var componentsChange = GetComponentsChangeDetails(beforeJsonStr, afterJsonStr);
+                                    changeList.Add(componentsChange);
+                                }
+                                else
+                                {
+                                    var afterStr = GetDisplayValue(afterValue, field);
+                                    changeList.Add($"components from null to '{afterStr}'");
+                                }
+                            }
+                            else if (string.IsNullOrEmpty(afterJsonStr) || afterJsonStr == "null" || IsJsonString(afterJsonStr))
+                            {
+                                var beforeStr = GetDisplayValue(beforeValue, field);
+                                changeList.Add($"components from '{beforeStr}' to null");
                             }
                             else
                             {
@@ -1652,24 +1668,63 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
 
             try
             {
-                // Try to parse as integer first
-                if (int.TryParse(value.ToString(), out int intValue))
+                int intValue = 0;
+                
+                // Handle JsonElement type (from JSON deserialization)
+                if (value is JsonElement jsonElement)
                 {
-                    // Check if the value is a valid enum value
-                    if (Enum.IsDefined(typeof(ViewPermissionModeEnum), intValue))
+                    if (jsonElement.ValueKind == JsonValueKind.Number)
                     {
-                        var enumValue = (ViewPermissionModeEnum)intValue;
-                        return enumValue.ToString();
+                        intValue = jsonElement.GetInt32();
+                    }
+                    else if (jsonElement.ValueKind == JsonValueKind.String)
+                    {
+                        if (!int.TryParse(jsonElement.GetString(), out intValue))
+                        {
+                            // Try to parse as enum name
+                            if (Enum.TryParse<ViewPermissionModeEnum>(jsonElement.GetString(), true, out var parsedEnum))
+                            {
+                                return parsedEnum.ToString();
+                            }
+                            return jsonElement.GetString();
+                        }
+                    }
+                    else
+                    {
+                        // For other JsonValueKind types, try to parse as string
+                        if (!int.TryParse(jsonElement.ToString(), out intValue))
+                        {
+                            if (Enum.TryParse<ViewPermissionModeEnum>(jsonElement.ToString(), true, out var parsedEnum))
+                            {
+                                return parsedEnum.ToString();
+                            }
+                            return jsonElement.ToString();
+                        }
+                    }
+                }
+                else
+                {
+                    // Try to parse as integer first
+                    if (!int.TryParse(value.ToString(), out intValue))
+                    {
+                        // Try to parse as enum directly
+                        if (Enum.TryParse<ViewPermissionModeEnum>(value.ToString(), true, out var parsedEnum))
+                        {
+                            return parsedEnum.ToString();
+                        }
+                        // Fallback to original value if parsing fails
+                        return value.ToString();
                     }
                 }
 
-                // Try to parse as enum directly
-                if (Enum.TryParse<ViewPermissionModeEnum>(value.ToString(), true, out var parsedEnum))
+                // Check if the value is a valid enum value
+                if (Enum.IsDefined(typeof(ViewPermissionModeEnum), intValue))
                 {
-                    return parsedEnum.ToString();
+                    var enumValue = (ViewPermissionModeEnum)intValue;
+                    return enumValue.ToString();
                 }
 
-                // Fallback to original value if parsing fails
+                // Fallback to original value if enum value is not defined
                 return value.ToString();
             }
             catch
@@ -2244,8 +2299,36 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
         {
             try
             {
-                var beforeComponents = JsonSerializer.Deserialize<JsonElement>(beforeJson);
-                var afterComponents = JsonSerializer.Deserialize<JsonElement>(afterJson);
+                // Handle null or empty beforeJson (components added)
+                if (string.IsNullOrEmpty(beforeJson) || beforeJson == "null")
+                {
+                    if (!string.IsNullOrEmpty(afterJson) && afterJson != "null")
+                    {
+                        // Components were added - show detailed summary
+                        var normalizedAfterJsonForAdded = NormalizeJsonString(afterJson);
+                        var afterComponentsForAdded = JsonSerializer.Deserialize<JsonElement>(normalizedAfterJsonForAdded);
+                        var summary = GetComponentsSummary(afterComponentsForAdded);
+                        if (!string.IsNullOrEmpty(summary))
+                        {
+                            return $"components added: {summary}";
+                        }
+                        return "components added";
+                    }
+                    return "Components modified";
+                }
+
+                // Handle null or empty afterJson (components removed)
+                if (string.IsNullOrEmpty(afterJson) || afterJson == "null")
+                {
+                    return "components removed";
+                }
+
+                // Normalize JSON strings (handle double-encoded JSON)
+                var normalizedBeforeJson = NormalizeJsonString(beforeJson);
+                var normalizedAfterJson = NormalizeJsonString(afterJson);
+
+                var beforeComponents = JsonSerializer.Deserialize<JsonElement>(normalizedBeforeJson);
+                var afterComponents = JsonSerializer.Deserialize<JsonElement>(normalizedAfterJson);
 
                 var changes = new List<string>();
 
@@ -2254,70 +2337,165 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                     var beforeArray = beforeComponents.EnumerateArray().ToList();
                     var afterArray = afterComponents.EnumerateArray().ToList();
 
-                    if (beforeArray.Count != afterArray.Count)
-                    {
-                        changes.Add($"components changed from {beforeArray.Count} to {afterArray.Count}");
-                    }
-
-                    // Try to identify component types if available
-                    var beforeTypes = beforeArray
-                        .Where(c => c.TryGetProperty("type", out var _))
-                        .Select(c => c.GetProperty("type").GetString())
-                        .Where(type => !string.IsNullOrEmpty(type))
-                        .GroupBy(t => t)
-                        .ToDictionary(g => g.Key, g => g.Count());
-
-                    var afterTypes = afterArray
-                        .Where(c => c.TryGetProperty("type", out var _))
-                        .Select(c => c.GetProperty("type").GetString())
-                        .Where(type => !string.IsNullOrEmpty(type))
-                        .GroupBy(t => t)
-                        .ToDictionary(g => g.Key, g => g.Count());
-
-                    foreach (var kvp in afterTypes)
-                    {
-                        var afterCount = kvp.Value;
-                        var beforeCount = beforeTypes.GetValueOrDefault(kvp.Key, 0);
-
-                        if (beforeCount != afterCount)
+                    // Use "key" property instead of "type" for Stage components
+                    var beforeKeys = beforeArray
+                        .Where(c => c.TryGetProperty("key", out var _) || c.TryGetProperty("Key", out var _))
+                        .Select(c => 
                         {
-                            if (beforeCount == 0)
+                            if (c.TryGetProperty("key", out var keyElem))
+                                return keyElem.GetString();
+                            if (c.TryGetProperty("Key", out var keyElem2))
+                                return keyElem2.GetString();
+                            return null;
+                        })
+                        .Where(key => !string.IsNullOrEmpty(key))
+                        .GroupBy(k => k)
+                        .ToDictionary(g => g.Key, g => g.Count());
+
+                    var afterKeys = afterArray
+                        .Where(c => c.TryGetProperty("key", out var _) || c.TryGetProperty("Key", out var _))
+                        .Select(c => 
+                        {
+                            if (c.TryGetProperty("key", out var keyElem))
+                                return keyElem.GetString();
+                            if (c.TryGetProperty("Key", out var keyElem2))
+                                return keyElem2.GetString();
+                            return null;
+                        })
+                        .Where(key => !string.IsNullOrEmpty(key))
+                        .GroupBy(k => k)
+                        .ToDictionary(g => g.Key, g => g.Count());
+
+                    // Find added components
+                    var addedKeys = afterKeys.Keys.Except(beforeKeys.Keys).ToList();
+                    if (addedKeys.Any())
+                    {
+                        var addedDetails = new List<string>();
+                        foreach (var key in addedKeys)
+                        {
+                            var component = afterArray.FirstOrDefault(c => 
                             {
-                                changes.Add($"added {afterCount} {kvp.Key} component(s)");
-                            }
-                            else if (afterCount == 0)
+                                if (c.TryGetProperty("key", out var k) && k.GetString() == key)
+                                    return true;
+                                if (c.TryGetProperty("Key", out var k2) && k2.GetString() == key)
+                                    return true;
+                                return false;
+                            });
+                            if (component.ValueKind != JsonValueKind.Undefined)
                             {
-                                changes.Add($"removed {beforeCount} {kvp.Key} component(s)");
+                                var componentSummary = GetComponentsSummary(component);
+                                if (!string.IsNullOrEmpty(componentSummary))
+                                {
+                                    addedDetails.Add($"{key} ({componentSummary})");
+                                }
+                                else
+                                {
+                                    addedDetails.Add(key);
+                                }
                             }
                             else
                             {
-                                changes.Add($"{kvp.Key} components: {beforeCount} → {afterCount}");
+                                addedDetails.Add(key);
                             }
+                        }
+                        changes.Add($"added: {string.Join(", ", addedDetails)}");
+                    }
+
+                    // Find removed components
+                    var removedKeys = beforeKeys.Keys.Except(afterKeys.Keys).ToList();
+                    if (removedKeys.Any())
+                    {
+                        changes.Add($"removed: {string.Join(", ", removedKeys)}");
+                    }
+
+                    // Find modified components (same key but different content)
+                    var commonKeys = beforeKeys.Keys.Intersect(afterKeys.Keys).ToList();
+                    foreach (var key in commonKeys)
+                    {
+                        var beforeComponent = beforeArray.FirstOrDefault(c => 
+                        {
+                            if (c.TryGetProperty("key", out var k) && k.GetString() == key)
+                                return true;
+                            if (c.TryGetProperty("Key", out var k2) && k2.GetString() == key)
+                                return true;
+                            return false;
+                        });
+                        var afterComponent = afterArray.FirstOrDefault(c => 
+                        {
+                            if (c.TryGetProperty("key", out var k) && k.GetString() == key)
+                                return true;
+                            if (c.TryGetProperty("Key", out var k2) && k2.GetString() == key)
+                                return true;
+                            return false;
+                        });
+
+                        if (beforeComponent.ValueKind != JsonValueKind.Undefined && 
+                            afterComponent.ValueKind != JsonValueKind.Undefined)
+                        {
+                            var beforeSummary = GetComponentsSummary(beforeComponent);
+                            var afterSummary = GetComponentsSummary(afterComponent);
+                            if (beforeSummary != afterSummary)
+                            {
+                                if (!string.IsNullOrEmpty(afterSummary))
+                                {
+                                    changes.Add($"{key} updated ({afterSummary})");
+                                }
+                                else
+                                {
+                                    changes.Add($"{key} updated");
+                                }
+                            }
+                        }
+                    }
+
+                    // If no detailed changes found but count changed, report count change
+                    if (!changes.Any() && beforeArray.Count != afterArray.Count)
+                    {
+                        changes.Add($"component count: {beforeArray.Count} → {afterArray.Count}");
+                    }
+                }
+                else
+                {
+                    // Fallback: show summary of after components if available
+                    if (afterComponents.ValueKind == JsonValueKind.Array)
+                    {
+                        var summary = GetComponentsSummary(afterComponents);
+                        if (!string.IsNullOrEmpty(summary))
+                        {
+                            return $"components: {summary}";
                         }
                     }
                 }
 
                 if (changes.Any())
                 {
-                    return $"Components: {string.Join(", ", changes.Take(3))}";
+                    return $"components: {string.Join("; ", changes)}";
                 }
 
-                return "Components modified";
+                return "components modified";
             }
             catch (Exception ex)
             {
                 _logger.LogWarning(ex, "Failed to analyze components changes");
-                return "Components modified";
+                return "components modified";
             }
         }
 
         /// <summary>
         /// Get summary of components for display in creation logs
+        /// Supports both array of components and single component object
         /// </summary>
         protected virtual string GetComponentsSummary(JsonElement componentsElement)
         {
             try
             {
+                // Handle single component object
+                if (componentsElement.ValueKind == JsonValueKind.Object)
+                {
+                    return GetSingleComponentSummary(componentsElement);
+                }
+
+                // Handle array of components
                 if (componentsElement.ValueKind != JsonValueKind.Array)
                 {
                     return string.Empty;
@@ -2326,84 +2504,11 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                 var components = new List<string>();
                 foreach (var component in componentsElement.EnumerateArray())
                 {
-                    if (!component.TryGetProperty("key", out var keyElement) &&
-                        !component.TryGetProperty("Key", out keyElement))
+                    var componentSummary = GetSingleComponentSummary(component);
+                    if (!string.IsNullOrEmpty(componentSummary))
                     {
-                        continue;
+                        components.Add(componentSummary);
                     }
-
-                    var key = keyElement.GetString();
-                    if (string.IsNullOrEmpty(key))
-                    {
-                        continue;
-                    }
-
-                    var componentDetails = new List<string>();
-
-                    // Extract checklist names
-                    if ((component.TryGetProperty("checklistNames", out var checklistNamesElement) ||
-                         component.TryGetProperty("ChecklistNames", out checklistNamesElement)) &&
-                        checklistNamesElement.ValueKind == JsonValueKind.Array)
-                    {
-                        var checklistNames = checklistNamesElement.EnumerateArray()
-                            .Select(n => n.GetString())
-                            .Where(n => !string.IsNullOrEmpty(n))
-                            .ToList();
-                        if (checklistNames.Any())
-                        {
-                            componentDetails.Add($"checklists: {string.Join(", ", checklistNames.Select(n => $"'{n}'"))}");
-                        }
-                    }
-
-                    // Extract questionnaire names
-                    if ((component.TryGetProperty("questionnaireNames", out var questionnaireNamesElement) ||
-                         component.TryGetProperty("QuestionnaireNames", out questionnaireNamesElement)) &&
-                        questionnaireNamesElement.ValueKind == JsonValueKind.Array)
-                    {
-                        var questionnaireNames = questionnaireNamesElement.EnumerateArray()
-                            .Select(n => n.GetString())
-                            .Where(n => !string.IsNullOrEmpty(n))
-                            .ToList();
-                        if (questionnaireNames.Any())
-                        {
-                            componentDetails.Add($"questionnaires: {string.Join(", ", questionnaireNames.Select(n => $"'{n}'"))}");
-                        }
-                    }
-
-                    // Extract static fields
-                    if ((component.TryGetProperty("staticFields", out var staticFieldsElement) ||
-                         component.TryGetProperty("StaticFields", out staticFieldsElement)) &&
-                        staticFieldsElement.ValueKind == JsonValueKind.Array)
-                    {
-                        var staticFields = staticFieldsElement.EnumerateArray()
-                            .Select(f => f.GetString())
-                            .Where(f => !string.IsNullOrEmpty(f))
-                            .ToList();
-                        if (staticFields.Any())
-                        {
-                            componentDetails.Add($"fields: {string.Join(", ", staticFields)}");
-                        }
-                    }
-
-                    // Check if component is enabled
-                    var isEnabled = true;
-                    if (component.TryGetProperty("isEnabled", out var isEnabledElement) ||
-                        component.TryGetProperty("IsEnabled", out isEnabledElement))
-                    {
-                        isEnabled = isEnabledElement.ValueKind == JsonValueKind.True;
-                    }
-
-                    var componentInfo = key;
-                    if (componentDetails.Any())
-                    {
-                        componentInfo += $" ({string.Join("; ", componentDetails)})";
-                    }
-                    if (!isEnabled)
-                    {
-                        componentInfo += " [disabled]";
-                    }
-
-                    components.Add(componentInfo);
                 }
 
                 if (components.Any())
@@ -2416,6 +2521,99 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
             catch (Exception ex)
             {
                 _logger.LogWarning(ex, "Failed to get components summary");
+                return string.Empty;
+            }
+        }
+
+        /// <summary>
+        /// Get summary of a single component
+        /// </summary>
+        protected virtual string GetSingleComponentSummary(JsonElement component)
+        {
+            try
+            {
+                if (!component.TryGetProperty("key", out var keyElement) &&
+                    !component.TryGetProperty("Key", out keyElement))
+                {
+                    return string.Empty;
+                }
+
+                var key = keyElement.GetString();
+                if (string.IsNullOrEmpty(key))
+                {
+                    return string.Empty;
+                }
+
+                var componentDetails = new List<string>();
+
+                // Extract checklist names
+                if ((component.TryGetProperty("checklistNames", out var checklistNamesElement) ||
+                     component.TryGetProperty("ChecklistNames", out checklistNamesElement)) &&
+                    checklistNamesElement.ValueKind == JsonValueKind.Array)
+                {
+                    var checklistNames = checklistNamesElement.EnumerateArray()
+                        .Select(n => n.GetString())
+                        .Where(n => !string.IsNullOrEmpty(n))
+                        .ToList();
+                    if (checklistNames.Any())
+                    {
+                        componentDetails.Add($"checklists: {string.Join(", ", checklistNames.Select(n => $"'{n}'"))}");
+                    }
+                }
+
+                // Extract questionnaire names
+                if ((component.TryGetProperty("questionnaireNames", out var questionnaireNamesElement) ||
+                     component.TryGetProperty("QuestionnaireNames", out questionnaireNamesElement)) &&
+                    questionnaireNamesElement.ValueKind == JsonValueKind.Array)
+                {
+                    var questionnaireNames = questionnaireNamesElement.EnumerateArray()
+                        .Select(n => n.GetString())
+                        .Where(n => !string.IsNullOrEmpty(n))
+                        .ToList();
+                    if (questionnaireNames.Any())
+                    {
+                        componentDetails.Add($"questionnaires: {string.Join(", ", questionnaireNames.Select(n => $"'{n}'"))}");
+                    }
+                }
+
+                // Extract static fields
+                if ((component.TryGetProperty("staticFields", out var staticFieldsElement) ||
+                     component.TryGetProperty("StaticFields", out staticFieldsElement)) &&
+                    staticFieldsElement.ValueKind == JsonValueKind.Array)
+                {
+                    var staticFields = staticFieldsElement.EnumerateArray()
+                        .Select(f => f.GetString())
+                        .Where(f => !string.IsNullOrEmpty(f))
+                        .ToList();
+                    if (staticFields.Any())
+                    {
+                        componentDetails.Add($"fields: {string.Join(", ", staticFields)}");
+                    }
+                }
+
+                // Check if component is enabled
+                var isEnabled = true;
+                if (component.TryGetProperty("isEnabled", out var isEnabledElement) ||
+                    component.TryGetProperty("IsEnabled", out isEnabledElement))
+                {
+                    isEnabled = isEnabledElement.ValueKind == JsonValueKind.True;
+                }
+
+                var componentInfo = key;
+                if (componentDetails.Any())
+                {
+                    componentInfo += $" ({string.Join("; ", componentDetails)})";
+                }
+                if (!isEnabled)
+                {
+                    componentInfo += " [disabled]";
+                }
+
+                return componentInfo;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to get single component summary");
                 return string.Empty;
             }
         }
