@@ -1,5 +1,6 @@
 using FlowFlex.Domain.Entities.Integration;
 using FlowFlex.Domain.Repository.Integration;
+using FlowFlex.Domain.Shared;
 using Microsoft.AspNetCore.Http;
 using SqlSugar;
 
@@ -8,7 +9,7 @@ namespace FlowFlex.SqlSugarDB.Repositories.Integration;
 /// <summary>
 /// Repository implementation for ReceiveExternalDataConfig
 /// </summary>
-public class ReceiveExternalDataConfigRepository : BaseRepository<ReceiveExternalDataConfig>, IReceiveExternalDataConfigRepository
+public class ReceiveExternalDataConfigRepository : BaseRepository<ReceiveExternalDataConfig>, IReceiveExternalDataConfigRepository, IScopedService
 {
     public ReceiveExternalDataConfigRepository(ISqlSugarClient context) 
         : base(context)

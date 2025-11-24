@@ -1,10 +1,12 @@
 using FlowFlex.Domain.Entities.Base;
+using SqlSugar;
 
 namespace FlowFlex.Domain.Entities.Integration;
 
 /// <summary>
 /// Outbound field configuration - defines which fields to share with external system
 /// </summary>
+[SugarTable("ff_outbound_field_config")]
 public class OutboundFieldConfig : EntityBase
 {
     /// <summary>
@@ -32,11 +34,12 @@ public class OutboundFieldConfig : EntityBase
     /// </summary>
     public bool IsRequired { get; set; }
     
-    // Navigation Properties
+    // Navigation Properties (ignored by SqlSugar)
     
     /// <summary>
     /// Parent outbound configuration
     /// </summary>
+    [SugarColumn(IsIgnore = true)]
     public virtual OutboundConfiguration? OutboundConfiguration { get; set; }
 }
 

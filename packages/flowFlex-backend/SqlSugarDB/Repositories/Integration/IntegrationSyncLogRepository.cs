@@ -49,7 +49,7 @@ namespace FlowFlex.SqlSugarDB.Implements.Integration
             string? status = null,
             DateTime? startDate = null,
             DateTime? endDate = null,
-            string sortField = "CreateDate",
+            string sortField = "SyncedAt",
             string sortDirection = "desc")
         {
             var whereExpressions = new List<Expression<Func<IntegrationSyncLog, bool>>>();
@@ -89,9 +89,18 @@ namespace FlowFlex.SqlSugarDB.Implements.Integration
 
             var total = await query.CountAsync();
 
+            // Convert sortField from PascalCase to snake_case for database column name
+            // Handle special case: SyncTime -> SyncedAt -> synced_at
+            var normalizedSortField = sortField;
+            if (sortField.Equals("SyncTime", StringComparison.OrdinalIgnoreCase))
+            {
+                normalizedSortField = "SyncedAt";
+            }
+            
+            var dbSortField = SqlSugar.UtilMethods.ToUnderLine(normalizedSortField);
             var orderByClause = sortDirection.ToLower() == "asc" 
-                ? $"{sortField} ASC" 
-                : $"{sortField} DESC";
+                ? $"{dbSortField} ASC" 
+                : $"{dbSortField} DESC";
 
             var items = await query
                 .OrderBy(orderByClause)

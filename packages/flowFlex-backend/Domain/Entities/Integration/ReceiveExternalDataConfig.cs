@@ -1,10 +1,12 @@
 using FlowFlex.Domain.Entities.Base;
+using SqlSugar;
 
 namespace FlowFlex.Domain.Entities.Integration;
 
 /// <summary>
 /// Receive External Data Configuration - configures which workflows can be triggered by external entities
 /// </summary>
+[SugarTable("ff_receive_external_data_config")]
 public class ReceiveExternalDataConfig : EntityBaseCreateInfo
 {
     /// <summary>
@@ -38,11 +40,12 @@ public class ReceiveExternalDataConfig : EntityBaseCreateInfo
     /// </summary>
     public string? Description { get; set; }
     
-    // Navigation Properties
+    // Navigation Properties (ignored by SqlSugar)
     
     /// <summary>
     /// Parent integration
     /// </summary>
+    [SugarColumn(IsIgnore = true)]
     public virtual Integration? Integration { get; set; }
 }
 

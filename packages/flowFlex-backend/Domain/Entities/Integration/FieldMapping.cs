@@ -1,11 +1,13 @@
 using FlowFlex.Domain.Entities.Base;
 using Domain.Shared.Enums;
+using SqlSugar;
 
 namespace FlowFlex.Domain.Entities.Integration;
 
 /// <summary>
 /// Field mapping - maps external system fields to WFE fields
 /// </summary>
+[SugarTable("ff_field_mapping")]
 public class FieldMapping : EntityBaseCreateInfo
 {
     /// <summary>
@@ -58,16 +60,18 @@ public class FieldMapping : EntityBaseCreateInfo
     /// </summary>
     public string? DefaultValue { get; set; }
     
-    // Navigation Properties
+    // Navigation Properties (ignored by SqlSugar)
     
     /// <summary>
     /// Parent integration
     /// </summary>
+    [SugarColumn(IsIgnore = true)]
     public virtual Integration? Integration { get; set; }
     
     /// <summary>
     /// Parent entity mapping
     /// </summary>
+    [SugarColumn(IsIgnore = true)]
     public virtual EntityMapping? EntityMapping { get; set; }
 }
 

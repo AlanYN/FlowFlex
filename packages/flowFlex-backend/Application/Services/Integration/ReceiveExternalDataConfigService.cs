@@ -15,7 +15,7 @@ namespace FlowFlex.Application.Services.Integration;
 /// <summary>
 /// Service implementation for Receive External Data Configuration
 /// </summary>
-public class ReceiveExternalDataConfigService : IReceiveExternalDataConfigService
+public class ReceiveExternalDataConfigService : IReceiveExternalDataConfigService, IScopedService
 {
     private readonly IReceiveExternalDataConfigRepository _repository;
     private readonly IIntegrationRepository _integrationRepository;
@@ -42,8 +42,13 @@ public class ReceiveExternalDataConfigService : IReceiveExternalDataConfigServic
     /// </summary>
     public async Task<List<ReceiveExternalDataConfigOutputDto>> GetByIntegrationIdAsync(long integrationId)
     {
-        var configs = await _repository.GetByIntegrationIdAsync(integrationId);
-        var dtos = _mapper.Map<List<ReceiveExternalDataConfigOutputDto>>(configs);
+        try
+        {
+            var configs = await _repository.GetByIntegrationIdAsync(integrationId);
+            _logger.LogInformation("Retrieved {Count} configs for integration {IntegrationId}", configs.Count, integrationId);
+            
+            var dtos = _mapper.Map<List<ReceiveExternalDataConfigOutputDto>>(configs);
+            _logger.LogInformation("Mapped {Count} configs to DTOs", dtos.Count);
 
         // Deserialize field mappings
         foreach (var dto in dtos)
@@ -51,12 +56,27 @@ public class ReceiveExternalDataConfigService : IReceiveExternalDataConfigServic
             var config = configs.FirstOrDefault(c => c.Id == dto.Id);
             if (config != null && !string.IsNullOrEmpty(config.FieldMappingConfig))
             {
-                dto.FieldMappings = JsonConvert.DeserializeObject<List<FieldMappingOutputDto>>(config.FieldMappingConfig) 
-                    ?? new List<FieldMappingOutputDto>();
+                try
+                {
+                    dto.FieldMappings = JsonConvert.DeserializeObject<List<FieldMappingOutputDto>>(config.FieldMappingConfig) 
+                        ?? new List<FieldMappingOutputDto>();
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to deserialize FieldMappingConfig for config {ConfigId}: {Config}", 
+                        config.Id, config.FieldMappingConfig);
+                    dto.FieldMappings = new List<FieldMappingOutputDto>();
+                }
             }
         }
 
-        return dtos;
+            return dtos;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error in GetByIntegrationIdAsync for integration {IntegrationId}: {Message}", integrationId, ex.Message);
+            throw;
+        }
     }
 
     /// <summary>
@@ -64,7 +84,9 @@ public class ReceiveExternalDataConfigService : IReceiveExternalDataConfigServic
     /// </summary>
     public async Task<ReceiveExternalDataConfigOutputDto> GetByIdAsync(long id)
     {
-        var config = await _repository.GetByIdAsync(id);
+        try
+        {
+            var config = await _repository.GetByIdAsync(id);
         if (config == null)
         {
             throw new CRMException(ErrorCodeEnum.NotFound, "Configuration not found");
@@ -75,11 +97,26 @@ public class ReceiveExternalDataConfigService : IReceiveExternalDataConfigServic
         // Deserialize field mappings
         if (!string.IsNullOrEmpty(config.FieldMappingConfig))
         {
-            dto.FieldMappings = JsonConvert.DeserializeObject<List<FieldMappingOutputDto>>(config.FieldMappingConfig) 
-                ?? new List<FieldMappingOutputDto>();
+            try
+            {
+                dto.FieldMappings = JsonConvert.DeserializeObject<List<FieldMappingOutputDto>>(config.FieldMappingConfig) 
+                    ?? new List<FieldMappingOutputDto>();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to deserialize FieldMappingConfig for config {ConfigId}: {Config}", 
+                    config.Id, config.FieldMappingConfig);
+                dto.FieldMappings = new List<FieldMappingOutputDto>();
+            }
         }
 
-        return dto;
+            return dto;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error in GetByIdAsync for config {ConfigId}: {Message}", id, ex.Message);
+            throw;
+        }
     }
 
     /// <summary>
@@ -95,6 +132,11 @@ public class ReceiveExternalDataConfigService : IReceiveExternalDataConfigServic
         }
 
         // Check if entity name already exists
+        if (input == null || string.IsNullOrWhiteSpace(input.EntityName))
+        {
+            throw new CRMException(ErrorCodeEnum.ParamInvalid, "Input cannot be null and EntityName is required");
+        }
+        
         var exists = await _repository.ExistsEntityNameAsync(integrationId, input.EntityName);
         if (exists)
         {
@@ -103,7 +145,7 @@ public class ReceiveExternalDataConfigService : IReceiveExternalDataConfigServic
 
         var entity = _mapper.Map<ReceiveExternalDataConfig>(input);
         entity.IntegrationId = integrationId;
-        entity.FieldMappingConfig = JsonConvert.SerializeObject(input.FieldMappings);
+        entity.FieldMappingConfig = JsonConvert.SerializeObject(input?.FieldMappings ?? new List<FieldMappingInputDto>());
         entity.InitCreateInfo(_userContext);
 
         var id = await _repository.InsertReturnSnowflakeIdAsync(entity);
@@ -191,8 +233,17 @@ public class ReceiveExternalDataConfigService : IReceiveExternalDataConfigServic
             var config = configs.FirstOrDefault(c => c.Id == dto.Id);
             if (config != null && !string.IsNullOrEmpty(config.FieldMappingConfig))
             {
-                dto.FieldMappings = JsonConvert.DeserializeObject<List<FieldMappingOutputDto>>(config.FieldMappingConfig) 
-                    ?? new List<FieldMappingOutputDto>();
+                try
+                {
+                    dto.FieldMappings = JsonConvert.DeserializeObject<List<FieldMappingOutputDto>>(config.FieldMappingConfig) 
+                        ?? new List<FieldMappingOutputDto>();
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to deserialize FieldMappingConfig for config {ConfigId}: {Config}", 
+                        config.Id, config.FieldMappingConfig);
+                    dto.FieldMappings = new List<FieldMappingOutputDto>();
+                }
             }
         }
 

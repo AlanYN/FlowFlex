@@ -48,7 +48,7 @@ public class ReceiveExternalDataConfigOutputDto
     /// <summary>
     /// Create date
     /// </summary>
-    public DateTime CreateDate { get; set; }
+    public DateTimeOffset CreateDate { get; set; }
     
     /// <summary>
     /// Created by

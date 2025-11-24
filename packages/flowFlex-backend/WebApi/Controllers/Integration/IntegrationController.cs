@@ -132,6 +132,29 @@ namespace FlowFlex.WebApi.Controllers.Integration
             var result = await _integrationService.UpdateStatusAsync(id, status);
             return Success(result);
         }
+
+        /// <summary>
+        /// Get integration types
+        /// </summary>
+        [HttpGet("types")]
+        [ProducesResponseType<SuccessResponse<List<string>>>((int)HttpStatusCode.OK)]
+        public async Task<IActionResult> GetIntegrationTypes()
+        {
+            // Return common integration types
+            var types = new List<string> { "CRM", "ERP", "Marketing", "Support", "Custom" };
+            return Success(types);
+        }
+
+        /// <summary>
+        /// Get active integrations
+        /// </summary>
+        [HttpGet("active")]
+        [ProducesResponseType<SuccessResponse<List<IntegrationOutputDto>>>((int)HttpStatusCode.OK)]
+        public async Task<IActionResult> GetActiveIntegrations()
+        {
+            var integrations = await _integrationService.GetActiveIntegrationsAsync();
+            return Success(integrations);
+        }
     }
 }
 

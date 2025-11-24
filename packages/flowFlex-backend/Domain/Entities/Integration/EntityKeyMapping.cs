@@ -1,11 +1,13 @@
 using FlowFlex.Domain.Entities.Base;
 using Domain.Shared.Enums;
+using SqlSugar;
 
 namespace FlowFlex.Domain.Entities.Integration;
 
 /// <summary>
 /// Entity key mapping - defines how to match external and internal records
 /// </summary>
+[SugarTable("ff_entity_key_mapping")]
 public class EntityKeyMapping : EntityBase
 {
     /// <summary>
@@ -38,11 +40,12 @@ public class EntityKeyMapping : EntityBase
     /// </summary>
     public string MappingRules { get; set; } = "{}";
     
-    // Navigation Properties
+    // Navigation Properties (ignored by SqlSugar)
     
     /// <summary>
     /// Parent entity mapping
     /// </summary>
+    [SugarColumn(IsIgnore = true)]
     public virtual EntityMapping? EntityMapping { get; set; }
 }
 

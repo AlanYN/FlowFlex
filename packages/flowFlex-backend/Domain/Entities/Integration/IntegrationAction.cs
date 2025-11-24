@@ -1,11 +1,13 @@
 using FlowFlex.Domain.Entities.Base;
 using Domain.Shared.Enums;
+using SqlSugar;
 
 namespace FlowFlex.Domain.Entities.Integration;
 
 /// <summary>
 /// Integration action - automated actions associated with integration
 /// </summary>
+[SugarTable("ff_integration_action")]
 public class IntegrationAction : EntityBase
 {
     /// <summary>
@@ -43,11 +45,12 @@ public class IntegrationAction : EntityBase
     /// </summary>
     public string Configuration { get; set; } = "{}";
     
-    // Navigation Properties
+    // Navigation Properties (ignored by SqlSugar)
     
     /// <summary>
     /// Parent integration
     /// </summary>
+    [SugarColumn(IsIgnore = true)]
     public virtual Integration? Integration { get; set; }
 }
 

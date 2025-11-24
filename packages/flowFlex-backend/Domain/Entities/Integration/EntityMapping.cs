@@ -1,10 +1,12 @@
 using FlowFlex.Domain.Entities.Base;
+using SqlSugar;
 
 namespace FlowFlex.Domain.Entities.Integration;
 
 /// <summary>
 /// Entity mapping - maps external system entity types to WFE entity types
 /// </summary>
+[SugarTable("ff_entity_mapping")]
 public class EntityMapping : EntityBaseCreateInfo
 {
     /// <summary>
@@ -37,21 +39,24 @@ public class EntityMapping : EntityBaseCreateInfo
     /// </summary>
     public bool IsActive { get; set; } = true;
     
-    // Navigation Properties
+    // Navigation Properties (ignored by SqlSugar)
     
     /// <summary>
     /// Parent integration
     /// </summary>
+    [SugarColumn(IsIgnore = true)]
     public virtual Integration? Integration { get; set; }
     
     /// <summary>
     /// Entity key mappings
     /// </summary>
+    [SugarColumn(IsIgnore = true)]
     public virtual ICollection<EntityKeyMapping> KeyMappings { get; set; } = new List<EntityKeyMapping>();
     
     /// <summary>
     /// Field mappings
     /// </summary>
+    [SugarColumn(IsIgnore = true)]
     public virtual ICollection<FieldMapping> FieldMappings { get; set; } = new List<FieldMapping>();
 }
 

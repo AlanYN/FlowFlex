@@ -19,7 +19,7 @@ namespace FlowFlex.Domain.Repository.Integration
             string status = null,
             DateTime? startDate = null,
             DateTime? endDate = null,
-            string sortField = "SyncTime",
+            string sortField = "SyncedAt",
             string sortDirection = "desc");
 
         /// <summary>

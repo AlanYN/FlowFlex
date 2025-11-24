@@ -53,7 +53,35 @@ namespace FlowFlex.WebApi.Controllers.Integration
         }
 
         /// <summary>
-        /// Get sync logs with pagination
+        /// Get sync logs with pagination (path parameter)
+        /// </summary>
+        [HttpGet("{integrationId}/logs")]
+        [ProducesResponseType<SuccessResponse<object>>((int)HttpStatusCode.OK)]
+        public async Task<IActionResult> GetSyncLogsByPath(
+            long integrationId,
+            [FromQuery] int pageIndex = 1,
+            [FromQuery] int pageSize = 15,
+            [FromQuery] string? syncDirection = null,
+            [FromQuery] string? status = null)
+        {
+            var (items, total) = await _syncService.GetSyncLogsAsync(
+                integrationId,
+                pageIndex,
+                pageSize,
+                syncDirection,
+                status);
+
+            return Success(new
+            {
+                items,
+                total,
+                pageIndex,
+                pageSize
+            });
+        }
+
+        /// <summary>
+        /// Get sync logs with pagination (query parameter)
         /// </summary>
         [HttpGet("logs")]
         [ProducesResponseType<SuccessResponse<object>>((int)HttpStatusCode.OK)]
@@ -78,6 +106,17 @@ namespace FlowFlex.WebApi.Controllers.Integration
                 pageIndex,
                 pageSize
             });
+        }
+
+        /// <summary>
+        /// Get sync statistics
+        /// </summary>
+        [HttpGet("{integrationId}/statistics")]
+        [ProducesResponseType<SuccessResponse<object>>((int)HttpStatusCode.OK)]
+        public async Task<IActionResult> GetSyncStatistics(long integrationId)
+        {
+            var statistics = await _syncService.GetSyncStatisticsAsync(integrationId);
+            return Success(statistics);
         }
 
         /// <summary>

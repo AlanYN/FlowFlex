@@ -1,10 +1,12 @@
 using FlowFlex.Domain.Entities.Base;
+using SqlSugar;
 
 namespace FlowFlex.Domain.Entities.Integration;
 
 /// <summary>
 /// Inbound configuration - settings for receiving data from external system
 /// </summary>
+[SugarTable("ff_inbound_configuration")]
 public class InboundConfiguration : EntityBase
 {
     /// <summary>
@@ -32,16 +34,18 @@ public class InboundConfiguration : EntityBase
     /// </summary>
     public string ValidationRules { get; set; } = "{}";
     
-    // Navigation Properties
+    // Navigation Properties (ignored by SqlSugar)
     
     /// <summary>
     /// Parent integration
     /// </summary>
+    [SugarColumn(IsIgnore = true)]
     public virtual Integration? Integration { get; set; }
     
     /// <summary>
     /// Associated action
     /// </summary>
+    [SugarColumn(IsIgnore = true)]
     public virtual IntegrationAction? Action { get; set; }
 }
 

@@ -1,11 +1,13 @@
 using FlowFlex.Domain.Entities.Base;
 using Domain.Shared.Enums;
+using SqlSugar;
 
 namespace FlowFlex.Domain.Entities.Integration;
 
 /// <summary>
 /// Integration entity - represents a connection to an external system
 /// </summary>
+[SugarTable("ff_integration")]
 public class Integration : EntityBaseCreateInfo
 {
     /// <summary>
@@ -46,48 +48,67 @@ public class Integration : EntityBaseCreateInfo
     /// <summary>
     /// Encrypted authentication credentials (JSON)
     /// </summary>
+    [SugarColumn(ColumnName = "credentials")]
     public string EncryptedCredentials { get; set; } = string.Empty;
     
     /// <summary>
-    /// Number of configured entity types
+    /// Number of configured entity types (computed property, not stored in database)
     /// </summary>
+    [SugarColumn(IsIgnore = true)]
     public int ConfiguredEntityTypes { get; set; }
     
-    // Navigation Properties
+    /// <summary>
+    /// Last synchronization date
+    /// </summary>
+    public DateTimeOffset? LastSyncDate { get; set; }
+    
+    /// <summary>
+    /// Error message if connection failed
+    /// </summary>
+    public string? ErrorMessage { get; set; }
+    
+    // Navigation Properties (ignored by SqlSugar)
     
     /// <summary>
     /// Entity mappings
     /// </summary>
+    [SugarColumn(IsIgnore = true)]
     public virtual ICollection<EntityMapping> EntityMappings { get; set; } = new List<EntityMapping>();
     
     /// <summary>
     /// Field mappings
     /// </summary>
+    [SugarColumn(IsIgnore = true)]
     public virtual ICollection<FieldMapping> FieldMappings { get; set; } = new List<FieldMapping>();
     
     /// <summary>
     /// Integration actions
     /// </summary>
+    [SugarColumn(IsIgnore = true)]
     public virtual ICollection<IntegrationAction> IntegrationActions { get; set; } = new List<IntegrationAction>();
     
     /// <summary>
     /// Quick links
     /// </summary>
+    [SugarColumn(IsIgnore = true)]
     public virtual ICollection<QuickLink> QuickLinks { get; set; } = new List<QuickLink>();
     
     /// <summary>
     /// Sync logs
     /// </summary>
+    [SugarColumn(IsIgnore = true)]
     public virtual ICollection<IntegrationSyncLog> SyncLogs { get; set; } = new List<IntegrationSyncLog>();
     
     /// <summary>
     /// Inbound configuration
     /// </summary>
+    [SugarColumn(IsIgnore = true)]
     public virtual InboundConfiguration? InboundConfig { get; set; }
     
     /// <summary>
     /// Outbound configuration
     /// </summary>
+    [SugarColumn(IsIgnore = true)]
     public virtual OutboundConfiguration? OutboundConfig { get; set; }
 }
 

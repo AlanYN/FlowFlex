@@ -1,10 +1,12 @@
 using FlowFlex.Domain.Entities.Base;
+using SqlSugar;
 
 namespace FlowFlex.Domain.Entities.Integration;
 
 /// <summary>
 /// Outbound configuration - settings for sending data to external system
 /// </summary>
+[SugarTable("ff_outbound_configuration")]
 public class OutboundConfiguration : EntityBase
 {
     /// <summary>
@@ -47,21 +49,24 @@ public class OutboundConfiguration : EntityBase
     /// </summary>
     public int RetryDelaySeconds { get; set; } = 60;
     
-    // Navigation Properties
+    // Navigation Properties (ignored by SqlSugar)
     
     /// <summary>
     /// Parent integration
     /// </summary>
+    [SugarColumn(IsIgnore = true)]
     public virtual Integration? Integration { get; set; }
     
     /// <summary>
     /// Associated action
     /// </summary>
+    [SugarColumn(IsIgnore = true)]
     public virtual IntegrationAction? Action { get; set; }
     
     /// <summary>
     /// Field configurations
     /// </summary>
+    [SugarColumn(IsIgnore = true)]
     public virtual ICollection<OutboundFieldConfig> FieldConfigs { get; set; } = new List<OutboundFieldConfig>();
 }
 
