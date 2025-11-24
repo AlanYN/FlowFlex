@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Domain.Shared.Enums;
 
 namespace FlowFlex.Application.Contracts.Dtos.Integration
@@ -53,6 +54,11 @@ namespace FlowFlex.Application.Contracts.Dtos.Integration
         public AuthenticationMethod AuthMethod { get; set; }
 
         /// <summary>
+        /// Authentication credentials (decrypted, only returned in GetWithDetails)
+        /// </summary>
+        public Dictionary<string, string>? Credentials { get; set; }
+
+        /// <summary>
         /// Number of configured entity types
         /// </summary>
         public int ConfiguredEntityTypes { get; set; }
@@ -81,6 +87,43 @@ namespace FlowFlex.Application.Contracts.Dtos.Integration
         /// Modifier name
         /// </summary>
         public string ModifyBy { get; set; } = string.Empty;
+
+        // Optional fields for details view
+
+        /// <summary>
+        /// Connection configuration (only returned in GetWithDetails)
+        /// </summary>
+        public ConnectionConfigDto? Connection { get; set; }
+
+        /// <summary>
+        /// Entity mappings (only returned in GetWithDetails)
+        /// </summary>
+        public List<EntityMappingOutputDto>? EntityMappings { get; set; }
+
+        /// <summary>
+        /// Inbound settings (only returned in GetWithDetails)
+        /// </summary>
+        public InboundSettingsDto? InboundSettings { get; set; }
+
+        /// <summary>
+        /// Outbound settings (only returned in GetWithDetails)
+        /// </summary>
+        public OutboundSettingsDto? OutboundSettings { get; set; }
+
+        /// <summary>
+        /// Quick links (only returned in GetWithDetails)
+        /// </summary>
+        public List<QuickLinkOutputDto>? QuickLinks { get; set; }
+
+        /// <summary>
+        /// Inbound configurations (only returned in GetWithDetails)
+        /// </summary>
+        public List<InboundConfigurationOverviewDto>? InboundConfigurations { get; set; }
+
+        /// <summary>
+        /// Outbound configurations (only returned in GetWithDetails)
+        /// </summary>
+        public List<OutboundConfigurationOverviewDto>? OutboundConfigurations { get; set; }
     }
 }
 

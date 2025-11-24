@@ -1,3 +1,4 @@
+using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
 using AutoMapper;
@@ -108,8 +109,8 @@ namespace FlowFlex.Application.Services.Integration
                 throw new CRMException(ErrorCodeEnum.NotFound, "Integration not found");
             }
 
-            // Validate name uniqueness (excluding current entity)
-            if (await _integrationRepository.ExistsNameAsync(input.Name, id))
+            // Validate name uniqueness only if name has changed (excluding current entity)
+            if (entity.Name != input.Name && await _integrationRepository.ExistsNameAsync(input.Name, id))
             {
                 throw new CRMException(ErrorCodeEnum.BusinessError, $"Integration name '{input.Name}' already exists");
             }
@@ -165,6 +166,41 @@ namespace FlowFlex.Application.Services.Integration
 
             var dto = _mapper.Map<IntegrationOutputDto>(entity);
             await PopulateConfiguredEntityTypeNamesAsync(dto);
+            
+            // Decrypt credentials
+            if (!string.IsNullOrEmpty(entity.EncryptedCredentials) && entity.EncryptedCredentials != "{}")
+            {
+                try
+                {
+                    var decryptedJson = DecryptString(entity.EncryptedCredentials, ENCRYPTION_KEY);
+                    _logger.LogDebug($"Decrypted JSON for integration {id}: {decryptedJson}");
+                    
+                    if (!string.IsNullOrEmpty(decryptedJson) && decryptedJson != "{}")
+                    {
+                        dto.Credentials = JsonConvert.DeserializeObject<Dictionary<string, string>>(decryptedJson) ?? new Dictionary<string, string>();
+                        _logger.LogDebug($"Successfully decrypted credentials for integration {id}, found {dto.Credentials.Count} credential keys: {string.Join(", ", dto.Credentials.Keys)}");
+                    }
+                    else
+                    {
+                        _logger.LogDebug($"Decrypted JSON is empty or '{{}}' for integration {id}");
+                        dto.Credentials = new Dictionary<string, string>();
+                    }
+                }
+                catch (Exception ex)
+                {
+                    var preview = entity.EncryptedCredentials != null && entity.EncryptedCredentials.Length > 50 
+                        ? entity.EncryptedCredentials.Substring(0, 50) 
+                        : entity.EncryptedCredentials ?? "";
+                    _logger.LogWarning(ex, $"Failed to decrypt credentials for integration {id}. EncryptedCredentials: {preview}...");
+                    dto.Credentials = new Dictionary<string, string>();
+                }
+            }
+            else
+            {
+                _logger.LogDebug($"Integration {id} has no encrypted credentials (empty or '{{}}')");
+                dto.Credentials = new Dictionary<string, string>();
+            }
+            
             return dto;
         }
 
@@ -178,6 +214,120 @@ namespace FlowFlex.Application.Services.Integration
 
             var dto = _mapper.Map<IntegrationOutputDto>(entity);
             await PopulateConfiguredEntityTypeNamesAsync(dto);
+            
+            // Decrypt credentials for details view
+            if (!string.IsNullOrEmpty(entity.EncryptedCredentials) && entity.EncryptedCredentials != "{}")
+            {
+                try
+                {
+                    var decryptedJson = DecryptString(entity.EncryptedCredentials, ENCRYPTION_KEY);
+                    _logger.LogDebug($"Decrypted JSON for integration {id}: {decryptedJson}");
+                    
+                    if (!string.IsNullOrEmpty(decryptedJson) && decryptedJson != "{}")
+                    {
+                        dto.Credentials = JsonConvert.DeserializeObject<Dictionary<string, string>>(decryptedJson) ?? new Dictionary<string, string>();
+                        _logger.LogDebug($"Successfully decrypted credentials for integration {id}, found {dto.Credentials.Count} credential keys: {string.Join(", ", dto.Credentials.Keys)}");
+                    }
+                    else
+                    {
+                        _logger.LogDebug($"Decrypted JSON is empty or '{{}}' for integration {id}");
+                        dto.Credentials = new Dictionary<string, string>();
+                    }
+                }
+                catch (Exception ex)
+                {
+                    var preview = entity.EncryptedCredentials != null && entity.EncryptedCredentials.Length > 50 
+                        ? entity.EncryptedCredentials.Substring(0, 50) 
+                        : entity.EncryptedCredentials ?? "";
+                    _logger.LogWarning(ex, $"Failed to decrypt credentials for integration {id}. EncryptedCredentials: {preview}...");
+                    dto.Credentials = new Dictionary<string, string>();
+                }
+            }
+            else
+            {
+                _logger.LogDebug($"Integration {id} has no encrypted credentials (empty or '{{}}')");
+                dto.Credentials = new Dictionary<string, string>();
+            }
+
+            // Populate connection configuration
+            dto.Connection = new ConnectionConfigDto
+            {
+                Status = entity.Status,
+                LastSyncDate = entity.LastSyncDate,
+                ErrorMessage = entity.ErrorMessage
+            };
+
+            // Populate entity mappings
+            if (entity.EntityMappings != null && entity.EntityMappings.Any())
+            {
+                dto.EntityMappings = _mapper.Map<List<EntityMappingOutputDto>>(entity.EntityMappings);
+                foreach (var mappingDto in dto.EntityMappings)
+                {
+                    var mapping = entity.EntityMappings.FirstOrDefault(em => em.Id == mappingDto.Id);
+                    if (mapping != null)
+                    {
+                        mappingDto.WorkflowIds = JsonConvert.DeserializeObject<List<long>>(mapping.WorkflowIds) ?? new List<long>();
+                    }
+                }
+            }
+
+            // Populate inbound settings (use first config if exists)
+            var inboundConfigs = await _inboundConfigurationRepository.GetByIntegrationIdListAsync(id);
+            if (inboundConfigs != null && inboundConfigs.Any())
+            {
+                var firstConfig = inboundConfigs.First();
+                dto.InboundSettings = new InboundSettingsDto
+                {
+                    Id = firstConfig.Id,
+                    IntegrationId = firstConfig.IntegrationId,
+                    ActionId = firstConfig.ActionId,
+                    EntityTypes = JsonConvert.DeserializeObject<List<string>>(firstConfig.EntityTypes) ?? new List<string>(),
+                    FieldMappings = JsonConvert.DeserializeObject<List<object>>(firstConfig.FieldMappings) ?? new List<object>(),
+                    AttachmentSettings = JsonConvert.DeserializeObject<Dictionary<string, object>>(firstConfig.AttachmentSettings) ?? new Dictionary<string, object>(),
+                    AutoSync = firstConfig.AutoSync,
+                    SyncInterval = firstConfig.SyncInterval,
+                    LastSyncDate = firstConfig.LastSyncDate
+                };
+            }
+
+            // Populate outbound settings (use first config if exists)
+            var outboundConfigs = await _outboundConfigurationRepository.GetByIntegrationIdListAsync(id);
+            if (outboundConfigs != null && outboundConfigs.Any())
+            {
+                var firstConfig = outboundConfigs.First();
+                dto.OutboundSettings = new OutboundSettingsDto
+                {
+                    Id = firstConfig.Id,
+                    IntegrationId = firstConfig.IntegrationId,
+                    ActionId = firstConfig.ActionId,
+                    EntityTypes = JsonConvert.DeserializeObject<List<string>>(firstConfig.EntityTypes) ?? new List<string>(),
+                    FieldMappings = JsonConvert.DeserializeObject<List<object>>(firstConfig.FieldMappings) ?? new List<object>(),
+                    AttachmentSettings = JsonConvert.DeserializeObject<Dictionary<string, object>>(firstConfig.AttachmentSettings) ?? new Dictionary<string, object>(),
+                    SyncMode = firstConfig.SyncMode,
+                    WebhookUrl = firstConfig.WebhookUrl
+                };
+            }
+
+            // Populate quick links
+            if (entity.QuickLinks != null && entity.QuickLinks.Any())
+            {
+                dto.QuickLinks = _mapper.Map<List<QuickLinkOutputDto>>(entity.QuickLinks);
+                foreach (var quickLinkDto in dto.QuickLinks)
+                {
+                    var quickLink = entity.QuickLinks.FirstOrDefault(ql => ql.Id == quickLinkDto.Id);
+                    if (quickLink != null)
+                    {
+                        quickLinkDto.UrlParameters = JsonConvert.DeserializeObject<List<UrlParameterDto>>(quickLink.UrlParameters) ?? new List<UrlParameterDto>();
+                    }
+                }
+            }
+
+            // Populate inbound configurations overview
+            dto.InboundConfigurations = await GetInboundOverviewAsync(id);
+
+            // Populate outbound configurations overview
+            dto.OutboundConfigurations = await GetOutboundOverviewAsync(id);
+            
             return dto;
         }
 

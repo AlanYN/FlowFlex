@@ -15,7 +15,15 @@ namespace FlowFlex.Application.Maps
             // Integration mappings
             CreateMap<Domain.Entities.Integration.Integration, IntegrationOutputDto>()
                 .ForMember(dest => dest.ConfiguredEntityTypes, opt => opt.Ignore())
-                .ForMember(dest => dest.ConfiguredEntityTypeNames, opt => opt.Ignore());
+                .ForMember(dest => dest.ConfiguredEntityTypeNames, opt => opt.Ignore())
+                .ForMember(dest => dest.Credentials, opt => opt.Ignore())
+                .ForMember(dest => dest.Connection, opt => opt.Ignore())
+                .ForMember(dest => dest.EntityMappings, opt => opt.Ignore())
+                .ForMember(dest => dest.InboundSettings, opt => opt.Ignore())
+                .ForMember(dest => dest.OutboundSettings, opt => opt.Ignore())
+                .ForMember(dest => dest.QuickLinks, opt => opt.Ignore())
+                .ForMember(dest => dest.InboundConfigurations, opt => opt.Ignore())
+                .ForMember(dest => dest.OutboundConfigurations, opt => opt.Ignore());
 
             CreateMap<IntegrationInputDto, Domain.Entities.Integration.Integration>()
                 .ForMember(dest => dest.Id, opt => opt.Ignore())
