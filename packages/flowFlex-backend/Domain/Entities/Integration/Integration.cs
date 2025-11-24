@@ -13,7 +13,14 @@ public class Integration : EntityBaseCreateInfo
     /// <summary>
     /// Tenant ID
     /// </summary>
+    [SugarColumn(ColumnName = "tenant_id")]
     public new string TenantId { get; set; } = string.Empty;
+
+    /// <summary>
+    /// App code
+    /// </summary>
+    [SugarColumn(ColumnName = "app_code")]
+    public new string AppCode { get; set; } = "DEFAULT";
     
     /// <summary>
     /// Integration type (CRM, ERP, Marketing, etc.)
@@ -24,6 +31,11 @@ public class Integration : EntityBaseCreateInfo
     /// Integration name
     /// </summary>
     public string Name { get; set; } = string.Empty;
+    
+    /// <summary>
+    /// Integration description
+    /// </summary>
+    public string? Description { get; set; }
     
     /// <summary>
     /// Connection status

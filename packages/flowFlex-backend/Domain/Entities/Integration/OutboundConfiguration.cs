@@ -10,44 +10,58 @@ namespace FlowFlex.Domain.Entities.Integration;
 public class OutboundConfiguration : EntityBase
 {
     /// <summary>
+    /// Tenant ID
+    /// </summary>
+    [SugarColumn(ColumnName = "tenant_id")]
+    public string TenantId { get; set; } = "default";
+
+    /// <summary>
+    /// App code
+    /// </summary>
+    [SugarColumn(ColumnName = "app_code")]
+    public string AppCode { get; set; } = "DEFAULT";
+
+    /// <summary>
     /// Integration ID
     /// </summary>
+    [SugarColumn(ColumnName = "integration_id")]
     public long IntegrationId { get; set; }
     
     /// <summary>
     /// Action ID - associates this configuration with a specific action
     /// </summary>
-    public long ActionId { get; set; }
+    [SugarColumn(ColumnName = "action_id")]
+    public long? ActionId { get; set; }
     
     /// <summary>
-    /// Shared master data types (JSON array)
+    /// Entity types (JSON array) - mapped from database column entity_types
     /// </summary>
-    public string SharedMasterDataTypes { get; set; } = "[]";
+    [SugarColumn(ColumnName = "entity_types")]
+    public string EntityTypes { get; set; } = "[]";
     
     /// <summary>
-    /// Attachment workflow IDs (JSON array)
+    /// Field mappings (JSON array) - mapped from database column field_mappings
     /// </summary>
-    public string AttachmentWorkflowIds { get; set; } = "[]";
+    [SugarColumn(ColumnName = "field_mappings")]
+    public string FieldMappings { get; set; } = "[]";
     
     /// <summary>
-    /// Enable real-time sync
+    /// Attachment settings (JSON) - mapped from database column attachment_settings
     /// </summary>
-    public bool EnableRealTimeSync { get; set; }
+    [SugarColumn(ColumnName = "attachment_settings")]
+    public string AttachmentSettings { get; set; } = "{}";
+    
+    /// <summary>
+    /// Sync mode - mapped from database column sync_mode
+    /// </summary>
+    [SugarColumn(ColumnName = "sync_mode")]
+    public int SyncMode { get; set; }
     
     /// <summary>
     /// Webhook URL for notifications
     /// </summary>
+    [SugarColumn(ColumnName = "webhook_url")]
     public string? WebhookUrl { get; set; }
-    
-    /// <summary>
-    /// Number of retry attempts on failure
-    /// </summary>
-    public int RetryAttempts { get; set; } = 3;
-    
-    /// <summary>
-    /// Delay between retries in seconds
-    /// </summary>
-    public int RetryDelaySeconds { get; set; } = 60;
     
     // Navigation Properties (ignored by SqlSugar)
     

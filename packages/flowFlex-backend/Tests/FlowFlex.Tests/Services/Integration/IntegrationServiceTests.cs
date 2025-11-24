@@ -1,6 +1,8 @@
 using FlowFlex.Application.Contracts.Dtos.Integration;
+using FlowFlex.Application.Contracts.IServices.Integration;
 using FlowFlex.Application.Services.Integration;
 using FlowFlex.Domain.Entities.Integration;
+using FlowFlex.Domain.Repository.Action;
 using FlowFlex.Domain.Repository.Integration;
 using FlowFlex.Domain.Shared.Models;
 using FlowFlex.Tests.TestBase;
@@ -10,6 +12,7 @@ using Xunit;
 using AutoMapper;
 using Domain.Shared.Enums;
 using FlowFlex.Domain.Shared.Enums;
+using SqlSugar;
 
 namespace FlowFlex.Tests.Services.Integration
 {
@@ -18,7 +21,12 @@ namespace FlowFlex.Tests.Services.Integration
         private readonly Mock<IIntegrationRepository> _mockIntegrationRepository;
         private readonly Mock<IEntityMappingRepository> _mockEntityMappingRepository;
         private readonly Mock<IFieldMappingRepository> _mockFieldMappingRepository;
+        private readonly Mock<IFieldMappingService> _mockFieldMappingService;
+        private readonly Mock<IOutboundConfigurationRepository> _mockOutboundConfigurationRepository;
+        private readonly Mock<IInboundConfigurationRepository> _mockInboundConfigurationRepository;
         private readonly Mock<IQuickLinkRepository> _mockQuickLinkRepository;
+        private readonly Mock<IActionDefinitionRepository> _mockActionDefinitionRepository;
+        private readonly Mock<ISqlSugarClient> _mockSqlSugarClient;
         private readonly Mock<IMapper> _mockMapper;
         private readonly Mock<Microsoft.Extensions.Logging.ILogger<IntegrationService>> _mockLogger;
         private readonly UserContext _userContext;
@@ -29,7 +37,12 @@ namespace FlowFlex.Tests.Services.Integration
             _mockIntegrationRepository = new Mock<IIntegrationRepository>();
             _mockEntityMappingRepository = new Mock<IEntityMappingRepository>();
             _mockFieldMappingRepository = new Mock<IFieldMappingRepository>();
+            _mockFieldMappingService = new Mock<IFieldMappingService>();
+            _mockOutboundConfigurationRepository = new Mock<IOutboundConfigurationRepository>();
+            _mockInboundConfigurationRepository = new Mock<IInboundConfigurationRepository>();
             _mockQuickLinkRepository = new Mock<IQuickLinkRepository>();
+            _mockActionDefinitionRepository = new Mock<IActionDefinitionRepository>();
+            _mockSqlSugarClient = new Mock<ISqlSugarClient>();
             _mockMapper = new Mock<IMapper>();
             _mockLogger = MockHelper.CreateMockLogger<IntegrationService>();
             _userContext = TestDataBuilder.CreateUserContext(TestDataBuilder.DefaultUserId);
@@ -38,7 +51,12 @@ namespace FlowFlex.Tests.Services.Integration
                 _mockIntegrationRepository.Object,
                 _mockEntityMappingRepository.Object,
                 _mockFieldMappingRepository.Object,
+                _mockFieldMappingService.Object,
+                _mockOutboundConfigurationRepository.Object,
+                _mockInboundConfigurationRepository.Object,
                 _mockQuickLinkRepository.Object,
+                _mockActionDefinitionRepository.Object,
+                _mockSqlSugarClient.Object,
                 _mockMapper.Object,
                 _userContext,
                 _mockLogger.Object

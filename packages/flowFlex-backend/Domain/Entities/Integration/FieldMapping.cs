@@ -21,6 +21,11 @@ public class FieldMapping : EntityBaseCreateInfo
     public long EntityMappingId { get; set; }
     
     /// <summary>
+    /// Action ID - associates this field mapping with a specific action
+    /// </summary>
+    public long? ActionId { get; set; }
+    
+    /// <summary>
     /// External system field name
     /// </summary>
     public string ExternalFieldName { get; set; } = string.Empty;

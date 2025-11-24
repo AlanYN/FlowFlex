@@ -155,6 +155,64 @@ namespace FlowFlex.WebApi.Controllers.Integration
             var integrations = await _integrationService.GetActiveIntegrationsAsync();
             return Success(integrations);
         }
+
+        /// <summary>
+        /// Get inbound configuration overview
+        /// </summary>
+        [HttpGet("{integrationId}/inbound-overview")]
+        [ProducesResponseType<SuccessResponse<List<InboundConfigurationOverviewDto>>>((int)HttpStatusCode.OK)]
+        public async Task<IActionResult> GetInboundOverview(long integrationId)
+        {
+            var data = await _integrationService.GetInboundOverviewAsync(integrationId);
+            return Success(data);
+        }
+
+        /// <summary>
+        /// Get outbound configuration overview
+        /// </summary>
+        [HttpGet("{integrationId}/outbound-overview")]
+        [ProducesResponseType<SuccessResponse<List<OutboundConfigurationOverviewDto>>>((int)HttpStatusCode.OK)]
+        public async Task<IActionResult> GetOutboundOverview(long integrationId)
+        {
+            var data = await _integrationService.GetOutboundOverviewAsync(integrationId);
+            return Success(data);
+        }
+
+        /// <summary>
+        /// Get inbound field mappings by action ID (read-only view)
+        /// </summary>
+        [HttpGet("{integrationId}/actions/{actionId}/inbound/field-mappings")]
+        [ProducesResponseType<SuccessResponse<List<InboundFieldMappingDto>>>((int)HttpStatusCode.OK)]
+        public async Task<IActionResult> GetInboundFieldMappingsByAction(
+            long integrationId,
+            long actionId,
+            [FromQuery] string? externalFieldName = null,
+            [FromQuery] string? wfeFieldName = null)
+        {
+            var data = await _integrationService.GetInboundFieldMappingsByActionAsync(
+                integrationId,
+                actionId,
+                externalFieldName,
+                wfeFieldName);
+            return Success(data);
+        }
+
+        /// <summary>
+        /// Get outbound shared fields by action ID (read-only view)
+        /// </summary>
+        [HttpGet("{integrationId}/actions/{actionId}/outbound/shared-fields")]
+        [ProducesResponseType<SuccessResponse<List<OutboundSharedFieldDto>>>((int)HttpStatusCode.OK)]
+        public async Task<IActionResult> GetOutboundSharedFieldsByAction(
+            long integrationId,
+            long actionId,
+            [FromQuery] string? fieldName = null)
+        {
+            var data = await _integrationService.GetOutboundSharedFieldsByActionAsync(
+                integrationId,
+                actionId,
+                fieldName);
+            return Success(data);
+        }
     }
 }
 

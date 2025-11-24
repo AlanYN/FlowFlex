@@ -5,12 +5,15 @@ using FlowFlex.Application.Contracts.Dtos.Integration;
 using FlowFlex.Application.Contracts.IServices;
 using FlowFlex.Application.Contracts.IServices.Integration;
 using FlowFlex.Application.Services.OW.Extensions;
+using FlowFlex.Domain.Repository.Action;
 using FlowFlex.Domain.Repository.Integration;
 using FlowFlex.Domain.Shared;
 using FlowFlex.Domain.Shared.Exceptions;
 using FlowFlex.Domain.Shared.Models;
+using Domain.Shared.Enums;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
+using SqlSugar;
 
 namespace FlowFlex.Application.Services.Integration
 {
@@ -22,7 +25,12 @@ namespace FlowFlex.Application.Services.Integration
         private readonly IIntegrationRepository _integrationRepository;
         private readonly IEntityMappingRepository _entityMappingRepository;
         private readonly IFieldMappingRepository _fieldMappingRepository;
+        private readonly IFieldMappingService _fieldMappingService;
+        private readonly IOutboundConfigurationRepository _outboundConfigurationRepository;
+        private readonly IInboundConfigurationRepository _inboundConfigurationRepository;
         private readonly IQuickLinkRepository _quickLinkRepository;
+        private readonly IActionDefinitionRepository _actionDefinitionRepository;
+        private readonly ISqlSugarClient _sqlSugarClient;
         private readonly IMapper _mapper;
         private readonly UserContext _userContext;
         private readonly ILogger<IntegrationService> _logger;
@@ -34,7 +42,12 @@ namespace FlowFlex.Application.Services.Integration
             IIntegrationRepository integrationRepository,
             IEntityMappingRepository entityMappingRepository,
             IFieldMappingRepository fieldMappingRepository,
+            IFieldMappingService fieldMappingService,
+            IOutboundConfigurationRepository outboundConfigurationRepository,
+            IInboundConfigurationRepository inboundConfigurationRepository,
             IQuickLinkRepository quickLinkRepository,
+            IActionDefinitionRepository actionDefinitionRepository,
+            ISqlSugarClient sqlSugarClient,
             IMapper mapper,
             UserContext userContext,
             ILogger<IntegrationService> logger)
@@ -42,7 +55,12 @@ namespace FlowFlex.Application.Services.Integration
             _integrationRepository = integrationRepository;
             _entityMappingRepository = entityMappingRepository;
             _fieldMappingRepository = fieldMappingRepository;
+            _fieldMappingService = fieldMappingService;
+            _outboundConfigurationRepository = outboundConfigurationRepository;
+            _inboundConfigurationRepository = inboundConfigurationRepository;
             _quickLinkRepository = quickLinkRepository;
+            _actionDefinitionRepository = actionDefinitionRepository;
+            _sqlSugarClient = sqlSugarClient;
             _mapper = mapper;
             _userContext = userContext;
             _logger = logger;
@@ -99,6 +117,7 @@ namespace FlowFlex.Application.Services.Integration
             // Update properties
             entity.Type = input.Type;
             entity.Name = input.Name;
+            entity.Description = input.Description;
             entity.SystemName = input.SystemName;
             entity.EndpointUrl = input.EndpointUrl;
             entity.AuthMethod = input.AuthMethod;
@@ -144,7 +163,9 @@ namespace FlowFlex.Application.Services.Integration
                 throw new CRMException(ErrorCodeEnum.NotFound, "Integration not found");
             }
 
-            return _mapper.Map<IntegrationOutputDto>(entity);
+            var dto = _mapper.Map<IntegrationOutputDto>(entity);
+            await PopulateConfiguredEntityTypeNamesAsync(dto);
+            return dto;
         }
 
         public async Task<IntegrationOutputDto> GetWithDetailsAsync(long id)
@@ -155,7 +176,9 @@ namespace FlowFlex.Application.Services.Integration
                 throw new CRMException(ErrorCodeEnum.NotFound, "Integration not found");
             }
 
-            return _mapper.Map<IntegrationOutputDto>(entity);
+            var dto = _mapper.Map<IntegrationOutputDto>(entity);
+            await PopulateConfiguredEntityTypeNamesAsync(dto);
+            return dto;
         }
 
         public async Task<(List<IntegrationOutputDto> items, int total)> GetPagedListAsync(
@@ -177,6 +200,12 @@ namespace FlowFlex.Application.Services.Integration
                 sortDirection);
 
             var dtos = _mapper.Map<List<IntegrationOutputDto>>(items);
+            
+            // Populate ConfiguredEntityTypeNames for each integration
+            foreach (var dto in dtos)
+            {
+                await PopulateConfiguredEntityTypeNamesAsync(dto);
+            }
             
             return (dtos, total);
         }
@@ -300,6 +329,296 @@ namespace FlowFlex.Application.Services.Integration
         {
             var entities = await _integrationRepository.GetActiveIntegrationsAsync();
             return _mapper.Map<List<IntegrationOutputDto>>(entities);
+        }
+
+        /// <summary>
+        /// Get inbound configuration overview for an integration
+        /// </summary>
+        public async Task<List<InboundConfigurationOverviewDto>> GetInboundOverviewAsync(long integrationId)
+        {
+            // Verify integration exists
+            var integration = await _integrationRepository.GetByIdAsync(integrationId);
+            if (integration == null)
+            {
+                throw new CRMException(ErrorCodeEnum.NotFound, "Integration not found");
+            }
+
+            // Get all entity mappings for this integration
+            var entityMappings = await _entityMappingRepository.GetByIntegrationIdAsync(integrationId);
+            
+            // Collect all unique action IDs from entity mappings
+            var actionIds = new HashSet<long>();
+            foreach (var mapping in entityMappings)
+            {
+                var workflowIds = JsonConvert.DeserializeObject<List<long>>(mapping.WorkflowIds) ?? new List<long>();
+                foreach (var workflowId in workflowIds)
+                {
+                    actionIds.Add(workflowId);
+                }
+            }
+
+            // Build overview for each action
+            var overview = new List<InboundConfigurationOverviewDto>();
+            foreach (var actionId in actionIds)
+            {
+                var actionName = await GetActionNameAsync(actionId);
+                
+                // Count entity mappings and field mappings for this action
+                var entityMappingCount = 0;
+                var fieldMappingCount = 0;
+                
+                foreach (var mapping in entityMappings)
+                {
+                    var workflowIds = JsonConvert.DeserializeObject<List<long>>(mapping.WorkflowIds) ?? new List<long>();
+                    if (workflowIds.Contains(actionId))
+                    {
+                        entityMappingCount++;
+                        var fieldMappings = await _fieldMappingRepository.GetByEntityMappingIdAsync(mapping.Id);
+                        // Count only inbound fields (ViewOnly or Editable)
+                        fieldMappingCount += fieldMappings.Count(fm => 
+                            fm.SyncDirection == SyncDirection.ViewOnly || 
+                            fm.SyncDirection == SyncDirection.Editable);
+                    }
+                }
+
+                overview.Add(new InboundConfigurationOverviewDto
+                {
+                    ActionId = actionId,
+                    ActionName = actionName,
+                    EntityMappingCount = entityMappingCount,
+                    FieldMappingCount = fieldMappingCount,
+                    HasAttachmentConfig = false, // TODO: Implement when InboundConfiguration is available
+                    AutoCreateEntities = true, // TODO: Get from InboundConfiguration
+                    Status = entityMappingCount > 0 ? "Configured" : "Not Configured"
+                });
+            }
+
+            return overview.OrderBy(o => o.ActionId).ToList();
+        }
+
+        /// <summary>
+        /// Get outbound configuration overview for an integration
+        /// </summary>
+        public async Task<List<OutboundConfigurationOverviewDto>> GetOutboundOverviewAsync(long integrationId)
+        {
+            // Verify integration exists
+            var integration = await _integrationRepository.GetByIdAsync(integrationId);
+            if (integration == null)
+            {
+                throw new CRMException(ErrorCodeEnum.NotFound, "Integration not found");
+            }
+
+            // Get all entity mappings for this integration
+            var entityMappings = await _entityMappingRepository.GetByIntegrationIdAsync(integrationId);
+            
+            // Collect all unique action IDs from entity mappings
+            var actionIds = new HashSet<long>();
+            foreach (var mapping in entityMappings)
+            {
+                var workflowIds = JsonConvert.DeserializeObject<List<long>>(mapping.WorkflowIds) ?? new List<long>();
+                foreach (var workflowId in workflowIds)
+                {
+                    actionIds.Add(workflowId);
+                }
+            }
+
+            // Build overview for each action
+            var overview = new List<OutboundConfigurationOverviewDto>();
+            foreach (var actionId in actionIds)
+            {
+                var actionName = await GetActionNameAsync(actionId);
+                
+                // Count fields configured for sharing (OutboundOnly or Editable)
+                var fieldCount = 0;
+                
+                foreach (var mapping in entityMappings)
+                {
+                    var workflowIds = JsonConvert.DeserializeObject<List<long>>(mapping.WorkflowIds) ?? new List<long>();
+                    if (workflowIds.Contains(actionId))
+                    {
+                        var fieldMappings = await _fieldMappingRepository.GetByEntityMappingIdAsync(mapping.Id);
+                        // Count only outbound fields (OutboundOnly or Editable)
+                        fieldCount += fieldMappings.Count(fm => 
+                            fm.SyncDirection == SyncDirection.OutboundOnly || 
+                            fm.SyncDirection == SyncDirection.Editable);
+                    }
+                }
+
+                overview.Add(new OutboundConfigurationOverviewDto
+                {
+                    ActionId = actionId,
+                    ActionName = actionName,
+                    MasterDataEnabled = false, // TODO: Get from OutboundConfiguration
+                    FieldCount = fieldCount,
+                    AttachmentsEnabled = false, // TODO: Get from OutboundConfiguration
+                    RealTimeSyncEnabled = false, // TODO: Get from OutboundConfiguration
+                    WebhookUrl = null, // TODO: Get from OutboundConfiguration
+                    Status = fieldCount > 0 ? "Configured" : "Not Configured"
+                });
+            }
+
+            return overview.OrderBy(o => o.ActionId).ToList();
+        }
+
+        /// <summary>
+        /// Get inbound field mappings by action ID (read-only view)
+        /// </summary>
+        public async Task<List<InboundFieldMappingDto>> GetInboundFieldMappingsByActionAsync(
+            long integrationId,
+            long actionId,
+            string? externalFieldName = null,
+            string? wfeFieldName = null)
+        {
+            // Verify integration exists
+            var integration = await _integrationRepository.GetByIdAsync(integrationId);
+            if (integration == null)
+            {
+                throw new CRMException(ErrorCodeEnum.NotFound, "Integration not found");
+            }
+
+            var actionName = await GetActionNameAsync(actionId);
+            var result = new List<InboundFieldMappingDto>();
+
+            // Get field mappings directly by integration ID and action ID
+            var fieldMappings = await _fieldMappingRepository.GetByIntegrationIdAndActionIdAsync(integrationId, actionId);
+            
+            // Filter for inbound fields (ViewOnly or Editable)
+            var inboundFields = fieldMappings.Where(fm => 
+                fm.SyncDirection == SyncDirection.ViewOnly || 
+                fm.SyncDirection == SyncDirection.Editable);
+
+            foreach (var fieldMapping in inboundFields)
+            {
+                // Apply filters if provided
+                if (!string.IsNullOrEmpty(externalFieldName) && 
+                    !fieldMapping.ExternalFieldName.Contains(externalFieldName, StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                if (!string.IsNullOrEmpty(wfeFieldName) && 
+                    !fieldMapping.WfeFieldId.Contains(wfeFieldName, StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                result.Add(new InboundFieldMappingDto
+                {
+                    ActionId = actionId,
+                    ActionName = actionName,
+                    ExternalFieldName = fieldMapping.ExternalFieldName,
+                    WfeFieldId = fieldMapping.WfeFieldId,
+                    WfeFieldName = fieldMapping.WfeFieldId // Use WfeFieldId as display name for now
+                });
+            }
+
+            return result.OrderBy(r => r.ExternalFieldName).ToList();
+        }
+
+        /// <summary>
+        /// Get outbound shared fields by action ID (read-only view)
+        /// Uses OutboundConfiguration and OutboundFieldConfig tables which have actionId
+        /// </summary>
+        public async Task<List<OutboundSharedFieldDto>> GetOutboundSharedFieldsByActionAsync(
+            long integrationId,
+            long actionId,
+            string? fieldName = null)
+        {
+            // Verify integration exists
+            var integration = await _integrationRepository.GetByIdAsync(integrationId);
+            if (integration == null)
+            {
+                throw new CRMException(ErrorCodeEnum.NotFound, "Integration not found");
+            }
+
+            var actionName = await GetActionNameAsync(actionId);
+            var result = new List<OutboundSharedFieldDto>();
+
+            // Get outbound field configs directly by integration ID and action ID
+            // First get outbound configurations for this integration and action
+            var outboundConfigs = await _outboundConfigurationRepository.GetByIntegrationIdAndActionIdAsync(integrationId, actionId);
+            var configIds = outboundConfigs.Select(c => c.Id).ToList();
+
+            if (configIds.Any())
+            {
+                // Get outbound field configs for these configurations, filtered by action_id
+                var fieldConfigs = await _sqlSugarClient.Queryable<Domain.Entities.Integration.OutboundFieldConfig>()
+                    .Where(x => configIds.Contains(x.OutboundConfigurationId) 
+                        && x.ActionId == actionId 
+                        && x.IsValid)
+                    .OrderBy(x => x.SortOrder)
+                    .ToListAsync();
+
+                foreach (var fieldConfig in fieldConfigs)
+                {
+                    // Apply filter if provided
+                    if (!string.IsNullOrEmpty(fieldName) && 
+                        !fieldConfig.WfeFieldId.Contains(fieldName, StringComparison.OrdinalIgnoreCase) &&
+                        !fieldConfig.ExternalFieldName.Contains(fieldName, StringComparison.OrdinalIgnoreCase))
+                    {
+                        continue;
+                    }
+
+                    result.Add(new OutboundSharedFieldDto
+                    {
+                        ActionId = actionId,
+                        ActionName = actionName,
+                        FieldDisplayName = fieldConfig.WfeFieldId, // Use WfeFieldId as display name
+                        FieldApiName = fieldConfig.WfeFieldId
+                    });
+                }
+            }
+
+            return result.OrderBy(r => r.FieldApiName).ToList();
+        }
+
+        /// <summary>
+        /// Populate ConfiguredEntityTypeNames and ConfiguredEntityTypes for IntegrationOutputDto
+        /// </summary>
+        private async Task PopulateConfiguredEntityTypeNamesAsync(IntegrationOutputDto dto)
+        {
+            try
+            {
+                var entityMappings = await _entityMappingRepository.GetByIntegrationIdAsync(dto.Id);
+                dto.ConfiguredEntityTypeNames = entityMappings
+                    .Where(em => em.IsActive && em.IsValid)
+                    .Select(em => em.WfeEntityType)
+                    .Distinct()
+                    .OrderBy(name => name)
+                    .ToList();
+                
+                // Update ConfiguredEntityTypes to match the count of ConfiguredEntityTypeNames
+                dto.ConfiguredEntityTypes = dto.ConfiguredEntityTypeNames.Count;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, $"Failed to populate ConfiguredEntityTypeNames for integration {dto.Id}");
+                dto.ConfiguredEntityTypeNames = new List<string>();
+                dto.ConfiguredEntityTypes = 0;
+            }
+        }
+
+        /// <summary>
+        /// Get action name by action ID
+        /// </summary>
+        private async Task<string> GetActionNameAsync(long actionId)
+        {
+            try
+            {
+                // Try to get action definition by ID
+                var actionDefinition = await _actionDefinitionRepository.GetByIdAsync(actionId);
+                if (actionDefinition != null && !string.IsNullOrEmpty(actionDefinition.ActionName))
+                {
+                    return actionDefinition.ActionName;
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to get action name for action ID {ActionId}", actionId);
+            }
+
+            // Fallback: return formatted action ID
+            return $"Action {actionId}";
         }
     }
 }

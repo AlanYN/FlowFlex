@@ -47,6 +47,11 @@ namespace FlowFlex.Domain.Repository.Integration
         /// Get bidirectional field mappings
         /// </summary>
         Task<List<FieldMapping>> GetBidirectionalMappingsAsync(long entityMappingId);
+
+        /// <summary>
+        /// Get field mappings by integration ID and action ID
+        /// </summary>
+        Task<List<FieldMapping>> GetByIntegrationIdAndActionIdAsync(long integrationId, long actionId);
     }
 }
 

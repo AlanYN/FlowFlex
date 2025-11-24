@@ -51,6 +51,26 @@ namespace FlowFlex.SqlSugarDB.Implements.Integration
 
             return true;
         }
+
+        /// <summary>
+        /// Get inbound configurations by integration ID and action ID
+        /// </summary>
+        public async Task<List<InboundConfiguration>> GetByIntegrationIdAndActionIdAsync(long integrationId, long actionId)
+        {
+            return await db.Queryable<InboundConfiguration>()
+                .Where(x => x.IntegrationId == integrationId && x.ActionId == actionId && x.IsValid)
+                .ToListAsync();
+        }
+
+        /// <summary>
+        /// Get inbound configurations by integration ID
+        /// </summary>
+        public async Task<List<InboundConfiguration>> GetByIntegrationIdListAsync(long integrationId)
+        {
+            return await db.Queryable<InboundConfiguration>()
+                .Where(x => x.IntegrationId == integrationId && x.IsValid)
+                .ToListAsync();
+        }
     }
 }
 

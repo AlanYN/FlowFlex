@@ -884,7 +884,7 @@ const refreshAISummary = async () => {
 		console.log('✅ [AI Summary] Stream completed for stage:', currentStageId);
 		currentAISummaryGeneratedAt.value = new Date().toISOString();
 		aiSummaryLoading.value = false;
-		ElMessage.success('AI Summary generated successfully');
+		//ElMessage.success('AI Summary generated successfully');
 
 		// 更新本地stage信息 - 再次验证阶段
 		if (onboardingActiveStageInfo.value && activeStage.value === currentStageId) {

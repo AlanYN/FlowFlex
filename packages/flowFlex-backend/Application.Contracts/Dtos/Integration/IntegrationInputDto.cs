@@ -23,6 +23,12 @@ namespace FlowFlex.Application.Contracts.Dtos.Integration
         public string Name { get; set; } = string.Empty;
 
         /// <summary>
+        /// Integration description
+        /// </summary>
+        [StringLength(500)]
+        public string? Description { get; set; }
+
+        /// <summary>
         /// External system name
         /// </summary>
         [Required]

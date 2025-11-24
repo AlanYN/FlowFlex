@@ -63,5 +63,32 @@ namespace FlowFlex.Application.Contracts.IServices.Integration
         /// Get all active (connected) integrations
         /// </summary>
         Task<List<IntegrationOutputDto>> GetActiveIntegrationsAsync();
+
+        /// <summary>
+        /// Get inbound configuration overview for an integration
+        /// </summary>
+        Task<List<InboundConfigurationOverviewDto>> GetInboundOverviewAsync(long integrationId);
+
+        /// <summary>
+        /// Get outbound configuration overview for an integration
+        /// </summary>
+        Task<List<OutboundConfigurationOverviewDto>> GetOutboundOverviewAsync(long integrationId);
+
+        /// <summary>
+        /// Get inbound field mappings by action ID (read-only view)
+        /// </summary>
+        Task<List<InboundFieldMappingDto>> GetInboundFieldMappingsByActionAsync(
+            long integrationId,
+            long actionId,
+            string? externalFieldName = null,
+            string? wfeFieldName = null);
+
+        /// <summary>
+        /// Get outbound shared fields by action ID (read-only view)
+        /// </summary>
+        Task<List<OutboundSharedFieldDto>> GetOutboundSharedFieldsByActionAsync(
+            long integrationId,
+            long actionId,
+            string? fieldName = null);
     }
 }

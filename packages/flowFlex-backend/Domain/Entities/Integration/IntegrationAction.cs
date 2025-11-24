@@ -11,8 +11,21 @@ namespace FlowFlex.Domain.Entities.Integration;
 public class IntegrationAction : EntityBase
 {
     /// <summary>
+    /// Tenant ID
+    /// </summary>
+    [SugarColumn(ColumnName = "tenant_id")]
+    public string TenantId { get; set; } = "default";
+
+    /// <summary>
+    /// App code
+    /// </summary>
+    [SugarColumn(ColumnName = "app_code")]
+    public string AppCode { get; set; } = "DEFAULT";
+
+    /// <summary>
     /// Integration ID
     /// </summary>
+    [SugarColumn(ColumnName = "integration_id")]
     public long IntegrationId { get; set; }
     
     /// <summary>

@@ -54,11 +54,32 @@ namespace FlowFlex.SqlSugarDB.Implements.Integration
 
         /// <summary>
         /// Get integrations with real-time sync enabled
+        /// SyncMode: 0 = Manual, 1 = Real-time, 2 = Scheduled
         /// </summary>
         public async Task<List<OutboundConfiguration>> GetRealTimeSyncEnabledAsync()
         {
             return await db.Queryable<OutboundConfiguration>()
-                .Where(x => x.EnableRealTimeSync && x.IsValid)
+                .Where(x => x.SyncMode == 1 && x.IsValid) // SyncMode 1 = Real-time sync
+                .ToListAsync();
+        }
+
+        /// <summary>
+        /// Get outbound configurations by integration ID and action ID
+        /// </summary>
+        public async Task<List<OutboundConfiguration>> GetByIntegrationIdAndActionIdAsync(long integrationId, long actionId)
+        {
+            return await db.Queryable<OutboundConfiguration>()
+                .Where(x => x.IntegrationId == integrationId && x.ActionId == actionId && x.IsValid)
+                .ToListAsync();
+        }
+
+        /// <summary>
+        /// Get outbound configurations by integration ID
+        /// </summary>
+        public async Task<List<OutboundConfiguration>> GetByIntegrationIdListAsync(long integrationId)
+        {
+            return await db.Queryable<OutboundConfiguration>()
+                .Where(x => x.IntegrationId == integrationId && x.IsValid)
                 .ToListAsync();
         }
     }

@@ -17,6 +17,16 @@ namespace FlowFlex.Domain.Repository.Integration
         /// Delete inbound configuration by integration ID
         /// </summary>
         Task<bool> DeleteByIntegrationIdAsync(long integrationId);
+
+        /// <summary>
+        /// Get inbound configurations by integration ID and action ID
+        /// </summary>
+        Task<List<InboundConfiguration>> GetByIntegrationIdAndActionIdAsync(long integrationId, long actionId);
+
+        /// <summary>
+        /// Get inbound configurations by integration ID
+        /// </summary>
+        Task<List<InboundConfiguration>> GetByIntegrationIdListAsync(long integrationId);
     }
 }
 

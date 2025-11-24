@@ -28,6 +28,11 @@ namespace FlowFlex.Application.Contracts.Dtos.Integration
         public string Name { get; set; } = string.Empty;
 
         /// <summary>
+        /// Integration description
+        /// </summary>
+        public string? Description { get; set; }
+
+        /// <summary>
         /// Connection status
         /// </summary>
         public IntegrationStatus Status { get; set; }
@@ -51,6 +56,11 @@ namespace FlowFlex.Application.Contracts.Dtos.Integration
         /// Number of configured entity types
         /// </summary>
         public int ConfiguredEntityTypes { get; set; }
+
+        /// <summary>
+        /// Configured entity type names (e.g., ["Cases", "Contacts"])
+        /// </summary>
+        public List<string> ConfiguredEntityTypeNames { get; set; } = new();
 
         /// <summary>
         /// Create date

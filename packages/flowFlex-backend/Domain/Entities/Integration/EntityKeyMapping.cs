@@ -11,8 +11,21 @@ namespace FlowFlex.Domain.Entities.Integration;
 public class EntityKeyMapping : EntityBase
 {
     /// <summary>
+    /// Tenant ID
+    /// </summary>
+    [SugarColumn(ColumnName = "tenant_id")]
+    public string TenantId { get; set; } = "default";
+
+    /// <summary>
+    /// App code
+    /// </summary>
+    [SugarColumn(ColumnName = "app_code")]
+    public string AppCode { get; set; } = "DEFAULT";
+
+    /// <summary>
     /// Entity mapping ID
     /// </summary>
+    [SugarColumn(ColumnName = "entity_mapping_id")]
     public long EntityMappingId { get; set; }
     
     /// <summary>

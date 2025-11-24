@@ -116,14 +116,37 @@ namespace FlowFlex.SqlSugarDB.Implements.Integration
         public async Task<Domain.Entities.Integration.Integration> GetWithDetailsAsync(long id)
         {
             var currentTenantId = GetCurrentTenantId();
-            return await db.Queryable<Domain.Entities.Integration.Integration>()
-                .Includes(x => x.EntityMappings)
-                .Includes(x => x.FieldMappings)
-                .Includes(x => x.QuickLinks)
-                .Includes(x => x.InboundConfig)
-                .Includes(x => x.OutboundConfig)
+            var integration = await db.Queryable<Domain.Entities.Integration.Integration>()
                 .Where(x => x.TenantId == currentTenantId && x.Id == id && x.IsValid)
                 .FirstAsync();
+
+            if (integration == null)
+            {
+                return null;
+            }
+
+            // Manually load related data since navigation properties are marked as IsIgnore
+            integration.EntityMappings = await db.Queryable<Domain.Entities.Integration.EntityMapping>()
+                .Where(x => x.IntegrationId == integration.Id && x.IsValid)
+                .ToListAsync();
+
+            integration.FieldMappings = await db.Queryable<Domain.Entities.Integration.FieldMapping>()
+                .Where(x => x.IntegrationId == integration.Id && x.IsValid)
+                .ToListAsync();
+
+            integration.QuickLinks = await db.Queryable<Domain.Entities.Integration.QuickLink>()
+                .Where(x => x.IntegrationId == integration.Id && x.IsValid)
+                .ToListAsync();
+
+            integration.InboundConfig = await db.Queryable<Domain.Entities.Integration.InboundConfiguration>()
+                .Where(x => x.IntegrationId == integration.Id && x.IsValid)
+                .FirstAsync();
+
+            integration.OutboundConfig = await db.Queryable<Domain.Entities.Integration.OutboundConfiguration>()
+                .Where(x => x.IntegrationId == integration.Id && x.IsValid)
+                .FirstAsync();
+
+            return integration;
         }
 
         /// <summary>

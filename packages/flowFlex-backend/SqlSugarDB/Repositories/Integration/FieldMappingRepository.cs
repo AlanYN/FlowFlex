@@ -135,6 +135,19 @@ namespace FlowFlex.SqlSugarDB.Implements.Integration
                     && x.IsValid)
                 .ToListAsync();
         }
+
+        /// <summary>
+        /// Get field mappings by integration ID and action ID
+        /// </summary>
+        public async Task<List<FieldMapping>> GetByIntegrationIdAndActionIdAsync(long integrationId, long actionId)
+        {
+            return await db.Queryable<FieldMapping>()
+                .Where(x => x.IntegrationId == integrationId 
+                    && x.ActionId == actionId 
+                    && x.IsValid)
+                .OrderBy(x => x.SortOrder)
+                .ToListAsync();
+        }
     }
 }
 
