@@ -4641,6 +4641,9 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
             var addedTeams = afterTeams.Except(beforeTeams).ToList();
             var removedTeams = beforeTeams.Except(afterTeams).ToList();
 
+            // Get friendly permission type name for display
+            var permissionTypeDisplay = permissionType.ToLower() == "view" ? "View Teams" : "Operate Teams";
+
             // Get team names for all changed teams
             var allChangedTeams = addedTeams.Concat(removedTeams).Distinct().ToList();
             var teamNameMap = new Dictionary<string, string>();
@@ -4670,11 +4673,11 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
 
                 if (addedNames.Count == 1)
                 {
-                    changes.Add($"added {addedNames[0]} to {permissionType} teams");
+                    changes.Add($"added {addedNames[0]} to {permissionTypeDisplay}");
                 }
                 else
                 {
-                    changes.Add($"added {string.Join(", ", addedNames)} to {permissionType} teams");
+                    changes.Add($"added {string.Join(", ", addedNames)} to {permissionTypeDisplay}");
                 }
             }
 
@@ -4686,11 +4689,11 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
 
                 if (removedNames.Count == 1)
                 {
-                    changes.Add($"removed {removedNames[0]} from {permissionType} teams");
+                    changes.Add($"removed {removedNames[0]} from {permissionTypeDisplay}");
                 }
                 else
                 {
-                    changes.Add($"removed {string.Join(", ", removedNames)} from {permissionType} teams");
+                    changes.Add($"removed {string.Join(", ", removedNames)} from {permissionTypeDisplay}");
                 }
             }
 

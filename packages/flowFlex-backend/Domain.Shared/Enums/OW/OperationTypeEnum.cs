@@ -74,10 +74,11 @@ namespace FlowFlex.Domain.Shared.Enums.OW
         StageSave = 47,
 
         /// <summary>
-        /// Onboarding status changed
+        /// Case status changed
+        /// Note: Enum name changed from OnboardingStatusChange to CaseStatusChange. Database migration may be needed for existing records.
         /// </summary>
-        [Description("Onboarding Status Change")]
-        OnboardingStatusChange = 11,
+        [Description("Case Status Change")]
+        CaseStatusChange = 11,
 
         /// <summary>
         /// Stage action execution
@@ -296,58 +297,67 @@ namespace FlowFlex.Domain.Shared.Enums.OW
 
         // Onboarding Operations (CRUD)
         /// <summary>
-        /// Onboarding created
+        /// Case created
+        /// Note: Enum name changed from OnboardingCreate to CaseCreate. Database migration may be needed for existing records.
         /// </summary>
-        [Description("Onboarding Create")]
-        OnboardingCreate = 48,
+        [Description("Case Create")]
+        CaseCreate = 48,
 
         /// <summary>
-        /// Onboarding updated
+        /// Case updated
+        /// Note: Enum name changed from OnboardingUpdate to CaseUpdate. Database migration may be needed for existing records.
         /// </summary>
-        [Description("Onboarding Update")]
-        OnboardingUpdate = 49,
+        [Description("Case Update")]
+        CaseUpdate = 49,
 
         /// <summary>
-        /// Onboarding deleted
+        /// Case deleted
+        /// Note: Enum name changed from OnboardingDelete to CaseDelete. Database migration may be needed for existing records.
         /// </summary>
-        [Description("Onboarding Delete")]
-        OnboardingDelete = 50,
+        [Description("Case Delete")]
+        CaseDelete = 50,
 
         /// <summary>
-        /// Onboarding started
+        /// Case started
+        /// Note: Enum name changed from OnboardingStart to CaseStart. Database migration may be needed for existing records.
         /// </summary>
-        [Description("Onboarding Start")]
-        OnboardingStart = 51,
+        [Description("Case Start")]
+        CaseStart = 51,
 
         /// <summary>
-        /// Onboarding paused
+        /// Case paused
+        /// Note: Enum name changed from OnboardingPause to CasePause. Database migration may be needed for existing records.
         /// </summary>
-        [Description("Onboarding Pause")]
-        OnboardingPause = 52,
+        [Description("Case Pause")]
+        CasePause = 52,
 
         /// <summary>
-        /// Onboarding resumed
+        /// Case resumed
+        /// Note: Enum name changed from OnboardingResume to CaseResume. Database migration may be needed for existing records.
         /// </summary>
-        [Description("Onboarding Resume")]
-        OnboardingResume = 53,
+        [Description("Case Resume")]
+        CaseResume = 53,
 
         /// <summary>
-        /// Onboarding aborted
+        /// Case aborted
+        /// Note: Enum name changed from OnboardingAbort to CaseAbort. Database migration may be needed for existing records.
         /// </summary>
-        [Description("Onboarding Abort")]
-        OnboardingAbort = 54,
+        [Description("Case Abort")]
+        CaseAbort = 54,
 
         /// <summary>
-        /// Onboarding reactivated
+        /// Case reactivated
+        /// Note: Enum name changed from OnboardingReactivate to CaseReactivate. Database migration may be needed for existing records.
         /// </summary>
-        [Description("Onboarding Reactivate")]
-        OnboardingReactivate = 55,
+        [Description("Case Reactivate")]
+        CaseReactivate = 55,
 
         /// <summary>
-        /// Onboarding force completed
+        /// Case force completed
+        /// Note: Enum name changed from OnboardingForceComplete to CaseForceComplete. Database migration may be needed for existing records.
         /// </summary>
-        [Description("Onboarding Force Complete")]
-        OnboardingForceComplete = 56
+        [Description("Case Force Complete")]
+        CaseForceComplete = 56
     }
 
     /// <summary>

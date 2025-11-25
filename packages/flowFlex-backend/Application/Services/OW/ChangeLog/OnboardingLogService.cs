@@ -75,7 +75,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                 }
 
                 return await LogOperationAsync(
-                    OperationTypeEnum.OnboardingCreate,
+                    OperationTypeEnum.CaseCreate,
                     BusinessModuleEnum.Onboarding,
                     onboardingId,
                     onboardingId,
@@ -292,25 +292,25 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
         {
             return fieldName switch
             {
-                "LeadName" => "LeadName",
-                "CaseCode" => "CaseCode",
+                "LeadName" => "Customer Name",
+                "CaseCode" => "Case Code",
                 "WorkflowId" => "Workflow",
                 "WorkflowName" => "Workflow",
                 "Status" => "Status",
                 "Priority" => "Priority",
-                "LifeCycleStageName" => "LifeCycleStageName",
-                "ContactPerson" => "ContactPerson",
-                "ContactEmail" => "ContactEmail",
-                "CurrentStageId" => "CurrentStageId",
+                "LifeCycleStageName" => "Life Cycle Stage",
+                "ContactPerson" => "Contact Name",
+                "ContactEmail" => "Contact Email",
+                "CurrentStageId" => "Current Stage",
                 "Ownership" => "Ownership",
                 "OwnershipName" => "Ownership",
-                "ViewPermissionMode" => "ViewPermissionMode",
-                "ViewTeams" => "ViewTeams",
-                "ViewUsers" => "ViewUsers",
-                "ViewPermissionSubjectType" => "ViewPermissionSubjectType",
-                "OperateTeams" => "OperateTeams",
-                "OperateUsers" => "OperateUsers",
-                "OperatePermissionSubjectType" => "OperatePermissionSubjectType",
+                "ViewPermissionMode" => "View Permission Mode",
+                "ViewTeams" => "View Teams",
+                "ViewUsers" => "View Users",
+                "ViewPermissionSubjectType" => "View Permission Subject Type",
+                "OperateTeams" => "Operate Teams",
+                "OperateUsers" => "Operate Users",
+                "OperatePermissionSubjectType" => "Operate Permission Subject Type",
                 _ => fieldName
             };
         }
@@ -348,7 +348,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                 }
 
                 return await LogOperationAsync(
-                    OperationTypeEnum.OnboardingUpdate,
+                    OperationTypeEnum.CaseUpdate,
                     BusinessModuleEnum.Onboarding,
                     onboardingId,
                     onboardingId,
@@ -590,6 +590,9 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
             var added = afterUsers.Except(beforeUsers).ToList();
             var removed = beforeUsers.Except(afterUsers).ToList();
 
+            // Get friendly permission type name for display
+            var permissionTypeDisplay = permissionType.ToLower() == "view" ? "View Users" : "Operate Users";
+
             var changes = new List<string>();
             
             // Get user names for added users
@@ -598,11 +601,11 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                 var addedUserNames = await GetUserNamesByIdsAsync(added);
                 if (addedUserNames.Any())
                 {
-                    changes.Add($"added {string.Join(", ", addedUserNames)}");
+                    changes.Add($"added {string.Join(", ", addedUserNames)} to {permissionTypeDisplay}");
                 }
                 else
                 {
-                    changes.Add($"added {added.Count} user(s)");
+                    changes.Add($"added {added.Count} user(s) to {permissionTypeDisplay}");
                 }
             }
             
@@ -612,17 +615,17 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                 var removedUserNames = await GetUserNamesByIdsAsync(removed);
                 if (removedUserNames.Any())
                 {
-                    changes.Add($"removed {string.Join(", ", removedUserNames)}");
+                    changes.Add($"removed {string.Join(", ", removedUserNames)} from {permissionTypeDisplay}");
                 }
                 else
                 {
-                    changes.Add($"removed {removed.Count} user(s)");
+                    changes.Add($"removed {removed.Count} user(s) from {permissionTypeDisplay}");
                 }
             }
 
             if (changes.Any())
             {
-                return $"{permissionType} users {string.Join(", ", changes)}";
+                return string.Join(", ", changes);
             }
 
             return string.Empty;
@@ -698,7 +701,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                 }
 
                 return await LogOperationAsync(
-                    OperationTypeEnum.OnboardingDelete,
+                    OperationTypeEnum.CaseDelete,
                     BusinessModuleEnum.Onboarding,
                     onboardingId,
                     onboardingId,
@@ -746,7 +749,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                 }
 
                 return await LogOperationAsync(
-                    OperationTypeEnum.OnboardingStart,
+                    OperationTypeEnum.CaseStart,
                     BusinessModuleEnum.Onboarding,
                     onboardingId,
                     onboardingId,
@@ -790,7 +793,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                 }
 
                 return await LogOperationAsync(
-                    OperationTypeEnum.OnboardingPause,
+                    OperationTypeEnum.CasePause,
                     BusinessModuleEnum.Onboarding,
                     onboardingId,
                     onboardingId,
@@ -834,7 +837,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                 }
 
                 return await LogOperationAsync(
-                    OperationTypeEnum.OnboardingResume,
+                    OperationTypeEnum.CaseResume,
                     BusinessModuleEnum.Onboarding,
                     onboardingId,
                     onboardingId,
@@ -878,7 +881,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                 }
 
                 return await LogOperationAsync(
-                    OperationTypeEnum.OnboardingAbort,
+                    OperationTypeEnum.CaseAbort,
                     BusinessModuleEnum.Onboarding,
                     onboardingId,
                     onboardingId,
@@ -922,7 +925,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                 }
 
                 return await LogOperationAsync(
-                    OperationTypeEnum.OnboardingReactivate,
+                    OperationTypeEnum.CaseReactivate,
                     BusinessModuleEnum.Onboarding,
                     onboardingId,
                     onboardingId,
@@ -966,7 +969,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                 }
 
                 return await LogOperationAsync(
-                    OperationTypeEnum.OnboardingForceComplete,
+                    OperationTypeEnum.CaseForceComplete,
                     BusinessModuleEnum.Onboarding,
                     onboardingId,
                     onboardingId,
