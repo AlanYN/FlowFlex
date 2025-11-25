@@ -932,5 +932,67 @@ namespace FlowFlex.Application.Services.Integration
             // Fallback: return formatted action ID
             return $"Action {actionId}";
         }
+
+        /// <summary>
+        /// Get outbound attachment workflows configuration
+        /// </summary>
+        public async Task<OutboundAttachmentWorkflowsOutputDto> GetOutboundAttachmentWorkflowsAsync(long integrationId)
+        {
+            var integration = await _integrationRepository.GetByIdAsync(integrationId);
+            if (integration == null)
+            {
+                throw new CRMException(ErrorCodeEnum.NotFound, "Integration not found");
+            }
+
+            var result = new OutboundAttachmentWorkflowsOutputDto
+            {
+                IntegrationId = integrationId,
+                WorkflowIds = new List<long>()
+            };
+
+            // Parse workflow IDs from JSON
+            if (!string.IsNullOrEmpty(integration.OutboundAttachmentWorkflowIds))
+            {
+                try
+                {
+                    result.WorkflowIds = JsonConvert.DeserializeObject<List<long>>(integration.OutboundAttachmentWorkflowIds) ?? new List<long>();
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to parse OutboundAttachmentWorkflowIds for integration {IntegrationId}", integrationId);
+                    result.WorkflowIds = new List<long>();
+                }
+            }
+
+            return result;
+        }
+
+        /// <summary>
+        /// Save outbound attachment workflows configuration
+        /// </summary>
+        public async Task<bool> SaveOutboundAttachmentWorkflowsAsync(long integrationId, OutboundAttachmentWorkflowsInputDto input)
+        {
+            if (input == null)
+            {
+                throw new CRMException(ErrorCodeEnum.ParamInvalid, "Input cannot be null");
+            }
+
+            var integration = await _integrationRepository.GetByIdAsync(integrationId);
+            if (integration == null)
+            {
+                throw new CRMException(ErrorCodeEnum.NotFound, "Integration not found");
+            }
+
+            // Serialize workflow IDs to JSON
+            integration.OutboundAttachmentWorkflowIds = JsonConvert.SerializeObject(input.WorkflowIds ?? new List<long>());
+            integration.InitModifyInfo(_userContext);
+
+            var result = await _integrationRepository.UpdateAsync(integration);
+
+            _logger.LogInformation("Updated outbound attachment workflows for integration {IntegrationId}: {WorkflowIds}", 
+                integrationId, integration.OutboundAttachmentWorkflowIds);
+
+            return result;
+        }
     }
 }

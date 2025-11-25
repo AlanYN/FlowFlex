@@ -213,6 +213,30 @@ namespace FlowFlex.WebApi.Controllers.Integration
                 fieldName);
             return Success(data);
         }
+
+        /// <summary>
+        /// Get outbound attachment workflows configuration
+        /// </summary>
+        [HttpGet("{integrationId}/outbound/attachment-workflows")]
+        [ProducesResponseType<SuccessResponse<OutboundAttachmentWorkflowsOutputDto>>((int)HttpStatusCode.OK)]
+        public async Task<IActionResult> GetOutboundAttachmentWorkflows(long integrationId)
+        {
+            var data = await _integrationService.GetOutboundAttachmentWorkflowsAsync(integrationId);
+            return Success(data);
+        }
+
+        /// <summary>
+        /// Save outbound attachment workflows configuration
+        /// </summary>
+        [HttpPut("{integrationId}/outbound/attachment-workflows")]
+        [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
+        public async Task<IActionResult> SaveOutboundAttachmentWorkflows(
+            long integrationId,
+            [FromBody] OutboundAttachmentWorkflowsInputDto input)
+        {
+            var result = await _integrationService.SaveOutboundAttachmentWorkflowsAsync(integrationId, input);
+            return Success(result);
+        }
     }
 }
 

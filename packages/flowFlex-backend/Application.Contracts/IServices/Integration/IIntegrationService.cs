@@ -90,5 +90,15 @@ namespace FlowFlex.Application.Contracts.IServices.Integration
             long integrationId,
             long actionId,
             string? fieldName = null);
+
+        /// <summary>
+        /// Get outbound attachment workflows configuration
+        /// </summary>
+        Task<OutboundAttachmentWorkflowsOutputDto> GetOutboundAttachmentWorkflowsAsync(long integrationId);
+
+        /// <summary>
+        /// Save outbound attachment workflows configuration
+        /// </summary>
+        Task<bool> SaveOutboundAttachmentWorkflowsAsync(long integrationId, OutboundAttachmentWorkflowsInputDto input);
     }
 }

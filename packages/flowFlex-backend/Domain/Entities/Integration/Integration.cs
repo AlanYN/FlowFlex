@@ -79,6 +79,12 @@ public class Integration : EntityBaseCreateInfo
     /// </summary>
     public string? ErrorMessage { get; set; }
     
+    /// <summary>
+    /// Outbound attachment workflow IDs (JSON array) - workflows whose attachments can be shared with external system
+    /// </summary>
+    [SugarColumn(ColumnName = "outbound_attachment_workflow_ids", ColumnDataType = "text", IsNullable = true)]
+    public string? OutboundAttachmentWorkflowIds { get; set; }
+    
     // Navigation Properties (ignored by SqlSugar)
     
     /// <summary>
