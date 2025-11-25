@@ -1,21 +1,17 @@
 <template>
-	<div class="actions-list">
-		<div class="section-header">
-			<h4 class="section-title">Actions</h4>
-			<el-tag type="info" size="small">Read Only</el-tag>
+	<div class="">
+		<div class="flex flex-col gap-2 my-2">
+			<div class="font-bold">Integration Actions</div>
+			<div class="text-gray-500">
+				All actions related to {{ integrationName }} System integration
+			</div>
 		</div>
-
-		<el-alert type="info" :closable="false" show-icon class="info-alert">
-			This list shows all actions associated with this integration. Click on an action name to
-			view details.
-		</el-alert>
 
 		<el-table
 			v-loading="isLoading"
 			:data="actions"
 			border
 			stripe
-			class="actions-table"
 			empty-text="No actions configured for this integration"
 		>
 			<el-table-column label="Action ID" prop="id" width="180">
@@ -58,12 +54,7 @@
 
 			<el-table-column label="Workflows" prop="workflows" min-width="250">
 				<template #default="{ row }">
-					<el-tag
-						v-for="workflowId in row.workflows"
-						:key="workflowId"
-						size="small"
-						class="workflow-tag"
-					>
+					<el-tag v-for="workflowId in row.workflows" :key="workflowId">
 						{{ getWorkflowName(workflowId) }}
 					</el-tag>
 				</template>
@@ -75,19 +66,18 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
-import { getActions } from '@/apis/integration';
-import type { IAction } from '#/integration';
 
 interface Props {
 	integrationId: string;
+	integrationName: string;
 }
 
-const props = defineProps<Props>();
+defineProps<Props>();
 const router = useRouter();
 
 // 状态管理
 const isLoading = ref(false);
-const actions = ref<IAction[]>([]);
+const actions = ref<[]>([]);
 
 // 模拟工作流名称映射（实际应该从 API 获取）
 const workflowNameMap: Record<string, string> = {
@@ -109,7 +99,7 @@ function getWorkflowName(workflowId: string): string {
 async function loadActions() {
 	isLoading.value = true;
 	try {
-		actions.value = await getActions(props.integrationId);
+		actions.value = [];
 	} catch (error) {
 		console.error('Failed to load actions:', error);
 	} finally {
@@ -130,57 +120,3 @@ onMounted(() => {
 	loadActions();
 });
 </script>
-
-<style scoped lang="scss">
-.actions-list {
-	.section-header {
-		display: flex;
-		justify-content: space-between;
-		align-items: center;
-		margin-bottom: 16px;
-
-		.section-title {
-			font-size: 16px;
-			font-weight: 600;
-			color: var(--text-primary);
-			margin: 0;
-		}
-	}
-
-	.info-alert {
-		margin-bottom: 20px;
-	}
-
-	.actions-table {
-		:deep(.el-table) {
-			background: var(--el-bg-color);
-		}
-
-		:deep(.el-table__header) {
-			th {
-				background: var(--el-fill-color);
-				color: var(--el-text-color-primary);
-				font-weight: 600;
-				font-size: 13px;
-			}
-		}
-
-		:deep(.el-table__body) {
-			tr {
-				background: var(--el-bg-color);
-			}
-		}
-
-		.action-id {
-			font-family: 'Courier New', monospace;
-			font-size: 12px;
-			color: var(--el-text-color-secondary);
-		}
-
-		.workflow-tag {
-			margin-right: 8px;
-			margin-bottom: 4px;
-		}
-	}
-}
-</style>

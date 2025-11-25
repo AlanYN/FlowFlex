@@ -1,18 +1,24 @@
 <template>
 	<div class="min-h-screen">
 		<PageHeader
-			:title="integration?.name || 'Integration Details'"
+			:title="integrationName || 'Integration Details'"
 			description="Configure connection and data exchange settings"
 			:show-back-button="true"
 			@go-back="handleBack"
 		>
 			<template #actions>
-				<el-tag
-					v-if="integration"
-					:type="integration.status === 'connected' ? 'success' : 'info'"
-				>
-					{{ integration.status === 'connected' ? 'Connected' : 'Disconnected' }}
-				</el-tag>
+				<div class="flex gap-x-2 items-center">
+					<el-tag
+						v-if="integrationStatus !== undefined"
+						:type="integrationStatus === 1 ? 'success' : 'info'"
+					>
+						{{ integrationStatus === 1 ? 'Connected' : 'Disconnected' }}
+					</el-tag>
+					<el-button type="danger" :icon="Delete" @click="handleDelete">
+						Delete Integration
+					</el-button>
+					<div></div>
+				</div>
 			</template>
 		</PageHeader>
 
@@ -20,75 +26,85 @@
 		<div v-if="isLoading" v-loading="true" class="min-h-[400px]"></div>
 
 		<!-- 详情内容 -->
-		<div v-else-if="integration" class="space-y-6 pb-8">
-			<div class="bg-bg-overlay">
-				<connection-auth
-					:integration="integration"
-					@update="handleUpdate"
-					@test="handleTestConnection"
+		<div v-else class="space-y-6 pb-8">
+			<connection-auth
+				:integration-id="integrationId"
+				:connection-data="integrationData || undefined"
+				@created="handleIntegrationCreated"
+				@updated="handleIntegrationUpdated"
+				@test="handleTestConnection"
+			/>
+
+			<!-- 只有当集成已保存（有真实 ID）时才显示其他模块 -->
+			<template v-if="integrationId && integrationId !== 'new' && integrationData">
+				<!-- Entity Type Mapping -->
+				<entity-type
+					v-if="integrationData"
+					:integration-id="integrationId"
+					:entity-mappings="
+						integrationData.entityMappings ||
+						integrationData.inboundSettings?.entityMappings ||
+						[]
+					"
+					@refresh="loadIntegrationData"
 				/>
-			</div>
 
-			<!-- Tabs -->
-			<div class="bg-bg-overlay">
-				<PrototypeTabs v-model="activeTab" :tabs="tabsConfig" class="">
-					<TabPane value="inbound">
-						<inbound-settings :integration="integration" @update="handleUpdate" />
-					</TabPane>
+				<!-- Tabs -->
+				<div class="wfe-global-block-bg p-4">
+					<PrototypeTabs v-model="activeTab" :tabs="tabsConfig" class="">
+						<TabPane value="inbound">
+							<inbound-settings
+								v-if="integrationData"
+								:integration-id="integrationId"
+								:inbound-settings="integrationData.inboundSettings"
+								:workflows="workflows"
+								@refresh="loadIntegrationData"
+							/>
+						</TabPane>
 
-					<TabPane value="outbound">
-						<outbound-settings :integration="integration" @update="handleUpdate" />
-					</TabPane>
+						<TabPane value="outbound">
+							<outbound-settings
+								v-if="integrationData"
+								:integration-id="integrationId"
+								:outbound-settings="integrationData.outboundSettings"
+								:workflows="workflows"
+								@refresh="loadIntegrationData"
+							/>
+						</TabPane>
 
-					<TabPane value="actions">
-						<actions-list :integration-id="integration.id" />
-					</TabPane>
-				</PrototypeTabs>
-			</div>
+						<TabPane value="actions">
+							<actions-list
+								:integration-id="String(integrationId)"
+								:integration-name="integrationName"
+							/>
+						</TabPane>
 
-			<!-- 底部操作按钮 -->
-			<div class="flex justify-between items-center">
-				<el-button
-					v-if="integration.id !== 'new'"
-					type="danger"
-					:icon="Delete"
-					@click="handleDelete"
-				>
-					Delete Integration
-				</el-button>
-				<div v-else></div>
-				<div class="flex gap-3">
-					<el-button type="primary" :loading="isSaving" @click="handleSave">
-						{{ integration.id === 'new' ? 'Create Integration' : 'Save Configuration' }}
-					</el-button>
+						<TabPane value="quickLinks">
+							<quick-links :integration-id="String(integrationId)" />
+						</TabPane>
+					</PrototypeTabs>
 				</div>
-			</div>
-		</div>
 
-		<!-- 错误状态 -->
-		<el-empty v-else description="Integration not found">
-			<el-button type="primary" @click="handleBack">Go Back</el-button>
-		</el-empty>
+				<!-- 底部操作按钮 -->
+			</template>
+		</div>
 	</div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, nextTick } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { Delete } from '@element-plus/icons-vue';
 import { PrototypeTabs, TabPane } from '@/components/PrototypeTabs';
 import ConnectionAuth from './components/connection-auth.vue';
+import EntityType from './components/entityType.vue';
 import InboundSettings from './components/inbound-settings.vue';
 import OutboundSettings from './components/outbound-settings.vue';
 import ActionsList from './components/actions-list.vue';
-import {
-	getIntegration,
-	createIntegration,
-	updateIntegration,
-	deleteIntegration,
-	testConnection,
-} from '@/apis/integration';
+import QuickLinks from './components/quick-links.vue';
+import { getIntegrationDetails, deleteIntegration, testConnection } from '@/apis/integration';
+import { getWorkflowList } from '@/apis/ow';
 import type { IIntegrationConfig } from '#/integration';
 import PageHeader from '@/components/global/PageHeader/index.vue';
 
@@ -96,10 +112,13 @@ const route = useRoute();
 const router = useRouter();
 
 // 状态管理
-const integration = ref<IIntegrationConfig | null>(null);
+const integrationId = ref<string | number>('new');
+const integrationName = ref<string>('New Integration');
+const integrationStatus = ref<number>(0);
+const integrationData = ref<IIntegrationConfig | null>(null);
 const isLoading = ref(false);
-const isSaving = ref(false);
 const activeTab = ref('inbound');
+const workflows = ref<any[]>([]);
 
 // Tab 配置
 const tabsConfig = [
@@ -115,12 +134,16 @@ const tabsConfig = [
 		value: 'actions',
 		label: 'Actions',
 	},
+	{
+		value: 'quickLinks',
+		label: 'Quick Links',
+	},
 ];
 
 /**
- * 加载集成详情
+ * 加载集成数据
  */
-async function loadIntegration() {
+async function loadIntegrationData() {
 	const id = route.params.id as string;
 	if (!id) {
 		ElMessage.error('Invalid integration ID');
@@ -128,69 +151,72 @@ async function loadIntegration() {
 		return;
 	}
 
-	// 如果是创建新集成，创建一个空的集成对象
+	integrationId.value = id;
+
+	// 如果是新建，使用默认值
 	if (id === 'new') {
-		integration.value = {
-			id: 'new',
-			type: 'custom',
-			name: 'New Integration',
-			status: 'disconnected',
-			connection: {
-				systemName: '',
-				endpointUrl: '',
-				authMethod: 'api_key',
-				credentials: {},
-			},
-			inboundSettings: {
-				entityMappings: [],
-				fieldMappings: [],
-				attachmentSharing: [],
-			},
-			outboundSettings: {
-				masterData: [],
-				fields: [],
-				attachmentWorkflows: [],
-			},
-			actions: [],
-			createdAt: new Date().toISOString(),
-			updatedAt: new Date().toISOString(),
-		};
+		integrationName.value = 'New Integration';
+		integrationStatus.value = 0;
+		integrationData.value = null;
 		return;
 	}
 
+	// 加载完整数据
 	isLoading.value = true;
 	try {
-		integration.value = await getIntegration(id);
-	} catch (error) {
-		console.error('Failed to load integration:', error);
-		ElMessage.error('Failed to load integration details');
+		const response = await getIntegrationDetails(id);
+		if (response.success && response.data) {
+			integrationData.value = response.data;
+			integrationName.value = response.data.name || 'Integration Details';
+			integrationStatus.value = response.data.status || 0;
+		} else {
+			ElMessage.error(response.msg || 'Failed to load integration');
+		}
 	} finally {
 		isLoading.value = false;
 	}
 }
 
 /**
- * 更新集成配置
+ * 处理集成创建成功
  */
-function handleUpdate(data: Partial<IIntegrationConfig>) {
-	if (integration.value) {
-		integration.value = { ...integration.value, ...data };
-	}
+const handleIntegrationCreated = async (id: string | number, name: string) => {
+	integrationId.value = id;
+	integrationName.value = name;
+	// 更新路由并重新加载数据
+	await router.replace({
+		name: 'IntegrationDetail',
+		params: { id: String(id) },
+	});
+	nextTick(() => {
+		loadIntegrationData();
+	});
+};
+
+/**
+ * 处理集成更新
+ */
+function handleIntegrationUpdated() {
+	nextTick(() => {
+		loadIntegrationData();
+	});
 }
 
 /**
- * 测试连接
+ * 测试连接（由父组件调用 test 接口）
  */
 async function handleTestConnection() {
-	if (!integration.value) return;
+	if (!integrationId.value || integrationId.value === 'new') return;
 
 	try {
-		const result = await testConnection(integration.value.id);
-		if (result.success) {
+		const result = await testConnection(integrationId.value);
+		if (result.success && result.data) {
 			ElMessage.success('Connection test successful');
-			integration.value.status = 'connected';
+			integrationStatus.value = 1;
+			// 重新加载数据以更新状态
+			loadIntegrationData();
 		} else {
-			ElMessage.error(result.message || 'Connection test failed');
+			ElMessage.error(result.msg || 'Connection test failed');
 		}
 	} catch (error) {
 		console.error('Connection test failed:', error);
@@ -199,58 +225,14 @@ async function handleTestConnection() {
 }
 
 /**
- * 保存配置
- */
-async function handleSave() {
-	if (!integration.value) return;
-
-	isSaving.value = true;
-	try {
-		// 如果是新建集成，调用创建接口
-		if (integration.value.id === 'new') {
-			const newIntegration = await createIntegration({
-				type: integration.value.type,
-				name: integration.value.name,
-			});
-
-			ElMessage.success('Integration created successfully');
-
-			// 然后更新集成配置
-			const updatedIntegration = await updateIntegration(newIntegration.id, {
-				connection: integration.value.connection,
-				inboundSettings: integration.value.inboundSettings,
-				outboundSettings: integration.value.outboundSettings,
-			});
-
-			integration.value = updatedIntegration;
-
-			// 更新路由为实际的集成 ID
-			router.replace({
-				name: 'IntegrationDetail',
-				params: { id: updatedIntegration.id },
-			});
-		} else {
-			// 否则调用更新接口
-			await updateIntegration(integration.value.id, integration.value);
-			ElMessage.success('Configuration saved successfully');
-		}
-	} catch (error) {
-		console.error('Failed to save configuration:', error);
-		ElMessage.error('Failed to save configuration');
-	} finally {
-		isSaving.value = false;
-	}
-}
-
-/**
  * 删除集成
  */
 async function handleDelete() {
-	if (!integration.value) return;
+	if (!integrationId.value || integrationId.value === 'new') return;
 
 	try {
 		await ElMessageBox.confirm(
-			`Are you sure you want to delete the integration "${integration.value.name}"? This action cannot be undone.`,
+			`Are you sure you want to delete the integration "${integrationName.value}"? This action cannot be undone.`,
 			'Confirm Deletion',
 			{
 				confirmButtonText: 'Delete',
@@ -259,14 +241,14 @@ async function handleDelete() {
 			}
 		);
 
-		await deleteIntegration(integration.value.id);
-		ElMessage.success('Integration deleted successfully');
-		handleBack();
-	} catch (error) {
-		if (error !== 'cancel') {
-			console.error('Failed to delete integration:', error);
-			ElMessage.error('Failed to delete integration');
+		const res = await deleteIntegration(integrationId.value);
+		if (res.success) {
+			ElMessage.success('Integration deleted successfully');
+		} else {
+			ElMessage.error(res.msg || 'Failed to delete integration');
 		}
+	} catch (error) {
+		console.log('Failed to delete integration:', error);
 	}
 }
 
@@ -277,10 +259,35 @@ function handleBack() {
 	router.push({ name: 'Integration' });
 }
 
+/**
+ * 获取工作流列表
+ */
+async function loadWorkflows() {
+	try {
+		const response = await getWorkflowList();
+		if (response.code === '200') {
+			const workflowList = response.data || [];
+			// 处理默认工作流显示
+			const processedWorkflows = workflowList.map((workflow: any) => {
+				if (workflow.isDefault) {
+					return {
+						...workflow,
+						name: '⭐ ' + workflow.name,
+					};
+				}
+				return workflow;
+			});
+			workflows.value = processedWorkflows;
+		}
+	} catch (error) {
+		console.error('Failed to load workflows:', error);
+		workflows.value = [];
+	}
+}
+
 // 初始化
-onMounted(() => {
-	loadIntegration();
+onMounted(async () => {
+	await loadWorkflows();
+	loadIntegrationData();
 });
 </script>
-
-<style scoped lang="scss"></style>

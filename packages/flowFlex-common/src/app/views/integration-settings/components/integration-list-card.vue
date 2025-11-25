@@ -2,7 +2,7 @@
 	<el-card class="integration-card overflow-hidden transition-all cursor-pointer">
 		<!-- 卡片头部 -->
 		<template #header>
-			<div class="card-header -m-5 p-4">
+			<div class="card-header">
 				<div class="flex items-center justify-between w-full">
 					<div class="flex items-center space-x-3 flex-1 min-w-0" @click="handleClick">
 						<div
@@ -10,10 +10,7 @@
 						>
 							<span class="text-2xl">{{ getSystemIcon() }}</span>
 						</div>
-						<h3
-							class="card-title text-xl font-semibold leading-tight tracking-tight truncate"
-							:title="integration.name"
-						>
+						<h3 class="card-title tracking-tight truncate" :title="integration.name">
 							{{ integration.name }}
 						</h3>
 					</div>
@@ -39,49 +36,21 @@
 						</template>
 					</el-dropdown>
 				</div>
-				<p class="text-white text-sm mt-1.5 truncate h-6">
+				<p class="text-sm mt-1.5 truncate">
 					{{ getSystemLabel() }}
 				</p>
 			</div>
 		</template>
 
 		<!-- 卡片内容 -->
-		<div class="space-y-3" @click="handleClick">
-			<!-- 状态标签 -->
+		<div class="space-y-3">
+			<div class="flex items-center gap-2">Entity Types:</div>
 			<div class="flex items-center gap-2">
-				<el-tag
-					:type="integration.status === 'connected' ? 'success' : 'info'"
-					size="small"
-				>
-					{{ integration.status === 'connected' ? 'Connected' : 'Disconnected' }}
-				</el-tag>
-			</div>
-
-			<!-- 信息列表 -->
-			<div class="space-y-2 text-sm">
-				<div class="flex items-center gap-2">
-					<el-icon class="text-primary-500"><Connection /></el-icon>
-					<span class="font-medium">
-						{{ getEntityCount() }} entity type(s) configured
-					</span>
-				</div>
-
-				<div v-if="integration.connection?.endpointUrl" class="flex items-center gap-2">
-					<el-icon class="text-primary-500"><Link /></el-icon>
-					<span class="font-medium truncate">
-						{{ integration.connection.endpointUrl }}
-					</span>
-				</div>
-
-				<div v-if="integration.connection?.authMethod" class="flex items-center gap-2">
-					<el-icon class="text-primary-500"><Key /></el-icon>
-					<span class="font-medium">{{ integration.connection.authMethod }}</span>
-				</div>
-
-				<div v-if="integration.updatedAt" class="flex items-center gap-2">
-					<el-icon class="text-primary-500"><Clock /></el-icon>
-					<span class="font-medium">Updated {{ formatDate(integration.updatedAt) }}</span>
-				</div>
+				<template v-for="value in integration.configuredEntityTypeNames" :key="value">
+					<el-tag type="info">
+						{{ value }}
+					</el-tag>
+				</template>
 			</div>
 		</div>
 	</el-card>
@@ -89,10 +58,10 @@
 
 <script setup lang="ts">
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { Connection, Link, Clock, Delete, Edit, MoreFilled, Key } from '@element-plus/icons-vue';
+import { Delete, Edit, MoreFilled } from '@element-plus/icons-vue';
 import { useRouter } from 'vue-router';
+import { nextTick } from 'vue';
 import { deleteIntegration } from '@/apis/integration';
-import { timeZoneConvert } from '@/hooks/time';
 import type { IIntegrationConfig } from '#/integration';
 
 interface Props {
@@ -136,39 +105,6 @@ function getSystemLabel(): string {
 }
 
 /**
- * 获取实体数量
- */
-function getEntityCount(): number {
-	const inboundCount = props.integration.inboundSettings?.entityMappings?.length || 0;
-	return inboundCount;
-}
-
-/**
- * 格式化日期
- */
-function formatDate(date: string): string {
-	if (!date) return '';
-
-	try {
-		// 使用 timeZoneConvert 将零时区时间转换为本地时区
-		const localDate = timeZoneConvert(date, false, 'YYYY-MM-DD HH:mm:ss');
-		const d = new Date(localDate);
-		const now = new Date();
-		const diff = now.getTime() - d.getTime();
-		const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-
-		if (days === 0) return 'today';
-		if (days === 1) return 'yesterday';
-		if (days < 7) return `${days} days ago`;
-		if (days < 30) return `${Math.floor(days / 7)} weeks ago`;
-		return timeZoneConvert(date, false, 'MM/DD/YYYY');
-	} catch (error) {
-		console.error('Failed to format date:', error);
-		return date;
-	}
-}
-
-/**
  * 点击卡片
  */
 function handleClick() {
@@ -192,28 +128,43 @@ function handleCommand(command: string) {
 /**
  * 删除集成
  */
-async function handleDelete() {
-	try {
-		await ElMessageBox.confirm(
-			`Are you sure you want to delete the integration "${props.integration.name}"? This action cannot be undone.`,
-			'Confirm Deletion',
-			{
-				confirmButtonText: 'Delete',
-				cancelButtonText: 'Cancel',
-				type: 'warning',
+function handleDelete() {
+	ElMessageBox({
+		title: 'Confirm Deletion',
+		message: `Are you sure you want to delete the integration "${props.integration.name}"? This action cannot be undone.`,
+		showCancelButton: true,
+		confirmButtonText: 'Delete',
+		cancelButtonText: 'Cancel',
+		type: 'warning',
+		confirmButtonClass: 'el-button--danger',
+		distinguishCancelAndClose: true,
+		beforeClose: async (action, instance, done) => {
+			if (action === 'confirm') {
+				instance.confirmButtonLoading = true;
+				instance.confirmButtonText = 'Deleting...';
+				try {
+					const res = await deleteIntegration(props.integration.id as string | number);
+					instance.confirmButtonText = 'Delete';
+					instance.confirmButtonLoading = false;
+					if (res.success) {
+						ElMessage.success('Integration deleted successfully');
+						nextTick(() => {
+							emit('refresh');
+							done();
+						});
+					} else {
+						ElMessage.error(res.msg || 'Failed to delete integration');
+						done();
+					}
+				} finally {
+					instance.confirmButtonText = 'Delete';
+					instance.confirmButtonLoading = false;
+					done();
+				}
+			} else {
+				done();
 			}
-		);
-
-		await deleteIntegration(props.integration.id);
-		ElMessage.success('Integration deleted successfully');
-		emit('refresh');
-	} catch (error) {
-		if (error !== 'cancel') {
-			console.error('Failed to delete integration:', error);
-			ElMessage.error('Failed to delete integration');
-		}
-	}
+		},
+	});
 }
 </script>
-
-<style scoped lang="scss"></style>

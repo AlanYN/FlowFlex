@@ -36,12 +36,12 @@
 					@change="handleAuthMethodChange"
 				>
 					<div class="w-full flex items-center gap-2">
-						<el-radio value="api_key" class="w-1/2">API Key</el-radio>
-						<el-radio value="oauth2">OAuth 2.0</el-radio>
+						<el-radio :value="AuthMethod.ApiKey" class="w-1/2">API Key</el-radio>
+						<el-radio :value="AuthMethod.OAuth2">OAuth 2.0</el-radio>
 					</div>
 					<div class="w-full flex items-center gap-2">
-						<el-radio value="basic" class="w-1/2">Basic Auth</el-radio>
-						<el-radio value="bearer">Bearer Token</el-radio>
+						<el-radio :value="AuthMethod.BasicAuth" class="w-1/2">Basic Auth</el-radio>
+						<el-radio :value="AuthMethod.BearerToken">Bearer Token</el-radio>
 					</div>
 				</el-radio-group>
 			</el-form-item>
@@ -49,7 +49,7 @@
 			<!-- Credentials (两列布局) -->
 			<div class="grid grid-cols-2 gap-6">
 				<!-- API Key -->
-				<template v-if="formData.authMethod === 'api_key'">
+				<template v-if="formData.authMethod === AuthMethod.ApiKey">
 					<el-form-item label="API Key" prop="credentials.apiKey">
 						<el-input
 							v-model="formData.credentials.apiKey"
@@ -62,7 +62,7 @@
 				</template>
 
 				<!-- Basic Auth -->
-				<template v-else-if="formData.authMethod === 'basic'">
+				<template v-else-if="formData.authMethod === AuthMethod.BasicAuth">
 					<el-form-item label="Username" prop="credentials.username">
 						<el-input
 							v-model="formData.credentials.username"
@@ -82,7 +82,7 @@
 				</template>
 
 				<!-- Bearer Token -->
-				<template v-else-if="formData.authMethod === 'bearer'">
+				<template v-else-if="formData.authMethod === AuthMethod.BearerToken">
 					<el-form-item label="Bearer Token" prop="credentials.token">
 						<el-input
 							v-model="formData.credentials.token"
@@ -95,7 +95,7 @@
 				</template>
 
 				<!-- OAuth 2.0 -->
-				<template v-else-if="formData.authMethod === 'oauth2'">
+				<template v-else-if="formData.authMethod === AuthMethod.OAuth2">
 					<el-form-item label="Client ID" prop="credentials.clientId">
 						<el-input
 							v-model="formData.credentials.clientId"
@@ -115,35 +115,61 @@
 				</template>
 			</div>
 
-			<!-- Test Connection Button (右对齐) -->
-			<div class="flex justify-end">
+			<!-- 操作按钮 (右对齐) -->
+			<div class="flex justify-end gap-3">
 				<el-button
+					v-if="props.integrationId === 'new'"
 					type="primary"
 					size="large"
-					:loading="isTesting"
+					:loading="isSaving"
 					:disabled="!isFormValid"
-					@click="handleTestConnection"
+					@click="handleSave"
 				>
-					<el-icon class="mr-2"><Connection /></el-icon>
-					Test Connection
+					Create Integration
 				</el-button>
+				<template v-if="props.integrationId !== 'new'">
+					<el-button
+						type="primary"
+						size="large"
+						:loading="isUpdating"
+						:disabled="!isFormValid"
+						@click="handleUpdate"
+					>
+						Update
+					</el-button>
+					<el-button
+						type="primary"
+						size="large"
+						:loading="isTesting"
+						:disabled="!isFormValid"
+						@click="handleTestConnection"
+					>
+						<el-icon class="mr-2"><Connection /></el-icon>
+						Test Connection
+					</el-button>
+				</template>
 			</div>
 		</el-form>
 	</div>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, watch } from 'vue';
+import { ref, reactive, computed, watch, onMounted } from 'vue';
 import type { FormInstance, FormRules } from 'element-plus';
 import { Connection } from '@element-plus/icons-vue';
-import type { IIntegrationConfig, IConnectionConfig } from '#/integration';
+import { ElMessage } from 'element-plus';
+import { createIntegration, updateIntegration } from '@/apis/integration';
+import type { IConnectionConfig, IIntegrationConfig } from '#/integration';
+import { AuthMethod } from '@/enums/integration';
 
 interface Props {
-	integration: IIntegrationConfig;
+	integrationId: string | number;
+	connectionData?: IIntegrationConfig;
 }
 
 interface Emits {
-	(e: 'update', data: Partial<IIntegrationConfig>): void;
+	(e: 'created', id: string | number, name: string): void;
+	(e: 'updated'): void;
 	(e: 'test'): void;
 }
 
@@ -153,12 +179,18 @@ const emit = defineEmits<Emits>();
 // 表单引用
 const formRef = ref<FormInstance>();
 
+// 状态
+const isSaving = ref(false);
+const isUpdating = ref(false);
+const isTesting = ref(false);
+const integrationName = ref<string>('New Integration');
+
 // 表单数据
-const formData = reactive<IConnectionConfig>({
-	systemName: props.integration.connection?.systemName || '',
-	endpointUrl: props.integration.connection?.endpointUrl || '',
-	authMethod: props.integration.connection?.authMethod || 'api_key',
-	credentials: props.integration.connection?.credentials || {},
+const formData = reactive<IConnectionConfig & { authMethod: string | number }>({
+	systemName: '',
+	endpointUrl: '',
+	authMethod: AuthMethod.ApiKey,
+	credentials: {},
 });
 
 // 表单验证规则
@@ -171,41 +203,41 @@ const rules = reactive<FormRules>({
 	authMethod: [{ required: true, message: 'Please select auth method', trigger: 'change' }],
 	'credentials.apiKey': [
 		{
-			required: computed(() => formData.authMethod === 'api_key').value,
+			required: computed(() => formData.authMethod === AuthMethod.ApiKey).value,
 			message: 'Please enter API key',
 			trigger: 'blur',
 		},
 	],
 	'credentials.username': [
 		{
-			required: computed(() => formData.authMethod === 'basic').value,
+			required: computed(() => formData.authMethod === AuthMethod.BasicAuth).value,
 			message: 'Please enter username',
 			trigger: 'blur',
 		},
 	],
 	'credentials.password': [
 		{
-			required: computed(() => formData.authMethod === 'basic').value,
+			required: computed(() => formData.authMethod === AuthMethod.BasicAuth).value,
 			message: 'Please enter password',
 			trigger: 'blur',
 		},
 	],
 	'credentials.token': [
 		{
-			required: computed(() => formData.authMethod === 'bearer').value,
+			required: computed(() => formData.authMethod === AuthMethod.BearerToken).value,
 			message: 'Please enter bearer token',
 			trigger: 'blur',
 		},
 	],
 });
 
-// 状态
-const isTesting = ref(false);
-
 // 表单是否有效
 const isFormValid = computed(() => {
 	return (
-		formData.systemName && formData.endpointUrl && formData.authMethod && hasValidCredentials()
+		formData.systemName &&
+		formData.endpointUrl &&
+		`${formData.authMethod}` &&
+		hasValidCredentials()
 	);
 });
 
@@ -214,13 +246,13 @@ const isFormValid = computed(() => {
  */
 function hasValidCredentials(): boolean {
 	switch (formData.authMethod) {
-		case 'api_key':
+		case AuthMethod.ApiKey:
 			return !!formData.credentials.apiKey;
-		case 'basic':
+		case AuthMethod.BasicAuth:
 			return !!formData.credentials.username && !!formData.credentials.password;
-		case 'bearer':
+		case AuthMethod.BearerToken:
 			return !!formData.credentials.token;
-		case 'oauth2':
+		case AuthMethod.OAuth2:
 			return !!formData.credentials.clientId && !!formData.credentials.clientSecret;
 		default:
 			return false;
@@ -233,20 +265,97 @@ function hasValidCredentials(): boolean {
 function handleAuthMethodChange() {
 	// 清空凭证
 	formData.credentials = {};
-	handleFormChange();
 }
 
 /**
- * 处理表单变更
+ * 初始化表单数据
+ */
+function initFormData() {
+	if (props.integrationId === 'new') {
+		// 新建模式，使用默认值
+		formData.systemName = '';
+		formData.endpointUrl = '';
+		formData.authMethod = AuthMethod.ApiKey;
+		formData.credentials = {};
+		return;
+	}
+
+	// 使用传入的数据
+	if (props.connectionData) {
+		formData.systemName = props.connectionData.systemName || '';
+		formData.endpointUrl = props.connectionData.endpointUrl || '';
+		formData.authMethod = props.connectionData.authMethod || AuthMethod.ApiKey;
+		formData.credentials = props.connectionData.credentials || {};
+	}
+}
+
+/**
+ * 处理表单变更（仅标记数据已变更，不自动保存）
  */
 function handleFormChange() {
-	emit('update', {
-		connection: { ...formData },
-	});
+	// 表单数据变更，但不自动保存，等待用户点击 Update 按钮
 }
 
 /**
- * 测试连接
+ * 保存集成（新建时）
+ */
+async function handleSave() {
+	if (!formRef.value) return;
+
+	try {
+		await formRef.value.validate();
+		isSaving.value = true;
+
+		const res = await createIntegration({
+			systemName: formData.systemName,
+			endpointUrl: formData.endpointUrl,
+			authMethod: formData.authMethod,
+			credentials: formData.credentials,
+			name: formData.systemName,
+		});
+
+		if (res.success && res.data) {
+			ElMessage.success('Integration created successfully');
+			emit('created', res.data, integrationName.value);
+		} else {
+			ElMessage.error(res.msg || 'Failed to create integration');
+		}
+	} finally {
+		isSaving.value = false;
+	}
+}
+
+/**
+ * 更新集成连接配置
+ */
+async function handleUpdate() {
+	if (!formRef.value) return;
+
+	try {
+		await formRef.value.validate();
+		isUpdating.value = true;
+
+		const res = await updateIntegration(props.integrationId, {
+			systemName: formData.systemName,
+			endpointUrl: formData.endpointUrl,
+			authMethod: formData.authMethod,
+			credentials: formData.credentials,
+			name: formData.systemName,
+		});
+
+		if (res.success) {
+			ElMessage.success('Connection settings updated successfully');
+			emit('updated');
+		} else {
+			ElMessage.error(res.msg || 'Failed to update connection settings');
+		}
+	} finally {
+		isUpdating.value = false;
+	}
+}
+
+/**
+ * 测试连接（触发事件，由父组件处理）
  */
 async function handleTestConnection() {
 	if (!formRef.value) return;
@@ -254,6 +363,7 @@ async function handleTestConnection() {
 	try {
 		await formRef.value.validate();
 		isTesting.value = true;
+		// 触发事件，由父组件调用 test 接口
 		emit('test');
 	} catch (error) {
 		console.error('Form validation failed:', error);
@@ -266,31 +376,15 @@ async function handleTestConnection() {
 
 // 监听 props 变化
 watch(
-	() => props.integration.connection,
-	(newConnection) => {
-		if (newConnection) {
-			Object.assign(formData, newConnection);
-		}
+	() => [props.integrationId, props.connectionData],
+	() => {
+		initFormData();
 	},
-	{ deep: true }
+	{ immediate: true, deep: true }
 );
+
+// 初始化
+onMounted(() => {
+	initFormData();
+});
 </script>
-
-<style scoped lang="scss">
-// Element Plus 表单样式覆盖
-:deep(.el-form-item__label) {
-	color: var(--el-text-color-primary);
-	font-weight: 500;
-	font-size: 14px;
-}
-
-:deep(.el-input__wrapper) {
-	background: var(--el-bg-color);
-	border-color: var(--el-border-color-lighter);
-}
-
-:deep(.el-radio) {
-	margin-right: 24px;
-	margin-bottom: 0;
-}
-</style>

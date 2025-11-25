@@ -11,7 +11,7 @@
 			<!-- 加载骨架屏 -->
 			<template v-if="isLoading">
 				<!-- Add New 卡片骨架 -->
-				<div class="border-2 border-dashed rounded-xl p-6 min-h-[280px] flex flex-col">
+				<div class="border-2 border-dashed rounded-xl p-6 flex flex-col">
 					<div class="flex-1 flex flex-col items-center justify-center text-center">
 						<el-skeleton animated class="w-full">
 							<template #template>
@@ -35,7 +35,7 @@
 				<div
 					v-for="i in 15"
 					:key="`skeleton-${i}`"
-					class="bg-bg-overlay border rounded-xl p-6 min-h-[280px] flex flex-col"
+					class="bg-bg-overlay border rounded-xl p-6 flex flex-col"
 				>
 					<el-skeleton animated class="w-full">
 						<template #template>
@@ -72,7 +72,7 @@
 			<template v-else>
 				<!-- 添加新集成卡片（始终在第一位） -->
 				<div
-					class="integration-card border-2 border-dashed rounded-xl p-6 hover:border-primary hover:shadow-md transition-all cursor-pointer group min-h-[280px] flex flex-col items-center justify-center"
+					class="bg-white integration-card border-2 border-dashed rounded-xl p-6 hover:border-primary hover:shadow-md transition-all cursor-pointer group flex flex-col items-center justify-center"
 					@click="handleAddIntegration"
 				>
 					<div
@@ -103,7 +103,6 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
-import { ElMessage } from 'element-plus';
 import { Plus } from '@element-plus/icons-vue';
 import IntegrationListCard from './components/integration-list-card.vue';
 import { getIntegrations } from '@/apis/integration';
@@ -122,10 +121,8 @@ const isLoading = ref(false);
 async function loadIntegrations() {
 	isLoading.value = true;
 	try {
-		integrations.value = await getIntegrations();
-	} catch (error) {
-		console.error('Failed to load integrations:', error);
-		ElMessage.error('Failed to load integrations');
+		const response = await getIntegrations();
+		integrations.value = response.data.items;
 	} finally {
 		isLoading.value = false;
 	}

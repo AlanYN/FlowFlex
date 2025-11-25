@@ -1,467 +1,492 @@
 /**
  * Integration Settings - API 接口定义
  * 所有与集成设置相关的 API 请求
+ * 根据 Integration-API-Documentation.md 定义
  */
 
 import { defHttp } from '@/apis/axios';
+import { useGlobSetting } from '@/settings';
 import type {
 	IIntegrationConfig,
 	ICreateIntegrationRequest,
 	IUpdateIntegrationRequest,
+	IUpdateIntegrationStatusRequest,
 	ITestConnectionResponse,
 	IFieldMapping,
-	IAction,
+	IEntityMapping,
+	IGetIntegrationsParams,
+	IPaginatedResponse,
+	IApiResponse,
+	IQuickLink,
+	IGenerateQuickLinkUrlRequest,
+	ISyncLog,
+	IGetSyncLogsParams,
+	IInboundConfiguration,
+	IOutboundConfiguration,
+	IReceiveExternalDataConfig,
+	IGetAvailableWorkflowsParams,
+	IGetEntityMappingsParams,
+	IWorkflowOption,
 } from '#/integration';
 
-const API_PREFIX = '/api/integrations';
+const globSetting = useGlobSetting();
 
-// 是否使用 Mock 数据（开发环境可设置为 true）
-const USE_MOCK = true;
+const Api = {
+	integration: `${globSetting.apiProName}/integration/${globSetting.apiVersion}`,
+	entityMapping: `${globSetting.apiProName}/integration/entity-mappings/${globSetting.apiVersion}`,
+	fieldMapping: `${globSetting.apiProName}/integration/field-mappings/${globSetting.apiVersion}`,
+	quickLink: `${globSetting.apiProName}/integration/quick-links/${globSetting.apiVersion}`,
+	sync: `${globSetting.apiProName}/integration/sync/${globSetting.apiVersion}`,
+	receiveExternalData: `${globSetting.apiProName}/integration/receive-external-data/${globSetting.apiVersion}`,
+};
 
-// Mock 数据
-const mockIntegrations: IIntegrationConfig[] = [
-	{
-		id: 'int-001',
-		type: 'salesforce',
-		name: 'Salesforce Production',
-		status: 'connected',
-		connection: {
-			systemName: 'Salesforce Production',
-			endpointUrl: 'https://api.salesforce.com/v1',
-			authMethod: 'api_key',
-			credentials: {
-				apiKey: '***************',
-			},
-		},
-		inboundSettings: {
-			entityMappings: [
-				{
-					id: 'em-001',
-					crmEntity: 'Account',
-					wfeEntity: 'customer',
-					workflows: ['wf-1', 'wf-2'],
-				},
-				{
-					id: 'em-002',
-					crmEntity: 'Lead',
-					wfeEntity: 'lead',
-					workflows: ['wf-3'],
-				},
-			],
-			fieldMappings: [
-				{
-					id: 'fm-001',
-					crmField: 'AccountName',
-					wfeField: 'name',
-					type: 'text',
-					syncDirection: 'editable',
-					workflows: ['wf-1'],
-				},
-				{
-					id: 'fm-002',
-					crmField: 'Email',
-					wfeField: 'email',
-					type: 'email',
-					syncDirection: 'view_only',
-					workflows: ['wf-1', 'wf-2'],
-				},
-				{
-					id: 'fm-003',
-					crmField: 'Phone',
-					wfeField: 'phone',
-					type: 'phone',
-					syncDirection: 'editable',
-					workflows: ['wf-1'],
-				},
-			],
-			attachmentSharing: [
-				{
-					id: 'as-001',
-					module: 'Documents',
-					workflows: ['wf-1', 'wf-2'],
-				},
-			],
-		},
-		outboundSettings: {
-			masterData: ['cases', 'customers', 'leads'],
-			fields: ['name', 'email', 'phone', 'status'],
-			attachmentWorkflows: ['wf-1', 'wf-2'],
-		},
-		actions: [
-			{
-				id: 'act-001',
-				name: 'Create Case in Salesforce',
-				type: 'create',
-				status: 'active',
-				workflows: ['wf-1'],
-			},
-			{
-				id: 'act-002',
-				name: 'Update Customer Info',
-				type: 'update',
-				status: 'active',
-				workflows: ['wf-1', 'wf-2'],
-			},
-		],
-		createdAt: '2024-01-15T10:30:00Z',
-		updatedAt: '2024-03-20T14:45:00Z',
-	},
-	{
-		id: 'int-002',
-		type: 'hubspot',
-		name: 'HubSpot Marketing',
-		status: 'disconnected',
-		connection: {
-			systemName: 'HubSpot Marketing',
-			endpointUrl: 'https://api.hubapi.com/v3',
-			authMethod: 'bearer',
-			credentials: {
-				token: '***************',
-			},
-		},
-		inboundSettings: {
-			entityMappings: [
-				{
-					id: 'em-003',
-					crmEntity: 'Contact',
-					wfeEntity: 'contact',
-					workflows: ['wf-2'],
-				},
-			],
-			fieldMappings: [
-				{
-					id: 'fm-004',
-					crmField: 'firstname',
-					wfeField: 'name',
-					type: 'text',
-					syncDirection: 'view_only',
-					workflows: ['wf-2'],
-				},
-			],
-			attachmentSharing: [],
-		},
-		outboundSettings: {
-			masterData: ['contacts', 'leads'],
-			fields: ['name', 'email'],
-			attachmentWorkflows: [],
-		},
-		actions: [
-			{
-				id: 'act-003',
-				name: 'Sync Contact to HubSpot',
-				type: 'sync',
-				status: 'inactive',
-				workflows: ['wf-2'],
-			},
-		],
-		createdAt: '2024-02-10T09:15:00Z',
-		updatedAt: '2024-02-10T09:15:00Z',
-	},
-	{
-		id: 'int-003',
-		type: 'zoho',
-		name: 'Zoho CRM Integration',
-		status: 'connected',
-		connection: {
-			systemName: 'Zoho CRM',
-			endpointUrl: 'https://www.zohoapis.com/crm/v2',
-			authMethod: 'basic',
-			credentials: {
-				username: 'admin@company.com',
-				password: '***************',
-			},
-		},
-		inboundSettings: {
-			entityMappings: [],
-			fieldMappings: [],
-			attachmentSharing: [],
-		},
-		outboundSettings: {
-			masterData: ['cases'],
-			fields: ['name', 'status'],
-			attachmentWorkflows: ['wf-3'],
-		},
-		actions: [],
-		createdAt: '2024-03-01T11:20:00Z',
-		updatedAt: '2024-03-15T16:30:00Z',
-	},
-];
-
-let mockIdCounter = 4;
+// ==================== Integration Management API ====================
 
 /**
- * Mock 延迟函数（模拟网络请求）
+ * 获取集成列表（分页）
+ * GET /integration/v1
  */
-const mockDelay = (ms: number = 500) => new Promise((resolve) => setTimeout(resolve, ms));
-
-/**
- * 集成设置 API 类
- */
-export class IntegrationAPI {
-	/**
-	 * 获取所有集成列表
-	 */
-	static async getIntegrations(): Promise<IIntegrationConfig[]> {
-		if (USE_MOCK) {
-			await mockDelay();
-			return Promise.resolve([...mockIntegrations]);
-		}
-		return defHttp.get({ url: API_PREFIX });
-	}
-
-	/**
-	 * 创建新集成
-	 */
-	static async createIntegration(data: ICreateIntegrationRequest): Promise<IIntegrationConfig> {
-		if (USE_MOCK) {
-			await mockDelay();
-			const newIntegration: IIntegrationConfig = {
-				id: `int-${String(mockIdCounter++).padStart(3, '0')}`,
-				type: data.type,
-				name: data.name,
-				status: 'disconnected',
-				connection: {
-					systemName: '',
-					endpointUrl: '',
-					authMethod: 'api_key',
-					credentials: {},
-				},
-				inboundSettings: {
-					entityMappings: [],
-					fieldMappings: [],
-					attachmentSharing: [],
-				},
-				outboundSettings: {
-					masterData: [],
-					fields: [],
-					attachmentWorkflows: [],
-				},
-				actions: [],
-				createdAt: new Date().toISOString(),
-				updatedAt: new Date().toISOString(),
-			};
-			mockIntegrations.push(newIntegration);
-			return Promise.resolve(newIntegration);
-		}
-		return defHttp.post({ url: API_PREFIX, data });
-	}
-
-	/**
-	 * 获取单个集成详情
-	 */
-	static async getIntegration(id: string): Promise<IIntegrationConfig> {
-		if (USE_MOCK) {
-			await mockDelay();
-			const integration = mockIntegrations.find((item) => item.id === id);
-			if (!integration) {
-				return Promise.reject(new Error('Integration not found'));
-			}
-			return Promise.resolve({ ...integration });
-		}
-		return defHttp.get({ url: `${API_PREFIX}/${id}` });
-	}
-
-	/**
-	 * 更新集成配置
-	 */
-	static async updateIntegration(
-		id: string,
-		data: IUpdateIntegrationRequest
-	): Promise<IIntegrationConfig> {
-		if (USE_MOCK) {
-			await mockDelay();
-			const index = mockIntegrations.findIndex((item) => item.id === id);
-			if (index === -1) {
-				return Promise.reject(new Error('Integration not found'));
-			}
-			mockIntegrations[index] = {
-				...mockIntegrations[index],
-				...data,
-				updatedAt: new Date().toISOString(),
-			};
-			return Promise.resolve({ ...mockIntegrations[index] });
-		}
-		return defHttp.put({ url: `${API_PREFIX}/${id}`, data });
-	}
-
-	/**
-	 * 删除集成
-	 */
-	static async deleteIntegration(id: string): Promise<void> {
-		if (USE_MOCK) {
-			await mockDelay();
-			const index = mockIntegrations.findIndex((item) => item.id === id);
-			if (index === -1) {
-				return Promise.reject(new Error('Integration not found'));
-			}
-			mockIntegrations.splice(index, 1);
-			return Promise.resolve();
-		}
-		return defHttp.delete({ url: `${API_PREFIX}/${id}` });
-	}
-
-	/**
-	 * 测试连接
-	 */
-	static async testConnection(id: string): Promise<ITestConnectionResponse> {
-		if (USE_MOCK) {
-			await mockDelay(1000);
-			const integration = mockIntegrations.find((item) => item.id === id);
-			if (!integration) {
-				return Promise.reject(new Error('Integration not found'));
-			}
-
-			// 模拟随机成功/失败
-			const isSuccess = Math.random() > 0.3;
-
-			if (isSuccess) {
-				// 更新状态为已连接
-				integration.status = 'connected';
-				return Promise.resolve({
-					success: true,
-					message: 'Connection test successful! All systems are operational.',
-					details: {
-						responseTime: '245ms',
-						apiVersion: 'v2.1',
-						timestamp: new Date().toISOString(),
-					},
-				});
-			} else {
-				return Promise.resolve({
-					success: false,
-					message:
-						'Connection test failed. Please check your credentials and endpoint URL.',
-					details: {
-						error: 'Authentication failed',
-						errorCode: 'AUTH_001',
-					},
-				});
-			}
-		}
-		return defHttp.post({ url: `${API_PREFIX}/${id}/test` });
-	}
-
-	/**
-	 * 获取字段映射列表
-	 */
-	static async getFieldMappings(id: string): Promise<IFieldMapping[]> {
-		if (USE_MOCK) {
-			await mockDelay();
-			const integration = mockIntegrations.find((item) => item.id === id);
-			if (!integration) {
-				return Promise.reject(new Error('Integration not found'));
-			}
-			return Promise.resolve([...(integration.inboundSettings?.fieldMappings || [])]);
-		}
-		return defHttp.get({ url: `${API_PREFIX}/${id}/field-mappings` });
-	}
-
-	/**
-	 * 创建字段映射
-	 */
-	static async createFieldMapping(
-		id: string,
-		data: Omit<IFieldMapping, 'id'>
-	): Promise<IFieldMapping> {
-		if (USE_MOCK) {
-			await mockDelay();
-			const integration = mockIntegrations.find((item) => item.id === id);
-			if (!integration) {
-				return Promise.reject(new Error('Integration not found'));
-			}
-			const newMapping: IFieldMapping = {
-				...data,
-				id: `fm-${Date.now()}`,
-			};
-			integration.inboundSettings.fieldMappings.push(newMapping);
-			return Promise.resolve(newMapping);
-		}
-		return defHttp.post({ url: `${API_PREFIX}/${id}/field-mappings`, data });
-	}
-
-	/**
-	 * 更新字段映射
-	 */
-	static async updateFieldMapping(
-		id: string,
-		fieldId: string,
-		data: Partial<IFieldMapping>
-	): Promise<IFieldMapping> {
-		if (USE_MOCK) {
-			await mockDelay();
-			const integration = mockIntegrations.find((item) => item.id === id);
-			if (!integration) {
-				return Promise.reject(new Error('Integration not found'));
-			}
-			const fieldIndex = integration.inboundSettings.fieldMappings.findIndex(
-				(f) => f.id === fieldId
-			);
-			if (fieldIndex === -1) {
-				return Promise.reject(new Error('Field mapping not found'));
-			}
-			integration.inboundSettings.fieldMappings[fieldIndex] = {
-				...integration.inboundSettings.fieldMappings[fieldIndex],
-				...data,
-			};
-			return Promise.resolve({ ...integration.inboundSettings.fieldMappings[fieldIndex] });
-		}
-		return defHttp.put({
-			url: `${API_PREFIX}/${id}/field-mappings/${fieldId}`,
-			data,
-		});
-	}
-
-	/**
-	 * 删除字段映射
-	 */
-	static async deleteFieldMapping(id: string, fieldId: string): Promise<void> {
-		if (USE_MOCK) {
-			await mockDelay();
-			const integration = mockIntegrations.find((item) => item.id === id);
-			if (!integration) {
-				return Promise.reject(new Error('Integration not found'));
-			}
-			const fieldIndex = integration.inboundSettings.fieldMappings.findIndex(
-				(f) => f.id === fieldId
-			);
-			if (fieldIndex === -1) {
-				return Promise.reject(new Error('Field mapping not found'));
-			}
-			integration.inboundSettings.fieldMappings.splice(fieldIndex, 1);
-			return Promise.resolve();
-		}
-		return defHttp.delete({
-			url: `${API_PREFIX}/${id}/field-mappings/${fieldId}`,
-		});
-	}
-
-	/**
-	 * 获取动作列表
-	 */
-	static async getActions(id: string): Promise<IAction[]> {
-		if (USE_MOCK) {
-			await mockDelay();
-			const integration = mockIntegrations.find((item) => item.id === id);
-			if (!integration) {
-				return Promise.reject(new Error('Integration not found'));
-			}
-			return Promise.resolve([...(integration.actions || [])]);
-		}
-		return defHttp.get({ url: `${API_PREFIX}/${id}/actions` });
-	}
+export async function getIntegrations(
+	params?: IGetIntegrationsParams
+): Promise<IApiResponse<IPaginatedResponse<IIntegrationConfig>>> {
+	return defHttp.get({ url: Api.integration, params });
 }
 
-// 导出便捷方法
-export const {
-	getIntegrations,
-	createIntegration,
-	getIntegration,
-	updateIntegration,
-	deleteIntegration,
-	testConnection,
-	getFieldMappings,
-	createFieldMapping,
-	updateFieldMapping,
-	deleteFieldMapping,
-	getActions,
-} = IntegrationAPI;
+/**
+ * 创建集成
+ * POST /integration/v1
+ */
+export async function createIntegration(
+	data: ICreateIntegrationRequest
+): Promise<IApiResponse<string | number>> {
+	return defHttp.post({ url: Api.integration, data });
+}
+
+/**
+ * 获取单个集成详情
+ * GET /integration/v1/{id}
+ */
+export async function getIntegration(
+	id: string | number
+): Promise<IApiResponse<IIntegrationConfig>> {
+	return defHttp.get({ url: `${Api.integration}/${id}` });
+}
+
+/**
+ * 获取集成完整详情（包括所有关联数据）
+ * GET /integration/v1/{id}/details
+ */
+export async function getIntegrationDetails(
+	id: string | number
+): Promise<IApiResponse<IIntegrationConfig>> {
+	return defHttp.get({ url: `${Api.integration}/${id}/details` });
+}
+
+/**
+ * 更新集成配置
+ * PUT /integration/v1/{id}
+ */
+export async function updateIntegration(
+	id: string | number,
+	data: ICreateIntegrationRequest
+): Promise<IApiResponse<boolean>> {
+	return defHttp.put({ url: `${Api.integration}/${id}`, data });
+}
+
+/**
+ * 删除集成
+ * DELETE /integration/v1/{id}
+ */
+export async function deleteIntegration(id: string | number): Promise<IApiResponse<boolean>> {
+	return defHttp.delete({ url: `${Api.integration}/${id}` });
+}
+
+/**
+ * 测试连接
+ * POST /integration/v1/{id}/test-connection
+ */
+export async function testConnection(
+	id: string | number
+): Promise<IApiResponse<ITestConnectionResponse>> {
+	return defHttp.post({ url: `${Api.integration}/${id}/test-connection` });
+}
+
+/**
+ * 更新集成状态
+ * PUT /integration/v1/{id}/status
+ */
+export async function updateIntegrationStatus(
+	id: string | number,
+	data: IUpdateIntegrationStatusRequest
+): Promise<IApiResponse<boolean>> {
+	return defHttp.put({ url: `${Api.integration}/${id}/status`, data: data.status });
+}
+
+// ==================== Entity Mapping API ====================
+
+/**
+ * 创建实体映射
+ * POST /integration/entity-mappings/v1
+ */
+export async function createEntityMapping(
+	data: Omit<IEntityMapping, 'id'>
+): Promise<IApiResponse<string | number>> {
+	return defHttp.post({ url: Api.entityMapping, data });
+}
+
+/**
+ * 更新实体映射
+ * PUT /integration/entity-mappings/v1/{id}
+ */
+export async function updateEntityMapping(
+	id: string | number,
+	data: Partial<IEntityMapping>
+): Promise<IApiResponse<boolean>> {
+	return defHttp.put({ url: `${Api.entityMapping}/${id}`, data });
+}
+
+/**
+ * 删除实体映射
+ * DELETE /integration/entity-mappings/v1/{id}
+ */
+export async function deleteEntityMapping(id: string | number): Promise<IApiResponse<boolean>> {
+	return defHttp.delete({ url: `${Api.entityMapping}/${id}` });
+}
+
+/**
+ * 获取实体映射详情
+ * GET /integration/entity-mappings/v1/{id}
+ */
+export async function getEntityMapping(id: string | number): Promise<IApiResponse<IEntityMapping>> {
+	return defHttp.get({ url: `${Api.entityMapping}/${id}` });
+}
+
+/**
+ * 按集成 ID 获取实体映射列表
+ * GET /integration/entity-mappings/v1/by-integration/{integrationId}
+ */
+export async function getEntityMappingsByIntegration(
+	integrationId: string | number
+): Promise<IApiResponse<IEntityMapping[]>> {
+	return defHttp.get({ url: `${Api.entityMapping}/by-integration/${integrationId}` });
+}
+
+/**
+ * 获取实体映射列表（分页）
+ * GET /integration/entity-mappings/v1
+ */
+export async function getEntityMappings(
+	params: IGetEntityMappingsParams
+): Promise<IApiResponse<IPaginatedResponse<IEntityMapping>>> {
+	return defHttp.get({ url: Api.entityMapping, params });
+}
+
+// ==================== Field Mapping API ====================
+
+/**
+ * 创建字段映射
+ * POST /integration/field-mappings/v1
+ */
+export async function createFieldMapping(
+	data: Omit<IFieldMapping, 'id'>
+): Promise<IApiResponse<string | number>> {
+	return defHttp.post({ url: Api.fieldMapping, data });
+}
+
+/**
+ * 更新字段映射
+ * PUT /integration/field-mappings/v1/{id}
+ */
+export async function updateFieldMapping(
+	id: string | number,
+	data: Partial<IFieldMapping>
+): Promise<IApiResponse<boolean>> {
+	return defHttp.put({ url: `${Api.fieldMapping}/${id}`, data });
+}
+
+/**
+ * 删除字段映射
+ * DELETE /integration/field-mappings/v1/{id}
+ */
+export async function deleteFieldMapping(id: string | number): Promise<IApiResponse<boolean>> {
+	return defHttp.delete({ url: `${Api.fieldMapping}/${id}` });
+}
+
+/**
+ * 获取字段映射详情
+ * GET /integration/field-mappings/v1/{id}
+ */
+export async function getFieldMapping(id: string | number): Promise<IApiResponse<IFieldMapping>> {
+	return defHttp.get({ url: `${Api.fieldMapping}/${id}` });
+}
+
+/**
+ * 按实体映射 ID 获取字段映射列表
+ * GET /integration/field-mappings/v1/by-entity-mapping/{entityMappingId}
+ */
+export async function getFieldMappingsByEntityMapping(
+	entityMappingId: string | number
+): Promise<IApiResponse<IFieldMapping[]>> {
+	return defHttp.get({
+		url: `${Api.fieldMapping}/by-entity-mapping/${entityMappingId}`,
+	});
+}
+
+/**
+ * 按集成 ID 获取字段映射列表
+ * GET /integration/field-mappings/v1/by-integration/{integrationId}
+ */
+export async function getFieldMappingsByIntegration(
+	integrationId: string | number
+): Promise<IApiResponse<IFieldMapping[]>> {
+	return defHttp.get({ url: `${Api.fieldMapping}/by-integration/${integrationId}` });
+}
+
+/**
+ * 批量更新字段映射
+ * PUT /integration/field-mappings/v1/batch
+ */
+export async function batchUpdateFieldMappings(
+	data: Array<Omit<IFieldMapping, 'id'>>
+): Promise<IApiResponse<boolean>> {
+	return defHttp.put({ url: `${Api.fieldMapping}/batch`, data });
+}
+
+// ==================== Quick Link API ====================
+
+/**
+ * 创建快速链接
+ * POST /integration/quick-links/v1
+ */
+export async function createQuickLink(
+	data: Omit<IQuickLink, 'id'>
+): Promise<IApiResponse<string | number>> {
+	return defHttp.post({ url: Api.quickLink, data });
+}
+
+/**
+ * 更新快速链接
+ * PUT /integration/quick-links/v1/{id}
+ */
+export async function updateQuickLink(
+	id: string | number,
+	data: Partial<IQuickLink>
+): Promise<IApiResponse<boolean>> {
+	return defHttp.put({ url: `${Api.quickLink}/${id}`, data });
+}
+
+/**
+ * 删除快速链接
+ * DELETE /integration/quick-links/v1/{id}
+ */
+export async function deleteQuickLink(id: string | number): Promise<IApiResponse<boolean>> {
+	return defHttp.delete({ url: `${Api.quickLink}/${id}` });
+}
+
+/**
+ * 获取快速链接详情
+ * GET /integration/quick-links/v1/{id}
+ */
+export async function getQuickLink(id: string | number): Promise<IApiResponse<IQuickLink>> {
+	return defHttp.get({ url: `${Api.quickLink}/${id}` });
+}
+
+/**
+ * 按集成 ID 获取快速链接列表
+ * GET /integration/quick-links/v1/by-integration/{integrationId}
+ */
+export async function getQuickLinksByIntegration(
+	integrationId: string | number
+): Promise<IApiResponse<IQuickLink[]>> {
+	return defHttp.get({ url: `${Api.quickLink}/by-integration/${integrationId}` });
+}
+
+/**
+ * 生成快速链接 URL
+ * POST /integration/quick-links/v1/{id}/generate-url
+ */
+export async function generateQuickLinkUrl(
+	id: string | number,
+	data: IGenerateQuickLinkUrlRequest
+): Promise<IApiResponse<string>> {
+	return defHttp.post({ url: `${Api.quickLink}/${id}/generate-url`, data });
+}
+
+// ==================== Integration Sync API ====================
+
+/**
+ * 入站同步（Inbound）
+ * POST /integration/sync/v1/inbound
+ */
+export async function syncInbound(params: {
+	integrationId: string | number;
+	entityType: string;
+	externalEntityId: string;
+}): Promise<IApiResponse<boolean>> {
+	return defHttp.post({ url: `${Api.sync}/inbound`, params });
+}
+
+/**
+ * 出站同步（Outbound）
+ * POST /integration/sync/v1/outbound
+ */
+export async function syncOutbound(params: {
+	integrationId: string | number;
+	entityType: string;
+	wfeEntityId: string | number;
+}): Promise<IApiResponse<boolean>> {
+	return defHttp.post({ url: `${Api.sync}/outbound`, params });
+}
+
+/**
+ * 获取同步日志（分页）
+ * GET /integration/sync/v1/logs
+ */
+export async function getSyncLogs(
+	params: IGetSyncLogsParams
+): Promise<IApiResponse<IPaginatedResponse<ISyncLog>>> {
+	return defHttp.get({ url: `${Api.sync}/logs`, params });
+}
+
+/**
+ * 重试失败的同步
+ * POST /integration/sync/v1/retry/{syncLogId}
+ */
+export async function retrySync(syncLogId: string | number): Promise<IApiResponse<boolean>> {
+	return defHttp.post({ url: `${Api.sync}/retry/${syncLogId}` });
+}
+
+// ==================== Inbound/Outbound Configuration API ====================
+
+/**
+ * 获取 Inbound 配置概览
+ * GET /integration/v1/{integrationId}/inbound-overview
+ */
+export async function getInboundOverview(
+	integrationId: string | number
+): Promise<IApiResponse<IInboundConfiguration[]>> {
+	return defHttp.get({ url: `${Api.integration}/${integrationId}/inbound-overview` });
+}
+
+/**
+ * 获取 Outbound 配置概览
+ * GET /integration/v1/{integrationId}/outbound-overview
+ */
+export async function getOutboundOverview(
+	integrationId: string | number
+): Promise<IApiResponse<IOutboundConfiguration[]>> {
+	return defHttp.get({ url: `${Api.integration}/${integrationId}/outbound-overview` });
+}
+
+/**
+ * 创建/更新 Inbound 配置
+ * PUT /integration/v1/{integrationId}/actions/{actionId}/inbound
+ */
+export async function createOrUpdateInboundConfig(
+	integrationId: string | number,
+	actionId: string | number,
+	data: Omit<IInboundConfiguration, 'id' | 'integrationId' | 'actionId'>
+): Promise<IApiResponse<string | number>> {
+	return defHttp.put({
+		url: `${Api.integration}/${integrationId}/actions/${actionId}/inbound`,
+		data,
+	});
+}
+
+/**
+ * 获取 Inbound 配置详情
+ * GET /integration/v1/{integrationId}/actions/{actionId}/inbound
+ */
+export async function getInboundConfig(
+	integrationId: string | number,
+	actionId: string | number
+): Promise<IApiResponse<IInboundConfiguration>> {
+	return defHttp.get({
+		url: `${Api.integration}/${integrationId}/actions/${actionId}/inbound`,
+	});
+}
+
+/**
+ * 创建/更新 Outbound 配置
+ * PUT /integration/v1/{integrationId}/actions/{actionId}/outbound
+ */
+export async function createOrUpdateOutboundConfig(
+	integrationId: string | number,
+	actionId: string | number,
+	data: Omit<IOutboundConfiguration, 'id' | 'integrationId' | 'actionId'>
+): Promise<IApiResponse<string | number>> {
+	return defHttp.put({
+		url: `${Api.integration}/${integrationId}/actions/${actionId}/outbound`,
+		data,
+	});
+}
+
+/**
+ * 获取 Outbound 配置详情
+ * GET /integration/v1/{integrationId}/actions/{actionId}/outbound
+ */
+export async function getOutboundConfig(
+	integrationId: string | number,
+	actionId: string | number
+): Promise<IApiResponse<IOutboundConfiguration>> {
+	return defHttp.get({
+		url: `${Api.integration}/${integrationId}/actions/${actionId}/outbound`,
+	});
+}
+
+// ==================== Receive External Data Config API ====================
+
+/**
+ * 获取可用的 Workflows
+ * GET /integration/receive-external-data/v1/available-workflows
+ */
+export async function getAvailableWorkflows(
+	params: IGetAvailableWorkflowsParams
+): Promise<IApiResponse<IPaginatedResponse<IWorkflowOption>>> {
+	return defHttp.get({
+		url: `${Api.receiveExternalData}/available-workflows`,
+		params,
+	});
+}
+
+/**
+ * 创建接收外部数据配置
+ * POST /integration/receive-external-data/v1
+ */
+export async function createReceiveExternalDataConfig(
+	data: Omit<IReceiveExternalDataConfig, 'id'>
+): Promise<IApiResponse<string | number>> {
+	return defHttp.post({ url: Api.receiveExternalData, data });
+}
+
+/**
+ * 删除接收外部数据配置
+ * DELETE /integration/receive-external-data/v1/{id}
+ */
+export async function deleteReceiveExternalDataConfig(
+	id: string | number
+): Promise<IApiResponse<boolean>> {
+	return defHttp.delete({ url: `${Api.receiveExternalData}/${id}` });
+}
+
+/**
+ * 获取接收外部数据配置详情
+ * GET /integration/receive-external-data/v1/{id}
+ */
+export async function getReceiveExternalDataConfig(
+	id: string | number
+): Promise<IApiResponse<IReceiveExternalDataConfig>> {
+	return defHttp.get({ url: `${Api.receiveExternalData}/${id}` });
+}
+
+/**
+ * 按集成 ID 获取配置列表
+ * GET /integration/receive-external-data/v1/by-integration/{integrationId}
+ */
+export async function getReceiveExternalDataConfigsByIntegration(
+	integrationId: string | number
+): Promise<IApiResponse<IReceiveExternalDataConfig[]>> {
+	return defHttp.get({
+		url: `${Api.receiveExternalData}/by-integration/${integrationId}`,
+	});
+}
