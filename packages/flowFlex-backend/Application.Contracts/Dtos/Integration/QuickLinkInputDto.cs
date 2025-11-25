@@ -63,23 +63,35 @@ namespace FlowFlex.Application.Contracts.Dtos.Integration
 
     /// <summary>
     /// URL parameter configuration DTO
+    /// URL参数配置DTO
     /// </summary>
     public class UrlParameterDto
     {
         /// <summary>
-        /// Parameter name
+        /// Parameter name (e.g., orderNo, userId)
+        /// 参数名称
         /// </summary>
+        [Required]
+        [StringLength(100)]
         public string Name { get; set; } = string.Empty;
 
         /// <summary>
-        /// Parameter source field
+        /// Value source type
+        /// 值来源类型
         /// </summary>
-        public string SourceField { get; set; } = string.Empty;
+        [Required]
+        public UrlParameterValueSource ValueSource { get; set; } = UrlParameterValueSource.PageParameter;
 
         /// <summary>
-        /// Default value if source is empty
+        /// Value detail (specific field or value based on ValueSource)
+        /// 值详情（根据ValueSource指定的具体字段或值）
+        /// - PageParameter: Customer ID, Order No, etc.
+        /// - LoginUserInfo: UserId, UserName, Email, etc.
+        /// - FixedValue: The actual fixed value
+        /// - SystemVariable: CurrentDate, CurrentTime, etc.
         /// </summary>
-        public string? DefaultValue { get; set; }
+        [StringLength(500)]
+        public string? ValueDetail { get; set; }
     }
 }
 

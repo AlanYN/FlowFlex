@@ -1,5 +1,6 @@
 using System.Text.RegularExpressions;
 using AutoMapper;
+using Domain.Shared.Enums;
 using FlowFlex.Application.Contracts.Dtos.Integration;
 using FlowFlex.Application.Contracts.IServices;
 using FlowFlex.Application.Contracts.IServices.Integration;
@@ -176,17 +177,7 @@ namespace FlowFlex.Application.Services.Integration
             // Replace placeholders with actual values
             foreach (var param in urlParameters)
             {
-                var value = string.Empty;
-
-                // Try to get value from data context
-                if (dataContext.TryGetValue(param.SourceField, out var contextValue))
-                {
-                    value = contextValue;
-                }
-                else if (!string.IsNullOrEmpty(param.DefaultValue))
-                {
-                    value = param.DefaultValue;
-                }
+                var value = GetParameterValue(param, dataContext);
 
                 // Replace placeholder in URL
                 var placeholder = $"{{{param.Name}}}";
@@ -196,6 +187,74 @@ namespace FlowFlex.Application.Services.Integration
             _logger.LogInformation($"Generated URL for quick link {entity.LinkName}: {url}");
 
             return url;
+        }
+
+        /// <summary>
+        /// Get parameter value based on ValueSource type
+        /// 根据值来源类型获取参数值
+        /// </summary>
+        private string GetParameterValue(UrlParameterDto param, Dictionary<string, string> dataContext)
+        {
+            var valueDetail = param.ValueDetail ?? string.Empty;
+
+            return param.ValueSource switch
+            {
+                UrlParameterValueSource.PageParameter => 
+                    dataContext.TryGetValue(valueDetail, out var contextValue) ? contextValue : string.Empty,
+                
+                UrlParameterValueSource.LoginUserInfo => 
+                    GetUserInfoValue(valueDetail),
+                
+                UrlParameterValueSource.FixedValue => 
+                    valueDetail,
+                
+                UrlParameterValueSource.SystemVariable => 
+                    GetSystemVariableValue(valueDetail),
+                
+                _ => string.Empty
+            };
+        }
+
+        /// <summary>
+        /// Get value from current user context
+        /// 从当前用户上下文获取值
+        /// </summary>
+        private string GetUserInfoValue(string fieldName)
+        {
+            if (string.IsNullOrEmpty(fieldName) || _userContext == null)
+                return string.Empty;
+
+            return fieldName.ToLower() switch
+            {
+                "userid" => _userContext.UserId ?? string.Empty,
+                "username" => _userContext.UserName ?? string.Empty,
+                "email" => _userContext.Email ?? string.Empty,
+                "firstname" => _userContext.FirstName ?? string.Empty,
+                "companyid" => _userContext.CompanyId ?? string.Empty,
+                "tenantid" => _userContext.TenantId ?? string.Empty,
+                _ => string.Empty
+            };
+        }
+
+        /// <summary>
+        /// Get system variable value
+        /// 获取系统变量值
+        /// </summary>
+        private string GetSystemVariableValue(string variableName)
+        {
+            if (string.IsNullOrEmpty(variableName))
+                return string.Empty;
+
+            return variableName.ToLower() switch
+            {
+                "currentdate" => DateTime.Now.ToString("yyyy-MM-dd"),
+                "currenttime" => DateTime.Now.ToString("HH:mm:ss"),
+                "currentdatetime" => DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"),
+                "currenttimestamp" => DateTimeOffset.Now.ToUnixTimeSeconds().ToString(),
+                "currentyear" => DateTime.Now.Year.ToString(),
+                "currentmonth" => DateTime.Now.Month.ToString(),
+                _ => string.Empty
+            };
         }
     }
 }

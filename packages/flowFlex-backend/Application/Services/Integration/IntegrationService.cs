@@ -1,4 +1,6 @@
 using System.Linq;
+using System.Net.Http;
+using System.Net.Http.Headers;
 using System.Security.Cryptography;
 using System.Text;
 using AutoMapper;
@@ -32,6 +34,7 @@ namespace FlowFlex.Application.Services.Integration
         private readonly IQuickLinkRepository _quickLinkRepository;
         private readonly IActionDefinitionRepository _actionDefinitionRepository;
         private readonly ISqlSugarClient _sqlSugarClient;
+        private readonly IHttpClientFactory _httpClientFactory;
         private readonly IMapper _mapper;
         private readonly UserContext _userContext;
         private readonly ILogger<IntegrationService> _logger;
@@ -49,6 +52,7 @@ namespace FlowFlex.Application.Services.Integration
             IQuickLinkRepository quickLinkRepository,
             IActionDefinitionRepository actionDefinitionRepository,
             ISqlSugarClient sqlSugarClient,
+            IHttpClientFactory httpClientFactory,
             IMapper mapper,
             UserContext userContext,
             ILogger<IntegrationService> logger)
@@ -62,6 +66,7 @@ namespace FlowFlex.Application.Services.Integration
             _quickLinkRepository = quickLinkRepository;
             _actionDefinitionRepository = actionDefinitionRepository;
             _sqlSugarClient = sqlSugarClient;
+            _httpClientFactory = httpClientFactory;
             _mapper = mapper;
             _userContext = userContext;
             _logger = logger;
@@ -373,16 +378,40 @@ namespace FlowFlex.Application.Services.Integration
                 // Decrypt credentials
                 var credentials = DecryptCredentials(entity.EncryptedCredentials);
                 
-                // TODO: Implement actual connection test based on AuthMethod and EndpointUrl
-                // For now, just return true
-                _logger.LogInformation($"Testing connection for integration: {entity.Name} (ID: {id})");
+                _logger.LogInformation($"Testing connection for integration: {entity.Name} (ID: {id}), AuthMethod: {entity.AuthMethod}, EndpointUrl: {entity.EndpointUrl}");
                 
-                // Update status to Connected if test succeeds
-                entity.Status = global::Domain.Shared.Enums.IntegrationStatus.Connected;
+                // Perform actual HTTP connection test
+                var (success, errorMessage) = await PerformConnectionTestAsync(entity.EndpointUrl, entity.AuthMethod, credentials);
+                
+                if (success)
+                {
+                    // Update status to Connected if test succeeds
+                    entity.Status = global::Domain.Shared.Enums.IntegrationStatus.Connected;
+                    entity.ErrorMessage = null;
+                    entity.LastSyncDate = DateTimeOffset.UtcNow;
+                    _logger.LogInformation($"Connection test succeeded for integration: {entity.Name} (ID: {id})");
+                }
+                else
+                {
+                    // Update status to Error if test fails
+                    entity.Status = global::Domain.Shared.Enums.IntegrationStatus.Error;
+                    entity.ErrorMessage = errorMessage;
+                    _logger.LogWarning($"Connection test failed for integration: {entity.Name} (ID: {id}), Error: {errorMessage}");
+                }
+                
                 entity.InitModifyInfo(_userContext);
                 await _integrationRepository.UpdateAsync(entity);
                 
+                if (!success)
+                {
+                    throw new CRMException(ErrorCodeEnum.BusinessError, $"Connection test failed: {errorMessage}");
+                }
+                
                 return true;
+            }
+            catch (CRMException)
+            {
+                throw;
             }
             catch (Exception ex)
             {
@@ -390,10 +419,142 @@ namespace FlowFlex.Application.Services.Integration
                 
                 // Update status to Error if test fails
                 entity.Status = global::Domain.Shared.Enums.IntegrationStatus.Error;
+                entity.ErrorMessage = ex.Message;
                 entity.InitModifyInfo(_userContext);
                 await _integrationRepository.UpdateAsync(entity);
                 
                 throw new CRMException(ErrorCodeEnum.BusinessError, $"Connection test failed: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Perform actual HTTP connection test based on authentication method
+        /// </summary>
+        private async Task<(bool Success, string? ErrorMessage)> PerformConnectionTestAsync(
+            string endpointUrl, 
+            AuthenticationMethod authMethod, 
+            Dictionary<string, string>? credentials)
+        {
+            if (string.IsNullOrEmpty(endpointUrl))
+            {
+                return (false, "Endpoint URL is required");
+            }
+
+            try
+            {
+                using var httpClient = _httpClientFactory.CreateClient();
+                httpClient.Timeout = TimeSpan.FromSeconds(30);
+
+                HttpRequestMessage request;
+
+                switch (authMethod)
+                {
+                    case AuthenticationMethod.ApiKey:
+                        // API Key - Send GET request with API key in header
+                        request = new HttpRequestMessage(HttpMethod.Get, endpointUrl);
+                        if (credentials != null && credentials.TryGetValue("apiKey", out var apiKey))
+                        {
+                            request.Headers.Add("X-API-Key", apiKey);
+                            request.Headers.Add("Authorization", $"ApiKey {apiKey}");
+                        }
+                        break;
+
+                    case AuthenticationMethod.BasicAuth:
+                        // Basic Auth - For OAuth token endpoint, use POST with form data
+                        if (endpointUrl.Contains("/oauth2/token") || endpointUrl.Contains("/connect/token"))
+                        {
+                            request = new HttpRequestMessage(HttpMethod.Post, endpointUrl);
+                            var formData = new Dictionary<string, string>
+                            {
+                                { "grant_type", "password" }
+                            };
+                            if (credentials != null)
+                            {
+                                if (credentials.TryGetValue("username", out var username))
+                                    formData["username"] = username;
+                                if (credentials.TryGetValue("password", out var password))
+                                    formData["password"] = password;
+                            }
+                            request.Content = new FormUrlEncodedContent(formData);
+                        }
+                        else
+                        {
+                            // Regular Basic Auth - GET request with Authorization header
+                            request = new HttpRequestMessage(HttpMethod.Get, endpointUrl);
+                            if (credentials != null && 
+                                credentials.TryGetValue("username", out var username) && 
+                                credentials.TryGetValue("password", out var password))
+                            {
+                                var authValue = Convert.ToBase64String(Encoding.UTF8.GetBytes($"{username}:{password}"));
+                                request.Headers.Authorization = new AuthenticationHeaderValue("Basic", authValue);
+                            }
+                        }
+                        break;
+
+                    case AuthenticationMethod.OAuth2:
+                        // OAuth 2.0 - POST to token endpoint with client credentials
+                        request = new HttpRequestMessage(HttpMethod.Post, endpointUrl);
+                        var oauthFormData = new Dictionary<string, string>
+                        {
+                            { "grant_type", "client_credentials" }
+                        };
+                        if (credentials != null)
+                        {
+                            if (credentials.TryGetValue("clientId", out var clientId))
+                                oauthFormData["client_id"] = clientId;
+                            if (credentials.TryGetValue("clientSecret", out var clientSecret))
+                                oauthFormData["client_secret"] = clientSecret;
+                        }
+                        request.Content = new FormUrlEncodedContent(oauthFormData);
+                        break;
+
+                    case AuthenticationMethod.BearerToken:
+                        // Bearer Token - GET request with Authorization header
+                        request = new HttpRequestMessage(HttpMethod.Get, endpointUrl);
+                        if (credentials != null && credentials.TryGetValue("token", out var token))
+                        {
+                            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+                        }
+                        break;
+
+                    default:
+                        return (false, $"Unsupported authentication method: {authMethod}");
+                }
+
+                // Add common headers
+                request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+                request.Headers.Add("User-Agent", "FlowFlex-Integration/1.0");
+
+                _logger.LogDebug($"Sending {request.Method} request to {endpointUrl} with AuthMethod: {authMethod}");
+
+                var response = await httpClient.SendAsync(request);
+                var responseContent = await response.Content.ReadAsStringAsync();
+
+                _logger.LogDebug($"Response status: {response.StatusCode}, Content length: {responseContent.Length}");
+
+                if (response.IsSuccessStatusCode)
+                {
+                    return (true, null);
+                }
+                else
+                {
+                    // Some APIs return 401/403 which might still indicate the endpoint is reachable
+                    var statusCode = (int)response.StatusCode;
+                    var errorDetail = responseContent.Length > 500 ? responseContent.Substring(0, 500) : responseContent;
+                    return (false, $"HTTP {statusCode}: {response.ReasonPhrase}. Response: {errorDetail}");
+                }
+            }
+            catch (HttpRequestException ex)
+            {
+                return (false, $"HTTP request failed: {ex.Message}");
+            }
+            catch (TaskCanceledException)
+            {
+                return (false, "Connection timeout (30 seconds)");
+            }
+            catch (Exception ex)
+            {
+                return (false, $"Unexpected error: {ex.Message}");
             }
         }
 

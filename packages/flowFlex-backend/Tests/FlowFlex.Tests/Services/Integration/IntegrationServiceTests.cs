@@ -1,3 +1,4 @@
+using System.Net.Http;
 using FlowFlex.Application.Contracts.Dtos.Integration;
 using FlowFlex.Application.Contracts.IServices.Integration;
 using FlowFlex.Application.Services.Integration;
@@ -27,6 +28,7 @@ namespace FlowFlex.Tests.Services.Integration
         private readonly Mock<IQuickLinkRepository> _mockQuickLinkRepository;
         private readonly Mock<IActionDefinitionRepository> _mockActionDefinitionRepository;
         private readonly Mock<ISqlSugarClient> _mockSqlSugarClient;
+        private readonly Mock<IHttpClientFactory> _mockHttpClientFactory;
         private readonly Mock<IMapper> _mockMapper;
         private readonly Mock<Microsoft.Extensions.Logging.ILogger<IntegrationService>> _mockLogger;
         private readonly UserContext _userContext;
@@ -43,9 +45,14 @@ namespace FlowFlex.Tests.Services.Integration
             _mockQuickLinkRepository = new Mock<IQuickLinkRepository>();
             _mockActionDefinitionRepository = new Mock<IActionDefinitionRepository>();
             _mockSqlSugarClient = new Mock<ISqlSugarClient>();
+            _mockHttpClientFactory = new Mock<IHttpClientFactory>();
             _mockMapper = new Mock<IMapper>();
             _mockLogger = MockHelper.CreateMockLogger<IntegrationService>();
             _userContext = TestDataBuilder.CreateUserContext(TestDataBuilder.DefaultUserId);
+
+            // Setup HttpClientFactory to return a real HttpClient
+            _mockHttpClientFactory.Setup(x => x.CreateClient(It.IsAny<string>()))
+                .Returns(new HttpClient());
 
             _service = new IntegrationService(
                 _mockIntegrationRepository.Object,
@@ -57,6 +64,7 @@ namespace FlowFlex.Tests.Services.Integration
                 _mockQuickLinkRepository.Object,
                 _mockActionDefinitionRepository.Object,
                 _mockSqlSugarClient.Object,
+                _mockHttpClientFactory.Object,
                 _mockMapper.Object,
                 _userContext,
                 _mockLogger.Object
