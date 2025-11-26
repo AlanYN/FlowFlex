@@ -25,12 +25,12 @@ namespace FlowFlex.SqlSugarDB.Implements.Integration
         }
 
         /// <summary>
-        /// Get quick links by integration ID
+        /// Get quick links by integration ID (includes both active and inactive)
         /// </summary>
         public async Task<List<QuickLink>> GetByIntegrationIdAsync(long integrationId)
         {
             return await db.Queryable<QuickLink>()
-                .Where(x => x.IntegrationId == integrationId && x.IsValid && x.IsActive)
+                .Where(x => x.IntegrationId == integrationId && x.IsValid)
                 .OrderBy(x => x.SortOrder)
                 .ToListAsync();
         }
