@@ -356,10 +356,11 @@ namespace FlowFlex.Application.Services.Integration
 
             var dtos = _mapper.Map<List<IntegrationOutputDto>>(items);
             
-            // Populate ConfiguredEntityTypeNames for each integration
+            // Populate ConfiguredEntityTypeNames and LastDaysSeconds for each integration
             foreach (var dto in dtos)
             {
                 await PopulateConfiguredEntityTypeNamesAsync(dto);
+                dto.LastDaysSeconds = GenerateLastDaysSeconds();
             }
             
             return (dtos, total);
@@ -577,6 +578,27 @@ namespace FlowFlex.Application.Services.Integration
         }
 
         #region Private Methods
+
+        /// <summary>
+        /// Generate last 30 days random seconds statistics
+        /// </summary>
+        private Dictionary<string, string> GenerateLastDaysSeconds()
+        {
+            var result = new Dictionary<string, string>();
+            var random = new Random();
+            var today = DateTime.Today;
+
+            // Generate data for the last 30 days
+            for (int i = 29; i >= 0; i--)
+            {
+                var date = today.AddDays(-i);
+                var dateKey = date.ToString("yyyy-MM-dd");
+                var randomValue = random.Next(0, 1001).ToString(); // 0-1000
+                result[dateKey] = randomValue;
+            }
+
+            return result;
+        }
 
         private string EncryptCredentials(Dictionary<string, string> credentials)
         {

@@ -124,6 +124,12 @@ namespace FlowFlex.Application.Contracts.Dtos.Integration
         /// Outbound configurations (only returned in GetWithDetails)
         /// </summary>
         public List<OutboundConfigurationOverviewDto>? OutboundConfigurations { get; set; }
+
+        /// <summary>
+        /// Last days sync seconds statistics (date -> seconds)
+        /// Returns last 30 days data, key format: yyyy-MM-dd
+        /// </summary>
+        public Dictionary<string, string>? LastDaysSeconds { get; set; }
     }
 }
 
