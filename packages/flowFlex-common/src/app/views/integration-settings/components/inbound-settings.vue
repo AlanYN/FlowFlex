@@ -36,6 +36,7 @@
 			</div>
 
 			<el-table
+				v-loading="isLoading"
 				:data="filteredFieldMappings"
 				class="w-full"
 				empty-text="No field mappings configured"
@@ -87,6 +88,7 @@
 			</div>
 
 			<el-table
+				v-loading="isLoading"
 				:data="attachmentSharing"
 				class="w-full"
 				empty-text="No attachment sharing configured"
@@ -106,18 +108,10 @@
 					</template>
 				</el-table-column>
 
-				<el-table-column label="System ID" width="200">
-					<template #default="{ row }">
-						<span class="text-sm text-text-secondary">
-							{{ row.systemId || 'Auto-generated on save' }}
-						</span>
-					</template>
-				</el-table-column>
-
 				<el-table-column label="Available in Workflows" min-width="250">
 					<template #default="{ row }">
 						<el-select
-							v-model="row.workflows"
+							v-model="row.workflowIds"
 							multiple
 							placeholder="Select workflows..."
 							collapse-tags
@@ -147,6 +141,7 @@
 							<el-button
 								v-if="row.isEditing || !row.id"
 								type="primary"
+								:loading="isSaving"
 								@click="handleSaveModule(row, $index)"
 							>
 								Save
@@ -172,15 +167,16 @@
 <script setup lang="ts">
 import { ref, watch, computed } from 'vue';
 import { Delete, Search, Plus } from '@element-plus/icons-vue';
-import { ElMessage } from 'element-plus';
-import type { IFieldMapping, IAttachmentSharing } from '#/integration';
+import { ElMessage, ElMessageBox } from 'element-plus';
+import {
+	getInboundSettingsAttachment,
+	createInboundSettingsAttachment,
+	deleteInboundSettingsAttachment,
+} from '@/apis/integration';
+import type { IFieldMapping, IAttachmentSharing, IInboundConfiguration } from '#/integration';
 
 interface Props {
 	integrationId: string | number;
-	inboundSettings?: {
-		fieldMappings?: IFieldMapping[];
-		attachmentSharing?: IAttachmentSharing[];
-	};
 	workflows?: any[];
 }
 
@@ -206,6 +202,8 @@ const wfeFieldSearch = ref('');
 // 本地数据
 const fieldMappings = ref<IFieldMappingDisplay[]>([]);
 const attachmentSharing = ref<IAttachmentSharingExtended[]>([]);
+const isLoading = ref(false);
+const isSaving = ref(false);
 
 /**
  * 将 workflows 转换为 IWorkflowOption 格式
@@ -219,29 +217,6 @@ const workflowOptions = computed(() => {
 		name: workflow.name,
 	}));
 });
-
-// WFE 字段显示名称映射（实际应该从 API 获取）
-const wfeFieldDisplayNameMap: Record<string | number, string> = {
-	name: 'Name',
-	email: 'Email Address',
-	phone: 'Phone Number',
-	status: 'Status',
-	description: 'Description',
-	customer_id: 'Customer Id',
-	email_address: 'Email Address',
-	phone_number: 'Phone Number',
-	company_name: 'Company Name',
-	lead_id: 'Lead Id',
-	first_name: 'First Name',
-	last_name: 'Last Name',
-	lead_source: 'Lead Source',
-};
-
-// Action 信息映射（实际应该从 API 获取）
-const actionInfoMap: Record<string | number, { id: string; name: string }> = {
-	'ACT-001': { id: 'ACT-001', name: 'Import Customer Data' },
-	'ACT-002': { id: 'ACT-002', name: 'Sync Lead Information' },
-};
 
 /**
  * 过滤后的字段映射列表
@@ -267,32 +242,40 @@ const filteredFieldMappings = computed(() => {
 });
 
 /**
- * 初始化字段映射数据（添加 action 信息和 WFE 字段显示名称）
+ * 加载附件共享数据
  */
-function initializeFieldMappings() {
-	const mappings = props.inboundSettings?.fieldMappings || [];
-	fieldMappings.value = mappings.map((mapping) => {
-		// 根据 entityMappingId 或其他逻辑确定 actionId（这里使用模拟数据）
-		const actionId = mapping.entityMappingId || 'ACT-001';
-		const actionInfo = actionInfoMap[actionId] || { id: actionId, name: 'Unknown Action' };
+async function loadAttachmentSharing() {
+	if (!props.integrationId || props.integrationId === 'new') {
+		attachmentSharing.value = [];
+		return;
+	}
 
-		return {
-			...mapping,
-			actionId: actionInfo.id,
-			actionName: actionInfo.name,
-			wfeFieldDisplayName: mapping.wfeFieldId
-				? wfeFieldDisplayNameMap[mapping.wfeFieldId] || String(mapping.wfeFieldId)
-				: undefined,
-		};
-	});
+	isLoading.value = true;
+	try {
+		const response = await getInboundSettingsAttachment(props.integrationId);
+		if (response.success && response.data) {
+			// 处理返回的附件共享数据
+			const data = response.data;
+			// 如果返回的是数组，直接使用；如果是对象，取 attachmentSharing 字段
+			const attachmentList = Array.isArray(data) ? data : data.attachmentSharing || [];
+			initializeAttachmentSharing(attachmentList);
+		} else {
+			attachmentSharing.value = [];
+		}
+	} catch (error) {
+		console.error('Failed to load attachment sharing:', error);
+		attachmentSharing.value = [];
+	} finally {
+		isLoading.value = false;
+	}
 }
 
 /**
  * 初始化附件共享数据
  */
-function initializeAttachmentSharing() {
-	const sharing = props.inboundSettings?.attachmentSharing || [];
-	attachmentSharing.value = sharing.map((item) => ({
+function initializeAttachmentSharing(sharing?: IAttachmentSharing[]) {
+	const sharingList = sharing || [];
+	attachmentSharing.value = sharingList.map((item) => ({
 		...item,
 		systemId: item.id ? String(item.id) : undefined,
 		isEditing: false,
@@ -304,8 +287,9 @@ function initializeAttachmentSharing() {
  */
 function handleAddModule() {
 	attachmentSharing.value.push({
+		id: '',
 		module: '',
-		workflows: [],
+		workflowIds: [],
 		isEditing: true,
 	});
 }
@@ -331,16 +315,45 @@ function handleAttachmentSharingChange() {
 /**
  * 保存模块
  */
-function handleSaveModule(row: IAttachmentSharingExtended, index: number) {
+async function handleSaveModule(row: IAttachmentSharingExtended, index: number) {
 	if (!row.module || row.module.trim() === '') {
 		ElMessage.warning('Please enter a module name');
 		return;
 	}
 
-	row.isEditing = false;
-	// 如果是新模块，生成 systemId（实际应该由后端生成）
-	if (!row.systemId) {
-		row.systemId = `SYS-${Date.now()}`;
+	if (!props.integrationId || props.integrationId === 'new') {
+		ElMessage.warning('Please save the integration first');
+		return;
+	}
+
+	isSaving.value = true;
+	try {
+		// 将 IAttachmentSharingExtended 转换为 IInboundConfiguration
+		const configData: IInboundConfiguration = {
+			integrationId: String(props.integrationId),
+			externalModuleName: row.module.trim(),
+			workflowIds: row.workflowIds || [],
+			isActive: true,
+			description: '',
+			allowedFileTypes: [],
+			maxFileSizeMB: 10,
+		};
+
+		const response = await createInboundSettingsAttachment(configData);
+		if (response.success) {
+			ElMessage.success('Module saved successfully');
+			row.isEditing = false;
+			// 如果有返回的 ID，更新本地数据
+			if (response.data) {
+				row.id = String(response.data);
+			}
+			// 重新加载数据
+			await loadAttachmentSharing();
+		} else {
+			ElMessage.error(response.msg || 'Failed to save module');
+		}
+	} finally {
+		isSaving.value = false;
 	}
 }
 
@@ -348,22 +361,78 @@ function handleSaveModule(row: IAttachmentSharingExtended, index: number) {
  * 删除模块
  */
 function handleDeleteModule(index: number) {
-	attachmentSharing.value.splice(index, 1);
+	const row = attachmentSharing.value[index];
+	if (!row) return;
+
+	// 如果是新添加的未保存项，直接删除
+	if (!row.id) {
+		attachmentSharing.value.splice(index, 1);
+		return;
+	}
+
+	ElMessageBox({
+		title: `Are you sure you want to delete the module "${row.module}"?`,
+		message: `Are you sure you want to delete the module "${row.module}"?`,
+		showCancelButton: true,
+		confirmButtonText: 'Delete',
+		cancelButtonText: 'Cancel',
+		type: 'warning',
+		beforeClose: async (action, instance, done) => {
+			if (action === 'confirm') {
+				// 显示 loading 状态
+				instance.confirmButtonLoading = true;
+				instance.confirmButtonText = 'Deleting...';
+
+				try {
+					if (!row.id) {
+						ElMessage.warning('Invalid module ID');
+						instance.confirmButtonLoading = false;
+						instance.confirmButtonText = 'Delete';
+						return;
+					}
+
+					const response = await deleteInboundSettingsAttachment(row.id);
+					if (response.success) {
+						ElMessage.success('Module deleted successfully');
+						attachmentSharing.value.splice(index, 1);
+						// 重新加载数据以确保数据同步
+						await loadAttachmentSharing();
+						done(); // 关闭对话框
+					} else {
+						ElMessage.error(response.msg || 'Failed to delete module');
+						// 恢复按钮状态
+						instance.confirmButtonLoading = false;
+						instance.confirmButtonText = 'Delete';
+					}
+				} catch (error) {
+					console.error('Failed to delete module:', error);
+					ElMessage.error('Failed to delete module');
+					// 恢复按钮状态
+					instance.confirmButtonLoading = false;
+					instance.confirmButtonText = 'Delete';
+				}
+			} else {
+				done(); // 取消或关闭时直接关闭对话框
+			}
+		},
+	});
 }
 
 /**
  * 上移模块
  */
 
-// 监听 props 变化
+// 监听 integrationId 变化（包括初始化）
 watch(
-	() => props.inboundSettings,
-	(newSettings) => {
-		if (newSettings) {
-			initializeFieldMappings();
-			initializeAttachmentSharing();
+	() => props.integrationId,
+	(newId) => {
+		if (newId && newId !== 'new') {
+			loadAttachmentSharing();
+		} else {
+			// 如果是新建或无效 ID，清空数据
+			attachmentSharing.value = [];
 		}
 	},
-	{ immediate: true, deep: true }
+	{ immediate: true }
 );
 </script>

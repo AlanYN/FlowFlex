@@ -70,16 +70,20 @@
 				<div class="text-sm font-medium text-text-primary">Workflows</div>
 				<el-select
 					v-model="selectedWorkflows"
+					v-loading="isLoading"
 					multiple
 					placeholder="Select workflows..."
 					collapse-tags
 					class="w-full"
+					:max-collapse-tags="5"
+					clearable
+					@blur="handleSaveWorkflows"
 				>
 					<el-option
 						v-for="workflow in workflows || []"
 						:key="workflow.id"
 						:label="workflow.name"
-						:value="workflow.id"
+						:value="String(workflow.id)"
 						:disabled="!workflow.isActive"
 					>
 						<div class="flex items-center justify-between">
@@ -102,6 +106,12 @@
 <script setup lang="ts">
 import { ref, watch, computed } from 'vue';
 import { Search } from '@element-plus/icons-vue';
+import { ElMessage } from 'element-plus';
+import { useDebounceFn } from '@vueuse/core';
+import {
+	createOutboundSettingsAttachment,
+	getOutboundSettingsAttachment,
+} from '@/apis/integration';
 
 // 字段映射显示类型
 interface IFieldMappingDisplay {
@@ -128,9 +138,11 @@ const fieldSearch = ref('');
 
 // Workflows
 const workflows = computed(() => props.workflows || []);
-const selectedWorkflows = ref<string[]>(props.outboundSettings?.attachmentWorkflows || []);
+const selectedWorkflows = ref<string[]>([]);
+const isLoading = ref(false);
+const isSaving = ref(false);
 
-// 字段映射数据（模拟数据，实际应该从 API 获取）
+// 字段映射数据（暂时为空数组，数据来源待确定）
 const fieldMappings = ref<IFieldMappingDisplay[]>([]);
 
 /**
@@ -150,14 +162,79 @@ const filteredFieldMappings = computed(() => {
 	);
 });
 
-// 监听 props 变化
+/**
+ * 加载附件工作流配置
+ */
+async function loadAttachmentWorkflows() {
+	if (!props.integrationId || props.integrationId === 'new') {
+		selectedWorkflows.value = [];
+		return;
+	}
+
+	isLoading.value = true;
+	try {
+		const response = await getOutboundSettingsAttachment(props.integrationId);
+		if (response.success && response.data) {
+			// 将 workflowIds 转换为字符串数组（因为 el-select 的 value 需要是字符串）
+			const workflowIds = response.data.workflowIds || [];
+			selectedWorkflows.value = workflowIds.map((id) => String(id));
+		} else {
+			selectedWorkflows.value = [];
+		}
+	} catch (error) {
+		console.error('Failed to load attachment workflows:', error);
+		selectedWorkflows.value = [];
+	} finally {
+		isLoading.value = false;
+	}
+}
+
+/**
+ * 保存附件工作流配置（内部实现）
+ */
+async function _handleSaveWorkflows() {
+	if (!props.integrationId || props.integrationId === 'new') {
+		ElMessage.warning('Please save the integration first');
+		return;
+	}
+
+	isSaving.value = true;
+	try {
+		// 将字符串数组转换为字符串数组（接口需要 string[]）
+		const workflowIds = selectedWorkflows.value.map((id) => String(id));
+
+		const response = await createOutboundSettingsAttachment(
+			String(props.integrationId),
+			workflowIds
+		);
+		if (response.success) {
+			ElMessage.success('Workflows saved successfully');
+		} else {
+			ElMessage.error(response.msg || 'Failed to save workflows');
+		}
+	} catch (error) {
+		console.error('Failed to save workflows:', error);
+		ElMessage.error('Failed to save workflows');
+	} finally {
+		isSaving.value = false;
+	}
+}
+
+/**
+ * 保存附件工作流配置（带防抖）
+ */
+const handleSaveWorkflows = useDebounceFn(_handleSaveWorkflows, 500);
+
+// 监听 integrationId 变化（包括初始化）
 watch(
-	() => props.outboundSettings,
-	(newSettings) => {
-		if (newSettings) {
-			selectedWorkflows.value = newSettings.attachmentWorkflows || [];
+	() => props.integrationId,
+	(newId) => {
+		if (newId && newId !== 'new') {
+			loadAttachmentWorkflows();
+		} else {
+			selectedWorkflows.value = [];
 		}
 	},
-	{ immediate: true, deep: true }
+	{ immediate: true }
 );
 </script>

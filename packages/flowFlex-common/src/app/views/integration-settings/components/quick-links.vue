@@ -35,9 +35,9 @@
 			empty-text="No quick links configured"
 			:border="true"
 		>
-			<el-table-column label="Link Name" prop="name" min-width="180">
+			<el-table-column label="Link Name" prop="linkName" min-width="180">
 				<template #default="{ row }">
-					<span class="font-medium text-sm">{{ row.name }}</span>
+					<span class="font-medium text-sm">{{ row.linkName }}</span>
 				</template>
 			</el-table-column>
 
@@ -52,18 +52,17 @@
 			<el-table-column label="Target URL" prop="targetUrl" min-width="300">
 				<template #default="{ row }">
 					<div class="flex items-center gap-2">
-						<span class="text-sm font-mono">{{ row.targetUrl }}</span>
-						<el-icon class="text-text-secondary">
-							<Link />
-						</el-icon>
+						<el-link :href="row.targetUrl" :underline="false">
+							{{ row.targetUrl }}
+						</el-link>
 					</div>
 				</template>
 			</el-table-column>
 
-			<el-table-column label="Icon" prop="icon" width="100" align="center">
+			<el-table-column label="Icon" prop="displayIcon" width="100" align="center">
 				<template #default="{ row }">
-					<el-icon v-if="row.icon" class="text-lg">
-						<component :is="getIconComponent(row.icon)" />
+					<el-icon v-if="row.displayIcon" class="text-lg">
+						<component :is="getIconComponent(row.displayIcon)" />
 					</el-icon>
 					<span v-else class="text-text-secondary text-sm">-</span>
 				</template>
@@ -79,21 +78,23 @@
 
 			<el-table-column label="Status" prop="status" width="100" align="center">
 				<template #default="{ row }">
-					<el-tag size="small" :type="getStatus(row) === 'Active' ? 'success' : 'info'">
-						{{ getStatus(row) }}
+					<el-tag size="small" :type="row.isActive ? 'success' : 'info'">
+						{{ row.isActive ? 'Active' : 'Inactive' }}
 					</el-tag>
 				</template>
 			</el-table-column>
 
-			<el-table-column label="Actions" width="120" align="center">
+			<el-table-column label="Actions" min-width="180" align="center">
 				<template #default="{ row }">
 					<div class="flex items-center justify-center gap-2">
-						<el-button text type="primary" size="small" @click="handleEdit(row)">
-							Edit
-						</el-button>
-						<el-button text type="danger" size="small" @click="handleDelete(row)">
-							<el-icon><Delete /></el-icon>
-						</el-button>
+						<el-button
+							text
+							type="primary"
+							:icon="Edit"
+							:loading="isLoadingEdit && currentEditId === row.id"
+							@click="handleEdit(row)"
+						/>
+						<el-button text type="danger" :icon="Delete" @click="handleDelete(row)" />
 					</div>
 				</template>
 			</el-table-column>
@@ -103,7 +104,7 @@
 		<el-dialog
 			v-model="dialogVisible"
 			:title="isEditMode ? 'Edit Quick Link' : 'Add Quick Link'"
-			width="600px"
+			:width="dialogWidth"
 			:close-on-click-modal="false"
 			append-to-body
 		>
@@ -118,139 +119,284 @@
 				</div>
 			</template>
 
-			<el-form
-				ref="formRef"
-				:model="formData"
-				label-position="top"
-				:rules="formRules"
-				label-width="160px"
-			>
-				<!-- Link Name -->
-				<el-form-item label="Link Name" prop="name" required>
-					<el-input
-						v-model="formData.name"
-						placeholder="e.g., View Customer in CRM"
-						maxlength="100"
-						show-word-limit
-					/>
-				</el-form-item>
+			<div v-loading="isLoadingEdit" class="dialog-content-wrapper">
+				<el-form
+					ref="formRef"
+					:model="formData"
+					label-position="top"
+					:rules="formRules"
+					label-width="160px"
+				>
+					<!-- Link Name -->
+					<el-form-item label="Link Name" prop="linkName" required>
+						<el-input
+							v-model="formData.linkName"
+							placeholder="e.g., View Customer in CRM"
+							maxlength="100"
+							show-word-limit
+						/>
+					</el-form-item>
 
-				<!-- Description -->
-				<el-form-item label="Description" prop="description">
-					<el-input
-						v-model="formData.description"
-						type="textarea"
-						:rows="3"
-						placeholder="Optional description of what this link does..."
-						maxlength="500"
-						show-word-limit
-					/>
-				</el-form-item>
+					<!-- Description -->
+					<el-form-item label="Description" prop="description">
+						<el-input
+							v-model="formData.description"
+							type="textarea"
+							:rows="3"
+							placeholder="Optional description of what this link does..."
+							maxlength="500"
+							show-word-limit
+						/>
+					</el-form-item>
 
-				<!-- Target URL -->
-				<el-form-item label="Target URL" prop="targetUrl" required>
-					<el-input
-						v-model="formData.targetUrl"
-						placeholder="https://external.com/page"
-						maxlength="500"
-						show-word-limit
-					/>
-					<div class="text-xs text-text-secondary mt-1">
-						Must start with http:// or https://
-					</div>
-				</el-form-item>
+					<!-- Target URL -->
+					<el-form-item label="Target URL" prop="targetUrl" required>
+						<el-input
+							v-model="formData.targetUrl"
+							placeholder="https://external.com/page"
+							maxlength="500"
+							show-word-limit
+						/>
+						<div class="text-xs text-text-secondary mt-1">
+							Must start with http:// or https://
+						</div>
+					</el-form-item>
 
-				<!-- Parameter Configuration -->
-				<el-form-item label="Parameter Configuration">
-					<div class="w-full">
-						<div class="flex justify-end mb-2">
-							<el-button text type="primary" size="small" @click="handleAddParameter">
-								<el-icon><Plus /></el-icon>
+					<!-- Parameter Configuration -->
+					<el-form-item prop="urlParameters" class="w-full" label-width="100">
+						<div class="w-full flex justify-between items-center mb-4">
+							<span class="text-sm font-medium text-text-primary">
+								Parameter Configuration
+							</span>
+							<el-button link type="primary" :icon="Plus" @click="handleAddParameter">
 								Add Parameter
 							</el-button>
 						</div>
-						<div
-							v-if="
-								!formData.parameters ||
-								Object.keys(formData.parameters).length === 0
-							"
-							class="parameter-empty"
-						>
-							No parameters configured. Click "Add Parameter" to add dynamic
-							parameters.
-						</div>
-						<div v-else class="space-y-2">
-							<div
-								v-for="(_, key) in formData.parameters"
-								:key="key"
-								class="parameter-item"
-							>
-								<div class="flex items-center gap-2">
-									<el-input
-										v-model="parameterKeys[key]"
-										placeholder="Parameter key"
-										class="flex-1"
-										@blur="handleParameterKeyChange(key, parameterKeys[key])"
-									/>
-									<span class="text-text-secondary">:</span>
-									<el-input
-										v-model="formData.parameters![key]"
-										placeholder="Parameter value"
-										class="flex-1"
-									/>
-									<el-button
-										text
-										type="danger"
-										size="small"
-										@click="handleRemoveParameter(key)"
+						<el-scrollbar max-height="400px" class="w-full parameter-scrollbar">
+							<div class="w-full">
+								<div
+									v-if="
+										!formData.urlParameters ||
+										formData.urlParameters.length === 0
+									"
+									class="parameter-empty"
+								>
+									No parameters configured. Click "Add Parameter" to add dynamic
+									parameters.
+								</div>
+								<div v-else class="space-y-3">
+									<div
+										v-for="(param, index) in formData.urlParameters"
+										:key="index"
+										class="parameter-card"
 									>
-										<el-icon><Delete /></el-icon>
-									</el-button>
+										<div class="parameter-card-header">
+											<span class="parameter-card-title">
+												Parameter {{ index + 1 }}
+											</span>
+											<el-button
+												text
+												type="danger"
+												size="small"
+												:icon="Delete"
+												@click="handleRemoveParameter(index)"
+											/>
+										</div>
+										<div class="parameter-card-content">
+											<!-- Parameter Name -->
+											<el-form-item
+												:prop="`urlParameters.${index}.name`"
+												:rules="[
+													{
+														required: true,
+														message: 'Please enter parameter name',
+														trigger: 'blur',
+													},
+												]"
+												class="parameter-form-item"
+											>
+												<template #label>
+													<span class="text-sm font-medium">
+														Parameter Name
+													</span>
+												</template>
+												<el-input
+													v-model="param.name"
+													placeholder="e.g., orderNo, userId"
+													maxlength="100"
+												/>
+											</el-form-item>
+
+											<!-- Value Source and Value Detail -->
+											<div class="flex gap-3">
+												<el-form-item
+													:prop="`urlParameters.${index}.valueSource`"
+													:rules="[
+														{
+															required: true,
+															message: 'Please select value source',
+															trigger: 'change',
+														},
+													]"
+													class="parameter-form-item flex-1"
+												>
+													<template #label>
+														<span class="text-sm font-medium">
+															Value Source
+														</span>
+													</template>
+													<el-select
+														v-model="param.valueSource"
+														placeholder="Select value source"
+														class="w-full"
+														@change="handleValueSourceChange(index)"
+													>
+														<el-option
+															v-for="option in valueSourceOptions"
+															:key="option.value"
+															:label="option.label"
+															:value="option.value"
+														/>
+													</el-select>
+												</el-form-item>
+
+												<el-form-item
+													:prop="`urlParameters.${index}.valueDetail`"
+													:rules="[
+														{
+															required: true,
+															message: isValueDetailSelect(
+																param.valueSource
+															)
+																? 'Please select value detail'
+																: 'Please enter value detail',
+															trigger: isValueDetailSelect(
+																param.valueSource
+															)
+																? 'change'
+																: 'blur',
+															validator: (rule, value, callback) => {
+																// 如果 valueSource 未选择，不进行验证
+																if (
+																	param.valueSource === null ||
+																	param.valueSource === undefined
+																) {
+																	callback();
+																	return;
+																}
+																if (!value || value.trim() === '') {
+																	callback(
+																		new Error(
+																			isValueDetailSelect(
+																				param.valueSource
+																			)
+																				? 'Please select value detail'
+																				: 'Please enter value detail'
+																		)
+																	);
+																	return;
+																}
+																callback();
+															},
+														},
+													]"
+													class="parameter-form-item flex-1"
+												>
+													<template #label>
+														<span class="text-sm font-medium">
+															Value Detail
+														</span>
+													</template>
+													<!-- 下拉选择：Page Parameter, Login User Info, System Variable -->
+													<el-select
+														v-if="
+															isValueDetailSelect(param.valueSource)
+														"
+														v-model="param.valueDetail"
+														:placeholder="
+															getValueDetailPlaceholder(
+																param.valueSource
+															)
+														"
+														class="w-full"
+														:disabled="
+															param.valueSource === null ||
+															param.valueSource === undefined
+														"
+													>
+														<el-option
+															v-for="option in getValueDetailOptions(
+																param.valueSource
+															)"
+															:key="option.value"
+															:label="option.label"
+															:value="option.value"
+														/>
+													</el-select>
+													<!-- 文本输入框：Fixed Value -->
+													<el-input
+														v-else
+														v-model="param.valueDetail"
+														:placeholder="
+															getValueDetailPlaceholder(
+																param.valueSource
+															)
+														"
+														maxlength="500"
+													/>
+												</el-form-item>
+											</div>
+										</div>
+									</div>
 								</div>
 							</div>
-						</div>
-					</div>
-				</el-form-item>
+						</el-scrollbar>
+					</el-form-item>
 
-				<!-- Display Icon -->
-				<el-form-item label="Display Icon" prop="icon">
-					<el-select v-model="formData.icon" placeholder="Select icon..." class="w-full">
-						<el-option
-							v-for="icon in iconOptions"
-							:key="icon.value"
-							:label="icon.label"
-							:value="icon.value"
+					<!-- Display Icon -->
+					<el-form-item label="Display Icon" prop="icon">
+						<el-select
+							v-model="formData.displayIcon"
+							placeholder="Select icon..."
+							class="w-full"
 						>
-							<div class="flex items-center gap-2">
-								<el-icon><component :is="icon.component" /></el-icon>
-								<span>{{ icon.label }}</span>
-							</div>
-						</el-option>
-					</el-select>
-				</el-form-item>
+							<el-option
+								v-for="icon in iconOptions"
+								:key="icon.value"
+								:label="icon.label"
+								:value="icon.value"
+							>
+								<div class="flex items-center gap-2">
+									<el-icon><component :is="icon.component" /></el-icon>
+									<span>{{ icon.label }}</span>
+								</div>
+							</el-option>
+						</el-select>
+					</el-form-item>
 
-				<!-- Redirect Confirmation -->
-				<el-form-item label="Redirect Confirmation" prop="redirectType" required>
-					<el-radio-group v-model="formData.redirectType">
-						<el-radio :label="RedirectType.Direct">Direct Redirect</el-radio>
-						<el-radio :label="RedirectType.PopupConfirmation">
-							Popup Confirmation
-						</el-radio>
-					</el-radio-group>
-				</el-form-item>
+					<!-- Redirect Confirmation -->
+					<el-form-item label="Redirect Confirmation" prop="redirectType" required>
+						<el-radio-group v-model="formData.redirectType">
+							<el-radio :value="RedirectType.Direct">Direct Redirect</el-radio>
+							<el-radio :value="RedirectType.PopupConfirmation">
+								Popup Confirmation
+							</el-radio>
+						</el-radio-group>
+					</el-form-item>
 
-				<!-- Status -->
-				<el-form-item label="Status">
-					<div class="flex items-center gap-3">
-						<div class="flex-1">
-							<div class="text-sm text-text-secondary">
-								Set whether this quick link is active or inactive
+					<!-- Status -->
+					<el-form-item label="Status">
+						<div class="flex items-center gap-3">
+							<div class="flex-1">
+								<div class="text-sm text-text-secondary">
+									Set whether this quick link is active or inactive
+								</div>
 							</div>
+							<el-switch v-model="formData.isActive" />
 						</div>
-						<el-switch v-model="formData.isActive" />
-					</div>
-				</el-form-item>
-			</el-form>
+					</el-form-item>
+				</el-form>
+			</div>
 
 			<template #footer>
 				<div class="flex justify-end gap-3">
@@ -265,18 +411,26 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch, reactive } from 'vue';
+import { ref, onMounted, watch, nextTick } from 'vue';
 import type { FormInstance, FormRules } from 'element-plus';
-import { Plus, Delete, Link, ArrowRight } from '@element-plus/icons-vue';
+import { Plus, Delete, Link, ArrowRight, Edit } from '@element-plus/icons-vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import {
 	getQuickLinksByIntegration,
 	deleteQuickLink,
 	createQuickLink,
 	updateQuickLink,
+	getQuickLink,
 } from '@/apis/integration';
-import { RedirectType } from '@/enums/integration';
+import {
+	RedirectType,
+	ValueSource,
+	PageParameterDetail,
+	LoginUserInfoDetail,
+	SystemVariableDetail,
+} from '@/enums/integration';
 import type { IQuickLink } from '#/integration';
+import { dialogWidth } from '@/settings/projectSetting';
 
 interface Props {
 	integrationId: string | number;
@@ -292,34 +446,36 @@ const quickLinks = ref<IQuickLink[]>([]);
 const dialogVisible = ref(false);
 const isEditMode = ref(false);
 const isSaving = ref(false);
+const isLoadingEdit = ref(false);
 const formRef = ref<FormInstance>();
 const currentEditId = ref<string | number | null>(null);
 
-// 参数管理
-const parameterKeys = ref<Record<string, string>>({});
+// 表单初始值
+const initialFormData: Partial<IQuickLink> & {
+	description?: string;
+	displayIcon?: string;
+	isActive: boolean;
+	urlParameters?: Array<{
+		name: string;
+		valueSource: ValueSource;
+		valueDetail: string;
+	}>;
+} = {
+	linkName: '',
+	description: undefined,
+	targetUrl: '',
+	displayIcon: undefined,
+	redirectType: RedirectType.Direct,
+	urlParameters: undefined,
+	isActive: true,
+};
 
 // 表单数据
-const formData = reactive<{
-	name: string;
-	description?: string;
-	targetUrl: string;
-	icon?: string;
-	redirectType: RedirectType;
-	parameters?: Record<string, any>;
-	isActive: boolean;
-}>({
-	name: '',
-	description: '',
-	targetUrl: '',
-	icon: '',
-	redirectType: RedirectType.Direct,
-	parameters: {},
-	isActive: true,
-});
+const formData = ref({ ...initialFormData } as any);
 
 // 表单验证规则
 const formRules: FormRules = {
-	name: [
+	linkName: [
 		{ required: true, message: 'Please enter link name', trigger: 'blur' },
 		{ max: 100, message: 'Link name cannot exceed 100 characters', trigger: 'blur' },
 	],
@@ -348,31 +504,46 @@ const formRules: FormRules = {
 
 // 图标选项
 const iconOptions = [
-	{ value: 'link', label: 'External Link', component: Link },
+	{ value: 'link', label: 'External Link', component: Edit },
 	{ value: 'chain', label: 'Chain Link', component: Link },
 	{ value: 'arrow', label: 'Arrow', component: ArrowRight },
 ];
 
+// Value Source 选项
+const valueSourceOptions = [
+	{ value: ValueSource.PageParameter, label: 'Page Parameter' },
+	{ value: ValueSource.LoginUserInfo, label: 'Login User Info' },
+	{ value: ValueSource.FixedValue, label: 'Fixed Value' },
+	{ value: ValueSource.SystemVariable, label: 'System Variable' },
+];
+
+// Page Parameter Detail 选项
+const pageParameterDetailOptions = [
+	{ value: PageParameterDetail.CaseId, label: 'Case ID' },
+	{ value: PageParameterDetail.CustomerId, label: 'Customer ID' },
+	{ value: PageParameterDetail.OrderNumber, label: 'Order Number' },
+];
+
+// Login User Info Detail 选项
+const loginUserInfoDetailOptions = [
+	{ value: LoginUserInfoDetail.UserId, label: 'User ID' },
+	{ value: LoginUserInfoDetail.Username, label: 'Username' },
+	{ value: LoginUserInfoDetail.Email, label: 'Email' },
+];
+
+// System Variable Detail 选项
+const systemVariableDetailOptions = [
+	{ value: SystemVariableDetail.CurrentTimestamp, label: 'Current Timestamp' },
+	{ value: SystemVariableDetail.CurrentDate, label: 'Current Date' },
+];
+
 /**
- * 获取描述信息（从 parameters 或其他字段获取）
+ * 获取描述信息（从 urlParameters 或其他字段获取）
  */
 function getDescription(link: IQuickLink): string {
 	// 如果接口中有 description 字段，直接返回
-	// 否则可以从 parameters 或其他地方获取
+	// 否则可以从 urlParameters 或其他地方获取
 	return (link as any).description || 'No description available';
-}
-
-/**
- * 获取状态（Active/Inactive）
- */
-function getStatus(link: IQuickLink): 'Active' | 'Inactive' {
-	// 如果接口中有 status 字段，使用它
-	// 否则默认返回 Active
-	return (link as any).status !== undefined
-		? (link as any).status === 1 || (link as any).status === true
-			? 'Active'
-			: 'Inactive'
-		: 'Active';
 }
 
 /**
@@ -382,11 +553,10 @@ function getIconComponent(iconName: string) {
 	// 根据图标名称返回对应的图标组件
 	const iconMap: Record<string, any> = {
 		link: Link,
-		external: Link,
-		arrow: 'ArrowRight',
-		chain: Link,
+		external: Edit,
+		arrow: ArrowRight,
 	};
-	return iconMap[iconName.toLowerCase()] || Link;
+	return iconMap[iconName.toLowerCase()] || Edit;
 }
 
 /**
@@ -417,18 +587,11 @@ async function loadQuickLinks() {
 /**
  * 重置表单
  */
-function resetForm() {
-	formData.name = '';
-	formData.description = '';
-	formData.targetUrl = '';
-	formData.icon = '';
-	formData.redirectType = RedirectType.Direct;
-	formData.parameters = {};
-	formData.isActive = true;
-	parameterKeys.value = {};
+const resetForm = () => {
+	formData.value = { ...initialFormData };
 	currentEditId.value = null;
 	formRef.value?.clearValidate();
-}
+};
 
 /**
  * 打开添加对话框
@@ -440,69 +603,182 @@ function handleAddQuickLink() {
 }
 
 /**
+ * 处理 urlParameters 数据转换
+ */
+function normalizeUrlParameters(
+	urlParameters: any
+): Array<{ name: string; valueSource: ValueSource; valueDetail: string }> {
+	if (!urlParameters) return [];
+
+	if (Array.isArray(urlParameters)) {
+		return urlParameters.map((param: any) => {
+			// 处理 valueSource：可能是数字、字符串或枚举值
+			let valueSource = ValueSource.FixedValue;
+			if (param.valueSource !== undefined && param.valueSource !== null) {
+				if (typeof param.valueSource === 'number') {
+					// 如果是数字，直接使用
+					valueSource = param.valueSource as ValueSource;
+				} else if (typeof param.valueSource === 'string') {
+					// 如果是字符串，尝试转换为枚举值
+					const sourceMap: Record<string, ValueSource> = {
+						PageParameter: ValueSource.PageParameter,
+						LoginUserInfo: ValueSource.LoginUserInfo,
+						FixedValue: ValueSource.FixedValue,
+						SystemVariable: ValueSource.SystemVariable,
+					};
+					valueSource = sourceMap[param.valueSource] || ValueSource.FixedValue;
+				} else {
+					valueSource = param.valueSource as ValueSource;
+				}
+			}
+
+			return {
+				name: param.name || param.key || '',
+				valueSource,
+				valueDetail: String(param.valueDetail || param.value || ''),
+			};
+		});
+	}
+
+	if (typeof urlParameters === 'object') {
+		return Object.keys(urlParameters).map((key) => ({
+			name: key,
+			valueSource: ValueSource.FixedValue,
+			valueDetail: String(urlParameters[key] || ''),
+		}));
+	}
+
+	return [];
+}
+
+/**
  * 打开编辑对话框
  */
 async function handleEdit(link: IQuickLink) {
 	if (!link.id) return;
+	resetForm();
 
 	isEditMode.value = true;
 	currentEditId.value = link.id;
-	resetForm();
+	isLoadingEdit.value = true;
+	dialogVisible.value = true;
 
-	// 填充表单数据
-	formData.name = link.name || '';
-	formData.description = (link as any).description || '';
-	formData.targetUrl = link.targetUrl || '';
-	formData.icon = link.icon || '';
-	formData.redirectType = link.redirectType ?? RedirectType.Direct;
-	formData.parameters = link.parameters ? { ...link.parameters } : {};
-	formData.isActive = getStatus(link) === 'Active';
+	try {
+		// 尝试获取完整详情
+		const response = await getQuickLink(link.id);
+		const linkData = response.success && response.data ? response.data : link;
 
-	// 初始化参数键名
-	if (formData.parameters) {
-		parameterKeys.value = {};
-		Object.keys(formData.parameters).forEach((key) => {
-			parameterKeys.value[key] = key;
+		// 直接复制对象数据
+		formData.value = {
+			...linkData,
+			linkName: linkData.linkName || '',
+			description: (linkData as any).description,
+			targetUrl: linkData.targetUrl || '',
+			displayIcon: (linkData as any).displayIcon || (linkData as any).icon,
+			redirectType: linkData.redirectType ?? RedirectType.Direct,
+			urlParameters: normalizeUrlParameters(linkData.urlParameters) as any,
+			isActive: !!linkData?.isActive,
+		};
+	} catch (error) {
+		console.error('Failed to load quick link details:', error);
+		// 使用列表数据作为后备
+		const fallbackData = link;
+		formData.value = {
+			...fallbackData,
+			linkName: fallbackData.linkName || '',
+			description: (fallbackData as any).description,
+			targetUrl: fallbackData.targetUrl || '',
+			displayIcon: (fallbackData as any).displayIcon || (fallbackData as any).icon,
+			redirectType: fallbackData.redirectType ?? RedirectType.Direct,
+			urlParameters: normalizeUrlParameters(fallbackData.urlParameters) as any,
+			isActive: !!fallbackData?.isActive,
+		};
+	} finally {
+		isLoadingEdit.value = false;
+	}
+}
+
+/**
+ * 获取 Value Detail 的选项列表
+ */
+function getValueDetailOptions(valueSource: ValueSource) {
+	switch (valueSource) {
+		case ValueSource.PageParameter:
+			return pageParameterDetailOptions;
+		case ValueSource.LoginUserInfo:
+			return loginUserInfoDetailOptions;
+		case ValueSource.SystemVariable:
+			return systemVariableDetailOptions;
+		case ValueSource.FixedValue:
+		default:
+			return null; // FixedValue 使用输入框，不需要选项
+	}
+}
+
+/**
+ * 判断 Value Detail 是否为下拉选择
+ */
+function isValueDetailSelect(valueSource: ValueSource): boolean {
+	return (
+		valueSource === ValueSource.PageParameter ||
+		valueSource === ValueSource.LoginUserInfo ||
+		valueSource === ValueSource.SystemVariable
+	);
+}
+
+/**
+ * 获取 Value Detail 的 placeholder
+ */
+function getValueDetailPlaceholder(valueSource: ValueSource): string {
+	const placeholders: Record<ValueSource, string> = {
+		[ValueSource.PageParameter]: 'Select page parameter',
+		[ValueSource.LoginUserInfo]: 'Select user info field',
+		[ValueSource.FixedValue]: 'Enter fixed value',
+		[ValueSource.SystemVariable]: 'Select system variable',
+	};
+	return placeholders[valueSource] || 'Enter value detail';
+}
+
+/**
+ * 处理 Value Source 变化
+ */
+function handleValueSourceChange(index: number) {
+	if (formData.value.urlParameters && index >= 0 && index < formData.value.urlParameters.length) {
+		// 先清除该字段的验证错误
+		const propPath = `urlParameters.${index}.valueDetail`;
+		formRef.value?.clearValidate([propPath]);
+
+		// 当 valueSource 改变时，清空 valueDetail
+		nextTick(() => {
+			formData.value.urlParameters[index].valueDetail = '';
+			// 再次清除验证，确保验证错误被清除
+			setTimeout(() => {
+				formRef.value?.clearValidate([propPath]);
+			}, 0);
 		});
 	}
-
-	dialogVisible.value = true;
 }
 
 /**
  * 添加参数
  */
 function handleAddParameter() {
-	if (!formData.parameters) {
-		formData.parameters = {};
+	if (!formData.value.urlParameters) {
+		formData.value.urlParameters = [];
 	}
-	const newKey = `param_${Date.now()}`;
-	formData.parameters[newKey] = '';
-	parameterKeys.value[newKey] = newKey;
+	formData.value.urlParameters.push({
+		name: '',
+		valueSource: ValueSource.FixedValue,
+		valueDetail: '',
+	});
 }
 
 /**
  * 移除参数
  */
-function handleRemoveParameter(key: string) {
-	if (formData.parameters) {
-		delete formData.parameters[key];
-		delete parameterKeys.value[key];
-	}
-}
-
-/**
- * 参数键名变更
- */
-function handleParameterKeyChange(oldKey: string, newKey: string) {
-	if (!formData.parameters || oldKey === newKey) return;
-
-	if (newKey && newKey.trim() !== '') {
-		const value = formData.parameters[oldKey];
-		delete formData.parameters[oldKey];
-		delete parameterKeys.value[oldKey];
-		formData.parameters[newKey] = value;
-		parameterKeys.value[newKey] = newKey;
+function handleRemoveParameter(index: number) {
+	if (formData.value.urlParameters && index >= 0 && index < formData.value.urlParameters.length) {
+		formData.value.urlParameters.splice(index, 1);
 	}
 }
 
@@ -512,6 +788,7 @@ function handleParameterKeyChange(oldKey: string, newKey: string) {
 function handleDialogCancel() {
 	dialogVisible.value = false;
 	resetForm();
+	isLoadingEdit.value = false;
 }
 
 /**
@@ -525,31 +802,27 @@ async function handleSave() {
 
 		isSaving.value = true;
 		try {
-			const quickLinkData: Omit<IQuickLink, 'id'> = {
-				integrationId: props.integrationId,
-				name: formData.name,
-				targetUrl: formData.targetUrl,
-				icon: formData.icon || undefined,
-				redirectType: formData.redirectType,
-				parameters:
-					formData.parameters && Object.keys(formData.parameters).length > 0
-						? formData.parameters
-						: undefined,
+			// 准备保存数据，将枚举值转换为数字
+			const saveData: any = {
+				...formData.value,
+				urlParameters: formData.value.urlParameters?.map((param) => ({
+					name: param.name,
+					valueSource:
+						typeof param.valueSource === 'number'
+							? param.valueSource
+							: (param.valueSource as unknown as number),
+					valueDetail: param.valueDetail,
+				})),
 			};
-
-			// 添加 description（如果接口支持）
-			if (formData.description) {
-				(quickLinkData as any).description = formData.description;
-			}
-
-			// 添加 status（如果接口支持）
-			(quickLinkData as any).status = formData.isActive ? 1 : 0;
 
 			let response;
 			if (isEditMode.value && currentEditId.value) {
-				response = await updateQuickLink(currentEditId.value, quickLinkData);
+				response = await updateQuickLink(currentEditId.value, saveData);
 			} else {
-				response = await createQuickLink(quickLinkData);
+				response = await createQuickLink({
+					...saveData,
+					integrationId: props.integrationId,
+				});
 			}
 
 			if (response.success) {
@@ -564,9 +837,6 @@ async function handleSave() {
 			} else {
 				ElMessage.error(response.msg || 'Failed to save quick link');
 			}
-		} catch (error) {
-			console.error('Failed to save quick link:', error);
-			ElMessage.error('Failed to save quick link');
 		} finally {
 			isSaving.value = false;
 		}
@@ -581,7 +851,7 @@ async function handleDelete(link: IQuickLink) {
 
 	try {
 		await ElMessageBox.confirm(
-			`Are you sure you want to delete the quick link "${link.name}"?`,
+			`Are you sure you want to delete the quick link "${link.linkName}"?`,
 			'Confirm Deletion',
 			{
 				confirmButtonText: 'Delete',
@@ -600,7 +870,6 @@ async function handleDelete(link: IQuickLink) {
 	} catch (error) {
 		if (error !== 'cancel') {
 			console.error('Failed to delete quick link:', error);
-			ElMessage.error('Failed to delete quick link');
 		}
 	}
 }
@@ -631,9 +900,55 @@ onMounted(() => {
 	border-radius: 4px;
 }
 
-.parameter-item {
-	padding: 8px;
+.parameter-card {
+	padding: 16px;
 	background: var(--el-fill-color-lighter);
+	border: 1px solid var(--el-border-color-lighter);
+	border-radius: 8px;
+}
+
+.parameter-card-header {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	margin-bottom: 16px;
+}
+
+.parameter-card-title {
+	font-size: 14px;
+	font-weight: 500;
+	color: var(--el-text-color-primary);
+}
+
+.parameter-card-content {
+	display: flex;
+	flex-direction: column;
+	gap: 16px;
+}
+
+.parameter-form-item {
+	margin-bottom: 0;
+}
+
+.parameter-form-item :deep(.el-form-item__label) {
+	margin-bottom: 8px;
+	padding: 0;
+	line-height: 1.5;
+}
+
+.parameter-scrollbar {
+	border: 1px solid var(--el-border-color-lighter);
 	border-radius: 4px;
+	padding: 12px;
+	background: var(--el-fill-color-blank);
+}
+
+.parameter-scrollbar :deep(.el-scrollbar__wrap) {
+	padding-right: 8px;
+}
+
+.dialog-content-wrapper {
+	min-height: 200px;
+	position: relative;
 }
 </style>

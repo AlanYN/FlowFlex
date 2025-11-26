@@ -28,22 +28,30 @@
 				</el-form-item>
 			</div>
 
+			<el-form-item label="Description" prop="description" class="w-full">
+				<el-input
+					v-model="formData.description"
+					placeholder="Enter description"
+					type="textarea"
+					maxlength="500"
+					:autosize="inputTextraAutosize"
+					show-word-limit
+					@change="handleFormChange"
+				/>
+			</el-form-item>
+
 			<!-- Authentication Method -->
-			<el-form-item label="Authentication Method" prop="authMethod">
-				<el-radio-group
-					class="w-full"
-					v-model="formData.authMethod"
-					@change="handleAuthMethodChange"
-				>
-					<div class="w-full flex items-center gap-2">
-						<el-radio :value="AuthMethod.ApiKey" class="w-1/2">API Key</el-radio>
-						<el-radio :value="AuthMethod.OAuth2">OAuth 2.0</el-radio>
-					</div>
-					<div class="w-full flex items-center gap-2">
-						<el-radio :value="AuthMethod.BasicAuth" class="w-1/2">Basic Auth</el-radio>
-						<el-radio :value="AuthMethod.BearerToken">Bearer Token</el-radio>
-					</div>
-				</el-radio-group>
+			<el-form-item
+				label="Authentication Method"
+				prop="authMethod"
+				placeholder="Select authentication method"
+			>
+				<el-select v-model="formData.authMethod" @change="handleAuthMethodChange">
+					<el-option :value="AuthMethod.ApiKey" label="API Key" />
+					<el-option :value="AuthMethod.OAuth2" label="OAuth 2.0" />
+					<el-option :value="AuthMethod.BasicAuth" label="Basic Auth" />
+					<el-option :value="AuthMethod.BearerToken" label="Bearer Token" />
+				</el-select>
 			</el-form-item>
 
 			<!-- Credentials (两列布局) -->
@@ -86,9 +94,9 @@
 					<el-form-item label="Bearer Token" prop="credentials.token">
 						<el-input
 							v-model="formData.credentials.token"
-							type="password"
+							type="textarea"
 							placeholder="Enter bearer token"
-							show-password
+							:autosize="inputTextraAutosize"
 							@change="handleFormChange"
 						/>
 					</el-form-item>
@@ -133,7 +141,7 @@
 						size="large"
 						:loading="isUpdating"
 						:disabled="!isFormValid"
-						@click="handleUpdate"
+						@click="() => handleUpdate(true)"
 					>
 						Update
 					</el-button>
@@ -154,13 +162,14 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, watch, onMounted } from 'vue';
+import { ref, computed, watch, onMounted } from 'vue';
 import type { FormInstance, FormRules } from 'element-plus';
 import { Connection } from '@element-plus/icons-vue';
 import { ElMessage } from 'element-plus';
 import { createIntegration, updateIntegration } from '@/apis/integration';
 import type { IConnectionConfig, IIntegrationConfig } from '#/integration';
 import { AuthMethod } from '@/enums/integration';
+import { inputTextraAutosize } from '@/settings/projectSetting';
 
 interface Props {
 	integrationId: string | number;
@@ -186,15 +195,16 @@ const isTesting = ref(false);
 const integrationName = ref<string>('New Integration');
 
 // 表单数据
-const formData = reactive<IConnectionConfig & { authMethod: string | number }>({
+const formData = ref<IConnectionConfig & { authMethod: string | number }>({
 	systemName: '',
 	endpointUrl: '',
 	authMethod: AuthMethod.ApiKey,
 	credentials: {},
+	description: '',
 });
 
 // 表单验证规则
-const rules = reactive<FormRules>({
+const rules = ref<FormRules>({
 	systemName: [{ required: true, message: 'Please enter system name', trigger: 'blur' }],
 	endpointUrl: [
 		{ required: true, message: 'Please enter endpoint URL', trigger: 'blur' },
@@ -203,28 +213,28 @@ const rules = reactive<FormRules>({
 	authMethod: [{ required: true, message: 'Please select auth method', trigger: 'change' }],
 	'credentials.apiKey': [
 		{
-			required: computed(() => formData.authMethod === AuthMethod.ApiKey).value,
+			required: computed(() => formData.value.authMethod === AuthMethod.ApiKey).value,
 			message: 'Please enter API key',
 			trigger: 'blur',
 		},
 	],
 	'credentials.username': [
 		{
-			required: computed(() => formData.authMethod === AuthMethod.BasicAuth).value,
+			required: computed(() => formData.value.authMethod === AuthMethod.BasicAuth).value,
 			message: 'Please enter username',
 			trigger: 'blur',
 		},
 	],
 	'credentials.password': [
 		{
-			required: computed(() => formData.authMethod === AuthMethod.BasicAuth).value,
+			required: computed(() => formData.value.authMethod === AuthMethod.BasicAuth).value,
 			message: 'Please enter password',
 			trigger: 'blur',
 		},
 	],
 	'credentials.token': [
 		{
-			required: computed(() => formData.authMethod === AuthMethod.BearerToken).value,
+			required: computed(() => formData.value.authMethod === AuthMethod.BearerToken).value,
 			message: 'Please enter bearer token',
 			trigger: 'blur',
 		},
@@ -234,9 +244,9 @@ const rules = reactive<FormRules>({
 // 表单是否有效
 const isFormValid = computed(() => {
 	return (
-		formData.systemName &&
-		formData.endpointUrl &&
-		`${formData.authMethod}` &&
+		formData.value.systemName &&
+		formData.value.endpointUrl &&
+		`${formData.value.authMethod}` &&
 		hasValidCredentials()
 	);
 });
@@ -245,15 +255,17 @@ const isFormValid = computed(() => {
  * 检查凭证是否有效
  */
 function hasValidCredentials(): boolean {
-	switch (formData.authMethod) {
+	switch (formData.value.authMethod) {
 		case AuthMethod.ApiKey:
-			return !!formData.credentials.apiKey;
+			return !!formData.value.credentials.apiKey;
 		case AuthMethod.BasicAuth:
-			return !!formData.credentials.username && !!formData.credentials.password;
+			return !!formData.value.credentials.username && !!formData.value.credentials.password;
 		case AuthMethod.BearerToken:
-			return !!formData.credentials.token;
+			return !!formData.value.credentials.token;
 		case AuthMethod.OAuth2:
-			return !!formData.credentials.clientId && !!formData.credentials.clientSecret;
+			return (
+				!!formData.value.credentials.clientId && !!formData.value.credentials.clientSecret
+			);
 		default:
 			return false;
 	}
@@ -264,7 +276,7 @@ function hasValidCredentials(): boolean {
  */
 function handleAuthMethodChange() {
 	// 清空凭证
-	formData.credentials = {};
+	formData.value.credentials = {};
 }
 
 /**
@@ -273,19 +285,22 @@ function handleAuthMethodChange() {
 function initFormData() {
 	if (props.integrationId === 'new') {
 		// 新建模式，使用默认值
-		formData.systemName = '';
-		formData.endpointUrl = '';
-		formData.authMethod = AuthMethod.ApiKey;
-		formData.credentials = {};
+		formData.value.systemName = '';
+		formData.value.endpointUrl = '';
+		formData.value.authMethod = AuthMethod.ApiKey;
+		formData.value.credentials = {};
 		return;
 	}
 
 	// 使用传入的数据
 	if (props.connectionData) {
-		formData.systemName = props.connectionData.systemName || '';
-		formData.endpointUrl = props.connectionData.endpointUrl || '';
-		formData.authMethod = props.connectionData.authMethod || AuthMethod.ApiKey;
-		formData.credentials = props.connectionData.credentials || {};
+		formData.value = {
+			...props.connectionData,
+			systemName: props.connectionData.systemName || '',
+			endpointUrl: props.connectionData.endpointUrl || '',
+			authMethod: props.connectionData.authMethod || AuthMethod.ApiKey,
+			credentials: props.connectionData.credentials || {},
+		};
 	}
 }
 
@@ -307,11 +322,12 @@ async function handleSave() {
 		isSaving.value = true;
 
 		const res = await createIntegration({
-			systemName: formData.systemName,
-			endpointUrl: formData.endpointUrl,
-			authMethod: formData.authMethod,
-			credentials: formData.credentials,
-			name: formData.systemName,
+			...formData.value,
+			systemName: formData.value.systemName,
+			endpointUrl: formData.value.endpointUrl,
+			authMethod: formData.value.authMethod,
+			credentials: formData.value.credentials,
+			name: formData.value.systemName,
 		});
 
 		if (res.success && res.data) {
@@ -328,7 +344,7 @@ async function handleSave() {
 /**
  * 更新集成连接配置
  */
-async function handleUpdate() {
+const handleUpdate = async (informParams: boolean = true) => {
 	if (!formRef.value) return;
 
 	try {
@@ -336,34 +352,36 @@ async function handleUpdate() {
 		isUpdating.value = true;
 
 		const res = await updateIntegration(props.integrationId, {
-			systemName: formData.systemName,
-			endpointUrl: formData.endpointUrl,
-			authMethod: formData.authMethod,
-			credentials: formData.credentials,
-			name: formData.systemName,
+			...formData.value,
+			systemName: formData.value.systemName,
+			endpointUrl: formData.value.endpointUrl,
+			authMethod: formData.value.authMethod,
+			credentials: formData.value.credentials,
+			name: formData.value.systemName,
 		});
 
 		if (res.success) {
 			ElMessage.success('Connection settings updated successfully');
-			emit('updated');
+			informParams && emit('updated');
 		} else {
 			ElMessage.error(res.msg || 'Failed to update connection settings');
 		}
 	} finally {
 		isUpdating.value = false;
 	}
-}
+};
 
 /**
  * 测试连接（触发事件，由父组件处理）
  */
-async function handleTestConnection() {
+const handleTestConnection = async () => {
 	if (!formRef.value) return;
 
 	try {
 		await formRef.value.validate();
 		isTesting.value = true;
 		// 触发事件，由父组件调用 test 接口
+		await handleUpdate(false);
 		emit('test');
 	} catch (error) {
 		console.error('Form validation failed:', error);
@@ -372,7 +390,7 @@ async function handleTestConnection() {
 			isTesting.value = false;
 		}, 1000);
 	}
-}
+};
 
 // 监听 props 变化
 watch(

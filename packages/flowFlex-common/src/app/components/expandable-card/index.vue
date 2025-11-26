@@ -3,7 +3,6 @@
 		ref="cardRef"
 		class="expandable-card"
 		:class="{ 'is-expanded': isExpanded }"
-		:style="expandedStyle"
 		@mouseenter="handleMouseEnter"
 		@mouseleave="handleMouseLeave"
 		@click="handleClick"
@@ -16,9 +15,9 @@
 		</div>
 
 		<!-- 展开内容使用 Teleport 传送到 body，避免被父组件限制 -->
-		<Teleport to="body" :disabled="!isExpanded">
+		<Teleport to="body" :disabled="!showExpandedContent">
 			<div
-				v-if="isExpanded"
+				v-if="showExpandedContent"
 				ref="expandedContentRef"
 				class="card-content-expanded"
 				:style="expandedContentStyle"
@@ -32,7 +31,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onUnmounted, onMounted, nextTick, watch } from 'vue';
+import { ref, computed, onUnmounted, nextTick } from 'vue';
+import { useZIndex } from 'element-plus';
+import { gsap } from 'gsap';
 
 interface Props {
 	/** 悬浮延迟时间（毫秒），默认500 */
@@ -46,83 +47,26 @@ interface Emits {
 }
 
 const props = withDefaults(defineProps<Props>(), {
-	hoverDelay: 500,
+	hoverDelay: 1000,
 	scale: 1.2,
 });
 
 const emit = defineEmits<Emits>();
 
+// 使用 Element Plus 的 z-index 管理
+const { nextZIndex } = useZIndex();
+
 const cardRef = ref<HTMLElement>();
 const expandedContentRef = ref<HTMLElement>();
 const isExpanded = ref(false);
+const expandedZIndex = ref<number>(0);
+// 控制展开内容的显示
+const showExpandedContent = ref(false);
+// gsap 动画实例
+let expandAnimation: gsap.core.Tween | null = null;
+let collapseAnimation: gsap.core.Tween | null = null;
 let hoverTimer: ReturnType<typeof setTimeout> | null = null;
 let expandedHoverTimer: ReturnType<typeof setTimeout> | null = null;
-
-/**
- * 计算展开时的样式，避免超出可视区域
- */
-const expandedStyle = computed(() => {
-	if (!isExpanded.value || !cardRef.value) {
-		return {};
-	}
-
-	const card = cardRef.value;
-	const rect = card.getBoundingClientRect();
-	const viewportWidth = window.innerWidth;
-	const viewportHeight = window.innerHeight;
-	const scale = props.scale;
-
-	// 计算放大后的尺寸增量
-	const widthIncrease = (rect.width * scale - rect.width) / 2;
-	const heightIncrease = (rect.height * scale - rect.height) / 2;
-
-	// 计算各方向的可用空间
-	const spaceLeft = rect.left;
-	const spaceRight = viewportWidth - rect.right;
-	const spaceTop = rect.top;
-	const spaceBottom = viewportHeight - rect.bottom;
-
-	// 计算需要的偏移量
-	let translateX = 0;
-	let translateY = 0;
-	let originX = 'center';
-	let originY = 'center';
-
-	// 处理水平方向
-	if (spaceLeft < widthIncrease && spaceRight < widthIncrease) {
-		// 两边空间都不足，居中显示
-		originX = 'center';
-		translateX = 0;
-	} else if (spaceLeft < widthIncrease) {
-		// 左边空间不足，以左边为原点，向右偏移
-		originX = 'left';
-		translateX = widthIncrease - spaceLeft;
-	} else if (spaceRight < widthIncrease) {
-		// 右边空间不足，以右边为原点，向左偏移
-		originX = 'right';
-		translateX = -(widthIncrease - spaceRight);
-	}
-
-	// 处理垂直方向
-	if (spaceTop < heightIncrease && spaceBottom < heightIncrease) {
-		// 上下空间都不足，居中显示
-		originY = 'center';
-		translateY = 0;
-	} else if (spaceTop < heightIncrease) {
-		// 上边空间不足，以上边为原点，向下偏移
-		originY = 'top';
-		translateY = heightIncrease - spaceTop;
-	} else if (spaceBottom < heightIncrease) {
-		// 下边空间不足，以下边为原点，向上偏移
-		originY = 'bottom';
-		translateY = -(heightIncrease - spaceBottom);
-	}
-
-	return {
-		transform: `scale(${scale}) translate(${translateX}px, ${translateY}px)`,
-		transformOrigin: `${originX} ${originY}`,
-	};
-});
 
 /**
  * 计算展开内容的 fixed 定位样式
@@ -179,6 +123,7 @@ const expandedContentStyle = computed(() => {
 		height: `${scaledHeight}px`,
 		left: `${left}px`,
 		top: `${top}px`,
+		zIndex: expandedZIndex.value,
 	};
 });
 
@@ -186,20 +131,50 @@ const expandedContentStyle = computed(() => {
  * 处理鼠标进入
  */
 function handleMouseEnter() {
-	// 清除之前的定时器
+	// 清除之前的定时器和动画
 	if (hoverTimer) {
 		clearTimeout(hoverTimer);
+	}
+	if (collapseAnimation) {
+		collapseAnimation.kill();
+		collapseAnimation = null;
 	}
 
 	// 设置延迟展开
 	hoverTimer = setTimeout(() => {
-		isExpanded.value = true;
-		// 等待 DOM 更新后重新计算位置
+		// 使用 Element Plus 的 z-index 管理器获取下一个 z-index
+		expandedZIndex.value = nextZIndex();
+		// 等待 DOM 更新后设置展开状态
 		nextTick(() => {
-			// 触发样式重新计算
-			if (cardRef.value) {
-				cardRef.value.offsetHeight;
-			}
+			isExpanded.value = true;
+			showExpandedContent.value = true;
+
+			// 等待 DOM 渲染完成后再执行动画
+			nextTick(() => {
+				if (!expandedContentRef.value) return;
+
+				const el = expandedContentRef.value;
+
+				// 先停止所有动画
+				gsap.killTweensOf(el);
+
+				// 设置初始状态：从 scale 0.95 开始
+				gsap.set(el, {
+					scale: 0.95,
+					opacity: 0,
+				});
+
+				// 执行展开动画：放大到 scale 1，同时淡入
+				expandAnimation = gsap.to(el, {
+					scale: 1,
+					opacity: 1,
+					duration: 0.3,
+					ease: 'power1.out',
+					onComplete: () => {
+						expandAnimation = null;
+					},
+				});
+			});
 		});
 	}, props.hoverDelay);
 }
@@ -219,9 +194,41 @@ function handleMouseLeave() {
 		clearTimeout(expandedHoverTimer);
 	}
 	expandedHoverTimer = setTimeout(() => {
-		isExpanded.value = false;
+		handleCollapse();
 		expandedHoverTimer = null;
 	}, 100);
+}
+
+/**
+ * 处理收起动画
+ */
+function handleCollapse() {
+	if (!showExpandedContent.value || !expandedContentRef.value) {
+		isExpanded.value = false;
+		return;
+	}
+
+	const el = expandedContentRef.value;
+
+	// 先停止所有正在进行的动画
+	gsap.killTweensOf(el);
+	if (expandAnimation) {
+		expandAnimation.kill();
+		expandAnimation = null;
+	}
+
+	// 执行收起动画：缩小到 scale 0.95，同时淡出
+	collapseAnimation = gsap.to(el, {
+		scale: 0.95,
+		opacity: 0,
+		duration: 0.2,
+		ease: 'power1.in',
+		onComplete: () => {
+			isExpanded.value = false;
+			showExpandedContent.value = false;
+			collapseAnimation = null;
+		},
+	});
 }
 
 /**
@@ -244,7 +251,7 @@ function handleExpandedMouseLeave() {
 		clearTimeout(expandedHoverTimer);
 	}
 	expandedHoverTimer = setTimeout(() => {
-		isExpanded.value = false;
+		handleCollapse();
 		expandedHoverTimer = null;
 	}, 100);
 }
@@ -256,33 +263,7 @@ function handleClick() {
 	emit('click');
 }
 
-/**
- * 监听滚动，更新展开内容位置
- */
-function handleScroll() {
-	// 触发样式重新计算
-	if (isExpanded.value && cardRef.value) {
-		cardRef.value.offsetHeight;
-	}
-}
-
-// 监听展开状态，添加/移除滚动监听
-watch(isExpanded, (expanded) => {
-	if (expanded) {
-		window.addEventListener('scroll', handleScroll, true);
-		window.addEventListener('resize', handleScroll);
-	} else {
-		window.removeEventListener('scroll', handleScroll, true);
-		window.removeEventListener('resize', handleScroll);
-	}
-});
-
-// 组件挂载
-onMounted(() => {
-	// 初始化
-});
-
-// 组件卸载时清理定时器和事件监听
+// 组件卸载时清理定时器和动画
 onUnmounted(() => {
 	if (hoverTimer) {
 		clearTimeout(hoverTimer);
@@ -290,8 +271,23 @@ onUnmounted(() => {
 	if (expandedHoverTimer) {
 		clearTimeout(expandedHoverTimer);
 	}
-	window.removeEventListener('scroll', handleScroll, true);
-	window.removeEventListener('resize', handleScroll);
+	if (expandAnimation) {
+		expandAnimation.kill();
+	}
+	if (collapseAnimation) {
+		collapseAnimation.kill();
+	}
+	if (cardRef.value) {
+		gsap.killTweensOf(cardRef.value);
+	}
+	if (expandedContentRef.value) {
+		gsap.killTweensOf(expandedContentRef.value);
+	}
+});
+
+// 暴露展开状态给父组件
+defineExpose({
+	isExpanded,
 });
 </script>
 
@@ -299,9 +295,9 @@ onUnmounted(() => {
 .expandable-card {
 	position: relative;
 	transition:
-		transform 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+		transform 0.35s cubic-bezier(0.16, 1, 0.3, 1),
 		z-index 0s,
-		transform-origin 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+		transform-origin 0.35s cubic-bezier(0.16, 1, 0.3, 1);
 	z-index: 1;
 	transform-origin: center center;
 	will-change: transform;
@@ -319,7 +315,7 @@ onUnmounted(() => {
 	opacity: 1;
 	visibility: visible;
 	transition:
-		opacity 0.2s ease,
+		opacity 0.2s cubic-bezier(0.4, 0, 1, 1),
 		visibility 0s 0.2s;
 
 	.expandable-card.is-expanded & {
@@ -331,19 +327,21 @@ onUnmounted(() => {
 		right: 0;
 		pointer-events: none;
 		transition:
-			opacity 0.2s ease,
+			opacity 0.2s cubic-bezier(0.4, 0, 1, 1),
 			visibility 0s;
 	}
 }
 
 .card-content-expanded {
 	position: fixed;
-	z-index: 9999;
-	opacity: 1;
-	visibility: visible;
 	pointer-events: auto;
 	transform-origin: center center;
 	overflow: visible;
-	transition: opacity 0.3s ease 0.1s;
+	box-shadow:
+		0 4px 6px -1px rgba(0, 0, 0, 0.1),
+		0 2px 4px -1px rgba(0, 0, 0, 0.06),
+		0 20px 25px -5px rgba(0, 0, 0, 0.1),
+		0 10px 10px -5px rgba(0, 0, 0, 0.04);
+	// gsap 会控制 opacity 和 transform
 }
 </style>
