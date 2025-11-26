@@ -14,9 +14,7 @@
 					>
 						{{ integrationStatus === 1 ? 'Connected' : 'Disconnected' }}
 					</el-tag>
-					<el-button type="danger" :icon="Delete" @click="handleDelete">
-						Delete Integration
-					</el-button>
+					<el-button type="danger" :icon="Delete" @click="handleDelete" />
 					<div></div>
 				</div>
 			</template>
@@ -41,11 +39,7 @@
 				<entity-type
 					v-if="integrationData"
 					:integration-id="integrationId"
-					:entity-mappings="
-						integrationData.entityMappings ||
-						integrationData.inboundSettings?.entityMappings ||
-						[]
-					"
+					:entity-mappings="integrationData.entityMappings || []"
 					@refresh="loadIntegrationData"
 				/>
 
@@ -54,9 +48,7 @@
 					<PrototypeTabs v-model="activeTab" :tabs="tabsConfig" class="">
 						<TabPane value="inbound">
 							<inbound-settings
-								v-if="integrationData"
 								:integration-id="integrationId"
-								:inbound-settings="integrationData.inboundSettings"
 								:workflows="workflows"
 								@refresh="loadIntegrationData"
 							/>
@@ -64,9 +56,7 @@
 
 						<TabPane value="outbound">
 							<outbound-settings
-								v-if="integrationData"
 								:integration-id="integrationId"
-								:outbound-settings="integrationData.outboundSettings"
 								:workflows="workflows"
 								@refresh="loadIntegrationData"
 							/>
@@ -164,6 +154,7 @@ async function loadIntegrationData() {
 	// 加载完整数据
 	isLoading.value = true;
 	try {
+		await loadWorkflows();
 		const response = await getIntegrationDetails(id);
 		if (response.success && response.data) {
 			integrationData.value = response.data;
@@ -220,7 +211,6 @@ async function handleTestConnection() {
 		}
 	} catch (error) {
 		console.error('Connection test failed:', error);
-		ElMessage.error('Connection test failed');
 	}
 }
 
@@ -287,7 +277,6 @@ async function loadWorkflows() {
 
 // 初始化
 onMounted(async () => {
-	await loadWorkflows();
 	loadIntegrationData();
 });
 </script>

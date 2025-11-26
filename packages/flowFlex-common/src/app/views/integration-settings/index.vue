@@ -122,7 +122,7 @@ async function loadIntegrations() {
 	isLoading.value = true;
 	try {
 		const response = await getIntegrations();
-		integrations.value = response.data.items;
+		integrations.value = response.data?.items || [];
 	} finally {
 		isLoading.value = false;
 	}

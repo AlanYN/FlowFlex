@@ -8,13 +8,21 @@
 						<div
 							class="card-icon rounded-full flex-shrink-0 flex items-center justify-center"
 						>
-							<span class="text-2xl">{{ getSystemIcon() }}</span>
+							<el-icon><Connection /></el-icon>
 						</div>
 						<h3 class="card-title tracking-tight truncate" :title="integration.name">
 							{{ integration.name }}
 						</h3>
+						<el-tag :type="integration.status === 1 ? 'success' : 'info'" size="small">
+							{{ integration.status === 1 ? 'Connected' : 'Disconnected' }}
+						</el-tag>
 					</div>
-					<el-dropdown trigger="click" @command="handleCommand" class="flex-shrink-0">
+					<el-dropdown
+						trigger="click"
+						@command="handleCommand"
+						class="flex-shrink-0"
+						@click.stop
+					>
 						<el-button text class="card-more-btn" link>
 							<el-icon class="h-4 w-4"><MoreFilled /></el-icon>
 						</el-button>
@@ -36,33 +44,59 @@
 						</template>
 					</el-dropdown>
 				</div>
-				<p class="text-sm mt-1.5 truncate">
-					{{ getSystemLabel() }}
+				<p v-if="integration.description" class="text-sm mt-2 truncate">
+					{{ truncatedDescription }}
 				</p>
+				<p v-else class="text-sm mt-2 text-text-secondary">No description</p>
 			</div>
 		</template>
 
 		<!-- 卡片内容 -->
-		<div class="space-y-3">
-			<div class="flex items-center gap-2">Entity Types:</div>
-			<div class="flex items-center gap-2">
-				<template v-for="value in integration.configuredEntityTypeNames" :key="value">
-					<el-tag type="info">
-						{{ value }}
+		<div class="flex flex-col space-y-3 mt-[-10px]">
+			<!-- 折线图 -->
+			<div v-if="hasChartData" class="chart-container">
+				<div ref="chartRef" class="chart-wrapper"></div>
+			</div>
+
+			<div class="flex items-center gap-2 text-sm font-medium">Entity Types:</div>
+			<div class="entity-types-container">
+				<div class="entity-types-list">
+					<template v-for="value in visibleEntityTypes" :key="value">
+						<el-tag type="info" size="small">
+							{{ value }}
+						</el-tag>
+					</template>
+					<el-tag
+						v-if="remainingCount > 0"
+						type="info"
+						size="small"
+						class="remaining-tag"
+					>
+						+{{ remainingCount }}
 					</el-tag>
-				</template>
+					<span
+						v-if="
+							!integration.configuredEntityTypeNames ||
+							integration.configuredEntityTypeNames.length === 0
+						"
+						class="text-sm text-text-secondary"
+					>
+						No entity types configured
+					</span>
+				</div>
 			</div>
 		</div>
 	</el-card>
 </template>
 
 <script setup lang="ts">
+import { computed, nextTick, ref, onMounted, onBeforeUnmount, watch } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { Delete, Edit, MoreFilled } from '@element-plus/icons-vue';
+import { Delete, Edit, MoreFilled, Connection } from '@element-plus/icons-vue';
 import { useRouter } from 'vue-router';
-import { nextTick } from 'vue';
 import { deleteIntegration } from '@/apis/integration';
 import type { IIntegrationConfig } from '#/integration';
+import * as echarts from 'echarts';
 
 interface Props {
 	integration: IIntegrationConfig;
@@ -76,33 +110,76 @@ const props = defineProps<Props>();
 const emit = defineEmits<Emits>();
 const router = useRouter();
 
-/**
- * 获取系统图标
- */
-function getSystemIcon(): string {
-	const icons: Record<string, string> = {
-		salesforce: '☁️',
-		hubspot: '🔶',
-		zoho: '🔷',
-		dynamics: '🔵',
-		custom: '⚙️',
-	};
-	return icons[props.integration.type] || '🔗';
-}
+// Entity Types 显示限制（最多显示的数量）
+const MAX_VISIBLE_ENTITY_TYPES = 3;
+
+// Description 显示限制（正常状态下最多显示的字符数）
+const MAX_DESCRIPTION_LENGTH = 80;
+
+// 图表相关
+const chartRef = ref<HTMLElement>();
+let chartInstance: echarts.ECharts | null = null;
 
 /**
- * 获取系统标签
+ * 计算可见的 Entity Types
  */
-function getSystemLabel(): string {
-	const labels: Record<string, string> = {
-		salesforce: 'Salesforce CRM',
-		hubspot: 'HubSpot CRM',
-		zoho: 'Zoho CRM',
-		dynamics: 'Microsoft Dynamics 365',
-		custom: 'Custom Integration',
+const visibleEntityTypes = computed(() => {
+	const types = props.integration.configuredEntityTypeNames || [];
+	return types.slice(0, MAX_VISIBLE_ENTITY_TYPES);
+});
+
+/**
+ * 计算剩余的 Entity Types 数量
+ */
+const remainingCount = computed(() => {
+	const types = props.integration.configuredEntityTypeNames || [];
+	return Math.max(0, types.length - MAX_VISIBLE_ENTITY_TYPES);
+});
+
+/**
+ * 截断的 Description（正常状态显示）
+ */
+const truncatedDescription = computed(() => {
+	const desc = props.integration.description || '';
+	if (desc.length <= MAX_DESCRIPTION_LENGTH) {
+		return desc;
+	}
+	return desc.substring(0, MAX_DESCRIPTION_LENGTH) + '...';
+});
+
+/**
+ * 是否有图表数据
+ */
+const hasChartData = computed(() => {
+	const data = props.integration.lastDaysSeconds;
+	return data && Object.keys(data).length > 0;
+});
+
+/**
+ * 处理图表数据
+ */
+const chartData = computed(() => {
+	const data = props.integration.lastDaysSeconds || {};
+	const dates: string[] = [];
+	const values: number[] = [];
+
+	// 按日期排序
+	const sortedEntries = Object.entries(data).sort(([dateA], [dateB]) => {
+		return new Date(dateA).getTime() - new Date(dateB).getTime();
+	});
+
+	sortedEntries.forEach(([date, seconds]) => {
+		dates.push(date);
+		// 将秒数转换为数字，如果转换失败则使用 0
+		const secondsNum = parseFloat(seconds) || 0;
+		values.push(secondsNum);
+	});
+
+	return {
+		dates,
+		values,
 	};
-	return labels[props.integration.type] || 'External System';
-}
+});
 
 /**
  * 点击卡片
@@ -124,6 +201,150 @@ function handleCommand(command: string) {
 		handleDelete();
 	}
 }
+
+/**
+ * 初始化图表
+ */
+const initChart = () => {
+	if (!chartRef.value || !hasChartData.value) return;
+
+	// 如果图表已存在，先销毁
+	if (chartInstance) {
+		chartInstance.dispose();
+		chartInstance = null;
+	}
+
+	// 创建图表实例
+	chartInstance = echarts.init(chartRef.value);
+
+	// 准备数据
+	const { dates, values } = chartData.value;
+
+	// 配置选项
+	const option: echarts.EChartsOption = {
+		grid: {
+			left: '2%',
+			right: '2%',
+			bottom: '0%',
+			top: '0%',
+			containLabel: false,
+		},
+		xAxis: {
+			type: 'category',
+			data: dates,
+			boundaryGap: false,
+			axisLine: {
+				show: false,
+			},
+			axisTick: {
+				show: false,
+			},
+			axisLabel: {
+				show: false,
+			},
+		},
+		yAxis: {
+			type: 'value',
+			show: false,
+		},
+		series: [
+			{
+				name: 'Seconds',
+				type: 'line',
+				data: values,
+				smooth: true,
+				symbol: 'none',
+				lineStyle: {
+					color: '#10b981', // teal color
+					width: 1.5,
+				},
+				areaStyle: {
+					color: {
+						type: 'linear',
+						x: 0,
+						y: 0,
+						x2: 0,
+						y2: 1,
+						colorStops: [
+							{
+								offset: 0,
+								color: 'rgba(16, 185, 129, 0.3)', // teal with opacity
+							},
+							{
+								offset: 1,
+								color: 'rgba(16, 185, 129, 0)', // transparent
+							},
+						],
+					},
+				},
+			},
+		],
+		tooltip: {
+			trigger: 'axis',
+			backgroundColor: 'rgba(0, 0, 0, 0.8)',
+			borderColor: 'transparent',
+			textStyle: {
+				color: '#fff',
+				fontSize: 12,
+			},
+			formatter: (params: any) => {
+				const param = params[0];
+				const date = param.axisValue;
+				const value = param.value;
+				return `${date}<br/>${value}s`;
+			},
+		},
+	};
+
+	// 设置配置项
+	chartInstance.setOption(option);
+
+	// 监听窗口大小变化
+	window.addEventListener('resize', handleResize);
+};
+
+/**
+ * 处理窗口大小变化
+ */
+const handleResize = () => {
+	if (chartInstance) {
+		chartInstance.resize();
+	}
+};
+
+/**
+ * 销毁图表
+ */
+const destroyChart = () => {
+	if (chartInstance) {
+		chartInstance.dispose();
+		chartInstance = null;
+	}
+	window.removeEventListener('resize', handleResize);
+};
+
+// 监听数据变化，重新渲染图表
+watch(
+	() => props.integration.lastDaysSeconds,
+	() => {
+		nextTick(() => {
+			initChart();
+		});
+	},
+	{ deep: true }
+);
+
+// 组件挂载时初始化图表
+onMounted(() => {
+	nextTick(() => {
+		initChart();
+	});
+});
+
+// 组件卸载时销毁图表
+onBeforeUnmount(() => {
+	destroyChart();
+});
 
 /**
  * 删除集成
@@ -168,3 +389,16 @@ function handleDelete() {
 	});
 }
 </script>
+
+<style scoped lang="scss">
+.chart-container {
+	width: 100%;
+	margin-top: 4px;
+	margin-bottom: 2px;
+}
+
+.chart-wrapper {
+	width: 100%;
+	height: 40px;
+}
+</style>

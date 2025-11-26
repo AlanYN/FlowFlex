@@ -54,3 +54,36 @@ export enum EntityKeyType {
 	Integer = 1, // 整数类型
 	Guid = 2, // GUID 类型
 }
+
+export enum ValueSource {
+	PageParameter = 0,
+	LoginUserInfo = 1,
+	FixedValue = 2,
+	SystemVariable = 3,
+}
+
+/**
+ * 页面参数详情枚举 (PageParameterDetail)
+ */
+export enum PageParameterDetail {
+	CaseId = 'caseId', // Case ID
+	CustomerId = 'customerId', // Customer ID
+	OrderNumber = 'orderNumber', // Order Number
+}
+
+/**
+ * 登录用户信息详情枚举 (LoginUserInfoDetail)
+ */
+export enum LoginUserInfoDetail {
+	UserId = 'userId', // User ID
+	Username = 'username', // Username
+	Email = 'email', // Email
+}
+
+/**
+ * 系统变量详情枚举 (SystemVariableDetail)
+ */
+export enum SystemVariableDetail {
+	CurrentTimestamp = 'currentTimestamp', // Current Timestamp
+	CurrentDate = 'currentDate', // Current Date
+}
