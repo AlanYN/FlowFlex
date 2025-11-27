@@ -66,38 +66,80 @@
 				</p>
 			</div>
 
-			<div class="space-y-3">
-				<div class="text-sm font-medium text-text-primary">Workflows</div>
-				<el-select
-					v-model="selectedWorkflows"
-					v-loading="isLoading"
-					multiple
-					placeholder="Select workflows..."
-					collapse-tags
-					class="w-full"
-					:max-collapse-tags="5"
-					clearable
-					@blur="handleSaveWorkflows"
-				>
-					<el-option
-						v-for="workflow in workflows || []"
-						:key="workflow.id"
-						:label="workflow.name"
-						:value="String(workflow.id)"
-						:disabled="!workflow.isActive"
-					>
-						<div class="flex items-center justify-between">
-							<span>{{ workflow.name }}</span>
-							<el-tag v-if="!workflow.isActive" type="danger" size="small">
-								Inactive
-							</el-tag>
-							<el-tag v-else type="success" size="small">Active</el-tag>
+			<el-table
+				v-loading="isLoading"
+				:data="attachmentSharing"
+				class="w-full"
+				empty-text="No attachment sharing configured"
+				:border="true"
+			>
+				<el-table-column label="Workflow" min-width="250">
+					<template #default="{ row }">
+						<el-select
+							v-model="row.workflowId"
+							placeholder="Select workflow..."
+							@change="(val) => handleWorkflowChange(row, val)"
+						>
+							<el-option
+								v-for="workflow in workflows"
+								:key="workflow.id"
+								:label="workflow.name"
+								:value="String(workflow.id)"
+							>
+								<div class="flex items-center justify-between">
+									<span>{{ workflow.name }}</span>
+									<el-tag v-if="!workflow.isActive" type="danger" size="small">
+										Inactive
+									</el-tag>
+									<el-tag v-else type="success" size="small">Active</el-tag>
+								</div>
+							</el-option>
+						</el-select>
+					</template>
+				</el-table-column>
+
+				<el-table-column label="Stage" min-width="250">
+					<template #default="{ row }">
+						<el-select
+							v-model="row.stageId"
+							placeholder="Select stage..."
+							:disabled="!row.workflowId"
+							:loading="stagesLoadingMap[row.workflowId] || false"
+							@change="handleAttachmentSharingChange"
+							@focus="() => loadStagesForWorkflow(row.workflowId)"
+						>
+							<el-option
+								v-for="stage in stagesCache[row.workflowId] || []"
+								:key="stage.id"
+								:label="stage.name"
+								:value="String(stage.id)"
+							/>
+						</el-select>
+					</template>
+				</el-table-column>
+
+				<el-table-column label="Actions" width="180" align="center">
+					<template #default="{ $index }">
+						<div class="flex items-center justify-center gap-1">
+							<el-button
+								type="danger"
+								link
+								@click="handleDeleteItem($index)"
+								:icon="Delete"
+							/>
 						</div>
-					</el-option>
-				</el-select>
-				<div class="text-xs text-text-secondary">
-					Attachments from selected workflows will be shared with IAM System.
-				</div>
+					</template>
+				</el-table-column>
+			</el-table>
+
+			<div class="flex justify-between items-center">
+				<el-button type="primary" @click="handleAddItem">
+					<el-icon><Plus /></el-icon>
+					Add Workflow & Stage
+				</el-button>
+				<el-button type="primary" :loading="isSaving" @click="saveAttachmentSharing">
+					Save
+				</el-button>
 			</div>
 		</div>
 	</div>
@@ -105,21 +147,14 @@
 
 <script setup lang="ts">
 import { ref, watch, computed } from 'vue';
-import { Search } from '@element-plus/icons-vue';
-import { ElMessage } from 'element-plus';
-import { useDebounceFn } from '@vueuse/core';
+import { Search, Delete, Plus } from '@element-plus/icons-vue';
+import { ElMessage, ElMessageBox } from 'element-plus';
 import {
 	createOutboundSettingsAttachment,
 	getOutboundSettingsAttachment,
 } from '@/apis/integration';
-
-// 字段映射显示类型
-interface IFieldMappingDisplay {
-	actionId: string;
-	actionName: string;
-	fieldDisplayName: string;
-	fieldApiName: string;
-}
+import { getStagesByWorkflow } from '@/apis/ow';
+import type { FieldMapping, OutboundAttachmentItem1 } from '#/integration';
 
 interface Props {
 	integrationId: string | number;
@@ -129,6 +164,7 @@ interface Props {
 		attachmentWorkflows?: string[];
 	};
 	workflows?: any[];
+	outboundFieldMappings?: FieldMapping[];
 }
 
 const props = defineProps<Props>();
@@ -136,38 +172,88 @@ const props = defineProps<Props>();
 // 搜索过滤
 const fieldSearch = ref('');
 
-// Workflows
-const workflows = computed(() => props.workflows || []);
-const selectedWorkflows = ref<string[]>([]);
 const isLoading = ref(false);
 const isSaving = ref(false);
 
-// 字段映射数据（暂时为空数组，数据来源待确定）
-const fieldMappings = ref<IFieldMappingDisplay[]>([]);
+// 附件共享扩展类型
+interface IAttachmentSharingExtended extends OutboundAttachmentItem1 {
+	isEditing?: boolean;
+}
+
+// 附件共享数据
+const attachmentSharing = ref<IAttachmentSharingExtended[]>([]);
+
+// Stages 数据缓存
+const stagesCache = ref<Record<string, Array<{ id: string; name: string }>>>({});
+// Stages 加载状态（按 workflowId）
+const stagesLoadingMap = ref<Record<string, boolean>>({});
 
 /**
  * 过滤后的字段映射列表
  */
 const filteredFieldMappings = computed(() => {
 	if (!fieldSearch.value) {
-		return fieldMappings.value;
+		return props.outboundFieldMappings || [];
 	}
 
 	const search = fieldSearch.value.toLowerCase();
-	return fieldMappings.value.filter(
-		(item) =>
-			item.fieldDisplayName.toLowerCase().includes(search) ||
-			item.fieldApiName.toLowerCase().includes(search) ||
-			item.actionName.toLowerCase().includes(search)
+	return props.outboundFieldMappings?.filter(
+		(item) => item.wfeFieldName?.toLowerCase().includes(search)
 	);
 });
+
+/**
+ * 加载指定 workflow 的 stages 数据
+ */
+const loadStagesForWorkflow = async (workflowId: string) => {
+	if (!workflowId || workflowId === '0' || stagesCache.value[workflowId]) {
+		return stagesCache.value[workflowId] || [];
+	}
+
+	try {
+		stagesLoadingMap.value[workflowId] = true;
+		const response = await getStagesByWorkflow(workflowId);
+		if (response.code === '200') {
+			const stages = response.data || [];
+			stagesCache.value[workflowId] = stages;
+			return stages;
+		} else {
+			stagesCache.value[workflowId] = [];
+			return [];
+		}
+	} catch (error) {
+		console.error('Failed to load stages for workflow:', error);
+		stagesCache.value[workflowId] = [];
+		return [];
+	} finally {
+		stagesLoadingMap.value[workflowId] = false;
+	}
+};
+
+/**
+ * 处理 workflow 变化
+ */
+const handleWorkflowChange = async (row: IAttachmentSharingExtended, workflowId: string) => {
+	row.stageId = '';
+	if (workflowId && workflowId !== '0') {
+		await loadStagesForWorkflow(workflowId);
+	}
+	handleAttachmentSharingChange();
+};
+
+/**
+ * 附件共享变更
+ */
+function handleAttachmentSharingChange() {
+	// 数据变更处理（不自动保存）
+}
 
 /**
  * 加载附件工作流配置
  */
 async function loadAttachmentWorkflows() {
 	if (!props.integrationId || props.integrationId === 'new') {
-		selectedWorkflows.value = [];
+		attachmentSharing.value = [];
 		return;
 	}
 
@@ -175,55 +261,115 @@ async function loadAttachmentWorkflows() {
 	try {
 		const response = await getOutboundSettingsAttachment(props.integrationId);
 		if (response.success && response.data) {
-			// 将 workflowIds 转换为字符串数组（因为 el-select 的 value 需要是字符串）
-			const workflowIds = response.data.workflowIds || [];
-			selectedWorkflows.value = workflowIds.map((id) => String(id));
+			const items = response.data.items || [];
+			attachmentSharing.value = items.map((item) => ({
+				...item,
+				workflowId: String(item.workflowId),
+				stageId: String(item.stageId),
+				isEditing: false,
+			}));
+
+			// 加载所有有 workflowId 的 stages（用于回显）
+			const workflowIds = new Set<string>();
+			items.forEach((item) => {
+				if (item.workflowId) {
+					workflowIds.add(String(item.workflowId));
+				}
+			});
+
+			// 并行加载所有需要的 stages
+			await Promise.all(
+				Array.from(workflowIds).map((workflowId) => loadStagesForWorkflow(workflowId))
+			);
 		} else {
-			selectedWorkflows.value = [];
+			attachmentSharing.value = [];
 		}
 	} catch (error) {
 		console.error('Failed to load attachment workflows:', error);
-		selectedWorkflows.value = [];
+		attachmentSharing.value = [];
 	} finally {
 		isLoading.value = false;
 	}
 }
 
 /**
- * 保存附件工作流配置（内部实现）
+ * 保存附件工作流配置
  */
-async function _handleSaveWorkflows() {
+async function saveAttachmentSharing() {
 	if (!props.integrationId || props.integrationId === 'new') {
-		ElMessage.warning('Please save the integration first');
+		return;
+	}
+
+	// 过滤掉没有 workflowId 或 stageId 的项
+	const validItems = attachmentSharing.value.filter(
+		(item) => item.workflowId && item.stageId && item.workflowId !== '0' && item.stageId !== '0'
+	);
+
+	if (validItems.length === 0) {
+		// 如果没有有效项，清空配置
+		try {
+			await createOutboundSettingsAttachment(String(props.integrationId), []);
+		} catch (error) {
+			console.error('Failed to save attachment sharing:', error);
+		}
 		return;
 	}
 
 	isSaving.value = true;
 	try {
-		// 将字符串数组转换为字符串数组（接口需要 string[]）
-		const workflowIds = selectedWorkflows.value.map((id) => String(id));
+		const items = validItems.map((item) => ({
+			id: item.id || '',
+			workflowId: item.workflowId,
+			stageId: item.stageId,
+		}));
 
-		const response = await createOutboundSettingsAttachment(
-			String(props.integrationId),
-			workflowIds
-		);
+		const response = await createOutboundSettingsAttachment(String(props.integrationId), items);
 		if (response.success) {
-			ElMessage.success('Workflows saved successfully');
+			// 重新加载数据以获取最新的 id
+			await loadAttachmentWorkflows();
 		} else {
-			ElMessage.error(response.msg || 'Failed to save workflows');
+			ElMessage.error(response.msg || 'Failed to save attachment sharing');
 		}
-	} catch (error) {
-		console.error('Failed to save workflows:', error);
-		ElMessage.error('Failed to save workflows');
 	} finally {
 		isSaving.value = false;
 	}
 }
 
 /**
- * 保存附件工作流配置（带防抖）
+ * 添加新项
  */
-const handleSaveWorkflows = useDebounceFn(_handleSaveWorkflows, 500);
+function handleAddItem() {
+	attachmentSharing.value.push({
+		id: '',
+		workflowId: '',
+		stageId: '',
+		isEditing: true,
+	});
+}
+
+/**
+ * 删除项
+ */
+function handleDeleteItem(index: number) {
+	const row = attachmentSharing.value[index];
+	if (!row) return;
+
+	ElMessageBox.confirm(
+		`Are you sure you want to delete this workflow & stage configuration?`,
+		'Confirm Delete',
+		{
+			confirmButtonText: 'Delete',
+			cancelButtonText: 'Cancel',
+			type: 'warning',
+		}
+	)
+		.then(() => {
+			attachmentSharing.value.splice(index, 1);
+		})
+		.catch(() => {
+			// 取消删除
+		});
+}
 
 // 监听 integrationId 变化（包括初始化）
 watch(
@@ -232,7 +378,7 @@ watch(
 		if (newId && newId !== 'new') {
 			loadAttachmentWorkflows();
 		} else {
-			selectedWorkflows.value = [];
+			attachmentSharing.value = [];
 		}
 	},
 	{ immediate: true }

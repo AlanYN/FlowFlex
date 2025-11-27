@@ -76,6 +76,33 @@ export default defineConfig(async ({ command, mode }) => {
 			},
 			rollupOptions: {
 				output: {
+					manualChunks: (id) => {
+						// node_modules 中的包单独打包
+						if (id.includes('node_modules')) {
+							// 大型库单独打包
+							if (id.includes('element-plus')) {
+								return 'element-plus';
+							}
+							if (id.includes('echarts')) {
+								return 'echarts';
+							}
+							if (id.includes('gsap')) {
+								return 'gsap';
+							}
+							if (id.includes('chart.js')) {
+								return 'chartjs';
+							}
+							if (
+								id.includes('vue-router') ||
+								id.includes('pinia') ||
+								id.includes('vue')
+							) {
+								return 'vue-vendor';
+							}
+							// 其他第三方库
+							return 'vendor';
+						}
+					},
 					// 入口文件名
 					entryFileNames: 'js/[name].[hash].js',
 					// 用于命名代码拆分时创建的共享块的输出命名
@@ -111,7 +138,18 @@ export default defineConfig(async ({ command, mode }) => {
 		},
 		plugins,
 		optimizeDeps: {
-			include: ['@iconify/iconify'],
+			include: [
+				'@iconify/iconify',
+				'element-plus/es', // 预构建 Element Plus
+				'vue',
+				'vue-router',
+				'pinia',
+			],
+			exclude: [
+				// 排除不需要预构建的大型库，让它们按需加载
+				'echarts',
+				'gsap',
+			],
 		},
 		server: {
 			open: true,
