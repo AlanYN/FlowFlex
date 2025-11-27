@@ -105,7 +105,7 @@ public class Integration : EntityBaseCreateInfo
     /// Field mappings
     /// </summary>
     [SugarColumn(IsIgnore = true)]
-    public virtual ICollection<FieldMapping> FieldMappings { get; set; } = new List<FieldMapping>();
+    public virtual ICollection<InboundFieldMapping> FieldMappings { get; set; } = new List<InboundFieldMapping>();
     
     /// <summary>
     /// Integration actions

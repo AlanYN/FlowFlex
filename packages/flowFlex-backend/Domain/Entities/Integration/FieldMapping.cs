@@ -5,20 +5,15 @@ using SqlSugar;
 namespace FlowFlex.Domain.Entities.Integration;
 
 /// <summary>
-/// Field mapping - maps external system fields to WFE fields
+/// Inbound field mapping - maps external system fields to WFE fields for inbound data
 /// </summary>
-[SugarTable("ff_field_mapping")]
-public class FieldMapping : EntityBaseCreateInfo
+[SugarTable("ff_inbound_field_mapping")]
+public class InboundFieldMapping : EntityBaseCreateInfo
 {
     /// <summary>
     /// Integration ID
     /// </summary>
     public long IntegrationId { get; set; }
-    
-    /// <summary>
-    /// Entity mapping ID
-    /// </summary>
-    public long EntityMappingId { get; set; }
     
     /// <summary>
     /// Action ID - associates this field mapping with a specific action
@@ -36,19 +31,14 @@ public class FieldMapping : EntityBaseCreateInfo
     public string WfeFieldId { get; set; } = string.Empty;
     
     /// <summary>
-    /// Field data type
+    /// Field data type (Text, Number, Date, Boolean, Lookup)
     /// </summary>
     public FieldType FieldType { get; set; }
     
     /// <summary>
-    /// Sync direction
+    /// Sync direction (ViewOnly, Editable, OutboundOnly)
     /// </summary>
     public SyncDirection SyncDirection { get; set; }
-    
-    /// <summary>
-    /// Transformation rules (JSON)
-    /// </summary>
-    public string TransformRules { get; set; } = "{}";
     
     /// <summary>
     /// Sort order for display
@@ -72,11 +62,11 @@ public class FieldMapping : EntityBaseCreateInfo
     /// </summary>
     [SugarColumn(IsIgnore = true)]
     public virtual Integration? Integration { get; set; }
-    
-    /// <summary>
-    /// Parent entity mapping
-    /// </summary>
-    [SugarColumn(IsIgnore = true)]
-    public virtual EntityMapping? EntityMapping { get; set; }
 }
+
+/// <summary>
+/// Backward compatibility alias for FieldMapping
+/// </summary>
+[Obsolete("Use InboundFieldMapping instead")]
+public class FieldMapping : InboundFieldMapping { }
 

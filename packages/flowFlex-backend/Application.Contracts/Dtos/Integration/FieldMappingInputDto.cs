@@ -4,9 +4,9 @@ using Domain.Shared.Enums;
 namespace FlowFlex.Application.Contracts.Dtos.Integration
 {
     /// <summary>
-    /// Field mapping create/update input DTO
+    /// Inbound field mapping create/update input DTO
     /// </summary>
-    public class FieldMappingInputDto
+    public class InboundFieldMappingInputDto
     {
         /// <summary>
         /// Integration ID
@@ -15,13 +15,7 @@ namespace FlowFlex.Application.Contracts.Dtos.Integration
         public long IntegrationId { get; set; }
 
         /// <summary>
-        /// Entity mapping ID
-        /// </summary>
-        [Required]
-        public long EntityMappingId { get; set; }
-
-        /// <summary>
-        /// Action ID - associates this field mapping with a specific action (optional)
+        /// Action ID - associates this field mapping with a specific action
         /// </summary>
         public long? ActionId { get; set; }
 
@@ -40,21 +34,16 @@ namespace FlowFlex.Application.Contracts.Dtos.Integration
         public string WfeFieldId { get; set; } = string.Empty;
 
         /// <summary>
-        /// Field data type
+        /// Field data type (Text, Number, Date, Boolean, Lookup)
         /// </summary>
         [Required]
         public FieldType FieldType { get; set; }
 
         /// <summary>
-        /// Sync direction
+        /// Sync direction (ViewOnly, Editable, OutboundOnly)
         /// </summary>
         [Required]
         public SyncDirection SyncDirection { get; set; }
-
-        /// <summary>
-        /// Transformation rules
-        /// </summary>
-        public Dictionary<string, object> TransformRules { get; set; } = new();
 
         /// <summary>
         /// Sort order for display
@@ -72,5 +61,11 @@ namespace FlowFlex.Application.Contracts.Dtos.Integration
         [StringLength(500)]
         public string? DefaultValue { get; set; }
     }
+
+    /// <summary>
+    /// Backward compatibility alias
+    /// </summary>
+    [Obsolete("Use InboundFieldMappingInputDto instead")]
+    public class FieldMappingInputDto : InboundFieldMappingInputDto { }
 }
 

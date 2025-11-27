@@ -4,22 +4,21 @@ using FlowFlex.Domain.Entities.Integration;
 using FlowFlex.Domain.Repository.Integration;
 using FlowFlex.Domain.Shared;
 using Microsoft.AspNetCore.Http;
-using Domain.Shared.Enums;
 
 namespace FlowFlex.SqlSugarDB.Implements.Integration
 {
     /// <summary>
-    /// Field mapping repository implementation
+    /// Inbound field mapping repository implementation
     /// </summary>
-    public class FieldMappingRepository : BaseRepository<FieldMapping>, IFieldMappingRepository, IScopedService
+    public class InboundFieldMappingRepository : BaseRepository<InboundFieldMapping>, IInboundFieldMappingRepository, IScopedService
     {
         private readonly IHttpContextAccessor _httpContextAccessor;
-        private readonly ILogger<FieldMappingRepository> _logger;
+        private readonly ILogger<InboundFieldMappingRepository> _logger;
 
-        public FieldMappingRepository(
+        public InboundFieldMappingRepository(
             ISqlSugarClient sqlSugarClient,
             IHttpContextAccessor httpContextAccessor,
-            ILogger<FieldMappingRepository> logger) : base(sqlSugarClient)
+            ILogger<InboundFieldMappingRepository> logger) : base(sqlSugarClient)
         {
             _httpContextAccessor = httpContextAccessor;
             _logger = logger;
@@ -28,51 +27,48 @@ namespace FlowFlex.SqlSugarDB.Implements.Integration
         /// <summary>
         /// Get field mappings by integration ID
         /// </summary>
-        public async Task<List<FieldMapping>> GetByIntegrationIdAsync(long integrationId)
+        public async Task<List<InboundFieldMapping>> GetByIntegrationIdAsync(long integrationId)
         {
-            return await db.Queryable<FieldMapping>()
+            return await db.Queryable<InboundFieldMapping>()
                 .Where(x => x.IntegrationId == integrationId && x.IsValid)
-                .ToListAsync();
-        }
-
-        /// <summary>
-        /// Get field mappings by entity mapping ID
-        /// </summary>
-        public async Task<List<FieldMapping>> GetByEntityMappingIdAsync(long entityMappingId)
-        {
-            return await db.Queryable<FieldMapping>()
-                .Where(x => x.EntityMappingId == entityMappingId && x.IsValid)
                 .OrderBy(x => x.SortOrder)
                 .ToListAsync();
         }
 
         /// <summary>
-        /// Get field mapping by external field name
+        /// Get field mappings by action ID
         /// </summary>
-        public async Task<FieldMapping> GetByExternalFieldAsync(long entityMappingId, string externalFieldName)
+        public async Task<List<InboundFieldMapping>> GetByActionIdAsync(long actionId)
         {
-            return await db.Queryable<FieldMapping>()
-                .Where(x => x.EntityMappingId == entityMappingId && x.ExternalFieldName == externalFieldName && x.IsValid)
-                .FirstAsync();
+            return await db.Queryable<InboundFieldMapping>()
+                .Where(x => x.ActionId == actionId && x.IsValid)
+                .OrderBy(x => x.SortOrder)
+                .ToListAsync();
         }
 
         /// <summary>
-        /// Get field mapping by WFE field name
+        /// Get field mappings by integration ID and action ID
         /// </summary>
-        public async Task<FieldMapping> GetByWfeFieldAsync(long entityMappingId, string wfeFieldName)
+        public async Task<List<InboundFieldMapping>> GetByIntegrationIdAndActionIdAsync(long integrationId, long actionId)
         {
-            return await db.Queryable<FieldMapping>()
-                .Where(x => x.EntityMappingId == entityMappingId && x.WfeFieldId == wfeFieldName && x.IsValid)
-                .FirstAsync();
+            return await db.Queryable<InboundFieldMapping>()
+                .Where(x => x.IntegrationId == integrationId 
+                    && x.ActionId == actionId 
+                    && x.IsValid)
+                .OrderBy(x => x.SortOrder)
+                .ToListAsync();
         }
 
         /// <summary>
-        /// Check if field mapping exists
+        /// Check if field mapping exists by external field name
         /// </summary>
-        public async Task<bool> ExistsAsync(long entityMappingId, string externalFieldName, long? excludeId = null)
+        public async Task<bool> ExistsAsync(long integrationId, long actionId, string externalFieldName, long? excludeId = null)
         {
-            var query = db.Queryable<FieldMapping>()
-                .Where(x => x.EntityMappingId == entityMappingId && x.ExternalFieldName == externalFieldName && x.IsValid);
+            var query = db.Queryable<InboundFieldMapping>()
+                .Where(x => x.IntegrationId == integrationId 
+                    && x.ActionId == actionId 
+                    && x.ExternalFieldName == externalFieldName 
+                    && x.IsValid);
 
             if (excludeId.HasValue)
             {
@@ -87,7 +83,7 @@ namespace FlowFlex.SqlSugarDB.Implements.Integration
         /// </summary>
         public async Task<bool> DeleteByIntegrationIdAsync(long integrationId)
         {
-            var mappings = await db.Queryable<FieldMapping>()
+            var mappings = await db.Queryable<InboundFieldMapping>()
                 .Where(x => x.IntegrationId == integrationId)
                 .ToListAsync();
 
@@ -104,12 +100,12 @@ namespace FlowFlex.SqlSugarDB.Implements.Integration
         }
 
         /// <summary>
-        /// Delete field mappings by entity mapping ID
+        /// Delete field mappings by action ID
         /// </summary>
-        public async Task<bool> DeleteByEntityMappingIdAsync(long entityMappingId)
+        public async Task<bool> DeleteByActionIdAsync(long actionId)
         {
-            var mappings = await db.Queryable<FieldMapping>()
-                .Where(x => x.EntityMappingId == entityMappingId)
+            var mappings = await db.Queryable<InboundFieldMapping>()
+                .Where(x => x.ActionId == actionId)
                 .ToListAsync();
 
             if (mappings.Any())
@@ -122,31 +118,6 @@ namespace FlowFlex.SqlSugarDB.Implements.Integration
             }
 
             return true;
-        }
-
-        /// <summary>
-        /// Get bidirectional field mappings
-        /// </summary>
-        public async Task<List<FieldMapping>> GetBidirectionalMappingsAsync(long entityMappingId)
-        {
-            return await db.Queryable<FieldMapping>()
-                .Where(x => x.EntityMappingId == entityMappingId 
-                    && x.SyncDirection == SyncDirection.Editable 
-                    && x.IsValid)
-                .ToListAsync();
-        }
-
-        /// <summary>
-        /// Get field mappings by integration ID and action ID
-        /// </summary>
-        public async Task<List<FieldMapping>> GetByIntegrationIdAndActionIdAsync(long integrationId, long actionId)
-        {
-            return await db.Queryable<FieldMapping>()
-                .Where(x => x.IntegrationId == integrationId 
-                    && x.ActionId == actionId 
-                    && x.IsValid)
-                .OrderBy(x => x.SortOrder)
-                .ToListAsync();
         }
     }
 }

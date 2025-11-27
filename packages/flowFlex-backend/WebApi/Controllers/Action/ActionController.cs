@@ -1,6 +1,8 @@
 ﻿
 using FlowFlex.Application.Contracts.Dtos.Action;
+using FlowFlex.Application.Contracts.Dtos.Integration;
 using FlowFlex.Application.Contracts.IServices.Action;
+using FlowFlex.Application.Contracts.IServices.Integration;
 using FlowFlex.Domain.Shared.Enums.Action;
 using FlowFlex.Domain.Shared.Models;
 using Item.Internal.StandardApi.Response;
@@ -12,6 +14,7 @@ using System.Net;
 using FlowFlex.Application.Filter;
 using FlowFlex.Domain.Shared.Const;
 using WebApi.Authorization;
+using Domain.Shared.Enums;
 
 namespace FlowFlex.WebApi.Controllers.Action
 {
@@ -26,15 +29,18 @@ namespace FlowFlex.WebApi.Controllers.Action
     {
         private readonly IActionManagementService _actionManagementService;
         private readonly IActionExecutionService _actionExecutionService;
+        private readonly IInboundFieldMappingService _fieldMappingService;
         private readonly ILogger<ActionController> _logger;
 
         public ActionController(
             IActionManagementService actionManagementService,
             IActionExecutionService actionExecutionService,
+            IInboundFieldMappingService fieldMappingService,
             ILogger<ActionController> logger)
         {
             _actionManagementService = actionManagementService;
             _actionExecutionService = actionExecutionService;
+            _fieldMappingService = fieldMappingService;
             _logger = logger;
         }
 
@@ -163,7 +169,13 @@ namespace FlowFlex.WebApi.Controllers.Action
                     ActionType = (ActionTypeEnum)(requestData["actionType"]?.ToObject<int>() ?? 0),
                     ActionConfig = requestData["actionConfig"]?.ToString() ?? "{}",
                     IsEnabled = requestData["isEnabled"]?.ToObject<bool>() ?? true,
-                    IsTools = requestData["isTools"]?.ToObject<bool>() ?? false
+                    IsTools = requestData["isTools"]?.ToObject<bool>() ?? false,
+                    // Integration association fields
+                    IntegrationId = requestData["integrationId"] != null && !string.IsNullOrEmpty(requestData["integrationId"]?.ToString()) 
+                        ? long.TryParse(requestData["integrationId"]?.ToString(), out var integrationId) ? integrationId : null 
+                        : null,
+                    DataDirectionInbound = requestData["dataDirectionInbound"]?.ToObject<bool>() ?? false,
+                    DataDirectionOutbound = requestData["dataDirectionOutbound"]?.ToObject<bool>() ?? false
                 };
 
                 var result = await _actionManagementService.UpdateActionDefinitionAsync(id, dto);
@@ -189,6 +201,51 @@ namespace FlowFlex.WebApi.Controllers.Action
                             if (long.TryParse(mappingId, out var mappingIdLong))
                             {
                                 await _actionManagementService.UpdateActionTriggerMappingStatusAsync(mappingIdLong, isEnabled);
+                            }
+                        }
+                    }
+                }
+
+                // Handle fieldMappings update
+                if (requestData["fieldMappings"] != null && dto.IntegrationId.HasValue)
+                {
+                    _logger.LogInformation("Processing fieldMappings update for Action {ActionId}", id);
+
+                    var fieldMappings = requestData["fieldMappings"]?.ToObject<List<JObject>>();
+                    if (fieldMappings != null)
+                    {
+                        foreach (var mapping in fieldMappings)
+                        {
+                            var fieldMappingId = mapping["id"]?.ToString();
+                            
+                            // Parse field mapping data
+                            var fieldMappingInput = new InboundFieldMappingInputDto
+                            {
+                                IntegrationId = dto.IntegrationId.Value,
+                                ActionId = id,
+                                ExternalFieldName = mapping["externalFieldName"]?.ToString() ?? "",
+                                WfeFieldId = mapping["wfeFieldId"]?.ToString() ?? "",
+                                FieldType = Enum.TryParse<FieldType>(mapping["fieldType"]?.ToString(), out var fieldType) 
+                                    ? fieldType : FieldType.Text,
+                                SyncDirection = Enum.TryParse<SyncDirection>(mapping["syncDirection"]?.ToString(), out var syncDirection) 
+                                    ? syncDirection : SyncDirection.ViewOnly,
+                                IsRequired = mapping["isRequired"]?.ToObject<bool>() ?? false,
+                                DefaultValue = mapping["defaultValue"]?.ToString(),
+                                SortOrder = mapping["sortOrder"]?.ToObject<int>() ?? 0
+                            };
+
+                            // Update existing or create new field mapping
+                            if (!string.IsNullOrEmpty(fieldMappingId) && long.TryParse(fieldMappingId, out var fieldMappingIdLong) && fieldMappingIdLong > 0)
+                            {
+                                // Update existing field mapping
+                                await _fieldMappingService.UpdateAsync(fieldMappingIdLong, fieldMappingInput);
+                                _logger.LogInformation("Updated field mapping {FieldMappingId} for Action {ActionId}", fieldMappingIdLong, id);
+                            }
+                            else
+                            {
+                                // Create new field mapping
+                                var newId = await _fieldMappingService.CreateAsync(fieldMappingInput);
+                                _logger.LogInformation("Created new field mapping {FieldMappingId} for Action {ActionId}", newId, id);
                             }
                         }
                     }

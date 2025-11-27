@@ -132,6 +132,16 @@ namespace FlowFlex.Application.Contracts.Dtos.Action
         public long Id { get; set; }
 
         /// <summary>
+        /// Action ID this field mapping belongs to
+        /// </summary>
+        public long? ActionId { get; set; }
+
+        /// <summary>
+        /// Action name this field mapping belongs to
+        /// </summary>
+        public string? ActionName { get; set; }
+
+        /// <summary>
         /// External system field name
         /// </summary>
         public string ExternalFieldName { get; set; } = string.Empty;

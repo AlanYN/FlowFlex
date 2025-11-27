@@ -4,34 +4,29 @@ using FlowFlex.Domain.Repository;
 namespace FlowFlex.Domain.Repository.Integration
 {
     /// <summary>
-    /// Field mapping repository interface
+    /// Inbound field mapping repository interface
     /// </summary>
-    public interface IFieldMappingRepository : IBaseRepository<FieldMapping>
+    public interface IInboundFieldMappingRepository : IBaseRepository<InboundFieldMapping>
     {
         /// <summary>
         /// Get field mappings by integration ID
         /// </summary>
-        Task<List<FieldMapping>> GetByIntegrationIdAsync(long integrationId);
+        Task<List<InboundFieldMapping>> GetByIntegrationIdAsync(long integrationId);
 
         /// <summary>
-        /// Get field mappings by entity mapping ID
+        /// Get field mappings by action ID
         /// </summary>
-        Task<List<FieldMapping>> GetByEntityMappingIdAsync(long entityMappingId);
+        Task<List<InboundFieldMapping>> GetByActionIdAsync(long actionId);
 
         /// <summary>
-        /// Get field mapping by external field name
+        /// Get field mappings by integration ID and action ID
         /// </summary>
-        Task<FieldMapping> GetByExternalFieldAsync(long entityMappingId, string externalFieldName);
+        Task<List<InboundFieldMapping>> GetByIntegrationIdAndActionIdAsync(long integrationId, long actionId);
 
         /// <summary>
-        /// Get field mapping by WFE field name
+        /// Check if field mapping exists by external field name
         /// </summary>
-        Task<FieldMapping> GetByWfeFieldAsync(long entityMappingId, string wfeFieldName);
-
-        /// <summary>
-        /// Check if field mapping exists
-        /// </summary>
-        Task<bool> ExistsAsync(long entityMappingId, string externalFieldName, long? excludeId = null);
+        Task<bool> ExistsAsync(long integrationId, long actionId, string externalFieldName, long? excludeId = null);
 
         /// <summary>
         /// Delete field mappings by integration ID
@@ -39,19 +34,15 @@ namespace FlowFlex.Domain.Repository.Integration
         Task<bool> DeleteByIntegrationIdAsync(long integrationId);
 
         /// <summary>
-        /// Delete field mappings by entity mapping ID
+        /// Delete field mappings by action ID
         /// </summary>
-        Task<bool> DeleteByEntityMappingIdAsync(long entityMappingId);
-
-        /// <summary>
-        /// Get bidirectional field mappings
-        /// </summary>
-        Task<List<FieldMapping>> GetBidirectionalMappingsAsync(long entityMappingId);
-
-        /// <summary>
-        /// Get field mappings by integration ID and action ID
-        /// </summary>
-        Task<List<FieldMapping>> GetByIntegrationIdAndActionIdAsync(long integrationId, long actionId);
+        Task<bool> DeleteByActionIdAsync(long actionId);
     }
+
+    /// <summary>
+    /// Backward compatibility alias
+    /// </summary>
+    [Obsolete("Use IInboundFieldMappingRepository instead")]
+    public interface IFieldMappingRepository : IInboundFieldMappingRepository { }
 }
 

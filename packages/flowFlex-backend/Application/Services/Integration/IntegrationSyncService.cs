@@ -24,7 +24,7 @@ namespace FlowFlex.Application.Services.Integration
         private readonly IIntegrationSyncLogRepository _syncLogRepository;
         private readonly IIntegrationRepository _integrationRepository;
         private readonly IEntityMappingRepository _entityMappingRepository;
-        private readonly IFieldMappingRepository _fieldMappingRepository;
+        private readonly IInboundFieldMappingRepository _fieldMappingRepository;
         private readonly IMapper _mapper;
         private readonly UserContext _userContext;
         private readonly ILogger<IntegrationSyncService> _logger;
@@ -33,7 +33,7 @@ namespace FlowFlex.Application.Services.Integration
             IIntegrationSyncLogRepository syncLogRepository,
             IIntegrationRepository integrationRepository,
             IEntityMappingRepository entityMappingRepository,
-            IFieldMappingRepository fieldMappingRepository,
+            IInboundFieldMappingRepository fieldMappingRepository,
             IMapper mapper,
             UserContext userContext,
             ILogger<IntegrationSyncService> logger)
@@ -76,8 +76,8 @@ namespace FlowFlex.Application.Services.Integration
                     throw new CRMException(ErrorCodeEnum.NotFound, $"Entity mapping for '{entityType}' not found");
                 }
 
-                // Get field mappings
-                var fieldMappings = await _fieldMappingRepository.GetByEntityMappingIdAsync(entityMapping.Id);
+                // Get field mappings by integration ID
+                var fieldMappings = await _fieldMappingRepository.GetByIntegrationIdAsync(integrationId);
                 var inboundFields = fieldMappings.Where(f => 
                     f.SyncDirection == SyncDirection.ViewOnly || 
                     f.SyncDirection == SyncDirection.Editable).ToList();
@@ -143,8 +143,8 @@ namespace FlowFlex.Application.Services.Integration
                     throw new CRMException(ErrorCodeEnum.NotFound, $"Entity mapping for '{entityType}' not found");
                 }
 
-                // Get field mappings
-                var fieldMappings = await _fieldMappingRepository.GetByEntityMappingIdAsync(entityMapping.Id);
+                // Get field mappings by integration ID
+                var fieldMappings = await _fieldMappingRepository.GetByIntegrationIdAsync(integrationId);
                 var outboundFields = fieldMappings.Where(f => 
                     f.SyncDirection == SyncDirection.OutboundOnly || 
                     f.SyncDirection == SyncDirection.Editable).ToList();

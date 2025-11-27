@@ -1,31 +1,14 @@
-using Domain.Shared.Enums;
-
 namespace FlowFlex.Application.Contracts.Dtos.Integration
 {
     /// <summary>
-    /// Field mapping output DTO
+    /// Inbound field mapping output DTO
     /// </summary>
-    public class FieldMappingOutputDto
+    public class InboundFieldMappingOutputDto
     {
         /// <summary>
         /// Field mapping ID
         /// </summary>
         public long Id { get; set; }
-
-        /// <summary>
-        /// Integration ID
-        /// </summary>
-        public long IntegrationId { get; set; }
-
-        /// <summary>
-        /// Entity mapping ID
-        /// </summary>
-        public long EntityMappingId { get; set; }
-
-        /// <summary>
-        /// Action ID - associates this field mapping with a specific action
-        /// </summary>
-        public long? ActionId { get; set; }
 
         /// <summary>
         /// External system field name
@@ -38,24 +21,19 @@ namespace FlowFlex.Application.Contracts.Dtos.Integration
         public string WfeFieldId { get; set; } = string.Empty;
 
         /// <summary>
-        /// Field data type
+        /// WFE field display name
         /// </summary>
-        public FieldType FieldType { get; set; }
+        public string WfeFieldName { get; set; } = string.Empty;
 
         /// <summary>
-        /// Sync direction
+        /// Field data type (Text, Number, Date, Boolean, Lookup)
         /// </summary>
-        public SyncDirection SyncDirection { get; set; }
+        public string FieldType { get; set; } = string.Empty;
 
         /// <summary>
-        /// Transformation rules
+        /// Sync direction (ViewOnly, Editable, OutboundOnly)
         /// </summary>
-        public Dictionary<string, object> TransformRules { get; set; } = new();
-
-        /// <summary>
-        /// Sort order for display
-        /// </summary>
-        public int SortOrder { get; set; }
+        public string SyncDirection { get; set; } = string.Empty;
 
         /// <summary>
         /// Whether this field is required
@@ -68,24 +46,15 @@ namespace FlowFlex.Application.Contracts.Dtos.Integration
         public string? DefaultValue { get; set; }
 
         /// <summary>
-        /// WFE field display name
+        /// Sort order for display
         /// </summary>
-        public string WfeFieldName { get; set; } = string.Empty;
-
-        /// <summary>
-        /// Whether this is a static field (Basic Level)
-        /// </summary>
-        public bool IsStaticField { get; set; }
-
-        /// <summary>
-        /// Create date
-        /// </summary>
-        public DateTimeOffset CreateDate { get; set; }
-
-        /// <summary>
-        /// Modify date
-        /// </summary>
-        public DateTimeOffset ModifyDate { get; set; }
+        public int SortOrder { get; set; }
     }
+
+    /// <summary>
+    /// Backward compatibility alias
+    /// </summary>
+    [Obsolete("Use InboundFieldMappingOutputDto instead")]
+    public class FieldMappingOutputDto : InboundFieldMappingOutputDto { }
 }
 

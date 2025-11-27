@@ -130,7 +130,7 @@ namespace FlowFlex.SqlSugarDB.Implements.Integration
                 .Where(x => x.IntegrationId == integration.Id && x.IsValid)
                 .ToListAsync();
 
-            integration.FieldMappings = await db.Queryable<Domain.Entities.Integration.FieldMapping>()
+            integration.FieldMappings = await db.Queryable<Domain.Entities.Integration.InboundFieldMapping>()
                 .Where(x => x.IntegrationId == integration.Id && x.IsValid)
                 .ToListAsync();
 

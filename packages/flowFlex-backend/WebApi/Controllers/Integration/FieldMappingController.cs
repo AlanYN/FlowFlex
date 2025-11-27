@@ -9,45 +9,45 @@ using System.Net;
 namespace FlowFlex.WebApi.Controllers.Integration
 {
     /// <summary>
-    /// Field mapping management API
+    /// Inbound field mapping management API
     /// </summary>
     [ApiController]
-    [Route("integration/field-mappings/v{version:apiVersion}")]
-    [Display(Name = "field-mapping")]
+    [Route("integration/inbound-field-mappings/v{version:apiVersion}")]
+    [Display(Name = "inbound-field-mapping")]
     [Authorize]
-    public class FieldMappingController : Controllers.ControllerBase
+    public class InboundFieldMappingController : Controllers.ControllerBase
     {
-        private readonly IFieldMappingService _fieldMappingService;
+        private readonly IInboundFieldMappingService _fieldMappingService;
 
-        public FieldMappingController(IFieldMappingService fieldMappingService)
+        public InboundFieldMappingController(IInboundFieldMappingService fieldMappingService)
         {
             _fieldMappingService = fieldMappingService;
         }
 
         /// <summary>
-        /// Create field mapping
+        /// Create inbound field mapping
         /// </summary>
         [HttpPost]
         [ProducesResponseType<SuccessResponse<long>>((int)HttpStatusCode.OK)]
-        public async Task<IActionResult> Create([FromBody] FieldMappingInputDto input)
+        public async Task<IActionResult> Create([FromBody] InboundFieldMappingInputDto input)
         {
             var id = await _fieldMappingService.CreateAsync(input);
             return Success(id);
         }
 
         /// <summary>
-        /// Update field mapping
+        /// Update inbound field mapping
         /// </summary>
         [HttpPut("{id}")]
         [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
-        public async Task<IActionResult> Update(long id, [FromBody] FieldMappingInputDto input)
+        public async Task<IActionResult> Update(long id, [FromBody] InboundFieldMappingInputDto input)
         {
             var result = await _fieldMappingService.UpdateAsync(id, input);
             return Success(result);
         }
 
         /// <summary>
-        /// Delete field mapping
+        /// Delete inbound field mapping
         /// </summary>
         [HttpDelete("{id}")]
         [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
@@ -58,10 +58,10 @@ namespace FlowFlex.WebApi.Controllers.Integration
         }
 
         /// <summary>
-        /// Get field mapping by id
+        /// Get inbound field mapping by id
         /// </summary>
         [HttpGet("{id}")]
-        [ProducesResponseType<SuccessResponse<FieldMappingOutputDto>>((int)HttpStatusCode.OK)]
+        [ProducesResponseType<SuccessResponse<InboundFieldMappingOutputDto>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> GetById(long id)
         {
             var data = await _fieldMappingService.GetByIdAsync(id);
@@ -69,21 +69,10 @@ namespace FlowFlex.WebApi.Controllers.Integration
         }
 
         /// <summary>
-        /// Get field mappings by entity mapping id
-        /// </summary>
-        [HttpGet("by-entity-mapping/{entityMappingId}")]
-        [ProducesResponseType<SuccessResponse<List<FieldMappingOutputDto>>>((int)HttpStatusCode.OK)]
-        public async Task<IActionResult> GetByEntityMappingId(long entityMappingId)
-        {
-            var data = await _fieldMappingService.GetByEntityMappingIdAsync(entityMappingId);
-            return Success(data);
-        }
-
-        /// <summary>
-        /// Get field mappings by integration id
+        /// Get inbound field mappings by integration id
         /// </summary>
         [HttpGet("by-integration/{integrationId}")]
-        [ProducesResponseType<SuccessResponse<List<FieldMappingOutputDto>>>((int)HttpStatusCode.OK)]
+        [ProducesResponseType<SuccessResponse<List<InboundFieldMappingOutputDto>>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> GetByIntegrationId(long integrationId)
         {
             var data = await _fieldMappingService.GetByIntegrationIdAsync(integrationId);
@@ -91,15 +80,36 @@ namespace FlowFlex.WebApi.Controllers.Integration
         }
 
         /// <summary>
-        /// Batch update field mappings
+        /// Get inbound field mappings by action id
         /// </summary>
-        [HttpPut("batch")]
+        [HttpGet("by-action/{actionId}")]
+        [ProducesResponseType<SuccessResponse<List<InboundFieldMappingOutputDto>>>((int)HttpStatusCode.OK)]
+        public async Task<IActionResult> GetByActionId(long actionId)
+        {
+            var data = await _fieldMappingService.GetByActionIdAsync(actionId);
+            return Success(data);
+        }
+
+        /// <summary>
+        /// Get inbound field mappings by integration id and action id
+        /// </summary>
+        [HttpGet("by-integration-action")]
+        [ProducesResponseType<SuccessResponse<List<InboundFieldMappingOutputDto>>>((int)HttpStatusCode.OK)]
+        public async Task<IActionResult> GetByIntegrationIdAndActionId([FromQuery] long integrationId, [FromQuery] long actionId)
+        {
+            var data = await _fieldMappingService.GetByIntegrationIdAndActionIdAsync(integrationId, actionId);
+            return Success(data);
+        }
+
+        /// <summary>
+        /// Batch create inbound field mappings
+        /// </summary>
+        [HttpPost("batch")]
         [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
-        public async Task<IActionResult> BatchUpdate([FromBody] List<FieldMappingInputDto> inputs)
+        public async Task<IActionResult> BatchCreate([FromBody] List<InboundFieldMappingInputDto> inputs)
         {
             var result = await _fieldMappingService.BatchUpdateAsync(inputs);
             return Success(result);
         }
     }
 }
-

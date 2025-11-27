@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using Domain.Shared.Enums;
+using FlowFlex.Application.Contracts.Dtos.Action;
 
 namespace FlowFlex.Application.Contracts.Dtos.Integration
 {
@@ -106,9 +107,16 @@ namespace FlowFlex.Application.Contracts.Dtos.Integration
         public List<QuickLinkOutputDto>? QuickLinks { get; set; }
 
         /// <summary>
-        /// Outbound configurations (only returned in GetWithDetails)
+        /// Inbound field mappings (only returned in GetWithDetails)
+        /// Field mappings for receiving data from external system
         /// </summary>
-        public List<OutboundConfigurationOverviewDto>? OutboundConfigurations { get; set; }
+        public List<ActionFieldMappingDto>? InboundFieldMappings { get; set; }
+
+        /// <summary>
+        /// Outbound field mappings (only returned in GetWithDetails)
+        /// Field mappings for sending data to external system
+        /// </summary>
+        public List<ActionFieldMappingDto>? OutboundFieldMappings { get; set; }
 
         /// <summary>
         /// Inbound attachments configuration (only returned in GetWithDetails)

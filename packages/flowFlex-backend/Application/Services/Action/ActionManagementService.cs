@@ -44,7 +44,7 @@ namespace FlowFlex.Application.Services.Action
         private readonly UserContext _userContext;
         private readonly IOperatorContextService _operatorContextService;
         private readonly IIntegrationRepository _integrationRepository;
-        private readonly IFieldMappingRepository _fieldMappingRepository;
+        private readonly IInboundFieldMappingRepository _fieldMappingRepository;
 
         public ActionManagementService(
             IActionDefinitionRepository actionDefinitionRepository,
@@ -61,7 +61,7 @@ namespace FlowFlex.Application.Services.Action
             ILogger<ActionManagementService> logger,
             IOperatorContextService operatorContextService,
             IIntegrationRepository integrationRepository,
-            IFieldMappingRepository fieldMappingRepository)
+            IInboundFieldMappingRepository fieldMappingRepository)
         {
             _actionDefinitionRepository = actionDefinitionRepository;
             _actionTriggerMappingRepository = actionTriggerMappingRepository;
@@ -319,6 +319,9 @@ namespace FlowFlex.Application.Services.Action
                     _logger.LogWarning(ex, "Failed to create action trigger mapping for action: {ActionId}", entity.Id);
                 }
             }
+
+            // Enrich with Integration data and Field Mappings
+            await EnrichActionWithIntegrationDataAsync(resultDto, entity);
 
             return resultDto;
         }
@@ -682,6 +685,9 @@ namespace FlowFlex.Application.Services.Action
                     });
                 }
             }
+
+            // Enrich with Integration data and Field Mappings
+            await EnrichActionWithIntegrationDataAsync(resultDto, entity);
 
             return resultDto;
         }
@@ -2020,9 +2026,9 @@ namespace FlowFlex.Application.Services.Action
         }
 
         /// <summary>
-        /// Map FieldMapping entity to ActionFieldMappingDto
+        /// Map InboundFieldMapping entity to ActionFieldMappingDto
         /// </summary>
-        private ActionFieldMappingDto MapToActionFieldMappingDto(FlowFlex.Domain.Entities.Integration.FieldMapping fieldMapping)
+        private ActionFieldMappingDto MapToActionFieldMappingDto(FlowFlex.Domain.Entities.Integration.InboundFieldMapping fieldMapping)
         {
             return new ActionFieldMappingDto
             {

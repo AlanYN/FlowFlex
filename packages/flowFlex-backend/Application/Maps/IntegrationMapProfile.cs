@@ -20,7 +20,8 @@ namespace FlowFlex.Application.Maps
                 .ForMember(dest => dest.Connection, opt => opt.Ignore())
                 .ForMember(dest => dest.EntityMappings, opt => opt.Ignore())
                 .ForMember(dest => dest.QuickLinks, opt => opt.Ignore())
-                .ForMember(dest => dest.OutboundConfigurations, opt => opt.Ignore())
+                .ForMember(dest => dest.InboundFieldMappings, opt => opt.Ignore())
+                .ForMember(dest => dest.OutboundFieldMappings, opt => opt.Ignore())
                 .ForMember(dest => dest.InboundAttachments, opt => opt.Ignore())
                 .ForMember(dest => dest.OutboundAttachments, opt => opt.Ignore());
 
@@ -62,15 +63,14 @@ namespace FlowFlex.Application.Maps
                 .ForMember(dest => dest.KeyMappings, opt => opt.Ignore())
                 .ForMember(dest => dest.FieldMappings, opt => opt.Ignore());
 
-            // FieldMapping mappings (WorkflowIds removed in V2)
-            CreateMap<FieldMapping, FieldMappingOutputDto>()
-                .ForMember(dest => dest.TransformRules, opt => opt.Ignore())
-                .ForMember(dest => dest.WfeFieldName, opt => opt.Ignore())
-                .ForMember(dest => dest.IsStaticField, opt => opt.Ignore());
+            // InboundFieldMapping mappings
+            CreateMap<InboundFieldMapping, InboundFieldMappingOutputDto>()
+                .ForMember(dest => dest.WfeFieldName, opt => opt.MapFrom(src => src.WfeFieldId))
+                .ForMember(dest => dest.FieldType, opt => opt.MapFrom(src => src.FieldType.ToString()))
+                .ForMember(dest => dest.SyncDirection, opt => opt.MapFrom(src => src.SyncDirection.ToString()));
 
-            CreateMap<FieldMappingInputDto, FieldMapping>()
+            CreateMap<InboundFieldMappingInputDto, InboundFieldMapping>()
                 .ForMember(dest => dest.Id, opt => opt.Ignore())
-                .ForMember(dest => dest.TransformRules, opt => opt.Ignore())
                 .ForMember(dest => dest.IsValid, opt => opt.Ignore())
                 .ForMember(dest => dest.CreateDate, opt => opt.Ignore())
                 .ForMember(dest => dest.ModifyDate, opt => opt.Ignore())
@@ -78,8 +78,7 @@ namespace FlowFlex.Application.Maps
                 .ForMember(dest => dest.ModifyBy, opt => opt.Ignore())
                 .ForMember(dest => dest.CreateUserId, opt => opt.Ignore())
                 .ForMember(dest => dest.ModifyUserId, opt => opt.Ignore())
-                .ForMember(dest => dest.Integration, opt => opt.Ignore())
-                .ForMember(dest => dest.EntityMapping, opt => opt.Ignore());
+                .ForMember(dest => dest.Integration, opt => opt.Ignore());
 
             // QuickLink mappings
             CreateMap<QuickLink, QuickLinkOutputDto>()

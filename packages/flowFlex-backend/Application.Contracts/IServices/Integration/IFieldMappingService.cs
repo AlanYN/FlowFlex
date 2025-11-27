@@ -3,19 +3,19 @@ using FlowFlex.Application.Contracts.Dtos.Integration;
 namespace FlowFlex.Application.Contracts.IServices.Integration
 {
     /// <summary>
-    /// Field mapping service interface
+    /// Inbound field mapping service interface
     /// </summary>
-    public interface IFieldMappingService
+    public interface IInboundFieldMappingService
     {
         /// <summary>
         /// Create a new field mapping
         /// </summary>
-        Task<long> CreateAsync(FieldMappingInputDto input);
+        Task<long> CreateAsync(InboundFieldMappingInputDto input);
 
         /// <summary>
         /// Update an existing field mapping
         /// </summary>
-        Task<bool> UpdateAsync(long id, FieldMappingInputDto input);
+        Task<bool> UpdateAsync(long id, InboundFieldMappingInputDto input);
 
         /// <summary>
         /// Delete a field mapping
@@ -25,31 +25,32 @@ namespace FlowFlex.Application.Contracts.IServices.Integration
         /// <summary>
         /// Get field mapping by ID
         /// </summary>
-        Task<FieldMappingOutputDto> GetByIdAsync(long id);
-
-        /// <summary>
-        /// Get all field mappings for an entity mapping
-        /// </summary>
-        Task<List<FieldMappingOutputDto>> GetByEntityMappingIdAsync(long entityMappingId);
+        Task<InboundFieldMappingOutputDto> GetByIdAsync(long id);
 
         /// <summary>
         /// Get all field mappings for an integration
         /// </summary>
-        Task<List<FieldMappingOutputDto>> GetByIntegrationIdAsync(long integrationId);
+        Task<List<InboundFieldMappingOutputDto>> GetByIntegrationIdAsync(long integrationId);
 
         /// <summary>
-        /// Batch update field mappings
+        /// Get field mappings by action ID
         /// </summary>
-        Task<bool> BatchUpdateAsync(List<FieldMappingInputDto> inputs);
-
-        /// <summary>
-        /// Get bidirectional (editable) field mappings for an entity mapping
-        /// </summary>
-        Task<List<FieldMappingOutputDto>> GetBidirectionalMappingsAsync(long entityMappingId);
+        Task<List<InboundFieldMappingOutputDto>> GetByActionIdAsync(long actionId);
 
         /// <summary>
         /// Get field mappings by integration ID and action ID
         /// </summary>
-        Task<List<FieldMappingOutputDto>> GetByIntegrationIdAndActionIdAsync(long integrationId, long actionId);
+        Task<List<InboundFieldMappingOutputDto>> GetByIntegrationIdAndActionIdAsync(long integrationId, long actionId);
+
+        /// <summary>
+        /// Batch update field mappings
+        /// </summary>
+        Task<bool> BatchUpdateAsync(List<InboundFieldMappingInputDto> inputs);
     }
+
+    /// <summary>
+    /// Backward compatibility alias
+    /// </summary>
+    [Obsolete("Use IInboundFieldMappingService instead")]
+    public interface IFieldMappingService : IInboundFieldMappingService { }
 }

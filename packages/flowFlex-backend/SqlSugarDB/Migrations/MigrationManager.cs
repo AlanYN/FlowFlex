@@ -100,7 +100,8 @@ namespace FlowFlex.SqlSugarDB.Migrations
                     ("20251124000004_AddTenantIdAndAppCodeToConfigurations", (Action)(() => Migration_20251124000004_AddTenantIdAndAppCodeToConfigurations.Up(_db))),
                     ("20251127000001_AddSystemIdToEntityMapping", (Action)(() => Migration_20251127000001_AddSystemIdToEntityMapping.Up(_db))),
                     ("20251127000002_AddIntegrationFieldsToActionDefinitions", (Action)(() => Migration_20251127000002_AddIntegrationFieldsToActionDefinitions.Up(_db))),
-                    ("20251127000003_RefactorAttachmentConfiguration", (Action)(() => Migration_20251127000003_RefactorAttachmentConfiguration.Up(_db)))
+                    ("20251127000003_RefactorAttachmentConfiguration", (Action)(() => Migration_20251127000003_RefactorAttachmentConfiguration.Up(_db))),
+                    ("20251127000004_RenameFieldMappingTable", (Action)(() => Migration_20251127000004_RenameFieldMappingTable.Up(_db)))
                 };
 
                 // Pre-check all migrations to reduce individual SQL queries
