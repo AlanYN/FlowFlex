@@ -98,7 +98,7 @@
 					<template #default="{ row }">
 						<el-input
 							v-if="row.isEditing"
-							v-model="row.module"
+							v-model="row.moduleName"
 							placeholder="Enter external module name"
 							@blur="handleModuleBlur(row)"
 						/>
@@ -108,20 +108,18 @@
 					</template>
 				</el-table-column>
 
-				<el-table-column label="Available in Workflows" min-width="250">
+				<el-table-column label="Workflow" min-width="250">
 					<template #default="{ row }">
 						<el-select
-							v-model="row.workflowIds"
-							multiple
-							placeholder="Select workflows..."
-							collapse-tags
-							@change="handleAttachmentSharingChange"
+							v-model="row.workflowId"
+							placeholder="Select workflow..."
+							@change="(val) => handleWorkflowChange(row, val)"
 						>
 							<el-option
-								v-for="workflow in workflowOptions"
-								:key="workflow.workflowId"
-								:label="workflow.workflowName"
-								:value="String(workflow.workflowId)"
+								v-for="workflow in workflows"
+								:key="workflow.id"
+								:label="workflow.name"
+								:value="String(workflow.id)"
 							>
 								<div class="flex items-center justify-between">
 									<span>{{ workflow.name }}</span>
@@ -131,6 +129,26 @@
 									<el-tag v-else type="success" size="small">Active</el-tag>
 								</div>
 							</el-option>
+						</el-select>
+					</template>
+				</el-table-column>
+
+				<el-table-column label="Stage" min-width="250">
+					<template #default="{ row }">
+						<el-select
+							v-model="row.stageId"
+							placeholder="Select stage..."
+							:disabled="!row.workflowId"
+							:loading="stagesLoadingMap[row.workflowId] || false"
+							@change="handleAttachmentSharingChange"
+							@focus="() => loadStagesForWorkflow(row.workflowId)"
+						>
+							<el-option
+								v-for="stage in stagesCache[row.workflowId] || []"
+								:key="stage.id"
+								:label="stage.name"
+								:value="String(stage.id)"
+							/>
 						</el-select>
 					</template>
 				</el-table-column>
@@ -146,9 +164,12 @@
 							>
 								Save
 							</el-button>
-							<el-button type="danger" link @click="handleDeleteModule($index)">
-								<el-icon><Delete /></el-icon>
-							</el-button>
+							<el-button
+								type="danger"
+								link
+								@click="handleDeleteModule($index)"
+								:icon="Delete"
+							/>
 						</div>
 					</template>
 				</el-table-column>
@@ -173,22 +194,17 @@ import {
 	createInboundSettingsAttachment,
 	deleteInboundSettingsAttachment,
 } from '@/apis/integration';
-import type { IFieldMapping, IAttachmentSharing, IInboundConfiguration } from '#/integration';
+import { getStagesByWorkflow } from '@/apis/ow';
+import type { FieldMapping, InboundAttachmentIteml } from '#/integration';
 
 interface Props {
 	integrationId: string | number;
 	workflows?: any[];
-}
-
-// 字段映射显示类型（包含 action 信息）
-interface IFieldMappingDisplay extends IFieldMapping {
-	actionId?: string | number;
-	actionName?: string;
-	wfeFieldDisplayName?: string;
+	inboundFieldMappings?: FieldMapping[];
 }
 
 // 附件共享扩展类型
-interface IAttachmentSharingExtended extends IAttachmentSharing {
+interface IAttachmentSharingExtended extends InboundAttachmentIteml {
 	systemId?: string;
 	isEditing?: boolean;
 }
@@ -200,29 +216,59 @@ const externalFieldSearch = ref('');
 const wfeFieldSearch = ref('');
 
 // 本地数据
-const fieldMappings = ref<IFieldMappingDisplay[]>([]);
 const attachmentSharing = ref<IAttachmentSharingExtended[]>([]);
 const isLoading = ref(false);
 const isSaving = ref(false);
 
+// Stages 数据缓存
+const stagesCache = ref<Record<string, Array<{ id: string; name: string }>>>({});
+// Stages 加载状态（按 workflowId）
+const stagesLoadingMap = ref<Record<string, boolean>>({});
+
 /**
- * 将 workflows 转换为 IWorkflowOption 格式
+ * 加载指定 workflow 的 stages 数据
  */
-const workflowOptions = computed(() => {
-	return (props.workflows || []).map((workflow) => ({
-		workflowId: workflow.id,
-		workflowName: workflow.name,
-		isActive: workflow.isActive !== false,
-		id: workflow.id,
-		name: workflow.name,
-	}));
-});
+const loadStagesForWorkflow = async (workflowId: string) => {
+	if (!workflowId || workflowId === '0' || stagesCache.value[workflowId]) {
+		return stagesCache.value[workflowId] || [];
+	}
+
+	try {
+		stagesLoadingMap.value[workflowId] = true;
+		const response = await getStagesByWorkflow(workflowId);
+		if (response.code === '200') {
+			const stages = response.data || [];
+			stagesCache.value[workflowId] = stages;
+			return stages;
+		} else {
+			stagesCache.value[workflowId] = [];
+			return [];
+		}
+	} catch (error) {
+		console.error('Failed to load stages for workflow:', error);
+		stagesCache.value[workflowId] = [];
+		return [];
+	} finally {
+		stagesLoadingMap.value[workflowId] = false;
+	}
+};
+
+/**
+ * 处理 workflow 变化
+ */
+const handleWorkflowChange = async (row: IAttachmentSharingExtended, workflowId: string) => {
+	row.stageId = '';
+	if (workflowId && workflowId !== '0') {
+		await loadStagesForWorkflow(workflowId);
+	}
+	handleAttachmentSharingChange();
+};
 
 /**
  * 过滤后的字段映射列表
  */
 const filteredFieldMappings = computed(() => {
-	let filtered = [...fieldMappings.value];
+	let filtered = [...(props.inboundFieldMappings || [])];
 
 	if (externalFieldSearch.value) {
 		const search = externalFieldSearch.value.toLowerCase();
@@ -233,9 +279,7 @@ const filteredFieldMappings = computed(() => {
 
 	if (wfeFieldSearch.value) {
 		const search = wfeFieldSearch.value.toLowerCase();
-		filtered = filtered.filter(
-			(item) => item.wfeFieldDisplayName?.toLowerCase().includes(search)
-		);
+		filtered = filtered.filter((item) => item.wfeFieldName?.toLowerCase().includes(search));
 	}
 
 	return filtered;
@@ -273,13 +317,26 @@ async function loadAttachmentSharing() {
 /**
  * 初始化附件共享数据
  */
-function initializeAttachmentSharing(sharing?: IAttachmentSharing[]) {
+async function initializeAttachmentSharing(sharing?: InboundAttachmentIteml[]) {
 	const sharingList = sharing || [];
 	attachmentSharing.value = sharingList.map((item) => ({
 		...item,
 		systemId: item.id ? String(item.id) : undefined,
 		isEditing: false,
 	}));
+
+	// 加载所有有 workflowId 的 stages（用于回显）
+	const workflowIds = new Set<string>();
+	sharingList.forEach((item) => {
+		if (item.workflowId && item.workflowId !== '0') {
+			workflowIds.add(String(item.workflowId));
+		}
+	});
+
+	// 并行加载所有需要的 stages
+	await Promise.all(
+		Array.from(workflowIds).map((workflowId) => loadStagesForWorkflow(workflowId))
+	);
 }
 
 /**
@@ -288,8 +345,9 @@ function initializeAttachmentSharing(sharing?: IAttachmentSharing[]) {
 function handleAddModule() {
 	attachmentSharing.value.push({
 		id: '',
-		module: '',
-		workflowIds: [],
+		moduleName: '',
+		workflowId: '',
+		stageId: '',
 		isEditing: true,
 	});
 }
@@ -298,7 +356,7 @@ function handleAddModule() {
  * 模块输入框失焦
  */
 function handleModuleBlur(row: IAttachmentSharingExtended) {
-	if (!row.module || row.module.trim() === '') {
+	if (!row.moduleName || row.moduleName.trim() === '') {
 		// 如果为空，保持编辑状态
 		return;
 	}
@@ -316,7 +374,7 @@ function handleAttachmentSharingChange() {
  * 保存模块
  */
 async function handleSaveModule(row: IAttachmentSharingExtended, index: number) {
-	if (!row.module || row.module.trim() === '') {
+	if (!row.moduleName || row.moduleName.trim() === '') {
 		ElMessage.warning('Please enter a module name');
 		return;
 	}
@@ -329,14 +387,11 @@ async function handleSaveModule(row: IAttachmentSharingExtended, index: number) 
 	isSaving.value = true;
 	try {
 		// 将 IAttachmentSharingExtended 转换为 IInboundConfiguration
-		const configData: IInboundConfiguration = {
+		const configData: InboundAttachmentIteml = {
 			integrationId: String(props.integrationId),
-			externalModuleName: row.module.trim(),
-			workflowIds: row.workflowIds || [],
-			isActive: true,
-			description: '',
-			allowedFileTypes: [],
-			maxFileSizeMB: 10,
+			moduleName: row.moduleName.trim(),
+			workflowId: row.workflowId,
+			stageId: row.stageId,
 		};
 
 		const response = await createInboundSettingsAttachment(configData);
@@ -371,8 +426,8 @@ function handleDeleteModule(index: number) {
 	}
 
 	ElMessageBox({
-		title: `Are you sure you want to delete the module "${row.module}"?`,
-		message: `Are you sure you want to delete the module "${row.module}"?`,
+		title: `Are you sure you want to delete the module "${row.moduleName}"?`,
+		message: `Are you sure you want to delete the module "${row.moduleName}"?`,
 		showCancelButton: true,
 		confirmButtonText: 'Delete',
 		cancelButtonText: 'Cancel',

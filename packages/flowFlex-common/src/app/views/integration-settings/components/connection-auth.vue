@@ -91,12 +91,12 @@
 
 				<!-- Bearer Token -->
 				<template v-else-if="formData.authMethod === AuthMethod.BearerToken">
-					<el-form-item label="Bearer Token" prop="credentials.token">
+					<el-form-item label="Bearer Token" prop="credentials.token" class="col-span-2">
 						<el-input
 							v-model="formData.credentials.token"
 							type="textarea"
 							placeholder="Enter bearer token"
-							:autosize="inputTextraAutosize"
+							:autosize="{ minRows: 2, maxRows: 2 }"
 							@change="handleFormChange"
 						/>
 					</el-form-item>
@@ -124,38 +124,52 @@
 			</div>
 
 			<!-- 操作按钮 (右对齐) -->
-			<div class="flex justify-end gap-3">
+			<div class="flex justify-between">
+				<div class="flex items-center gap-x-2">
+					<el-button
+						v-if="integrationId !== 'new'"
+						type="primary"
+						:loading="isTesting"
+						:disabled="!isFormValid"
+						@click="handleTestConnection"
+					>
+						Test Connection
+					</el-button>
+					<div
+						v-if="integrationId !== 'new'"
+						class="flex items-center gap-2 px-3 py-1.5 rounded-md transition-colors"
+						:class="
+							integrationStatus === 1
+								? 'bg-success-light text-success'
+								: 'bg-danger-light text-danger'
+						"
+					>
+						<el-icon :class="integrationStatus === 1 ? 'text-success' : 'text-danger'">
+							<component :is="integrationStatus === 1 ? CircleCheck : CircleClose" />
+						</el-icon>
+						<span class="text-sm font-medium">
+							{{ integrationStatus === 1 ? 'Connected' : 'Not Connected' }}
+						</span>
+					</div>
+				</div>
 				<el-button
-					v-if="props.integrationId === 'new'"
+					v-if="integrationId === 'new'"
 					type="primary"
-					size="large"
 					:loading="isSaving"
 					:disabled="!isFormValid"
 					@click="handleSave"
 				>
 					Create Integration
 				</el-button>
-				<template v-if="props.integrationId !== 'new'">
-					<el-button
-						type="primary"
-						size="large"
-						:loading="isUpdating"
-						:disabled="!isFormValid"
-						@click="() => handleUpdate(true)"
-					>
-						Update
-					</el-button>
-					<el-button
-						type="primary"
-						size="large"
-						:loading="isTesting"
-						:disabled="!isFormValid"
-						@click="handleTestConnection"
-					>
-						<el-icon class="mr-2"><Connection /></el-icon>
-						Test Connection
-					</el-button>
-				</template>
+				<el-button
+					v-else
+					type="primary"
+					:loading="isUpdating"
+					:disabled="!isFormValid"
+					@click="() => handleUpdate(true)"
+				>
+					Update
+				</el-button>
 			</div>
 		</el-form>
 	</div>
@@ -164,8 +178,8 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from 'vue';
 import type { FormInstance, FormRules } from 'element-plus';
-import { Connection } from '@element-plus/icons-vue';
 import { ElMessage } from 'element-plus';
+import { CircleCheck, CircleClose } from '@element-plus/icons-vue';
 import { createIntegration, updateIntegration } from '@/apis/integration';
 import type { IConnectionConfig, IIntegrationConfig } from '#/integration';
 import { AuthMethod } from '@/enums/integration';
@@ -174,6 +188,7 @@ import { inputTextraAutosize } from '@/settings/projectSetting';
 interface Props {
 	integrationId: string | number;
 	connectionData?: IIntegrationConfig;
+	integrationStatus: number;
 }
 
 interface Emits {
@@ -359,10 +374,10 @@ const handleUpdate = async (informParams: boolean = true) => {
 			credentials: formData.value.credentials,
 			name: formData.value.systemName,
 		});
-
+		if (!informParams) return;
 		if (res.success) {
 			ElMessage.success('Connection settings updated successfully');
-			informParams && emit('updated');
+			emit('updated');
 		} else {
 			ElMessage.error(res.msg || 'Failed to update connection settings');
 		}

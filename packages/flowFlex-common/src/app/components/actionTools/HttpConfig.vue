@@ -18,19 +18,13 @@
 		>
 			<el-form-item label="Request URL" required class="request-url-input">
 				<el-input
-					:model-value="formConfig.url"
-					@update:model-value="setUrl"
+					v-model="url"
 					placeholder="Enter URL, type '/' to insert variables"
 					class="w-full"
 					:disabled="disabled"
 				>
 					<template #prepend>
-						<el-select
-							:model-value="formConfig.method"
-							@update:model-value="setMethod"
-							style="width: 115px"
-							:disabled="disabled"
-						>
+						<el-select v-model="method" style="width: 115px" :disabled="disabled">
 							<el-option label="GET" value="GET" />
 							<el-option label="POST" value="POST" />
 							<el-option label="PUT" value="PUT" />
@@ -60,47 +54,27 @@
 							class="param-row-enhanced"
 						>
 							<div class="param-key-container">
-								<variable-auto-complete
+								<el-input
 									v-model="header.key"
 									placeholder="Header key"
-									class="param-input-enhanced"
 									@update:model-value="updateHeaderKey(index, $event)"
 									:disabled="disabled"
 								/>
 							</div>
 							<div class="param-value-container">
 								<variable-auto-complete
-									v-if="!header.focused"
 									v-model="header.value"
 									placeholder="Header value"
-									class="param-input-enhanced"
+									class=""
 									@update:model-value="updateHeaderValue(index, $event)"
-									@focus="setHeaderFocused(index, true)"
 									:disabled="disabled"
-								/>
-								<el-input
-									v-else
-									v-model="header.value"
-									type="textarea"
-									placeholder="Header value"
-									class="param-textarea-auto-height"
-									@update:model-value="updateHeaderValue(index, $event)"
-									@blur="setHeaderFocused(index, false)"
-									:disabled="disabled"
-									:autosize="{ minRows: 1, maxRows: 10 }"
-									:ref="
-										(el) => {
-											if (el) headerTextareaRefs[index] = el;
-										}
-									"
 								/>
 							</div>
 							<div class="param-delete-container">
 								<el-button
 									type="danger"
-									text
+									link
 									@click="removeHeader(index)"
-									class="param-delete-enhanced"
 									:disabled="disabled"
 								>
 									<el-icon><Delete /></el-icon>
@@ -129,44 +103,23 @@
 								<variable-auto-complete
 									v-model="param.key"
 									placeholder="Parameter key"
-									class="param-input-enhanced"
 									@update:model-value="updateParamKey(index, $event)"
 									:disabled="disabled"
 								/>
 							</div>
 							<div class="param-value-container">
 								<variable-auto-complete
-									v-if="!param.focused"
 									v-model="param.value"
 									placeholder="Parameter value"
-									class="param-input-enhanced"
 									@update:model-value="updateParamValue(index, $event)"
-									@focus="setParamFocused(index, true)"
 									:disabled="disabled"
-								/>
-								<el-input
-									v-else
-									v-model="param.value"
-									type="textarea"
-									placeholder="Parameter value"
-									class="param-textarea-auto-height"
-									@update:model-value="updateParamValue(index, $event)"
-									@blur="setParamFocused(index, false)"
-									:disabled="disabled"
-									:autosize="{ minRows: 1, maxRows: 10 }"
-									:ref="
-										(el) => {
-											if (el) paramTextareaRefs[index] = el;
-										}
-									"
 								/>
 							</div>
 							<div class="param-delete-container">
 								<el-button
 									type="danger"
-									text
+									link
 									@click="removeParam(index)"
-									class="param-delete-enhanced"
 									:disabled="disabled"
 								>
 									<el-icon><Delete /></el-icon>
@@ -181,12 +134,7 @@
 			<el-form-item label="BODY">
 				<div class="body-section">
 					<!-- Body Type Selection -->
-					<el-radio-group
-						:model-value="formConfig.bodyType"
-						@update:model-value="setBodyType"
-						class="body-type-group"
-						:disabled="disabled"
-					>
+					<el-radio-group v-model="bodyType" class="body-type-group" :disabled="disabled">
 						<el-radio value="none">none</el-radio>
 						<el-radio value="form-data">form-data</el-radio>
 						<el-radio value="x-www-form-urlencoded">x-www-form-urlencoded</el-radio>
@@ -217,47 +165,27 @@
 									class="param-row-enhanced"
 								>
 									<div class="param-key-container">
-										<variable-auto-complete
+										<el-input
 											v-model="item.key"
 											placeholder="Form data key"
-											class="param-input-enhanced"
 											@update:model-value="updateFormDataKey(index, $event)"
 											:disabled="disabled"
 										/>
 									</div>
 									<div class="param-value-container">
 										<variable-auto-complete
-											v-if="!item.focused"
 											v-model="item.value"
 											placeholder="Form data value"
-											class="param-input-enhanced"
+											class=""
 											@update:model-value="updateFormDataValue(index, $event)"
-											@focus="setFormDataFocused(index, true)"
 											:disabled="disabled"
-										/>
-										<el-input
-											v-else
-											v-model="item.value"
-											type="textarea"
-											placeholder="Form data value"
-											class="param-textarea-auto-height"
-											@update:model-value="updateFormDataValue(index, $event)"
-											@blur="setFormDataFocused(index, false)"
-											:disabled="disabled"
-											:autosize="{ minRows: 1, maxRows: 10 }"
-											:ref="
-												(el) => {
-													if (el) formDataTextareaRefs[index] = el;
-												}
-											"
 										/>
 									</div>
 									<div class="param-delete-container">
 										<el-button
 											type="danger"
-											text
+											link
 											@click="removeFormData(index)"
-											class="param-delete-enhanced"
 											v-if="formConfig.formDataList.length > 1"
 											:disabled="disabled"
 										>
@@ -285,56 +213,33 @@
 									class="param-row-enhanced"
 								>
 									<div class="param-key-container">
-										<variable-auto-complete
+										<el-input
 											v-model="item.key"
 											placeholder="URL encoded key"
-											class="param-input-enhanced"
-											@update:model-value="updateUrlEncodedKey(index, $event)"
 											:disabled="disabled"
+											@update:model-value="updateUrlEncodedKey(index, $event)"
 										/>
 									</div>
 									<div class="param-value-container">
 										<variable-auto-complete
-											v-if="!item.focused"
 											v-model="item.value"
 											placeholder="URL encoded value"
-											class="param-input-enhanced"
+											class=""
 											@update:model-value="
 												updateUrlEncodedValue(index, $event)
 											"
-											@focus="setUrlEncodedFocused(index, true)"
 											:disabled="disabled"
-										/>
-										<el-input
-											v-else
-											v-model="item.value"
-											type="textarea"
-											placeholder="URL encoded value"
-											class="param-textarea-auto-height"
-											@update:model-value="
-												updateUrlEncodedValue(index, $event)
-											"
-											@blur="setUrlEncodedFocused(index, false)"
-											:disabled="disabled"
-											:autosize="{ minRows: 1, maxRows: 10 }"
-											:ref="
-												(el) => {
-													if (el) urlEncodedTextareaRefs[index] = el;
-												}
-											"
 										/>
 									</div>
 									<div class="param-delete-container">
 										<el-button
 											type="danger"
-											text
+											link
 											@click="removeUrlEncoded(index)"
-											class="param-delete-enhanced"
 											v-if="formConfig.urlEncodedList.length > 1"
 											:disabled="disabled"
-										>
-											<el-icon><Delete /></el-icon>
-										</el-button>
+											:icon="Delete"
+										/>
 									</div>
 								</div>
 							</div>
@@ -345,8 +250,7 @@
 							<div class="raw-header">
 								<div class="raw-format-controls">
 									<el-select
-										:model-value="formConfig.rawFormat"
-										@update:model-value="setRawFormat"
+										v-model="formConfig.rawFormat"
 										class="raw-format-select"
 										:disabled="disabled"
 									>
@@ -369,8 +273,7 @@
 							</div>
 							<div class="raw-textarea-container">
 								<variable-auto-complete
-									:model-value="formConfig.body"
-									@update:model-value="setBody"
+									v-model="formConfig.body"
 									type="textarea"
 									:rows="8"
 									placeholder="Enter your content here, type '/' to insert variables..."
@@ -603,18 +506,17 @@
 											:rows="3"
 											placeholder="Describe your API requirements"
 											@keydown="handleAIKeydown"
-											class="ai-chat-input"
 										/>
 										<div class="input-bottom-actions">
 											<div class="ai-model-selector-bottom">
 												<el-select
-													v-model="currentAIModel"
+													:model-value="currentAIModel || undefined"
+													@update:model-value="handleModelChange"
 													placeholder="Select AI Model"
 													size="small"
 													class="model-select"
 													style="width: 180px"
 													value-key="id"
-													@change="handleModelChange"
 												>
 													<el-option
 														v-for="model in availableModels"
@@ -702,13 +604,11 @@
 										<el-icon><Document /></el-icon>
 										<span class="file-name">{{ uploadedFile.name }}</span>
 										<el-button
-											type="text"
+											link
 											size="small"
 											@click="removeUploadedFile"
-											class="remove-file-btn"
-										>
-											<el-icon><Close /></el-icon>
-										</el-button>
+											:icon="Close"
+										/>
 									</div>
 								</div>
 							</div>
@@ -995,7 +895,6 @@ const loadMammoth = async () => {
 interface KeyValueItem {
 	key: string;
 	value: string;
-	focused?: boolean;
 }
 
 interface Props {
@@ -1031,12 +930,6 @@ interface Props {
 	idEditing?: boolean;
 	disabled?: boolean;
 }
-
-// Refs for textarea elements
-const headerTextareaRefs = ref<any[]>([]);
-const paramTextareaRefs = ref<any[]>([]);
-const formDataTextareaRefs = ref<any[]>([]);
-const urlEncodedTextareaRefs = ref<any[]>([]);
 
 const { t } = useI18n();
 
@@ -1189,6 +1082,36 @@ const formConfig = computed({
 	},
 });
 
+// 为 bodyType 创建单独的 computed，支持 v-model 双向绑定
+const bodyType = computed({
+	get() {
+		return formConfig.value.bodyType;
+	},
+	set(val: 'none' | 'form-data' | 'x-www-form-urlencoded' | 'raw') {
+		formConfig.value = { ...formConfig.value, bodyType: val };
+	},
+});
+
+// 为 url 创建单独的 computed，支持 v-model 双向绑定
+const url = computed({
+	get() {
+		return formConfig.value.url;
+	},
+	set(val: string) {
+		formConfig.value = { ...formConfig.value, url: val };
+	},
+});
+
+// 为 method 创建单独的 computed，支持 v-model 双向绑定
+const method = computed({
+	get() {
+		return formConfig.value.method;
+	},
+	set(val: string) {
+		formConfig.value = { ...formConfig.value, method: val };
+	},
+});
+
 // Controlled setters to trigger computed.set via whole-object assignment
 // Filter stream content to show only essential progress information
 const filterStreamContent = (content: string): string => {
@@ -1295,26 +1218,6 @@ const updateActionName = (message: any, newName: string) => {
 		message.httpConfig.actionName = newName;
 		console.log('✅ Action name updated to:', newName);
 	}
-};
-
-const setUrl = (val: string) => {
-	formConfig.value = { ...formConfig.value, url: val } as any;
-};
-
-const setMethod = (val: string) => {
-	formConfig.value = { ...formConfig.value, method: val } as any;
-};
-
-const setBodyType = (val: 'none' | 'form-data' | 'x-www-form-urlencoded' | 'raw'): any => {
-	formConfig.value = { ...formConfig.value, bodyType: val } as any;
-};
-
-const setRawFormat = (val: string) => {
-	formConfig.value = { ...formConfig.value, rawFormat: val } as any;
-};
-
-const setBody = (val: string) => {
-	formConfig.value = { ...formConfig.value, body: val } as any;
 };
 
 // 在每次更新后，确保末尾存在一行空白输入
@@ -1424,83 +1327,6 @@ const removeUrlEncoded = (index: number) => {
 	}
 };
 
-// 聚焦/失焦功能
-const setHeaderFocused = (index: number, focused: boolean) => {
-	const newHeadersList = [...formConfig.value.headersList];
-	newHeadersList[index] = {
-		...newHeadersList[index],
-		focused: focused,
-	};
-	formConfig.value = { ...formConfig.value, headersList: newHeadersList };
-
-	// 如果是聚焦，等待DOM更新后重新聚焦textarea
-	if (focused) {
-		nextTick(() => {
-			const textareaRef = headerTextareaRefs.value[index];
-			if (textareaRef && textareaRef.textarea) {
-				textareaRef.textarea.focus();
-			}
-		});
-	}
-};
-
-const setParamFocused = (index: number, focused: boolean) => {
-	const newParamsList = [...formConfig.value.paramsList];
-	newParamsList[index] = {
-		...newParamsList[index],
-		focused: focused,
-	};
-	formConfig.value = { ...formConfig.value, paramsList: newParamsList };
-
-	// 如果是聚焦，等待DOM更新后重新聚焦textarea
-	if (focused) {
-		nextTick(() => {
-			const textareaRef = paramTextareaRefs.value[index];
-			if (textareaRef && textareaRef.textarea) {
-				textareaRef.textarea.focus();
-			}
-		});
-	}
-};
-
-const setFormDataFocused = (index: number, focused: boolean) => {
-	const newFormDataList = [...formConfig.value.formDataList];
-	newFormDataList[index] = {
-		...newFormDataList[index],
-		focused: focused,
-	};
-	formConfig.value = { ...formConfig.value, formDataList: newFormDataList };
-
-	// 如果是聚焦，等待DOM更新后重新聚焦textarea
-	if (focused) {
-		nextTick(() => {
-			const textareaRef = formDataTextareaRefs.value[index];
-			if (textareaRef && textareaRef.textarea) {
-				textareaRef.textarea.focus();
-			}
-		});
-	}
-};
-
-const setUrlEncodedFocused = (index: number, focused: boolean) => {
-	const newUrlEncodedList = [...formConfig.value.urlEncodedList];
-	newUrlEncodedList[index] = {
-		...newUrlEncodedList[index],
-		focused: focused,
-	};
-	formConfig.value = { ...formConfig.value, urlEncodedList: newUrlEncodedList };
-
-	// 如果是聚焦，等待DOM更新后重新聚焦textarea
-	if (focused) {
-		nextTick(() => {
-			const textareaRef = urlEncodedTextareaRefs.value[index];
-			if (textareaRef && textareaRef.textarea) {
-				textareaRef.textarea.focus();
-			}
-		});
-	}
-};
-
 // 格式化Raw内容
 const formatRawContent = () => {
 	try {
@@ -1541,7 +1367,7 @@ const formatRawContent = () => {
 				return;
 		}
 
-		setBody(formattedContent);
+		formConfig.value = { ...formConfig.value, body: formattedContent } as any;
 		ElMessage.success(t('sys.api.formatSuccess'));
 	} catch (error) {
 		ElMessage.warning(t('sys.api.formatFailed'));
@@ -1787,14 +1613,15 @@ const handleTest = () => {
 };
 
 // AI 相关方法
-const handleAIKeydown = (event: KeyboardEvent): any => {
-	if (event.key === 'Enter') {
-		if (event.shiftKey) {
+const handleAIKeydown = (event: KeyboardEvent | Event): any => {
+	const keyboardEvent = event as KeyboardEvent;
+	if (keyboardEvent.key === 'Enter') {
+		if (keyboardEvent.shiftKey) {
 			// Shift+Enter: Allow default behavior (new line)
 			return;
 		} else {
 			// Enter: Send message
-			event.preventDefault();
+			keyboardEvent.preventDefault();
 			if ((aiCurrentInput.value.trim() || uploadedFile.value) && !aiGenerating.value) {
 				sendAIMessage();
 			}
@@ -3340,16 +3167,6 @@ onMounted(() => {
 </script>
 
 <style scoped lang="scss">
-// Params Section Styles (Legacy)
-.params-section {
-	@apply w-full border rounded-xl overflow-hidden;
-	border-color: var(--el-border-color-light);
-}
-
-html.dark .params-section {
-	border-color: var(--el-border-color-dark);
-}
-
 // Enhanced Params Section Styles (New)
 .params-section-enhanced {
 	@apply w-full border rounded-xl overflow-hidden;
@@ -3397,7 +3214,7 @@ html.dark .params-header-enhanced {
 }
 
 .param-row-enhanced {
-	@apply grid grid-cols-12 gap-4 items-start;
+	@apply grid grid-cols-12 gap-4 items-center;
 }
 
 .param-key-container {
@@ -3410,80 +3227,6 @@ html.dark .params-header-enhanced {
 
 .param-delete-container {
 	@apply col-span-1 flex justify-center;
-}
-
-.param-input-enhanced {
-	@apply w-full;
-}
-
-.param-value-wrapper {
-	@apply relative w-full;
-}
-
-// 输入框内部的按钮组
-.param-input-actions {
-	@apply flex items-center space-x-1 mr-2;
-}
-
-.param-action-btn {
-	@apply w-5 h-5 flex items-center justify-center rounded transition-colors;
-	color: var(--el-text-color-secondary);
-
-	&:hover {
-		color: var(--el-text-color-regular);
-		background: var(--el-fill-color-light);
-	}
-}
-
-html.dark .param-action-btn:hover {
-	color: var(--el-text-color-placeholder);
-	background: var(--el-fill-color-dark);
-}
-
-// 文本域容器
-.param-textarea-container {
-	@apply relative w-full;
-}
-
-.param-textarea-enhanced {
-	@apply font-mono text-sm w-full;
-}
-
-.param-textarea-auto-height {
-	@apply font-mono text-sm w-full;
-
-	:deep(.el-textarea__inner) {
-		resize: none !important;
-		overflow-y: hidden !important;
-	}
-}
-
-// 文本域右上角的按钮组
-.param-textarea-actions {
-	@apply absolute top-2 right-2 flex items-center space-x-1 px-2 py-1 rounded-xl shadow-sm border;
-	z-index: 10;
-	background: var(--el-bg-color);
-	border-color: var(--el-border-color-light);
-}
-
-html.dark .param-textarea-actions {
-	background: var(--el-fill-color-darker);
-	border-color: var(--el-border-color);
-}
-
-.param-value-hint {
-	@apply text-xs italic;
-	color: var(--el-text-color-secondary);
-}
-
-.param-delete-enhanced {
-	@apply w-8 h-8 flex items-center justify-center rounded-xl transition-colors;
-	color: var(--el-color-danger);
-
-	&:hover {
-		color: var(--el-color-danger-light-3);
-		background: var(--el-color-danger-light-9);
-	}
 }
 
 .params-header {
@@ -3526,10 +3269,6 @@ html.dark .params-header {
 
 .param-delete {
 	@apply w-8 h-8 flex items-center justify-center;
-}
-
-.add-param-btn {
-	@apply mt-2;
 }
 
 // Raw Section Styles
@@ -3629,25 +3368,6 @@ html.dark .test-section {
 	}
 }
 
-:deep(.el-input-number) {
-	.el-input-group__append {
-		background: var(--el-fill-color-lighter);
-		color: var(--el-text-color-regular);
-	}
-}
-
-html.dark :deep(.el-input-number) {
-	.el-input-group__append {
-		background: var(--el-fill-color-dark);
-		color: var(--el-text-color-placeholder);
-	}
-}
-
-:deep(.request-url-input .el-input .el-input__wrapper) {
-	border-top-left-radius: 0 !important;
-	border-bottom-left-radius: 0 !important;
-}
-
 // 导入错误信息样式
 .import-error-message {
 	@apply mt-4 p-4 rounded-xl border;
@@ -3696,13 +3416,9 @@ html.dark :deep(.el-input-number) {
 }
 
 .ai-chat-messages {
-	@apply flex-1 overflow-y-auto p-4 space-y-4 rounded-lg mb-4;
 	max-height: 300px;
 	background: var(--el-fill-color-lighter);
-}
-
-html.dark .ai-chat-messages {
-	background: var(--el-fill-color-darker);
+	@apply flex-1 overflow-y-auto p-4 space-y-4 rounded-lg mb-4 dark:bg-black-400;
 }
 
 .ai-message {
@@ -3728,12 +3444,6 @@ html.dark .ai-chat-messages {
 			border-color: var(--el-border-color-light);
 		}
 	}
-}
-
-html.dark .ai-message.assistant-message .message-content {
-	background: var(--el-fill-color-dark);
-	color: var(--el-color-white);
-	border-color: var(--el-border-color);
 }
 
 .message-text {
@@ -3861,27 +3571,6 @@ html.dark .ai-input-area {
 
 .ai-input-container {
 	@apply flex-1 relative;
-}
-
-.ai-chat-input {
-	@apply w-full;
-
-	:deep(.el-textarea__inner) {
-		resize: none;
-		line-height: 1.5;
-		min-height: 70px !important;
-		height: 70px !important;
-		border-radius: 12px;
-		border: 1px solid var(--el-border-color-light);
-		padding: 12px 80px 12px 16px;
-		font-size: 14px;
-		transition: all 0.2s ease;
-
-		&:focus {
-			border-color: var(--el-color-primary);
-			box-shadow: 0 0 0 3px var(--el-color-primary-light-9);
-		}
-	}
 }
 
 .input-bottom-actions {
@@ -4020,15 +3709,6 @@ html.dark .file-info {
 
 .file-name {
 	@apply flex-1 truncate;
-}
-
-.remove-file-btn {
-	@apply w-6 h-6 flex items-center justify-center;
-	color: var(--el-text-color-secondary);
-
-	&:hover {
-		color: var(--el-color-danger);
-	}
 }
 
 .url-hint,

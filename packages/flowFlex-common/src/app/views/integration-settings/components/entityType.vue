@@ -21,18 +21,17 @@
 					<el-input
 						v-model="row.externalEntityName"
 						placeholder="Enter external entity type name"
-						@change="handleEntityMappingChange"
 					/>
 				</template>
 			</el-table-column>
 
-			<!-- <el-table-column label="System ID" prop="id" width="200" align="center">
+			<el-table-column label="System ID" prop="systemId" width="200" align="center">
 				<template #default="{ row }">
 					<span class="text-sm text-text-secondary">
-						{{ row.id ? `ID: ${row.id}` : 'Auto-generated on save' }}
+						{{ row?.systemId ? ` ${row.systemId}` : 'Auto-generated on save' }}
 					</span>
 				</template>
-			</el-table-column> -->
+			</el-table-column>
 
 			<el-table-column
 				label="WFE Master Data"
@@ -45,7 +44,6 @@
 						:disabled="!row.externalEntityName"
 						v-model="row.wfeEntityType"
 						placeholder="Select master data Type"
-						@change="handleEntityMappingChange"
 					>
 						<el-option
 							v-for="entity in wfeEntityOptions"
@@ -57,16 +55,40 @@
 				</template>
 			</el-table-column>
 
+			<el-table-column label="Workflows" prop="workflowIds" min-width="200" align="center">
+				<template #default="{ row }">
+					<el-select
+						:disabled="!row.externalEntityName"
+						v-model="row.workflowIds"
+						placeholder="Select workflows"
+						multiple
+						collapse-tags
+					>
+						<el-option
+							v-for="workflow in allWorkflows"
+							:key="workflow.id"
+							:label="workflow.name"
+							:value="workflow.id"
+						>
+							<div class="flex items-center justify-between">
+								<span>{{ workflow.name }}</span>
+								<el-tag v-if="!workflow.isActive" type="danger" size="small">
+									Inactive
+								</el-tag>
+								<el-tag v-else type="success" size="small">Active</el-tag>
+							</div>
+						</el-option>
+					</el-select>
+				</template>
+			</el-table-column>
+
 			<el-table-column label="" width="150" align="right" fixed="right">
 				<template #default="{ row, $index }">
 					<div class="flex items-center justify-end">
 						<el-button
+							v-show="!row.id || row.id === 'new'"
 							type="primary"
-							:disabled="
-								!row.externalEntityName ||
-								!row.wfeEntityType ||
-								(!!row.id && row.id !== 'new')
-							"
+							:disabled="!row.externalEntityName || !row.wfeEntityType"
 							:loading="savingMappingId === (row.id || `temp-${$index}`)"
 							@click="handleSaveEntityMapping(row, $index)"
 						>
@@ -74,7 +96,7 @@
 						</el-button>
 						<el-button
 							type="danger"
-							text
+							link
 							:icon="Delete"
 							:disabled="!row.id"
 							@click="handleDeleteEntityMapping(row, $index)"
@@ -108,6 +130,7 @@ import type { IEntityMapping, IWfeEntityOption } from '#/integration';
 interface Props {
 	integrationId: string | number;
 	entityMappings?: IEntityMapping[];
+	allWorkflows?: any[];
 }
 
 interface Emits {
@@ -204,7 +227,6 @@ async function handleDeleteEntityMapping(mapping: IEntityMapping, index: number)
 	if (!mapping.id) {
 		// 如果是未保存的新记录，直接删除
 		entityMappings.value.splice(index, 1);
-		handleEntityMappingChange();
 		return;
 	}
 
@@ -222,13 +244,6 @@ async function handleDeleteEntityMapping(mapping: IEntityMapping, index: number)
 		console.error('Failed to delete entity mapping:', error);
 		ElMessage.error('Failed to delete entity mapping');
 	}
-}
-
-/**
- * 实体映射变更
- */
-function handleEntityMappingChange() {
-	// 数据变更时不需要额外操作，保存时已经通过 API 更新
 }
 
 // 监听 props 变化

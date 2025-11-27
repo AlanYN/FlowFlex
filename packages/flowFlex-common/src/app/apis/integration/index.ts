@@ -15,7 +15,7 @@ import type {
 	IPaginatedResponse,
 	IApiResponse,
 	IQuickLink,
-	IInboundConfiguration,
+	InboundAttachmentIteml,
 } from '#/integration';
 
 const globSetting = useGlobSetting();
@@ -171,7 +171,7 @@ export function getQuickLinksByIntegration(
 }
 
 export function createInboundSettingsAttachment(
-	data: IInboundConfiguration
+	data: InboundAttachmentIteml
 ): Promise<IApiResponse<string | number>> {
 	return defHttp.post({ url: Api.inboundSettingsAttachment, data });
 }
@@ -190,12 +190,16 @@ export function deleteInboundSettingsAttachment(
 
 export function createOutboundSettingsAttachment(
 	integrationId: string,
-	workflowIds: string[]
+	items: {
+		id: string;
+		workflowId: number;
+		stageId: number;
+	}[]
 ): Promise<IApiResponse<boolean>> {
 	return defHttp.put({
 		url: `${Api.integration}/${integrationId}/outbound/attachment-workflows`,
 		data: {
-			workflowIds,
+			items,
 		},
 	});
 }
@@ -203,7 +207,11 @@ export function createOutboundSettingsAttachment(
 export function getOutboundSettingsAttachment(integrationId: string | number): Promise<
 	IApiResponse<{
 		integrationId: string;
-		workflowIds: number[];
+		items: {
+			id: string;
+			workflowId: number;
+			stageId: number;
+		}[];
 	}>
 > {
 	return defHttp.get({

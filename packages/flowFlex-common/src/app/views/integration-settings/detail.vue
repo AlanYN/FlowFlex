@@ -1,22 +1,18 @@
 <template>
 	<div class="min-h-screen">
 		<PageHeader
-			:title="integrationName || 'Integration Details'"
 			description="Configure connection and data exchange settings"
+			:title="integrationName || 'Integration Details'"
 			:show-back-button="true"
 			@go-back="handleBack"
 		>
 			<template #actions>
-				<div class="flex gap-x-2 items-center">
-					<el-tag
-						v-if="integrationStatus !== undefined"
-						:type="integrationStatus === 1 ? 'success' : 'info'"
-					>
-						{{ integrationStatus === 1 ? 'Connected' : 'Disconnected' }}
-					</el-tag>
-					<el-button type="danger" :icon="Delete" @click="handleDelete" />
-					<div></div>
-				</div>
+				<el-button
+					v-if="integrationId && integrationId !== 'new' && integrationData"
+					type="danger"
+					:icon="Delete"
+					@click="handleDelete"
+				/>
 			</template>
 		</PageHeader>
 
@@ -28,6 +24,7 @@
 			<connection-auth
 				:integration-id="integrationId"
 				:connection-data="integrationData || undefined"
+				:integrationStatus="integrationStatus"
 				@created="handleIntegrationCreated"
 				@updated="handleIntegrationUpdated"
 				@test="handleTestConnection"
@@ -40,6 +37,7 @@
 					v-if="integrationData"
 					:integration-id="integrationId"
 					:entity-mappings="integrationData.entityMappings || []"
+					:all-workflows="workflows"
 					@refresh="loadIntegrationData"
 				/>
 
@@ -50,6 +48,7 @@
 							<inbound-settings
 								:integration-id="integrationId"
 								:workflows="workflows"
+								:inboundFieldMappings="integrationData?.inboundFieldMappings || []"
 								@refresh="loadIntegrationData"
 							/>
 						</TabPane>
@@ -58,6 +57,9 @@
 							<outbound-settings
 								:integration-id="integrationId"
 								:workflows="workflows"
+								:outboundFieldMappings="
+									integrationData?.outboundFieldMappings || []
+								"
 								@refresh="loadIntegrationData"
 							/>
 						</TabPane>
@@ -66,6 +68,7 @@
 							<actions-list
 								:integration-id="String(integrationId)"
 								:integration-name="integrationName"
+								:all-workflows="workflows"
 							/>
 						</TabPane>
 
@@ -234,6 +237,7 @@ async function handleDelete() {
 		const res = await deleteIntegration(integrationId.value);
 		if (res.success) {
 			ElMessage.success('Integration deleted successfully');
+			handleBack();
 		} else {
 			ElMessage.error(res.msg || 'Failed to delete integration');
 		}

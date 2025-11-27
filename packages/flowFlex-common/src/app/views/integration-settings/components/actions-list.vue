@@ -1,10 +1,13 @@
 <template>
 	<div class="">
-		<div class="flex flex-col gap-2 my-2">
-			<div class="font-bold">Integration Actions</div>
-			<div class="text-gray-500">
-				All actions related to {{ integrationName }} System integration
+		<div class="flex items-center justify-between">
+			<div class="flex flex-col gap-2 my-2">
+				<div class="font-bold">Integration Actions</div>
+				<div class="text-gray-500">
+					All actions related to {{ integrationName }} System integration
+				</div>
 			</div>
+			<el-button type="primary" @click="handleAddAction" :icon="Plus">Add Action</el-button>
 		</div>
 
 		<el-table
@@ -60,43 +63,49 @@
 				</template>
 			</el-table-column>
 		</el-table>
+
+		<!-- Action Config Dialog -->
+		<ActionConfigDialog
+			v-model="actionEditorVisible"
+			:action="actionInfo"
+			:is-editing="!!actionInfo"
+			:triggerSourceId="currentEditAction?.id"
+			:loading="editActionLoading"
+			@save-success="onActionSave"
+			@cancel="onActionCancel"
+		/>
 	</div>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
-import { useRouter } from 'vue-router';
+import { Plus } from '@element-plus/icons-vue';
+import ActionConfigDialog from '@/components/actionTools/ActionConfigDialog.vue';
+import { ActionDefinition } from '#/action';
 
 interface Props {
 	integrationId: string;
 	integrationName: string;
+	allWorkflows: any[];
 }
 
-defineProps<Props>();
-const router = useRouter();
+const props = defineProps<Props>();
 
 // 状态管理
 const isLoading = ref(false);
 const actions = ref<[]>([]);
 
-// 模拟工作流名称映射（实际应该从 API 获取）
-const workflowNameMap: Record<string, string> = {
-	'wf-1': 'Onboarding Workflow',
-	'wf-2': 'Customer Service Workflow',
-	'wf-3': 'Sales Workflow',
-};
-
 /**
  * 获取工作流名称
  */
-function getWorkflowName(workflowId: string): string {
-	return workflowNameMap[workflowId] || workflowId;
-}
+const getWorkflowName = (workflowId: string): string => {
+	return props.allWorkflows.find((workflow) => workflow.id === workflowId)?.name || workflowId;
+};
 
 /**
  * 加载动作列表
  */
-async function loadActions() {
+const loadActions = async () => {
 	isLoading.value = true;
 	try {
 		actions.value = [];
@@ -105,15 +114,30 @@ async function loadActions() {
 	} finally {
 		isLoading.value = false;
 	}
-}
+};
 
-/**
- * 点击动作名称
- */
-function handleActionClick(actionId: string) {
+// Action 弹窗相关状态
+const actionEditorVisible = ref(false);
+const actionInfo = ref<any>(null);
+const editActionLoading = ref(false);
+const currentEditAction = ref<ActionDefinition | null>(null);
+const handleActionClick = (actionId: string) => {
 	// 跳转到动作详情页
-	router.push(`/actions/${actionId}`);
-}
+};
+
+const handleAddAction = () => {
+	actionEditorVisible.value = true;
+	actionInfo.value = null;
+	currentEditAction.value = null;
+};
+
+const onActionSave = async (actionResult) => {};
+
+const onActionCancel = () => {
+	actionEditorVisible.value = false;
+	actionInfo.value = null;
+	currentEditAction.value = null;
+};
 
 // 初始化
 onMounted(() => {
