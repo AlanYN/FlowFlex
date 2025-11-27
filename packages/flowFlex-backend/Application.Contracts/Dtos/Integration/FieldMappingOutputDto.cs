@@ -51,9 +51,9 @@ namespace FlowFlex.Application.Contracts.Dtos.Integration
         public int SortOrder { get; set; }
     }
 
-        /// <summary>
+    /// <summary>
     /// Backward compatibility alias
-        /// </summary>
+    /// </summary>
     [Obsolete("Use InboundFieldMappingOutputDto instead")]
     public class FieldMappingOutputDto : InboundFieldMappingOutputDto { }
 }

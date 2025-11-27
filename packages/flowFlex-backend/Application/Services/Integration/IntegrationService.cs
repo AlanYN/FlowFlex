@@ -317,14 +317,14 @@ namespace FlowFlex.Application.Services.Integration
                 var fieldMappings = await _fieldMappingRepository.GetByIntegrationIdAsync(id);
                 if (fieldMappings != null && fieldMappings.Any())
                 {
-                    // Get action names for all associated action IDs
+                    // Get action info (name and code) for all associated action IDs
                     var actionIds = fieldMappings
                         .Where(fm => fm.ActionId.HasValue)
                         .Select(fm => fm.ActionId!.Value)
                         .Distinct()
                         .ToList();
 
-                    var actionNames = new Dictionary<long, string>();
+                    var actionInfos = new Dictionary<long, (string ActionName, string ActionCode)>();
                     if (actionIds.Any())
                     {
                         foreach (var actionId in actionIds)
@@ -332,7 +332,7 @@ namespace FlowFlex.Application.Services.Integration
                             var action = await _actionDefinitionRepository.GetByIdAsync(actionId);
                             if (action != null)
                             {
-                                actionNames[actionId] = action.ActionName;
+                                actionInfos[actionId] = (action.ActionName, action.ActionCode);
                             }
                         }
                     }
@@ -359,8 +359,10 @@ namespace FlowFlex.Application.Services.Integration
                         {
                             Id = fm.Id,
                             ActionId = fm.ActionId,
-                            ActionName = fm.ActionId.HasValue && actionNames.ContainsKey(fm.ActionId.Value)
-                                ? actionNames[fm.ActionId.Value] : null,
+                            ActionCode = fm.ActionId.HasValue && actionInfos.ContainsKey(fm.ActionId.Value)
+                                ? actionInfos[fm.ActionId.Value].ActionCode : null,
+                            ActionName = fm.ActionId.HasValue && actionInfos.ContainsKey(fm.ActionId.Value)
+                                ? actionInfos[fm.ActionId.Value].ActionName : null,
                             ExternalFieldName = fm.ExternalFieldName,
                             WfeFieldId = fm.WfeFieldId,
                             WfeFieldName = fm.WfeFieldId, // Use WfeFieldId as display name
@@ -379,8 +381,10 @@ namespace FlowFlex.Application.Services.Integration
                         {
                             Id = fm.Id,
                             ActionId = fm.ActionId,
-                            ActionName = fm.ActionId.HasValue && actionNames.ContainsKey(fm.ActionId.Value)
-                                ? actionNames[fm.ActionId.Value] : null,
+                            ActionCode = fm.ActionId.HasValue && actionInfos.ContainsKey(fm.ActionId.Value)
+                                ? actionInfos[fm.ActionId.Value].ActionCode : null,
+                            ActionName = fm.ActionId.HasValue && actionInfos.ContainsKey(fm.ActionId.Value)
+                                ? actionInfos[fm.ActionId.Value].ActionName : null,
                             ExternalFieldName = fm.ExternalFieldName,
                             WfeFieldId = fm.WfeFieldId,
                             WfeFieldName = fm.WfeFieldId, // Use WfeFieldId as display name
@@ -403,23 +407,12 @@ namespace FlowFlex.Application.Services.Integration
             return dto;
         }
 
-        public async Task<(List<IntegrationOutputDto> items, int total)> GetPagedListAsync(
-            int pageIndex,
-            int pageSize,
+        public async Task<List<IntegrationOutputDto>> GetAllAsync(
             string? name = null,
             string? type = null,
-            string? status = null,
-            string sortField = "CreateDate",
-            string sortDirection = "desc")
+            string? status = null)
         {
-            var (items, total) = await _integrationRepository.QueryPagedAsync(
-                pageIndex,
-                pageSize,
-                name,
-                type,
-                status,
-                sortField,
-                sortDirection);
+            var items = await _integrationRepository.GetAllAsync(name, type, status);
 
             var dtos = _mapper.Map<List<IntegrationOutputDto>>(items);
 
@@ -430,7 +423,7 @@ namespace FlowFlex.Application.Services.Integration
                 dto.LastDaysSeconds = GenerateLastDaysSeconds();
             }
 
-            return (dtos, total);
+            return dtos;
         }
 
         public async Task<bool> TestConnectionAsync(long id)

@@ -666,6 +666,10 @@ namespace FlowFlex.Application.Services.Action
                 }
             }
 
+            // Get TriggerMappings for this action (needed for EnrichActionWithIntegrationDataAsync)
+            var triggerMappings = await _actionDefinitionRepository.GetTriggerMappingsWithDetailsByActionIdsAsync(new List<long> { id });
+            resultDto.TriggerMappings = _mapper.Map<List<ActionTriggerMappingInfo>>(triggerMappings);
+
             // Enrich with Integration data and Field Mappings
             await EnrichActionWithIntegrationDataAsync(resultDto, entity);
 
@@ -1910,7 +1914,7 @@ namespace FlowFlex.Application.Services.Action
                 {
                     var integrationId = integrationTrigger.TriggerSourceId;
                     var integration = await _integrationRepository.GetByIdAsync(integrationId);
-                    
+
                     if (integration != null)
                     {
                         actionDto.IntegrationId = integration.Id;

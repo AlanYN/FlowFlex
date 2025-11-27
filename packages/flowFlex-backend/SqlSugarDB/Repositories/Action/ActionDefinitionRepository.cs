@@ -130,9 +130,9 @@ namespace FlowFlex.SqlSugarDB.Repositories.Action
             if (integrationId.HasValue)
             {
                 query = query.Where(x => SqlFunc.Subqueryable<ActionTriggerMapping>()
-                    .Where(m => m.ActionDefinitionId == x.Id && 
-                                m.TriggerType == "Integration" && 
-                                m.TriggerSourceId == integrationId.Value && 
+                    .Where(m => m.ActionDefinitionId == x.Id &&
+                                m.TriggerType == "Integration" &&
+                                m.TriggerSourceId == integrationId.Value &&
                                 m.IsValid)
                     .Any());
             }

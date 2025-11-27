@@ -80,35 +80,17 @@ namespace FlowFlex.WebApi.Controllers.Integration
         }
 
         /// <summary>
-        /// Get integration list with pagination
+        /// Get all integrations
         /// </summary>
         [HttpGet]
         [ProducesResponseType<SuccessResponse<object>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> GetList(
-            [FromQuery] int pageIndex = 1,
-            [FromQuery] int pageSize = 15,
             [FromQuery] string? name = null,
             [FromQuery] string? type = null,
-            [FromQuery] string? status = null,
-            [FromQuery] string sortField = "CreateDate",
-            [FromQuery] string sortDirection = "desc")
+            [FromQuery] string? status = null)
         {
-            var (items, total) = await _integrationService.GetPagedListAsync(
-                pageIndex,
-                pageSize,
-                name,
-                type,
-                status,
-                sortField,
-                sortDirection);
-
-            return Success(new
-            {
-                items,
-                total,
-                pageIndex,
-                pageSize
-            });
+            var items = await _integrationService.GetAllAsync(name, type, status);
+            return Success(new { items });
         }
 
         /// <summary>

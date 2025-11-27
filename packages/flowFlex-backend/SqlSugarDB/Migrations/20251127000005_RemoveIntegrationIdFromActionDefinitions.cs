@@ -72,7 +72,7 @@ namespace FlowFlex.SqlSugarDB.Migrations
                 db.Ado.ExecuteCommand(@"
                     ALTER TABLE ff_action_definitions 
                     ADD COLUMN IF NOT EXISTS integration_id BIGINT;");
-                
+
                 db.Ado.ExecuteCommand(@"
                     CREATE INDEX IF NOT EXISTS idx_action_definitions_integration_id 
                     ON ff_action_definitions(integration_id);");

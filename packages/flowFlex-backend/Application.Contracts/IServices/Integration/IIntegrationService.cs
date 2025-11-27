@@ -33,16 +33,12 @@ namespace FlowFlex.Application.Contracts.IServices.Integration
         Task<IntegrationOutputDto> GetWithDetailsAsync(long id);
 
         /// <summary>
-        /// Get paginated list of integrations
+        /// Get all integrations with optional filters
         /// </summary>
-        Task<(List<IntegrationOutputDto> items, int total)> GetPagedListAsync(
-            int pageIndex,
-            int pageSize,
+        Task<List<IntegrationOutputDto>> GetAllAsync(
             string? name = null,
             string? type = null,
-            string? status = null,
-            string sortField = "CreateDate",
-            string sortDirection = "desc");
+            string? status = null);
 
         /// <summary>
         /// Test integration connection

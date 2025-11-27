@@ -27,59 +27,36 @@ namespace FlowFlex.SqlSugarDB.Implements.Integration
         }
 
         /// <summary>
-        /// Query integrations with pagination
+        /// Get all integrations with optional filters
         /// </summary>
-        public async Task<(List<Domain.Entities.Integration.Integration> items, int total)> QueryPagedAsync(
-            int pageIndex,
-            int pageSize,
-            string name = null,
-            string type = null,
-            string status = null,
-            string sortField = "CreateDate",
-            string sortDirection = "desc")
+        public async Task<List<Domain.Entities.Integration.Integration>> GetAllAsync(
+            string? name = null,
+            string? type = null,
+            string? status = null)
         {
             var currentTenantId = GetCurrentTenantId();
-            _logger.LogInformation($"[IntegrationRepository] QueryPagedAsync with TenantId={currentTenantId}");
+            _logger.LogInformation($"[IntegrationRepository] GetAllAsync with TenantId={currentTenantId}");
 
-            var whereExpressions = new List<Expression<Func<Domain.Entities.Integration.Integration, bool>>>();
-            whereExpressions.Add(x => x.IsValid == true);
-            whereExpressions.Add(x => x.TenantId == currentTenantId);
+            var query = db.Queryable<Domain.Entities.Integration.Integration>()
+                .Where(x => x.IsValid == true)
+                .Where(x => x.TenantId == currentTenantId);
 
             if (!string.IsNullOrWhiteSpace(name))
             {
-                whereExpressions.Add(x => x.Name.Contains(name));
+                query = query.Where(x => x.Name.Contains(name));
             }
 
             if (!string.IsNullOrWhiteSpace(type))
             {
-                whereExpressions.Add(x => x.Type == type);
+                query = query.Where(x => x.Type == type);
             }
 
             if (!string.IsNullOrWhiteSpace(status))
             {
-                whereExpressions.Add(x => x.Status.ToString() == status);
+                query = query.Where(x => x.Status.ToString() == status);
             }
 
-            var query = db.Queryable<Domain.Entities.Integration.Integration>();
-
-            foreach (var expr in whereExpressions)
-            {
-                query = query.Where(expr);
-            }
-
-            var total = await query.CountAsync();
-
-            // Convert sortField from PascalCase to snake_case for database column name
-            var dbSortField = SqlSugar.UtilMethods.ToUnderLine(sortField);
-            var orderByClause = sortDirection.ToLower() == "asc"
-                ? $"{dbSortField} ASC"
-                : $"{dbSortField} DESC";
-
-            var items = await query
-                .OrderBy(orderByClause)
-                .ToPageListAsync(pageIndex, pageSize);
-
-            return (items, total);
+            return await query.OrderBy(x => x.CreateDate, SqlSugar.OrderByType.Desc).ToListAsync();
         }
 
         /// <summary>

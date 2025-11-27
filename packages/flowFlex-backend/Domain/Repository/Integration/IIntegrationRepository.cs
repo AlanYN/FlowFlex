@@ -9,16 +9,12 @@ namespace FlowFlex.Domain.Repository.Integration
     public interface IIntegrationRepository : IBaseRepository<Entities.Integration.Integration>
     {
         /// <summary>
-        /// Query integrations with pagination
+        /// Get all integrations with optional filters
         /// </summary>
-        Task<(List<Entities.Integration.Integration> items, int total)> QueryPagedAsync(
-            int pageIndex,
-            int pageSize,
-            string name = null,
-            string type = null,
-            string status = null,
-            string sortField = "CreateDate",
-            string sortDirection = "desc");
+        Task<List<Entities.Integration.Integration>> GetAllAsync(
+            string? name = null,
+            string? type = null,
+            string? status = null);
 
         /// <summary>
         /// Get integration by name
