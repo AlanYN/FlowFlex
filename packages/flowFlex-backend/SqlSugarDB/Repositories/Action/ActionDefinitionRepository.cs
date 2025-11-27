@@ -125,10 +125,16 @@ namespace FlowFlex.SqlSugarDB.Repositories.Action
 
             query.WhereIF(isTools.HasValue && !isTools.Value, x => x.CreateUserId == Convert.ToInt64(_userContext.UserId));
 
-            // Filter by Integration ID
+            // Filter by Integration ID - query through trigger_mappings table
+            // TriggerType = 'Integration' and TriggerSourceId = IntegrationId
             if (integrationId.HasValue)
             {
-                query = query.Where(x => x.IntegrationId == integrationId.Value);
+                query = query.Where(x => SqlFunc.Subqueryable<ActionTriggerMapping>()
+                    .Where(m => m.ActionDefinitionId == x.Id && 
+                                m.TriggerType == "Integration" && 
+                                m.TriggerSourceId == integrationId.Value && 
+                                m.IsValid)
+                    .Any());
             }
 
             var triggerTypeFilters = new[]
@@ -295,7 +301,32 @@ namespace FlowFlex.SqlSugarDB.Repositories.Action
                     LastApplied = SqlFunc.Subqueryable<ActionExecution>().Where(e => e.ActionTriggerMappingId == m.Id && e.IsValid).Max(e => e.CreateDate)
                 });
 
-            return await db.UnionAll(workflowQuery, stageQuery, taskQuery, questionQuery).ToListAsync();
+            // Integration query - TriggerSourceId is IntegrationId
+            var integrationQuery = db.Queryable<ActionTriggerMapping>()
+                .InnerJoin<Domain.Entities.Integration.Integration>((m, i) => m.TriggerSourceId == i.Id)
+                .Where((m, i) => actionDefinitionIds.Contains(m.ActionDefinitionId) &&
+                                 m.TriggerType == "Integration" &&
+                                 m.IsValid &&
+                                 i.IsValid)
+                .Select((m, i) => new ActionTriggerMappingWithDetails
+                {
+                    Id = m.Id,
+                    ActionDefinitionId = m.ActionDefinitionId,
+                    TriggerType = m.TriggerType,
+                    TriggerSourceId = m.TriggerSourceId,
+                    TriggerSourceName = i.Name,
+                    WorkFlowId = 0,
+                    WorkFlowName = "",
+                    StageId = 0,
+                    StageName = "",
+                    TriggerEvent = m.TriggerEvent,
+                    IsEnabled = m.IsEnabled,
+                    ExecutionOrder = m.ExecutionOrder,
+                    Description = m.Description,
+                    LastApplied = SqlFunc.Subqueryable<ActionExecution>().Where(e => e.ActionTriggerMappingId == m.Id && e.IsValid).Max(e => e.CreateDate)
+                });
+
+            return await db.UnionAll(workflowQuery, stageQuery, taskQuery, questionQuery, integrationQuery).ToListAsync();
         }
 
         /// <summary>

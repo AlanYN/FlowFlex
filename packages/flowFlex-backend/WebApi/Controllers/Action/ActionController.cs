@@ -171,13 +171,7 @@ namespace FlowFlex.WebApi.Controllers.Action
                     ActionType = (ActionTypeEnum)(requestData["actionType"]?.ToObject<int>() ?? 0),
                     ActionConfig = requestData["actionConfig"]?.ToString() ?? "{}",
                     IsEnabled = requestData["isEnabled"]?.ToObject<bool>() ?? true,
-                    IsTools = requestData["isTools"]?.ToObject<bool>() ?? false,
-                    // Integration association fields
-                    IntegrationId = requestData["integrationId"] != null && !string.IsNullOrEmpty(requestData["integrationId"]?.ToString())
-                        ? long.TryParse(requestData["integrationId"]?.ToString(), out var integrationId) ? integrationId : null
-                        : null,
-                    DataDirectionInbound = requestData["dataDirectionInbound"]?.ToObject<bool>() ?? false,
-                    DataDirectionOutbound = requestData["dataDirectionOutbound"]?.ToObject<bool>() ?? false
+                    IsTools = requestData["isTools"]?.ToObject<bool>() ?? false
                 };
 
                 var result = await _actionManagementService.UpdateActionDefinitionAsync(id, dto);
@@ -208,10 +202,10 @@ namespace FlowFlex.WebApi.Controllers.Action
                     }
                 }
 
-                // Handle fieldMappings update
-                if (requestData["fieldMappings"] != null && dto.IntegrationId.HasValue)
+                // Handle fieldMappings update - integrationId from result (populated from trigger_mappings)
+                if (requestData["fieldMappings"] != null && result.IntegrationId.HasValue)
                 {
-                    _logger.LogInformation("Processing fieldMappings update for Action {ActionId}", id);
+                    _logger.LogInformation("Processing fieldMappings update for Action {ActionId}, IntegrationId: {IntegrationId}", id, result.IntegrationId);
 
                     var fieldMappings = requestData["fieldMappings"]?.ToObject<List<JObject>>();
                     if (fieldMappings != null)
@@ -223,7 +217,7 @@ namespace FlowFlex.WebApi.Controllers.Action
                             // Parse field mapping data
                             var fieldMappingInput = new InboundFieldMappingInputDto
                             {
-                                IntegrationId = dto.IntegrationId.Value,
+                                IntegrationId = result.IntegrationId.Value,
                                 ActionId = id,
                                 ExternalFieldName = mapping["externalFieldName"]?.ToString() ?? "",
                                 WfeFieldId = mapping["wfeFieldId"]?.ToString() ?? "",

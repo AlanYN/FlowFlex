@@ -48,9 +48,9 @@ namespace FlowFlex.Application.Contracts.IServices.Integration
         Task<bool> BatchUpdateAsync(List<InboundFieldMappingInputDto> inputs);
     }
 
-    /// <summary>
+        /// <summary>
     /// Backward compatibility alias
-    /// </summary>
+        /// </summary>
     [Obsolete("Use IInboundFieldMappingService instead")]
     public interface IFieldMappingService : IInboundFieldMappingService { }
 }

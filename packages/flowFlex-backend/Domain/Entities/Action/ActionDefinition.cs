@@ -65,29 +65,11 @@ namespace FlowFlex.Domain.Entities.Action
         public bool IsAIGenerated { get; set; } = false;
 
         /// <summary>
-        /// Trigger type for the action (Stage, Task, Question, Workflow)
+        /// Trigger type for the action (Stage, Task, Question, Workflow, Integration)
         /// Defines where this action can be used or triggered
         /// </summary>
         [StringLength(50)]
         [SugarColumn(ColumnName = "trigger_type")]
         public string TriggerType { get; set; }
-
-        /// <summary>
-        /// Integration ID - associates this action with a specific integration
-        /// </summary>
-        [SugarColumn(ColumnName = "integration_id", IsNullable = true)]
-        public long? IntegrationId { get; set; }
-
-        /// <summary>
-        /// Data direction inbound - whether this action receives data from external system
-        /// </summary>
-        [SugarColumn(ColumnName = "data_direction_inbound")]
-        public bool DataDirectionInbound { get; set; } = false;
-
-        /// <summary>
-        /// Data direction outbound - whether this action sends data to external system
-        /// </summary>
-        [SugarColumn(ColumnName = "data_direction_outbound")]
-        public bool DataDirectionOutbound { get; set; } = false;
     }
 }

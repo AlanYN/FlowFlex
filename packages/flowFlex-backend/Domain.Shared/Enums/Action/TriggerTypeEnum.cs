@@ -29,6 +29,12 @@ namespace FlowFlex.Domain.Shared.Enums.Action
         /// Workflow completion trigger
         /// </summary>
         [Description("Workflow")]
-        Workflow = 4
+        Workflow = 4,
+
+        /// <summary>
+        /// Integration trigger - TriggerSourceId is IntegrationId
+        /// </summary>
+        [Description("Integration")]
+        Integration = 5
     }
 }

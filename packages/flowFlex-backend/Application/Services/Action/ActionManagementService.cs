@@ -171,11 +171,6 @@ namespace FlowFlex.Application.Services.Action
             var entity = _mapper.Map<ActionDefinition>(dto);
             entity.ActionCode = await _actionCodeGeneratorService.GeneratorActionCodeAsync();
 
-            // Set Integration association fields
-            entity.IntegrationId = dto.IntegrationId;
-            entity.DataDirectionInbound = dto.DataDirectionInbound;
-            entity.DataDirectionOutbound = dto.DataDirectionOutbound;
-
             // Initialize create information with proper tenant and app context
             entity.InitCreateInfo(_userContext);
 
@@ -461,23 +456,6 @@ namespace FlowFlex.Application.Services.Action
                 //    entity.IsTools = dto.IsTools;
                 //    changedFields.Add("IsTools");
                 //}
-
-                // Track Integration association changes
-                if (entity.IntegrationId != dto.IntegrationId)
-                {
-                    entity.IntegrationId = dto.IntegrationId;
-                    changedFields.Add("IntegrationId");
-                }
-                if (entity.DataDirectionInbound != dto.DataDirectionInbound)
-                {
-                    entity.DataDirectionInbound = dto.DataDirectionInbound;
-                    changedFields.Add("DataDirectionInbound");
-                }
-                if (entity.DataDirectionOutbound != dto.DataDirectionOutbound)
-                {
-                    entity.DataDirectionOutbound = dto.DataDirectionOutbound;
-                    changedFields.Add("DataDirectionOutbound");
-                }
 
                 // Initialize update information with proper tenant and app context
                 entity.InitUpdateInfo(_userContext);
@@ -1917,22 +1895,22 @@ namespace FlowFlex.Application.Services.Action
 
         /// <summary>
         /// Enrich ActionDefinitionDto with Integration data and Field Mappings
+        /// Gets Integration info from trigger_mappings where TriggerType = 'Integration'
         /// </summary>
         private async Task EnrichActionWithIntegrationDataAsync(ActionDefinitionDto actionDto, ActionDefinition entity)
         {
-            // Set data direction
-            actionDto.DataDirection = new DataDirectionDto
+            // Get Integration information from trigger_mappings (TriggerType = 'Integration', TriggerSourceId = IntegrationId)
+            try
             {
-                Inbound = entity.DataDirectionInbound,
-                Outbound = entity.DataDirectionOutbound
-            };
+                // TriggerType = 'Integration' (from TriggerTypeEnum.Integration Description attribute)
+                var integrationTrigger = actionDto.TriggerMappings?
+                    .FirstOrDefault(tm => tm.TriggerType == "Integration");
 
-            // Get Integration information if associated
-            if (entity.IntegrationId.HasValue && entity.IntegrationId.Value > 0)
-            {
-                try
+                if (integrationTrigger != null)
                 {
-                    var integration = await _integrationRepository.GetByIdAsync(entity.IntegrationId.Value);
+                    var integrationId = integrationTrigger.TriggerSourceId;
+                    var integration = await _integrationRepository.GetByIdAsync(integrationId);
+                    
                     if (integration != null)
                     {
                         actionDto.IntegrationId = integration.Id;
@@ -1940,7 +1918,7 @@ namespace FlowFlex.Application.Services.Action
 
                         // Get Field Mappings associated with this action
                         var fieldMappings = await _fieldMappingRepository.GetByIntegrationIdAndActionIdAsync(
-                            entity.IntegrationId.Value, entity.Id);
+                            integration.Id, entity.Id);
 
                         if (fieldMappings.Any())
                         {
@@ -1951,46 +1929,31 @@ namespace FlowFlex.Application.Services.Action
                         }
                     }
                 }
-                catch (Exception ex)
-                {
-                    _logger.LogWarning(ex, "Failed to get Integration information for action {ActionId}, IntegrationId: {IntegrationId}",
-                        entity.Id, entity.IntegrationId);
-                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to get Integration information for action {ActionId}", entity.Id);
             }
         }
 
         /// <summary>
         /// Batch enrich ActionDefinitionDtos with Integration data
+        /// Gets Integration info from trigger_mappings where TriggerType = 'Integration'
         /// </summary>
         private async Task BatchEnrichActionsWithIntegrationDataAsync(List<ActionDefinitionDto> actionDtos, List<ActionDefinition> entities)
         {
-            // Get all unique integration IDs
-            var integrationIds = entities
-                .Where(e => e.IntegrationId.HasValue && e.IntegrationId.Value > 0)
-                .Select(e => e.IntegrationId.Value)
-                .Distinct()
-                .ToList();
-
-            if (!integrationIds.Any())
-            {
-                // Still set data direction for each action
-                foreach (var actionDto in actionDtos)
-                {
-                    var entity = entities.FirstOrDefault(e => e.Id == actionDto.Id);
-                    if (entity != null)
-                    {
-                        actionDto.DataDirection = new DataDirectionDto
-                        {
-                            Inbound = entity.DataDirectionInbound,
-                            Outbound = entity.DataDirectionOutbound
-                        };
-                    }
-                }
-                return;
-            }
-
             try
             {
+                // Get Integration IDs from trigger_mappings (TriggerType = 'Integration')
+                const string integrationTriggerType = "Integration";
+                var integrationIds = actionDtos
+                    .Where(a => a.TriggerMappings != null)
+                    .SelectMany(a => a.TriggerMappings!)
+                    .Where(tm => tm.TriggerType == integrationTriggerType)
+                    .Select(tm => tm.TriggerSourceId)
+                    .Distinct()
+                    .ToList();
+
                 // Batch get integrations
                 var integrations = new Dictionary<long, FlowFlex.Domain.Entities.Integration.Integration>();
                 foreach (var integrationId in integrationIds)
@@ -2008,13 +1971,11 @@ namespace FlowFlex.Application.Services.Action
                     var entity = entities.FirstOrDefault(e => e.Id == actionDto.Id);
                     if (entity == null) continue;
 
-                    actionDto.DataDirection = new DataDirectionDto
-                    {
-                        Inbound = entity.DataDirectionInbound,
-                        Outbound = entity.DataDirectionOutbound
-                    };
+                    // Get Integration from trigger_mappings
+                    var integrationTrigger = actionDto.TriggerMappings?
+                        .FirstOrDefault(tm => tm.TriggerType == integrationTriggerType);
 
-                    if (entity.IntegrationId.HasValue && integrations.TryGetValue(entity.IntegrationId.Value, out var integration))
+                    if (integrationTrigger != null && integrations.TryGetValue(integrationTrigger.TriggerSourceId, out var integration))
                     {
                         actionDto.IntegrationId = integration.Id;
                         actionDto.IntegrationName = integration.Name;

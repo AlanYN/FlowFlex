@@ -61,24 +61,9 @@ namespace FlowFlex.Application.Contracts.Dtos.Action
         public bool IsAIGenerated { get; set; } = false;
 
         /// <summary>
-        /// Action trigger type scope (Stage, Task, Question, Workflow)
+        /// Action trigger type scope (Stage, Task, Question, Workflow, Integration)
         /// Defines where this action can be used or triggered
         /// </summary>
         public string ActionTriggerType { get; set; }
-
-        /// <summary>
-        /// Integration ID - associates this action with a specific integration
-        /// </summary>
-        public long? IntegrationId { get; set; }
-
-        /// <summary>
-        /// Data direction inbound - whether this action receives data from external system
-        /// </summary>
-        public bool DataDirectionInbound { get; set; } = false;
-
-        /// <summary>
-        /// Data direction outbound - whether this action sends data to external system
-        /// </summary>
-        public bool DataDirectionOutbound { get; set; } = false;
     }
 }
