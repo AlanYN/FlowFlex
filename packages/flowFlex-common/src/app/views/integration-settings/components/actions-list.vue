@@ -69,7 +69,8 @@
 			v-model="actionEditorVisible"
 			:action="actionInfo"
 			:is-editing="!!actionInfo"
-			:triggerSourceId="currentEditAction?.id"
+			:triggerSourceId="integrationId"
+			:triggerType="TriggerTypeEnum.Integration"
 			:loading="editActionLoading"
 			@save-success="onActionSave"
 			@cancel="onActionCancel"
@@ -81,7 +82,7 @@
 import { ref, onMounted } from 'vue';
 import { Plus } from '@element-plus/icons-vue';
 import ActionConfigDialog from '@/components/actionTools/ActionConfigDialog.vue';
-import { ActionDefinition } from '#/action';
+import { TriggerTypeEnum } from '@/enums/appEnum';
 
 interface Props {
 	integrationId: string;
@@ -120,7 +121,6 @@ const loadActions = async () => {
 const actionEditorVisible = ref(false);
 const actionInfo = ref<any>(null);
 const editActionLoading = ref(false);
-const currentEditAction = ref<ActionDefinition | null>(null);
 const handleActionClick = (actionId: string) => {
 	// 跳转到动作详情页
 };
@@ -128,7 +128,6 @@ const handleActionClick = (actionId: string) => {
 const handleAddAction = () => {
 	actionEditorVisible.value = true;
 	actionInfo.value = null;
-	currentEditAction.value = null;
 };
 
 const onActionSave = async (actionResult) => {};
@@ -136,7 +135,6 @@ const onActionSave = async (actionResult) => {};
 const onActionCancel = () => {
 	actionEditorVisible.value = false;
 	actionInfo.value = null;
-	currentEditAction.value = null;
 };
 
 // 初始化

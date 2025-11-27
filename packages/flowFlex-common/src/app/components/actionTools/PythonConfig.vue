@@ -17,7 +17,7 @@
 		<!-- Test Run Section -->
 		<div class="test-section">
 			<div class="flex items-center justify-between mb-3">
-				<h5 class="font-medium">Test Script</h5>
+				<h5 class="font-medium"></h5>
 				<div class="button-group">
 					<el-button
 						type="primary"
@@ -40,7 +40,6 @@
 
 			<div v-if="testResult" class="test-result">
 				<div class="bg-gray-50 dark:bg-gray-800 rounded-xl p-3">
-					<h6 class="font-medium text-sm mb-2">Test Result:</h6>
 					<pre class="text-xs text-gray-700 dark:text-gray-300 whitespace-pre-wrap">{{
 						testResult.stdout || testResult
 					}}</pre>

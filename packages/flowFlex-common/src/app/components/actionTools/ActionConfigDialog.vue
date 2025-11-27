@@ -33,7 +33,7 @@
 				</div>
 
 				<div
-					class="action-config-container pr-4 flex-1 min-w-0 min-h-0 flex flex-col"
+					class="action-config-container flex-1 min-w-0 min-h-0 flex flex-col"
 					v-loading="loading"
 				>
 					<el-scrollbar ref="scrollbarRefRight" class="h-full">
@@ -208,6 +208,112 @@
 								/>
 							</div>
 
+							<!-- Field Mapping Section -->
+							<el-form-item label="Field Mapping" class="w-full">
+								<div class="flex items-center gap-2 mb-4">
+									<el-switch
+										v-model="showFieldMapping"
+										@change="handleShowFieldMappingChange"
+										:disabled="shouldDisableFields"
+									/>
+									<span class="text-sm text-text-secondary">
+										Enable Field Mapping
+									</span>
+								</div>
+								<div class="space-y-4 w-full" v-if="showFieldMapping">
+									<div class="flex justify-between items-center">
+										<div>
+											<h4 class="text-sm font-semibold text-text-primary m-0">
+												Field Mapping
+											</h4>
+											<p class="text-xs text-text-secondary mt-1">
+												Map external fields to WFE fields
+											</p>
+										</div>
+										<el-button
+											type="primary"
+											@click="handleAddFieldMapping"
+											:disabled="shouldDisableFields"
+											:icon="Plus"
+										>
+											Add Field
+										</el-button>
+									</div>
+									<el-table
+										:data="fieldMappings"
+										class="w-full"
+										empty-text="No field mappings configured"
+										:border="true"
+									>
+										<el-table-column label="External Field" min-width="200">
+											<template #default="{ row }">
+												<el-input
+													v-model="row.externalFieldName"
+													placeholder="Enter external field name"
+													:disabled="shouldDisableFields"
+												/>
+											</template>
+										</el-table-column>
+
+										<el-table-column label="WFE Field" min-width="200">
+											<template #default="{ row }">
+												<el-select
+													v-model="row.wfeFieldId"
+													placeholder="Select WFE field"
+													:disabled="shouldDisableFields"
+													class="w-full"
+												>
+													<el-option
+														v-for="field in wfeFieldOptions"
+														:key="field.vIfKey || ''"
+														:label="field.label"
+														:value="String(field.vIfKey)"
+													/>
+												</el-select>
+											</template>
+										</el-table-column>
+
+										<el-table-column label="Type" min-width="120">
+											<template #default>
+												<span class="text-sm">text</span>
+											</template>
+										</el-table-column>
+
+										<el-table-column label="Direction" min-width="150">
+											<template #default="{ row }">
+												<el-select
+													v-model="row.syncDirection"
+													placeholder="Select direction"
+													:disabled="shouldDisableFields"
+													class="w-full"
+												>
+													<el-option
+														:label="'View Only'"
+														:value="SyncDirection.ViewOnly"
+													/>
+													<el-option
+														:label="'Editable'"
+														:value="SyncDirection.Editable"
+													/>
+												</el-select>
+											</template>
+										</el-table-column>
+
+										<el-table-column label="Actions" width="100" align="center">
+											<template #default="{ $index }">
+												<el-button
+													type="danger"
+													link
+													:icon="Delete"
+													@click="handleRemoveFieldMapping($index)"
+													:disabled="shouldDisableFields"
+												/>
+											</template>
+										</el-table-column>
+									</el-table>
+								</div>
+							</el-form-item>
+
 							<!-- <el-form-item prop="IsTools" v-if="!shouldDisableFields">
 									<el-checkbox
 										v-model="formData.isTools"
@@ -235,11 +341,12 @@
 <script setup lang="ts">
 import { ref, reactive, computed, watch, nextTick } from 'vue';
 import { ElMessage, useZIndex } from 'element-plus';
-import { Operation, Connection } from '@element-plus/icons-vue';
+import { Operation, Connection, Delete, Plus } from '@element-plus/icons-vue';
 import PythonConfig from './PythonConfig.vue';
 import HttpConfig from './HttpConfig.vue';
 import VariablesPanel from './VariablesPanel.vue';
 import { useAdaptiveScrollbar } from '@/hooks/useAdaptiveScrollbar';
+import { SyncDirection } from '@/enums/integration';
 
 import {
 	addAction,
@@ -253,6 +360,7 @@ import {
 } from '@/apis/action';
 import { TriggerTypeEnum, ToolsType } from '@/enums/appEnum';
 import { ActionItem, ActionDefinition, ActionQueryRequest } from '#/action';
+import staticFieldsData from './static-field.json';
 
 const { scrollbarRef: scrollbarRefLeft, updateScrollbarHeight: updateScrollbarHeightLeft } =
 	useAdaptiveScrollbar(80);
@@ -308,7 +416,7 @@ const existingToolsList = ref<ActionDefinition[]>([]); // 已有工具列表
 const isAiGenerated = ref(false); // 标识当前action是否为AI生成
 const aiGeneratedConfig = ref<any>(null); // 存储AI生成的配置数据
 
-const formData = reactive<ActionItem>({
+const formData = reactive<ActionItem & { fieldMappings?: IFieldMappingItem[] }>({
 	id: '',
 	name: '',
 	actionType: ActionType.PYTHON_SCRIPT,
@@ -316,6 +424,7 @@ const formData = reactive<ActionItem>({
 	condition: 'Stage Completed',
 	isTools: false, // 新建时默认为 true（工具模式），允许用户选择
 	actionConfig: {},
+	fieldMappings: [],
 });
 
 // Computed
@@ -437,6 +546,60 @@ const getDefaultConfig = (actionType: ActionType) => {
 };
 
 // Methods
+// 字段映射相关状态和逻辑
+interface IFieldMappingItem {
+	externalFieldName: string;
+	wfeFieldId: string;
+	fieldType: number;
+	syncDirection: number;
+}
+
+const showFieldMapping = ref(false);
+const wfeFieldOptions = ref(staticFieldsData.formFields);
+
+const fieldMappings = computed({
+	get() {
+		return formData.fieldMappings || [];
+	},
+	set(val: IFieldMappingItem[]) {
+		formData.fieldMappings = val;
+	},
+});
+
+/**
+ * 处理显示字段映射开关变化
+ */
+function handleShowFieldMappingChange(value: string | number | boolean) {
+	const boolValue = Boolean(value);
+	showFieldMapping.value = boolValue;
+	if (!boolValue) {
+		// 关闭时清空字段映射
+		fieldMappings.value = [];
+	}
+}
+
+/**
+ * 添加字段映射
+ */
+function handleAddFieldMapping() {
+	const newMapping: IFieldMappingItem = {
+		externalFieldName: '',
+		wfeFieldId: '',
+		fieldType: 1, // 默认 Text
+		syncDirection: SyncDirection.ViewOnly,
+	};
+	fieldMappings.value = [...(fieldMappings.value || []), newMapping];
+}
+
+/**
+ * 删除字段映射
+ */
+function handleRemoveFieldMapping(index: number) {
+	const mappings = [...(fieldMappings.value || [])];
+	mappings.splice(index, 1);
+	fieldMappings.value = mappings;
+}
+
 const resetForm = () => {
 	formData.id = '';
 	formData.name = '';
@@ -457,6 +620,10 @@ const resetForm = () => {
 	isAiGenerated.value = false;
 	aiGeneratedConfig.value = null;
 
+	// 重置字段映射状态
+	showFieldMapping.value = false;
+	fieldMappings.value = [];
+
 	// 重置配置模式为默认值
 	// 如果 forceEditable 为 true 且没有 action，设置为 NewTool 模式
 	if (props.forceEditable && !props.action) {
@@ -474,7 +641,6 @@ const handleActionTypeChange = (actionType: ActionType) => {
 const updateActionName = (actionName: string) => {
 	if (actionName && typeof actionName === 'string' && actionName.trim()) {
 		formData.name = actionName.trim();
-		console.log('📝 Action name updated in dialog:', actionName);
 	}
 };
 
@@ -482,7 +648,6 @@ const updateActionName = (actionName: string) => {
 const handleAiConfigApplied = (config: any) => {
 	isAiGenerated.value = true;
 	aiGeneratedConfig.value = config;
-	console.log('🤖 AI config applied, marking action as AI-generated:', config);
 };
 
 // Action Type 名称映射方法
@@ -560,8 +725,6 @@ const loadExistingTools = async (isTools: boolean, isSystemTools?: boolean) => {
 			existingToolsList.value = [];
 		}
 	} catch (error) {
-		console.error('Failed to load existing tools:', error);
-		ElMessage.error('Failed to load existing tools');
 		existingToolsList.value = [];
 	} finally {
 		loadingExistingTools.value = false;
@@ -572,7 +735,6 @@ const loadExistingTools = async (isTools: boolean, isSystemTools?: boolean) => {
 watch(
 	() => props.action,
 	async (newAction) => {
-		console.log('newAction:', newAction);
 		if (newAction) {
 			Object.keys(formData).forEach((key) => {
 				formData[key] =
@@ -586,6 +748,13 @@ watch(
 				configMode.value = newAction.isTools ? ToolsType.UseTool : ToolsType.MyTool;
 			}
 			await changeConfigModeChange(configMode.value);
+
+			// 只有当 action 中确实有 fieldMappings 数据时才显示
+			if (formData.fieldMappings && formData.fieldMappings.length > 0) {
+				showFieldMapping.value = true;
+			} else {
+				showFieldMapping.value = false;
+			}
 		} else {
 			resetForm();
 		}
@@ -633,7 +802,6 @@ const handleExistingToolSelect = async (toolId: string) => {
 		}
 	} catch (error) {
 		console.error('Failed to load tool details:', error);
-		ElMessage.error('Failed to load tool details');
 	}
 };
 
@@ -666,104 +834,132 @@ const onTest = async () => {
 	}
 };
 
+/**
+ * 创建 Action 映射关系
+ */
+const createActionMapping = async (actionDefinitionId: string) => {
+	const mappingParams = {
+		actionDefinitionId,
+		triggerSourceId: props?.triggerSourceId || null,
+		triggerType: props?.triggerType || null,
+		workFlowId: props?.workflowId || null,
+	};
+
+	const mappingRes = await addMappingAction(mappingParams);
+	if (mappingRes.code !== '200') {
+		mappingRes?.msg && ElMessage.error(mappingRes?.msg);
+		return false;
+	}
+	return true;
+};
+
 const onSave = async () => {
 	try {
+		// 表单验证
 		if (configMode.value !== ToolsType.SystemTools) {
 			if (!formRef.value) return;
 			await formRef.value.validate();
 		}
+
+		// 业务验证
+		if (formData.actionType === ActionType.PYTHON_SCRIPT && !formData.actionConfig.sourceCode) {
+			ElMessage.error('Please enter Python script code');
+			return;
+		}
+
+		if (formData.actionType === ActionType.HTTP_API && !formData.actionConfig.url) {
+			ElMessage.error('Please enter HTTP API URL');
+			return;
+		}
+
 		saving.value = true;
-		// 判断是编辑模式还是新建模式，以及是否使用已有工具
+
+		// 使用已有工具的情况：只需要创建映射关系
 		if (
-			(!props.action &&
-				(configMode.value === ToolsType.UseTool ||
-					configMode.value === ToolsType.SystemTools ||
-					configMode.value === ToolsType.MyTool) &&
-				!props.forceEditable) ||
-			selectedToolId.value // 确保有选中的工具ID
+			selectedToolId.value &&
+			configMode.value !== ToolsType.NewTool &&
+			!props.forceEditable
 		) {
-			// 新建模式 + 使用已有工具：创建映射关系
-			if (!selectedToolId.value) {
-				ElMessage.error('Please select an existing tool');
-				return;
-			}
-			const params = {
-				actionDefinitionId: selectedToolId.value,
-				triggerSourceId: props?.triggerSourceId || null,
-				triggerType: props?.triggerType || null,
-				workFlowId: props?.workflowId || null,
-			};
-			const res = await addMappingAction(params);
-			if (res.code == '200') {
+			const success = await createActionMapping(selectedToolId.value);
+			if (success) {
+				ElMessage.success('Action mapping created successfully');
 				emit('saveSuccess', {
 					...formData,
-					actionMappingId: res.data.id,
+					actionDefinitionId: selectedToolId.value,
 				});
 				visible.value = false;
-			} else {
-				res?.msg && ElMessage.error(res?.msg);
 			}
-		} else {
-			// 编辑模式 或 新建模式下的创建新工具/普通Action：验证并保存
-			if (
-				formData.actionType === ActionType.PYTHON_SCRIPT &&
-				!formData.actionConfig.sourceCode
-			) {
-				ElMessage.error('Please enter Python script code');
-				return;
-			}
-
-			if (formData.actionType === ActionType.HTTP_API && !formData.actionConfig.url) {
-				ElMessage.error('Please enter HTTP API URL');
-				return;
-			}
-
-			// 根据 action actionType 准备不同的 actionConfig
-			let cleanActionConfig: any = {};
-
-			if (formData.actionType === ActionType.PYTHON_SCRIPT) {
-				// Python 类型只需要 sourceCode
-				cleanActionConfig = {
-					sourceCode: formData.actionConfig.sourceCode,
-				};
-			} else if (formData.actionType === ActionType.HTTP_API) {
-				// HTTP 类型需要符合 HttpApiConfigDto 的字段
-				cleanActionConfig = {
-					...formData.actionConfig,
-					url: formData.actionConfig.url || '',
-					method: formData.actionConfig.method || 'GET',
-					headers: formData.actionConfig.headers || {},
-					params: formData.actionConfig.params || {},
-					body: formData.actionConfig.body || '',
-					timeout: formData.actionConfig.timeout || 30,
-					followRedirects: formData.actionConfig.followRedirects !== false, // 默认为 true
-				};
-			}
-
-			const params = {
-				...formData,
-				actionConfig: JSON.stringify(cleanActionConfig),
-				workflowId: props?.workflowId || null,
-				actionType: formData.actionType,
-				triggerSourceId: props?.triggerSourceId || null,
-				triggerType: props?.triggerType || null,
-				isAIGenerated: isAiGenerated.value, // 添加AI生成标识
-				aiGeneratedConfig: aiGeneratedConfig.value
-					? JSON.stringify(aiGeneratedConfig.value)
-					: null, // 添加AI生成的配置数据
-			};
-
-			const res: any = formData.id
-				? await updateAction(formData.id, params)
-				: await addAction(params);
-			if (res.code == '200') {
-				ElMessage.success('Action added successfully');
-				emit('saveSuccess', res.data);
-				visible.value = false;
-			} else {
-				res?.msg && ElMessage.error(res?.msg);
-			}
+			return;
 		}
+
+		// 准备 actionConfig
+		let cleanActionConfig: any = {};
+		if (formData.actionType === ActionType.PYTHON_SCRIPT) {
+			cleanActionConfig = {
+				sourceCode: formData.actionConfig.sourceCode,
+			};
+		} else if (formData.actionType === ActionType.HTTP_API) {
+			// 确保不包含 fieldMappings（fieldMappings 现在是同级别字段）
+			const httpConfig = { ...formData.actionConfig };
+			delete (httpConfig as any).fieldMappings;
+			cleanActionConfig = {
+				...httpConfig,
+				url: formData.actionConfig.url || '',
+				method: formData.actionConfig.method || 'GET',
+				headers: formData.actionConfig.headers || {},
+				params: formData.actionConfig.params || {},
+				body: formData.actionConfig.body || '',
+				timeout: formData.actionConfig.timeout || 30,
+				followRedirects: formData.actionConfig.followRedirects !== false,
+			};
+		}
+
+		// 准备保存参数
+		const actionParams = {
+			...formData,
+			actionConfig: JSON.stringify(cleanActionConfig),
+			fieldMappings: fieldMappings.value || [],
+			workflowId: props?.workflowId || null,
+			actionType: formData.actionType,
+			triggerSourceId: props?.triggerSourceId || null,
+			triggerType: props?.triggerType || null,
+			isAIGenerated: isAiGenerated.value,
+			aiGeneratedConfig: aiGeneratedConfig.value
+				? JSON.stringify(aiGeneratedConfig.value)
+				: null,
+		};
+
+		// 先创建或更新 Action
+		const actionRes: any = formData.id
+			? await updateAction(formData.id, actionParams)
+			: await addAction(actionParams);
+
+		if (actionRes.code !== '200') {
+			actionRes?.msg && ElMessage.error(actionRes?.msg);
+			return;
+		}
+
+		const savedAction = actionRes.data;
+		const actionId = savedAction.id || formData.id;
+
+		ElMessage.success(
+			formData.id ? 'Action updated successfully' : 'Action created successfully'
+		);
+
+		// 根据条件判断是否需要创建映射关系
+		const needMapping =
+			(props?.triggerSourceId || props?.triggerType) &&
+			!formData.id && // 新建时才需要创建映射
+			configMode.value !== ToolsType.SystemTools; // 系统工具不需要映射
+
+		if (needMapping) {
+			await createActionMapping(actionId);
+		}
+
+		emit('saveSuccess', savedAction);
+		visible.value = false;
+	} catch (error) {
+		ElMessage.error('Failed to save action');
 	} finally {
 		saving.value = false;
 	}

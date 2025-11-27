@@ -101,3 +101,11 @@ html.dark .json-line-numbers {
 	color: #6b7280;
 	border-right-color: #374151;
 }
+
+.monaco-editor, .monaco-editor-background{
+	@apply bg-white dark:bg-black;
+}
+
+.mtk1 {
+	@apply text-black dark:text-white;
+}

@@ -52,7 +52,11 @@
 			<el-table-column label="Target URL" prop="targetUrl" min-width="300">
 				<template #default="{ row }">
 					<div class="flex items-center gap-2">
-						<el-link :href="row.targetUrl" :underline="false">
+						<el-link
+							:underline="false"
+							class="cursor-pointer"
+							@click="handleLinkClick(row)"
+						>
 							{{ row.targetUrl }}
 						</el-link>
 					</div>
@@ -62,7 +66,7 @@
 			<el-table-column label="Icon" prop="displayIcon" width="100" align="center">
 				<template #default="{ row }">
 					<el-icon v-if="row.displayIcon" class="text-lg">
-						<component :is="getIconComponent(row.displayIcon)" />
+						<Icon :icon="getIconComponent(row.displayIcon)" />
 					</el-icon>
 					<span v-else class="text-text-secondary text-sm">-</span>
 				</template>
@@ -360,6 +364,17 @@
 							placeholder="Select icon..."
 							class="w-full"
 						>
+							<template #label="{ label, value }">
+								<div class="flex items-center gap-2 text-sm font-medium">
+									<Icon
+										:icon="
+											iconOptions.find((icon) => icon.value === value)
+												?.component
+										"
+									/>
+									<span>{{ label }}</span>
+								</div>
+							</template>
 							<el-option
 								v-for="icon in iconOptions"
 								:key="icon.value"
@@ -367,7 +382,7 @@
 								:value="icon.value"
 							>
 								<div class="flex items-center gap-2">
-									<el-icon><component :is="icon.component" /></el-icon>
+									<Icon :icon="icon.component" />
 									<span>{{ icon.label }}</span>
 								</div>
 							</el-option>
@@ -413,7 +428,7 @@
 <script setup lang="ts">
 import { ref, onMounted, watch, nextTick } from 'vue';
 import type { FormInstance, FormRules } from 'element-plus';
-import { Plus, Delete, Link, ArrowRight, Edit } from '@element-plus/icons-vue';
+import { Plus, Delete, Edit } from '@element-plus/icons-vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import {
 	getQuickLinksByIntegration,
@@ -504,9 +519,9 @@ const formRules: FormRules = {
 
 // 图标选项
 const iconOptions = [
-	{ value: 'link', label: 'External Link', component: Edit },
-	{ value: 'chain', label: 'Chain Link', component: Link },
-	{ value: 'arrow', label: 'Arrow', component: ArrowRight },
+	{ value: 'link', label: 'External Link', component: 'lucide-external-link' },
+	{ value: 'chain', label: 'Chain Link', component: 'lucide-link' },
+	{ value: 'arrow', label: 'Arrow', component: 'lucide-arrow-right' },
 ];
 
 // Value Source 选项
@@ -552,11 +567,11 @@ function getDescription(link: IQuickLink): string {
 function getIconComponent(iconName: string) {
 	// 根据图标名称返回对应的图标组件
 	const iconMap: Record<string, any> = {
-		link: Link,
-		external: Edit,
-		arrow: ArrowRight,
+		link: 'lucide-external-link',
+		chain: 'lucide-link',
+		arrow: 'lucide-arrow-right',
 	};
-	return iconMap[iconName.toLowerCase()] || Edit;
+	return iconMap[iconName.toLowerCase()] || 'lucide-link';
 }
 
 /**
@@ -841,6 +856,39 @@ async function handleSave() {
 			isSaving.value = false;
 		}
 	});
+}
+
+/**
+ * 处理链接点击
+ */
+async function handleLinkClick(row: IQuickLink) {
+	const url = row.targetUrl;
+	if (!url) {
+		ElMessage.warning('Target URL is empty');
+		return;
+	}
+
+	// 如果是 PopupConfirmation 类型，需要弹窗确认
+	if (row.redirectType === RedirectType.PopupConfirmation) {
+		try {
+			await ElMessageBox.confirm(
+				`Are you sure you want to open this link?\n\n${url}`,
+				'Confirm Redirect',
+				{
+					confirmButtonText: 'Open',
+					cancelButtonText: 'Cancel',
+					type: 'info',
+				}
+			);
+			// 用户确认后，在新标签页打开
+			window.open(url, '_blank');
+		} catch {
+			// 用户取消，不执行任何操作
+		}
+	} else {
+		// Direct 类型，直接在新标签页打开
+		window.open(url, '_blank');
+	}
 }
 
 /**
