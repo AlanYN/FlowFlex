@@ -71,5 +71,23 @@ namespace FlowFlex.Domain.Entities.Action
         [StringLength(50)]
         [SugarColumn(ColumnName = "trigger_type")]
         public string TriggerType { get; set; }
+
+        /// <summary>
+        /// Integration ID - associates this action with a specific integration
+        /// </summary>
+        [SugarColumn(ColumnName = "integration_id", IsNullable = true)]
+        public long? IntegrationId { get; set; }
+
+        /// <summary>
+        /// Data direction inbound - whether this action receives data from external system
+        /// </summary>
+        [SugarColumn(ColumnName = "data_direction_inbound")]
+        public bool DataDirectionInbound { get; set; } = false;
+
+        /// <summary>
+        /// Data direction outbound - whether this action sends data to external system
+        /// </summary>
+        [SugarColumn(ColumnName = "data_direction_outbound")]
+        public bool DataDirectionOutbound { get; set; } = false;
     }
 }

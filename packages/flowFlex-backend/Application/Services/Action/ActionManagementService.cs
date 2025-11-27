@@ -20,6 +20,8 @@ using FlowFlex.Application.Contracts.IServices.OW.ChangeLog;
 using FlowFlex.Infrastructure.Services;
 using Microsoft.Extensions.DependencyInjection;
 using FlowFlex.Application.Contracts.IServices.OW;
+using FlowFlex.Domain.Repository.Integration;
+using Domain.Shared.Enums;
 
 namespace FlowFlex.Application.Services.Action
 {
@@ -41,6 +43,8 @@ namespace FlowFlex.Application.Services.Action
         private readonly ILogger<ActionManagementService> _logger;
         private readonly UserContext _userContext;
         private readonly IOperatorContextService _operatorContextService;
+        private readonly IIntegrationRepository _integrationRepository;
+        private readonly IFieldMappingRepository _fieldMappingRepository;
 
         public ActionManagementService(
             IActionDefinitionRepository actionDefinitionRepository,
@@ -55,7 +59,9 @@ namespace FlowFlex.Application.Services.Action
             IMapper mapper,
             UserContext userContext,
             ILogger<ActionManagementService> logger,
-            IOperatorContextService operatorContextService)
+            IOperatorContextService operatorContextService,
+            IIntegrationRepository integrationRepository,
+            IFieldMappingRepository fieldMappingRepository)
         {
             _actionDefinitionRepository = actionDefinitionRepository;
             _actionTriggerMappingRepository = actionTriggerMappingRepository;
@@ -70,6 +76,8 @@ namespace FlowFlex.Application.Services.Action
             _userContext = userContext;
             _logger = logger;
             _operatorContextService = operatorContextService;
+            _integrationRepository = integrationRepository;
+            _fieldMappingRepository = fieldMappingRepository;
         }
 
         #region Action Definition Management
@@ -86,6 +94,9 @@ namespace FlowFlex.Application.Services.Action
 
             // Add trigger mapping information to DTO
             actionDto.TriggerMappings = _mapper.Map<List<ActionTriggerMappingInfo>>(triggerMappings);
+
+            // Get Integration information and Field Mappings
+            await EnrichActionWithIntegrationDataAsync(actionDto, entity);
 
             return actionDto;
         }
@@ -137,6 +148,9 @@ namespace FlowFlex.Application.Services.Action
                         actionDto.TriggerMappings = _mapper.Map<List<ActionTriggerMappingInfo>>(mappings);
                     }
                 }
+
+                // Batch enrich with Integration data
+                await BatchEnrichActionsWithIntegrationDataAsync(actionDtos, data);
             }
 
             return new PageModelDto<ActionDefinitionDto>(pageIndex, pageSize, actionDtos, total);
@@ -154,6 +168,11 @@ namespace FlowFlex.Application.Services.Action
 
             var entity = _mapper.Map<ActionDefinition>(dto);
             entity.ActionCode = await _actionCodeGeneratorService.GeneratorActionCodeAsync();
+
+            // Set Integration association fields
+            entity.IntegrationId = dto.IntegrationId;
+            entity.DataDirectionInbound = dto.DataDirectionInbound;
+            entity.DataDirectionOutbound = dto.DataDirectionOutbound;
 
             // Initialize create information with proper tenant and app context
             entity.InitCreateInfo(_userContext);
@@ -437,6 +456,23 @@ namespace FlowFlex.Application.Services.Action
                 //    entity.IsTools = dto.IsTools;
                 //    changedFields.Add("IsTools");
                 //}
+
+                // Track Integration association changes
+                if (entity.IntegrationId != dto.IntegrationId)
+                {
+                    entity.IntegrationId = dto.IntegrationId;
+                    changedFields.Add("IntegrationId");
+                }
+                if (entity.DataDirectionInbound != dto.DataDirectionInbound)
+                {
+                    entity.DataDirectionInbound = dto.DataDirectionInbound;
+                    changedFields.Add("DataDirectionInbound");
+                }
+                if (entity.DataDirectionOutbound != dto.DataDirectionOutbound)
+                {
+                    entity.DataDirectionOutbound = dto.DataDirectionOutbound;
+                    changedFields.Add("DataDirectionOutbound");
+                }
 
                 // Initialize update information with proper tenant and app context
                 entity.InitUpdateInfo(_userContext);
@@ -1866,6 +1902,141 @@ namespace FlowFlex.Application.Services.Action
             }
         }
 
+
+        #endregion
+
+        #region Integration Association Helpers
+
+        /// <summary>
+        /// Enrich ActionDefinitionDto with Integration data and Field Mappings
+        /// </summary>
+        private async Task EnrichActionWithIntegrationDataAsync(ActionDefinitionDto actionDto, ActionDefinition entity)
+        {
+            // Set data direction
+            actionDto.DataDirection = new DataDirectionDto
+            {
+                Inbound = entity.DataDirectionInbound,
+                Outbound = entity.DataDirectionOutbound
+            };
+
+            // Get Integration information if associated
+            if (entity.IntegrationId.HasValue && entity.IntegrationId.Value > 0)
+            {
+                try
+                {
+                    var integration = await _integrationRepository.GetByIdAsync(entity.IntegrationId.Value);
+                    if (integration != null)
+                    {
+                        actionDto.IntegrationId = integration.Id;
+                        actionDto.IntegrationName = integration.Name;
+
+                        // Get Field Mappings associated with this action
+                        var fieldMappings = await _fieldMappingRepository.GetByIntegrationIdAndActionIdAsync(
+                            entity.IntegrationId.Value, entity.Id);
+
+                        if (fieldMappings.Any())
+                        {
+                            actionDto.FieldMappings = fieldMappings
+                                .Select(MapToActionFieldMappingDto)
+                                .OrderBy(fm => fm.SortOrder)
+                                .ToList();
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to get Integration information for action {ActionId}, IntegrationId: {IntegrationId}",
+                        entity.Id, entity.IntegrationId);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Batch enrich ActionDefinitionDtos with Integration data
+        /// </summary>
+        private async Task BatchEnrichActionsWithIntegrationDataAsync(List<ActionDefinitionDto> actionDtos, List<ActionDefinition> entities)
+        {
+            // Get all unique integration IDs
+            var integrationIds = entities
+                .Where(e => e.IntegrationId.HasValue && e.IntegrationId.Value > 0)
+                .Select(e => e.IntegrationId.Value)
+                .Distinct()
+                .ToList();
+
+            if (!integrationIds.Any())
+            {
+                // Still set data direction for each action
+                foreach (var actionDto in actionDtos)
+                {
+                    var entity = entities.FirstOrDefault(e => e.Id == actionDto.Id);
+                    if (entity != null)
+                    {
+                        actionDto.DataDirection = new DataDirectionDto
+                        {
+                            Inbound = entity.DataDirectionInbound,
+                            Outbound = entity.DataDirectionOutbound
+                        };
+                    }
+                }
+                return;
+            }
+
+            try
+            {
+                // Batch get integrations
+                var integrations = new Dictionary<long, FlowFlex.Domain.Entities.Integration.Integration>();
+                foreach (var integrationId in integrationIds)
+                {
+                    var integration = await _integrationRepository.GetByIdAsync(integrationId);
+                    if (integration != null)
+                    {
+                        integrations[integrationId] = integration;
+                    }
+                }
+
+                // Enrich each action DTO
+                foreach (var actionDto in actionDtos)
+                {
+                    var entity = entities.FirstOrDefault(e => e.Id == actionDto.Id);
+                    if (entity == null) continue;
+
+                    actionDto.DataDirection = new DataDirectionDto
+                    {
+                        Inbound = entity.DataDirectionInbound,
+                        Outbound = entity.DataDirectionOutbound
+                    };
+
+                    if (entity.IntegrationId.HasValue && integrations.TryGetValue(entity.IntegrationId.Value, out var integration))
+                    {
+                        actionDto.IntegrationId = integration.Id;
+                        actionDto.IntegrationName = integration.Name;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to batch enrich actions with Integration data");
+            }
+        }
+
+        /// <summary>
+        /// Map FieldMapping entity to ActionFieldMappingDto
+        /// </summary>
+        private ActionFieldMappingDto MapToActionFieldMappingDto(FlowFlex.Domain.Entities.Integration.FieldMapping fieldMapping)
+        {
+            return new ActionFieldMappingDto
+            {
+                Id = fieldMapping.Id,
+                ExternalFieldName = fieldMapping.ExternalFieldName,
+                WfeFieldId = fieldMapping.WfeFieldId,
+                WfeFieldName = fieldMapping.WfeFieldId, // Can be enriched with actual field name if needed
+                FieldType = fieldMapping.FieldType.ToString(),
+                SyncDirection = fieldMapping.SyncDirection.ToString(),
+                IsRequired = fieldMapping.IsRequired,
+                DefaultValue = fieldMapping.DefaultValue,
+                SortOrder = fieldMapping.SortOrder
+            };
+        }
 
         #endregion
 

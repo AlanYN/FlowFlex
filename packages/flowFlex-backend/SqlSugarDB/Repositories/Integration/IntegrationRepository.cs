@@ -138,16 +138,6 @@ namespace FlowFlex.SqlSugarDB.Implements.Integration
                 .Where(x => x.IntegrationId == integration.Id && x.IsValid)
                 .ToListAsync();
 
-            // Load first inbound config (for backward compatibility)
-            integration.InboundConfig = await db.Queryable<Domain.Entities.Integration.InboundConfiguration>()
-                .Where(x => x.IntegrationId == integration.Id && x.IsValid)
-                .FirstAsync();
-
-            // Load first outbound config (for backward compatibility)
-            integration.OutboundConfig = await db.Queryable<Domain.Entities.Integration.OutboundConfiguration>()
-                .Where(x => x.IntegrationId == integration.Id && x.IsValid)
-                .FirstAsync();
-
             return integration;
         }
 

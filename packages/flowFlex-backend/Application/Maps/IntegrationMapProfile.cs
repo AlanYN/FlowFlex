@@ -19,11 +19,10 @@ namespace FlowFlex.Application.Maps
                 .ForMember(dest => dest.Credentials, opt => opt.Ignore())
                 .ForMember(dest => dest.Connection, opt => opt.Ignore())
                 .ForMember(dest => dest.EntityMappings, opt => opt.Ignore())
-                .ForMember(dest => dest.InboundSettings, opt => opt.Ignore())
-                .ForMember(dest => dest.OutboundSettings, opt => opt.Ignore())
                 .ForMember(dest => dest.QuickLinks, opt => opt.Ignore())
-                .ForMember(dest => dest.InboundConfigurations, opt => opt.Ignore())
-                .ForMember(dest => dest.OutboundConfigurations, opt => opt.Ignore());
+                .ForMember(dest => dest.OutboundConfigurations, opt => opt.Ignore())
+                .ForMember(dest => dest.InboundAttachments, opt => opt.Ignore())
+                .ForMember(dest => dest.OutboundAttachments, opt => opt.Ignore());
 
             CreateMap<IntegrationInputDto, Domain.Entities.Integration.Integration>()
                 .ForMember(dest => dest.Id, opt => opt.Ignore())
@@ -42,8 +41,8 @@ namespace FlowFlex.Application.Maps
                 .ForMember(dest => dest.IntegrationActions, opt => opt.Ignore())
                 .ForMember(dest => dest.QuickLinks, opt => opt.Ignore())
                 .ForMember(dest => dest.SyncLogs, opt => opt.Ignore())
-                .ForMember(dest => dest.InboundConfig, opt => opt.Ignore())
-                .ForMember(dest => dest.OutboundConfig, opt => opt.Ignore());
+                .ForMember(dest => dest.InboundAttachments, opt => opt.Ignore())
+                .ForMember(dest => dest.OutboundAttachments, opt => opt.Ignore());
 
             // EntityMapping mappings
             CreateMap<EntityMapping, EntityMappingOutputDto>()

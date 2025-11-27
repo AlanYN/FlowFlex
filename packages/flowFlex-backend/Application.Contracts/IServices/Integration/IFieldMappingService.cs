@@ -46,5 +46,10 @@ namespace FlowFlex.Application.Contracts.IServices.Integration
         /// Get bidirectional (editable) field mappings for an entity mapping
         /// </summary>
         Task<List<FieldMappingOutputDto>> GetBidirectionalMappingsAsync(long entityMappingId);
+
+        /// <summary>
+        /// Get field mappings by integration ID and action ID
+        /// </summary>
+        Task<List<FieldMappingOutputDto>> GetByIntegrationIdAndActionIdAsync(long integrationId, long actionId);
     }
 }

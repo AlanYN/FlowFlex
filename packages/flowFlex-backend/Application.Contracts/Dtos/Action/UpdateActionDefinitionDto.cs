@@ -39,5 +39,20 @@ namespace FlowFlex.Application.Contracts.Dtos.Action
         public bool IsEnabled { get; set; }
 
         public bool IsTools { get; set; }
+
+        /// <summary>
+        /// Integration ID - associates this action with a specific integration
+        /// </summary>
+        public long? IntegrationId { get; set; }
+
+        /// <summary>
+        /// Data direction inbound - whether this action receives data from external system
+        /// </summary>
+        public bool DataDirectionInbound { get; set; } = false;
+
+        /// <summary>
+        /// Data direction outbound - whether this action sends data to external system
+        /// </summary>
+        public bool DataDirectionOutbound { get; set; } = false;
     }
 }

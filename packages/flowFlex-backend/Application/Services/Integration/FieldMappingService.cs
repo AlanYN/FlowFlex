@@ -64,6 +64,7 @@ namespace FlowFlex.Application.Services.Integration
 
             var entity = _mapper.Map<FieldMapping>(input);
             entity.TransformRules = JsonConvert.SerializeObject(input.TransformRules);
+            entity.ActionId = input.ActionId;
             entity.InitCreateInfo(_userContext);
 
             var id = await _fieldMappingRepository.InsertReturnSnowflakeIdAsync(entity);
@@ -101,6 +102,7 @@ namespace FlowFlex.Application.Services.Integration
             entity.SortOrder = input.SortOrder;
             entity.IsRequired = input.IsRequired;
             entity.DefaultValue = input.DefaultValue;
+            entity.ActionId = input.ActionId;
             entity.InitModifyInfo(_userContext);
 
             var result = await _fieldMappingRepository.UpdateAsync(entity);
@@ -238,6 +240,27 @@ namespace FlowFlex.Application.Services.Integration
             }
 
             return dtos;
+        }
+
+        /// <summary>
+        /// Get field mappings by integration ID and action ID
+        /// </summary>
+        public async Task<List<FieldMappingOutputDto>> GetByIntegrationIdAndActionIdAsync(long integrationId, long actionId)
+        {
+            var entities = await _fieldMappingRepository.GetByIntegrationIdAndActionIdAsync(integrationId, actionId);
+            var dtos = _mapper.Map<List<FieldMappingOutputDto>>(entities);
+
+            foreach (var dto in dtos)
+            {
+                var entity = entities.FirstOrDefault(e => e.Id == dto.Id);
+                if (entity != null)
+                {
+                    dto.TransformRules = JsonConvert.DeserializeObject<Dictionary<string, object>>(entity.TransformRules) 
+                        ?? new Dictionary<string, object>();
+                }
+            }
+
+            return dtos.OrderBy(d => d.SortOrder).ToList();
         }
     }
 }

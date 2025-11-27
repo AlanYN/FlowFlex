@@ -55,12 +55,29 @@ export interface IFieldMapping {
 }
 
 /**
- * 附件共享接口
+ * 附件共享接口 (旧版，保留兼容)
  */
 export interface IAttachmentSharing {
 	id: string;
 	module: string;
 	workflowIds: string[];
+}
+
+/**
+ * Inbound 附件配置项
+ */
+export interface IInboundAttachmentItem {
+	moduleName: string; // 外部模块名称
+	workflowId: string | number; // 工作流 ID
+	stageId: string | number; // 阶段 ID
+}
+
+/**
+ * Outbound 附件配置项
+ */
+export interface IOutboundAttachmentItem {
+	workflowId: string | number; // 工作流 ID
+	stageId: string | number; // 阶段 ID
 }
 
 /**
@@ -89,6 +106,9 @@ export interface IIntegrationConfig {
 	quickLinks?: IQuickLink[];
 	inboundConfigurations?: IInboundConfiguration[];
 	outboundConfigurations?: IOutboundConfiguration[];
+	// 附件配置
+	inboundAttachments?: IInboundAttachmentItem[]; // Inbound 附件配置
+	outboundAttachments?: IOutboundAttachmentItem[]; // Outbound 附件配置
 	lastDaysSeconds: {
 		[key: string]: string;
 	};

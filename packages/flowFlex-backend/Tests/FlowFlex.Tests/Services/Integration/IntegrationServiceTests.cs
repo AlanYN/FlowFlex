@@ -23,8 +23,6 @@ namespace FlowFlex.Tests.Services.Integration
         private readonly Mock<IEntityMappingRepository> _mockEntityMappingRepository;
         private readonly Mock<IFieldMappingRepository> _mockFieldMappingRepository;
         private readonly Mock<IFieldMappingService> _mockFieldMappingService;
-        private readonly Mock<IOutboundConfigurationRepository> _mockOutboundConfigurationRepository;
-        private readonly Mock<IInboundConfigurationRepository> _mockInboundConfigurationRepository;
         private readonly Mock<IQuickLinkRepository> _mockQuickLinkRepository;
         private readonly Mock<IActionDefinitionRepository> _mockActionDefinitionRepository;
         private readonly Mock<ISqlSugarClient> _mockSqlSugarClient;
@@ -40,8 +38,6 @@ namespace FlowFlex.Tests.Services.Integration
             _mockEntityMappingRepository = new Mock<IEntityMappingRepository>();
             _mockFieldMappingRepository = new Mock<IFieldMappingRepository>();
             _mockFieldMappingService = new Mock<IFieldMappingService>();
-            _mockOutboundConfigurationRepository = new Mock<IOutboundConfigurationRepository>();
-            _mockInboundConfigurationRepository = new Mock<IInboundConfigurationRepository>();
             _mockQuickLinkRepository = new Mock<IQuickLinkRepository>();
             _mockActionDefinitionRepository = new Mock<IActionDefinitionRepository>();
             _mockSqlSugarClient = new Mock<ISqlSugarClient>();
@@ -59,8 +55,6 @@ namespace FlowFlex.Tests.Services.Integration
                 _mockEntityMappingRepository.Object,
                 _mockFieldMappingRepository.Object,
                 _mockFieldMappingService.Object,
-                _mockOutboundConfigurationRepository.Object,
-                _mockInboundConfigurationRepository.Object,
                 _mockQuickLinkRepository.Object,
                 _mockActionDefinitionRepository.Object,
                 _mockSqlSugarClient.Object,

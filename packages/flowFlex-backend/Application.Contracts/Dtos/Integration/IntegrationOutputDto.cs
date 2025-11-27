@@ -101,29 +101,26 @@ namespace FlowFlex.Application.Contracts.Dtos.Integration
         public List<EntityMappingOutputDto>? EntityMappings { get; set; }
 
         /// <summary>
-        /// Inbound settings (only returned in GetWithDetails)
-        /// </summary>
-        public InboundSettingsDto? InboundSettings { get; set; }
-
-        /// <summary>
-        /// Outbound settings (only returned in GetWithDetails)
-        /// </summary>
-        public OutboundSettingsDto? OutboundSettings { get; set; }
-
-        /// <summary>
         /// Quick links (only returned in GetWithDetails)
         /// </summary>
         public List<QuickLinkOutputDto>? QuickLinks { get; set; }
 
         /// <summary>
-        /// Inbound configurations (only returned in GetWithDetails)
-        /// </summary>
-        public List<InboundConfigurationOverviewDto>? InboundConfigurations { get; set; }
-
-        /// <summary>
         /// Outbound configurations (only returned in GetWithDetails)
         /// </summary>
         public List<OutboundConfigurationOverviewDto>? OutboundConfigurations { get; set; }
+
+        /// <summary>
+        /// Inbound attachments configuration (only returned in GetWithDetails)
+        /// Contains: module_name, workflow_id, stage_id
+        /// </summary>
+        public List<InboundAttachmentItemDto>? InboundAttachments { get; set; }
+
+        /// <summary>
+        /// Outbound attachments configuration (only returned in GetWithDetails)
+        /// Contains: workflow_id, stage_id
+        /// </summary>
+        public List<OutboundAttachmentItemDto>? OutboundAttachments { get; set; }
 
         /// <summary>
         /// Last days sync seconds statistics (date -> seconds)

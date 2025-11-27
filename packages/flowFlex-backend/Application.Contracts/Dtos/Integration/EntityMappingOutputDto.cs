@@ -16,6 +16,11 @@ namespace FlowFlex.Application.Contracts.Dtos.Integration
         public long IntegrationId { get; set; }
 
         /// <summary>
+        /// External system ID (unique identifier in external system)
+        /// </summary>
+        public string? SystemId { get; set; }
+
+        /// <summary>
         /// External entity display name
         /// </summary>
         public string ExternalEntityName { get; set; } = string.Empty;

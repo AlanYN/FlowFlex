@@ -157,17 +157,6 @@ namespace FlowFlex.WebApi.Controllers.Integration
         }
 
         /// <summary>
-        /// Get inbound configuration overview
-        /// </summary>
-        [HttpGet("{integrationId}/inbound-overview")]
-        [ProducesResponseType<SuccessResponse<List<InboundConfigurationOverviewDto>>>((int)HttpStatusCode.OK)]
-        public async Task<IActionResult> GetInboundOverview(long integrationId)
-        {
-            var data = await _integrationService.GetInboundOverviewAsync(integrationId);
-            return Success(data);
-        }
-
-        /// <summary>
         /// Get outbound configuration overview
         /// </summary>
         [HttpGet("{integrationId}/outbound-overview")]
@@ -215,26 +204,74 @@ namespace FlowFlex.WebApi.Controllers.Integration
         }
 
         /// <summary>
-        /// Get outbound attachment workflows configuration
+        /// Get inbound attachments configuration
         /// </summary>
-        [HttpGet("{integrationId}/outbound/attachment-workflows")]
-        [ProducesResponseType<SuccessResponse<OutboundAttachmentWorkflowsOutputDto>>((int)HttpStatusCode.OK)]
-        public async Task<IActionResult> GetOutboundAttachmentWorkflows(long integrationId)
+        [HttpGet("{integrationId}/inbound/attachments")]
+        [ProducesResponseType<SuccessResponse<InboundAttachmentsOutputDto>>((int)HttpStatusCode.OK)]
+        public async Task<IActionResult> GetInboundAttachments(long integrationId)
         {
-            var data = await _integrationService.GetOutboundAttachmentWorkflowsAsync(integrationId);
+            var data = await _integrationService.GetInboundAttachmentsAsync(integrationId);
             return Success(data);
         }
 
         /// <summary>
-        /// Save outbound attachment workflows configuration
+        /// Save inbound attachments configuration
+        /// </summary>
+        [HttpPut("{integrationId}/inbound/attachments")]
+        [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
+        public async Task<IActionResult> SaveInboundAttachments(
+            long integrationId,
+            [FromBody] InboundAttachmentsInputDto input)
+        {
+            var result = await _integrationService.SaveInboundAttachmentsAsync(integrationId, input);
+            return Success(result);
+        }
+
+        /// <summary>
+        /// Get outbound attachments configuration
+        /// </summary>
+        [HttpGet("{integrationId}/outbound/attachments")]
+        [ProducesResponseType<SuccessResponse<OutboundAttachmentsOutputDto>>((int)HttpStatusCode.OK)]
+        public async Task<IActionResult> GetOutboundAttachments(long integrationId)
+        {
+            var data = await _integrationService.GetOutboundAttachmentsAsync(integrationId);
+            return Success(data);
+        }
+
+        /// <summary>
+        /// Save outbound attachments configuration
+        /// </summary>
+        [HttpPut("{integrationId}/outbound/attachments")]
+        [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
+        public async Task<IActionResult> SaveOutboundAttachments(
+            long integrationId,
+            [FromBody] OutboundAttachmentsInputDto input)
+        {
+            var result = await _integrationService.SaveOutboundAttachmentsAsync(integrationId, input);
+            return Success(result);
+        }
+
+        /// <summary>
+        /// Get outbound attachment workflows configuration (legacy compatible route)
+        /// </summary>
+        [HttpGet("{integrationId}/outbound/attachment-workflows")]
+        [ProducesResponseType<SuccessResponse<OutboundAttachmentsOutputDto>>((int)HttpStatusCode.OK)]
+        public async Task<IActionResult> GetOutboundAttachmentWorkflows(long integrationId)
+        {
+            var data = await _integrationService.GetOutboundAttachmentsAsync(integrationId);
+            return Success(data);
+        }
+
+        /// <summary>
+        /// Save outbound attachment workflows configuration (legacy compatible route)
         /// </summary>
         [HttpPut("{integrationId}/outbound/attachment-workflows")]
         [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> SaveOutboundAttachmentWorkflows(
             long integrationId,
-            [FromBody] OutboundAttachmentWorkflowsInputDto input)
+            [FromBody] OutboundAttachmentsInputDto input)
         {
-            var result = await _integrationService.SaveOutboundAttachmentWorkflowsAsync(integrationId, input);
+            var result = await _integrationService.SaveOutboundAttachmentsAsync(integrationId, input);
             return Success(result);
         }
     }

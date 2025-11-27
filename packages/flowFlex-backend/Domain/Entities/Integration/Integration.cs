@@ -80,10 +80,18 @@ public class Integration : EntityBaseCreateInfo
     public string? ErrorMessage { get; set; }
     
     /// <summary>
-    /// Outbound attachment workflow IDs (JSON array) - workflows whose attachments can be shared with external system
+    /// Inbound attachments configuration (JSON array)
+    /// Contains: module_name, workflow_id, stage_id
     /// </summary>
-    [SugarColumn(ColumnName = "outbound_attachment_workflow_ids", ColumnDataType = "text", IsNullable = true)]
-    public string? OutboundAttachmentWorkflowIds { get; set; }
+    [SugarColumn(ColumnName = "inbound_attachments", ColumnDataType = "text", IsNullable = true)]
+    public string? InboundAttachments { get; set; }
+    
+    /// <summary>
+    /// Outbound attachments configuration (JSON array)
+    /// Contains: workflow_id, stage_id
+    /// </summary>
+    [SugarColumn(ColumnName = "outbound_attachments", ColumnDataType = "text", IsNullable = true)]
+    public string? OutboundAttachments { get; set; }
     
     // Navigation Properties (ignored by SqlSugar)
     
@@ -116,17 +124,5 @@ public class Integration : EntityBaseCreateInfo
     /// </summary>
     [SugarColumn(IsIgnore = true)]
     public virtual ICollection<IntegrationSyncLog> SyncLogs { get; set; } = new List<IntegrationSyncLog>();
-    
-    /// <summary>
-    /// Inbound configuration
-    /// </summary>
-    [SugarColumn(IsIgnore = true)]
-    public virtual InboundConfiguration? InboundConfig { get; set; }
-    
-    /// <summary>
-    /// Outbound configuration
-    /// </summary>
-    [SugarColumn(IsIgnore = true)]
-    public virtual OutboundConfiguration? OutboundConfig { get; set; }
 }
 

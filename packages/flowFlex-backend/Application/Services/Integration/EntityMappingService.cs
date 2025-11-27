@@ -61,6 +61,8 @@ namespace FlowFlex.Application.Services.Integration
 
             var entity = _mapper.Map<EntityMapping>(input);
             entity.WorkflowIds = JsonConvert.SerializeObject(input.WorkflowIds);
+            // Generate SystemId automatically
+            entity.SystemId = Guid.NewGuid().ToString("N");
             entity.InitCreateInfo(_userContext);
 
             var id = await _entityMappingRepository.InsertReturnSnowflakeIdAsync(entity);
@@ -100,6 +102,7 @@ namespace FlowFlex.Application.Services.Integration
             entity.WfeEntityType = input.WfeEntityType;
             entity.WorkflowIds = JsonConvert.SerializeObject(input.WorkflowIds);
             entity.IsActive = input.IsActive;
+            // SystemId is generated on create, not updated
             entity.InitModifyInfo(_userContext);
 
             var result = await _entityMappingRepository.UpdateAsync(entity);

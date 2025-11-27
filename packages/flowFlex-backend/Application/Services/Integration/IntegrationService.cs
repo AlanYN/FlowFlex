@@ -29,8 +29,6 @@ namespace FlowFlex.Application.Services.Integration
         private readonly IEntityMappingRepository _entityMappingRepository;
         private readonly IFieldMappingRepository _fieldMappingRepository;
         private readonly IFieldMappingService _fieldMappingService;
-        private readonly IOutboundConfigurationRepository _outboundConfigurationRepository;
-        private readonly IInboundConfigurationRepository _inboundConfigurationRepository;
         private readonly IQuickLinkRepository _quickLinkRepository;
         private readonly IActionDefinitionRepository _actionDefinitionRepository;
         private readonly ISqlSugarClient _sqlSugarClient;
@@ -47,8 +45,6 @@ namespace FlowFlex.Application.Services.Integration
             IEntityMappingRepository entityMappingRepository,
             IFieldMappingRepository fieldMappingRepository,
             IFieldMappingService fieldMappingService,
-            IOutboundConfigurationRepository outboundConfigurationRepository,
-            IInboundConfigurationRepository inboundConfigurationRepository,
             IQuickLinkRepository quickLinkRepository,
             IActionDefinitionRepository actionDefinitionRepository,
             ISqlSugarClient sqlSugarClient,
@@ -61,8 +57,6 @@ namespace FlowFlex.Application.Services.Integration
             _entityMappingRepository = entityMappingRepository;
             _fieldMappingRepository = fieldMappingRepository;
             _fieldMappingService = fieldMappingService;
-            _outboundConfigurationRepository = outboundConfigurationRepository;
-            _inboundConfigurationRepository = inboundConfigurationRepository;
             _quickLinkRepository = quickLinkRepository;
             _actionDefinitionRepository = actionDefinitionRepository;
             _sqlSugarClient = sqlSugarClient;
@@ -86,18 +80,18 @@ namespace FlowFlex.Application.Services.Integration
             }
 
             var entity = _mapper.Map<Domain.Entities.Integration.Integration>(input);
-            
+
             // Encrypt credentials
             entity.EncryptedCredentials = EncryptCredentials(input.Credentials);
-            
+
             // Initialize create information
             entity.InitCreateInfo(_userContext);
             entity.TenantId = _userContext.TenantId;
 
             var id = await _integrationRepository.InsertReturnSnowflakeIdAsync(entity);
-            
+
             _logger.LogInformation($"Created integration: {input.Name} (ID: {id})");
-            
+
             return id;
         }
 
@@ -128,17 +122,17 @@ namespace FlowFlex.Application.Services.Integration
             entity.EndpointUrl = input.EndpointUrl;
             entity.AuthMethod = input.AuthMethod;
             entity.Status = input.Status;
-            
+
             // Encrypt credentials
             entity.EncryptedCredentials = EncryptCredentials(input.Credentials);
-            
+
             // Update modify information
             entity.InitModifyInfo(_userContext);
 
             var result = await _integrationRepository.UpdateAsync(entity);
-            
+
             _logger.LogInformation($"Updated integration: {input.Name} (ID: {id})");
-            
+
             return result;
         }
 
@@ -155,9 +149,9 @@ namespace FlowFlex.Application.Services.Integration
             entity.InitModifyInfo(_userContext);
 
             var result = await _integrationRepository.UpdateAsync(entity);
-            
+
             _logger.LogInformation($"Deleted integration: {entity.Name} (ID: {id})");
-            
+
             return result;
         }
 
@@ -171,7 +165,7 @@ namespace FlowFlex.Application.Services.Integration
 
             var dto = _mapper.Map<IntegrationOutputDto>(entity);
             await PopulateConfiguredEntityTypeNamesAsync(dto);
-            
+
             // Decrypt credentials
             if (!string.IsNullOrEmpty(entity.EncryptedCredentials) && entity.EncryptedCredentials != "{}")
             {
@@ -179,7 +173,7 @@ namespace FlowFlex.Application.Services.Integration
                 {
                     var decryptedJson = DecryptString(entity.EncryptedCredentials, ENCRYPTION_KEY);
                     _logger.LogDebug($"Decrypted JSON for integration {id}: {decryptedJson}");
-                    
+
                     if (!string.IsNullOrEmpty(decryptedJson) && decryptedJson != "{}")
                     {
                         dto.Credentials = JsonConvert.DeserializeObject<Dictionary<string, string>>(decryptedJson) ?? new Dictionary<string, string>();
@@ -193,8 +187,8 @@ namespace FlowFlex.Application.Services.Integration
                 }
                 catch (Exception ex)
                 {
-                    var preview = entity.EncryptedCredentials != null && entity.EncryptedCredentials.Length > 50 
-                        ? entity.EncryptedCredentials.Substring(0, 50) 
+                    var preview = entity.EncryptedCredentials != null && entity.EncryptedCredentials.Length > 50
+                        ? entity.EncryptedCredentials.Substring(0, 50)
                         : entity.EncryptedCredentials ?? "";
                     _logger.LogWarning(ex, $"Failed to decrypt credentials for integration {id}. EncryptedCredentials: {preview}...");
                     dto.Credentials = new Dictionary<string, string>();
@@ -205,7 +199,7 @@ namespace FlowFlex.Application.Services.Integration
                 _logger.LogDebug($"Integration {id} has no encrypted credentials (empty or '{{}}')");
                 dto.Credentials = new Dictionary<string, string>();
             }
-            
+
             return dto;
         }
 
@@ -219,7 +213,7 @@ namespace FlowFlex.Application.Services.Integration
 
             var dto = _mapper.Map<IntegrationOutputDto>(entity);
             await PopulateConfiguredEntityTypeNamesAsync(dto);
-            
+
             // Decrypt credentials for details view
             if (!string.IsNullOrEmpty(entity.EncryptedCredentials) && entity.EncryptedCredentials != "{}")
             {
@@ -227,7 +221,7 @@ namespace FlowFlex.Application.Services.Integration
                 {
                     var decryptedJson = DecryptString(entity.EncryptedCredentials, ENCRYPTION_KEY);
                     _logger.LogDebug($"Decrypted JSON for integration {id}: {decryptedJson}");
-                    
+
                     if (!string.IsNullOrEmpty(decryptedJson) && decryptedJson != "{}")
                     {
                         dto.Credentials = JsonConvert.DeserializeObject<Dictionary<string, string>>(decryptedJson) ?? new Dictionary<string, string>();
@@ -241,8 +235,8 @@ namespace FlowFlex.Application.Services.Integration
                 }
                 catch (Exception ex)
                 {
-                    var preview = entity.EncryptedCredentials != null && entity.EncryptedCredentials.Length > 50 
-                        ? entity.EncryptedCredentials.Substring(0, 50) 
+                    var preview = entity.EncryptedCredentials != null && entity.EncryptedCredentials.Length > 50
+                        ? entity.EncryptedCredentials.Substring(0, 50)
                         : entity.EncryptedCredentials ?? "";
                     _logger.LogWarning(ex, $"Failed to decrypt credentials for integration {id}. EncryptedCredentials: {preview}...");
                     dto.Credentials = new Dictionary<string, string>();
@@ -276,41 +270,30 @@ namespace FlowFlex.Application.Services.Integration
                 }
             }
 
-            // Populate inbound settings (use first config if exists)
-            var inboundConfigs = await _inboundConfigurationRepository.GetByIntegrationIdListAsync(id);
-            if (inboundConfigs != null && inboundConfigs.Any())
+            // Populate inbound attachments from new field
+            if (!string.IsNullOrEmpty(entity.InboundAttachments))
             {
-                var firstConfig = inboundConfigs.First();
-                dto.InboundSettings = new InboundSettingsDto
+                try
                 {
-                    Id = firstConfig.Id,
-                    IntegrationId = firstConfig.IntegrationId,
-                    ActionId = firstConfig.ActionId,
-                    EntityTypes = JsonConvert.DeserializeObject<List<string>>(firstConfig.EntityTypes) ?? new List<string>(),
-                    FieldMappings = JsonConvert.DeserializeObject<List<object>>(firstConfig.FieldMappings) ?? new List<object>(),
-                    AttachmentSettings = JsonConvert.DeserializeObject<Dictionary<string, object>>(firstConfig.AttachmentSettings) ?? new Dictionary<string, object>(),
-                    AutoSync = firstConfig.AutoSync,
-                    SyncInterval = firstConfig.SyncInterval,
-                    LastSyncDate = firstConfig.LastSyncDate
-                };
+                    dto.InboundAttachments = JsonConvert.DeserializeObject<List<InboundAttachmentItemDto>>(entity.InboundAttachments) ?? new List<InboundAttachmentItemDto>();
+                }
+                catch
+                {
+                    dto.InboundAttachments = new List<InboundAttachmentItemDto>();
+                }
             }
 
-            // Populate outbound settings (use first config if exists)
-            var outboundConfigs = await _outboundConfigurationRepository.GetByIntegrationIdListAsync(id);
-            if (outboundConfigs != null && outboundConfigs.Any())
+            // Populate outbound attachments from new field
+            if (!string.IsNullOrEmpty(entity.OutboundAttachments))
             {
-                var firstConfig = outboundConfigs.First();
-                dto.OutboundSettings = new OutboundSettingsDto
+                try
                 {
-                    Id = firstConfig.Id,
-                    IntegrationId = firstConfig.IntegrationId,
-                    ActionId = firstConfig.ActionId,
-                    EntityTypes = JsonConvert.DeserializeObject<List<string>>(firstConfig.EntityTypes) ?? new List<string>(),
-                    FieldMappings = JsonConvert.DeserializeObject<List<object>>(firstConfig.FieldMappings) ?? new List<object>(),
-                    AttachmentSettings = JsonConvert.DeserializeObject<Dictionary<string, object>>(firstConfig.AttachmentSettings) ?? new Dictionary<string, object>(),
-                    SyncMode = firstConfig.SyncMode,
-                    WebhookUrl = firstConfig.WebhookUrl
-                };
+                    dto.OutboundAttachments = JsonConvert.DeserializeObject<List<OutboundAttachmentItemDto>>(entity.OutboundAttachments) ?? new List<OutboundAttachmentItemDto>();
+                }
+                catch
+                {
+                    dto.OutboundAttachments = new List<OutboundAttachmentItemDto>();
+                }
             }
 
             // Populate quick links
@@ -327,12 +310,9 @@ namespace FlowFlex.Application.Services.Integration
                 }
             }
 
-            // Populate inbound configurations overview
-            dto.InboundConfigurations = await GetInboundOverviewAsync(id);
-
             // Populate outbound configurations overview
             dto.OutboundConfigurations = await GetOutboundOverviewAsync(id);
-            
+
             return dto;
         }
 
@@ -355,14 +335,14 @@ namespace FlowFlex.Application.Services.Integration
                 sortDirection);
 
             var dtos = _mapper.Map<List<IntegrationOutputDto>>(items);
-            
+
             // Populate ConfiguredEntityTypeNames and LastDaysSeconds for each integration
             foreach (var dto in dtos)
             {
                 await PopulateConfiguredEntityTypeNamesAsync(dto);
                 dto.LastDaysSeconds = GenerateLastDaysSeconds();
             }
-            
+
             return (dtos, total);
         }
 
@@ -378,12 +358,12 @@ namespace FlowFlex.Application.Services.Integration
             {
                 // Decrypt credentials
                 var credentials = DecryptCredentials(entity.EncryptedCredentials);
-                
+
                 _logger.LogInformation($"Testing connection for integration: {entity.Name} (ID: {id}), AuthMethod: {entity.AuthMethod}, EndpointUrl: {entity.EndpointUrl}");
-                
+
                 // Perform actual HTTP connection test
                 var (success, errorMessage) = await PerformConnectionTestAsync(entity.EndpointUrl, entity.AuthMethod, credentials);
-                
+
                 if (success)
                 {
                     // Update status to Connected if test succeeds
@@ -399,15 +379,15 @@ namespace FlowFlex.Application.Services.Integration
                     entity.ErrorMessage = errorMessage;
                     _logger.LogWarning($"Connection test failed for integration: {entity.Name} (ID: {id}), Error: {errorMessage}");
                 }
-                
+
                 entity.InitModifyInfo(_userContext);
                 await _integrationRepository.UpdateAsync(entity);
-                
+
                 if (!success)
                 {
                     throw new CRMException(ErrorCodeEnum.BusinessError, $"Connection test failed: {errorMessage}");
                 }
-                
+
                 return true;
             }
             catch (CRMException)
@@ -417,13 +397,13 @@ namespace FlowFlex.Application.Services.Integration
             catch (Exception ex)
             {
                 _logger.LogError(ex, $"Connection test failed for integration: {entity.Name} (ID: {id})");
-                
+
                 // Update status to Error if test fails
                 entity.Status = global::Domain.Shared.Enums.IntegrationStatus.Error;
                 entity.ErrorMessage = ex.Message;
                 entity.InitModifyInfo(_userContext);
                 await _integrationRepository.UpdateAsync(entity);
-                
+
                 throw new CRMException(ErrorCodeEnum.BusinessError, $"Connection test failed: {ex.Message}");
             }
         }
@@ -432,8 +412,8 @@ namespace FlowFlex.Application.Services.Integration
         /// Perform actual HTTP connection test based on authentication method
         /// </summary>
         private async Task<(bool Success, string? ErrorMessage)> PerformConnectionTestAsync(
-            string endpointUrl, 
-            AuthenticationMethod authMethod, 
+            string endpointUrl,
+            AuthenticationMethod authMethod,
             Dictionary<string, string>? credentials)
         {
             if (string.IsNullOrEmpty(endpointUrl))
@@ -482,8 +462,8 @@ namespace FlowFlex.Application.Services.Integration
                         {
                             // Regular Basic Auth - GET request with Authorization header
                             request = new HttpRequestMessage(HttpMethod.Get, endpointUrl);
-                            if (credentials != null && 
-                                credentials.TryGetValue("username", out var username) && 
+                            if (credentials != null &&
+                                credentials.TryGetValue("username", out var username) &&
                                 credentials.TryGetValue("password", out var password))
                             {
                                 var authValue = Convert.ToBase64String(Encoding.UTF8.GetBytes($"{username}:{password}"));
@@ -571,9 +551,9 @@ namespace FlowFlex.Application.Services.Integration
             entity.InitModifyInfo(_userContext);
 
             var result = await _integrationRepository.UpdateAsync(entity);
-            
+
             _logger.LogInformation($"Updated integration status: {entity.Name} (ID: {id}) to {status}");
-            
+
             return result;
         }
 
@@ -626,7 +606,7 @@ namespace FlowFlex.Application.Services.Integration
             {
                 sw.Write(plainText);
             }
-            
+
             return Convert.ToBase64String(ms.ToArray());
         }
 
@@ -640,7 +620,7 @@ namespace FlowFlex.Application.Services.Integration
             using var ms = new MemoryStream(Convert.FromBase64String(cipherText));
             using var cs = new CryptoStream(ms, decryptor, CryptoStreamMode.Read);
             using var sr = new StreamReader(cs);
-            
+
             return sr.ReadToEnd();
         }
 
@@ -665,71 +645,6 @@ namespace FlowFlex.Application.Services.Integration
         }
 
         /// <summary>
-        /// Get inbound configuration overview for an integration
-        /// </summary>
-        public async Task<List<InboundConfigurationOverviewDto>> GetInboundOverviewAsync(long integrationId)
-        {
-            // Verify integration exists
-            var integration = await _integrationRepository.GetByIdAsync(integrationId);
-            if (integration == null)
-            {
-                throw new CRMException(ErrorCodeEnum.NotFound, "Integration not found");
-            }
-
-            // Get all entity mappings for this integration
-            var entityMappings = await _entityMappingRepository.GetByIntegrationIdAsync(integrationId);
-            
-            // Collect all unique action IDs from entity mappings
-            var actionIds = new HashSet<long>();
-            foreach (var mapping in entityMappings)
-            {
-                var workflowIds = JsonConvert.DeserializeObject<List<long>>(mapping.WorkflowIds) ?? new List<long>();
-                foreach (var workflowId in workflowIds)
-                {
-                    actionIds.Add(workflowId);
-                }
-            }
-
-            // Build overview for each action
-            var overview = new List<InboundConfigurationOverviewDto>();
-            foreach (var actionId in actionIds)
-            {
-                var actionName = await GetActionNameAsync(actionId);
-                
-                // Count entity mappings and field mappings for this action
-                var entityMappingCount = 0;
-                var fieldMappingCount = 0;
-                
-                foreach (var mapping in entityMappings)
-                {
-                    var workflowIds = JsonConvert.DeserializeObject<List<long>>(mapping.WorkflowIds) ?? new List<long>();
-                    if (workflowIds.Contains(actionId))
-                    {
-                        entityMappingCount++;
-                        var fieldMappings = await _fieldMappingRepository.GetByEntityMappingIdAsync(mapping.Id);
-                        // Count only inbound fields (ViewOnly or Editable)
-                        fieldMappingCount += fieldMappings.Count(fm => 
-                            fm.SyncDirection == SyncDirection.ViewOnly || 
-                            fm.SyncDirection == SyncDirection.Editable);
-                    }
-                }
-
-                overview.Add(new InboundConfigurationOverviewDto
-                {
-                    ActionId = actionId,
-                    ActionName = actionName,
-                    EntityMappingCount = entityMappingCount,
-                    FieldMappingCount = fieldMappingCount,
-                    HasAttachmentConfig = false, // TODO: Implement when InboundConfiguration is available
-                    AutoCreateEntities = true, // TODO: Get from InboundConfiguration
-                    Status = entityMappingCount > 0 ? "Configured" : "Not Configured"
-                });
-            }
-
-            return overview.OrderBy(o => o.ActionId).ToList();
-        }
-
-        /// <summary>
         /// Get outbound configuration overview for an integration
         /// </summary>
         public async Task<List<OutboundConfigurationOverviewDto>> GetOutboundOverviewAsync(long integrationId)
@@ -743,7 +658,7 @@ namespace FlowFlex.Application.Services.Integration
 
             // Get all entity mappings for this integration
             var entityMappings = await _entityMappingRepository.GetByIntegrationIdAsync(integrationId);
-            
+
             // Collect all unique action IDs from entity mappings
             var actionIds = new HashSet<long>();
             foreach (var mapping in entityMappings)
@@ -760,10 +675,10 @@ namespace FlowFlex.Application.Services.Integration
             foreach (var actionId in actionIds)
             {
                 var actionName = await GetActionNameAsync(actionId);
-                
+
                 // Count fields configured for sharing (OutboundOnly or Editable)
                 var fieldCount = 0;
-                
+
                 foreach (var mapping in entityMappings)
                 {
                     var workflowIds = JsonConvert.DeserializeObject<List<long>>(mapping.WorkflowIds) ?? new List<long>();
@@ -771,8 +686,8 @@ namespace FlowFlex.Application.Services.Integration
                     {
                         var fieldMappings = await _fieldMappingRepository.GetByEntityMappingIdAsync(mapping.Id);
                         // Count only outbound fields (OutboundOnly or Editable)
-                        fieldCount += fieldMappings.Count(fm => 
-                            fm.SyncDirection == SyncDirection.OutboundOnly || 
+                        fieldCount += fieldMappings.Count(fm =>
+                            fm.SyncDirection == SyncDirection.OutboundOnly ||
                             fm.SyncDirection == SyncDirection.Editable);
                     }
                 }
@@ -814,22 +729,22 @@ namespace FlowFlex.Application.Services.Integration
 
             // Get field mappings directly by integration ID and action ID
             var fieldMappings = await _fieldMappingRepository.GetByIntegrationIdAndActionIdAsync(integrationId, actionId);
-            
+
             // Filter for inbound fields (ViewOnly or Editable)
-            var inboundFields = fieldMappings.Where(fm => 
-                fm.SyncDirection == SyncDirection.ViewOnly || 
+            var inboundFields = fieldMappings.Where(fm =>
+                fm.SyncDirection == SyncDirection.ViewOnly ||
                 fm.SyncDirection == SyncDirection.Editable);
 
             foreach (var fieldMapping in inboundFields)
             {
                 // Apply filters if provided
-                if (!string.IsNullOrEmpty(externalFieldName) && 
+                if (!string.IsNullOrEmpty(externalFieldName) &&
                     !fieldMapping.ExternalFieldName.Contains(externalFieldName, StringComparison.OrdinalIgnoreCase))
                 {
                     continue;
                 }
 
-                if (!string.IsNullOrEmpty(wfeFieldName) && 
+                if (!string.IsNullOrEmpty(wfeFieldName) &&
                     !fieldMapping.WfeFieldId.Contains(wfeFieldName, StringComparison.OrdinalIgnoreCase))
                 {
                     continue;
@@ -850,7 +765,7 @@ namespace FlowFlex.Application.Services.Integration
 
         /// <summary>
         /// Get outbound shared fields by action ID (read-only view)
-        /// Uses OutboundConfiguration and OutboundFieldConfig tables which have actionId
+        /// Uses FieldMapping table with OutboundOnly or Editable sync direction
         /// </summary>
         public async Task<List<OutboundSharedFieldDto>> GetOutboundSharedFieldsByActionAsync(
             long integrationId,
@@ -867,39 +782,31 @@ namespace FlowFlex.Application.Services.Integration
             var actionName = await GetActionNameAsync(actionId);
             var result = new List<OutboundSharedFieldDto>();
 
-            // Get outbound field configs directly by integration ID and action ID
-            // First get outbound configurations for this integration and action
-            var outboundConfigs = await _outboundConfigurationRepository.GetByIntegrationIdAndActionIdAsync(integrationId, actionId);
-            var configIds = outboundConfigs.Select(c => c.Id).ToList();
+            // Get field mappings by integration ID and action ID
+            var fieldMappings = await _fieldMappingRepository.GetByIntegrationIdAndActionIdAsync(integrationId, actionId);
 
-            if (configIds.Any())
+            // Filter for outbound fields (OutboundOnly or Editable)
+            var outboundFields = fieldMappings.Where(fm =>
+                fm.SyncDirection == SyncDirection.OutboundOnly ||
+                fm.SyncDirection == SyncDirection.Editable);
+
+            foreach (var fieldMapping in outboundFields)
             {
-                // Get outbound field configs for these configurations, filtered by action_id
-                var fieldConfigs = await _sqlSugarClient.Queryable<Domain.Entities.Integration.OutboundFieldConfig>()
-                    .Where(x => configIds.Contains(x.OutboundConfigurationId) 
-                        && x.ActionId == actionId 
-                        && x.IsValid)
-                    .OrderBy(x => x.SortOrder)
-                    .ToListAsync();
-
-                foreach (var fieldConfig in fieldConfigs)
+                // Apply filter if provided
+                if (!string.IsNullOrEmpty(fieldName) &&
+                    !fieldMapping.WfeFieldId.Contains(fieldName, StringComparison.OrdinalIgnoreCase) &&
+                    !fieldMapping.ExternalFieldName.Contains(fieldName, StringComparison.OrdinalIgnoreCase))
                 {
-                    // Apply filter if provided
-                    if (!string.IsNullOrEmpty(fieldName) && 
-                        !fieldConfig.WfeFieldId.Contains(fieldName, StringComparison.OrdinalIgnoreCase) &&
-                        !fieldConfig.ExternalFieldName.Contains(fieldName, StringComparison.OrdinalIgnoreCase))
-                    {
-                        continue;
-                    }
-
-                    result.Add(new OutboundSharedFieldDto
-                    {
-                        ActionId = actionId,
-                        ActionName = actionName,
-                        FieldDisplayName = fieldConfig.WfeFieldId, // Use WfeFieldId as display name
-                        FieldApiName = fieldConfig.WfeFieldId
-                    });
+                    continue;
                 }
+
+                result.Add(new OutboundSharedFieldDto
+                {
+                    ActionId = actionId,
+                    ActionName = actionName,
+                    FieldDisplayName = fieldMapping.WfeFieldId, // Use WfeFieldId as display name
+                    FieldApiName = fieldMapping.WfeFieldId
+                });
             }
 
             return result.OrderBy(r => r.FieldApiName).ToList();
@@ -920,7 +827,7 @@ namespace FlowFlex.Application.Services.Integration
                     .Distinct()
                     .OrderBy(name => name)
                     .ToList();
-                
+
                 // Update ConfiguredEntityTypes to match the count of ConfiguredEntityTypeNames
                 dto.ConfiguredEntityTypes = dto.ConfiguredEntityTypeNames.Count;
             }
@@ -956,9 +863,9 @@ namespace FlowFlex.Application.Services.Integration
         }
 
         /// <summary>
-        /// Get outbound attachment workflows configuration
+        /// Get inbound attachments configuration
         /// </summary>
-        public async Task<OutboundAttachmentWorkflowsOutputDto> GetOutboundAttachmentWorkflowsAsync(long integrationId)
+        public async Task<InboundAttachmentsOutputDto> GetInboundAttachmentsAsync(long integrationId)
         {
             var integration = await _integrationRepository.GetByIdAsync(integrationId);
             if (integration == null)
@@ -966,23 +873,23 @@ namespace FlowFlex.Application.Services.Integration
                 throw new CRMException(ErrorCodeEnum.NotFound, "Integration not found");
             }
 
-            var result = new OutboundAttachmentWorkflowsOutputDto
+            var result = new InboundAttachmentsOutputDto
             {
                 IntegrationId = integrationId,
-                WorkflowIds = new List<long>()
+                Items = new List<InboundAttachmentItemDto>()
             };
 
-            // Parse workflow IDs from JSON
-            if (!string.IsNullOrEmpty(integration.OutboundAttachmentWorkflowIds))
+            // Parse inbound attachments from JSON
+            if (!string.IsNullOrEmpty(integration.InboundAttachments))
             {
                 try
                 {
-                    result.WorkflowIds = JsonConvert.DeserializeObject<List<long>>(integration.OutboundAttachmentWorkflowIds) ?? new List<long>();
+                    result.Items = JsonConvert.DeserializeObject<List<InboundAttachmentItemDto>>(integration.InboundAttachments) ?? new List<InboundAttachmentItemDto>();
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogWarning(ex, "Failed to parse OutboundAttachmentWorkflowIds for integration {IntegrationId}", integrationId);
-                    result.WorkflowIds = new List<long>();
+                    _logger.LogWarning(ex, "Failed to parse InboundAttachments for integration {IntegrationId}", integrationId);
+                    result.Items = new List<InboundAttachmentItemDto>();
                 }
             }
 
@@ -990,9 +897,9 @@ namespace FlowFlex.Application.Services.Integration
         }
 
         /// <summary>
-        /// Save outbound attachment workflows configuration
+        /// Save inbound attachments configuration
         /// </summary>
-        public async Task<bool> SaveOutboundAttachmentWorkflowsAsync(long integrationId, OutboundAttachmentWorkflowsInputDto input)
+        public async Task<bool> SaveInboundAttachmentsAsync(long integrationId, InboundAttachmentsInputDto input)
         {
             if (input == null)
             {
@@ -1005,14 +912,96 @@ namespace FlowFlex.Application.Services.Integration
                 throw new CRMException(ErrorCodeEnum.NotFound, "Integration not found");
             }
 
-            // Serialize workflow IDs to JSON
-            integration.OutboundAttachmentWorkflowIds = JsonConvert.SerializeObject(input.WorkflowIds ?? new List<long>());
+            // Ensure all items have an ID (using Snowflake ID)
+            var items = input.Items ?? new List<InboundAttachmentItemDto>();
+            foreach (var item in items)
+            {
+                if (string.IsNullOrEmpty(item.Id))
+                {
+                    item.Id = SnowFlakeSingle.Instance.NextId().ToString();
+                }
+            }
+
+            // Serialize inbound attachments to JSON
+            integration.InboundAttachments = JsonConvert.SerializeObject(items);
             integration.InitModifyInfo(_userContext);
 
             var result = await _integrationRepository.UpdateAsync(integration);
 
-            _logger.LogInformation("Updated outbound attachment workflows for integration {IntegrationId}: {WorkflowIds}", 
-                integrationId, integration.OutboundAttachmentWorkflowIds);
+            _logger.LogInformation("Updated inbound attachments for integration {IntegrationId}: {Items}",
+                integrationId, integration.InboundAttachments);
+
+            return result;
+        }
+
+        /// <summary>
+        /// Get outbound attachments configuration
+        /// </summary>
+        public async Task<OutboundAttachmentsOutputDto> GetOutboundAttachmentsAsync(long integrationId)
+        {
+            var integration = await _integrationRepository.GetByIdAsync(integrationId);
+            if (integration == null)
+            {
+                throw new CRMException(ErrorCodeEnum.NotFound, "Integration not found");
+            }
+
+            var result = new OutboundAttachmentsOutputDto
+            {
+                IntegrationId = integrationId,
+                Items = new List<OutboundAttachmentItemDto>()
+            };
+
+            // Parse outbound attachments from JSON
+            if (!string.IsNullOrEmpty(integration.OutboundAttachments))
+            {
+                try
+                {
+                    result.Items = JsonConvert.DeserializeObject<List<OutboundAttachmentItemDto>>(integration.OutboundAttachments) ?? new List<OutboundAttachmentItemDto>();
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to parse OutboundAttachments for integration {IntegrationId}", integrationId);
+                    result.Items = new List<OutboundAttachmentItemDto>();
+                }
+            }
+
+            return result;
+        }
+
+        /// <summary>
+        /// Save outbound attachments configuration
+        /// </summary>
+        public async Task<bool> SaveOutboundAttachmentsAsync(long integrationId, OutboundAttachmentsInputDto input)
+        {
+            if (input == null)
+            {
+                throw new CRMException(ErrorCodeEnum.ParamInvalid, "Input cannot be null");
+            }
+
+            var integration = await _integrationRepository.GetByIdAsync(integrationId);
+            if (integration == null)
+            {
+                throw new CRMException(ErrorCodeEnum.NotFound, "Integration not found");
+            }
+
+            // Ensure all items have an ID (using Snowflake ID)
+            var items = input.Items ?? new List<OutboundAttachmentItemDto>();
+            foreach (var item in items)
+            {
+                if (string.IsNullOrEmpty(item.Id))
+                {
+                    item.Id = SnowFlakeSingle.Instance.NextId().ToString();
+                }
+            }
+
+            // Serialize outbound attachments to JSON
+            integration.OutboundAttachments = JsonConvert.SerializeObject(items);
+            integration.InitModifyInfo(_userContext);
+
+            var result = await _integrationRepository.UpdateAsync(integration);
+
+            _logger.LogInformation("Updated outbound attachments for integration {IntegrationId}: {Items}",
+                integrationId, integration.OutboundAttachments);
 
             return result;
         }

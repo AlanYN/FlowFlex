@@ -21,6 +21,11 @@ namespace FlowFlex.Application.Contracts.Dtos.Integration
         public long EntityMappingId { get; set; }
 
         /// <summary>
+        /// Action ID - associates this field mapping with a specific action (optional)
+        /// </summary>
+        public long? ActionId { get; set; }
+
+        /// <summary>
         /// External system field name
         /// </summary>
         [Required]

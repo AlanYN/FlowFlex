@@ -65,11 +65,6 @@ namespace FlowFlex.Application.Contracts.IServices.Integration
         Task<List<IntegrationOutputDto>> GetActiveIntegrationsAsync();
 
         /// <summary>
-        /// Get inbound configuration overview for an integration
-        /// </summary>
-        Task<List<InboundConfigurationOverviewDto>> GetInboundOverviewAsync(long integrationId);
-
-        /// <summary>
         /// Get outbound configuration overview for an integration
         /// </summary>
         Task<List<OutboundConfigurationOverviewDto>> GetOutboundOverviewAsync(long integrationId);
@@ -92,13 +87,23 @@ namespace FlowFlex.Application.Contracts.IServices.Integration
             string? fieldName = null);
 
         /// <summary>
-        /// Get outbound attachment workflows configuration
+        /// Get inbound attachments configuration
         /// </summary>
-        Task<OutboundAttachmentWorkflowsOutputDto> GetOutboundAttachmentWorkflowsAsync(long integrationId);
+        Task<InboundAttachmentsOutputDto> GetInboundAttachmentsAsync(long integrationId);
 
         /// <summary>
-        /// Save outbound attachment workflows configuration
+        /// Save inbound attachments configuration
         /// </summary>
-        Task<bool> SaveOutboundAttachmentWorkflowsAsync(long integrationId, OutboundAttachmentWorkflowsInputDto input);
+        Task<bool> SaveInboundAttachmentsAsync(long integrationId, InboundAttachmentsInputDto input);
+
+        /// <summary>
+        /// Get outbound attachments configuration
+        /// </summary>
+        Task<OutboundAttachmentsOutputDto> GetOutboundAttachmentsAsync(long integrationId);
+
+        /// <summary>
+        /// Save outbound attachments configuration
+        /// </summary>
+        Task<bool> SaveOutboundAttachmentsAsync(long integrationId, OutboundAttachmentsInputDto input);
     }
 }
