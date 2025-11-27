@@ -88,13 +88,13 @@
 				<template #default="{ row }">
 					<div class="flex items-center justify-center gap-2">
 						<el-button
-							text
+							link
 							type="primary"
 							:icon="Edit"
 							:loading="isLoadingEdit && currentEditId === row.id"
 							@click="handleEdit(row)"
 						/>
-						<el-button text type="danger" :icon="Delete" @click="handleDelete(row)" />
+						<el-button link type="danger" :icon="Delete" @click="handleDelete(row)" />
 					</div>
 				</template>
 			</el-table-column>
@@ -195,7 +195,7 @@
 												Parameter {{ index + 1 }}
 											</span>
 											<el-button
-												text
+												link
 												type="danger"
 												size="small"
 												:icon="Delete"

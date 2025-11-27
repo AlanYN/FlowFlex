@@ -60,7 +60,7 @@
 
 			<div class="flex items-center gap-2 text-sm font-medium">Entity Types:</div>
 			<div class="entity-types-container">
-				<div class="entity-types-list">
+				<div class="flex flex-wrap gap-x-2">
 					<template v-for="value in visibleEntityTypes" :key="value">
 						<el-tag type="info" size="small">
 							{{ value }}
@@ -291,7 +291,7 @@ const initChart = () => {
 				const param = params[0];
 				const date = param.axisValue;
 				const value = param.value;
-				return `${date}<br/>${value}s`;
+				return `${date}<br/>${value}`;
 			},
 		},
 	};

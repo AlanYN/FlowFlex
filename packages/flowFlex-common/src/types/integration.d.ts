@@ -57,10 +57,18 @@ export interface IFieldMapping {
 /**
  * 附件共享接口 (旧版，保留兼容)
  */
-export interface IAttachmentSharing {
-	id: string;
-	module: string;
-	workflowIds: string[];
+export interface InboundAttachmentIteml {
+	integrationId?: string;
+	id?: string;
+	moduleName: string; //外部模块名称
+	workflowId: stringnumber; //工作流ID
+	stageId: stringnumber; //阶段 ID
+}
+
+export interface OutboundAttachmentItem1 {
+	id?: string;
+	workflowId: stringnumber; //工作流ID
+	stageId: stringnumber; //阶段 ID
 }
 
 /**
@@ -104,11 +112,10 @@ export interface IIntegrationConfig {
 	connection?: IConnectionConfig;
 	entityMappings?: IEntityMapping[];
 	quickLinks?: IQuickLink[];
-	inboundConfigurations?: IInboundConfiguration[];
-	outboundConfigurations?: IOutboundConfiguration[];
-	// 附件配置
-	inboundAttachments?: IInboundAttachmentItem[]; // Inbound 附件配置
-	outboundAttachments?: IOutboundAttachmentItem[]; // Outbound 附件配置
+	inboundFieldMappings?: FieldMapping[];
+	outboundFieldMappings?: FieldMapping[];
+	inboundAttachments?: InboundAttachmentIteml[]; //Inbound 附件配置
+	outboundAttachments?: OutboundAttachmentItem1[]; //0utbound 附件配
 	lastDaysSeconds: {
 		[key: string]: string;
 	};
@@ -216,31 +223,21 @@ export interface IQuickLink {
 /**
  * Inbound 配置接口
  */
-export interface IInboundConfiguration {
+export interface FieldMapping {
+	id: string;
 	integrationId: string;
-	externalModuleName: string;
-	workflowIds: string[];
-	isActive: boolean;
-	description: string;
-	allowedFileTypes: string[];
-	maxFileSizeMB: number;
-}
-
-/**
- * Outbound 配置接口
- */
-export interface IOutboundConfiguration {
-	id?: string | number; // 配置 ID (long)
-	integrationId: string | number; // 集成 ID (long)
-	actionId: string | number; // Action ID (long)
-	actionName?: string; // Action 名称
-	sharedMasterDataTypes?: string[]; // 共享的主数据类型列表
-	attachmentWorkflowIds?: (string | number)[]; // 附件工作流 ID 列表
-	enableRealTimeSync?: boolean; // 是否启用实时同步
-	webhookUrl?: string; // Webhook URL（最大 500 字符）
-	retryAttempts?: number; // 失败重试次数（默认 3）
-	retryDelaySeconds?: number; // 重试延迟秒数（默认 60）
-	status?: number; // 状态
-	lastSyncDate?: string; // 最后同步时间
-	message?: string; // 消息
+	entityMappingId: string;
+	actionId: string;
+	externalFieldName: string;
+	wfeFieldId: string;
+	fieldType: number;
+	syncDirection: number;
+	actionName: string;
+	transformRules: Record<string, any>;
+	sortOrder: number;
+	isRequired: boolean;
+	wfeFieldName: string;
+	isStaticField: boolean;
+	createDate: string;
+	modifyDate: string;
 }

@@ -12,12 +12,16 @@
 
 		<el-drawer
 			v-model="visible"
-			:title="dialogTitle"
 			:size="drawerSize"
 			direction="rtl"
 			@close="onCancel"
 			@opened="opened"
+			append-to-body
+			:with-header="false"
 		>
+			<div class="font-bold mb-4">
+				{{ dialogTitle }}
+			</div>
 			<div class="flex gap-4 w-full h-full min-h-0">
 				<div v-if="leftPanelVisible" class="flex-1 min-w-0 min-h-0 flex flex-col">
 					<el-scrollbar ref="scrollbarRefLeft" class="h-full">
@@ -792,32 +796,6 @@ defineExpose({
 </script>
 
 <style scoped lang="scss">
-:deep(.el-scrollbar__view) {
-	display: flex;
-	flex-direction: column;
-	min-height: 0;
-}
-
-:deep(.el-scrollbar__wrap) {
-	/* avoid nested scrollbars fighting */
-	max-height: 100%;
-}
-
-:deep(.el-scrollbar__bar.is-vertical > div) {
-	@apply bg-gray-300 dark:bg-gray-600 opacity-80 rounded-xl;
-	width: 6px;
-}
-
-:deep(.el-scrollbar__bar.is-vertical) {
-	@apply opacity-80;
-	width: 8px;
-	right: 2px;
-}
-
-:deep(.el-scrollbar__bar.is-vertical:hover > div) {
-	@apply bg-gray-400 dark:bg-gray-500;
-}
-
 .action-config-container {
 	@apply min-h-full;
 }
@@ -902,16 +880,6 @@ defineExpose({
 	@apply flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800;
 	border-top-left-radius: 8px;
 	border-top-right-radius: 8px;
-}
-
-.action-config-drawer {
-	:deep(.el-drawer__footer) {
-		@apply p-0;
-	}
-
-	:deep(.el-drawer__header) {
-		margin-bottom: 0;
-	}
 }
 
 .mode-selection-section {
