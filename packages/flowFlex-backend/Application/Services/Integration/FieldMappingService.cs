@@ -55,7 +55,7 @@ namespace FlowFlex.Application.Services.Integration
             {
                 if (await _fieldMappingRepository.ExistsAsync(input.IntegrationId, input.ActionId.Value, input.ExternalFieldName))
                 {
-                    throw new CRMException(ErrorCodeEnum.BusinessError, 
+                    throw new CRMException(ErrorCodeEnum.BusinessError,
                         $"Field mapping for '{input.ExternalFieldName}' already exists");
                 }
             }
@@ -98,7 +98,7 @@ namespace FlowFlex.Application.Services.Integration
             var actionId = input.ActionId ?? entity.ActionId;
             if (actionId.HasValue && await _fieldMappingRepository.ExistsAsync(entity.IntegrationId, actionId.Value, input.ExternalFieldName, id))
             {
-                throw new CRMException(ErrorCodeEnum.BusinessError, 
+                throw new CRMException(ErrorCodeEnum.BusinessError,
                     $"Field mapping for '{input.ExternalFieldName}' already exists");
             }
 

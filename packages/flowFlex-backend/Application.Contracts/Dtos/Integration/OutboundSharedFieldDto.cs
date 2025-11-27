@@ -9,17 +9,17 @@ public class OutboundSharedFieldDto
     /// Action ID
     /// </summary>
     public long ActionId { get; set; }
-    
+
     /// <summary>
     /// Action name
     /// </summary>
     public string ActionName { get; set; } = string.Empty;
-    
+
     /// <summary>
     /// Field display name
     /// </summary>
     public string FieldDisplayName { get; set; } = string.Empty;
-    
+
     /// <summary>
     /// Field API name
     /// </summary>

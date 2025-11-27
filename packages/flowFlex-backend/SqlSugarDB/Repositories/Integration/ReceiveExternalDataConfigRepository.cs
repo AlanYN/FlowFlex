@@ -11,7 +11,7 @@ namespace FlowFlex.SqlSugarDB.Repositories.Integration;
 /// </summary>
 public class ReceiveExternalDataConfigRepository : BaseRepository<ReceiveExternalDataConfig>, IReceiveExternalDataConfigRepository, IScopedService
 {
-    public ReceiveExternalDataConfigRepository(ISqlSugarClient context) 
+    public ReceiveExternalDataConfigRepository(ISqlSugarClient context)
         : base(context)
     {
     }
@@ -33,8 +33,8 @@ public class ReceiveExternalDataConfigRepository : BaseRepository<ReceiveExterna
     public async Task<ReceiveExternalDataConfig?> GetByEntityNameAsync(long integrationId, string entityName)
     {
         return await db.Queryable<ReceiveExternalDataConfig>()
-            .Where(x => x.IntegrationId == integrationId 
-                && x.EntityName == entityName 
+            .Where(x => x.IntegrationId == integrationId
+                && x.EntityName == entityName
                 && x.IsValid)
             .FirstAsync();
     }
@@ -45,8 +45,8 @@ public class ReceiveExternalDataConfigRepository : BaseRepository<ReceiveExterna
     public async Task<bool> ExistsEntityNameAsync(long integrationId, string entityName, long? excludeId = null)
     {
         var query = db.Queryable<ReceiveExternalDataConfig>()
-            .Where(x => x.IntegrationId == integrationId 
-                && x.EntityName == entityName 
+            .Where(x => x.IntegrationId == integrationId
+                && x.EntityName == entityName
                 && x.IsValid);
 
         if (excludeId.HasValue)
@@ -63,8 +63,8 @@ public class ReceiveExternalDataConfigRepository : BaseRepository<ReceiveExterna
     public async Task<List<ReceiveExternalDataConfig>> GetActiveConfigsAsync(long integrationId)
     {
         return await db.Queryable<ReceiveExternalDataConfig>()
-            .Where(x => x.IntegrationId == integrationId 
-                && x.IsActive 
+            .Where(x => x.IntegrationId == integrationId
+                && x.IsActive
                 && x.IsValid)
             .OrderBy(x => x.EntityName)
             .ToListAsync();

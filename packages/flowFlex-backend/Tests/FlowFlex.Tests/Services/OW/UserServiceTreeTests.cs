@@ -131,7 +131,7 @@ namespace FlowFlex.Tests.Services.OW
             // Assert
             teamUserLookup.Should().ContainKey("");
             allTeamValues.Should().NotContain("", "No team node should have empty Value");
-            
+
             // The user with empty TeamId should NOT be matched to any team node
             var userWithEmptyTeamId = teamUserLookup[""].First();
             var shouldBeInOtherTeam = !allTeamValues.Contains(userWithEmptyTeamId.TeamId) || string.IsNullOrEmpty(userWithEmptyTeamId.TeamId);
@@ -237,14 +237,14 @@ namespace FlowFlex.Tests.Services.OW
 
             // Assert
             // Users with empty TeamId should NOT be assigned to any team during iteration
-            assignedUserIds.Should().NotContain("1983420757136510976", 
+            assignedUserIds.Should().NotContain("1983420757136510976",
                 "User with empty TeamId should not be assigned to any team node");
-            assignedUserIds.Should().NotContain("1983413796546416640", 
+            assignedUserIds.Should().NotContain("1983413796546416640",
                 "User with empty TeamId should not be assigned to any team node");
 
             // Users with empty TeamId should be in usersWithoutTeam
             usersWithoutTeam.Should().Contain(u => u.Id == "1983420757136510976");
-            usersWithoutTeam.Should().Contain(u => u.Id == "1983413796546416640", 
+            usersWithoutTeam.Should().Contain(u => u.Id == "1983413796546416640",
                 "THE MISSING USER should be identified as user without team");
 
             // User with valid TeamId should be assigned
@@ -323,7 +323,7 @@ namespace FlowFlex.Tests.Services.OW
             // Assert
             usersWithoutTeam.Should().HaveCount(1, "Only user with empty teamId should be in usersWithoutTeam");
             usersWithoutTeam.Should().Contain(u => u.Id == "1983413796546416640");
-            usersWithoutTeam.Should().NotContain(u => u.Id == "1983495399779995648", 
+            usersWithoutTeam.Should().NotContain(u => u.Id == "1983495399779995648",
                 "User with teamId should not be in usersWithoutTeam even if it appears multiple times");
         }
     }

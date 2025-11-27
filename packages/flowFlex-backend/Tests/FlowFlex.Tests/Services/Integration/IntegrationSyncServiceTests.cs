@@ -96,17 +96,17 @@ namespace FlowFlex.Tests.Services.Integration
             var pageSize = 10;
             var entities = new List<IntegrationSyncLog>
             {
-                new IntegrationSyncLog 
-                { 
-                    Id = 1, 
-                    IntegrationId = integrationId, 
+                new IntegrationSyncLog
+                {
+                    Id = 1,
+                    IntegrationId = integrationId,
                     SyncStatus = SyncStatus.Success,
                     CreateDate = DateTime.UtcNow.AddMinutes(-5)
                 },
-                new IntegrationSyncLog 
-                { 
-                    Id = 2, 
-                    IntegrationId = integrationId, 
+                new IntegrationSyncLog
+                {
+                    Id = 2,
+                    IntegrationId = integrationId,
                     SyncStatus = SyncStatus.Failed,
                     CreateDate = DateTime.UtcNow.AddMinutes(-10)
                 }
@@ -119,14 +119,14 @@ namespace FlowFlex.Tests.Services.Integration
             };
 
             _mockRepository.Setup(r => r.QueryPagedAsync(
-                It.IsAny<int>(), 
-                It.IsAny<int>(), 
-                It.IsAny<long?>(), 
-                It.IsAny<string>(), 
-                It.IsAny<string>(), 
-                It.IsAny<DateTime?>(), 
-                It.IsAny<DateTime?>(), 
-                It.IsAny<string>(), 
+                It.IsAny<int>(),
+                It.IsAny<int>(),
+                It.IsAny<long?>(),
+                It.IsAny<string>(),
+                It.IsAny<string>(),
+                It.IsAny<DateTime?>(),
+                It.IsAny<DateTime?>(),
+                It.IsAny<string>(),
                 It.IsAny<string>()))
                 .ReturnsAsync((entities.Take(pageSize).ToList(), entities.Count));
             _mockMapper.Setup(m => m.Map<List<IntegrationSyncLogOutputDto>>(It.IsAny<List<IntegrationSyncLog>>()))
@@ -187,17 +187,17 @@ namespace FlowFlex.Tests.Services.Integration
             var limit = 50;
             var entities = new List<IntegrationSyncLog>
             {
-                new IntegrationSyncLog 
-                { 
-                    Id = 1, 
-                    IntegrationId = integrationId, 
+                new IntegrationSyncLog
+                {
+                    Id = 1,
+                    IntegrationId = integrationId,
                     SyncStatus = SyncStatus.Failed,
                     ErrorMessage = "Connection timeout"
                 },
-                new IntegrationSyncLog 
-                { 
-                    Id = 2, 
-                    IntegrationId = integrationId, 
+                new IntegrationSyncLog
+                {
+                    Id = 2,
+                    IntegrationId = integrationId,
                     SyncStatus = SyncStatus.Failed,
                     ErrorMessage = "Invalid credentials"
                 }

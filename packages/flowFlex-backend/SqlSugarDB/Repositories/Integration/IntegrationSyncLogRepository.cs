@@ -96,10 +96,10 @@ namespace FlowFlex.SqlSugarDB.Implements.Integration
             {
                 normalizedSortField = "SyncedAt";
             }
-            
+
             var dbSortField = SqlSugar.UtilMethods.ToUnderLine(normalizedSortField);
-            var orderByClause = sortDirection.ToLower() == "asc" 
-                ? $"{dbSortField} ASC" 
+            var orderByClause = sortDirection.ToLower() == "asc"
+                ? $"{dbSortField} ASC"
                 : $"{dbSortField} DESC";
 
             var items = await query
@@ -172,8 +172,8 @@ namespace FlowFlex.SqlSugarDB.Implements.Integration
         public async Task<List<IntegrationSyncLog>> GetFailedSyncLogsAsync(long integrationId, int limit = 50)
         {
             return await db.Queryable<IntegrationSyncLog>()
-                .Where(x => x.IntegrationId == integrationId 
-                    && x.SyncStatus == SyncStatus.Failed 
+                .Where(x => x.IntegrationId == integrationId
+                    && x.SyncStatus == SyncStatus.Failed
                     && x.IsValid)
                 .OrderBy(x => x.CreateDate, OrderByType.Desc)
                 .Take(limit)

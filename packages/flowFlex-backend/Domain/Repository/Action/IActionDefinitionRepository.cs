@@ -48,6 +48,7 @@ namespace FlowFlex.Domain.Repository.Action
         /// <param name="isAssignmentChecklist"></param>
         /// <param name="isAssignmentQuestionnaire"></param>
         /// <param name="isTools"></param>
+        /// <param name="integrationId">Filter by Integration ID</param>
         /// <returns></returns>
         Task<(List<ActionDefinition> Data, int TotalCount)> GetPagedAsync(int pageIndex,
             int pageSize,
@@ -57,7 +58,8 @@ namespace FlowFlex.Domain.Repository.Action
             bool? isAssignmentChecklist = null,
             bool? isAssignmentQuestionnaire = null,
             bool? isAssignmentWorkflow = null,
-            bool? isTools = null);
+            bool? isTools = null,
+            long? integrationId = null);
 
         /// <summary>
         /// Batch enable or disable actions

@@ -23,10 +23,10 @@ namespace FlowFlex.Application.Maps
                 .ForMember(dest => dest.CreatedAt, opt => opt.MapFrom(src => src.CreateDate.DateTime))
                 .ForMember(dest => dest.UpdatedAt, opt => opt.MapFrom(src => src.ModifyDate.DateTime))
                 .ForMember(dest => dest.IntegrationId, opt => opt.MapFrom(src => src.IntegrationId))
-                .ForMember(dest => dest.DataDirection, opt => opt.MapFrom(src => new DataDirectionDto 
-                { 
-                    Inbound = src.DataDirectionInbound, 
-                    Outbound = src.DataDirectionOutbound 
+                .ForMember(dest => dest.DataDirection, opt => opt.MapFrom(src => new DataDirectionDto
+                {
+                    Inbound = src.DataDirectionInbound,
+                    Outbound = src.DataDirectionOutbound
                 }))
                 .ForMember(dest => dest.IntegrationName, opt => opt.Ignore())
                 .ForMember(dest => dest.FieldMappings, opt => opt.Ignore());

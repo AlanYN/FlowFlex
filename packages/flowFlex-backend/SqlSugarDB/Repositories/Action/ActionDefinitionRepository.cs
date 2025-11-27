@@ -95,7 +95,8 @@ namespace FlowFlex.SqlSugarDB.Repositories.Action
             bool? isAssignmentChecklist = null,
             bool? isAssignmentQuestionnaire = null,
             bool? isAssignmentWorkflow = null,
-            bool? isTools = null)
+            bool? isTools = null,
+            long? integrationId = null)
         {
             RefAsync<int> totalCount = 0;
 
@@ -123,6 +124,12 @@ namespace FlowFlex.SqlSugarDB.Repositories.Action
             query.WhereIF(isTools.HasValue, x => x.IsTools == isTools.Value);
 
             query.WhereIF(isTools.HasValue && !isTools.Value, x => x.CreateUserId == Convert.ToInt64(_userContext.UserId));
+
+            // Filter by Integration ID
+            if (integrationId.HasValue)
+            {
+                query = query.Where(x => x.IntegrationId == integrationId.Value);
+            }
 
             var triggerTypeFilters = new[]
             {

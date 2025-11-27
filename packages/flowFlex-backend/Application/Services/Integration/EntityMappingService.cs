@@ -55,7 +55,7 @@ namespace FlowFlex.Application.Services.Integration
             // Validate entity mapping uniqueness
             if (await _entityMappingRepository.ExistsAsync(input.IntegrationId, input.ExternalEntityType))
             {
-                throw new CRMException(ErrorCodeEnum.BusinessError, 
+                throw new CRMException(ErrorCodeEnum.BusinessError,
                     $"Entity mapping for '{input.ExternalEntityType}' already exists");
             }
 
@@ -93,7 +93,7 @@ namespace FlowFlex.Application.Services.Integration
             // Validate entity mapping uniqueness (excluding current entity)
             if (await _entityMappingRepository.ExistsAsync(input.IntegrationId, input.ExternalEntityType, id))
             {
-                throw new CRMException(ErrorCodeEnum.BusinessError, 
+                throw new CRMException(ErrorCodeEnum.BusinessError,
                     $"Entity mapping for '{input.ExternalEntityType}' already exists");
             }
 
@@ -130,7 +130,7 @@ namespace FlowFlex.Application.Services.Integration
             var integration = await _integrationRepository.GetByIdAsync(entity.IntegrationId);
             if (integration != null)
             {
-                integration.ConfiguredEntityTypes = await _entityMappingRepository.CountAsync(e => 
+                integration.ConfiguredEntityTypes = await _entityMappingRepository.CountAsync(e =>
                     e.IntegrationId == entity.IntegrationId && e.IsValid);
                 integration.InitModifyInfo(_userContext);
                 await _integrationRepository.UpdateAsync(integration);

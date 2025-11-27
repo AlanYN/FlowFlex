@@ -603,7 +603,7 @@ namespace FlowFlex.Application.Services.OW
                 var originalOperateUsers = entity.OperateUsers;
                 var originalOperatePermissionSubjectType = entity.OperatePermissionSubjectType;
                 var originalOwnershipName = entity.OwnershipName;
-                
+
                 // Get workflow name for beforeData
                 string beforeWorkflowName = null;
                 try
@@ -615,7 +615,7 @@ namespace FlowFlex.Application.Services.OW
                 {
                     // Ignore if workflow not found
                 }
-                
+
                 // Prepare beforeData for logging
                 var beforeData = JsonSerializer.Serialize(new
                 {

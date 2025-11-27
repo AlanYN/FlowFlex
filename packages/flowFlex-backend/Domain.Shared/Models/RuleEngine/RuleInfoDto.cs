@@ -1,4 +1,5 @@
 namespace FlowFlex.Domain.Shared.Models.RuleEngine;
+
 using System;
 using System.Collections.Generic;
 

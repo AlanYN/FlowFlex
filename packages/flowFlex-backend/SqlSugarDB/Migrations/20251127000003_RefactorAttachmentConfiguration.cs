@@ -156,7 +156,7 @@ namespace FlowFlex.SqlSugarDB.Migrations
             Console.WriteLine("Starting rollback: Refactor Attachment Configuration");
 
             // Note: This rollback will not restore data, only recreate table structures
-            
+
             // Remove new columns from ff_integration
             db.Ado.ExecuteCommand(@"
                 ALTER TABLE ff_integration DROP COLUMN IF EXISTS inbound_attachments;

@@ -198,9 +198,9 @@ namespace FlowFlex.Application.Service.OW
                     if (createdStage != null)
                     {
                         // Debug: Log ViewTeams and OperateTeams values
-                        _logger.LogDebug("Stage {StageId} ViewTeams: {ViewTeams}, OperateTeams: {OperateTeams}, ViewPermissionMode: {ViewPermissionMode}", 
+                        _logger.LogDebug("Stage {StageId} ViewTeams: {ViewTeams}, OperateTeams: {OperateTeams}, ViewPermissionMode: {ViewPermissionMode}",
                             createdStage.Id, createdStage.ViewTeams ?? "null", createdStage.OperateTeams ?? "null", createdStage.ViewPermissionMode);
-                        
+
                         // Build afterData JSON for logging (include important fields like ViewPermissionMode, Components, VisibleInPortal)
                         string afterData;
                         try
@@ -209,7 +209,7 @@ namespace FlowFlex.Application.Service.OW
                             using (var writer = new System.Text.Json.Utf8JsonWriter(stream, new JsonWriterOptions { Indented = false }))
                             {
                                 writer.WriteStartObject();
-                                
+
                                 // Write base fields
                                 if (!string.IsNullOrEmpty(createdStage.Name))
                                 {
@@ -235,7 +235,7 @@ namespace FlowFlex.Application.Service.OW
                                     writer.WriteNumber("EstimatedDuration", createdStage.EstimatedDuration.Value);
                                 }
                                 writer.WriteNumber("Order", createdStage.Order);
-                                
+
                                 // Write DefaultAssignee if it exists
                                 if (!string.IsNullOrEmpty(createdStage.DefaultAssignee))
                                 {
@@ -243,7 +243,7 @@ namespace FlowFlex.Application.Service.OW
                                     {
                                         using var defaultAssigneeDoc = JsonDocument.Parse(createdStage.DefaultAssignee);
                                         var defaultAssigneeElement = defaultAssigneeDoc.RootElement;
-                                        
+
                                         if (defaultAssigneeElement.ValueKind == JsonValueKind.Array)
                                         {
                                             writer.WritePropertyName("DefaultAssignee");
@@ -276,7 +276,7 @@ namespace FlowFlex.Application.Service.OW
                                         _logger.LogWarning(ex, "Failed to parse DefaultAssignee for stage {StageId}", createdStage.Id);
                                     }
                                 }
-                                
+
                                 // Write ViewTeams and OperateTeams
                                 // Always write ViewTeams if it exists or if ViewPermissionMode requires it
                                 if (!string.IsNullOrEmpty(createdStage.ViewTeams))
@@ -285,7 +285,7 @@ namespace FlowFlex.Application.Service.OW
                                     {
                                         using var viewTeamsDoc = JsonDocument.Parse(createdStage.ViewTeams);
                                         var viewTeamsElement = viewTeamsDoc.RootElement;
-                                        
+
                                         if (viewTeamsElement.ValueKind == JsonValueKind.Array)
                                         {
                                             writer.WritePropertyName("ViewTeams");
@@ -328,7 +328,7 @@ namespace FlowFlex.Application.Service.OW
                                     }
                                     catch (Exception ex)
                                     {
-                                        _logger.LogWarning(ex, "Failed to parse ViewTeams for stage {StageId}, ViewTeams value: {ViewTeams}", 
+                                        _logger.LogWarning(ex, "Failed to parse ViewTeams for stage {StageId}, ViewTeams value: {ViewTeams}",
                                             createdStage.Id, createdStage.ViewTeams ?? "null");
                                         // Write empty array as fallback
                                         writer.WritePropertyName("ViewTeams");
@@ -344,7 +344,7 @@ namespace FlowFlex.Application.Service.OW
                                     writer.WriteStartArray();
                                     writer.WriteEndArray();
                                 }
-                                
+
                                 // Always write OperateTeams if it exists
                                 if (!string.IsNullOrEmpty(createdStage.OperateTeams))
                                 {
@@ -352,7 +352,7 @@ namespace FlowFlex.Application.Service.OW
                                     {
                                         using var operateTeamsDoc = JsonDocument.Parse(createdStage.OperateTeams);
                                         var operateTeamsElement = operateTeamsDoc.RootElement;
-                                        
+
                                         if (operateTeamsElement.ValueKind == JsonValueKind.Array)
                                         {
                                             writer.WritePropertyName("OperateTeams");
@@ -395,7 +395,7 @@ namespace FlowFlex.Application.Service.OW
                                     }
                                     catch (Exception ex)
                                     {
-                                        _logger.LogWarning(ex, "Failed to parse OperateTeams for stage {StageId}, OperateTeams value: {OperateTeams}", 
+                                        _logger.LogWarning(ex, "Failed to parse OperateTeams for stage {StageId}, OperateTeams value: {OperateTeams}",
                                             createdStage.Id, createdStage.OperateTeams ?? "null");
                                         // Write empty array as fallback
                                         writer.WritePropertyName("OperateTeams");
@@ -403,9 +403,9 @@ namespace FlowFlex.Application.Service.OW
                                         writer.WriteEndArray();
                                     }
                                 }
-                                
+
                                 writer.WriteBoolean("UseSameTeamForOperate", createdStage.UseSameTeamForOperate);
-                                
+
                                 // Write Components as JSON array/object (not a string)
                                 if (!string.IsNullOrEmpty(createdStage.ComponentsJson))
                                 {
@@ -413,7 +413,7 @@ namespace FlowFlex.Application.Service.OW
                                     {
                                         using var componentsDoc = JsonDocument.Parse(createdStage.ComponentsJson);
                                         var rootElement = componentsDoc.RootElement;
-                                        
+
                                         // Ensure rootElement is an array or object, not a string
                                         if (rootElement.ValueKind == JsonValueKind.Array || rootElement.ValueKind == JsonValueKind.Object)
                                         {
@@ -445,10 +445,10 @@ namespace FlowFlex.Application.Service.OW
                                         // Skip Components if parsing fails
                                     }
                                 }
-                                
+
                                 writer.WriteEndObject();
                             }
-                            
+
                             afterData = System.Text.Encoding.UTF8.GetString(stream.ToArray());
                         }
                         catch (Exception ex)
@@ -1161,7 +1161,7 @@ namespace FlowFlex.Application.Service.OW
                         {
                             var stageId = orderUpdate.StageId;
                             var newOrder = orderUpdate.Order;
-                            
+
                             // Check if order actually changed
                             if (oldOrders.TryGetValue(stageId, out var oldOrder) && oldOrder != newOrder)
                             {

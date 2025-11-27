@@ -112,14 +112,14 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                 foreach (var kvp in afterJson)
                 {
                     // Skip Ownership field if OwnershipName exists (we'll show OwnershipName instead)
-                    if (kvp.Key.Equals("Ownership", StringComparison.OrdinalIgnoreCase) && 
+                    if (kvp.Key.Equals("Ownership", StringComparison.OrdinalIgnoreCase) &&
                         afterJson.ContainsKey("OwnershipName"))
                     {
                         continue;
                     }
 
                     // Skip WorkflowId field if WorkflowName exists (we'll show WorkflowName instead)
-                    if (kvp.Key.Equals("WorkflowId", StringComparison.OrdinalIgnoreCase) && 
+                    if (kvp.Key.Equals("WorkflowId", StringComparison.OrdinalIgnoreCase) &&
                         afterJson.ContainsKey("WorkflowName"))
                     {
                         continue;
@@ -176,7 +176,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                     }
 
                     List<string> items;
-                    
+
                     // Use ParseTeamList for Teams, ParseUserList for Users
                     if (fieldName.Equals("ViewTeams", StringComparison.OrdinalIgnoreCase) ||
                         fieldName.Equals("OperateTeams", StringComparison.OrdinalIgnoreCase))
@@ -187,7 +187,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                     {
                         items = ParseUserList(jsonStr);
                     }
-                    
+
                     if (items.Any())
                     {
                         // For Teams, try to get team names if possible
@@ -201,7 +201,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                                 var teamNameMap = _userService.GetTeamNamesByIdsAsync(items, tenantId).GetAwaiter().GetResult();
                                 if (teamNameMap != null && teamNameMap.Any())
                                 {
-                                    var teamNames = items.Select(id => 
+                                    var teamNames = items.Select(id =>
                                         teamNameMap.TryGetValue(id, out var name) && !string.IsNullOrEmpty(name) ? name : id
                                     ).ToList();
                                     return string.Join(", ", teamNames);
@@ -212,7 +212,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                                 // Fallback to IDs
                             }
                         }
-                        
+
                         // For Users, try to get user names if possible
                         if ((fieldName.Equals("ViewUsers", StringComparison.OrdinalIgnoreCase) ||
                              fieldName.Equals("OperateUsers", StringComparison.OrdinalIgnoreCase)) &&
@@ -231,10 +231,10 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                                 // Fallback to IDs
                             }
                         }
-                        
+
                         return string.Join(", ", items);
                     }
-                    
+
                     // Return empty string for empty arrays (don't display [])
                     return string.Empty;
                 }
@@ -461,11 +461,11 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                     {
                         var beforeOwnershipName = beforeJson.TryGetValue("OwnershipName", out var bon) ? bon?.ToString() : null;
                         var afterOwnershipName = afterJson.TryGetValue("OwnershipName", out var aon) ? aon?.ToString() : null;
-                        
+
                         // Use OwnershipName if available, otherwise fallback to ID
                         var beforeStr = !string.IsNullOrEmpty(beforeOwnershipName) ? beforeOwnershipName : (beforeValue?.ToString() ?? "null");
                         var afterStr = !string.IsNullOrEmpty(afterOwnershipName) ? afterOwnershipName : (afterValue?.ToString() ?? "null");
-                        
+
                         changeList.Add($"{fieldName} from '{beforeStr}' to '{afterStr}'");
                         continue;
                     }
@@ -475,11 +475,11 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                     {
                         var beforeWorkflowName = beforeJson.TryGetValue("WorkflowName", out var bwn) ? bwn?.ToString() : null;
                         var afterWorkflowName = afterJson.TryGetValue("WorkflowName", out var awn) ? awn?.ToString() : null;
-                        
+
                         // Use WorkflowName if available, otherwise fallback to ID
                         var beforeStr = !string.IsNullOrEmpty(beforeWorkflowName) ? beforeWorkflowName : (beforeValue?.ToString() ?? "null");
                         var afterStr = !string.IsNullOrEmpty(afterWorkflowName) ? afterWorkflowName : (afterValue?.ToString() ?? "null");
-                        
+
                         changeList.Add($"{fieldName} from '{beforeStr}' to '{afterStr}'");
                         continue;
                     }
@@ -594,7 +594,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
             var permissionTypeDisplay = permissionType.ToLower() == "view" ? "View Users" : "Operate Users";
 
             var changes = new List<string>();
-            
+
             // Get user names for added users
             if (added.Any())
             {
@@ -608,7 +608,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                     changes.Add($"added {added.Count} user(s) to {permissionTypeDisplay}");
                 }
             }
-            
+
             // Get user names for removed users
             if (removed.Any())
             {

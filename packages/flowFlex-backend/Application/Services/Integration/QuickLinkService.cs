@@ -57,7 +57,7 @@ namespace FlowFlex.Application.Services.Integration
             // Validate quick link label uniqueness
             if (await _quickLinkRepository.ExistsLabelAsync(input.IntegrationId, input.LinkName))
             {
-                throw new CRMException(ErrorCodeEnum.BusinessError, 
+                throw new CRMException(ErrorCodeEnum.BusinessError,
                     $"Quick link with name '{input.LinkName}' already exists");
             }
 
@@ -88,7 +88,7 @@ namespace FlowFlex.Application.Services.Integration
             // Validate quick link label uniqueness (excluding current entity)
             if (await _quickLinkRepository.ExistsLabelAsync(input.IntegrationId, input.LinkName, id))
             {
-                throw new CRMException(ErrorCodeEnum.BusinessError, 
+                throw new CRMException(ErrorCodeEnum.BusinessError,
                     $"Quick link with name '{input.LinkName}' already exists");
             }
 
@@ -137,7 +137,7 @@ namespace FlowFlex.Application.Services.Integration
             }
 
             var dto = _mapper.Map<QuickLinkOutputDto>(entity);
-            dto.UrlParameters = JsonConvert.DeserializeObject<List<UrlParameterDto>>(entity.UrlParameters) 
+            dto.UrlParameters = JsonConvert.DeserializeObject<List<UrlParameterDto>>(entity.UrlParameters)
                 ?? new List<UrlParameterDto>();
 
             return dto;
@@ -153,7 +153,7 @@ namespace FlowFlex.Application.Services.Integration
                 var entity = entities.FirstOrDefault(e => e.Id == dto.Id);
                 if (entity != null)
                 {
-                    dto.UrlParameters = JsonConvert.DeserializeObject<List<UrlParameterDto>>(entity.UrlParameters) 
+                    dto.UrlParameters = JsonConvert.DeserializeObject<List<UrlParameterDto>>(entity.UrlParameters)
                         ?? new List<UrlParameterDto>();
                 }
             }
@@ -169,7 +169,7 @@ namespace FlowFlex.Application.Services.Integration
                 throw new CRMException(ErrorCodeEnum.NotFound, "Quick link not found");
             }
 
-            var urlParameters = JsonConvert.DeserializeObject<List<UrlParameterDto>>(entity.UrlParameters) 
+            var urlParameters = JsonConvert.DeserializeObject<List<UrlParameterDto>>(entity.UrlParameters)
                 ?? new List<UrlParameterDto>();
 
             var url = entity.TargetUrl;
@@ -199,18 +199,18 @@ namespace FlowFlex.Application.Services.Integration
 
             return param.ValueSource switch
             {
-                UrlParameterValueSource.PageParameter => 
+                UrlParameterValueSource.PageParameter =>
                     dataContext.TryGetValue(valueDetail, out var contextValue) ? contextValue : string.Empty,
-                
-                UrlParameterValueSource.LoginUserInfo => 
+
+                UrlParameterValueSource.LoginUserInfo =>
                     GetUserInfoValue(valueDetail),
-                
-                UrlParameterValueSource.FixedValue => 
+
+                UrlParameterValueSource.FixedValue =>
                     valueDetail,
-                
-                UrlParameterValueSource.SystemVariable => 
+
+                UrlParameterValueSource.SystemVariable =>
                     GetSystemVariableValue(valueDetail),
-                
+
                 _ => string.Empty
             };
         }

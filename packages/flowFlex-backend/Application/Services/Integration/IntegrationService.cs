@@ -323,7 +323,7 @@ namespace FlowFlex.Application.Services.Integration
                         .Select(fm => fm.ActionId!.Value)
                         .Distinct()
                         .ToList();
-                    
+
                     var actionNames = new Dictionary<long, string>();
                     if (actionIds.Any())
                     {
@@ -340,14 +340,14 @@ namespace FlowFlex.Application.Services.Integration
                     // Separate inbound and outbound field mappings based on SyncDirection
                     // Inbound: ViewOnly, Editable (can receive data from external system)
                     var inboundMappings = fieldMappings
-                        .Where(fm => fm.SyncDirection == SyncDirection.ViewOnly || 
+                        .Where(fm => fm.SyncDirection == SyncDirection.ViewOnly ||
                                      fm.SyncDirection == SyncDirection.Editable)
                         .OrderBy(fm => fm.SortOrder)
                         .ToList();
-                    
+
                     // Outbound: OutboundOnly, Editable (can send data to external system)
                     var outboundMappings = fieldMappings
-                        .Where(fm => fm.SyncDirection == SyncDirection.OutboundOnly || 
+                        .Where(fm => fm.SyncDirection == SyncDirection.OutboundOnly ||
                                      fm.SyncDirection == SyncDirection.Editable)
                         .OrderBy(fm => fm.SortOrder)
                         .ToList();
@@ -359,7 +359,7 @@ namespace FlowFlex.Application.Services.Integration
                         {
                             Id = fm.Id,
                             ActionId = fm.ActionId,
-                            ActionName = fm.ActionId.HasValue && actionNames.ContainsKey(fm.ActionId.Value) 
+                            ActionName = fm.ActionId.HasValue && actionNames.ContainsKey(fm.ActionId.Value)
                                 ? actionNames[fm.ActionId.Value] : null,
                             ExternalFieldName = fm.ExternalFieldName,
                             WfeFieldId = fm.WfeFieldId,
@@ -379,7 +379,7 @@ namespace FlowFlex.Application.Services.Integration
                         {
                             Id = fm.Id,
                             ActionId = fm.ActionId,
-                            ActionName = fm.ActionId.HasValue && actionNames.ContainsKey(fm.ActionId.Value) 
+                            ActionName = fm.ActionId.HasValue && actionNames.ContainsKey(fm.ActionId.Value)
                                 ? actionNames[fm.ActionId.Value] : null,
                             ExternalFieldName = fm.ExternalFieldName,
                             WfeFieldId = fm.WfeFieldId,
@@ -772,7 +772,7 @@ namespace FlowFlex.Application.Services.Integration
                 fieldCount = fieldMappings.Count(fm =>
                     fm.SyncDirection == SyncDirection.OutboundOnly ||
                     fm.SyncDirection == SyncDirection.Editable);
-                
+
                 // Skip the entity mapping loop since we're using integration-level field mappings now
                 foreach (var mapping in entityMappings)
                 {

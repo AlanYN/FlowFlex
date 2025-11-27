@@ -66,7 +66,7 @@ namespace FlowFlex.Application.Services.OW
             }
 
             var result = await _onboardingRepository.UpdateStatusAsync(id, "Paused");
-            
+
             // Log pause operation
             if (result)
             {
@@ -114,7 +114,7 @@ namespace FlowFlex.Application.Services.OW
             }
 
             var result = await _onboardingRepository.UpdateStatusAsync(id, "InProgress");
-            
+
             // Log resume operation
             if (result)
             {

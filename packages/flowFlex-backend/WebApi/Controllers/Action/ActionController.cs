@@ -91,7 +91,8 @@ namespace FlowFlex.WebApi.Controllers.Action
             bool? isAssignmentQuestionnaire = null,
             bool? isAssignmentWorkflow = null,
             bool? isTools = null,
-            bool? isSystemTools = null)
+            bool? isSystemTools = null,
+            long? integrationId = null)
         {
             // If isSystemTools is true, override actionType to System and ignore isTools
             if (isSystemTools == true)
@@ -108,7 +109,8 @@ namespace FlowFlex.WebApi.Controllers.Action
                 isAssignmentChecklist,
                 isAssignmentQuestionnaire,
                 isAssignmentWorkflow,
-                isTools);
+                isTools,
+                integrationId);
             return Success(result);
         }
 
@@ -171,8 +173,8 @@ namespace FlowFlex.WebApi.Controllers.Action
                     IsEnabled = requestData["isEnabled"]?.ToObject<bool>() ?? true,
                     IsTools = requestData["isTools"]?.ToObject<bool>() ?? false,
                     // Integration association fields
-                    IntegrationId = requestData["integrationId"] != null && !string.IsNullOrEmpty(requestData["integrationId"]?.ToString()) 
-                        ? long.TryParse(requestData["integrationId"]?.ToString(), out var integrationId) ? integrationId : null 
+                    IntegrationId = requestData["integrationId"] != null && !string.IsNullOrEmpty(requestData["integrationId"]?.ToString())
+                        ? long.TryParse(requestData["integrationId"]?.ToString(), out var integrationId) ? integrationId : null
                         : null,
                     DataDirectionInbound = requestData["dataDirectionInbound"]?.ToObject<bool>() ?? false,
                     DataDirectionOutbound = requestData["dataDirectionOutbound"]?.ToObject<bool>() ?? false
@@ -217,7 +219,7 @@ namespace FlowFlex.WebApi.Controllers.Action
                         foreach (var mapping in fieldMappings)
                         {
                             var fieldMappingId = mapping["id"]?.ToString();
-                            
+
                             // Parse field mapping data
                             var fieldMappingInput = new InboundFieldMappingInputDto
                             {
@@ -225,9 +227,9 @@ namespace FlowFlex.WebApi.Controllers.Action
                                 ActionId = id,
                                 ExternalFieldName = mapping["externalFieldName"]?.ToString() ?? "",
                                 WfeFieldId = mapping["wfeFieldId"]?.ToString() ?? "",
-                                FieldType = Enum.TryParse<FieldType>(mapping["fieldType"]?.ToString(), out var fieldType) 
+                                FieldType = Enum.TryParse<FieldType>(mapping["fieldType"]?.ToString(), out var fieldType)
                                     ? fieldType : FieldType.Text,
-                                SyncDirection = Enum.TryParse<SyncDirection>(mapping["syncDirection"]?.ToString(), out var syncDirection) 
+                                SyncDirection = Enum.TryParse<SyncDirection>(mapping["syncDirection"]?.ToString(), out var syncDirection)
                                     ? syncDirection : SyncDirection.ViewOnly,
                                 IsRequired = mapping["isRequired"]?.ToObject<bool>() ?? false,
                                 DefaultValue = mapping["defaultValue"]?.ToString(),

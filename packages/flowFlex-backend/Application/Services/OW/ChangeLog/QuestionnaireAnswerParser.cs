@@ -120,7 +120,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                         // Use questionId + question as key to match with beforeMap
                         var question = afterResp?.question?.ToString() ?? string.Empty;
                         var key = string.IsNullOrEmpty(question) ? questionId : $"{questionId}_{question}";
-                        
+
                         if (!beforeMap.TryGetValue(key, out dynamic beforeResp))
                         {
                             // New answer - but skip file upload questions
@@ -140,24 +140,24 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                             // responseText contains custom values for "Other" options
                             var answerChanged = !AreAnswersEqual(beforeResp?.answer, afterResp?.answer);
                             var responseTextChanged = !AreResponseTextsEqual(beforeResp?.responseText?.ToString(), afterResp?.responseText?.ToString());
-                            
-                            if (answerChanged || responseTextChanged)
-                        {
-                            // Modified answer - but skip file upload questions
-                            if (IsFileUploadQuestion(afterResp) || IsFileUploadQuestion(beforeResp))
-                            {
-                                // Skip file upload questions to reduce log noise
-                                continue;
-                            }
 
-                            var beforeAnswer = FormatAnswerWithConfig(beforeResp, questionnaireConfig);
-                            var afterAnswer = FormatAnswerWithConfig(afterResp, questionnaireConfig);
-                            changesList.Add($"{questionTitle}: {beforeAnswer} → {afterAnswer}");
-                            // Debug: Added modified answer
-                        }
-                        else
-                        {
-                            // Debug: No change detected
+                            if (answerChanged || responseTextChanged)
+                            {
+                                // Modified answer - but skip file upload questions
+                                if (IsFileUploadQuestion(afterResp) || IsFileUploadQuestion(beforeResp))
+                                {
+                                    // Skip file upload questions to reduce log noise
+                                    continue;
+                                }
+
+                                var beforeAnswer = FormatAnswerWithConfig(beforeResp, questionnaireConfig);
+                                var afterAnswer = FormatAnswerWithConfig(afterResp, questionnaireConfig);
+                                changesList.Add($"{questionTitle}: {beforeAnswer} → {afterAnswer}");
+                                // Debug: Added modified answer
+                            }
+                            else
+                            {
+                                // Debug: No change detected
                             }
                         }
                     }
@@ -394,40 +394,40 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
             dynamic matchedOption = null;
             if (!configIsNull)
             {
-            try
-            {
-                var options = GetOptionsFromConfig(questionConfig);
-                foreach (var option in options)
+                try
                 {
-                    string value = null;
-                    try
+                    var options = GetOptionsFromConfig(questionConfig);
+                    foreach (var option in options)
                     {
-                        var optionObj = JsonSerializer.Deserialize<JsonElement>(JsonSerializer.Serialize(option));
-                        if (optionObj.TryGetProperty("value", out JsonElement valueElement))
-                        {
-                            value = valueElement.GetString();
-                        }
-                    }
-                    catch
-                    {
+                        string value = null;
                         try
                         {
-                            value = option.value?.ToString();
+                            var optionObj = JsonSerializer.Deserialize<JsonElement>(JsonSerializer.Serialize(option));
+                            if (optionObj.TryGetProperty("value", out JsonElement valueElement))
+                            {
+                                value = valueElement.GetString();
+                            }
                         }
                         catch
                         {
+                            try
+                            {
+                                value = option.value?.ToString();
+                            }
+                            catch
+                            {
                                 continue;
+                            }
                         }
-                    }
 
-                    if (value == answerStr)
-                    {
+                        if (value == answerStr)
+                        {
                             matchedOption = option;
                             break;
+                        }
                     }
                 }
-            }
-            catch { }
+                catch { }
             }
 
             // If answer is "other" or option is Other type, try to extract custom value from responseText
@@ -451,10 +451,10 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                 try
                 {
                     var optionObj = JsonSerializer.Deserialize<JsonElement>(JsonSerializer.Serialize(matchedOption));
-                    optionLabel = optionObj.TryGetProperty("label", out JsonElement labelElement) 
-                        ? labelElement.GetString() 
+                    optionLabel = optionObj.TryGetProperty("label", out JsonElement labelElement)
+                        ? labelElement.GetString()
                         : null;
-                    
+
                     if (string.IsNullOrEmpty(optionLabel))
                     {
                         try
@@ -463,7 +463,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                         }
                         catch { }
                     }
-                    
+
                     isOtherOption = IsOtherOption(matchedOption);
                 }
                 catch
@@ -482,7 +482,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                 var otherValues = ExtractOtherValues(responseText, questionId);
                 // Try multiple ways to find custom value
                 string customValue = null;
-                
+
                 if (otherValues.TryGetValue(answerStr, out customValue) ||
                     otherValues.TryGetValue("other", out customValue) ||
                     (hasMatchedOption && otherValues.TryGetValue(answerStr, out customValue)))
@@ -493,7 +493,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                 else if (hasMatchedOption)
                 {
                     var optionValue = answerStr;
-                    var matchingKey = otherValues.Keys.FirstOrDefault(k => 
+                    var matchingKey = otherValues.Keys.FirstOrDefault(k =>
                         k.Contains(questionId) && k.Contains(optionValue));
                     if (matchingKey != null)
                     {
@@ -626,7 +626,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                         {
                             // Try multiple ways to find custom value
                             string customValue = null;
-                            
+
                             // Direct match with value (option ID or "other")
                             if (otherValues.TryGetValue(value, out customValue) ||
                                 otherValues.TryGetValue("other", out customValue))
@@ -636,7 +636,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                             // Find key containing questionId and option value
                             else if (!string.IsNullOrEmpty(questionId))
                             {
-                                var matchingKey = otherValues.Keys.FirstOrDefault(k => 
+                                var matchingKey = otherValues.Keys.FirstOrDefault(k =>
                                     k.Contains(questionId) && k.Contains(value));
                                 if (matchingKey != null)
                                 {
@@ -678,7 +678,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                         {
                             // Try multiple ways to find custom value
                             string customValue = null;
-                            
+
                             // Direct match with value or "other"
                             if (otherValues.TryGetValue(value, out customValue) ||
                                 otherValues.TryGetValue("other", out customValue))
@@ -689,12 +689,12 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                             else if (!string.IsNullOrEmpty(questionId))
                             {
                                 // Try to find key that starts with questionId or baseQuestionId
-                                var baseQuestionId = questionId.Contains("_row-") 
+                                var baseQuestionId = questionId.Contains("_row-")
                                     ? questionId.Split(new[] { "_row-" }, StringSplitOptions.None)[0].Split('_')[0]
                                     : questionId.Split('_')[0];
-                                
-                                var matchingKey = otherValues.Keys.FirstOrDefault(k => 
-                                    k.StartsWith(questionId + "_") || 
+
+                                var matchingKey = otherValues.Keys.FirstOrDefault(k =>
+                                    k.StartsWith(questionId + "_") ||
                                     k.StartsWith(baseQuestionId + "_") ||
                                     k.Contains(questionId) ||
                                     k.Contains(baseQuestionId));
@@ -715,14 +715,14 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                             {
                                 customValue = otherValues.Values.First();
                             }
-                            
-                            labels.Add(!string.IsNullOrEmpty(customValue) 
-                                ? $"Other: {customValue}" 
+
+                            labels.Add(!string.IsNullOrEmpty(customValue)
+                                ? $"Other: {customValue}"
                                 : "Other");
-                    }
-                    else
-                    {
-                        labels.Add(value);
+                        }
+                        else
+                        {
+                            labels.Add(value);
                         }
                     }
                 }
@@ -831,12 +831,12 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                     if (columnMap.TryGetValue(id, out string label))
                     {
                         // If it's an Other type column, prioritize showing user input value
-                        if (otherColumnIds.Contains(id) || idLower.Contains("other") || 
+                        if (otherColumnIds.Contains(id) || idLower.Contains("other") ||
                             (label != null && label.ToLower().Contains("other")))
                         {
                             // Try multiple matching ways to find custom value
                             string customValue = null;
-                            
+
                             // Direct match column ID in various formats
                             if (otherValues.TryGetValue(id, out customValue) ||
                                 otherValues.TryGetValue($"column-{id}", out customValue) ||
@@ -849,7 +849,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                             // Try matching full key format: questionId_rowId_columnId
                             else if (!string.IsNullOrEmpty(questionId))
                             {
-                                var matchingKey = otherValues.Keys.FirstOrDefault(k => 
+                                var matchingKey = otherValues.Keys.FirstOrDefault(k =>
                                     k.EndsWith($"_{id}") || k == $"{questionId}_{id}");
                                 if (matchingKey != null)
                                 {
@@ -913,7 +913,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                         {
                             // Try multiple ways to find custom value
                             string customValue = null;
-                            
+
                             if (otherValues.TryGetValue(id, out customValue) ||
                                 otherValues.TryGetValue($"column-other-{id}", out customValue) ||
                                 otherValues.TryGetValue($"column-{id}", out customValue))
@@ -925,20 +925,20 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                                 // Find key containing "other"
                                 var otherEntry = otherValues.FirstOrDefault(kvp =>
                                     kvp.Key.ToLower().Contains("other") &&
-                                    (kvp.Key.ToLower().Contains(idLower) || 
-                                     kvp.Key.ToLower().EndsWith("other") || 
+                                    (kvp.Key.ToLower().Contains(idLower) ||
+                                     kvp.Key.ToLower().EndsWith("other") ||
                                      kvp.Key.ToLower().Contains("column-other-")));
                                 customValue = otherEntry.Value;
                             }
-                            
+
                             // If still not found, use first value or "Other"
                             if (string.IsNullOrEmpty(customValue) && otherValues.Count > 0)
                             {
                                 customValue = otherValues.Values.First();
                             }
-                            
-                            labels.Add(!string.IsNullOrEmpty(customValue) 
-                                ? $"Other: {customValue}" 
+
+                            labels.Add(!string.IsNullOrEmpty(customValue)
+                                ? $"Other: {customValue}"
                                 : "Other");
                         }
                         else
@@ -949,7 +949,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                                 k.ToLower().Contains($"column-other-{idLower}") ||
                                 k.ToLower().Contains($"_{idLower}_") ||
                                 k.ToLower().EndsWith($"_{idLower}"));
-                            
+
                             if (hasRelatedOther)
                             {
                                 var matchingEntry = otherValues.FirstOrDefault(kvp =>
@@ -958,13 +958,13 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                                     kvp.Key.ToLower().Contains($"_{idLower}_") ||
                                     kvp.Key.ToLower().EndsWith($"_{idLower}"));
                                 var customValue = matchingEntry.Value;
-                                labels.Add(!string.IsNullOrEmpty(customValue) 
-                                    ? $"Other: {customValue}" 
+                                labels.Add(!string.IsNullOrEmpty(customValue)
+                                    ? $"Other: {customValue}"
                                     : id);
                             }
                             else
                             {
-                        labels.Add(id);
+                                labels.Add(id);
                             }
                         }
                     }
@@ -1003,7 +1003,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                     {
                         // Use JsonElement directly for safer access
                         var configObj = JsonSerializer.Deserialize<JsonElement>(JsonSerializer.Serialize(questionConfig));
-                        if (configObj.TryGetProperty("rows", out JsonElement rowsElement) && 
+                        if (configObj.TryGetProperty("rows", out JsonElement rowsElement) &&
                             rowsElement.ValueKind == JsonValueKind.Array)
                         {
                             foreach (var rowElement in rowsElement.EnumerateArray())
@@ -1012,23 +1012,23 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                                 {
                                     string id = null;
                                     string label = null;
-                                    
+
                                     // Extract id property
                                     if (rowElement.TryGetProperty("id", out JsonElement idElement))
                                     {
-                                        id = idElement.ValueKind == JsonValueKind.String 
-                                            ? idElement.GetString() 
+                                        id = idElement.ValueKind == JsonValueKind.String
+                                            ? idElement.GetString()
                                             : idElement.ToString();
                                     }
-                                    
+
                                     // Extract label property
                                     if (rowElement.TryGetProperty("label", out JsonElement labelElement))
                                     {
-                                        label = labelElement.ValueKind == JsonValueKind.String 
-                                            ? labelElement.GetString() 
+                                        label = labelElement.ValueKind == JsonValueKind.String
+                                            ? labelElement.GetString()
                                             : labelElement.ToString();
                                     }
-                                    
+
                                     if (!string.IsNullOrEmpty(id) && !string.IsNullOrEmpty(label))
                                     {
                                         rowIdToLabel[id] = label;
@@ -1051,14 +1051,14 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
 
                 // Group values by row ID
                 var rowValues = new Dictionary<string, List<string>>();
-                
+
                 foreach (KeyValuePair<string, string> kvp in parsed)
                 {
                     try
-                {
-                    var parts = kvp.Key.Split('_');
+                    {
+                        var parts = kvp.Key.Split('_');
                         string rowId = null;
-                        
+
                         // Handle format: questionId_rowId_columnId (3 parts)
                         if (parts.Length >= 3)
                         {
@@ -1067,9 +1067,9 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                         // Handle format with "row-" prefix
                         else if (parts.Length > 0)
                         {
-                    var rowPart = parts.FirstOrDefault((Func<string, bool>)(p => p.StartsWith("row-")));
-                    if (!string.IsNullOrEmpty(rowPart))
-                    {
+                            var rowPart = parts.FirstOrDefault((Func<string, bool>)(p => p.StartsWith("row-")));
+                            if (!string.IsNullOrEmpty(rowPart))
+                            {
                                 rowId = rowPart;
                             }
                             else if (parts.Length == 2)
@@ -1078,12 +1078,12 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                                 rowId = parts[1];
                             }
                         }
-                        
+
                         if (!string.IsNullOrEmpty(rowId))
                         {
-                        var value = kvp.Value?.ToString()?.Trim();
-                        if (!string.IsNullOrEmpty(value))
-                        {
+                            var value = kvp.Value?.ToString()?.Trim();
+                            if (!string.IsNullOrEmpty(value))
+                            {
                                 if (!rowValues.ContainsKey(rowId))
                                 {
                                     rowValues[rowId] = new List<string>();
@@ -1109,7 +1109,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                 {
                     var rowId = kvp.Key;
                     var values = kvp.Value;
-                    
+
                     // Get row label
                     string rowLabel = null;
                     if (rowIdToLabel.TryGetValue(rowId, out string label))
@@ -1119,7 +1119,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                     else if (rowId.StartsWith("row-"))
                     {
                         rowLabel = rowId.Replace("row-", "");
-                        }
+                    }
                     else
                     {
                         // Use a more user-friendly label
@@ -1142,7 +1142,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                             rowLabel = $"Row {rowId}";
                         }
                     }
-                    
+
                     // Join multiple values for the same row
                     var valuesStr = string.Join(", ", values);
                     results.Add($"{rowLabel}: {valuesStr}");
@@ -1168,7 +1168,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                 }
                 Exception exception = ex; // Explicit type to avoid dynamic dispatch issue
                 _logger.LogWarning(exception, "Failed to format short answer grid. ResponseText: {ResponseText}", responseTextPreview);
-                
+
                 // Try to return at least some information
                 try
                 {
@@ -1512,9 +1512,9 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
             try
             {
                 var parsed = ParseResponseText(responseText);
-                
+
                 // Extract base questionId (remove row info, e.g., question-xxx_row-xxx -> question-xxx)
-                var baseQuestionId = questionId.Contains("_row-") 
+                var baseQuestionId = questionId.Contains("_row-")
                     ? questionId.Split(new[] { "_row-" }, StringSplitOptions.None)[0].Split('_')[0]
                     : questionId.Split('_')[0];
 
@@ -1525,11 +1525,11 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                         continue;
 
                     var customValue = kvp.Value;
-                        var parts = kvp.Key.Split('_');
+                    var parts = kvp.Key.Split('_');
 
                     // Store full key for exact matching
                     otherValues[kvp.Key] = customValue;
-                    
+
                     // Always store "other" as fallback if we have a matching key
                     if (!otherValues.ContainsKey("other"))
                     {
@@ -1574,14 +1574,14 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
 
                     // Format 4: Contains option- format
                     var optionPart = parts.FirstOrDefault(p => p.StartsWith("option-"));
-                        if (!string.IsNullOrEmpty(optionPart))
-                        {
+                    if (!string.IsNullOrEmpty(optionPart))
+                    {
                         var optionId = optionPart.Replace("option-", "");
                         otherValues[optionPart] = customValue;
                         otherValues[optionId] = customValue;
                         var alternativeKey = optionPart.Replace("option-", "option_");
                         otherValues[alternativeKey] = customValue;
-                        }
+                    }
 
                     // Store last part (usually ID) for matching
                     if (parts.Length > 0)
@@ -1731,9 +1731,9 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                 {
                     var dict1 = ParseResponseText(responseText1?.Trim() ?? string.Empty);
                     var dict2 = ParseResponseText(responseText2?.Trim() ?? string.Empty);
-                    
+
                     if (dict1.Count != dict2.Count) return false;
-                    
+
                     foreach (var kvp in dict1)
                     {
                         if (!dict2.TryGetValue(kvp.Key, out string value2) || kvp.Value != value2)
@@ -1741,7 +1741,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                             return false;
                         }
                     }
-                    
+
                     return true;
                 }
                 catch

@@ -107,7 +107,7 @@ namespace FlowFlex.Application.Services.OW
 
             // Use SafeUpdateOnboardingWithoutStagesProgressAsync to preserve stagesProgress
             var result = await SafeUpdateOnboardingWithoutStagesProgressAsync(entity, originalStagesProgressJson);
-            
+
             // Log start operation
             if (result)
             {
@@ -180,7 +180,7 @@ namespace FlowFlex.Application.Services.OW
 
             // Use SafeUpdateOnboardingWithoutStagesProgressAsync to preserve stagesProgress
             var result = await SafeUpdateOnboardingWithoutStagesProgressAsync(entity, originalStagesProgressJson);
-            
+
             // Log abort operation
             if (result)
             {
@@ -258,7 +258,7 @@ namespace FlowFlex.Application.Services.OW
             // CRITICAL: Use SafeUpdateOnboardingWithoutStagesProgressAsync to ensure stages_progress_json is NOT modified
             // This preserves all existing progress state (IsCompleted, Status, CompletionTime, etc.)
             var result = await SafeUpdateOnboardingWithoutStagesProgressAsync(entity, originalStagesProgressJson);
-            
+
             // Log reactivate operation
             if (result)
             {
@@ -334,7 +334,7 @@ namespace FlowFlex.Application.Services.OW
 
             // Use SafeUpdateOnboardingWithoutStagesProgressAsync to preserve stagesProgress
             var result = await SafeUpdateOnboardingWithoutStagesProgressAsync(entity, originalStagesProgressJson);
-            
+
             // Log resume operation
             if (result)
             {
@@ -419,7 +419,7 @@ namespace FlowFlex.Application.Services.OW
 
             // Use special update method that excludes stages_progress_json field
             var result = await SafeUpdateOnboardingWithoutStagesProgressAsync(entity, originalStagesProgressJson);
-            
+
             // Log force complete operation
             if (result)
             {
@@ -646,7 +646,7 @@ namespace FlowFlex.Application.Services.OW
                 return "[]";
             }
         }
-       
+
         /// <summary>
         /// Sync Onboarding fields to Static Field Values when Onboarding is updated
         /// </summary>

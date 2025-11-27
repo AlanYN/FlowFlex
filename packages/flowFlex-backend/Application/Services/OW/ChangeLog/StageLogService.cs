@@ -131,17 +131,17 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                         if (!string.IsNullOrEmpty(viewPermissionMode))
                         {
                             var permissionParts = new List<string> { viewPermissionMode };
-                            
+
                             if (!string.IsNullOrEmpty(viewTeamsSummary))
                             {
                                 permissionParts.Add($"view teams: {viewTeamsSummary}");
                             }
-                            
+
                             if (!string.IsNullOrEmpty(operateTeamsSummary))
                             {
                                 permissionParts.Add($"operate teams: {operateTeamsSummary}");
                             }
-                            
+
                             details.Add(string.Join("; ", permissionParts));
                         }
                         else
@@ -876,13 +876,13 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                     // Auto-detect ComponentsJson changes when changedFields is empty
                     var beforeJson = JsonSerializer.Deserialize<JsonElement>(beforeData);
                     var afterJson = JsonSerializer.Deserialize<JsonElement>(afterData);
-                    
+
                     if (beforeJson.TryGetProperty("ComponentsJson", out var beforeComponents) &&
                         afterJson.TryGetProperty("ComponentsJson", out var afterComponents))
                     {
                         var beforeComponentsStr = beforeComponents.ValueKind == JsonValueKind.Null ? null : beforeComponents.GetString();
                         var afterComponentsStr = afterComponents.ValueKind == JsonValueKind.Null ? null : afterComponents.GetString();
-                        
+
                         // Check if ComponentsJson changed
                         if (beforeComponentsStr != afterComponentsStr)
                         {

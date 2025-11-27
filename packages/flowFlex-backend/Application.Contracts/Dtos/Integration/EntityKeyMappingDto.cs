@@ -23,16 +23,16 @@ public class CreateEntityKeyMappingDto
 {
     [Required(ErrorMessage = "Key field name is required")]
     public string KeyFieldName { get; set; } = string.Empty;
-    
+
     [Required(ErrorMessage = "Key field type is required")]
     public EntityKeyType KeyFieldType { get; set; }
-    
+
     [Required(ErrorMessage = "External key field is required")]
     public string ExternalKeyField { get; set; } = string.Empty;
-    
+
     [Required(ErrorMessage = "WFE key field is required")]
     public string WfeKeyField { get; set; } = string.Empty;
-    
+
     public Dictionary<string, object>? MappingRules { get; set; }
 }
 

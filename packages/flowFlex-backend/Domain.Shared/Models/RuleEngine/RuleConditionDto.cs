@@ -1,4 +1,5 @@
 namespace FlowFlex.Domain.Shared.Models.RuleEngine;
+
 public class RuleConditionDto
 {
     public long Id { get; set; }

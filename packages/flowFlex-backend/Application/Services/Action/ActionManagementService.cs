@@ -109,7 +109,8 @@ namespace FlowFlex.Application.Services.Action
             bool? isAssignmentChecklist = null,
             bool? isAssignmentQuestionnaire = null,
             bool? isAssignmentWorkflow = null,
-            bool? isTools = null)
+            bool? isTools = null,
+            long? integrationId = null)
         {
             // If querying System actions, ensure system predefined actions exist
             if (actionType == ActionTypeEnum.System)
@@ -125,7 +126,8 @@ namespace FlowFlex.Application.Services.Action
                 isAssignmentChecklist,
                 isAssignmentQuestionnaire,
                 isAssignmentWorkflow,
-                isTools);
+                isTools,
+                integrationId);
 
             // Get ActionDefinition DTO list
             var actionDtos = _mapper.Map<List<ActionDefinitionDto>>(data);
@@ -219,13 +221,13 @@ namespace FlowFlex.Application.Services.Action
                     // Extract url and method from ActionConfig for HttpApi actions
                     string httpUrl = null;
                     string httpMethod = null;
-                    
+
                     if (!string.IsNullOrEmpty(dto.ActionConfig))
                     {
                         try
                         {
                             var configJson = System.Text.Json.JsonSerializer.Deserialize<System.Text.Json.JsonElement>(dto.ActionConfig);
-                            
+
                             if (dto.ActionType == ActionTypeEnum.Python)
                             {
                                 if (configJson.TryGetProperty("sourceCode", out var sourceCodeElement))
@@ -399,33 +401,33 @@ namespace FlowFlex.Application.Services.Action
                     {
                         var originalConfig = originalActionConfig?.ToString();
                         var newConfig = dto.ActionConfig;
-                        
+
                         if (!string.IsNullOrEmpty(originalConfig) && !string.IsNullOrEmpty(newConfig))
                         {
                             var originalConfigJson = System.Text.Json.JsonSerializer.Deserialize<System.Text.Json.JsonElement>(originalConfig);
                             var newConfigJson = System.Text.Json.JsonSerializer.Deserialize<System.Text.Json.JsonElement>(newConfig);
-                            
+
                             // Check Python sourceCode changes
                             if (entity.ActionType == ActionTypeEnum.Python.ToString() || dto.ActionType == ActionTypeEnum.Python)
                             {
                                 var originalSourceCode = originalConfigJson.TryGetProperty("sourceCode", out var origSc) ? origSc.GetString() : null;
                                 var newSourceCode = newConfigJson.TryGetProperty("sourceCode", out var newSc) ? newSc.GetString() : null;
-                                
+
                                 if (originalSourceCode != newSourceCode)
                                 {
                                     changedFields.Add("SourceCode");
                                 }
                             }
-                            
+
                             // Check HttpApi url and method changes
                             if (entity.ActionType == ActionTypeEnum.HttpApi.ToString() || dto.ActionType == ActionTypeEnum.HttpApi)
                             {
                                 var originalUrl = originalConfigJson.TryGetProperty("url", out var origUrl) ? origUrl.GetString() : null;
                                 var newUrl = newConfigJson.TryGetProperty("url", out var newUrlEl) ? newUrlEl.GetString() : null;
-                                
+
                                 var originalMethod = originalConfigJson.TryGetProperty("method", out var origMethod) ? origMethod.GetString() : null;
                                 var newMethod = newConfigJson.TryGetProperty("method", out var newMethodEl) ? newMethodEl.GetString() : null;
-                                
+
                                 if (originalUrl != newUrl)
                                 {
                                     changedFields.Add("HttpUrl");
@@ -441,7 +443,7 @@ namespace FlowFlex.Application.Services.Action
                     {
                         _logger.LogDebug(ex, "Failed to detect specific ActionConfig field changes, using generic ActionConfig");
                     }
-                    
+
                     entity.ActionConfig = JToken.Parse(dto.ActionConfig ?? "{}");
                     // Only add "ActionConfig" if no specific fields were added
                     if (!changedFields.Contains("SourceCode") && !changedFields.Contains("HttpUrl") && !changedFields.Contains("HttpMethod"))
@@ -523,13 +525,13 @@ namespace FlowFlex.Application.Services.Action
                         string originalSourceCode = null;
                         string originalHttpUrl = null;
                         string originalHttpMethod = null;
-                        
+
                         if (originalActionConfig != null && !string.IsNullOrEmpty(originalActionConfig.ToString()))
                         {
                             try
                             {
                                 var originalConfigJson = System.Text.Json.JsonSerializer.Deserialize<System.Text.Json.JsonElement>(originalActionConfig.ToString());
-                                
+
                                 if (originalActionType == ActionTypeEnum.Python.ToString())
                                 {
                                     if (originalConfigJson.TryGetProperty("sourceCode", out var sourceCodeElement))
@@ -559,13 +561,13 @@ namespace FlowFlex.Application.Services.Action
                         string updatedSourceCode = null;
                         string updatedHttpUrl = null;
                         string updatedHttpMethod = null;
-                        
+
                         if (entity.ActionConfig != null && !string.IsNullOrEmpty(entity.ActionConfig.ToString()))
                         {
                             try
                             {
                                 var updatedConfigJson = System.Text.Json.JsonSerializer.Deserialize<System.Text.Json.JsonElement>(entity.ActionConfig.ToString());
-                                
+
                                 if (entity.ActionType == ActionTypeEnum.Python.ToString())
                                 {
                                     if (updatedConfigJson.TryGetProperty("sourceCode", out var sourceCodeElement))
@@ -1771,7 +1773,7 @@ namespace FlowFlex.Application.Services.Action
                                 var structureJson = questionnaire.Structure.ToString();
                                 if (string.IsNullOrEmpty(structureJson))
                                     continue;
-                                    
+
                                 var structureDoc = JsonDocument.Parse(structureJson);
                                 if (structureDoc.RootElement.TryGetProperty("sections", out var sections) &&
                                     sections.ValueKind == JsonValueKind.Array)

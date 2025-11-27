@@ -71,8 +71,8 @@ namespace FlowFlex.SqlSugarDB.Implements.Integration
 
             // Convert sortField from PascalCase to snake_case for database column name
             var dbSortField = SqlSugar.UtilMethods.ToUnderLine(sortField);
-            var orderByClause = sortDirection.ToLower() == "asc" 
-                ? $"{dbSortField} ASC" 
+            var orderByClause = sortDirection.ToLower() == "asc"
+                ? $"{dbSortField} ASC"
                 : $"{dbSortField} DESC";
 
             var items = await query

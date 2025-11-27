@@ -52,8 +52,8 @@ namespace FlowFlex.SqlSugarDB.Implements.Integration
         public async Task<List<InboundFieldMapping>> GetByIntegrationIdAndActionIdAsync(long integrationId, long actionId)
         {
             return await db.Queryable<InboundFieldMapping>()
-                .Where(x => x.IntegrationId == integrationId 
-                    && x.ActionId == actionId 
+                .Where(x => x.IntegrationId == integrationId
+                    && x.ActionId == actionId
                     && x.IsValid)
                 .OrderBy(x => x.SortOrder)
                 .ToListAsync();
@@ -65,9 +65,9 @@ namespace FlowFlex.SqlSugarDB.Implements.Integration
         public async Task<bool> ExistsAsync(long integrationId, long actionId, string externalFieldName, long? excludeId = null)
         {
             var query = db.Queryable<InboundFieldMapping>()
-                .Where(x => x.IntegrationId == integrationId 
-                    && x.ActionId == actionId 
-                    && x.ExternalFieldName == externalFieldName 
+                .Where(x => x.IntegrationId == integrationId
+                    && x.ActionId == actionId
+                    && x.ExternalFieldName == externalFieldName
                     && x.IsValid);
 
             if (excludeId.HasValue)

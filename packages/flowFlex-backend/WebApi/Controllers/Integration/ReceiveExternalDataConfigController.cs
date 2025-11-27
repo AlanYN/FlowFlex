@@ -152,8 +152,8 @@ namespace FlowFlex.WebApi.Controllers.Integration
             {
                 // Note: This method needs to be added to IReceiveExternalDataConfigService
                 // For now, return empty list
-                return Success(new 
-                { 
+                return Success(new
+                {
                     items = new List<object>(),
                     total = 0,
                     pageIndex,

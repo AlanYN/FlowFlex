@@ -9,17 +9,17 @@ public enum AuthenticationMethod
     /// API Key authentication
     /// </summary>
     ApiKey = 0,
-    
+
     /// <summary>
     /// Basic authentication (username + password)
     /// </summary>
     BasicAuth = 1,
-    
+
     /// <summary>
     /// OAuth 2.0 authentication
     /// </summary>
     OAuth2 = 2,
-    
+
     /// <summary>
     /// Bearer Token authentication
     /// </summary>

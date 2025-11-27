@@ -78,8 +78,8 @@ namespace FlowFlex.Application.Services.Integration
 
                 // Get field mappings by integration ID
                 var fieldMappings = await _fieldMappingRepository.GetByIntegrationIdAsync(integrationId);
-                var inboundFields = fieldMappings.Where(f => 
-                    f.SyncDirection == SyncDirection.ViewOnly || 
+                var inboundFields = fieldMappings.Where(f =>
+                    f.SyncDirection == SyncDirection.ViewOnly ||
                     f.SyncDirection == SyncDirection.Editable).ToList();
 
                 // TODO: Implement actual data sync logic
@@ -145,8 +145,8 @@ namespace FlowFlex.Application.Services.Integration
 
                 // Get field mappings by integration ID
                 var fieldMappings = await _fieldMappingRepository.GetByIntegrationIdAsync(integrationId);
-                var outboundFields = fieldMappings.Where(f => 
-                    f.SyncDirection == SyncDirection.OutboundOnly || 
+                var outboundFields = fieldMappings.Where(f =>
+                    f.SyncDirection == SyncDirection.OutboundOnly ||
                     f.SyncDirection == SyncDirection.Editable).ToList();
 
                 // TODO: Implement actual data sync logic

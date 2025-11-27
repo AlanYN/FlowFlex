@@ -9,22 +9,22 @@ public class InboundFieldMappingDto
     /// Action ID
     /// </summary>
     public long ActionId { get; set; }
-    
+
     /// <summary>
     /// Action name
     /// </summary>
     public string ActionName { get; set; } = string.Empty;
-    
+
     /// <summary>
     /// External system field name (API Name)
     /// </summary>
     public string ExternalFieldName { get; set; } = string.Empty;
-    
+
     /// <summary>
     /// WFE field ID (API Name)
     /// </summary>
     public string WfeFieldId { get; set; } = string.Empty;
-    
+
     /// <summary>
     /// WFE field display name
     /// </summary>

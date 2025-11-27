@@ -16,7 +16,7 @@ namespace FlowFlex.Application.Contracts.Dtos.Integration
         public bool AutoSync { get; set; }
         public int SyncInterval { get; set; }
         public DateTimeOffset? LastSyncDate { get; set; }
-        
+
         // Legacy fields (kept for backward compatibility)
         public bool ReceiveMasterData { get; set; }
         public bool ReceiveFields { get; set; }
@@ -52,7 +52,7 @@ namespace FlowFlex.Application.Contracts.Dtos.Integration
         public Dictionary<string, object> AttachmentSettings { get; set; } = new();
         public int SyncMode { get; set; }
         public string? WebhookUrl { get; set; }
-        
+
         // Legacy fields (kept for backward compatibility)
         public bool ShareMasterData { get; set; }
         public bool ShareFields { get; set; }

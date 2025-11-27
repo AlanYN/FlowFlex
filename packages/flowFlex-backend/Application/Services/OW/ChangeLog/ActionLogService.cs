@@ -232,7 +232,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
             string extendedData = null)
         {
             var operationTitle = $"Action Created: {actionName}";
-            
+
             // Build enhanced description with field details
             var operationDescription = $"Action '{actionName}' has been created by {customOperatorName}";
             if (!string.IsNullOrEmpty(afterData))
@@ -247,7 +247,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                     relatedEntityId: null,
                     relatedEntityType: null,
                     reason: null);
-                
+
                 if (!string.IsNullOrEmpty(enhancedDescription) && enhancedDescription != operationDescription)
                 {
                     operationDescription = enhancedDescription;

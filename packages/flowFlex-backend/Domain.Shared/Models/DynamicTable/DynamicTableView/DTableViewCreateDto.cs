@@ -3,6 +3,7 @@ using System.ComponentModel.DataAnnotations;
 using FlowFlex.Domain.Shared.Enums;
 
 namespace FlowFlex.Domain.Shared.Models;
+
 public class DTableViewCreateDto
 {
 
