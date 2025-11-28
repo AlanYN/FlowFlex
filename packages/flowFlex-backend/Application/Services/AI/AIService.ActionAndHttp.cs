@@ -1625,6 +1625,10 @@ Please return the results in JSON format with the following structure:
         /// </summary>
         private async IAsyncEnumerable<string> CallOpenAIStreamForActionAsync(string prompt, AIModelConfig config)
         {
+            // Check if using Item Gateway
+            var isItemGateway = !string.IsNullOrEmpty(config.BaseUrl) &&
+                              config.BaseUrl.Contains("aiop-gateway.item.com", StringComparison.OrdinalIgnoreCase);
+
             var requestBody = new
             {
                 model = config.ModelName,
@@ -1641,13 +1645,47 @@ Please return the results in JSON format with the following structure:
             var json = JsonSerializer.Serialize(requestBody);
             var httpContent = new StringContent(json, Encoding.UTF8, "application/json");
 
-            var baseUrl = config.BaseUrl.TrimEnd('/');
-            var apiUrl = baseUrl.EndsWith("/chat/completions") ? baseUrl : $"{baseUrl}/v1/chat/completions";
+            string apiUrl;
+            string? jwtToken = null;
+
+            if (isItemGateway)
+            {
+                // Use Item Gateway path: /openai/v1/chat/completions
+                var baseUrl = string.IsNullOrEmpty(config.BaseUrl)
+                    ? "https://aiop-gateway.item.com"
+                    : config.BaseUrl.TrimEnd('/');
+                apiUrl = $"{baseUrl}/openai/v1/chat/completions";
+
+                // Get JWT token for Item Gateway
+                string? errorMessage = null;
+                try
+                {
+                    jwtToken = await GetLLMGatewayJwtTokenAsync(config);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to obtain JWT token for Item Gateway streaming");
+                    errorMessage = "Failed to authenticate with Item Gateway. Please check your API key.";
+                }
+
+                // Check for authentication error and yield outside of catch block
+                if (!string.IsNullOrEmpty(errorMessage))
+                {
+                    yield return errorMessage;
+                    yield break;
+                }
+            }
+            else
+            {
+                // Standard OpenAI API path
+                var baseUrl = config.BaseUrl.TrimEnd('/');
+                apiUrl = baseUrl.EndsWith("/chat/completions") ? baseUrl : $"{baseUrl}/v1/chat/completions";
+            }
 
             _logger.LogInformation("OpenAI Action Stream API: {Url} - Model: {Model}", apiUrl, config.ModelName);
 
             // Call the streaming helper method
-            await foreach (var chunk in CallOpenAIStreamInternalAsync(apiUrl, httpContent, config))
+            await foreach (var chunk in CallOpenAIStreamInternalAsync(apiUrl, httpContent, config, jwtToken))
             {
                 yield return chunk;
             }
@@ -1656,7 +1694,7 @@ Please return the results in JSON format with the following structure:
         /// <summary>
         /// Internal OpenAI streaming method
         /// </summary>
-        private async IAsyncEnumerable<string> CallOpenAIStreamInternalAsync(string apiUrl, HttpContent httpContent, AIModelConfig config)
+        private async IAsyncEnumerable<string> CallOpenAIStreamInternalAsync(string apiUrl, HttpContent httpContent, AIModelConfig config, string? jwtToken = null)
         {
             HttpResponseMessage? response = null;
             Exception? requestException = null;
@@ -1668,7 +1706,9 @@ Please return the results in JSON format with the following structure:
                 {
                     Content = httpContent
                 };
-                request.Headers.Add("Authorization", $"Bearer {config.ApiKey}");
+                // Use JWT token if provided (for Item Gateway), otherwise use API key
+                var authToken = jwtToken ?? config.ApiKey;
+                request.Headers.Add("Authorization", $"Bearer {authToken}");
                 request.Headers.Add("Accept", "text/event-stream");
 
                 response = await httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead);
