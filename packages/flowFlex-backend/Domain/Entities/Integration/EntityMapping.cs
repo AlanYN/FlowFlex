@@ -15,7 +15,7 @@ public class EntityMapping : EntityBaseCreateInfo
     public long IntegrationId { get; set; }
 
     /// <summary>
-    /// External system ID (unique identifier in external system)
+    /// External system ID (unique identifier in external system, auto-generated using Snowflake ID)
     /// </summary>
     public string? SystemId { get; set; }
 

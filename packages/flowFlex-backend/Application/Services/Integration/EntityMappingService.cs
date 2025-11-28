@@ -10,6 +10,7 @@ using FlowFlex.Domain.Shared.Exceptions;
 using FlowFlex.Domain.Shared.Models;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
+using SqlSugar;
 
 namespace FlowFlex.Application.Services.Integration
 {
@@ -61,8 +62,8 @@ namespace FlowFlex.Application.Services.Integration
 
             var entity = _mapper.Map<EntityMapping>(input);
             entity.WorkflowIds = JsonConvert.SerializeObject(input.WorkflowIds);
-            // Generate SystemId automatically
-            entity.SystemId = Guid.NewGuid().ToString("N");
+            // Generate SystemId automatically using Snowflake ID
+            entity.SystemId = SnowFlakeSingle.Instance.NextId().ToString();
             entity.InitCreateInfo(_userContext);
 
             var id = await _entityMappingRepository.InsertReturnSnowflakeIdAsync(entity);
