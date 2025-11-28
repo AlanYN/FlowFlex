@@ -135,21 +135,37 @@
 					>
 						Test Connection
 					</el-button>
-					<div
-						v-if="integrationId !== 'new'"
-						class="flex items-center gap-2 px-3 py-1.5 rounded-md transition-colors"
-						:class="
-							integrationStatus === 1
-								? 'bg-success-light text-success'
-								: 'bg-danger-light text-danger'
-						"
-					>
-						<el-icon :class="integrationStatus === 1 ? 'text-success' : 'text-danger'">
-							<component :is="integrationStatus === 1 ? CircleCheck : CircleClose" />
-						</el-icon>
-						<span class="text-sm font-medium">
-							{{ integrationStatus === 1 ? 'Connected' : 'Not Connected' }}
-						</span>
+					<div v-if="integrationId !== 'new'" class="flex items-center">
+						<div
+							class="connection-status-container flex items-center"
+							:class="
+								integrationStatus === 1
+									? 'connection-status-success'
+									: 'connection-status-danger'
+							"
+						>
+							<div
+								class="flex items-center gap-2 px-3 py-1.5 rounded-md transition-colors"
+								:class="
+									integrationStatus === 1
+										? 'bg-success-light text-success'
+										: 'bg-danger-light text-danger'
+								"
+							>
+								<el-icon
+									:class="
+										integrationStatus === 1 ? 'text-success' : 'text-danger'
+									"
+								>
+									<component
+										:is="integrationStatus === 1 ? CircleCheck : CircleClose"
+									/>
+								</el-icon>
+								<span class="text-sm font-medium">
+									{{ integrationStatus === 1 ? 'Connected' : 'Not Connected' }}
+								</span>
+							</div>
+						</div>
 					</div>
 				</div>
 				<el-button
@@ -421,3 +437,30 @@ onMounted(() => {
 	initFormData();
 });
 </script>
+
+<style scoped lang="scss">
+.connection-status-container {
+	position: relative;
+
+	&::before {
+		content: '';
+		position: absolute;
+		left: -8px;
+		top: 50%;
+		transform: translateY(-50%);
+		width: 0;
+		height: 0;
+		border-style: solid;
+		border-width: 6px 8px 6px 0;
+		z-index: 1;
+	}
+
+	&.connection-status-success::before {
+		border-color: transparent var(--el-color-success-light-7) transparent transparent;
+	}
+
+	&.connection-status-danger::before {
+		border-color: transparent var(--el-color-danger-light-7) transparent transparent;
+	}
+}
+</style>

@@ -202,6 +202,7 @@ export enum TriggerTypeEnum {
 	Task = 'Task',
 	Questionnaire = 'Question',
 	Workflow = 'Workflow',
+	Integration = 'Integration',
 }
 
 export enum WFEMoudels {
