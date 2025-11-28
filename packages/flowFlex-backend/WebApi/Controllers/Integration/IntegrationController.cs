@@ -139,17 +139,6 @@ namespace FlowFlex.WebApi.Controllers.Integration
         }
 
         /// <summary>
-        /// Get outbound configuration overview
-        /// </summary>
-        [HttpGet("{integrationId}/outbound-overview")]
-        [ProducesResponseType<SuccessResponse<List<OutboundConfigurationOverviewDto>>>((int)HttpStatusCode.OK)]
-        public async Task<IActionResult> GetOutboundOverview(long integrationId)
-        {
-            var data = await _integrationService.GetOutboundOverviewAsync(integrationId);
-            return Success(data);
-        }
-
-        /// <summary>
         /// Get inbound field mappings by action ID (read-only view)
         /// </summary>
         [HttpGet("{integrationId}/actions/{actionId}/inbound/field-mappings")]

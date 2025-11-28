@@ -85,7 +85,7 @@ namespace FlowFlex.WebApi.Controllers.Action
         public async Task<IActionResult> GetPagedActionDefinitions(string? search,
             ActionTypeEnum? actionType,
             int pageIndex = 1,
-            int pageSize = 10,
+            int? pageSize = null,
             bool? isAssignmentStage = null,
             bool? isAssignmentChecklist = null,
             bool? isAssignmentQuestionnaire = null,
@@ -101,10 +101,13 @@ namespace FlowFlex.WebApi.Controllers.Action
                 isTools = null; // Ignore isTools when isSystemTools is true
             }
 
+            // If pageSize is not provided, return all data (use int.MaxValue)
+            var effectivePageSize = pageSize ?? int.MaxValue;
+
             var result = await _actionManagementService.GetPagedActionDefinitionsAsync(search,
                 actionType,
                 pageIndex,
-                pageSize,
+                effectivePageSize,
                 isAssignmentStage,
                 isAssignmentChecklist,
                 isAssignmentQuestionnaire,

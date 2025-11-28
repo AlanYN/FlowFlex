@@ -41,7 +41,6 @@ namespace FlowFlex.Application.Maps
                 .ForMember(dest => dest.FieldMappings, opt => opt.Ignore())
                 .ForMember(dest => dest.IntegrationActions, opt => opt.Ignore())
                 .ForMember(dest => dest.QuickLinks, opt => opt.Ignore())
-                .ForMember(dest => dest.SyncLogs, opt => opt.Ignore())
                 .ForMember(dest => dest.InboundAttachments, opt => opt.Ignore())
                 .ForMember(dest => dest.OutboundAttachments, opt => opt.Ignore());
 
@@ -60,7 +59,6 @@ namespace FlowFlex.Application.Maps
                 .ForMember(dest => dest.CreateUserId, opt => opt.Ignore())
                 .ForMember(dest => dest.ModifyUserId, opt => opt.Ignore())
                 .ForMember(dest => dest.Integration, opt => opt.Ignore())
-                .ForMember(dest => dest.KeyMappings, opt => opt.Ignore())
                 .ForMember(dest => dest.FieldMappings, opt => opt.Ignore());
 
             // InboundFieldMapping mappings
@@ -87,36 +85,6 @@ namespace FlowFlex.Application.Maps
             CreateMap<QuickLinkInputDto, QuickLink>()
                 .ForMember(dest => dest.Id, opt => opt.Ignore())
                 .ForMember(dest => dest.UrlParameters, opt => opt.Ignore())
-                .ForMember(dest => dest.IsValid, opt => opt.Ignore())
-                .ForMember(dest => dest.CreateDate, opt => opt.Ignore())
-                .ForMember(dest => dest.ModifyDate, opt => opt.Ignore())
-                .ForMember(dest => dest.CreateBy, opt => opt.Ignore())
-                .ForMember(dest => dest.ModifyBy, opt => opt.Ignore())
-                .ForMember(dest => dest.CreateUserId, opt => opt.Ignore())
-                .ForMember(dest => dest.ModifyUserId, opt => opt.Ignore())
-                .ForMember(dest => dest.Integration, opt => opt.Ignore());
-
-            // IntegrationSyncLog mappings
-            CreateMap<IntegrationSyncLog, IntegrationSyncLogOutputDto>();
-            CreateMap<IntegrationSyncLogInputDto, IntegrationSyncLog>()
-                .ForMember(dest => dest.Id, opt => opt.Ignore())
-                .ForMember(dest => dest.CreateDate, opt => opt.Ignore())
-                .ForMember(dest => dest.ModifyDate, opt => opt.Ignore())
-                .ForMember(dest => dest.CreateBy, opt => opt.Ignore())
-                .ForMember(dest => dest.ModifyBy, opt => opt.Ignore())
-                .ForMember(dest => dest.CreateUserId, opt => opt.Ignore())
-                .ForMember(dest => dest.ModifyUserId, opt => opt.Ignore())
-                .ForMember(dest => dest.IsValid, opt => opt.Ignore());
-
-            // ReceiveExternalDataConfig mappings (V2)
-            CreateMap<ReceiveExternalDataConfig, ReceiveExternalDataConfigOutputDto>()
-                .ForMember(dest => dest.TriggerWorkflowName, opt => opt.Ignore())
-                .ForMember(dest => dest.FieldMappings, opt => opt.Ignore());
-
-            CreateMap<ReceiveExternalDataConfigInputDto, ReceiveExternalDataConfig>()
-                .ForMember(dest => dest.Id, opt => opt.Ignore())
-                .ForMember(dest => dest.IntegrationId, opt => opt.Ignore())
-                .ForMember(dest => dest.FieldMappingConfig, opt => opt.Ignore())
                 .ForMember(dest => dest.IsValid, opt => opt.Ignore())
                 .ForMember(dest => dest.CreateDate, opt => opt.Ignore())
                 .ForMember(dest => dest.ModifyDate, opt => opt.Ignore())

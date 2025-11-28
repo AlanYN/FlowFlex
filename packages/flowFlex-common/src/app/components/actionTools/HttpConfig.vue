@@ -3412,13 +3412,15 @@ html.dark .test-section {
 }
 
 .ai-chat-container {
-	@apply flex flex-col h-96;
+	@apply flex flex-col;
+	min-height: 24rem; /* 最小高度 */
 }
 
 .ai-chat-messages {
-	max-height: 300px;
+	height: 300px; /* 固定高度，不随textarea变化 */
+	flex-shrink: 0; /* 禁止收缩 */
 	background: var(--el-fill-color-lighter);
-	@apply flex-1 overflow-y-auto p-4 space-y-4 rounded-lg mb-4 dark:bg-black-400;
+	@apply overflow-y-auto p-4 space-y-4 rounded-lg mb-4 dark:bg-black-400;
 }
 
 .ai-message {

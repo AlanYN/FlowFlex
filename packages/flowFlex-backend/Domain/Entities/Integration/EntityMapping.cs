@@ -53,12 +53,6 @@ public class EntityMapping : EntityBaseCreateInfo
     public virtual Integration? Integration { get; set; }
 
     /// <summary>
-    /// Entity key mappings
-    /// </summary>
-    [SugarColumn(IsIgnore = true)]
-    public virtual ICollection<EntityKeyMapping> KeyMappings { get; set; } = new List<EntityKeyMapping>();
-
-    /// <summary>
     /// Field mappings
     /// </summary>
     [SugarColumn(IsIgnore = true)]

@@ -61,11 +61,6 @@ namespace FlowFlex.Application.Contracts.IServices.Integration
         Task<List<IntegrationOutputDto>> GetActiveIntegrationsAsync();
 
         /// <summary>
-        /// Get outbound configuration overview for an integration
-        /// </summary>
-        Task<List<OutboundConfigurationOverviewDto>> GetOutboundOverviewAsync(long integrationId);
-
-        /// <summary>
         /// Get inbound field mappings by action ID (read-only view)
         /// </summary>
         Task<List<InboundFieldMappingDto>> GetInboundFieldMappingsByActionAsync(

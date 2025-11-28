@@ -118,11 +118,5 @@ public class Integration : EntityBaseCreateInfo
     /// </summary>
     [SugarColumn(IsIgnore = true)]
     public virtual ICollection<QuickLink> QuickLinks { get; set; } = new List<QuickLink>();
-
-    /// <summary>
-    /// Sync logs
-    /// </summary>
-    [SugarColumn(IsIgnore = true)]
-    public virtual ICollection<IntegrationSyncLog> SyncLogs { get; set; } = new List<IntegrationSyncLog>();
 }
 
