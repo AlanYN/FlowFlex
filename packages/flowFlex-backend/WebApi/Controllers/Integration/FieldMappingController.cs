@@ -69,17 +69,6 @@ namespace FlowFlex.WebApi.Controllers.Integration
         }
 
         /// <summary>
-        /// Get inbound field mappings by integration id
-        /// </summary>
-        [HttpGet("by-integration/{integrationId}")]
-        [ProducesResponseType<SuccessResponse<List<InboundFieldMappingOutputDto>>>((int)HttpStatusCode.OK)]
-        public async Task<IActionResult> GetByIntegrationId(long integrationId)
-        {
-            var data = await _fieldMappingService.GetByIntegrationIdAsync(integrationId);
-            return Success(data);
-        }
-
-        /// <summary>
         /// Get inbound field mappings by action id
         /// </summary>
         [HttpGet("by-action/{actionId}")]
@@ -91,24 +80,24 @@ namespace FlowFlex.WebApi.Controllers.Integration
         }
 
         /// <summary>
-        /// Get inbound field mappings by integration id and action id
+        /// Batch create inbound field mappings for an action
         /// </summary>
-        [HttpGet("by-integration-action")]
-        [ProducesResponseType<SuccessResponse<List<InboundFieldMappingOutputDto>>>((int)HttpStatusCode.OK)]
-        public async Task<IActionResult> GetByIntegrationIdAndActionId([FromQuery] long integrationId, [FromQuery] long actionId)
+        [HttpPost("batch/{actionId}")]
+        [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
+        public async Task<IActionResult> BatchCreate(long actionId, [FromBody] List<InboundFieldMappingInputDto> inputs)
         {
-            var data = await _fieldMappingService.GetByIntegrationIdAndActionIdAsync(integrationId, actionId);
-            return Success(data);
+            var result = await _fieldMappingService.BatchCreateAsync(actionId, inputs);
+            return Success(result);
         }
 
         /// <summary>
-        /// Batch create inbound field mappings
+        /// Delete all field mappings for an action
         /// </summary>
-        [HttpPost("batch")]
+        [HttpDelete("by-action/{actionId}")]
         [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
-        public async Task<IActionResult> BatchCreate([FromBody] List<InboundFieldMappingInputDto> inputs)
+        public async Task<IActionResult> DeleteByActionId(long actionId)
         {
-            var result = await _fieldMappingService.BatchUpdateAsync(inputs);
+            var result = await _fieldMappingService.DeleteByActionIdAsync(actionId);
             return Success(result);
         }
     }

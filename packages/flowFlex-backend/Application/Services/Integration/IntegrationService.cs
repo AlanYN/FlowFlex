@@ -29,9 +29,9 @@ namespace FlowFlex.Application.Services.Integration
         private readonly IIntegrationRepository _integrationRepository;
         private readonly IEntityMappingRepository _entityMappingRepository;
         private readonly IInboundFieldMappingRepository _fieldMappingRepository;
-        private readonly IInboundFieldMappingService _fieldMappingService;
         private readonly IQuickLinkRepository _quickLinkRepository;
         private readonly IActionDefinitionRepository _actionDefinitionRepository;
+        private readonly IActionTriggerMappingRepository _actionTriggerMappingRepository;
         private readonly ISqlSugarClient _sqlSugarClient;
         private readonly IHttpClientFactory _httpClientFactory;
         private readonly IMapper _mapper;
@@ -45,9 +45,9 @@ namespace FlowFlex.Application.Services.Integration
             IIntegrationRepository integrationRepository,
             IEntityMappingRepository entityMappingRepository,
             IInboundFieldMappingRepository fieldMappingRepository,
-            IInboundFieldMappingService fieldMappingService,
             IQuickLinkRepository quickLinkRepository,
             IActionDefinitionRepository actionDefinitionRepository,
+            IActionTriggerMappingRepository actionTriggerMappingRepository,
             ISqlSugarClient sqlSugarClient,
             IHttpClientFactory httpClientFactory,
             IMapper mapper,
@@ -57,9 +57,9 @@ namespace FlowFlex.Application.Services.Integration
             _integrationRepository = integrationRepository;
             _entityMappingRepository = entityMappingRepository;
             _fieldMappingRepository = fieldMappingRepository;
-            _fieldMappingService = fieldMappingService;
             _quickLinkRepository = quickLinkRepository;
             _actionDefinitionRepository = actionDefinitionRepository;
+            _actionTriggerMappingRepository = actionTriggerMappingRepository;
             _sqlSugarClient = sqlSugarClient;
             _httpClientFactory = httpClientFactory;
             _mapper = mapper;
@@ -311,95 +311,72 @@ namespace FlowFlex.Application.Services.Integration
                 }
             }
 
-            // Populate field mappings (separated by sync direction)
+            // Get field mappings through Action trigger mappings
+            // Find Actions that are triggered by this Integration (TriggerType = 'Integration', TriggerSourceId = IntegrationId)
             try
             {
-                var fieldMappings = await _fieldMappingRepository.GetByIntegrationIdAsync(id);
-                if (fieldMappings != null && fieldMappings.Any())
-                {
-                    // Get action info (name and code) for all associated action IDs
-                    var actionIds = fieldMappings
-                        .Where(fm => fm.ActionId.HasValue)
-                        .Select(fm => fm.ActionId!.Value)
-                        .Distinct()
-                        .ToList();
+                var integrationTriggerMappings = await _actionTriggerMappingRepository.GetByTriggerTypeAsync("Integration");
+                var relatedMappings = integrationTriggerMappings
+                    .Where(tm => tm.TriggerSourceId == id && tm.IsValid)
+                    .ToList();
 
-                    var actionInfos = new Dictionary<long, (string ActionName, string ActionCode)>();
-                    if (actionIds.Any())
+                if (relatedMappings.Any())
+                {
+                    var actionIds = relatedMappings.Select(tm => tm.ActionDefinitionId).Distinct().ToList();
+                    var inboundMappings = new List<ActionFieldMappingDto>();
+                    var outboundMappings = new List<ActionFieldMappingDto>();
+
+                    foreach (var actionId in actionIds)
                     {
-                        foreach (var actionId in actionIds)
+                        var action = await _actionDefinitionRepository.GetByIdAsync(actionId);
+                        if (action == null || !action.IsValid) continue;
+
+                        var fieldMappings = await _fieldMappingRepository.GetByActionIdAsync(actionId);
+                        
+                        foreach (var fm in fieldMappings)
                         {
-                            var action = await _actionDefinitionRepository.GetByIdAsync(actionId);
-                            if (action != null)
+                            var mappingDto = new ActionFieldMappingDto
                             {
-                                actionInfos[actionId] = (action.ActionName, action.ActionCode);
+                                Id = fm.Id,
+                                ActionId = fm.ActionId,
+                                ActionCode = action.ActionCode,
+                                ActionName = action.ActionName,
+                                ExternalFieldName = fm.ExternalFieldName,
+                                WfeFieldId = fm.WfeFieldId,
+                                WfeFieldName = fm.WfeFieldId,
+                                FieldType = fm.FieldType.ToString(),
+                                SyncDirection = fm.SyncDirection.ToString(),
+                                IsRequired = fm.IsRequired,
+                                DefaultValue = fm.DefaultValue,
+                                SortOrder = fm.SortOrder
+                            };
+
+                            // Inbound: ViewOnly or Editable
+                            if (fm.SyncDirection == SyncDirection.ViewOnly || fm.SyncDirection == SyncDirection.Editable)
+                            {
+                                inboundMappings.Add(mappingDto);
+                            }
+
+                            // Outbound: OutboundOnly or Editable
+                            if (fm.SyncDirection == SyncDirection.OutboundOnly || fm.SyncDirection == SyncDirection.Editable)
+                            {
+                                outboundMappings.Add(mappingDto);
                             }
                         }
                     }
 
-                    // Separate inbound and outbound field mappings based on SyncDirection
-                    // Inbound: ViewOnly, Editable (can receive data from external system)
-                    var inboundMappings = fieldMappings
-                        .Where(fm => fm.SyncDirection == SyncDirection.ViewOnly ||
-                                     fm.SyncDirection == SyncDirection.Editable)
-                        .OrderBy(fm => fm.SortOrder)
-                        .ToList();
-
-                    // Outbound: OutboundOnly, Editable (can send data to external system)
-                    var outboundMappings = fieldMappings
-                        .Where(fm => fm.SyncDirection == SyncDirection.OutboundOnly ||
-                                     fm.SyncDirection == SyncDirection.Editable)
-                        .OrderBy(fm => fm.SortOrder)
-                        .ToList();
-
-                    // Map inbound field mappings to ActionFieldMappingDto
-                    if (inboundMappings.Any())
-                    {
-                        dto.InboundFieldMappings = inboundMappings.Select(fm => new ActionFieldMappingDto
-                        {
-                            Id = fm.Id,
-                            ActionId = fm.ActionId,
-                            ActionCode = fm.ActionId.HasValue && actionInfos.ContainsKey(fm.ActionId.Value)
-                                ? actionInfos[fm.ActionId.Value].ActionCode : null,
-                            ActionName = fm.ActionId.HasValue && actionInfos.ContainsKey(fm.ActionId.Value)
-                                ? actionInfos[fm.ActionId.Value].ActionName : null,
-                            ExternalFieldName = fm.ExternalFieldName,
-                            WfeFieldId = fm.WfeFieldId,
-                            WfeFieldName = fm.WfeFieldId, // Use WfeFieldId as display name
-                            FieldType = fm.FieldType.ToString(),
-                            SyncDirection = fm.SyncDirection.ToString(),
-                            IsRequired = fm.IsRequired,
-                            DefaultValue = fm.DefaultValue,
-                            SortOrder = fm.SortOrder
-                        }).ToList();
-                    }
-
-                    // Map outbound field mappings to ActionFieldMappingDto
-                    if (outboundMappings.Any())
-                    {
-                        dto.OutboundFieldMappings = outboundMappings.Select(fm => new ActionFieldMappingDto
-                        {
-                            Id = fm.Id,
-                            ActionId = fm.ActionId,
-                            ActionCode = fm.ActionId.HasValue && actionInfos.ContainsKey(fm.ActionId.Value)
-                                ? actionInfos[fm.ActionId.Value].ActionCode : null,
-                            ActionName = fm.ActionId.HasValue && actionInfos.ContainsKey(fm.ActionId.Value)
-                                ? actionInfos[fm.ActionId.Value].ActionName : null,
-                            ExternalFieldName = fm.ExternalFieldName,
-                            WfeFieldId = fm.WfeFieldId,
-                            WfeFieldName = fm.WfeFieldId, // Use WfeFieldId as display name
-                            FieldType = fm.FieldType.ToString(),
-                            SyncDirection = fm.SyncDirection.ToString(),
-                            IsRequired = fm.IsRequired,
-                            DefaultValue = fm.DefaultValue,
-                            SortOrder = fm.SortOrder
-                        }).ToList();
-                    }
+                    dto.InboundFieldMappings = inboundMappings.OrderBy(m => m.SortOrder).ToList();
+                    dto.OutboundFieldMappings = outboundMappings.OrderBy(m => m.SortOrder).ToList();
+                }
+                else
+                {
+                    dto.InboundFieldMappings = new List<ActionFieldMappingDto>();
+                    dto.OutboundFieldMappings = new List<ActionFieldMappingDto>();
                 }
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, $"Failed to populate field mappings for integration {id}");
+                _logger.LogWarning(ex, $"Failed to get field mappings through action mapping for integration {id}");
                 dto.InboundFieldMappings = new List<ActionFieldMappingDto>();
                 dto.OutboundFieldMappings = new List<ActionFieldMappingDto>();
             }
@@ -728,23 +705,15 @@ namespace FlowFlex.Application.Services.Integration
         /// Get inbound field mappings by action ID (read-only view)
         /// </summary>
         public async Task<List<InboundFieldMappingDto>> GetInboundFieldMappingsByActionAsync(
-            long integrationId,
             long actionId,
             string? externalFieldName = null,
             string? wfeFieldName = null)
         {
-            // Verify integration exists
-            var integration = await _integrationRepository.GetByIdAsync(integrationId);
-            if (integration == null)
-            {
-                throw new CRMException(ErrorCodeEnum.NotFound, "Integration not found");
-            }
-
             var actionName = await GetActionNameAsync(actionId);
             var result = new List<InboundFieldMappingDto>();
 
-            // Get field mappings directly by integration ID and action ID
-            var fieldMappings = await _fieldMappingRepository.GetByIntegrationIdAndActionIdAsync(integrationId, actionId);
+            // Get field mappings by action ID
+            var fieldMappings = await _fieldMappingRepository.GetByActionIdAsync(actionId);
 
             // Filter for inbound fields (ViewOnly or Editable)
             var inboundFields = fieldMappings.Where(fm =>
@@ -784,22 +753,14 @@ namespace FlowFlex.Application.Services.Integration
         /// Uses FieldMapping table with OutboundOnly or Editable sync direction
         /// </summary>
         public async Task<List<OutboundSharedFieldDto>> GetOutboundSharedFieldsByActionAsync(
-            long integrationId,
             long actionId,
             string? fieldName = null)
         {
-            // Verify integration exists
-            var integration = await _integrationRepository.GetByIdAsync(integrationId);
-            if (integration == null)
-            {
-                throw new CRMException(ErrorCodeEnum.NotFound, "Integration not found");
-            }
-
             var actionName = await GetActionNameAsync(actionId);
             var result = new List<OutboundSharedFieldDto>();
 
-            // Get field mappings by integration ID and action ID
-            var fieldMappings = await _fieldMappingRepository.GetByIntegrationIdAndActionIdAsync(integrationId, actionId);
+            // Get field mappings by action ID
+            var fieldMappings = await _fieldMappingRepository.GetByActionIdAsync(actionId);
 
             // Filter for outbound fields (OutboundOnly or Editable)
             var outboundFields = fieldMappings.Where(fm =>

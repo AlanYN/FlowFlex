@@ -28,24 +28,19 @@ namespace FlowFlex.Application.Contracts.IServices.Integration
         Task<InboundFieldMappingOutputDto> GetByIdAsync(long id);
 
         /// <summary>
-        /// Get all field mappings for an integration
-        /// </summary>
-        Task<List<InboundFieldMappingOutputDto>> GetByIntegrationIdAsync(long integrationId);
-
-        /// <summary>
         /// Get field mappings by action ID
         /// </summary>
         Task<List<InboundFieldMappingOutputDto>> GetByActionIdAsync(long actionId);
 
         /// <summary>
-        /// Get field mappings by integration ID and action ID
+        /// Batch create field mappings for an action
         /// </summary>
-        Task<List<InboundFieldMappingOutputDto>> GetByIntegrationIdAndActionIdAsync(long integrationId, long actionId);
+        Task<bool> BatchCreateAsync(long actionId, List<InboundFieldMappingInputDto> inputs);
 
         /// <summary>
-        /// Batch update field mappings
+        /// Delete field mappings by action ID
         /// </summary>
-        Task<bool> BatchUpdateAsync(List<InboundFieldMappingInputDto> inputs);
+        Task<bool> DeleteByActionIdAsync(long actionId);
     }
 
     /// <summary>

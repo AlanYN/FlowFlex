@@ -64,7 +64,6 @@ namespace FlowFlex.Application.Contracts.IServices.Integration
         /// Get inbound field mappings by action ID (read-only view)
         /// </summary>
         Task<List<InboundFieldMappingDto>> GetInboundFieldMappingsByActionAsync(
-            long integrationId,
             long actionId,
             string? externalFieldName = null,
             string? wfeFieldName = null);
@@ -73,7 +72,6 @@ namespace FlowFlex.Application.Contracts.IServices.Integration
         /// Get outbound shared fields by action ID (read-only view)
         /// </summary>
         Task<List<OutboundSharedFieldDto>> GetOutboundSharedFieldsByActionAsync(
-            long integrationId,
             long actionId,
             string? fieldName = null);
 

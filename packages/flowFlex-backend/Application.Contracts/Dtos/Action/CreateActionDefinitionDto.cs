@@ -1,4 +1,5 @@
 ﻿using System.ComponentModel.DataAnnotations;
+using FlowFlex.Application.Contracts.Dtos.Integration;
 using FlowFlex.Domain.Shared.Enums.Action;
 
 namespace FlowFlex.Application.Contracts.Dtos.Action
@@ -65,5 +66,10 @@ namespace FlowFlex.Application.Contracts.Dtos.Action
         /// Defines where this action can be used or triggered
         /// </summary>
         public string ActionTriggerType { get; set; }
+
+        /// <summary>
+        /// Field mappings for Integration type actions
+        /// </summary>
+        public List<InboundFieldMappingInputDto>? FieldMappings { get; set; }
     }
 }

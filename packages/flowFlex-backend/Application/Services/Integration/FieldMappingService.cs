@@ -17,20 +17,17 @@ namespace FlowFlex.Application.Services.Integration
     public class InboundFieldMappingService : IInboundFieldMappingService, IScopedService
     {
         private readonly IInboundFieldMappingRepository _fieldMappingRepository;
-        private readonly IIntegrationRepository _integrationRepository;
         private readonly IMapper _mapper;
         private readonly UserContext _userContext;
         private readonly ILogger<InboundFieldMappingService> _logger;
 
         public InboundFieldMappingService(
             IInboundFieldMappingRepository fieldMappingRepository,
-            IIntegrationRepository integrationRepository,
             IMapper mapper,
             UserContext userContext,
             ILogger<InboundFieldMappingService> logger)
         {
             _fieldMappingRepository = fieldMappingRepository;
-            _integrationRepository = integrationRepository;
             _mapper = mapper;
             _userContext = userContext;
             _logger = logger;
@@ -43,26 +40,20 @@ namespace FlowFlex.Application.Services.Integration
                 throw new CRMException(ErrorCodeEnum.ParamInvalid, "Input cannot be null");
             }
 
-            // Validate integration exists
-            var integration = await _integrationRepository.GetByIdAsync(input.IntegrationId);
-            if (integration == null)
+            if (input.ActionId <= 0)
             {
-                throw new CRMException(ErrorCodeEnum.NotFound, "Integration not found");
+                throw new CRMException(ErrorCodeEnum.ParamInvalid, "ActionId is required");
             }
 
-            // Validate field mapping uniqueness if actionId is provided
-            if (input.ActionId.HasValue)
+            // Validate field mapping uniqueness
+            if (await _fieldMappingRepository.ExistsAsync(input.ActionId, input.ExternalFieldName))
             {
-                if (await _fieldMappingRepository.ExistsAsync(input.IntegrationId, input.ActionId.Value, input.ExternalFieldName))
-                {
-                    throw new CRMException(ErrorCodeEnum.BusinessError,
-                        $"Field mapping for '{input.ExternalFieldName}' already exists");
-                }
+                throw new CRMException(ErrorCodeEnum.BusinessError,
+                    $"Field mapping for '{input.ExternalFieldName}' already exists");
             }
 
             var entity = new InboundFieldMapping
             {
-                IntegrationId = input.IntegrationId,
                 ActionId = input.ActionId,
                 ExternalFieldName = input.ExternalFieldName,
                 WfeFieldId = input.WfeFieldId,
@@ -95,8 +86,7 @@ namespace FlowFlex.Application.Services.Integration
             }
 
             // Validate field mapping uniqueness (excluding current entity)
-            var actionId = input.ActionId ?? entity.ActionId;
-            if (actionId.HasValue && await _fieldMappingRepository.ExistsAsync(entity.IntegrationId, actionId.Value, input.ExternalFieldName, id))
+            if (await _fieldMappingRepository.ExistsAsync(entity.ActionId, input.ExternalFieldName, id))
             {
                 throw new CRMException(ErrorCodeEnum.BusinessError,
                     $"Field mapping for '{input.ExternalFieldName}' already exists");
@@ -109,7 +99,6 @@ namespace FlowFlex.Application.Services.Integration
             entity.SortOrder = input.SortOrder;
             entity.IsRequired = input.IsRequired;
             entity.DefaultValue = input.DefaultValue;
-            entity.ActionId = input.ActionId ?? entity.ActionId;
             entity.InitModifyInfo(_userContext);
 
             var result = await _fieldMappingRepository.UpdateAsync(entity);
@@ -149,44 +138,32 @@ namespace FlowFlex.Application.Services.Integration
             return MapToOutputDto(entity);
         }
 
-        public async Task<List<InboundFieldMappingOutputDto>> GetByIntegrationIdAsync(long integrationId)
-        {
-            var entities = await _fieldMappingRepository.GetByIntegrationIdAsync(integrationId);
-            return entities.Select(MapToOutputDto).OrderBy(d => d.SortOrder).ToList();
-        }
-
         public async Task<List<InboundFieldMappingOutputDto>> GetByActionIdAsync(long actionId)
         {
             var entities = await _fieldMappingRepository.GetByActionIdAsync(actionId);
             return entities.Select(MapToOutputDto).OrderBy(d => d.SortOrder).ToList();
         }
 
-        public async Task<List<InboundFieldMappingOutputDto>> GetByIntegrationIdAndActionIdAsync(long integrationId, long actionId)
-        {
-            var entities = await _fieldMappingRepository.GetByIntegrationIdAndActionIdAsync(integrationId, actionId);
-            return entities.Select(MapToOutputDto).OrderBy(d => d.SortOrder).ToList();
-        }
-
-        public async Task<bool> BatchUpdateAsync(List<InboundFieldMappingInputDto> inputs)
+        public async Task<bool> BatchCreateAsync(long actionId, List<InboundFieldMappingInputDto> inputs)
         {
             if (inputs == null || !inputs.Any())
             {
-                throw new CRMException(ErrorCodeEnum.ParamInvalid, "Input list cannot be null or empty");
+                return true; // No mappings to create
             }
 
             try
             {
+                var sortOrder = 0;
                 foreach (var input in inputs)
                 {
                     var entity = new InboundFieldMapping
                     {
-                        IntegrationId = input.IntegrationId,
-                        ActionId = input.ActionId,
+                        ActionId = actionId,
                         ExternalFieldName = input.ExternalFieldName,
                         WfeFieldId = input.WfeFieldId,
                         FieldType = input.FieldType,
                         SyncDirection = input.SyncDirection,
-                        SortOrder = input.SortOrder,
+                        SortOrder = input.SortOrder > 0 ? input.SortOrder : sortOrder++,
                         IsRequired = input.IsRequired,
                         DefaultValue = input.DefaultValue
                     };
@@ -194,15 +171,20 @@ namespace FlowFlex.Application.Services.Integration
                     await _fieldMappingRepository.InsertReturnSnowflakeIdAsync(entity);
                 }
 
-                _logger.LogInformation($"Batch created {inputs.Count} inbound field mappings");
+                _logger.LogInformation($"Batch created {inputs.Count} inbound field mappings for Action {actionId}");
 
                 return true;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error during batch update of inbound field mappings");
-                throw new CRMException(ErrorCodeEnum.SystemError, $"Batch update failed: {ex.Message}");
+                _logger.LogError(ex, "Error during batch create of inbound field mappings");
+                throw new CRMException(ErrorCodeEnum.SystemError, $"Batch create failed: {ex.Message}");
             }
+        }
+
+        public async Task<bool> DeleteByActionIdAsync(long actionId)
+        {
+            return await _fieldMappingRepository.DeleteByActionIdAsync(actionId);
         }
 
         private static InboundFieldMappingOutputDto MapToOutputDto(InboundFieldMapping entity)
@@ -210,6 +192,7 @@ namespace FlowFlex.Application.Services.Integration
             return new InboundFieldMappingOutputDto
             {
                 Id = entity.Id,
+                ActionId = entity.ActionId,
                 ExternalFieldName = entity.ExternalFieldName,
                 WfeFieldId = entity.WfeFieldId,
                 WfeFieldName = entity.WfeFieldId, // Use WfeFieldId as display name

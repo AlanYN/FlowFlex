@@ -90,14 +90,13 @@ namespace FlowFlex.SqlSugarDB.Migrations
             ");
             Console.WriteLine("✓ Created ff_entity_mapping table");
 
-            // 3. Create ff_inbound_field_mapping table
+            // 3. Create ff_inbound_field_mapping table (linked to Action, not Integration)
             db.Ado.ExecuteCommand(@"
                 CREATE TABLE IF NOT EXISTS ff_inbound_field_mapping (
                     id BIGINT NOT NULL PRIMARY KEY,
                     tenant_id VARCHAR(32) NOT NULL DEFAULT 'default',
                     app_code VARCHAR(32) NOT NULL DEFAULT 'DEFAULT',
-                    integration_id BIGINT NOT NULL,
-                    action_id BIGINT,
+                    action_id BIGINT NOT NULL,
                     external_field_name VARCHAR(100) NOT NULL,
                     wfe_field_id VARCHAR(100) NOT NULL,
                     field_type INTEGER NOT NULL DEFAULT 0,
@@ -111,14 +110,10 @@ namespace FlowFlex.SqlSugarDB.Migrations
                     create_by VARCHAR(50) DEFAULT 'SYSTEM',
                     modify_by VARCHAR(50) DEFAULT 'SYSTEM',
                     create_user_id BIGINT DEFAULT 0,
-                    modify_user_id BIGINT DEFAULT 0,
-                    CONSTRAINT fk_inbound_field_mapping_integration FOREIGN KEY (integration_id) 
-                        REFERENCES ff_integration(id) ON DELETE CASCADE
+                    modify_user_id BIGINT DEFAULT 0
                 );
 
-                CREATE INDEX IF NOT EXISTS idx_inbound_field_mapping_integration_id ON ff_inbound_field_mapping(integration_id);
                 CREATE INDEX IF NOT EXISTS idx_inbound_field_mapping_action_id ON ff_inbound_field_mapping(action_id);
-                CREATE INDEX IF NOT EXISTS idx_inbound_field_mapping_integration_action ON ff_inbound_field_mapping(integration_id, action_id);
             ");
             Console.WriteLine("✓ Created ff_inbound_field_mapping table");
 

@@ -11,6 +11,11 @@ namespace FlowFlex.Application.Contracts.Dtos.Integration
         public long Id { get; set; }
 
         /// <summary>
+        /// Action ID
+        /// </summary>
+        public long ActionId { get; set; }
+
+        /// <summary>
         /// External system field name
         /// </summary>
         public string ExternalFieldName { get; set; } = string.Empty;
@@ -57,4 +62,3 @@ namespace FlowFlex.Application.Contracts.Dtos.Integration
     [Obsolete("Use InboundFieldMappingOutputDto instead")]
     public class FieldMappingOutputDto : InboundFieldMappingOutputDto { }
 }
-

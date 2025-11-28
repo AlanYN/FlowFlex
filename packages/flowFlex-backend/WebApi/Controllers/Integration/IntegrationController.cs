@@ -141,16 +141,14 @@ namespace FlowFlex.WebApi.Controllers.Integration
         /// <summary>
         /// Get inbound field mappings by action ID (read-only view)
         /// </summary>
-        [HttpGet("{integrationId}/actions/{actionId}/inbound/field-mappings")]
+        [HttpGet("actions/{actionId}/inbound/field-mappings")]
         [ProducesResponseType<SuccessResponse<List<InboundFieldMappingDto>>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> GetInboundFieldMappingsByAction(
-            long integrationId,
             long actionId,
             [FromQuery] string? externalFieldName = null,
             [FromQuery] string? wfeFieldName = null)
         {
             var data = await _integrationService.GetInboundFieldMappingsByActionAsync(
-                integrationId,
                 actionId,
                 externalFieldName,
                 wfeFieldName);
@@ -160,15 +158,13 @@ namespace FlowFlex.WebApi.Controllers.Integration
         /// <summary>
         /// Get outbound shared fields by action ID (read-only view)
         /// </summary>
-        [HttpGet("{integrationId}/actions/{actionId}/outbound/shared-fields")]
+        [HttpGet("actions/{actionId}/outbound/shared-fields")]
         [ProducesResponseType<SuccessResponse<List<OutboundSharedFieldDto>>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> GetOutboundSharedFieldsByAction(
-            long integrationId,
             long actionId,
             [FromQuery] string? fieldName = null)
         {
             var data = await _integrationService.GetOutboundSharedFieldsByActionAsync(
-                integrationId,
                 actionId,
                 fieldName);
             return Success(data);

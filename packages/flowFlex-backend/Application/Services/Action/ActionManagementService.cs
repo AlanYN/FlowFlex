@@ -291,14 +291,16 @@ namespace FlowFlex.Application.Services.Action
                 }
             });
 
-            if (dto.WorkflowId.HasValue && dto.TriggerSourceId.HasValue && dto.TriggerType.HasValue)
+            // Create trigger mapping if TriggerSourceId and TriggerType are provided
+            // For Integration type, WorkflowId can be null/0
+            if (dto.TriggerSourceId.HasValue && dto.TriggerType.HasValue)
             {
                 try
                 {
                     var mappingDto = new CreateActionTriggerMappingDto
                     {
                         ActionDefinitionId = entity.Id,
-                        WorkFlowId = dto.WorkflowId.Value,
+                        WorkFlowId = dto.WorkflowId ?? 0,
                         TriggerSourceId = dto.TriggerSourceId.Value,
                         TriggerType = dto.TriggerType.ToString() ?? "",
                         StageId = 0,
@@ -308,13 +310,55 @@ namespace FlowFlex.Application.Services.Action
                     };
 
                     await CreateActionTriggerMappingAsync(mappingDto);
-                    _logger.LogInformation("Created action trigger mapping for action: {ActionId}, WorkflowId: {WorkflowId}, TriggerType: {TriggerType}",
-                        entity.Id, dto.WorkflowId.Value, dto.TriggerType);
+                    _logger.LogInformation("Created action trigger mapping for action: {ActionId}, TriggerSourceId: {TriggerSourceId}, TriggerType: {TriggerType}, WorkflowId: {WorkflowId}",
+                        entity.Id, dto.TriggerSourceId.Value, dto.TriggerType, dto.WorkflowId ?? 0);
                 }
                 catch (Exception ex)
                 {
                     _logger.LogWarning(ex, "Failed to create action trigger mapping for action: {ActionId}", entity.Id);
                 }
+            }
+
+            // Create Field Mappings if provided (for Integration type actions)
+            _logger.LogInformation("Checking field mappings for action {ActionId}. FieldMappings is null: {IsNull}, Count: {Count}", 
+                entity.Id, dto.FieldMappings == null, dto.FieldMappings?.Count ?? 0);
+            
+            if (dto.FieldMappings != null && dto.FieldMappings.Any())
+            {
+                try
+                {
+                    var sortOrder = 0;
+                    foreach (var fieldMapping in dto.FieldMappings)
+                    {
+                        _logger.LogInformation("Creating field mapping: ExternalFieldName={ExternalFieldName}, WfeFieldId={WfeFieldId}, FieldType={FieldType}, SyncDirection={SyncDirection}",
+                            fieldMapping.ExternalFieldName, fieldMapping.WfeFieldId, fieldMapping.FieldType, fieldMapping.SyncDirection);
+                        
+                        var fieldMappingEntity = new Domain.Entities.Integration.InboundFieldMapping
+                        {
+                            ActionId = entity.Id,
+                            ExternalFieldName = fieldMapping.ExternalFieldName,
+                            WfeFieldId = fieldMapping.WfeFieldId,
+                            FieldType = fieldMapping.FieldType,
+                            SyncDirection = fieldMapping.SyncDirection,
+                            SortOrder = fieldMapping.SortOrder > 0 ? fieldMapping.SortOrder : sortOrder++,
+                            IsRequired = fieldMapping.IsRequired,
+                            DefaultValue = fieldMapping.DefaultValue
+                        };
+                        fieldMappingEntity.InitCreateInfo(_userContext);
+                        var newId = await _fieldMappingRepository.InsertReturnSnowflakeIdAsync(fieldMappingEntity);
+                        _logger.LogInformation("Created field mapping with ID: {FieldMappingId} for action: {ActionId}", newId, entity.Id);
+                    }
+                    _logger.LogInformation("Created {Count} field mappings for action: {ActionId}", 
+                        dto.FieldMappings.Count, entity.Id);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to create field mappings for action: {ActionId}", entity.Id);
+                }
+            }
+            else
+            {
+                _logger.LogInformation("No field mappings to create for action: {ActionId}", entity.Id);
             }
 
             // Enrich with Integration data and Field Mappings
@@ -1919,19 +1963,18 @@ namespace FlowFlex.Application.Services.Action
                     {
                         actionDto.IntegrationId = integration.Id;
                         actionDto.IntegrationName = integration.Name;
-
-                        // Get Field Mappings associated with this action
-                        var fieldMappings = await _fieldMappingRepository.GetByIntegrationIdAndActionIdAsync(
-                            integration.Id, entity.Id);
-
-                        if (fieldMappings.Any())
-                        {
-                            actionDto.FieldMappings = fieldMappings
-                                .Select(MapToActionFieldMappingDto)
-                                .OrderBy(fm => fm.SortOrder)
-                                .ToList();
-                        }
                     }
+                }
+
+                // Get Field Mappings associated with this action (separate from integration lookup)
+                var fieldMappings = await _fieldMappingRepository.GetByActionIdAsync(entity.Id);
+
+                if (fieldMappings.Any())
+                {
+                    actionDto.FieldMappings = fieldMappings
+                        .Select(MapToActionFieldMappingDto)
+                        .OrderBy(fm => fm.SortOrder)
+                        .ToList();
                 }
             }
             catch (Exception ex)

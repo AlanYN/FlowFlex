@@ -38,7 +38,6 @@ namespace FlowFlex.Application.Maps
                 .ForMember(dest => dest.CreateUserId, opt => opt.Ignore())
                 .ForMember(dest => dest.ModifyUserId, opt => opt.Ignore())
                 .ForMember(dest => dest.EntityMappings, opt => opt.Ignore())
-                .ForMember(dest => dest.FieldMappings, opt => opt.Ignore())
                 .ForMember(dest => dest.IntegrationActions, opt => opt.Ignore())
                 .ForMember(dest => dest.QuickLinks, opt => opt.Ignore())
                 .ForMember(dest => dest.InboundAttachments, opt => opt.Ignore())
@@ -58,8 +57,7 @@ namespace FlowFlex.Application.Maps
                 .ForMember(dest => dest.ModifyBy, opt => opt.Ignore())
                 .ForMember(dest => dest.CreateUserId, opt => opt.Ignore())
                 .ForMember(dest => dest.ModifyUserId, opt => opt.Ignore())
-                .ForMember(dest => dest.Integration, opt => opt.Ignore())
-                .ForMember(dest => dest.FieldMappings, opt => opt.Ignore());
+                .ForMember(dest => dest.Integration, opt => opt.Ignore());
 
             // InboundFieldMapping mappings
             CreateMap<InboundFieldMapping, InboundFieldMappingOutputDto>()
@@ -75,8 +73,7 @@ namespace FlowFlex.Application.Maps
                 .ForMember(dest => dest.CreateBy, opt => opt.Ignore())
                 .ForMember(dest => dest.ModifyBy, opt => opt.Ignore())
                 .ForMember(dest => dest.CreateUserId, opt => opt.Ignore())
-                .ForMember(dest => dest.ModifyUserId, opt => opt.Ignore())
-                .ForMember(dest => dest.Integration, opt => opt.Ignore());
+                .ForMember(dest => dest.ModifyUserId, opt => opt.Ignore());
 
             // QuickLink mappings
             CreateMap<QuickLink, QuickLinkOutputDto>()

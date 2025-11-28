@@ -9,15 +9,9 @@ namespace FlowFlex.Application.Contracts.Dtos.Integration
     public class InboundFieldMappingInputDto
     {
         /// <summary>
-        /// Integration ID
-        /// </summary>
-        [Required]
-        public long IntegrationId { get; set; }
-
-        /// <summary>
         /// Action ID - associates this field mapping with a specific action
         /// </summary>
-        public long? ActionId { get; set; }
+        public long ActionId { get; set; }
 
         /// <summary>
         /// External system field name
@@ -68,4 +62,3 @@ namespace FlowFlex.Application.Contracts.Dtos.Integration
     [Obsolete("Use InboundFieldMappingInputDto instead")]
     public class FieldMappingInputDto : InboundFieldMappingInputDto { }
 }
-

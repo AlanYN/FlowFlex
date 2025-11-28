@@ -51,11 +51,5 @@ public class EntityMapping : EntityBaseCreateInfo
     /// </summary>
     [SugarColumn(IsIgnore = true)]
     public virtual Integration? Integration { get; set; }
-
-    /// <summary>
-    /// Field mappings
-    /// </summary>
-    [SugarColumn(IsIgnore = true)]
-    public virtual ICollection<InboundFieldMapping> FieldMappings { get; set; } = new List<InboundFieldMapping>();
 }
 

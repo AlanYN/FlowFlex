@@ -11,14 +11,10 @@ namespace FlowFlex.Domain.Entities.Integration;
 public class InboundFieldMapping : EntityBaseCreateInfo
 {
     /// <summary>
-    /// Integration ID
-    /// </summary>
-    public long IntegrationId { get; set; }
-
-    /// <summary>
     /// Action ID - associates this field mapping with a specific action
     /// </summary>
-    public long? ActionId { get; set; }
+    [SugarColumn(ColumnName = "action_id")]
+    public long ActionId { get; set; }
 
     /// <summary>
     /// External system field name
@@ -54,14 +50,6 @@ public class InboundFieldMapping : EntityBaseCreateInfo
     /// Default value for this field
     /// </summary>
     public string? DefaultValue { get; set; }
-
-    // Navigation Properties (ignored by SqlSugar)
-
-    /// <summary>
-    /// Parent integration
-    /// </summary>
-    [SugarColumn(IsIgnore = true)]
-    public virtual Integration? Integration { get; set; }
 }
 
 /// <summary>

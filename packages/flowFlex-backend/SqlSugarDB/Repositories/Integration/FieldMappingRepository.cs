@@ -25,17 +25,6 @@ namespace FlowFlex.SqlSugarDB.Implements.Integration
         }
 
         /// <summary>
-        /// Get field mappings by integration ID
-        /// </summary>
-        public async Task<List<InboundFieldMapping>> GetByIntegrationIdAsync(long integrationId)
-        {
-            return await db.Queryable<InboundFieldMapping>()
-                .Where(x => x.IntegrationId == integrationId && x.IsValid)
-                .OrderBy(x => x.SortOrder)
-                .ToListAsync();
-        }
-
-        /// <summary>
         /// Get field mappings by action ID
         /// </summary>
         public async Task<List<InboundFieldMapping>> GetByActionIdAsync(long actionId)
@@ -47,26 +36,12 @@ namespace FlowFlex.SqlSugarDB.Implements.Integration
         }
 
         /// <summary>
-        /// Get field mappings by integration ID and action ID
-        /// </summary>
-        public async Task<List<InboundFieldMapping>> GetByIntegrationIdAndActionIdAsync(long integrationId, long actionId)
-        {
-            return await db.Queryable<InboundFieldMapping>()
-                .Where(x => x.IntegrationId == integrationId
-                    && x.ActionId == actionId
-                    && x.IsValid)
-                .OrderBy(x => x.SortOrder)
-                .ToListAsync();
-        }
-
-        /// <summary>
         /// Check if field mapping exists by external field name
         /// </summary>
-        public async Task<bool> ExistsAsync(long integrationId, long actionId, string externalFieldName, long? excludeId = null)
+        public async Task<bool> ExistsAsync(long actionId, string externalFieldName, long? excludeId = null)
         {
             var query = db.Queryable<InboundFieldMapping>()
-                .Where(x => x.IntegrationId == integrationId
-                    && x.ActionId == actionId
+                .Where(x => x.ActionId == actionId
                     && x.ExternalFieldName == externalFieldName
                     && x.IsValid);
 
@@ -76,27 +51,6 @@ namespace FlowFlex.SqlSugarDB.Implements.Integration
             }
 
             return await query.AnyAsync();
-        }
-
-        /// <summary>
-        /// Delete field mappings by integration ID
-        /// </summary>
-        public async Task<bool> DeleteByIntegrationIdAsync(long integrationId)
-        {
-            var mappings = await db.Queryable<InboundFieldMapping>()
-                .Where(x => x.IntegrationId == integrationId)
-                .ToListAsync();
-
-            if (mappings.Any())
-            {
-                foreach (var mapping in mappings)
-                {
-                    mapping.IsValid = false;
-                }
-                return await db.Updateable(mappings).ExecuteCommandAsync() > 0;
-            }
-
-            return true;
         }
 
         /// <summary>
@@ -121,4 +75,3 @@ namespace FlowFlex.SqlSugarDB.Implements.Integration
         }
     }
 }
-

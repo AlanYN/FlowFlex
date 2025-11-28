@@ -205,10 +205,10 @@ namespace FlowFlex.WebApi.Controllers.Action
                     }
                 }
 
-                // Handle fieldMappings update - integrationId from result (populated from trigger_mappings)
-                if (requestData["fieldMappings"] != null && result.IntegrationId.HasValue)
+                // Handle fieldMappings update
+                if (requestData["fieldMappings"] != null)
                 {
-                    _logger.LogInformation("Processing fieldMappings update for Action {ActionId}, IntegrationId: {IntegrationId}", id, result.IntegrationId);
+                    _logger.LogInformation("Processing fieldMappings update for Action {ActionId}", id);
 
                     var fieldMappings = requestData["fieldMappings"]?.ToObject<List<JObject>>();
                     if (fieldMappings != null)
@@ -220,7 +220,6 @@ namespace FlowFlex.WebApi.Controllers.Action
                             // Parse field mapping data
                             var fieldMappingInput = new InboundFieldMappingInputDto
                             {
-                                IntegrationId = result.IntegrationId.Value,
                                 ActionId = id,
                                 ExternalFieldName = mapping["externalFieldName"]?.ToString() ?? "",
                                 WfeFieldId = mapping["wfeFieldId"]?.ToString() ?? "",
