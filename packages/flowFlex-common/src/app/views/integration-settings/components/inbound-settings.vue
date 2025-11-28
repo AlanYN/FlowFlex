@@ -42,9 +42,9 @@
 				empty-text="No field mappings configured"
 				:border="true"
 			>
-				<el-table-column label="Action ID" prop="actionId" width="150">
+				<el-table-column label="Action ID" prop="actionCode	" width="120">
 					<template #default="{ row }">
-						<span class="font-medium text-sm action-id">{{ row.actionId }}</span>
+						<span class="font-medium text-sm action-id">{{ row.actionCode }}</span>
 					</template>
 				</el-table-column>
 
@@ -66,11 +66,11 @@
 
 				<el-table-column
 					label="WFE Field (Display Name)"
-					prop="wfeFieldDisplayName"
+					prop="wfeFieldName"
 					min-width="220"
 				>
 					<template #default="{ row }">
-						<span class="text-sm">{{ row.wfeFieldDisplayName || '-' }}</span>
+						<span class="text-sm">{{ row.wfeFieldName || '-' }}</span>
 					</template>
 				</el-table-column>
 			</el-table>
@@ -103,7 +103,7 @@
 							@blur="handleModuleBlur(row)"
 						/>
 						<span v-else class="font-medium text-sm">
-							{{ row.module || 'Enter external module name' }}
+							{{ row.moduleName || 'Enter external module name' }}
 						</span>
 					</template>
 				</el-table-column>
