@@ -339,7 +339,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, watch, nextTick } from 'vue';
+import { ref, computed, watch, nextTick } from 'vue';
 import { ElMessage, useZIndex } from 'element-plus';
 import { Operation, Connection, Delete, Plus } from '@element-plus/icons-vue';
 import PythonConfig from './PythonConfig.vue';
@@ -416,7 +416,7 @@ const existingToolsList = ref<ActionDefinition[]>([]); // 已有工具列表
 const isAiGenerated = ref(false); // 标识当前action是否为AI生成
 const aiGeneratedConfig = ref<any>(null); // 存储AI生成的配置数据
 
-const formData = reactive<ActionItem & { fieldMappings?: IFieldMappingItem[] }>({
+const formData = ref<ActionItem & { fieldMappings?: IFieldMappingItem[] }>({
 	id: '',
 	name: '',
 	actionType: ActionType.PYTHON_SCRIPT,
@@ -559,10 +559,10 @@ const wfeFieldOptions = ref(staticFieldsData.formFields);
 
 const fieldMappings = computed({
 	get() {
-		return formData.fieldMappings || [];
+		return formData.value.fieldMappings || [];
 	},
 	set(val: IFieldMappingItem[]) {
-		formData.fieldMappings = val;
+		formData.value.fieldMappings = val;
 	},
 });
 
@@ -601,12 +601,12 @@ function handleRemoveFieldMapping(index: number) {
 }
 
 const resetForm = () => {
-	formData.id = '';
-	formData.name = '';
-	formData.actionType = ActionType.PYTHON_SCRIPT;
-	formData.description = '';
-	formData.isTools = false; // 新建时默认为工具模式
-	formData.actionConfig = getDefaultConfig(ActionType.PYTHON_SCRIPT);
+	formData.value.id = '';
+	formData.value.name = '';
+	formData.value.actionType = ActionType.PYTHON_SCRIPT;
+	formData.value.description = '';
+	formData.value.isTools = false; // 新建时默认为工具模式
+	formData.value.actionConfig = getDefaultConfig(ActionType.PYTHON_SCRIPT);
 	formRef.value?.resetFields();
 	visible.value = false;
 	testResult.value = null;
@@ -634,13 +634,13 @@ const resetForm = () => {
 };
 
 const handleActionTypeChange = (actionType: ActionType) => {
-	formData.actionConfig = getDefaultConfig(actionType);
+	formData.value.actionConfig = getDefaultConfig(actionType);
 };
 
 // Update action name from HttpConfig component
 const updateActionName = (actionName: string) => {
 	if (actionName && typeof actionName === 'string' && actionName.trim()) {
-		formData.name = actionName.trim();
+		formData.value.name = actionName.trim();
 	}
 };
 
@@ -670,14 +670,17 @@ const changeConfigModeChange = async (mode: ToolsType) => {
 	if (mode === ToolsType.UseTool) {
 		// 使用已有工具：加载工具列表
 		await loadExistingTools(true);
-		formData.isTools = true;
-		selectedToolId.value = formData.id;
+		formData.value.isTools = true;
+		selectedToolId.value = formData.value.id;
 	} else if (mode === ToolsType.MyTool) {
 		await loadExistingTools(false);
-		formData.isTools = false;
+		formData.value.isTools = false;
 		// 检查当前 action 是否在加载的列表中
-		if (formData.id && existingToolsList.value.some((tool) => tool.id === formData.id)) {
-			selectedToolId.value = formData.id;
+		if (
+			formData.value.id &&
+			existingToolsList.value.some((tool) => tool.id === formData.value.id)
+		) {
+			selectedToolId.value = formData.value.id;
 			disabledActionForMyTool.value = false;
 		} else {
 			// 如果当前 action 不在列表中，清空选择但保留表单数据
@@ -687,12 +690,12 @@ const changeConfigModeChange = async (mode: ToolsType) => {
 	} else if (mode === ToolsType.NewTool) {
 		// 创建普通 Action：清空列表，设置为非工具模式
 		existingToolsList.value = [];
-		formData.isTools = false;
+		formData.value.isTools = false;
 		selectedToolId.value = '';
 	} else if (mode === ToolsType.SystemTools) {
 		await loadExistingTools(false, true);
-		formData.isTools = true;
-		selectedToolId.value = formData.id;
+		formData.value.isTools = true;
+		selectedToolId.value = formData.value.id;
 	}
 };
 
@@ -736,13 +739,13 @@ watch(
 	() => props.action,
 	async (newAction) => {
 		if (newAction) {
-			Object.keys(formData).forEach((key) => {
-				formData[key] =
+			Object.keys(formData.value).forEach((key) => {
+				formData.value[key] =
 					newAction[key] == undefined || newAction[key] == null
-						? formData[key]
+						? formData.value[key]
 						: newAction[key];
 			});
-			if (formData.actionType === ActionType.SYSTEM_TOOLS) {
+			if (formData.value.actionType === ActionType.SYSTEM_TOOLS) {
 				configMode.value = ToolsType.SystemTools;
 			} else {
 				configMode.value = newAction.isTools ? ToolsType.UseTool : ToolsType.MyTool;
@@ -750,7 +753,7 @@ watch(
 			await changeConfigModeChange(configMode.value);
 
 			// 只有当 action 中确实有 fieldMappings 数据时才显示
-			if (formData.fieldMappings && formData.fieldMappings.length > 0) {
+			if (formData.value.fieldMappings && formData.value.fieldMappings.length > 0) {
 				showFieldMapping.value = true;
 			} else {
 				showFieldMapping.value = false;
@@ -790,12 +793,12 @@ const handleExistingToolSelect = async (toolId: string) => {
 			const toolDetail = response.data;
 
 			// 填充表单数据（只读模式）
-			formData.name = toolDetail.name || '';
-			formData.description = toolDetail.description || '';
-			formData.actionType = toolDetail.actionType;
-			formData.actionConfig = JSON.parse(toolDetail.actionConfig || '{}');
-			formData.id = toolDetail.id;
-			formData.isTools = toolDetail.isTools || false;
+			formData.value.name = toolDetail.name || '';
+			formData.value.description = toolDetail.description || '';
+			formData.value.actionType = toolDetail.actionType;
+			formData.value.actionConfig = JSON.parse(toolDetail.actionConfig || '{}');
+			formData.value.id = toolDetail.id;
+			formData.value.isTools = toolDetail.isTools || false;
 			disabledActionForMyTool.value = false;
 		} else {
 			ElMessage.error('Failed to load tool details');
@@ -807,11 +810,11 @@ const handleExistingToolSelect = async (toolId: string) => {
 
 // 重置表单数据
 const resetFormData = () => {
-	formData.id = '';
-	formData.name = '';
-	formData.description = '';
-	formData.actionType = ActionType.PYTHON_SCRIPT;
-	formData.actionConfig = getDefaultConfig(ActionType.PYTHON_SCRIPT);
+	formData.value.id = '';
+	formData.value.name = '';
+	formData.value.description = '';
+	formData.value.actionType = ActionType.PYTHON_SCRIPT;
+	formData.value.actionConfig = getDefaultConfig(ActionType.PYTHON_SCRIPT);
 	formRef.value?.clearValidate();
 	disabledActionForMyTool.value = false;
 };
@@ -822,8 +825,8 @@ const onTest = async () => {
 		testResult.value = null;
 		// Execute test
 		const testOutput = await testRunActionNoId({
-			actionType: formData.actionType,
-			actionConfig: JSON.stringify(formData.actionConfig),
+			actionType: formData.value.actionType,
+			actionConfig: JSON.stringify(formData.value.actionConfig),
 		});
 
 		if (testOutput.code == '200') {
@@ -862,12 +865,15 @@ const onSave = async () => {
 		}
 
 		// 业务验证
-		if (formData.actionType === ActionType.PYTHON_SCRIPT && !formData.actionConfig.sourceCode) {
+		if (
+			formData.value.actionType === ActionType.PYTHON_SCRIPT &&
+			!formData.value.actionConfig.sourceCode
+		) {
 			ElMessage.error('Please enter Python script code');
 			return;
 		}
 
-		if (formData.actionType === ActionType.HTTP_API && !formData.actionConfig.url) {
+		if (formData.value.actionType === ActionType.HTTP_API && !formData.value.actionConfig.url) {
 			ElMessage.error('Please enter HTTP API URL');
 			return;
 		}
@@ -884,7 +890,7 @@ const onSave = async () => {
 			if (success) {
 				ElMessage.success('Action mapping created successfully');
 				emit('saveSuccess', {
-					...formData,
+					...formData.value,
 					actionDefinitionId: selectedToolId.value,
 				});
 				visible.value = false;
@@ -894,33 +900,33 @@ const onSave = async () => {
 
 		// 准备 actionConfig
 		let cleanActionConfig: any = {};
-		if (formData.actionType === ActionType.PYTHON_SCRIPT) {
+		if (formData.value.actionType === ActionType.PYTHON_SCRIPT) {
 			cleanActionConfig = {
-				sourceCode: formData.actionConfig.sourceCode,
+				sourceCode: formData.value.actionConfig.sourceCode,
 			};
-		} else if (formData.actionType === ActionType.HTTP_API) {
+		} else if (formData.value.actionType === ActionType.HTTP_API) {
 			// 确保不包含 fieldMappings（fieldMappings 现在是同级别字段）
-			const httpConfig = { ...formData.actionConfig };
+			const httpConfig = { ...formData.value.actionConfig };
 			delete (httpConfig as any).fieldMappings;
 			cleanActionConfig = {
 				...httpConfig,
-				url: formData.actionConfig.url || '',
-				method: formData.actionConfig.method || 'GET',
-				headers: formData.actionConfig.headers || {},
-				params: formData.actionConfig.params || {},
-				body: formData.actionConfig.body || '',
-				timeout: formData.actionConfig.timeout || 30,
-				followRedirects: formData.actionConfig.followRedirects !== false,
+				url: formData.value.actionConfig.url || '',
+				method: formData.value.actionConfig.method || 'GET',
+				headers: formData.value.actionConfig.headers || {},
+				params: formData.value.actionConfig.params || {},
+				body: formData.value.actionConfig.body || '',
+				timeout: formData.value.actionConfig.timeout || 30,
+				followRedirects: formData.value.actionConfig.followRedirects !== false,
 			};
 		}
 
 		// 准备保存参数
 		const actionParams = {
-			...formData,
+			...formData.value,
 			actionConfig: JSON.stringify(cleanActionConfig),
 			fieldMappings: fieldMappings.value || [],
 			workflowId: props?.workflowId || null,
-			actionType: formData.actionType,
+			actionType: formData.value.actionType,
 			triggerSourceId: props?.triggerSourceId || null,
 			triggerType: props?.triggerType || null,
 			isAIGenerated: isAiGenerated.value,
@@ -930,8 +936,8 @@ const onSave = async () => {
 		};
 
 		// 先创建或更新 Action
-		const actionRes: any = formData.id
-			? await updateAction(formData.id, actionParams)
+		const actionRes: any = formData.value.id
+			? await updateAction(formData.value.id, actionParams)
 			: await addAction(actionParams);
 
 		if (actionRes.code !== '200') {
@@ -940,16 +946,16 @@ const onSave = async () => {
 		}
 
 		const savedAction = actionRes.data;
-		const actionId = savedAction.id || formData.id;
+		const actionId = savedAction.id || formData.value.id;
 
 		ElMessage.success(
-			formData.id ? 'Action updated successfully' : 'Action created successfully'
+			formData.value.id ? 'Action updated successfully' : 'Action created successfully'
 		);
 
 		// 根据条件判断是否需要创建映射关系
 		const needMapping =
 			(props?.triggerSourceId || props?.triggerType) &&
-			!formData.id && // 新建时才需要创建映射
+			!formData.value.id && // 新建时才需要创建映射
 			configMode.value !== ToolsType.SystemTools; // 系统工具不需要映射
 
 		if (needMapping) {

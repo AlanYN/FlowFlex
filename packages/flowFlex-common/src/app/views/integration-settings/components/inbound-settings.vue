@@ -42,7 +42,11 @@
 				empty-text="No field mappings configured"
 				:border="true"
 			>
-				<el-table-column label="Action ID" prop="actionCode	" width="120" />
+				<el-table-column label="Action ID" prop="actionCode	" width="120">
+					<template #default="{ row }">
+						<span class="font-medium text-sm action-id">{{ row.actionCode }}</span>
+					</template>
+				</el-table-column>
 
 				<el-table-column label="Action Name" prop="actionName" min-width="200">
 					<template #default="{ row }">

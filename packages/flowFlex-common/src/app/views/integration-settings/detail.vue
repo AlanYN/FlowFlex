@@ -69,6 +69,7 @@
 								:integration-id="String(integrationId)"
 								:integration-name="integrationName"
 								:all-workflows="workflows"
+								@refresh="loadIntegrationData"
 							/>
 						</TabPane>
 

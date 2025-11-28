@@ -47,6 +47,7 @@ export interface ActionQueryRequest {
 	isTools?: boolean;
 	isSystemTools?: boolean;
 	actionIds?: string; // Comma-separated list of action IDs for selected export
+	integrationId?: string;
 }
 
 export interface ApiResponse<T> {
