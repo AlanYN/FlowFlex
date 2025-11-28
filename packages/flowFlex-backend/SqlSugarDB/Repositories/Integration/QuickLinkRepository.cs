@@ -31,7 +31,7 @@ namespace FlowFlex.SqlSugarDB.Implements.Integration
         {
             return await db.Queryable<QuickLink>()
                 .Where(x => x.IntegrationId == integrationId && x.IsValid)
-                .OrderBy(x => x.SortOrder)
+                .OrderByDescending(x => x.CreateDate)
                 .ToListAsync();
         }
 

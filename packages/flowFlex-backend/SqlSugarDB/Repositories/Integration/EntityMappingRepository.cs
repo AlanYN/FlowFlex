@@ -90,6 +90,16 @@ namespace FlowFlex.SqlSugarDB.Implements.Integration
 
             return true;
         }
+
+        /// <summary>
+        /// Get entity mapping by System ID
+        /// </summary>
+        public async Task<EntityMapping?> GetBySystemIdAsync(string systemId)
+        {
+            return await db.Queryable<EntityMapping>()
+                .Where(x => x.SystemId == systemId && x.IsValid && x.IsActive)
+                .FirstAsync();
+        }
     }
 }
 

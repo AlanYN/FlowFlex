@@ -158,7 +158,7 @@ namespace FlowFlex.Application.Services.Integration
                 }
             }
 
-            return dtos.OrderBy(d => d.SortOrder).ToList();
+            return dtos;
         }
 
         public async Task<string> GenerateUrlAsync(long quickLinkId, Dictionary<string, string> dataContext)

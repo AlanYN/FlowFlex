@@ -32,6 +32,11 @@ namespace FlowFlex.Domain.Repository.Integration
         /// Delete entity mappings by integration ID
         /// </summary>
         Task<bool> DeleteByIntegrationIdAsync(long integrationId);
+
+        /// <summary>
+        /// Get entity mapping by System ID
+        /// </summary>
+        Task<EntityMapping?> GetBySystemIdAsync(string systemId);
     }
 }
 
