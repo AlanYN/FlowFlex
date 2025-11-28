@@ -479,7 +479,7 @@ const initialFormData: Partial<IQuickLink> & {
 	linkName: '',
 	description: undefined,
 	targetUrl: '',
-	displayIcon: undefined,
+	displayIcon: 'link',
 	redirectType: RedirectType.Direct,
 	urlParameters: undefined,
 	isActive: true,

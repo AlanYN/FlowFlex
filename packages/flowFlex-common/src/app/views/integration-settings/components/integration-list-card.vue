@@ -6,9 +6,9 @@
 				<div class="flex items-center justify-between w-full">
 					<div class="flex items-center space-x-3 flex-1 min-w-0" @click="handleClick">
 						<div
-							class="card-icon rounded-full flex-shrink-0 flex items-center justify-center"
+							class="card-icon rounded-lg flex-shrink-0 flex items-center justify-center"
 						>
-							<el-icon><Connection /></el-icon>
+							<Icon icon="lucide:settings-2" />
 						</div>
 						<h3 class="card-title tracking-tight truncate" :title="integration.name">
 							{{ integration.name }}
@@ -92,7 +92,7 @@
 <script setup lang="ts">
 import { computed, nextTick, ref, onMounted, onBeforeUnmount, watch } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { Delete, Edit, MoreFilled, Connection } from '@element-plus/icons-vue';
+import { Delete, Edit, MoreFilled } from '@element-plus/icons-vue';
 import { useRouter } from 'vue-router';
 import { deleteIntegration } from '@/apis/integration';
 import type { IIntegrationConfig } from '#/integration';

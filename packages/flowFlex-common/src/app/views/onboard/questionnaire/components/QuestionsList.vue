@@ -328,14 +328,9 @@
 
 		<ActionConfigDialog
 			ref="actionConfigDialogRef"
-			v-model="actionEditorVisible"
-			:action="actionInfo"
-			:is-editing="!!actionInfo"
 			:triggerSourceId="actionConfig?.id || ''"
-			:loading="editActionLoading"
 			:triggerType="TriggerTypeEnum.Questionnaire"
 			@save-success="onActionSave"
-			@cancel="onActionCancel"
 		/>
 	</div>
 </template>
@@ -349,7 +344,6 @@ import DragIcon from '@assets/svg/publicPage/drag.svg';
 import JumpRuleEditor from './JumpRuleEditor.vue';
 import QuestionEditor from './QuestionEditor.vue';
 import type { Section, JumpRule, QuestionWithJumpRules } from '#/section';
-import { getActionDetail } from '@/apis/action';
 import { QuestionnaireSection } from '#/section';
 import { triggerFileUpload } from '@/utils/fileUploadUtils';
 import ActionConfigDialog from '@/components/actionTools/ActionConfigDialog.vue';
@@ -593,10 +587,8 @@ const openJumpRuleEditor = (index: number) => {
 	}
 };
 
-const actionEditorVisible = ref(false);
 const actionConfig = ref<any>(null);
 const actionType = ref<'question' | 'option'>('question');
-const actionInfo = ref(null);
 const openActionEditor = (index: number, optionIndex?: number) => {
 	const question = questionsData.value[index];
 	if (!question) return;
@@ -606,20 +598,25 @@ const openActionEditor = (index: number, optionIndex?: number) => {
 		const option = question.options?.[optionIndex];
 		if (option) {
 			actionConfig.value = option || '';
-			actionEditorVisible.value = true;
+			actionConfigDialogRef.value?.open({
+				triggerSourceId: option.id,
+				triggerType: TriggerTypeEnum.Questionnaire,
+			});
 		}
 	} else {
 		actionType.value = 'question';
 		if (question) {
 			actionConfig.value = question || '';
-			actionEditorVisible.value = true;
+			actionConfigDialogRef.value?.open({
+				triggerSourceId: question.id,
+				triggerType: TriggerTypeEnum.Questionnaire,
+			});
 		}
 	}
 };
 
 const actionConfigDialogRef = ref<InstanceType<typeof ActionConfigDialog>>();
 const onActionSave = (res) => {
-	actionEditorVisible.value = false;
 	const questionIndex = questionsData.value.findIndex(
 		(q) => q.temporaryId === currentEditingQuestion.value?.temporaryId
 	);
@@ -665,13 +662,13 @@ const handleRemoveAction = async (index: number, optionIndex?: number) => {
 	}
 };
 
-const editActionLoading = ref(false);
 const editAction = async (index: number, optionIndex?: number) => {
 	const question = questionsData.value[index];
 	if (!question) return;
 	currentEditingQuestion.value = question as QuestionWithJumpRules;
 	actionType.value = optionIndex !== undefined ? 'option' : 'question';
 	let actionId = '';
+
 	if (optionIndex !== undefined) {
 		const option = question.options?.[optionIndex];
 		actionId = option?.action?.id || '';
@@ -680,21 +677,11 @@ const editAction = async (index: number, optionIndex?: number) => {
 		actionId = question.action?.id || '';
 		actionConfig.value = question;
 	}
-
-	try {
-		editActionLoading.value = true;
-		actionEditorVisible.value = true;
-		const res = await getActionDetail(actionId);
-		if (res.code === '200' && res?.data) {
-			actionInfo.value = {
-				...res?.data,
-				actionConfig: JSON.parse(res?.data?.actionConfig || '{}'),
-				type: res?.data?.actionType,
-			};
-		}
-	} finally {
-		editActionLoading.value = false;
-	}
+	actionConfigDialogRef.value?.open({
+		actionId: actionId,
+		triggerSourceId: question.id,
+		triggerType: TriggerTypeEnum.Questionnaire,
+	});
 };
 
 const removeAction = async (id, callback) => {
@@ -730,14 +717,6 @@ const removeAction = async (id, callback) => {
 	} catch {
 		// User cancelled
 	}
-};
-
-const onActionCancel = () => {
-	actionEditorVisible.value = false;
-	currentEditingQuestion.value = null;
-	actionInfo.value = null;
-	actionConfig.value = null;
-	actionType.value = 'question';
 };
 
 // 处理跳转规则保存

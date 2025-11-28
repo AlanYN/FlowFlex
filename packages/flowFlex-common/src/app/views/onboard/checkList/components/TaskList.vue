@@ -169,9 +169,21 @@
 									<div class="flex-1 flex-shrink-0">
 										<flowflex-user-selector
 											ref="editTaskAssigneeSelectorRef"
-											:model-value="taskFormData.assigneeId"
+											:model-value="
+												taskFormData.assigneeId
+													? String(taskFormData.assigneeId)
+													: undefined
+											"
 											@update:model-value="
-												(val) => updateTaskFormData('assigneeId', val)
+												(val) =>
+													updateTaskFormData(
+														'assigneeId',
+														val
+															? typeof val === 'string'
+																? val
+																: String(val)
+															: null
+													)
 											"
 											placeholder="Select assignee"
 											:clearable="true"
@@ -218,14 +230,21 @@
 								v-model="newTaskText"
 								placeholder="Enter task name..."
 								@keyup.enter="addTask(props.checklist.id)"
-								class="task-form-input"
 							/>
 						</div>
 						<div class="flex-1 min-w-0 flex-shrink-0 flex flex-col gap-2">
 							<div class="task-form-label">Assignee</div>
 							<flowflex-user-selector
 								ref="newTaskAssigneeSelectorRef"
-								v-model="newTaskAssignee"
+								:model-value="newTaskAssignee ? String(newTaskAssignee) : undefined"
+								@update:model-value="
+									(val) =>
+										(newTaskAssignee = val
+											? typeof val === 'string'
+												? val
+												: String(val)
+											: null)
+								"
 								placeholder="Select assignee"
 								:max-count="1"
 								:clearable="true"
@@ -259,25 +278,20 @@
 
 		<ActionConfigDialog
 			ref="actionConfigDialogRef"
-			v-model="actionEditorVisible"
-			:action="actionInfo"
-			:is-editing="!!actionInfo"
-			:triggerSourceId="currentActionTask?.id"
-			:loading="editActionLoading"
+			:triggerSourceId="`${currentActionTask?.id}`"
 			:triggerType="TriggerTypeEnum.Task"
 			@save-success="onActionSave"
-			@cancel="onActionCancel"
 		/>
 	</div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref } from 'vue';
 import { Plus, Edit, Delete, Loading, Check, Close, MoreFilled } from '@element-plus/icons-vue';
 import { Icon } from '@iconify/vue';
 import draggable from 'vuedraggable';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { getActionDetail, deleteMappingAction } from '@/apis/action';
+import { deleteMappingAction } from '@/apis/action';
 import {
 	getChecklistTasks,
 	createChecklistTask,
@@ -291,6 +305,7 @@ import FlowflexUserSelector from '@/components/form/flowflexUser/index.vue';
 import { TriggerTypeEnum } from '@/enums/appEnum';
 import { functionPermission } from '@/hooks';
 import { ProjectPermissionEnum } from '@/enums/permissionEnum';
+import type { ChecklistTaskOutputDto } from '@/apis/ow/checklist';
 
 const props = defineProps({
 	checklist: {
@@ -306,25 +321,34 @@ const emit = defineEmits([
 const { t } = useI18n();
 
 // 内部状态管理
-const tasks = ref([]);
+type TaskType = ChecklistTaskOutputDto & {
+	actionId?: string;
+	actionName?: string;
+	actionMappingId?: string;
+	filesCount?: number;
+	notesCount?: number;
+	orderIndex?: number;
+};
+
+const tasks = ref<TaskType[]>([]);
 const tasksLoaded = ref(false);
-const editingTask = ref(null);
-const originalTaskData = ref(null); // 保存原始任务数据的副本
+const editingTask = ref<TaskType | null>(null);
+const originalTaskData = ref<TaskType | null>(null); // 保存原始任务数据的副本
 const taskFormData = ref({
 	name: '',
 	description: '',
 	estimatedMinutes: 0,
 	isRequired: false,
-	assigneeId: null,
+	assigneeId: null as string | number | null,
 	assigneeName: '',
 });
-const addingTaskTo = ref(null);
+const addingTaskTo = ref<string | null>(null);
 const newTaskText = ref('');
-const newTaskAssignee = ref(null);
+const newTaskAssignee = ref<string | number | null>(null);
 const isDragging = ref(false);
-const draggingChecklistId = ref(null);
-const newTaskAssigneeSelectorRef = ref(null);
-const editTaskAssigneeSelectorRef = ref(null);
+const draggingChecklistId = ref<string | null>(null);
+const newTaskAssigneeSelectorRef = ref<InstanceType<typeof FlowflexUserSelector> | null>(null);
+const editTaskAssigneeSelectorRef = ref<InstanceType<typeof FlowflexUserSelector> | null>(null);
 
 // 加载任务数据
 // 加载任务（初始加载，显示loading状态）
@@ -473,7 +497,7 @@ const cancelTaskEdit = () => {
 	// 如果有原始数据，恢复到原始状态
 	if (originalTaskData.value && editingTask.value) {
 		// 在tasks数组中找到对应的任务并恢复数据
-		const taskIndex = tasks.value.findIndex((task) => task.id === editingTask.value.id);
+		const taskIndex = tasks.value.findIndex((task) => task.id === editingTask.value!.id);
 		if (taskIndex !== -1) {
 			// 恢复原始数据到tasks数组中
 			tasks.value[taskIndex] = JSON.parse(JSON.stringify(originalTaskData.value));
@@ -634,38 +658,17 @@ const resetTaskList = () => {
 };
 
 // Action 相关状态
-const actionEditorVisible = ref(false);
-const actionInfo = ref(null);
-const editActionLoading = ref(false);
-const actionConfigDialogRef = ref(null);
-const currentActionTask = ref(null); // 当前正在操作 action 的任务
+const actionConfigDialogRef = ref<InstanceType<typeof ActionConfigDialog>>();
+const currentActionTask = ref<TaskType | null>(null); // 当前正在操作 action 的任务
 
 // 打开 Action 编辑器
 const openActionEditor = async (task) => {
 	currentActionTask.value = task; // 使用新的变量存储当前操作的任务
-	actionEditorVisible.value = true;
-	console.log(task);
-	// 如果任务已经绑定了 action，获取 action 详情
-	if (task.actionId) {
-		try {
-			editActionLoading.value = true;
-			const actionDetailRes = await getActionDetail(task.actionId);
-			if (actionDetailRes.code === '200' && actionDetailRes?.data) {
-				actionInfo.value = {
-					...actionDetailRes?.data,
-					actionConfig: JSON.parse(actionDetailRes?.data?.actionConfig || '{}'),
-					type: actionDetailRes?.data?.actionType,
-				};
-			}
-		} catch (error) {
-			console.error('Failed to load action details:', error);
-			ElMessage.warning('Failed to load action details');
-		} finally {
-			editActionLoading.value = false;
-		}
-	} else {
-		actionInfo.value = null;
-	}
+	actionConfigDialogRef.value?.open({
+		actionId: task.actionId,
+		triggerSourceId: task.id,
+		triggerType: TriggerTypeEnum.Task,
+	});
 };
 
 // Action 保存成功回调
@@ -697,14 +700,6 @@ const onActionSave = async (actionResult) => {
 			saveLoading.value = false;
 		}
 	}
-	onActionCancel();
-};
-
-// 取消 Action 编辑
-const onActionCancel = () => {
-	actionEditorVisible.value = false;
-	actionInfo.value = null;
-	currentActionTask.value = null; // 使用新变量清理状态
 };
 
 // 删除 Action 绑定
@@ -913,14 +908,6 @@ html.dark .task-add-form {
 
 html.dark .task-form-label {
 	color: var(--el-text-color-placeholder);
-}
-
-.task-form-input {
-	background-color: var(--el-color-white);
-}
-
-html.dark .task-form-input {
-	background-color: var(--el-bg-color-page);
 }
 
 /* 暗色主题 */
