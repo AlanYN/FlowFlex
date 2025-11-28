@@ -367,11 +367,13 @@ interface Props {
 	triggerSourceId?: string;
 	workflowId?: string;
 	triggerType?: TriggerTypeEnum;
+	mappingRequired?: boolean;
 }
 
 const props = withDefaults(defineProps<Props>(), {
 	triggerSourceId: '',
 	workflowId: '',
+	mappingRequired: false,
 });
 
 const emit = defineEmits(['saveSuccess']);
@@ -921,7 +923,7 @@ const onSave = async () => {
 				!formData.value.id && // 新建时才需要创建映射
 				configMode.value !== ToolsType.SystemTools; // 系统工具不需要映射
 
-			if (needMapping) {
+			if (needMapping || props?.mappingRequired) {
 				await createActionMapping(actionId);
 			}
 

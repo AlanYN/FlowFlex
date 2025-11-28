@@ -21,6 +21,7 @@
 					<el-input
 						v-model="row.externalEntityName"
 						placeholder="Enter external entity type name"
+						:disabled="!!row?.systemId"
 					/>
 				</template>
 			</el-table-column>
@@ -41,7 +42,7 @@
 			>
 				<template #default="{ row }">
 					<el-select
-						:disabled="!row.externalEntityName"
+						:disabled="!row.externalEntityName || !!row?.systemId"
 						v-model="row.wfeEntityType"
 						placeholder="Select master data Type"
 					>
@@ -58,7 +59,7 @@
 			<el-table-column label="Workflows" prop="workflowIds" min-width="200" align="center">
 				<template #default="{ row }">
 					<el-select
-						:disabled="!row.externalEntityName"
+						:disabled="!row.externalEntityName || !!row?.systemId"
 						v-model="row.workflowIds"
 						placeholder="Select workflows"
 						multiple
@@ -82,24 +83,25 @@
 				</template>
 			</el-table-column>
 
-			<el-table-column label="" width="150" align="right" fixed="right">
+			<el-table-column label="" width="50" fixed="right">
 				<template #default="{ row, $index }">
-					<div class="flex items-center justify-end">
+					<div class="flex items-center justify-center">
 						<el-button
-							v-show="!row.id || row.id === 'new'"
+							v-if="!!row?.systemId || !!row?.id"
+							type="danger"
+							link
+							:icon="Delete"
+							:disabled="!row?.id"
+							@click="handleDeleteEntityMapping(row, $index)"
+						/>
+						<el-button
+							v-else
 							type="primary"
 							:disabled="!row.externalEntityName || !row.wfeEntityType"
 							:loading="savingMappingId === (row.id || `temp-${$index}`)"
 							@click="handleSaveEntityMapping(row, $index)"
-						>
-							Save
-						</el-button>
-						<el-button
-							type="danger"
 							link
-							:icon="Delete"
-							:disabled="!row.id"
-							@click="handleDeleteEntityMapping(row, $index)"
+							:icon="SaveChangeIcon"
 						/>
 					</div>
 				</template>
@@ -126,6 +128,7 @@ import { Delete, Plus } from '@element-plus/icons-vue';
 import { ElMessage } from 'element-plus';
 import { createEntityMapping, updateEntityMapping, deleteEntityMapping } from '@/apis/integration';
 import type { IEntityMapping, IWfeEntityOption } from '#/integration';
+import SaveChangeIcon from '@assets/svg/publicPage/saveChange.svg';
 
 interface Props {
 	integrationId: string | number;

@@ -45,6 +45,7 @@
 			ref="actionConfigDialogRef"
 			:triggerSourceId="integrationId"
 			:triggerType="TriggerTypeEnum.Integration"
+			mappingRequired
 			@save-success="onActionSave"
 		/>
 	</div>
