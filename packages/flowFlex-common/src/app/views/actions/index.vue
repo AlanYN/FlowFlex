@@ -314,14 +314,9 @@
 
 		<!-- Action Config Dialog -->
 		<ActionConfigDialog
-			v-model="actionEditorVisible"
-			:action="actionInfo"
-			:is-editing="!!actionInfo"
+			ref="actionConfigDialogRef"
 			:triggerSourceId="currentEditAction?.id"
-			:loading="editActionLoading"
-			:force-editable="true"
 			@save-success="onActionSave"
-			@cancel="onActionCancel"
 		/>
 
 		<!-- Change History Dialog -->
@@ -453,7 +448,6 @@ import {
 	getActionDefinitions,
 	deleteAction,
 	exportActions,
-	getActionDetail,
 	getActionChangeHistory,
 	ActionType,
 	ACTION_TYPE_MAPPING,
@@ -474,9 +468,7 @@ const exportLoading = ref(false);
 const selectedActions = ref<any[]>([]);
 
 // Action 弹窗相关状态
-const actionEditorVisible = ref(false);
-const actionInfo = ref(null);
-const editActionLoading = ref(false);
+const actionConfigDialogRef = ref<InstanceType<typeof ActionConfigDialog>>();
 const currentEditAction = ref<ActionDefinition | null>(null);
 
 // Change History 弹窗相关状态
@@ -562,8 +554,9 @@ const getActionTypeOptions = () => {
 
 const handleCreateAction = () => {
 	currentEditAction.value = null;
-	actionInfo.value = null;
-	actionEditorVisible.value = true;
+	actionConfigDialogRef.value?.open({
+		forceEditable: true,
+	});
 };
 
 const handleExport = async () => {
@@ -665,30 +658,10 @@ const handleSelectionChange = (selection: any[]) => {
 
 const handleEdit = async (row: ActionDefinition) => {
 	currentEditAction.value = row;
-	actionEditorVisible.value = true;
-
-	// 获取 action 详情
-	if (!row.id) {
-		ElMessage.error('Action ID is missing');
-		return;
-	}
-
-	try {
-		editActionLoading.value = true;
-		const actionDetailRes = await getActionDetail(row.id);
-		if (actionDetailRes.code === '200' && actionDetailRes?.data) {
-			actionInfo.value = {
-				...actionDetailRes?.data,
-				actionConfig: JSON.parse(actionDetailRes?.data?.actionConfig || '{}'),
-				type: actionDetailRes?.data?.actionType,
-			};
-		}
-	} catch (error) {
-		console.error('Failed to load action details:', error);
-		ElMessage.warning('Failed to load action details');
-	} finally {
-		editActionLoading.value = false;
-	}
+	actionConfigDialogRef.value?.open({
+		actionId: row.id,
+		forceEditable: true,
+	});
 };
 
 // Load change history with pagination
@@ -820,14 +793,6 @@ const onActionSave = async (actionResult) => {
 		// 重新加载列表数据
 		await loadActionsList();
 	}
-	onActionCancel();
-};
-
-// 取消 Action 编辑
-const onActionCancel = () => {
-	actionEditorVisible.value = false;
-	actionInfo.value = null;
-	currentEditAction.value = null;
 };
 
 // Load Actions list from API

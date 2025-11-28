@@ -26,7 +26,7 @@
 				<div v-if="leftPanelVisible" class="flex-1 min-w-0 min-h-0 flex flex-col">
 					<el-scrollbar ref="scrollbarRefLeft" class="h-full">
 						<VariablesPanel
-							:stage-id="triggerSourceId"
+							:stage-id="currentTriggerSourceId"
 							:action-actionType="formData.actionType"
 						/>
 					</el-scrollbar>
@@ -51,25 +51,25 @@
 								>
 									<el-radio
 										:value="ToolsType.UseTool"
-										:disabled="props.isEditing || isConfigModeDisabled"
+										:disabled="!!currentActionId || isConfigModeDisabled"
 									>
 										<span class="text-sm">Use Tool</span>
 									</el-radio>
 									<el-radio
 										:value="ToolsType.MyTool"
-										:disabled="props.isEditing || isConfigModeDisabled"
+										:disabled="!!currentActionId || isConfigModeDisabled"
 									>
 										<span class="text-sm">My Action</span>
 									</el-radio>
 									<el-radio
 										:value="ToolsType.NewTool"
-										:disabled="props.isEditing || isConfigModeDisabled"
+										:disabled="!!currentActionId || isConfigModeDisabled"
 									>
 										<span class="text-sm">Create New Action</span>
 									</el-radio>
 									<el-radio
 										:value="ToolsType.SystemTools"
-										:disabled="props.isEditing || isConfigModeDisabled"
+										:disabled="!!currentActionId || isConfigModeDisabled"
 									>
 										<span class="text-sm">System Tool</span>
 									</el-radio>
@@ -157,7 +157,7 @@
 										:key="actionType.value"
 										:value="actionType.value"
 										class="action-actionType-option"
-										:disabled="isEditing || shouldDisableFields"
+										:disabled="!!currentActionId || shouldDisableFields"
 									>
 										<div class="flex items-center space-x-3">
 											<div
@@ -189,7 +189,7 @@
 									:testing="testing"
 									:test-result="testResult"
 									ref="pythonConfigRef"
-									:id-editing="isEditing"
+									:id-editing="!!currentActionId"
 									:disabled="shouldDisableFields"
 								/>
 
@@ -203,7 +203,7 @@
 									:testing="testing"
 									:test-result="testResult"
 									ref="httpConfigRef"
-									:id-editing="isEditing"
+									:id-editing="!!currentActionId"
 									:disabled="shouldDisableFields"
 								/>
 							</div>
@@ -313,14 +313,6 @@
 									</el-table>
 								</div>
 							</el-form-item>
-
-							<!-- <el-form-item prop="IsTools" v-if="!shouldDisableFields">
-									<el-checkbox
-										v-model="formData.isTools"
-										label="Is Tool"
-										:disabled="shouldDisableFields"
-									/>
-								</el-form-item> -->
 						</el-form>
 					</el-scrollbar>
 				</div>
@@ -330,7 +322,7 @@
 				<div class="dialog-footer">
 					<el-button @click="onCancel">Cancel</el-button>
 					<el-button type="primary" @click="onSave" :loading="saving">
-						{{ isEditing ? 'Update' : 'Add' }} Action
+						{{ !!currentActionId ? 'Update' : 'Add' }} Action
 					</el-button>
 				</div>
 			</template>
@@ -372,26 +364,26 @@ const { scrollbarRef: scrollbarRefRight, updateScrollbarHeight: updateScrollbarH
 const { nextZIndex } = useZIndex();
 
 interface Props {
-	modelValue?: boolean;
-	action?: ActionItem | null;
-	isEditing?: boolean;
 	triggerSourceId?: string;
 	workflowId?: string;
-	loading?: boolean;
 	triggerType?: TriggerTypeEnum;
-	forceEditable?: boolean; // 强制允许编辑，忽略isTools限制
 }
 
 const props = withDefaults(defineProps<Props>(), {
-	modelValue: false,
-	action: null,
-	isEditing: false,
 	triggerSourceId: '',
 	workflowId: '',
-	forceEditable: false,
 });
 
-const emit = defineEmits(['update:modelValue', 'saveSuccess', 'cancel']);
+const emit = defineEmits(['saveSuccess']);
+
+// 内部状态
+const visible = ref(false);
+const loading = ref(false);
+const currentActionId = ref<string>('');
+const currentTriggerSourceId = ref<string>('');
+const currentWorkflowId = ref<string>('');
+const currentTriggerType = ref<TriggerTypeEnum | undefined>(undefined);
+const forceEditable = ref(false);
 
 // Form data
 const formRef = ref();
@@ -428,19 +420,14 @@ const formData = ref<ActionItem & { fieldMappings?: IFieldMappingItem[] }>({
 });
 
 // Computed
-const visible = computed({
-	get: () => props.modelValue,
-	set: (value) => emit('update:modelValue', value),
-});
-
 const dialogTitle = computed(() => {
-	return props.isEditing ? 'Edit Action' : 'Add New Action';
+	return currentActionId.value ? 'Edit Action' : 'Add New Action';
 });
 
 // 计算是否应该禁用表单字段
 const shouldDisableFields = computed(() => {
 	// 如果强制允许编辑，直接返回false
-	if (props.forceEditable) {
+	if (forceEditable.value) {
 		return false;
 	}
 
@@ -449,8 +436,8 @@ const shouldDisableFields = computed(() => {
 	}
 
 	// 编辑状态：根据 isTools 决定
-	if (props.action) {
-		return props.action.isTools === true;
+	if (currentActionId.value && formData.value.isTools) {
+		return true;
 	}
 
 	// 新建状态：根据选择的配置模式决定
@@ -467,7 +454,7 @@ const shouldDisableFields = computed(() => {
 // 计算是否应该禁用配置模式选择
 const isConfigModeDisabled = computed(() => {
 	// 如果 forceEditable 为 true，禁用配置模式选择
-	return props.forceEditable;
+	return forceEditable.value;
 });
 
 const drawerSize = computed(() => {
@@ -600,7 +587,7 @@ function handleRemoveFieldMapping(index: number) {
 	fieldMappings.value = mappings;
 }
 
-const resetForm = () => {
+const resetForm = (closeDialog = true) => {
 	formData.value.id = '';
 	formData.value.name = '';
 	formData.value.actionType = ActionType.PYTHON_SCRIPT;
@@ -608,7 +595,9 @@ const resetForm = () => {
 	formData.value.isTools = false; // 新建时默认为工具模式
 	formData.value.actionConfig = getDefaultConfig(ActionType.PYTHON_SCRIPT);
 	formRef.value?.resetFields();
-	visible.value = false;
+	if (closeDialog) {
+		visible.value = false;
+	}
 	testResult.value = null;
 	disabledActionForMyTool.value = false;
 
@@ -625,8 +614,8 @@ const resetForm = () => {
 	fieldMappings.value = [];
 
 	// 重置配置模式为默认值
-	// 如果 forceEditable 为 true 且没有 action，设置为 NewTool 模式
-	if (props.forceEditable && !props.action) {
+	// 如果 forceEditable 为 true 且没有 actionId，设置为 NewTool 模式
+	if (forceEditable.value && !currentActionId.value) {
 		configMode.value = ToolsType.NewTool;
 	} else {
 		configMode.value = ToolsType.UseTool;
@@ -665,8 +654,7 @@ const handleConfigModeChange = async (mode: ToolsType) => {
 
 const disabledActionForMyTool = ref(false);
 const changeConfigModeChange = async (mode: ToolsType) => {
-	if (props.forceEditable) return;
-	console.log('mode:', mode);
+	if (forceEditable.value) return;
 	if (mode === ToolsType.UseTool) {
 		// 使用已有工具：加载工具列表
 		await loadExistingTools(true);
@@ -720,7 +708,7 @@ const loadExistingTools = async (isTools: boolean, isSystemTools?: boolean) => {
 				response.data?.data.filter((item) => {
 					return (
 						!item.triggerType ||
-						(item.triggerType && item.triggerType == props.triggerType)
+						(item.triggerType && item.triggerType == currentTriggerType.value)
 					);
 				}) || [];
 		} else {
@@ -734,49 +722,50 @@ const loadExistingTools = async (isTools: boolean, isSystemTools?: boolean) => {
 	}
 };
 
-// Watch for action prop changes
-watch(
-	() => props.action,
-	async (newAction) => {
-		if (newAction) {
-			Object.keys(formData.value).forEach((key) => {
-				formData.value[key] =
-					newAction[key] == undefined || newAction[key] == null
-						? formData.value[key]
-						: newAction[key];
-			});
+/**
+ * 加载 Action 详情
+ */
+const loadActionDetail = async (actionId: string) => {
+	try {
+		loading.value = true;
+		const response = await getActionDetail(actionId);
+		if (response.code === '200' && response.data) {
+			const actionDetail = response.data;
+
+			// 填充表单数据
+			formData.value.id = actionDetail.id || '';
+			formData.value.name = actionDetail.name || '';
+			formData.value.description = actionDetail.description || '';
+			formData.value.actionType = actionDetail.actionType;
+			formData.value.actionConfig = JSON.parse(actionDetail.actionConfig || '{}');
+			formData.value.isTools = actionDetail.isTools || false;
+			formData.value.condition = actionDetail.condition || 'Stage Completed';
+			formData.value.fieldMappings = actionDetail.fieldMappings || [];
+
+			// 设置配置模式actionConfigDialogRef
 			if (formData.value.actionType === ActionType.SYSTEM_TOOLS) {
 				configMode.value = ToolsType.SystemTools;
 			} else {
-				configMode.value = newAction.isTools ? ToolsType.UseTool : ToolsType.MyTool;
+				configMode.value = formData.value.isTools ? ToolsType.UseTool : ToolsType.MyTool;
 			}
 			await changeConfigModeChange(configMode.value);
 
-			// 只有当 action 中确实有 fieldMappings 数据时才显示
+			// 初始化字段映射状态
 			if (formData.value.fieldMappings && formData.value.fieldMappings.length > 0) {
 				showFieldMapping.value = true;
 			} else {
 				showFieldMapping.value = false;
 			}
 		} else {
-			resetForm();
+			ElMessage.error('Failed to load action details');
 		}
-	},
-	{ immediate: true, deep: true }
-);
-
-// Watch for forceEditable prop changes
-watch(
-	() => props.forceEditable,
-	(forceEditable) => {
-		if (forceEditable && !props.action) {
-			// 如果 forceEditable 为 true 且没有 action，强制设置为 NewTool 模式
-			configMode.value = ToolsType.NewTool;
-			changeConfigModeChange(ToolsType.NewTool);
-		}
-	},
-	{ immediate: true }
-);
+	} catch (error) {
+		console.error('Failed to load action details:', error);
+		ElMessage.error('Failed to load action details');
+	} finally {
+		loading.value = false;
+	}
+};
 
 // 处理选择已有工具
 const handleExistingToolSelect = async (toolId: string) => {
@@ -884,11 +873,10 @@ const onSave = async () => {
 		if (
 			selectedToolId.value &&
 			configMode.value !== ToolsType.NewTool &&
-			!props.forceEditable
+			!forceEditable.value
 		) {
 			const success = await createActionMapping(selectedToolId.value);
 			if (success) {
-				ElMessage.success('Action mapping created successfully');
 				emit('saveSuccess', {
 					...formData.value,
 					actionDefinitionId: selectedToolId.value,
@@ -925,10 +913,10 @@ const onSave = async () => {
 			...formData.value,
 			actionConfig: JSON.stringify(cleanActionConfig),
 			fieldMappings: fieldMappings.value || [],
-			workflowId: props?.workflowId || null,
+			workflowId: currentWorkflowId.value || null,
 			actionType: formData.value.actionType,
-			triggerSourceId: props?.triggerSourceId || null,
-			triggerType: props?.triggerType || null,
+			triggerSourceId: currentTriggerSourceId.value || null,
+			triggerType: currentTriggerType.value || null,
 			isAIGenerated: isAiGenerated.value,
 			aiGeneratedConfig: aiGeneratedConfig.value
 				? JSON.stringify(aiGeneratedConfig.value)
@@ -940,32 +928,25 @@ const onSave = async () => {
 			? await updateAction(formData.value.id, actionParams)
 			: await addAction(actionParams);
 
-		if (actionRes.code !== '200') {
+		if (actionRes.code == '200') {
+			const savedAction = actionRes.data;
+			const actionId = savedAction.id || formData.value.id;
+
+			// 根据条件判断是否需要创建映射关系
+			const needMapping =
+				(currentTriggerSourceId.value || currentTriggerType.value) &&
+				!formData.value.id && // 新建时才需要创建映射
+				configMode.value !== ToolsType.SystemTools; // 系统工具不需要映射
+
+			if (needMapping) {
+				await createActionMapping(actionId);
+			}
+
+			emit('saveSuccess', savedAction);
+			visible.value = false;
+		} else {
 			actionRes?.msg && ElMessage.error(actionRes?.msg);
-			return;
 		}
-
-		const savedAction = actionRes.data;
-		const actionId = savedAction.id || formData.value.id;
-
-		ElMessage.success(
-			formData.value.id ? 'Action updated successfully' : 'Action created successfully'
-		);
-
-		// 根据条件判断是否需要创建映射关系
-		const needMapping =
-			(props?.triggerSourceId || props?.triggerType) &&
-			!formData.value.id && // 新建时才需要创建映射
-			configMode.value !== ToolsType.SystemTools; // 系统工具不需要映射
-
-		if (needMapping) {
-			await createActionMapping(actionId);
-		}
-
-		emit('saveSuccess', savedAction);
-		visible.value = false;
-	} catch (error) {
-		ElMessage.error('Failed to save action');
 	} finally {
 		saving.value = false;
 	}
@@ -974,15 +955,49 @@ const onSave = async () => {
 const onCancel = () => {
 	visible.value = false;
 	resetForm();
-	emit('cancel');
 };
 
 const opened = () => {
 	nextTick(() => {
-		if (!props.action) {
+		if (!currentActionId.value) {
 			changeConfigModeChange(configMode.value);
 		}
 	});
+};
+
+/**
+ * 打开对话框
+ * @param options 打开选项
+ */
+const open = async (options?: {
+	actionId?: string;
+	triggerSourceId?: string;
+	workflowId?: string;
+	triggerType?: TriggerTypeEnum;
+	forceEditable?: boolean;
+}) => {
+	// 重置状态
+	currentActionId.value = options?.actionId || '';
+	currentTriggerSourceId.value = options?.triggerSourceId || props.triggerSourceId || '';
+	currentWorkflowId.value = options?.workflowId || props.workflowId || '';
+	currentTriggerType.value = options?.triggerType || props.triggerType;
+	forceEditable.value = options?.forceEditable || false;
+
+	// 重置表单（不关闭对话框）
+	resetForm(false);
+
+	// 打开对话框
+	visible.value = true;
+
+	// 如果有 actionId，加载详情
+	if (options?.actionId) {
+		await loadActionDetail(options.actionId);
+	} else {
+		// 新建模式，初始化配置模式
+		nextTick(() => {
+			changeConfigModeChange(configMode.value);
+		});
+	}
 };
 
 const resetScrollbarHeight = () => {
@@ -994,6 +1009,7 @@ const resetScrollbarHeight = () => {
 
 defineExpose({
 	resetScrollbarHeight,
+	open,
 });
 </script>
 

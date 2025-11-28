@@ -42,14 +42,10 @@
 
 		<!-- Action Config Dialog -->
 		<ActionConfigDialog
-			v-model="actionEditorVisible"
-			:action="actionInfo"
-			:is-editing="!!actionInfo"
+			ref="actionConfigDialogRef"
 			:triggerSourceId="integrationId"
 			:triggerType="TriggerTypeEnum.Integration"
-			:loading="editActionLoading"
 			@save-success="onActionSave"
-			@cancel="onActionCancel"
 		/>
 	</div>
 </template>
@@ -97,26 +93,19 @@ const loadActions = async () => {
 };
 
 // Action 弹窗相关状态
-const actionEditorVisible = ref(false);
-const actionInfo = ref<any>(null);
-const editActionLoading = ref(false);
+const actionConfigDialogRef = ref<InstanceType<typeof ActionConfigDialog>>();
 const handleActionClick = (row) => {
-	actionInfo.value = row;
-	actionEditorVisible.value = true;
+	actionConfigDialogRef.value?.open({
+		actionId: row.id,
+	});
 };
 
 const handleAddAction = () => {
-	actionEditorVisible.value = true;
-	actionInfo.value = null;
+	actionConfigDialogRef.value?.open();
 };
 
 const onActionSave = async (actionResult) => {
 	emit('refresh');
-};
-
-const onActionCancel = () => {
-	actionEditorVisible.value = false;
-	actionInfo.value = null;
 };
 
 // Methods

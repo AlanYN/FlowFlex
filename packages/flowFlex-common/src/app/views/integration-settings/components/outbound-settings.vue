@@ -27,9 +27,9 @@
 				empty-text="No fields configured"
 				:border="true"
 			>
-				<el-table-column label="Action ID" prop="actionId" width="150">
+				<el-table-column label="Action ID" prop="actionCode" width="150">
 					<template #default="{ row }">
-						<span class="font-medium text-sm action-id">{{ row.actionId }}</span>
+						<span class="font-medium text-sm action-id">{{ row.actionCode }}</span>
 					</template>
 				</el-table-column>
 
@@ -39,19 +39,15 @@
 					</template>
 				</el-table-column>
 
-				<el-table-column
-					label="Field (Display Name)"
-					prop="fieldDisplayName"
-					min-width="220"
-				>
+				<el-table-column label="Field (Display Name)" prop="wfeFieldName" min-width="220">
 					<template #default="{ row }">
-						<span class="text-sm">{{ row.fieldDisplayName }}</span>
+						<span class="text-sm">{{ row.wfeFieldName }}</span>
 					</template>
 				</el-table-column>
 
-				<el-table-column label="Field (API Name)" prop="fieldApiName" min-width="220">
+				<el-table-column label="Field (API Name)" prop="externalFieldName" min-width="220">
 					<template #default="{ row }">
-						<span class="font-medium text-sm">{{ row.fieldApiName }}</span>
+						<span class="font-medium text-sm">{{ row.externalFieldName }}</span>
 					</template>
 				</el-table-column>
 			</el-table>
