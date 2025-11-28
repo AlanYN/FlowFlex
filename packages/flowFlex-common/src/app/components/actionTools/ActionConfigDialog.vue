@@ -869,23 +869,6 @@ const onSave = async () => {
 
 		saving.value = true;
 
-		// 使用已有工具的情况：只需要创建映射关系
-		if (
-			selectedToolId.value &&
-			configMode.value !== ToolsType.NewTool &&
-			!forceEditable.value
-		) {
-			const success = await createActionMapping(selectedToolId.value);
-			if (success) {
-				emit('saveSuccess', {
-					...formData.value,
-					actionDefinitionId: selectedToolId.value,
-				});
-				visible.value = false;
-			}
-			return;
-		}
-
 		// 准备 actionConfig
 		let cleanActionConfig: any = {};
 		if (formData.value.actionType === ActionType.PYTHON_SCRIPT) {
