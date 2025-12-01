@@ -181,11 +181,20 @@ namespace FlowFlex.Application.Services.OW
 
                     if (!string.IsNullOrEmpty(attachment.FilePath))
                     {
+                        // Remove /uploads/ prefix if present (for local storage compatibility)
                         filePath = attachment.FilePath.Replace("/uploads/", "");
                     }
                     else if (!string.IsNullOrEmpty(attachment.AccessUrl))
                     {
-                        filePath = attachment.AccessUrl.Replace("/uploads/", "");
+                        // For cloud storage, AccessUrl might be a full URL or a path
+                        // CloudFileStorageService.GetFileAsync will handle URL extraction
+                        filePath = attachment.AccessUrl;
+                        
+                        // If it's a local storage URL, remove /uploads/ prefix
+                        if (filePath.StartsWith("/uploads/", StringComparison.OrdinalIgnoreCase))
+                        {
+                            filePath = filePath.Replace("/uploads/", "");
+                        }
                     }
                     else
                     {
