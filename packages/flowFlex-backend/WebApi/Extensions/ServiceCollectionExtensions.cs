@@ -33,6 +33,11 @@ using FlowFlex.Application.Contracts.IServices;
 using AppContext = FlowFlex.Domain.Shared.Models.AppContext;
 using Item.ThirdParty;
 using Application.Services.AI;
+using Item.BlobProvider.Extensions;
+using FlowFlex.Application.Contracts.Options;
+using FlowFlex.Application.Contracts.Dtos;
+using FlowFlex.Application.Services.OW;
+using Application.Contracts.Options;
 
 namespace FlowFlex.WebApi.Extensions
 {
@@ -368,6 +373,80 @@ namespace FlowFlex.WebApi.Extensions
 
             // Auto-register services based on lifetime marker interfaces
             RegisterServicesByLifetime(services);
+
+            // Register blob storage provider and file storage service
+            // This must be called after RegisterServicesByLifetime to override auto-registration
+            services.AddBlobStorage(configuration);
+
+            return services;
+        }
+
+        /// <summary>
+        /// Register blob storage provider and file storage service based on configuration
+        /// </summary>
+        public static IServiceCollection AddBlobStorage(this IServiceCollection services, IConfiguration configuration)
+        {
+            // Read global configuration
+            var globalConfigOptions = configuration.GetSection("Global").Get<GlobalConfigOptions>();
+            if (globalConfigOptions == null)
+            {
+                globalConfigOptions = new GlobalConfigOptions { BlobStoreType = AttachmentStoreType.Local };
+            }
+
+            // Read BlobStore configuration
+            var blobStoreOptions = configuration.GetSection("BlobStore").Get<BlobStoreOptions>();
+
+            // Register BlobStoreOptions
+            services.Configure<BlobStoreOptions>(configuration.GetSection("BlobStore"));
+
+            // Register BlobProvider if using cloud storage (OSS or AWS)
+            if (globalConfigOptions.BlobStoreType == AttachmentStoreType.OSS || 
+                globalConfigOptions.BlobStoreType == AttachmentStoreType.AWS)
+            {
+                if (blobStoreOptions == null)
+                {
+                    throw new InvalidOperationException("BlobStore configuration is required when using cloud storage (OSS/AWS)");
+                }
+
+                // Register BlobProvider
+                services.AddBlobProvider(() => new BlobProviderConfiguration
+                {
+                    ProviderType = globalConfigOptions.BlobStoreType switch
+                    {
+                        AttachmentStoreType.OSS => BlobProviderType.OSS,
+                        AttachmentStoreType.AWS => BlobProviderType.AWS,
+                        _ => BlobProviderType.AWS
+                    },
+                    AccessKeyId = blobStoreOptions.AccessKeyId,
+                    AccessKeySecret = blobStoreOptions.SecretAccessKey,
+                    Region = blobStoreOptions.Region ?? string.Empty,
+                    ContainerName = blobStoreOptions.Bucket,
+                    ProfileName = blobStoreOptions.ProfileName,
+                    EndPoint = blobStoreOptions.EndPoint ?? string.Empty
+                });
+
+                // Register CloudFileStorageService as IFileStorageService
+                // Remove any existing registration first to avoid conflicts
+                var descriptor = services.FirstOrDefault(s => s.ServiceType == typeof(IFileStorageService));
+                if (descriptor != null)
+                {
+                    services.Remove(descriptor);
+                }
+                services.AddScoped<IFileStorageService, CloudFileStorageService>();
+            }
+            else
+            {
+                // Use LocalFileStorageService for Local storage
+                // Remove any existing registration first to avoid conflicts
+                var descriptor = services.FirstOrDefault(s => s.ServiceType == typeof(IFileStorageService));
+                if (descriptor != null)
+                {
+                    services.Remove(descriptor);
+                }
+                // LocalFileStorageService will be auto-registered via IScopedService interface
+                // But we explicitly register it here to ensure it's used for Local storage
+                services.AddScoped<IFileStorageService, LocalFileStorageService>();
+            }
 
             return services;
         }
