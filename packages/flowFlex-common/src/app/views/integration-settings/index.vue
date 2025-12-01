@@ -89,12 +89,9 @@
 				</div>
 
 				<!-- 已有集成卡片列表 -->
-				<integration-list-card
-					v-for="integration in integrations"
-					:key="integration.id"
-					:integration="integration"
-					@refresh="loadIntegrations"
-				/>
+				<template v-for="integration in integrations" :key="integration.id">
+					<integration-list-card :integration="integration" @refresh="loadIntegrations" />
+				</template>
 			</template>
 		</div>
 	</div>
