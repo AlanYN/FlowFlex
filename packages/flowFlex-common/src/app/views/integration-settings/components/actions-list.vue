@@ -52,7 +52,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, useTemplateRef } from 'vue';
 import { Plus } from '@element-plus/icons-vue';
 import ActionConfigDialog from '@/components/actionTools/ActionConfigDialog.vue';
 import { TriggerTypeEnum } from '@/enums/appEnum';
@@ -94,7 +94,7 @@ const loadActions = async () => {
 };
 
 // Action 弹窗相关状态
-const actionConfigDialogRef = ref<InstanceType<typeof ActionConfigDialog>>();
+const actionConfigDialogRef = useTemplateRef('actionConfigDialogRef');
 const handleActionClick = (row) => {
 	actionConfigDialogRef.value?.open({
 		actionId: row.id,
