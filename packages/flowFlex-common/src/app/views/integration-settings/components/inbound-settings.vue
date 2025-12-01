@@ -153,7 +153,7 @@
 					</template>
 				</el-table-column>
 
-				<el-table-column label="Actions" width="180" align="center">
+				<el-table-column label="Actions" width="80" align="center">
 					<template #default="{ row, $index }">
 						<div class="flex items-center justify-center gap-1">
 							<el-button
@@ -161,9 +161,9 @@
 								type="primary"
 								:loading="isSaving"
 								@click="handleSaveModule(row, $index)"
-							>
-								Save
-							</el-button>
+								:icon="SaveChangeIcon"
+								link
+							/>
 							<el-button
 								type="danger"
 								link
@@ -196,6 +196,7 @@ import {
 } from '@/apis/integration';
 import { getStagesByWorkflow } from '@/apis/ow';
 import type { FieldMapping, InboundAttachmentIteml } from '#/integration';
+import SaveChangeIcon from '@assets/svg/publicPage/saveChange.svg';
 
 interface Props {
 	integrationId: string | number;
