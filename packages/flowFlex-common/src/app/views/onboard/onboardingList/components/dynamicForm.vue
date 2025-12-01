@@ -25,6 +25,8 @@
 				<div
 					v-for="(question, questionIndex) in currentSection.questions"
 					:key="question.id"
+					:id="question.id || question.temporaryId"
+					:data-question-id="question.id || question.temporaryId"
 					class="question-item"
 					:class="{ '!bg-white !border-none': question.type == 'page_break' }"
 				>
@@ -658,6 +660,21 @@ const emit = defineEmits(['submit', 'change']);
 const formData = ref<Record<string, any>>({});
 const currentSectionIndex = ref(0);
 
+// 内部维护被跳过的问题集合（用于响应式更新）
+const internalSkippedQuestions = ref<Set<string>>(new Set());
+
+// 合并内部和外部传入的跳过问题集合
+const skippedQuestions = computed(() => {
+	const merged = new Set<string>();
+	// 先添加外部传入的跳过问题
+	if (props.skippedQuestions) {
+		props.skippedQuestions.forEach((id) => merged.add(id));
+	}
+	// 再添加内部维护的跳过问题
+	internalSkippedQuestions.value.forEach((id) => merged.add(id));
+	return merged;
+});
+
 // 计算属性 - 检查是否有问卷数据
 const hasQuestionnaireData = computed(() => {
 	return props.questionnaireData && props.questionnaireData.id;
@@ -877,6 +894,32 @@ const handleHasOtherQuestion = (question: QuestionnaireSection & { id: string },
 				formData.value[`${question.id}_${option.id}`] = '';
 			}
 		});
+
+		// 处理跳转逻辑
+		if (question.jumpRules && question.jumpRules.length > 0 && question.options) {
+			const userAnswer = formData.value[question.id];
+
+			// 如果答案被清空，清除跳过状态
+			if (!isAnswerValid(userAnswer)) {
+				internalSkippedQuestions.value = new Set();
+				return;
+			}
+
+			// 查找匹配的跳转规则
+			const matchingRule = findMatchingJumpRule(question, userAnswer);
+
+			// 如果找到匹配的跳转规则，执行跳转
+			if (matchingRule) {
+				// 单选题：如果有targetQuestionId，跳转到具体问题；否则跳转到section
+				if (question.type === 'multiple_choice' && matchingRule.targetQuestionId) {
+					// 计算被跳过的问题并触发跳转
+					handleJumpToQuestion(matchingRule, question);
+				}
+			} else {
+				// 如果没有匹配的跳转规则，清除跳过状态
+				internalSkippedQuestions.value = new Set();
+			}
+		}
 	} else if (question.type == 'multiple_choice_grid' || question.type == 'checkbox_grid') {
 		question?.columns?.forEach((column) => {
 			if (
@@ -892,6 +935,104 @@ const handleHasOtherQuestion = (question: QuestionnaireSection & { id: string },
 	}
 
 	emit('change');
+};
+
+// 处理跳转到具体问题
+const handleJumpToQuestion = (jumpRule: any, currentQuestion: any) => {
+	if (!formattedQuestionnaires.value.length) return;
+
+	const questionnaire = formattedQuestionnaires.value[0];
+	const currentSection = questionnaire.sections[currentSectionIndex.value];
+	if (!currentSection) return;
+
+	const currentQuestionIndex = currentSection.questions.findIndex(
+		(q: any) => q.id === currentQuestion.id || q.temporaryId === currentQuestion.temporaryId
+	);
+
+	if (currentQuestionIndex === -1) return;
+
+	// 查找目标section和问题
+	const targetSectionIndex = questionnaire.sections.findIndex(
+		(s: any) => s.id === jumpRule.targetSectionId || s.temporaryId === jumpRule.targetSectionId
+	);
+
+	if (targetSectionIndex === -1) return;
+
+	const targetSection = questionnaire.sections[targetSectionIndex];
+	if (!targetSection) return;
+
+	// 如果跳转规则有targetQuestionId，使用它；否则跳转到section的第一个问题（兼容旧数据）
+	let targetQuestionIndex = -1;
+	if (jumpRule.targetQuestionId) {
+		targetQuestionIndex = targetSection.questions.findIndex(
+			(q: any) =>
+				q.id === jumpRule.targetQuestionId || q.temporaryId === jumpRule.targetQuestionId
+		);
+	} else {
+		// 兼容旧数据：跳转到section的第一个问题
+		targetQuestionIndex = 0;
+	}
+
+	if (targetQuestionIndex === -1) return;
+
+	// 计算被跳过的问题
+	const skipped = new Set<string>();
+
+	if (currentSectionIndex.value === targetSectionIndex) {
+		// 同section内跳转：跳过当前问题之后到目标问题之前的所有问题
+		for (let i = currentQuestionIndex + 1; i < targetQuestionIndex; i++) {
+			const skippedQuestion = currentSection.questions[i];
+			if (skippedQuestion) {
+				const questionId =
+					skippedQuestion.id || skippedQuestion.temporaryId || skippedQuestion.questionId;
+				if (questionId) skipped.add(questionId);
+			}
+		}
+	} else {
+		// 跨section跳转：
+		// 1. 跳过当前section中当前问题之后的所有问题
+		for (let i = currentQuestionIndex + 1; i < currentSection.questions.length; i++) {
+			const skippedQuestion = currentSection.questions[i];
+			if (skippedQuestion) {
+				const questionId =
+					skippedQuestion.id || skippedQuestion.temporaryId || skippedQuestion.questionId;
+				if (questionId) skipped.add(questionId);
+			}
+		}
+
+		// 2. 跳过目标section中目标问题之前的所有问题
+		for (let i = 0; i < targetQuestionIndex; i++) {
+			const skippedQuestion = targetSection.questions[i];
+			if (skippedQuestion) {
+				const questionId =
+					skippedQuestion.id || skippedQuestion.temporaryId || skippedQuestion.questionId;
+				if (questionId) skipped.add(questionId);
+			}
+		}
+	}
+
+	// 清除之前的跳过状态，然后更新新的跳过问题集合
+	// 创建新的 Set 以触发响应式更新
+	internalSkippedQuestions.value = new Set(skipped);
+
+	// 跳转到目标section和问题
+	currentSectionIndex.value = targetSectionIndex;
+
+	// 滚动到目标问题（使用nextTick确保DOM已更新）
+	nextTick(() => {
+		const targetQuestion = targetSection.questions[targetQuestionIndex];
+		if (targetQuestion) {
+			const questionId = targetQuestion.id || targetQuestion.temporaryId;
+			if (questionId) {
+				const element =
+					document.getElementById(questionId) ||
+					document.querySelector(`[data-question-id="${questionId}"]`);
+				if (element) {
+					element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+				}
+			}
+		}
+	});
 };
 
 // 处理文件变化
@@ -941,6 +1082,11 @@ const validateForm = (presentQuestionIndex?: number) => {
 				return item.type != 'page_break';
 			})
 			?.forEach((question: any, qIdx: number) => {
+				// 跳过被跳过的问题（即使它们是必填的）
+				if (isQuestionSkipped(question)) {
+					return;
+				}
+
 				if (question.required) {
 					if (question.type === 'multiple_choice_grid') {
 						// 多选网格：检查每一行是否都有选择
@@ -1249,6 +1395,48 @@ const getFormData = () => {
 	return result;
 };
 
+/**
+ * 检查答案是否有效（支持数组和字符串类型）
+ * @param userAnswer 用户答案
+ * @returns 答案是否有效
+ */
+const isAnswerValid = (userAnswer: any): boolean => {
+	if (!userAnswer) return false;
+	return Array.isArray(userAnswer) ? userAnswer.length > 0 : userAnswer !== '';
+};
+
+/**
+ * 查找匹配的跳转规则
+ * @param question 问题对象
+ * @param userAnswer 用户答案
+ * @returns 匹配的跳转规则，如果没有则返回 undefined
+ */
+const findMatchingJumpRule = (question: any, userAnswer: any) => {
+	if (!question.jumpRules || !question.jumpRules.length || !question.options) {
+		return undefined;
+	}
+
+	return question.jumpRules.find((rule: any) => {
+		if (!rule.optionId) return false;
+
+		return question.options.some((option: any) => {
+			// 检查选项ID是否匹配
+			const isOptionMatch =
+				option.id === rule.optionId || option.temporaryId === rule.optionId;
+			if (!isOptionMatch) return false;
+
+			// 检查答案是否匹配（支持数组和字符串）
+			if (Array.isArray(userAnswer)) {
+				// 多选题：检查数组中是否包含该选项的值或标签
+				return userAnswer.includes(option.value) || userAnswer.includes(option.label);
+			} else {
+				// 单选题：直接比较
+				return option.value === userAnswer || option.label === userAnswer;
+			}
+		});
+	});
+};
+
 // 根据跳转规则获取目标section ID
 const getJumpTargetSection = () => {
 	if (!currentSection.value?.questions) return null;
@@ -1259,29 +1447,14 @@ const getJumpTargetSection = () => {
 	// 倒序遍历问题数组，找到最后一个符合条件的跳转规则
 	for (let i = questions.length - 1; i >= 0; i--) {
 		const question = questions[i];
-
-		// 检查是否是单选题且有跳转规则
-		if (
-			(question.type === 'multiple_choice' || question.type === 'checkboxes') &&
-			question.jumpRules &&
-			question.jumpRules.length > 0
-		) {
+		// 检查是否有跳转规则
+		if (question.jumpRules && question.jumpRules.length > 0) {
 			const userAnswer = formData.value[question.id];
 
 			// 检查用户是否已经选择了答案
-			if (userAnswer && userAnswer !== '') {
+			if (isAnswerValid(userAnswer)) {
 				// 查找匹配的跳转规则
-				const matchingRule = question.jumpRules.find((rule) => {
-					return (
-						rule.optionId &&
-						question.options.some(
-							(option) =>
-								(option.id === rule.optionId ||
-									option.temporaryId === rule.optionId) &&
-								(option.value === userAnswer || option.label === userAnswer)
-						)
-					);
-				});
+				const matchingRule = findMatchingJumpRule(question, userAnswer);
 
 				// 如果找到匹配的跳转规则，立即返回
 				if (matchingRule) {
@@ -1327,7 +1500,6 @@ const goToNextSection = async () => {
 	// }
 	// 检查是否有跳转规则需要应用
 	const targetSectionId = getJumpTargetSection();
-
 	if (targetSectionId) {
 		// 根据跳转规则跳转到指定section
 		const targetSectionIndex = findSectionIndexById(targetSectionId);
@@ -1505,9 +1677,8 @@ const getQuestionNumber = (questionIndex: number) => {
 
 // 检查问题是否被跳过
 const isQuestionSkipped = (question: any): boolean => {
-	if (!props.skippedQuestions) return false;
 	const questionId = question.id || question.temporaryId || question.questionId;
-	return props.skippedQuestions.has(questionId);
+	return skippedQuestions.value.has(questionId);
 };
 
 const Submit = () => {
