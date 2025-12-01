@@ -759,11 +759,8 @@ const loadActionDetail = async (actionId: string) => {
 				showFieldMapping.value = false;
 			}
 		} else {
-			ElMessage.error('Failed to load action details');
+			ElMessage.error(response.msg || 'Failed to load action details');
 		}
-	} catch (error) {
-		console.error('Failed to load action details:', error);
-		ElMessage.error('Failed to load action details');
 	} finally {
 		loading.value = false;
 	}
