@@ -833,8 +833,8 @@ const resetFormData = () => {
 	formData.value.id = '';
 	formData.value.name = '';
 	formData.value.description = '';
-	formData.value.actionType = ActionType.PYTHON_SCRIPT;
-	formData.value.actionConfig = getDefaultConfig(ActionType.PYTHON_SCRIPT);
+	formData.value.actionType = ActionType.HTTP_API;
+	formData.value.actionConfig = getDefaultConfig(ActionType.HTTP_API);
 	formRef.value?.clearValidate();
 	disabledActionForMyTool.value = false;
 };
