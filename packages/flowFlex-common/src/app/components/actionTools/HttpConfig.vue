@@ -321,24 +321,23 @@
 			</el-tabs>
 
 			<!-- Response Section -->
-			<el-tabs v-model="activeResponseTab">
-				<el-tab-pane label="Response" name="response">
-					<div v-if="testResult" class="w-full">
-						<JsonResultRenderer
-							:output-type="responseOutputType"
-							:max-height="'500px'"
-							:enable-syntax-highlight="true"
-						/>
+			<div>
+				<el-divider class="mb-2" />
+				<text class="font-bold">Response:</text>
+				<div v-if="testResult" class="w-full">
+					<JsonResultRenderer
+						:output-type="responseOutputType"
+						:max-height="'500px'"
+						:enable-syntax-highlight="true"
+					/>
+				</div>
+				<div v-else class="response-empty">
+					<div class="response-empty-content">
+						<p class="text-sm text-text-secondary">Click Test Send to get a response</p>
 					</div>
-					<div v-else class="response-empty">
-						<div class="response-empty-content">
-							<p class="text-sm text-text-secondary">
-								Click Test Send to get a response
-							</p>
-						</div>
-					</div>
-				</el-tab-pane>
-			</el-tabs>
+				</div>
+				<el-divider class="mb-2" />
+			</div>
 		</el-form>
 		<!-- Import Dialog -->
 		<el-dialog
@@ -958,7 +957,6 @@ const emit = defineEmits<{
 
 // Tabs state
 const activeRequestTab = ref('params');
-const activeResponseTab = ref('response');
 
 // Response output type for JsonResultRenderer
 const responseOutputType = computed<OutputType>(() => {
@@ -3037,7 +3035,7 @@ html.dark .response-text {
 
 // Enhanced Params Section Styles (New)
 .params-section-enhanced {
-	@apply w-full border overflow-hidden h-full flex flex-col mt-2;
+	@apply w-full border overflow-hidden h-full flex flex-col;
 	border-color: var(--el-border-color-light);
 }
 
@@ -3197,7 +3195,7 @@ html.dark .params-header {
 
 // Body Section Styles
 .body-section {
-	@apply w-full space-y-4 h-full flex flex-col mt-2;
+	@apply w-full space-y-4 h-full flex flex-col;
 }
 
 .body-type-group {
