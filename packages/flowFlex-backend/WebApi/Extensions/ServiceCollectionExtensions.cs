@@ -399,6 +399,15 @@ namespace FlowFlex.WebApi.Extensions
             // Register BlobStoreOptions
             services.Configure<BlobStoreOptions>(configuration.GetSection("BlobStore"));
 
+            // Remove any existing IFileStorageService registrations to avoid conflicts
+            // CloudFileStorageService and LocalFileStorageService are excluded from auto-registration
+            // We will register the correct one based on configuration below
+            var fileStorageDescriptors = services.Where(s => s.ServiceType == typeof(IFileStorageService)).ToList();
+            foreach (var descriptor in fileStorageDescriptors)
+            {
+                services.Remove(descriptor);
+            }
+
             // Register BlobProvider if using cloud storage (OSS or AWS)
             if (globalConfigOptions.BlobStoreType == AttachmentStoreType.OSS || 
                 globalConfigOptions.BlobStoreType == AttachmentStoreType.AWS)
@@ -507,10 +516,17 @@ namespace FlowFlex.WebApi.Extensions
                 typeof(UserService).Assembly           // Application.Services layer (if different)
             }.Distinct().ToArray();
 
+            // Types to exclude from auto-registration (will be registered manually based on configuration)
+            var excludedTypes = new[]
+            {
+                typeof(CloudFileStorageService),
+                typeof(LocalFileStorageService)
+            };
+
             foreach (var assembly in assemblies)
             {
                 var types = assembly.GetTypes()
-                    .Where(t => t.IsClass && !t.IsAbstract)
+                    .Where(t => t.IsClass && !t.IsAbstract && !excludedTypes.Contains(t))
                     .ToList();
 
                 // Register Scoped services
