@@ -14,7 +14,7 @@
 			</p>
 		</div>
 
-		<div class="variables-content">
+		<div>
 			<!-- Variables and Examples Section -->
 			<el-tabs v-model="activeTab" type="">
 				<el-tab-pane label="All" name="all">
@@ -697,14 +697,6 @@ html.dark .context-structure-header {
 
 .variables-panel {
 	@apply overflow-hidden flex flex-col gap-4 pr-4;
-}
-
-.variables-content {
-	background: var(--el-bg-color);
-}
-
-html.dark .variables-content {
-	background: var(--el-bg-color-page);
 }
 
 .context-structure-wrapper {

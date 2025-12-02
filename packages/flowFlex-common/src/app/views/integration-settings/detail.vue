@@ -25,6 +25,7 @@
 				:integration-id="integrationId"
 				:connection-data="integrationData || undefined"
 				:integrationStatus="integrationStatus"
+				:testErrorMsg="testErrorMsg"
 				@created="handleIntegrationCreated"
 				@updated="handleIntegrationUpdated"
 				@test="handleTestConnection"
@@ -156,7 +157,7 @@ async function loadIntegrationData() {
 	}
 
 	// 加载完整数据
-	isLoading.value = true;
+	// isLoading.value = true;
 	try {
 		await loadWorkflows();
 		const response = await getIntegrationDetails(id);
@@ -200,23 +201,25 @@ function handleIntegrationUpdated() {
 /**
  * 测试连接（由父组件调用 test 接口）
  */
-async function handleTestConnection() {
+const testErrorMsg = ref<string>('');
+const handleTestConnection = async () => {
 	if (!integrationId.value || integrationId.value === 'new') return;
 
 	try {
 		const result = await testConnection(integrationId.value);
-		if (result.success && result.data) {
+		if (result.success && result.data?.success) {
 			ElMessage.success('Connection test successful');
 			integrationStatus.value = 1;
 			// 重新加载数据以更新状态
-			loadIntegrationData();
 		} else {
-			ElMessage.error(result.msg || 'Connection test failed');
+			testErrorMsg.value = result.data?.msg || 'Connection test failed';
+			integrationStatus.value = 0;
 		}
 	} catch (error) {
 		console.error('Connection test failed:', error);
+		integrationStatus.value = 0;
 	}
-}
+};
 
 /**
  * 删除集成

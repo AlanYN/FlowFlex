@@ -18,10 +18,13 @@
 		>
 			<el-table-column label="External Entity Type" prop="externalEntityName" min-width="250">
 				<template #default="{ row }">
+					<span v-if="isSaved(row)" class="text-sm text-text-primary">
+						{{ row.externalEntityName || '-' }}
+					</span>
 					<el-input
+						v-else
 						v-model="row.externalEntityName"
 						placeholder="Enter external entity type name"
-						:disabled="!!row?.systemId"
 					/>
 				</template>
 			</el-table-column>
@@ -37,12 +40,16 @@
 			<el-table-column
 				label="WFE Master Data"
 				prop="wfeEntityType"
-				min-width="200"
+				min-width="80"
 				align="center"
 			>
 				<template #default="{ row }">
+					<span v-if="isSaved(row)" class="text-sm text-text-primary">
+						{{ getWfeEntityLabel(row.wfeEntityType) || '-' }}
+					</span>
 					<el-select
-						:disabled="!row.externalEntityName || !!row?.systemId"
+						v-else
+						:disabled="!row.externalEntityName"
 						v-model="row.wfeEntityType"
 						placeholder="Select master data Type"
 					>
@@ -58,12 +65,50 @@
 
 			<el-table-column label="Workflows" prop="workflowIds" min-width="200" align="center">
 				<template #default="{ row }">
+					<div v-if="isSaved(row)" class="flex items-center gap-2 flex-wrap">
+						<template v-if="getWorkflowList(row.workflowIds).length > 0">
+							<el-tag
+								v-for="workflow in getDisplayedWorkflows(row.workflowIds)"
+								:key="workflow.id"
+								type="primary"
+								size="small"
+							>
+								{{ workflow.name }}
+							</el-tag>
+							<el-tooltip
+								v-if="getHiddenWorkflowsCount(row.workflowIds) > 0"
+								placement="top"
+								raw-content
+								effect="light"
+							>
+								<template #content>
+									<div class="flex flex-wrap gap-2">
+										<el-tag
+											v-for="workflow in getHiddenWorkflows(row.workflowIds)"
+											:key="workflow.id"
+											type="primary"
+											size="small"
+										>
+											{{ workflow.name }}
+										</el-tag>
+									</div>
+								</template>
+								<el-tag type="primary" size="small" class="cursor-pointer">
+									+{{ getHiddenWorkflowsCount(row.workflowIds) }}
+								</el-tag>
+							</el-tooltip>
+						</template>
+						<span v-else class="text-sm text-text-secondary">-</span>
+					</div>
 					<el-select
-						:disabled="!row.externalEntityName || !!row?.systemId"
+						v-else
+						:disabled="!row.externalEntityName"
 						v-model="row.workflowIds"
 						placeholder="Select workflows"
 						multiple
 						collapse-tags
+						collapse-tags-tooltip
+						tag-type="primary"
 					>
 						<el-option
 							v-for="workflow in allWorkflows"
@@ -125,7 +170,7 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue';
 import { Delete, Plus } from '@element-plus/icons-vue';
-import { ElMessage } from 'element-plus';
+import { ElMessage, ElTooltip } from 'element-plus';
 import { createEntityMapping, updateEntityMapping, deleteEntityMapping } from '@/apis/integration';
 import type { IEntityMapping, IWfeEntityOption } from '#/integration';
 import SaveChangeIcon from '@assets/svg/publicPage/saveChange.svg';
@@ -151,6 +196,59 @@ const entityMappings = ref<IEntityMapping[]>(props.entityMappings || []);
 
 // 模拟选项数据（实际应该从 API 获取）
 const wfeEntityOptions = ref<IWfeEntityOption[]>([{ value: 'case', label: 'Case' }]);
+
+/**
+ * 判断是否已保存
+ */
+function isSaved(row: IEntityMapping): boolean {
+	return !!(row?.id || (row as any)?.systemId);
+}
+
+/**
+ * 获取 WFE Entity 的显示标签
+ */
+function getWfeEntityLabel(value: string): string {
+	const option = wfeEntityOptions.value.find((opt) => opt.value === value);
+	return option?.label || value;
+}
+
+/**
+ * 获取 Workflow 列表（用于显示 el-tag）
+ */
+function getWorkflowList(workflowIds: string[] | number[]): any[] {
+	if (!workflowIds || workflowIds.length === 0) return [];
+	if (!props.allWorkflows || props.allWorkflows.length === 0) return [];
+
+	return workflowIds
+		.map((id) => {
+			return props.allWorkflows?.find((w) => w.id === id);
+		})
+		.filter(Boolean) as any[];
+}
+
+/**
+ * 获取要显示的 Workflow 列表（最多显示3个）
+ */
+function getDisplayedWorkflows(workflowIds: string[] | number[]): any[] {
+	const workflows = getWorkflowList(workflowIds);
+	return workflows.slice(0, 3);
+}
+
+/**
+ * 获取隐藏的 Workflow 数量
+ */
+function getHiddenWorkflowsCount(workflowIds: string[] | number[]): number {
+	const workflows = getWorkflowList(workflowIds);
+	return Math.max(0, workflows.length - 3);
+}
+
+/**
+ * 获取隐藏的 Workflow 列表
+ */
+function getHiddenWorkflows(workflowIds: string[] | number[]): any[] {
+	const workflows = getWorkflowList(workflowIds);
+	return workflows.slice(3);
+}
 
 /**
  * 添加实体映射

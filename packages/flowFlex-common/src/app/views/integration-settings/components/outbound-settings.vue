@@ -84,10 +84,10 @@
 							>
 								<div class="flex items-center justify-between">
 									<span>{{ workflow.name }}</span>
-									<el-tag v-if="!workflow.isActive" type="danger" size="small">
+									<el-tag v-if="!workflow.isActive" type="danger">
 										Inactive
 									</el-tag>
-									<el-tag v-else type="success" size="small">Active</el-tag>
+									<el-tag v-else type="success">Active</el-tag>
 								</div>
 							</el-option>
 						</el-select>

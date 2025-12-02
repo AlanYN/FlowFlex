@@ -1,6 +1,6 @@
 <template>
 	<!-- External toggle button for variables panel -->
-	<div class="action-config-drawer">
+	<div>
 		<Teleport to="body">
 			<div v-if="visible" class="variables-toggle-external" @click="showVariablesPanel">
 				<div class="external-toggle-button">
@@ -17,12 +17,15 @@
 			@close="onCancel"
 			@opened="opened"
 			append-to-body
-			:with-header="false"
+			class="drawer"
 		>
-			<div class="font-bold mb-4">
-				{{ dialogTitle }}
-			</div>
-			<div class="flex gap-4 w-full h-full min-h-0">
+			<template #header>
+				<div class="font-bold">
+					{{ dialogTitle }}
+				</div>
+			</template>
+
+			<div class="flex w-full gap-x-2">
 				<div v-if="leftPanelVisible" class="flex-1 min-w-0 min-h-0 flex flex-col">
 					<el-scrollbar ref="scrollbarRefLeft" class="h-full">
 						<VariablesPanel
@@ -32,11 +35,8 @@
 					</el-scrollbar>
 				</div>
 
-				<div
-					class="action-config-container flex-1 min-w-0 min-h-0 flex flex-col"
-					v-loading="loading"
-				>
-					<el-scrollbar ref="scrollbarRefRight" class="h-full">
+				<div class="flex-1 min-w-0 min-h-0 flex flex-col" v-loading="loading">
+					<el-scrollbar ref="scrollbarRefRight" class="h-full pr-2">
 						<!-- 选择模式 - 位于表单最前方 -->
 						<div
 							v-if="!isConfigModeDisabled"
@@ -115,7 +115,6 @@
 							:rules="rules"
 							label-position="top"
 							label-width="120px"
-							class="p-1 pr-4"
 						>
 							<!-- Basic Info -->
 							<el-form-item label="Action Name" prop="name">
@@ -180,7 +179,7 @@
 							</el-form-item>
 
 							<!-- Action Configuration -->
-							<div v-if="formData.actionType" class="action-config-section">
+							<div v-if="formData.actionType" class="">
 								<!-- Python Script Configuration -->
 								<PythonConfig
 									v-if="formData.actionType === ActionType.PYTHON_SCRIPT"
@@ -209,108 +208,133 @@
 							</div>
 
 							<!-- Field Mapping Section -->
-							<el-form-item label="Field Mapping" class="w-full">
-								<div class="flex items-center gap-2 mb-4">
-									<el-switch
-										v-model="showFieldMapping"
-										@change="handleShowFieldMappingChange"
-										:disabled="shouldDisableFields"
-									/>
-									<span class="text-sm text-text-secondary">
-										Enable Field Mapping
-									</span>
-								</div>
-								<div class="space-y-4 w-full" v-if="showFieldMapping">
-									<div class="flex justify-between items-center">
+							<el-form-item class="w-full">
+								<div class="w-full">
+									<!-- 折叠标题 -->
+									<div
+										class="flex items-center justify-between gap-2 w-full cursor-pointer py-2 transition-colors duration-200 hover:bg-fill-lighter rounded"
+										@click="toggleFieldMappingCollapse"
+									>
 										<div>
-											<h4 class="text-sm font-semibold text-text-primary m-0">
+											<el-icon
+												class="transition-transform duration-300 text-text-regular"
+												:class="{
+													'rotate-180': isFieldMappingExpanded,
+												}"
+											>
+												<ArrowDown />
+											</el-icon>
+											<span class="text-sm font-medium text-text-primary">
 												Field Mapping
-											</h4>
-											<p class="text-xs text-text-secondary mt-1">
+											</span>
+											<span class="text-xs text-text-secondary">
 												Map external fields to WFE fields
-											</p>
+											</span>
 										</div>
 										<el-button
+											v-if="isFieldMappingExpanded"
 											type="primary"
-											@click="handleAddFieldMapping"
+											@click.stop="handleAddFieldMapping"
 											:disabled="shouldDisableFields"
 											:icon="Plus"
 										>
 											Add Field
 										</el-button>
 									</div>
-									<el-table
-										:data="fieldMappings"
-										class="w-full"
-										empty-text="No field mappings configured"
-										:border="true"
-									>
-										<el-table-column label="External Field" min-width="200">
-											<template #default="{ row }">
-												<el-input
-													v-model="row.externalFieldName"
-													placeholder="Enter external field name"
-													:disabled="shouldDisableFields"
-												/>
-											</template>
-										</el-table-column>
-
-										<el-table-column label="WFE Field" min-width="200">
-											<template #default="{ row }">
-												<el-select
-													v-model="row.wfeFieldId"
-													placeholder="Select WFE field"
-													:disabled="shouldDisableFields"
+									<!-- 折叠内容 -->
+									<el-collapse-transition>
+										<div v-show="isFieldMappingExpanded" class="w-full">
+											<div class="space-y-4 w-full">
+												<el-table
+													:data="fieldMappings"
 													class="w-full"
+													empty-text="No field mappings configured"
+													:border="true"
 												>
-													<el-option
-														v-for="field in wfeFieldOptions"
-														:key="field.vIfKey || ''"
-														:label="field.label"
-														:value="String(field.vIfKey)"
-													/>
-												</el-select>
-											</template>
-										</el-table-column>
+													<el-table-column
+														label="External Field"
+														min-width="200"
+													>
+														<template #default="{ row }">
+															<el-input
+																v-model="row.externalFieldName"
+																placeholder="Enter external field name"
+																:disabled="shouldDisableFields"
+															/>
+														</template>
+													</el-table-column>
 
-										<el-table-column label="Type" min-width="120">
-											<template #default>
-												<span class="text-sm">text</span>
-											</template>
-										</el-table-column>
+													<el-table-column
+														label="WFE Field"
+														min-width="200"
+													>
+														<template #default="{ row }">
+															<el-select
+																v-model="row.wfeFieldId"
+																placeholder="Select WFE field"
+																:disabled="shouldDisableFields"
+																class="w-full"
+															>
+																<el-option
+																	v-for="field in wfeFieldOptions"
+																	:key="field.vIfKey || ''"
+																	:label="field.label"
+																	:value="String(field.vIfKey)"
+																/>
+															</el-select>
+														</template>
+													</el-table-column>
 
-										<el-table-column label="Direction" min-width="150">
-											<template #default="{ row }">
-												<el-select
-													v-model="row.syncDirection"
-													placeholder="Select direction"
-													:disabled="shouldDisableFields"
-													class="w-full"
-												>
-													<el-option
-														:label="'View Only'"
-														:value="SyncDirection.ViewOnly"
-													/>
-													<el-option
-														:label="'Editable'"
-														:value="SyncDirection.Editable"
-													/>
-												</el-select>
-											</template>
-										</el-table-column>
+													<el-table-column label="Type" min-width="120">
+														<template #default>
+															<span class="text-sm">text</span>
+														</template>
+													</el-table-column>
 
-										<el-table-column label="Actions" width="100" align="center">
-											<template #default="{ $index }">
-												<el-button
-													type="danger"
-													link
-													:icon="Delete"
-													@click="handleRemoveFieldMapping($index)"
-													:disabled="shouldDisableFields"
-												/>
-											</template>
-										</el-table-column>
-									</el-table>
+													<el-table-column
+														label="Direction"
+														min-width="150"
+													>
+														<template #default="{ row }">
+															<el-select
+																v-model="row.syncDirection"
+																placeholder="Select direction"
+																:disabled="shouldDisableFields"
+																class="w-full"
+															>
+																<el-option
+																	:label="'View Only'"
+																	:value="SyncDirection.ViewOnly"
+																/>
+																<el-option
+																	:label="'Editable'"
+																	:value="SyncDirection.Editable"
+																/>
+															</el-select>
+														</template>
+													</el-table-column>
+
+													<el-table-column
+														label="Actions"
+														width="100"
+														align="center"
+													>
+														<template #default="{ $index }">
+															<el-button
+																type="danger"
+																link
+																:icon="Delete"
+																@click="
+																	handleRemoveFieldMapping($index)
+																"
+																:disabled="shouldDisableFields"
+															/>
+														</template>
+													</el-table-column>
+												</el-table>
+											</div>
+										</div>
+									</el-collapse-transition>
 								</div>
 							</el-form-item>
 						</el-form>
@@ -333,7 +357,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, nextTick } from 'vue';
 import { ElMessage, useZIndex } from 'element-plus';
-import { Operation, Connection, Delete, Plus } from '@element-plus/icons-vue';
+import { Operation, Connection, Delete, Plus, ArrowDown } from '@element-plus/icons-vue';
 import PythonConfig from './PythonConfig.vue';
 import HttpConfig from './HttpConfig.vue';
 import VariablesPanel from './VariablesPanel.vue';
@@ -413,7 +437,7 @@ const aiGeneratedConfig = ref<any>(null); // 存储AI生成的配置数据
 const formData = ref<ActionItem & { fieldMappings?: IFieldMappingItem[] }>({
 	id: '',
 	name: '',
-	actionType: ActionType.PYTHON_SCRIPT,
+	actionType: ActionType.HTTP_API,
 	description: '',
 	condition: 'Stage Completed',
 	isTools: false, // 新建时默认为 true（工具模式），允许用户选择
@@ -460,11 +484,11 @@ const isConfigModeDisabled = computed(() => {
 });
 
 const drawerSize = computed(() => {
-	return leftPanelVisible.value ? '80%' : '40%';
+	return leftPanelVisible.value ? '80%' : '50%';
 });
 
 const buttonLeftPosition = computed(() => {
-	const drawerWidth = leftPanelVisible.value ? 0.8 : 0.4;
+	const drawerWidth = leftPanelVisible.value ? 0.8 : 0.5;
 	return `calc(100vw - ${drawerWidth * 100}vw - 30px)`;
 });
 
@@ -485,30 +509,31 @@ const showVariablesPanel = () => {
 	leftPanelVisible.value = !leftPanelVisible.value;
 	nextTick(() => {
 		updateScrollbarHeightLeft();
+		updateScrollbarHeightRight();
 	});
 };
 
 // Action Types
 const actionTypes = [
 	{
-		label: 'Python Script',
-		value: ActionType.PYTHON_SCRIPT,
-		icon: Operation,
-		description: 'Execute custom Python code when stage completes',
-	},
-	{
 		label: 'HTTP API',
 		value: ActionType.HTTP_API,
 		icon: Connection,
 		description: 'Send HTTP request to external API endpoint',
 	},
+	{
+		label: 'Python Script',
+		value: ActionType.PYTHON_SCRIPT,
+		icon: Operation,
+		description: 'Execute custom Python code when stage completes',
+	},
 ];
 
 // Form Rules
 const rules = {
-	name: [{ required: true, message: 'Please enter action name', trigger: 'change' }],
-	actionType: [{ required: true, message: 'Please select action actionType', trigger: 'change' }],
-	condition: [{ required: true, message: 'Please select condition', trigger: 'change' }],
+	name: [{ required: true, message: 'Please enter action name', trigger: 'blur' }],
+	actionType: [{ required: true, message: 'Please select action actionType', trigger: 'blur' }],
+	condition: [{ required: true, message: 'Please select condition', trigger: 'blur' }],
 };
 
 const getDefaultConfig = (actionType: ActionType) => {
@@ -545,6 +570,7 @@ interface IFieldMappingItem {
 
 const showFieldMapping = ref(false);
 const wfeFieldOptions = ref(staticFieldsData.formFields);
+const isFieldMappingExpanded = ref(false);
 
 const fieldMappings = computed({
 	get() {
@@ -555,17 +581,20 @@ const fieldMappings = computed({
 	},
 });
 
-/**
- * 处理显示字段映射开关变化
- */
-function handleShowFieldMappingChange(value: string | number | boolean) {
-	const boolValue = Boolean(value);
-	showFieldMapping.value = boolValue;
-	if (!boolValue) {
-		// 关闭时清空字段映射
-		fieldMappings.value = [];
+// 切换字段映射折叠状态
+const toggleFieldMappingCollapse = () => {
+	isFieldMappingExpanded.value = !isFieldMappingExpanded.value;
+};
+
+// 监听字段映射变化，自动展开折叠面板
+watch(
+	() => fieldMappings.value?.length,
+	(newLength) => {
+		if (newLength && newLength > 0 && !isFieldMappingExpanded.value) {
+			isFieldMappingExpanded.value = true;
+		}
 	}
-}
+);
 
 /**
  * 添加字段映射
@@ -592,10 +621,10 @@ function handleRemoveFieldMapping(index: number) {
 const resetForm = (closeDialog = true) => {
 	formData.value.id = '';
 	formData.value.name = '';
-	formData.value.actionType = ActionType.PYTHON_SCRIPT;
+	formData.value.actionType = ActionType.HTTP_API;
 	formData.value.description = '';
 	formData.value.isTools = false; // 新建时默认为工具模式
-	formData.value.actionConfig = getDefaultConfig(ActionType.PYTHON_SCRIPT);
+	formData.value.actionConfig = getDefaultConfig(ActionType.HTTP_API);
 	formRef.value?.resetFields();
 	if (closeDialog) {
 		visible.value = false;
@@ -614,6 +643,7 @@ const resetForm = (closeDialog = true) => {
 	// 重置字段映射状态
 	showFieldMapping.value = false;
 	fieldMappings.value = [];
+	isFieldMappingExpanded.value = false;
 
 	// 重置配置模式为默认值
 	// 如果 forceEditable 为 true 且没有 actionId，设置为 NewTool 模式
@@ -755,8 +785,10 @@ const loadActionDetail = async (actionId: string) => {
 			// 初始化字段映射状态
 			if (formData.value.fieldMappings && formData.value.fieldMappings.length > 0) {
 				showFieldMapping.value = true;
+				isFieldMappingExpanded.value = true;
 			} else {
 				showFieldMapping.value = false;
+				isFieldMappingExpanded.value = false;
 			}
 		} else {
 			ElMessage.error(response.msg || 'Failed to load action details');
@@ -995,17 +1027,27 @@ defineExpose({
 });
 </script>
 
-<style scoped lang="scss">
-.action-config-container {
-	@apply min-h-full;
-}
+<style lang="scss">
+.el-drawer.drawer {
+	.el-drawer__header {
+		margin-bottom: 0px !important;
+	}
 
+	.el-drawer__body {
+		// 隐藏滚动条但保持滚动功能
+		scrollbar-width: none; // Firefox
+		-ms-overflow-style: none; // IE 和 Edge
+
+		&::-webkit-scrollbar {
+			display: none; // Chrome, Safari, Opera
+		}
+	}
+}
+</style>
+
+<style scoped lang="scss">
 .section-header {
 	@apply border-b pb-3 mb-4;
-}
-
-.action-config-section {
-	@apply space-y-4;
 }
 
 // 抽屉footer样式
