@@ -82,7 +82,7 @@
 
 			<el-table-column label="Status" prop="status" width="100" align="center">
 				<template #default="{ row }">
-					<el-tag size="small" :type="row.isActive ? 'success' : 'info'">
+					<el-tag :type="row.isActive ? 'success' : 'info'">
 						{{ row.isActive ? 'Active' : 'Inactive' }}
 					</el-tag>
 				</template>
@@ -201,7 +201,6 @@
 											<el-button
 												link
 												type="danger"
-												size="small"
 												:icon="Delete"
 												@click="handleRemoveParameter(index)"
 											/>

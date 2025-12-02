@@ -564,7 +564,7 @@ const handleInput = (value: string) => {
 	}
 };
 
-const handleKeydown = (event: KeyboardEvent) => {
+const handleKeydown = (event: KeyboardEvent): void => {
 	if (!showVariables.value) return;
 
 	switch (event.key) {
@@ -671,7 +671,7 @@ watch(
 }
 
 .variables-dropdown {
-	@apply bg-white  dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-xl shadow-lg overflow-hidden;
+	@apply bg-white  dark:bg-[var(--el-fill-color-light)] border border-gray-200 dark:border-gray-600 rounded-xl shadow-lg overflow-hidden;
 	box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
 }
 
@@ -684,7 +684,7 @@ watch(
 }
 
 .variable-option-active {
-	@apply bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400;
+	@apply bg-primary-50  text-primary-600 dark:text-primary-400;
 }
 
 .variable-info {
@@ -692,7 +692,7 @@ watch(
 }
 
 .variable-name {
-	@apply block font-mono text-sm font-medium text-blue-600 dark:text-blue-400;
+	@apply block font-mono text-sm font-medium text-primary-600 dark:text-primary-400;
 }
 
 .variable-description {
@@ -701,11 +701,11 @@ watch(
 
 .variables-active {
 	:deep(.el-input__wrapper) {
-		@apply border-blue-300 dark:border-blue-600;
+		@apply border-primary-300 dark:border-primary-600;
 	}
 
 	:deep(.el-textarea__inner) {
-		@apply border-blue-300 dark:border-blue-600;
+		@apply border-primary-300 dark:border-primary-600;
 	}
 }
 

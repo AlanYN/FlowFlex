@@ -12,305 +12,334 @@
 		<el-form
 			:model="formConfig"
 			label-width="120px"
-			class=""
+			class="http-config-form"
 			label-position="top"
 			@submit.prevent
 		>
+			<!-- Request URL with Test Button -->
 			<el-form-item label="Request URL" required class="request-url-input">
-				<el-input
-					v-model="url"
-					placeholder="Enter URL, type '/' to insert variables"
-					class="w-full"
-					:disabled="disabled"
-				>
-					<template #prepend>
-						<el-select v-model="method" style="width: 115px" :disabled="disabled">
-							<el-option label="GET" value="GET" />
-							<el-option label="POST" value="POST" />
-							<el-option label="PUT" value="PUT" />
-							<el-option label="DELETE" value="DELETE" />
-							<el-option label="PATCH" value="PATCH" />
-						</el-select>
-					</template>
-				</el-input>
-				<div class="text-xs url-hint mt-1">
-					Use variables like &#123;&#123;onboarding.id&#125;&#125; or
-					&#123;&#123;stage.name&#125;&#125; in the URL
-				</div>
-			</el-form-item>
-
-			<!-- Headers Section -->
-			<el-form-item label="HEADERS">
-				<div class="params-section-enhanced">
-					<div class="params-header-enhanced">
-						<div class="param-col-key">Key</div>
-						<div class="param-col-value">Value</div>
-						<div class="param-actions-enhanced"></div>
-					</div>
-					<div class="params-body-enhanced">
-						<div
-							v-for="(header, index) in formConfig.headersList"
-							:key="index"
-							class="param-row-enhanced"
+				<div class="w-full flex flex-col gap-2">
+					<div class="url-input-container">
+						<el-input
+							v-model="url"
+							placeholder="Enter URL"
+							class="flex-1"
+							:disabled="disabled"
 						>
-							<div class="param-key-container">
-								<el-input
-									v-model="header.key"
-									placeholder="Header key"
-									@update:model-value="updateHeaderKey(index, $event)"
-									:disabled="disabled"
-								/>
-							</div>
-							<div class="param-value-container">
-								<variable-auto-complete
-									v-model="header.value"
-									placeholder="Header value"
-									class=""
-									@update:model-value="updateHeaderValue(index, $event)"
-									:disabled="disabled"
-								/>
-							</div>
-							<div class="param-delete-container">
-								<el-button
-									type="danger"
-									link
-									@click="removeHeader(index)"
+							<template #prepend>
+								<el-select
+									v-model="method"
+									style="width: 115px"
 									:disabled="disabled"
 								>
-									<el-icon><Delete /></el-icon>
-								</el-button>
-							</div>
-						</div>
+									<el-option label="GET" value="GET" />
+									<el-option label="POST" value="POST" />
+									<el-option label="PUT" value="PUT" />
+									<el-option label="DELETE" value="DELETE" />
+									<el-option label="PATCH" value="PATCH" />
+								</el-select>
+							</template>
+						</el-input>
+						<el-button
+							type="primary"
+							@click="handleTest"
+							:loading="testing"
+							:disabled="!formConfig.url || disabled"
+							class="test-button"
+						>
+							Test Send
+						</el-button>
+					</div>
+					<div class="text-xs url-hint mt-1">
+						Use variables like &#123;&#123;onboarding.id&#125;&#125; or
+						&#123;&#123;stage.name&#125;&#125; in the URL
 					</div>
 				</div>
 			</el-form-item>
 
-			<!-- Params Section -->
-			<el-form-item label="PARAMS">
-				<div class="params-section-enhanced">
-					<div class="params-header-enhanced">
-						<div class="param-col-key">Key</div>
-						<div class="param-col-value">Value</div>
-						<div class="param-actions-enhanced"></div>
-					</div>
-					<div class="params-body-enhanced">
-						<div
-							v-for="(param, index) in formConfig.paramsList"
-							:key="index"
-							class="param-row-enhanced"
-						>
-							<div class="param-key-container">
-								<variable-auto-complete
-									v-model="param.key"
-									placeholder="Parameter key"
-									@update:model-value="updateParamKey(index, $event)"
-									:disabled="disabled"
-								/>
-							</div>
-							<div class="param-value-container">
-								<variable-auto-complete
-									v-model="param.value"
-									placeholder="Parameter value"
-									@update:model-value="updateParamValue(index, $event)"
-									:disabled="disabled"
-								/>
-							</div>
-							<div class="param-delete-container">
-								<el-button
-									type="danger"
-									link
-									@click="removeParam(index)"
-									:disabled="disabled"
-								>
-									<el-icon><Delete /></el-icon>
-								</el-button>
-							</div>
+			<!-- Tabs Section: Params, Headers, Body -->
+			<el-tabs v-model="activeRequestTab" class="http-request-tabs">
+				<!-- Params Tab -->
+				<el-tab-pane label="Params" name="params">
+					<div class="params-section-enhanced">
+						<div class="params-header-enhanced">
+							<div class="param-col-key">Key</div>
+							<div class="param-col-value">Value</div>
+							<div class="param-actions-enhanced"></div>
 						</div>
-					</div>
-				</div>
-			</el-form-item>
-
-			<!-- Body Section -->
-			<el-form-item label="BODY">
-				<div class="body-section">
-					<!-- Body Type Selection -->
-					<el-radio-group v-model="bodyType" class="body-type-group" :disabled="disabled">
-						<el-radio value="none">none</el-radio>
-						<el-radio value="form-data">form-data</el-radio>
-						<el-radio value="x-www-form-urlencoded">x-www-form-urlencoded</el-radio>
-						<el-radio value="raw">raw</el-radio>
-					</el-radio-group>
-
-					<!-- Body Content based on type -->
-					<div class="body-content">
-						<!-- None - No content -->
-						<div v-if="formConfig.bodyType === 'none'" class="body-none">
-							<p class="text-sm body-none-text">This request has no body</p>
-						</div>
-
-						<!-- Form Data -->
-						<div
-							v-else-if="formConfig.bodyType === 'form-data'"
-							class="params-section-enhanced"
-						>
-							<div class="params-header-enhanced">
-								<div class="param-col-key">Key</div>
-								<div class="param-col-value">Value</div>
-								<div class="param-actions-enhanced"></div>
-							</div>
-							<div class="params-body-enhanced">
-								<div
-									v-for="(item, index) in formConfig.formDataList"
-									:key="index"
-									class="param-row-enhanced"
-								>
-									<div class="param-key-container">
-										<el-input
-											v-model="item.key"
-											placeholder="Form data key"
-											@update:model-value="updateFormDataKey(index, $event)"
-											:disabled="disabled"
-										/>
-									</div>
-									<div class="param-value-container">
-										<variable-auto-complete
-											v-model="item.value"
-											placeholder="Form data value"
-											class=""
-											@update:model-value="updateFormDataValue(index, $event)"
-											:disabled="disabled"
-										/>
-									</div>
-									<div class="param-delete-container">
-										<el-button
-											type="danger"
-											link
-											@click="removeFormData(index)"
-											v-if="formConfig.formDataList.length > 1"
-											:disabled="disabled"
-										>
-											<el-icon><Delete /></el-icon>
-										</el-button>
-									</div>
+						<div class="params-body-enhanced tab-content-body">
+							<div
+								v-for="(param, index) in formConfig.paramsList"
+								:key="index"
+								class="param-row-enhanced"
+							>
+								<div class="param-key-container">
+									<el-input
+										v-model="param.key"
+										placeholder="Parameter key"
+										@update:model-value="updateParamKey(index, $event)"
+										:disabled="disabled"
+									/>
 								</div>
-							</div>
-						</div>
-
-						<!-- URL Encoded -->
-						<div
-							v-else-if="formConfig.bodyType === 'x-www-form-urlencoded'"
-							class="params-section-enhanced"
-						>
-							<div class="params-header-enhanced">
-								<div class="param-col-key">Key</div>
-								<div class="param-col-value">Value</div>
-								<div class="param-actions-enhanced"></div>
-							</div>
-							<div class="params-body-enhanced">
-								<div
-									v-for="(item, index) in formConfig.urlEncodedList"
-									:key="index"
-									class="param-row-enhanced"
-								>
-									<div class="param-key-container">
-										<el-input
-											v-model="item.key"
-											placeholder="URL encoded key"
-											:disabled="disabled"
-											@update:model-value="updateUrlEncodedKey(index, $event)"
-										/>
-									</div>
-									<div class="param-value-container">
-										<variable-auto-complete
-											v-model="item.value"
-											placeholder="URL encoded value"
-											class=""
-											@update:model-value="
-												updateUrlEncodedValue(index, $event)
-											"
-											:disabled="disabled"
-										/>
-									</div>
-									<div class="param-delete-container">
-										<el-button
-											type="danger"
-											link
-											@click="removeUrlEncoded(index)"
-											v-if="formConfig.urlEncodedList.length > 1"
-											:disabled="disabled"
-											:icon="Delete"
-										/>
-									</div>
+								<div class="param-value-container">
+									<variable-auto-complete
+										v-model="param.value"
+										placeholder="type '/' to insert variables"
+										@update:model-value="updateParamValue(index, $event)"
+										:disabled="disabled"
+									/>
 								</div>
-							</div>
-						</div>
-
-						<!-- Raw - with format selection -->
-						<div v-else-if="formConfig.bodyType === 'raw'" class="raw-section">
-							<div class="raw-header">
-								<div class="raw-format-controls">
-									<el-select
-										v-model="rawFormat"
-										class="raw-format-select"
+								<div class="param-delete-container">
+									<el-button
+										type="danger"
+										link
+										@click="removeParam(index)"
 										:disabled="disabled"
 									>
-										<el-option label="JSON" value="json" />
-										<el-option label="Text" value="text" />
-										<el-option label="JavaScript" value="javascript" />
-										<el-option label="HTML" value="html" />
-										<el-option label="XML" value="xml" />
-									</el-select>
-									<el-button
-										type="primary"
-										@click="formatRawContent"
-										:disabled="disabled || !body.trim()"
-										class="format-btn"
-										:icon="DocumentCopy"
-									>
-										Beautify
+										<el-icon><Delete /></el-icon>
 									</el-button>
 								</div>
 							</div>
-							<div class="raw-textarea-container">
-								<variable-auto-complete
-									v-model="body"
-									type="textarea"
-									:rows="8"
-									placeholder="Enter your content here, type '/' to insert variables..."
-									class="font-mono text-sm raw-textarea"
-									:disabled="disabled"
-								/>
+						</div>
+					</div>
+				</el-tab-pane>
+
+				<!-- Headers Tab -->
+				<el-tab-pane label="Headers" name="headers">
+					<div class="params-section-enhanced">
+						<div class="params-header-enhanced">
+							<div class="param-col-key">Key</div>
+							<div class="param-col-value">Value</div>
+							<div class="param-actions-enhanced"></div>
+						</div>
+						<div class="params-body-enhanced tab-content-body">
+							<div
+								v-for="(header, index) in formConfig.headersList"
+								:key="index"
+								class="param-row-enhanced"
+							>
+								<div class="param-key-container">
+									<el-input
+										v-model="header.key"
+										placeholder="Header key"
+										@update:model-value="updateHeaderKey(index, $event)"
+										:disabled="disabled"
+									/>
+								</div>
+								<div class="param-value-container">
+									<variable-auto-complete
+										v-model="header.value"
+										placeholder="type '/' to insert variables"
+										class=""
+										@update:model-value="updateHeaderValue(index, $event)"
+										:disabled="disabled"
+									/>
+								</div>
+								<div class="param-delete-container">
+									<el-button
+										type="danger"
+										link
+										@click="removeHeader(index)"
+										:disabled="disabled"
+									>
+										<el-icon><Delete /></el-icon>
+									</el-button>
+								</div>
 							</div>
 						</div>
 					</div>
-				</div>
-			</el-form-item>
+				</el-tab-pane>
+
+				<!-- Body Tab -->
+				<el-tab-pane label="Body" name="body">
+					<div class="body-section">
+						<!-- Body Type Selection -->
+						<el-radio-group
+							v-model="bodyType"
+							class="body-type-group"
+							:disabled="disabled"
+						>
+							<el-radio value="none">none</el-radio>
+							<el-radio value="form-data">form-data</el-radio>
+							<el-radio value="x-www-form-urlencoded">x-www-form-urlencoded</el-radio>
+							<el-radio value="raw">raw</el-radio>
+						</el-radio-group>
+
+						<!-- Body Content based on type -->
+						<div class="body-content tab-content-body">
+							<!-- None - No content -->
+							<div v-if="formConfig.bodyType === 'none'" class="body-none">
+								<p class="text-sm body-none-text">This request has no body</p>
+							</div>
+
+							<!-- Form Data -->
+							<div
+								v-else-if="formConfig.bodyType === 'form-data'"
+								class="params-section-enhanced"
+							>
+								<div class="params-header-enhanced flex-shrink-0">
+									<div class="param-col-key">Key</div>
+									<div class="param-col-value">Value</div>
+									<div class="param-actions-enhanced"></div>
+								</div>
+								<div class="params-body-enhanced flex-1 min-h-0 overflow-y-auto">
+									<div
+										v-for="(item, index) in formConfig.formDataList"
+										:key="index"
+										class="param-row-enhanced"
+									>
+										<div class="param-key-container">
+											<el-input
+												v-model="item.key"
+												placeholder="Form data key"
+												@update:model-value="
+													updateFormDataKey(index, $event)
+												"
+												:disabled="disabled"
+											/>
+										</div>
+										<div class="param-value-container">
+											<variable-auto-complete
+												v-model="item.value"
+												placeholder="type '/' to insert variables"
+												class=""
+												@update:model-value="
+													updateFormDataValue(index, $event)
+												"
+												:disabled="disabled"
+											/>
+										</div>
+										<div class="param-delete-container">
+											<el-button
+												type="danger"
+												link
+												@click="removeFormData(index)"
+												v-if="formConfig.formDataList.length > 1"
+												:disabled="disabled"
+											>
+												<el-icon><Delete /></el-icon>
+											</el-button>
+										</div>
+									</div>
+								</div>
+							</div>
+
+							<!-- URL Encoded -->
+							<div
+								v-else-if="formConfig.bodyType === 'x-www-form-urlencoded'"
+								class="params-section-enhanced"
+							>
+								<div class="params-header-enhanced flex-shrink-0">
+									<div class="param-col-key">Key</div>
+									<div class="param-col-value">Value</div>
+									<div class="param-actions-enhanced"></div>
+								</div>
+								<div class="params-body-enhanced flex-1 min-h-0 overflow-y-auto">
+									<div
+										v-for="(item, index) in formConfig.urlEncodedList"
+										:key="index"
+										class="param-row-enhanced"
+									>
+										<div class="param-key-container">
+											<el-input
+												v-model="item.key"
+												placeholder="URL encoded key"
+												:disabled="disabled"
+												@update:model-value="
+													updateUrlEncodedKey(index, $event)
+												"
+											/>
+										</div>
+										<div class="param-value-container">
+											<variable-auto-complete
+												v-model="item.value"
+												placeholder="type '/' to insert variables"
+												class=""
+												@update:model-value="
+													updateUrlEncodedValue(index, $event)
+												"
+												:disabled="disabled"
+											/>
+										</div>
+										<div class="param-delete-container">
+											<el-button
+												type="danger"
+												link
+												@click="removeUrlEncoded(index)"
+												v-if="formConfig.urlEncodedList.length > 1"
+												:disabled="disabled"
+												:icon="Delete"
+											/>
+										</div>
+									</div>
+								</div>
+							</div>
+
+							<!-- Raw - with format selection -->
+							<div
+								v-else-if="formConfig.bodyType === 'raw'"
+								class="raw-section h-full flex flex-col"
+							>
+								<div class="raw-header flex-shrink-0">
+									<div class="raw-format-controls">
+										<el-select
+											v-model="rawFormat"
+											class="raw-format-select"
+											:disabled="disabled"
+										>
+											<el-option label="JSON" value="json" />
+											<el-option label="Text" value="text" />
+											<el-option label="JavaScript" value="javascript" />
+											<el-option label="HTML" value="html" />
+											<el-option label="XML" value="xml" />
+										</el-select>
+										<el-button
+											type="primary"
+											@click="formatRawContent"
+											:disabled="disabled || !body.trim()"
+											class="format-btn"
+											:icon="DocumentCopy"
+										>
+											Beautify
+										</el-button>
+									</div>
+								</div>
+								<div class="raw-textarea-container flex-1 min-h-0 overflow-y-auto">
+									<variable-auto-complete
+										v-model="body"
+										type="textarea"
+										:rows="8"
+										placeholder="Enter your content here, type '/' to insert variables..."
+										class="font-mono text-sm raw-textarea"
+										:disabled="disabled"
+									/>
+								</div>
+							</div>
+						</div>
+					</div>
+				</el-tab-pane>
+			</el-tabs>
+
+			<!-- Response Section -->
+			<el-tabs v-model="activeResponseTab">
+				<el-tab-pane label="Response" name="response">
+					<div v-if="testResult" class="w-full">
+						<JsonResultRenderer
+							:output-type="responseOutputType"
+							:max-height="'500px'"
+							:enable-syntax-highlight="true"
+						/>
+					</div>
+					<div v-else class="response-empty">
+						<div class="response-empty-content">
+							<p class="text-sm text-text-secondary">
+								Click Test Send to get a response
+							</p>
+						</div>
+					</div>
+				</el-tab-pane>
+			</el-tabs>
 		</el-form>
-
-		<!-- Test Run Section -->
-		<div class="test-section">
-			<div class="flex items-center justify-between mb-3">
-				<h5 class="font-medium"></h5>
-				<el-button
-					type="primary"
-					@click="handleTest"
-					:loading="testing"
-					:disabled="!formConfig.url"
-				>
-					Test Request
-				</el-button>
-			</div>
-
-			<div v-if="testResult" class="test-result">
-				<div class="test-result-box rounded-xl p-3">
-					<pre class="text-xs test-result-text whitespace-pre-wrap">
-						{{ testResult.stdout || testResult }}
-					</pre
-					>
-				</div>
-			</div>
-		</div>
-
 		<!-- Import Dialog -->
 		<el-dialog
 			v-model="importDialogVisible"
@@ -649,6 +678,8 @@ import TabPane from '@/components/PrototypeTabs/TabPane.vue';
 import { parseCurl, type ParsedCurlConfig } from '@/utils/curlParser';
 import * as XLSX from 'xlsx-js-style';
 import { getAppCode } from '@/utils/threePartyLogin';
+import JsonResultRenderer from './JsonResultRenderer.vue';
+import type { OutputType } from '@/utils/output-type-detector';
 
 // External library loaders (CDN-based to avoid local dependency issues)
 const PDF_JS_VERSION = '3.11.174';
@@ -924,6 +955,19 @@ const emit = defineEmits<{
 	'ai-config-applied': [config: any];
 	test: [];
 }>();
+
+// Tabs state
+const activeRequestTab = ref('params');
+const activeResponseTab = ref('response');
+
+// Response output type for JsonResultRenderer
+const responseOutputType = computed<OutputType>(() => {
+	const result = props.testResult?.stdout || props.testResult;
+	return {
+		type: 'json',
+		data: result,
+	};
+});
 
 // 主要的配置对象，在computed中处理所有数据格式转换
 const formConfig = computed({
@@ -2953,9 +2997,47 @@ onMounted(() => {
 </script>
 
 <style scoped lang="scss">
+// URL Input Container
+.url-input-container {
+	@apply flex items-center gap-2;
+}
+
+.test-button {
+	@apply flex-shrink-0;
+	min-width: 80px;
+}
+
+.response-box {
+	background: var(--el-fill-color-lighter);
+	min-height: 200px;
+	max-height: 500px;
+	overflow-y: auto;
+}
+
+html.dark .response-box {
+	background: var(--el-fill-color-darker);
+}
+
+.response-text {
+	color: var(--el-text-color-regular);
+}
+
+html.dark .response-text {
+	color: var(--el-text-color-placeholder);
+}
+
+.response-empty {
+	@apply w-full py-12 flex items-center justify-center;
+	min-height: 200px;
+}
+
+.response-empty-content {
+	@apply text-center;
+}
+
 // Enhanced Params Section Styles (New)
 .params-section-enhanced {
-	@apply w-full border rounded-xl overflow-hidden;
+	@apply w-full border overflow-hidden h-full flex flex-col mt-2;
 	border-color: var(--el-border-color-light);
 }
 
@@ -2963,8 +3045,31 @@ html.dark .params-section-enhanced {
 	border-color: var(--el-border-color-dark);
 }
 
+// HTTP Request Tabs - 固定高度，避免双重滚动条
+.http-request-tabs {
+	height: 400px;
+
+	:deep(.el-tabs__header) {
+		@apply flex-shrink-0;
+		margin-bottom: 0;
+	}
+
+	:deep(.el-tabs__content) {
+		@apply flex-1 min-h-0 overflow-hidden;
+	}
+
+	:deep(.el-tab-pane) {
+		@apply h-full overflow-hidden;
+	}
+}
+
+// Tab 内容主体 - 可滚动
+.tab-content-body {
+	@apply flex-1 min-h-0 overflow-y-auto;
+}
+
 .params-header-enhanced {
-	@apply px-4 py-3 border-b grid grid-cols-12 gap-4 items-center;
+	@apply px-4 py-2 border-b grid grid-cols-12 gap-4 items-center flex-shrink-0;
 	background: var(--el-fill-color-lighter);
 	border-bottom-color: var(--el-border-color-light);
 
@@ -2996,7 +3101,7 @@ html.dark .params-header-enhanced {
 }
 
 .params-body-enhanced {
-	@apply p-3 space-y-2;
+	@apply p-3 space-y-2 flex-1 min-h-0 overflow-y-auto;
 }
 
 .param-row-enhanced {
@@ -3092,11 +3197,11 @@ html.dark .params-header {
 
 // Body Section Styles
 .body-section {
-	@apply w-full space-y-4;
+	@apply w-full space-y-4 h-full flex flex-col mt-2;
 }
 
 .body-type-group {
-	@apply flex flex-wrap gap-4;
+	@apply flex flex-wrap gap-4 flex-shrink-0;
 
 	:deep(.el-radio) {
 		@apply mr-0;
@@ -3104,11 +3209,13 @@ html.dark .params-header {
 }
 
 .body-content {
-	@apply mt-4;
+	@apply mt-4 flex-1 min-h-0;
+	overflow: hidden; // 让内部元素处理滚动
 }
 
 .body-none {
-	@apply py-8 text-center;
+	@apply py-8 text-center h-full flex items-center justify-center;
+	overflow-y: auto; // none 类型需要滚动
 }
 
 .raw-section {

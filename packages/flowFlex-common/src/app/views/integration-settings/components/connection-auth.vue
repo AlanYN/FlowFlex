@@ -164,6 +164,13 @@
 								<span class="text-sm font-medium">
 									{{ integrationStatus === 1 ? 'Connected' : 'Not Connected' }}
 								</span>
+								<span class="text-sm font-medium" v-if="testErrorMsg">
+									<Icon
+										icon="tabler:alert-circle"
+										class="text-danger"
+										@click="handleTestError"
+									/>
+								</span>
 							</div>
 						</div>
 					</div>
@@ -205,6 +212,7 @@ interface Props {
 	integrationId: string | number;
 	connectionData?: IIntegrationConfig;
 	integrationStatus: number;
+	testErrorMsg: string;
 }
 
 interface Emits {
@@ -431,6 +439,10 @@ watch(
 	},
 	{ immediate: true, deep: true }
 );
+
+const handleTestError = () => {
+	ElMessage.error(props?.testErrorMsg);
+};
 
 // 初始化
 onMounted(() => {

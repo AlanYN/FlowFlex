@@ -149,8 +149,11 @@ export interface ICreateIntegrationRequest {
  */
 export interface ITestConnectionResponse {
 	success: boolean;
-	data?: boolean; // 连接测试结果
-	message: string;
+	data?: {
+		success: boolean;
+		msg: string;
+	}; // 连接测试结果
+	msg: string;
 	details?: Record<string, any>;
 	timestamp?: string;
 }

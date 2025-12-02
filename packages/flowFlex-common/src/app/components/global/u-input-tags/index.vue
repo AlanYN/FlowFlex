@@ -7,6 +7,7 @@
 		:disabled="disabled"
 		:max="props.limit"
 		:size="styleType === 'mini' ? 'small' : 'default'"
+		tag-type="primary"
 		class="u-input-tags"
 		@change="handleChange"
 		@add-tag="handleAddTag"

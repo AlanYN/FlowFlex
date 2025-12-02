@@ -13,7 +13,7 @@
 						<h3 class="card-title tracking-tight truncate" :title="integration.name">
 							{{ integration.name }}
 						</h3>
-						<el-tag :type="integration.status === 1 ? 'success' : 'info'" size="small">
+						<el-tag :type="integration.status === 1 ? 'success' : 'info'">
 							{{ integration.status === 1 ? 'Connected' : 'Disconnected' }}
 						</el-tag>
 					</div>
@@ -62,16 +62,11 @@
 			<div class="entity-types-container">
 				<div class="flex flex-wrap gap-x-2">
 					<template v-for="value in visibleEntityTypes" :key="value">
-						<el-tag type="info" size="small">
+						<el-tag type="info">
 							{{ value }}
 						</el-tag>
 					</template>
-					<el-tag
-						v-if="remainingCount > 0"
-						type="info"
-						size="small"
-						class="remaining-tag"
-					>
+					<el-tag v-if="remainingCount > 0" type="info" class="remaining-tag">
 						+{{ remainingCount }}
 					</el-tag>
 					<span
