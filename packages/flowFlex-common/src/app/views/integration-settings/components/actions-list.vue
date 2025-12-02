@@ -106,6 +106,7 @@ const handleAddAction = () => {
 };
 
 const onActionSave = async (actionResult) => {
+	loadActions();
 	emit('refresh');
 };
 
