@@ -171,7 +171,10 @@
 					<div
 						v-for="(item, itemIndex) in section.questions"
 						:key="item.id || itemIndex"
-						class="question-item space-y-3 pb-6 border-b border-light last:border-b-0 last:pb-0"
+						:class="[
+							'question-item space-y-3 pb-6 border-b border-light last:border-b-0 last:pb-0',
+							{ 'question-skipped': isQuestionSkipped(sectionIndex, itemIndex) },
+						]"
 					>
 						<!-- 问题标题 -->
 						<div
@@ -239,6 +242,7 @@
 								v-if="item.type === 'short_answer'"
 								v-model="previewData[getItemKey(sectionIndex, itemIndex)]"
 								:placeholder="item.placeholder || 'Your answer'"
+								:disabled="isQuestionSkipped(sectionIndex, itemIndex)"
 								:class="[
 									'preview-input',
 									{ 'error-input': getFieldError(sectionIndex, itemIndex) },
@@ -252,6 +256,7 @@
 								type="textarea"
 								:rows="typeof item.rows === 'number' ? item.rows : 3"
 								:placeholder="item.placeholder || 'Your answer'"
+								:disabled="isQuestionSkipped(sectionIndex, itemIndex)"
 								:class="[
 									'preview-input',
 									{ 'error-input': getFieldError(sectionIndex, itemIndex) },
@@ -263,6 +268,7 @@
 								v-else-if="item.type === 'multiple_choice' && item.options"
 								v-model="previewData[getItemKey(sectionIndex, itemIndex)]"
 								@change="handleRadioChange(sectionIndex, itemIndex, item, $event)"
+								:disabled="isQuestionSkipped(sectionIndex, itemIndex)"
 								class="w-full"
 							>
 								<div class="space-y-2">
@@ -296,6 +302,7 @@
 								@change="
 									handleCheckboxChange(sectionIndex, itemIndex, item, $event)
 								"
+								:disabled="isQuestionSkipped(sectionIndex, itemIndex)"
 								class="w-full flex"
 							>
 								<div class="space-y-2">
@@ -329,6 +336,7 @@
 								v-else-if="item.type === 'dropdown'"
 								v-model="previewData[getItemKey(sectionIndex, itemIndex)]"
 								:placeholder="item.placeholder || 'Please select'"
+								:disabled="isQuestionSkipped(sectionIndex, itemIndex)"
 								:class="[
 									'w-full preview-select',
 									{ 'error-select': getFieldError(sectionIndex, itemIndex) },
@@ -788,7 +796,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue';
+import { ref, watch, nextTick } from 'vue';
 import { Document, Upload, Loading, Star, Warning } from '@element-plus/icons-vue';
 import { ElMessage } from 'element-plus';
 import { projectDate } from '@/settings/projectSetting';
@@ -970,6 +978,14 @@ const previewData = ref<Record<string, any>>({});
 // 校验错误状态存储
 const validationErrors = ref<Record<string, string>>({});
 
+// 被跳过的问题集合（存储问题的唯一标识：sectionIndex_itemIndex）
+const skippedQuestions = ref<Set<string>>(new Set());
+
+// 清除跳过状态
+const clearSkippedQuestions = () => {
+	skippedQuestions.value.clear();
+};
+
 // 生成问题项的唯一键
 const getItemKey = (sectionIndex: number, itemIndex: number, isOther?: boolean) => {
 	return `section_${sectionIndex}_item_${itemIndex}${isOther ? '_other' : ''}`;
@@ -1071,6 +1087,8 @@ watch(
 	() => props.questionnaire,
 	() => {
 		initializePreviewData();
+		// 重置跳过状态
+		clearSkippedQuestions();
 	},
 	{ immediate: true, deep: true }
 );
@@ -1089,7 +1107,7 @@ const handleFileChange = (sectionIndex: number, itemIndex: number, file: any, fi
 	console.log('File data stored:', previewData.value[key]);
 };
 
-// 处理单选变化 - 清空Other输入框
+// 处理单选变化 - 清空Other输入框并处理跳转逻辑
 const handleRadioChange = (
 	sectionIndex: number,
 	itemIndex: number,
@@ -1108,6 +1126,132 @@ const handleRadioChange = (
 			previewData.value[otherTextKey] = '';
 		}
 	}
+
+	// 处理跳转逻辑（仅单选题支持跳转到具体问题）
+	if (item.type === 'multiple_choice' && item.jumpRules && item.jumpRules.length > 0 && value) {
+		// 查找匹配的跳转规则
+		const selectedOption = item.options?.find(
+			(opt: any) => opt.value === value || opt.label === value
+		);
+
+		if (selectedOption) {
+			const jumpRule = item.jumpRules.find(
+				(rule: any) => rule.optionId === selectedOption.temporaryId
+			);
+
+			if (jumpRule) {
+				// 计算被跳过的问题
+				calculateSkippedQuestions(sectionIndex, itemIndex, jumpRule);
+
+				// 执行跳转（滚动到目标问题）
+				scrollToTargetQuestion(jumpRule);
+			} else {
+				// 如果没有跳转规则，清除之前的跳过状态
+				clearSkippedQuestions();
+			}
+		}
+	} else {
+		// 如果没有选择值或没有跳转规则，清除跳过状态
+		clearSkippedQuestions();
+	}
+};
+
+// 计算被跳过的问题
+const calculateSkippedQuestions = (
+	currentSectionIndex: number,
+	currentItemIndex: number,
+	jumpRule: any
+) => {
+	const skipped = new Set<string>();
+
+	// 获取目标问题位置
+	const targetSectionIndex = props.questionnaire?.sections.findIndex(
+		(s: any) => s.temporaryId === jumpRule.targetSectionId
+	);
+
+	if (targetSectionIndex === -1) return;
+
+	const targetSection = props.questionnaire?.sections[targetSectionIndex];
+	if (!targetSection) return;
+
+	// 如果跳转规则有targetQuestionId，使用它；否则跳转到section的第一个问题（兼容旧数据）
+	let targetQuestionIndex = -1;
+	if (jumpRule.targetQuestionId) {
+		targetQuestionIndex = targetSection.questions.findIndex(
+			(q: any) => q.temporaryId === jumpRule.targetQuestionId
+		);
+	} else {
+		// 兼容旧数据：跳转到section的第一个问题
+		targetQuestionIndex = 0;
+	}
+
+	if (targetQuestionIndex === -1) return;
+
+	// 判断是同section内跳转还是跨section跳转
+	if (currentSectionIndex === targetSectionIndex) {
+		// 同section内跳转：跳过当前问题之后到目标问题之前的所有问题
+		for (let i = currentItemIndex + 1; i < targetQuestionIndex; i++) {
+			skipped.add(`${currentSectionIndex}_${i}`);
+		}
+	} else {
+		// 跨section跳转：
+		// 1. 跳过当前section中当前问题之后的所有问题
+		const currentSection = props.questionnaire?.sections[currentSectionIndex];
+		if (currentSection) {
+			for (let i = currentItemIndex + 1; i < currentSection.questions.length; i++) {
+				skipped.add(`${currentSectionIndex}_${i}`);
+			}
+		}
+
+		// 2. 跳过目标section中目标问题之前的所有问题
+		for (let i = 0; i < targetQuestionIndex; i++) {
+			skipped.add(`${targetSectionIndex}_${i}`);
+		}
+	}
+
+	skippedQuestions.value = skipped;
+};
+
+// 滚动到目标问题
+const scrollToTargetQuestion = (jumpRule: any) => {
+	nextTick(() => {
+		const targetSectionIndex = props.questionnaire?.sections.findIndex(
+			(s: any) => s.temporaryId === jumpRule.targetSectionId
+		);
+
+		if (targetSectionIndex === -1) return;
+
+		const targetSection = props.questionnaire?.sections[targetSectionIndex];
+		if (!targetSection) return;
+
+		let targetQuestionIndex = -1;
+		if (jumpRule.targetQuestionId) {
+			targetQuestionIndex = targetSection.questions.findIndex(
+				(q: any) => q.temporaryId === jumpRule.targetQuestionId
+			);
+		} else {
+			targetQuestionIndex = 0;
+		}
+
+		if (targetQuestionIndex === -1) return;
+
+		// 查找目标问题的DOM元素
+		const questionId =
+			targetSection.questions[targetQuestionIndex]?.id ||
+			targetSection.questions[targetQuestionIndex]?.temporaryId;
+
+		if (questionId) {
+			const element = document.querySelector(`a[href="#${questionId}"]`);
+			if (element) {
+				element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+			}
+		}
+	});
+};
+
+// 检查问题是否被跳过
+const isQuestionSkipped = (sectionIndex: number, itemIndex: number) => {
+	return skippedQuestions.value.has(`${sectionIndex}_${itemIndex}`);
 };
 
 // 处理多选变化 - 清空Other输入框
@@ -1213,6 +1357,9 @@ const validateForm = (): ValidationResult => {
 
 	props.questionnaire.sections.forEach((section: any, sectionIndex: number) => {
 		section.questions?.forEach((item: any, itemIndex: number) => {
+			// 跳过被跳过的问题（即使它们是必填的）
+			if (isQuestionSkipped(sectionIndex, itemIndex)) return;
+
 			// 只校验必填字段
 			if (!item.required) return;
 
@@ -1910,5 +2057,29 @@ html.dark .preview_assignment-label {
 
 .border-base {
 	border-color: var(--el-border-color);
+}
+
+// 被跳过的问题样式
+.question-skipped {
+	opacity: 0.5;
+	pointer-events: none;
+	position: relative;
+
+	&::before {
+		content: '';
+		position: absolute;
+		top: 0;
+		left: 0;
+		right: 0;
+		bottom: 0;
+		background-color: rgba(0, 0, 0, 0.02);
+		z-index: 1;
+		pointer-events: none;
+	}
+
+	.question-title,
+	.question-description {
+		color: var(--el-text-color-disabled);
+	}
 }
 </style>

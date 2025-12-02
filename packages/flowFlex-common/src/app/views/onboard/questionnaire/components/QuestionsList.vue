@@ -104,7 +104,8 @@
 												</el-dropdown-item>
 												<el-dropdown-item
 													v-if="
-														item.type === 'multiple_choice' &&
+														(item.type === 'multiple_choice' ||
+															item.type === 'checkboxes') &&
 														setGoToSection
 													"
 													@click="openJumpRuleEditor(index)"
@@ -116,7 +117,11 @@
 															class="drag-icon"
 														/>
 														<span class="text-xs">
-															Go to Section Based on Answer
+															{{
+																item.type === 'multiple_choice'
+																	? 'Go to Question Based on Answer'
+																	: 'Go to Section Based on Answer'
+															}}
 														</span>
 													</div>
 												</el-dropdown-item>
@@ -249,7 +254,8 @@
 											<!-- 显示选项的action标签 -->
 											<el-tag
 												v-if="
-													item.type === 'multiple_choice' &&
+													(item.type === 'multiple_choice' ||
+														item.type === 'checkboxes') &&
 													setGoToSection
 												"
 												type="primary"
@@ -580,7 +586,7 @@ const removeFile = (questionIndex: number) => {
 // 打开跳转规则编辑器
 const openJumpRuleEditor = (index: number) => {
 	const question = questionsData.value[index];
-	if (question && question.type === 'multiple_choice') {
+	if (question && (question.type === 'multiple_choice' || question.type === 'checkboxes')) {
 		currentEditingQuestion.value = question as QuestionWithJumpRules;
 		currentEditingIndex.value = index;
 		jumpRuleEditorVisible.value = true;
@@ -736,6 +742,32 @@ const getJumpTargetName = (question: QuestionnaireSection, optionId: string) => 
 
 	const jumpRule = question.jumpRules.find((rule) => rule.optionId === optionId);
 	if (jumpRule) {
+		// 多选题（checkboxes）只显示section名称
+		if (question.type === 'checkboxes') {
+			return jumpRule.targetSectionName;
+		}
+
+		// 单选题（multiple_choice）：如果有targetQuestionId，显示问题编号；否则显示section名称（兼容旧数据）
+		if (jumpRule.targetQuestionId && jumpRule.targetQuestionName) {
+			// 查找目标问题所在的section和问题索引
+			const targetSection = props.sections.find(
+				(s) => s.temporaryId === jumpRule.targetSectionId
+			);
+			if (targetSection) {
+				const questionIndex = targetSection.questions.findIndex(
+					(q) => q.temporaryId === jumpRule.targetQuestionId
+				);
+				const sectionIndex = props.sections.findIndex(
+					(s) => s.temporaryId === jumpRule.targetSectionId
+				);
+				if (questionIndex !== -1 && sectionIndex !== -1) {
+					return `Question ${sectionIndex + 1}.${questionIndex + 1}`;
+				}
+			}
+			// 如果找不到索引，至少显示问题名称
+			return jumpRule.targetQuestionName;
+		}
+		// 兼容旧数据：只显示section名称
 		return jumpRule.targetSectionName;
 	}
 

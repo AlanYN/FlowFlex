@@ -10,20 +10,36 @@
 	>
 		<div class="jump-rule-editor">
 			<div class="editor-header">
-				<div class="subtitle">Set up section navigation based on the selected answer</div>
+				<div class="subtitle">
+					{{
+						isMultipleChoice
+							? 'Set up question navigation based on the selected answer'
+							: 'Set up section navigation based on the selected answer'
+					}}
+				</div>
 			</div>
 
 			<!-- 启用跳转开关 -->
 			<el-switch
 				v-model="isJumpEnabled"
 				size="large"
-				active-text="Enable go to section based on answer"
-				@change="handleToggleChange"
+				:active-text="
+					isMultipleChoice
+						? 'Enable go to question based on answer'
+						: 'Enable go to section based on answer'
+				"
+				@change="(val: string | number | boolean) => handleToggleChange(!!val)"
 			/>
 
 			<!-- 跳转规则配置 -->
 			<div v-if="isJumpEnabled" class="rules-configuration">
-				<div class="config-title">Configure section navigation for each option:</div>
+				<div class="config-title">
+					{{
+						isMultipleChoice
+							? 'Configure question navigation for each option:'
+							: 'Configure section navigation for each option:'
+					}}
+				</div>
 
 				<div class="rules-list">
 					<div
@@ -35,20 +51,47 @@
 							<el-tag type="warning">Other</el-tag>
 						</div>
 						<div v-else class="option-label">{{ option.label }}</div>
-						<el-select
-							v-model="jumpRules[option.temporaryId]"
-							placeholder="Continue to next section"
-							class="section-selector"
-							clearable
-							@change="(value) => handleRuleChange(option.temporaryId, value)"
-						>
-							<el-option
-								v-for="section in availableSections"
-								:key="section.temporaryId"
-								:label="section.name"
-								:value="section.temporaryId"
-							/>
-						</el-select>
+						<div class="jump-selectors">
+							<!-- 选择Section -->
+							<el-select
+								v-model="selectedSections[option.temporaryId]"
+								placeholder="Select section"
+								class="flex-1"
+								clearable
+								@change="(value) => handleSectionChange(option.temporaryId, value)"
+							>
+								<el-option
+									v-for="section in availableSections"
+									:key="section.temporaryId"
+									:label="section.name"
+									:value="section.temporaryId"
+								/>
+							</el-select>
+							<!-- 第二步：选择Question（仅单选题显示） -->
+							<el-select
+								v-if="isMultipleChoice"
+								v-model="jumpRules[option.temporaryId]"
+								placeholder="Select question"
+								class="flex-1"
+								clearable
+								:disabled="!selectedSections[option.temporaryId]"
+								@change="(value) => handleRuleChange(option.temporaryId, value)"
+							>
+								<el-option
+									v-for="targetQuestion in getAvailableQuestions(
+										selectedSections[option.temporaryId]
+									)"
+									:key="targetQuestion.temporaryId"
+									:label="
+										getQuestionDisplayLabel(
+											targetQuestion,
+											selectedSections[option.temporaryId]
+										)
+									"
+									:value="targetQuestion.temporaryId"
+								/>
+							</el-select>
+						</div>
 					</div>
 				</div>
 			</div>
@@ -101,18 +144,27 @@ const dialogVisible = computed({
 	set: (value) => emits('update:visible', value),
 });
 
+// 判断是否为单选题（只有单选题支持跳转到具体问题）
+const isMultipleChoice = computed(() => {
+	return props.question?.type === 'multiple_choice';
+});
+
 // 弹窗标题
 const dialogTitle = computed(() => {
-	return props.question
-		? `Configure Go To Section for: ${props.question.question}`
-		: 'Configure Go To Section';
+	if (!props.question) return 'Configure Navigation';
+	return isMultipleChoice.value
+		? `Configure Go To Question for: ${props.question.question}`
+		: `Configure Go To Section for: ${props.question.question}`;
 });
 
 // 是否启用跳转功能
 const isJumpEnabled = ref(false);
 
-// 跳转规则映射 (optionId -> sectionId)
+// 跳转规则映射 (optionId -> questionId)
 const jumpRules = ref<Record<string, string>>({});
+
+// 选中的Section映射 (optionId -> sectionId)
+const selectedSections = ref<Record<string, string>>({});
 
 // 验证错误
 const validationErrors = ref<string[]>([]);
@@ -151,6 +203,7 @@ watch(
 const resetEditor = () => {
 	isJumpEnabled.value = false;
 	jumpRules.value = {};
+	selectedSections.value = {};
 	validationErrors.value = [];
 };
 
@@ -159,10 +212,32 @@ const loadExistingRules = (question: QuestionWithJumpRules) => {
 	if (question.jumpRules && question.jumpRules.length > 0) {
 		isJumpEnabled.value = true;
 		const rules: Record<string, string> = {};
+		const sections: Record<string, string> = {};
 		question.jumpRules.forEach((rule) => {
-			rules[rule.optionId] = rule.targetSectionId;
+			sections[rule.optionId] = rule.targetSectionId;
+
+			// 只有单选题才加载问题ID
+			if (question.type === 'multiple_choice') {
+				// 如果规则有targetQuestionId，使用它；否则使用targetSectionId（兼容旧数据）
+				if (rule.targetQuestionId) {
+					rules[rule.optionId] = rule.targetQuestionId;
+				} else {
+					// 兼容旧数据：只有sectionId，需要找到该section的第一个问题
+					const targetSection = props.sections.find(
+						(s) => s.temporaryId === rule.targetSectionId
+					);
+					if (
+						targetSection &&
+						targetSection.questions &&
+						targetSection.questions.length > 0
+					) {
+						rules[rule.optionId] = targetSection.questions[0].temporaryId;
+					}
+				}
+			}
 		});
 		jumpRules.value = rules;
+		selectedSections.value = sections;
 	}
 };
 
@@ -170,18 +245,54 @@ const loadExistingRules = (question: QuestionWithJumpRules) => {
 const handleToggleChange = (value: boolean) => {
 	if (!value) {
 		jumpRules.value = {};
+		selectedSections.value = {};
 		validationErrors.value = [];
 	}
 };
 
-// 处理规则变化
-const handleRuleChange = (optionId: string, sectionId: string | null) => {
+// 处理Section选择变化
+const handleSectionChange = (optionId: string, sectionId: string | null) => {
 	if (sectionId) {
-		jumpRules.value[optionId] = sectionId;
+		selectedSections.value[optionId] = sectionId;
+		// 清空之前选择的问题
+		delete jumpRules.value[optionId];
+	} else {
+		delete selectedSections.value[optionId];
+		delete jumpRules.value[optionId];
+	}
+	validateRules();
+};
+
+// 处理规则变化（问题选择）
+const handleRuleChange = (optionId: string, questionId: string | null) => {
+	if (questionId) {
+		jumpRules.value[optionId] = questionId;
 	} else {
 		delete jumpRules.value[optionId];
 	}
 	validateRules();
+};
+
+// 获取指定Section下的可用问题列表
+const getAvailableQuestions = (sectionId: string | null) => {
+	if (!sectionId) return [];
+	const section = props.sections.find((s) => s.temporaryId === sectionId);
+	if (!section || !section.questions) return [];
+	// 排除当前问题本身，避免循环跳转
+	return section.questions.filter((q) => q.temporaryId !== props.question?.temporaryId);
+};
+
+// 获取问题的显示标签（格式：Section X. Question Y. 问题文本）
+const getQuestionDisplayLabel = (targetQuestion: any, sectionId: string) => {
+	const section = props.sections.find((s) => s.temporaryId === sectionId);
+	if (!section) return targetQuestion.question || '';
+
+	const sectionIndex = props.sections.findIndex((s) => s.temporaryId === sectionId);
+	const questionIndex = section.questions.findIndex(
+		(q) => q.temporaryId === targetQuestion.temporaryId
+	);
+
+	return `${sectionIndex + 1}.${questionIndex + 1}. ${targetQuestion.question || ''}`;
 };
 
 // 验证规则
@@ -192,16 +303,39 @@ const validateRules = () => {
 		return;
 	}
 
-	// 检查是否有无效的小节ID
-	Object.values(jumpRules.value).forEach((sectionId) => {
-		const section = props.sections.find((s) => s.temporaryId === sectionId);
-		if (!section) {
-			validationErrors.value.push(`Invalid section selected: ${sectionId}`);
-		}
-	});
+	// 对于单选题，验证问题ID；对于多选题，只验证section ID
+	if (isMultipleChoice.value) {
+		// 检查是否有无效的问题ID
+		Object.entries(jumpRules.value).forEach(([optionId, questionId]) => {
+			const sectionId = selectedSections.value[optionId];
+			if (!sectionId) {
+				validationErrors.value.push(`Please select a section for option: ${optionId}`);
+				return;
+			}
+
+			const section = props.sections.find((s) => s.temporaryId === sectionId);
+			if (!section) {
+				validationErrors.value.push(`Invalid section selected: ${sectionId}`);
+				return;
+			}
+
+			const question = section.questions.find((q) => q.temporaryId === questionId);
+			if (!question) {
+				validationErrors.value.push(`Invalid question selected: ${questionId}`);
+			}
+		});
+	} else {
+		// 多选题：只验证section ID
+		Object.entries(selectedSections.value).forEach(([optionId, sectionId]) => {
+			const section = props.sections.find((s) => s.temporaryId === sectionId);
+			if (!section) {
+				validationErrors.value.push(`Invalid section selected: ${sectionId}`);
+			}
+		});
+	}
 
 	// 可以添加更多验证逻辑
-	// 比如检查循环引用、检查小节是否存在等
+	// 比如检查循环引用、检查问题是否存在等
 };
 
 // 处理保存
@@ -211,19 +345,46 @@ const handleSave = () => {
 	const rules: JumpRule[] = [];
 
 	if (isJumpEnabled.value) {
-		Object.entries(jumpRules.value).forEach(([optionId, sectionId]) => {
+		// 对于多选题，只使用selectedSections；对于单选题，使用jumpRules
+		const sourceMap = isMultipleChoice.value ? jumpRules.value : selectedSections.value;
+
+		Object.entries(sourceMap).forEach(([optionId, targetId]) => {
 			const option = questionOptions.value.find((opt) => opt.temporaryId === optionId);
+			const sectionId = selectedSections.value[optionId];
 			const section = props.sections.find((s) => s.temporaryId === sectionId);
 
 			if (option && section) {
-				rules.push({
-					id: props.question?.id || '',
-					questionId: props.question?.temporaryId || props.question!.temporaryId,
-					optionId: optionId,
-					optionLabel: option.label,
-					targetSectionId: sectionId,
-					targetSectionName: section.name,
-				});
+				if (isMultipleChoice.value) {
+					// 单选题：保存问题ID
+					const questionId = targetId;
+					const targetQuestion = section.questions.find(
+						(q) => q.temporaryId === questionId
+					);
+
+					if (targetQuestion) {
+						rules.push({
+							id: props.question?.id || '',
+							questionId: props.question?.temporaryId || props.question!.temporaryId,
+							optionId: optionId,
+							optionLabel: option.label,
+							targetSectionId: sectionId,
+							targetSectionName: section.name,
+							targetQuestionId: questionId,
+							targetQuestionName: targetQuestion.question || '',
+						});
+					}
+				} else {
+					// 多选题：只保存section ID，不保存question ID
+					rules.push({
+						id: props.question?.id || '',
+						questionId: props.question?.temporaryId || props.question!.temporaryId,
+						optionId: optionId,
+						optionLabel: option.label,
+						targetSectionId: sectionId,
+						targetSectionName: section.name,
+						// 不设置 targetQuestionId 和 targetQuestionName
+					});
+				}
 			}
 		});
 	}
@@ -272,14 +433,16 @@ const handleCancel = () => {
 			@apply rounded-xl;
 
 			.option-label {
-				min-width: 150px;
+				min-width: 100px;
 				font-weight: 500;
 				color: var(--el-text-color-primary);
 			}
 
-			.section-selector {
+			.jump-selectors {
 				flex: 1;
-				min-width: 200px;
+				display: flex;
+				gap: 0.75rem;
+				align-items: center;
 			}
 		}
 	}
