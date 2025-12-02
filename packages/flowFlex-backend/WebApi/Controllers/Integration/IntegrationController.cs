@@ -97,7 +97,7 @@ namespace FlowFlex.WebApi.Controllers.Integration
         /// Test integration connection
         /// </summary>
         [HttpPost("{id}/test-connection")]
-        [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
+        [ProducesResponseType<SuccessResponse<TestConnectionResultDto>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> TestConnection(long id)
         {
             var result = await _integrationService.TestConnectionAsync(id);

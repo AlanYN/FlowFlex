@@ -62,8 +62,8 @@ namespace FlowFlex.Application.Services.Integration
 
             var entity = _mapper.Map<EntityMapping>(input);
             entity.WorkflowIds = JsonConvert.SerializeObject(input.WorkflowIds);
-            // Generate SystemId automatically using Snowflake ID
-            entity.SystemId = SnowFlakeSingle.Instance.NextId().ToString();
+            // Generate SystemId automatically using GUID (uppercase, no dashes)
+            entity.SystemId = Guid.NewGuid().ToString("N").ToUpperInvariant();
             entity.InitCreateInfo(_userContext);
 
             var id = await _entityMappingRepository.InsertReturnSnowflakeIdAsync(entity);

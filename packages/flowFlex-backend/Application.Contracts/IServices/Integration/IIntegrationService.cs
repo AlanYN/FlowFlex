@@ -43,7 +43,7 @@ namespace FlowFlex.Application.Contracts.IServices.Integration
         /// <summary>
         /// Test integration connection
         /// </summary>
-        Task<bool> TestConnectionAsync(long id);
+        Task<TestConnectionResultDto> TestConnectionAsync(long id);
 
         /// <summary>
         /// Update integration status
