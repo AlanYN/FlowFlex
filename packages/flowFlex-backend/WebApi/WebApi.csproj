@@ -62,4 +62,10 @@
     <ProjectReference Include="..\SqlSugarDB\SqlSugarDB.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Update="Data\static-field.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
 </Project>
