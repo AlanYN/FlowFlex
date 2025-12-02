@@ -403,12 +403,16 @@ namespace FlowFlex.Application.Services.Integration
             return dtos;
         }
 
-        public async Task<bool> TestConnectionAsync(long id)
+        public async Task<TestConnectionResultDto> TestConnectionAsync(long id)
         {
             var entity = await _integrationRepository.GetByIdAsync(id);
             if (entity == null)
             {
-                throw new CRMException(ErrorCodeEnum.NotFound, "Integration not found");
+                return new TestConnectionResultDto
+                {
+                    Success = false,
+                    Msg = "Integration not found"
+                };
             }
 
             try
@@ -428,6 +432,15 @@ namespace FlowFlex.Application.Services.Integration
                     entity.ErrorMessage = null;
                     entity.LastSyncDate = DateTimeOffset.UtcNow;
                     _logger.LogInformation($"Connection test succeeded for integration: {entity.Name} (ID: {id})");
+                    
+                    entity.InitModifyInfo(_userContext);
+                    await _integrationRepository.UpdateAsync(entity);
+
+                    return new TestConnectionResultDto
+                    {
+                        Success = true,
+                        Msg = "Connection test succeeded"
+                    };
                 }
                 else
                 {
@@ -435,21 +448,16 @@ namespace FlowFlex.Application.Services.Integration
                     entity.Status = global::Domain.Shared.Enums.IntegrationStatus.Error;
                     entity.ErrorMessage = errorMessage;
                     _logger.LogWarning($"Connection test failed for integration: {entity.Name} (ID: {id}), Error: {errorMessage}");
+                    
+                    entity.InitModifyInfo(_userContext);
+                    await _integrationRepository.UpdateAsync(entity);
+
+                    return new TestConnectionResultDto
+                    {
+                        Success = false,
+                        Msg = errorMessage ?? "Connection test failed"
+                    };
                 }
-
-                entity.InitModifyInfo(_userContext);
-                await _integrationRepository.UpdateAsync(entity);
-
-                if (!success)
-                {
-                    throw new CRMException(ErrorCodeEnum.BusinessError, $"Connection test failed: {errorMessage}");
-                }
-
-                return true;
-            }
-            catch (CRMException)
-            {
-                throw;
             }
             catch (Exception ex)
             {
@@ -461,7 +469,11 @@ namespace FlowFlex.Application.Services.Integration
                 entity.InitModifyInfo(_userContext);
                 await _integrationRepository.UpdateAsync(entity);
 
-                throw new CRMException(ErrorCodeEnum.BusinessError, $"Connection test failed: {ex.Message}");
+                return new TestConnectionResultDto
+                {
+                    Success = false,
+                    Msg = ex.Message
+                };
             }
         }
 
