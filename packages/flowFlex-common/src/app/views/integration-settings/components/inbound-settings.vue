@@ -110,11 +110,7 @@
 
 				<el-table-column label="Workflow" min-width="250">
 					<template #default="{ row }">
-						<el-select
-							v-model="row.workflowId"
-							placeholder="Select workflow..."
-							@change="(val) => handleWorkflowChange(row, val)"
-						>
+						<el-select v-model="row.workflowId" placeholder="Select workflow...">
 							<el-option
 								v-for="workflow in workflows"
 								:key="workflow.id"
@@ -133,21 +129,18 @@
 					</template>
 				</el-table-column>
 
-				<el-table-column label="Stage" min-width="250">
+				<el-table-column label="Action" min-width="250">
 					<template #default="{ row }">
 						<el-select
-							v-model="row.stageId"
-							placeholder="Select stage..."
+							v-model="row.actionId"
+							placeholder="Select action"
 							:disabled="!row.workflowId"
-							:loading="stagesLoadingMap[row.workflowId] || false"
-							@change="handleAttachmentSharingChange"
-							@focus="() => loadStagesForWorkflow(row.workflowId)"
 						>
 							<el-option
-								v-for="stage in stagesCache[row.workflowId] || []"
-								:key="stage.id"
-								:label="stage.name"
-								:value="String(stage.id)"
+								v-for="action in actions || []"
+								:key="action.id"
+								:label="action.name"
+								:value="String(action.id)"
 							/>
 						</el-select>
 					</template>
@@ -194,7 +187,6 @@ import {
 	createInboundSettingsAttachment,
 	deleteInboundSettingsAttachment,
 } from '@/apis/integration';
-import { getStagesByWorkflow } from '@/apis/ow';
 import type { FieldMapping, InboundAttachmentIteml } from '#/integration';
 import SaveChangeIcon from '@assets/svg/publicPage/saveChange.svg';
 
@@ -202,6 +194,11 @@ interface Props {
 	integrationId: string | number;
 	workflows?: any[];
 	inboundFieldMappings?: FieldMapping[];
+	actions: {
+		actionCode: string;
+		name: string;
+		id: string;
+	}[];
 }
 
 // 附件共享扩展类型
@@ -220,50 +217,6 @@ const wfeFieldSearch = ref('');
 const attachmentSharing = ref<IAttachmentSharingExtended[]>([]);
 const isLoading = ref(false);
 const isSaving = ref(false);
-
-// Stages 数据缓存
-const stagesCache = ref<Record<string, Array<{ id: string; name: string }>>>({});
-// Stages 加载状态（按 workflowId）
-const stagesLoadingMap = ref<Record<string, boolean>>({});
-
-/**
- * 加载指定 workflow 的 stages 数据
- */
-const loadStagesForWorkflow = async (workflowId: string) => {
-	if (!workflowId || workflowId === '0' || stagesCache.value[workflowId]) {
-		return stagesCache.value[workflowId] || [];
-	}
-
-	try {
-		stagesLoadingMap.value[workflowId] = true;
-		const response = await getStagesByWorkflow(workflowId);
-		if (response.code === '200') {
-			const stages = response.data || [];
-			stagesCache.value[workflowId] = stages;
-			return stages;
-		} else {
-			stagesCache.value[workflowId] = [];
-			return [];
-		}
-	} catch (error) {
-		console.error('Failed to load stages for workflow:', error);
-		stagesCache.value[workflowId] = [];
-		return [];
-	} finally {
-		stagesLoadingMap.value[workflowId] = false;
-	}
-};
-
-/**
- * 处理 workflow 变化
- */
-const handleWorkflowChange = async (row: IAttachmentSharingExtended, workflowId: string) => {
-	row.stageId = '';
-	if (workflowId && workflowId !== '0') {
-		await loadStagesForWorkflow(workflowId);
-	}
-	handleAttachmentSharingChange();
-};
 
 /**
  * 过滤后的字段映射列表
@@ -333,11 +286,6 @@ async function initializeAttachmentSharing(sharing?: InboundAttachmentIteml[]) {
 			workflowIds.add(String(item.workflowId));
 		}
 	});
-
-	// 并行加载所有需要的 stages
-	await Promise.all(
-		Array.from(workflowIds).map((workflowId) => loadStagesForWorkflow(workflowId))
-	);
 }
 
 /**
@@ -348,7 +296,7 @@ function handleAddModule() {
 		id: '',
 		moduleName: '',
 		workflowId: '',
-		stageId: '',
+		actionId: '',
 		isEditing: true,
 	});
 }
@@ -362,13 +310,6 @@ function handleModuleBlur(row: IAttachmentSharingExtended) {
 		return;
 	}
 	// 可以在这里添加验证逻辑
-}
-
-/**
- * 附件共享变更
- */
-function handleAttachmentSharingChange() {
-	// 数据变更处理（不自动保存）
 }
 
 /**
@@ -392,7 +333,7 @@ async function handleSaveModule(row: IAttachmentSharingExtended, index: number) 
 			integrationId: String(props.integrationId),
 			moduleName: row.moduleName.trim(),
 			workflowId: row.workflowId,
-			stageId: row.stageId,
+			actionId: row.actionId,
 		};
 
 		const response = await createInboundSettingsAttachment(configData);

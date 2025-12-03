@@ -52,46 +52,22 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, useTemplateRef } from 'vue';
+import { useTemplateRef } from 'vue';
 import { Plus } from '@element-plus/icons-vue';
 import ActionConfigDialog from '@/components/actionTools/ActionConfigDialog.vue';
 import { TriggerTypeEnum } from '@/enums/appEnum';
-import { getActionDefinitions, ACTION_TYPE_MAPPING, ActionType } from '@/apis/action';
-import { ElMessage } from 'element-plus';
+import { ACTION_TYPE_MAPPING, ActionType } from '@/apis/action';
 
 interface Props {
 	integrationId: string;
 	integrationName: string;
 	allWorkflows: any[];
+	actions: any[];
+	isLoading: boolean;
 }
 
-const props = defineProps<Props>();
+defineProps<Props>();
 const emit = defineEmits(['refresh', 'openAction']);
-
-// 状态管理
-const isLoading = ref(false);
-const actions = ref<[]>([]);
-
-/**
- * 加载动作列表
- */
-const loadActions = async () => {
-	isLoading.value = true;
-	try {
-		actions.value = [];
-		const res = await getActionDefinitions({
-			integrationId: props.integrationId,
-		});
-		if (res.code === '200' && res.success) {
-			actions.value = res.data.data || [];
-		} else {
-			actions.value = [];
-			ElMessage.error(res.msg || 'Failed to load actions');
-		}
-	} finally {
-		isLoading.value = false;
-	}
-};
 
 // Action 弹窗相关状态
 const actionConfigDialogRef = useTemplateRef('actionConfigDialogRef');
@@ -106,7 +82,6 @@ const handleAddAction = () => {
 };
 
 const onActionSave = async (actionResult) => {
-	loadActions();
 	emit('refresh');
 };
 
@@ -114,9 +89,4 @@ const onActionSave = async (actionResult) => {
 const getActionTypeName = (actionType: number) => {
 	return ACTION_TYPE_MAPPING[actionType as ActionType] || 'Unknown';
 };
-
-// 初始化
-onMounted(() => {
-	loadActions();
-});
 </script>

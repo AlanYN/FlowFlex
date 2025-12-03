@@ -277,9 +277,9 @@
 															>
 																<el-option
 																	v-for="field in wfeFieldOptions"
-																	:key="field.vIfKey || ''"
-																	:label="field.label"
-																	:value="String(field.vIfKey)"
+																	:key="field.fieldId"
+																	:label="field.fieldLabel"
+																	:value="field.fieldId"
 																/>
 															</el-select>
 														</template>
@@ -355,7 +355,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, nextTick } from 'vue';
+import { ref, computed, watch, nextTick, onBeforeMount } from 'vue';
 import { ElMessage, useZIndex } from 'element-plus';
 import { Operation, Connection, Delete, Plus, ArrowDown } from '@element-plus/icons-vue';
 import PythonConfig from './PythonConfig.vue';
@@ -374,9 +374,10 @@ import {
 	ACTION_TYPE_MAPPING,
 	addMappingAction,
 } from '@/apis/action';
+import { getDynamicField } from '@/apis/global/dyanmicField';
 import { TriggerTypeEnum, ToolsType } from '@/enums/appEnum';
 import { ActionItem, ActionDefinition, ActionQueryRequest } from '#/action';
-import staticFieldsData from './static-field.json';
+import { DynamciFile } from '#/dynamic';
 
 const { scrollbarRef: scrollbarRefLeft, updateScrollbarHeight: updateScrollbarHeightLeft } =
 	useAdaptiveScrollbar(80);
@@ -569,7 +570,8 @@ interface IFieldMappingItem {
 }
 
 const showFieldMapping = ref(false);
-const wfeFieldOptions = ref(staticFieldsData.formFields);
+const wfeFieldOptions = ref<DynamciFile[]>([]);
+const loadingDynamicField = ref(false);
 const isFieldMappingExpanded = ref(false);
 
 const fieldMappings = computed({
@@ -1013,6 +1015,22 @@ const open = async (options?: {
 		});
 	}
 };
+
+const loadDynamicField = async () => {
+	try {
+		loadingDynamicField.value = true;
+		const response = await getDynamicField();
+		if (response.code === '200') {
+			wfeFieldOptions.value = response?.data || [];
+		}
+	} finally {
+		loadingDynamicField.value = false;
+	}
+};
+
+onBeforeMount(() => {
+	loadDynamicField();
+});
 
 const resetScrollbarHeight = () => {
 	nextTick(() => {

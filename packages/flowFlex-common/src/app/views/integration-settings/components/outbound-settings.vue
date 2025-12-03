@@ -77,7 +77,7 @@
 							@change="(val) => handleWorkflowChange(row, val)"
 						>
 							<el-option
-								v-for="workflow in workflows"
+								v-for="workflow in getAvailableWorkflows(row)"
 								:key="workflow.id"
 								:label="workflow.name"
 								:value="String(workflow.id)"
@@ -94,15 +94,59 @@
 					</template>
 				</el-table-column>
 
-				<el-table-column label="Stage" min-width="250">
+				<el-table-column label="Stage" min-width="250" align="center">
 					<template #default="{ row }">
+						<div
+							v-if="!!row?.id"
+							class="flex items-center gap-2 flex-wrap justify-center"
+						>
+							<template v-if="getStageList(row).length > 0">
+								<el-tag
+									v-for="stage in getDisplayedStages(row)"
+									:key="stage.id"
+									type="primary"
+									size="small"
+								>
+									{{ stage.name }}
+								</el-tag>
+								<el-tooltip
+									v-if="getHiddenStagesCount(row) > 0"
+									placement="top"
+									raw-content
+									effect="light"
+								>
+									<template #content>
+										<div class="flex flex-wrap gap-2">
+											<el-tag
+												v-for="stage in getHiddenStages(row)"
+												:key="stage.id"
+												type="primary"
+												size="small"
+											>
+												{{ stage.name }}
+											</el-tag>
+										</div>
+									</template>
+									<el-tag type="primary" size="small" class="cursor-pointer">
+										+{{ getHiddenStagesCount(row) }}
+									</el-tag>
+								</el-tooltip>
+							</template>
+							<span v-else class="text-sm text-text-secondary">-</span>
+						</div>
 						<el-select
+							v-else
 							v-model="row.stageId"
 							placeholder="Select stage..."
 							:disabled="!row.workflowId"
 							:loading="stagesLoadingMap[row.workflowId] || false"
 							@change="handleAttachmentSharingChange"
 							@focus="() => loadStagesForWorkflow(row.workflowId)"
+							multiple
+							filterable
+							collapse-tags
+							collapse-tags-tooltip
+							tag-type="primary"
 						>
 							<el-option
 								v-for="stage in stagesCache[row.workflowId] || []"
@@ -227,10 +271,38 @@ const loadStagesForWorkflow = async (workflowId: string) => {
 };
 
 /**
+ * 获取当前行可用的 workflows（排除已被其他行选择的）
+ */
+function getAvailableWorkflows(currentRow: IAttachmentSharingExtended) {
+	if (!props.workflows || props.workflows.length === 0) {
+		return [];
+	}
+
+	// 获取所有已被其他行选择的 workflowId（排除当前行）
+	const selectedWorkflowIds = new Set<string>();
+	attachmentSharing.value.forEach((row) => {
+		if (row !== currentRow && row.workflowId && row.workflowId !== '0') {
+			selectedWorkflowIds.add(String(row.workflowId));
+		}
+	});
+
+	// 过滤掉已被选择的 workflow，但保留当前行已选择的
+	return props.workflows.filter((workflow) => {
+		const workflowIdStr = String(workflow.id);
+		// 如果当前行已选择此 workflow，则保留
+		if (currentRow.workflowId === workflowIdStr) {
+			return true;
+		}
+		// 否则，如果未被其他行选择，则保留
+		return !selectedWorkflowIds.has(workflowIdStr);
+	});
+}
+
+/**
  * 处理 workflow 变化
  */
 const handleWorkflowChange = async (row: IAttachmentSharingExtended, workflowId: string) => {
-	row.stageId = '';
+	row.stageId = [];
 	if (workflowId && workflowId !== '0') {
 		await loadStagesForWorkflow(workflowId);
 	}
@@ -261,7 +333,7 @@ async function loadAttachmentWorkflows() {
 			attachmentSharing.value = items.map((item) => ({
 				...item,
 				workflowId: String(item.workflowId),
-				stageId: String(item.stageId),
+				stageId: Array.isArray(item.stageId) ? item.stageId : [item.stageId],
 				isEditing: false,
 			}));
 
@@ -298,7 +370,8 @@ async function saveAttachmentSharing() {
 
 	// 过滤掉没有 workflowId 或 stageId 的项
 	const validItems = attachmentSharing.value.filter(
-		(item) => item.workflowId && item.stageId && item.workflowId !== '0' && item.stageId !== '0'
+		(item) =>
+			item.workflowId && item.stageId && item.workflowId !== '0' && item.stageId.length > 0
 	);
 
 	if (validItems.length === 0) {
@@ -338,7 +411,7 @@ function handleAddItem() {
 	attachmentSharing.value.push({
 		id: '',
 		workflowId: '',
-		stageId: '',
+		stageId: [],
 		isEditing: true,
 	});
 }
@@ -365,6 +438,44 @@ function handleDeleteItem(index: number) {
 		.catch(() => {
 			// 取消删除
 		});
+}
+
+/**
+ * 获取 Stage 列表（用于显示 el-tag）
+ */
+function getStageList(row: IAttachmentSharingExtended): Array<{ id: string; name: string }> {
+	if (!row.stageId || !row.workflowId) return [];
+	const stageIds = Array.isArray(row.stageId) ? row.stageId : [row.stageId];
+	const stages = stagesCache.value[row.workflowId] || [];
+	return stageIds
+		.map((id) => {
+			return stages.find((s) => String(s.id) === String(id));
+		})
+		.filter(Boolean) as Array<{ id: string; name: string }>;
+}
+
+/**
+ * 获取要显示的 Stage 列表（最多显示3个）
+ */
+function getDisplayedStages(row: IAttachmentSharingExtended): Array<{ id: string; name: string }> {
+	const stages = getStageList(row);
+	return stages.slice(0, 3);
+}
+
+/**
+ * 获取隐藏的 Stage 数量
+ */
+function getHiddenStagesCount(row: IAttachmentSharingExtended): number {
+	const stages = getStageList(row);
+	return Math.max(0, stages.length - 3);
+}
+
+/**
+ * 获取隐藏的 Stage 列表
+ */
+function getHiddenStages(row: IAttachmentSharingExtended): Array<{ id: string; name: string }> {
+	const stages = getStageList(row);
+	return stages.slice(3);
 }
 
 // 监听 integrationId 变化（包括初始化）

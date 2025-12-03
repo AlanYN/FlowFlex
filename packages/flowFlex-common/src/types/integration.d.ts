@@ -61,14 +61,14 @@ export interface InboundAttachmentIteml {
 	integrationId?: string;
 	id?: string;
 	moduleName: string; //外部模块名称
-	workflowId: stringnumber; //工作流ID
-	stageId: stringnumber; //阶段 ID
+	workflowId: string; //工作流ID
+	actionId: string; //action ID
 }
 
 export interface OutboundAttachmentItem1 {
 	id?: string;
-	workflowId: stringnumber; //工作流ID
-	stageId: stringnumber; //阶段 ID
+	workflowId: string; //工作流ID
+	stageId: string[]; //阶段 ID
 }
 
 /**

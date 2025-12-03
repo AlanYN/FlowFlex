@@ -50,6 +50,7 @@
 								:integration-id="integrationId"
 								:workflows="workflows"
 								:inboundFieldMappings="integrationData?.inboundFieldMappings || []"
+								:actions="actions"
 								@refresh="loadIntegrationData"
 							/>
 						</TabPane>
@@ -70,7 +71,9 @@
 								:integration-id="String(integrationId)"
 								:integration-name="integrationName"
 								:all-workflows="workflows"
-								@refresh="loadIntegrationData"
+								:actions="actions"
+								:is-loading="actionsLoading"
+								@refresh="loadActions"
 							/>
 						</TabPane>
 
@@ -79,8 +82,6 @@
 						</TabPane>
 					</PrototypeTabs>
 				</div>
-
-				<!-- 底部操作按钮 -->
 			</template>
 		</div>
 	</div>
@@ -100,6 +101,7 @@ import ActionsList from './components/actions-list.vue';
 import QuickLinks from './components/quick-links.vue';
 import { getIntegrationDetails, deleteIntegration, testConnection } from '@/apis/integration';
 import { getWorkflowList } from '@/apis/ow';
+import { getActionDefinitions } from '@/apis/action';
 import type { IIntegrationConfig } from '#/integration';
 import PageHeader from '@/components/global/PageHeader/index.vue';
 
@@ -114,6 +116,8 @@ const integrationData = ref<IIntegrationConfig | null>(null);
 const isLoading = ref(false);
 const activeTab = ref('inbound');
 const workflows = ref<any[]>([]);
+const actions = ref<any[]>([]);
+const actionsLoading = ref(false);
 
 // Tab 配置
 const tabsConfig = [
@@ -141,7 +145,7 @@ const tabsConfig = [
 async function loadIntegrationData() {
 	const id = route.params.id as string;
 	if (!id) {
-		ElMessage.error('Invalid integration ID');
+		ElMessage.info('Invalid integration ID');
 		handleBack();
 		return;
 	}
@@ -165,6 +169,8 @@ async function loadIntegrationData() {
 			integrationData.value = response.data;
 			integrationName.value = response.data.name || 'Integration Details';
 			integrationStatus.value = response.data.status || 0;
+			// 加载 actions 列表
+			await loadActions();
 		} else {
 			ElMessage.error(response.msg || 'Failed to load integration');
 		}
@@ -210,7 +216,7 @@ const handleTestConnection = async () => {
 		if (result.success && result.data?.success) {
 			ElMessage.success('Connection test successful');
 			integrationStatus.value = 1;
-			// 重新加载数据以更新状态
+			testErrorMsg.value = '';
 		} else {
 			testErrorMsg.value = result.data?.msg || 'Connection test failed';
 			integrationStatus.value = 0;
@@ -280,6 +286,34 @@ async function loadWorkflows() {
 	} catch (error) {
 		console.error('Failed to load workflows:', error);
 		workflows.value = [];
+	}
+}
+
+/**
+ * 加载动作列表
+ */
+async function loadActions() {
+	if (!integrationId.value || integrationId.value === 'new') {
+		actions.value = [];
+		return;
+	}
+
+	actionsLoading.value = true;
+	try {
+		const res = await getActionDefinitions({
+			integrationId: String(integrationId.value),
+		});
+		if (res.code === '200' && res.success) {
+			actions.value = res.data.data || [];
+		} else {
+			actions.value = [];
+			ElMessage.error(res.msg || 'Failed to load actions');
+		}
+	} catch (error) {
+		console.error('Failed to load actions:', error);
+		actions.value = [];
+	} finally {
+		actionsLoading.value = false;
 	}
 }
 
