@@ -20,6 +20,7 @@ export interface IConnectionConfig {
 	authMethod: AuthMethod | number; // 支持枚举和数字
 	credentials: Record<string, any>;
 	description?: string;
+	isValid: boolean;
 }
 
 /**
@@ -68,7 +69,7 @@ export interface InboundAttachmentIteml {
 export interface OutboundAttachmentItem1 {
 	id?: string;
 	workflowId: string; //工作流ID
-	stageId: string[]; //阶段 ID
+	stageIds: string[]; //阶段 ID
 }
 
 /**
@@ -119,6 +120,7 @@ export interface IIntegrationConfig {
 	lastDaysSeconds: {
 		[key: string]: string;
 	};
+	isValid: boolean;
 }
 
 /**
