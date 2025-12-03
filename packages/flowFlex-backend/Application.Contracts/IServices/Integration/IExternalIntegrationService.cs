@@ -27,6 +27,13 @@ namespace FlowFlex.Application.Contracts.IServices.Integration
         /// <param name="request">Case info request parameters</param>
         /// <returns>Case information response</returns>
         Task<CaseInfoResponse> GetCaseInfoAsync(CaseInfoRequest request);
+
+        /// <summary>
+        /// Get attachments by case ID (onboarding ID)
+        /// </summary>
+        /// <param name="caseId">Case ID (onboarding ID)</param>
+        /// <returns>Attachments list response</returns>
+        Task<GetAttachmentsFromExternalResponse> GetAttachmentsByCaseIdAsync(string caseId);
     }
 }
 
