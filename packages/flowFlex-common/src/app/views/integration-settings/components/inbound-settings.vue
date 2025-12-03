@@ -396,9 +396,17 @@ function handleDeleteModule(index: number) {
 						return;
 					}
 
-					const response = await deleteInboundSettingsAttachment(row.id, {
-						integrationId: (props?.integrationId as string) || '',
-					});
+					if (!props.integrationId || props.integrationId === 'new') {
+						ElMessage.warning('Invalid integration ID');
+						instance.confirmButtonLoading = false;
+						instance.confirmButtonText = 'Delete';
+						return;
+					}
+
+					const response = await deleteInboundSettingsAttachment(
+						row.id,
+						props.integrationId
+					);
 					if (response.success) {
 						ElMessage.success('Module deleted successfully');
 						attachmentSharing.value.splice(index, 1);

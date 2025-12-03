@@ -80,7 +80,7 @@ namespace FlowFlex.WebApi.Controllers.Integration
                 ContactEmail = contactEmail,
                 ContactPhone = contactPhone
             };
-            
+
             var result = await _externalIntegrationService.GetCaseInfoAsync(request);
             return Success(result);
         }
@@ -115,9 +115,9 @@ namespace FlowFlex.WebApi.Controllers.Integration
                 ContactEmail = contactEmail,
                 ContactPhone = contactPhone
             };
-            
+
             var result = await _externalIntegrationService.GetCaseInfoAsync(request);
-            
+
             // Return with custom JSON settings to include null values
             return new JsonResult(SuccessResponse.Create(result), new Newtonsoft.Json.JsonSerializerSettings
             {
@@ -159,13 +159,13 @@ namespace FlowFlex.WebApi.Controllers.Integration
                     // Enable buffering to allow reading body multiple times
                     Request.EnableBuffering();
                     Request.Body.Position = 0;
-                    
+
                     using var reader = new System.IO.StreamReader(Request.Body, System.Text.Encoding.UTF8, leaveOpen: true);
                     var bodyContent = await reader.ReadToEndAsync();
-                    
+
                     // Reset position for potential future reads
                     Request.Body.Position = 0;
-                    
+
                     if (!string.IsNullOrWhiteSpace(bodyContent))
                     {
                         // Try to parse JSON from body
@@ -177,7 +177,7 @@ namespace FlowFlex.WebApi.Controllers.Integration
                     // If parsing fails, continue to use query parameters
                 }
             }
-            
+
             // If still null or empty, try to use query parameters as fallback
             if (request == null || (string.IsNullOrEmpty(request.LeadId) && string.IsNullOrEmpty(request.CustomerName)))
             {
@@ -197,14 +197,28 @@ namespace FlowFlex.WebApi.Controllers.Integration
                     request = new CaseInfoRequest();
                 }
             }
-            
+
             var result = await _externalIntegrationService.GetCaseInfoAsync(request);
-            
+
             // Return with custom JSON settings to include null values
             return new JsonResult(SuccessResponse.Create(result), new Newtonsoft.Json.JsonSerializerSettings
             {
                 NullValueHandling = Newtonsoft.Json.NullValueHandling.Include
             });
+        }
+
+        /// <summary>
+        /// Get attachments by case ID
+        /// Retrieves attachment list from ff_onboarding_file table based on case ID (onboarding ID)
+        /// </summary>
+        /// <param name="caseId">Case ID (onboarding ID)</param>
+        /// <returns>Attachments list response</returns>
+        [HttpGet("attachments")]
+        [ProducesResponseType<SuccessResponse<GetAttachmentsFromExternalResponse>>((int)HttpStatusCode.OK)]
+        public async Task<IActionResult> GetAttachments([FromQuery(Name = "CaseId")] string caseId)
+        {
+            var result = await _externalIntegrationService.GetAttachmentsByCaseIdAsync(caseId);
+            return Success(result);
         }
     }
 }

@@ -228,5 +228,122 @@ namespace FlowFlex.Application.Contracts.Dtos.Integration
         /// </summary>
         public string? WorkflowName { get; set; }
     }
+
+    /// <summary>
+    /// Attachment information DTO from external platform
+    /// Used for WFE Attachment integration protocol
+    /// </summary>
+    public class ExternalAttachmentDto
+    {
+        /// <summary>
+        /// Attachment primary key ID
+        /// </summary>
+        [Required]
+        [StringLength(50)]
+        public string Id { get; set; } = string.Empty;
+
+        /// <summary>
+        /// File name (with extension)
+        /// </summary>
+        [Required]
+        [StringLength(500)]
+        public string FileName { get; set; } = string.Empty;
+
+        /// <summary>
+        /// File size in bytes (string format)
+        /// </summary>
+        [Required]
+        [StringLength(50)]
+        public string FileSize { get; set; } = string.Empty;
+
+        /// <summary>
+        /// File MIME type
+        /// </summary>
+        [Required]
+        [StringLength(100)]
+        public string FileType { get; set; } = string.Empty;
+
+        /// <summary>
+        /// File extension (without dot)
+        /// </summary>
+        [Required]
+        [StringLength(20)]
+        public string FileExt { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Creation date (ISO 8601 format or "YYYY-MM-DD HH:mm:ss +00:00")
+        /// </summary>
+        [Required]
+        public string CreateDate { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Download link (full URL)
+        /// </summary>
+        [Required]
+        [StringLength(2000)]
+        public string DownloadLink { get; set; } = string.Empty;
+    }
+
+    /// <summary>
+    /// Request DTO for getting attachments from external platform
+    /// </summary>
+    public class GetAttachmentsFromExternalRequest
+    {
+        /// <summary>
+        /// Entity ID (e.g., Case ID, Lead ID)
+        /// </summary>
+        [Required]
+        [StringLength(100)]
+        public string EntityId { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Entity type (optional, for distinguishing different entity types)
+        /// </summary>
+        [StringLength(100)]
+        public string? EntityType { get; set; }
+
+        /// <summary>
+        /// Module name (optional, for distinguishing different modules)
+        /// </summary>
+        [StringLength(200)]
+        public string? ModuleName { get; set; }
+    }
+
+    /// <summary>
+    /// Response DTO for attachments list from external platform
+    /// </summary>
+    public class GetAttachmentsFromExternalResponse
+    {
+        /// <summary>
+        /// Success flag
+        /// </summary>
+        public bool Success { get; set; }
+
+        /// <summary>
+        /// Response data
+        /// </summary>
+        public AttachmentsData? Data { get; set; }
+
+        /// <summary>
+        /// Response message or error message
+        /// </summary>
+        public string? Message { get; set; }
+    }
+
+    /// <summary>
+    /// Attachments data container
+    /// </summary>
+    public class AttachmentsData
+    {
+        /// <summary>
+        /// List of attachments
+        /// </summary>
+        public List<ExternalAttachmentDto> Attachments { get; set; } = new();
+
+        /// <summary>
+        /// Total count of attachments
+        /// </summary>
+        public int Total { get; set; }
+    }
 }
 

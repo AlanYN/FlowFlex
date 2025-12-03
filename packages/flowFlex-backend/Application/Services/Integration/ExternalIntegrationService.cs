@@ -9,6 +9,8 @@ using FlowFlex.Domain.Shared.Exceptions;
 using FlowFlex.Domain.Shared.Models;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
+using System.Linq;
+using Domain.Shared.Enums;
 
 namespace FlowFlex.Application.Services.Integration
 {
@@ -23,8 +25,12 @@ namespace FlowFlex.Application.Services.Integration
         private readonly IStageRepository _stageRepository;
         private readonly IOnboardingRepository _onboardingRepository;
         private readonly IOnboardingService _onboardingService;
+        private readonly IOnboardingFileRepository _onboardingFileRepository;
         private readonly UserContext _userContext;
         private readonly ILogger<ExternalIntegrationService> _logger;
+
+        // AES encryption key (should match IntegrationService)
+        private const string ENCRYPTION_KEY = "FlowFlex2024IntegrationKey123456"; // 32 bytes for AES-256
 
         public ExternalIntegrationService(
             IIntegrationRepository integrationRepository,
@@ -33,6 +39,7 @@ namespace FlowFlex.Application.Services.Integration
             IStageRepository stageRepository,
             IOnboardingRepository onboardingRepository,
             IOnboardingService onboardingService,
+            IOnboardingFileRepository onboardingFileRepository,
             UserContext userContext,
             ILogger<ExternalIntegrationService> logger)
         {
@@ -42,6 +49,7 @@ namespace FlowFlex.Application.Services.Integration
             _stageRepository = stageRepository;
             _onboardingRepository = onboardingRepository;
             _onboardingService = onboardingService;
+            _onboardingFileRepository = onboardingFileRepository;
             _userContext = userContext;
             _logger = logger;
         }
@@ -255,5 +263,78 @@ namespace FlowFlex.Application.Services.Integration
 
             return response;
         }
+
+        /// <summary>
+        /// Get attachments by case ID (onboarding ID)
+        /// </summary>
+        public async Task<GetAttachmentsFromExternalResponse> GetAttachmentsByCaseIdAsync(string caseId)
+        {
+            _logger.LogInformation("Getting attachments by case ID: CaseId={CaseId}", caseId);
+
+            if (string.IsNullOrWhiteSpace(caseId))
+            {
+                return new GetAttachmentsFromExternalResponse
+                {
+                    Success = false,
+                    Message = "CaseId is required"
+                };
+            }
+
+            try
+            {
+                // Parse caseId to long (onboarding ID)
+                if (!long.TryParse(caseId, out var onboardingId))
+                {
+                    _logger.LogWarning("Invalid CaseId format: CaseId={CaseId}", caseId);
+                    return new GetAttachmentsFromExternalResponse
+                    {
+                        Success = false,
+                        Message = "Invalid CaseId format"
+                    };
+                }
+
+                // Get files from database
+                var files = await _onboardingFileRepository.GetFilesByOnboardingAsync(onboardingId);
+
+                // Convert to ExternalAttachmentDto
+                var attachments = files.Select(f => new ExternalAttachmentDto
+                {
+                    Id = f.Id.ToString(),
+                    FileName = f.OriginalFileName ?? f.StoredFileName ?? "unknown",
+                    FileSize = f.FileSize.ToString(),
+                    FileType = f.ContentType ?? "application/octet-stream",
+                    FileExt = f.FileExtension ?? string.Empty,
+                    CreateDate = f.UploadedDate.ToString("yyyy-MM-dd HH:mm:ss +00:00"),
+                    DownloadLink = !string.IsNullOrEmpty(f.AccessUrl) 
+                        ? f.AccessUrl 
+                        : $"/ow/onboarding-files/v1.0/{f.Id}/download"
+                }).ToList();
+
+                _logger.LogInformation("Successfully retrieved {Count} attachments for CaseId={CaseId}", 
+                    attachments.Count, caseId);
+
+                return new GetAttachmentsFromExternalResponse
+                {
+                    Success = true,
+                    Data = new AttachmentsData
+                    {
+                        Attachments = attachments,
+                        Total = attachments.Count
+                    },
+                    Message = "Success"
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting attachments by case ID: CaseId={CaseId}", caseId);
+                return new GetAttachmentsFromExternalResponse
+                {
+                    Success = false,
+                    Message = $"Failed to get attachments: {ex.Message}"
+                };
+            }
+        }     
+
+
     }
 }
