@@ -23,7 +23,8 @@ namespace FlowFlex.Application.Maps
                 .ForMember(dest => dest.InboundFieldMappings, opt => opt.Ignore())
                 .ForMember(dest => dest.OutboundFieldMappings, opt => opt.Ignore())
                 .ForMember(dest => dest.InboundAttachments, opt => opt.Ignore())
-                .ForMember(dest => dest.OutboundAttachments, opt => opt.Ignore());
+                .ForMember(dest => dest.OutboundAttachments, opt => opt.Ignore())
+                .ForMember(dest => dest.LastDaysSeconds, opt => opt.Ignore());
 
             CreateMap<IntegrationInputDto, Domain.Entities.Integration.Integration>()
                 .ForMember(dest => dest.Id, opt => opt.Ignore())

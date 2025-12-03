@@ -58,6 +58,11 @@ namespace FlowFlex.Application.Contracts.Dtos.Integration
         /// Connection status
         /// </summary>
         public IntegrationStatus Status { get; set; } = IntegrationStatus.Disconnected;
+
+        /// <summary>
+        /// Whether this integration is valid (not soft deleted)
+        /// </summary>
+        public bool? IsValid { get; set; }
     }
 }
 

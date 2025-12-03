@@ -27,10 +27,10 @@ namespace FlowFlex.Application.Contracts.Dtos.Integration
         public long WorkflowId { get; set; }
 
         /// <summary>
-        /// Stage ID
+        /// Action ID
         /// </summary>
         [Required]
-        public long StageId { get; set; }
+        public long ActionId { get; set; }
     }
 
     /// <summary>

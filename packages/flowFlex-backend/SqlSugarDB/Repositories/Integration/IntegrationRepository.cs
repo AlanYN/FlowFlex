@@ -38,7 +38,6 @@ namespace FlowFlex.SqlSugarDB.Implements.Integration
             _logger.LogInformation($"[IntegrationRepository] GetAllAsync with TenantId={currentTenantId}");
 
             var query = db.Queryable<Domain.Entities.Integration.Integration>()
-                .Where(x => x.IsValid == true)
                 .Where(x => x.TenantId == currentTenantId);
 
             if (!string.IsNullOrWhiteSpace(name))
@@ -57,6 +56,19 @@ namespace FlowFlex.SqlSugarDB.Implements.Integration
             }
 
             return await query.OrderBy(x => x.CreateDate, SqlSugar.OrderByType.Desc).ToListAsync();
+        }
+
+        /// <summary>
+        /// Get integration by ID (including invalid ones)
+        /// </summary>
+        public new async Task<Domain.Entities.Integration.Integration> GetByIdAsync(object id, bool copyNew = false, CancellationToken cancellationToken = default)
+        {
+            var currentTenantId = GetCurrentTenantId();
+            db.Ado.CancellationToken = cancellationToken;
+            var dbNew = copyNew ? db.CopyNew() : db;
+            return await dbNew.Queryable<Domain.Entities.Integration.Integration>()
+                .Where(x => x.TenantId == currentTenantId && x.Id == Convert.ToInt64(id))
+                .FirstAsync();
         }
 
         /// <summary>
@@ -94,7 +106,7 @@ namespace FlowFlex.SqlSugarDB.Implements.Integration
         {
             var currentTenantId = GetCurrentTenantId();
             var integration = await db.Queryable<Domain.Entities.Integration.Integration>()
-                .Where(x => x.TenantId == currentTenantId && x.Id == id && x.IsValid)
+                .Where(x => x.TenantId == currentTenantId && x.Id == id)
                 .FirstAsync();
 
             if (integration == null)

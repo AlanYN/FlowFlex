@@ -71,7 +71,7 @@ namespace FlowFlex.WebApi.Controllers.Integration
                 Id = GenerateItemId(),
                 ModuleName = input.ModuleName,
                 WorkflowId = input.WorkflowId,
-                StageId = input.StageId
+                ActionId = input.ActionId
             };
 
             items.Add(newItem);
@@ -109,7 +109,7 @@ namespace FlowFlex.WebApi.Controllers.Integration
             // Update the item
             items[itemIndex].ModuleName = input.ModuleName;
             items[itemIndex].WorkflowId = input.WorkflowId;
-            items[itemIndex].StageId = input.StageId;
+            items[itemIndex].ActionId = input.ActionId;
 
             // Save back
             var saveInput = new InboundAttachmentsInputDto
@@ -184,9 +184,9 @@ namespace FlowFlex.WebApi.Controllers.Integration
         public long WorkflowId { get; set; }
 
         /// <summary>
-        /// Stage ID
+        /// Action ID
         /// </summary>
-        public long StageId { get; set; }
+        public long ActionId { get; set; }
     }
 
     /// <summary>
@@ -213,8 +213,8 @@ namespace FlowFlex.WebApi.Controllers.Integration
         public long WorkflowId { get; set; }
 
         /// <summary>
-        /// Stage ID
+        /// Action ID
         /// </summary>
-        public long StageId { get; set; }
+        public long ActionId { get; set; }
     }
 }

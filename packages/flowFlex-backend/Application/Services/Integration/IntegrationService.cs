@@ -81,18 +81,18 @@ namespace FlowFlex.Application.Services.Integration
             }
 
             var entity = _mapper.Map<Domain.Entities.Integration.Integration>(input);
-
+            
             // Encrypt credentials
             entity.EncryptedCredentials = EncryptCredentials(input.Credentials);
-
+            
             // Initialize create information
             entity.InitCreateInfo(_userContext);
             entity.TenantId = _userContext.TenantId;
 
             var id = await _integrationRepository.InsertReturnSnowflakeIdAsync(entity);
-
+            
             _logger.LogInformation($"Created integration: {input.Name} (ID: {id})");
-
+            
             return id;
         }
 
@@ -123,17 +123,23 @@ namespace FlowFlex.Application.Services.Integration
             entity.EndpointUrl = input.EndpointUrl;
             entity.AuthMethod = input.AuthMethod;
             entity.Status = input.Status;
-
+            
+            // Update IsValid if provided
+            if (input.IsValid.HasValue)
+            {
+                entity.IsValid = input.IsValid.Value;
+            }
+            
             // Encrypt credentials
             entity.EncryptedCredentials = EncryptCredentials(input.Credentials);
-
+            
             // Update modify information
             entity.InitModifyInfo(_userContext);
 
             var result = await _integrationRepository.UpdateAsync(entity);
-
+            
             _logger.LogInformation($"Updated integration: {input.Name} (ID: {id})");
-
+            
             return result;
         }
 
@@ -150,9 +156,9 @@ namespace FlowFlex.Application.Services.Integration
             entity.InitModifyInfo(_userContext);
 
             var result = await _integrationRepository.UpdateAsync(entity);
-
+            
             _logger.LogInformation($"Deleted integration: {entity.Name} (ID: {id})");
-
+            
             return result;
         }
 
@@ -166,7 +172,7 @@ namespace FlowFlex.Application.Services.Integration
 
             var dto = _mapper.Map<IntegrationOutputDto>(entity);
             await PopulateConfiguredEntityTypeNamesAsync(dto);
-
+            
             // Decrypt credentials
             if (!string.IsNullOrEmpty(entity.EncryptedCredentials) && entity.EncryptedCredentials != "{}")
             {
@@ -174,7 +180,7 @@ namespace FlowFlex.Application.Services.Integration
                 {
                     var decryptedJson = DecryptString(entity.EncryptedCredentials, ENCRYPTION_KEY);
                     _logger.LogDebug($"Decrypted JSON for integration {id}: {decryptedJson}");
-
+                    
                     if (!string.IsNullOrEmpty(decryptedJson) && decryptedJson != "{}")
                     {
                         dto.Credentials = JsonConvert.DeserializeObject<Dictionary<string, string>>(decryptedJson) ?? new Dictionary<string, string>();
@@ -188,8 +194,8 @@ namespace FlowFlex.Application.Services.Integration
                 }
                 catch (Exception ex)
                 {
-                    var preview = entity.EncryptedCredentials != null && entity.EncryptedCredentials.Length > 50
-                        ? entity.EncryptedCredentials.Substring(0, 50)
+                    var preview = entity.EncryptedCredentials != null && entity.EncryptedCredentials.Length > 50 
+                        ? entity.EncryptedCredentials.Substring(0, 50) 
                         : entity.EncryptedCredentials ?? "";
                     _logger.LogWarning(ex, $"Failed to decrypt credentials for integration {id}. EncryptedCredentials: {preview}...");
                     dto.Credentials = new Dictionary<string, string>();
@@ -200,7 +206,7 @@ namespace FlowFlex.Application.Services.Integration
                 _logger.LogDebug($"Integration {id} has no encrypted credentials (empty or '{{}}')");
                 dto.Credentials = new Dictionary<string, string>();
             }
-
+            
             return dto;
         }
 
@@ -214,7 +220,7 @@ namespace FlowFlex.Application.Services.Integration
 
             var dto = _mapper.Map<IntegrationOutputDto>(entity);
             await PopulateConfiguredEntityTypeNamesAsync(dto);
-
+            
             // Decrypt credentials for details view
             if (!string.IsNullOrEmpty(entity.EncryptedCredentials) && entity.EncryptedCredentials != "{}")
             {
@@ -222,7 +228,7 @@ namespace FlowFlex.Application.Services.Integration
                 {
                     var decryptedJson = DecryptString(entity.EncryptedCredentials, ENCRYPTION_KEY);
                     _logger.LogDebug($"Decrypted JSON for integration {id}: {decryptedJson}");
-
+                    
                     if (!string.IsNullOrEmpty(decryptedJson) && decryptedJson != "{}")
                     {
                         dto.Credentials = JsonConvert.DeserializeObject<Dictionary<string, string>>(decryptedJson) ?? new Dictionary<string, string>();
@@ -236,8 +242,8 @@ namespace FlowFlex.Application.Services.Integration
                 }
                 catch (Exception ex)
                 {
-                    var preview = entity.EncryptedCredentials != null && entity.EncryptedCredentials.Length > 50
-                        ? entity.EncryptedCredentials.Substring(0, 50)
+                    var preview = entity.EncryptedCredentials != null && entity.EncryptedCredentials.Length > 50 
+                        ? entity.EncryptedCredentials.Substring(0, 50) 
                         : entity.EncryptedCredentials ?? "";
                     _logger.LogWarning(ex, $"Failed to decrypt credentials for integration {id}. EncryptedCredentials: {preview}...");
                     dto.Credentials = new Dictionary<string, string>();
@@ -380,7 +386,7 @@ namespace FlowFlex.Application.Services.Integration
                 dto.InboundFieldMappings = new List<ActionFieldMappingDto>();
                 dto.OutboundFieldMappings = new List<ActionFieldMappingDto>();
             }
-
+            
             return dto;
         }
 
@@ -392,14 +398,14 @@ namespace FlowFlex.Application.Services.Integration
             var items = await _integrationRepository.GetAllAsync(name, type, status);
 
             var dtos = _mapper.Map<List<IntegrationOutputDto>>(items);
-
+            
             // Populate ConfiguredEntityTypeNames and LastDaysSeconds for each integration
             foreach (var dto in dtos)
             {
                 await PopulateConfiguredEntityTypeNamesAsync(dto);
                 dto.LastDaysSeconds = GenerateLastDaysSeconds();
             }
-
+            
             return dtos;
         }
 
@@ -419,12 +425,12 @@ namespace FlowFlex.Application.Services.Integration
             {
                 // Decrypt credentials
                 var credentials = DecryptCredentials(entity.EncryptedCredentials);
-
+                
                 _logger.LogInformation($"Testing connection for integration: {entity.Name} (ID: {id}), AuthMethod: {entity.AuthMethod}, EndpointUrl: {entity.EndpointUrl}");
-
+                
                 // Perform actual HTTP connection test
                 var (success, errorMessage) = await PerformConnectionTestAsync(entity.EndpointUrl, entity.AuthMethod, credentials);
-
+                
                 if (success)
                 {
                     // Update status to Connected if test succeeds
@@ -448,27 +454,27 @@ namespace FlowFlex.Application.Services.Integration
                     entity.Status = global::Domain.Shared.Enums.IntegrationStatus.Error;
                     entity.ErrorMessage = errorMessage;
                     _logger.LogWarning($"Connection test failed for integration: {entity.Name} (ID: {id}), Error: {errorMessage}");
-                    
-                    entity.InitModifyInfo(_userContext);
-                    await _integrationRepository.UpdateAsync(entity);
-
+                
+                entity.InitModifyInfo(_userContext);
+                await _integrationRepository.UpdateAsync(entity);
+                
                     return new TestConnectionResultDto
                     {
                         Success = false,
                         Msg = errorMessage ?? "Connection test failed"
                     };
-                }
+            }
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, $"Connection test failed for integration: {entity.Name} (ID: {id})");
-
+                
                 // Update status to Error if test fails
                 entity.Status = global::Domain.Shared.Enums.IntegrationStatus.Error;
                 entity.ErrorMessage = ex.Message;
                 entity.InitModifyInfo(_userContext);
                 await _integrationRepository.UpdateAsync(entity);
-
+                
                 return new TestConnectionResultDto
                 {
                     Success = false,
@@ -481,8 +487,8 @@ namespace FlowFlex.Application.Services.Integration
         /// Perform actual HTTP connection test based on authentication method
         /// </summary>
         private async Task<(bool Success, string? ErrorMessage)> PerformConnectionTestAsync(
-            string endpointUrl,
-            AuthenticationMethod authMethod,
+            string endpointUrl, 
+            AuthenticationMethod authMethod, 
             Dictionary<string, string>? credentials)
         {
             if (string.IsNullOrEmpty(endpointUrl))
@@ -531,8 +537,8 @@ namespace FlowFlex.Application.Services.Integration
                         {
                             // Regular Basic Auth - GET request with Authorization header
                             request = new HttpRequestMessage(HttpMethod.Get, endpointUrl);
-                            if (credentials != null &&
-                                credentials.TryGetValue("username", out var username) &&
+                            if (credentials != null && 
+                                credentials.TryGetValue("username", out var username) && 
                                 credentials.TryGetValue("password", out var password))
                             {
                                 var authValue = Convert.ToBase64String(Encoding.UTF8.GetBytes($"{username}:{password}"));
@@ -620,9 +626,9 @@ namespace FlowFlex.Application.Services.Integration
             entity.InitModifyInfo(_userContext);
 
             var result = await _integrationRepository.UpdateAsync(entity);
-
+            
             _logger.LogInformation($"Updated integration status: {entity.Name} (ID: {id}) to {status}");
-
+            
             return result;
         }
 
@@ -675,7 +681,7 @@ namespace FlowFlex.Application.Services.Integration
             {
                 sw.Write(plainText);
             }
-
+            
             return Convert.ToBase64String(ms.ToArray());
         }
 
@@ -689,7 +695,7 @@ namespace FlowFlex.Application.Services.Integration
             using var ms = new MemoryStream(Convert.FromBase64String(cipherText));
             using var cs = new CryptoStream(ms, decryptor, CryptoStreamMode.Read);
             using var sr = new StreamReader(cs);
-
+            
             return sr.ReadToEnd();
         }
 
@@ -726,22 +732,22 @@ namespace FlowFlex.Application.Services.Integration
 
             // Get field mappings by action ID
             var fieldMappings = await _fieldMappingRepository.GetByActionIdAsync(actionId);
-
+            
             // Filter for inbound fields (ViewOnly or Editable)
-            var inboundFields = fieldMappings.Where(fm =>
-                fm.SyncDirection == SyncDirection.ViewOnly ||
+            var inboundFields = fieldMappings.Where(fm => 
+                fm.SyncDirection == SyncDirection.ViewOnly || 
                 fm.SyncDirection == SyncDirection.Editable);
 
             foreach (var fieldMapping in inboundFields)
             {
                 // Apply filters if provided
-                if (!string.IsNullOrEmpty(externalFieldName) &&
+                if (!string.IsNullOrEmpty(externalFieldName) && 
                     !fieldMapping.ExternalFieldName.Contains(externalFieldName, StringComparison.OrdinalIgnoreCase))
                 {
                     continue;
                 }
 
-                if (!string.IsNullOrEmpty(wfeFieldName) &&
+                if (!string.IsNullOrEmpty(wfeFieldName) && 
                     !fieldMapping.WfeFieldId.Contains(wfeFieldName, StringComparison.OrdinalIgnoreCase))
                 {
                     continue;
@@ -780,22 +786,22 @@ namespace FlowFlex.Application.Services.Integration
                 fm.SyncDirection == SyncDirection.Editable);
 
             foreach (var fieldMapping in outboundFields)
-            {
-                // Apply filter if provided
-                if (!string.IsNullOrEmpty(fieldName) &&
+                {
+                    // Apply filter if provided
+                    if (!string.IsNullOrEmpty(fieldName) && 
                     !fieldMapping.WfeFieldId.Contains(fieldName, StringComparison.OrdinalIgnoreCase) &&
                     !fieldMapping.ExternalFieldName.Contains(fieldName, StringComparison.OrdinalIgnoreCase))
-                {
-                    continue;
-                }
+                    {
+                        continue;
+                    }
 
-                result.Add(new OutboundSharedFieldDto
-                {
-                    ActionId = actionId,
-                    ActionName = actionName,
+                    result.Add(new OutboundSharedFieldDto
+                    {
+                        ActionId = actionId,
+                        ActionName = actionName,
                     FieldDisplayName = fieldMapping.WfeFieldId, // Use WfeFieldId as display name
                     FieldApiName = fieldMapping.WfeFieldId
-                });
+                    });
             }
 
             return result.OrderBy(r => r.FieldApiName).ToList();
@@ -816,7 +822,7 @@ namespace FlowFlex.Application.Services.Integration
                     .Distinct()
                     .OrderBy(name => name)
                     .ToList();
-
+                
                 // Update ConfiguredEntityTypes to match the count of ConfiguredEntityTypeNames
                 dto.ConfiguredEntityTypes = dto.ConfiguredEntityTypeNames.Count;
             }
