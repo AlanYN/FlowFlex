@@ -41,13 +41,13 @@
 
 				<el-table-column label="Field (Display Name)" prop="wfeFieldName" min-width="220">
 					<template #default="{ row }">
-						<span class="text-sm">{{ row.wfeFieldName }}</span>
+						<span class="text-sm">{{ row.externalFieldName }}</span>
 					</template>
 				</el-table-column>
 
 				<el-table-column label="Field (API Name)" prop="externalFieldName" min-width="220">
 					<template #default="{ row }">
-						<span class="font-medium text-sm">{{ row.externalFieldName }}</span>
+						<span class="font-medium text-sm">{{ row.wfeFieldName }}</span>
 					</template>
 				</el-table-column>
 			</el-table>
