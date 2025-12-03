@@ -100,10 +100,7 @@
 
 				<el-table-column label="Stage" min-width="250" align="center">
 					<template #default="{ row }">
-						<div
-							v-if="!!row?.id"
-							class="flex items-center gap-2 flex-wrap justify-center"
-						>
+						<div v-if="!!row?.id" class="flex items-center gap-2 flex-wrap">
 							<template v-if="getStageList(row).length > 0">
 								<el-tag
 									v-for="stage in getDisplayedStages(row)"
@@ -140,7 +137,7 @@
 						</div>
 						<el-select
 							v-else
-							v-model="row.stageId"
+							v-model="row.stageIds"
 							placeholder="Select stage..."
 							:disabled="!row.workflowId"
 							:loading="stagesLoadingMap[row.workflowId] || false"
@@ -307,7 +304,7 @@ function getAvailableWorkflows(currentRow: IAttachmentSharingExtended) {
  * 处理 workflow 变化
  */
 const handleWorkflowChange = async (row: IAttachmentSharingExtended, workflowId: string) => {
-	row.stageId = [];
+	row.stageIds = [];
 	if (workflowId && workflowId !== '0') {
 		await loadStagesForWorkflow(workflowId);
 	}
@@ -338,7 +335,7 @@ async function loadAttachmentWorkflows() {
 			attachmentSharing.value = items.map((item) => ({
 				...item,
 				workflowId: String(item.workflowId),
-				stageId: Array.isArray(item.stageId) ? item.stageId : [item.stageId],
+				stageIds: Array.isArray(item.stageIds) ? item.stageIds : [item.stageIds],
 				isEditing: false,
 			}));
 
@@ -376,25 +373,15 @@ async function saveAttachmentSharing() {
 	// 过滤掉没有 workflowId 或 stageId 的项
 	const validItems = attachmentSharing.value.filter(
 		(item) =>
-			item.workflowId && item.stageId && item.workflowId !== '0' && item.stageId.length > 0
+			item.workflowId && item.stageIds && item.workflowId !== '0' && item.stageIds.length > 0
 	);
-
-	if (validItems.length === 0) {
-		// 如果没有有效项，清空配置
-		try {
-			await createOutboundSettingsAttachment(String(props.integrationId), []);
-		} catch (error) {
-			console.error('Failed to save attachment sharing:', error);
-		}
-		return;
-	}
 
 	isSaving.value = true;
 	try {
 		const items = validItems.map((item) => ({
 			id: item.id || '',
 			workflowId: item.workflowId,
-			stageId: item.stageId,
+			stageIds: item.stageIds,
 		}));
 
 		const response = await createOutboundSettingsAttachment(String(props.integrationId), items);
@@ -416,7 +403,7 @@ function handleAddItem() {
 	attachmentSharing.value.push({
 		id: '',
 		workflowId: '',
-		stageId: [],
+		stageIds: [],
 		isEditing: true,
 	});
 }
@@ -449,8 +436,8 @@ function handleDeleteItem(index: number) {
  * 获取 Stage 列表（用于显示 el-tag）
  */
 function getStageList(row: IAttachmentSharingExtended): Array<{ id: string; name: string }> {
-	if (!row.stageId || !row.workflowId) return [];
-	const stageIds = Array.isArray(row.stageId) ? row.stageId : [row.stageId];
+	if (!row.stageIds || !row.workflowId) return [];
+	const stageIds = Array.isArray(row.stageIds) ? row.stageIds : [row.stageIds];
 	const stages = stagesCache.value[row.workflowId] || [];
 	return stageIds
 		.map((id) => {

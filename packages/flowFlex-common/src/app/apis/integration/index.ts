@@ -196,7 +196,7 @@ export function createOutboundSettingsAttachment(
 	items: {
 		id: string;
 		workflowId: string;
-		stageId: string[];
+		stageIds: string[];
 	}[]
 ): Promise<IApiResponse<boolean>> {
 	return defHttp.put({
@@ -213,7 +213,7 @@ export function getOutboundSettingsAttachment(integrationId: string | number): P
 		items: {
 			id: string;
 			workflowId: string;
-			stageId: string;
+			stageIds: string;
 		}[];
 	}>
 > {

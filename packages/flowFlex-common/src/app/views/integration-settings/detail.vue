@@ -5,16 +5,7 @@
 			:title="integrationName || 'Integration Details'"
 			:show-back-button="true"
 			@go-back="handleBack"
-		>
-			<template #actions>
-				<el-button
-					v-if="integrationId && integrationId !== 'new' && integrationData"
-					type="danger"
-					:icon="Delete"
-					@click="handleDelete"
-				/>
-			</template>
-		</PageHeader>
+		/>
 
 		<!-- 加载状态 -->
 		<div v-if="isLoading" v-loading="true" class="min-h-[400px]"></div>
@@ -83,6 +74,12 @@
 					</PrototypeTabs>
 				</div>
 			</template>
+			<!-- 当不满足显示条件时显示 loading -->
+			<div
+				v-else-if="integrationId && integrationId !== 'new'"
+				v-loading="true"
+				class="min-h-[400px]"
+			></div>
 		</div>
 	</div>
 </template>
@@ -90,8 +87,7 @@
 <script setup lang="ts">
 import { ref, onMounted, nextTick } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { ElMessage, ElMessageBox } from 'element-plus';
-import { Delete } from '@element-plus/icons-vue';
+import { ElMessage } from 'element-plus';
 import { PrototypeTabs, TabPane } from '@/components/PrototypeTabs';
 import ConnectionAuth from './components/connection-auth.vue';
 import EntityType from './components/entityType.vue';
@@ -99,7 +95,7 @@ import InboundSettings from './components/inbound-settings.vue';
 import OutboundSettings from './components/outbound-settings.vue';
 import ActionsList from './components/actions-list.vue';
 import QuickLinks from './components/quick-links.vue';
-import { getIntegrationDetails, deleteIntegration, testConnection } from '@/apis/integration';
+import { getIntegrationDetails, testConnection } from '@/apis/integration';
 import { getWorkflowList } from '@/apis/ow';
 import { getActionDefinitions } from '@/apis/action';
 import type { IIntegrationConfig } from '#/integration';
@@ -226,35 +222,6 @@ const handleTestConnection = async () => {
 		integrationStatus.value = 0;
 	}
 };
-
-/**
- * 删除集成
- */
-async function handleDelete() {
-	if (!integrationId.value || integrationId.value === 'new') return;
-
-	try {
-		await ElMessageBox.confirm(
-			`Are you sure you want to delete the integration "${integrationName.value}"? This action cannot be undone.`,
-			'Confirm Deletion',
-			{
-				confirmButtonText: 'Delete',
-				cancelButtonText: 'Cancel',
-				type: 'warning',
-			}
-		);
-
-		const res = await deleteIntegration(integrationId.value);
-		if (res.success) {
-			ElMessage.success('Integration deleted successfully');
-			handleBack();
-		} else {
-			ElMessage.error(res.msg || 'Failed to delete integration');
-		}
-	} catch (error) {
-		console.log('Failed to delete integration:', error);
-	}
-}
 
 /**
  * 返回列表

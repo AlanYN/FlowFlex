@@ -1,13 +1,28 @@
 <template>
 	<div class="wfe-global-block-bg p-4">
 		<!-- 标题和描述 -->
-		<div>
-			<h3 class="text-xl font-semibold text-text-primary m-0">Connection & Authentication</h3>
-			<p class="text-sm text-text-secondary my-2">
-				Configure connection details and authentication method
-			</p>
+		<div class="flex items-center justify-between">
+			<div>
+				<h3 class="text-xl font-semibold text-text-primary m-0">
+					Connection & Authentication
+				</h3>
+				<p class="text-sm text-text-secondary my-2">
+					Configure connection details and authentication method
+				</p>
+			</div>
+			<div v-if="integrationId !== 'new'">
+				<el-switch
+					v-model="formData.isValid"
+					active-text="Active"
+					inactive-text="Inactive"
+					inline-prompt
+					:style="{
+						'--el-switch-on-color': 'var(--el-color-success)',
+						'--el-switch-off-color': 'var(--el-color-danger)',
+					}"
+				/>
+			</div>
 		</div>
-
 		<el-form ref="formRef" :model="formData" :rules="rules" label-position="top">
 			<!-- System Name & Endpoint URL (两列布局) -->
 			<div class="grid grid-cols-2 gap-6">
@@ -240,6 +255,7 @@ const formData = ref<IConnectionConfig & { authMethod: string | number }>({
 	authMethod: AuthMethod.ApiKey,
 	credentials: {},
 	description: '',
+	isValid: true,
 });
 
 // 表单验证规则
@@ -339,6 +355,8 @@ function initFormData() {
 			endpointUrl: props.connectionData.endpointUrl || '',
 			authMethod: props.connectionData.authMethod || AuthMethod.ApiKey,
 			credentials: props.connectionData.credentials || {},
+			isValid:
+				props.connectionData?.isValid !== undefined ? props.connectionData.isValid : true,
 		};
 	}
 }
