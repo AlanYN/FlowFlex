@@ -372,8 +372,8 @@ namespace FlowFlex.Application.Services.Integration
                         }
                     }
 
-                    dto.InboundFieldMappings = inboundMappings.OrderBy(m => m.SortOrder).ToList();
-                    dto.OutboundFieldMappings = outboundMappings.OrderBy(m => m.SortOrder).ToList();
+                    dto.InboundFieldMappings = inboundMappings.OrderBy(m => m.ActionCode).ThenBy(m => m.SortOrder).ToList();
+                    dto.OutboundFieldMappings = outboundMappings.OrderBy(m => m.ActionCode).ThenBy(m => m.SortOrder).ToList();
                 }
                 else
                 {

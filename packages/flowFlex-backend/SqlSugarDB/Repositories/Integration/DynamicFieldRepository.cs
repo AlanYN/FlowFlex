@@ -29,8 +29,17 @@ namespace FlowFlex.SqlSugarDB.Implements.Integration
         /// </summary>
         public async Task<DynamicField?> GetByFieldIdAsync(string fieldId)
         {
+            // Get current tenant and app code from context
+            var httpContext = _httpContextAccessor?.HttpContext;
+            var tenantId = httpContext?.Request.Headers["X-Tenant-Id"].FirstOrDefault() 
+                ?? httpContext?.Request.Headers["TenantId"].FirstOrDefault()
+                ?? "DEFAULT";
+            var appCode = httpContext?.Request.Headers["X-App-Code"].FirstOrDefault()
+                ?? httpContext?.Request.Headers["AppCode"].FirstOrDefault()
+                ?? "DEFAULT";
+
             return await db.Queryable<DynamicField>()
-                .Where(x => x.FieldId == fieldId && x.IsValid)
+                .Where(x => x.FieldId == fieldId && x.IsValid && x.TenantId == tenantId && x.AppCode == appCode)
                 .FirstAsync();
         }
 
@@ -39,8 +48,17 @@ namespace FlowFlex.SqlSugarDB.Implements.Integration
         /// </summary>
         public async Task<List<DynamicField>> GetByCategoryAsync(string category)
         {
+            // Get current tenant and app code from context
+            var httpContext = _httpContextAccessor?.HttpContext;
+            var tenantId = httpContext?.Request.Headers["X-Tenant-Id"].FirstOrDefault() 
+                ?? httpContext?.Request.Headers["TenantId"].FirstOrDefault()
+                ?? "DEFAULT";
+            var appCode = httpContext?.Request.Headers["X-App-Code"].FirstOrDefault()
+                ?? httpContext?.Request.Headers["AppCode"].FirstOrDefault()
+                ?? "DEFAULT";
+
             return await db.Queryable<DynamicField>()
-                .Where(x => x.Category == category && x.IsValid)
+                .Where(x => x.Category == category && x.IsValid && x.TenantId == tenantId && x.AppCode == appCode)
                 .OrderBy(x => x.SortOrder)
                 .ToListAsync();
         }
@@ -50,8 +68,19 @@ namespace FlowFlex.SqlSugarDB.Implements.Integration
         /// </summary>
         public async Task<List<DynamicField>> GetAllOrderedAsync()
         {
+            // Get current tenant and app code from context
+            var httpContext = _httpContextAccessor?.HttpContext;
+            var tenantId = httpContext?.Request.Headers["X-Tenant-Id"].FirstOrDefault() 
+                ?? httpContext?.Request.Headers["TenantId"].FirstOrDefault()
+                ?? "DEFAULT";
+            var appCode = httpContext?.Request.Headers["X-App-Code"].FirstOrDefault()
+                ?? httpContext?.Request.Headers["AppCode"].FirstOrDefault()
+                ?? "DEFAULT";
+
+            _logger.LogDebug($"GetAllOrderedAsync - TenantId: {tenantId}, AppCode: {appCode}");
+
             return await db.Queryable<DynamicField>()
-                .Where(x => x.IsValid)
+                .Where(x => x.IsValid && x.TenantId == tenantId && x.AppCode == appCode)
                 .OrderBy(x => x.SortOrder)
                 .ToListAsync();
         }
@@ -61,8 +90,17 @@ namespace FlowFlex.SqlSugarDB.Implements.Integration
         /// </summary>
         public async Task<bool> ExistsFieldIdAsync(string fieldId, long? excludeId = null)
         {
+            // Get current tenant and app code from context
+            var httpContext = _httpContextAccessor?.HttpContext;
+            var tenantId = httpContext?.Request.Headers["X-Tenant-Id"].FirstOrDefault() 
+                ?? httpContext?.Request.Headers["TenantId"].FirstOrDefault()
+                ?? "DEFAULT";
+            var appCode = httpContext?.Request.Headers["X-App-Code"].FirstOrDefault()
+                ?? httpContext?.Request.Headers["AppCode"].FirstOrDefault()
+                ?? "DEFAULT";
+
             var query = db.Queryable<DynamicField>()
-                .Where(x => x.FieldId == fieldId && x.IsValid);
+                .Where(x => x.FieldId == fieldId && x.IsValid && x.TenantId == tenantId && x.AppCode == appCode);
 
             if (excludeId.HasValue)
             {
@@ -77,8 +115,17 @@ namespace FlowFlex.SqlSugarDB.Implements.Integration
         /// </summary>
         public async Task<DynamicField?> GetByFormPropAsync(string formProp)
         {
+            // Get current tenant and app code from context
+            var httpContext = _httpContextAccessor?.HttpContext;
+            var tenantId = httpContext?.Request.Headers["X-Tenant-Id"].FirstOrDefault() 
+                ?? httpContext?.Request.Headers["TenantId"].FirstOrDefault()
+                ?? "DEFAULT";
+            var appCode = httpContext?.Request.Headers["X-App-Code"].FirstOrDefault()
+                ?? httpContext?.Request.Headers["AppCode"].FirstOrDefault()
+                ?? "DEFAULT";
+
             return await db.Queryable<DynamicField>()
-                .Where(x => x.FormProp == formProp && x.IsValid)
+                .Where(x => x.FormProp == formProp && x.IsValid && x.TenantId == tenantId && x.AppCode == appCode)
                 .FirstAsync();
         }
     }
