@@ -17,6 +17,7 @@ using FlowFlex.Domain.Shared.Models;
 using Domain.Shared.Enums;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using SqlSugar;
 
 namespace FlowFlex.Application.Services.Integration
@@ -386,6 +387,62 @@ namespace FlowFlex.Application.Services.Integration
                 dto.InboundFieldMappings = new List<ActionFieldMappingDto>();
                 dto.OutboundFieldMappings = new List<ActionFieldMappingDto>();
             }
+
+            // Extract outbound field mappings from actionConfig (paramsList, formDataList, urlEncodedList)
+            // Get all action definitions for this integration through trigger mappings
+            try
+            {
+                var integrationTriggerMappings = await _actionTriggerMappingRepository.GetByTriggerTypeAsync("Integration");
+                var relatedMappings = integrationTriggerMappings
+                    .Where(tm => tm.TriggerSourceId == id && tm.IsValid)
+                    .ToList();
+
+                if (relatedMappings.Any())
+                {
+                    var actionIds = relatedMappings.Select(tm => tm.ActionDefinitionId).Distinct().ToList();
+                    var configBasedOutboundMappings = new List<ActionFieldMappingDto>();
+
+                    foreach (var actionId in actionIds)
+                    {
+                        var action = await _actionDefinitionRepository.GetByIdAsync(actionId);
+                        if (action == null || !action.IsValid || action.ActionConfig == null || action.ActionConfig.Type == JTokenType.Null) continue;
+
+                        try
+                        {
+                            var configMappings = ExtractOutboundMappingsFromActionConfig(action);
+                            configBasedOutboundMappings.AddRange(configMappings);
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogWarning(ex, $"Failed to extract outbound mappings from action config for action {actionId}");
+                        }
+                    }
+
+                    // Merge with existing outbound mappings (replace existing ones with same ActionCode)
+                    if (configBasedOutboundMappings.Any())
+                    {
+                        if (dto.OutboundFieldMappings == null)
+                        {
+                            dto.OutboundFieldMappings = configBasedOutboundMappings;
+                        }
+                        else
+                        {
+                            // Remove existing mappings with same ActionCode and add new ones
+                            var existingActionCodes = configBasedOutboundMappings.Select(m => m.ActionCode).ToHashSet();
+                            dto.OutboundFieldMappings = dto.OutboundFieldMappings
+                                .Where(m => !existingActionCodes.Contains(m.ActionCode))
+                                .Concat(configBasedOutboundMappings)
+                                .OrderBy(m => m.ActionCode)
+                                .ThenBy(m => m.ExternalFieldName)
+                                .ToList();
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, $"Failed to extract outbound mappings from action configs for integration {id}");
+            }
             
             return dto;
         }
@@ -633,6 +690,122 @@ namespace FlowFlex.Application.Services.Integration
         }
 
         #region Private Methods
+
+        /// <summary>
+        /// Extract outbound field mappings from actionConfig
+        /// Extracts fields from paramsList, formDataList, urlEncodedList where value contains {{ }}
+        /// </summary>
+        private List<ActionFieldMappingDto> ExtractOutboundMappingsFromActionConfig(Domain.Entities.Action.ActionDefinition action)
+        {
+            var mappings = new List<ActionFieldMappingDto>();
+            
+            if (action.ActionConfig == null || action.ActionConfig.Type == JTokenType.Null)
+            {
+                return mappings;
+            }
+
+            try
+            {
+                var configJson = action.ActionConfig as JObject ?? new JObject();
+                var sortOrder = 0;
+
+                // Extract from paramsList
+                if (configJson["paramsList"] != null && configJson["paramsList"].Type == JTokenType.Array)
+                {
+                    var paramsList = configJson["paramsList"].ToObject<List<KeyValueItem>>() ?? new List<KeyValueItem>();
+                    foreach (var item in paramsList)
+                    {
+                        if (!string.IsNullOrEmpty(item.Key) && 
+                            !string.IsNullOrEmpty(item.Value) && 
+                            item.Value.Contains("{{") && item.Value.Contains("}}"))
+                        {
+                            mappings.Add(new ActionFieldMappingDto
+                            {
+                                ActionId = action.Id,
+                                ActionCode = action.ActionCode,
+                                ActionName = action.ActionName,
+                                ExternalFieldName = item.Key, // Field (Display Name) = key
+                                WfeFieldId = item.Value, // Field (API Name) = value
+                                WfeFieldName = item.Value,
+                                FieldType = "Text",
+                                SyncDirection = "OutboundOnly",
+                                IsRequired = false,
+                                SortOrder = sortOrder++
+                            });
+                        }
+                    }
+                }
+
+                // Extract from formDataList
+                if (configJson["formDataList"] != null && configJson["formDataList"].Type == JTokenType.Array)
+                {
+                    var formDataList = configJson["formDataList"].ToObject<List<KeyValueItem>>() ?? new List<KeyValueItem>();
+                    foreach (var item in formDataList)
+                    {
+                        if (!string.IsNullOrEmpty(item.Key) && 
+                            !string.IsNullOrEmpty(item.Value) && 
+                            item.Value.Contains("{{") && item.Value.Contains("}}"))
+                        {
+                            mappings.Add(new ActionFieldMappingDto
+                            {
+                                ActionId = action.Id,
+                                ActionCode = action.ActionCode,
+                                ActionName = action.ActionName,
+                                ExternalFieldName = item.Key, // Field (Display Name) = key
+                                WfeFieldId = item.Value, // Field (API Name) = value
+                                WfeFieldName = item.Value,
+                                FieldType = "Text",
+                                SyncDirection = "OutboundOnly",
+                                IsRequired = false,
+                                SortOrder = sortOrder++
+                            });
+                        }
+                    }
+                }
+
+                // Extract from urlEncodedList
+                if (configJson["urlEncodedList"] != null && configJson["urlEncodedList"].Type == JTokenType.Array)
+                {
+                    var urlEncodedList = configJson["urlEncodedList"].ToObject<List<KeyValueItem>>() ?? new List<KeyValueItem>();
+                    foreach (var item in urlEncodedList)
+                    {
+                        if (!string.IsNullOrEmpty(item.Key) && 
+                            !string.IsNullOrEmpty(item.Value) && 
+                            item.Value.Contains("{{") && item.Value.Contains("}}"))
+                        {
+                            mappings.Add(new ActionFieldMappingDto
+                            {
+                                ActionId = action.Id,
+                                ActionCode = action.ActionCode,
+                                ActionName = action.ActionName,
+                                ExternalFieldName = item.Key, // Field (Display Name) = key
+                                WfeFieldId = item.Value, // Field (API Name) = value
+                                WfeFieldName = item.Value,
+                                FieldType = "Text",
+                                SyncDirection = "OutboundOnly",
+                                IsRequired = false,
+                                SortOrder = sortOrder++
+                            });
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, $"Failed to parse actionConfig for action {action.Id}: {action.ActionConfig}");
+            }
+
+            return mappings;
+        }
+
+        /// <summary>
+        /// Key-Value item for parsing actionConfig lists
+        /// </summary>
+        private class KeyValueItem
+        {
+            public string Key { get; set; } = string.Empty;
+            public string Value { get; set; } = string.Empty;
+        }
 
         /// <summary>
         /// Generate last 30 days random seconds statistics
