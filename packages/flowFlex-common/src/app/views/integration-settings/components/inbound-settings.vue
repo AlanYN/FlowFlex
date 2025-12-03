@@ -396,7 +396,9 @@ function handleDeleteModule(index: number) {
 						return;
 					}
 
-					const response = await deleteInboundSettingsAttachment(row.id);
+					const response = await deleteInboundSettingsAttachment(row.id, {
+						integrationId: (props?.integrationId as string) || '',
+					});
 					if (response.success) {
 						ElMessage.success('Module deleted successfully');
 						attachmentSharing.value.splice(index, 1);
@@ -411,7 +413,6 @@ function handleDeleteModule(index: number) {
 					}
 				} catch (error) {
 					console.error('Failed to delete module:', error);
-					ElMessage.error('Failed to delete module');
 					// 恢复按钮状态
 					instance.confirmButtonLoading = false;
 					instance.confirmButtonText = 'Delete';
