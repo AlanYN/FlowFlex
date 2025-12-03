@@ -89,6 +89,11 @@ namespace FlowFlex.Application.Contracts.Dtos.Integration
         /// </summary>
         public string ModifyBy { get; set; } = string.Empty;
 
+        /// <summary>
+        /// Whether this integration is valid (not soft deleted)
+        /// </summary>
+        public bool IsValid { get; set; } = true;
+
         // Optional fields for details view
 
         /// <summary>
@@ -120,13 +125,13 @@ namespace FlowFlex.Application.Contracts.Dtos.Integration
 
         /// <summary>
         /// Inbound attachments configuration (only returned in GetWithDetails)
-        /// Contains: module_name, workflow_id, stage_id
+        /// Contains: module_name, workflow_id, action_id
         /// </summary>
         public List<InboundAttachmentItemDto>? InboundAttachments { get; set; }
 
         /// <summary>
         /// Outbound attachments configuration (only returned in GetWithDetails)
-        /// Contains: workflow_id, stage_id
+        /// Contains: workflow_id, stage_ids
         /// </summary>
         public List<OutboundAttachmentItemDto>? OutboundAttachments { get; set; }
 
