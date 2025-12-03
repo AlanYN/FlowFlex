@@ -97,20 +97,23 @@
 				<el-table-column label="External Module" min-width="200">
 					<template #default="{ row }">
 						<el-input
-							v-if="row.isEditing"
+							v-if="!row.id && row.isEditing"
 							v-model="row.moduleName"
 							placeholder="Enter external module name"
 							@blur="handleModuleBlur(row)"
 						/>
 						<span v-else class="font-medium text-sm">
-							{{ row.moduleName || 'Enter external module name' }}
+							{{ row.moduleName || defaultStr }}
 						</span>
 					</template>
 				</el-table-column>
 
 				<el-table-column label="Workflow" min-width="250">
 					<template #default="{ row }">
-						<el-select v-model="row.workflowId" placeholder="Select workflow...">
+						<span v-if="row.id" class="text-sm">
+							{{ getWorkflowName(row.workflowId) || defaultStr }}
+						</span>
+						<el-select v-else v-model="row.workflowId" placeholder="Select workflow...">
 							<el-option
 								v-for="workflow in workflows"
 								:key="workflow.id"
@@ -131,7 +134,11 @@
 
 				<el-table-column label="Action" min-width="250">
 					<template #default="{ row }">
+						<span v-if="row.id" class="text-sm">
+							{{ getActionName(row.actionId) || defaultStr }}
+						</span>
 						<el-select
+							v-else
 							v-model="row.actionId"
 							placeholder="Select action"
 							:disabled="!row.workflowId"
@@ -189,6 +196,7 @@ import {
 } from '@/apis/integration';
 import type { FieldMapping, InboundAttachmentIteml } from '#/integration';
 import SaveChangeIcon from '@assets/svg/publicPage/saveChange.svg';
+import { defaultStr } from '@/settings/projectSetting';
 
 interface Props {
 	integrationId: string | number;
@@ -416,8 +424,22 @@ function handleDeleteModule(index: number) {
 }
 
 /**
- * 上移模块
+ * 获取 Workflow 名称
  */
+function getWorkflowName(workflowId: string | number | undefined): string {
+	if (!workflowId || !props.workflows) return '';
+	const workflow = props.workflows.find((w) => String(w.id) === String(workflowId));
+	return workflow?.name || '';
+}
+
+/**
+ * 获取 Action 名称
+ */
+function getActionName(actionId: string | number | undefined): string {
+	if (!actionId || !props.actions) return '';
+	const action = props.actions.find((a) => String(a.id) === String(actionId));
+	return action?.name || '';
+}
 
 // 监听 integrationId 变化（包括初始化）
 watch(

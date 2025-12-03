@@ -71,7 +71,11 @@
 			>
 				<el-table-column label="Workflow" min-width="250">
 					<template #default="{ row }">
+						<span v-if="row.id" class="text-sm">
+							{{ getWorkflowName(row.workflowId) || defaultStr }}
+						</span>
 						<el-select
+							v-else
 							v-model="row.workflowId"
 							placeholder="Select workflow..."
 							@change="(val) => handleWorkflowChange(row, val)"
@@ -132,7 +136,7 @@
 									</el-tag>
 								</el-tooltip>
 							</template>
-							<span v-else class="text-sm text-text-secondary">-</span>
+							<span v-else class="text-sm text-text-secondary">{{ defaultStr }}</span>
 						</div>
 						<el-select
 							v-else
@@ -195,6 +199,7 @@ import {
 } from '@/apis/integration';
 import { getStagesByWorkflow } from '@/apis/ow';
 import type { FieldMapping, OutboundAttachmentItem1 } from '#/integration';
+import { defaultStr } from '@/settings/projectSetting';
 
 interface Props {
 	integrationId: string | number;
@@ -476,6 +481,15 @@ function getHiddenStagesCount(row: IAttachmentSharingExtended): number {
 function getHiddenStages(row: IAttachmentSharingExtended): Array<{ id: string; name: string }> {
 	const stages = getStageList(row);
 	return stages.slice(3);
+}
+
+/**
+ * 获取 Workflow 名称
+ */
+function getWorkflowName(workflowId: string | number | undefined): string {
+	if (!workflowId || !props.workflows) return '';
+	const workflow = props.workflows.find((w) => String(w.id) === String(workflowId));
+	return workflow?.name || '';
 }
 
 // 监听 integrationId 变化（包括初始化）

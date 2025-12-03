@@ -821,6 +821,7 @@ const handleExistingToolSelect = async (toolId: string) => {
 			formData.value.actionConfig = JSON.parse(toolDetail.actionConfig || '{}');
 			formData.value.id = toolDetail.id;
 			formData.value.isTools = toolDetail.isTools || false;
+			formData.value.fieldMappings = toolDetail.fieldMappings || [];
 			disabledActionForMyTool.value = false;
 		} else {
 			ElMessage.error('Failed to load tool details');
@@ -837,6 +838,7 @@ const resetFormData = () => {
 	formData.value.description = '';
 	formData.value.actionType = ActionType.HTTP_API;
 	formData.value.actionConfig = getDefaultConfig(ActionType.HTTP_API);
+	formData.value.fieldMappings = [];
 	formRef.value?.clearValidate();
 	disabledActionForMyTool.value = false;
 };
