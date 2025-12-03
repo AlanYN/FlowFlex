@@ -73,7 +73,7 @@
 								:all-workflows="workflows"
 								:actions="actions"
 								:is-loading="actionsLoading"
-								@refresh="loadActions"
+								@refresh="loadIntegrationData"
 							/>
 						</TabPane>
 
