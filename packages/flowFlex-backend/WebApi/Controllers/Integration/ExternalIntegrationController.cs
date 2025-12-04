@@ -5,6 +5,8 @@ using FlowFlex.Application.Contracts.Dtos.Integration;
 using FlowFlex.Application.Contracts.IServices.Integration;
 using Item.Internal.StandardApi.Response;
 using System.Net;
+using System.IO;
+using Microsoft.AspNetCore.Hosting;
 
 namespace FlowFlex.WebApi.Controllers.Integration
 {
@@ -18,10 +20,14 @@ namespace FlowFlex.WebApi.Controllers.Integration
     public class ExternalIntegrationController : Controllers.ControllerBase
     {
         private readonly IExternalIntegrationService _externalIntegrationService;
+        private readonly IWebHostEnvironment _webHostEnvironment;
 
-        public ExternalIntegrationController(IExternalIntegrationService externalIntegrationService)
+        public ExternalIntegrationController(
+            IExternalIntegrationService externalIntegrationService,
+            IWebHostEnvironment webHostEnvironment)
         {
             _externalIntegrationService = externalIntegrationService;
+            _webHostEnvironment = webHostEnvironment;
         }
 
         /// <summary>
@@ -219,6 +225,78 @@ namespace FlowFlex.WebApi.Controllers.Integration
         {
             var result = await _externalIntegrationService.GetAttachmentsByCaseIdAsync(caseId);
             return Success(result);
+        }
+
+        /// <summary>
+        /// Get WFE Attachment integration protocol documentation
+        /// Returns the API documentation for WFE Attachment integration protocol
+        /// </summary>
+        /// <returns>Documentation content</returns>
+        [HttpGet("attachments/protocol")]
+        [ProducesResponseType<SuccessResponse<string>>((int)HttpStatusCode.OK)]
+        public async Task<IActionResult> GetAttachmentProtocolDocumentation()
+        {
+            try
+            {
+                // Get base paths
+                var contentRoot = _webHostEnvironment.ContentRootPath;
+                var baseDirectory = AppDomain.CurrentDomain.BaseDirectory;
+                var currentDirectory = Directory.GetCurrentDirectory();
+
+                // Try multiple possible paths (prioritize same directory as controller)
+                var possiblePaths = new List<string>
+                {
+                    // Path in the same directory as this controller (most reliable)
+                    Path.Combine(baseDirectory, "Controllers", "Integration", "WFE Attachment 接入协议.md"),
+                    // Path relative to content root Controllers/Integration
+                    Path.Combine(contentRoot, "Controllers", "Integration", "WFE Attachment 接入协议.md"),
+                    // Path relative to current directory Controllers/Integration
+                    Path.Combine(currentDirectory, "Controllers", "Integration", "WFE Attachment 接入协议.md"),
+                    // Fallback to Docs/API paths
+                    Path.Combine(contentRoot, "Docs", "API", "WFE Attachment 接入协议.md"),
+                    Path.Combine(baseDirectory, "Docs", "API", "WFE Attachment 接入协议.md"),
+                    Path.Combine(currentDirectory, "Docs", "API", "WFE Attachment 接入协议.md"),
+                    // Monorepo paths
+                    Path.Combine(contentRoot, "..", "Docs", "API", "WFE Attachment 接入协议.md"),
+                    Path.Combine(baseDirectory, "..", "Docs", "API", "WFE Attachment 接入协议.md")
+                };
+
+                string? docPath = null;
+                foreach (var path in possiblePaths)
+                {
+                    try
+                    {
+                        var normalizedPath = Path.GetFullPath(path);
+                        if (System.IO.File.Exists(normalizedPath))
+                        {
+                            docPath = normalizedPath;
+                            break;
+                        }
+                    }
+                    catch
+                    {
+                        // Continue to next path if this one fails
+                        continue;
+                    }
+                }
+
+                if (docPath == null || !System.IO.File.Exists(docPath))
+                {
+                    var searchedPaths = string.Join("\n", possiblePaths.Select(p =>
+                    {
+                        try { return Path.GetFullPath(p); } catch { return p; }
+                    }));
+                    return NotFound(new { message = $"Documentation file not found. Searched paths:\n{searchedPaths}" });
+                }
+
+                var content = await System.IO.File.ReadAllTextAsync(docPath, System.Text.Encoding.UTF8);
+                return Success(content);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode((int)HttpStatusCode.InternalServerError,
+                    new { message = $"Failed to read documentation: {ex.Message}" });
+            }
         }
     }
 }

@@ -161,6 +161,24 @@ namespace FlowFlex.Application.Services.Integration
             return dtos;
         }
 
+        public async Task<List<QuickLinkOutputDto>> GetAllAsync()
+        {
+            var entities = await _quickLinkRepository.GetAllAsync();
+            var dtos = _mapper.Map<List<QuickLinkOutputDto>>(entities);
+
+            foreach (var dto in dtos)
+            {
+                var entity = entities.FirstOrDefault(e => e.Id == dto.Id);
+                if (entity != null)
+                {
+                    dto.UrlParameters = JsonConvert.DeserializeObject<List<UrlParameterDto>>(entity.UrlParameters)
+                        ?? new List<UrlParameterDto>();
+                }
+            }
+
+            return dtos;
+        }
+
         public async Task<string> GenerateUrlAsync(long quickLinkId, Dictionary<string, string> dataContext)
         {
             var entity = await _quickLinkRepository.GetByIdAsync(quickLinkId);

@@ -3,6 +3,7 @@ using SqlSugar;
 using FlowFlex.Domain.Entities.Integration;
 using FlowFlex.Domain.Repository.Integration;
 using FlowFlex.Domain.Shared;
+using FlowFlex.Domain.Shared.Models;
 using Microsoft.AspNetCore.Http;
 
 namespace FlowFlex.SqlSugarDB.Implements.Integration
@@ -29,8 +30,12 @@ namespace FlowFlex.SqlSugarDB.Implements.Integration
         /// </summary>
         public async Task<List<QuickLink>> GetByIntegrationIdAsync(long integrationId)
         {
+            var currentTenantId = GetCurrentTenantId();
+            var currentAppCode = GetCurrentAppCode();
+
             return await db.Queryable<QuickLink>()
                 .Where(x => x.IntegrationId == integrationId && x.IsValid)
+                .Where(x => x.TenantId == currentTenantId && x.AppCode == currentAppCode)
                 .OrderByDescending(x => x.CreateDate)
                 .ToListAsync();
         }
@@ -40,8 +45,12 @@ namespace FlowFlex.SqlSugarDB.Implements.Integration
         /// </summary>
         public async Task<bool> ExistsLabelAsync(long integrationId, string linkName, long? excludeId = null)
         {
+            var currentTenantId = GetCurrentTenantId();
+            var currentAppCode = GetCurrentAppCode();
+
             var query = db.Queryable<QuickLink>()
-                .Where(x => x.IntegrationId == integrationId && x.LinkName == linkName && x.IsValid);
+                .Where(x => x.IntegrationId == integrationId && x.LinkName == linkName && x.IsValid)
+                .Where(x => x.TenantId == currentTenantId && x.AppCode == currentAppCode);
 
             if (excludeId.HasValue)
             {
@@ -56,8 +65,12 @@ namespace FlowFlex.SqlSugarDB.Implements.Integration
         /// </summary>
         public async Task<QuickLink> GetByLabelAsync(long integrationId, string label)
         {
+            var currentTenantId = GetCurrentTenantId();
+            var currentAppCode = GetCurrentAppCode();
+
             return await db.Queryable<QuickLink>()
                 .Where(x => x.IntegrationId == integrationId && x.LinkName == label && x.IsValid)
+                .Where(x => x.TenantId == currentTenantId && x.AppCode == currentAppCode)
                 .FirstAsync();
         }
 
@@ -66,8 +79,12 @@ namespace FlowFlex.SqlSugarDB.Implements.Integration
         /// </summary>
         public async Task<bool> DeleteByIntegrationIdAsync(long integrationId)
         {
+            var currentTenantId = GetCurrentTenantId();
+            var currentAppCode = GetCurrentAppCode();
+
             var links = await db.Queryable<QuickLink>()
                 .Where(x => x.IntegrationId == integrationId)
+                .Where(x => x.TenantId == currentTenantId && x.AppCode == currentAppCode)
                 .ToListAsync();
 
             if (links.Any())
@@ -92,15 +109,88 @@ namespace FlowFlex.SqlSugarDB.Implements.Integration
                 return true;
             }
 
+            var currentTenantId = GetCurrentTenantId();
+            var currentAppCode = GetCurrentAppCode();
+
             foreach (var (id, displayOrder) in orders)
             {
                 await db.Updateable<QuickLink>()
                     .SetColumns(x => x.SortOrder == displayOrder)
-                    .Where(x => x.Id == id)
+                    .Where(x => x.Id == id && x.TenantId == currentTenantId && x.AppCode == currentAppCode)
                     .ExecuteCommandAsync();
             }
 
             return true;
+        }
+
+        /// <summary>
+        /// Get all quick links (including invalid ones) with tenant and app isolation
+        /// </summary>
+        public async Task<List<QuickLink>> GetAllAsync()
+        {
+            var currentTenantId = GetCurrentTenantId();
+            var currentAppCode = GetCurrentAppCode();
+
+            return await db.Queryable<QuickLink>()
+                .Where(x => x.TenantId == currentTenantId && x.AppCode == currentAppCode)
+                .OrderByDescending(x => x.CreateDate)
+                .ToListAsync();
+        }
+
+        /// <summary>
+        /// Get current tenant ID from HTTP context
+        /// </summary>
+        private string GetCurrentTenantId()
+        {
+            var httpContext = _httpContextAccessor?.HttpContext;
+            if (httpContext == null)
+                return "DEFAULT";
+
+            // Try to get from AppContext first
+            if (httpContext.Items.TryGetValue("AppContext", out var appContextObj) &&
+                appContextObj is FlowFlex.Domain.Shared.Models.AppContext appContext)
+            {
+                return appContext.TenantId;
+            }
+
+            // Fallback to headers
+            var tenantId = httpContext.Request.Headers["X-Tenant-Id"].FirstOrDefault()
+                        ?? httpContext.Request.Headers["TenantId"].FirstOrDefault();
+
+            if (!string.IsNullOrEmpty(tenantId))
+            {
+                return tenantId;
+            }
+
+            return "DEFAULT";
+        }
+
+        /// <summary>
+        /// Get current app code from HTTP context
+        /// </summary>
+        private string GetCurrentAppCode()
+        {
+            var httpContext = _httpContextAccessor?.HttpContext;
+            if (httpContext == null)
+                return "DEFAULT";
+
+            // Try to get from AppContext first
+            if (httpContext.Items.TryGetValue("AppContext", out var appContextObj) &&
+                appContextObj is FlowFlex.Domain.Shared.Models.AppContext appContext)
+            {
+                return appContext.AppCode;
+            }
+
+            // Fallback to headers
+            var appCode = httpContext.Request.Headers["X-App-Code"].FirstOrDefault()
+                       ?? httpContext.Request.Headers["AppCode"].FirstOrDefault();
+
+            if (!string.IsNullOrEmpty(appCode))
+            {
+                return appCode;
+            }
+
+            return "DEFAULT";
         }
     }
 }

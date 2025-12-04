@@ -33,6 +33,11 @@ namespace FlowFlex.Application.Contracts.IServices.Integration
         Task<List<QuickLinkOutputDto>> GetByIntegrationIdAsync(long integrationId);
 
         /// <summary>
+        /// Get all quick links
+        /// </summary>
+        Task<List<QuickLinkOutputDto>> GetAllAsync();
+
+        /// <summary>
         /// Generate URL with parameters
         /// </summary>
         Task<string> GenerateUrlAsync(long quickLinkId, Dictionary<string, string> dataContext);

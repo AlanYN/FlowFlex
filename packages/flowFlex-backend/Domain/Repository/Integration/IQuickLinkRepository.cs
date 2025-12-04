@@ -32,6 +32,11 @@ namespace FlowFlex.Domain.Repository.Integration
         /// Reorder quick links
         /// </summary>
         Task<bool> ReorderAsync(List<(long id, int displayOrder)> orders);
+
+        /// <summary>
+        /// Get all quick links
+        /// </summary>
+        Task<List<QuickLink>> GetAllAsync();
     }
 }
 

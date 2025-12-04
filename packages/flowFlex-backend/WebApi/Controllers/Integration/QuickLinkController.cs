@@ -69,7 +69,7 @@ namespace FlowFlex.WebApi.Controllers.Integration
         }
 
         /// <summary>
-        /// Get quick links by integration id (query parameter)
+        /// Get quick links by integration id (query parameter) or get all quick links if integrationId is not provided
         /// </summary>
         [HttpGet]
         [ProducesResponseType<SuccessResponse<List<QuickLinkOutputDto>>>((int)HttpStatusCode.OK)]
@@ -80,7 +80,9 @@ namespace FlowFlex.WebApi.Controllers.Integration
                 var data = await _quickLinkService.GetByIntegrationIdAsync(integrationId.Value);
                 return Success(data);
             }
-            return BadRequest("Integration ID is required");
+            // Return all quick links if integrationId is not provided
+            var allData = await _quickLinkService.GetAllAsync();
+            return Success(allData);
         }
 
         /// <summary>

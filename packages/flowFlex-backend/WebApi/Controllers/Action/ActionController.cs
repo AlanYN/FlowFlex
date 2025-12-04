@@ -3,6 +3,7 @@ using FlowFlex.Application.Contracts.Dtos.Action;
 using FlowFlex.Application.Contracts.Dtos.Integration;
 using FlowFlex.Application.Contracts.IServices.Action;
 using FlowFlex.Application.Contracts.IServices.Integration;
+using FlowFlex.Domain.Shared;
 using FlowFlex.Domain.Shared.Enums.Action;
 using FlowFlex.Domain.Shared.Models;
 using Item.Internal.StandardApi.Response;
@@ -252,6 +253,18 @@ namespace FlowFlex.WebApi.Controllers.Action
                 _logger.LogInformation("Successfully updated action definition with ID: {ActionId}", id);
                 return Success(result);
             }
+            catch (CRMException crmEx)
+            {
+                _logger.LogWarning("Business error updating action definition with ID: {ActionId}, Error: {ErrorMessage}", id, crmEx.Message);
+                var statusCode = crmEx.StatusCode ?? HttpStatusCode.BadRequest;
+                return StatusCode((int)statusCode, new
+                {
+                    code = (int)statusCode,
+                    message = crmEx.Message,
+                    msg = crmEx.Message,
+                    data = crmEx.ErrorData ?? new { errorCode = crmEx.Code.ToString() }
+                });
+            }
             catch (ArgumentException ex)
             {
                 _logger.LogWarning("Action definition not found for ID: {ActionId}, Error: {ErrorMessage}", id, ex.Message);
@@ -260,7 +273,13 @@ namespace FlowFlex.WebApi.Controllers.Action
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error updating action definition with ID: {ActionId}", id);
-                return BadRequest(new { message = "Error updating action definition", error = ex.Message });
+                return BadRequest(new
+                {
+                    code = 400,
+                    message = "Error updating action definition",
+                    msg = "Error updating action definition",
+                    data = new { error = ex.Message }
+                });
             }
         }
 

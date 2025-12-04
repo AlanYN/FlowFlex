@@ -3,6 +3,7 @@ using SqlSugar;
 using FlowFlex.Domain.Entities.Integration;
 using FlowFlex.Domain.Repository.Integration;
 using FlowFlex.Domain.Shared;
+using FlowFlex.Domain.Shared.Models;
 using Microsoft.AspNetCore.Http;
 
 namespace FlowFlex.SqlSugarDB.Implements.Integration
@@ -29,17 +30,12 @@ namespace FlowFlex.SqlSugarDB.Implements.Integration
         /// </summary>
         public async Task<DynamicField?> GetByFieldIdAsync(string fieldId)
         {
-            // Get current tenant and app code from context
-            var httpContext = _httpContextAccessor?.HttpContext;
-            var tenantId = httpContext?.Request.Headers["X-Tenant-Id"].FirstOrDefault() 
-                ?? httpContext?.Request.Headers["TenantId"].FirstOrDefault()
-                ?? "DEFAULT";
-            var appCode = httpContext?.Request.Headers["X-App-Code"].FirstOrDefault()
-                ?? httpContext?.Request.Headers["AppCode"].FirstOrDefault()
-                ?? "DEFAULT";
+            var currentTenantId = GetCurrentTenantId();
+            var currentAppCode = GetCurrentAppCode();
 
             return await db.Queryable<DynamicField>()
-                .Where(x => x.FieldId == fieldId && x.IsValid && x.TenantId == tenantId && x.AppCode == appCode)
+                .Where(x => x.FieldId == fieldId && x.IsValid)
+                .Where(x => x.TenantId == currentTenantId && x.AppCode == currentAppCode)
                 .FirstAsync();
         }
 
@@ -48,17 +44,12 @@ namespace FlowFlex.SqlSugarDB.Implements.Integration
         /// </summary>
         public async Task<List<DynamicField>> GetByCategoryAsync(string category)
         {
-            // Get current tenant and app code from context
-            var httpContext = _httpContextAccessor?.HttpContext;
-            var tenantId = httpContext?.Request.Headers["X-Tenant-Id"].FirstOrDefault() 
-                ?? httpContext?.Request.Headers["TenantId"].FirstOrDefault()
-                ?? "DEFAULT";
-            var appCode = httpContext?.Request.Headers["X-App-Code"].FirstOrDefault()
-                ?? httpContext?.Request.Headers["AppCode"].FirstOrDefault()
-                ?? "DEFAULT";
+            var currentTenantId = GetCurrentTenantId();
+            var currentAppCode = GetCurrentAppCode();
 
             return await db.Queryable<DynamicField>()
-                .Where(x => x.Category == category && x.IsValid && x.TenantId == tenantId && x.AppCode == appCode)
+                .Where(x => x.Category == category && x.IsValid)
+                .Where(x => x.TenantId == currentTenantId && x.AppCode == currentAppCode)
                 .OrderBy(x => x.SortOrder)
                 .ToListAsync();
         }
@@ -68,19 +59,14 @@ namespace FlowFlex.SqlSugarDB.Implements.Integration
         /// </summary>
         public async Task<List<DynamicField>> GetAllOrderedAsync()
         {
-            // Get current tenant and app code from context
-            var httpContext = _httpContextAccessor?.HttpContext;
-            var tenantId = httpContext?.Request.Headers["X-Tenant-Id"].FirstOrDefault() 
-                ?? httpContext?.Request.Headers["TenantId"].FirstOrDefault()
-                ?? "DEFAULT";
-            var appCode = httpContext?.Request.Headers["X-App-Code"].FirstOrDefault()
-                ?? httpContext?.Request.Headers["AppCode"].FirstOrDefault()
-                ?? "DEFAULT";
+            var currentTenantId = GetCurrentTenantId();
+            var currentAppCode = GetCurrentAppCode();
 
-            _logger.LogDebug($"GetAllOrderedAsync - TenantId: {tenantId}, AppCode: {appCode}");
+            _logger.LogDebug($"GetAllOrderedAsync - TenantId: {currentTenantId}, AppCode: {currentAppCode}");
 
             return await db.Queryable<DynamicField>()
-                .Where(x => x.IsValid && x.TenantId == tenantId && x.AppCode == appCode)
+                .Where(x => x.IsValid)
+                .Where(x => x.TenantId == currentTenantId && x.AppCode == currentAppCode)
                 .OrderBy(x => x.SortOrder)
                 .ToListAsync();
         }
@@ -90,17 +76,12 @@ namespace FlowFlex.SqlSugarDB.Implements.Integration
         /// </summary>
         public async Task<bool> ExistsFieldIdAsync(string fieldId, long? excludeId = null)
         {
-            // Get current tenant and app code from context
-            var httpContext = _httpContextAccessor?.HttpContext;
-            var tenantId = httpContext?.Request.Headers["X-Tenant-Id"].FirstOrDefault() 
-                ?? httpContext?.Request.Headers["TenantId"].FirstOrDefault()
-                ?? "DEFAULT";
-            var appCode = httpContext?.Request.Headers["X-App-Code"].FirstOrDefault()
-                ?? httpContext?.Request.Headers["AppCode"].FirstOrDefault()
-                ?? "DEFAULT";
+            var currentTenantId = GetCurrentTenantId();
+            var currentAppCode = GetCurrentAppCode();
 
             var query = db.Queryable<DynamicField>()
-                .Where(x => x.FieldId == fieldId && x.IsValid && x.TenantId == tenantId && x.AppCode == appCode);
+                .Where(x => x.FieldId == fieldId && x.IsValid)
+                .Where(x => x.TenantId == currentTenantId && x.AppCode == currentAppCode);
 
             if (excludeId.HasValue)
             {
@@ -115,18 +96,69 @@ namespace FlowFlex.SqlSugarDB.Implements.Integration
         /// </summary>
         public async Task<DynamicField?> GetByFormPropAsync(string formProp)
         {
-            // Get current tenant and app code from context
-            var httpContext = _httpContextAccessor?.HttpContext;
-            var tenantId = httpContext?.Request.Headers["X-Tenant-Id"].FirstOrDefault() 
-                ?? httpContext?.Request.Headers["TenantId"].FirstOrDefault()
-                ?? "DEFAULT";
-            var appCode = httpContext?.Request.Headers["X-App-Code"].FirstOrDefault()
-                ?? httpContext?.Request.Headers["AppCode"].FirstOrDefault()
-                ?? "DEFAULT";
+            var currentTenantId = GetCurrentTenantId();
+            var currentAppCode = GetCurrentAppCode();
 
             return await db.Queryable<DynamicField>()
-                .Where(x => x.FormProp == formProp && x.IsValid && x.TenantId == tenantId && x.AppCode == appCode)
+                .Where(x => x.FormProp == formProp && x.IsValid)
+                .Where(x => x.TenantId == currentTenantId && x.AppCode == currentAppCode)
                 .FirstAsync();
+        }
+
+        /// <summary>
+        /// Get current tenant ID from HTTP context
+        /// </summary>
+        private string GetCurrentTenantId()
+        {
+            var httpContext = _httpContextAccessor?.HttpContext;
+            if (httpContext == null)
+                return "DEFAULT";
+
+            // Try to get from AppContext first
+            if (httpContext.Items.TryGetValue("AppContext", out var appContextObj) &&
+                appContextObj is FlowFlex.Domain.Shared.Models.AppContext appContext)
+            {
+                return appContext.TenantId;
+            }
+
+            // Fallback to headers
+            var tenantId = httpContext.Request.Headers["X-Tenant-Id"].FirstOrDefault()
+                        ?? httpContext.Request.Headers["TenantId"].FirstOrDefault();
+
+            if (!string.IsNullOrEmpty(tenantId))
+            {
+                return tenantId;
+            }
+
+            return "DEFAULT";
+        }
+
+        /// <summary>
+        /// Get current app code from HTTP context
+        /// </summary>
+        private string GetCurrentAppCode()
+        {
+            var httpContext = _httpContextAccessor?.HttpContext;
+            if (httpContext == null)
+                return "DEFAULT";
+
+            // Try to get from AppContext first
+            if (httpContext.Items.TryGetValue("AppContext", out var appContextObj) &&
+                appContextObj is FlowFlex.Domain.Shared.Models.AppContext appContext)
+            {
+                return appContext.AppCode;
+            }
+
+            // Fallback to headers
+            var appCode = httpContext.Request.Headers["X-App-Code"].FirstOrDefault()
+                       ?? httpContext.Request.Headers["AppCode"].FirstOrDefault();
+
+            if (!string.IsNullOrEmpty(appCode))
+            {
+                return appCode;
+            }
+
+            return "DEFAULT";
         }
     }
 }
