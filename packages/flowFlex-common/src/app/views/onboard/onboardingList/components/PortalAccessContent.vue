@@ -10,8 +10,8 @@
 		/>
 
 		<!-- Description -->
-		<div class="bg-primary-50 dark:bg-primary-900/20 p-4 rounded-xl">
-			<p class="text-sm text-primary dark:text-primary-300">
+		<div class="bg-black-400 p-4 rounded-xl">
+			<p class="text-sm">
 				Create login credentials for customers to access the customer portal. They will
 				receive an email with instructions to set up their password and complete the
 				application form.

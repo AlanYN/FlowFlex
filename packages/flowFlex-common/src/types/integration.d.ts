@@ -207,8 +207,8 @@ export interface IGetIntegrationsParams {
  * 快速链接接口
  */
 export interface IQuickLink {
-	id?: string | number; // 快速链接 ID (long)
-	integrationId?: string | number; // 集成 ID (long)
+	id?: string; // 快速链接 ID (long)
+	integrationId?: string; // 集成 ID (long)
 	linkName: string; // 链接名称，最大 100 字符
 	targetUrl: string; // 目标 URL 模板，最大 500 字符
 	displayIcon?: string; // 图标名称，最大 50 字符

@@ -161,6 +161,14 @@ export function getQuickLink(id: string | number): Promise<IApiResponse<IQuickLi
 }
 
 /**
+ *  获取所有的quickLinks
+ * @returns Promise<IApiResponse<IQuickLink[]>>
+ */
+export function getQuickLinks(): Promise<IApiResponse<IQuickLink[]>> {
+	return defHttp.get({ url: Api.quickLink });
+}
+
+/**
  * 按集成 ID 获取快速链接列表
  * GET /integration/quick-links/v1/by-integration/{integrationId}
  */
