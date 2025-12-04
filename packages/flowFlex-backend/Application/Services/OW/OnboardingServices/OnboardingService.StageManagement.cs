@@ -646,8 +646,10 @@ namespace FlowFlex.Application.Services.OW
                 var caseId = entity.CaseCode ?? entity.Id.ToString();
                 var caseName = entity.LeadName ?? $"Case {caseId}";
                 var stageName = stage.Name ?? "Unknown Stage";
-                // Use US time format: MM/dd/yyyy hh:mm:ss tt UTC (e.g., 12/04/2025 07:20:00 AM UTC)
-                var completionTime = DateTimeOffset.UtcNow.ToString("MM/dd/yyyy hh:mm:ss tt", System.Globalization.CultureInfo.GetCultureInfo("en-US")) + " UTC";
+                // Convert UTC time to server local time and format as US time format: MM/dd/yyyy hh:mm:ss tt
+                var utcTime = DateTimeOffset.UtcNow;
+                var localTime = TimeZoneInfo.ConvertTime(utcTime, TimeZoneInfo.Local);
+                var completionTime = localTime.ToString("MM/dd/yyyy hh:mm:ss tt", System.Globalization.CultureInfo.GetCultureInfo("en-US"));
 
                 // Send email to each user
                 var emailTasks = users
