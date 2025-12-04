@@ -31,6 +31,7 @@ using SqlSugar;
 using FlowFlex.Domain.Shared.Const;
 using FlowFlex.Application.Contracts.IServices.OW;
 using FlowFlex.Application.Contracts.Dtos.OW.User;
+using FlowFlex.Application.Contracts.IServices.Integration;
 
 namespace FlowFlex.Application.Service.OW
 {
@@ -50,6 +51,7 @@ namespace FlowFlex.Application.Service.OW
         private readonly IStagesProgressSyncService _stagesProgressSyncService;
         private readonly IChecklistService _checklistService;
         private readonly IQuestionnaireService _questionnaireService;
+        private readonly IQuickLinkService _quickLinkService;
         private readonly IQuestionnaireAnswerService _questionnaireAnswerService;
         private readonly IAIService _aiService; // Restored for Onboarding-specific AI summary generation
         private readonly IChecklistTaskCompletionRepository _checklistTaskCompletionRepository;
@@ -67,7 +69,7 @@ namespace FlowFlex.Application.Service.OW
         private const string STAGE_CACHE_PREFIX = "ow:stage";
         private static readonly TimeSpan STAGE_CACHE_DURATION = TimeSpan.FromMinutes(10);
 
-        public StageService(IStageRepository stageRepository, IWorkflowRepository workflowRepository, IMapper mapper, IStagesProgressSyncService stagesProgressSyncService, IChecklistService checklistService, IQuestionnaireService questionnaireService, IQuestionnaireAnswerService questionnaireAnswerService, IAIService aiService, IChecklistTaskCompletionRepository checklistTaskCompletionRepository, UserContext userContext, IComponentMappingService mappingService, ISqlSugarClient db, IDistributedCacheService cacheService, IBackgroundTaskQueue backgroundTaskQueue, IOperationChangeLogService operationChangeLogService, IPermissionService permissionService, ILogger<StageService> logger, IUserService userService)
+        public StageService(IStageRepository stageRepository, IWorkflowRepository workflowRepository, IMapper mapper, IStagesProgressSyncService stagesProgressSyncService, IChecklistService checklistService, IQuestionnaireService questionnaireService, IQuickLinkService quickLinkService, IQuestionnaireAnswerService questionnaireAnswerService, IAIService aiService, IChecklistTaskCompletionRepository checklistTaskCompletionRepository, UserContext userContext, IComponentMappingService mappingService, ISqlSugarClient db, IDistributedCacheService cacheService, IBackgroundTaskQueue backgroundTaskQueue, IOperationChangeLogService operationChangeLogService, IPermissionService permissionService, ILogger<StageService> logger, IUserService userService)
         {
             _stageRepository = stageRepository;
             _workflowRepository = workflowRepository;
@@ -75,6 +77,7 @@ namespace FlowFlex.Application.Service.OW
             _stagesProgressSyncService = stagesProgressSyncService;
             _checklistService = checklistService;
             _questionnaireService = questionnaireService;
+            _quickLinkService = quickLinkService;
             _questionnaireAnswerService = questionnaireAnswerService;
             _aiService = aiService; // Restored for Onboarding-specific AI summary generation
             _checklistTaskCompletionRepository = checklistTaskCompletionRepository;
@@ -1888,16 +1891,17 @@ namespace FlowFlex.Application.Service.OW
         #endregion
 
         /// <summary>
-        /// Fill component names by querying checklist and questionnaire services
+        /// Fill component names by querying checklist, questionnaire, and quick link services
         /// </summary>
         private async Task FillComponentNamesAsync(List<StageComponent> components)
         {
             if (components == null || !components.Any())
                 return;
 
-            // Collect all checklist and questionnaire IDs
+            // Collect all checklist, questionnaire, and quick link IDs
             var allChecklistIds = new List<long>();
             var allQuestionnaireIds = new List<long>();
+            var allQuickLinkIds = new List<long>();
 
             foreach (var component in components)
             {
@@ -1905,8 +1909,10 @@ namespace FlowFlex.Application.Service.OW
                 component.StaticFields ??= new List<string>();
                 component.ChecklistIds ??= new List<long>();
                 component.QuestionnaireIds ??= new List<long>();
+                component.QuickLinkIds ??= new List<long>();
                 component.ChecklistNames ??= new List<string>();
                 component.QuestionnaireNames ??= new List<string>();
+                component.QuickLinkNames ??= new List<string>();
 
                 if (component.ChecklistIds?.Any() == true)
                 {
@@ -1917,15 +1923,22 @@ namespace FlowFlex.Application.Service.OW
                 {
                     allQuestionnaireIds.AddRange(component.QuestionnaireIds);
                 }
+
+                if (component.QuickLinkIds?.Any() == true)
+                {
+                    allQuickLinkIds.AddRange(component.QuickLinkIds);
+                }
             }
 
             // Remove duplicates
             allChecklistIds = allChecklistIds.Distinct().ToList();
             allQuestionnaireIds = allQuestionnaireIds.Distinct().ToList();
+            allQuickLinkIds = allQuickLinkIds.Distinct().ToList();
 
             // Batch query names
             var checklistNameMap = new Dictionary<long, string>();
             var questionnaireNameMap = new Dictionary<long, string>();
+            var quickLinkNameMap = new Dictionary<long, string>();
 
             if (allChecklistIds.Any())
             {
@@ -1954,6 +1967,19 @@ namespace FlowFlex.Application.Service.OW
                 }
             }
 
+            if (allQuickLinkIds.Any())
+            {
+                try
+                {
+                    var quickLinks = await _quickLinkService.GetByIdsAsync(allQuickLinkIds);
+                    quickLinkNameMap = quickLinks.ToDictionary(q => q.Id, q => q.LinkName);
+                }
+                catch (Exception ex)
+                {
+                    // Log error but continue - names will be empty if service fails
+                }
+            }
+
             // Fill names for each component
             foreach (var component in components)
             {
@@ -1970,6 +1996,14 @@ namespace FlowFlex.Application.Service.OW
                 {
                     component.QuestionnaireNames = component.QuestionnaireIds
                         .Select(id => questionnaireNameMap.TryGetValue(id, out var name) ? name : $"Questionnaire {id}")
+                        .ToList();
+                }
+
+                // Fill quick link names
+                if (component.QuickLinkIds?.Any() == true)
+                {
+                    component.QuickLinkNames = component.QuickLinkIds
+                        .Select(id => quickLinkNameMap.TryGetValue(id, out var name) ? name : $"Quick Link {id}")
                         .ToList();
                 }
             }

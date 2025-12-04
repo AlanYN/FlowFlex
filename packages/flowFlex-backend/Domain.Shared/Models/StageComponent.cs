@@ -10,7 +10,7 @@ namespace FlowFlex.Domain.Shared.Models
     public class StageComponent
     {
         /// <summary>
-        /// Component key (fields, checklist, questionnaires, files)
+        /// Component key (fields, checklist, questionnaires, files, quickLinks)
         /// </summary>
         [Required]
         [StringLength(50)]
@@ -55,6 +55,16 @@ namespace FlowFlex.Domain.Shared.Models
         /// Names of selected questionnaires (for questionnaire component)
         /// </summary>
         public List<string> QuestionnaireNames { get; set; } = new List<string>();
+
+        /// <summary>
+        /// Selected quick link IDs (for quickLinks component)
+        /// </summary>
+        public List<long> QuickLinkIds { get; set; } = new List<long>();
+
+        /// <summary>
+        /// Names of selected quick links (for quickLinks component)
+        /// </summary>
+        public List<string> QuickLinkNames { get; set; } = new List<string>();
 
         /// <summary>
         /// Customer Portal Access level for this component
