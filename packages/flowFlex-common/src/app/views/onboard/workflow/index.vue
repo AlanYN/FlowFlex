@@ -543,6 +543,7 @@
 					:checklists="checklists"
 					:questionnaires="questionnaires"
 					:workflow-id="workflow?.id || ''"
+					:quickLinks="quickLinks"
 					@submit="submitStage"
 					@cancel="dialogVisible.stageForm = false"
 				/>
@@ -696,6 +697,7 @@ import {
 
 import { getChecklists } from '@/apis/ow/checklist';
 import { queryQuestionnaires } from '@/apis/ow/questionnaire';
+import { getQuickLinks } from '@/apis/integration';
 
 // 引入自定义组件
 import StagesList from './components/StagesList.vue';
@@ -719,6 +721,7 @@ import { ProjectPermissionEnum, ViewPermissionModeEnum } from '@/enums/permissio
 import { functionPermission } from '@/hooks';
 import { useUserStore } from '@/stores/modules/user';
 import { menuRoles } from '@/stores/modules/menuFunction';
+import { IQuickLink } from '#/integration';
 
 const { t } = useI18n();
 
@@ -854,6 +857,7 @@ const dialogSubtitle = computed(() => {
 
 const checklists = ref<Checklist[]>([]);
 const questionnaires = ref<Questionnaire[]>([]);
+const quickLinks = ref<IQuickLink[]>([]);
 const fetchChecklists = async () => {
 	try {
 		const res = await getChecklists();
@@ -882,12 +886,24 @@ const fetchQuestionnaires = async () => {
 	}
 };
 
+const fetchQuickLinks = async () => {
+	try {
+		const res = await getQuickLinks();
+		if (res.code === '200') {
+			quickLinks.value = res.data;
+		}
+	} catch (error) {
+		quickLinks.value = [];
+	}
+};
+
 // 初始化数据
 onMounted(async () => {
 	// 获取工作流列表数据（默认显示列表视图）
 	await fetchWorkflows();
 	fetchChecklists();
 	fetchQuestionnaires();
+	fetchQuickLinks();
 });
 
 // 获取工作流列表（分页数据，用于列表视图）

@@ -196,6 +196,19 @@
 									@document-uploaded="handleDocumentUploaded"
 									@document-deleted="handleDocumentDeleted"
 								/>
+
+								<QuickLink
+									v-else-if="component.key === 'quickLink'"
+									:component="component"
+									:onboarding-id="onboardingId"
+									:stage-id="activeStage"
+									:disabled="
+										isAbortedReadonly ||
+										stageCanCompleted ||
+										onboardingData?.isDisabled ||
+										!hasCasePermission(ProjectPermissionEnum.case.update)
+									"
+								/>
 							</div>
 						</template>
 
@@ -296,6 +309,7 @@ import StaticForm from './components/StaticForm.vue';
 import PortalAccessContent from './components/PortalAccessContent.vue';
 import AISummary from './components/AISummary.vue';
 import EditableStageHeader from './components/EditableStageHeader.vue';
+import QuickLink from './components/QuickLink.vue';
 import { getAppCode } from '@/utils/threePartyLogin';
 import { ProjectPermissionEnum } from '@/enums/permissionEnum';
 import { functionPermission } from '@/hooks';

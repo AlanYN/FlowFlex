@@ -101,6 +101,7 @@
 				<StageComponentsSelector
 					:checklists="checklists"
 					:questionnaires="questionnaires"
+					:quickLinks="quickLinks"
 					:model-value="{
 						components: formData.components,
 						visibleInPortal: formData.visibleInPortal,
@@ -162,6 +163,7 @@ import { useUserStore } from '@/stores/modules/user';
 import { menuRoles } from '@/stores/modules/menuFunction';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import type { FlowflexUser as FlowflexUserType } from '#/golbal';
+import { IQuickLink } from '#/integration';
 
 // 颜色选项
 const colorOptions = stageColorOptions;
@@ -190,6 +192,10 @@ const props = defineProps({
 	},
 	questionnaires: {
 		type: Array as PropType<Questionnaire[]>,
+		default: () => [],
+	},
+	quickLinks: {
+		type: Array as PropType<IQuickLink[]>,
 		default: () => [],
 	},
 	workflowId: {

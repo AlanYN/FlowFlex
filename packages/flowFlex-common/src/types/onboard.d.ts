@@ -191,7 +191,7 @@ export type LifeCycleStage = 'Lead' | 'Qualified' | 'Proposal' | 'Negotiation' |
 export type OnboardingStatus = 'Active' | 'Paused' | 'Completed' | 'Cancelled';
 
 export interface ComponentData {
-	key: 'fields' | 'checklist' | 'questionnaires' | 'files';
+	key: 'fields' | 'checklist' | 'questionnaires' | 'files' | 'quickLink';
 	order: number;
 	isEnabled: boolean;
 	staticFields: string[];
@@ -230,13 +230,15 @@ export interface ComponentData {
 }
 
 export type StageComponentData = {
-	key: 'fields' | 'checklist' | 'questionnaires' | 'files';
+	key: 'fields' | 'checklist' | 'questionnaires' | 'files' | 'quickLink';
 	order: number;
 	isEnabled: boolean;
 	staticFields: string[];
 	checklistIds: string[];
 	checklistNames?: string[];
 	questionnaireIds: string[];
+	quickLinkIds: string[];
+	quickLinkNames?: string[];
 	questionnaireNames?: string[];
 	files?: string[];
 	customerPortalAccess?: number;
@@ -278,7 +280,7 @@ export interface SelectedItem {
 	id: string;
 	name: string;
 	description?: string;
-	type: 'fields' | 'checklist' | 'questionnaires' | 'files';
+	type: 'fields' | 'checklist' | 'questionnaires' | 'files' | 'quickLink';
 	order: number;
 	key: string;
 	customerPortalAccess?: number;
@@ -343,7 +345,6 @@ export interface Stage {
 	estimatedDuration: number;
 	requiredFieldsJson: string;
 	staticFields?: string[];
-	components: ComponentData[];
 	order: number;
 	selected?: boolean;
 	color?: string;

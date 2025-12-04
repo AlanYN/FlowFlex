@@ -247,7 +247,7 @@
 						</el-table-column>
 						<el-table-column
 							prop="leadName"
-							label="Customer Name"
+							label="Case Name"
 							sortable="custom"
 							min-width="220"
 							fixed="left"
@@ -258,7 +258,6 @@
 									type="primary"
 									:underline="false"
 									@click="handleEdit(row.id)"
-									class="table-cell-link"
 								>
 									<div class="table-cell-content" :title="row.leadName">
 										{{ row.leadName }}
@@ -564,10 +563,10 @@
 				label-position="top"
 				class="onboarding-form"
 			>
-				<el-form-item label="Customer Name" prop="leadName">
+				<el-form-item label="Case Name" prop="leadName">
 					<el-input
 						v-model="formData.leadName"
-						placeholder="Input Customer Name"
+						placeholder="Input Case Name"
 						clearable
 						class="w-full rounded-xl"
 					/>
@@ -2328,16 +2327,6 @@ onMounted(async () => {
 	white-space: nowrap;
 	max-width: 100%;
 	display: block;
-}
-
-/* Ensure Element Plus link wrapper doesn't break ellipsis */
-.table-cell-link {
-	display: block;
-	width: 100%;
-}
-:deep(.table-cell-link .el-link__inner) {
-	display: block;
-	width: 100%;
 }
 
 /* 响应式调整 */
