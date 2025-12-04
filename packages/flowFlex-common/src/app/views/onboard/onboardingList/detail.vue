@@ -202,12 +202,6 @@
 									:component="component"
 									:onboarding-id="onboardingId"
 									:stage-id="activeStage"
-									:disabled="
-										isAbortedReadonly ||
-										stageCanCompleted ||
-										onboardingData?.isDisabled ||
-										!hasCasePermission(ProjectPermissionEnum.case.update)
-									"
 								/>
 							</div>
 						</template>
