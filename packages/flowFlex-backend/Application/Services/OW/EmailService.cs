@@ -193,6 +193,42 @@ namespace FlowFlex.Application.Services.OW
         }
 
         /// <summary>
+        /// Send stage completed notification email
+        /// </summary>
+        /// <param name="to">Recipient email address</param>
+        /// <param name="caseId">Case ID</param>
+        /// <param name="caseName">Case name</param>
+        /// <param name="stageName">Completed stage name</param>
+        /// <param name="completedBy">User who completed the stage</param>
+        /// <param name="completionTime">Stage completion time</param>
+        /// <param name="caseUrl">URL to view case details</param>
+        /// <returns>Whether the email was sent successfully</returns>
+        public async Task<bool> SendStageCompletedNotificationAsync(string to, string caseId, string caseName, string stageName, string completedBy, string completionTime, string caseUrl)
+        {
+            try
+            {
+                var subject = "ITEM WFE - Stage Completed Notification";
+                var body = _templateService.Render("stage_completed_notification_en", new Dictionary<string, object>
+                {
+                    ["caseId"] = caseId ?? string.Empty,
+                    ["caseName"] = caseName ?? string.Empty,
+                    ["stageName"] = stageName ?? string.Empty,
+                    ["completedBy"] = completedBy ?? string.Empty,
+                    ["completionTime"] = completionTime ?? string.Empty,
+                    ["caseUrl"] = caseUrl ?? GetRequestOrigin(),
+                    ["year"] = DateTime.UtcNow.Year.ToString()
+                });
+
+                return await SendEmailAsync(to, subject, body);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to send stage completed notification email: {Message}", ex.Message);
+                return false;
+            }
+        }
+
+        /// <summary>
         /// Send email
         /// </summary>
         /// <param name="to">Recipient email address</param>

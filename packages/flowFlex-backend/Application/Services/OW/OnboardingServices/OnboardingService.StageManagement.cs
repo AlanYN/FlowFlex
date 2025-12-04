@@ -545,10 +545,181 @@ namespace FlowFlex.Application.Services.OW
 
                 // Debug logging handled by structured logging
                 await PublishStageCompletionEventForCurrentStageAsync(entity, stageToComplete, allStagesCompleted);
+
+                // Send email notification to stage default assignees
+                try
+                {
+                    await SendStageCompletionEmailNotificationAsync(entity, stageToComplete, GetCurrentUserName());
+                }
+                catch (Exception emailEx)
+                {
+                    _logger.LogError(emailEx, "Failed to send stage completion email notification: OnboardingId={OnboardingId}, StageId={StageId}",
+                        entity.Id, stageToComplete.Id);
+                    // Don't re-throw to avoid breaking the main flow
+                }
             }
 
             // Debug logging handled by structured logging End ===");
             return result;
+        }
+
+        /// <summary>
+        /// Send stage completion email notification to default assignees
+        /// </summary>
+        private async Task SendStageCompletionEmailNotificationAsync(Onboarding entity, Stage stage, string completedBy)
+        {
+            try
+            {
+                // Parse default assignee from stage
+                if (string.IsNullOrWhiteSpace(stage.DefaultAssignee))
+                {
+                    _logger.LogDebug("Stage {StageId} has no default assignees, skipping email notification", stage.Id);
+                    return;
+                }
+
+                List<string> assigneeIds = new List<string>();
+                try
+                {
+                    // Try to parse as JSON array
+                    var jsonDoc = JsonDocument.Parse(stage.DefaultAssignee);
+                    if (jsonDoc.RootElement.ValueKind == JsonValueKind.Array)
+                    {
+                        assigneeIds = jsonDoc.RootElement.EnumerateArray()
+                            .Select(e => e.GetString())
+                            .Where(id => !string.IsNullOrWhiteSpace(id))
+                            .ToList();
+                    }
+                    else if (jsonDoc.RootElement.ValueKind == JsonValueKind.String)
+                    {
+                        // Nested JSON string
+                        var innerJson = jsonDoc.RootElement.GetString();
+                        if (!string.IsNullOrWhiteSpace(innerJson))
+                        {
+                            var innerDoc = JsonDocument.Parse(innerJson);
+                            if (innerDoc.RootElement.ValueKind == JsonValueKind.Array)
+                            {
+                                assigneeIds = innerDoc.RootElement.EnumerateArray()
+                                    .Select(e => e.GetString())
+                                    .Where(id => !string.IsNullOrWhiteSpace(id))
+                                    .ToList();
+                            }
+                        }
+                    }
+                }
+                catch (JsonException ex)
+                {
+                    _logger.LogWarning(ex, "Failed to parse default assignee JSON for stage {StageId}: {DefaultAssignee}",
+                        stage.Id, stage.DefaultAssignee);
+                    return;
+                }
+
+                if (assigneeIds.Count == 0)
+                {
+                    _logger.LogDebug("Stage {StageId} has no valid default assignee IDs, skipping email notification", stage.Id);
+                    return;
+                }
+
+                // Convert string IDs to long IDs
+                var userIds = assigneeIds
+                    .Where(id => long.TryParse(id, out _))
+                    .Select(id => long.Parse(id))
+                    .ToList();
+
+                if (userIds.Count == 0)
+                {
+                    _logger.LogWarning("No valid user IDs found in default assignees for stage {StageId}", stage.Id);
+                    return;
+                }
+
+                // Get user information
+                var users = await _userService.GetUsersByIdsAsync(userIds);
+                if (users == null || users.Count == 0)
+                {
+                    _logger.LogWarning("No users found for IDs: {UserIds}", string.Join(", ", userIds));
+                    return;
+                }
+
+                // Build case URL using GetRequestOrigin method (similar to portal invitation)
+                var caseUrl = BuildCaseUrl(entity.Id);
+
+                // Prepare email data
+                var caseId = entity.CaseCode ?? entity.Id.ToString();
+                var caseName = entity.LeadName ?? $"Case {caseId}";
+                var stageName = stage.Name ?? "Unknown Stage";
+                // Use US time format: MM/dd/yyyy hh:mm:ss tt UTC (e.g., 12/04/2025 07:20:00 AM UTC)
+                var completionTime = DateTimeOffset.UtcNow.ToString("MM/dd/yyyy hh:mm:ss tt", System.Globalization.CultureInfo.GetCultureInfo("en-US")) + " UTC";
+
+                // Send email to each user
+                var emailTasks = users
+                    .Where(u => !string.IsNullOrWhiteSpace(u.Email))
+                    .Select(async user =>
+                    {
+                        try
+                        {
+                            return await _emailService.SendStageCompletedNotificationAsync(
+                                user.Email,
+                                caseId,
+                                caseName,
+                                stageName,
+                                completedBy ?? "System",
+                                completionTime,
+                                caseUrl
+                            );
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogError(ex, "Failed to send email to {Email} for stage completion notification", user.Email);
+                            return false;
+                        }
+                    })
+                    .ToList();
+
+                var results = await Task.WhenAll(emailTasks);
+                var successCount = results.Count(r => r);
+
+                _logger.LogInformation("Sent stage completion email notifications: {SuccessCount}/{TotalCount} successful, StageId={StageId}, OnboardingId={OnboardingId}",
+                    successCount, emailTasks.Count, stage.Id, entity.Id);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error sending stage completion email notification: StageId={StageId}, OnboardingId={OnboardingId}",
+                    stage.Id, entity.Id);
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// Build case URL for email notification (similar to portal invitation URL building)
+        /// </summary>
+        private string BuildCaseUrl(long onboardingId)
+        {
+            try
+            {
+                var context = _httpContextAccessor.HttpContext;
+                if (context != null)
+                {
+                    var request = context.Request;
+                    var scheme = request.Headers["X-Forwarded-Proto"].ToString();
+                    if (string.IsNullOrWhiteSpace(scheme))
+                    {
+                        scheme = request.Scheme;
+                    }
+
+                    var forwardedHost = request.Headers["X-Forwarded-Host"].ToString();
+                    var host = !string.IsNullOrWhiteSpace(forwardedHost) ? forwardedHost : request.Host.Value;
+
+                    var baseUrl = $"{scheme}://{host}".TrimEnd('/');
+                    // Build frontend route: /onboard/onboardDetail?onboardingId=xxx
+                    return $"{baseUrl}/onboard/onboardDetail?onboardingId={onboardingId}";
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to build case URL from request context");
+            }
+
+            // Fallback to default URL
+            return $"https://crm-staging.item.com/onboard/onboardDetail?onboardingId={onboardingId}";
         }
 
         /// <summary>

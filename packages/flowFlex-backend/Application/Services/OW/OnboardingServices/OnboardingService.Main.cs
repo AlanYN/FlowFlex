@@ -69,6 +69,7 @@ namespace FlowFlex.Application.Services.OW
         internal readonly IHttpContextAccessor _httpContextAccessor;
         internal readonly IUserService _userService;
         internal readonly ICaseCodeGeneratorService _caseCodeGeneratorService;
+        internal readonly IEmailService _emailService;
         internal readonly ILogger<OnboardingService> _logger;
 
         // Cache key constants - temporarily disable Redis cache
@@ -110,6 +111,7 @@ namespace FlowFlex.Application.Services.OW
             IHttpContextAccessor httpContextAccessor,
             IUserService userService,
             ICaseCodeGeneratorService caseCodeGeneratorService,
+            IEmailService emailService,
             ILogger<OnboardingService> logger)
         {
             _onboardingRepository = onboardingRepository ?? throw new ArgumentNullException(nameof(onboardingRepository));
@@ -137,6 +139,7 @@ namespace FlowFlex.Application.Services.OW
             _casePermissionService = casePermissionService ?? throw new ArgumentNullException(nameof(casePermissionService));
             _userService = userService ?? throw new ArgumentNullException(nameof(userService));
             _caseCodeGeneratorService = caseCodeGeneratorService ?? throw new ArgumentNullException(nameof(caseCodeGeneratorService));
+            _emailService = emailService ?? throw new ArgumentNullException(nameof(emailService));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
 
