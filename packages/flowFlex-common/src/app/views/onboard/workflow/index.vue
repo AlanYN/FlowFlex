@@ -683,7 +683,6 @@ import {
 	createWorkflow as createWorkflowApi,
 	getWorkflowList,
 	updateWorkflow as updateWorkflowApi,
-	deactivateWorkflow as deactivateWorkflowApi,
 	activateWorkflow as activateWorkflowApi,
 	duplicateWorkflow as duplicateWorkflowApi,
 	createStage,
@@ -1496,7 +1495,13 @@ const deactivateWorkflow = async (targetWorkflow?: any) => {
 
 					try {
 						// 调用停用工作流API
-						const res = await deactivateWorkflowApi(workflowToDeactivate.id);
+						const params = {
+							...workflowToDeactivate,
+							status: 'inactive',
+							isDefault: false,
+							stages: null,
+						};
+						const res = await updateWorkflowApi(workflowToDeactivate.id, params);
 
 						if (res.code === '200') {
 							ElMessage.success(t('sys.api.operationSuccess'));
@@ -1532,7 +1537,7 @@ const deactivateWorkflow = async (targetWorkflow?: any) => {
 	);
 };
 
-const setAsDefault = async (targetWorkflow?: any) => {
+const setAsDefault = async (targetWorkflow?: any, isDefault: boolean = true) => {
 	const workflowToSetDefault = targetWorkflow || workflow.value;
 	if (!workflowToSetDefault) return;
 
@@ -1541,14 +1546,14 @@ const setAsDefault = async (targetWorkflow?: any) => {
 		// 调用设置默认工作流API
 		const params = {
 			...workflowToSetDefault,
-			isDefault: true,
+			isDefault: isDefault,
 			stages: null,
 		};
 
 		const res = await updateWorkflowApi(workflowToSetDefault.id, params);
 
 		if (res.code === '200') {
-			ElMessage.success(t('sys.api.operationSuccess'));
+			isDefault && ElMessage.success(t('sys.api.operationSuccess'));
 			// 重新获取工作流列表以更新所有工作流的默认状态
 			await fetchWorkflows();
 
