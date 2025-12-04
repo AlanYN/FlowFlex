@@ -65,10 +65,12 @@ interface Props {
 	component: StageComponentData;
 	onboardingId: string;
 	stageId: string;
-	disabled: boolean;
+	disabled?: boolean;
 }
 
-const props = defineProps<Props>();
+const props = withDefaults(defineProps<Props>(), {
+	disabled: false,
+});
 const route = useRoute();
 const userStore = useUserStore();
 
@@ -234,12 +236,12 @@ async function loadQuickLinks() {
 
 		quickLinks.value = responses
 			.map((response) => {
-				if (response.success && response.data) {
+				if (response.code == '200') {
 					return response.data;
 				}
 				return null;
 			})
-			.filter((link): link is IQuickLink => link !== null && !!link.isActive);
+			.filter((link): link is IQuickLink => link !== null);
 	} catch (error) {
 		console.error('Failed to load quick links:', error);
 		quickLinks.value = [];
