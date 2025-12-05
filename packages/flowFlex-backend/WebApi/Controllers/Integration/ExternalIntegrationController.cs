@@ -228,68 +228,86 @@ namespace FlowFlex.WebApi.Controllers.Integration
         }
 
         /// <summary>
-        /// Get WFE Attachment integration protocol documentation
-        /// Returns the API documentation for WFE Attachment integration protocol
+        /// Get outbound attachments by System ID
+        /// Retrieves attachment list from all cases associated with the System ID
         /// </summary>
-        /// <returns>Documentation content</returns>
+        /// <param name="systemId">System ID (unique identifier for entity mapping)</param>
+        /// <returns>Attachments list response</returns>
+        [HttpGet("outbound-attachments")]
+        [ProducesResponseType<SuccessResponse<GetAttachmentsFromExternalResponse>>((int)HttpStatusCode.OK)]
+        public async Task<IActionResult> GetOutboundAttachments([FromQuery(Name = "SystemId")] string systemId)
+        {
+            var result = await _externalIntegrationService.GetOutboundAttachmentsBySystemIdAsync(systemId);
+            return Success(result);
+        }
+
+        /// <summary>
+        /// Get inbound attachments by System ID
+        /// Retrieves attachment list from all onboardings associated with the System ID
+        /// </summary>
+        /// <param name="systemId">System ID (unique identifier for entity mapping)</param>
+        /// <returns>Attachments list response</returns>
+        [HttpGet("inbound-attachments")]
+        [ProducesResponseType<SuccessResponse<GetAttachmentsFromExternalResponse>>((int)HttpStatusCode.OK)]
+        public async Task<IActionResult> GetInboundAttachments([FromQuery(Name = "SystemId")] string systemId)
+        {
+            var result = await _externalIntegrationService.GetInboundAttachmentsBySystemIdAsync(systemId);
+            return Success(result);
+        }
+
+        /// <summary>
+        /// Get Attachment integration protocol documentation
+        /// Returns the API documentation for both Inbound and Outbound Attachment integration protocols
+        /// </summary>
+        /// <returns>Documentation content for both protocols</returns>
         [HttpGet("attachments/protocol")]
-        [ProducesResponseType<SuccessResponse<string>>((int)HttpStatusCode.OK)]
+        [ProducesResponseType<SuccessResponse<object>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> GetAttachmentProtocolDocumentation()
         {
             try
             {
-                // Get base paths
-                var contentRoot = _webHostEnvironment.ContentRootPath;
-                var baseDirectory = AppDomain.CurrentDomain.BaseDirectory;
-                var currentDirectory = Directory.GetCurrentDirectory();
+                var inboundContent = await ReadProtocolFileAsync("Inbound Attachment Integration Protocol.md");
+                var outboundContent = await ReadProtocolFileAsync("Outbound Attachment Integration Protocol.md");
 
-                // Try multiple possible paths (prioritize same directory as controller)
-                var possiblePaths = new List<string>
+                var result = new
                 {
-                    // Path in the same directory as this controller (most reliable)
-                    Path.Combine(baseDirectory, "Controllers", "Integration", "WFE Attachment 接入协议.md"),
-                    // Path relative to content root Controllers/Integration
-                    Path.Combine(contentRoot, "Controllers", "Integration", "WFE Attachment 接入协议.md"),
-                    // Path relative to current directory Controllers/Integration
-                    Path.Combine(currentDirectory, "Controllers", "Integration", "WFE Attachment 接入协议.md"),
-                    // Fallback to Docs/API paths
-                    Path.Combine(contentRoot, "Docs", "API", "WFE Attachment 接入协议.md"),
-                    Path.Combine(baseDirectory, "Docs", "API", "WFE Attachment 接入协议.md"),
-                    Path.Combine(currentDirectory, "Docs", "API", "WFE Attachment 接入协议.md"),
-                    // Monorepo paths
-                    Path.Combine(contentRoot, "..", "Docs", "API", "WFE Attachment 接入协议.md"),
-                    Path.Combine(baseDirectory, "..", "Docs", "API", "WFE Attachment 接入协议.md")
+                    inbound = inboundContent,
+                    outbound = outboundContent
                 };
 
-                string? docPath = null;
-                foreach (var path in possiblePaths)
-                {
-                    try
-                    {
-                        var normalizedPath = Path.GetFullPath(path);
-                        if (System.IO.File.Exists(normalizedPath))
-                        {
-                            docPath = normalizedPath;
-                            break;
-                        }
-                    }
-                    catch
-                    {
-                        // Continue to next path if this one fails
-                        continue;
-                    }
-                }
+                return Success(result);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode((int)HttpStatusCode.InternalServerError,
+                    new { message = $"Failed to read documentation: {ex.Message}" });
+            }
+        }
 
-                if (docPath == null || !System.IO.File.Exists(docPath))
-                {
-                    var searchedPaths = string.Join("\n", possiblePaths.Select(p =>
-                    {
-                        try { return Path.GetFullPath(p); } catch { return p; }
-                    }));
-                    return NotFound(new { message = $"Documentation file not found. Searched paths:\n{searchedPaths}" });
-                }
+        /// <summary>
+        /// Get Outbound Attachment integration protocol documentation
+        /// Returns the API documentation for Outbound Attachment integration protocol
+        /// </summary>
+        /// <returns>Documentation content</returns>
+        [HttpGet("outbound-attachments/protocol")]
+        [ProducesResponseType<SuccessResponse<string>>((int)HttpStatusCode.OK)]
+        public async Task<IActionResult> GetOutboundAttachmentProtocolDocumentation()
+        {
+            return await GetProtocolDocumentationAsync("Outbound Attachment Integration Protocol.md");
+        }
 
-                var content = await System.IO.File.ReadAllTextAsync(docPath, System.Text.Encoding.UTF8);
+        /// <summary>
+        /// Helper method to read protocol documentation file
+        /// </summary>
+        private async Task<IActionResult> GetProtocolDocumentationAsync(string fileName)
+        {
+            try
+            {
+                var content = await ReadProtocolFileAsync(fileName);
+                if (content == null)
+                {
+                    return NotFound(new { message = $"Documentation file '{fileName}' not found" });
+                }
                 return Success(content);
             }
             catch (Exception ex)
@@ -297,6 +315,58 @@ namespace FlowFlex.WebApi.Controllers.Integration
                 return StatusCode((int)HttpStatusCode.InternalServerError,
                     new { message = $"Failed to read documentation: {ex.Message}" });
             }
+        }
+
+        /// <summary>
+        /// Helper method to read protocol documentation file content
+        /// </summary>
+        private async Task<string?> ReadProtocolFileAsync(string fileName)
+        {
+            // Get base paths
+            var contentRoot = _webHostEnvironment.ContentRootPath;
+            var baseDirectory = AppDomain.CurrentDomain.BaseDirectory;
+            var currentDirectory = Directory.GetCurrentDirectory();
+
+            // Try multiple possible paths (prioritize same directory as controller)
+            var possiblePaths = new List<string>
+            {
+                // Path in the same directory as this controller (most reliable)
+                Path.Combine(baseDirectory, "Controllers", "Integration", fileName),
+                // Path relative to content root Controllers/Integration
+                Path.Combine(contentRoot, "Controllers", "Integration", fileName),
+                // Path relative to current directory Controllers/Integration
+                Path.Combine(currentDirectory, "Controllers", "Integration", fileName),
+                // Fallback to Docs/API paths
+                Path.Combine(contentRoot, "Docs", "API", fileName),
+                Path.Combine(baseDirectory, "Docs", "API", fileName),
+                Path.Combine(currentDirectory, "Docs", "API", fileName)
+            };
+
+            string? docPath = null;
+            foreach (var path in possiblePaths)
+            {
+                try
+                {
+                    var normalizedPath = Path.GetFullPath(path);
+                    if (System.IO.File.Exists(normalizedPath))
+                    {
+                        docPath = normalizedPath;
+                        break;
+                    }
+                }
+                catch
+                {
+                    // Continue to next path if this one fails
+                    continue;
+                }
+            }
+
+            if (docPath == null || !System.IO.File.Exists(docPath))
+            {
+                return null;
+            }
+
+            return await System.IO.File.ReadAllTextAsync(docPath, System.Text.Encoding.UTF8);
         }
     }
 }

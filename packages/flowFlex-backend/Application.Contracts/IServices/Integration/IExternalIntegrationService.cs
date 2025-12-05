@@ -34,6 +34,21 @@ namespace FlowFlex.Application.Contracts.IServices.Integration
         /// <param name="caseId">Case ID (onboarding ID)</param>
         /// <returns>Attachments list response</returns>
         Task<GetAttachmentsFromExternalResponse> GetAttachmentsByCaseIdAsync(string caseId);
+
+        /// <summary>
+        /// Get outbound attachments by System ID
+        /// </summary>
+        /// <param name="systemId">System ID (unique identifier for entity mapping)</param>
+        /// <returns>Attachments list response</returns>
+        Task<GetAttachmentsFromExternalResponse> GetOutboundAttachmentsBySystemIdAsync(string systemId);
+
+        /// <summary>
+        /// Get inbound attachments by System ID
+        /// Retrieves attachment list from all onboardings associated with the System ID
+        /// </summary>
+        /// <param name="systemId">System ID (unique identifier for entity mapping)</param>
+        /// <returns>Attachments list response</returns>
+        Task<GetAttachmentsFromExternalResponse> GetInboundAttachmentsBySystemIdAsync(string systemId);
     }
 }
 

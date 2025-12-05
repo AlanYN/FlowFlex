@@ -2,6 +2,7 @@ using FlowFlex.Application.Contracts.Dtos.Integration;
 using FlowFlex.Application.Contracts.Dtos.OW.Onboarding;
 using FlowFlex.Application.Contracts.IServices.Integration;
 using FlowFlex.Application.Contracts.IServices.OW;
+using FlowFlex.Application.Services.OW.Extensions;
 using FlowFlex.Domain.Repository.Integration;
 using FlowFlex.Domain.Repository.OW;
 using FlowFlex.Domain.Shared;
@@ -173,6 +174,17 @@ namespace FlowFlex.Application.Services.Integration
 
             // Get the created case to return details
             var createdCase = await _onboardingRepository.GetByIdAsync(caseId);
+            
+            // Update SystemId and IntegrationId
+            if (createdCase != null)
+            {
+                createdCase.SystemId = request.SystemId;
+                createdCase.IntegrationId = entityMapping.IntegrationId;
+                createdCase.InitModifyInfo(_userContext);
+                await _onboardingRepository.UpdateAsync(createdCase);
+                _logger.LogInformation("Updated SystemId={SystemId} and IntegrationId={IntegrationId} for case {CaseId}", 
+                    request.SystemId, entityMapping.IntegrationId, caseId);
+            }
 
             _logger.LogInformation("Successfully created case {CaseId} from external system", caseId);
 
@@ -333,8 +345,189 @@ namespace FlowFlex.Application.Services.Integration
                     Message = $"Failed to get attachments: {ex.Message}"
                 };
             }
-        }     
+        }
 
+        /// <summary>
+        /// Get outbound attachments by System ID
+        /// </summary>
+        public async Task<GetAttachmentsFromExternalResponse> GetOutboundAttachmentsBySystemIdAsync(string systemId)
+        {
+            _logger.LogInformation("Getting outbound attachments by System ID: SystemId={SystemId}", systemId);
 
+            if (string.IsNullOrWhiteSpace(systemId))
+            {
+                return new GetAttachmentsFromExternalResponse
+                {
+                    Success = false,
+                    Message = "SystemId is required"
+                };
+            }
+
+            try
+            {
+                // Get entity mapping by System ID
+                var entityMapping = await _entityMappingRepository.GetBySystemIdAsync(systemId);
+                if (entityMapping == null)
+                {
+                    _logger.LogWarning("No entity mapping found for System ID: {SystemId}", systemId);
+                    return new GetAttachmentsFromExternalResponse
+                    {
+                        Success = false,
+                        Message = $"Entity mapping not found for System ID '{systemId}'"
+                    };
+                }
+
+                // Parse workflow IDs from entity mapping
+                var workflowIds = JsonConvert.DeserializeObject<List<long>>(entityMapping.WorkflowIds ?? "[]") ?? new List<long>();
+                if (!workflowIds.Any())
+                {
+                    _logger.LogInformation("No workflows configured for System ID: {SystemId}", systemId);
+                    return new GetAttachmentsFromExternalResponse
+                    {
+                        Success = true,
+                        Data = new AttachmentsData
+                        {
+                            Attachments = new List<ExternalAttachmentDto>(),
+                            Total = 0
+                        },
+                        Message = "Success"
+                    };
+                }
+
+                // Get all onboardings for these workflows
+                var allOnboardings = new List<Domain.Entities.OW.Onboarding>();
+                foreach (var workflowId in workflowIds)
+                {
+                    var onboardings = await _onboardingRepository.GetListByWorkflowIdAsync(workflowId);
+                    allOnboardings.AddRange(onboardings);
+                }
+
+                // Get all attachments from these onboardings
+                var allAttachments = new List<ExternalAttachmentDto>();
+                foreach (var onboarding in allOnboardings)
+                {
+                    var files = await _onboardingFileRepository.GetFilesByOnboardingAsync(onboarding.Id);
+                    var attachments = files.Select(f => new ExternalAttachmentDto
+                    {
+                        Id = f.Id.ToString(),
+                        FileName = f.OriginalFileName ?? f.StoredFileName ?? "unknown",
+                        FileSize = f.FileSize.ToString(),
+                        FileType = f.ContentType ?? "application/octet-stream",
+                        FileExt = f.FileExtension ?? string.Empty,
+                        CreateDate = f.UploadedDate.ToString("yyyy-MM-dd HH:mm:ss +00:00"),
+                        DownloadLink = !string.IsNullOrEmpty(f.AccessUrl)
+                            ? f.AccessUrl
+                            : $"/ow/onboarding-files/v1.0/{f.Id}/download"
+                    });
+                    allAttachments.AddRange(attachments);
+                }
+
+                _logger.LogInformation("Successfully retrieved {Count} attachments for SystemId={SystemId}",
+                    allAttachments.Count, systemId);
+
+                return new GetAttachmentsFromExternalResponse
+                {
+                    Success = true,
+                    Data = new AttachmentsData
+                    {
+                        Attachments = allAttachments,
+                        Total = allAttachments.Count
+                    },
+                    Message = "Success"
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting outbound attachments by System ID: SystemId={SystemId}", systemId);
+                return new GetAttachmentsFromExternalResponse
+                {
+                    Success = false,
+                    Message = $"Failed to get attachments: {ex.Message}"
+                };
+            }
+        }
+
+        /// <summary>
+        /// Get inbound attachments by System ID
+        /// Retrieves attachment list from all onboardings associated with the System ID
+        /// </summary>
+        public async Task<GetAttachmentsFromExternalResponse> GetInboundAttachmentsBySystemIdAsync(string systemId)
+        {
+            _logger.LogInformation("Getting inbound attachments by System ID: SystemId={SystemId}", systemId);
+
+            if (string.IsNullOrWhiteSpace(systemId))
+            {
+                return new GetAttachmentsFromExternalResponse
+                {
+                    Success = false,
+                    Message = "SystemId is required"
+                };
+            }
+
+            try
+            {
+                // Get all onboardings by System ID
+                var onboardings = await _onboardingRepository.GetListAsync(o => 
+                    o.SystemId == systemId && o.IsValid);
+
+                if (!onboardings.Any())
+                {
+                    _logger.LogInformation("No onboardings found for System ID: {SystemId}", systemId);
+                    return new GetAttachmentsFromExternalResponse
+                    {
+                        Success = true,
+                        Data = new AttachmentsData
+                        {
+                            Attachments = new List<ExternalAttachmentDto>(),
+                            Total = 0
+                        },
+                        Message = "Success"
+                    };
+                }
+
+                // Get all attachments from these onboardings
+                var allAttachments = new List<ExternalAttachmentDto>();
+                foreach (var onboarding in onboardings)
+                {
+                    var files = await _onboardingFileRepository.GetFilesByOnboardingAsync(onboarding.Id);
+                    var attachments = files.Select(f => new ExternalAttachmentDto
+                    {
+                        Id = f.Id.ToString(),
+                        FileName = f.OriginalFileName ?? f.StoredFileName ?? "unknown",
+                        FileSize = f.FileSize.ToString(),
+                        FileType = f.ContentType ?? "application/octet-stream",
+                        FileExt = f.FileExtension ?? string.Empty,
+                        CreateDate = f.UploadedDate.ToString("yyyy-MM-dd HH:mm:ss +00:00"),
+                        DownloadLink = !string.IsNullOrEmpty(f.AccessUrl)
+                            ? f.AccessUrl
+                            : $"/ow/onboarding-files/v1.0/{f.Id}/download"
+                    });
+                    allAttachments.AddRange(attachments);
+                }
+
+                _logger.LogInformation("Successfully retrieved {Count} attachments for SystemId={SystemId}",
+                    allAttachments.Count, systemId);
+
+                return new GetAttachmentsFromExternalResponse
+                {
+                    Success = true,
+                    Data = new AttachmentsData
+                    {
+                        Attachments = allAttachments,
+                        Total = allAttachments.Count
+                    },
+                    Message = "Success"
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting inbound attachments by System ID: SystemId={SystemId}", systemId);
+                return new GetAttachmentsFromExternalResponse
+                {
+                    Success = false,
+                    Message = $"Failed to get attachments: {ex.Message}"
+                };
+            }
+        }
     }
 }

@@ -299,6 +299,19 @@ namespace FlowFlex.Domain.Entities.OW
         public string StagesProgressJson { get; set; }
 
         /// <summary>
+        /// System ID from external integration (Entity Mapping System ID)
+        /// </summary>
+        [StringLength(100)]
+        [SugarColumn(ColumnName = "system_id", IsNullable = true)]
+        public string? SystemId { get; set; }
+
+        /// <summary>
+        /// Integration ID from external integration
+        /// </summary>
+        [SugarColumn(ColumnName = "integration_id", IsNullable = true)]
+        public long? IntegrationId { get; set; }
+
+        /// <summary>
         /// Stage Progress Details (not mapped to database, used for business logic)
         /// </summary>
         [SugarColumn(IsIgnore = true)]
