@@ -5,6 +5,7 @@ using FlowFlex.Application.Contracts.Dtos.Integration;
 using FlowFlex.Application.Contracts.IServices.Integration;
 using Item.Internal.StandardApi.Response;
 using System.Net;
+using FlowFlex.Application.Filter;
 
 namespace FlowFlex.WebApi.Controllers.Integration
 {
@@ -12,6 +13,7 @@ namespace FlowFlex.WebApi.Controllers.Integration
     /// Quick link management API
     /// </summary>
     [ApiController]
+    [PortalAccess] // Allow Portal token access
     [Route("integration/quick-links/v{version:apiVersion}")]
     [Display(Name = "quick-link")]
     [Authorize]
