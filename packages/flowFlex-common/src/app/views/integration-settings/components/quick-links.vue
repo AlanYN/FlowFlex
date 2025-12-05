@@ -839,7 +839,7 @@ async function handleSave() {
 				});
 			}
 
-			if (response.success) {
+			if (response.code == '200') {
 				ElMessage.success(
 					isEditMode.value
 						? 'Quick link updated successfully'
@@ -908,7 +908,7 @@ async function handleDelete(link: IQuickLink) {
 		);
 
 		const response = await deleteQuickLink(link.id);
-		if (response.success) {
+		if (response.code == '200') {
 			ElMessage.success('Quick link deleted successfully');
 			loadQuickLinks();
 		} else {

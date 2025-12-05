@@ -330,7 +330,7 @@ async function loadAttachmentWorkflows() {
 	isLoading.value = true;
 	try {
 		const response = await getOutboundSettingsAttachment(props.integrationId);
-		if (response.success && response.data) {
+		if (response.code == '200' && response.data) {
 			const items = response.data.items || [];
 			attachmentSharing.value = items.map((item) => ({
 				...item,
@@ -385,7 +385,7 @@ async function saveAttachmentSharing() {
 		}));
 
 		const response = await createOutboundSettingsAttachment(String(props.integrationId), items);
-		if (response.success) {
+		if (response.code == '200') {
 			// 重新加载数据以获取最新的 id
 			await loadAttachmentWorkflows();
 		} else {

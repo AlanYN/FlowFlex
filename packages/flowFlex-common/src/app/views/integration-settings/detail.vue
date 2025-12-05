@@ -161,7 +161,7 @@ async function loadIntegrationData() {
 	try {
 		await loadWorkflows();
 		const response = await getIntegrationDetails(id);
-		if (response.success && response.data) {
+		if (response.code == '200' && response.data) {
 			integrationData.value = response.data;
 			integrationName.value = response.data.name || 'Integration Details';
 			integrationStatus.value = response.data.status || 0;
@@ -209,7 +209,7 @@ const handleTestConnection = async () => {
 
 	try {
 		const result = await testConnection(integrationId.value);
-		if (result.success && result.data?.success) {
+		if (result.code == '200') {
 			ElMessage.success('Connection test successful');
 			integrationStatus.value = 1;
 			testErrorMsg.value = '';
@@ -270,7 +270,7 @@ async function loadActions() {
 		const res = await getActionDefinitions({
 			integrationId: String(integrationId.value),
 		});
-		if (res.code === '200' && res.success) {
+		if (res.code === '200') {
 			actions.value = res.data.data || [];
 		} else {
 			actions.value = [];

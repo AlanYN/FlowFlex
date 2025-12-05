@@ -29,6 +29,8 @@ const Api = {
 	receiveExternalData: `${globSetting.apiProName}/integration/receive-external-data/${globSetting.apiVersion}`,
 
 	inboundSettingsAttachment: `${globSetting.apiProName}/integration/attachment-sharing/${globSetting.apiVersion}`,
+
+	attachmentApiMd: `${globSetting.apiProName}/integration/external/${globSetting.apiVersion}/attachments/protocol`,
 };
 
 // ==================== Integration Management API ====================
@@ -234,4 +236,8 @@ export function getOutboundSettingsAttachment(integrationId: string | number): P
 	return defHttp.get({
 		url: `${Api.integration}/${integrationId}/outbound/attachment-workflows`,
 	});
+}
+
+export function getAttachmentApiMd(): Promise<IApiResponse<string>> {
+	return defHttp.get({ url: Api.attachmentApiMd });
 }

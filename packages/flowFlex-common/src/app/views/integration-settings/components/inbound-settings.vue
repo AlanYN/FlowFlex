@@ -85,6 +85,15 @@
 						Configure which attachments to receive from external system modules.
 					</p>
 				</div>
+				<el-button
+					v-if="attachmentApiMd"
+					type="primary"
+					link
+					:icon="Document"
+					@click="showApiDocDialog = true"
+				>
+					Markdown
+				</el-button>
 			</div>
 
 			<el-table
@@ -182,21 +191,51 @@
 				</el-button>
 			</div>
 		</div>
+
+		<!-- API Documentation Dialog -->
+		<el-dialog
+			v-model="showApiDocDialog"
+			title="API Documentation"
+			:width="bigDialogWidth"
+			:close-on-click-modal="false"
+			append-to-body
+			draggable
+			class="api-doc-dialog"
+		>
+			<div v-loading="isLoadingAttachmentApiMd" class="api-doc-content">
+				<el-scrollbar max-height="70vh">
+					<!-- eslint-disable-next-line vue/no-v-html -->
+					<div class="markdown-body" v-html="renderedMarkdown"></div>
+				</el-scrollbar>
+			</div>
+			<template #footer>
+				<el-button
+					type="primary"
+					:icon="DocumentCopy"
+					@click="copyApiDoc"
+					:loading="isCopying"
+				>
+					Copy
+				</el-button>
+			</template>
+		</el-dialog>
 	</div>
 </template>
 
 <script setup lang="ts">
 import { ref, watch, computed } from 'vue';
-import { Delete, Search, Plus } from '@element-plus/icons-vue';
+import { Delete, Search, Plus, Document, DocumentCopy } from '@element-plus/icons-vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
+import DOMPurify from 'dompurify';
 import {
 	getInboundSettingsAttachment,
 	createInboundSettingsAttachment,
 	deleteInboundSettingsAttachment,
+	getAttachmentApiMd,
 } from '@/apis/integration';
 import type { FieldMapping, InboundAttachmentIteml } from '#/integration';
 import SaveChangeIcon from '@assets/svg/publicPage/saveChange.svg';
-import { defaultStr } from '@/settings/projectSetting';
+import { defaultStr, bigDialogWidth } from '@/settings/projectSetting';
 
 interface Props {
 	integrationId: string | number;
@@ -259,7 +298,7 @@ async function loadAttachmentSharing() {
 	isLoading.value = true;
 	try {
 		const response = await getInboundSettingsAttachment(props.integrationId);
-		if (response.success && response.data) {
+		if (response.code == '200' && response.data) {
 			// 处理返回的附件共享数据
 			const data = response.data;
 			// 如果返回的是数组，直接使用；如果是对象，取 attachmentSharing 字段
@@ -345,7 +384,7 @@ async function handleSaveModule(row: IAttachmentSharingExtended, index: number) 
 		};
 
 		const response = await createInboundSettingsAttachment(configData);
-		if (response.success) {
+		if (response.code == '200') {
 			ElMessage.success('Module saved successfully');
 			row.isEditing = false;
 			// 如果有返回的 ID，更新本地数据
@@ -407,7 +446,7 @@ function handleDeleteModule(index: number) {
 						row.id,
 						props.integrationId
 					);
-					if (response.success) {
+					if (response.code == '200') {
 						ElMessage.success('Module deleted successfully');
 						attachmentSharing.value.splice(index, 1);
 						// 重新加载数据以确保数据同步
@@ -450,6 +489,111 @@ function getActionName(actionId: string | number | undefined): string {
 	return action?.name || '';
 }
 
+const attachmentApiMd = ref<string>('');
+const isLoadingAttachmentApiMd = ref(false);
+const showApiDocDialog = ref(false);
+const isCopying = ref(false);
+
+/**
+ * 简单的 Markdown 转 HTML 函数
+ */
+function markdownToHtml(markdown: string): string {
+	if (!markdown) return '';
+
+	let html = markdown;
+
+	// 转义 HTML 特殊字符
+	html = html.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+	// 标题
+	html = html.replace(/^### (.*$)/gim, '<h3>$1</h3>');
+	html = html.replace(/^## (.*$)/gim, '<h2>$1</h2>');
+	html = html.replace(/^# (.*$)/gim, '<h1>$1</h1>');
+
+	// 粗体
+	html = html.replace(/\*\*(.*?)\*\*/gim, '<strong>$1</strong>');
+	html = html.replace(/__(.*?)__/gim, '<strong>$1</strong>');
+
+	// 斜体
+	html = html.replace(/\*(.*?)\*/gim, '<em>$1</em>');
+	html = html.replace(/_(.*?)_/gim, '<em>$1</em>');
+
+	// 代码块
+	html = html.replace(/```([\s\S]*?)```/gim, '<pre><code>$1</code></pre>');
+	html = html.replace(/`([^`]+)`/gim, '<code>$1</code>');
+
+	// 链接
+	html = html.replace(
+		/\[([^\]]+)\]\(([^)]+)\)/gim,
+		'<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>'
+	);
+
+	// 列表
+	html = html.replace(/^\* (.*$)/gim, '<li>$1</li>');
+	html = html.replace(/^- (.*$)/gim, '<li>$1</li>');
+	html = html.replace(/^\d+\. (.*$)/gim, '<li>$1</li>');
+
+	// 包装列表项
+	html = html.replace(/(<li>.*<\/li>)/s, '<ul>$1</ul>');
+
+	// 段落
+	html = html
+		.split('\n\n')
+		.map((para) => {
+			if (!para.trim()) return '';
+			if (para.startsWith('<')) return para; // 已经是 HTML 标签
+			return `<p>${para}</p>`;
+		})
+		.join('');
+
+	// 换行
+	html = html.replace(/\n/g, '<br>');
+
+	return html;
+}
+
+/**
+ * 渲染后的 Markdown HTML
+ */
+const renderedMarkdown = computed(() => {
+	if (!attachmentApiMd.value) return '';
+	const html = markdownToHtml(attachmentApiMd.value);
+	return DOMPurify.sanitize(html);
+});
+
+/**
+ * 复制 API 文档内容
+ */
+async function copyApiDoc() {
+	if (!attachmentApiMd.value) {
+		ElMessage.warning('No content to copy');
+		return;
+	}
+
+	isCopying.value = true;
+	try {
+		await navigator.clipboard.writeText(attachmentApiMd.value);
+		ElMessage.success('API documentation copied to clipboard');
+	} catch (error) {
+		console.error('Failed to copy:', error);
+		ElMessage.error('Failed to copy content');
+	} finally {
+		isCopying.value = false;
+	}
+}
+
+const loadAttachmentApiMd = async () => {
+	try {
+		isLoadingAttachmentApiMd.value = true;
+		const response = await getAttachmentApiMd();
+		if (response.code == '200') {
+			attachmentApiMd.value = response.data;
+		}
+	} finally {
+		isLoadingAttachmentApiMd.value = false;
+	}
+};
+
 // 监听 integrationId 变化（包括初始化）
 watch(
 	() => props.integrationId,
@@ -459,6 +603,10 @@ watch(
 		} else {
 			// 如果是新建或无效 ID，清空数据
 			attachmentSharing.value = [];
+		}
+
+		if (!isLoadingAttachmentApiMd.value) {
+			loadAttachmentApiMd();
 		}
 	},
 	{ immediate: true }
