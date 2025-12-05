@@ -238,7 +238,7 @@ import SaveChangeIcon from '@assets/svg/publicPage/saveChange.svg';
 import { defaultStr, bigDialogWidth } from '@/settings/projectSetting';
 
 interface Props {
-	integrationId: string | number;
+	integrationId: string;
 	workflows?: any[];
 	inboundFieldMappings?: FieldMapping[];
 	actions: {
@@ -435,12 +435,6 @@ function handleDeleteModule(index: number) {
 						return;
 					}
 
-<<<<<<< Updated upstream
-					const response = await deleteInboundSettingsAttachment(row.id, {
-						integrationId: (props?.integrationId as string) || '',
-					});
-					if (response.success) {
-=======
 					if (!props.integrationId || props.integrationId === 'new') {
 						ElMessage.warning('Invalid integration ID');
 						instance.confirmButtonLoading = false;
@@ -448,12 +442,10 @@ function handleDeleteModule(index: number) {
 						return;
 					}
 
-					const response = await deleteInboundSettingsAttachment(
-						row.id,
-						props.integrationId
-					);
+					const response = await deleteInboundSettingsAttachment(row.id, {
+						integrationId: props?.integrationId || '',
+					});
 					if (response.code == '200') {
->>>>>>> Stashed changes
 						ElMessage.success('Module deleted successfully');
 						attachmentSharing.value.splice(index, 1);
 						// 重新加载数据以确保数据同步
