@@ -298,7 +298,7 @@ async function handleSaveEntityMapping(mapping: IEntityMapping, index: number) {
 			res = await createEntityMapping(mappingData);
 		}
 
-		if (res.success) {
+		if (res.code == '200') {
 			ElMessage.success(
 				mapping.id
 					? 'Entity mapping updated successfully'
@@ -333,7 +333,7 @@ async function handleDeleteEntityMapping(mapping: IEntityMapping, index: number)
 
 	try {
 		const res = await deleteEntityMapping(mapping.id);
-		if (res.success) {
+		if (res.code == '200') {
 			ElMessage.success('Entity mapping deleted successfully');
 			entityMappings.value.splice(index, 1);
 			// 通知父组件刷新数据

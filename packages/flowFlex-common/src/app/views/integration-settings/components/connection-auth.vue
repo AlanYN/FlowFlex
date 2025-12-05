@@ -387,7 +387,7 @@ async function handleSave() {
 			name: formData.value.systemName,
 		});
 
-		if (res.success && res.data) {
+		if (res.code == '200' && res.data) {
 			ElMessage.success('Integration created successfully');
 			emit('created', res.data, integrationName.value);
 		} else {
@@ -417,7 +417,7 @@ const handleUpdate = async (informParams: boolean = true) => {
 			name: formData.value.systemName,
 		});
 		if (!informParams) return;
-		if (res.success) {
+		if (res.code == '200') {
 			ElMessage.success('Connection settings updated successfully');
 			emit('updated');
 		} else {

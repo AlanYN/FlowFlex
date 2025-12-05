@@ -362,7 +362,7 @@ function handleDelete() {
 					const res = await deleteIntegration(props.integration.id as string | number);
 					instance.confirmButtonText = 'Delete';
 					instance.confirmButtonLoading = false;
-					if (res.success) {
+					if (res.code == '200') {
 						ElMessage.success('Integration deleted successfully');
 						nextTick(() => {
 							emit('refresh');
