@@ -238,7 +238,7 @@ import SaveChangeIcon from '@assets/svg/publicPage/saveChange.svg';
 import { defaultStr, bigDialogWidth } from '@/settings/projectSetting';
 
 interface Props {
-	integrationId: string | number;
+	integrationId: string;
 	workflows?: any[];
 	inboundFieldMappings?: FieldMapping[];
 	actions: {
@@ -442,10 +442,9 @@ function handleDeleteModule(index: number) {
 						return;
 					}
 
-					const response = await deleteInboundSettingsAttachment(
-						row.id,
-						props.integrationId
-					);
+					const response = await deleteInboundSettingsAttachment(row.id, {
+						integrationId: props?.integrationId || '',
+					});
 					if (response.code == '200') {
 						ElMessage.success('Module deleted successfully');
 						attachmentSharing.value.splice(index, 1);
