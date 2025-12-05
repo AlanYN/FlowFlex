@@ -193,18 +193,12 @@ export function getInboundSettingsAttachment(
 }
 
 export function deleteInboundSettingsAttachment(
-	id: string | number,
-	integrationId: string | number
+	id: string,
+	params: {
+		integrationId: string;
+	}
 ): Promise<IApiResponse<boolean>> {
-	return defHttp.delete(
-		{
-			url: `${Api.inboundSettingsAttachment}/${id}`,
-			params: { integrationId },
-		},
-		{
-			joinParamsToUrl: true, // Force params to be added to URL as query string
-		}
-	);
+	return defHttp.delete({ url: `${Api.inboundSettingsAttachment}/${id}`, params });
 }
 
 export function createOutboundSettingsAttachment(
