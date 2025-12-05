@@ -388,6 +388,7 @@ import {
 	List,
 	QuestionFilled,
 	FolderOpened,
+	Link,
 } from '@element-plus/icons-vue';
 import { Icon } from '@iconify/vue';
 import { useAdaptiveScrollbar } from '@/hooks/useAdaptiveScrollbar';
@@ -625,6 +626,17 @@ const getStageComponents = (stage: Stage) => {
 						type: 'files',
 					});
 					break;
+				case 'quickLink':
+					component.quickLinkIds.forEach((quick, index) => {
+						// 优先使用names字段中的名称
+						const quickLinkName = component.quickLinkNames?.[index] || defaultStr;
+						componentList.push({
+							id: `${stage.id}-quick-${quick}`,
+							name: quickLinkName,
+							type: 'quickLink',
+						});
+					});
+					break;
 			}
 		}
 	});
@@ -644,6 +656,8 @@ const getComponentIcon = (type: string) => {
 			return QuestionFilled;
 		case 'files':
 			return FolderOpened;
+		case 'quickLink':
+			return Link;
 		default:
 			return Document;
 	}

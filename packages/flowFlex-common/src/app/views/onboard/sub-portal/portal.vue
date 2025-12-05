@@ -371,6 +371,13 @@
 												@document-uploaded="handleDocumentUploaded"
 												@document-deleted="handleDocumentDeleted"
 											/>
+
+											<QuickLink
+												v-else-if="component.key === 'quickLink'"
+												:component="component"
+												:onboarding-id="onboardingId"
+												:stage-id="activeStage"
+											/>
 										</div>
 									</template>
 								</div>
@@ -475,6 +482,7 @@ import OnboardingProgress from '../onboardingList/components/OnboardingProgress.
 import QuestionnaireDetails from '../onboardingList/components/QuestionnaireDetails.vue';
 import CheckList from '../onboardingList/components/CheckList.vue';
 import Documents from '../onboardingList/components/Documents.vue';
+import QuickLink from '../onboardingList/components/QuickLink.vue';
 import StaticForm from '../onboardingList/components/StaticForm.vue';
 import AISummary from '../onboardingList/components/AISummary.vue';
 import PageHeader from '@/components/global/PageHeader/index.vue';
