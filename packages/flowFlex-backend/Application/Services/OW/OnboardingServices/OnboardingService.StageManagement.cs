@@ -639,6 +639,24 @@ namespace FlowFlex.Application.Services.OW
                     return;
                 }
 
+                // Get all stages for this workflow to find next stage
+                var stages = await _stageRepository.GetByWorkflowIdAsync(entity.WorkflowId);
+                var orderedStages = stages.OrderBy(x => x.Order).ToList();
+
+                // Find next incomplete stage
+                string nextStageName = null;
+                var completedStageOrder = orderedStages.FirstOrDefault(s => s.Id == stage.Id)?.Order ?? 0;
+                var nextIncompleteStage = orderedStages
+                    .Where(s => s.Order > completedStageOrder &&
+                               !entity.StagesProgress.Any(sp => sp.StageId == s.Id && sp.IsCompleted))
+                    .OrderBy(s => s.Order)
+                    .FirstOrDefault();
+
+                if (nextIncompleteStage != null)
+                {
+                    nextStageName = nextIncompleteStage.Name;
+                }
+
                 // Build case URL using GetRequestOrigin method (similar to portal invitation)
                 var caseUrl = BuildCaseUrl(entity.Id);
 
@@ -663,6 +681,7 @@ namespace FlowFlex.Application.Services.OW
                                 caseId,
                                 caseName,
                                 stageName,
+                                nextStageName,
                                 completedBy ?? "System",
                                 completionTime,
                                 caseUrl

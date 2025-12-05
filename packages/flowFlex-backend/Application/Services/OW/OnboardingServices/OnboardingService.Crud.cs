@@ -1016,15 +1016,16 @@ namespace FlowFlex.Application.Services.OW
 
         /// <summary>
         /// Get onboarding by ID
+        /// Returns null if not found (instead of throwing exception)
         /// </summary>
-        public async Task<OnboardingOutputDto> GetByIdAsync(long id)
+        public async Task<OnboardingOutputDto?> GetByIdAsync(long id)
         {
             try
             {
                 var entity = await _onboardingRepository.GetByIdAsync(id);
                 if (entity == null)
                 {
-                    throw new CRMException(ErrorCodeEnum.DataNotFound, "Onboarding not found");
+                    return null;
                 }
 
                 // Auto-generate CaseCode for legacy data

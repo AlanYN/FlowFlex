@@ -236,42 +236,16 @@
         </div>
 
         <div class="content">
-            <div class="status-badge">
-                <div class="status-icon">✅</div>
-                <div class="status-text">Stage Completed</div>
-            </div>
-
-            <div class="notification-message">
-                A stage has been completed in the onboarding case you are assigned to.
-            </div>
-
-            <div class="case-info">
-                <h3>📋 Case Information</h3>
-                <div class="info-item">
-                    <span class="info-label">Case ID:</span>
-                    <span class="info-value">{{caseId}}</span>
-                </div>
-                <div class="info-item">
-                    <span class="info-label">Case Name:</span>
-                    <span class="info-value">{{caseName}}</span>
-                </div>
-                <div class="info-item">
-                    <span class="info-label">Completed Stage:</span>
-                    <span class="info-value">{{stageName}}</span>
-                </div>
-                <div class="info-item">
-                    <span class="info-label">Completed By:</span>
-                    <span class="info-value">{{completedBy}}</span>
-                </div>
-                <div class="info-item">
-                    <span class="info-label">Completion Time:</span>
-                    <span class="info-value">{{completionTime}}</span>
-                </div>
-            </div>
-
-            <div class="highlight-section">
-                <h4>💡 What's Next?</h4>
-                <p>You can now review the completed stage details and continue with the next steps in the onboarding process. Click the button below to view the full case information.</p>
+            <div class="notification-message" style="text-align: left; margin-bottom: 30px;">
+                <p style="font-size: 16px; color: #2c3e50; margin-bottom: 20px; line-height: 1.8;">
+                    The previous stage, <strong>"{{stageName}}"</strong>, has been completed.
+                </p>
+                <p style="font-size: 16px; color: #2c3e50; margin-bottom: 20px; line-height: 1.8;">
+                    Please log in to the WFE system to proceed with the next stage{{nextStageNameText}}
+                </p>
+                <p style="font-size: 16px; color: #2c3e50; margin-top: 30px; line-height: 1.8;">
+                    Thank you.
+                </p>
             </div>
 
             <div class="action-section">

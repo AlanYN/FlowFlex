@@ -199,20 +199,30 @@ namespace FlowFlex.Application.Services.OW
         /// <param name="caseId">Case ID</param>
         /// <param name="caseName">Case name</param>
         /// <param name="stageName">Completed stage name</param>
+        /// <param name="nextStageName">Next stage name (optional)</param>
         /// <param name="completedBy">User who completed the stage</param>
         /// <param name="completionTime">Stage completion time</param>
         /// <param name="caseUrl">URL to view case details</param>
         /// <returns>Whether the email was sent successfully</returns>
-        public async Task<bool> SendStageCompletedNotificationAsync(string to, string caseId, string caseName, string stageName, string completedBy, string completionTime, string caseUrl)
+        public async Task<bool> SendStageCompletedNotificationAsync(string to, string caseId, string caseName, string stageName, string nextStageName, string completedBy, string completionTime, string caseUrl)
         {
             try
             {
-                var subject = "ITEM WFE - Stage Completed Notification";
+                // Format subject: [Case XXX] Previous Stage Completed – Action Required
+                var subject = $"[Case {caseName}] Previous Stage Completed – Action Required";
+                
+                // Format next stage text
+                var nextStageNameText = string.IsNullOrWhiteSpace(nextStageName) 
+                    ? "." 
+                    : $": \"{nextStageName}\".";
+
                 var body = _templateService.Render("stage_completed_notification_en", new Dictionary<string, object>
                 {
                     ["caseId"] = caseId ?? string.Empty,
                     ["caseName"] = caseName ?? string.Empty,
                     ["stageName"] = stageName ?? string.Empty,
+                    ["nextStageName"] = nextStageName ?? string.Empty,
+                    ["nextStageNameText"] = nextStageNameText,
                     ["completedBy"] = completedBy ?? string.Empty,
                     ["completionTime"] = completionTime ?? string.Empty,
                     ["caseUrl"] = caseUrl ?? GetRequestOrigin(),

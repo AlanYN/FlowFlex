@@ -47,10 +47,11 @@ namespace FlowFlex.Application.Contracts.IServices.OW
         /// <param name="caseId">Case ID</param>
         /// <param name="caseName">Case name</param>
         /// <param name="stageName">Completed stage name</param>
+        /// <param name="nextStageName">Next stage name (optional)</param>
         /// <param name="completedBy">User who completed the stage</param>
         /// <param name="completionTime">Stage completion time</param>
         /// <param name="caseUrl">URL to view case details</param>
         /// <returns>Whether the email was sent successfully</returns>
-        Task<bool> SendStageCompletedNotificationAsync(string to, string caseId, string caseName, string stageName, string completedBy, string completionTime, string caseUrl);
+        Task<bool> SendStageCompletedNotificationAsync(string to, string caseId, string caseName, string stageName, string nextStageName, string completedBy, string completionTime, string caseUrl);
     }
 }

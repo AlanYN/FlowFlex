@@ -31,7 +31,7 @@ namespace FlowFlex.Application.Contracts.IServices.OW
         /// <summary>
         /// Get onboarding by ID
         /// </summary>
-        Task<OnboardingOutputDto> GetByIdAsync(long id);
+        Task<OnboardingOutputDto?> GetByIdAsync(long id);
 
         /// <summary>
         /// Query onboarding with pagination
