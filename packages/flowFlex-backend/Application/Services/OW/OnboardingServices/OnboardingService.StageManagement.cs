@@ -658,7 +658,7 @@ namespace FlowFlex.Application.Services.OW
                 }
 
                 // Build case URL using GetRequestOrigin method (similar to portal invitation)
-                var caseUrl = BuildCaseUrl(entity.Id);
+                var caseUrl = BuildCaseUrl(entity.Id, entity.TenantId);
 
                 // Prepare email data
                 var caseId = entity.CaseCode ?? entity.Id.ToString();
@@ -712,7 +712,7 @@ namespace FlowFlex.Application.Services.OW
         /// <summary>
         /// Build case URL for email notification (similar to portal invitation URL building)
         /// </summary>
-        private string BuildCaseUrl(long onboardingId)
+        private string BuildCaseUrl(long onboardingId, string? tenantId = null)
         {
             try
             {
@@ -730,8 +730,13 @@ namespace FlowFlex.Application.Services.OW
                     var host = !string.IsNullOrWhiteSpace(forwardedHost) ? forwardedHost : request.Host.Value;
 
                     var baseUrl = $"{scheme}://{host}".TrimEnd('/');
-                    // Build frontend route: /onboard/onboardDetail?onboardingId=xxx
-                    return $"{baseUrl}/onboard/onboardDetail?onboardingId={onboardingId}";
+                    // Build frontend route: /onboard/onboardDetail?onboardingId=xxx&tenantId=xxx
+                    var url = $"{baseUrl}/onboard/onboardDetail?onboardingId={onboardingId}";
+                    if (!string.IsNullOrWhiteSpace(tenantId))
+                    {
+                        url += $"&tenantId={Uri.EscapeDataString(tenantId)}";
+                    }
+                    return url;
                 }
             }
             catch (Exception ex)
@@ -740,7 +745,12 @@ namespace FlowFlex.Application.Services.OW
             }
 
             // Fallback to default URL
-            return $"https://crm-staging.item.com/onboard/onboardDetail?onboardingId={onboardingId}";
+            var fallbackUrl = $"https://crm-staging.item.com/onboard/onboardDetail?onboardingId={onboardingId}";
+            if (!string.IsNullOrWhiteSpace(tenantId))
+            {
+                fallbackUrl += $"&tenantId={Uri.EscapeDataString(tenantId)}";
+            }
+            return fallbackUrl;
         }
 
         /// <summary>
