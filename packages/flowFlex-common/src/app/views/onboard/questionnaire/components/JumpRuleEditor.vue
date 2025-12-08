@@ -52,8 +52,9 @@
 						</div>
 						<div v-else class="option-label">{{ option.label }}</div>
 						<div class="jump-selectors">
-							<!-- 选择Section -->
+							<!-- 选择Section（如果有可用section则显示） -->
 							<el-select
+								v-if="availableSections.length > 0"
 								v-model="selectedSections[option.temporaryId]"
 								placeholder="Select section"
 								class="flex-1"
@@ -67,14 +68,21 @@
 									:value="section.temporaryId"
 								/>
 							</el-select>
-							<!-- 第二步：选择Question（仅单选题显示） -->
+							<!-- 第二步：选择Question（仅单选题显示，可选） -->
 							<el-select
 								v-if="isMultipleChoice"
 								v-model="jumpRules[option.temporaryId]"
-								placeholder="Select question"
+								:placeholder="
+									availableSections.length > 0
+										? 'Select question (optional)'
+										: 'Select question'
+								"
 								class="flex-1"
 								clearable
-								:disabled="!selectedSections[option.temporaryId]"
+								:disabled="
+									!selectedSections[option.temporaryId] &&
+									availableSections.length > 0
+								"
 								@change="(value) => handleRuleChange(option.temporaryId, value)"
 							>
 								<el-option
@@ -174,11 +182,11 @@ const questionOptions = computed(() => {
 	return props.question?.options || [];
 });
 
-// 可用小节（排除当前问题所在小节）
+// 可用小节（排除isDefault的默认小节）
 const availableSections = computed(() => {
 	return props.sections.filter((section) => {
-		// 可以添加更多过滤逻辑，比如排除当前小节
-		return true;
+		// 排除isDefault为true的默认小节
+		return !section.isDefault;
 	});
 });
 
@@ -214,27 +222,19 @@ const loadExistingRules = (question: QuestionWithJumpRules) => {
 		const rules: Record<string, string> = {};
 		const sections: Record<string, string> = {};
 		question.jumpRules.forEach((rule) => {
-			sections[rule.optionId] = rule.targetSectionId;
-
-			// 只有单选题才加载问题ID
-			if (question.type === 'multiple_choice') {
-				// 如果规则有targetQuestionId，使用它；否则使用targetSectionId（兼容旧数据）
-				if (rule.targetQuestionId) {
-					rules[rule.optionId] = rule.targetQuestionId;
-				} else {
-					// 兼容旧数据：只有sectionId，需要找到该section的第一个问题
-					const targetSection = props.sections.find(
-						(s) => s.temporaryId === rule.targetSectionId
-					);
-					if (
-						targetSection &&
-						targetSection.questions &&
-						targetSection.questions.length > 0
-					) {
-						rules[rule.optionId] = targetSection.questions[0].temporaryId;
-					}
-				}
+			// 如果有targetSectionId，加载它
+			if (rule.targetSectionId) {
+				sections[rule.optionId] = rule.targetSectionId;
 			}
+
+			// 只有单选题才加载问题ID（如果存在）
+			if (question.type === 'multiple_choice' && rule.targetQuestionId) {
+				// 如果规则有targetQuestionId，使用它
+				rules[rule.optionId] = rule.targetQuestionId;
+				// 如果没有targetSectionId，说明是只选择了question的情况
+				// 这种情况下不需要设置selectedSections，让用户可以从所有sections中选择
+			}
+			// 如果单选题没有targetQuestionId，说明只选择了section，不加载questionId
 		});
 		jumpRules.value = rules;
 		selectedSections.value = sections;
@@ -254,11 +254,11 @@ const handleToggleChange = (value: boolean) => {
 const handleSectionChange = (optionId: string, sectionId: string | null) => {
 	if (sectionId) {
 		selectedSections.value[optionId] = sectionId;
-		// 清空之前选择的问题
+		// 清空之前选择的问题（因为section变了，之前的问题可能不在新的section中）
 		delete jumpRules.value[optionId];
 	} else {
 		delete selectedSections.value[optionId];
-		delete jumpRules.value[optionId];
+		// 不清空jumpRules，因为当availableSections为空时，允许只选择question
 	}
 	validateRules();
 };
@@ -273,26 +273,70 @@ const handleRuleChange = (optionId: string, questionId: string | null) => {
 	validateRules();
 };
 
-// 获取指定Section下的可用问题列表
-const getAvailableQuestions = (sectionId: string | null) => {
-	if (!sectionId) return [];
-	const section = props.sections.find((s) => s.temporaryId === sectionId);
-	if (!section || !section.questions) return [];
-	// 排除当前问题本身，避免循环跳转
-	return section.questions.filter((q) => q.temporaryId !== props.question?.temporaryId);
+// 获取指定Section下的可用问题列表（如果sectionId为null或undefined，则返回所有非默认section的问题）
+const getAvailableQuestions = (sectionId: string | null | undefined) => {
+	// 如果指定了sectionId，只返回该section的问题
+	if (sectionId) {
+		const section = props.sections.find((s) => s.temporaryId === sectionId);
+		if (!section || !section.questions) return [];
+		// 排除当前问题本身，避免循环跳转
+		return section.questions.filter((q) => q.temporaryId !== props.question?.temporaryId);
+	}
+
+	// 如果没有指定sectionId
+	// 如果availableSections为空（所有section都是默认的），则返回所有section的问题
+	// 如果availableSections不为空，则只返回非默认section的问题
+	const allQuestions: any[] = [];
+	const hasAvailableSections = availableSections.value.length > 0;
+
+	props.sections.forEach((section) => {
+		// 如果有可用section，排除默认section；如果没有可用section，包含所有section
+		if (hasAvailableSections && section.isDefault) {
+			return;
+		}
+
+		if (section.questions && section.questions.length > 0) {
+			section.questions.forEach((question) => {
+				// 排除当前问题本身，避免循环跳转
+				if (question.temporaryId !== props.question?.temporaryId) {
+					allQuestions.push(question);
+				}
+			});
+		}
+	});
+
+	return allQuestions;
 };
 
 // 获取问题的显示标签（格式：Section X. Question Y. 问题文本）
-const getQuestionDisplayLabel = (targetQuestion: any, sectionId: string) => {
-	const section = props.sections.find((s) => s.temporaryId === sectionId);
-	if (!section) return targetQuestion.question || '';
+const getQuestionDisplayLabel = (targetQuestion: any, sectionId: string | null) => {
+	// 如果指定了sectionId，使用该section
+	if (sectionId) {
+		const section = props.sections.find((s) => s.temporaryId === sectionId);
+		if (section) {
+			const sectionIndex = props.sections.findIndex((s) => s.temporaryId === sectionId);
+			const questionIndex = section.questions.findIndex(
+				(q) => q.temporaryId === targetQuestion.temporaryId
+			);
+			return `${sectionIndex + 1}.${questionIndex + 1}. ${targetQuestion.question || ''}`;
+		}
+	}
 
-	const sectionIndex = props.sections.findIndex((s) => s.temporaryId === sectionId);
-	const questionIndex = section.questions.findIndex(
-		(q) => q.temporaryId === targetQuestion.temporaryId
+	// 如果没有指定sectionId，需要找到问题所在的section
+	const questionSection = props.sections.find(
+		(section) => section.questions?.some((q) => q.temporaryId === targetQuestion.temporaryId)
 	);
+	if (questionSection) {
+		const sectionIndex = props.sections.findIndex(
+			(s) => s.temporaryId === questionSection.temporaryId
+		);
+		const questionIndex = questionSection.questions.findIndex(
+			(q) => q.temporaryId === targetQuestion.temporaryId
+		);
+		return `${sectionIndex + 1}.${questionIndex + 1}. ${targetQuestion.question || ''}`;
+	}
 
-	return `${sectionIndex + 1}.${questionIndex + 1}. ${targetQuestion.question || ''}`;
+	return targetQuestion.question || '';
 };
 
 // 验证规则
@@ -303,25 +347,53 @@ const validateRules = () => {
 		return;
 	}
 
-	// 对于单选题，验证问题ID；对于多选题，只验证section ID
+	// 对于单选题，验证section ID（question可选，如果availableSections为空则section也可选）
+	// 对于多选题，只验证section ID
 	if (isMultipleChoice.value) {
-		// 检查是否有无效的问题ID
+		// 首先验证所有已选择的section（如果存在）
+		Object.entries(selectedSections.value).forEach(([optionId, sectionId]) => {
+			const section = props.sections.find((s) => s.temporaryId === sectionId);
+			if (!section) {
+				validationErrors.value.push(`Invalid section selected: ${sectionId}`);
+			}
+		});
+
+		// 然后验证已选择的问题ID（如果存在）
 		Object.entries(jumpRules.value).forEach(([optionId, questionId]) => {
 			const sectionId = selectedSections.value[optionId];
-			if (!sectionId) {
+
+			// 如果availableSections为空，允许不选择section
+			if (availableSections.value.length > 0 && !sectionId) {
 				validationErrors.value.push(`Please select a section for option: ${optionId}`);
 				return;
 			}
 
-			const section = props.sections.find((s) => s.temporaryId === sectionId);
-			if (!section) {
-				validationErrors.value.push(`Invalid section selected: ${sectionId}`);
-				return;
-			}
+			// 如果指定了sectionId，验证问题是否在该section中
+			if (sectionId) {
+				const section = props.sections.find((s) => s.temporaryId === sectionId);
+				if (!section) {
+					validationErrors.value.push(`Invalid section selected: ${sectionId}`);
+					return;
+				}
 
-			const question = section.questions.find((q) => q.temporaryId === questionId);
-			if (!question) {
-				validationErrors.value.push(`Invalid question selected: ${questionId}`);
+				const question = section.questions.find((q) => q.temporaryId === questionId);
+				if (!question) {
+					validationErrors.value.push(`Invalid question selected: ${questionId}`);
+				}
+			} else {
+				// 如果没有sectionId，验证问题是否存在于section中
+				// 如果availableSections为空（所有section都是默认的），检查所有section
+				// 如果availableSections不为空，只检查非默认section
+				const hasAvailableSections = availableSections.value.length > 0;
+				const questionExists = props.sections.some((section) => {
+					// 如果有可用section，排除默认section；如果没有可用section，包含所有section
+					if (hasAvailableSections && section.isDefault) return false;
+					return section.questions?.some((q) => q.temporaryId === questionId);
+				});
+
+				if (!questionExists) {
+					validationErrors.value.push(`Invalid question selected: ${questionId}`);
+				}
 			}
 		});
 	} else {
@@ -345,19 +417,64 @@ const handleSave = () => {
 	const rules: JumpRule[] = [];
 
 	if (isJumpEnabled.value) {
-		// 对于多选题，只使用selectedSections；对于单选题，使用jumpRules
-		const sourceMap = isMultipleChoice.value ? jumpRules.value : selectedSections.value;
+		if (isMultipleChoice.value) {
+			// 单选题：处理两种情况
+			// 1. 有selectedSections的情况（选择了section）
+			Object.entries(selectedSections.value).forEach(([optionId, sectionId]) => {
+				const option = questionOptions.value.find((opt) => opt.temporaryId === optionId);
+				const section = props.sections.find((s) => s.temporaryId === sectionId);
 
-		Object.entries(sourceMap).forEach(([optionId, targetId]) => {
-			const option = questionOptions.value.find((opt) => opt.temporaryId === optionId);
-			const sectionId = selectedSections.value[optionId];
-			const section = props.sections.find((s) => s.temporaryId === sectionId);
+				if (option && section) {
+					const questionId = jumpRules.value[optionId];
+					if (questionId) {
+						// 选择了section和question
+						const targetQuestion = section.questions.find(
+							(q) => q.temporaryId === questionId
+						);
 
-			if (option && section) {
-				if (isMultipleChoice.value) {
-					// 单选题：保存问题ID
-					const questionId = targetId;
-					const targetQuestion = section.questions.find(
+						if (targetQuestion) {
+							rules.push({
+								id: props.question?.id || '',
+								questionId:
+									props.question?.temporaryId || props.question!.temporaryId,
+								optionId: optionId,
+								optionLabel: option.label,
+								targetSectionId: sectionId,
+								targetSectionName: section.name,
+								targetQuestionId: questionId,
+								targetQuestionName: targetQuestion.question || '',
+							});
+						}
+					} else {
+						// 只选择了section，不选择question
+						rules.push({
+							id: props.question?.id || '',
+							questionId: props.question?.temporaryId || props.question!.temporaryId,
+							optionId: optionId,
+							optionLabel: option.label,
+							targetSectionId: sectionId,
+							targetSectionName: section.name,
+							// 不设置 targetQuestionId 和 targetQuestionName
+						});
+					}
+				}
+			});
+
+			// 2. 只选择了question，没有选择section（当availableSections为空时）
+			Object.entries(jumpRules.value).forEach(([optionId, questionId]) => {
+				// 如果这个option已经有section了，跳过（已在上面处理）
+				if (selectedSections.value[optionId]) return;
+
+				const option = questionOptions.value.find((opt) => opt.temporaryId === optionId);
+				if (!option) return;
+
+				// 找到问题所在的section
+				const questionSection = props.sections.find(
+					(section) => section.questions?.some((q) => q.temporaryId === questionId)
+				);
+
+				if (questionSection) {
+					const targetQuestion = questionSection.questions.find(
 						(q) => q.temporaryId === questionId
 					);
 
@@ -367,14 +484,21 @@ const handleSave = () => {
 							questionId: props.question?.temporaryId || props.question!.temporaryId,
 							optionId: optionId,
 							optionLabel: option.label,
-							targetSectionId: sectionId,
-							targetSectionName: section.name,
+							targetSectionId: questionSection.temporaryId,
+							targetSectionName: questionSection.name,
 							targetQuestionId: questionId,
 							targetQuestionName: targetQuestion.question || '',
 						});
 					}
-				} else {
-					// 多选题：只保存section ID，不保存question ID
+				}
+			});
+		} else {
+			// 多选题：只使用selectedSections作为基础
+			Object.entries(selectedSections.value).forEach(([optionId, sectionId]) => {
+				const option = questionOptions.value.find((opt) => opt.temporaryId === optionId);
+				const section = props.sections.find((s) => s.temporaryId === sectionId);
+
+				if (option && section) {
 					rules.push({
 						id: props.question?.id || '',
 						questionId: props.question?.temporaryId || props.question!.temporaryId,
@@ -385,8 +509,8 @@ const handleSave = () => {
 						// 不设置 targetQuestionId 和 targetQuestionName
 					});
 				}
-			}
-		});
+			});
+		}
 	}
 
 	emits('save', rules);

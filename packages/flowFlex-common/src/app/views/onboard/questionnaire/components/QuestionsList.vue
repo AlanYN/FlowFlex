@@ -104,9 +104,9 @@
 												</el-dropdown-item>
 												<el-dropdown-item
 													v-if="
-														(item.type === 'multiple_choice' ||
-															item.type === 'checkboxes') &&
-														setGoToSection
+														item.type === 'multiple_choice' ||
+														(item.type === 'checkboxes' &&
+															setGoToSection)
 													"
 													@click="openJumpRuleEditor(index)"
 													divided
@@ -254,9 +254,8 @@
 											<!-- 显示选项的action标签 -->
 											<el-tag
 												v-if="
-													(item.type === 'multiple_choice' ||
-														item.type === 'checkboxes') &&
-													setGoToSection
+													item.type === 'multiple_choice' ||
+													(item.type === 'checkboxes' && setGoToSection)
 												"
 												type="primary"
 											>
