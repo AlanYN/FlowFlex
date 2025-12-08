@@ -193,7 +193,7 @@ export async function createDynamicRoutes(router: Router) {
 	}
 }
 
-export async function handleTripartiteToken() {
+export async function handleThirdPartyToken() {
 	const parameterObj = parseUrlSearch(window.location.href)?.query as ParametersToken;
 
 	const userStore = useUserStoreWithOut();
