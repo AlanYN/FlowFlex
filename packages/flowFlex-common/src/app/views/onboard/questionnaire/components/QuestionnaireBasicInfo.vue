@@ -1,15 +1,21 @@
 <template>
 	<div class="config-section">
 		<h3 class="section-title">Basic Information</h3>
-		<el-form :model="questionnaire" label-position="top" @submit.prevent>
-			<el-form-item label="Questionnaire Title" required>
+		<el-form
+			:model="questionnaire"
+			ref="formRef"
+			:rules="rules"
+			label-position="top"
+			@submit.prevent
+		>
+			<el-form-item label="Questionnaire Title" prop="name">
 				<el-input
 					:model-value="questionnaire.name"
 					placeholder="Enter questionnaire title"
 					@input="updateName"
 				/>
 			</el-form-item>
-			<el-form-item label="Description">
+			<el-form-item label="Description" prop="description">
 				<el-input
 					:model-value="questionnaire.description"
 					type="textarea"
@@ -23,6 +29,8 @@
 </template>
 
 <script setup lang="ts">
+import { useTemplateRef } from 'vue';
+
 interface QuestionnaireBasicInfo {
 	name: string;
 	description: string;
@@ -38,6 +46,12 @@ const emits = defineEmits<{
 	'update-questionnaire': [questionnaire: QuestionnaireBasicInfo];
 }>();
 
+const formRef = useTemplateRef('formRef');
+
+const rules = {
+	name: [{ required: true, message: 'Please enter questionnaire title' }],
+};
+
 const updateName = (value: string) => {
 	emits('update-questionnaire', { ...props.questionnaire, name: value });
 };
@@ -45,6 +59,14 @@ const updateName = (value: string) => {
 const updateDescription = (value: string) => {
 	emits('update-questionnaire', { ...props.questionnaire, description: value });
 };
+
+const validate = async () => {
+	await formRef.value?.validate();
+};
+
+defineExpose({
+	validate,
+});
 </script>
 
 <style scoped lang="scss">

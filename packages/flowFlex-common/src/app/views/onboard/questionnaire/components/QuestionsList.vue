@@ -117,11 +117,7 @@
 															class="drag-icon"
 														/>
 														<span class="text-xs">
-															{{
-																item.type === 'multiple_choice'
-																	? 'Go to Question Based on Answer'
-																	: 'Go to Section Based on Answer'
-															}}
+															{{ getJumpRuleMenuText(item) }}
 														</span>
 													</div>
 												</el-dropdown-item>
@@ -752,6 +748,26 @@ const handleJumpRulesSave = (rules: JumpRule[]) => {
 		currentEditingQuestion.value = null;
 		currentEditingIndex.value = -1;
 	}
+};
+
+// 获取跳转规则菜单项的文本
+const getJumpRuleMenuText = (question: QuestionnaireSection) => {
+	// 检查是否有可用section（排除默认section）
+	const hasAvailableSections = props.sections.some((section) => !section.isDefault);
+
+	if (question.type === 'multiple_choice') {
+		// 单选题
+		if (!hasAvailableSections) {
+			// 情况1：没有section的时候，显示选择question
+			return 'Go to Question Based on Answer';
+		} else {
+			// 情况2：有section的时候，显示选择section或者question
+			return 'Go to Question or Section Based on Answer';
+		}
+	} else if (question.type === 'checkboxes') {
+		return 'Go to Section Based on Answer';
+	}
+	return 'Configure Navigation';
 };
 
 // 获取选项的跳转目标名称

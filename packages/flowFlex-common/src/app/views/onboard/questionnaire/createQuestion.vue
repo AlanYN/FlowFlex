@@ -35,6 +35,7 @@
 						<el-card class="config-card">
 							<!-- 基本信息 -->
 							<QuestionnaireBasicInfo
+								ref="questionnaireBasicInfoRef"
 								:questionnaire="{
 									name: questionnaire.name,
 									description: questionnaire.description,
@@ -248,7 +249,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted, nextTick } from 'vue';
+import { ref, reactive, computed, onMounted, nextTick, useTemplateRef } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { Edit, MoreFilled, Plus, Document } from '@element-plus/icons-vue';
@@ -877,8 +878,10 @@ const handleUpdateJumpRules = (questionIndex: number, rules: any[]) => {
 	}
 };
 
+const questionnaireBasicInfoRef = useTemplateRef('questionnaireBasicInfoRef');
 const handleSaveQuestionnaire = async () => {
-	if (!questionnaire.name.trim()) {
+	const valid = await questionnaireBasicInfoRef.value?.validate();
+	if (!valid) {
 		return;
 	}
 
