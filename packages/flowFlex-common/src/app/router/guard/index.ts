@@ -7,6 +7,8 @@ import { usePermissionStoreWithOut } from '@/stores/modules/permission';
 import { Routes } from '@/router/routers';
 import { getMenuListPath } from '@/utils';
 import { AxiosCanceler } from '@/apis/axios/axiosCancel';
+import { switchingCompany } from '@/apis/login/user';
+import { removeIdmParams } from '@/utils/urlUtils';
 import { ParametersToken } from '#/config';
 import { isIframe, parseUrlSearch, objectToQueryString } from '@/utils/utils';
 import {
@@ -29,6 +31,9 @@ nProgress.configure({ showSpinner: false });
 const allPagePaths = getMenuListPath(Routes);
 
 export async function setupRouterGuard(router: Router) {
+	// 检查是否有租户切换错误需要处理
+	handleTenantSwitchError(router);
+
 	router.beforeEach(async (to, from, next) => {
 		nProgress.start();
 		handleHttpGuard();
@@ -202,7 +207,7 @@ export async function handleTripartiteToken() {
 	}
 
 	// 统一处理：无论是否在微前端环境，都通过参数请求接口获取token
-	if (parameterObj) {
+	if (parameterObj && Object.keys(parameterObj).length > 0) {
 		const {
 			loginType,
 			appCode,
@@ -212,6 +217,7 @@ export async function handleTripartiteToken() {
 			hideEditMenu,
 			hideMenu,
 			state,
+			tenantId,
 		} = parameterObj;
 
 		userStore.setLayout({
@@ -232,12 +238,38 @@ export async function handleTripartiteToken() {
 			setEnvironment('unissso');
 			await formIDMLogin(authParam, oauth, state);
 		}
+
+		try {
+			const nowTenantId = userStore.getUserInfo?.tenantId;
+			if (
+				tenantId &&
+				tenantId !== String(nowTenantId) &&
+				userStore.getTokenobj?.accessToken?.token
+			) {
+				const res = await switchingCompany(tenantId);
+				if (res.code == '200' || res.code == 1) {
+					await userStore.afterLoginAction(false);
+				} else {
+					// 切换失败，将错误信息存储到 sessionStorage，等待 Vue 应用挂载后处理
+					sessionStorage.setItem(
+						'tenantSwitchError',
+						JSON.stringify({
+							code: res.code,
+							message: res.msg || '',
+							tenantId: tenantId,
+						})
+					);
+				}
+			}
+		} finally {
+			removeIdmParams(true, true, ['tenantId']);
+		}
 	}
 
 	// 旧的微前端token处理逻辑（注释掉，保留备用）
 	if (window.__POWERED_BY_WUJIE__ && window.$wujie?.props) {
-		console.log('无界环境处理 token');
-		console.log('window.$wujie.props:', window.$wujie.props);
+		// console.log('无界环境处理 token');
+		// console.log('window.$wujie.props:', window.$wujie.props);
 		if (getTokenobj()?.accessToken?.token) return;
 		const { appCode, tenantId, authorizationToken, currentRoute } = window.$wujie.props;
 		if (appCode && tenantId && authorizationToken) {
@@ -309,3 +341,60 @@ function handleScrollGuard(to) {
 		document.querySelector('#app-root')?.scrollTo(0, 0);
 	}
 }
+
+const handleTenantSwitchError = async (routerInstance: Router): Promise<void> => {
+	const errorDataStr = sessionStorage.getItem('tenantSwitchError');
+	if (!errorDataStr) return;
+
+	try {
+		const errorData = JSON.parse(errorDataStr);
+		sessionStorage.removeItem('tenantSwitchError');
+
+		const { createApp, h, ref } = await import('vue');
+		const TenantSwitchErrorDialog = (
+			await import('@/components/global/TenantSwitchErrorDialog.vue')
+		).default;
+
+		// 创建临时应用实例来显示弹窗
+		const container = document.createElement('div');
+		document.body.appendChild(container);
+
+		const dialogApp = createApp({
+			setup() {
+				const visible = ref(true);
+
+				const handleConfirm = () => {
+					visible.value = false;
+					setTimeout(() => {
+						dialogApp.unmount();
+						document.body.removeChild(container);
+						toIDMLogin('Switch');
+					}, 300);
+				};
+
+				const handleCancel = () => {
+					visible.value = false;
+					setTimeout(() => {
+						dialogApp.unmount();
+						document.body.removeChild(container);
+						routerInstance.push(PageEnum.BASE_HOME as string);
+					}, 300);
+				};
+
+				return () =>
+					h(TenantSwitchErrorDialog, {
+						visible: visible.value,
+						errorCode: errorData.code,
+						errorMessage: errorData.message,
+						onConfirm: handleConfirm,
+						onCancel: handleCancel,
+					});
+			},
+		});
+
+		dialogApp.mount(container);
+	} catch (error) {
+		console.error('Handle tenant switch error failed:', error);
+		sessionStorage.removeItem('tenantSwitchError');
+	}
+};

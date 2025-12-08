@@ -767,7 +767,9 @@ const hasCasePermission = (functionalPermission: string) => {
 
 // 事件处理函数
 const handleBack = () => {
-	router.back();
+	router.push({
+		path: '/onboard/onboardList',
+	});
 };
 
 const handleCustomerOverview = () => {

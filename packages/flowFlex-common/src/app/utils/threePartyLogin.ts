@@ -80,20 +80,8 @@ export function toIDMLogin(type = 'Switch') {
 		localStorage.setItem('href', window.location.href);
 	}
 
-	const currentEnv = getEnv();
-	let urlParameter = '';
-	console.log('currentEnv:', currentEnv);
-	// 如果是 stage 环境，使用新的 SSO 验证逻辑
-	// if (currentEnv === 'stage' || currentEnv === 'production') {
-	// 	urlParameter = `response_type=code&client_id=${
-	// 		globSetting.ssoCode
-	// 	}&scope=${'profile email phone openid'}&redirect_uri=${encodeURIComponent(
-	// 		window.location.origin
-	// 	)}&state=${encodeURIComponent(window.location.href)}`;
-	// 	window.open(`${globSetting.ssoURL}oauth2/authorize?${urlParameter}`, '_self');
-	// } else {
-	// 其他环境保持原有逻辑
-	urlParameter = `redirect_uri=${encodeURIComponent(window.location.href)}&appId=${
+	const redirectUrl = type == 'logout' ? window.location.origin : window.location.href;
+	const urlParameter = `redirect_uri=${encodeURIComponent(redirectUrl)}&appId=${
 		ProjectEnum.WFE
 	}&action_type=${type}&theme=${localStorage.getItem('theme')}&primary=${localStorage.getItem(
 		'primary'
@@ -136,23 +124,11 @@ export function Logout(type?: string) {
 		background: '#0f0f23',
 	});
 
-	if (type != 'logout') {
-		localStorage.setItem('href', window.location.href);
-	}
+	localStorage.setItem('href', window.location.href);
 
-	const currentEnv = getEnv();
 	let urlParameter = '';
-	console.log('currentEnv:', currentEnv);
-	// 如果是 stage 环境，使用新的 SSO 验证逻辑
-	// if (currentEnv === 'stage' || currentEnv === 'production') {
-	// 	urlParameter = `post_logout_redirect_uri=${encodeURIComponent(
-	// 		window.location.origin
-	// 	)}&appId=${ProjectEnum.WFE}&action_type=${type}&theme=${localStorage.getItem(
-	// 		'theme'
-	// 	)}&primary=${localStorage.getItem('primary')}`;
-	// 	window.open(`${globSetting.ssoURL}oauth2/logout?${urlParameter}`, '_self');
-	// } else {
-	urlParameter = `redirect_uri=${encodeURIComponent(window.location.origin)}&appId=${
+	const redirectUrl = type == 'logout' ? window.location.origin : window.location.href;
+	urlParameter = `redirect_uri=${encodeURIComponent(redirectUrl)}&appId=${
 		ProjectEnum.WFE
 	}&action_type=${type}&theme=${localStorage.getItem('theme')}&primary=${localStorage.getItem(
 		'primary'
