@@ -231,7 +231,7 @@ interface Props {
 }
 
 interface Emits {
-	(e: 'created', id: string | number, name: string): void;
+	(e: 'created', id: string, name: string): void;
 	(e: 'updated'): void;
 	(e: 'test'): void;
 }

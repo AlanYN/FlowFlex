@@ -49,9 +49,7 @@ export function getIntegrations(
  * 创建集成
  * POST /integration/v1
  */
-export function createIntegration(
-	data: ICreateIntegrationRequest
-): Promise<IApiResponse<string | number>> {
+export function createIntegration(data: ICreateIntegrationRequest): Promise<IApiResponse<string>> {
 	return defHttp.post({ url: Api.integration, data });
 }
 
@@ -232,6 +230,6 @@ export function getOutboundSettingsAttachment(integrationId: string | number): P
 	});
 }
 
-export function getAttachmentApiMd(): Promise<IApiResponse<string>> {
+export function getAttachmentApiMd(): Promise<IApiResponse<{ inbound: string; outbound: string }>> {
 	return defHttp.get({ url: Api.attachmentApiMd });
 }

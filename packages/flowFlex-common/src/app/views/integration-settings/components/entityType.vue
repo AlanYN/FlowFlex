@@ -146,8 +146,9 @@
 							:loading="savingMappingId === (row.id || `temp-${$index}`)"
 							@click="handleSaveEntityMapping(row, $index)"
 							link
-							:icon="SaveChangeIcon"
-						/>
+						>
+							<el-icon><SaveChangeIcon /></el-icon>
+						</el-button>
 					</div>
 				</template>
 			</el-table-column>

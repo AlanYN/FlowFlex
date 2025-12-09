@@ -39,6 +39,8 @@
 						<TabPane value="inbound">
 							<inbound-settings
 								:integration-id="integrationId"
+								:attachmentApiMd="attachmentInboundApiMd"
+								:loading="isLoadingAttachmentApiMd"
 								:workflows="workflows"
 								:inboundFieldMappings="integrationData?.inboundFieldMappings || []"
 								:actions="actions"
@@ -49,6 +51,8 @@
 						<TabPane value="outbound">
 							<outbound-settings
 								:integration-id="integrationId"
+								:attachmentApiMd="attachmentOutboundApiMd"
+								:loading="isLoadingAttachmentApiMd"
 								:workflows="workflows"
 								:outboundFieldMappings="
 									integrationData?.outboundFieldMappings || []
@@ -95,7 +99,7 @@ import InboundSettings from './components/inbound-settings.vue';
 import OutboundSettings from './components/outbound-settings.vue';
 import ActionsList from './components/actions-list.vue';
 import QuickLinks from './components/quick-links.vue';
-import { getIntegrationDetails, testConnection } from '@/apis/integration';
+import { getIntegrationDetails, testConnection, getAttachmentApiMd } from '@/apis/integration';
 import { getWorkflowList } from '@/apis/ow';
 import { getActionDefinitions } from '@/apis/action';
 import type { IIntegrationConfig } from '#/integration';
@@ -105,7 +109,7 @@ const route = useRoute();
 const router = useRouter();
 
 // 状态管理
-const integrationId = ref<string | number>('new');
+const integrationId = ref<string>('new');
 const integrationName = ref<string>('New Integration');
 const integrationStatus = ref<number>(0);
 const integrationData = ref<IIntegrationConfig | null>(null);
@@ -178,7 +182,7 @@ async function loadIntegrationData() {
 /**
  * 处理集成创建成功
  */
-const handleIntegrationCreated = async (id: string | number, name: string) => {
+const handleIntegrationCreated = async (id: string, name: string) => {
 	integrationId.value = id;
 	integrationName.value = name;
 	// 更新路由并重新加载数据
@@ -284,8 +288,25 @@ async function loadActions() {
 	}
 }
 
+const attachmentInboundApiMd = ref('');
+const attachmentOutboundApiMd = ref('');
+const isLoadingAttachmentApiMd = ref(false);
+const loadAttachmentApiMd = async () => {
+	try {
+		isLoadingAttachmentApiMd.value = true;
+		const res = await getAttachmentApiMd();
+		if (res.code == '200') {
+			attachmentInboundApiMd.value = res?.data?.inbound || '';
+			attachmentOutboundApiMd.value = res?.data?.outbound || '';
+		}
+	} finally {
+		isLoadingAttachmentApiMd.value = false;
+	}
+};
+
 // 初始化
 onMounted(async () => {
 	loadIntegrationData();
+	loadAttachmentApiMd();
 });
 </script>
