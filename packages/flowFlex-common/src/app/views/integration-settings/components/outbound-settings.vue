@@ -55,11 +55,24 @@
 
 		<!-- Attachments to Share -->
 		<div class="space-y-4">
-			<div>
-				<h3 class="text-lg font-semibold text-text-primary m-0">Attachments to Share</h3>
-				<p class="text-sm text-text-secondary mt-1">
-					Configure which workflow attachments can be shared with IAM System.
-				</p>
+			<div class="flex ites-center justify-between">
+				<div>
+					<h3 class="text-lg font-semibold text-text-primary m-0">
+						Attachments to Share
+					</h3>
+					<p class="text-sm text-text-secondary mt-1">
+						Configure which workflow attachments can be shared with IAM System.
+					</p>
+				</div>
+				<el-button
+					type="primary"
+					link
+					:icon="Document"
+					:loading="loading"
+					@click="showMdDialog"
+				>
+					Markdown
+				</el-button>
 			</div>
 
 			<el-table
@@ -183,20 +196,45 @@
 				</el-button>
 			</div>
 		</div>
+
+		<!-- API Documentation Dialog -->
+		<el-dialog
+			v-model="showApiDocDialog"
+			title="API Documentation"
+			:width="bigDialogWidth"
+			:close-on-click-modal="false"
+			append-to-body
+			draggable
+		>
+			<el-scrollbar max-height="70vh">
+				<MarkdownRenderer :content="attachmentApiMd" />
+			</el-scrollbar>
+			<template #footer>
+				<el-button
+					type="primary"
+					:icon="DocumentCopy"
+					@click="copyApiDoc"
+					:loading="isCopying"
+				>
+					Copy
+				</el-button>
+			</template>
+		</el-dialog>
 	</div>
 </template>
 
 <script setup lang="ts">
 import { ref, watch, computed } from 'vue';
-import { Search, Delete, Plus } from '@element-plus/icons-vue';
+import { Search, Delete, Plus, Document, DocumentCopy } from '@element-plus/icons-vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import {
 	createOutboundSettingsAttachment,
 	getOutboundSettingsAttachment,
 } from '@/apis/integration';
 import { getStagesByWorkflow } from '@/apis/ow';
+import { bigDialogWidth, defaultStr } from '@/settings/projectSetting';
 import type { FieldMapping, OutboundAttachmentItem1 } from '#/integration';
-import { defaultStr } from '@/settings/projectSetting';
+import MarkdownRenderer from '@/components/common/MarkdownRenderer.vue';
 
 interface Props {
 	integrationId: string | number;
@@ -205,6 +243,8 @@ interface Props {
 		fields?: string[];
 		attachmentWorkflows?: string[];
 	};
+	attachmentApiMd: string;
+	loading?: boolean;
 	workflows?: any[];
 	outboundFieldMappings?: FieldMapping[];
 }
@@ -491,4 +531,35 @@ watch(
 	},
 	{ immediate: true }
 );
+
+const showApiDocDialog = ref(false);
+const isCopying = ref(false);
+const showMdDialog = () => {
+	if (props.attachmentApiMd) {
+		showApiDocDialog.value = true;
+	} else {
+		ElMessage.warning('');
+	}
+};
+
+/**
+ * 复制 API 文档内容
+ */
+async function copyApiDoc() {
+	if (!props.attachmentApiMd) {
+		ElMessage.warning('No content to copy');
+		return;
+	}
+
+	isCopying.value = true;
+	try {
+		await navigator.clipboard.writeText(props.attachmentApiMd);
+		ElMessage.success('API documentation copied to clipboard');
+	} catch (error) {
+		console.error('Failed to copy:', error);
+		ElMessage.error('Failed to copy content');
+	} finally {
+		isCopying.value = false;
+	}
+}
 </script>
