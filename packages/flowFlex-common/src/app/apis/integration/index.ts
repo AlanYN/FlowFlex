@@ -16,6 +16,7 @@ import type {
 	IApiResponse,
 	IQuickLink,
 	InboundAttachmentIteml,
+	IntegrationAttachment,
 } from '#/integration';
 
 const globSetting = useGlobSetting();
@@ -31,6 +32,8 @@ const Api = {
 	inboundSettingsAttachment: `${globSetting.apiProName}/integration/attachment-sharing/${globSetting.apiVersion}`,
 
 	attachmentApiMd: `${globSetting.apiProName}/integration/external/${globSetting.apiVersion}/attachments/protocol`,
+
+	caseAttachmentIntegration: `${globSetting.apiProName}/integration/external/${globSetting.apiVersion}/fetch-inbound-attachments`,
 };
 
 // ==================== Integration Management API ====================
@@ -232,4 +235,10 @@ export function getOutboundSettingsAttachment(integrationId: string | number): P
 
 export function getAttachmentApiMd(): Promise<IApiResponse<{ inbound: string; outbound: string }>> {
 	return defHttp.get({ url: Api.attachmentApiMd });
+}
+
+export function getCaseAttachmentIntegration(params: {
+	systemId: string;
+}): Promise<IApiResponse<{ attachments: IntegrationAttachment[] }>> {
+	return defHttp.get({ url: Api.caseAttachmentIntegration, params });
 }
