@@ -246,3 +246,15 @@ export interface FieldMapping {
 	createDate: string;
 	modifyDate: string;
 }
+
+export interface IntegrationAttachment {
+	id: string;
+	fileName: string;
+	fileSize: string;
+	fileType: string;
+	fileExt: string;
+	createDate: string;
+	downloadLink: string;
+	integrationName: string;
+	moduleName: string;
+}

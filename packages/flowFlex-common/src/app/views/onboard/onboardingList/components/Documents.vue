@@ -27,10 +27,18 @@
 				</div>
 				<div class="case-component-actions">
 					<el-button
+						:icon="Download"
+						@click.stop="importFormIntegration"
+						:disabled="disabled"
+						:loading="importLoading"
+						type="primary"
+					>
+						Import from Integration
+					</el-button>
+					<el-button
 						:icon="Upload"
 						@click.stop="triggerUpload"
 						:disabled="disabled"
-						size="small"
 						type="primary"
 					>
 						Upload Files
@@ -215,6 +223,21 @@
 			@close-office="closeOffice"
 			@rendered-office="offloading = false"
 		/>
+
+		<!-- Import Attachments Dialog -->
+		<ImportAttachmentsDialog
+			v-model:visible="importDialogVisible"
+			:attachments="importFileList"
+			:loading="importLoading"
+			@close="handleImportDialogClose"
+			@start-download="handleStartDownload"
+		/>
+
+		<!-- File Download Progress Component -->
+		<FileDownloadProgress
+			ref="downloadProgressRef"
+			@download-complete="handleImportedFilesUpload"
+		/>
 	</div>
 </template>
 
@@ -230,6 +253,7 @@ import {
 	Delete,
 	Folder,
 	ArrowRight,
+	Download,
 } from '@element-plus/icons-vue';
 import {
 	uploadOnboardingFile,
@@ -237,10 +261,16 @@ import {
 	deleteOnboardingFile,
 	previewOnboardingFile,
 } from '@/apis/ow/onboarding';
+import { getCaseAttachmentIntegration } from '@/apis/integration';
 import { timeZoneConvert } from '@/hooks/time';
 import { DocumentItem, ComponentData } from '#/onboard';
+import { IntegrationAttachment } from '#/integration';
 import vuePreviewFile from '@/components/previewFile/previewFile.vue';
+import ImportAttachmentsDialog from './ImportAttachmentsDialog.vue';
+import FileDownloadProgress from '@/components/global/FileDownloadProgress.vue';
+import { useI18n } from '@/hooks/useI18n';
 
+const { t } = useI18n();
 // Props
 interface Props {
 	onboardingId: string;
@@ -248,6 +278,7 @@ interface Props {
 	component: ComponentData;
 	disabled?: boolean;
 	documentIsRequired?: boolean;
+	systemId?: string;
 }
 
 const props = defineProps<Props>();
@@ -555,6 +586,114 @@ const vailComponent = () => {
 	} catch {
 		return true;
 	}
+};
+
+const importLoading = ref(false);
+const importFileList = ref<IntegrationAttachment[]>([]);
+const importDialogVisible = ref(false);
+const downloadProgressRef = ref<InstanceType<typeof FileDownloadProgress>>();
+
+const importFormIntegration = async () => {
+	try {
+		if (!props?.systemId) return;
+		importLoading.value = true;
+		const res = await getCaseAttachmentIntegration({
+			systemId: props?.systemId,
+		});
+		if (res?.code == '200') {
+			importFileList.value = res?.data?.attachments || [];
+			importDialogVisible.value = true; // Open dialog on success
+		} else {
+			ElMessage.error(res?.msg || t('sys.api.operationFailed'));
+		}
+	} finally {
+		importLoading.value = false;
+	}
+};
+
+const handleImportDialogClose = () => {
+	importDialogVisible.value = false;
+};
+
+// Handle start download from dialog
+const handleStartDownload = async (attachments: IntegrationAttachment[]) => {
+	if (attachments.length === 0) return;
+
+	// Convert to simple format and start downloads in progress component
+	const attachmentsToDownload = attachments.map((att) => ({
+		id: att.id,
+		fileName: att.fileName,
+		downloadLink: att.downloadLink,
+	}));
+
+	downloadProgressRef.value?.startDownloads(attachmentsToDownload);
+};
+
+// Handle imported files upload
+const handleImportedFilesUpload = async (files: File[]) => {
+	if (files.length === 0) return;
+
+	// Upload each file
+	for (const file of files) {
+		try {
+			// Add to progress list
+			const uid = `imported-${Date.now()}-${Math.random()}`;
+			uploadProgress.value.push({
+				uid,
+				name: file.name,
+				percentage: 0,
+			});
+
+			// Validate file before upload
+			if (!handleBeforeUpload(file)) {
+				uploadProgress.value = uploadProgress.value.filter((p) => p.uid !== uid);
+				continue;
+			}
+
+			// Construct upload parameters
+			const uploadParams = {
+				name: 'formFile',
+				file: file,
+				filename: file.name,
+				data: {
+					category: 'Document',
+					description: `${file.name} imported from integration system`,
+					stageId: props.stageId,
+				},
+			};
+
+			// Call upload API with progress callback
+			const response = await uploadOnboardingFile(
+				props.onboardingId,
+				uploadParams,
+				(progressEvent: any) => {
+					const existingIndex = uploadProgress.value.findIndex((p) => p.uid === uid);
+					if (existingIndex >= 0 && progressEvent.total > 0) {
+						uploadProgress.value[existingIndex].percentage = Math.round(
+							(progressEvent.loaded * 100) / progressEvent.total
+						);
+					}
+				}
+			);
+
+			// Remove from progress list
+			uploadProgress.value = uploadProgress.value.filter((p) => p.uid !== uid);
+
+			if (response.data?.code === '200') {
+				ElMessage.success(`${file.name} uploaded successfully`);
+				emit('documentUploaded', response.data?.data);
+			} else {
+				ElMessage.error(response.data?.msg || `Failed to upload ${file.name}`);
+			}
+		} catch (error) {
+			console.error('Upload error:', error);
+			ElMessage.error(`Failed to upload ${file.name}`);
+			uploadProgress.value = uploadProgress.value.filter((p) => p.name !== file.name);
+		}
+	}
+
+	// Reload documents after all uploads
+	await fetchDocuments();
 };
 
 // 生命周期

@@ -193,6 +193,7 @@
 										onboardingData?.isDisabled ||
 										!hasCasePermission(ProjectPermissionEnum.case.update)
 									"
+									:systemId="onboardingData?.systemId"
 									@document-uploaded="handleDocumentUploaded"
 									@document-deleted="handleDocumentDeleted"
 								/>
