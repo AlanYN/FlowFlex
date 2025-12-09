@@ -266,11 +266,11 @@ namespace FlowFlex.WebApi.Controllers.Integration
         /// <param name="systemId">System ID (unique identifier for entity mapping)</param>
         /// <returns>Attachments list response from external system</returns>
         [HttpGet("fetch-inbound-attachments")]
-        [ProducesResponseType<SuccessResponse<GetAttachmentsFromExternalResponse>>((int)HttpStatusCode.OK)]
+        [ProducesResponseType<GetAttachmentsFromExternalResponse>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> FetchInboundAttachments([FromQuery(Name = "SystemId")] string systemId)
         {
             var result = await _externalIntegrationService.FetchInboundAttachmentsFromExternalAsync(systemId);
-            return Success(result);
+            return Ok(result);
         }
 
         /// <summary>

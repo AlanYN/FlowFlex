@@ -556,7 +556,9 @@ namespace FlowFlex.Application.Services.Integration
                 return new GetAttachmentsFromExternalResponse
                 {
                     Success = false,
-                    Message = "SystemId is required"
+                    Message = "SystemId is required",
+                    Msg = "SystemId is required",
+                    Code = "400"
                 };
             }
 
@@ -570,7 +572,9 @@ namespace FlowFlex.Application.Services.Integration
                     return new GetAttachmentsFromExternalResponse
                     {
                         Success = false,
-                        Message = $"Entity mapping not found for System ID '{systemId}'"
+                        Message = $"Entity mapping not found for System ID '{systemId}'",
+                        Msg = "Entity mapping not found",
+                        Code = "404"
                     };
                 }
 
@@ -585,7 +589,9 @@ namespace FlowFlex.Application.Services.Integration
                     return new GetAttachmentsFromExternalResponse
                     {
                         Success = false,
-                        Message = $"Integration not found for ID '{integrationId}'"
+                        Message = $"Integration not found for ID '{integrationId}'",
+                        Msg = "Integration not found",
+                        Code = "404"
                     };
                 }
 
@@ -601,7 +607,9 @@ namespace FlowFlex.Application.Services.Integration
                             Attachments = new List<ExternalAttachmentDto>(),
                             Total = 0
                         },
-                        Message = "No inbound attachments configured"
+                        Message = "No inbound attachments configured",
+                        Msg = "",
+                        Code = "200"
                     };
                 }
 
@@ -617,7 +625,9 @@ namespace FlowFlex.Application.Services.Integration
                     return new GetAttachmentsFromExternalResponse
                     {
                         Success = false,
-                        Message = "Invalid InboundAttachments configuration format"
+                        Message = "Invalid InboundAttachments configuration format",
+                        Msg = "Invalid configuration format",
+                        Code = "500"
                     };
                 }
 
@@ -632,7 +642,9 @@ namespace FlowFlex.Application.Services.Integration
                             Attachments = new List<ExternalAttachmentDto>(),
                             Total = 0
                         },
-                        Message = "No inbound attachment configurations"
+                        Message = "No inbound attachment configurations",
+                        Msg = "",
+                        Code = "200"
                     };
                 }
 
@@ -678,7 +690,7 @@ namespace FlowFlex.Application.Services.Integration
                         }
 
                         // Step 5: Parse action result to extract attachments
-                        var attachments = ParseAttachmentsFromActionResult(actionResult, config.ModuleName);
+                        var attachments = ParseAttachmentsFromActionResult(actionResult, integration.Name, config.ModuleName);
                         allAttachments.AddRange(attachments);
 
                         _logger.LogInformation("Extracted {Count} attachments from Action {ActionId}",
@@ -706,7 +718,9 @@ namespace FlowFlex.Application.Services.Integration
                         Attachments = allAttachments,
                         Total = allAttachments.Count
                     },
-                    Message = message
+                    Message = message,
+                    Msg = "",
+                    Code = "200"
                 };
             }
             catch (Exception ex)
@@ -715,7 +729,9 @@ namespace FlowFlex.Application.Services.Integration
                 return new GetAttachmentsFromExternalResponse
                 {
                     Success = false,
-                    Message = $"Failed to fetch attachments: {ex.Message}"
+                    Message = $"Failed to fetch attachments: {ex.Message}",
+                    Msg = ex.Message,
+                    Code = "500"
                 };
             }
         }
@@ -737,7 +753,7 @@ namespace FlowFlex.Application.Services.Integration
         ///   "code": "200"
         /// }
         /// </summary>
-        private List<ExternalAttachmentDto> ParseAttachmentsFromActionResult(JToken actionResult, string moduleName)
+        private List<ExternalAttachmentDto> ParseAttachmentsFromActionResult(JToken actionResult, string integrationName, string moduleName)
         {
             var attachments = new List<ExternalAttachmentDto>();
 
@@ -819,7 +835,9 @@ namespace FlowFlex.Application.Services.Integration
                             FileType = item["fileType"]?.ToString() ?? item["contentType"]?.ToString() ?? item["mimeType"]?.ToString() ?? "application/octet-stream",
                             FileExt = item["fileExt"]?.ToString() ?? item["extension"]?.ToString() ?? string.Empty,
                             CreateDate = item["createDate"]?.ToString() ?? item["createdAt"]?.ToString() ?? item["createTime"]?.ToString() ?? DateTimeOffset.UtcNow.ToString("yyyy-MM-dd HH:mm:ss +00:00"),
-                            DownloadLink = item["downloadLink"]?.ToString() ?? item["downloadUrl"]?.ToString() ?? item["url"]?.ToString() ?? string.Empty
+                            DownloadLink = item["downloadLink"]?.ToString() ?? item["downloadUrl"]?.ToString() ?? item["url"]?.ToString() ?? string.Empty,
+                            IntegrationName = integrationName,
+                            ModuleName = moduleName
                         };
 
                         // Only add if we have at least an ID or file name

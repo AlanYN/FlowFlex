@@ -282,6 +282,18 @@ namespace FlowFlex.Application.Contracts.Dtos.Integration
         [Required]
         [StringLength(2000)]
         public string DownloadLink { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Integration name (source integration)
+        /// </summary>
+        [StringLength(200)]
+        public string? IntegrationName { get; set; }
+
+        /// <summary>
+        /// Module name (external module source)
+        /// </summary>
+        [StringLength(200)]
+        public string? ModuleName { get; set; }
     }
 
     /// <summary>
@@ -328,6 +340,16 @@ namespace FlowFlex.Application.Contracts.Dtos.Integration
         /// Response message or error message
         /// </summary>
         public string? Message { get; set; }
+
+        /// <summary>
+        /// Short message
+        /// </summary>
+        public string Msg { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Response code
+        /// </summary>
+        public string Code { get; set; } = "200";
     }
 
     /// <summary>
