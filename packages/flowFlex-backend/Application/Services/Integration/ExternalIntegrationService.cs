@@ -835,7 +835,7 @@ namespace FlowFlex.Application.Services.Integration
                             FileType = item["fileType"]?.ToString() ?? item["contentType"]?.ToString() ?? item["mimeType"]?.ToString() ?? "application/octet-stream",
                             FileExt = item["fileExt"]?.ToString() ?? item["extension"]?.ToString() ?? string.Empty,
                             CreateDate = item["createDate"]?.ToString() ?? item["createdAt"]?.ToString() ?? item["createTime"]?.ToString() ?? DateTimeOffset.UtcNow.ToString("yyyy-MM-dd HH:mm:ss +00:00"),
-                            DownloadLink = item["downloadLink"]?.ToString() ?? item["downloadUrl"]?.ToString() ?? item["url"]?.ToString() ?? string.Empty,
+                            DownloadLink = ConvertToHttps(item["downloadLink"]?.ToString() ?? item["downloadUrl"]?.ToString() ?? item["url"]?.ToString() ?? string.Empty),
                             IntegrationName = integrationName,
                             ModuleName = moduleName
                         };
@@ -858,6 +858,27 @@ namespace FlowFlex.Application.Services.Integration
             }
 
             return attachments;
+        }
+
+        /// <summary>
+        /// Converts HTTP URLs to HTTPS for security
+        /// </summary>
+        /// <param name="url">The original URL</param>
+        /// <returns>URL with HTTPS protocol</returns>
+        private static string ConvertToHttps(string url)
+        {
+            if (string.IsNullOrEmpty(url))
+            {
+                return url;
+            }
+
+            // Convert http:// to https:// for secure connections
+            if (url.StartsWith("http://", StringComparison.OrdinalIgnoreCase))
+            {
+                return "https://" + url.Substring(7);
+            }
+
+            return url;
         }
     }
 }

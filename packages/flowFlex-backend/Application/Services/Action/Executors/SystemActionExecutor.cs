@@ -142,7 +142,9 @@ namespace FlowFlex.Application.Services.Action.Executors
                 CompletionNotes = enhancedNotes,
                 ForceComplete = false,
                 // 重要：阻止自动移动到下一阶段，严格按照用户指定的阶段执行
-                PreventAutoMove = true
+                PreventAutoMove = true,
+                // System action 执行时发送邮件通知
+                SendEmailNotification = true
             });
 
             // If autoMoveToNext is true and stage completion was successful, move to next stage

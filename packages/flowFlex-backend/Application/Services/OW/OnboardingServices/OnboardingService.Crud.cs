@@ -131,24 +131,7 @@ namespace FlowFlex.Application.Services.OW
                 // Use SqlSugar client directly for more precise checking
                 var sqlSugarClient = _onboardingRepository.GetSqlSugarClient();
 
-                if (!string.IsNullOrWhiteSpace(input.LeadId))
-                {
-                    var existingActiveOnboarding = await sqlSugarClient.Queryable<Onboarding>()
-                        .Where(x => x.TenantId == tenantId &&
-                                   x.AppCode == appCode &&
-                                   x.LeadId == input.LeadId &&
-                                   x.IsValid == true &&
-                                   x.IsActive == true)
-                        .FirstAsync();
-
-                    if (existingActiveOnboarding != null)
-                    {
-                        // Debug logging handled by structured logging
-                        throw new CRMException(ErrorCodeEnum.BusinessError,
-                            $"An active onboarding already exists for Lead ID '{input.LeadId}' in tenant '{tenantId}', app '{appCode}'. " +
-                            $"Existing onboarding ID: {existingActiveOnboarding.Id}, Status: {existingActiveOnboarding.Status}");
-                    }
-                }
+                // Note: Lead ID duplicate check removed - allow multiple onboardings with same Lead ID
                 // Debug logging handled by structured logging
                 // Validate workflow exists with detailed logging
                 // Debug logging handled by structured logging
@@ -323,15 +306,8 @@ namespace FlowFlex.Application.Services.OW
                     // Debug logging handled by structured logging
                     // Debug logging handled by structured logging.Name}");
                     // Debug logging handled by structured logging
-                    // Check if this is a duplicate key error
-                    if (insertEx.Message.Contains("23505") && insertEx.Message.Contains("idx_ff_onboarding_unique_lead"))
-                    {
-                        // This is specifically the unique constraint violation we're dealing with
-                        // Debug logging handled by structured logging
-                        throw new CRMException(ErrorCodeEnum.BusinessError,
-                            $"A duplicate onboarding record was detected for Lead ID '{entity.LeadId}' in tenant '{entity.TenantId}'. " +
-                            $"This may be due to concurrent requests or an existing active record. Please check existing onboardings and try again.");
-                    }
+                    // Note: Lead ID duplicate check removed - allow multiple onboardings with same Lead ID
+                    // If there's a unique constraint violation, it's for other fields (e.g., case_code)
 
                     // Final fallback: manual SQL with minimal fields
                     // Debug logging handled by structured logging
@@ -417,13 +393,7 @@ namespace FlowFlex.Application.Services.OW
                     catch (Exception sqlEx)
                     {
                         // Debug logging handled by structured logging
-                        // Check if this is also a duplicate key error
-                        if (sqlEx.Message.Contains("23505") && sqlEx.Message.Contains("idx_ff_onboarding_unique_lead"))
-                        {
-                            throw new CRMException(ErrorCodeEnum.BusinessError,
-                                $"A duplicate onboarding record exists for Lead ID '{entity.LeadId}' in tenant '{entity.TenantId}'. " +
-                                $"Please check existing onboardings and ensure the Lead ID is unique within the tenant.");
-                        }
+                        // Note: Lead ID duplicate check removed - allow multiple onboardings with same Lead ID
 
                         throw new CRMException(ErrorCodeEnum.SystemError,
                             $"All insertion methods failed. Simple insert: {insertEx.Message}, Minimal SQL: {sqlEx.Message}");

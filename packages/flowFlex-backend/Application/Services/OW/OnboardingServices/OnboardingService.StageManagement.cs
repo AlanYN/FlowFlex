@@ -221,8 +221,9 @@ namespace FlowFlex.Application.Services.OW
             // Update the entity using safe method - NO EVENT PUBLISHING
             var result = await SafeUpdateOnboardingAsync(entity);
 
-            // Send email notification to next stage's default assignees (for system action completion)
-            if (result)
+            // Send email notification to next stage's default assignees (only if explicitly requested)
+            // Default is false to avoid duplicate emails from multiple callers
+            if (result && input.SendEmailNotification)
             {
                 try
                 {
@@ -583,7 +584,8 @@ namespace FlowFlex.Application.Services.OW
 
         /// <summary>
         /// Send stage completion email notification to next stage's default assignees
-        /// Only sends email if next stage exists and is not completed
+        /// Only sends email if the IMMEDIATE next stage (by order) is not completed
+        /// If the immediate next stage is already completed, no email is sent
         /// </summary>
         private async Task SendStageCompletionEmailNotificationAsync(Onboarding entity, Stage stage, string completedBy)
         {
@@ -593,30 +595,31 @@ namespace FlowFlex.Application.Services.OW
                 var stages = await _stageRepository.GetByWorkflowIdAsync(entity.WorkflowId);
                 var orderedStages = stages.OrderBy(x => x.Order).ToList();
 
-                // Find next incomplete stage (only send email if next stage is not completed)
+                // Find the IMMEDIATE next stage (by order), not skipping any stages
                 var completedStageOrder = orderedStages.FirstOrDefault(s => s.Id == stage.Id)?.Order ?? 0;
-                var nextIncompleteStage = orderedStages
-                    .Where(s => s.Order > completedStageOrder &&
-                               !entity.StagesProgress.Any(sp => sp.StageId == s.Id && sp.IsCompleted))
+                var immediateNextStage = orderedStages
+                    .Where(s => s.Order > completedStageOrder)
                     .OrderBy(s => s.Order)
                     .FirstOrDefault();
 
-                // Only send email if next stage exists and is not completed
-                if (nextIncompleteStage == null)
+                // No next stage exists
+                if (immediateNextStage == null)
                 {
-                    _logger.LogDebug("No next incomplete stage found after stage {StageId}, skipping email notification", stage.Id);
+                    _logger.LogDebug("No next stage found after stage {StageId}, skipping email notification", stage.Id);
                     return;
                 }
 
-                // Double check: verify the next stage is not completed
-                var nextStageProgress = entity.StagesProgress?.FirstOrDefault(sp => sp.StageId == nextIncompleteStage.Id);
+                // Check if the immediate next stage is already completed
+                // If it's completed, don't send email (the workflow has already moved past this stage)
+                var nextStageProgress = entity.StagesProgress?.FirstOrDefault(sp => sp.StageId == immediateNextStage.Id);
                 if (nextStageProgress != null && nextStageProgress.IsCompleted)
                 {
-                    _logger.LogDebug("Next stage {NextStageId} is already completed, skipping email notification", nextIncompleteStage.Id);
+                    _logger.LogDebug("Immediate next stage {NextStageId} ({NextStageName}) is already completed, skipping email notification",
+                        immediateNextStage.Id, immediateNextStage.Name);
                     return;
                 }
 
-                string nextStageName = nextIncompleteStage.Name;
+                string nextStageName = immediateNextStage.Name;
 
                 // Build case URL using GetRequestOrigin method (similar to portal invitation)
                 var caseUrl = BuildCaseUrl(entity.Id, entity.TenantId);
@@ -630,8 +633,8 @@ namespace FlowFlex.Application.Services.OW
                 var localTime = TimeZoneInfo.ConvertTime(utcTime, TimeZoneInfo.Local);
                 var completionTime = localTime.ToString("MM/dd/yyyy hh:mm:ss tt", System.Globalization.CultureInfo.GetCultureInfo("en-US"));
 
-                // Send email to next stage's default assignees only
-                await SendEmailToStageAssigneesAsync(entity, nextIncompleteStage, caseId, caseName, stageName, nextStageName, completedBy, completionTime, caseUrl);
+                // Send email to immediate next stage's default assignees only
+                await SendEmailToStageAssigneesAsync(entity, immediateNextStage, caseId, caseName, stageName, nextStageName, completedBy, completionTime, caseUrl);
             }
             catch (Exception ex)
             {
