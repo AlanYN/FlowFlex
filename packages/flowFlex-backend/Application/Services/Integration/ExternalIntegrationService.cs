@@ -1,15 +1,19 @@
 using FlowFlex.Application.Contracts.Dtos.Integration;
 using FlowFlex.Application.Contracts.Dtos.OW.Onboarding;
+using FlowFlex.Application.Contracts.IServices.Action;
 using FlowFlex.Application.Contracts.IServices.Integration;
 using FlowFlex.Application.Contracts.IServices.OW;
 using FlowFlex.Application.Services.OW.Extensions;
+using FlowFlex.Domain.Repository.Action;
 using FlowFlex.Domain.Repository.Integration;
 using FlowFlex.Domain.Repository.OW;
 using FlowFlex.Domain.Shared;
+using FlowFlex.Domain.Shared.Enums.Action;
 using FlowFlex.Domain.Shared.Exceptions;
 using FlowFlex.Domain.Shared.Models;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using System.Linq;
 using Domain.Shared.Enums;
 
@@ -27,6 +31,8 @@ namespace FlowFlex.Application.Services.Integration
         private readonly IOnboardingRepository _onboardingRepository;
         private readonly IOnboardingService _onboardingService;
         private readonly IOnboardingFileRepository _onboardingFileRepository;
+        private readonly IActionDefinitionRepository _actionDefinitionRepository;
+        private readonly IActionExecutionService _actionExecutionService;
         private readonly UserContext _userContext;
         private readonly ILogger<ExternalIntegrationService> _logger;
 
@@ -41,6 +47,8 @@ namespace FlowFlex.Application.Services.Integration
             IOnboardingRepository onboardingRepository,
             IOnboardingService onboardingService,
             IOnboardingFileRepository onboardingFileRepository,
+            IActionDefinitionRepository actionDefinitionRepository,
+            IActionExecutionService actionExecutionService,
             UserContext userContext,
             ILogger<ExternalIntegrationService> logger)
         {
@@ -51,6 +59,8 @@ namespace FlowFlex.Application.Services.Integration
             _onboardingRepository = onboardingRepository;
             _onboardingService = onboardingService;
             _onboardingFileRepository = onboardingFileRepository;
+            _actionDefinitionRepository = actionDefinitionRepository;
+            _actionExecutionService = actionExecutionService;
             _userContext = userContext;
             _logger = logger;
         }
@@ -78,7 +88,7 @@ namespace FlowFlex.Application.Services.Integration
 
             // Parse workflow IDs from entity mapping
             var workflowIds = JsonConvert.DeserializeObject<List<long>>(entityMapping.WorkflowIds ?? "[]") ?? new List<long>();
-            
+
             if (!workflowIds.Any())
             {
                 _logger.LogInformation("No workflows configured for System ID: {SystemId}", systemId);
@@ -102,7 +112,7 @@ namespace FlowFlex.Application.Services.Integration
                 }
             }
 
-            _logger.LogInformation("Found {Count} workflows for System ID: {SystemId}", 
+            _logger.LogInformation("Found {Count} workflows for System ID: {SystemId}",
                 workflows.Count, systemId);
 
             return workflows;
@@ -113,7 +123,7 @@ namespace FlowFlex.Application.Services.Integration
         /// </summary>
         public async Task<CreateCaseFromExternalResponse> CreateCaseAsync(CreateCaseFromExternalRequest request)
         {
-            _logger.LogInformation("Creating case from external system: SystemId={SystemId}, WorkflowId={WorkflowId}", 
+            _logger.LogInformation("Creating case from external system: SystemId={SystemId}, WorkflowId={WorkflowId}",
                 request.SystemId, request.WorkflowId);
 
             if (string.IsNullOrWhiteSpace(request.SystemId))
@@ -125,7 +135,7 @@ namespace FlowFlex.Application.Services.Integration
             var entityMapping = await _entityMappingRepository.GetBySystemIdAsync(request.SystemId);
             if (entityMapping == null)
             {
-                throw new CRMException(ErrorCodeEnum.NotFound, 
+                throw new CRMException(ErrorCodeEnum.NotFound,
                     $"Entity mapping not found for System ID '{request.SystemId}'");
             }
 
@@ -133,7 +143,7 @@ namespace FlowFlex.Application.Services.Integration
             var workflowIds = JsonConvert.DeserializeObject<List<long>>(entityMapping.WorkflowIds ?? "[]") ?? new List<long>();
             if (!workflowIds.Contains(request.WorkflowId))
             {
-                throw new CRMException(ErrorCodeEnum.BusinessError, 
+                throw new CRMException(ErrorCodeEnum.BusinessError,
                     $"Workflow {request.WorkflowId} is not configured for this entity mapping");
             }
 
@@ -164,8 +174,8 @@ namespace FlowFlex.Application.Services.Integration
                 StartDate = DateTimeOffset.UtcNow,
                 Priority = "Medium",
                 IsActive = true,
-                CustomFieldsJson = request.CustomFields != null 
-                    ? JsonConvert.SerializeObject(request.CustomFields) 
+                CustomFieldsJson = request.CustomFields != null
+                    ? JsonConvert.SerializeObject(request.CustomFields)
                     : null
             };
 
@@ -174,7 +184,7 @@ namespace FlowFlex.Application.Services.Integration
 
             // Get the created case to return details
             var createdCase = await _onboardingRepository.GetByIdAsync(caseId);
-            
+
             // Update SystemId and IntegrationId
             if (createdCase != null)
             {
@@ -182,7 +192,7 @@ namespace FlowFlex.Application.Services.Integration
                 createdCase.IntegrationId = entityMapping.IntegrationId;
                 createdCase.InitModifyInfo(_userContext);
                 await _onboardingRepository.UpdateAsync(createdCase);
-                _logger.LogInformation("Updated SystemId={SystemId} and IntegrationId={IntegrationId} for case {CaseId}", 
+                _logger.LogInformation("Updated SystemId={SystemId} and IntegrationId={IntegrationId} for case {CaseId}",
                     request.SystemId, entityMapping.IntegrationId, caseId);
             }
 
@@ -206,7 +216,7 @@ namespace FlowFlex.Application.Services.Integration
         /// </summary>
         public async Task<CaseInfoResponse> GetCaseInfoAsync(CaseInfoRequest request)
         {
-            _logger.LogInformation("Getting case info: LeadId={LeadId}, CustomerName={CustomerName}", 
+            _logger.LogInformation("Getting case info: LeadId={LeadId}, CustomerName={CustomerName}",
                 request.LeadId, request.CustomerName);
 
             var response = new CaseInfoResponse
@@ -221,23 +231,23 @@ namespace FlowFlex.Application.Services.Integration
             // Try to find case by LeadId or CustomerName
             if (!string.IsNullOrEmpty(request.LeadId))
             {
-                var cases = await _onboardingRepository.GetListAsync(o => 
+                var cases = await _onboardingRepository.GetListAsync(o =>
                     o.LeadId == request.LeadId && o.IsValid);
-                
+
                 var onboarding = cases.FirstOrDefault();
                 if (onboarding != null)
                 {
                     response.CaseId = onboarding.Id;
                     response.CaseCode = onboarding.CaseCode;
                     response.CaseStatus = onboarding.Status;
-                    
+
                     // Get current stage name
                     if (onboarding.CurrentStageId.HasValue)
                     {
                         var stage = await _stageRepository.GetByIdAsync(onboarding.CurrentStageId.Value);
                         response.CurrentStageName = stage?.Name;
                     }
-                    
+
                     // Get workflow name if we have workflow ID
                     if (onboarding.WorkflowId > 0)
                     {
@@ -248,23 +258,23 @@ namespace FlowFlex.Application.Services.Integration
             }
             else if (!string.IsNullOrEmpty(request.CustomerName))
             {
-                var cases = await _onboardingRepository.GetListAsync(o => 
+                var cases = await _onboardingRepository.GetListAsync(o =>
                     o.LeadName == request.CustomerName && o.IsValid);
-                
+
                 var onboarding = cases.FirstOrDefault();
                 if (onboarding != null)
                 {
                     response.CaseId = onboarding.Id;
                     response.CaseCode = onboarding.CaseCode;
                     response.CaseStatus = onboarding.Status;
-                    
+
                     // Get current stage name
                     if (onboarding.CurrentStageId.HasValue)
                     {
                         var stage = await _stageRepository.GetByIdAsync(onboarding.CurrentStageId.Value);
                         response.CurrentStageName = stage?.Name;
                     }
-                    
+
                     if (onboarding.WorkflowId > 0)
                     {
                         var workflow = await _workflowRepository.GetByIdAsync(onboarding.WorkflowId);
@@ -317,12 +327,12 @@ namespace FlowFlex.Application.Services.Integration
                     FileType = f.ContentType ?? "application/octet-stream",
                     FileExt = f.FileExtension ?? string.Empty,
                     CreateDate = f.UploadedDate.ToString("yyyy-MM-dd HH:mm:ss +00:00"),
-                    DownloadLink = !string.IsNullOrEmpty(f.AccessUrl) 
-                        ? f.AccessUrl 
+                    DownloadLink = !string.IsNullOrEmpty(f.AccessUrl)
+                        ? f.AccessUrl
                         : $"/ow/onboarding-files/v1.0/{f.Id}/download"
                 }).ToList();
 
-                _logger.LogInformation("Successfully retrieved {Count} attachments for CaseId={CaseId}", 
+                _logger.LogInformation("Successfully retrieved {Count} attachments for CaseId={CaseId}",
                     attachments.Count, caseId);
 
                 return new GetAttachmentsFromExternalResponse
@@ -467,7 +477,7 @@ namespace FlowFlex.Application.Services.Integration
             try
             {
                 // Get all onboardings by System ID
-                var onboardings = await _onboardingRepository.GetListAsync(o => 
+                var onboardings = await _onboardingRepository.GetListAsync(o =>
                     o.SystemId == systemId && o.IsValid);
 
                 if (!onboardings.Any())
@@ -528,6 +538,308 @@ namespace FlowFlex.Application.Services.Integration
                     Message = $"Failed to get attachments: {ex.Message}"
                 };
             }
+        }
+
+        /// <summary>
+        /// Fetch inbound attachments from external system by System ID
+        /// 1. Get IntegrationId from EntityMapping by SystemId
+        /// 2. Get InboundAttachment configuration from Integration
+        /// 3. Execute HTTP Action to fetch attachments from external system
+        /// 4. Parse and return the attachment list
+        /// </summary>
+        public async Task<GetAttachmentsFromExternalResponse> FetchInboundAttachmentsFromExternalAsync(string systemId)
+        {
+            _logger.LogInformation("Fetching inbound attachments from external system by System ID: SystemId={SystemId}", systemId);
+
+            if (string.IsNullOrWhiteSpace(systemId))
+            {
+                return new GetAttachmentsFromExternalResponse
+                {
+                    Success = false,
+                    Message = "SystemId is required"
+                };
+            }
+
+            try
+            {
+                // Step 1: Get entity mapping by System ID to find IntegrationId
+                var entityMapping = await _entityMappingRepository.GetBySystemIdAsync(systemId);
+                if (entityMapping == null)
+                {
+                    _logger.LogWarning("No entity mapping found for System ID: {SystemId}", systemId);
+                    return new GetAttachmentsFromExternalResponse
+                    {
+                        Success = false,
+                        Message = $"Entity mapping not found for System ID '{systemId}'"
+                    };
+                }
+
+                var integrationId = entityMapping.IntegrationId;
+                _logger.LogInformation("Found IntegrationId={IntegrationId} for SystemId={SystemId}", integrationId, systemId);
+
+                // Step 2: Get Integration to retrieve InboundAttachments configuration
+                var integration = await _integrationRepository.GetByIdAsync(integrationId);
+                if (integration == null)
+                {
+                    _logger.LogWarning("Integration not found: IntegrationId={IntegrationId}", integrationId);
+                    return new GetAttachmentsFromExternalResponse
+                    {
+                        Success = false,
+                        Message = $"Integration not found for ID '{integrationId}'"
+                    };
+                }
+
+                // Step 3: Parse InboundAttachments configuration
+                if (string.IsNullOrEmpty(integration.InboundAttachments))
+                {
+                    _logger.LogInformation("No InboundAttachments configured for Integration: IntegrationId={IntegrationId}", integrationId);
+                    return new GetAttachmentsFromExternalResponse
+                    {
+                        Success = true,
+                        Data = new AttachmentsData
+                        {
+                            Attachments = new List<ExternalAttachmentDto>(),
+                            Total = 0
+                        },
+                        Message = "No inbound attachments configured"
+                    };
+                }
+
+                List<InboundAttachmentItemDto> inboundAttachmentConfigs;
+                try
+                {
+                    inboundAttachmentConfigs = JsonConvert.DeserializeObject<List<InboundAttachmentItemDto>>(integration.InboundAttachments)
+                        ?? new List<InboundAttachmentItemDto>();
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to parse InboundAttachments configuration: IntegrationId={IntegrationId}", integrationId);
+                    return new GetAttachmentsFromExternalResponse
+                    {
+                        Success = false,
+                        Message = "Invalid InboundAttachments configuration format"
+                    };
+                }
+
+                if (!inboundAttachmentConfigs.Any())
+                {
+                    _logger.LogInformation("InboundAttachments configuration is empty: IntegrationId={IntegrationId}", integrationId);
+                    return new GetAttachmentsFromExternalResponse
+                    {
+                        Success = true,
+                        Data = new AttachmentsData
+                        {
+                            Attachments = new List<ExternalAttachmentDto>(),
+                            Total = 0
+                        },
+                        Message = "No inbound attachment configurations"
+                    };
+                }
+
+                // Step 4: Execute Actions and collect attachments
+                var allAttachments = new List<ExternalAttachmentDto>();
+                var errors = new List<string>();
+
+                foreach (var config in inboundAttachmentConfigs)
+                {
+                    try
+                    {
+                        _logger.LogInformation("Executing Action for inbound attachment: ActionId={ActionId}, ModuleName={ModuleName}",
+                            config.ActionId, config.ModuleName);
+
+                        // Get Action Definition
+                        var actionDefinition = await _actionDefinitionRepository.GetByIdAsync(config.ActionId);
+                        if (actionDefinition == null)
+                        {
+                            _logger.LogWarning("Action definition not found: ActionId={ActionId}", config.ActionId);
+                            errors.Add($"Action {config.ActionId} not found");
+                            continue;
+                        }
+
+                        // Prepare context data with SystemId
+                        var contextData = new Dictionary<string, object>
+                        {
+                            { "systemId", systemId },
+                            { "SystemId", systemId },
+                            { "integrationId", integrationId.ToString() },
+                            { "IntegrationId", integrationId.ToString() },
+                            { "moduleName", config.ModuleName },
+                            { "ModuleName", config.ModuleName }
+                        };
+
+                        // Execute Action
+                        var actionResult = await _actionExecutionService.ExecuteActionAsync(config.ActionId, contextData);
+
+                        if (actionResult == null)
+                        {
+                            _logger.LogWarning("Action execution returned null: ActionId={ActionId}", config.ActionId);
+                            errors.Add($"Action {config.ActionId} returned no result");
+                            continue;
+                        }
+
+                        // Step 5: Parse action result to extract attachments
+                        var attachments = ParseAttachmentsFromActionResult(actionResult, config.ModuleName);
+                        allAttachments.AddRange(attachments);
+
+                        _logger.LogInformation("Extracted {Count} attachments from Action {ActionId}",
+                            attachments.Count, config.ActionId);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Error executing Action: ActionId={ActionId}", config.ActionId);
+                        errors.Add($"Action {config.ActionId} execution failed: {ex.Message}");
+                    }
+                }
+
+                var message = errors.Any()
+                    ? $"Success with {errors.Count} errors: {string.Join("; ", errors)}"
+                    : "Success";
+
+                _logger.LogInformation("Fetched {Count} attachments from external system for SystemId={SystemId}",
+                    allAttachments.Count, systemId);
+
+                return new GetAttachmentsFromExternalResponse
+                {
+                    Success = true,
+                    Data = new AttachmentsData
+                    {
+                        Attachments = allAttachments,
+                        Total = allAttachments.Count
+                    },
+                    Message = message
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error fetching inbound attachments from external system: SystemId={SystemId}", systemId);
+                return new GetAttachmentsFromExternalResponse
+                {
+                    Success = false,
+                    Message = $"Failed to fetch attachments: {ex.Message}"
+                };
+            }
+        }
+
+        /// <summary>
+        /// Parse attachments from action execution result
+        /// Expected format:
+        /// {
+        ///   "data": {
+        ///     "success": true,
+        ///     "data": {
+        ///       "attachments": [...],
+        ///       "total": N
+        ///     },
+        ///     "message": "Success"
+        ///   },
+        ///   "success": true,
+        ///   "msg": "",
+        ///   "code": "200"
+        /// }
+        /// </summary>
+        private List<ExternalAttachmentDto> ParseAttachmentsFromActionResult(JToken actionResult, string moduleName)
+        {
+            var attachments = new List<ExternalAttachmentDto>();
+
+            try
+            {
+                // Try to extract the response content from different possible structures
+                JToken? responseData = null;
+
+                // Structure 1: Direct response wrapper from HttpApiActionExecutor
+                // { success: true, statusCode: 200, response: "...", headers: {...} }
+                if (actionResult["response"] != null)
+                {
+                    var responseStr = actionResult["response"]?.ToString();
+                    if (!string.IsNullOrEmpty(responseStr))
+                    {
+                        try
+                        {
+                            responseData = JToken.Parse(responseStr);
+                        }
+                        catch
+                        {
+                            // Response is not JSON, skip
+                            _logger.LogWarning("Action response is not valid JSON: {Response}", responseStr?.Substring(0, Math.Min(200, responseStr?.Length ?? 0)));
+                            return attachments;
+                        }
+                    }
+                }
+                else
+                {
+                    // Use actionResult directly
+                    responseData = actionResult;
+                }
+
+                if (responseData == null)
+                {
+                    return attachments;
+                }
+
+                // Try to find attachments in various nested structures
+                JArray? attachmentsArray = null;
+
+                // Path 1: data.data.attachments (nested external API response)
+                attachmentsArray = responseData.SelectToken("data.data.attachments") as JArray;
+
+                // Path 2: data.attachments (standard response)
+                if (attachmentsArray == null)
+                {
+                    attachmentsArray = responseData.SelectToken("data.attachments") as JArray;
+                }
+
+                // Path 3: attachments (direct)
+                if (attachmentsArray == null)
+                {
+                    attachmentsArray = responseData.SelectToken("attachments") as JArray;
+                }
+
+                // Path 4: Check if response itself is an array
+                if (attachmentsArray == null && responseData is JArray directArray)
+                {
+                    attachmentsArray = directArray;
+                }
+
+                if (attachmentsArray == null || !attachmentsArray.Any())
+                {
+                    _logger.LogDebug("No attachments found in action result for module: {ModuleName}", moduleName);
+                    return attachments;
+                }
+
+                // Parse each attachment
+                foreach (var item in attachmentsArray)
+                {
+                    try
+                    {
+                        var attachment = new ExternalAttachmentDto
+                        {
+                            Id = item["id"]?.ToString() ?? string.Empty,
+                            FileName = item["fileName"]?.ToString() ?? item["filename"]?.ToString() ?? item["name"]?.ToString() ?? "unknown",
+                            FileSize = item["fileSize"]?.ToString() ?? item["size"]?.ToString() ?? "0",
+                            FileType = item["fileType"]?.ToString() ?? item["contentType"]?.ToString() ?? item["mimeType"]?.ToString() ?? "application/octet-stream",
+                            FileExt = item["fileExt"]?.ToString() ?? item["extension"]?.ToString() ?? string.Empty,
+                            CreateDate = item["createDate"]?.ToString() ?? item["createdAt"]?.ToString() ?? item["createTime"]?.ToString() ?? DateTimeOffset.UtcNow.ToString("yyyy-MM-dd HH:mm:ss +00:00"),
+                            DownloadLink = item["downloadLink"]?.ToString() ?? item["downloadUrl"]?.ToString() ?? item["url"]?.ToString() ?? string.Empty
+                        };
+
+                        // Only add if we have at least an ID or file name
+                        if (!string.IsNullOrEmpty(attachment.Id) || !string.IsNullOrEmpty(attachment.FileName))
+                        {
+                            attachments.Add(attachment);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Failed to parse attachment item: {Item}", item.ToString());
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error parsing attachments from action result for module: {ModuleName}", moduleName);
+            }
+
+            return attachments;
         }
     }
 }

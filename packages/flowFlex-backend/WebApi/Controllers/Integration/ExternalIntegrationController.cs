@@ -256,6 +256,24 @@ namespace FlowFlex.WebApi.Controllers.Integration
         }
 
         /// <summary>
+        /// Fetch inbound attachments from external system by System ID
+        /// This endpoint performs the following steps:
+        /// 1. Get IntegrationId from EntityMapping by SystemId
+        /// 2. Get InboundAttachment configuration from Integration
+        /// 3. Execute HTTP Action(s) to fetch attachments from external system
+        /// 4. Parse and return the attachment list
+        /// </summary>
+        /// <param name="systemId">System ID (unique identifier for entity mapping)</param>
+        /// <returns>Attachments list response from external system</returns>
+        [HttpGet("fetch-inbound-attachments")]
+        [ProducesResponseType<SuccessResponse<GetAttachmentsFromExternalResponse>>((int)HttpStatusCode.OK)]
+        public async Task<IActionResult> FetchInboundAttachments([FromQuery(Name = "SystemId")] string systemId)
+        {
+            var result = await _externalIntegrationService.FetchInboundAttachmentsFromExternalAsync(systemId);
+            return Success(result);
+        }
+
+        /// <summary>
         /// Get Attachment integration protocol documentation
         /// Returns the API documentation for both Inbound and Outbound Attachment integration protocols
         /// </summary>
