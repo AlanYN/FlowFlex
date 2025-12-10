@@ -241,3 +241,50 @@ export interface IntegrationAttachment {
 	integrationName: string;
 	moduleName: string;
 }
+
+export interface DownloadApi {
+	taskId: string;
+	onboardingId: string;
+	stageId: string;
+	status: string;
+	totalCount: number;
+	successCount: number;
+	failedCount: number;
+	cancelledCount: number;
+	progressPercentage: number;
+	isCompleted: boolean;
+	createdAt: string;
+	completedAt: string;
+	createdBy: string;
+	items: {
+		itemId: string;
+		downloadLink: string;
+		fileName: string;
+		status: string;
+		progressPercentage: number;
+		fileId: string;
+		errorMessage: string;
+		fileOutput: {
+			id: string;
+			onboardingId: string;
+			stageId: string;
+			originalFileName: string;
+			storedFileName: string;
+			fileExtension: string;
+			fileSize: string;
+			fileSizeFormatted: string;
+			contentType: string;
+			category: string;
+			description: string;
+			isRequired: false;
+			accessUrl: string;
+			downloadUrl: string;
+			uploadedById: string;
+			uploadedByName: string;
+			uploadedDate: string;
+			status: string;
+			tenantId: string;
+		};
+		canCancel: boolean;
+	}[];
+}
