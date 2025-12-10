@@ -5,7 +5,6 @@ using FlowFlex.Application.Contracts.Dtos.OW.Onboarding;
 using FlowFlex.Application.Contracts.Dtos.OW.Permission;
 using FlowFlex.Application.Contracts.IServices.Action;
 using FlowFlex.Application.Contracts.IServices.OW;
-using FlowFlex.Application.Contracts.IServices.OW;
 using FlowFlex.Application.Services.OW.Extensions;
 using FlowFlex.Domain.Entities.OW;
 using FlowFlex.Domain.Repository.OW;
@@ -198,21 +197,21 @@ namespace FlowFlex.Application.Services.OW
                 }
                 catch { }
 
-                // 浣跨敤 fire-and-forget 鏂瑰紡寮傛澶勭悊浜嬩欢锛屼笉闃诲涓绘祦绋?
+                // Use fire-and-forget pattern to handle events asynchronously without blocking main flow
                 _backgroundTaskQueue.QueueBackgroundWorkItem(async token =>
                 {
                     try
                     {
-                        // 鍒涘缓鏂扮殑浣滅敤鍩熸潵閬垮厤 ServiceProvider disposed 閿欒
+                        // Create new scope to avoid ServiceProvider disposed error
                         using var scope = _serviceScopeFactory.CreateScope();
                         var scopedMediator = scope.ServiceProvider.GetRequiredService<IMediator>();
                         await scopedMediator.Publish(onboardingStageCompletedEvent);
                     }
                     catch (Exception ex)
                     {
-                        // 璁板綍閿欒浣嗕笉褰卞搷涓绘祦绋?
-                        // TODO: 鍙互鑰冭檻娣诲姞閲嶈瘯鏈哄埗鎴栬€呬娇鐢ㄦ秷鎭槦鍒?
-                        // 杩欓噷鍙互娣诲姞鏃ュ織璁板綍锛屼絾瑕佺‘淇濅笉鎶涘嚭寮傚父
+                        // Log error but don't affect main flow
+                        // TODO: Consider adding retry mechanism or using message queue
+                        // Can add logging here, but ensure no exceptions are thrown
                     }
                 });
 

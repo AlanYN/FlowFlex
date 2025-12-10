@@ -5,7 +5,6 @@ using FlowFlex.Application.Contracts.Dtos.OW.Onboarding;
 using FlowFlex.Application.Contracts.Dtos.OW.Permission;
 using FlowFlex.Application.Contracts.IServices.Action;
 using FlowFlex.Application.Contracts.IServices.OW;
-using FlowFlex.Application.Contracts.IServices.OW;
 using FlowFlex.Application.Contracts.IServices.OW.ChangeLog;
 using FlowFlex.Application.Services.OW.Extensions;
 using FlowFlex.Domain.Entities.OW;
@@ -664,7 +663,7 @@ namespace FlowFlex.Application.Services.OW
         {
             try
             {
-                Console.WriteLine($"[OnboardingService] Starting static field sync - OnboardingId: {onboardingId}, StageId: {stageId}");
+                _logger.LogDebug("Starting static field sync - OnboardingId: {OnboardingId}, StageId: {StageId}", onboardingId, stageId);
 
                 var staticFieldUpdates = new List<FlowFlex.Application.Contracts.Dtos.OW.StaticField.StaticFieldValueInputDto>();
 
@@ -672,7 +671,7 @@ namespace FlowFlex.Application.Services.OW
                 // Only update fields that have changed
                 if (!string.Equals(originalLeadId, input.LeadId, StringComparison.Ordinal))
                 {
-                    Console.WriteLine($"[OnboardingService] LEADID changed: '{originalLeadId}' -> '{input.LeadId}'");
+                    _logger.LogDebug("LEADID changed: '{OriginalValue}' -> '{NewValue}'", originalLeadId, input.LeadId);
                     staticFieldUpdates.Add(CreateStaticFieldInput(
                         onboardingId,
                         stageId,
@@ -686,7 +685,7 @@ namespace FlowFlex.Application.Services.OW
 
                 if (!string.Equals(originalLeadName, input.LeadName, StringComparison.Ordinal))
                 {
-                    Console.WriteLine($"[OnboardingService] CUSTOMERNAME changed: '{originalLeadName}' -> '{input.LeadName}'");
+                    _logger.LogDebug("CUSTOMERNAME changed: '{OriginalValue}' -> '{NewValue}'", originalLeadName, input.LeadName);
                     staticFieldUpdates.Add(CreateStaticFieldInput(
                         onboardingId,
                         stageId,
@@ -700,7 +699,7 @@ namespace FlowFlex.Application.Services.OW
 
                 if (!string.Equals(originalContactPerson, input.ContactPerson, StringComparison.Ordinal))
                 {
-                    Console.WriteLine($"[OnboardingService] CONTACTNAME changed: '{originalContactPerson}' -> '{input.ContactPerson}'");
+                    _logger.LogDebug("CONTACTNAME changed: '{OriginalValue}' -> '{NewValue}'", originalContactPerson, input.ContactPerson);
                     staticFieldUpdates.Add(CreateStaticFieldInput(
                         onboardingId,
                         stageId,
@@ -714,7 +713,7 @@ namespace FlowFlex.Application.Services.OW
 
                 if (!string.Equals(originalContactEmail, input.ContactEmail, StringComparison.Ordinal))
                 {
-                    Console.WriteLine($"[OnboardingService] CONTACTEMAIL changed: '{originalContactEmail}' -> '{input.ContactEmail}'");
+                    _logger.LogDebug("CONTACTEMAIL changed: '{OriginalValue}' -> '{NewValue}'", originalContactEmail, input.ContactEmail);
                     staticFieldUpdates.Add(CreateStaticFieldInput(
                         onboardingId,
                         stageId,
@@ -728,7 +727,7 @@ namespace FlowFlex.Application.Services.OW
 
                 if (!string.Equals(originalLeadPhone, input.LeadPhone, StringComparison.Ordinal))
                 {
-                    Console.WriteLine($"[OnboardingService] CONTACTPHONE changed: '{originalLeadPhone}' -> '{input.LeadPhone}'");
+                    _logger.LogDebug("CONTACTPHONE changed: '{OriginalValue}' -> '{NewValue}'", originalLeadPhone, input.LeadPhone);
                     staticFieldUpdates.Add(CreateStaticFieldInput(
                         onboardingId,
                         stageId,
@@ -742,7 +741,7 @@ namespace FlowFlex.Application.Services.OW
 
                 if (originalLifeCycleStageId != input.LifeCycleStageId)
                 {
-                    Console.WriteLine($"[OnboardingService] LIFECYCLESTAGE changed: '{originalLifeCycleStageId}' -> '{input.LifeCycleStageId}'");
+                    _logger.LogDebug("LIFECYCLESTAGE changed: '{OriginalValue}' -> '{NewValue}'", originalLifeCycleStageId, input.LifeCycleStageId);
                     staticFieldUpdates.Add(CreateStaticFieldInput(
                         onboardingId,
                         stageId,
@@ -756,7 +755,7 @@ namespace FlowFlex.Application.Services.OW
 
                 if (!string.Equals(originalPriority, input.Priority, StringComparison.Ordinal))
                 {
-                    Console.WriteLine($"[OnboardingService] PRIORITY changed: '{originalPriority}' -> '{input.Priority}'");
+                    _logger.LogDebug("PRIORITY changed: '{OriginalValue}' -> '{NewValue}'", originalPriority, input.Priority);
                     staticFieldUpdates.Add(CreateStaticFieldInput(
                         onboardingId,
                         stageId,
@@ -771,7 +770,7 @@ namespace FlowFlex.Application.Services.OW
                 // Batch update static field values if any fields changed
                 if (staticFieldUpdates.Any())
                 {
-                    Console.WriteLine($"[OnboardingService] Syncing {staticFieldUpdates.Count} static field(s) to database");
+                    _logger.LogDebug("Syncing {FieldCount} static field(s) to database", staticFieldUpdates.Count);
 
                     var batchInput = new FlowFlex.Application.Contracts.Dtos.OW.StaticField.BatchStaticFieldValueInputDto
                     {
@@ -784,18 +783,17 @@ namespace FlowFlex.Application.Services.OW
                     };
 
                     await _staticFieldValueService.BatchSaveAsync(batchInput);
-                    Console.WriteLine($"[OnboardingService] Static field sync completed successfully");
+                    _logger.LogDebug("Static field sync completed successfully");
                 }
                 else
                 {
-                    Console.WriteLine($"[OnboardingService] No static field changes detected, sync skipped");
+                    _logger.LogDebug("No static field changes detected, sync skipped");
                 }
             }
             catch (Exception ex)
             {
                 // Log error but don't fail the main update operation
-                Console.WriteLine($"[OnboardingService] Failed to sync static field values: {ex.Message}");
-                Console.WriteLine($"[OnboardingService] Stack trace: {ex.StackTrace}");
+                _logger.LogError(ex, "Failed to sync static field values for Onboarding {OnboardingId}", onboardingId);
             }
         }
 
