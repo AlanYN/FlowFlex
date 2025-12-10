@@ -226,7 +226,7 @@
 
 												<div class="flex-1 min-w-0">
 													<div
-														class="font-medium text-gray-800 dark:text-gray-200 block overflow-hidden text-ellipsis whitespace-nowrap"
+														class="font-medium text-gray-800 block overflow-hidden text-ellipsis whitespace-nowrap"
 													>
 														{{ data.name }}
 													</div>
