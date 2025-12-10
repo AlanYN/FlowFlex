@@ -331,9 +331,6 @@ async function handleSaveEntityMapping(mapping: IEntityMapping, index: number) {
 		} else {
 			ElMessage.error(res.msg || 'Failed to save entity mapping');
 		}
-	} catch (error) {
-		console.error('Failed to save entity mapping:', error);
-		ElMessage.error('Failed to save entity mapping');
 	} finally {
 		savingMappingId.value = null;
 	}
@@ -361,7 +358,6 @@ async function handleDeleteEntityMapping(mapping: IEntityMapping, index: number)
 		}
 	} catch (error) {
 		console.error('Failed to delete entity mapping:', error);
-		ElMessage.error('Failed to delete entity mapping');
 	}
 }
 
