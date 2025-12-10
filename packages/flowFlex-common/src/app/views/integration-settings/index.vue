@@ -11,7 +11,10 @@
 			<!-- 加载骨架屏 -->
 			<template v-if="isLoading">
 				<!-- Add New 卡片骨架 -->
-				<div class="border-2 border-dashed rounded-xl p-6 flex flex-col">
+				<div
+					class="border-2 border-dashed rounded-xl p-6 flex flex-col"
+					v-permission="ProjectPermissionEnum.integration.create"
+				>
 					<div class="flex-1 flex flex-col items-center justify-center text-center">
 						<el-skeleton animated class="w-full">
 							<template #template>
@@ -74,6 +77,7 @@
 				<div
 					class="bg-white integration-card border-2 border-dashed rounded-xl p-6 hover:border-primary hover:shadow-md transition-all cursor-pointer group flex flex-col items-center justify-center"
 					@click="handleAddIntegration"
+					v-permission="ProjectPermissionEnum.integration.create"
 				>
 					<div
 						class="w-16 h-16 rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform"
@@ -105,6 +109,7 @@ import IntegrationListCard from './components/integration-list-card.vue';
 import { getIntegrations } from '@/apis/integration';
 import type { IIntegrationConfig } from '#/integration';
 import PageHeader from '@/components/global/PageHeader/index.vue';
+import { ProjectPermissionEnum } from '@/enums/permissionEnum';
 
 const router = useRouter();
 

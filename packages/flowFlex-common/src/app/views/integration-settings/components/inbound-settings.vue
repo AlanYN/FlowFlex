@@ -166,7 +166,10 @@
 					<template #default="{ row, $index }">
 						<div class="flex items-center justify-center gap-1">
 							<el-button
-								v-if="row.isEditing || !row.id"
+								v-if="
+									(row.isEditing || !row.id) &&
+									functionPermission(ProjectPermissionEnum.integration.create)
+								"
 								type="primary"
 								:loading="isSaving"
 								@click="handleSaveModule(row, $index)"
@@ -179,6 +182,7 @@
 								link
 								@click="handleDeleteModule($index)"
 								:icon="Delete"
+								v-permission="ProjectPermissionEnum.integration.delete"
 							/>
 						</div>
 					</template>
@@ -186,7 +190,11 @@
 			</el-table>
 
 			<div class="flex justify-start">
-				<el-button type="primary" @click="handleAddModule">
+				<el-button
+					type="primary"
+					@click="handleAddModule"
+					v-permission="ProjectPermissionEnum.integration.create"
+				>
 					<el-icon><Plus /></el-icon>
 					Add Module
 				</el-button>
@@ -232,6 +240,8 @@ import type { FieldMapping, InboundAttachmentIteml } from '#/integration';
 import SaveChangeIcon from '@assets/svg/publicPage/saveChange.svg';
 import { defaultStr, bigDialogWidth } from '@/settings/projectSetting';
 import MarkdownRenderer from '@/components/common/MarkdownRenderer.vue';
+import { functionPermission } from '@/hooks';
+import { ProjectPermissionEnum } from '@/enums/permissionEnum';
 
 interface Props {
 	integrationId: string;

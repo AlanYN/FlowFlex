@@ -19,6 +19,10 @@
 					</div>
 					<el-dropdown
 						trigger="click"
+						v-if="
+							functionPermission(ProjectPermissionEnum.integration.update) ||
+							functionPermission(ProjectPermissionEnum.integration.delete)
+						"
 						@command="handleCommand"
 						class="flex-shrink-0"
 						@click.stop
@@ -28,7 +32,12 @@
 						</el-button>
 						<template #dropdown>
 							<el-dropdown-menu>
-								<el-dropdown-item command="edit">
+								<el-dropdown-item
+									command="edit"
+									v-if="
+										functionPermission(ProjectPermissionEnum.integration.update)
+									"
+								>
 									<el-icon class="mr-2"><Edit /></el-icon>
 									Edit
 								</el-dropdown-item>
@@ -36,6 +45,9 @@
 								<el-dropdown-item
 									command="delete"
 									class="text-red-500 hover:!bg-red-500 hover:!text-white"
+									v-if="
+										functionPermission(ProjectPermissionEnum.integration.delete)
+									"
 								>
 									<el-icon class="mr-2"><Delete /></el-icon>
 									Delete
@@ -92,6 +104,8 @@ import { useRouter } from 'vue-router';
 import { deleteIntegration } from '@/apis/integration';
 import type { IIntegrationConfig } from '#/integration';
 import * as echarts from 'echarts';
+import { functionPermission } from '@/hooks';
+import { ProjectPermissionEnum } from '@/enums/permissionEnum';
 
 interface Props {
 	integration: IIntegrationConfig;
@@ -180,6 +194,7 @@ const chartData = computed(() => {
  * 点击卡片
  */
 function handleClick() {
+	if (!functionPermission(ProjectPermissionEnum.integration.read)) return;
 	router.push({
 		name: 'IntegrationDetail',
 		params: { id: props.integration.id },
@@ -191,8 +206,10 @@ function handleClick() {
  */
 function handleCommand(command: string) {
 	if (command === 'edit') {
+		if (!functionPermission(ProjectPermissionEnum.integration.read)) return;
 		handleClick();
 	} else if (command === 'delete') {
+		if (!functionPermission(ProjectPermissionEnum.integration.delete)) return;
 		handleDelete();
 	}
 }

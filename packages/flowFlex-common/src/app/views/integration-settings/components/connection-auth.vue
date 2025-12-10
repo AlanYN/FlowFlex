@@ -142,7 +142,10 @@
 			<div class="flex justify-between">
 				<div class="flex items-center gap-x-2">
 					<el-button
-						v-if="integrationId !== 'new'"
+						v-if="
+							integrationId !== 'new' &&
+							functionPermission(ProjectPermissionEnum.integration.read)
+						"
 						type="primary"
 						:loading="isTesting"
 						:disabled="!isFormValid"
@@ -191,7 +194,10 @@
 					</div>
 				</div>
 				<el-button
-					v-if="integrationId === 'new'"
+					v-if="
+						integrationId === 'new' &&
+						functionPermission(ProjectPermissionEnum.integration.create)
+					"
 					type="primary"
 					:loading="isSaving"
 					:disabled="!isFormValid"
@@ -200,7 +206,11 @@
 					Create Integration
 				</el-button>
 				<el-button
-					v-else
+					v-else-if="
+						integrationId &&
+						integrationId != 'new' &&
+						functionPermission(ProjectPermissionEnum.integration.update)
+					"
 					type="primary"
 					:loading="isUpdating"
 					:disabled="!isFormValid"
@@ -222,6 +232,8 @@ import { createIntegration, updateIntegration } from '@/apis/integration';
 import type { IConnectionConfig, IIntegrationConfig } from '#/integration';
 import { AuthMethod } from '@/enums/integration';
 import { inputTextraAutosize } from '@/settings/projectSetting';
+import { functionPermission } from '@/hooks';
+import { ProjectPermissionEnum } from '@/enums/permissionEnum';
 
 interface Props {
 	integrationId: string | number;
