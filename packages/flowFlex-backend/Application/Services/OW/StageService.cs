@@ -1149,10 +1149,7 @@ namespace FlowFlex.Application.Service.OW
                 var cacheKey = $"{STAGE_CACHE_PREFIX}:workflow:{input.WorkflowId}";
                 await _cacheService.RemoveAsync(cacheKey);
 
-                // DISABLED: Stages progress sync after stage sorting to prevent data loss
-                // The sync was causing onboarding stages progress to be modified when stages are reordered.
-                _logger.LogInformation("Stages sorted for workflow {WorkflowId}. " +
-                    "Stages progress sync is DISABLED to preserve existing onboarding data.",
+                _logger.LogInformation("Stages sorted for workflow {WorkflowId}. Syncing onboarding stages progress...",
                     input.WorkflowId);
 
                 // Log order changes for each stage that had its order changed
@@ -1188,18 +1185,21 @@ namespace FlowFlex.Application.Service.OW
                     }
                 });
 
-                // Original sync code (DISABLED):
-                // _backgroundTaskQueue.QueueBackgroundWorkItem(async token =>
-                // {
-                //     try
-                //     {
-                //         await _stagesProgressSyncService.SyncAfterStagesSortAsync(input.WorkflowId, stageIds);
-                //     }
-                //     catch
-                //     {
-                //         // Ignore sync errors to avoid impacting the main operation
-                //     }
-                // });
+                // Sync onboarding stages progress after stage sorting
+                // Note: SyncAfterStagesSortAsync only updates StageOrder, preserves all completion status
+                _backgroundTaskQueue.QueueBackgroundWorkItem(async token =>
+                {
+                    try
+                    {
+                        var syncedCount = await _stagesProgressSyncService.SyncAfterStagesSortAsync(input.WorkflowId, stageIds);
+                        _logger.LogInformation("Synced stages progress for {SyncedCount} onboardings after stage sorting in workflow {WorkflowId}",
+                            syncedCount, input.WorkflowId);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Failed to sync stages progress after stage sorting for workflow {WorkflowId}", input.WorkflowId);
+                    }
+                });
             }
 
             return result;
