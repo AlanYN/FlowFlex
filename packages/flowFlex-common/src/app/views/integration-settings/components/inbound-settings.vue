@@ -92,7 +92,7 @@
 					:loading="loading"
 					@click="showMdDialog"
 				>
-					Markdown
+					API Docs
 				</el-button>
 			</div>
 
@@ -196,7 +196,7 @@
 		<!-- API Documentation Dialog -->
 		<el-dialog
 			v-model="showApiDocDialog"
-			title="API Documentation"
+			title="API Docs"
 			:width="bigDialogWidth"
 			:close-on-click-modal="false"
 			append-to-body

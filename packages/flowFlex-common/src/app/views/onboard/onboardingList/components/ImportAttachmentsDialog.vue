@@ -29,7 +29,14 @@
 			</div>
 
 			<!-- Table with attachments -->
-			<el-table v-else :data="attachments" stripe :border="true" @row-click="handleRowClick">
+			<el-table
+				v-else
+				:data="attachments"
+				stripe
+				:border="true"
+				:max-height="tableMaxHeight"
+				@row-click="handleRowClick"
+			>
 				<el-table-column width="55" align="center">
 					<template #default="{ row }">
 						<el-checkbox
@@ -116,7 +123,7 @@ import { ref, computed } from 'vue';
 import { Document, Loading, Folder } from '@element-plus/icons-vue';
 import { ElMessage } from 'element-plus';
 import { IntegrationAttachment } from '#/integration';
-import { bigDialogWidth } from '@/settings/projectSetting';
+import { bigDialogWidth, tableMaxHeight } from '@/settings/projectSetting';
 
 // Props interface
 interface ImportAttachmentsDialogProps {

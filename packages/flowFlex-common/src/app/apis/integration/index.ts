@@ -17,6 +17,7 @@ import type {
 	IQuickLink,
 	InboundAttachmentIteml,
 	IntegrationAttachment,
+	DownloadApi,
 } from '#/integration';
 
 const globSetting = useGlobSetting();
@@ -34,6 +35,14 @@ const Api = {
 	attachmentApiMd: `${globSetting.apiProName}/integration/external/${globSetting.apiVersion}/attachments/protocol`,
 
 	caseAttachmentIntegration: `${globSetting.apiProName}/integration/external/${globSetting.apiVersion}/fetch-inbound-attachments`,
+};
+
+const DownloadApi = (id: string) => {
+	return {
+		importDownload: `${globSetting.apiProName}/ow/onboardings/${id}/files/${globSetting.apiVersion}/import-async`,
+		importProgressQuery: `${globSetting.apiProName}/ow/onboardings/${id}/files/${globSetting.apiVersion}/import-tasks`,
+		cancelImportFileUpload: `${globSetting.apiProName}/ow/onboardings/${id}/files/${globSetting.apiVersion}/import-tasks`,
+	};
 };
 
 // ==================== Integration Management API ====================
@@ -241,4 +250,30 @@ export function getCaseAttachmentIntegration(params: {
 	systemId: string;
 }): Promise<IApiResponse<{ attachments: IntegrationAttachment[] }>> {
 	return defHttp.get({ url: Api.caseAttachmentIntegration, params });
+}
+
+export function importDownLoadFiles(
+	onboardingId: string,
+	data: {
+		stageId: string;
+		files: {
+			downLoadLink: string;
+			fileName: string;
+		}[];
+	}
+) {
+	return defHttp.post({ url: DownloadApi(onboardingId).importDownload, data });
+}
+
+export function queryImportProgress(
+	onboardingId: string,
+	params: { stageId: string }
+): Promise<IApiResponse<DownloadApi[]>> {
+	return defHttp.get({ url: DownloadApi(onboardingId).importProgressQuery, params });
+}
+
+export function cancelImportDownload(onboardingId: string, taskId: string, fileId: string) {
+	return defHttp.post({
+		url: `${DownloadApi(onboardingId).cancelImportFileUpload}/${taskId}/items/${fileId}/cancel`,
+	});
 }
