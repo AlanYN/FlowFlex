@@ -322,10 +322,6 @@ async function handleSaveEntityMapping(mapping: IEntityMapping, index: number) {
 					? 'Entity mapping updated successfully'
 					: 'Entity mapping created successfully'
 			);
-			// 如果是新创建的，更新本地数据中的 id
-			if (!mapping.id && res.data) {
-				entityMappings.value[index].id = res.data;
-			}
 			// 通知父组件刷新数据
 			emit('refresh');
 		} else {
