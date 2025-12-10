@@ -89,7 +89,7 @@
 						v-model="formData[question.id]"
 						:maxlength="questionMaxlength"
 						:placeholder="'Enter ' + question.question"
-						disabled
+						:disabled="questionIsDisabled(question.id)"
 						@change="handleInputChange(question.id, $event)"
 					/>
 
