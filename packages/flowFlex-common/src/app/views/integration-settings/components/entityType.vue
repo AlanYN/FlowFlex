@@ -128,11 +128,22 @@
 				</template>
 			</el-table-column>
 
-			<el-table-column label="" width="50" fixed="right">
+			<el-table-column
+				label=""
+				width="50"
+				fixed="right"
+				v-if="
+					functionPermission(ProjectPermissionEnum.integration.delete) ||
+					functionPermission(ProjectPermissionEnum.integration.create)
+				"
+			>
 				<template #default="{ row, $index }">
 					<div class="flex items-center justify-center">
 						<el-button
-							v-if="!!row?.systemId || !!row?.id"
+							v-if="
+								(!!row?.systemId || !!row?.id) &&
+								functionPermission(ProjectPermissionEnum.integration.delete)
+							"
 							type="danger"
 							link
 							:icon="Delete"
@@ -140,7 +151,10 @@
 							@click="handleDeleteEntityMapping(row, $index)"
 						/>
 						<el-button
-							v-else
+							v-else-if="
+								(!row?.systemId || !row?.id) &&
+								functionPermission(ProjectPermissionEnum.integration.create)
+							"
 							type="primary"
 							:disabled="!row.externalEntityName || !row.wfeEntityType"
 							:loading="savingMappingId === (row.id || `temp-${$index}`)"
@@ -161,6 +175,7 @@
 				:icon="Plus"
 				@click="handleAddEntityMapping"
 				class="add-entity-btn"
+				v-permission="ProjectPermissionEnum.integration.create"
 			>
 				Add Entity Type
 			</el-button>
@@ -175,6 +190,8 @@ import { ElMessage, ElTooltip } from 'element-plus';
 import { createEntityMapping, updateEntityMapping, deleteEntityMapping } from '@/apis/integration';
 import type { IEntityMapping, IWfeEntityOption } from '#/integration';
 import SaveChangeIcon from '@assets/svg/publicPage/saveChange.svg';
+import { functionPermission } from '@/hooks';
+import { ProjectPermissionEnum } from '@/enums/permissionEnum';
 
 interface Props {
 	integrationId: string | number;
@@ -305,18 +322,11 @@ async function handleSaveEntityMapping(mapping: IEntityMapping, index: number) {
 					? 'Entity mapping updated successfully'
 					: 'Entity mapping created successfully'
 			);
-			// 如果是新创建的，更新本地数据中的 id
-			if (!mapping.id && res.data) {
-				entityMappings.value[index].id = res.data;
-			}
 			// 通知父组件刷新数据
 			emit('refresh');
 		} else {
 			ElMessage.error(res.msg || 'Failed to save entity mapping');
 		}
-	} catch (error) {
-		console.error('Failed to save entity mapping:', error);
-		ElMessage.error('Failed to save entity mapping');
 	} finally {
 		savingMappingId.value = null;
 	}
@@ -344,7 +354,6 @@ async function handleDeleteEntityMapping(mapping: IEntityMapping, index: number)
 		}
 	} catch (error) {
 		console.error('Failed to delete entity mapping:', error);
-		ElMessage.error('Failed to delete entity mapping');
 	}
 }
 

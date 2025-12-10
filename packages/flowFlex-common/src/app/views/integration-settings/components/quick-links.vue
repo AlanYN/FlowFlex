@@ -8,7 +8,11 @@
 					Configure external system pages for quick redirection from workflows.
 				</p>
 			</div>
-			<el-button type="primary" @click="handleAddQuickLink">
+			<el-button
+				type="primary"
+				@click="handleAddQuickLink"
+				v-permission="ProjectPermissionEnum.integration.create"
+			>
 				<el-icon><Plus /></el-icon>
 				Add Quick Link
 			</el-button>
@@ -445,6 +449,7 @@ import {
 } from '@/enums/integration';
 import type { IQuickLink } from '#/integration';
 import { dialogWidth } from '@/settings/projectSetting';
+import { ProjectPermissionEnum } from '@/enums/permissionEnum';
 
 interface Props {
 	integrationId: string | number;

@@ -121,6 +121,12 @@ export const ProjectPermissionEnum = {
 		update: 'TOOL:UPDATE',
 		delete: 'TOOL:DELETE',
 	},
+	integration: {
+		create: 'INTEGRATION:CREATE',
+		read: 'INTEGRATION:READ',
+		update: 'INTEGRATION:UPDATE',
+		delete: 'INTEGRATION:DELETE',
+	},
 } as const;
 
 // 类型定义
@@ -129,7 +135,8 @@ export type ProjectPermissionType =
 	| (typeof ProjectPermissionEnum.workflow)[keyof typeof ProjectPermissionEnum.workflow]
 	| (typeof ProjectPermissionEnum.checkList)[keyof typeof ProjectPermissionEnum.checkList]
 	| (typeof ProjectPermissionEnum.question)[keyof typeof ProjectPermissionEnum.question]
-	| (typeof ProjectPermissionEnum.tool)[keyof typeof ProjectPermissionEnum.tool];
+	| (typeof ProjectPermissionEnum.tool)[keyof typeof ProjectPermissionEnum.tool]
+	| (typeof ProjectPermissionEnum.integration)[keyof typeof ProjectPermissionEnum.integration];
 
 // 辅助类型：获取所有权限值的联合类型
 export type ProjectPermissionValue = ProjectPermissionType;

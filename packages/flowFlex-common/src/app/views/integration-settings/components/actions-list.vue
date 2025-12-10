@@ -7,7 +7,14 @@
 					All actions related to {{ integrationName }} System integration
 				</div>
 			</div>
-			<el-button type="primary" @click="handleAddAction" :icon="Plus">Add Action</el-button>
+			<el-button
+				type="primary"
+				@click="handleAddAction"
+				:icon="Plus"
+				v-permission="ProjectPermissionEnum.integration.create"
+			>
+				Add Action
+			</el-button>
 		</div>
 
 		<el-table
@@ -57,6 +64,7 @@ import { Plus } from '@element-plus/icons-vue';
 import ActionConfigDialog from '@/components/actionTools/ActionConfigDialog.vue';
 import { TriggerTypeEnum } from '@/enums/appEnum';
 import { ACTION_TYPE_MAPPING, ActionType } from '@/apis/action';
+import { ProjectPermissionEnum } from '@/enums/permissionEnum';
 
 interface Props {
 	integrationId: string;

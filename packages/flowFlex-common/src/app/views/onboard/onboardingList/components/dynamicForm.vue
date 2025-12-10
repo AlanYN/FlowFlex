@@ -89,7 +89,7 @@
 						v-model="formData[question.id]"
 						:maxlength="questionMaxlength"
 						:placeholder="'Enter ' + question.question"
-						:disabled="disabled"
+						disabled
 						@change="handleInputChange(question.id, $event)"
 					/>
 
@@ -100,7 +100,7 @@
 							question.type === 'paragraph' ||
 							question.type === 'textarea'
 						"
-						:disabled="disabled"
+						:disabled="questionIsDisabled(question.id)"
 						v-model="formData[question.id]"
 						:maxlength="notesPageTextraMaxLength"
 						type="textarea"
@@ -117,8 +117,15 @@
 								v-for="option in question.options"
 								:key="option.id || option.value"
 								class="w-full flex items-center space-x-2 p-2 form-radio-option rounded"
-								:class="{ 'cursor-not-allowed form-radio-disabled': disabled }"
-								@click="!disabled && handleHasOtherQuestion(question, option.value)"
+								:class="{
+									'cursor-not-allowed form-radio-disabled': questionIsDisabled(
+										question.id
+									),
+								}"
+								@click="
+									!questionIsDisabled(question.id) &&
+										handleHasOtherQuestion(question, option.value)
+								"
 							>
 								<div
 									:class="[
@@ -139,7 +146,8 @@
 									<el-input
 										@click.stop
 										:disabled="
-											formData[question.id] != option.value || disabled
+											formData[question.id] != option.value ||
+											questionIsDisabled(question.id)
 										"
 										v-model="formData[`${question.id}_${option.id}`]"
 										:maxlength="questionMaxlength"
@@ -183,7 +191,7 @@
 						v-model="formData[question.id]"
 						@change="handleHasOtherQuestion(question, $event)"
 						class="w-full"
-						:disabled="disabled"
+						:disabled="questionIsDisabled(question.id)"
 					>
 						<div class="space-y-2">
 							<el-checkbox
@@ -197,7 +205,7 @@
 										<el-input
 											:disabled="
 												!formData[question.id]?.includes(option.value) ||
-												disabled
+												questionIsDisabled(question.id)
 											"
 											v-model="formData[`${question.id}_${option.id}`]"
 											:maxlength="questionMaxlength"
@@ -233,7 +241,7 @@
 						:placeholder="'Select ' + question.question"
 						class="w-full"
 						@change="handleInputChange(question.id, $event)"
-						:disabled="disabled"
+						:disabled="questionIsDisabled(question.id)"
 					>
 						<el-option
 							v-for="option in question.options"
@@ -252,7 +260,7 @@
 						class="w-full"
 						:format="projectDate"
 						@change="handleInputChange(question.id, $event)"
-						:disabled="disabled"
+						:disabled="questionIsDisabled(question.id)"
 					/>
 
 					<!-- 时间选择 -->
@@ -262,7 +270,7 @@
 						:placeholder="'Select time'"
 						class="w-full"
 						@change="handleInputChange(question.id, $event)"
-						:disabled="disabled"
+						:disabled="questionIsDisabled(question.id)"
 					/>
 					<!-- 评分 -->
 					<div v-else-if="question.type === 'rating'" class="flex items-center space-x-2">
@@ -272,7 +280,7 @@
 							:icons="getSelectedFilledIcon(question.iconType)"
 							:void-icon="getSelectedVoidIcon(question.iconType)"
 							@change="handleInputChange(question.id, $event)"
-							:disabled="disabled"
+							:disabled="questionIsDisabled(question.id)"
 						/>
 						<span v-if="question.showText" class="text-sm form-star-text">
 							({{ question.max || 5 }} stars)
@@ -291,7 +299,7 @@
 							@change="handleInputChange(question.id, $event)"
 							:validate-event="false"
 							show-stops
-							:disabled="disabled"
+							:disabled="questionIsDisabled(question.id)"
 						/>
 						<div class="flex justify-between text-xs form-slider-labels">
 							<span>{{ question.minLabel || question.min }}</span>
@@ -316,7 +324,7 @@
 							v-model:file-list="formData[question.id]"
 							:accept="question.accept"
 							class="w-full"
-							:disabled="disabled"
+							:disabled="questionIsDisabled(question.id)"
 						>
 							<el-icon class="el-icon--upload text-4xl"><Upload /></el-icon>
 							<div>
@@ -364,7 +372,7 @@
 									<el-checkbox-group
 										v-model="formData[`${question.id}_${row.id}`]"
 										@change="handleHasOtherQuestion(question, row.id)"
-										:disabled="disabled"
+										:disabled="questionIsDisabled(question.id)"
 									>
 										<el-checkbox :value="column.id" class="grid-checkbox" />
 									</el-checkbox-group>
@@ -437,7 +445,7 @@
 											column.label ||
 											`${rowIndex}_${colIndex}`
 										"
-										:disabled="disabled"
+										:disabled="questionIsDisabled(question.id)"
 										@change="handleHasOtherQuestion(question, row.id)"
 										class="grid-radio"
 									/>
@@ -450,7 +458,8 @@
 											"
 											:disabled="
 												formData[`${question.id}_${row.id}`] !=
-													(column.value || column.label) || disabled
+													(column.value || column.label) ||
+												questionIsDisabled(question.id)
 											"
 											placeholder="Enter other"
 											:maxlength="questionMaxlength"
@@ -508,7 +517,7 @@
 									<el-input
 										v-model="formData[`${question.id}_${column.id}_${row.id}`]"
 										:maxlength="questionMaxlength"
-										:disabled="disabled"
+										:disabled="questionIsDisabled(question.id)"
 									/>
 								</div>
 							</div>
@@ -1679,6 +1688,10 @@ const getQuestionNumber = (questionIndex: number) => {
 const isQuestionSkipped = (question: any): boolean => {
 	const questionId = question.id || question.temporaryId || question.questionId;
 	return skippedQuestions.value.has(questionId);
+};
+
+const questionIsDisabled = (questionId: string): boolean => {
+	return props.disabled || !!internalSkippedQuestions.value.has(questionId);
 };
 
 const Submit = () => {
