@@ -213,8 +213,8 @@ namespace FlowFlex.Application.Services.OW
                 
                 // Format next stage text
                 var nextStageNameText = string.IsNullOrWhiteSpace(nextStageName) 
-                    ? "." 
-                    : $": \"{nextStageName}\".";
+                    ? "" 
+                    : $"\"{nextStageName}\"";
 
                 var body = _templateService.Render("stage_completed_notification_en", new Dictionary<string, object>
                 {
