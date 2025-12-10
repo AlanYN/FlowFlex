@@ -47,6 +47,18 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.OnboardingFile
         /// </summary>
         [StringLength(200)]
         public string Tags { get; set; }
+
+        /// <summary>
+        /// Override uploader ID (for background import tasks)
+        /// If not set, uses current user context
+        /// </summary>
+        public string OverrideUploaderId { get; set; }
+
+        /// <summary>
+        /// Override uploader name (for background import tasks)
+        /// If not set, uses current user context
+        /// </summary>
+        public string OverrideUploaderName { get; set; }
     }
 
     /// <summary>

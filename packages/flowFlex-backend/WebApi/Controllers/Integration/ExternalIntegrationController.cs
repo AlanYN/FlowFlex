@@ -220,11 +220,11 @@ namespace FlowFlex.WebApi.Controllers.Integration
         /// <param name="caseId">Case ID (onboarding ID)</param>
         /// <returns>Attachments list response</returns>
         [HttpGet("attachments")]
-        [ProducesResponseType<SuccessResponse<GetAttachmentsFromExternalResponse>>((int)HttpStatusCode.OK)]
+        [ProducesResponseType<GetAttachmentsFromExternalResponse>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> GetAttachments([FromQuery(Name = "CaseId")] string caseId)
         {
             var result = await _externalIntegrationService.GetAttachmentsByCaseIdAsync(caseId);
-            return Success(result);
+            return Ok(result);
         }
 
         /// <summary>
@@ -234,11 +234,11 @@ namespace FlowFlex.WebApi.Controllers.Integration
         /// <param name="systemId">System ID (unique identifier for entity mapping)</param>
         /// <returns>Attachments list response</returns>
         [HttpGet("outbound-attachments")]
-        [ProducesResponseType<SuccessResponse<GetAttachmentsFromExternalResponse>>((int)HttpStatusCode.OK)]
+        [ProducesResponseType<GetAttachmentsFromExternalResponse>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> GetOutboundAttachments([FromQuery(Name = "SystemId")] string systemId)
         {
             var result = await _externalIntegrationService.GetOutboundAttachmentsBySystemIdAsync(systemId);
-            return Success(result);
+            return Ok(result);
         }
 
         /// <summary>
@@ -248,11 +248,11 @@ namespace FlowFlex.WebApi.Controllers.Integration
         /// <param name="systemId">System ID (unique identifier for entity mapping)</param>
         /// <returns>Attachments list response</returns>
         [HttpGet("inbound-attachments")]
-        [ProducesResponseType<SuccessResponse<GetAttachmentsFromExternalResponse>>((int)HttpStatusCode.OK)]
+        [ProducesResponseType<GetAttachmentsFromExternalResponse>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> GetInboundAttachments([FromQuery(Name = "SystemId")] string systemId)
         {
             var result = await _externalIntegrationService.GetInboundAttachmentsBySystemIdAsync(systemId);
-            return Success(result);
+            return Ok(result);
         }
 
         /// <summary>

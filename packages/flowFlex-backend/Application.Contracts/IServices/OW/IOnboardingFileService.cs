@@ -110,5 +110,52 @@ namespace FlowFlex.Application.Contracts.IServices.OW
         /// <param name="fileId">File ID</param>
         /// <returns>File details</returns>
         Task<OnboardingFileOutputDto> GetFileDetailsAsync(long fileId);
+
+        /// <summary>
+        /// Import files from external URLs (e.g., OSS links)
+        /// Downloads files from provided URLs and saves them as onboarding files
+        /// </summary>
+        /// <param name="input">Import input containing file URLs</param>
+        /// <returns>Import result with progress details</returns>
+        Task<ImportFilesResultDto> ImportFilesFromUrlAsync(ImportFilesFromUrlInputDto input);
+
+        /// <summary>
+        /// Start an async import task from external URLs
+        /// Returns immediately with task ID, import runs in background
+        /// </summary>
+        /// <param name="input">Import input containing file URLs</param>
+        /// <param name="createdBy">User who created the task</param>
+        /// <returns>Start import response with task ID</returns>
+        Task<StartImportTaskResponseDto> StartImportTaskAsync(ImportFilesFromUrlInputDto input, string createdBy);
+
+        /// <summary>
+        /// Get import task progress by task ID
+        /// </summary>
+        /// <param name="taskId">Task ID</param>
+        /// <returns>Task progress details</returns>
+        Task<FileImportTaskDto> GetImportTaskProgressAsync(string taskId);
+
+        /// <summary>
+        /// Get import tasks by onboarding ID and stage ID
+        /// </summary>
+        /// <param name="onboardingId">Onboarding ID</param>
+        /// <param name="stageId">Stage ID</param>
+        /// <returns>List of import tasks</returns>
+        Task<List<FileImportTaskDto>> GetImportTasksByStageAsync(long onboardingId, long stageId);
+
+        /// <summary>
+        /// Cancel a specific file import item
+        /// </summary>
+        /// <param name="taskId">Task ID</param>
+        /// <param name="itemId">Item ID to cancel</param>
+        /// <returns>Cancel response</returns>
+        Task<CancelImportFileResponseDto> CancelImportItemAsync(string taskId, string itemId);
+
+        /// <summary>
+        /// Cancel all pending items in a task
+        /// </summary>
+        /// <param name="taskId">Task ID</param>
+        /// <returns>Cancel response</returns>
+        Task<CancelImportFileResponseDto> CancelAllPendingItemsAsync(string taskId);
     }
 }

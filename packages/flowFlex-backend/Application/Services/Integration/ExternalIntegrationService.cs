@@ -31,6 +31,7 @@ namespace FlowFlex.Application.Services.Integration
         private readonly IOnboardingRepository _onboardingRepository;
         private readonly IOnboardingService _onboardingService;
         private readonly IOnboardingFileRepository _onboardingFileRepository;
+        private readonly IOnboardingFileService _onboardingFileService;
         private readonly IActionDefinitionRepository _actionDefinitionRepository;
         private readonly IActionExecutionService _actionExecutionService;
         private readonly UserContext _userContext;
@@ -47,6 +48,7 @@ namespace FlowFlex.Application.Services.Integration
             IOnboardingRepository onboardingRepository,
             IOnboardingService onboardingService,
             IOnboardingFileRepository onboardingFileRepository,
+            IOnboardingFileService onboardingFileService,
             IActionDefinitionRepository actionDefinitionRepository,
             IActionExecutionService actionExecutionService,
             UserContext userContext,
@@ -59,6 +61,7 @@ namespace FlowFlex.Application.Services.Integration
             _onboardingRepository = onboardingRepository;
             _onboardingService = onboardingService;
             _onboardingFileRepository = onboardingFileRepository;
+            _onboardingFileService = onboardingFileService;
             _actionDefinitionRepository = actionDefinitionRepository;
             _actionExecutionService = actionExecutionService;
             _userContext = userContext;
@@ -318,19 +321,41 @@ namespace FlowFlex.Application.Services.Integration
                 // Get files from database
                 var files = await _onboardingFileRepository.GetFilesByOnboardingAsync(onboardingId);
 
-                // Convert to ExternalAttachmentDto
-                var attachments = files.Select(f => new ExternalAttachmentDto
+                // Convert to ExternalAttachmentDto with real-time OSS URL generation
+                var attachments = new List<ExternalAttachmentDto>();
+                foreach (var f in files)
                 {
-                    Id = f.Id.ToString(),
-                    FileName = f.OriginalFileName ?? f.StoredFileName ?? "unknown",
-                    FileSize = f.FileSize.ToString(),
-                    FileType = f.ContentType ?? "application/octet-stream",
-                    FileExt = f.FileExtension ?? string.Empty,
-                    CreateDate = f.UploadedDate.ToString("yyyy-MM-dd HH:mm:ss +00:00"),
-                    DownloadLink = !string.IsNullOrEmpty(f.AccessUrl)
-                        ? f.AccessUrl
-                        : $"/ow/onboarding-files/v1.0/{f.Id}/download"
-                }).ToList();
+                    // Generate real-time OSS URL instead of using stored URL (which may expire and return 403)
+                    var fallbackUrl = $"/ow/onboarding-files/v1.0/{f.Id}/download";
+                    string downloadLink;
+                    try
+                    {
+                        downloadLink = await _onboardingFileService.GetFileUrlAsync(f.Id);
+                        
+                        // If the returned URL is null or empty, use fallback
+                        if (string.IsNullOrEmpty(downloadLink))
+                        {
+                            _logger.LogWarning("GetFileUrlAsync returned empty for file {FileId}, falling back to download endpoint", f.Id);
+                            downloadLink = fallbackUrl;
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Failed to generate real-time URL for file {FileId}, falling back to download endpoint", f.Id);
+                        downloadLink = fallbackUrl;
+                    }
+
+                    attachments.Add(new ExternalAttachmentDto
+                    {
+                        Id = f.Id.ToString(),
+                        FileName = f.OriginalFileName ?? f.StoredFileName ?? "unknown",
+                        FileSize = f.FileSize.ToString(),
+                        FileType = f.ContentType ?? "application/octet-stream",
+                        FileExt = f.FileExtension ?? string.Empty,
+                        CreateDate = f.UploadedDate.ToString("yyyy-MM-dd HH:mm:ss +00:00"),
+                        DownloadLink = downloadLink
+                    });
+                }
 
                 _logger.LogInformation("Successfully retrieved {Count} attachments for CaseId={CaseId}",
                     attachments.Count, caseId);
@@ -412,24 +437,44 @@ namespace FlowFlex.Application.Services.Integration
                     allOnboardings.AddRange(onboardings);
                 }
 
-                // Get all attachments from these onboardings
+                // Get all attachments from these onboardings with real-time OSS URL generation
                 var allAttachments = new List<ExternalAttachmentDto>();
                 foreach (var onboarding in allOnboardings)
                 {
                     var files = await _onboardingFileRepository.GetFilesByOnboardingAsync(onboarding.Id);
-                    var attachments = files.Select(f => new ExternalAttachmentDto
+                    foreach (var f in files)
                     {
-                        Id = f.Id.ToString(),
-                        FileName = f.OriginalFileName ?? f.StoredFileName ?? "unknown",
-                        FileSize = f.FileSize.ToString(),
-                        FileType = f.ContentType ?? "application/octet-stream",
-                        FileExt = f.FileExtension ?? string.Empty,
-                        CreateDate = f.UploadedDate.ToString("yyyy-MM-dd HH:mm:ss +00:00"),
-                        DownloadLink = !string.IsNullOrEmpty(f.AccessUrl)
-                            ? f.AccessUrl
-                            : $"/ow/onboarding-files/v1.0/{f.Id}/download"
-                    });
-                    allAttachments.AddRange(attachments);
+                        // Generate real-time OSS URL instead of using stored URL (which may expire and return 403)
+                        var fallbackUrl = $"/ow/onboarding-files/v1.0/{f.Id}/download";
+                        string downloadLink;
+                        try
+                        {
+                            downloadLink = await _onboardingFileService.GetFileUrlAsync(f.Id);
+                            
+                            // If the returned URL is null or empty, use fallback
+                            if (string.IsNullOrEmpty(downloadLink))
+                            {
+                                _logger.LogWarning("GetFileUrlAsync returned empty for file {FileId}, falling back to download endpoint", f.Id);
+                                downloadLink = fallbackUrl;
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogWarning(ex, "Failed to generate real-time URL for file {FileId}, falling back to download endpoint", f.Id);
+                            downloadLink = fallbackUrl;
+                        }
+
+                        allAttachments.Add(new ExternalAttachmentDto
+                        {
+                            Id = f.Id.ToString(),
+                            FileName = f.OriginalFileName ?? f.StoredFileName ?? "unknown",
+                            FileSize = f.FileSize.ToString(),
+                            FileType = f.ContentType ?? "application/octet-stream",
+                            FileExt = f.FileExtension ?? string.Empty,
+                            CreateDate = f.UploadedDate.ToString("yyyy-MM-dd HH:mm:ss +00:00"),
+                            DownloadLink = downloadLink
+                        });
+                    }
                 }
 
                 _logger.LogInformation("Successfully retrieved {Count} attachments for SystemId={SystemId}",
@@ -500,19 +545,39 @@ namespace FlowFlex.Application.Services.Integration
                 foreach (var onboarding in onboardings)
                 {
                     var files = await _onboardingFileRepository.GetFilesByOnboardingAsync(onboarding.Id);
-                    var attachments = files.Select(f => new ExternalAttachmentDto
+                    foreach (var f in files)
                     {
-                        Id = f.Id.ToString(),
-                        FileName = f.OriginalFileName ?? f.StoredFileName ?? "unknown",
-                        FileSize = f.FileSize.ToString(),
-                        FileType = f.ContentType ?? "application/octet-stream",
-                        FileExt = f.FileExtension ?? string.Empty,
-                        CreateDate = f.UploadedDate.ToString("yyyy-MM-dd HH:mm:ss +00:00"),
-                        DownloadLink = !string.IsNullOrEmpty(f.AccessUrl)
-                            ? f.AccessUrl
-                            : $"/ow/onboarding-files/v1.0/{f.Id}/download"
-                    });
-                    allAttachments.AddRange(attachments);
+                        // Generate real-time OSS URL instead of using stored URL (which may expire and return 403)
+                        var fallbackUrl = $"/ow/onboarding-files/v1.0/{f.Id}/download";
+                        string downloadLink;
+                        try
+                        {
+                            downloadLink = await _onboardingFileService.GetFileUrlAsync(f.Id);
+                            
+                            // If the returned URL is null or empty, use fallback
+                            if (string.IsNullOrEmpty(downloadLink))
+                            {
+                                _logger.LogWarning("GetFileUrlAsync returned empty for file {FileId}, falling back to download endpoint", f.Id);
+                                downloadLink = fallbackUrl;
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogWarning(ex, "Failed to generate real-time URL for file {FileId}, falling back to download endpoint", f.Id);
+                            downloadLink = fallbackUrl;
+                        }
+
+                        allAttachments.Add(new ExternalAttachmentDto
+                        {
+                            Id = f.Id.ToString(),
+                            FileName = f.OriginalFileName ?? f.StoredFileName ?? "unknown",
+                            FileSize = f.FileSize.ToString(),
+                            FileType = f.ContentType ?? "application/octet-stream",
+                            FileExt = f.FileExtension ?? string.Empty,
+                            CreateDate = f.UploadedDate.ToString("yyyy-MM-dd HH:mm:ss +00:00"),
+                            DownloadLink = downloadLink
+                        });
+                    }
                 }
 
                 _logger.LogInformation("Successfully retrieved {Count} attachments for SystemId={SystemId}",

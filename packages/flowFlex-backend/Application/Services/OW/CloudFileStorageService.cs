@@ -315,17 +315,40 @@ namespace FlowFlex.Application.Services.OW
 
         /// <summary>
         /// Get file access URL asynchronously (helper method for cloud storage)
+        /// Generates a real-time signed URL for the file
         /// </summary>
         public async Task<string> GetFileUrlAsync(string filePath)
         {
+            // Handle null or empty file path
+            if (string.IsNullOrEmpty(filePath))
+            {
+                _logger.LogWarning("GetFileUrlAsync called with null or empty file path");
+                return null;
+            }
+
             try
             {
-                return await _blobContainer.GetAccessUrl(filePath);
+                // Extract actual file path from URL if it's a full OSS URL
+                string actualFilePath = ExtractFilePathFromUrl(filePath);
+                
+                _logger.LogDebug("Generating signed URL for file path: {OriginalPath} -> {ActualPath}", 
+                    filePath, actualFilePath);
+                
+                var signedUrl = await _blobContainer.GetAccessUrl(actualFilePath);
+                
+                if (string.IsNullOrEmpty(signedUrl))
+                {
+                    _logger.LogWarning("BlobContainer.GetAccessUrl returned null or empty for path: {FilePath}", actualFilePath);
+                    return null;
+                }
+                
+                _logger.LogDebug("Successfully generated signed URL for path: {FilePath}", actualFilePath);
+                return signedUrl;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, $"Error getting file URL: {filePath}");
-                return filePath;
+                _logger.LogError(ex, "Error getting file URL: {FilePath}", filePath);
+                return null;
             }
         }
 
