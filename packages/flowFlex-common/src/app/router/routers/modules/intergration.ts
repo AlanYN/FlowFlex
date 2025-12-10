@@ -14,6 +14,7 @@ const intergration: AppRouteModule = {
 		hideChildrenInMenu: true,
 		icon: settingsIcon,
 		title: t('sys.router.integration'),
+		code: 'INTEGRATION',
 		ordinal: 11,
 		hidden: false,
 		status: true,
@@ -25,6 +26,7 @@ const intergration: AppRouteModule = {
 			component: () => import('@/views/integration-settings/index.vue'),
 			meta: {
 				title: t('sys.router.integration'),
+				code: 'INTEGRATION',
 				ordinal: 1,
 				hidden: false,
 				status: true,
@@ -36,6 +38,7 @@ const intergration: AppRouteModule = {
 			component: () => import('@/views/integration-settings/detail.vue'),
 			meta: {
 				title: t('sys.router.integration'),
+				code: 'INTEGRATION',
 				ordinal: 1,
 				hidden: false,
 				status: true,

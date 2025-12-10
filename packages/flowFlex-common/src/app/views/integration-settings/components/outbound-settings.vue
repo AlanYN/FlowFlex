@@ -180,6 +180,7 @@
 								link
 								@click="handleDeleteItem($index)"
 								:icon="Delete"
+								v-permission="ProjectPermissionEnum.integration.delete"
 							/>
 						</div>
 					</template>
@@ -187,11 +188,20 @@
 			</el-table>
 
 			<div class="flex justify-between items-center">
-				<el-button type="primary" @click="handleAddItem">
-					<el-icon><Plus /></el-icon>
+				<el-button
+					type="primary"
+					@click="handleAddItem"
+					v-permission="ProjectPermissionEnum.integration.create"
+					:icon="Plus"
+				>
 					Add Workflow & Stage
 				</el-button>
-				<el-button type="primary" :loading="isSaving" @click="saveAttachmentSharing">
+				<el-button
+					type="primary"
+					:loading="isSaving"
+					v-permission="ProjectPermissionEnum.integration.create"
+					@click="saveAttachmentSharing"
+				>
 					Save
 				</el-button>
 			</div>
@@ -235,6 +245,7 @@ import { getStagesByWorkflow } from '@/apis/ow';
 import { bigDialogWidth, defaultStr } from '@/settings/projectSetting';
 import type { FieldMapping, OutboundAttachmentItem1 } from '#/integration';
 import MarkdownRenderer from '@/components/common/MarkdownRenderer.vue';
+import { ProjectPermissionEnum } from '@/enums/permissionEnum';
 
 interface Props {
 	integrationId: string | number;
