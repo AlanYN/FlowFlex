@@ -269,11 +269,14 @@
 							<template #default="{ row }">
 								<el-link
 									:disabled="!functionPermission(ProjectPermissionEnum.case.read)"
-									type="primary"
-									:underline="false"
+									type="info"
 									@click="handleEdit(row.id)"
 								>
-									<div class="table-cell-content" :title="row.leadName">
+									<div
+										class="dark:text-white flex items-center gap-x-2 truncate"
+										:title="row.leadName"
+									>
+										<Link class="w-4 h-4 text-primary-200" />
 										{{ row.leadName }}
 									</div>
 								</el-link>
