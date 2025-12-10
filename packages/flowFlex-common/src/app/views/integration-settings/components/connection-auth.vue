@@ -452,8 +452,6 @@ const handleTestConnection = async () => {
 		// 触发事件，由父组件调用 test 接口
 		await handleUpdate(false);
 		emit('test');
-	} catch (error) {
-		console.error('Form validation failed:', error);
 	} finally {
 		setTimeout(() => {
 			isTesting.value = false;

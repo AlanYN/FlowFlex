@@ -568,7 +568,6 @@ async function copyApiDoc() {
 		ElMessage.success('API documentation copied to clipboard');
 	} catch (error) {
 		console.error('Failed to copy:', error);
-		ElMessage.error('Failed to copy content');
 	} finally {
 		isCopying.value = false;
 	}
