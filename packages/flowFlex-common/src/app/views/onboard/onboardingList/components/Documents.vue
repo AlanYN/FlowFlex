@@ -28,6 +28,7 @@
 				<div class="case-component-actions">
 					<el-button
 						:icon="Download"
+						v-if="systemId"
 						@click.stop="importFormIntegration"
 						:disabled="disabled"
 						:loading="importLoading"
@@ -102,15 +103,65 @@
 						class="flex items-center space-x-3 p-2 bg-gray-50 dark:bg-black-200 rounded"
 					>
 						<el-icon class="text-blue-500">
-							<Document />
+							<Upload />
 						</el-icon>
 						<div class="flex-1">
 							<div class="text-sm font-medium">{{ progress.name }}</div>
-							<el-progress :percentage="progress.percentage" :show-text="false" />
+							<el-progress
+								:percentage="progress.percentage"
+								:status="progress.error ? 'exception' : undefined"
+								:show-text="false"
+							/>
 						</div>
 						<span class="text-xs text-gray-500">{{ progress.percentage }}%</span>
+						<el-tooltip
+							v-if="progress.error"
+							:content="progress.error"
+							placement="top"
+							effect="dark"
+						>
+							<el-icon class="text-red-500 cursor-pointer text-lg">
+								<WarningFilled />
+							</el-icon>
+						</el-tooltip>
 					</div>
 				</div>
+
+				<!-- 下载进度 -->
+				<div v-if="downloadProgress.length > 0" class="space-y-2">
+					<h4 class="text-sm font-medium text-gray-700 dark:text-gray-300">
+						Downloading...
+					</h4>
+					<div
+						v-for="progress in downloadProgress"
+						:key="progress.uid"
+						class="flex items-center space-x-3 p-2 bg-gray-50 dark:bg-black-200 rounded"
+					>
+						<el-icon class="text-green-500">
+							<Download />
+						</el-icon>
+						<div class="flex-1">
+							<div class="text-sm font-medium">{{ progress.name }}</div>
+							<el-progress
+								:percentage="progress.percentage"
+								:status="progress.error ? 'exception' : undefined"
+								:show-text="false"
+							/>
+						</div>
+						<span class="text-xs text-gray-500">{{ progress.percentage }}%</span>
+						<el-tooltip
+							v-if="progress.error"
+							:content="progress.error"
+							placement="top"
+							effect="dark"
+						>
+							<el-icon class="text-red-500 cursor-pointer text-lg">
+								<WarningFilled />
+							</el-icon>
+						</el-tooltip>
+					</div>
+				</div>
+
 				<!-- 已上传文件列表 -->
 				<div v-if="loading" class="text-center py-8">
 					<el-icon class="text-2xl animate-spin">
@@ -120,9 +171,7 @@
 				</div>
 
 				<div v-else-if="documents.length > 0" class="space-y-2">
-					<h4 class="text-sm font-medium text-gray-700 dark:text-gray-300">
-						Uploaded Files
-					</h4>
+					<h4 class="text-sm font-medium text-gray-700 dark:text-gray-300">Files</h4>
 					<el-table :data="documents" stripe class="w-full" border>
 						<el-table-column label="File Name" min-width="200">
 							<template #default="{ row }">
@@ -173,30 +222,24 @@
 							</template>
 						</el-table-column>
 
-						<el-table-column label="Actions" width="150" fixed="right">
+						<el-table-column label="Actions" width="80" fixed="right">
 							<template #default="{ row }">
 								<div class="flex items-center space-x-2">
 									<el-button
-										size="small"
 										type="primary"
 										link
 										:disabled="viewDocumentIds.includes(row.id)"
 										:loading="viewDocumentIds.includes(row.id)"
 										@click="handleViewDocument(row)"
-									>
-										<el-icon><View /></el-icon>
-										View
-									</el-button>
+										:icon="View"
+									/>
 									<el-button
-										size="small"
 										type="danger"
 										link
 										:disabled="viewDocumentIds.includes(row.id) || disabled"
 										@click="handleDeleteDocument(row.id)"
-									>
-										<el-icon><Delete /></el-icon>
-										Delete
-									</el-button>
+										:icon="Delete"
+									/>
 								</div>
 							</template>
 						</el-table-column>
@@ -232,12 +275,6 @@
 			@close="handleImportDialogClose"
 			@start-download="handleStartDownload"
 		/>
-
-		<!-- File Download Progress Component -->
-		<FileDownloadProgress
-			ref="downloadProgressRef"
-			@download-complete="handleImportedFilesUpload"
-		/>
 	</div>
 </template>
 
@@ -254,6 +291,7 @@ import {
 	Folder,
 	ArrowRight,
 	Download,
+	WarningFilled,
 } from '@element-plus/icons-vue';
 import {
 	uploadOnboardingFile,
@@ -267,8 +305,8 @@ import { DocumentItem, ComponentData } from '#/onboard';
 import { IntegrationAttachment } from '#/integration';
 import vuePreviewFile from '@/components/previewFile/previewFile.vue';
 import ImportAttachmentsDialog from './ImportAttachmentsDialog.vue';
-import FileDownloadProgress from '@/components/global/FileDownloadProgress.vue';
 import { useI18n } from '@/hooks/useI18n';
+import { defHttp } from '@/apis/axios';
 
 const { t } = useI18n();
 // Props
@@ -286,7 +324,22 @@ const props = defineProps<Props>();
 // 响应式数据
 const documents = ref<DocumentItem[]>([]);
 const loading = ref(false);
-const uploadProgress = ref<{ uid: string; name: string; percentage: number }[]>([]);
+const uploadProgress = ref<
+	{
+		uid: string;
+		name: string;
+		percentage: number;
+		error?: string;
+	}[]
+>([]);
+const downloadProgress = ref<
+	{
+		uid: string;
+		name: string;
+		percentage: number;
+		error?: string;
+	}[]
+>([]);
 const uploadRef = ref();
 
 // 折叠状态
@@ -591,7 +644,6 @@ const vailComponent = () => {
 const importLoading = ref(false);
 const importFileList = ref<IntegrationAttachment[]>([]);
 const importDialogVisible = ref(false);
-const downloadProgressRef = ref<InstanceType<typeof FileDownloadProgress>>();
 
 const importFormIntegration = async () => {
 	try {
@@ -619,36 +671,59 @@ const handleImportDialogClose = () => {
 const handleStartDownload = async (attachments: IntegrationAttachment[]) => {
 	if (attachments.length === 0) return;
 
-	// Convert to simple format and start downloads in progress component
-	const attachmentsToDownload = attachments.map((att) => ({
-		id: att.id,
-		fileName: att.fileName,
-		downloadLink: att.downloadLink,
-	}));
+	// Download and upload files
+	for (const attachment of attachments) {
+		const downloadUid = `download-${attachment.id}-${Date.now()}`;
 
-	downloadProgressRef.value?.startDownloads(attachmentsToDownload);
-};
-
-// Handle imported files upload
-const handleImportedFilesUpload = async (files: File[]) => {
-	if (files.length === 0) return;
-
-	// Upload each file
-	for (const file of files) {
 		try {
-			// Add to progress list
-			const uid = `imported-${Date.now()}-${Math.random()}`;
-			uploadProgress.value.push({
-				uid,
-				name: file.name,
+			// Add to download progress list
+			downloadProgress.value.push({
+				uid: downloadUid,
+				name: attachment.fileName,
 				percentage: 0,
 			});
 
+			// Download file with progress
+			const response = await defHttp.request(
+				{
+					url: attachment.downloadLink,
+					method: 'GET',
+					responseType: 'blob',
+					onDownloadProgress: (progressEvent: any) => {
+						const existingIndex = downloadProgress.value.findIndex(
+							(p) => p.uid === downloadUid
+						);
+						if (existingIndex >= 0 && progressEvent.total > 0) {
+							downloadProgress.value[existingIndex].percentage = Math.round(
+								(progressEvent.loaded * 100) / progressEvent.total
+							);
+						}
+					},
+				},
+				{ isReturnNativeResponse: true }
+			);
+
+			// Convert blob to File
+			const blob = response.data;
+			const file = new File([blob], attachment.fileName, { type: blob.type });
+
+			// Remove download progress
+			downloadProgress.value = downloadProgress.value.filter((p) => p.uid !== downloadUid);
+
+			// Now upload the file
+			const uploadUid = `upload-${attachment.id}-${Date.now()}`;
+
 			// Validate file before upload
 			if (!handleBeforeUpload(file)) {
-				uploadProgress.value = uploadProgress.value.filter((p) => p.uid !== uid);
 				continue;
 			}
+
+			// Add to upload progress list
+			uploadProgress.value.push({
+				uid: uploadUid,
+				name: file.name,
+				percentage: 0,
+			});
 
 			// Construct upload parameters
 			const uploadParams = {
@@ -663,11 +738,13 @@ const handleImportedFilesUpload = async (files: File[]) => {
 			};
 
 			// Call upload API with progress callback
-			const response = await uploadOnboardingFile(
+			const uploadResponse = await uploadOnboardingFile(
 				props.onboardingId,
 				uploadParams,
 				(progressEvent: any) => {
-					const existingIndex = uploadProgress.value.findIndex((p) => p.uid === uid);
+					const existingIndex = uploadProgress.value.findIndex(
+						(p) => p.uid === uploadUid
+					);
 					if (existingIndex >= 0 && progressEvent.total > 0) {
 						uploadProgress.value[existingIndex].percentage = Math.round(
 							(progressEvent.loaded * 100) / progressEvent.total
@@ -677,26 +754,54 @@ const handleImportedFilesUpload = async (files: File[]) => {
 			);
 
 			// Remove from progress list
-			uploadProgress.value = uploadProgress.value.filter((p) => p.uid !== uid);
+			uploadProgress.value = uploadProgress.value.filter((p) => p.uid !== uploadUid);
 
-			if (response.data?.code === '200') {
-				ElMessage.success(`${file.name} uploaded successfully`);
-				emit('documentUploaded', response.data?.data);
+			if (uploadResponse.data?.code === '200') {
+				ElMessage.success(`${file.name} imported successfully`);
+				emit('documentUploaded', uploadResponse.data?.data);
 			} else {
-				ElMessage.error(response.data?.msg || `Failed to upload ${file.name}`);
+				// Show error in progress list
+				const errorIndex = uploadProgress.value.findIndex((p) => p.uid === uploadUid);
+				if (errorIndex >= 0) {
+					uploadProgress.value[errorIndex].error =
+						uploadResponse.data?.msg || `Failed to upload ${file.name}`;
+					uploadProgress.value[errorIndex].percentage = 100;
+				} else {
+					ElMessage.error(uploadResponse.data?.msg || `Failed to upload ${file.name}`);
+				}
 			}
-		} catch (error) {
-			console.error('Upload error:', error);
-			ElMessage.error(`Failed to upload ${file.name}`);
-			uploadProgress.value = uploadProgress.value.filter((p) => p.name !== file.name);
+		} catch (error: any) {
+			console.error('Download/Upload error:', error);
+
+			// Check if it's a download error or upload error
+			const downloadIndex = downloadProgress.value.findIndex((p) => p.uid === downloadUid);
+			const uploadIndex = uploadProgress.value.findIndex(
+				(p) => p.name === attachment.fileName
+			);
+
+			if (downloadIndex >= 0) {
+				const errorMessage =
+					error.response?.data?.message ||
+					error.message ||
+					'Network error or file not accessible';
+				downloadProgress.value[downloadIndex].error = errorMessage;
+				downloadProgress.value[downloadIndex].percentage = 100;
+			} else if (uploadIndex >= 0) {
+				const errorMessage =
+					error.response?.data?.message ||
+					error.message ||
+					'Network error or file not accessible';
+				uploadProgress.value[uploadIndex].error = errorMessage;
+				uploadProgress.value[uploadIndex].percentage = 100;
+			} else {
+				ElMessage.error(`Failed to import ${attachment.fileName}`);
+			}
 		}
 	}
 
 	// Reload documents after all uploads
 	await fetchDocuments();
 };
-
-// 生命周期
 onMounted(() => {
 	fetchDocuments();
 });
