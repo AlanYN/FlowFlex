@@ -1,63 +1,63 @@
 /* Fix tag borders to match their background colors */
 .el-tag--success {
 	border-color: var(--el-color-success) !important;
-  background-color: var(--el-color-success) !important;
-  color: var(--el-color-success-light-9) !important;
+	background-color: var(--el-color-success) !important;
+	color: var(--el-color-success-light-9) !important;
 }
 
 .el-tag--warning {
 	border-color: var(--el-color-warning) !important;
-  background-color: var(--el-color-warning) !important;
-  color: var(--el-color-warning-light-9) !important;
+	background-color: var(--el-color-warning) !important;
+	color: var(--el-color-warning-light-9) !important;
 }
 
 .el-tag--danger {
 	border-color: var(--el-color-danger) !important;
-  background-color: var(--el-color-danger) !important;
-  color: var(--el-color-danger-light-9) !important;
+	background-color: var(--el-color-danger) !important;
+	color: var(--el-color-danger-light-9) !important;
 }
 
 .el-tag--info {
 	border-color: var(--el-color-info) !important;
-  background-color: var(--el-color-info) !important;
-  color: var(--el-color-info-light-9) !important;
+	background-color: var(--el-color-info) !important;
+	color: var(--el-color-info-light-9) !important;
 }
 
 .el-tag--primary {
 	border-color: var(--el-color-primary) !important;
-  background-color: var(--el-color-primary) !important;
-  color: var(--el-color-primary-light-9) !important;
+	background-color: var(--el-color-primary) !important;
+	color: var(--el-color-primary-light-9) !important;
 }
 
 /* Dark mode tag border fixes */
 html.dark .el-tag--success {
 	border-color: var(--el-color-success) !important;
-  background-color: var(--el-color-success) !important;
-  color: var(--el-color-white) !important;
+	background-color: var(--el-color-success) !important;
+	color: var(--el-color-white) !important;
 }
 
 html.dark .el-tag--warning {
 	border-color: var(--el-color-warning) !important;
-  background-color: var(--el-color-warning) !important;
-  color: var(--el-color-wwhite) !important;
+	background-color: var(--el-color-warning) !important;
+	color: var(--el-color-wwhite) !important;
 }
 
 html.dark .el-tag--danger {
 	border-color: var(--el-color-danger) !important;
-  background-color: var(--el-color-danger) !important;
-  color: var(--el-color-white) !important;
+	background-color: var(--el-color-danger) !important;
+	color: var(--el-color-white) !important;
 }
 
 html.dark .el-tag--info {
 	border-color: var(--el-color-info) !important;
-  background-color: var(--el-color-info) !important;
-  color: var(--el-color-white) !important;
+	background-color: var(--el-color-info) !important;
+	color: var(--el-color-white) !important;
 }
 
 html.dark .el-tag--primary {
 	border-color: var(--el-color-primary) !important;
-  background-color: var(--el-color-primary) !important;
-  color: var(--el-color-white) !important;
+	background-color: var(--el-color-primary) !important;
+	color: var(--el-color-white) !important;
 }
 
 .el-menu {
@@ -65,18 +65,17 @@ html.dark .el-tag--primary {
 }
 
 .el-menu-item {
-  @apply rounded-xl ;
+	@apply rounded-xl;
 
-  &.is-active {
-    background-color: var(--el-color-primary);
-    color: var(--el-color-white);
-  }
-  
-  &:hover{
-    background-color: var(--el-color-primary);
-    color: var(--el-color-white);
-  }
+	&.is-active {
+		background-color: var(--el-color-primary);
+		color: var(--el-color-white);
+	}
 
+	&:hover {
+		background-color: var(--el-color-primary);
+		color: var(--el-color-white);
+	}
 }
 
 .el-table th {
@@ -85,14 +84,22 @@ html.dark .el-tag--primary {
 }
 
 .el-card {
-  box-shadow: none !important;
-  @apply  rounded-xl;
+	box-shadow: none !important;
+	@apply rounded-xl;
 }
 
 .el-drawer {
-  @apply border
+	@apply border;
 }
 
 .el-select__wrapper.is-disabled {
-  background-color: var(--el-disabled-bg-color);
+	background-color: var(--el-disabled-bg-color);
+}
+
+.dark .el-image-viewer__close {
+	@apply bg-gray-400;
+}
+
+.dark .el-image-viewer__actions {
+	@apply bg-gray-400;
 }
