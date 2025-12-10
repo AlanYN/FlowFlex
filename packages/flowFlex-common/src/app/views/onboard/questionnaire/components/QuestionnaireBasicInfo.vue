@@ -61,7 +61,7 @@ const updateDescription = (value: string) => {
 };
 
 const validate = async () => {
-	await formRef.value?.validate();
+	return await formRef.value?.validate();
 };
 
 defineExpose({
