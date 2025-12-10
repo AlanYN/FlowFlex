@@ -47,7 +47,7 @@
 								<el-radio-group
 									v-model="configMode"
 									@change="(value) => handleConfigModeChange(value as ToolsType)"
-									:disabled="isConfigModeDisabled"
+									:disabled="isConfigModeDisabled || loadingExistingTools"
 								>
 									<el-radio
 										:value="ToolsType.UseTool"
