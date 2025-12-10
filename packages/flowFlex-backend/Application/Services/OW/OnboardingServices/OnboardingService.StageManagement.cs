@@ -5,7 +5,6 @@ using FlowFlex.Application.Contracts.Dtos.OW.Onboarding;
 using FlowFlex.Application.Contracts.Dtos.OW.Permission;
 using FlowFlex.Application.Contracts.IServices.Action;
 using FlowFlex.Application.Contracts.IServices.OW;
-using FlowFlex.Application.Contracts.IServices.OW;
 using FlowFlex.Application.Services.OW.Extensions;
 using FlowFlex.Domain.Entities.OW;
 using FlowFlex.Domain.Repository.OW;
@@ -552,12 +551,12 @@ namespace FlowFlex.Application.Services.OW
                         extendedData: System.Text.Json.JsonSerializer.Serialize(extendedData)
                     );
 
-                    _logger.LogInformation("已记录 Stage 完成日志: OnboardingId={OnboardingId}, StageId={StageId}, StageName={StageName}",
+                    _logger.LogInformation("Stage completion logged: OnboardingId={OnboardingId}, StageId={StageId}, StageName={StageName}",
                         entity.Id, stageToComplete.Id, stageToComplete.Name);
                 }
                 catch (Exception logEx)
                 {
-                    _logger.LogError(logEx, "记录 Stage 完成日志失败: OnboardingId={OnboardingId}, StageId={StageId}",
+                    _logger.LogError(logEx, "Failed to log stage completion: OnboardingId={OnboardingId}, StageId={StageId}",
                         entity.Id, stageToComplete.Id);
                     // Don't re-throw to avoid breaking the main flow
                 }

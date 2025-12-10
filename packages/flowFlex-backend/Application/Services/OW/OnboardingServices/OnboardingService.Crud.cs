@@ -5,7 +5,6 @@ using FlowFlex.Application.Contracts.Dtos.OW.Onboarding;
 using FlowFlex.Application.Contracts.Dtos.OW.Permission;
 using FlowFlex.Application.Contracts.IServices.Action;
 using FlowFlex.Application.Contracts.IServices.OW;
-using FlowFlex.Application.Contracts.IServices.OW;
 using FlowFlex.Application.Contracts.IServices.OW.ChangeLog;
 using FlowFlex.Application.Services.OW.Extensions;
 using FlowFlex.Domain.Entities.OW;
@@ -49,204 +48,30 @@ namespace FlowFlex.Application.Services.OW
         {
             try
             {
-                // Debug logging handled by structured logging
-                // Check all injected dependencies
-                if (_onboardingRepository == null)
-                {
-                    // Debug logging handled by structured logging
-                    throw new CRMException(ErrorCodeEnum.SystemError, "Onboarding repository is not available");
-                }
+                // Step 1: Validate dependencies
+                ValidateCreateDependencies(input);
 
-                if (_workflowRepository == null)
-                {
-                    // Debug logging handled by structured logging
-                    throw new CRMException(ErrorCodeEnum.SystemError, "Workflow repository is not available");
-                }
-
-                if (_stageRepository == null)
-                {
-                    // Debug logging handled by structured logging
-                    throw new CRMException(ErrorCodeEnum.SystemError, "Stage repository is not available");
-                }
-
-                if (_mapper == null)
-                {
-                    // Debug logging handled by structured logging
-                    throw new CRMException(ErrorCodeEnum.SystemError, "Mapper is not available");
-                }
-
-                if (_userContext == null)
-                {
-                    // Debug logging handled by structured logging
-                    throw new CRMException(ErrorCodeEnum.SystemError, "User context is not available");
-                }
-
-                if (input == null)
-                {
-                    // Debug logging handled by structured logging
-                    throw new CRMException(ErrorCodeEnum.ParamInvalid, "Input parameter cannot be null");
-                }
-                // Debug logging handled by structured logging
-                // Ensure the table exists before inserting
-                // Debug logging handled by structured logging
+                // Step 2: Ensure table exists
                 await _onboardingRepository.EnsureTableExistsAsync();
-                // Debug logging handled by structured logging
-                // Get tenant ID and app code from UserContext (injected from HTTP headers via middleware)
-                string tenantId = _userContext?.TenantId ?? "default";
-                string appCode = _userContext?.AppCode ?? "default";
-                // Debug logging handled by structured logging
-                // Handle default workflow selection if WorkflowId is not provided
-                // Debug logging handled by structured logging ?? "null"} ===");
 
-                if (!input.WorkflowId.HasValue || input.WorkflowId.Value <= 0)
-                {
-                    // Debug logging handled by structured logging
-                    var defaultWorkflow = await _workflowRepository.GetDefaultWorkflowAsync();
+                // Step 3: Resolve workflow ID (use provided or find default)
+                input.WorkflowId = await ResolveWorkflowIdAsync(input);
 
-                    if (defaultWorkflow != null && defaultWorkflow.IsValid && defaultWorkflow.IsActive)
-                    {
-                        input.WorkflowId = defaultWorkflow.Id;
-                        // Debug logging handled by structured logging
-                    }
-                    else
-                    {
-                        // Debug logging handled by structured logging
-                        var activeWorkflows = await _workflowRepository.GetActiveWorkflowsAsync();
-                        var firstActiveWorkflow = activeWorkflows?.FirstOrDefault();
+                // Step 4: Validate workflow exists
+                var workflow = await ValidateAndGetWorkflowAsync(input.WorkflowId.Value);
 
-                        if (firstActiveWorkflow != null)
-                        {
-                            input.WorkflowId = firstActiveWorkflow.Id;
-                            // Debug logging handled by structured logging
-                        }
-                        else
-                        {
-                            throw new CRMException(ErrorCodeEnum.DataNotFound, "No default or active workflow found. Please specify a valid WorkflowId or configure a default workflow.");
-                        }
-                    }
-                }
-                // Debug logging handled by structured logging
-                // Check if Lead ID already exists for this tenant with enhanced checking (only if LeadId is provided)
-                // Debug logging handled by structured logging
-                // Use SqlSugar client directly for more precise checking
-                var sqlSugarClient = _onboardingRepository.GetSqlSugarClient();
-
-                // Note: Lead ID duplicate check removed - allow multiple onboardings with same Lead ID
-                // Debug logging handled by structured logging
-                // Validate workflow exists with detailed logging
-                // Debug logging handled by structured logging
-                var workflow = await _workflowRepository.GetByIdAsync(input.WorkflowId.Value);
-                // Debug logging handled by structured logging}");
-
-                if (workflow != null)
-                {
-                    // Debug logging handled by structured logging
-                }
-
-                if (workflow == null || !workflow.IsValid)
-                {
-                    // Try to get all workflows to see what's available
-                    // Debug logging handled by structured logging
-                    try
-                    {
-                        var allWorkflows = await _workflowRepository.GetListAsync(x => x.IsValid);
-                        // Debug logging handled by structured logging
-                        foreach (var w in allWorkflows.Take(5)) // Show first 5
-                        {
-                            // Debug logging handled by structured logging
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        // Debug logging handled by structured logging
-                    }
-
-                    throw new CRMException(ErrorCodeEnum.DataNotFound, $"Workflow not found for ID: {input.WorkflowId.Value}");
-                }
-
-                // Get first stage of the workflow with detailed logging
-                // Debug logging handled by structured logging
+                // Step 5: Get workflow stages
                 var stages = await _stageRepository.GetByWorkflowIdAsync(input.WorkflowId.Value);
-                // Debug logging handled by structured logging
                 var firstStage = stages.OrderBy(x => x.Order).FirstOrDefault();
-                if (firstStage == null)
-                {
-                    // Debug logging handled by structured logging
-                    // Instead of failing, let's allow creation without stages and warn
-                    // Debug logging handled by structured logging
-                }
-                else
-                {
-                    // Debug logging handled by structured logging
-                }
 
-                // Create new onboarding entity
-                var entity = _mapper.Map<Onboarding>(input);
+                // Step 6: Initialize onboarding entity
+                var entity = await InitializeOnboardingEntityAsync(input, firstStage);
 
-                // Generate Case Code from Lead Name
-                entity.CaseCode = await _caseCodeGeneratorService.GenerateCaseCodeAsync(input.LeadName);
+                // Step 7: Validate entity
+                ValidateOnboardingEntity(entity);
 
-                // Debug logging handled by structured logging
-                // Set initial values with explicit null checks
-                entity.CurrentStageId = firstStage?.Id;
-                entity.CurrentStageOrder = firstStage?.Order ?? 0;
-                entity.Status = string.IsNullOrEmpty(entity.Status) ? "Inactive" : entity.Status;
-
-                // 娣诲姞璋冭瘯鏃ュ織 - 妫€鏌?CurrentStageId 鏄惁姝ｇ‘璁剧疆
-                LoggingExtensions.WriteLine($"[DEBUG] Onboarding Create - CurrentStageId set to: {entity.CurrentStageId}, CurrentStageOrder: {entity.CurrentStageOrder}, FirstStage: {firstStage?.Id}");
-                LoggingExtensions.WriteLine($"[DEBUG] Onboarding Status: ID={entity.Id}, Status={entity.Status}");
-                entity.StartDate = entity.StartDate ?? DateTimeOffset.UtcNow;
-
-                // IMPORTANT: Do NOT set CurrentStageStartTime during creation
-                // CurrentStageStartTime should only be set when:
-                // 1. Onboarding is started (status changes to Active/InProgress/Started)
-                // 2. Stage is saved for the first time
-                // 3. Stage is completed and advances to next stage
-                entity.CurrentStageStartTime = null;
-
-                entity.CompletionRate = 0;
-                entity.IsPrioritySet = false;
-                entity.Priority = string.IsNullOrEmpty(entity.Priority) ? "Medium" : entity.Priority;
-                entity.IsActive = true;
-
-                // Initialize stages progress as empty JSON array for JSONB compatibility
-                entity.StagesProgressJson = "[]";
-
-                // Initialize create information with proper ID and timestamps
-                entity.InitCreateInfo(_userContext);
-                AuditHelper.ApplyCreateAudit(entity, _operatorContextService);
-
-
-                // Debug logging handled by structured logging
-                // Generate unique ID if not set
-                if (entity.Id == 0)
-                {
-                    entity.InitNewId();
-                }
-                // Debug logging handled by structured logging
-                // Validate entity before insertion
-                if (entity.WorkflowId <= 0)
-                {
-                    throw new CRMException(ErrorCodeEnum.ParamInvalid, "WorkflowId must be greater than 0");
-                }
-
-                // LeadId is now optional since Case Code is the primary identifier
-                // if (string.IsNullOrWhiteSpace(entity.LeadId))
-                // {
-                //     throw new CRMException(ErrorCodeEnum.ParamInvalid, "LeadId cannot be null or empty");
-                // }
-
-                if (string.IsNullOrWhiteSpace(entity.TenantId))
-                {
-                    throw new CRMException(ErrorCodeEnum.ParamInvalid, "TenantId cannot be null or empty");
-                }
-
-                // Ensure Id is generated (SqlSugar expects this for some operations)
-                if (entity.Id == 0)
-                {
-                    entity.Id = SnowFlakeSingle.Instance.NextId();
-                    // Debug logging handled by structured logging
-                }
+                // Step 8: Insert into database
+                var sqlSugarClient = _onboardingRepository.GetSqlSugarClient();
                 // Debug logging handled by structured logging
                 // Use a completely simplified approach to avoid SqlSugar issues
                 long insertedId;
@@ -400,123 +225,21 @@ namespace FlowFlex.Application.Services.OW
                     }
                 }
 
-                // Initialize stage progress after successful creation
+                // Step 9: Post-creation processing
                 if (insertedId > 0)
                 {
-                    try
-                    {
-                        // Re-fetch the inserted entity to ensure we have complete data
-                        var insertedEntity = await _onboardingRepository.GetByIdAsync(insertedId);
-                        if (insertedEntity != null)
-                        {
-                            // Initialize stage progress
-                            await InitializeStagesProgressAsync(insertedEntity, stages);
+                    // Initialize stages progress and create user invitation
+                    await ProcessPostCreationAsync(insertedId, stages.ToList());
 
-                            // Update entity to save stage progress using safe method
-                            var updateResult = await SafeUpdateOnboardingAsync(insertedEntity);
-                            if (!updateResult)
-                            {
-                                // Log warning but don't fail the creation
-                                // Debug logging handled by structured logging
-                            }
-                            else
-                            {
-                                // Debug logging handled by structured logging
-                            }
-
-                            // Create default UserInvitation record if email is available
-                            await CreateDefaultUserInvitationAsync(insertedEntity);
-                        }
-                        else
-                        {
-                            // Debug logging handled by structured logging
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        // Debug logging handled by structured logging
-                        // Important: Re-throw if this is a critical initialization failure
-                        // But first check if it's just a minor update issue
-                        if (ex.Message.Contains("JSONB") || ex.Message.Contains("stages_progress"))
-                        {
-                            // This might be the JSONB conversion issue, don't fail the entire creation
-                            // Debug logging handled by structured logging
-                        }
-                        else
-                        {
-                            // For other critical errors, we might want to throw
-                            // Debug logging handled by structured logging
-                        }
-                    }
-
-                    // Clear query cache (async execution, doesn't affect main flow)
+                    // Clear query cache (async execution)
                     _backgroundTaskQueue.QueueBackgroundWorkItem(async token =>
                     {
-                        try
-                        {
-                            await ClearOnboardingQueryCacheAsync();
-                            // Debug logging handled by structured logging
-                        }
-                        catch (Exception ex)
-                        {
-                            // Debug logging handled by structured logging
-                        }
+                        try { await ClearOnboardingQueryCacheAsync(); }
+                        catch (Exception ex) { _logger.LogWarning(ex, "Failed to clear query cache after create"); }
                     });
 
-                    // Log onboarding creation
-                    _backgroundTaskQueue.QueueBackgroundWorkItem(async token =>
-                    {
-                        try
-                        {
-                            var insertedEntity = await _onboardingRepository.GetByIdAsync(insertedId);
-                            if (insertedEntity != null)
-                            {
-                                // Get workflow name
-                                string workflowName = null;
-                                try
-                                {
-                                    var workflow = await _workflowRepository.GetByIdAsync(insertedEntity.WorkflowId);
-                                    workflowName = workflow?.Name;
-                                }
-                                catch
-                                {
-                                    // Ignore if workflow not found
-                                }
-
-                                var afterData = JsonSerializer.Serialize(new
-                                {
-                                    LeadName = insertedEntity.LeadName,
-                                    CaseCode = insertedEntity.CaseCode,
-                                    WorkflowId = insertedEntity.WorkflowId,
-                                    WorkflowName = workflowName,
-                                    Status = insertedEntity.Status,
-                                    Priority = insertedEntity.Priority,
-                                    LifeCycleStageName = insertedEntity.LifeCycleStageName,
-                                    ContactPerson = insertedEntity.ContactPerson,
-                                    ContactEmail = insertedEntity.ContactEmail,
-                                    CurrentStageId = insertedEntity.CurrentStageId,
-                                    Ownership = insertedEntity.Ownership,
-                                    OwnershipName = insertedEntity.OwnershipName,
-                                    ViewPermissionMode = insertedEntity.ViewPermissionMode,
-                                    ViewTeams = insertedEntity.ViewTeams,
-                                    ViewUsers = insertedEntity.ViewUsers,
-                                    ViewPermissionSubjectType = insertedEntity.ViewPermissionSubjectType,
-                                    OperateTeams = insertedEntity.OperateTeams,
-                                    OperateUsers = insertedEntity.OperateUsers,
-                                    OperatePermissionSubjectType = insertedEntity.OperatePermissionSubjectType
-                                });
-                                await _onboardingLogService.LogOnboardingCreateAsync(
-                                    insertedId,
-                                    insertedEntity.LeadName ?? insertedEntity.CaseCode ?? "Unknown",
-                                    afterData: afterData
-                                );
-                            }
-                        }
-                        catch (Exception ex)
-                        {
-                            _logger.LogError(ex, "Failed to log onboarding create operation for onboarding {OnboardingId}", insertedId);
-                        }
-                    });
+                    // Log creation in background
+                    QueueCreationLogging(insertedId);
                 }
 
                 return insertedId;
@@ -727,7 +450,7 @@ namespace FlowFlex.Application.Services.OW
                     else
                     {
                         // Log when static field sync is skipped
-                        Console.WriteLine($"[OnboardingService] Static field sync skipped - No stage found for Onboarding {entity.Id}");
+                        _logger.LogDebug("Static field sync skipped - No stage found for Onboarding {OnboardingId}", entity.Id);
                     }
 
                     // Log onboarding update
@@ -1200,6 +923,223 @@ namespace FlowFlex.Application.Services.OW
                 throw new CRMException(ErrorCodeEnum.SystemError, $"Error getting onboarding by ID {id}: {ex.Message}");
             }
         }
+
+        #region CreateAsync Helper Methods
+
+        /// <summary>
+        /// Validate that all required dependencies are available for CreateAsync
+        /// </summary>
+        private void ValidateCreateDependencies(OnboardingInputDto input)
+        {
+            if (_onboardingRepository == null)
+                throw new CRMException(ErrorCodeEnum.SystemError, "Onboarding repository is not available");
+
+            if (_workflowRepository == null)
+                throw new CRMException(ErrorCodeEnum.SystemError, "Workflow repository is not available");
+
+            if (_stageRepository == null)
+                throw new CRMException(ErrorCodeEnum.SystemError, "Stage repository is not available");
+
+            if (_mapper == null)
+                throw new CRMException(ErrorCodeEnum.SystemError, "Mapper is not available");
+
+            if (_userContext == null)
+                throw new CRMException(ErrorCodeEnum.SystemError, "User context is not available");
+
+            if (input == null)
+                throw new CRMException(ErrorCodeEnum.ParamInvalid, "Input parameter cannot be null");
+        }
+
+        /// <summary>
+        /// Resolve workflow ID - either use provided ID or find default/active workflow
+        /// </summary>
+        private async Task<long> ResolveWorkflowIdAsync(OnboardingInputDto input)
+        {
+            if (input.WorkflowId.HasValue && input.WorkflowId.Value > 0)
+            {
+                return input.WorkflowId.Value;
+            }
+
+            // Try to get default workflow
+            var defaultWorkflow = await _workflowRepository.GetDefaultWorkflowAsync();
+            if (defaultWorkflow != null && defaultWorkflow.IsValid && defaultWorkflow.IsActive)
+            {
+                return defaultWorkflow.Id;
+            }
+
+            // Fallback to first active workflow
+            var activeWorkflows = await _workflowRepository.GetActiveWorkflowsAsync();
+            var firstActiveWorkflow = activeWorkflows?.FirstOrDefault();
+            if (firstActiveWorkflow != null)
+            {
+                return firstActiveWorkflow.Id;
+            }
+
+            throw new CRMException(ErrorCodeEnum.DataNotFound, 
+                "No default or active workflow found. Please specify a valid WorkflowId or configure a default workflow.");
+        }
+
+        /// <summary>
+        /// Validate workflow exists and is valid
+        /// </summary>
+        private async Task<Workflow> ValidateAndGetWorkflowAsync(long workflowId)
+        {
+            var workflow = await _workflowRepository.GetByIdAsync(workflowId);
+
+            if (workflow == null || !workflow.IsValid)
+            {
+                throw new CRMException(ErrorCodeEnum.DataNotFound, $"Workflow not found for ID: {workflowId}");
+            }
+
+            return workflow;
+        }
+
+        /// <summary>
+        /// Initialize onboarding entity with default values
+        /// </summary>
+        private async Task<Onboarding> InitializeOnboardingEntityAsync(OnboardingInputDto input, Stage firstStage)
+        {
+            var entity = _mapper.Map<Onboarding>(input);
+
+            // Generate Case Code from Lead Name
+            entity.CaseCode = await _caseCodeGeneratorService.GenerateCaseCodeAsync(input.LeadName);
+
+            // Set initial values
+            entity.CurrentStageId = firstStage?.Id;
+            entity.CurrentStageOrder = firstStage?.Order ?? 0;
+            entity.Status = string.IsNullOrEmpty(entity.Status) ? "Inactive" : entity.Status;
+            entity.StartDate = entity.StartDate ?? DateTimeOffset.UtcNow;
+            entity.CurrentStageStartTime = null; // Only set when onboarding is started
+            entity.CompletionRate = 0;
+            entity.IsPrioritySet = false;
+            entity.Priority = string.IsNullOrEmpty(entity.Priority) ? "Medium" : entity.Priority;
+            entity.IsActive = true;
+            entity.StagesProgressJson = "[]";
+
+            // Initialize audit information
+            entity.InitCreateInfo(_userContext);
+            AuditHelper.ApplyCreateAudit(entity, _operatorContextService);
+
+            // Generate unique ID if not set
+            if (entity.Id == 0)
+            {
+                entity.InitNewId();
+            }
+
+            return entity;
+        }
+
+        /// <summary>
+        /// Validate onboarding entity before insertion
+        /// </summary>
+        private void ValidateOnboardingEntity(Onboarding entity)
+        {
+            if (entity.WorkflowId <= 0)
+            {
+                throw new CRMException(ErrorCodeEnum.ParamInvalid, "WorkflowId must be greater than 0");
+            }
+
+            if (string.IsNullOrWhiteSpace(entity.TenantId))
+            {
+                throw new CRMException(ErrorCodeEnum.ParamInvalid, "TenantId cannot be null or empty");
+            }
+
+            // Ensure Id is generated
+            if (entity.Id == 0)
+            {
+                entity.Id = SnowFlakeSingle.Instance.NextId();
+            }
+        }
+
+        /// <summary>
+        /// Post-creation processing: initialize stages progress, create user invitation, log creation
+        /// </summary>
+        private async Task ProcessPostCreationAsync(long insertedId, List<Stage> stages)
+        {
+            if (insertedId <= 0) return;
+
+            try
+            {
+                var insertedEntity = await _onboardingRepository.GetByIdAsync(insertedId);
+                if (insertedEntity == null) return;
+
+                // Initialize stage progress
+                await InitializeStagesProgressAsync(insertedEntity, stages);
+
+                // Update entity to save stage progress
+                var updateResult = await SafeUpdateOnboardingAsync(insertedEntity);
+                if (!updateResult)
+                {
+                    _logger.LogWarning("Failed to update stages progress for Onboarding {OnboardingId}", insertedId);
+                }
+
+                // Create default UserInvitation record if email is available
+                await CreateDefaultUserInvitationAsync(insertedEntity);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error during post-creation processing for Onboarding {OnboardingId}", insertedId);
+                // Don't fail the entire creation for post-processing errors
+            }
+        }
+
+        /// <summary>
+        /// Log onboarding creation in background
+        /// </summary>
+        private void QueueCreationLogging(long insertedId)
+        {
+            _backgroundTaskQueue.QueueBackgroundWorkItem(async token =>
+            {
+                try
+                {
+                    var insertedEntity = await _onboardingRepository.GetByIdAsync(insertedId);
+                    if (insertedEntity == null) return;
+
+                    string workflowName = null;
+                    try
+                    {
+                        var workflow = await _workflowRepository.GetByIdAsync(insertedEntity.WorkflowId);
+                        workflowName = workflow?.Name;
+                    }
+                    catch { /* Ignore if workflow not found */ }
+
+                    var afterData = JsonSerializer.Serialize(new
+                    {
+                        insertedEntity.LeadName,
+                        insertedEntity.CaseCode,
+                        insertedEntity.WorkflowId,
+                        WorkflowName = workflowName,
+                        insertedEntity.Status,
+                        insertedEntity.Priority,
+                        insertedEntity.LifeCycleStageName,
+                        insertedEntity.ContactPerson,
+                        insertedEntity.ContactEmail,
+                        insertedEntity.CurrentStageId,
+                        insertedEntity.Ownership,
+                        insertedEntity.OwnershipName,
+                        insertedEntity.ViewPermissionMode,
+                        insertedEntity.ViewTeams,
+                        insertedEntity.ViewUsers,
+                        insertedEntity.ViewPermissionSubjectType,
+                        insertedEntity.OperateTeams,
+                        insertedEntity.OperateUsers,
+                        insertedEntity.OperatePermissionSubjectType
+                    });
+
+                    await _onboardingLogService.LogOnboardingCreateAsync(
+                        insertedId,
+                        insertedEntity.LeadName ?? insertedEntity.CaseCode ?? "Unknown",
+                        afterData: afterData
+                    );
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to log onboarding create operation for onboarding {OnboardingId}", insertedId);
+                }
+            });
+        }
+
+        #endregion
     }
 }
 
