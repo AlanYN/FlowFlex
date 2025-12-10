@@ -92,3 +92,7 @@ html.dark .el-tag--primary {
 .el-drawer {
   @apply border
 }
+
+.el-select__wrapper.is-disabled {
+  background-color: var(--el-disabled-bg-color);
+}

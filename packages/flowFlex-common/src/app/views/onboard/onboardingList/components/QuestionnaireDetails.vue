@@ -373,7 +373,7 @@ const getSkippedQuestions = (questionnaireData: any, answers: any): Set<string> 
 	}
 
 	// 过滤掉默认section
-	const validSections = questionnaireData.sections.filter((section) => !section.isDefault);
+	const validSections = questionnaireData.sections;
 
 	// 处理section级别的跳过逻辑
 	const sectionSkippedQuestions = processSectionSkips(validSections, answers);
@@ -588,7 +588,6 @@ const completionStats = computed(() => {
 
 	// 获取被跳过的问题集合（使用混合数据源）
 	const skippedQuestions = getSkippedQuestions(questionnaireData, answers);
-
 	// 统计各种类型的问题数量
 	let totalQuestions = allQuestions.length;
 	let answeredQuestions = 0;
