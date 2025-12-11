@@ -106,35 +106,28 @@ public class ChecklistService : IChecklistService, IScopedService
 
         await _checklistRepository.InsertAsync(entity);
 
-        // Log checklist create operation (fire-and-forget)
-        _ = Task.Run(async () =>
+        // Log checklist create operation (fire-and-forget via background queue)
+        _backgroundTaskQueue.QueueBackgroundWorkItem(async _ =>
         {
-            try
+            // Prepare after data for logging with all checklist fields
+            var afterData = JsonSerializer.Serialize(new
             {
-                // Prepare after data for logging with all checklist fields
-                var afterData = JsonSerializer.Serialize(new
-                {
-                    Name = entity.Name,
-                    Description = entity.Description,
-                    Team = entity.Team,
-                    Type = entity.Type,
-                    Status = entity.Status,
-                    IsTemplate = entity.IsTemplate,
-                    TemplateId = entity.TemplateId,
-                    EstimatedHours = entity.EstimatedHours,
-                    IsActive = entity.IsActive
-                });
+                Name = entity.Name,
+                Description = entity.Description,
+                Team = entity.Team,
+                Type = entity.Type,
+                Status = entity.Status,
+                IsTemplate = entity.IsTemplate,
+                TemplateId = entity.TemplateId,
+                EstimatedHours = entity.EstimatedHours,
+                IsActive = entity.IsActive
+            });
 
-                await _operationChangeLogService.LogChecklistCreateAsync(
-                    checklistId: entity.Id,
-                    checklistName: entity.Name,
-                    afterData: afterData
-                );
-            }
-            catch
-            {
-                // Ignore logging errors to avoid affecting main operation
-            }
+            await _operationChangeLogService.LogChecklistCreateAsync(
+                checklistId: entity.Id,
+                checklistName: entity.Name,
+                afterData: afterData
+            );
         });
 
         // Sync service is no longer needed as assignments are managed through Stage Components
@@ -212,69 +205,78 @@ public class ChecklistService : IChecklistService, IScopedService
 
         var result = await _checklistRepository.UpdateAsync(entity);
 
-        // Log checklist update operation if successful (fire-and-forget)
+        // Log checklist update operation if successful (via background queue)
         if (result)
         {
-            _ = Task.Run(async () =>
+            // Capture values for background task
+            var capturedOriginalName = originalName;
+            var capturedOriginalDescription = originalDescription;
+            var capturedOriginalTeam = originalTeam;
+            var capturedOriginalType = originalType;
+            var capturedOriginalStatus = originalStatus;
+            var capturedOriginalIsTemplate = originalIsTemplate;
+            var capturedOriginalTemplateId = originalTemplateId;
+            var capturedOriginalEstimatedHours = originalEstimatedHours;
+            var capturedOriginalIsActive = originalIsActive;
+            var capturedEntityId = entity.Id;
+            var capturedEntityName = entity.Name;
+            var capturedEntityDescription = entity.Description;
+            var capturedEntityTeam = entity.Team;
+            var capturedEntityType = entity.Type;
+            var capturedEntityStatus = entity.Status;
+            var capturedEntityIsTemplate = entity.IsTemplate;
+            var capturedEntityTemplateId = entity.TemplateId;
+            var capturedEntityEstimatedHours = entity.EstimatedHours;
+            var capturedEntityIsActive = entity.IsActive;
+
+            _backgroundTaskQueue.QueueBackgroundWorkItem(async _ =>
             {
-                try
+                // Prepare before and after data for logging using original values
+                var beforeData = JsonSerializer.Serialize(new
                 {
-                    // Prepare before and after data for logging using original values
-                    var beforeData = JsonSerializer.Serialize(new
-                    {
-                        Name = originalName,
-                        Description = originalDescription,
-                        Team = originalTeam,
-                        Type = originalType,
-                        Status = originalStatus,
-                        IsTemplate = originalIsTemplate,
-                        TemplateId = originalTemplateId,
-                        EstimatedHours = originalEstimatedHours,
-                        IsActive = originalIsActive
-                    });
+                    Name = capturedOriginalName,
+                    Description = capturedOriginalDescription,
+                    Team = capturedOriginalTeam,
+                    Type = capturedOriginalType,
+                    Status = capturedOriginalStatus,
+                    IsTemplate = capturedOriginalIsTemplate,
+                    TemplateId = capturedOriginalTemplateId,
+                    EstimatedHours = capturedOriginalEstimatedHours,
+                    IsActive = capturedOriginalIsActive
+                });
 
-                    var afterData = JsonSerializer.Serialize(new
-                    {
-                        Name = entity.Name,
-                        Description = entity.Description,
-                        Team = entity.Team,
-                        Type = entity.Type,
-                        Status = entity.Status,
-                        IsTemplate = entity.IsTemplate,
-                        TemplateId = entity.TemplateId,
-                        EstimatedHours = entity.EstimatedHours,
-                        IsActive = entity.IsActive
-                    });
-
-                    // Determine changed fields by comparing original vs current values
-                    var changedFields = new List<string>();
-                    if (originalName != entity.Name) changedFields.Add("Name");
-                    if (originalDescription != entity.Description) changedFields.Add("Description");
-                    if (originalTeam != entity.Team) changedFields.Add("Team");
-                    if (originalType != entity.Type) changedFields.Add("Type");
-                    if (originalStatus != entity.Status) changedFields.Add("Status");
-                    if (originalIsTemplate != entity.IsTemplate) changedFields.Add("IsTemplate");
-                    if (originalTemplateId != entity.TemplateId) changedFields.Add("TemplateId");
-                    if (originalEstimatedHours != entity.EstimatedHours) changedFields.Add("EstimatedHours");
-                    if (originalIsActive != entity.IsActive) changedFields.Add("IsActive");
-
-                    // Debug logging
-                    _logger.LogDebug("ChecklistUpdate Debug - Before: {BeforeData}", beforeData);
-                    _logger.LogDebug("ChecklistUpdate Debug - After: {AfterData}", afterData);
-                    _logger.LogDebug("ChecklistUpdate Debug - ChangedFields: {ChangedFields}", string.Join(", ", changedFields));
-
-                    await _operationChangeLogService.LogChecklistUpdateAsync(
-                        checklistId: entity.Id,
-                        checklistName: entity.Name,
-                        beforeData: beforeData,
-                        afterData: afterData,
-                        changedFields: changedFields
-                    );
-                }
-                catch
+                var afterData = JsonSerializer.Serialize(new
                 {
-                    // Ignore logging errors to avoid affecting main operation
-                }
+                    Name = capturedEntityName,
+                    Description = capturedEntityDescription,
+                    Team = capturedEntityTeam,
+                    Type = capturedEntityType,
+                    Status = capturedEntityStatus,
+                    IsTemplate = capturedEntityIsTemplate,
+                    TemplateId = capturedEntityTemplateId,
+                    EstimatedHours = capturedEntityEstimatedHours,
+                    IsActive = capturedEntityIsActive
+                });
+
+                // Determine changed fields by comparing original vs current values
+                var changedFields = new List<string>();
+                if (capturedOriginalName != capturedEntityName) changedFields.Add("Name");
+                if (capturedOriginalDescription != capturedEntityDescription) changedFields.Add("Description");
+                if (capturedOriginalTeam != capturedEntityTeam) changedFields.Add("Team");
+                if (capturedOriginalType != capturedEntityType) changedFields.Add("Type");
+                if (capturedOriginalStatus != capturedEntityStatus) changedFields.Add("Status");
+                if (capturedOriginalIsTemplate != capturedEntityIsTemplate) changedFields.Add("IsTemplate");
+                if (capturedOriginalTemplateId != capturedEntityTemplateId) changedFields.Add("TemplateId");
+                if (capturedOriginalEstimatedHours != capturedEntityEstimatedHours) changedFields.Add("EstimatedHours");
+                if (capturedOriginalIsActive != capturedEntityIsActive) changedFields.Add("IsActive");
+
+                await _operationChangeLogService.LogChecklistUpdateAsync(
+                    checklistId: capturedEntityId,
+                    checklistName: capturedEntityName,
+                    beforeData: beforeData,
+                    afterData: afterData,
+                    changedFields: changedFields
+                );
             });
         }
 
@@ -331,23 +333,16 @@ public class ChecklistService : IChecklistService, IScopedService
 
         var result = await _checklistRepository.UpdateAsync(checklist);
 
-        // Log checklist delete operation if successful (fire-and-forget)
+        // Log checklist delete operation if successful (via background queue)
         if (result)
         {
-            _ = Task.Run(async () =>
+            _backgroundTaskQueue.QueueBackgroundWorkItem(async _ =>
             {
-                try
-                {
-                    await _operationChangeLogService.LogChecklistDeleteAsync(
-                        checklistId: id,
-                        checklistName: checklistName,
-                        reason: "Checklist deleted via admin portal"
-                    );
-                }
-                catch
-                {
-                    // Ignore logging errors to avoid affecting main operation
-                }
+                await _operationChangeLogService.LogChecklistDeleteAsync(
+                    checklistId: id,
+                    checklistName: checklistName,
+                    reason: "Checklist deleted via admin portal"
+                );
             });
         }
 

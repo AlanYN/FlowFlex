@@ -475,22 +475,15 @@ namespace FlowFlex.Application.Service.OW
                             });
                         }
 
-                        // Log the create operation (fire-and-forget)
-                        _ = Task.Run(async () =>
+                        // Log the create operation (fire-and-forget via background queue)
+                        _backgroundTaskQueue.QueueBackgroundWorkItem(async _ =>
                         {
-                            try
-                            {
-                                await _operationChangeLogService.LogStageCreateAsync(
-                                    stageId: result.Data,
-                                    stageName: createdStage.Name,
-                                    workflowId: createdStage.WorkflowId,
-                                    afterData: afterData
-                                );
-                            }
-                            catch
-                            {
-                                // Ignore logging errors to avoid affecting main operation
-                            }
+                            await _operationChangeLogService.LogStageCreateAsync(
+                                stageId: result.Data,
+                                stageName: createdStage.Name,
+                                workflowId: createdStage.WorkflowId,
+                                afterData: afterData
+                            );
                         });
                     }
                 }
@@ -774,55 +767,48 @@ namespace FlowFlex.Application.Service.OW
                         if (stage.OperateTeams != updatedStage.OperateTeams) changedFields.Add("OperateTeams");
                         if (stage.Color != updatedStage.Color) changedFields.Add("Color");
 
-                        // Log the update operation (fire-and-forget)
-                        _ = Task.Run(async () =>
+                        // Log the update operation (fire-and-forget via background queue)
+                        _backgroundTaskQueue.QueueBackgroundWorkItem(async _ =>
                         {
-                            try
+                            // Check if components were changed and log separately for better tracking
+                            bool componentsChanged = changedFields.Contains("ComponentsJson");
+
+                            if (componentsChanged)
                             {
-                                // Check if components were changed and log separately for better tracking
-                                bool componentsChanged = changedFields.Contains("ComponentsJson");
-
-                                if (componentsChanged)
+                                // Create enhanced extended data for component changes
+                                var enhancedExtendedData = JsonSerializer.Serialize(new
                                 {
-                                    // Create enhanced extended data for component changes
-                                    var enhancedExtendedData = JsonSerializer.Serialize(new
-                                    {
-                                        StageId = id,
-                                        StageName = updatedStage.Name,
-                                        WorkflowId = updatedStage.WorkflowId,
-                                        ComponentsChanged = true,
-                                        FieldsChanged = changedFields,
-                                        UpdatedAt = FormatUsDateTime(DateTimeOffset.UtcNow),
-                                        ComponentChangeDetails = GetComponentUpdateSummary(stage.ComponentsJson, updatedStage.ComponentsJson)
-                                    });
+                                    StageId = id,
+                                    StageName = updatedStage.Name,
+                                    WorkflowId = updatedStage.WorkflowId,
+                                    ComponentsChanged = true,
+                                    FieldsChanged = changedFields,
+                                    UpdatedAt = FormatUsDateTime(DateTimeOffset.UtcNow),
+                                    ComponentChangeDetails = GetComponentUpdateSummary(stage.ComponentsJson, updatedStage.ComponentsJson)
+                                });
 
-                                    // Log general stage update
-                                    await _operationChangeLogService.LogStageUpdateAsync(
-                                        stageId: id,
-                                        stageName: updatedStage.Name,
-                                        beforeData: beforeData,
-                                        afterData: afterData,
-                                        changedFields: changedFields,
-                                        workflowId: updatedStage.WorkflowId,
-                                        extendedData: enhancedExtendedData
-                                    );
-                                }
-                                else
-                                {
-                                    // Log standard stage update
-                                    await _operationChangeLogService.LogStageUpdateAsync(
-                                        stageId: id,
-                                        stageName: updatedStage.Name,
-                                        beforeData: beforeData,
-                                        afterData: afterData,
-                                        changedFields: changedFields,
-                                        workflowId: updatedStage.WorkflowId
-                                    );
-                                }
+                                // Log general stage update
+                                await _operationChangeLogService.LogStageUpdateAsync(
+                                    stageId: id,
+                                    stageName: updatedStage.Name,
+                                    beforeData: beforeData,
+                                    afterData: afterData,
+                                    changedFields: changedFields,
+                                    workflowId: updatedStage.WorkflowId,
+                                    extendedData: enhancedExtendedData
+                                );
                             }
-                            catch
+                            else
                             {
-                                // Ignore logging errors to avoid affecting main operation
+                                // Log standard stage update
+                                await _operationChangeLogService.LogStageUpdateAsync(
+                                    stageId: id,
+                                    stageName: updatedStage.Name,
+                                    beforeData: beforeData,
+                                    afterData: afterData,
+                                    changedFields: changedFields,
+                                    workflowId: updatedStage.WorkflowId
+                                );
                             }
                         });
                     }
@@ -887,22 +873,15 @@ namespace FlowFlex.Application.Service.OW
                 var cacheKey = $"{STAGE_CACHE_PREFIX}:workflow:{workflowId}";
                 await _cacheService.RemoveAsync(cacheKey);
 
-                // Log stage delete operation (fire-and-forget)
-                _ = Task.Run(async () =>
+                // Log stage delete operation (fire-and-forget via background queue)
+                _backgroundTaskQueue.QueueBackgroundWorkItem(async _ =>
                 {
-                    try
-                    {
-                        await _operationChangeLogService.LogStageDeleteAsync(
-                            stageId: id,
-                            stageName: stageName,
-                            workflowId: workflowId,
-                            reason: "Stage deleted via admin portal"
-                        );
-                    }
-                    catch
-                    {
-                        // Ignore logging errors to avoid affecting main operation
-                    }
+                    await _operationChangeLogService.LogStageDeleteAsync(
+                        stageId: id,
+                        stageName: stageName,
+                        workflowId: workflowId,
+                        reason: "Stage deleted via admin portal"
+                    );
                 });
 
                 // DISABLED: Stages progress sync after stage deletion to prevent data loss
@@ -1152,36 +1131,29 @@ namespace FlowFlex.Application.Service.OW
                 _logger.LogInformation("Stages sorted for workflow {WorkflowId}. Syncing onboarding stages progress...",
                     input.WorkflowId);
 
-                // Log order changes for each stage that had its order changed
-                _ = Task.Run(async () =>
+                // Log order changes for each stage that had its order changed (via background queue)
+                _backgroundTaskQueue.QueueBackgroundWorkItem(async _ =>
                 {
-                    try
+                    foreach (var orderUpdate in orderUpdates)
                     {
-                        foreach (var orderUpdate in orderUpdates)
-                        {
-                            var stageId = orderUpdate.StageId;
-                            var newOrder = orderUpdate.Order;
+                        var stageId = orderUpdate.StageId;
+                        var newOrder = orderUpdate.Order;
 
-                            // Check if order actually changed
-                            if (oldOrders.TryGetValue(stageId, out var oldOrder) && oldOrder != newOrder)
+                        // Check if order actually changed
+                        if (oldOrders.TryGetValue(stageId, out var oldOrder) && oldOrder != newOrder)
+                        {
+                            var stage = stages.FirstOrDefault(s => s.Id == stageId);
+                            if (stage != null)
                             {
-                                var stage = stages.FirstOrDefault(s => s.Id == stageId);
-                                if (stage != null)
-                                {
-                                    await _operationChangeLogService.LogStageOrderChangeAsync(
-                                        stageId: stageId,
-                                        stageName: stage.Name,
-                                        oldOrder: oldOrder,
-                                        newOrder: newOrder,
-                                        workflowId: input.WorkflowId
-                                    );
-                                }
+                                await _operationChangeLogService.LogStageOrderChangeAsync(
+                                    stageId: stageId,
+                                    stageName: stage.Name,
+                                    oldOrder: oldOrder,
+                                    newOrder: newOrder,
+                                    workflowId: input.WorkflowId
+                                );
                             }
                         }
-                    }
-                    catch
-                    {
-                        // Ignore logging errors to avoid affecting main operation
                     }
                 });
 

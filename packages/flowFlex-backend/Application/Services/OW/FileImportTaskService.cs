@@ -88,8 +88,27 @@ namespace FlowFlex.Application.Services.OW
             _tasks[taskId] = task;
             _taskCancellationTokens[taskId] = cts;
 
-            // Start background processing
-            _ = Task.Run(async () => await ProcessImportTaskAsync(taskId, input, cts.Token));
+            // Start background processing with error logging
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await ProcessImportTaskAsync(taskId, input, cts.Token);
+                }
+                catch (OperationCanceledException)
+                {
+                    _logger.LogInformation("Import task {TaskId} was cancelled", taskId);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Import task {TaskId} failed with error", taskId);
+                    if (_tasks.TryGetValue(taskId, out var failedTask))
+                    {
+                        failedTask.Status = "Failed";
+                        failedTask.CompletedAt = DateTimeOffset.UtcNow;
+                    }
+                }
+            });
 
             _logger.LogInformation("Started import task {TaskId} with {FileCount} files for Onboarding {OnboardingId}, Stage {StageId}",
                 taskId, task.TotalCount, input.OnboardingId, input.StageId);
@@ -160,6 +179,11 @@ namespace FlowFlex.Application.Services.OW
                     using var memoryStream = new MemoryStream();
                     await contentStream.CopyToAsync(memoryStream, cancellationToken);
                     memoryStream.Position = 0;
+
+                    // TODO: Remove this delay - only for testing download progress UI
+                    _logger.LogWarning("DEBUG: Sleeping 10 seconds for import progress testing (file: {FileName})...", item.FileName);
+                    await Task.Delay(TimeSpan.FromSeconds(1000), cancellationToken);
+                    _logger.LogWarning("DEBUG: Sleep completed for file: {FileName}", item.FileName);
 
                     item.Status = "Processing";
                     item.ProgressPercentage = 60;

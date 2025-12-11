@@ -13,6 +13,7 @@ using FlowFlex.Domain.Repository.OW;
 using FlowFlex.Domain.Shared;
 using FlowFlex.Domain.Shared.Exceptions;
 using FlowFlex.Domain.Shared.Models;
+using FlowFlex.Infrastructure.Services;
 using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
@@ -38,6 +39,7 @@ public class ChecklistTaskService : IChecklistTaskService, IScopedService
     private readonly IMapper _mapper;
     private readonly UserContext _userContext;
     private readonly IDistributedCacheService _cacheService;
+    private readonly IBackgroundTaskQueue _backgroundTaskQueue;
     private readonly ILogger<CasePermissionService> _logger;
     private readonly IActionManagementService _actionManagementService;
 
@@ -54,7 +56,8 @@ public class ChecklistTaskService : IChecklistTaskService, IScopedService
         IMapper mapper,
         IActionManagementService actionManagementService,
         UserContext userContext,
-        IDistributedCacheService cacheService)
+        IDistributedCacheService cacheService,
+        IBackgroundTaskQueue backgroundTaskQueue)
     {
         _logger = logger;
         _checklistTaskRepository = checklistTaskRepository;
@@ -69,6 +72,7 @@ public class ChecklistTaskService : IChecklistTaskService, IScopedService
         _mapper = mapper;
         _userContext = userContext;
         _cacheService = cacheService;
+        _backgroundTaskQueue = backgroundTaskQueue;
     }
 
     /// <summary>
@@ -180,30 +184,23 @@ public class ChecklistTaskService : IChecklistTaskService, IScopedService
             }
         }
 
-        // Log checklist task create operation (fire-and-forget)
-        _ = Task.Run(async () =>
+        // Log checklist task create operation (fire-and-forget via background queue)
+        _backgroundTaskQueue.QueueBackgroundWorkItem(async _ =>
         {
-            try
+            // Prepare after data for logging with task fields including assigneeName
+            var afterData = JsonSerializer.Serialize(new
             {
-                // Prepare after data for logging with task fields including assigneeName
-                var afterData = JsonSerializer.Serialize(new
-                {
-                    Name = entity.Name,
-                    Description = entity.Description,
-                    AssigneeName = entity.AssigneeName
-                });
+                Name = entity.Name,
+                Description = entity.Description,
+                AssigneeName = entity.AssigneeName
+            });
 
-                await _operationChangeLogService.LogChecklistTaskCreateAsync(
-                    taskId: entity.Id,
-                    taskName: entity.Name,
-                    checklistId: entity.ChecklistId,
-                    afterData: afterData
-                );
-            }
-            catch
-            {
-                // Ignore logging errors to avoid affecting main operation
-            }
+            await _operationChangeLogService.LogChecklistTaskCreateAsync(
+                taskId: entity.Id,
+                taskName: entity.Name,
+                checklistId: entity.ChecklistId,
+                afterData: afterData
+            );
         });
 
         // Update checklist completion rate
@@ -370,78 +367,92 @@ public class ChecklistTaskService : IChecklistTaskService, IScopedService
             // Determine which completion-related fields changed
             var completionChanged = originalTask.IsCompleted != existingTask.IsCompleted;
 
-            // Handle cache clearing and background operations asynchronously
-            _ = Task.Run(async () =>
+            // Capture values for background task
+            var capturedId = id;
+            var capturedAppCode = _userContext.AppCode;
+            var capturedChecklistId = existingTask.ChecklistId;
+            var capturedOriginalTask = originalTask;
+            var capturedExistingTaskName = existingTask.Name;
+            var capturedExistingTaskDescription = existingTask.Description;
+            var capturedExistingTaskStatus = existingTask.Status;
+            var capturedExistingTaskPriority = existingTask.Priority;
+            var capturedExistingTaskIsCompleted = existingTask.IsCompleted;
+            var capturedExistingTaskIsRequired = existingTask.IsRequired;
+            var capturedExistingTaskAssigneeId = existingTask.AssigneeId;
+            var capturedExistingTaskAssigneeName = existingTask.AssigneeName;
+            var capturedExistingTaskOrder = existingTask.Order;
+            var capturedExistingTaskEstimatedHours = existingTask.EstimatedHours;
+            var capturedExistingTaskDueDate = existingTask.DueDate;
+            var capturedExistingTaskDependsOnTaskId = existingTask.DependsOnTaskId;
+            var capturedExistingTaskActionId = existingTask.ActionId;
+            var capturedExistingTaskActionName = existingTask.ActionName;
+            var capturedExistingTaskActionMappingId = existingTask.ActionMappingId;
+
+            // Handle cache clearing and background operations via background queue
+            _backgroundTaskQueue.QueueBackgroundWorkItem(async _ =>
             {
-                try
+                // Clear caches
+                var cacheKey = $"checklist_task:get_by_id:{capturedId}:{capturedAppCode}";
+                await _cacheService.RemoveAsync(cacheKey);
+
+                var checklistCacheKey = $"checklist_task:get_by_checklist_id:{capturedChecklistId}:{capturedAppCode}";
+                await _cacheService.RemoveAsync(checklistCacheKey);
+
+                // Only recalculate completion rate if completion status changed
+                if (completionChanged)
                 {
-                    // Clear caches
-                    var cacheKey = $"checklist_task:get_by_id:{id}:{_userContext.AppCode}";
-                    await _cacheService.RemoveAsync(cacheKey);
-
-                    var checklistCacheKey = $"checklist_task:get_by_checklist_id:{existingTask.ChecklistId}:{_userContext.AppCode}";
-                    await _cacheService.RemoveAsync(checklistCacheKey);
-
-                    // Only recalculate completion rate if completion status changed
-                    if (completionChanged)
-                    {
-                        await _checklistService.CalculateCompletionAsync(existingTask.ChecklistId);
-                    }
-
-                    // Log the operation - use current task data instead of additional DB query
-                    var beforeData = System.Text.Json.JsonSerializer.Serialize(originalTask);
-                    var afterData = System.Text.Json.JsonSerializer.Serialize(new
-                    {
-                        Name = existingTask.Name,
-                        Description = existingTask.Description,
-                        Status = existingTask.Status,
-                        Priority = existingTask.Priority,
-                        IsCompleted = existingTask.IsCompleted,
-                        IsRequired = existingTask.IsRequired,
-                        AssigneeId = existingTask.AssigneeId,
-                        AssigneeName = existingTask.AssigneeName,
-                        Order = existingTask.Order,
-                        EstimatedHours = existingTask.EstimatedHours,
-                        DueDate = existingTask.DueDate,
-                        DependsOnTaskId = existingTask.DependsOnTaskId,
-                        ActionId = existingTask.ActionId,
-                        ActionName = existingTask.ActionName,
-                        ActionMappingId = existingTask.ActionMappingId
-                    });
-
-                    // Determine changed fields
-                    var changedFields = new List<string>();
-                    if (originalTask.Name != existingTask.Name) changedFields.Add("Name");
-                    if (originalTask.Description != existingTask.Description) changedFields.Add("Description");
-                    if (originalTask.Status != existingTask.Status) changedFields.Add("Status");
-                    if (originalTask.Priority != existingTask.Priority) changedFields.Add("Priority");
-                    if (originalTask.IsCompleted != existingTask.IsCompleted) changedFields.Add("IsCompleted");
-                    if (originalTask.IsRequired != existingTask.IsRequired) changedFields.Add("IsRequired");
-                    if (originalTask.AssigneeId != existingTask.AssigneeId) changedFields.Add("AssigneeId");
-                    if (originalTask.AssigneeName != existingTask.AssigneeName) changedFields.Add("AssigneeName");
-                    if (originalTask.Order != existingTask.Order) changedFields.Add("Order");
-                    if (originalTask.EstimatedHours != existingTask.EstimatedHours) changedFields.Add("EstimatedHours");
-                    if (originalTask.DueDate != existingTask.DueDate) changedFields.Add("DueDate");
-                    if (originalTask.DependsOnTaskId != existingTask.DependsOnTaskId) changedFields.Add("DependsOnTaskId");
-                    if (originalTask.ActionId != existingTask.ActionId) changedFields.Add("ActionId");
-                    if (originalTask.ActionName != existingTask.ActionName) changedFields.Add("ActionName");
-                    if (originalTask.ActionMappingId != existingTask.ActionMappingId) changedFields.Add("ActionMappingId");
-
-                    if (changedFields.Any())
-                    {
-                        await _operationChangeLogService.LogChecklistTaskUpdateAsync(
-                            taskId: id,
-                            taskName: existingTask.Name,
-                            beforeData: beforeData,
-                            afterData: afterData,
-                            changedFields: changedFields,
-                            checklistId: existingTask.ChecklistId
-                        );
-                    }
+                    await _checklistService.CalculateCompletionAsync(capturedChecklistId);
                 }
-                catch
+
+                // Log the operation - use captured task data
+                var beforeData = System.Text.Json.JsonSerializer.Serialize(capturedOriginalTask);
+                var afterData = System.Text.Json.JsonSerializer.Serialize(new
                 {
-                    // Ignore errors in background operations
+                    Name = capturedExistingTaskName,
+                    Description = capturedExistingTaskDescription,
+                    Status = capturedExistingTaskStatus,
+                    Priority = capturedExistingTaskPriority,
+                    IsCompleted = capturedExistingTaskIsCompleted,
+                    IsRequired = capturedExistingTaskIsRequired,
+                    AssigneeId = capturedExistingTaskAssigneeId,
+                    AssigneeName = capturedExistingTaskAssigneeName,
+                    Order = capturedExistingTaskOrder,
+                    EstimatedHours = capturedExistingTaskEstimatedHours,
+                    DueDate = capturedExistingTaskDueDate,
+                    DependsOnTaskId = capturedExistingTaskDependsOnTaskId,
+                    ActionId = capturedExistingTaskActionId,
+                    ActionName = capturedExistingTaskActionName,
+                    ActionMappingId = capturedExistingTaskActionMappingId
+                });
+
+                // Determine changed fields
+                var changedFields = new List<string>();
+                if (capturedOriginalTask.Name != capturedExistingTaskName) changedFields.Add("Name");
+                if (capturedOriginalTask.Description != capturedExistingTaskDescription) changedFields.Add("Description");
+                if (capturedOriginalTask.Status != capturedExistingTaskStatus) changedFields.Add("Status");
+                if (capturedOriginalTask.Priority != capturedExistingTaskPriority) changedFields.Add("Priority");
+                if (capturedOriginalTask.IsCompleted != capturedExistingTaskIsCompleted) changedFields.Add("IsCompleted");
+                if (capturedOriginalTask.IsRequired != capturedExistingTaskIsRequired) changedFields.Add("IsRequired");
+                if (capturedOriginalTask.AssigneeId != capturedExistingTaskAssigneeId) changedFields.Add("AssigneeId");
+                if (capturedOriginalTask.AssigneeName != capturedExistingTaskAssigneeName) changedFields.Add("AssigneeName");
+                if (capturedOriginalTask.Order != capturedExistingTaskOrder) changedFields.Add("Order");
+                if (capturedOriginalTask.EstimatedHours != capturedExistingTaskEstimatedHours) changedFields.Add("EstimatedHours");
+                if (capturedOriginalTask.DueDate != capturedExistingTaskDueDate) changedFields.Add("DueDate");
+                if (capturedOriginalTask.DependsOnTaskId != capturedExistingTaskDependsOnTaskId) changedFields.Add("DependsOnTaskId");
+                if (capturedOriginalTask.ActionId != capturedExistingTaskActionId) changedFields.Add("ActionId");
+                if (capturedOriginalTask.ActionName != capturedExistingTaskActionName) changedFields.Add("ActionName");
+                if (capturedOriginalTask.ActionMappingId != capturedExistingTaskActionMappingId) changedFields.Add("ActionMappingId");
+
+                if (changedFields.Any())
+                {
+                    await _operationChangeLogService.LogChecklistTaskUpdateAsync(
+                        taskId: capturedId,
+                        taskName: capturedExistingTaskName,
+                        beforeData: beforeData,
+                        afterData: afterData,
+                        changedFields: changedFields,
+                        checklistId: capturedChecklistId
+                    );
                 }
             });
         }
@@ -486,22 +497,15 @@ public class ChecklistTaskService : IChecklistTaskService, IScopedService
         // Clear related cache after successful deletion
         if (result)
         {
-            // Log checklist task delete operation (fire-and-forget)
-            _ = Task.Run(async () =>
+            // Log checklist task delete operation (fire-and-forget via background queue)
+            _backgroundTaskQueue.QueueBackgroundWorkItem(async _ =>
             {
-                try
-                {
-                    await _operationChangeLogService.LogChecklistTaskDeleteAsync(
-                        taskId: id,
-                        taskName: taskName,
-                        checklistId: checklistId,
-                        reason: "Checklist task deleted via admin portal"
-                    );
-                }
-                catch
-                {
-                    // Ignore logging errors to avoid affecting main operation
-                }
+                await _operationChangeLogService.LogChecklistTaskDeleteAsync(
+                    taskId: id,
+                    taskName: taskName,
+                    checklistId: checklistId,
+                    reason: "Checklist task deleted via admin portal"
+                );
             });
 
             var cacheKey = $"checklist_task:get_by_id:{id}:{_userContext.AppCode}";
