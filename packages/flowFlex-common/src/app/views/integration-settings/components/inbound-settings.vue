@@ -98,28 +98,27 @@
 
 			<el-table
 				v-loading="isLoading"
-				:data="attachmentSharing"
+				:data="localAttachmentSharing"
 				class="w-full"
 				empty-text="No attachment sharing configured"
 				:border="true"
 			>
 				<el-table-column label="External Module" min-width="200">
 					<template #default="{ row }">
-						<el-input
-							v-if="!row.id && row.isEditing"
-							v-model="row.moduleName"
-							placeholder="Enter external module name"
-							@blur="handleModuleBlur(row)"
-						/>
-						<span v-else class="font-medium text-sm">
+						<span v-if="isSaved(row)" class="font-medium text-sm">
 							{{ row.moduleName || defaultStr }}
 						</span>
+						<el-input
+							v-else
+							v-model="row.moduleName"
+							placeholder="Enter external module name"
+						/>
 					</template>
 				</el-table-column>
 
 				<el-table-column label="Workflow" min-width="250">
 					<template #default="{ row }">
-						<span v-if="row.id" class="text-sm">
+						<span v-if="isSaved(row)" class="text-sm">
 							{{ getWorkflowName(row.workflowId) || defaultStr }}
 						</span>
 						<el-select v-else v-model="row.workflowId" placeholder="Select workflow...">
@@ -143,7 +142,7 @@
 
 				<el-table-column label="Action" min-width="250">
 					<template #default="{ row }">
-						<span v-if="row.id" class="text-sm">
+						<span v-if="isSaved(row)" class="text-sm">
 							{{ getActionName(row.actionId) || defaultStr }}
 						</span>
 						<el-select
@@ -162,41 +161,35 @@
 					</template>
 				</el-table-column>
 
-				<el-table-column label="Actions" width="80" align="center">
-					<template #default="{ row, $index }">
+				<el-table-column
+					label="Actions"
+					width="80"
+					align="center"
+					v-if="ProjectPermissionEnum.integration.delete"
+				>
+					<template #default="{ $index }">
 						<div class="flex items-center justify-center gap-1">
-							<el-button
-								v-if="
-									(row.isEditing || !row.id) &&
-									functionPermission(ProjectPermissionEnum.integration.create)
-								"
-								type="primary"
-								:loading="isSaving"
-								@click="handleSaveModule(row, $index)"
-								link
-							>
-								<el-icon><SaveChangeIcon /></el-icon>
-							</el-button>
 							<el-button
 								type="danger"
 								link
 								@click="handleDeleteModule($index)"
 								:icon="Delete"
-								v-permission="ProjectPermissionEnum.integration.delete"
 							/>
 						</div>
 					</template>
 				</el-table-column>
 			</el-table>
 
-			<div class="flex justify-start">
+			<div class="flex justify-start justify-between">
 				<el-button
-					type="primary"
 					@click="handleAddModule"
 					v-permission="ProjectPermissionEnum.integration.create"
+					:icon="Plus"
 				>
-					<el-icon><Plus /></el-icon>
 					Add Module
+				</el-button>
+				<el-button type="primary" :loading="saving" @click="handleSaveModule">
+					Save
 				</el-button>
 			</div>
 		</div>
@@ -230,17 +223,11 @@
 <script setup lang="ts">
 import { ref, watch, computed } from 'vue';
 import { Delete, Search, Plus, Document, DocumentCopy } from '@element-plus/icons-vue';
-import { ElMessage, ElMessageBox } from 'element-plus';
-import {
-	getInboundSettingsAttachment,
-	createInboundSettingsAttachment,
-	deleteInboundSettingsAttachment,
-} from '@/apis/integration';
+import { ElMessage } from 'element-plus';
+import { getInboundSettingsAttachment, createInboundSettingsAttachment } from '@/apis/integration';
 import type { FieldMapping, InboundAttachmentIteml } from '#/integration';
-import SaveChangeIcon from '@assets/svg/publicPage/saveChange.svg';
 import { defaultStr, bigDialogWidth } from '@/settings/projectSetting';
 import MarkdownRenderer from '@/components/common/MarkdownRenderer.vue';
-import { functionPermission } from '@/hooks';
 import { ProjectPermissionEnum } from '@/enums/permissionEnum';
 
 interface Props {
@@ -256,22 +243,21 @@ interface Props {
 	}[];
 }
 
-// 附件共享扩展类型
-interface IAttachmentSharingExtended extends InboundAttachmentIteml {
-	systemId?: string;
-	isEditing?: boolean;
+interface Emits {
+	(e: 'refresh'): void;
 }
 
 const props = defineProps<Props>();
+const emit = defineEmits<Emits>();
 
 // 搜索过滤
 const externalFieldSearch = ref('');
 const wfeFieldSearch = ref('');
 
-// 本地数据
-const attachmentSharing = ref<IAttachmentSharingExtended[]>([]);
+// 本地数据（本地编辑状态）
+const localAttachmentSharing = ref<InboundAttachmentIteml[]>([]);
 const isLoading = ref(false);
-const isSaving = ref(false);
+const saving = ref(false);
 
 /**
  * 过滤后的字段映射列表
@@ -295,85 +281,64 @@ const filteredFieldMappings = computed(() => {
 });
 
 /**
- * 加载附件共享数据
+ * 判断是否已保存
  */
-async function loadAttachmentSharing() {
-	if (!props.integrationId || props.integrationId === 'new') {
-		attachmentSharing.value = [];
-		return;
-	}
-
-	isLoading.value = true;
-	try {
-		const response = await getInboundSettingsAttachment(props.integrationId);
-		if (response.code == '200' && response.data) {
-			// 处理返回的附件共享数据
-			const data = response.data;
-			// 如果返回的是数组，直接使用；如果是对象，取 attachmentSharing 字段
-			const attachmentList = Array.isArray(data) ? data : data.attachmentSharing || [];
-			initializeAttachmentSharing(attachmentList);
-		} else {
-			attachmentSharing.value = [];
-		}
-	} catch (error) {
-		console.error('Failed to load attachment sharing:', error);
-		attachmentSharing.value = [];
-	} finally {
-		isLoading.value = false;
-	}
+function isSaved(row: InboundAttachmentIteml): boolean {
+	return !!row?.id;
 }
 
 /**
- * 初始化附件共享数据
+ * 判断是否为空行（未填写必填字段）
  */
-async function initializeAttachmentSharing(sharing?: InboundAttachmentIteml[]) {
-	const sharingList = sharing || [];
-	attachmentSharing.value = sharingList.map((item) => ({
-		...item,
-		systemId: item.id ? String(item.id) : undefined,
-		isEditing: false,
-	}));
-
-	// 加载所有有 workflowId 的 stages（用于回显）
-	const workflowIds = new Set<string>();
-	sharingList.forEach((item) => {
-		if (item.workflowId && item.workflowId !== '0') {
-			workflowIds.add(String(item.workflowId));
-		}
-	});
+function isEmptyRow(item: InboundAttachmentIteml): boolean {
+	return !item.moduleName || item.moduleName.trim() === '' || !item.workflowId || !item.actionId;
 }
 
 /**
  * 添加模块
  */
 function handleAddModule() {
-	attachmentSharing.value.push({
-		id: '',
+	localAttachmentSharing.value.push({
 		moduleName: '',
 		workflowId: '',
 		actionId: '',
-		isEditing: true,
 	});
 }
 
 /**
- * 模块输入框失焦
+ * 删除模块（仅从本地列表移除，不立即调用API）
  */
-function handleModuleBlur(row: IAttachmentSharingExtended) {
-	if (!row.moduleName || row.moduleName.trim() === '') {
-		// 如果为空，保持编辑状态
-		return;
-	}
-	// 可以在这里添加验证逻辑
+function handleDeleteModule(index: number) {
+	localAttachmentSharing.value.splice(index, 1);
 }
 
 /**
- * 保存模块
+ * 统一保存所有附件共享配置
  */
-async function handleSaveModule(row: IAttachmentSharingExtended, index: number) {
-	if (!row.moduleName || row.moduleName.trim() === '') {
-		ElMessage.warning('Please enter a module name');
+async function handleSaveModule() {
+	// 过滤掉空行数据
+	const validItems = localAttachmentSharing.value.filter((item) => !isEmptyRow(item));
+
+	if (validItems.length === 0) {
+		ElMessage.warning('Please add at least one valid module configuration');
 		return;
+	}
+
+	// 验证每一行数据
+	for (let i = 0; i < validItems.length; i++) {
+		const item = validItems[i];
+		if (!item.moduleName || item.moduleName.trim() === '') {
+			ElMessage.warning(`Row ${i + 1}: Please enter module name`);
+			return;
+		}
+		if (!item.workflowId) {
+			ElMessage.warning(`Row ${i + 1}: Please select workflow`);
+			return;
+		}
+		if (!item.actionId) {
+			ElMessage.warning(`Row ${i + 1}: Please select action`);
+			return;
+		}
 	}
 
 	if (!props.integrationId || props.integrationId === 'new') {
@@ -381,101 +346,38 @@ async function handleSaveModule(row: IAttachmentSharingExtended, index: number) 
 		return;
 	}
 
-	isSaving.value = true;
+	saving.value = true;
+
 	try {
-		// 将 IAttachmentSharingExtended 转换为 IInboundConfiguration
-		const configData: InboundAttachmentIteml = {
-			integrationId: String(props.integrationId),
-			moduleName: row.moduleName.trim(),
-			workflowId: row.workflowId,
-			actionId: row.actionId,
-		};
+		// 准备批量保存的数据
+		const items = validItems.map((item) => ({
+			id: item.id, // 如果有id则为更新，否则为新增
+			integrationId: props.integrationId,
+			moduleName: item.moduleName.trim(),
+			workflowId: item.workflowId,
+			actionId: item.actionId,
+		}));
 
-		const response = await createInboundSettingsAttachment(configData);
-		if (response.code == '200') {
-			ElMessage.success('Module saved successfully');
-			row.isEditing = false;
-			// 如果有返回的 ID，更新本地数据
-			if (response.data) {
-				row.id = String(response.data);
-			}
-			// 重新加载数据
-			await loadAttachmentSharing();
+		// 调用批量保存接口
+		const res = await createInboundSettingsAttachment({
+			integrationId: props.integrationId,
+			items,
+		});
+
+		if (res.code == '200') {
+			ElMessage.success('Attachment sharing configurations saved successfully');
+			// 通知父组件刷新数据
+			emit('refresh');
+			loadAttachmentSharing();
 		} else {
-			ElMessage.error(response.msg || 'Failed to save module');
+			ElMessage.error(res.msg || 'Failed to save configurations');
 		}
+	} catch (error) {
+		console.error('Failed to save configurations:', error);
+		ElMessage.error('Failed to save configurations');
 	} finally {
-		isSaving.value = false;
+		saving.value = false;
 	}
-}
-
-/**
- * 删除模块
- */
-function handleDeleteModule(index: number) {
-	const row = attachmentSharing.value[index];
-	if (!row) return;
-
-	// 如果是新添加的未保存项，直接删除
-	if (!row.id) {
-		attachmentSharing.value.splice(index, 1);
-		return;
-	}
-
-	ElMessageBox({
-		title: `Are you sure you want to delete the module "${row.moduleName}"?`,
-		message: `Are you sure you want to delete the module "${row.moduleName}"?`,
-		showCancelButton: true,
-		confirmButtonText: 'Delete',
-		cancelButtonText: 'Cancel',
-		type: 'warning',
-		beforeClose: async (action, instance, done) => {
-			if (action === 'confirm') {
-				// 显示 loading 状态
-				instance.confirmButtonLoading = true;
-				instance.confirmButtonText = 'Deleting...';
-
-				try {
-					if (!row.id) {
-						ElMessage.warning('Invalid module ID');
-						instance.confirmButtonLoading = false;
-						instance.confirmButtonText = 'Delete';
-						return;
-					}
-
-					if (!props.integrationId || props.integrationId === 'new') {
-						ElMessage.warning('Invalid integration ID');
-						instance.confirmButtonLoading = false;
-						instance.confirmButtonText = 'Delete';
-						return;
-					}
-
-					const response = await deleteInboundSettingsAttachment(row.id, {
-						integrationId: props?.integrationId || '',
-					});
-					if (response.code == '200') {
-						ElMessage.success('Module deleted successfully');
-						attachmentSharing.value.splice(index, 1);
-						// 重新加载数据以确保数据同步
-						await loadAttachmentSharing();
-						done(); // 关闭对话框
-					} else {
-						ElMessage.error(response.msg || 'Failed to delete module');
-						// 恢复按钮状态
-						instance.confirmButtonLoading = false;
-						instance.confirmButtonText = 'Delete';
-					}
-				} catch (error) {
-					console.error('Failed to delete module:', error);
-					// 恢复按钮状态
-					instance.confirmButtonLoading = false;
-					instance.confirmButtonText = 'Delete';
-				}
-			} else {
-				done(); // 取消或关闭时直接关闭对话框
-			}
-		},
-	});
 }
 
 /**
@@ -502,7 +404,7 @@ const showMdDialog = () => {
 	if (props.attachmentApiMd) {
 		showApiDocDialog.value = true;
 	} else {
-		ElMessage.warning('');
+		ElMessage.warning('No API documentation available');
 	}
 };
 
@@ -524,6 +426,31 @@ async function copyApiDoc() {
 	}
 }
 
+/**
+ * 加载附件共享数据
+ */
+async function loadAttachmentSharing() {
+	if (!props.integrationId || props.integrationId === 'new') {
+		localAttachmentSharing.value = [];
+		return;
+	}
+
+	isLoading.value = true;
+	try {
+		const response = await getInboundSettingsAttachment(props.integrationId);
+		if (response.code == '200') {
+			localAttachmentSharing.value = response?.data || [];
+		} else {
+			localAttachmentSharing.value = [];
+		}
+	} catch (error) {
+		console.error('Failed to load attachment sharing:', error);
+		localAttachmentSharing.value = [];
+	} finally {
+		isLoading.value = false;
+	}
+}
+
 // 监听 integrationId 变化（包括初始化）
 watch(
 	() => props.integrationId,
@@ -532,7 +459,7 @@ watch(
 			loadAttachmentSharing();
 		} else {
 			// 如果是新建或无效 ID，清空数据
-			attachmentSharing.value = [];
+			localAttachmentSharing.value = [];
 		}
 	},
 	{ immediate: true }

@@ -7,8 +7,23 @@
 			@go-back="handleBack"
 		/>
 
-		<!-- 加载状态 -->
-		<div v-if="isLoading" v-loading="true" class="min-h-[400px]"></div>
+		<!-- 加载状态 - 骨架屏 -->
+		<div v-if="isLoading" class="space-y-6 pb-8">
+			<!-- Connection Auth 骨架屏 -->
+			<div class="wfe-global-block-bg p-6">
+				<el-skeleton :rows="6" animated />
+			</div>
+
+			<!-- Entity Type Mapping 骨架屏 -->
+			<div class="wfe-global-block-bg p-6">
+				<el-skeleton :rows="4" animated />
+			</div>
+
+			<!-- Tabs 骨架屏 -->
+			<div class="wfe-global-block-bg p-6">
+				<el-skeleton :rows="8" animated />
+			</div>
+		</div>
 
 		<!-- 详情内容 -->
 		<div v-else class="space-y-6 pb-8">
@@ -78,12 +93,6 @@
 					</PrototypeTabs>
 				</div>
 			</template>
-			<!-- 当不满足显示条件时显示 loading -->
-			<div
-				v-else-if="integrationId && integrationId !== 'new'"
-				v-loading="true"
-				class="min-h-[400px]"
-			></div>
 		</div>
 	</div>
 </template>
@@ -157,11 +166,12 @@ async function loadIntegrationData() {
 		integrationName.value = 'New Integration';
 		integrationStatus.value = 0;
 		integrationData.value = null;
+		isLoading.value = false;
 		return;
 	}
 
 	// 加载完整数据
-	// isLoading.value = true;
+	isLoading.value = true;
 	try {
 		await loadWorkflows();
 		const response = await getIntegrationDetails(id);
