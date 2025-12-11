@@ -125,6 +125,11 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.OnboardingFile
         /// Whether this item can be cancelled
         /// </summary>
         public bool CanCancel => Status == "Pending" || Status == "Downloading";
+
+        /// <summary>
+        /// Number of retry attempts (max 5)
+        /// </summary>
+        public int RetryCount { get; set; }
     }
 
     /// <summary>
