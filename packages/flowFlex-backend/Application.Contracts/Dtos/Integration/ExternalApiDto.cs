@@ -358,17 +358,18 @@ namespace FlowFlex.Application.Contracts.Dtos.Integration
     public class AttachmentsData
     {
         /// <summary>
-        /// List of attachments
+        /// List of attachments (used by inbound-attachments and outbound-attachments APIs)
         /// </summary>
-        public List<ExternalAttachmentDto> Attachments { get; set; } = new();
+        public List<ExternalAttachmentDto>? Attachments { get; set; }
 
         /// <summary>
-        /// Total count of attachments
+        /// Total count of attachments (used by inbound-attachments and outbound-attachments APIs)
         /// </summary>
-        public int Total { get; set; }
+        public int? Total { get; set; }
 
         /// <summary>
-        /// Action execution details (only for fetch-inbound-attachments API)
+        /// Action execution details with attachments (used by fetch-inbound-attachments API)
+        /// When this is populated, Attachments and Total are not used
         /// </summary>
         public List<ActionExecutionInfo>? ActionExecutions { get; set; }
     }

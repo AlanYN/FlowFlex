@@ -714,7 +714,6 @@ namespace FlowFlex.Application.Services.Integration
                 }
 
                 // Step 4: Execute Actions and collect attachments
-                var allAttachments = new List<ExternalAttachmentDto>();
                 var actionExecutions = new List<ActionExecutionInfo>();
                 var errors = new List<string>();
 
@@ -823,7 +822,6 @@ namespace FlowFlex.Application.Services.Integration
 
                         // Step 5: Parse action result to extract attachments
                         var attachments = ParseAttachmentsFromActionResult(actionResult, integration.Name, config.ModuleName);
-                        allAttachments.AddRange(attachments);
                         actionExecutionInfo.Attachments = attachments;
 
                         _logger.LogInformation("Extracted {Count} attachments from Action {ActionId}",
@@ -843,16 +841,15 @@ namespace FlowFlex.Application.Services.Integration
                     ? $"Success with {errors.Count} errors: {string.Join("; ", errors)}"
                     : "Success";
 
+                var totalAttachments = actionExecutions.Sum(a => a.Attachments?.Count ?? 0);
                 _logger.LogInformation("Fetched {Count} attachments from external system for SystemId={SystemId}",
-                    allAttachments.Count, systemId);
+                    totalAttachments, systemId);
 
                 return new GetAttachmentsFromExternalResponse
                 {
                     Success = true,
                     Data = new AttachmentsData
                     {
-                        Attachments = allAttachments,
-                        Total = allAttachments.Count,
                         ActionExecutions = actionExecutions
                     },
                     Message = message,

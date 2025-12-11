@@ -33,6 +33,7 @@ using System.Text;
 using System.Text.Json;
 using PermissionOperationType = FlowFlex.Domain.Shared.Enums.Permission.OperationTypeEnum;
 using FlowFlex.Application.Contracts.Dtos.OW.User;
+using Microsoft.Extensions.Logging;
 
 
 namespace FlowFlex.Application.Services.OW
@@ -772,6 +773,86 @@ namespace FlowFlex.Application.Services.OW
 
             // Unknown SubjectType = deny access
             return false;
+        }
+
+        #endregion
+
+        #region GetActiveBySystemId
+
+        /// <summary>
+        /// Get all active onboardings by System ID
+        /// Returns all onboarding records where SystemId matches and IsActive is true
+        /// </summary>
+        /// <param name="systemId">External system identifier</param>
+        /// <returns>List of active onboarding records</returns>
+        public async Task<List<OnboardingOutputDto>> GetActiveBySystemIdAsync(string systemId)
+        {
+            if (string.IsNullOrWhiteSpace(systemId))
+            {
+                return new List<OnboardingOutputDto>();
+            }
+
+            var tenantId = _userContext?.TenantId ?? "default";
+            var appCode = _userContext?.AppCode ?? "default";
+
+            try
+            {
+                // Build query with filters
+                var queryable = _onboardingRepository.GetSqlSugarClient().Queryable<Onboarding>()
+                    .Where(x => x.IsValid == true)
+                    .Where(x => x.IsActive == true)
+                    .Where(x => x.SystemId == systemId);
+
+                // Apply tenant isolation
+                if (!string.IsNullOrEmpty(tenantId))
+                {
+                    queryable = queryable.Where(x => x.TenantId.ToLower() == tenantId.ToLower());
+                }
+                if (!string.IsNullOrEmpty(appCode))
+                {
+                    queryable = queryable.Where(x => x.AppCode.ToLower() == appCode.ToLower());
+                }
+
+                // Order by CreateDate descending
+                queryable = queryable.OrderByDescending(x => x.CreateDate);
+
+                // Execute query
+                var entities = await queryable.ToListAsync();
+
+                if (!entities.Any())
+                {
+                    return new List<OnboardingOutputDto>();
+                }
+
+                // Map to DTOs
+                var results = new List<OnboardingOutputDto>();
+                foreach (var entity in entities)
+                {
+                    // Auto-generate CaseCode for legacy data
+                    await EnsureCaseCodeAsync(entity);
+
+                    // Ensure stages progress is properly initialized and synced
+                    await EnsureStagesProgressInitializedAsync(entity);
+
+                    var dto = _mapper.Map<OnboardingOutputDto>(entity);
+
+                    // Get workflow name
+                    var workflow = await _workflowRepository.GetByIdAsync(entity.WorkflowId);
+                    if (workflow != null)
+                    {
+                        dto.WorkflowName = workflow.Name;
+                    }
+
+                    results.Add(dto);
+                }
+
+                return results;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting active onboardings by SystemId: {SystemId}", systemId);
+                throw;
+            }
         }
 
         #endregion
