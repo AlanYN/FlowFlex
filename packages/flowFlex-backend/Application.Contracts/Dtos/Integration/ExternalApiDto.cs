@@ -366,6 +366,52 @@ namespace FlowFlex.Application.Contracts.Dtos.Integration
         /// Total count of attachments
         /// </summary>
         public int Total { get; set; }
+
+        /// <summary>
+        /// Action execution details (only for fetch-inbound-attachments API)
+        /// </summary>
+        public List<ActionExecutionInfo>? ActionExecutions { get; set; }
+    }
+
+    /// <summary>
+    /// Action execution information for fetch-inbound-attachments API
+    /// </summary>
+    public class ActionExecutionInfo
+    {
+        /// <summary>
+        /// Action ID
+        /// </summary>
+        public string ActionId { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Action name
+        /// </summary>
+        public string ActionName { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Module name
+        /// </summary>
+        public string ModuleName { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Whether the HTTP request was successful
+        /// </summary>
+        public bool IsSuccess { get; set; }
+
+        /// <summary>
+        /// HTTP status code
+        /// </summary>
+        public int? StatusCode { get; set; }
+
+        /// <summary>
+        /// Error message if failed
+        /// </summary>
+        public string? ErrorMessage { get; set; }
+
+        /// <summary>
+        /// Attachments retrieved from this action
+        /// </summary>
+        public List<ExternalAttachmentDto> Attachments { get; set; } = new();
     }
 }
 
