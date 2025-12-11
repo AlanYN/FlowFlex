@@ -714,11 +714,19 @@ namespace FlowFlex.Application.Services.Integration
                 }
 
                 // Step 4: Execute Actions and collect attachments
-                var allAttachments = new List<ExternalAttachmentDto>();
+                var actionExecutions = new List<ActionExecutionInfo>();
                 var errors = new List<string>();
 
                 foreach (var config in inboundAttachmentConfigs)
                 {
+                    var actionExecutionInfo = new ActionExecutionInfo
+                    {
+                        ActionId = config.ActionId.ToString(),
+                        ModuleName = config.ModuleName ?? string.Empty,
+                        IsSuccess = false,
+                        Attachments = new List<ExternalAttachmentDto>()
+                    };
+
                     try
                     {
                         _logger.LogInformation("Executing Action for inbound attachment: ActionId={ActionId}, ModuleName={ModuleName}",
@@ -729,9 +737,14 @@ namespace FlowFlex.Application.Services.Integration
                         if (actionDefinition == null)
                         {
                             _logger.LogWarning("Action definition not found: ActionId={ActionId}", config.ActionId);
+                            actionExecutionInfo.ActionName = $"Action {config.ActionId}";
+                            actionExecutionInfo.ErrorMessage = "Action definition not found";
                             errors.Add($"Action {config.ActionId} not found");
+                            actionExecutions.Add(actionExecutionInfo);
                             continue;
                         }
+
+                        actionExecutionInfo.ActionName = actionDefinition.ActionName ?? string.Empty;
 
                         // Prepare context data with SystemId
                         var contextData = new Dictionary<string, object>
@@ -750,13 +763,66 @@ namespace FlowFlex.Application.Services.Integration
                         if (actionResult == null)
                         {
                             _logger.LogWarning("Action execution returned null: ActionId={ActionId}", config.ActionId);
+                            actionExecutionInfo.ErrorMessage = "Action returned no result";
                             errors.Add($"Action {config.ActionId} returned no result");
+                            actionExecutions.Add(actionExecutionInfo);
                             continue;
+                        }
+
+                        // Extract status code and error message from action result if available
+                        try
+                        {
+                            // actionResult is already a JToken, convert to JObject if needed
+                            var resultJson = actionResult as JObject ?? JObject.FromObject(actionResult);
+                            if (resultJson["statusCode"] != null)
+                            {
+                                actionExecutionInfo.StatusCode = resultJson["statusCode"].Value<int>();
+                            }
+                            
+                            // Check HTTP-level success first
+                            var httpSuccess = resultJson["success"]?.Value<bool>() ?? 
+                                (actionExecutionInfo.StatusCode >= 200 && actionExecutionInfo.StatusCode < 300);
+                            
+                            // Parse response content to check business-level success and extract error message
+                            var responseContent = resultJson["response"]?.ToString();
+                            if (!string.IsNullOrEmpty(responseContent))
+                            {
+                                try
+                                {
+                                    var responseJson = JObject.Parse(responseContent);
+                                    var businessSuccess = responseJson["success"]?.Value<bool>() ?? true;
+                                    
+                                    // Overall success requires both HTTP and business success
+                                    actionExecutionInfo.IsSuccess = httpSuccess && businessSuccess;
+                                    
+                                    // Extract error message if business failed
+                                    if (!businessSuccess)
+                                    {
+                                        actionExecutionInfo.ErrorMessage = responseJson["message"]?.ToString() 
+                                            ?? responseJson["msg"]?.ToString()
+                                            ?? "Business logic failed";
+                                    }
+                                }
+                                catch
+                                {
+                                    // If response parsing fails, use HTTP success
+                                    actionExecutionInfo.IsSuccess = httpSuccess;
+                                }
+                            }
+                            else
+                            {
+                                actionExecutionInfo.IsSuccess = httpSuccess;
+                            }
+                        }
+                        catch
+                        {
+                            // If parsing fails, assume success based on having a result
+                            actionExecutionInfo.IsSuccess = true;
                         }
 
                         // Step 5: Parse action result to extract attachments
                         var attachments = ParseAttachmentsFromActionResult(actionResult, integration.Name, config.ModuleName);
-                        allAttachments.AddRange(attachments);
+                        actionExecutionInfo.Attachments = attachments;
 
                         _logger.LogInformation("Extracted {Count} attachments from Action {ActionId}",
                             attachments.Count, config.ActionId);
@@ -764,24 +830,27 @@ namespace FlowFlex.Application.Services.Integration
                     catch (Exception ex)
                     {
                         _logger.LogError(ex, "Error executing Action: ActionId={ActionId}", config.ActionId);
+                        actionExecutionInfo.ErrorMessage = ex.Message;
                         errors.Add($"Action {config.ActionId} execution failed: {ex.Message}");
                     }
+
+                    actionExecutions.Add(actionExecutionInfo);
                 }
 
                 var message = errors.Any()
                     ? $"Success with {errors.Count} errors: {string.Join("; ", errors)}"
                     : "Success";
 
+                var totalAttachments = actionExecutions.Sum(a => a.Attachments?.Count ?? 0);
                 _logger.LogInformation("Fetched {Count} attachments from external system for SystemId={SystemId}",
-                    allAttachments.Count, systemId);
+                    totalAttachments, systemId);
 
                 return new GetAttachmentsFromExternalResponse
                 {
                     Success = true,
                     Data = new AttachmentsData
                     {
-                        Attachments = allAttachments,
-                        Total = allAttachments.Count
+                        ActionExecutions = actionExecutions
                     },
                     Message = message,
                     Msg = "",
