@@ -286,6 +286,7 @@
 		<ImportAttachmentsDialog
 			v-model:visible="importDialogVisible"
 			:attachments="importFileList"
+			:action-errors="importActionErrors"
 			:loading="importLoading"
 			@close="handleImportDialogClose"
 			@start-download="handleStartDownload"
@@ -697,6 +698,7 @@ const vailComponent = () => {
 const importLoading = ref(false);
 const importFileList = ref<IntegrationAttachment[]>([]);
 const importDialogVisible = ref(false);
+const importActionErrors = ref<Array<{ actionName: string; errorMessage: string }>>([]);
 
 const importFormIntegration = async () => {
 	try {
@@ -707,7 +709,39 @@ const importFormIntegration = async () => {
 			systemId: props?.systemId,
 		});
 		if (res?.code == '200') {
-			importFileList.value = res?.data?.attachments || [];
+			// Process the new API response structure with actionExecutions array
+			const actionExecutions = res?.data?.actionExecutions || [];
+			const allAttachments: IntegrationAttachment[] = [];
+			const actionErrors: Array<{ actionName: string; errorMessage: string }> = [];
+
+			// Iterate through all action executions and collect attachments
+			actionExecutions.forEach((execution: any) => {
+				const hasAttachments =
+					execution.attachments &&
+					Array.isArray(execution.attachments) &&
+					execution.attachments.length > 0;
+
+				if (hasAttachments) {
+					// Add all attachments from successful execution
+					allAttachments.push(
+						...execution.attachments.map((item) => {
+							return {
+								...item,
+								actionName: execution.actionName,
+							};
+						})
+					);
+				} else if (execution.errorMessage) {
+					// If action failed (has error and no attachments), collect error info separately
+					actionErrors.push({
+						actionName: execution?.actionName,
+						errorMessage: execution.errorMessage,
+					});
+				}
+			});
+
+			importFileList.value = allAttachments;
+			importActionErrors.value = actionErrors;
 		} else {
 			ElMessage.error(res?.msg || t('sys.api.operationFailed'));
 		}
@@ -719,6 +753,7 @@ const importFormIntegration = async () => {
 const handleImportDialogClose = () => {
 	importDialogVisible.value = false;
 	importFileList.value = [];
+	importActionErrors.value = [];
 };
 
 // Handle start download from dialog

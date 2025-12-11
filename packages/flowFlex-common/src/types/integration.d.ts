@@ -230,6 +230,15 @@ export interface FieldMapping {
 	modifyDate: string;
 }
 
+export interface CaseImportDowmLoadFiles<T> {
+	actionId: string;
+	actionName: string;
+	moduleName: string;
+	isSuccess: boolean;
+	statusCode: number;
+	errorMessage: string;
+	attachments: T;
+}
 export interface IntegrationAttachment {
 	id: string;
 	fileName: string;
