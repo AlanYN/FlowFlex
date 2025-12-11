@@ -86,7 +86,7 @@
 							</div>
 							<div class="text-xs text-gray-400 dark:text-gray-500">
 								Supports: PDF, DOCX, DOC, JPG, JPEG, PNG, XLSX, XLS, MSG, EML (Max
-								10MB per file)
+								50MB per file)
 							</div>
 						</div>
 					</el-upload>
@@ -137,7 +137,17 @@
 						:key="progress.uid"
 						class="flex items-center space-x-3 p-2 bg-gray-50 dark:bg-black-200 rounded"
 					>
-						<el-icon class="text-green-500">
+						<el-tooltip
+							v-if="progress.error"
+							:content="progress.error"
+							placement="top"
+							effect="dark"
+						>
+							<el-icon class="text-red-500 cursor-pointer text-lg">
+								<WarningFilled />
+							</el-icon>
+						</el-tooltip>
+						<el-icon v-else class="text-green-500">
 							<Download />
 						</el-icon>
 						<div class="flex-1">
@@ -149,18 +159,9 @@
 							/>
 						</div>
 						<span class="text-xs text-gray-500">{{ progress.percentage }}%</span>
-						<el-tooltip
-							v-if="progress.error"
-							:content="progress.error"
-							placement="top"
-							effect="dark"
-						>
-							<el-icon class="text-red-500 cursor-pointer text-lg">
-								<WarningFilled />
-							</el-icon>
-						</el-tooltip>
+
 						<el-button
-							v-if="!progress.error && progress.taskId"
+							v-if="progress.taskId"
 							text
 							size="small"
 							@click="handleCancelDownload(progress)"
@@ -286,6 +287,7 @@
 		<ImportAttachmentsDialog
 			v-model:visible="importDialogVisible"
 			:attachments="importFileList"
+			:action-errors="importActionErrors"
 			:loading="importLoading"
 			@close="handleImportDialogClose"
 			@start-download="handleStartDownload"
@@ -393,15 +395,13 @@ const fetchDocuments = async () => {
 
 	loading.value = true;
 	try {
-		let response;
-
 		// 如果有stageId，按阶段获取文件；否则获取所有文件
 		if (!props.stageId) return;
-		response = await getOnboardingFilesByStage(props.onboardingId, props.stageId);
+		const response = await getOnboardingFilesByStage(props.onboardingId, props.stageId);
 
 		if (response.code === '200') {
 			documents.value =
-				response.data.map((item: any) => {
+				response.data.map((item: DocumentItem) => {
 					return {
 						...item,
 						uploadedDate: timeZoneConvert(item?.uploadedDate || ''),
@@ -412,7 +412,6 @@ const fetchDocuments = async () => {
 			ElMessage.error(response.msg || 'Failed to load documents');
 		}
 	} catch (error) {
-		console.error('Error fetching documents:', error);
 		documents.value = [];
 	} finally {
 		loading.value = false;
@@ -428,7 +427,7 @@ const refreshDocumentsSilently = async () => {
 
 		if (response.code === '200') {
 			const newDocuments =
-				response.data.map((item: any) => {
+				response.data.map((item: DocumentItem) => {
 					return {
 						...item,
 						uploadedDate: timeZoneConvert(item?.uploadedDate || ''),
@@ -438,9 +437,6 @@ const refreshDocumentsSilently = async () => {
 			// 直接使用接口返回的顺序，确保顺序与后端一致
 			// 这样可以避免增量更新时打乱顺序
 			documents.value = newDocuments;
-		} else {
-			// 静默刷新失败时不显示错误消息，保持当前状态
-			console.warn('Failed to refresh documents silently:', response.msg);
 		}
 	} catch (error) {
 		console.error('Error refreshing documents silently:', error);
@@ -454,10 +450,10 @@ const triggerUpload = () => {
 };
 
 const handleBeforeUpload = (file: File) => {
-	// 检查文件大小（10MB限制）
-	const maxSize = 10 * 1024 * 1024; // 10MB
+	// 检查文件大小（50MB限制）
+	const maxSize = 50 * 1024 * 1024; // 10MB
 	if (file.size > maxSize) {
-		ElMessage.error('File size cannot exceed 10MB');
+		ElMessage.error('File size cannot exceed 50MB');
 		return false;
 	}
 
@@ -640,7 +636,6 @@ const handleDeleteDocument = async (documentId: string) => {
 	} catch (error) {
 		if (error !== 'cancel') {
 			console.error('Error deleting document:', error);
-			ElMessage.error('Failed to delete document');
 		}
 	}
 };
@@ -697,17 +692,50 @@ const vailComponent = () => {
 const importLoading = ref(false);
 const importFileList = ref<IntegrationAttachment[]>([]);
 const importDialogVisible = ref(false);
+const importActionErrors = ref<Array<{ actionName: string; errorMessage: string }>>([]);
 
 const importFormIntegration = async () => {
 	try {
 		if (!props?.systemId) return;
+		importDialogVisible.value = true; // Open dialog on success
 		importLoading.value = true;
 		const res = await getCaseAttachmentIntegration({
 			systemId: props?.systemId,
 		});
 		if (res?.code == '200') {
-			importFileList.value = res?.data?.attachments || [];
-			importDialogVisible.value = true; // Open dialog on success
+			// Process the new API response structure with actionExecutions array
+			const actionExecutions = res?.data?.actionExecutions || [];
+			const allAttachments: IntegrationAttachment[] = [];
+			const actionErrors: Array<{ actionName: string; errorMessage: string }> = [];
+
+			// Iterate through all action executions and collect attachments
+			actionExecutions.forEach((execution: any) => {
+				const hasAttachments =
+					execution.attachments &&
+					Array.isArray(execution.attachments) &&
+					execution.attachments.length > 0;
+
+				if (hasAttachments) {
+					// Add all attachments from successful execution
+					allAttachments.push(
+						...execution.attachments.map((item) => {
+							return {
+								...item,
+								actionName: execution.actionName,
+							};
+						})
+					);
+				} else if (execution.errorMessage) {
+					// If action failed (has error and no attachments), collect error info separately
+					actionErrors.push({
+						actionName: execution?.actionName,
+						errorMessage: execution.errorMessage,
+					});
+				}
+			});
+
+			importFileList.value = allAttachments;
+			importActionErrors.value = actionErrors;
 		} else {
 			ElMessage.error(res?.msg || t('sys.api.operationFailed'));
 		}
@@ -718,6 +746,8 @@ const importFormIntegration = async () => {
 
 const handleImportDialogClose = () => {
 	importDialogVisible.value = false;
+	importFileList.value = [];
+	importActionErrors.value = [];
 };
 
 // Handle start download from dialog
@@ -736,7 +766,8 @@ const handleStartDownload = async (attachments: IntegrationAttachment[]) => {
 			files,
 		});
 		if (res.code == '200') {
-			startPollingProgress(props.stageId!);
+			// 立即查询一次进度来初始化 downloadProgress
+			await checkAndStartPolling();
 		} else {
 			ElMessage.error(res?.msg || t('sys.api.operationFailed'));
 		}
@@ -745,15 +776,63 @@ const handleStartDownload = async (attachments: IntegrationAttachment[]) => {
 	}
 };
 
+// 检查是否有进行中的下载任务，并启动轮询
+const checkAndStartPolling = async () => {
+	if (!props.stageId) return;
+
+	// 检查是否已经有轮询在运行，避免重复启动
+	const pollingKey = `polling-${props.stageId}`;
+	if (pollingTimers.value.has(pollingKey)) return;
+
+	try {
+		const response = await queryImportProgress(props.onboardingId, {
+			stageId: props.stageId,
+		});
+
+		if (response?.code === '200' && Array.isArray(response.data)) {
+			const tasks = response.data;
+
+			// 遍历所有任务，收集所有进行中的文件
+			const allInProgressItems: any[] = [];
+
+			tasks.forEach((task: any) => {
+				if (task.items && Array.isArray(task.items)) {
+					task.items.forEach((item: any) => {
+						if (item.status !== 'completed') {
+							allInProgressItems.push({
+								uid: item.itemId,
+								name: item.fileName,
+								percentage: item.progressPercentage || 0,
+								error: item.status === 'failed' ? item.errorMessage : undefined,
+								taskId: task.taskId,
+							});
+						}
+					});
+				}
+			});
+
+			// 如果有进行中的任务，初始化 downloadProgress 并启动轮询
+			if (allInProgressItems.length > 0) {
+				downloadProgress.value = allInProgressItems;
+				startPollingProgress(props.stageId!);
+			}
+		}
+	} catch (error) {
+		console.error('Error checking download progress:', error);
+	}
+};
+
 // 开始轮询查询进度
 const startPollingProgress = (stageId: string) => {
 	const pollInterval = 2000; // 每2秒轮询一次
 	const pollingKey = `polling-${stageId}`;
 
+	// 如果已经在轮询，不重复启动
+	if (pollingTimers.value.has(pollingKey)) return;
+
 	const timer = setInterval(async () => {
 		try {
 			const response = await queryImportProgress(props.onboardingId, { stageId });
-
 			if (response?.code !== '200') {
 				// 停止轮询
 				stopPolling(pollingKey);
@@ -765,41 +844,66 @@ const startPollingProgress = (stageId: string) => {
 				return;
 			}
 
-			const progressData = response.data;
+			const tasks = response.data;
 
-			// 更新进度
-			if (progressData && Array.isArray(progressData)) {
-				progressData.forEach((taskProgress: any) => {
-					const progressIndex = downloadProgress.value.findIndex(
-						(p) => p.taskId === taskProgress.taskId
-					);
-
-					if (progressIndex >= 0) {
-						downloadProgress.value[progressIndex].percentage =
-							taskProgress.progress || 0;
-
-						if (taskProgress.status === 'failed') {
-							downloadProgress.value[progressIndex].error =
-								taskProgress.errorMessage || 'Download failed';
-						}
-
-						// 如果完成，移除进度
-						if (taskProgress.status === 'completed') {
-							downloadProgress.value.splice(progressIndex, 1);
-						}
+			// 更新进度 - 遍历所有任务的 items
+			if (Array.isArray(tasks)) {
+				// 收集所有任务中的所有 items（包含 taskId）
+				const allItems: any[] = [];
+				tasks.forEach((task: any) => {
+					if (task.items && Array.isArray(task.items)) {
+						task.items.forEach((item: any) => {
+							allItems.push({
+								...item,
+								taskId: task.taskId, // 保存 taskId 用于取消操作
+							});
+						});
 					}
 				});
+
+				// 过滤出未完成的项
+				const inProgressItems = allItems.filter((item) => item.status !== 'completed');
+
+				// 如果接口返回的未完成文件数量与当前下载列表不同，说明有变化
+				if (inProgressItems.length !== downloadProgress.value.length) {
+					// 如果数量减少，说明有文件完成了，刷新文件列表
+					if (inProgressItems.length < downloadProgress.value.length) {
+						refreshDocumentsSilently();
+					}
+
+					// 重新构建下载进度列表
+					downloadProgress.value = inProgressItems.map((item) => ({
+						uid: item.itemId,
+						name: item.fileName,
+						percentage: item.progressPercentage || 0,
+						error: item.status === 'Failed' ? item.errorMessage : undefined,
+						taskId: item.taskId,
+					}));
+				} else {
+					// 数量相同，只更新进度和状态
+					downloadProgress.value = downloadProgress.value.map((progress) => {
+						const item = allItems.find((i: any) => i.itemId === progress.uid);
+						if (item) {
+							return {
+								...progress,
+								percentage: item.progressPercentage || 0,
+								error: item.status === 'Failed' ? item.errorMessage : undefined,
+								taskId: item.taskId,
+							};
+						}
+						return progress;
+					});
+				}
 			}
 
 			// 如果所有下载都完成，停止轮询
-			if (downloadProgress.value.length === 0) {
+			if (downloadProgress.value.length == 0) {
 				stopPolling(pollingKey);
 				ElMessage.success('All files imported successfully');
 				// 静默刷新文档列表（增量更新）
 				await refreshDocumentsSilently();
 			}
 		} catch (error) {
-			console.error('Error polling progress:', error);
 			stopPolling(pollingKey);
 
 			// 更新所有文件为错误状态
@@ -827,6 +931,17 @@ const handleCancelDownload = async (progress: any) => {
 	if (!progress.taskId) return;
 
 	try {
+		// 显示确认弹窗
+		await ElMessageBox.confirm(
+			`Are you sure you want to cancel downloading "${progress.name}"?`,
+			'Cancel Download',
+			{
+				confirmButtonText: 'Confirm',
+				cancelButtonText: 'Cancel',
+				type: 'warning',
+			}
+		);
+
 		// 使用uid作为fileId
 		const fileId = progress.uid;
 
@@ -846,11 +961,17 @@ const handleCancelDownload = async (progress: any) => {
 			ElMessage.error(response?.msg || 'Failed to cancel download');
 		}
 	} catch (error) {
-		console.error('Error cancelling download:', error);
+		// 用户点击取消按钮时，error 为 'cancel'
+		if (error !== 'cancel') {
+			console.error('Error cancelling download:', error);
+			ElMessage.error('Failed to cancel download');
+		}
 	}
 };
 onMounted(() => {
 	fetchDocuments();
+	// 检查是否有进行中的下载任务
+	checkAndStartPolling();
 });
 
 // 组件卸载时清理所有定时器
@@ -864,8 +985,22 @@ onUnmounted(() => {
 // 监听 stageId 变化，重新加载文档
 watch(
 	() => props.stageId,
-	() => {
+	(newStageId, oldStageId) => {
+		// 如果 stageId 变化，先停止旧的轮询
+		if (oldStageId) {
+			stopPolling(`polling-${oldStageId}`);
+		}
+
+		// 清空下载进度
+		downloadProgress.value = [];
+
+		// 重新加载文档
 		fetchDocuments();
+
+		// 检查新 stageId 是否有进行中的下载任务
+		if (newStageId) {
+			checkAndStartPolling();
+		}
 	}
 );
 

@@ -1806,7 +1806,7 @@ defineExpose({
 
 .section-description {
 	font-size: var(--button-1-size); /* 14px - Item Button 1 */
-	color: var(--primary-600);
+	color: var(--gray-400);
 	margin: 0;
 	line-height: 1.5;
 }
@@ -1870,10 +1870,6 @@ html.dark {
 
 	.section-title {
 		color: var(--white-100);
-	}
-
-	.section-description {
-		color: var(--primary-200);
 	}
 
 	.no-sections-placeholder {

@@ -276,7 +276,7 @@ function createAxios(opt?: Partial<CreateAxiosOptions>) {
 			{
 				// See https://developer.mozilla.org/en-US/docs/Web/HTTP/Authentication#authentication_schemes
 				authenticationScheme: '', // 不能是固定的 必须是动态的
-				timeout: 60 * 10000000, // 为了处理bnp接口，设置超时时间为60秒
+				timeout: 60 * 1000, // 为了处理bnp接口，设置超时时间为60秒
 				// 基础接口地址
 				// baseURL: globSetting.apiUrl,
 

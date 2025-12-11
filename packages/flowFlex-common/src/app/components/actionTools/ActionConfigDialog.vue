@@ -865,6 +865,7 @@ const onTest = async () => {
  * 创建 Action 映射关系
  */
 const createActionMapping = async (actionDefinitionId: string) => {
+	if (!props?.triggerSourceId) return;
 	const mappingParams = {
 		actionDefinitionId,
 		triggerSourceId: props?.triggerSourceId || null,

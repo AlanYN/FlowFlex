@@ -272,7 +272,6 @@ const isWorkflowActionLoading = (workflowId: string) => {
 	white-space: nowrap;
 	display: block;
 	font-weight: 500;
-	color: var(--el-color-primary);
 	transition: color 0.2s;
 }
 
@@ -286,13 +285,6 @@ const isWorkflowActionLoading = (workflowId: string) => {
 	gap: 4px;
 	flex-shrink: 0; /* 标签不收缩 */
 	margin-left: auto; /* 确保标签靠右 */
-}
-
-/* 表格单元格内容样式 */
-.table-cell-content {
-	overflow: hidden;
-	text-overflow: ellipsis;
-	white-space: nowrap;
 }
 
 .table-cell-link {

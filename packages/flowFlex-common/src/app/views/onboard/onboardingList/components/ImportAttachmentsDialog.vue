@@ -20,22 +20,48 @@
 		</template>
 
 		<div class="min-h-[200px]">
-			<!-- Loading state -->
-			<div v-if="loading" class="flex flex-col items-center justify-center py-12">
-				<el-icon class="text-4xl text-primary animate-spin mb-4">
-					<Loading />
-				</el-icon>
-				<p class="text-gray-500 dark:text-gray-400">Loading attachments...</p>
-			</div>
+			<!-- Action Errors Alert -->
+			<el-alert
+				v-if="actionErrors && actionErrors.length > 0"
+				type="error"
+				:closable="false"
+				class="mb-4"
+			>
+				<template #title>
+					<div class="font-semibold">
+						Failed to load attachments from {{ actionErrors.length }}
+						{{ actionErrors.length === 1 ? 'action' : 'actions' }}
+					</div>
+				</template>
+				<div class="space-y-2 mt-2">
+					<div
+						v-for="(error, index) in actionErrors"
+						:key="index"
+						class="flex items-center gap-2"
+					>
+						<el-icon class="text-red-500 flex-shrink-0">
+							<WarningFilled />
+						</el-icon>
+						<div class="flex-1">
+							<div class="font-medium text-sm text-gray-400">
+								{{ error.actionName }}
+							</div>
+							<div class="text-xs mt-1">
+								{{ error.errorMessage }}
+							</div>
+						</div>
+					</div>
+				</div>
+			</el-alert>
 
 			<!-- Table with attachments -->
 			<el-table
-				v-else
 				:data="attachments"
 				stripe
 				:border="true"
 				:max-height="tableMaxHeight"
 				@row-click="handleRowClick"
+				v-loading="loading"
 			>
 				<el-table-column width="55" align="center">
 					<template #default="{ row }">
@@ -84,6 +110,18 @@
 					</template>
 				</el-table-column>
 
+				<el-table-column label="Action" min-width="150">
+					<template #default="{ row }">
+						<span
+							v-if="row.actionName"
+							class="text-sm text-gray-700 dark:text-gray-300"
+						>
+							{{ row.actionName }}
+						</span>
+						<span v-else class="text-sm text-gray-400">-</span>
+					</template>
+				</el-table-column>
+
 				<!-- Empty state slot -->
 				<template #empty>
 					<div class="flex flex-col items-center justify-center py-8">
@@ -120,7 +158,7 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue';
-import { Document, Loading, Folder } from '@element-plus/icons-vue';
+import { Document, Folder, WarningFilled } from '@element-plus/icons-vue';
 import { ElMessage } from 'element-plus';
 import { IntegrationAttachment } from '#/integration';
 import { bigDialogWidth, tableMaxHeight } from '@/settings/projectSetting';
@@ -129,6 +167,7 @@ import { bigDialogWidth, tableMaxHeight } from '@/settings/projectSetting';
 interface ImportAttachmentsDialogProps {
 	visible: boolean;
 	attachments: IntegrationAttachment[];
+	actionErrors?: Array<{ actionName: string; errorMessage: string }>;
 	loading?: boolean;
 }
 
@@ -144,6 +183,7 @@ interface ImportAttachmentsDialogEmits {
 const props = withDefaults(defineProps<ImportAttachmentsDialogProps>(), {
 	visible: false,
 	attachments: () => [],
+	actionErrors: () => [],
 	loading: false,
 });
 

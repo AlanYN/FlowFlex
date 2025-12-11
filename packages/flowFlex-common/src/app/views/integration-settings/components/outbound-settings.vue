@@ -189,7 +189,6 @@
 
 			<div class="flex justify-between items-center">
 				<el-button
-					type="primary"
 					@click="handleAddItem"
 					v-permission="ProjectPermissionEnum.integration.create"
 					:icon="Plus"
