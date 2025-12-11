@@ -350,26 +350,24 @@ namespace FlowFlex.Application.Services.OW
                 });
             }
 
-            if (!item.CanCancel)
+            // Force remove item from memory regardless of status
+            var previousStatus = item.Status;
+            task.Items.Remove(item);
+
+            _logger.LogInformation("Force removed import item {ItemId} ({FileName}) from task {TaskId}, previous status: {Status}",
+                itemId, item.FileName, taskId, previousStatus);
+
+            // Remove task if no items left
+            if (task.Items.Count == 0)
             {
-                return Task.FromResult(new CancelImportFileResponseDto
-                {
-                    Success = false,
-                    Message = $"Item '{itemId}' cannot be cancelled (status: {item.Status})",
-                    CancelledCount = 0
-                });
+                _tasks.TryRemove(taskId, out _);
+                _logger.LogInformation("Task {TaskId} removed from memory - no items left", taskId);
             }
-
-            item.Status = "Cancelled";
-            item.ErrorMessage = "Cancelled by user";
-            task.CancelledCount++;
-
-            _logger.LogInformation("Cancelled import item {ItemId} ({FileName}) in task {TaskId}", itemId, item.FileName, taskId);
 
             return Task.FromResult(new CancelImportFileResponseDto
             {
                 Success = true,
-                Message = $"Successfully cancelled import of '{item.FileName}'",
+                Message = $"Successfully removed item '{item.FileName}' from task",
                 CancelledCount = 1
             });
         }
