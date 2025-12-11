@@ -39,5 +39,12 @@ namespace FlowFlex.Application.Contracts.IServices.Integration
             long integrationId,
             int pageIndex,
             int pageSize);
+
+        /// <summary>
+        /// Batch save entity mappings (create, update, delete in one operation)
+        /// </summary>
+        /// <param name="input">Batch save input containing items to create/update and IDs to delete</param>
+        /// <returns>Result containing counts and saved items</returns>
+        Task<EntityMappingBatchSaveResultDto> BatchSaveAsync(EntityMappingBatchSaveDto input);
     }
 }

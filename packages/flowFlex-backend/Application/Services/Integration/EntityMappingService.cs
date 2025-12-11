@@ -198,6 +198,108 @@ namespace FlowFlex.Application.Services.Integration
 
             return (dtos, total);
         }
+
+        public async Task<EntityMappingBatchSaveResultDto> BatchSaveAsync(EntityMappingBatchSaveDto input)
+        {
+            if (input == null)
+            {
+                throw new CRMException(ErrorCodeEnum.ParamInvalid, "Input cannot be null");
+            }
+
+            // Validate integration exists
+            var integration = await _integrationRepository.GetByIdAsync(input.IntegrationId);
+            if (integration == null)
+            {
+                throw new CRMException(ErrorCodeEnum.NotFound, "Integration not found");
+            }
+
+            var result = new EntityMappingBatchSaveResultDto();
+            var savedItemIds = new List<long>();
+
+            // Get existing items for this integration
+            var existingEntities = await _entityMappingRepository.GetByIntegrationIdAsync(input.IntegrationId);
+            var inputItemIds = input.Items
+                .Where(x => x.Id.HasValue && x.Id.Value > 0)
+                .Select(x => x.Id!.Value)
+                .ToHashSet();
+
+            // Auto-delete items not in the input list
+            foreach (var existingEntity in existingEntities)
+            {
+                if (!inputItemIds.Contains(existingEntity.Id))
+                {
+                    existingEntity.IsValid = false;
+                    existingEntity.InitModifyInfo(_userContext);
+                    await _entityMappingRepository.UpdateAsync(existingEntity);
+                    result.DeletedCount++;
+                    _logger.LogInformation($"Batch deleted entity mapping: {existingEntity.ExternalEntityName} (ID: {existingEntity.Id})");
+                }
+            }
+
+            // Process creates and updates
+            foreach (var item in input.Items)
+            {
+                if (item.Id.HasValue && item.Id.Value > 0)
+                {
+                    // Update existing
+                    var existingEntity = existingEntities.FirstOrDefault(e => e.Id == item.Id.Value);
+                    if (existingEntity != null)
+                    {
+                        existingEntity.ExternalEntityName = item.ExternalEntityName;
+                        existingEntity.ExternalEntityType = item.ExternalEntityType;
+                        existingEntity.WfeEntityType = item.WfeEntityType;
+                        existingEntity.WorkflowIds = JsonConvert.SerializeObject(item.WorkflowIds);
+                        existingEntity.IsActive = item.IsActive;
+                        existingEntity.InitModifyInfo(_userContext);
+                        await _entityMappingRepository.UpdateAsync(existingEntity);
+                        savedItemIds.Add(existingEntity.Id);
+                        result.UpdatedCount++;
+                        _logger.LogInformation($"Batch updated entity mapping: {item.ExternalEntityName} (ID: {item.Id})");
+                    }
+                }
+                else
+                {
+                    // Create new
+                    var newEntity = new EntityMapping
+                    {
+                        IntegrationId = input.IntegrationId,
+                        ExternalEntityName = item.ExternalEntityName,
+                        ExternalEntityType = item.ExternalEntityType,
+                        WfeEntityType = item.WfeEntityType,
+                        WorkflowIds = JsonConvert.SerializeObject(item.WorkflowIds),
+                        IsActive = item.IsActive,
+                        SystemId = Guid.NewGuid().ToString("N").ToUpperInvariant()
+                    };
+                    newEntity.InitCreateInfo(_userContext);
+                    var newId = await _entityMappingRepository.InsertReturnSnowflakeIdAsync(newEntity);
+                    savedItemIds.Add(newId);
+                    result.CreatedCount++;
+                    _logger.LogInformation($"Batch created entity mapping: {item.ExternalEntityName} (ID: {newId})");
+                }
+            }
+
+            // Update integration's configured entity types count
+            integration.ConfiguredEntityTypes = await _entityMappingRepository.CountAsync(e => 
+                e.IntegrationId == input.IntegrationId && e.IsValid);
+            integration.InitModifyInfo(_userContext);
+            await _integrationRepository.UpdateAsync(integration);
+
+            // Get saved items
+            foreach (var savedId in savedItemIds)
+            {
+                var savedEntity = await _entityMappingRepository.GetByIdAsync(savedId);
+                if (savedEntity != null)
+                {
+                    var dto = _mapper.Map<EntityMappingOutputDto>(savedEntity);
+                    dto.WorkflowIds = JsonConvert.DeserializeObject<List<long>>(savedEntity.WorkflowIds) ?? new List<long>();
+                    result.Items.Add(dto);
+                }
+            }
+
+            _logger.LogInformation($"Batch save completed: Created={result.CreatedCount}, Updated={result.UpdatedCount}, Deleted={result.DeletedCount}");
+
+            return result;
+        }
     }
 }
 
