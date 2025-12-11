@@ -85,13 +85,8 @@
 			</el-table-column>
 			<el-table-column prop="name" label="Checklist Name" min-width="220" fixed="left">
 				<template #default="{ row }">
-					<el-link
-						type="primary"
-						:underline="false"
-						@click="handleCommand('task', row)"
-						class="table-cell-link"
-					>
-						<div class="table-cell-content" :title="row.name">
+					<el-link @click="handleCommand('task', row)">
+						<div class="table-cell-content">
 							{{ row.name }}
 						</div>
 					</el-link>

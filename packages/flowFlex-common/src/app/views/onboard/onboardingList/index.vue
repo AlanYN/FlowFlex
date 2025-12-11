@@ -255,14 +255,9 @@
 							<template #default="{ row }">
 								<el-link
 									:disabled="!functionPermission(ProjectPermissionEnum.case.read)"
-									type="info"
 									@click="handleEdit(row.id)"
 								>
-									<div
-										class="dark:text-white flex items-center gap-x-2 truncate"
-										:title="row.leadName"
-									>
-										<Link class="w-4 h-4 text-primary-200" />
+									<div class="table-cell-content" :title="row.leadName">
 										{{ row.leadName }}
 									</div>
 								</el-link>
@@ -2321,15 +2316,6 @@ onMounted(async () => {
 /* 旋转动画 */
 .rotate-90 {
 	transform: rotate(90deg);
-}
-
-/* 表格单元格内容样式 */
-.table-cell-content {
-	overflow: hidden;
-	text-overflow: ellipsis;
-	white-space: nowrap;
-	max-width: 100%;
-	display: block;
 }
 
 /* 响应式调整 */

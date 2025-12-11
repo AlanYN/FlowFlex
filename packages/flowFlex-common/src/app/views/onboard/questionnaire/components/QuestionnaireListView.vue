@@ -70,12 +70,7 @@
 			</el-table-column>
 			<el-table-column prop="name" label="Questionnaire Name" min-width="220" fixed="left">
 				<template #default="{ row }">
-					<el-link
-						type="primary"
-						:underline="false"
-						@click="$emit('command', 'edit', row)"
-						class="table-cell-link"
-					>
+					<el-link @click="$emit('command', 'edit', row)">
 						<div class="table-cell-content" :title="row.name">
 							{{ row.name }}
 						</div>

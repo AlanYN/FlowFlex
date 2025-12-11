@@ -11,7 +11,7 @@
 
 		<!-- 实体映射表格 -->
 		<el-table
-			:data="entityMappings"
+			:data="localEntityMappings"
 			class="w-full"
 			:border="true"
 			empty-text="No entity types configured"
@@ -132,44 +132,23 @@
 				label=""
 				width="50"
 				fixed="right"
-				v-if="
-					functionPermission(ProjectPermissionEnum.integration.delete) ||
-					functionPermission(ProjectPermissionEnum.integration.create)
-				"
+				v-if="functionPermission(ProjectPermissionEnum.integration.delete)"
 			>
 				<template #default="{ row, $index }">
 					<div class="flex items-center justify-center">
 						<el-button
-							v-if="
-								(!!row?.systemId || !!row?.id) &&
-								functionPermission(ProjectPermissionEnum.integration.delete)
-							"
 							type="danger"
 							link
 							:icon="Delete"
-							:disabled="!row?.id"
 							@click="handleDeleteEntityMapping(row, $index)"
 						/>
-						<el-button
-							v-else-if="
-								(!row?.systemId || !row?.id) &&
-								functionPermission(ProjectPermissionEnum.integration.create)
-							"
-							type="primary"
-							:disabled="!row.externalEntityName || !row.wfeEntityType"
-							:loading="savingMappingId === (row.id || `temp-${$index}`)"
-							@click="handleSaveEntityMapping(row, $index)"
-							link
-						>
-							<el-icon><SaveChangeIcon /></el-icon>
-						</el-button>
 					</div>
 				</template>
 			</el-table-column>
 		</el-table>
 
 		<!-- Add Entity Type 按钮 -->
-		<div class="flex items-center">
+		<div class="flex items-center justify-between">
 			<el-button
 				type="default"
 				:icon="Plus"
@@ -179,6 +158,9 @@
 			>
 				Add Entity Type
 			</el-button>
+			<el-button type="primary" :loading="saving" @click="handleSaveEntityMapping">
+				Save
+			</el-button>
 		</div>
 	</div>
 </template>
@@ -187,9 +169,8 @@
 import { ref, watch } from 'vue';
 import { Delete, Plus } from '@element-plus/icons-vue';
 import { ElMessage, ElTooltip } from 'element-plus';
-import { createEntityMapping, updateEntityMapping, deleteEntityMapping } from '@/apis/integration';
+import { createEntityMapping } from '@/apis/integration';
 import type { IEntityMapping, IWfeEntityOption } from '#/integration';
-import SaveChangeIcon from '@assets/svg/publicPage/saveChange.svg';
 import { functionPermission } from '@/hooks';
 import { ProjectPermissionEnum } from '@/enums/permissionEnum';
 
@@ -207,10 +188,10 @@ const props = defineProps<Props>();
 const emit = defineEmits<Emits>();
 
 // 状态
-const savingMappingId = ref<string | number | null>(null);
+const saving = ref(false);
 
-// 实体映射数据
-const entityMappings = ref<IEntityMapping[]>(props.entityMappings || []);
+// 实体映射数据（本地编辑状态）
+const localEntityMappings = ref<IEntityMapping[]>([]);
 
 // 模拟选项数据（实际应该从 API 获取）
 const wfeEntityOptions = ref<IWfeEntityOption[]>([{ value: 'case', label: 'Case' }]);
@@ -238,8 +219,8 @@ function getWorkflowList(workflowIds: string[] | number[]): any[] {
 	if (!props.allWorkflows || props.allWorkflows.length === 0) return [];
 
 	return workflowIds
-		.map((id) => {
-			return props.allWorkflows?.find((w) => w.id === id);
+		.map((workflowId) => {
+			return props.allWorkflows?.find((w) => w.id === workflowId);
 		})
 		.filter(Boolean) as any[];
 }
@@ -272,7 +253,7 @@ function getHiddenWorkflows(workflowIds: string[] | number[]): any[] {
  * 添加实体映射
  */
 function handleAddEntityMapping() {
-	entityMappings.value.push({
+	localEntityMappings.value.push({
 		externalEntityName: '',
 		externalEntityType: '',
 		wfeEntityType: '',
@@ -282,87 +263,90 @@ function handleAddEntityMapping() {
 }
 
 /**
- * 保存实体映射
+ * 判断是否为空行（未填写必填字段）
  */
-async function handleSaveEntityMapping(mapping: IEntityMapping, index: number) {
-	if (!mapping.externalEntityName || mapping.externalEntityName.trim() === '') {
-		ElMessage.warning('Please enter external entity type name');
+function isEmptyRow(mapping: IEntityMapping): boolean {
+	return (
+		!mapping.externalEntityName ||
+		mapping.externalEntityName.trim() === '' ||
+		!mapping.wfeEntityType ||
+		mapping.wfeEntityType.trim() === ''
+	);
+}
+
+/**
+ * 统一保存所有实体映射
+ */
+async function handleSaveEntityMapping() {
+	// 过滤掉空行数据
+	const validMappings = localEntityMappings.value.filter((mapping) => !isEmptyRow(mapping));
+
+	if (validMappings.length === 0) {
+		ElMessage.warning('Please add at least one valid entity mapping');
 		return;
 	}
 
-	if (!mapping.wfeEntityType || mapping.wfeEntityType.trim() === '') {
-		ElMessage.warning('Please select WFE master data');
-		return;
+	// 验证每一行数据
+	for (let i = 0; i < validMappings.length; i++) {
+		const mapping = validMappings[i];
+		if (!mapping.externalEntityName || mapping.externalEntityName.trim() === '') {
+			ElMessage.warning(`Row ${i + 1}: Please enter external entity type name`);
+			return;
+		}
+		if (!mapping.wfeEntityType || mapping.wfeEntityType.trim() === '') {
+			ElMessage.warning(`Row ${i + 1}: Please select WFE master data`);
+			return;
+		}
 	}
 
-	savingMappingId.value = mapping.id || `temp-${index}`;
+	saving.value = true;
 
 	try {
-		const mappingData = {
+		// 准备批量保存的数据
+		const items = validMappings.map((mapping) => ({
+			id: mapping.id, // 如果有id则为更新，否则为新增
 			integrationId: props.integrationId,
 			externalEntityName: mapping.externalEntityName.trim(),
 			externalEntityType: mapping.externalEntityType || mapping.externalEntityName.trim(),
 			wfeEntityType: mapping.wfeEntityType,
 			workflowIds: mapping.workflowIds || [],
 			isActive: mapping.isActive !== false,
-		};
+		}));
 
-		let res;
-		if (mapping.id) {
-			// 更新现有映射
-			res = await updateEntityMapping(mapping.id, mappingData);
-		} else {
-			// 创建新映射
-			res = await createEntityMapping(mappingData);
-		}
+		// 调用批量保存接口
+		const res = await createEntityMapping({
+			integrationId: props.integrationId as string,
+			items,
+		});
 
 		if (res.code == '200') {
-			ElMessage.success(
-				mapping.id
-					? 'Entity mapping updated successfully'
-					: 'Entity mapping created successfully'
-			);
+			ElMessage.success('Entity mappings saved successfully');
 			// 通知父组件刷新数据
 			emit('refresh');
 		} else {
-			ElMessage.error(res.msg || 'Failed to save entity mapping');
+			ElMessage.error(res.msg || 'Failed to save entity mappings');
 		}
+	} catch (error) {
+		console.error('Failed to save entity mappings:', error);
+		ElMessage.error('Failed to save entity mappings');
 	} finally {
-		savingMappingId.value = null;
+		saving.value = false;
 	}
 }
 
 /**
- * 删除实体映射
+ * 删除实体映射（仅从本地列表移除，不立即调用API）
  */
-async function handleDeleteEntityMapping(mapping: IEntityMapping, index: number) {
-	if (!mapping.id) {
-		// 如果是未保存的新记录，直接删除
-		entityMappings.value.splice(index, 1);
-		return;
-	}
-
-	try {
-		const res = await deleteEntityMapping(mapping.id);
-		if (res.code == '200') {
-			ElMessage.success('Entity mapping deleted successfully');
-			entityMappings.value.splice(index, 1);
-			// 通知父组件刷新数据
-			emit('refresh');
-		} else {
-			ElMessage.error(res.msg || 'Failed to delete entity mapping');
-		}
-	} catch (error) {
-		console.error('Failed to delete entity mapping:', error);
-	}
+function handleDeleteEntityMapping(_mapping: IEntityMapping, index: number) {
+	localEntityMappings.value.splice(index, 1);
 }
 
-// 监听 props 变化
+// 监听 props 变化，同步到本地编辑状态
 watch(
 	() => props.entityMappings,
 	(newMappings) => {
 		if (newMappings) {
-			entityMappings.value = [...newMappings];
+			localEntityMappings.value = [...newMappings];
 		}
 	},
 	{ immediate: true, deep: true }

@@ -24,7 +24,7 @@ const globSetting = useGlobSetting();
 
 const Api = {
 	integration: `${globSetting.apiProName}/integration/${globSetting.apiVersion}`,
-	entityMapping: `${globSetting.apiProName}/integration/entity-mappings/${globSetting.apiVersion}`,
+	entityMapping: `${globSetting.apiProName}/integration/entity-mappings/${globSetting.apiVersion}/batch`,
 	fieldMapping: `${globSetting.apiProName}/integration/field-mappings/${globSetting.apiVersion}`,
 	quickLink: `${globSetting.apiProName}/integration/quick-links/${globSetting.apiVersion}`,
 	sync: `${globSetting.apiProName}/integration/sync/${globSetting.apiVersion}`,
@@ -110,29 +110,11 @@ export function testConnection(
  * 创建实体映射
  * POST /integration/entity-mappings/v1
  */
-export function createEntityMapping(
-	data: Omit<IEntityMapping, 'id'>
-): Promise<IApiResponse<string | number>> {
+export function createEntityMapping(data: {
+	integrationId: string;
+	items: IEntityMapping[];
+}): Promise<IApiResponse<string | number>> {
 	return defHttp.post({ url: Api.entityMapping, data });
-}
-
-/**
- * 更新实体映射
- * PUT /integration/entity-mappings/v1/{id}
- */
-export function updateEntityMapping(
-	id: string | number,
-	data: Partial<IEntityMapping>
-): Promise<IApiResponse<boolean>> {
-	return defHttp.put({ url: `${Api.entityMapping}/${id}`, data });
-}
-
-/**
- * 删除实体映射
- * DELETE /integration/entity-mappings/v1/{id}
- */
-export function deleteEntityMapping(id: string | number): Promise<IApiResponse<boolean>> {
-	return defHttp.delete({ url: `${Api.entityMapping}/${id}` });
 }
 
 // ==================== Quick Link API ====================
@@ -190,25 +172,17 @@ export function getQuickLinksByIntegration(
 	return defHttp.get({ url: `${Api.quickLink}/by-integration/${integrationId}` });
 }
 
-export function createInboundSettingsAttachment(
-	data: InboundAttachmentIteml
-): Promise<IApiResponse<string | number>> {
-	return defHttp.post({ url: Api.inboundSettingsAttachment, data });
+export function createInboundSettingsAttachment(data: {
+	integrationId: string;
+	items: InboundAttachmentIteml[];
+}): Promise<IApiResponse<string | number>> {
+	return defHttp.post({ url: `${Api.inboundSettingsAttachment}/batch`, data });
 }
 
 export function getInboundSettingsAttachment(
 	integrationId: string | number
 ): Promise<IApiResponse<any>> {
 	return defHttp.get({ url: `${Api.inboundSettingsAttachment}/by-integration/${integrationId}` });
-}
-
-export function deleteInboundSettingsAttachment(
-	id: string,
-	params: {
-		integrationId: string;
-	}
-): Promise<IApiResponse<boolean>> {
-	return defHttp.delete({ url: `${Api.inboundSettingsAttachment}/${id}`, params });
 }
 
 export function createOutboundSettingsAttachment(

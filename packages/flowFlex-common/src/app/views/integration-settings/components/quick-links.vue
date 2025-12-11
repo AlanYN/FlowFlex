@@ -9,11 +9,10 @@
 				</p>
 			</div>
 			<el-button
-				type="primary"
 				@click="handleAddQuickLink"
 				v-permission="ProjectPermissionEnum.integration.create"
+				:icon="Plus"
 			>
-				<el-icon><Plus /></el-icon>
 				Add Quick Link
 			</el-button>
 		</div>

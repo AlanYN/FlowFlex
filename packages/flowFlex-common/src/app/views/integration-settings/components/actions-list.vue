@@ -8,7 +8,6 @@
 				</div>
 			</div>
 			<el-button
-				type="primary"
 				@click="handleAddAction"
 				:icon="Plus"
 				v-permission="ProjectPermissionEnum.integration.create"

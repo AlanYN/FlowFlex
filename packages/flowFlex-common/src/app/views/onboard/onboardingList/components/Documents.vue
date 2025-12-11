@@ -701,13 +701,13 @@ const importDialogVisible = ref(false);
 const importFormIntegration = async () => {
 	try {
 		if (!props?.systemId) return;
+		importDialogVisible.value = true; // Open dialog on success
 		importLoading.value = true;
 		const res = await getCaseAttachmentIntegration({
 			systemId: props?.systemId,
 		});
 		if (res?.code == '200') {
 			importFileList.value = res?.data?.attachments || [];
-			importDialogVisible.value = true; // Open dialog on success
 		} else {
 			ElMessage.error(res?.msg || t('sys.api.operationFailed'));
 		}
@@ -718,6 +718,7 @@ const importFormIntegration = async () => {
 
 const handleImportDialogClose = () => {
 	importDialogVisible.value = false;
+	importFileList.value = [];
 };
 
 // Handle start download from dialog

@@ -130,7 +130,7 @@
 								</div>
 								<div
 									v-if="stage.completedBy || stage.savedBy"
-									class="text-xs text-primary ml-2 min-w-0"
+									class="text-xs text-gray-400 ml-2 min-w-0"
 								>
 									<span
 										class="completion-info-text block min-w-0"
