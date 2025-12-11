@@ -137,7 +137,17 @@
 						:key="progress.uid"
 						class="flex items-center space-x-3 p-2 bg-gray-50 dark:bg-black-200 rounded"
 					>
-						<el-icon class="text-green-500">
+						<el-tooltip
+							v-if="progress.error"
+							:content="progress.error"
+							placement="top"
+							effect="dark"
+						>
+							<el-icon class="text-red-500 cursor-pointer text-lg">
+								<WarningFilled />
+							</el-icon>
+						</el-tooltip>
+						<el-icon v-else class="text-green-500">
 							<Download />
 						</el-icon>
 						<div class="flex-1">
@@ -149,18 +159,9 @@
 							/>
 						</div>
 						<span class="text-xs text-gray-500">{{ progress.percentage }}%</span>
-						<el-tooltip
-							v-if="progress.error"
-							:content="progress.error"
-							placement="top"
-							effect="dark"
-						>
-							<el-icon class="text-red-500 cursor-pointer text-lg">
-								<WarningFilled />
-							</el-icon>
-						</el-tooltip>
+
 						<el-button
-							v-if="!progress.error && progress.taskId"
+							v-if="progress.taskId"
 							text
 							size="small"
 							@click="handleCancelDownload(progress)"
@@ -855,6 +856,10 @@ const startPollingProgress = (stageId: string) => {
 					}
 				});
 
+				// 如果接口返回的文件列表少于当前的下载列表 表示有文件上传成功了，调用一下刷新文件列表接口
+				if (allItems?.length > 0 && allItems?.length != downloadProgress.value?.length) {
+					refreshDocumentsSilently();
+				}
 				// 更新现有的进度项
 				downloadProgress.value = downloadProgress.value
 					.map((progress) => {
@@ -863,10 +868,7 @@ const startPollingProgress = (stageId: string) => {
 							return {
 								...progress,
 								percentage: item.progressPercentage || 0,
-								error:
-									item.status === 'failed'
-										? item.errorMessage || 'Download failed'
-										: undefined,
+								error: item.status == 'Failed' ? item.errorMessage : '',
 							};
 						}
 						return progress;
@@ -874,12 +876,12 @@ const startPollingProgress = (stageId: string) => {
 					.filter((progress) => {
 						// 移除已完成的项
 						const item = allItems.find((i: any) => i.itemId === progress.uid);
-						return item && item.status !== 'completed';
+						return item && item.status != 'completed';
 					});
 			}
 
 			// 如果所有下载都完成，停止轮询
-			if (downloadProgress.value.length === 0) {
+			if (downloadProgress.value.length == 0) {
 				stopPolling(pollingKey);
 				ElMessage.success('All files imported successfully');
 				// 静默刷新文档列表（增量更新）
