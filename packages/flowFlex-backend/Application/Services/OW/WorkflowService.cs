@@ -30,6 +30,7 @@ using FlowFlex.Application.Contracts.IServices.OW;
 using FlowFlex.Domain.Shared.Const;
 using FlowFlex.Application.Contracts.Dtos.OW.Permission;
 using FlowFlex.Application.Contracts.Dtos.OW.User;
+using FlowFlex.Infrastructure.Services;
 
 namespace FlowFlex.Application.Service.OW
 {
@@ -43,11 +44,12 @@ namespace FlowFlex.Application.Service.OW
         private readonly IOperatorContextService _operatorContextService;
         private readonly IComponentMappingService _componentMappingService;
         private readonly IDistributedCacheService _cacheService;
+        private readonly IBackgroundTaskQueue _backgroundTaskQueue;
         private readonly IOperationChangeLogService _operationChangeLogService;
         private readonly IPermissionService _permissionService;
         private readonly IUserService _userService;
 
-        public WorkflowService(IWorkflowRepository workflowRepository, IStageRepository stageRepository, IMapper mapper, UserContext userContext, ILogger<WorkflowService> logger, IOperatorContextService operatorContextService, IComponentMappingService componentMappingService, IDistributedCacheService cacheService, IOperationChangeLogService operationChangeLogService, IPermissionService permissionService, IUserService userService)
+        public WorkflowService(IWorkflowRepository workflowRepository, IStageRepository stageRepository, IMapper mapper, UserContext userContext, ILogger<WorkflowService> logger, IOperatorContextService operatorContextService, IComponentMappingService componentMappingService, IDistributedCacheService cacheService, IBackgroundTaskQueue backgroundTaskQueue, IOperationChangeLogService operationChangeLogService, IPermissionService permissionService, IUserService userService)
         {
             _workflowRepository = workflowRepository;
             _stageRepository = stageRepository;
@@ -57,6 +59,7 @@ namespace FlowFlex.Application.Service.OW
             _operatorContextService = operatorContextService;
             _componentMappingService = componentMappingService;
             _cacheService = cacheService;
+            _backgroundTaskQueue = backgroundTaskQueue;
             _operationChangeLogService = operationChangeLogService;
             _permissionService = permissionService;
             _userService = userService;
@@ -130,35 +133,28 @@ namespace FlowFlex.Application.Service.OW
                 }
             }
 
-            // Log workflow create operation (fire-and-forget)
-            _ = Task.Run(async () =>
+            // Log workflow create operation (fire-and-forget via background queue)
+            _backgroundTaskQueue.QueueBackgroundWorkItem(async _ =>
             {
-                try
+                // Prepare after data for logging with workflow fields
+                var afterData = JsonSerializer.Serialize(new
                 {
-                    // Prepare after data for logging with workflow fields
-                    var afterData = JsonSerializer.Serialize(new
-                    {
-                        Name = entity.Name,
-                        Description = entity.Description,
-                        Status = entity.Status,
-                        IsDefault = entity.IsDefault,
-                        ViewPermissionMode = entity.ViewPermissionMode,
-                        ViewTeams = entity.ViewTeams,
-                        OperateTeams = entity.OperateTeams,
-                        UseSameTeamForOperate = entity.UseSameTeamForOperate
-                    });
+                    Name = entity.Name,
+                    Description = entity.Description,
+                    Status = entity.Status,
+                    IsDefault = entity.IsDefault,
+                    ViewPermissionMode = entity.ViewPermissionMode,
+                    ViewTeams = entity.ViewTeams,
+                    OperateTeams = entity.OperateTeams,
+                    UseSameTeamForOperate = entity.UseSameTeamForOperate
+                });
 
-                    await _operationChangeLogService.LogWorkflowCreateAsync(
-                        workflowId: entity.Id,
-                        workflowName: entity.Name,
-                        workflowDescription: entity.Description,
-                        afterData: afterData
-                    );
-                }
-                catch
-                {
-                    // Ignore logging errors to avoid affecting main operation
-                }
+                await _operationChangeLogService.LogWorkflowCreateAsync(
+                    workflowId: entity.Id,
+                    workflowName: entity.Name,
+                    workflowDescription: entity.Description,
+                    afterData: afterData
+                );
             });
 
             return entity.Id;
@@ -312,80 +308,77 @@ namespace FlowFlex.Application.Service.OW
                 var cacheKey = $"workflow:get_by_id:{id}:{_userContext.AppCode}";
                 await _cacheService.RemoveAsync(cacheKey);
 
-                // Log workflow update operation if there were actual changes (fire-and-forget)
+                // Log workflow update operation if there were actual changes (via background queue)
                 if (hasChanges)
                 {
-                    _ = Task.Run(async () =>
+                    // Capture values needed for background task
+                    var capturedId = id;
+                    var capturedOriginalName = originalName;
+                    var capturedOriginalDescription = originalDescription;
+                    var capturedOriginalStatus = originalStatus;
+                    var capturedOriginalIsDefault = originalIsDefault;
+                    var capturedOriginalIsActive = originalIsActive;
+                    var capturedOriginalVisibleInPortal = originalVisibleInPortal;
+                    var capturedOriginalPortalPermission = originalPortalPermission;
+                    var capturedOriginalViewPermissionMode = originalViewPermissionMode;
+                    var capturedOriginalViewTeams = originalViewTeams;
+                    var capturedOriginalOperateTeams = originalOperateTeams;
+
+                    _backgroundTaskQueue.QueueBackgroundWorkItem(async _ =>
                     {
-                        try
+                        // Get the updated workflow for logging
+                        var updatedWorkflow = await _workflowRepository.GetByIdAsync(capturedId);
+                        if (updatedWorkflow != null)
                         {
-                            // Get the updated workflow for logging
-                            var updatedWorkflow = await _workflowRepository.GetByIdAsync(id);
-                            if (updatedWorkflow != null)
+                            // Prepare before and after data for logging using original values
+                            var beforeData = JsonSerializer.Serialize(new
                             {
-                                // Prepare before and after data for logging using original values
-                                var beforeData = JsonSerializer.Serialize(new
-                                {
-                                    Name = originalName,
-                                    Description = originalDescription,
-                                    Status = originalStatus,
-                                    IsDefault = originalIsDefault,
-                                    IsActive = originalIsActive,
-                                    VisibleInPortal = originalVisibleInPortal,
-                                    PortalPermission = originalPortalPermission,
-                                    ViewPermissionMode = originalViewPermissionMode,
-                                    ViewTeams = originalViewTeams,
-                                    OperateTeams = originalOperateTeams
-                                });
+                                Name = capturedOriginalName,
+                                Description = capturedOriginalDescription,
+                                Status = capturedOriginalStatus,
+                                IsDefault = capturedOriginalIsDefault,
+                                IsActive = capturedOriginalIsActive,
+                                VisibleInPortal = capturedOriginalVisibleInPortal,
+                                PortalPermission = capturedOriginalPortalPermission,
+                                ViewPermissionMode = capturedOriginalViewPermissionMode,
+                                ViewTeams = capturedOriginalViewTeams,
+                                OperateTeams = capturedOriginalOperateTeams
+                            });
 
-                                var afterData = JsonSerializer.Serialize(new
-                                {
-                                    Name = updatedWorkflow.Name,
-                                    Description = updatedWorkflow.Description,
-                                    Status = updatedWorkflow.Status,
-                                    IsDefault = updatedWorkflow.IsDefault,
-                                    IsActive = updatedWorkflow.IsActive,
-                                    VisibleInPortal = updatedWorkflow.VisibleInPortal,
-                                    PortalPermission = updatedWorkflow.PortalPermission,
-                                    ViewPermissionMode = updatedWorkflow.ViewPermissionMode,
-                                    ViewTeams = updatedWorkflow.ViewTeams,
-                                    OperateTeams = updatedWorkflow.OperateTeams
-                                });
+                            var afterData = JsonSerializer.Serialize(new
+                            {
+                                Name = updatedWorkflow.Name,
+                                Description = updatedWorkflow.Description,
+                                Status = updatedWorkflow.Status,
+                                IsDefault = updatedWorkflow.IsDefault,
+                                IsActive = updatedWorkflow.IsActive,
+                                VisibleInPortal = updatedWorkflow.VisibleInPortal,
+                                PortalPermission = updatedWorkflow.PortalPermission,
+                                ViewPermissionMode = updatedWorkflow.ViewPermissionMode,
+                                ViewTeams = updatedWorkflow.ViewTeams,
+                                OperateTeams = updatedWorkflow.OperateTeams
+                            });
 
-                                // Determine changed fields by comparing original vs updated values
-                                var changedFields = new List<string>();
-                                if (originalName != updatedWorkflow.Name) changedFields.Add("Name");
-                                if (originalDescription != updatedWorkflow.Description) changedFields.Add("Description");
-                                if (originalStatus != updatedWorkflow.Status) changedFields.Add("Status");
-                                if (originalIsDefault != updatedWorkflow.IsDefault) changedFields.Add("IsDefault");
-                                if (originalIsActive != updatedWorkflow.IsActive) changedFields.Add("IsActive");
-                                if (originalVisibleInPortal != updatedWorkflow.VisibleInPortal) changedFields.Add("VisibleInPortal");
-                                if (originalPortalPermission != updatedWorkflow.PortalPermission) changedFields.Add("PortalPermission");
-                                if (originalViewPermissionMode != updatedWorkflow.ViewPermissionMode) changedFields.Add("ViewPermissionMode");
-                                if (originalViewTeams != updatedWorkflow.ViewTeams) changedFields.Add("ViewTeams");
-                                if (originalOperateTeams != updatedWorkflow.OperateTeams) changedFields.Add("OperateTeams");
+                            // Determine changed fields by comparing original vs updated values
+                            var changedFields = new List<string>();
+                            if (capturedOriginalName != updatedWorkflow.Name) changedFields.Add("Name");
+                            if (capturedOriginalDescription != updatedWorkflow.Description) changedFields.Add("Description");
+                            if (capturedOriginalStatus != updatedWorkflow.Status) changedFields.Add("Status");
+                            if (capturedOriginalIsDefault != updatedWorkflow.IsDefault) changedFields.Add("IsDefault");
+                            if (capturedOriginalIsActive != updatedWorkflow.IsActive) changedFields.Add("IsActive");
+                            if (capturedOriginalVisibleInPortal != updatedWorkflow.VisibleInPortal) changedFields.Add("VisibleInPortal");
+                            if (capturedOriginalPortalPermission != updatedWorkflow.PortalPermission) changedFields.Add("PortalPermission");
+                            if (capturedOriginalViewPermissionMode != updatedWorkflow.ViewPermissionMode) changedFields.Add("ViewPermissionMode");
+                            if (capturedOriginalViewTeams != updatedWorkflow.ViewTeams) changedFields.Add("ViewTeams");
+                            if (capturedOriginalOperateTeams != updatedWorkflow.OperateTeams) changedFields.Add("OperateTeams");
 
-                                // Alternative: Use auto-detection (experimental)
-                                // var autoDetectedFields = AutoDetectChangedFields(beforeData, afterData);
-                                // if (autoDetectedFields.Any()) changedFields = autoDetectedFields;
-
-                                // Debug logging
-                                _logger.LogDebug("WorkflowUpdate Debug - Before: {BeforeData}", beforeData);
-                                _logger.LogDebug("WorkflowUpdate Debug - After: {AfterData}", afterData);
-                                _logger.LogDebug("WorkflowUpdate Debug - ChangedFields: {ChangedFields}", string.Join(", ", changedFields));
-
-                                await _operationChangeLogService.LogWorkflowUpdateAsync(
-                                    workflowId: id,
-                                    workflowName: updatedWorkflow.Name,
-                                    beforeData: beforeData,
-                                    afterData: afterData,
-                                    changedFields: changedFields
-                                );
-                            }
-                        }
-                        catch
-                        {
-                            // Ignore logging errors to avoid affecting main operation
+                            await _operationChangeLogService.LogWorkflowUpdateAsync(
+                                workflowId: capturedId,
+                                workflowName: updatedWorkflow.Name,
+                                beforeData: beforeData,
+                                afterData: afterData,
+                                changedFields: changedFields
+                            );
                         }
                     });
                 }
@@ -479,21 +472,14 @@ namespace FlowFlex.Application.Service.OW
                 var cacheKey = $"workflow:get_by_id:{id}:{_userContext.AppCode}";
                 await _cacheService.RemoveAsync(cacheKey);
 
-                // Log workflow delete operation (fire-and-forget)
-                _ = Task.Run(async () =>
+                // Log workflow delete operation (fire-and-forget via background queue)
+                _backgroundTaskQueue.QueueBackgroundWorkItem(async _ =>
                 {
-                    try
-                    {
-                        await _operationChangeLogService.LogWorkflowDeleteAsync(
-                            workflowId: id,
-                            workflowName: workflowName,
-                            reason: "Workflow deleted via admin portal"
-                        );
-                    }
-                    catch
-                    {
-                        // Ignore logging errors to avoid affecting main operation
-                    }
+                    await _operationChangeLogService.LogWorkflowDeleteAsync(
+                        workflowId: id,
+                        workflowName: workflowName,
+                        reason: "Workflow deleted via admin portal"
+                    );
                 });
             }
 

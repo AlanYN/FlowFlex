@@ -36,6 +36,17 @@ namespace FlowFlex.WebApi.Controllers.Integration
         }
 
         /// <summary>
+        /// Batch save entity mappings (create, update, delete in one operation)
+        /// </summary>
+        [HttpPost("batch")]
+        [ProducesResponseType<SuccessResponse<EntityMappingBatchSaveResultDto>>((int)HttpStatusCode.OK)]
+        public async Task<IActionResult> BatchSave([FromBody] EntityMappingBatchSaveDto input)
+        {
+            var result = await _entityMappingService.BatchSaveAsync(input);
+            return Success(result);
+        }
+
+        /// <summary>
         /// Update entity mapping
         /// </summary>
         [HttpPut("{id}")]

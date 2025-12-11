@@ -174,35 +174,28 @@ namespace FlowFlex.Application.Service.OW
             // Create ActionTriggerMappings for all Questions with Action IDs
             await EnsureQuestionActionTriggerMappingsExistAsync(entity);
 
-            // Log questionnaire create operation (fire-and-forget)
-            _ = Task.Run(async () =>
+            // Log questionnaire create operation (fire-and-forget via background queue)
+            _backgroundTaskQueue.QueueBackgroundWorkItem(async _ =>
             {
-                try
+                // Build afterData JSON with questionnaire details
+                var afterDataDict = new Dictionary<string, object>
                 {
-                    // Build afterData JSON with questionnaire details
-                    var afterDataDict = new Dictionary<string, object>
-                    {
-                        ["Name"] = entity.Name,
-                        ["Description"] = entity.Description ?? string.Empty,
-                        ["Status"] = entity.Status?.ToString() ?? string.Empty,
-                        ["Category"] = entity.Category ?? string.Empty,
-                        ["EstimatedMinutes"] = entity.EstimatedMinutes,
-                        ["IsActive"] = entity.IsActive,
-                        ["StructureJson"] = entity.Structure?.ToString() ?? string.Empty
-                    };
-                    var afterData = System.Text.Json.JsonSerializer.Serialize(afterDataDict);
+                    ["Name"] = entity.Name,
+                    ["Description"] = entity.Description ?? string.Empty,
+                    ["Status"] = entity.Status?.ToString() ?? string.Empty,
+                    ["Category"] = entity.Category ?? string.Empty,
+                    ["EstimatedMinutes"] = entity.EstimatedMinutes,
+                    ["IsActive"] = entity.IsActive,
+                    ["StructureJson"] = entity.Structure?.ToString() ?? string.Empty
+                };
+                var afterData = System.Text.Json.JsonSerializer.Serialize(afterDataDict);
 
-                    await _operationChangeLogService.LogQuestionnaireCreateAsync(
-                        questionnaireId: entity.Id,
-                        questionnaireName: entity.Name,
-                        afterData: afterData,
-                        extendedData: entity.Description
-                    );
-                }
-                catch
-                {
-                    // Ignore logging errors to avoid affecting main operation
-                }
+                await _operationChangeLogService.LogQuestionnaireCreateAsync(
+                    questionnaireId: entity.Id,
+                    questionnaireName: entity.Name,
+                    afterData: afterData,
+                    extendedData: entity.Description
+                );
             });
 
             // Sections module removed; ignore input.Sections to keep compatibility
@@ -285,70 +278,68 @@ namespace FlowFlex.Application.Service.OW
 
             var result = await _questionnaireRepository.UpdateAsync(entity);
 
-            // Log questionnaire update operation if successful (fire-and-forget)
+            // Log questionnaire update operation if successful (via background queue)
             if (result)
             {
-                _ = Task.Run(async () =>
+                // Capture values for background task
+                var capturedId = id;
+                var capturedOriginalName = originalName;
+                var capturedOriginalDescription = originalDescription;
+                var capturedOriginalStatus = originalStatus;
+                var capturedOriginalCategory = originalCategory;
+                var capturedOriginalEstimatedMinutes = originalEstimatedMinutes;
+                var capturedOriginalIsActive = originalIsActive;
+                var capturedOriginalStructureJson = originalStructureJson;
+
+                _backgroundTaskQueue.QueueBackgroundWorkItem(async _ =>
                 {
-                    try
+                    // Get the updated questionnaire for logging
+                    var updatedQuestionnaire = await _questionnaireRepository.GetByIdAsync(capturedId);
+                    if (updatedQuestionnaire != null)
                     {
-                        // Get the updated questionnaire for logging
-                        var updatedQuestionnaire = await _questionnaireRepository.GetByIdAsync(id);
-                        if (updatedQuestionnaire != null)
+                        // Prepare before and after data for logging
+                        var beforeData = JsonSerializer.Serialize(new
                         {
-                            // Prepare before and after data for logging
-                            var beforeData = JsonSerializer.Serialize(new
-                            {
-                                Name = originalName,
-                                Description = originalDescription,
-                                Status = originalStatus,
-                                Category = originalCategory,
-                                EstimatedMinutes = originalEstimatedMinutes,
-                                IsActive = originalIsActive,
-                                StructureJson = originalStructureJson
-                            });
+                            Name = capturedOriginalName,
+                            Description = capturedOriginalDescription,
+                            Status = capturedOriginalStatus,
+                            Category = capturedOriginalCategory,
+                            EstimatedMinutes = capturedOriginalEstimatedMinutes,
+                            IsActive = capturedOriginalIsActive,
+                            StructureJson = capturedOriginalStructureJson
+                        });
 
-                            var afterData = JsonSerializer.Serialize(new
-                            {
-                                Name = updatedQuestionnaire.Name,
-                                Description = updatedQuestionnaire.Description,
-                                Status = updatedQuestionnaire.Status,
-                                Category = updatedQuestionnaire.Category,
-                                EstimatedMinutes = updatedQuestionnaire.EstimatedMinutes,
-                                IsActive = updatedQuestionnaire.IsActive,
-                                StructureJson = updatedQuestionnaire.Structure?.ToString(Newtonsoft.Json.Formatting.None)
-                            });
+                        var afterData = JsonSerializer.Serialize(new
+                        {
+                            Name = updatedQuestionnaire.Name,
+                            Description = updatedQuestionnaire.Description,
+                            Status = updatedQuestionnaire.Status,
+                            Category = updatedQuestionnaire.Category,
+                            EstimatedMinutes = updatedQuestionnaire.EstimatedMinutes,
+                            IsActive = updatedQuestionnaire.IsActive,
+                            StructureJson = updatedQuestionnaire.Structure?.ToString(Newtonsoft.Json.Formatting.None)
+                        });
 
-                            // Determine changed fields
-                            var changedFields = new List<string>();
-                            if (originalName != updatedQuestionnaire.Name) changedFields.Add("Name");
-                            if (originalDescription != updatedQuestionnaire.Description) changedFields.Add("Description");
-                            if (originalStatus != updatedQuestionnaire.Status) changedFields.Add("Status");
-                            if (originalCategory != updatedQuestionnaire.Category) changedFields.Add("Category");
-                            if (originalEstimatedMinutes != updatedQuestionnaire.EstimatedMinutes) changedFields.Add("EstimatedMinutes");
-                            if (originalIsActive != updatedQuestionnaire.IsActive) changedFields.Add("IsActive");
+                        // Determine changed fields
+                        var changedFields = new List<string>();
+                        if (capturedOriginalName != updatedQuestionnaire.Name) changedFields.Add("Name");
+                        if (capturedOriginalDescription != updatedQuestionnaire.Description) changedFields.Add("Description");
+                        if (capturedOriginalStatus != updatedQuestionnaire.Status) changedFields.Add("Status");
+                        if (capturedOriginalCategory != updatedQuestionnaire.Category) changedFields.Add("Category");
+                        if (capturedOriginalEstimatedMinutes != updatedQuestionnaire.EstimatedMinutes) changedFields.Add("EstimatedMinutes");
+                        if (capturedOriginalIsActive != updatedQuestionnaire.IsActive) changedFields.Add("IsActive");
 
-                            // Check structure changes
-                            var updatedStructureJson = updatedQuestionnaire.Structure?.ToString(Newtonsoft.Json.Formatting.None);
-                            if (originalStructureJson != updatedStructureJson) changedFields.Add("StructureJson");
+                        // Check structure changes
+                        var updatedStructureJson = updatedQuestionnaire.Structure?.ToString(Newtonsoft.Json.Formatting.None);
+                        if (capturedOriginalStructureJson != updatedStructureJson) changedFields.Add("StructureJson");
 
-                            // Debug logging
-                            _logger.LogDebug("QuestionnaireUpdate Debug - Before: {BeforeData}", beforeData);
-                            _logger.LogDebug("QuestionnaireUpdate Debug - After: {AfterData}", afterData);
-                            _logger.LogDebug("QuestionnaireUpdate Debug - ChangedFields: {ChangedFields}", string.Join(", ", changedFields));
-
-                            await _operationChangeLogService.LogQuestionnaireUpdateAsync(
-                                questionnaireId: id,
-                                questionnaireName: updatedQuestionnaire.Name,
-                                beforeData: beforeData,
-                                afterData: afterData,
-                                changedFields: changedFields
-                            );
-                        }
-                    }
-                    catch
-                    {
-                        // Ignore logging errors to avoid affecting main operation
+                        await _operationChangeLogService.LogQuestionnaireUpdateAsync(
+                            questionnaireId: capturedId,
+                            questionnaireName: updatedQuestionnaire.Name,
+                            beforeData: beforeData,
+                            afterData: afterData,
+                            changedFields: changedFields
+                        );
                     }
                 });
             }
@@ -421,23 +412,16 @@ namespace FlowFlex.Application.Service.OW
 
             var result = await _questionnaireRepository.DeleteAsync(entity);
 
-            // Log questionnaire delete operation if successful (fire-and-forget)
+            // Log questionnaire delete operation if successful (via background queue)
             if (result)
             {
-                _ = Task.Run(async () =>
+                _backgroundTaskQueue.QueueBackgroundWorkItem(async _ =>
                 {
-                    try
-                    {
-                        await _operationChangeLogService.LogQuestionnaireDeleteAsync(
-                            questionnaireId: id,
-                            questionnaireName: questionnaireName,
-                            reason: "Questionnaire deleted via admin portal"
-                        );
-                    }
-                    catch
-                    {
-                        // Ignore logging errors to avoid affecting main operation
-                    }
+                    await _operationChangeLogService.LogQuestionnaireDeleteAsync(
+                        questionnaireId: id,
+                        questionnaireName: questionnaireName,
+                        reason: "Questionnaire deleted via admin portal"
+                    );
                 });
             }
 

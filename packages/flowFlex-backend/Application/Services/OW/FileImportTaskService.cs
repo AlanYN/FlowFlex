@@ -88,8 +88,27 @@ namespace FlowFlex.Application.Services.OW
             _tasks[taskId] = task;
             _taskCancellationTokens[taskId] = cts;
 
-            // Start background processing
-            _ = Task.Run(async () => await ProcessImportTaskAsync(taskId, input, cts.Token));
+            // Start background processing with error logging
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await ProcessImportTaskAsync(taskId, input, cts.Token);
+                }
+                catch (OperationCanceledException)
+                {
+                    _logger.LogInformation("Import task {TaskId} was cancelled", taskId);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Import task {TaskId} failed with error", taskId);
+                    if (_tasks.TryGetValue(taskId, out var failedTask))
+                    {
+                        failedTask.Status = "Failed";
+                        failedTask.CompletedAt = DateTimeOffset.UtcNow;
+                    }
+                }
+            });
 
             _logger.LogInformation("Started import task {TaskId} with {FileCount} files for Onboarding {OnboardingId}, Stage {StageId}",
                 taskId, task.TotalCount, input.OnboardingId, input.StageId);
@@ -118,116 +137,187 @@ namespace FlowFlex.Application.Services.OW
             var httpClient = _httpClientFactory.CreateClient();
             httpClient.Timeout = TimeSpan.FromMinutes(10);
 
+            const int MAX_RETRY_COUNT = 5;
+
+            // Create a dictionary to map items to their input data
+            var itemInputMap = new Dictionary<string, ImportFileItemDto>();
             for (int i = 0; i < task.Items.Count; i++)
             {
-                if (cancellationToken.IsCancellationRequested)
+                itemInputMap[task.Items[i].ItemId] = input.Files[i];
+            }
+
+            // Process items with retry logic
+            bool hasItemsToProcess = true;
+            while (hasItemsToProcess && !cancellationToken.IsCancellationRequested)
+            {
+                hasItemsToProcess = false;
+
+                // Get items that need processing (Pending or Failed with retry count < MAX_RETRY_COUNT)
+                var itemsToProcess = task.Items
+                    .Where(i => i.Status == "Pending" || (i.Status == "Failed" && i.RetryCount < MAX_RETRY_COUNT))
+                    .ToList();
+
+                if (itemsToProcess.Count == 0)
                 {
                     break;
                 }
 
-                var item = task.Items[i];
-                var fileInput = input.Files[i];
-
-                // Check if item was cancelled
-                if (item.Status == "Cancelled")
+                foreach (var item in itemsToProcess)
                 {
-                    continue;
-                }
-
-                try
-                {
-                    item.Status = "Downloading";
-                    item.ProgressPercentage = 10;
-
-                    _logger.LogInformation("Downloading file {FileName} for task {TaskId}", item.FileName, taskId);
-
-                    // Check cancellation before download
-                    if (cancellationToken.IsCancellationRequested || item.Status == "Cancelled")
+                    if (cancellationToken.IsCancellationRequested)
                     {
-                        item.Status = "Cancelled";
-                        task.CancelledCount++;
+                        break;
+                    }
+
+                    // Check if item was removed (cancelled externally)
+                    if (!task.Items.Contains(item))
+                    {
                         continue;
                     }
 
-                    using var response = await httpClient.GetAsync(fileInput.DownloadLink, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
-                    response.EnsureSuccessStatusCode();
-
-                    item.ProgressPercentage = 30;
-
-                    var contentType = response.Content.Headers.ContentType?.MediaType ?? "application/octet-stream";
-
-                    using var contentStream = await response.Content.ReadAsStreamAsync(cancellationToken);
-                    using var memoryStream = new MemoryStream();
-                    await contentStream.CopyToAsync(memoryStream, cancellationToken);
-                    memoryStream.Position = 0;
-
-                    item.Status = "Processing";
-                    item.ProgressPercentage = 60;
-
-                    // Check cancellation before processing
-                    if (cancellationToken.IsCancellationRequested || item.Status == "Cancelled")
+                    if (!itemInputMap.TryGetValue(item.ItemId, out var fileInput))
                     {
-                        item.Status = "Cancelled";
-                        task.CancelledCount++;
+                        _logger.LogWarning("Input data not found for item {ItemId}", item.ItemId);
                         continue;
                     }
 
-                    // Create IFormFile and upload
-                    var formFile = new FormFile(memoryStream, 0, memoryStream.Length, "file", item.FileName)
+                    // If retrying, increment retry count and reset status
+                    if (item.Status == "Failed")
                     {
-                        Headers = new HeaderDictionary(),
-                        ContentType = contentType
-                    };
+                        item.RetryCount++;
+                        task.FailedCount--; // Decrement failed count since we're retrying
+                        _logger.LogInformation("Retrying file {FileName} (attempt {RetryCount}/{MaxRetry}) for task {TaskId}",
+                            item.FileName, item.RetryCount, MAX_RETRY_COUNT, taskId);
+                    }
 
-                    var uploadInput = new OnboardingFileInputDto
+                    try
                     {
-                        OnboardingId = input.OnboardingId,
-                        StageId = input.StageId,
-                        FormFile = formFile,
-                        Category = input.Category ?? "Document",
-                        Description = fileInput.Description ?? input.Description,
-                        OverrideUploaderId = input.OperatorId,
-                        OverrideUploaderName = input.OperatorName
-                    };
+                        item.Status = "Downloading";
+                        item.ProgressPercentage = 10;
+                        item.ErrorMessage = null;
 
-                    item.ProgressPercentage = 80;
+                        _logger.LogInformation("Downloading file {FileName} for task {TaskId} (retry: {RetryCount})",
+                            item.FileName, taskId, item.RetryCount);
 
-                    // Use scoped service for upload
-                    using var scope = _serviceProvider.CreateScope();
-                    var fileService = scope.ServiceProvider.GetRequiredService<IOnboardingFileService>();
-                    var uploadResult = await fileService.UploadFileAsync(uploadInput);
+                        // Check cancellation before download
+                        if (cancellationToken.IsCancellationRequested || !task.Items.Contains(item))
+                        {
+                            item.Status = "Cancelled";
+                            task.CancelledCount++;
+                            continue;
+                        }
 
-                    item.Status = "Success";
-                    item.ProgressPercentage = 100;
-                    item.FileId = uploadResult.Id;
-                    item.FileOutput = uploadResult;
-                    task.SuccessCount++;
+                        using var response = await httpClient.GetAsync(fileInput.DownloadLink, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+                        response.EnsureSuccessStatusCode();
 
-                    _logger.LogInformation("Successfully imported file {FileName}, FileId: {FileId} for task {TaskId}",
-                        item.FileName, uploadResult.Id, taskId);
+                        item.ProgressPercentage = 30;
+
+                        var contentType = response.Content.Headers.ContentType?.MediaType ?? "application/octet-stream";
+
+                        using var contentStream = await response.Content.ReadAsStreamAsync(cancellationToken);
+                        using var memoryStream = new MemoryStream();
+                        await contentStream.CopyToAsync(memoryStream, cancellationToken);
+                        memoryStream.Position = 0;
+
+                        item.Status = "Processing";
+                        item.ProgressPercentage = 60;
+
+                        // Check cancellation before processing
+                        if (cancellationToken.IsCancellationRequested || !task.Items.Contains(item))
+                        {
+                            item.Status = "Cancelled";
+                            task.CancelledCount++;
+                            continue;
+                        }
+
+                        // Create IFormFile and upload
+                        var formFile = new FormFile(memoryStream, 0, memoryStream.Length, "file", item.FileName)
+                        {
+                            Headers = new HeaderDictionary(),
+                            ContentType = contentType
+                        };
+
+                        var uploadInput = new OnboardingFileInputDto
+                        {
+                            OnboardingId = input.OnboardingId,
+                            StageId = input.StageId,
+                            FormFile = formFile,
+                            Category = input.Category ?? "Document",
+                            Description = fileInput.Description ?? input.Description,
+                            OverrideUploaderId = input.OperatorId,
+                            OverrideUploaderName = input.OperatorName
+                        };
+
+                        item.ProgressPercentage = 80;
+
+                        // Use scoped service for upload
+                        using var scope = _serviceProvider.CreateScope();
+                        var fileService = scope.ServiceProvider.GetRequiredService<IOnboardingFileService>();
+                        var uploadResult = await fileService.UploadFileAsync(uploadInput);
+
+                        item.Status = "Success";
+                        item.ProgressPercentage = 100;
+                        item.FileId = uploadResult.Id;
+                        item.FileOutput = uploadResult;
+                        task.SuccessCount++;
+
+                        _logger.LogInformation("Successfully imported file {FileName}, FileId: {FileId} for task {TaskId}",
+                            item.FileName, uploadResult.Id, taskId);
+
+                        // Remove completed item from memory
+                        task.Items.Remove(item);
+                        _logger.LogDebug("Removed completed item {ItemId} from task {TaskId}", item.ItemId, taskId);
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        item.Status = "Cancelled";
+                        item.ErrorMessage = "Import was cancelled";
+                        task.CancelledCount++;
+                        _logger.LogInformation("File import cancelled: {FileName} for task {TaskId}", item.FileName, taskId);
+                    }
+                    catch (HttpRequestException ex)
+                    {
+                        item.Status = "Failed";
+                        item.ErrorMessage = $"Download failed: {ex.Message}";
+                        item.ProgressPercentage = 0;
+                        if (item.RetryCount >= MAX_RETRY_COUNT)
+                        {
+                            task.FailedCount++;
+                            _logger.LogError(ex, "Failed to download file {FileName} for task {TaskId} after {RetryCount} retries",
+                                item.FileName, taskId, item.RetryCount);
+                        }
+                        else
+                        {
+                            hasItemsToProcess = true; // Mark to retry
+                            _logger.LogWarning(ex, "Download failed for {FileName}, will retry (attempt {RetryCount}/{MaxRetry})",
+                                item.FileName, item.RetryCount, MAX_RETRY_COUNT);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        item.Status = "Failed";
+                        item.ErrorMessage = $"Import failed: {ex.Message}";
+                        item.ProgressPercentage = 0;
+                        if (item.RetryCount >= MAX_RETRY_COUNT)
+                        {
+                            task.FailedCount++;
+                            _logger.LogError(ex, "Failed to import file {FileName} for task {TaskId} after {RetryCount} retries",
+                                item.FileName, taskId, item.RetryCount);
+                        }
+                        else
+                        {
+                            hasItemsToProcess = true; // Mark to retry
+                            _logger.LogWarning(ex, "Import failed for {FileName}, will retry (attempt {RetryCount}/{MaxRetry})",
+                                item.FileName, item.RetryCount, MAX_RETRY_COUNT);
+                        }
+                    }
                 }
-                catch (OperationCanceledException)
+
+                // Add a small delay between retry rounds to avoid hammering the server
+                if (hasItemsToProcess && !cancellationToken.IsCancellationRequested)
                 {
-                    item.Status = "Cancelled";
-                    item.ErrorMessage = "Import was cancelled";
-                    task.CancelledCount++;
-                    _logger.LogInformation("File import cancelled: {FileName} for task {TaskId}", item.FileName, taskId);
-                }
-                catch (HttpRequestException ex)
-                {
-                    item.Status = "Failed";
-                    item.ErrorMessage = $"Download failed: {ex.Message}";
-                    item.ProgressPercentage = 0;
-                    task.FailedCount++;
-                    _logger.LogError(ex, "Failed to download file {FileName} for task {TaskId}", item.FileName, taskId);
-                }
-                catch (Exception ex)
-                {
-                    item.Status = "Failed";
-                    item.ErrorMessage = $"Import failed: {ex.Message}";
-                    item.ProgressPercentage = 0;
-                    task.FailedCount++;
-                    _logger.LogError(ex, "Failed to import file {FileName} for task {TaskId}", item.FileName, taskId);
+                    _logger.LogInformation("Waiting 2 seconds before retry round for task {TaskId}", taskId);
+                    await Task.Delay(TimeSpan.FromSeconds(2), cancellationToken);
                 }
             }
 
@@ -258,6 +348,13 @@ namespace FlowFlex.Application.Services.OW
 
             _logger.LogInformation("Import task {TaskId} completed: {Status}, Success: {SuccessCount}, Failed: {FailedCount}, Cancelled: {CancelledCount}",
                 taskId, task.Status, task.SuccessCount, task.FailedCount, task.CancelledCount);
+
+            // Remove task from memory if all items are completed successfully (no items left)
+            if (task.Items.Count == 0)
+            {
+                _tasks.TryRemove(taskId, out _);
+                _logger.LogInformation("Task {TaskId} removed from memory - all items completed successfully", taskId);
+            }
         }
 
         /// <summary>
@@ -267,6 +364,7 @@ namespace FlowFlex.Application.Services.OW
         {
             if (_tasks.TryGetValue(taskId, out var task))
             {
+                // Items are already removed from memory when completed (progressPercentage = 100)
                 return Task.FromResult(task);
             }
 
@@ -278,6 +376,7 @@ namespace FlowFlex.Application.Services.OW
         /// </summary>
         public Task<List<FileImportTaskDto>> GetTasksByOnboardingAndStageAsync(long onboardingId, long stageId)
         {
+            // Tasks and items are automatically removed from memory when completed
             var tasks = _tasks.Values
                 .Where(t => t.OnboardingId == onboardingId && t.StageId == stageId)
                 .OrderByDescending(t => t.CreatedAt)
@@ -312,26 +411,24 @@ namespace FlowFlex.Application.Services.OW
                 });
             }
 
-            if (!item.CanCancel)
+            // Force remove item from memory regardless of status
+            var previousStatus = item.Status;
+            task.Items.Remove(item);
+
+            _logger.LogInformation("Force removed import item {ItemId} ({FileName}) from task {TaskId}, previous status: {Status}",
+                itemId, item.FileName, taskId, previousStatus);
+
+            // Remove task if no items left
+            if (task.Items.Count == 0)
             {
-                return Task.FromResult(new CancelImportFileResponseDto
-                {
-                    Success = false,
-                    Message = $"Item '{itemId}' cannot be cancelled (status: {item.Status})",
-                    CancelledCount = 0
-                });
+                _tasks.TryRemove(taskId, out _);
+                _logger.LogInformation("Task {TaskId} removed from memory - no items left", taskId);
             }
-
-            item.Status = "Cancelled";
-            item.ErrorMessage = "Cancelled by user";
-            task.CancelledCount++;
-
-            _logger.LogInformation("Cancelled import item {ItemId} ({FileName}) in task {TaskId}", itemId, item.FileName, taskId);
 
             return Task.FromResult(new CancelImportFileResponseDto
             {
                 Success = true,
-                Message = $"Successfully cancelled import of '{item.FileName}'",
+                Message = $"Successfully removed item '{item.FileName}' from task",
                 CancelledCount = 1
             });
         }

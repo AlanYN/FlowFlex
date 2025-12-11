@@ -442,6 +442,25 @@ namespace FlowFlex.WebApi.Controllers.OW
             var result = await _onboardingService.GetAuthorizedUsersAsync(id);
             return Success(result);
         }
+
+        /// <summary>
+        /// Get all active onboardings by System ID
+        /// Returns all onboarding records where SystemId matches and IsActive is true
+        /// Requires CASE:READ permission
+        /// </summary>
+        [HttpGet("by-system")]
+        [WFEAuthorize(PermissionConsts.Case.Read)]
+        [ProducesResponseType<SuccessResponse<List<OnboardingOutputDto>>>((int)HttpStatusCode.OK)]
+        public async Task<IActionResult> GetActiveBySystemIdAsync([FromQuery] string systemId)
+        {
+            if (string.IsNullOrWhiteSpace(systemId))
+            {
+                return BadRequest("systemId parameter is required");
+            }
+
+            var result = await _onboardingService.GetActiveBySystemIdAsync(systemId);
+            return Success(result);
+        }
     }
 
     /// <summary>

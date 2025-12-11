@@ -89,6 +89,87 @@ namespace FlowFlex.WebApi.Controllers.Integration
         }
 
         /// <summary>
+        /// Batch save attachment sharing configuration items
+        /// Items not in the list will be automatically deleted
+        /// </summary>
+        [HttpPost("batch")]
+        [ProducesResponseType<SuccessResponse<AttachmentSharingBatchSaveResultDto>>((int)HttpStatusCode.OK)]
+        public async Task<IActionResult> BatchSave([FromBody] AttachmentSharingBatchSaveDto input)
+        {
+            // Get existing items
+            var existing = await _integrationService.GetInboundAttachmentsAsync(input.IntegrationId);
+            var existingItems = existing.Items ?? new List<InboundAttachmentItemDto>();
+            
+            var result = new AttachmentSharingBatchSaveResultDto();
+            var newItems = new List<InboundAttachmentItemDto>();
+
+            // Get input item IDs for comparison
+            var inputItemIds = input.Items
+                .Where(x => !string.IsNullOrEmpty(x.Id))
+                .Select(x => x.Id!)
+                .ToHashSet();
+
+            // Count deleted items (existing items not in input)
+            result.DeletedCount = existingItems.Count(e => !inputItemIds.Contains(e.Id));
+
+            // Process creates and updates
+            foreach (var item in input.Items)
+            {
+                if (!string.IsNullOrEmpty(item.Id))
+                {
+                    // Update existing
+                    var existingItem = existingItems.FirstOrDefault(x => x.Id == item.Id);
+                    if (existingItem != null)
+                    {
+                        newItems.Add(new InboundAttachmentItemDto
+                        {
+                            Id = item.Id,
+                            ModuleName = item.ModuleName,
+                            WorkflowId = item.WorkflowId,
+                            ActionId = item.ActionId
+                        });
+                        result.UpdatedCount++;
+                    }
+                    else
+                    {
+                        // If item has ID but not found, create new with the provided ID
+                        newItems.Add(new InboundAttachmentItemDto
+                        {
+                            Id = item.Id,
+                            ModuleName = item.ModuleName,
+                            WorkflowId = item.WorkflowId,
+                            ActionId = item.ActionId
+                        });
+                        result.CreatedCount++;
+                    }
+                }
+                else
+                {
+                    // Create new
+                    newItems.Add(new InboundAttachmentItemDto
+                    {
+                        Id = GenerateItemId(),
+                        ModuleName = item.ModuleName,
+                        WorkflowId = item.WorkflowId,
+                        ActionId = item.ActionId
+                    });
+                    result.CreatedCount++;
+                }
+            }
+
+            // Save back - only items in the input list will be saved
+            var saveInput = new InboundAttachmentsInputDto
+            {
+                IntegrationId = input.IntegrationId,
+                Items = newItems
+            };
+            await _integrationService.SaveInboundAttachmentsAsync(input.IntegrationId, saveInput);
+
+            result.Items = newItems;
+            return Success(result);
+        }
+
+        /// <summary>
         /// Update attachment sharing configuration item by ID
         /// </summary>
         [HttpPut("{id}")]
@@ -216,5 +297,79 @@ namespace FlowFlex.WebApi.Controllers.Integration
         /// Action ID
         /// </summary>
         public long ActionId { get; set; }
+    }
+
+    /// <summary>
+    /// DTO for batch saving attachment sharing configuration
+    /// Items not in the list will be automatically deleted
+    /// </summary>
+    public class AttachmentSharingBatchSaveDto
+    {
+        /// <summary>
+        /// Integration ID
+        /// </summary>
+        [Required]
+        public long IntegrationId { get; set; }
+
+        /// <summary>
+        /// Items to save (create or update)
+        /// Items with ID will be updated, items without ID will be created
+        /// Existing items not in this list will be automatically deleted
+        /// </summary>
+        public List<AttachmentSharingBatchItemDto> Items { get; set; } = new();
+    }
+
+    /// <summary>
+    /// DTO for batch item in attachment sharing configuration
+    /// </summary>
+    public class AttachmentSharingBatchItemDto
+    {
+        /// <summary>
+        /// Item ID (null or empty for new items)
+        /// </summary>
+        public string? Id { get; set; }
+
+        /// <summary>
+        /// Module name
+        /// </summary>
+        [Required]
+        [StringLength(200)]
+        public string ModuleName { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Workflow ID
+        /// </summary>
+        public long WorkflowId { get; set; }
+
+        /// <summary>
+        /// Action ID
+        /// </summary>
+        public long ActionId { get; set; }
+    }
+
+    /// <summary>
+    /// Result DTO for batch save attachment sharing configuration
+    /// </summary>
+    public class AttachmentSharingBatchSaveResultDto
+    {
+        /// <summary>
+        /// Number of items created
+        /// </summary>
+        public int CreatedCount { get; set; }
+
+        /// <summary>
+        /// Number of items updated
+        /// </summary>
+        public int UpdatedCount { get; set; }
+
+        /// <summary>
+        /// Number of items deleted
+        /// </summary>
+        public int DeletedCount { get; set; }
+
+        /// <summary>
+        /// All items after batch save
+        /// </summary>
+        public List<InboundAttachmentItemDto> Items { get; set; } = new();
     }
 }
