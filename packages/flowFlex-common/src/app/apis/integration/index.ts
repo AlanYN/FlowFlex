@@ -18,6 +18,7 @@ import type {
 	InboundAttachmentIteml,
 	IntegrationAttachment,
 	DownloadApi,
+	CaseImportDowmLoadFiles,
 } from '#/integration';
 
 const globSetting = useGlobSetting();
@@ -222,7 +223,9 @@ export function getAttachmentApiMd(): Promise<IApiResponse<{ inbound: string; ou
 
 export function getCaseAttachmentIntegration(params: {
 	systemId: string;
-}): Promise<IApiResponse<{ attachments: IntegrationAttachment[] }>> {
+}): Promise<
+	IApiResponse<{ actionExecutions: CaseImportDowmLoadFiles<IntegrationAttachment[]>[] }>
+> {
 	return defHttp.get({ url: Api.caseAttachmentIntegration, params });
 }
 
