@@ -223,7 +223,7 @@ const handleTestConnection = async () => {
 
 	try {
 		const result = await testConnection(integrationId.value);
-		if (result.code == '200') {
+		if (result.code == '200' && !!result.data?.success) {
 			ElMessage.success('Connection test successful');
 			integrationStatus.value = 1;
 			testErrorMsg.value = '';
