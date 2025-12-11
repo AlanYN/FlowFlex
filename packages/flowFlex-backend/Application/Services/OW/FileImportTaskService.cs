@@ -180,10 +180,11 @@ namespace FlowFlex.Application.Services.OW
                     await contentStream.CopyToAsync(memoryStream, cancellationToken);
                     memoryStream.Position = 0;
 
-                    // TODO: Remove this delay - only for testing download progress UI
-                    _logger.LogWarning("DEBUG: Sleeping 10 seconds for import progress testing (file: {FileName})...", item.FileName);
-                    await Task.Delay(TimeSpan.FromSeconds(1000), cancellationToken);
-                    _logger.LogWarning("DEBUG: Sleep completed for file: {FileName}", item.FileName);
+                    // TODO: Remove this delay - only for testing progress UI
+                    item.ProgressPercentage = 50;
+                    _logger.LogWarning("DEBUG: Waiting 3 seconds at 50% progress for file: {FileName}...", item.FileName);
+                    await Task.Delay(TimeSpan.FromSeconds(3), cancellationToken);
+                    _logger.LogWarning("DEBUG: Wait completed for file: {FileName}", item.FileName);
 
                     item.Status = "Processing";
                     item.ProgressPercentage = 60;
@@ -229,6 +230,10 @@ namespace FlowFlex.Application.Services.OW
 
                     _logger.LogInformation("Successfully imported file {FileName}, FileId: {FileId} for task {TaskId}",
                         item.FileName, uploadResult.Id, taskId);
+
+                    // Remove completed item from memory
+                    task.Items.Remove(item);
+                    _logger.LogDebug("Removed completed item {ItemId} from task {TaskId}", item.ItemId, taskId);
                 }
                 catch (OperationCanceledException)
                 {
@@ -282,6 +287,13 @@ namespace FlowFlex.Application.Services.OW
 
             _logger.LogInformation("Import task {TaskId} completed: {Status}, Success: {SuccessCount}, Failed: {FailedCount}, Cancelled: {CancelledCount}",
                 taskId, task.Status, task.SuccessCount, task.FailedCount, task.CancelledCount);
+
+            // Remove task from memory if all items are completed successfully (no items left)
+            if (task.Items.Count == 0)
+            {
+                _tasks.TryRemove(taskId, out _);
+                _logger.LogInformation("Task {TaskId} removed from memory - all items completed successfully", taskId);
+            }
         }
 
         /// <summary>
@@ -291,6 +303,7 @@ namespace FlowFlex.Application.Services.OW
         {
             if (_tasks.TryGetValue(taskId, out var task))
             {
+                // Items are already removed from memory when completed (progressPercentage = 100)
                 return Task.FromResult(task);
             }
 
@@ -302,6 +315,7 @@ namespace FlowFlex.Application.Services.OW
         /// </summary>
         public Task<List<FileImportTaskDto>> GetTasksByOnboardingAndStageAsync(long onboardingId, long stageId)
         {
+            // Tasks and items are automatically removed from memory when completed
             var tasks = _tasks.Values
                 .Where(t => t.OnboardingId == onboardingId && t.StageId == stageId)
                 .OrderByDescending(t => t.CreatedAt)
