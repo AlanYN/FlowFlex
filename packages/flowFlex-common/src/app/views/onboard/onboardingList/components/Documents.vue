@@ -848,36 +848,52 @@ const startPollingProgress = (stageId: string) => {
 
 			// 更新进度 - 遍历所有任务的 items
 			if (Array.isArray(tasks)) {
-				// 收集所有任务中的所有 items
+				// 收集所有任务中的所有 items（包含 taskId）
 				const allItems: any[] = [];
 				tasks.forEach((task: any) => {
 					if (task.items && Array.isArray(task.items)) {
-						allItems.push(...task.items);
+						task.items.forEach((item: any) => {
+							allItems.push({
+								...item,
+								taskId: task.taskId, // 保存 taskId 用于取消操作
+							});
+						});
 					}
 				});
 
-				// 如果接口返回的文件列表少于当前的下载列表 表示有文件上传成功了，调用一下刷新文件列表接口
-				if (allItems?.length > 0 && allItems?.length != downloadProgress.value?.length) {
-					refreshDocumentsSilently();
-				}
-				// 更新现有的进度项
-				downloadProgress.value = downloadProgress.value
-					.map((progress) => {
+				// 过滤出未完成的项
+				const inProgressItems = allItems.filter((item) => item.status !== 'completed');
+
+				// 如果接口返回的未完成文件数量与当前下载列表不同，说明有变化
+				if (inProgressItems.length !== downloadProgress.value.length) {
+					// 如果数量减少，说明有文件完成了，刷新文件列表
+					if (inProgressItems.length < downloadProgress.value.length) {
+						refreshDocumentsSilently();
+					}
+
+					// 重新构建下载进度列表
+					downloadProgress.value = inProgressItems.map((item) => ({
+						uid: item.itemId,
+						name: item.fileName,
+						percentage: item.progressPercentage || 0,
+						error: item.status === 'Failed' ? item.errorMessage : undefined,
+						taskId: item.taskId,
+					}));
+				} else {
+					// 数量相同，只更新进度和状态
+					downloadProgress.value = downloadProgress.value.map((progress) => {
 						const item = allItems.find((i: any) => i.itemId === progress.uid);
 						if (item) {
 							return {
 								...progress,
 								percentage: item.progressPercentage || 0,
-								error: item.status == 'Failed' ? item.errorMessage : '',
+								error: item.status === 'Failed' ? item.errorMessage : undefined,
+								taskId: item.taskId,
 							};
 						}
 						return progress;
-					})
-					.filter((progress) => {
-						// 移除已完成的项
-						const item = allItems.find((i: any) => i.itemId === progress.uid);
-						return item && item.status != 'completed';
 					});
+				}
 			}
 
 			// 如果所有下载都完成，停止轮询
