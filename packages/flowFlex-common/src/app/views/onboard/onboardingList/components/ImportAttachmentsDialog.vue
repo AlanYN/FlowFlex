@@ -20,39 +20,26 @@
 		</template>
 
 		<div class="min-h-[200px]">
-			<!-- Action Errors Alert -->
-			<el-alert
-				v-if="actionErrors && actionErrors.length > 0"
-				type="error"
-				:closable="false"
-				class="mb-4"
-			>
-				<template #title>
-					<div class="font-semibold">
-						Failed to load attachments from {{ actionErrors.length }}
-						{{ actionErrors.length === 1 ? 'action' : 'actions' }}
-					</div>
-				</template>
-				<div class="space-y-2 mt-2">
-					<div
-						v-for="(error, index) in actionErrors"
-						:key="index"
-						class="flex items-center gap-2"
-					>
-						<el-icon class="text-red-500 flex-shrink-0">
-							<WarningFilled />
-						</el-icon>
-						<div class="flex-1">
-							<div class="font-medium text-sm text-gray-400">
-								{{ error.actionName }}
-							</div>
-							<div class="text-xs mt-1">
-								{{ error.errorMessage }}
-							</div>
+			<template v-for="(error, index) in actionErrors" :key="index">
+				<el-alert
+					class="mb-4"
+					:title="`No data has been retrieved from the external system - ${error?.integrationName}.`"
+					type="warning"
+					show-icon
+				>
+					<div>
+						<div class="flex items-center mb-2 text-sm text-gray-400">
+							<div class="flex-1">Module: {{ error?.moduleName }}</div>
+							<div class="flex-1">Action: {{ error?.actionName }}</div>
 						</div>
+						<p class="text-sm text-gray-500 dark:text-gray-500">
+							{{
+								`${error.errorMessage}. Please check the integration configuration or contact your system administrator.`
+							}}
+						</p>
 					</div>
-				</div>
-			</el-alert>
+				</el-alert>
+			</template>
 
 			<!-- Table with attachments -->
 			<el-table
@@ -158,7 +145,7 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue';
-import { Document, Folder, WarningFilled } from '@element-plus/icons-vue';
+import { Document, Folder } from '@element-plus/icons-vue';
 import { ElMessage } from 'element-plus';
 import { IntegrationAttachment } from '#/integration';
 import { bigDialogWidth, tableMaxHeight } from '@/settings/projectSetting';
@@ -167,7 +154,12 @@ import { bigDialogWidth, tableMaxHeight } from '@/settings/projectSetting';
 interface ImportAttachmentsDialogProps {
 	visible: boolean;
 	attachments: IntegrationAttachment[];
-	actionErrors?: Array<{ actionName: string; errorMessage: string }>;
+	actionErrors?: Array<{
+		actionName: string;
+		errorMessage: string;
+		moduleName: string;
+		integrationName: string;
+	}>;
 	loading?: boolean;
 }
 
