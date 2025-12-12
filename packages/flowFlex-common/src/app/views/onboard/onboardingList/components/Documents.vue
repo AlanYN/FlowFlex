@@ -692,7 +692,9 @@ const vailComponent = () => {
 const importLoading = ref(false);
 const importFileList = ref<IntegrationAttachment[]>([]);
 const importDialogVisible = ref(false);
-const importActionErrors = ref<Array<{ actionName: string; errorMessage: string }>>([]);
+const importActionErrors = ref<
+	Array<{ actionName: string; errorMessage: string; moduleName: string; integrationName: string }>
+>([]);
 
 const importFormIntegration = async () => {
 	try {
@@ -706,7 +708,12 @@ const importFormIntegration = async () => {
 			// Process the new API response structure with actionExecutions array
 			const actionExecutions = res?.data?.actionExecutions || [];
 			const allAttachments: IntegrationAttachment[] = [];
-			const actionErrors: Array<{ actionName: string; errorMessage: string }> = [];
+			const actionErrors: Array<{
+				actionName: string;
+				errorMessage: string;
+				moduleName: string;
+				integrationName: string;
+			}> = [];
 
 			// Iterate through all action executions and collect attachments
 			actionExecutions.forEach((execution: any) => {
@@ -728,8 +735,11 @@ const importFormIntegration = async () => {
 				} else if (execution.errorMessage) {
 					// If action failed (has error and no attachments), collect error info separately
 					actionErrors.push({
+						...execution,
 						actionName: execution?.actionName,
 						errorMessage: execution.errorMessage,
+						moduleName: execution.moduleName,
+						integrationName: execution.integrationName,
 					});
 				}
 			});

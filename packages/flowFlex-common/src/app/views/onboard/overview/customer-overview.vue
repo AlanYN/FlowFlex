@@ -3373,36 +3373,6 @@ html.dark .filter-label {
 	color: var(--primary-300);
 }
 
-/* Element Plus 组件样式覆盖 */
-:deep(.filter-select .el-input__wrapper) {
-	border-color: var(--primary-200);
-}
-
-html.dark :deep(.filter-select .el-input__wrapper) {
-	border-color: var(--black-200);
-}
-
-:deep(.filter-select .el-input__wrapper:hover) {
-	border-color: var(--primary-400);
-}
-
-html.dark :deep(.filter-select .el-input__wrapper:hover) {
-	border-color: var(--primary-600);
-}
-
-:deep(.filter-select .el-input__wrapper.is-focus) {
-	border-color: var(--primary-500);
-}
-
-html.dark :deep(.filter-select .el-input__wrapper.is-focus) {
-	border-color: var(--primary-500);
-	box-shadow: 0 0 0 3px rgba(126, 34, 206, 0.2);
-}
-
-html.dark :deep(.filter-select .el-input__inner) {
-	color: var(--white-100);
-}
-
 .customer-overview-bg {
 	background: var(--el-bg-color-page);
 }
