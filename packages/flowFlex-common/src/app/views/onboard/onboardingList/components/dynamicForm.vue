@@ -1861,7 +1861,7 @@ html.dark {
 }
 
 .form-radio-disabled {
-	background-color: var(--el-fill-color-light);
+	background-color: var(--el-disabled-bg-color);
 }
 
 .form-radio-checked {

@@ -288,46 +288,8 @@ defineExpose({
 </script>
 
 <style scoped lang="scss">
-/* Element Plus 组件样式覆盖 */
-:deep(.filter-select .el-input__wrapper) {
-	border-color: var(--primary-200);
-	@apply dark:border-black-200;
-}
-
-:deep(.filter-select .el-input__wrapper:hover) {
-	border-color: var(--primary-400);
-	@apply dark:border-primary-600;
-}
-
-:deep(.filter-select .el-input__wrapper.is-focus) {
-	border-color: var(--primary-500);
-	@apply dark:border-primary-500;
-}
-
 /* 搜索表单样式 */
 .onboardSearch-form :deep(.el-form-item) {
 	margin-bottom: 0;
-}
-
-/* 暗色主题样式 */
-html.dark {
-	/* Element Plus 组件暗色主题 */
-	:deep(.filter-select .el-input__wrapper) {
-		background-color: var(--black-200) !important;
-		border-color: var(--black-200) !important;
-	}
-
-	:deep(.filter-select .el-input__wrapper:hover) {
-		border-color: var(--black-100) !important;
-	}
-
-	:deep(.filter-select .el-input__wrapper.is-focus) {
-		border-color: var(--primary-500);
-		box-shadow: 0 0 0 3px rgba(126, 34, 206, 0.2);
-	}
-
-	:deep(.filter-select .el-input__inner) {
-		@apply text-white-100;
-	}
 }
 </style>
