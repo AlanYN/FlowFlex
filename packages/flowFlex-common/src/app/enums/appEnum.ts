@@ -226,3 +226,15 @@ export enum ToolsType {
 	NewTool = 3,
 	SystemTools = 4,
 }
+
+export enum Message {
+	Inbox = 1,
+	Sent = 2,
+	Starred = 3,
+	Archive = 4,
+	Trash = 5,
+	Internal = 6,
+	External = 7,
+	Important = 8,
+	Portal = 9,
+}
