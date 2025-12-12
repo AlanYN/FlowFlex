@@ -1513,7 +1513,10 @@ const goToNextSection = async () => {
 		// 根据跳转规则跳转到指定section
 		const targetSectionIndex = findSectionIndexById(targetSectionId);
 		if (targetSectionIndex !== -1) {
-			currentSectionIndex.value = targetSectionIndex;
+			currentSectionIndex.value =
+				targetSectionIndex == currentSectionIndex.value
+					? targetSectionIndex + 1
+					: targetSectionIndex;
 			return;
 		}
 	}
