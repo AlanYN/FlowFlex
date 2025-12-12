@@ -400,6 +400,11 @@ namespace FlowFlex.Application.Contracts.Dtos.Integration
         public string ActionName { get; set; } = string.Empty;
 
         /// <summary>
+        /// Integration name (source integration name)
+        /// </summary>
+        public string IntegrationName { get; set; } = string.Empty;
+
+        /// <summary>
         /// Module name
         /// </summary>
         public string ModuleName { get; set; } = string.Empty;

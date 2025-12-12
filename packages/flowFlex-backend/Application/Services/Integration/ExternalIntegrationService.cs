@@ -747,6 +747,7 @@ namespace FlowFlex.Application.Services.Integration
                     var actionExecutionInfo = new ActionExecutionInfo
                     {
                         ActionId = config.ActionId.ToString(),
+                        IntegrationName = integration.Name ?? string.Empty,
                         ModuleName = config.ModuleName ?? string.Empty,
                         IsSuccess = false,
                         Attachments = new List<ExternalAttachmentDto>()
