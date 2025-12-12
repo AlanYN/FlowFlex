@@ -606,6 +606,7 @@ namespace FlowFlex.Application.Services.Integration
 
                     case AuthenticationMethod.OAuth2:
                         // OAuth 2.0 - POST to token endpoint with client credentials
+                        // Use Basic Auth header for client credentials (RFC 6749 recommended)
                         request = new HttpRequestMessage(HttpMethod.Post, endpointUrl);
                         var oauthFormData = new Dictionary<string, string>
                         {
@@ -613,10 +614,13 @@ namespace FlowFlex.Application.Services.Integration
                         };
                         if (credentials != null)
                         {
-                            if (credentials.TryGetValue("clientId", out var clientId))
-                                oauthFormData["client_id"] = clientId;
-                            if (credentials.TryGetValue("clientSecret", out var clientSecret))
-                                oauthFormData["client_secret"] = clientSecret;
+                            // Use Basic Auth header to pass client credentials (more secure and widely supported)
+                            if (credentials.TryGetValue("clientId", out var clientId) &&
+                                credentials.TryGetValue("clientSecret", out var clientSecret))
+                            {
+                                var authValue = Convert.ToBase64String(Encoding.UTF8.GetBytes($"{clientId}:{clientSecret}"));
+                                request.Headers.Authorization = new AuthenticationHeaderValue("Basic", authValue);
+                            }
                         }
                         request.Content = new FormUrlEncodedContent(oauthFormData);
                         break;
