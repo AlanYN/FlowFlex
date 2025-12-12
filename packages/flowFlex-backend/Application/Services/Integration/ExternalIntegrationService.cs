@@ -820,8 +820,13 @@ namespace FlowFlex.Application.Services.Integration
                                     // Overall success requires both HTTP and business success
                                     actionExecutionInfo.IsSuccess = httpSuccess && businessSuccess;
 
-                                    // Extract error message if business failed
-                                    if (!businessSuccess)
+                                    // Extract error message if HTTP request failed
+                                    if (!httpSuccess)
+                                    {
+                                        actionExecutionInfo.ErrorMessage = GetHttpErrorMessage(actionExecutionInfo.StatusCode, responseContent);
+                                    }
+                                    // Extract error message if business logic failed
+                                    else if (!businessSuccess)
                                     {
                                         actionExecutionInfo.ErrorMessage = responseJson["message"]?.ToString()
                                             ?? responseJson["msg"]?.ToString()
@@ -832,11 +837,19 @@ namespace FlowFlex.Application.Services.Integration
                                 {
                                     // If response parsing fails, use HTTP success
                                     actionExecutionInfo.IsSuccess = httpSuccess;
+                                    if (!httpSuccess)
+                                    {
+                                        actionExecutionInfo.ErrorMessage = GetHttpErrorMessage(actionExecutionInfo.StatusCode, responseContent);
+                                    }
                                 }
                             }
                             else
                             {
                                 actionExecutionInfo.IsSuccess = httpSuccess;
+                                if (!httpSuccess)
+                                {
+                                    actionExecutionInfo.ErrorMessage = GetHttpErrorMessage(actionExecutionInfo.StatusCode, null);
+                                }
                             }
                         }
                         catch
@@ -1038,6 +1051,55 @@ namespace FlowFlex.Application.Services.Integration
             }
 
             return url;
+        }
+
+        /// <summary>
+        /// Gets a human-readable error message based on HTTP status code
+        /// </summary>
+        /// <param name="statusCode">HTTP status code</param>
+        /// <param name="responseContent">Optional response content for additional context</param>
+        /// <returns>Descriptive error message</returns>
+        private static string GetHttpErrorMessage(int? statusCode, string? responseContent)
+        {
+            var baseMessage = statusCode switch
+            {
+                400 => "Bad Request - The request was invalid or malformed",
+                401 => "Unauthorized - Authentication failed or credentials are missing",
+                403 => "Forbidden - Access denied to the requested resource",
+                404 => "Not Found - The requested resource does not exist",
+                405 => "Method Not Allowed - The HTTP method is not supported",
+                408 => "Request Timeout - The request took too long to complete",
+                429 => "Too Many Requests - Rate limit exceeded",
+                500 => "Internal Server Error - The external server encountered an error",
+                502 => "Bad Gateway - The external server received an invalid response",
+                503 => "Service Unavailable - The external service is temporarily unavailable",
+                504 => "Gateway Timeout - The external server did not respond in time",
+                _ => statusCode.HasValue 
+                    ? $"HTTP Error {statusCode} - Request failed" 
+                    : "Unknown error - Request failed without status code"
+            };
+
+            // Try to extract error message from response content if available
+            if (!string.IsNullOrEmpty(responseContent))
+            {
+                try
+                {
+                    var responseJson = JObject.Parse(responseContent);
+                    var detailMessage = responseJson["message"]?.ToString() 
+                        ?? responseJson["error"]?.ToString()
+                        ?? responseJson["msg"]?.ToString();
+                    if (!string.IsNullOrEmpty(detailMessage))
+                    {
+                        return $"{baseMessage}: {detailMessage}";
+                    }
+                }
+                catch
+                {
+                    // If parsing fails, just use the base message
+                }
+            }
+
+            return baseMessage;
         }
     }
 }
