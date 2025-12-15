@@ -53,6 +53,7 @@
 		"@vue-office/excel": "^1.7.11",
 		"@vue/reactivity": "^3.5.12",
 		"@vuepic/vue-datepicker": "^7.4.1",
+		"@vueup/vue-quill": "^1.2.0",
 		"@vueuse/core": "^10.11.1",
 		"@vueuse/rxjs": "^10.11.1",
 		"axios": "^1.7.7",
