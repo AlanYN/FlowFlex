@@ -21,25 +21,31 @@ public class MessageService : IMessageService, IScopedService
 {
     private readonly IMessageRepository _messageRepository;
     private readonly IMessageAttachmentRepository _attachmentRepository;
+    private readonly IEmailBindingRepository _emailBindingRepository;
     private readonly IMapper _mapper;
     private readonly IHttpContextAccessor _httpContextAccessor;
     private readonly UserContext _userContext;
     private readonly IOperatorContextService _operatorContextService;
+    private readonly IOutlookService _outlookService;
 
     public MessageService(
         IMessageRepository messageRepository,
         IMessageAttachmentRepository attachmentRepository,
+        IEmailBindingRepository emailBindingRepository,
         IMapper mapper,
         IHttpContextAccessor httpContextAccessor,
         UserContext userContext,
-        IOperatorContextService operatorContextService)
+        IOperatorContextService operatorContextService,
+        IOutlookService outlookService)
     {
         _messageRepository = messageRepository;
         _attachmentRepository = attachmentRepository;
+        _emailBindingRepository = emailBindingRepository;
         _mapper = mapper;
         _httpContextAccessor = httpContextAccessor;
         _userContext = userContext;
         _operatorContextService = operatorContextService;
+        _outlookService = outlookService;
     }
 
     #region Message CRUD
@@ -528,14 +534,52 @@ public class MessageService : IMessageService, IScopedService
 
     /// <summary>
     /// Manually trigger Outlook email sync
-    /// TODO: Implement Outlook integration when OutlookClient is available
+    /// Requires user to have bound their Outlook account with valid access token
     /// </summary>
     public async Task<int> SyncOutlookEmailsAsync()
     {
-        // Placeholder for Outlook sync implementation
-        // Will be implemented when OutlookClient is integrated
-        await Task.CompletedTask;
-        return 0;
+        var ownerId = GetCurrentUserId();
+        
+        // Get user's Outlook binding
+        var binding = await _emailBindingRepository.GetByUserIdAndProviderAsync(ownerId, "Outlook");
+        if (binding == null || string.IsNullOrEmpty(binding.AccessToken))
+        {
+            throw new CRMException(ErrorCodeEnum.OperationNotAllowed, "Please bind your Outlook account first");
+        }
+
+        // Check and refresh token if needed (5 minutes before expiry)
+        if (binding.TokenExpireTime <= DateTimeOffset.UtcNow.AddMinutes(5))
+        {
+            if (string.IsNullOrEmpty(binding.RefreshToken))
+            {
+                await _emailBindingRepository.UpdateSyncStatusAsync(binding.Id, "Error", "Token expired and no refresh token available");
+                throw new CRMException(ErrorCodeEnum.OperationNotAllowed, "Outlook token expired, please re-bind your account");
+            }
+
+            var newToken = await _outlookService.RefreshTokenAsync(binding.RefreshToken);
+            if (newToken == null)
+            {
+                await _emailBindingRepository.UpdateSyncStatusAsync(binding.Id, "Error", "Failed to refresh token");
+                throw new CRMException(ErrorCodeEnum.OperationNotAllowed, "Failed to refresh Outlook token, please re-bind your account");
+            }
+
+            // Update binding with new token
+            await _emailBindingRepository.UpdateTokenAsync(
+                binding.Id,
+                newToken.AccessToken,
+                newToken.RefreshToken,
+                newToken.ExpiresAt);
+
+            binding.AccessToken = newToken.AccessToken;
+        }
+
+        // Sync emails from Outlook
+        var syncedCount = await _outlookService.SyncEmailsToLocalAsync(binding.AccessToken, ownerId);
+
+        // Update last sync time
+        await _emailBindingRepository.UpdateLastSyncTimeAsync(binding.Id);
+
+        return syncedCount;
     }
 
     #endregion
