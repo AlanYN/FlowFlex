@@ -87,7 +87,7 @@ namespace FlowFlex.SqlSugarDB.Migrations
             var addMessagesCommentsSql = @"
                 COMMENT ON TABLE ff_messages IS '统一消息存储表（Internal、Email、Portal）';
                 COMMENT ON COLUMN ff_messages.message_type IS '消息类型: Internal, Email, Portal';
-                COMMENT ON COLUMN ff_messages.folder IS '文件夹: Inbox, Sent, Starred, Archive, Trash, Drafts';
+                COMMENT ON COLUMN ff_messages.folder IS '文件夹: Inbox, Sent, Starred, Archive, Trash';
                 COMMENT ON COLUMN ff_messages.labels IS '标签 JSON 数组: Internal, External, Important, Portal';
                 COMMENT ON COLUMN ff_messages.owner_id IS '消息所有者用户 ID';
                 COMMENT ON COLUMN ff_messages.external_message_id IS 'Outlook 集成的外部消息 ID';

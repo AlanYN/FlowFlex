@@ -1,3 +1,5 @@
+using FlowFlex.Domain.Shared.Enums;
+
 namespace FlowFlex.Application.Contracts.Dtos.OW.Message;
 
 /// <summary>
@@ -33,12 +35,12 @@ public class MessageListItemDto
     /// <summary>
     /// Message Type: Internal, Email, Portal
     /// </summary>
-    public string MessageType { get; set; } = string.Empty;
+    public MessageType MessageType { get; set; } = MessageType.Internal;
 
     /// <summary>
     /// Labels: Internal, External, Important, Portal
     /// </summary>
-    public List<string> Labels { get; set; } = new();
+    public List<MessageLabel> Labels { get; set; } = new();
 
     /// <summary>
     /// Related Entity Code (e.g., LEAD-001)

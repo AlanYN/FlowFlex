@@ -204,7 +204,7 @@ public class MessageController : Controllers.ControllerBase
     /// <summary>
     /// Save message as draft
     /// </summary>
-    [HttpPost("drafts")]
+    [HttpPost("archive")]
     [ProducesResponseType<SuccessResponse<long>>((int)HttpStatusCode.OK)]
     public async Task<IActionResult> SaveDraftAsync([FromBody] MessageCreateDto input)
     {
@@ -215,7 +215,7 @@ public class MessageController : Controllers.ControllerBase
     /// <summary>
     /// Send a draft message
     /// </summary>
-    [HttpPost("drafts/{id}/send")]
+    [HttpPost("archive/{id}/send")]
     [ProducesResponseType<SuccessResponse<long>>((int)HttpStatusCode.OK)]
     public async Task<IActionResult> SendDraftAsync(long id)
     {

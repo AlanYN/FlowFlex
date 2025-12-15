@@ -164,7 +164,7 @@ public class MessageRepository : BaseRepository<Message>, IMessageRepository, IS
     /// </summary>
     public async Task<Dictionary<string, (int total, int unread, int internalCount, int emailCount, int portalCount)>> GetFolderStatsAsync(long ownerId)
     {
-        var folders = new[] { "Inbox", "Sent", "Archive", "Trash", "Drafts" };
+        var folders = new[] { "Inbox", "Sent", "Archive", "Trash" };
         var result = new Dictionary<string, (int total, int unread, int internalCount, int emailCount, int portalCount)>();
 
         foreach (var folder in folders)

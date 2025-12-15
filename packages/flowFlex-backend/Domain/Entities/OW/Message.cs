@@ -38,7 +38,7 @@ namespace FlowFlex.Domain.Entities.OW
         public string MessageType { get; set; } = "Internal";
 
         /// <summary>
-        /// Folder: Inbox, Sent, Starred, Archive, Trash, Drafts
+        /// Folder: Inbox, Sent, Starred, Archive, Trash
         /// </summary>
         [StringLength(20)]
         [SugarColumn(ColumnName = "folder")]

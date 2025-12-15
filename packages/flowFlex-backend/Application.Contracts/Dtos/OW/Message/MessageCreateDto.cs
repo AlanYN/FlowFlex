@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using FlowFlex.Domain.Shared.Enums;
 
 namespace FlowFlex.Application.Contracts.Dtos.OW.Message;
 
@@ -11,8 +12,7 @@ public class MessageCreateDto
     /// Message Type: Internal, Email, Portal
     /// </summary>
     [Required(ErrorMessage = "Message type is required")]
-    [StringLength(20)]
-    public string MessageType { get; set; } = "Internal";
+    public MessageType MessageType { get; set; } = MessageType.Internal;
 
     /// <summary>
     /// Recipients

@@ -8,8 +8,10 @@ using FlowFlex.Application.Services.OW.Extensions;
 using FlowFlex.Domain.Entities.OW;
 using FlowFlex.Domain.Repository.OW;
 using FlowFlex.Domain.Shared;
+using FlowFlex.Domain.Shared.Enums;
 using FlowFlex.Domain.Shared.Exceptions;
 using FlowFlex.Domain.Shared.Models;
+using MessageType = FlowFlex.Domain.Shared.Enums.MessageType;
 
 namespace FlowFlex.Application.Services.OW;
 
@@ -122,9 +124,9 @@ public class MessageService : IMessageService, IScopedService
         // Handle based on message type
         return input.MessageType switch
         {
-            "Internal" => await CreateInternalMessageAsync(input, ownerId, senderName, senderEmail),
-            "Email" => await CreateEmailMessageAsync(input, ownerId, senderName, senderEmail),
-            "Portal" => await CreatePortalMessageAsync(input, ownerId, senderName, senderEmail),
+            MessageType.Internal => await CreateInternalMessageAsync(input, ownerId, senderName, senderEmail),
+            MessageType.Email => await CreateEmailMessageAsync(input, ownerId, senderName, senderEmail),
+            MessageType.Portal => await CreatePortalMessageAsync(input, ownerId, senderName, senderEmail),
             _ => throw new CRMException(ErrorCodeEnum.ParamInvalid, $"Invalid message type: {input.MessageType}")
         };
     }
@@ -426,8 +428,8 @@ public class MessageService : IMessageService, IScopedService
             Subject = input.Subject ?? string.Empty,
             Body = input.Body ?? string.Empty,
             BodyPreview = GetBodyPreview(input.Body ?? string.Empty),
-            MessageType = input.MessageType,
-            Folder = "Drafts",
+            MessageType = input.MessageType.ToString(),
+            Folder = "Archive",
             Labels = GetLabelsForMessageType(input.MessageType),
             SenderId = ownerId,
             SenderName = senderName,
@@ -519,7 +521,7 @@ public class MessageService : IMessageService, IScopedService
             InternalCount = kvp.Value.internalCount,
             EmailCount = kvp.Value.emailCount,
             PortalCount = kvp.Value.portalCount,
-            DraftCount = kvp.Key == "Drafts" ? kvp.Value.total : 0
+            DraftCount = kvp.Key == "Archive" ? kvp.Value.total : 0
         }).ToList();
     }
 
@@ -706,8 +708,8 @@ public class MessageService : IMessageService, IScopedService
             Subject = input.Subject,
             Body = input.Body,
             BodyPreview = GetBodyPreview(input.Body),
-            MessageType = input.MessageType,
-            Folder = input.SaveAsDraft ? "Drafts" : "Sent",
+            MessageType = input.MessageType.ToString(),
+            Folder = input.SaveAsDraft ? "Archive" : "Sent",
             SenderId = ownerId,
             SenderName = senderName,
             SenderEmail = senderEmail,
@@ -767,13 +769,13 @@ public class MessageService : IMessageService, IScopedService
         return text.Length > 200 ? text.Substring(0, 200) + "..." : text;
     }
 
-    private static string GetLabelsForMessageType(string messageType)
+    private static string GetLabelsForMessageType(MessageType messageType)
     {
         return messageType switch
         {
-            "Internal" => "[\"Internal\"]",
-            "Email" => "[\"External\"]",
-            "Portal" => "[\"Portal\"]",
+            MessageType.Internal => "[\"Internal\"]",
+            MessageType.Email => "[\"External\"]",
+            MessageType.Portal => "[\"Portal\"]",
             _ => "[]"
         };
     }
@@ -814,7 +816,7 @@ Subject: {originalMessage.Subject}<br/>
             BodyPreview = message.BodyPreview,
             SenderName = message.SenderName,
             SenderEmail = message.SenderEmail,
-            MessageType = message.MessageType,
+            MessageType = ParseMessageType(message.MessageType),
             Labels = ParseLabels(message.Labels),
             RelatedEntityCode = message.RelatedEntityCode,
             IsRead = message.IsRead,
@@ -835,7 +837,7 @@ Subject: {originalMessage.Subject}<br/>
             BodyPreview = message.BodyPreview,
             SenderName = message.SenderName,
             SenderEmail = message.SenderEmail,
-            MessageType = message.MessageType,
+            MessageType = ParseMessageType(message.MessageType),
             Labels = ParseLabels(message.Labels),
             RelatedEntityCode = message.RelatedEntityCode,
             RelatedEntityType = message.RelatedEntityType,
@@ -845,7 +847,7 @@ Subject: {originalMessage.Subject}<br/>
             HasAttachments = message.HasAttachments,
             ReceivedDate = message.ReceivedDate,
             SentDate = message.SentDate,
-            Folder = message.Folder,
+            Folder = ParseMessageFolder(message.Folder),
             IsDraft = message.IsDraft,
             ParentMessageId = message.ParentMessageId,
             ConversationId = message.ConversationId,
@@ -862,16 +864,47 @@ Subject: {originalMessage.Subject}<br/>
         };
     }
 
-    private static List<string> ParseLabels(string? labelsJson)
+    private static MessageType ParseMessageType(string? messageType)
     {
-        if (string.IsNullOrEmpty(labelsJson)) return new List<string>();
+        return messageType switch
+        {
+            "Internal" => MessageType.Internal,
+            "Email" => MessageType.Email,
+            "Portal" => MessageType.Portal,
+            _ => MessageType.Internal
+        };
+    }
+
+    private static MessageFolder ParseMessageFolder(string? folder)
+    {
+        return folder switch
+        {
+            "Inbox" => MessageFolder.Inbox,
+            "Sent" => MessageFolder.Sent,
+            "Archive" => MessageFolder.Archive,
+            "Trash" => MessageFolder.Trash,
+            _ => MessageFolder.Inbox
+        };
+    }
+
+    private static List<MessageLabel> ParseLabels(string? labelsJson)
+    {
+        if (string.IsNullOrEmpty(labelsJson)) return new List<MessageLabel>();
         try
         {
-            return JsonSerializer.Deserialize<List<string>>(labelsJson) ?? new List<string>();
+            var stringLabels = JsonSerializer.Deserialize<List<string>>(labelsJson) ?? new List<string>();
+            return stringLabels.Select(label => label switch
+            {
+                "Internal" => MessageLabel.Internal,
+                "External" => MessageLabel.External,
+                "Important" => MessageLabel.Important,
+                "Portal" => MessageLabel.Portal,
+                _ => MessageLabel.Internal
+            }).ToList();
         }
         catch
         {
-            return new List<string>();
+            return new List<MessageLabel>();
         }
     }
 

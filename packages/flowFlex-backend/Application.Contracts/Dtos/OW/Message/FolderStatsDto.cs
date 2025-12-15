@@ -6,7 +6,7 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.Message;
 public class FolderStatsDto
 {
     /// <summary>
-    /// Folder Name: Inbox, Sent, Starred, Archive, Trash, Drafts
+    /// Folder Name: Inbox, Sent, Starred, Archive, Trash
     /// </summary>
     public string Folder { get; set; } = string.Empty;
 

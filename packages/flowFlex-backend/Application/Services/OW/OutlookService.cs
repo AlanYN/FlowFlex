@@ -498,7 +498,7 @@ public class OutlookService : IOutlookService, IScopedService
         {
             "inbox" => "Inbox",
             "sentitems" => "Sent",
-            "drafts" => "Drafts",
+            "drafts" => "Archive",
             "deleteditems" => "Trash",
             "archive" => "Archive",
             _ => "Inbox"

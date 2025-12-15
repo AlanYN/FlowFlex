@@ -46,7 +46,7 @@ namespace FlowFlex.Application.Maps
                 .ForMember(dest => dest.BccRecipients, opt => opt.MapFrom(src => SerializeRecipients(src.BccRecipients)))
                 .ForMember(dest => dest.BodyPreview, opt => opt.MapFrom(src => GetBodyPreview(src.Body)))
                 .ForMember(dest => dest.IsDraft, opt => opt.MapFrom(src => src.SaveAsDraft))
-                .ForMember(dest => dest.Folder, opt => opt.MapFrom(src => src.SaveAsDraft ? "Drafts" : "Sent"));
+                .ForMember(dest => dest.Folder, opt => opt.MapFrom(src => src.SaveAsDraft ? "Archive" : "Sent"));
 
             // MessageAttachment Entity to MessageAttachmentDto
             CreateMap<MessageAttachment, MessageAttachmentDto>();

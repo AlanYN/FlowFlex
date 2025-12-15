@@ -16,7 +16,7 @@ public class MessageQueryDto
     public int PageSize { get; set; } = 20;
 
     /// <summary>
-    /// Folder: Inbox, Sent, Starred, Archive, Trash, Drafts
+    /// Folder: Inbox, Sent, Starred, Archive, Trash
     /// </summary>
     public string? Folder { get; set; }
 

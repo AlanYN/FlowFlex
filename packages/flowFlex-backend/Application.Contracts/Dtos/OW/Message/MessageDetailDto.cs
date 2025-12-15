@@ -1,3 +1,5 @@
+using FlowFlex.Domain.Shared.Enums;
+
 namespace FlowFlex.Application.Contracts.Dtos.OW.Message;
 
 /// <summary>
@@ -48,7 +50,7 @@ public class MessageDetailDto : MessageListItemDto
     /// <summary>
     /// Folder
     /// </summary>
-    public string Folder { get; set; } = string.Empty;
+    public MessageFolder Folder { get; set; } = MessageFolder.Inbox;
 
     /// <summary>
     /// Is Draft
