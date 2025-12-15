@@ -923,10 +923,9 @@ const handleHasOtherQuestion = (question: QuestionnaireSection & { id: string },
 				if (question.type === 'multiple_choice' && matchingRule.targetQuestionId) {
 					// 计算被跳过的问题并触发跳转
 					handleJumpToQuestion(matchingRule, question);
+				} else {
+					internalSkippedQuestions.value = new Set();
 				}
-			} else {
-				// 如果没有匹配的跳转规则，清除跳过状态
-				internalSkippedQuestions.value = new Set();
 			}
 		}
 	} else if (question.type == 'multiple_choice_grid' || question.type == 'checkbox_grid') {
