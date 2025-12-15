@@ -153,6 +153,18 @@ builder.Services.Configure<FileStorageOptions>(builder.Configuration.GetSection(
 // Configure IDM API options
 builder.Services.Configure<IdentityHubOptions>(builder.Configuration.GetSection("IdmApis"));
 
+// Configure Outlook API options
+builder.Services.Configure<FlowFlex.Application.Services.OW.OutlookOptions>(
+    builder.Configuration.GetSection(FlowFlex.Application.Services.OW.OutlookOptions.SectionName));
+
+// Register HttpClient for OutlookService
+builder.Services.AddHttpClient<FlowFlex.Application.Contracts.IServices.OW.IOutlookService, 
+    FlowFlex.Application.Services.OW.OutlookService>("OutlookService", client =>
+{
+    client.DefaultRequestHeaders.Add("User-Agent", "FlowFlex-OutlookClient/1.0");
+    client.Timeout = TimeSpan.FromSeconds(60);
+});
+
 // Register HttpClient for IdmUserDataClient with retry policy and timeout
 builder.Services.AddHttpClient<FlowFlex.Application.Services.OW.IdmUserDataClient>("FlowFlexIdmUserDataClient", client =>
 {
