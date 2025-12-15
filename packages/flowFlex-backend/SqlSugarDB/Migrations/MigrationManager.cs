@@ -96,7 +96,8 @@ namespace FlowFlex.SqlSugarDB.Migrations
                     ("20251114000001_IncreaseOperationDescriptionLength", (Action)(() => Migration_20251114000001_IncreaseOperationDescriptionLength.Up(_db))),
                     ("20251124000001_CreateIntegrationTables", (Action)(() => Migration_20251124000001_CreateIntegrationTables.Up(_db))),
                     ("20250125000001_CreateDynamicFieldTable", (Action)(() => Migration_20250125000001_CreateDynamicFieldTable.Up(_db))),
-                    ("20250126000002_AddSystemIdAndIntegrationIdToOnboarding", (Action)(() => Migration_20250126000002_AddSystemIdAndIntegrationIdToOnboarding.Up(_db)))
+                    ("20250126000002_AddSystemIdAndIntegrationIdToOnboarding", (Action)(() => Migration_20250126000002_AddSystemIdAndIntegrationIdToOnboarding.Up(_db))),
+                    ("20251215000001_CreateMessageCenterTables", (Action)(() => _20251215000001_CreateMessageCenterTables.Up(_db)))
                 };
 
                 // Pre-check all migrations to reduce individual SQL queries

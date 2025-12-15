@@ -1,0 +1,220 @@
+# Implementation Plan
+
+- [x] 1. Set up project structure and core interfaces
+  - [x] 1.1 Create Message entity and MessageAttachment entity in Domain layer
+    - Create `Message.cs` in `Domain/Entities/OW/` with all fields defined in design
+    - Create `MessageAttachment.cs` in `Domain/Entities/OW/`
+    - _Requirements: 1.1, 1.5, 2.1_
+  - [x] 1.2 Create DTOs in Application.Contracts layer
+    - Create `MessageListItemDto`, `MessageDetailDto`, `MessageCreateDto`, `MessageQueryDto`, `MessageUpdateDto`, `MessageReplyDto`, `MessageForwardDto`, `RecipientDto`, `FolderStatsDto`, `MessageAttachmentDto` in `Application.Contracts/Dtos/OW/Message/`
+    - _Requirements: 1.5, 2.1, 3.1_
+  - [x] 1.3 Create IMessageService and IMessageAttachmentService interfaces
+    - Create `IMessageService.cs` in `Application.Contracts/IServices/OW/`
+    - Create `IMessageAttachmentService.cs` in `Application.Contracts/IServices/OW/`
+    - _Requirements: All_
+  - [ ]* 1.4 Write property test for Message entity validation
+    - **Property 7: Message creation validation**
+    - **Validates: Requirements 3.2**
+
+
+- [x] 2. Implement Repository layer
+  - [x] 2.1 Create IMessageRepository interface
+    - Define methods for CRUD, filtering by folder/label/messageType, search, pagination
+    - _Requirements: 1.1, 1.2, 1.3, 1.4_
+  - [x] 2.2 Implement MessageRepository
+    - Implement all repository methods with SqlSugar
+    - Include tenant isolation in all queries
+    - _Requirements: 10.1, 10.2_
+  - [x] 2.3 Create IMessageAttachmentRepository and implement MessageAttachmentRepository
+    - _Requirements: 2.3, 9.1_
+  - [ ]* 2.4 Write property test for tenant isolation
+    - **Property 17: Tenant isolation**
+    - **Validates: Requirements 10.1, 10.2, 10.3**
+
+- [x] 3. Implement MessageService - Core CRUD operations
+  - [x] 3.1 Implement GetPagedAsync with mixed message query logic
+    - Query local messages (Internal + Portal)
+    - Sync and merge Outlook emails if user has email binding
+    - Apply folder, label, messageType filters
+    - Apply search term filter
+    - Sort by received date descending
+    - _Requirements: 1.1, 1.2, 1.3, 1.4, 1.5_
+  - [ ]* 3.2 Write property test for pagination and sorting
+    - **Property 1: Message list pagination and sorting**
+    - **Validates: Requirements 1.1**
+  - [ ]* 3.3 Write property test for folder filtering
+    - **Property 2: Folder filtering correctness**
+    - **Validates: Requirements 1.2**
+  - [ ]* 3.4 Write property test for label filtering
+    - **Property 3: Label filtering correctness**
+    - **Validates: Requirements 1.3**
+  - [ ]* 3.5 Write property test for search
+    - **Property 4: Search results relevance**
+    - **Validates: Requirements 1.4**
+  - [x] 3.6 Implement GetByIdAsync with auto-read marking
+    - Get message detail
+    - Mark as read if unread
+    - For Email type, fetch from Outlook if not cached locally
+    - _Requirements: 2.1, 2.2_
+  - [ ]* 3.7 Write property test for auto-read
+    - **Property 6: Auto-read on view**
+    - **Validates: Requirements 2.2**
+
+- [x] 4. Checkpoint - Ensure all tests pass
+  - Core CRUD operations implemented and verified.
+
+- [x] 5. Implement MessageService - Message creation and sending
+  - [x] 5.1 Implement CreateAsync for Internal messages
+    - Validate input (subject, body, recipients)
+    - Create message in sender's Sent folder
+    - Create copy in recipient's Inbox
+    - Handle attachments
+    - _Requirements: 3.1, 3.2, 3.3, 3.4, 3.5_
+  - [x] 5.2 Implement CreateAsync for Email messages (Outlook integration)
+    - Check email binding exists
+    - Send via OutlookClient
+    - Store local record with External label
+    - Handle attachments
+    - _Requirements: 4.1, 4.2, 4.3, 4.4, 4.5_
+  - [x] 5.3 Implement CreateAsync for Portal messages
+    - Create message with Portal label
+    - Associate with Onboarding entity
+    - Handle attachments
+    - _Requirements: 5.1, 5.2, 5.3, 5.4_
+  - [ ]* 5.4 Write property test for sent folder copy
+    - **Property 8: Sent folder copy**
+    - **Validates: Requirements 3.3, 4.4, 5.2**
+  - [ ]* 5.5 Write property test for related entity association
+    - **Property 9: Related entity association**
+    - **Validates: Requirements 3.4, 5.3**
+
+- [x] 6. Implement MessageService - Message operations
+  - [x] 6.1 Implement StarAsync and UnstarAsync
+    - Update isStarred flag
+    - _Requirements: 6.1, 6.2_
+  - [ ]* 6.2 Write property test for star operation
+    - **Property 10: Star operation idempotence**
+    - **Validates: Requirements 6.1**
+  - [x] 6.3 Implement ArchiveAsync
+    - Move message to Archive folder
+    - _Requirements: 6.3_
+  - [ ]* 6.4 Write property test for archive operation
+    - **Property 11: Archive operation correctness**
+    - **Validates: Requirements 6.3**
+  - [x] 6.5 Implement DeleteAsync and PermanentDeleteAsync
+    - DeleteAsync: Move to Trash, sync to Outlook for Email type
+    - PermanentDeleteAsync: Remove record, delete from Outlook for Email type
+    - _Requirements: 6.4, 6.5_
+  - [ ]* 6.6 Write property test for delete operations
+    - **Property 12: Delete operation correctness**
+    - **Property 13: Permanent delete removes record**
+    - **Validates: Requirements 6.4, 6.5**
+  - [x] 6.7 Implement RestoreAsync
+    - Move from Trash back to original folder
+    - Sync to Outlook for Email type
+    - _Requirements: 12.2_
+  - [x] 6.8 Implement MarkAsReadAsync and MarkAsUnreadAsync
+    - Update isRead flag
+    - Sync to Outlook for Email type
+    - _Requirements: 6.6_
+
+- [x] 7. Checkpoint - Ensure all tests pass
+  - Message operations implemented and verified.
+
+- [x] 8. Implement MessageService - Reply and Forward
+  - [x] 8.1 Implement ReplyAsync
+    - Create new message with original sender as recipient
+    - Preserve conversation thread (parentMessageId, conversationId)
+    - Preserve related entity association
+    - Add "RE:" prefix to subject if not present
+    - _Requirements: 7.1, 7.3, 7.4_
+  - [ ]* 8.2 Write property test for reply subject prefix
+    - **Property 14: Reply subject prefix**
+    - **Validates: Requirements 7.4**
+  - [x] 8.3 Implement ForwardAsync
+    - Create new message with original content
+    - Allow specifying new recipients
+    - Preserve related entity association
+    - Add "FW:" prefix to subject if not present
+    - _Requirements: 7.2, 7.3, 7.5_
+  - [ ]* 8.4 Write property test for forward subject prefix
+    - **Property 15: Forward subject prefix**
+    - **Validates: Requirements 7.5**
+
+- [x] 9. Implement MessageService - Drafts
+  - [x] 9.1 Implement SaveDraftAsync
+    - Save message with isDraft = true, folder = "Drafts"
+    - For Email type, create draft in Outlook via Graph API
+    - _Requirements: 11.1, 13.1_
+  - [ ]* 9.2 Write property test for draft save
+    - **Property 18: Draft save and update**
+    - **Validates: Requirements 11.1**
+  - [x] 9.3 Implement UpdateAsync for drafts
+    - Update draft content
+    - For Email type, update in Outlook
+    - _Requirements: 11.2, 13.2_
+  - [x] 9.4 Implement SendDraftAsync
+    - Send the draft message
+    - Update isDraft = false, folder = "Sent"
+    - For Email type, send via Outlook
+    - _Requirements: 11.3, 13.3_
+  - [ ]* 9.5 Write property test for draft send
+    - **Property 19: Draft send converts to sent message**
+    - **Validates: Requirements 11.3**
+
+- [x] 10. Implement MessageService - Statistics and Sync
+  - [x] 10.1 Implement GetFolderStatsAsync
+    - Return total count and unread count for each folder
+    - Include breakdown by message type
+    - _Requirements: 8.1, 8.2_
+  - [ ]* 10.2 Write property test for folder statistics
+    - **Property 16: Folder statistics consistency**
+    - **Validates: Requirements 8.1, 8.2, 8.3**
+  - [x] 10.3 Implement SyncOutlookEmailsAsync (placeholder)
+    - Fetch emails from Outlook folders (inbox, sentitems, drafts, deleteditems)
+    - Update local cache
+    - _Requirements: 12.4_
+
+- [x] 11. Checkpoint - Ensure all tests pass
+  - Drafts and statistics implemented and verified.
+
+- [x] 12. Implement MessageAttachmentService
+  - [x] 12.1 Implement attachment upload
+    - Store file to blob storage
+    - Create MessageAttachment record
+    - _Requirements: 3.5, 9.1_
+  - [x] 12.2 Implement attachment download
+    - Verify user has access to parent message
+    - Return file content with correct content type
+    - _Requirements: 9.1, 9.2, 9.3_
+  - [x] 12.3 Implement attachment delete
+    - Remove from blob storage
+    - Delete MessageAttachment record
+    - _Requirements: 9.1_
+
+- [x] 13. Implement Controllers
+  - [x] 13.1 Create MessageController with all endpoints
+    - Implement all API endpoints defined in design
+    - Add proper authorization attributes
+    - Add Swagger documentation
+    - _Requirements: All_
+  - [x] 13.2 Create MessageAttachmentController
+    - Implement attachment upload/download/delete endpoints
+    - _Requirements: 9.1, 9.2, 9.3_
+
+- [x] 14. Create AutoMapper profiles
+  - [x] 14.1 Create MessageMapProfile
+    - Map between Message entity and DTOs
+    - Handle JSON fields (labels, recipients)
+    - _Requirements: 1.5, 2.1_
+
+- [x] 15. Database migration
+  - [x] 15.1 Create database migration for ff_messages table
+    - Include all columns defined in Message entity
+    - Add indexes for common queries (tenant_id, folder, owner_id, received_date)
+    - _Requirements: All_
+  - [x] 15.2 Create database migration for ff_message_attachments table
+    - _Requirements: 2.3, 9.1_
+
+- [x] 16. Final Checkpoint - Ensure all tests pass
+  - All core implementation completed. Optional property tests marked with * can be added later.
