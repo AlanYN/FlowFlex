@@ -121,6 +121,12 @@ namespace FlowFlex.Domain.Entities.OW
         public bool IsStarred { get; set; } = false;
 
         /// <summary>
+        /// Is Archived
+        /// </summary>
+        [SugarColumn(ColumnName = "is_archived")]
+        public bool IsArchived { get; set; } = false;
+
+        /// <summary>
         /// Is Draft
         /// </summary>
         [SugarColumn(ColumnName = "is_draft")]

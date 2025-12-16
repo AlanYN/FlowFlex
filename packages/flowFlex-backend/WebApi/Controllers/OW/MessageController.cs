@@ -150,6 +150,17 @@ public class MessageController : Controllers.ControllerBase
     }
 
     /// <summary>
+    /// Unarchive a message
+    /// </summary>
+    [HttpPost("{id}/unarchive")]
+    [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
+    public async Task<IActionResult> UnarchiveAsync(long id)
+    {
+        var result = await _messageService.UnarchiveAsync(id);
+        return Success(result);
+    }
+
+    /// <summary>
     /// Mark message as read
     /// </summary>
     [HttpPost("{id}/read")]

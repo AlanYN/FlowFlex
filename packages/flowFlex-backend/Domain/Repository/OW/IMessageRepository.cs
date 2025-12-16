@@ -63,6 +63,21 @@ namespace FlowFlex.Domain.Repository.OW
         Task<bool> UnstarAsync(long id);
 
         /// <summary>
+        /// Archive a message
+        /// </summary>
+        Task<bool> ArchiveAsync(long id);
+
+        /// <summary>
+        /// Unarchive a message
+        /// </summary>
+        Task<bool> UnarchiveAsync(long id);
+
+        /// <summary>
+        /// Get archived messages
+        /// </summary>
+        Task<List<Message>> GetArchivedAsync(long ownerId);
+
+        /// <summary>
         /// Move message to folder
         /// </summary>
         Task<bool> MoveToFolderAsync(long id, string folder, string? originalFolder = null);
@@ -76,6 +91,11 @@ namespace FlowFlex.Domain.Repository.OW
         /// Get messages by conversation ID
         /// </summary>
         Task<List<Message>> GetByConversationIdAsync(string conversationId, long ownerId);
+
+        /// <summary>
+        /// Get first message by conversation ID (without owner filter)
+        /// </summary>
+        Task<Message?> GetByConversationIdAsync(string conversationId);
 
         /// <summary>
         /// Get messages by related entity

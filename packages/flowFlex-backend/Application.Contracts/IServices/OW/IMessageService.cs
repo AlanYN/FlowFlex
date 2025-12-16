@@ -75,6 +75,11 @@ public interface IMessageService : IScopedService
     Task<bool> ArchiveAsync(long id);
 
     /// <summary>
+    /// Unarchive a message
+    /// </summary>
+    Task<bool> UnarchiveAsync(long id);
+
+    /// <summary>
     /// Mark message as read
     /// Email type syncs to Outlook
     /// </summary>

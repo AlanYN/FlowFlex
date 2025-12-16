@@ -275,8 +275,17 @@ public class MessageService : IMessageService, IScopedService
     /// </summary>
     public async Task<bool> ArchiveAsync(long id)
     {
-        var message = await VerifyMessageOwnership(id);
-        return await _messageRepository.MoveToFolderAsync(id, "Archive", message.Folder);
+        await VerifyMessageOwnership(id);
+        return await _messageRepository.ArchiveAsync(id);
+    }
+
+    /// <summary>
+    /// Unarchive a message
+    /// </summary>
+    public async Task<bool> UnarchiveAsync(long id)
+    {
+        await VerifyMessageOwnership(id);
+        return await _messageRepository.UnarchiveAsync(id);
     }
 
     /// <summary>
@@ -429,7 +438,7 @@ public class MessageService : IMessageService, IScopedService
             Body = input.Body ?? string.Empty,
             BodyPreview = GetBodyPreview(input.Body ?? string.Empty),
             MessageType = input.MessageType.ToString(),
-            Folder = "Archive",
+            Folder = "Drafts",
             Labels = GetLabelsForMessageType(input.MessageType),
             SenderId = ownerId,
             SenderName = senderName,
@@ -520,8 +529,7 @@ public class MessageService : IMessageService, IScopedService
             UnreadCount = kvp.Value.unread,
             InternalCount = kvp.Value.internalCount,
             EmailCount = kvp.Value.emailCount,
-            PortalCount = kvp.Value.portalCount,
-            DraftCount = kvp.Key == "Archive" ? kvp.Value.total : 0
+            PortalCount = kvp.Value.portalCount
         }).ToList();
     }
 
@@ -709,7 +717,7 @@ public class MessageService : IMessageService, IScopedService
             Body = input.Body,
             BodyPreview = GetBodyPreview(input.Body),
             MessageType = input.MessageType.ToString(),
-            Folder = input.SaveAsDraft ? "Archive" : "Sent",
+            Folder = input.SaveAsDraft ? "Drafts" : "Sent",
             SenderId = ownerId,
             SenderName = senderName,
             SenderEmail = senderEmail,
@@ -821,6 +829,7 @@ Subject: {originalMessage.Subject}<br/>
             RelatedEntityCode = message.RelatedEntityCode,
             IsRead = message.IsRead,
             IsStarred = message.IsStarred,
+            IsArchived = message.IsArchived,
             HasAttachments = message.HasAttachments,
             ReceivedDate = message.ReceivedDate,
             SentDate = message.SentDate
@@ -844,6 +853,7 @@ Subject: {originalMessage.Subject}<br/>
             RelatedEntityId = message.RelatedEntityId,
             IsRead = message.IsRead,
             IsStarred = message.IsStarred,
+            IsArchived = message.IsArchived,
             HasAttachments = message.HasAttachments,
             ReceivedDate = message.ReceivedDate,
             SentDate = message.SentDate,
@@ -883,6 +893,7 @@ Subject: {originalMessage.Subject}<br/>
             "Sent" => MessageFolder.Sent,
             "Archive" => MessageFolder.Archive,
             "Trash" => MessageFolder.Trash,
+            "Drafts" => MessageFolder.Drafts,
             _ => MessageFolder.Inbox
         };
     }

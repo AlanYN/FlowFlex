@@ -21,11 +21,6 @@ public class FolderStatsDto
     public int UnreadCount { get; set; }
 
     /// <summary>
-    /// Draft Count (only for Drafts folder)
-    /// </summary>
-    public int DraftCount { get; set; }
-
-    /// <summary>
     /// Internal Message Count
     /// </summary>
     public int InternalCount { get; set; }

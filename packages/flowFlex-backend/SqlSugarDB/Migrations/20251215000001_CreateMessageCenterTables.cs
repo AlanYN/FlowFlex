@@ -50,6 +50,7 @@ namespace FlowFlex.SqlSugarDB.Migrations
                     -- 消息状态
                     is_read BOOLEAN NOT NULL DEFAULT FALSE,
                     is_starred BOOLEAN NOT NULL DEFAULT FALSE,
+                    is_archived BOOLEAN NOT NULL DEFAULT FALSE,
                     is_draft BOOLEAN NOT NULL DEFAULT FALSE,
                     has_attachments BOOLEAN NOT NULL DEFAULT FALSE,
                     
@@ -104,6 +105,7 @@ namespace FlowFlex.SqlSugarDB.Migrations
                 CREATE INDEX IF NOT EXISTS idx_ff_messages_received_date ON ff_messages(received_date DESC);
                 CREATE INDEX IF NOT EXISTS idx_ff_messages_is_read ON ff_messages(is_read);
                 CREATE INDEX IF NOT EXISTS idx_ff_messages_is_starred ON ff_messages(is_starred);
+                CREATE INDEX IF NOT EXISTS idx_ff_messages_is_archived ON ff_messages(is_archived);
                 CREATE INDEX IF NOT EXISTS idx_ff_messages_related_entity ON ff_messages(related_entity_type, related_entity_id);
                 CREATE INDEX IF NOT EXISTS idx_ff_messages_conversation_id ON ff_messages(conversation_id);
                 CREATE INDEX IF NOT EXISTS idx_ff_messages_external_message_id ON ff_messages(external_message_id);

@@ -40,6 +40,10 @@ public class MessageRepository : BaseRepository<Message>, IMessageRepository, IS
             {
                 query = query.Where(x => x.IsStarred);
             }
+            else if (folder == "Archive")
+            {
+                query = query.Where(x => x.IsArchived);
+            }
             else
             {
                 query = query.Where(x => x.Folder == folder);
@@ -164,7 +168,8 @@ public class MessageRepository : BaseRepository<Message>, IMessageRepository, IS
     /// </summary>
     public async Task<Dictionary<string, (int total, int unread, int internalCount, int emailCount, int portalCount)>> GetFolderStatsAsync(long ownerId)
     {
-        var folders = new[] { "Inbox", "Sent", "Archive", "Trash" };
+        // Only real folders (Inbox, Sent, Trash, Drafts), Archive and Starred are virtual folders
+        var folders = new[] { "Inbox", "Sent", "Trash", "Drafts" };
         var result = new Dictionary<string, (int total, int unread, int internalCount, int emailCount, int portalCount)>();
 
         foreach (var folder in folders)
@@ -192,6 +197,18 @@ public class MessageRepository : BaseRepository<Message>, IMessageRepository, IS
         var starredPortal = await starredQuery.Where(x => x.MessageType == "Portal").CountAsync();
 
         result["Starred"] = (starredTotal, starredUnread, starredInternal, starredEmail, starredPortal);
+
+        // Add Archive folder (virtual folder based on IsArchived flag)
+        var archivedQuery = db.Queryable<Message>()
+            .Where(x => x.OwnerId == ownerId && x.IsArchived && x.IsValid);
+
+        var archivedTotal = await archivedQuery.CountAsync();
+        var archivedUnread = await archivedQuery.Where(x => !x.IsRead).CountAsync();
+        var archivedInternal = await archivedQuery.Where(x => x.MessageType == "Internal").CountAsync();
+        var archivedEmail = await archivedQuery.Where(x => x.MessageType == "Email").CountAsync();
+        var archivedPortal = await archivedQuery.Where(x => x.MessageType == "Portal").CountAsync();
+
+        result["Archive"] = (archivedTotal, archivedUnread, archivedInternal, archivedEmail, archivedPortal);
 
         return result;
     }
@@ -245,6 +262,41 @@ public class MessageRepository : BaseRepository<Message>, IMessageRepository, IS
     }
 
     /// <summary>
+    /// Archive a message
+    /// </summary>
+    public async Task<bool> ArchiveAsync(long id)
+    {
+        return await db.Updateable<Message>()
+            .SetColumns(x => x.IsArchived == true)
+            .SetColumns(x => x.ModifyDate == DateTimeOffset.UtcNow)
+            .Where(x => x.Id == id && x.IsValid)
+            .ExecuteCommandAsync() > 0;
+    }
+
+    /// <summary>
+    /// Unarchive a message
+    /// </summary>
+    public async Task<bool> UnarchiveAsync(long id)
+    {
+        return await db.Updateable<Message>()
+            .SetColumns(x => x.IsArchived == false)
+            .SetColumns(x => x.ModifyDate == DateTimeOffset.UtcNow)
+            .Where(x => x.Id == id && x.IsValid)
+            .ExecuteCommandAsync() > 0;
+    }
+
+    /// <summary>
+    /// Get archived messages
+    /// </summary>
+    public async Task<List<Message>> GetArchivedAsync(long ownerId)
+    {
+        return await db.Queryable<Message>()
+            .Where(x => x.OwnerId == ownerId && x.IsArchived && x.IsValid)
+            .OrderByDescending(x => x.ReceivedDate)
+            .ToListAsync();
+    }
+
+    /// <summary>
     /// Move message to folder
     /// </summary>
     public async Task<bool> MoveToFolderAsync(long id, string folder, string? originalFolder = null)
@@ -282,6 +334,16 @@ public class MessageRepository : BaseRepository<Message>, IMessageRepository, IS
             .Where(x => x.ConversationId == conversationId && x.OwnerId == ownerId && x.IsValid)
             .OrderBy(x => x.ReceivedDate)
             .ToListAsync();
+    }
+
+    /// <summary>
+    /// Get first message by conversation ID (without owner filter)
+    /// </summary>
+    public async Task<Message?> GetByConversationIdAsync(string conversationId)
+    {
+        return await db.Queryable<Message>()
+            .Where(x => x.ConversationId == conversationId && x.IsValid)
+            .FirstAsync();
     }
 
     /// <summary>

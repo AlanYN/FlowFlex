@@ -58,6 +58,11 @@ public class MessageListItemDto
     public bool IsStarred { get; set; }
 
     /// <summary>
+    /// Is Archived
+    /// </summary>
+    public bool IsArchived { get; set; }
+
+    /// <summary>
     /// Has Attachments
     /// </summary>
     public bool HasAttachments { get; set; }

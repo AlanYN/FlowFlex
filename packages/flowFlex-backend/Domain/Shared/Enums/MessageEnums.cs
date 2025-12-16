@@ -22,29 +22,34 @@ public enum MessageType
 }
 
 /// <summary>
-/// 消息文件夹枚举
+/// Message folder enum
 /// </summary>
 public enum MessageFolder
 {
     /// <summary>
-    /// 收件箱
+    /// Inbox
     /// </summary>
     Inbox = 0,
 
     /// <summary>
-    /// 已发送
+    /// Sent
     /// </summary>
     Sent = 1,
 
     /// <summary>
-    /// 草稿/归档
+    /// Archive (virtual folder based on IsArchived flag)
     /// </summary>
     Archive = 2,
 
     /// <summary>
-    /// 垃圾箱
+    /// Trash
     /// </summary>
-    Trash = 3
+    Trash = 3,
+
+    /// <summary>
+    /// Drafts
+    /// </summary>
+    Drafts = 4
 }
 
 /// <summary>
