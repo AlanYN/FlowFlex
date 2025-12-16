@@ -14,6 +14,10 @@ public class OutlookOptions
     public string ClientSecret { get; set; } = string.Empty;
     public string TenantId { get; set; } = string.Empty;
     public string RedirectUri { get; set; } = string.Empty;
+    /// <summary>
+    /// Local development redirect URI (takes priority if configured)
+    /// </summary>
+    public string RedirectUriLocal { get; set; } = string.Empty;
     public string BaseUrl { get; set; } = "https://graph.microsoft.com/v1.0";
     public string Instance { get; set; } = "https://login.microsoftonline.com";
     public string TokenEndpoint { get; set; } = "/oauth2/v2.0/token";

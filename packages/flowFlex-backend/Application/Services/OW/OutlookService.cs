@@ -41,10 +41,15 @@ public class OutlookService : IOutlookService, IScopedService
     public string GetAuthorizationUrl(string state)
     {
         var scopes = "User.Read Mail.Read Mail.ReadWrite Mail.Send offline_access";
+        // 优先使用本地开发环境的 RedirectUri
+        var redirectUri = !string.IsNullOrEmpty(_options.RedirectUriLocal) 
+            ? _options.RedirectUriLocal 
+            : _options.RedirectUri;
+        
         var authUrl = $"{_options.Instance}/{_options.TenantId}/oauth2/v2.0/authorize" +
             $"?client_id={_options.ClientId}" +
             $"&response_type=code" +
-            $"&redirect_uri={Uri.EscapeDataString(_options.RedirectUri)}" +
+            $"&redirect_uri={Uri.EscapeDataString(redirectUri)}" +
             $"&scope={Uri.EscapeDataString(scopes)}" +
             $"&state={state}" +
             $"&response_mode=query";
