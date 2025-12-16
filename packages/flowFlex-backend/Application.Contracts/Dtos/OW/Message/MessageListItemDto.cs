@@ -33,6 +33,16 @@ public class MessageListItemDto
     public string SenderEmail { get; set; } = string.Empty;
 
     /// <summary>
+    /// Sender ID
+    /// </summary>
+    public long? SenderId { get; set; }
+
+    /// <summary>
+    /// Recipients
+    /// </summary>
+    public List<RecipientDto> Recipients { get; set; } = new();
+
+    /// <summary>
     /// Message Type: Internal, Email, Portal
     /// </summary>
     public MessageType MessageType { get; set; } = MessageType.Internal;

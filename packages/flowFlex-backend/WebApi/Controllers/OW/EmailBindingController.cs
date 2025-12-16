@@ -46,10 +46,12 @@ public class EmailBindingController : Controllers.ControllerBase
     /// <remarks>
     /// This endpoint receives the OAuth callback from Microsoft after user authorization.
     /// It exchanges the authorization code for access token and creates/updates the email binding.
+    /// This endpoint does not require authentication as it's called by Microsoft OAuth redirect.
     /// </remarks>
     [HttpGet("callback")]
+    [AllowAnonymous]
     [ProducesResponseType<SuccessResponse<EmailBindingDto>>((int)HttpStatusCode.OK)]
-    public async Task<IActionResult> HandleCallbackAsync([FromQuery] string code, [FromQuery] string state, [FromQuery] string? error = null, [FromQuery] string? error_description = null)
+    public async Task<IActionResult> HandleCallbackAsync([FromQuery] string? code, [FromQuery] string state, [FromQuery] string? error = null, [FromQuery] string? error_description = null)
     {
         var callback = new OAuthCallbackDto
         {

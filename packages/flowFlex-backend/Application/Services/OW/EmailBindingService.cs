@@ -110,7 +110,9 @@ public class EmailBindingService : IEmailBindingService, IScopedService
             existingBinding.TokenExpireTime = tokenResult.ExpiresAt;
             existingBinding.SyncStatus = "Active";
             existingBinding.LastSyncError = null;
-            existingBinding.InitUpdateInfo(_userContext);
+            existingBinding.ModifyDate = DateTimeOffset.UtcNow;
+            existingBinding.ModifyBy = "OAuth Callback";
+            existingBinding.ModifyUserId = userId;
 
             await _bindingRepository.UpdateAsync(existingBinding);
 
@@ -128,10 +130,16 @@ public class EmailBindingService : IEmailBindingService, IScopedService
             TokenExpireTime = tokenResult.ExpiresAt,
             SyncStatus = "Active",
             AutoSyncEnabled = true,
-            SyncIntervalMinutes = 15
+            SyncIntervalMinutes = 15,
+            CreateDate = DateTimeOffset.UtcNow,
+            ModifyDate = DateTimeOffset.UtcNow,
+            CreateBy = "OAuth Callback",
+            ModifyBy = "OAuth Callback",
+            CreateUserId = userId,
+            ModifyUserId = userId,
+            IsValid = true
         };
 
-        binding.InitCreateInfo(_userContext);
         await _bindingRepository.InsertAsync(binding);
 
         _logger.LogInformation("User {UserId} bound Outlook account {Email}", userId, userEmail);

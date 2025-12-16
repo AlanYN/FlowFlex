@@ -822,8 +822,10 @@ Subject: {originalMessage.Subject}<br/>
             Id = message.Id,
             Subject = message.Subject,
             BodyPreview = message.BodyPreview,
+            SenderId = message.SenderId,
             SenderName = message.SenderName,
             SenderEmail = message.SenderEmail,
+            Recipients = ParseRecipients(message.Recipients),
             MessageType = ParseMessageType(message.MessageType),
             Labels = ParseLabels(message.Labels),
             RelatedEntityCode = message.RelatedEntityCode,
@@ -903,7 +905,14 @@ Subject: {originalMessage.Subject}<br/>
         if (string.IsNullOrEmpty(labelsJson)) return new List<MessageLabel>();
         try
         {
-            var stringLabels = JsonSerializer.Deserialize<List<string>>(labelsJson) ?? new List<string>();
+            // Handle double-encoded JSON (e.g., "\"[\\\"Internal\\\"]\"")
+            var jsonStr = labelsJson.Trim();
+            if (jsonStr.StartsWith("\"") && jsonStr.EndsWith("\""))
+            {
+                jsonStr = JsonSerializer.Deserialize<string>(jsonStr) ?? "[]";
+            }
+
+            var stringLabels = JsonSerializer.Deserialize<List<string>>(jsonStr) ?? new List<string>();
             return stringLabels.Select(label => label switch
             {
                 "Internal" => MessageLabel.Internal,
@@ -924,7 +933,15 @@ Subject: {originalMessage.Subject}<br/>
         if (string.IsNullOrEmpty(recipientsJson)) return new List<RecipientDto>();
         try
         {
-            return JsonSerializer.Deserialize<List<RecipientDto>>(recipientsJson) ?? new List<RecipientDto>();
+            // Handle double-encoded JSON (e.g., "\"[{...}]\"")
+            var jsonStr = recipientsJson.Trim();
+            if (jsonStr.StartsWith("\"") && jsonStr.EndsWith("\""))
+            {
+                jsonStr = JsonSerializer.Deserialize<string>(jsonStr) ?? "[]";
+            }
+
+            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            return JsonSerializer.Deserialize<List<RecipientDto>>(jsonStr, options) ?? new List<RecipientDto>();
         }
         catch
         {

@@ -86,6 +86,24 @@ public class MessageAttachmentController : Controllers.ControllerBase
     }
 
     /// <summary>
+    /// Upload attachment (alias for temp upload, returns full attachment info)
+    /// </summary>
+    [HttpPost("upload")]
+    [ProducesResponseType<SuccessResponse<MessageAttachmentDto>>((int)HttpStatusCode.OK)]
+    public async Task<IActionResult> UploadAsync(IFormFile file)
+    {
+        if (file == null || file.Length == 0)
+        {
+            return BadRequest("No file uploaded");
+        }
+
+        using var stream = file.OpenReadStream();
+        var id = await _attachmentService.UploadTempAsync(file.FileName, file.ContentType, stream);
+        var attachment = await _attachmentService.GetByIdAsync(id);
+        return Success(attachment);
+    }
+
+    /// <summary>
     /// Download attachment
     /// </summary>
     [HttpGet("{id}/download")]
