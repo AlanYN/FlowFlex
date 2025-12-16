@@ -46,7 +46,13 @@ public class OutlookService : IOutlookService, IScopedService
             ? _options.RedirectUriLocal 
             : _options.RedirectUri;
         
-        var authUrl = $"{_options.Instance}/{_options.TenantId}/oauth2/v2.0/authorize" +
+        // Use "common" for multi-tenant apps that support both organizational and personal accounts
+        // Use "consumers" for personal Microsoft accounts only
+        // Use "organizations" for organizational accounts only
+        // Use specific tenant ID for single-tenant apps
+        var tenant = GetOAuthTenant();
+        
+        var authUrl = $"{_options.Instance}/{tenant}/oauth2/v2.0/authorize" +
             $"?client_id={_options.ClientId}" +
             $"&response_type=code" +
             $"&redirect_uri={Uri.EscapeDataString(redirectUri)}" +
@@ -56,6 +62,27 @@ public class OutlookService : IOutlookService, IScopedService
 
         return authUrl;
     }
+    
+    /// <summary>
+    /// Get OAuth tenant identifier based on configuration
+    /// Returns "common" for multi-tenant apps, or specific tenant ID for single-tenant
+    /// </summary>
+    private string GetOAuthTenant()
+    {
+        // If TenantId is empty, "common", "consumers", or "organizations", use it directly
+        // Otherwise use "common" to support both organizational and personal accounts
+        if (string.IsNullOrEmpty(_options.TenantId) || 
+            _options.TenantId.Equals("common", StringComparison.OrdinalIgnoreCase) ||
+            _options.TenantId.Equals("consumers", StringComparison.OrdinalIgnoreCase) ||
+            _options.TenantId.Equals("organizations", StringComparison.OrdinalIgnoreCase))
+        {
+            return string.IsNullOrEmpty(_options.TenantId) ? "common" : _options.TenantId;
+        }
+        
+        // For multi-tenant apps supporting personal accounts, use "common"
+        // This allows both Azure AD accounts and personal Microsoft accounts (outlook.com, live.com, etc.)
+        return "common";
+    }
 
     /// <summary>
     /// Exchange authorization code for access token
@@ -64,18 +91,24 @@ public class OutlookService : IOutlookService, IScopedService
     {
         try
         {
+            // Use the same redirect URI as authorization
+            var redirectUri = !string.IsNullOrEmpty(_options.RedirectUriLocal) 
+                ? _options.RedirectUriLocal 
+                : _options.RedirectUri;
+            
             var tokenRequestParams = new Dictionary<string, string>
             {
                 { "client_id", _options.ClientId },
                 { "client_secret", _options.ClientSecret },
                 { "code", authorizationCode },
-                { "redirect_uri", _options.RedirectUri },
+                { "redirect_uri", redirectUri },
                 { "grant_type", "authorization_code" },
                 { "scope", "User.Read Mail.Read Mail.ReadWrite Mail.Send offline_access" }
             };
 
             var content = new FormUrlEncodedContent(tokenRequestParams);
-            var tokenEndpoint = $"{_options.Instance}/{_options.TenantId}{_options.TokenEndpoint}";
+            var tenant = GetOAuthTenant();
+            var tokenEndpoint = $"{_options.Instance}/{tenant}{_options.TokenEndpoint}";
             
             var response = await _httpClient.PostAsync(tokenEndpoint, content);
             
@@ -115,7 +148,8 @@ public class OutlookService : IOutlookService, IScopedService
             };
 
             var content = new FormUrlEncodedContent(tokenRequestParams);
-            var tokenEndpoint = $"{_options.Instance}/{_options.TenantId}{_options.TokenEndpoint}";
+            var tenant = GetOAuthTenant();
+            var tokenEndpoint = $"{_options.Instance}/{tenant}{_options.TokenEndpoint}";
             
             var response = await _httpClient.PostAsync(tokenEndpoint, content);
             
@@ -419,6 +453,9 @@ public class OutlookService : IOutlookService, IScopedService
                     IsValid = true
                 };
 
+                // Initialize snowflake ID before insert
+                message.InitNewId();
+
                 await _messageRepository.InsertAsync(message);
                 syncedCount++;
             }
@@ -503,7 +540,7 @@ public class OutlookService : IOutlookService, IScopedService
         {
             "inbox" => "Inbox",
             "sentitems" => "Sent",
-            "drafts" => "Archive",
+            "drafts" => "Drafts",
             "deleteditems" => "Trash",
             "archive" => "Archive",
             _ => "Inbox"

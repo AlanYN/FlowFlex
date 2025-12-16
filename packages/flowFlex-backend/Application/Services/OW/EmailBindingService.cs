@@ -140,6 +140,9 @@ public class EmailBindingService : IEmailBindingService, IScopedService
             IsValid = true
         };
 
+        // Initialize snowflake ID before insert
+        binding.InitNewId();
+
         await _bindingRepository.InsertAsync(binding);
 
         _logger.LogInformation("User {UserId} bound Outlook account {Email}", userId, userEmail);

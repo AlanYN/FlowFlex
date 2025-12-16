@@ -1,6 +1,7 @@
 using System.Text.Json;
 using AutoMapper;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Logging;
 using FlowFlex.Application.Contracts.Dtos;
 using FlowFlex.Application.Contracts.Dtos.OW.Message;
 using FlowFlex.Application.Contracts.IServices.OW;
@@ -29,6 +30,7 @@ public class MessageService : IMessageService, IScopedService
     private readonly UserContext _userContext;
     private readonly IOperatorContextService _operatorContextService;
     private readonly IOutlookService _outlookService;
+    private readonly ILogger<MessageService> _logger;
 
     public MessageService(
         IMessageRepository messageRepository,
@@ -38,7 +40,8 @@ public class MessageService : IMessageService, IScopedService
         IHttpContextAccessor httpContextAccessor,
         UserContext userContext,
         IOperatorContextService operatorContextService,
-        IOutlookService outlookService)
+        IOutlookService outlookService,
+        ILogger<MessageService> logger)
     {
         _messageRepository = messageRepository;
         _attachmentRepository = attachmentRepository;
@@ -48,23 +51,34 @@ public class MessageService : IMessageService, IScopedService
         _userContext = userContext;
         _operatorContextService = operatorContextService;
         _outlookService = outlookService;
+        _logger = logger;
     }
 
     #region Message CRUD
 
     /// <summary>
     /// Get paginated message list with filtering and sorting
+    /// Optionally syncs Outlook emails if user has bound their account
     /// </summary>
     public async Task<PageModelDto<MessageListItemDto>> GetPagedAsync(MessageQueryDto query)
     {
         var ownerId = GetCurrentUserId();
+
+        // Normalize folder name to match database storage (e.g., "sent" -> "Sent")
+        var normalizedFolder = NormalizeFolderName(query.Folder);
+
+        // Sync Outlook emails if enabled and user has binding
+        if (query.IncludeOutlookSync)
+        {
+            await TrySyncOutlookEmailsAsync(ownerId, normalizedFolder);
+        }
 
         // Query local messages
         var (items, totalCount) = await _messageRepository.GetPagedByOwnerAsync(
             ownerId,
             query.PageIndex,
             query.PageSize,
-            query.Folder,
+            normalizedFolder,
             query.Label,
             query.MessageType,
             query.SearchTerm,
@@ -76,6 +90,109 @@ public class MessageService : IMessageService, IScopedService
         var dtos = items.Select(MapToListItemDto).ToList();
 
         return new PageModelDto<MessageListItemDto>(query.PageIndex, query.PageSize, dtos, totalCount);
+    }
+
+    /// <summary>
+    /// Normalize folder name to match database storage format
+    /// </summary>
+    private static string? NormalizeFolderName(string? folder)
+    {
+        if (string.IsNullOrEmpty(folder)) return null;
+
+        return folder.ToLower() switch
+        {
+            "inbox" => "Inbox",
+            "sent" => "Sent",
+            "drafts" => "Drafts",
+            "trash" => "Trash",
+            "archive" => "Archive",
+            "starred" => "Starred",
+            _ => folder
+        };
+    }
+
+    /// <summary>
+    /// Try to sync Outlook emails silently (non-blocking, errors are logged but not thrown)
+    /// </summary>
+    private async Task TrySyncOutlookEmailsAsync(long ownerId, string? folder)
+    {
+        try
+        {
+            // Only sync for folders that map to Outlook
+            var outlookFolder = MapToOutlookFolder(folder);
+            if (string.IsNullOrEmpty(outlookFolder))
+            {
+                _logger.LogDebug("[MessageService] Folder '{Folder}' does not map to Outlook, skipping sync", folder);
+                return;
+            }
+
+            _logger.LogInformation("[MessageService] Starting Outlook sync for folder: {Folder} -> {OutlookFolder}", folder, outlookFolder);
+
+            // Check if user has Outlook binding
+            var binding = await _emailBindingRepository.GetByUserIdAndProviderAsync(ownerId, "Outlook");
+            if (binding == null || string.IsNullOrEmpty(binding.AccessToken))
+            {
+                _logger.LogDebug("[MessageService] No Outlook binding found for user {UserId}", ownerId);
+                return;
+            }
+
+            // Check if token is valid (with 5 minute buffer)
+            if (binding.TokenExpireTime <= DateTimeOffset.UtcNow.AddMinutes(5))
+            {
+                _logger.LogInformation("[MessageService] Token expired, attempting refresh");
+                // Try to refresh token
+                if (!string.IsNullOrEmpty(binding.RefreshToken))
+                {
+                    var newToken = await _outlookService.RefreshTokenAsync(binding.RefreshToken);
+                    if (newToken != null)
+                    {
+                        await _emailBindingRepository.UpdateTokenAsync(
+                            binding.Id,
+                            newToken.AccessToken,
+                            newToken.RefreshToken,
+                            newToken.ExpiresAt);
+                        binding.AccessToken = newToken.AccessToken;
+                        _logger.LogInformation("[MessageService] Token refreshed successfully");
+                    }
+                    else
+                    {
+                        _logger.LogWarning("[MessageService] Token refresh failed");
+                        return; // Token refresh failed, skip sync
+                    }
+                }
+                else
+                {
+                    _logger.LogWarning("[MessageService] No refresh token available");
+                    return; // No refresh token, skip sync
+                }
+            }
+
+            // Sync emails from Outlook (limit to 50 for performance)
+            var syncedCount = await _outlookService.SyncEmailsToLocalAsync(binding.AccessToken, ownerId, outlookFolder, 50);
+            await _emailBindingRepository.UpdateLastSyncTimeAsync(binding.Id);
+            _logger.LogInformation("[MessageService] Synced {Count} emails from Outlook folder {Folder}", syncedCount, outlookFolder);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "[MessageService] Error syncing Outlook emails for folder {Folder}", folder);
+            // Silently ignore sync errors - user can still see local messages
+            // Errors will be visible when they manually trigger sync
+        }
+    }
+
+    /// <summary>
+    /// Map local folder to Outlook folder ID
+    /// </summary>
+    private static string? MapToOutlookFolder(string? folder)
+    {
+        return folder?.ToLower() switch
+        {
+            "inbox" => "inbox",
+            "sent" => "sentitems",
+            "drafts" => "drafts",
+            "trash" => "deleteditems",
+            _ => null // Starred, Archive are local concepts
+        };
     }
 
     /// <summary>
@@ -96,6 +213,12 @@ public class MessageService : IMessageService, IScopedService
             throw new CRMException(ErrorCodeEnum.OperationNotAllowed, "You don't have permission to view this message");
         }
 
+        // For Email type with empty body, fetch full content from Outlook
+        if (message.MessageType == "Email" && string.IsNullOrEmpty(message.Body) && !string.IsNullOrEmpty(message.ExternalMessageId))
+        {
+            await TryFetchEmailBodyFromOutlookAsync(message);
+        }
+
         // Auto-mark as read if unread
         if (!message.IsRead)
         {
@@ -107,6 +230,41 @@ public class MessageService : IMessageService, IScopedService
         var attachments = await _attachmentRepository.GetByMessageIdAsync(id);
 
         return MapToDetailDto(message, attachments);
+    }
+
+    /// <summary>
+    /// Try to fetch email body from Outlook and update local cache
+    /// </summary>
+    private async Task TryFetchEmailBodyFromOutlookAsync(Message message)
+    {
+        try
+        {
+            var binding = await _emailBindingRepository.GetByUserIdAndProviderAsync(message.OwnerId, "Outlook");
+            if (binding == null || string.IsNullOrEmpty(binding.AccessToken)) return;
+
+            // Refresh token if needed
+            if (binding.TokenExpireTime <= DateTimeOffset.UtcNow.AddMinutes(5))
+            {
+                if (string.IsNullOrEmpty(binding.RefreshToken)) return;
+                var newToken = await _outlookService.RefreshTokenAsync(binding.RefreshToken);
+                if (newToken == null) return;
+                await _emailBindingRepository.UpdateTokenAsync(binding.Id, newToken.AccessToken, newToken.RefreshToken, newToken.ExpiresAt);
+                binding.AccessToken = newToken.AccessToken;
+            }
+
+            // Fetch full email from Outlook
+            var outlookEmail = await _outlookService.GetEmailByIdAsync(binding.AccessToken, message.ExternalMessageId);
+            if (outlookEmail != null && !string.IsNullOrEmpty(outlookEmail.Body))
+            {
+                // Update local cache with full body
+                message.Body = outlookEmail.Body;
+                await _messageRepository.UpdateAsync(message);
+            }
+        }
+        catch (Exception)
+        {
+            // Silently ignore - user can still see preview
+        }
     }
 
 
