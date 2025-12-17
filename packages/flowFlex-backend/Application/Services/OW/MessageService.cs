@@ -221,6 +221,13 @@ public class MessageService : IMessageService, IScopedService
             await TryFetchEmailBodyFromOutlookAsync(message);
         }
 
+        // Process cid: references in email body (for previously synced emails with inline images)
+        if (message.MessageType == "Email" && !string.IsNullOrEmpty(message.Body) &&
+            message.Body.Contains("cid:") && !string.IsNullOrEmpty(message.ExternalMessageId))
+        {
+            await TryProcessCidReferencesAsync(message);
+        }
+
         // Auto-mark as read if unread
         if (!message.IsRead)
         {
@@ -266,6 +273,46 @@ public class MessageService : IMessageService, IScopedService
         catch (Exception)
         {
             // Silently ignore - user can still see preview
+        }
+    }
+
+    /// <summary>
+    /// Try to process cid: references in email body by replacing them with base64 data URIs
+    /// Used for emails that were previously synced without inline image processing
+    /// </summary>
+    private async Task TryProcessCidReferencesAsync(Message message)
+    {
+        try
+        {
+            var binding = await _emailBindingRepository.GetByUserIdAndProviderAsync(message.OwnerId, "Outlook");
+            if (binding == null || string.IsNullOrEmpty(binding.AccessToken)) return;
+
+            // Refresh token if needed
+            if (binding.TokenExpireTime <= DateTimeOffset.UtcNow.AddMinutes(5))
+            {
+                if (string.IsNullOrEmpty(binding.RefreshToken)) return;
+                var newToken = await _outlookService.RefreshTokenAsync(binding.RefreshToken);
+                if (newToken == null) return;
+                await _emailBindingRepository.UpdateTokenAsync(binding.Id, newToken.AccessToken, newToken.RefreshToken, newToken.ExpiresAt);
+                binding.AccessToken = newToken.AccessToken;
+            }
+
+            // Process cid: references
+            var processedBody = await _outlookService.ProcessCidReferencesAsync(
+                binding.AccessToken,
+                message.ExternalMessageId!,
+                message.Body);
+
+            if (processedBody != message.Body)
+            {
+                // Update local cache with processed body
+                message.Body = processedBody;
+                await _messageRepository.UpdateAsync(message);
+            }
+        }
+        catch (Exception)
+        {
+            // Silently ignore - user can still see the email with broken images
         }
     }
 

@@ -165,3 +165,42 @@ public class GraphMailFolder
     [JsonPropertyName("unreadItemCount")]
     public int? UnreadItemCount { get; set; }
 }
+
+/// <summary>
+/// Graph API attachment list response
+/// </summary>
+public class GraphAttachmentListResponse
+{
+    [JsonPropertyName("value")]
+    public List<GraphAttachment>? Value { get; set; }
+}
+
+/// <summary>
+/// Graph API attachment
+/// </summary>
+public class GraphAttachment
+{
+    [JsonPropertyName("id")]
+    public string? Id { get; set; }
+
+    [JsonPropertyName("name")]
+    public string? Name { get; set; }
+
+    [JsonPropertyName("contentType")]
+    public string? ContentType { get; set; }
+
+    [JsonPropertyName("size")]
+    public int? Size { get; set; }
+
+    [JsonPropertyName("isInline")]
+    public bool? IsInline { get; set; }
+
+    [JsonPropertyName("contentId")]
+    public string? ContentId { get; set; }
+
+    [JsonPropertyName("contentBytes")]
+    public string? ContentBytes { get; set; }
+
+    [JsonPropertyName("@odata.type")]
+    public string? ODataType { get; set; }
+}

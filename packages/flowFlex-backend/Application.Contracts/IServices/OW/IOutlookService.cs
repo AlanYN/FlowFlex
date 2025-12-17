@@ -74,6 +74,16 @@ public interface IOutlookService : IScopedService
     /// </summary>
     Task<OutlookFolderStats?> GetFolderStatsAsync(string accessToken, string folderId);
 
+    /// <summary>
+    /// Process cid: references in HTML body by replacing them with base64 data URIs
+    /// Used for emails that were previously synced without inline image processing
+    /// </summary>
+    /// <param name="accessToken">Outlook access token</param>
+    /// <param name="externalMessageId">External message ID in Outlook</param>
+    /// <param name="htmlBody">HTML body containing cid: references</param>
+    /// <returns>HTML body with cid: references replaced by base64 data URIs</returns>
+    Task<string> ProcessCidReferencesAsync(string accessToken, string externalMessageId, string htmlBody);
+
     #endregion
 
     #region Sync Operations

@@ -1,6 +1,7 @@
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using FlowFlex.Domain.Shared;
@@ -248,7 +249,17 @@ public class OutlookService : IOutlookService, IScopedService
             var content = await response.Content.ReadAsStringAsync();
             var email = JsonSerializer.Deserialize<GraphEmailMessage>(content);
 
-            return email != null ? MapToOutlookEmailDto(email) : null;
+            if (email == null) return null;
+
+            var dto = MapToOutlookEmailDto(email);
+
+            // Process inline attachments (cid: references) if email has attachments
+            if (email.HasAttachments == true && !string.IsNullOrEmpty(dto.Body) && dto.Body.Contains("cid:"))
+            {
+                dto.Body = await ReplaceCidWithBase64Async(accessToken, messageId, dto.Body);
+            }
+
+            return dto;
         }
         catch (Exception ex)
         {
@@ -442,6 +453,20 @@ public class OutlookService : IOutlookService, IScopedService
         }
     }
 
+    /// <summary>
+    /// Process cid: references in HTML body by replacing them with base64 data URIs
+    /// Used for emails that were previously synced without inline image processing
+    /// </summary>
+    public async Task<string> ProcessCidReferencesAsync(string accessToken, string externalMessageId, string htmlBody)
+    {
+        if (string.IsNullOrEmpty(htmlBody) || !htmlBody.Contains("cid:"))
+        {
+            return htmlBody;
+        }
+
+        return await ReplaceCidWithBase64Async(accessToken, externalMessageId, htmlBody);
+    }
+
     #endregion
 
     #region Sync Operations
@@ -598,6 +623,114 @@ public class OutlookService : IOutlookService, IScopedService
             "archive" => "Archive",
             _ => "Inbox"
         };
+    }
+
+    /// <summary>
+    /// Get inline attachments for a message
+    /// </summary>
+    private async Task<List<GraphAttachment>> GetInlineAttachmentsAsync(string accessToken, string messageId)
+    {
+        try
+        {
+            _httpClient.DefaultRequestHeaders.Authorization =
+                new AuthenticationHeaderValue("Bearer", accessToken);
+
+            // Get all attachments without $select to get full fileAttachment properties
+            // contentId and contentBytes are only available on fileAttachment type, not base attachment
+            var url = $"{_options.BaseUrl}/me/messages/{messageId}/attachments";
+
+            var response = await _httpClient.GetAsync(url);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                var errorContent = await response.Content.ReadAsStringAsync();
+                _logger.LogWarning("Failed to get attachments for message {MessageId}: {Error}", messageId, errorContent);
+                return new List<GraphAttachment>();
+            }
+
+            var content = await response.Content.ReadAsStringAsync();
+            var result = JsonSerializer.Deserialize<GraphAttachmentListResponse>(content);
+
+            // Filter for inline attachments only (those with isInline=true and contentId)
+            var inlineAttachments = result?.Value?
+                .Where(a => a.IsInline == true && !string.IsNullOrEmpty(a.ContentId))
+                .ToList() ?? new List<GraphAttachment>();
+
+            _logger.LogDebug("Found {Total} attachments, {Inline} are inline for message {MessageId}",
+                result?.Value?.Count ?? 0, inlineAttachments.Count, messageId);
+
+            return inlineAttachments;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting inline attachments for message {MessageId}", messageId);
+            return new List<GraphAttachment>();
+        }
+    }
+
+    /// <summary>
+    /// Replace cid: references in HTML body with base64 data URIs
+    /// </summary>
+    private async Task<string> ReplaceCidWithBase64Async(string accessToken, string messageId, string htmlBody)
+    {
+        try
+        {
+            var inlineAttachments = await GetInlineAttachmentsAsync(accessToken, messageId);
+
+            if (inlineAttachments.Count == 0)
+            {
+                return htmlBody;
+            }
+
+            // Build a dictionary of contentId -> base64 data URI
+            var cidMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var attachment in inlineAttachments)
+            {
+                if (!string.IsNullOrEmpty(attachment.ContentId) && !string.IsNullOrEmpty(attachment.ContentBytes))
+                {
+                    var contentType = attachment.ContentType ?? "image/png";
+                    var dataUri = $"data:{contentType};base64,{attachment.ContentBytes}";
+
+                    // ContentId may or may not have angle brackets, handle both cases
+                    var contentId = attachment.ContentId.Trim('<', '>');
+                    cidMap[contentId] = dataUri;
+                }
+            }
+
+            if (cidMap.Count == 0)
+            {
+                return htmlBody;
+            }
+
+            // Replace all cid: references with base64 data URIs
+            var result = Regex.Replace(
+                htmlBody,
+                @"(src|background)=[""']cid:([^""']+)[""']",
+                match =>
+                {
+                    var attribute = match.Groups[1].Value;
+                    var contentId = match.Groups[2].Value;
+
+                    if (cidMap.TryGetValue(contentId, out var dataUri))
+                    {
+                        return $"{attribute}=\"{dataUri}\"";
+                    }
+
+                    // If no matching attachment found, keep original
+                    return match.Value;
+                },
+                RegexOptions.IgnoreCase);
+
+            _logger.LogInformation("Replaced {Count} cid references with base64 data URIs for message {MessageId}",
+                cidMap.Count, messageId);
+
+            return result;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error replacing cid references for message {MessageId}", messageId);
+            return htmlBody;
+        }
     }
 
     #endregion
