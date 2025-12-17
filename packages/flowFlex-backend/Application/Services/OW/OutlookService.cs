@@ -41,17 +41,19 @@ public class OutlookService : IOutlookService, IScopedService
     public string GetAuthorizationUrl(string state)
     {
         var scopes = "User.Read Mail.Read Mail.ReadWrite Mail.Send offline_access";
-        // 优先使用本地开发环境的 RedirectUri
-        var redirectUri = !string.IsNullOrEmpty(_options.RedirectUriLocal) 
-            ? _options.RedirectUriLocal 
-            : _options.RedirectUri;
-        
+        //// 优先使用本地开发环境的 RedirectUri
+        //var redirectUri = !string.IsNullOrEmpty(_options.RedirectUriLocal) 
+        //    ? _options.RedirectUriLocal 
+        //    : _options.RedirectUri;
+
+        var redirectUri = _options.RedirectUri;
+
         // Use "common" for multi-tenant apps that support both organizational and personal accounts
         // Use "consumers" for personal Microsoft accounts only
         // Use "organizations" for organizational accounts only
         // Use specific tenant ID for single-tenant apps
         var tenant = GetOAuthTenant();
-        
+
         var authUrl = $"{_options.Instance}/{tenant}/oauth2/v2.0/authorize" +
             $"?client_id={_options.ClientId}" +
             $"&response_type=code" +
@@ -62,7 +64,7 @@ public class OutlookService : IOutlookService, IScopedService
 
         return authUrl;
     }
-    
+
     /// <summary>
     /// Get OAuth tenant identifier based on configuration
     /// Returns "common" for multi-tenant apps, or specific tenant ID for single-tenant
@@ -71,14 +73,14 @@ public class OutlookService : IOutlookService, IScopedService
     {
         // If TenantId is empty, "common", "consumers", or "organizations", use it directly
         // Otherwise use "common" to support both organizational and personal accounts
-        if (string.IsNullOrEmpty(_options.TenantId) || 
+        if (string.IsNullOrEmpty(_options.TenantId) ||
             _options.TenantId.Equals("common", StringComparison.OrdinalIgnoreCase) ||
             _options.TenantId.Equals("consumers", StringComparison.OrdinalIgnoreCase) ||
             _options.TenantId.Equals("organizations", StringComparison.OrdinalIgnoreCase))
         {
             return string.IsNullOrEmpty(_options.TenantId) ? "common" : _options.TenantId;
         }
-        
+
         // For multi-tenant apps supporting personal accounts, use "common"
         // This allows both Azure AD accounts and personal Microsoft accounts (outlook.com, live.com, etc.)
         return "common";
@@ -92,10 +94,10 @@ public class OutlookService : IOutlookService, IScopedService
         try
         {
             // Use the same redirect URI as authorization
-            var redirectUri = !string.IsNullOrEmpty(_options.RedirectUriLocal) 
-                ? _options.RedirectUriLocal 
-                : _options.RedirectUri;
-            
+            //var redirectUri = !string.IsNullOrEmpty(_options.RedirectUriLocal) 
+            //    ? _options.RedirectUriLocal 
+            //    : _options.RedirectUri;
+            var redirectUri = _options.RedirectUri;
             var tokenRequestParams = new Dictionary<string, string>
             {
                 { "client_id", _options.ClientId },
@@ -109,9 +111,9 @@ public class OutlookService : IOutlookService, IScopedService
             var content = new FormUrlEncodedContent(tokenRequestParams);
             var tenant = GetOAuthTenant();
             var tokenEndpoint = $"{_options.Instance}/{tenant}{_options.TokenEndpoint}";
-            
+
             var response = await _httpClient.PostAsync(tokenEndpoint, content);
-            
+
             if (!response.IsSuccessStatusCode)
             {
                 var errorContent = await response.Content.ReadAsStringAsync();
@@ -150,9 +152,9 @@ public class OutlookService : IOutlookService, IScopedService
             var content = new FormUrlEncodedContent(tokenRequestParams);
             var tenant = GetOAuthTenant();
             var tokenEndpoint = $"{_options.Instance}/{tenant}{_options.TokenEndpoint}";
-            
+
             var response = await _httpClient.PostAsync(tokenEndpoint, content);
-            
+
             if (!response.IsSuccessStatusCode)
             {
                 var errorContent = await response.Content.ReadAsStringAsync();
@@ -188,7 +190,7 @@ public class OutlookService : IOutlookService, IScopedService
     {
         try
         {
-            _httpClient.DefaultRequestHeaders.Authorization = 
+            _httpClient.DefaultRequestHeaders.Authorization =
                 new AuthenticationHeaderValue("Bearer", accessToken);
 
             var url = $"{_options.BaseUrl}/me/mailFolders/{folderId}/messages" +
@@ -202,7 +204,7 @@ public class OutlookService : IOutlookService, IScopedService
             }
 
             var response = await _httpClient.GetAsync(url);
-            
+
             if (!response.IsSuccessStatusCode)
             {
                 var errorContent = await response.Content.ReadAsStringAsync();
@@ -229,7 +231,7 @@ public class OutlookService : IOutlookService, IScopedService
     {
         try
         {
-            _httpClient.DefaultRequestHeaders.Authorization = 
+            _httpClient.DefaultRequestHeaders.Authorization =
                 new AuthenticationHeaderValue("Bearer", accessToken);
 
             var url = $"{_options.BaseUrl}/me/messages/{messageId}" +
@@ -237,7 +239,7 @@ public class OutlookService : IOutlookService, IScopedService
                 $"receivedDateTime,sentDateTime,isRead,hasAttachments,isDraft,parentFolderId";
 
             var response = await _httpClient.GetAsync(url);
-            
+
             if (!response.IsSuccessStatusCode)
             {
                 return null;
@@ -262,7 +264,7 @@ public class OutlookService : IOutlookService, IScopedService
     {
         try
         {
-            _httpClient.DefaultRequestHeaders.Authorization = 
+            _httpClient.DefaultRequestHeaders.Authorization =
                 new AuthenticationHeaderValue("Bearer", accessToken);
 
             // Build message object
@@ -322,7 +324,7 @@ public class OutlookService : IOutlookService, IScopedService
             var content = new StringContent(json, Encoding.UTF8, "application/json");
 
             var response = await _httpClient.PostAsync($"{_options.BaseUrl}/me/sendMail", content);
-            
+
             if (!response.IsSuccessStatusCode)
             {
                 var errorContent = await response.Content.ReadAsStringAsync();
@@ -330,7 +332,7 @@ public class OutlookService : IOutlookService, IScopedService
                 return false;
             }
 
-            _logger.LogInformation("Email sent successfully with {AttachmentCount} attachments", 
+            _logger.LogInformation("Email sent successfully with {AttachmentCount} attachments",
                 input.Attachments?.Count ?? 0);
             return true;
         }
@@ -364,11 +366,11 @@ public class OutlookService : IOutlookService, IScopedService
     {
         try
         {
-            _httpClient.DefaultRequestHeaders.Authorization = 
+            _httpClient.DefaultRequestHeaders.Authorization =
                 new AuthenticationHeaderValue("Bearer", accessToken);
 
             var response = await _httpClient.DeleteAsync($"{_options.BaseUrl}/me/messages/{messageId}");
-            
+
             return response.IsSuccessStatusCode;
         }
         catch (Exception ex)
@@ -385,7 +387,7 @@ public class OutlookService : IOutlookService, IScopedService
     {
         try
         {
-            _httpClient.DefaultRequestHeaders.Authorization = 
+            _httpClient.DefaultRequestHeaders.Authorization =
                 new AuthenticationHeaderValue("Bearer", accessToken);
 
             var body = new { destinationId = destinationFolderId };
@@ -394,7 +396,7 @@ public class OutlookService : IOutlookService, IScopedService
 
             var response = await _httpClient.PostAsync(
                 $"{_options.BaseUrl}/me/messages/{messageId}/move", content);
-            
+
             return response.IsSuccessStatusCode;
         }
         catch (Exception ex)
@@ -411,12 +413,12 @@ public class OutlookService : IOutlookService, IScopedService
     {
         try
         {
-            _httpClient.DefaultRequestHeaders.Authorization = 
+            _httpClient.DefaultRequestHeaders.Authorization =
                 new AuthenticationHeaderValue("Bearer", accessToken);
 
             var url = $"{_options.BaseUrl}/me/mailFolders/{folderId}?$select=displayName,totalItemCount,unreadItemCount";
             var response = await _httpClient.GetAsync(url);
-            
+
             if (!response.IsSuccessStatusCode)
             {
                 return null;
@@ -466,17 +468,17 @@ public class OutlookService : IOutlookService, IScopedService
                 if (localFolder == "Sent" && email.SentDateTime.HasValue)
                 {
                     var localMessage = await _messageRepository.FindLocalSentMessageAsync(
-                        ownerId, 
-                        email.Subject ?? "", 
+                        ownerId,
+                        email.Subject ?? "",
                         email.SentDateTime.Value,
                         TimeSpan.FromMinutes(5));
-                    
+
                     if (localMessage != null)
                     {
                         // Update the local message with ExternalMessageId
                         localMessage.ExternalMessageId = email.Id;
                         await _messageRepository.UpdateAsync(localMessage);
-                        _logger.LogInformation("Linked local sent message {LocalId} with Outlook message {OutlookId}", 
+                        _logger.LogInformation("Linked local sent message {LocalId} with Outlook message {OutlookId}",
                             localMessage.Id, email.Id);
                         continue;
                     }
@@ -529,13 +531,13 @@ public class OutlookService : IOutlookService, IScopedService
     {
         try
         {
-            _httpClient.DefaultRequestHeaders.Authorization = 
+            _httpClient.DefaultRequestHeaders.Authorization =
                 new AuthenticationHeaderValue("Bearer", accessToken);
 
             var json = JsonSerializer.Serialize(updateData);
             var content = new StringContent(json, Encoding.UTF8, "application/json");
 
-            var request = new HttpRequestMessage(new HttpMethod("PATCH"), 
+            var request = new HttpRequestMessage(new HttpMethod("PATCH"),
                 $"{_options.BaseUrl}/me/messages/{messageId}")
             {
                 Content = content
