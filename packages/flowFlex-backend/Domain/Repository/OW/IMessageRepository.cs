@@ -131,5 +131,10 @@ namespace FlowFlex.Domain.Repository.OW
         /// Find a locally sent message by subject and sent time (for linking with Outlook sync)
         /// </summary>
         Task<Message?> FindLocalSentMessageAsync(long ownerId, string subject, DateTimeOffset sentTime, TimeSpan tolerance);
+
+        /// <summary>
+        /// Get messages by folder that have ExternalMessageId (for sync deleted detection)
+        /// </summary>
+        Task<List<Message>> GetByFolderWithExternalIdAsync(long ownerId, string folder);
     }
 }

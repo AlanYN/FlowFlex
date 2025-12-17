@@ -5,10 +5,12 @@ using System.Text.RegularExpressions;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using FlowFlex.Domain.Shared;
+using FlowFlex.Domain.Shared.Models;
 using FlowFlex.Domain.Entities.OW;
 using FlowFlex.Domain.Repository.OW;
 using FlowFlex.Application.Contracts.Dtos.OW.Message;
 using FlowFlex.Application.Contracts.IServices.OW;
+using FlowFlex.Application.Services.OW.Extensions;
 
 namespace FlowFlex.Application.Services.OW;
 
@@ -20,17 +22,23 @@ public class OutlookService : IOutlookService, IScopedService
     private readonly HttpClient _httpClient;
     private readonly OutlookOptions _options;
     private readonly IMessageRepository _messageRepository;
+    private readonly IMessageAttachmentRepository _attachmentRepository;
+    private readonly UserContext _userContext;
     private readonly ILogger<OutlookService> _logger;
 
     public OutlookService(
         HttpClient httpClient,
         IOptions<OutlookOptions> options,
         IMessageRepository messageRepository,
+        IMessageAttachmentRepository attachmentRepository,
+        UserContext userContext,
         ILogger<OutlookService> logger)
     {
         _httpClient = httpClient;
         _options = options.Value;
         _messageRepository = messageRepository;
+        _attachmentRepository = attachmentRepository;
+        _userContext = userContext;
         _logger = logger;
     }
 
@@ -371,7 +379,7 @@ public class OutlookService : IOutlookService, IScopedService
     }
 
     /// <summary>
-    /// Delete email (move to deleted items)
+    /// Delete email (move to deleted items folder)
     /// </summary>
     public async Task<bool> DeleteEmailAsync(string accessToken, string messageId)
     {
@@ -380,7 +388,14 @@ public class OutlookService : IOutlookService, IScopedService
             _httpClient.DefaultRequestHeaders.Authorization =
                 new AuthenticationHeaderValue("Bearer", accessToken);
 
-            var response = await _httpClient.DeleteAsync($"{_options.BaseUrl}/me/messages/{messageId}");
+            // Move to deleted items folder instead of permanent delete
+            // This matches user expectation: delete = move to trash, not permanent delete
+            var body = new { destinationId = "deleteditems" };
+            var json = JsonSerializer.Serialize(body);
+            var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+            var response = await _httpClient.PostAsync(
+                $"{_options.BaseUrl}/me/messages/{messageId}/move", content);
 
             return response.IsSuccessStatusCode;
         }
@@ -480,16 +495,40 @@ public class OutlookService : IOutlookService, IScopedService
         {
             var emails = await GetEmailsAsync(accessToken, folderId, maxCount, 0);
             var syncedCount = 0;
+            var localFolder = MapOutlookFolderToLocal(folderId);
+
+            // Get set of external message IDs from Outlook
+            var outlookMessageIds = emails.Select(e => e.Id).ToHashSet();
+
+            // Check for deleted emails: local emails that no longer exist in Outlook
+            await SyncDeletedEmailsAsync(ownerId, localFolder, outlookMessageIds);
 
             foreach (var email in emails)
             {
-                // Check if already exists by ExternalMessageId
+                // Check if already exists by ExternalMessageId (in any folder, including Trash)
                 var existing = await _messageRepository.GetByExternalMessageIdAsync(email.Id, ownerId);
-                if (existing != null) continue;
+                if (existing != null)
+                {
+                    // If email exists in Trash, don't restore it - user deleted it intentionally
+                    if (existing.Folder == "Trash")
+                    {
+                        _logger.LogDebug("Skipping email {ExternalMessageId} - already in Trash", email.Id);
+                        continue;
+                    }
+
+                    // Update read status if changed (only for non-Trash emails)
+                    if (existing.IsRead != email.IsRead)
+                    {
+                        existing.IsRead = email.IsRead;
+                        existing.ModifyDate = DateTimeOffset.UtcNow;
+                        await _messageRepository.UpdateAsync(existing);
+                        _logger.LogDebug("Updated read status for message {MessageId}", existing.Id);
+                    }
+                    continue;
+                }
 
                 // Check if this is a locally sent email (same subject, sender, and sent time within 5 minutes)
                 // This handles the case where we sent an email locally but haven't set ExternalMessageId yet
-                var localFolder = MapOutlookFolderToLocal(folderId);
                 if (localFolder == "Sent" && email.SentDateTime.HasValue)
                 {
                     var localMessage = await _messageRepository.FindLocalSentMessageAsync(
@@ -527,14 +566,20 @@ public class OutlookService : IOutlookService, IScopedService
                     SentDate = email.SentDateTime,
                     ReceivedDate = email.ReceivedDateTime,
                     ExternalMessageId = email.Id,
-                    OwnerId = ownerId,
-                    IsValid = true
+                    OwnerId = ownerId
                 };
 
-                // Initialize snowflake ID before insert
-                message.InitNewId();
+                // Initialize create info (sets Id, TenantId, AppCode, timestamps, etc.)
+                message.InitCreateInfo(_userContext);
 
                 await _messageRepository.InsertAsync(message);
+
+                // Sync attachments if email has attachments
+                if (email.HasAttachments)
+                {
+                    await SyncAttachmentsAsync(accessToken, email.Id, message.Id);
+                }
+
                 syncedCount++;
             }
 
@@ -545,6 +590,166 @@ public class OutlookService : IOutlookService, IScopedService
         {
             _logger.LogError(ex, "Error syncing emails from Outlook");
             return 0;
+        }
+    }
+
+    /// <summary>
+    /// Sync deleted emails: move local emails to Trash if they no longer exist in Outlook
+    /// </summary>
+    private async Task SyncDeletedEmailsAsync(long ownerId, string folder, HashSet<string> outlookMessageIds)
+    {
+        try
+        {
+            // Get local emails with ExternalMessageId in this folder
+            var localEmails = await _messageRepository.GetByFolderWithExternalIdAsync(ownerId, folder);
+
+            foreach (var localEmail in localEmails)
+            {
+                if (string.IsNullOrEmpty(localEmail.ExternalMessageId)) continue;
+
+                // If local email's ExternalMessageId is not in Outlook's list, it was deleted
+                if (!outlookMessageIds.Contains(localEmail.ExternalMessageId))
+                {
+                    // Move to Trash
+                    await _messageRepository.MoveToFolderAsync(localEmail.Id, "Trash", localEmail.Folder);
+                    _logger.LogInformation("Moved deleted email {MessageId} to Trash (no longer in Outlook)",
+                        localEmail.Id);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error syncing deleted emails for user {UserId}", ownerId);
+            // Don't throw - continue with sync
+        }
+    }
+
+    /// <summary>
+    /// Download attachment content from Outlook
+    /// </summary>
+    public async Task<byte[]?> DownloadAttachmentAsync(string accessToken, string externalMessageId, string externalAttachmentId)
+    {
+        try
+        {
+            _httpClient.DefaultRequestHeaders.Authorization =
+                new AuthenticationHeaderValue("Bearer", accessToken);
+
+            // Get attachment with content bytes
+            var url = $"{_options.BaseUrl}/me/messages/{externalMessageId}/attachments/{externalAttachmentId}";
+
+            var response = await _httpClient.GetAsync(url);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                var errorContent = await response.Content.ReadAsStringAsync();
+                _logger.LogWarning("Failed to download attachment {AttachmentId} for message {MessageId}: {Error}",
+                    externalAttachmentId, externalMessageId, errorContent);
+                return null;
+            }
+
+            var content = await response.Content.ReadAsStringAsync();
+            var attachment = JsonSerializer.Deserialize<GraphAttachment>(content);
+
+            if (attachment?.ContentBytes == null)
+            {
+                _logger.LogWarning("Attachment {AttachmentId} has no content bytes", externalAttachmentId);
+                return null;
+            }
+
+            return Convert.FromBase64String(attachment.ContentBytes);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error downloading attachment {AttachmentId} for message {MessageId}",
+                externalAttachmentId, externalMessageId);
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Sync attachments for a specific message from Outlook (public interface)
+    /// </summary>
+    public async Task<int> SyncAttachmentsAsync(string accessToken, string externalMessageId, long localMessageId)
+    {
+        try
+        {
+            var attachments = await GetAttachmentsAsync(accessToken, externalMessageId);
+            var syncedCount = 0;
+
+            foreach (var attachment in attachments)
+            {
+                // Skip if already synced
+                if (!string.IsNullOrEmpty(attachment.Id))
+                {
+                    var existing = await _attachmentRepository.GetByExternalAttachmentIdAsync(attachment.Id);
+                    if (existing != null) continue;
+                }
+
+                // Create local attachment record (without downloading content for now)
+                var localAttachment = new MessageAttachment
+                {
+                    MessageId = localMessageId,
+                    FileName = attachment.Name ?? "attachment",
+                    FileSize = attachment.Size ?? 0,
+                    ContentType = attachment.ContentType ?? "application/octet-stream",
+                    ExternalAttachmentId = attachment.Id,
+                    ContentId = attachment.ContentId?.Trim('<', '>'),
+                    IsInline = attachment.IsInline ?? false,
+                    StoragePath = "" // Will be populated when user downloads
+                };
+
+                // Initialize create info (sets Id, TenantId, AppCode, timestamps, etc.)
+                localAttachment.InitCreateInfo(_userContext);
+                await _attachmentRepository.InsertAsync(localAttachment);
+                syncedCount++;
+            }
+
+            _logger.LogDebug("Synced {Count} attachments for message {MessageId}", syncedCount, externalMessageId);
+            return syncedCount;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error syncing attachments for message {MessageId}", externalMessageId);
+            return 0;
+        }
+    }
+
+    /// <summary>
+    /// Get attachments metadata for a message (without content bytes for performance)
+    /// </summary>
+    private async Task<List<GraphAttachment>> GetAttachmentsAsync(string accessToken, string messageId)
+    {
+        try
+        {
+            _httpClient.DefaultRequestHeaders.Authorization =
+                new AuthenticationHeaderValue("Bearer", accessToken);
+
+            // Get attachment metadata only (no contentBytes for performance)
+            var url = $"{_options.BaseUrl}/me/messages/{messageId}/attachments";
+
+            var response = await _httpClient.GetAsync(url);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                var errorContent = await response.Content.ReadAsStringAsync();
+                _logger.LogWarning("Failed to get attachments for message {MessageId}: {Error}", messageId, errorContent);
+                return new List<GraphAttachment>();
+            }
+
+            var content = await response.Content.ReadAsStringAsync();
+            var result = JsonSerializer.Deserialize<GraphAttachmentListResponse>(content);
+
+            // Filter out inline attachments (they are embedded in HTML body)
+            var regularAttachments = result?.Value?
+                .Where(a => a.IsInline != true)
+                .ToList() ?? new List<GraphAttachment>();
+
+            return regularAttachments;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting attachments for message {MessageId}", messageId);
+            return new List<GraphAttachment>();
         }
     }
 

@@ -93,6 +93,25 @@ public interface IOutlookService : IScopedService
     /// </summary>
     Task<int> SyncEmailsToLocalAsync(string accessToken, long ownerId, string folderId = "inbox", int maxCount = 100);
 
+    /// <summary>
+    /// Sync attachments for a specific message from Outlook
+    /// Used for messages that were synced before attachment sync was implemented
+    /// </summary>
+    /// <param name="accessToken">Outlook access token</param>
+    /// <param name="externalMessageId">External message ID in Outlook</param>
+    /// <param name="localMessageId">Local message ID</param>
+    /// <returns>Number of attachments synced</returns>
+    Task<int> SyncAttachmentsAsync(string accessToken, string externalMessageId, long localMessageId);
+
+    /// <summary>
+    /// Download attachment content from Outlook
+    /// </summary>
+    /// <param name="accessToken">Outlook access token</param>
+    /// <param name="externalMessageId">External message ID in Outlook</param>
+    /// <param name="externalAttachmentId">External attachment ID in Outlook</param>
+    /// <returns>Attachment content as byte array, or null if not found</returns>
+    Task<byte[]?> DownloadAttachmentAsync(string accessToken, string externalMessageId, string externalAttachmentId);
+
     #endregion
 }
 

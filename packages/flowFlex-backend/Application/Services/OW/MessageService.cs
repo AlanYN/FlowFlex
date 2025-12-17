@@ -231,12 +231,27 @@ public class MessageService : IMessageService, IScopedService
         // Auto-mark as read if unread
         if (!message.IsRead)
         {
+            // Sync read status to Outlook if this is an external email
+            if (message.MessageType == "Email" && !string.IsNullOrEmpty(message.ExternalMessageId))
+            {
+                await TrySyncReadStatusToOutlookAsync(message, true);
+            }
+
             await _messageRepository.MarkAsReadAsync(id);
             message.IsRead = true;
         }
 
         // Get attachments
         var attachments = await _attachmentRepository.GetByMessageIdAsync(id);
+
+        // Sync attachments if email has attachments but none are in local database
+        if (message.MessageType == "Email" && message.HasAttachments &&
+            attachments.Count == 0 && !string.IsNullOrEmpty(message.ExternalMessageId))
+        {
+            await TrySyncAttachmentsAsync(message);
+            // Reload attachments after sync
+            attachments = await _attachmentRepository.GetByMessageIdAsync(id);
+        }
 
         return MapToDetailDto(message, attachments);
     }
@@ -313,6 +328,39 @@ public class MessageService : IMessageService, IScopedService
         catch (Exception)
         {
             // Silently ignore - user can still see the email with broken images
+        }
+    }
+
+    /// <summary>
+    /// Try to sync attachments for a message from Outlook
+    /// Used for emails that were synced before attachment sync was implemented
+    /// </summary>
+    private async Task TrySyncAttachmentsAsync(Message message)
+    {
+        try
+        {
+            var binding = await _emailBindingRepository.GetByUserIdAndProviderAsync(message.OwnerId, "Outlook");
+            if (binding == null || string.IsNullOrEmpty(binding.AccessToken)) return;
+
+            // Refresh token if needed
+            if (binding.TokenExpireTime <= DateTimeOffset.UtcNow.AddMinutes(5))
+            {
+                if (string.IsNullOrEmpty(binding.RefreshToken)) return;
+                var newToken = await _outlookService.RefreshTokenAsync(binding.RefreshToken);
+                if (newToken == null) return;
+                await _emailBindingRepository.UpdateTokenAsync(binding.Id, newToken.AccessToken, newToken.RefreshToken, newToken.ExpiresAt);
+                binding.AccessToken = newToken.AccessToken;
+            }
+
+            // Sync attachments
+            await _outlookService.SyncAttachmentsAsync(
+                binding.AccessToken,
+                message.ExternalMessageId!,
+                message.Id);
+        }
+        catch (Exception)
+        {
+            // Silently ignore - user can still see the email without attachments
         }
     }
 
@@ -396,6 +444,12 @@ public class MessageService : IMessageService, IScopedService
             throw new CRMException(ErrorCodeEnum.OperationNotAllowed, "You don't have permission to delete this message");
         }
 
+        // Sync delete to Outlook if this is an external email
+        if (message.MessageType == "Email" && !string.IsNullOrEmpty(message.ExternalMessageId))
+        {
+            await TryDeleteFromOutlookAsync(message);
+        }
+
         // Move to Trash, save original folder for restore
         return await _messageRepository.MoveToFolderAsync(id, "Trash", message.Folder);
     }
@@ -418,11 +472,55 @@ public class MessageService : IMessageService, IScopedService
             throw new CRMException(ErrorCodeEnum.OperationNotAllowed, "You don't have permission to delete this message");
         }
 
+        // Sync delete to Outlook if this is an external email
+        if (message.MessageType == "Email" && !string.IsNullOrEmpty(message.ExternalMessageId))
+        {
+            await TryDeleteFromOutlookAsync(message);
+        }
+
         // Delete attachments first
         await _attachmentRepository.DeleteByMessageIdAsync(id);
 
         // Permanently delete message
         return await _messageRepository.PermanentDeleteAsync(id);
+    }
+
+    /// <summary>
+    /// Try to delete email from Outlook (move to deleted items)
+    /// </summary>
+    private async Task TryDeleteFromOutlookAsync(Message message)
+    {
+        try
+        {
+            var binding = await _emailBindingRepository.GetByUserIdAndProviderAsync(message.OwnerId, "Outlook");
+            if (binding == null || string.IsNullOrEmpty(binding.AccessToken)) return;
+
+            // Refresh token if needed
+            if (binding.TokenExpireTime <= DateTimeOffset.UtcNow.AddMinutes(5))
+            {
+                if (string.IsNullOrEmpty(binding.RefreshToken)) return;
+                var newToken = await _outlookService.RefreshTokenAsync(binding.RefreshToken);
+                if (newToken == null) return;
+                await _emailBindingRepository.UpdateTokenAsync(binding.Id, newToken.AccessToken, newToken.RefreshToken, newToken.ExpiresAt);
+                binding.AccessToken = newToken.AccessToken;
+            }
+
+            // Delete from Outlook (moves to deleted items)
+            var success = await _outlookService.DeleteEmailAsync(binding.AccessToken, message.ExternalMessageId!);
+            if (success)
+            {
+                _logger.LogInformation("Deleted email {ExternalMessageId} from Outlook", message.ExternalMessageId);
+            }
+            else
+            {
+                _logger.LogWarning("Failed to delete email {ExternalMessageId} from Outlook", message.ExternalMessageId);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error deleting email {ExternalMessageId} from Outlook", message.ExternalMessageId);
+            // Silently ignore - local delete will still proceed
+        }
     }
 
     /// <summary>
@@ -500,7 +598,14 @@ public class MessageService : IMessageService, IScopedService
     /// </summary>
     public async Task<bool> MarkAsReadAsync(long id)
     {
-        await VerifyMessageOwnership(id);
+        var message = await VerifyMessageOwnership(id);
+
+        // Sync read status to Outlook if this is an external email
+        if (message.MessageType == "Email" && !string.IsNullOrEmpty(message.ExternalMessageId))
+        {
+            await TrySyncReadStatusToOutlookAsync(message, true);
+        }
+
         return await _messageRepository.MarkAsReadAsync(id);
     }
 
@@ -509,8 +614,65 @@ public class MessageService : IMessageService, IScopedService
     /// </summary>
     public async Task<bool> MarkAsUnreadAsync(long id)
     {
-        await VerifyMessageOwnership(id);
+        var message = await VerifyMessageOwnership(id);
+
+        // Sync read status to Outlook if this is an external email
+        if (message.MessageType == "Email" && !string.IsNullOrEmpty(message.ExternalMessageId))
+        {
+            await TrySyncReadStatusToOutlookAsync(message, false);
+        }
+
         return await _messageRepository.MarkAsUnreadAsync(id);
+    }
+
+    /// <summary>
+    /// Try to sync read status to Outlook
+    /// </summary>
+    private async Task TrySyncReadStatusToOutlookAsync(Message message, bool isRead)
+    {
+        try
+        {
+            var binding = await _emailBindingRepository.GetByUserIdAndProviderAsync(message.OwnerId, "Outlook");
+            if (binding == null || string.IsNullOrEmpty(binding.AccessToken)) return;
+
+            // Refresh token if needed
+            if (binding.TokenExpireTime <= DateTimeOffset.UtcNow.AddMinutes(5))
+            {
+                if (string.IsNullOrEmpty(binding.RefreshToken)) return;
+                var newToken = await _outlookService.RefreshTokenAsync(binding.RefreshToken);
+                if (newToken == null) return;
+                await _emailBindingRepository.UpdateTokenAsync(binding.Id, newToken.AccessToken, newToken.RefreshToken, newToken.ExpiresAt);
+                binding.AccessToken = newToken.AccessToken;
+            }
+
+            // Sync read status to Outlook
+            bool success;
+            if (isRead)
+            {
+                success = await _outlookService.MarkAsReadAsync(binding.AccessToken, message.ExternalMessageId!);
+            }
+            else
+            {
+                success = await _outlookService.MarkAsUnreadAsync(binding.AccessToken, message.ExternalMessageId!);
+            }
+
+            if (success)
+            {
+                _logger.LogInformation("Synced read status ({IsRead}) for email {ExternalMessageId} to Outlook",
+                    isRead, message.ExternalMessageId);
+            }
+            else
+            {
+                _logger.LogWarning("Failed to sync read status for email {ExternalMessageId} to Outlook",
+                    message.ExternalMessageId);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error syncing read status for email {ExternalMessageId} to Outlook",
+                message.ExternalMessageId);
+            // Silently ignore - local update will still proceed
+        }
     }
 
     #endregion

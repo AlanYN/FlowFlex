@@ -130,18 +130,11 @@ public class EmailBindingService : IEmailBindingService, IScopedService
             TokenExpireTime = tokenResult.ExpiresAt,
             SyncStatus = "Active",
             AutoSyncEnabled = true,
-            SyncIntervalMinutes = 15,
-            CreateDate = DateTimeOffset.UtcNow,
-            ModifyDate = DateTimeOffset.UtcNow,
-            CreateBy = "OAuth Callback",
-            ModifyBy = "OAuth Callback",
-            CreateUserId = userId,
-            ModifyUserId = userId,
-            IsValid = true
+            SyncIntervalMinutes = 15
         };
 
-        // Initialize snowflake ID before insert
-        binding.InitNewId();
+        // Initialize create info (sets Id, TenantId, AppCode, timestamps, etc.)
+        binding.InitCreateInfo(_userContext);
 
         await _bindingRepository.InsertAsync(binding);
 

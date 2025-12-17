@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Logging;
 using FlowFlex.Application.Contracts;
 using FlowFlex.Application.Contracts.Dtos.OW.Message;
 using FlowFlex.Application.Contracts.IServices.OW;
@@ -18,21 +19,30 @@ public class MessageAttachmentService : IMessageAttachmentService, IScopedServic
 {
     private readonly IMessageAttachmentRepository _attachmentRepository;
     private readonly IMessageRepository _messageRepository;
+    private readonly IEmailBindingRepository _emailBindingRepository;
     private readonly IFileStorageService _fileStorageService;
+    private readonly IOutlookService _outlookService;
     private readonly UserContext _userContext;
+    private readonly ILogger<MessageAttachmentService> _logger;
 
     private const string AttachmentCategory = "MessageAttachments";
 
     public MessageAttachmentService(
         IMessageAttachmentRepository attachmentRepository,
         IMessageRepository messageRepository,
+        IEmailBindingRepository emailBindingRepository,
         IFileStorageService fileStorageService,
-        UserContext userContext)
+        IOutlookService outlookService,
+        UserContext userContext,
+        ILogger<MessageAttachmentService> logger)
     {
         _attachmentRepository = attachmentRepository;
         _messageRepository = messageRepository;
+        _emailBindingRepository = emailBindingRepository;
         _fileStorageService = fileStorageService;
+        _outlookService = outlookService;
         _userContext = userContext;
+        _logger = logger;
     }
 
     /// <summary>
@@ -151,12 +161,19 @@ public class MessageAttachmentService : IMessageAttachmentService, IScopedServic
         }
 
         // Verify user has access to the parent message (if associated)
+        Message? message = null;
         if (attachment.MessageId > 0)
         {
-            await VerifyMessageAccessAsync(attachment.MessageId);
+            message = await VerifyMessageAccessAndGetAsync(attachment.MessageId);
         }
 
-        // Get file from storage
+        // If StoragePath is empty but has ExternalAttachmentId, download from Outlook
+        if (string.IsNullOrEmpty(attachment.StoragePath) && !string.IsNullOrEmpty(attachment.ExternalAttachmentId))
+        {
+            return await DownloadFromOutlookAsync(attachment, message);
+        }
+
+        // Get file from local storage
         try
         {
             var (stream, _, _) = await _fileStorageService.GetFileAsync(attachment.StoragePath);
@@ -164,6 +181,76 @@ public class MessageAttachmentService : IMessageAttachmentService, IScopedServic
         }
         catch
         {
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Download attachment from Outlook and optionally cache to local storage
+    /// </summary>
+    private async Task<(Stream Content, string ContentType, string FileName)?> DownloadFromOutlookAsync(
+        MessageAttachment attachment, Message? message)
+    {
+        try
+        {
+            if (message == null || string.IsNullOrEmpty(message.ExternalMessageId))
+            {
+                _logger.LogWarning("Cannot download attachment {AttachmentId}: message or external message ID is missing",
+                    attachment.Id);
+                return null;
+            }
+
+            // Get Outlook binding for the message owner
+            var binding = await _emailBindingRepository.GetByUserIdAndProviderAsync(message.OwnerId, "Outlook");
+            if (binding == null || string.IsNullOrEmpty(binding.AccessToken))
+            {
+                _logger.LogWarning("Cannot download attachment {AttachmentId}: no Outlook binding found", attachment.Id);
+                return null;
+            }
+
+            // Refresh token if needed
+            if (binding.TokenExpireTime <= DateTimeOffset.UtcNow.AddMinutes(5))
+            {
+                if (string.IsNullOrEmpty(binding.RefreshToken))
+                {
+                    _logger.LogWarning("Cannot download attachment {AttachmentId}: token expired and no refresh token",
+                        attachment.Id);
+                    return null;
+                }
+
+                var newToken = await _outlookService.RefreshTokenAsync(binding.RefreshToken);
+                if (newToken == null)
+                {
+                    _logger.LogWarning("Cannot download attachment {AttachmentId}: token refresh failed", attachment.Id);
+                    return null;
+                }
+
+                await _emailBindingRepository.UpdateTokenAsync(binding.Id, newToken.AccessToken,
+                    newToken.RefreshToken, newToken.ExpiresAt);
+                binding.AccessToken = newToken.AccessToken;
+            }
+
+            // Download attachment from Outlook
+            var contentBytes = await _outlookService.DownloadAttachmentAsync(
+                binding.AccessToken,
+                message.ExternalMessageId,
+                attachment.ExternalAttachmentId!);
+
+            if (contentBytes == null)
+            {
+                _logger.LogWarning("Failed to download attachment {AttachmentId} from Outlook", attachment.Id);
+                return null;
+            }
+
+            _logger.LogInformation("Downloaded attachment {AttachmentId} ({FileName}) from Outlook, size: {Size} bytes",
+                attachment.Id, attachment.FileName, contentBytes.Length);
+
+            var stream = new MemoryStream(contentBytes);
+            return (stream, attachment.ContentType, attachment.FileName);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error downloading attachment {AttachmentId} from Outlook", attachment.Id);
             return null;
         }
     }
@@ -223,6 +310,11 @@ public class MessageAttachmentService : IMessageAttachmentService, IScopedServic
 
     private async Task VerifyMessageAccessAsync(long messageId)
     {
+        await VerifyMessageAccessAndGetAsync(messageId);
+    }
+
+    private async Task<Message> VerifyMessageAccessAndGetAsync(long messageId)
+    {
         var message = await _messageRepository.GetByIdAsync(messageId);
         if (message == null || !message.IsValid)
         {
@@ -234,6 +326,8 @@ public class MessageAttachmentService : IMessageAttachmentService, IScopedServic
         {
             throw new CRMException(ErrorCodeEnum.OperationNotAllowed, "You don't have permission to access this message");
         }
+
+        return message;
     }
 
     private static MessageAttachmentDto MapToDto(MessageAttachment attachment)

@@ -440,4 +440,18 @@ public class MessageRepository : BaseRepository<Message>, IMessageRepository, IS
             .OrderByDescending(x => x.SentDate)
             .FirstAsync();
     }
+
+    /// <summary>
+    /// Get messages by folder that have ExternalMessageId (for sync deleted detection)
+    /// </summary>
+    public async Task<List<Message>> GetByFolderWithExternalIdAsync(long ownerId, string folder)
+    {
+        return await db.Queryable<Message>()
+            .Where(x => x.OwnerId == ownerId 
+                && x.IsValid 
+                && x.Folder == folder
+                && x.MessageType == "Email"
+                && !string.IsNullOrEmpty(x.ExternalMessageId))
+            .ToListAsync();
+    }
 }
