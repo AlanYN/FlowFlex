@@ -1,7 +1,9 @@
 using System.Text.Json;
 using AutoMapper;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using FlowFlex.Application.Contracts;
 using FlowFlex.Application.Contracts.Dtos;
 using FlowFlex.Application.Contracts.Dtos.OW.Message;
 using FlowFlex.Application.Contracts.IServices.OW;
@@ -828,23 +830,137 @@ public class MessageService : IMessageService, IScopedService
 
     private async Task<long> CreateEmailMessageAsync(MessageCreateDto input, long ownerId, string senderName, string senderEmail)
     {
-        // TODO: Implement Outlook integration when OutlookClient is available
-        // For now, create local record only
-        var message = CreateBaseMessage(input, ownerId, senderName, senderEmail);
+        // Check if user has Outlook binding
+        var binding = await _emailBindingRepository.GetByUserIdAndProviderAsync(ownerId, "Outlook");
+        if (binding == null || string.IsNullOrEmpty(binding.AccessToken))
+        {
+            throw new CRMException(ErrorCodeEnum.OperationNotAllowed, "Please bind your Outlook account first before sending emails");
+        }
+
+        // Refresh token if needed
+        if (binding.TokenExpireTime <= DateTimeOffset.UtcNow.AddMinutes(5))
+        {
+            if (string.IsNullOrEmpty(binding.RefreshToken))
+            {
+                throw new CRMException(ErrorCodeEnum.OperationNotAllowed, "Outlook token expired, please re-bind your account");
+            }
+            var newToken = await _outlookService.RefreshTokenAsync(binding.RefreshToken);
+            if (newToken == null)
+            {
+                throw new CRMException(ErrorCodeEnum.OperationNotAllowed, "Failed to refresh Outlook token, please re-bind your account");
+            }
+            await _emailBindingRepository.UpdateTokenAsync(binding.Id, newToken.AccessToken, newToken.RefreshToken, newToken.ExpiresAt);
+            binding.AccessToken = newToken.AccessToken;
+        }
+
+        // Build send email DTO
+        var sendEmailDto = new OutlookSendEmailDto
+        {
+            Subject = input.Subject,
+            Body = input.Body,
+            IsHtml = input.IsHtml,
+            ToRecipients = input.Recipients.Select(r => new RecipientDto { Name = r.Name, Email = r.Email }).ToList(),
+            CcRecipients = input.CcRecipients?.Select(r => new RecipientDto { Name = r.Name, Email = r.Email }).ToList(),
+            BccRecipients = input.BccRecipients?.Select(r => new RecipientDto { Name = r.Name, Email = r.Email }).ToList()
+        };
+
+        // Load attachments if present
+        if (input.AttachmentIds?.Any() == true)
+        {
+            sendEmailDto.Attachments = await LoadAttachmentsForOutlookAsync(input.AttachmentIds);
+        }
+
+        // Send email via Outlook
+        var sendResult = await _outlookService.SendEmailAsync(binding.AccessToken, sendEmailDto);
+        if (!sendResult)
+        {
+            throw new CRMException(ErrorCodeEnum.BusinessError, "Failed to send email via Outlook");
+        }
+
+        // Create local record
+        var message = CreateBaseMessage(input, ownerId, senderName, binding.Email ?? senderEmail);
         message.Labels = "[\"External\"]";
 
         message.InitCreateInfo(_userContext);
         await _messageRepository.InsertAsync(message);
 
-        // Associate attachments
+        // Associate attachments with local message record
         if (input.AttachmentIds?.Any() == true)
         {
-            await _attachmentRepository.AssociateWithMessageAsync(input.AttachmentIds, message.Id);
+            _logger.LogInformation("Associating {AttachmentCount} attachments {AttachmentIds} with message {MessageId}", 
+                input.AttachmentIds.Count, 
+                string.Join(", ", input.AttachmentIds),
+                message.Id);
+            
+            var associateResult = await _attachmentRepository.AssociateWithMessageAsync(input.AttachmentIds, message.Id);
+            _logger.LogInformation("Attachment association result: {Result}", associateResult);
+            
             message.HasAttachments = true;
             await _messageRepository.UpdateAsync(message);
         }
 
+        _logger.LogInformation("Email sent via Outlook to {Recipients} with {AttachmentCount} attachments by user {UserId}, MessageId: {MessageId}", 
+            string.Join(", ", input.Recipients.Select(r => r.Email)), 
+            input.AttachmentIds?.Count ?? 0,
+            ownerId,
+            message.Id);
+
         return message.Id;
+    }
+
+    /// <summary>
+    /// Load attachments from storage for sending via Outlook
+    /// </summary>
+    private async Task<List<OutlookAttachmentDto>> LoadAttachmentsForOutlookAsync(List<long> attachmentIds)
+    {
+        var outlookAttachments = new List<OutlookAttachmentDto>();
+
+        foreach (var attachmentId in attachmentIds)
+        {
+            try
+            {
+                var attachment = await _attachmentRepository.GetByIdAsync(attachmentId);
+                if (attachment == null || !attachment.IsValid)
+                {
+                    _logger.LogWarning("Attachment {AttachmentId} not found or invalid, skipping", attachmentId);
+                    continue;
+                }
+
+                // Get file content from storage
+                var (stream, _, _) = await GetFileStorageService().GetFileAsync(attachment.StoragePath);
+                using var memoryStream = new MemoryStream();
+                await stream.CopyToAsync(memoryStream);
+                var contentBytes = memoryStream.ToArray();
+
+                outlookAttachments.Add(new OutlookAttachmentDto
+                {
+                    FileName = attachment.FileName,
+                    ContentType = attachment.ContentType,
+                    ContentBytes = contentBytes,
+                    IsInline = attachment.IsInline,
+                    ContentId = attachment.ContentId
+                });
+
+                _logger.LogDebug("Loaded attachment {FileName} ({Size} bytes) for Outlook", 
+                    attachment.FileName, contentBytes.Length);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to load attachment {AttachmentId} for Outlook", attachmentId);
+                // Continue with other attachments
+            }
+        }
+
+        return outlookAttachments;
+    }
+
+    /// <summary>
+    /// Get file storage service from DI container
+    /// </summary>
+    private IFileStorageService GetFileStorageService()
+    {
+        return _httpContextAccessor.HttpContext?.RequestServices.GetService(typeof(IFileStorageService)) as IFileStorageService
+            ?? throw new CRMException(ErrorCodeEnum.BusinessError, "File storage service not available");
     }
 
     private async Task<long> CreatePortalMessageAsync(MessageCreateDto input, long ownerId, string senderName, string senderEmail)

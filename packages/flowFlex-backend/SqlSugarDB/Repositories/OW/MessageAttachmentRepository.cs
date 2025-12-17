@@ -37,13 +37,14 @@ public class MessageAttachmentRepository : BaseRepository<MessageAttachment>, IM
     }
 
     /// <summary>
-    /// Delete attachments by message ID
+    /// Delete attachments by message ID (soft delete)
     /// </summary>
     public async Task<bool> DeleteByMessageIdAsync(long messageId)
     {
+        var now = DateTimeOffset.UtcNow;
         return await db.Updateable<MessageAttachment>()
-            .SetColumns(x => x.IsValid == false)
-            .SetColumns(x => x.ModifyDate == DateTimeOffset.UtcNow)
+            .SetColumns(it => it.IsValid, false)
+            .SetColumns(it => it.ModifyDate, now)
             .Where(x => x.MessageId == messageId && x.IsValid)
             .ExecuteCommandAsync() > 0;
     }
@@ -56,11 +57,19 @@ public class MessageAttachmentRepository : BaseRepository<MessageAttachment>, IM
         if (attachmentIds == null || !attachmentIds.Any())
             return true;
 
-        return await db.Updateable<MessageAttachment>()
-            .SetColumns(x => x.MessageId == messageId)
-            .SetColumns(x => x.ModifyDate == DateTimeOffset.UtcNow)
-            .Where(x => attachmentIds.Contains(x.Id) && x.IsValid)
-            .ExecuteCommandAsync() > 0;
+        var now = DateTimeOffset.UtcNow;
+        // Update each attachment individually to ensure correct association
+        var count = 0;
+        foreach (var attachmentId in attachmentIds)
+        {
+            var result = await db.Updateable<MessageAttachment>()
+                .SetColumns(it => it.MessageId, messageId)
+                .SetColumns(it => it.ModifyDate, now)
+                .Where(x => x.Id == attachmentId && x.IsValid)
+                .ExecuteCommandAsync();
+            count += result;
+        }
+        return count > 0;
     }
 
     /// <summary>

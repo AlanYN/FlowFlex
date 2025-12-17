@@ -265,33 +265,60 @@ public class OutlookService : IOutlookService, IScopedService
             _httpClient.DefaultRequestHeaders.Authorization = 
                 new AuthenticationHeaderValue("Bearer", accessToken);
 
-            var message = new
+            // Build message object
+            var messageObj = new Dictionary<string, object>
             {
-                message = new
+                ["subject"] = input.Subject,
+                ["body"] = new Dictionary<string, object>
                 {
-                    subject = input.Subject,
-                    body = new
-                    {
-                        contentType = input.IsHtml ? "HTML" : "Text",
-                        content = input.Body
-                    },
-                    toRecipients = input.ToRecipients.Select(r => new
-                    {
-                        emailAddress = new { address = r.Email, name = r.Name }
-                    }).ToList(),
-                    ccRecipients = input.CcRecipients?.Select(r => new
-                    {
-                        emailAddress = new { address = r.Email, name = r.Name }
-                    }).ToList(),
-                    bccRecipients = input.BccRecipients?.Select(r => new
-                    {
-                        emailAddress = new { address = r.Email, name = r.Name }
-                    }).ToList()
+                    ["contentType"] = input.IsHtml ? "HTML" : "Text",
+                    ["content"] = input.Body
                 },
-                saveToSentItems = true
+                ["toRecipients"] = input.ToRecipients.Select(r => new
+                {
+                    emailAddress = new { address = r.Email, name = r.Name }
+                }).ToList()
             };
 
-            var json = JsonSerializer.Serialize(message);
+            // Add CC recipients if present
+            if (input.CcRecipients?.Any() == true)
+            {
+                messageObj["ccRecipients"] = input.CcRecipients.Select(r => new
+                {
+                    emailAddress = new { address = r.Email, name = r.Name }
+                }).ToList();
+            }
+
+            // Add BCC recipients if present
+            if (input.BccRecipients?.Any() == true)
+            {
+                messageObj["bccRecipients"] = input.BccRecipients.Select(r => new
+                {
+                    emailAddress = new { address = r.Email, name = r.Name }
+                }).ToList();
+            }
+
+            // Add attachments if present
+            if (input.Attachments?.Any() == true)
+            {
+                messageObj["attachments"] = input.Attachments.Select(a => new Dictionary<string, object>
+                {
+                    ["@odata.type"] = "#microsoft.graph.fileAttachment",
+                    ["name"] = a.FileName,
+                    ["contentType"] = a.ContentType,
+                    ["contentBytes"] = Convert.ToBase64String(a.ContentBytes),
+                    ["isInline"] = a.IsInline,
+                    ["contentId"] = a.ContentId ?? ""
+                }).ToList();
+            }
+
+            var requestBody = new Dictionary<string, object>
+            {
+                ["message"] = messageObj,
+                ["saveToSentItems"] = true
+            };
+
+            var json = JsonSerializer.Serialize(requestBody);
             var content = new StringContent(json, Encoding.UTF8, "application/json");
 
             var response = await _httpClient.PostAsync($"{_options.BaseUrl}/me/sendMail", content);
@@ -303,6 +330,8 @@ public class OutlookService : IOutlookService, IScopedService
                 return false;
             }
 
+            _logger.LogInformation("Email sent successfully with {AttachmentCount} attachments", 
+                input.Attachments?.Count ?? 0);
             return true;
         }
         catch (Exception ex)
@@ -427,9 +456,31 @@ public class OutlookService : IOutlookService, IScopedService
 
             foreach (var email in emails)
             {
-                // Check if already exists
+                // Check if already exists by ExternalMessageId
                 var existing = await _messageRepository.GetByExternalMessageIdAsync(email.Id, ownerId);
                 if (existing != null) continue;
+
+                // Check if this is a locally sent email (same subject, sender, and sent time within 5 minutes)
+                // This handles the case where we sent an email locally but haven't set ExternalMessageId yet
+                var localFolder = MapOutlookFolderToLocal(folderId);
+                if (localFolder == "Sent" && email.SentDateTime.HasValue)
+                {
+                    var localMessage = await _messageRepository.FindLocalSentMessageAsync(
+                        ownerId, 
+                        email.Subject ?? "", 
+                        email.SentDateTime.Value,
+                        TimeSpan.FromMinutes(5));
+                    
+                    if (localMessage != null)
+                    {
+                        // Update the local message with ExternalMessageId
+                        localMessage.ExternalMessageId = email.Id;
+                        await _messageRepository.UpdateAsync(localMessage);
+                        _logger.LogInformation("Linked local sent message {LocalId} with Outlook message {OutlookId}", 
+                            localMessage.Id, email.Id);
+                        continue;
+                    }
+                }
 
                 // Create local message
                 var message = new Message
@@ -438,7 +489,7 @@ public class OutlookService : IOutlookService, IScopedService
                     Body = email.Body ?? "",
                     BodyPreview = email.BodyPreview ?? "",
                     MessageType = "Email",
-                    Folder = MapOutlookFolderToLocal(folderId),
+                    Folder = localFolder,
                     Labels = "[\"External\"]",
                     SenderName = email.FromName ?? "",
                     SenderEmail = email.FromEmail ?? "",

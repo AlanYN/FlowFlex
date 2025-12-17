@@ -419,4 +419,25 @@ public class MessageRepository : BaseRepository<Message>, IMessageRepository, IS
             .Where(x => x.Id == id)
             .ExecuteCommandAsync() > 0;
     }
+
+    /// <summary>
+    /// Find a locally sent message by subject and sent time (for linking with Outlook sync)
+    /// </summary>
+    public async Task<Message?> FindLocalSentMessageAsync(long ownerId, string subject, DateTimeOffset sentTime, TimeSpan tolerance)
+    {
+        var minTime = sentTime.Add(-tolerance);
+        var maxTime = sentTime.Add(tolerance);
+
+        return await db.Queryable<Message>()
+            .Where(x => x.OwnerId == ownerId 
+                && x.IsValid 
+                && x.Folder == "Sent"
+                && x.MessageType == "Email"
+                && x.Subject == subject
+                && string.IsNullOrEmpty(x.ExternalMessageId)
+                && x.SentDate >= minTime 
+                && x.SentDate <= maxTime)
+            .OrderByDescending(x => x.SentDate)
+            .FirstAsync();
+    }
 }

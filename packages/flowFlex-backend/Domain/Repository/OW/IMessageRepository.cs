@@ -126,5 +126,10 @@ namespace FlowFlex.Domain.Repository.OW
         /// Permanently delete message
         /// </summary>
         Task<bool> PermanentDeleteAsync(long id);
+
+        /// <summary>
+        /// Find a locally sent message by subject and sent time (for linking with Outlook sync)
+        /// </summary>
+        Task<Message?> FindLocalSentMessageAsync(long ownerId, string subject, DateTimeOffset sentTime, TimeSpan tolerance);
     }
 }

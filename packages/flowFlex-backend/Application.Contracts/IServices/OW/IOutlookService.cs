@@ -132,6 +132,19 @@ public class OutlookSendEmailDto
     public List<RecipientDto> ToRecipients { get; set; } = new();
     public List<RecipientDto>? CcRecipients { get; set; }
     public List<RecipientDto>? BccRecipients { get; set; }
+    public List<OutlookAttachmentDto>? Attachments { get; set; }
+}
+
+/// <summary>
+/// Outlook attachment DTO for sending emails
+/// </summary>
+public class OutlookAttachmentDto
+{
+    public string FileName { get; set; } = string.Empty;
+    public string ContentType { get; set; } = "application/octet-stream";
+    public byte[] ContentBytes { get; set; } = Array.Empty<byte>();
+    public bool IsInline { get; set; } = false;
+    public string? ContentId { get; set; }
 }
 
 /// <summary>
