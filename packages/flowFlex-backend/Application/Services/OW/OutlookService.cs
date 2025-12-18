@@ -535,8 +535,9 @@ public class OutlookService : IOutlookService, IScopedService
             // Get set of external message IDs from Outlook
             var outlookMessageIds = emails.Select(e => e.Id).ToHashSet();
 
-            // Check for deleted emails: local emails that no longer exist in Outlook
-            await SyncDeletedEmailsAsync(ownerId, localFolder, outlookMessageIds);
+            // Note: Deleted email sync is disabled for incremental sync
+            // because we only fetch a limited number of emails, not the complete folder
+            // await SyncDeletedEmailsAsync(ownerId, localFolder, outlookMessageIds, isCompleteFetch: false);
 
             foreach (var email in emails)
             {
@@ -544,20 +545,29 @@ public class OutlookService : IOutlookService, IScopedService
                 var existing = await _messageRepository.GetByExternalMessageIdAsync(email.Id, ownerId);
                 if (existing != null)
                 {
-                    // If email exists in Trash, don't restore it - user deleted it intentionally
-                    if (existing.Folder == "Trash")
+                    var needsUpdate = false;
+
+                    // Update folder if changed (e.g., email moved to Trash in Outlook)
+                    if (existing.Folder != localFolder)
                     {
-                        _logger.LogDebug("Skipping email {ExternalMessageId} - already in Trash", email.Id);
-                        continue;
+                        existing.Folder = localFolder;
+                        needsUpdate = true;
+                        _logger.LogDebug("Updated folder for message {MessageId} from {OldFolder} to {NewFolder}",
+                            existing.Id, existing.Folder, localFolder);
                     }
 
-                    // Update read status if changed (only for non-Trash emails)
+                    // Update read status if changed
                     if (existing.IsRead != email.IsRead)
                     {
                         existing.IsRead = email.IsRead;
+                        needsUpdate = true;
+                        _logger.LogDebug("Updated read status for message {MessageId}", existing.Id);
+                    }
+
+                    if (needsUpdate)
+                    {
                         existing.ModifyDate = DateTimeOffset.UtcNow;
                         await _messageRepository.UpdateAsync(existing);
-                        _logger.LogDebug("Updated read status for message {MessageId}", existing.Id);
                     }
                     continue;
                 }
@@ -667,13 +677,26 @@ public class OutlookService : IOutlookService, IScopedService
                     var existing = await _messageRepository.GetByExternalMessageIdAsync(email.Id, ownerId);
                     if (existing != null)
                     {
-                        // Skip if in Trash
-                        if (existing.Folder == "Trash") continue;
+                        var needsUpdate = false;
+
+                        // Update folder if changed (e.g., email moved to Trash in Outlook)
+                        if (existing.Folder != localFolder)
+                        {
+                            existing.Folder = localFolder;
+                            needsUpdate = true;
+                            _logger.LogDebug("Updated folder for message {MessageId} from {OldFolder} to {NewFolder}",
+                                existing.Id, existing.Folder, localFolder);
+                        }
 
                         // Update read status if changed
                         if (existing.IsRead != email.IsRead)
                         {
                             existing.IsRead = email.IsRead;
+                            needsUpdate = true;
+                        }
+
+                        if (needsUpdate)
+                        {
                             existing.ModifyDate = DateTimeOffset.UtcNow;
                             await _messageRepository.UpdateAsync(existing);
                         }
@@ -722,8 +745,10 @@ public class OutlookService : IOutlookService, IScopedService
                 }
             }
 
-            // Sync deleted emails
-            await SyncDeletedEmailsAsync(ownerId, localFolder, allOutlookMessageIds);
+            // Note: Deleted email sync is disabled for full sync with maxCount limit
+            // because we may not have fetched all emails from the folder
+            // To enable deleted sync, call SyncDeletedEmailsAsync separately after fetching ALL emails
+            // await SyncDeletedEmailsAsync(ownerId, localFolder, allOutlookMessageIds, isCompleteFetch: false);
 
             _logger.LogInformation("Full sync completed for folder {FolderId}: synced {Count} emails", folderId, syncedCount);
             return syncedCount;
@@ -754,9 +779,19 @@ public class OutlookService : IOutlookService, IScopedService
 
     /// <summary>
     /// Sync deleted emails: move local emails to Trash if they no longer exist in Outlook
+    /// Note: This should only be called when we have fetched ALL emails from Outlook folder,
+    /// not just a partial batch. Otherwise, older emails will be incorrectly marked as deleted.
     /// </summary>
-    private async Task SyncDeletedEmailsAsync(long ownerId, string folder, HashSet<string> outlookMessageIds)
+    private async Task SyncDeletedEmailsAsync(long ownerId, string folder, HashSet<string> outlookMessageIds, bool isCompleteFetch = false)
     {
+        // Only sync deleted emails if we have a complete fetch of the folder
+        // Otherwise, older emails not in the current batch would be incorrectly moved to Trash
+        if (!isCompleteFetch)
+        {
+            _logger.LogDebug("Skipping deleted email sync - not a complete fetch for folder {Folder}", folder);
+            return;
+        }
+
         try
         {
             // Get local emails with ExternalMessageId in this folder

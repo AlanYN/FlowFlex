@@ -160,20 +160,35 @@ public class MessageService : IMessageService, IScopedService
                 }
             }
 
-            // If LastSyncTime is null, perform full sync for inbox and sentitems
+            // If LastSyncTime is null and requesting a syncable folder, perform full sync
+            // Skip full sync for virtual folders (Starred, Archive, Trash) as they are local concepts
             if (binding.LastSyncTime == null)
             {
-                _logger.LogInformation("[MessageService] LastSyncTime is null for user {UserId}, performing full sync", ownerId);
+                var normalizedFolder = folder?.ToLower();
+                var isVirtualFolder = normalizedFolder == "starred" || normalizedFolder == "archive" || normalizedFolder == "trash";
                 
-                // Full sync inbox
-                var inboxSynced = await _outlookService.FullSyncEmailsAsync(binding.AccessToken, ownerId, "inbox", 500);
-                _logger.LogInformation("[MessageService] Full sync completed: {Count} emails from inbox", inboxSynced);
-                
-                // Full sync sent items
-                var sentSynced = await _outlookService.FullSyncEmailsAsync(binding.AccessToken, ownerId, "sentitems", 500);
-                _logger.LogInformation("[MessageService] Full sync completed: {Count} emails from sentitems", sentSynced);
-                
-                await _emailBindingRepository.UpdateLastSyncTimeAsync(binding.Id);
+                if (!isVirtualFolder)
+                {
+                    _logger.LogInformation("[MessageService] LastSyncTime is null for user {UserId}, performing full sync", ownerId);
+                    
+                    // Full sync inbox
+                    var inboxSynced = await _outlookService.FullSyncEmailsAsync(binding.AccessToken, ownerId, "inbox", 500);
+                    _logger.LogInformation("[MessageService] Full sync completed: {Count} emails from inbox", inboxSynced);
+                    
+                    // Full sync sent items
+                    var sentSynced = await _outlookService.FullSyncEmailsAsync(binding.AccessToken, ownerId, "sentitems", 500);
+                    _logger.LogInformation("[MessageService] Full sync completed: {Count} emails from sentitems", sentSynced);
+                    
+                    // Full sync deleted items (Trash)
+                    var trashSynced = await _outlookService.FullSyncEmailsAsync(binding.AccessToken, ownerId, "deleteditems", 500);
+                    _logger.LogInformation("[MessageService] Full sync completed: {Count} emails from deleteditems", trashSynced);
+                    
+                    await _emailBindingRepository.UpdateLastSyncTimeAsync(binding.Id);
+                }
+                else
+                {
+                    _logger.LogDebug("[MessageService] Skipping full sync for virtual folder {Folder}", folder);
+                }
                 return;
             }
 

@@ -276,7 +276,7 @@ public class EmailBindingService : IEmailBindingService, IScopedService
                 _logger.LogInformation("LastSyncTime is null for user {UserId}, performing full sync", userId);
                 var fullSyncResult = await FullSyncAsync(new FullSyncRequestDto
                 {
-                    Folders = new List<string> { "inbox", "sentitems" },
+                    Folders = new List<string> { "inbox", "sentitems", "deleteditems" },
                     MaxCount = 500
                 });
                 syncedCount = fullSyncResult.TotalSyncedCount;
@@ -391,7 +391,7 @@ public class EmailBindingService : IEmailBindingService, IScopedService
 
         try
         {
-            var folders = request?.Folders ?? new List<string> { "inbox", "sentitems" };
+            var folders = request?.Folders ?? new List<string> { "inbox", "sentitems", "deleteditems" };
             var maxCount = Math.Min(request?.MaxCount ?? 500, 2000); // Cap at 2000
             var syncedByFolder = new Dictionary<string, int>();
             var totalSynced = 0;

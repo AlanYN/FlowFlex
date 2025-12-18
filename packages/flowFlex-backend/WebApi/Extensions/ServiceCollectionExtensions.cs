@@ -107,7 +107,9 @@ namespace FlowFlex.WebApi.Extensions
                                 // Add prefix
                                 entity.DbTableName = $"ff_{UtilMethods.ToUnderLine(tableName)}";
                             }
-                        }
+                        },
+                        // Custom serializer to prevent double serialization of JSON strings
+                        SerializeService = new SqlSugarJsonSerializer()
                     }
                 };
 
