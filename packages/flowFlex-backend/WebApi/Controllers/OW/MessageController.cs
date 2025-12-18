@@ -111,6 +111,28 @@ public class MessageController : Controllers.ControllerBase
         return Success(result);
     }
 
+    /// <summary>
+    /// Move message to Inbox folder
+    /// </summary>
+    [HttpPost("{id}/move-to-inbox")]
+    [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
+    public async Task<IActionResult> MoveToInboxAsync(long id)
+    {
+        var result = await _messageService.MoveToInboxAsync(id);
+        return Success(result);
+    }
+
+    /// <summary>
+    /// Move message to Sent folder
+    /// </summary>
+    [HttpPost("{id}/move-to-sent")]
+    [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
+    public async Task<IActionResult> MoveToSentAsync(long id)
+    {
+        var result = await _messageService.MoveToSentAsync(id);
+        return Success(result);
+    }
+
     #endregion
 
 

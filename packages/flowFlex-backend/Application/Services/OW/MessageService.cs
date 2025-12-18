@@ -472,10 +472,10 @@ public class MessageService : IMessageService, IScopedService
             throw new CRMException(ErrorCodeEnum.OperationNotAllowed, "You don't have permission to delete this message");
         }
 
-        // Sync delete to Outlook if this is an external email
+        // Permanently delete from Outlook if this is an external email
         if (message.MessageType == "Email" && !string.IsNullOrEmpty(message.ExternalMessageId))
         {
-            await TryDeleteFromOutlookAsync(message);
+            await TryPermanentDeleteFromOutlookAsync(message);
         }
 
         // Delete attachments first
@@ -524,6 +524,44 @@ public class MessageService : IMessageService, IScopedService
     }
 
     /// <summary>
+    /// Try to permanently delete email from Outlook
+    /// </summary>
+    private async Task TryPermanentDeleteFromOutlookAsync(Message message)
+    {
+        try
+        {
+            var binding = await _emailBindingRepository.GetByUserIdAndProviderAsync(message.OwnerId, "Outlook");
+            if (binding == null || string.IsNullOrEmpty(binding.AccessToken)) return;
+
+            // Refresh token if needed
+            if (binding.TokenExpireTime <= DateTimeOffset.UtcNow.AddMinutes(5))
+            {
+                if (string.IsNullOrEmpty(binding.RefreshToken)) return;
+                var newToken = await _outlookService.RefreshTokenAsync(binding.RefreshToken);
+                if (newToken == null) return;
+                await _emailBindingRepository.UpdateTokenAsync(binding.Id, newToken.AccessToken, newToken.RefreshToken, newToken.ExpiresAt);
+                binding.AccessToken = newToken.AccessToken;
+            }
+
+            // Permanently delete from Outlook
+            var success = await _outlookService.PermanentDeleteEmailAsync(binding.AccessToken, message.ExternalMessageId!);
+            if (success)
+            {
+                _logger.LogInformation("Permanently deleted email {ExternalMessageId} from Outlook", message.ExternalMessageId);
+            }
+            else
+            {
+                _logger.LogWarning("Failed to permanently delete email {ExternalMessageId} from Outlook", message.ExternalMessageId);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error permanently deleting email {ExternalMessageId} from Outlook", message.ExternalMessageId);
+            // Silently ignore - local delete will still proceed
+        }
+    }
+
+    /// <summary>
     /// Restore message from Trash
     /// </summary>
     public async Task<bool> RestoreAsync(long id)
@@ -550,6 +588,101 @@ public class MessageService : IMessageService, IScopedService
         // Restore to original folder or Inbox
         var targetFolder = !string.IsNullOrEmpty(message.OriginalFolder) ? message.OriginalFolder : "Inbox";
         return await _messageRepository.MoveToFolderAsync(id, targetFolder);
+    }
+
+    /// <summary>
+    /// Move message to Inbox folder
+    /// </summary>
+    public async Task<bool> MoveToInboxAsync(long id)
+    {
+        var message = await _messageRepository.GetByIdAsync(id);
+        if (message == null || !message.IsValid)
+        {
+            throw new CRMException(ErrorCodeEnum.DataNotFound, "Message not found");
+        }
+
+        // Verify ownership
+        var ownerId = GetCurrentUserId();
+        if (message.OwnerId != ownerId)
+        {
+            throw new CRMException(ErrorCodeEnum.OperationNotAllowed, "You don't have permission to move this message");
+        }
+
+        // Sync to Outlook if this is an external email
+        if (message.MessageType == "Email" && !string.IsNullOrEmpty(message.ExternalMessageId))
+        {
+            await TryMoveToOutlookFolderAsync(message, "inbox");
+        }
+
+        return await _messageRepository.MoveToFolderAsync(id, "Inbox", message.Folder);
+    }
+
+    /// <summary>
+    /// Move message to Sent folder
+    /// </summary>
+    public async Task<bool> MoveToSentAsync(long id)
+    {
+        var message = await _messageRepository.GetByIdAsync(id);
+        if (message == null || !message.IsValid)
+        {
+            throw new CRMException(ErrorCodeEnum.DataNotFound, "Message not found");
+        }
+
+        // Verify ownership
+        var ownerId = GetCurrentUserId();
+        if (message.OwnerId != ownerId)
+        {
+            throw new CRMException(ErrorCodeEnum.OperationNotAllowed, "You don't have permission to move this message");
+        }
+
+        // Sync to Outlook if this is an external email
+        if (message.MessageType == "Email" && !string.IsNullOrEmpty(message.ExternalMessageId))
+        {
+            await TryMoveToOutlookFolderAsync(message, "sentitems");
+        }
+
+        return await _messageRepository.MoveToFolderAsync(id, "Sent", message.Folder);
+    }
+
+    /// <summary>
+    /// Try to move email to Outlook folder
+    /// </summary>
+    private async Task TryMoveToOutlookFolderAsync(Message message, string outlookFolderId)
+    {
+        try
+        {
+            var binding = await _emailBindingRepository.GetByUserIdAndProviderAsync(message.OwnerId, "Outlook");
+            if (binding == null || string.IsNullOrEmpty(binding.AccessToken)) return;
+
+            // Refresh token if needed
+            if (binding.TokenExpireTime <= DateTimeOffset.UtcNow.AddMinutes(5))
+            {
+                if (string.IsNullOrEmpty(binding.RefreshToken)) return;
+                var newToken = await _outlookService.RefreshTokenAsync(binding.RefreshToken);
+                if (newToken == null) return;
+                await _emailBindingRepository.UpdateTokenAsync(binding.Id, newToken.AccessToken, newToken.RefreshToken, newToken.ExpiresAt);
+                binding.AccessToken = newToken.AccessToken;
+            }
+
+            // Move to Outlook folder
+            var success = await _outlookService.MoveEmailAsync(binding.AccessToken, message.ExternalMessageId!, outlookFolderId);
+            if (success)
+            {
+                _logger.LogInformation("Moved email {ExternalMessageId} to Outlook folder {FolderId}",
+                    message.ExternalMessageId, outlookFolderId);
+            }
+            else
+            {
+                _logger.LogWarning("Failed to move email {ExternalMessageId} to Outlook folder {FolderId}",
+                    message.ExternalMessageId, outlookFolderId);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error moving email {ExternalMessageId} to Outlook folder {FolderId}",
+                message.ExternalMessageId, outlookFolderId);
+            // Silently ignore - local move will still proceed
+        }
     }
 
     #endregion

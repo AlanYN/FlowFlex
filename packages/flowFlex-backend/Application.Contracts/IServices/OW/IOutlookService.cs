@@ -65,6 +65,11 @@ public interface IOutlookService : IScopedService
     Task<bool> DeleteEmailAsync(string accessToken, string messageId);
 
     /// <summary>
+    /// Permanently delete email from Outlook
+    /// </summary>
+    Task<bool> PermanentDeleteEmailAsync(string accessToken, string messageId);
+
+    /// <summary>
     /// Move email to folder
     /// </summary>
     Task<bool> MoveEmailAsync(string accessToken, string messageId, string destinationFolderId);

@@ -407,6 +407,38 @@ public class OutlookService : IOutlookService, IScopedService
     }
 
     /// <summary>
+    /// Permanently delete email from Outlook
+    /// </summary>
+    public async Task<bool> PermanentDeleteEmailAsync(string accessToken, string messageId)
+    {
+        try
+        {
+            _httpClient.DefaultRequestHeaders.Authorization =
+                new AuthenticationHeaderValue("Bearer", accessToken);
+
+            // Use DELETE method to permanently delete the email
+            var response = await _httpClient.DeleteAsync(
+                $"{_options.BaseUrl}/me/messages/{messageId}");
+
+            if (response.IsSuccessStatusCode)
+            {
+                _logger.LogInformation("Permanently deleted email {MessageId} from Outlook", messageId);
+                return true;
+            }
+
+            var errorContent = await response.Content.ReadAsStringAsync();
+            _logger.LogWarning("Failed to permanently delete email {MessageId} from Outlook: {Error}",
+                messageId, errorContent);
+            return false;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error permanently deleting email: {MessageId}", messageId);
+            return false;
+        }
+    }
+
+    /// <summary>
     /// Move email to folder
     /// </summary>
     public async Task<bool> MoveEmailAsync(string accessToken, string messageId, string destinationFolderId)

@@ -1,8 +1,10 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
 using System.Net;
+using System.Web;
 using System.ComponentModel.DataAnnotations;
 using FlowFlex.Application.Contracts.Dtos.OW.EmailBinding;
+using FlowFlex.Application.Contracts.IServices;
 using FlowFlex.Application.Contracts.IServices.OW;
 using Item.Internal.StandardApi.Response;
 
@@ -19,10 +21,14 @@ namespace FlowFlex.WebApi.Controllers.OW;
 public class EmailBindingController : Controllers.ControllerBase
 {
     private readonly IEmailBindingService _emailBindingService;
+    private readonly IEmailTemplateService _emailTemplateService;
 
-    public EmailBindingController(IEmailBindingService emailBindingService)
+    public EmailBindingController(
+        IEmailBindingService emailBindingService,
+        IEmailTemplateService emailTemplateService)
     {
         _emailBindingService = emailBindingService;
+        _emailTemplateService = emailTemplateService;
     }
 
     /// <summary>
@@ -47,10 +53,11 @@ public class EmailBindingController : Controllers.ControllerBase
     /// This endpoint receives the OAuth callback from Microsoft after user authorization.
     /// It exchanges the authorization code for access token and creates/updates the email binding.
     /// This endpoint does not require authentication as it's called by Microsoft OAuth redirect.
+    /// Returns an HTML page to show the result to the user.
     /// </remarks>
     [HttpGet("callback")]
     [AllowAnonymous]
-    [ProducesResponseType<SuccessResponse<EmailBindingDto>>((int)HttpStatusCode.OK)]
+    [Produces("text/html")]
     public async Task<IActionResult> HandleCallbackAsync([FromQuery] string? code, [FromQuery] string state, [FromQuery] string? error = null, [FromQuery] string? error_description = null)
     {
         var callback = new OAuthCallbackDto
@@ -61,8 +68,41 @@ public class EmailBindingController : Controllers.ControllerBase
             ErrorDescription = error_description
         };
 
-        var result = await _emailBindingService.HandleCallbackAsync(callback);
-        return Success(result);
+        try
+        {
+            var result = await _emailBindingService.HandleCallbackAsync(callback);
+            return Content(GenerateSuccessHtml(result.Email), "text/html");
+        }
+        catch (Exception ex)
+        {
+            return Content(GenerateErrorHtml(ex.Message), "text/html");
+        }
+    }
+
+    /// <summary>
+    /// Generate success HTML page from template
+    /// </summary>
+    private string GenerateSuccessHtml(string email)
+    {
+        var variables = new Dictionary<string, object>
+        {
+            { "Email", HttpUtility.HtmlEncode(email) },
+            { "EmailJs", HttpUtility.JavaScriptStringEncode(email) }
+        };
+        return _emailTemplateService.Render("email_binding_success", variables);
+    }
+
+    /// <summary>
+    /// Generate error HTML page from template
+    /// </summary>
+    private string GenerateErrorHtml(string errorMessage)
+    {
+        var variables = new Dictionary<string, object>
+        {
+            { "ErrorMessage", HttpUtility.HtmlEncode(errorMessage) },
+            { "ErrorMessageJs", HttpUtility.JavaScriptStringEncode(errorMessage) }
+        };
+        return _emailTemplateService.Render("email_binding_error", variables);
     }
 
     /// <summary>

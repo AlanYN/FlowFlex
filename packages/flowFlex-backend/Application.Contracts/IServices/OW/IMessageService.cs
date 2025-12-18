@@ -55,6 +55,18 @@ public interface IMessageService : IScopedService
     /// </summary>
     Task<bool> RestoreAsync(long id);
 
+    /// <summary>
+    /// Move message to Inbox folder
+    /// Email type syncs to Outlook Inbox
+    /// </summary>
+    Task<bool> MoveToInboxAsync(long id);
+
+    /// <summary>
+    /// Move message to Sent folder
+    /// Email type syncs to Outlook SentItems
+    /// </summary>
+    Task<bool> MoveToSentAsync(long id);
+
     #endregion
 
     #region Message Operations
