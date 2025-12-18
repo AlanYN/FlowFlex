@@ -46,8 +46,9 @@ namespace FlowFlex.Domain.Entities.OW
 
         /// <summary>
         /// Labels (JSON array): Internal, External, Important, Portal
+        /// Note: IsJson removed to prevent double serialization - Labels is already a JSON string
         /// </summary>
-        [SugarColumn(ColumnName = "labels", ColumnDataType = "jsonb", IsJson = true)]
+        [SugarColumn(ColumnName = "labels", ColumnDataType = "jsonb")]
         public string Labels { get; set; } = "[]";
 
         /// <summary>

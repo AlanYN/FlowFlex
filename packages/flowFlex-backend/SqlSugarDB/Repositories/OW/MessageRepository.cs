@@ -454,4 +454,23 @@ public class MessageRepository : BaseRepository<Message>, IMessageRepository, IS
                 && !string.IsNullOrEmpty(x.ExternalMessageId))
             .ToListAsync();
     }
+
+    /// <summary>
+    /// Delete all synced emails for a user (soft delete)
+    /// Used when user unbinds their email account
+    /// </summary>
+    public async Task<int> DeleteSyncedEmailsByOwnerAsync(long ownerId)
+    {
+        return await db.Updateable<Message>()
+            .SetColumns(x => new Message
+            {
+                IsValid = false,
+                ModifyDate = DateTimeOffset.UtcNow
+            })
+            .Where(x => x.OwnerId == ownerId 
+                && x.IsValid 
+                && x.MessageType == "Email"
+                && !string.IsNullOrEmpty(x.ExternalMessageId))
+            .ExecuteCommandAsync();
+    }
 }

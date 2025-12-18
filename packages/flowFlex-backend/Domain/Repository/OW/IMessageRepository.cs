@@ -136,5 +136,11 @@ namespace FlowFlex.Domain.Repository.OW
         /// Get messages by folder that have ExternalMessageId (for sync deleted detection)
         /// </summary>
         Task<List<Message>> GetByFolderWithExternalIdAsync(long ownerId, string folder);
+
+        /// <summary>
+        /// Delete all synced emails for a user (soft delete)
+        /// Used when user unbinds their email account
+        /// </summary>
+        Task<int> DeleteSyncedEmailsByOwnerAsync(long ownerId);
     }
 }

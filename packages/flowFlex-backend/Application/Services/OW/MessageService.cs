@@ -115,21 +115,12 @@ public class MessageService : IMessageService, IScopedService
 
     /// <summary>
     /// Try to sync Outlook emails silently (non-blocking, errors are logged but not thrown)
+    /// If LastSyncTime is null, performs full sync; otherwise performs incremental sync
     /// </summary>
     private async Task TrySyncOutlookEmailsAsync(long ownerId, string? folder)
     {
         try
         {
-            // Only sync for folders that map to Outlook
-            var outlookFolder = MapToOutlookFolder(folder);
-            if (string.IsNullOrEmpty(outlookFolder))
-            {
-                _logger.LogDebug("[MessageService] Folder '{Folder}' does not map to Outlook, skipping sync", folder);
-                return;
-            }
-
-            _logger.LogInformation("[MessageService] Starting Outlook sync for folder: {Folder} -> {OutlookFolder}", folder, outlookFolder);
-
             // Check if user has Outlook binding
             var binding = await _emailBindingRepository.GetByUserIdAndProviderAsync(ownerId, "Outlook");
             if (binding == null || string.IsNullOrEmpty(binding.AccessToken))
@@ -168,6 +159,33 @@ public class MessageService : IMessageService, IScopedService
                     return; // No refresh token, skip sync
                 }
             }
+
+            // If LastSyncTime is null, perform full sync for inbox and sentitems
+            if (binding.LastSyncTime == null)
+            {
+                _logger.LogInformation("[MessageService] LastSyncTime is null for user {UserId}, performing full sync", ownerId);
+                
+                // Full sync inbox
+                var inboxSynced = await _outlookService.FullSyncEmailsAsync(binding.AccessToken, ownerId, "inbox", 500);
+                _logger.LogInformation("[MessageService] Full sync completed: {Count} emails from inbox", inboxSynced);
+                
+                // Full sync sent items
+                var sentSynced = await _outlookService.FullSyncEmailsAsync(binding.AccessToken, ownerId, "sentitems", 500);
+                _logger.LogInformation("[MessageService] Full sync completed: {Count} emails from sentitems", sentSynced);
+                
+                await _emailBindingRepository.UpdateLastSyncTimeAsync(binding.Id);
+                return;
+            }
+
+            // Only sync for folders that map to Outlook (incremental sync)
+            var outlookFolder = MapToOutlookFolder(folder);
+            if (string.IsNullOrEmpty(outlookFolder))
+            {
+                _logger.LogDebug("[MessageService] Folder '{Folder}' does not map to Outlook, skipping sync", folder);
+                return;
+            }
+
+            _logger.LogInformation("[MessageService] Starting Outlook incremental sync for folder: {Folder} -> {OutlookFolder}", folder, outlookFolder);
 
             // Sync emails from Outlook (limit to 50 for performance)
             var syncedCount = await _outlookService.SyncEmailsToLocalAsync(binding.AccessToken, ownerId, outlookFolder, 50);

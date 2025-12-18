@@ -463,6 +463,9 @@ builder.Services.AddMemoryCache();
 builder.Services.AddSingleton<FlowFlex.Infrastructure.Services.IBackgroundTaskQueue, FlowFlex.Infrastructure.Services.BackgroundTaskQueue>();
 builder.Services.AddHostedService<FlowFlex.Infrastructure.Services.BackgroundTaskService>();
 
+// Register email sync background service
+builder.Services.AddHostedService<FlowFlex.Application.Services.OW.EmailSyncBackgroundService>();
+
 // Note: Most services are auto-registered via IScopedService/ISingletonService/ITransientService interfaces  
 // Only register services that are not auto-registered or need special configuration
 

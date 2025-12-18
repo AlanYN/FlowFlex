@@ -135,14 +135,19 @@ public class EmailBindingRepository : BaseRepository<EmailBinding>, IEmailBindin
     /// </summary>
     public async Task<List<EmailBinding>> GetBindingsNeedingSyncAsync()
     {
-        var now = DateTime.UtcNow;
-        return await db.Queryable<EmailBinding>()
+        // First get all active bindings with auto-sync enabled
+        var bindings = await db.Queryable<EmailBinding>()
             .Where(x => x.IsValid 
                 && x.AutoSyncEnabled 
-                && x.SyncStatus == "Active"
-                && (x.LastSyncTime == null || 
-                    SqlFunc.DateDiff(DateType.Minute, x.LastSyncTime.Value.DateTime, now) >= x.SyncIntervalMinutes))
+                && x.SyncStatus == "Active")
             .ToListAsync();
+
+        // Then filter in memory based on sync interval
+        var now = DateTimeOffset.UtcNow;
+        return bindings.Where(x => 
+            x.LastSyncTime == null || 
+            (now - x.LastSyncTime.Value).TotalMinutes >= x.SyncIntervalMinutes
+        ).ToList();
     }
 
     /// <summary>

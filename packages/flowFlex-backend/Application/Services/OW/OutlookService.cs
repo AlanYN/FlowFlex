@@ -63,13 +63,16 @@ public class OutlookService : IOutlookService, IScopedService
         // Use specific tenant ID for single-tenant apps
         var tenant = GetOAuthTenant();
 
+        // prompt=select_account forces Microsoft to show account selection screen
+        // This allows users to choose a different account or add a new one
         var authUrl = $"{_options.Instance}/{tenant}/oauth2/v2.0/authorize" +
             $"?client_id={_options.ClientId}" +
             $"&response_type=code" +
             $"&redirect_uri={Uri.EscapeDataString(redirectUri)}" +
             $"&scope={Uri.EscapeDataString(scopes)}" +
             $"&state={state}" +
-            $"&response_mode=query";
+            $"&response_mode=query" +
+            $"&prompt=select_account";
 
         return authUrl;
     }
@@ -621,6 +624,130 @@ public class OutlookService : IOutlookService, IScopedService
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error syncing emails from Outlook");
+            return 0;
+        }
+    }
+
+    /// <summary>
+    /// Full sync emails from Outlook with pagination support
+    /// </summary>
+    public async Task<int> FullSyncEmailsAsync(string accessToken, long ownerId, string folderId = "inbox", int maxCount = 500)
+    {
+        try
+        {
+            var syncedCount = 0;
+            var skip = 0;
+            var batchSize = 50; // Fetch 50 emails per batch
+            var localFolder = MapOutlookFolderToLocal(folderId);
+            var allOutlookMessageIds = new HashSet<string>();
+
+            _logger.LogInformation("Starting full sync for folder {FolderId}, maxCount: {MaxCount}", folderId, maxCount);
+
+            while (syncedCount < maxCount)
+            {
+                var remaining = maxCount - syncedCount;
+                var fetchCount = Math.Min(batchSize, remaining);
+
+                var emails = await GetEmailsAsync(accessToken, folderId, fetchCount, skip);
+                if (emails.Count == 0)
+                {
+                    _logger.LogInformation("No more emails to sync from folder {FolderId}", folderId);
+                    break;
+                }
+
+                // Collect all message IDs for deleted detection
+                foreach (var email in emails)
+                {
+                    allOutlookMessageIds.Add(email.Id);
+                }
+
+                foreach (var email in emails)
+                {
+                    // Check if already exists
+                    var existing = await _messageRepository.GetByExternalMessageIdAsync(email.Id, ownerId);
+                    if (existing != null)
+                    {
+                        // Skip if in Trash
+                        if (existing.Folder == "Trash") continue;
+
+                        // Update read status if changed
+                        if (existing.IsRead != email.IsRead)
+                        {
+                            existing.IsRead = email.IsRead;
+                            existing.ModifyDate = DateTimeOffset.UtcNow;
+                            await _messageRepository.UpdateAsync(existing);
+                        }
+                        continue;
+                    }
+
+                    // Create local message
+                    var message = new Message
+                    {
+                        Subject = email.Subject ?? "",
+                        Body = email.Body ?? "",
+                        BodyPreview = email.BodyPreview ?? "",
+                        MessageType = "Email",
+                        Folder = localFolder,
+                        Labels = "[\"External\"]",
+                        SenderName = email.FromName ?? "",
+                        SenderEmail = email.FromEmail ?? "",
+                        Recipients = JsonSerializer.Serialize(email.ToRecipients ?? new List<RecipientDto>()),
+                        IsRead = email.IsRead,
+                        IsDraft = email.IsDraft,
+                        HasAttachments = email.HasAttachments,
+                        SentDate = email.SentDateTime,
+                        ReceivedDate = email.ReceivedDateTime,
+                        ExternalMessageId = email.Id,
+                        OwnerId = ownerId
+                    };
+
+                    message.InitCreateInfo(_userContext);
+                    await _messageRepository.InsertAsync(message);
+
+                    // Sync attachments
+                    if (email.HasAttachments)
+                    {
+                        await SyncAttachmentsAsync(accessToken, email.Id, message.Id);
+                    }
+
+                    syncedCount++;
+                }
+
+                skip += emails.Count;
+
+                // If we got fewer emails than requested, we've reached the end
+                if (emails.Count < fetchCount)
+                {
+                    break;
+                }
+            }
+
+            // Sync deleted emails
+            await SyncDeletedEmailsAsync(ownerId, localFolder, allOutlookMessageIds);
+
+            _logger.LogInformation("Full sync completed for folder {FolderId}: synced {Count} emails", folderId, syncedCount);
+            return syncedCount;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error during full sync for folder {FolderId}", folderId);
+            return 0;
+        }
+    }
+
+    /// <summary>
+    /// Get total email count in a folder
+    /// </summary>
+    public async Task<int> GetFolderEmailCountAsync(string accessToken, string folderId)
+    {
+        try
+        {
+            var stats = await GetFolderStatsAsync(accessToken, folderId);
+            return stats?.TotalCount ?? 0;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting folder email count for {FolderId}", folderId);
             return 0;
         }
     }

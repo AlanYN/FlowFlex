@@ -94,9 +94,24 @@ public interface IOutlookService : IScopedService
     #region Sync Operations
 
     /// <summary>
-    /// Sync emails from Outlook to local database
+    /// Sync emails from Outlook to local database (incremental)
     /// </summary>
     Task<int> SyncEmailsToLocalAsync(string accessToken, long ownerId, string folderId = "inbox", int maxCount = 100);
+
+    /// <summary>
+    /// Full sync emails from Outlook with pagination support
+    /// </summary>
+    /// <param name="accessToken">Outlook access token</param>
+    /// <param name="ownerId">Owner user ID</param>
+    /// <param name="folderId">Outlook folder ID</param>
+    /// <param name="maxCount">Maximum number of emails to sync</param>
+    /// <returns>Number of emails synced</returns>
+    Task<int> FullSyncEmailsAsync(string accessToken, long ownerId, string folderId = "inbox", int maxCount = 500);
+
+    /// <summary>
+    /// Get total email count in a folder
+    /// </summary>
+    Task<int> GetFolderEmailCountAsync(string accessToken, string folderId);
 
     /// <summary>
     /// Sync attachments for a specific message from Outlook

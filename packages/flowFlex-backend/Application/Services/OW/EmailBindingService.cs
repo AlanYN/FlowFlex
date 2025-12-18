@@ -16,23 +16,29 @@ namespace FlowFlex.Application.Services.OW;
 public class EmailBindingService : IEmailBindingService, IScopedService
 {
     private readonly IEmailBindingRepository _bindingRepository;
+    private readonly IMessageRepository _messageRepository;
     private readonly IOutlookService _outlookService;
     private readonly UserContext _userContext;
     private readonly ILogger<EmailBindingService> _logger;
+    private readonly IUserRepository _userRepository;
 
     // Store state temporarily (in production, use distributed cache like Redis)
     private static readonly Dictionary<string, (long UserId, DateTimeOffset ExpireTime)> _stateStore = new();
 
     public EmailBindingService(
         IEmailBindingRepository bindingRepository,
+        IMessageRepository messageRepository,
         IOutlookService outlookService,
         UserContext userContext,
-        ILogger<EmailBindingService> logger)
+        ILogger<EmailBindingService> logger,
+        IUserRepository userRepository)
     {
         _bindingRepository = bindingRepository;
+        _messageRepository = messageRepository;
         _outlookService = outlookService;
         _userContext = userContext;
         _logger = logger;
+        _userRepository = userRepository;
     }
 
     /// <summary>
@@ -136,6 +142,29 @@ public class EmailBindingService : IEmailBindingService, IScopedService
         // Initialize create info (sets Id, TenantId, AppCode, timestamps, etc.)
         binding.InitCreateInfo(_userContext);
 
+        // If TenantId or AppCode is empty/DEFAULT, try to get from user's record
+        if (string.IsNullOrEmpty(binding.TenantId) || binding.TenantId == "DEFAULT" ||
+            string.IsNullOrEmpty(binding.AppCode) || binding.AppCode == "DEFAULT")
+        {
+            var user = await _userRepository.GetByIdAsync(userId);
+            if (user != null)
+            {
+                if (string.IsNullOrEmpty(binding.TenantId) || binding.TenantId == "DEFAULT")
+                {
+                    binding.TenantId = user.TenantId;
+                }
+                if (string.IsNullOrEmpty(binding.AppCode) || binding.AppCode == "DEFAULT")
+                {
+                    binding.AppCode = user.AppCode;
+                }
+                _logger.LogInformation("Filled TenantId and AppCode from user record: TenantId={TenantId}, AppCode={AppCode}",
+                    binding.TenantId, binding.AppCode);
+            }
+        }
+
+        _logger.LogInformation("Creating EmailBinding with TenantId: {TenantId}, AppCode: {AppCode}, UserId: {UserId}",
+            binding.TenantId, binding.AppCode, binding.UserId);
+
         await _bindingRepository.InsertAsync(binding);
 
         _logger.LogInformation("User {UserId} bound Outlook account {Email}", userId, userEmail);
@@ -155,7 +184,7 @@ public class EmailBindingService : IEmailBindingService, IScopedService
     }
 
     /// <summary>
-    /// Unbind email account
+    /// Unbind email account and delete synced emails
     /// </summary>
     public async Task<bool> UnbindAsync()
     {
@@ -167,6 +196,11 @@ public class EmailBindingService : IEmailBindingService, IScopedService
             throw new CRMException(ErrorCodeEnum.DataNotFound, "No email binding found");
         }
 
+        // Delete all synced emails for this user
+        var deletedEmailCount = await _messageRepository.DeleteSyncedEmailsByOwnerAsync(userId);
+        _logger.LogInformation("Deleted {Count} synced emails for user {UserId}", deletedEmailCount, userId);
+
+        // Delete the binding record
         var result = await _bindingRepository.DeleteAsync(binding.Id);
         
         if (result)
@@ -210,6 +244,7 @@ public class EmailBindingService : IEmailBindingService, IScopedService
 
     /// <summary>
     /// Manually trigger email sync
+    /// If LastSyncTime is null, performs full sync; otherwise performs incremental sync
     /// </summary>
     public async Task<SyncResultDto> SyncEmailsAsync()
     {
@@ -233,10 +268,26 @@ public class EmailBindingService : IEmailBindingService, IScopedService
 
         try
         {
-            var syncedCount = await _outlookService.SyncEmailsToLocalAsync(binding.AccessToken, userId);
+            int syncedCount;
 
-            await _bindingRepository.UpdateLastSyncTimeAsync(binding.Id);
-            await _bindingRepository.UpdateSyncStatusAsync(binding.Id, "Active");
+            // If LastSyncTime is null, perform full sync
+            if (binding.LastSyncTime == null)
+            {
+                _logger.LogInformation("LastSyncTime is null for user {UserId}, performing full sync", userId);
+                var fullSyncResult = await FullSyncAsync(new FullSyncRequestDto
+                {
+                    Folders = new List<string> { "inbox", "sentitems" },
+                    MaxCount = 500
+                });
+                syncedCount = fullSyncResult.TotalSyncedCount;
+            }
+            else
+            {
+                // Perform incremental sync
+                syncedCount = await _outlookService.SyncEmailsToLocalAsync(binding.AccessToken, userId);
+                await _bindingRepository.UpdateLastSyncTimeAsync(binding.Id);
+                await _bindingRepository.UpdateSyncStatusAsync(binding.Id, "Active");
+            }
 
             return new SyncResultDto
             {
@@ -254,6 +305,131 @@ public class EmailBindingService : IEmailBindingService, IScopedService
                 SyncedCount = 0,
                 SyncTime = DateTimeOffset.UtcNow,
                 ErrorMessage = ex.Message
+            };
+        }
+    }
+
+    /// <summary>
+    /// Incremental sync - sync recent emails from specified folders
+    /// </summary>
+    public async Task<SyncResultDto> IncrementalSyncAsync(IncrementalSyncRequestDto? request = null)
+    {
+        var userId = GetCurrentUserId();
+        var binding = await _bindingRepository.GetByUserIdAndProviderAsync(userId, "Outlook");
+
+        if (binding == null)
+        {
+            throw new CRMException(ErrorCodeEnum.DataNotFound, "No email binding found. Please bind your Outlook account first.");
+        }
+
+        // Refresh token if needed
+        await RefreshTokenIfNeededAsync(binding.Id);
+
+        binding = await _bindingRepository.GetByIdNullableAsync(binding.Id);
+        if (binding == null || string.IsNullOrEmpty(binding.AccessToken))
+        {
+            throw new CRMException(ErrorCodeEnum.BusinessError, "Failed to get valid access token");
+        }
+
+        try
+        {
+            var folders = request?.Folders ?? new List<string> { "inbox" };
+            var maxCount = request?.MaxCount ?? 100;
+            var totalSynced = 0;
+
+            foreach (var folder in folders)
+            {
+                var synced = await _outlookService.SyncEmailsToLocalAsync(binding.AccessToken, userId, folder, maxCount);
+                totalSynced += synced;
+                _logger.LogInformation("Incremental sync: synced {Count} emails from folder {Folder}", synced, folder);
+            }
+
+            await _bindingRepository.UpdateLastSyncTimeAsync(binding.Id);
+            await _bindingRepository.UpdateSyncStatusAsync(binding.Id, "Active");
+
+            return new SyncResultDto
+            {
+                SyncedCount = totalSynced,
+                SyncTime = DateTimeOffset.UtcNow
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to incremental sync emails for user {UserId}", userId);
+            await _bindingRepository.UpdateSyncStatusAsync(binding.Id, "Error", ex.Message);
+
+            return new SyncResultDto
+            {
+                SyncedCount = 0,
+                SyncTime = DateTimeOffset.UtcNow,
+                ErrorMessage = ex.Message
+            };
+        }
+    }
+
+    /// <summary>
+    /// Full sync - sync all emails from specified folders with pagination
+    /// </summary>
+    public async Task<FullSyncResultDto> FullSyncAsync(FullSyncRequestDto? request = null)
+    {
+        var userId = GetCurrentUserId();
+        var binding = await _bindingRepository.GetByUserIdAndProviderAsync(userId, "Outlook");
+
+        if (binding == null)
+        {
+            throw new CRMException(ErrorCodeEnum.DataNotFound, "No email binding found. Please bind your Outlook account first.");
+        }
+
+        // Refresh token if needed
+        await RefreshTokenIfNeededAsync(binding.Id);
+
+        binding = await _bindingRepository.GetByIdNullableAsync(binding.Id);
+        if (binding == null || string.IsNullOrEmpty(binding.AccessToken))
+        {
+            throw new CRMException(ErrorCodeEnum.BusinessError, "Failed to get valid access token");
+        }
+
+        try
+        {
+            var folders = request?.Folders ?? new List<string> { "inbox", "sentitems" };
+            var maxCount = Math.Min(request?.MaxCount ?? 500, 2000); // Cap at 2000
+            var syncedByFolder = new Dictionary<string, int>();
+            var totalSynced = 0;
+
+            _logger.LogInformation("Starting full sync for user {UserId}, folders: {Folders}, maxCount: {MaxCount}",
+                userId, string.Join(", ", folders), maxCount);
+
+            foreach (var folder in folders)
+            {
+                var synced = await _outlookService.FullSyncEmailsAsync(binding.AccessToken, userId, folder, maxCount);
+                syncedByFolder[folder] = synced;
+                totalSynced += synced;
+                _logger.LogInformation("Full sync: synced {Count} emails from folder {Folder}", synced, folder);
+            }
+
+            await _bindingRepository.UpdateLastSyncTimeAsync(binding.Id);
+            await _bindingRepository.UpdateSyncStatusAsync(binding.Id, "Active");
+
+            return new FullSyncResultDto
+            {
+                TotalSyncedCount = totalSynced,
+                SyncedCountByFolder = syncedByFolder,
+                SyncTime = DateTimeOffset.UtcNow,
+                IsComplete = true
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to full sync emails for user {UserId}", userId);
+            await _bindingRepository.UpdateSyncStatusAsync(binding.Id, "Error", ex.Message);
+
+            return new FullSyncResultDto
+            {
+                TotalSyncedCount = 0,
+                SyncedCountByFolder = new Dictionary<string, int>(),
+                SyncTime = DateTimeOffset.UtcNow,
+                ErrorMessage = ex.Message,
+                IsComplete = false
             };
         }
     }

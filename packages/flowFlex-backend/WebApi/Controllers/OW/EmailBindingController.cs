@@ -139,13 +139,76 @@ public class EmailBindingController : Controllers.ControllerBase
     }
 
     /// <summary>
-    /// Manually trigger email sync
+    /// Enable auto sync
+    /// </summary>
+    /// <remarks>
+    /// Enables automatic email synchronization in the background.
+    /// Emails will be synced based on the configured interval (default: 15 minutes).
+    /// </remarks>
+    [HttpPost("auto-sync/enable")]
+    [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
+    public async Task<IActionResult> EnableAutoSyncAsync()
+    {
+        var result = await _emailBindingService.UpdateSettingsAsync(new EmailBindingUpdateDto { AutoSyncEnabled = true });
+        return Success(result);
+    }
+
+    /// <summary>
+    /// Disable auto sync
+    /// </summary>
+    /// <remarks>
+    /// Disables automatic email synchronization.
+    /// You can still manually trigger sync using the sync endpoints.
+    /// </remarks>
+    [HttpPost("auto-sync/disable")]
+    [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
+    public async Task<IActionResult> DisableAutoSyncAsync()
+    {
+        var result = await _emailBindingService.UpdateSettingsAsync(new EmailBindingUpdateDto { AutoSyncEnabled = false });
+        return Success(result);
+    }
+
+    /// <summary>
+    /// Manually trigger email sync (incremental, default behavior)
     /// </summary>
     [HttpPost("sync")]
     [ProducesResponseType<SuccessResponse<SyncResultDto>>((int)HttpStatusCode.OK)]
     public async Task<IActionResult> SyncEmailsAsync()
     {
         var result = await _emailBindingService.SyncEmailsAsync();
+        return Success(result);
+    }
+
+    /// <summary>
+    /// Incremental sync - sync recent emails from specified folders
+    /// </summary>
+    /// <remarks>
+    /// Syncs the most recent emails (default 100) from specified folders.
+    /// This is faster than full sync and suitable for regular updates.
+    /// Default folders: inbox
+    /// </remarks>
+    [HttpPost("sync/incremental")]
+    [ProducesResponseType<SuccessResponse<SyncResultDto>>((int)HttpStatusCode.OK)]
+    public async Task<IActionResult> IncrementalSyncAsync([FromBody] IncrementalSyncRequestDto? request = null)
+    {
+        var result = await _emailBindingService.IncrementalSyncAsync(request);
+        return Success(result);
+    }
+
+    /// <summary>
+    /// Full sync - sync all emails from specified folders
+    /// </summary>
+    /// <remarks>
+    /// Syncs all emails (up to maxCount) from specified folders with pagination.
+    /// This is slower but ensures all historical emails are synced.
+    /// Default folders: inbox, sentitems
+    /// Default maxCount: 500, max: 2000
+    /// </remarks>
+    [HttpPost("sync/full")]
+    [ProducesResponseType<SuccessResponse<FullSyncResultDto>>((int)HttpStatusCode.OK)]
+    public async Task<IActionResult> FullSyncAsync([FromBody] FullSyncRequestDto? request = null)
+    {
+        var result = await _emailBindingService.FullSyncAsync(request);
         return Success(result);
     }
 }
