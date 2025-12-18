@@ -23,7 +23,7 @@ public class EmailBindingService : IEmailBindingService, IScopedService
     private readonly IUserRepository _userRepository;
 
     // Store state temporarily (in production, use distributed cache like Redis)
-    private static readonly Dictionary<string, (long UserId, DateTimeOffset ExpireTime)> _stateStore = new();
+    private static readonly Dictionary<string, (long UserId, string TenantId, DateTimeOffset ExpireTime)> _stateStore = new();
 
     public EmailBindingService(
         IEmailBindingRepository bindingRepository,
@@ -47,10 +47,11 @@ public class EmailBindingService : IEmailBindingService, IScopedService
     public Task<AuthorizeUrlDto> GetAuthorizationUrlAsync()
     {
         var userId = GetCurrentUserId();
+        var tenantId = _userContext.TenantId ?? "DEFAULT";
 
         // Generate state for CSRF protection
         var state = Guid.NewGuid().ToString("N");
-        _stateStore[state] = (userId, DateTimeOffset.UtcNow.AddMinutes(10));
+        _stateStore[state] = (userId, tenantId, DateTimeOffset.UtcNow.AddMinutes(10));
 
         // Clean up expired states
         CleanupExpiredStates();
@@ -99,12 +100,22 @@ public class EmailBindingService : IEmailBindingService, IScopedService
         }
 
         var userId = stateData.UserId;
+        var tenantId = stateData.TenantId;
 
         // Get user email from Microsoft Graph (we need to call the API to get user info)
         // For now, we'll use a placeholder - in production, call /me endpoint
         var userEmail = await GetUserEmailFromGraphAsync(tokenResult.AccessToken);
 
-        // Check if binding already exists
+        // Check if this email is already bound by another user
+        var emailBinding = await _bindingRepository.GetByEmailAsync(userEmail, "Outlook");
+        if (emailBinding != null && emailBinding.UserId != userId)
+        {
+            _logger.LogWarning("Email {Email} is already bound by user {ExistingUserId}, current user {CurrentUserId} cannot bind it",
+                userEmail, emailBinding.UserId, userId);
+            throw new CRMException(ErrorCodeEnum.BusinessError, $"This email ({userEmail}) is already bound by another user");
+        }
+
+        // Check if binding already exists for current user
         var existingBinding = await _bindingRepository.GetByUserIdAndProviderAsync(userId, "Outlook");
         
         if (existingBinding != null)
@@ -142,7 +153,14 @@ public class EmailBindingService : IEmailBindingService, IScopedService
         // Initialize create info (sets Id, TenantId, AppCode, timestamps, etc.)
         binding.InitCreateInfo(_userContext);
 
-        // If TenantId or AppCode is empty/DEFAULT, try to get from user's record
+        // Use TenantId from state if current context is empty/DEFAULT
+        if (string.IsNullOrEmpty(binding.TenantId) || binding.TenantId == "DEFAULT")
+        {
+            binding.TenantId = tenantId;
+            _logger.LogInformation("Using TenantId from OAuth state: {TenantId}", tenantId);
+        }
+
+        // If TenantId or AppCode is still empty/DEFAULT, try to get from user's record
         if (string.IsNullOrEmpty(binding.TenantId) || binding.TenantId == "DEFAULT" ||
             string.IsNullOrEmpty(binding.AppCode) || binding.AppCode == "DEFAULT")
         {

@@ -66,6 +66,16 @@ public class EmailBindingRepository : BaseRepository<EmailBinding>, IEmailBindin
     }
 
     /// <summary>
+    /// Get binding by email address (to check if email is already bound by another user)
+    /// </summary>
+    public async Task<EmailBinding?> GetByEmailAsync(string email, string provider = "Outlook")
+    {
+        return await db.Queryable<EmailBinding>()
+            .Where(x => x.Email == email && x.Provider == provider && x.IsValid)
+            .FirstAsync();
+    }
+
+    /// <summary>
     /// Update token information
     /// </summary>
     public async Task<bool> UpdateTokenAsync(long id, string accessToken, string refreshToken, DateTimeOffset expireTime)

@@ -33,6 +33,11 @@ public interface IEmailBindingRepository
     Task<bool> HasActiveBindingAsync(long userId, string provider = "Outlook");
 
     /// <summary>
+    /// Get binding by email address (to check if email is already bound by another user)
+    /// </summary>
+    Task<EmailBinding?> GetByEmailAsync(string email, string provider = "Outlook");
+
+    /// <summary>
     /// Update token information
     /// </summary>
     Task<bool> UpdateTokenAsync(long id, string accessToken, string refreshToken, DateTimeOffset expireTime);
