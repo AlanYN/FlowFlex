@@ -1,7 +1,7 @@
 <template>
 	<div class="ai-file-analyzer">
 		<el-tooltip
-			content="Supported: TXT, PDF, DOCX, XLSX, CSV, MD, JSON"
+			content="Supported: TXT, PDF, DOCX, XLSX, CSV, MD, JSON, JPG, PNG, GIF, BMP, WebP"
 			placement="top"
 			effect="dark"
 		>
@@ -115,11 +115,19 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue';
-import { ElMessage } from 'element-plus';
+import { ElMessage, ElMessageBox } from 'element-plus';
 import { Document, Check, Close, Loading } from '@element-plus/icons-vue';
 import * as XLSX from 'xlsx-js-style';
 import { streamAIChatMessageNative, type AIChatMessage } from '@/apis/ai/workflow';
 import { getDefaultAIModel, type AIModelConfig } from '@/apis/ai/config';
+import {
+	getOCRService,
+	getPDFDetector,
+	getContentMerger,
+	isLargePDF,
+	LARGE_PDF_PAGE_THRESHOLD,
+	type ContentBlock,
+} from './utils';
 
 // External library loaders (CDN-based to avoid local dependency issues)
 const PDF_JS_VERSION = '3.11.174';
@@ -186,6 +194,11 @@ const loadMammoth = async () => {
 };
 
 // Props & Emits
+const props = defineProps<{
+	/** Current AI model configuration from parent component */
+	modelConfig?: AIModelConfig | null;
+}>();
+
 const emit = defineEmits<{
 	fileAnalyzed: [content: string, fileName: string];
 	analysisComplete: [result: any];
@@ -201,11 +214,17 @@ const isProcessing = ref(false);
 const isSendingToAI = ref(false);
 const currentStep = ref(0);
 const extractedContent = ref('');
-const currentAIModel = ref<AIModelConfig | null>(null);
+const fallbackAIModel = ref<AIModelConfig | null>(null);
+
+// Computed: Use prop model if available, otherwise use fallback
+const currentAIModel = computed(() => props.modelConfig || fallbackAIModel.value);
 
 // File Types Configuration
-const acceptedFileTypes = '.txt,.pdf,.docx,.xlsx,.csv,.md,.json';
+const acceptedFileTypes = '.txt,.pdf,.docx,.xlsx,.csv,.md,.json,.jpg,.jpeg,.png,.gif,.bmp,.webp';
 const maxFileSize = 10 * 1024 * 1024; // 10MB
+
+// Image file extensions
+const imageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'];
 
 // Processing Steps
 const processingSteps = ref([
@@ -216,7 +235,7 @@ const processingSteps = ref([
 
 // Computed
 const supportedFormats = computed(() => {
-	return ['txt', 'pdf', 'docx', 'xlsx', 'csv', 'md', 'json'];
+	return ['txt', 'pdf', 'docx', 'xlsx', 'csv', 'md', 'json', ...imageExtensions];
 });
 
 // Methods
@@ -285,10 +304,18 @@ const processFile = async (file: File) => {
 				content = await readExcelFile(file);
 				break;
 			case 'pdf':
-				content = await readPDFFile(file);
+				content = await readPDFFileWithOCR(file);
 				break;
 			case 'docx':
 				content = await readDocxFile(file);
+				break;
+			case 'jpg':
+			case 'jpeg':
+			case 'png':
+			case 'gif':
+			case 'bmp':
+			case 'webp':
+				content = await readImageFile(file);
 				break;
 			default:
 				throw new Error(`Unsupported file type: ${extension}`);
@@ -392,6 +419,134 @@ const readPDFFile = async (file: File): Promise<string> => {
 	}
 };
 
+// Enhanced PDF reading with OCR support
+const readPDFFileWithOCR = async (file: File): Promise<string> => {
+	try {
+		const originalBuffer = await new Promise<ArrayBuffer>((resolve, reject) => {
+			const reader = new FileReader();
+			reader.onload = () => resolve(reader.result as ArrayBuffer);
+			reader.onerror = () => reject(new Error('Failed to read PDF file'));
+			reader.readAsArrayBuffer(file);
+		});
+
+		// Create a copy of the ArrayBuffer to avoid detached buffer issues
+		// PDF.js transfers ownership of ArrayBuffer, so we need separate copies for each operation
+		const pdfDetector = getPDFDetector();
+		const detectionResult = await pdfDetector.detectPDFType(originalBuffer.slice(0));
+
+		// Check for large PDF warning
+		if (isLargePDF(detectionResult.pageCount)) {
+			try {
+				await ElMessageBox.confirm(
+					`This PDF has ${detectionResult.pageCount} pages (exceeds ${LARGE_PDF_PAGE_THRESHOLD}). Processing may take a while. Continue?`,
+					'Large PDF Warning',
+					{
+						confirmButtonText: 'Continue',
+						cancelButtonText: 'Cancel',
+						type: 'warning',
+					}
+				);
+			} catch {
+				throw new Error('Processing cancelled by user');
+			}
+		}
+
+		// Update processing step description
+		processingSteps.value[1].description = `Detected: ${detectionResult.type} PDF (${detectionResult.pageCount} pages)`;
+
+		const contentBlocks: ContentBlock[] = [];
+
+		// Extract text layer content for text pages
+		if (detectionResult.textPages.length > 0) {
+			const textContent = await readPDFFile(file);
+			contentBlocks.push({
+				content: textContent,
+				source: 'text-layer',
+				pageNumber: 1,
+			});
+		}
+
+		// Perform OCR for image-based pages
+		if (pdfDetector.shouldTriggerOCR(detectionResult)) {
+			const pagesToOCR = pdfDetector.getPagesNeedingOCR(detectionResult);
+
+			if (pagesToOCR.length > 0) {
+				processingSteps.value[1].description = `Running OCR on ${pagesToOCR.length} pages...`;
+
+				const ocrService = getOCRService();
+				await ocrService.initialize();
+
+				for (const pageNum of pagesToOCR) {
+					processingSteps.value[1].description = `OCR: Page ${pageNum}/${detectionResult.pageCount}`;
+
+					// Use a fresh copy of the buffer for each page extraction
+					const pageImage = await pdfDetector.extractPageAsImage(
+						originalBuffer.slice(0),
+						pageNum
+					);
+					const ocrResult = await ocrService.recognizeImage(pageImage);
+
+					if (ocrResult.text.trim()) {
+						contentBlocks.push({
+							content: `Page ${pageNum} (OCR):\n${ocrResult.text}`,
+							source: 'ocr',
+							pageNumber: pageNum,
+							confidence: ocrResult.confidence,
+						});
+					}
+				}
+			}
+		}
+
+		// Merge content
+		const contentMerger = getContentMerger();
+		const mergedContent = contentMerger.merge(contentBlocks);
+
+		processingSteps.value[1].description = `Extracted ${mergedContent.statistics.totalCharacters} characters`;
+
+		return mergedContent.fullText || 'No readable content found in the PDF';
+	} catch (error) {
+		console.error('PDF processing error:', error);
+		if (error instanceof Error && error.message === 'Processing cancelled by user') {
+			throw error;
+		}
+		// Fallback to basic PDF reading
+		console.log('Falling back to basic PDF reading');
+		return readPDFFile(file);
+	}
+};
+
+// Read image file using OCR
+const readImageFile = async (file: File): Promise<string> => {
+	try {
+		processingSteps.value[1].description = 'Performing OCR on image...';
+
+		const ocrService = getOCRService();
+		await ocrService.initialize();
+
+		const result = await ocrService.recognizeImage(file, (progress) => {
+			processingSteps.value[1].description = `OCR: ${progress.status} (${Math.round(
+				progress.progress * 100
+			)}%)`;
+		});
+
+		if (!result.text.trim()) {
+			throw new Error('No text found in the image');
+		}
+
+		processingSteps.value[1].description = `Extracted ${
+			result.text.length
+		} characters (confidence: ${Math.round(result.confidence)}%)`;
+
+		return result.text;
+	} catch (error) {
+		console.error('Image OCR error:', error);
+		throw new Error(
+			'Failed to extract text from image. Please ensure the image contains readable text.'
+		);
+	}
+};
+
 const readDocxFile = async (file: File): Promise<string> => {
 	try {
 		const mammoth = await loadMammoth();
@@ -427,11 +582,11 @@ const sendToAI = async () => {
 	emit('analysisStarted', selectedFile.value?.name || 'Unknown file');
 
 	try {
-		// Get current AI model configuration
-		if (!currentAIModel.value) {
+		// Get fallback AI model configuration if no model provided via props
+		if (!currentAIModel.value && !fallbackAIModel.value) {
 			const modelResponse = await getDefaultAIModel();
 			if (modelResponse.success && modelResponse.data) {
-				currentAIModel.value = modelResponse.data;
+				fallbackAIModel.value = modelResponse.data;
 			}
 		}
 

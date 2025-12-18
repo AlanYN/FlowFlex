@@ -277,7 +277,7 @@ public class EmailBindingService : IEmailBindingService, IScopedService
                 var fullSyncResult = await FullSyncAsync(new FullSyncRequestDto
                 {
                     Folders = new List<string> { "inbox", "sentitems", "deleteditems" },
-                    MaxCount = 500
+                    MaxCount = 2000
                 });
                 syncedCount = fullSyncResult.TotalSyncedCount;
             }

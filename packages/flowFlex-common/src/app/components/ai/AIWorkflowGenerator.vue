@@ -864,6 +864,7 @@
 									</div>
 									<div class="input-right-actions">
 										<AIFileAnalyzer
+											:model-config="currentAIModel"
 											@file-analyzed="handleFileAnalyzed"
 											@analysis-complete="handleAnalysisComplete"
 											@stream-chunk="handleStreamChunk"
