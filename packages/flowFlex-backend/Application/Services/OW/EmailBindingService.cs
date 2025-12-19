@@ -354,6 +354,21 @@ public class EmailBindingService : IEmailBindingService, IScopedService
             throw new CRMException(ErrorCodeEnum.DataNotFound, "No email binding found. Please bind your Outlook account first.");
         }
 
+        // Check if sync is already in progress
+        if (binding.SyncStatus == EmailConstants.SyncStatus.Syncing)
+        {
+            _logger.LogWarning("Sync already in progress for user {UserId}, skipping duplicate request", userId);
+            return new SyncResultDto
+            {
+                SyncedCount = 0,
+                SyncTime = DateTimeOffset.UtcNow,
+                ErrorMessage = "Sync is already in progress. Please wait for the current sync to complete."
+            };
+        }
+
+        // Mark as syncing to prevent duplicate calls
+        await _bindingRepository.UpdateSyncStatusAsync(binding.Id, EmailConstants.SyncStatus.Syncing);
+
         // Refresh token if needed
         await RefreshTokenIfNeededAsync(binding.Id);
 
@@ -411,6 +426,23 @@ public class EmailBindingService : IEmailBindingService, IScopedService
         {
             throw new CRMException(ErrorCodeEnum.DataNotFound, "No email binding found. Please bind your Outlook account first.");
         }
+
+        // Check if sync is already in progress
+        if (binding.SyncStatus == EmailConstants.SyncStatus.Syncing)
+        {
+            _logger.LogWarning("Full sync already in progress for user {UserId}, skipping duplicate request", userId);
+            return new FullSyncResultDto
+            {
+                TotalSyncedCount = 0,
+                SyncedCountByFolder = new Dictionary<string, int>(),
+                SyncTime = DateTimeOffset.UtcNow,
+                ErrorMessage = "Sync is already in progress. Please wait for the current sync to complete.",
+                IsComplete = false
+            };
+        }
+
+        // Mark as syncing to prevent duplicate calls
+        await _bindingRepository.UpdateSyncStatusAsync(binding.Id, EmailConstants.SyncStatus.Syncing);
 
         // Refresh token if needed
         await RefreshTokenIfNeededAsync(binding.Id);

@@ -22,6 +22,7 @@ public static class EmailConstants
         public const string Active = "Active";
         public const string Error = "Error";
         public const string Disabled = "Disabled";
+        public const string Syncing = "Syncing";
     }
 
     /// <summary>

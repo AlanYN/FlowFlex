@@ -12,6 +12,34 @@ namespace FlowFlex.Application.Services.AI
         // JWT Token cache for Item Gateway (provider -> token with expiry)
         private static readonly ConcurrentDictionary<string, (string Token, DateTime Expiry)> _jwtTokenCache = new();
         private static readonly TimeSpan _jwtTokenLifetime = TimeSpan.FromHours(1); // JWT tokens typically expire after 1 hour
+
+        /// <summary>
+        /// Get native model name by stripping provider prefix if present.
+        /// For native API calls (not via gateway), model names like "openai/gpt-4o-mini" 
+        /// need to be converted to "gpt-4o-mini".
+        /// </summary>
+        /// <param name="modelName">Original model name (may contain provider prefix)</param>
+        /// <param name="provider">Provider name</param>
+        /// <returns>Native model name without provider prefix</returns>
+        private static string GetNativeModelName(string modelName, string? provider)
+        {
+            if (string.IsNullOrEmpty(modelName))
+                return modelName;
+
+            // Common provider prefixes that need to be stripped for native API calls
+            var prefixes = new[] { "openai/", "deepseek/", "claude/", "anthropic/", "gemini/" };
+            
+            foreach (var prefix in prefixes)
+            {
+                if (modelName.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+                {
+                    return modelName.Substring(prefix.Length);
+                }
+            }
+
+            return modelName;
+        }
+
         /// <summary>
         /// Send message to AI chat and get response
         /// </summary>
@@ -502,9 +530,16 @@ namespace FlowFlex.Application.Services.AI
         /// </summary>
         private async Task<AIProviderResponse> CallOpenAIWithConfigAsync(List<object> messages, AIModelConfig config)
         {
+            // Check if using Item Gateway - if so, keep the original model name with prefix
+            var isItemGateway = !string.IsNullOrEmpty(config.BaseUrl) &&
+                              config.BaseUrl.Contains("aiop-gateway.item.com", StringComparison.OrdinalIgnoreCase);
+            
+            // For native OpenAI API, strip provider prefix from model name
+            var modelName = isItemGateway ? config.ModelName : GetNativeModelName(config.ModelName, config.Provider);
+
             var requestBody = new
             {
-                model = config.ModelName,
+                model = modelName,
                 messages = messages.ToArray(),
                 temperature = config.Temperature > 0 ? config.Temperature : 0.7,
                 max_tokens = config.MaxTokens > 0 ? config.MaxTokens : 4000
@@ -1003,9 +1038,12 @@ namespace FlowFlex.Application.Services.AI
         /// </summary>
         private async Task<AIProviderResponse> CallDeepSeekWithConfigAsync(List<object> messages, AIModelConfig config)
         {
+            // For native DeepSeek API, strip provider prefix from model name
+            var modelName = GetNativeModelName(config.ModelName, config.Provider);
+
             var requestBody = new
             {
-                model = config.ModelName,
+                model = modelName,
                 messages = messages.ToArray(),
                 temperature = config.Temperature > 0 ? config.Temperature : 0.7,
                 max_tokens = config.MaxTokens > 0 ? config.MaxTokens : 4000
@@ -1085,7 +1123,7 @@ namespace FlowFlex.Application.Services.AI
                     }
                     yield break;
                 }
-                else if (provider == "item" || provider == "llmgateway") // Support both new and old names
+                else if (provider == "item" || provider == "llmgateway" || provider == "gemini") // Support Item Gateway, LLMGateway, and Gemini (via Item Gateway)
                 {
                     await foreach (var chunk in CallLLMGatewayStreamAsync(messages, userConfig))
                     {
@@ -1174,7 +1212,7 @@ namespace FlowFlex.Application.Services.AI
                     }
                     yield break;
                 }
-                else if (provider == "item" || provider == "llmgateway") // Support both new and old names
+                else if (provider == "item" || provider == "llmgateway" || provider == "gemini") // Support Item Gateway, LLMGateway, and Gemini (via Item Gateway)
                 {
                     await foreach (var chunk in CallLLMGatewayStreamAsync(messages, userConfig))
                     {
@@ -1220,9 +1258,12 @@ namespace FlowFlex.Application.Services.AI
         /// </summary>
         private async IAsyncEnumerable<string> CallDeepSeekStreamAsync(List<object> messages, AIModelConfig config)
         {
+            // For native DeepSeek API, strip provider prefix from model name
+            var modelName = GetNativeModelName(config.ModelName, config.Provider);
+
             var requestBody = new
             {
-                model = config.ModelName,
+                model = modelName,
                 messages = messages.ToArray(),
                 temperature = config.Temperature > 0 ? config.Temperature : 0.7,
                 max_tokens = config.MaxTokens > 0 ? config.MaxTokens : 4000,
@@ -1374,10 +1415,14 @@ namespace FlowFlex.Application.Services.AI
                 yield break;
             }
 
+            // For native OpenAI API, strip provider prefix from model name
+            // e.g., "openai/gpt-4o-mini" -> "gpt-4o-mini"
+            var modelName = GetNativeModelName(config.ModelName, config.Provider);
+
             // Standard OpenAI API call
             var requestBody = new
             {
-                model = config.ModelName,
+                model = modelName,
                 messages = messages.ToArray(),
                 temperature = config.Temperature > 0 ? config.Temperature : 0.7,
                 max_tokens = config.MaxTokens > 0 ? config.MaxTokens : 1000,

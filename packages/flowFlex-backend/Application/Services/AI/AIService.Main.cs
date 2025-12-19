@@ -564,11 +564,11 @@ namespace FlowFlex.Application.Services.AI
 
                 var apiKey = userConfig.ApiKey;
                 var baseUrl = userConfig.BaseUrl;
-                var model = userConfig.ModelName ?? modelName ?? "gpt-4o-mini";
+                var rawModel = userConfig.ModelName ?? modelName ?? "gpt-4o-mini";
                 var temperature = userConfig.Temperature > 0 ? userConfig.Temperature : 0.7;
                 var maxTokens = userConfig.MaxTokens > 0 ? userConfig.MaxTokens : 2000;
 
-                _logger.LogInformation("OpenAI Request - Model: {Model}, BaseUrl: {BaseUrl}", model, baseUrl);
+                _logger.LogInformation("OpenAI Request - Model: {Model}, BaseUrl: {BaseUrl}", rawModel, baseUrl);
 
                 // Check if using Item Gateway
                 var isItemGateway = !string.IsNullOrEmpty(baseUrl) &&
@@ -579,6 +579,10 @@ namespace FlowFlex.Application.Services.AI
                     // Use Item Gateway method
                     return await CallItemGatewayForMainAsync(prompt, userConfig);
                 }
+
+                // For native OpenAI API, strip provider prefix from model name
+                // e.g., "openai/gpt-4o-mini" -> "gpt-4o-mini"
+                var model = GetNativeModelName(rawModel, userConfig.Provider);
 
                 var requestBody = new
                 {
