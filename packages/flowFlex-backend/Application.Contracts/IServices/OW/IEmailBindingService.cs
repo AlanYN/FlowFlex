@@ -48,4 +48,11 @@ public interface IEmailBindingService : IScopedService
     /// Refresh token if needed
     /// </summary>
     Task<bool> RefreshTokenIfNeededAsync(long bindingId);
+
+    /// <summary>
+    /// Sync emails for a specific user (used by background service)
+    /// </summary>
+    /// <param name="userId">User ID</param>
+    /// <returns>Sync result</returns>
+    Task<SyncResultDto> SyncEmailsForUserAsync(long userId);
 }

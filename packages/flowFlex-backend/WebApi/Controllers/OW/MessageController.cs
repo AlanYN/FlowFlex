@@ -282,16 +282,5 @@ public class MessageController : Controllers.ControllerBase
         return Success(result);
     }
 
-    /// <summary>
-    /// Manually trigger Outlook email sync
-    /// </summary>
-    [HttpPost("sync/outlook")]
-    [ProducesResponseType<SuccessResponse<int>>((int)HttpStatusCode.OK)]
-    public async Task<IActionResult> SyncOutlookEmailsAsync()
-    {
-        var count = await _messageService.SyncOutlookEmailsAsync();
-        return Success(count);
-    }
-
     #endregion
 }

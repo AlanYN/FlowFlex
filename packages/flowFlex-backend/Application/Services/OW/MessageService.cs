@@ -32,6 +32,7 @@ public class MessageService : IMessageService, IScopedService
     private readonly UserContext _userContext;
     private readonly IOperatorContextService _operatorContextService;
     private readonly IOutlookService _outlookService;
+    private readonly IEmailBindingService _emailBindingService;
     private readonly ILogger<MessageService> _logger;
 
     public MessageService(
@@ -43,6 +44,7 @@ public class MessageService : IMessageService, IScopedService
         UserContext userContext,
         IOperatorContextService operatorContextService,
         IOutlookService outlookService,
+        IEmailBindingService emailBindingService,
         ILogger<MessageService> logger)
     {
         _messageRepository = messageRepository;
@@ -53,6 +55,7 @@ public class MessageService : IMessageService, IScopedService
         _userContext = userContext;
         _operatorContextService = operatorContextService;
         _outlookService = outlookService;
+        _emailBindingService = emailBindingService;
         _logger = logger;
     }
 
@@ -60,7 +63,7 @@ public class MessageService : IMessageService, IScopedService
 
     /// <summary>
     /// Get paginated message list with filtering and sorting
-    /// Optionally syncs Outlook emails if user has bound their account
+    /// Automatically syncs Outlook emails using EmailBindingService
     /// </summary>
     public async Task<PageModelDto<MessageListItemDto>> GetPagedAsync(MessageQueryDto query)
     {
@@ -69,11 +72,8 @@ public class MessageService : IMessageService, IScopedService
         // Normalize folder name to match database storage (e.g., "sent" -> "Sent")
         var normalizedFolder = NormalizeFolderName(query.Folder);
 
-        // Sync Outlook emails if enabled and user has binding
-        if (query.IncludeOutlookSync)
-        {
-            await TrySyncOutlookEmailsAsync(ownerId, normalizedFolder);
-        }
+        // Try to sync Outlook emails silently (non-blocking, errors are logged but not thrown)
+        await TrySyncEmailsAsync();
 
         // Query local messages
         var (items, totalCount) = await _messageRepository.GetPagedByOwnerAsync(
@@ -114,120 +114,20 @@ public class MessageService : IMessageService, IScopedService
     }
 
     /// <summary>
-    /// Try to sync Outlook emails silently (non-blocking, errors are logged but not thrown)
-    /// If LastSyncTime is null, performs full sync; otherwise performs incremental sync
+    /// Try to sync Outlook emails silently using EmailBindingService
+    /// Errors are logged but not thrown to avoid blocking message list queries
     /// </summary>
-    private async Task TrySyncOutlookEmailsAsync(long ownerId, string? folder)
+    private async Task TrySyncEmailsAsync()
     {
         try
         {
-            // Check if user has Outlook binding
-            var binding = await _emailBindingRepository.GetByUserIdAndProviderAsync(ownerId, "Outlook");
-            if (binding == null || string.IsNullOrEmpty(binding.AccessToken))
-            {
-                _logger.LogDebug("[MessageService] No Outlook binding found for user {UserId}", ownerId);
-                return;
-            }
-
-            // Check if token is valid (with 5 minute buffer)
-            if (binding.TokenExpireTime <= DateTimeOffset.UtcNow.AddMinutes(5))
-            {
-                _logger.LogInformation("[MessageService] Token expired, attempting refresh");
-                // Try to refresh token
-                if (!string.IsNullOrEmpty(binding.RefreshToken))
-                {
-                    var newToken = await _outlookService.RefreshTokenAsync(binding.RefreshToken);
-                    if (newToken != null)
-                    {
-                        await _emailBindingRepository.UpdateTokenAsync(
-                            binding.Id,
-                            newToken.AccessToken,
-                            newToken.RefreshToken,
-                            newToken.ExpiresAt);
-                        binding.AccessToken = newToken.AccessToken;
-                        _logger.LogInformation("[MessageService] Token refreshed successfully");
-                    }
-                    else
-                    {
-                        _logger.LogWarning("[MessageService] Token refresh failed");
-                        return; // Token refresh failed, skip sync
-                    }
-                }
-                else
-                {
-                    _logger.LogWarning("[MessageService] No refresh token available");
-                    return; // No refresh token, skip sync
-                }
-            }
-
-            // If LastSyncTime is null and requesting a syncable folder, perform full sync
-            // Skip full sync for virtual folders (Starred, Archive, Trash) as they are local concepts
-            if (binding.LastSyncTime == null)
-            {
-                var normalizedFolder = folder?.ToLower();
-                var isVirtualFolder = normalizedFolder == "starred" || normalizedFolder == "archive" || normalizedFolder == "trash";
-                
-                if (!isVirtualFolder)
-                {
-                    _logger.LogInformation("[MessageService] LastSyncTime is null for user {UserId}, performing full sync", ownerId);
-                    
-                    // Full sync inbox
-                    var inboxSynced = await _outlookService.FullSyncEmailsAsync(binding.AccessToken, ownerId, "inbox", 500);
-                    _logger.LogInformation("[MessageService] Full sync completed: {Count} emails from inbox", inboxSynced);
-                    
-                    // Full sync sent items
-                    var sentSynced = await _outlookService.FullSyncEmailsAsync(binding.AccessToken, ownerId, "sentitems", 500);
-                    _logger.LogInformation("[MessageService] Full sync completed: {Count} emails from sentitems", sentSynced);
-                    
-                    // Full sync deleted items (Trash)
-                    var trashSynced = await _outlookService.FullSyncEmailsAsync(binding.AccessToken, ownerId, "deleteditems", 500);
-                    _logger.LogInformation("[MessageService] Full sync completed: {Count} emails from deleteditems", trashSynced);
-                    
-                    await _emailBindingRepository.UpdateLastSyncTimeAsync(binding.Id);
-                }
-                else
-                {
-                    _logger.LogDebug("[MessageService] Skipping full sync for virtual folder {Folder}", folder);
-                }
-                return;
-            }
-
-            // Only sync for folders that map to Outlook (incremental sync)
-            var outlookFolder = MapToOutlookFolder(folder);
-            if (string.IsNullOrEmpty(outlookFolder))
-            {
-                _logger.LogDebug("[MessageService] Folder '{Folder}' does not map to Outlook, skipping sync", folder);
-                return;
-            }
-
-            _logger.LogInformation("[MessageService] Starting Outlook incremental sync for folder: {Folder} -> {OutlookFolder}", folder, outlookFolder);
-
-            // Sync emails from Outlook (limit to 50 for performance)
-            var syncedCount = await _outlookService.SyncEmailsToLocalAsync(binding.AccessToken, ownerId, outlookFolder, 50);
-            await _emailBindingRepository.UpdateLastSyncTimeAsync(binding.Id);
-            _logger.LogInformation("[MessageService] Synced {Count} emails from Outlook folder {Folder}", syncedCount, outlookFolder);
+            await _emailBindingService.SyncEmailsAsync();
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "[MessageService] Error syncing Outlook emails for folder {Folder}", folder);
             // Silently ignore sync errors - user can still see local messages
-            // Errors will be visible when they manually trigger sync
+            _logger.LogDebug(ex, "Email sync skipped or failed (this is normal if user has no binding)");
         }
-    }
-
-    /// <summary>
-    /// Map local folder to Outlook folder ID
-    /// </summary>
-    private static string? MapToOutlookFolder(string? folder)
-    {
-        return folder?.ToLower() switch
-        {
-            "inbox" => "inbox",
-            "sent" => "sentitems",
-            "drafts" => "drafts",
-            "trash" => "deleteditems",
-            _ => null // Starred, Archive are local concepts
-        };
     }
 
     /// <summary>
@@ -1075,56 +975,6 @@ public class MessageService : IMessageService, IScopedService
     {
         var ownerId = GetCurrentUserId();
         return await _messageRepository.GetUnreadCountAsync(ownerId, "Inbox");
-    }
-
-    /// <summary>
-    /// Manually trigger Outlook email sync
-    /// Requires user to have bound their Outlook account with valid access token
-    /// </summary>
-    public async Task<int> SyncOutlookEmailsAsync()
-    {
-        var ownerId = GetCurrentUserId();
-        
-        // Get user's Outlook binding
-        var binding = await _emailBindingRepository.GetByUserIdAndProviderAsync(ownerId, "Outlook");
-        if (binding == null || string.IsNullOrEmpty(binding.AccessToken))
-        {
-            throw new CRMException(ErrorCodeEnum.OperationNotAllowed, "Please bind your Outlook account first");
-        }
-
-        // Check and refresh token if needed (5 minutes before expiry)
-        if (binding.TokenExpireTime <= DateTimeOffset.UtcNow.AddMinutes(5))
-        {
-            if (string.IsNullOrEmpty(binding.RefreshToken))
-            {
-                await _emailBindingRepository.UpdateSyncStatusAsync(binding.Id, "Error", "Token expired and no refresh token available");
-                throw new CRMException(ErrorCodeEnum.OperationNotAllowed, "Outlook token expired, please re-bind your account");
-            }
-
-            var newToken = await _outlookService.RefreshTokenAsync(binding.RefreshToken);
-            if (newToken == null)
-            {
-                await _emailBindingRepository.UpdateSyncStatusAsync(binding.Id, "Error", "Failed to refresh token");
-                throw new CRMException(ErrorCodeEnum.OperationNotAllowed, "Failed to refresh Outlook token, please re-bind your account");
-            }
-
-            // Update binding with new token
-            await _emailBindingRepository.UpdateTokenAsync(
-                binding.Id,
-                newToken.AccessToken,
-                newToken.RefreshToken,
-                newToken.ExpiresAt);
-
-            binding.AccessToken = newToken.AccessToken;
-        }
-
-        // Sync emails from Outlook
-        var syncedCount = await _outlookService.SyncEmailsToLocalAsync(binding.AccessToken, ownerId);
-
-        // Update last sync time
-        await _emailBindingRepository.UpdateLastSyncTimeAsync(binding.Id);
-
-        return syncedCount;
     }
 
     #endregion

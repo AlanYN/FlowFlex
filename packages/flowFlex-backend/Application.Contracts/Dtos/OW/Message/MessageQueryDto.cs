@@ -49,9 +49,4 @@ public class MessageQueryDto
     /// Sort Direction: asc, desc
     /// </summary>
     public string SortDirection { get; set; } = "desc";
-
-    /// <summary>
-    /// Include Outlook email sync
-    /// </summary>
-    public bool IncludeOutlookSync { get; set; } = true;
 }

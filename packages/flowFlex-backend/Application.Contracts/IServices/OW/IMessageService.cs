@@ -151,10 +151,5 @@ public interface IMessageService : IScopedService
     /// </summary>
     Task<int> GetUnreadCountAsync();
 
-    /// <summary>
-    /// Manually trigger Outlook email sync
-    /// </summary>
-    Task<int> SyncOutlookEmailsAsync();
-
     #endregion
 }

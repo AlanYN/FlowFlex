@@ -544,6 +544,153 @@ public class EmailBindingService : IEmailBindingService, IScopedService
         return true;
     }
 
+    /// <summary>
+    /// Sync emails for a specific user (used by background service)
+    /// </summary>
+    public async Task<SyncResultDto> SyncEmailsForUserAsync(long userId)
+    {
+        var binding = await _bindingRepository.GetByUserIdAndProviderAsync(userId, EmailConstants.Provider.Outlook);
+
+        if (binding == null)
+        {
+            return new SyncResultDto
+            {
+                SyncedCount = 0,
+                SyncTime = DateTimeOffset.UtcNow,
+                ErrorMessage = "No email binding found"
+            };
+        }
+
+        // Check if sync is already in progress
+        if (binding.SyncStatus == EmailConstants.SyncStatus.Syncing)
+        {
+            _logger.LogDebug("Sync already in progress for user {UserId}, skipping", userId);
+            return new SyncResultDto
+            {
+                SyncedCount = 0,
+                SyncTime = DateTimeOffset.UtcNow,
+                ErrorMessage = "Sync already in progress"
+            };
+        }
+
+        // Check cooldown period
+        if (binding.LastSyncTime.HasValue)
+        {
+            var timeSinceLastSync = DateTimeOffset.UtcNow - binding.LastSyncTime.Value;
+            var cooldownMinutes = EmailConstants.SyncSettings.IncrementalSyncCooldownMinutes;
+
+            if (timeSinceLastSync.TotalMinutes < cooldownMinutes)
+            {
+                _logger.LogDebug("Sync called too soon for user {UserId}, skipping", userId);
+                return new SyncResultDto
+                {
+                    SyncedCount = 0,
+                    SyncTime = DateTimeOffset.UtcNow
+                };
+            }
+        }
+
+        // Refresh token if needed
+        var tokenRefreshed = await RefreshTokenIfNeededAsync(binding.Id);
+        if (!tokenRefreshed)
+        {
+            return new SyncResultDto
+            {
+                SyncedCount = 0,
+                SyncTime = DateTimeOffset.UtcNow,
+                ErrorMessage = "Failed to refresh token"
+            };
+        }
+
+        // Reload binding to get updated token
+        binding = await _bindingRepository.GetByIdNullableAsync(binding.Id);
+        if (binding == null || string.IsNullOrEmpty(binding.AccessToken))
+        {
+            return new SyncResultDto
+            {
+                SyncedCount = 0,
+                SyncTime = DateTimeOffset.UtcNow,
+                ErrorMessage = "Failed to get valid access token"
+            };
+        }
+
+        // Mark as syncing
+        await _bindingRepository.UpdateSyncStatusAsync(binding.Id, EmailConstants.SyncStatus.Syncing);
+
+        try
+        {
+            int syncedCount;
+
+            // If LastSyncTime is null, perform full sync
+            if (binding.LastSyncTime == null)
+            {
+                _logger.LogDebug("LastSyncTime is null for user {UserId}, performing full sync", userId);
+                var folders = new List<string>
+                {
+                    EmailConstants.OutlookFolder.Inbox,
+                    EmailConstants.OutlookFolder.SentItems,
+                    EmailConstants.OutlookFolder.DeletedItems
+                };
+                var totalSynced = 0;
+
+                foreach (var folder in folders)
+                {
+                    var synced = await _outlookService.FullSyncEmailsAsync(
+                        binding.AccessToken, userId, folder,
+                        EmailConstants.SyncSettings.FullSyncMaxCount);
+                    totalSynced += synced;
+                }
+
+                syncedCount = totalSynced;
+            }
+            else
+            {
+                // Perform incremental sync for all 3 folders
+                var folders = new List<string>
+                {
+                    EmailConstants.OutlookFolder.Inbox,
+                    EmailConstants.OutlookFolder.SentItems,
+                    EmailConstants.OutlookFolder.DeletedItems
+                };
+                var totalSynced = 0;
+                var lastSyncTime = binding.LastSyncTime;
+
+                foreach (var folder in folders)
+                {
+                    var synced = await _outlookService.SyncEmailsToLocalAsync(
+                        binding.AccessToken, userId, folder,
+                        EmailConstants.SyncSettings.DefaultMaxCount, lastSyncTime);
+                    totalSynced += synced;
+                }
+
+                syncedCount = totalSynced;
+            }
+
+            await _bindingRepository.UpdateLastSyncTimeAsync(binding.Id);
+            await _bindingRepository.UpdateSyncStatusAsync(binding.Id, EmailConstants.SyncStatus.Active);
+
+            _logger.LogDebug("Synced {Count} emails for user {UserId}", syncedCount, userId);
+
+            return new SyncResultDto
+            {
+                SyncedCount = syncedCount,
+                SyncTime = DateTimeOffset.UtcNow
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to sync emails for user {UserId}", userId);
+            await _bindingRepository.UpdateSyncStatusAsync(binding.Id, EmailConstants.SyncStatus.Error, ex.Message);
+
+            return new SyncResultDto
+            {
+                SyncedCount = 0,
+                SyncTime = DateTimeOffset.UtcNow,
+                ErrorMessage = ex.Message
+            };
+        }
+    }
+
     #region Private Methods
 
     private long GetCurrentUserId()
