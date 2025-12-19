@@ -121,13 +121,14 @@ import { ref } from 'vue';
 import { ElMessage } from 'element-plus';
 import type { UploadFile, UploadUserFile } from 'element-plus';
 import { PrototypeTabs, TabPane } from '@/components/PrototypeTabs';
-import { moreDialogWidth } from '@/settings/projectSetting';
+import { moreDialogWidth, projectTenMinutesSsecondsDate } from '@/settings/projectSetting';
 import MessageFormFields from './MessageFormFields.vue';
 import { MessageType } from '@/enums/appEnum';
 
 import { MessageCenterForm, MessageInfo } from '#/message';
 import { sendMessageCenter, uploadMessageFile } from '@/apis/messageCenter';
 import FlowflexUserSelect from '@/components/form/flowflexUser/index.vue';
+import { timeZoneConvert } from '@/hooks/time';
 
 import { FlowflexUser } from '#/golbal';
 
@@ -141,6 +142,34 @@ const emit = defineEmits<{
 	send: [data: MessageCenterForm];
 }>();
 
+const forwardBodyTemplate = (originalMessage: MessageInfo) => {
+	return `
+		<pre>---------- Forwarded Message ----------<br />From: ${originalMessage.senderEmail}<${
+			originalMessage.senderEmail
+		}><br />Date: ${timeZoneConvert(
+			originalMessage.sentDate,
+			false,
+			projectTenMinutesSsecondsDate
+		)}<br />To: ${originalMessage.recipients
+			.map((item) => item.email)
+			.join(',')}<br />Subject: ${originalMessage.subject}</pre><br />
+	
+		${originalMessage.body}
+	`;
+};
+
+const replyBodyTemplate = (originalMessage: MessageInfo) => {
+	return `
+		<pre>${originalMessage.senderEmail}<${originalMessage.senderEmail}> on ${timeZoneConvert(
+			originalMessage.sentDate,
+			false,
+			projectTenMinutesSsecondsDate
+		)} wrote:</pre>
+		<br />
+		${originalMessage.body}
+	`;
+};
+
 const visible = ref(false);
 const openVisible = (originalMessage?: MessageInfo, isReply: boolean = false) => {
 	if (originalMessage) {
@@ -150,8 +179,10 @@ const openVisible = (originalMessage?: MessageInfo, isReply: boolean = false) =>
 				: originalMessage.recipients.map((item) => item.userId)
 			: [];
 		selectedRecipient.value = messageUser;
-		form.value.body = originalMessage.body;
-		form.value.subject = originalMessage.subject;
+		form.value.body = isReply
+			? replyBodyTemplate(originalMessage)
+			: forwardBodyTemplate(originalMessage);
+		form.value.subject = `${isReply ? 'Re: ' : 'Fwd: '}${originalMessage.subject}`;
 		messageType.value = `${originalMessage.messageType}` as MessageType;
 		uploadedAttachments.value = originalMessage.attachments;
 	}
