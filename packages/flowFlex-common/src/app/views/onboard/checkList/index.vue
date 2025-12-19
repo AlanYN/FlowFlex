@@ -476,46 +476,48 @@ const deleteChecklistItem = async (checklistId) => {
 	try {
 		await ElMessageBox.confirm(
 			'Are you sure you want to delete this checklist? This action cannot be undone.',
-			'Confirm Deletion',
+			'⚠️ Confirm Deletion',
 			{
 				confirmButtonText: 'Delete Checklist',
 				cancelButtonText: 'Cancel',
-				type: 'warning',
-				customClass: 'custom-confirm-dialog',
-				confirmButtonClass: 'el-button--danger',
+				confirmButtonClass: 'danger-confirm-btn',
+				cancelButtonClass: 'cancel-confirm-btn',
+				distinguishCancelAndClose: true,
+				customClass: 'delete-confirmation-dialog',
+				showCancelButton: true,
+				showConfirmButton: true,
+				beforeClose: async (action, instance, done) => {
+					if (action === 'confirm') {
+						instance.confirmButtonLoading = true;
+						instance.confirmButtonText = 'Deleting...';
+						try {
+							await deleteChecklist(checklistId, true);
+							ElMessage.success('Checklist deleted successfully');
+							activeDropdown.value = null;
+							done();
+							await loadChecklists();
+						} catch (err: any) {
+							let errorMessage = 'Failed to delete checklist';
+							if (err.response?.status === 404) {
+								errorMessage = 'Checklist not found or already deleted';
+							} else if (err.response?.status === 403) {
+								errorMessage =
+									'You do not have permission to delete this checklist';
+							} else if (err.message) {
+								errorMessage = `Deletion failed: ${err.message}`;
+							}
+							ElMessage.error(errorMessage);
+							instance.confirmButtonLoading = false;
+							instance.confirmButtonText = 'Delete Checklist';
+						}
+					} else {
+						done();
+					}
+				},
 			}
 		);
 	} catch {
-		return; // 用户取消删除
-	}
-
-	deleteLoading.value = true;
-	try {
-		await deleteChecklist(checklistId, true);
-		ElMessage.success('Checklist deleted successfully');
-		activeDropdown.value = null;
-
-		// 删除成功后立即刷新页面数据
-		await loadChecklists();
-
-		// 清理工作完成（不再需要展开状态管理）
-	} catch (err) {
-		// 提供更详细的错误信息
-		let errorMessage = 'Failed to delete checklist';
-		if (err.response?.status === 404) {
-			errorMessage = 'Checklist not found or already deleted';
-		} else if (err.response?.status === 403) {
-			errorMessage = 'You do not have permission to delete this checklist';
-		} else if (err.message) {
-			errorMessage = `Deletion failed: ${err.message}`;
-		}
-
-		ElMessage.error(errorMessage);
-		activeDropdown.value = null;
-		await loadChecklists();
-		// 错误处理完成（不再需要展开状态管理）
-	} finally {
-		deleteLoading.value = false;
+		// 用户取消删除
 	}
 };
 

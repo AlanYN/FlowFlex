@@ -694,19 +694,6 @@
 				</div>
 			</template>
 		</el-dialog>
-
-		<!-- 删除确认对话框 -->
-		<el-dialog v-model="deleteDialogVisible" title="Confirm Deletion" width="400px">
-			<p class="delete-confirm-text">
-				Are you sure you want to delete this lead? This action cannot be undone.
-			</p>
-			<template #footer>
-				<div class="flex justify-end space-x-2">
-					<el-button @click="deleteDialogVisible = false">Cancel</el-button>
-					<el-button type="danger" @click="confirmDelete">Delete</el-button>
-				</div>
-			</template>
-		</el-dialog>
 	</div>
 </template>
 
@@ -824,8 +811,6 @@ const activeView = ref('table');
 const currentPage = ref(1);
 const pageSize = ref(15);
 const totalElements = ref(0);
-const deleteDialogVisible = ref(false);
-const itemToDelete = ref<string | null>(null);
 
 const handleViewChange = (value: string) => {
 	activeView.value = value;
@@ -1295,9 +1280,48 @@ const handleNewOnboarding = async () => {
 	}
 };
 
-const handleDelete = (itemId: string) => {
-	itemToDelete.value = itemId;
-	deleteDialogVisible.value = true;
+const handleDelete = async (itemId: string) => {
+	try {
+		await ElMessageBox.confirm(
+			'Are you sure you want to delete this lead? This action cannot be undone.',
+			'⚠️ Confirm Deletion',
+			{
+				confirmButtonText: 'Delete',
+				cancelButtonText: 'Cancel',
+				confirmButtonClass: 'danger-confirm-btn',
+				cancelButtonClass: 'cancel-confirm-btn',
+				distinguishCancelAndClose: true,
+				customClass: 'delete-confirmation-dialog',
+				showCancelButton: true,
+				showConfirmButton: true,
+				beforeClose: async (action, instance, done) => {
+					if (action === 'confirm') {
+						instance.confirmButtonLoading = true;
+						instance.confirmButtonText = 'Deleting...';
+						try {
+							const res = await deleteOnboarding(itemId, true);
+							if (res.code == '200') {
+								ElMessage.success(t('sys.api.operationSuccess'));
+								done();
+								await loadOnboardingList();
+							} else {
+								ElMessage.error(res.msg || t('sys.api.operationFailed'));
+								instance.confirmButtonLoading = false;
+								instance.confirmButtonText = 'Delete';
+							}
+						} catch {
+							instance.confirmButtonLoading = false;
+							instance.confirmButtonText = 'Delete';
+						}
+					} else {
+						done();
+					}
+				},
+			}
+		);
+	} catch {
+		// User cancelled, do nothing
+	}
 };
 
 // ========================= 状态管理函数 =========================
@@ -1583,25 +1607,6 @@ const handleForceComplete = async (row: OnboardingItem) => {
 			},
 		}
 	);
-};
-
-const confirmDelete = async () => {
-	if (itemToDelete.value) {
-		try {
-			loading.value = true;
-			const res = await deleteOnboarding(itemToDelete.value, true);
-
-			if (res.code == '200') {
-				// 重新加载数据
-				deleteDialogVisible.value = false;
-				ElMessage.success(t('sys.api.operationSuccess'));
-				await loadOnboardingList();
-			}
-		} finally {
-			loading.value = false;
-		}
-	}
-	itemToDelete.value = null;
 };
 
 const handleExport = async () => {
