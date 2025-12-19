@@ -37,7 +37,8 @@ public interface IOutlookService : IScopedService
         string folderId = "inbox",
         int top = 50,
         int skip = 0,
-        bool? onlyUnread = null);
+        bool? onlyUnread = null,
+        DateTimeOffset? receivedAfter = null);
 
     /// <summary>
     /// Get email detail by ID
@@ -94,9 +95,9 @@ public interface IOutlookService : IScopedService
     #region Sync Operations
 
     /// <summary>
-    /// Sync emails from Outlook to local database (incremental)
+    /// Sync emails from Outlook to local database (incremental, based on time filter)
     /// </summary>
-    Task<int> SyncEmailsToLocalAsync(string accessToken, long ownerId, string folderId = "inbox", int maxCount = 100);
+    Task<int> SyncEmailsToLocalAsync(string accessToken, long ownerId, string folderId = "inbox", int maxCount = 100, DateTimeOffset? lastSyncTime = null);
 
     /// <summary>
     /// Full sync emails from Outlook with pagination support

@@ -34,14 +34,10 @@ public interface IEmailBindingService : IScopedService
     Task<bool> UpdateSettingsAsync(EmailBindingUpdateDto input);
 
     /// <summary>
-    /// Manually trigger incremental email sync (default behavior)
+    /// Manually trigger email sync
+    /// If LastSyncTime is null, performs full sync; otherwise performs incremental sync
     /// </summary>
     Task<SyncResultDto> SyncEmailsAsync();
-
-    /// <summary>
-    /// Incremental sync - sync recent emails from specified folders
-    /// </summary>
-    Task<SyncResultDto> IncrementalSyncAsync(IncrementalSyncRequestDto? request = null);
 
     /// <summary>
     /// Full sync - sync all emails from specified folders with pagination

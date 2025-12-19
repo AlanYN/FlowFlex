@@ -257,7 +257,8 @@ public class OutlookService : IOutlookService, IScopedService
         string folderId = "inbox",
         int top = 50,
         int skip = 0,
-        bool? onlyUnread = null)
+        bool? onlyUnread = null,
+        DateTimeOffset? receivedAfter = null)
     {
         try
         {
@@ -266,9 +267,21 @@ public class OutlookService : IOutlookService, IScopedService
                 $"&$orderby=receivedDateTime desc" +
                 $"&$select=id,subject,bodyPreview,from,toRecipients,receivedDateTime,sentDateTime,isRead,hasAttachments,isDraft";
 
+            // Build filter conditions
+            var filters = new List<string>();
             if (onlyUnread == true)
             {
-                url += "&$filter=isRead eq false";
+                filters.Add("isRead eq false");
+            }
+            if (receivedAfter.HasValue)
+            {
+                // Format: 2025-12-19T00:00:00Z
+                var dateFilter = receivedAfter.Value.UtcDateTime.ToString("yyyy-MM-ddTHH:mm:ssZ");
+                filters.Add($"receivedDateTime ge {dateFilter}");
+            }
+            if (filters.Count > 0)
+            {
+                url += "&$filter=" + string.Join(" and ", filters);
             }
 
             var response = await SendAuthorizedGetAsync(url, accessToken);
@@ -550,13 +563,13 @@ public class OutlookService : IOutlookService, IScopedService
     #region Sync Operations
 
     /// <summary>
-    /// Sync emails from Outlook to local database
+    /// Sync emails from Outlook to local database (incremental sync based on time)
     /// </summary>
-    public async Task<int> SyncEmailsToLocalAsync(string accessToken, long ownerId, string folderId = "inbox", int maxCount = 100)
+    public async Task<int> SyncEmailsToLocalAsync(string accessToken, long ownerId, string folderId = "inbox", int maxCount = 100, DateTimeOffset? lastSyncTime = null)
     {
         try
         {
-            var emails = await GetEmailsAsync(accessToken, folderId, maxCount, 0);
+            var emails = await GetEmailsAsync(accessToken, folderId, maxCount, 0, receivedAfter: lastSyncTime);
             var syncedCount = 0;
             var localFolder = MapOutlookFolderToLocal(folderId);
 
@@ -622,7 +635,7 @@ public class OutlookService : IOutlookService, IScopedService
 
                 await _messageRepository.InsertAsync(message);
 
-                // Sync attachments if email has attachments
+                // Sync attachment metadata only (content downloaded on-demand)
                 if (email.HasAttachments)
                 {
                     await SyncAttachmentsAsync(accessToken, email.Id, message.Id);
@@ -703,7 +716,7 @@ public class OutlookService : IOutlookService, IScopedService
                     message.InitCreateInfo(_userContext);
                     await _messageRepository.InsertAsync(message);
 
-                    // Sync attachments
+                    // Sync attachment metadata only (content downloaded on-demand)
                     if (email.HasAttachments)
                     {
                         await SyncAttachmentsAsync(accessToken, email.Id, message.Id);

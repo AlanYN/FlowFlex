@@ -145,6 +145,7 @@ namespace WebApi.Authentication
                         userContext.RoleIds = validatedUserExtensionResult.Data.RoleIds;
                         userContext.ValidationVersion = claims!.FirstOrDefault(x => x.Type == "jti")?.Value;
                         userContext.UserId = userInfo.UserId;
+                        Console.WriteLine($"[TokenValidatedHandler.OnIamItemTokenValidated] Set UserId from userInfo: {userContext.UserId}");
                         userContext.UserName = userInfo.UserName;
                         userContext.LastName = userInfo.LastName;
                         userContext.FirstName = userInfo.FirstName;

@@ -383,7 +383,7 @@ namespace FlowFlex.Application.Services.AI
                     new { role = "user", content = prompt }
                 };
 
-                // 获取用户配置
+                // Get user configuration
                 AIModelConfig userConfig = null;
                 if (!string.IsNullOrEmpty(input.ModelId) && long.TryParse(input.ModelId, out var modelId))
                 {

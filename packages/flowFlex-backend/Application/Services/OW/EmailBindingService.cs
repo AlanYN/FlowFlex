@@ -283,6 +283,42 @@ public class EmailBindingService : IEmailBindingService, IScopedService
             throw new CRMException(ErrorCodeEnum.DataNotFound, "No email binding found. Please bind your Outlook account first.");
         }
 
+        // Check if sync is already in progress, wait for it to complete
+        if (binding.SyncStatus == EmailConstants.SyncStatus.Syncing)
+        {
+            _logger.LogInformation("Sync already in progress for user {UserId}, waiting for completion", userId);
+            var waitResult = await WaitForSyncCompletionAsync(binding.Id, userId);
+            return new SyncResultDto
+            {
+                SyncedCount = waitResult.TotalSyncedCount,
+                SyncTime = waitResult.SyncTime,
+                ErrorMessage = waitResult.ErrorMessage
+            };
+        }
+
+        // Check if last sync was within the cooldown period (1 minute)
+        if (binding.LastSyncTime.HasValue)
+        {
+            var timeSinceLastSync = DateTimeOffset.UtcNow - binding.LastSyncTime.Value;
+            var cooldownMinutes = EmailConstants.SyncSettings.IncrementalSyncCooldownMinutes;
+            
+            if (timeSinceLastSync.TotalMinutes < cooldownMinutes)
+            {
+                var remainingSeconds = (int)((cooldownMinutes * 60) - timeSinceLastSync.TotalSeconds);
+                _logger.LogDebug("Sync called too soon for user {UserId}, last sync was {Seconds} seconds ago, skipping", 
+                    userId, (int)timeSinceLastSync.TotalSeconds);
+                return new SyncResultDto
+                {
+                    SyncedCount = 0,
+                    SyncTime = DateTimeOffset.UtcNow,
+                    ErrorMessage = $"Sync can only be performed once per minute. Please try again in {remainingSeconds} seconds."
+                };
+            }
+        }
+
+        // Mark as syncing to prevent duplicate calls
+        await _bindingRepository.UpdateSyncStatusAsync(binding.Id, EmailConstants.SyncStatus.Syncing);
+
         // Refresh token if needed
         await RefreshTokenIfNeededAsync(binding.Id);
 
@@ -301,6 +337,8 @@ public class EmailBindingService : IEmailBindingService, IScopedService
             if (binding.LastSyncTime == null)
             {
                 _logger.LogDebug("LastSyncTime is null for user {UserId}, performing full sync", userId);
+                // Reset status first since FullSyncAsync will set it again
+                await _bindingRepository.UpdateSyncStatusAsync(binding.Id, EmailConstants.SyncStatus.Active);
                 var fullSyncResult = await FullSyncAsync(new FullSyncRequestDto
                 {
                     Folders = new List<string> 
@@ -315,8 +353,29 @@ public class EmailBindingService : IEmailBindingService, IScopedService
             }
             else
             {
-                // Perform incremental sync
-                syncedCount = await _outlookService.SyncEmailsToLocalAsync(binding.AccessToken, userId);
+                // Perform incremental sync for all 3 folders (only emails received after last sync)
+                var folders = new List<string>
+                {
+                    EmailConstants.OutlookFolder.Inbox,
+                    EmailConstants.OutlookFolder.SentItems,
+                    EmailConstants.OutlookFolder.DeletedItems
+                };
+                var totalSynced = 0;
+                var lastSyncTime = binding.LastSyncTime;
+
+                _logger.LogDebug("Incremental sync for user {UserId}, filtering emails after {LastSyncTime}", 
+                    userId, lastSyncTime);
+
+                foreach (var folder in folders)
+                {
+                    var synced = await _outlookService.SyncEmailsToLocalAsync(
+                        binding.AccessToken, userId, folder, 
+                        EmailConstants.SyncSettings.DefaultMaxCount, lastSyncTime);
+                    totalSynced += synced;
+                    _logger.LogDebug("Incremental sync: synced {Count} emails from folder {Folder}", synced, folder);
+                }
+
+                syncedCount = totalSynced;
                 await _bindingRepository.UpdateLastSyncTimeAsync(binding.Id);
                 await _bindingRepository.UpdateSyncStatusAsync(binding.Id, EmailConstants.SyncStatus.Active);
             }
@@ -330,79 +389,6 @@ public class EmailBindingService : IEmailBindingService, IScopedService
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to sync emails for user {UserId}", userId);
-            await _bindingRepository.UpdateSyncStatusAsync(binding.Id, "Error", ex.Message);
-
-            return new SyncResultDto
-            {
-                SyncedCount = 0,
-                SyncTime = DateTimeOffset.UtcNow,
-                ErrorMessage = ex.Message
-            };
-        }
-    }
-
-    /// <summary>
-    /// Incremental sync - sync recent emails from specified folders
-    /// </summary>
-    public async Task<SyncResultDto> IncrementalSyncAsync(IncrementalSyncRequestDto? request = null)
-    {
-        var userId = GetCurrentUserId();
-        var binding = await _bindingRepository.GetByUserIdAndProviderAsync(userId, EmailConstants.Provider.Outlook);
-
-        if (binding == null)
-        {
-            throw new CRMException(ErrorCodeEnum.DataNotFound, "No email binding found. Please bind your Outlook account first.");
-        }
-
-        // Check if sync is already in progress
-        if (binding.SyncStatus == EmailConstants.SyncStatus.Syncing)
-        {
-            _logger.LogWarning("Sync already in progress for user {UserId}, skipping duplicate request", userId);
-            return new SyncResultDto
-            {
-                SyncedCount = 0,
-                SyncTime = DateTimeOffset.UtcNow,
-                ErrorMessage = "Sync is already in progress. Please wait for the current sync to complete."
-            };
-        }
-
-        // Mark as syncing to prevent duplicate calls
-        await _bindingRepository.UpdateSyncStatusAsync(binding.Id, EmailConstants.SyncStatus.Syncing);
-
-        // Refresh token if needed
-        await RefreshTokenIfNeededAsync(binding.Id);
-
-        binding = await _bindingRepository.GetByIdNullableAsync(binding.Id);
-        if (binding == null || string.IsNullOrEmpty(binding.AccessToken))
-        {
-            throw new CRMException(ErrorCodeEnum.BusinessError, "Failed to get valid access token");
-        }
-
-        try
-        {
-            var folders = request?.Folders ?? new List<string> { EmailConstants.OutlookFolder.Inbox };
-            var maxCount = request?.MaxCount ?? EmailConstants.SyncSettings.DefaultMaxCount;
-            var totalSynced = 0;
-
-            foreach (var folder in folders)
-            {
-                var synced = await _outlookService.SyncEmailsToLocalAsync(binding.AccessToken, userId, folder, maxCount);
-                totalSynced += synced;
-                _logger.LogDebug("Incremental sync: synced {Count} emails from folder {Folder}", synced, folder);
-            }
-
-            await _bindingRepository.UpdateLastSyncTimeAsync(binding.Id);
-            await _bindingRepository.UpdateSyncStatusAsync(binding.Id, EmailConstants.SyncStatus.Active);
-
-            return new SyncResultDto
-            {
-                SyncedCount = totalSynced,
-                SyncTime = DateTimeOffset.UtcNow
-            };
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to incremental sync emails for user {UserId}", userId);
             await _bindingRepository.UpdateSyncStatusAsync(binding.Id, EmailConstants.SyncStatus.Error, ex.Message);
 
             return new SyncResultDto
@@ -427,18 +413,33 @@ public class EmailBindingService : IEmailBindingService, IScopedService
             throw new CRMException(ErrorCodeEnum.DataNotFound, "No email binding found. Please bind your Outlook account first.");
         }
 
-        // Check if sync is already in progress
+        // Check if sync is already in progress, wait for it to complete
         if (binding.SyncStatus == EmailConstants.SyncStatus.Syncing)
         {
-            _logger.LogWarning("Full sync already in progress for user {UserId}, skipping duplicate request", userId);
-            return new FullSyncResultDto
+            _logger.LogInformation("Full sync already in progress for user {UserId}, waiting for completion", userId);
+            return await WaitForSyncCompletionAsync(binding.Id, userId);
+        }
+
+        // Check if last sync was within the cooldown period (1 hour for full sync)
+        if (binding.LastSyncTime.HasValue)
+        {
+            var timeSinceLastSync = DateTimeOffset.UtcNow - binding.LastSyncTime.Value;
+            var cooldownMinutes = EmailConstants.SyncSettings.FullSyncCooldownMinutes;
+            
+            if (timeSinceLastSync.TotalMinutes < cooldownMinutes)
             {
-                TotalSyncedCount = 0,
-                SyncedCountByFolder = new Dictionary<string, int>(),
-                SyncTime = DateTimeOffset.UtcNow,
-                ErrorMessage = "Sync is already in progress. Please wait for the current sync to complete.",
-                IsComplete = false
-            };
+                var remainingMinutes = (int)(cooldownMinutes - timeSinceLastSync.TotalMinutes);
+                _logger.LogWarning("Full sync called too soon for user {UserId}, last sync was {Minutes} minutes ago", 
+                    userId, (int)timeSinceLastSync.TotalMinutes);
+                return new FullSyncResultDto
+                {
+                    TotalSyncedCount = 0,
+                    SyncedCountByFolder = new Dictionary<string, int>(),
+                    SyncTime = DateTimeOffset.UtcNow,
+                    ErrorMessage = $"Full sync can only be performed once per hour. Please try again in {remainingMinutes} minutes.",
+                    IsComplete = false
+                };
+            }
         }
 
         // Mark as syncing to prevent duplicate calls
@@ -634,6 +635,73 @@ public class EmailBindingService : IEmailBindingService, IScopedService
             SyncIntervalMinutes = binding.SyncIntervalMinutes,
             IsTokenValid = binding.TokenExpireTime > DateTimeOffset.UtcNow,
             TokenExpireTime = binding.TokenExpireTime
+        };
+    }
+
+    /// <summary>
+    /// Wait for ongoing sync to complete and return the result
+    /// </summary>
+    private async Task<FullSyncResultDto> WaitForSyncCompletionAsync(long bindingId, long userId)
+    {
+        const int maxWaitSeconds = 300; // Maximum wait time: 5 minutes
+        const int pollIntervalMs = 2000; // Poll every 2 seconds
+        var startTime = DateTimeOffset.UtcNow;
+
+        while ((DateTimeOffset.UtcNow - startTime).TotalSeconds < maxWaitSeconds)
+        {
+            await Task.Delay(pollIntervalMs);
+
+            var binding = await _bindingRepository.GetByIdNullableAsync(bindingId);
+            if (binding == null)
+            {
+                return new FullSyncResultDto
+                {
+                    TotalSyncedCount = 0,
+                    SyncedCountByFolder = new Dictionary<string, int>(),
+                    SyncTime = DateTimeOffset.UtcNow,
+                    ErrorMessage = "Email binding not found",
+                    IsComplete = false
+                };
+            }
+
+            // Check if sync completed (status changed from Syncing)
+            if (binding.SyncStatus != EmailConstants.SyncStatus.Syncing)
+            {
+                _logger.LogInformation("Sync completed for user {UserId}, status: {Status}", userId, binding.SyncStatus);
+
+                if (binding.SyncStatus == EmailConstants.SyncStatus.Error)
+                {
+                    return new FullSyncResultDto
+                    {
+                        TotalSyncedCount = 0,
+                        SyncedCountByFolder = new Dictionary<string, int>(),
+                        SyncTime = binding.LastSyncTime ?? DateTimeOffset.UtcNow,
+                        ErrorMessage = binding.LastSyncError ?? "Sync failed",
+                        IsComplete = false
+                    };
+                }
+
+                // Sync completed successfully
+                return new FullSyncResultDto
+                {
+                    TotalSyncedCount = 0, // We don't know the exact count from the other request
+                    SyncedCountByFolder = new Dictionary<string, int>(),
+                    SyncTime = binding.LastSyncTime ?? DateTimeOffset.UtcNow,
+                    IsComplete = true,
+                    ErrorMessage = null
+                };
+            }
+        }
+
+        // Timeout waiting for sync
+        _logger.LogWarning("Timeout waiting for sync completion for user {UserId}", userId);
+        return new FullSyncResultDto
+        {
+            TotalSyncedCount = 0,
+            SyncedCountByFolder = new Dictionary<string, int>(),
+            SyncTime = DateTimeOffset.UtcNow,
+            ErrorMessage = "Timeout waiting for sync to complete. The sync is still running in the background.",
+            IsComplete = false
         };
     }
 

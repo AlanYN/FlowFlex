@@ -169,29 +169,16 @@ public class EmailBindingController : Controllers.ControllerBase
     }
 
     /// <summary>
-    /// Manually trigger email sync (incremental, default behavior)
+    /// Manually trigger email sync
     /// </summary>
+    /// <remarks>
+    /// If LastSyncTime is null, performs full sync; otherwise performs incremental sync.
+    /// </remarks>
     [HttpPost("sync")]
     [ProducesResponseType<SuccessResponse<SyncResultDto>>((int)HttpStatusCode.OK)]
     public async Task<IActionResult> SyncEmailsAsync()
     {
         var result = await _emailBindingService.SyncEmailsAsync();
-        return Success(result);
-    }
-
-    /// <summary>
-    /// Incremental sync - sync recent emails from specified folders
-    /// </summary>
-    /// <remarks>
-    /// Syncs the most recent emails (default 100) from specified folders.
-    /// This is faster than full sync and suitable for regular updates.
-    /// Default folders: inbox
-    /// </remarks>
-    [HttpPost("sync/incremental")]
-    [ProducesResponseType<SuccessResponse<SyncResultDto>>((int)HttpStatusCode.OK)]
-    public async Task<IActionResult> IncrementalSyncAsync([FromBody] IncrementalSyncRequestDto? request = null)
-    {
-        var result = await _emailBindingService.IncrementalSyncAsync(request);
         return Success(result);
     }
 

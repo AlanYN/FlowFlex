@@ -76,7 +76,17 @@ public static class EmailConstants
         public const int MinIntervalMinutes = 5;
         public const int MaxIntervalMinutes = 1440;
         public const int DefaultMaxCount = 100;
-        public const int FullSyncMaxCount = 2000;
+        public const int FullSyncMaxCount = 10000;
         public const int BatchSize = 50;
+        
+        /// <summary>
+        /// Cooldown period for full sync in minutes (20 minutes)
+        /// </summary>
+        public const int FullSyncCooldownMinutes = 20;
+
+        /// <summary>
+        /// Cooldown period for incremental sync in minutes (1 minute)
+        /// </summary>
+        public const int IncrementalSyncCooldownMinutes = 1;
     }
 }
