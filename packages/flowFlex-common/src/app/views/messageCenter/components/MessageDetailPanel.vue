@@ -188,12 +188,7 @@
 										)
 									"
 								>
-									<Icon
-										v-if="deleteLoadingId == message.id"
-										icon="lucide-loader-2"
-										class="animate-spin mr-2"
-									/>
-									<Icon v-else icon="lucide-trash-2" class="mr-2 text-red-500" />
+									<Icon icon="lucide-trash-2" class="mr-2 text-red-500" />
 									<span class="text-red-500">Delete</span>
 								</el-dropdown-item>
 							</el-dropdown-menu>
@@ -340,7 +335,6 @@ void emailContainerRef;
 interface Props {
 	visible: boolean;
 	starLoadingId: string;
-	deleteLoadingId: string;
 	archiveLoadingId: string;
 	unreadLoadingId: string;
 	attachmentLoadingId: string;

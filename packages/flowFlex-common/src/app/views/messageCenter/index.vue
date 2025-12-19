@@ -415,7 +415,6 @@
 					ref="messageDetail"
 					:visible="isDetailPanelVisible"
 					:starLoadingId="starLoadingId"
-					:deleteLoadingId="deleteLoadingId"
 					:archiveLoadingId="archiveLoadingId"
 					:unreadLoadingId="unreadLoadingId"
 					:attachmentLoadingId="attachmentLoadingId"
@@ -800,9 +799,8 @@ const handleArchive = async (messageId: string, isArchived: boolean) => {
 	}
 };
 
-const deleteLoadingId = ref('');
 const handleDelete = async (messageId: string, permanent: boolean = false) => {
-	const title = permanent ? 'Permanently Delete' : 'Delete Message';
+	const title = permanent ? '⚠️ Permanently Delete' : '⚠️ Delete Message';
 	const confirmMessage = permanent
 		? 'This message will be permanently deleted and cannot be recovered. Are you sure you want to continue?'
 		: 'This message will be moved to Trash. Are you sure you want to delete it?';
@@ -812,26 +810,45 @@ const handleDelete = async (messageId: string, permanent: boolean = false) => {
 		await ElMessageBox.confirm(confirmMessage, title, {
 			confirmButtonText,
 			cancelButtonText: 'Cancel',
-			type: 'warning',
-			confirmButtonClass: permanent ? 'el-button--danger' : '',
+			confirmButtonClass: 'danger-confirm-btn',
+			cancelButtonClass: 'cancel-confirm-btn',
+			distinguishCancelAndClose: true,
+			customClass: 'delete-confirmation-dialog',
+			showCancelButton: true,
+			showConfirmButton: true,
+			beforeClose: async (action, instance, done) => {
+				if (action === 'confirm') {
+					instance.confirmButtonLoading = true;
+					instance.confirmButtonText = 'Deleting...';
+					try {
+						const res = permanent
+							? await permanentDeleteMessage(messageId)
+							: await deleteMessage(messageId);
+						if (res.code == '200') {
+							// 本地移除删除的消息
+							messageList.value = messageList.value.filter(
+								(msg) => msg.id !== messageId
+							);
+							// 如果删除的是当前选中的消息，关闭详情面板
+							if (selectedMessageId.value === messageId) {
+								handleCloseDetailPanel();
+							}
+							done();
+						} else {
+							instance.confirmButtonLoading = false;
+							instance.confirmButtonText = confirmButtonText;
+						}
+					} catch {
+						instance.confirmButtonLoading = false;
+						instance.confirmButtonText = confirmButtonText;
+					}
+				} else {
+					done();
+				}
+			},
 		});
-
-		deleteLoadingId.value = messageId;
-		const res = permanent
-			? await permanentDeleteMessage(messageId)
-			: await deleteMessage(messageId);
-		if (res.code == '200') {
-			// 本地移除删除的消息
-			messageList.value = messageList.value.filter((msg) => msg.id !== messageId);
-			// 如果删除的是当前选中的消息，关闭详情面板
-			if (selectedMessageId.value === messageId) {
-				handleCloseDetailPanel();
-			}
-		}
 	} catch {
 		// User cancelled, do nothing
-	} finally {
-		deleteLoadingId.value = '';
 	}
 };
 
