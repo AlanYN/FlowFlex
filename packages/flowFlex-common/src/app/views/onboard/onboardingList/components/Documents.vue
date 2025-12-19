@@ -77,7 +77,7 @@
 							</div>
 							<div class="text-sm text-gray-500 dark:text-gray-400 mt-1">
 								or
-								<em class="text-blue-500 hover:text-blue-600 cursor-pointer">
+								<em class="text-primary-500 hover:text-primary-600 cursor-pointer">
 									click to browse
 								</em>
 							</div>
@@ -102,7 +102,7 @@
 						:key="progress.uid"
 						class="flex items-center space-x-3 p-2 bg-gray-50 dark:bg-black-200 rounded"
 					>
-						<el-icon class="text-blue-500">
+						<el-icon class="text-primary-500">
 							<Upload />
 						</el-icon>
 						<div class="flex-1">

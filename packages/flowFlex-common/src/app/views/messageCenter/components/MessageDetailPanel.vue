@@ -1,142 +1,383 @@
 <template>
-	<div v-if="visible && message" class="h-full flex flex-col bg-black-400 rounded-xl">
-		<!-- Header section -->
-		<div class="flex items-center justify-between p-4 border-b border-gray-700">
-			<h2 class="text-xl font-bold truncate flex-1">{{ message.subject }}</h2>
-			<div class="flex items-center gap-2 ml-4">
-				<el-button :icon="Star" circle link @click="$emit('star', message.id)" />
-				<el-button circle link @click="$emit('archive', message.id)">
-					<Icon icon="lucide-archive" />
-				</el-button>
-				<el-button :icon="Delete" circle link @click="$emit('delete', message.id)" />
-				<el-button :icon="Close" circle link @click="$emit('close')" />
+	<div v-if="visible" class="h-full flex flex-col bg-black-400 rounded-xl">
+		<!-- Loading Skeleton -->
+		<div v-if="messageLoading" class="h-full flex flex-col">
+			<!-- Header Skeleton -->
+			<div class="flex items-center justify-between p-4 border-b border-gray-700">
+				<el-skeleton animated class="flex-1">
+					<template #template>
+						<el-skeleton-item variant="h1" class="w-3/4" />
+					</template>
+				</el-skeleton>
+				<div class="flex items-center gap-2 ml-4">
+					<el-skeleton-item variant="circle" class="w-8 h-8" />
+					<el-skeleton-item variant="circle" class="w-8 h-8" />
+					<el-skeleton-item variant="circle" class="w-8 h-8" />
+					<el-skeleton-item variant="circle" class="w-8 h-8" />
+				</div>
+			</div>
+
+			<!-- Content Skeleton -->
+			<div class="flex-1 overflow-y-auto p-4">
+				<el-skeleton animated>
+					<template #template>
+						<!-- Sender Info Skeleton -->
+						<div class="flex items-start gap-3 mb-6">
+							<el-skeleton-item variant="circle" class="w-10 h-10" />
+							<div class="flex-1 space-y-2">
+								<el-skeleton-item variant="text" class="w-40" />
+								<el-skeleton-item variant="text" class="w-60" />
+								<el-skeleton-item variant="text" class="w-80" />
+							</div>
+						</div>
+
+						<!-- Labels Skeleton -->
+						<div class="flex items-center gap-2 mb-6">
+							<el-skeleton-item variant="text" class="w-20 h-6" />
+							<el-skeleton-item variant="text" class="w-24 h-6" />
+						</div>
+
+						<!-- Message Body Skeleton -->
+						<div class="space-y-3 mb-6">
+							<el-skeleton-item variant="text" class="w-full" />
+							<el-skeleton-item variant="text" class="w-full" />
+							<el-skeleton-item variant="text" class="w-3/4" />
+							<el-skeleton-item variant="text" class="w-full" />
+							<el-skeleton-item variant="text" class="w-5/6" />
+						</div>
+
+						<!-- Attachments Skeleton -->
+						<div class="space-y-2">
+							<el-skeleton-item variant="text" class="w-32 h-5" />
+							<div
+								v-for="i in 2"
+								:key="i"
+								class="flex items-center gap-3 p-3 bg-black-300 rounded-lg"
+							>
+								<el-skeleton-item variant="circle" class="w-6 h-6" />
+								<div class="flex-1 space-y-1">
+									<el-skeleton-item variant="text" class="w-48" />
+									<el-skeleton-item variant="text" class="w-20" />
+								</div>
+								<el-skeleton-item variant="button" class="w-24 h-8" />
+							</div>
+						</div>
+					</template>
+				</el-skeleton>
+			</div>
+
+			<!-- Footer Skeleton -->
+			<div class="flex items-center gap-3 p-4 border-t border-gray-700">
+				<el-skeleton-item variant="button" class="w-24 h-9" />
+				<el-skeleton-item variant="button" class="w-24 h-9" />
 			</div>
 		</div>
 
-		<!-- Content area -->
-		<div class="flex-1 overflow-y-auto p-4">
-			<!-- Sender/Recipient information -->
-			<div class="mb-6">
-				<div class="flex items-start gap-3 mb-3">
-					<div
-						class="w-10 h-10 rounded-full bg-primary-500 flex items-center justify-center text-white font-medium"
+		<!-- Actual Content -->
+		<template v-else-if="message">
+			<!-- Header section -->
+			<div class="flex items-center justify-between p-4 border-b border-gray-700">
+				<h2 class="text-xl font-bold truncate flex-1">{{ message.subject }}</h2>
+				<div class="flex items-center gap-2 ml-4">
+					<!-- Reply -->
+					<el-tooltip
+						content="Reply"
+						placement="bottom"
+						v-if="functionPermission(ProjectPermissionEnum.messageCenter.create)"
 					>
-						{{ getInitials(message.from.name) }}
-					</div>
-					<div class="flex-1">
-						<div class="flex items-center justify-between">
-							<div>
-								<div class="font-medium">{{ message.from.name }}</div>
-								<div class="text-sm text-gray-400">{{ message.from.email }}</div>
+						<el-button link @click="$emit('reply', message)">
+							<Icon icon="lucide-reply" />
+						</el-button>
+					</el-tooltip>
+					<!-- Forward -->
+					<el-tooltip
+						content="Forward"
+						placement="bottom"
+						v-if="functionPermission(ProjectPermissionEnum.messageCenter.create)"
+					>
+						<el-button link @click="$emit('forward', message)">
+							<Icon icon="lucide-forward" />
+						</el-button>
+					</el-tooltip>
+					<!-- More actions dropdown -->
+					<el-dropdown
+						trigger="click"
+						class="ml-2"
+						@command="handleMoreCommand"
+						v-if="
+							functionPermission(ProjectPermissionEnum.messageCenter.update) ||
+							functionPermission(ProjectPermissionEnum.messageCenter.delete)
+						"
+					>
+						<el-button link>
+							<Icon icon="lucide-more-horizontal" />
+						</el-button>
+						<template #dropdown>
+							<el-dropdown-menu>
+								<el-dropdown-item
+									command="star"
+									v-if="
+										functionPermission(
+											ProjectPermissionEnum.messageCenter.update
+										)
+									"
+								>
+									<Icon
+										v-if="starLoadingId == message.id"
+										icon="lucide-loader-2"
+										class="animate-spin mr-2"
+									/>
+									<Icon
+										v-else
+										:icon="
+											message.isStarred
+												? 'solar:star-bold'
+												: 'solar:star-outline'
+										"
+										:class="{ 'text-yellow-400': message.isStarred }"
+										class="mr-2"
+									/>
+									{{ message.isStarred ? 'Unstar' : 'Star' }}
+								</el-dropdown-item>
+								<el-dropdown-item
+									command="archive"
+									v-if="
+										functionPermission(
+											ProjectPermissionEnum.messageCenter.update
+										)
+									"
+								>
+									<Icon
+										v-if="archiveLoadingId == message.id"
+										icon="lucide-loader-2"
+										class="animate-spin mr-2"
+									/>
+									<Icon
+										v-else
+										:icon="
+											message.isArchived
+												? 'lucide-archive-restore'
+												: 'lucide-archive'
+										"
+										class="mr-2"
+									/>
+									{{ message.isArchived ? 'Unarchive' : 'Archive' }}
+								</el-dropdown-item>
+								<el-dropdown-item
+									command="unread"
+									v-if="
+										functionPermission(
+											ProjectPermissionEnum.messageCenter.update
+										)
+									"
+								>
+									<Icon
+										v-if="unreadLoadingId == message.id"
+										icon="lucide-loader-2"
+										class="animate-spin mr-2"
+									/>
+									<Icon v-else icon="lucide-mail" class="mr-2" />
+									Mark as unread
+								</el-dropdown-item>
+								<el-dropdown-item
+									command="delete"
+									divided
+									v-if="
+										functionPermission(
+											ProjectPermissionEnum.messageCenter.delete
+										)
+									"
+								>
+									<Icon
+										v-if="deleteLoadingId == message.id"
+										icon="lucide-loader-2"
+										class="animate-spin mr-2"
+									/>
+									<Icon v-else icon="lucide-trash-2" class="mr-2 text-red-500" />
+									<span class="text-red-500">Delete</span>
+								</el-dropdown-item>
+							</el-dropdown-menu>
+						</template>
+					</el-dropdown>
+					<!-- Close -->
+					<el-button :icon="Close" class="ml-2" link @click="$emit('close')" />
+				</div>
+			</div>
+
+			<!-- Content area -->
+			<el-scrollbar ref="emailContainerRef">
+				<div class="p-4">
+					<!-- Sender/Recipient information -->
+					<div class="mb-6">
+						<div class="flex items-start gap-3 mb-3">
+							<div
+								class="w-10 h-10 rounded-full flex items-center justify-center text-white font-medium"
+								:style="{
+									backgroundColor: getAvatarColor(message.senderName),
+								}"
+							>
+								{{ getInitials(message.senderName) }}
 							</div>
-							<div class="text-sm text-gray-400">
-								{{ formatTimestamp(message.timestamp) }}
-							</div>
-						</div>
-						<div class="mt-2 text-sm">
-							<span class="text-gray-400 mr-2">To:</span>
-							<span>{{ message.to.map((t) => t.email).join(', ') }}</span>
-						</div>
-					</div>
-				</div>
-			</div>
-
-			<!-- Metadata section -->
-			<div v-if="message.labels.length > 0 || message.relatedEntity" class="mb-6">
-				<div v-if="message.labels.length > 0" class="flex items-center gap-2 mb-2">
-					<el-tag
-						v-for="label in message.labels"
-						:key="label.id"
-						:type="getTagType(label.type)"
-						size="small"
-					>
-						{{ label.name }}
-					</el-tag>
-				</div>
-				<div v-if="message.relatedEntity" class="text-sm">
-					<span class="text-gray-400 mr-2">Related to:</span>
-					<span class="text-primary">{{ message.relatedEntity.displayName }}</span>
-				</div>
-			</div>
-
-			<!-- Message content -->
-			<div class="mb-6">
-				<div
-					v-if="message.bodyHtml"
-					v-html="message.bodyHtml"
-					class="prose prose-invert max-w-none"
-				></div>
-				<div v-else class="whitespace-pre-wrap">{{ message.body }}</div>
-			</div>
-
-			<!-- Attachments section -->
-			<div v-if="message.attachments.length > 0" class="mb-6">
-				<div class="text-sm font-medium mb-3">Attachments</div>
-				<div class="space-y-2">
-					<div
-						v-for="attachment in message.attachments"
-						:key="attachment.id"
-						class="flex items-center justify-between p-3 bg-black-300 rounded-lg"
-					>
-						<div class="flex items-center gap-3 flex-1 min-w-0">
-							<Icon icon="lucide-file" class="text-gray-400" />
-							<div class="flex-1 min-w-0">
-								<div class="font-medium truncate">{{ attachment.filename }}</div>
-								<div class="text-xs text-gray-400">
-									{{ formatFileSize(attachment.size) }}
+							<div class="flex-1">
+								<div class="flex items-center justify-between">
+									<div>
+										<div class="font-medium">{{ message.senderName }}</div>
+										<div class="text-sm text-gray-400">
+											{{ message.senderEmail }}
+										</div>
+									</div>
+									<div class="text-sm text-gray-400">
+										{{ formatTimestamp(message.receivedDate) }}
+									</div>
+								</div>
+								<div v-if="message.recipients.length > 0" class="mt-2 text-sm">
+									<span class="text-gray-400 mr-2">To:</span>
+									<span>
+										{{ message.recipients.map((t) => t.email).join(', ') }}
+									</span>
 								</div>
 							</div>
 						</div>
-						<el-button
-							type="primary"
-							size="small"
-							@click="$emit('download-attachment', attachment.id)"
-						>
-							Download
-						</el-button>
+					</div>
+
+					<!-- Metadata section -->
+					<div v-if="message.labels.length > 0 || message.relatedEntityId" class="mb-6">
+						<div v-if="message.labels.length > 0" class="flex items-center gap-2 mb-2">
+							<el-tag
+								v-for="label in message.labels"
+								:key="label"
+								size="small"
+								:type="getLabelType(label)"
+							>
+								{{ MessageTag[label] }}
+							</el-tag>
+						</div>
+						<div v-if="message.relatedEntityId" class="text-sm">
+							<span class="text-gray-400 mr-2">Related to:</span>
+							<span class="text-primary">#{{ message.relatedEntityType }}</span>
+						</div>
+					</div>
+
+					<!-- Message content (使用 iframe 隔离显示，保留原始样式并防止 XSS) -->
+					<iframe
+						ref="emailIframeRef"
+						class="email-iframe w-full border-0 rounded-lg overflow-hidden"
+						sandbox="allow-same-origin allow-scripts allow-popups allow-popups-to-escape-sandbox"
+						scrolling="no"
+						title="Email Content"
+					></iframe>
+
+					<!-- Attachments section -->
+					<div v-if="message.attachments.length > 0" class="mb-6">
+						<div class="text-sm font-medium mb-3">Attachments</div>
+						<div class="space-y-2">
+							<div
+								v-for="attachment in message.attachments"
+								:key="attachment.id"
+								class="flex items-center justify-between p-3 bg-black-300 rounded-lg"
+							>
+								<div class="flex items-center gap-3 flex-1 min-w-0">
+									<Icon icon="lucide-file" class="text-gray-400" />
+									<div class="flex-1 min-w-0">
+										<div class="font-medium truncate">
+											{{ attachment.fileName }}
+										</div>
+										<div class="text-xs text-gray-400">
+											{{ formatFileSize(attachment.fileSize) }}
+										</div>
+									</div>
+								</div>
+								<el-button
+									type="primary"
+									size="small"
+									:loading="attachmentLoadingId == attachment.id"
+									@click="
+										$emit(
+											'download-attachment',
+											attachment.id,
+											attachment.fileName
+										)
+									"
+								>
+									Download
+								</el-button>
+							</div>
+						</div>
 					</div>
 				</div>
-			</div>
-		</div>
-
-		<!-- Action footer -->
-		<div class="flex items-center gap-3 p-4 border-t border-gray-700">
-			<el-button @click="$emit('reply', message.id)">
-				<Icon icon="lucide-reply" />
-				Reply
-			</el-button>
-			<el-button type="primary" @click="$emit('forward', message.id)">
-				<Icon icon="lucide-forward" />
-				Forward
-			</el-button>
-		</div>
+			</el-scrollbar>
+		</template>
 	</div>
 </template>
 
 <script lang="ts" setup>
+import { ref, nextTick, watch } from 'vue';
 import { MessageInfo } from '#/message';
-import { Star, Delete, Close } from '@element-plus/icons-vue';
-import { Message } from '@/enums/appEnum';
+import { Close } from '@element-plus/icons-vue';
 import { formatFileSize } from '@/utils/format';
+import { messageCenterInfo } from '@/apis/messageCenter';
+import { timeZoneConvert } from '@/hooks/time';
+import { getAvatarColor } from '@/utils';
+import { useTheme } from '@/utils/theme';
+import {
+	renderEmailToIframe,
+	applyDarkModeToElementsWithDarkreader,
+	adjustIframeHeight,
+} from '@/utils/emailDarkMode';
+
+import { MessageTag, MessageFolder } from '@/enums/appEnum';
+import { useAdaptiveScrollbar } from '@/hooks/useAdaptiveScrollbar';
+import { projectTenMinutesSsecondsDate } from '@/settings/projectSetting';
+import { functionPermission } from '@/hooks/index';
+import { ProjectPermissionEnum } from '@/enums/permissionEnum';
+
+const { scrollbarRef: emailContainerRef, updateScrollbarHeight: updateEmailHeight } =
+	useAdaptiveScrollbar(20);
+// 保持对 ref 的引用，避免未使用警告
+void emailContainerRef;
 
 // 定义 props
 interface Props {
-	message: MessageInfo | null;
 	visible: boolean;
+	starLoadingId: string;
+	deleteLoadingId: string;
+	archiveLoadingId: string;
+	unreadLoadingId: string;
+	attachmentLoadingId: string;
 }
 
 defineProps<Props>();
 
 // 定义 emits
-defineEmits<{
+const emit = defineEmits<{
 	close: [];
-	reply: [messageId: string];
-	forward: [messageId: string];
-	star: [messageId: string];
-	archive: [messageId: string];
-	delete: [messageId: string];
-	'download-attachment': [attachmentId: string];
+	reply: [message: MessageInfo];
+	forward: [message: MessageInfo];
+	star: [messageId: string, isStarred: boolean];
+	archive: [messageId: string, isArchived: boolean];
+	delete: [messageId: string, permanent: boolean];
+	unread: [messageId: string, folder: MessageFolder];
+	'download-attachment': [attachmentId: string, name: string];
 }>();
+
+// Handle more actions dropdown command
+const handleMoreCommand = (command: string) => {
+	if (!message.value) return;
+	switch (command) {
+		case 'star':
+			emit('star', message.value.id, message.value.isStarred);
+			break;
+		case 'archive':
+			emit('archive', message.value.id, message.value.isArchived);
+			break;
+		case 'unread':
+			emit('unread', message.value.id, message.value.folder);
+			break;
+		case 'delete':
+			emit('delete', message.value.id, message.value.folder === MessageFolder.Trash);
+			break;
+	}
+};
 
 // Get name initials
 const getInitials = (name: string): string => {
@@ -149,30 +390,112 @@ const getInitials = (name: string): string => {
 };
 
 // Format timestamp
-const formatTimestamp = (timestamp: string | Date): string => {
-	const date = typeof timestamp === 'string' ? new Date(timestamp) : timestamp;
+const formatTimestamp = (timestamp: string): string => {
+	const time = timeZoneConvert(timestamp, false, projectTenMinutesSsecondsDate);
+	const date = typeof time === 'string' ? new Date(time) : time;
 	const now = new Date();
 	const diff = now.getTime() - date.getTime();
 	const days = Math.floor(diff / (1000 * 60 * 60 * 24));
 
-	if (days === 0) return 'Today';
+	if (days === 0) return time;
 	if (days === 1) return 'Yesterday';
 	if (days < 7) return `${days} days ago`;
 
 	return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 };
 
-// Get tag type
-const getTagType = (type: Message): 'primary' | 'success' | 'warning' | 'info' => {
-	switch (type) {
-		case Message.Internal:
-			return 'primary';
-		case Message.External:
+// Theme state
+const theme = useTheme();
+
+const message = ref<MessageInfo>();
+const messageLoading = ref(false);
+const emailIframeRef = ref<HTMLIFrameElement | null>(null);
+
+/**
+ * 渲染邮件内容到 iframe
+ */
+const renderEmailInIframe = async () => {
+	if (!emailIframeRef.value || !message.value?.body) return;
+
+	const iframe = emailIframeRef.value;
+	const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
+	if (!iframeDoc) return;
+
+	const isDark = theme.theme === 'dark';
+
+	// 获取处理好的 HTML
+	const fullHtml = renderEmailToIframe(message.value.body);
+	// 写入 iframe
+	iframeDoc.open();
+	iframeDoc.write(fullHtml);
+	iframeDoc.close();
+
+	await applyDarkModeToElementsWithDarkreader(iframe, isDark);
+
+	// 使用 Darkreader 处理暗黑模式
+
+	// 设置所有链接在新窗口打开
+	const links = iframeDoc.querySelectorAll('a');
+	links.forEach((link) => {
+		link.setAttribute('target', '_blank');
+		link.setAttribute('rel', 'noopener noreferrer');
+	});
+
+	// 等待内容加载完成后调整高度
+	nextTick(() => {
+		adjustIframeHeight(iframe);
+	});
+};
+
+// 监听主题变化，重新渲染 iframe 内容以应用正确的主题样式
+watch(
+	() => theme.theme,
+	async () => {
+		if (message.value?.body) {
+			nextTick(() => {
+				if ('startViewTransition' in document) {
+					(document as any).startViewTransition(renderEmailInIframe);
+				} else {
+					renderEmailInIframe();
+				}
+			});
+		}
+	}
+);
+
+const getMessageInfo = async (id: string) => {
+	try {
+		messageLoading.value = true;
+		const res = await messageCenterInfo(id);
+		if (res.code == '200') {
+			message.value = res.data;
+		}
+	} finally {
+		messageLoading.value = false;
+		// 使用 nextTick 确保 DOM 更新后再渲染 iframe 内容
+		await nextTick();
+		await renderEmailInIframe();
+		await nextTick();
+		updateEmailHeight();
+	}
+};
+
+const getLabelType = (label: MessageTag) => {
+	switch (label) {
+		case MessageTag.Internal:
+			return 'info';
+		case MessageTag.External:
 			return 'success';
-		case Message.Important:
+		case MessageTag.Important:
 			return 'warning';
+		case MessageTag.Portal:
+			return 'primary';
 		default:
 			return 'info';
 	}
 };
+
+defineExpose({
+	getMessageInfo,
+});
 </script>

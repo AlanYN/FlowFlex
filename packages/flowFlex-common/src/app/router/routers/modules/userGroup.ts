@@ -14,7 +14,7 @@ const userGroup: AppRouteModule = {
 		icon: userGroupIcon,
 		title: t('sys.router.roleManagement'),
 		code: 'USERGROUP',
-		ordinal: 9,
+		ordinal: 11,
 		hidden: false,
 		status: true,
 	},

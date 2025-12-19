@@ -2,9 +2,11 @@
 	<el-dialog
 		v-model="visible"
 		title="New Message"
-		:width="bigDialogWidth"
+		:width="moreDialogWidth"
 		:before-close="handleClose"
 		class="message-composer-dialog"
+		draggable
+		append-to-body
 	>
 		<!-- Description -->
 		<div class="text-sm text-gray-500 dark:text-gray-400 mb-6">
@@ -14,212 +16,100 @@
 		<!-- Message Type Tabs -->
 		<PrototypeTabs v-model="messageType" :tabs="messageTypeTabs" class="mb-6">
 			<!-- Internal Message -->
-			<TabPane value="internal">
+			<TabPane :value="MessageType.Internal">
 				<el-form :model="form" label-position="top" @submit.prevent="handleSend">
 					<el-form-item label="Recipient">
-						<el-select
-							v-model="form.recipient"
-							placeholder="John Smith"
-							class="w-full"
-							filterable
-						>
-							<el-option label="John Smith" value="john.smith" />
-							<el-option label="Jane Doe" value="jane.doe" />
-						</el-select>
-					</el-form-item>
-
-					<el-form-item label="Subject">
-						<el-input v-model="form.subject" placeholder="Enter message subject" />
-					</el-form-item>
-
-					<el-form-item label="Related To">
-						<el-select
-							v-model="form.relatedTo"
-							placeholder="Select related lead (optional)"
-							class="w-full"
-							filterable
-							clearable
-						>
-							<el-option label="Lead 1" value="lead1" />
-							<el-option label="Lead 2" value="lead2" />
-						</el-select>
-					</el-form-item>
-
-					<el-form-item label="Message" class="w-full">
-						<RichTextEditor
-							v-model="form.body"
-							placeholder="Type your message here..."
-							min-height="200px"
-							max-height="300px"
+						<FlowflexUserSelect
+							v-model="selectedRecipient"
+							placeholder="Select default assignee"
+							:multiple="false"
+							:clearable="true"
+							selection-type="user"
+							@change="selectRecipient"
 						/>
 					</el-form-item>
 
-					<el-form-item label="Attachments">
-						<el-upload
-							ref="uploadRef"
-							class="w-full"
-							drag
-							:auto-upload="false"
-							:on-change="handleFileChange"
-							:on-remove="handleFileRemove"
-							:file-list="fileList"
-							multiple
-							:limit="10"
-						>
-							<div class="flex flex-col items-center justify-center py-6">
-								<Icon
-									icon="lucide-paperclip"
-									class="w-10 h-10 text-gray-400 mb-3"
-								/>
-								<div class="text-sm text-gray-600 dark:text-gray-300">
-									Click to upload or drag and drop files
-								</div>
-							</div>
-						</el-upload>
-					</el-form-item>
+					<!-- Common Form Fields -->
+					<MessageFormFields
+						v-model:subject="form.subject"
+						v-model:body="form.body"
+						v-model:relatedTo="selectedRelatedTo"
+						:upload-progress="uploadProgress"
+						:uploaded-attachments="uploadedAttachments"
+						@file-change="handleFileChange"
+						@remove-file="handleRemoveUploadedFile"
+					/>
 				</el-form>
 			</TabPane>
 
 			<!-- Customer Email -->
-			<TabPane value="customer">
+			<TabPane :value="MessageType.Email">
 				<el-form :model="form" label-position="top" @submit.prevent="handleSend">
 					<el-form-item label="Customer Email">
-						<el-select
-							v-model="form.customerEmail"
-							placeholder="Select customer"
-							class="w-full"
-							filterable
-						>
-							<el-option label="customer@example.com" value="customer@example.com" />
-						</el-select>
-					</el-form-item>
-
-					<el-form-item label="Subject">
-						<el-input v-model="form.subject" placeholder="Enter message subject" />
-					</el-form-item>
-
-					<el-form-item label="Related To">
-						<el-select
-							v-model="form.relatedTo"
-							placeholder="Select related lead (optional)"
-							class="w-full"
-							filterable
-							clearable
-						>
-							<el-option label="Lead 1" value="lead1" />
-							<el-option label="Lead 2" value="lead2" />
-						</el-select>
-					</el-form-item>
-
-					<el-form-item label="Message" class="w-full">
-						<RichTextEditor
-							v-model="form.body"
-							placeholder="Type your message here..."
-							min-height="200px"
-							max-height="300px"
+						<FlowflexUserSelect
+							v-model="selectedCustomerEmail"
+							placeholder="Select default assignee"
+							:multiple="false"
+							:clearable="true"
+							selection-type="user"
+							@change="selectRecipient"
 						/>
 					</el-form-item>
 
-					<el-form-item label="Attachments">
-						<el-upload
-							ref="uploadRef"
-							class="w-full"
-							drag
-							:auto-upload="false"
-							:on-change="handleFileChange"
-							:on-remove="handleFileRemove"
-							:file-list="fileList"
-							multiple
-							:limit="10"
-						>
-							<div class="flex flex-col items-center justify-center py-6">
-								<Icon
-									icon="lucide-paperclip"
-									class="w-10 h-10 text-gray-400 mb-3"
-								/>
-								<div class="text-sm text-gray-600 dark:text-gray-300">
-									Click to upload or drag and drop files
-								</div>
-							</div>
-						</el-upload>
-					</el-form-item>
+					<!-- Common Form Fields -->
+					<MessageFormFields
+						v-model:subject="form.subject"
+						v-model:body="form.body"
+						v-model:relatedTo="selectedRelatedTo"
+						:upload-progress="uploadProgress"
+						:uploaded-attachments="uploadedAttachments"
+						@file-change="handleFileChange"
+						@remove-file="handleRemoveUploadedFile"
+					/>
 				</el-form>
 			</TabPane>
 
 			<!-- Portal Message -->
-			<TabPane value="portal">
+			<TabPane :value="MessageType.Portal">
 				<el-form :model="form" label-position="top" @submit.prevent="handleSend">
 					<el-form-item label="Customer Portal">
 						<el-select
-							v-model="form.customerPortal"
+							v-model="selectedCustomerPortal"
 							placeholder="Select portal"
 							class="w-full"
 							filterable
-						>
-							<el-option label="Portal 1" value="portal1" />
-							<el-option label="Portal 2" value="portal2" />
-						</el-select>
-					</el-form-item>
-
-					<el-form-item label="Subject">
-						<el-input v-model="form.subject" placeholder="Enter message subject" />
-					</el-form-item>
-
-					<el-form-item label="Related To">
-						<el-select
-							v-model="form.relatedTo"
-							placeholder="Select related lead (optional)"
-							class="w-full"
-							filterable
-							clearable
-						>
-							<el-option label="Lead 1" value="lead1" />
-							<el-option label="Lead 2" value="lead2" />
-						</el-select>
-					</el-form-item>
-
-					<el-form-item label="Message" class="w-full">
-						<RichTextEditor
-							v-model="form.body"
-							placeholder="Type your message here..."
-							min-height="200px"
-							max-height="300px"
 						/>
 					</el-form-item>
 
-					<el-form-item label="Attachments">
-						<el-upload
-							ref="uploadRef"
-							class="w-full"
-							drag
-							:auto-upload="false"
-							:on-change="handleFileChange"
-							:on-remove="handleFileRemove"
-							:file-list="fileList"
-							multiple
-							:limit="10"
-						>
-							<div class="flex flex-col items-center justify-center py-6">
-								<Icon
-									icon="lucide-paperclip"
-									class="w-10 h-10 text-gray-400 mb-3"
-								/>
-								<div class="text-sm text-gray-600 dark:text-gray-300">
-									Click to upload or drag and drop files
-								</div>
-							</div>
-						</el-upload>
-					</el-form-item>
+					<!-- Common Form Fields -->
+					<MessageFormFields
+						v-model:subject="form.subject"
+						v-model:body="form.body"
+						v-model:relatedTo="selectedRelatedTo"
+						:upload-progress="uploadProgress"
+						:uploaded-attachments="uploadedAttachments"
+						@file-change="handleFileChange"
+						@remove-file="handleRemoveUploadedFile"
+					/>
 				</el-form>
 			</TabPane>
 		</PrototypeTabs>
 
 		<template #footer>
 			<div class="flex justify-end gap-3">
-				<el-button @click="handleClose" size="large">Cancel</el-button>
-				<el-button type="primary" @click="handleSend" size="large">
+				<el-button @click="handleClose">Cancel</el-button>
+				<el-button
+					type="primary"
+					@click="handleSend"
+					:loading="sendLoading"
+					:disabled="uploadingCount > 0"
+				>
 					<Icon icon="lucide-send" class="w-4 h-4 mr-2" />
-					Send Message
+					{{
+						uploadingCount > 0
+							? `Uploading ${uploadingCount} file(s)...`
+							: 'Send Message'
+					}}
 				</el-button>
 			</div>
 		</template>
@@ -227,100 +117,175 @@
 </template>
 
 <script lang="ts" setup>
-import { ref, computed, watch, useTemplateRef } from 'vue';
-import { ElMessage, type UploadFile, type UploadUserFile } from 'element-plus';
-import RichTextEditor from '@/components/RichTextEditor/index.vue';
+import { ref } from 'vue';
+import { ElMessage } from 'element-plus';
+import type { UploadFile, UploadUserFile } from 'element-plus';
 import { PrototypeTabs, TabPane } from '@/components/PrototypeTabs';
-import { bigDialogWidth } from '@/settings/projectSetting';
+import { moreDialogWidth } from '@/settings/projectSetting';
+import MessageFormFields from './MessageFormFields.vue';
+import { MessageType } from '@/enums/appEnum';
+
+import { MessageCenterForm, MessageInfo } from '#/message';
+import { sendMessageCenter, uploadMessageFile } from '@/apis/messageCenter';
+import FlowflexUserSelect from '@/components/form/flowflexUser/index.vue';
+
+import { FlowflexUser } from '#/golbal';
 
 interface Props {
-	modelValue: boolean;
+	isBinding: string;
 }
 
 const props = defineProps<Props>();
 
 const emit = defineEmits<{
-	'update:modelValue': [value: boolean];
-	send: [data: ComposerFormData];
+	send: [data: MessageCenterForm];
 }>();
 
-type MessageType = 'internal' | 'customer' | 'portal';
+const visible = ref(false);
+const openVisible = (originalMessage?: MessageInfo, isReply: boolean = false) => {
+	if (originalMessage) {
+		const messageUser = isReply
+			? originalMessage.senderEmail
+				? [originalMessage.senderEmail]
+				: originalMessage.recipients.map((item) => item.userId)
+			: [];
+		selectedRecipient.value = messageUser;
+		form.value.body = originalMessage.body;
+		form.value.subject = originalMessage.subject;
+		messageType.value = `${originalMessage.messageType}` as MessageType;
+		uploadedAttachments.value = originalMessage.attachments;
+	}
+	visible.value = true;
+};
 
-interface ComposerFormData {
-	messageType?: MessageType;
-	recipient?: string;
-	customerEmail?: string;
-	customerPortal?: string;
-	subject: string;
-	relatedTo?: string;
-	body: string;
-	attachments: File[];
-}
+const messageType = ref<MessageType>(MessageType.Internal);
 
-const visible = computed({
-	get: () => props.modelValue,
-	set: (value) => emit('update:modelValue', value),
-});
+const messageTypeTabs = props.isBinding
+	? [
+			{
+				value: MessageType.Internal,
+				label: 'Internal Message',
+				icon: 'lucide-message-square',
+			},
+			{
+				value: MessageType.Email,
+				label: 'Customer Email',
+				icon: 'lucide-at-sign',
+			},
+			{
+				value: MessageType.Portal,
+				label: 'Portal Message',
+				icon: 'lucide-layout-dashboard',
+			},
+	  ]
+	: [
+			{
+				value: MessageType.Internal,
+				label: 'Internal Message',
+				icon: 'lucide-message-square',
+			},
+			{
+				value: MessageType.Portal,
+				label: 'Portal Message',
+				icon: 'lucide-layout-dashboard',
+			},
+	  ];
 
-const messageType = ref<MessageType>('internal');
-
-const messageTypeTabs = [
-	{
-		value: 'internal',
-		label: 'Internal Message',
-		icon: 'lucide-message-square',
-	},
-	{
-		value: 'customer',
-		label: 'Customer Email',
-		icon: 'lucide-at-sign',
-	},
-	{
-		value: 'portal',
-		label: 'Portal Message',
-		icon: 'lucide-layout-dashboard',
-	},
-];
-
-const form = ref<ComposerFormData>({
+const form = ref<MessageCenterForm>({
 	subject: '',
 	body: '',
+	recipients: [],
+	ccRecipients: [],
+	bccRecipients: [],
+	labels: [],
+	relatedEntityType: '',
+	relatedEntityId: 0,
+	relatedEntityCode: '',
+	portalId: null,
 	attachments: [],
 });
 
-const uploadRef = useTemplateRef('uploadRef');
-const fileList = ref<UploadUserFile[]>([]);
+// UI-specific fields that map to the form
+const selectedRecipient = ref<string[]>([]);
+const selectedCustomerEmail = ref<string>('');
+const selectedCustomerPortal = ref<string>('');
+const selectedRelatedTo = ref<string>('');
 
-// Reset form when dialog closes
-watch(visible, (isVisible) => {
-	if (!isVisible) {
-		setTimeout(() => {
-			messageType.value = 'internal';
-			form.value = {
-				subject: '',
-				body: '',
-				attachments: [],
-			};
-			fileList.value = [];
-		}, 300);
-	}
-});
+const fileList = ref<UploadUserFile[]>([]);
+// 存储已上传文件的ID信息
+const uploadedAttachments = ref<
+	{
+		id: string;
+		fileName: string;
+		fileSize: number;
+		contentType: string;
+	}[]
+>([]);
+// 上传进度列表
+const uploadProgress = ref<
+	{
+		uid: string;
+		name: string;
+		percentage: number;
+		error?: string;
+	}[]
+>([]);
+// 跟踪正在上传的文件数量
+const uploadingCount = ref(0);
+// 存储上传请求的取消函数
+const uploadCancelTokens = ref<Map<number, () => void>>(new Map());
 
 const handleClose = () => {
+	// 如果有文件正在上传,取消所有上传
+	if (uploadingCount.value > 0) {
+		uploadCancelTokens.value.forEach((cancel) => {
+			cancel();
+		});
+		uploadCancelTokens.value.clear();
+		uploadingCount.value = 0;
+	}
 	visible.value = false;
+	initFormData();
 };
 
-const handleSend = () => {
+const initFormData = () => {
+	messageType.value = MessageType.Internal;
+	form.value = {
+		subject: '',
+		body: '',
+		recipients: [],
+		ccRecipients: [],
+		bccRecipients: [],
+		labels: [],
+		relatedEntityType: '',
+		relatedEntityId: 0,
+		relatedEntityCode: '',
+		portalId: null,
+		attachments: [],
+	};
+	selectedRecipient.value = [];
+	selectedCustomerEmail.value = '';
+	selectedCustomerPortal.value = '';
+	selectedRelatedTo.value = '';
+	fileList.value = [];
+	uploadedAttachments.value = [];
+	uploadProgress.value = [];
+	uploadingCount.value = 0;
+	uploadCancelTokens.value.clear();
+};
+
+const sendLoading = ref(false);
+const handleSend = async () => {
 	// Validate based on message type
-	if (messageType.value === 'internal' && !form.value.recipient) {
+	if (messageType.value === MessageType.Internal && !selectedRecipient.value) {
 		ElMessage.error('Please select a recipient');
 		return;
 	}
-	if (messageType.value === 'customer' && !form.value.customerEmail) {
+	if (messageType.value === MessageType.Email && !selectedCustomerEmail.value) {
 		ElMessage.error('Please select a customer email');
 		return;
 	}
-	if (messageType.value === 'portal' && !form.value.customerPortal) {
+	if (messageType.value === MessageType.Portal && !selectedCustomerPortal.value) {
 		ElMessage.error('Please select a customer portal');
 		return;
 	}
@@ -333,28 +298,172 @@ const handleSend = () => {
 		return;
 	}
 
-	emit('send', { ...form.value, messageType: messageType.value });
-	ElMessage.success('Message sent successfully');
-	visible.value = false;
+	// Map UI fields to form structure based on message type
+	if (messageType.value === MessageType.Internal && selectedRecipient.value) {
+		form.value.recipients = InternalRecipients.value;
+	} else if (messageType.value === MessageType.Email && selectedCustomerEmail.value) {
+		form.value.recipients = CustomerRecipients.value;
+	} else if (messageType.value === MessageType.Portal && selectedCustomerPortal.value) {
+		form.value.portalId = null;
+	}
+
+	// Map relatedTo to relatedEntity fields
+	if (selectedRelatedTo.value) {
+		form.value.relatedEntityType = 'lead';
+		form.value.relatedEntityId = 0;
+		form.value.relatedEntityCode = selectedRelatedTo.value;
+	}
+	try {
+		sendLoading.value = true;
+
+		// 提取附件ID列表
+		const attachmentIds = uploadedAttachments.value.map((att) => att.id);
+
+		const res = await sendMessageCenter({
+			...form.value,
+			messageType: messageType.value,
+			attachmentIds: attachmentIds,
+		});
+		if (res.code == '200') {
+			ElMessage.success('Message sent successfully');
+			emit('send', form.value);
+			handleClose();
+		}
+	} finally {
+		sendLoading.value = false;
+	}
 };
 
-const handleFileChange = (file: UploadFile, files: UploadFile[]) => {
-	fileList.value = files;
-	form.value.attachments = files.map((f) => f.raw as File).filter(Boolean);
+const handleFileChange = async (file: UploadFile) => {
+	// 上传新添加的文件
+	if (file.raw) {
+		// 添加到进度列表
+		uploadProgress.value.push({
+			uid: String(file.uid),
+			name: file.name,
+			percentage: 0,
+		});
+
+		// 创建 AbortController 用于取消上传
+		const abortController = new AbortController();
+		uploadCancelTokens.value.set(file.uid, () => abortController.abort());
+		uploadingCount.value++;
+
+		try {
+			// 构建上传参数,参考 Documents.vue 的实现
+			const uploadParams = {
+				name: 'file',
+				file: file.raw,
+				filename: file.raw.name,
+			};
+
+			// 调用上传接口,传递进度回调
+			const res = await uploadMessageFile(uploadParams, (progressEvent: any) => {
+				// 实时更新上传进度
+				const existingIndex = uploadProgress.value.findIndex(
+					(p) => p.uid === String(file.uid)
+				);
+				if (existingIndex >= 0 && progressEvent.total > 0) {
+					uploadProgress.value[existingIndex].percentage = Math.round(
+						(progressEvent.loaded * 100) / progressEvent.total
+					);
+				}
+			});
+
+			// 从进度列表中移除
+			uploadProgress.value = uploadProgress.value.filter((p) => p.uid !== String(file.uid));
+			const responseData = res?.data;
+			if (responseData.code === '200' && responseData.data) {
+				// 上传成功,保存文件信息
+				uploadedAttachments.value.push({
+					id: responseData.data.id,
+					fileName: responseData.data.fileName || file.name,
+					fileSize: responseData.data.fileSize || file.size || 0,
+					contentType: responseData.data.contentType || file.raw.type,
+				});
+				ElMessage.success(`${file.name} uploaded successfully`);
+			} else {
+				// 上传失败
+				responseData?.msg && ElMessage.error(responseData?.msg);
+			}
+		} catch (error: any) {
+			// 从进度列表中移除
+			uploadProgress.value = uploadProgress.value.filter((p) => p.uid !== String(file.uid));
+
+			// 检查是否是用户取消的上传
+			if (error.name === 'AbortError' || error.name === 'CanceledError') {
+				console.log('File upload cancelled:', file.name);
+			} else {
+				console.error('File upload error:', error);
+				ElMessage.error(`Failed to upload ${file.name}`);
+			}
+		} finally {
+			// 清理
+			uploadCancelTokens.value.delete(file.uid);
+			uploadingCount.value--;
+		}
+	}
 };
 
-const handleFileRemove = (file: UploadFile, files: UploadFile[]) => {
-	fileList.value = files;
-	form.value.attachments = files.map((f) => f.raw as File).filter(Boolean);
+// 移除已上传的文件
+const handleRemoveUploadedFile = (fileId: string) => {
+	const index = uploadedAttachments.value.findIndex((att) => att.id === fileId);
+	if (index > -1) {
+		uploadedAttachments.value.splice(index, 1);
+	}
 };
+
+const InternalRecipients = ref<
+	{
+		userId: string;
+		name: string;
+		email: string;
+	}[]
+>([]);
+const CustomerRecipients = ref<
+	{
+		userId: string;
+		name: string;
+		email: string;
+	}[]
+>([]);
+const selectRecipient = (value?: string | string[], userList?: FlowflexUser | FlowflexUser[]) => {
+	let arr = [] as {
+		userId: string;
+		name: string;
+		email: string;
+	}[];
+	if (value && Array.isArray(value) && userList && Array.isArray(userList)) {
+		arr = userList
+			.filter((user) => value.includes(user.id))
+			.map((item) => {
+				return {
+					userId: item.id,
+					name: item.name,
+					email: item.email,
+				};
+			});
+	} else if (value && Array.isArray(value) && userList && !Array.isArray(userList)) {
+		arr = [
+			{
+				userId: userList.id,
+				name: userList.name,
+				email: userList.email,
+			},
+		];
+	} else {
+		arr = [];
+	}
+	if (messageType.value === MessageType.Internal) {
+		InternalRecipients.value = arr;
+	} else {
+		CustomerRecipients.value = arr;
+	}
+};
+
+defineExpose({
+	openVisible,
+});
 </script>
 
 <style scoped></style>
-
-<style scoped lang="scss">
-.message-composer-dialog {
-	:deep(.el-dialog__body) {
-		padding-top: 20px;
-	}
-}
-</style>

@@ -7,19 +7,23 @@
 		}"
 	>
 		<QuillEditor
-			v-model:content="content"
+			ref="quillEditorRef"
 			:contentType="contentType"
 			theme="snow"
+			:imageResize="{
+				displaySize: true,
+			}"
 			:toolbar="toolbar"
 			:placeholder="placeholder"
 			class="rich-text-editor"
-			@update:content="handleContentChange"
+			@ready="handleEditorReady"
+			@text-change="handleTextChange"
 		/>
 	</div>
 </template>
 
 <script lang="ts" setup>
-import { ref, watch } from 'vue';
+import { ref, watch, nextTick } from 'vue';
 import { QuillEditor } from '@vueup/vue-quill';
 import '@vueup/vue-quill/dist/vue-quill.snow.css';
 import { ElMessage } from 'element-plus';
@@ -33,6 +37,10 @@ interface Props {
 	maxHeight?: string;
 	maxImageSize?: number; // in MB
 }
+
+const quillEditorRef = ref<InstanceType<typeof QuillEditor> | null>(null);
+const isEditorReady = ref(false);
+const isInternalUpdate = ref(false);
 
 const props = withDefaults(defineProps<Props>(), {
 	contentType: 'html',
@@ -61,21 +69,128 @@ const emit = defineEmits<{
 	change: [value: string];
 }>();
 
-const content = ref(props.modelValue);
+// Quill only supports these inline styles
+const SAFE_STYLE = [
+	'color',
+	'background-color',
+	'font-size',
+	'font-family',
+	'font-weight',
+	'font-style',
+	'text-decoration',
+	'line-height',
+	'text-align',
+];
 
+// Clean HTML for Quill compatibility
+const toQuillHtml = (html: string): string => {
+	if (!html || typeof html !== 'string') return '';
+
+	const doc = new DOMParser().parseFromString(html, 'text/html');
+
+	// 1. Remove style tags
+	doc.querySelectorAll('style').forEach((s) => s.remove());
+
+	// 2. Remove script tags
+	doc.querySelectorAll('script').forEach((s) => s.remove());
+
+	// 3. Clean inline styles - only keep safe ones
+	doc.querySelectorAll('[style]').forEach((el) => {
+		const style = el.getAttribute('style') || '';
+		const safe = style
+			.split(';')
+			.map((s) => s.trim())
+			.filter((s) => {
+				const prop = s.split(':')[0]?.trim();
+				return prop && SAFE_STYLE.includes(prop);
+			})
+			.join('; ');
+
+		if (safe) el.setAttribute('style', safe);
+		else el.removeAttribute('style');
+	});
+
+	// 4. Replace font tags with span
+	doc.querySelectorAll('font').forEach((f) => {
+		const span = doc.createElement('span');
+		span.innerHTML = f.innerHTML;
+		f.replaceWith(span);
+	});
+
+	return doc.body.innerHTML;
+};
+
+// Get Quill instance safely
+const getQuillInstance = () => {
+	if (!quillEditorRef.value) return null;
+	return (quillEditorRef.value as any).getQuill?.() || null;
+};
+
+// Set content using dangerouslyPasteHTML for Quill compatibility
+const setEditorContent = (html: string) => {
+	const quill = getQuillInstance();
+	if (!quill || !isEditorReady.value) return;
+
+	try {
+		isInternalUpdate.value = true;
+
+		// Clean HTML for Quill compatibility
+		const cleanHtml = toQuillHtml(html);
+
+		// Clear existing content and paste cleaned HTML
+		quill.setContents([], 'silent');
+		quill.clipboard.dangerouslyPasteHTML(0, cleanHtml, 'silent');
+
+		nextTick(() => {
+			isInternalUpdate.value = false;
+		});
+	} catch (error) {
+		console.error('Error setting editor content:', error);
+		isInternalUpdate.value = false;
+	}
+};
+
+// Handle editor ready
+const handleEditorReady = () => {
+	isEditorReady.value = true;
+	if (props.modelValue) {
+		// Use setTimeout to ensure Quill is fully initialized
+		setTimeout(() => {
+			setEditorContent(props.modelValue);
+		}, 0);
+	}
+};
+
+// Handle text change from editor
+const handleTextChange = () => {
+	if (isInternalUpdate.value) return;
+
+	const quill = getQuillInstance();
+	if (!quill) return;
+
+	const html = quill.root.innerHTML;
+	emit('update:modelValue', html);
+	emit('change', html);
+};
+
+// Watch for external modelValue changes
 watch(
 	() => props.modelValue,
 	(newValue) => {
-		if (newValue !== content.value) {
-			content.value = newValue;
+		if (!isEditorReady.value || isInternalUpdate.value) return;
+
+		const quill = getQuillInstance();
+		if (!quill) return;
+
+		const currentHtml = quill.root.innerHTML;
+		const newContent = toQuillHtml(newValue);
+
+		// Simple comparison - if cleaned content differs, update
+		if (newContent !== currentHtml) {
+			setEditorContent(newValue);
 		}
 	}
 );
-
-const handleContentChange = (value: string) => {
-	emit('update:modelValue', value);
-	emit('change', value);
-};
 
 // Custom image handler for uploading images
 // This can be extended to upload to server

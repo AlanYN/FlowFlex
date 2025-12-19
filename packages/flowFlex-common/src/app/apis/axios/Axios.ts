@@ -129,7 +129,7 @@ export class VAxios {
 	/**
 	 * @description:  File Upload
 	 */
-	uploadFile<T = any>(config: AxiosRequestConfig, params: UploadFileParams) {
+	uploadFile<T = any>(config: AxiosRequestConfig, params: UploadFileParams): Promise<T> {
 		const formData = new window.FormData();
 		const customFilename = params.name || 'file';
 
@@ -152,7 +152,7 @@ export class VAxios {
 				formData.append(key, params.data![key]);
 			});
 		}
-		return this.axiosInstance.request<T>({
+		return this.axiosInstance.request({
 			...config,
 			method: 'POST',
 			data: formData,

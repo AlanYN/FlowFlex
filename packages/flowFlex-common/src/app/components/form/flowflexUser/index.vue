@@ -583,6 +583,21 @@ const removeSelectedItem = (id: string) => {
 	}
 };
 
+// 获取当前过滤后树中所有节点的 ID
+const getCurrentTreeNodeIds = (): Set<string> => {
+	const nodeIds = new Set<string>();
+	const collectAllNodeIds = (nodes: FlowflexUser[]) => {
+		nodes.forEach((node) => {
+			nodeIds.add(node.id);
+			if (node.children && node.children.length > 0) {
+				collectAllNodeIds(node.children);
+			}
+		});
+	};
+	collectAllNodeIds(filteredTreeData.value);
+	return nodeIds;
+};
+
 // 树节点选中事件
 const handleTreeCheck = (
 	data: FlowflexUser,
@@ -626,13 +641,24 @@ const handleTreeCheck = (
 		checkedNodes: checkState.checkedNodes.length,
 	});
 
-	// 过滤出目标类型的节点
-	const filteredNodes = checkState.checkedNodes.filter(
+	// 过滤出当前树中目标类型的选中节点
+	const currentTreeCheckedNodes = checkState.checkedNodes.filter(
 		(node: FlowflexUser) => node.type === targetType
 	);
 
+	// 获取当前树中所有节点的 ID（用于判断哪些之前的选择不在当前树中）
+	const currentTreeNodeIds = getCurrentTreeNodeIds();
+
+	// 保留之前选择的但不在当前树中的项目（搜索过滤导致不可见的项目）
+	const previouslySelectedNotInCurrentTree = tempSelectedItems.value.filter(
+		(item) => !currentTreeNodeIds.has(item.id)
+	);
+
+	// 合并：之前选择的但不在当前树中 + 当前树中选择的
+	const combinedSelection = [...previouslySelectedNotInCurrentTree, ...currentTreeCheckedNodes];
+
 	// 检查数量限制
-	if (props.maxCount > 0 && filteredNodes.length > props.maxCount) {
+	if (props.maxCount > 0 && combinedSelection.length > props.maxCount) {
 		ElMessage.warning(`Maximum ${props.maxCount} items can be selected`);
 		// 取消当前选中的节点
 		nextTick(() => {
@@ -644,7 +670,7 @@ const handleTreeCheck = (
 	}
 
 	// 去重：基于ID去重，只保留一个相同ID的节点
-	const uniqueNodes = filteredNodes.reduce((acc: FlowflexUser[], current: FlowflexUser) => {
+	const uniqueNodes = combinedSelection.reduce((acc: FlowflexUser[], current: FlowflexUser) => {
 		const existingNode = acc.find((node) => node.id === current.id);
 		if (!existingNode) {
 			acc.push(current);
@@ -652,7 +678,7 @@ const handleTreeCheck = (
 		return acc;
 	}, []);
 
-	// 只将目标类型的节点设置为临时选中项
+	// 更新临时选中项
 	tempSelectedItems.value = uniqueNodes;
 };
 
@@ -922,7 +948,9 @@ const initializeData = async (searchQuery = '', forceRemote = false) => {
 			if (modalVisible.value) {
 				nextTick(() => {
 					if (treeRef.value) {
-						const checkedKeys = selectedItems.value.map((item) => item.id);
+						// 使用 tempSelectedItems（当前弹窗中的临时选择）恢复选中状态
+						// 这样搜索/刷新后之前的选择不会丢失
+						const checkedKeys = tempSelectedItems.value.map((item) => item.id);
 						treeRef.value.setCheckedKeys(checkedKeys);
 					}
 				});

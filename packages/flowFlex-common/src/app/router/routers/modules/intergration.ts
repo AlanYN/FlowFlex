@@ -15,7 +15,7 @@ const intergration: AppRouteModule = {
 		icon: settingsIcon,
 		title: t('sys.router.integration'),
 		code: 'INTEGRATION',
-		ordinal: 11,
+		ordinal: 7,
 		hidden: false,
 		status: true,
 	},

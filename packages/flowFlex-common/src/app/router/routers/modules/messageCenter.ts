@@ -14,7 +14,8 @@ const messageCenter: AppRouteModule = {
 		hideChildrenInMenu: true,
 		icon: messageIcon,
 		title: t('sys.router.messageCenter'),
-		ordinal: 12,
+		code: 'MESSAGECENTER',
+		ordinal: 8,
 		hidden: false,
 		status: true,
 	},
@@ -25,6 +26,7 @@ const messageCenter: AppRouteModule = {
 			component: () => import('@/views/messageCenter/index.vue'),
 			meta: {
 				title: t('sys.router.messageCenter'),
+				code: 'MESSAGECENTER',
 				ordinal: 1,
 				hidden: false,
 				status: true,

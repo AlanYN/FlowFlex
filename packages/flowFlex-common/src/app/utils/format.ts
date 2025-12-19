@@ -20,7 +20,7 @@ export function formatDate(dateString: string): string {
 }
 
 // 工具函数
-export const formatFileSize = (bytes: string): string => {
+export const formatFileSize = (bytes: number | string): string => {
 	if (!bytes) return '0 Bytes';
 
 	const k = 1024;
