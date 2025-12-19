@@ -1,3 +1,4 @@
+using Newtonsoft.Json.Linq;
 using SqlSugar;
 using System.Text.Json;
 
@@ -11,11 +12,18 @@ public class SqlSugarJsonSerializer : ISerializeService
     /// <summary>
     /// Serialize object to JSON string
     /// If the value is already a valid JSON string (starts with [ or {), return it directly
+    /// Handles Newtonsoft.Json JToken types properly
     /// </summary>
     public string SerializeObject(object value)
     {
         if (value == null)
             return "null";
+
+        // Handle Newtonsoft.Json JToken types (JObject, JArray, etc.)
+        if (value is JToken jToken)
+        {
+            return jToken.ToString(Newtonsoft.Json.Formatting.None);
+        }
 
         // If value is already a string, check if it's valid JSON
         if (value is string strValue)
