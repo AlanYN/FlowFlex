@@ -92,6 +92,9 @@ importers:
       dayjs:
         specifier: ^1.11.13
         version: 1.11.13
+      dompurify:
+        specifier: ^3.3.1
+        version: 3.3.1
       echarts:
         specifier: ^5.5.1
         version: 5.5.1
@@ -3948,7 +3951,7 @@ packages:
     resolution: {integrity: sha512-Fgg31wv9QbLDA0SpTOXO3MaxySc4DKGLi8sna4/Utjo4r3ZRPdCt4UQee8BWr+Q5z21yifghREPJGYaEOEIACg==}
     deprecated: This is a stub types definition. dompurify provides its own type definitions, so you do not need this installed.
     dependencies:
-      dompurify: 3.2.4
+      dompurify: 3.3.1
     dev: false
 
   /@types/eslint-scope@3.7.7:
@@ -6834,8 +6837,8 @@ packages:
       domelementtype: 2.3.0
     dev: true
 
-  /dompurify@3.2.4:
-    resolution: {integrity: sha512-ysFSFEDVduQpyhzAob/kkuJjf5zWkZD8/A9ywSp1byueyuCfHamrCBa14/Oc2iiB0e51B+NpxSl5gmzn+Ms/mg==}
+  /dompurify@3.3.1:
+    resolution: {integrity: sha512-qkdCKzLNtrgPFP1Vo+98FRzJnBRGe4ffyCea9IwHB1fyxPOeNTHpLKYGd4Uk9xvNoH0ZoOjwZxNptyMwqrId1Q==}
     optionalDependencies:
       '@types/trusted-types': 2.0.7
     dev: false
@@ -9945,7 +9948,7 @@ packages:
     optionalDependencies:
       canvg: 3.0.11
       core-js: 3.39.0
-      dompurify: 3.2.4
+      dompurify: 3.3.1
       html2canvas: 1.4.1
     dev: false
 
