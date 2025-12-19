@@ -385,6 +385,8 @@ export interface FlowflexUser {
 		createDate: string;
 		team: string;
 	};
+	email: string;
+	username: string;
 	memberCount?: number;
 }
 
