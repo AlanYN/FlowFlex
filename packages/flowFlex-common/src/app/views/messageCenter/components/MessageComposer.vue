@@ -7,6 +7,7 @@
 		class="message-composer-dialog"
 		draggable
 		append-to-body
+		destroy-on-close
 	>
 		<!-- Description -->
 		<div class="text-sm text-gray-500 dark:text-gray-400 mb-6">
@@ -25,6 +26,7 @@
 							:multiple="false"
 							:clearable="true"
 							selection-type="user"
+							showEmail
 							@change="selectRecipient"
 						/>
 					</el-form-item>
@@ -52,6 +54,7 @@
 							:multiple="false"
 							:clearable="true"
 							selection-type="user"
+							showEmail
 							@change="selectRecipient"
 						/>
 					</el-form-item>
@@ -117,7 +120,7 @@
 </template>
 
 <script lang="ts" setup>
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 import { ElMessage } from 'element-plus';
 import type { UploadFile, UploadUserFile } from 'element-plus';
 import { PrototypeTabs, TabPane } from '@/components/PrototypeTabs';
@@ -191,36 +194,38 @@ const openVisible = (originalMessage?: MessageInfo, isReply: boolean = false) =>
 
 const messageType = ref<MessageType>(MessageType.Internal);
 
-const messageTypeTabs = props.isBinding
-	? [
-			{
-				value: MessageType.Internal,
-				label: 'Internal Message',
-				icon: 'lucide-message-square',
-			},
-			{
-				value: MessageType.Email,
-				label: 'Customer Email',
-				icon: 'lucide-at-sign',
-			},
-			{
-				value: MessageType.Portal,
-				label: 'Portal Message',
-				icon: 'lucide-layout-dashboard',
-			},
-	  ]
-	: [
-			{
-				value: MessageType.Internal,
-				label: 'Internal Message',
-				icon: 'lucide-message-square',
-			},
-			{
-				value: MessageType.Portal,
-				label: 'Portal Message',
-				icon: 'lucide-layout-dashboard',
-			},
-	  ];
+const messageTypeTabs = computed(() => {
+	return props.isBinding
+		? [
+				{
+					value: MessageType.Internal,
+					label: 'Internal Message',
+					icon: 'lucide-message-square',
+				},
+				{
+					value: MessageType.Email,
+					label: 'Customer Email',
+					icon: 'lucide-at-sign',
+				},
+				{
+					value: MessageType.Portal,
+					label: 'Portal Message',
+					icon: 'lucide-layout-dashboard',
+				},
+		  ]
+		: [
+				{
+					value: MessageType.Internal,
+					label: 'Internal Message',
+					icon: 'lucide-message-square',
+				},
+				{
+					value: MessageType.Portal,
+					label: 'Portal Message',
+					icon: 'lucide-layout-dashboard',
+				},
+		  ];
+});
 
 const form = ref<MessageCenterForm>({
 	subject: '',

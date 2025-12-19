@@ -16,12 +16,7 @@
 					}"
 				>
 					<el-tooltip
-						:content="
-							item.name +
-							(showEmail && item?.userDetails?.email
-								? ` (${item?.userDetails?.email})`
-								: '')
-						"
+						:content="item.name + (showEmail && item?.email ? ` (${item?.email})` : '')"
 						:show-after="500"
 					>
 						<div
@@ -86,10 +81,7 @@
 					>
 						<el-tooltip
 							:content="
-								item.name +
-								(showEmail && item?.userDetails?.email
-									? ` (${item?.userDetails?.email})`
-									: '')
+								item.name + (showEmail && item?.email ? ` (${item?.email})` : '')
 							"
 							:show-after="500"
 						>
@@ -233,12 +225,12 @@
 													<div
 														v-if="
 															data.type === 'user' &&
-															data.userDetails?.email &&
+															data?.email &&
 															showEmail
 														"
 														class="text-gray-500 dark:text-gray-400 text-xs block overflow-hidden text-ellipsis whitespace-nowrap mt-0.5"
 													>
-														{{ data.userDetails.email }}
+														{{ data.email }}
 													</div>
 												</div>
 
@@ -308,10 +300,10 @@
 												{{ item.name }}
 											</div>
 											<div
-												v-if="item.userDetails?.email && showEmail"
+												v-if="item?.email && showEmail"
 												class="text-gray-500 dark:text-gray-400 text-xs overflow-hidden text-ellipsis whitespace-nowrap mt-0.5"
 											>
-												{{ item.userDetails.email }}
+												{{ item.email }}
 											</div>
 										</div>
 										<el-button
@@ -500,8 +492,7 @@ const filterNode = (value: string, data: any): boolean => {
 	const searchValue = value.toLowerCase();
 	const nodeData = data as FlowflexUser;
 	const matchesName = nodeData.name?.toLowerCase().includes(searchValue) || false;
-	const matchesEmail =
-		(nodeData.userDetails?.email?.toLowerCase().includes(searchValue) || false) && true;
+	const matchesEmail = (nodeData?.email?.toLowerCase().includes(searchValue) || false) && true;
 	return matchesName || matchesEmail;
 };
 
