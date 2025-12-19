@@ -47,10 +47,12 @@
 						:key="option.temporaryId"
 						class="rule-item"
 					>
-						<div v-if="option.isOther" class="option-label">
+						<div v-if="option.isOther" class="option-label w-[100px] truncate">
 							<el-tag type="warning">Other</el-tag>
 						</div>
-						<div v-else class="option-label">{{ option.label }}</div>
+						<div v-else class="option-label w-[100px] truncate">
+							{{ option.label }}
+						</div>
 						<div class="jump-selectors">
 							<!-- 选择Section（如果有可用section则显示） -->
 							<el-select
@@ -557,7 +559,6 @@ const handleCancel = () => {
 			@apply rounded-xl;
 
 			.option-label {
-				min-width: 100px;
 				font-weight: 500;
 				color: var(--el-text-color-primary);
 			}
