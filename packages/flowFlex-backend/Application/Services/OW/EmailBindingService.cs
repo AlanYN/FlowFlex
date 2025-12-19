@@ -1,3 +1,4 @@
+using System.Net.Http.Headers;
 using Microsoft.Extensions.Logging;
 using FlowFlex.Application.Contracts.Dtos.OW.EmailBinding;
 using FlowFlex.Application.Contracts.IServices.OW;
@@ -5,6 +6,7 @@ using FlowFlex.Application.Services.OW.Extensions;
 using FlowFlex.Domain.Entities.OW;
 using FlowFlex.Domain.Repository.OW;
 using FlowFlex.Domain.Shared;
+using FlowFlex.Domain.Shared.Constants;
 using FlowFlex.Domain.Shared.Exceptions;
 using FlowFlex.Domain.Shared.Models;
 
@@ -18,17 +20,21 @@ public class EmailBindingService : IEmailBindingService, IScopedService
     private readonly IEmailBindingRepository _bindingRepository;
     private readonly IMessageRepository _messageRepository;
     private readonly IOutlookService _outlookService;
+    private readonly IHttpClientFactory _httpClientFactory;
     private readonly UserContext _userContext;
     private readonly ILogger<EmailBindingService> _logger;
     private readonly IUserRepository _userRepository;
 
     // Store state temporarily (in production, use distributed cache like Redis)
     private static readonly Dictionary<string, (long UserId, string TenantId, DateTimeOffset ExpireTime)> _stateStore = new();
+    private static readonly object _stateStoreLock = new();
+    private static DateTimeOffset _lastCleanupTime = DateTimeOffset.MinValue;
 
     public EmailBindingService(
         IEmailBindingRepository bindingRepository,
         IMessageRepository messageRepository,
         IOutlookService outlookService,
+        IHttpClientFactory httpClientFactory,
         UserContext userContext,
         ILogger<EmailBindingService> logger,
         IUserRepository userRepository)
@@ -36,6 +42,7 @@ public class EmailBindingService : IEmailBindingService, IScopedService
         _bindingRepository = bindingRepository;
         _messageRepository = messageRepository;
         _outlookService = outlookService;
+        _httpClientFactory = httpClientFactory;
         _userContext = userContext;
         _logger = logger;
         _userRepository = userRepository;
@@ -107,7 +114,7 @@ public class EmailBindingService : IEmailBindingService, IScopedService
         var userEmail = await GetUserEmailFromGraphAsync(tokenResult.AccessToken);
 
         // Check if this email is already bound by another user
-        var emailBinding = await _bindingRepository.GetByEmailAsync(userEmail, "Outlook");
+        var emailBinding = await _bindingRepository.GetByEmailAsync(userEmail, EmailConstants.Provider.Outlook);
         if (emailBinding != null && emailBinding.UserId != userId)
         {
             _logger.LogWarning("Email {Email} is already bound by user {ExistingUserId}, current user {CurrentUserId} cannot bind it",
@@ -116,7 +123,7 @@ public class EmailBindingService : IEmailBindingService, IScopedService
         }
 
         // Check if binding already exists for current user
-        var existingBinding = await _bindingRepository.GetByUserIdAndProviderAsync(userId, "Outlook");
+        var existingBinding = await _bindingRepository.GetByUserIdAndProviderAsync(userId, EmailConstants.Provider.Outlook);
         
         if (existingBinding != null)
         {
@@ -125,7 +132,7 @@ public class EmailBindingService : IEmailBindingService, IScopedService
             existingBinding.AccessToken = tokenResult.AccessToken;
             existingBinding.RefreshToken = tokenResult.RefreshToken;
             existingBinding.TokenExpireTime = tokenResult.ExpiresAt;
-            existingBinding.SyncStatus = "Active";
+            existingBinding.SyncStatus = EmailConstants.SyncStatus.Active;
             existingBinding.LastSyncError = null;
             existingBinding.ModifyDate = DateTimeOffset.UtcNow;
             existingBinding.ModifyBy = "OAuth Callback";
@@ -141,13 +148,13 @@ public class EmailBindingService : IEmailBindingService, IScopedService
         {
             UserId = userId,
             Email = userEmail,
-            Provider = "Outlook",
+            Provider = EmailConstants.Provider.Outlook,
             AccessToken = tokenResult.AccessToken,
             RefreshToken = tokenResult.RefreshToken,
             TokenExpireTime = tokenResult.ExpiresAt,
-            SyncStatus = "Active",
+            SyncStatus = EmailConstants.SyncStatus.Active,
             AutoSyncEnabled = true,
-            SyncIntervalMinutes = 15
+            SyncIntervalMinutes = EmailConstants.SyncSettings.DefaultIntervalMinutes
         };
 
         // Initialize create info (sets Id, TenantId, AppCode, timestamps, etc.)
@@ -196,7 +203,7 @@ public class EmailBindingService : IEmailBindingService, IScopedService
     public async Task<EmailBindingDto?> GetCurrentBindingAsync()
     {
         var userId = GetCurrentUserId();
-        var binding = await _bindingRepository.GetByUserIdAndProviderAsync(userId, "Outlook");
+        var binding = await _bindingRepository.GetByUserIdAndProviderAsync(userId, EmailConstants.Provider.Outlook);
 
         return binding != null ? MapToDto(binding) : null;
     }
@@ -207,7 +214,7 @@ public class EmailBindingService : IEmailBindingService, IScopedService
     public async Task<bool> UnbindAsync()
     {
         var userId = GetCurrentUserId();
-        var binding = await _bindingRepository.GetByUserIdAndProviderAsync(userId, "Outlook");
+        var binding = await _bindingRepository.GetByUserIdAndProviderAsync(userId, EmailConstants.Provider.Outlook);
 
         if (binding == null)
         {
@@ -235,7 +242,7 @@ public class EmailBindingService : IEmailBindingService, IScopedService
     public async Task<bool> UpdateSettingsAsync(EmailBindingUpdateDto input)
     {
         var userId = GetCurrentUserId();
-        var binding = await _bindingRepository.GetByUserIdAndProviderAsync(userId, "Outlook");
+        var binding = await _bindingRepository.GetByUserIdAndProviderAsync(userId, EmailConstants.Provider.Outlook);
 
         if (binding == null)
         {
@@ -249,9 +256,11 @@ public class EmailBindingService : IEmailBindingService, IScopedService
 
         if (input.SyncIntervalMinutes.HasValue)
         {
-            if (input.SyncIntervalMinutes.Value < 5 || input.SyncIntervalMinutes.Value > 1440)
+            if (input.SyncIntervalMinutes.Value < EmailConstants.SyncSettings.MinIntervalMinutes || 
+                input.SyncIntervalMinutes.Value > EmailConstants.SyncSettings.MaxIntervalMinutes)
             {
-                throw new CRMException(ErrorCodeEnum.ParamInvalid, "Sync interval must be between 5 and 1440 minutes");
+                throw new CRMException(ErrorCodeEnum.ParamInvalid, 
+                    $"Sync interval must be between {EmailConstants.SyncSettings.MinIntervalMinutes} and {EmailConstants.SyncSettings.MaxIntervalMinutes} minutes");
             }
             binding.SyncIntervalMinutes = input.SyncIntervalMinutes.Value;
         }
@@ -267,7 +276,7 @@ public class EmailBindingService : IEmailBindingService, IScopedService
     public async Task<SyncResultDto> SyncEmailsAsync()
     {
         var userId = GetCurrentUserId();
-        var binding = await _bindingRepository.GetByUserIdAndProviderAsync(userId, "Outlook");
+        var binding = await _bindingRepository.GetByUserIdAndProviderAsync(userId, EmailConstants.Provider.Outlook);
 
         if (binding == null)
         {
@@ -291,11 +300,16 @@ public class EmailBindingService : IEmailBindingService, IScopedService
             // If LastSyncTime is null, perform full sync
             if (binding.LastSyncTime == null)
             {
-                _logger.LogInformation("LastSyncTime is null for user {UserId}, performing full sync", userId);
+                _logger.LogDebug("LastSyncTime is null for user {UserId}, performing full sync", userId);
                 var fullSyncResult = await FullSyncAsync(new FullSyncRequestDto
                 {
-                    Folders = new List<string> { "inbox", "sentitems", "deleteditems" },
-                    MaxCount = 2000
+                    Folders = new List<string> 
+                    { 
+                        EmailConstants.OutlookFolder.Inbox, 
+                        EmailConstants.OutlookFolder.SentItems, 
+                        EmailConstants.OutlookFolder.DeletedItems 
+                    },
+                    MaxCount = EmailConstants.SyncSettings.FullSyncMaxCount
                 });
                 syncedCount = fullSyncResult.TotalSyncedCount;
             }
@@ -304,7 +318,7 @@ public class EmailBindingService : IEmailBindingService, IScopedService
                 // Perform incremental sync
                 syncedCount = await _outlookService.SyncEmailsToLocalAsync(binding.AccessToken, userId);
                 await _bindingRepository.UpdateLastSyncTimeAsync(binding.Id);
-                await _bindingRepository.UpdateSyncStatusAsync(binding.Id, "Active");
+                await _bindingRepository.UpdateSyncStatusAsync(binding.Id, EmailConstants.SyncStatus.Active);
             }
 
             return new SyncResultDto
@@ -333,7 +347,7 @@ public class EmailBindingService : IEmailBindingService, IScopedService
     public async Task<SyncResultDto> IncrementalSyncAsync(IncrementalSyncRequestDto? request = null)
     {
         var userId = GetCurrentUserId();
-        var binding = await _bindingRepository.GetByUserIdAndProviderAsync(userId, "Outlook");
+        var binding = await _bindingRepository.GetByUserIdAndProviderAsync(userId, EmailConstants.Provider.Outlook);
 
         if (binding == null)
         {
@@ -351,19 +365,19 @@ public class EmailBindingService : IEmailBindingService, IScopedService
 
         try
         {
-            var folders = request?.Folders ?? new List<string> { "inbox" };
-            var maxCount = request?.MaxCount ?? 100;
+            var folders = request?.Folders ?? new List<string> { EmailConstants.OutlookFolder.Inbox };
+            var maxCount = request?.MaxCount ?? EmailConstants.SyncSettings.DefaultMaxCount;
             var totalSynced = 0;
 
             foreach (var folder in folders)
             {
                 var synced = await _outlookService.SyncEmailsToLocalAsync(binding.AccessToken, userId, folder, maxCount);
                 totalSynced += synced;
-                _logger.LogInformation("Incremental sync: synced {Count} emails from folder {Folder}", synced, folder);
+                _logger.LogDebug("Incremental sync: synced {Count} emails from folder {Folder}", synced, folder);
             }
 
             await _bindingRepository.UpdateLastSyncTimeAsync(binding.Id);
-            await _bindingRepository.UpdateSyncStatusAsync(binding.Id, "Active");
+            await _bindingRepository.UpdateSyncStatusAsync(binding.Id, EmailConstants.SyncStatus.Active);
 
             return new SyncResultDto
             {
@@ -374,7 +388,7 @@ public class EmailBindingService : IEmailBindingService, IScopedService
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to incremental sync emails for user {UserId}", userId);
-            await _bindingRepository.UpdateSyncStatusAsync(binding.Id, "Error", ex.Message);
+            await _bindingRepository.UpdateSyncStatusAsync(binding.Id, EmailConstants.SyncStatus.Error, ex.Message);
 
             return new SyncResultDto
             {
@@ -391,7 +405,7 @@ public class EmailBindingService : IEmailBindingService, IScopedService
     public async Task<FullSyncResultDto> FullSyncAsync(FullSyncRequestDto? request = null)
     {
         var userId = GetCurrentUserId();
-        var binding = await _bindingRepository.GetByUserIdAndProviderAsync(userId, "Outlook");
+        var binding = await _bindingRepository.GetByUserIdAndProviderAsync(userId, EmailConstants.Provider.Outlook);
 
         if (binding == null)
         {
@@ -409,12 +423,17 @@ public class EmailBindingService : IEmailBindingService, IScopedService
 
         try
         {
-            var folders = request?.Folders ?? new List<string> { "inbox", "sentitems", "deleteditems" };
-            var maxCount = Math.Min(request?.MaxCount ?? 500, 2000); // Cap at 2000
+            var folders = request?.Folders ?? new List<string> 
+            { 
+                EmailConstants.OutlookFolder.Inbox, 
+                EmailConstants.OutlookFolder.SentItems, 
+                EmailConstants.OutlookFolder.DeletedItems 
+            };
+            var maxCount = Math.Min(request?.MaxCount ?? 500, EmailConstants.SyncSettings.FullSyncMaxCount);
             var syncedByFolder = new Dictionary<string, int>();
             var totalSynced = 0;
 
-            _logger.LogInformation("Starting full sync for user {UserId}, folders: {Folders}, maxCount: {MaxCount}",
+            _logger.LogDebug("Starting full sync for user {UserId}, folders: {Folders}, maxCount: {MaxCount}",
                 userId, string.Join(", ", folders), maxCount);
 
             foreach (var folder in folders)
@@ -422,11 +441,11 @@ public class EmailBindingService : IEmailBindingService, IScopedService
                 var synced = await _outlookService.FullSyncEmailsAsync(binding.AccessToken, userId, folder, maxCount);
                 syncedByFolder[folder] = synced;
                 totalSynced += synced;
-                _logger.LogInformation("Full sync: synced {Count} emails from folder {Folder}", synced, folder);
+                _logger.LogDebug("Full sync: synced {Count} emails from folder {Folder}", synced, folder);
             }
 
             await _bindingRepository.UpdateLastSyncTimeAsync(binding.Id);
-            await _bindingRepository.UpdateSyncStatusAsync(binding.Id, "Active");
+            await _bindingRepository.UpdateSyncStatusAsync(binding.Id, EmailConstants.SyncStatus.Active);
 
             return new FullSyncResultDto
             {
@@ -439,7 +458,7 @@ public class EmailBindingService : IEmailBindingService, IScopedService
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to full sync emails for user {UserId}", userId);
-            await _bindingRepository.UpdateSyncStatusAsync(binding.Id, "Error", ex.Message);
+            await _bindingRepository.UpdateSyncStatusAsync(binding.Id, EmailConstants.SyncStatus.Error, ex.Message);
 
             return new FullSyncResultDto
             {
@@ -471,14 +490,14 @@ public class EmailBindingService : IEmailBindingService, IScopedService
 
         if (string.IsNullOrEmpty(binding.RefreshToken))
         {
-            await _bindingRepository.UpdateSyncStatusAsync(bindingId, "Error", "No refresh token available");
+            await _bindingRepository.UpdateSyncStatusAsync(bindingId, EmailConstants.SyncStatus.Error, "No refresh token available");
             return false;
         }
 
         var newToken = await _outlookService.RefreshTokenAsync(binding.RefreshToken);
         if (newToken == null)
         {
-            await _bindingRepository.UpdateSyncStatusAsync(bindingId, "Error", "Failed to refresh token");
+            await _bindingRepository.UpdateSyncStatusAsync(bindingId, EmailConstants.SyncStatus.Error, "Failed to refresh token");
             return false;
         }
 
@@ -488,7 +507,7 @@ public class EmailBindingService : IEmailBindingService, IScopedService
             newToken.RefreshToken,
             newToken.ExpiresAt);
 
-        _logger.LogInformation("Refreshed token for binding {BindingId}", bindingId);
+        _logger.LogDebug("Refreshed token for binding {BindingId}", bindingId);
         return true;
     }
 
@@ -505,14 +524,30 @@ public class EmailBindingService : IEmailBindingService, IScopedService
 
     private static void CleanupExpiredStates()
     {
-        var expiredStates = _stateStore
-            .Where(kvp => kvp.Value.ExpireTime < DateTimeOffset.UtcNow)
-            .Select(kvp => kvp.Key)
-            .ToList();
-
-        foreach (var state in expiredStates)
+        // Only cleanup every 5 minutes to avoid frequent lock contention
+        if (DateTimeOffset.UtcNow - _lastCleanupTime < TimeSpan.FromMinutes(5))
         {
-            _stateStore.Remove(state);
+            return;
+        }
+
+        lock (_stateStoreLock)
+        {
+            if (DateTimeOffset.UtcNow - _lastCleanupTime < TimeSpan.FromMinutes(5))
+            {
+                return;
+            }
+
+            var expiredStates = _stateStore
+                .Where(kvp => kvp.Value.ExpireTime < DateTimeOffset.UtcNow)
+                .Select(kvp => kvp.Key)
+                .ToList();
+
+            foreach (var state in expiredStates)
+            {
+                _stateStore.Remove(state);
+            }
+
+            _lastCleanupTime = DateTimeOffset.UtcNow;
         }
     }
 
@@ -521,11 +556,11 @@ public class EmailBindingService : IEmailBindingService, IScopedService
         // Get user profile from Microsoft Graph to get email
         try
         {
-            using var httpClient = new HttpClient();
-            httpClient.DefaultRequestHeaders.Authorization = 
-                new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", accessToken);
+            var httpClient = _httpClientFactory.CreateClient();
+            var request = new HttpRequestMessage(HttpMethod.Get, "https://graph.microsoft.com/v1.0/me?$select=mail,userPrincipalName");
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
 
-            var response = await httpClient.GetAsync("https://graph.microsoft.com/v1.0/me?$select=mail,userPrincipalName");
+            var response = await httpClient.SendAsync(request);
             if (response.IsSuccessStatusCode)
             {
                 var content = await response.Content.ReadAsStringAsync();

@@ -4,6 +4,7 @@ using Microsoft.Extensions.Logging;
 using FlowFlex.Application.Contracts.IServices.OW;
 using FlowFlex.Domain.Repository.OW;
 using FlowFlex.Domain.Shared;
+using FlowFlex.Domain.Shared.Constants;
 
 namespace FlowFlex.Application.Services.OW;
 
@@ -14,7 +15,9 @@ public class EmailSyncBackgroundService : BackgroundService, ISingletonService
 {
     private readonly IServiceProvider _serviceProvider;
     private readonly ILogger<EmailSyncBackgroundService> _logger;
-    private readonly TimeSpan _checkInterval = TimeSpan.FromMinutes(5); // Check every 5 minutes
+    private readonly TimeSpan _checkInterval = TimeSpan.FromMinutes(5);
+    private readonly SemaphoreSlim _syncSemaphore = new(5); // Max 5 concurrent user syncs
+    private readonly TimeSpan _syncTimeout = TimeSpan.FromMinutes(5); // Timeout per user sync
 
     public EmailSyncBackgroundService(
         IServiceProvider serviceProvider,
@@ -72,23 +75,40 @@ public class EmailSyncBackgroundService : BackgroundService, ISingletonService
                 return;
             }
 
-            _logger.LogInformation("Found {Count} email bindings to sync", bindingsToSync.Count);
+            _logger.LogDebug("Found {Count} email bindings to sync", bindingsToSync.Count);
 
-            foreach (var binding in bindingsToSync)
+            // Process bindings with concurrency limit
+            var tasks = bindingsToSync.Select(async binding =>
             {
-                if (stoppingToken.IsCancellationRequested) break;
+                if (stoppingToken.IsCancellationRequested) return;
 
+                await _syncSemaphore.WaitAsync(stoppingToken);
                 try
                 {
+                    // Add timeout protection for each user sync
+                    using var cts = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken);
+                    cts.CancelAfter(_syncTimeout);
+
                     await SyncUserEmailsAsync(binding.Id, binding.UserId, binding.AccessToken,
                         binding.RefreshToken, binding.TokenExpireTime, bindingRepository, outlookService);
+                }
+                catch (OperationCanceledException) when (!stoppingToken.IsCancellationRequested)
+                {
+                    _logger.LogWarning("Sync timeout for user {UserId}, skipping", binding.UserId);
+                    await bindingRepository.UpdateSyncStatusAsync(binding.Id, EmailConstants.SyncStatus.Error, "Sync timeout");
                 }
                 catch (Exception ex)
                 {
                     _logger.LogError(ex, "Error syncing emails for user {UserId}", binding.UserId);
-                    await bindingRepository.UpdateSyncStatusAsync(binding.Id, "Error", ex.Message);
+                    await bindingRepository.UpdateSyncStatusAsync(binding.Id, EmailConstants.SyncStatus.Error, ex.Message);
                 }
-            }
+                finally
+                {
+                    _syncSemaphore.Release();
+                }
+            });
+
+            await Task.WhenAll(tasks);
         }
         catch (Exception ex)
         {
@@ -112,7 +132,7 @@ public class EmailSyncBackgroundService : BackgroundService, ISingletonService
             if (string.IsNullOrEmpty(refreshToken))
             {
                 _logger.LogWarning("Token expired and no refresh token for binding {BindingId}", bindingId);
-                await bindingRepository.UpdateSyncStatusAsync(bindingId, "Error", "Token expired, please re-authorize");
+                await bindingRepository.UpdateSyncStatusAsync(bindingId, EmailConstants.SyncStatus.Error, "Token expired, please re-authorize");
                 return;
             }
 
@@ -120,13 +140,13 @@ public class EmailSyncBackgroundService : BackgroundService, ISingletonService
             if (newToken == null)
             {
                 _logger.LogWarning("Failed to refresh token for binding {BindingId}", bindingId);
-                await bindingRepository.UpdateSyncStatusAsync(bindingId, "Error", "Failed to refresh token");
+                await bindingRepository.UpdateSyncStatusAsync(bindingId, EmailConstants.SyncStatus.Error, "Failed to refresh token");
                 return;
             }
 
             await bindingRepository.UpdateTokenAsync(bindingId, newToken.AccessToken, newToken.RefreshToken, newToken.ExpiresAt);
             accessToken = newToken.AccessToken;
-            _logger.LogInformation("Refreshed token for binding {BindingId}", bindingId);
+            _logger.LogDebug("Refreshed token for binding {BindingId}", bindingId);
         }
 
         // Sync inbox emails
@@ -134,9 +154,9 @@ public class EmailSyncBackgroundService : BackgroundService, ISingletonService
 
         // Update sync status
         await bindingRepository.UpdateLastSyncTimeAsync(bindingId);
-        await bindingRepository.UpdateSyncStatusAsync(bindingId, "Active");
+        await bindingRepository.UpdateSyncStatusAsync(bindingId, EmailConstants.SyncStatus.Active);
 
-        _logger.LogInformation("Auto-synced {Count} emails for user {UserId}", syncedCount, userId);
+        _logger.LogDebug("Auto-synced {Count} emails for user {UserId}", syncedCount, userId);
     }
 
     public override async Task StopAsync(CancellationToken cancellationToken)

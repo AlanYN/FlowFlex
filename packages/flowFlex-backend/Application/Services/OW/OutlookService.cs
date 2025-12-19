@@ -6,6 +6,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using FlowFlex.Domain.Shared;
 using FlowFlex.Domain.Shared.Models;
+using FlowFlex.Domain.Shared.Constants;
 using FlowFlex.Domain.Entities.OW;
 using FlowFlex.Domain.Repository.OW;
 using FlowFlex.Application.Contracts.Dtos.OW.Message;
@@ -41,6 +42,64 @@ public class OutlookService : IOutlookService, IScopedService
         _userContext = userContext;
         _logger = logger;
     }
+
+    #region HTTP Helper Methods
+
+    /// <summary>
+    /// Create HTTP request with Bearer token authorization
+    /// Avoids modifying DefaultRequestHeaders which is not thread-safe
+    /// </summary>
+    private static HttpRequestMessage CreateAuthorizedRequest(HttpMethod method, string url, string accessToken)
+    {
+        var request = new HttpRequestMessage(method, url);
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+        return request;
+    }
+
+    /// <summary>
+    /// Send GET request with authorization
+    /// </summary>
+    private async Task<HttpResponseMessage> SendAuthorizedGetAsync(string url, string accessToken)
+    {
+        using var request = CreateAuthorizedRequest(HttpMethod.Get, url, accessToken);
+        return await _httpClient.SendAsync(request);
+    }
+
+    /// <summary>
+    /// Send POST request with authorization and JSON body
+    /// </summary>
+    private async Task<HttpResponseMessage> SendAuthorizedPostAsync(string url, string accessToken, object? body = null)
+    {
+        using var request = CreateAuthorizedRequest(HttpMethod.Post, url, accessToken);
+        if (body != null)
+        {
+            var json = JsonSerializer.Serialize(body);
+            request.Content = new StringContent(json, Encoding.UTF8, "application/json");
+        }
+        return await _httpClient.SendAsync(request);
+    }
+
+    /// <summary>
+    /// Send PATCH request with authorization and JSON body
+    /// </summary>
+    private async Task<HttpResponseMessage> SendAuthorizedPatchAsync(string url, string accessToken, object body)
+    {
+        using var request = CreateAuthorizedRequest(new HttpMethod("PATCH"), url, accessToken);
+        var json = JsonSerializer.Serialize(body);
+        request.Content = new StringContent(json, Encoding.UTF8, "application/json");
+        return await _httpClient.SendAsync(request);
+    }
+
+    /// <summary>
+    /// Send DELETE request with authorization
+    /// </summary>
+    private async Task<HttpResponseMessage> SendAuthorizedDeleteAsync(string url, string accessToken)
+    {
+        using var request = CreateAuthorizedRequest(HttpMethod.Delete, url, accessToken);
+        return await _httpClient.SendAsync(request);
+    }
+
+    #endregion
 
     #region OAuth Authentication
 
@@ -202,9 +261,6 @@ public class OutlookService : IOutlookService, IScopedService
     {
         try
         {
-            _httpClient.DefaultRequestHeaders.Authorization =
-                new AuthenticationHeaderValue("Bearer", accessToken);
-
             var url = $"{_options.BaseUrl}/me/mailFolders/{folderId}/messages" +
                 $"?$top={top}&$skip={skip}" +
                 $"&$orderby=receivedDateTime desc" +
@@ -215,7 +271,7 @@ public class OutlookService : IOutlookService, IScopedService
                 url += "&$filter=isRead eq false";
             }
 
-            var response = await _httpClient.GetAsync(url);
+            var response = await SendAuthorizedGetAsync(url, accessToken);
 
             if (!response.IsSuccessStatusCode)
             {
@@ -243,14 +299,11 @@ public class OutlookService : IOutlookService, IScopedService
     {
         try
         {
-            _httpClient.DefaultRequestHeaders.Authorization =
-                new AuthenticationHeaderValue("Bearer", accessToken);
-
             var url = $"{_options.BaseUrl}/me/messages/{messageId}" +
                 $"?$select=id,subject,body,bodyPreview,from,toRecipients,ccRecipients,bccRecipients," +
                 $"receivedDateTime,sentDateTime,isRead,hasAttachments,isDraft,parentFolderId";
 
-            var response = await _httpClient.GetAsync(url);
+            var response = await SendAuthorizedGetAsync(url, accessToken);
 
             if (!response.IsSuccessStatusCode)
             {
@@ -286,9 +339,6 @@ public class OutlookService : IOutlookService, IScopedService
     {
         try
         {
-            _httpClient.DefaultRequestHeaders.Authorization =
-                new AuthenticationHeaderValue("Bearer", accessToken);
-
             // Build message object
             var messageObj = new Dictionary<string, object>
             {
@@ -342,10 +392,7 @@ public class OutlookService : IOutlookService, IScopedService
                 ["saveToSentItems"] = true
             };
 
-            var json = JsonSerializer.Serialize(requestBody);
-            var content = new StringContent(json, Encoding.UTF8, "application/json");
-
-            var response = await _httpClient.PostAsync($"{_options.BaseUrl}/me/sendMail", content);
+            var response = await SendAuthorizedPostAsync($"{_options.BaseUrl}/me/sendMail", accessToken, requestBody);
 
             if (!response.IsSuccessStatusCode)
             {
@@ -388,17 +435,11 @@ public class OutlookService : IOutlookService, IScopedService
     {
         try
         {
-            _httpClient.DefaultRequestHeaders.Authorization =
-                new AuthenticationHeaderValue("Bearer", accessToken);
-
             // Move to deleted items folder instead of permanent delete
             // This matches user expectation: delete = move to trash, not permanent delete
-            var body = new { destinationId = "deleteditems" };
-            var json = JsonSerializer.Serialize(body);
-            var content = new StringContent(json, Encoding.UTF8, "application/json");
-
-            var response = await _httpClient.PostAsync(
-                $"{_options.BaseUrl}/me/messages/{messageId}/move", content);
+            var body = new { destinationId = EmailConstants.OutlookFolder.DeletedItems };
+            var response = await SendAuthorizedPostAsync(
+                $"{_options.BaseUrl}/me/messages/{messageId}/move", accessToken, body);
 
             return response.IsSuccessStatusCode;
         }
@@ -416,16 +457,12 @@ public class OutlookService : IOutlookService, IScopedService
     {
         try
         {
-            _httpClient.DefaultRequestHeaders.Authorization =
-                new AuthenticationHeaderValue("Bearer", accessToken);
-
-            // Use DELETE method to permanently delete the email
-            var response = await _httpClient.DeleteAsync(
-                $"{_options.BaseUrl}/me/messages/{messageId}");
+            var response = await SendAuthorizedDeleteAsync(
+                $"{_options.BaseUrl}/me/messages/{messageId}", accessToken);
 
             if (response.IsSuccessStatusCode)
             {
-                _logger.LogInformation("Permanently deleted email {MessageId} from Outlook", messageId);
+                _logger.LogDebug("Permanently deleted email {MessageId} from Outlook", messageId);
                 return true;
             }
 
@@ -448,15 +485,9 @@ public class OutlookService : IOutlookService, IScopedService
     {
         try
         {
-            _httpClient.DefaultRequestHeaders.Authorization =
-                new AuthenticationHeaderValue("Bearer", accessToken);
-
             var body = new { destinationId = destinationFolderId };
-            var json = JsonSerializer.Serialize(body);
-            var content = new StringContent(json, Encoding.UTF8, "application/json");
-
-            var response = await _httpClient.PostAsync(
-                $"{_options.BaseUrl}/me/messages/{messageId}/move", content);
+            var response = await SendAuthorizedPostAsync(
+                $"{_options.BaseUrl}/me/messages/{messageId}/move", accessToken, body);
 
             return response.IsSuccessStatusCode;
         }
@@ -474,11 +505,8 @@ public class OutlookService : IOutlookService, IScopedService
     {
         try
         {
-            _httpClient.DefaultRequestHeaders.Authorization =
-                new AuthenticationHeaderValue("Bearer", accessToken);
-
             var url = $"{_options.BaseUrl}/me/mailFolders/{folderId}?$select=displayName,totalItemCount,unreadItemCount";
-            var response = await _httpClient.GetAsync(url);
+            var response = await SendAuthorizedGetAsync(url, accessToken);
 
             if (!response.IsSuccessStatusCode)
             {
@@ -532,49 +560,24 @@ public class OutlookService : IOutlookService, IScopedService
             var syncedCount = 0;
             var localFolder = MapOutlookFolderToLocal(folderId);
 
-            // Get set of external message IDs from Outlook
-            var outlookMessageIds = emails.Select(e => e.Id).ToHashSet();
+            // Batch query: get all existing external IDs in one query for performance
+            var outlookMessageIds = emails.Select(e => e.Id).ToList();
+            var existingIds = await _messageRepository.GetExistingExternalIdsAsync(outlookMessageIds, ownerId);
 
-            // Note: Deleted email sync is disabled for incremental sync
-            // because we only fetch a limited number of emails, not the complete folder
-            // await SyncDeletedEmailsAsync(ownerId, localFolder, outlookMessageIds, isCompleteFetch: false);
+            _logger.LogDebug("Found {ExistingCount} existing emails out of {TotalCount} from Outlook",
+                existingIds.Count, emails.Count);
 
             foreach (var email in emails)
             {
-                // Check if already exists by ExternalMessageId (in any folder, including Trash)
-                var existing = await _messageRepository.GetByExternalMessageIdAsync(email.Id, ownerId);
-                if (existing != null)
+                // Skip if already exists (using batch query result)
+                if (existingIds.Contains(email.Id))
                 {
-                    var needsUpdate = false;
-
-                    // Update folder if changed (e.g., email moved to Trash in Outlook)
-                    if (existing.Folder != localFolder)
-                    {
-                        existing.Folder = localFolder;
-                        needsUpdate = true;
-                        _logger.LogDebug("Updated folder for message {MessageId} from {OldFolder} to {NewFolder}",
-                            existing.Id, existing.Folder, localFolder);
-                    }
-
-                    // Update read status if changed
-                    if (existing.IsRead != email.IsRead)
-                    {
-                        existing.IsRead = email.IsRead;
-                        needsUpdate = true;
-                        _logger.LogDebug("Updated read status for message {MessageId}", existing.Id);
-                    }
-
-                    if (needsUpdate)
-                    {
-                        existing.ModifyDate = DateTimeOffset.UtcNow;
-                        await _messageRepository.UpdateAsync(existing);
-                    }
                     continue;
                 }
 
                 // Check if this is a locally sent email (same subject, sender, and sent time within 5 minutes)
                 // This handles the case where we sent an email locally but haven't set ExternalMessageId yet
-                if (localFolder == "Sent" && email.SentDateTime.HasValue)
+                if (localFolder == EmailConstants.Folder.Sent && email.SentDateTime.HasValue)
                 {
                     var localMessage = await _messageRepository.FindLocalSentMessageAsync(
                         ownerId,
@@ -587,7 +590,7 @@ public class OutlookService : IOutlookService, IScopedService
                         // Update the local message with ExternalMessageId
                         localMessage.ExternalMessageId = email.Id;
                         await _messageRepository.UpdateAsync(localMessage);
-                        _logger.LogInformation("Linked local sent message {LocalId} with Outlook message {OutlookId}",
+                        _logger.LogDebug("Linked local sent message {LocalId} with Outlook message {OutlookId}",
                             localMessage.Id, email.Id);
                         continue;
                     }
@@ -599,9 +602,9 @@ public class OutlookService : IOutlookService, IScopedService
                     Subject = email.Subject ?? "",
                     Body = email.Body ?? "",
                     BodyPreview = email.BodyPreview ?? "",
-                    MessageType = "Email",
+                    MessageType = EmailConstants.MessageType.Email,
                     Folder = localFolder,
-                    Labels = "[\"External\"]",
+                    Labels = $"[\"{EmailConstants.Label.External}\"]",
                     SenderName = email.FromName ?? "",
                     SenderEmail = email.FromEmail ?? "",
                     Recipients = JsonSerializer.Serialize(email.ToRecipients ?? new List<RecipientDto>()),
@@ -628,7 +631,7 @@ public class OutlookService : IOutlookService, IScopedService
                 syncedCount++;
             }
 
-            _logger.LogInformation("Synced {Count} emails from Outlook for user {UserId}", syncedCount, ownerId);
+            _logger.LogDebug("Synced {Count} new emails from Outlook for user {UserId}", syncedCount, ownerId);
             return syncedCount;
         }
         catch (Exception ex)
@@ -647,11 +650,10 @@ public class OutlookService : IOutlookService, IScopedService
         {
             var syncedCount = 0;
             var skip = 0;
-            var batchSize = 50; // Fetch 50 emails per batch
+            var batchSize = EmailConstants.SyncSettings.BatchSize;
             var localFolder = MapOutlookFolderToLocal(folderId);
-            var allOutlookMessageIds = new HashSet<string>();
 
-            _logger.LogInformation("Starting full sync for folder {FolderId}, maxCount: {MaxCount}", folderId, maxCount);
+            _logger.LogDebug("Starting full sync for folder {FolderId}, maxCount: {MaxCount}", folderId, maxCount);
 
             while (syncedCount < maxCount)
             {
@@ -661,45 +663,19 @@ public class OutlookService : IOutlookService, IScopedService
                 var emails = await GetEmailsAsync(accessToken, folderId, fetchCount, skip);
                 if (emails.Count == 0)
                 {
-                    _logger.LogInformation("No more emails to sync from folder {FolderId}", folderId);
+                    _logger.LogDebug("No more emails to sync from folder {FolderId}", folderId);
                     break;
                 }
 
-                // Collect all message IDs for deleted detection
-                foreach (var email in emails)
-                {
-                    allOutlookMessageIds.Add(email.Id);
-                }
+                // Batch query: get all existing external IDs in one query for performance
+                var outlookMessageIds = emails.Select(e => e.Id).ToList();
+                var existingIds = await _messageRepository.GetExistingExternalIdsAsync(outlookMessageIds, ownerId);
 
                 foreach (var email in emails)
                 {
-                    // Check if already exists
-                    var existing = await _messageRepository.GetByExternalMessageIdAsync(email.Id, ownerId);
-                    if (existing != null)
+                    // Skip if already exists (using batch query result)
+                    if (existingIds.Contains(email.Id))
                     {
-                        var needsUpdate = false;
-
-                        // Update folder if changed (e.g., email moved to Trash in Outlook)
-                        if (existing.Folder != localFolder)
-                        {
-                            existing.Folder = localFolder;
-                            needsUpdate = true;
-                            _logger.LogDebug("Updated folder for message {MessageId} from {OldFolder} to {NewFolder}",
-                                existing.Id, existing.Folder, localFolder);
-                        }
-
-                        // Update read status if changed
-                        if (existing.IsRead != email.IsRead)
-                        {
-                            existing.IsRead = email.IsRead;
-                            needsUpdate = true;
-                        }
-
-                        if (needsUpdate)
-                        {
-                            existing.ModifyDate = DateTimeOffset.UtcNow;
-                            await _messageRepository.UpdateAsync(existing);
-                        }
                         continue;
                     }
 
@@ -709,9 +685,9 @@ public class OutlookService : IOutlookService, IScopedService
                         Subject = email.Subject ?? "",
                         Body = email.Body ?? "",
                         BodyPreview = email.BodyPreview ?? "",
-                        MessageType = "Email",
+                        MessageType = EmailConstants.MessageType.Email,
                         Folder = localFolder,
-                        Labels = "[\"External\"]",
+                        Labels = $"[\"{EmailConstants.Label.External}\"]",
                         SenderName = email.FromName ?? "",
                         SenderEmail = email.FromEmail ?? "",
                         Recipients = JsonSerializer.Serialize(email.ToRecipients ?? new List<RecipientDto>()),
@@ -745,12 +721,7 @@ public class OutlookService : IOutlookService, IScopedService
                 }
             }
 
-            // Note: Deleted email sync is disabled for full sync with maxCount limit
-            // because we may not have fetched all emails from the folder
-            // To enable deleted sync, call SyncDeletedEmailsAsync separately after fetching ALL emails
-            // await SyncDeletedEmailsAsync(ownerId, localFolder, allOutlookMessageIds, isCompleteFetch: false);
-
-            _logger.LogInformation("Full sync completed for folder {FolderId}: synced {Count} emails", folderId, syncedCount);
+            _logger.LogDebug("Full sync completed for folder {FolderId}: synced {Count} emails", folderId, syncedCount);
             return syncedCount;
         }
         catch (Exception ex)
@@ -825,13 +796,8 @@ public class OutlookService : IOutlookService, IScopedService
     {
         try
         {
-            _httpClient.DefaultRequestHeaders.Authorization =
-                new AuthenticationHeaderValue("Bearer", accessToken);
-
-            // Get attachment with content bytes
             var url = $"{_options.BaseUrl}/me/messages/{externalMessageId}/attachments/{externalAttachmentId}";
-
-            var response = await _httpClient.GetAsync(url);
+            var response = await SendAuthorizedGetAsync(url, accessToken);
 
             if (!response.IsSuccessStatusCode)
             {
@@ -915,13 +881,8 @@ public class OutlookService : IOutlookService, IScopedService
     {
         try
         {
-            _httpClient.DefaultRequestHeaders.Authorization =
-                new AuthenticationHeaderValue("Bearer", accessToken);
-
-            // Get attachment metadata only (no contentBytes for performance)
             var url = $"{_options.BaseUrl}/me/messages/{messageId}/attachments";
-
-            var response = await _httpClient.GetAsync(url);
+            var response = await SendAuthorizedGetAsync(url, accessToken);
 
             if (!response.IsSuccessStatusCode)
             {
@@ -955,19 +916,8 @@ public class OutlookService : IOutlookService, IScopedService
     {
         try
         {
-            _httpClient.DefaultRequestHeaders.Authorization =
-                new AuthenticationHeaderValue("Bearer", accessToken);
-
-            var json = JsonSerializer.Serialize(updateData);
-            var content = new StringContent(json, Encoding.UTF8, "application/json");
-
-            var request = new HttpRequestMessage(new HttpMethod("PATCH"),
-                $"{_options.BaseUrl}/me/messages/{messageId}")
-            {
-                Content = content
-            };
-
-            var response = await _httpClient.SendAsync(request);
+            var response = await SendAuthorizedPatchAsync(
+                $"{_options.BaseUrl}/me/messages/{messageId}", accessToken, updateData);
             return response.IsSuccessStatusCode;
         }
         catch (Exception ex)
@@ -1015,12 +965,12 @@ public class OutlookService : IOutlookService, IScopedService
     {
         return outlookFolderId.ToLower() switch
         {
-            "inbox" => "Inbox",
-            "sentitems" => "Sent",
-            "drafts" => "Drafts",
-            "deleteditems" => "Trash",
-            "archive" => "Archive",
-            _ => "Inbox"
+            EmailConstants.OutlookFolder.Inbox => EmailConstants.Folder.Inbox,
+            EmailConstants.OutlookFolder.SentItems => EmailConstants.Folder.Sent,
+            EmailConstants.OutlookFolder.Drafts => EmailConstants.Folder.Drafts,
+            EmailConstants.OutlookFolder.DeletedItems => EmailConstants.Folder.Trash,
+            EmailConstants.OutlookFolder.Archive => EmailConstants.Folder.Archive,
+            _ => EmailConstants.Folder.Inbox
         };
     }
 
@@ -1031,14 +981,8 @@ public class OutlookService : IOutlookService, IScopedService
     {
         try
         {
-            _httpClient.DefaultRequestHeaders.Authorization =
-                new AuthenticationHeaderValue("Bearer", accessToken);
-
-            // Get all attachments without $select to get full fileAttachment properties
-            // contentId and contentBytes are only available on fileAttachment type, not base attachment
             var url = $"{_options.BaseUrl}/me/messages/{messageId}/attachments";
-
-            var response = await _httpClient.GetAsync(url);
+            var response = await SendAuthorizedGetAsync(url, accessToken);
 
             if (!response.IsSuccessStatusCode)
             {

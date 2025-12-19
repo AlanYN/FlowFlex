@@ -142,5 +142,10 @@ namespace FlowFlex.Domain.Repository.OW
         /// Used when user unbinds their email account
         /// </summary>
         Task<int> DeleteSyncedEmailsByOwnerAsync(long ownerId);
+
+        /// <summary>
+        /// Get existing external message IDs for batch sync optimization
+        /// </summary>
+        Task<HashSet<string>> GetExistingExternalIdsAsync(List<string> externalIds, long ownerId);
     }
 }

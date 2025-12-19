@@ -63,11 +63,16 @@ public class MessageRepository : BaseRepository<Message>, IMessageRepository, IS
             query = query.Where(x => x.MessageType == messageType);
         }
 
-        // Apply search term filter
+        // Apply search term filter using PostgreSQL full-text search
         if (!string.IsNullOrEmpty(searchTerm))
         {
-            var term = searchTerm.ToLower();
-            query = query.Where(x => x.Subject.ToLower().Contains(term) || x.Body.ToLower().Contains(term));
+            // Use PostgreSQL full-text search for better performance
+            // to_tsvector creates a text search vector, plainto_tsquery converts search term to query
+            // The '||' operator combines subject and body for searching
+            // 'simple' configuration is used for basic tokenization without language-specific stemming
+            var sanitizedTerm = SanitizeSearchTerm(searchTerm);
+            query = query.Where(x => 
+                SqlFunc.MappingColumn<bool>($"to_tsvector('simple', coalesce(\"subject\", '') || ' ' || coalesce(\"body\", '')) @@ plainto_tsquery('simple', '{sanitizedTerm}')"));
         }
 
         // Apply related entity filter
@@ -358,14 +363,15 @@ public class MessageRepository : BaseRepository<Message>, IMessageRepository, IS
     }
 
     /// <summary>
-    /// Search messages by keyword
+    /// Search messages by keyword using PostgreSQL full-text search
     /// </summary>
     public async Task<List<Message>> SearchAsync(long ownerId, string keyword, string? folder = null)
     {
-        var term = keyword.ToLower();
+        var sanitizedTerm = SanitizeSearchTerm(keyword);
         var query = db.Queryable<Message>()
             .Where(x => x.OwnerId == ownerId && x.IsValid)
-            .Where(x => x.Subject.ToLower().Contains(term) || x.Body.ToLower().Contains(term));
+            .Where(x => SqlFunc.MappingColumn<bool>(
+                $"to_tsvector('simple', coalesce(\"subject\", '') || ' ' || coalesce(\"body\", '')) @@ plainto_tsquery('simple', '{sanitizedTerm}')"));
 
         if (!string.IsNullOrEmpty(folder))
         {
@@ -373,6 +379,34 @@ public class MessageRepository : BaseRepository<Message>, IMessageRepository, IS
         }
 
         return await query.OrderByDescending(x => x.ReceivedDate).ToListAsync();
+    }
+
+    /// <summary>
+    /// Sanitize search term to prevent SQL injection
+    /// </summary>
+    private static string SanitizeSearchTerm(string searchTerm)
+    {
+        if (string.IsNullOrWhiteSpace(searchTerm))
+        {
+            return string.Empty;
+        }
+
+        // Remove or escape special characters that could cause issues
+        // Replace single quotes with two single quotes (SQL escaping)
+        var sanitized = searchTerm
+            .Replace("'", "''")
+            .Replace("\\", "\\\\")
+            .Replace("\r", " ")
+            .Replace("\n", " ")
+            .Trim();
+
+        // Limit length to prevent abuse
+        if (sanitized.Length > 200)
+        {
+            sanitized = sanitized.Substring(0, 200);
+        }
+
+        return sanitized;
     }
 
     /// <summary>
@@ -472,5 +506,23 @@ public class MessageRepository : BaseRepository<Message>, IMessageRepository, IS
                 && x.MessageType == "Email"
                 && !string.IsNullOrEmpty(x.ExternalMessageId))
             .ExecuteCommandAsync();
+    }
+
+    /// <summary>
+    /// Get existing external message IDs for batch sync optimization
+    /// </summary>
+    public async Task<HashSet<string>> GetExistingExternalIdsAsync(List<string> externalIds, long ownerId)
+    {
+        if (externalIds == null || externalIds.Count == 0)
+        {
+            return new HashSet<string>();
+        }
+
+        var ids = await db.Queryable<Message>()
+            .Where(x => x.OwnerId == ownerId && x.IsValid && externalIds.Contains(x.ExternalMessageId!))
+            .Select(x => x.ExternalMessageId)
+            .ToListAsync();
+
+        return ids.Where(x => !string.IsNullOrEmpty(x)).Select(x => x!).ToHashSet();
     }
 }
