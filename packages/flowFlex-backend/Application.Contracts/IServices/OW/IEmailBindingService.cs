@@ -40,9 +40,9 @@ public interface IEmailBindingService : IScopedService
     Task<SyncResultDto> SyncEmailsAsync();
 
     /// <summary>
-    /// Full sync - sync all emails from specified folders with pagination
+    /// Full sync - sync all emails from all folders
     /// </summary>
-    Task<FullSyncResultDto> FullSyncAsync(FullSyncRequestDto? request = null);
+    Task<FullSyncResultDto> FullSyncAsync();
 
     /// <summary>
     /// Refresh token if needed

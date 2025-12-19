@@ -46,6 +46,7 @@ export {
 	type ImageMetadata,
 	type IImageProcessor,
 	type SupportedImageExtension,
+	type RotationAngle,
 } from './imageProcessor';
 
 // Content merging utilities

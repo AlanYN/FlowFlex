@@ -21,6 +21,9 @@ export interface ImageProcessingOptions {
 	format?: 'jpeg' | 'png';
 }
 
+// Rotation angle type (clockwise degrees)
+export type RotationAngle = 0 | 90 | 180 | 270;
+
 // Image metadata interface
 export interface ImageMetadata {
 	width: number;
@@ -34,6 +37,11 @@ export interface ImageMetadata {
 export interface IImageProcessor {
 	loadImage(file: File | Blob): Promise<HTMLImageElement>;
 	resizeImage(image: HTMLImageElement, options: ImageProcessingOptions): Promise<Blob>;
+	rotateImage(
+		image: HTMLImageElement,
+		angle: RotationAngle,
+		options?: ImageProcessingOptions
+	): Promise<Blob>;
 	getImageData(image: HTMLImageElement): ImageData;
 	getImageMetadata(file: File | Blob): Promise<ImageMetadata>;
 	createPreviewUrl(file: File | Blob): string;
@@ -160,6 +168,60 @@ export class ImageProcessor implements IImageProcessor {
 						resolve(blob);
 					} else {
 						reject(new Error('Failed to create image blob'));
+					}
+				},
+				`image/${format}`,
+				quality
+			);
+		});
+	}
+
+	/**
+	 * Rotate an image by the specified angle (clockwise)
+	 * @param image - The image element to rotate
+	 * @param angle - Rotation angle in degrees (0, 90, 180, 270)
+	 * @param options - Optional processing options for output
+	 * @returns Promise resolving to a Blob of the rotated image
+	 */
+	async rotateImage(
+		image: HTMLImageElement,
+		angle: RotationAngle,
+		options: ImageProcessingOptions = {}
+	): Promise<Blob> {
+		const opts = { ...DEFAULT_IMAGE_OPTIONS, ...options };
+		const { quality, format } = opts;
+
+		// For 90 or 270 degree rotation, swap width and height
+		const isVerticalRotation = angle === 90 || angle === 270;
+		const canvasWidth = isVerticalRotation ? image.height : image.width;
+		const canvasHeight = isVerticalRotation ? image.width : image.height;
+
+		const canvas = document.createElement('canvas');
+		canvas.width = canvasWidth;
+		canvas.height = canvasHeight;
+
+		const ctx = canvas.getContext('2d');
+		if (!ctx) {
+			throw new Error('Failed to get canvas context');
+		}
+
+		// Use high-quality image smoothing
+		ctx.imageSmoothingEnabled = true;
+		ctx.imageSmoothingQuality = 'high';
+
+		// Move to center, rotate, then draw
+		ctx.translate(canvasWidth / 2, canvasHeight / 2);
+		ctx.rotate((angle * Math.PI) / 180);
+		ctx.drawImage(image, -image.width / 2, -image.height / 2);
+
+		// Convert to blob
+		return new Promise((resolve, reject) => {
+			canvas.toBlob(
+				(blob) => {
+					if (blob) {
+						resolve(blob);
+					} else {
+						reject(new Error('Failed to create rotated image blob'));
 					}
 				},
 				`image/${format}`,

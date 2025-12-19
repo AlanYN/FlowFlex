@@ -525,4 +525,36 @@ public class MessageRepository : BaseRepository<Message>, IMessageRepository, IS
 
         return ids.Where(x => !string.IsNullOrEmpty(x)).Select(x => x!).ToHashSet();
     }
+
+    /// <summary>
+    /// Get messages by external IDs for status sync
+    /// </summary>
+    public async Task<List<Message>> GetByExternalIdsAsync(List<string> externalIds, long ownerId)
+    {
+        if (externalIds == null || externalIds.Count == 0)
+        {
+            return new List<Message>();
+        }
+
+        return await db.Queryable<Message>()
+            .Where(x => x.OwnerId == ownerId && x.IsValid && externalIds.Contains(x.ExternalMessageId!))
+            .ToListAsync();
+    }
+
+    /// <summary>
+    /// Batch update message read status
+    /// </summary>
+    public async Task<int> BatchUpdateReadStatusAsync(List<long> ids, bool isRead)
+    {
+        if (ids == null || ids.Count == 0)
+        {
+            return 0;
+        }
+
+        return await db.Updateable<Message>()
+            .SetColumns(x => x.IsRead == isRead)
+            .SetColumns(x => x.ModifyDate == DateTimeOffset.UtcNow)
+            .Where(x => ids.Contains(x.Id) && x.IsValid)
+            .ExecuteCommandAsync();
+    }
 }

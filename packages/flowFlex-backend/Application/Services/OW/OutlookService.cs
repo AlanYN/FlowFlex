@@ -563,33 +563,55 @@ public class OutlookService : IOutlookService, IScopedService
     #region Sync Operations
 
     /// <summary>
-    /// Sync emails from Outlook to local database (incremental sync based on time)
+    /// Sync emails from Outlook to local database (get latest emails, insert new ones and update status for existing ones)
     /// </summary>
     public async Task<int> SyncEmailsToLocalAsync(string accessToken, long ownerId, string folderId = "inbox", int maxCount = 100, DateTimeOffset? lastSyncTime = null)
     {
         try
         {
-            var emails = await GetEmailsAsync(accessToken, folderId, maxCount, 0, receivedAfter: lastSyncTime);
+            // Always get latest emails (ignore lastSyncTime for fetching, use it only for reference)
+            var emails = await GetEmailsAsync(accessToken, folderId, maxCount, 0);
+            if (emails.Count == 0)
+            {
+                return 0;
+            }
+
             var syncedCount = 0;
             var localFolder = MapOutlookFolderToLocal(folderId);
 
-            // Batch query: get all existing external IDs in one query for performance
+            // Batch query: get all local messages matching these external IDs
             var outlookMessageIds = emails.Select(e => e.Id).ToList();
-            var existingIds = await _messageRepository.GetExistingExternalIdsAsync(outlookMessageIds, ownerId);
+            var localMessages = await _messageRepository.GetByExternalIdsAsync(outlookMessageIds, ownerId);
+            var existingIdsMap = localMessages.ToDictionary(m => m.ExternalMessageId!, m => m);
 
             _logger.LogDebug("Found {ExistingCount} existing emails out of {TotalCount} from Outlook",
-                existingIds.Count, emails.Count);
+                existingIdsMap.Count, emails.Count);
+
+            // Prepare status update lists
+            var toMarkAsRead = new List<long>();
+            var toMarkAsUnread = new List<long>();
 
             foreach (var email in emails)
             {
-                // Skip if already exists (using batch query result)
-                if (existingIds.Contains(email.Id))
+                // Check if already exists
+                if (existingIdsMap.TryGetValue(email.Id, out var existingMessage))
                 {
+                    // Update status if different
+                    if (existingMessage.IsRead != email.IsRead)
+                    {
+                        if (email.IsRead)
+                        {
+                            toMarkAsRead.Add(existingMessage.Id);
+                        }
+                        else
+                        {
+                            toMarkAsUnread.Add(existingMessage.Id);
+                        }
+                    }
                     continue;
                 }
 
                 // Check if this is a locally sent email (same subject, sender, and sent time within 5 minutes)
-                // This handles the case where we sent an email locally but haven't set ExternalMessageId yet
                 if (localFolder == EmailConstants.Folder.Sent && email.SentDateTime.HasValue)
                 {
                     var localMessage = await _messageRepository.FindLocalSentMessageAsync(
@@ -600,7 +622,6 @@ public class OutlookService : IOutlookService, IScopedService
 
                     if (localMessage != null)
                     {
-                        // Update the local message with ExternalMessageId
                         localMessage.ExternalMessageId = email.Id;
                         await _messageRepository.UpdateAsync(localMessage);
                         _logger.LogDebug("Linked local sent message {LocalId} with Outlook message {OutlookId}",
@@ -630,12 +651,9 @@ public class OutlookService : IOutlookService, IScopedService
                     OwnerId = ownerId
                 };
 
-                // Initialize create info (sets Id, TenantId, AppCode, timestamps, etc.)
                 message.InitCreateInfo(_userContext);
-
                 await _messageRepository.InsertAsync(message);
 
-                // Sync attachment metadata only (content downloaded on-demand)
                 if (email.HasAttachments)
                 {
                     await SyncAttachmentsAsync(accessToken, email.Id, message.Id);
@@ -644,7 +662,20 @@ public class OutlookService : IOutlookService, IScopedService
                 syncedCount++;
             }
 
-            _logger.LogDebug("Synced {Count} new emails from Outlook for user {UserId}", syncedCount, ownerId);
+            // Batch update status
+            if (toMarkAsRead.Count > 0)
+            {
+                await _messageRepository.BatchUpdateReadStatusAsync(toMarkAsRead, true);
+                _logger.LogDebug("Marked {Count} emails as read", toMarkAsRead.Count);
+            }
+            if (toMarkAsUnread.Count > 0)
+            {
+                await _messageRepository.BatchUpdateReadStatusAsync(toMarkAsUnread, false);
+                _logger.LogDebug("Marked {Count} emails as unread", toMarkAsUnread.Count);
+            }
+
+            _logger.LogDebug("Synced {NewCount} new emails, updated {StatusCount} email status for user {UserId}",
+                syncedCount, toMarkAsRead.Count + toMarkAsUnread.Count, ownerId);
             return syncedCount;
         }
         catch (Exception ex)

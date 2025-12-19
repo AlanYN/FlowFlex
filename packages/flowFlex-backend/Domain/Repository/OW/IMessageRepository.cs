@@ -147,5 +147,15 @@ namespace FlowFlex.Domain.Repository.OW
         /// Get existing external message IDs for batch sync optimization
         /// </summary>
         Task<HashSet<string>> GetExistingExternalIdsAsync(List<string> externalIds, long ownerId);
+
+        /// <summary>
+        /// Get messages by external IDs for status sync
+        /// </summary>
+        Task<List<Message>> GetByExternalIdsAsync(List<string> externalIds, long ownerId);
+
+        /// <summary>
+        /// Batch update message read status
+        /// </summary>
+        Task<int> BatchUpdateReadStatusAsync(List<long> ids, bool isRead);
     }
 }

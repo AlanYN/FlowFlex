@@ -339,21 +339,12 @@ public class EmailBindingService : IEmailBindingService, IScopedService
                 _logger.LogDebug("LastSyncTime is null for user {UserId}, performing full sync", userId);
                 // Reset status first since FullSyncAsync will set it again
                 await _bindingRepository.UpdateSyncStatusAsync(binding.Id, EmailConstants.SyncStatus.Active);
-                var fullSyncResult = await FullSyncAsync(new FullSyncRequestDto
-                {
-                    Folders = new List<string> 
-                    { 
-                        EmailConstants.OutlookFolder.Inbox, 
-                        EmailConstants.OutlookFolder.SentItems, 
-                        EmailConstants.OutlookFolder.DeletedItems 
-                    },
-                    MaxCount = EmailConstants.SyncSettings.FullSyncMaxCount
-                });
+                var fullSyncResult = await FullSyncAsync();
                 syncedCount = fullSyncResult.TotalSyncedCount;
             }
             else
             {
-                // Perform incremental sync for all 3 folders (only emails received after last sync)
+                // Perform incremental sync for all 3 folders (get latest emails, insert new and update status)
                 var folders = new List<string>
                 {
                     EmailConstants.OutlookFolder.Inbox,
@@ -361,18 +352,17 @@ public class EmailBindingService : IEmailBindingService, IScopedService
                     EmailConstants.OutlookFolder.DeletedItems
                 };
                 var totalSynced = 0;
-                var lastSyncTime = binding.LastSyncTime;
 
-                _logger.LogDebug("Incremental sync for user {UserId}, filtering emails after {LastSyncTime}", 
-                    userId, lastSyncTime);
+                _logger.LogDebug("Incremental sync for user {UserId}", userId);
 
                 foreach (var folder in folders)
                 {
+                    // Sync latest emails (insert new + update status for existing)
                     var synced = await _outlookService.SyncEmailsToLocalAsync(
-                        binding.AccessToken, userId, folder, 
-                        EmailConstants.SyncSettings.DefaultMaxCount, lastSyncTime);
+                        binding.AccessToken, userId, folder,
+                        EmailConstants.SyncSettings.DefaultMaxCount);
                     totalSynced += synced;
-                    _logger.LogDebug("Incremental sync: synced {Count} emails from folder {Folder}", synced, folder);
+                    _logger.LogDebug("Sync: {Count} new emails from folder {Folder}", synced, folder);
                 }
 
                 syncedCount = totalSynced;
@@ -401,9 +391,9 @@ public class EmailBindingService : IEmailBindingService, IScopedService
     }
 
     /// <summary>
-    /// Full sync - sync all emails from specified folders with pagination
+    /// Full sync - sync all emails from all folders
     /// </summary>
-    public async Task<FullSyncResultDto> FullSyncAsync(FullSyncRequestDto? request = null)
+    public async Task<FullSyncResultDto> FullSyncAsync()
     {
         var userId = GetCurrentUserId();
         var binding = await _bindingRepository.GetByUserIdAndProviderAsync(userId, EmailConstants.Provider.Outlook);
@@ -425,11 +415,11 @@ public class EmailBindingService : IEmailBindingService, IScopedService
         {
             var timeSinceLastSync = DateTimeOffset.UtcNow - binding.LastSyncTime.Value;
             var cooldownMinutes = EmailConstants.SyncSettings.FullSyncCooldownMinutes;
-            
+
             if (timeSinceLastSync.TotalMinutes < cooldownMinutes)
             {
                 var remainingMinutes = (int)(cooldownMinutes - timeSinceLastSync.TotalMinutes);
-                _logger.LogWarning("Full sync called too soon for user {UserId}, last sync was {Minutes} minutes ago", 
+                _logger.LogWarning("Full sync called too soon for user {UserId}, last sync was {Minutes} minutes ago",
                     userId, (int)timeSinceLastSync.TotalMinutes);
                 return new FullSyncResultDto
                 {
@@ -456,13 +446,13 @@ public class EmailBindingService : IEmailBindingService, IScopedService
 
         try
         {
-            var folders = request?.Folders ?? new List<string> 
-            { 
-                EmailConstants.OutlookFolder.Inbox, 
-                EmailConstants.OutlookFolder.SentItems, 
-                EmailConstants.OutlookFolder.DeletedItems 
+            var folders = new List<string>
+            {
+                EmailConstants.OutlookFolder.Inbox,
+                EmailConstants.OutlookFolder.SentItems,
+                EmailConstants.OutlookFolder.DeletedItems
             };
-            var maxCount = Math.Min(request?.MaxCount ?? 500, EmailConstants.SyncSettings.FullSyncMaxCount);
+            var maxCount = EmailConstants.SyncSettings.FullSyncMaxCount;
             var syncedByFolder = new Dictionary<string, int>();
             var totalSynced = 0;
 
@@ -645,7 +635,7 @@ public class EmailBindingService : IEmailBindingService, IScopedService
             }
             else
             {
-                // Perform incremental sync for all 3 folders
+                // Perform incremental sync for all 3 folders (get latest emails, insert new and update status)
                 var folders = new List<string>
                 {
                     EmailConstants.OutlookFolder.Inbox,
@@ -653,13 +643,13 @@ public class EmailBindingService : IEmailBindingService, IScopedService
                     EmailConstants.OutlookFolder.DeletedItems
                 };
                 var totalSynced = 0;
-                var lastSyncTime = binding.LastSyncTime;
 
                 foreach (var folder in folders)
                 {
+                    // Sync latest emails (insert new + update status for existing)
                     var synced = await _outlookService.SyncEmailsToLocalAsync(
                         binding.AccessToken, userId, folder,
-                        EmailConstants.SyncSettings.DefaultMaxCount, lastSyncTime);
+                        EmailConstants.SyncSettings.DefaultMaxCount);
                     totalSynced += synced;
                 }
 

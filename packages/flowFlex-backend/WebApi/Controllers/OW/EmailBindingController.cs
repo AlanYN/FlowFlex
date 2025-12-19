@@ -193,9 +193,9 @@ public class EmailBindingController : Controllers.ControllerBase
     /// </remarks>
     [HttpPost("sync/full")]
     [ProducesResponseType<SuccessResponse<FullSyncResultDto>>((int)HttpStatusCode.OK)]
-    public async Task<IActionResult> FullSyncAsync([FromBody] FullSyncRequestDto? request = null)
+    public async Task<IActionResult> FullSyncAsync()
     {
-        var result = await _emailBindingService.FullSyncAsync(request);
+        var result = await _emailBindingService.FullSyncAsync();
         return Success(result);
     }
 }
