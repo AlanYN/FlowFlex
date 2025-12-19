@@ -121,7 +121,7 @@ export function syncMessage(): Promise<ApiResponse<boolean>> {
 }
 
 export function syncMessageFull(): Promise<ApiResponse<boolean>> {
-	return defHttp.post({ url: `${Api().syncMessage}/full` });
+	return defHttp.post({ url: `${Api().syncMessage}/full`, timeout: 10 * 60 * 1000 });
 }
 
 export function unbindMessageCenter(): Promise<ApiResponse<boolean>> {
