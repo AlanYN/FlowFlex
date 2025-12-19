@@ -2631,7 +2631,6 @@ const getUserGroup = async () => {
 /* 取消按钮样式 - 仅限于删除确认对话框 */
 .delete-confirmation-dialog {
 	.cancel-confirm-btn {
-		background-color: var(--el-color-white) !important;
 		border-color: var(--el-border-color) !important;
 		color: var(--el-text-color-regular) !important;
 
