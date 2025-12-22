@@ -375,6 +375,7 @@ export interface FlowflexUser {
 	name: string;
 	type: 'user' | 'team';
 	children: FlowflexUser[];
+	userType?: 1 | 2 | 3;
 	email: string;
 	username: string;
 	memberCount?: number;

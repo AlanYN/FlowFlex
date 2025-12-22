@@ -23,13 +23,13 @@
 </template>
 
 <script lang="ts" setup>
-import { ref, watch, nextTick } from 'vue';
+import { ref, nextTick } from 'vue';
 import { QuillEditor } from '@vueup/vue-quill';
 import '@vueup/vue-quill/dist/vue-quill.snow.css';
 import { ElMessage } from 'element-plus';
 
 interface Props {
-	modelValue: string;
+	modelValue?: string;
 	contentType?: 'html' | 'text' | 'delta';
 	placeholder?: string;
 	toolbar?: any[];
@@ -156,7 +156,7 @@ const handleEditorReady = () => {
 	if (props.modelValue) {
 		// Use setTimeout to ensure Quill is fully initialized
 		setTimeout(() => {
-			setEditorContent(props.modelValue);
+			setEditorContent(props.modelValue as string);
 		}, 0);
 	}
 };
@@ -173,24 +173,35 @@ const handleTextChange = () => {
 	emit('change', html);
 };
 
-// Watch for external modelValue changes
-watch(
-	() => props.modelValue,
-	(newValue) => {
-		if (!isEditorReady.value || isInternalUpdate.value) return;
-
-		const quill = getQuillInstance();
-		if (!quill) return;
-
-		const currentHtml = quill.root.innerHTML;
-		const newContent = toQuillHtml(newValue);
-
-		// Simple comparison - if cleaned content differs, update
-		if (newContent !== currentHtml) {
-			setEditorContent(newValue);
-		}
+// 暴露给外部的设置内容方法
+const setContent = (html: string) => {
+	if (!isEditorReady.value) {
+		// 如果编辑器还没准备好，等待准备好后再设置
+		const checkReady = setInterval(() => {
+			if (isEditorReady.value) {
+				clearInterval(checkReady);
+				setEditorContent(html);
+			}
+		}, 50);
+		return;
 	}
-);
+	setEditorContent(html);
+};
+
+// 获取当前内容
+const getContent = () => {
+	const quill = getQuillInstance();
+	if (!quill) return '';
+	return quill.root.innerHTML;
+};
+
+// 聚焦编辑器
+const focus = () => {
+	const quill = getQuillInstance();
+	if (quill) {
+		quill.focus();
+	}
+};
 
 // Custom image handler for uploading images
 // This can be extended to upload to server
@@ -222,6 +233,10 @@ const handleImageUpload = (file: File): Promise<string> => {
 // Expose methods for parent component
 defineExpose({
 	handleImageUpload,
+	setContent,
+	getContent,
+	focus,
+	getQuillInstance,
 });
 </script>
 

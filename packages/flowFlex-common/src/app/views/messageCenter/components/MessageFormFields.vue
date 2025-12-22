@@ -15,12 +15,12 @@
 		</el-form-item>
 
 		<el-form-item label="Message" class="w-full">
-			<!-- {{ body }} -->
 			<RichTextEditor
-				v-model="body"
+				ref="richTextEditorRef"
 				placeholder="Type your message here..."
 				min-height="200px"
 				max-height="300px"
+				@change="handleEditorChange"
 			/>
 		</el-form-item>
 
@@ -105,6 +105,7 @@
 </template>
 
 <script lang="ts" setup>
+import { ref, onMounted } from 'vue';
 import { Upload } from '@element-plus/icons-vue';
 import RichTextEditor from '@/components/RichTextEditor/index.vue';
 import type { UploadFile } from 'element-plus';
@@ -134,6 +135,24 @@ const emit = defineEmits<{
 const subject = defineModel<string>('subject', { required: true });
 const body = defineModel<string>('body', { required: true });
 const relatedTo = defineModel<string>('relatedTo', { required: true });
+
+// RichTextEditor ref
+const richTextEditorRef = ref<InstanceType<typeof RichTextEditor> | null>(null);
+
+// 处理编辑器内容变化（用户输入）
+const handleEditorChange = (html: string) => {
+	body.value = html;
+};
+
+// 组件挂载后初始化内容
+onMounted(() => {
+	// 延迟执行，确保编辑器已准备好
+	if (body.value) {
+		setTimeout(() => {
+			richTextEditorRef.value?.setContent(body.value);
+		}, 100);
+	}
+});
 
 const handleFileChange = (file: UploadFile) => {
 	emit('file-change', file);

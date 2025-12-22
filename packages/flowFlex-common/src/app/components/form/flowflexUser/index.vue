@@ -357,6 +357,7 @@ interface Props {
 	clearable?: boolean; // 是否可清除
 	checkStrictly?: boolean; // 是否严格模式，不遵循父子节点联动逻辑
 	choosableTreeData?: FlowflexUser[]; // 自定义可选择的树形数据，传入时优先使用此数据而不是缓存数据，支持动态更新
+	isShowAdminUser?: boolean;
 	beforeOpen?: () => boolean | string | Promise<boolean | string>; // 打开弹窗前的钩子函数，返回 false 或 string 则阻止打开，string 为错误提示信息
 }
 
@@ -384,6 +385,7 @@ const props = withDefaults(defineProps<Props>(), {
 	maxShowCount: 10,
 	readonlyNoDataText: 'No users selected',
 	checkStrictly: undefined,
+	isShowAdminUser: false,
 });
 
 // 计算 placeholder
@@ -421,9 +423,9 @@ const defaultCheckedKeys = computed(() => {
 
 // 过滤后的树数据（用于搜索）
 const filteredTreeData = computed(() => {
-	if (!searchText.value) {
-		return treeData.value;
-	}
+	// if (!searchText.value) {
+	// 	return treeData.value;
+	// }
 
 	// 递归过滤树数据
 	const filterTree = (nodes: FlowflexUser[]): FlowflexUser[] => {
@@ -487,12 +489,20 @@ const buildUserDataMap = (data: FlowflexUser[], clear = false) => {
 };
 
 // 过滤节点方法，支持搜索
-const filterNode = (value: string, data: any): boolean => {
-	if (!value) return true;
-	const searchValue = value.toLowerCase();
+const filterNode = (value: string, data: FlowflexUser): boolean => {
 	const nodeData = data as FlowflexUser;
+
+	if (!props.isShowAdminUser && nodeData.userType == 1) {
+		return false;
+	}
+
+	// 如果没有搜索关键词，显示所有未被过滤的节点
+	if (!value) return true;
+
+	// 搜索匹配
+	const searchValue = value.toLowerCase();
 	const matchesName = nodeData.name?.toLowerCase().includes(searchValue) || false;
-	const matchesEmail = (nodeData?.email?.toLowerCase().includes(searchValue) || false) && true;
+	const matchesEmail = nodeData?.email?.toLowerCase().includes(searchValue) || false;
 	return matchesName || matchesEmail;
 };
 
