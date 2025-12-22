@@ -1045,6 +1045,7 @@ const handleUnbind = async () => {
 								messageList.value = [];
 								selectedMessageId.value = null;
 								isDetailPanelVisible.value = false;
+								messageCenterCount.value = 0;
 								// 重新获取授权 URL
 								const authEmailRes = await getEmailAuth();
 								if (authEmailRes.code == '200') {
