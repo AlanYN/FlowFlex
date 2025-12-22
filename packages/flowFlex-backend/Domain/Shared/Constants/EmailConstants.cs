@@ -88,5 +88,16 @@ public static class EmailConstants
         /// Cooldown period for incremental sync in minutes (1 minute)
         /// </summary>
         public const int IncrementalSyncCooldownMinutes = 1;
+
+        /// <summary>
+        /// Page size for initial delta sync (limit API response size)
+        /// </summary>
+        public const int InitialSyncPageSize = 50;
+
+        /// <summary>
+        /// Maximum pages to fetch during initial sync to avoid long sync times
+        /// 5 pages * 50 items = 250 emails max per folder for initial sync
+        /// </summary>
+        public const int InitialSyncMaxPages = 5;
     }
 }

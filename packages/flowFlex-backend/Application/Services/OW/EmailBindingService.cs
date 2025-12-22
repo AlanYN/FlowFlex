@@ -491,9 +491,17 @@ public class EmailBindingService : IEmailBindingService, IScopedService
 
             foreach (var folder in folders)
             {
-                var synced = await _outlookService.FullSyncEmailsAsync(accessToken, userId, folder, maxCount);
+                var (synced, deltaLink) = await _outlookService.FullSyncEmailsAsync(accessToken, userId, folder, maxCount);
                 syncedByFolder[folder] = synced;
                 totalSynced += synced;
+
+                // Save delta link for subsequent incremental syncs
+                if (!string.IsNullOrEmpty(deltaLink))
+                {
+                    await _bindingRepository.UpdateDeltaLinkAsync(binding.Id, folder, deltaLink);
+                    _logger.LogDebug("Full sync: saved delta link for folder {Folder}", folder);
+                }
+
                 _logger.LogDebug("Full sync: synced {Count} emails from folder {Folder}", synced, folder);
             }
 

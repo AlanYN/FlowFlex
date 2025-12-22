@@ -687,8 +687,9 @@ public class OutlookService : IOutlookService, IScopedService
 
     /// <summary>
     /// Full sync emails from Outlook with pagination support
+    /// Returns synced count and delta link for subsequent incremental syncs
     /// </summary>
-    public async Task<int> FullSyncEmailsAsync(string accessToken, long ownerId, string folderId = "inbox", int maxCount = 500)
+    public async Task<(int syncedCount, string? deltaLink)> FullSyncEmailsAsync(string accessToken, long ownerId, string folderId = "inbox", int maxCount = 500)
     {
         try
         {
@@ -765,14 +766,47 @@ public class OutlookService : IOutlookService, IScopedService
                 }
             }
 
+            // After full sync, get delta link for subsequent incremental syncs
+            string? deltaLink = null;
+            try
+            {
+                deltaLink = await GetDeltaLinkAsync(accessToken, folderId);
+                _logger.LogDebug("Obtained delta link for folder {FolderId} after full sync", folderId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to get delta link for folder {FolderId}, incremental sync will start fresh", folderId);
+            }
+
             _logger.LogDebug("Full sync completed for folder {FolderId}: synced {Count} emails", folderId, syncedCount);
-            return syncedCount;
+            return (syncedCount, deltaLink);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error during full sync for folder {FolderId}", folderId);
-            return 0;
+            return (0, null);
         }
+    }
+
+    /// <summary>
+    /// Get delta link for a folder (used after full sync to enable incremental sync)
+    /// </summary>
+    private async Task<string?> GetDeltaLinkAsync(string accessToken, string folderId)
+    {
+        // Request delta with $deltaToken=latest to get only the delta link without any messages
+        // This is the recommended way to initialize delta sync after a full sync
+        var url = $"{_options.BaseUrl}/me/mailFolders/{folderId}/messages/delta?$deltaToken=latest";
+        
+        var response = await SendAuthorizedGetAsync(url, accessToken);
+        if (!response.IsSuccessStatusCode)
+        {
+            return null;
+        }
+
+        var content = await response.Content.ReadAsStringAsync();
+        var deltaResponse = JsonSerializer.Deserialize<GraphDeltaResponse>(content);
+        
+        return deltaResponse?.DeltaLink;
     }
 
     /// <summary>
@@ -810,14 +844,20 @@ public class OutlookService : IOutlookService, IScopedService
             string? newDeltaLink = null;
 
             // Build initial URL or use existing delta link
+            // For initial sync, limit to recent emails to avoid long sync times
             var url = string.IsNullOrEmpty(deltaLink)
                 ? $"{_options.BaseUrl}/me/mailFolders/{folderId}/messages/delta" +
-                  $"?$select=id,subject,bodyPreview,from,toRecipients,receivedDateTime,sentDateTime,isRead,hasAttachments,isDraft"
+                  $"?$select=id,subject,bodyPreview,from,toRecipients,receivedDateTime,sentDateTime,isRead,hasAttachments,isDraft" +
+                  $"&$top={EmailConstants.SyncSettings.InitialSyncPageSize}"
                 : deltaLink;
 
             var addedMessages = new List<GraphDeltaMessage>();
             var updatedMessages = new List<GraphDeltaMessage>();
             var deletedMessageIds = new List<string>();
+
+            // Track page count for initial sync limit
+            var pageCount = 0;
+            var maxPagesForInitialSync = EmailConstants.SyncSettings.InitialSyncMaxPages;
 
             // Follow pagination until we get the delta link
             do
@@ -865,6 +905,19 @@ public class OutlookService : IOutlookService, IScopedService
 
                 nextLink = deltaResponse?.NextLink;
                 newDeltaLink = deltaResponse?.DeltaLink;
+                pageCount++;
+
+                // For initial sync, limit pages to avoid long sync times
+                // Incremental sync (with deltaLink) should process all changes
+                if (result.IsInitialSync && pageCount >= maxPagesForInitialSync && !string.IsNullOrEmpty(nextLink))
+                {
+                    _logger.LogInformation("Initial sync reached page limit ({PageCount} pages, {MessageCount} messages) for folder {Folder}, will continue in next sync",
+                        pageCount, addedMessages.Count, folderId);
+                    // Don't save deltaLink for partial initial sync, so next sync continues from where we left off
+                    // Actually, we should save the nextLink as deltaLink to continue from here
+                    newDeltaLink = nextLink;
+                    break;
+                }
 
                 // Continue with next page if available
                 if (!string.IsNullOrEmpty(nextLink))

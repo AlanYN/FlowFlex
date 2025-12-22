@@ -101,13 +101,14 @@ public interface IOutlookService : IScopedService
 
     /// <summary>
     /// Full sync emails from Outlook with pagination support
+    /// Returns synced count and delta link for subsequent incremental syncs
     /// </summary>
     /// <param name="accessToken">Outlook access token</param>
     /// <param name="ownerId">Owner user ID</param>
     /// <param name="folderId">Outlook folder ID</param>
     /// <param name="maxCount">Maximum number of emails to sync</param>
-    /// <returns>Number of emails synced</returns>
-    Task<int> FullSyncEmailsAsync(string accessToken, long ownerId, string folderId = "inbox", int maxCount = 500);
+    /// <returns>Tuple of (synced count, delta link)</returns>
+    Task<(int syncedCount, string? deltaLink)> FullSyncEmailsAsync(string accessToken, long ownerId, string folderId = "inbox", int maxCount = 500);
 
     /// <summary>
     /// Get total email count in a folder

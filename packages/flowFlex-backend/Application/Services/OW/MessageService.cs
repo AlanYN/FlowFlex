@@ -6,6 +6,7 @@ using Microsoft.Extensions.Logging;
 using FlowFlex.Application.Contracts;
 using FlowFlex.Application.Contracts.Dtos;
 using FlowFlex.Application.Contracts.Dtos.OW.Message;
+using FlowFlex.Application.Contracts.IServices;
 using FlowFlex.Application.Contracts.IServices.OW;
 using FlowFlex.Application.Services.OW.Extensions;
 using FlowFlex.Domain.Entities.OW;
@@ -34,6 +35,7 @@ public class MessageService : IMessageService, IScopedService
     private readonly IOutlookService _outlookService;
     private readonly IEmailBindingService _emailBindingService;
     private readonly ILogger<MessageService> _logger;
+    private readonly IEncryptionService _encryptionService;
 
     public MessageService(
         IMessageRepository messageRepository,
@@ -45,7 +47,8 @@ public class MessageService : IMessageService, IScopedService
         IOperatorContextService operatorContextService,
         IOutlookService outlookService,
         IEmailBindingService emailBindingService,
-        ILogger<MessageService> logger)
+        ILogger<MessageService> logger,
+        IEncryptionService encryptionService)
     {
         _messageRepository = messageRepository;
         _attachmentRepository = attachmentRepository;
@@ -57,6 +60,7 @@ public class MessageService : IMessageService, IScopedService
         _outlookService = outlookService;
         _emailBindingService = emailBindingService;
         _logger = logger;
+        _encryptionService = encryptionService;
     }
 
     #region Message CRUD
@@ -199,18 +203,26 @@ public class MessageService : IMessageService, IScopedService
             var binding = await _emailBindingRepository.GetByUserIdAndProviderAsync(message.OwnerId, "Outlook");
             if (binding == null || string.IsNullOrEmpty(binding.AccessToken)) return;
 
+            // Decrypt access token
+            var accessToken = DecryptToken(binding.AccessToken);
+
             // Refresh token if needed
             if (binding.TokenExpireTime <= DateTimeOffset.UtcNow.AddMinutes(5))
             {
                 if (string.IsNullOrEmpty(binding.RefreshToken)) return;
-                var newToken = await _outlookService.RefreshTokenAsync(binding.RefreshToken);
+                var refreshToken = DecryptToken(binding.RefreshToken);
+                var newToken = await _outlookService.RefreshTokenAsync(refreshToken);
                 if (newToken == null) return;
-                await _emailBindingRepository.UpdateTokenAsync(binding.Id, newToken.AccessToken, newToken.RefreshToken, newToken.ExpiresAt);
-                binding.AccessToken = newToken.AccessToken;
+                // Encrypt new tokens before storing
+                await _emailBindingRepository.UpdateTokenAsync(binding.Id, 
+                    EncryptToken(newToken.AccessToken), 
+                    EncryptToken(newToken.RefreshToken), 
+                    newToken.ExpiresAt);
+                accessToken = newToken.AccessToken;
             }
 
             // Fetch full email from Outlook
-            var outlookEmail = await _outlookService.GetEmailByIdAsync(binding.AccessToken, message.ExternalMessageId);
+            var outlookEmail = await _outlookService.GetEmailByIdAsync(accessToken, message.ExternalMessageId);
             if (outlookEmail != null && !string.IsNullOrEmpty(outlookEmail.Body))
             {
                 // Update local cache with full body
@@ -235,19 +247,27 @@ public class MessageService : IMessageService, IScopedService
             var binding = await _emailBindingRepository.GetByUserIdAndProviderAsync(message.OwnerId, "Outlook");
             if (binding == null || string.IsNullOrEmpty(binding.AccessToken)) return;
 
+            // Decrypt access token
+            var accessToken = DecryptToken(binding.AccessToken);
+
             // Refresh token if needed
             if (binding.TokenExpireTime <= DateTimeOffset.UtcNow.AddMinutes(5))
             {
                 if (string.IsNullOrEmpty(binding.RefreshToken)) return;
-                var newToken = await _outlookService.RefreshTokenAsync(binding.RefreshToken);
+                var refreshToken = DecryptToken(binding.RefreshToken);
+                var newToken = await _outlookService.RefreshTokenAsync(refreshToken);
                 if (newToken == null) return;
-                await _emailBindingRepository.UpdateTokenAsync(binding.Id, newToken.AccessToken, newToken.RefreshToken, newToken.ExpiresAt);
-                binding.AccessToken = newToken.AccessToken;
+                // Encrypt new tokens before storing
+                await _emailBindingRepository.UpdateTokenAsync(binding.Id, 
+                    EncryptToken(newToken.AccessToken), 
+                    EncryptToken(newToken.RefreshToken), 
+                    newToken.ExpiresAt);
+                accessToken = newToken.AccessToken;
             }
 
             // Process cid: references
             var processedBody = await _outlookService.ProcessCidReferencesAsync(
-                binding.AccessToken,
+                accessToken,
                 message.ExternalMessageId!,
                 message.Body);
 
@@ -275,19 +295,27 @@ public class MessageService : IMessageService, IScopedService
             var binding = await _emailBindingRepository.GetByUserIdAndProviderAsync(message.OwnerId, "Outlook");
             if (binding == null || string.IsNullOrEmpty(binding.AccessToken)) return;
 
+            // Decrypt access token
+            var accessToken = DecryptToken(binding.AccessToken);
+
             // Refresh token if needed
             if (binding.TokenExpireTime <= DateTimeOffset.UtcNow.AddMinutes(5))
             {
                 if (string.IsNullOrEmpty(binding.RefreshToken)) return;
-                var newToken = await _outlookService.RefreshTokenAsync(binding.RefreshToken);
+                var refreshToken = DecryptToken(binding.RefreshToken);
+                var newToken = await _outlookService.RefreshTokenAsync(refreshToken);
                 if (newToken == null) return;
-                await _emailBindingRepository.UpdateTokenAsync(binding.Id, newToken.AccessToken, newToken.RefreshToken, newToken.ExpiresAt);
-                binding.AccessToken = newToken.AccessToken;
+                // Encrypt new tokens before storing
+                await _emailBindingRepository.UpdateTokenAsync(binding.Id, 
+                    EncryptToken(newToken.AccessToken), 
+                    EncryptToken(newToken.RefreshToken), 
+                    newToken.ExpiresAt);
+                accessToken = newToken.AccessToken;
             }
 
             // Sync attachments
             await _outlookService.SyncAttachmentsAsync(
-                binding.AccessToken,
+                accessToken,
                 message.ExternalMessageId!,
                 message.Id);
         }
@@ -428,18 +456,25 @@ public class MessageService : IMessageService, IScopedService
             var binding = await _emailBindingRepository.GetByUserIdAndProviderAsync(message.OwnerId, "Outlook");
             if (binding == null || string.IsNullOrEmpty(binding.AccessToken)) return;
 
+            // Decrypt access token
+            var accessToken = DecryptToken(binding.AccessToken);
+
             // Refresh token if needed
             if (binding.TokenExpireTime <= DateTimeOffset.UtcNow.AddMinutes(5))
             {
                 if (string.IsNullOrEmpty(binding.RefreshToken)) return;
-                var newToken = await _outlookService.RefreshTokenAsync(binding.RefreshToken);
+                var refreshToken = DecryptToken(binding.RefreshToken);
+                var newToken = await _outlookService.RefreshTokenAsync(refreshToken);
                 if (newToken == null) return;
-                await _emailBindingRepository.UpdateTokenAsync(binding.Id, newToken.AccessToken, newToken.RefreshToken, newToken.ExpiresAt);
-                binding.AccessToken = newToken.AccessToken;
+                await _emailBindingRepository.UpdateTokenAsync(binding.Id, 
+                    EncryptToken(newToken.AccessToken), 
+                    EncryptToken(newToken.RefreshToken), 
+                    newToken.ExpiresAt);
+                accessToken = newToken.AccessToken;
             }
 
             // Delete from Outlook (moves to deleted items)
-            var success = await _outlookService.DeleteEmailAsync(binding.AccessToken, message.ExternalMessageId!);
+            var success = await _outlookService.DeleteEmailAsync(accessToken, message.ExternalMessageId!);
             if (success)
             {
                 _logger.LogInformation("Deleted email {ExternalMessageId} from Outlook", message.ExternalMessageId);
@@ -466,18 +501,25 @@ public class MessageService : IMessageService, IScopedService
             var binding = await _emailBindingRepository.GetByUserIdAndProviderAsync(message.OwnerId, "Outlook");
             if (binding == null || string.IsNullOrEmpty(binding.AccessToken)) return;
 
+            // Decrypt access token
+            var accessToken = DecryptToken(binding.AccessToken);
+
             // Refresh token if needed
             if (binding.TokenExpireTime <= DateTimeOffset.UtcNow.AddMinutes(5))
             {
                 if (string.IsNullOrEmpty(binding.RefreshToken)) return;
-                var newToken = await _outlookService.RefreshTokenAsync(binding.RefreshToken);
+                var refreshToken = DecryptToken(binding.RefreshToken);
+                var newToken = await _outlookService.RefreshTokenAsync(refreshToken);
                 if (newToken == null) return;
-                await _emailBindingRepository.UpdateTokenAsync(binding.Id, newToken.AccessToken, newToken.RefreshToken, newToken.ExpiresAt);
-                binding.AccessToken = newToken.AccessToken;
+                await _emailBindingRepository.UpdateTokenAsync(binding.Id, 
+                    EncryptToken(newToken.AccessToken), 
+                    EncryptToken(newToken.RefreshToken), 
+                    newToken.ExpiresAt);
+                accessToken = newToken.AccessToken;
             }
 
             // Permanently delete from Outlook
-            var success = await _outlookService.PermanentDeleteEmailAsync(binding.AccessToken, message.ExternalMessageId!);
+            var success = await _outlookService.PermanentDeleteEmailAsync(accessToken, message.ExternalMessageId!);
             if (success)
             {
                 _logger.LogInformation("Permanently deleted email {ExternalMessageId} from Outlook", message.ExternalMessageId);
@@ -587,18 +629,25 @@ public class MessageService : IMessageService, IScopedService
             var binding = await _emailBindingRepository.GetByUserIdAndProviderAsync(message.OwnerId, "Outlook");
             if (binding == null || string.IsNullOrEmpty(binding.AccessToken)) return;
 
+            // Decrypt access token
+            var accessToken = DecryptToken(binding.AccessToken);
+
             // Refresh token if needed
             if (binding.TokenExpireTime <= DateTimeOffset.UtcNow.AddMinutes(5))
             {
                 if (string.IsNullOrEmpty(binding.RefreshToken)) return;
-                var newToken = await _outlookService.RefreshTokenAsync(binding.RefreshToken);
+                var refreshToken = DecryptToken(binding.RefreshToken);
+                var newToken = await _outlookService.RefreshTokenAsync(refreshToken);
                 if (newToken == null) return;
-                await _emailBindingRepository.UpdateTokenAsync(binding.Id, newToken.AccessToken, newToken.RefreshToken, newToken.ExpiresAt);
-                binding.AccessToken = newToken.AccessToken;
+                await _emailBindingRepository.UpdateTokenAsync(binding.Id, 
+                    EncryptToken(newToken.AccessToken), 
+                    EncryptToken(newToken.RefreshToken), 
+                    newToken.ExpiresAt);
+                accessToken = newToken.AccessToken;
             }
 
             // Move to Outlook folder
-            var success = await _outlookService.MoveEmailAsync(binding.AccessToken, message.ExternalMessageId!, outlookFolderId);
+            var success = await _outlookService.MoveEmailAsync(accessToken, message.ExternalMessageId!, outlookFolderId);
             if (success)
             {
                 _logger.LogInformation("Moved email {ExternalMessageId} to Outlook folder {FolderId}",
@@ -701,25 +750,32 @@ public class MessageService : IMessageService, IScopedService
             var binding = await _emailBindingRepository.GetByUserIdAndProviderAsync(message.OwnerId, "Outlook");
             if (binding == null || string.IsNullOrEmpty(binding.AccessToken)) return;
 
+            // Decrypt access token
+            var accessToken = DecryptToken(binding.AccessToken);
+
             // Refresh token if needed
             if (binding.TokenExpireTime <= DateTimeOffset.UtcNow.AddMinutes(5))
             {
                 if (string.IsNullOrEmpty(binding.RefreshToken)) return;
-                var newToken = await _outlookService.RefreshTokenAsync(binding.RefreshToken);
+                var refreshToken = DecryptToken(binding.RefreshToken);
+                var newToken = await _outlookService.RefreshTokenAsync(refreshToken);
                 if (newToken == null) return;
-                await _emailBindingRepository.UpdateTokenAsync(binding.Id, newToken.AccessToken, newToken.RefreshToken, newToken.ExpiresAt);
-                binding.AccessToken = newToken.AccessToken;
+                await _emailBindingRepository.UpdateTokenAsync(binding.Id, 
+                    EncryptToken(newToken.AccessToken), 
+                    EncryptToken(newToken.RefreshToken), 
+                    newToken.ExpiresAt);
+                accessToken = newToken.AccessToken;
             }
 
             // Sync read status to Outlook
             bool success;
             if (isRead)
             {
-                success = await _outlookService.MarkAsReadAsync(binding.AccessToken, message.ExternalMessageId!);
+                success = await _outlookService.MarkAsReadAsync(accessToken, message.ExternalMessageId!);
             }
             else
             {
-                success = await _outlookService.MarkAsUnreadAsync(binding.AccessToken, message.ExternalMessageId!);
+                success = await _outlookService.MarkAsUnreadAsync(accessToken, message.ExternalMessageId!);
             }
 
             if (success)
@@ -1062,6 +1118,9 @@ public class MessageService : IMessageService, IScopedService
             throw new CRMException(ErrorCodeEnum.OperationNotAllowed, "Please bind your Outlook account first before sending emails");
         }
 
+        // Decrypt access token
+        var accessToken = DecryptToken(binding.AccessToken);
+
         // Refresh token if needed
         if (binding.TokenExpireTime <= DateTimeOffset.UtcNow.AddMinutes(5))
         {
@@ -1069,13 +1128,17 @@ public class MessageService : IMessageService, IScopedService
             {
                 throw new CRMException(ErrorCodeEnum.OperationNotAllowed, "Outlook token expired, please re-bind your account");
             }
-            var newToken = await _outlookService.RefreshTokenAsync(binding.RefreshToken);
+            var refreshToken = DecryptToken(binding.RefreshToken);
+            var newToken = await _outlookService.RefreshTokenAsync(refreshToken);
             if (newToken == null)
             {
                 throw new CRMException(ErrorCodeEnum.OperationNotAllowed, "Failed to refresh Outlook token, please re-bind your account");
             }
-            await _emailBindingRepository.UpdateTokenAsync(binding.Id, newToken.AccessToken, newToken.RefreshToken, newToken.ExpiresAt);
-            binding.AccessToken = newToken.AccessToken;
+            await _emailBindingRepository.UpdateTokenAsync(binding.Id, 
+                EncryptToken(newToken.AccessToken), 
+                EncryptToken(newToken.RefreshToken), 
+                newToken.ExpiresAt);
+            accessToken = newToken.AccessToken;
         }
 
         // Build send email DTO
@@ -1096,7 +1159,7 @@ public class MessageService : IMessageService, IScopedService
         }
 
         // Send email via Outlook
-        var sendResult = await _outlookService.SendEmailAsync(binding.AccessToken, sendEmailDto);
+        var sendResult = await _outlookService.SendEmailAsync(accessToken, sendEmailDto);
         if (!sendResult)
         {
             throw new CRMException(ErrorCodeEnum.BusinessError, "Failed to send email via Outlook");
@@ -1445,6 +1508,41 @@ Subject: {originalMessage.Subject}<br/>
         catch
         {
             return new List<RecipientDto>();
+        }
+    }
+
+    /// <summary>
+    /// Encrypt token for secure storage
+    /// </summary>
+    private string EncryptToken(string token)
+    {
+        if (string.IsNullOrEmpty(token)) return token;
+        try
+        {
+            return _encryptionService.Encrypt(token);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to encrypt token, storing as plain text");
+            return token;
+        }
+    }
+
+    /// <summary>
+    /// Decrypt token for use
+    /// </summary>
+    private string DecryptToken(string encryptedToken)
+    {
+        if (string.IsNullOrEmpty(encryptedToken)) return encryptedToken;
+        try
+        {
+            return _encryptionService.Decrypt(encryptedToken);
+        }
+        catch (Exception ex)
+        {
+            // Token might not be encrypted (legacy data), return as-is
+            _logger.LogDebug(ex, "Failed to decrypt token, assuming plain text");
+            return encryptedToken;
         }
     }
 
