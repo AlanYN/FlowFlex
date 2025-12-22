@@ -912,7 +912,7 @@ namespace FlowFlex.Application.Services.AI
                 model = config.ModelName,
                 messages = messages.ToArray(),
                 temperature = config.Temperature > 0 ? config.Temperature : 0.7,
-                max_tokens = config.MaxTokens > 0 ? config.MaxTokens : 4000,
+                max_tokens = Math.Max(config.MaxTokens > 0 ? config.MaxTokens : 10000, 10000), // Increased for workflow generation with many stages
                 stream = true // Enable streaming
             };
 

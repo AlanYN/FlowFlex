@@ -8,6 +8,13 @@ namespace FlowFlex.Application.Contracts.IServices.Integration
     public interface IExternalIntegrationService
     {
         /// <summary>
+        /// Get entity type mappings by Integration System Name
+        /// </summary>
+        /// <param name="systemName">Integration System Name</param>
+        /// <returns>Entity type mappings response</returns>
+        Task<EntityTypeMappingResponse> GetEntityTypeMappingsBySystemNameAsync(string systemName);
+
+        /// <summary>
         /// Get workflows available for a specific entity mapping by System ID
         /// </summary>
         /// <param name="systemId">System ID (unique identifier for entity mapping)</param>

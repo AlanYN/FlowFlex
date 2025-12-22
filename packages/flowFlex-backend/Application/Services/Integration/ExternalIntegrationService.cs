@@ -69,6 +69,57 @@ namespace FlowFlex.Application.Services.Integration
         }
 
         /// <summary>
+        /// Get entity type mappings by Integration System Name
+        /// </summary>
+        public async Task<EntityTypeMappingResponse> GetEntityTypeMappingsBySystemNameAsync(string systemName)
+        {
+            _logger.LogInformation("Getting entity type mappings for System Name: {SystemName}", systemName);
+
+            if (string.IsNullOrWhiteSpace(systemName))
+            {
+                throw new CRMException(ErrorCodeEnum.ParamInvalid, "System Name is required");
+            }
+
+            // Get integration by system name
+            var integration = await _integrationRepository.GetBySystemNameAsync(systemName);
+
+            if (integration == null)
+            {
+                _logger.LogWarning("No integration found for System Name: {SystemName}", systemName);
+                throw new CRMException(ErrorCodeEnum.NotFound, $"Integration not found for System Name '{systemName}'");
+            }
+
+            // Get entity mappings for this integration
+            var entityMappings = await _entityMappingRepository.GetByIntegrationIdAsync(integration.Id);
+
+            // Build response
+            var response = new EntityTypeMappingResponse
+            {
+                IntegrationId = integration.Id,
+                IntegrationName = integration.Name,
+                SystemName = integration.SystemName,
+                EntityTypeMappings = entityMappings
+                    .Where(em => em.IsActive && em.IsValid)
+                    .Select(em => new EntityTypeMappingItemDto
+                    {
+                        Id = em.Id,
+                        SystemId = em.SystemId ?? string.Empty,
+                        ExternalEntityName = em.ExternalEntityName,
+                        ExternalEntityType = em.ExternalEntityType,
+                        WfeEntityType = em.WfeEntityType,
+                        WorkflowIds = JsonConvert.DeserializeObject<List<long>>(em.WorkflowIds ?? "[]") ?? new List<long>(),
+                        IsActive = em.IsActive
+                    })
+                    .ToList()
+            };
+
+            _logger.LogInformation("Found {Count} entity type mappings for System Name: {SystemName}",
+                response.EntityTypeMappings.Count, systemName);
+
+            return response;
+        }
+
+        /// <summary>
         /// Get workflows available for a specific entity mapping by System ID
         /// </summary>
         public async Task<List<WorkflowInfoDto>> GetWorkflowsBySystemIdAsync(string systemId)

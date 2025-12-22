@@ -431,3 +431,71 @@ namespace FlowFlex.Application.Contracts.Dtos.Integration
     }
 }
 
+
+
+    /// <summary>
+    /// Response DTO for entity type mappings query by system name
+    /// </summary>
+    public class EntityTypeMappingResponse
+    {
+        /// <summary>
+        /// Integration ID
+        /// </summary>
+        public long IntegrationId { get; set; }
+
+        /// <summary>
+        /// Integration name
+        /// </summary>
+        public string IntegrationName { get; set; } = string.Empty;
+
+        /// <summary>
+        /// External system name
+        /// </summary>
+        public string SystemName { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Entity type mappings
+        /// </summary>
+        public List<EntityTypeMappingItemDto> EntityTypeMappings { get; set; } = new();
+    }
+
+    /// <summary>
+    /// Entity type mapping item DTO
+    /// </summary>
+    public class EntityTypeMappingItemDto
+    {
+        /// <summary>
+        /// Entity mapping ID
+        /// </summary>
+        public long Id { get; set; }
+
+        /// <summary>
+        /// System ID (unique identifier for this entity mapping)
+        /// </summary>
+        public string SystemId { get; set; } = string.Empty;
+
+        /// <summary>
+        /// External entity display name
+        /// </summary>
+        public string ExternalEntityName { get; set; } = string.Empty;
+
+        /// <summary>
+        /// External entity technical identifier
+        /// </summary>
+        public string ExternalEntityType { get; set; } = string.Empty;
+
+        /// <summary>
+        /// WFE entity type
+        /// </summary>
+        public string WfeEntityType { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Associated workflow IDs
+        /// </summary>
+        public List<long> WorkflowIds { get; set; } = new();
+
+        /// <summary>
+        /// Whether this mapping is active
+        /// </summary>
+        public bool IsActive { get; set; }
+    }
