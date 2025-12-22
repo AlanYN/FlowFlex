@@ -175,4 +175,63 @@ public class EmailBindingRepository : BaseRepository<EmailBinding>, IEmailBindin
     {
         return await db.Updateable(binding).ExecuteCommandAsync() > 0;
     }
+
+    /// <summary>
+    /// Update delta link for a specific folder
+    /// </summary>
+    public async Task<bool> UpdateDeltaLinkAsync(long id, string folder, string? deltaLink)
+    {
+        var updateable = db.Updateable<EmailBinding>()
+            .Where(x => x.Id == id);
+
+        // Update the appropriate delta link field based on folder
+        switch (folder.ToLower())
+        {
+            case "inbox":
+                updateable = updateable.SetColumns(x => new EmailBinding
+                {
+                    DeltaLinkInbox = deltaLink,
+                    ModifyDate = DateTimeOffset.UtcNow
+                });
+                break;
+            case "sentitems":
+                updateable = updateable.SetColumns(x => new EmailBinding
+                {
+                    DeltaLinkSent = deltaLink,
+                    ModifyDate = DateTimeOffset.UtcNow
+                });
+                break;
+            case "deleteditems":
+                updateable = updateable.SetColumns(x => new EmailBinding
+                {
+                    DeltaLinkDeleted = deltaLink,
+                    ModifyDate = DateTimeOffset.UtcNow
+                });
+                break;
+            default:
+                return false;
+        }
+
+        return await updateable.ExecuteCommandAsync() > 0;
+    }
+
+    /// <summary>
+    /// Get delta link for a specific folder
+    /// </summary>
+    public async Task<string?> GetDeltaLinkAsync(long id, string folder)
+    {
+        var binding = await db.Queryable<EmailBinding>()
+            .Where(x => x.Id == id && x.IsValid)
+            .FirstAsync();
+
+        if (binding == null) return null;
+
+        return folder.ToLower() switch
+        {
+            "inbox" => binding.DeltaLinkInbox,
+            "sentitems" => binding.DeltaLinkSent,
+            "deleteditems" => binding.DeltaLinkDeleted,
+            _ => null
+        };
+    }
 }

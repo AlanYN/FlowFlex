@@ -92,4 +92,31 @@ public class MessageAttachmentRepository : BaseRepository<MessageAttachment>, IM
             .Where(x => x.MessageId == 0 && x.CreateDate < cutoffTime)
             .ExecuteCommandAsync();
     }
+
+    /// <summary>
+    /// Get existing external attachment IDs for batch sync optimization
+    /// </summary>
+    public async Task<HashSet<string>> GetExistingExternalIdsAsync(List<string> externalIds)
+    {
+        if (externalIds == null || externalIds.Count == 0)
+            return new HashSet<string>();
+
+        var existingIds = await db.Queryable<MessageAttachment>()
+            .Where(x => externalIds.Contains(x.ExternalAttachmentId!) && x.IsValid)
+            .Select(x => x.ExternalAttachmentId)
+            .ToListAsync();
+
+        return existingIds.Where(id => id != null).Select(id => id!).ToHashSet();
+    }
+
+    /// <summary>
+    /// Batch insert attachments
+    /// </summary>
+    public async Task<bool> InsertRangeAsync(List<MessageAttachment> attachments)
+    {
+        if (attachments == null || attachments.Count == 0)
+            return true;
+
+        return await db.Insertable(attachments).ExecuteCommandAsync() > 0;
+    }
 }

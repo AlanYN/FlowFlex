@@ -7,7 +7,7 @@ namespace FlowFlex.SqlSugarDB.Migrations
     /// Migration to add full-text search index for messages table
     /// This improves search performance significantly compared to LIKE queries
     /// </summary>
-    public class AddMessageFullTextIndex_20251219000001
+    public class _20251219000001_AddMessageFullTextIndex
     {
         /// <summary>
         /// Apply migration - create GIN index for full-text search

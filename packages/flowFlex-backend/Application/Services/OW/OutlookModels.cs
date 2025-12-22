@@ -204,3 +204,44 @@ public class GraphAttachment
     [JsonPropertyName("@odata.type")]
     public string? ODataType { get; set; }
 }
+
+/// <summary>
+/// Graph API delta response for messages
+/// </summary>
+public class GraphDeltaResponse
+{
+    [JsonPropertyName("value")]
+    public List<GraphDeltaMessage>? Value { get; set; }
+
+    [JsonPropertyName("@odata.nextLink")]
+    public string? NextLink { get; set; }
+
+    [JsonPropertyName("@odata.deltaLink")]
+    public string? DeltaLink { get; set; }
+}
+
+/// <summary>
+/// Graph API delta message (includes deleted indicator)
+/// </summary>
+public class GraphDeltaMessage : GraphEmailMessage
+{
+    /// <summary>
+    /// Indicates if the message was deleted (present when @removed is in response)
+    /// </summary>
+    [JsonPropertyName("@removed")]
+    public GraphRemovedInfo? Removed { get; set; }
+
+    /// <summary>
+    /// Check if this message was deleted
+    /// </summary>
+    public bool IsDeleted => Removed != null;
+}
+
+/// <summary>
+/// Graph API removed info for delta queries
+/// </summary>
+public class GraphRemovedInfo
+{
+    [JsonPropertyName("reason")]
+    public string? Reason { get; set; }
+}

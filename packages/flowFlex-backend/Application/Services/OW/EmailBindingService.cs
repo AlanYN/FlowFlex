@@ -1,6 +1,7 @@
 using System.Net.Http.Headers;
 using Microsoft.Extensions.Logging;
 using FlowFlex.Application.Contracts.Dtos.OW.EmailBinding;
+using FlowFlex.Application.Contracts.IServices;
 using FlowFlex.Application.Contracts.IServices.OW;
 using FlowFlex.Application.Services.OW.Extensions;
 using FlowFlex.Domain.Entities.OW;
@@ -24,6 +25,7 @@ public class EmailBindingService : IEmailBindingService, IScopedService
     private readonly UserContext _userContext;
     private readonly ILogger<EmailBindingService> _logger;
     private readonly IUserRepository _userRepository;
+    private readonly IEncryptionService _encryptionService;
 
     // Store state temporarily (in production, use distributed cache like Redis)
     private static readonly Dictionary<string, (long UserId, string TenantId, DateTimeOffset ExpireTime)> _stateStore = new();
@@ -37,7 +39,8 @@ public class EmailBindingService : IEmailBindingService, IScopedService
         IHttpClientFactory httpClientFactory,
         UserContext userContext,
         ILogger<EmailBindingService> logger,
-        IUserRepository userRepository)
+        IUserRepository userRepository,
+        IEncryptionService encryptionService)
     {
         _bindingRepository = bindingRepository;
         _messageRepository = messageRepository;
@@ -46,6 +49,7 @@ public class EmailBindingService : IEmailBindingService, IScopedService
         _userContext = userContext;
         _logger = logger;
         _userRepository = userRepository;
+        _encryptionService = encryptionService;
     }
 
     /// <summary>
@@ -127,10 +131,10 @@ public class EmailBindingService : IEmailBindingService, IScopedService
         
         if (existingBinding != null)
         {
-            // Update existing binding
+            // Update existing binding with encrypted tokens
             existingBinding.Email = userEmail;
-            existingBinding.AccessToken = tokenResult.AccessToken;
-            existingBinding.RefreshToken = tokenResult.RefreshToken;
+            existingBinding.AccessToken = EncryptToken(tokenResult.AccessToken);
+            existingBinding.RefreshToken = EncryptToken(tokenResult.RefreshToken);
             existingBinding.TokenExpireTime = tokenResult.ExpiresAt;
             existingBinding.SyncStatus = EmailConstants.SyncStatus.Active;
             existingBinding.LastSyncError = null;
@@ -143,14 +147,14 @@ public class EmailBindingService : IEmailBindingService, IScopedService
             return MapToDto(existingBinding);
         }
 
-        // Create new binding
+        // Create new binding with encrypted tokens
         var binding = new EmailBinding
         {
             UserId = userId,
             Email = userEmail,
             Provider = EmailConstants.Provider.Outlook,
-            AccessToken = tokenResult.AccessToken,
-            RefreshToken = tokenResult.RefreshToken,
+            AccessToken = EncryptToken(tokenResult.AccessToken),
+            RefreshToken = EncryptToken(tokenResult.RefreshToken),
             TokenExpireTime = tokenResult.ExpiresAt,
             SyncStatus = EmailConstants.SyncStatus.Active,
             AutoSyncEnabled = true,
@@ -271,7 +275,7 @@ public class EmailBindingService : IEmailBindingService, IScopedService
 
     /// <summary>
     /// Manually trigger email sync
-    /// If LastSyncTime is null, performs full sync; otherwise performs incremental sync
+    /// Uses Delta Query for efficient incremental sync with change tracking
     /// </summary>
     public async Task<SyncResultDto> SyncEmailsAsync()
     {
@@ -329,50 +333,73 @@ public class EmailBindingService : IEmailBindingService, IScopedService
             throw new CRMException(ErrorCodeEnum.BusinessError, "Failed to get valid access token");
         }
 
+        // Decrypt access token for API calls
+        var accessToken = DecryptToken(binding.AccessToken);
+
         try
         {
-            int syncedCount;
-
-            // If LastSyncTime is null, perform full sync
-            if (binding.LastSyncTime == null)
+            // Use Delta Query for efficient incremental sync
+            var folders = new List<(string folderId, string? deltaLink)>
             {
-                _logger.LogDebug("LastSyncTime is null for user {UserId}, performing full sync", userId);
-                // Reset status first since FullSyncAsync will set it again
-                await _bindingRepository.UpdateSyncStatusAsync(binding.Id, EmailConstants.SyncStatus.Active);
-                var fullSyncResult = await FullSyncAsync();
-                syncedCount = fullSyncResult.TotalSyncedCount;
-            }
-            else
+                (EmailConstants.OutlookFolder.Inbox, binding.DeltaLinkInbox),
+                (EmailConstants.OutlookFolder.SentItems, binding.DeltaLinkSent),
+                (EmailConstants.OutlookFolder.DeletedItems, binding.DeltaLinkDeleted)
+            };
+
+            _logger.LogDebug("Delta sync for user {UserId} (parallel)", userId);
+
+            // Parallel sync all folders for better performance
+            var syncTasks = folders.Select(async folder =>
             {
-                // Perform incremental sync for all 3 folders (get latest emails, insert new and update status)
-                var folders = new List<string>
-                {
-                    EmailConstants.OutlookFolder.Inbox,
-                    EmailConstants.OutlookFolder.SentItems,
-                    EmailConstants.OutlookFolder.DeletedItems
-                };
-                var totalSynced = 0;
+                var (folderId, deltaLink) = folder;
+                var result = await _outlookService.SyncEmailsWithDeltaAsync(
+                    accessToken, userId, folderId, deltaLink);
 
-                _logger.LogDebug("Incremental sync for user {UserId}", userId);
-
-                foreach (var folder in folders)
+                if (!string.IsNullOrEmpty(result.ErrorMessage))
                 {
-                    // Sync latest emails (insert new + update status for existing)
-                    var synced = await _outlookService.SyncEmailsToLocalAsync(
-                        binding.AccessToken, userId, folder,
-                        EmailConstants.SyncSettings.DefaultMaxCount);
-                    totalSynced += synced;
-                    _logger.LogDebug("Sync: {Count} new emails from folder {Folder}", synced, folder);
+                    // If delta link expired, clear it and retry
+                    if (result.ErrorMessage.Contains("full sync required"))
+                    {
+                        _logger.LogWarning("Delta link expired for folder {Folder}, clearing", folderId);
+                        await _bindingRepository.UpdateDeltaLinkAsync(binding.Id, folderId, null);
+                        
+                        // Retry with null delta link (initial sync)
+                        result = await _outlookService.SyncEmailsWithDeltaAsync(
+                            accessToken, userId, folderId, null);
+                    }
+                    else
+                    {
+                        _logger.LogWarning("Delta sync error for folder {Folder}: {Error}", folderId, result.ErrorMessage);
+                    }
                 }
 
-                syncedCount = totalSynced;
-                await _bindingRepository.UpdateLastSyncTimeAsync(binding.Id);
-                await _bindingRepository.UpdateSyncStatusAsync(binding.Id, EmailConstants.SyncStatus.Active);
-            }
+                // Update delta link for next sync
+                if (!string.IsNullOrEmpty(result.DeltaLink))
+                {
+                    await _bindingRepository.UpdateDeltaLinkAsync(binding.Id, folderId, result.DeltaLink);
+                }
+
+                _logger.LogDebug("Delta sync folder {Folder}: added={Added}, updated={Updated}, deleted={Deleted}",
+                    folderId, result.AddedCount, result.UpdatedCount, result.DeletedCount);
+
+                return result;
+            });
+
+            var results = await Task.WhenAll(syncTasks);
+
+            var totalAdded = results.Sum(r => r.AddedCount);
+            var totalUpdated = results.Sum(r => r.UpdatedCount);
+            var totalDeleted = results.Sum(r => r.DeletedCount);
+
+            await _bindingRepository.UpdateLastSyncTimeAsync(binding.Id);
+            await _bindingRepository.UpdateSyncStatusAsync(binding.Id, EmailConstants.SyncStatus.Active);
+
+            _logger.LogInformation("Delta sync completed for user {UserId}: added={Added}, updated={Updated}, deleted={Deleted}",
+                userId, totalAdded, totalUpdated, totalDeleted);
 
             return new SyncResultDto
             {
-                SyncedCount = syncedCount,
+                SyncedCount = totalAdded + totalUpdated + totalDeleted,
                 SyncTime = DateTimeOffset.UtcNow
             };
         }
@@ -444,6 +471,9 @@ public class EmailBindingService : IEmailBindingService, IScopedService
             throw new CRMException(ErrorCodeEnum.BusinessError, "Failed to get valid access token");
         }
 
+        // Decrypt access token for API calls
+        var accessToken = DecryptToken(binding.AccessToken);
+
         try
         {
             var folders = new List<string>
@@ -461,7 +491,7 @@ public class EmailBindingService : IEmailBindingService, IScopedService
 
             foreach (var folder in folders)
             {
-                var synced = await _outlookService.FullSyncEmailsAsync(binding.AccessToken, userId, folder, maxCount);
+                var synced = await _outlookService.FullSyncEmailsAsync(accessToken, userId, folder, maxCount);
                 syncedByFolder[folder] = synced;
                 totalSynced += synced;
                 _logger.LogDebug("Full sync: synced {Count} emails from folder {Folder}", synced, folder);
@@ -517,17 +547,20 @@ public class EmailBindingService : IEmailBindingService, IScopedService
             return false;
         }
 
-        var newToken = await _outlookService.RefreshTokenAsync(binding.RefreshToken);
+        // Decrypt refresh token for API call
+        var refreshToken = DecryptToken(binding.RefreshToken);
+        var newToken = await _outlookService.RefreshTokenAsync(refreshToken);
         if (newToken == null)
         {
             await _bindingRepository.UpdateSyncStatusAsync(bindingId, EmailConstants.SyncStatus.Error, "Failed to refresh token");
             return false;
         }
 
+        // Encrypt new tokens before storing
         await _bindingRepository.UpdateTokenAsync(
             bindingId,
-            newToken.AccessToken,
-            newToken.RefreshToken,
+            EncryptToken(newToken.AccessToken),
+            EncryptToken(newToken.RefreshToken),
             newToken.ExpiresAt);
 
         _logger.LogDebug("Refreshed token for binding {BindingId}", bindingId);
@@ -536,6 +569,7 @@ public class EmailBindingService : IEmailBindingService, IScopedService
 
     /// <summary>
     /// Sync emails for a specific user (used by background service)
+    /// Uses Delta Query for efficient incremental sync
     /// </summary>
     public async Task<SyncResultDto> SyncEmailsForUserAsync(long userId)
     {
@@ -604,62 +638,69 @@ public class EmailBindingService : IEmailBindingService, IScopedService
             };
         }
 
+        // Decrypt access token for API calls
+        var accessToken = DecryptToken(binding.AccessToken);
+
         // Mark as syncing
         await _bindingRepository.UpdateSyncStatusAsync(binding.Id, EmailConstants.SyncStatus.Syncing);
 
         try
         {
-            int syncedCount;
-
-            // If LastSyncTime is null, perform full sync
-            if (binding.LastSyncTime == null)
+            // Use Delta Query for efficient incremental sync (parallel)
+            var folders = new List<(string folderId, string? deltaLink)>
             {
-                _logger.LogDebug("LastSyncTime is null for user {UserId}, performing full sync", userId);
-                var folders = new List<string>
-                {
-                    EmailConstants.OutlookFolder.Inbox,
-                    EmailConstants.OutlookFolder.SentItems,
-                    EmailConstants.OutlookFolder.DeletedItems
-                };
-                var totalSynced = 0;
+                (EmailConstants.OutlookFolder.Inbox, binding.DeltaLinkInbox),
+                (EmailConstants.OutlookFolder.SentItems, binding.DeltaLinkSent),
+                (EmailConstants.OutlookFolder.DeletedItems, binding.DeltaLinkDeleted)
+            };
 
-                foreach (var folder in folders)
+            // Parallel sync all folders for better performance
+            var syncTasks = folders.Select(async folder =>
+            {
+                var (folderId, deltaLink) = folder;
+                var result = await _outlookService.SyncEmailsWithDeltaAsync(
+                    accessToken, userId, folderId, deltaLink);
+
+                if (!string.IsNullOrEmpty(result.ErrorMessage))
                 {
-                    var synced = await _outlookService.FullSyncEmailsAsync(
-                        binding.AccessToken, userId, folder,
-                        EmailConstants.SyncSettings.FullSyncMaxCount);
-                    totalSynced += synced;
+                    // If delta link expired, clear it and retry
+                    if (result.ErrorMessage.Contains("full sync required"))
+                    {
+                        _logger.LogWarning("Delta link expired for folder {Folder}, user {UserId}, clearing", folderId, userId);
+                        await _bindingRepository.UpdateDeltaLinkAsync(binding.Id, folderId, null);
+                        
+                        // Retry with null delta link
+                        result = await _outlookService.SyncEmailsWithDeltaAsync(
+                            accessToken, userId, folderId, null);
+                    }
+                    else
+                    {
+                        _logger.LogWarning("Delta sync error for folder {Folder}, user {UserId}: {Error}", 
+                            folderId, userId, result.ErrorMessage);
+                    }
                 }
 
-                syncedCount = totalSynced;
-            }
-            else
-            {
-                // Perform incremental sync for all 3 folders (get latest emails, insert new and update status)
-                var folders = new List<string>
+                // Update delta link for next sync
+                if (!string.IsNullOrEmpty(result.DeltaLink))
                 {
-                    EmailConstants.OutlookFolder.Inbox,
-                    EmailConstants.OutlookFolder.SentItems,
-                    EmailConstants.OutlookFolder.DeletedItems
-                };
-                var totalSynced = 0;
-
-                foreach (var folder in folders)
-                {
-                    // Sync latest emails (insert new + update status for existing)
-                    var synced = await _outlookService.SyncEmailsToLocalAsync(
-                        binding.AccessToken, userId, folder,
-                        EmailConstants.SyncSettings.DefaultMaxCount);
-                    totalSynced += synced;
+                    await _bindingRepository.UpdateDeltaLinkAsync(binding.Id, folderId, result.DeltaLink);
                 }
 
-                syncedCount = totalSynced;
-            }
+                return result;
+            });
+
+            var results = await Task.WhenAll(syncTasks);
+
+            var totalAdded = results.Sum(r => r.AddedCount);
+            var totalUpdated = results.Sum(r => r.UpdatedCount);
+            var totalDeleted = results.Sum(r => r.DeletedCount);
 
             await _bindingRepository.UpdateLastSyncTimeAsync(binding.Id);
             await _bindingRepository.UpdateSyncStatusAsync(binding.Id, EmailConstants.SyncStatus.Active);
 
-            _logger.LogDebug("Synced {Count} emails for user {UserId}", syncedCount, userId);
+            var syncedCount = totalAdded + totalUpdated + totalDeleted;
+            _logger.LogDebug("Delta synced for user {UserId}: added={Added}, updated={Updated}, deleted={Deleted}",
+                userId, totalAdded, totalUpdated, totalDeleted);
 
             return new SyncResultDto
             {
@@ -840,6 +881,41 @@ public class EmailBindingService : IEmailBindingService, IScopedService
             ErrorMessage = "Timeout waiting for sync to complete. The sync is still running in the background.",
             IsComplete = false
         };
+    }
+
+    /// <summary>
+    /// Encrypt token for secure storage
+    /// </summary>
+    private string EncryptToken(string token)
+    {
+        if (string.IsNullOrEmpty(token)) return token;
+        try
+        {
+            return _encryptionService.Encrypt(token);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to encrypt token, storing as plain text");
+            return token;
+        }
+    }
+
+    /// <summary>
+    /// Decrypt token for use
+    /// </summary>
+    private string DecryptToken(string encryptedToken)
+    {
+        if (string.IsNullOrEmpty(encryptedToken)) return encryptedToken;
+        try
+        {
+            return _encryptionService.Decrypt(encryptedToken);
+        }
+        catch (Exception ex)
+        {
+            // Token might not be encrypted (legacy data), return as-is
+            _logger.LogDebug(ex, "Failed to decrypt token, assuming plain text");
+            return encryptedToken;
+        }
     }
 
     #endregion

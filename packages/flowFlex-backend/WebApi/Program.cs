@@ -157,13 +157,22 @@ builder.Services.Configure<IdentityHubOptions>(builder.Configuration.GetSection(
 builder.Services.Configure<FlowFlex.Application.Services.OW.OutlookOptions>(
     builder.Configuration.GetSection(FlowFlex.Application.Services.OW.OutlookOptions.SectionName));
 
-// Register HttpClient for OutlookService
+// Register HttpClient for OutlookService with connection pooling and retry policy
 builder.Services.AddHttpClient<FlowFlex.Application.Contracts.IServices.OW.IOutlookService, 
     FlowFlex.Application.Services.OW.OutlookService>("OutlookService", client =>
 {
     client.DefaultRequestHeaders.Add("User-Agent", "FlowFlex-OutlookClient/1.0");
     client.Timeout = TimeSpan.FromSeconds(60);
-});
+})
+.ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
+{
+    // Connection pooling settings
+    PooledConnectionLifetime = TimeSpan.FromMinutes(5),
+    PooledConnectionIdleTimeout = TimeSpan.FromMinutes(2),
+    MaxConnectionsPerServer = 10,
+    EnableMultipleHttp2Connections = true
+})
+.AddPolicyHandler(GetRetryPolicy());
 
 // Register HttpClient for IdmUserDataClient with retry policy and timeout
 builder.Services.AddHttpClient<FlowFlex.Application.Services.OW.IdmUserDataClient>("FlowFlexIdmUserDataClient", client =>
