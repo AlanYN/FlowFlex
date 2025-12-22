@@ -1,5 +1,21 @@
 <template>
-	<div class="flowflex-app" id="flowflex-root">
+	<div class="flowflex-app flex flex-col h-full" id="flowflex-root">
+		<el-alert
+			class="flex justify-between items-center"
+			type="warning"
+			effect="dark"
+			center
+			@close="handleClose"
+			v-if="showTip"
+		>
+			<div>
+				🔔 Domain Update : On March 31st,
+				<span>{{ getCurrentBaseUrl() }}</span>
+				will be migrated to
+				<span>{{ getCurrentBaseUrl().replace('flowflex', 'workflow') }}</span>
+				. Please update your bookmarks accordingly.
+			</div>
+		</el-alert>
 		<ElConfigProvider :popup-container="getPopupContainer">
 			<router-view :key="routeKey" />
 		</ElConfigProvider>
@@ -34,6 +50,18 @@ const getPopupContainer = () => document.querySelector('#app-root') as HTMLEleme
 // };
 
 // provide('openChatDialog', openChatDialog);
+
+const showTip = ref(
+	window.location.origin.includes('flowflex') && localStorage.getItem('showTip') !== 'false'
+);
+const handleClose = () => {
+	showTip.value = false;
+	localStorage.setItem('showTip', 'false');
+};
+
+const getCurrentBaseUrl = () => {
+	return window.location.origin;
+};
 </script>
 
 <style scoped lang="scss"></style>
