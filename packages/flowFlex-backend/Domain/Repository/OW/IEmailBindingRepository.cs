@@ -71,4 +71,14 @@ public interface IEmailBindingRepository
     /// Update an existing email binding
     /// </summary>
     Task<bool> UpdateAsync(EmailBinding binding);
+
+    /// <summary>
+    /// Update delta link for a specific folder
+    /// </summary>
+    Task<bool> UpdateDeltaLinkAsync(long id, string folder, string? deltaLink);
+
+    /// <summary>
+    /// Get delta link for a specific folder
+    /// </summary>
+    Task<string?> GetDeltaLinkAsync(long id, string folder);
 }

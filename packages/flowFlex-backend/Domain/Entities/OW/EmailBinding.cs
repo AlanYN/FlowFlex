@@ -78,4 +78,22 @@ public class EmailBinding : OwEntityBase
     /// </summary>
     [SugarColumn(ColumnName = "sync_interval_minutes")]
     public int SyncIntervalMinutes { get; set; } = 15;
+
+    /// <summary>
+    /// Delta link for inbox folder (used for incremental sync)
+    /// </summary>
+    [SugarColumn(ColumnName = "delta_link_inbox", ColumnDataType = "text", IsNullable = true)]
+    public string? DeltaLinkInbox { get; set; }
+
+    /// <summary>
+    /// Delta link for sent items folder (used for incremental sync)
+    /// </summary>
+    [SugarColumn(ColumnName = "delta_link_sent", ColumnDataType = "text", IsNullable = true)]
+    public string? DeltaLinkSent { get; set; }
+
+    /// <summary>
+    /// Delta link for deleted items folder (used for incremental sync)
+    /// </summary>
+    [SugarColumn(ColumnName = "delta_link_deleted", ColumnDataType = "text", IsNullable = true)]
+    public string? DeltaLinkDeleted { get; set; }
 }

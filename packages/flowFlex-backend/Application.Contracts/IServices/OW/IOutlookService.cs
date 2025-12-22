@@ -133,6 +133,17 @@ public interface IOutlookService : IScopedService
     /// <returns>Attachment content as byte array, or null if not found</returns>
     Task<byte[]?> DownloadAttachmentAsync(string accessToken, string externalMessageId, string externalAttachmentId);
 
+    /// <summary>
+    /// Sync emails using Delta Query (incremental sync with change tracking)
+    /// This is the most efficient way to sync emails as it only returns changes since last sync
+    /// </summary>
+    /// <param name="accessToken">Outlook access token</param>
+    /// <param name="ownerId">Owner user ID</param>
+    /// <param name="folderId">Outlook folder ID (inbox, sentitems, deleteditems)</param>
+    /// <param name="deltaLink">Previous delta link (null for initial sync)</param>
+    /// <returns>Delta sync result containing synced count and new delta link</returns>
+    Task<DeltaSyncResult> SyncEmailsWithDeltaAsync(string accessToken, long ownerId, string folderId, string? deltaLink);
+
     #endregion
 }
 
@@ -206,6 +217,47 @@ public class OutlookFolderStats
     public string DisplayName { get; set; } = string.Empty;
     public int TotalCount { get; set; }
     public int UnreadCount { get; set; }
+}
+
+/// <summary>
+/// Delta sync result
+/// </summary>
+public class DeltaSyncResult
+{
+    /// <summary>
+    /// Number of new emails added
+    /// </summary>
+    public int AddedCount { get; set; }
+
+    /// <summary>
+    /// Number of emails updated (status changes like read/unread)
+    /// </summary>
+    public int UpdatedCount { get; set; }
+
+    /// <summary>
+    /// Number of emails deleted
+    /// </summary>
+    public int DeletedCount { get; set; }
+
+    /// <summary>
+    /// Total changes processed
+    /// </summary>
+    public int TotalChanges => AddedCount + UpdatedCount + DeletedCount;
+
+    /// <summary>
+    /// New delta link to use for next sync
+    /// </summary>
+    public string? DeltaLink { get; set; }
+
+    /// <summary>
+    /// Error message if sync failed
+    /// </summary>
+    public string? ErrorMessage { get; set; }
+
+    /// <summary>
+    /// Whether this was an initial sync (no previous delta link)
+    /// </summary>
+    public bool IsInitialSync { get; set; }
 }
 
 #endregion

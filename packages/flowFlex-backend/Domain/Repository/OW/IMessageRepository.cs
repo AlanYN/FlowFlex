@@ -157,5 +157,15 @@ namespace FlowFlex.Domain.Repository.OW
         /// Batch update message read status
         /// </summary>
         Task<int> BatchUpdateReadStatusAsync(List<long> ids, bool isRead);
+
+        /// <summary>
+        /// Get message by external ID (alias for GetByExternalMessageIdAsync)
+        /// </summary>
+        Task<Message?> GetByExternalIdAsync(string externalId, long ownerId);
+
+        /// <summary>
+        /// Batch move messages to folder
+        /// </summary>
+        Task<int> BatchMoveToFolderAsync(List<long> ids, string folder, string? originalFolder = null);
     }
 }

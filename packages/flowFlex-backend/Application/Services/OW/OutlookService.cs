@@ -793,6 +793,258 @@ public class OutlookService : IOutlookService, IScopedService
     }
 
     /// <summary>
+    /// Sync emails using Delta Query (incremental sync with change tracking)
+    /// This is the most efficient way to sync emails as it only returns changes since last sync
+    /// </summary>
+    public async Task<DeltaSyncResult> SyncEmailsWithDeltaAsync(string accessToken, long ownerId, string folderId, string? deltaLink)
+    {
+        var result = new DeltaSyncResult
+        {
+            IsInitialSync = string.IsNullOrEmpty(deltaLink)
+        };
+
+        try
+        {
+            var localFolder = MapOutlookFolderToLocal(folderId);
+            string? nextLink;
+            string? newDeltaLink = null;
+
+            // Build initial URL or use existing delta link
+            var url = string.IsNullOrEmpty(deltaLink)
+                ? $"{_options.BaseUrl}/me/mailFolders/{folderId}/messages/delta" +
+                  $"?$select=id,subject,bodyPreview,from,toRecipients,receivedDateTime,sentDateTime,isRead,hasAttachments,isDraft"
+                : deltaLink;
+
+            var addedMessages = new List<GraphDeltaMessage>();
+            var updatedMessages = new List<GraphDeltaMessage>();
+            var deletedMessageIds = new List<string>();
+
+            // Follow pagination until we get the delta link
+            do
+            {
+                var response = await SendAuthorizedGetAsync(url, accessToken);
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    var errorContent = await response.Content.ReadAsStringAsync();
+                    _logger.LogError("Delta query failed: {Error}", errorContent);
+
+                    // If delta link is invalid (410 Gone), return error to trigger full sync
+                    if (response.StatusCode == System.Net.HttpStatusCode.Gone)
+                    {
+                        result.ErrorMessage = "Delta link expired, full sync required";
+                        result.DeltaLink = null; // Clear delta link to trigger full sync
+                        return result;
+                    }
+
+                    result.ErrorMessage = $"Delta query failed: {response.StatusCode}";
+                    return result;
+                }
+
+                var content = await response.Content.ReadAsStringAsync();
+                var deltaResponse = JsonSerializer.Deserialize<GraphDeltaResponse>(content);
+
+                if (deltaResponse?.Value != null)
+                {
+                    foreach (var message in deltaResponse.Value)
+                    {
+                        if (message.IsDeleted)
+                        {
+                            if (!string.IsNullOrEmpty(message.Id))
+                            {
+                                deletedMessageIds.Add(message.Id);
+                            }
+                        }
+                        else
+                        {
+                            // Collect all non-deleted messages for batch processing
+                            addedMessages.Add(message);
+                        }
+                    }
+                }
+
+                nextLink = deltaResponse?.NextLink;
+                newDeltaLink = deltaResponse?.DeltaLink;
+
+                // Continue with next page if available
+                if (!string.IsNullOrEmpty(nextLink))
+                {
+                    url = nextLink;
+                }
+
+            } while (!string.IsNullOrEmpty(nextLink));
+
+            // Batch query: get all existing messages by external IDs
+            var allExternalIds = addedMessages
+                .Where(m => !string.IsNullOrEmpty(m.Id))
+                .Select(m => m.Id!)
+                .ToList();
+            
+            var existingMessages = allExternalIds.Count > 0
+                ? await _messageRepository.GetByExternalIdsAsync(allExternalIds, ownerId)
+                : new List<Message>();
+            var existingMessageMap = existingMessages.ToDictionary(m => m.ExternalMessageId!, m => m);
+
+            // Separate messages into truly new and updates
+            var trulyNewMessages = new List<GraphDeltaMessage>();
+            var statusUpdateMessages = new List<(GraphDeltaMessage delta, Message local)>();
+
+            foreach (var message in addedMessages)
+            {
+                if (string.IsNullOrEmpty(message.Id)) continue;
+
+                if (existingMessageMap.TryGetValue(message.Id, out var existingMessage))
+                {
+                    // Message exists, check for status updates
+                    statusUpdateMessages.Add((message, existingMessage));
+                }
+                else
+                {
+                    trulyNewMessages.Add(message);
+                }
+            }
+
+            // Process truly new messages in batch
+            if (trulyNewMessages.Count > 0)
+            {
+                var messagesToInsert = new List<Message>();
+                var messagesWithAttachments = new List<(Message message, string externalId)>();
+
+                foreach (var message in trulyNewMessages)
+                {
+                    if (string.IsNullOrEmpty(message.Id)) continue;
+
+                    // Check if this is a locally sent email
+                    if (localFolder == EmailConstants.Folder.Sent && message.SentDateTime.HasValue)
+                    {
+                        var localMessage = await _messageRepository.FindLocalSentMessageAsync(
+                            ownerId,
+                            message.Subject ?? "",
+                            message.SentDateTime.Value,
+                            TimeSpan.FromMinutes(5));
+
+                        if (localMessage != null)
+                        {
+                            localMessage.ExternalMessageId = message.Id;
+                            await _messageRepository.UpdateAsync(localMessage);
+                            _logger.LogDebug("Linked local sent message {LocalId} with Outlook message {OutlookId}",
+                                localMessage.Id, message.Id);
+                            continue;
+                        }
+                    }
+
+                    // Create new local message
+                    var newMessage = new Message
+                    {
+                        Subject = message.Subject ?? "",
+                        Body = "", // Body not included in delta for performance
+                        BodyPreview = message.BodyPreview ?? "",
+                        MessageType = EmailConstants.MessageType.Email,
+                        Folder = localFolder,
+                        Labels = $"[\"{EmailConstants.Label.External}\"]",
+                        SenderName = message.From?.EmailAddress?.Name ?? "",
+                        SenderEmail = message.From?.EmailAddress?.Address ?? "",
+                        Recipients = JsonSerializer.Serialize(message.ToRecipients?.Select(r => new RecipientDto
+                        {
+                            Name = r.EmailAddress?.Name ?? "",
+                            Email = r.EmailAddress?.Address ?? ""
+                        }).ToList() ?? new List<RecipientDto>()),
+                        IsRead = message.IsRead ?? false,
+                        IsDraft = message.IsDraft ?? false,
+                        HasAttachments = message.HasAttachments ?? false,
+                        SentDate = message.SentDateTime,
+                        ReceivedDate = message.ReceivedDateTime,
+                        ExternalMessageId = message.Id,
+                        OwnerId = ownerId
+                    };
+
+                    newMessage.InitCreateInfo(_userContext);
+                    messagesToInsert.Add(newMessage);
+
+                    if (message.HasAttachments == true)
+                    {
+                        messagesWithAttachments.Add((newMessage, message.Id));
+                    }
+                }
+
+                // Batch insert all new messages
+                if (messagesToInsert.Count > 0)
+                {
+                    await _messageRepository.InsertRangeAsync(messagesToInsert);
+                    result.AddedCount = messagesToInsert.Count;
+                    _logger.LogDebug("Delta sync: batch inserted {Count} new messages", messagesToInsert.Count);
+
+                    // Sync attachments for messages that have them
+                    foreach (var (message, externalId) in messagesWithAttachments)
+                    {
+                        await SyncAttachmentsAsync(accessToken, externalId, message.Id);
+                    }
+                }
+            }
+
+            // Process status updates (read/unread changes)
+            var toMarkAsRead = new List<long>();
+            var toMarkAsUnread = new List<long>();
+
+            foreach (var (deltaMessage, localMessage) in statusUpdateMessages)
+            {
+                var newIsRead = deltaMessage.IsRead ?? false;
+                if (localMessage.IsRead != newIsRead)
+                {
+                    if (newIsRead)
+                    {
+                        toMarkAsRead.Add(localMessage.Id);
+                    }
+                    else
+                    {
+                        toMarkAsUnread.Add(localMessage.Id);
+                    }
+                    result.UpdatedCount++;
+                }
+            }
+
+            // Batch update read status
+            if (toMarkAsRead.Count > 0)
+            {
+                await _messageRepository.BatchUpdateReadStatusAsync(toMarkAsRead, true);
+                _logger.LogDebug("Delta sync: marked {Count} emails as read", toMarkAsRead.Count);
+            }
+            if (toMarkAsUnread.Count > 0)
+            {
+                await _messageRepository.BatchUpdateReadStatusAsync(toMarkAsUnread, false);
+                _logger.LogDebug("Delta sync: marked {Count} emails as unread", toMarkAsUnread.Count);
+            }
+
+            // Process deleted messages in batch
+            if (deletedMessageIds.Count > 0)
+            {
+                var deletedLocalMessages = await _messageRepository.GetByExternalIdsAsync(deletedMessageIds, ownerId);
+                if (deletedLocalMessages.Count > 0)
+                {
+                    // Batch move to Trash
+                    var idsToMove = deletedLocalMessages.Select(m => m.Id).ToList();
+                    var movedCount = await _messageRepository.BatchMoveToFolderAsync(
+                        idsToMove, EmailConstants.Folder.Trash, localFolder);
+                    result.DeletedCount = movedCount;
+                    _logger.LogDebug("Delta sync: batch moved {Count} deleted emails to Trash", movedCount);
+                }
+            }
+            result.DeltaLink = newDeltaLink;
+
+            _logger.LogDebug("Delta sync completed for folder {FolderId}: added={Added}, updated={Updated}, deleted={Deleted}, isInitial={IsInitial}",
+                folderId, result.AddedCount, result.UpdatedCount, result.DeletedCount, result.IsInitialSync);
+
+            return result;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error during delta sync for folder {FolderId}", folderId);
+            result.ErrorMessage = ex.Message;
+            return result;
+        }
+    }
+
+    /// <summary>
     /// Sync deleted emails: move local emails to Trash if they no longer exist in Outlook
     /// Note: This should only be called when we have fetched ALL emails from Outlook folder,
     /// not just a partial batch. Otherwise, older emails will be incorrectly marked as deleted.
@@ -872,21 +1124,37 @@ public class OutlookService : IOutlookService, IScopedService
 
     /// <summary>
     /// Sync attachments for a specific message from Outlook (public interface)
+    /// Optimized with batch operations
     /// </summary>
     public async Task<int> SyncAttachmentsAsync(string accessToken, string externalMessageId, long localMessageId)
     {
         try
         {
             var attachments = await GetAttachmentsAsync(accessToken, externalMessageId);
-            var syncedCount = 0;
+            if (attachments.Count == 0)
+            {
+                return 0;
+            }
+
+            // Batch query: get all existing external attachment IDs
+            var externalIds = attachments
+                .Where(a => !string.IsNullOrEmpty(a.Id))
+                .Select(a => a.Id!)
+                .ToList();
+            
+            var existingIds = externalIds.Count > 0
+                ? await _attachmentRepository.GetExistingExternalIdsAsync(externalIds)
+                : new HashSet<string>();
+
+            // Prepare attachments to insert
+            var attachmentsToInsert = new List<MessageAttachment>();
 
             foreach (var attachment in attachments)
             {
                 // Skip if already synced
-                if (!string.IsNullOrEmpty(attachment.Id))
+                if (!string.IsNullOrEmpty(attachment.Id) && existingIds.Contains(attachment.Id))
                 {
-                    var existing = await _attachmentRepository.GetByExternalAttachmentIdAsync(attachment.Id);
-                    if (existing != null) continue;
+                    continue;
                 }
 
                 // Create local attachment record (without downloading content for now)
@@ -904,12 +1172,18 @@ public class OutlookService : IOutlookService, IScopedService
 
                 // Initialize create info (sets Id, TenantId, AppCode, timestamps, etc.)
                 localAttachment.InitCreateInfo(_userContext);
-                await _attachmentRepository.InsertAsync(localAttachment);
-                syncedCount++;
+                attachmentsToInsert.Add(localAttachment);
             }
 
-            _logger.LogDebug("Synced {Count} attachments for message {MessageId}", syncedCount, externalMessageId);
-            return syncedCount;
+            // Batch insert all new attachments
+            if (attachmentsToInsert.Count > 0)
+            {
+                await _attachmentRepository.InsertRangeAsync(attachmentsToInsert);
+                _logger.LogDebug("Batch synced {Count} attachments for message {MessageId}", 
+                    attachmentsToInsert.Count, externalMessageId);
+            }
+
+            return attachmentsToInsert.Count;
         }
         catch (Exception ex)
         {

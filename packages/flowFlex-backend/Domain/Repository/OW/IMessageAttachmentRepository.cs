@@ -36,5 +36,15 @@ namespace FlowFlex.Domain.Repository.OW
         /// Clean up old unassociated attachments
         /// </summary>
         Task<int> CleanupUnassociatedAsync(int olderThanHours = 24);
+
+        /// <summary>
+        /// Get existing external attachment IDs for batch sync optimization
+        /// </summary>
+        Task<HashSet<string>> GetExistingExternalIdsAsync(List<string> externalIds);
+
+        /// <summary>
+        /// Batch insert attachments
+        /// </summary>
+        Task<bool> InsertRangeAsync(List<MessageAttachment> attachments);
     }
 }

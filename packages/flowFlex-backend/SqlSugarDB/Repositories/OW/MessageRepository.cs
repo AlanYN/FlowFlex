@@ -557,4 +557,36 @@ public class MessageRepository : BaseRepository<Message>, IMessageRepository, IS
             .Where(x => ids.Contains(x.Id) && x.IsValid)
             .ExecuteCommandAsync();
     }
+
+    /// <summary>
+    /// Get message by external ID (alias for GetByExternalMessageIdAsync)
+    /// </summary>
+    public Task<Message?> GetByExternalIdAsync(string externalId, long ownerId)
+    {
+        return GetByExternalMessageIdAsync(externalId, ownerId);
+    }
+
+    /// <summary>
+    /// Batch move messages to folder with original folder tracking
+    /// </summary>
+    public async Task<int> BatchMoveToFolderAsync(List<long> ids, string folder, string? originalFolder = null)
+    {
+        if (ids == null || ids.Count == 0)
+        {
+            return 0;
+        }
+
+        var updateable = db.Updateable<Message>()
+            .SetColumns(x => x.Folder == folder)
+            .SetColumns(x => x.ModifyDate == DateTimeOffset.UtcNow);
+
+        if (!string.IsNullOrEmpty(originalFolder))
+        {
+            updateable = updateable.SetColumns(x => x.OriginalFolder == originalFolder);
+        }
+
+        return await updateable
+            .Where(x => ids.Contains(x.Id) && x.IsValid)
+            .ExecuteCommandAsync();
+    }
 }
