@@ -187,222 +187,213 @@
 					'md:col-span-9 lg:col-span-10': !isDetailPanelVisible,
 				}"
 			>
-				<template v-if="!isBinding && selectedType == MessageFolder.Inbox">
+				<!-- <template v-if="!isBinding && selectedType == MessageFolder.Inbox">
 					<EmailBindingPrompt
 						:auth-url="authEmailUrl"
 						:loading="authLoading"
 						@connect="handleConnectEmail"
 					/>
-				</template>
-				<template v-else>
-					<!-- Fixed Header -->
-					<div class="flex-shrink-0">
-						<div class="flex items-center justify-between p-4">
-							<div class="text-xl font-bold capitalize">
-								{{
-									selectedType != null
-										? MessageFolder[selectedType]
-										: selectedTag != null && MessageTag[selectedTag]
-								}}
-							</div>
-							<el-button
-								v-permission="ProjectPermissionEnum.messageCenter.read"
-								circle
-								:icon="Refresh"
-								:disabled="requiredLoading"
-								:loading="syncMessageLoading"
-								link
-								@click="syncMessageList"
-							/>
+				</template> -->
+				<!-- Fixed Header -->
+				<div class="flex-shrink-0">
+					<div class="flex items-center justify-between p-4">
+						<div class="text-xl font-bold capitalize">
+							{{
+								selectedType != null
+									? MessageFolder[selectedType]
+									: selectedTag != null && MessageTag[selectedTag]
+							}}
 						</div>
-						<div
-							class="flex items-center gap-x-2 my-2 mx-4"
+						<el-button
 							v-permission="ProjectPermissionEnum.messageCenter.read"
-						>
-							<el-input
-								v-model="searchMessage"
-								:prefix-icon="Search"
-								placeholder="Search messages..."
-								clearable
-								:disabled="requiredLoading"
-								@keyup.enter="refreshMessageList"
-							/>
-							<el-button
-								:icon="Filter"
-								:disabled="requiredLoading"
-								@click="refreshMessageList"
-							/>
-						</div>
+							circle
+							:icon="Refresh"
+							:disabled="requiredLoading"
+							:loading="syncMessageLoading"
+							link
+							@click="syncMessageList"
+						/>
 					</div>
+					<div
+						class="flex items-center gap-x-2 my-2 mx-4"
+						v-permission="ProjectPermissionEnum.messageCenter.read"
+					>
+						<el-input
+							v-model="searchMessage"
+							:prefix-icon="Search"
+							placeholder="Search messages..."
+							clearable
+							:disabled="requiredLoading"
+							@keyup.enter="refreshMessageList"
+						/>
+						<el-button
+							:icon="Filter"
+							:disabled="requiredLoading"
+							@click="refreshMessageList"
+						/>
+					</div>
+				</div>
 
-					<!-- Scrollable MessageFolder List -->
-					<el-scrollbar ref="gridContainerRef" @scroll="handleScroll">
-						<!-- MessageFolder List Loading Skeleton -->
-						<div v-if="requiredLoading && currentPage === 1" class="space-y-4 p-4">
-							<div v-for="i in 5" :key="i" class="border-b border-gray-700 pb-4">
-								<el-skeleton animated>
-									<template #template>
-										<div class="flex items-start space-x-3">
-											<el-skeleton-item
-												variant="circle"
-												class="w-8 h-8 mt-1"
-											/>
-											<div class="flex-1 space-y-2">
-												<div class="flex items-center justify-between">
-													<el-skeleton-item variant="text" class="w-40" />
-													<el-skeleton-item variant="text" class="w-20" />
-												</div>
-												<el-skeleton-item variant="text" class="w-3/4" />
-												<el-skeleton-item variant="text" class="w-full" />
+				<!-- Scrollable MessageFolder List -->
+				<el-scrollbar ref="gridContainerRef" @scroll="handleScroll">
+					<!-- MessageFolder List Loading Skeleton -->
+					<div v-if="requiredLoading && currentPage === 1" class="space-y-4 p-4">
+						<div v-for="i in 5" :key="i" class="border-b border-gray-700 pb-4">
+							<el-skeleton animated>
+								<template #template>
+									<div class="flex items-start space-x-3">
+										<el-skeleton-item variant="circle" class="w-8 h-8 mt-1" />
+										<div class="flex-1 space-y-2">
+											<div class="flex items-center justify-between">
+												<el-skeleton-item variant="text" class="w-40" />
+												<el-skeleton-item variant="text" class="w-20" />
 											</div>
-										</div>
-									</template>
-								</el-skeleton>
-							</div>
-						</div>
-
-						<!-- Empty State -->
-						<div v-else-if="messageList.length == 0 && !requiredLoading" class="p-4">
-							<el-empty :image-size="50">
-								<template #image>
-									<Icon icon="lucide-mail" />
-								</template>
-								<template #description>
-									<div class="">
-										<h3 class="text-lg">No messages found</h3>
-										<div class="text-sm text-gray-400">
-											{{
-												selectedType === MessageFolder.Starred
-													? 'Your starred folder is empty'
-													: 'No messages in this folder'
-											}}
+											<el-skeleton-item variant="text" class="w-3/4" />
+											<el-skeleton-item variant="text" class="w-full" />
 										</div>
 									</div>
 								</template>
-							</el-empty>
+							</el-skeleton>
 						</div>
+					</div>
 
-						<!-- MessageFolder List -->
-						<div v-else>
-							<div v-for="item in messageList" :key="item.id">
-								<div
-									class="flex items-start p-4 hover:bg-black-300 cursor-pointer transition-colors border-b"
-									:class="{
-										'bg-black-500': selectedMessageId === item.id,
-									}"
-									@click="handleSelectMessage(item.id)"
-								>
-									<div class="flex items-start space-x-2 w-full min-w-0">
-										<el-button
-											link
-											size="large"
-											class="mt-1"
-											v-if="
-												functionPermission(
-													ProjectPermissionEnum.messageCenter.update
-												)
-											"
-											@click.stop="handleStar(item.id, item.isStarred)"
+					<!-- Empty State -->
+					<div v-else-if="messageList.length == 0 && !requiredLoading" class="p-4">
+						<el-empty :image-size="50">
+							<template #image>
+								<Icon icon="lucide-mail" />
+							</template>
+							<template #description>
+								<div class="">
+									<h3 class="text-lg">No messages found</h3>
+									<div class="text-sm text-gray-400">
+										{{
+											selectedType === MessageFolder.Starred
+												? 'Your starred folder is empty'
+												: 'No messages in this folder'
+										}}
+									</div>
+								</div>
+							</template>
+						</el-empty>
+					</div>
+
+					<!-- MessageFolder List -->
+					<div v-else>
+						<div v-for="item in messageList" :key="item.id">
+							<div
+								class="flex items-start p-4 hover:bg-black-300 cursor-pointer transition-colors border-b"
+								:class="{
+									'bg-black-500': selectedMessageId === item.id,
+								}"
+								@click="handleSelectMessage(item.id)"
+							>
+								<div class="flex items-start space-x-2 w-full min-w-0">
+									<el-button
+										link
+										size="large"
+										class="mt-1"
+										v-if="
+											functionPermission(
+												ProjectPermissionEnum.messageCenter.update
+											)
+										"
+										@click.stop="handleStar(item.id, item.isStarred)"
+									>
+										<el-tooltip
+											:content="item.isStarred ? 'Unstar' : 'Star'"
+											placement="bottom"
 										>
-											<el-tooltip
-												:content="item.isStarred ? 'Unstar' : 'Star'"
-												placement="bottom"
-											>
-												<Icon
-													v-if="starLoadingId == item.id"
-													icon="lucide-loader-2"
-													class="animate-spin"
-												/>
-												<Icon
-													v-else
-													:class="{ 'text-yellow-400': item.isStarred }"
-													:icon="
-														item.isStarred
-															? 'solar:star-bold'
-															: 'solar:star-outline'
-													"
-												/>
-											</el-tooltip>
-										</el-button>
-										<div class="flex-1 min-w-0">
-											<div class="flex items-center justify-between gap-2">
-												<div
-													class="flex items-center space-x-2 min-w-0 flex-1"
+											<Icon
+												v-if="starLoadingId == item.id"
+												icon="lucide-loader-2"
+												class="animate-spin"
+											/>
+											<Icon
+												v-else
+												:class="{ 'text-yellow-400': item.isStarred }"
+												:icon="
+													item.isStarred
+														? 'solar:star-bold'
+														: 'solar:star-outline'
+												"
+											/>
+										</el-tooltip>
+									</el-button>
+									<div class="flex-1 min-w-0">
+										<div class="flex items-center justify-between gap-2">
+											<div class="flex items-center space-x-2 min-w-0 flex-1">
+												<span
+													class="relative flex size-8 shrink-0 overflow-hidden rounded-full h-8 w-8 flex items-center justify-center text-white font-medium"
+													:style="{
+														backgroundColor: getAvatarColor(
+															item.senderName
+														),
+													}"
 												>
-													<span
-														class="relative flex size-8 shrink-0 overflow-hidden rounded-full h-8 w-8 flex items-center justify-center text-white font-medium"
-														:style="{
-															backgroundColor: getAvatarColor(
-																item.senderName
-															),
-														}"
-													>
-														{{ getInitials(item.senderName) }}
-													</span>
-													<div class="flex items-center gap-x-2">
-														<div
-															v-if="!item.isRead"
-															class="w-2 h-2 bg-primary rounded-full"
-														></div>
-														<span class="font-medium truncate min-w-0">
-															{{ item.senderName }}
-														</span>
-													</div>
-												</div>
-												<div class="flex items-center space-x-2 shrink-0">
-													<el-button
-														v-if="item.hasAttachments"
-														:icon="Link"
-														link
-													/>
-													<span
-														class="text-xs text-gray-400 whitespace-nowrap"
-													>
-														{{ formatMessageTime(item.receivedDate) }}
+													{{ getInitials(item.senderName) }}
+												</span>
+												<div class="flex items-center gap-x-2">
+													<div
+														v-if="!item.isRead"
+														class="w-2 h-2 bg-primary rounded-full"
+													></div>
+													<span class="font-medium truncate min-w-0">
+														{{ item.senderName }}
 													</span>
 												</div>
 											</div>
-											<h3 class="text-sm my-2 truncate">
-												{{ item.subject }}
-											</h3>
-											<p class="text-xs text-gray-400 truncate">
-												{{ item.bodyPreview }}
-											</p>
-											<div class="mt-2 flex items-center space-x-2">
-												<el-tag type="primary" size="small">
-													{{ MessageTypeEnum[item.messageType] }}
+											<div class="flex items-center space-x-2 shrink-0">
+												<el-button
+													v-if="item.hasAttachments"
+													:icon="Link"
+													link
+												/>
+												<span
+													class="text-xs text-gray-400 whitespace-nowrap"
+												>
+													{{ formatMessageTime(item.receivedDate) }}
+												</span>
+											</div>
+										</div>
+										<h3 class="text-sm my-2 truncate">
+											{{ item.subject }}
+										</h3>
+										<p class="text-xs text-gray-400 truncate">
+											{{ item.bodyPreview }}
+										</p>
+										<div class="mt-2 flex items-center space-x-2">
+											<el-tag type="primary" size="small">
+												{{ MessageTypeEnum[item.messageType] }}
+											</el-tag>
+											<template v-if="item.labels.length > 0">
+												<el-tag
+													v-for="label in item.labels"
+													:key="label"
+													size="small"
+													:type="getLabelType(label)"
+												>
+													{{ MessageTag[label] }}
 												</el-tag>
-												<template v-if="item.labels.length > 0">
-													<el-tag
-														v-for="label in item.labels"
-														:key="label"
-														size="small"
-														:type="getLabelType(label)"
-													>
-														{{ MessageTag[label] }}
-													</el-tag>
-												</template>
-											</div>
+											</template>
 										</div>
 									</div>
 								</div>
 							</div>
-
-							<!-- Loading More Indicator -->
-							<div v-if="loadingMore" class="p-4 text-center">
-								<Icon icon="lucide-loader-2" class="animate-spin inline-block" />
-								<span class="ml-2 text-sm text-gray-400">
-									Loading more messages...
-								</span>
-							</div>
-
-							<!-- No More Messages -->
-							<div v-if="!hasMore && messageList.length > 0" class="p-4 text-center">
-								<span class="text-sm text-gray-400">No more messages</span>
-							</div>
 						</div>
-					</el-scrollbar>
-				</template>
+
+						<!-- Loading More Indicator -->
+						<div v-if="loadingMore" class="p-4 text-center">
+							<Icon icon="lucide-loader-2" class="animate-spin inline-block" />
+							<span class="ml-2 text-sm text-gray-400">Loading more messages...</span>
+						</div>
+
+						<!-- No More Messages -->
+						<div v-if="!hasMore && messageList.length > 0" class="p-4 text-center">
+							<span class="text-sm text-gray-400">No more messages</span>
+						</div>
+					</div>
+				</el-scrollbar>
 			</div>
 			<!-- Email Binding Prompt -->
 
@@ -448,7 +439,7 @@ import { MessageList, MessageInfo } from '#/message';
 import PageHeader from '@/components/global/PageHeader/index.vue';
 import MessageDetailPanel from './components/MessageDetailPanel.vue';
 import MessageComposer from './components/MessageComposer.vue';
-import EmailBindingPrompt from './components/EmailBindingPrompt.vue';
+// import EmailBindingPrompt from './components/EmailBindingPrompt.vue';
 import {
 	messageCenterList,
 	getMessageUnreadCount,
@@ -628,7 +619,7 @@ const messageCenterCount = ref(0);
  */
 const getMessageList = async (append = false) => {
 	try {
-		if (!isBinding.value && selectedType.value == MessageFolder.Inbox) return;
+		// if (!isBinding.value && selectedType.value == MessageFolder.Inbox) return;
 		if (append) {
 			if (loadingMore.value || !hasMore.value) return;
 			loadingMore.value = true;
@@ -863,7 +854,7 @@ const handleUnread = async (messageId: string, folder: MessageFolder) => {
 			if (message && message.isRead) {
 				message.isRead = false;
 				// 更新未读数量(加1)
-				folder === MessageFolder.Inbox && messageCenterCount.value++;
+				messageCenterCount.value++;
 			}
 		}
 	} finally {
@@ -966,7 +957,7 @@ const getUserBinding = async () => {
 			if (authEmailRes.code == '200') {
 				authEmailUrl.value = authEmailRes.data.authorizationUrl;
 			}
-			selectedType.value = MessageFolder.Sent;
+			// selectedType.value = MessageFolder.Sent;
 			refreshMessageList();
 		}
 	} finally {
