@@ -45,6 +45,11 @@ namespace FlowFlex.Domain.Repository.Integration
         /// Get all active integrations
         /// </summary>
         Task<List<Entities.Integration.Integration>> GetActiveIntegrationsAsync();
+
+        /// <summary>
+        /// Get integration by system name
+        /// </summary>
+        Task<Entities.Integration.Integration?> GetBySystemNameAsync(string systemName);
     }
 }
 

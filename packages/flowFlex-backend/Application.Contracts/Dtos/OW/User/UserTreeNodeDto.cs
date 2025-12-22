@@ -46,5 +46,10 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.User
         /// User email (only for user type nodes)
         /// </summary>
         public string Email { get; set; }
+
+        /// <summary>
+        /// User type (only for user type nodes)
+        /// </summary>
+        public int? UserType { get; set; }
     }
 }

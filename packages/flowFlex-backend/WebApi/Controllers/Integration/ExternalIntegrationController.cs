@@ -31,6 +31,20 @@ namespace FlowFlex.WebApi.Controllers.Integration
         }
 
         /// <summary>
+        /// Get entity type mappings by Integration System Name
+        /// Returns entity type mappings configured for a specific integration identified by System Name
+        /// </summary>
+        /// <param name="systemName">Integration System Name</param>
+        /// <returns>Entity type mappings response</returns>
+        [HttpGet("entity-type-mappings")]
+        [ProducesResponseType<SuccessResponse<EntityTypeMappingResponse>>((int)HttpStatusCode.OK)]
+        public async Task<IActionResult> GetEntityTypeMappingsBySystemName([FromQuery] string systemName)
+        {
+            var result = await _externalIntegrationService.GetEntityTypeMappingsBySystemNameAsync(systemName);
+            return Success(result);
+        }
+
+        /// <summary>
         /// Get workflows by System ID
         /// Returns a list of workflows available for a specific entity mapping identified by System ID
         /// </summary>

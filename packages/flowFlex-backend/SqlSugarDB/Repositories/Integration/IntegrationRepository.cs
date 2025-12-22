@@ -161,6 +161,17 @@ namespace FlowFlex.SqlSugarDB.Implements.Integration
                 .ToListAsync();
         }
 
+        /// <summary>
+        /// Get integration by system name
+        /// </summary>
+        public async Task<Domain.Entities.Integration.Integration?> GetBySystemNameAsync(string systemName)
+        {
+            var currentTenantId = GetCurrentTenantId();
+            return await db.Queryable<Domain.Entities.Integration.Integration>()
+                .Where(x => x.TenantId == currentTenantId && x.SystemName == systemName && x.IsValid)
+                .FirstAsync();
+        }
+
         private string GetCurrentTenantId()
         {
             var httpContext = _httpContextAccessor.HttpContext;
