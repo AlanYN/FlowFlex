@@ -27,6 +27,7 @@
 							:clearable="true"
 							selection-type="user"
 							showEmail
+							is-show-admin-user
 							@change="selectRecipient"
 						/>
 					</el-form-item>
@@ -55,6 +56,7 @@
 							:clearable="true"
 							selection-type="user"
 							showEmail
+							is-show-admin-user
 							@change="selectRecipient"
 						/>
 					</el-form-item>
