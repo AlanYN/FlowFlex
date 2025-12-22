@@ -997,7 +997,7 @@ const openAuthWindow = () => {
 	const authWindow = window.open(
 		authEmailUrl.value,
 		'Email Authorization',
-		`width=${width},height=${height},left=${left},top=${top},toolbar=no,menubar=no,scrollbars=yes,resizable=yes`
+		`width=${width},height=${height},left=${left}px,top=${top}px,toolbar=no,menubar=no,scrollbars=yes,resizable=yes`
 	);
 
 	// Poll to check if window is closed
