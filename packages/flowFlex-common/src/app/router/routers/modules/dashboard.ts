@@ -3,7 +3,7 @@ import type { AppRouteModule } from '@/router/types';
 import { LAYOUT } from '@/router/constant';
 import { t } from '@/hooks/useI18n';
 
-import checklistIcon from '@assets/svg/menu/checklist.svg';
+import dashboardIcon from '@assets/svg/menu/dashboard.svg';
 
 const Dashboard: AppRouteModule = {
 	path: '/dashboard',
@@ -12,7 +12,7 @@ const Dashboard: AppRouteModule = {
 	redirect: '/dashboard/index',
 	meta: {
 		hideChildrenInMenu: true,
-		icon: checklistIcon,
+		icon: dashboardIcon,
 		title: t('sys.router.dashboard'),
 		ordinal: 1,
 		hidden: false,
