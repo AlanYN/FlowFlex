@@ -242,6 +242,7 @@ namespace FlowFlex.Application.Services.OW
                 CaseCode = t.CaseCode ?? string.Empty,
                 CaseName = t.CaseName ?? string.Empty,
                 OnboardingId = t.OnboardingId,
+                ChecklistId = t.ChecklistId,
                 AssignedTeam = t.AssignedTeam,
                 AssigneeName = t.AssigneeName,
                 Category = DetermineTaskCategory(t.AssignedTeam),
@@ -483,6 +484,7 @@ namespace FlowFlex.Application.Services.OW
                 CaseCode = t.CaseCode ?? string.Empty,
                 CaseName = t.CaseName ?? string.Empty,
                 OnboardingId = t.OnboardingId,
+                ChecklistId = t.ChecklistId,
                 Type = "Task",
                 Priority = t.Priority,
                 AssignedTeam = t.AssignedTeam

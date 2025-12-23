@@ -58,6 +58,11 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.Dashboard
         public long OnboardingId { get; set; }
 
         /// <summary>
+        /// Associated checklist ID
+        /// </summary>
+        public long ChecklistId { get; set; }
+
+        /// <summary>
         /// Deadline type:
         /// - Task: Checklist task deadline
         /// - Milestone: Stage milestone deadline

@@ -63,6 +63,11 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.Dashboard
         public long OnboardingId { get; set; }
 
         /// <summary>
+        /// Associated checklist ID
+        /// </summary>
+        public long ChecklistId { get; set; }
+
+        /// <summary>
         /// Assigned team
         /// </summary>
         public string? AssignedTeam { get; set; }

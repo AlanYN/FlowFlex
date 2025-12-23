@@ -113,6 +113,7 @@ namespace FlowFlex.Domain.Repository.OW
         public string? AssigneeName { get; set; }
         public long? AssigneeId { get; set; }
         public string Status { get; set; } = "Pending";
+        public long ChecklistId { get; set; }
         public long OnboardingId { get; set; }
         public string? CaseCode { get; set; }
         public string? CaseName { get; set; }
