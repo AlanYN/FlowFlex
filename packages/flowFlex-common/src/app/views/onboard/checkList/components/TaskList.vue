@@ -449,37 +449,45 @@ const addTask = async (checklistId) => {
 };
 
 // 删除任务
-const deleteTask = async (checklistId, taskId) => {
+const deleteTask = async (checklistId: string, taskId: string) => {
 	try {
 		await ElMessageBox.confirm(
 			'Are you sure you want to delete this task? This action cannot be undone.',
-			'Confirm Deletion',
+			'⚠️ Confirm Deletion',
 			{
 				confirmButtonText: 'Delete Task',
 				cancelButtonText: 'Cancel',
-				type: 'warning',
-				customClass: 'custom-confirm-dialog',
-				confirmButtonClass: 'el-button--danger',
+				confirmButtonClass: 'danger-confirm-btn',
+				cancelButtonClass: 'cancel-confirm-btn',
+				distinguishCancelAndClose: true,
+				customClass: 'delete-confirmation-dialog',
+				showCancelButton: true,
+				showConfirmButton: true,
+				beforeClose: async (action, instance, done) => {
+					if (action === 'confirm') {
+						instance.confirmButtonLoading = true;
+						instance.confirmButtonText = 'Deleting...';
+						try {
+							await deleteChecklistTask(taskId, true);
+							ElMessage.success('Task deleted successfully');
+							done();
+							// 静默刷新任务数据，避免UI闪烁
+							await refreshTasks();
+							// 通知父组件更新checklist数据
+							emit('task-updated', checklistId);
+						} catch {
+							ElMessage.error('Failed to delete task');
+							instance.confirmButtonLoading = false;
+							instance.confirmButtonText = 'Delete Task';
+						}
+					} else {
+						done();
+					}
+				},
 			}
 		);
 	} catch {
-		return; // 用户取消删除
-	}
-
-	try {
-		await deleteChecklistTask(taskId, true);
-		ElMessage.success('Task deleted successfully');
-
-		// 静默刷新任务数据，避免UI闪烁
-		await refreshTasks();
-		// 通知父组件更新checklist数据
-		emit('task-updated', checklistId);
-	} catch (err) {
-		ElMessage.error('Failed to delete task');
-		// 重新加载任务数据（即使出错也要刷新）
-		await loadTasks();
-		// 通知父组件更新checklist数据（即使出错也要刷新）
-		emit('task-updated', checklistId);
+		// 用户取消删除
 	}
 };
 
@@ -707,11 +715,16 @@ const removeActionBinding = async (task) => {
 	try {
 		await ElMessageBox.confirm(
 			'This will remove the action binding from this task. The action itself will not be deleted. Continue?',
-			'Remove Action Binding',
+			'⚠️ Remove Action Binding',
 			{
 				confirmButtonText: 'Remove',
 				cancelButtonText: 'Cancel',
-				type: 'warning',
+				confirmButtonClass: 'danger-confirm-btn',
+				cancelButtonClass: 'cancel-confirm-btn',
+				distinguishCancelAndClose: true,
+				customClass: 'delete-confirmation-dialog',
+				showCancelButton: true,
+				showConfirmButton: true,
 				beforeClose: async (action, instance, done) => {
 					if (action === 'confirm') {
 						instance.confirmButtonLoading = true;

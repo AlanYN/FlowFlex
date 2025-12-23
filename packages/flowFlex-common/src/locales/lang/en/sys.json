@@ -52,6 +52,7 @@
 		"actions": "Actions",
 		"tools": "Tools",
 		"integration": "Integration Settings",
+		"messageCenter": "Message Center",
 		"actionDetail": "Action Detail",
 		"createAction": "Create Action",
 		"list" : "Lists",

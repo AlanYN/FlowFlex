@@ -141,44 +141,6 @@
 			/>
 		</div>
 
-		<!-- 删除确认对话框 -->
-		<el-dialog
-			v-model="deleteDialogVisible"
-			:width="smallDialogWidth"
-			:show-close="true"
-			custom-class="delete-dialog"
-		>
-			<template #header>
-				<div class="delete-dialog-header">
-					<h2 class="delete-dialog-title">Delete Questionnaire</h2>
-				</div>
-			</template>
-			<p class="questionnaire-delete-text">
-				Are you sure you want to delete
-				<strong class="text-red-600">
-					"{{
-						filteredQuestionnaires.find((q) => q.id === deleteQuestionnaireId)?.name ||
-						'this questionnaire'
-					}}"
-				</strong>
-				? This action cannot be undone.
-			</p>
-			<template #footer>
-				<div class="flex justify-end space-x-2">
-					<el-button @click="deleteDialogVisible = false" :disabled="deleteLoading">
-						Cancel
-					</el-button>
-					<el-button
-						type="danger"
-						@click="confirmDeleteQuestionnaire"
-						:loading="deleteLoading"
-					>
-						Delete
-					</el-button>
-				</div>
-			</template>
-		</el-dialog>
-
 		<!-- 预览对话框 -->
 		<QuestionnairePreview
 			v-model:visible="showPreview"
@@ -192,7 +154,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted, watch, markRaw } from 'vue';
-import { ElMessage } from 'element-plus';
+import { ElMessage, ElMessageBox } from 'element-plus';
 import { Plus } from '@element-plus/icons-vue';
 import CustomerPagination from '@/components/global/u-pagination/index.vue';
 import QuestionnairePreview from './components/QuestionnairePreview.vue';
@@ -212,7 +174,6 @@ import {
 import { getWorkflows, getStagesByWorkflow, getAllStages } from '@/apis/ow';
 import { Questionnaire } from '#/onboard';
 import { useRouter } from 'vue-router';
-import { smallDialogWidth } from '@/settings/projectSetting';
 import { PrototypeTabs, TabPane, TabButtonGroup } from '@/components/PrototypeTabs';
 import TableViewIcon from '@assets/svg/onboard/tavleView.svg';
 import ProgressViewIcon from '@assets/svg/onboard/progressView.svg';
@@ -229,14 +190,11 @@ const workflowStages = ref<any[]>([]);
 
 // 响应式数据
 const loading = ref(false);
-const deleteLoading = ref(false); // 专门的删除loading状态
 const stagesLoading = ref(false); // 新增：stages加载状态
 const searchTags = ref<string[]>([]);
 const searchQuery = ref('');
 const selectedWorkflow = ref('');
 const selectedStage = ref('');
-const deleteDialogVisible = ref(false);
-const deleteQuestionnaireId = ref<string | null>(null);
 
 // 分页相关状态
 const pagination = ref({
@@ -504,9 +462,52 @@ const handlePreviewQuestionnaire = async (id: string) => {
 	console.log('selectedQuestionnaireData.value:', selectedQuestionnaireData.value);
 };
 
-const handleDeleteQuestionnaire = (id: string) => {
-	deleteQuestionnaireId.value = id;
-	deleteDialogVisible.value = true;
+const handleDeleteQuestionnaire = async (id: string) => {
+	const questionnaire = filteredQuestionnaires.value.find((q) => q.id === id);
+	const questionnaireName = questionnaire?.name || 'this questionnaire';
+
+	try {
+		await ElMessageBox.confirm(
+			`Are you sure you want to delete "${questionnaireName}"? This action cannot be undone.`,
+			'⚠️ Confirm Deletion',
+			{
+				confirmButtonText: 'Delete',
+				cancelButtonText: 'Cancel',
+				confirmButtonClass: 'danger-confirm-btn',
+				cancelButtonClass: 'cancel-confirm-btn',
+				distinguishCancelAndClose: true,
+				customClass: 'delete-confirmation-dialog',
+				showCancelButton: true,
+				showConfirmButton: true,
+				beforeClose: async (action, instance, done) => {
+					if (action === 'confirm') {
+						instance.confirmButtonLoading = true;
+						instance.confirmButtonText = 'Deleting...';
+						try {
+							const response = await deleteQuestionnaire(id, true);
+							if (response.code === '200') {
+								ElMessage.success('Questionnaire deleted successfully');
+								done();
+								await fetchQuestionnaires();
+							} else {
+								ElMessage.error(response.msg || 'Failed to delete questionnaire');
+								instance.confirmButtonLoading = false;
+								instance.confirmButtonText = 'Delete';
+							}
+						} catch {
+							ElMessage.error('Failed to delete questionnaire');
+							instance.confirmButtonLoading = false;
+							instance.confirmButtonText = 'Delete';
+						}
+					} else {
+						done();
+					}
+				},
+			}
+		);
+	} catch {
+		// User cancelled, do nothing
+	}
 };
 
 const handleDuplicateQuestionnaire = async (id: string) => {
@@ -534,26 +535,6 @@ const handleDuplicateQuestionnaire = async (id: string) => {
 		}
 	} catch (error) {
 		ElMessage.error('Failed to duplicate questionnaire');
-	}
-};
-
-const confirmDeleteQuestionnaire = async () => {
-	if (!deleteQuestionnaireId.value) return;
-
-	try {
-		deleteLoading.value = true;
-		const response = await deleteQuestionnaire(deleteQuestionnaireId.value, true);
-		if (response.code === '200') {
-			ElMessage.success('Questionnaire deleted successfully');
-			// 重新获取问卷列表
-			deleteLoading.value = false;
-			deleteDialogVisible.value = false;
-			await fetchQuestionnaires();
-		} else {
-			ElMessage.error(response.msg || 'Failed to delete questionnaire');
-		}
-	} finally {
-		deleteQuestionnaireId.value = null;
 	}
 };
 

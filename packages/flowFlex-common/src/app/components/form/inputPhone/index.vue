@@ -103,15 +103,3 @@ const validatePhoneNumber = (val) => {
 	phone.value = val.replace(/[^0-9\s\-()]/g, '');
 };
 </script>
-
-<style lang="scss" scoped>
-:deep(.el-input .el-input__wrapper) {
-	@apply rounded-xl;
-}
-</style>
-
-<style lang="scss" scoped>
-:deep(.el-select__wrapper) {
-	@apply m-0;
-}
-</style>

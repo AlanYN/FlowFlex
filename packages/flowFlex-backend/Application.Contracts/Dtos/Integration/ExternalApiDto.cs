@@ -48,29 +48,39 @@ namespace FlowFlex.Application.Contracts.Dtos.Integration
         public long WorkflowId { get; set; }
 
         /// <summary>
-        /// Lead/Customer ID from external system
+        /// Entity type (e.g., "lead", "customer", "account")
         /// </summary>
+        [Required]
         [StringLength(100)]
-        public string? LeadId { get; set; }
+        public string EntityType { get; set; } = string.Empty;
 
         /// <summary>
-        /// Customer/Lead name
+        /// Entity ID from external system
+        /// </summary>
+        [Required]
+        [StringLength(100)]
+        public string EntityId { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Case name
         /// </summary>
         [Required]
         [StringLength(200)]
-        public string CustomerName { get; set; } = string.Empty;
+        public string CaseName { get; set; } = string.Empty;
 
         /// <summary>
         /// Contact person name
         /// </summary>
+        [Required]
         [StringLength(200)]
-        public string? ContactName { get; set; }
+        public string ContactName { get; set; } = string.Empty;
 
         /// <summary>
         /// Contact email
         /// </summary>
+        [Required]
         [StringLength(200)]
-        public string? ContactEmail { get; set; }
+        public string ContactEmail { get; set; }
 
         /// <summary>
         /// Contact phone
@@ -388,6 +398,11 @@ namespace FlowFlex.Application.Contracts.Dtos.Integration
         /// Action name
         /// </summary>
         public string ActionName { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Integration name (source integration name)
+        /// </summary>
+        public string IntegrationName { get; set; } = string.Empty;
 
         /// <summary>
         /// Module name

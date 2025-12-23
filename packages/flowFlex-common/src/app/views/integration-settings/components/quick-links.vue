@@ -902,26 +902,46 @@ async function handleDelete(link: IQuickLink) {
 
 	try {
 		await ElMessageBox.confirm(
-			`Are you sure you want to delete the quick link "${link.linkName}"?`,
-			'Confirm Deletion',
+			`Are you sure you want to delete the quick link "${link.linkName}"? This action cannot be undone.`,
+			'⚠️ Confirm Deletion',
 			{
 				confirmButtonText: 'Delete',
 				cancelButtonText: 'Cancel',
-				type: 'warning',
+				confirmButtonClass: 'danger-confirm-btn',
+				cancelButtonClass: 'cancel-confirm-btn',
+				distinguishCancelAndClose: true,
+				customClass: 'delete-confirmation-dialog',
+				showCancelButton: true,
+				showConfirmButton: true,
+				beforeClose: async (action, instance, done) => {
+					if (action === 'confirm') {
+						instance.confirmButtonLoading = true;
+						instance.confirmButtonText = 'Deleting...';
+						try {
+							const response = await deleteQuickLink(link.id as string);
+							if (response.code == '200') {
+								ElMessage.success('Quick link deleted successfully');
+								done();
+								loadQuickLinks();
+							} else {
+								ElMessage.error(response.msg || 'Failed to delete quick link');
+								instance.confirmButtonLoading = false;
+								instance.confirmButtonText = 'Delete';
+							}
+						} catch (error) {
+							console.error('Failed to delete quick link:', error);
+							ElMessage.error('Failed to delete quick link');
+							instance.confirmButtonLoading = false;
+							instance.confirmButtonText = 'Delete';
+						}
+					} else {
+						done();
+					}
+				},
 			}
 		);
-
-		const response = await deleteQuickLink(link.id);
-		if (response.code == '200') {
-			ElMessage.success('Quick link deleted successfully');
-			loadQuickLinks();
-		} else {
-			ElMessage.error(response.msg || 'Failed to delete quick link');
-		}
-	} catch (error) {
-		if (error !== 'cancel') {
-			console.error('Failed to delete quick link:', error);
-		}
+	} catch {
+		// User cancelled
 	}
 }
 

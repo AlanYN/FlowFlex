@@ -375,16 +375,9 @@ export interface FlowflexUser {
 	name: string;
 	type: 'user' | 'team';
 	children: FlowflexUser[];
-	userDetails?: {
-		id: string;
-		email: string;
-		username: string;
-		emailVerified: boolean;
-		lastLoginDate: string;
-		status: string;
-		createDate: string;
-		team: string;
-	};
+	userType?: 1 | 2 | 3;
+	email: string;
+	username: string;
 	memberCount?: number;
 }
 

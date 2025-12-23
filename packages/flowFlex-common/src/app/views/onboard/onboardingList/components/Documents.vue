@@ -77,7 +77,7 @@
 							</div>
 							<div class="text-sm text-gray-500 dark:text-gray-400 mt-1">
 								or
-								<em class="text-blue-500 hover:text-blue-600 cursor-pointer">
+								<em class="text-primary-500 hover:text-primary-600 cursor-pointer">
 									click to browse
 								</em>
 							</div>
@@ -102,7 +102,7 @@
 						:key="progress.uid"
 						class="flex items-center space-x-3 p-2 bg-gray-50 dark:bg-black-200 rounded"
 					>
-						<el-icon class="text-blue-500">
+						<el-icon class="text-primary-500">
 							<Upload />
 						</el-icon>
 						<div class="flex-1">
@@ -330,6 +330,7 @@ import vuePreviewFile from '@/components/previewFile/previewFile.vue';
 import ImportAttachmentsDialog from './ImportAttachmentsDialog.vue';
 import { useI18n } from '@/hooks/useI18n';
 import { tableMaxHeight } from '@/settings/projectSetting';
+import { formatFileSize, getMimeType } from '@/utils/format';
 
 const { t } = useI18n();
 // Props
@@ -640,43 +641,6 @@ const handleDeleteDocument = async (documentId: string) => {
 	}
 };
 
-// 工具函数
-const formatFileSize = (bytes: string): string => {
-	if (!bytes) return '0 Bytes';
-
-	const k = 1024;
-	const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-	const i = Math.floor(Math.log(+bytes) / Math.log(k));
-
-	return parseFloat((+bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-};
-
-// 根据文件扩展名获取标准MIME类型
-const getMimeType = (fileExtension: string) => {
-	const mimeTypes = {
-		// PDF文档
-		pdf: 'application/pdf',
-		// Microsoft Word文档
-		doc: 'application/msword',
-		docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-		// Microsoft Excel文档
-		xls: 'application/vnd.ms-excel',
-		xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-		// 图片文件
-		jpg: 'image/jpeg',
-		jpeg: 'image/jpeg',
-		png: 'image/png',
-		// 邮件文件
-		msg: 'application/vnd.ms-outlook',
-		eml: 'message/rfc822',
-	} as const;
-
-	return (
-		mimeTypes[fileExtension.toLowerCase() as keyof typeof mimeTypes] ||
-		'application/octet-stream'
-	);
-};
-
 const vailComponent = () => {
 	try {
 		if (props?.documentIsRequired && documents?.value?.length <= 0) {
@@ -692,7 +656,9 @@ const vailComponent = () => {
 const importLoading = ref(false);
 const importFileList = ref<IntegrationAttachment[]>([]);
 const importDialogVisible = ref(false);
-const importActionErrors = ref<Array<{ actionName: string; errorMessage: string }>>([]);
+const importActionErrors = ref<
+	Array<{ actionName: string; errorMessage: string; moduleName: string; integrationName: string }>
+>([]);
 
 const importFormIntegration = async () => {
 	try {
@@ -706,7 +672,12 @@ const importFormIntegration = async () => {
 			// Process the new API response structure with actionExecutions array
 			const actionExecutions = res?.data?.actionExecutions || [];
 			const allAttachments: IntegrationAttachment[] = [];
-			const actionErrors: Array<{ actionName: string; errorMessage: string }> = [];
+			const actionErrors: Array<{
+				actionName: string;
+				errorMessage: string;
+				moduleName: string;
+				integrationName: string;
+			}> = [];
 
 			// Iterate through all action executions and collect attachments
 			actionExecutions.forEach((execution: any) => {
@@ -728,8 +699,11 @@ const importFormIntegration = async () => {
 				} else if (execution.errorMessage) {
 					// If action failed (has error and no attachments), collect error info separately
 					actionErrors.push({
+						...execution,
 						actionName: execution?.actionName,
 						errorMessage: execution.errorMessage,
+						moduleName: execution.moduleName,
+						integrationName: execution.integrationName,
 					});
 				}
 			});

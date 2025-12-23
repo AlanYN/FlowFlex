@@ -96,15 +96,3 @@ const handleMonthChange = () => {
 	unitDiscountModel.value.invoiceDate = '';
 };
 </script>
-
-<style lang="scss" scoped>
-:deep(.el-input .el-input__wrapper) {
-	@apply rounded-xl;
-}
-</style>
-
-<style lang="scss" scoped>
-:deep(.el-select__wrapper) {
-	@apply m-0;
-}
-</style>
