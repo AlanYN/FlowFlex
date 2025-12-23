@@ -24,10 +24,14 @@ namespace FlowFlex.WebApi.Controllers.OW
     public class OnboardingFileController : Controllers.ControllerBase
     {
         private readonly IOnboardingFileService _onboardingFileService;
+        private readonly IOperatorContextService _operatorContextService;
 
-        public OnboardingFileController(IOnboardingFileService onboardingFileService)
+        public OnboardingFileController(
+            IOnboardingFileService onboardingFileService,
+            IOperatorContextService operatorContextService)
         {
             _onboardingFileService = onboardingFileService;
+            _operatorContextService = operatorContextService;
         }
 
         /// <summary>
@@ -111,6 +115,153 @@ namespace FlowFlex.WebApi.Controllers.OW
             }
 
             return Success(results);
+        }
+
+        /// <summary>
+        /// Import files from external URLs (e.g., OSS links) - Synchronous
+        /// Downloads files from provided URLs and saves them as onboarding files
+        /// Returns import result with progress details for each file
+        /// Note: This is a synchronous operation, use import-async for background processing
+        /// </summary>
+        /// <param name="onboardingId">Onboarding ID</param>
+        /// <param name="input">Import input containing file URLs</param>
+        /// <returns>Import result with progress details</returns>
+        [HttpPost("import")]
+        [WFEAuthorize(PermissionConsts.Case.Create)]
+        [ProducesResponseType<SuccessResponse<ImportFilesResultDto>>((int)HttpStatusCode.OK)]
+        public async Task<IActionResult> ImportFilesFromUrlAsync(
+            [FromRoute] long onboardingId,
+            [FromBody] ImportFilesFromUrlInputDto input)
+        {
+            if (input == null)
+            {
+                return BadRequest("Import input is required");
+            }
+
+            if (input.Files == null || input.Files.Count == 0)
+            {
+                return BadRequest("At least one file URL is required");
+            }
+
+            // Set onboarding ID and operator info from route/context
+            input.OnboardingId = onboardingId;
+            input.OperatorId = _operatorContextService.GetOperatorId().ToString();
+            input.OperatorName = _operatorContextService.GetOperatorDisplayName();
+
+            var result = await _onboardingFileService.ImportFilesFromUrlAsync(input);
+            return Success(result);
+        }
+
+        /// <summary>
+        /// Start async import task from external URLs
+        /// Returns immediately with task ID, import runs in background
+        /// Use import-tasks/{taskId} to track progress
+        /// </summary>
+        /// <param name="onboardingId">Onboarding ID</param>
+        /// <param name="input">Import input containing file URLs</param>
+        /// <returns>Task ID for tracking progress</returns>
+        [HttpPost("import-async")]
+        [WFEAuthorize(PermissionConsts.Case.Create)]
+        [ProducesResponseType<SuccessResponse<StartImportTaskResponseDto>>((int)HttpStatusCode.OK)]
+        public async Task<IActionResult> StartImportTaskAsync(
+            [FromRoute] long onboardingId,
+            [FromBody] ImportFilesFromUrlInputDto input)
+        {
+            if (input == null)
+            {
+                return BadRequest("Import input is required");
+            }
+
+            if (input.Files == null || input.Files.Count == 0)
+            {
+                return BadRequest("At least one file URL is required");
+            }
+
+            // Set onboarding ID and operator info from route/context
+            input.OnboardingId = onboardingId;
+            input.OperatorId = _operatorContextService.GetOperatorId().ToString();
+            input.OperatorName = _operatorContextService.GetOperatorDisplayName();
+
+            var createdBy = _operatorContextService.GetOperatorDisplayName();
+            var result = await _onboardingFileService.StartImportTaskAsync(input, createdBy);
+            return Success(result);
+        }
+
+        /// <summary>
+        /// Get import tasks by onboarding ID and stage ID
+        /// Returns all import tasks (including in-progress and completed) for the specified stage
+        /// </summary>
+        /// <param name="onboardingId">Onboarding ID</param>
+        /// <param name="stageId">Stage ID</param>
+        /// <returns>List of import tasks with progress details</returns>
+        [HttpGet("import-tasks")]
+        [WFEAuthorize(PermissionConsts.Case.Read)]
+        [ProducesResponseType<SuccessResponse<List<FileImportTaskDto>>>((int)HttpStatusCode.OK)]
+        public async Task<IActionResult> GetImportTasksByStageAsync(
+            [FromRoute] long onboardingId,
+            [FromQuery] long stageId)
+        {
+            var result = await _onboardingFileService.GetImportTasksByStageAsync(onboardingId, stageId);
+            return Success(result);
+        }
+
+        /// <summary>
+        /// Get import task progress by task ID
+        /// </summary>
+        /// <param name="onboardingId">Onboarding ID</param>
+        /// <param name="taskId">Task ID</param>
+        /// <returns>Task progress details</returns>
+        [HttpGet("import-tasks/{taskId}")]
+        [WFEAuthorize(PermissionConsts.Case.Read)]
+        [ProducesResponseType<SuccessResponse<FileImportTaskDto>>((int)HttpStatusCode.OK)]
+        public async Task<IActionResult> GetImportTaskProgressAsync(
+            [FromRoute] long onboardingId,
+            [FromRoute] string taskId)
+        {
+            var result = await _onboardingFileService.GetImportTaskProgressAsync(taskId);
+            if (result == null)
+            {
+                return NotFound($"Import task '{taskId}' not found");
+            }
+            return Success(result);
+        }
+
+        /// <summary>
+        /// Cancel a specific file import item
+        /// Can only cancel items with status 'Pending' or 'Downloading'
+        /// </summary>
+        /// <param name="onboardingId">Onboarding ID</param>
+        /// <param name="taskId">Task ID</param>
+        /// <param name="itemId">Item ID to cancel</param>
+        /// <returns>Cancel result</returns>
+        [HttpPost("import-tasks/{taskId}/items/{itemId}/cancel")]
+        [WFEAuthorize(PermissionConsts.Case.Create)]
+        [ProducesResponseType<SuccessResponse<CancelImportFileResponseDto>>((int)HttpStatusCode.OK)]
+        public async Task<IActionResult> CancelImportItemAsync(
+            [FromRoute] long onboardingId,
+            [FromRoute] string taskId,
+            [FromRoute] string itemId)
+        {
+            var result = await _onboardingFileService.CancelImportItemAsync(taskId, itemId);
+            return Success(result);
+        }
+
+        /// <summary>
+        /// Cancel all pending items in an import task
+        /// Cancels all items with status 'Pending' or 'Downloading'
+        /// </summary>
+        /// <param name="onboardingId">Onboarding ID</param>
+        /// <param name="taskId">Task ID</param>
+        /// <returns>Cancel result</returns>
+        [HttpPost("import-tasks/{taskId}/cancel")]
+        [WFEAuthorize(PermissionConsts.Case.Create)]
+        [ProducesResponseType<SuccessResponse<CancelImportFileResponseDto>>((int)HttpStatusCode.OK)]
+        public async Task<IActionResult> CancelAllPendingItemsAsync(
+            [FromRoute] long onboardingId,
+            [FromRoute] string taskId)
+        {
+            var result = await _onboardingFileService.CancelAllPendingItemsAsync(taskId);
+            return Success(result);
         }
 
         /// <summary>

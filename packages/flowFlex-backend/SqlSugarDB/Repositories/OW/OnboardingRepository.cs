@@ -166,6 +166,26 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
         }
 
         /// <summary>
+        /// Get onboarding by ID with tenant isolation
+        /// Case-insensitive app_code comparison to support "default", "Default", "DEFAULT", etc.
+        /// </summary>
+        public new async Task<Onboarding> GetByIdAsync(object id, bool copyNew = false, CancellationToken cancellationToken = default)
+        {
+            var currentTenantId = GetCurrentTenantId();
+            var currentAppCode = GetCurrentAppCode();
+            
+            db.Ado.CancellationToken = cancellationToken;
+            var dbNew = copyNew ? db.CopyNew() : db;
+            
+            // Use case-insensitive comparison for app_code to support all variations (default, Default, DEFAULT)
+            return await dbNew.Queryable<Onboarding>()
+                .Where(x => x.TenantId == currentTenantId && 
+                           SqlFunc.ToUpper(x.AppCode) == SqlFunc.ToUpper(currentAppCode) && 
+                           x.Id == Convert.ToInt64(id))
+                .FirstAsync();
+        }
+
+        /// <summary>
         /// 获取当前租户ID
         /// </summary>
         private string GetCurrentTenantId()
@@ -193,6 +213,7 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
 
         /// <summary>
         /// 获取当前应用代码
+        /// Keep original case for compatibility - comparison is case-insensitive at database level
         /// </summary>
         private string GetCurrentAppCode()
         {
@@ -200,21 +221,30 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
             if (httpContext == null)
                 return "DEFAULT";
 
+            string appCode = null;
+
             // 从请求头获取
-            var appCode = httpContext.Request.Headers["X-App-Code"].FirstOrDefault();
-            if (!string.IsNullOrEmpty(appCode))
+            appCode = httpContext.Request.Headers["X-App-Code"].FirstOrDefault();
+            if (string.IsNullOrEmpty(appCode))
             {
-                return appCode;
+                appCode = httpContext.Request.Headers["AppCode"].FirstOrDefault();
             }
 
             // 从 AppContext 获取
-            if (httpContext.Items.TryGetValue("AppContext", out var appContextObj) &&
+            if (string.IsNullOrEmpty(appCode) &&
+                httpContext.Items.TryGetValue("AppContext", out var appContextObj) &&
                 appContextObj is AppContext appContext)
             {
-                return appContext.AppCode;
+                appCode = appContext.AppCode;
             }
 
-            return "DEFAULT";
+            // Return original case - comparison will be case-insensitive at database level
+            if (string.IsNullOrEmpty(appCode))
+            {
+                return "DEFAULT";
+            }
+
+            return appCode;
         }
 
 

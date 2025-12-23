@@ -104,8 +104,9 @@
 												</el-dropdown-item>
 												<el-dropdown-item
 													v-if="
-														item.type === 'multiple_choice' &&
-														setGoToSection
+														item.type === 'multiple_choice' ||
+														(item.type === 'checkboxes' &&
+															setGoToSection)
 													"
 													@click="openJumpRuleEditor(index)"
 													divided
@@ -116,7 +117,7 @@
 															class="drag-icon"
 														/>
 														<span class="text-xs">
-															Go to Section Based on Answer
+															{{ getJumpRuleMenuText(item) }}
 														</span>
 													</div>
 												</el-dropdown-item>
@@ -249,8 +250,8 @@
 											<!-- 显示选项的action标签 -->
 											<el-tag
 												v-if="
-													item.type === 'multiple_choice' &&
-													setGoToSection
+													item.type === 'multiple_choice' ||
+													(item.type === 'checkboxes' && setGoToSection)
 												"
 												type="primary"
 											>
@@ -328,14 +329,9 @@
 
 		<ActionConfigDialog
 			ref="actionConfigDialogRef"
-			v-model="actionEditorVisible"
-			:action="actionInfo"
-			:is-editing="!!actionInfo"
 			:triggerSourceId="actionConfig?.id || ''"
-			:loading="editActionLoading"
 			:triggerType="TriggerTypeEnum.Questionnaire"
 			@save-success="onActionSave"
-			@cancel="onActionCancel"
 		/>
 	</div>
 </template>
@@ -349,7 +345,6 @@ import DragIcon from '@assets/svg/publicPage/drag.svg';
 import JumpRuleEditor from './JumpRuleEditor.vue';
 import QuestionEditor from './QuestionEditor.vue';
 import type { Section, JumpRule, QuestionWithJumpRules } from '#/section';
-import { getActionDetail } from '@/apis/action';
 import { QuestionnaireSection } from '#/section';
 import { triggerFileUpload } from '@/utils/fileUploadUtils';
 import ActionConfigDialog from '@/components/actionTools/ActionConfigDialog.vue';
@@ -586,17 +581,15 @@ const removeFile = (questionIndex: number) => {
 // 打开跳转规则编辑器
 const openJumpRuleEditor = (index: number) => {
 	const question = questionsData.value[index];
-	if (question && question.type === 'multiple_choice') {
+	if (question && (question.type === 'multiple_choice' || question.type === 'checkboxes')) {
 		currentEditingQuestion.value = question as QuestionWithJumpRules;
 		currentEditingIndex.value = index;
 		jumpRuleEditorVisible.value = true;
 	}
 };
 
-const actionEditorVisible = ref(false);
 const actionConfig = ref<any>(null);
 const actionType = ref<'question' | 'option'>('question');
-const actionInfo = ref(null);
 const openActionEditor = (index: number, optionIndex?: number) => {
 	const question = questionsData.value[index];
 	if (!question) return;
@@ -606,20 +599,25 @@ const openActionEditor = (index: number, optionIndex?: number) => {
 		const option = question.options?.[optionIndex];
 		if (option) {
 			actionConfig.value = option || '';
-			actionEditorVisible.value = true;
+			actionConfigDialogRef.value?.open({
+				triggerSourceId: option.id,
+				triggerType: TriggerTypeEnum.Questionnaire,
+			});
 		}
 	} else {
 		actionType.value = 'question';
 		if (question) {
 			actionConfig.value = question || '';
-			actionEditorVisible.value = true;
+			actionConfigDialogRef.value?.open({
+				triggerSourceId: question.id,
+				triggerType: TriggerTypeEnum.Questionnaire,
+			});
 		}
 	}
 };
 
 const actionConfigDialogRef = ref<InstanceType<typeof ActionConfigDialog>>();
 const onActionSave = (res) => {
-	actionEditorVisible.value = false;
 	const questionIndex = questionsData.value.findIndex(
 		(q) => q.temporaryId === currentEditingQuestion.value?.temporaryId
 	);
@@ -665,13 +663,13 @@ const handleRemoveAction = async (index: number, optionIndex?: number) => {
 	}
 };
 
-const editActionLoading = ref(false);
 const editAction = async (index: number, optionIndex?: number) => {
 	const question = questionsData.value[index];
 	if (!question) return;
 	currentEditingQuestion.value = question as QuestionWithJumpRules;
 	actionType.value = optionIndex !== undefined ? 'option' : 'question';
 	let actionId = '';
+
 	if (optionIndex !== undefined) {
 		const option = question.options?.[optionIndex];
 		actionId = option?.action?.id || '';
@@ -680,21 +678,11 @@ const editAction = async (index: number, optionIndex?: number) => {
 		actionId = question.action?.id || '';
 		actionConfig.value = question;
 	}
-
-	try {
-		editActionLoading.value = true;
-		actionEditorVisible.value = true;
-		const res = await getActionDetail(actionId);
-		if (res.code === '200' && res?.data) {
-			actionInfo.value = {
-				...res?.data,
-				actionConfig: JSON.parse(res?.data?.actionConfig || '{}'),
-				type: res?.data?.actionType,
-			};
-		}
-	} finally {
-		editActionLoading.value = false;
-	}
+	actionConfigDialogRef.value?.open({
+		actionId: actionId,
+		triggerSourceId: question.id,
+		triggerType: TriggerTypeEnum.Questionnaire,
+	});
 };
 
 const removeAction = async (id, callback) => {
@@ -732,14 +720,6 @@ const removeAction = async (id, callback) => {
 	}
 };
 
-const onActionCancel = () => {
-	actionEditorVisible.value = false;
-	currentEditingQuestion.value = null;
-	actionInfo.value = null;
-	actionConfig.value = null;
-	actionType.value = 'question';
-};
-
 // 处理跳转规则保存
 const handleJumpRulesSave = (rules: JumpRule[]) => {
 	if (currentEditingIndex.value >= 0) {
@@ -747,6 +727,26 @@ const handleJumpRulesSave = (rules: JumpRule[]) => {
 		currentEditingQuestion.value = null;
 		currentEditingIndex.value = -1;
 	}
+};
+
+// 获取跳转规则菜单项的文本
+const getJumpRuleMenuText = (question: QuestionnaireSection) => {
+	// 检查是否有可用section（排除默认section）
+	const hasAvailableSections = props.sections.some((section) => !section.isDefault);
+
+	if (question.type === 'multiple_choice') {
+		// 单选题
+		if (!hasAvailableSections) {
+			// 情况1：没有section的时候，显示选择question
+			return 'Go to Question Based on Answer';
+		} else {
+			// 情况2：有section的时候，显示选择section或者question
+			return 'Go to Question or Section Based on Answer';
+		}
+	} else if (question.type === 'checkboxes') {
+		return 'Go to Section Based on Answer';
+	}
+	return 'Configure Navigation';
 };
 
 // 获取选项的跳转目标名称
@@ -757,6 +757,32 @@ const getJumpTargetName = (question: QuestionnaireSection, optionId: string) => 
 
 	const jumpRule = question.jumpRules.find((rule) => rule.optionId === optionId);
 	if (jumpRule) {
+		// 多选题（checkboxes）只显示section名称
+		if (question.type === 'checkboxes') {
+			return jumpRule.targetSectionName;
+		}
+
+		// 单选题（multiple_choice）：如果有targetQuestionId，显示问题编号；否则显示section名称（兼容旧数据）
+		if (jumpRule.targetQuestionId && jumpRule.targetQuestionName) {
+			// 查找目标问题所在的section和问题索引
+			const targetSection = props.sections.find(
+				(s) => s.temporaryId === jumpRule.targetSectionId
+			);
+			if (targetSection) {
+				const questionIndex = targetSection.questions.findIndex(
+					(q) => q.temporaryId === jumpRule.targetQuestionId
+				);
+				const sectionIndex = props.sections.findIndex(
+					(s) => s.temporaryId === jumpRule.targetSectionId
+				);
+				if (questionIndex !== -1 && sectionIndex !== -1) {
+					return `Question ${sectionIndex + 1}.${questionIndex + 1}`;
+				}
+			}
+			// 如果找不到索引，至少显示问题名称
+			return jumpRule.targetQuestionName;
+		}
+		// 兼容旧数据：只显示section名称
 		return jumpRule.targetSectionName;
 	}
 

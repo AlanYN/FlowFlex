@@ -74,10 +74,11 @@ namespace FlowFlex.Domain.Shared.Enums.OW
         StageSave = 47,
 
         /// <summary>
-        /// Onboarding status changed
+        /// Case status changed
+        /// Note: Enum name changed from OnboardingStatusChange to CaseStatusChange. Database migration may be needed for existing records.
         /// </summary>
-        [Description("Onboarding Status Change")]
-        OnboardingStatusChange = 11,
+        [Description("Case Status Change")]
+        CaseStatusChange = 11,
 
         /// <summary>
         /// Stage action execution
@@ -292,7 +293,71 @@ namespace FlowFlex.Domain.Shared.Enums.OW
         /// Action mapping updated
         /// </summary>
         [Description("Action Mapping Update")]
-        ActionMappingUpdate = 46
+        ActionMappingUpdate = 46,
+
+        // Onboarding Operations (CRUD)
+        /// <summary>
+        /// Case created
+        /// Note: Enum name changed from OnboardingCreate to CaseCreate. Database migration may be needed for existing records.
+        /// </summary>
+        [Description("Case Create")]
+        CaseCreate = 48,
+
+        /// <summary>
+        /// Case updated
+        /// Note: Enum name changed from OnboardingUpdate to CaseUpdate. Database migration may be needed for existing records.
+        /// </summary>
+        [Description("Case Update")]
+        CaseUpdate = 49,
+
+        /// <summary>
+        /// Case deleted
+        /// Note: Enum name changed from OnboardingDelete to CaseDelete. Database migration may be needed for existing records.
+        /// </summary>
+        [Description("Case Delete")]
+        CaseDelete = 50,
+
+        /// <summary>
+        /// Case started
+        /// Note: Enum name changed from OnboardingStart to CaseStart. Database migration may be needed for existing records.
+        /// </summary>
+        [Description("Case Start")]
+        CaseStart = 51,
+
+        /// <summary>
+        /// Case paused
+        /// Note: Enum name changed from OnboardingPause to CasePause. Database migration may be needed for existing records.
+        /// </summary>
+        [Description("Case Pause")]
+        CasePause = 52,
+
+        /// <summary>
+        /// Case resumed
+        /// Note: Enum name changed from OnboardingResume to CaseResume. Database migration may be needed for existing records.
+        /// </summary>
+        [Description("Case Resume")]
+        CaseResume = 53,
+
+        /// <summary>
+        /// Case aborted
+        /// Note: Enum name changed from OnboardingAbort to CaseAbort. Database migration may be needed for existing records.
+        /// </summary>
+        [Description("Case Abort")]
+        CaseAbort = 54,
+
+        /// <summary>
+        /// Case reactivated
+        /// Note: Enum name changed from OnboardingReactivate to CaseReactivate. Database migration may be needed for existing records.
+        /// </summary>
+        [Description("Case Reactivate")]
+        CaseReactivate = 55,
+
+        /// <summary>
+        /// Case force completed
+        /// Note: Enum name changed from OnboardingForceComplete to CaseForceComplete. Database migration may be needed for existing records.
+        /// </summary>
+        [Description("Case Force Complete")]
+        CaseForceComplete = 56
     }
 
     /// <summary>

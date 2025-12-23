@@ -97,6 +97,31 @@ namespace FlowFlex.Infrastructure.Data
             db.QueryFilter.AddTableFilter<FlowFlex.Domain.Entities.OW.Questionnaire>(entity =>
                 entity.AppCode == GetCurrentAppCode(httpContextAccessor));
 
+            // Integration module filters
+            // DynamicField filters
+            db.QueryFilter.AddTableFilter<FlowFlex.Domain.Entities.Integration.DynamicField>(entity =>
+                entity.TenantId == GetCurrentTenantId(httpContextAccessor));
+            db.QueryFilter.AddTableFilter<FlowFlex.Domain.Entities.Integration.DynamicField>(entity =>
+                entity.AppCode == GetCurrentAppCode(httpContextAccessor));
+
+            // Integration filters
+            db.QueryFilter.AddTableFilter<FlowFlex.Domain.Entities.Integration.Integration>(entity =>
+                entity.TenantId == GetCurrentTenantId(httpContextAccessor));
+            db.QueryFilter.AddTableFilter<FlowFlex.Domain.Entities.Integration.Integration>(entity =>
+                entity.AppCode == GetCurrentAppCode(httpContextAccessor));
+
+            // EntityMapping filters
+            db.QueryFilter.AddTableFilter<FlowFlex.Domain.Entities.Integration.EntityMapping>(entity =>
+                entity.TenantId == GetCurrentTenantId(httpContextAccessor));
+            db.QueryFilter.AddTableFilter<FlowFlex.Domain.Entities.Integration.EntityMapping>(entity =>
+                entity.AppCode == GetCurrentAppCode(httpContextAccessor));
+
+            // InboundFieldMapping filters
+            db.QueryFilter.AddTableFilter<FlowFlex.Domain.Entities.Integration.InboundFieldMapping>(entity =>
+                entity.TenantId == GetCurrentTenantId(httpContextAccessor));
+            db.QueryFilter.AddTableFilter<FlowFlex.Domain.Entities.Integration.InboundFieldMapping>(entity =>
+                entity.AppCode == GetCurrentAppCode(httpContextAccessor));
+
             Console.WriteLine($"[AppTenantFilter] Successfully configured {db.QueryFilter.GeFilterList?.Count ?? 0} filters");
         }
 

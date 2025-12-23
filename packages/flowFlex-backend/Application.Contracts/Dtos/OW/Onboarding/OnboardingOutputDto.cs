@@ -47,6 +47,16 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.Onboarding
         public string? LeadId { get; set; }
 
         /// <summary>
+        /// External System ID (unique identifier in external system for integration)
+        /// </summary>
+        public string? SystemId { get; set; }
+
+        /// <summary>
+        /// Integration ID (reference to the integration configuration)
+        /// </summary>
+        public long? IntegrationId { get; set; }
+
+        /// <summary>
         /// 客户/线索名称
         /// </summary>
         public string LeadName { get; set; }

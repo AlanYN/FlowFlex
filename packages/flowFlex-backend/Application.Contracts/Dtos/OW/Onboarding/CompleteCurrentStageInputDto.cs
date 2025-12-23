@@ -58,5 +58,11 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.Onboarding
         /// 是否阻止自动移动到下一阶段（用于系统动作，严格按照指定阶段完成）
         /// </summary>
         public bool PreventAutoMove { get; set; } = false;
+
+        /// <summary>
+        /// 是否发送邮件通知给下一阶段的负责人
+        /// 默认为 false，避免重复发送（由于可能有多个入口调用此方法）
+        /// </summary>
+        public bool SendEmailNotification { get; set; } = false;
     }
 }

@@ -894,7 +894,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
             // Add specific change details instead of just field names
             if (!string.IsNullOrEmpty(beforeData) && !string.IsNullOrEmpty(afterData) && changedFields?.Any() == true)
             {
-                var changeDetails = await GetChangeDetailsAsync(beforeData, afterData, changedFields);
+                var changeDetails = await GetChangeDetailsAsync(beforeData, afterData, changedFields, businessModule);
                 if (!string.IsNullOrEmpty(changeDetails))
                 {
                     description += $". {changeDetails}";
@@ -903,7 +903,399 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
             else if (changedFields?.Any() == true)
             {
                 // Fallback to field names if no before/after data
-                description += $". Changed fields: {string.Join(", ", changedFields)}";
+                // For Checklist module, only show Name, Description, and Team
+                var fieldsToShow = changedFields;
+                if (businessModule == BusinessModuleEnum.Checklist)
+                {
+                    fieldsToShow = changedFields.Where(f =>
+                        f.Equals("Name", StringComparison.OrdinalIgnoreCase) ||
+                        f.Equals("Description", StringComparison.OrdinalIgnoreCase) ||
+                        f.Equals("Team", StringComparison.OrdinalIgnoreCase)
+                    ).ToList();
+                }
+
+                if (fieldsToShow.Any())
+                {
+                    description += $". Changed fields: {string.Join(", ", fieldsToShow)}";
+                }
+            }
+            // For create operations, show important fields from afterData
+            else if (string.IsNullOrEmpty(beforeData) && !string.IsNullOrEmpty(afterData) &&
+                     operationAction.Equals("Created", StringComparison.OrdinalIgnoreCase))
+            {
+                try
+                {
+                    var afterJson = JsonSerializer.Deserialize<JsonElement>(afterData);
+                    var details = new List<string>();
+
+                    // Extract ViewPermissionMode and Teams for Stage (combine them together)
+                    if (businessModule == BusinessModuleEnum.Stage)
+                    {
+                        string viewPermissionMode = null;
+                        if (afterJson.TryGetProperty("ViewPermissionMode", out var viewPermissionModeElement) ||
+                            afterJson.TryGetProperty("viewPermissionMode", out viewPermissionModeElement))
+                        {
+                            viewPermissionMode = GetViewPermissionModeDisplayName(viewPermissionModeElement);
+                        }
+
+                        string viewTeamsSummary = null;
+                        if (afterJson.TryGetProperty("ViewTeams", out var viewTeamsElement) ||
+                            afterJson.TryGetProperty("viewTeams", out viewTeamsElement))
+                        {
+                            viewTeamsSummary = await GetTeamsSummaryAsync(viewTeamsElement);
+                        }
+
+                        string operateTeamsSummary = null;
+                        if (afterJson.TryGetProperty("OperateTeams", out var operateTeamsElement) ||
+                            afterJson.TryGetProperty("operateTeams", out operateTeamsElement))
+                        {
+                            operateTeamsSummary = await GetTeamsSummaryAsync(operateTeamsElement);
+                        }
+
+                        // Combine view permission mode and teams information
+                        var permissionInfo = new List<string>();
+                        if (!string.IsNullOrEmpty(viewPermissionMode))
+                        {
+                            var permissionParts = new List<string> { viewPermissionMode };
+
+                            if (!string.IsNullOrEmpty(viewTeamsSummary))
+                            {
+                                permissionParts.Add($"view teams: {viewTeamsSummary}");
+                            }
+
+                            if (!string.IsNullOrEmpty(operateTeamsSummary))
+                            {
+                                permissionParts.Add($"operate teams: {operateTeamsSummary}");
+                            }
+
+                            details.Add(string.Join("; ", permissionParts));
+                        }
+                        else
+                        {
+                            // If no view permission mode, still show teams if they exist
+                            if (!string.IsNullOrEmpty(viewTeamsSummary))
+                            {
+                                details.Add($"view teams: {viewTeamsSummary}");
+                            }
+                            if (!string.IsNullOrEmpty(operateTeamsSummary))
+                            {
+                                details.Add($"operate teams: {operateTeamsSummary}");
+                            }
+                        }
+
+                        // Extract UseSameTeamForOperate
+                        if (afterJson.TryGetProperty("UseSameTeamForOperate", out var useSameTeamElement) ||
+                            afterJson.TryGetProperty("useSameTeamForOperate", out useSameTeamElement))
+                        {
+                            var useSameTeam = useSameTeamElement.ValueKind == JsonValueKind.True;
+                            if (useSameTeam)
+                            {
+                                details.Add("use same team for operate: Yes");
+                            }
+                        }
+                    }
+                    else if (businessModule == BusinessModuleEnum.Workflow)
+                    {
+                        // Extract Description for Workflow (if not empty)
+                        if (afterJson.TryGetProperty("Description", out var descriptionElement) ||
+                            afterJson.TryGetProperty("description", out descriptionElement))
+                        {
+                            var workflowDescription = descriptionElement.GetString();
+                            if (!string.IsNullOrEmpty(workflowDescription) && workflowDescription.Length <= 100)
+                            {
+                                details.Add($"description: '{workflowDescription}'");
+                            }
+                        }
+
+                        // Extract Status for Workflow
+                        if (afterJson.TryGetProperty("Status", out var statusElement) ||
+                            afterJson.TryGetProperty("status", out statusElement))
+                        {
+                            var status = statusElement.GetString();
+                            if (!string.IsNullOrEmpty(status))
+                            {
+                                details.Add($"status: {status}");
+                            }
+                        }
+
+                        // Extract IsDefault for Workflow
+                        if (afterJson.TryGetProperty("IsDefault", out var isDefaultElement) ||
+                            afterJson.TryGetProperty("isDefault", out isDefaultElement))
+                        {
+                            var isDefault = isDefaultElement.ValueKind == JsonValueKind.True;
+                            details.Add($"set as default workflow: {(isDefault ? "Default" : "Not Default")}");
+                        }
+
+                        // Extract ViewPermissionMode and Teams for Workflow
+                        string viewPermissionMode = null;
+                        if (afterJson.TryGetProperty("ViewPermissionMode", out var viewPermissionModeElement) ||
+                            afterJson.TryGetProperty("viewPermissionMode", out viewPermissionModeElement))
+                        {
+                            viewPermissionMode = GetViewPermissionModeDisplayName(viewPermissionModeElement);
+                        }
+
+                        string viewTeamsSummary = null;
+                        if (afterJson.TryGetProperty("ViewTeams", out var viewTeamsElement) ||
+                            afterJson.TryGetProperty("viewTeams", out viewTeamsElement))
+                        {
+                            viewTeamsSummary = await GetTeamsSummaryAsync(viewTeamsElement);
+                        }
+
+                        string operateTeamsSummary = null;
+                        if (afterJson.TryGetProperty("OperateTeams", out var operateTeamsElement) ||
+                            afterJson.TryGetProperty("operateTeams", out operateTeamsElement))
+                        {
+                            operateTeamsSummary = await GetTeamsSummaryAsync(operateTeamsElement);
+                        }
+
+                        // Combine view permission mode and teams information
+                        var permissionInfo = new List<string>();
+                        if (!string.IsNullOrEmpty(viewPermissionMode))
+                        {
+                            var permissionParts = new List<string> { viewPermissionMode };
+
+                            if (!string.IsNullOrEmpty(viewTeamsSummary))
+                            {
+                                permissionParts.Add($"view teams: {viewTeamsSummary}");
+                            }
+
+                            if (!string.IsNullOrEmpty(operateTeamsSummary))
+                            {
+                                permissionParts.Add($"operate teams: {operateTeamsSummary}");
+                            }
+
+                            details.Add(string.Join("; ", permissionParts));
+                        }
+                        else
+                        {
+                            // If no view permission mode, still show teams if they exist
+                            if (!string.IsNullOrEmpty(viewTeamsSummary))
+                            {
+                                details.Add($"view teams: {viewTeamsSummary}");
+                            }
+                            if (!string.IsNullOrEmpty(operateTeamsSummary))
+                            {
+                                details.Add($"operate teams: {operateTeamsSummary}");
+                            }
+                        }
+
+                        // Extract UseSameTeamForOperate
+                        if (afterJson.TryGetProperty("UseSameTeamForOperate", out var useSameTeamElement) ||
+                            afterJson.TryGetProperty("useSameTeamForOperate", out useSameTeamElement))
+                        {
+                            var useSameTeam = useSameTeamElement.ValueKind == JsonValueKind.True;
+                            if (useSameTeam)
+                            {
+                                details.Add("use same team for operate: Yes");
+                            }
+                        }
+                    }
+                    else if (businessModule == BusinessModuleEnum.Checklist)
+                    {
+                        // Extract Description for Checklist (if not empty)
+                        if (afterJson.TryGetProperty("Description", out var descriptionElement) ||
+                            afterJson.TryGetProperty("description", out descriptionElement))
+                        {
+                            var checklistDescription = descriptionElement.GetString();
+                            if (!string.IsNullOrEmpty(checklistDescription) && checklistDescription.Length <= 100)
+                            {
+                                details.Add($"description: '{checklistDescription}'");
+                            }
+                        }
+
+                        // Extract Team for Checklist - try to get team name
+                        if (afterJson.TryGetProperty("Team", out var teamElement) ||
+                            afterJson.TryGetProperty("team", out teamElement))
+                        {
+                            string teamValue = null;
+                            if (teamElement.ValueKind == JsonValueKind.String)
+                            {
+                                teamValue = teamElement.GetString();
+                            }
+                            else if (teamElement.ValueKind == JsonValueKind.Number)
+                            {
+                                teamValue = teamElement.GetInt64().ToString();
+                            }
+
+                            if (!string.IsNullOrEmpty(teamValue))
+                            {
+                                // Try to get team name from UserService
+                                string teamDisplayName = teamValue;
+                                try
+                                {
+                                    if (_userService != null && !teamValue.Equals("Other", StringComparison.OrdinalIgnoreCase))
+                                    {
+                                        var tenantId = _userContext?.TenantId ?? "999";
+                                        var teamNameMap = await _userService.GetTeamNamesByIdsAsync(
+                                            new List<string> { teamValue }, tenantId);
+                                        if (teamNameMap != null && teamNameMap.TryGetValue(teamValue, out var teamName) &&
+                                            !string.IsNullOrEmpty(teamName))
+                                        {
+                                            teamDisplayName = teamName;
+                                        }
+                                    }
+                                    else if (teamValue.Equals("Other", StringComparison.OrdinalIgnoreCase))
+                                    {
+                                        teamDisplayName = "Other";
+                                    }
+                                }
+                                catch (Exception ex)
+                                {
+                                    _logger.LogDebug(ex, "Failed to get team name for team ID {TeamId}, using ID as fallback", teamValue);
+                                }
+
+                                details.Add($"team: {teamDisplayName}");
+                            }
+                        }
+                    }
+                    else if (businessModule == BusinessModuleEnum.Task)
+                    {
+                        // Extract Description for Task (if not empty)
+                        if (afterJson.TryGetProperty("Description", out var descriptionElement) ||
+                            afterJson.TryGetProperty("description", out descriptionElement))
+                        {
+                            var taskDescription = descriptionElement.GetString();
+                            if (!string.IsNullOrEmpty(taskDescription) && taskDescription.Length <= 100)
+                            {
+                                details.Add($"description: '{taskDescription}'");
+                            }
+                        }
+
+                        // Extract AssigneeName for Task
+                        if (afterJson.TryGetProperty("AssigneeName", out var assigneeNameElement) ||
+                            afterJson.TryGetProperty("assigneeName", out assigneeNameElement))
+                        {
+                            var assigneeName = assigneeNameElement.GetString();
+                            if (!string.IsNullOrEmpty(assigneeName))
+                            {
+                                details.Add($"assignee: {assigneeName}");
+                            }
+                        }
+                    }
+                    else if (businessModule == BusinessModuleEnum.Action)
+                    {
+                        // Extract Description for Action (if not empty)
+                        if (afterJson.TryGetProperty("Description", out var descriptionElement) ||
+                            afterJson.TryGetProperty("description", out descriptionElement))
+                        {
+                            var actionDescription = descriptionElement.GetString();
+                            if (!string.IsNullOrEmpty(actionDescription) && actionDescription.Length <= 100)
+                            {
+                                details.Add($"description: '{actionDescription}'");
+                            }
+                        }
+
+                        // Extract ActionType for Action
+                        if (afterJson.TryGetProperty("ActionType", out var actionTypeElement) ||
+                            afterJson.TryGetProperty("actionType", out actionTypeElement))
+                        {
+                            var actionType = actionTypeElement.GetString();
+                            if (!string.IsNullOrEmpty(actionType))
+                            {
+                                details.Add($"type: {actionType}");
+                            }
+                        }
+
+                        // Extract SourceCode for Python actions
+                        if (afterJson.TryGetProperty("SourceCode", out var sourceCodeElement) ||
+                            afterJson.TryGetProperty("sourceCode", out sourceCodeElement))
+                        {
+                            var sourceCode = sourceCodeElement.GetString();
+                            if (!string.IsNullOrEmpty(sourceCode))
+                            {
+                                // Clean up the code by replacing newlines with spaces and trimming
+                                var cleanedCode = sourceCode.Replace("\r\n", " ").Replace("\n", " ").Replace("  ", " ").Trim();
+
+                                // Limit the length to avoid overly long descriptions (keep reasonable length)
+                                if (cleanedCode.Length > 200)
+                                {
+                                    details.Add($"Python: {cleanedCode.Substring(0, 197)}...");
+                                }
+                                else
+                                {
+                                    details.Add($"Python: {cleanedCode}");
+                                }
+                            }
+                        }
+
+                        // Extract HttpUrl and HttpMethod for HttpApi actions
+                        string httpUrl = null;
+                        string httpMethod = null;
+
+                        if (afterJson.TryGetProperty("HttpUrl", out var httpUrlElement) ||
+                            afterJson.TryGetProperty("httpUrl", out httpUrlElement))
+                        {
+                            httpUrl = httpUrlElement.GetString();
+                        }
+
+                        if (afterJson.TryGetProperty("HttpMethod", out var httpMethodElement) ||
+                            afterJson.TryGetProperty("httpMethod", out httpMethodElement))
+                        {
+                            httpMethod = httpMethodElement.GetString();
+                        }
+
+                        if (!string.IsNullOrEmpty(httpUrl) || !string.IsNullOrEmpty(httpMethod))
+                        {
+                            var httpInfo = new List<string>();
+                            if (!string.IsNullOrEmpty(httpMethod))
+                            {
+                                httpInfo.Add(httpMethod.ToUpper());
+                            }
+                            if (!string.IsNullOrEmpty(httpUrl))
+                            {
+                                // Display full URL (no truncation)
+                                httpInfo.Add(httpUrl);
+                            }
+                            if (httpInfo.Any())
+                            {
+                                details.Add($"HttpApi: {string.Join(" ", httpInfo)}");
+                            }
+                        }
+                    }
+
+                    // Extract VisibleInPortal for Stage (Available in Customer Portal)
+                    if (businessModule == BusinessModuleEnum.Stage &&
+                        (afterJson.TryGetProperty("VisibleInPortal", out var visibleInPortalElement) ||
+                         afterJson.TryGetProperty("visibleInPortal", out visibleInPortalElement)))
+                    {
+                        var visibleInPortal = visibleInPortalElement.ValueKind == JsonValueKind.True;
+                        details.Add($"Available in Customer Portal: {(visibleInPortal ? "Yes" : "No")}");
+                    }
+
+                    // Extract DefaultAssignee for Stage
+                    if (businessModule == BusinessModuleEnum.Stage &&
+                        (afterJson.TryGetProperty("DefaultAssignee", out var defaultAssigneeElement) ||
+                         afterJson.TryGetProperty("defaultAssignee", out defaultAssigneeElement)))
+                    {
+                        var defaultAssigneeSummary = GetDefaultAssigneeSummary(defaultAssigneeElement);
+                        if (!string.IsNullOrEmpty(defaultAssigneeSummary))
+                        {
+                            details.Add($"default assignee: {defaultAssigneeSummary}");
+                        }
+                    }
+
+                    // Extract Components for Stage
+                    if (businessModule == BusinessModuleEnum.Stage &&
+                        (afterJson.TryGetProperty("Components", out var componentsElement) ||
+                         afterJson.TryGetProperty("components", out componentsElement)))
+                    {
+                        var componentsSummary = GetComponentsSummary(componentsElement);
+                        if (!string.IsNullOrEmpty(componentsSummary))
+                        {
+                            details.Add($"components: {componentsSummary}");
+                        }
+                    }
+
+                    if (details.Any())
+                    {
+                        description += $". {string.Join("; ", details)}";
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to extract creation details from afterData for {BusinessModule} {EntityName}",
+                        businessModule, entityName);
+                }
             }
 
             // Add related entity info without showing ID
@@ -914,8 +1306,9 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
 
             if (!string.IsNullOrEmpty(reason))
             {
-                // Skip reason display for ChecklistTask delete operations to avoid redundant information
-                if (!(businessModule == BusinessModuleEnum.Task && operationAction.ToLower() == "deleted"))
+                // Skip reason display for ChecklistTask and Stage delete operations to avoid redundant information
+                if (!(businessModule == BusinessModuleEnum.Task && operationAction.ToLower() == "deleted") &&
+                    !(businessModule == BusinessModuleEnum.Stage && operationAction.ToLower() == "deleted"))
                 {
                     description += $" with reason: {reason}";
                 }
@@ -927,7 +1320,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
         /// <summary>
         /// Get specific change details from before and after data (async version)
         /// </summary>
-        protected virtual async Task<string> GetChangeDetailsAsync(string beforeData, string afterData, List<string> changedFields)
+        protected virtual async Task<string> GetChangeDetailsAsync(string beforeData, string afterData, List<string> changedFields, BusinessModuleEnum? businessModule = null)
         {
             try
             {
@@ -936,7 +1329,26 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
 
                 var changeList = new List<string>();
 
-                foreach (var field in changedFields.Take(3)) // Limit to first 3 changes to avoid overly long descriptions
+                // For Checklist module, only show Name, Description, and Team changes
+                // For Workflow module, filter out IsActive field
+                var fieldsToProcess = changedFields;
+                if (businessModule == BusinessModuleEnum.Checklist)
+                {
+                    fieldsToProcess = changedFields.Where(f =>
+                        f.Equals("Name", StringComparison.OrdinalIgnoreCase) ||
+                        f.Equals("Description", StringComparison.OrdinalIgnoreCase) ||
+                        f.Equals("Team", StringComparison.OrdinalIgnoreCase)
+                    ).ToList();
+                }
+                else if (businessModule == BusinessModuleEnum.Workflow)
+                {
+                    // Filter out IsActive field for Workflow
+                    fieldsToProcess = changedFields.Where(f =>
+                        !f.Equals("IsActive", StringComparison.OrdinalIgnoreCase)
+                    ).ToList();
+                }
+
+                foreach (var field in fieldsToProcess)
                 {
                     if (beforeJson.TryGetValue(field, out var beforeValue) &&
                         afterJson.TryGetValue(field, out var afterValue))
@@ -962,10 +1374,25 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                             var beforeJsonStr = beforeValue?.ToString() ?? string.Empty;
                             var afterJsonStr = afterValue?.ToString() ?? string.Empty;
 
-                            if (IsJsonString(beforeJsonStr) && IsJsonString(afterJsonStr))
+                            // Handle ComponentsJson: allow null/empty beforeJson (components added) or afterJson (components removed)
+                            // Also handle when both are valid JSON strings
+                            if (string.IsNullOrEmpty(beforeJsonStr) || beforeJsonStr == "null" || IsJsonString(beforeJsonStr))
                             {
-                                var componentsChange = GetComponentsChangeDetails(beforeJsonStr, afterJsonStr);
-                                changeList.Add(componentsChange);
+                                if (string.IsNullOrEmpty(afterJsonStr) || afterJsonStr == "null" || IsJsonString(afterJsonStr))
+                                {
+                                    var componentsChange = GetComponentsChangeDetails(beforeJsonStr, afterJsonStr);
+                                    changeList.Add(componentsChange);
+                                }
+                                else
+                                {
+                                    var afterStr = GetDisplayValue(afterValue, field);
+                                    changeList.Add($"components from null to '{afterStr}'");
+                                }
+                            }
+                            else if (string.IsNullOrEmpty(afterJsonStr) || afterJsonStr == "null" || IsJsonString(afterJsonStr))
+                            {
+                                var beforeStr = GetDisplayValue(beforeValue, field);
+                                changeList.Add($"components from '{beforeStr}' to null");
                             }
                             else
                             {
@@ -994,9 +1421,15 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                         }
                         else if (field.Equals("ViewPermissionMode", StringComparison.OrdinalIgnoreCase))
                         {
-                            var beforeStr = beforeValue?.ToString() ?? "Public";
-                            var afterStr = afterValue?.ToString() ?? "Public";
+                            var beforeStr = GetViewPermissionModeDisplayName(beforeValue);
+                            var afterStr = GetViewPermissionModeDisplayName(afterValue);
                             changeList.Add($"view permission mode from {beforeStr} to {afterStr}");
+                        }
+                        else if (field.Equals("VisibleInPortal", StringComparison.OrdinalIgnoreCase))
+                        {
+                            var beforeStr = GetBooleanDisplayValue(beforeValue, "Yes", "No");
+                            var afterStr = GetBooleanDisplayValue(afterValue, "Yes", "No");
+                            changeList.Add($"Available in Customer Portal from {beforeStr} to {afterStr}");
                         }
                         else if (field.Equals("ViewTeams", StringComparison.OrdinalIgnoreCase))
                         {
@@ -1019,6 +1452,139 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                             {
                                 changeList.Add(teamChanges);
                             }
+                        }
+                        else if (field.Equals("Team", StringComparison.OrdinalIgnoreCase) && businessModule == BusinessModuleEnum.Checklist)
+                        {
+                            // For Checklist Team field, try to get team names instead of IDs
+                            string beforeTeamDisplay = GetDisplayValue(beforeValue, field);
+                            string afterTeamDisplay = GetDisplayValue(afterValue, field);
+
+                            try
+                            {
+                                if (_userService != null)
+                                {
+                                    var tenantId = _userContext?.TenantId ?? "999";
+                                    var teamIds = new List<string>();
+
+                                    // Get before team ID
+                                    string beforeTeamId = null;
+                                    if (beforeValue != null)
+                                    {
+                                        beforeTeamId = beforeValue.ToString();
+                                        if (!string.IsNullOrEmpty(beforeTeamId) && !beforeTeamId.Equals("Other", StringComparison.OrdinalIgnoreCase))
+                                        {
+                                            teamIds.Add(beforeTeamId);
+                                        }
+                                    }
+
+                                    // Get after team ID
+                                    string afterTeamId = null;
+                                    if (afterValue != null)
+                                    {
+                                        afterTeamId = afterValue.ToString();
+                                        if (!string.IsNullOrEmpty(afterTeamId) && !afterTeamId.Equals("Other", StringComparison.OrdinalIgnoreCase) &&
+                                            !teamIds.Contains(afterTeamId))
+                                        {
+                                            teamIds.Add(afterTeamId);
+                                        }
+                                    }
+
+                                    // Fetch team names if we have IDs to look up
+                                    if (teamIds.Any())
+                                    {
+                                        var teamNameMap = await _userService.GetTeamNamesByIdsAsync(teamIds, tenantId);
+
+                                        if (beforeTeamId != null)
+                                        {
+                                            if (beforeTeamId.Equals("Other", StringComparison.OrdinalIgnoreCase))
+                                            {
+                                                beforeTeamDisplay = "Other";
+                                            }
+                                            else if (teamNameMap != null && teamNameMap.TryGetValue(beforeTeamId, out var beforeTeamName) &&
+                                                     !string.IsNullOrEmpty(beforeTeamName))
+                                            {
+                                                beforeTeamDisplay = beforeTeamName;
+                                            }
+                                        }
+
+                                        if (afterTeamId != null)
+                                        {
+                                            if (afterTeamId.Equals("Other", StringComparison.OrdinalIgnoreCase))
+                                            {
+                                                afterTeamDisplay = "Other";
+                                            }
+                                            else if (teamNameMap != null && teamNameMap.TryGetValue(afterTeamId, out var afterTeamName) &&
+                                                     !string.IsNullOrEmpty(afterTeamName))
+                                            {
+                                                afterTeamDisplay = afterTeamName;
+                                            }
+                                        }
+                                    }
+                                    else
+                                    {
+                                        // Handle "Other" case
+                                        if (beforeTeamId != null && beforeTeamId.Equals("Other", StringComparison.OrdinalIgnoreCase))
+                                        {
+                                            beforeTeamDisplay = "Other";
+                                        }
+                                        if (afterTeamId != null && afterTeamId.Equals("Other", StringComparison.OrdinalIgnoreCase))
+                                        {
+                                            afterTeamDisplay = "Other";
+                                        }
+                                    }
+                                }
+                            }
+                            catch (Exception ex)
+                            {
+                                _logger.LogDebug(ex, "Failed to get team names for Team field change, using IDs as fallback");
+                            }
+
+                            changeList.Add($"{field} from '{beforeTeamDisplay}' to '{afterTeamDisplay}'");
+                        }
+                        else if (field.Equals("IsDefault", StringComparison.OrdinalIgnoreCase) && businessModule == BusinessModuleEnum.Workflow)
+                        {
+                            // For Workflow IsDefault field, show "Default" or "Not Default"
+                            var beforeStr = GetBooleanDisplayValue(beforeValue, "Default", "Not Default");
+                            var afterStr = GetBooleanDisplayValue(afterValue, "Default", "Not Default");
+                            changeList.Add($"Set as default workflow from {beforeStr} to {afterStr}");
+                        }
+                        else if (field.Equals("SourceCode", StringComparison.OrdinalIgnoreCase) && businessModule == BusinessModuleEnum.Action)
+                        {
+                            // For Action SourceCode field (Python), show cleaned code
+                            var beforeCode = beforeValue?.ToString() ?? string.Empty;
+                            var afterCode = afterValue?.ToString() ?? string.Empty;
+
+                            if (!string.IsNullOrEmpty(beforeCode))
+                            {
+                                beforeCode = beforeCode.Replace("\r\n", " ").Replace("\n", " ").Replace("  ", " ").Trim();
+                                if (beforeCode.Length > 100) beforeCode = beforeCode.Substring(0, 97) + "...";
+                            }
+                            if (!string.IsNullOrEmpty(afterCode))
+                            {
+                                afterCode = afterCode.Replace("\r\n", " ").Replace("\n", " ").Replace("  ", " ").Trim();
+                                if (afterCode.Length > 100) afterCode = afterCode.Substring(0, 97) + "...";
+                            }
+
+                            changeList.Add($"Python code from '{beforeCode}' to '{afterCode}'");
+                        }
+                        else if (field.Equals("HttpUrl", StringComparison.OrdinalIgnoreCase) && businessModule == BusinessModuleEnum.Action)
+                        {
+                            // For Action HttpUrl field, show URL changes (display full URL)
+                            var beforeUrl = beforeValue?.ToString() ?? string.Empty;
+                            var afterUrl = afterValue?.ToString() ?? string.Empty;
+
+                            changeList.Add($"HttpApi URL from '{beforeUrl}' to '{afterUrl}'");
+                        }
+                        else if (field.Equals("HttpMethod", StringComparison.OrdinalIgnoreCase) && businessModule == BusinessModuleEnum.Action)
+                        {
+                            // For Action HttpMethod field, show method changes
+                            var beforeMethod = beforeValue?.ToString() ?? string.Empty;
+                            var afterMethod = afterValue?.ToString() ?? string.Empty;
+
+                            if (!string.IsNullOrEmpty(beforeMethod)) beforeMethod = beforeMethod.ToUpper();
+                            if (!string.IsNullOrEmpty(afterMethod)) afterMethod = afterMethod.ToUpper();
+
+                            changeList.Add($"HttpApi method from '{beforeMethod}' to '{afterMethod}'");
                         }
                         else if (field.Equals("AssigneeId", StringComparison.OrdinalIgnoreCase))
                         {
@@ -1044,10 +1610,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                 if (changeList.Any())
                 {
                     var result = $"Changes: {string.Join(", ", changeList)}";
-                    if (changedFields.Count > 3)
-                    {
-                        result += $" and {changedFields.Count - 3} more fields";
-                    }
+                    // Don't show "and X more fields" - show all changes
                     return result;
                 }
             }
@@ -1093,6 +1656,129 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
             }
 
             return str;
+        }
+
+        /// <summary>
+        /// Get display name for ViewPermissionMode enum value
+        /// </summary>
+        protected virtual string GetViewPermissionModeDisplayName(object value)
+        {
+            if (value == null)
+                return "Public";
+
+            try
+            {
+                int intValue = 0;
+
+                // Handle JsonElement type (from JSON deserialization)
+                if (value is JsonElement jsonElement)
+                {
+                    if (jsonElement.ValueKind == JsonValueKind.Number)
+                    {
+                        intValue = jsonElement.GetInt32();
+                    }
+                    else if (jsonElement.ValueKind == JsonValueKind.String)
+                    {
+                        if (!int.TryParse(jsonElement.GetString(), out intValue))
+                        {
+                            // Try to parse as enum name
+                            if (Enum.TryParse<ViewPermissionModeEnum>(jsonElement.GetString(), true, out var parsedEnum))
+                            {
+                                return parsedEnum.ToString();
+                            }
+                            return jsonElement.GetString();
+                        }
+                    }
+                    else
+                    {
+                        // For other JsonValueKind types, try to parse as string
+                        if (!int.TryParse(jsonElement.ToString(), out intValue))
+                        {
+                            if (Enum.TryParse<ViewPermissionModeEnum>(jsonElement.ToString(), true, out var parsedEnum))
+                            {
+                                return parsedEnum.ToString();
+                            }
+                            return jsonElement.ToString();
+                        }
+                    }
+                }
+                else
+                {
+                    // Try to parse as integer first
+                    if (!int.TryParse(value.ToString(), out intValue))
+                    {
+                        // Try to parse as enum directly
+                        if (Enum.TryParse<ViewPermissionModeEnum>(value.ToString(), true, out var parsedEnum))
+                        {
+                            return parsedEnum.ToString();
+                        }
+                        // Fallback to original value if parsing fails
+                        return value.ToString();
+                    }
+                }
+
+                // Check if the value is a valid enum value
+                if (Enum.IsDefined(typeof(ViewPermissionModeEnum), intValue))
+                {
+                    var enumValue = (ViewPermissionModeEnum)intValue;
+                    return enumValue.ToString();
+                }
+
+                // Fallback to original value if enum value is not defined
+                return value.ToString();
+            }
+            catch
+            {
+                // Fallback to original value if any error occurs
+                return value.ToString();
+            }
+        }
+
+        /// <summary>
+        /// Get display value for boolean with custom true/false labels
+        /// </summary>
+        protected virtual string GetBooleanDisplayValue(object value, string trueLabel = "Yes", string falseLabel = "No")
+        {
+            if (value == null)
+                return falseLabel;
+
+            try
+            {
+                // Try to parse as boolean
+                if (bool.TryParse(value.ToString(), out bool boolValue))
+                {
+                    return boolValue ? trueLabel : falseLabel;
+                }
+
+                // Try to parse as integer (0 = false, 1 = true)
+                if (int.TryParse(value.ToString(), out int intValue))
+                {
+                    return intValue != 0 ? trueLabel : falseLabel;
+                }
+
+                // Try to parse as string (case-insensitive)
+                var str = value.ToString().Trim();
+                if (str.Equals("true", StringComparison.OrdinalIgnoreCase) ||
+                    str.Equals("1", StringComparison.OrdinalIgnoreCase) ||
+                    str.Equals("yes", StringComparison.OrdinalIgnoreCase))
+                {
+                    return trueLabel;
+                }
+                if (str.Equals("false", StringComparison.OrdinalIgnoreCase) ||
+                    str.Equals("0", StringComparison.OrdinalIgnoreCase) ||
+                    str.Equals("no", StringComparison.OrdinalIgnoreCase))
+                {
+                    return falseLabel;
+                }
+
+                // Fallback to original value if parsing fails
+                return value.ToString();
+            }
+            catch
+            {
+                // Fallback to original value if any error occurs
+                return value.ToString();
+            }
         }
 
         /// <summary>
@@ -1160,41 +1846,58 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                     var sectionNames = sections
                         .Where(s => s.TryGetProperty("name", out var nameElement))
                         .Select(s => s.GetProperty("name").GetString())
-                        .Where(name => !string.IsNullOrEmpty(name))
-                        .Take(3)
+                        .Where(name => !string.IsNullOrEmpty(name) &&
+                                      !name.Equals("Untitled Section", StringComparison.OrdinalIgnoreCase))
                         .ToList();
 
-                    // Count total questions across all sections
-                    var totalQuestions = sections
-                        .Where(s => s.TryGetProperty("questions", out var questionsElement) && questionsElement.ValueKind == JsonValueKind.Array)
-                        .Sum(s => s.GetProperty("questions").EnumerateArray().Count());
+                    // Get detailed questions information
+                    var afterQuestions = GetAllQuestionsDetailed(sections);
+                    var totalQuestions = afterQuestions.Count;
 
+                    var changes = new List<string>();
+
+                    // Section count and names with descriptions (only show if there are named sections other than default)
                     if (sectionNames.Any())
                     {
-                        var summary = $"{sections.Count} sections";
-                        if (sectionNames.Count <= 3)
+                        var sectionDetails = new List<string>();
+                        foreach (var sectionName in sectionNames)
                         {
-                            summary += $": {string.Join(", ", sectionNames.Select(n => $"'{n}'"))}";
-                        }
-                        else
-                        {
-                            summary += $": '{sectionNames[0]}', '{sectionNames[1]}', '{sectionNames[2]}' and {sections.Count - 3} more";
-                        }
+                            var section = sections.FirstOrDefault(s =>
+                                s.TryGetProperty("name", out var nameElem) &&
+                                nameElem.GetString() == sectionName);
 
-                        if (totalQuestions > 0)
-                        {
-                            summary += $" ({totalQuestions} questions)";
+                            var sectionDetail = $"'{sectionName}'";
+                            if (section.ValueKind != JsonValueKind.Undefined && section.TryGetProperty("description", out var descElem))
+                            {
+                                var desc = descElem.GetString();
+                                if (!string.IsNullOrWhiteSpace(desc))
+                                {
+                                    sectionDetail += $" (description: '{desc}')";
+                                }
+                            }
+                            sectionDetails.Add(sectionDetail);
                         }
-
-                        return summary;
+                        changes.Add($"sections: {string.Join(", ", sectionDetails)}");
                     }
+                    // Don't show section count if only default sections exist
 
-                    var result = $"{sections.Count} sections";
+                    // Question count
                     if (totalQuestions > 0)
                     {
-                        result += $" ({totalQuestions} questions)";
+                        changes.Add($"questions: {totalQuestions}");
                     }
-                    return result;
+
+                    // Show detailed question information (similar to update)
+                    if (afterQuestions.Any())
+                    {
+                        var questionDetails = afterQuestions.Select(q => GetFormattedQuestionInfo(q)).Where(t => !string.IsNullOrEmpty(t)).ToList();
+                        if (questionDetails.Any())
+                        {
+                            changes.Add($"added questions: {string.Join("; ", questionDetails)}");
+                        }
+                    }
+
+                    return string.Join("; ", changes);
                 }
 
                 return "[Structure data]";
@@ -1232,31 +1935,116 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                         changes.Add($"sections changed from {beforeSectionsList.Count} to {afterSectionsList.Count}");
                     }
 
-                    // Section name changes
+                    // Section name changes (skip default "Untitled Section")
                     var beforeSectionNames = beforeSectionsList
                         .Where(s => s.TryGetProperty("name", out var _))
                         .Select(s => s.GetProperty("name").GetString())
-                        .Where(name => !string.IsNullOrEmpty(name))
+                        .Where(name => !string.IsNullOrEmpty(name) &&
+                                      !name.Equals("Untitled Section", StringComparison.OrdinalIgnoreCase))
                         .ToList();
 
                     var afterSectionNames = afterSectionsList
                         .Where(s => s.TryGetProperty("name", out var _))
                         .Select(s => s.GetProperty("name").GetString())
-                        .Where(name => !string.IsNullOrEmpty(name))
+                        .Where(name => !string.IsNullOrEmpty(name) &&
+                                      !name.Equals("Untitled Section", StringComparison.OrdinalIgnoreCase))
                         .ToList();
 
-                    // Find added sections
-                    var addedSections = afterSectionNames.Except(beforeSectionNames).Take(2).ToList();
+                    // Find added sections with descriptions
+                    var addedSections = afterSectionNames.Except(beforeSectionNames).ToList();
                     if (addedSections.Any())
                     {
-                        changes.Add($"added sections: {string.Join(", ", addedSections.Select(n => $"'{n}'"))}");
+                        var addedSectionDetails = new List<string>();
+                        foreach (var sectionName in addedSections)
+                        {
+                            var section = afterSectionsList.FirstOrDefault(s =>
+                                s.TryGetProperty("name", out var nameElem) &&
+                                nameElem.GetString() == sectionName);
+
+                            var sectionDetail = $"'{sectionName}'";
+                            if (section.ValueKind != JsonValueKind.Undefined && section.TryGetProperty("description", out var descElem))
+                            {
+                                var desc = descElem.GetString();
+                                if (!string.IsNullOrWhiteSpace(desc))
+                                {
+                                    sectionDetail += $" (description: '{desc}')";
+                                }
+                            }
+                            addedSectionDetails.Add(sectionDetail);
+                        }
+                        changes.Add($"added sections: {string.Join(", ", addedSectionDetails)}");
                     }
 
-                    // Find removed sections
-                    var removedSections = beforeSectionNames.Except(afterSectionNames).Take(2).ToList();
+                    // Find removed sections with descriptions
+                    var removedSections = beforeSectionNames.Except(afterSectionNames).ToList();
                     if (removedSections.Any())
                     {
-                        changes.Add($"removed sections: {string.Join(", ", removedSections.Select(n => $"'{n}'"))}");
+                        var removedSectionDetails = new List<string>();
+                        foreach (var sectionName in removedSections)
+                        {
+                            var section = beforeSectionsList.FirstOrDefault(s =>
+                                s.TryGetProperty("name", out var nameElem) &&
+                                nameElem.GetString() == sectionName);
+
+                            var sectionDetail = $"'{sectionName}'";
+                            if (section.ValueKind != JsonValueKind.Undefined && section.TryGetProperty("description", out var descElem))
+                            {
+                                var desc = descElem.GetString();
+                                if (!string.IsNullOrWhiteSpace(desc))
+                                {
+                                    sectionDetail += $" (description: '{desc}')";
+                                }
+                            }
+                            removedSectionDetails.Add(sectionDetail);
+                        }
+                        changes.Add($"removed sections: {string.Join(", ", removedSectionDetails)}");
+                    }
+
+                    // Check section description changes for existing sections
+                    var commonSectionNames = beforeSectionNames.Intersect(afterSectionNames).ToList();
+                    foreach (var sectionName in commonSectionNames)
+                    {
+                        var beforeSection = beforeSectionsList.FirstOrDefault(s =>
+                            s.TryGetProperty("name", out var nameElem) &&
+                            nameElem.GetString() == sectionName);
+                        var afterSection = afterSectionsList.FirstOrDefault(s =>
+                            s.TryGetProperty("name", out var nameElem) &&
+                            nameElem.GetString() == sectionName);
+
+                        if (beforeSection.ValueKind != JsonValueKind.Undefined && afterSection.ValueKind != JsonValueKind.Undefined)
+                        {
+                            string beforeDesc = null;
+                            string afterDesc = null;
+
+                            if (beforeSection.TryGetProperty("description", out var beforeDescElem))
+                            {
+                                beforeDesc = beforeDescElem.GetString();
+                            }
+
+                            if (afterSection.TryGetProperty("description", out var afterDescElem))
+                            {
+                                afterDesc = afterDescElem.GetString();
+                            }
+
+                            var beforeIsEmpty = string.IsNullOrWhiteSpace(beforeDesc);
+                            var afterIsEmpty = string.IsNullOrWhiteSpace(afterDesc);
+
+                            if (beforeDesc != afterDesc && !(beforeIsEmpty && afterIsEmpty))
+                            {
+                                if (beforeIsEmpty)
+                                {
+                                    changes.Add($"section '{sectionName}' description added: '{afterDesc}'");
+                                }
+                                else if (afterIsEmpty)
+                                {
+                                    changes.Add($"section '{sectionName}' description removed: '{beforeDesc}'");
+                                }
+                                else
+                                {
+                                    changes.Add($"section '{sectionName}' description changed: '{beforeDesc}' → '{afterDesc}'");
+                                }
+                            }
+                        }
                     }
 
                     // Compare questions with detailed analysis
@@ -1274,19 +2062,28 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                     // Get detailed question changes
                     var questionChanges = GetDetailedQuestionChanges(beforeQuestions, afterQuestions);
                     changes.AddRange(questionChanges);
+
+                    // Check for question order changes within sections
+                    var orderChanges = DetectQuestionOrderChanges(beforeSectionsList, afterSectionsList);
+                    if (orderChanges.Any())
+                    {
+                        changes.AddRange(orderChanges);
+                    }
                 }
 
                 if (changes.Any())
                 {
                     // Format the structure changes in a more readable way
-                    var formattedChanges = changes.Take(5).ToList();
-                    if (formattedChanges.Count == 1)
+                    // Show all changes, but limit individual change descriptions if needed
+                    if (changes.Count == 1)
                     {
-                        return $"Structure modified: {formattedChanges[0]}";
+                        return $"Structure modified: {changes[0]}";
                     }
                     else
                     {
-                        return $"Structure modified: {string.Join("; ", formattedChanges)}";
+                        // Join all changes - show everything
+                        var allChanges = string.Join("; ", changes);
+                        return $"Structure modified: {allChanges}";
                     }
                 }
 
@@ -1300,14 +2097,238 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
         }
 
         /// <summary>
+        /// Detect question order changes within sections
+        /// </summary>
+        protected virtual List<string> DetectQuestionOrderChanges(List<JsonElement> beforeSections, List<JsonElement> afterSections)
+        {
+            var changes = new List<string>();
+
+            try
+            {
+                // Create a dictionary to map section IDs to sections
+                var beforeSectionDict = new Dictionary<string, JsonElement>();
+                var afterSectionDict = new Dictionary<string, JsonElement>();
+
+                foreach (var section in beforeSections)
+                {
+                    if (section.TryGetProperty("id", out var sectionId))
+                    {
+                        var id = sectionId.GetString();
+                        if (!string.IsNullOrEmpty(id))
+                        {
+                            beforeSectionDict[id] = section;
+                        }
+                    }
+                }
+
+                foreach (var section in afterSections)
+                {
+                    if (section.TryGetProperty("id", out var sectionId))
+                    {
+                        var id = sectionId.GetString();
+                        if (!string.IsNullOrEmpty(id))
+                        {
+                            afterSectionDict[id] = section;
+                        }
+                    }
+                }
+
+                // Compare questions order within each section
+                foreach (var sectionId in beforeSectionDict.Keys.Intersect(afterSectionDict.Keys))
+                {
+                    var beforeSection = beforeSectionDict[sectionId];
+                    var afterSection = afterSectionDict[sectionId];
+
+                    // Get section name for display
+                    string sectionName = "Unknown Section";
+                    if (afterSection.TryGetProperty("name", out var nameElement))
+                    {
+                        sectionName = nameElement.GetString() ?? sectionName;
+                    }
+
+                    // Extract question IDs in order
+                    var beforeQuestionIds = ExtractQuestionIdsInOrder(beforeSection);
+                    var afterQuestionIds = ExtractQuestionIdsInOrder(afterSection);
+
+                    // Check if order changed (only if questions are the same)
+                    if (beforeQuestionIds.Count == afterQuestionIds.Count &&
+                        beforeQuestionIds.SequenceEqual(afterQuestionIds) == false)
+                    {
+                        // Find which questions changed position
+                        var movedQuestions = new List<string>();
+                        for (int i = 0; i < beforeQuestionIds.Count; i++)
+                        {
+                            var beforeId = beforeQuestionIds[i];
+                            var afterIndex = afterQuestionIds.IndexOf(beforeId);
+
+                            if (afterIndex != i && afterIndex >= 0)
+                            {
+                                // Question moved from position i to afterIndex
+                                var questionTitle = GetQuestionTitleById(afterSection, beforeId);
+                                if (!string.IsNullOrEmpty(questionTitle))
+                                {
+                                    movedQuestions.Add($"'{questionTitle}'");
+                                }
+                            }
+                        }
+
+                        if (movedQuestions.Any())
+                        {
+                            if (movedQuestions.Count == 1)
+                            {
+                                changes.Add($"question order changed in '{sectionName}': {movedQuestions[0]} repositioned");
+                            }
+                            else
+                            {
+                                changes.Add($"question order changed in '{sectionName}': {string.Join(", ", movedQuestions)} repositioned");
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to detect question order changes");
+            }
+
+            return changes;
+        }
+
+        /// <summary>
+        /// Extract question IDs in order from a section
+        /// </summary>
+        protected virtual List<string> ExtractQuestionIdsInOrder(JsonElement section)
+        {
+            var questionIds = new List<string>();
+
+            // Check both 'questions' and 'items' arrays
+            var questionArrays = new List<(JsonElement array, bool isQuestions)>();
+
+            if (section.TryGetProperty("questions", out var questionsElem) &&
+                questionsElem.ValueKind == JsonValueKind.Array)
+            {
+                questionArrays.Add((questionsElem, true));
+            }
+
+            if (section.TryGetProperty("items", out var itemsElem) &&
+                itemsElem.ValueKind == JsonValueKind.Array)
+            {
+                questionArrays.Add((itemsElem, false));
+            }
+
+            // Process arrays in priority order (questions first, then items)
+            foreach (var (questionArray, _) in questionArrays.OrderBy(x => x.isQuestions ? 0 : 1))
+            {
+                foreach (var question in questionArray.EnumerateArray())
+                {
+                    if (question.TryGetProperty("id", out var idElement))
+                    {
+                        var id = idElement.GetString();
+                        if (!string.IsNullOrEmpty(id))
+                        {
+                            questionIds.Add(id);
+                        }
+                    }
+                    else if (question.TryGetProperty("title", out var titleElement))
+                    {
+                        // Use title as fallback identifier
+                        var title = titleElement.GetString();
+                        if (!string.IsNullOrEmpty(title))
+                        {
+                            questionIds.Add($"title:{title}");
+                        }
+                    }
+                }
+            }
+
+            return questionIds;
+        }
+
+        /// <summary>
+        /// Get question title by ID from a section
+        /// </summary>
+        protected virtual string GetQuestionTitleById(JsonElement section, string questionId)
+        {
+            var questionArrays = new List<JsonElement>();
+
+            if (section.TryGetProperty("questions", out var questionsElement) &&
+                questionsElement.ValueKind == JsonValueKind.Array)
+            {
+                questionArrays.Add(questionsElement);
+            }
+
+            if (section.TryGetProperty("items", out var itemsElement) &&
+                itemsElement.ValueKind == JsonValueKind.Array)
+            {
+                questionArrays.Add(itemsElement);
+            }
+
+            foreach (var questionArray in questionArrays)
+            {
+                foreach (var question in questionArray.EnumerateArray())
+                {
+                    string currentId = null;
+                    if (question.TryGetProperty("id", out var idElement))
+                    {
+                        currentId = idElement.GetString();
+                    }
+
+                    if (currentId == questionId)
+                    {
+                        // Found the question, get its title
+                        if (question.TryGetProperty("title", out var titleElement))
+                        {
+                            return titleElement.GetString();
+                        }
+                        if (question.TryGetProperty("question", out var questionElement))
+                        {
+                            return questionElement.GetString();
+                        }
+                        return $"Question {questionId}";
+                    }
+                }
+            }
+
+            return null;
+        }
+
+        /// <summary>
         /// Get detailed components changes for ComponentsJson field
         /// </summary>
         protected virtual string GetComponentsChangeDetails(string beforeJson, string afterJson)
         {
             try
             {
-                var beforeComponents = JsonSerializer.Deserialize<JsonElement>(beforeJson);
-                var afterComponents = JsonSerializer.Deserialize<JsonElement>(afterJson);
+                // Handle null or empty beforeJson (components added)
+                if (string.IsNullOrEmpty(beforeJson) || beforeJson == "null")
+                {
+                    if (!string.IsNullOrEmpty(afterJson) && afterJson != "null")
+                    {
+                        // Components were added - show detailed summary
+                        var normalizedAfterJsonForAdded = NormalizeJsonString(afterJson);
+                        var afterComponentsForAdded = JsonSerializer.Deserialize<JsonElement>(normalizedAfterJsonForAdded);
+                        var summary = GetComponentsSummary(afterComponentsForAdded);
+                        if (!string.IsNullOrEmpty(summary))
+                        {
+                            return $"components added: {summary}";
+                        }
+                        return "components added";
+                    }
+                    return "Components modified";
+                }
+
+                // Handle null or empty afterJson (components removed)
+                if (string.IsNullOrEmpty(afterJson) || afterJson == "null")
+                {
+                    return "components removed";
+                }
+
+                // Normalize JSON strings (handle double-encoded JSON)
+                var normalizedBeforeJson = NormalizeJsonString(beforeJson);
+                var normalizedAfterJson = NormalizeJsonString(afterJson);
+
+                var beforeComponents = JsonSerializer.Deserialize<JsonElement>(normalizedBeforeJson);
+                var afterComponents = JsonSerializer.Deserialize<JsonElement>(normalizedAfterJson);
 
                 var changes = new List<string>();
 
@@ -1316,60 +2337,493 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                     var beforeArray = beforeComponents.EnumerateArray().ToList();
                     var afterArray = afterComponents.EnumerateArray().ToList();
 
-                    if (beforeArray.Count != afterArray.Count)
-                    {
-                        changes.Add($"components changed from {beforeArray.Count} to {afterArray.Count}");
-                    }
-
-                    // Try to identify component types if available
-                    var beforeTypes = beforeArray
-                        .Where(c => c.TryGetProperty("type", out var _))
-                        .Select(c => c.GetProperty("type").GetString())
-                        .Where(type => !string.IsNullOrEmpty(type))
-                        .GroupBy(t => t)
-                        .ToDictionary(g => g.Key, g => g.Count());
-
-                    var afterTypes = afterArray
-                        .Where(c => c.TryGetProperty("type", out var _))
-                        .Select(c => c.GetProperty("type").GetString())
-                        .Where(type => !string.IsNullOrEmpty(type))
-                        .GroupBy(t => t)
-                        .ToDictionary(g => g.Key, g => g.Count());
-
-                    foreach (var kvp in afterTypes)
-                    {
-                        var afterCount = kvp.Value;
-                        var beforeCount = beforeTypes.GetValueOrDefault(kvp.Key, 0);
-
-                        if (beforeCount != afterCount)
+                    // Use "key" property instead of "type" for Stage components
+                    var beforeKeys = beforeArray
+                        .Where(c => c.TryGetProperty("key", out var _) || c.TryGetProperty("Key", out var _))
+                        .Select(c =>
                         {
-                            if (beforeCount == 0)
+                            if (c.TryGetProperty("key", out var keyElem))
+                                return keyElem.GetString();
+                            if (c.TryGetProperty("Key", out var keyElem2))
+                                return keyElem2.GetString();
+                            return null;
+                        })
+                        .Where(key => !string.IsNullOrEmpty(key))
+                        .GroupBy(k => k)
+                        .ToDictionary(g => g.Key, g => g.Count());
+
+                    var afterKeys = afterArray
+                        .Where(c => c.TryGetProperty("key", out var _) || c.TryGetProperty("Key", out var _))
+                        .Select(c =>
+                        {
+                            if (c.TryGetProperty("key", out var keyElem))
+                                return keyElem.GetString();
+                            if (c.TryGetProperty("Key", out var keyElem2))
+                                return keyElem2.GetString();
+                            return null;
+                        })
+                        .Where(key => !string.IsNullOrEmpty(key))
+                        .GroupBy(k => k)
+                        .ToDictionary(g => g.Key, g => g.Count());
+
+                    // Find added components
+                    var addedKeys = afterKeys.Keys.Except(beforeKeys.Keys).ToList();
+                    if (addedKeys.Any())
+                    {
+                        var addedDetails = new List<string>();
+                        foreach (var key in addedKeys)
+                        {
+                            var component = afterArray.FirstOrDefault(c =>
                             {
-                                changes.Add($"added {afterCount} {kvp.Key} component(s)");
-                            }
-                            else if (afterCount == 0)
+                                if (c.TryGetProperty("key", out var k) && k.GetString() == key)
+                                    return true;
+                                if (c.TryGetProperty("Key", out var k2) && k2.GetString() == key)
+                                    return true;
+                                return false;
+                            });
+                            if (component.ValueKind != JsonValueKind.Undefined)
                             {
-                                changes.Add($"removed {beforeCount} {kvp.Key} component(s)");
+                                var componentSummary = GetComponentsSummary(component);
+                                if (!string.IsNullOrEmpty(componentSummary))
+                                {
+                                    addedDetails.Add($"{key} ({componentSummary})");
+                                }
+                                else
+                                {
+                                    addedDetails.Add(key);
+                                }
                             }
                             else
                             {
-                                changes.Add($"{kvp.Key} components: {beforeCount} → {afterCount}");
+                                addedDetails.Add(key);
                             }
+                        }
+                        changes.Add($"added: {string.Join(", ", addedDetails)}");
+                    }
+
+                    // Find removed components
+                    var removedKeys = beforeKeys.Keys.Except(afterKeys.Keys).ToList();
+                    if (removedKeys.Any())
+                    {
+                        changes.Add($"removed: {string.Join(", ", removedKeys)}");
+                    }
+
+                    // Find modified components (same key but different content)
+                    var commonKeys = beforeKeys.Keys.Intersect(afterKeys.Keys).ToList();
+                    foreach (var key in commonKeys)
+                    {
+                        var beforeComponent = beforeArray.FirstOrDefault(c =>
+                        {
+                            if (c.TryGetProperty("key", out var k) && k.GetString() == key)
+                                return true;
+                            if (c.TryGetProperty("Key", out var k2) && k2.GetString() == key)
+                                return true;
+                            return false;
+                        });
+                        var afterComponent = afterArray.FirstOrDefault(c =>
+                        {
+                            if (c.TryGetProperty("key", out var k) && k.GetString() == key)
+                                return true;
+                            if (c.TryGetProperty("Key", out var k2) && k2.GetString() == key)
+                                return true;
+                            return false;
+                        });
+
+                        if (beforeComponent.ValueKind != JsonValueKind.Undefined &&
+                            afterComponent.ValueKind != JsonValueKind.Undefined)
+                        {
+                            var beforeSummary = GetComponentsSummary(beforeComponent);
+                            var afterSummary = GetComponentsSummary(afterComponent);
+                            if (beforeSummary != afterSummary)
+                            {
+                                if (!string.IsNullOrEmpty(afterSummary))
+                                {
+                                    changes.Add($"{key} updated ({afterSummary})");
+                                }
+                                else
+                                {
+                                    changes.Add($"{key} updated");
+                                }
+                            }
+                        }
+                    }
+
+                    // If no detailed changes found but count changed, report count change
+                    if (!changes.Any() && beforeArray.Count != afterArray.Count)
+                    {
+                        changes.Add($"component count: {beforeArray.Count} → {afterArray.Count}");
+                    }
+                }
+                else
+                {
+                    // Fallback: show summary of after components if available
+                    if (afterComponents.ValueKind == JsonValueKind.Array)
+                    {
+                        var summary = GetComponentsSummary(afterComponents);
+                        if (!string.IsNullOrEmpty(summary))
+                        {
+                            return $"components: {summary}";
                         }
                     }
                 }
 
                 if (changes.Any())
                 {
-                    return $"Components: {string.Join(", ", changes.Take(3))}";
+                    return $"components: {string.Join("; ", changes)}";
                 }
 
-                return "Components modified";
+                return "components modified";
             }
             catch (Exception ex)
             {
                 _logger.LogWarning(ex, "Failed to analyze components changes");
-                return "Components modified";
+                return "components modified";
+            }
+        }
+
+        /// <summary>
+        /// Get summary of components for display in creation logs
+        /// Supports both array of components and single component object
+        /// </summary>
+        protected virtual string GetComponentsSummary(JsonElement componentsElement)
+        {
+            try
+            {
+                // Handle single component object
+                if (componentsElement.ValueKind == JsonValueKind.Object)
+                {
+                    return GetSingleComponentSummary(componentsElement);
+                }
+
+                // Handle array of components
+                if (componentsElement.ValueKind != JsonValueKind.Array)
+                {
+                    return string.Empty;
+                }
+
+                var components = new List<string>();
+                foreach (var component in componentsElement.EnumerateArray())
+                {
+                    var componentSummary = GetSingleComponentSummary(component);
+                    if (!string.IsNullOrEmpty(componentSummary))
+                    {
+                        components.Add(componentSummary);
+                    }
+                }
+
+                if (components.Any())
+                {
+                    return string.Join("; ", components);
+                }
+
+                return string.Empty;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to get components summary");
+                return string.Empty;
+            }
+        }
+
+        /// <summary>
+        /// Get summary of a single component
+        /// </summary>
+        protected virtual string GetSingleComponentSummary(JsonElement component)
+        {
+            try
+            {
+                if (!component.TryGetProperty("key", out var keyElement) &&
+                    !component.TryGetProperty("Key", out keyElement))
+                {
+                    return string.Empty;
+                }
+
+                var key = keyElement.GetString();
+                if (string.IsNullOrEmpty(key))
+                {
+                    return string.Empty;
+                }
+
+                var componentDetails = new List<string>();
+
+                // Extract checklist names
+                if ((component.TryGetProperty("checklistNames", out var checklistNamesElement) ||
+                     component.TryGetProperty("ChecklistNames", out checklistNamesElement)) &&
+                    checklistNamesElement.ValueKind == JsonValueKind.Array)
+                {
+                    var checklistNames = checklistNamesElement.EnumerateArray()
+                        .Select(n => n.GetString())
+                        .Where(n => !string.IsNullOrEmpty(n))
+                        .ToList();
+                    if (checklistNames.Any())
+                    {
+                        componentDetails.Add($"checklists: {string.Join(", ", checklistNames.Select(n => $"'{n}'"))}");
+                    }
+                }
+
+                // Extract questionnaire names
+                if ((component.TryGetProperty("questionnaireNames", out var questionnaireNamesElement) ||
+                     component.TryGetProperty("QuestionnaireNames", out questionnaireNamesElement)) &&
+                    questionnaireNamesElement.ValueKind == JsonValueKind.Array)
+                {
+                    var questionnaireNames = questionnaireNamesElement.EnumerateArray()
+                        .Select(n => n.GetString())
+                        .Where(n => !string.IsNullOrEmpty(n))
+                        .ToList();
+                    if (questionnaireNames.Any())
+                    {
+                        componentDetails.Add($"questionnaires: {string.Join(", ", questionnaireNames.Select(n => $"'{n}'"))}");
+                    }
+                }
+
+                // Extract static fields
+                if ((component.TryGetProperty("staticFields", out var staticFieldsElement) ||
+                     component.TryGetProperty("StaticFields", out staticFieldsElement)) &&
+                    staticFieldsElement.ValueKind == JsonValueKind.Array)
+                {
+                    var staticFields = staticFieldsElement.EnumerateArray()
+                        .Select(f => f.GetString())
+                        .Where(f => !string.IsNullOrEmpty(f))
+                        .ToList();
+                    if (staticFields.Any())
+                    {
+                        componentDetails.Add($"fields: {string.Join(", ", staticFields)}");
+                    }
+                }
+
+                // Check if component is enabled
+                var isEnabled = true;
+                if (component.TryGetProperty("isEnabled", out var isEnabledElement) ||
+                    component.TryGetProperty("IsEnabled", out isEnabledElement))
+                {
+                    isEnabled = isEnabledElement.ValueKind == JsonValueKind.True;
+                }
+
+                var componentInfo = key;
+                if (componentDetails.Any())
+                {
+                    componentInfo += $" ({string.Join("; ", componentDetails)})";
+                }
+                if (!isEnabled)
+                {
+                    componentInfo += " [disabled]";
+                }
+
+                return componentInfo;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to get single component summary");
+                return string.Empty;
+            }
+        }
+
+        /// <summary>
+        /// Get summary of teams for display in creation logs (async version)
+        /// </summary>
+        protected virtual async Task<string> GetTeamsSummaryAsync(JsonElement teamsElement)
+        {
+            try
+            {
+                var teamIds = new List<string>();
+
+                // Handle different JSON value kinds
+                if (teamsElement.ValueKind == JsonValueKind.Array)
+                {
+                    // Direct array
+                    foreach (var teamIdElement in teamsElement.EnumerateArray())
+                    {
+                        var teamId = teamIdElement.GetString();
+                        if (!string.IsNullOrEmpty(teamId))
+                        {
+                            teamIds.Add(teamId);
+                        }
+                    }
+                }
+                else if (teamsElement.ValueKind == JsonValueKind.String)
+                {
+                    // String that contains JSON array (double-encoded)
+                    var teamsJson = teamsElement.GetString();
+                    if (!string.IsNullOrEmpty(teamsJson))
+                    {
+                        // Parse the JSON string to get the actual array
+                        var parsedTeams = ParseTeamList(teamsJson);
+                        teamIds.AddRange(parsedTeams);
+                    }
+                }
+                else if (teamsElement.ValueKind == JsonValueKind.Null)
+                {
+                    return string.Empty;
+                }
+
+                if (teamIds.Any())
+                {
+                    // Try to get team names if UserService is available
+                    try
+                    {
+                        if (_userService != null)
+                        {
+                            var tenantId = _userContext?.TenantId ?? "999";
+                            var teamNameMap = await _userService.GetTeamNamesByIdsAsync(teamIds, tenantId);
+
+                            if (teamNameMap != null && teamNameMap.Any())
+                            {
+                                var teamNames = teamIds
+                                    .Select(id => teamNameMap.TryGetValue(id, out var name) && !string.IsNullOrEmpty(name)
+                                        ? name
+                                        : id)
+                                    .ToList();
+                                return string.Join(", ", teamNames.Select(n => $"'{n}'"));
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogDebug(ex, "Failed to get team names for teams summary, using IDs as fallback");
+                    }
+
+                    // Fallback to IDs if team names are not available
+                    return string.Join(", ", teamIds.Select(id => $"'{id}'"));
+                }
+
+                return string.Empty;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to get teams summary");
+                return string.Empty;
+            }
+        }
+
+        /// <summary>
+        /// Get summary of teams for display in creation logs (synchronous version - for backward compatibility)
+        /// </summary>
+        protected virtual string GetTeamsSummary(JsonElement teamsElement)
+        {
+            try
+            {
+                if (teamsElement.ValueKind != JsonValueKind.Array)
+                {
+                    return string.Empty;
+                }
+
+                var teamIds = new List<string>();
+                foreach (var teamIdElement in teamsElement.EnumerateArray())
+                {
+                    var teamId = teamIdElement.GetString();
+                    if (!string.IsNullOrEmpty(teamId))
+                    {
+                        teamIds.Add(teamId);
+                    }
+                }
+
+                if (teamIds.Any())
+                {
+                    // Try to get team names if UserService is available
+                    try
+                    {
+                        var tenantId = _userContext?.TenantId ?? "999";
+                        var teamNameMap = _userService?.GetTeamNamesByIdsAsync(teamIds, tenantId).GetAwaiter().GetResult();
+
+                        if (teamNameMap != null && teamNameMap.Any())
+                        {
+                            var teamNames = teamIds
+                                .Select(id => teamNameMap.TryGetValue(id, out var name) && !string.IsNullOrEmpty(name)
+                                    ? name
+                                    : id)
+                                .ToList();
+                            return string.Join(", ", teamNames.Select(n => $"'{n}'"));
+                        }
+                    }
+                    catch
+                    {
+                        // If team name lookup fails, use IDs
+                    }
+
+                    // Fallback to IDs if team names are not available
+                    return string.Join(", ", teamIds.Select(id => $"'{id}'"));
+                }
+
+                return string.Empty;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to get teams summary");
+                return string.Empty;
+            }
+        }
+
+        /// <summary>
+        /// Get summary of default assignees for display in creation logs
+        /// </summary>
+        protected virtual string GetDefaultAssigneeSummary(JsonElement assigneeElement)
+        {
+            try
+            {
+                if (assigneeElement.ValueKind != JsonValueKind.Array)
+                {
+                    return string.Empty;
+                }
+
+                var userIds = new List<string>();
+                foreach (var userIdElement in assigneeElement.EnumerateArray())
+                {
+                    var userId = userIdElement.GetString();
+                    if (!string.IsNullOrEmpty(userId))
+                    {
+                        userIds.Add(userId);
+                    }
+                }
+
+                if (userIds.Any())
+                {
+                    // Try to get user names if UserService is available
+                    try
+                    {
+                        var tenantId = _userContext?.TenantId ?? "999";
+                        var userIdsLong = userIds.Where(id => long.TryParse(id, out _))
+                            .Select(id => long.Parse(id))
+                            .ToList();
+
+                        if (userIdsLong.Any() && _userService != null)
+                        {
+                            var users = _userService.GetUsersByIdsAsync(userIdsLong, tenantId).GetAwaiter().GetResult();
+
+                            if (users != null && users.Any())
+                            {
+                                // GetUsersByIdsAsync already sets display name to Username field with priority:
+                                // FirstName + LastName > UserName (same as GetUserTreeAsync logic)
+                                // So we can directly use Username field
+                                var userMap = users.ToDictionary(u => u.Id.ToString(), u =>
+                                    !string.IsNullOrEmpty(u.Username) ? u.Username :
+                                    !string.IsNullOrEmpty(u.Email) ? u.Email :
+                                    u.Id.ToString());
+
+                                var userNames = userIds
+                                    .Select(id => userMap.TryGetValue(id, out var name) && !string.IsNullOrEmpty(name)
+                                        ? name
+                                        : id)
+                                    .ToList();
+                                return string.Join(", ", userNames.Select(n => $"'{n}'"));
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Failed to get user names for default assignees");
+                        // If user name lookup fails, use IDs
+                    }
+
+                    // Fallback to IDs if user names are not available
+                    return string.Join(", ", userIds.Select(id => $"'{id}'"));
+                }
+
+                return string.Empty;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to get default assignee summary");
+                return string.Empty;
             }
         }
 
@@ -1389,25 +2843,128 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
         protected class DetailedQuestionInfo
         {
             public string Id { get; set; }
+            public string TemporaryId { get; set; }
             public string Title { get; set; }
             public string Type { get; set; }
             public string Description { get; set; }
             public bool Required { get; set; }
             public List<string> Options { get; set; } = new List<string>();
+            public List<OptionInfo> OptionDetails { get; set; } = new List<OptionInfo>();
+            public List<OptionInfo> Rows { get; set; } = new List<OptionInfo>();
+            public List<OptionInfo> Columns { get; set; } = new List<OptionInfo>();
             public Dictionary<string, object> Properties { get; set; } = new Dictionary<string, object>();
+            public string SectionId { get; set; }
+            public string SectionName { get; set; }
+            public string MediaType { get; set; }
+            public string MediaFileName { get; set; }
+            public List<JumpRuleInfo> JumpRules { get; set; } = new List<JumpRuleInfo>();
+            public string ActionId { get; set; }
+            public string ActionName { get; set; }
 
             public override bool Equals(object obj)
             {
                 if (obj is DetailedQuestionInfo other)
                 {
-                    return Id == other.Id || (string.IsNullOrEmpty(Id) && string.IsNullOrEmpty(other.Id) && Title == other.Title);
+                    // Match by ID first, then temporaryId, then title
+                    if (!string.IsNullOrEmpty(Id) && !string.IsNullOrEmpty(other.Id))
+                        return Id == other.Id;
+                    if (!string.IsNullOrEmpty(TemporaryId) && !string.IsNullOrEmpty(other.TemporaryId))
+                        return TemporaryId == other.TemporaryId;
+                    return string.IsNullOrEmpty(Id) && string.IsNullOrEmpty(other.Id) &&
+                           string.IsNullOrEmpty(TemporaryId) && string.IsNullOrEmpty(other.TemporaryId) &&
+                           Title == other.Title;
                 }
                 return false;
             }
 
             public override int GetHashCode()
             {
-                return string.IsNullOrEmpty(Id) ? Title?.GetHashCode() ?? 0 : Id.GetHashCode();
+                if (!string.IsNullOrEmpty(Id))
+                    return Id.GetHashCode();
+                if (!string.IsNullOrEmpty(TemporaryId))
+                    return TemporaryId.GetHashCode();
+                return Title?.GetHashCode() ?? 0;
+            }
+        }
+
+        /// <summary>
+        /// Helper class to represent a jump rule
+        /// </summary>
+        protected class JumpRuleInfo
+        {
+            public string Id { get; set; }
+            public string OptionId { get; set; }
+            public string OptionLabel { get; set; }
+            public string TargetSectionId { get; set; }
+            public string TargetSectionName { get; set; }
+
+            public string GetDisplayText()
+            {
+                var parts = new List<string>();
+                // If OptionLabel is empty, it's likely an "other" option
+                if (!string.IsNullOrEmpty(OptionLabel))
+                {
+                    parts.Add($"'{OptionLabel}'");
+                }
+                else
+                {
+                    parts.Add("'[other]'");
+                }
+                if (!string.IsNullOrEmpty(TargetSectionName))
+                {
+                    parts.Add($"→ '{TargetSectionName}'");
+                }
+                return parts.Any() ? string.Join(" ", parts) : string.Empty;
+            }
+        }
+
+        /// <summary>
+        /// Helper class to represent an option with label and value
+        /// </summary>
+        protected class OptionInfo
+        {
+            public string Id { get; set; }
+            public string Label { get; set; }
+            public string Value { get; set; }
+            public bool IsOther { get; set; }
+            public string ActionId { get; set; }
+            public string ActionName { get; set; }
+
+            public override bool Equals(object obj)
+            {
+                if (obj is OptionInfo other)
+                {
+                    // Compare by ID first, then by value, then by label
+                    if (!string.IsNullOrEmpty(Id) && !string.IsNullOrEmpty(other.Id))
+                        return Id == other.Id;
+                    if (!string.IsNullOrEmpty(Value) && !string.IsNullOrEmpty(other.Value))
+                        return Value == other.Value;
+                    return Label == other.Label;
+                }
+                return false;
+            }
+
+            public override int GetHashCode()
+            {
+                if (!string.IsNullOrEmpty(Id)) return Id.GetHashCode();
+                if (!string.IsNullOrEmpty(Value)) return Value.GetHashCode();
+                return Label?.GetHashCode() ?? 0;
+            }
+
+            public string GetDisplayText()
+            {
+                // If label is not empty, use it
+                if (!string.IsNullOrEmpty(Label)) return Label;
+
+                // If value is "other" (case-insensitive), display "Other"
+                if (!string.IsNullOrEmpty(Value))
+                {
+                    if (Value.Equals("other", StringComparison.OrdinalIgnoreCase) || IsOther)
+                        return "Other";
+                    return Value;
+                }
+
+                return "Option";
             }
         }
 
@@ -1833,23 +3390,26 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
             string description = null,
             long? relatedEntityId = null,
             string relatedEntityType = null,
-            string extendedData = null)
+            string extendedData = null,
+            string customDescription = null)
         {
             try
             {
                 var operationTitle = $"{businessModule} {operationAction}: {entityName}";
 
-                // Use enhanced description method that can handle beforeData and afterData
-                var operationDescription = await BuildEnhancedOperationDescriptionAsync(
-                    businessModule,
-                    entityName,
-                    operationAction,
-                    beforeData,
-                    afterData,
-                    changedFields,
-                    relatedEntityId,
-                    relatedEntityType,
-                    reason);
+                // Use custom description if provided, otherwise use enhanced description method
+                var operationDescription = !string.IsNullOrEmpty(customDescription)
+                    ? customDescription
+                    : await BuildEnhancedOperationDescriptionAsync(
+                        businessModule,
+                        entityName,
+                        operationAction,
+                        beforeData,
+                        afterData,
+                        changedFields,
+                        relatedEntityId,
+                        relatedEntityType,
+                        reason);
 
                 // Add module-specific additions
                 if (!string.IsNullOrEmpty(description))
@@ -1955,6 +3515,20 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
 
             foreach (var section in sections)
             {
+                // Extract section information
+                string sectionId = null;
+                string sectionName = null;
+
+                if (section.TryGetProperty("id", out var sectionIdElement))
+                {
+                    sectionId = sectionIdElement.GetString();
+                }
+
+                if (section.TryGetProperty("name", out var sectionNameElement))
+                {
+                    sectionName = sectionNameElement.GetString();
+                }
+
                 // Process both 'questions' and 'items' arrays, but avoid duplicates
                 var questionArrays = new List<(string arrayName, JsonElement array)>();
 
@@ -1979,6 +3553,10 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
 
                         if (questionInfo != null)
                         {
+                            // Set section information
+                            questionInfo.SectionId = sectionId;
+                            questionInfo.SectionName = sectionName;
+
                             // Use title as the primary key for deduplication
                             var questionKey = GetQuestionDeduplicationKey(questionInfo);
 
@@ -2006,6 +3584,11 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
             if (question.TryGetProperty("id", out var idElement))
             {
                 questionInfo.Id = idElement.GetString() ?? string.Empty;
+            }
+
+            if (question.TryGetProperty("temporaryId", out var temporaryIdElement))
+            {
+                questionInfo.TemporaryId = temporaryIdElement.GetString() ?? string.Empty;
             }
 
             if (question.TryGetProperty("title", out var titleElement))
@@ -2040,18 +3623,185 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
             if (question.TryGetProperty("options", out var optionsElement) &&
                 optionsElement.ValueKind == JsonValueKind.Array)
             {
-                questionInfo.Options = optionsElement.EnumerateArray()
-                    .Where(o => o.ValueKind == JsonValueKind.String)
-                    .Select(o => o.GetString())
-                    .Where(o => !string.IsNullOrEmpty(o))
-                    .ToList();
+                foreach (var option in optionsElement.EnumerateArray())
+                {
+                    var optionInfo = new OptionInfo();
+
+                    // Extract option properties
+                    if (option.TryGetProperty("id", out var optionId))
+                        optionInfo.Id = optionId.GetString() ?? string.Empty;
+
+                    if (option.TryGetProperty("label", out var optionLabel))
+                        optionInfo.Label = optionLabel.GetString() ?? string.Empty;
+
+                    if (option.TryGetProperty("value", out var optionValue))
+                        optionInfo.Value = optionValue.GetString() ?? string.Empty;
+
+                    if (option.TryGetProperty("isOther", out var isOther))
+                        optionInfo.IsOther = isOther.ValueKind == JsonValueKind.True;
+
+                    // Extract action information for options
+                    if (option.TryGetProperty("action", out var optionActionElement) &&
+                        optionActionElement.ValueKind == JsonValueKind.Object)
+                    {
+                        if (optionActionElement.TryGetProperty("id", out var optionActionIdElement))
+                        {
+                            optionInfo.ActionId = optionActionIdElement.GetString();
+                        }
+
+                        if (optionActionElement.TryGetProperty("name", out var optionActionNameElement))
+                        {
+                            optionInfo.ActionName = optionActionNameElement.GetString();
+                        }
+                    }
+
+                    // For string options (backward compatibility)
+                    if (option.ValueKind == JsonValueKind.String)
+                    {
+                        var strValue = option.GetString();
+                        optionInfo.Value = strValue ?? string.Empty;
+                        optionInfo.Label = strValue ?? string.Empty;
+                    }
+
+                    // Add to both lists for backward compatibility
+                    // Always add optionInfo to OptionDetails, even if displayText is empty
+                    questionInfo.OptionDetails.Add(optionInfo);
+
+                    var displayText = optionInfo.GetDisplayText();
+                    if (!string.IsNullOrEmpty(displayText))
+                    {
+                        questionInfo.Options.Add(displayText);
+                    }
+                    else
+                    {
+                        // Fallback: use value or label if displayText is empty
+                        var fallbackText = !string.IsNullOrEmpty(optionInfo.Value)
+                            ? optionInfo.Value
+                            : (!string.IsNullOrEmpty(optionInfo.Label) ? optionInfo.Label : "Option");
+                        questionInfo.Options.Add(fallbackText);
+                    }
+                }
+            }
+
+            // Extract rows for grid type questions
+            if (question.TryGetProperty("rows", out var rowsElement) &&
+                rowsElement.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var row in rowsElement.EnumerateArray())
+                {
+                    var rowInfo = new OptionInfo();
+
+                    if (row.TryGetProperty("id", out var rowId))
+                        rowInfo.Id = rowId.GetString() ?? string.Empty;
+
+                    if (row.TryGetProperty("label", out var rowLabel))
+                        rowInfo.Label = rowLabel.GetString() ?? string.Empty;
+
+                    if (row.ValueKind == JsonValueKind.String)
+                    {
+                        var strValue = row.GetString();
+                        rowInfo.Label = strValue ?? string.Empty;
+                    }
+
+                    if (!string.IsNullOrEmpty(rowInfo.Label))
+                    {
+                        questionInfo.Rows.Add(rowInfo);
+                    }
+                }
+            }
+
+            // Extract columns for grid type questions
+            if (question.TryGetProperty("columns", out var columnsElement) &&
+                columnsElement.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var column in columnsElement.EnumerateArray())
+                {
+                    var columnInfo = new OptionInfo();
+
+                    if (column.TryGetProperty("id", out var columnId))
+                        columnInfo.Id = columnId.GetString() ?? string.Empty;
+
+                    if (column.TryGetProperty("label", out var columnLabel))
+                        columnInfo.Label = columnLabel.GetString() ?? string.Empty;
+
+                    if (column.TryGetProperty("isOther", out var isOther))
+                        columnInfo.IsOther = isOther.ValueKind == JsonValueKind.True;
+
+                    if (column.ValueKind == JsonValueKind.String)
+                    {
+                        var strValue = column.GetString();
+                        columnInfo.Label = strValue ?? string.Empty;
+                    }
+
+                    if (!string.IsNullOrEmpty(columnInfo.Label))
+                    {
+                        questionInfo.Columns.Add(columnInfo);
+                    }
+                }
+            }
+
+            // Extract questionProps for media file information
+            if (question.TryGetProperty("questionProps", out var questionPropsElement) &&
+                questionPropsElement.ValueKind == JsonValueKind.Object)
+            {
+                if (questionPropsElement.TryGetProperty("type", out var mediaTypeElement))
+                {
+                    questionInfo.MediaType = mediaTypeElement.GetString();
+                }
+
+                if (questionPropsElement.TryGetProperty("fileName", out var fileNameElement))
+                {
+                    questionInfo.MediaFileName = fileNameElement.GetString();
+                }
+            }
+
+            // Extract action information
+            if (question.TryGetProperty("action", out var actionElement) &&
+                actionElement.ValueKind == JsonValueKind.Object)
+            {
+                if (actionElement.TryGetProperty("id", out var actionIdElement))
+                {
+                    questionInfo.ActionId = actionIdElement.GetString();
+                }
+
+                if (actionElement.TryGetProperty("name", out var actionNameElement))
+                {
+                    questionInfo.ActionName = actionNameElement.GetString();
+                }
+            }
+
+            // Extract jumpRules for conditional navigation
+            if (question.TryGetProperty("jumpRules", out var jumpRulesElement) &&
+                jumpRulesElement.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var jumpRule in jumpRulesElement.EnumerateArray())
+                {
+                    var jumpRuleInfo = new JumpRuleInfo();
+
+                    if (jumpRule.TryGetProperty("id", out var ruleId))
+                        jumpRuleInfo.Id = ruleId.GetString();
+
+                    if (jumpRule.TryGetProperty("optionId", out var optionId))
+                        jumpRuleInfo.OptionId = optionId.GetString();
+
+                    if (jumpRule.TryGetProperty("optionLabel", out var optionLabel))
+                        jumpRuleInfo.OptionLabel = optionLabel.GetString();
+
+                    if (jumpRule.TryGetProperty("targetSectionId", out var targetSectionId))
+                        jumpRuleInfo.TargetSectionId = targetSectionId.GetString();
+
+                    if (jumpRule.TryGetProperty("targetSectionName", out var targetSectionName))
+                        jumpRuleInfo.TargetSectionName = targetSectionName.GetString();
+
+                    questionInfo.JumpRules.Add(jumpRuleInfo);
+                }
             }
 
             // Extract additional properties for detailed comparison
             foreach (var property in question.EnumerateObject())
             {
                 // Exclude basic properties but include important ones like 'question' for comparison
-                if (!new[] { "id", "title", "text", "type", "description", "required", "options" }
+                if (!new[] { "id", "title", "text", "type", "description", "required", "options", "rows", "columns", "questionProps", "jumpRules", "action" }
                     .Contains(property.Name, StringComparer.OrdinalIgnoreCase))
                 {
                     try
@@ -2079,9 +3829,12 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
         /// </summary>
         protected virtual string GetQuestionDeduplicationKey(DetailedQuestionInfo question)
         {
-            // Use title as primary key, fall back to ID if title is empty
-            var key = !string.IsNullOrEmpty(question.Title) ? question.Title.Trim() : question.Id?.Trim();
-            return key?.ToLowerInvariant() ?? string.Empty;
+            // Use ID first, then temporaryId, then title as fallback
+            if (!string.IsNullOrEmpty(question.Id))
+                return question.Id.Trim().ToLowerInvariant();
+            if (!string.IsNullOrEmpty(question.TemporaryId))
+                return question.TemporaryId.Trim().ToLowerInvariant();
+            return question.Title?.Trim().ToLowerInvariant() ?? string.Empty;
         }
 
         /// <summary>
@@ -2098,30 +3851,61 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                 var afterDict = afterQuestions.ToDictionary(q => GetQuestionKey(q), q => q);
 
                 // Find added questions
-                var addedQuestions = afterDict.Keys.Except(beforeDict.Keys).Take(2).ToList();
-                if (addedQuestions.Any())
+                var allAddedQuestions = afterDict.Keys.Except(beforeDict.Keys).ToList();
+                if (allAddedQuestions.Any())
                 {
-                    var addedTitles = addedQuestions.Select(k => GetDisplayTitle(afterDict[k])).Where(t => !string.IsNullOrEmpty(t));
-                    changes.Add($"added questions: {string.Join(", ", addedTitles.Select(t => $"'{t}'"))}");
+                    // Show all added questions
+                    var addedInfo = allAddedQuestions.Select(k => GetFormattedQuestionInfo(afterDict[k])).Where(t => !string.IsNullOrEmpty(t));
+
+                    if (allAddedQuestions.Count == 1)
+                    {
+                        changes.Add($"added question: {string.Join("; ", addedInfo)}");
+                    }
+                    else
+                    {
+                        changes.Add($"added questions: {string.Join("; ", addedInfo)}");
+                    }
                 }
 
                 // Find removed questions
-                var removedQuestions = beforeDict.Keys.Except(afterDict.Keys).Take(2).ToList();
+                var removedQuestions = beforeDict.Keys.Except(afterDict.Keys).ToList();
                 if (removedQuestions.Any())
                 {
-                    var removedTitles = removedQuestions.Select(k => GetDisplayTitle(beforeDict[k])).Where(t => !string.IsNullOrEmpty(t));
-                    changes.Add($"removed questions: {string.Join(", ", removedTitles.Select(t => $"'{t}'"))}");
+                    var removedInfo = removedQuestions.Select(k => GetFormattedQuestionInfo(beforeDict[k])).Where(t => !string.IsNullOrEmpty(t));
+                    if (removedQuestions.Count == 1)
+                        changes.Add($"removed question: {string.Join("; ", removedInfo)}");
+                    else
+                        changes.Add($"removed questions: {string.Join("; ", removedInfo)}");
                 }
 
-                // Find modified questions
+                // Find modified questions and section movements
                 var modifiedQuestions = new List<string>();
+                var movedQuestions = new List<string>();
+
                 foreach (var key in beforeDict.Keys.Intersect(afterDict.Keys))
                 {
                     var beforeQ = beforeDict[key];
                     var afterQ = afterDict[key];
 
+                    // Check if question moved to a different section
+                    bool sectionChanged = false;
+                    string beforeSection = GetSectionDisplayName(beforeQ);
+                    string afterSection = GetSectionDisplayName(afterQ);
+
+                    if (!string.IsNullOrEmpty(beforeSection) && !string.IsNullOrEmpty(afterSection) &&
+                        beforeSection != afterSection)
+                    {
+                        sectionChanged = true;
+                        var title = GetDisplayTitle(afterQ);
+                        if (!string.IsNullOrEmpty(title))
+                        {
+                            movedQuestions.Add($"'{title}' moved from '{beforeSection}' to '{afterSection}'");
+                        }
+                    }
+
+                    // Check for other question-specific changes (excluding section movement)
                     var questionChanges = GetQuestionSpecificChanges(beforeQ, afterQ);
-                    if (questionChanges.Any())
+                    if (questionChanges.Any() && !sectionChanged)
                     {
                         var title = GetDisplayTitle(afterQ);
                         if (!string.IsNullOrEmpty(title))
@@ -2129,8 +3913,21 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                             modifiedQuestions.Add($"'{title}' ({string.Join(", ", questionChanges)})");
                         }
                     }
+                    else if (questionChanges.Any() && sectionChanged)
+                    {
+                        // If question moved and has other changes, include both
+                        var title = GetDisplayTitle(afterQ);
+                        if (!string.IsNullOrEmpty(title))
+                        {
+                            modifiedQuestions.Add($"'{title}' ({string.Join(", ", questionChanges)})");
+                        }
+                    }
+                }
 
-                    if (modifiedQuestions.Count >= 2) break; // Limit to 2 modified questions for readability
+                // Add moved questions first (as they are more significant)
+                if (movedQuestions.Any())
+                {
+                    changes.AddRange(movedQuestions);
                 }
 
                 if (modifiedQuestions.Any())
@@ -2171,6 +3968,311 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
         }
 
         /// <summary>
+        /// Get display name for a section
+        /// </summary>
+        protected virtual string GetSectionDisplayName(DetailedQuestionInfo question)
+        {
+            if (!string.IsNullOrEmpty(question.SectionName))
+                return question.SectionName;
+
+            if (!string.IsNullOrEmpty(question.SectionId))
+                return $"Section {question.SectionId}";
+
+            return "Unknown Section";
+        }
+
+        /// <summary>
+        /// Get formatted question info with type and options
+        /// </summary>
+        protected virtual string GetFormattedQuestionInfo(DetailedQuestionInfo question)
+        {
+            var title = GetDisplayTitle(question);
+            var parts = new List<string> { $"'{title}'" };
+
+            // Add question type
+            if (!string.IsNullOrEmpty(question.Type))
+            {
+                parts.Add($"type: {question.Type}");
+            }
+
+            // Add required status
+            if (question.Required)
+            {
+                parts.Add("required");
+            }
+
+            // Add description if available
+            if (!string.IsNullOrEmpty(question.Description))
+            {
+                parts.Add($"description: '{question.Description}'");
+            }
+
+            // Add media file information if available
+            if (!string.IsNullOrEmpty(question.MediaType) && !string.IsNullOrEmpty(question.MediaFileName))
+            {
+                var mediaTypeDisplay = question.MediaType.Equals("image", StringComparison.OrdinalIgnoreCase) ? "image" :
+                                      question.MediaType.Equals("video", StringComparison.OrdinalIgnoreCase) ? "video" :
+                                      question.MediaType;
+                parts.Add($"{mediaTypeDisplay}: '{question.MediaFileName}'");
+            }
+
+            // Add action information if available
+            if (!string.IsNullOrEmpty(question.ActionName))
+            {
+                parts.Add($"action: '{question.ActionName}'");
+            }
+            else if (!string.IsNullOrEmpty(question.ActionId))
+            {
+                parts.Add($"action: '{question.ActionId}'");
+            }
+
+            // Add jump rules if available
+            if (question.JumpRules != null && question.JumpRules.Count > 0)
+            {
+                var jumpRuleTexts = question.JumpRules.Select(r => r.GetDisplayText()).Where(t => !string.IsNullOrEmpty(t)).ToList();
+                if (jumpRuleTexts.Any())
+                {
+                    parts.Add($"go to: {string.Join(", ", jumpRuleTexts)}");
+                }
+            }
+
+            // For grid type questions, show rows and columns instead of options
+            var isGridType = question.Type != null &&
+                (question.Type.Equals("multiple_choice_grid", StringComparison.OrdinalIgnoreCase) ||
+                 question.Type.Equals("checkbox_grid", StringComparison.OrdinalIgnoreCase) ||
+                 question.Type.Equals("short_answer_grid", StringComparison.OrdinalIgnoreCase));
+
+            if (isGridType)
+            {
+                // Add rows if available
+                if (question.Rows != null && question.Rows.Count > 0)
+                {
+                    var rowTexts = question.Rows.Select(r => r.GetDisplayText()).Where(t => !string.IsNullOrEmpty(t)).ToList();
+                    if (rowTexts.Any())
+                    {
+                        var rowsStr = string.Join(", ", rowTexts.Select(r => $"'{r}'"));
+                        parts.Add($"rows: {rowsStr}");
+                    }
+                }
+
+                // Add columns if available
+                if (question.Columns != null && question.Columns.Count > 0)
+                {
+                    var columnTexts = question.Columns.Select(c => c.GetDisplayText()).Where(t => !string.IsNullOrEmpty(t)).ToList();
+                    if (columnTexts.Any())
+                    {
+                        var columnsStr = string.Join(", ", columnTexts.Select(c => $"'{c}'"));
+                        parts.Add($"columns: {columnsStr}");
+                    }
+                }
+            }
+            else
+            {
+                // Add options if available (for non-grid questions)
+                if (question.OptionDetails != null && question.OptionDetails.Count > 0)
+                {
+                    var optionTexts = question.OptionDetails.Select(o => o.GetDisplayText()).Where(t => !string.IsNullOrEmpty(t)).ToList();
+                    if (optionTexts.Any())
+                    {
+                        var optionsStr = string.Join(", ", optionTexts.Select(o => $"'{o}'"));
+                        parts.Add($"options: {optionsStr}");
+                    }
+                }
+                else if (question.Options != null && question.Options.Count > 0)
+                {
+                    var optionsStr = string.Join(", ", question.Options.Select(o => $"'{o}'"));
+                    parts.Add($"options: {optionsStr}");
+                }
+            }
+
+            return string.Join(", ", parts);
+        }
+
+        /// <summary>
+        /// Get detailed option changes between before and after option lists
+        /// </summary>
+        protected virtual List<string> GetDetailedOptionChanges(List<OptionInfo> beforeOptions, List<OptionInfo> afterOptions)
+        {
+            var changes = new List<string>();
+
+            try
+            {
+                // Find added options
+                var addedOptions = afterOptions.Except(beforeOptions).ToList();
+                if (addedOptions.Any())
+                {
+                    var addedTexts = addedOptions.Select(o => $"'{o.GetDisplayText()}'").ToList();
+                    if (addedOptions.Count == 1)
+                        changes.Add($"added option: {addedTexts[0]}");
+                    else
+                        changes.Add($"added options: {string.Join(", ", addedTexts)}");
+                }
+
+                // Find removed options
+                var removedOptions = beforeOptions.Except(afterOptions).ToList();
+                if (removedOptions.Any())
+                {
+                    var removedTexts = removedOptions.Select(o => $"'{o.GetDisplayText()}'").ToList();
+                    if (removedOptions.Count == 1)
+                        changes.Add($"removed option: {removedTexts[0]}");
+                    else
+                        changes.Add($"removed options: {string.Join(", ", removedTexts)}");
+                }
+
+                // Find modified options (label, value, or action changed)
+                var modifiedOptions = new List<string>();
+                foreach (var beforeOption in beforeOptions)
+                {
+                    var afterOption = afterOptions.FirstOrDefault(o => o.Equals(beforeOption));
+                    if (afterOption != null)
+                    {
+                        // Check for action changes
+                        var beforeActionId = beforeOption.ActionId ?? string.Empty;
+                        var afterActionId = afterOption.ActionId ?? string.Empty;
+                        var beforeActionName = beforeOption.ActionName ?? string.Empty;
+                        var afterActionName = afterOption.ActionName ?? string.Empty;
+
+                        if (beforeActionId != afterActionId || beforeActionName != afterActionName)
+                        {
+                            var optionLabel = !string.IsNullOrEmpty(beforeOption.Label) ? beforeOption.Label :
+                                            (!string.IsNullOrEmpty(beforeOption.Value) ? beforeOption.Value : "option");
+
+                            if (string.IsNullOrEmpty(beforeActionId) && string.IsNullOrEmpty(beforeActionName))
+                            {
+                                // Action was added
+                                if (!string.IsNullOrEmpty(afterActionName))
+                                {
+                                    changes.Add($"option '{optionLabel}' action added: '{afterActionName}'");
+                                }
+                                else if (!string.IsNullOrEmpty(afterActionId))
+                                {
+                                    changes.Add($"option '{optionLabel}' action added: '{afterActionId}'");
+                                }
+                            }
+                            else if (string.IsNullOrEmpty(afterActionId) && string.IsNullOrEmpty(afterActionName))
+                            {
+                                // Action was removed
+                                if (!string.IsNullOrEmpty(beforeActionName))
+                                {
+                                    changes.Add($"option '{optionLabel}' action removed: '{beforeActionName}'");
+                                }
+                                else if (!string.IsNullOrEmpty(beforeActionId))
+                                {
+                                    changes.Add($"option '{optionLabel}' action removed: '{beforeActionId}'");
+                                }
+                            }
+                            else
+                            {
+                                // Action was changed
+                                var beforeActionDisplay = !string.IsNullOrEmpty(beforeActionName) ? beforeActionName : beforeActionId;
+                                var afterActionDisplay = !string.IsNullOrEmpty(afterActionName) ? afterActionName : afterActionId;
+                                changes.Add($"option '{optionLabel}' action changed: '{beforeActionDisplay}' → '{afterActionDisplay}'");
+                            }
+                        }
+
+                        // Check for other property changes (display text)
+                        if (beforeOption.GetDisplayText() != afterOption.GetDisplayText())
+                        {
+                            modifiedOptions.Add($"'{beforeOption.GetDisplayText()}' → '{afterOption.GetDisplayText()}'");
+                        }
+                    }
+                }
+
+                if (modifiedOptions.Any())
+                {
+                    if (modifiedOptions.Count == 1)
+                        changes.Add($"modified option: {modifiedOptions[0]}");
+                    else
+                        changes.Add($"modified options: {string.Join(", ", modifiedOptions)}");
+                }
+
+                // If no detailed changes found but count changed, report count change
+                if (!changes.Any() && beforeOptions.Count != afterOptions.Count)
+                {
+                    changes.Add($"options: {beforeOptions.Count} → {afterOptions.Count}");
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to analyze detailed option changes");
+                if (beforeOptions.Count != afterOptions.Count)
+                {
+                    changes.Add($"options: {beforeOptions.Count} → {afterOptions.Count}");
+                }
+            }
+
+            return changes;
+        }
+
+        /// <summary>
+        /// Get detailed row/column changes between before and after lists
+        /// </summary>
+        protected virtual List<string> GetDetailedRowColumnChanges(List<OptionInfo> beforeItems, List<OptionInfo> afterItems, string itemType)
+        {
+            var changes = new List<string>();
+
+            try
+            {
+                // Find added items
+                var addedItems = afterItems.Except(beforeItems).ToList();
+                if (addedItems.Any())
+                {
+                    var addedTexts = addedItems.Select(o => $"'{o.GetDisplayText()}'").ToList();
+                    if (addedItems.Count == 1)
+                        changes.Add($"added {itemType}: {addedTexts[0]}");
+                    else
+                        changes.Add($"added {itemType}s: {string.Join(", ", addedTexts)}");
+                }
+
+                // Find removed items
+                var removedItems = beforeItems.Except(afterItems).ToList();
+                if (removedItems.Any())
+                {
+                    var removedTexts = removedItems.Select(o => $"'{o.GetDisplayText()}'").ToList();
+                    if (removedItems.Count == 1)
+                        changes.Add($"removed {itemType}: {removedTexts[0]}");
+                    else
+                        changes.Add($"removed {itemType}s: {string.Join(", ", removedTexts)}");
+                }
+
+                // Find modified items (label or value changed)
+                var modifiedItems = new List<string>();
+                foreach (var beforeItem in beforeItems)
+                {
+                    var afterItem = afterItems.FirstOrDefault(o => o.Equals(beforeItem));
+                    if (afterItem != null && beforeItem.GetDisplayText() != afterItem.GetDisplayText())
+                    {
+                        modifiedItems.Add($"'{beforeItem.GetDisplayText()}' → '{afterItem.GetDisplayText()}'");
+                    }
+                }
+
+                if (modifiedItems.Any())
+                {
+                    if (modifiedItems.Count == 1)
+                        changes.Add($"modified {itemType}: {modifiedItems[0]}");
+                    else
+                        changes.Add($"modified {itemType}s: {string.Join(", ", modifiedItems)}");
+                }
+
+                // If no detailed changes found but count changed, report count change
+                if (!changes.Any() && beforeItems.Count != afterItems.Count)
+                {
+                    changes.Add($"{itemType}s: {beforeItems.Count} → {afterItems.Count}");
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to analyze detailed {ItemType} changes", itemType);
+                if (beforeItems.Count != afterItems.Count)
+                {
+                    changes.Add($"{itemType}s: {beforeItems.Count} → {afterItems.Count}");
+                }
+            }
+
+            return changes;
+        }
+
+        /// <summary>
         /// Get specific changes within a question
         /// </summary>
         protected virtual List<string> GetQuestionSpecificChanges(DetailedQuestionInfo before, DetailedQuestionInfo after)
@@ -2195,20 +4297,230 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                 changes.Add(after.Required ? "made required" : "made optional");
             }
 
-            // Check description changes
+            // Check description changes (skip if both are empty or whitespace)
             if (before.Description != after.Description)
             {
-                changes.Add("description changed");
+                var beforeIsEmpty = string.IsNullOrWhiteSpace(before.Description);
+                var afterIsEmpty = string.IsNullOrWhiteSpace(after.Description);
+
+                // Skip if both are empty - no meaningful change
+                if (beforeIsEmpty && afterIsEmpty)
+                {
+                    // Do nothing - skip this change
+                }
+                else if (beforeIsEmpty)
+                {
+                    // Description was added
+                    changes.Add($"description added: '{after.Description}'");
+                }
+                else if (afterIsEmpty)
+                {
+                    // Description was removed
+                    changes.Add($"description removed: '{before.Description}'");
+                }
+                else
+                {
+                    // Description was changed
+                    changes.Add($"description changed: '{before.Description}' → '{after.Description}'");
+                }
             }
 
-            // Check options changes for multiple choice questions
-            if (before.Options.Count != after.Options.Count)
+            // Check media file changes (questionProps)
+            var beforeMediaType = before.MediaType ?? string.Empty;
+            var afterMediaType = after.MediaType ?? string.Empty;
+            var beforeMediaFileName = before.MediaFileName ?? string.Empty;
+            var afterMediaFileName = after.MediaFileName ?? string.Empty;
+
+            if (beforeMediaType != afterMediaType || beforeMediaFileName != afterMediaFileName)
+            {
+                if (string.IsNullOrEmpty(beforeMediaType) && string.IsNullOrEmpty(beforeMediaFileName))
+                {
+                    // Media file was added
+                    if (!string.IsNullOrEmpty(afterMediaType) && !string.IsNullOrEmpty(afterMediaFileName))
+                    {
+                        var mediaTypeDisplay = afterMediaType.Equals("image", StringComparison.OrdinalIgnoreCase) ? "image" :
+                                              afterMediaType.Equals("video", StringComparison.OrdinalIgnoreCase) ? "video" :
+                                              afterMediaType;
+                        changes.Add($"{mediaTypeDisplay} added: '{afterMediaFileName}'");
+                    }
+                }
+                else if (string.IsNullOrEmpty(afterMediaType) && string.IsNullOrEmpty(afterMediaFileName))
+                {
+                    // Media file was removed
+                    var mediaTypeDisplay = beforeMediaType.Equals("image", StringComparison.OrdinalIgnoreCase) ? "image" :
+                                          beforeMediaType.Equals("video", StringComparison.OrdinalIgnoreCase) ? "video" :
+                                          beforeMediaType;
+                    changes.Add($"{mediaTypeDisplay} removed: '{beforeMediaFileName}'");
+                }
+                else
+                {
+                    // Media file was changed
+                    var beforeMediaTypeDisplay = beforeMediaType.Equals("image", StringComparison.OrdinalIgnoreCase) ? "image" :
+                                                beforeMediaType.Equals("video", StringComparison.OrdinalIgnoreCase) ? "video" :
+                                                beforeMediaType;
+                    var afterMediaTypeDisplay = afterMediaType.Equals("image", StringComparison.OrdinalIgnoreCase) ? "image" :
+                                               afterMediaType.Equals("video", StringComparison.OrdinalIgnoreCase) ? "video" :
+                                               afterMediaType;
+
+                    if (beforeMediaType != afterMediaType)
+                    {
+                        changes.Add($"media type changed: {beforeMediaTypeDisplay} → {afterMediaTypeDisplay}");
+                    }
+                    if (beforeMediaFileName != afterMediaFileName)
+                    {
+                        changes.Add($"media file changed: '{beforeMediaFileName}' → '{afterMediaFileName}'");
+                    }
+                }
+            }
+
+            // Check action changes
+            var beforeActionId = before.ActionId ?? string.Empty;
+            var afterActionId = after.ActionId ?? string.Empty;
+            var beforeActionName = before.ActionName ?? string.Empty;
+            var afterActionName = after.ActionName ?? string.Empty;
+
+            if (beforeActionId != afterActionId || beforeActionName != afterActionName)
+            {
+                if (string.IsNullOrEmpty(beforeActionId) && string.IsNullOrEmpty(beforeActionName))
+                {
+                    // Action was added
+                    if (!string.IsNullOrEmpty(afterActionName))
+                    {
+                        changes.Add($"action added: '{afterActionName}'");
+                    }
+                    else if (!string.IsNullOrEmpty(afterActionId))
+                    {
+                        changes.Add($"action added: '{afterActionId}'");
+                    }
+                }
+                else if (string.IsNullOrEmpty(afterActionId) && string.IsNullOrEmpty(afterActionName))
+                {
+                    // Action was removed
+                    if (!string.IsNullOrEmpty(beforeActionName))
+                    {
+                        changes.Add($"action removed: '{beforeActionName}'");
+                    }
+                    else if (!string.IsNullOrEmpty(beforeActionId))
+                    {
+                        changes.Add($"action removed: '{beforeActionId}'");
+                    }
+                }
+                else
+                {
+                    // Action was changed
+                    var beforeActionDisplay = !string.IsNullOrEmpty(beforeActionName) ? beforeActionName : beforeActionId;
+                    var afterActionDisplay = !string.IsNullOrEmpty(afterActionName) ? afterActionName : afterActionId;
+                    changes.Add($"action changed: '{beforeActionDisplay}' → '{afterActionDisplay}'");
+                }
+            }
+
+            // Check jumpRules changes
+            var beforeJumpRules = before.JumpRules ?? new List<JumpRuleInfo>();
+            var afterJumpRules = after.JumpRules ?? new List<JumpRuleInfo>();
+
+            // Create comparison keys for jump rules (using optionLabel and targetSectionName)
+            var beforeRuleKeys = beforeJumpRules.Select(r => $"{r.OptionLabel ?? ""}→{r.TargetSectionName ?? ""}").ToList();
+            var afterRuleKeys = afterJumpRules.Select(r => $"{r.OptionLabel ?? ""}→{r.TargetSectionName ?? ""}").ToList();
+
+            // Find added rules
+            var addedRules = afterJumpRules.Where((r, idx) => !beforeRuleKeys.Contains($"{r.OptionLabel ?? ""}→{r.TargetSectionName ?? ""}")).ToList();
+            // Find removed rules
+            var removedRules = beforeJumpRules.Where((r, idx) => !afterRuleKeys.Contains($"{r.OptionLabel ?? ""}→{r.TargetSectionName ?? ""}")).ToList();
+
+            // Find modified rules (same optionLabel but different targetSectionName)
+            var beforeRulesByOption = beforeJumpRules.GroupBy(r => r.OptionLabel ?? "").ToDictionary(g => g.Key, g => g.ToList());
+            var afterRulesByOption = afterJumpRules.GroupBy(r => r.OptionLabel ?? "").ToDictionary(g => g.Key, g => g.ToList());
+
+            var modifiedRules = new List<string>();
+            foreach (var optionKey in beforeRulesByOption.Keys.Intersect(afterRulesByOption.Keys))
+            {
+                var beforeTargets = beforeRulesByOption[optionKey].Select(r => r.TargetSectionName ?? "").OrderBy(x => x).ToList();
+                var afterTargets = afterRulesByOption[optionKey].Select(r => r.TargetSectionName ?? "").OrderBy(x => x).ToList();
+
+                if (!beforeTargets.SequenceEqual(afterTargets))
+                {
+                    var optionLabel = string.IsNullOrEmpty(optionKey) ? "[other]" : $"'{optionKey}'";
+                    var beforeDisplay = string.Join(", ", beforeTargets.Select(t => $"'{t}'"));
+                    var afterDisplay = string.Join(", ", afterTargets.Select(t => $"'{t}'"));
+                    modifiedRules.Add($"{optionLabel}: {beforeDisplay} → {afterDisplay}");
+                }
+            }
+
+            // Build change messages
+            if (addedRules.Any())
+            {
+                var addedTexts = addedRules.Select(r => r.GetDisplayText()).Where(t => !string.IsNullOrEmpty(t)).ToList();
+                if (addedTexts.Any())
+                {
+                    changes.Add($"go to added: {string.Join(", ", addedTexts)}");
+                }
+                else
+                {
+                    changes.Add($"go to added: {addedRules.Count} rule(s)");
+                }
+            }
+
+            if (removedRules.Any())
+            {
+                var removedTexts = removedRules.Select(r => r.GetDisplayText()).Where(t => !string.IsNullOrEmpty(t)).ToList();
+                if (removedTexts.Any())
+                {
+                    changes.Add($"go to removed: {string.Join(", ", removedTexts)}");
+                }
+                else
+                {
+                    changes.Add($"go to removed: {removedRules.Count} rule(s)");
+                }
+            }
+
+            if (modifiedRules.Any())
+            {
+                changes.Add($"go to changed: {string.Join("; ", modifiedRules)}");
+            }
+
+            // If no specific changes detected but counts differ, show count change
+            if (!addedRules.Any() && !removedRules.Any() && !modifiedRules.Any() &&
+                beforeJumpRules.Count != afterJumpRules.Count)
+            {
+                changes.Add($"go to: {beforeJumpRules.Count} → {afterJumpRules.Count}");
+            }
+
+            // Check options changes for multiple choice questions with detailed information
+            if (before.OptionDetails.Count > 0 || after.OptionDetails.Count > 0)
+            {
+                var optionChanges = GetDetailedOptionChanges(before.OptionDetails, after.OptionDetails);
+                if (optionChanges.Any())
+                {
+                    changes.AddRange(optionChanges);
+                }
+            }
+            else if (before.Options.Count != after.Options.Count)
             {
                 changes.Add($"options: {before.Options.Count} → {after.Options.Count}");
             }
             else if (!before.Options.SequenceEqual(after.Options))
             {
                 changes.Add("options modified");
+            }
+
+            // Check rows changes for grid type questions
+            if (before.Rows.Count > 0 || after.Rows.Count > 0)
+            {
+                var rowChanges = GetDetailedRowColumnChanges(before.Rows, after.Rows, "row");
+                if (rowChanges.Any())
+                {
+                    changes.AddRange(rowChanges);
+                }
+            }
+
+            // Check columns changes for grid type questions
+            if (before.Columns.Count > 0 || after.Columns.Count > 0)
+            {
+                var columnChanges = GetDetailedRowColumnChanges(before.Columns, after.Columns, "column");
+                if (columnChanges.Any())
+                {
+                    changes.AddRange(columnChanges);
+                }
             }
 
             // Check specific important property changes
@@ -2329,6 +4641,9 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
             var addedTeams = afterTeams.Except(beforeTeams).ToList();
             var removedTeams = beforeTeams.Except(afterTeams).ToList();
 
+            // Get friendly permission type name for display
+            var permissionTypeDisplay = permissionType.ToLower() == "view" ? "View Teams" : "Operate Teams";
+
             // Get team names for all changed teams
             var allChangedTeams = addedTeams.Concat(removedTeams).Distinct().ToList();
             var teamNameMap = new Dictionary<string, string>();
@@ -2358,11 +4673,11 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
 
                 if (addedNames.Count == 1)
                 {
-                    changes.Add($"added {addedNames[0]} to {permissionType} teams");
+                    changes.Add($"added {addedNames[0]} to {permissionTypeDisplay}");
                 }
                 else
                 {
-                    changes.Add($"added {string.Join(", ", addedNames)} to {permissionType} teams");
+                    changes.Add($"added {string.Join(", ", addedNames)} to {permissionTypeDisplay}");
                 }
             }
 
@@ -2374,11 +4689,11 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
 
                 if (removedNames.Count == 1)
                 {
-                    changes.Add($"removed {removedNames[0]} from {permissionType} teams");
+                    changes.Add($"removed {removedNames[0]} from {permissionTypeDisplay}");
                 }
                 else
                 {
-                    changes.Add($"removed {string.Join(", ", removedNames)} from {permissionType} teams");
+                    changes.Add($"removed {string.Join(", ", removedNames)} from {permissionTypeDisplay}");
                 }
             }
 

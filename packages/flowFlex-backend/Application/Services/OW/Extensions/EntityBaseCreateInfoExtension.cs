@@ -139,6 +139,16 @@ namespace FlowFlex.Application.Services.OW.Extensions
         }
 
         /// <summary>
+        /// Initialize modify information for existing entity (alias for InitUpdateInfo)
+        /// </summary>
+        /// <param name="createInfo">Entity to update</param>
+        /// <param name="userContext">User context</param>
+        public static void InitModifyInfo(this EntityBaseCreateInfo createInfo, UserContext userContext)
+        {
+            InitUpdateInfo(createInfo, userContext);
+        }
+
+        /// <summary>
         /// Update information for existing entity with specific parameters
         /// </summary>
         /// <param name="createInfo">Entity to update</param>

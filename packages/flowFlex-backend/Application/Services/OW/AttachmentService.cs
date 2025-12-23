@@ -127,8 +127,63 @@ namespace FlowFlex.Application.Services.OW
 
         public async Task<string> GetAttachmentUrlAsync(long id, CancellationToken cancellationToken)
         {
-            await Task.Delay(10, cancellationToken);
-            return $"/files/{id}";
+            // Fallback URL for download endpoint
+            var fallbackUrl = $"/ow/onboarding-files/v1.0/{id}/download";
+            
+            try
+            {
+                // Find the OnboardingFile that references this attachment ID
+                var onboardingFile = await _onboardingFileRepository.GetByAttachmentIdAsync(id);
+                
+                if (onboardingFile == null)
+                {
+                    _logger.LogWarning("Attachment not found for ID {AttachmentId}, returning fallback URL", id);
+                    return fallbackUrl;
+                }
+
+                // Update fallback URL to use the correct file ID
+                fallbackUrl = $"/ow/onboarding-files/v1.0/{onboardingFile.Id}/download";
+
+                // Get the file path for generating real-time URL
+                // Priority: StoragePath > AccessUrl (extract path from URL)
+                string filePath = null;
+                
+                if (!string.IsNullOrEmpty(onboardingFile.StoragePath))
+                {
+                    filePath = onboardingFile.StoragePath;
+                }
+                else if (!string.IsNullOrEmpty(onboardingFile.AccessUrl))
+                {
+                    // AccessUrl might be a full OSS URL, we need to extract the file path
+                    // CloudFileStorageService.ExtractFilePathFromUrl will handle this
+                    filePath = onboardingFile.AccessUrl;
+                }
+
+                if (string.IsNullOrEmpty(filePath))
+                {
+                    _logger.LogWarning("No file path found for attachment {AttachmentId} (FileId: {FileId}), returning fallback URL", 
+                        id, onboardingFile.Id);
+                    return fallbackUrl;
+                }
+
+                // Generate real-time signed URL using file storage service
+                var signedUrl = await _fileStorageService.GetFileUrlAsync(filePath);
+                
+                // Check if the returned URL is valid (not null, not empty, and not just the original path)
+                if (string.IsNullOrEmpty(signedUrl))
+                {
+                    _logger.LogWarning("FileStorageService returned empty URL for path {FilePath}, returning fallback URL", filePath);
+                    return fallbackUrl;
+                }
+                
+                _logger.LogDebug("Generated real-time URL for attachment {AttachmentId}: {Url}", id, signedUrl);
+                return signedUrl;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting real-time URL for attachment {AttachmentId}, returning fallback URL", id);
+                return fallbackUrl;
+            }
         }
 
         public async Task DeleteAttachment(long attachmentId, CancellationToken cancellationToken = default)
@@ -181,11 +236,20 @@ namespace FlowFlex.Application.Services.OW
 
                     if (!string.IsNullOrEmpty(attachment.FilePath))
                     {
+                        // Remove /uploads/ prefix if present (for local storage compatibility)
                         filePath = attachment.FilePath.Replace("/uploads/", "");
                     }
                     else if (!string.IsNullOrEmpty(attachment.AccessUrl))
                     {
-                        filePath = attachment.AccessUrl.Replace("/uploads/", "");
+                        // For cloud storage, AccessUrl might be a full URL or a path
+                        // CloudFileStorageService.GetFileAsync will handle URL extraction
+                        filePath = attachment.AccessUrl;
+                        
+                        // If it's a local storage URL, remove /uploads/ prefix
+                        if (filePath.StartsWith("/uploads/", StringComparison.OrdinalIgnoreCase))
+                        {
+                            filePath = filePath.Replace("/uploads/", "");
+                        }
                     }
                     else
                     {

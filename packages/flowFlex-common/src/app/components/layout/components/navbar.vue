@@ -98,7 +98,11 @@ let themeSwitch = computed(() => {
 });
 
 const changeTheme = () => {
-	setTheme();
+	if ('startViewTransition' in document) {
+		(document as any).startViewTransition(setTheme);
+	} else {
+		setTheme();
+	}
 };
 
 watch(

@@ -307,7 +307,7 @@ namespace FlowFlex.Application.Services.AI
                 if (userConfig != null)
                 {
                     // Check if using Item Gateway based on BaseURL
-                    var isItemGateway = !string.IsNullOrEmpty(userConfig.BaseUrl) && 
+                    var isItemGateway = !string.IsNullOrEmpty(userConfig.BaseUrl) &&
                                       userConfig.BaseUrl.Contains("aiop-gateway.item.com", StringComparison.OrdinalIgnoreCase);
 
                     if (isItemGateway)
@@ -1361,7 +1361,7 @@ namespace FlowFlex.Application.Services.AI
         private async IAsyncEnumerable<string> CallOpenAIStreamAsync(List<object> messages, AIModelConfig config)
         {
             // Check if using Item Gateway
-            var isItemGateway = !string.IsNullOrEmpty(config.BaseUrl) && 
+            var isItemGateway = !string.IsNullOrEmpty(config.BaseUrl) &&
                               config.BaseUrl.Contains("aiop-gateway.item.com", StringComparison.OrdinalIgnoreCase);
 
             if (isItemGateway)

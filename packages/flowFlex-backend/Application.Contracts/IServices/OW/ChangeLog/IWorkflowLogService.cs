@@ -10,7 +10,7 @@ namespace FlowFlex.Application.Contracts.IServices.OW.ChangeLog
     public interface IWorkflowLogService : IBaseOperationLogService
     {
         // Workflow-specific operations
-        Task<bool> LogWorkflowCreateAsync(long workflowId, string workflowName, string workflowDescription = null, string extendedData = null);
+        Task<bool> LogWorkflowCreateAsync(long workflowId, string workflowName, string workflowDescription = null, string afterData = null, string extendedData = null);
         Task<bool> LogWorkflowUpdateAsync(long workflowId, string workflowName, string beforeData, string afterData, List<string> changedFields, string extendedData = null);
         Task<bool> LogWorkflowDeleteAsync(long workflowId, string workflowName, string reason = null, string extendedData = null);
         Task<bool> LogWorkflowPublishAsync(long workflowId, string workflowName, string version = null, string extendedData = null);

@@ -27,10 +27,19 @@
 				</div>
 				<div class="case-component-actions">
 					<el-button
+						:icon="Download"
+						v-if="systemId"
+						@click.stop="importFormIntegration"
+						:disabled="disabled"
+						:loading="importLoading"
+						type="primary"
+					>
+						Import from Integration
+					</el-button>
+					<el-button
 						:icon="Upload"
 						@click.stop="triggerUpload"
 						:disabled="disabled"
-						size="small"
 						type="primary"
 					>
 						Upload Files
@@ -77,7 +86,7 @@
 							</div>
 							<div class="text-xs text-gray-400 dark:text-gray-500">
 								Supports: PDF, DOCX, DOC, JPG, JPEG, PNG, XLSX, XLS, MSG, EML (Max
-								10MB per file)
+								50MB per file)
 							</div>
 						</div>
 					</el-upload>
@@ -94,15 +103,75 @@
 						class="flex items-center space-x-3 p-2 bg-gray-50 dark:bg-black-200 rounded"
 					>
 						<el-icon class="text-blue-500">
-							<Document />
+							<Upload />
 						</el-icon>
 						<div class="flex-1">
 							<div class="text-sm font-medium">{{ progress.name }}</div>
-							<el-progress :percentage="progress.percentage" :show-text="false" />
+							<el-progress
+								:percentage="progress.percentage"
+								:status="progress.error ? 'exception' : undefined"
+								:show-text="false"
+							/>
 						</div>
 						<span class="text-xs text-gray-500">{{ progress.percentage }}%</span>
+						<el-tooltip
+							v-if="progress.error"
+							:content="progress.error"
+							placement="top"
+							effect="dark"
+						>
+							<el-icon class="text-red-500 cursor-pointer text-lg">
+								<WarningFilled />
+							</el-icon>
+						</el-tooltip>
 					</div>
 				</div>
+
+				<!-- 下载进度 -->
+				<div v-if="downloadProgress.length > 0" class="space-y-2">
+					<h4 class="text-sm font-medium text-gray-700 dark:text-gray-300">
+						Downloading...
+					</h4>
+					<div
+						v-for="progress in downloadProgress"
+						:key="progress.uid"
+						class="flex items-center space-x-3 p-2 bg-gray-50 dark:bg-black-200 rounded"
+					>
+						<el-tooltip
+							v-if="progress.error"
+							:content="progress.error"
+							placement="top"
+							effect="dark"
+						>
+							<el-icon class="text-red-500 cursor-pointer text-lg">
+								<WarningFilled />
+							</el-icon>
+						</el-tooltip>
+						<el-icon v-else class="text-green-500">
+							<Download />
+						</el-icon>
+						<div class="flex-1">
+							<div class="text-sm font-medium">{{ progress.name }}</div>
+							<el-progress
+								:percentage="progress.percentage"
+								:status="progress.error ? 'exception' : undefined"
+								:show-text="false"
+							/>
+						</div>
+						<span class="text-xs text-gray-500">{{ progress.percentage }}%</span>
+
+						<el-button
+							v-if="progress.taskId"
+							text
+							size="small"
+							@click="handleCancelDownload(progress)"
+							class="text-gray-500 hover:text-red-500"
+						>
+							<el-icon><Close /></el-icon>
+						</el-button>
+					</div>
+				</div>
+
 				<!-- 已上传文件列表 -->
 				<div v-if="loading" class="text-center py-8">
 					<el-icon class="text-2xl animate-spin">
@@ -112,10 +181,14 @@
 				</div>
 
 				<div v-else-if="documents.length > 0" class="space-y-2">
-					<h4 class="text-sm font-medium text-gray-700 dark:text-gray-300">
-						Uploaded Files
-					</h4>
-					<el-table :data="documents" stripe class="w-full" border>
+					<h4 class="text-sm font-medium text-gray-700 dark:text-gray-300">Files</h4>
+					<el-table
+						:data="documents"
+						stripe
+						:max-height="tableMaxHeight"
+						class="w-full"
+						border
+					>
 						<el-table-column label="File Name" min-width="200">
 							<template #default="{ row }">
 								<div class="flex items-center">
@@ -165,30 +238,24 @@
 							</template>
 						</el-table-column>
 
-						<el-table-column label="Actions" width="150" fixed="right">
+						<el-table-column label="Actions" width="80" fixed="right">
 							<template #default="{ row }">
 								<div class="flex items-center space-x-2">
 									<el-button
-										size="small"
 										type="primary"
 										link
 										:disabled="viewDocumentIds.includes(row.id)"
 										:loading="viewDocumentIds.includes(row.id)"
 										@click="handleViewDocument(row)"
-									>
-										<el-icon><View /></el-icon>
-										View
-									</el-button>
+										:icon="View"
+									/>
 									<el-button
-										size="small"
 										type="danger"
 										link
 										:disabled="viewDocumentIds.includes(row.id) || disabled"
 										@click="handleDeleteDocument(row.id)"
-									>
-										<el-icon><Delete /></el-icon>
-										Delete
-									</el-button>
+										:icon="Delete"
+									/>
 								</div>
 							</template>
 						</el-table-column>
@@ -215,11 +282,21 @@
 			@close-office="closeOffice"
 			@rendered-office="offloading = false"
 		/>
+
+		<!-- Import Attachments Dialog -->
+		<ImportAttachmentsDialog
+			v-model:visible="importDialogVisible"
+			:attachments="importFileList"
+			:action-errors="importActionErrors"
+			:loading="importLoading"
+			@close="handleImportDialogClose"
+			@start-download="handleStartDownload"
+		/>
 	</div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch } from 'vue';
+import { ref, onMounted, onUnmounted, watch } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 
 import {
@@ -230,6 +307,9 @@ import {
 	Delete,
 	Folder,
 	ArrowRight,
+	Download,
+	WarningFilled,
+	Close,
 } from '@element-plus/icons-vue';
 import {
 	uploadOnboardingFile,
@@ -237,10 +317,21 @@ import {
 	deleteOnboardingFile,
 	previewOnboardingFile,
 } from '@/apis/ow/onboarding';
+import {
+	getCaseAttachmentIntegration,
+	importDownLoadFiles,
+	queryImportProgress,
+	cancelImportDownload,
+} from '@/apis/integration';
 import { timeZoneConvert } from '@/hooks/time';
 import { DocumentItem, ComponentData } from '#/onboard';
+import { IntegrationAttachment } from '#/integration';
 import vuePreviewFile from '@/components/previewFile/previewFile.vue';
+import ImportAttachmentsDialog from './ImportAttachmentsDialog.vue';
+import { useI18n } from '@/hooks/useI18n';
+import { tableMaxHeight } from '@/settings/projectSetting';
 
+const { t } = useI18n();
 // Props
 interface Props {
 	onboardingId: string;
@@ -248,6 +339,7 @@ interface Props {
 	component: ComponentData;
 	disabled?: boolean;
 	documentIsRequired?: boolean;
+	systemId?: string;
 }
 
 const props = defineProps<Props>();
@@ -255,7 +347,26 @@ const props = defineProps<Props>();
 // 响应式数据
 const documents = ref<DocumentItem[]>([]);
 const loading = ref(false);
-const uploadProgress = ref<{ uid: string; name: string; percentage: number }[]>([]);
+const uploadProgress = ref<
+	{
+		uid: string;
+		name: string;
+		percentage: number;
+		error?: string;
+	}[]
+>([]);
+const downloadProgress = ref<
+	{
+		uid: string;
+		name: string;
+		percentage: number;
+		error?: string;
+		taskId?: string; // 用于取消下载
+	}[]
+>([]);
+
+// 轮询定时器
+const pollingTimers = ref<Map<string, number>>(new Map());
 const uploadRef = ref();
 
 // 折叠状态
@@ -278,21 +389,19 @@ const emit = defineEmits<{
 	documentDeleted: [documentId: string];
 }>();
 
-// 获取文档列表
+// 获取文档列表（带loading，用于初始加载）
 const fetchDocuments = async () => {
 	if (!props.onboardingId) return;
 
 	loading.value = true;
 	try {
-		let response;
-
 		// 如果有stageId，按阶段获取文件；否则获取所有文件
 		if (!props.stageId) return;
-		response = await getOnboardingFilesByStage(props.onboardingId, props.stageId);
+		const response = await getOnboardingFilesByStage(props.onboardingId, props.stageId);
 
 		if (response.code === '200') {
 			documents.value =
-				response.data.map((item) => {
+				response.data.map((item: DocumentItem) => {
 					return {
 						...item,
 						uploadedDate: timeZoneConvert(item?.uploadedDate || ''),
@@ -303,11 +412,35 @@ const fetchDocuments = async () => {
 			ElMessage.error(response.msg || 'Failed to load documents');
 		}
 	} catch (error) {
-		console.error('Error fetching documents:', error);
 		documents.value = [];
-		ElMessage.error('Failed to load documents');
 	} finally {
 		loading.value = false;
+	}
+};
+
+// 静默刷新文档列表（增量更新，不显示loading，保持接口返回的顺序）
+const refreshDocumentsSilently = async () => {
+	if (!props.onboardingId || !props.stageId) return;
+
+	try {
+		const response = await getOnboardingFilesByStage(props.onboardingId, props.stageId);
+
+		if (response.code === '200') {
+			const newDocuments =
+				response.data.map((item: DocumentItem) => {
+					return {
+						...item,
+						uploadedDate: timeZoneConvert(item?.uploadedDate || ''),
+					};
+				}) || [];
+
+			// 直接使用接口返回的顺序，确保顺序与后端一致
+			// 这样可以避免增量更新时打乱顺序
+			documents.value = newDocuments;
+		}
+	} catch (error) {
+		console.error('Error refreshing documents silently:', error);
+		// 静默刷新失败时不显示错误消息，保持当前状态
 	}
 };
 
@@ -317,10 +450,10 @@ const triggerUpload = () => {
 };
 
 const handleBeforeUpload = (file: File) => {
-	// 检查文件大小（10MB限制）
-	const maxSize = 10 * 1024 * 1024; // 10MB
+	// 检查文件大小（50MB限制）
+	const maxSize = 50 * 1024 * 1024; // 10MB
 	if (file.size > maxSize) {
-		ElMessage.error('File size cannot exceed 10MB');
+		ElMessage.error('File size cannot exceed 50MB');
 		return false;
 	}
 
@@ -409,8 +542,8 @@ const handleFileChange = async (file: any) => {
 		if (response.data?.code === '200') {
 			ElMessage.success(`${file.name} uploaded successfully`);
 
-			// 重新加载文档列表
-			await fetchDocuments();
+			// 静默刷新文档列表（增量更新）
+			await refreshDocumentsSilently();
 
 			// 触发事件
 			emit('documentUploaded', response.data?.data);
@@ -419,7 +552,6 @@ const handleFileChange = async (file: any) => {
 		}
 	} catch (error) {
 		console.error('Upload error:', error);
-		ElMessage.error(`Failed to upload ${file.name}`);
 
 		// 从进度列表中移除
 		uploadProgress.value = uploadProgress.value.filter((p) => p.uid !== file.uid);
@@ -495,7 +627,8 @@ const handleDeleteDocument = async (documentId: string) => {
 
 		if (response.code === '200') {
 			ElMessage.success('Document deleted successfully');
-			await fetchDocuments();
+			// 静默刷新文档列表（增量更新）
+			await refreshDocumentsSilently();
 			emit('documentDeleted', documentId);
 		} else {
 			ElMessage.error(response.msg || 'Failed to delete document');
@@ -503,7 +636,6 @@ const handleDeleteDocument = async (documentId: string) => {
 	} catch (error) {
 		if (error !== 'cancel') {
 			console.error('Error deleting document:', error);
-			ElMessage.error('Failed to delete document');
 		}
 	}
 };
@@ -557,16 +689,318 @@ const vailComponent = () => {
 	}
 };
 
-// 生命周期
+const importLoading = ref(false);
+const importFileList = ref<IntegrationAttachment[]>([]);
+const importDialogVisible = ref(false);
+const importActionErrors = ref<Array<{ actionName: string; errorMessage: string }>>([]);
+
+const importFormIntegration = async () => {
+	try {
+		if (!props?.systemId) return;
+		importDialogVisible.value = true; // Open dialog on success
+		importLoading.value = true;
+		const res = await getCaseAttachmentIntegration({
+			systemId: props?.systemId,
+		});
+		if (res?.code == '200') {
+			// Process the new API response structure with actionExecutions array
+			const actionExecutions = res?.data?.actionExecutions || [];
+			const allAttachments: IntegrationAttachment[] = [];
+			const actionErrors: Array<{ actionName: string; errorMessage: string }> = [];
+
+			// Iterate through all action executions and collect attachments
+			actionExecutions.forEach((execution: any) => {
+				const hasAttachments =
+					execution.attachments &&
+					Array.isArray(execution.attachments) &&
+					execution.attachments.length > 0;
+
+				if (hasAttachments) {
+					// Add all attachments from successful execution
+					allAttachments.push(
+						...execution.attachments.map((item) => {
+							return {
+								...item,
+								actionName: execution.actionName,
+							};
+						})
+					);
+				} else if (execution.errorMessage) {
+					// If action failed (has error and no attachments), collect error info separately
+					actionErrors.push({
+						actionName: execution?.actionName,
+						errorMessage: execution.errorMessage,
+					});
+				}
+			});
+
+			importFileList.value = allAttachments;
+			importActionErrors.value = actionErrors;
+		} else {
+			ElMessage.error(res?.msg || t('sys.api.operationFailed'));
+		}
+	} finally {
+		importLoading.value = false;
+	}
+};
+
+const handleImportDialogClose = () => {
+	importDialogVisible.value = false;
+	importFileList.value = [];
+	importActionErrors.value = [];
+};
+
+// Handle start download from dialog
+const handleStartDownload = async (attachments: IntegrationAttachment[]) => {
+	if (attachments.length === 0) return;
+
+	try {
+		// 调用importDownLoadFiles接口开始下载
+		const files = attachments.map((att) => ({
+			downLoadLink: att.downloadLink,
+			fileName: att.fileName,
+		}));
+
+		const res = await importDownLoadFiles(props.onboardingId, {
+			stageId: props.stageId!,
+			files,
+		});
+		if (res.code == '200') {
+			// 立即查询一次进度来初始化 downloadProgress
+			await checkAndStartPolling();
+		} else {
+			ElMessage.error(res?.msg || t('sys.api.operationFailed'));
+		}
+	} catch (error: any) {
+		console.error('Failed to start download:', error);
+	}
+};
+
+// 检查是否有进行中的下载任务，并启动轮询
+const checkAndStartPolling = async () => {
+	if (!props.stageId) return;
+
+	// 检查是否已经有轮询在运行，避免重复启动
+	const pollingKey = `polling-${props.stageId}`;
+	if (pollingTimers.value.has(pollingKey)) return;
+
+	try {
+		const response = await queryImportProgress(props.onboardingId, {
+			stageId: props.stageId,
+		});
+
+		if (response?.code === '200' && Array.isArray(response.data)) {
+			const tasks = response.data;
+
+			// 遍历所有任务，收集所有进行中的文件
+			const allInProgressItems: any[] = [];
+
+			tasks.forEach((task: any) => {
+				if (task.items && Array.isArray(task.items)) {
+					task.items.forEach((item: any) => {
+						if (item.status !== 'completed') {
+							allInProgressItems.push({
+								uid: item.itemId,
+								name: item.fileName,
+								percentage: item.progressPercentage || 0,
+								error: item.status === 'failed' ? item.errorMessage : undefined,
+								taskId: task.taskId,
+							});
+						}
+					});
+				}
+			});
+
+			// 如果有进行中的任务，初始化 downloadProgress 并启动轮询
+			if (allInProgressItems.length > 0) {
+				downloadProgress.value = allInProgressItems;
+				startPollingProgress(props.stageId!);
+			}
+		}
+	} catch (error) {
+		console.error('Error checking download progress:', error);
+	}
+};
+
+// 开始轮询查询进度
+const startPollingProgress = (stageId: string) => {
+	const pollInterval = 2000; // 每2秒轮询一次
+	const pollingKey = `polling-${stageId}`;
+
+	// 如果已经在轮询，不重复启动
+	if (pollingTimers.value.has(pollingKey)) return;
+
+	const timer = setInterval(async () => {
+		try {
+			const response = await queryImportProgress(props.onboardingId, { stageId });
+			if (response?.code !== '200') {
+				// 停止轮询
+				stopPolling(pollingKey);
+				// 更新所有文件为错误状态
+				downloadProgress.value.forEach((progress) => {
+					progress.error = response?.msg || 'Failed to query progress';
+					progress.percentage = 100;
+				});
+				return;
+			}
+
+			const tasks = response.data;
+
+			// 更新进度 - 遍历所有任务的 items
+			if (Array.isArray(tasks)) {
+				// 收集所有任务中的所有 items（包含 taskId）
+				const allItems: any[] = [];
+				tasks.forEach((task: any) => {
+					if (task.items && Array.isArray(task.items)) {
+						task.items.forEach((item: any) => {
+							allItems.push({
+								...item,
+								taskId: task.taskId, // 保存 taskId 用于取消操作
+							});
+						});
+					}
+				});
+
+				// 过滤出未完成的项
+				const inProgressItems = allItems.filter((item) => item.status !== 'completed');
+
+				// 如果接口返回的未完成文件数量与当前下载列表不同，说明有变化
+				if (inProgressItems.length !== downloadProgress.value.length) {
+					// 如果数量减少，说明有文件完成了，刷新文件列表
+					if (inProgressItems.length < downloadProgress.value.length) {
+						refreshDocumentsSilently();
+					}
+
+					// 重新构建下载进度列表
+					downloadProgress.value = inProgressItems.map((item) => ({
+						uid: item.itemId,
+						name: item.fileName,
+						percentage: item.progressPercentage || 0,
+						error: item.status === 'Failed' ? item.errorMessage : undefined,
+						taskId: item.taskId,
+					}));
+				} else {
+					// 数量相同，只更新进度和状态
+					downloadProgress.value = downloadProgress.value.map((progress) => {
+						const item = allItems.find((i: any) => i.itemId === progress.uid);
+						if (item) {
+							return {
+								...progress,
+								percentage: item.progressPercentage || 0,
+								error: item.status === 'Failed' ? item.errorMessage : undefined,
+								taskId: item.taskId,
+							};
+						}
+						return progress;
+					});
+				}
+			}
+
+			// 如果所有下载都完成，停止轮询
+			if (downloadProgress.value.length == 0) {
+				stopPolling(pollingKey);
+				ElMessage.success('All files imported successfully');
+				// 静默刷新文档列表（增量更新）
+				await refreshDocumentsSilently();
+			}
+		} catch (error) {
+			stopPolling(pollingKey);
+
+			// 更新所有文件为错误状态
+			downloadProgress.value.forEach((progress) => {
+				progress.error = 'Failed to query progress';
+				progress.percentage = 100;
+			});
+		}
+	}, pollInterval);
+
+	pollingTimers.value.set(pollingKey, timer as any);
+};
+
+// 停止轮询
+const stopPolling = (key: string) => {
+	const timer = pollingTimers.value.get(key);
+	if (timer) {
+		clearInterval(timer);
+		pollingTimers.value.delete(key);
+	}
+};
+
+// 取消下载
+const handleCancelDownload = async (progress: any) => {
+	if (!progress.taskId) return;
+
+	try {
+		// 显示确认弹窗
+		await ElMessageBox.confirm(
+			`Are you sure you want to cancel downloading "${progress.name}"?`,
+			'Cancel Download',
+			{
+				confirmButtonText: 'Confirm',
+				cancelButtonText: 'Cancel',
+				type: 'warning',
+			}
+		);
+
+		// 使用uid作为fileId
+		const fileId = progress.uid;
+
+		const response = await cancelImportDownload(props.onboardingId, progress.taskId, fileId);
+
+		if (response?.code === '200') {
+			// 移除进度
+			downloadProgress.value = downloadProgress.value.filter((p) => p.uid !== progress.uid);
+
+			ElMessage.success('Download cancelled');
+
+			// 如果没有下载任务了，停止轮询
+			if (downloadProgress.value.length === 0) {
+				stopPolling(`polling-${props.stageId}`);
+			}
+		} else {
+			ElMessage.error(response?.msg || 'Failed to cancel download');
+		}
+	} catch (error) {
+		// 用户点击取消按钮时，error 为 'cancel'
+		if (error !== 'cancel') {
+			console.error('Error cancelling download:', error);
+			ElMessage.error('Failed to cancel download');
+		}
+	}
+};
 onMounted(() => {
 	fetchDocuments();
+	// 检查是否有进行中的下载任务
+	checkAndStartPolling();
+});
+
+// 组件卸载时清理所有定时器
+onUnmounted(() => {
+	pollingTimers.value.forEach((timer) => {
+		clearInterval(timer);
+	});
+	pollingTimers.value.clear();
 });
 
 // 监听 stageId 变化，重新加载文档
 watch(
 	() => props.stageId,
-	() => {
+	(newStageId, oldStageId) => {
+		// 如果 stageId 变化，先停止旧的轮询
+		if (oldStageId) {
+			stopPolling(`polling-${oldStageId}`);
+		}
+
+		// 清空下载进度
+		downloadProgress.value = [];
+
+		// 重新加载文档
 		fetchDocuments();
+
+		// 检查新 stageId 是否有进行中的下载任务
+		if (newStageId) {
+			checkAndStartPolling();
+		}
 	}
 );
 
@@ -584,43 +1018,6 @@ defineExpose({
 		transform: rotate(90deg);
 	}
 }
-
-/* 优化折叠动画 */
-:deep(.el-collapse-transition) {
-	transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
-}
-
-:deep(.el-collapse-transition .el-collapse-item__content) {
-	will-change: height;
-	transform: translateZ(0); /* 启用硬件加速 */
-}
-
-:deep(.el-progress-bar__outer) {
-	background-color: var(--el-fill-color);
-}
-
-:deep(.el-progress-bar__inner) {
-	background-color: var(--el-color-primary);
-}
-
-html.dark :deep(.el-progress-bar__outer) {
-	background-color: var(--el-fill-color-darker);
-}
-
-/* 上传组件样式 */
-.el-icon--upload {
-	color: var(--el-color-primary);
-}
-
-:deep(.el-upload__tip) {
-	margin-top: 4px;
-	color: var(--el-text-color-secondary);
-}
-
-html.dark :deep(.el-upload__tip) {
-	color: var(--el-text-color-placeholder);
-}
-
 /* 文件列表样式 */
 .animate-spin {
 	animation: spin 1s linear infinite;
@@ -635,11 +1032,6 @@ html.dark :deep(.el-upload__tip) {
 	}
 }
 
-/* 自定义进度条颜色 */
-:deep(.el-progress-bar__inner) {
-	transition: width 0.3s ease;
-}
-
 /* 文件项悬停效果 */
 .file-item:hover {
 	transform: translateY(-1px);
@@ -648,14 +1040,5 @@ html.dark :deep(.el-upload__tip) {
 
 html.dark .file-item:hover {
 	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-}
-
-/* 表格单元格内容样式 - 参考 index.vue 实现 */
-.table-cell-content {
-	overflow: hidden;
-	text-overflow: ellipsis;
-	white-space: nowrap;
-	max-width: 100%;
-	display: block;
 }
 </style>

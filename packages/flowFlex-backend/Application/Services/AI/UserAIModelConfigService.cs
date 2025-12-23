@@ -543,7 +543,7 @@ namespace Application.Services.AI
                         }
 
                         // 检查是否使用 Item Gateway（基于 BaseURL）
-                        var isItemGateway = !string.IsNullOrEmpty(config.BaseUrl) && 
+                        var isItemGateway = !string.IsNullOrEmpty(config.BaseUrl) &&
                                           config.BaseUrl.Contains("aiop-gateway.item.com", StringComparison.OrdinalIgnoreCase);
 
                         if (isItemGateway)

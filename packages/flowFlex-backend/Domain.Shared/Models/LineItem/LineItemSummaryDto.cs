@@ -1,4 +1,5 @@
 namespace FlowFlex.Domain.Shared.Models.LineItem;
+
 using System;
 using System.Collections.Generic;
 

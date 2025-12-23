@@ -6,7 +6,7 @@ import HistoryButton from '@/components/changeHistory/suspensionButton.vue';
 import './style.scss';
 import { setupI18n } from './locales/setupI18n';
 import { setupRouter, router } from '@/router';
-import { setupRouterGuard, handleTripartiteToken, createDynamicRoutes } from '@/router/guard';
+import { setupRouterGuard, handleThirdPartyToken, createDynamicRoutes } from '@/router/guard';
 import { vPerMission } from '@/hooks';
 import { setTheme, setPrimary } from '@/utils/theme';
 import ElementPlus from 'element-plus';
@@ -19,7 +19,7 @@ let appInstance: any = null;
 
 async function bootstrap() {
 	const app = createApp(App);
-	await handleTripartiteToken();
+	await handleThirdPartyToken();
 	// Initialize portal access tenant info from URL if needed
 	// 如果是portal访问页面，从URL中提取租户信息
 	initPortalAccess();

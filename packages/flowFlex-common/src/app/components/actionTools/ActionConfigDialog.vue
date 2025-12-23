@@ -1,6 +1,6 @@
 <template>
 	<!-- External toggle button for variables panel -->
-	<div class="action-config-drawer">
+	<div>
 		<Teleport to="body">
 			<div v-if="visible" class="variables-toggle-external" @click="showVariablesPanel">
 				<div class="external-toggle-button">
@@ -12,27 +12,31 @@
 
 		<el-drawer
 			v-model="visible"
-			:title="dialogTitle"
 			:size="drawerSize"
 			direction="rtl"
 			@close="onCancel"
 			@opened="opened"
+			append-to-body
+			class="drawer"
 		>
-			<div class="flex gap-4 w-full h-full min-h-0">
+			<template #header>
+				<div class="font-bold">
+					{{ dialogTitle }}
+				</div>
+			</template>
+
+			<div class="flex w-full gap-x-2">
 				<div v-if="leftPanelVisible" class="flex-1 min-w-0 min-h-0 flex flex-col">
 					<el-scrollbar ref="scrollbarRefLeft" class="h-full">
 						<VariablesPanel
-							:stage-id="triggerSourceId"
+							:stage-id="currentTriggerSourceId"
 							:action-actionType="formData.actionType"
 						/>
 					</el-scrollbar>
 				</div>
 
-				<div
-					class="action-config-container pr-4 flex-1 min-w-0 min-h-0 flex flex-col"
-					v-loading="loading"
-				>
-					<el-scrollbar ref="scrollbarRefRight" class="h-full">
+				<div class="flex-1 min-w-0 min-h-0 flex flex-col" v-loading="loading">
+					<el-scrollbar ref="scrollbarRefRight" class="h-full pr-2">
 						<!-- 选择模式 - 位于表单最前方 -->
 						<div
 							v-if="!isConfigModeDisabled"
@@ -43,29 +47,29 @@
 								<el-radio-group
 									v-model="configMode"
 									@change="(value) => handleConfigModeChange(value as ToolsType)"
-									:disabled="isConfigModeDisabled"
+									:disabled="isConfigModeDisabled || loadingExistingTools"
 								>
 									<el-radio
 										:value="ToolsType.UseTool"
-										:disabled="props.isEditing || isConfigModeDisabled"
+										:disabled="!!currentActionId || isConfigModeDisabled"
 									>
 										<span class="text-sm">Use Tool</span>
 									</el-radio>
 									<el-radio
 										:value="ToolsType.MyTool"
-										:disabled="props.isEditing || isConfigModeDisabled"
+										:disabled="!!currentActionId || isConfigModeDisabled"
 									>
 										<span class="text-sm">My Action</span>
 									</el-radio>
 									<el-radio
 										:value="ToolsType.NewTool"
-										:disabled="props.isEditing || isConfigModeDisabled"
+										:disabled="!!currentActionId || isConfigModeDisabled"
 									>
 										<span class="text-sm">Create New Action</span>
 									</el-radio>
 									<el-radio
 										:value="ToolsType.SystemTools"
-										:disabled="props.isEditing || isConfigModeDisabled"
+										:disabled="!!currentActionId || isConfigModeDisabled"
 									>
 										<span class="text-sm">System Tool</span>
 									</el-radio>
@@ -111,7 +115,6 @@
 							:rules="rules"
 							label-position="top"
 							label-width="120px"
-							class="p-1 pr-4"
 						>
 							<!-- Basic Info -->
 							<el-form-item label="Action Name" prop="name">
@@ -153,7 +156,7 @@
 										:key="actionType.value"
 										:value="actionType.value"
 										class="action-actionType-option"
-										:disabled="isEditing || shouldDisableFields"
+										:disabled="!!currentActionId || shouldDisableFields"
 									>
 										<div class="flex items-center space-x-3">
 											<div
@@ -176,7 +179,7 @@
 							</el-form-item>
 
 							<!-- Action Configuration -->
-							<div v-if="formData.actionType" class="action-config-section">
+							<div v-if="formData.actionType" class="">
 								<!-- Python Script Configuration -->
 								<PythonConfig
 									v-if="formData.actionType === ActionType.PYTHON_SCRIPT"
@@ -185,7 +188,7 @@
 									:testing="testing"
 									:test-result="testResult"
 									ref="pythonConfigRef"
-									:id-editing="isEditing"
+									:id-editing="!!currentActionId"
 									:disabled="shouldDisableFields"
 								/>
 
@@ -199,18 +202,141 @@
 									:testing="testing"
 									:test-result="testResult"
 									ref="httpConfigRef"
-									:id-editing="isEditing"
+									:id-editing="!!currentActionId"
 									:disabled="shouldDisableFields"
 								/>
 							</div>
 
-							<!-- <el-form-item prop="IsTools" v-if="!shouldDisableFields">
-									<el-checkbox
-										v-model="formData.isTools"
-										label="Is Tool"
-										:disabled="shouldDisableFields"
-									/>
-								</el-form-item> -->
+							<!-- Field Mapping Section -->
+							<el-form-item class="w-full">
+								<div class="w-full">
+									<!-- 折叠标题 -->
+									<div
+										class="flex items-center justify-between gap-2 w-full cursor-pointer py-2 transition-colors duration-200 hover:bg-fill-lighter rounded"
+										@click="toggleFieldMappingCollapse"
+									>
+										<div>
+											<el-icon
+												class="transition-transform duration-300 text-text-regular"
+												:class="{
+													'rotate-180': isFieldMappingExpanded,
+												}"
+											>
+												<ArrowDown />
+											</el-icon>
+											<span class="text-sm font-medium text-text-primary">
+												Field Mapping
+											</span>
+											<span class="text-xs text-text-secondary">
+												Map external fields to WFE fields
+											</span>
+										</div>
+										<el-button
+											v-if="isFieldMappingExpanded"
+											type="primary"
+											@click.stop="handleAddFieldMapping"
+											:disabled="shouldDisableFields"
+											:icon="Plus"
+										>
+											Add Field
+										</el-button>
+									</div>
+									<!-- 折叠内容 -->
+									<el-collapse-transition>
+										<div v-show="isFieldMappingExpanded" class="w-full">
+											<div class="space-y-4 w-full">
+												<el-table
+													:data="fieldMappings"
+													class="w-full"
+													empty-text="No field mappings configured"
+													:border="true"
+												>
+													<el-table-column
+														label="External Field"
+														min-width="200"
+													>
+														<template #default="{ row }">
+															<el-input
+																v-model="row.externalFieldName"
+																placeholder="Enter external field name"
+																:disabled="shouldDisableFields"
+															/>
+														</template>
+													</el-table-column>
+
+													<el-table-column
+														label="WFE Field"
+														min-width="200"
+													>
+														<template #default="{ row }">
+															<el-select
+																v-model="row.wfeFieldId"
+																placeholder="Select WFE field"
+																:disabled="shouldDisableFields"
+																class="w-full"
+															>
+																<el-option
+																	v-for="field in wfeFieldOptions"
+																	:key="field.fieldId"
+																	:label="field.fieldLabel"
+																	:value="field.fieldId"
+																/>
+															</el-select>
+														</template>
+													</el-table-column>
+
+													<el-table-column label="Type" min-width="120">
+														<template #default>
+															<span class="text-sm">text</span>
+														</template>
+													</el-table-column>
+
+													<el-table-column
+														label="Direction"
+														min-width="150"
+													>
+														<template #default="{ row }">
+															<el-select
+																v-model="row.syncDirection"
+																placeholder="Select direction"
+																:disabled="shouldDisableFields"
+																class="w-full"
+															>
+																<el-option
+																	:label="'View Only'"
+																	:value="SyncDirection.ViewOnly"
+																/>
+																<el-option
+																	:label="'Editable'"
+																	:value="SyncDirection.Editable"
+																/>
+															</el-select>
+														</template>
+													</el-table-column>
+
+													<el-table-column
+														label="Actions"
+														width="100"
+														align="center"
+													>
+														<template #default="{ $index }">
+															<el-button
+																type="danger"
+																link
+																:icon="Delete"
+																@click="
+																	handleRemoveFieldMapping($index)
+																"
+																:disabled="shouldDisableFields"
+															/>
+														</template>
+													</el-table-column>
+												</el-table>
+											</div>
+										</div>
+									</el-collapse-transition>
+								</div>
+							</el-form-item>
 						</el-form>
 					</el-scrollbar>
 				</div>
@@ -220,7 +346,7 @@
 				<div class="dialog-footer">
 					<el-button @click="onCancel">Cancel</el-button>
 					<el-button type="primary" @click="onSave" :loading="saving">
-						{{ isEditing ? 'Update' : 'Add' }} Action
+						{{ !!currentActionId ? 'Update' : 'Add' }} Action
 					</el-button>
 				</div>
 			</template>
@@ -229,13 +355,14 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, watch, nextTick } from 'vue';
+import { ref, computed, watch, nextTick, onBeforeMount } from 'vue';
 import { ElMessage, useZIndex } from 'element-plus';
-import { Operation, Connection } from '@element-plus/icons-vue';
+import { Operation, Connection, Delete, Plus, ArrowDown } from '@element-plus/icons-vue';
 import PythonConfig from './PythonConfig.vue';
 import HttpConfig from './HttpConfig.vue';
 import VariablesPanel from './VariablesPanel.vue';
 import { useAdaptiveScrollbar } from '@/hooks/useAdaptiveScrollbar';
+import { SyncDirection } from '@/enums/integration';
 
 import {
 	addAction,
@@ -247,8 +374,10 @@ import {
 	ACTION_TYPE_MAPPING,
 	addMappingAction,
 } from '@/apis/action';
+import { getDynamicField } from '@/apis/global/dyanmicField';
 import { TriggerTypeEnum, ToolsType } from '@/enums/appEnum';
 import { ActionItem, ActionDefinition, ActionQueryRequest } from '#/action';
+import { DynamciFile } from '#/dynamic';
 
 const { scrollbarRef: scrollbarRefLeft, updateScrollbarHeight: updateScrollbarHeightLeft } =
 	useAdaptiveScrollbar(80);
@@ -260,26 +389,28 @@ const { scrollbarRef: scrollbarRefRight, updateScrollbarHeight: updateScrollbarH
 const { nextZIndex } = useZIndex();
 
 interface Props {
-	modelValue?: boolean;
-	action?: ActionItem | null;
-	isEditing?: boolean;
 	triggerSourceId?: string;
 	workflowId?: string;
-	loading?: boolean;
 	triggerType?: TriggerTypeEnum;
-	forceEditable?: boolean; // 强制允许编辑，忽略isTools限制
+	mappingRequired?: boolean;
 }
 
 const props = withDefaults(defineProps<Props>(), {
-	modelValue: false,
-	action: null,
-	isEditing: false,
 	triggerSourceId: '',
 	workflowId: '',
-	forceEditable: false,
+	mappingRequired: false,
 });
 
-const emit = defineEmits(['update:modelValue', 'saveSuccess', 'cancel']);
+const emit = defineEmits(['saveSuccess']);
+
+// 内部状态
+const visible = ref(false);
+const loading = ref(false);
+const currentActionId = ref<string>('');
+const currentTriggerSourceId = ref<string>('');
+const currentWorkflowId = ref<string>('');
+const currentTriggerType = ref<TriggerTypeEnum | undefined>(undefined);
+const forceEditable = ref(false);
 
 // Form data
 const formRef = ref();
@@ -304,30 +435,26 @@ const existingToolsList = ref<ActionDefinition[]>([]); // 已有工具列表
 const isAiGenerated = ref(false); // 标识当前action是否为AI生成
 const aiGeneratedConfig = ref<any>(null); // 存储AI生成的配置数据
 
-const formData = reactive<ActionItem>({
+const formData = ref<ActionItem & { fieldMappings?: IFieldMappingItem[] }>({
 	id: '',
 	name: '',
-	actionType: ActionType.PYTHON_SCRIPT,
+	actionType: ActionType.HTTP_API,
 	description: '',
 	condition: 'Stage Completed',
 	isTools: false, // 新建时默认为 true（工具模式），允许用户选择
 	actionConfig: {},
+	fieldMappings: [],
 });
 
 // Computed
-const visible = computed({
-	get: () => props.modelValue,
-	set: (value) => emit('update:modelValue', value),
-});
-
 const dialogTitle = computed(() => {
-	return props.isEditing ? 'Edit Action' : 'Add New Action';
+	return currentActionId.value ? 'Edit Action' : 'Add New Action';
 });
 
 // 计算是否应该禁用表单字段
 const shouldDisableFields = computed(() => {
 	// 如果强制允许编辑，直接返回false
-	if (props.forceEditable) {
+	if (forceEditable.value) {
 		return false;
 	}
 
@@ -336,8 +463,8 @@ const shouldDisableFields = computed(() => {
 	}
 
 	// 编辑状态：根据 isTools 决定
-	if (props.action) {
-		return props.action.isTools === true;
+	if (currentActionId.value && formData.value.isTools) {
+		return true;
 	}
 
 	// 新建状态：根据选择的配置模式决定
@@ -354,15 +481,15 @@ const shouldDisableFields = computed(() => {
 // 计算是否应该禁用配置模式选择
 const isConfigModeDisabled = computed(() => {
 	// 如果 forceEditable 为 true，禁用配置模式选择
-	return props.forceEditable;
+	return forceEditable.value;
 });
 
 const drawerSize = computed(() => {
-	return leftPanelVisible.value ? '80%' : '40%';
+	return leftPanelVisible.value ? '80%' : '50%';
 });
 
 const buttonLeftPosition = computed(() => {
-	const drawerWidth = leftPanelVisible.value ? 0.8 : 0.4;
+	const drawerWidth = leftPanelVisible.value ? 0.8 : 0.5;
 	return `calc(100vw - ${drawerWidth * 100}vw - 30px)`;
 });
 
@@ -383,30 +510,31 @@ const showVariablesPanel = () => {
 	leftPanelVisible.value = !leftPanelVisible.value;
 	nextTick(() => {
 		updateScrollbarHeightLeft();
+		updateScrollbarHeightRight();
 	});
 };
 
 // Action Types
 const actionTypes = [
 	{
-		label: 'Python Script',
-		value: ActionType.PYTHON_SCRIPT,
-		icon: Operation,
-		description: 'Execute custom Python code when stage completes',
-	},
-	{
 		label: 'HTTP API',
 		value: ActionType.HTTP_API,
 		icon: Connection,
 		description: 'Send HTTP request to external API endpoint',
 	},
+	{
+		label: 'Python Script',
+		value: ActionType.PYTHON_SCRIPT,
+		icon: Operation,
+		description: 'Execute custom Python code when stage completes',
+	},
 ];
 
 // Form Rules
 const rules = {
-	name: [{ required: true, message: 'Please enter action name', trigger: 'change' }],
-	actionType: [{ required: true, message: 'Please select action actionType', trigger: 'change' }],
-	condition: [{ required: true, message: 'Please select condition', trigger: 'change' }],
+	name: [{ required: true, message: 'Please enter action name', trigger: 'blur' }],
+	actionType: [{ required: true, message: 'Please select action actionType', trigger: 'blur' }],
+	condition: [{ required: true, message: 'Please select condition', trigger: 'blur' }],
 };
 
 const getDefaultConfig = (actionType: ActionType) => {
@@ -433,15 +561,76 @@ const getDefaultConfig = (actionType: ActionType) => {
 };
 
 // Methods
-const resetForm = () => {
-	formData.id = '';
-	formData.name = '';
-	formData.actionType = ActionType.PYTHON_SCRIPT;
-	formData.description = '';
-	formData.isTools = false; // 新建时默认为工具模式
-	formData.actionConfig = getDefaultConfig(ActionType.PYTHON_SCRIPT);
+// 字段映射相关状态和逻辑
+interface IFieldMappingItem {
+	externalFieldName: string;
+	wfeFieldId: string;
+	fieldType: number;
+	syncDirection: number;
+}
+
+const showFieldMapping = ref(false);
+const wfeFieldOptions = ref<DynamciFile[]>([]);
+const loadingDynamicField = ref(false);
+const isFieldMappingExpanded = ref(false);
+
+const fieldMappings = computed({
+	get() {
+		return formData.value.fieldMappings || [];
+	},
+	set(val: IFieldMappingItem[]) {
+		formData.value.fieldMappings = val;
+	},
+});
+
+// 切换字段映射折叠状态
+const toggleFieldMappingCollapse = () => {
+	isFieldMappingExpanded.value = !isFieldMappingExpanded.value;
+};
+
+// 监听字段映射变化，自动展开折叠面板
+watch(
+	() => fieldMappings.value?.length,
+	(newLength) => {
+		if (newLength && newLength > 0 && !isFieldMappingExpanded.value) {
+			isFieldMappingExpanded.value = true;
+		}
+	}
+);
+
+/**
+ * 添加字段映射
+ */
+function handleAddFieldMapping() {
+	const newMapping: IFieldMappingItem = {
+		externalFieldName: '',
+		wfeFieldId: '',
+		fieldType: 1, // 默认 Text
+		syncDirection: SyncDirection.ViewOnly,
+	};
+	fieldMappings.value = [...(fieldMappings.value || []), newMapping];
+}
+
+/**
+ * 删除字段映射
+ */
+function handleRemoveFieldMapping(index: number) {
+	const mappings = [...(fieldMappings.value || [])];
+	mappings.splice(index, 1);
+	fieldMappings.value = mappings;
+}
+
+const resetForm = (closeDialog = true) => {
+	formData.value.id = '';
+	formData.value.name = '';
+	formData.value.actionType = ActionType.HTTP_API;
+	formData.value.description = '';
+	formData.value.isTools = false; // 新建时默认为工具模式
+	formData.value.actionConfig = getDefaultConfig(ActionType.HTTP_API);
 	formRef.value?.resetFields();
-	visible.value = false;
+	if (closeDialog) {
+		visible.value = false;
+	}
 	testResult.value = null;
 	disabledActionForMyTool.value = false;
 
@@ -453,9 +642,14 @@ const resetForm = () => {
 	isAiGenerated.value = false;
 	aiGeneratedConfig.value = null;
 
+	// 重置字段映射状态
+	showFieldMapping.value = false;
+	fieldMappings.value = [];
+	isFieldMappingExpanded.value = false;
+
 	// 重置配置模式为默认值
-	// 如果 forceEditable 为 true 且没有 action，设置为 NewTool 模式
-	if (props.forceEditable && !props.action) {
+	// 如果 forceEditable 为 true 且没有 actionId，设置为 NewTool 模式
+	if (forceEditable.value && !currentActionId.value) {
 		configMode.value = ToolsType.NewTool;
 	} else {
 		configMode.value = ToolsType.UseTool;
@@ -463,14 +657,13 @@ const resetForm = () => {
 };
 
 const handleActionTypeChange = (actionType: ActionType) => {
-	formData.actionConfig = getDefaultConfig(actionType);
+	formData.value.actionConfig = getDefaultConfig(actionType);
 };
 
 // Update action name from HttpConfig component
 const updateActionName = (actionName: string) => {
 	if (actionName && typeof actionName === 'string' && actionName.trim()) {
-		formData.name = actionName.trim();
-		console.log('📝 Action name updated in dialog:', actionName);
+		formData.value.name = actionName.trim();
 	}
 };
 
@@ -478,7 +671,6 @@ const updateActionName = (actionName: string) => {
 const handleAiConfigApplied = (config: any) => {
 	isAiGenerated.value = true;
 	aiGeneratedConfig.value = config;
-	console.log('🤖 AI config applied, marking action as AI-generated:', config);
 };
 
 // Action Type 名称映射方法
@@ -496,19 +688,21 @@ const handleConfigModeChange = async (mode: ToolsType) => {
 
 const disabledActionForMyTool = ref(false);
 const changeConfigModeChange = async (mode: ToolsType) => {
-	if (props.forceEditable) return;
-	console.log('mode:', mode);
+	if (forceEditable.value) return;
 	if (mode === ToolsType.UseTool) {
 		// 使用已有工具：加载工具列表
 		await loadExistingTools(true);
-		formData.isTools = true;
-		selectedToolId.value = formData.id;
+		formData.value.isTools = true;
+		selectedToolId.value = formData.value.id;
 	} else if (mode === ToolsType.MyTool) {
 		await loadExistingTools(false);
-		formData.isTools = false;
+		formData.value.isTools = false;
 		// 检查当前 action 是否在加载的列表中
-		if (formData.id && existingToolsList.value.some((tool) => tool.id === formData.id)) {
-			selectedToolId.value = formData.id;
+		if (
+			formData.value.id &&
+			existingToolsList.value.some((tool) => tool.id === formData.value.id)
+		) {
+			selectedToolId.value = formData.value.id;
 			disabledActionForMyTool.value = false;
 		} else {
 			// 如果当前 action 不在列表中，清空选择但保留表单数据
@@ -518,12 +712,12 @@ const changeConfigModeChange = async (mode: ToolsType) => {
 	} else if (mode === ToolsType.NewTool) {
 		// 创建普通 Action：清空列表，设置为非工具模式
 		existingToolsList.value = [];
-		formData.isTools = false;
+		formData.value.isTools = false;
 		selectedToolId.value = '';
 	} else if (mode === ToolsType.SystemTools) {
 		await loadExistingTools(false, true);
-		formData.isTools = true;
-		selectedToolId.value = formData.id;
+		formData.value.isTools = true;
+		selectedToolId.value = formData.value.id;
 	}
 };
 
@@ -548,7 +742,7 @@ const loadExistingTools = async (isTools: boolean, isSystemTools?: boolean) => {
 				response.data?.data.filter((item) => {
 					return (
 						!item.triggerType ||
-						(item.triggerType && item.triggerType == props.triggerType)
+						(item.triggerType && item.triggerType == currentTriggerType.value)
 					);
 				}) || [];
 		} else {
@@ -556,51 +750,55 @@ const loadExistingTools = async (isTools: boolean, isSystemTools?: boolean) => {
 			existingToolsList.value = [];
 		}
 	} catch (error) {
-		console.error('Failed to load existing tools:', error);
-		ElMessage.error('Failed to load existing tools');
 		existingToolsList.value = [];
 	} finally {
 		loadingExistingTools.value = false;
 	}
 };
 
-// Watch for action prop changes
-watch(
-	() => props.action,
-	async (newAction) => {
-		console.log('newAction:', newAction);
-		if (newAction) {
-			Object.keys(formData).forEach((key) => {
-				formData[key] =
-					newAction[key] == undefined || newAction[key] == null
-						? formData[key]
-						: newAction[key];
-			});
-			if (formData.actionType === ActionType.SYSTEM_TOOLS) {
+/**
+ * 加载 Action 详情
+ */
+const loadActionDetail = async (actionId: string) => {
+	try {
+		loading.value = true;
+		const response = await getActionDetail(actionId);
+		if (response.code === '200' && response.data) {
+			const actionDetail = response.data;
+
+			// 填充表单数据
+			formData.value.id = actionDetail.id || '';
+			formData.value.name = actionDetail.name || '';
+			formData.value.description = actionDetail.description || '';
+			formData.value.actionType = actionDetail.actionType;
+			formData.value.actionConfig = JSON.parse(actionDetail.actionConfig || '{}');
+			formData.value.isTools = actionDetail.isTools || false;
+			formData.value.condition = actionDetail.condition || 'Stage Completed';
+			formData.value.fieldMappings = actionDetail.fieldMappings || [];
+
+			// 设置配置模式actionConfigDialogRef
+			if (formData.value.actionType === ActionType.SYSTEM_TOOLS) {
 				configMode.value = ToolsType.SystemTools;
 			} else {
-				configMode.value = newAction.isTools ? ToolsType.UseTool : ToolsType.MyTool;
+				configMode.value = formData.value.isTools ? ToolsType.UseTool : ToolsType.MyTool;
 			}
 			await changeConfigModeChange(configMode.value);
-		} else {
-			resetForm();
-		}
-	},
-	{ immediate: true, deep: true }
-);
 
-// Watch for forceEditable prop changes
-watch(
-	() => props.forceEditable,
-	(forceEditable) => {
-		if (forceEditable && !props.action) {
-			// 如果 forceEditable 为 true 且没有 action，强制设置为 NewTool 模式
-			configMode.value = ToolsType.NewTool;
-			changeConfigModeChange(ToolsType.NewTool);
+			// 初始化字段映射状态
+			if (formData.value.fieldMappings && formData.value.fieldMappings.length > 0) {
+				showFieldMapping.value = true;
+				isFieldMappingExpanded.value = true;
+			} else {
+				showFieldMapping.value = false;
+				isFieldMappingExpanded.value = false;
+			}
+		} else {
+			ElMessage.error(response.msg || 'Failed to load action details');
 		}
-	},
-	{ immediate: true }
-);
+	} finally {
+		loading.value = false;
+	}
+};
 
 // 处理选择已有工具
 const handleExistingToolSelect = async (toolId: string) => {
@@ -617,29 +815,30 @@ const handleExistingToolSelect = async (toolId: string) => {
 			const toolDetail = response.data;
 
 			// 填充表单数据（只读模式）
-			formData.name = toolDetail.name || '';
-			formData.description = toolDetail.description || '';
-			formData.actionType = toolDetail.actionType;
-			formData.actionConfig = JSON.parse(toolDetail.actionConfig || '{}');
-			formData.id = toolDetail.id;
-			formData.isTools = toolDetail.isTools || false;
+			formData.value.name = toolDetail.name || '';
+			formData.value.description = toolDetail.description || '';
+			formData.value.actionType = toolDetail.actionType;
+			formData.value.actionConfig = JSON.parse(toolDetail.actionConfig || '{}');
+			formData.value.id = toolDetail.id;
+			formData.value.isTools = toolDetail.isTools || false;
+			formData.value.fieldMappings = toolDetail.fieldMappings || [];
 			disabledActionForMyTool.value = false;
 		} else {
 			ElMessage.error('Failed to load tool details');
 		}
 	} catch (error) {
 		console.error('Failed to load tool details:', error);
-		ElMessage.error('Failed to load tool details');
 	}
 };
 
 // 重置表单数据
 const resetFormData = () => {
-	formData.id = '';
-	formData.name = '';
-	formData.description = '';
-	formData.actionType = ActionType.PYTHON_SCRIPT;
-	formData.actionConfig = getDefaultConfig(ActionType.PYTHON_SCRIPT);
+	formData.value.id = '';
+	formData.value.name = '';
+	formData.value.description = '';
+	formData.value.actionType = ActionType.HTTP_API;
+	formData.value.actionConfig = getDefaultConfig(ActionType.HTTP_API);
+	formData.value.fieldMappings = [];
 	formRef.value?.clearValidate();
 	disabledActionForMyTool.value = false;
 };
@@ -650,8 +849,8 @@ const onTest = async () => {
 		testResult.value = null;
 		// Execute test
 		const testOutput = await testRunActionNoId({
-			actionType: formData.actionType,
-			actionConfig: JSON.stringify(formData.actionConfig),
+			actionType: formData.value.actionType,
+			actionConfig: JSON.stringify(formData.value.actionConfig),
 		});
 
 		if (testOutput.code == '200') {
@@ -662,103 +861,110 @@ const onTest = async () => {
 	}
 };
 
+/**
+ * 创建 Action 映射关系
+ */
+const createActionMapping = async (actionDefinitionId: string) => {
+	if (!props?.triggerSourceId) return;
+	const mappingParams = {
+		actionDefinitionId,
+		triggerSourceId: props?.triggerSourceId || null,
+		triggerType: props?.triggerType || null,
+		workFlowId: props?.workflowId || null,
+	};
+
+	const mappingRes = await addMappingAction(mappingParams);
+	if (mappingRes.code !== '200') {
+		mappingRes?.msg && ElMessage.error(mappingRes?.msg);
+		return false;
+	}
+	return true;
+};
+
 const onSave = async () => {
 	try {
+		// 表单验证
 		if (configMode.value !== ToolsType.SystemTools) {
 			if (!formRef.value) return;
 			await formRef.value.validate();
 		}
-		saving.value = true;
-		// 判断是编辑模式还是新建模式，以及是否使用已有工具
+
+		// 业务验证
 		if (
-			(!props.action &&
-				(configMode.value === ToolsType.UseTool ||
-					configMode.value === ToolsType.SystemTools ||
-					configMode.value === ToolsType.MyTool) &&
-				!props.forceEditable) ||
-			selectedToolId.value // 确保有选中的工具ID
+			formData.value.actionType === ActionType.PYTHON_SCRIPT &&
+			!formData.value.actionConfig.sourceCode
 		) {
-			// 新建模式 + 使用已有工具：创建映射关系
-			if (!selectedToolId.value) {
-				ElMessage.error('Please select an existing tool');
-				return;
-			}
-			const params = {
-				actionDefinitionId: selectedToolId.value,
-				triggerSourceId: props?.triggerSourceId || null,
-				triggerType: props?.triggerType || null,
-				workFlowId: props?.workflowId || null,
+			ElMessage.error('Please enter Python script code');
+			return;
+		}
+
+		if (formData.value.actionType === ActionType.HTTP_API && !formData.value.actionConfig.url) {
+			ElMessage.error('Please enter HTTP API URL');
+			return;
+		}
+
+		saving.value = true;
+
+		// 准备 actionConfig
+		let cleanActionConfig: any = {};
+		if (formData.value.actionType === ActionType.PYTHON_SCRIPT) {
+			cleanActionConfig = {
+				sourceCode: formData.value.actionConfig.sourceCode,
 			};
-			const res = await addMappingAction(params);
-			if (res.code == '200') {
-				emit('saveSuccess', {
-					...formData,
-					actionMappingId: res.data.id,
-				});
-				visible.value = false;
-			} else {
-				res?.msg && ElMessage.error(res?.msg);
+		} else if (formData.value.actionType === ActionType.HTTP_API) {
+			// 确保不包含 fieldMappings（fieldMappings 现在是同级别字段）
+			const httpConfig = { ...formData.value.actionConfig };
+			delete (httpConfig as any).fieldMappings;
+			cleanActionConfig = {
+				...httpConfig,
+				url: formData.value.actionConfig.url || '',
+				method: formData.value.actionConfig.method || 'GET',
+				headers: formData.value.actionConfig.headers || {},
+				params: formData.value.actionConfig.params || {},
+				body: formData.value.actionConfig.body || '',
+				timeout: formData.value.actionConfig.timeout || 30,
+				followRedirects: formData.value.actionConfig.followRedirects !== false,
+			};
+		}
+
+		// 准备保存参数
+		const actionParams = {
+			...formData.value,
+			actionConfig: JSON.stringify(cleanActionConfig),
+			fieldMappings: fieldMappings.value || [],
+			workflowId: currentWorkflowId.value || null,
+			actionType: formData.value.actionType,
+			triggerSourceId: currentTriggerSourceId.value || null,
+			triggerType: currentTriggerType.value || null,
+			isAIGenerated: isAiGenerated.value,
+			aiGeneratedConfig: aiGeneratedConfig.value
+				? JSON.stringify(aiGeneratedConfig.value)
+				: null,
+		};
+
+		// 先创建或更新 Action
+		const actionRes: any = formData.value.id
+			? await updateAction(formData.value.id, actionParams)
+			: await addAction(actionParams);
+
+		if (actionRes.code == '200') {
+			const savedAction = actionRes.data;
+			const actionId = savedAction.id || formData.value.id;
+
+			// 根据条件判断是否需要创建映射关系
+			const needMapping =
+				(currentTriggerSourceId.value || currentTriggerType.value) &&
+				!formData.value.id && // 新建时才需要创建映射
+				configMode.value !== ToolsType.SystemTools; // 系统工具不需要映射
+
+			if (needMapping || props?.mappingRequired) {
+				await createActionMapping(actionId);
 			}
+
+			emit('saveSuccess', savedAction);
+			visible.value = false;
 		} else {
-			// 编辑模式 或 新建模式下的创建新工具/普通Action：验证并保存
-			if (
-				formData.actionType === ActionType.PYTHON_SCRIPT &&
-				!formData.actionConfig.sourceCode
-			) {
-				ElMessage.error('Please enter Python script code');
-				return;
-			}
-
-			if (formData.actionType === ActionType.HTTP_API && !formData.actionConfig.url) {
-				ElMessage.error('Please enter HTTP API URL');
-				return;
-			}
-
-			// 根据 action actionType 准备不同的 actionConfig
-			let cleanActionConfig: any = {};
-
-			if (formData.actionType === ActionType.PYTHON_SCRIPT) {
-				// Python 类型只需要 sourceCode
-				cleanActionConfig = {
-					sourceCode: formData.actionConfig.sourceCode,
-				};
-			} else if (formData.actionType === ActionType.HTTP_API) {
-				// HTTP 类型需要符合 HttpApiConfigDto 的字段
-				cleanActionConfig = {
-					...formData.actionConfig,
-					url: formData.actionConfig.url || '',
-					method: formData.actionConfig.method || 'GET',
-					headers: formData.actionConfig.headers || {},
-					params: formData.actionConfig.params || {},
-					body: formData.actionConfig.body || '',
-					timeout: formData.actionConfig.timeout || 30,
-					followRedirects: formData.actionConfig.followRedirects !== false, // 默认为 true
-				};
-			}
-
-			const params = {
-				...formData,
-				actionConfig: JSON.stringify(cleanActionConfig),
-				workflowId: props?.workflowId || null,
-				actionType: formData.actionType,
-				triggerSourceId: props?.triggerSourceId || null,
-				triggerType: props?.triggerType || null,
-				isAIGenerated: isAiGenerated.value, // 添加AI生成标识
-				aiGeneratedConfig: aiGeneratedConfig.value
-					? JSON.stringify(aiGeneratedConfig.value)
-					: null, // 添加AI生成的配置数据
-			};
-
-			const res: any = formData.id
-				? await updateAction(formData.id, params)
-				: await addAction(params);
-			if (res.code == '200') {
-				ElMessage.success('Action added successfully');
-				emit('saveSuccess', res.data);
-				visible.value = false;
-			} else {
-				res?.msg && ElMessage.error(res?.msg);
-			}
+			actionRes?.msg && ElMessage.error(actionRes?.msg);
 		}
 	} finally {
 		saving.value = false;
@@ -768,16 +974,66 @@ const onSave = async () => {
 const onCancel = () => {
 	visible.value = false;
 	resetForm();
-	emit('cancel');
 };
 
 const opened = () => {
 	nextTick(() => {
-		if (!props.action) {
+		if (!currentActionId.value) {
 			changeConfigModeChange(configMode.value);
 		}
 	});
 };
+
+/**
+ * 打开对话框
+ * @param options 打开选项
+ */
+const open = async (options?: {
+	actionId?: string;
+	triggerSourceId?: string;
+	workflowId?: string;
+	triggerType?: TriggerTypeEnum;
+	forceEditable?: boolean;
+}) => {
+	// 重置状态
+	currentActionId.value = options?.actionId || '';
+	currentTriggerSourceId.value = options?.triggerSourceId || props.triggerSourceId || '';
+	currentWorkflowId.value = options?.workflowId || props.workflowId || '';
+	currentTriggerType.value = options?.triggerType || props.triggerType;
+	forceEditable.value = options?.forceEditable || false;
+
+	// 重置表单（不关闭对话框）
+	resetForm(false);
+
+	// 打开对话框
+	visible.value = true;
+
+	// 如果有 actionId，加载详情
+	if (options?.actionId) {
+		await loadActionDetail(options.actionId);
+	} else {
+		// 新建模式，初始化配置模式
+		nextTick(() => {
+			changeConfigModeChange(configMode.value);
+		});
+	}
+};
+
+const loadDynamicField = async () => {
+	try {
+		loadingDynamicField.value = true;
+		const response = await getDynamicField();
+		if (response.code === '200') {
+			wfeFieldOptions.value = response?.data || [];
+		}
+	} finally {
+		loadingDynamicField.value = false;
+	}
+};
+
+onBeforeMount(() => {
+	loadDynamicField();
+});
 
 const resetScrollbarHeight = () => {
 	nextTick(() => {
@@ -788,46 +1044,31 @@ const resetScrollbarHeight = () => {
 
 defineExpose({
 	resetScrollbarHeight,
+	open,
 });
 </script>
 
+<style lang="scss">
+.el-drawer.drawer {
+	.el-drawer__header {
+		margin-bottom: 0px !important;
+	}
+
+	.el-drawer__body {
+		// 隐藏滚动条但保持滚动功能
+		scrollbar-width: none; // Firefox
+		-ms-overflow-style: none; // IE 和 Edge
+
+		&::-webkit-scrollbar {
+			display: none; // Chrome, Safari, Opera
+		}
+	}
+}
+</style>
+
 <style scoped lang="scss">
-:deep(.el-scrollbar__view) {
-	display: flex;
-	flex-direction: column;
-	min-height: 0;
-}
-
-:deep(.el-scrollbar__wrap) {
-	/* avoid nested scrollbars fighting */
-	max-height: 100%;
-}
-
-:deep(.el-scrollbar__bar.is-vertical > div) {
-	@apply bg-gray-300 dark:bg-gray-600 opacity-80 rounded-xl;
-	width: 6px;
-}
-
-:deep(.el-scrollbar__bar.is-vertical) {
-	@apply opacity-80;
-	width: 8px;
-	right: 2px;
-}
-
-:deep(.el-scrollbar__bar.is-vertical:hover > div) {
-	@apply bg-gray-400 dark:bg-gray-500;
-}
-
-.action-config-container {
-	@apply min-h-full;
-}
-
 .section-header {
 	@apply border-b pb-3 mb-4;
-}
-
-.action-config-section {
-	@apply space-y-4;
 }
 
 // 抽屉footer样式
@@ -902,16 +1143,6 @@ defineExpose({
 	@apply flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800;
 	border-top-left-radius: 8px;
 	border-top-right-radius: 8px;
-}
-
-.action-config-drawer {
-	:deep(.el-drawer__footer) {
-		@apply p-0;
-	}
-
-	:deep(.el-drawer__header) {
-		margin-bottom: 0;
-	}
 }
 
 .mode-selection-section {

@@ -20,6 +20,8 @@ using FlowFlex.Application.Contracts.IServices.OW.ChangeLog;
 using FlowFlex.Infrastructure.Services;
 using Microsoft.Extensions.DependencyInjection;
 using FlowFlex.Application.Contracts.IServices.OW;
+using FlowFlex.Domain.Repository.Integration;
+using Domain.Shared.Enums;
 
 namespace FlowFlex.Application.Services.Action
 {
@@ -41,6 +43,8 @@ namespace FlowFlex.Application.Services.Action
         private readonly ILogger<ActionManagementService> _logger;
         private readonly UserContext _userContext;
         private readonly IOperatorContextService _operatorContextService;
+        private readonly IIntegrationRepository _integrationRepository;
+        private readonly IInboundFieldMappingRepository _fieldMappingRepository;
 
         public ActionManagementService(
             IActionDefinitionRepository actionDefinitionRepository,
@@ -55,7 +59,9 @@ namespace FlowFlex.Application.Services.Action
             IMapper mapper,
             UserContext userContext,
             ILogger<ActionManagementService> logger,
-            IOperatorContextService operatorContextService)
+            IOperatorContextService operatorContextService,
+            IIntegrationRepository integrationRepository,
+            IInboundFieldMappingRepository fieldMappingRepository)
         {
             _actionDefinitionRepository = actionDefinitionRepository;
             _actionTriggerMappingRepository = actionTriggerMappingRepository;
@@ -70,6 +76,8 @@ namespace FlowFlex.Application.Services.Action
             _userContext = userContext;
             _logger = logger;
             _operatorContextService = operatorContextService;
+            _integrationRepository = integrationRepository;
+            _fieldMappingRepository = fieldMappingRepository;
         }
 
         #region Action Definition Management
@@ -87,6 +95,9 @@ namespace FlowFlex.Application.Services.Action
             // Add trigger mapping information to DTO
             actionDto.TriggerMappings = _mapper.Map<List<ActionTriggerMappingInfo>>(triggerMappings);
 
+            // Get Integration information and Field Mappings
+            await EnrichActionWithIntegrationDataAsync(actionDto, entity);
+
             return actionDto;
         }
 
@@ -98,7 +109,8 @@ namespace FlowFlex.Application.Services.Action
             bool? isAssignmentChecklist = null,
             bool? isAssignmentQuestionnaire = null,
             bool? isAssignmentWorkflow = null,
-            bool? isTools = null)
+            bool? isTools = null,
+            long? integrationId = null)
         {
             // If querying System actions, ensure system predefined actions exist
             if (actionType == ActionTypeEnum.System)
@@ -114,7 +126,8 @@ namespace FlowFlex.Application.Services.Action
                 isAssignmentChecklist,
                 isAssignmentQuestionnaire,
                 isAssignmentWorkflow,
-                isTools);
+                isTools,
+                integrationId);
 
             // Get ActionDefinition DTO list
             var actionDtos = _mapper.Map<List<ActionDefinitionDto>>(data);
@@ -137,6 +150,9 @@ namespace FlowFlex.Application.Services.Action
                         actionDto.TriggerMappings = _mapper.Map<List<ActionTriggerMappingInfo>>(mappings);
                     }
                 }
+
+                // Batch enrich with Integration data
+                await BatchEnrichActionsWithIntegrationDataAsync(actionDtos, data);
             }
 
             return new PageModelDto<ActionDefinitionDto>(pageIndex, pageSize, actionDtos, total);
@@ -195,6 +211,53 @@ namespace FlowFlex.Application.Services.Action
                     using var scope = _serviceScopeFactory.CreateScope();
                     var actionLogService = scope.ServiceProvider.GetRequiredService<IActionLogService>();
 
+                    // Extract sourceCode from ActionConfig for Python actions
+                    string sourceCode = null;
+                    // Extract url and method from ActionConfig for HttpApi actions
+                    string httpUrl = null;
+                    string httpMethod = null;
+
+                    if (!string.IsNullOrEmpty(dto.ActionConfig))
+                    {
+                        try
+                        {
+                            var configJson = System.Text.Json.JsonSerializer.Deserialize<System.Text.Json.JsonElement>(dto.ActionConfig);
+
+                            if (dto.ActionType == ActionTypeEnum.Python)
+                            {
+                                if (configJson.TryGetProperty("sourceCode", out var sourceCodeElement))
+                                {
+                                    sourceCode = sourceCodeElement.GetString();
+                                }
+                            }
+                            else if (dto.ActionType == ActionTypeEnum.HttpApi)
+                            {
+                                if (configJson.TryGetProperty("url", out var urlElement))
+                                {
+                                    httpUrl = urlElement.GetString();
+                                }
+                                if (configJson.TryGetProperty("method", out var methodElement))
+                                {
+                                    httpMethod = methodElement.GetString();
+                                }
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogDebug(ex, "Failed to extract configuration from ActionConfig");
+                        }
+                    }
+
+                    var afterData = JsonSerializer.Serialize(new
+                    {
+                        Name = entity.ActionName,
+                        Description = entity.Description,
+                        ActionType = dto.ActionType.ToString(),
+                        SourceCode = sourceCode,
+                        HttpUrl = httpUrl,
+                        HttpMethod = httpMethod
+                    });
+
                     var extendedData = JsonSerializer.Serialize(new
                     {
                         ActionId = entity.Id,
@@ -217,6 +280,7 @@ namespace FlowFlex.Application.Services.Action
                         currentUserName,
                         currentUserId,
                         currentTenantId,
+                        afterData,
                         extendedData
                     );
                 }
@@ -227,14 +291,16 @@ namespace FlowFlex.Application.Services.Action
                 }
             });
 
-            if (dto.WorkflowId.HasValue && dto.TriggerSourceId.HasValue && dto.TriggerType.HasValue)
+            // Create trigger mapping if TriggerSourceId and TriggerType are provided
+            // For Integration type, WorkflowId can be null/0
+            if (dto.TriggerSourceId.HasValue && dto.TriggerType.HasValue)
             {
                 try
                 {
                     var mappingDto = new CreateActionTriggerMappingDto
                     {
                         ActionDefinitionId = entity.Id,
-                        WorkFlowId = dto.WorkflowId.Value,
+                        WorkFlowId = dto.WorkflowId ?? 0,
                         TriggerSourceId = dto.TriggerSourceId.Value,
                         TriggerType = dto.TriggerType.ToString() ?? "",
                         StageId = 0,
@@ -244,14 +310,59 @@ namespace FlowFlex.Application.Services.Action
                     };
 
                     await CreateActionTriggerMappingAsync(mappingDto);
-                    _logger.LogInformation("Created action trigger mapping for action: {ActionId}, WorkflowId: {WorkflowId}, TriggerType: {TriggerType}",
-                        entity.Id, dto.WorkflowId.Value, dto.TriggerType);
+                    _logger.LogInformation("Created action trigger mapping for action: {ActionId}, TriggerSourceId: {TriggerSourceId}, TriggerType: {TriggerType}, WorkflowId: {WorkflowId}",
+                        entity.Id, dto.TriggerSourceId.Value, dto.TriggerType, dto.WorkflowId ?? 0);
                 }
                 catch (Exception ex)
                 {
                     _logger.LogWarning(ex, "Failed to create action trigger mapping for action: {ActionId}", entity.Id);
                 }
             }
+
+            // Create Field Mappings if provided (for Integration type actions)
+            _logger.LogInformation("Checking field mappings for action {ActionId}. FieldMappings is null: {IsNull}, Count: {Count}", 
+                entity.Id, dto.FieldMappings == null, dto.FieldMappings?.Count ?? 0);
+            
+            if (dto.FieldMappings != null && dto.FieldMappings.Any())
+            {
+                try
+                {
+                    var sortOrder = 0;
+                    foreach (var fieldMapping in dto.FieldMappings)
+                    {
+                        _logger.LogInformation("Creating field mapping: ExternalFieldName={ExternalFieldName}, WfeFieldId={WfeFieldId}, FieldType={FieldType}, SyncDirection={SyncDirection}",
+                            fieldMapping.ExternalFieldName, fieldMapping.WfeFieldId, fieldMapping.FieldType, fieldMapping.SyncDirection);
+                        
+                        var fieldMappingEntity = new Domain.Entities.Integration.InboundFieldMapping
+                        {
+                            ActionId = entity.Id,
+                            ExternalFieldName = fieldMapping.ExternalFieldName,
+                            WfeFieldId = fieldMapping.WfeFieldId,
+                            FieldType = fieldMapping.FieldType,
+                            SyncDirection = fieldMapping.SyncDirection,
+                            SortOrder = fieldMapping.SortOrder > 0 ? fieldMapping.SortOrder : sortOrder++,
+                            IsRequired = fieldMapping.IsRequired,
+                            DefaultValue = fieldMapping.DefaultValue
+                        };
+                        fieldMappingEntity.InitCreateInfo(_userContext);
+                        var newId = await _fieldMappingRepository.InsertReturnSnowflakeIdAsync(fieldMappingEntity);
+                        _logger.LogInformation("Created field mapping with ID: {FieldMappingId} for action: {ActionId}", newId, entity.Id);
+                    }
+                    _logger.LogInformation("Created {Count} field mappings for action: {ActionId}", 
+                        dto.FieldMappings.Count, entity.Id);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to create field mappings for action: {ActionId}", entity.Id);
+                }
+            }
+            else
+            {
+                _logger.LogInformation("No field mappings to create for action: {ActionId}", entity.Id);
+            }
+
+            // Enrich with Integration data and Field Mappings
+            await EnrichActionWithIntegrationDataAsync(resultDto, entity);
 
             return resultDto;
         }
@@ -324,8 +435,60 @@ namespace FlowFlex.Application.Services.Action
                 }
                 if (entity.ActionConfig?.ToString() != dto.ActionConfig)
                 {
+                    // Check which specific configuration fields changed
+                    try
+                    {
+                        var originalConfig = originalActionConfig?.ToString();
+                        var newConfig = dto.ActionConfig;
+
+                        if (!string.IsNullOrEmpty(originalConfig) && !string.IsNullOrEmpty(newConfig))
+                        {
+                            var originalConfigJson = System.Text.Json.JsonSerializer.Deserialize<System.Text.Json.JsonElement>(originalConfig);
+                            var newConfigJson = System.Text.Json.JsonSerializer.Deserialize<System.Text.Json.JsonElement>(newConfig);
+
+                            // Check Python sourceCode changes
+                            if (entity.ActionType == ActionTypeEnum.Python.ToString() || dto.ActionType == ActionTypeEnum.Python)
+                            {
+                                var originalSourceCode = originalConfigJson.TryGetProperty("sourceCode", out var origSc) ? origSc.GetString() : null;
+                                var newSourceCode = newConfigJson.TryGetProperty("sourceCode", out var newSc) ? newSc.GetString() : null;
+
+                                if (originalSourceCode != newSourceCode)
+                                {
+                                    changedFields.Add("SourceCode");
+                                }
+                            }
+
+                            // Check HttpApi url and method changes
+                            if (entity.ActionType == ActionTypeEnum.HttpApi.ToString() || dto.ActionType == ActionTypeEnum.HttpApi)
+                            {
+                                var originalUrl = originalConfigJson.TryGetProperty("url", out var origUrl) ? origUrl.GetString() : null;
+                                var newUrl = newConfigJson.TryGetProperty("url", out var newUrlEl) ? newUrlEl.GetString() : null;
+
+                                var originalMethod = originalConfigJson.TryGetProperty("method", out var origMethod) ? origMethod.GetString() : null;
+                                var newMethod = newConfigJson.TryGetProperty("method", out var newMethodEl) ? newMethodEl.GetString() : null;
+
+                                if (originalUrl != newUrl)
+                                {
+                                    changedFields.Add("HttpUrl");
+                                }
+                                if (originalMethod != newMethod)
+                                {
+                                    changedFields.Add("HttpMethod");
+                                }
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogDebug(ex, "Failed to detect specific ActionConfig field changes, using generic ActionConfig");
+                    }
+
                     entity.ActionConfig = JToken.Parse(dto.ActionConfig ?? "{}");
-                    changedFields.Add("ActionConfig");
+                    // Only add "ActionConfig" if no specific fields were added
+                    if (!changedFields.Contains("SourceCode") && !changedFields.Contains("HttpUrl") && !changedFields.Contains("HttpMethod"))
+                    {
+                        changedFields.Add("ActionConfig");
+                    }
                 }
                 if (entity.IsEnabled != dto.IsEnabled)
                 {
@@ -380,13 +543,87 @@ namespace FlowFlex.Application.Services.Action
                         using var scope = _serviceScopeFactory.CreateScope();
                         var actionLogService = scope.ServiceProvider.GetRequiredService<IActionLogService>();
 
+                        // Extract configuration details from original ActionConfig for beforeData
+                        string originalSourceCode = null;
+                        string originalHttpUrl = null;
+                        string originalHttpMethod = null;
+
+                        if (originalActionConfig != null && !string.IsNullOrEmpty(originalActionConfig.ToString()))
+                        {
+                            try
+                            {
+                                var originalConfigJson = System.Text.Json.JsonSerializer.Deserialize<System.Text.Json.JsonElement>(originalActionConfig.ToString());
+
+                                if (originalActionType == ActionTypeEnum.Python.ToString())
+                                {
+                                    if (originalConfigJson.TryGetProperty("sourceCode", out var sourceCodeElement))
+                                    {
+                                        originalSourceCode = sourceCodeElement.GetString();
+                                    }
+                                }
+                                else if (originalActionType == ActionTypeEnum.HttpApi.ToString())
+                                {
+                                    if (originalConfigJson.TryGetProperty("url", out var urlElement))
+                                    {
+                                        originalHttpUrl = urlElement.GetString();
+                                    }
+                                    if (originalConfigJson.TryGetProperty("method", out var methodElement))
+                                    {
+                                        originalHttpMethod = methodElement.GetString();
+                                    }
+                                }
+                            }
+                            catch (Exception ex)
+                            {
+                                _logger.LogDebug(ex, "Failed to extract configuration from original ActionConfig");
+                            }
+                        }
+
+                        // Extract configuration details from updated ActionConfig for afterData
+                        string updatedSourceCode = null;
+                        string updatedHttpUrl = null;
+                        string updatedHttpMethod = null;
+
+                        if (entity.ActionConfig != null && !string.IsNullOrEmpty(entity.ActionConfig.ToString()))
+                        {
+                            try
+                            {
+                                var updatedConfigJson = System.Text.Json.JsonSerializer.Deserialize<System.Text.Json.JsonElement>(entity.ActionConfig.ToString());
+
+                                if (entity.ActionType == ActionTypeEnum.Python.ToString())
+                                {
+                                    if (updatedConfigJson.TryGetProperty("sourceCode", out var sourceCodeElement))
+                                    {
+                                        updatedSourceCode = sourceCodeElement.GetString();
+                                    }
+                                }
+                                else if (entity.ActionType == ActionTypeEnum.HttpApi.ToString())
+                                {
+                                    if (updatedConfigJson.TryGetProperty("url", out var urlElement))
+                                    {
+                                        updatedHttpUrl = urlElement.GetString();
+                                    }
+                                    if (updatedConfigJson.TryGetProperty("method", out var methodElement))
+                                    {
+                                        updatedHttpMethod = methodElement.GetString();
+                                    }
+                                }
+                            }
+                            catch (Exception ex)
+                            {
+                                _logger.LogDebug(ex, "Failed to extract configuration from updated ActionConfig");
+                            }
+                        }
+
                         // Prepare before and after data for logging using original values
                         var beforeData = JsonSerializer.Serialize(new
                         {
                             Name = originalName,
                             Description = originalDescription,
                             ActionType = originalActionType,
-                            ActionConfig = originalActionConfig?.ToString(),
+                            SourceCode = originalSourceCode,
+                            HttpUrl = originalHttpUrl,
+                            HttpMethod = originalHttpMethod,
                             IsEnabled = originalIsEnabled,
                             IsTools = originalIsTools
                         });
@@ -396,7 +633,9 @@ namespace FlowFlex.Application.Services.Action
                             Name = entity.ActionName,
                             Description = entity.Description,
                             ActionType = entity.ActionType,
-                            ActionConfig = entity.ActionConfig?.ToString(),
+                            SourceCode = updatedSourceCode,
+                            HttpUrl = updatedHttpUrl,
+                            HttpMethod = updatedHttpMethod,
                             IsEnabled = entity.IsEnabled,
                             IsTools = entity.IsTools
                         });
@@ -470,6 +709,13 @@ namespace FlowFlex.Application.Services.Action
                     });
                 }
             }
+
+            // Get TriggerMappings for this action (needed for EnrichActionWithIntegrationDataAsync)
+            var triggerMappings = await _actionDefinitionRepository.GetTriggerMappingsWithDetailsByActionIdsAsync(new List<long> { id });
+            resultDto.TriggerMappings = _mapper.Map<List<ActionTriggerMappingInfo>>(triggerMappings);
+
+            // Enrich with Integration data and Field Mappings
+            await EnrichActionWithIntegrationDataAsync(resultDto, entity);
 
             return resultDto;
         }
@@ -1039,57 +1285,65 @@ namespace FlowFlex.Application.Services.Action
                     dto.StageId?.ToString() ?? "None");
 
                 // Change log recording (new) - get additional context for better log association
-                long? onboardingId = dto.WorkFlowId; // Use WorkFlowId as onboardingId for workflow-related logs
-                long? checklistId = null;
-
-                // For Task triggers, get associated checklist and onboarding information
-                if (dto.TriggerType?.ToLower() == "task")
+                // Skip logging for Question type triggers (questions handle their own logging through questionnaire updates)
+                if (dto.TriggerType?.Trim().Equals("Question", StringComparison.OrdinalIgnoreCase) == true)
                 {
-                    try
+                    _logger.LogInformation("Skipping ActionMappingCreate log for Question type trigger. Question action changes are logged through QuestionnaireUpdate.");
+                }
+                else
+                {
+                    long? onboardingId = dto.WorkFlowId; // Use WorkFlowId as onboardingId for workflow-related logs
+                    long? checklistId = null;
+
+                    // For Task triggers, get associated checklist and onboarding information
+                    if (dto.TriggerType?.ToLower() == "task")
                     {
-                        var task = await _checklistTaskRepository.GetByIdAsync(dto.TriggerSourceId);
-                        if (task != null)
+                        try
                         {
-                            checklistId = task.ChecklistId;
-                            // You might need to add a method to get onboarding ID from checklist ID
-                            // onboardingId = await GetOnboardingIdByChecklistIdAsync(task.ChecklistId);
+                            var task = await _checklistTaskRepository.GetByIdAsync(dto.TriggerSourceId);
+                            if (task != null)
+                            {
+                                checklistId = task.ChecklistId;
+                                // You might need to add a method to get onboarding ID from checklist ID
+                                // onboardingId = await GetOnboardingIdByChecklistIdAsync(task.ChecklistId);
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogWarning(ex, "Failed to get task context for action mapping log: TaskId={TaskId}", dto.TriggerSourceId);
                         }
                     }
-                    catch (Exception ex)
+                    // For Stage triggers, the workflow ID is already set as onboardingId above
+
+                    // Create extended data with additional context
+                    var extendedDataWithContext = JsonSerializer.Serialize(new
                     {
-                        _logger.LogWarning(ex, "Failed to get task context for action mapping log: TaskId={TaskId}", dto.TriggerSourceId);
-                    }
+                        MappingId = entity.Id,
+                        ActionDefinitionId = dto.ActionDefinitionId,
+                        ActionName = actionName,
+                        TriggerType = dto.TriggerType,
+                        TriggerSourceId = dto.TriggerSourceId,
+                        TriggerSourceName = triggerSourceName,
+                        TriggerEvent = dto.TriggerEvent,
+                        WorkflowId = dto.WorkFlowId,
+                        StageId = dto.StageId,
+                        ChecklistId = checklistId,
+                        OnboardingId = onboardingId,
+                        AssociatedAt = DateTimeOffset.UtcNow
+                    });
+
+                    await _actionLogService.LogActionMappingAssociateAsync(
+                        entity.Id,
+                        dto.ActionDefinitionId,
+                        actionName,
+                        dto.TriggerType,
+                        dto.TriggerSourceId,
+                        triggerSourceName,
+                        dto.TriggerEvent,
+                        dto.WorkFlowId,
+                        dto.StageId,
+                        extendedDataWithContext);
                 }
-                // For Stage triggers, the workflow ID is already set as onboardingId above
-
-                // Create extended data with additional context
-                var extendedDataWithContext = JsonSerializer.Serialize(new
-                {
-                    MappingId = entity.Id,
-                    ActionDefinitionId = dto.ActionDefinitionId,
-                    ActionName = actionName,
-                    TriggerType = dto.TriggerType,
-                    TriggerSourceId = dto.TriggerSourceId,
-                    TriggerSourceName = triggerSourceName,
-                    TriggerEvent = dto.TriggerEvent,
-                    WorkflowId = dto.WorkFlowId,
-                    StageId = dto.StageId,
-                    ChecklistId = checklistId,
-                    OnboardingId = onboardingId,
-                    AssociatedAt = DateTimeOffset.UtcNow
-                });
-
-                await _actionLogService.LogActionMappingAssociateAsync(
-                    entity.Id,
-                    dto.ActionDefinitionId,
-                    actionName,
-                    dto.TriggerType,
-                    dto.TriggerSourceId,
-                    triggerSourceName,
-                    dto.TriggerEvent,
-                    dto.WorkFlowId,
-                    dto.StageId,
-                    extendedDataWithContext);
             }
             catch (Exception ex)
             {
@@ -1131,17 +1385,25 @@ namespace FlowFlex.Application.Services.Action
                     entity.IsEnabled);
 
                 // Change log recording (new)
-                await _actionLogService.LogActionMappingDisassociateAsync(
-                    entity.Id,
-                    entity.ActionDefinitionId,
-                    actionName,
-                    entity.TriggerType,
-                    entity.TriggerSourceId,
-                    triggerSourceName,
-                    entity.TriggerEvent,
-                    entity.WorkFlowId,
-                    entity.StageId,
-                    entity.IsEnabled);
+                // Skip logging for Question type triggers (questions handle their own logging through questionnaire updates)
+                if (entity.TriggerType?.Trim().Equals("Question", StringComparison.OrdinalIgnoreCase) == true)
+                {
+                    _logger.LogInformation("Skipping ActionMappingDelete log for Question type trigger. Question action changes are logged through QuestionnaireUpdate.");
+                }
+                else
+                {
+                    await _actionLogService.LogActionMappingDisassociateAsync(
+                        entity.Id,
+                        entity.ActionDefinitionId,
+                        actionName,
+                        entity.TriggerType,
+                        entity.TriggerSourceId,
+                        triggerSourceName,
+                        entity.TriggerEvent,
+                        entity.WorkFlowId,
+                        entity.StageId,
+                        entity.IsEnabled);
+                }
             }
             catch (Exception ex)
             {
@@ -1523,8 +1785,94 @@ namespace FlowFlex.Application.Services.Action
                         return task?.Name ?? $"Task {triggerSourceId}";
 
                     case "question":
-                        var questionnaire = await _questionnaireRepository.GetByIdAsync(triggerSourceId);
-                        return questionnaire?.Name ?? $"Question {triggerSourceId}";
+                        // For questions, we need to find the questionnaire that contains this question
+                        // and extract the question title from Structure
+                        var questionnaires = await _questionnaireRepository.GetListAsync();
+                        foreach (var questionnaire in questionnaires)
+                        {
+                            if (questionnaire.Structure == null)
+                                continue;
+
+                            try
+                            {
+                                // Convert JToken to string, then parse as JsonDocument
+                                var structureJson = questionnaire.Structure.ToString();
+                                if (string.IsNullOrEmpty(structureJson))
+                                    continue;
+
+                                var structureDoc = JsonDocument.Parse(structureJson);
+                                if (structureDoc.RootElement.TryGetProperty("sections", out var sections) &&
+                                    sections.ValueKind == JsonValueKind.Array)
+                                {
+                                    foreach (var section in sections.EnumerateArray())
+                                    {
+                                        if (section.TryGetProperty("questions", out var questions) &&
+                                            questions.ValueKind == JsonValueKind.Array)
+                                        {
+                                            foreach (var question in questions.EnumerateArray())
+                                            {
+                                                // Check if this question matches the triggerSourceId
+                                                if (question.TryGetProperty("id", out var questionIdElement))
+                                                {
+                                                    long questionId = 0;
+                                                    if (questionIdElement.ValueKind == JsonValueKind.Number &&
+                                                        questionIdElement.TryGetInt64(out questionId))
+                                                    {
+                                                        if (questionId == triggerSourceId)
+                                                        {
+                                                            // Found the question, extract its title
+                                                            if (question.TryGetProperty("title", out var titleElement))
+                                                            {
+                                                                var title = titleElement.GetString();
+                                                                if (!string.IsNullOrEmpty(title))
+                                                                    return title;
+                                                            }
+                                                            if (question.TryGetProperty("question", out var questionElement))
+                                                            {
+                                                                var questionText = questionElement.GetString();
+                                                                if (!string.IsNullOrEmpty(questionText))
+                                                                    return questionText;
+                                                            }
+                                                            // If no title found, return with question ID
+                                                            return $"Question {triggerSourceId}";
+                                                        }
+                                                    }
+                                                    else if (questionIdElement.ValueKind == JsonValueKind.String)
+                                                    {
+                                                        var questionIdStr = questionIdElement.GetString();
+                                                        if (long.TryParse(questionIdStr, out questionId) && questionId == triggerSourceId)
+                                                        {
+                                                            // Found the question, extract its title
+                                                            if (question.TryGetProperty("title", out var titleElement))
+                                                            {
+                                                                var title = titleElement.GetString();
+                                                                if (!string.IsNullOrEmpty(title))
+                                                                    return title;
+                                                            }
+                                                            if (question.TryGetProperty("question", out var questionElement))
+                                                            {
+                                                                var questionText = questionElement.GetString();
+                                                                if (!string.IsNullOrEmpty(questionText))
+                                                                    return questionText;
+                                                            }
+                                                            // If no title found, return with question ID
+                                                            return $"Question {triggerSourceId}";
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            catch (Exception ex)
+                            {
+                                _logger.LogWarning(ex, "Failed to parse StructureJson for questionnaire {QuestionnaireId}", questionnaire.Id);
+                                continue;
+                            }
+                        }
+                        // If question not found in any questionnaire, return default
+                        return $"Question {triggerSourceId}";
 
                     case "stage":
                         var stage = await _stageRepository.GetByIdAsync(triggerSourceId);
@@ -1588,6 +1936,123 @@ namespace FlowFlex.Application.Services.Action
             }
         }
 
+
+        #endregion
+
+        #region Integration Association Helpers
+
+        /// <summary>
+        /// Enrich ActionDefinitionDto with Integration data and Field Mappings
+        /// Gets Integration info from trigger_mappings where TriggerType = 'Integration'
+        /// </summary>
+        private async Task EnrichActionWithIntegrationDataAsync(ActionDefinitionDto actionDto, ActionDefinition entity)
+        {
+            // Get Integration information from trigger_mappings (TriggerType = 'Integration', TriggerSourceId = IntegrationId)
+            try
+            {
+                // TriggerType = 'Integration' (from TriggerTypeEnum.Integration Description attribute)
+                var integrationTrigger = actionDto.TriggerMappings?
+                    .FirstOrDefault(tm => tm.TriggerType == "Integration");
+
+                if (integrationTrigger != null)
+                {
+                    var integrationId = integrationTrigger.TriggerSourceId;
+                    var integration = await _integrationRepository.GetByIdAsync(integrationId);
+
+                    if (integration != null)
+                    {
+                        actionDto.IntegrationId = integration.Id;
+                        actionDto.IntegrationName = integration.Name;
+                    }
+                }
+
+                // Get Field Mappings associated with this action (separate from integration lookup)
+                var fieldMappings = await _fieldMappingRepository.GetByActionIdAsync(entity.Id);
+
+                if (fieldMappings.Any())
+                {
+                    actionDto.FieldMappings = fieldMappings
+                        .Select(MapToActionFieldMappingDto)
+                        .OrderBy(fm => fm.SortOrder)
+                        .ToList();
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to get Integration information for action {ActionId}", entity.Id);
+            }
+        }
+
+        /// <summary>
+        /// Batch enrich ActionDefinitionDtos with Integration data
+        /// Gets Integration info from trigger_mappings where TriggerType = 'Integration'
+        /// </summary>
+        private async Task BatchEnrichActionsWithIntegrationDataAsync(List<ActionDefinitionDto> actionDtos, List<ActionDefinition> entities)
+        {
+            try
+            {
+                // Get Integration IDs from trigger_mappings (TriggerType = 'Integration')
+                const string integrationTriggerType = "Integration";
+                var integrationIds = actionDtos
+                    .Where(a => a.TriggerMappings != null)
+                    .SelectMany(a => a.TriggerMappings!)
+                    .Where(tm => tm.TriggerType == integrationTriggerType)
+                    .Select(tm => tm.TriggerSourceId)
+                    .Distinct()
+                    .ToList();
+
+                // Batch get integrations
+                var integrations = new Dictionary<long, FlowFlex.Domain.Entities.Integration.Integration>();
+                foreach (var integrationId in integrationIds)
+                {
+                    var integration = await _integrationRepository.GetByIdAsync(integrationId);
+                    if (integration != null)
+                    {
+                        integrations[integrationId] = integration;
+                    }
+                }
+
+                // Enrich each action DTO
+                foreach (var actionDto in actionDtos)
+                {
+                    var entity = entities.FirstOrDefault(e => e.Id == actionDto.Id);
+                    if (entity == null) continue;
+
+                    // Get Integration from trigger_mappings
+                    var integrationTrigger = actionDto.TriggerMappings?
+                        .FirstOrDefault(tm => tm.TriggerType == integrationTriggerType);
+
+                    if (integrationTrigger != null && integrations.TryGetValue(integrationTrigger.TriggerSourceId, out var integration))
+                    {
+                        actionDto.IntegrationId = integration.Id;
+                        actionDto.IntegrationName = integration.Name;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to batch enrich actions with Integration data");
+            }
+        }
+
+        /// <summary>
+        /// Map InboundFieldMapping entity to ActionFieldMappingDto
+        /// </summary>
+        private ActionFieldMappingDto MapToActionFieldMappingDto(FlowFlex.Domain.Entities.Integration.InboundFieldMapping fieldMapping)
+        {
+            return new ActionFieldMappingDto
+            {
+                Id = fieldMapping.Id,
+                ExternalFieldName = fieldMapping.ExternalFieldName,
+                WfeFieldId = fieldMapping.WfeFieldId,
+                WfeFieldName = fieldMapping.WfeFieldId, // Can be enriched with actual field name if needed
+                FieldType = fieldMapping.FieldType.ToString(),
+                SyncDirection = fieldMapping.SyncDirection.ToString(),
+                IsRequired = fieldMapping.IsRequired,
+                DefaultValue = fieldMapping.DefaultValue,
+                SortOrder = fieldMapping.SortOrder
+            };
+        }
 
         #endregion
 

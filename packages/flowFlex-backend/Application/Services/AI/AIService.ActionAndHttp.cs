@@ -1,4 +1,4 @@
-﻿using DocumentFormat.OpenXml.Spreadsheet;
+using DocumentFormat.OpenXml.Spreadsheet;
 using FlowFlex.Application.Contracts.Dtos.OW.Checklist;
 using FlowFlex.Application.Contracts.Dtos.OW.ChecklistTask;
 using FlowFlex.Application.Contracts.Dtos.OW.Questionnaire;
@@ -676,6 +676,16 @@ Please return the results in JSON format with the following structure:
                                 }
                             }
                             break;
+                        case "gemini":
+                            if (long.TryParse(modelId, out var geminiModelId))
+                            {
+                                var geminiConfig = await _configService.GetConfigByIdAsync(geminiModelId);
+                                if (geminiConfig != null)
+                                {
+                                    return await CallGeminiWithOptimizedTimeoutAsync(prompt, geminiConfig, actionTimeout);
+                                }
+                            }
+                            break;
                     }
                 }
 
@@ -705,7 +715,7 @@ Please return the results in JSON format with the following structure:
                     model = config.ModelName,
                     messages = new[]
                     {
-                        new { role = "system", content = "You are a professional action analysis and creation expert. Generate structured responses based on user requirements. CRITICAL: Always provide complete and full JSON responses. NEVER truncate data or use '...' patterns like 'Ord...', 'ExtendProperty...', etc. Include ALL data fields completely without any omissions. Complete JSON is mandatory." },
+                        new { role = "system", content = "You are a professional action analysis and creation expert. Generate structured responses based on user requirements. CRITICAL: Always provide complete and full JSON responses. NEVER truncate data or use '...' patterns. Include ALL data fields completely without any omissions. IMPORTANT: When extracting HTTP headers, especially 'authorization' values (Bearer tokens, JWT, API keys), you MUST copy them EXACTLY as provided - do NOT modify, shorten, or use placeholders. Complete JSON is mandatory." },
                         new { role = "user", content = prompt }
                     },
                     temperature = Math.Min(config.Temperature > 0 ? config.Temperature : 0.7, 0.8), // Lower temperature for more consistent results
@@ -1043,6 +1053,120 @@ Please return the results in JSON format with the following structure:
                     Success = false,
                     ErrorMessage = $"Claude API error: {ex.Message}",
                     Provider = "Claude",
+                    ModelName = config.ModelName,
+                    ModelId = config.Id.ToString()
+                };
+            }
+        }
+
+        /// <summary>
+        /// Call Gemini with optimized timeout for Action operations via Item Gateway
+        /// </summary>
+        private async Task<AIProviderResponse> CallGeminiWithOptimizedTimeoutAsync(string prompt, AIModelConfig config, int timeoutSeconds)
+        {
+            try
+            {
+                // Check if using Item Gateway
+                var isItemGateway = !string.IsNullOrEmpty(config.BaseUrl) &&
+                                  config.BaseUrl.Contains("aiop-gateway.item.com", StringComparison.OrdinalIgnoreCase);
+
+                var requestBody = new
+                {
+                    model = config.ModelName, // e.g., "gemini/gemini-2.5-flash"
+                    messages = new[]
+                    {
+                        new { role = "system", content = "You are a professional action analysis and creation expert. Generate structured responses based on user requirements. CRITICAL: Always provide complete and full JSON responses. NEVER truncate data or use '...' patterns. Include ALL data fields completely without any omissions. IMPORTANT: When extracting HTTP headers, especially 'authorization' values (Bearer tokens, JWT, API keys), you MUST copy them EXACTLY as provided - do NOT modify, shorten, or use placeholders. Complete JSON is mandatory." },
+                        new { role = "user", content = prompt }
+                    },
+                    temperature = Math.Min(config.Temperature > 0 ? config.Temperature : 0.7, 0.8),
+                    max_tokens = Math.Min(config.MaxTokens > 0 ? config.MaxTokens : 3000, 4000), // Increased limit for complete JSON
+                    stream = false
+                };
+
+                var json = JsonSerializer.Serialize(requestBody);
+                var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+                string apiUrl;
+                string authToken;
+
+                if (isItemGateway)
+                {
+                    // Use Item Gateway path
+                    var baseUrl = string.IsNullOrEmpty(config.BaseUrl)
+                        ? "https://aiop-gateway.item.com"
+                        : config.BaseUrl.TrimEnd('/');
+                    apiUrl = $"{baseUrl}/openai/v1/chat/completions";
+
+                    // Get JWT token for Item Gateway
+                    authToken = await GetLLMGatewayJwtTokenAsync(config);
+                }
+                else
+                {
+                    // Standard OpenAI-compatible path
+                    var baseUrl = config.BaseUrl?.TrimEnd('/') ?? "";
+                    apiUrl = baseUrl.EndsWith("/chat/completions") ? baseUrl : $"{baseUrl}/v1/chat/completions";
+                    authToken = config.ApiKey;
+                }
+
+                _logger.LogInformation("Gemini Action API Request - Model: {Model}, Timeout: {Timeout}s", config.ModelName, timeoutSeconds);
+
+                using var httpClient = _httpClientFactory.CreateClient();
+                httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {authToken}");
+
+                using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(timeoutSeconds));
+                var response = await httpClient.PostAsync(apiUrl, content, cts.Token);
+                var responseContent = await response.Content.ReadAsStringAsync(cts.Token);
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    _logger.LogError("Gemini Action API call failed: {StatusCode} - {Content}", response.StatusCode, responseContent);
+                    return new AIProviderResponse
+                    {
+                        Success = false,
+                        ErrorMessage = $"Gemini API error: {response.StatusCode}",
+                        Provider = "Gemini",
+                        ModelName = config.ModelName,
+                        ModelId = config.Id.ToString()
+                    };
+                }
+
+                // Parse OpenAI-compatible response format
+                var responseData = JsonSerializer.Deserialize<JsonElement>(responseContent);
+                var messageContent = responseData
+                    .GetProperty("choices")[0]
+                    .GetProperty("message")
+                    .GetProperty("content")
+                    .GetString();
+
+                return new AIProviderResponse
+                {
+                    Success = true,
+                    Content = messageContent ?? string.Empty,
+                    Provider = "Gemini",
+                    ModelName = config.ModelName,
+                    ModelId = config.Id.ToString()
+                };
+            }
+            catch (TaskCanceledException)
+            {
+                _logger.LogWarning("Gemini Action API call timed out after {Timeout}s", timeoutSeconds);
+                return new AIProviderResponse
+                {
+                    Success = false,
+                    ErrorMessage = $"Gemini API timeout after {timeoutSeconds} seconds",
+                    Provider = "Gemini",
+                    ModelName = config.ModelName,
+                    ModelId = config.Id.ToString()
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Gemini Action API call failed");
+                return new AIProviderResponse
+                {
+                    Success = false,
+                    ErrorMessage = $"Gemini API error: {ex.Message}",
+                    Provider = "Gemini",
                     ModelName = config.ModelName,
                     ModelId = config.Id.ToString()
                 };
@@ -1424,6 +1548,20 @@ Please return the results in JSON format with the following structure:
                             }
                         }
                         break;
+                    case "gemini":
+                        if (long.TryParse(modelId, out var geminiModelId))
+                        {
+                            var geminiConfig = await _configService.GetConfigByIdAsync(geminiModelId);
+                            if (geminiConfig != null)
+                            {
+                                await foreach (var chunk in CallGeminiStreamForActionAsync(prompt, geminiConfig))
+                                {
+                                    yield return chunk;
+                                }
+                                yield break;
+                            }
+                        }
+                        break;
                 }
             }
 
@@ -1489,7 +1627,7 @@ Please return the results in JSON format with the following structure:
                 model = config.ModelName,
                 messages = new[]
                 {
-                    new { role = "system", content = "You are a professional action analysis and creation expert. Generate structured responses based on user requirements. CRITICAL: Always provide complete and full JSON responses. NEVER truncate data or use '...' patterns like 'Ord...', 'ExtendProperty...', etc. Include ALL data fields completely without any omissions. Complete JSON is mandatory." },
+                    new { role = "system", content = "You are a professional action analysis and creation expert. Generate structured responses based on user requirements. CRITICAL: Always provide complete and full JSON responses. NEVER truncate data or use '...' patterns. Include ALL data fields completely without any omissions. IMPORTANT: When extracting HTTP headers, especially 'authorization' values (Bearer tokens, JWT, API keys), you MUST copy them EXACTLY as provided - do NOT modify, shorten, or use placeholders. Complete JSON is mandatory." },
                     new { role = "user", content = prompt }
                 },
                 temperature = Math.Min(config.Temperature > 0 ? config.Temperature : 0.7, 0.8),
@@ -1625,12 +1763,16 @@ Please return the results in JSON format with the following structure:
         /// </summary>
         private async IAsyncEnumerable<string> CallOpenAIStreamForActionAsync(string prompt, AIModelConfig config)
         {
+            // Check if using Item Gateway
+            var isItemGateway = !string.IsNullOrEmpty(config.BaseUrl) &&
+                              config.BaseUrl.Contains("aiop-gateway.item.com", StringComparison.OrdinalIgnoreCase);
+
             var requestBody = new
             {
                 model = config.ModelName,
                 messages = new[]
                 {
-                    new { role = "system", content = "You are a professional action analysis and creation expert. Generate structured responses based on user requirements. CRITICAL: Always provide complete and full JSON responses. NEVER truncate data or use '...' patterns like 'Ord...', 'ExtendProperty...', etc. Include ALL data fields completely without any omissions. Complete JSON is mandatory." },
+                    new { role = "system", content = "You are a professional action analysis and creation expert. Generate structured responses based on user requirements. CRITICAL: Always provide complete and full JSON responses. NEVER truncate data or use '...' patterns. Include ALL data fields completely without any omissions. IMPORTANT: When extracting HTTP headers, especially 'authorization' values (Bearer tokens, JWT, API keys), you MUST copy them EXACTLY as provided - do NOT modify, shorten, or use placeholders. Complete JSON is mandatory." },
                     new { role = "user", content = prompt }
                 },
                 temperature = Math.Min(config.Temperature > 0 ? config.Temperature : 0.7, 0.8),
@@ -1641,13 +1783,119 @@ Please return the results in JSON format with the following structure:
             var json = JsonSerializer.Serialize(requestBody);
             var httpContent = new StringContent(json, Encoding.UTF8, "application/json");
 
-            var baseUrl = config.BaseUrl.TrimEnd('/');
-            var apiUrl = baseUrl.EndsWith("/chat/completions") ? baseUrl : $"{baseUrl}/v1/chat/completions";
+            string apiUrl;
+            string? jwtToken = null;
+
+            if (isItemGateway)
+            {
+                // Use Item Gateway path: /openai/v1/chat/completions
+                var baseUrl = string.IsNullOrEmpty(config.BaseUrl)
+                    ? "https://aiop-gateway.item.com"
+                    : config.BaseUrl.TrimEnd('/');
+                apiUrl = $"{baseUrl}/openai/v1/chat/completions";
+
+                // Get JWT token for Item Gateway
+                string? errorMessage = null;
+                try
+                {
+                    jwtToken = await GetLLMGatewayJwtTokenAsync(config);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to obtain JWT token for Item Gateway streaming");
+                    errorMessage = "Failed to authenticate with Item Gateway. Please check your API key.";
+                }
+
+                // Check for authentication error and yield outside of catch block
+                if (!string.IsNullOrEmpty(errorMessage))
+                {
+                    yield return errorMessage;
+                    yield break;
+                }
+            }
+            else
+            {
+                // Standard OpenAI API path
+                var baseUrl = config.BaseUrl.TrimEnd('/');
+                apiUrl = baseUrl.EndsWith("/chat/completions") ? baseUrl : $"{baseUrl}/v1/chat/completions";
+            }
 
             _logger.LogInformation("OpenAI Action Stream API: {Url} - Model: {Model}", apiUrl, config.ModelName);
 
             // Call the streaming helper method
-            await foreach (var chunk in CallOpenAIStreamInternalAsync(apiUrl, httpContent, config))
+            await foreach (var chunk in CallOpenAIStreamInternalAsync(apiUrl, httpContent, config, jwtToken))
+            {
+                yield return chunk;
+            }
+        }
+
+        /// <summary>
+        /// Call Gemini with streaming for Action operations via Item Gateway
+        /// Since Item Gateway uses OpenAI-compatible format, we reuse the OpenAI streaming logic
+        /// </summary>
+        private async IAsyncEnumerable<string> CallGeminiStreamForActionAsync(string prompt, AIModelConfig config)
+        {
+            // Gemini via Item Gateway uses OpenAI-compatible API format
+            var isItemGateway = !string.IsNullOrEmpty(config.BaseUrl) &&
+                              config.BaseUrl.Contains("aiop-gateway.item.com", StringComparison.OrdinalIgnoreCase);
+
+            var requestBody = new
+            {
+                model = config.ModelName, // e.g., "gemini/gemini-2.5-flash" or "gemini/gemini-2.5-pro"
+                messages = new[]
+                {
+                    new { role = "system", content = "You are a professional action analysis and creation expert. Generate structured responses based on user requirements. CRITICAL: Always provide complete and full JSON responses. NEVER truncate data or use '...' patterns. Include ALL data fields completely without any omissions. IMPORTANT: When extracting HTTP headers, especially 'authorization' values (Bearer tokens, JWT, API keys), you MUST copy them EXACTLY as provided - do NOT modify, shorten, or use placeholders. Complete JSON is mandatory." },
+                    new { role = "user", content = prompt }
+                },
+                temperature = Math.Min(config.Temperature > 0 ? config.Temperature : 0.7, 0.8),
+                max_tokens = Math.Min(config.MaxTokens > 0 ? config.MaxTokens : 3000, 4000), // Increased limit for complete JSON responses
+                stream = true
+            };
+
+            var json = JsonSerializer.Serialize(requestBody);
+            var httpContent = new StringContent(json, Encoding.UTF8, "application/json");
+
+            string apiUrl;
+            string? jwtToken = null;
+
+            if (isItemGateway)
+            {
+                // Use Item Gateway path: /openai/v1/chat/completions (same format as OpenAI)
+                var baseUrl = string.IsNullOrEmpty(config.BaseUrl)
+                    ? "https://aiop-gateway.item.com"
+                    : config.BaseUrl.TrimEnd('/');
+                apiUrl = $"{baseUrl}/openai/v1/chat/completions";
+
+                // Get JWT token for Item Gateway
+                string? errorMessage = null;
+                try
+                {
+                    jwtToken = await GetLLMGatewayJwtTokenAsync(config);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to obtain JWT token for Item Gateway (Gemini) streaming");
+                    errorMessage = "Failed to authenticate with Item Gateway. Please check your API key.";
+                }
+
+                // Check for authentication error and yield outside of catch block
+                if (!string.IsNullOrEmpty(errorMessage))
+                {
+                    yield return errorMessage;
+                    yield break;
+                }
+            }
+            else
+            {
+                // For non-Item Gateway Gemini, use OpenAI-compatible path
+                var baseUrl = config.BaseUrl?.TrimEnd('/') ?? "";
+                apiUrl = baseUrl.EndsWith("/chat/completions") ? baseUrl : $"{baseUrl}/v1/chat/completions";
+            }
+
+            _logger.LogInformation("Gemini Action Stream API: {Url} - Model: {Model}", apiUrl, config.ModelName);
+
+            // Reuse the OpenAI streaming internal method since Item Gateway returns OpenAI-compatible format
+            await foreach (var chunk in CallOpenAIStreamInternalAsync(apiUrl, httpContent, config, jwtToken))
             {
                 yield return chunk;
             }
@@ -1656,7 +1904,7 @@ Please return the results in JSON format with the following structure:
         /// <summary>
         /// Internal OpenAI streaming method
         /// </summary>
-        private async IAsyncEnumerable<string> CallOpenAIStreamInternalAsync(string apiUrl, HttpContent httpContent, AIModelConfig config)
+        private async IAsyncEnumerable<string> CallOpenAIStreamInternalAsync(string apiUrl, HttpContent httpContent, AIModelConfig config, string? jwtToken = null)
         {
             HttpResponseMessage? response = null;
             Exception? requestException = null;
@@ -1668,7 +1916,9 @@ Please return the results in JSON format with the following structure:
                 {
                     Content = httpContent
                 };
-                request.Headers.Add("Authorization", $"Bearer {config.ApiKey}");
+                // Use JWT token if provided (for Item Gateway), otherwise use API key
+                var authToken = jwtToken ?? config.ApiKey;
+                request.Headers.Add("Authorization", $"Bearer {authToken}");
                 request.Headers.Add("Accept", "text/event-stream");
 
                 response = await httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead);
@@ -1854,11 +2104,11 @@ Please return the results in JSON format with the following structure:
                 Progress = 20
             };
 
-            // Build optimized prompt for direct HTTP config generation
-            var prompt = BuildHttpConfigGenerationPrompt(input);
+            // Build optimized prompt for direct HTTP config generation with token protection
+            var (prompt, tokenMap) = BuildHttpConfigGenerationPromptWithTokenProtection(input);
 
-            // Call streaming generation method
-            await foreach (var result in StreamGenerateHttpConfigInternalAsync(input, prompt, sessionId, startTime))
+            // Call streaming generation method with token map for restoration
+            await foreach (var result in StreamGenerateHttpConfigInternalAsync(input, prompt, sessionId, startTime, tokenMap))
             {
                 yield return result;
             }
@@ -1868,7 +2118,7 @@ Please return the results in JSON format with the following structure:
         /// Internal streaming HTTP config generation method
         /// </summary>
         private async IAsyncEnumerable<AIActionStreamResult> StreamGenerateHttpConfigInternalAsync(
-            AIHttpConfigGenerationInput input, string prompt, string sessionId, DateTime startTime)
+            AIHttpConfigGenerationInput input, string prompt, string sessionId, DateTime startTime, Dictionary<string, string>? tokenMap = null)
         {
             // Log input data for debugging
             _logger.LogInformation("🔍 Input UserInput length: {Length}, FileContent length: {FileLength}",
@@ -1921,6 +2171,13 @@ Please return the results in JSON format with the following structure:
 
                 object? httpConfigResult = null;
                 string resultMessage = "HTTP configuration generated successfully!";
+
+                // Restore protected authorization tokens before parsing
+                if (tokenMap != null && tokenMap.Count > 0)
+                {
+                    fullContent = RestoreAuthorizationTokens(fullContent, tokenMap);
+                    _logger.LogInformation("🔓 Restored {Count} protected authorization tokens", tokenMap.Count);
+                }
 
                 try
                 {
@@ -2003,16 +2260,21 @@ Please return the results in JSON format with the following structure:
 
         /// <summary>
         /// Build optimized prompt for HTTP configuration generation
+        /// Extracts and replaces authorization tokens with placeholders to prevent AI hallucination
         /// </summary>
-        private string BuildHttpConfigGenerationPrompt(AIHttpConfigGenerationInput input)
+        private (string prompt, Dictionary<string, string> tokenMap) BuildHttpConfigGenerationPromptWithTokenProtection(AIHttpConfigGenerationInput input)
         {
+            var tokenMap = new Dictionary<string, string>();
             var originalInputLength = input.UserInput?.Length ?? 0;
             var userInput = input.UserInput?.Length > 10000
                 ? input.UserInput.Substring(0, 10000) + "..."
                 : input.UserInput ?? "";
 
-            _logger.LogInformation("📝 User input length: {OriginalLength}, truncated: {IsTruncated}",
-                originalInputLength, originalInputLength > 10000);
+            // Extract and replace authorization tokens to prevent AI modification
+            userInput = ProtectAuthorizationTokens(userInput, tokenMap);
+
+            _logger.LogInformation("📝 User input length: {OriginalLength}, truncated: {IsTruncated}, protected tokens: {TokenCount}",
+                originalInputLength, originalInputLength > 10000, tokenMap.Count);
 
             var contextText = !string.IsNullOrEmpty(input.Context) && input.Context.Length > 2000
                 ? input.Context.Substring(0, 2000) + "..."
@@ -2032,13 +2294,15 @@ Please return the results in JSON format with the following structure:
                     input.FileContent.Length, input.FileContent.Length > 10000);
             }
 
-            return $@"CRITICAL: Extract HTTP configuration from the following input and return ONLY valid JSON. DO NOT TRUNCATE OR USE '...' IN JSON FIELDS. Provide COMPLETE data content.
+            var promptText = $@"CRITICAL: Extract HTTP configuration from the following input and return ONLY valid JSON. DO NOT TRUNCATE OR USE '...' IN JSON FIELDS. Provide COMPLETE data content.
 
 HEADER PARSING REQUIREMENTS:
 - Parse ALL headers from the input, not just Content-Type and Accept
 - Include headers like: authorization, cache-control, origin, referer, user-agent, accept-language, pragma, priority, sec-*, time-zone, etc.
 - Each -H flag in cURL represents a header that MUST be included
 - Headers object should contain ALL found headers with their exact values
+- IMPORTANT: If you see placeholders like __AUTH_TOKEN_0__ in the authorization header, keep them EXACTLY as-is without modification
+- Copy header values character-by-character without any changes
 
 QUERY PARAMETERS PARSING REQUIREMENTS:
 - Parse ALL query parameters from the URL (after the ? symbol)
@@ -2098,7 +2362,7 @@ REQUIRED OUTPUT FORMAT (JSON only, no markdown, no explanation):
 EXTRACTION RULES:
 1. method: Extract from curl -X, HTTP verb, or default to GET
 2. url: Must be complete valid URL with protocol (https:// or http://) - EXTRACT FROM INPUT ONLY, REMOVE QUERY PARAMETERS
-3. headers: Extract from -H flags, Content-Type required
+3. headers: Extract ALL headers from -H flags with EXACT values - especially 'authorization' must be copied verbatim without any modification
 4. params: Extract ALL query parameters from URL (everything after ?) as key-value pairs
 5. body: Extract from -d/--data/--data-raw flags, FILE CONTENT, or direct JSON - EXTRACT AND INCLUDE THE COMPLETE BODY CONTENT, DO NOT TRUNCATE JSON DATA
 6. bodyType: MUST be ""raw"" if body content exists (from -d flag, FILE CONTENT, or any request payload), ""none"" ONLY if truly no body
@@ -2130,6 +2394,8 @@ FORBIDDEN PATTERNS:
 - Do NOT include query parameters in the url field - they must be in params
 - Include ALL properties and values completely
 - Include ALL headers found in the cURL command
+- If authorization header contains __AUTH_TOKEN_X__ placeholder, keep it EXACTLY as-is
+- Do NOT modify any token placeholders or header values
 - Include ALL query parameters in the params object
 
 EXAMPLE OF WHAT NOT TO DO:
@@ -2159,6 +2425,124 @@ Then output:
 IMPORTANT: If no valid URL can be extracted from the input, return null instead of any placeholder URL.
 
 Return ONLY the JSON object, no additional text or formatting.";
+
+            return (promptText, tokenMap);
+        }
+
+        /// <summary>
+        /// Legacy method for backward compatibility - builds prompt without token protection
+        /// </summary>
+        private string BuildHttpConfigGenerationPrompt(AIHttpConfigGenerationInput input)
+        {
+            var (prompt, _) = BuildHttpConfigGenerationPromptWithTokenProtection(input);
+            return prompt;
+        }
+
+        /// <summary>
+        /// Protect authorization tokens by replacing them with placeholders
+        /// This prevents AI from hallucinating/modifying long tokens during processing
+        /// </summary>
+        private string ProtectAuthorizationTokens(string input, Dictionary<string, string> tokenMap)
+        {
+            if (string.IsNullOrEmpty(input))
+            {
+                return input;
+            }
+
+            var result = input;
+            var tokenIndex = 0;
+
+            // Pattern to match Bearer tokens in various formats
+            // JWT tokens consist of three base64url-encoded parts separated by dots
+            // Format: Bearer <header>.<payload>.<signature>
+            var bearerPatterns = new[]
+            {
+                // cURL header format: -H 'authorization: Bearer ...' or -H "Authorization: Bearer ..."
+                @"(-H\s+'[Aa]uthorization:\s*Bearer\s+)([A-Za-z0-9_\-]+\.[A-Za-z0-9_\-]+\.[A-Za-z0-9_\-]+)(')",
+                @"(-H\s+""[Aa]uthorization:\s*Bearer\s+)([A-Za-z0-9_\-]+\.[A-Za-z0-9_\-]+\.[A-Za-z0-9_\-]+)("")",
+                // Without quotes around the whole header
+                @"(-H\s+[Aa]uthorization:\s*Bearer\s+)([A-Za-z0-9_\-]+\.[A-Za-z0-9_\-]+\.[A-Za-z0-9_\-]+)(\s|$)",
+            };
+
+            // First pass: protect JWT tokens (three-part format)
+            foreach (var pattern in bearerPatterns)
+            {
+                var matches = System.Text.RegularExpressions.Regex.Matches(result, pattern);
+                foreach (System.Text.RegularExpressions.Match match in matches)
+                {
+                    if (match.Groups.Count >= 4)
+                    {
+                        var fullToken = match.Groups[2].Value;
+
+                        // Only protect tokens longer than 50 characters
+                        if (fullToken.Length > 50 && !tokenMap.ContainsValue(fullToken))
+                        {
+                            var placeholder = $"__AUTH_TOKEN_{tokenIndex}__";
+                            tokenMap[placeholder] = fullToken;
+
+                            var prefix = match.Groups[1].Value;
+                            var suffix = match.Groups[3].Value;
+                            var replacement = prefix + placeholder + suffix;
+                            result = result.Replace(match.Value, replacement);
+
+                            tokenIndex++;
+                            _logger.LogInformation("🔐 Protected JWT token #{Index}, length: {Length} chars", tokenIndex, fullToken.Length);
+                        }
+                    }
+                }
+            }
+
+            // Second pass: protect any remaining long Bearer tokens (non-JWT format)
+            var simpleBearerPattern = @"(Bearer\s+)([A-Za-z0-9_\-\.=+/]{100,})";
+            var simpleMatches = System.Text.RegularExpressions.Regex.Matches(result, simpleBearerPattern);
+            foreach (System.Text.RegularExpressions.Match match in simpleMatches)
+            {
+                if (match.Groups.Count >= 3)
+                {
+                    var fullToken = match.Groups[2].Value;
+                    if (!tokenMap.ContainsValue(fullToken))
+                    {
+                        var placeholder = $"__AUTH_TOKEN_{tokenIndex}__";
+                        tokenMap[placeholder] = fullToken;
+
+                        var prefix = match.Groups[1].Value;
+                        result = result.Replace(match.Value, prefix + placeholder);
+
+                        tokenIndex++;
+                        _logger.LogInformation("🔐 Protected Bearer token #{Index}, length: {Length} chars", tokenIndex, fullToken.Length);
+                    }
+                }
+            }
+
+            if (tokenIndex > 0)
+            {
+                _logger.LogInformation("🔐 Total protected authorization tokens: {Count}", tokenIndex);
+            }
+
+            return result;
+        }
+
+        /// <summary>
+        /// Restore protected authorization tokens in the response
+        /// </summary>
+        private string RestoreAuthorizationTokens(string response, Dictionary<string, string> tokenMap)
+        {
+            if (string.IsNullOrEmpty(response) || tokenMap == null || tokenMap.Count == 0)
+            {
+                return response;
+            }
+
+            var result = response;
+            foreach (var kvp in tokenMap)
+            {
+                if (result.Contains(kvp.Key))
+                {
+                    result = result.Replace(kvp.Key, kvp.Value);
+                    _logger.LogDebug("🔓 Restored authorization token: {Placeholder}", kvp.Key);
+                }
+            }
+
+            return result;
         }
 
         /// <summary>

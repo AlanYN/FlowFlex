@@ -12,403 +12,333 @@
 		<el-form
 			:model="formConfig"
 			label-width="120px"
-			class=""
+			class="http-config-form"
 			label-position="top"
 			@submit.prevent
 		>
+			<!-- Request URL with Test Button -->
 			<el-form-item label="Request URL" required class="request-url-input">
-				<el-input
-					:model-value="formConfig.url"
-					@update:model-value="setUrl"
-					placeholder="Enter URL, type '/' to insert variables"
-					class="w-full"
-					:disabled="disabled"
-				>
-					<template #prepend>
-						<el-select
-							:model-value="formConfig.method"
-							@update:model-value="setMethod"
-							style="width: 115px"
+				<div class="w-full flex flex-col gap-2">
+					<div class="url-input-container">
+						<el-input
+							v-model="url"
+							placeholder="Enter URL"
+							class="flex-1"
 							:disabled="disabled"
 						>
-							<el-option label="GET" value="GET" />
-							<el-option label="POST" value="POST" />
-							<el-option label="PUT" value="PUT" />
-							<el-option label="DELETE" value="DELETE" />
-							<el-option label="PATCH" value="PATCH" />
-						</el-select>
-					</template>
-				</el-input>
-				<div class="text-xs url-hint mt-1">
-					Use variables like &#123;&#123;onboarding.id&#125;&#125; or
-					&#123;&#123;stage.name&#125;&#125; in the URL
-				</div>
-			</el-form-item>
-
-			<!-- Headers Section -->
-			<el-form-item label="HEADERS">
-				<div class="params-section-enhanced">
-					<div class="params-header-enhanced">
-						<div class="param-col-key">Key</div>
-						<div class="param-col-value">Value</div>
-						<div class="param-actions-enhanced"></div>
-					</div>
-					<div class="params-body-enhanced">
-						<div
-							v-for="(header, index) in formConfig.headersList"
-							:key="index"
-							class="param-row-enhanced"
-						>
-							<div class="param-key-container">
-								<variable-auto-complete
-									v-model="header.key"
-									placeholder="Header key"
-									class="param-input-enhanced"
-									@update:model-value="updateHeaderKey(index, $event)"
-									:disabled="disabled"
-								/>
-							</div>
-							<div class="param-value-container">
-								<variable-auto-complete
-									v-if="!header.focused"
-									v-model="header.value"
-									placeholder="Header value"
-									class="param-input-enhanced"
-									@update:model-value="updateHeaderValue(index, $event)"
-									@focus="setHeaderFocused(index, true)"
-									:disabled="disabled"
-								/>
-								<el-input
-									v-else
-									v-model="header.value"
-									type="textarea"
-									placeholder="Header value"
-									class="param-textarea-auto-height"
-									@update:model-value="updateHeaderValue(index, $event)"
-									@blur="setHeaderFocused(index, false)"
-									:disabled="disabled"
-									:autosize="{ minRows: 1, maxRows: 10 }"
-									:ref="
-										(el) => {
-											if (el) headerTextareaRefs[index] = el;
-										}
-									"
-								/>
-							</div>
-							<div class="param-delete-container">
-								<el-button
-									type="danger"
-									text
-									@click="removeHeader(index)"
-									class="param-delete-enhanced"
+							<template #prepend>
+								<el-select
+									v-model="method"
+									style="width: 115px"
 									:disabled="disabled"
 								>
-									<el-icon><Delete /></el-icon>
-								</el-button>
-							</div>
-						</div>
+									<el-option label="GET" value="GET" />
+									<el-option label="POST" value="POST" />
+									<el-option label="PUT" value="PUT" />
+									<el-option label="DELETE" value="DELETE" />
+									<el-option label="PATCH" value="PATCH" />
+								</el-select>
+							</template>
+						</el-input>
+						<el-button
+							type="primary"
+							@click="handleTest"
+							:loading="testing"
+							:disabled="!formConfig.url || disabled"
+							class="test-button"
+						>
+							Test Send
+						</el-button>
+					</div>
+					<div class="text-xs url-hint mt-1">
+						Use variables like &#123;&#123;onboarding.id&#125;&#125; or
+						&#123;&#123;stage.name&#125;&#125; in the URL
 					</div>
 				</div>
 			</el-form-item>
 
-			<!-- Params Section -->
-			<el-form-item label="PARAMS">
-				<div class="params-section-enhanced">
-					<div class="params-header-enhanced">
-						<div class="param-col-key">Key</div>
-						<div class="param-col-value">Value</div>
-						<div class="param-actions-enhanced"></div>
-					</div>
-					<div class="params-body-enhanced">
-						<div
-							v-for="(param, index) in formConfig.paramsList"
-							:key="index"
-							class="param-row-enhanced"
-						>
-							<div class="param-key-container">
-								<variable-auto-complete
-									v-model="param.key"
-									placeholder="Parameter key"
-									class="param-input-enhanced"
-									@update:model-value="updateParamKey(index, $event)"
-									:disabled="disabled"
-								/>
-							</div>
-							<div class="param-value-container">
-								<variable-auto-complete
-									v-if="!param.focused"
-									v-model="param.value"
-									placeholder="Parameter value"
-									class="param-input-enhanced"
-									@update:model-value="updateParamValue(index, $event)"
-									@focus="setParamFocused(index, true)"
-									:disabled="disabled"
-								/>
-								<el-input
-									v-else
-									v-model="param.value"
-									type="textarea"
-									placeholder="Parameter value"
-									class="param-textarea-auto-height"
-									@update:model-value="updateParamValue(index, $event)"
-									@blur="setParamFocused(index, false)"
-									:disabled="disabled"
-									:autosize="{ minRows: 1, maxRows: 10 }"
-									:ref="
-										(el) => {
-											if (el) paramTextareaRefs[index] = el;
-										}
-									"
-								/>
-							</div>
-							<div class="param-delete-container">
-								<el-button
-									type="danger"
-									text
-									@click="removeParam(index)"
-									class="param-delete-enhanced"
-									:disabled="disabled"
-								>
-									<el-icon><Delete /></el-icon>
-								</el-button>
-							</div>
+			<!-- Tabs Section: Params, Headers, Body -->
+			<el-tabs v-model="activeRequestTab" class="http-request-tabs">
+				<!-- Params Tab -->
+				<el-tab-pane label="Params" name="params">
+					<div class="params-section-enhanced">
+						<div class="params-header-enhanced">
+							<div class="param-col-key">Key</div>
+							<div class="param-col-value">Value</div>
+							<div class="param-actions-enhanced"></div>
 						</div>
-					</div>
-				</div>
-			</el-form-item>
-
-			<!-- Body Section -->
-			<el-form-item label="BODY">
-				<div class="body-section">
-					<!-- Body Type Selection -->
-					<el-radio-group
-						:model-value="formConfig.bodyType"
-						@update:model-value="setBodyType"
-						class="body-type-group"
-						:disabled="disabled"
-					>
-						<el-radio value="none">none</el-radio>
-						<el-radio value="form-data">form-data</el-radio>
-						<el-radio value="x-www-form-urlencoded">x-www-form-urlencoded</el-radio>
-						<el-radio value="raw">raw</el-radio>
-					</el-radio-group>
-
-					<!-- Body Content based on type -->
-					<div class="body-content">
-						<!-- None - No content -->
-						<div v-if="formConfig.bodyType === 'none'" class="body-none">
-							<p class="text-sm body-none-text">This request has no body</p>
-						</div>
-
-						<!-- Form Data -->
-						<div
-							v-else-if="formConfig.bodyType === 'form-data'"
-							class="params-section-enhanced"
-						>
-							<div class="params-header-enhanced">
-								<div class="param-col-key">Key</div>
-								<div class="param-col-value">Value</div>
-								<div class="param-actions-enhanced"></div>
-							</div>
-							<div class="params-body-enhanced">
-								<div
-									v-for="(item, index) in formConfig.formDataList"
-									:key="index"
-									class="param-row-enhanced"
-								>
-									<div class="param-key-container">
-										<variable-auto-complete
-											v-model="item.key"
-											placeholder="Form data key"
-											class="param-input-enhanced"
-											@update:model-value="updateFormDataKey(index, $event)"
-											:disabled="disabled"
-										/>
-									</div>
-									<div class="param-value-container">
-										<variable-auto-complete
-											v-if="!item.focused"
-											v-model="item.value"
-											placeholder="Form data value"
-											class="param-input-enhanced"
-											@update:model-value="updateFormDataValue(index, $event)"
-											@focus="setFormDataFocused(index, true)"
-											:disabled="disabled"
-										/>
-										<el-input
-											v-else
-											v-model="item.value"
-											type="textarea"
-											placeholder="Form data value"
-											class="param-textarea-auto-height"
-											@update:model-value="updateFormDataValue(index, $event)"
-											@blur="setFormDataFocused(index, false)"
-											:disabled="disabled"
-											:autosize="{ minRows: 1, maxRows: 10 }"
-											:ref="
-												(el) => {
-													if (el) formDataTextareaRefs[index] = el;
-												}
-											"
-										/>
-									</div>
-									<div class="param-delete-container">
-										<el-button
-											type="danger"
-											text
-											@click="removeFormData(index)"
-											class="param-delete-enhanced"
-											v-if="formConfig.formDataList.length > 1"
-											:disabled="disabled"
-										>
-											<el-icon><Delete /></el-icon>
-										</el-button>
-									</div>
+						<div class="params-body-enhanced tab-content-body">
+							<div
+								v-for="(param, index) in formConfig.paramsList"
+								:key="index"
+								class="param-row-enhanced"
+							>
+								<div class="param-key-container">
+									<el-input
+										v-model="param.key"
+										placeholder="Parameter key"
+										@update:model-value="updateParamKey(index, $event)"
+										:disabled="disabled"
+									/>
 								</div>
-							</div>
-						</div>
-
-						<!-- URL Encoded -->
-						<div
-							v-else-if="formConfig.bodyType === 'x-www-form-urlencoded'"
-							class="params-section-enhanced"
-						>
-							<div class="params-header-enhanced">
-								<div class="param-col-key">Key</div>
-								<div class="param-col-value">Value</div>
-								<div class="param-actions-enhanced"></div>
-							</div>
-							<div class="params-body-enhanced">
-								<div
-									v-for="(item, index) in formConfig.urlEncodedList"
-									:key="index"
-									class="param-row-enhanced"
-								>
-									<div class="param-key-container">
-										<variable-auto-complete
-											v-model="item.key"
-											placeholder="URL encoded key"
-											class="param-input-enhanced"
-											@update:model-value="updateUrlEncodedKey(index, $event)"
-											:disabled="disabled"
-										/>
-									</div>
-									<div class="param-value-container">
-										<variable-auto-complete
-											v-if="!item.focused"
-											v-model="item.value"
-											placeholder="URL encoded value"
-											class="param-input-enhanced"
-											@update:model-value="
-												updateUrlEncodedValue(index, $event)
-											"
-											@focus="setUrlEncodedFocused(index, true)"
-											:disabled="disabled"
-										/>
-										<el-input
-											v-else
-											v-model="item.value"
-											type="textarea"
-											placeholder="URL encoded value"
-											class="param-textarea-auto-height"
-											@update:model-value="
-												updateUrlEncodedValue(index, $event)
-											"
-											@blur="setUrlEncodedFocused(index, false)"
-											:disabled="disabled"
-											:autosize="{ minRows: 1, maxRows: 10 }"
-											:ref="
-												(el) => {
-													if (el) urlEncodedTextareaRefs[index] = el;
-												}
-											"
-										/>
-									</div>
-									<div class="param-delete-container">
-										<el-button
-											type="danger"
-											text
-											@click="removeUrlEncoded(index)"
-											class="param-delete-enhanced"
-											v-if="formConfig.urlEncodedList.length > 1"
-											:disabled="disabled"
-										>
-											<el-icon><Delete /></el-icon>
-										</el-button>
-									</div>
+								<div class="param-value-container">
+									<variable-auto-complete
+										v-model="param.value"
+										placeholder="type '/' to insert variables"
+										@update:model-value="updateParamValue(index, $event)"
+										:disabled="disabled"
+									/>
 								</div>
-							</div>
-						</div>
-
-						<!-- Raw - with format selection -->
-						<div v-else-if="formConfig.bodyType === 'raw'" class="raw-section">
-							<div class="raw-header">
-								<div class="raw-format-controls">
-									<el-select
-										:model-value="formConfig.rawFormat"
-										@update:model-value="setRawFormat"
-										class="raw-format-select"
+								<div class="param-delete-container">
+									<el-button
+										type="danger"
+										link
+										@click="removeParam(index)"
 										:disabled="disabled"
 									>
-										<el-option label="JSON" value="json" />
-										<el-option label="Text" value="text" />
-										<el-option label="JavaScript" value="javascript" />
-										<el-option label="HTML" value="html" />
-										<el-option label="XML" value="xml" />
-									</el-select>
-									<el-button
-										type="primary"
-										@click="formatRawContent"
-										:disabled="disabled || !formConfig.body.trim()"
-										class="format-btn"
-										:icon="DocumentCopy"
-									>
-										Beautify
+										<el-icon><Delete /></el-icon>
 									</el-button>
 								</div>
 							</div>
-							<div class="raw-textarea-container">
-								<variable-auto-complete
-									:model-value="formConfig.body"
-									@update:model-value="setBody"
-									type="textarea"
-									:rows="8"
-									placeholder="Enter your content here, type '/' to insert variables..."
-									class="font-mono text-sm raw-textarea"
-									:disabled="disabled"
-								/>
+						</div>
+					</div>
+				</el-tab-pane>
+
+				<!-- Headers Tab -->
+				<el-tab-pane label="Headers" name="headers">
+					<div class="params-section-enhanced">
+						<div class="params-header-enhanced">
+							<div class="param-col-key">Key</div>
+							<div class="param-col-value">Value</div>
+							<div class="param-actions-enhanced"></div>
+						</div>
+						<div class="params-body-enhanced tab-content-body">
+							<div
+								v-for="(header, index) in formConfig.headersList"
+								:key="index"
+								class="param-row-enhanced"
+							>
+								<div class="param-key-container">
+									<el-input
+										v-model="header.key"
+										placeholder="Header key"
+										@update:model-value="updateHeaderKey(index, $event)"
+										:disabled="disabled"
+									/>
+								</div>
+								<div class="param-value-container">
+									<variable-auto-complete
+										v-model="header.value"
+										placeholder="type '/' to insert variables"
+										class=""
+										@update:model-value="updateHeaderValue(index, $event)"
+										:disabled="disabled"
+									/>
+								</div>
+								<div class="param-delete-container">
+									<el-button
+										type="danger"
+										link
+										@click="removeHeader(index)"
+										:disabled="disabled"
+									>
+										<el-icon><Delete /></el-icon>
+									</el-button>
+								</div>
 							</div>
 						</div>
 					</div>
+				</el-tab-pane>
+
+				<!-- Body Tab -->
+				<el-tab-pane label="Body" name="body">
+					<div class="body-section">
+						<!-- Body Type Selection -->
+						<el-radio-group
+							v-model="bodyType"
+							class="body-type-group"
+							:disabled="disabled"
+						>
+							<el-radio value="none">none</el-radio>
+							<el-radio value="form-data">form-data</el-radio>
+							<el-radio value="x-www-form-urlencoded">x-www-form-urlencoded</el-radio>
+							<el-radio value="raw">raw</el-radio>
+						</el-radio-group>
+
+						<!-- Body Content based on type -->
+						<div class="body-content tab-content-body">
+							<!-- None - No content -->
+							<div v-if="formConfig.bodyType === 'none'" class="body-none">
+								<p class="text-sm body-none-text">This request has no body</p>
+							</div>
+
+							<!-- Form Data -->
+							<div
+								v-else-if="formConfig.bodyType === 'form-data'"
+								class="params-section-enhanced"
+							>
+								<div class="params-header-enhanced flex-shrink-0">
+									<div class="param-col-key">Key</div>
+									<div class="param-col-value">Value</div>
+									<div class="param-actions-enhanced"></div>
+								</div>
+								<div class="params-body-enhanced flex-1 min-h-0 overflow-y-auto">
+									<div
+										v-for="(item, index) in formConfig.formDataList"
+										:key="index"
+										class="param-row-enhanced"
+									>
+										<div class="param-key-container">
+											<el-input
+												v-model="item.key"
+												placeholder="Form data key"
+												@update:model-value="
+													updateFormDataKey(index, $event)
+												"
+												:disabled="disabled"
+											/>
+										</div>
+										<div class="param-value-container">
+											<variable-auto-complete
+												v-model="item.value"
+												placeholder="type '/' to insert variables"
+												class=""
+												@update:model-value="
+													updateFormDataValue(index, $event)
+												"
+												:disabled="disabled"
+											/>
+										</div>
+										<div class="param-delete-container">
+											<el-button
+												type="danger"
+												link
+												@click="removeFormData(index)"
+												v-if="formConfig.formDataList.length > 1"
+												:disabled="disabled"
+											>
+												<el-icon><Delete /></el-icon>
+											</el-button>
+										</div>
+									</div>
+								</div>
+							</div>
+
+							<!-- URL Encoded -->
+							<div
+								v-else-if="formConfig.bodyType === 'x-www-form-urlencoded'"
+								class="params-section-enhanced"
+							>
+								<div class="params-header-enhanced flex-shrink-0">
+									<div class="param-col-key">Key</div>
+									<div class="param-col-value">Value</div>
+									<div class="param-actions-enhanced"></div>
+								</div>
+								<div class="params-body-enhanced flex-1 min-h-0 overflow-y-auto">
+									<div
+										v-for="(item, index) in formConfig.urlEncodedList"
+										:key="index"
+										class="param-row-enhanced"
+									>
+										<div class="param-key-container">
+											<el-input
+												v-model="item.key"
+												placeholder="URL encoded key"
+												:disabled="disabled"
+												@update:model-value="
+													updateUrlEncodedKey(index, $event)
+												"
+											/>
+										</div>
+										<div class="param-value-container">
+											<variable-auto-complete
+												v-model="item.value"
+												placeholder="type '/' to insert variables"
+												class=""
+												@update:model-value="
+													updateUrlEncodedValue(index, $event)
+												"
+												:disabled="disabled"
+											/>
+										</div>
+										<div class="param-delete-container">
+											<el-button
+												type="danger"
+												link
+												@click="removeUrlEncoded(index)"
+												v-if="formConfig.urlEncodedList.length > 1"
+												:disabled="disabled"
+												:icon="Delete"
+											/>
+										</div>
+									</div>
+								</div>
+							</div>
+
+							<!-- Raw - with format selection -->
+							<div
+								v-else-if="formConfig.bodyType === 'raw'"
+								class="raw-section h-full flex flex-col"
+							>
+								<div class="raw-header flex-shrink-0">
+									<div class="raw-format-controls">
+										<el-select
+											v-model="rawFormat"
+											class="raw-format-select"
+											:disabled="disabled"
+										>
+											<el-option label="JSON" value="json" />
+											<el-option label="Text" value="text" />
+											<el-option label="JavaScript" value="javascript" />
+											<el-option label="HTML" value="html" />
+											<el-option label="XML" value="xml" />
+										</el-select>
+										<el-button
+											type="primary"
+											@click="formatRawContent"
+											:disabled="disabled || !body.trim()"
+											class="format-btn"
+											:icon="DocumentCopy"
+										>
+											Beautify
+										</el-button>
+									</div>
+								</div>
+								<div class="raw-textarea-container flex-1 min-h-0 overflow-y-auto">
+									<variable-auto-complete
+										v-model="body"
+										type="textarea"
+										:rows="8"
+										placeholder="Enter your content here, type '/' to insert variables..."
+										class="font-mono text-sm raw-textarea"
+										:disabled="disabled"
+									/>
+								</div>
+							</div>
+						</div>
+					</div>
+				</el-tab-pane>
+			</el-tabs>
+
+			<!-- Response Section -->
+			<div>
+				<el-divider class="mb-2" />
+				<text class="font-bold">Response:</text>
+				<div v-if="testResult" class="w-full">
+					<JsonResultRenderer
+						:output-type="responseOutputType"
+						:max-height="'500px'"
+						:enable-syntax-highlight="true"
+					/>
 				</div>
-			</el-form-item>
+				<div v-else class="response-empty">
+					<div class="response-empty-content">
+						<p class="text-sm text-text-secondary">Click Test Send to get a response</p>
+					</div>
+				</div>
+				<el-divider class="mb-2" />
+			</div>
 		</el-form>
-
-		<!-- Test Run Section -->
-		<div class="test-section">
-			<div class="flex items-center justify-between mb-3">
-				<h5 class="font-medium">Test API Call</h5>
-				<el-button
-					type="primary"
-					@click="handleTest"
-					:loading="testing"
-					:disabled="!formConfig.url"
-				>
-					Test Request
-				</el-button>
-			</div>
-
-			<div v-if="testResult" class="test-result">
-				<div class="bg-black-400 rounded-xl p-3">
-					<h6 class="font-medium text-sm mb-2">Test Result:</h6>
-					<pre class="text-xs test-result-text whitespace-pre-wrap">
-						{{ testResult.stdout || testResult }}
-					</pre
-					>
-				</div>
-			</div>
-		</div>
-
 		<!-- Import Dialog -->
 		<el-dialog
 			v-model="importDialogVisible"
@@ -603,18 +533,17 @@
 											:rows="3"
 											placeholder="Describe your API requirements"
 											@keydown="handleAIKeydown"
-											class="ai-chat-input"
 										/>
 										<div class="input-bottom-actions">
 											<div class="ai-model-selector-bottom">
 												<el-select
-													v-model="currentAIModel"
+													:model-value="currentAIModel || undefined"
+													@update:model-value="handleModelChange"
 													placeholder="Select AI Model"
 													size="small"
 													class="model-select"
 													style="width: 180px"
 													value-key="id"
-													@change="handleModelChange"
 												>
 													<el-option
 														v-for="model in availableModels"
@@ -702,13 +631,11 @@
 										<el-icon><Document /></el-icon>
 										<span class="file-name">{{ uploadedFile.name }}</span>
 										<el-button
-											type="text"
+											link
 											size="small"
 											@click="removeUploadedFile"
-											class="remove-file-btn"
-										>
-											<el-icon><Close /></el-icon>
-										</el-button>
+											:icon="Close"
+										/>
 									</div>
 								</div>
 							</div>
@@ -750,6 +677,8 @@ import TabPane from '@/components/PrototypeTabs/TabPane.vue';
 import { parseCurl, type ParsedCurlConfig } from '@/utils/curlParser';
 import * as XLSX from 'xlsx-js-style';
 import { getAppCode } from '@/utils/threePartyLogin';
+import JsonResultRenderer from './JsonResultRenderer.vue';
+import type { OutputType } from '@/utils/output-type-detector';
 
 // External library loaders (CDN-based to avoid local dependency issues)
 const PDF_JS_VERSION = '3.11.174';
@@ -766,9 +695,8 @@ const removeFailedScripts = (src: string) => {
 	scripts.forEach((script) => {
 		try {
 			document.head.removeChild(script);
-			console.log('Removed failed script:', src);
 		} catch (e) {
-			console.warn('Could not remove script:', src, e);
+			// Script removal failed, continue silently
 		}
 	});
 };
@@ -782,24 +710,20 @@ const loadScriptOnce = (src: string, timeout: number = 10000): Promise<void> => 
 
 		if (existing) {
 			if ((existing as any)._loaded) {
-				console.log('Script already loaded:', src);
 				resolve();
 				return;
 			} else {
 				// Wait for existing script to load
 				existing.addEventListener('load', () => {
-					console.log('Existing script loaded:', src);
 					resolve();
 				});
 				existing.addEventListener('error', () => {
-					console.error('Existing script failed to load:', src);
 					reject(new Error(`Failed to load existing script: ${src}`));
 				});
 				return;
 			}
 		}
 
-		console.log('Creating new script element for:', src);
 		const script = document.createElement('script');
 		script.src = src;
 		script.async = true;
@@ -807,7 +731,6 @@ const loadScriptOnce = (src: string, timeout: number = 10000): Promise<void> => 
 
 		// Set up timeout
 		const timeoutId = setTimeout(() => {
-			console.error('Script loading timeout:', src);
 			document.head.removeChild(script);
 			reject(new Error(`Script loading timeout: ${src}`));
 		}, timeout);
@@ -815,23 +738,19 @@ const loadScriptOnce = (src: string, timeout: number = 10000): Promise<void> => 
 		script.addEventListener('load', () => {
 			clearTimeout(timeoutId);
 			(script as any)._loaded = true;
-			console.log('Script loaded successfully:', src);
 			resolve();
 		});
 
 		script.addEventListener('error', (event) => {
 			clearTimeout(timeoutId);
-			console.error('Script loading error:', src, event);
 			document.head.removeChild(script);
 			reject(new Error(`Failed to load script: ${src}`));
 		});
 
 		try {
 			document.head.appendChild(script);
-			console.log('Script element appended to head:', src);
 		} catch (error) {
 			clearTimeout(timeoutId);
-			console.error('Error appending script to head:', error);
 			reject(new Error(`Failed to append script to document: ${src}`));
 		}
 	});
@@ -854,7 +773,6 @@ const loadPdfJs = async () => {
 
 const loadMammoth = async () => {
 	if ((window as any).mammoth) {
-		console.log('Mammoth already loaded');
 		return (window as any).mammoth;
 	}
 
@@ -866,7 +784,6 @@ const loadMammoth = async () => {
 				return (window as any).mammoth;
 			}
 		} catch (error) {
-			console.log('Previous mammoth loading failed, resetting...');
 			mammothLoadingPromise = null;
 
 			// Clean up any failed script tags
@@ -882,8 +799,6 @@ const loadMammoth = async () => {
 	if (!mammothLoadingPromise) {
 		mammothLoadingPromise = (async () => {
 			try {
-				console.log('Loading mammoth library...');
-
 				// Temporarily disable AMD/RequireJS to avoid conflicts
 				const originalDefine = (window as any).define;
 				const originalRequire = (window as any).require;
@@ -907,19 +822,13 @@ const loadMammoth = async () => {
 
 					for (const cdnUrl of cdnUrls) {
 						try {
-							console.log(`Trying to load mammoth from: ${cdnUrl}`);
-
 							// Check if this script is already loaded
 							const existingScript = Array.from(
 								document.getElementsByTagName('script')
 							).find((s) => s.src === cdnUrl);
 
 							if (!existingScript) {
-								console.log(`Loading new script: ${cdnUrl}`);
 								await loadScriptOnce(cdnUrl);
-								console.log(`Script loaded, checking for mammoth...`);
-							} else {
-								console.log(`Script already exists: ${cdnUrl}`);
 							}
 
 							// Wait a bit for the library to initialize
@@ -927,24 +836,11 @@ const loadMammoth = async () => {
 
 							// Check if mammoth is now available
 							const mammothLib = (window as any).mammoth;
-							console.log(`Mammoth check result:`, {
-								exists: !!mammothLib,
-								type: typeof mammothLib,
-								keys: mammothLib ? Object.keys(mammothLib) : [],
-								extractRawText: mammothLib
-									? typeof mammothLib.extractRawText
-									: 'undefined',
-							});
 
 							if (mammothLib && typeof mammothLib.extractRawText === 'function') {
-								console.log('Mammoth loaded successfully from:', cdnUrl);
 								loadedSuccessfully = true;
 								break;
 							} else if (mammothLib) {
-								console.warn(
-									'Mammoth object exists but missing extractRawText method:',
-									mammothLib
-								);
 								lastError = new Error(
 									`Mammoth library incomplete - missing extractRawText method`
 								);
@@ -954,7 +850,6 @@ const loadMammoth = async () => {
 								);
 							}
 						} catch (error) {
-							console.warn(`Failed to load from ${cdnUrl}:`, error);
 							lastError =
 								error instanceof Error
 									? error
@@ -982,7 +877,6 @@ const loadMammoth = async () => {
 					}
 				}
 			} catch (error) {
-				console.error('Mammoth loading error:', error);
 				throw new Error(
 					'Unable to load document processing library. Please check your internet connection and try again.'
 				);
@@ -995,7 +889,6 @@ const loadMammoth = async () => {
 interface KeyValueItem {
 	key: string;
 	value: string;
-	focused?: boolean;
 }
 
 interface Props {
@@ -1032,12 +925,6 @@ interface Props {
 	disabled?: boolean;
 }
 
-// Refs for textarea elements
-const headerTextareaRefs = ref<any[]>([]);
-const paramTextareaRefs = ref<any[]>([]);
-const formDataTextareaRefs = ref<any[]>([]);
-const urlEncodedTextareaRefs = ref<any[]>([]);
-
 const { t } = useI18n();
 
 const props = withDefaults(defineProps<Props>(), {
@@ -1067,6 +954,18 @@ const emit = defineEmits<{
 	'ai-config-applied': [config: any];
 	test: [];
 }>();
+
+// Tabs state
+const activeRequestTab = ref('params');
+
+// Response output type for JsonResultRenderer
+const responseOutputType = computed<OutputType>(() => {
+	const result = props.testResult?.stdout || props.testResult;
+	return {
+		type: 'json',
+		data: result,
+	};
+});
 
 // 主要的配置对象，在computed中处理所有数据格式转换
 const formConfig = computed({
@@ -1189,6 +1088,55 @@ const formConfig = computed({
 	},
 });
 
+// 为 bodyType 创建单独的 computed，支持 v-model 双向绑定
+const bodyType = computed({
+	get() {
+		return formConfig.value.bodyType;
+	},
+	set(val: 'none' | 'form-data' | 'x-www-form-urlencoded' | 'raw') {
+		formConfig.value = { ...formConfig.value, bodyType: val };
+	},
+});
+
+// 为 url 创建单独的 computed，支持 v-model 双向绑定
+const url = computed({
+	get() {
+		return formConfig.value.url;
+	},
+	set(val: string) {
+		formConfig.value = { ...formConfig.value, url: val };
+	},
+});
+
+// 为 method 创建单独的 computed，支持 v-model 双向绑定
+const method = computed({
+	get() {
+		return formConfig.value.method;
+	},
+	set(val: string) {
+		formConfig.value = { ...formConfig.value, method: val };
+	},
+});
+
+// 为 rawFormat 创建单独的 computed，支持 v-model 双向绑定
+const rawFormat = computed({
+	get() {
+		return formConfig.value.rawFormat;
+	},
+	set(val: string) {
+		formConfig.value = { ...formConfig.value, rawFormat: val };
+	},
+});
+
+const body = computed({
+	get() {
+		return formConfig.value.body;
+	},
+	set(val: string) {
+		formConfig.value = { ...formConfig.value, body: val };
+	},
+});
+
 // Controlled setters to trigger computed.set via whole-object assignment
 // Filter stream content to show only essential progress information
 const filterStreamContent = (content: string): string => {
@@ -1290,31 +1238,9 @@ const filterStreamContent = (content: string): string => {
 
 // Update action name for generated HTTP config
 const updateActionName = (message: any, newName: string) => {
-	console.log('📝 Updating action name:', newName);
 	if (message.httpConfig) {
 		message.httpConfig.actionName = newName;
-		console.log('✅ Action name updated to:', newName);
 	}
-};
-
-const setUrl = (val: string) => {
-	formConfig.value = { ...formConfig.value, url: val } as any;
-};
-
-const setMethod = (val: string) => {
-	formConfig.value = { ...formConfig.value, method: val } as any;
-};
-
-const setBodyType = (val: 'none' | 'form-data' | 'x-www-form-urlencoded' | 'raw'): any => {
-	formConfig.value = { ...formConfig.value, bodyType: val } as any;
-};
-
-const setRawFormat = (val: string) => {
-	formConfig.value = { ...formConfig.value, rawFormat: val } as any;
-};
-
-const setBody = (val: string) => {
-	formConfig.value = { ...formConfig.value, body: val } as any;
 };
 
 // 在每次更新后，确保末尾存在一行空白输入
@@ -1424,83 +1350,6 @@ const removeUrlEncoded = (index: number) => {
 	}
 };
 
-// 聚焦/失焦功能
-const setHeaderFocused = (index: number, focused: boolean) => {
-	const newHeadersList = [...formConfig.value.headersList];
-	newHeadersList[index] = {
-		...newHeadersList[index],
-		focused: focused,
-	};
-	formConfig.value = { ...formConfig.value, headersList: newHeadersList };
-
-	// 如果是聚焦，等待DOM更新后重新聚焦textarea
-	if (focused) {
-		nextTick(() => {
-			const textareaRef = headerTextareaRefs.value[index];
-			if (textareaRef && textareaRef.textarea) {
-				textareaRef.textarea.focus();
-			}
-		});
-	}
-};
-
-const setParamFocused = (index: number, focused: boolean) => {
-	const newParamsList = [...formConfig.value.paramsList];
-	newParamsList[index] = {
-		...newParamsList[index],
-		focused: focused,
-	};
-	formConfig.value = { ...formConfig.value, paramsList: newParamsList };
-
-	// 如果是聚焦，等待DOM更新后重新聚焦textarea
-	if (focused) {
-		nextTick(() => {
-			const textareaRef = paramTextareaRefs.value[index];
-			if (textareaRef && textareaRef.textarea) {
-				textareaRef.textarea.focus();
-			}
-		});
-	}
-};
-
-const setFormDataFocused = (index: number, focused: boolean) => {
-	const newFormDataList = [...formConfig.value.formDataList];
-	newFormDataList[index] = {
-		...newFormDataList[index],
-		focused: focused,
-	};
-	formConfig.value = { ...formConfig.value, formDataList: newFormDataList };
-
-	// 如果是聚焦，等待DOM更新后重新聚焦textarea
-	if (focused) {
-		nextTick(() => {
-			const textareaRef = formDataTextareaRefs.value[index];
-			if (textareaRef && textareaRef.textarea) {
-				textareaRef.textarea.focus();
-			}
-		});
-	}
-};
-
-const setUrlEncodedFocused = (index: number, focused: boolean) => {
-	const newUrlEncodedList = [...formConfig.value.urlEncodedList];
-	newUrlEncodedList[index] = {
-		...newUrlEncodedList[index],
-		focused: focused,
-	};
-	formConfig.value = { ...formConfig.value, urlEncodedList: newUrlEncodedList };
-
-	// 如果是聚焦，等待DOM更新后重新聚焦textarea
-	if (focused) {
-		nextTick(() => {
-			const textareaRef = urlEncodedTextareaRefs.value[index];
-			if (textareaRef && textareaRef.textarea) {
-				textareaRef.textarea.focus();
-			}
-		});
-	}
-};
-
 // 格式化Raw内容
 const formatRawContent = () => {
 	try {
@@ -1541,7 +1390,7 @@ const formatRawContent = () => {
 				return;
 		}
 
-		setBody(formattedContent);
+		formConfig.value = { ...formConfig.value, body: formattedContent } as any;
 		ElMessage.success(t('sys.api.formatSuccess'));
 	} catch (error) {
 		ElMessage.warning(t('sys.api.formatFailed'));
@@ -1787,14 +1636,15 @@ const handleTest = () => {
 };
 
 // AI 相关方法
-const handleAIKeydown = (event: KeyboardEvent): any => {
-	if (event.key === 'Enter') {
-		if (event.shiftKey) {
+const handleAIKeydown = (event: KeyboardEvent | Event): any => {
+	const keyboardEvent = event as KeyboardEvent;
+	if (keyboardEvent.key === 'Enter') {
+		if (keyboardEvent.shiftKey) {
 			// Shift+Enter: Allow default behavior (new line)
 			return;
 		} else {
 			// Enter: Send message
-			event.preventDefault();
+			keyboardEvent.preventDefault();
 			if ((aiCurrentInput.value.trim() || uploadedFile.value) && !aiGenerating.value) {
 				sendAIMessage();
 			}
@@ -1803,15 +1653,9 @@ const handleAIKeydown = (event: KeyboardEvent): any => {
 };
 
 const sendAIMessage = async () => {
-	console.log('🚀 sendAIMessage called');
-
 	if (!aiCurrentInput.value.trim() && !uploadedFile.value) {
-		console.log('❌ No input or file, returning');
 		return;
 	}
-
-	console.log('📝 User input:', aiCurrentInput.value.trim());
-	console.log('📎 Uploaded file:', uploadedFile.value?.name);
 
 	const userMessage = {
 		role: 'user' as const,
@@ -1822,8 +1666,6 @@ const sendAIMessage = async () => {
 	// 如果有上传的文件，解析文件内容并添加到消息中
 	if (uploadedFile.value) {
 		try {
-			console.log('📄 Reading file content for display...', uploadedFile.value.name);
-
 			// Show a loading message for DOCX files since they take longer
 			const isDocx = uploadedFile.value.name.toLowerCase().endsWith('.docx');
 			if (isDocx) {
@@ -1842,16 +1684,12 @@ const sendAIMessage = async () => {
 				? fileContent.substring(0, 1000) + '\n\n[Content truncated for display...]'
 				: fileContent;
 			userMessage.content += `\n\n📎 **File Content** (${uploadedFile.value.name}):\n\`\`\`\n${truncatedContent}\n\`\`\``;
-			console.log('✅ File content added to message, length:', fileContent.length);
-			console.log('🔍 Content truncated:', shouldTruncate);
 
 			ElMessage.success({
 				message: `File "${uploadedFile.value.name}" processed successfully!`,
 				duration: 2000,
 			});
 		} catch (error) {
-			console.error('❌ Error reading file content:', error);
-
 			// Provide specific error handling for different file types
 			const errorMessage = error instanceof Error ? error.message : 'Unknown error';
 			const fileName = uploadedFile.value.name;
@@ -1884,12 +1722,10 @@ const sendAIMessage = async () => {
 	}
 
 	aiChatMessages.value.push(userMessage);
-	console.log('💬 Added user message, total messages:', aiChatMessages.value.length);
 
 	const currentInput = aiCurrentInput.value.trim();
 	aiCurrentInput.value = '';
 	aiGenerating.value = true;
-	console.log('⏳ Set aiGenerating to true');
 
 	// 滚动到底部
 	nextTick(() => {
@@ -1901,13 +1737,10 @@ const sendAIMessage = async () => {
 	try {
 		// 关闭加载状态，开始显示流式内容
 		aiGenerating.value = false;
-		console.log('✅ Set aiGenerating to false, starting streaming');
 
 		// 使用流式响应处理AI请求
 		await processAIRequestWithStreaming(currentInput, uploadedFile.value);
-		console.log('🎉 processAIRequestWithStreaming completed');
 	} catch (error) {
-		console.error('AI generation error:', error);
 		const errorMessage = {
 			role: 'assistant' as const,
 			content: `Sorry, I encountered an error while generating the HTTP configuration: ${
@@ -1944,22 +1777,14 @@ const processAIRequestWithStreaming = async (input: string, file: File | null) =
 	let streamingContent = '';
 
 	try {
-		console.log('🚀 Starting optimized HTTP config generation...');
-
 		// 使用新的优化端点直接生成HTTP配置
 		await streamGenerateHttpConfigDirect(input, file, (chunk, data) => {
-			console.log('📥 Received chunk:', chunk);
-
 			// 统一处理大小写问题
 			const chunkType = chunk.type || chunk.Type;
 			const chunkContent = chunk.content || chunk.Content;
 			const chunkActionData = chunk.actionData || chunk.ActionData;
 
-			console.log('🔍 Chunk type:', chunkType);
-
 			if (chunkType === 'progress' || chunkType === 'generation') {
-				console.log('📝 Processing progress chunk:', chunkContent);
-
 				// 过滤并显示简洁的进度信息
 				const filteredContent = filterStreamContent(chunkContent);
 				if (filteredContent && !streamingContent.includes(filteredContent.trim())) {
@@ -1981,11 +1806,8 @@ const processAIRequestWithStreaming = async (input: string, file: File | null) =
 					});
 				}
 			} else if (chunkType === 'complete' && chunkActionData) {
-				console.log('🎉 HTTP config generation completed, actionData:', chunkActionData);
-
 				// 直接从响应中提取HTTP配置
 				const httpConfig = extractHttpConfigFromActionPlan(chunkActionData);
-				console.log('🔧 Extracted HTTP config:', httpConfig);
 
 				// 更新最终消息
 				const lastMessageIndex = aiChatMessages.value.length - 1;
@@ -2004,8 +1826,6 @@ const processAIRequestWithStreaming = async (input: string, file: File | null) =
 			}
 		});
 	} catch (error) {
-		console.error('HTTP config generation error:', error);
-
 		// 直接修改数组中的最后一个消息（助手消息）
 		const lastMessageIndex = aiChatMessages.value.length - 1;
 		if (lastMessageIndex >= 0) {
@@ -2033,9 +1853,8 @@ const streamGenerateHttpConfigDirect = async (
 		try {
 			fileContent = await readFileContent(file);
 			fileName = file.name;
-			console.log('📄 File content read successfully:', fileName, fileContent.length);
 		} catch (error) {
-			console.error('Error reading file:', error);
+			// Error reading file, continue without file content
 		}
 	}
 
@@ -2086,12 +1905,6 @@ const streamGenerateHttpConfigDirect = async (
 		headers['X-Tenant-Id'] = String(userInfo.tenantId);
 	}
 
-	console.log(
-		'🌐 Starting optimized HTTP config generation:',
-		'/api/ai/v1/http-config/generate/stream'
-	);
-	console.log('📤 Request payload:', payload);
-
 	// 使用新的专用端点
 	return new Promise<void>((resolve, reject) => {
 		fetch('/api/ai/v1/http-config/generate/stream', {
@@ -2100,8 +1913,6 @@ const streamGenerateHttpConfigDirect = async (
 			body: JSON.stringify(payload),
 		})
 			.then((response) => {
-				console.log('📡 Response received:', response.status, response.statusText);
-
 				if (!response.ok) {
 					throw new Error(`HTTP ${response.status}: ${response.statusText}`);
 				}
@@ -2115,65 +1926,41 @@ const streamGenerateHttpConfigDirect = async (
 
 				const readStream = async () => {
 					try {
-						console.log('📖 Starting to read stream...');
 						for (;;) {
 							const { done, value } = await reader.read();
 							if (done) {
-								console.log('✅ Stream reading completed');
 								break;
 							}
 
 							const chunk = decoder.decode(value, { stream: true });
-							console.log('📝 Raw chunk received:', chunk);
 							const lines = chunk.split('\n');
 
 							for (const line of lines) {
 								if (line.startsWith('data: ')) {
 									const data = line.substring(6);
-									console.log('📊 Processing data line:', data);
 
 									if (data === '[DONE]') {
-										console.log('🏁 Received [DONE] signal');
 										resolve();
 										return;
 									}
 
 									try {
 										const parsed = JSON.parse(data);
-										console.log('✨ Parsed JSON data:', parsed);
 
 										// 检查并应用HTTP配置 (仅在HTTP配置生成流程中)
 										if (parsed.type === 'complete' && parsed.actionData) {
-											console.log(
-												'🎯 Complete event with actionData received'
-											);
-
 											// 在流式处理完成时自动应用配置
 											const httpConfig = extractHttpConfigFromActionPlan(
 												parsed.actionData
 											);
 											if (httpConfig) {
-												console.log(
-													'🔧 Auto-applying HTTP config from stream:',
-													httpConfig
-												);
 												try {
 													await applyGeneratedConfig(httpConfig);
-													console.log(
-														'✅ HTTP configuration auto-applied successfully'
-													);
 												} catch (error) {
-													console.error(
-														'❌ Error auto-applying configuration:',
-														error
-													);
 													// 不要阻止流继续处理，只记录错误
 												}
 											} else {
 												// 如果无法提取有效的HTTP配置，给出说明和建议
-												console.warn(
-													'⚠️ No valid HTTP configuration found in AI response'
-												);
 												showConfigurationSuggestions(parsed.actionData);
 											}
 										} else if (
@@ -2181,20 +1968,15 @@ const streamGenerateHttpConfigDirect = async (
 											!parsed.actionData
 										) {
 											// 如果完成但没有actionData，也给出建议
-											console.warn(
-												'⚠️ AI generation completed but no configuration data received'
-											);
 											showNoConfigurationDataSuggestions();
 										}
 
 										onChunk(parsed);
 
 										if (parsed.type === 'complete') {
-											console.log('🎯 Stream completed');
 											resolve();
 											return;
 										} else if (parsed.type === 'error') {
-											console.error('❌ Stream error:', parsed.content);
 											reject(
 												new Error(
 													parsed.content ||
@@ -2205,7 +1987,6 @@ const streamGenerateHttpConfigDirect = async (
 											return;
 										}
 									} catch (e) {
-										console.warn('⚠️ Failed to parse JSON:', data, e);
 										// Skip invalid JSON but continue processing
 										continue;
 									}
@@ -2214,7 +1995,6 @@ const streamGenerateHttpConfigDirect = async (
 						}
 						resolve();
 					} catch (error) {
-						console.error('💥 Stream reading error:', error);
 						reject(error);
 					}
 				};
@@ -2222,7 +2002,6 @@ const streamGenerateHttpConfigDirect = async (
 				readStream();
 			})
 			.catch((error) => {
-				console.error('🚫 Fetch error:', error);
 				reject(error);
 			});
 	});
@@ -2230,8 +2009,6 @@ const streamGenerateHttpConfigDirect = async (
 
 // 解析curl命令的函数
 const parseCurlCommand = (input: string) => {
-	console.log('🔍 Parsing curl command from input:', input.substring(0, 200) + '...');
-
 	const config: any = {
 		method: 'GET',
 		url: '',
@@ -2246,7 +2023,6 @@ const parseCurlCommand = (input: string) => {
 	);
 	if (curlMatch) {
 		config.url = curlMatch[1] || curlMatch[2] || curlMatch[3];
-		console.log('📍 Found URL:', config.url);
 	}
 
 	// 解析HTTP方法 - 支持引号格式
@@ -2257,7 +2033,6 @@ const parseCurlCommand = (input: string) => {
 		// 默认GET，除非有数据
 		config.method = input.includes('--data') ? 'POST' : 'GET';
 	}
-	console.log('🔧 HTTP Method:', config.method);
 
 	// 解析headers - 支持 -H 和 --header 两种格式
 	const headerMatches = input.matchAll(/(?:--header|-H)\s+['"^]*([^'"\n\r^]+)['"^]*/g);
@@ -2274,7 +2049,6 @@ const parseCurlCommand = (input: string) => {
 			}
 		}
 	}
-	console.log('📋 Headers:', config.headers);
 
 	// 解析请求体 - 支持Windows cURL的特殊引号格式
 	let bodyContent = '';
@@ -2286,16 +2060,11 @@ const parseCurlCommand = (input: string) => {
 	let dataContent = '';
 	if (dataRawMatch) {
 		dataContent = dataRawMatch[1];
-		console.log('📦 Found --data-raw content');
 	} else if (dataMatch) {
 		dataContent = dataMatch[1];
-		console.log('📦 Found --data content');
 	}
 
 	if (dataContent) {
-		console.log('📦 Raw data content length:', dataContent.length);
-		console.log('📦 Raw data start:', dataContent.substring(0, 100) + '...');
-
 		// 处理Windows cURL的特殊引号格式（^"...^"）和普通引号
 		let cleanContent = dataContent;
 
@@ -2314,8 +2083,6 @@ const parseCurlCommand = (input: string) => {
 		cleanContent = cleanContent.replace(/\^'/g, "'");
 
 		bodyContent = cleanContent;
-		console.log('📦 Cleaned body content length:', bodyContent.length);
-		console.log('📦 Body preview:', bodyContent.substring(0, 200) + '...');
 	}
 
 	if (bodyContent.trim()) {
@@ -2327,30 +2094,22 @@ const parseCurlCommand = (input: string) => {
 			// 尝试解析原始内容
 			JSON.parse(config.body);
 			config.rawFormat = 'json';
-			console.log('✅ JSON format detected successfully');
 		} catch (error) {
 			// 如果失败，尝试清理 Windows 换行符后再解析
 			try {
 				const cleanedBody = config.body.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
 				JSON.parse(cleanedBody);
 				config.rawFormat = 'json';
-				console.log('✅ JSON format detected after cleaning line endings');
 			} catch (secondError) {
 				// 检查是否看起来像 JSON（以 { 或 [ 开头）
 				const trimmedBody = config.body.trim();
 				if (trimmedBody.startsWith('{') || trimmedBody.startsWith('[')) {
 					config.rawFormat = 'json';
-					console.log('✅ JSON format detected by structure (starts with { or [)');
 				} else {
 					config.rawFormat = 'text';
-					console.log('❌ Not JSON format, setting as text');
 				}
 			}
 		}
-		console.log('🎯 Body type set to:', config.bodyType, 'Format:', config.rawFormat);
-		console.log('📦 Final body content length:', config.body.length);
-	} else {
-		console.log('❌ No request body found in input');
 	}
 
 	return config;
@@ -2358,10 +2117,7 @@ const parseCurlCommand = (input: string) => {
 
 const extractHttpConfigFromActionPlan = (actionPlan: any) => {
 	// 从AI生成的行动计划中提取HTTP配置信息
-	console.log('🔧 Extracting HTTP config from action plan:', actionPlan);
-
 	if (!actionPlan || typeof actionPlan !== 'object') {
-		console.warn('⚠️ Invalid action plan provided');
 		return null;
 	}
 
@@ -2371,7 +2127,6 @@ const extractHttpConfigFromActionPlan = (actionPlan: any) => {
 		if (Array.isArray(actions) && actions.length > 0) {
 			for (const action of actions) {
 				if (action.httpConfig) {
-					console.log('✅ Found httpConfig in actionPlan.actions[].httpConfig');
 					const config = action.httpConfig;
 					// 确保actionName存在
 					if (!config.actionName && config.url) {
@@ -2389,7 +2144,6 @@ const extractHttpConfigFromActionPlan = (actionPlan: any) => {
 		if (Array.isArray(actions) && actions.length > 0) {
 			for (const action of actions) {
 				if (action.httpConfig) {
-					console.log('✅ Found httpConfig in actions[].httpConfig');
 					const config = action.httpConfig;
 					// 确保actionName存在
 					if (!config.actionName && config.url) {
@@ -2403,7 +2157,6 @@ const extractHttpConfigFromActionPlan = (actionPlan: any) => {
 
 	// 检查直接httpConfig格式：{ httpConfig: ... }
 	if (actionPlan.httpConfig) {
-		console.log('✅ Found httpConfig at root level');
 		const config = actionPlan.httpConfig;
 		// 确保actionName存在
 		if (!config.actionName && config.url) {
@@ -2414,11 +2167,9 @@ const extractHttpConfigFromActionPlan = (actionPlan: any) => {
 
 	// 首先尝试从用户的原始输入中解析curl命令（作为后备方案）
 	const userInput = aiChatMessages.value.find((msg) => msg.role === 'user')?.content || '';
-	console.log('📝 User input for parsing:', userInput);
 
 	const curlConfig = parseCurlCommand(userInput);
 	if (curlConfig.url && curlConfig.url !== '') {
-		console.log('✅ Successfully parsed curl command:', curlConfig);
 		// 添加默认的action名称
 		curlConfig.actionName = generateActionName(curlConfig.url, curlConfig.method);
 		return curlConfig;
@@ -2426,7 +2177,6 @@ const extractHttpConfigFromActionPlan = (actionPlan: any) => {
 
 	// 如果以上都失败，回退到从旧格式AI响应中解析
 	const actions = actionPlan.ActionItems || actionPlan.actions || [];
-	console.log('🔍 Searching in ActionItems/actions:', actions);
 
 	// 查找包含HTTP配置信息的行动项目
 	const httpAction = actions.find(
@@ -2440,15 +2190,11 @@ const extractHttpConfigFromActionPlan = (actionPlan: any) => {
 			action.category?.toLowerCase().includes('api')
 	);
 
-	console.log('🎯 Found HTTP action:', httpAction);
-
 	if (httpAction) {
 		// 尝试从描述中解析HTTP配置
 		const title = httpAction.title || '';
 		const description = httpAction.description || '';
 		const fullText = `${title} ${description}`.toLowerCase();
-
-		console.log('📖 Analyzing text:', fullText);
 
 		// 初始化配置对象
 		const config: any = {
@@ -2463,7 +2209,6 @@ const extractHttpConfigFromActionPlan = (actionPlan: any) => {
 		const methodMatch = fullText.match(/\b(get|post|put|delete|patch)\b/i);
 		if (methodMatch) {
 			config.method = methodMatch[1].toUpperCase();
-			console.log('📡 Found method:', config.method);
 		}
 
 		// 解析URL - 改进的URL匹配模式
@@ -2478,7 +2223,6 @@ const extractHttpConfigFromActionPlan = (actionPlan: any) => {
 			const urlMatch = fullText.match(pattern);
 			if (urlMatch) {
 				config.url = urlMatch[1] || urlMatch[0];
-				console.log('🌐 Found URL:', config.url);
 				break;
 			}
 		}
@@ -2491,10 +2235,8 @@ const extractHttpConfigFromActionPlan = (actionPlan: any) => {
 			if (pathMatch) {
 				// 只有找到明确的API路径才构建URL
 				config.url = `https://api.example.com${pathMatch[0]}`;
-				console.log('🔧 Constructed URL from path:', config.url);
 			} else {
 				// 根据用户要求，不提供默认URL
-				console.log('⚠️ No valid URL found, cannot create configuration');
 				return null;
 			}
 		}
@@ -2506,13 +2248,11 @@ const extractHttpConfigFromActionPlan = (actionPlan: any) => {
 				config.bodyType = 'raw';
 				config.rawFormat = 'json';
 			}
-			console.log('📋 Set JSON content type');
 		} else if (fullText.includes('form')) {
 			config.headers['Content-Type'] = 'application/x-www-form-urlencoded';
 			if (config.method !== 'GET') {
 				config.bodyType = 'x-www-form-urlencoded';
 			}
-			console.log('📋 Set form content type');
 		}
 
 		// 解析认证头
@@ -2522,7 +2262,6 @@ const extractHttpConfigFromActionPlan = (actionPlan: any) => {
 			fullText.includes('auth')
 		) {
 			config.headers['Authorization'] = 'Bearer {{token}}';
-			console.log('🔐 Added authorization header');
 		}
 
 		// 添加一些常用的默认头部
@@ -2532,12 +2271,9 @@ const extractHttpConfigFromActionPlan = (actionPlan: any) => {
 
 		// 添加默认的action名称
 		config.actionName = generateActionName(config.url, config.method);
-		console.log('✅ Generated action name:', config.actionName);
-		console.log('✅ Final config:', config);
 		return config;
 	}
 
-	console.log('⚠️ No HTTP action found, cannot extract valid configuration');
 	// 根据用户要求，不返回默认配置，而是返回null
 	return null;
 };
@@ -2562,16 +2298,6 @@ const isValidFileType = (file: File): boolean => {
 	];
 
 	const isMimeTypeSupported = supportedMimeTypes.includes(file.type) || file.type === '';
-
-	// Log for debugging
-	console.log('File validation:', {
-		name: file.name,
-		extension,
-		mimeType: file.type,
-		size: file.size,
-		extensionSupported: isExtensionSupported,
-		mimeTypeSupported: isMimeTypeSupported,
-	});
 
 	return isExtensionSupported && (isMimeTypeSupported || file.type === '');
 };
@@ -2650,7 +2376,6 @@ const readPDFFile = async (file: File): Promise<string> => {
 		}
 		return fullText.trim();
 	} catch (error) {
-		console.error('PDF parsing error:', error);
 		throw new Error('Failed to parse PDF file. Please ensure the file is not corrupted.');
 	}
 };
@@ -2669,8 +2394,6 @@ const readDocxFile = async (file: File): Promise<string> => {
 		if (!fileName.endsWith('.docx') && !fileName.endsWith('.doc')) {
 			throw new Error('Invalid file format. Expected .docx or .doc file');
 		}
-
-		console.log('Reading DOCX file:', file.name, 'Size:', file.size);
 
 		const arrayBuffer = await new Promise<ArrayBuffer>((resolve, reject) => {
 			const reader = new FileReader();
@@ -2692,23 +2415,18 @@ const readDocxFile = async (file: File): Promise<string> => {
 			throw new Error('File content is empty or corrupted');
 		}
 
-		console.log('ArrayBuffer size:', arrayBuffer.byteLength);
-
 		// Extract text using mammoth
 		const result = await mammoth.extractRawText({ arrayBuffer });
 
-		// Log any warnings from mammoth
+		// Check for critical errors in messages
 		if (result.messages && result.messages.length > 0) {
-			console.warn('DOCX parsing warnings:', result.messages);
-			// Check for critical errors in messages
 			const errors = result.messages.filter((msg) => msg.type === 'error');
 			if (errors.length > 0) {
-				console.error('DOCX parsing errors:', errors);
+				// Critical errors found, but continue processing
 			}
 		}
 
 		const extractedText = result.value || '';
-		console.log('Extracted text length:', extractedText.length);
 
 		if (!extractedText.trim()) {
 			throw new Error('No readable text content found in the DOCX file');
@@ -2716,8 +2434,6 @@ const readDocxFile = async (file: File): Promise<string> => {
 
 		return extractedText;
 	} catch (error) {
-		console.error('DOCX parsing error:', error);
-
 		// Provide more specific error messages
 		if (error instanceof Error) {
 			if (error.message.includes('mammoth')) {
@@ -2742,12 +2458,6 @@ const readDocxFile = async (file: File): Promise<string> => {
 };
 
 const readFileContent = async (file: File): Promise<string> => {
-	console.log('Starting file content reading:', {
-		name: file.name,
-		type: file.type,
-		size: file.size,
-	});
-
 	// Validate file type
 	if (!isValidFileType(file)) {
 		throw new Error(
@@ -2772,8 +2482,6 @@ const readFileContent = async (file: File): Promise<string> => {
 	let content = '';
 
 	try {
-		console.log(`Processing ${extension} file...`);
-
 		switch (extension) {
 			case 'txt':
 			case 'md':
@@ -2803,11 +2511,8 @@ const readFileContent = async (file: File): Promise<string> => {
 			);
 		}
 
-		console.log(`Successfully extracted content: ${content.length} characters`);
 		return content.trim();
 	} catch (error) {
-		console.error('File processing error:', error);
-
 		// Re-throw with more specific context if needed
 		if (error instanceof Error) {
 			// If it's already a user-friendly error, pass it through
@@ -2833,8 +2538,6 @@ const readFileContent = async (file: File): Promise<string> => {
 };
 
 const handleFileUpload = async (file: File) => {
-	console.log('Handling file upload:', file.name, file.type, file.size);
-
 	// Validate file type with detailed feedback
 	if (!isValidFileType(file)) {
 		const extension = file.name.toLowerCase().split('.').pop();
@@ -2881,13 +2584,6 @@ const handleFileUpload = async (file: File) => {
 		)}) selected successfully!`,
 		duration: 3000,
 		showClose: true,
-	});
-
-	console.log('File upload successful:', {
-		name: file.name,
-		type: file.type,
-		size: file.size,
-		formattedSize: formatFileSize(file.size),
 	});
 
 	return false; // 阻止自动上传
@@ -2972,8 +2668,6 @@ const validateHttpConfig = (httpConfig: any): { isValid: boolean; errors: string
 
 // 当AI无法生成有效配置时，提供用户建议
 const showConfigurationSuggestions = (actionData: any) => {
-	console.log('💡 Showing configuration suggestions for:', actionData);
-
 	ElMessageBox.alert(
 		`AI could not extract valid HTTP configuration from your input. Please try the following suggestions:
 
@@ -2994,8 +2688,6 @@ You can also switch to the "From cURL" tab to directly paste and import cURL com
 
 // 当AI完全没有返回配置数据时的建议
 const showNoConfigurationDataSuggestions = () => {
-	console.log('💡 Showing no configuration data suggestions');
-
 	ElMessageBox.alert(
 		`AI processing completed but no configuration data was returned. Please check your input and try:
 
@@ -3015,12 +2707,9 @@ We recommend using the "From cURL" feature to import existing cURL commands dire
 };
 
 const applyGeneratedConfig = async (httpConfig: any) => {
-	console.log('🔧 Applying generated HTTP config:', httpConfig);
-
 	// 验证配置有效性
 	const validation = validateHttpConfig(httpConfig);
 	if (!validation.isValid) {
-		console.error('❌ HTTP config validation failed:', validation.errors);
 		ElMessage.error(`Configuration validation failed: ${validation.errors.join(', ')}`);
 
 		// 显示详细错误信息
@@ -3064,22 +2753,18 @@ const applyGeneratedConfig = async (httpConfig: any) => {
 					});
 
 					if (Object.keys(extractedParams).length > 0) {
-						console.log('🔍 Auto-extracted params from URL:', extractedParams);
 						httpConfig.params = extractedParams;
 						// 从URL中移除查询参数
 						validUrl = urlObj.origin + urlObj.pathname;
-						console.log('✅ Cleaned URL (params extracted):', validUrl);
 					}
 				}
 			} catch (err) {
-				console.warn('⚠️ Failed to parse URL for param extraction:', err);
+				// Failed to parse URL for param extraction, continue without params
 			}
 		}
 
 		newConfig.url = validUrl;
-		console.log('✅ Applied URL:', validUrl);
 	} else {
-		console.error('❌ No valid URL provided in configuration');
 		// 这种情况不应该发生，因为配置在到达这里之前已经验证过了
 		throw new Error('Invalid configuration: URL is required');
 	}
@@ -3089,9 +2774,7 @@ const applyGeneratedConfig = async (httpConfig: any) => {
 		const validMethod = httpConfig.method.toUpperCase();
 		if (['GET', 'POST', 'PUT', 'DELETE', 'PATCH'].includes(validMethod)) {
 			newConfig.method = validMethod;
-			console.log('✅ Applied Method:', validMethod);
 		} else {
-			console.warn('⚠️ Invalid HTTP method:', httpConfig.method, 'using GET');
 			newConfig.method = 'GET';
 		}
 	}
@@ -3106,7 +2789,6 @@ const applyGeneratedConfig = async (httpConfig: any) => {
 			}));
 		headersList.push({ key: '', value: '' }); // 添加空行
 		newConfig.headersList = headersList;
-		console.log('✅ Applied Headers:', headersList);
 	}
 
 	// 应用Params（查询参数）
@@ -3119,7 +2801,6 @@ const applyGeneratedConfig = async (httpConfig: any) => {
 			}));
 		paramsList.push({ key: '', value: '' }); // 添加空行
 		newConfig.paramsList = paramsList;
-		console.log('✅ Applied Params:', paramsList);
 	}
 
 	// 应用Body Type
@@ -3127,9 +2808,7 @@ const applyGeneratedConfig = async (httpConfig: any) => {
 		const validBodyTypes = ['none', 'form-data', 'x-www-form-urlencoded', 'raw'];
 		if (validBodyTypes.includes(httpConfig.bodyType)) {
 			newConfig.bodyType = httpConfig.bodyType;
-			console.log('✅ Applied Body Type:', httpConfig.bodyType);
 		} else {
-			console.warn('⚠️ Invalid body type:', httpConfig.bodyType, 'using none');
 			newConfig.bodyType = 'none';
 		}
 	}
@@ -3137,9 +2816,7 @@ const applyGeneratedConfig = async (httpConfig: any) => {
 	// 应用timeout
 	if (httpConfig.timeout && typeof httpConfig.timeout === 'number' && httpConfig.timeout > 0) {
 		newConfig.timeout = httpConfig.timeout;
-		console.log('✅ Applied Timeout:', httpConfig.timeout);
 	} else if (httpConfig.timeout !== undefined) {
-		console.warn('⚠️ Invalid timeout value:', httpConfig.timeout, 'using default 30');
 		newConfig.timeout = 30;
 	}
 
@@ -3149,13 +2826,11 @@ const applyGeneratedConfig = async (httpConfig: any) => {
 		typeof httpConfig.followRedirects === 'boolean'
 	) {
 		newConfig.followRedirects = httpConfig.followRedirects;
-		console.log('✅ Applied Follow Redirects:', httpConfig.followRedirects);
 	}
 
 	// 应用Body内容
 	if (httpConfig.body && typeof httpConfig.body === 'string') {
 		newConfig.body = httpConfig.body;
-		console.log('✅ Applied Body:', httpConfig.body);
 	}
 
 	// 应用Raw格式
@@ -3163,9 +2838,7 @@ const applyGeneratedConfig = async (httpConfig: any) => {
 		const validFormats = ['json', 'text', 'xml', 'html', 'javascript'];
 		if (validFormats.includes(httpConfig.rawFormat)) {
 			newConfig.rawFormat = httpConfig.rawFormat;
-			console.log('✅ Applied Raw Format:', httpConfig.rawFormat);
 		} else {
-			console.warn('⚠️ Invalid raw format:', httpConfig.rawFormat, 'using json');
 			newConfig.rawFormat = 'json';
 		}
 	}
@@ -3182,28 +2855,18 @@ const applyGeneratedConfig = async (httpConfig: any) => {
 	}
 
 	// 一次性应用所有配置
-	console.log('🔄 Applying complete configuration...');
 	formConfig.value = newConfig;
 
 	// 等待DOM更新
 	await nextTick();
 
-	console.log('🔍 Current formConfig after update:', {
-		url: formConfig.value.url,
-		method: formConfig.value.method,
-		headersList: formConfig.value.headersList,
-		bodyType: formConfig.value.bodyType,
-	});
-
 	// 应用Action名称到表单（通过emit传递给父组件）
 	if (httpConfig.actionName && typeof httpConfig.actionName === 'string') {
 		emit('update:actionName', httpConfig.actionName);
-		console.log('✅ Applied Action Name:', httpConfig.actionName);
 	}
 
 	// 通知父组件这是AI生成的配置
 	emit('ai-config-applied', httpConfig);
-	console.log('🤖 Notified parent that this is AI-generated config');
 
 	// 显示配置应用成功消息
 	ElMessage.success(
@@ -3219,8 +2882,6 @@ const applyGeneratedConfig = async (httpConfig: any) => {
 	if (formElement) {
 		formElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
 	}
-
-	console.log('✅ Configuration applied to form, ready for user review and manual creation');
 };
 
 // Model management
@@ -3228,7 +2889,6 @@ const handleModelChange = (model: AIModelConfig) => {
 	currentAIModel.value = model;
 	selectedAIModel.value = model.provider.toLowerCase();
 	ElMessage.success(`Switched to ${model.provider.toLowerCase()} ${model.modelName}`);
-	console.log('Model changed to:', model);
 };
 
 // Initialize AI models from API
@@ -3277,8 +2937,6 @@ const initializeAIModels = async () => {
 					isDefault: model.isDefault === true,
 				}));
 
-				console.log('Loaded AI models:', availableModels.value);
-
 				// Set default model
 				if (availableModels.value.length > 0) {
 					// Try to find the default model first, then available model, then first model
@@ -3290,15 +2948,12 @@ const initializeAIModels = async () => {
 					selectedAIModel.value = defaultModel.provider.toLowerCase();
 				}
 			} else {
-				console.warn('Failed to load AI models from API:', result.message);
 				loadFallbackModels();
 			}
 		} else {
-			console.warn('API request failed:', response.status, response.statusText);
 			loadFallbackModels();
 		}
 	} catch (error) {
-		console.error('Error loading AI models:', error);
 		loadFallbackModels();
 	}
 };
@@ -3340,19 +2995,47 @@ onMounted(() => {
 </script>
 
 <style scoped lang="scss">
-// Params Section Styles (Legacy)
-.params-section {
-	@apply w-full border rounded-xl overflow-hidden;
-	border-color: var(--el-border-color-light);
+// URL Input Container
+.url-input-container {
+	@apply flex items-center gap-2;
 }
 
-html.dark .params-section {
-	border-color: var(--el-border-color-dark);
+.test-button {
+	@apply flex-shrink-0;
+	min-width: 80px;
+}
+
+.response-box {
+	background: var(--el-fill-color-lighter);
+	min-height: 200px;
+	max-height: 500px;
+	overflow-y: auto;
+}
+
+html.dark .response-box {
+	background: var(--el-fill-color-darker);
+}
+
+.response-text {
+	color: var(--el-text-color-regular);
+}
+
+html.dark .response-text {
+	color: var(--el-text-color-placeholder);
+}
+
+.response-empty {
+	@apply w-full py-12 flex items-center justify-center;
+	min-height: 200px;
+}
+
+.response-empty-content {
+	@apply text-center;
 }
 
 // Enhanced Params Section Styles (New)
 .params-section-enhanced {
-	@apply w-full border rounded-xl overflow-hidden;
+	@apply w-full border overflow-hidden h-full flex flex-col;
 	border-color: var(--el-border-color-light);
 }
 
@@ -3360,8 +3043,31 @@ html.dark .params-section-enhanced {
 	border-color: var(--el-border-color-dark);
 }
 
+// HTTP Request Tabs - 固定高度，避免双重滚动条
+.http-request-tabs {
+	height: 400px;
+
+	:deep(.el-tabs__header) {
+		@apply flex-shrink-0;
+		margin-bottom: 0;
+	}
+
+	:deep(.el-tabs__content) {
+		@apply flex-1 min-h-0 overflow-hidden;
+	}
+
+	:deep(.el-tab-pane) {
+		@apply h-full overflow-hidden;
+	}
+}
+
+// Tab 内容主体 - 可滚动
+.tab-content-body {
+	@apply flex-1 min-h-0 overflow-y-auto;
+}
+
 .params-header-enhanced {
-	@apply px-4 py-3 border-b grid grid-cols-12 gap-4 items-center;
+	@apply px-4 py-2 border-b grid grid-cols-12 gap-4 items-center flex-shrink-0;
 	background: var(--el-fill-color-lighter);
 	border-bottom-color: var(--el-border-color-light);
 
@@ -3393,11 +3099,11 @@ html.dark .params-header-enhanced {
 }
 
 .params-body-enhanced {
-	@apply p-3 space-y-2;
+	@apply p-3 space-y-2 flex-1 min-h-0 overflow-y-auto;
 }
 
 .param-row-enhanced {
-	@apply grid grid-cols-12 gap-4 items-start;
+	@apply grid grid-cols-12 gap-4 items-center;
 }
 
 .param-key-container {
@@ -3410,80 +3116,6 @@ html.dark .params-header-enhanced {
 
 .param-delete-container {
 	@apply col-span-1 flex justify-center;
-}
-
-.param-input-enhanced {
-	@apply w-full;
-}
-
-.param-value-wrapper {
-	@apply relative w-full;
-}
-
-// 输入框内部的按钮组
-.param-input-actions {
-	@apply flex items-center space-x-1 mr-2;
-}
-
-.param-action-btn {
-	@apply w-5 h-5 flex items-center justify-center rounded transition-colors;
-	color: var(--el-text-color-secondary);
-
-	&:hover {
-		color: var(--el-text-color-regular);
-		background: var(--el-fill-color-light);
-	}
-}
-
-html.dark .param-action-btn:hover {
-	color: var(--el-text-color-placeholder);
-	background: var(--el-fill-color-dark);
-}
-
-// 文本域容器
-.param-textarea-container {
-	@apply relative w-full;
-}
-
-.param-textarea-enhanced {
-	@apply font-mono text-sm w-full;
-}
-
-.param-textarea-auto-height {
-	@apply font-mono text-sm w-full;
-
-	:deep(.el-textarea__inner) {
-		resize: none !important;
-		overflow-y: hidden !important;
-	}
-}
-
-// 文本域右上角的按钮组
-.param-textarea-actions {
-	@apply absolute top-2 right-2 flex items-center space-x-1 px-2 py-1 rounded-xl shadow-sm border;
-	z-index: 10;
-	background: var(--el-bg-color);
-	border-color: var(--el-border-color-light);
-}
-
-html.dark .param-textarea-actions {
-	background: var(--el-fill-color-darker);
-	border-color: var(--el-border-color);
-}
-
-.param-value-hint {
-	@apply text-xs italic;
-	color: var(--el-text-color-secondary);
-}
-
-.param-delete-enhanced {
-	@apply w-8 h-8 flex items-center justify-center rounded-xl transition-colors;
-	color: var(--el-color-danger);
-
-	&:hover {
-		color: var(--el-color-danger-light-3);
-		background: var(--el-color-danger-light-9);
-	}
 }
 
 .params-header {
@@ -3528,10 +3160,6 @@ html.dark .params-header {
 	@apply w-8 h-8 flex items-center justify-center;
 }
 
-.add-param-btn {
-	@apply mt-2;
-}
-
 // Raw Section Styles
 .raw-section {
 	@apply w-full;
@@ -3567,11 +3195,11 @@ html.dark .params-header {
 
 // Body Section Styles
 .body-section {
-	@apply w-full space-y-4;
+	@apply w-full space-y-4 h-full flex flex-col;
 }
 
 .body-type-group {
-	@apply flex flex-wrap gap-4;
+	@apply flex flex-wrap gap-4 flex-shrink-0;
 
 	:deep(.el-radio) {
 		@apply mr-0;
@@ -3579,11 +3207,13 @@ html.dark .params-header {
 }
 
 .body-content {
-	@apply mt-4;
+	@apply mt-4 flex-1 min-h-0;
+	overflow: hidden; // 让内部元素处理滚动
 }
 
 .body-none {
-	@apply py-8 text-center;
+	@apply py-8 text-center h-full flex items-center justify-center;
+	overflow-y: auto; // none 类型需要滚动
 }
 
 .raw-section {
@@ -3627,25 +3257,6 @@ html.dark .test-section {
 	pre {
 		@apply max-h-40 overflow-y-auto;
 	}
-}
-
-:deep(.el-input-number) {
-	.el-input-group__append {
-		background: var(--el-fill-color-lighter);
-		color: var(--el-text-color-regular);
-	}
-}
-
-html.dark :deep(.el-input-number) {
-	.el-input-group__append {
-		background: var(--el-fill-color-dark);
-		color: var(--el-text-color-placeholder);
-	}
-}
-
-:deep(.request-url-input .el-input .el-input__wrapper) {
-	border-top-left-radius: 0 !important;
-	border-bottom-left-radius: 0 !important;
 }
 
 // 导入错误信息样式
@@ -3692,17 +3303,15 @@ html.dark :deep(.el-input-number) {
 }
 
 .ai-chat-container {
-	@apply flex flex-col h-96;
+	@apply flex flex-col;
+	min-height: 24rem; /* 最小高度 */
 }
 
 .ai-chat-messages {
-	@apply flex-1 overflow-y-auto p-4 space-y-4 rounded-lg mb-4;
-	max-height: 300px;
+	height: 300px; /* 固定高度，不随textarea变化 */
+	flex-shrink: 0; /* 禁止收缩 */
 	background: var(--el-fill-color-lighter);
-}
-
-html.dark .ai-chat-messages {
-	background: var(--el-fill-color-darker);
+	@apply overflow-y-auto p-4 space-y-4 rounded-lg mb-4 dark:bg-black-400;
 }
 
 .ai-message {
@@ -3728,12 +3337,6 @@ html.dark .ai-chat-messages {
 			border-color: var(--el-border-color-light);
 		}
 	}
-}
-
-html.dark .ai-message.assistant-message .message-content {
-	background: var(--el-fill-color-dark);
-	color: var(--el-color-white);
-	border-color: var(--el-border-color);
 }
 
 .message-text {
@@ -3861,27 +3464,6 @@ html.dark .ai-input-area {
 
 .ai-input-container {
 	@apply flex-1 relative;
-}
-
-.ai-chat-input {
-	@apply w-full;
-
-	:deep(.el-textarea__inner) {
-		resize: none;
-		line-height: 1.5;
-		min-height: 70px !important;
-		height: 70px !important;
-		border-radius: 12px;
-		border: 1px solid var(--el-border-color-light);
-		padding: 12px 80px 12px 16px;
-		font-size: 14px;
-		transition: all 0.2s ease;
-
-		&:focus {
-			border-color: var(--el-color-primary);
-			box-shadow: 0 0 0 3px var(--el-color-primary-light-9);
-		}
-	}
 }
 
 .input-bottom-actions {
@@ -4020,15 +3602,6 @@ html.dark .file-info {
 
 .file-name {
 	@apply flex-1 truncate;
-}
-
-.remove-file-btn {
-	@apply w-6 h-6 flex items-center justify-center;
-	color: var(--el-text-color-secondary);
-
-	&:hover {
-		color: var(--el-color-danger);
-	}
 }
 
 .url-hint,

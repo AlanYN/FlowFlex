@@ -5,7 +5,6 @@ using FlowFlex.Application.Contracts.Dtos.OW.Onboarding;
 using FlowFlex.Application.Contracts.Dtos.OW.Permission;
 using FlowFlex.Application.Contracts.IServices.Action;
 using FlowFlex.Application.Contracts.IServices.OW;
-using FlowFlex.Application.Contracts.IServices.OW;
 using FlowFlex.Application.Services.OW.Extensions;
 using FlowFlex.Domain.Entities.OW;
 using FlowFlex.Domain.Repository.OW;
@@ -220,6 +219,25 @@ namespace FlowFlex.Application.Services.OW
 
             // Update the entity using safe method - NO EVENT PUBLISHING
             var result = await SafeUpdateOnboardingAsync(entity);
+
+            // Send email notification to next stage's default assignees (only if explicitly requested)
+            // Default is false to avoid duplicate emails from multiple callers
+            if (result && input.SendEmailNotification)
+            {
+                try
+                {
+                    var completedBy = GetCurrentUserName() ?? "System";
+                    await SendStageCompletionEmailNotificationAsync(entity, stageToComplete, completedBy);
+                    _logger.LogInformation("Sent stage completion email notification from internal completion: OnboardingId={OnboardingId}, StageId={StageId}",
+                        entity.Id, stageToComplete.Id);
+                }
+                catch (Exception emailEx)
+                {
+                    _logger.LogError(emailEx, "Failed to send stage completion email notification from internal completion: OnboardingId={OnboardingId}, StageId={StageId}",
+                        entity.Id, stageToComplete.Id);
+                    // Don't re-throw to avoid breaking the main flow
+                }
+            }
 
             return result;
         }
@@ -533,22 +551,256 @@ namespace FlowFlex.Application.Services.OW
                         extendedData: System.Text.Json.JsonSerializer.Serialize(extendedData)
                     );
 
-                    _logger.LogInformation("已记录 Stage 完成日志: OnboardingId={OnboardingId}, StageId={StageId}, StageName={StageName}",
+                    _logger.LogInformation("Stage completion logged: OnboardingId={OnboardingId}, StageId={StageId}, StageName={StageName}",
                         entity.Id, stageToComplete.Id, stageToComplete.Name);
                 }
                 catch (Exception logEx)
                 {
-                    _logger.LogError(logEx, "记录 Stage 完成日志失败: OnboardingId={OnboardingId}, StageId={StageId}",
+                    _logger.LogError(logEx, "Failed to log stage completion: OnboardingId={OnboardingId}, StageId={StageId}",
                         entity.Id, stageToComplete.Id);
                     // Don't re-throw to avoid breaking the main flow
                 }
 
                 // Debug logging handled by structured logging
                 await PublishStageCompletionEventForCurrentStageAsync(entity, stageToComplete, allStagesCompleted);
+
+                // Send email notification to stage default assignees
+                try
+                {
+                    await SendStageCompletionEmailNotificationAsync(entity, stageToComplete, GetCurrentUserName());
+                }
+                catch (Exception emailEx)
+                {
+                    _logger.LogError(emailEx, "Failed to send stage completion email notification: OnboardingId={OnboardingId}, StageId={StageId}",
+                        entity.Id, stageToComplete.Id);
+                    // Don't re-throw to avoid breaking the main flow
+                }
             }
 
             // Debug logging handled by structured logging End ===");
             return result;
+        }
+
+        /// <summary>
+        /// Send stage completion email notification to next stage's default assignees
+        /// Only sends email if the IMMEDIATE next stage (by order) is not completed
+        /// If the immediate next stage is already completed, no email is sent
+        /// </summary>
+        private async Task SendStageCompletionEmailNotificationAsync(Onboarding entity, Stage stage, string completedBy)
+        {
+            try
+            {
+                // Get all stages for this workflow to find next stage
+                var stages = await _stageRepository.GetByWorkflowIdAsync(entity.WorkflowId);
+                var orderedStages = stages.OrderBy(x => x.Order).ToList();
+
+                // Find the IMMEDIATE next stage (by order), not skipping any stages
+                var completedStageOrder = orderedStages.FirstOrDefault(s => s.Id == stage.Id)?.Order ?? 0;
+                var immediateNextStage = orderedStages
+                    .Where(s => s.Order > completedStageOrder)
+                    .OrderBy(s => s.Order)
+                    .FirstOrDefault();
+
+                // No next stage exists
+                if (immediateNextStage == null)
+                {
+                    _logger.LogDebug("No next stage found after stage {StageId}, skipping email notification", stage.Id);
+                    return;
+                }
+
+                // Check if the immediate next stage is already completed
+                // If it's completed, don't send email (the workflow has already moved past this stage)
+                var nextStageProgress = entity.StagesProgress?.FirstOrDefault(sp => sp.StageId == immediateNextStage.Id);
+                if (nextStageProgress != null && nextStageProgress.IsCompleted)
+                {
+                    _logger.LogDebug("Immediate next stage {NextStageId} ({NextStageName}) is already completed, skipping email notification",
+                        immediateNextStage.Id, immediateNextStage.Name);
+                    return;
+                }
+
+                string nextStageName = immediateNextStage.Name;
+
+                // Build case URL using GetRequestOrigin method (similar to portal invitation)
+                var caseUrl = BuildCaseUrl(entity.Id, entity.TenantId);
+
+                // Prepare email data
+                var caseId = entity.CaseCode ?? entity.Id.ToString();
+                var caseName = entity.LeadName ?? $"Case {caseId}";
+                var stageName = stage.Name ?? "Unknown Stage";
+                // Convert UTC time to server local time and format as US time format: MM/dd/yyyy hh:mm:ss tt
+                var utcTime = DateTimeOffset.UtcNow;
+                var localTime = TimeZoneInfo.ConvertTime(utcTime, TimeZoneInfo.Local);
+                var completionTime = localTime.ToString("MM/dd/yyyy hh:mm:ss tt", System.Globalization.CultureInfo.GetCultureInfo("en-US"));
+
+                // Send email to immediate next stage's default assignees only
+                await SendEmailToStageAssigneesAsync(entity, immediateNextStage, caseId, caseName, stageName, nextStageName, completedBy, completionTime, caseUrl);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error sending stage completion email notification: StageId={StageId}, OnboardingId={OnboardingId}",
+                    stage.Id, entity.Id);
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// Send email notification to stage's default assignees
+        /// </summary>
+        private async Task SendEmailToStageAssigneesAsync(Onboarding entity, Stage stage, string caseId, string caseName, string completedStageName, string nextStageName, string completedBy, string completionTime, string caseUrl)
+        {
+            try
+            {
+                // Parse default assignee from stage
+                if (string.IsNullOrWhiteSpace(stage.DefaultAssignee))
+                {
+                    _logger.LogDebug("Next stage {StageId} has no default assignees, skipping email notification", stage.Id);
+                    return;
+                }
+
+                List<string> assigneeIds = new List<string>();
+                try
+                {
+                    // Try to parse as JSON array
+                    var jsonDoc = JsonDocument.Parse(stage.DefaultAssignee);
+                    if (jsonDoc.RootElement.ValueKind == JsonValueKind.Array)
+                    {
+                        assigneeIds = jsonDoc.RootElement.EnumerateArray()
+                            .Select(e => e.GetString())
+                            .Where(id => !string.IsNullOrWhiteSpace(id))
+                            .ToList();
+                    }
+                    else if (jsonDoc.RootElement.ValueKind == JsonValueKind.String)
+                    {
+                        // Nested JSON string
+                        var innerJson = jsonDoc.RootElement.GetString();
+                        if (!string.IsNullOrWhiteSpace(innerJson))
+                        {
+                            var innerDoc = JsonDocument.Parse(innerJson);
+                            if (innerDoc.RootElement.ValueKind == JsonValueKind.Array)
+                            {
+                                assigneeIds = innerDoc.RootElement.EnumerateArray()
+                                    .Select(e => e.GetString())
+                                    .Where(id => !string.IsNullOrWhiteSpace(id))
+                                    .ToList();
+                            }
+                        }
+                    }
+                }
+                catch (JsonException ex)
+                {
+                    _logger.LogWarning(ex, "Failed to parse default assignee JSON for next stage {StageId}: {DefaultAssignee}",
+                        stage.Id, stage.DefaultAssignee);
+                    return;
+                }
+
+                if (assigneeIds.Count == 0)
+                {
+                    _logger.LogDebug("Next stage {StageId} has no valid default assignee IDs, skipping email notification", stage.Id);
+                    return;
+                }
+
+                // Convert string IDs to long IDs
+                var userIds = assigneeIds
+                    .Where(id => long.TryParse(id, out _))
+                    .Select(id => long.Parse(id))
+                    .ToList();
+
+                if (userIds.Count == 0)
+                {
+                    _logger.LogWarning("No valid user IDs found in default assignees for next stage {StageId}", stage.Id);
+                    return;
+                }
+
+                // Get user information
+                var users = await _userService.GetUsersByIdsAsync(userIds);
+                if (users == null || users.Count == 0)
+                {
+                    _logger.LogWarning("No users found for IDs: {UserIds} (Next Stage {StageId})", string.Join(", ", userIds), stage.Id);
+                    return;
+                }
+
+                // Send email to each user
+                var emailTasks = users
+                    .Where(u => !string.IsNullOrWhiteSpace(u.Email))
+                    .Select(async user =>
+                    {
+                        try
+                        {
+                            return await _emailService.SendStageCompletedNotificationAsync(
+                                user.Email,
+                                caseId,
+                                caseName,
+                                completedStageName,
+                                nextStageName,
+                                completedBy ?? "System",
+                                completionTime,
+                                caseUrl
+                            );
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogError(ex, "Failed to send email to {Email} for next stage notification (Next Stage {StageId})", user.Email, stage.Id);
+                            return false;
+                        }
+                    })
+                    .ToList();
+
+                var results = await Task.WhenAll(emailTasks);
+                var successCount = results.Count(r => r);
+
+                _logger.LogInformation("Sent email notifications to next stage assignees: {SuccessCount}/{TotalCount} successful, NextStageId={StageId}, OnboardingId={OnboardingId}",
+                    successCount, emailTasks.Count, stage.Id, entity.Id);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error sending email to next stage assignees: NextStageId={StageId}, OnboardingId={OnboardingId}",
+                    stage.Id, entity.Id);
+                // Don't re-throw to avoid breaking the main flow
+            }
+        }
+
+        /// <summary>
+        /// Build case URL for email notification (similar to portal invitation URL building)
+        /// </summary>
+        private string BuildCaseUrl(long onboardingId, string? tenantId = null)
+        {
+            try
+            {
+                var context = _httpContextAccessor.HttpContext;
+                if (context != null)
+                {
+                    var request = context.Request;
+                    var scheme = request.Headers["X-Forwarded-Proto"].ToString();
+                    if (string.IsNullOrWhiteSpace(scheme))
+                    {
+                        scheme = request.Scheme;
+                    }
+
+                    var forwardedHost = request.Headers["X-Forwarded-Host"].ToString();
+                    var host = !string.IsNullOrWhiteSpace(forwardedHost) ? forwardedHost : request.Host.Value;
+
+                    var baseUrl = $"{scheme}://{host}".TrimEnd('/');
+                    // Build frontend route: /onboard/onboardDetail?onboardingId=xxx&tenantId=xxx
+                    var url = $"{baseUrl}/onboard/onboardDetail?onboardingId={onboardingId}";
+                    if (!string.IsNullOrWhiteSpace(tenantId))
+                    {
+                        url += $"&tenantId={Uri.EscapeDataString(tenantId)}";
+                    }
+                    return url;
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to build case URL from request context");
+            }
+
+            // Fallback to default URL
+            var fallbackUrl = $"https://crm-staging.item.com/onboard/onboardDetail?onboardingId={onboardingId}";
+            if (!string.IsNullOrWhiteSpace(tenantId))
+            {
+                fallbackUrl += $"&tenantId={Uri.EscapeDataString(tenantId)}";
+            }
+            return fallbackUrl;
         }
 
         /// <summary>

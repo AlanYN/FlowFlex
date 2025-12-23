@@ -74,6 +74,7 @@ namespace FlowFlex.Application.Contracts.IServices.OW.ChangeLog
             string customOperatorName,
             long customOperatorId,
             string customTenantId,
+            string afterData = null,
             string extendedData = null);
 
         /// <summary>

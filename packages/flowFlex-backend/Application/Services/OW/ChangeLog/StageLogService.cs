@@ -90,12 +90,135 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
 
         #region Stage Lifecycle Operations
 
-        public async Task<bool> LogStageCreateAsync(long stageId, string stageName, long? workflowId = null, string extendedData = null)
+        public async Task<bool> LogStageCreateAsync(long stageId, string stageName, long? workflowId = null, string afterData = null, string extendedData = null)
         {
             try
             {
                 string operationTitle = $"Stage Created: {stageName}";
                 string operationDescription = $"Stage '{stageName}' has been created by {GetOperatorDisplayName()}";
+
+                // Add ViewPermissionMode and other important fields if afterData is provided
+                if (!string.IsNullOrEmpty(afterData))
+                {
+                    try
+                    {
+                        var afterJson = JsonSerializer.Deserialize<JsonElement>(afterData);
+                        var details = new List<string>();
+
+                        // Extract ViewPermissionMode and Teams (combine them together)
+                        string viewPermissionMode = null;
+                        if (afterJson.TryGetProperty("ViewPermissionMode", out var viewPermissionModeElement) ||
+                            afterJson.TryGetProperty("viewPermissionMode", out viewPermissionModeElement))
+                        {
+                            viewPermissionMode = GetViewPermissionModeDisplayName(viewPermissionModeElement);
+                        }
+
+                        string viewTeamsSummary = null;
+                        if (afterJson.TryGetProperty("ViewTeams", out var viewTeamsElement) ||
+                            afterJson.TryGetProperty("viewTeams", out viewTeamsElement))
+                        {
+                            viewTeamsSummary = GetTeamsSummary(viewTeamsElement);
+                        }
+
+                        string operateTeamsSummary = null;
+                        if (afterJson.TryGetProperty("OperateTeams", out var operateTeamsElement) ||
+                            afterJson.TryGetProperty("operateTeams", out operateTeamsElement))
+                        {
+                            operateTeamsSummary = GetTeamsSummary(operateTeamsElement);
+                        }
+
+                        // Combine view permission mode and teams information
+                        if (!string.IsNullOrEmpty(viewPermissionMode))
+                        {
+                            var permissionParts = new List<string> { viewPermissionMode };
+
+                            if (!string.IsNullOrEmpty(viewTeamsSummary))
+                            {
+                                permissionParts.Add($"view teams: {viewTeamsSummary}");
+                            }
+
+                            if (!string.IsNullOrEmpty(operateTeamsSummary))
+                            {
+                                permissionParts.Add($"operate teams: {operateTeamsSummary}");
+                            }
+
+                            details.Add(string.Join("; ", permissionParts));
+                        }
+                        else
+                        {
+                            // If no view permission mode, still show teams if they exist
+                            if (!string.IsNullOrEmpty(viewTeamsSummary))
+                            {
+                                details.Add($"view teams: {viewTeamsSummary}");
+                            }
+                            if (!string.IsNullOrEmpty(operateTeamsSummary))
+                            {
+                                details.Add($"operate teams: {operateTeamsSummary}");
+                            }
+                        }
+
+                        // Extract UseSameTeamForOperate
+                        if (afterJson.TryGetProperty("UseSameTeamForOperate", out var useSameTeamElement) ||
+                            afterJson.TryGetProperty("useSameTeamForOperate", out useSameTeamElement))
+                        {
+                            var useSameTeam = useSameTeamElement.ValueKind == JsonValueKind.True;
+                            if (useSameTeam)
+                            {
+                                details.Add("use same team for operate: Yes");
+                            }
+                        }
+
+                        // Extract other important fields if needed
+                        if (afterJson.TryGetProperty("Description", out var descElement) ||
+                            afterJson.TryGetProperty("description", out descElement))
+                        {
+                            var desc = descElement.GetString();
+                            if (!string.IsNullOrEmpty(desc))
+                            {
+                                details.Add($"description: '{desc}'");
+                            }
+                        }
+
+                        // Extract VisibleInPortal (Available in Customer Portal)
+                        if (afterJson.TryGetProperty("VisibleInPortal", out var visibleInPortalElement) ||
+                            afterJson.TryGetProperty("visibleInPortal", out visibleInPortalElement))
+                        {
+                            var visibleInPortal = visibleInPortalElement.ValueKind == JsonValueKind.True;
+                            details.Add($"Available in Customer Portal: {(visibleInPortal ? "Yes" : "No")}");
+                        }
+
+                        // Extract DefaultAssignee
+                        if (afterJson.TryGetProperty("DefaultAssignee", out var defaultAssigneeElement) ||
+                            afterJson.TryGetProperty("defaultAssignee", out defaultAssigneeElement))
+                        {
+                            var defaultAssigneeSummary = GetDefaultAssigneeSummary(defaultAssigneeElement);
+                            if (!string.IsNullOrEmpty(defaultAssigneeSummary))
+                            {
+                                details.Add($"default assignee: {defaultAssigneeSummary}");
+                            }
+                        }
+
+                        // Extract Components
+                        if (afterJson.TryGetProperty("Components", out var componentsElement) ||
+                            afterJson.TryGetProperty("components", out componentsElement))
+                        {
+                            var componentsSummary = GetComponentsSummary(componentsElement);
+                            if (!string.IsNullOrEmpty(componentsSummary))
+                            {
+                                details.Add($"components: {componentsSummary}");
+                            }
+                        }
+
+                        if (details.Any())
+                        {
+                            operationDescription += $". {string.Join("; ", details)}";
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Failed to parse afterData for stage create log");
+                    }
+                }
 
                 if (workflowId.HasValue)
                 {
@@ -118,6 +241,9 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                     stageId,
                     operationTitle,
                     operationDescription,
+                    beforeData: null,
+                    afterData: afterData,
+                    changedFields: null,
                     extendedData: extendedDataObj
                 );
             }
@@ -189,10 +315,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                 string operationTitle = $"Stage Deleted: {stageName}";
                 string operationDescription = $"Stage '{stageName}' has been deleted by {GetOperatorDisplayName()}";
 
-                if (!string.IsNullOrEmpty(reason))
-                {
-                    operationDescription += $" with reason: {reason}";
-                }
+                // Don't show reason in operation description for Stage delete operations
 
                 var extendedDataObj = JsonSerializer.Serialize(new
                 {
@@ -737,12 +860,39 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
             }
 
             // Add specific change details instead of just field names
-            if (!string.IsNullOrEmpty(beforeData) && !string.IsNullOrEmpty(afterData) && changedFields?.Any() == true)
+            if (!string.IsNullOrEmpty(beforeData) && !string.IsNullOrEmpty(afterData))
             {
-                var changeDetails = await GetStageSpecificChangeDetailsAsync(beforeData, afterData, changedFields);
-                if (!string.IsNullOrEmpty(changeDetails))
+                // If changedFields is empty, try to detect ComponentsJson changes
+                if (changedFields?.Any() == true)
                 {
-                    description += $". {changeDetails}";
+                    var changeDetails = await GetStageSpecificChangeDetailsAsync(beforeData, afterData, changedFields);
+                    if (!string.IsNullOrEmpty(changeDetails))
+                    {
+                        description += $". {changeDetails}";
+                    }
+                }
+                else
+                {
+                    // Auto-detect ComponentsJson changes when changedFields is empty
+                    var beforeJson = JsonSerializer.Deserialize<JsonElement>(beforeData);
+                    var afterJson = JsonSerializer.Deserialize<JsonElement>(afterData);
+
+                    if (beforeJson.TryGetProperty("ComponentsJson", out var beforeComponents) &&
+                        afterJson.TryGetProperty("ComponentsJson", out var afterComponents))
+                    {
+                        var beforeComponentsStr = beforeComponents.ValueKind == JsonValueKind.Null ? null : beforeComponents.GetString();
+                        var afterComponentsStr = afterComponents.ValueKind == JsonValueKind.Null ? null : afterComponents.GetString();
+
+                        // Check if ComponentsJson changed
+                        if (beforeComponentsStr != afterComponentsStr)
+                        {
+                            var componentsChange = GetComponentsChangeDetails(beforeComponentsStr ?? string.Empty, afterComponentsStr ?? string.Empty);
+                            if (!string.IsNullOrEmpty(componentsChange))
+                            {
+                                description += $". {componentsChange}";
+                            }
+                        }
+                    }
                 }
             }
             else if (changedFields?.Any() == true)
@@ -777,12 +927,16 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                             var afterJsonStr = afterValue?.ToString() ?? string.Empty;
 
                             _stageLogger.LogDebug("Processing ComponentsJson change - Before: {BeforeJson}, After: {AfterJson}",
-                                beforeJsonStr?.Substring(0, Math.Min(100, beforeJsonStr.Length)),
-                                afterJsonStr?.Substring(0, Math.Min(100, afterJsonStr.Length)));
+                                string.IsNullOrEmpty(beforeJsonStr) ? "null" : beforeJsonStr.Substring(0, Math.Min(100, beforeJsonStr.Length)),
+                                string.IsNullOrEmpty(afterJsonStr) ? "null" : afterJsonStr.Substring(0, Math.Min(100, afterJsonStr.Length)));
 
-                            var componentsChange = GetComponentsChangeDetailsSummary(beforeJsonStr, afterJsonStr);
+                            // Use GetComponentsChangeDetails from base class to get detailed information
+                            var componentsChange = GetComponentsChangeDetails(beforeJsonStr, afterJsonStr);
                             _stageLogger.LogDebug("Generated components change description: {ComponentsChange}", componentsChange);
-                            changeList.Add(componentsChange);
+                            if (!string.IsNullOrEmpty(componentsChange))
+                            {
+                                changeList.Add(componentsChange);
+                            }
                         }
                         else if (field.Equals("VisibleInPortal", StringComparison.OrdinalIgnoreCase))
                         {
@@ -817,7 +971,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                         {
                             var beforeStr = beforeValue?.ToString() ?? "0";
                             var afterStr = afterValue?.ToString() ?? "0";
-                            changeList.Add($"estimated duration from {beforeStr} hours to {afterStr} hours");
+                            changeList.Add($"estimated duration from {beforeStr} days to {afterStr} days");
                         }
                         else if (field.Equals("Color", StringComparison.OrdinalIgnoreCase))
                         {
@@ -833,8 +987,8 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                         }
                         else if (field.Equals("ViewPermissionMode", StringComparison.OrdinalIgnoreCase))
                         {
-                            var beforeStr = beforeValue?.ToString() ?? "Public";
-                            var afterStr = afterValue?.ToString() ?? "Public";
+                            var beforeStr = GetViewPermissionModeDisplayName(beforeValue);
+                            var afterStr = GetViewPermissionModeDisplayName(afterValue);
                             changeList.Add($"view permission mode from {beforeStr} to {afterStr}");
                         }
                         else if (field.Equals("ViewTeams", StringComparison.OrdinalIgnoreCase))
@@ -1598,6 +1752,9 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
             var addedTeams = afterTeams.Except(beforeTeams).ToList();
             var removedTeams = beforeTeams.Except(afterTeams).ToList();
 
+            // Get friendly permission type name for display
+            var permissionTypeDisplay = permissionType.ToLower() == "view" ? "View Teams" : "Operate Teams";
+
             // Get team names for all changed teams
             var allChangedTeams = addedTeams.Concat(removedTeams).Distinct().ToList();
             var teamNameMap = new Dictionary<string, string>();
@@ -1627,11 +1784,11 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
 
                 if (addedNames.Count == 1)
                 {
-                    changes.Add($"added {addedNames[0]} to {permissionType} teams");
+                    changes.Add($"added {addedNames[0]} to {permissionTypeDisplay}");
                 }
                 else
                 {
-                    changes.Add($"added {string.Join(", ", addedNames)} to {permissionType} teams");
+                    changes.Add($"added {string.Join(", ", addedNames)} to {permissionTypeDisplay}");
                 }
             }
 
@@ -1643,11 +1800,11 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
 
                 if (removedNames.Count == 1)
                 {
-                    changes.Add($"removed {removedNames[0]} from {permissionType} teams");
+                    changes.Add($"removed {removedNames[0]} from {permissionTypeDisplay}");
                 }
                 else
                 {
-                    changes.Add($"removed {string.Join(", ", removedNames)} from {permissionType} teams");
+                    changes.Add($"removed {string.Join(", ", removedNames)} from {permissionTypeDisplay}");
                 }
             }
 

@@ -31,6 +31,7 @@ using SqlSugar;
 using FlowFlex.Domain.Shared.Const;
 using FlowFlex.Application.Contracts.IServices.OW;
 using FlowFlex.Application.Contracts.Dtos.OW.User;
+using FlowFlex.Application.Contracts.IServices.Integration;
 
 namespace FlowFlex.Application.Service.OW
 {
@@ -50,6 +51,7 @@ namespace FlowFlex.Application.Service.OW
         private readonly IStagesProgressSyncService _stagesProgressSyncService;
         private readonly IChecklistService _checklistService;
         private readonly IQuestionnaireService _questionnaireService;
+        private readonly IQuickLinkService _quickLinkService;
         private readonly IQuestionnaireAnswerService _questionnaireAnswerService;
         private readonly IAIService _aiService; // Restored for Onboarding-specific AI summary generation
         private readonly IChecklistTaskCompletionRepository _checklistTaskCompletionRepository;
@@ -67,7 +69,7 @@ namespace FlowFlex.Application.Service.OW
         private const string STAGE_CACHE_PREFIX = "ow:stage";
         private static readonly TimeSpan STAGE_CACHE_DURATION = TimeSpan.FromMinutes(10);
 
-        public StageService(IStageRepository stageRepository, IWorkflowRepository workflowRepository, IMapper mapper, IStagesProgressSyncService stagesProgressSyncService, IChecklistService checklistService, IQuestionnaireService questionnaireService, IQuestionnaireAnswerService questionnaireAnswerService, IAIService aiService, IChecklistTaskCompletionRepository checklistTaskCompletionRepository, UserContext userContext, IComponentMappingService mappingService, ISqlSugarClient db, IDistributedCacheService cacheService, IBackgroundTaskQueue backgroundTaskQueue, IOperationChangeLogService operationChangeLogService, IPermissionService permissionService, ILogger<StageService> logger, IUserService userService)
+        public StageService(IStageRepository stageRepository, IWorkflowRepository workflowRepository, IMapper mapper, IStagesProgressSyncService stagesProgressSyncService, IChecklistService checklistService, IQuestionnaireService questionnaireService, IQuickLinkService quickLinkService, IQuestionnaireAnswerService questionnaireAnswerService, IAIService aiService, IChecklistTaskCompletionRepository checklistTaskCompletionRepository, UserContext userContext, IComponentMappingService mappingService, ISqlSugarClient db, IDistributedCacheService cacheService, IBackgroundTaskQueue backgroundTaskQueue, IOperationChangeLogService operationChangeLogService, IPermissionService permissionService, ILogger<StageService> logger, IUserService userService)
         {
             _stageRepository = stageRepository;
             _workflowRepository = workflowRepository;
@@ -75,6 +77,7 @@ namespace FlowFlex.Application.Service.OW
             _stagesProgressSyncService = stagesProgressSyncService;
             _checklistService = checklistService;
             _questionnaireService = questionnaireService;
+            _quickLinkService = quickLinkService;
             _questionnaireAnswerService = questionnaireAnswerService;
             _aiService = aiService; // Restored for Onboarding-specific AI summary generation
             _checklistTaskCompletionRepository = checklistTaskCompletionRepository;
@@ -197,21 +200,290 @@ namespace FlowFlex.Application.Service.OW
                     var createdStage = await _stageRepository.GetByIdAsync(result.Data);
                     if (createdStage != null)
                     {
-                        // Log the create operation (fire-and-forget)
-                        _ = Task.Run(async () =>
+                        // Debug: Log ViewTeams and OperateTeams values
+                        _logger.LogDebug("Stage {StageId} ViewTeams: {ViewTeams}, OperateTeams: {OperateTeams}, ViewPermissionMode: {ViewPermissionMode}",
+                            createdStage.Id, createdStage.ViewTeams ?? "null", createdStage.OperateTeams ?? "null", createdStage.ViewPermissionMode);
+
+                        // Build afterData JSON for logging (include important fields like ViewPermissionMode, Components, VisibleInPortal)
+                        string afterData;
+                        try
                         {
-                            try
+                            using var stream = new System.IO.MemoryStream();
+                            using (var writer = new System.Text.Json.Utf8JsonWriter(stream, new JsonWriterOptions { Indented = false }))
                             {
-                                await _operationChangeLogService.LogStageCreateAsync(
-                                    stageId: result.Data,
-                                    stageName: createdStage.Name,
-                                    workflowId: createdStage.WorkflowId
-                                );
+                                writer.WriteStartObject();
+
+                                // Write base fields
+                                if (!string.IsNullOrEmpty(createdStage.Name))
+                                {
+                                    writer.WriteString("Name", createdStage.Name);
+                                }
+                                if (!string.IsNullOrEmpty(createdStage.Description))
+                                {
+                                    writer.WriteString("Description", createdStage.Description);
+                                }
+                                writer.WriteNumber("ViewPermissionMode", (int)createdStage.ViewPermissionMode);
+                                writer.WriteBoolean("VisibleInPortal", createdStage.VisibleInPortal);
+                                if (createdStage.PortalPermission.HasValue)
+                                {
+                                    writer.WriteNumber("PortalPermission", (int)createdStage.PortalPermission.Value);
+                                }
+                                writer.WriteBoolean("IsActive", createdStage.IsActive);
+                                if (!string.IsNullOrEmpty(createdStage.Color))
+                                {
+                                    writer.WriteString("Color", createdStage.Color);
+                                }
+                                if (createdStage.EstimatedDuration.HasValue)
+                                {
+                                    writer.WriteNumber("EstimatedDuration", createdStage.EstimatedDuration.Value);
+                                }
+                                writer.WriteNumber("Order", createdStage.Order);
+
+                                // Write DefaultAssignee if it exists
+                                if (!string.IsNullOrEmpty(createdStage.DefaultAssignee))
+                                {
+                                    try
+                                    {
+                                        using var defaultAssigneeDoc = JsonDocument.Parse(createdStage.DefaultAssignee);
+                                        var defaultAssigneeElement = defaultAssigneeDoc.RootElement;
+
+                                        if (defaultAssigneeElement.ValueKind == JsonValueKind.Array)
+                                        {
+                                            writer.WritePropertyName("DefaultAssignee");
+                                            defaultAssigneeElement.WriteTo(writer);
+                                        }
+                                        else if (defaultAssigneeElement.ValueKind == JsonValueKind.String)
+                                        {
+                                            // If DefaultAssignee is a JSON string, parse it again
+                                            var innerJson = defaultAssigneeElement.GetString();
+                                            if (!string.IsNullOrEmpty(innerJson))
+                                            {
+                                                try
+                                                {
+                                                    using var innerDoc = JsonDocument.Parse(innerJson);
+                                                    writer.WritePropertyName("DefaultAssignee");
+                                                    innerDoc.RootElement.WriteTo(writer);
+                                                }
+                                                catch
+                                                {
+                                                    // If inner parsing fails, write empty array
+                                                    writer.WritePropertyName("DefaultAssignee");
+                                                    writer.WriteStartArray();
+                                                    writer.WriteEndArray();
+                                                }
+                                            }
+                                        }
+                                    }
+                                    catch (Exception ex)
+                                    {
+                                        _logger.LogWarning(ex, "Failed to parse DefaultAssignee for stage {StageId}", createdStage.Id);
+                                    }
+                                }
+
+                                // Write ViewTeams and OperateTeams
+                                // Always write ViewTeams if it exists or if ViewPermissionMode requires it
+                                if (!string.IsNullOrEmpty(createdStage.ViewTeams))
+                                {
+                                    try
+                                    {
+                                        using var viewTeamsDoc = JsonDocument.Parse(createdStage.ViewTeams);
+                                        var viewTeamsElement = viewTeamsDoc.RootElement;
+
+                                        if (viewTeamsElement.ValueKind == JsonValueKind.Array)
+                                        {
+                                            writer.WritePropertyName("ViewTeams");
+                                            viewTeamsElement.WriteTo(writer);
+                                        }
+                                        else if (viewTeamsElement.ValueKind == JsonValueKind.String)
+                                        {
+                                            // If ViewTeams is a JSON string, parse it again
+                                            var innerJson = viewTeamsElement.GetString();
+                                            if (!string.IsNullOrEmpty(innerJson))
+                                            {
+                                                try
+                                                {
+                                                    using var innerDoc = JsonDocument.Parse(innerJson);
+                                                    writer.WritePropertyName("ViewTeams");
+                                                    innerDoc.RootElement.WriteTo(writer);
+                                                }
+                                                catch
+                                                {
+                                                    // If inner parsing fails, write empty array
+                                                    writer.WritePropertyName("ViewTeams");
+                                                    writer.WriteStartArray();
+                                                    writer.WriteEndArray();
+                                                }
+                                            }
+                                            else
+                                            {
+                                                writer.WritePropertyName("ViewTeams");
+                                                writer.WriteStartArray();
+                                                writer.WriteEndArray();
+                                            }
+                                        }
+                                        else
+                                        {
+                                            // If not an array or string, write empty array
+                                            writer.WritePropertyName("ViewTeams");
+                                            writer.WriteStartArray();
+                                            writer.WriteEndArray();
+                                        }
+                                    }
+                                    catch (Exception ex)
+                                    {
+                                        _logger.LogWarning(ex, "Failed to parse ViewTeams for stage {StageId}, ViewTeams value: {ViewTeams}",
+                                            createdStage.Id, createdStage.ViewTeams ?? "null");
+                                        // Write empty array as fallback
+                                        writer.WritePropertyName("ViewTeams");
+                                        writer.WriteStartArray();
+                                        writer.WriteEndArray();
+                                    }
+                                }
+                                else if (createdStage.ViewPermissionMode == Domain.Shared.Enums.OW.ViewPermissionModeEnum.VisibleToTeams ||
+                                         createdStage.ViewPermissionMode == Domain.Shared.Enums.OW.ViewPermissionModeEnum.InvisibleToTeams)
+                                {
+                                    // Write empty array if ViewTeams is null/empty but ViewPermissionMode requires it
+                                    writer.WritePropertyName("ViewTeams");
+                                    writer.WriteStartArray();
+                                    writer.WriteEndArray();
+                                }
+
+                                // Always write OperateTeams if it exists
+                                if (!string.IsNullOrEmpty(createdStage.OperateTeams))
+                                {
+                                    try
+                                    {
+                                        using var operateTeamsDoc = JsonDocument.Parse(createdStage.OperateTeams);
+                                        var operateTeamsElement = operateTeamsDoc.RootElement;
+
+                                        if (operateTeamsElement.ValueKind == JsonValueKind.Array)
+                                        {
+                                            writer.WritePropertyName("OperateTeams");
+                                            operateTeamsElement.WriteTo(writer);
+                                        }
+                                        else if (operateTeamsElement.ValueKind == JsonValueKind.String)
+                                        {
+                                            // If OperateTeams is a JSON string, parse it again
+                                            var innerJson = operateTeamsElement.GetString();
+                                            if (!string.IsNullOrEmpty(innerJson))
+                                            {
+                                                try
+                                                {
+                                                    using var innerDoc = JsonDocument.Parse(innerJson);
+                                                    writer.WritePropertyName("OperateTeams");
+                                                    innerDoc.RootElement.WriteTo(writer);
+                                                }
+                                                catch
+                                                {
+                                                    // If inner parsing fails, write empty array
+                                                    writer.WritePropertyName("OperateTeams");
+                                                    writer.WriteStartArray();
+                                                    writer.WriteEndArray();
+                                                }
+                                            }
+                                            else
+                                            {
+                                                writer.WritePropertyName("OperateTeams");
+                                                writer.WriteStartArray();
+                                                writer.WriteEndArray();
+                                            }
+                                        }
+                                        else
+                                        {
+                                            // If not an array or string, write empty array
+                                            writer.WritePropertyName("OperateTeams");
+                                            writer.WriteStartArray();
+                                            writer.WriteEndArray();
+                                        }
+                                    }
+                                    catch (Exception ex)
+                                    {
+                                        _logger.LogWarning(ex, "Failed to parse OperateTeams for stage {StageId}, OperateTeams value: {OperateTeams}",
+                                            createdStage.Id, createdStage.OperateTeams ?? "null");
+                                        // Write empty array as fallback
+                                        writer.WritePropertyName("OperateTeams");
+                                        writer.WriteStartArray();
+                                        writer.WriteEndArray();
+                                    }
+                                }
+
+                                writer.WriteBoolean("UseSameTeamForOperate", createdStage.UseSameTeamForOperate);
+
+                                // Write Components as JSON array/object (not a string)
+                                if (!string.IsNullOrEmpty(createdStage.ComponentsJson))
+                                {
+                                    try
+                                    {
+                                        using var componentsDoc = JsonDocument.Parse(createdStage.ComponentsJson);
+                                        var rootElement = componentsDoc.RootElement;
+
+                                        // Ensure rootElement is an array or object, not a string
+                                        if (rootElement.ValueKind == JsonValueKind.Array || rootElement.ValueKind == JsonValueKind.Object)
+                                        {
+                                            writer.WritePropertyName("Components");
+                                            rootElement.WriteTo(writer);
+                                        }
+                                        else if (rootElement.ValueKind == JsonValueKind.String)
+                                        {
+                                            // If ComponentsJson is a JSON string, parse it again
+                                            var innerJson = rootElement.GetString();
+                                            if (!string.IsNullOrEmpty(innerJson))
+                                            {
+                                                try
+                                                {
+                                                    using var innerDoc = JsonDocument.Parse(innerJson);
+                                                    writer.WritePropertyName("Components");
+                                                    innerDoc.RootElement.WriteTo(writer);
+                                                }
+                                                catch
+                                                {
+                                                    // If inner parsing fails, skip Components
+                                                }
+                                            }
+                                        }
+                                    }
+                                    catch (Exception ex)
+                                    {
+                                        _logger.LogWarning(ex, "Failed to parse ComponentsJson for stage {StageId}", createdStage.Id);
+                                        // Skip Components if parsing fails
+                                    }
+                                }
+
+                                writer.WriteEndObject();
                             }
-                            catch
+
+                            afterData = System.Text.Encoding.UTF8.GetString(stream.ToArray());
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogError(ex, "Failed to build afterData for stage {StageId}", createdStage.Id);
+                            // Fallback to simple serialization without Components
+                            afterData = JsonSerializer.Serialize(new
                             {
-                                // Ignore logging errors to avoid affecting main operation
-                            }
+                                Name = createdStage.Name,
+                                Description = createdStage.Description,
+                                ViewPermissionMode = (int)createdStage.ViewPermissionMode,
+                                VisibleInPortal = createdStage.VisibleInPortal,
+                                PortalPermission = createdStage.PortalPermission,
+                                IsActive = createdStage.IsActive,
+                                Color = createdStage.Color,
+                                EstimatedDuration = createdStage.EstimatedDuration,
+                                Order = createdStage.Order
+                            }, new JsonSerializerOptions
+                            {
+                                DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
+                            });
+                        }
+
+                        // Log the create operation (fire-and-forget via background queue)
+                        _backgroundTaskQueue.QueueBackgroundWorkItem(async _ =>
+                        {
+                            await _operationChangeLogService.LogStageCreateAsync(
+                                stageId: result.Data,
+                                stageName: createdStage.Name,
+                                workflowId: createdStage.WorkflowId,
+                                afterData: afterData
+                            );
                         });
                     }
                 }
@@ -495,55 +767,48 @@ namespace FlowFlex.Application.Service.OW
                         if (stage.OperateTeams != updatedStage.OperateTeams) changedFields.Add("OperateTeams");
                         if (stage.Color != updatedStage.Color) changedFields.Add("Color");
 
-                        // Log the update operation (fire-and-forget)
-                        _ = Task.Run(async () =>
+                        // Log the update operation (fire-and-forget via background queue)
+                        _backgroundTaskQueue.QueueBackgroundWorkItem(async _ =>
                         {
-                            try
+                            // Check if components were changed and log separately for better tracking
+                            bool componentsChanged = changedFields.Contains("ComponentsJson");
+
+                            if (componentsChanged)
                             {
-                                // Check if components were changed and log separately for better tracking
-                                bool componentsChanged = changedFields.Contains("ComponentsJson");
-
-                                if (componentsChanged)
+                                // Create enhanced extended data for component changes
+                                var enhancedExtendedData = JsonSerializer.Serialize(new
                                 {
-                                    // Create enhanced extended data for component changes
-                                    var enhancedExtendedData = JsonSerializer.Serialize(new
-                                    {
-                                        StageId = id,
-                                        StageName = updatedStage.Name,
-                                        WorkflowId = updatedStage.WorkflowId,
-                                        ComponentsChanged = true,
-                                        FieldsChanged = changedFields,
-                                        UpdatedAt = FormatUsDateTime(DateTimeOffset.UtcNow),
-                                        ComponentChangeDetails = GetComponentUpdateSummary(stage.ComponentsJson, updatedStage.ComponentsJson)
-                                    });
+                                    StageId = id,
+                                    StageName = updatedStage.Name,
+                                    WorkflowId = updatedStage.WorkflowId,
+                                    ComponentsChanged = true,
+                                    FieldsChanged = changedFields,
+                                    UpdatedAt = FormatUsDateTime(DateTimeOffset.UtcNow),
+                                    ComponentChangeDetails = GetComponentUpdateSummary(stage.ComponentsJson, updatedStage.ComponentsJson)
+                                });
 
-                                    // Log general stage update
-                                    await _operationChangeLogService.LogStageUpdateAsync(
-                                        stageId: id,
-                                        stageName: updatedStage.Name,
-                                        beforeData: beforeData,
-                                        afterData: afterData,
-                                        changedFields: changedFields,
-                                        workflowId: updatedStage.WorkflowId,
-                                        extendedData: enhancedExtendedData
-                                    );
-                                }
-                                else
-                                {
-                                    // Log standard stage update
-                                    await _operationChangeLogService.LogStageUpdateAsync(
-                                        stageId: id,
-                                        stageName: updatedStage.Name,
-                                        beforeData: beforeData,
-                                        afterData: afterData,
-                                        changedFields: changedFields,
-                                        workflowId: updatedStage.WorkflowId
-                                    );
-                                }
+                                // Log general stage update
+                                await _operationChangeLogService.LogStageUpdateAsync(
+                                    stageId: id,
+                                    stageName: updatedStage.Name,
+                                    beforeData: beforeData,
+                                    afterData: afterData,
+                                    changedFields: changedFields,
+                                    workflowId: updatedStage.WorkflowId,
+                                    extendedData: enhancedExtendedData
+                                );
                             }
-                            catch
+                            else
                             {
-                                // Ignore logging errors to avoid affecting main operation
+                                // Log standard stage update
+                                await _operationChangeLogService.LogStageUpdateAsync(
+                                    stageId: id,
+                                    stageName: updatedStage.Name,
+                                    beforeData: beforeData,
+                                    afterData: afterData,
+                                    changedFields: changedFields,
+                                    workflowId: updatedStage.WorkflowId
+                                );
                             }
                         });
                     }
@@ -608,22 +873,15 @@ namespace FlowFlex.Application.Service.OW
                 var cacheKey = $"{STAGE_CACHE_PREFIX}:workflow:{workflowId}";
                 await _cacheService.RemoveAsync(cacheKey);
 
-                // Log stage delete operation (fire-and-forget)
-                _ = Task.Run(async () =>
+                // Log stage delete operation (fire-and-forget via background queue)
+                _backgroundTaskQueue.QueueBackgroundWorkItem(async _ =>
                 {
-                    try
-                    {
-                        await _operationChangeLogService.LogStageDeleteAsync(
-                            stageId: id,
-                            stageName: stageName,
-                            workflowId: workflowId,
-                            reason: "Stage deleted via admin portal"
-                        );
-                    }
-                    catch
-                    {
-                        // Ignore logging errors to avoid affecting main operation
-                    }
+                    await _operationChangeLogService.LogStageDeleteAsync(
+                        stageId: id,
+                        stageName: stageName,
+                        workflowId: workflowId,
+                        reason: "Stage deleted via admin portal"
+                    );
                 });
 
                 // DISABLED: Stages progress sync after stage deletion to prevent data loss
@@ -850,6 +1108,10 @@ namespace FlowFlex.Application.Service.OW
                 throw new CRMException(ErrorCodeEnum.BusinessError, "Some stages do not belong to the specified workflow");
             }
 
+            // Record old orders before sorting
+            var oldOrders = stages.Where(s => stageIds.Contains(s.Id))
+                .ToDictionary(s => s.Id, s => s.Order);
+
             // Batch update order
             var orderUpdates = input.StageOrders.Select(x => (x.StageId, x.Order)).ToList();
             var result = await _stageRepository.BatchUpdateOrderAsync(orderUpdates);
@@ -866,24 +1128,50 @@ namespace FlowFlex.Application.Service.OW
                 var cacheKey = $"{STAGE_CACHE_PREFIX}:workflow:{input.WorkflowId}";
                 await _cacheService.RemoveAsync(cacheKey);
 
-                // DISABLED: Stages progress sync after stage sorting to prevent data loss
-                // The sync was causing onboarding stages progress to be modified when stages are reordered.
-                _logger.LogInformation("Stages sorted for workflow {WorkflowId}. " +
-                    "Stages progress sync is DISABLED to preserve existing onboarding data.",
+                _logger.LogInformation("Stages sorted for workflow {WorkflowId}. Syncing onboarding stages progress...",
                     input.WorkflowId);
 
-                // Original sync code (DISABLED):
-                // _backgroundTaskQueue.QueueBackgroundWorkItem(async token =>
-                // {
-                //     try
-                //     {
-                //         await _stagesProgressSyncService.SyncAfterStagesSortAsync(input.WorkflowId, stageIds);
-                //     }
-                //     catch
-                //     {
-                //         // Ignore sync errors to avoid impacting the main operation
-                //     }
-                // });
+                // Log order changes for each stage that had its order changed (via background queue)
+                _backgroundTaskQueue.QueueBackgroundWorkItem(async _ =>
+                {
+                    foreach (var orderUpdate in orderUpdates)
+                    {
+                        var stageId = orderUpdate.StageId;
+                        var newOrder = orderUpdate.Order;
+
+                        // Check if order actually changed
+                        if (oldOrders.TryGetValue(stageId, out var oldOrder) && oldOrder != newOrder)
+                        {
+                            var stage = stages.FirstOrDefault(s => s.Id == stageId);
+                            if (stage != null)
+                            {
+                                await _operationChangeLogService.LogStageOrderChangeAsync(
+                                    stageId: stageId,
+                                    stageName: stage.Name,
+                                    oldOrder: oldOrder,
+                                    newOrder: newOrder,
+                                    workflowId: input.WorkflowId
+                                );
+                            }
+                        }
+                    }
+                });
+
+                // Sync onboarding stages progress after stage sorting
+                // Note: SyncAfterStagesSortAsync only updates StageOrder, preserves all completion status
+                _backgroundTaskQueue.QueueBackgroundWorkItem(async token =>
+                {
+                    try
+                    {
+                        var syncedCount = await _stagesProgressSyncService.SyncAfterStagesSortAsync(input.WorkflowId, stageIds);
+                        _logger.LogInformation("Synced stages progress for {SyncedCount} onboardings after stage sorting in workflow {WorkflowId}",
+                            syncedCount, input.WorkflowId);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Failed to sync stages progress after stage sorting for workflow {WorkflowId}", input.WorkflowId);
+                    }
+                });
             }
 
             return result;
@@ -1575,16 +1863,17 @@ namespace FlowFlex.Application.Service.OW
         #endregion
 
         /// <summary>
-        /// Fill component names by querying checklist and questionnaire services
+        /// Fill component names by querying checklist, questionnaire, and quick link services
         /// </summary>
         private async Task FillComponentNamesAsync(List<StageComponent> components)
         {
             if (components == null || !components.Any())
                 return;
 
-            // Collect all checklist and questionnaire IDs
+            // Collect all checklist, questionnaire, and quick link IDs
             var allChecklistIds = new List<long>();
             var allQuestionnaireIds = new List<long>();
+            var allQuickLinkIds = new List<long>();
 
             foreach (var component in components)
             {
@@ -1592,8 +1881,10 @@ namespace FlowFlex.Application.Service.OW
                 component.StaticFields ??= new List<string>();
                 component.ChecklistIds ??= new List<long>();
                 component.QuestionnaireIds ??= new List<long>();
+                component.QuickLinkIds ??= new List<long>();
                 component.ChecklistNames ??= new List<string>();
                 component.QuestionnaireNames ??= new List<string>();
+                component.QuickLinkNames ??= new List<string>();
 
                 if (component.ChecklistIds?.Any() == true)
                 {
@@ -1604,15 +1895,22 @@ namespace FlowFlex.Application.Service.OW
                 {
                     allQuestionnaireIds.AddRange(component.QuestionnaireIds);
                 }
+
+                if (component.QuickLinkIds?.Any() == true)
+                {
+                    allQuickLinkIds.AddRange(component.QuickLinkIds);
+                }
             }
 
             // Remove duplicates
             allChecklistIds = allChecklistIds.Distinct().ToList();
             allQuestionnaireIds = allQuestionnaireIds.Distinct().ToList();
+            allQuickLinkIds = allQuickLinkIds.Distinct().ToList();
 
             // Batch query names
             var checklistNameMap = new Dictionary<long, string>();
             var questionnaireNameMap = new Dictionary<long, string>();
+            var quickLinkNameMap = new Dictionary<long, string>();
 
             if (allChecklistIds.Any())
             {
@@ -1641,6 +1939,19 @@ namespace FlowFlex.Application.Service.OW
                 }
             }
 
+            if (allQuickLinkIds.Any())
+            {
+                try
+                {
+                    var quickLinks = await _quickLinkService.GetByIdsAsync(allQuickLinkIds);
+                    quickLinkNameMap = quickLinks.ToDictionary(q => q.Id, q => q.LinkName);
+                }
+                catch (Exception ex)
+                {
+                    // Log error but continue - names will be empty if service fails
+                }
+            }
+
             // Fill names for each component
             foreach (var component in components)
             {
@@ -1657,6 +1968,14 @@ namespace FlowFlex.Application.Service.OW
                 {
                     component.QuestionnaireNames = component.QuestionnaireIds
                         .Select(id => questionnaireNameMap.TryGetValue(id, out var name) ? name : $"Questionnaire {id}")
+                        .ToList();
+                }
+
+                // Fill quick link names
+                if (component.QuickLinkIds?.Any() == true)
+                {
+                    component.QuickLinkNames = component.QuickLinkIds
+                        .Select(id => quickLinkNameMap.TryGetValue(id, out var name) ? name : $"Quick Link {id}")
                         .ToList();
                 }
             }

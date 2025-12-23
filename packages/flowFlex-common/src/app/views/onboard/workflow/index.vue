@@ -543,6 +543,7 @@
 					:checklists="checklists"
 					:questionnaires="questionnaires"
 					:workflow-id="workflow?.id || ''"
+					:quickLinks="quickLinks"
 					@submit="submitStage"
 					@cancel="dialogVisible.stageForm = false"
 				/>
@@ -682,7 +683,6 @@ import {
 	createWorkflow as createWorkflowApi,
 	getWorkflowList,
 	updateWorkflow as updateWorkflowApi,
-	deactivateWorkflow as deactivateWorkflowApi,
 	activateWorkflow as activateWorkflowApi,
 	duplicateWorkflow as duplicateWorkflowApi,
 	createStage,
@@ -696,6 +696,7 @@ import {
 
 import { getChecklists } from '@/apis/ow/checklist';
 import { queryQuestionnaires } from '@/apis/ow/questionnaire';
+import { getQuickLinks } from '@/apis/integration';
 
 // 引入自定义组件
 import StagesList from './components/StagesList.vue';
@@ -719,6 +720,7 @@ import { ProjectPermissionEnum, ViewPermissionModeEnum } from '@/enums/permissio
 import { functionPermission } from '@/hooks';
 import { useUserStore } from '@/stores/modules/user';
 import { menuRoles } from '@/stores/modules/menuFunction';
+import { IQuickLink } from '#/integration';
 
 const { t } = useI18n();
 
@@ -854,6 +856,7 @@ const dialogSubtitle = computed(() => {
 
 const checklists = ref<Checklist[]>([]);
 const questionnaires = ref<Questionnaire[]>([]);
+const quickLinks = ref<IQuickLink[]>([]);
 const fetchChecklists = async () => {
 	try {
 		const res = await getChecklists();
@@ -882,12 +885,24 @@ const fetchQuestionnaires = async () => {
 	}
 };
 
+const fetchQuickLinks = async () => {
+	try {
+		const res = await getQuickLinks();
+		if (res.code === '200') {
+			quickLinks.value = res.data;
+		}
+	} catch (error) {
+		quickLinks.value = [];
+	}
+};
+
 // 初始化数据
 onMounted(async () => {
 	// 获取工作流列表数据（默认显示列表视图）
 	await fetchWorkflows();
 	fetchChecklists();
 	fetchQuestionnaires();
+	fetchQuickLinks();
 });
 
 // 获取工作流列表（分页数据，用于列表视图）
@@ -1480,7 +1495,13 @@ const deactivateWorkflow = async (targetWorkflow?: any) => {
 
 					try {
 						// 调用停用工作流API
-						const res = await deactivateWorkflowApi(workflowToDeactivate.id);
+						const params = {
+							...workflowToDeactivate,
+							status: 'inactive',
+							isDefault: false,
+							stages: null,
+						};
+						const res = await updateWorkflowApi(workflowToDeactivate.id, params);
 
 						if (res.code === '200') {
 							ElMessage.success(t('sys.api.operationSuccess'));
@@ -1516,7 +1537,7 @@ const deactivateWorkflow = async (targetWorkflow?: any) => {
 	);
 };
 
-const setAsDefault = async (targetWorkflow?: any) => {
+const setAsDefault = async (targetWorkflow?: any, isDefault: boolean = true) => {
 	const workflowToSetDefault = targetWorkflow || workflow.value;
 	if (!workflowToSetDefault) return;
 
@@ -1525,14 +1546,14 @@ const setAsDefault = async (targetWorkflow?: any) => {
 		// 调用设置默认工作流API
 		const params = {
 			...workflowToSetDefault,
-			isDefault: true,
+			isDefault: isDefault,
 			stages: null,
 		};
 
 		const res = await updateWorkflowApi(workflowToSetDefault.id, params);
 
 		if (res.code === '200') {
-			ElMessage.success(t('sys.api.operationSuccess'));
+			isDefault && ElMessage.success(t('sys.api.operationSuccess'));
 			// 重新获取工作流列表以更新所有工作流的默认状态
 			await fetchWorkflows();
 

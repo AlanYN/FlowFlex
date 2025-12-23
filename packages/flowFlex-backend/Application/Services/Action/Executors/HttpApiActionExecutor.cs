@@ -83,9 +83,20 @@ namespace FlowFlex.Application.Services.Action.Executors
                 client.Timeout = TimeSpan.FromSeconds(config.Timeout);
             }
 
+            // Process params with placeholder replacement
+            var processedParams = ProcessParams(config.Params, triggerContext);
+
             // Replace placeholders in URL
             var processedUrl = ReplacePlaceholders(config.Url, triggerContext);
-            var request = new HttpRequestMessage(GetHttpMethod(config.Method), processedUrl);
+            
+            // For GET requests, add params to URL query string
+            var httpMethod = GetHttpMethod(config.Method);
+            if (httpMethod == HttpMethod.Get && processedParams != null && processedParams.Count > 0)
+            {
+                processedUrl = AddQueryParameters(processedUrl, processedParams);
+            }
+
+            var request = new HttpRequestMessage(httpMethod, processedUrl);
 
             // Separate headers into request headers and content headers
             var requestHeaders = new Dictionary<string, string>();
@@ -128,45 +139,62 @@ namespace FlowFlex.Application.Services.Action.Executors
                 }
             }
 
-            // Add body with placeholder replacement
-            if (!string.IsNullOrEmpty(config.Body))
+            // Determine if we need to create body content
+            var needsBody = httpMethod == HttpMethod.Post || 
+                           httpMethod == HttpMethod.Put || 
+                           httpMethod == HttpMethod.Patch;
+
+            if (needsBody)
             {
-                var processedBody = ReplacePlaceholders(config.Body, triggerContext);
+                string? bodyContent = null;
+                string contentType = contentHeaders.GetValueOrDefault("Content-Type", "application/json");
 
-                // Determine content type from config or default to application/json
-                var contentType = contentHeaders.GetValueOrDefault("Content-Type", "application/json");
-                request.Content = new StringContent(processedBody, System.Text.Encoding.UTF8, contentType);
-
-                // Remove Content-Type from contentHeaders since it's already set in StringContent
-                contentHeaders.Remove("Content-Type");
-
-                // Add remaining content headers
-                foreach (var header in contentHeaders)
+                // Priority 1: Use explicit body if provided
+                if (!string.IsNullOrEmpty(config.Body))
                 {
-                    try
-                    {
-                        request.Content.Headers.Add(header.Key, header.Value);
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogWarning("Failed to add content header {HeaderName}: {Error}", header.Key, ex.Message);
-                    }
+                    bodyContent = ReplacePlaceholders(config.Body, triggerContext);
                 }
-            }
-            else if (contentHeaders.Count > 0)
-            {
-                // If there are content headers but no body, create empty content
-                request.Content = new StringContent(string.Empty, System.Text.Encoding.UTF8, "text/plain");
-
-                foreach (var header in contentHeaders)
+                // Priority 2: Convert params to JSON body if body is empty but params exist
+                else if (processedParams != null && processedParams.Count > 0)
                 {
-                    try
+                    // Convert params dictionary to JSON
+                    bodyContent = Newtonsoft.Json.JsonConvert.SerializeObject(processedParams);
+                    // Ensure Content-Type is application/json when using params
+                    if (!contentHeaders.ContainsKey("Content-Type"))
                     {
-                        request.Content.Headers.Add(header.Key, header.Value);
+                        contentType = "application/json";
                     }
-                    catch (Exception ex)
+                    _logger.LogDebug("Converting params to JSON body for {Method} request: {Body}", config.Method, bodyContent);
+                }
+
+                // Create content if we have body or need to set content headers
+                if (!string.IsNullOrEmpty(bodyContent) || contentHeaders.Count > 0)
+                {
+                    // Use empty string if no body content but headers need to be set
+                    var finalBody = bodyContent ?? string.Empty;
+                    
+                    // If we have content headers but no body, use text/plain as default
+                    if (string.IsNullOrEmpty(bodyContent) && contentHeaders.Count > 0)
                     {
-                        _logger.LogWarning("Failed to add content header {HeaderName}: {Error}", header.Key, ex.Message);
+                        contentType = contentHeaders.GetValueOrDefault("Content-Type", "text/plain");
+                    }
+
+                    request.Content = new StringContent(finalBody, System.Text.Encoding.UTF8, contentType);
+
+                    // Remove Content-Type from contentHeaders since it's already set in StringContent
+                    contentHeaders.Remove("Content-Type");
+
+                    // Add remaining content headers
+                    foreach (var header in contentHeaders)
+                    {
+                        try
+                        {
+                            request.Content.Headers.Add(header.Key, header.Value);
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogWarning("Failed to add content header {HeaderName}: {Error}", header.Key, ex.Message);
+                        }
                     }
                 }
             }
@@ -722,6 +750,90 @@ namespace FlowFlex.Application.Services.Action.Executors
             public Stream OpenReadStream()
             {
                 return new MemoryStream(_fileBytes, false);
+            }
+        }
+
+        /// <summary>
+        /// Process params dictionary with placeholder replacement
+        /// </summary>
+        private Dictionary<string, string>? ProcessParams(Dictionary<string, string>? paramsDict, object triggerContext)
+        {
+            if (paramsDict == null || paramsDict.Count == 0)
+                return paramsDict;
+
+            var processed = new Dictionary<string, string>();
+            foreach (var param in paramsDict)
+            {
+                var key = param.Key?.Trim();
+                var value = param.Value?.Trim();
+
+                // Skip empty keys
+                if (string.IsNullOrEmpty(key))
+                    continue;
+
+                // Replace placeholders in value
+                var processedValue = ReplacePlaceholders(value ?? string.Empty, triggerContext);
+                processed[key] = processedValue;
+            }
+
+            return processed.Count > 0 ? processed : null;
+        }
+
+        /// <summary>
+        /// Add query parameters to URL
+        /// </summary>
+        private string AddQueryParameters(string url, Dictionary<string, string> parameters)
+        {
+            if (parameters == null || parameters.Count == 0)
+                return url;
+
+            try
+            {
+                var uriBuilder = new UriBuilder(url);
+                var queryParts = new List<string>();
+
+                // Parse existing query string
+                if (!string.IsNullOrEmpty(uriBuilder.Query))
+                {
+                    var existingQuery = uriBuilder.Query.TrimStart('?');
+                    var existingParams = existingQuery.Split('&', StringSplitOptions.RemoveEmptyEntries);
+                    foreach (var param in existingParams)
+                    {
+                        var parts = param.Split('=', 2);
+                        if (parts.Length == 2)
+                        {
+                            queryParts.Add($"{Uri.EscapeDataString(parts[0])}={Uri.EscapeDataString(parts[1])}");
+                        }
+                        else if (parts.Length == 1)
+                        {
+                            queryParts.Add(Uri.EscapeDataString(parts[0]));
+                        }
+                    }
+                }
+
+                // Add new parameters
+                foreach (var param in parameters)
+                {
+                    if (!string.IsNullOrEmpty(param.Key))
+                    {
+                        var key = Uri.EscapeDataString(param.Key);
+                        var value = Uri.EscapeDataString(param.Value ?? string.Empty);
+                        queryParts.Add($"{key}={value}");
+                    }
+                }
+
+                // Rebuild query string
+                if (queryParts.Count > 0)
+                {
+                    uriBuilder.Query = string.Join("&", queryParts);
+                }
+
+                return uriBuilder.ToString();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to add query parameters to URL: {Url}", url);
+                return url;
             }
         }
 

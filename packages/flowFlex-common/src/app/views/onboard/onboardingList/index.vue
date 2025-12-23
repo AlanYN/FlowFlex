@@ -226,6 +226,20 @@
 
 											<el-divider title="Delete" class="my-0" />
 
+											<!-- Change History -->
+											<el-dropdown-item
+												v-if="
+													functionPermission(
+														ProjectPermissionEnum.case.read
+													)
+												"
+											>
+												<HistoryButton
+													:id="row.id"
+													:type="WFEMoudels.Onboarding"
+												/>
+											</el-dropdown-item>
+
 											<!-- Delete - 对所有状态显示，但有不同的限制 -->
 											<el-dropdown-item
 												@click="handleDelete(row.id)"
@@ -247,7 +261,7 @@
 						</el-table-column>
 						<el-table-column
 							prop="leadName"
-							label="Customer Name"
+							label="Case Name"
 							sortable="custom"
 							min-width="220"
 							fixed="left"
@@ -255,10 +269,7 @@
 							<template #default="{ row }">
 								<el-link
 									:disabled="!functionPermission(ProjectPermissionEnum.case.read)"
-									type="primary"
-									:underline="false"
 									@click="handleEdit(row.id)"
-									class="table-cell-link"
 								>
 									<div class="table-cell-content" :title="row.leadName">
 										{{ row.leadName }}
@@ -564,10 +575,10 @@
 				label-position="top"
 				class="onboarding-form"
 			>
-				<el-form-item label="Customer Name" prop="leadName">
+				<el-form-item label="Case Name" prop="leadName">
 					<el-input
 						v-model="formData.leadName"
-						placeholder="Input Customer Name"
+						placeholder="Input Case Name"
 						clearable
 						class="w-full rounded-xl"
 					/>
@@ -762,6 +773,7 @@ import { pick, omitBy, isNil } from 'lodash-es';
 import StageFilter from './components/StageFilter.vue';
 import StageCardList from './components/StageCardList.vue';
 import { functionPermission } from '@/hooks';
+import { WFEMoudels } from '@/enums/appEnum';
 
 type RuleType =
 	| 'string'
@@ -2319,25 +2331,6 @@ onMounted(async () => {
 /* 旋转动画 */
 .rotate-90 {
 	transform: rotate(90deg);
-}
-
-/* 表格单元格内容样式 */
-.table-cell-content {
-	overflow: hidden;
-	text-overflow: ellipsis;
-	white-space: nowrap;
-	max-width: 100%;
-	display: block;
-}
-
-/* Ensure Element Plus link wrapper doesn't break ellipsis */
-.table-cell-link {
-	display: block;
-	width: 100%;
-}
-:deep(.table-cell-link .el-link__inner) {
-	display: block;
-	width: 100%;
 }
 
 /* 响应式调整 */

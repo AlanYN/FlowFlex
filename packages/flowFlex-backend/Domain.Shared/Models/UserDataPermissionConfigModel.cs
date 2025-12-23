@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 
 namespace FlowFlex.Domain.Shared.Models;
+
 public class UserDataPermissionConfigModel
 {
     public List<ConfigModel> DataPermissions { get; set; } = new List<ConfigModel>();

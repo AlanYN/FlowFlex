@@ -7,6 +7,8 @@
 		<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
 		<meta http-equiv="Pragma" content="no-cache" />
 		<meta http-equiv="Expires" content="0" />
+		<link rel="dns-prefetch" href="<%= VITE_GLOB_SSOURL %>" />
+		<link rel="dns-prefetch" href="<%= VITE_GLOB_IDM_URL %>" />
 		<title><%= VITE_GLOB_APP_TITLE %></title>
 		<script type="module">
 			const faviconLink = document.createElement('link');
@@ -20,6 +22,7 @@
 				--bg-primary: #0f0f23;
 				--accent-primary: #8b5cf6;
 				--accent-secondary: #ff6b6b;
+				view-transition-name: root;
 			}
 
 			html,
@@ -72,7 +75,7 @@
 				animation-delay: -1.1s;
 			}
 			.wave-loading .bar:nth-child(2) {
-				animation-delay: -1.0s;
+				animation-delay: -1s;
 			}
 			.wave-loading .bar:nth-child(3) {
 				animation-delay: -0.9s;
@@ -85,11 +88,13 @@
 			}
 
 			@keyframes wave {
-				0%, 40%, 100% {
+				0%,
+				40%,
+				100% {
 					transform: scaleY(0.4);
 				}
 				20% {
-					transform: scaleY(1.0);
+					transform: scaleY(1);
 				}
 			}
 		</style>

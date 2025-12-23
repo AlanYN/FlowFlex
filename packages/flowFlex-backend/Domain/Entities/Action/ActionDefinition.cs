@@ -65,7 +65,7 @@ namespace FlowFlex.Domain.Entities.Action
         public bool IsAIGenerated { get; set; } = false;
 
         /// <summary>
-        /// Trigger type for the action (Stage, Task, Question, Workflow)
+        /// Trigger type for the action (Stage, Task, Question, Workflow, Integration)
         /// Defines where this action can be used or triggered
         /// </summary>
         [StringLength(50)]

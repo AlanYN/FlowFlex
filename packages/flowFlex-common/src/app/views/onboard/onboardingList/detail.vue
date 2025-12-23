@@ -193,8 +193,16 @@
 										onboardingData?.isDisabled ||
 										!hasCasePermission(ProjectPermissionEnum.case.update)
 									"
+									:systemId="onboardingData?.systemId"
 									@document-uploaded="handleDocumentUploaded"
 									@document-deleted="handleDocumentDeleted"
+								/>
+
+								<QuickLink
+									v-else-if="component.key === 'quickLink'"
+									:component="component"
+									:onboarding-id="onboardingId"
+									:stage-id="activeStage"
 								/>
 							</div>
 						</template>
@@ -296,6 +304,7 @@ import StaticForm from './components/StaticForm.vue';
 import PortalAccessContent from './components/PortalAccessContent.vue';
 import AISummary from './components/AISummary.vue';
 import EditableStageHeader from './components/EditableStageHeader.vue';
+import QuickLink from './components/QuickLink.vue';
 import { getAppCode } from '@/utils/threePartyLogin';
 import { ProjectPermissionEnum } from '@/enums/permissionEnum';
 import { functionPermission } from '@/hooks';
@@ -759,7 +768,9 @@ const hasCasePermission = (functionalPermission: string) => {
 
 // 事件处理函数
 const handleBack = () => {
-	router.back();
+	router.push({
+		path: '/onboard/onboardList',
+	});
 };
 
 const handleCustomerOverview = () => {
@@ -1192,7 +1203,7 @@ const refreshAISummary = async () => {
 		console.log('✅ [AI Summary] Stream completed for stage:', currentStageId);
 		currentAISummaryGeneratedAt.value = new Date().toISOString();
 		aiSummaryLoading.value = false;
-		ElMessage.success('AI Summary generated successfully');
+		//ElMessage.success('AI Summary generated successfully');
 
 		// 更新本地stage信息 - 再次验证阶段
 		if (onboardingActiveStageInfo.value && activeStage.value === currentStageId) {

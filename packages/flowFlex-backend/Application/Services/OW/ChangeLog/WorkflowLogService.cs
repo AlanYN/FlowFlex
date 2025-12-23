@@ -37,16 +37,35 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
         /// <summary>
         /// Log workflow create operation (independent of onboarding)
         /// </summary>
-        public async Task<bool> LogWorkflowCreateAsync(long workflowId, string workflowName, string workflowDescription = null, string extendedData = null)
+        public async Task<bool> LogWorkflowCreateAsync(long workflowId, string workflowName, string workflowDescription = null, string afterData = null, string extendedData = null)
         {
             try
             {
                 var operationTitle = $"Workflow Created: {workflowName}";
-                var operationDescription = $"Workflow '{workflowName}' has been created by {GetOperatorDisplayName()}";
 
-                if (!string.IsNullOrEmpty(workflowDescription))
+                // Use enhanced description if afterData is provided, otherwise use simple description
+                string operationDescription;
+                if (!string.IsNullOrEmpty(afterData))
                 {
-                    operationDescription += $" with description: {workflowDescription}";
+                    operationDescription = await BuildEnhancedOperationDescriptionAsync(
+                        BusinessModuleEnum.Workflow,
+                        workflowName,
+                        "Created",
+                        beforeData: null,
+                        afterData: afterData,
+                        changedFields: null,
+                        relatedEntityId: null,
+                        relatedEntityType: null,
+                        reason: null
+                    );
+                }
+                else
+                {
+                    operationDescription = $"Workflow '{workflowName}' has been created by {GetOperatorDisplayName()}";
+                    if (!string.IsNullOrEmpty(workflowDescription))
+                    {
+                        operationDescription += $" with description: {workflowDescription}";
+                    }
                 }
 
                 if (string.IsNullOrEmpty(extendedData))
@@ -68,6 +87,9 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                     null,
                     operationTitle,
                     operationDescription,
+                    beforeData: null,
+                    afterData: afterData,
+                    changedFields: null,
                     extendedData: extendedData
                 );
             }
@@ -304,7 +326,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
         /// <summary>
         /// Log stage create operation (independent of onboarding)
         /// </summary>
-        public async Task<bool> LogStageCreateAsync(long stageId, string stageName, long? workflowId = null, string extendedData = null)
+        public async Task<bool> LogStageCreateAsync(long stageId, string stageName, long? workflowId = null, string afterData = null, string extendedData = null)
         {
             return await LogIndependentOperationAsync(
                 OperationTypeEnum.StageCreate,
@@ -312,6 +334,9 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                 stageId,
                 stageName,
                 "Created",
+                beforeData: null,
+                afterData: afterData,
+                changedFields: null,
                 relatedEntityId: workflowId,
                 relatedEntityType: "workflow",
                 extendedData: extendedData
@@ -632,7 +657,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
             // Add specific change details instead of just field names
             if (!string.IsNullOrEmpty(beforeData) && !string.IsNullOrEmpty(afterData) && changedFields?.Any() == true)
             {
-                var changeDetails = await GetChangeDetailsAsync(beforeData, afterData, changedFields);
+                var changeDetails = await GetChangeDetailsAsync(beforeData, afterData, changedFields, BusinessModuleEnum.Workflow);
                 if (!string.IsNullOrEmpty(changeDetails))
                 {
                     description += $". {changeDetails}";

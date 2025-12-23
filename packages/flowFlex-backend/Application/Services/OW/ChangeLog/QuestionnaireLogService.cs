@@ -107,6 +107,13 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
         {
             try
             {
+                // Check if both before and after values are empty - skip logging if so
+                if (AreBothValuesEmpty(beforeData, afterData))
+                {
+                    _logger.LogDebug("Skipping operation log for field {FieldName} as both before and after values are empty", fieldName);
+                    return true;
+                }
+
                 // Check if there's actually a meaningful change
                 if (!HasMeaningfulValueChangeEnhanced(beforeData, afterData))
                 {
@@ -276,15 +283,47 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
         /// <summary>
         /// Log questionnaire create operation (independent of onboarding)
         /// </summary>
-        public async Task<bool> LogQuestionnaireCreateAsync(long questionnaireId, string questionnaireName, string extendedData = null)
+        public async Task<bool> LogQuestionnaireCreateAsync(long questionnaireId, string questionnaireName, string afterData = null, string extendedData = null)
         {
+            // Build detailed description for created questionnaire
+            string operationDescription = null;
+            if (!string.IsNullOrEmpty(afterData))
+            {
+                try
+                {
+                    var afterJson = JsonSerializer.Deserialize<Dictionary<string, object>>(afterData);
+                    if (afterJson != null)
+                    {
+                        var changeDetails = await GetQuestionnaireSpecificChangeDetailsAsync(null, afterData, new List<string> { "StructureJson" });
+                        if (!string.IsNullOrEmpty(changeDetails))
+                        {
+                            operationDescription = $"{BusinessModuleEnum.Questionnaire} '{questionnaireName}' has been created by {GetOperatorDisplayName()}. {changeDetails}";
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to build detailed description for questionnaire create");
+                }
+            }
+
+            // If no detailed description, use default
+            if (string.IsNullOrEmpty(operationDescription))
+            {
+                operationDescription = $"{BusinessModuleEnum.Questionnaire} '{questionnaireName}' has been created by {GetOperatorDisplayName()}";
+            }
+
             return await LogIndependentOperationAsync(
                 OperationTypeEnum.QuestionnaireCreate,
                 BusinessModuleEnum.Questionnaire,
                 questionnaireId,
                 questionnaireName,
                 "Created",
-                extendedData: extendedData
+                beforeData: null,
+                afterData: afterData,
+                changedFields: null,
+                extendedData: extendedData,
+                customDescription: operationDescription
             );
         }
 
@@ -620,7 +659,18 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
             {
                 _logger.LogError(ex, "Failed to build detailed answer operation description for questionnaire {QuestionnaireId}", questionnaireId);
 
-                // Fallback to simple description
+                // For update operations, check if there are actual changes before returning fallback description
+                if (operationAction.Equals("Updated", StringComparison.OrdinalIgnoreCase))
+                {
+                    // Check if there are meaningful changes
+                    if (!HasMeaningfulValueChangeEnhanced(beforeData, afterData))
+                    {
+                        // No meaningful changes, return null to skip logging
+                        return null;
+                    }
+                }
+
+                // Fallback to simple description (for submit operations or when we can't determine changes)
                 var fallbackDescription = $"Questionnaire answer has been {operationAction.ToLower()} by {GetOperatorDisplayName()}";
                 if (questionnaireId.HasValue)
                 {
@@ -745,14 +795,61 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
         {
             try
             {
-                var beforeJson = JsonSerializer.Deserialize<Dictionary<string, object>>(beforeData);
-                var afterJson = JsonSerializer.Deserialize<Dictionary<string, object>>(afterData);
+                Dictionary<string, object> beforeJson = null;
+                if (!string.IsNullOrEmpty(beforeData))
+                {
+                    beforeJson = JsonSerializer.Deserialize<Dictionary<string, object>>(beforeData);
+                }
+
+                Dictionary<string, object> afterJson = null;
+                if (!string.IsNullOrEmpty(afterData))
+                {
+                    afterJson = JsonSerializer.Deserialize<Dictionary<string, object>>(afterData);
+                }
 
                 var changeList = new List<string>();
 
-                foreach (var field in changedFields.Take(3))
+                foreach (var field in changedFields)
                 {
-                    if (beforeJson.TryGetValue(field, out var beforeValue) &&
+                    // Handle creation case (beforeData is null)
+                    if (beforeJson == null && afterJson != null)
+                    {
+                        if (afterJson.TryGetValue(field, out var newValue))
+                        {
+                            if (field.Equals("StructureJson", StringComparison.OrdinalIgnoreCase))
+                            {
+                                var afterJsonStr = newValue?.ToString() ?? string.Empty;
+                                if (IsJsonString(afterJsonStr))
+                                {
+                                    // For creation, show structure summary
+                                    var structureSummary = GetQuestionnaireStructureSummary(afterJsonStr);
+                                    if (!string.IsNullOrEmpty(structureSummary))
+                                    {
+                                        changeList.Add(structureSummary);
+                                    }
+                                    else
+                                    {
+                                        changeList.Add("Structure created");
+                                    }
+                                }
+                                else
+                                {
+                                    changeList.Add("Structure created");
+                                }
+                            }
+                            else
+                            {
+                                var friendlyFieldName = GetFriendlyFieldName(field);
+                                var afterStr = GetDisplayValue(newValue, field);
+                                changeList.Add($"{friendlyFieldName} set to '{afterStr}'");
+                            }
+                        }
+                        continue;
+                    }
+
+                    // Handle update case (both beforeData and afterData exist)
+                    if (beforeJson != null && afterJson != null &&
+                        beforeJson.TryGetValue(field, out var beforeValue) &&
                         afterJson.TryGetValue(field, out var afterValue))
                     {
                         if (field.Equals("StructureJson", StringComparison.OrdinalIgnoreCase))
@@ -786,9 +883,11 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                             {
                                 changeList.Add($"category changed to '{afterStr}'");
                             }
+                            // Skip EstimatedMinutes - don't show estimated time changes
                             else if (field.Equals("EstimatedMinutes", StringComparison.OrdinalIgnoreCase))
                             {
-                                changeList.Add($"estimated time: {beforeStr} → {afterStr} minutes");
+                                // Skip this field - don't add to changeList
+                                continue;
                             }
                             else
                             {
@@ -807,10 +906,6 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                 if (changeList.Any())
                 {
                     var result = $"Changes: {string.Join("; ", changeList)}";
-                    if (changedFields.Count > 3)
-                    {
-                        result += $" and {changedFields.Count - 3} more";
-                    }
                     return Task.FromResult(result);
                 }
             }
@@ -836,6 +931,77 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                 "UpdatedAt" => "Updated Time",
                 _ => fieldName
             };
+        }
+
+        /// <summary>
+        /// Check if both before and after values are empty
+        /// </summary>
+        private bool AreBothValuesEmpty(string beforeData, string afterData)
+        {
+            try
+            {
+                // Extract value from JSON if it's JSON format
+                string beforeValue = ExtractValueFromJson(beforeData);
+                string afterValue = ExtractValueFromJson(afterData);
+
+                // Check if both values are empty (null, empty string, or whitespace)
+                bool beforeEmpty = string.IsNullOrWhiteSpace(beforeValue);
+                bool afterEmpty = string.IsNullOrWhiteSpace(afterValue);
+
+                return beforeEmpty && afterEmpty;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to check if values are empty, proceeding with normal check");
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Extract value from JSON data (handles both raw strings and JSON objects)
+        /// </summary>
+        private string ExtractValueFromJson(string data)
+        {
+            if (string.IsNullOrEmpty(data))
+                return null;
+
+            try
+            {
+                // Try to parse as JSON object first
+                var jsonDoc = JsonDocument.Parse(data);
+                var root = jsonDoc.RootElement;
+
+                // Check if it has a "value" property
+                if (root.TryGetProperty("value", out var valueElement))
+                {
+                    if (valueElement.ValueKind == JsonValueKind.String)
+                    {
+                        var value = valueElement.GetString();
+                        // Handle escaped empty string: "\"\""
+                        if (value == "\"\"")
+                            return string.Empty;
+                        return value;
+                    }
+                    return valueElement.ToString();
+                }
+
+                // If no "value" property, try to get the string value directly
+                if (root.ValueKind == JsonValueKind.String)
+                {
+                    return root.GetString();
+                }
+            }
+            catch
+            {
+                // If parsing fails, treat as raw string
+            }
+
+            // If not JSON or parsing failed, return as-is (might be a raw string)
+            // Handle escaped empty string
+            if (data == "\"\"")
+                return string.Empty;
+
+            return data;
         }
 
         #endregion

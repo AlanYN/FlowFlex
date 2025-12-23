@@ -11,7 +11,7 @@ namespace FlowFlex.Application.Contracts.IServices.OW.ChangeLog
     public interface IStageLogService : IBaseOperationLogService
     {
         // Stage lifecycle operations
-        Task<bool> LogStageCreateAsync(long stageId, string stageName, long? workflowId = null, string extendedData = null);
+        Task<bool> LogStageCreateAsync(long stageId, string stageName, long? workflowId = null, string afterData = null, string extendedData = null);
         Task<bool> LogStageUpdateAsync(long stageId, string stageName, string beforeData, string afterData, List<string> changedFields, long? workflowId = null, string extendedData = null);
         Task<bool> LogStageDeleteAsync(long stageId, string stageName, long? workflowId = null, string reason = null, string extendedData = null);
         Task<bool> LogStageOrderChangeAsync(long stageId, string stageName, int oldOrder, int newOrder, long? workflowId = null, string extendedData = null);

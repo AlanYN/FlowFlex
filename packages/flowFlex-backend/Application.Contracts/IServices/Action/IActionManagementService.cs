@@ -31,6 +31,7 @@ namespace FlowFlex.Application.Contracts.IServices.Action
         /// <param name="isAssignmentQuestionnaire"></param>
         /// <param name="isAssignmentWorkflow"></param>
         /// <param name="isTools"></param>
+        /// <param name="integrationId">Filter by Integration ID</param>
         /// <returns></returns>
         Task<PageModelDto<ActionDefinitionDto>> GetPagedActionDefinitionsAsync(string? search,
             ActionTypeEnum? actionType,
@@ -40,7 +41,8 @@ namespace FlowFlex.Application.Contracts.IServices.Action
             bool? isAssignmentChecklist = null,
             bool? isAssignmentQuestionnaire = null,
             bool? isAssignmentWorkflow = null,
-            bool? isTools = null);
+            bool? isTools = null,
+            long? integrationId = null);
 
         /// <summary>
         /// Get enabled action definitions

@@ -10,8 +10,8 @@
 		/>
 
 		<!-- Description -->
-		<div class="bg-primary-50 dark:bg-primary-900/20 p-4 rounded-xl">
-			<p class="text-sm text-primary dark:text-primary-300">
+		<div class="bg-black-400 p-4 rounded-xl">
+			<p class="text-sm">
 				Create login credentials for customers to access the customer portal. They will
 				receive an email with instructions to set up their password and complete the
 				application form.
@@ -139,21 +139,18 @@
 			<div class="space-y-4">
 				<div>
 					<h4 class="text-lg font-medium mb-2">Invitation Details</h4>
-					<div class="bg-gray-50 p-4 rounded-xl">
-						<div class="grid grid-cols-2 gap-4">
-							<div>
-								<span class="text-sm font-medium text-gray-600">Email:</span>
-								<p class="text-sm">{{ currentInvitationUser?.email }}</p>
-							</div>
-							<div>
-								<span class="text-sm font-medium text-gray-600">Status:</span>
-								<el-tag
-									:type="getStatusTagType(currentInvitationUser?.status || '')"
-									size="small"
-								>
-									{{ currentInvitationUser?.status }}
-								</el-tag>
-							</div>
+					<div class="flex bg-gray-50 p-4 rounded-xl">
+						<div class="flex items-center space-x-2 flex-1">
+							<div class="text-sm font-medium">Email:</div>
+							<el-link :underline="false" class="text-sm text-primary">
+								{{ currentInvitationUser?.email }}
+							</el-link>
+						</div>
+						<div class="flex items-center space-x-2 flex-1">
+							<div class="text-sm font-medium">Status:</div>
+							<el-tag :type="getStatusTagType(currentInvitationUser?.status || '')">
+								{{ currentInvitationUser?.status }}
+							</el-tag>
 						</div>
 					</div>
 				</div>
@@ -171,7 +168,7 @@
 					</div>
 				</div>
 
-				<div class="bg-primary-50 p-4 rounded-xl">
+				<div class="bg-black-400 p-4 rounded-xl">
 					<p class="text-sm text-primary">
 						<strong>Note:</strong>
 						Share this link with the customer to access their onboarding portal. The

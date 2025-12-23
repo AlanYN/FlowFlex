@@ -1,6 +1,9 @@
 ﻿
 using FlowFlex.Application.Contracts.Dtos.Action;
+using FlowFlex.Application.Contracts.Dtos.Integration;
 using FlowFlex.Application.Contracts.IServices.Action;
+using FlowFlex.Application.Contracts.IServices.Integration;
+using FlowFlex.Domain.Shared;
 using FlowFlex.Domain.Shared.Enums.Action;
 using FlowFlex.Domain.Shared.Models;
 using Item.Internal.StandardApi.Response;
@@ -12,6 +15,7 @@ using System.Net;
 using FlowFlex.Application.Filter;
 using FlowFlex.Domain.Shared.Const;
 using WebApi.Authorization;
+using Domain.Shared.Enums;
 
 namespace FlowFlex.WebApi.Controllers.Action
 {
@@ -26,15 +30,18 @@ namespace FlowFlex.WebApi.Controllers.Action
     {
         private readonly IActionManagementService _actionManagementService;
         private readonly IActionExecutionService _actionExecutionService;
+        private readonly IInboundFieldMappingService _fieldMappingService;
         private readonly ILogger<ActionController> _logger;
 
         public ActionController(
             IActionManagementService actionManagementService,
             IActionExecutionService actionExecutionService,
+            IInboundFieldMappingService fieldMappingService,
             ILogger<ActionController> logger)
         {
             _actionManagementService = actionManagementService;
             _actionExecutionService = actionExecutionService;
+            _fieldMappingService = fieldMappingService;
             _logger = logger;
         }
 
@@ -79,13 +86,14 @@ namespace FlowFlex.WebApi.Controllers.Action
         public async Task<IActionResult> GetPagedActionDefinitions(string? search,
             ActionTypeEnum? actionType,
             int pageIndex = 1,
-            int pageSize = 10,
+            int? pageSize = null,
             bool? isAssignmentStage = null,
             bool? isAssignmentChecklist = null,
             bool? isAssignmentQuestionnaire = null,
             bool? isAssignmentWorkflow = null,
             bool? isTools = null,
-            bool? isSystemTools = null)
+            bool? isSystemTools = null,
+            long? integrationId = null)
         {
             // If isSystemTools is true, override actionType to System and ignore isTools
             if (isSystemTools == true)
@@ -94,15 +102,19 @@ namespace FlowFlex.WebApi.Controllers.Action
                 isTools = null; // Ignore isTools when isSystemTools is true
             }
 
+            // If pageSize is not provided, return all data (use int.MaxValue)
+            var effectivePageSize = pageSize ?? int.MaxValue;
+
             var result = await _actionManagementService.GetPagedActionDefinitionsAsync(search,
                 actionType,
                 pageIndex,
-                pageSize,
+                effectivePageSize,
                 isAssignmentStage,
                 isAssignmentChecklist,
                 isAssignmentQuestionnaire,
                 isAssignmentWorkflow,
-                isTools);
+                isTools,
+                integrationId);
             return Success(result);
         }
 
@@ -194,8 +206,64 @@ namespace FlowFlex.WebApi.Controllers.Action
                     }
                 }
 
+                // Handle fieldMappings update
+                if (requestData["fieldMappings"] != null)
+                {
+                    _logger.LogInformation("Processing fieldMappings update for Action {ActionId}", id);
+
+                    var fieldMappings = requestData["fieldMappings"]?.ToObject<List<JObject>>();
+                    if (fieldMappings != null)
+                    {
+                        foreach (var mapping in fieldMappings)
+                        {
+                            var fieldMappingId = mapping["id"]?.ToString();
+
+                            // Parse field mapping data
+                            var fieldMappingInput = new InboundFieldMappingInputDto
+                            {
+                                ActionId = id,
+                                ExternalFieldName = mapping["externalFieldName"]?.ToString() ?? "",
+                                WfeFieldId = mapping["wfeFieldId"]?.ToString() ?? "",
+                                FieldType = Enum.TryParse<FieldType>(mapping["fieldType"]?.ToString(), out var fieldType)
+                                    ? fieldType : FieldType.Text,
+                                SyncDirection = Enum.TryParse<SyncDirection>(mapping["syncDirection"]?.ToString(), out var syncDirection)
+                                    ? syncDirection : SyncDirection.ViewOnly,
+                                IsRequired = mapping["isRequired"]?.ToObject<bool>() ?? false,
+                                DefaultValue = mapping["defaultValue"]?.ToString(),
+                                SortOrder = mapping["sortOrder"]?.ToObject<int>() ?? 0
+                            };
+
+                            // Update existing or create new field mapping
+                            if (!string.IsNullOrEmpty(fieldMappingId) && long.TryParse(fieldMappingId, out var fieldMappingIdLong) && fieldMappingIdLong > 0)
+                            {
+                                // Update existing field mapping
+                                await _fieldMappingService.UpdateAsync(fieldMappingIdLong, fieldMappingInput);
+                                _logger.LogInformation("Updated field mapping {FieldMappingId} for Action {ActionId}", fieldMappingIdLong, id);
+                            }
+                            else
+                            {
+                                // Create new field mapping
+                                var newId = await _fieldMappingService.CreateAsync(fieldMappingInput);
+                                _logger.LogInformation("Created new field mapping {FieldMappingId} for Action {ActionId}", newId, id);
+                            }
+                        }
+                    }
+                }
+
                 _logger.LogInformation("Successfully updated action definition with ID: {ActionId}", id);
                 return Success(result);
+            }
+            catch (CRMException crmEx)
+            {
+                _logger.LogWarning("Business error updating action definition with ID: {ActionId}, Error: {ErrorMessage}", id, crmEx.Message);
+                var statusCode = crmEx.StatusCode ?? HttpStatusCode.BadRequest;
+                return StatusCode((int)statusCode, new
+                {
+                    code = (int)statusCode,
+                    message = crmEx.Message,
+                    msg = crmEx.Message,
+                    data = crmEx.ErrorData ?? new { errorCode = crmEx.Code.ToString() }
+                });
             }
             catch (ArgumentException ex)
             {
@@ -205,7 +273,13 @@ namespace FlowFlex.WebApi.Controllers.Action
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error updating action definition with ID: {ActionId}", id);
-                return BadRequest(new { message = "Error updating action definition", error = ex.Message });
+                return BadRequest(new
+                {
+                    code = 400,
+                    message = "Error updating action definition",
+                    msg = "Error updating action definition",
+                    data = new { error = ex.Message }
+                });
             }
         }
 

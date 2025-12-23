@@ -21,6 +21,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
         private readonly IWorkflowLogService _workflowLogService;
         private readonly IStageLogService _stageLogService;
         private readonly IActionLogService _actionLogService;
+        private readonly IOnboardingLogService _onboardingLogService;
         private readonly ILogAggregationService _logAggregationService;
         private readonly IOperationChangeLogRepository _operationChangeLogRepository;
         private readonly ILogger<OperationChangeLogServiceLegacyAdapter> _logger;
@@ -31,6 +32,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
             IWorkflowLogService workflowLogService,
             IStageLogService stageLogService,
             IActionLogService actionLogService,
+            IOnboardingLogService onboardingLogService,
             ILogAggregationService logAggregationService,
             IOperationChangeLogRepository operationChangeLogRepository,
             ILogger<OperationChangeLogServiceLegacyAdapter> logger)
@@ -40,6 +42,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
             _workflowLogService = workflowLogService;
             _stageLogService = stageLogService;
             _actionLogService = actionLogService;
+            _onboardingLogService = onboardingLogService;
             _logAggregationService = logAggregationService;
             _operationChangeLogRepository = operationChangeLogRepository;
             _logger = logger;
@@ -240,6 +243,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                     BusinessTypeEnum.ChecklistTask => await _checklistLogService.GetChecklistTaskLogsAsync(businessId, null, pageIndex, pageSize, true),
                     BusinessTypeEnum.Questionnaire => await GetQuestionnaireWithRelatedLogsAsync(businessId, pageIndex, pageSize),
                     BusinessTypeEnum.Stage => await GetStageLogsAsync(businessId, pageIndex, pageSize),
+                    BusinessTypeEnum.Onboarding => await _onboardingLogService.GetOnboardingLogsAsync(businessId, pageIndex, pageSize),
                     BusinessTypeEnum.Action => await _actionLogService.GetActionDefinitionLogsAsync(businessId, pageIndex, pageSize),
                     BusinessTypeEnum.ActionMapping => await _actionLogService.GetActionMappingLogsAsync(businessId, pageIndex, pageSize),
                     _ => throw new NotSupportedException($"Business type {businessType} is not supported.")
@@ -316,9 +320,9 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
         }
 
         // All other workflow/stage/checklist/questionnaire methods
-        public Task<bool> LogWorkflowCreateAsync(long workflowId, string workflowName, string workflowDescription = null, string extendedData = null)
+        public Task<bool> LogWorkflowCreateAsync(long workflowId, string workflowName, string workflowDescription = null, string afterData = null, string extendedData = null)
         {
-            return _workflowLogService.LogWorkflowCreateAsync(workflowId, workflowName, workflowDescription, extendedData);
+            return _workflowLogService.LogWorkflowCreateAsync(workflowId, workflowName, workflowDescription, afterData, extendedData);
         }
 
         public Task<bool> LogWorkflowUpdateAsync(long workflowId, string workflowName, string beforeData, string afterData, List<string> changedFields, string extendedData = null)
@@ -352,11 +356,11 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
         }
 
         // Stage methods - simplified signatures
-        public Task<bool> LogStageCreateAsync(long stageId, string stageName, long? workflowId = null, string extendedData = null)
+        public Task<bool> LogStageCreateAsync(long stageId, string stageName, long? workflowId = null, string afterData = null, string extendedData = null)
         {
             // Note: Original interface has different signature than IStageLogService
             _logger.LogWarning("LogStageCreateAsync called - consider migrating to IStageLogService.LogStageCreateAsync");
-            return _stageLogService.LogStageCreateAsync(stageId, stageName, workflowId, extendedData);
+            return _stageLogService.LogStageCreateAsync(stageId, stageName, workflowId, afterData, extendedData);
         }
 
         public Task<bool> LogStageUpdateAsync(long stageId, string stageName, string beforeData, string afterData, List<string> changedFields, long? workflowId = null, string extendedData = null)
@@ -378,9 +382,9 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
         }
 
         // Checklist methods
-        public Task<bool> LogChecklistCreateAsync(long checklistId, string checklistName, string extendedData = null)
+        public Task<bool> LogChecklistCreateAsync(long checklistId, string checklistName, string afterData = null, string extendedData = null)
         {
-            return _checklistLogService.LogChecklistCreateAsync(checklistId, checklistName, extendedData);
+            return _checklistLogService.LogChecklistCreateAsync(checklistId, checklistName, afterData, extendedData);
         }
 
         public Task<bool> LogChecklistUpdateAsync(long checklistId, string checklistName, string beforeData, string afterData, List<string> changedFields, string extendedData = null)
@@ -393,9 +397,9 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
             return _checklistLogService.LogChecklistDeleteAsync(checklistId, checklistName, reason, extendedData);
         }
 
-        public Task<bool> LogChecklistTaskCreateAsync(long taskId, string taskName, long checklistId, string extendedData = null)
+        public Task<bool> LogChecklistTaskCreateAsync(long taskId, string taskName, long checklistId, string afterData = null, string extendedData = null)
         {
-            return _checklistLogService.LogChecklistTaskCreateAsync(taskId, taskName, checklistId, extendedData);
+            return _checklistLogService.LogChecklistTaskCreateAsync(taskId, taskName, checklistId, afterData, extendedData);
         }
 
         public Task<bool> LogChecklistTaskUpdateAsync(long taskId, string taskName, string beforeData, string afterData, List<string> changedFields, long checklistId, string extendedData = null)
@@ -409,9 +413,9 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
         }
 
         // Questionnaire methods
-        public Task<bool> LogQuestionnaireCreateAsync(long questionnaireId, string questionnaireName, string extendedData = null)
+        public Task<bool> LogQuestionnaireCreateAsync(long questionnaireId, string questionnaireName, string afterData = null, string extendedData = null)
         {
-            return _questionnaireLogService.LogQuestionnaireCreateAsync(questionnaireId, questionnaireName, extendedData);
+            return _questionnaireLogService.LogQuestionnaireCreateAsync(questionnaireId, questionnaireName, afterData, extendedData);
         }
 
         public Task<bool> LogQuestionnaireUpdateAsync(long questionnaireId, string questionnaireName, string beforeData, string afterData, List<string> changedFields, string extendedData = null)

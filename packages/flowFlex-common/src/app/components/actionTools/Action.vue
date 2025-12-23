@@ -59,13 +59,11 @@
 		<!-- Action Configuration Dialog -->
 		<ActionConfigDialog
 			ref="actionConfigDialogRef"
-			v-model="showActionDialog"
-			:action="currentActionForEdit"
 			:is-editing="editingIndex !== -1"
 			:triggerSourceId="stageId"
 			:workflow-id="workflowId"
-			:loading="editLoading"
 			:triggerType="triggerType"
+			mappingRequired
 			@save-success="onActionSave"
 			@cancel="onActionCancel"
 		/>
@@ -73,13 +71,13 @@
 </template>
 
 <script setup lang="ts">
-import { ref, nextTick } from 'vue';
+import { ref, nextTick, useTemplateRef } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { Plus, Document } from '@element-plus/icons-vue';
 import draggable from 'vuedraggable';
 import ActionItem from './ActionItem.vue';
 import ActionConfigDialog from './ActionConfigDialog.vue';
-import { getStageAction, deleteMappingAction, getActionDetail } from '@/apis/action';
+import { getStageAction, deleteMappingAction } from '@/apis/action';
 import { useI18n } from 'vue-i18n';
 import { ActionListItem } from '#/action';
 import { TriggerTypeEnum } from '@/enums/appEnum';
@@ -96,8 +94,6 @@ const props = defineProps<{
 // State
 const selectedActionIndex = ref(-1);
 const editingIndex = ref(-1);
-const showActionDialog = ref(false);
-const currentActionForEdit = ref<any>(null);
 
 const actions = ref<ActionListItem[]>([]);
 const actionListLoading = ref(false);
@@ -114,41 +110,24 @@ const getActionList = async () => {
 	}
 };
 
-const actionConfigDialogRef = ref<InstanceType<typeof ActionConfigDialog>>();
+const actionConfigDialogRef = useTemplateRef('actionConfigDialogRef');
 // Action management methods
 const addAction = () => {
-	currentActionForEdit.value = null;
 	editingIndex.value = -1;
 	selectedActionIndex.value = -1;
-	showActionDialog.value = true;
 	nextTick(() => {
-		actionConfigDialogRef.value?.resetScrollbarHeight();
+		actionConfigDialogRef.value?.open({
+			triggerSourceId: props.stageId,
+			triggerType: props.triggerType,
+		});
 	});
 };
 
-const editLoading = ref(false);
 const editAction = async (index: number) => {
-	showActionDialog.value = true;
-	nextTick(async () => {
-		try {
-			editLoading.value = true;
-			const action = actions.value[index];
-			const res = await getActionDetail(action?.actionDefinitionId || '');
-			if (res.code === '200' && res?.data) {
-				currentActionForEdit.value = {
-					...res?.data,
-					actionConfig: JSON.parse(res?.data?.actionConfig || '{}'),
-					type: res?.data?.actionType,
-				};
-			}
-			nextTick(() => {
-				actionConfigDialogRef.value?.resetScrollbarHeight();
-			});
-			editingIndex.value = index;
-			selectedActionIndex.value = index;
-		} finally {
-			editLoading.value = false;
-		}
+	actionConfigDialogRef.value?.open({
+		actionId: actions.value[index]?.actionDefinitionId,
+		triggerSourceId: props.stageId,
+		triggerType: props.triggerType,
 	});
 };
 
@@ -218,7 +197,6 @@ const onDragEnd = () => {
 
 const resetEditingState = () => {
 	editingIndex.value = -1;
-	currentActionForEdit.value = null;
 };
 
 defineExpose({

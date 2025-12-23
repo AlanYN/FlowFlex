@@ -17,6 +17,7 @@ using FlowFlex.WebApi.Filters;
 using FlowFlex.Domain.Shared.Const;
 using WebApi.Authorization;
 using FlowFlex.Application.Contracts.Dtos.OW.User;
+using AppContext = FlowFlex.Domain.Shared.Models.AppContext;
 
 namespace FlowFlex.WebApi.Controllers.OW
 {
@@ -106,6 +107,7 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// <summary>
         /// Get onboarding by ID
         /// Requires CASE:READ permission
+        /// Tenant isolation is enforced - only data belonging to the current tenant can be accessed
         /// </summary>
         [HttpGet("{id}")]
         [WFEAuthorize(PermissionConsts.Case.Read)]
@@ -113,7 +115,17 @@ namespace FlowFlex.WebApi.Controllers.OW
         [ProducesResponseType<SuccessResponse<OnboardingOutputDto>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> GetByIdAsync(long id)
         {
-            OnboardingOutputDto result = await _onboardingService.GetByIdAsync(id);
+            // Validate tenant isolation - ensure tenant ID is provided
+            var appContext = HttpContext.Items["AppContext"] as AppContext;
+            if (appContext == null || string.IsNullOrEmpty(appContext.TenantId) || appContext.TenantId == "DEFAULT")
+            {
+                return BadRequest("Tenant ID is required. Please provide X-Tenant-Id header.");
+            }
+
+            // Get onboarding data (tenant isolation is automatically enforced at repository level)
+            // Repository automatically filters by tenant_id, so only data belonging to current tenant can be accessed
+            OnboardingOutputDto? result = await _onboardingService.GetByIdAsync(id);
+            // Return null if not found (instead of error)
             return Success(result);
         }
 
@@ -428,6 +440,25 @@ namespace FlowFlex.WebApi.Controllers.OW
         public async Task<IActionResult> GetAuthorizedUsersAsync(long id)
         {
             var result = await _onboardingService.GetAuthorizedUsersAsync(id);
+            return Success(result);
+        }
+
+        /// <summary>
+        /// Get all active onboardings by System ID
+        /// Returns all onboarding records where SystemId matches and IsActive is true
+        /// Requires CASE:READ permission
+        /// </summary>
+        [HttpGet("by-system")]
+        [WFEAuthorize(PermissionConsts.Case.Read)]
+        [ProducesResponseType<SuccessResponse<List<OnboardingOutputDto>>>((int)HttpStatusCode.OK)]
+        public async Task<IActionResult> GetActiveBySystemIdAsync([FromQuery] string systemId)
+        {
+            if (string.IsNullOrWhiteSpace(systemId))
+            {
+                return BadRequest("systemId parameter is required");
+            }
+
+            var result = await _onboardingService.GetActiveBySystemIdAsync(systemId);
             return Success(result);
         }
     }

@@ -24,7 +24,7 @@ html.flowflex-app {
 	--el-text-color-regular: #3c3c3c; /* Body text */
 	--el-text-color-secondary: #666666; /* Descriptions & labels */
 	--el-text-color-placeholder: #666666; /* Input placeholders */
-	--el-text-color-disabled: rgba(102, 102, 102, 0.36); /* Inactive elements */
+	--el-text-color-disabled: rgba(0, 0, 0, 0.8); /* Inactive elements */
 
 	/* 背景颜色 - Item 设计系统规范 */
 	--el-bg-color: #f9f9f9; /* Main background */
@@ -77,7 +77,7 @@ html.dark.flowflex-app {
 	--el-text-color-regular: #ffffff;
 	--el-text-color-secondary: #999999;
 	--el-text-color-placeholder: #737373;
-	--el-text-color-disabled: rgba(115, 115, 115, 0.43);
+	--el-text-color-disabled: rgba(225, 225, 225, 0.8);
 
 	/* 背景颜色 - Item 暗色模式 */
 	--el-bg-color: #000000;

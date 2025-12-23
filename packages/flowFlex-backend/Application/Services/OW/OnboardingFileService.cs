@@ -11,6 +11,7 @@ using FlowFlex.Application.Contracts;
 using FlowFlex.Application.Contracts.Dtos;
 using FlowFlex.Domain.Shared.Enums;
 using System.IO;
+using System.Net.Http;
 using Item.Common.Lib.Common;
 using FlowFlex.Application.Contracts.IServices.OW;
 using FlowFlex.Domain.Shared.Exceptions;
@@ -34,6 +35,8 @@ namespace FlowFlex.Application.Services.OW
         private readonly ILogger<OnboardingFileService> _logger;
         private readonly UserContext _userContext;
         private readonly IOperatorContextService _operatorContextService;
+        private readonly IHttpClientFactory _httpClientFactory;
+        private readonly IFileImportTaskService _fileImportTaskService;
 
         public OnboardingFileService(
             IOnboardingFileRepository onboardingFileRepository,
@@ -45,7 +48,9 @@ namespace FlowFlex.Application.Services.OW
             IMapper mapper,
             ILogger<OnboardingFileService> logger,
             UserContext userContext,
-            IOperatorContextService operatorContextService)
+            IOperatorContextService operatorContextService,
+            IHttpClientFactory httpClientFactory,
+            IFileImportTaskService fileImportTaskService)
         {
             _onboardingFileRepository = onboardingFileRepository;
 
@@ -57,6 +62,8 @@ namespace FlowFlex.Application.Services.OW
             _logger = logger;
             _userContext = userContext;
             _operatorContextService = operatorContextService;
+            _httpClientFactory = httpClientFactory;
+            _fileImportTaskService = fileImportTaskService;
         }
 
         /// <summary>
@@ -141,8 +148,8 @@ namespace FlowFlex.Application.Services.OW
                     Tags = input.Tags,
                     AccessUrl = attachment.AccessUrl,
                     StoragePath = attachment.AccessUrl,
-                    UploadedById = _userContext.UserId,
-                    UploadedByName = _userContext.UserName,
+                    UploadedById = input.OverrideUploaderId ?? _userContext.UserId,
+                    UploadedByName = input.OverrideUploaderName ?? _userContext.UserName,
                     UploadedDate = DateTimeOffset.UtcNow,
                     Status = "Active",
                     Version = 1,
@@ -634,6 +641,206 @@ namespace FlowFlex.Application.Services.OW
             int i = (int)Math.Floor(Math.Log(bytes) / Math.Log(1024));
 
             return Math.Round(bytes / Math.Pow(1024, i), 2) + " " + sizes[i];
+        }
+
+        /// <summary>
+        /// Import files from external URLs (e.g., OSS links)
+        /// Downloads files from provided URLs and saves them as onboarding files
+        /// </summary>
+        public async Task<ImportFilesResultDto> ImportFilesFromUrlAsync(ImportFilesFromUrlInputDto input)
+        {
+            var result = new ImportFilesResultDto
+            {
+                TotalCount = input.Files?.Count ?? 0,
+                SuccessCount = 0,
+                FailedCount = 0,
+                Items = new List<ImportFileProgressItemDto>()
+            };
+
+            if (input.Files == null || input.Files.Count == 0)
+            {
+                _logger.LogWarning("No files to import for OnboardingId {OnboardingId}", input.OnboardingId);
+                return result;
+            }
+
+            var httpClient = _httpClientFactory.CreateClient();
+            httpClient.Timeout = TimeSpan.FromMinutes(10); // Set timeout for large files
+
+            foreach (var fileItem in input.Files)
+            {
+                var progressItem = new ImportFileProgressItemDto
+                {
+                    DownloadLink = fileItem.DownloadLink,
+                    FileName = fileItem.FileName,
+                    Status = "Downloading",
+                    ProgressPercentage = 0
+                };
+                result.Items.Add(progressItem);
+
+                try
+                {
+                    // Extract filename from URL if not provided
+                    if (string.IsNullOrEmpty(progressItem.FileName))
+                    {
+                        progressItem.FileName = ExtractFileNameFromUrl(fileItem.DownloadLink);
+                    }
+
+                    _logger.LogInformation("Starting download: {FileName} from {Url}", progressItem.FileName, fileItem.DownloadLink);
+
+                    // Download file from URL
+                    progressItem.Status = "Downloading";
+                    progressItem.ProgressPercentage = 10;
+
+                    using var response = await httpClient.GetAsync(fileItem.DownloadLink, HttpCompletionOption.ResponseHeadersRead);
+                    response.EnsureSuccessStatusCode();
+
+                    progressItem.ProgressPercentage = 30;
+
+                    // Get content type from response
+                    var contentType = response.Content.Headers.ContentType?.MediaType ?? "application/octet-stream";
+                    var contentLength = response.Content.Headers.ContentLength ?? 0;
+
+                    // Read file content to memory stream
+                    using var contentStream = await response.Content.ReadAsStreamAsync();
+                    using var memoryStream = new MemoryStream();
+                    await contentStream.CopyToAsync(memoryStream);
+                    memoryStream.Position = 0;
+
+                    progressItem.Status = "Processing";
+                    progressItem.ProgressPercentage = 60;
+
+                    // Create IFormFile from downloaded content
+                    var formFile = new FormFile(memoryStream, 0, memoryStream.Length, "file", progressItem.FileName)
+                    {
+                        Headers = new HeaderDictionary(),
+                        ContentType = contentType
+                    };
+
+                    // Use existing upload method
+                    var uploadInput = new OnboardingFileInputDto
+                    {
+                        OnboardingId = input.OnboardingId,
+                        StageId = input.StageId,
+                        FormFile = formFile,
+                        Category = input.Category ?? "Document",
+                        Description = fileItem.Description ?? input.Description
+                    };
+
+                    progressItem.ProgressPercentage = 80;
+
+                    var uploadResult = await UploadFileAsync(uploadInput);
+
+                    progressItem.Status = "Success";
+                    progressItem.ProgressPercentage = 100;
+                    progressItem.FileId = uploadResult.Id;
+                    progressItem.FileOutput = uploadResult;
+                    result.SuccessCount++;
+
+                    _logger.LogInformation("Successfully imported file: {FileName}, FileId: {FileId}", progressItem.FileName, uploadResult.Id);
+                }
+                catch (HttpRequestException ex)
+                {
+                    progressItem.Status = "Failed";
+                    progressItem.ErrorMessage = $"Download failed: {ex.Message}";
+                    progressItem.ProgressPercentage = 0;
+                    result.FailedCount++;
+                    _logger.LogError(ex, "Failed to download file from {Url}: {ErrorMessage}", fileItem.DownloadLink, ex.Message);
+                }
+                catch (Exception ex)
+                {
+                    progressItem.Status = "Failed";
+                    progressItem.ErrorMessage = $"Import failed: {ex.Message}";
+                    progressItem.ProgressPercentage = 0;
+                    result.FailedCount++;
+                    _logger.LogError(ex, "Failed to import file {FileName}: {ErrorMessage}", progressItem.FileName, ex.Message);
+                }
+            }
+
+            _logger.LogInformation("Import completed: {SuccessCount}/{TotalCount} files imported successfully for OnboardingId {OnboardingId}",
+                result.SuccessCount, result.TotalCount, input.OnboardingId);
+
+            return result;
+        }
+
+        /// <summary>
+        /// Extract file name from URL
+        /// </summary>
+        private string ExtractFileNameFromUrl(string url)
+        {
+            try
+            {
+                if (string.IsNullOrEmpty(url))
+                    return $"file_{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}";
+
+                var uri = new Uri(url);
+                var path = uri.AbsolutePath;
+
+                // Get the last segment of the path
+                var fileName = Path.GetFileName(path);
+
+                // Remove any URL encoding
+                fileName = Uri.UnescapeDataString(fileName);
+
+                // If filename is empty or just an extension, generate one
+                if (string.IsNullOrEmpty(fileName) || fileName.StartsWith("."))
+                {
+                    fileName = $"file_{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}{fileName}";
+                }
+
+                // Clean up filename - remove query parameters that might be included
+                var queryIndex = fileName.IndexOf('?');
+                if (queryIndex > 0)
+                {
+                    fileName = fileName.Substring(0, queryIndex);
+                }
+
+                return fileName;
+            }
+            catch
+            {
+                return $"file_{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}";
+            }
+        }
+
+        /// <summary>
+        /// Start an async import task from external URLs
+        /// Returns immediately with task ID, import runs in background
+        /// </summary>
+        public async Task<StartImportTaskResponseDto> StartImportTaskAsync(ImportFilesFromUrlInputDto input, string createdBy)
+        {
+            return await _fileImportTaskService.StartImportTaskAsync(input, createdBy);
+        }
+
+        /// <summary>
+        /// Get import task progress by task ID
+        /// </summary>
+        public async Task<FileImportTaskDto> GetImportTaskProgressAsync(string taskId)
+        {
+            return await _fileImportTaskService.GetTaskProgressAsync(taskId);
+        }
+
+        /// <summary>
+        /// Get import tasks by onboarding ID and stage ID
+        /// </summary>
+        public async Task<List<FileImportTaskDto>> GetImportTasksByStageAsync(long onboardingId, long stageId)
+        {
+            return await _fileImportTaskService.GetTasksByOnboardingAndStageAsync(onboardingId, stageId);
+        }
+
+        /// <summary>
+        /// Cancel a specific file import item
+        /// </summary>
+        public async Task<CancelImportFileResponseDto> CancelImportItemAsync(string taskId, string itemId)
+        {
+            return await _fileImportTaskService.CancelImportItemAsync(taskId, itemId);
+        }
+
+        /// <summary>
+        /// Cancel all pending items in a task
+        /// </summary>
+        public async Task<CancelImportFileResponseDto> CancelAllPendingItemsAsync(string taskId)
+        {
+            return await _fileImportTaskService.CancelAllPendingItemsAsync(taskId);
         }
     }
 }

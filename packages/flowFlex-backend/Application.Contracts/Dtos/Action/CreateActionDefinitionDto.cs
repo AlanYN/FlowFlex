@@ -1,4 +1,5 @@
 ﻿using System.ComponentModel.DataAnnotations;
+using FlowFlex.Application.Contracts.Dtos.Integration;
 using FlowFlex.Domain.Shared.Enums.Action;
 
 namespace FlowFlex.Application.Contracts.Dtos.Action
@@ -61,9 +62,14 @@ namespace FlowFlex.Application.Contracts.Dtos.Action
         public bool IsAIGenerated { get; set; } = false;
 
         /// <summary>
-        /// Action trigger type scope (Stage, Task, Question, Workflow)
+        /// Action trigger type scope (Stage, Task, Question, Workflow, Integration)
         /// Defines where this action can be used or triggered
         /// </summary>
         public string ActionTriggerType { get; set; }
+
+        /// <summary>
+        /// Field mappings for Integration type actions
+        /// </summary>
+        public List<InboundFieldMappingInputDto>? FieldMappings { get; set; }
     }
 }

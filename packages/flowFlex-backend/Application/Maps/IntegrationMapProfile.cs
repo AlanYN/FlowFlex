@@ -1,0 +1,98 @@
+using AutoMapper;
+using FlowFlex.Application.Contracts.Dtos.Integration;
+using FlowFlex.Domain.Entities.Integration;
+using System.Text.Json;
+
+namespace FlowFlex.Application.Maps
+{
+    /// <summary>
+    /// Integration mapping profile
+    /// </summary>
+    public class IntegrationMapProfile : Profile
+    {
+        public IntegrationMapProfile()
+        {
+            // Integration mappings
+            CreateMap<Domain.Entities.Integration.Integration, IntegrationOutputDto>()
+                .ForMember(dest => dest.ConfiguredEntityTypes, opt => opt.Ignore())
+                .ForMember(dest => dest.ConfiguredEntityTypeNames, opt => opt.Ignore())
+                .ForMember(dest => dest.Credentials, opt => opt.Ignore())
+                .ForMember(dest => dest.Connection, opt => opt.Ignore())
+                .ForMember(dest => dest.EntityMappings, opt => opt.Ignore())
+                .ForMember(dest => dest.QuickLinks, opt => opt.Ignore())
+                .ForMember(dest => dest.InboundFieldMappings, opt => opt.Ignore())
+                .ForMember(dest => dest.OutboundFieldMappings, opt => opt.Ignore())
+                .ForMember(dest => dest.InboundAttachments, opt => opt.Ignore())
+                .ForMember(dest => dest.OutboundAttachments, opt => opt.Ignore())
+                .ForMember(dest => dest.LastDaysSeconds, opt => opt.Ignore());
+
+            CreateMap<IntegrationInputDto, Domain.Entities.Integration.Integration>()
+                .ForMember(dest => dest.Id, opt => opt.Ignore())
+                .ForMember(dest => dest.TenantId, opt => opt.Ignore())
+                .ForMember(dest => dest.EncryptedCredentials, opt => opt.Ignore())
+                .ForMember(dest => dest.ConfiguredEntityTypes, opt => opt.Ignore())
+                .ForMember(dest => dest.IsValid, opt => opt.Ignore())
+                .ForMember(dest => dest.CreateDate, opt => opt.Ignore())
+                .ForMember(dest => dest.ModifyDate, opt => opt.Ignore())
+                .ForMember(dest => dest.CreateBy, opt => opt.Ignore())
+                .ForMember(dest => dest.ModifyBy, opt => opt.Ignore())
+                .ForMember(dest => dest.CreateUserId, opt => opt.Ignore())
+                .ForMember(dest => dest.ModifyUserId, opt => opt.Ignore())
+                .ForMember(dest => dest.EntityMappings, opt => opt.Ignore())
+                .ForMember(dest => dest.IntegrationActions, opt => opt.Ignore())
+                .ForMember(dest => dest.QuickLinks, opt => opt.Ignore())
+                .ForMember(dest => dest.InboundAttachments, opt => opt.Ignore())
+                .ForMember(dest => dest.OutboundAttachments, opt => opt.Ignore());
+
+            // EntityMapping mappings
+            CreateMap<EntityMapping, EntityMappingOutputDto>()
+                .ForMember(dest => dest.WorkflowIds, opt => opt.Ignore());
+
+            CreateMap<EntityMappingInputDto, EntityMapping>()
+                .ForMember(dest => dest.Id, opt => opt.Ignore())
+                .ForMember(dest => dest.WorkflowIds, opt => opt.Ignore())
+                .ForMember(dest => dest.IsValid, opt => opt.Ignore())
+                .ForMember(dest => dest.CreateDate, opt => opt.Ignore())
+                .ForMember(dest => dest.ModifyDate, opt => opt.Ignore())
+                .ForMember(dest => dest.CreateBy, opt => opt.Ignore())
+                .ForMember(dest => dest.ModifyBy, opt => opt.Ignore())
+                .ForMember(dest => dest.CreateUserId, opt => opt.Ignore())
+                .ForMember(dest => dest.ModifyUserId, opt => opt.Ignore())
+                .ForMember(dest => dest.Integration, opt => opt.Ignore());
+
+            // InboundFieldMapping mappings
+            CreateMap<InboundFieldMapping, InboundFieldMappingOutputDto>()
+                .ForMember(dest => dest.WfeFieldName, opt => opt.MapFrom(src => src.WfeFieldId))
+                .ForMember(dest => dest.FieldType, opt => opt.MapFrom(src => src.FieldType.ToString()))
+                .ForMember(dest => dest.SyncDirection, opt => opt.MapFrom(src => src.SyncDirection.ToString()));
+
+            CreateMap<InboundFieldMappingInputDto, InboundFieldMapping>()
+                .ForMember(dest => dest.Id, opt => opt.Ignore())
+                .ForMember(dest => dest.IsValid, opt => opt.Ignore())
+                .ForMember(dest => dest.CreateDate, opt => opt.Ignore())
+                .ForMember(dest => dest.ModifyDate, opt => opt.Ignore())
+                .ForMember(dest => dest.CreateBy, opt => opt.Ignore())
+                .ForMember(dest => dest.ModifyBy, opt => opt.Ignore())
+                .ForMember(dest => dest.CreateUserId, opt => opt.Ignore())
+                .ForMember(dest => dest.ModifyUserId, opt => opt.Ignore());
+
+            // QuickLink mappings
+            CreateMap<QuickLink, QuickLinkOutputDto>()
+                .ForMember(dest => dest.UrlParameters, opt => opt.Ignore());
+
+            CreateMap<QuickLinkInputDto, QuickLink>()
+                .ForMember(dest => dest.Id, opt => opt.Ignore())
+                .ForMember(dest => dest.UrlParameters, opt => opt.Ignore())
+                .ForMember(dest => dest.IsValid, opt => opt.Ignore())
+                .ForMember(dest => dest.CreateDate, opt => opt.Ignore())
+                .ForMember(dest => dest.ModifyDate, opt => opt.Ignore())
+                .ForMember(dest => dest.CreateBy, opt => opt.Ignore())
+                .ForMember(dest => dest.ModifyBy, opt => opt.Ignore())
+                .ForMember(dest => dest.CreateUserId, opt => opt.Ignore())
+                .ForMember(dest => dest.ModifyUserId, opt => opt.Ignore())
+                .ForMember(dest => dest.Integration, opt => opt.Ignore());
+        }
+
+    }
+}
+

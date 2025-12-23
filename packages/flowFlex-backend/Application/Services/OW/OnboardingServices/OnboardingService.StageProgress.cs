@@ -5,7 +5,6 @@ using FlowFlex.Application.Contracts.Dtos.OW.Onboarding;
 using FlowFlex.Application.Contracts.Dtos.OW.Permission;
 using FlowFlex.Application.Contracts.IServices.Action;
 using FlowFlex.Application.Contracts.IServices.OW;
-using FlowFlex.Application.Contracts.IServices.OW;
 using FlowFlex.Application.Services.OW.Extensions;
 using FlowFlex.Domain.Entities.OW;
 using FlowFlex.Domain.Repository.OW;
@@ -238,11 +237,24 @@ namespace FlowFlex.Application.Services.OW
                         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
                         // Allow trailing commas and comments for JSONB compatibility
                         ReadCommentHandling = JsonCommentHandling.Skip,
-                        AllowTrailingCommas = true
+                        AllowTrailingCommas = true,
+                        // Allow reading numbers from string format (e.g., "stageId": "1234" -> long)
+                        NumberHandling = System.Text.Json.Serialization.JsonNumberHandling.AllowReadingFromString
                     };
 
+                    var jsonString = entity.StagesProgressJson.Trim();
+
+                    // Handle double-serialized JSON (e.g., "\"[{...}]\"" instead of "[{...}]")
+                    // This can happen when JSONB data is stored as escaped string
+                    if (jsonString.StartsWith("\"") && jsonString.EndsWith("\""))
+                    {
+                        // First deserialize to get the actual JSON string
+                        jsonString = JsonSerializer.Deserialize<string>(jsonString, options) ?? "[]";
+                        LoggingExtensions.WriteLine($"[DEBUG] LoadStagesProgressFromJson - Unwrapped double-serialized JSON");
+                    }
+
                     entity.StagesProgress = JsonSerializer.Deserialize<List<OnboardingStageProgress>>(
-                        entity.StagesProgressJson, options) ?? new List<OnboardingStageProgress>();
+                        jsonString, options) ?? new List<OnboardingStageProgress>();
 
                     // Debug: Show loaded data
                     LoggingExtensions.WriteLine($"[DEBUG] LoadStagesProgressFromJson - Loaded {entity.StagesProgress.Count} items:");

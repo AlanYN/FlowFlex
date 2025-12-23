@@ -360,28 +360,6 @@ const getJumpTargetSectionId = (section: any, answers: any): string | null => {
 // ==================== 跳过逻辑处理 ====================
 
 /**
- * 跳过类型枚举
- */
-enum SkipType {
-	SECTION = 'section',
-	QUESTION = 'question',
-}
-
-/**
- * 跳过规则接口定义（为未来扩展准备）
- */
-interface SkipRule {
-	type: SkipType;
-	sourceId: string; // 触发跳过的问题ID
-	targetId: string; // 跳过的目标ID（section ID 或 question ID）
-	condition?: any; // 跳过条件（可选，为未来扩展）
-}
-
-// 避免未使用警告，这是为未来扩展准备的接口
-// eslint-disable-next-line @typescript-eslint/no-unused-vars, vue/no-unused-vars
-type SkipRuleType = SkipRule;
-
-/**
  * 获取所有被跳过的问题ID集合
  * @param questionnaireData 问卷数据
  * @param answers 用户答案
@@ -395,7 +373,7 @@ const getSkippedQuestions = (questionnaireData: any, answers: any): Set<string> 
 	}
 
 	// 过滤掉默认section
-	const validSections = questionnaireData.sections.filter((section) => !section.isDefault);
+	const validSections = questionnaireData.sections;
 
 	// 处理section级别的跳过逻辑
 	const sectionSkippedQuestions = processSectionSkips(validSections, answers);
@@ -479,7 +457,27 @@ const processSectionSkips = (validSections: any[], answers: any): Set<string> =>
 };
 
 /**
- * 处理问题级别的跳过逻辑（为未来扩展准备）
+ * 添加被跳过的问题到集合中（辅助函数）
+ */
+const addSkippedQuestions = (
+	skippedQuestions: Set<string>,
+	questions: any[],
+	startIndex: number,
+	endIndex: number
+) => {
+	for (let i = startIndex; i < endIndex; i++) {
+		const question = questions[i];
+		if (question && question.type !== 'page_break') {
+			const questionId = getQuestionId(question);
+			if (questionId) {
+				skippedQuestions.add(questionId);
+			}
+		}
+	}
+};
+
+/**
+ * 处理问题级别的跳过逻辑（基于 jumpRules 中的 targetQuestionId）
  * @param validSections 有效的section数组
  * @param answers 用户答案
  * @returns 被跳过的问题ID集合
@@ -487,48 +485,61 @@ const processSectionSkips = (validSections: any[], answers: any): Set<string> =>
 const processQuestionSkips = (validSections: any[], answers: any): Set<string> => {
 	const skippedQuestions = new Set<string>();
 
-	// 遍历所有问题，检查是否有问题级别的跳过规则
-	validSections.forEach((section) => {
+	validSections.forEach((section, sectionIndex) => {
 		if (!section.questions) return;
 
-		section.questions.forEach((question: any) => {
-			if (question.type === 'page_break') return;
+		section.questions.forEach((question: any, questionIndex: number) => {
+			// 只处理单选题的问题级别跳转
+			if (
+				question.type !== 'multiple_choice' ||
+				!question.jumpRules?.length ||
+				!question.options
+			) {
+				return;
+			}
 
-			// 检查问题是否有跳过规则（为未来扩展准备）
-			if (question.skipRules && Array.isArray(question.skipRules)) {
-				const questionId = getQuestionId(question);
-				const userAnswer = findUserAnswer(answers, questionId);
+			const questionId = getQuestionId(question);
+			const userAnswer = findUserAnswer(answers, questionId);
+			if (!isAnswerValid(userAnswer)) return;
 
-				if (isAnswerValid(userAnswer)) {
-					// 查找匹配的跳过规则
-					const matchingSkipRule = question.skipRules.find((rule: any) => {
-						// 这里可以根据具体的跳过规则逻辑进行匹配
-						// 目前为占位符实现，未来可以扩展
-						return rule.condition && evaluateSkipCondition(rule.condition, userAnswer);
-					});
+			const matchingRule = findMatchingJumpRule(question, userAnswer);
+			if (!matchingRule?.targetQuestionId) return;
 
-					if (matchingSkipRule && matchingSkipRule.type === SkipType.QUESTION) {
-						// 将目标问题加入跳过集合
-						skippedQuestions.add(matchingSkipRule.targetId);
-					}
-				}
+			const targetSectionIndex = findTargetSectionIndex(
+				validSections,
+				matchingRule.targetSectionId
+			);
+			if (targetSectionIndex === -1) return;
+
+			const targetSection = validSections[targetSectionIndex];
+			const targetQuestionIndex = targetSection?.questions?.findIndex(
+				(q: any) =>
+					q.id === matchingRule.targetQuestionId ||
+					q.temporaryId === matchingRule.targetQuestionId
+			);
+			if (targetQuestionIndex === -1) return;
+
+			// 统一处理：先跳过当前section剩余问题
+			addSkippedQuestions(
+				skippedQuestions,
+				section.questions,
+				questionIndex + 1,
+				sectionIndex === targetSectionIndex ? targetQuestionIndex : section.questions.length
+			);
+
+			// 跨section时，跳过目标section前面的问题
+			if (sectionIndex !== targetSectionIndex) {
+				addSkippedQuestions(
+					skippedQuestions,
+					targetSection.questions,
+					0,
+					targetQuestionIndex
+				);
 			}
 		});
 	});
 
 	return skippedQuestions;
-};
-
-/**
- * 评估跳过条件（为未来扩展准备）
- * @param condition 跳过条件
- * @param userAnswer 用户答案
- * @returns 是否满足跳过条件
- */
-const evaluateSkipCondition = (condition: any, userAnswer: any): boolean => {
-	// 这里是占位符实现，未来可以根据具体需求扩展
-	// 例如：condition.value === userAnswer.answer
-	return false;
 };
 
 // ==================== 基于问题的进度计算 ====================
@@ -577,7 +588,6 @@ const completionStats = computed(() => {
 
 	// 获取被跳过的问题集合（使用混合数据源）
 	const skippedQuestions = getSkippedQuestions(questionnaireData, answers);
-
 	// 统计各种类型的问题数量
 	let totalQuestions = allQuestions.length;
 	let answeredQuestions = 0;

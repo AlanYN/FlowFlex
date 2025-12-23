@@ -247,9 +247,10 @@ namespace FlowFlex.Application.Contracts.IServices.OW
         /// <param name="workflowId">Workflow ID</param>
         /// <param name="workflowName">Workflow name</param>
         /// <param name="workflowDescription">Workflow description</param>
+        /// <param name="afterData">After change data (JSON string with workflow fields)</param>
         /// <param name="extendedData">Extended data</param>
         /// <returns>Whether successful</returns>
-        Task<bool> LogWorkflowCreateAsync(long workflowId, string workflowName, string workflowDescription = null, string extendedData = null);
+        Task<bool> LogWorkflowCreateAsync(long workflowId, string workflowName, string workflowDescription = null, string afterData = null, string extendedData = null);
 
         /// <summary>
         /// Log workflow update operation
@@ -322,9 +323,10 @@ namespace FlowFlex.Application.Contracts.IServices.OW
         /// <param name="stageId">Stage ID</param>
         /// <param name="stageName">Stage name</param>
         /// <param name="workflowId">Workflow ID</param>
+        /// <param name="afterData">After data (optional, for displaying creation details like ViewPermissionMode)</param>
         /// <param name="extendedData">Extended data</param>
         /// <returns>Whether successful</returns>
-        Task<bool> LogStageCreateAsync(long stageId, string stageName, long? workflowId = null, string extendedData = null);
+        Task<bool> LogStageCreateAsync(long stageId, string stageName, long? workflowId = null, string afterData = null, string extendedData = null);
 
         /// <summary>
         /// Log stage update operation
@@ -371,9 +373,10 @@ namespace FlowFlex.Application.Contracts.IServices.OW
         /// </summary>
         /// <param name="checklistId">Checklist ID</param>
         /// <param name="checklistName">Checklist name</param>
+        /// <param name="afterData">After change data (JSON string with all checklist fields)</param>
         /// <param name="extendedData">Extended data</param>
         /// <returns>Whether successful</returns>
-        Task<bool> LogChecklistCreateAsync(long checklistId, string checklistName, string extendedData = null);
+        Task<bool> LogChecklistCreateAsync(long checklistId, string checklistName, string afterData = null, string extendedData = null);
 
         /// <summary>
         /// Log checklist update operation
@@ -403,9 +406,10 @@ namespace FlowFlex.Application.Contracts.IServices.OW
         /// <param name="taskId">Task ID</param>
         /// <param name="taskName">Task name</param>
         /// <param name="checklistId">Checklist ID</param>
+        /// <param name="afterData">After change data (JSON string with task fields)</param>
         /// <param name="extendedData">Extended data</param>
         /// <returns>Whether successful</returns>
-        Task<bool> LogChecklistTaskCreateAsync(long taskId, string taskName, long checklistId, string extendedData = null);
+        Task<bool> LogChecklistTaskCreateAsync(long taskId, string taskName, long checklistId, string afterData = null, string extendedData = null);
 
         /// <summary>
         /// Log checklist task update operation
@@ -440,9 +444,10 @@ namespace FlowFlex.Application.Contracts.IServices.OW
         /// </summary>
         /// <param name="questionnaireId">Questionnaire ID</param>
         /// <param name="questionnaireName">Questionnaire name</param>
+        /// <param name="afterData">After data (questionnaire JSON)</param>
         /// <param name="extendedData">Extended data</param>
         /// <returns>Whether successful</returns>
-        Task<bool> LogQuestionnaireCreateAsync(long questionnaireId, string questionnaireName, string extendedData = null);
+        Task<bool> LogQuestionnaireCreateAsync(long questionnaireId, string questionnaireName, string afterData = null, string extendedData = null);
 
         /// <summary>
         /// Log questionnaire update operation

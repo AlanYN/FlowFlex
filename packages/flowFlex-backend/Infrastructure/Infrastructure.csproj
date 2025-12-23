@@ -11,8 +11,8 @@
     <PackageReference Include="Asp.Versioning.Mvc" Version="8.0.0" />
     <PackageReference Include="Asp.Versioning.Mvc.ApiExplorer" Version="8.0.0" />
     <PackageReference Include="AWS.MSK.Auth" Version="1.0.0" />
-    <PackageReference Include="AWSSDK.Core" Version="4.0.0.14" />
-    <PackageReference Include="AWSSDK.S3" Version="3.7.305.31" />
+    <PackageReference Include="AWSSDK.Core" Version="3.7.401" />
+    <PackageReference Include="AWSSDK.S3" Version="3.7.406" />
     <PackageReference Include="Item.Common.Lib" Version="8.0.6">
       <GeneratePathProperty>true</GeneratePathProperty>
     </PackageReference>

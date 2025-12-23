@@ -260,14 +260,14 @@ namespace FlowFlex.WebApi.Controllers.AI
                         Description = "Industry-leading large language models from OpenAI. GPT-4o is the flagship model with 128K context. Default uses Item Gateway (prefix required: openai/model-name). For official API, use model name directly.",
                         Website = "https://openai.com",
                         DefaultBaseUrl = "https://aiop-gateway.item.com",
-                        SupportedModels = new[] { 
-                            "gpt-4o", 
-                            "gpt-4o-mini", 
-                            "gpt-4-turbo", 
-                            "gpt-4", 
-                            "gpt-3.5-turbo", 
-                            "o1-preview", 
-                            "o1-mini" 
+                        SupportedModels = new[] {
+                            "gpt-4o",
+                            "gpt-4o-mini",
+                            "gpt-4-turbo",
+                            "gpt-4",
+                            "gpt-3.5-turbo",
+                            "o1-preview",
+                            "o1-mini"
                         }
                     },
 

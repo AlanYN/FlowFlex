@@ -31,7 +31,7 @@ namespace FlowFlex.Application.Contracts.IServices.OW
         /// <summary>
         /// Get onboarding by ID
         /// </summary>
-        Task<OnboardingOutputDto> GetByIdAsync(long id);
+        Task<OnboardingOutputDto?> GetByIdAsync(long id);
 
         /// <summary>
         /// Query onboarding with pagination
@@ -162,5 +162,13 @@ namespace FlowFlex.Application.Contracts.IServices.OW
         /// <param name="id">Onboarding ID</param>
         /// <returns>Tree structure with authorized teams and users</returns>
         Task<List<UserTreeNodeDto>> GetAuthorizedUsersAsync(long id);
+
+        /// <summary>
+        /// Get all active onboardings by System ID
+        /// Returns all onboarding records where SystemId matches and IsActive is true
+        /// </summary>
+        /// <param name="systemId">External system identifier</param>
+        /// <returns>List of active onboarding records</returns>
+        Task<List<OnboardingOutputDto>> GetActiveBySystemIdAsync(string systemId);
     }
 }

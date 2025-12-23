@@ -14,7 +14,7 @@ export function removeUrlParams(
 	updateRouter = true
 ): void {
 	const url = new URL(window.location.href);
-
+	const oldUrl = window.location.href;
 	paramsToRemove.forEach((param) => {
 		url.searchParams.delete(param);
 	});
@@ -25,7 +25,8 @@ export function removeUrlParams(
 	} else {
 		window.history.pushState({}, document.title, url.toString());
 	}
-	window.location.href = window.location.origin;
+	if (url.href.toString() === oldUrl) return;
+	window.location.href = url.toString();
 }
 
 /**
@@ -33,7 +34,11 @@ export function removeUrlParams(
  * @param replaceHistory 是否替换当前历史记录（默认true）
  * @param updateRouter 是否同时更新Vue Router（默认true）
  */
-export function removeIdmParams(replaceHistory = true, updateRouter = true): void {
-	const idmParams = ['ticket', 'oauth', 'userId', 'state', 'code'];
+export function removeIdmParams(
+	replaceHistory = true,
+	updateRouter = true,
+	removeParams: string[] = []
+): void {
+	const idmParams = ['ticket', 'oauth', 'userId', 'state', 'code', ...removeParams];
 	removeUrlParams(idmParams, replaceHistory, updateRouter);
 }

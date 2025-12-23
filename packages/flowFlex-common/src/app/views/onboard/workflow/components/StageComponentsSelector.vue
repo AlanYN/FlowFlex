@@ -31,7 +31,7 @@
 								>
 									<el-checkbox
 										:model-value="isFieldSelected(field.vIfKey)"
-										@change="(checked) => toggleField(field.vIfKey, checked)"
+										@change="(checked) => toggleField(field.vIfKey, !!checked)"
 										:id="`field-${field.vIfKey}`"
 										size="small"
 									/>
@@ -88,7 +88,7 @@
 									<el-checkbox
 										:model-value="isChecklistSelected(checklist.id)"
 										@change="
-											(checked) => toggleChecklist(checklist.id, checked)
+											(checked) => toggleChecklist(checklist.id, !!checked)
 										"
 										:id="`checklist-${checklist.id}`"
 										size="small"
@@ -132,7 +132,7 @@
 										:model-value="isQuestionnaireSelected(questionnaire.id)"
 										@change="
 											(checked) =>
-												toggleQuestionnaire(questionnaire.id, checked)
+												toggleQuestionnaire(questionnaire.id, !!checked)
 										"
 										:id="`questionnaire-${questionnaire.id}`"
 										size="small"
@@ -164,18 +164,62 @@
 					</div>
 				</div>
 
+				<!-- Quick Links -->
+				<div class="space-y-2 mt-4">
+					<label class="text-base font-bold">Quick Links</label>
+					<p class="text-sm">
+						Select external system links that users can access from this stage
+					</p>
+					<div class="border rounded-xl">
+						<el-scrollbar max-height="160px">
+							<div class="p-2">
+								<template v-for="quick in quickLinks" :key="quick.id">
+									<div class="flex items-center space-x-2 py-1">
+										<el-checkbox
+											:model-value="isQuickLinkSelected(quick.id || '')"
+											@change="
+												(checked) =>
+													toggleQuickLink(quick.id || '', !!checked)
+											"
+											:id="`${quick.id}`"
+											size="small"
+										/>
+										<div class="flex-1 min-w-0">
+											<label
+												:for="`${quick.id}`"
+												class="text-sm font-medium cursor-pointer block truncate"
+											>
+												{{ quick.linkName }}
+											</label>
+										</div>
+									</div>
+									<div class="ml-5 text-xs text-text-secondary truncate">
+										{{ quick.description || defaultStr }}
+									</div>
+									<div v-if="questionnaires.length === 0">
+										<el-empty
+											description="No questionnaires found"
+											:image-size="30"
+										/>
+									</div>
+								</template>
+							</div>
+						</el-scrollbar>
+					</div>
+				</div>
+
 				<!-- File Management -->
 				<div class="space-y-2 mt-4">
 					<label class="text-base font-bold">File Management</label>
 					<p class="text-sm">Enable file upload and attachment functionality</p>
-					<div class="flex items-center space-x-2 p-2 rounded-xl bg-primary-50">
+					<div class="flex items-center space-x-2 p-2 rounded-xl bg-black-400">
 						<el-switch
 							:model-value="getFileComponent().isEnabled"
-							@change="(val) => toggleFileComponent(val)"
+							@change="(val) => toggleFileComponent(!!val)"
 							id="file-management"
 							size="small"
 						/>
-						<div class="flex-1 min-w-0 dark:text-black-400">
+						<div class="flex-1 min-w-0">
 							<label
 								for="file-management"
 								class="text-sm leading-none font-medium cursor-pointer block truncate"
@@ -191,15 +235,15 @@
 					<!-- Attachment Management Needed -->
 					<div
 						v-if="getFileComponent().isEnabled"
-						class="flex items-center space-x-2 p-2 border rounded-xl border-primary-200 bg-primary-50 mt-2"
+						class="flex items-center space-x-2 p-2 border rounded-xl bg-black-400 mt-2"
 					>
 						<el-switch
 							:model-value="props.modelValue.attachmentManagementNeeded || false"
-							@change="(val) => updateAttachmentManagementNeeded(val)"
+							@change="(val) => updateAttachmentManagementNeeded(!!val)"
 							id="attachment-management-needed"
 							size="small"
 						/>
-						<div class="flex-1 min-w-0 dark:text-black-400">
+						<div class="flex-1 min-w-0">
 							<label
 								for="attachment-management-needed"
 								class="text-sm leading-none font-medium cursor-pointer block truncate"
@@ -355,6 +399,7 @@ import {
 	QuestionFilled,
 	FolderOpened,
 	ArrowDown,
+	Link,
 } from '@element-plus/icons-vue';
 import GripVertical from '@assets/svg/workflow/grip-vertical.svg';
 import draggable from 'vuedraggable';
@@ -369,14 +414,17 @@ import {
 	Checklist,
 	Questionnaire,
 } from '#/onboard';
+import { IQuickLink } from '#/integration';
 
 import { StageComponentPortal } from '@/enums/appEnum';
+import { defaultStr } from '@/settings/projectSetting';
 
 // Props
 const props = defineProps<{
 	modelValue: ComponentsData;
 	checklists: Checklist[];
 	questionnaires: Questionnaire[];
+	quickLinks: IQuickLink[];
 }>();
 
 // Emits
@@ -454,6 +502,8 @@ const getFieldsComponent = (): StageComponentData => {
 			staticFields: [],
 			checklistIds: [],
 			questionnaireIds: [],
+			quickLinkIds: [],
+			quickLinkNames: [],
 			customerPortalAccess: StageComponentPortal.Hidden,
 		}
 	);
@@ -471,6 +521,11 @@ const getQuestionnaireComponents = (): StageComponentData[] => {
 	return components.filter((c) => c.key === 'questionnaires');
 };
 
+const getQuickLinkComponents = (): StageComponentData[] => {
+	const components = props.modelValue.components || [];
+	return components.filter((c) => c.key === 'quickLink');
+};
+
 const getFileComponent = (): StageComponentData => {
 	const components = props.modelValue.components || [];
 	return (
@@ -481,6 +536,8 @@ const getFileComponent = (): StageComponentData => {
 			staticFields: [],
 			checklistIds: [],
 			questionnaireIds: [],
+			quickLinkIds: [],
+			quickLinkNames: [],
 		}
 	);
 };
@@ -501,6 +558,8 @@ const updateComponent = (key: string, updates: Partial<StageComponentData>) => {
 			checklistIds: [],
 			questionnaireIds: [],
 			checklistNames: [],
+			quickLinkIds: [],
+			quickLinkNames: [],
 			questionnaireNames: [],
 		};
 		newComponents.push({ ...defaultComponent, ...updates });
@@ -554,6 +613,11 @@ const isQuestionnaireSelected = (questionnaireId: string): boolean => {
 	return questionnaireComponents.some((c) => c.questionnaireIds.includes(questionnaireId));
 };
 
+const isQuickLinkSelected = (quickLinkId: string): boolean => {
+	const quickLinkComponents = getQuickLinkComponents();
+	return quickLinkComponents.some((c) => c.quickLinkIds.includes(quickLinkId));
+};
+
 const toggleField = (fieldKey: string, checked: boolean) => {
 	const fieldsComponent = getFieldsComponent();
 	const newStaticFields = [...fieldsComponent.staticFields];
@@ -592,9 +656,11 @@ const toggleChecklist = (checklistId: string, checked: boolean) => {
 				isEnabled: true,
 				staticFields: [],
 				checklistIds: [checklistId],
-				questionnaireIds: [],
 				checklistNames: [checklistName],
+				questionnaireIds: [],
 				questionnaireNames: [],
+				quickLinkIds: [],
+				quickLinkNames: [],
 				customerPortalAccess: StageComponentPortal.Hidden,
 			};
 			addComponentItem(newComponent);
@@ -623,6 +689,8 @@ const toggleQuestionnaire = (questionnaireId: string, checked: boolean) => {
 				checklistIds: [],
 				questionnaireIds: [questionnaireId],
 				checklistNames: [],
+				quickLinkIds: [],
+				quickLinkNames: [],
 				questionnaireNames: [questionnaireName],
 				customerPortalAccess: StageComponentPortal.Hidden,
 			};
@@ -633,6 +701,35 @@ const toggleQuestionnaire = (questionnaireId: string, checked: boolean) => {
 		removeComponentItem(
 			(c) => c.key === 'questionnaires' && c.questionnaireIds.includes(questionnaireId)
 		);
+	}
+};
+
+const toggleQuickLink = (quickLinkId: string, checked: boolean) => {
+	if (checked) {
+		// 检查是否已经存在
+		if (!isQuickLinkSelected(quickLinkId)) {
+			// 获取quickLink名称
+			const quickLink = props.quickLinks.find((q) => q.id === quickLinkId);
+			const quickLinkName = quickLink ? quickLink.linkName : '';
+			const newOrder = (props.modelValue.components || []).length + 1;
+			const newComponent: StageComponentData = {
+				key: 'quickLink',
+				order: newOrder,
+				isEnabled: true,
+				staticFields: [],
+				checklistIds: [],
+				checklistNames: [],
+				questionnaireIds: [],
+				questionnaireNames: [],
+				quickLinkIds: [quickLinkId],
+				quickLinkNames: [quickLinkName],
+				customerPortalAccess: StageComponentPortal.Hidden,
+			};
+			addComponentItem(newComponent);
+		}
+	} else {
+		// 删除包含该quickLinkId的组件
+		removeComponentItem((c) => c.key === 'quickLink' && c.quickLinkIds.includes(quickLinkId));
 	}
 };
 
@@ -818,6 +915,27 @@ const updateItemsDisplay = () => {
 						customerPortalAccess: getValidPortalAccess(component?.customerPortalAccess),
 					});
 					break;
+				case 'quickLink':
+					// Quick Link 保持显示为一个模块
+					component.quickLinkIds.forEach((quick, index) => {
+						const quickLink = props.quickLinks.find((q) => q.id === quick);
+						const quickLinkName = quickLink?.linkName || 'Unknown Quick Link';
+						const quickLinkDescription = quickLink?.description || '';
+
+						newSelectedItems.push({
+							...component,
+							id: `quickLink-${quick}`,
+							name: quickLinkName,
+							description: quickLinkDescription,
+							type: 'quickLink',
+							order: component.order,
+							key: quick,
+							customerPortalAccess: getValidPortalAccess(
+								component?.customerPortalAccess
+							),
+						});
+					});
+					break;
 			}
 		}
 	});
@@ -879,6 +997,8 @@ const updateItemOrder = () => {
 				staticFields: [],
 				checklistIds: [item.key],
 				questionnaireIds: [],
+				quickLinkIds: [],
+				quickLinkNames: [],
 				customerPortalAccess: item?.customerPortalAccess,
 			});
 		} else if (item.type === 'questionnaires') {
@@ -891,6 +1011,8 @@ const updateItemOrder = () => {
 				staticFields: [],
 				checklistIds: [],
 				questionnaireIds: [item.key],
+				quickLinkIds: [],
+				quickLinkNames: [],
 				customerPortalAccess: item?.customerPortalAccess,
 			});
 		} else if (item.type === 'files') {
@@ -899,6 +1021,20 @@ const updateItemOrder = () => {
 			newComponents.push({
 				...existingFileComponent,
 				order,
+				customerPortalAccess: item?.customerPortalAccess,
+			});
+		} else if (item.type === 'quickLink') {
+			// 为每个quickLink项创建一个组件
+			newComponents.push({
+				...item,
+				key: 'quickLink',
+				order,
+				isEnabled: true,
+				staticFields: [],
+				checklistIds: [],
+				questionnaireIds: [],
+				quickLinkIds: [item.key],
+				quickLinkNames: [],
 				customerPortalAccess: item?.customerPortalAccess,
 			});
 		}
@@ -919,6 +1055,8 @@ const getItemIcon = (type: string) => {
 			return QuestionFilled;
 		case 'files':
 			return FolderOpened;
+		case 'quickLink':
+			return Link;
 		default:
 			return Document;
 	}
@@ -934,6 +1072,8 @@ const getItemTypeLabel = (type: string) => {
 			return 'Questionnaire';
 		case 'files':
 			return 'File';
+		case 'quickLink':
+			return 'Quick Link';
 		default:
 			return 'Unknown';
 	}

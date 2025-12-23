@@ -17,6 +17,8 @@ export interface JumpRule {
 	optionLabel: string; // 选项文本
 	targetSectionId: string; // 目标小节ID
 	targetSectionName: string; // 目标小节名称
+	targetQuestionId?: string; // 目标问题ID（新增：支持跳转到具体问题）
+	targetQuestionName?: string; // 目标问题名称（新增：支持跳转到具体问题）
 }
 
 export interface QuestionWithJumpRules {

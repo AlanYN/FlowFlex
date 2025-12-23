@@ -62,4 +62,16 @@
     <ProjectReference Include="..\SqlSugarDB\SqlSugarDB.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Update="Controllers\Integration\Inbound Attachment Integration Protocol.md">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="Controllers\Integration\Outbound Attachment Integration Protocol.md">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>   
+    <None Update="Data\static-field.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
 </Project>

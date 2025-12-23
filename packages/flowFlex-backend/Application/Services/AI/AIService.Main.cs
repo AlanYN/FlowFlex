@@ -571,7 +571,7 @@ namespace FlowFlex.Application.Services.AI
                 _logger.LogInformation("OpenAI Request - Model: {Model}, BaseUrl: {BaseUrl}", model, baseUrl);
 
                 // Check if using Item Gateway
-                var isItemGateway = !string.IsNullOrEmpty(baseUrl) && 
+                var isItemGateway = !string.IsNullOrEmpty(baseUrl) &&
                                   baseUrl.Contains("aiop-gateway.item.com", StringComparison.OrdinalIgnoreCase);
 
                 if (isItemGateway)
@@ -692,7 +692,7 @@ namespace FlowFlex.Application.Services.AI
                 _logger.LogInformation("Gemini Request - Model: {Model}, BaseUrl: {BaseUrl}", model, baseUrl);
 
                 // Check if using Item Gateway
-                var isItemGateway = !string.IsNullOrEmpty(baseUrl) && 
+                var isItemGateway = !string.IsNullOrEmpty(baseUrl) &&
                                   baseUrl.Contains("aiop-gateway.item.com", StringComparison.OrdinalIgnoreCase);
 
                 if (isItemGateway)

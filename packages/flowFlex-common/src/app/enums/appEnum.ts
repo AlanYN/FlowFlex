@@ -202,6 +202,7 @@ export enum TriggerTypeEnum {
 	Task = 'Task',
 	Questionnaire = 'Question',
 	Workflow = 'Workflow',
+	Integration = 'Integration',
 }
 
 export enum WFEMoudels {
@@ -210,6 +211,7 @@ export enum WFEMoudels {
 	Checklist = 3,
 	Questionnaire = 4,
 	ChecklistTask = 5,
+	Onboarding = 6,
 }
 
 export enum StageComponentPortal {

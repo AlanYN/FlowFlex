@@ -39,11 +39,19 @@ namespace FlowFlex.Application.Contracts
         Task<bool> FileExistsAsync(string filePath);
 
         /// <summary>
-        /// Get file access URL
+        /// Get file access URL (synchronous)
         /// </summary>
         /// <param name="filePath">File path</param>
         /// <returns>Access URL</returns>
         string GetFileUrl(string filePath);
+
+        /// <summary>
+        /// Get file access URL asynchronously
+        /// For cloud storage, this generates a real-time signed URL that won't expire immediately
+        /// </summary>
+        /// <param name="filePath">File path</param>
+        /// <returns>Access URL (signed URL for cloud storage)</returns>
+        Task<string> GetFileUrlAsync(string filePath);
 
         /// <summary>
         /// Validate file

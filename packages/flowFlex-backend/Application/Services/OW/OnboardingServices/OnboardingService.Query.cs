@@ -5,7 +5,6 @@ using FlowFlex.Application.Contracts.Dtos.OW.Onboarding;
 using FlowFlex.Application.Contracts.Dtos.OW.Permission;
 using FlowFlex.Application.Contracts.IServices.Action;
 using FlowFlex.Application.Contracts.IServices.OW;
-using FlowFlex.Application.Contracts.IServices.OW;
 using FlowFlex.Application.Services.OW.Extensions;
 using FlowFlex.Domain.Entities.OW;
 using FlowFlex.Domain.Repository.OW;
@@ -34,6 +33,7 @@ using System.Text;
 using System.Text.Json;
 using PermissionOperationType = FlowFlex.Domain.Shared.Enums.Permission.OperationTypeEnum;
 using FlowFlex.Application.Contracts.Dtos.OW.User;
+using Microsoft.Extensions.Logging;
 
 
 namespace FlowFlex.Application.Services.OW
@@ -283,6 +283,7 @@ namespace FlowFlex.Application.Services.OW
                             // Get user teams once (avoid repeated calls)
                             var userTeams = _permissionService.GetUserTeamIds();
                             var userTeamLongs = userTeams?.Select(t => long.TryParse(t, out var tid) ? tid : 0).Where(t => t > 0).ToList() ?? new List<long>();
+                            var userIdString = userIdLong.ToString();
 
                             // Regular users need permission filtering (now using in-memory workflow data)
                             filteredEntities = new List<Onboarding>();
@@ -304,11 +305,9 @@ namespace FlowFlex.Application.Services.OW
                                     continue; // No Workflow permission, skip this Case
                                 }
 
-                                var viewResult = await _casePermissionService.CheckCasePermissionAsync(
-                         entity, userIdLong, PermissionOperationType.View);
-                                bool hasCaseViewPermission = viewResult.CanView;
-                                // Check Case-level view permission (in-memory)
-                                //bool hasCaseViewPermission = CheckCaseViewPermissionInMemory(entity, userIdLong, userTeamLongs);
+                                // PERFORMANCE FIX: Use in-memory Case permission check instead of async DB query
+                                // This eliminates N+1 queries (was: N async calls to CheckCasePermissionAsync)
+                                bool hasCaseViewPermission = CheckCaseViewPermissionInMemory(entity, workflow, userIdLong, userTeamLongs, userIdString);
 
                                 LoggingExtensions.WriteLine($"[Permission Debug] Case {entity.Id} - Case permission: {hasCaseViewPermission} (ViewMode={entity.ViewPermissionMode}, SubjectType={entity.ViewPermissionSubjectType}, ViewTeams={entity.ViewTeams ?? "NULL"}, ViewUsers={entity.ViewUsers ?? "NULL"}, Ownership={entity.Ownership})");
                                 if (!hasCaseViewPermission)
@@ -692,6 +691,171 @@ namespace FlowFlex.Application.Services.OW
         /// <summary>
         /// Move to next stage
         /// </summary>
+
+        #region Permission Check Helper Methods
+
+        /// <summary>
+        /// Check Case view permission in memory (no DB queries)
+        /// Mirrors the logic from CasePermissionService.CheckCasePermissionAsync but without async DB calls
+        /// </summary>
+        private bool CheckCaseViewPermissionInMemory(
+            Onboarding entity,
+            Domain.Entities.OW.Workflow workflow,
+            long userId,
+            List<long> userTeamIds,
+            string userIdString)
+        {
+            // Step 1: Check Ownership (owner has full access)
+            if (entity.Ownership.HasValue && entity.Ownership.Value == userId)
+            {
+                return true;
+            }
+
+            // Step 2: In Public mode, inherit Workflow permissions
+            if (entity.ViewPermissionMode == ViewPermissionModeEnum.Public)
+            {
+                // In Public mode, if user can view Workflow, they can view Case
+                // Note: CheckWorkflowViewPermissionInMemory is defined in OnboardingService.StatusOperations.cs
+                return CheckWorkflowViewPermissionInMemory(workflow, userId, userTeamIds);
+            }
+
+            // Step 3: Check Case-specific view permissions (non-Public modes)
+            return CheckCaseViewPermissionBySubjectType(entity, userTeamIds, userIdString);
+        }
+
+        /// <summary>
+        /// Check Case view permission based on SubjectType (Team or User)
+        /// </summary>
+        private bool CheckCaseViewPermissionBySubjectType(
+            Onboarding entity,
+            List<long> userTeamIds,
+            string userIdString)
+        {
+            // If SubjectType is Team, check ViewTeams
+            if (entity.ViewPermissionSubjectType == PermissionSubjectTypeEnum.Team)
+            {
+                if (string.IsNullOrWhiteSpace(entity.ViewTeams))
+                {
+                    return false; // No teams specified = no access
+                }
+
+                // Note: ParseJsonArraySafe is defined in OnboardingService.StatusOperations.cs
+                var viewTeams = ParseJsonArraySafe(entity.ViewTeams);
+                if (viewTeams.Count == 0)
+                {
+                    return false; // Empty whitelist = no access
+                }
+
+                var viewTeamLongs = viewTeams
+                    .Select(t => long.TryParse(t, out var tid) ? tid : 0)
+                    .Where(t => t > 0)
+                    .ToHashSet();
+
+                return userTeamIds.Any(ut => viewTeamLongs.Contains(ut));
+            }
+
+            // If SubjectType is User, check ViewUsers
+            if (entity.ViewPermissionSubjectType == PermissionSubjectTypeEnum.User)
+            {
+                if (string.IsNullOrWhiteSpace(entity.ViewUsers))
+                {
+                    return false; // No users specified = no access
+                }
+
+                var viewUsers = ParseJsonArraySafe(entity.ViewUsers);
+                if (viewUsers.Count == 0)
+                {
+                    return false; // Empty whitelist = no access
+                }
+
+                return viewUsers.Contains(userIdString, StringComparer.OrdinalIgnoreCase);
+            }
+
+            // Unknown SubjectType = deny access
+            return false;
+        }
+
+        #endregion
+
+        #region GetActiveBySystemId
+
+        /// <summary>
+        /// Get all active onboardings by System ID
+        /// Returns all onboarding records where SystemId matches and IsActive is true
+        /// </summary>
+        /// <param name="systemId">External system identifier</param>
+        /// <returns>List of active onboarding records</returns>
+        public async Task<List<OnboardingOutputDto>> GetActiveBySystemIdAsync(string systemId)
+        {
+            if (string.IsNullOrWhiteSpace(systemId))
+            {
+                return new List<OnboardingOutputDto>();
+            }
+
+            var tenantId = _userContext?.TenantId ?? "default";
+            var appCode = _userContext?.AppCode ?? "default";
+
+            try
+            {
+                // Build query with filters
+                var queryable = _onboardingRepository.GetSqlSugarClient().Queryable<Onboarding>()
+                    .Where(x => x.IsValid == true)
+                    .Where(x => x.IsActive == true)
+                    .Where(x => x.SystemId == systemId);
+
+                // Apply tenant isolation
+                if (!string.IsNullOrEmpty(tenantId))
+                {
+                    queryable = queryable.Where(x => x.TenantId.ToLower() == tenantId.ToLower());
+                }
+                if (!string.IsNullOrEmpty(appCode))
+                {
+                    queryable = queryable.Where(x => x.AppCode.ToLower() == appCode.ToLower());
+                }
+
+                // Order by CreateDate descending
+                queryable = queryable.OrderByDescending(x => x.CreateDate);
+
+                // Execute query
+                var entities = await queryable.ToListAsync();
+
+                if (!entities.Any())
+                {
+                    return new List<OnboardingOutputDto>();
+                }
+
+                // Map to DTOs
+                var results = new List<OnboardingOutputDto>();
+                foreach (var entity in entities)
+                {
+                    // Auto-generate CaseCode for legacy data
+                    await EnsureCaseCodeAsync(entity);
+
+                    // Ensure stages progress is properly initialized and synced
+                    await EnsureStagesProgressInitializedAsync(entity);
+
+                    var dto = _mapper.Map<OnboardingOutputDto>(entity);
+
+                    // Get workflow name
+                    var workflow = await _workflowRepository.GetByIdAsync(entity.WorkflowId);
+                    if (workflow != null)
+                    {
+                        dto.WorkflowName = workflow.Name;
+                    }
+
+                    results.Add(dto);
+                }
+
+                return results;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting active onboardings by SystemId: {SystemId}", systemId);
+                throw;
+            }
+        }
+
+        #endregion
     }
 }
 

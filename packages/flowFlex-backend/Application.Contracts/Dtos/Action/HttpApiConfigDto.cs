@@ -26,6 +26,11 @@
         public string Body { get; set; } = string.Empty;
 
         /// <summary>
+        /// Request parameters (query params for GET, or body params for POST/PUT/PATCH when body is empty)
+        /// </summary>
+        public Dictionary<string, string>? Params { get; set; }
+
+        /// <summary>
         /// Request timeout in seconds
         /// </summary>
         public int Timeout { get; set; } = 30;

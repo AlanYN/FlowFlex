@@ -181,6 +181,15 @@ namespace FlowFlex.Application.Services.OW
             return $"{_options.FileUrlPrefix}/{filePath.Replace("\\", "/")}";
         }
 
+        /// <summary>
+        /// Get file access URL asynchronously
+        /// For local storage, this simply returns the same URL as GetFileUrl
+        /// </summary>
+        public Task<string> GetFileUrlAsync(string filePath)
+        {
+            return Task.FromResult(GetFileUrl(filePath));
+        }
+
         public async Task<FileValidationResult> ValidateFileAsync(IFormFile file)
         {
             // Check if file is empty

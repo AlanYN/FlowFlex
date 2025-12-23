@@ -119,6 +119,7 @@
 /* 检查清单卡片样式 */
 .checklist-card,
 .workflow-card,
+.integration-card,
 .questionnaire-card {
   @apply border dark:bg-black-400;
 	transition: all 0.3s ease;
@@ -128,6 +129,7 @@
 
 .checklist-card:hover,
 .workflow-card:hover,
+.integration-card:hover,
 .questionnaire-card:hover  {
 	border-color: var(--primary-300);
 	@apply dark:border-primary-600;
