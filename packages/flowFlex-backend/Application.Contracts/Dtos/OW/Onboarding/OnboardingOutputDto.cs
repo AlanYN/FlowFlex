@@ -57,6 +57,16 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.Onboarding
         public long? IntegrationId { get; set; }
 
         /// <summary>
+        /// External Entity Type (e.g., "lead", "customer", "account") from external integration
+        /// </summary>
+        public string? EntityType { get; set; }
+
+        /// <summary>
+        /// External Entity ID from external integration (e.g., Lead ID, Customer ID)
+        /// </summary>
+        public string? EntityId { get; set; }
+
+        /// <summary>
         /// 客户/线索名称
         /// </summary>
         public string LeadName { get; set; }

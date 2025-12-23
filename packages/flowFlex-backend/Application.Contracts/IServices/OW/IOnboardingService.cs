@@ -168,7 +168,10 @@ namespace FlowFlex.Application.Contracts.IServices.OW
         /// Returns all onboarding records where SystemId matches and IsActive is true
         /// </summary>
         /// <param name="systemId">External system identifier</param>
+        /// <param name="sortField">Sort field: createDate, modifyDate, leadName, caseCode, status (default: createDate)</param>
+        /// <param name="sortOrder">Sort order: asc, desc (default: desc)</param>
+        /// <param name="limit">Maximum number of records to return (default: 100, max: 1000)</param>
         /// <returns>List of active onboarding records</returns>
-        Task<List<OnboardingOutputDto>> GetActiveBySystemIdAsync(string systemId);
+        Task<List<OnboardingOutputDto>> GetActiveBySystemIdAsync(string systemId, string sortField = "createDate", string sortOrder = "desc", int limit = 100);
     }
 }

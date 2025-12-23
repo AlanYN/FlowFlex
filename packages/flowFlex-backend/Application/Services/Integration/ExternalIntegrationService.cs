@@ -264,15 +264,17 @@ namespace FlowFlex.Application.Services.Integration
             // Get the created case to return details
             var createdCase = await _onboardingRepository.GetByIdAsync(caseId);
 
-            // Update SystemId and IntegrationId
+            // Update SystemId, IntegrationId, EntityType and EntityId
             if (createdCase != null)
             {
                 createdCase.SystemId = request.SystemId;
                 createdCase.IntegrationId = entityMapping.IntegrationId;
+                createdCase.EntityType = request.EntityType;
+                createdCase.EntityId = request.EntityId;
                 createdCase.InitModifyInfo(_userContext);
                 await _onboardingRepository.UpdateAsync(createdCase);
-                _logger.LogInformation("Updated SystemId={SystemId} and IntegrationId={IntegrationId} for case {CaseId}",
-                    request.SystemId, entityMapping.IntegrationId, caseId);
+                _logger.LogInformation("Updated SystemId={SystemId}, IntegrationId={IntegrationId}, EntityType={EntityType}, EntityId={EntityId} for case {CaseId}",
+                    request.SystemId, entityMapping.IntegrationId, request.EntityType, request.EntityId, caseId);
             }
 
             _logger.LogInformation("Successfully created case {CaseId} from external system", caseId);

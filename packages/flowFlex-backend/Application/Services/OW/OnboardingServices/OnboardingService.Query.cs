@@ -784,8 +784,11 @@ namespace FlowFlex.Application.Services.OW
         /// Returns all onboarding records where SystemId matches and IsActive is true
         /// </summary>
         /// <param name="systemId">External system identifier</param>
+        /// <param name="sortField">Sort field: createDate, modifyDate, leadName, caseCode, status (default: createDate)</param>
+        /// <param name="sortOrder">Sort order: asc, desc (default: desc)</param>
+        /// <param name="limit">Maximum number of records to return (default: 100, max: 1000)</param>
         /// <returns>List of active onboarding records</returns>
-        public async Task<List<OnboardingOutputDto>> GetActiveBySystemIdAsync(string systemId)
+        public async Task<List<OnboardingOutputDto>> GetActiveBySystemIdAsync(string systemId, string sortField = "createDate", string sortOrder = "desc", int limit = 100)
         {
             if (string.IsNullOrWhiteSpace(systemId))
             {
@@ -813,8 +816,22 @@ namespace FlowFlex.Application.Services.OW
                     queryable = queryable.Where(x => x.AppCode.ToLower() == appCode.ToLower());
                 }
 
-                // Order by CreateDate descending
-                queryable = queryable.OrderByDescending(x => x.CreateDate);
+                // Apply sorting based on sortField and sortOrder
+                var isAscending = sortOrder?.ToLower() == "asc";
+                queryable = (sortField?.ToLower()) switch
+                {
+                    "modifydate" => isAscending ? queryable.OrderBy(x => x.ModifyDate) : queryable.OrderByDescending(x => x.ModifyDate),
+                    "leadname" => isAscending ? queryable.OrderBy(x => x.LeadName) : queryable.OrderByDescending(x => x.LeadName),
+                    "casecode" => isAscending ? queryable.OrderBy(x => x.CaseCode) : queryable.OrderByDescending(x => x.CaseCode),
+                    "status" => isAscending ? queryable.OrderBy(x => x.Status) : queryable.OrderByDescending(x => x.Status),
+                    _ => isAscending ? queryable.OrderBy(x => x.CreateDate) : queryable.OrderByDescending(x => x.CreateDate) // default: createDate
+                };
+
+                // Apply limit
+                if (limit > 0)
+                {
+                    queryable = queryable.Take(limit);
+                }
 
                 // Execute query
                 var entities = await queryable.ToListAsync();
@@ -850,7 +867,8 @@ namespace FlowFlex.Application.Services.OW
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error getting active onboardings by SystemId: {SystemId}", systemId);
+                _logger.LogError(ex, "Error getting active onboardings by SystemId: {SystemId}, SortField: {SortField}, SortOrder: {SortOrder}, Limit: {Limit}", 
+                    systemId, sortField, sortOrder, limit);
                 throw;
             }
         }
