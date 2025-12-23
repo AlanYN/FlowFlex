@@ -1,6 +1,4 @@
-using AutoMapper;
 using SqlSugar;
-using FlowFlex.SqlSugarDB;
 using FlowFlex.Domain.Entities.OW;
 using FlowFlex.Domain.Repository.OW;
 using FlowFlex.Domain.Shared;
@@ -284,4 +282,200 @@ public class ChecklistTaskRepository : BaseRepository<ChecklistTask>, IChecklist
 
         return await query.AnyAsync();
     }
+
+    #region Dashboard Methods
+
+    /// <summary>
+    /// Get pending tasks for user (assigned to user or their teams) with pagination
+    /// </summary>
+    public async Task<List<DashboardTaskInfo>> GetPendingTasksForUserAsync(
+        long userId, 
+        List<long> userTeamIds, 
+        string? category, 
+        int pageIndex, 
+        int pageSize)
+    {
+        var query = db.Queryable<ChecklistTask>()
+            .Where(t => t.IsValid == true && t.IsCompleted == false);
+            // TODO: Temporarily commented out user filter - will be linked with case stage later
+            // .Where(t => t.AssigneeId == userId);
+
+        // Apply category filter
+        if (!string.IsNullOrEmpty(category))
+        {
+            if (category.Equals("Sales", StringComparison.OrdinalIgnoreCase))
+            {
+                query = query.Where(t => t.AssignedTeam != null && t.AssignedTeam.ToLower().Contains("sales"));
+            }
+            else if (category.Equals("Account", StringComparison.OrdinalIgnoreCase))
+            {
+                query = query.Where(t => t.AssignedTeam != null && t.AssignedTeam.ToLower().Contains("account"));
+            }
+        }
+
+        var tasks = await query
+            .OrderBy(t => t.DueDate)
+            .Skip((pageIndex - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync();
+
+        if (!tasks.Any())
+        {
+            return new List<DashboardTaskInfo>();
+        }
+
+        // Get related onboarding info through Checklist -> ChecklistStageMapping -> Onboarding
+        var checklistIds = tasks.Select(t => t.ChecklistId).Distinct().ToList();
+        
+        // Get checklist-stage mappings
+        var stageMappings = await db.Queryable<ChecklistStageMapping>()
+            .Where(m => checklistIds.Contains(m.ChecklistId) && m.IsValid)
+            .ToListAsync();
+
+        // Get onboardings by current stage IDs
+        var stageIds = stageMappings.Select(m => m.StageId).Distinct().ToList();
+        var onboardings = stageIds.Any()
+            ? await db.Queryable<Onboarding>()
+                .Where(o => o.CurrentStageId.HasValue && stageIds.Contains(o.CurrentStageId.Value) && o.IsValid)
+                .ToListAsync()
+            : new List<Onboarding>();
+
+        // Build lookup: ChecklistId -> StageId -> Onboarding
+        var checklistToStageDict = stageMappings
+            .GroupBy(m => m.ChecklistId)
+            .ToDictionary(g => g.Key, g => g.First().StageId);
+        var stageToOnboardingDict = onboardings
+            .Where(o => o.CurrentStageId.HasValue)
+            .GroupBy(o => o.CurrentStageId!.Value)
+            .ToDictionary(g => g.Key, g => g.First());
+
+        return tasks.Select(t =>
+        {
+            Onboarding? onboarding = null;
+            if (checklistToStageDict.TryGetValue(t.ChecklistId, out var stageId))
+            {
+                stageToOnboardingDict.TryGetValue(stageId, out onboarding);
+            }
+
+            return new DashboardTaskInfo
+            {
+                Id = t.Id,
+                Name = t.Name,
+                Description = t.Description,
+                Priority = t.Priority,
+                DueDate = t.DueDate,
+                IsCompleted = t.IsCompleted,
+                IsRequired = t.IsRequired,
+                AssignedTeam = t.AssignedTeam,
+                AssigneeName = t.AssigneeName,
+                AssigneeId = t.AssigneeId,
+                Status = t.Status,
+                OnboardingId = onboarding?.Id ?? 0,
+                CaseCode = onboarding?.CaseCode,
+                CaseName = onboarding?.LeadName
+            };
+        }).ToList();
+    }
+
+    /// <summary>
+    /// Get count of pending tasks for user
+    /// </summary>
+    public async Task<int> GetPendingTasksCountForUserAsync(long userId, List<long> userTeamIds, string? category)
+    {
+        var query = db.Queryable<ChecklistTask>()
+            .Where(t => t.IsValid == true && t.IsCompleted == false);
+            // TODO: Temporarily commented out user filter - will be linked with case stage later
+            // .Where(t => t.AssigneeId == userId);
+
+        // Apply category filter
+        if (!string.IsNullOrEmpty(category))
+        {
+            if (category.Equals("Sales", StringComparison.OrdinalIgnoreCase))
+            {
+                query = query.Where(t => t.AssignedTeam != null && t.AssignedTeam.ToLower().Contains("sales"));
+            }
+            else if (category.Equals("Account", StringComparison.OrdinalIgnoreCase))
+            {
+                query = query.Where(t => t.AssignedTeam != null && t.AssignedTeam.ToLower().Contains("account"));
+            }
+        }
+
+        return await query.CountAsync();
+    }
+
+    /// <summary>
+    /// Get tasks with upcoming deadlines for user
+    /// </summary>
+    public async Task<List<DashboardTaskInfo>> GetUpcomingDeadlinesAsync(
+        long userId, 
+        List<long> userTeamIds, 
+        DateTimeOffset endDate)
+    {
+        var tasks = await db.Queryable<ChecklistTask>()
+            .Where(t => t.IsValid == true && t.IsCompleted == false)
+            .Where(t => t.DueDate.HasValue && t.DueDate.Value <= endDate)
+            // TODO: Temporarily commented out user filter - will be linked with case stage later
+            // .Where(t => t.AssigneeId == userId)
+            .OrderBy(t => t.DueDate)
+            .ToListAsync();
+
+        if (!tasks.Any())
+        {
+            return new List<DashboardTaskInfo>();
+        }
+
+        // Get related onboarding info through Checklist -> ChecklistStageMapping -> Onboarding
+        var checklistIds = tasks.Select(t => t.ChecklistId).Distinct().ToList();
+        
+        // Get checklist-stage mappings
+        var stageMappings = await db.Queryable<ChecklistStageMapping>()
+            .Where(m => checklistIds.Contains(m.ChecklistId) && m.IsValid)
+            .ToListAsync();
+
+        // Get onboardings by current stage IDs
+        var stageIds = stageMappings.Select(m => m.StageId).Distinct().ToList();
+        var onboardings = stageIds.Any()
+            ? await db.Queryable<Onboarding>()
+                .Where(o => o.CurrentStageId.HasValue && stageIds.Contains(o.CurrentStageId.Value) && o.IsValid)
+                .ToListAsync()
+            : new List<Onboarding>();
+
+        // Build lookup: ChecklistId -> StageId -> Onboarding
+        var checklistToStageDict = stageMappings
+            .GroupBy(m => m.ChecklistId)
+            .ToDictionary(g => g.Key, g => g.First().StageId);
+        var stageToOnboardingDict = onboardings
+            .Where(o => o.CurrentStageId.HasValue)
+            .GroupBy(o => o.CurrentStageId!.Value)
+            .ToDictionary(g => g.Key, g => g.First());
+
+        return tasks.Select(t =>
+        {
+            Onboarding? onboarding = null;
+            if (checklistToStageDict.TryGetValue(t.ChecklistId, out var stageId))
+            {
+                stageToOnboardingDict.TryGetValue(stageId, out onboarding);
+            }
+
+            return new DashboardTaskInfo
+            {
+                Id = t.Id,
+                Name = t.Name,
+                Description = t.Description,
+                Priority = t.Priority,
+                DueDate = t.DueDate,
+                IsCompleted = t.IsCompleted,
+                IsRequired = t.IsRequired,
+                AssignedTeam = t.AssignedTeam,
+                AssigneeName = t.AssigneeName,
+                AssigneeId = t.AssigneeId,
+                Status = t.Status,
+                OnboardingId = onboarding?.Id ?? 0,
+                CaseCode = onboarding?.CaseCode,
+                CaseName = onboarding?.LeadName
+            };
+        }).ToList();
+    }
+
+    #endregion
 }

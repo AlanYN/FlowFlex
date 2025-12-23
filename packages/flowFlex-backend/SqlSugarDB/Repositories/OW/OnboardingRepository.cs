@@ -646,5 +646,29 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
                 db.QueryFilter.Restore();
             }
         }
+
+        #region Dashboard Methods
+
+        /// <summary>
+        /// Get recently completed cases for achievements
+        /// </summary>
+        public async Task<List<Onboarding>> GetRecentlyCompletedAsync(int limit, string? team = null)
+        {
+            var query = db.Queryable<Onboarding>()
+                .Where(x => x.IsValid == true)
+                .Where(x => x.Status == "Completed" || x.Status == "Force Completed");
+
+            if (!string.IsNullOrEmpty(team))
+            {
+                query = query.Where(x => x.CurrentTeam == team);
+            }
+
+            return await query
+                .OrderByDescending(x => x.ActualCompletionDate)
+                .Take(limit)
+                .ToListAsync();
+        }
+
+        #endregion
     }
 }

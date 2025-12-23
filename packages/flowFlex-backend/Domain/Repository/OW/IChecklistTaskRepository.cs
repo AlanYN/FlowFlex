@@ -66,5 +66,55 @@ namespace FlowFlex.Domain.Repository.OW
         /// Check if task name exists in checklist (excluding specific task ID for update scenario)
         /// </summary>
         Task<bool> IsTaskNameExistsAsync(long checklistId, string taskName, long? excludeTaskId = null);
+
+        #region Dashboard Methods
+
+        /// <summary>
+        /// Get pending tasks for user (assigned to user or their teams) with pagination
+        /// </summary>
+        /// <param name="userId">User ID</param>
+        /// <param name="userTeamIds">User's team IDs</param>
+        /// <param name="category">Optional category filter (Sales, Account, Other)</param>
+        /// <param name="pageIndex">Page index (1-based)</param>
+        /// <param name="pageSize">Page size</param>
+        /// <returns>List of tasks with case information</returns>
+        Task<List<DashboardTaskInfo>> GetPendingTasksForUserAsync(long userId, List<long> userTeamIds, string? category, int pageIndex, int pageSize);
+
+        /// <summary>
+        /// Get count of pending tasks for user
+        /// </summary>
+        Task<int> GetPendingTasksCountForUserAsync(long userId, List<long> userTeamIds, string? category);
+
+        /// <summary>
+        /// Get tasks with upcoming deadlines for user
+        /// </summary>
+        /// <param name="userId">User ID</param>
+        /// <param name="userTeamIds">User's team IDs</param>
+        /// <param name="endDate">End date for deadline range</param>
+        /// <returns>List of tasks with deadlines</returns>
+        Task<List<DashboardTaskInfo>> GetUpcomingDeadlinesAsync(long userId, List<long> userTeamIds, DateTimeOffset endDate);
+
+        #endregion
+    }
+
+    /// <summary>
+    /// Dashboard task info with joined case data
+    /// </summary>
+    public class DashboardTaskInfo
+    {
+        public long Id { get; set; }
+        public string Name { get; set; } = string.Empty;
+        public string? Description { get; set; }
+        public string Priority { get; set; } = "Medium";
+        public DateTimeOffset? DueDate { get; set; }
+        public bool IsCompleted { get; set; }
+        public bool IsRequired { get; set; }
+        public string? AssignedTeam { get; set; }
+        public string? AssigneeName { get; set; }
+        public long? AssigneeId { get; set; }
+        public string Status { get; set; } = "Pending";
+        public long OnboardingId { get; set; }
+        public string? CaseCode { get; set; }
+        public string? CaseName { get; set; }
     }
 }

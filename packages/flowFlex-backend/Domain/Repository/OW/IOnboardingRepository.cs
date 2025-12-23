@@ -88,5 +88,17 @@ namespace FlowFlex.Domain.Repository.OW
         /// <param name="appCode">应用代码</param>
         /// <returns>入职流程列表</returns>
         Task<List<Onboarding>> GetListWithExplicitFiltersAsync(string tenantId, string appCode);
+
+        #region Dashboard Methods
+
+        /// <summary>
+        /// Get recently completed cases for achievements
+        /// </summary>
+        /// <param name="limit">Maximum number of cases to return</param>
+        /// <param name="team">Optional team filter</param>
+        /// <returns>List of recently completed onboarding cases</returns>
+        Task<List<Onboarding>> GetRecentlyCompletedAsync(int limit, string? team = null);
+
+        #endregion
     }
 }

@@ -589,4 +589,30 @@ public class MessageRepository : BaseRepository<Message>, IMessageRepository, IS
             .Where(x => ids.Contains(x.Id) && x.IsValid)
             .ExecuteCommandAsync();
     }
+
+    #region Dashboard Methods
+
+    /// <summary>
+    /// Get recent messages for user (for dashboard)
+    /// </summary>
+    public async Task<List<Message>> GetRecentMessagesForUserAsync(long userId, int limit)
+    {
+        return await db.Queryable<Message>()
+            .Where(x => x.OwnerId == userId && x.IsValid && x.Folder == "Inbox")
+            .OrderByDescending(x => x.ReceivedDate)
+            .Take(limit)
+            .ToListAsync();
+    }
+
+    /// <summary>
+    /// Get unread message count for user (for dashboard)
+    /// </summary>
+    public async Task<int> GetUnreadCountForUserAsync(long userId)
+    {
+        return await db.Queryable<Message>()
+            .Where(x => x.OwnerId == userId && x.IsValid && !x.IsRead && x.Folder == "Inbox")
+            .CountAsync();
+    }
+
+    #endregion
 }

@@ -167,5 +167,24 @@ namespace FlowFlex.Domain.Repository.OW
         /// Batch move messages to folder
         /// </summary>
         Task<int> BatchMoveToFolderAsync(List<long> ids, string folder, string? originalFolder = null);
+
+        #region Dashboard Methods
+
+        /// <summary>
+        /// Get recent messages for user (for dashboard)
+        /// </summary>
+        /// <param name="userId">User ID</param>
+        /// <param name="limit">Maximum number of messages</param>
+        /// <returns>List of recent messages</returns>
+        Task<List<Message>> GetRecentMessagesForUserAsync(long userId, int limit);
+
+        /// <summary>
+        /// Get unread message count for user (for dashboard)
+        /// </summary>
+        /// <param name="userId">User ID</param>
+        /// <returns>Unread message count</returns>
+        Task<int> GetUnreadCountForUserAsync(long userId);
+
+        #endregion
     }
 }
