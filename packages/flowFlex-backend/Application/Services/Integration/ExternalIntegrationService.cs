@@ -245,7 +245,7 @@ namespace FlowFlex.Application.Services.Integration
             {
                 WorkflowId = request.WorkflowId,
                 LeadId = request.EntityId,
-                LeadName = request.CaseName,
+                CaseName = request.CaseName,
                 ContactPerson = request.ContactName,
                 ContactEmail = request.ContactEmail,
                 LeadPhone = request.ContactPhone,
@@ -340,7 +340,7 @@ namespace FlowFlex.Application.Services.Integration
             else if (!string.IsNullOrEmpty(request.CustomerName))
             {
                 var cases = await _onboardingRepository.GetListAsync(o =>
-                    o.LeadName == request.CustomerName && o.IsValid);
+                    o.CaseName == request.CustomerName && o.IsValid);
 
                 var onboarding = cases.FirstOrDefault();
                 if (onboarding != null)

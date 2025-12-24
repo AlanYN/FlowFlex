@@ -365,7 +365,7 @@ public class ChecklistTaskCompletionService : IChecklistTaskCompletionService, I
             {
                 OnboardingId = onboarding.Id,
                 LeadId = onboarding.LeadId,
-                LeadName = onboarding.LeadName,
+                LeadName = onboarding.CaseName,
                 StageId = currentStage?.Id ?? 0,
                 StageName = currentStage?.Name ?? "Unknown Stage",
                 ChecklistId = task.ChecklistId,
@@ -506,7 +506,7 @@ public class ChecklistTaskCompletionService : IChecklistTaskCompletionService, I
                 {
                     OnboardingId = onboarding.Id,
                     LeadId = onboarding.LeadId,
-                    LeadName = onboarding.LeadName,
+                    LeadName = onboarding.CaseName,
                     StageId = currentStage?.Id ?? 0,
                     StageName = currentStage?.Name ?? "Unknown Stage",
                     ChecklistId = task.ChecklistId,
@@ -1190,7 +1190,7 @@ public class ChecklistTaskCompletionService : IChecklistTaskCompletionService, I
             {
                 OnboardingId = onboarding.Id,
                 LeadId = onboarding.LeadId,
-                LeadName = onboarding.LeadName,
+                LeadName = onboarding.CaseName,
                 WorkflowId = onboarding.WorkflowId,
                 CurrentStageId = onboarding.CurrentStageId,
                 CurrentStageOrder = onboarding.CurrentStageOrder,

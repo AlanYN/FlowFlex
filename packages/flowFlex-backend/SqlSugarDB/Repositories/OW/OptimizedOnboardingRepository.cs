@@ -102,7 +102,7 @@ namespace FlowFlex.SqlSugarDB.Repositories.OW
 
             if (!string.IsNullOrEmpty(searchKeyword))
             {
-                query = query.Where(x => x.LeadName.Contains(searchKeyword) || x.LeadId.Contains(searchKeyword));
+                query = query.Where(x => x.CaseName.Contains(searchKeyword) || x.LeadId.Contains(searchKeyword));
             }
 
             var totalCount = await query.CountAsync();
