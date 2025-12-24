@@ -1326,6 +1326,36 @@ public class MessageService : IMessageService, IScopedService
 
         recipientCopy.InitCreateInfo(_userContext);
         await _messageRepository.InsertAsync(recipientCopy);
+
+        // Copy attachments for recipient's message
+        if (senderMessage.HasAttachments)
+        {
+            await CopyAttachmentsForRecipientAsync(senderMessage.Id, recipientCopy.Id);
+        }
+    }
+
+    /// <summary>
+    /// Copy attachment records from sender's message to recipient's message
+    /// </summary>
+    private async Task CopyAttachmentsForRecipientAsync(long senderMessageId, long recipientMessageId)
+    {
+        var senderAttachments = await _attachmentRepository.GetByMessageIdAsync(senderMessageId);
+        foreach (var attachment in senderAttachments)
+        {
+            var recipientAttachment = new MessageAttachment
+            {
+                MessageId = recipientMessageId,
+                FileName = attachment.FileName,
+                FileSize = attachment.FileSize,
+                ContentType = attachment.ContentType,
+                StoragePath = attachment.StoragePath, // Share the same storage path
+                ExternalAttachmentId = attachment.ExternalAttachmentId,
+                ContentId = attachment.ContentId,
+                IsInline = attachment.IsInline
+            };
+            recipientAttachment.InitCreateInfo(_userContext);
+            await _attachmentRepository.InsertAsync(recipientAttachment);
+        }
     }
 
     private static string GetBodyPreview(string body)
