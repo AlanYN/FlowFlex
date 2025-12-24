@@ -449,6 +449,7 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// Requires CASE:READ permission
         /// </summary>
         /// <param name="systemId">External system identifier (required)</param>
+        /// <param name="entityId">External entity ID for filtering (optional)</param>
         /// <param name="sortField">Sort field: createDate, modifyDate, leadName, caseCode, status (default: createDate)</param>
         /// <param name="sortOrder">Sort order: asc, desc (default: desc)</param>
         /// <param name="limit">Maximum number of records to return (default: 100, max: 1000)</param>
@@ -457,6 +458,7 @@ namespace FlowFlex.WebApi.Controllers.OW
         [ProducesResponseType<SuccessResponse<List<OnboardingOutputDto>>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> GetActiveBySystemIdAsync(
             [FromQuery] string systemId,
+            [FromQuery] string? entityId = null,
             [FromQuery] string sortField = "createDate",
             [FromQuery] string sortOrder = "desc",
             [FromQuery] int limit = 100)
@@ -470,7 +472,7 @@ namespace FlowFlex.WebApi.Controllers.OW
             if (limit <= 0) limit = 100;
             if (limit > 1000) limit = 1000;
 
-            var result = await _onboardingService.GetActiveBySystemIdAsync(systemId, sortField, sortOrder, limit);
+            var result = await _onboardingService.GetActiveBySystemIdAsync(systemId, entityId, sortField, sortOrder, limit);
             return Success(result);
         }
     }

@@ -653,7 +653,9 @@ namespace FlowFlex.Application.Services.Integration
                             FileType = f.ContentType ?? "application/octet-stream",
                             FileExt = f.FileExtension ?? string.Empty,
                             CreateDate = f.UploadedDate.ToString("yyyy-MM-dd HH:mm:ss +00:00"),
-                            DownloadLink = downloadLink
+                            DownloadLink = downloadLink,
+                            EntityType = onboarding.EntityType,
+                            EntityId = onboarding.EntityId
                         });
                     }
                 }

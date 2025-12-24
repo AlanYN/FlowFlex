@@ -101,7 +101,7 @@ namespace FlowFlex.SqlSugarDB.Migrations
                     ("20251215000002_CreateEmailBindingTable", (Action)(() => new Migration_20251215000002_CreateEmailBindingTable().Up(_db))),
                     ("20251219000001_AddMessageFullTextIndex", (Action)(() => _20251219000001_AddMessageFullTextIndex.Up(_db))),
                     ("20251222000001_AddDeltaLinkColumnsToEmailBinding", (Action)(() => _20251222000001_AddDeltaLinkColumnsToEmailBinding.Up(_db))),
-                    //("20251223000001_AddEntityTypeAndEntityIdToOnboarding", (Action)(() => Migration_20251223000001_AddEntityTypeAndEntityIdToOnboarding.Up(_db)))
+                    ("20251223000001_AddEntityTypeAndEntityIdToOnboarding", (Action)(() => Migration_20251223000001_AddEntityTypeAndEntityIdToOnboarding.Up(_db)))
                 };
 
                 // Pre-check all migrations to reduce individual SQL queries

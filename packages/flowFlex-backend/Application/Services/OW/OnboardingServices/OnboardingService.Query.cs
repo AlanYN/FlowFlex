@@ -784,11 +784,12 @@ namespace FlowFlex.Application.Services.OW
         /// Returns all onboarding records where SystemId matches and IsActive is true
         /// </summary>
         /// <param name="systemId">External system identifier</param>
+        /// <param name="entityId">External entity ID for filtering (optional)</param>
         /// <param name="sortField">Sort field: createDate, modifyDate, leadName, caseCode, status (default: createDate)</param>
         /// <param name="sortOrder">Sort order: asc, desc (default: desc)</param>
         /// <param name="limit">Maximum number of records to return (default: 100, max: 1000)</param>
         /// <returns>List of active onboarding records</returns>
-        public async Task<List<OnboardingOutputDto>> GetActiveBySystemIdAsync(string systemId, string sortField = "createDate", string sortOrder = "desc", int limit = 100)
+        public async Task<List<OnboardingOutputDto>> GetActiveBySystemIdAsync(string systemId, string? entityId = null, string sortField = "createDate", string sortOrder = "desc", int limit = 100)
         {
             if (string.IsNullOrWhiteSpace(systemId))
             {
@@ -805,6 +806,12 @@ namespace FlowFlex.Application.Services.OW
                     .Where(x => x.IsValid == true)
                     .Where(x => x.IsActive == true)
                     .Where(x => x.SystemId == systemId);
+
+                // Apply entityId filter if provided
+                if (!string.IsNullOrWhiteSpace(entityId))
+                {
+                    queryable = queryable.Where(x => x.EntityId == entityId);
+                }
 
                 // Apply tenant isolation
                 if (!string.IsNullOrEmpty(tenantId))

@@ -304,6 +304,18 @@ namespace FlowFlex.Application.Contracts.Dtos.Integration
         /// </summary>
         [StringLength(200)]
         public string? ModuleName { get; set; }
+
+        /// <summary>
+        /// External entity type (e.g., "lead", "customer", "account")
+        /// </summary>
+        [StringLength(100)]
+        public string? EntityType { get; set; }
+
+        /// <summary>
+        /// External entity ID from external integration
+        /// </summary>
+        [StringLength(100)]
+        public string? EntityId { get; set; }
     }
 
     /// <summary>

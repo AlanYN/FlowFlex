@@ -79,5 +79,20 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.Dashboard
         /// Assigned team
         /// </summary>
         public string? AssignedTeam { get; set; }
+
+        /// <summary>
+        /// Stage ID (for Stage type deadlines)
+        /// </summary>
+        public long? StageId { get; set; }
+
+        /// <summary>
+        /// Stage name (for Stage type deadlines)
+        /// </summary>
+        public string? StageName { get; set; }
+
+        /// <summary>
+        /// Stage order (for Stage type deadlines)
+        /// </summary>
+        public int? StageOrder { get; set; }
     }
 }

@@ -461,38 +461,148 @@ namespace FlowFlex.Application.Services.OW
         }
 
         /// <summary>
-        /// Get upcoming deadlines
+        /// Get upcoming deadlines based on Stage EndTime from StagesProgress
         /// </summary>
         public async Task<List<DeadlineDto>> GetDeadlinesAsync(int days = 7)
         {
-            var userId = long.TryParse(_userContext.UserId, out var uid) ? uid : 0;
-            var userTeamIds = _userContext.UserTeams?.GetAllTeamIds() ?? new List<long>();
             var now = DateTimeOffset.UtcNow;
             var endDate = now.AddDays(days);
 
-            // Get tasks with upcoming due dates
-            var tasks = await _checklistTaskRepository.GetUpcomingDeadlinesAsync(userId, userTeamIds, endDate);
+            var deadlines = new List<DeadlineDto>();
 
-            var deadlines = tasks.Select(t => new DeadlineDto
+            try
             {
-                Id = t.Id,
-                Name = t.Name,
-                DueDate = t.DueDate!.Value,
-                DueDateDisplay = FormatDueDate(t.DueDate, now),
-                Urgency = DetermineUrgency(t.DueDate!.Value, now),
-                DaysUntilDue = (int)(t.DueDate!.Value - now).TotalDays,
-                CaseCode = t.CaseCode ?? string.Empty,
-                CaseName = t.CaseName ?? string.Empty,
-                OnboardingId = t.OnboardingId,
-                ChecklistId = t.ChecklistId,
-                Type = "Task",
-                Priority = t.Priority,
-                AssignedTeam = t.AssignedTeam
-            })
-            .OrderBy(d => d.DueDate)
-            .ToList();
+                // Get all active cases (Started or InProgress)
+                var activeCases = await _onboardingRepository.GetListAsync(o =>
+                    o.IsValid && o.IsActive &&
+                    (o.Status == "Started" || o.Status == "InProgress"));
 
-            return deadlines;
+                _logger.LogDebug("GetDeadlinesAsync: Found {Count} active cases", activeCases.Count);
+
+                var jsonOptions = new JsonSerializerOptions
+                {
+                    PropertyNameCaseInsensitive = true,
+                    AllowTrailingCommas = true,
+                    NumberHandling = System.Text.Json.Serialization.JsonNumberHandling.AllowReadingFromString
+                };
+
+                // Get all stages for enrichment
+                var allStageIds = new HashSet<long>();
+
+                // First pass: collect all stage IDs
+                foreach (var onboarding in activeCases)
+                {
+                    if (string.IsNullOrEmpty(onboarding.StagesProgressJson))
+                        continue;
+
+                    try
+                    {
+                        var jsonString = onboarding.StagesProgressJson.Trim();
+                        if (jsonString.StartsWith("\"") && jsonString.EndsWith("\""))
+                        {
+                            jsonString = JsonSerializer.Deserialize<string>(jsonString, jsonOptions) ?? "[]";
+                        }
+
+                        var progress = JsonSerializer.Deserialize<List<OnboardingStageProgress>>(
+                            jsonString, jsonOptions) ?? new List<OnboardingStageProgress>();
+
+                        foreach (var p in progress)
+                        {
+                            allStageIds.Add(p.StageId);
+                        }
+                    }
+                    catch (JsonException)
+                    {
+                        // Skip invalid JSON
+                    }
+                }
+
+                // Get stage details
+                var stages = allStageIds.Any()
+                    ? await _stageRepository.GetListAsync(s => allStageIds.Contains(s.Id))
+                    : new List<Stage>();
+                var stageDict = stages.ToDictionary(s => s.Id, s => s);
+
+                // Second pass: extract deadlines
+                foreach (var onboarding in activeCases)
+                {
+                    if (string.IsNullOrEmpty(onboarding.StagesProgressJson))
+                        continue;
+
+                    try
+                    {
+                        var jsonString = onboarding.StagesProgressJson.Trim();
+                        if (jsonString.StartsWith("\"") && jsonString.EndsWith("\""))
+                        {
+                            jsonString = JsonSerializer.Deserialize<string>(jsonString, jsonOptions) ?? "[]";
+                        }
+
+                        var progress = JsonSerializer.Deserialize<List<OnboardingStageProgress>>(
+                            jsonString, jsonOptions) ?? new List<OnboardingStageProgress>();
+
+                        foreach (var stageProgress in progress)
+                        {
+                            // Skip completed stages
+                            if (stageProgress.IsCompleted)
+                                continue;
+
+                            // Get stage info for EstimatedDays
+                            var stage = stageDict.GetValueOrDefault(stageProgress.StageId);
+                            if (stage != null)
+                            {
+                                stageProgress.EstimatedDays = stage.EstimatedDuration;
+                                stageProgress.StageName = stage.Name;
+                                stageProgress.StageOrder = stage.Order;
+                            }
+
+                            // Calculate EndTime
+                            var stageEndTime = stageProgress.EndTime;
+
+                            // Only include if EndTime is within the deadline range
+                            if (stageEndTime.HasValue && stageEndTime.Value <= endDate)
+                            {
+                                var stageName = stage?.Name ?? $"Stage {stageProgress.StageId}";
+                                var stageOrder = stage?.Order ?? 0;
+
+                                deadlines.Add(new DeadlineDto
+                                {
+                                    Id = stageProgress.StageId,
+                                    Name = stageName,
+                                    DueDate = stageEndTime.Value,
+                                    DueDateDisplay = FormatDueDate(stageEndTime, now),
+                                    Urgency = DetermineUrgency(stageEndTime.Value, now),
+                                    DaysUntilDue = (int)(stageEndTime.Value - now).TotalDays,
+                                    CaseCode = onboarding.CaseCode ?? string.Empty,
+                                    CaseName = onboarding.LeadName ?? string.Empty,
+                                    OnboardingId = onboarding.Id,
+                                    ChecklistId = 0,
+                                    Type = "Stage",
+                                    Priority = stageEndTime.Value < now ? "Critical" : 
+                                              (stageEndTime.Value - now).TotalDays <= 1 ? "High" :
+                                              (stageEndTime.Value - now).TotalDays <= 3 ? "Medium" : "Low",
+                                    AssignedTeam = onboarding.CurrentTeam,
+                                    StageId = stageProgress.StageId,
+                                    StageName = stageName,
+                                    StageOrder = stageOrder
+                                });
+                            }
+                        }
+                    }
+                    catch (JsonException ex)
+                    {
+                        _logger.LogWarning(ex, "Failed to parse StagesProgressJson for onboarding {OnboardingId}", onboarding.Id);
+                    }
+                }
+
+                _logger.LogDebug("GetDeadlinesAsync: Found {Count} stage deadlines", deadlines.Count);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting stage deadlines");
+            }
+
+            // Sort all deadlines by due date
+            return deadlines.OrderBy(d => d.DueDate).ToList();
         }
 
         #region Private Helper Methods
