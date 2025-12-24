@@ -57,7 +57,8 @@
 		"createAction": "Create Action",
 		"list" : "Lists",
 		"listDetail":"List Detail",
-		"listView":"List View"
+		"listView":"List View",
+		"dashboard": "Dashboard"
 	},
 	"home": {
 		"involces": "Open involces",

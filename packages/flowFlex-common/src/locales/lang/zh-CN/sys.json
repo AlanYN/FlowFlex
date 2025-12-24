@@ -51,7 +51,8 @@
 		"createAction": "Create Action",
 		"list" : "Lists",
 		"listDetail":"清单详情",
-		"listView":"清单详情"
+		"listView": "清单详情",
+		"dashboard": "Dashboard"
 	},
 	"home": {
 		"involces": "测试1",

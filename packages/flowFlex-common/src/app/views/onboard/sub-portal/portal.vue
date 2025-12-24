@@ -167,7 +167,7 @@
 					<!-- 统一页面头部 -->
 					<PageHeader
 						:title="`${onboardingData?.caseCode || ''} ${
-							onboardingData?.leadName || ''
+							onboardingData?.caseName || ''
 						}`"
 						:show-back-button="true"
 						@go-back="handleBack"
@@ -543,11 +543,11 @@ const customerData = computed(() => {
 	const data = onboardingData.value;
 	return {
 		id: data.leadId,
-		companyName: data.leadName,
+		companyName: data.caseName,
 		contactName: data.contactPerson,
 		email: data.contactEmail,
 		phone: '',
-		accountManager: data.ownershipName || data.createBy || '',
+		accountManager: data.caseName || data.createBy || '',
 	};
 });
 
