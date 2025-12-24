@@ -167,7 +167,7 @@ const searchFormRef = ref();
 const searchParams = reactive<SearchParams>({
 	workFlowId: '',
 	caseCode: '',
-	leadName: '',
+	caseName: '',
 	lifeCycleStageName: '',
 	currentStageId: '',
 	updatedBy: '',
@@ -256,7 +256,7 @@ const handleCaseCodeTagsChange = (tags: string[]) => {
 };
 
 const handleLeadNameTagsChange = (tags: string[]) => {
-	searchParams.leadName = tags.join(',');
+	searchParams.caseName = tags.join(',');
 	handleAutoSearch();
 };
 

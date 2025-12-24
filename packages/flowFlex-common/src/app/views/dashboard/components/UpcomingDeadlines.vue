@@ -33,17 +33,19 @@
 					class="deadline-card"
 					:class="getUrgencyClass(deadline.urgency)"
 				>
-					<div class="deadline-card__title">{{ deadline.name }}</div>
-					<div class="deadline-card__case">{{ deadline.caseName }}</div>
-					<div class="deadline-card__due">{{ deadline.dueDateDisplay }}</div>
+					<div class="deadline-card__title">
+						<el-link @click="clickTask(deadline.onboardingId)">
+							{{ deadline.caseName }}
+						</el-link>
+						- {{ deadline.name }}
+					</div>
+					<div class="deadline-card__due">
+						{{ deadline.dueDateDisplay }}
+					</div>
 					<div class="deadline-card__meta">
-						<span class="deadline-card__type">{{ deadline.type }}</span>
-						<span
-							class="deadline-card__priority"
-							:class="getPriorityClass(deadline.priority)"
-						>
+						<el-tag :type="getPriorityTagType(deadline.priority)">
 							{{ deadline.priority }}
-						</span>
+						</el-tag>
 					</div>
 				</div>
 			</div>
@@ -54,12 +56,14 @@
 
 <script setup lang="ts">
 import type { IDeadline, DeadlineUrgency } from '#/dashboard';
+import { useRouter } from 'vue-router';
 
 interface Props {
 	deadlines: IDeadline[];
 	loading?: boolean;
 }
 
+const router = useRouter();
 defineProps<Props>();
 
 function getUrgencyClass(urgency: DeadlineUrgency): string {
@@ -73,15 +77,24 @@ function getUrgencyClass(urgency: DeadlineUrgency): string {
 	return classMap[urgency] || '';
 }
 
-function getPriorityClass(priority: string): string {
-	const classMap: Record<string, string> = {
-		Critical: 'priority--critical',
-		High: 'priority--high',
-		Medium: 'priority--medium',
-		Low: 'priority--low',
-	};
-	return classMap[priority] || '';
-}
+// 工具函数
+const getPriorityTagType = (priority: string) => {
+	switch (priority.toLowerCase()) {
+		case 'high':
+		case 'critical':
+			return 'danger';
+		case 'medium':
+			return 'warning';
+		case 'low':
+			return 'success';
+		default:
+			return 'info';
+	}
+};
+
+const clickTask = (id: string) => {
+	router.push(`/onboard/onboardDetail?onboardingId=${id}`);
+};
 </script>
 
 <style scoped lang="scss">
@@ -179,11 +192,6 @@ function getPriorityClass(priority: string): string {
 		color: var(--el-text-color-primary);
 	}
 
-	&__case {
-		@apply text-xs mb-2;
-		color: var(--el-text-color-secondary);
-	}
-
 	&__due {
 		@apply text-sm font-medium mb-2;
 		color: var(--el-color-primary);
@@ -195,32 +203,6 @@ function getPriorityClass(priority: string): string {
 
 	&__type {
 		@apply text-xs px-2 py-0.5 rounded;
-		background: var(--el-fill-color);
-		color: var(--el-text-color-secondary);
-	}
-
-	&__priority {
-		@apply text-xs px-2 py-0.5 rounded font-medium;
-	}
-}
-
-.priority {
-	&--critical {
-		background: var(--el-color-danger-light-9);
-		color: var(--el-color-danger);
-	}
-
-	&--high {
-		background: var(--el-color-warning-light-9);
-		color: var(--el-color-warning-dark-2);
-	}
-
-	&--medium {
-		background: var(--el-color-primary-light-9);
-		color: var(--el-color-primary);
-	}
-
-	&--low {
 		background: var(--el-fill-color);
 		color: var(--el-text-color-secondary);
 	}

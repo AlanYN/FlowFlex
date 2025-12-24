@@ -41,7 +41,7 @@ export interface OnboardingItem {
 	isOverdue: boolean;
 	isPrioritySet: boolean;
 	leadId: string;
-	leadName: string;
+	caseName: string;
 	lifeCycleStageId: string;
 	lifeCycleStageName: string;
 	modifyBy: string;
@@ -68,7 +68,7 @@ export interface OnboardingItem {
 export interface SearchParams {
 	workFlowId: string;
 	caseCode: string;
-	leadName: string;
+	caseName: string;
 	lifeCycleStageName: string;
 	currentStageId: string;
 	updatedBy: string;
@@ -77,13 +77,12 @@ export interface SearchParams {
 	size: number;
 	// 新增标签字段
 	leadIdTags?: string[];
-	leadNameTags?: string[];
 	updatedByTags?: string[];
 }
 
 export interface OnboardingQueryRequest {
 	leadId?: string;
-	leadName?: string;
+	caseName?: string;
 	lifeCycleStageName?: string;
 	currentStageId?: string;
 	updatedBy?: string;

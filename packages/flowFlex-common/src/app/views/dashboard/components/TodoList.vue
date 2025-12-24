@@ -67,13 +67,10 @@
 									{{ getAssigneeInitials(task.assigneeName || '') || defaultStr }}
 								</span>
 							</div>
-							<span
-								v-if="task.priority"
-								class="priority-badge"
-								:class="getPriorityClass(task.priority)"
-							>
+
+							<el-tag v-if="task.priority" :type="getPriorityTagType(task.priority)">
 								{{ task.priority }}
-							</span>
+							</el-tag>
 						</div>
 					</div>
 
@@ -161,15 +158,19 @@ async function toggleTask(task: IDashboardTask) {
 	}
 }
 
-function getPriorityClass(priority: string): string {
-	const classMap: Record<string, string> = {
-		High: 'priority-badge--high',
-		Critical: 'priority-badge--high',
-		Medium: 'priority-badge--medium',
-		Low: 'priority-badge--low',
-	};
-	return classMap[priority] || 'priority-badge--low';
-}
+const getPriorityTagType = (priority: string) => {
+	switch (priority.toLowerCase()) {
+		case 'high':
+		case 'critical':
+			return 'danger';
+		case 'medium':
+			return 'warning';
+		case 'low':
+			return 'success';
+		default:
+			return 'info';
+	}
+};
 
 const assigneeInitialsCache = new Map<string, string>();
 
@@ -303,25 +304,6 @@ const clickTask = (id: string) => {
 
 .item-due {
 	color: var(--el-text-color-secondary);
-}
-
-.priority-badge {
-	@apply px-2 py-0.5 rounded text-xs font-medium;
-
-	&--high {
-		background: var(--el-color-danger-light-9);
-		color: var(--el-color-danger);
-	}
-
-	&--medium {
-		background: var(--el-color-warning-light-9);
-		color: var(--el-color-warning-dark-2);
-	}
-
-	&--low {
-		background: var(--el-fill-color);
-		color: var(--el-text-color-secondary);
-	}
 }
 
 .task-actions {

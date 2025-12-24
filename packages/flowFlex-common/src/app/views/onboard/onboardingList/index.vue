@@ -260,7 +260,7 @@
 							</template>
 						</el-table-column>
 						<el-table-column
-							prop="leadName"
+							prop="caseName"
 							label="Case Name"
 							sortable="custom"
 							min-width="220"
@@ -271,8 +271,8 @@
 									:disabled="!functionPermission(ProjectPermissionEnum.case.read)"
 									@click="handleEdit(row.id)"
 								>
-									<div class="table-cell-content" :title="row.leadName">
-										{{ row.leadName }}
+									<div class="table-cell-content" :title="row.caseName">
+										{{ row.caseName }}
 									</div>
 								</el-link>
 							</template>
@@ -575,9 +575,9 @@
 				label-position="top"
 				class="onboarding-form"
 			>
-				<el-form-item label="Case Name" prop="leadName">
+				<el-form-item label="Case Name" prop="caseName">
 					<el-input
-						v-model="formData.leadName"
+						v-model="formData.caseName"
 						placeholder="Input Case Name"
 						clearable
 						class="w-full rounded-xl"
@@ -826,7 +826,7 @@ const editingCaseId = ref<string | null>(null);
 
 const formData = reactive({
 	caseCode: '',
-	leadName: '',
+	caseName: '',
 	lifeCycleStageName: '',
 	lifeCycleStageId: '',
 	priority: '',
@@ -848,7 +848,7 @@ const formData = reactive({
 const formRules = {
 	caseCode: [{ required: false, message: 'Lead ID is required', trigger: 'blur' }],
 	priority: [{ required: true, message: 'Priority is required', trigger: 'change' }],
-	leadName: [{ required: true, message: 'Customer Name is required', trigger: 'blur' }],
+	caseName: [{ required: true, message: 'Customer Name is required', trigger: 'blur' }],
 	ContactPerson: [{ required: false, message: 'Contact Name is required', trigger: 'blur' }], // 必填
 	ContactEmail: [
 		{ required: true, message: 'Contact Email is required', trigger: 'blur' },
@@ -898,7 +898,7 @@ const saving = ref(false);
 const searchParams = reactive<SearchParams>({
 	workFlowId: '',
 	caseCode: '',
-	leadName: '',
+	caseName: '',
 	lifeCycleStageName: '',
 	currentStageId: '',
 	updatedBy: '',
@@ -1035,7 +1035,7 @@ const getTableViewOnboarding = async (event) => {
 			...omitBy(
 				pick(searchParams, [
 					'caseCode',
-					'leadName',
+					'caseName',
 					'lifeCycleStageName',
 					'currentStageId',
 					'updatedBy',
@@ -1081,7 +1081,7 @@ const getPipelineViewOnboarding = async () => {
 			...omitBy(
 				pick(searchParams, [
 					'caseCode',
-					'leadName',
+					'caseName',
 					'lifeCycleStageName',
 					'currentStageId',
 					'updatedBy',
@@ -1332,7 +1332,7 @@ const handleStartOnboarding = async (row: OnboardingItem) => {
 	console.log('🚀 [Start Onboarding] Row ID:', row.id);
 
 	ElMessageBox.confirm(
-		`Are you sure you want to start the onboarding process for "${row.leadName}"? This will activate the onboarding and begin the workflow.`,
+		`Are you sure you want to start the onboarding process for "${row.caseName}"? This will activate the onboarding and begin the workflow.`,
 		'⚡ Start Onboarding',
 		{
 			confirmButtonText: 'Start Onboarding',
@@ -1385,7 +1385,7 @@ const handleStartOnboarding = async (row: OnboardingItem) => {
 
 const handlePause = async (row: OnboardingItem) => {
 	ElMessageBox.confirm(
-		`Are you sure you want to pause the onboarding process for "${row.leadName}"? The account will stay at the current stage and lose ETA. All workflow content will become read-only.`,
+		`Are you sure you want to pause the onboarding process for "${row.caseName}"? The account will stay at the current stage and lose ETA. All workflow content will become read-only.`,
 		'⏸️ Pause Onboarding',
 		{
 			confirmButtonText: 'Pause',
@@ -1424,7 +1424,7 @@ const handlePause = async (row: OnboardingItem) => {
 
 const handleResume = async (row: OnboardingItem) => {
 	ElMessageBox.confirm(
-		`Are you sure you want to resume the onboarding process for "${row.leadName}"? The account will restore ETA and current stage timing will continue from where it was paused.`,
+		`Are you sure you want to resume the onboarding process for "${row.caseName}"? The account will restore ETA and current stage timing will continue from where it was paused.`,
 		'▶️ Resume Onboarding',
 		{
 			confirmButtonText: 'Resume',
@@ -1465,7 +1465,7 @@ const handleResume = async (row: OnboardingItem) => {
 
 const handleAbort = async (row: OnboardingItem) => {
 	ElMessageBox.prompt(
-		`Are you sure you want to abort the onboarding process for "${row.leadName}"? This will terminate the process and the account will exit the onboarding workflow. Please provide a reason for this action.`,
+		`Are you sure you want to abort the onboarding process for "${row.caseName}"? This will terminate the process and the account will exit the onboarding workflow. Please provide a reason for this action.`,
 		'🛑 Abort Onboarding',
 		{
 			confirmButtonText: 'Abort',
@@ -1511,7 +1511,7 @@ const handleAbort = async (row: OnboardingItem) => {
 
 const handleReactivate = async (row: OnboardingItem) => {
 	ElMessageBox.prompt(
-		`Are you sure you want to reactivate the onboarding process for "${row.leadName}"? This will restart the process from stage 1 while preserving questionnaire answers. Please provide a reason for this action.`,
+		`Are you sure you want to reactivate the onboarding process for "${row.caseName}"? This will restart the process from stage 1 while preserving questionnaire answers. Please provide a reason for this action.`,
 		'🔄 Reactivate Onboarding',
 		{
 			confirmButtonText: 'Reactivate',
@@ -1559,7 +1559,7 @@ const handleReactivate = async (row: OnboardingItem) => {
 
 const handleForceComplete = async (row: OnboardingItem) => {
 	ElMessageBox.prompt(
-		`Are you sure you want to force complete the onboarding process for "${row.leadName}"? This action will bypass all validation and mark the onboarding as Force Completed. Please provide a reason for this action.`,
+		`Are you sure you want to force complete the onboarding process for "${row.caseName}"? This action will bypass all validation and mark the onboarding as Force Completed. Please provide a reason for this action.`,
 		'⚠️ Force Complete Onboarding',
 		{
 			confirmButtonText: 'Force Complete',
@@ -1632,7 +1632,7 @@ const handleExport = async () => {
 				...omitBy(
 					pick(searchParams, [
 						'caseCode',
-						'leadName',
+						'caseName',
 						'lifeCycleStageName',
 						'currentStageId',
 						'updatedBy',
@@ -1701,7 +1701,7 @@ const handleEditCase = (row: any) => {
 	editingCaseId.value = row.id;
 
 	// 使用列表数据直接回显
-	formData.leadName = row.leadName || '';
+	formData.caseName = row.caseName || '';
 	formData.caseCode = row.caseCode || '';
 	formData.ContactPerson = row.contactPerson || '';
 	formData.ContactEmail = row.contactEmail || '';
@@ -1779,7 +1779,7 @@ const handleCancel = () => {
 
 const resetForm = () => {
 	formData.caseCode = '';
-	formData.leadName = '';
+	formData.caseName = '';
 	formData.lifeCycleStageName = '';
 	formData.lifeCycleStageId = '';
 	formData.priority = '';
@@ -2094,7 +2094,7 @@ const handleSave = async () => {
 
 					// 字段映射关系
 					const fieldMapping = {
-						leadName: {
+						caseName: {
 							apiField: 'CUSTOMERNAME',
 							type: 'text',
 							required: true,

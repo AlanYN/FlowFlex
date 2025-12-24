@@ -185,7 +185,7 @@ export interface IDeadline {
 	daysUntilDue: number;
 	caseCode: string;
 	caseName: string;
-	onboardingId: number;
+	onboardingId: string;
 	type: DeadlineType;
 	priority: 'Low' | 'Medium' | 'High' | 'Critical';
 	assignedTeam: string;
