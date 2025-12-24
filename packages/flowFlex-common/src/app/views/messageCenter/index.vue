@@ -893,8 +893,7 @@ const handleCompose = () => {
 };
 
 const handleSendMessage = (data: any) => {
-	console.log('Sending message:', data);
-	// TODO: Implement send message API call
+	refreshMessageList();
 };
 
 const handleSaveDraft = (data: any) => {
