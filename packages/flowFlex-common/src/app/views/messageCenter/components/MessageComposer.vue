@@ -190,6 +190,12 @@ const openVisible = (originalMessage?: MessageInfo, isReply: boolean = false) =>
 		form.value.subject = `${isReply ? 'Re: ' : 'Fwd: '}${originalMessage.subject}`;
 		messageType.value = `${originalMessage.messageType}` as MessageType;
 		uploadedAttachments.value = originalMessage.attachments;
+
+		if (messageType.value === MessageType.Internal && selectedRecipient.value) {
+			InternalRecipients.value = originalMessage.recipients;
+		} else if (messageType.value === MessageType.Email && selectedCustomerEmail.value) {
+			CustomerRecipients.value = originalMessage.recipients;
+		}
 	}
 	visible.value = true;
 };
