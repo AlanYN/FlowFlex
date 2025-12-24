@@ -794,18 +794,6 @@ const router = useRouter();
 const loading = ref(false);
 const onboardingList = ref<OnboardingItem[]>([]);
 
-// 监听onboardingList的变化（用于调试）
-watch(
-	onboardingList,
-	(newList) => {
-		// 检查是否有status字段丢失
-		const itemsWithoutStatus = newList.filter((item) => item.id && !item.status);
-		if (itemsWithoutStatus.length > 0) {
-			console.error('❌ [Watch] Found items without status:', itemsWithoutStatus);
-		}
-	},
-	{ deep: true }
-);
 const selectedItems = ref<OnboardingItem[]>([]);
 const activeView = ref('table');
 const currentPage = ref(1);
@@ -1046,9 +1034,7 @@ const getTableViewOnboarding = async (event) => {
 			),
 		};
 
-		console.log('🔍 [Onboarding List] Query params:', queryParams);
 		const res: ApiResponse<OnboardingItem> = await queryOnboardings(queryParams);
-		console.log('📊 [Onboarding List] API response:', res);
 
 		if (res.code === '200') {
 			// 确保每个项目都有status字段
@@ -1059,15 +1045,11 @@ const getTableViewOnboarding = async (event) => {
 
 			onboardingList.value = processedData;
 			totalElements.value = res.data.total || 0;
-
-			console.log('📋 [Onboarding List] Loaded items:', onboardingList.value.length);
 		} else {
-			console.warn('⚠️ [Onboarding List] API returned error:', res.code, res.msg);
 			onboardingList.value = [];
 			totalElements.value = 0;
 		}
 	} catch (error) {
-		console.error('❌ [Onboarding List] API call failed:', error);
 		onboardingList.value = [];
 		totalElements.value = 0;
 	}
@@ -1140,7 +1122,6 @@ const getStatusTagType = (status: string) => {
 		case 'Cancelled':
 			return 'danger';
 		default:
-			console.warn('⚠️ [Status Tag] Unknown status:', status);
 			return 'info';
 	}
 };
@@ -1327,10 +1308,6 @@ const handleDelete = async (itemId: string) => {
 // ========================= 状态管理函数 =========================
 
 const handleStartOnboarding = async (row: OnboardingItem) => {
-	console.log('🚀 [Start Onboarding] Clicked for row:', row);
-	console.log('🚀 [Start Onboarding] Row status:', row.status);
-	console.log('🚀 [Start Onboarding] Row ID:', row.id);
-
 	ElMessageBox.confirm(
 		`Are you sure you want to start the onboarding process for "${row.caseName}"? This will activate the onboarding and begin the workflow.`,
 		'⚡ Start Onboarding',
@@ -1346,20 +1323,10 @@ const handleStartOnboarding = async (row: OnboardingItem) => {
 					instance.confirmButtonText = 'Starting...';
 
 					try {
-						console.log('📡 [Start Onboarding] Calling API with params:', {
-							id: row.id,
-							params: {
-								reason: 'Manual activation from onboarding list',
-								resetProgress: true,
-							},
-						});
-
 						const res = await startOnboarding(row.id, {
 							reason: 'Manual activation from onboarding list',
 							resetProgress: true,
 						});
-
-						console.log('📡 [Start Onboarding] API response:', res);
 
 						if (res.code === '200') {
 							ElMessage.success('Onboarding started successfully');
@@ -1367,9 +1334,6 @@ const handleStartOnboarding = async (row: OnboardingItem) => {
 						} else {
 							ElMessage.error(res.msg || 'Failed to start onboarding');
 						}
-					} catch (error) {
-						console.error('❌ [Start Onboarding] Error:', error);
-						ElMessage.error('Failed to start onboarding');
 					} finally {
 						instance.confirmButtonLoading = false;
 						instance.confirmButtonText = 'Start Onboarding';
@@ -1593,9 +1557,6 @@ const handleForceComplete = async (row: OnboardingItem) => {
 						} else {
 							ElMessage.error(res.msg || 'Failed to force complete onboarding');
 						}
-					} catch (error) {
-						console.error('❌ [Force Complete] Error:', error);
-						ElMessage.error('Failed to force complete onboarding');
 					} finally {
 						instance.confirmButtonLoading = false;
 						instance.confirmButtonText = 'Force Complete';
@@ -1730,14 +1691,12 @@ const autoFillCurrentUser = async () => {
 		// 获取当前登录用户信息
 		const currentUser = userStore.getUserInfo;
 		if (!currentUser || !currentUser.userId || !currentUser.userName) {
-			console.warn('No current user info available');
 			return;
 		}
 
 		// 获取用户数据列表（使用缓存）
 		const userData = await menuStore.getFlowflexUserDataWithCache();
 		if (!userData || userData.length === 0) {
-			console.warn('No user data available');
 			return;
 		}
 
@@ -1761,11 +1720,9 @@ const autoFillCurrentUser = async () => {
 		if (currentUserData) {
 			formData.ownership = currentUserData.id;
 		} else {
-			console.warn('Current user not found in user data list');
 			// 留空，不填充
 		}
 	} catch (error) {
-		console.error('Failed to auto-fill current user:', error);
 		// 出错时留空
 	}
 };
@@ -2174,8 +2131,6 @@ const handleSave = async () => {
 				}
 			}
 		}
-	} catch (error) {
-		console.log('error:', error);
 	} finally {
 		saving.value = false;
 	}

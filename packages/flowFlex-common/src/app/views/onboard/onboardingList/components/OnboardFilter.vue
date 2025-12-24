@@ -23,12 +23,12 @@
 				<div class="space-y-2">
 					<label class="text-sm font-medium">Company/Contact Name</label>
 					<InputTag
-						v-model="leadNameTags"
+						v-model="caseNameTags"
 						placeholder="Enter Company/Contact Name and press enter"
 						style-type="normal"
 						:limit="10"
 						clearable
-						@change="handleLeadNameTagsChange"
+						@change="handleCaseNameTagsChange"
 						class="w-full"
 					/>
 				</div>
@@ -178,7 +178,7 @@ const searchParams = reactive<SearchParams>({
 
 // 标签数组
 const caseCodeTags = ref<string[]>([]);
-const leadNameTags = ref<string[]>([]);
+const caseNameTags = ref<string[]>([]);
 const updatedByTags = ref<string[]>([]);
 
 // 动态 stages 管理
@@ -255,7 +255,7 @@ const handleCaseCodeTagsChange = (tags: string[]) => {
 	handleAutoSearch();
 };
 
-const handleLeadNameTagsChange = (tags: string[]) => {
+const handleCaseNameTagsChange = (tags: string[]) => {
 	searchParams.caseName = tags.join(',');
 	handleAutoSearch();
 };
@@ -271,7 +271,7 @@ const handleSearch = () => {
 	const searchParamsWithTags = {
 		...searchParams,
 		caseCodeTags: caseCodeTags.value,
-		leadNameTags: leadNameTags.value,
+		caseNameTags: caseNameTags.value,
 		updatedByTags: updatedByTags.value,
 	};
 	emit('search', searchParamsWithTags);
