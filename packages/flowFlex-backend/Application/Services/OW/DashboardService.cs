@@ -294,7 +294,7 @@ namespace FlowFlex.Application.Services.OW
             var caseAchievements = completedCases.Select(c => new AchievementDto
             {
                 Id = c.Id,
-                Title = $"{c.LeadName} case completed",
+                Title = $"{c.CaseName} case completed",
                 Description = c.ActualCompletionDate.HasValue && c.StartDate.HasValue
                     ? $"Successfully completed all case stages in {(int)(c.ActualCompletionDate.Value - c.StartDate.Value).TotalDays} days"
                     : "Successfully completed all case stages",
@@ -303,7 +303,7 @@ namespace FlowFlex.Application.Services.OW
                 Teams = ParseTeams(c.OperateTeams),
                 Type = "CaseCompleted",
                 CaseCode = c.CaseCode,
-                CaseName = c.LeadName,
+                CaseName = c.CaseName,
                 DaysToComplete = c.ActualCompletionDate.HasValue && c.StartDate.HasValue
                     ? (int)(c.ActualCompletionDate.Value - c.StartDate.Value).TotalDays
                     : null
@@ -430,7 +430,7 @@ namespace FlowFlex.Application.Services.OW
                                 Teams = ParseTeams(onboarding.OperateTeams),
                                 Type = "StageCompleted",
                                 CaseCode = onboarding.CaseCode,
-                                CaseName = onboarding.LeadName,
+                                CaseName = onboarding.CaseName,
                                 DaysToComplete = s.StartTime.HasValue && s.CompletionTime.HasValue
                                     ? (int)(s.CompletionTime.Value - s.StartTime.Value).TotalDays
                                     : null,
@@ -573,7 +573,7 @@ namespace FlowFlex.Application.Services.OW
                                     Urgency = DetermineUrgency(stageEndTime.Value, now),
                                     DaysUntilDue = (int)(stageEndTime.Value - now).TotalDays,
                                     CaseCode = onboarding.CaseCode ?? string.Empty,
-                                    CaseName = onboarding.LeadName ?? string.Empty,
+                                    CaseName = onboarding.CaseName ?? string.Empty,
                                     OnboardingId = onboarding.Id,
                                     ChecklistId = 0,
                                     Type = "Stage",

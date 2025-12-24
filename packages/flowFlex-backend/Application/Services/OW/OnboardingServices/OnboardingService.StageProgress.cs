@@ -954,7 +954,7 @@ namespace FlowFlex.Application.Services.OW
                         it.CurrentStageId,
                         it.CurrentStageOrder,
                         it.LeadId,
-                        it.LeadName,
+                        it.CaseName,
                         it.LeadEmail,
                         it.LeadPhone,
                         it.ContactPerson,

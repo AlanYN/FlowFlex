@@ -284,7 +284,7 @@ namespace FlowFlex.Tests.Services.OW
                 new Onboarding
                 {
                     Id = 1,
-                    LeadName = "Test Case",
+                    CaseName = "Test Case",
                     CaseCode = "CASE-001",
                     StartDate = DateTimeOffset.UtcNow.AddDays(-14),
                     ActualCompletionDate = DateTimeOffset.UtcNow
@@ -537,7 +537,7 @@ namespace FlowFlex.Tests.Services.OW
                 onboardings.Add(new Onboarding
                 {
                     Id = i,
-                    LeadName = $"Lead {i}",
+                    CaseName = $"Lead {i}",
                     CaseCode = $"CASE-{i:D3}",
                     Status = "Completed",
                     StartDate = DateTimeOffset.UtcNow.AddDays(-14 - i),

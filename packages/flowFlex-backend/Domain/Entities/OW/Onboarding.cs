@@ -38,11 +38,11 @@ namespace FlowFlex.Domain.Entities.OW
         public string? LeadId { get; set; }
 
         /// <summary>
-        /// Customer/Lead Name
+        /// Case Name (Customer/Lead Name)
         /// </summary>
         [StringLength(200)]
-        [SugarColumn(ColumnName = "lead_name")]
-        public string LeadName { get; set; }
+        [SugarColumn(ColumnName = "case_name")]
+        public string CaseName { get; set; }
 
         /// <summary>
         /// Case Code - Unique identifier generated from Lead Name

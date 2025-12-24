@@ -142,7 +142,7 @@ namespace FlowFlex.Application.Services.OW
                 INSERT INTO ff_onboarding (
                     tenant_id, app_code, is_valid, create_date, modify_date, create_by, modify_by,
                     create_user_id, modify_user_id, workflow_id, current_stage_order,
-                    lead_id, lead_name, case_code, lead_email, lead_phone, status, completion_rate,
+                    lead_id, case_name, case_code, lead_email, lead_phone, status, completion_rate,
                     priority, is_priority_set, ownership, ownership_name, ownership_email,
                     notes, is_active, stages_progress_json, id,
                     current_stage_id, contact_person, contact_email, life_cycle_stage_id, 
@@ -152,7 +152,7 @@ namespace FlowFlex.Application.Services.OW
                 ) VALUES (
                     @TenantId, @AppCode, @IsValid, @CreateDate, @ModifyDate, @CreateBy, @ModifyBy,
                     @CreateUserId, @ModifyUserId, @WorkflowId, @CurrentStageOrder,
-                    @LeadId, @LeadName, @CaseCode, @LeadEmail, @LeadPhone, @Status, @CompletionRate,
+                    @LeadId, @CaseName, @CaseCode, @LeadEmail, @LeadPhone, @Status, @CompletionRate,
                     @Priority, @IsPrioritySet, 
                     CASE WHEN @Ownership IS NULL OR @Ownership = '' THEN NULL ELSE @Ownership::bigint END,
                     @OwnershipName, @OwnershipEmail,
@@ -181,7 +181,7 @@ namespace FlowFlex.Application.Services.OW
                             WorkflowId = entity.WorkflowId,
                             CurrentStageOrder = entity.CurrentStageOrder,
                             LeadId = entity.LeadId,
-                            LeadName = entity.LeadName,
+                            CaseName = entity.CaseName,
                             CaseCode = entity.CaseCode,
                             LeadEmail = entity.LeadEmail ?? "",
                             LeadPhone = entity.LeadPhone ?? "",
@@ -279,7 +279,7 @@ namespace FlowFlex.Application.Services.OW
 
                 // Store original values for static field sync comparison and logging
                 var originalLeadId = entity.LeadId;
-                var originalLeadName = entity.LeadName;
+                var originalCaseName = entity.CaseName;
                 var originalContactPerson = entity.ContactPerson;
                 var originalContactEmail = entity.ContactEmail;
                 var originalLeadPhone = entity.LeadPhone;
@@ -312,7 +312,7 @@ namespace FlowFlex.Application.Services.OW
                 // Prepare beforeData for logging
                 var beforeData = JsonSerializer.Serialize(new
                 {
-                    LeadName = entity.LeadName,
+                    CaseName = entity.CaseName,
                     CaseCode = entity.CaseCode,
                     WorkflowId = entity.WorkflowId,
                     WorkflowName = beforeWorkflowName,
@@ -438,7 +438,7 @@ namespace FlowFlex.Application.Services.OW
                             entity.Id,
                             targetStageId.Value,
                             originalLeadId,
-                            originalLeadName,
+                            originalCaseName,
                             originalContactPerson,
                             originalContactEmail,
                             originalLeadPhone,
@@ -472,7 +472,7 @@ namespace FlowFlex.Application.Services.OW
 
                             var afterData = JsonSerializer.Serialize(new
                             {
-                                LeadName = entity.LeadName,
+                                CaseName = entity.CaseName,
                                 CaseCode = entity.CaseCode,
                                 WorkflowId = entity.WorkflowId,
                                 WorkflowName = afterWorkflowName,
@@ -494,7 +494,7 @@ namespace FlowFlex.Application.Services.OW
                             });
 
                             var changedFields = new List<string>();
-                            if (originalLeadName != entity.LeadName) changedFields.Add("LeadName");
+                            if (originalCaseName != entity.CaseName) changedFields.Add("CaseName");
                             if (originalContactPerson != entity.ContactPerson) changedFields.Add("ContactPerson");
                             if (originalContactEmail != entity.ContactEmail) changedFields.Add("ContactEmail");
                             if (originalPriority != entity.Priority) changedFields.Add("Priority");
@@ -513,7 +513,7 @@ namespace FlowFlex.Application.Services.OW
 
                             await _onboardingLogService.LogOnboardingUpdateAsync(
                                 entity.Id,
-                                entity.LeadName ?? entity.CaseCode ?? "Unknown",
+                                entity.CaseName ?? entity.CaseCode ?? "Unknown",
                                 beforeData: beforeData,
                                 afterData: afterData,
                                 changedFields: changedFields
@@ -690,7 +690,7 @@ namespace FlowFlex.Application.Services.OW
                     {
                         await _onboardingLogService.LogOnboardingDeleteAsync(
                             entity.Id,
-                            entity.LeadName ?? entity.CaseCode ?? "Unknown",
+                            entity.CaseName ?? entity.CaseCode ?? "Unknown",
                             reason: "Deleted by user"
                         );
                     }
@@ -1001,8 +1001,8 @@ namespace FlowFlex.Application.Services.OW
         {
             var entity = _mapper.Map<Onboarding>(input);
 
-            // Generate Case Code from Lead Name
-            entity.CaseCode = await _caseCodeGeneratorService.GenerateCaseCodeAsync(input.LeadName);
+            // Generate Case Code from Case Name
+            entity.CaseCode = await _caseCodeGeneratorService.GenerateCaseCodeAsync(input.CaseName);
 
             // Set initial values
             entity.CurrentStageId = firstStage?.Id;
@@ -1105,7 +1105,7 @@ namespace FlowFlex.Application.Services.OW
 
                     var afterData = JsonSerializer.Serialize(new
                     {
-                        insertedEntity.LeadName,
+                        insertedEntity.CaseName,
                         insertedEntity.CaseCode,
                         insertedEntity.WorkflowId,
                         WorkflowName = workflowName,
@@ -1128,7 +1128,7 @@ namespace FlowFlex.Application.Services.OW
 
                     await _onboardingLogService.LogOnboardingCreateAsync(
                         insertedId,
-                        insertedEntity.LeadName ?? insertedEntity.CaseCode ?? "Unknown",
+                        insertedEntity.CaseName ?? insertedEntity.CaseCode ?? "Unknown",
                         afterData: afterData
                     );
                 }

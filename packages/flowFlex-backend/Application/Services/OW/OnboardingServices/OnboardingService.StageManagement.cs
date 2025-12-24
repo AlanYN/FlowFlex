@@ -625,7 +625,7 @@ namespace FlowFlex.Application.Services.OW
 
                 // Prepare email data
                 var caseId = entity.CaseCode ?? entity.Id.ToString();
-                var caseName = entity.LeadName ?? $"Case {caseId}";
+                var caseName = entity.CaseName ?? $"Case {caseId}";
                 var stageName = stage.Name ?? "Unknown Stage";
                 // Convert UTC time to server local time and format as US time format: MM/dd/yyyy hh:mm:ss tt
                 var utcTime = DateTimeOffset.UtcNow;

@@ -28,10 +28,10 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.Onboarding
         public string? LeadId { get; set; }
 
         /// <summary>
-        /// 客户/线索名称
+        /// Case 名称（客户/线索名称）
         /// </summary>
         [StringLength(200)]
-        public string LeadName { get; set; }
+        public string CaseName { get; set; }
 
         /// <summary>
         /// 客户/线索邮箱

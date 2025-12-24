@@ -336,7 +336,7 @@ public class ChecklistTaskRepository : BaseRepository<ChecklistTask>, IChecklist
                 ChecklistId = t.ChecklistId,
                 OnboardingId = o.Id,
                 CaseCode = o.CaseCode,
-                CaseName = o.LeadName
+                CaseName = o.CaseName
             })
             .ToListAsync();
 
@@ -411,7 +411,7 @@ public class ChecklistTaskRepository : BaseRepository<ChecklistTask>, IChecklist
                 ChecklistId = t.ChecklistId,
                 OnboardingId = o.Id,
                 CaseCode = o.CaseCode,
-                CaseName = o.LeadName
+                CaseName = o.CaseName
             })
             .ToListAsync();
 

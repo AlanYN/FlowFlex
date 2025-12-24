@@ -15,7 +15,7 @@ public abstract class ControllerBase : Microsoft.AspNetCore.Mvc.ControllerBase
     /// <summary>
     /// The name of the application
     /// </summary>
-    protected readonly string ApplicationName = "unisco-crm";
+    protected readonly string ApplicationName = "unisco-wfe";
 
     protected ControllerBase()
     {
