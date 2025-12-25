@@ -15,7 +15,7 @@
 		<!-- Row 1: 4 Stats Cards -->
 		<div class="row-stats">
 			<template v-if="statisticsLoading">
-				<el-skeleton v-for="i in 4" :key="i" animated class="stats-skeleton">
+				<el-skeleton v-for="i in 4" :key="i" animated class="stats-skeleton flex flex-col">
 					<template #template>
 						<el-skeleton-item variant="text" style="width: 60%; height: 16px" />
 						<el-skeleton-item
