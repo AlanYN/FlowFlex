@@ -642,7 +642,7 @@ public class OutlookService : IOutlookService, IScopedService
                     SenderName = email.FromName ?? "",
                     SenderEmail = email.FromEmail ?? "",
                     Recipients = JsonSerializer.Serialize(email.ToRecipients ?? new List<RecipientDto>()),
-                    IsRead = email.IsRead,
+                    IsRead = localFolder == EmailConstants.Folder.Sent || email.IsRead, // Sent folder messages are always read
                     IsDraft = email.IsDraft,
                     HasAttachments = email.HasAttachments,
                     SentDate = email.SentDateTime,
@@ -736,7 +736,7 @@ public class OutlookService : IOutlookService, IScopedService
                         SenderName = email.FromName ?? "",
                         SenderEmail = email.FromEmail ?? "",
                         Recipients = JsonSerializer.Serialize(email.ToRecipients ?? new List<RecipientDto>()),
-                        IsRead = email.IsRead,
+                        IsRead = localFolder == EmailConstants.Folder.Sent || email.IsRead, // Sent folder messages are always read
                         IsDraft = email.IsDraft,
                         HasAttachments = email.HasAttachments,
                         SentDate = email.SentDateTime,
@@ -1002,7 +1002,7 @@ public class OutlookService : IOutlookService, IScopedService
                             Name = r.EmailAddress?.Name ?? "",
                             Email = r.EmailAddress?.Address ?? ""
                         }).ToList() ?? new List<RecipientDto>()),
-                        IsRead = message.IsRead ?? false,
+                        IsRead = localFolder == EmailConstants.Folder.Sent || (message.IsRead ?? false), // Sent folder messages are always read
                         IsDraft = message.IsDraft ?? false,
                         HasAttachments = message.HasAttachments ?? false,
                         SentDate = message.SentDateTime,

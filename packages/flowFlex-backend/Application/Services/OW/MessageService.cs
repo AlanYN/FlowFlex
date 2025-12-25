@@ -335,7 +335,10 @@ public class MessageService : IMessageService, IScopedService
 
         var ownerId = GetCurrentUserId();
         var senderName = _operatorContextService.GetOperatorDisplayName();
-        var senderEmail = _userContext.Email ?? string.Empty;
+        // Fallback to UserName if Email is empty
+        var senderEmail = !string.IsNullOrEmpty(_userContext.Email) 
+            ? _userContext.Email 
+            : (_userContext.UserName ?? string.Empty);
 
         // Handle based on message type
         return input.MessageType switch
@@ -810,7 +813,10 @@ public class MessageService : IMessageService, IScopedService
 
         var ownerId = GetCurrentUserId();
         var senderName = _operatorContextService.GetOperatorDisplayName();
-        var senderEmail = _userContext.Email ?? string.Empty;
+        // Fallback to UserName if Email is empty
+        var senderEmail = !string.IsNullOrEmpty(_userContext.Email) 
+            ? _userContext.Email 
+            : (_userContext.UserName ?? string.Empty);
 
         // Create reply message
         var replyMessage = new Message
@@ -839,6 +845,7 @@ public class MessageService : IMessageService, IScopedService
             ParentMessageId = id,
             ConversationId = originalMessage.ConversationId ?? originalMessage.Id.ToString(),
             OwnerId = ownerId,
+            IsRead = true, // Sent messages are automatically marked as read
             SentDate = DateTimeOffset.UtcNow,
             ReceivedDate = DateTimeOffset.UtcNow
         };
@@ -869,7 +876,10 @@ public class MessageService : IMessageService, IScopedService
 
         var ownerId = GetCurrentUserId();
         var senderName = _operatorContextService.GetOperatorDisplayName();
-        var senderEmail = _userContext.Email ?? string.Empty;
+        // Fallback to UserName if Email is empty
+        var senderEmail = !string.IsNullOrEmpty(_userContext.Email) 
+            ? _userContext.Email 
+            : (_userContext.UserName ?? string.Empty);
 
         // Create forward message
         var forwardMessage = new Message
@@ -890,6 +900,7 @@ public class MessageService : IMessageService, IScopedService
             ParentMessageId = id,
             ConversationId = originalMessage.ConversationId ?? originalMessage.Id.ToString(),
             OwnerId = ownerId,
+            IsRead = true, // Sent messages are automatically marked as read
             SentDate = DateTimeOffset.UtcNow,
             ReceivedDate = DateTimeOffset.UtcNow
         };
@@ -921,7 +932,10 @@ public class MessageService : IMessageService, IScopedService
     {
         var ownerId = GetCurrentUserId();
         var senderName = _operatorContextService.GetOperatorDisplayName();
-        var senderEmail = _userContext.Email ?? string.Empty;
+        // Fallback to UserName if Email is empty
+        var senderEmail = !string.IsNullOrEmpty(_userContext.Email) 
+            ? _userContext.Email 
+            : (_userContext.UserName ?? string.Empty);
 
         var draft = new Message
         {
@@ -983,6 +997,7 @@ public class MessageService : IMessageService, IScopedService
         // Update draft to sent message
         draft.IsDraft = false;
         draft.Folder = "Sent";
+        draft.IsRead = true; // Sent messages are automatically marked as read
         draft.SentDate = DateTimeOffset.UtcNow;
         draft.ReceivedDate = DateTimeOffset.UtcNow;
         draft.InitUpdateInfo(_userContext);
@@ -1289,6 +1304,7 @@ public class MessageService : IMessageService, IScopedService
             RelatedEntityType = input.RelatedEntityType,
             RelatedEntityId = input.RelatedEntityId,
             IsDraft = input.SaveAsDraft,
+            IsRead = !input.SaveAsDraft, // Sent messages are automatically marked as read
             OwnerId = ownerId,
             SentDate = input.SaveAsDraft ? null : DateTimeOffset.UtcNow,
             ReceivedDate = input.SaveAsDraft ? null : DateTimeOffset.UtcNow
