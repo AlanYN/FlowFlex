@@ -1078,10 +1078,7 @@ const handleUnbind = async () => {
 								isDetailPanelVisible.value = false;
 								messageCenterCount.value = 0;
 								// 重新获取授权 URL
-								const authEmailRes = await getEmailAuth();
-								if (authEmailRes.code == '200') {
-									authEmailUrl.value = authEmailRes.data.authorizationUrl;
-								}
+								refreshMessageList();
 								done();
 							} else {
 								instance.confirmButtonLoading = false;

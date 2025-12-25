@@ -63,6 +63,7 @@
 								collapse-tags-tooltip
 								:max-collapse-tags="5"
 								clearable
+								tag-type="primary"
 								@change="handleCustomerEmailTagsChange"
 							/>
 							<FlowflexUserSelect
@@ -199,9 +200,9 @@ const visible = ref(false);
 const openVisible = (originalMessage?: MessageInfo, isReply: boolean = false) => {
 	if (originalMessage) {
 		const messageUser = isReply
-			? originalMessage.senderEmail
-				? [originalMessage.senderId]
-				: originalMessage.recipients.map((item) => item.userId)
+			? originalMessage?.senderId
+				? [originalMessage?.senderId]
+				: []
 			: [];
 		selectedRecipient.value = messageUser;
 		form.value.body = isReply
@@ -210,13 +211,19 @@ const openVisible = (originalMessage?: MessageInfo, isReply: boolean = false) =>
 		form.value.subject = `${isReply ? 'Re: ' : 'Fwd: '}${originalMessage.subject}`;
 		messageType.value = `${originalMessage.messageType}` as MessageType;
 		uploadedAttachments.value = originalMessage.attachments;
-		if (messageType.value === MessageType.Internal && selectedRecipient.value) {
-			InternalRecipients.value = originalMessage.recipients;
+		if (messageType.value === MessageType.Internal && originalMessage?.senderId) {
+			InternalRecipients.value = [
+				{
+					userId: originalMessage?.senderId,
+					name: originalMessage?.senderName,
+					email: originalMessage.senderEmail,
+				},
+			];
 		} else if (messageType.value === MessageType.Email) {
 			// 回复/转发邮件时，设置收件人
-			if (isReply && originalMessage.senderEmail) {
+			if (isReply && originalMessage.senderId) {
 				// 回复时，将发件人邮箱添加到标签
-				customerEmailTags.value = [originalMessage.senderEmail];
+				customerEmailTags.value = [originalMessage.senderId];
 				handleCustomerEmailTagsChange(customerEmailTags.value);
 			} else if (originalMessage.recipients?.length) {
 				// 转发时，清空收件人
