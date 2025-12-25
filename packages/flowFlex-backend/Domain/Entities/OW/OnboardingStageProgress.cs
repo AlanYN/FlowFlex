@@ -89,6 +89,22 @@ namespace FlowFlex.Domain.Entities.OW
         public bool IsCurrent { get; set; } = false;
 
         /// <summary>
+        /// Stage Assignee - User ID assigned to this stage (initialized from Stage.DefaultAssignee)
+        /// </summary>
+        public List<string> Assignee { get; set; } = new List<string>();
+
+        /// <summary>
+        /// Default Assignee from Stage configuration (dynamically loaded, not stored in JSON)
+        /// </summary>
+        [JsonIgnore]
+        public List<string> DefaultAssignee { get; set; } = new List<string>();
+
+        /// <summary>
+        /// Stage Co-Assignees - Additional user IDs assigned to help with this stage
+        /// </summary>
+        public List<string> CoAssignees { get; set; } = new List<string>();
+
+        /// <summary>
         /// Is Saved - Indicates if the stage has been saved by user
         /// </summary>
         public bool IsSaved { get; set; } = false;

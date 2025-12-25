@@ -42,6 +42,7 @@ public class ChecklistTaskCompletionService : IChecklistTaskCompletionService, I
     private readonly IActionTriggerMappingRepository _actionTriggerMappingRepository;
     private readonly IServiceProvider _serviceProvider;
     private readonly IOperatorContextService _operatorContextService;
+    private readonly IChecklistTaskNoteService _checklistTaskNoteService;
 
     public ChecklistTaskCompletionService(
     IChecklistTaskCompletionRepository completionRepository,
@@ -60,7 +61,8 @@ public class ChecklistTaskCompletionService : IChecklistTaskCompletionService, I
     IActionDefinitionRepository actionDefinitionRepository,
     IActionTriggerMappingRepository actionTriggerMappingRepository,
     IServiceProvider serviceProvider,
-    IOperatorContextService operatorContextService)
+    IOperatorContextService operatorContextService,
+    IChecklistTaskNoteService checklistTaskNoteService)
     {
         _completionRepository = completionRepository;
         _taskRepository = taskRepository;
@@ -79,6 +81,7 @@ public class ChecklistTaskCompletionService : IChecklistTaskCompletionService, I
         _actionDefinitionRepository = actionDefinitionRepository ?? throw new ArgumentNullException(nameof(actionDefinitionRepository));
         _actionTriggerMappingRepository = actionTriggerMappingRepository ?? throw new ArgumentNullException(nameof(actionTriggerMappingRepository));
         _serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
+        _checklistTaskNoteService = checklistTaskNoteService ?? throw new ArgumentNullException(nameof(checklistTaskNoteService));
     }
 
     /// <summary>
@@ -151,6 +154,12 @@ public class ChecklistTaskCompletionService : IChecklistTaskCompletionService, I
         if (success)
         {
             await LogTaskCompletionAsync(onboarding, task, completion);
+
+            // Create a note when task completion status changes
+            if (statusChanged)
+            {
+                await CreateStatusChangeNoteAsync(task, completion);
+            }
 
             // 只有当任务状态真正从未完成变为完成，且有 ActionMapping 时，才执行 ActionTriggerEvent
             // 这避免了当 isCompleted 为 true 但没有变化时重复执行 action
@@ -236,6 +245,9 @@ public class ChecklistTaskCompletionService : IChecklistTaskCompletionService, I
         if (allSuccessful)
         {
             await LogBatchTaskCompletionsAsync(inputs, completions);
+
+            // Create notes for status changed tasks
+            await CreateBatchStatusChangeNotesAsync(completions, results);
 
             // 只为状态真正发生变化的且有 ActionId 的任务发布 ActionTriggerEvent
             await PublishBatchTaskActionTriggerEventsAsync(inputs, completions, results);
@@ -1336,6 +1348,70 @@ public class ChecklistTaskCompletionService : IChecklistTaskCompletionService, I
         {
             _logger.LogError(ex, "获取任务动作映射失败: TaskId={TaskId}", taskId);
             return null;
+        }
+    }
+
+    /// <summary>
+    /// Create a note when task completion status changes
+    /// </summary>
+    private async Task CreateStatusChangeNoteAsync(ChecklistTask task, ChecklistTaskCompletion completion)
+    {
+        try
+        {
+            var userName = GetCurrentUserName();
+            var content = completion.IsCompleted
+                ? $"Assigning {userName} to complete the task"
+                : $"Assigning {userName} to cancel the task";
+
+            var noteInput = new Contracts.Dtos.OW.ChecklistTask.ChecklistTaskNoteInputDto
+            {
+                TaskId = completion.TaskId,
+                OnboardingId = completion.OnboardingId,
+                Content = content,
+                NoteType = "System",
+                Priority = "Medium"
+            };
+
+            await _checklistTaskNoteService.CreateNoteAsync(noteInput);
+
+            _logger.LogDebug("Created status change note for task: TaskId={TaskId}, OnboardingId={OnboardingId}, IsCompleted={IsCompleted}",
+                completion.TaskId, completion.OnboardingId, completion.IsCompleted);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to create status change note: TaskId={TaskId}, OnboardingId={OnboardingId}",
+                completion.TaskId, completion.OnboardingId);
+            // Don't throw - note creation failure should not affect main business flow
+        }
+    }
+
+    /// <summary>
+    /// Create notes for batch status changed tasks
+    /// </summary>
+    private async Task CreateBatchStatusChangeNotesAsync(List<ChecklistTaskCompletion> completions, List<(bool success, bool statusChanged)> results)
+    {
+        try
+        {
+            for (int i = 0; i < completions.Count && i < results.Count; i++)
+            {
+                var completion = completions[i];
+                var result = results[i];
+
+                // Only create note for status changed tasks
+                if (result.success && result.statusChanged)
+                {
+                    var task = await _taskRepository.GetByIdAsync(completion.TaskId);
+                    if (task != null)
+                    {
+                        await CreateStatusChangeNoteAsync(task, completion);
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to create batch status change notes");
+            // Don't throw - note creation failure should not affect main business flow
         }
     }
 }

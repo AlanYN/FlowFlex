@@ -357,7 +357,19 @@ namespace FlowFlex.Domain.Shared.Enums.OW
         /// Note: Enum name changed from OnboardingForceComplete to CaseForceComplete. Database migration may be needed for existing records.
         /// </summary>
         [Description("Case Force Complete")]
-        CaseForceComplete = 56
+        CaseForceComplete = 56,
+
+        /// <summary>
+        /// Stage reassigned to new assignee(s)
+        /// </summary>
+        [Description("Stage Reassign")]
+        StageReassign = 57,
+
+        /// <summary>
+        /// Stage co-assignees updated
+        /// </summary>
+        [Description("Stage Co-Assignees Update")]
+        StageCoAssigneesUpdate = 58
     }
 
     /// <summary>
