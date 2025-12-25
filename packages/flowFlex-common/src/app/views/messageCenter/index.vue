@@ -171,7 +171,6 @@
 									type="primary"
 									class="w-full"
 									:loading="authLoading"
-									:disabled="!authEmailUrl"
 									@click="handleConnectEmail"
 								>
 									<Icon icon="lucide-link" class="mr-2" />
@@ -993,11 +992,6 @@ const getUserBinding = async () => {
 			refreshMessageList();
 		} else {
 			isBinding.value = '';
-			const authEmailRes = await getEmailAuth();
-			if (authEmailRes.code == '200') {
-				authEmailUrl.value = authEmailRes.data.authorizationUrl;
-			}
-			// selectedType.value = MessageFolder.Sent;
 			refreshMessageList();
 		}
 	} finally {
@@ -1017,8 +1011,6 @@ const openAuthWindow = () => {
 		return;
 	}
 
-	authLoading.value = true;
-
 	// Open authorization window
 	const width = 600;
 	const height = 700;
@@ -1036,7 +1028,6 @@ const openAuthWindow = () => {
 		if (authWindow?.closed) {
 			clearInterval(checkWindowClosed);
 			nextTick(async () => {
-				authLoading.value = false;
 				// Re-check binding status
 				await getUserBinding();
 			});
@@ -1047,8 +1038,17 @@ const openAuthWindow = () => {
 /**
  * Handle connect email button click (from EmailBindingPrompt or sidebar)
  */
-const handleConnectEmail = () => {
-	openAuthWindow();
+const handleConnectEmail = async () => {
+	try {
+		authLoading.value = true;
+		const authEmailRes = await getEmailAuth();
+		if (authEmailRes.code == '200') {
+			authEmailUrl.value = authEmailRes.data.authorizationUrl;
+			openAuthWindow();
+		}
+	} finally {
+		authLoading.value = false;
+	}
 };
 
 /**
