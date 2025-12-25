@@ -514,7 +514,17 @@ const handleSend = async () => {
 	}
 };
 
+// 文件数量限制
+const FILE_LIMIT = 10;
+
 const handleFileChange = async (file: UploadFile) => {
+	// 检查已上传文件数量 + 正在上传的文件数量是否超过限制
+	const currentCount = uploadedAttachments.value.length + uploadProgress.value.length;
+	if (currentCount >= FILE_LIMIT) {
+		ElMessage.warning(`Maximum ${FILE_LIMIT} files can be uploaded`);
+		return;
+	}
+
 	// 上传新添加的文件
 	if (file.raw) {
 		// 添加到进度列表
@@ -575,7 +585,6 @@ const handleFileChange = async (file: UploadFile) => {
 				console.log('File upload cancelled:', file.name);
 			} else {
 				console.error('File upload error:', error);
-				ElMessage.error(`Failed to upload ${file.name}`);
 			}
 		} finally {
 			// 清理

@@ -26,13 +26,13 @@
 
 		<el-form-item label="Attachments">
 			<el-upload
+				ref="uploadRef"
 				class="w-full"
 				drag
 				:auto-upload="false"
 				:on-change="handleFileChange"
 				:show-file-list="false"
 				multiple
-				:limit="10"
 				accept=".pdf,.docx,.doc,.jpg,.jpeg,.png,.xlsx,.xls,.msg,.eml"
 			>
 				<div class="flex flex-col items-center justify-center py-6">
@@ -108,7 +108,7 @@
 import { ref, onMounted } from 'vue';
 import { Upload } from '@element-plus/icons-vue';
 import RichTextEditor from '@/components/RichTextEditor/index.vue';
-import type { UploadFile } from 'element-plus';
+import type { UploadFile, UploadInstance } from 'element-plus';
 
 interface Props {
 	uploadProgress: Array<{
@@ -138,6 +138,7 @@ const relatedTo = defineModel<string>('relatedTo', { required: true });
 
 // RichTextEditor ref
 const richTextEditorRef = ref<InstanceType<typeof RichTextEditor> | null>(null);
+const uploadRef = ref<UploadInstance>();
 
 // 处理编辑器内容变化（用户输入）
 const handleEditorChange = (html: string) => {
@@ -156,5 +157,8 @@ onMounted(() => {
 
 const handleFileChange = (file: UploadFile) => {
 	emit('file-change', file);
+	// 每次选择文件后清空 el-upload 内部的文件列表
+	// 这样上传失败的文件不会计入 limit 数量
+	uploadRef.value?.clearFiles();
 };
 </script>
