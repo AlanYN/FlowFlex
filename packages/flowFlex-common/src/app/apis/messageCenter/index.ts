@@ -72,6 +72,10 @@ export function unreadMessage(id: string): Promise<ApiResponse<MessageList[]>> {
 	return defHttp.post({ url: `${Api().messageCenter}/${id}/unread` });
 }
 
+export function restoreMessage(id: string): Promise<ApiResponse<MessageList[]>> {
+	return defHttp.post({ url: `${Api().messageCenter}/${id}/restore` });
+}
+
 export function getEmailAuth(): Promise<
 	ApiResponse<{
 		authorizationUrl: string;

@@ -409,6 +409,7 @@
 					:archiveLoadingId="archiveLoadingId"
 					:unreadLoadingId="unreadLoadingId"
 					:attachmentLoadingId="attachmentLoadingId"
+					:restoreLoadingId="restoreLoadingId"
 					@close="handleCloseDetailPanel"
 					@reply="handleReply"
 					@forward="handleForward"
@@ -416,6 +417,7 @@
 					@archive="handleArchive"
 					@delete="handleDelete"
 					@unread="handleUnread"
+					@restore="handleRestore"
 					@download-attachment="handleDownloadAttachment"
 				/>
 			</div>
@@ -452,20 +454,23 @@ import {
 	archiveMessage,
 	unarchiveMessage,
 	unreadMessage,
+	restoreMessage,
 	downLoadFile,
 	syncMessage,
 	syncMessageFull,
 	unbindMessageCenter,
 } from '@/apis/messageCenter';
 import { Icon } from '@iconify/vue';
-import { ElMessageBox } from 'element-plus';
+import { ElMessageBox, ElMessage } from 'element-plus';
 import { useAdaptiveScrollbar } from '@/hooks/useAdaptiveScrollbar';
 import { timeZoneConvert } from '@/hooks/time';
 import { getAvatarColor } from '@/utils';
 import { projectTenMinutesSsecondsDate } from '@/settings/projectSetting';
 import { functionPermission } from '@/hooks/index';
 import { ProjectPermissionEnum } from '@/enums/permissionEnum';
+import { useI18n } from '@/hooks/useI18n';
 
+const { t } = useI18n();
 // Use adaptive scrollbar for the main grid container
 const { scrollbarRef: gridContainerRef, updateScrollbarHeight: updateGridHeight } =
 	useAdaptiveScrollbar(20);
@@ -720,10 +725,6 @@ const handleScroll = (event) => {
 	const scrollHeight = scrollbarWrap.scrollHeight;
 	const clientHeight = scrollbarWrap.clientHeight;
 	if (scrollHeight - scrollTop - clientHeight < 10) {
-		console.log('scrollTop:', scrollTop);
-		console.log('gridContainerRef.value:', clientHeight);
-		console.log('gridContainerRef.value:', scrollHeight);
-		console.log('滑动到底部');
 		loadMoreMessages();
 	}
 };
@@ -751,6 +752,7 @@ const handleStar = async (messageId: string, isStarred: boolean) => {
 		const res = isStarred ? await unstarMessage(messageId) : await starMessage(messageId);
 		if (res.code == '200') {
 			// 本地更新收藏状态
+			ElMessage.success(t('sys.api.operationSuccess'));
 			const message = messageList.value.find((msg) => msg.id === messageId);
 			if (message) {
 				message.isStarred = !isStarred;
@@ -758,11 +760,17 @@ const handleStar = async (messageId: string, isStarred: boolean) => {
 			// 如果在 Starred 文件夹取消收藏，从列表中移除
 			if (selectedType.value === MessageFolder.Starred && isStarred) {
 				messageList.value = messageList.value.filter((msg) => msg.id !== messageId);
-				// 如果删除的是当前选中的消息，关闭详情面板
-				if (selectedMessageId.value === messageId) {
+				// 如果删除的是当前选中的消息或列表为空，关闭详情面板
+				if (selectedMessageId.value === messageId || messageList.value.length === 0) {
 					handleCloseDetailPanel();
+					return;
 				}
 			}
+			nextTick(() => {
+				currentMessageCenter.value && currentMessageCenter.value?.getMessageInfo(messageId);
+			});
+		} else {
+			ElMessage.error(res?.msg || t('sys.api.operationFailed'));
 		}
 	} finally {
 		starLoadingId.value = '';
@@ -777,13 +785,16 @@ const handleArchive = async (messageId: string, isArchived: boolean) => {
 			? await unarchiveMessage(messageId)
 			: await archiveMessage(messageId);
 		if (res.code == '200') {
+			ElMessage.success(t('sys.api.operationSuccess'));
 			// 归档/取消归档后从当前列表中移除
 			// 因为归档后消息会移动到 Archive 文件夹，取消归档后会移回原文件夹
 			messageList.value = messageList.value.filter((msg) => msg.id !== messageId);
-			// 如果移除的是当前选中的消息，关闭详情面板
-			if (selectedMessageId.value === messageId) {
+			// 如果移除的是当前选中的消息或列表为空，关闭详情面板
+			if (selectedMessageId.value === messageId || messageList.value.length === 0) {
 				handleCloseDetailPanel();
 			}
+		} else {
+			ElMessage.error(res?.msg || t('sys.api.operationFailed'));
 		}
 	} finally {
 		archiveLoadingId.value = '';
@@ -816,16 +827,21 @@ const handleDelete = async (messageId: string, permanent: boolean = false) => {
 							? await permanentDeleteMessage(messageId)
 							: await deleteMessage(messageId);
 						if (res.code == '200') {
+							ElMessage.success(t('sys.api.operationSuccess'));
 							// 本地移除删除的消息
 							messageList.value = messageList.value.filter(
 								(msg) => msg.id !== messageId
 							);
-							// 如果删除的是当前选中的消息，关闭详情面板
-							if (selectedMessageId.value === messageId) {
+							// 如果删除的是当前选中的消息或列表为空，关闭详情面板
+							if (
+								selectedMessageId.value === messageId ||
+								messageList.value.length === 0
+							) {
 								handleCloseDetailPanel();
 							}
 							done();
 						} else {
+							ElMessage.error(res?.msg || t('sys.api.operationFailed'));
 							instance.confirmButtonLoading = false;
 							instance.confirmButtonText = confirmButtonText;
 						}
@@ -849,6 +865,7 @@ const handleUnread = async (messageId: string, folder: MessageFolder) => {
 		unreadLoadingId.value = messageId;
 		const res = await unreadMessage(messageId);
 		if (res.code == '200') {
+			ElMessage.success(t('sys.api.operationSuccess'));
 			// 前端直接更新列表中的未读状态
 			const message = messageList.value.find((msg) => msg.id === messageId);
 			if (message && message.isRead) {
@@ -856,9 +873,31 @@ const handleUnread = async (messageId: string, folder: MessageFolder) => {
 				// 更新未读数量(加1)
 				messageCenterCount.value++;
 			}
+		} else {
+			ElMessage.error(res?.msg || t('sys.api.operationFailed'));
 		}
 	} finally {
 		unreadLoadingId.value = '';
+	}
+};
+
+const restoreLoadingId = ref('');
+const handleRestore = async (messageId: string) => {
+	try {
+		restoreLoadingId.value = messageId;
+		const res = await restoreMessage(messageId);
+		if (res.code == '200') {
+			ElMessage.success(t('sys.api.operationSuccess'));
+			messageList.value = messageList.value.filter((msg) => msg.id !== messageId);
+			// 如果移除的是当前选中的消息或列表为空，关闭详情面板
+			if (selectedMessageId.value === messageId || messageList.value.length === 0) {
+				handleCloseDetailPanel();
+			}
+		} else {
+			ElMessage.error(res?.msg || t('sys.api.operationFailed'));
+		}
+	} finally {
+		restoreLoadingId.value = '';
 	}
 };
 

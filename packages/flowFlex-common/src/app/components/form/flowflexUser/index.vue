@@ -1,7 +1,16 @@
 <template>
-	<div class="w-full">
+	<div class="w-full" :class="{ 'w-auto': triggerOnly }">
+		<!-- 仅触发器模式 - 使用 slot 内容作为触发器 -->
+		<div v-if="triggerOnly" @click="openModal" class="cursor-pointer">
+			<slot>
+				<el-button :disabled="disabled">
+					<el-icon><User /></el-icon>
+				</el-button>
+			</slot>
+		</div>
+
 		<!-- 只读模式 -->
-		<div v-if="readonly" class="flex items-center">
+		<div v-else-if="readonly" class="flex items-center">
 			<div v-if="selectedItems.length > 0" class="flex items-center">
 				<!-- 显示限制数量内的用户 -->
 				<div
@@ -336,7 +345,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue';
-import { Search, Close, Refresh } from '@element-plus/icons-vue';
+import { Search, Close, Refresh, User } from '@element-plus/icons-vue';
 import CustomTree from './CustomTree.vue';
 import { ElMessage } from 'element-plus';
 import { menuRoles } from '@/stores/modules/menuFunction';
@@ -352,6 +361,7 @@ interface Props {
 	maxCount?: number; // 最大选择数量，0表示无限制
 	minCount?: number; // 最小选择数量
 	readonly?: boolean; // 只读模式，只显示用户不显示输入框样式
+	triggerOnly?: boolean; // 仅触发器模式，只显示 slot 内容作为触发器，不显示输入框
 	maxShowCount?: number; // 最大显示数量
 	readonlyNoDataText?: string; // 只读模式下没有数据时的文本
 	clearable?: boolean; // 是否可清除
@@ -382,6 +392,7 @@ const props = withDefaults(defineProps<Props>(), {
 	maxCount: 0,
 	minCount: 0,
 	readonly: false,
+	triggerOnly: false,
 	maxShowCount: 10,
 	readonlyNoDataText: 'No users selected',
 	checkStrictly: undefined,

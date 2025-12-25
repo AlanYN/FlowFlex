@@ -102,6 +102,7 @@
 					<!-- More actions dropdown -->
 					<el-dropdown
 						trigger="click"
+						hide-on-click
 						class="ml-2"
 						@command="handleMoreCommand"
 						v-if="
@@ -144,7 +145,7 @@
 									v-if="
 										functionPermission(
 											ProjectPermissionEnum.messageCenter.update
-										)
+										) && message.folder != MessageFolder.Trash
 									"
 								>
 									<Icon
@@ -168,7 +169,7 @@
 									v-if="
 										functionPermission(
 											ProjectPermissionEnum.messageCenter.update
-										)
+										) && message.folder != MessageFolder.Trash
 									"
 								>
 									<Icon
@@ -178,6 +179,22 @@
 									/>
 									<Icon v-else icon="lucide-mail" class="mr-2" />
 									Mark as unread
+								</el-dropdown-item>
+								<el-dropdown-item
+									command="restore"
+									v-if="
+										functionPermission(
+											ProjectPermissionEnum.messageCenter.update
+										) && message.folder == MessageFolder.Trash
+									"
+								>
+									<Icon
+										v-if="restoreLoadingId == message.id"
+										icon="lucide-loader-2"
+										class="animate-spin mr-2"
+									/>
+									<Icon v-else icon="lucide-archive-restore" class="mr-2" />
+									Restore message
 								</el-dropdown-item>
 								<el-dropdown-item
 									command="delete"
@@ -338,6 +355,7 @@ interface Props {
 	archiveLoadingId: string;
 	unreadLoadingId: string;
 	attachmentLoadingId: string;
+	restoreLoadingId: string;
 }
 
 defineProps<Props>();
@@ -351,6 +369,7 @@ const emit = defineEmits<{
 	archive: [messageId: string, isArchived: boolean];
 	delete: [messageId: string, permanent: boolean];
 	unread: [messageId: string, folder: MessageFolder];
+	restore: [messageId: string];
 	'download-attachment': [attachmentId: string, name: string];
 }>();
 
@@ -366,6 +385,9 @@ const handleMoreCommand = (command: string) => {
 			break;
 		case 'unread':
 			emit('unread', message.value.id, message.value.folder);
+			break;
+		case 'restore':
+			emit('restore', message.value.id);
 			break;
 		case 'delete':
 			emit('delete', message.value.id, message.value.folder === MessageFolder.Trash);
