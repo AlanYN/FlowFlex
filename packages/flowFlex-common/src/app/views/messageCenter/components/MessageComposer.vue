@@ -49,16 +49,37 @@
 			<TabPane :value="MessageType.Email">
 				<el-form :model="form" label-position="top" @submit.prevent="handleSend">
 					<el-form-item label="Customer Email">
-						<FlowflexUserSelect
-							v-model="selectedCustomerEmail"
-							placeholder="Select default assignee"
-							:multiple="false"
-							:clearable="true"
-							selection-type="user"
-							showEmail
-							is-show-admin-user
-							@change="selectRecipient"
-						/>
+						<div class="flex w-full items-center userSelect">
+							<el-select
+								v-model="customerEmailTags"
+								multiple
+								filterable
+								allow-create
+								default-first-option
+								:reserve-keyword="false"
+								placeholder="Enter email addresses"
+								class="flex-1"
+								collapse-tags
+								collapse-tags-tooltip
+								:max-collapse-tags="5"
+								clearable
+								@change="handleCustomerEmailTagsChange"
+							/>
+							<FlowflexUserSelect
+								v-model="tempSelectedUsers"
+								:multiple="true"
+								selection-type="user"
+								showEmail
+								is-show-admin-user
+								trigger-only
+								class="!w-auto -mt-[2px]"
+								@change="handleUserSelectChange"
+							>
+								<el-button>
+									<Icon icon="lucide-users" />
+								</el-button>
+							</FlowflexUserSelect>
+						</div>
 					</el-form-item>
 
 					<!-- Common Form Fields -->
@@ -133,6 +154,7 @@ import { MessageType } from '@/enums/appEnum';
 import { MessageCenterForm, MessageInfo } from '#/message';
 import { sendMessageCenter, uploadMessageFile } from '@/apis/messageCenter';
 import FlowflexUserSelect from '@/components/form/flowflexUser/index.vue';
+import { Icon } from '@iconify/vue';
 import { timeZoneConvert } from '@/hooks/time';
 
 import { FlowflexUser } from '#/golbal';
@@ -180,7 +202,7 @@ const openVisible = (originalMessage?: MessageInfo, isReply: boolean = false) =>
 	if (originalMessage) {
 		const messageUser = isReply
 			? originalMessage.senderEmail
-				? [originalMessage.senderEmail]
+				? [originalMessage.senderId]
 				: originalMessage.recipients.map((item) => item.userId)
 			: [];
 		selectedRecipient.value = messageUser;
@@ -193,8 +215,17 @@ const openVisible = (originalMessage?: MessageInfo, isReply: boolean = false) =>
 
 		if (messageType.value === MessageType.Internal && selectedRecipient.value) {
 			InternalRecipients.value = originalMessage.recipients;
-		} else if (messageType.value === MessageType.Email && selectedCustomerEmail.value) {
-			CustomerRecipients.value = originalMessage.recipients;
+		} else if (messageType.value === MessageType.Email) {
+			// 回复/转发邮件时，设置收件人
+			if (isReply && originalMessage.senderEmail) {
+				// 回复时，将发件人邮箱添加到标签
+				customerEmailTags.value = [originalMessage.senderEmail];
+				handleCustomerEmailTagsChange(customerEmailTags.value);
+			} else if (originalMessage.recipients?.length) {
+				// 转发时，清空收件人
+				customerEmailTags.value = [];
+				CustomerRecipients.value = [];
+			}
 		}
 	}
 	visible.value = true;
@@ -252,8 +283,111 @@ const form = ref<MessageCenterForm>({
 // UI-specific fields that map to the form
 const selectedRecipient = ref<string[]>([]);
 const selectedCustomerEmail = ref<string>('');
+const customerEmailTags = ref<string[]>([]); // 邮箱标签
 const selectedCustomerPortal = ref<string>('');
 const selectedRelatedTo = ref<string>('');
+
+// 用户选择相关
+const tempSelectedUsers = ref<string[]>([]);
+// 存储已选择的系统用户信息（用于同步 tempSelectedUsers）
+const selectedSystemUsers = ref<Map<string, FlowflexUser>>(new Map());
+
+// 处理用户选择变化（FlowflexUserSelect 的 change 事件）
+const handleUserSelectChange = (
+	value?: string | string[],
+	userList?: FlowflexUser | FlowflexUser[]
+) => {
+	// 获取之前选择的系统用户邮箱列表
+	const previousSystemEmails = Array.from(selectedSystemUsers.value.values())
+		.map((u) => u.email)
+		.filter(Boolean);
+
+	if (!userList) {
+		// 如果清空了选择，同步清空相关数据
+		tempSelectedUsers.value = [];
+		// 从 customerEmailTags 中移除系统用户的邮箱
+		customerEmailTags.value = customerEmailTags.value.filter(
+			(email) => !previousSystemEmails.includes(email)
+		);
+		selectedSystemUsers.value.clear();
+		handleCustomerEmailTagsChange(customerEmailTags.value);
+		return;
+	}
+
+	const users = Array.isArray(userList) ? userList : [userList];
+	const selectedIds = Array.isArray(value) ? value : value ? [value] : [];
+
+	// 过滤出有邮箱的用户
+	const usersWithEmail = users
+		.filter((user) => selectedIds.includes(user.id))
+		.filter((user) => user.email && user.email.trim());
+
+	// 更新已选择的系统用户映射（只保留有邮箱的用户）
+	selectedSystemUsers.value.clear();
+	usersWithEmail.forEach((user) => {
+		selectedSystemUsers.value.set(user.id, user);
+	});
+
+	// 同步更新 tempSelectedUsers（只保留有邮箱的用户ID）
+	tempSelectedUsers.value = usersWithEmail.map((user) => user.id);
+
+	// 获取新选择的系统用户邮箱
+	const newSystemUserEmails = usersWithEmail.map((u) => u.email);
+
+	// 获取手动输入的邮箱（不在之前系统用户邮箱列表中的）
+	const manualEmails = customerEmailTags.value.filter(
+		(email) => !previousSystemEmails.includes(email)
+	);
+
+	// 合并新的系统用户邮箱和手动输入的邮箱
+	customerEmailTags.value = [...new Set([...newSystemUserEmails, ...manualEmails])];
+
+	// 同步更新 CustomerRecipients
+	handleCustomerEmailTagsChange(customerEmailTags.value);
+};
+
+// 处理邮箱标签变化（用户手动删除标签时）
+const handleCustomerEmailTagsChange = (emails: string[]) => {
+	// 验证并过滤无效邮箱
+	const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+	const validEmails = emails.filter((email) => emailRegex.test(email?.trim()));
+
+	if (validEmails.length !== emails.length) {
+		// 有无效邮箱，更新标签列表只保留有效的
+		customerEmailTags.value = validEmails;
+	}
+
+	// 同步 tempSelectedUsers：移除不在 validEmails 中的系统用户
+	const removedUserIds: string[] = [];
+	selectedSystemUsers.value.forEach((user, id) => {
+		if (!validEmails.includes(user.email)) {
+			removedUserIds.push(id);
+		}
+	});
+	removedUserIds.forEach((id) => selectedSystemUsers.value.delete(id));
+	tempSelectedUsers.value = Array.from(selectedSystemUsers.value.keys());
+
+	// 更新 CustomerRecipients
+	CustomerRecipients.value = validEmails.map((email) => {
+		// 查找是否是系统用户
+		const systemUser = Array.from(selectedSystemUsers.value.values()).find(
+			(u) => u.email === email
+		);
+		if (systemUser) {
+			return {
+				userId: systemUser.id,
+				name: systemUser.name,
+				email: systemUser.email,
+			};
+		}
+		// 手动输入的邮箱
+		return {
+			userId: null as any,
+			name: null as any,
+			email: email?.trim(),
+		};
+	});
+};
 
 const fileList = ref<UploadUserFile[]>([]);
 // 存储已上传文件的ID信息
@@ -309,6 +443,9 @@ const initFormData = () => {
 	};
 	selectedRecipient.value = [];
 	selectedCustomerEmail.value = '';
+	customerEmailTags.value = [];
+	tempSelectedUsers.value = [];
+	selectedSystemUsers.value.clear();
 	selectedCustomerPortal.value = '';
 	selectedRelatedTo.value = '';
 	fileList.value = [];
@@ -316,6 +453,8 @@ const initFormData = () => {
 	uploadProgress.value = [];
 	uploadingCount.value = 0;
 	uploadCancelTokens.value.clear();
+	InternalRecipients.value = [];
+	CustomerRecipients.value = [];
 };
 
 const sendLoading = ref(false);
@@ -325,8 +464,8 @@ const handleSend = async () => {
 		ElMessage.error('Please select a recipient');
 		return;
 	}
-	if (messageType.value === MessageType.Email && !selectedCustomerEmail.value) {
-		ElMessage.error('Please select a customer email');
+	if (messageType.value === MessageType.Email && !CustomerRecipients.value.length) {
+		ElMessage.error('Please select or enter at least one recipient email');
 		return;
 	}
 	if (messageType.value === MessageType.Portal && !selectedCustomerPortal.value) {
@@ -344,9 +483,9 @@ const handleSend = async () => {
 
 	// Map UI fields to form structure based on message type
 	if (messageType.value === MessageType.Internal && selectedRecipient.value) {
-		form.value.recipients = InternalRecipients.value;
-	} else if (messageType.value === MessageType.Email && selectedCustomerEmail.value) {
-		form.value.recipients = CustomerRecipients.value;
+		form.value.recipients = InternalRecipients.value as any;
+	} else if (messageType.value === MessageType.Email) {
+		form.value.recipients = CustomerRecipients.value as any;
 	} else if (messageType.value === MessageType.Portal && selectedCustomerPortal.value) {
 		form.value.portalId = null;
 	}
@@ -459,18 +598,19 @@ const handleRemoveUploadedFile = (fileId: string) => {
 
 const InternalRecipients = ref<
 	{
-		userId: string;
-		name: string;
+		userId: string | null;
+		name: string | null;
 		email: string;
 	}[]
 >([]);
 const CustomerRecipients = ref<
 	{
-		userId: string;
-		name: string;
+		userId: string | null;
+		name: string | null;
 		email: string;
 	}[]
 >([]);
+
 const selectRecipient = (value?: string | string[], userList?: FlowflexUser | FlowflexUser[]) => {
 	let arr = [] as {
 		userId: string;
@@ -510,4 +650,15 @@ defineExpose({
 });
 </script>
 
-<style scoped></style>
+<style scoped lang="scss">
+.userSelect {
+	:deep(.el-select__wrapper) {
+		border-top-right-radius: 0;
+		border-bottom-right-radius: 0;
+	}
+	.el-button {
+		border-top-left-radius: 0;
+		border-bottom-left-radius: 0;
+	}
+}
+</style>
