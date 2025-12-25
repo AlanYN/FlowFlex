@@ -62,7 +62,7 @@ public class EmailBindingService : IEmailBindingService, IScopedService
 
         // Generate state for CSRF protection
         var state = Guid.NewGuid().ToString("N");
-        _stateStore[state] = (userId, tenantId, DateTimeOffset.UtcNow.AddMinutes(10));
+        _stateStore[state] = (userId, tenantId, DateTimeOffset.UtcNow.AddMinutes(30));
 
         // Clean up expired states
         CleanupExpiredStates();

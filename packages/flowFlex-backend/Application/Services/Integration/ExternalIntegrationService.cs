@@ -584,9 +584,11 @@ namespace FlowFlex.Application.Services.Integration
         /// Get inbound attachments by System ID
         /// Retrieves attachment list from all onboardings associated with the System ID
         /// </summary>
-        public async Task<GetAttachmentsFromExternalResponse> GetInboundAttachmentsBySystemIdAsync(string systemId)
+        /// <param name="systemId">System ID (unique identifier for entity mapping)</param>
+        /// <param name="entityId">External system entity ID (optional, for filtering attachments by specific entity)</param>
+        public async Task<GetAttachmentsFromExternalResponse> GetInboundAttachmentsBySystemIdAsync(string systemId, string? entityId = null)
         {
-            _logger.LogInformation("Getting inbound attachments by System ID: SystemId={SystemId}", systemId);
+            _logger.LogInformation("Getting inbound attachments by System ID: SystemId={SystemId}, EntityId={EntityId}", systemId, entityId);
 
             if (string.IsNullOrWhiteSpace(systemId))
             {
@@ -599,9 +601,11 @@ namespace FlowFlex.Application.Services.Integration
 
             try
             {
-                // Get all onboardings by System ID
+                // Get all onboardings by System ID, optionally filtered by EntityId
                 var onboardings = await _onboardingRepository.GetListAsync(o =>
-                    o.SystemId == systemId && o.IsValid);
+                    o.SystemId == systemId && 
+                    o.IsValid &&
+                    (string.IsNullOrWhiteSpace(entityId) || o.EntityId == entityId));
 
                 if (!onboardings.Any())
                 {

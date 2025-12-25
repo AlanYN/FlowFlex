@@ -187,12 +187,15 @@ namespace FlowFlex.WebApi.Controllers.Integration
         /// Retrieves attachment list from all onboardings associated with the System ID
         /// </summary>
         /// <param name="systemId">System ID (unique identifier for entity mapping)</param>
+        /// <param name="entityId">External system entity ID (optional, for filtering attachments by specific entity)</param>
         /// <returns>Attachments list response</returns>
         [HttpGet("inbound-attachments")]
         [ProducesResponseType<GetAttachmentsFromExternalResponse>((int)HttpStatusCode.OK)]
-        public async Task<IActionResult> GetInboundAttachments([FromQuery(Name = "SystemId")] string systemId)
+        public async Task<IActionResult> GetInboundAttachments(
+            [FromQuery(Name = "SystemId")] string systemId,
+            [FromQuery(Name = "entityId")] string? entityId = null)
         {
-            var result = await _externalIntegrationService.GetInboundAttachmentsBySystemIdAsync(systemId);
+            var result = await _externalIntegrationService.GetInboundAttachmentsBySystemIdAsync(systemId, entityId);
             return Ok(result);
         }
 

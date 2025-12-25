@@ -54,8 +54,9 @@ namespace FlowFlex.Application.Contracts.IServices.Integration
         /// Retrieves attachment list from all onboardings associated with the System ID
         /// </summary>
         /// <param name="systemId">System ID (unique identifier for entity mapping)</param>
+        /// <param name="entityId">External system entity ID (optional, for filtering attachments by specific entity)</param>
         /// <returns>Attachments list response</returns>
-        Task<GetAttachmentsFromExternalResponse> GetInboundAttachmentsBySystemIdAsync(string systemId);
+        Task<GetAttachmentsFromExternalResponse> GetInboundAttachmentsBySystemIdAsync(string systemId, string? entityId = null);
 
         /// <summary>
         /// Fetch inbound attachments from external system by System ID
