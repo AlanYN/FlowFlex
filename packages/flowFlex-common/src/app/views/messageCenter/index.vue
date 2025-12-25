@@ -161,7 +161,9 @@
 									:loading="unbindLoading"
 									@click="handleUnbind"
 								>
-									<Icon icon="lucide-unlink" />
+									<el-tooltip content="Unbind" placement="top">
+										<Icon icon="lucide-unlink" />
+									</el-tooltip>
 								</el-button>
 							</template>
 							<template v-else>

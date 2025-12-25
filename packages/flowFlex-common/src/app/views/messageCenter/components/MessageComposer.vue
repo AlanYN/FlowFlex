@@ -4,10 +4,10 @@
 		title="New Message"
 		:width="moreDialogWidth"
 		:before-close="handleClose"
-		class="message-composer-dialog"
 		draggable
 		append-to-body
 		destroy-on-close
+		class="bg-white dark:bg-black"
 	>
 		<!-- Description -->
 		<div class="text-sm text-gray-500 dark:text-gray-400 mb-6">
@@ -171,9 +171,7 @@ const emit = defineEmits<{
 
 const forwardBodyTemplate = (originalMessage: MessageInfo) => {
 	return `
-		<pre>---------- Forwarded Message ----------<br />From: ${originalMessage.senderEmail}<${
-			originalMessage.senderEmail
-		}><br />Date: ${timeZoneConvert(
+		<pre>---------- Forwarded Message ----------<br />From: ${originalMessage?.senderName} < ${originalMessage?.senderEmail} ><br />Date: ${timeZoneConvert(
 			originalMessage.sentDate,
 			false,
 			projectTenMinutesSsecondsDate
@@ -187,7 +185,7 @@ const forwardBodyTemplate = (originalMessage: MessageInfo) => {
 
 const replyBodyTemplate = (originalMessage: MessageInfo) => {
 	return `
-		<pre>${originalMessage.senderEmail}<${originalMessage.senderEmail}> on ${timeZoneConvert(
+		<pre>${originalMessage?.senderName} < ${originalMessage?.senderEmail} > on ${timeZoneConvert(
 			originalMessage.sentDate,
 			false,
 			projectTenMinutesSsecondsDate
@@ -212,7 +210,6 @@ const openVisible = (originalMessage?: MessageInfo, isReply: boolean = false) =>
 		form.value.subject = `${isReply ? 'Re: ' : 'Fwd: '}${originalMessage.subject}`;
 		messageType.value = `${originalMessage.messageType}` as MessageType;
 		uploadedAttachments.value = originalMessage.attachments;
-
 		if (messageType.value === MessageType.Internal && selectedRecipient.value) {
 			InternalRecipients.value = originalMessage.recipients;
 		} else if (messageType.value === MessageType.Email) {
