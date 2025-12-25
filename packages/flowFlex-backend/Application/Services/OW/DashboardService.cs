@@ -462,9 +462,12 @@ namespace FlowFlex.Application.Services.OW
 
         /// <summary>
         /// Get upcoming deadlines based on Stage EndTime from StagesProgress
+        /// Uses same filtering logic as Tasks (based on Task AssigneeId)
         /// </summary>
         public async Task<List<DeadlineDto>> GetDeadlinesAsync(int days = 7)
         {
+            var userId = long.TryParse(_userContext.UserId, out var uid) ? uid : 0;
+            var userTeamIds = _userContext.UserTeams?.GetAllTeamIds() ?? new List<long>();
             var now = DateTimeOffset.UtcNow;
             var endDate = now.AddDays(days);
 
@@ -472,12 +475,26 @@ namespace FlowFlex.Application.Services.OW
 
             try
             {
-                // Get all active cases (Started or InProgress)
+                // Get onboarding IDs from tasks assigned to current user (same logic as Tasks API)
+                // This ensures Deadlines and Tasks use the same filtering criteria
+                var userTasks = await _checklistTaskRepository.GetPendingTasksForUserAsync(
+                    userId, userTeamIds, null, 1, int.MaxValue);
+                
+                var onboardingIds = userTasks.Select(t => t.OnboardingId).Distinct().ToList();
+                
+                if (!onboardingIds.Any())
+                {
+                    _logger.LogDebug("GetDeadlinesAsync: No tasks found for user {UserId}, returning empty deadlines", userId);
+                    return deadlines;
+                }
+
+                // Get active cases that have tasks assigned to current user
                 var activeCases = await _onboardingRepository.GetListAsync(o =>
                     o.IsValid && o.IsActive &&
-                    (o.Status == "Started" || o.Status == "InProgress"));
+                    (o.Status == "Started" || o.Status == "InProgress") &&
+                    onboardingIds.Contains(o.Id));
 
-                _logger.LogDebug("GetDeadlinesAsync: Found {Count} active cases", activeCases.Count);
+                _logger.LogDebug("GetDeadlinesAsync: Found {Count} active cases for user {UserId}", activeCases.Count, userId);
 
                 var jsonOptions = new JsonSerializerOptions
                 {

@@ -286,7 +286,7 @@ public class ChecklistTaskRepository : BaseRepository<ChecklistTask>, IChecklist
     #region Dashboard Methods
 
     /// <summary>
-    /// Get pending tasks for user (assigned to user or their teams) with pagination
+    /// Get pending tasks for user (assigned to user) with pagination
     /// Only returns tasks that have associated onboarding (case)
     /// </summary>
     public async Task<List<DashboardTaskInfo>> GetPendingTasksForUserAsync(
@@ -304,6 +304,12 @@ public class ChecklistTaskRepository : BaseRepository<ChecklistTask>, IChecklist
                 JoinType.Inner, m.StageId == o.CurrentStageId && o.IsValid
             ))
             .Where((t, m, o) => t.IsValid == true && t.IsCompleted == false);
+
+        // Filter by assignee (user)
+        if (userId > 0)
+        {
+            query = query.Where((t, m, o) => t.AssigneeId == userId);
+        }
 
         // Apply category filter
         if (!string.IsNullOrEmpty(category))
@@ -361,6 +367,12 @@ public class ChecklistTaskRepository : BaseRepository<ChecklistTask>, IChecklist
                 JoinType.Inner, m.StageId == o.CurrentStageId && o.IsValid
             ))
             .Where((t, m, o) => t.IsValid == true && t.IsCompleted == false);
+
+        // Filter by assignee (user)
+        if (userId > 0)
+        {
+            query = query.Where((t, m, o) => t.AssigneeId == userId);
+        }
 
         // Apply category filter
         if (!string.IsNullOrEmpty(category))

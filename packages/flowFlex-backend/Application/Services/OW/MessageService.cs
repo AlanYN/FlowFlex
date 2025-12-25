@@ -1438,6 +1438,7 @@ Subject: {originalMessage.Subject}<br/>
             Subject = message.Subject,
             Body = message.Body,
             BodyPreview = message.BodyPreview,
+            SenderId = message.SenderId,
             SenderName = message.SenderName,
             SenderEmail = message.SenderEmail,
             MessageType = ParseMessageType(message.MessageType),
