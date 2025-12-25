@@ -85,6 +85,7 @@ export interface MessageInfo {
 	bodyPreview: string;
 	senderName: string;
 	senderEmail: string;
+	senderId: string;
 	messageType: MessageType;
 	folder: MessageFolder;
 	labels: MessageTag[];

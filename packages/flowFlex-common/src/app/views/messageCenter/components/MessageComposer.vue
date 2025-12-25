@@ -202,7 +202,7 @@ const openVisible = (originalMessage?: MessageInfo, isReply: boolean = false) =>
 	if (originalMessage) {
 		const messageUser = isReply
 			? originalMessage.senderEmail
-				? [originalMessage.senderEmail]
+				? [originalMessage.senderId]
 				: originalMessage.recipients.map((item) => item.userId)
 			: [];
 		selectedRecipient.value = messageUser;
