@@ -426,7 +426,8 @@ public class MessageService : IMessageService, IScopedService
     }
 
     /// <summary>
-    /// Permanently delete message
+    /// Soft delete message (set is_valid = false)
+    /// Email type permanently deletes from Outlook
     /// </summary>
     public async Task<bool> PermanentDeleteAsync(long id)
     {
@@ -449,10 +450,10 @@ public class MessageService : IMessageService, IScopedService
             await TryPermanentDeleteFromOutlookAsync(message);
         }
 
-        // Delete attachments first
+        // Soft delete attachments first
         await _attachmentRepository.DeleteByMessageIdAsync(id);
 
-        // Permanently delete message
+        // Soft delete message (set is_valid = false)
         return await _messageRepository.PermanentDeleteAsync(id);
     }
 

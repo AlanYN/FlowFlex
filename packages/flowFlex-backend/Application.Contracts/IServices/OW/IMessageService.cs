@@ -44,7 +44,7 @@ public interface IMessageService : IScopedService
     Task<bool> DeleteAsync(long id);
 
     /// <summary>
-    /// Permanently delete message
+    /// Soft delete message (set is_valid = false)
     /// Email type permanently deletes from Outlook
     /// </summary>
     Task<bool> PermanentDeleteAsync(long id);

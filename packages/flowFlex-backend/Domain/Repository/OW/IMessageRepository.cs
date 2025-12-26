@@ -123,7 +123,7 @@ namespace FlowFlex.Domain.Repository.OW
         Task<bool> BatchMarkAsReadAsync(List<long> ids);
 
         /// <summary>
-        /// Permanently delete message
+        /// Soft delete message (set is_valid = false)
         /// </summary>
         Task<bool> PermanentDeleteAsync(long id);
 

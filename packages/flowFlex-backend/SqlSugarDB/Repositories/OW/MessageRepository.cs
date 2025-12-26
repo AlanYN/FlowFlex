@@ -63,16 +63,21 @@ public class MessageRepository : BaseRepository<Message>, IMessageRepository, IS
             query = query.Where(x => x.MessageType == messageType);
         }
 
-        // Apply search term filter using PostgreSQL full-text search
+        // Apply search term filter using LIKE for reliable partial matching
         if (!string.IsNullOrEmpty(searchTerm))
         {
-            // Use PostgreSQL full-text search for better performance
-            // to_tsvector creates a text search vector, plainto_tsquery converts search term to query
-            // The '||' operator combines subject and body for searching
-            // 'simple' configuration is used for basic tokenization without language-specific stemming
-            var sanitizedTerm = SanitizeSearchTerm(searchTerm);
+            // Use Contains for case-insensitive partial matching
+            // Search in: subject, body_preview, body, sender_name, sender_email, recipients
+            var term = searchTerm.Trim();
+            // For recipients (JSONB), convert to text and use Contains
+            var recipientsPattern = $"%{term}%";
             query = query.Where(x => 
-                SqlFunc.MappingColumn<bool>($"to_tsvector('simple', coalesce(\"subject\", '') || ' ' || coalesce(\"body\", '')) @@ plainto_tsquery('simple', '{sanitizedTerm}')"));
+                x.Subject.Contains(term) || 
+                x.BodyPreview.Contains(term) || 
+                x.Body.Contains(term) || 
+                x.SenderName.Contains(term) || 
+                x.SenderEmail.Contains(term) || 
+                SqlFunc.MappingColumn<string>("\"recipients\"::text").Contains(term));
         }
 
         // Apply related entity filter
@@ -363,15 +368,20 @@ public class MessageRepository : BaseRepository<Message>, IMessageRepository, IS
     }
 
     /// <summary>
-    /// Search messages by keyword using PostgreSQL full-text search
+    /// Search messages by keyword using Contains for partial matching
     /// </summary>
     public async Task<List<Message>> SearchAsync(long ownerId, string keyword, string? folder = null)
     {
-        var sanitizedTerm = SanitizeSearchTerm(keyword);
+        var term = keyword.Trim();
         var query = db.Queryable<Message>()
             .Where(x => x.OwnerId == ownerId && x.IsValid)
-            .Where(x => SqlFunc.MappingColumn<bool>(
-                $"to_tsvector('simple', coalesce(\"subject\", '') || ' ' || coalesce(\"body\", '')) @@ plainto_tsquery('simple', '{sanitizedTerm}')"));
+            .Where(x => 
+                x.Subject.Contains(term) || 
+                x.BodyPreview.Contains(term) || 
+                x.Body.Contains(term) || 
+                x.SenderName.Contains(term) || 
+                x.SenderEmail.Contains(term) || 
+                SqlFunc.MappingColumn<string>("\"recipients\"::text").Contains(term));
 
         if (!string.IsNullOrEmpty(folder))
         {
@@ -445,11 +455,13 @@ public class MessageRepository : BaseRepository<Message>, IMessageRepository, IS
     }
 
     /// <summary>
-    /// Permanently delete message
+    /// Soft delete message (set is_valid = false)
     /// </summary>
     public async Task<bool> PermanentDeleteAsync(long id)
     {
-        return await db.Deleteable<Message>()
+        return await db.Updateable<Message>()
+            .SetColumns(x => x.IsValid == false)
+            .SetColumns(x => x.ModifyDate == DateTimeOffset.UtcNow)
             .Where(x => x.Id == id)
             .ExecuteCommandAsync() > 0;
     }
