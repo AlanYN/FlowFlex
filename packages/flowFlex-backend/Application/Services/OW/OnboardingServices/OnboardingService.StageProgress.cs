@@ -88,6 +88,7 @@ namespace FlowFlex.Application.Services.OW
                         VisibleInPortal = stage.VisibleInPortal,
                         PortalPermission = stage.PortalPermission,
                         AttachmentManagementNeeded = stage.AttachmentManagementNeeded,
+                        Required = stage.Required,
                         ComponentsJson = stage.ComponentsJson,
                         Components = stage.Components
                     };
@@ -638,6 +639,7 @@ namespace FlowFlex.Application.Services.OW
                         stageProgress.VisibleInPortal = stage.VisibleInPortal;
                         stageProgress.PortalPermission = stage.PortalPermission;
                         stageProgress.AttachmentManagementNeeded = stage.AttachmentManagementNeeded;
+                        stageProgress.Required = stage.Required;
                         stageProgress.ComponentsJson = stage.ComponentsJson;
                         stageProgress.Components = stage.Components;
                         // AI Summary auto-generation removed - should only be triggered explicitly by user action

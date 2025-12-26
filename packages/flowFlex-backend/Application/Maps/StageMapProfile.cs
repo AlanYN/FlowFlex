@@ -45,6 +45,7 @@ namespace FlowFlex.Application.Maps
                 .ForMember(dest => dest.ViewTeams, opt => opt.MapFrom(src => DeserializeTeamList(src.ViewTeams)))
                 .ForMember(dest => dest.OperateTeams, opt => opt.MapFrom(src => DeserializeTeamList(src.OperateTeams)))
                 .ForMember(dest => dest.AttachmentManagementNeeded, opt => opt.MapFrom(src => src.AttachmentManagementNeeded))
+                .ForMember(dest => dest.Required, opt => opt.MapFrom(src => src.Required))
                 .ForMember(dest => dest.IsValid, opt => opt.MapFrom(src => src.IsValid))
                 .ForMember(dest => dest.CreateDate, opt => opt.MapFrom(src => src.CreateDate))
                 .ForMember(dest => dest.ModifyDate, opt => opt.MapFrom(src => src.ModifyDate))
@@ -74,6 +75,7 @@ namespace FlowFlex.Application.Maps
                 .ForMember(dest => dest.ViewTeams, opt => opt.MapFrom(src => SerializeTeamList(src.ViewTeams)))
                 .ForMember(dest => dest.OperateTeams, opt => opt.MapFrom(src => SerializeTeamList(src.OperateTeams)))
                 .ForMember(dest => dest.AttachmentManagementNeeded, opt => opt.MapFrom(src => src.AttachmentManagementNeeded))
+                .ForMember(dest => dest.Required, opt => opt.MapFrom(src => src.Required))
                 // Ignore fields that will be set by extension methods or business logic
                 .ForMember(dest => dest.Id, opt => opt.Ignore())
                 .ForMember(dest => dest.TenantId, opt => opt.Ignore())

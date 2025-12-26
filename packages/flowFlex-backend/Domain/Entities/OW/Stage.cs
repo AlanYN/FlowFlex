@@ -142,6 +142,12 @@ namespace FlowFlex.Domain.Entities.OW
         public bool AttachmentManagementNeeded { get; set; } = false;
 
         /// <summary>
+        /// Required - Indicates whether this stage is required to complete the workflow
+        /// </summary>
+        [SugarColumn(ColumnName = "required")]
+        public bool Required { get; set; } = false;
+
+        /// <summary>
         /// Stage Components Configuration (JSONB)
         /// </summary>
         [SugarColumn(ColumnName = "components_json", ColumnDataType = "jsonb", IsJson = true)]

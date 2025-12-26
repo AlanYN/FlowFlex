@@ -199,6 +199,12 @@ namespace FlowFlex.Domain.Entities.OW
         public bool AttachmentManagementNeeded { get; set; } = false;
 
         /// <summary>
+        /// Required - Indicates whether this stage is required to complete the workflow (from Stage entity) - Not stored in JSON
+        /// </summary>
+        [JsonIgnore]
+        public bool Required { get; set; } = false;
+
+        /// <summary>
         /// Stage Components Configuration JSON (from Stage entity) - Not stored in JSON
         /// </summary>
         [JsonIgnore]
