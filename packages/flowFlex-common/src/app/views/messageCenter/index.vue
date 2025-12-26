@@ -208,12 +208,15 @@
 						<el-button
 							v-permission="ProjectPermissionEnum.messageCenter.read"
 							circle
-							:icon="Refresh"
 							:disabled="requiredLoading"
 							:loading="syncMessageLoading"
 							link
 							@click="syncMessageList"
-						/>
+						>
+							<template #icon>
+								<Icon icon="material-symbols:directory-sync" />
+							</template>
+						</el-button>
 					</div>
 					<div
 						class="flex items-center gap-x-2 my-2 mx-4"
@@ -436,8 +439,8 @@
 
 <script lang="ts" setup>
 import { h, onMounted, ref, useTemplateRef, nextTick } from 'vue';
-import { MessageFolder, MessageTag, MessageType, MessageTypeEnum } from '@/enums/appEnum';
-import { Filter, Plus, Refresh, Search, Link } from '@element-plus/icons-vue';
+import { MessageFolder, MessageTag, MessageTypeEnum } from '@/enums/appEnum';
+import { Filter, Plus, Search, Link } from '@element-plus/icons-vue';
 import { MessageList, MessageInfo } from '#/message';
 import PageHeader from '@/components/global/PageHeader/index.vue';
 import MessageDetailPanel from './components/MessageDetailPanel.vue';
@@ -464,9 +467,8 @@ import {
 import { Icon } from '@iconify/vue';
 import { ElMessageBox, ElMessage } from 'element-plus';
 import { useAdaptiveScrollbar } from '@/hooks/useAdaptiveScrollbar';
-import { timeZoneConvert } from '@/hooks/time';
+import { formatMessageTime } from '@/hooks/time';
 import { getAvatarColor } from '@/utils';
-import { projectTenMinutesSsecondsDate } from '@/settings/projectSetting';
 import { functionPermission } from '@/hooks/index';
 import { ProjectPermissionEnum } from '@/enums/permissionEnum';
 import { useI18n } from '@/hooks/useI18n';
@@ -600,21 +602,6 @@ const getInitials = (name: string): string => {
 		return (parts[0][0] + parts[1][0]).toUpperCase();
 	}
 	return name.substring(0, 2).toUpperCase();
-};
-
-// Format message time
-const formatMessageTime = (timestamp: string): string => {
-	const time = timeZoneConvert(timestamp, false, projectTenMinutesSsecondsDate);
-	const date = typeof time === 'string' ? new Date(time) : time;
-	const now = new Date();
-	const diff = now.getTime() - date.getTime();
-	const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-
-	if (days === 0) return time;
-	if (days === 1) return 'Yesterday';
-	if (days < 7) return `${days} days ago`;
-
-	return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 };
 
 const messageCenterCount = ref(0);
