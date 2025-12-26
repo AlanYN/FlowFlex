@@ -85,9 +85,9 @@ public static class EmailConstants
         public const int FullSyncCooldownMinutes = 20;
 
         /// <summary>
-        /// Cooldown period for incremental sync in minutes (1 minute)
+        /// Cooldown period for incremental sync in seconds (10 seconds)
         /// </summary>
-        public const int IncrementalSyncCooldownMinutes = 1;
+        public const int IncrementalSyncCooldownSeconds = 10;
 
         /// <summary>
         /// Page size for initial delta sync (limit API response size)

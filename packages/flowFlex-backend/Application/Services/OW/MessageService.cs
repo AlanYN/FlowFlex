@@ -1449,8 +1449,8 @@ Subject: {originalMessage.Subject}<br/>
             IsStarred = message.IsStarred,
             IsArchived = message.IsArchived,
             HasAttachments = message.HasAttachments,
-            ReceivedDate = message.ReceivedDate,
-            SentDate = message.SentDate
+            ReceivedDate = message.ReceivedDate?.ToUniversalTime(),
+            SentDate = message.SentDate?.ToUniversalTime()
         };
     }
 
@@ -1474,8 +1474,8 @@ Subject: {originalMessage.Subject}<br/>
             IsStarred = message.IsStarred,
             IsArchived = message.IsArchived,
             HasAttachments = message.HasAttachments,
-            ReceivedDate = message.ReceivedDate,
-            SentDate = message.SentDate,
+            ReceivedDate = message.ReceivedDate?.ToUniversalTime(),
+            SentDate = message.SentDate?.ToUniversalTime(),
             Folder = ParseMessageFolder(message.Folder),
             IsDraft = message.IsDraft,
             ParentMessageId = message.ParentMessageId,

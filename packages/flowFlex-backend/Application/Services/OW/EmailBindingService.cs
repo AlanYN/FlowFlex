@@ -300,22 +300,22 @@ public class EmailBindingService : IEmailBindingService, IScopedService
             };
         }
 
-        // Check if last sync was within the cooldown period (1 minute)
+        // Check if last sync was within the cooldown period (30 seconds)
         if (binding.LastSyncTime.HasValue)
         {
             var timeSinceLastSync = DateTimeOffset.UtcNow - binding.LastSyncTime.Value;
-            var cooldownMinutes = EmailConstants.SyncSettings.IncrementalSyncCooldownMinutes;
+            var cooldownSeconds = EmailConstants.SyncSettings.IncrementalSyncCooldownSeconds;
             
-            if (timeSinceLastSync.TotalMinutes < cooldownMinutes)
+            if (timeSinceLastSync.TotalSeconds < cooldownSeconds)
             {
-                var remainingSeconds = (int)((cooldownMinutes * 60) - timeSinceLastSync.TotalSeconds);
+                var remainingSeconds = (int)(cooldownSeconds - timeSinceLastSync.TotalSeconds);
                 _logger.LogDebug("Sync called too soon for user {UserId}, last sync was {Seconds} seconds ago, skipping", 
                     userId, (int)timeSinceLastSync.TotalSeconds);
                 return new SyncResultDto
                 {
                     SyncedCount = 0,
                     SyncTime = DateTimeOffset.UtcNow,
-                    ErrorMessage = $"Sync can only be performed once per minute. Please try again in {remainingSeconds} seconds."
+                    ErrorMessage = $"Sync can only be performed once per {cooldownSeconds} seconds. Please try again in {remainingSeconds} seconds."
                 };
             }
         }
@@ -609,9 +609,9 @@ public class EmailBindingService : IEmailBindingService, IScopedService
         if (binding.LastSyncTime.HasValue)
         {
             var timeSinceLastSync = DateTimeOffset.UtcNow - binding.LastSyncTime.Value;
-            var cooldownMinutes = EmailConstants.SyncSettings.IncrementalSyncCooldownMinutes;
+            var cooldownSeconds = EmailConstants.SyncSettings.IncrementalSyncCooldownSeconds;
 
-            if (timeSinceLastSync.TotalMinutes < cooldownMinutes)
+            if (timeSinceLastSync.TotalSeconds < cooldownSeconds)
             {
                 _logger.LogDebug("Sync called too soon for user {UserId}, skipping", userId);
                 return new SyncResultDto
