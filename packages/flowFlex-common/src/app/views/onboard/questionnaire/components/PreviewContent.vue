@@ -486,7 +486,11 @@
 										:key="rowIndex"
 										class="grid-row"
 									>
-										<div class="grid-cell grid-row-header">{{ row.label }}</div>
+										<div class="grid-cell grid-row-header">
+											<span class="w-[200px] min-w-0 truncate">
+												{{ row.label }}
+											</span>
+										</div>
 										<div
 											v-for="(column, colIndex) in item.columns"
 											:key="colIndex"
@@ -1893,7 +1897,7 @@ html.dark .preview_assignment-label {
 			font-weight: 500;
 			background-color: var(--primary-25);
 			min-width: 200px;
-			flex: 2;
+			flex: none;
 			@apply dark:bg-black-400;
 		}
 
@@ -1907,7 +1911,7 @@ html.dark .preview_assignment-label {
 		font-weight: 500;
 		text-align: left;
 		justify-content: flex-start !important;
-		@apply dark:bg-black-400;
+		@apply dark:bg-black-400 w-[200px] min-w-0 truncate;
 	}
 
 	.grid-column-header {
