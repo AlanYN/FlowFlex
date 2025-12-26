@@ -340,6 +340,13 @@ public class MessageService : IMessageService, IScopedService
             ? _userContext.Email 
             : (_userContext.UserName ?? string.Empty);
 
+        // Log warning if Email is empty (for debugging)
+        if (string.IsNullOrEmpty(_userContext.Email))
+        {
+            _logger.LogWarning("UserContext.Email is empty for user {UserId}, using UserName as fallback: {UserName}", 
+                _userContext.UserId, _userContext.UserName);
+        }
+
         // Handle based on message type
         return input.MessageType switch
         {
