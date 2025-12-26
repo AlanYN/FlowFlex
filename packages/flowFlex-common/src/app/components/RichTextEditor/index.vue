@@ -530,5 +530,11 @@ html.dark .rich-text-editor-wrapper {
 	.ql-container::-webkit-scrollbar-thumb:hover {
 		background: rgba(255, 255, 255, 0.3) !important;
 	}
+
+	.ql-snow .ql-tooltip {
+		background-color: var(--black-400) !important;
+		color: var(--white);
+		border-color: rgba(255, 255, 255, 0.08) !important;
+	}
 }
 </style>
