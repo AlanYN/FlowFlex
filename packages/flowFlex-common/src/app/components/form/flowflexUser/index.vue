@@ -763,47 +763,18 @@ const removeFromSelection = (id: string) => {
 		(item) => !idsToRemove.includes(item.id)
 	);
 
-	// 同步更新树的选中状态
+	// 同步更新树的选中状态（只更新当前树中存在的节点）
 	nextTick(() => {
 		if (treeRef.value) {
-			// 如果没有开启严格模式，需要处理父子关系
-			const checkStrictly =
-				props.checkStrictly !== undefined ? props.checkStrictly : props.maxCount === 1;
+			// 获取当前树中所有节点的 ID
+			const currentTreeNodeIds = getCurrentTreeNodeIds();
 
-			if (!checkStrictly && nodeToRemove) {
-				// 非严格模式下，直接取消该节点的选中状态，让树组件处理父子关系
-				treeRef.value.setChecked(id, false);
+			// 只设置当前树中存在的已选节点
+			const shouldBeCheckedIds = tempSelectedItems.value
+				.filter((item) => currentTreeNodeIds.has(item.id))
+				.map((item) => item.id);
 
-				// 等待树组件更新完成后，重新同步右侧选择列表
-				setTimeout(() => {
-					if (treeRef.value) {
-						const allCheckedNodes = treeRef.value.getCheckedNodes();
-						const targetType = props.selectionType;
-
-						// 过滤出目标类型的节点并去重
-						const filteredNodes = allCheckedNodes.filter(
-							(node: FlowflexUser) => node.type === targetType
-						);
-
-						const uniqueNodes = filteredNodes.reduce(
-							(acc: FlowflexUser[], current: FlowflexUser) => {
-								const existingNode = acc.find((node) => node.id === current.id);
-								if (!existingNode) {
-									acc.push(current);
-								}
-								return acc;
-							},
-							[]
-						);
-
-						tempSelectedItems.value = uniqueNodes;
-					}
-				}, 0);
-			} else {
-				// 严格模式下，只设置当前应该选中的节点
-				const shouldBeCheckedIds = tempSelectedItems.value.map((item) => item.id);
-				treeRef.value.setCheckedKeys(shouldBeCheckedIds);
-			}
+			treeRef.value.setCheckedKeys(shouldBeCheckedIds);
 		}
 	});
 };
