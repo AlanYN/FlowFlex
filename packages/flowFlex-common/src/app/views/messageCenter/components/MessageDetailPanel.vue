@@ -239,7 +239,7 @@
 										</div>
 									</div>
 									<div class="text-sm text-gray-400">
-										{{ formatTimestamp(message.receivedDate) }}
+										{{ formatMessageTime(message.receivedDate) }}
 									</div>
 								</div>
 								<div v-if="message.recipients.length > 0" class="mt-2 text-sm">
@@ -328,7 +328,7 @@ import { MessageInfo } from '#/message';
 import { Close } from '@element-plus/icons-vue';
 import { formatFileSize } from '@/utils/format';
 import { messageCenterInfo } from '@/apis/messageCenter';
-import { timeZoneConvert } from '@/hooks/time';
+import { formatMessageTime } from '@/hooks/time';
 import { getAvatarColor } from '@/utils';
 import { useTheme } from '@/utils/theme';
 import {
@@ -339,7 +339,6 @@ import {
 
 import { MessageTag, MessageFolder } from '@/enums/appEnum';
 import { useAdaptiveScrollbar } from '@/hooks/useAdaptiveScrollbar';
-import { projectTenMinutesSsecondsDate } from '@/settings/projectSetting';
 import { functionPermission } from '@/hooks/index';
 import { ProjectPermissionEnum } from '@/enums/permissionEnum';
 
@@ -403,21 +402,6 @@ const getInitials = (name: string): string => {
 		return (parts[0][0] + parts[1][0]).toUpperCase();
 	}
 	return name.substring(0, 2).toUpperCase();
-};
-
-// Format timestamp
-const formatTimestamp = (timestamp: string): string => {
-	const time = timeZoneConvert(timestamp, false, projectTenMinutesSsecondsDate);
-	const date = typeof time === 'string' ? new Date(time) : time;
-	const now = new Date();
-	const diff = now.getTime() - date.getTime();
-	const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-
-	if (days === 0) return time;
-	if (days === 1) return 'Yesterday';
-	if (days < 7) return `${days} days ago`;
-
-	return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 };
 
 // Theme state

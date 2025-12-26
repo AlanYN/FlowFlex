@@ -195,3 +195,121 @@ export function formatDateUSOnly(dateString: string | Date): string {
 		return String(dateString);
 	}
 }
+
+/**
+ * Format message time for display in message list
+ * Shows relative time (Today shows time only, Yesterday, X days ago) or absolute date
+ * @param timestamp - The timestamp string from API (ISO 8601 format with timezone)
+ * @returns Formatted time string for display
+ */
+export function formatMessageTime(timestamp: string): string {
+	if (!timestamp) return '';
+
+	// 使用 timeZoneConvert 将 API 返回的时间转换为用户时区的时间字符串
+	// 格式: MM/DD/YYYY HH:mm:ss
+	const convertedTimeStr = timeZoneConvert(timestamp, false, projectTenMinutesSsecondsDate);
+
+	// 获取用户时区的当前时间字符串
+	const nowInUserTz = timeZoneConvert(
+		new Date().toISOString(),
+		false,
+		projectTenMinutesSsecondsDate
+	);
+
+	// 从字符串中提取日期部分 (MM/DD/YYYY) 和时间部分
+	const [messageDatePart, messageTimePart] = convertedTimeStr.split(' ');
+	const [todayDatePart] = nowInUserTz.split(' ');
+
+	// 解析今天的日期，纯数字计算昨天
+	const [todayMonth, todayDay, todayYear] = todayDatePart.split('/').map(Number);
+
+	// 计算昨天的日期字符串（纯数字计算，不使用 Date 对象）
+	let yesterdayMonth = todayMonth;
+	let yesterdayDay = todayDay - 1;
+	let yesterdayYear = todayYear;
+
+	if (yesterdayDay < 1) {
+		// 需要回退到上个月
+		yesterdayMonth -= 1;
+		if (yesterdayMonth < 1) {
+			yesterdayMonth = 12;
+			yesterdayYear -= 1;
+		}
+		// 获取上个月的天数
+		const daysInPrevMonth = [
+			31,
+			yesterdayYear % 4 === 0 && (yesterdayYear % 100 !== 0 || yesterdayYear % 400 === 0)
+				? 29
+				: 28,
+			31,
+			30,
+			31,
+			30,
+			31,
+			31,
+			30,
+			31,
+			30,
+			31,
+		][yesterdayMonth - 1];
+		yesterdayDay = daysInPrevMonth;
+	}
+	const yesterdayDatePart = `${String(yesterdayMonth).padStart(2, '0')}/${String(
+		yesterdayDay
+	).padStart(2, '0')}/${yesterdayYear}`;
+
+	// 今天
+	if (messageDatePart === todayDatePart) {
+		const [hours, minutes] = messageTimePart.split(':').map(Number);
+		const period = hours >= 12 ? 'PM' : 'AM';
+		const displayHours = hours % 12 || 12;
+		return `${displayHours}:${String(minutes).padStart(2, '0')} ${period}`;
+	}
+
+	// 昨天
+	if (messageDatePart === yesterdayDatePart) {
+		return 'Yesterday';
+	}
+
+	// 计算天数差（纯数字计算）
+	const [msgMonth, msgDay, msgYear] = messageDatePart.split('/').map(Number);
+
+	// 将日期转换为天数（从某个基准点开始的天数，用于计算差值）
+	const toAbsoluteDays = (year: number, month: number, day: number): number => {
+		// 简化计算：年 * 365 + 月份累计天数 + 日
+		const monthDays = [0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334];
+		let days =
+			year * 365 + Math.floor(year / 4) - Math.floor(year / 100) + Math.floor(year / 400);
+		days += monthDays[month - 1] + day;
+		// 闰年2月后需要加1
+		if (month > 2 && year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0)) {
+			days += 1;
+		}
+		return days;
+	};
+
+	const todayAbsDays = toAbsoluteDays(todayYear, todayMonth, todayDay);
+	const msgAbsDays = toAbsoluteDays(msgYear, msgMonth, msgDay);
+	const days = todayAbsDays - msgAbsDays;
+
+	if (days > 0 && days < 7) {
+		return `${days} days ago`;
+	}
+
+	// 格式化为 "MMM D YYYY"
+	const monthNames = [
+		'Jan',
+		'Feb',
+		'Mar',
+		'Apr',
+		'May',
+		'Jun',
+		'Jul',
+		'Aug',
+		'Sep',
+		'Oct',
+		'Nov',
+		'Dec',
+	];
+	return `${monthNames[msgMonth - 1]} ${msgDay} ${msgYear}`;
+}
