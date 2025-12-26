@@ -56,6 +56,7 @@
 								:integration-id="integrationId"
 								:attachmentApiMd="attachmentInboundApiMd"
 								:loading="isLoadingAttachmentApiMd"
+								:integration-name="integrationName"
 								:workflows="workflows"
 								:inboundFieldMappings="integrationData?.inboundFieldMappings || []"
 								:actions="actions"
@@ -68,6 +69,7 @@
 								:integration-id="integrationId"
 								:attachmentApiMd="attachmentOutboundApiMd"
 								:loading="isLoadingAttachmentApiMd"
+								:integration-name="integrationName"
 								:workflows="workflows"
 								:outboundFieldMappings="
 									integrationData?.outboundFieldMappings || []
