@@ -44,6 +44,19 @@
 					</el-tag>
 				</template>
 			</el-table-column>
+
+			<el-table-column label="Actions" width="100" align="center">
+				<template #default="{ row }">
+					<el-button
+						type="danger"
+						link
+						@click="handleDeleteAction(row)"
+						v-permission="ProjectPermissionEnum.integration.delete"
+					>
+						<el-icon><Delete /></el-icon>
+					</el-button>
+				</template>
+			</el-table-column>
 		</el-table>
 
 		<!-- Action Config Dialog -->
@@ -59,10 +72,11 @@
 
 <script setup lang="ts">
 import { useTemplateRef } from 'vue';
-import { Plus } from '@element-plus/icons-vue';
+import { Plus, Delete } from '@element-plus/icons-vue';
+import { ElMessageBox, ElMessage } from 'element-plus';
 import ActionConfigDialog from '@/components/actionTools/ActionConfigDialog.vue';
 import { TriggerTypeEnum } from '@/enums/appEnum';
-import { ACTION_TYPE_MAPPING, ActionType } from '@/apis/action';
+import { ACTION_TYPE_MAPPING, ActionType, deleteMappingAction } from '@/apis/action';
 import { ProjectPermissionEnum } from '@/enums/permissionEnum';
 
 interface Props {
@@ -88,8 +102,57 @@ const handleAddAction = () => {
 	actionConfigDialogRef.value?.open();
 };
 
-const onActionSave = async (actionResult) => {
+const onActionSave = async () => {
 	emit('refresh');
+};
+
+// 删除 Action
+const handleDeleteAction = async (row) => {
+	try {
+		await ElMessageBox.confirm(
+			'Are you sure you want to delete this action? This action cannot be undone.',
+			'⚠️ Confirm Deletion',
+			{
+				confirmButtonText: 'Delete Action',
+				cancelButtonText: 'Cancel',
+				confirmButtonClass: 'danger-confirm-btn',
+				cancelButtonClass: 'cancel-confirm-btn',
+				distinguishCancelAndClose: true,
+				customClass: 'delete-confirmation-dialog',
+				showCancelButton: true,
+				showConfirmButton: true,
+				beforeClose: async (action, instance, done) => {
+					if (action === 'confirm') {
+						instance.confirmButtonLoading = true;
+						instance.confirmButtonText = 'Deleting...';
+						try {
+							const deleteMappingId = row?.triggerMappings?.find(
+								(mapping) => mapping.triggerSourceId === row.integrationId
+							)?.id;
+							const res = await deleteMappingAction(deleteMappingId);
+							if (res.code === '200') {
+								ElMessage.success('Action deleted successfully');
+								done();
+								emit('refresh');
+							} else {
+								ElMessage.error(res.msg || 'Failed to delete action');
+								instance.confirmButtonLoading = false;
+								instance.confirmButtonText = 'Delete Action';
+							}
+						} catch {
+							ElMessage.error('Failed to delete action');
+							instance.confirmButtonLoading = false;
+							instance.confirmButtonText = 'Delete Action';
+						}
+					} else {
+						done();
+					}
+				},
+			}
+		);
+	} catch {
+		// User cancelled, do nothing
+	}
 };
 
 // Methods
