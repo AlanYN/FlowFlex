@@ -436,7 +436,7 @@
 
 <script lang="ts" setup>
 import { h, onMounted, ref, useTemplateRef, nextTick } from 'vue';
-import { MessageFolder, MessageTag, MessageTypeEnum } from '@/enums/appEnum';
+import { MessageFolder, MessageTag, MessageType, MessageTypeEnum } from '@/enums/appEnum';
 import { Filter, Plus, Refresh, Search, Link } from '@element-plus/icons-vue';
 import { MessageList, MessageInfo } from '#/message';
 import PageHeader from '@/components/global/PageHeader/index.vue';
@@ -789,11 +789,16 @@ const handleArchive = async (messageId: string, isArchived: boolean) => {
 			ElMessage.success(t('sys.api.operationSuccess'));
 			// 归档/取消归档后从当前列表中移除
 			// 因为归档后消息会移动到 Archive 文件夹，取消归档后会移回原文件夹
-			messageList.value = messageList.value.filter((msg) => msg.id !== messageId);
-			// 如果移除的是当前选中的消息或列表为空，关闭详情面板
-			if (selectedMessageId.value === messageId || messageList.value.length === 0) {
-				handleCloseDetailPanel();
+			if (isArchived && selectedType.value == MessageFolder.Archive) {
+				// 如果移除的是当前选中的消息或列表为空，关闭详情面板
+				if (selectedMessageId.value === messageId || messageList.value.length === 0) {
+					handleCloseDetailPanel();
+				}
+				messageList.value = messageList.value.filter((msg) => msg.id !== messageId);
 			}
+			nextTick(() => {
+				currentMessageCenter.value && currentMessageCenter.value?.getMessageInfo(messageId);
+			});
 		} else {
 			ElMessage.error(res?.msg || t('sys.api.operationFailed'));
 		}
