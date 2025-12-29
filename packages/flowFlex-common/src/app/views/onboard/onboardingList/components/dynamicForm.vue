@@ -363,7 +363,9 @@
 								:key="rowIndex"
 								class="grid-row"
 							>
-								<div class="grid-cell grid-row-header">{{ row.label }}</div>
+								<div class="grid-cell grid-row-header">
+									<span class="w-[200px] min-w-0 truncate">{{ row.label }}</span>
+								</div>
 								<div
 									v-for="(column, colIndex) in question.columns"
 									:key="colIndex"
@@ -1920,9 +1922,9 @@ html.dark {
 		&:first-child {
 			justify-content: flex-start;
 			font-weight: 500;
-			background-color: var(--el-fill-color-lighter);
+			background-color: var(--primary-25);
 			min-width: 200px;
-			flex: 2;
+			flex: none;
 		}
 
 		&:last-child {
@@ -1931,10 +1933,11 @@ html.dark {
 	}
 
 	.grid-row-header {
-		background-color: var(--el-fill-color-lighter);
+		background-color: var(--primary-25);
 		font-weight: 500;
 		text-align: left;
 		justify-content: flex-start !important;
+		@apply w-[200px] min-w-0 truncate;
 	}
 
 	.grid-column-header {
