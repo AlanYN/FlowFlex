@@ -5,9 +5,17 @@
 				<el-button
 					type="primary"
 					size="default"
-					class="page-header-btn page-header-btn-primary"
+					class="page-header-btn page-header-btn-secondary"
+					@click="viewAllCases"
 				>
 					View All Cases
+				</el-button>
+				<el-button
+					class="page-header-btn page-header-btn-primary"
+					type="primary"
+					@click="handleNewOnboarding"
+				>
+					<span>New Case</span>
 				</el-button>
 			</template>
 		</PageHeader>
@@ -59,15 +67,19 @@
 		<!-- Row 2: To-Do List | Message Center -->
 		<div class="row-two-equal">
 			<TodoList :items="tasks" :loading="tasksLoading" @refresh="fetchTasks" />
-			<MessageCenter :messages="messages" :loading="messagesLoading" />
+			<MessageCenter
+				:messages="messages"
+				:messageUnreadCount="messageUnreadCount"
+				:loading="messagesLoading"
+			/>
 		</div>
 
 		<!-- Row 3: Employee Stats | Department Distribution | Recent Hires -->
-		<!-- <div class="row-three-cols">
+		<div class="row-three-cols">
 			<EmployeeStats :stats="employeeStats" :loading="employeeLoading" />
 			<DepartmentDistribution :departments="departments" :loading="employeeLoading" />
 			<RecentHires :recent-hires="recentHires" :loading="employeeLoading" />
-		</div> -->
+		</div>
 
 		<!-- Row 4: Cases Overview | Recent Achievements -->
 		<div class="row-one-two">
@@ -88,9 +100,9 @@ import PageHeader from '@/components/global/PageHeader/index.vue';
 import StatsCard from './components/StatsCard.vue';
 import TodoList from './components/TodoList.vue';
 import MessageCenter from './components/MessageCenter.vue';
-// import EmployeeStats from './components/EmployeeStats.vue';
-// import DepartmentDistribution from './components/DepartmentDistribution.vue';
-// import RecentHires from './components/RecentHires.vue';
+import EmployeeStats from './components/EmployeeStats.vue';
+import DepartmentDistribution from './components/DepartmentDistribution.vue';
+import RecentHires from './components/RecentHires.vue';
 import CasesOverview from './components/CasesOverview.vue';
 import RecentAchievements from './components/RecentAchievements.vue';
 import UpcomingDeadlines from './components/UpcomingDeadlines.vue';
@@ -109,10 +121,15 @@ import type {
 	ICasesOverview,
 	IAchievement,
 	IDeadline,
-	// IEmployeeStats,
-	// IDepartmentDistribution,
-	// IRecentHire,
+	IEmployeeStats,
+	IDepartmentDistribution,
+	IRecentHire,
 } from '#/dashboard';
+import { getMessageUnreadCount } from '@/apis/messageCenter';
+
+import { useRouter } from 'vue-router';
+
+const router = useRouter();
 
 // Statistics
 const statistics = ref<IDashboardStatistics | null>(null);
@@ -124,26 +141,27 @@ const tasksLoading = ref(false);
 
 // Messages
 const messages = ref<IDashboardMessage[]>([]);
+const messageUnreadCount = ref(0);
 const messagesLoading = ref(false);
 
 // Employee (Mock data - no API yet)
-// const employeeStats = ref<IEmployeeStats>({
-// 	total: 12,
-// 	active: 10,
-// 	onLeave: 1,
-// 	avgSalary: 93000,
-// 	departmentCount: 10,
-// });
-// const departments = ref<IDepartmentDistribution[]>([
-// 	{ name: 'Engineering', count: 2 },
-// 	{ name: 'Sales', count: 2 },
-// 	{ name: 'Marketing', count: 1 },
-// 	{ name: 'Operations', count: 1 },
-// 	{ name: 'Finance', count: 1 },
-// 	{ name: 'Human Resources', count: 1 },
-// ]);
-// const recentHires = ref<IRecentHire[]>([]);
-// const employeeLoading = ref(false);
+const employeeStats = ref<IEmployeeStats>({
+	total: 12,
+	active: 10,
+	onLeave: 1,
+	avgSalary: 93000,
+	departmentCount: 10,
+});
+const departments = ref<IDepartmentDistribution[]>([
+	{ name: 'Engineering', count: 2 },
+	{ name: 'Sales', count: 2 },
+	{ name: 'Marketing', count: 1 },
+	{ name: 'Operations', count: 1 },
+	{ name: 'Finance', count: 1 },
+	{ name: 'Human Resources', count: 1 },
+]);
+const recentHires = ref<IRecentHire[]>([]);
+const employeeLoading = ref(false);
 
 // Cases Overview
 const casesOverview = ref<ICasesOverview | null>(null);
@@ -185,10 +203,15 @@ async function fetchTasks() {
 async function fetchMessages() {
 	messagesLoading.value = true;
 	try {
-		const res = await getMessages({ limit: 5 });
+		const res = await getMessages();
 		if (res.code === '200') {
 			messages.value = res.data.messages;
 		}
+		getMessageUnreadCount().then((res) => {
+			if (res.code == '200') {
+				messageUnreadCount.value = res?.data;
+			}
+		});
 	} finally {
 		messagesLoading.value = false;
 	}
@@ -209,7 +232,7 @@ async function fetchCasesOverview() {
 async function fetchAchievements() {
 	achievementsLoading.value = true;
 	try {
-		const res = await getAchievements({ limit: 5 });
+		const res = await getAchievements();
 		if (res.code === '200') {
 			achievements.value = res.data;
 		}
@@ -229,6 +252,21 @@ async function fetchDeadlines() {
 		deadlinesLoading.value = false;
 	}
 }
+
+const viewAllCases = () => {
+	router.push({
+		path: '/onboard/onboardList',
+	});
+};
+
+const handleNewOnboarding = () => {
+	router.push({
+		path: '/onboard/onboardList',
+		query: {
+			newOnboarding: 'true',
+		},
+	});
+};
 
 onMounted(() => {
 	// 并行加载所有模块数据

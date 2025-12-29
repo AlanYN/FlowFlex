@@ -699,7 +699,7 @@
 
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted, markRaw, watch, nextTick } from 'vue';
-import { useRouter } from 'vue-router';
+import { useRouter, useRoute } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import '../styles/errorDialog.css';
 import {
@@ -791,6 +791,7 @@ const onboardingStages = ref<any[]>([]);
 
 // 响应式数据
 const router = useRouter();
+const route = useRoute();
 const loading = ref(false);
 const onboardingList = ref<OnboardingItem[]>([]);
 
@@ -2222,7 +2223,9 @@ onMounted(async () => {
 		getLifeCycleStage(),
 		fetchAllWorkflows(),
 	]);
-
+	if (route.query?.newOnboarding && functionPermission(ProjectPermissionEnum.case.create)) {
+		handleNewOnboarding();
+	}
 	// 默认选中所有阶段
 	selectedStages.value = [...getAllAvailableStages.value];
 });

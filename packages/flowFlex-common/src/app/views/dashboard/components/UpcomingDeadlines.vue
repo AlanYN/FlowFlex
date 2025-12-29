@@ -50,7 +50,6 @@
 				</div>
 			</div>
 		</div>
-		<div class="upcoming-deadlines__footer">Showing {{ deadlines.length }} deadlines</div>
 	</div>
 </template>
 
@@ -133,13 +132,7 @@ const clickTask = (id: string) => {
 	}
 
 	&__footer {
-		@apply px-4 py-3 text-center text-sm border-t flex-shrink-0;
-		color: var(--el-text-color-secondary);
-		border-color: var(--el-border-color-lighter);
 		height: 44px;
-		display: flex;
-		align-items: center;
-		justify-content: center;
 	}
 }
 

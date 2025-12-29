@@ -2,7 +2,7 @@
 	<div class="recent-hires">
 		<div class="recent-hires__header">
 			<div class="flex items-center gap-x-2">
-				<Icon icon="lucide-users" class="text-primary" />
+				<Icon icon="lucide-users" />
 				<h3 class="recent-hires__title">Recent Hires</h3>
 			</div>
 			<span class="recent-hires__subtitle">New employees (last 90 days)</span>

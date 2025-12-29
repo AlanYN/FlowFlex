@@ -1,7 +1,10 @@
 <template>
 	<div class="recent-achievements">
 		<div class="recent-achievements__header">
-			<h3 class="recent-achievements__title">Recent Achievements</h3>
+			<h3 class="recent-achievements__title">
+				<Icon icon="lucide-file-check" />
+				<div>Recent Achievements</div>
+			</h3>
 			<span class="recent-achievements__subtitle">Latest case milestones completed</span>
 		</div>
 		<div class="recent-achievements__content">
@@ -61,13 +64,16 @@
 			</div>
 		</div>
 		<div class="recent-achievements__footer">
-			Showing {{ achievements.length }} achievements
+			<el-button @click="viewAllAchievements" class="w-full">View All Achievements</el-button>
 		</div>
 	</div>
 </template>
 
 <script setup lang="ts">
 import type { IAchievement } from '#/dashboard';
+import { useRouter } from 'vue-router';
+
+const router = useRouter();
 
 interface Props {
 	achievements: IAchievement[];
@@ -83,6 +89,12 @@ function getTeamInitials(team: string): string {
 		.join('')
 		.substring(0, 2);
 }
+
+const viewAllAchievements = () => {
+	router.push({
+		path: '/onboard/onboardList',
+	});
+};
 </script>
 
 <style scoped lang="scss">
@@ -103,7 +115,7 @@ function getTeamInitials(team: string): string {
 	}
 
 	&__title {
-		@apply text-lg font-semibold m-0;
+		@apply text-lg font-semibold m-0 flex items-center space-x-2;
 		color: var(--el-text-color-primary);
 	}
 

@@ -2,7 +2,7 @@
 	<div class="employee-stats">
 		<div class="employee-stats__header">
 			<div class="flex items-center gap-x-2">
-				<Icon icon="lucide-user-cog" class="text-primary" />
+				<Icon icon="lucide-user-cog" />
 				<h3 class="employee-stats__title">Employee Overview</h3>
 			</div>
 			<span class="employee-stats__subtitle">Current workforce statistics</span>
