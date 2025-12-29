@@ -230,7 +230,7 @@ namespace FlowFlex.Application.Services.Integration
 
         /// <summary>
         /// Create a case/onboarding from external system
-        /// If a case with the same EntityId already exists, update it instead of creating a new one
+        /// Always creates a new case, subsequent field updates will be applied to this new case
         /// </summary>
         public async Task<CreateCaseFromExternalResponse> CreateCaseAsync(CreateCaseFromExternalRequest request)
         {
@@ -297,81 +297,54 @@ namespace FlowFlex.Application.Services.Integration
                 throw new CRMException(ErrorCodeEnum.BusinessError, "Workflow has no stages configured");
             }
 
-            // Check if a case with the same EntityId already exists
-            var existingCases = await _onboardingRepository.GetListAsync(o => 
-                o.EntityId == request.EntityId && 
-                (o.SystemId == request.SystemId || o.IntegrationId == entityMapping.IntegrationId) && 
-                o.IsValid);
-            var existingCase = existingCases.FirstOrDefault();
-
             long caseId;
             Domain.Entities.OW.Onboarding? targetCase;
 
-            if (existingCase != null)
+            // Always create a new case - do not check for existing cases with the same EntityId
+            var onboardingInput = new OnboardingInputDto
             {
-                // Update existing case
-                _logger.LogInformation("Found existing case {CaseId} for EntityId={EntityId}, updating instead of creating new",
-                    existingCase.Id, request.EntityId);
+                WorkflowId = request.WorkflowId,
+                LeadId = request.EntityId,
+                CaseName = request.CaseName,
+                ContactPerson = request.ContactName,
+                ContactEmail = request.ContactEmail,
+                LeadPhone = request.ContactPhone,
+                Status = "Started",
+                StartDate = DateTimeOffset.UtcNow,
+                Priority = "Medium",
+                IsActive = true,
+                CustomFieldsJson = request.CustomFields != null
+                    ? JsonConvert.SerializeObject(request.CustomFields)
+                    : null
+            };
 
-                existingCase.CaseName = request.CaseName;
-                existingCase.ContactPerson = request.ContactName;
-                existingCase.ContactEmail = request.ContactEmail;
-                existingCase.LeadPhone = request.ContactPhone;
-                existingCase.SystemId = request.SystemId;
-                existingCase.EntityType = request.EntityType;
+            caseId = await _onboardingService.CreateAsync(onboardingInput);
+            targetCase = await _onboardingRepository.GetByIdAsync(caseId);
+
+            // Update SystemId, IntegrationId, EntityType and EntityId for new case
+            if (targetCase != null)
+            {
+                targetCase.SystemId = request.SystemId;
+                targetCase.IntegrationId = entityMapping.IntegrationId;
+                targetCase.EntityType = request.EntityType;
+                targetCase.EntityId = request.EntityId;
                 
-                if (request.CustomFields != null)
+                // Ensure CurrentStageId is set to first stage if not already set
+                if (!targetCase.CurrentStageId.HasValue)
                 {
-                    existingCase.CustomFieldsJson = JsonConvert.SerializeObject(request.CustomFields);
+                    targetCase.CurrentStageId = firstStage.Id;
+                    targetCase.CurrentStageOrder = firstStage.Order;
+                    _logger.LogInformation("Set CurrentStageId={StageId} for case {CaseId}", firstStage.Id, caseId);
                 }
                 
-                existingCase.InitModifyInfo(_userContext);
-                await _onboardingRepository.UpdateAsync(existingCase);
-
-                caseId = existingCase.Id;
-                targetCase = existingCase;
-
-                _logger.LogInformation("Updated existing case {CaseId} from external system", caseId);
+                targetCase.InitModifyInfo(_userContext);
+                await _onboardingRepository.UpdateAsync(targetCase);
+                
+                _logger.LogInformation("Updated SystemId={SystemId}, IntegrationId={IntegrationId}, EntityType={EntityType}, EntityId={EntityId}, CurrentStageId={CurrentStageId} for case {CaseId}",
+                    request.SystemId, entityMapping.IntegrationId, request.EntityType, request.EntityId, targetCase.CurrentStageId, caseId);
             }
-            else
-            {
-                // Create new case
-                var onboardingInput = new OnboardingInputDto
-                {
-                    WorkflowId = request.WorkflowId,
-                    LeadId = request.EntityId,
-                    CaseName = request.CaseName,
-                    ContactPerson = request.ContactName,
-                    ContactEmail = request.ContactEmail,
-                    LeadPhone = request.ContactPhone,
-                    Status = "Started",
-                    StartDate = DateTimeOffset.UtcNow,
-                    Priority = "Medium",
-                    IsActive = true,
-                    CustomFieldsJson = request.CustomFields != null
-                        ? JsonConvert.SerializeObject(request.CustomFields)
-                        : null
-                };
 
-                caseId = await _onboardingService.CreateAsync(onboardingInput);
-                targetCase = await _onboardingRepository.GetByIdAsync(caseId);
-
-                // Update SystemId, IntegrationId, EntityType and EntityId for new case
-                if (targetCase != null)
-                {
-                    targetCase.SystemId = request.SystemId;
-                    targetCase.IntegrationId = entityMapping.IntegrationId;
-                    targetCase.EntityType = request.EntityType;
-                    targetCase.EntityId = request.EntityId;
-                    targetCase.InitModifyInfo(_userContext);
-                    await _onboardingRepository.UpdateAsync(targetCase);
-                    
-                    _logger.LogInformation("Updated SystemId={SystemId}, IntegrationId={IntegrationId}, EntityType={EntityType}, EntityId={EntityId} for case {CaseId}",
-                        request.SystemId, entityMapping.IntegrationId, request.EntityType, request.EntityId, caseId);
-                }
-
-                _logger.LogInformation("Successfully created new case {CaseId} from external system", caseId);
-            }
+            _logger.LogInformation("Successfully created new case {CaseId} from external system", caseId);
 
             // Execute CaseInfo Actions - find actions with field mappings configured
             if (targetCase != null)
@@ -1734,12 +1707,19 @@ namespace FlowFlex.Application.Services.Integration
                         }
 
                         // Parse response data
+                        _logger.LogInformation("CaseInfo Action {ActionId} raw result: {Result}", 
+                            actionDefinition.Id, resultJson.ToString(Newtonsoft.Json.Formatting.None));
+                        
                         var responseData = ExtractResponseData(resultJson);
                         if (responseData == null)
                         {
-                            _logger.LogWarning("CaseInfo Action {ActionId} returned no data to map", actionDefinition.Id);
+                            _logger.LogWarning("CaseInfo Action {ActionId} returned no data to map. ResultJson keys: {Keys}", 
+                                actionDefinition.Id, string.Join(", ", resultJson.Properties().Select(p => p.Name)));
                             continue;
                         }
+
+                        _logger.LogInformation("CaseInfo Action {ActionId} extracted response data: {Data}", 
+                            actionDefinition.Id, responseData.ToString(Newtonsoft.Json.Formatting.None));
 
                         // Apply field mappings to populate case data
                         await ApplyFieldMappingsToCase(createdCase, responseData, fieldMappings);
