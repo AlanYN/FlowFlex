@@ -49,6 +49,44 @@ public class PropertyController : Controllers.ControllerBase
     }
 
     /// <summary>
+    /// Export properties to Excel
+    /// </summary>
+    [HttpPost("export-excel")]
+    [ProducesResponseType(typeof(FileResult), 200)]
+    public async Task<IActionResult> ExportToExcelAsync([FromBody] PropertyQueryRequest request)
+    {
+        var stream = await _propertyService.ExportToExcelAsync(request);
+        var fileName = $"DynamicFields_{DateTimeOffset.Now:MMddyyyy_HHmmss}.xlsx";
+        return File(stream, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", fileName);
+    }
+
+    /// <summary>
+    /// Export properties to Excel (GET method)
+    /// </summary>
+    [HttpGet("export-excel")]
+    [ProducesResponseType(typeof(FileResult), 200)]
+    public async Task<IActionResult> ExportToExcelAsync(
+        [FromQuery] string? fieldName = null,
+        [FromQuery] string? displayName = null,
+        [FromQuery] int? dataType = null,
+        [FromQuery] string? createBy = null,
+        [FromQuery] string? modifyBy = null)
+    {
+        var request = new PropertyQueryRequest
+        {
+            FieldName = fieldName,
+            DisplayName = displayName,
+            DataType = dataType.HasValue ? (Domain.Shared.Enums.DynamicData.DataType)dataType.Value : null,
+            CreateBy = createBy,
+            ModifyBy = modifyBy
+        };
+
+        var stream = await _propertyService.ExportToExcelAsync(request);
+        var fileName = $"DynamicFields_{DateTimeOffset.Now:MMddyyyy_HHmmss}.xlsx";
+        return File(stream, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", fileName);
+    }
+
+    /// <summary>
     /// Get property by ID
     /// </summary>
     /// <param name="id">Property ID</param>

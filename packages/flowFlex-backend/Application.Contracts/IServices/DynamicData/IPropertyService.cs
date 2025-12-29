@@ -19,6 +19,11 @@ public interface IPropertyService
     Task<PagedResult<DefineFieldDto>> GetPropertyPagedListAsync(PropertyQueryRequest request);
 
     /// <summary>
+    /// Export properties to Excel
+    /// </summary>
+    Task<Stream> ExportToExcelAsync(PropertyQueryRequest request);
+
+    /// <summary>
     /// Get property by ID
     /// </summary>
     Task<DefineFieldDto?> GetPropertyByIdAsync(long propertyId);

@@ -8,6 +8,7 @@ using FlowFlex.Domain.Shared.Models;
 using FlowFlex.Domain.Shared.Models.DynamicData;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json.Linq;
+using OfficeOpenXml;
 
 namespace FlowFlex.Application.Services.DynamicData;
 
@@ -140,6 +141,101 @@ public class DynamicDataService : IBusinessDataService, IPropertyService, IScope
             PageIndex = pagedResult.PageIndex,
             PageSize = pagedResult.PageSize
         };
+    }
+
+    public async Task<Stream> ExportToExcelAsync(PropertyQueryRequest request)
+    {
+        // Set large page size for export
+        request.PageSize = 10000;
+        request.PageIndex = 1;
+
+        var pagedResult = await _defineFieldRepository.GetPagedListAsync(request);
+
+        // Transform to export format
+        var exportData = pagedResult.Items.Select(item => new PropertyExportDto
+        {
+            Id = item.Id.ToString(),
+            FieldName = item.FieldName,
+            DisplayName = item.DisplayName,
+            Description = item.Description ?? string.Empty,
+            DataType = GetDataTypeName(item.DataType),
+            IsRequired = item.IsRequired ? "Yes" : "No",
+            IsSystemDefine = item.IsSystemDefine ? "Yes" : "No",
+            CreateBy = item.CreateBy,
+            CreateDate = item.CreateDate.ToString("MM/dd/yyyy HH:mm:ss"),
+            ModifyBy = item.ModifyBy,
+            ModifyDate = item.ModifyDate.ToString("MM/dd/yyyy HH:mm:ss")
+        }).ToList();
+
+        return GenerateExcelWithEPPlus(exportData);
+    }
+
+    private static string GetDataTypeName(DataType dataType)
+    {
+        return dataType switch
+        {
+            DataType.Phone => "Phone",
+            DataType.Email => "Email",
+            DataType.DropDown => "DropDown",
+            DataType.Bool => "Bool",
+            DataType.DateTime => "DateTime",
+            DataType.SingleLineText => "SingleLineText",
+            DataType.MultilineText => "MultilineText",
+            DataType.Number => "Number",
+            DataType.StringList => "StringList",
+            DataType.File => "File",
+            DataType.FileList => "FileList",
+            DataType.ID => "ID",
+            DataType.People => "People",
+            DataType.Connection => "Connection",
+            DataType.Image => "Image",
+            DataType.TimeLine => "TimeLine",
+            _ => dataType.ToString()
+        };
+    }
+
+    private static Stream GenerateExcelWithEPPlus(List<PropertyExportDto> data)
+    {
+        using var package = new ExcelPackage();
+        var worksheet = package.Workbook.Worksheets.Add("Dynamic Fields Export");
+
+        // Set headers
+        var headers = new[]
+        {
+            "Field ID", "Field Name", "Display Name", "Description", "Data Type",
+            "Is Required", "Is System Define", "Created By", "Create Date", "Modified By", "Modify Date"
+        };
+
+        for (int i = 0; i < headers.Length; i++)
+        {
+            worksheet.Cells[1, i + 1].Value = headers[i];
+            worksheet.Cells[1, i + 1].Style.Font.Bold = true;
+        }
+
+        // Set data
+        for (int row = 0; row < data.Count; row++)
+        {
+            var item = data[row];
+            worksheet.Cells[row + 2, 1].Value = item.Id;
+            worksheet.Cells[row + 2, 2].Value = item.FieldName;
+            worksheet.Cells[row + 2, 3].Value = item.DisplayName;
+            worksheet.Cells[row + 2, 4].Value = item.Description;
+            worksheet.Cells[row + 2, 5].Value = item.DataType;
+            worksheet.Cells[row + 2, 6].Value = item.IsRequired;
+            worksheet.Cells[row + 2, 7].Value = item.IsSystemDefine;
+            worksheet.Cells[row + 2, 8].Value = item.CreateBy;
+            worksheet.Cells[row + 2, 9].Value = item.CreateDate;
+            worksheet.Cells[row + 2, 10].Value = item.ModifyBy;
+            worksheet.Cells[row + 2, 11].Value = item.ModifyDate;
+        }
+
+        // Auto-fit columns
+        worksheet.Cells.AutoFitColumns();
+
+        var stream = new MemoryStream();
+        package.SaveAs(stream);
+        stream.Position = 0;
+        return stream;
     }
 
     public async Task<DefineFieldDto?> GetPropertyByIdAsync(long propertyId)
