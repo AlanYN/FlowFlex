@@ -2,7 +2,7 @@
 	<div class="department-distribution">
 		<div class="department-distribution__header">
 			<div class="flex items-center gap-x-2">
-				<Icon icon="lucide-briefcase" class="text-primary" />
+				<Icon icon="lucide-briefcase" />
 				<h3 class="department-distribution__title">Department Distribution</h3>
 			</div>
 			<span class="department-distribution__subtitle">Active employees by department</span>

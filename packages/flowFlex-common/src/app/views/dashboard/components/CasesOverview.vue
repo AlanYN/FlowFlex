@@ -1,7 +1,10 @@
 <template>
 	<div class="cases-overview">
 		<div class="cases-overview__header">
-			<h3 class="cases-overview__title">Cases Overview</h3>
+			<div class="cases-overview__title">
+				<Icon icon="lucide-chart-column" />
+				<div>Cases Overview</div>
+			</div>
 			<span class="cases-overview__subtitle">Current case status by stage</span>
 		</div>
 		<div class="cases-overview__content">
@@ -95,7 +98,7 @@ defineProps<Props>();
 	}
 
 	&__title {
-		@apply text-lg font-semibold m-0;
+		@apply text-lg font-semibold m-0 flex items-center space-x-2;
 		color: var(--el-text-color-primary);
 	}
 

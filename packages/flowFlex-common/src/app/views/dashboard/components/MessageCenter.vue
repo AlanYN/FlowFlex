@@ -104,7 +104,17 @@
 				</div>
 			</div>
 		</div>
-		<div class="message-center__footer">Showing {{ messages.length }} messages</div>
+		<div class="message-center__footer">
+			<div class="flex items-center space-x-2">
+				<div
+					class="px-2 py-0.5 border rounded-md text-xs font-medium text-primary border-primary"
+				>
+					{{ messageUnreadCount }}
+				</div>
+				<div>Unread messages</div>
+			</div>
+			<el-button @click="viewAllMessage">View All Message</el-button>
+		</div>
 	</div>
 </template>
 
@@ -118,6 +128,7 @@ import { useRouter } from 'vue-router';
 interface Props {
 	messages: IDashboardMessage[];
 	loading?: boolean;
+	messageUnreadCount: number;
 }
 const router = useRouter();
 
@@ -148,6 +159,10 @@ const getLabelType = (label: MessageTag) => {
 };
 
 const clickMessage = () => {
+	router.push(`/message/messageCenter`);
+};
+
+const viewAllMessage = () => {
 	router.push(`/message/messageCenter`);
 };
 </script>
@@ -197,7 +212,7 @@ const clickMessage = () => {
 		height: 44px;
 		display: flex;
 		align-items: center;
-		justify-content: center;
+		justify-content: space-between;
 	}
 }
 
