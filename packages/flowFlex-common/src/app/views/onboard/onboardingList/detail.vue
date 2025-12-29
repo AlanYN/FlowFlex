@@ -194,6 +194,7 @@
 										!hasCasePermission(ProjectPermissionEnum.case.update)
 									"
 									:systemId="onboardingData?.systemId"
+									:entityId="onboardingData?.entityId"
 									@document-uploaded="handleDocumentUploaded"
 									@document-deleted="handleDocumentDeleted"
 								/>

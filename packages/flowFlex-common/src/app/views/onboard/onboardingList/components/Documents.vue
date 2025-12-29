@@ -341,6 +341,7 @@ interface Props {
 	disabled?: boolean;
 	documentIsRequired?: boolean;
 	systemId?: string;
+	entityId?: string;
 }
 
 const props = defineProps<Props>();
@@ -666,7 +667,8 @@ const importFormIntegration = async () => {
 		importDialogVisible.value = true; // Open dialog on success
 		importLoading.value = true;
 		const res = await getCaseAttachmentIntegration({
-			systemId: props?.systemId,
+			systemId: props?.systemId || '',
+			entityId: props?.entityId || '',
 		});
 		if (res?.code == '200') {
 			// Process the new API response structure with actionExecutions array
@@ -742,6 +744,7 @@ const handleStartDownload = async (attachments: IntegrationAttachment[]) => {
 		if (res.code == '200') {
 			// 立即查询一次进度来初始化 downloadProgress
 			await checkAndStartPolling();
+			refreshDocumentsSilently();
 		} else {
 			ElMessage.error(res?.msg || t('sys.api.operationFailed'));
 		}

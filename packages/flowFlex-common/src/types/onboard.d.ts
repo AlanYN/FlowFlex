@@ -58,6 +58,7 @@ export interface OnboardingItem {
 	isDisabled: boolean;
 	caseCode: string;
 	systemId?: string;
+	entityId?: string;
 	permission?: {
 		canView: boolean;
 		canOperate: boolean;
