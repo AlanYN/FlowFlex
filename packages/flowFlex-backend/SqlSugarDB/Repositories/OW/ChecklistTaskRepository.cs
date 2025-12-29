@@ -2,6 +2,9 @@ using SqlSugar;
 using FlowFlex.Domain.Entities.OW;
 using FlowFlex.Domain.Repository.OW;
 using FlowFlex.Domain.Shared;
+using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Logging;
+using System.Linq.Expressions;
 
 namespace FlowFlex.SqlSugarDB.Implements.OW;
 
@@ -10,8 +13,73 @@ namespace FlowFlex.SqlSugarDB.Implements.OW;
 /// </summary>
 public class ChecklistTaskRepository : BaseRepository<ChecklistTask>, IChecklistTaskRepository, IScopedService
 {
-    public ChecklistTaskRepository(ISqlSugarClient sqlSugarClient) : base(sqlSugarClient)
+    private readonly IHttpContextAccessor _httpContextAccessor;
+    private readonly ILogger<ChecklistTaskRepository> _logger;
+
+    public ChecklistTaskRepository(
+        ISqlSugarClient sqlSugarClient,
+        IHttpContextAccessor httpContextAccessor,
+        ILogger<ChecklistTaskRepository> logger) : base(sqlSugarClient)
     {
+        _httpContextAccessor = httpContextAccessor;
+        _logger = logger;
+    }
+
+    /// <summary>
+    /// Get current tenant ID from HTTP context
+    /// </summary>
+    private string GetCurrentTenantId()
+    {
+        var httpContext = _httpContextAccessor?.HttpContext;
+        if (httpContext != null)
+        {
+            var tenantId = httpContext.Request.Headers["X-Tenant-Id"].FirstOrDefault();
+            if (!string.IsNullOrEmpty(tenantId))
+            {
+                return tenantId;
+            }
+        }
+        return "DEFAULT";
+    }
+
+    /// <summary>
+    /// Get current app code from HTTP context
+    /// </summary>
+    private string GetCurrentAppCode()
+    {
+        var httpContext = _httpContextAccessor?.HttpContext;
+        if (httpContext != null)
+        {
+            var appCode = httpContext.Request.Headers["X-App-Code"].FirstOrDefault();
+            if (!string.IsNullOrEmpty(appCode))
+            {
+                return appCode;
+            }
+        }
+        return "DEFAULT";
+    }
+
+    /// <summary>
+    /// Get checklist task list by expression with tenant isolation
+    /// </summary>
+    public new async Task<List<ChecklistTask>> GetListAsync(Expression<Func<ChecklistTask, bool>> whereExpression, CancellationToken cancellationToken = default, bool copyNew = false)
+    {
+        var currentTenantId = GetCurrentTenantId();
+        var currentAppCode = GetCurrentAppCode();
+
+        _logger.LogInformation($"[ChecklistTaskRepository] GetListAsync(Expression) applying filters: TenantId={currentTenantId}, AppCode={currentAppCode}");
+
+        var dbNew = copyNew ? db.CopyNew() : db;
+        dbNew.Ado.CancellationToken = cancellationToken;
+
+        var result = await dbNew.Queryable<ChecklistTask>()
+            .Where(whereExpression)
+            .Where(x => x.TenantId == currentTenantId && x.AppCode == currentAppCode)
+            .ToListAsync();
+
+        _logger.LogInformation($"[ChecklistTaskRepository] GetListAsync(Expression) returned {result.Count} tasks");
+
+        return result;
     }
 
     /// <summary>
@@ -19,8 +87,12 @@ public class ChecklistTaskRepository : BaseRepository<ChecklistTask>, IChecklist
     /// </summary>
     public async Task<List<ChecklistTask>> GetByChecklistIdAsync(long checklistId)
     {
+        var currentTenantId = GetCurrentTenantId();
+        var currentAppCode = GetCurrentAppCode();
+
         return await db.Queryable<ChecklistTask>()
             .Where(x => x.ChecklistId == checklistId && x.IsValid == true)
+            .Where(x => x.TenantId == currentTenantId && x.AppCode == currentAppCode)
             .OrderBy(x => x.Order)
             .ToListAsync();
     }
@@ -35,8 +107,12 @@ public class ChecklistTaskRepository : BaseRepository<ChecklistTask>, IChecklist
             return new List<ChecklistTask>();
         }
 
+        var currentTenantId = GetCurrentTenantId();
+        var currentAppCode = GetCurrentAppCode();
+
         return await db.Queryable<ChecklistTask>()
             .Where(x => checklistIds.Contains(x.ChecklistId) && x.IsValid == true)
+            .Where(x => x.TenantId == currentTenantId && x.AppCode == currentAppCode)
             .OrderBy(x => x.ChecklistId)
             .OrderBy(x => x.Order)
             .ToListAsync();
@@ -47,8 +123,12 @@ public class ChecklistTaskRepository : BaseRepository<ChecklistTask>, IChecklist
     /// </summary>
     public async Task<int> GetCompletedCountAsync(long checklistId)
     {
+        var currentTenantId = GetCurrentTenantId();
+        var currentAppCode = GetCurrentAppCode();
+
         return await db.Queryable<ChecklistTask>()
             .Where(x => x.ChecklistId == checklistId && x.IsCompleted == true && x.IsValid == true)
+            .Where(x => x.TenantId == currentTenantId && x.AppCode == currentAppCode)
             .CountAsync();
     }
 
@@ -57,11 +137,15 @@ public class ChecklistTaskRepository : BaseRepository<ChecklistTask>, IChecklist
     /// </summary>
     public async Task<List<ChecklistTask>> GetPendingTasksByAssigneeAsync(long assigneeId)
     {
+        var currentTenantId = GetCurrentTenantId();
+        var currentAppCode = GetCurrentAppCode();
+
         return await db.Queryable<ChecklistTask>()
             .Where(x => x.AssigneeId == assigneeId
                 && x.IsCompleted == false
                 && x.Status == "Pending"
                 && x.IsValid == true)
+            .Where(x => x.TenantId == currentTenantId && x.AppCode == currentAppCode)
             .OrderBy(x => x.DueDate)
             .ToListAsync();
     }
@@ -71,12 +155,16 @@ public class ChecklistTaskRepository : BaseRepository<ChecklistTask>, IChecklist
     /// </summary>
     public async Task<List<ChecklistTask>> GetOverdueTasksAsync()
     {
+        var currentTenantId = GetCurrentTenantId();
+        var currentAppCode = GetCurrentAppCode();
         var now = DateTimeOffset.Now;
+
         return await db.Queryable<ChecklistTask>()
             .Where(x => x.DueDate.HasValue
                 && x.DueDate.Value < now
                 && x.IsCompleted == false
                 && x.IsValid == true)
+            .Where(x => x.TenantId == currentTenantId && x.AppCode == currentAppCode)
             .OrderBy(x => x.DueDate)
             .ToListAsync();
     }
@@ -86,6 +174,9 @@ public class ChecklistTaskRepository : BaseRepository<ChecklistTask>, IChecklist
     /// </summary>
     public async Task<bool> BatchCompleteAsync(List<long> taskIds, string completionNotes, int actualHours)
     {
+        var currentTenantId = GetCurrentTenantId();
+        var currentAppCode = GetCurrentAppCode();
+
         var result = await db.Updateable<ChecklistTask>()
             .SetColumns(x => new ChecklistTask
             {
@@ -97,6 +188,7 @@ public class ChecklistTaskRepository : BaseRepository<ChecklistTask>, IChecklist
                 ModifyDate = DateTimeOffset.Now
             })
             .Where(x => taskIds.Contains(x.Id) && x.IsValid == true)
+            .Where(x => x.TenantId == currentTenantId && x.AppCode == currentAppCode)
             .ExecuteCommandAsync();
 
         return result > 0;
@@ -107,7 +199,10 @@ public class ChecklistTaskRepository : BaseRepository<ChecklistTask>, IChecklist
     /// </summary>
     public async Task<bool> UpdateOrderAsync(long checklistId, Dictionary<long, int> taskOrders)
     {
+        var currentTenantId = GetCurrentTenantId();
+        var currentAppCode = GetCurrentAppCode();
         var success = true;
+
         await db.Ado.BeginTranAsync();
 
         try
@@ -121,6 +216,7 @@ public class ChecklistTaskRepository : BaseRepository<ChecklistTask>, IChecklist
                         ModifyDate = DateTimeOffset.Now
                     })
                     .Where(x => x.Id == taskId && x.ChecklistId == checklistId && x.IsValid == true)
+                    .Where(x => x.TenantId == currentTenantId && x.AppCode == currentAppCode)
                     .ExecuteCommandAsync();
 
                 if (result == 0)
@@ -153,8 +249,12 @@ public class ChecklistTaskRepository : BaseRepository<ChecklistTask>, IChecklist
     /// </summary>
     public async Task<List<ChecklistTask>> GetDependentTasksAsync(long taskId)
     {
+        var currentTenantId = GetCurrentTenantId();
+        var currentAppCode = GetCurrentAppCode();
+
         return await db.Queryable<ChecklistTask>()
             .Where(x => x.DependsOnTaskId == taskId && x.IsValid == true)
+            .Where(x => x.TenantId == currentTenantId && x.AppCode == currentAppCode)
             .OrderBy(x => x.Order)
             .ToListAsync();
     }
@@ -164,8 +264,12 @@ public class ChecklistTaskRepository : BaseRepository<ChecklistTask>, IChecklist
     /// </summary>
     public async Task<bool> CanCompleteAsync(long taskId)
     {
+        var currentTenantId = GetCurrentTenantId();
+        var currentAppCode = GetCurrentAppCode();
+
         var task = await db.Queryable<ChecklistTask>()
             .Where(x => x.Id == taskId && x.IsValid == true)
+            .Where(x => x.TenantId == currentTenantId && x.AppCode == currentAppCode)
             .FirstAsync();
 
         if (task == null || task.IsCompleted)
@@ -178,6 +282,7 @@ public class ChecklistTaskRepository : BaseRepository<ChecklistTask>, IChecklist
         {
             var dependentTask = await db.Queryable<ChecklistTask>()
                 .Where(x => x.Id == task.DependsOnTaskId.Value && x.IsValid == true)
+                .Where(x => x.TenantId == currentTenantId && x.AppCode == currentAppCode)
                 .FirstAsync();
 
             if (dependentTask != null && !dependentTask.IsCompleted)
@@ -197,8 +302,12 @@ public class ChecklistTaskRepository : BaseRepository<ChecklistTask>, IChecklist
         DateTimeOffset? startDate = null,
         DateTimeOffset? endDate = null)
     {
+        var currentTenantId = GetCurrentTenantId();
+        var currentAppCode = GetCurrentAppCode();
+
         var whereExpression = Expressionable.Create<ChecklistTask>()
             .And(x => x.AssigneeId == assigneeId && x.IsValid == true)
+            .And(x => x.TenantId == currentTenantId && x.AppCode == currentAppCode)
             .AndIF(startDate.HasValue, x => x.CreateDate >= startDate.Value)
             .AndIF(endDate.HasValue, x => x.CreateDate <= endDate.Value)
             .ToExpression();
@@ -214,8 +323,12 @@ public class ChecklistTaskRepository : BaseRepository<ChecklistTask>, IChecklist
     /// </summary>
     public async Task<Dictionary<string, object>> GetTaskStatisticsAsync(long checklistId)
     {
+        var currentTenantId = GetCurrentTenantId();
+        var currentAppCode = GetCurrentAppCode();
+
         var statistics = await db.Queryable<ChecklistTask>()
             .Where(x => x.ChecklistId == checklistId && x.IsValid == true)
+            .Where(x => x.TenantId == currentTenantId && x.AppCode == currentAppCode)
             .GroupBy(x => x.ChecklistId)
             .Select(x => new
             {
@@ -244,8 +357,12 @@ public class ChecklistTaskRepository : BaseRepository<ChecklistTask>, IChecklist
     /// </summary>
     public async Task<int> GetNextOrderAsync(long checklistId)
     {
+        var currentTenantId = GetCurrentTenantId();
+        var currentAppCode = GetCurrentAppCode();
+
         var maxOrder = await db.Queryable<ChecklistTask>()
             .Where(x => x.ChecklistId == checklistId && x.IsValid == true)
+            .Where(x => x.TenantId == currentTenantId && x.AppCode == currentAppCode)
             .MaxAsync(x => x.Order);
 
         return maxOrder + 1;
@@ -256,8 +373,12 @@ public class ChecklistTaskRepository : BaseRepository<ChecklistTask>, IChecklist
     /// </summary>
     public async Task<List<ChecklistTask>> GetTasksByActionIdAsync(long actionId)
     {
+        var currentTenantId = GetCurrentTenantId();
+        var currentAppCode = GetCurrentAppCode();
+
         return await db.Queryable<ChecklistTask>()
             .Where(x => x.ActionId == actionId && x.IsValid == true)
+            .Where(x => x.TenantId == currentTenantId && x.AppCode == currentAppCode)
             .OrderBy(x => x.Order)
             .ToListAsync();
     }
@@ -270,10 +391,14 @@ public class ChecklistTaskRepository : BaseRepository<ChecklistTask>, IChecklist
         if (string.IsNullOrWhiteSpace(taskName))
             return false;
 
+        var currentTenantId = GetCurrentTenantId();
+        var currentAppCode = GetCurrentAppCode();
+
         var query = db.Queryable<ChecklistTask>()
             .Where(x => x.ChecklistId == checklistId
                 && x.Name == taskName.Trim()
-                && x.IsValid == true);
+                && x.IsValid == true)
+            .Where(x => x.TenantId == currentTenantId && x.AppCode == currentAppCode);
 
         if (excludeTaskId.HasValue)
         {
@@ -296,6 +421,11 @@ public class ChecklistTaskRepository : BaseRepository<ChecklistTask>, IChecklist
         int pageIndex, 
         int pageSize)
     {
+        var currentTenantId = GetCurrentTenantId();
+        var currentAppCode = GetCurrentAppCode();
+
+        _logger.LogInformation($"[ChecklistTaskRepository] GetPendingTasksForUserAsync with TenantId={currentTenantId}, AppCode={currentAppCode}, UserId={userId}");
+
         // Use JOIN to only get tasks that have associated onboarding
         // ChecklistTask -> ChecklistStageMapping -> Onboarding (via CurrentStageId)
         var query = db.Queryable<ChecklistTask, ChecklistStageMapping, Onboarding>(
@@ -303,7 +433,9 @@ public class ChecklistTaskRepository : BaseRepository<ChecklistTask>, IChecklist
                 JoinType.Inner, t.ChecklistId == m.ChecklistId && m.IsValid,
                 JoinType.Inner, m.StageId == o.CurrentStageId && o.IsValid
             ))
-            .Where((t, m, o) => t.IsValid == true && t.IsCompleted == false);
+            .Where((t, m, o) => t.IsValid == true && t.IsCompleted == false)
+            .Where((t, m, o) => t.TenantId == currentTenantId && t.AppCode == currentAppCode)
+            .Where((t, m, o) => o.TenantId == currentTenantId && o.AppCode == currentAppCode);
 
         // Filter by assignee (user)
         if (userId > 0)
@@ -360,13 +492,20 @@ public class ChecklistTaskRepository : BaseRepository<ChecklistTask>, IChecklist
     /// </summary>
     public async Task<int> GetPendingTasksCountForUserAsync(long userId, List<long> userTeamIds, string? category)
     {
+        var currentTenantId = GetCurrentTenantId();
+        var currentAppCode = GetCurrentAppCode();
+
+        _logger.LogInformation($"[ChecklistTaskRepository] GetPendingTasksCountForUserAsync with TenantId={currentTenantId}, AppCode={currentAppCode}, UserId={userId}");
+
         // Use JOIN to only count tasks that have associated onboarding
         var query = db.Queryable<ChecklistTask, ChecklistStageMapping, Onboarding>(
             (t, m, o) => new JoinQueryInfos(
                 JoinType.Inner, t.ChecklistId == m.ChecklistId && m.IsValid,
                 JoinType.Inner, m.StageId == o.CurrentStageId && o.IsValid
             ))
-            .Where((t, m, o) => t.IsValid == true && t.IsCompleted == false);
+            .Where((t, m, o) => t.IsValid == true && t.IsCompleted == false)
+            .Where((t, m, o) => t.TenantId == currentTenantId && t.AppCode == currentAppCode)
+            .Where((t, m, o) => o.TenantId == currentTenantId && o.AppCode == currentAppCode);
 
         // Filter by assignee (user)
         if (userId > 0)
@@ -399,6 +538,11 @@ public class ChecklistTaskRepository : BaseRepository<ChecklistTask>, IChecklist
         List<long> userTeamIds, 
         DateTimeOffset endDate)
     {
+        var currentTenantId = GetCurrentTenantId();
+        var currentAppCode = GetCurrentAppCode();
+
+        _logger.LogInformation($"[ChecklistTaskRepository] GetUpcomingDeadlinesAsync with TenantId={currentTenantId}, AppCode={currentAppCode}, UserId={userId}");
+
         // Use JOIN to only get tasks that have associated onboarding
         var allResults = await db.Queryable<ChecklistTask, ChecklistStageMapping, Onboarding>(
             (t, m, o) => new JoinQueryInfos(
@@ -406,6 +550,8 @@ public class ChecklistTaskRepository : BaseRepository<ChecklistTask>, IChecklist
                 JoinType.Inner, m.StageId == o.CurrentStageId && o.IsValid
             ))
             .Where((t, m, o) => t.IsValid == true && t.IsCompleted == false)
+            .Where((t, m, o) => t.TenantId == currentTenantId && t.AppCode == currentAppCode)
+            .Where((t, m, o) => o.TenantId == currentTenantId && o.AppCode == currentAppCode)
             .Where((t, m, o) => t.DueDate.HasValue && t.DueDate.Value <= endDate)
             .Select((t, m, o) => new DashboardTaskInfo
             {

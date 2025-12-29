@@ -579,6 +579,29 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
         }
 
         /// <summary>
+        /// Get onboarding list by expression with tenant isolation
+        /// </summary>
+        public new async Task<List<Onboarding>> GetListAsync(Expression<Func<Onboarding, bool>> whereExpression, CancellationToken cancellationToken = default, bool copyNew = false)
+        {
+            var currentTenantId = GetCurrentTenantId();
+            var currentAppCode = GetCurrentAppCode();
+
+            _logger.LogInformation($"[OnboardingRepository] GetListAsync(Expression) applying filters: TenantId={currentTenantId}, AppCode={currentAppCode}");
+
+            var dbNew = copyNew ? db.CopyNew() : db;
+            dbNew.Ado.CancellationToken = cancellationToken;
+
+            var result = await dbNew.Queryable<Onboarding>()
+                .Where(whereExpression)
+                .Where(x => x.TenantId == currentTenantId && x.AppCode == currentAppCode)
+                .ToListAsync();
+
+            _logger.LogInformation($"[OnboardingRepository] GetListAsync(Expression) returned {result.Count} onboardings");
+
+            return result;
+        }
+
+        /// <summary>
         /// 分页查询方法，添加显式过滤条件
         /// </summary>
         public new async Task<(List<Onboarding> datas, int total)> GetPageListAsync(
@@ -654,8 +677,15 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
         /// </summary>
         public async Task<List<Onboarding>> GetRecentlyCompletedAsync(int limit, string? team = null)
         {
+            // Get current tenant ID and app code for filtering
+            var currentTenantId = GetCurrentTenantId();
+            var currentAppCode = GetCurrentAppCode();
+
+            _logger.LogInformation($"[OnboardingRepository] GetRecentlyCompletedAsync with TenantId={currentTenantId}, AppCode={currentAppCode}");
+
             var query = db.Queryable<Onboarding>()
                 .Where(x => x.IsValid == true)
+                .Where(x => x.TenantId == currentTenantId && x.AppCode == currentAppCode)
                 .Where(x => x.Status == "Completed" || x.Status == "Force Completed");
 
             if (!string.IsNullOrEmpty(team))
