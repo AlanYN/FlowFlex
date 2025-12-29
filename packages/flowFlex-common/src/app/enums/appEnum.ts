@@ -37,21 +37,6 @@ export const SexEnum = {
 	1: 'Female',
 };
 
-/**
- * 权限模式
- */
-export enum PermissionModeEnum {
-	// role
-	// 角色权限
-	ROLE = 'ROLE',
-	// black
-	// 后端
-	BACK = 'BACK',
-	// route mapping
-	// 路由映射
-	ROUTE_MAPPING = 'ROUTE_MAPPING',
-}
-
 // Route switching animation
 // 路由切换动画
 export enum RouterTransitionEnum {
@@ -67,38 +52,6 @@ export enum ProjectEnum {
 	CRM = '1',
 	VRM = '2',
 	WFE = '5',
-}
-
-export enum ReleationType {
-	Companies = '3', //'1',
-	Contact = '2',
-	Deal = '4', //'3',
-	Product = '5',
-	LineItem = '6',
-	Contract = '7',
-}
-
-export enum ActivityType {
-	Activity = 1,
-	Task = 8,
-	Note = 9,
-	OperationLog = 10,
-}
-
-export enum DescriptionType {
-	Contact = 2,
-	Company = 3,
-	Deal = 4,
-	Product = 5,
-}
-
-export enum GroupModule {
-	about = 'groupAbort',
-	name = 'groupName',
-}
-
-export enum CloseWonEnum {
-	CloseWonAndAutoInvoice = '1891876314378539008',
 }
 
 export enum FilterType {
@@ -148,53 +101,6 @@ export enum propertyTypeEnum {
 export const booleanEnum = [
 	{ key: false, value: 'No' },
 	{ key: true, value: 'Yes' },
-];
-
-export const moduleType = [
-	{
-		key: 0,
-		value: 'None',
-	},
-	{
-		key: 1,
-		value: 'Activity',
-	},
-	{
-		key: 2,
-		value: 'Contact',
-	},
-	{
-		key: 3,
-		value: 'Company',
-	},
-	{
-		key: 4,
-		value: 'Deal',
-	},
-	{
-		key: 5,
-		value: 'Product',
-	},
-	{
-		key: 6,
-		value: 'Line Item',
-	},
-	{
-		key: 7,
-		value: 'Contract',
-	},
-	{
-		key: 8,
-		value: 'Task',
-	},
-	{
-		key: 9,
-		value: 'Note',
-	},
-	{
-		key: 10,
-		value: 'Operationlog',
-	},
 ];
 
 export enum TriggerTypeEnum {

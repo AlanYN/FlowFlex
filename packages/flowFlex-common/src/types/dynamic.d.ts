@@ -20,3 +20,21 @@ export type DynamicApiResponse<T> = {
 	msg: string;
 	data: T;
 };
+
+export interface DynamicList {
+	id: string;
+	moduleId: number;
+	displayName: string;
+	fieldName: string;
+	description: string;
+	dataType: number;
+	isSystemDefine: boolean;
+	isRequired: boolean;
+	isHidden: boolean;
+	allowEdit: boolean;
+	sort: number;
+}
+
+export interface DynamicSearch {
+	fieldName?: string;
+}
