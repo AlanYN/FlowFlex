@@ -130,6 +130,18 @@ public class DynamicDataService : IBusinessDataService, IPropertyService, IScope
         return fields.Select(MapToDefineFieldDto).ToList();
     }
 
+    public async Task<PagedResult<DefineFieldDto>> GetPropertyPagedListAsync(PropertyQueryRequest request)
+    {
+        var pagedResult = await _defineFieldRepository.GetPagedListAsync(request);
+        return new PagedResult<DefineFieldDto>
+        {
+            Items = pagedResult.Items.Select(MapToDefineFieldDto).ToList(),
+            TotalCount = pagedResult.TotalCount,
+            PageIndex = pagedResult.PageIndex,
+            PageSize = pagedResult.PageSize
+        };
+    }
+
     public async Task<DefineFieldDto?> GetPropertyByIdAsync(long propertyId)
     {
         var field = await _defineFieldRepository.GetByIdAsync(propertyId);
@@ -496,6 +508,10 @@ public class DynamicDataService : IBusinessDataService, IPropertyService, IScope
             AllowEdit = entity.AllowEdit,
             AllowEditItem = entity.AllowEditItem,
             Sort = entity.Sort,
+            CreateDate = entity.CreateDate,
+            ModifyDate = entity.ModifyDate,
+            CreateBy = entity.CreateBy,
+            ModifyBy = entity.ModifyBy,
             AdditionalInfo = entity.AdditionalInfo
         };
     }

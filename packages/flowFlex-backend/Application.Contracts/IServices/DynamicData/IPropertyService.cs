@@ -1,3 +1,4 @@
+using FlowFlex.Domain.Shared.Models;
 using FlowFlex.Domain.Shared.Models.DynamicData;
 
 namespace FlowFlex.Application.Contracts.IServices.DynamicData;
@@ -11,6 +12,11 @@ public interface IPropertyService
     /// Get all properties
     /// </summary>
     Task<List<DefineFieldDto>> GetPropertyListAsync();
+
+    /// <summary>
+    /// Get properties with pagination and filters
+    /// </summary>
+    Task<PagedResult<DefineFieldDto>> GetPropertyPagedListAsync(PropertyQueryRequest request);
 
     /// <summary>
     /// Get property by ID

@@ -114,6 +114,26 @@ public class DefineFieldDto
     public int Sort { get; set; }
 
     /// <summary>
+    /// Create date
+    /// </summary>
+    public DateTimeOffset? CreateDate { get; set; }
+
+    /// <summary>
+    /// Modify date
+    /// </summary>
+    public DateTimeOffset? ModifyDate { get; set; }
+
+    /// <summary>
+    /// Created by
+    /// </summary>
+    public string? CreateBy { get; set; }
+
+    /// <summary>
+    /// Modified by
+    /// </summary>
+    public string? ModifyBy { get; set; }
+
+    /// <summary>
     /// Dropdown items (for dropdown type)
     /// </summary>
     public List<DropdownItemDto>? DropdownItems { get; set; }

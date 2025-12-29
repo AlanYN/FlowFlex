@@ -2,6 +2,7 @@ using FlowFlex.Domain.Entities.DynamicData;
 using FlowFlex.Domain.Repository.DynamicData;
 using FlowFlex.Domain.Shared;
 using FlowFlex.Domain.Shared.Models;
+using FlowFlex.Domain.Shared.Models.DynamicData;
 using Microsoft.Extensions.Logging;
 using SqlSugar;
 
@@ -31,6 +32,74 @@ public class DefineFieldRepository : BaseRepository<DefineField>, IDefineFieldRe
             .Where(x => x.TenantId == _userContext.TenantId && x.AppCode == _userContext.AppCode)
             .OrderBy(x => x.Sort)
             .ToListAsync();
+    }
+
+    public async Task<PagedResult<DefineField>> GetPagedListAsync(PropertyQueryRequest request)
+    {
+        var query = db.Queryable<DefineField>()
+            .Where(x => x.IsValid)
+            .Where(x => x.TenantId == _userContext.TenantId && x.AppCode == _userContext.AppCode);
+
+        // Apply filters
+        if (!string.IsNullOrWhiteSpace(request.FieldName))
+            query = query.Where(x => x.FieldName.Contains(request.FieldName));
+
+        if (!string.IsNullOrWhiteSpace(request.DisplayName))
+            query = query.Where(x => x.DisplayName.Contains(request.DisplayName));
+
+        if (request.DataType.HasValue)
+            query = query.Where(x => x.DataType == request.DataType.Value);
+
+        if (!string.IsNullOrWhiteSpace(request.CreateBy))
+            query = query.Where(x => x.CreateBy.Contains(request.CreateBy));
+
+        if (!string.IsNullOrWhiteSpace(request.ModifyBy))
+            query = query.Where(x => x.ModifyBy.Contains(request.ModifyBy));
+
+        if (request.CreateDateStart.HasValue)
+            query = query.Where(x => x.CreateDate >= request.CreateDateStart.Value);
+
+        if (request.CreateDateEnd.HasValue)
+            query = query.Where(x => x.CreateDate <= request.CreateDateEnd.Value);
+
+        if (request.ModifyDateStart.HasValue)
+            query = query.Where(x => x.ModifyDate >= request.ModifyDateStart.Value);
+
+        if (request.ModifyDateEnd.HasValue)
+            query = query.Where(x => x.ModifyDate <= request.ModifyDateEnd.Value);
+
+        // Apply sorting
+        query = ApplySorting(query, request.SortField, request.IsAsc);
+
+        // Get total count
+        var totalCount = await query.CountAsync();
+
+        // Get paged data
+        var items = await query
+            .Skip((request.PageIndex - 1) * request.PageSize)
+            .Take(request.PageSize)
+            .ToListAsync();
+
+        return new PagedResult<DefineField>
+        {
+            Items = items,
+            TotalCount = totalCount,
+            PageIndex = request.PageIndex,
+            PageSize = request.PageSize
+        };
+    }
+
+    private static ISugarQueryable<DefineField> ApplySorting(ISugarQueryable<DefineField> query, string? sortField, bool isAsc)
+    {
+        return sortField?.ToLowerInvariant() switch
+        {
+            "fieldname" => isAsc ? query.OrderBy(x => x.FieldName) : query.OrderByDescending(x => x.FieldName),
+            "displayname" => isAsc ? query.OrderBy(x => x.DisplayName) : query.OrderByDescending(x => x.DisplayName),
+            "datatype" => isAsc ? query.OrderBy(x => x.DataType) : query.OrderByDescending(x => x.DataType),
+            "createdate" => isAsc ? query.OrderBy(x => x.CreateDate) : query.OrderByDescending(x => x.CreateDate),
+            "modifydate" => isAsc ? query.OrderBy(x => x.ModifyDate) : query.OrderByDescending(x => x.ModifyDate),
+            _ => query.OrderBy(x => x.Sort)
+        };
     }
 
     public async Task<DefineField?> GetByFieldNameAsync(string fieldName)

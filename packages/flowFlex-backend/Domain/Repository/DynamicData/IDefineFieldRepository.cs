@@ -1,4 +1,6 @@
 using FlowFlex.Domain.Entities.DynamicData;
+using FlowFlex.Domain.Shared.Models;
+using FlowFlex.Domain.Shared.Models.DynamicData;
 
 namespace FlowFlex.Domain.Repository.DynamicData;
 
@@ -11,6 +13,11 @@ public interface IDefineFieldRepository : IBaseRepository<DefineField>
     /// Get all fields
     /// </summary>
     Task<List<DefineField>> GetAllAsync();
+
+    /// <summary>
+    /// Get fields with pagination and filters
+    /// </summary>
+    Task<PagedResult<DefineField>> GetPagedListAsync(PropertyQueryRequest request);
 
     /// <summary>
     /// Get field by field name

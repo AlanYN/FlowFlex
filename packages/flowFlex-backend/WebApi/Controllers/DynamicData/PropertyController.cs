@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
 using System.ComponentModel.DataAnnotations;
 using FlowFlex.Application.Contracts.IServices.DynamicData;
+using FlowFlex.Domain.Shared.Models;
 using FlowFlex.Domain.Shared.Models.DynamicData;
 using Item.Internal.StandardApi.Response;
 using System.Net;
@@ -33,6 +34,17 @@ public class PropertyController : Controllers.ControllerBase
     public async Task<IActionResult> GetAll()
     {
         var data = await _propertyService.GetPropertyListAsync();
+        return Success(data);
+    }
+
+    /// <summary>
+    /// Get properties with pagination and filters
+    /// </summary>
+    [HttpPost("query")]
+    [ProducesResponseType<SuccessResponse<PagedResult<DefineFieldDto>>>((int)HttpStatusCode.OK)]
+    public async Task<IActionResult> Query([FromBody] PropertyQueryRequest request)
+    {
+        var data = await _propertyService.GetPropertyPagedListAsync(request);
         return Success(data);
     }
 
