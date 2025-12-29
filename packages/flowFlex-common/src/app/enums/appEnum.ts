@@ -54,16 +54,6 @@ export enum ProjectEnum {
 	WFE = '5',
 }
 
-export enum FilterType {
-	NumberInput = 0,
-	TextInput = 1,
-	SelectInput = 2,
-	TimeInput = 3,
-	TimeRangeInput = 4,
-	CheckBoxInput = 5,
-	CascaderInput = 6,
-}
-
 export enum ViewType {
 	Deal = 0,
 	Company = 1,
@@ -71,31 +61,42 @@ export enum ViewType {
 	Activity = 3,
 }
 
-export const dataTypeEnum = [
-	{ key: 11, value: 'Single-line text' },
-	{ key: 13, value: 'Number' },
-	{ key: 10, value: 'Date picker' },
-	{ key: 5, value: 'Dropdown select' },
-	{ key: 19, value: 'People' },
-	{ key: 20, value: 'Data connection' },
-	{ key: 17, value: 'File' },
+export const fieldsTypeEnum = [
 	{ key: 3, value: 'Phone' },
 	{ key: 4, value: 'Email' },
+	{ key: 5, value: 'Dropdown select' },
+	{ key: 7, value: 'Switch' },
+	{ key: 10, value: 'Date picker' },
+	{ key: 11, value: 'Single-line text' },
+	{ key: 12, value: 'Multiline text' },
+	{ key: 13, value: 'Number' },
+	{ key: 15, value: 'String list' },
+	{ key: 16, value: 'File' },
+	{ key: 17, value: 'File list' },
+	{ key: 19, value: 'People' },
+	{ key: 20, value: 'Data connection' },
+	{ key: 22, value: 'Image' },
 	{ key: 23, value: 'Time line' },
+	{ key: 24, value: 'Json' },
 ];
 
 export enum propertyTypeEnum {
-	SingleLineText = 11,
-	Number = 13,
-	DatePicker = 10,
-	DropdownSelect = 5,
-	Pepole = 19,
-	Connection = 20,
-	FileList = 17,
 	Phone = 3,
 	Email = 4,
+	DropdownSelect = 5,
+	Switch = 7,
+	DatePicker = 10,
+	SingleLineText = 11,
+	MultilineText = 12,
+	Number = 13,
+	StringList = 15,
+	File = 16,
+	FileList = 17,
+	Pepole = 19,
+	Connection = 20,
 	Image = 22,
 	TimeLine = 23,
+	Json = 24,
 }
 
 export const booleanEnum = [

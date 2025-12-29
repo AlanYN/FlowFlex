@@ -1,6 +1,13 @@
 import { defHttp } from '@/apis/axios';
 import { useGlobSetting } from '@/settings';
-import { DynamicApiResponse, DynamciFile, DynamicList, DynamicSearch } from '#/dynamic';
+import {
+	DynamicApiResponse,
+	DynamciFile,
+	DynamicList,
+	DynamicSearch,
+	CreateDynamicFieldParams,
+	DynamicApiListResponse,
+} from '#/dynamic';
 
 const globSetting = useGlobSetting();
 
@@ -18,6 +25,19 @@ export function getDynamicField(): Promise<DynamicApiResponse<DynamciFile[]>> {
 
 export function dynamicFieldList(
 	params?: DynamicSearch
-): Promise<DynamicApiResponse<DynamicList[]>> {
-	return defHttp.get({ url: Api().fieldsList, params });
+): Promise<DynamicApiListResponse<DynamicList[]>> {
+	return defHttp.post({ url: `${Api().fieldsList}/query`, params });
+}
+
+export function createDynamicField(
+	params: CreateDynamicFieldParams
+): Promise<DynamicApiResponse<string>> {
+	return defHttp.post({ url: Api().fieldsList, params });
+}
+
+export function updateDynamicField(
+	id: string,
+	params: CreateDynamicFieldParams
+): Promise<DynamicApiResponse<string>> {
+	return defHttp.put({ url: `${Api().fieldsList}/${id}`, params });
 }
