@@ -66,8 +66,9 @@ namespace FlowFlex.Application.Contracts.IServices.Integration
         /// 4. Parse and return the attachment list
         /// </summary>
         /// <param name="systemId">System ID (unique identifier for entity mapping)</param>
+        /// <param name="entityId">Entity ID (optional, the external entity ID to fetch attachments for)</param>
         /// <returns>Attachments list response from external system</returns>
-        Task<GetAttachmentsFromExternalResponse> FetchInboundAttachmentsFromExternalAsync(string systemId);
+        Task<GetAttachmentsFromExternalResponse> FetchInboundAttachmentsFromExternalAsync(string systemId, string? entityId = null);
     }
 }
 
