@@ -602,6 +602,22 @@ public class MessageRepository : BaseRepository<Message>, IMessageRepository, IS
             .ExecuteCommandAsync();
     }
 
+    #region Cleanup Methods
+
+    /// <summary>
+    /// Delete invalid messages older than specified days (hard delete)
+    /// </summary>
+    public async Task<int> CleanupInvalidMessagesAsync(int retentionDays = 30)
+    {
+        var cutoffDate = DateTimeOffset.UtcNow.AddDays(-retentionDays);
+        
+        return await db.Deleteable<Message>()
+            .Where(x => !x.IsValid && x.ModifyDate < cutoffDate)
+            .ExecuteCommandAsync();
+    }
+
+    #endregion
+
     #region Dashboard Methods
 
     /// <summary>

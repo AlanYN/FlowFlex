@@ -168,6 +168,17 @@ namespace FlowFlex.Domain.Repository.OW
         /// </summary>
         Task<int> BatchMoveToFolderAsync(List<long> ids, string folder, string? originalFolder = null);
 
+        #region Cleanup Methods
+
+        /// <summary>
+        /// Delete invalid messages older than specified days (hard delete)
+        /// </summary>
+        /// <param name="retentionDays">Number of days to retain invalid messages before deletion</param>
+        /// <returns>Number of deleted messages</returns>
+        Task<int> CleanupInvalidMessagesAsync(int retentionDays = 30);
+
+        #endregion
+
         #region Dashboard Methods
 
         /// <summary>
