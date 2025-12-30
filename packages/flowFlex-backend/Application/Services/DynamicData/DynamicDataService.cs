@@ -608,8 +608,8 @@ public class DynamicDataService : IBusinessDataService, IPropertyService, IScope
             AllowEdit = entity.AllowEdit,
             AllowEditItem = entity.AllowEditItem,
             Sort = entity.Sort,
-            CreateDate = entity.CreateDate,
-            ModifyDate = entity.ModifyDate,
+            CreateDate = entity.CreateDate.ToUniversalTime(),
+            ModifyDate = entity.ModifyDate.ToUniversalTime(),
             CreateBy = entity.CreateBy,
             ModifyBy = entity.ModifyBy,
             AdditionalInfo = entity.AdditionalInfo

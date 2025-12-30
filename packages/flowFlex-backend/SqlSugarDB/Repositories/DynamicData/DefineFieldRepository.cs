@@ -40,21 +40,45 @@ public class DefineFieldRepository : BaseRepository<DefineField>, IDefineFieldRe
             .Where(x => x.IsValid)
             .Where(x => x.TenantId == _userContext.TenantId && x.AppCode == _userContext.AppCode);
 
-        // Apply filters
+        // Apply filters - support comma-separated values
         if (!string.IsNullOrWhiteSpace(request.FieldName))
-            query = query.Where(x => x.FieldName.Contains(request.FieldName));
+        {
+            var fieldNames = request.GetFieldNameList();
+            if (fieldNames.Any())
+            {
+                query = query.Where(x => fieldNames.Any(n => x.FieldName.ToLower().Contains(n.ToLower())));
+            }
+        }
 
         if (!string.IsNullOrWhiteSpace(request.DisplayName))
-            query = query.Where(x => x.DisplayName.Contains(request.DisplayName));
+        {
+            var displayNames = request.GetDisplayNameList();
+            if (displayNames.Any())
+            {
+                query = query.Where(x => displayNames.Any(n => x.DisplayName.ToLower().Contains(n.ToLower())));
+            }
+        }
 
         if (request.DataType.HasValue)
             query = query.Where(x => x.DataType == request.DataType.Value);
 
         if (!string.IsNullOrWhiteSpace(request.CreateBy))
-            query = query.Where(x => x.CreateBy.Contains(request.CreateBy));
+        {
+            var createByList = request.GetCreateByList();
+            if (createByList.Any())
+            {
+                query = query.Where(x => createByList.Any(n => x.CreateBy.ToLower().Contains(n.ToLower())));
+            }
+        }
 
         if (!string.IsNullOrWhiteSpace(request.ModifyBy))
-            query = query.Where(x => x.ModifyBy.Contains(request.ModifyBy));
+        {
+            var modifyByList = request.GetModifyByList();
+            if (modifyByList.Any())
+            {
+                query = query.Where(x => modifyByList.Any(n => x.ModifyBy.ToLower().Contains(n.ToLower())));
+            }
+        }
 
         if (request.CreateDateStart.HasValue)
             query = query.Where(x => x.CreateDate >= request.CreateDateStart.Value);
