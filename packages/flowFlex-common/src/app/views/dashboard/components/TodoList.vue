@@ -52,7 +52,9 @@
 								icon="material-symbols:check-circle-outline-rounded"
 								class="text-xl check-complete-icon"
 							/>
-							<el-link @click="clickTask(task.onboardingId)">{{ task.name }}</el-link>
+							<el-link @click="clickTask(task.onboardingId)">
+								{{ task.caseName }} - {{ task.name }}
+							</el-link>
 						</div>
 						<p v-if="task.description" class="item-description">
 							{{ task.description }}
