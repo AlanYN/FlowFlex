@@ -315,7 +315,22 @@ public class DynamicDataService : IBusinessDataService, IPropertyService, IScope
         existing.AllowEdit = defineFieldDto.AllowEdit;
         existing.AllowEditItem = defineFieldDto.AllowEditItem;
         existing.Sort = defineFieldDto.Sort;
-        existing.AdditionalInfo = defineFieldDto.AdditionalInfo;
+        
+        // Build AdditionalInfo with configuration fields
+        existing.AdditionalInfo = defineFieldDto.AdditionalInfo ?? new JObject();
+        if (defineFieldDto.Format != null)
+        {
+            existing.AdditionalInfo["format"] = JToken.FromObject(defineFieldDto.Format);
+        }
+        if (defineFieldDto.FieldValidate != null)
+        {
+            existing.AdditionalInfo["fieldValidate"] = JToken.FromObject(defineFieldDto.FieldValidate);
+        }
+        if (defineFieldDto.DropdownItems != null && defineFieldDto.DropdownItems.Any())
+        {
+            existing.AdditionalInfo["dropdownItems"] = JToken.FromObject(defineFieldDto.DropdownItems);
+        }
+        
         existing.ModifyDate = DateTimeOffset.UtcNow;
         existing.ModifyBy = _userContext.UserName ?? "SYSTEM";
         existing.ModifyUserId = userId;
@@ -586,7 +601,7 @@ public class DynamicDataService : IBusinessDataService, IPropertyService, IScope
 
     private static DefineFieldDto MapToDefineFieldDto(DefineField entity)
     {
-        return new DefineFieldDto
+        var dto = new DefineFieldDto
         {
             Id = entity.Id,
             ModuleId = entity.ModuleId,
@@ -614,11 +629,35 @@ public class DynamicDataService : IBusinessDataService, IPropertyService, IScope
             ModifyBy = entity.ModifyBy,
             AdditionalInfo = entity.AdditionalInfo
         };
+
+        // Extract configuration from AdditionalInfo if present
+        if (entity.AdditionalInfo != null)
+        {
+            // Extract Format configuration
+            if (entity.AdditionalInfo.TryGetValue("format", out var formatToken) && formatToken.Type != JTokenType.Null)
+            {
+                dto.Format = formatToken.ToObject<FieldTypeFormatDto>();
+            }
+
+            // Extract FieldValidate configuration
+            if (entity.AdditionalInfo.TryGetValue("fieldValidate", out var validateToken) && validateToken.Type != JTokenType.Null)
+            {
+                dto.FieldValidate = validateToken.ToObject<FieldValidateDto>();
+            }
+
+            // Extract DropdownItems configuration
+            if (entity.AdditionalInfo.TryGetValue("dropdownItems", out var dropdownToken) && dropdownToken.Type != JTokenType.Null)
+            {
+                dto.DropdownItems = dropdownToken.ToObject<List<DropdownItemDto>>();
+            }
+        }
+
+        return dto;
     }
 
     private static DefineField MapToDefineField(DefineFieldDto dto)
     {
-        return new DefineField
+        var entity = new DefineField
         {
             Id = dto.Id,
             ModuleId = dto.ModuleId,
@@ -640,8 +679,26 @@ public class DynamicDataService : IBusinessDataService, IPropertyService, IScope
             AllowEdit = dto.AllowEdit,
             AllowEditItem = dto.AllowEditItem,
             Sort = dto.Sort,
-            AdditionalInfo = dto.AdditionalInfo
+            AdditionalInfo = dto.AdditionalInfo ?? new JObject()
         };
+
+        // Store configuration in AdditionalInfo
+        if (dto.Format != null)
+        {
+            entity.AdditionalInfo["format"] = JToken.FromObject(dto.Format);
+        }
+
+        if (dto.FieldValidate != null)
+        {
+            entity.AdditionalInfo["fieldValidate"] = JToken.FromObject(dto.FieldValidate);
+        }
+
+        if (dto.DropdownItems != null && dto.DropdownItems.Any())
+        {
+            entity.AdditionalInfo["dropdownItems"] = JToken.FromObject(dto.DropdownItems);
+        }
+
+        return entity;
     }
 
     #endregion
