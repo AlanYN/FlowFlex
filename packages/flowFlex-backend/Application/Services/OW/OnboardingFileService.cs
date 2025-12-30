@@ -127,8 +127,13 @@ namespace FlowFlex.Application.Services.OW
                     CreateBy = _operatorContextService.GetOperatorDisplayName()
                 };
 
+                // Use override tenant ID if specified (for background import tasks)
+                var tenantId = !string.IsNullOrEmpty(input.OverrideTenantId) 
+                    ? input.OverrideTenantId 
+                    : _userContext.TenantId;
+
                 var attachment = await _attachmentService.CreateAttachmentAsync(
-                    attachmentDto, _userContext.TenantId, CancellationToken.None);
+                    attachmentDto, tenantId, CancellationToken.None);
                 // Debug logging handled by structured logging
                 // Create OnboardingFile record with minimal setup
                 // Debug logging handled by structured logging
@@ -149,7 +154,7 @@ namespace FlowFlex.Application.Services.OW
                     AccessUrl = attachment.AccessUrl,
                     StoragePath = attachment.AccessUrl,
                     UploadedById = input.OverrideUploaderId ?? _userContext.UserId,
-                    UploadedByName = input.OverrideUploaderName ?? _userContext.UserName,
+                    UploadedByName = input.OverrideUploaderName ?? _operatorContextService.GetOperatorDisplayName(),
                     UploadedDate = DateTimeOffset.UtcNow,
                     Status = "Active",
                     Version = 1,
@@ -158,6 +163,22 @@ namespace FlowFlex.Application.Services.OW
                 // Debug logging handled by structured logging
                 // Initialize create information
                 onboardingFile.InitCreateInfo(_userContext);
+                
+                // Override fields for background import tasks (when UserContext is not available)
+                if (!string.IsNullOrEmpty(input.OverrideTenantId))
+                {
+                    onboardingFile.TenantId = input.OverrideTenantId;
+                }
+                if (!string.IsNullOrEmpty(input.OverrideUploaderName))
+                {
+                    onboardingFile.CreateBy = input.OverrideUploaderName;
+                    onboardingFile.ModifyBy = input.OverrideUploaderName;
+                }
+                if (!string.IsNullOrEmpty(input.OverrideUploaderId) && long.TryParse(input.OverrideUploaderId, out var uploaderId))
+                {
+                    onboardingFile.CreateUserId = uploaderId;
+                    onboardingFile.ModifyUserId = uploaderId;
+                }
                 // Debug logging handled by structured logging
                 // Use simplified database insert
                 // Debug logging handled by structured logging
@@ -170,15 +191,37 @@ namespace FlowFlex.Application.Services.OW
 
                 try
                 {
-                    await _operationChangeLogService.LogFileUploadAsync(
-                        onboardingFile.Id,
-                        onboardingFile.OriginalFileName,
-                        onboardingFile.OnboardingId,
-                        onboardingFile.StageId,
-                        onboardingFile.FileSize,
-                        onboardingFile.ContentType,
-                        onboardingFile.Category
-                    );
+                    // Use override method for background tasks when operator info is provided
+                    if (!string.IsNullOrEmpty(input.OverrideUploaderId) && 
+                        !string.IsNullOrEmpty(input.OverrideUploaderName) && 
+                        !string.IsNullOrEmpty(input.OverrideTenantId) &&
+                        long.TryParse(input.OverrideUploaderId, out var opId))
+                    {
+                        await _operationChangeLogService.LogFileUploadAsync(
+                            onboardingFile.Id,
+                            onboardingFile.OriginalFileName,
+                            onboardingFile.OnboardingId,
+                            onboardingFile.StageId,
+                            onboardingFile.FileSize,
+                            onboardingFile.ContentType,
+                            onboardingFile.Category,
+                            opId,
+                            input.OverrideUploaderName,
+                            input.OverrideTenantId
+                        );
+                    }
+                    else
+                    {
+                        await _operationChangeLogService.LogFileUploadAsync(
+                            onboardingFile.Id,
+                            onboardingFile.OriginalFileName,
+                            onboardingFile.OnboardingId,
+                            onboardingFile.StageId,
+                            onboardingFile.FileSize,
+                            onboardingFile.ContentType,
+                            onboardingFile.Category
+                        );
+                    }
                 }
                 catch (Exception logEx)
                 {

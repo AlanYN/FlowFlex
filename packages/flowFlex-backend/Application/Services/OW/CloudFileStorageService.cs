@@ -342,6 +342,13 @@ namespace FlowFlex.Application.Services.OW
                     return null;
                 }
                 
+                // Ensure HTTPS protocol for security
+                if (signedUrl.StartsWith("http://", StringComparison.OrdinalIgnoreCase))
+                {
+                    signedUrl = "https://" + signedUrl.Substring(7);
+                    _logger.LogDebug("Converted HTTP to HTTPS for signed URL");
+                }
+                
                 _logger.LogDebug("Successfully generated signed URL for path: {FilePath}", actualFilePath);
                 return signedUrl;
             }

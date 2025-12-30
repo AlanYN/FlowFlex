@@ -678,10 +678,16 @@ namespace FlowFlex.Application.Services.Integration
             try
             {
                 // Get all onboardings by System ID, optionally filtered by EntityId
-                var onboardings = await _onboardingRepository.GetListAsync(o =>
-                    o.SystemId == systemId && 
-                    o.IsValid &&
-                    (string.IsNullOrWhiteSpace(entityId) || o.EntityId == entityId));
+                // Use ClearFilter to skip tenant filtering for external integration queries
+                var query = _onboardingRepository.ClearFilter()
+                    .Where(o => o.SystemId == systemId && o.IsValid);
+                
+                if (!string.IsNullOrWhiteSpace(entityId))
+                {
+                    query = query.Where(o => o.EntityId == entityId);
+                }
+                
+                var onboardings = await query.ToListAsync();
 
                 if (!onboardings.Any())
                 {
@@ -702,7 +708,12 @@ namespace FlowFlex.Application.Services.Integration
                 var allAttachments = new List<ExternalAttachmentDto>();
                 foreach (var onboarding in onboardings)
                 {
-                    var files = await _onboardingFileRepository.GetFilesByOnboardingAsync(onboarding.Id);
+                    // Use ClearFilter for file repository as well
+                    var files = await _onboardingFileRepository.ClearFilter()
+                        .Where(f => f.OnboardingId == onboarding.Id && f.IsValid == true)
+                        .OrderByDescending(f => f.UploadedDate)
+                        .ToListAsync();
+                        
                     foreach (var f in files)
                     {
                         // Generate real-time OSS URL instead of using stored URL (which may expire and return 403)

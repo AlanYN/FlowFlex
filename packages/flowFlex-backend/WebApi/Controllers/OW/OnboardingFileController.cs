@@ -10,6 +10,7 @@ using System.ComponentModel;
 using FlowFlex.Application.Filter;
 using FlowFlex.Domain.Shared.Const;
 using WebApi.Authorization;
+using AppContext = FlowFlex.Domain.Shared.Models.AppContext;
 
 namespace FlowFlex.WebApi.Controllers.OW
 {
@@ -181,6 +182,10 @@ namespace FlowFlex.WebApi.Controllers.OW
             input.OnboardingId = onboardingId;
             input.OperatorId = _operatorContextService.GetOperatorId().ToString();
             input.OperatorName = _operatorContextService.GetOperatorDisplayName();
+            
+            // Get TenantId from AppContext for background task
+            var appContext = HttpContext.Items["AppContext"] as AppContext;
+            input.TenantId = appContext?.TenantId ?? "DEFAULT";
 
             var createdBy = _operatorContextService.GetOperatorDisplayName();
             var result = await _onboardingFileService.StartImportTaskAsync(input, createdBy);

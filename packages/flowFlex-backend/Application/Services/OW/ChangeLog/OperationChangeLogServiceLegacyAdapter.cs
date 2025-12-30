@@ -70,6 +70,11 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
             return await _questionnaireLogService.LogFileUploadAsync(fileId, fileName, onboardingId, stageId, fileSize, contentType, category);
         }
 
+        public async Task<bool> LogFileUploadAsync(long fileId, string fileName, long onboardingId, long? stageId, long fileSize, string contentType, string category, long operatorId, string operatorName, string tenantId)
+        {
+            return await _questionnaireLogService.LogFileUploadAsync(fileId, fileName, onboardingId, stageId, fileSize, contentType, category, operatorId, operatorName, tenantId);
+        }
+
         public async Task<bool> LogFileDeleteAsync(long fileId, string fileName, long onboardingId, long? stageId, string reason = null)
         {
             return await _questionnaireLogService.LogFileDeleteAsync(fileId, fileName, onboardingId, stageId, reason);

@@ -46,6 +46,11 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.OnboardingFile
         /// Operator display name (set by controller, not from request)
         /// </summary>
         public string OperatorName { get; set; }
+
+        /// <summary>
+        /// Tenant ID (set by controller from X-Tenant-Id header, used for background task)
+        /// </summary>
+        public string TenantId { get; set; }
     }
 
     /// <summary>

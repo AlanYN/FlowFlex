@@ -169,10 +169,10 @@ namespace FlowFlex.Application.Services.OW
             }
 
             // Get all active cases with their stage IDs in a single query
-            // Note: "Started" and "InProgress" status represent active cases
+            // Note: "Started", "InProgress" and "Active" status represent active cases
             var activeCases = await _onboardingRepository.GetListAsync(o => 
                 o.IsActive && o.IsValid && 
-                (o.Status == "Started" || o.Status == "InProgress") &&
+                (o.Status == "Started" || o.Status == "InProgress" || o.Status == "Active") &&
                 (workflowId == null || o.WorkflowId == workflowId));
 
             // Group by stage ID and count
@@ -491,7 +491,7 @@ namespace FlowFlex.Application.Services.OW
                 // Get active cases that have tasks assigned to current user
                 var activeCases = await _onboardingRepository.GetListAsync(o =>
                     o.IsValid && o.IsActive &&
-                    (o.Status == "Started" || o.Status == "InProgress") &&
+                    (o.Status == "Started" || o.Status == "InProgress" || o.Status == "Active") &&
                     onboardingIds.Contains(o.Id));
 
                 _logger.LogDebug("GetDeadlinesAsync: Found {Count} active cases for user {UserId}", activeCases.Count, userId);
@@ -627,11 +627,11 @@ namespace FlowFlex.Application.Services.OW
         private async Task<int> GetActiveCasesCountAsync(string? team)
         {
             // Use GetListAsync which has tenant filtering, then count in memory
-            // Note: "Started" and "InProgress" status represent active cases
+            // Note: "Started", "InProgress" and "Active" status represent active cases
             var filterByTeam = !string.IsNullOrEmpty(team);
             var cases = await _onboardingRepository.GetListAsync(o => 
                 o.IsActive && o.IsValid && 
-                (o.Status == "Started" || o.Status == "InProgress") &&
+                (o.Status == "Started" || o.Status == "InProgress" || o.Status == "Active") &&
                 (!filterByTeam || o.CurrentTeam == team));
             return cases.Count;
         }
