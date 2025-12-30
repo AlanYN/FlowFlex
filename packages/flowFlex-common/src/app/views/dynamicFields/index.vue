@@ -36,15 +36,28 @@
 					:max-height="tableMaxHeight"
 					row-key="id"
 					:border="true"
-					stripe
+					show-overflow-tooltip
 				>
 					<template #empty>
 						<slot name="empty">
 							<el-empty description="No Data" :image-size="50" />
 						</slot>
 					</template>
-					<el-table-column type="selection" fixed="left" width="50" align="center" />
-					<el-table-column min-width="140" prop="displayName" label="Name" />
+					<el-table-column type="selection" fixed="left" width="50" />
+					<el-table-column min-width="140" prop="displayName" label="Name">
+						<template #default="{ row }">
+							<div class="flex items-center gap-1">
+								<el-icon
+									v-if="row.isSystemDefine"
+									class="text-primary flex-shrink-0 mr-2"
+									title="System Field"
+								>
+									<Lock />
+								</el-icon>
+								<span class="truncate">{{ row.displayName }}</span>
+							</div>
+						</template>
+					</el-table-column>
 					<el-table-column min-width="200" prop="description" label="Description" />
 					<el-table-column min-width="100" prop="dataType" label="Type">
 						<template #default="{ row }">
@@ -82,9 +95,16 @@
 
 					<el-table-column label="Actions" width="80" fixed="right" align="center">
 						<template #default="{ row }">
-							<el-button link @click="handleEdit(row)">
+							<el-button v-if="!row.isSystemDefine" link @click="handleEdit(row)">
 								<Icon icon="lucide-pencil" />
 							</el-button>
+							<el-button
+								v-if="!row.isSystemDefine"
+								link
+								@click="hanDelete(row)"
+								type="danger"
+								:icon="Delete"
+							/>
 						</template>
 					</el-table-column>
 				</el-table>
@@ -179,13 +199,15 @@
 
 <script setup lang="ts">
 import { onMounted, ref, reactive } from 'vue';
-import { ElMessage } from 'element-plus';
+import { ElMessage, ElMessageBox } from 'element-plus';
 import PageHeader from '@/components/global/PageHeader/index.vue';
-import { Plus, Download } from '@element-plus/icons-vue';
+import { Plus, Download, Delete, Lock } from '@element-plus/icons-vue';
 import {
 	dynamicFieldList,
 	createDynamicField,
 	updateDynamicField,
+	exportDynamicFields,
+	deleteDynamicField,
 } from '@/apis/global/dyanmicField';
 import DynamicFilter from './components/dynamicFilter.vue';
 import { projectTenMinutesSsecondsDate, tableMaxHeight } from '@/settings/projectSetting';
@@ -229,24 +251,52 @@ const handleExport = async () => {
 	try {
 		loading.value = true;
 
+		// 构建导出参数
+		let exportParams: any = {};
 		let exportMessage = '';
 
 		// 如果有选中的数据，优先导出选中的数据
 		if (selectedItems.value.length > 0) {
 			const selectedIds = selectedItems.value.map((item) => item.id).join(',');
-			// TODO: 调用导出接口，传入选中的 IDs
-			console.log('Export selected IDs:', selectedIds);
+			exportParams = {
+				ids: selectedIds,
+				pageSize: 10000,
+			};
 			exportMessage = `Selected ${selectedItems.value.length} items exported successfully`;
 		} else {
 			// 没有选中数据时，按当前搜索条件导出全部
-			// TODO: 调用导出接口，传入搜索参数
-			console.log('Export all with params:', searchParams.value);
-			exportMessage = 'All data exported successfully';
+			exportParams = {
+				...searchParams.value,
+				pageSize: 10000,
+			};
+			exportMessage = 'Filtered data exported successfully';
 		}
 
-		// 模拟导出（实际项目中替换为真实的导出 API 调用）
-		// const response = await exportDynamicFields(exportParams);
-		// 创建下载链接...
+		// 调用导出接口
+		const response = await exportDynamicFields(exportParams);
+
+		// 创建下载链接
+		const blob = new Blob([response.data], {
+			type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+		});
+		const url = window.URL.createObjectURL(blob);
+		const link = document.createElement('a');
+		link.href = url;
+
+		// 设置文件名，包含时间戳和导出类型
+		const timestamp = new Date()
+			.toISOString()
+			.slice(0, 19)
+			.replace(/[-:]/g, '')
+			.replace('T', '_');
+		const fileNameSuffix = selectedItems.value.length > 0 ? 'Selected' : 'Filtered';
+		link.download = `DynamicFields_${fileNameSuffix}_${timestamp}.xlsx`;
+
+		// 触发下载
+		document.body.appendChild(link);
+		link.click();
+		document.body.removeChild(link);
+		window.URL.revokeObjectURL(url);
 
 		ElMessage.success(exportMessage);
 	} finally {
@@ -299,7 +349,7 @@ const handleSave = async () => {
 		if (res.code == '200') {
 			ElMessage.success(t('sys.api.operationSuccess'));
 		} else {
-			ElMessage.success(res.msg || t('sys.api.operationFailed'));
+			ElMessage.error(res.msg || t('sys.api.operationFailed'));
 		}
 
 		dialogVisible.value = false;
@@ -307,8 +357,6 @@ const handleSave = async () => {
 
 		// 重新加载列表
 		dynamicList();
-	} catch (error) {
-		console.error('Save field error:', error);
 	} finally {
 		saving.value = false;
 	}
@@ -365,6 +413,48 @@ const handleEdit = (row: DynamicList) => {
 	formData.description = row.description;
 	formData.dataType = row.dataType;
 	dialogVisible.value = true;
+};
+
+const hanDelete = (row: DynamicList) => {
+	ElMessageBox.confirm(
+		`Are you sure you want to delete the field "${row.displayName}"? This action cannot be undone.`,
+		'⚠️ Confirm Field Deletion',
+		{
+			confirmButtonText: 'Delete Field',
+			cancelButtonText: 'Cancel',
+			confirmButtonClass: 'danger-confirm-btn',
+			cancelButtonClass: 'cancel-confirm-btn',
+			distinguishCancelAndClose: true,
+			customClass: 'delete-confirmation-dialog',
+			showCancelButton: true,
+			showConfirmButton: true,
+			beforeClose: async (action, instance, done) => {
+				if (action === 'confirm') {
+					instance.confirmButtonLoading = true;
+					instance.confirmButtonText = 'Deleting...';
+
+					try {
+						const res = await deleteDynamicField(row.id);
+
+						if (res.code === '200') {
+							ElMessage.success(t('sys.api.operationSuccess'));
+							dynamicList();
+							done();
+						} else {
+							ElMessage.error(res.msg || t('sys.api.operationFailed'));
+							instance.confirmButtonLoading = false;
+							instance.confirmButtonText = 'Delete Field';
+						}
+					} catch (error) {
+						instance.confirmButtonLoading = false;
+						instance.confirmButtonText = 'Delete Field';
+					}
+				} else {
+					done();
+				}
+			},
+		}
+	);
 };
 
 onMounted(() => {

@@ -2,22 +2,6 @@ import { propertyTypeEnum } from '@/enums/appEnum';
 
 export type FieldType = 0 | 1 | 2 | 3 | 4;
 
-//0=Text, 1=Number, 2=Date, 3=Boolean, 4=Lookup
-
-export interface DynamciFile {
-	id: string;
-	fieldId: string;
-	fieldLabel: string;
-	formProp: string;
-	category: string;
-	fieldType: FieldType;
-	sortOrder: number;
-	isRequired: boolean;
-	isSystem: boolean;
-	createDate: string;
-	modifyDate: string;
-}
-
 // 创建动态字段时使用的类型（只需要必要字段）
 export interface CreateDynamicFieldParams {
 	displayName: string;
@@ -36,13 +20,13 @@ export type DynamicApiListResponse<T> = {
 	code: string;
 	msg: string;
 	data: {
-		items: T,
-    totalCount: number,
-    pageIndex:number,
-    pageSize: number,
-    totalPages: number,
-    hasPreviousPage: boolean,
-    hasNextPage: boolean
+		items: T;
+		totalCount: number;
+		pageIndex: number;
+		pageSize: number;
+		totalPages: number;
+		hasPreviousPage: boolean;
+		hasNextPage: boolean;
 	};
 };
 

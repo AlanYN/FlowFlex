@@ -277,9 +277,9 @@
 															>
 																<el-option
 																	v-for="field in wfeFieldOptions"
-																	:key="field.fieldId"
-																	:label="field.fieldLabel"
-																	:value="field.fieldId"
+																	:key="field.id"
+																	:label="field.fieldName"
+																	:value="field.id"
 																/>
 															</el-select>
 														</template>
@@ -377,7 +377,7 @@ import {
 import { getDynamicField } from '@/apis/global/dyanmicField';
 import { TriggerTypeEnum, ToolsType } from '@/enums/appEnum';
 import { ActionItem, ActionDefinition, ActionQueryRequest } from '#/action';
-import { DynamciFile } from '#/dynamic';
+import { DynamicList } from '#/dynamic';
 
 const { scrollbarRef: scrollbarRefLeft, updateScrollbarHeight: updateScrollbarHeightLeft } =
 	useAdaptiveScrollbar(80);
@@ -570,7 +570,7 @@ interface IFieldMappingItem {
 }
 
 const showFieldMapping = ref(false);
-const wfeFieldOptions = ref<DynamciFile[]>([]);
+const wfeFieldOptions = ref<DynamicList[]>([]);
 const loadingDynamicField = ref(false);
 const isFieldMappingExpanded = ref(false);
 

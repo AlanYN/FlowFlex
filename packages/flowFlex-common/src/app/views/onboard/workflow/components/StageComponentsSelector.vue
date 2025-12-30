@@ -26,21 +26,21 @@
 							<div class="p-2">
 								<div
 									v-for="field in filteredStaticFields"
-									:key="field.vIfKey"
+									:key="field.id"
 									class="flex items-center space-x-2 py-1"
 								>
 									<el-checkbox
-										:model-value="isFieldSelected(field.vIfKey)"
-										@change="(checked) => toggleField(field.vIfKey, !!checked)"
-										:id="`field-${field.vIfKey}`"
+										:model-value="isFieldSelected(field.id)"
+										@change="(checked) => toggleField(field.id, !!checked)"
+										:id="`field-${field.id}`"
 										size="small"
 									/>
 									<div class="flex-1 min-w-0">
 										<label
-											:for="`field-${field.vIfKey}`"
+											:for="`field-${field.id}`"
 											class="text-sm font-medium leading-none flex-1 cursor-pointer min-w-0"
 										>
-											<span class="truncate">{{ field.label }}</span>
+											<span class="truncate">{{ field.fieldName }}</span>
 										</label>
 									</div>
 								</div>
@@ -403,12 +403,10 @@ import {
 } from '@element-plus/icons-vue';
 import GripVertical from '@assets/svg/workflow/grip-vertical.svg';
 import draggable from 'vuedraggable';
-import staticFieldsData from '../static-field.json';
 import { useAdaptiveScrollbar } from '@/hooks/useAdaptiveScrollbar';
 import {
 	StageComponentData,
 	ComponentsData,
-	StaticField,
 	SelectedItem,
 	FieldTag,
 	Checklist,
@@ -418,6 +416,7 @@ import { IQuickLink } from '#/integration';
 
 import { StageComponentPortal } from '@/enums/appEnum';
 import { defaultStr } from '@/settings/projectSetting';
+import { DynamicList } from '#/dynamic';
 
 // Props
 const props = defineProps<{
@@ -425,6 +424,7 @@ const props = defineProps<{
 	checklists: Checklist[];
 	questionnaires: Questionnaire[];
 	quickLinks: IQuickLink[];
+	staticFields: DynamicList[];
 }>();
 
 // Emits
@@ -439,16 +439,15 @@ const { scrollbarRef: scrollbarRefRight } = useAdaptiveScrollbar(200); // 预留
 
 // Data
 const searchQuery = ref('');
-const staticFields = ref<StaticField[]>(staticFieldsData.formFields);
 const selectedItems = ref<SelectedItem[]>([]);
 
 // Computed
 const filteredStaticFields = computed(() => {
 	if (!searchQuery.value) {
-		return staticFields.value;
+		return props.staticFields;
 	}
-	return staticFields.value.filter((field) =>
-		field.label.toLowerCase().includes(searchQuery.value.toLowerCase())
+	return props.staticFields.filter((field) =>
+		field.fieldName.toLowerCase().includes(searchQuery.value.toLowerCase())
 	);
 });
 
@@ -784,10 +783,10 @@ const commandChangePortalAccess = (element: SelectedItem, value) => {
 const getSelectedFieldTags = (): FieldTag[] => {
 	const fieldsComponent = getFieldsComponent();
 	return fieldsComponent.staticFields.map((fieldKey) => {
-		const field = staticFields.value.find((f) => f.vIfKey === fieldKey);
+		const field = props.staticFields.find((f) => f.id === fieldKey);
 		return {
 			key: fieldKey,
-			label: field?.label || fieldKey,
+			label: field?.fieldName || fieldKey,
 		};
 	});
 };

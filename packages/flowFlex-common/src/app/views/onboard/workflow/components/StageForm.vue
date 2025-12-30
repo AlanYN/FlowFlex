@@ -108,6 +108,7 @@
 						portalPermission: formData.portalPermission,
 						attachmentManagementNeeded: formData.attachmentManagementNeeded,
 					}"
+					:staticFields="staticFields"
 					@update:model-value="updateComponentsData"
 				/>
 			</TabPane>
@@ -164,6 +165,7 @@ import { menuRoles } from '@/stores/modules/menuFunction';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import type { FlowflexUser as FlowflexUserType } from '#/golbal';
 import { IQuickLink } from '#/integration';
+import { DynamicList } from '#/dynamic';
 
 // 颜色选项
 const colorOptions = stageColorOptions;
@@ -217,6 +219,11 @@ const props = defineProps({
 	workFlowViewUseSameTeamForOperate: {
 		type: Boolean as PropType<boolean>,
 		default: undefined,
+	},
+	staticFields: {
+		type: Array as PropType<DynamicList[]>,
+		default: () => [],
+		required: true,
 	},
 });
 
