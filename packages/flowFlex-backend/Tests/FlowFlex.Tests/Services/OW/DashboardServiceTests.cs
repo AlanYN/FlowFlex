@@ -10,10 +10,12 @@ using FlowFlex.Application.Contracts.Dtos.OW.Dashboard;
 using FlowFlex.Application.Contracts.Dtos.OW.Message;
 using FlowFlex.Application.Contracts.IServices.OW;
 using FlowFlex.Application.Services.OW;
+using FlowFlex.Application.Services.OW.Permission;
 using FlowFlex.Domain.Entities.OW;
 using FlowFlex.Domain.Repository.OW;
 using FlowFlex.Domain.Shared.Models;
 using FluentAssertions;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using Moq;
 using Xunit;
@@ -28,9 +30,11 @@ namespace FlowFlex.Tests.Services.OW
         private readonly Mock<IOnboardingRepository> _mockOnboardingRepo;
         private readonly Mock<IChecklistTaskRepository> _mockChecklistTaskRepo;
         private readonly Mock<IStageRepository> _mockStageRepo;
+        private readonly Mock<IWorkflowRepository> _mockWorkflowRepo;
         private readonly Mock<IMessageService> _mockMessageService;
         private readonly Mock<IMapper> _mockMapper;
         private readonly Mock<ILogger<DashboardService>> _mockLogger;
+        private readonly Mock<PermissionHelpers> _mockPermissionHelpers;
         private readonly UserContext _userContext;
         private readonly DashboardService _service;
 
@@ -39,6 +43,7 @@ namespace FlowFlex.Tests.Services.OW
             _mockOnboardingRepo = new Mock<IOnboardingRepository>();
             _mockChecklistTaskRepo = new Mock<IChecklistTaskRepository>();
             _mockStageRepo = new Mock<IStageRepository>();
+            _mockWorkflowRepo = new Mock<IWorkflowRepository>();
             _mockMessageService = new Mock<IMessageService>();
             _mockMapper = new Mock<IMapper>();
             _mockLogger = new Mock<ILogger<DashboardService>>();
@@ -54,14 +59,27 @@ namespace FlowFlex.Tests.Services.OW
                 }
             };
 
+            // Create mock for PermissionHelpers
+            var mockHttpContextAccessor = new Mock<IHttpContextAccessor>();
+            var mockHelpersLogger = new Mock<ILogger<PermissionHelpers>>();
+            _mockPermissionHelpers = new Mock<PermissionHelpers>(
+                _userContext,
+                mockHttpContextAccessor.Object,
+                mockHelpersLogger.Object);
+            
+            // Setup admin bypass for tests (return true to skip permission filtering)
+            _mockPermissionHelpers.Setup(p => p.HasAdminPrivileges()).Returns(true);
+
             _service = new DashboardService(
                 _mockOnboardingRepo.Object,
                 _mockChecklistTaskRepo.Object,
                 _mockStageRepo.Object,
+                _mockWorkflowRepo.Object,
                 _mockMessageService.Object,
                 _mockMapper.Object,
                 _userContext,
-                _mockLogger.Object);
+                _mockLogger.Object,
+                _mockPermissionHelpers.Object);
         }
 
         #region GetStatisticsAsync Tests
