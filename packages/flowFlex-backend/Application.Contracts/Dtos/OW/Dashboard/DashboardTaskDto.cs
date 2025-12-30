@@ -91,5 +91,10 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.Dashboard
         /// Is task required
         /// </summary>
         public bool IsRequired { get; set; }
+
+        /// <summary>
+        /// Is task completed
+        /// </summary>
+        public bool IsCompleted { get; set; }
     }
 }

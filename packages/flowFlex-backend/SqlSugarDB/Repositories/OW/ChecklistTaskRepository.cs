@@ -426,60 +426,143 @@ public class ChecklistTaskRepository : BaseRepository<ChecklistTask>, IChecklist
 
         _logger.LogInformation($"[ChecklistTaskRepository] GetPendingTasksForUserAsync with TenantId={currentTenantId}, AppCode={currentAppCode}, UserId={userId}");
 
-        // Use JOIN to only get tasks that have associated onboarding
-        // ChecklistTask -> ChecklistStageMapping -> Onboarding (via CurrentStageId)
-        var query = db.Queryable<ChecklistTask, ChecklistStageMapping, Onboarding>(
-            (t, m, o) => new JoinQueryInfos(
-                JoinType.Inner, t.ChecklistId == m.ChecklistId && m.IsValid,
-                JoinType.Inner, m.StageId == o.CurrentStageId && o.IsValid
-            ))
-            .Where((t, m, o) => t.IsValid == true && t.IsCompleted == false)
-            .Where((t, m, o) => t.TenantId == currentTenantId && t.AppCode == currentAppCode)
-            .Where((t, m, o) => o.TenantId == currentTenantId && o.AppCode == currentAppCode);
+        // Step 1: Get tasks assigned to current user and their checklist IDs
+        var userTasks = await db.Queryable<ChecklistTask>()
+            .Where(t => t.IsValid && t.AssigneeId == userId)
+            .Where(t => t.TenantId == currentTenantId && t.AppCode == currentAppCode)
+            .ToListAsync();
 
-        // Filter by assignee (user)
-        if (userId > 0)
+        if (!userTasks.Any())
         {
-            query = query.Where((t, m, o) => t.AssigneeId == userId);
+            return new List<DashboardTaskInfo>();
         }
+
+        var checklistIds = userTasks.Select(t => t.ChecklistId).Distinct().ToList();
+        var taskIds = userTasks.Select(t => t.Id).ToList();
+
+        // Step 2: Get stage IDs from ChecklistStageMapping
+        var stageMappings = await db.Queryable<ChecklistStageMapping>()
+            .Where(m => m.IsValid && checklistIds.Contains(m.ChecklistId))
+            .Select(m => new { m.ChecklistId, m.StageId })
+            .ToListAsync();
+
+        if (!stageMappings.Any())
+        {
+            return new List<DashboardTaskInfo>();
+        }
+
+        var stageIds = stageMappings.Select(m => m.StageId).Distinct().ToList();
+
+        // Step 3: Get workflow IDs from stages
+        var stages = await db.Queryable<Stage>()
+            .Where(s => s.IsValid && stageIds.Contains(s.Id))
+            .Select(s => new { s.Id, s.WorkflowId })
+            .ToListAsync();
+
+        var workflowIds = stages.Select(s => s.WorkflowId).Distinct().ToList();
+
+        // Step 4: Get active onboardings for these workflows
+        var activeStatuses = new[] { "Started", "InProgress", "Active" };
+        var onboardings = await db.Queryable<Onboarding>()
+            .Where(o => o.IsValid && workflowIds.Contains(o.WorkflowId))
+            .Where(o => o.TenantId == currentTenantId && o.AppCode == currentAppCode)
+            .Where(o => activeStatuses.Contains(o.Status))
+            .Select(o => new { o.Id, o.WorkflowId, o.CaseCode, o.CaseName, o.Priority })
+            .ToListAsync();
+
+        if (!onboardings.Any())
+        {
+            return new List<DashboardTaskInfo>();
+        }
+
+        // Build mapping: workflowId -> onboardings
+        var workflowOnboardingMap = onboardings
+            .GroupBy(o => o.WorkflowId)
+            .ToDictionary(g => g.Key, g => g.ToList());
+
+        // Build mapping: stageId -> workflowId
+        var stageWorkflowMap = stages.ToDictionary(s => s.Id, s => s.WorkflowId);
+
+        // Build mapping: checklistId -> stageIds
+        var checklistStageMap = stageMappings
+            .GroupBy(m => m.ChecklistId)
+            .ToDictionary(g => g.Key, g => g.Select(m => m.StageId).ToList());
+
+        // Step 5: Get completions for these tasks and onboardings
+        var onboardingIds = onboardings.Select(o => o.Id).ToList();
+        var completions = await db.Queryable<ChecklistTaskCompletion>()
+            .Where(c => c.IsValid && onboardingIds.Contains(c.OnboardingId) && taskIds.Contains(c.TaskId) && c.IsCompleted)
+            .ToListAsync();
+
+        var completedSet = completions.Select(c => (c.OnboardingId, c.TaskId)).ToHashSet();
+
+        // Step 6: Build result - match tasks to onboardings via checklist -> stage -> workflow -> onboarding
+        var results = new List<DashboardTaskInfo>();
+
+        foreach (var task in userTasks)
+        {
+            // Get stages for this task's checklist
+            if (!checklistStageMap.TryGetValue(task.ChecklistId, out var taskStageIds))
+                continue;
+
+            // Get workflows for these stages, then get onboardings
+            foreach (var stageId in taskStageIds)
+            {
+                if (!stageWorkflowMap.TryGetValue(stageId, out var workflowId))
+                    continue;
+
+                if (!workflowOnboardingMap.TryGetValue(workflowId, out var workflowOnboardings))
+                    continue;
+
+                foreach (var onboarding in workflowOnboardings)
+                {
+                    // Skip if task is completed for this onboarding
+                    if (completedSet.Contains((onboarding.Id, task.Id)))
+                        continue;
+
+                    results.Add(new DashboardTaskInfo
+                    {
+                        Id = task.Id,
+                        Name = task.Name,
+                        Description = task.Description,
+                        Priority = onboarding.Priority ?? "Medium",
+                        DueDate = task.DueDate,
+                        IsCompleted = false,
+                        IsRequired = task.IsRequired,
+                        AssignedTeam = task.AssignedTeam,
+                        AssigneeName = task.AssigneeName,
+                        AssigneeId = task.AssigneeId,
+                        Status = task.Status,
+                        ChecklistId = task.ChecklistId,
+                        OnboardingId = onboarding.Id,
+                        CaseCode = onboarding.CaseCode,
+                        CaseName = onboarding.CaseName
+                    });
+                }
+            }
+        }
+
+        // Remove duplicates (same task + onboarding combination)
+        results = results
+            .GroupBy(r => (r.Id, r.OnboardingId))
+            .Select(g => g.First())
+            .ToList();
 
         // Apply category filter
         if (!string.IsNullOrEmpty(category))
         {
             if (category.Equals("Sales", StringComparison.OrdinalIgnoreCase))
             {
-                query = query.Where((t, m, o) => t.AssignedTeam != null && t.AssignedTeam.ToLower().Contains("sales"));
+                results = results.Where(r => r.AssignedTeam != null && r.AssignedTeam.ToLower().Contains("sales")).ToList();
             }
             else if (category.Equals("Account", StringComparison.OrdinalIgnoreCase))
             {
-                query = query.Where((t, m, o) => t.AssignedTeam != null && t.AssignedTeam.ToLower().Contains("account"));
+                results = results.Where(r => r.AssignedTeam != null && r.AssignedTeam.ToLower().Contains("account")).ToList();
             }
         }
 
-        // Get all matching results first, then sort and paginate in memory
-        var allResults = await query
-            .Select((t, m, o) => new DashboardTaskInfo
-            {
-                Id = t.Id,
-                Name = t.Name,
-                Description = t.Description,
-                Priority = t.Priority,
-                DueDate = t.DueDate,
-                IsCompleted = t.IsCompleted,
-                IsRequired = t.IsRequired,
-                AssignedTeam = t.AssignedTeam,
-                AssigneeName = t.AssigneeName,
-                AssigneeId = t.AssigneeId,
-                Status = t.Status,
-                ChecklistId = t.ChecklistId,
-                OnboardingId = o.Id,
-                CaseCode = o.CaseCode,
-                CaseName = o.CaseName
-            })
-            .ToListAsync();
-
-        // Sort by DueDate and apply pagination in memory
-        return allResults
+        // Sort by DueDate and apply pagination
+        return results
             .OrderBy(r => r.DueDate)
             .Skip((pageIndex - 1) * pageSize)
             .Take(pageSize)
@@ -488,7 +571,7 @@ public class ChecklistTaskRepository : BaseRepository<ChecklistTask>, IChecklist
 
     /// <summary>
     /// Get count of pending tasks for user
-    /// Only counts tasks that have associated onboarding (case)
+    /// Only counts tasks assigned to user with active onboardings
     /// </summary>
     public async Task<int> GetPendingTasksCountForUserAsync(long userId, List<long> userTeamIds, string? category)
     {
@@ -497,41 +580,118 @@ public class ChecklistTaskRepository : BaseRepository<ChecklistTask>, IChecklist
 
         _logger.LogInformation($"[ChecklistTaskRepository] GetPendingTasksCountForUserAsync with TenantId={currentTenantId}, AppCode={currentAppCode}, UserId={userId}");
 
-        // Use JOIN to only count tasks that have associated onboarding
-        var query = db.Queryable<ChecklistTask, ChecklistStageMapping, Onboarding>(
-            (t, m, o) => new JoinQueryInfos(
-                JoinType.Inner, t.ChecklistId == m.ChecklistId && m.IsValid,
-                JoinType.Inner, m.StageId == o.CurrentStageId && o.IsValid
-            ))
-            .Where((t, m, o) => t.IsValid == true && t.IsCompleted == false)
-            .Where((t, m, o) => t.TenantId == currentTenantId && t.AppCode == currentAppCode)
-            .Where((t, m, o) => o.TenantId == currentTenantId && o.AppCode == currentAppCode);
+        // Step 1: Get tasks assigned to current user
+        var userTasks = await db.Queryable<ChecklistTask>()
+            .Where(t => t.IsValid && t.AssigneeId == userId)
+            .Where(t => t.TenantId == currentTenantId && t.AppCode == currentAppCode)
+            .ToListAsync();
 
-        // Filter by assignee (user)
-        if (userId > 0)
+        if (!userTasks.Any())
         {
-            query = query.Where((t, m, o) => t.AssigneeId == userId);
+            return 0;
         }
 
-        // Apply category filter
-        if (!string.IsNullOrEmpty(category))
+        var checklistIds = userTasks.Select(t => t.ChecklistId).Distinct().ToList();
+        var taskIds = userTasks.Select(t => t.Id).ToList();
+
+        // Step 2: Get stage IDs from ChecklistStageMapping
+        var stageMappings = await db.Queryable<ChecklistStageMapping>()
+            .Where(m => m.IsValid && checklistIds.Contains(m.ChecklistId))
+            .Select(m => new { m.ChecklistId, m.StageId })
+            .ToListAsync();
+
+        if (!stageMappings.Any())
         {
-            if (category.Equals("Sales", StringComparison.OrdinalIgnoreCase))
+            return 0;
+        }
+
+        var stageIds = stageMappings.Select(m => m.StageId).Distinct().ToList();
+
+        // Step 3: Get workflow IDs from stages
+        var stages = await db.Queryable<Stage>()
+            .Where(s => s.IsValid && stageIds.Contains(s.Id))
+            .Select(s => new { s.Id, s.WorkflowId })
+            .ToListAsync();
+
+        var workflowIds = stages.Select(s => s.WorkflowId).Distinct().ToList();
+
+        // Step 4: Get active onboardings for these workflows
+        var activeStatuses = new[] { "Started", "InProgress", "Active" };
+        var onboardings = await db.Queryable<Onboarding>()
+            .Where(o => o.IsValid && workflowIds.Contains(o.WorkflowId))
+            .Where(o => o.TenantId == currentTenantId && o.AppCode == currentAppCode)
+            .Where(o => activeStatuses.Contains(o.Status))
+            .Select(o => new { o.Id, o.WorkflowId })
+            .ToListAsync();
+
+        if (!onboardings.Any())
+        {
+            return 0;
+        }
+
+        var workflowOnboardingMap = onboardings
+            .GroupBy(o => o.WorkflowId)
+            .ToDictionary(g => g.Key, g => g.ToList());
+
+        var stageWorkflowMap = stages.ToDictionary(s => s.Id, s => s.WorkflowId);
+
+        var checklistStageMap = stageMappings
+            .GroupBy(m => m.ChecklistId)
+            .ToDictionary(g => g.Key, g => g.Select(m => m.StageId).ToList());
+
+        // Step 5: Get completions
+        var onboardingIds = onboardings.Select(o => o.Id).ToList();
+        var completions = await db.Queryable<ChecklistTaskCompletion>()
+            .Where(c => c.IsValid && onboardingIds.Contains(c.OnboardingId) && taskIds.Contains(c.TaskId) && c.IsCompleted)
+            .ToListAsync();
+
+        var completedSet = completions.Select(c => (c.OnboardingId, c.TaskId)).ToHashSet();
+
+        // Step 6: Count pending tasks (unique task + onboarding combinations)
+        var taskOnboardingPairs = new HashSet<(long TaskId, long OnboardingId)>();
+
+        foreach (var task in userTasks)
+        {
+            if (!checklistStageMap.TryGetValue(task.ChecklistId, out var taskStageIds))
+                continue;
+
+            // Apply category filter
+            if (!string.IsNullOrEmpty(category))
             {
-                query = query.Where((t, m, o) => t.AssignedTeam != null && t.AssignedTeam.ToLower().Contains("sales"));
+                if (category.Equals("Sales", StringComparison.OrdinalIgnoreCase))
+                {
+                    if (task.AssignedTeam == null || !task.AssignedTeam.ToLower().Contains("sales")) continue;
+                }
+                else if (category.Equals("Account", StringComparison.OrdinalIgnoreCase))
+                {
+                    if (task.AssignedTeam == null || !task.AssignedTeam.ToLower().Contains("account")) continue;
+                }
             }
-            else if (category.Equals("Account", StringComparison.OrdinalIgnoreCase))
+
+            foreach (var stageId in taskStageIds)
             {
-                query = query.Where((t, m, o) => t.AssignedTeam != null && t.AssignedTeam.ToLower().Contains("account"));
+                if (!stageWorkflowMap.TryGetValue(stageId, out var workflowId))
+                    continue;
+
+                if (!workflowOnboardingMap.TryGetValue(workflowId, out var workflowOnboardings))
+                    continue;
+
+                foreach (var onboarding in workflowOnboardings)
+                {
+                    if (!completedSet.Contains((onboarding.Id, task.Id)))
+                    {
+                        taskOnboardingPairs.Add((task.Id, onboarding.Id));
+                    }
+                }
             }
         }
 
-        return await query.CountAsync();
+        return taskOnboardingPairs.Count;
     }
 
     /// <summary>
     /// Get tasks with upcoming deadlines for user
-    /// Only returns tasks that have associated onboarding (case)
+    /// Only returns tasks assigned to user with active onboardings
     /// </summary>
     public async Task<List<DashboardTaskInfo>> GetUpcomingDeadlinesAsync(
         long userId, 
@@ -543,38 +703,124 @@ public class ChecklistTaskRepository : BaseRepository<ChecklistTask>, IChecklist
 
         _logger.LogInformation($"[ChecklistTaskRepository] GetUpcomingDeadlinesAsync with TenantId={currentTenantId}, AppCode={currentAppCode}, UserId={userId}");
 
-        // Use JOIN to only get tasks that have associated onboarding
-        var allResults = await db.Queryable<ChecklistTask, ChecklistStageMapping, Onboarding>(
-            (t, m, o) => new JoinQueryInfos(
-                JoinType.Inner, t.ChecklistId == m.ChecklistId && m.IsValid,
-                JoinType.Inner, m.StageId == o.CurrentStageId && o.IsValid
-            ))
-            .Where((t, m, o) => t.IsValid == true && t.IsCompleted == false)
-            .Where((t, m, o) => t.TenantId == currentTenantId && t.AppCode == currentAppCode)
-            .Where((t, m, o) => o.TenantId == currentTenantId && o.AppCode == currentAppCode)
-            .Where((t, m, o) => t.DueDate.HasValue && t.DueDate.Value <= endDate)
-            .Select((t, m, o) => new DashboardTaskInfo
-            {
-                Id = t.Id,
-                Name = t.Name,
-                Description = t.Description,
-                Priority = t.Priority,
-                DueDate = t.DueDate,
-                IsCompleted = t.IsCompleted,
-                IsRequired = t.IsRequired,
-                AssignedTeam = t.AssignedTeam,
-                AssigneeName = t.AssigneeName,
-                AssigneeId = t.AssigneeId,
-                Status = t.Status,
-                ChecklistId = t.ChecklistId,
-                OnboardingId = o.Id,
-                CaseCode = o.CaseCode,
-                CaseName = o.CaseName
-            })
+        // Step 1: Get tasks assigned to current user with due dates
+        var userTasks = await db.Queryable<ChecklistTask>()
+            .Where(t => t.IsValid && t.AssigneeId == userId)
+            .Where(t => t.TenantId == currentTenantId && t.AppCode == currentAppCode)
+            .Where(t => t.DueDate.HasValue && t.DueDate.Value <= endDate)
             .ToListAsync();
 
-        // Sort by DueDate in memory
-        return allResults.OrderBy(r => r.DueDate).ToList();
+        if (!userTasks.Any())
+        {
+            return new List<DashboardTaskInfo>();
+        }
+
+        var checklistIds = userTasks.Select(t => t.ChecklistId).Distinct().ToList();
+        var taskIds = userTasks.Select(t => t.Id).ToList();
+
+        // Step 2: Get stage IDs from ChecklistStageMapping
+        var stageMappings = await db.Queryable<ChecklistStageMapping>()
+            .Where(m => m.IsValid && checklistIds.Contains(m.ChecklistId))
+            .Select(m => new { m.ChecklistId, m.StageId })
+            .ToListAsync();
+
+        if (!stageMappings.Any())
+        {
+            return new List<DashboardTaskInfo>();
+        }
+
+        var stageIds = stageMappings.Select(m => m.StageId).Distinct().ToList();
+
+        // Step 3: Get workflow IDs from stages
+        var stages = await db.Queryable<Stage>()
+            .Where(s => s.IsValid && stageIds.Contains(s.Id))
+            .Select(s => new { s.Id, s.WorkflowId })
+            .ToListAsync();
+
+        var workflowIds = stages.Select(s => s.WorkflowId).Distinct().ToList();
+
+        // Step 4: Get active onboardings for these workflows
+        var activeStatuses = new[] { "Started", "InProgress", "Active" };
+        var onboardings = await db.Queryable<Onboarding>()
+            .Where(o => o.IsValid && workflowIds.Contains(o.WorkflowId))
+            .Where(o => o.TenantId == currentTenantId && o.AppCode == currentAppCode)
+            .Where(o => activeStatuses.Contains(o.Status))
+            .Select(o => new { o.Id, o.WorkflowId, o.CaseCode, o.CaseName, o.Priority })
+            .ToListAsync();
+
+        if (!onboardings.Any())
+        {
+            return new List<DashboardTaskInfo>();
+        }
+
+        var workflowOnboardingMap = onboardings
+            .GroupBy(o => o.WorkflowId)
+            .ToDictionary(g => g.Key, g => g.ToList());
+
+        var stageWorkflowMap = stages.ToDictionary(s => s.Id, s => s.WorkflowId);
+
+        var checklistStageMap = stageMappings
+            .GroupBy(m => m.ChecklistId)
+            .ToDictionary(g => g.Key, g => g.Select(m => m.StageId).ToList());
+
+        // Step 5: Get completions
+        var onboardingIds = onboardings.Select(o => o.Id).ToList();
+        var completions = await db.Queryable<ChecklistTaskCompletion>()
+            .Where(c => c.IsValid && onboardingIds.Contains(c.OnboardingId) && taskIds.Contains(c.TaskId) && c.IsCompleted)
+            .ToListAsync();
+
+        var completedSet = completions.Select(c => (c.OnboardingId, c.TaskId)).ToHashSet();
+
+        // Step 6: Build result
+        var results = new List<DashboardTaskInfo>();
+
+        foreach (var task in userTasks)
+        {
+            if (!checklistStageMap.TryGetValue(task.ChecklistId, out var taskStageIds))
+                continue;
+
+            foreach (var stageId in taskStageIds)
+            {
+                if (!stageWorkflowMap.TryGetValue(stageId, out var workflowId))
+                    continue;
+
+                if (!workflowOnboardingMap.TryGetValue(workflowId, out var workflowOnboardings))
+                    continue;
+
+                foreach (var onboarding in workflowOnboardings)
+                {
+                    if (completedSet.Contains((onboarding.Id, task.Id)))
+                        continue;
+
+                    results.Add(new DashboardTaskInfo
+                    {
+                        Id = task.Id,
+                        Name = task.Name,
+                        Description = task.Description,
+                        Priority = onboarding.Priority ?? "Medium",
+                        DueDate = task.DueDate,
+                        IsCompleted = false,
+                        IsRequired = task.IsRequired,
+                        AssignedTeam = task.AssignedTeam,
+                        AssigneeName = task.AssigneeName,
+                        AssigneeId = task.AssigneeId,
+                        Status = task.Status,
+                        ChecklistId = task.ChecklistId,
+                        OnboardingId = onboarding.Id,
+                        CaseCode = onboarding.CaseCode,
+                        CaseName = onboarding.CaseName
+                    });
+                }
+            }
+        }
+
+        // Remove duplicates
+        results = results
+            .GroupBy(r => (r.Id, r.OnboardingId))
+            .Select(g => g.First())
+            .ToList();
+
+        return results.OrderBy(r => r.DueDate).ToList();
     }
 
     #endregion

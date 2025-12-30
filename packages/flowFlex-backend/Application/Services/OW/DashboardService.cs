@@ -229,20 +229,44 @@ namespace FlowFlex.Application.Services.OW
             var userTeamIds = _userContext.UserTeams?.GetAllTeamIds() ?? new List<long>();
 
             // Build query for tasks assigned to current user or their teams
+            // Note: We need to get more tasks than requested for permission filtering
             var tasks = await _checklistTaskRepository.GetPendingTasksForUserAsync(
                 userId, 
                 userTeamIds, 
                 query.Category,
-                query.PageIndex,
-                query.PageSize);
+                1,  // Start from page 1
+                1000);  // Get more tasks for permission filtering
 
-            var totalCount = await _checklistTaskRepository.GetPendingTasksCountForUserAsync(
-                userId, 
-                userTeamIds, 
-                query.Category);
+            if (!tasks.Any())
+            {
+                return new PagedResult<DashboardTaskDto>
+                {
+                    Items = new List<DashboardTaskDto>(),
+                    TotalCount = 0,
+                    PageIndex = query.PageIndex,
+                    PageSize = query.PageSize
+                };
+            }
+
+            // Get unique onboarding IDs and filter by operate permission
+            var onboardingIds = tasks.Select(t => t.OnboardingId).Distinct().ToList();
+            var onboardings = await _onboardingRepository.GetListAsync(o => onboardingIds.Contains(o.Id));
+            var filteredOnboardings = await FilterCasesByOperatePermissionAsync(onboardings);
+            var allowedOnboardingIds = filteredOnboardings.Select(o => o.Id).ToHashSet();
+
+            // Filter tasks by allowed onboardings
+            var filteredTasks = tasks.Where(t => allowedOnboardingIds.Contains(t.OnboardingId)).ToList();
+
+            var totalCount = filteredTasks.Count;
+
+            // Apply pagination after permission filtering
+            var pagedTasks = filteredTasks
+                .Skip((query.PageIndex - 1) * query.PageSize)
+                .Take(query.PageSize)
+                .ToList();
 
             var now = DateTimeOffset.UtcNow;
-            var taskDtos = tasks.Select(t => new DashboardTaskDto
+            var taskDtos = pagedTasks.Select(t => new DashboardTaskDto
             {
                 Id = t.Id,
                 Name = t.Name,
@@ -260,7 +284,8 @@ namespace FlowFlex.Application.Services.OW
                 AssigneeName = t.AssigneeName,
                 Category = DetermineTaskCategory(t.AssignedTeam),
                 Status = t.Status,
-                IsRequired = t.IsRequired
+                IsRequired = t.IsRequired,
+                IsCompleted = t.IsCompleted
             }).ToList();
 
             return new PagedResult<DashboardTaskDto>
@@ -900,6 +925,135 @@ namespace FlowFlex.Application.Services.OW
 
             _logger.LogDebug("Permission filter: {Original} cases -> {Filtered} cases", cases.Count, filteredCases.Count);
             return filteredCases;
+        }
+
+        /// <summary>
+        /// Filter cases by operate permission (in-memory check)
+        /// </summary>
+        private async Task<List<Onboarding>> FilterCasesByOperatePermissionAsync(List<Onboarding> cases)
+        {
+            if (cases == null || !cases.Any())
+            {
+                return new List<Onboarding>();
+            }
+
+            // Admin bypass - return all cases
+            if (_permissionHelpers.HasAdminPrivileges())
+            {
+                _logger.LogDebug("User has admin privileges - returning all {Count} cases for operate", cases.Count);
+                return cases;
+            }
+
+            var userId = long.TryParse(_userContext.UserId, out var uid) ? uid : 0;
+            var userTeamIds = _userContext.UserTeams?.GetAllTeamIds() ?? new List<long>();
+            var userIdString = userId.ToString();
+
+            // Load all workflows for permission check (batch load to avoid N+1)
+            var workflowIds = cases.Select(c => c.WorkflowId).Distinct().ToList();
+            var workflows = await _workflowRepository.GetListAsync(w => workflowIds.Contains(w.Id));
+            var workflowDict = workflows.ToDictionary(w => w.Id, w => w);
+
+            var filteredCases = new List<Onboarding>();
+
+            foreach (var entity in cases)
+            {
+                var workflow = workflowDict.GetValueOrDefault(entity.WorkflowId);
+                if (CheckCaseOperatePermissionInMemory(entity, workflow, userId, userTeamIds, userIdString))
+                {
+                    filteredCases.Add(entity);
+                }
+            }
+
+            _logger.LogDebug("Operate permission filter: {Original} cases -> {Filtered} cases", cases.Count, filteredCases.Count);
+            return filteredCases;
+        }
+
+        /// <summary>
+        /// Check Case operate permission in memory (no DB queries)
+        /// </summary>
+        private bool CheckCaseOperatePermissionInMemory(
+            Onboarding entity,
+            Workflow? workflow,
+            long userId,
+            List<long> userTeamIds,
+            string userIdString)
+        {
+            // Step 1: Check Ownership (owner has full access)
+            if (entity.Ownership.HasValue && entity.Ownership.Value == userId)
+            {
+                return true;
+            }
+
+            // Step 2: In Public mode or UseSameTeamForOperate, check operate teams
+            if (entity.ViewPermissionMode == ViewPermissionModeEnum.Public)
+            {
+                if (workflow == null)
+                {
+                    return false;
+                }
+                return CheckWorkflowOperatePermissionInMemory(workflow, userId, userTeamIds);
+            }
+
+            // Step 3: Check Case-specific operate permissions
+            return CheckCaseOperatePermissionBySubjectType(entity, userTeamIds, userIdString);
+        }
+
+        /// <summary>
+        /// Check Workflow operate permission in memory
+        /// </summary>
+        private bool CheckWorkflowOperatePermissionInMemory(Workflow workflow, long userId, List<long> userTeamIds)
+        {
+            var userTeamStrings = userTeamIds.Select(t => t.ToString()).ToList();
+
+            // Check operate teams
+            if (!string.IsNullOrWhiteSpace(workflow.OperateTeams))
+            {
+                var operateTeams = ParseJsonArraySafe(workflow.OperateTeams);
+                if (operateTeams.Any())
+                {
+                    return userTeamStrings.Any(ut => operateTeams.Contains(ut, StringComparer.OrdinalIgnoreCase));
+                }
+            }
+
+            // If no operate teams defined, fall back to view permission
+            return CheckWorkflowViewPermissionInMemory(workflow, userId, userTeamIds);
+        }
+
+        /// <summary>
+        /// Check Case operate permission based on SubjectType (Team or User)
+        /// </summary>
+        private bool CheckCaseOperatePermissionBySubjectType(
+            Onboarding entity,
+            List<long> userTeamIds,
+            string userIdString)
+        {
+            var userTeamStrings = userTeamIds.Select(t => t.ToString()).ToList();
+
+            // If UseSameTeamForOperate is true, use view permission settings
+            if (entity.UseSameTeamForOperate)
+            {
+                return CheckCaseViewPermissionBySubjectType(entity, userTeamIds, userIdString);
+            }
+
+            // Check operate permission based on subject type
+            if (entity.OperatePermissionSubjectType == PermissionSubjectTypeEnum.Team)
+            {
+                if (string.IsNullOrWhiteSpace(entity.OperateTeams))
+                {
+                    return false;
+                }
+                var operateTeams = ParseJsonArraySafe(entity.OperateTeams);
+                return userTeamStrings.Any(ut => operateTeams.Contains(ut, StringComparer.OrdinalIgnoreCase));
+            }
+            else
+            {
+                if (string.IsNullOrWhiteSpace(entity.OperateUsers))
+                {
+                    return false;
+                }
+                var operateUsers = ParseJsonArraySafe(entity.OperateUsers);
+                return operateUsers.Contains(userIdString, StringComparer.OrdinalIgnoreCase);
+            }
         }
 
         /// <summary>

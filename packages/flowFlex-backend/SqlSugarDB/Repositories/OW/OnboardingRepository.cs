@@ -186,6 +186,19 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
         }
 
         /// <summary>
+        /// Get onboarding by ID without tenant isolation
+        /// Used for background tasks where HttpContext is not available (e.g., AI Summary updates)
+        /// </summary>
+        public async Task<Onboarding> GetByIdWithoutTenantFilterAsync(long id, CancellationToken cancellationToken = default)
+        {
+            db.Ado.CancellationToken = cancellationToken;
+            
+            return await db.Queryable<Onboarding>()
+                .Where(x => x.Id == id && x.IsValid)
+                .FirstAsync();
+        }
+
+        /// <summary>
         /// 获取当前租户ID
         /// </summary>
         private string GetCurrentTenantId()

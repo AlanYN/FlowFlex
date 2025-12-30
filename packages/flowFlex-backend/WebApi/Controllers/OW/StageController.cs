@@ -687,8 +687,15 @@ namespace FlowFlex.WebApi.Controllers.OW
                 // Only update Onboarding's stagesProgress if onboardingId is provided
                 if (onboardingId.HasValue)
                 {
-                    await _onboardingService.UpdateOnboardingStageAISummaryAsync(onboardingId.Value, stageId, aiSummary, generatedAt, confidence, modelUsed);
-                    Console.WriteLine($"✅ Successfully updated AI summary in Onboarding stage progress for stage {stageId}, onboarding {onboardingId.Value}");
+                    var updateResult = await _onboardingService.UpdateOnboardingStageAISummaryAsync(onboardingId.Value, stageId, aiSummary, generatedAt, confidence, modelUsed);
+                    if (updateResult)
+                    {
+                        Console.WriteLine($"✅ Successfully updated AI summary in Onboarding stage progress for stage {stageId}, onboarding {onboardingId.Value}");
+                    }
+                    else
+                    {
+                        Console.WriteLine($"⚠️ Failed to update AI summary in Onboarding stage progress for stage {stageId}, onboarding {onboardingId.Value}");
+                    }
                 }
                 else
                 {

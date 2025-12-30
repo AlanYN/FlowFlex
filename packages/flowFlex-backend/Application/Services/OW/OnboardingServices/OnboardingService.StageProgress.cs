@@ -1207,8 +1207,8 @@ namespace FlowFlex.Application.Services.OW
         {
             try
             {
-                // Get current onboarding
-                var onboarding = await _onboardingRepository.GetByIdAsync(onboardingId);
+                // Get current onboarding without tenant filter (for background tasks where HttpContext is not available)
+                var onboarding = await _onboardingRepository.GetByIdWithoutTenantFilterAsync(onboardingId);
                 if (onboarding == null)
                 {
                     LoggingExtensions.WriteLine($"Onboarding {onboardingId} not found for AI summary update");
