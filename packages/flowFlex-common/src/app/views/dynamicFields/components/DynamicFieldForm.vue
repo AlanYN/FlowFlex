@@ -137,7 +137,7 @@
 					Allow Search
 				</el-checkbox>
 			</el-form-item>
-			<el-form-item label="Options" prop="dropdownItems">
+			<el-form-item label="Options">
 				<div class="w-full space-y-2">
 					<div
 						v-for="(item, index) in formData.dropdownItems"
@@ -145,7 +145,20 @@
 						class="flex items-center gap-2"
 					>
 						<el-input v-model="item.label" placeholder="Label" class="flex-1" />
-						<el-input v-model="item.value" placeholder="Value" class="flex-1" />
+						<div class="flex-1">
+							<el-input
+								v-model="item.value"
+								placeholder="Value"
+								:class="{ 'value-duplicate': isValueDuplicate(index, item.value) }"
+								@input="handleValueChange"
+							/>
+							<div
+								v-if="isValueDuplicate(index, item.value)"
+								class="text-xs text-red-500 mt-1"
+							>
+								Duplicate value
+							</div>
+						</div>
 						<el-checkbox
 							v-model="item.isDefault"
 							title="Default"
@@ -161,6 +174,9 @@
 					<el-button type="primary" link :icon="Plus" @click="addDropdownItem">
 						Add Option
 					</el-button>
+					<div v-if="dropdownError" class="text-xs text-red-500">
+						{{ dropdownError }}
+					</div>
 				</div>
 			</el-form-item>
 		</template>
@@ -258,23 +274,25 @@ const getDefaultFormData = (): CreateDynamicFieldParams => ({
 
 const formData = reactive<CreateDynamicFieldParams>(getDefaultFormData());
 
-// 下拉选项验证
-const validateDropdownItems = (_rule: any, _value: any, callback: any) => {
-	if (
-		formData.dataType === propertyTypeEnum.DropdownSelect &&
-		(!formData.dropdownItems || formData.dropdownItems.length === 0)
-	) {
-		callback(new Error('Please add at least one option'));
-	} else {
-		callback();
-	}
+const formRules = {
+	fieldName: [
+		{
+			required: true,
+			validator: (_rule: any, value: string, callback: any) => {
+				if (!value || !value.trim()) {
+					callback(new Error('Field Name is required'));
+				} else {
+					callback();
+				}
+			},
+			trigger: 'blur',
+		},
+	],
+	dataType: [{ required: true, message: 'Field Type is required', trigger: 'change' }],
 };
 
-const formRules = {
-	fieldName: [{ required: true, message: 'Field Name is required', trigger: 'blur' }],
-	dataType: [{ required: true, message: 'Field Type is required', trigger: 'change' }],
-	dropdownItems: [{ validator: validateDropdownItems, trigger: 'change' }],
-};
+// 下拉选项错误信息
+const dropdownError = ref('');
 
 // 文件大小 MB 转换
 const maxSizeMB = ref(10);
@@ -374,6 +392,54 @@ const addDropdownItem = () => {
 
 const removeDropdownItem = (index: number) => {
 	formData.dropdownItems?.splice(index, 1);
+	// 删除后重新验证
+	formRef.value?.validateField('dropdownItems');
+};
+
+// 检查 value 是否重复
+const isValueDuplicate = (index: number, value: string) => {
+	if (!value?.trim()) return false;
+	return formData.dropdownItems?.some(
+		(item, i) => i !== index && item.value?.trim() === value?.trim()
+	);
+};
+
+// value 输入变化时触发验证
+const handleValueChange = () => {
+	validateDropdownOptions();
+};
+
+// 验证下拉选项
+const validateDropdownOptions = (): boolean => {
+	if (formData.dataType !== propertyTypeEnum.DropdownSelect) {
+		dropdownError.value = '';
+		return true;
+	}
+
+	// 过滤空值后检查是否有有效选项
+	const validItems = formData.dropdownItems?.filter((item) => item.value?.trim()) || [];
+	if (validItems.length === 0) {
+		dropdownError.value = 'Please add at least one option with a valid value';
+		return false;
+	}
+
+	// 检查是否有空的 value
+	const hasEmptyValue = formData.dropdownItems?.some((item) => !item.value?.trim());
+	if (hasEmptyValue) {
+		dropdownError.value = 'Option value cannot be empty';
+		return false;
+	}
+
+	// 检查 value 是否重复
+	const values = formData.dropdownItems?.map((item) => item.value?.trim()) || [];
+	const uniqueValues = new Set(values);
+	if (values.length !== uniqueValues.size) {
+		dropdownError.value = 'Option values must be unique';
+		return false;
+	}
+
+	dropdownError.value = '';
+	return true;
 };
 
 // 处理默认值变更，确保只有一个默认值
@@ -412,7 +478,14 @@ const resetForm = () => {
 };
 
 // 验证表单
-const validate = () => formRef.value?.validate();
+const validate = async () => {
+	await formRef.value?.validate();
+	// 额外验证下拉选项
+	if (!validateDropdownOptions()) {
+		return Promise.reject(new Error(dropdownError.value));
+	}
+	return true;
+};
 
 defineExpose({ getFormData, setFormData, resetForm, validate });
 </script>

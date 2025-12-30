@@ -162,7 +162,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref } from 'vue';
+import { onMounted, ref, nextTick } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import PageHeader from '@/components/global/PageHeader/index.vue';
 import { Plus, Download, Delete, Lock } from '@element-plus/icons-vue';
@@ -343,9 +343,9 @@ const handleEdit = (row: DynamicList) => {
 	handleFieldId.value = row.id;
 	dialogVisible.value = true;
 	// 等待弹窗渲染后设置表单数据
-	setTimeout(() => {
+	nextTick(() => {
 		formRef.value?.setFormData(row);
-	}, 0);
+	});
 };
 
 const hanDelete = (row: DynamicList) => {
@@ -355,8 +355,6 @@ const hanDelete = (row: DynamicList) => {
 		{
 			confirmButtonText: 'Delete Field',
 			cancelButtonText: 'Cancel',
-			confirmButtonClass: 'danger-confirm-btn',
-			cancelButtonClass: 'cancel-confirm-btn',
 			distinguishCancelAndClose: true,
 			customClass: 'delete-confirmation-dialog',
 			showCancelButton: true,
@@ -394,42 +392,3 @@ onMounted(() => {
 	dynamicList();
 });
 </script>
-
-<style scoped lang="scss">
-/* 弹窗样式 */
-.dialog-header {
-	border-bottom: none;
-}
-
-.dialog-title {
-	font-size: 18px;
-	font-weight: 600;
-	color: var(--el-text-color-primary);
-}
-
-.dialog-subtitle {
-	color: var(--el-text-color-regular);
-	font-size: 13px;
-	margin: 0;
-	font-weight: normal;
-	line-height: 1.4;
-}
-
-.dialog-footer {
-	display: flex;
-	justify-content: flex-end;
-	gap: 12px;
-	padding: 16px 0 0 0;
-}
-
-/* 暗色主题样式 */
-html.dark {
-	.dialog-title {
-		color: var(--white-100);
-	}
-
-	.dialog-subtitle {
-		color: var(--gray-300);
-	}
-}
-</style>
