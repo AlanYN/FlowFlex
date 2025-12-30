@@ -1,6 +1,6 @@
 <template>
 	<div class="dashboard">
-		<PageHeader title="Dashboard" description="Dashboard">
+		<PageHeader title="Dashboard" description="Overview of your cases, tasks, and key metrics">
 			<template #actions>
 				<el-button
 					type="primary"
@@ -75,11 +75,11 @@
 		</div>
 
 		<!-- Row 3: Employee Stats | Department Distribution | Recent Hires -->
-		<div class="row-three-cols">
+		<!-- <div class="row-three-cols">
 			<EmployeeStats :stats="employeeStats" :loading="employeeLoading" />
 			<DepartmentDistribution :departments="departments" :loading="employeeLoading" />
 			<RecentHires :recent-hires="recentHires" :loading="employeeLoading" />
-		</div>
+		</div> -->
 
 		<!-- Row 4: Cases Overview | Recent Achievements -->
 		<div class="row-one-two">
@@ -100,9 +100,9 @@ import PageHeader from '@/components/global/PageHeader/index.vue';
 import StatsCard from './components/StatsCard.vue';
 import TodoList from './components/TodoList.vue';
 import MessageCenter from './components/MessageCenter.vue';
-import EmployeeStats from './components/EmployeeStats.vue';
-import DepartmentDistribution from './components/DepartmentDistribution.vue';
-import RecentHires from './components/RecentHires.vue';
+// import EmployeeStats from './components/EmployeeStats.vue';
+// import DepartmentDistribution from './components/DepartmentDistribution.vue';
+// import RecentHires from './components/RecentHires.vue';
 import CasesOverview from './components/CasesOverview.vue';
 import RecentAchievements from './components/RecentAchievements.vue';
 import UpcomingDeadlines from './components/UpcomingDeadlines.vue';
@@ -121,9 +121,9 @@ import type {
 	ICasesOverview,
 	IAchievement,
 	IDeadline,
-	IEmployeeStats,
-	IDepartmentDistribution,
-	IRecentHire,
+	// IEmployeeStats,
+	// IDepartmentDistribution,
+	// IRecentHire,
 } from '#/dashboard';
 import { getMessageUnreadCount } from '@/apis/messageCenter';
 
@@ -145,23 +145,23 @@ const messageUnreadCount = ref(0);
 const messagesLoading = ref(false);
 
 // Employee (Mock data - no API yet)
-const employeeStats = ref<IEmployeeStats>({
-	total: 12,
-	active: 10,
-	onLeave: 1,
-	avgSalary: 93000,
-	departmentCount: 10,
-});
-const departments = ref<IDepartmentDistribution[]>([
-	{ name: 'Engineering', count: 2 },
-	{ name: 'Sales', count: 2 },
-	{ name: 'Marketing', count: 1 },
-	{ name: 'Operations', count: 1 },
-	{ name: 'Finance', count: 1 },
-	{ name: 'Human Resources', count: 1 },
-]);
-const recentHires = ref<IRecentHire[]>([]);
-const employeeLoading = ref(false);
+// const employeeStats = ref<IEmployeeStats>({
+// 	total: 12,
+// 	active: 10,
+// 	onLeave: 1,
+// 	avgSalary: 93000,
+// 	departmentCount: 10,
+// });
+// const departments = ref<IDepartmentDistribution[]>([
+// 	{ name: 'Engineering', count: 2 },
+// 	{ name: 'Sales', count: 2 },
+// 	{ name: 'Marketing', count: 1 },
+// 	{ name: 'Operations', count: 1 },
+// 	{ name: 'Finance', count: 1 },
+// 	{ name: 'Human Resources', count: 1 },
+// ]);
+// const recentHires = ref<IRecentHire[]>([]);
+// const employeeLoading = ref(false);
 
 // Cases Overview
 const casesOverview = ref<ICasesOverview | null>(null);
