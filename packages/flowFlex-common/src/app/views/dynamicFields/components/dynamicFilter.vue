@@ -18,7 +18,7 @@
 				<div class="space-y-2">
 					<label class="text-sm font-medium">Field Type</label>
 					<el-select
-						v-model="searchParams.fieldType"
+						v-model="searchParams.dataType"
 						placeholder="Select Field Type"
 						clearable
 						class="w-full filter-select"
@@ -71,11 +71,9 @@ import { fieldsTypeEnum } from '@/enums/appEnum';
 // 搜索参数接口
 interface DynamicFieldSearchParams {
 	fieldName: string;
-	fieldType: string;
-	createdBy: string;
-	updatedBy: string;
-	page: number;
-	size: number;
+	dataType: string;
+	createBy: string;
+	updateBy: string;
 }
 
 // Props
@@ -96,11 +94,9 @@ const emit = defineEmits<{
 // 搜索参数
 const searchParams = reactive<DynamicFieldSearchParams>({
 	fieldName: '',
-	fieldType: '',
-	createdBy: '',
-	updatedBy: '',
-	page: 1,
-	size: 15,
+	dataType: '',
+	createBy: '',
+	updateBy: '',
 });
 
 // 标签数组
@@ -130,12 +126,12 @@ const handleFieldNameTagsChange = (tags: string[]) => {
 };
 
 const handleCreatedByTagsChange = (tags: string[]) => {
-	searchParams.createdBy = tags.join(',');
+	searchParams.createBy = tags.join(',');
 	handleAutoSearch();
 };
 
 const handleUpdatedByTagsChange = (tags: string[]) => {
-	searchParams.updatedBy = tags.join(',');
+	searchParams.updateBy = tags.join(',');
 	handleAutoSearch();
 };
 
@@ -144,9 +140,6 @@ const handleSearch = () => {
 	// 将标签数组转换为搜索参数
 	const searchParamsWithTags = {
 		...searchParams,
-		fieldNameTags: fieldNameTags.value,
-		createdByTags: createdByTags.value,
-		updatedByTags: updatedByTags.value,
 	};
 	emit('search', searchParamsWithTags);
 };
