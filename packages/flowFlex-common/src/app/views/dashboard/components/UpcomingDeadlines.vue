@@ -1,7 +1,10 @@
 <template>
 	<div class="upcoming-deadlines">
 		<div class="upcoming-deadlines__header">
-			<h3 class="upcoming-deadlines__title">Upcoming Deadlines</h3>
+			<div class="upcoming-deadlines__title">
+				<Icon icon="lucide-circle-alert" />
+				<div>Upcoming Deadlines</div>
+			</div>
 			<span class="upcoming-deadlines__subtitle">Tasks and milestones due soon</span>
 		</div>
 		<div class="upcoming-deadlines__content">
@@ -113,7 +116,7 @@ const clickTask = (id: string) => {
 	}
 
 	&__title {
-		@apply text-lg font-semibold m-0;
+		@apply text-lg font-semibold m-0 flex items-center space-x-2;
 		color: var(--el-text-color-primary);
 	}
 

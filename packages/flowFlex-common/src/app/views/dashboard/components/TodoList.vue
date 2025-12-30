@@ -1,7 +1,10 @@
 <template>
 	<div class="todo-list">
 		<div class="todo-list__header">
-			<h3 class="todo-list__title">To-Do List</h3>
+			<div class="todo-list__title">
+				<Icon icon="lucide-list-todo" />
+				<div>To-Do List</div>
+			</div>
 			<span class="todo-list__subtitle">Tasks that need your attention</span>
 		</div>
 		<div class="todo-list__content">
@@ -216,7 +219,7 @@ const clickTask = (id: string) => {
 	}
 
 	&__title {
-		@apply text-lg font-semibold m-0;
+		@apply text-lg font-semibold m-0 flex items-center space-x-2;
 		color: var(--el-text-color-primary);
 	}
 

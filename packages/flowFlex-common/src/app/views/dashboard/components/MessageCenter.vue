@@ -1,7 +1,10 @@
 <template>
 	<div class="message-center">
 		<div class="message-center__header">
-			<h3 class="message-center__title">Message Center</h3>
+			<div class="message-center__title">
+				<Icon icon="lucide-inbox" />
+				<div>Message Center</div>
+			</div>
 			<span class="message-center__subtitle">Recent messages and notifications</span>
 		</div>
 		<div class="message-center__content">
@@ -185,7 +188,7 @@ const viewAllMessage = () => {
 	}
 
 	&__title {
-		@apply text-lg font-semibold m-0;
+		@apply text-lg font-semibold m-0 flex items-center space-x-2;
 		color: var(--el-text-color-primary);
 	}
 
