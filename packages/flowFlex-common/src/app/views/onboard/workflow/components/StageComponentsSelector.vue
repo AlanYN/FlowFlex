@@ -203,6 +203,9 @@
 										/>
 									</div>
 								</template>
+								<div v-if="quickLinks.length === 0">
+									<el-empty description="No quickLinks found" :image-size="30" />
+								</div>
 							</div>
 						</el-scrollbar>
 					</div>
