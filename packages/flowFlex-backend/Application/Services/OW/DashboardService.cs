@@ -7,9 +7,12 @@ using AutoMapper;
 using FlowFlex.Application.Contracts.Dtos.OW.Dashboard;
 using FlowFlex.Application.Contracts.Dtos.OW.Message;
 using FlowFlex.Application.Contracts.IServices.OW;
+using FlowFlex.Application.Services.OW.Permission;
 using FlowFlex.Domain.Entities.OW;
 using FlowFlex.Domain.Repository.OW;
 using FlowFlex.Domain.Shared;
+using FlowFlex.Domain.Shared.Enums.OW;
+using FlowFlex.Domain.Shared.Enums.Permission;
 using FlowFlex.Domain.Shared.Models;
 using Microsoft.Extensions.Logging;
 
@@ -23,27 +26,33 @@ namespace FlowFlex.Application.Services.OW
         private readonly IOnboardingRepository _onboardingRepository;
         private readonly IChecklistTaskRepository _checklistTaskRepository;
         private readonly IStageRepository _stageRepository;
+        private readonly IWorkflowRepository _workflowRepository;
         private readonly IMessageService _messageService;
         private readonly IMapper _mapper;
         private readonly UserContext _userContext;
         private readonly ILogger<DashboardService> _logger;
+        private readonly PermissionHelpers _permissionHelpers;
 
         public DashboardService(
             IOnboardingRepository onboardingRepository,
             IChecklistTaskRepository checklistTaskRepository,
             IStageRepository stageRepository,
+            IWorkflowRepository workflowRepository,
             IMessageService messageService,
             IMapper mapper,
             UserContext userContext,
-            ILogger<DashboardService> logger)
+            ILogger<DashboardService> logger,
+            PermissionHelpers permissionHelpers)
         {
             _onboardingRepository = onboardingRepository;
             _checklistTaskRepository = checklistTaskRepository;
             _stageRepository = stageRepository;
+            _workflowRepository = workflowRepository;
             _messageService = messageService;
             _mapper = mapper;
             _userContext = userContext;
             _logger = logger;
+            _permissionHelpers = permissionHelpers;
         }
 
         /// <summary>
@@ -175,12 +184,16 @@ namespace FlowFlex.Application.Services.OW
                 (o.Status == "Started" || o.Status == "InProgress" || o.Status == "Active") &&
                 (workflowId == null || o.WorkflowId == workflowId));
 
-            // Group by stage ID and count
-            var stageCounts = activeCases
-                .GroupBy(o => o.CurrentStageId)
+            // Apply permission filter
+            var filteredCases = await FilterCasesByPermissionAsync(activeCases);
+
+            // Group by stage ID and count (filter out null CurrentStageId)
+            var stageCounts = filteredCases
+                .Where(o => o.CurrentStageId.HasValue)
+                .GroupBy(o => o.CurrentStageId!.Value)
                 .ToDictionary(g => g.Key, g => g.Count());
 
-            var totalCases = activeCases.Count;
+            var totalCases = filteredCases.Count;
 
             // Build stage distribution
             var stageDistribution = stages.Select(stage => new StageDistributionDto
@@ -195,9 +208,9 @@ namespace FlowFlex.Application.Services.OW
                     : 0
             }).ToList();
 
-            // Calculate overall progress (average completion rate of active cases)
-            var overallProgress = activeCases.Any() 
-                ? Math.Round(activeCases.Average(c => c.CompletionRate), 0) 
+            // Calculate overall progress (average completion rate of filtered cases)
+            var overallProgress = filteredCases.Any() 
+                ? Math.Round(filteredCases.Average(c => c.CompletionRate), 0) 
                 : 0;
 
             return new StageDistributionResultDto
@@ -291,7 +304,11 @@ namespace FlowFlex.Application.Services.OW
 
             // Get recently completed cases (CaseCompleted type)
             var completedCases = await _onboardingRepository.GetRecentlyCompletedAsync(limit, team);
-            var caseAchievements = completedCases.Select(c => new AchievementDto
+            
+            // Apply permission filter
+            var filteredCompletedCases = await FilterCasesByPermissionAsync(completedCases);
+            
+            var caseAchievements = filteredCompletedCases.Select(c => new AchievementDto
             {
                 Id = c.Id,
                 Title = $"{c.CaseName} case completed",
@@ -338,7 +355,11 @@ namespace FlowFlex.Application.Services.OW
                     o.IsValid &&
                     (!filterByTeam || o.CurrentTeam == team));
 
-                _logger.LogInformation("GetRecentlyCompletedStagesAsync: Found {Count} total cases", allCases.Count);
+                // Apply permission filter
+                var filteredCases = await FilterCasesByPermissionAsync(allCases);
+
+                _logger.LogInformation("GetRecentlyCompletedStagesAsync: Found {Count} total cases, {FilteredCount} after permission filter", 
+                    allCases.Count, filteredCases.Count);
 
                 // Get all stages for enrichment
                 var stageIds = new HashSet<long>();
@@ -351,7 +372,7 @@ namespace FlowFlex.Application.Services.OW
 
                 // First pass: parse JSON and collect stage IDs
                 var casesWithProgress = new List<(Onboarding Onboarding, List<OnboardingStageProgress> Progress)>();
-                foreach (var onboarding in allCases)
+                foreach (var onboarding in filteredCases)
                 {
                     if (string.IsNullOrEmpty(onboarding.StagesProgressJson))
                     {
@@ -494,7 +515,11 @@ namespace FlowFlex.Application.Services.OW
                     (o.Status == "Started" || o.Status == "InProgress" || o.Status == "Active") &&
                     onboardingIds.Contains(o.Id));
 
-                _logger.LogDebug("GetDeadlinesAsync: Found {Count} active cases for user {UserId}", activeCases.Count, userId);
+                // Apply permission filter
+                var filteredCases = await FilterCasesByPermissionAsync(activeCases);
+
+                _logger.LogDebug("GetDeadlinesAsync: Found {Count} active cases for user {UserId}, {FilteredCount} after permission filter", 
+                    activeCases.Count, userId, filteredCases.Count);
 
                 var jsonOptions = new JsonSerializerOptions
                 {
@@ -507,7 +532,7 @@ namespace FlowFlex.Application.Services.OW
                 var allStageIds = new HashSet<long>();
 
                 // First pass: collect all stage IDs
-                foreach (var onboarding in activeCases)
+                foreach (var onboarding in filteredCases)
                 {
                     if (string.IsNullOrEmpty(onboarding.StagesProgressJson))
                         continue;
@@ -541,7 +566,7 @@ namespace FlowFlex.Application.Services.OW
                 var stageDict = stages.ToDictionary(s => s.Id, s => s);
 
                 // Second pass: extract deadlines
-                foreach (var onboarding in activeCases)
+                foreach (var onboarding in filteredCases)
                 {
                     if (string.IsNullOrEmpty(onboarding.StagesProgressJson))
                         continue;
@@ -633,7 +658,10 @@ namespace FlowFlex.Application.Services.OW
                 o.IsActive && o.IsValid && 
                 (o.Status == "Started" || o.Status == "InProgress" || o.Status == "Active") &&
                 (!filterByTeam || o.CurrentTeam == team));
-            return cases.Count;
+            
+            // Apply permission filter
+            var filteredCases = await FilterCasesByPermissionAsync(cases);
+            return filteredCases.Count;
         }
 
         private async Task<int> GetActiveCasesCountAtDateAsync(DateTimeOffset date, string? team)
@@ -645,7 +673,10 @@ namespace FlowFlex.Application.Services.OW
                 o.StartDate <= date &&
                 (o.ActualCompletionDate == null || o.ActualCompletionDate > date) &&
                 (!filterByTeam || o.CurrentTeam == team));
-            return cases.Count;
+            
+            // Apply permission filter
+            var filteredCases = await FilterCasesByPermissionAsync(cases);
+            return filteredCases.Count;
         }
 
         private async Task<int> GetCompletedCasesCountAsync(DateTimeOffset startDate, DateTimeOffset endDate, string? team)
@@ -657,7 +688,10 @@ namespace FlowFlex.Application.Services.OW
                 o.ActualCompletionDate >= startDate &&
                 o.ActualCompletionDate <= endDate &&
                 (!filterByTeam || o.CurrentTeam == team));
-            return cases.Count;
+            
+            // Apply permission filter
+            var filteredCases = await FilterCasesByPermissionAsync(cases);
+            return filteredCases.Count;
         }
 
         private async Task<int> GetOverdueTasksCountAsync(string? team)
@@ -695,14 +729,17 @@ namespace FlowFlex.Application.Services.OW
                 o.StartDate.HasValue &&
                 (!filterByTeam || o.CurrentTeam == team));
 
-            if (!completedCases.Any())
+            // Apply permission filter
+            var filteredCases = await FilterCasesByPermissionAsync(completedCases);
+
+            if (!filteredCases.Any())
                 return 0;
 
-            var totalDays = completedCases
+            var totalDays = filteredCases
                 .Where(c => c.StartDate.HasValue && c.ActualCompletionDate.HasValue)
                 .Sum(c => (c.ActualCompletionDate!.Value - c.StartDate!.Value).TotalDays);
 
-            return Math.Round((decimal)(totalDays / completedCases.Count), 0);
+            return Math.Round((decimal)(totalDays / filteredCases.Count), 0);
         }
 
         private StatisticItemDto CreateStatisticItem(decimal currentValue, decimal previousValue, bool increaseIsPositive, string? suffix = null)
@@ -822,6 +859,195 @@ namespace FlowFlex.Application.Services.OW
                 <= 7 => "thisWeek",
                 _ => "upcoming"
             };
+        }
+
+        /// <summary>
+        /// Filter cases by permission (in-memory check)
+        /// </summary>
+        private async Task<List<Onboarding>> FilterCasesByPermissionAsync(List<Onboarding> cases)
+        {
+            if (cases == null || !cases.Any())
+            {
+                return new List<Onboarding>();
+            }
+
+            // Admin bypass - return all cases
+            if (_permissionHelpers.HasAdminPrivileges())
+            {
+                _logger.LogDebug("User has admin privileges - returning all {Count} cases", cases.Count);
+                return cases;
+            }
+
+            var userId = long.TryParse(_userContext.UserId, out var uid) ? uid : 0;
+            var userTeamIds = _userContext.UserTeams?.GetAllTeamIds() ?? new List<long>();
+            var userIdString = userId.ToString();
+
+            // Load all workflows for permission check (batch load to avoid N+1)
+            var workflowIds = cases.Select(c => c.WorkflowId).Distinct().ToList();
+            var workflows = await _workflowRepository.GetListAsync(w => workflowIds.Contains(w.Id));
+            var workflowDict = workflows.ToDictionary(w => w.Id, w => w);
+
+            var filteredCases = new List<Onboarding>();
+
+            foreach (var entity in cases)
+            {
+                var workflow = workflowDict.GetValueOrDefault(entity.WorkflowId);
+                if (CheckCaseViewPermissionInMemory(entity, workflow, userId, userTeamIds, userIdString))
+                {
+                    filteredCases.Add(entity);
+                }
+            }
+
+            _logger.LogDebug("Permission filter: {Original} cases -> {Filtered} cases", cases.Count, filteredCases.Count);
+            return filteredCases;
+        }
+
+        /// <summary>
+        /// Check Case view permission in memory (no DB queries)
+        /// Mirrors the logic from CasePermissionService.CheckCasePermissionAsync
+        /// </summary>
+        private bool CheckCaseViewPermissionInMemory(
+            Onboarding entity,
+            Workflow? workflow,
+            long userId,
+            List<long> userTeamIds,
+            string userIdString)
+        {
+            // Step 1: Check Ownership (owner has full access)
+            if (entity.Ownership.HasValue && entity.Ownership.Value == userId)
+            {
+                return true;
+            }
+
+            // Step 2: In Public mode, inherit Workflow permissions
+            if (entity.ViewPermissionMode == ViewPermissionModeEnum.Public)
+            {
+                if (workflow == null)
+                {
+                    return false;
+                }
+                return CheckWorkflowViewPermissionInMemory(workflow, userId, userTeamIds);
+            }
+
+            // Step 3: Check Case-specific view permissions (non-Public modes)
+            return CheckCaseViewPermissionBySubjectType(entity, userTeamIds, userIdString);
+        }
+
+        /// <summary>
+        /// Check Workflow view permission in memory
+        /// </summary>
+        private bool CheckWorkflowViewPermissionInMemory(Workflow workflow, long userId, List<long> userTeamIds)
+        {
+            if (workflow.ViewPermissionMode == ViewPermissionModeEnum.Public)
+            {
+                return true;
+            }
+
+            var userTeamStrings = userTeamIds.Select(t => t.ToString()).ToList();
+
+            if (workflow.ViewPermissionMode == ViewPermissionModeEnum.VisibleToTeams)
+            {
+                if (string.IsNullOrWhiteSpace(workflow.ViewTeams))
+                {
+                    return false;
+                }
+                var viewTeams = ParseJsonArraySafe(workflow.ViewTeams);
+                return userTeamStrings.Any(ut => viewTeams.Contains(ut, StringComparer.OrdinalIgnoreCase));
+            }
+
+            if (workflow.ViewPermissionMode == ViewPermissionModeEnum.InvisibleToTeams)
+            {
+                if (string.IsNullOrWhiteSpace(workflow.ViewTeams))
+                {
+                    return true; // Empty blacklist = everyone can view
+                }
+                var viewTeams = ParseJsonArraySafe(workflow.ViewTeams);
+                return !userTeamStrings.Any(ut => viewTeams.Contains(ut, StringComparer.OrdinalIgnoreCase));
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// Check Case view permission based on SubjectType (Team or User)
+        /// </summary>
+        private bool CheckCaseViewPermissionBySubjectType(
+            Onboarding entity,
+            List<long> userTeamIds,
+            string userIdString)
+        {
+            var userTeamStrings = userTeamIds.Select(t => t.ToString()).ToList();
+
+            if (entity.ViewPermissionMode == ViewPermissionModeEnum.VisibleToTeams)
+            {
+                if (entity.ViewPermissionSubjectType == PermissionSubjectTypeEnum.Team)
+                {
+                    if (string.IsNullOrWhiteSpace(entity.ViewTeams))
+                    {
+                        return false;
+                    }
+                    var viewTeams = ParseJsonArraySafe(entity.ViewTeams);
+                    return userTeamStrings.Any(ut => viewTeams.Contains(ut, StringComparer.OrdinalIgnoreCase));
+                }
+                else
+                {
+                    if (string.IsNullOrWhiteSpace(entity.ViewUsers))
+                    {
+                        return false;
+                    }
+                    var viewUsers = ParseJsonArraySafe(entity.ViewUsers);
+                    return viewUsers.Contains(userIdString, StringComparer.OrdinalIgnoreCase);
+                }
+            }
+
+            if (entity.ViewPermissionMode == ViewPermissionModeEnum.InvisibleToTeams)
+            {
+                if (entity.ViewPermissionSubjectType == PermissionSubjectTypeEnum.Team)
+                {
+                    if (string.IsNullOrWhiteSpace(entity.ViewTeams))
+                    {
+                        return true; // Empty blacklist = everyone can view
+                    }
+                    var viewTeams = ParseJsonArraySafe(entity.ViewTeams);
+                    return !userTeamStrings.Any(ut => viewTeams.Contains(ut, StringComparer.OrdinalIgnoreCase));
+                }
+                else
+                {
+                    if (string.IsNullOrWhiteSpace(entity.ViewUsers))
+                    {
+                        return true;
+                    }
+                    var viewUsers = ParseJsonArraySafe(entity.ViewUsers);
+                    return !viewUsers.Contains(userIdString, StringComparer.OrdinalIgnoreCase);
+                }
+            }
+
+            if (entity.ViewPermissionMode == ViewPermissionModeEnum.Private)
+            {
+                return false; // Owner check is handled above
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// Parse JSON array safely
+        /// </summary>
+        private List<string> ParseJsonArraySafe(string? json)
+        {
+            if (string.IsNullOrWhiteSpace(json))
+            {
+                return new List<string>();
+            }
+
+            try
+            {
+                return JsonSerializer.Deserialize<List<string>>(json) ?? new List<string>();
+            }
+            catch
+            {
+                return new List<string>();
+            }
         }
 
         #endregion

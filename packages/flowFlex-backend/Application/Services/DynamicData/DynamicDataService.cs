@@ -286,6 +286,10 @@ public class DynamicDataService : IBusinessDataService, IPropertyService, IScope
         if (existing == null)
             throw new CRMException(ErrorCodeEnum.NotFound, "Property not found");
 
+        // System defined property cannot be modified
+        if (existing.IsSystemDefine)
+            throw new CRMException(ErrorCodeEnum.BusinessError, "System defined property cannot be modified");
+
         // Check field name uniqueness (excluding current)
         if (await _defineFieldRepository.ExistsFieldNameAsync(defineFieldDto.FieldName, defineFieldDto.Id))
             throw new CRMException(ErrorCodeEnum.BusinessError, 

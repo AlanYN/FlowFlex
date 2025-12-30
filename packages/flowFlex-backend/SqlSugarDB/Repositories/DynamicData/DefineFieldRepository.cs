@@ -98,7 +98,8 @@ public class DefineFieldRepository : BaseRepository<DefineField>, IDefineFieldRe
             "datatype" => isAsc ? query.OrderBy(x => x.DataType) : query.OrderByDescending(x => x.DataType),
             "createdate" => isAsc ? query.OrderBy(x => x.CreateDate) : query.OrderByDescending(x => x.CreateDate),
             "modifydate" => isAsc ? query.OrderBy(x => x.ModifyDate) : query.OrderByDescending(x => x.ModifyDate),
-            _ => query.OrderBy(x => x.Sort)
+            "sort" => isAsc ? query.OrderBy(x => x.Sort) : query.OrderByDescending(x => x.Sort),
+            _ => query.OrderByDescending(x => x.CreateDate)
         };
     }
 
