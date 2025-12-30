@@ -122,10 +122,10 @@
 			</div>
 		</div>
 
-		<!-- 新建字段弹窗 -->
+		<!-- 新建/编辑字段弹窗 -->
 		<el-dialog
 			v-model="dialogVisible"
-			:width="500"
+			:width="600"
 			destroy-on-close
 			:show-close="true"
 			:close-on-click-modal="false"
@@ -147,43 +147,7 @@
 				</div>
 			</template>
 
-			<el-form ref="formRef" :model="formData" :rules="formRules" label-position="top">
-				<el-form-item label="Field Name" prop="fieldName">
-					<el-input
-						v-model="formData.fieldName"
-						placeholder="e.g., Customer Email"
-						clearable
-						class="w-full"
-					/>
-				</el-form-item>
-
-				<el-form-item label="Description" prop="description">
-					<el-input
-						v-model="formData.description"
-						type="textarea"
-						:rows="3"
-						placeholder="Describe what this field is used for..."
-						clearable
-						class="w-full"
-					/>
-				</el-form-item>
-
-				<el-form-item label="Field Type" prop="dataType">
-					<el-select
-						v-model="formData.dataType"
-						placeholder="Select field type"
-						class="w-full"
-						filterable
-					>
-						<el-option
-							v-for="type in fieldsTypeEnum"
-							:key="type.key"
-							:label="type.value"
-							:value="type.key"
-						/>
-					</el-select>
-				</el-form-item>
-			</el-form>
+			<DynamicFieldForm ref="formRef" :is-edit="!!handleFieldId" />
 
 			<template #footer>
 				<div class="dialog-footer">
@@ -198,7 +162,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref, reactive } from 'vue';
+import { onMounted, ref } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import PageHeader from '@/components/global/PageHeader/index.vue';
 import { Plus, Download, Delete, Lock } from '@element-plus/icons-vue';
@@ -210,13 +174,14 @@ import {
 	deleteDynamicField,
 } from '@/apis/global/dyanmicField';
 import DynamicFilter from './components/dynamicFilter.vue';
+import DynamicFieldForm from './components/DynamicFieldForm.vue';
 import { projectTenMinutesSsecondsDate, tableMaxHeight } from '@/settings/projectSetting';
-import { fieldsTypeEnum, propertyTypeEnum } from '@/enums/appEnum';
+import { fieldsTypeEnum } from '@/enums/appEnum';
 import { useI18n } from '@/hooks/useI18n';
 import { timeZoneConvert } from '@/hooks/time';
 import CustomerPagination from '@/components/global/u-pagination/index.vue';
 
-import { DynamicList, CreateDynamicFieldParams } from '#/dynamic';
+import { DynamicList } from '#/dynamic';
 
 const { t } = useI18n();
 
@@ -230,22 +195,9 @@ const searchParams = ref<any>({});
 
 // 弹窗相关状态
 const dialogVisible = ref(false);
-const formRef = ref();
+const formRef = ref<InstanceType<typeof DynamicFieldForm>>();
 const saving = ref(false);
-
-// 表单数据 - 使用创建专用类型
-const formData = reactive<CreateDynamicFieldParams>({
-	fieldName: '',
-	displayName: '',
-	description: '',
-	dataType: propertyTypeEnum.SingleLineText,
-});
-
-// 表单验证规则
-const formRules = {
-	fieldName: [{ required: true, message: 'Field Name is required', trigger: 'blur' }],
-	dataType: [{ required: true, message: 'Field Type is required', trigger: 'change' }],
-};
+const handleFieldId = ref('');
 
 const handleExport = async () => {
 	try {
@@ -306,26 +258,14 @@ const handleExport = async () => {
 
 // 打开新建字段弹窗
 const handleNewField = () => {
-	resetForm();
+	handleFieldId.value = '';
 	dialogVisible.value = true;
 };
 
 // 取消弹窗
 const handleCancel = () => {
 	dialogVisible.value = false;
-	resetForm();
-};
-
-// 重置表单
-const resetForm = () => {
-	formData.displayName = '';
-	formData.fieldName = '';
-	formData.description = '';
-	formData.dataType = propertyTypeEnum.SingleLineText;
 	handleFieldId.value = '';
-	if (formRef.value) {
-		formRef.value.clearValidate();
-	}
 };
 
 // 保存字段
@@ -336,27 +276,19 @@ const handleSave = async () => {
 		await formRef.value.validate();
 		saving.value = true;
 
-		// TODO: 调用创建字段的 API
+		const formData = formRef.value.getFormData();
 		const res = handleFieldId.value
-			? await updateDynamicField(handleFieldId.value, {
-					...formData,
-					displayName: formData.fieldName,
-			  })
-			: await createDynamicField({
-					...formData,
-					displayName: formData.fieldName,
-			  });
+			? await updateDynamicField(handleFieldId.value, formData)
+			: await createDynamicField(formData);
+
 		if (res.code == '200') {
 			ElMessage.success(t('sys.api.operationSuccess'));
+			dialogVisible.value = false;
+			handleFieldId.value = '';
+			dynamicList();
 		} else {
 			ElMessage.error(res.msg || t('sys.api.operationFailed'));
 		}
-
-		dialogVisible.value = false;
-		resetForm();
-
-		// 重新加载列表
-		dynamicList();
 	} finally {
 		saving.value = false;
 	}
@@ -406,13 +338,14 @@ const handleFilterSearch = (params: any) => {
 	dynamicList();
 };
 
-const handleFieldId = ref('');
+// 编辑字段
 const handleEdit = (row: DynamicList) => {
 	handleFieldId.value = row.id;
-	formData.fieldName = row.fieldName;
-	formData.description = row.description;
-	formData.dataType = row.dataType;
 	dialogVisible.value = true;
+	// 等待弹窗渲染后设置表单数据
+	setTimeout(() => {
+		formRef.value?.setFormData(row);
+	}, 0);
 };
 
 const hanDelete = (row: DynamicList) => {

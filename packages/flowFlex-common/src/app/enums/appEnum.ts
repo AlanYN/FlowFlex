@@ -70,14 +70,10 @@ export const fieldsTypeEnum = [
 	{ key: 11, value: 'Single-line text' },
 	{ key: 12, value: 'Multiline text' },
 	{ key: 13, value: 'Number' },
-	{ key: 15, value: 'String list' },
 	{ key: 16, value: 'File' },
-	{ key: 17, value: 'File list' },
 	{ key: 19, value: 'People' },
 	{ key: 20, value: 'Data connection' },
-	{ key: 22, value: 'Image' },
 	{ key: 23, value: 'Time line' },
-	{ key: 24, value: 'Json' },
 ];
 
 export enum propertyTypeEnum {
@@ -89,14 +85,10 @@ export enum propertyTypeEnum {
 	SingleLineText = 11,
 	MultilineText = 12,
 	Number = 13,
-	StringList = 15,
 	File = 16,
-	FileList = 17,
 	Pepole = 19,
 	Connection = 20,
-	Image = 22,
 	TimeLine = 23,
-	Json = 24,
 }
 
 export const booleanEnum = [
