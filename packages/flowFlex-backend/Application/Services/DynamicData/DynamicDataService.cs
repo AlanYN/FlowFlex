@@ -547,6 +547,15 @@ public class DynamicDataService : IBusinessDataService, IPropertyService, IScope
         }
     }
 
+    public async Task<List<DefineFieldDto>> GetPropertiesByIdsAsync(IEnumerable<long> ids)
+    {
+        if (ids == null || !ids.Any())
+            return new List<DefineFieldDto>();
+
+        var fields = await _defineFieldRepository.GetByIdsAsync(ids);
+        return fields.Select(MapToDefineFieldDto).ToList();
+    }
+
     /// <summary>
     /// Infer data type from field name
     /// </summary>

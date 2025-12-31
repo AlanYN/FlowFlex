@@ -43,4 +43,9 @@ public interface IDefineFieldRepository : IBaseRepository<DefineField>
     /// Batch update field sort order
     /// </summary>
     Task BatchUpdateSortAsync(Dictionary<long, int> fieldSorts);
+
+    /// <summary>
+    /// Get fields by IDs
+    /// </summary>
+    Task<List<DefineField>> GetByIdsAsync(IEnumerable<long> ids);
 }

@@ -62,4 +62,9 @@ public interface IPropertyService
     /// Initialize default properties from static-field.json
     /// </summary>
     Task<bool> InitializeDefaultPropertiesAsync();
+
+    /// <summary>
+    /// Get properties by IDs
+    /// </summary>
+    Task<List<DefineFieldDto>> GetPropertiesByIdsAsync(IEnumerable<long> ids);
 }

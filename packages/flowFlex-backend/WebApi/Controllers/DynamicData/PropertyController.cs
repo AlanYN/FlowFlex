@@ -103,6 +103,22 @@ public class PropertyController : Controllers.ControllerBase
     }
 
     /// <summary>
+    /// Get properties by IDs (batch query)
+    /// </summary>
+    /// <param name="request">Batch query request containing property IDs</param>
+    [HttpPost("batch")]
+    [ProducesResponseType<SuccessResponse<List<DefineFieldDto>>>((int)HttpStatusCode.OK)]
+    public async Task<IActionResult> GetByIds([FromBody] BatchGetPropertiesRequest request)
+    {
+        if (request?.Ids == null || !request.Ids.Any())
+        {
+            return Success(new List<DefineFieldDto>());
+        }
+        var data = await _propertyService.GetPropertiesByIdsAsync(request.Ids);
+        return Success(data);
+    }
+
+    /// <summary>
     /// Get property by name
     /// </summary>
     /// <param name="name">Property name</param>
@@ -206,4 +222,15 @@ public class MoveToGroupRequest
     /// Target group ID
     /// </summary>
     public long GroupId { get; set; }
+}
+
+/// <summary>
+/// Batch get properties request
+/// </summary>
+public class BatchGetPropertiesRequest
+{
+    /// <summary>
+    /// Property IDs to query
+    /// </summary>
+    public long[] Ids { get; set; } = Array.Empty<long>();
 }
