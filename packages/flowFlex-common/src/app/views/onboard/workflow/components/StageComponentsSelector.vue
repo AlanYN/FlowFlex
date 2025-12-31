@@ -6,7 +6,7 @@
 			<el-scrollbar ref="scrollbarRefLeft" class="stage-components-selector">
 				<!-- Required Fields -->
 				<div class="space-y-2">
-					<label class="text-base font-bold">Required Fields</label>
+					<label class="text-base font-bold">Fields</label>
 					<p class="text-sm">Select fields that are required for this stage</p>
 					<div class="border rounded-xl">
 						<div class="p-2 border-b">
@@ -837,7 +837,7 @@ const updateItemsDisplay = () => {
 					newSelectedItems.push({
 						...component,
 						id: component.key,
-						name: 'Required Fields',
+						name: 'Fields',
 						description: `${component.staticFields.length} fields selected`,
 						type: 'fields',
 						order: component.order,

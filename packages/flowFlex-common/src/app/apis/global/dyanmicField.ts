@@ -48,3 +48,9 @@ export function updateDynamicField(
 export function exportDynamicFields(params?: any): Promise<any> {
 	return defHttp.get({ url: `${Api().fieldsList}/export-excel`, params, responseType: 'blob' });
 }
+
+export function batchIdsDynamicFields(params: {
+	ids: string[];
+}): Promise<DynamicApiResponse<DynamicList[]>> {
+	return defHttp.post({ url: `${Api().fieldsList}/batch `, params });
+}

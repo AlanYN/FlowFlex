@@ -98,20 +98,20 @@ const phoneNumber = computed({
 const phoneCode = computed({
 	get() {
 		// 优先使用本地存储的区号
-		if (localPhoneCode.value) return localPhoneCode.value;
+		if (localPhoneCode.value) return localPhoneCode?.value || '';
 		// 其次从modelValue中获取
-		if (!props.modelValue) return null;
+		if (!props.modelValue) return '';
 		// 如果值中包含分隔符，说明有可能有区号
 		if (props.modelValue.includes(props.separator)) {
 			const [codeId] = props.modelValue.split(props.separator);
-			return codeId || null;
+			return codeId || '';
 		}
 		// 检查是否以+开头（表示有区号）
 		else if (props.modelValue.startsWith('+')) {
 			return props.modelValue;
 		}
 		// 否则没有区号
-		return null;
+		return '';
 	},
 	set(val: string | null | undefined) {
 		// 保存到本地变量
@@ -214,12 +214,6 @@ const handleChange = () => {
 	emit('change');
 };
 </script>
-
-<style lang="scss" scoped>
-:deep(.el-input .el-input__wrapper) {
-	@apply rounded-xl;
-}
-</style>
 
 <style lang="scss" scoped>
 :deep(.el-select__wrapper) {

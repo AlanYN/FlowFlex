@@ -254,7 +254,7 @@
 									class="stage-components-section"
 									v-if="getSelectedStaticFields(element).length > 0"
 								>
-									<div class="text-sm font-medium mb-3">Required Fields</div>
+									<div class="text-sm font-medium mb-3">Fields</div>
 									<div class="required-fields-tags">
 										<span
 											v-for="fieldName in getSelectedStaticFields(element)"
@@ -594,7 +594,7 @@ const getStageComponents = (stage: Stage) => {
 				case 'fields':
 					componentList.push({
 						id: `${stage.id}-fields`,
-						name: 'Required Fields',
+						name: 'Fields',
 						type: 'fields',
 					});
 					break;

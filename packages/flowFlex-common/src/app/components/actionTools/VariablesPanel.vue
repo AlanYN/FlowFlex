@@ -205,7 +205,7 @@
 								<el-icon class="text-red-500" size="16">
 									<Flag />
 								</el-icon>
-								<h5 class="font-medium category-header-title">Required Fields</h5>
+								<h5 class="font-medium category-header-title">Fields</h5>
 							</div>
 							<div class="variable-list">
 								<div

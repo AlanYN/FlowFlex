@@ -800,8 +800,10 @@ const loadStaticFieldValues = async () => {
 		if (response.code === '200' && response.data && Array.isArray(response.data)) {
 			// 接口返回的是数组格式的静态字段数据
 			// 仅传递给 StaticForm 组件处理
-			staticFormRefs.value.forEach((formRef) => {
-				formRef.setFieldValues(response.data);
+			nextTick(() => {
+				staticFormRefs.value.forEach((formRef) => {
+					formRef.setFieldValues(response.data);
+				});
 			});
 		}
 	} catch (error) {

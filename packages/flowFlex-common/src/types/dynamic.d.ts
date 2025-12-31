@@ -120,6 +120,8 @@ export interface DynamicList {
 	isDisplayField: boolean;
 	modifyBy: string;
 	modifyDate: string;
+	// 是否必填（由 stage 设置）
+	isRequired?: boolean;
 	// 格式化配置
 	format?: DynamicFieldFormat;
 	// 验证配置
