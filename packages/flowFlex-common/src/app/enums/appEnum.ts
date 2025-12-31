@@ -72,8 +72,6 @@ export const fieldsTypeEnum = [
 	{ key: 13, value: 'Number' },
 	{ key: 16, value: 'File' },
 	{ key: 19, value: 'People' },
-	{ key: 20, value: 'Data connection' },
-	{ key: 23, value: 'Time line' },
 ];
 
 export enum propertyTypeEnum {
@@ -87,8 +85,6 @@ export enum propertyTypeEnum {
 	Number = 13,
 	File = 16,
 	Pepole = 19,
-	Connection = 20,
-	TimeLine = 23,
 }
 
 export const booleanEnum = [

@@ -39,24 +39,34 @@
 			</el-select>
 		</el-form-item>
 
+		<el-form-item label="Required Field Message">
+			<el-input
+				v-model="formData.fieldValidate!.message"
+				placeholder="e.g., Please enter your email address"
+			/>
+		</el-form-item>
+
 		<!-- 数字类型配置 -->
 		<template v-if="formData.dataType === propertyTypeEnum.Number">
 			<div class="section-title">Number Settings</div>
-			<div class="grid grid-cols-2 gap-4">
-				<el-form-item label="Decimal Places">
-					<el-input-number
-						v-model="formData.format!.decimalPlaces"
-						:min="0"
-						:max="10"
-						class="w-full"
-					/>
+			<div class="grid grid-cols-3 gap-4">
+				<el-form-item label="Allow Decimal">
+					<el-switch v-model="formData.additionalInfo!.isFloat" />
 				</el-form-item>
-				<el-form-item label="Format Pattern">
-					<el-input v-model="formData.format!.pattern" placeholder="#,##0.00" />
+				<el-form-item label="Allow Negative">
+					<el-switch v-model="formData.additionalInfo!.allowNegative" />
+				</el-form-item>
+				<el-form-item label="Financial Format">
+					<el-switch v-model="formData.additionalInfo!.isFinancial" />
 				</el-form-item>
 			</div>
-			<el-form-item label="Max Value">
-				<el-input-number v-model="formData.fieldValidate!.maxValue" class="w-full" />
+			<el-form-item v-if="formData.additionalInfo!.isFloat" label="Decimal Places">
+				<InputNumber
+					v-model="formData.format!.decimalPlaces"
+					:is-foloat="false"
+					:min-number="0"
+					class="w-full"
+				/>
 			</el-form-item>
 		</template>
 
@@ -107,18 +117,22 @@
 			<div class="section-title">Text Settings</div>
 			<div class="grid grid-cols-2 gap-4">
 				<el-form-item label="Max Length">
-					<el-input-number
+					<InputNumber
 						v-model="formData.fieldValidate!.maxLength"
-						:min="1"
+						:is-foloat="false"
+						:min-number="1"
 						class="w-full"
+						:property="{
+							clearable: true,
+						}"
 					/>
 				</el-form-item>
 				<template v-if="formData.dataType === propertyTypeEnum.MultilineText">
 					<el-form-item label="Rows">
-						<el-input-number
+						<InputNumber
 							v-model="formData.additionalInfo!.rows"
-							:min="2"
-							:max="20"
+							:is-foloat="false"
+							:min-number="2"
 							class="w-full"
 						/>
 					</el-form-item>
@@ -186,19 +200,19 @@
 			<div class="section-title">File Settings</div>
 			<div class="grid grid-cols-2 gap-4">
 				<el-form-item label="Max Size (MB)">
-					<el-input-number
+					<InputNumber
 						v-model="maxSizeMB"
-						:min="1"
-						:max="100"
+						:is-foloat="false"
+						:min-number="1"
 						class="w-full"
-						@change="updateMaxSize"
+						@field-blur="updateMaxSize"
 					/>
 				</el-form-item>
 				<el-form-item label="Max Count">
-					<el-input-number
+					<InputNumber
 						v-model="formData.additionalInfo!.maxCount"
-						:min="1"
-						:max="50"
+						:is-foloat="false"
+						:min-number="1"
 						class="w-full"
 					/>
 				</el-form-item>
@@ -231,21 +245,11 @@
 				</el-checkbox>
 			</el-form-item>
 		</template>
-
-		<!-- 通用验证消息 -->
-		<template v-if="showValidationMessage">
-			<el-form-item label="Validation Message">
-				<el-input
-					v-model="formData.fieldValidate!.message"
-					placeholder="Custom error message"
-				/>
-			</el-form-item>
-		</template>
 	</el-form>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, watch } from 'vue';
+import { ref, reactive, watch } from 'vue';
 import { Plus, Delete } from '@element-plus/icons-vue';
 import { fieldsTypeEnum, propertyTypeEnum } from '@/enums/appEnum';
 import {
@@ -253,6 +257,7 @@ import {
 	projectTenMinutesSsecondsDate,
 	projectTenMinuteDate,
 } from '@/settings/projectSetting';
+import InputNumber from '@/components/form/InputNumber/index.vue';
 import type { CreateDynamicFieldParams, DynamicList } from '#/dynamic';
 
 defineProps<{
@@ -267,7 +272,7 @@ const getDefaultFormData = (): CreateDynamicFieldParams => ({
 	description: '',
 	dataType: propertyTypeEnum.SingleLineText,
 	format: {},
-	fieldValidate: {},
+	fieldValidate: { maxLength: 100 },
 	additionalInfo: {},
 	dropdownItems: [],
 });
@@ -304,9 +309,9 @@ watch(
 	{ immediate: true }
 );
 
-const updateMaxSize = (val: number | undefined) => {
-	if (formData.additionalInfo && val !== undefined) {
-		formData.additionalInfo.maxSize = val * 1024 * 1024;
+const updateMaxSize = () => {
+	if (formData.additionalInfo && maxSizeMB.value) {
+		formData.additionalInfo.maxSize = Number(maxSizeMB.value) * 1024 * 1024;
 	}
 };
 
@@ -328,25 +333,21 @@ const defaultExtensions = [
 	'.rar',
 ];
 
-// 是否显示验证消息
-const showValidationMessage = computed(() => {
-	return [
-		propertyTypeEnum.Number,
-		propertyTypeEnum.SingleLineText,
-		propertyTypeEnum.MultilineText,
-	].includes(formData.dataType);
-});
-
 // 类型切换时重置配置
 const handleDataTypeChange = () => {
 	formData.format = {};
-	formData.fieldValidate = {};
+	formData.fieldValidate = { message: formData.fieldValidate?.message }; // 保留 message
 	formData.additionalInfo = {};
 	formData.dropdownItems = [];
 
 	switch (formData.dataType) {
 		case propertyTypeEnum.Number:
-			formData.format = { decimalPlaces: 2, pattern: '#,##0.00' };
+			formData.format = { decimalPlaces: 2 };
+			formData.additionalInfo = {
+				isFloat: false,
+				allowNegative: false,
+				isFinancial: false,
+			};
 			break;
 		case propertyTypeEnum.DatePicker:
 			formData.format = { dateFormat: projectDate };
@@ -358,7 +359,11 @@ const handleDataTypeChange = () => {
 				displayStyle: 'switch',
 			};
 			break;
+		case propertyTypeEnum.SingleLineText:
+			formData.fieldValidate = { ...formData.fieldValidate, maxLength: 100 };
+			break;
 		case propertyTypeEnum.MultilineText:
+			formData.fieldValidate = { ...formData.fieldValidate, maxLength: 5000 };
 			formData.additionalInfo = { rows: 4 };
 			break;
 		case propertyTypeEnum.DropdownSelect:
@@ -473,7 +478,16 @@ const setFormData = (data: DynamicList) => {
 
 // 重置表单
 const resetForm = () => {
-	Object.assign(formData, getDefaultFormData());
+	const defaultData = getDefaultFormData();
+	formData.fieldName = defaultData.fieldName;
+	formData.displayName = defaultData.displayName;
+	formData.description = defaultData.description;
+	formData.dataType = defaultData.dataType;
+	formData.format = { ...defaultData.format };
+	formData.fieldValidate = { ...defaultData.fieldValidate };
+	formData.additionalInfo = { ...defaultData.additionalInfo };
+	formData.dropdownItems = [];
+	dropdownError.value = '';
 	formRef.value?.clearValidate();
 };
 

@@ -37,6 +37,10 @@ export interface DynamicDropdownItem {
 
 // 扩展配置 (additionalInfo)
 export interface DynamicFieldAdditionalInfo {
+	// Number
+	isFloat?: boolean;
+	allowNegative?: boolean;
+	isFinancial?: boolean;
 	// DateTime
 	precision?: DatePrecision;
 	showTime?: boolean;
@@ -105,7 +109,6 @@ export interface DynamicList {
 	description: string;
 	dataType: number;
 	isSystemDefine: boolean;
-	isRequired: boolean;
 	isHidden: boolean;
 	allowEdit: boolean;
 	sort: number;
