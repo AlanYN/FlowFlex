@@ -14,7 +14,7 @@ using FlowFlex.Domain.Shared;
 using FlowFlex.Infrastructure.Services;
 using FlowFlex.Application.Contracts.IServices;
 
-namespace FlowFlex.Application.Services.OW
+namespace FlowFlex.Application.Services.MessageCenter
 {
     /// <summary>
     /// Email service implementation

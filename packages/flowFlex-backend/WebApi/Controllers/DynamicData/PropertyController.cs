@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
 using System.ComponentModel.DataAnnotations;
 using FlowFlex.Application.Contracts.IServices.DynamicData;
+using FlowFlex.Application.Contracts.Dtos.DynamicData;
 using FlowFlex.Domain.Shared.Models;
 using FlowFlex.Domain.Shared.Models.DynamicData;
 using Item.Internal.StandardApi.Response;
@@ -206,31 +207,4 @@ public class PropertyController : Controllers.ControllerBase
         var result = await _propertyService.InitializeDefaultPropertiesAsync();
         return Success(result);
     }
-}
-
-/// <summary>
-/// Move to group request
-/// </summary>
-public class MoveToGroupRequest
-{
-    /// <summary>
-    /// Property IDs to move
-    /// </summary>
-    public long[] PropertyIds { get; set; } = Array.Empty<long>();
-
-    /// <summary>
-    /// Target group ID
-    /// </summary>
-    public long GroupId { get; set; }
-}
-
-/// <summary>
-/// Batch get properties request
-/// </summary>
-public class BatchGetPropertiesRequest
-{
-    /// <summary>
-    /// Property IDs to query
-    /// </summary>
-    public long[] Ids { get; set; } = Array.Empty<long>();
 }

@@ -13,7 +13,7 @@ using FlowFlex.Application.Contracts.Dtos.OW.Message;
 using FlowFlex.Application.Contracts.IServices.OW;
 using FlowFlex.Application.Services.OW.Extensions;
 
-namespace FlowFlex.Application.Services.OW;
+namespace FlowFlex.Application.Services.MessageCenter;
 
 /// <summary>
 /// Outlook integration service using Microsoft Graph API

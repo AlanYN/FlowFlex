@@ -154,12 +154,12 @@ builder.Services.Configure<FileStorageOptions>(builder.Configuration.GetSection(
 builder.Services.Configure<IdentityHubOptions>(builder.Configuration.GetSection("IdmApis"));
 
 // Configure Outlook API options
-builder.Services.Configure<FlowFlex.Application.Services.OW.OutlookOptions>(
-    builder.Configuration.GetSection(FlowFlex.Application.Services.OW.OutlookOptions.SectionName));
+builder.Services.Configure<FlowFlex.Application.Services.MessageCenter.OutlookOptions>(
+    builder.Configuration.GetSection(FlowFlex.Application.Services.MessageCenter.OutlookOptions.SectionName));
 
 // Register HttpClient for OutlookService with connection pooling and retry policy
 builder.Services.AddHttpClient<FlowFlex.Application.Contracts.IServices.OW.IOutlookService, 
-    FlowFlex.Application.Services.OW.OutlookService>("OutlookService", client =>
+    FlowFlex.Application.Services.MessageCenter.OutlookService>("OutlookService", client =>
 {
     client.DefaultRequestHeaders.Add("User-Agent", "FlowFlex-OutlookClient/1.0");
     client.Timeout = TimeSpan.FromSeconds(60);
@@ -473,7 +473,7 @@ builder.Services.AddSingleton<FlowFlex.Infrastructure.Services.IBackgroundTaskQu
 builder.Services.AddHostedService<FlowFlex.Infrastructure.Services.BackgroundTaskService>();
 
 // Register email sync background service
-builder.Services.AddHostedService<FlowFlex.Application.Services.OW.EmailSyncBackgroundService>();
+builder.Services.AddHostedService<FlowFlex.Application.Services.MessageCenter.EmailSyncBackgroundService>();
 
 // Note: Most services are auto-registered via IScopedService/ISingletonService/ITransientService interfaces  
 // Only register services that are not auto-registered or need special configuration

@@ -10,7 +10,7 @@ using FlowFlex.Domain.Shared;
 using FlowFlex.Domain.Shared.Exceptions;
 using FlowFlex.Domain.Shared.Models;
 
-namespace FlowFlex.Application.Services.OW;
+namespace FlowFlex.Application.Services.MessageCenter;
 
 /// <summary>
 /// Message Attachment Service Implementation

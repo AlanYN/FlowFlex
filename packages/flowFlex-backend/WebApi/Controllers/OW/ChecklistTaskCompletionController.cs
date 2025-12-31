@@ -318,25 +318,4 @@ public class ChecklistTaskCompletionController : Controllers.ControllerBase
     }
 }
 
-/// <summary>
-/// Toggle task completion request
-/// </summary>
-public class ToggleTaskCompletionRequest
-{
-    /// <summary>
-    /// Whether the task is completed
-    /// </summary>
-    public bool IsCompleted { get; set; }
-
-    /// <summary>
-    /// Completion notes
-    /// </summary>
-    public string CompletionNotes { get; set; } = string.Empty;
-
-    /// <summary>
-    /// Related files JSON (JSON string of file information array)
-    /// </summary>
-    public string FilesJson { get; set; } = "[]";
-}
-
 

@@ -4,7 +4,7 @@ using Microsoft.Extensions.Logging;
 using FlowFlex.Domain.Repository.OW;
 using FlowFlex.Domain.Shared;
 
-namespace FlowFlex.Application.Services.OW
+namespace FlowFlex.Application.Services.MessageCenter
 {
     /// <summary>
     /// Background service to cleanup invalid messages (IsValid = false)

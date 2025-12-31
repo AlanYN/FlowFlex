@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
 using System.ComponentModel.DataAnnotations;
 using FlowFlex.Application.Contracts.IServices.DynamicData;
+using FlowFlex.Application.Contracts.Dtos.DynamicData;
 using FlowFlex.Domain.Shared.Models.DynamicData;
 using Item.Internal.StandardApi.Response;
 using System.Net;
@@ -145,57 +146,4 @@ public class DynamicDataController : Controllers.ControllerBase
         await _businessDataService.BatchDeleteBusinessDataAsync(ids);
         return Success(true);
     }
-}
-
-/// <summary>
-/// Create business data request
-/// </summary>
-public class CreateBusinessDataRequest
-{
-    /// <summary>
-    /// Field values
-    /// </summary>
-    public List<FieldValueRequest>? Fields { get; set; }
-
-    /// <summary>
-    /// Internal extension data
-    /// </summary>
-    public Newtonsoft.Json.Linq.JObject? InternalData { get; set; }
-}
-
-/// <summary>
-/// Update business data request
-/// </summary>
-public class UpdateBusinessDataRequest
-{
-    /// <summary>
-    /// Field values
-    /// </summary>
-    public List<FieldValueRequest>? Fields { get; set; }
-
-    /// <summary>
-    /// Internal extension data
-    /// </summary>
-    public Newtonsoft.Json.Linq.JObject? InternalData { get; set; }
-}
-
-/// <summary>
-/// Field value request
-/// </summary>
-public class FieldValueRequest
-{
-    /// <summary>
-    /// Field name
-    /// </summary>
-    public string FieldName { get; set; } = string.Empty;
-
-    /// <summary>
-    /// Field value
-    /// </summary>
-    public object? Value { get; set; }
-
-    /// <summary>
-    /// Data type
-    /// </summary>
-    public FlowFlex.Domain.Shared.Enums.DynamicData.DataType DataType { get; set; }
 }

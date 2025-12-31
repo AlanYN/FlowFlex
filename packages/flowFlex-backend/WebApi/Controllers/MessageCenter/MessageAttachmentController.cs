@@ -6,7 +6,7 @@ using FlowFlex.Application.Contracts.Dtos.OW.Message;
 using FlowFlex.Application.Contracts.IServices.OW;
 using Item.Internal.StandardApi.Response;
 
-namespace FlowFlex.WebApi.Controllers.OW;
+namespace FlowFlex.WebApi.Controllers.MessageCenter;
 
 /// <summary>
 /// Message Attachment Controller

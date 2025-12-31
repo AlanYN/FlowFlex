@@ -8,7 +8,7 @@ using FlowFlex.Application.Contracts.IServices.OW;
 using FlowFlex.Domain.Shared.Models;
 using Item.Internal.StandardApi.Response;
 
-namespace FlowFlex.WebApi.Controllers.OW;
+namespace FlowFlex.WebApi.Controllers.MessageCenter;
 
 /// <summary>
 /// Message Center Controller

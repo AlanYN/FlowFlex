@@ -7,6 +7,12 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Remove="Repository\Quote\**" />
+    <EmbeddedResource Remove="Repository\Quote\**" />
+    <None Remove="Repository\Quote\**" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\Domain.Shared\Domain.Shared.csproj" />
   </ItemGroup>
 
@@ -15,10 +21,6 @@
       <GeneratePathProperty>true</GeneratePathProperty>
     </PackageReference>
     <PackageReference Include="SqlSugarCore" Version="5.1.4.159-preview23" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <Folder Include="Repository\Quote\" />
   </ItemGroup>
 
 </Project>

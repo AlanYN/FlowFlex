@@ -6,7 +6,7 @@ using FlowFlex.Domain.Repository.OW;
 using FlowFlex.Domain.Shared;
 using FlowFlex.Domain.Shared.Constants;
 
-namespace FlowFlex.Application.Services.OW;
+namespace FlowFlex.Application.Services.MessageCenter;
 
 /// <summary>
 /// Email sync background service - automatically syncs emails for users with auto-sync enabled

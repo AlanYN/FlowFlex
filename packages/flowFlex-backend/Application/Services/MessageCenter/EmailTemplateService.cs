@@ -8,7 +8,7 @@ using FlowFlex.Domain;
 using FlowFlex.Domain.Shared;
 using Microsoft.Extensions.Logging;
 
-namespace FlowFlex.Application.Services.OW
+namespace FlowFlex.Application.Services.MessageCenter
 {
     /// <summary>
     /// Email template rendering service using embedded resources with simple placeholder replacement.

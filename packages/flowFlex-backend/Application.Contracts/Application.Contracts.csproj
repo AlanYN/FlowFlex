@@ -8,8 +8,14 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Remove="Dtos\Companies\**" />
+    <Compile Remove="Dtos\OW\StageCompletionLog\**" />
     <Compile Remove="Extensions\**" />
+    <EmbeddedResource Remove="Dtos\Companies\**" />
+    <EmbeddedResource Remove="Dtos\OW\StageCompletionLog\**" />
     <EmbeddedResource Remove="Extensions\**" />
+    <None Remove="Dtos\Companies\**" />
+    <None Remove="Dtos\OW\StageCompletionLog\**" />
     <None Remove="Extensions\**" />
   </ItemGroup>
 
@@ -37,8 +43,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="Dtos\Companies\" />
-    <Folder Include="Dtos\OW\StageCompletionLog\" />
     <Folder Include="Dtos\OW\TenantDomainMapping\" />
   </ItemGroup>
 

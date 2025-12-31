@@ -1,7 +1,7 @@
 using System.Text.Json.Serialization;
 using FlowFlex.Application.Contracts.IServices.OW;
 
-namespace FlowFlex.Application.Services.OW;
+namespace FlowFlex.Application.Services.MessageCenter;
 
 /// <summary>
 /// Outlook API configuration options

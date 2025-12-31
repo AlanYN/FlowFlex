@@ -8,7 +8,7 @@ using FlowFlex.Application.Contracts.IServices;
 using FlowFlex.Application.Contracts.IServices.OW;
 using Item.Internal.StandardApi.Response;
 
-namespace FlowFlex.WebApi.Controllers.OW;
+namespace FlowFlex.WebApi.Controllers.MessageCenter;
 
 /// <summary>
 /// Email Binding Controller - Manages Outlook account binding

@@ -11,7 +11,7 @@ using FlowFlex.Domain.Shared.Constants;
 using FlowFlex.Domain.Shared.Exceptions;
 using FlowFlex.Domain.Shared.Models;
 
-namespace FlowFlex.Application.Services.OW;
+namespace FlowFlex.Application.Services.MessageCenter;
 
 /// <summary>
 /// Email Binding Service Implementation

@@ -17,7 +17,7 @@ using FlowFlex.Domain.Shared.Exceptions;
 using FlowFlex.Domain.Shared.Models;
 using MessageType = FlowFlex.Domain.Shared.Enums.MessageType;
 
-namespace FlowFlex.Application.Services.OW;
+namespace FlowFlex.Application.Services.MessageCenter;
 
 /// <summary>
 /// Message Center Service Implementation
