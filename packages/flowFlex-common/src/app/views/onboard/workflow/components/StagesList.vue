@@ -691,7 +691,7 @@ const getSelectedStaticFields = (stage: Stage) => {
 		return [];
 	}
 
-	return fieldsComponent.staticFields.map((field) => getFieldLabel(field));
+	return fieldsComponent.staticFields.map((field) => getFieldLabel(field?.id));
 };
 
 // 获取Portal权限图标

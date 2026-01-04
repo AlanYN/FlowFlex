@@ -603,10 +603,7 @@ const editForm = reactive({
 // 计算属性
 const onboardingId = computed(() => {
 	const id = route.query.onboardingId;
-	if (!id || typeof id !== 'string') {
-		console.error('Invalid onboarding ID from route:', id);
-		return '';
-	}
+	if (!id || typeof id !== 'string') return '';
 	return id;
 });
 
@@ -789,7 +786,6 @@ const refreshAISummary = async () => {
 	// 取消之前的请求（如果存在）
 	if (aiSummaryAbortController) {
 		aiSummaryAbortController.abort();
-		console.log('🚫 [AI Summary] Cancelled previous request');
 	}
 
 	// 创建新的AbortController
@@ -800,7 +796,6 @@ const refreshAISummary = async () => {
 	aiSummaryLoading.value = true;
 	aiSummaryLoadingText.value = 'Starting AI summary generation...';
 	currentAISummary.value = ''; // 清空现有内容，准备流式显示
-	console.log('🔄 [AI Summary] Starting generation for stage:', currentStageId);
 
 	try {
 		// 获取认证信息
@@ -855,9 +850,6 @@ const refreshAISummary = async () => {
 
 			// 检查当前阶段是否已经改变
 			if (activeStage.value !== currentStageId) {
-				console.log(
-					'🚫 [AI Summary] Stage changed during generation, stopping stream processing'
-				);
 				aiSummaryLoading.value = false;
 				return;
 			}
@@ -866,7 +858,6 @@ const refreshAISummary = async () => {
 
 			// 检查是否是错误信息
 			if (chunk.startsWith('Error:')) {
-				console.error('❌ [AI Summary] Server error:', chunk);
 				ElMessage.error(chunk.replace('Error: ', '') || 'Failed to generate AI summary');
 				aiSummaryLoading.value = false;
 				return;
@@ -875,21 +866,16 @@ const refreshAISummary = async () => {
 			// 直接将文本内容添加到AI Summary中
 			if (chunk.trim()) {
 				currentAISummary.value += chunk;
-				console.log('📝 [AI Summary] Text chunk received:', chunk.length, 'chars');
 			}
 		}
 
 		// 最终验证阶段是否仍然是开始时的阶段
 		if (activeStage.value !== currentStageId) {
-			console.log(
-				'🚫 [AI Summary] Stage changed after generation completed, discarding result'
-			);
 			aiSummaryLoading.value = false;
 			return;
 		}
 
 		// 流结束，设置状态
-		console.log('✅ [AI Summary] Stream completed for stage:', currentStageId);
 		currentAISummaryGeneratedAt.value = new Date().toISOString();
 		aiSummaryLoading.value = false;
 		//ElMessage.success('AI Summary generated successfully');
@@ -899,19 +885,14 @@ const refreshAISummary = async () => {
 			(onboardingActiveStageInfo.value as any).aiSummary = currentAISummary.value;
 			(onboardingActiveStageInfo.value as any).aiSummaryGeneratedAt =
 				currentAISummaryGeneratedAt.value;
-			console.log('📝 [AI Summary] Updated stage info for stage:', currentStageId);
-		} else {
-			console.log('⚠️ [AI Summary] Skipped updating stage info due to stage change');
 		}
 	} catch (error: any) {
 		// 检查是否是用户取消的请求
 		if (error.name === 'AbortError') {
-			console.log('🚫 [AI Summary] Request was cancelled');
 			aiSummaryLoading.value = false;
 			return;
 		}
 
-		console.error('Error generating AI summary:', error);
 		aiSummaryLoading.value = false;
 		ElMessage.error('Failed to generate AI summary');
 	} finally {
@@ -929,148 +910,19 @@ const checkAndGenerateAISummary = async () => {
 		onboardingActiveStageInfo.value &&
 		activeStage.value
 	) {
-		console.log(
-			'🤖 [AI Summary] Auto-generating for stage without existing summary:',
-			activeStage.value
-		);
 		await refreshAISummary();
-	} else if (onboardingActiveStageInfo.value?.aiSummary) {
-		console.log('✅ [AI Summary] Stage already has AI summary, skipping auto-generation');
-	} else {
-		console.log('⏸️ [AI Summary] Skipping auto-generation:', {
-			hasAiSummary: !!onboardingActiveStageInfo.value?.aiSummary,
-			isLoading: aiSummaryLoading.value,
-			hasStageInfo: !!onboardingActiveStageInfo.value,
-			hasActiveStage: !!activeStage.value,
-		});
 	}
 };
 
-// 隐藏组件校验函数
-// 静态字段数据校验函数
-const validateStaticFieldsData = async (
-	component: any
-): Promise<{ isValid: boolean; errors: string[] }> => {
-	if (component.key !== 'fields' || !component.staticFields?.length) {
-		return { isValid: true, errors: [] };
-	}
-
-	const errors: string[] = [];
+const validateField = async () => {
+	// 表单验证方法
 	try {
-		// 获取当前静态字段值
-		const response = await getStaticFieldValuesByOnboarding(onboardingId.value);
-		const fieldValues = response.code === '200' ? response.data : null;
-
-		// 必填字段定义（复用StaticForm中的定义）
-		const requiredFields = new Set([
-			'leadId',
-			'customerName',
-			'priority',
-			'requestedCreditLimit',
-			'approvedCreditLimit',
-			'salesApprovedCreditLimit',
-			'salesApprovalNotes',
-			'paymentTerm',
-			'status',
-			'accountHolderCategory',
-			'assignee',
-			'assigneeLocation',
-		]);
-
-		// 字段标签映射（用于友好的错误提示）
-		const fieldLabelMap: Record<string, string> = {
-			LEADID: 'Lead ID',
-			CUSTOMERNAME: 'Customer Name',
-			PRIORITY: 'Priority',
-			REQUESTEDCREDITLIMIT: 'Requested Credit Limit',
-			APPROVEDCREDITLIMIT: 'Approved Credit Limit',
-			SALESAPPROVEDCREDITLIMIT: 'Sales Approved Credit Limit',
-			SALESAPPROVALNOTES: 'Sales Approval Notes',
-			PAYMENTTERM: 'Payment Term',
-			STATUS: 'Status',
-			ACCOUNTHOLDERCATEGORY: "Account Holder's Category",
-			ASSIGNEE: 'Assignee',
-			ASSIGNEELOCATION: "Assignee's Responsible Location",
-		};
-
-		// 表单字段到API字段的映射
-		const formToApiFieldsMap: Record<string, string> = {
-			leadId: 'LEADID',
-			customerName: 'CUSTOMERNAME',
-			priority: 'PRIORITY',
-			requestedCreditLimit: 'REQUESTEDCREDITLIMIT',
-			approvedCreditLimit: 'APPROVEDCREDITLIMIT',
-			salesApprovedCreditLimit: 'SALESAPPROVEDCREDITLIMIT',
-			salesApprovalNotes: 'SALESAPPROVALNOTES',
-			paymentTerm: 'PAYMENTTERM',
-			status: 'STATUS',
-			accountHolderCategory: 'ACCOUNTHOLDERCATEGORY',
-			assignee: 'ASSIGNEE',
-			assigneeLocation: 'ASSIGNEELOCATION',
-		};
-
-		// 检查每个静态字段的必填项
-		component.staticFields.forEach((apiFieldKey: string) => {
-			// 找到对应的表单字段名
-			const formFieldName = Object.keys(formToApiFieldsMap).find(
-				(key) => formToApiFieldsMap[key] === apiFieldKey
-			);
-
-			if (formFieldName && requiredFields.has(formFieldName)) {
-				// 检查字段值是否存在且不为空
-				let fieldValue: any = null;
-				if (Array.isArray(fieldValues)) {
-					// 新格式：数组格式
-					const field = fieldValues.find((f: any) => f.fieldName === apiFieldKey);
-					if (field && field.fieldValueJson !== undefined) {
-						try {
-							// fieldValueJson 是JSON字符串，需要解析
-							fieldValue = JSON.parse(field.fieldValueJson);
-						} catch {
-							// 解析失败时使用原值
-							fieldValue = field.fieldValueJson;
-						}
-					}
-				} else if (fieldValues && typeof fieldValues === 'object') {
-					// 旧格式：对象格式
-					fieldValue = fieldValues[apiFieldKey];
-					// 如果是JSON字符串，尝试解析
-					if (typeof fieldValue === 'string') {
-						try {
-							fieldValue = JSON.parse(fieldValue);
-						} catch {
-							// 保持原值
-						}
-					}
-				}
-
-				// 验证字段值 - 特别处理不同类型的字段
-				let isEmpty = false;
-				if (Array.isArray(fieldValue)) {
-					// 数组类型字段（如assignee）
-					isEmpty = fieldValue.length === 0;
-				} else if (typeof fieldValue === 'string') {
-					// 字符串类型字段
-					isEmpty =
-						fieldValue.trim() === '' ||
-						fieldValue === 'null' ||
-						fieldValue === 'undefined';
-				} else {
-					// 其他类型字段
-					isEmpty = fieldValue === null || fieldValue === undefined;
-				}
-
-				if (isEmpty) {
-					const fieldLabel = fieldLabelMap[apiFieldKey] || apiFieldKey;
-					errors.push(`${fieldLabel} is required`);
-				}
-			}
+		staticFormRefs.value.forEach(async (item) => {
+			await item.validateForm();
 		});
-
-		return { isValid: errors.length === 0, errors };
-	} catch (error) {
-		console.error('Error validating static fields:', error);
-		return { isValid: true, errors: [] }; // 出错时不阻止操作
+		return { isValid: true, errors: [] };
+	} catch {
+		return { isValid: false, errors: [] };
 	}
 };
 
@@ -1087,10 +939,7 @@ const validateQuestionnaireData = (component: any): { isValid: boolean; errors: 
 		const questionnaire = questionnairesData.value.find((q) => q.id === questionnaireId);
 		const answers = questionnaireAnswersMap.value[questionnaireId];
 
-		if (!questionnaire) {
-			console.warn(`Questionnaire not found: ${questionnaireId}`);
-			return;
-		}
+		if (!questionnaire) return;
 
 		// 从structureJson解析问卷结构
 		let structure: any = {};
@@ -1099,17 +948,10 @@ const validateQuestionnaireData = (component: any): { isValid: boolean; errors: 
 				structure = JSON.parse(questionnaire.structureJson);
 			}
 		} catch (error) {
-			console.error(
-				`Error parsing structureJson for questionnaire ${questionnaireId}:`,
-				error
-			);
 			return;
 		}
 
-		if (!structure?.sections || !Array.isArray(structure.sections)) {
-			console.warn(`Questionnaire has no valid sections: ${questionnaireId}`);
-			return;
-		}
+		if (!structure?.sections || !Array.isArray(structure.sections)) return;
 
 		structure.sections.forEach((section: any, sIndex: number) => {
 			section.questions?.forEach((question: any, qIndex: number) => {
@@ -1327,7 +1169,6 @@ const validateDocumentsData = async (
 
 		return { isValid: true, errors: [] };
 	} catch (error) {
-		console.error('Error validating documents:', error);
 		// 出现错误时返回通过状态，不阻止其他校验
 		return { isValid: true, errors: [] };
 	}
@@ -1366,7 +1207,7 @@ const validateHiddenComponents = async (): Promise<{
 
 		switch (component.key) {
 			case 'fields':
-				validationResult = await validateStaticFieldsData(component);
+				validationResult = await validateField();
 				componentTypeName = 'Static Fields';
 				break;
 			case 'questionnaires':
@@ -1669,7 +1510,6 @@ const loadCheckListData = async (onboardingId: string, stageId: string) => {
 			checklistsData.value = processedChecklists;
 		}
 	} catch (error) {
-		console.error('Failed to load checklists:', error);
 		ElMessage.error('Failed to load checklists');
 	}
 };
@@ -1741,7 +1581,6 @@ const loadStaticFieldValues = async () => {
 			});
 		}
 	} catch (error) {
-		console.error('Failed to load static field values:', error);
 		ElMessage.error('Failed to load static field values');
 	}
 };
@@ -1832,7 +1671,6 @@ const setActiveStageWithData = async (stageId: string) => {
 	if (aiSummaryAbortController) {
 		aiSummaryAbortController.abort();
 		aiSummaryLoading.value = false;
-		console.log('🚫 [Stage Switch] Cancelled AI summary generation due to stage change');
 	}
 
 	activeStage.value = stageId;
@@ -1846,14 +1684,6 @@ const setActiveStageWithData = async (stageId: string) => {
 	// 重新加载依赖stageId的数据
 	await loadStageRelatedData(stageId);
 	await loadStaticFieldValues();
-
-	// 页面切换时自动检查并生成AI Summary
-	console.log(
-		'🔄 [Stage Switch] Stage switched to:',
-		stageId,
-		'AI Summary exists:',
-		!!onboardingActiveStageInfo.value?.aiSummary
-	);
 
 	// 自动检查并生成AI Summary（如果不存在）
 	await checkAndGenerateAISummary();
@@ -1996,7 +1826,6 @@ const handleQuestionSubmitted = async (
 		questionnaireLoading.value = true;
 		// 重新获取问卷答案数据
 		await refreshQuestionnaireAnswers(onboardingId, stageId, questionnaireId);
-		console.log('Questionnaire answers refreshed after submission');
 	} finally {
 		questionnaireLoading.value = false;
 	}
@@ -2058,7 +1887,6 @@ const handleSaveEdit = async () => {
 		ElMessage.success('Saved successfully');
 		editDialogVisible.value = false;
 	} catch (error) {
-		console.error('Failed to save edit:', error);
 		ElMessage.error('Failed to save');
 	} finally {
 		saving.value = false;

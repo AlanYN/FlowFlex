@@ -74,7 +74,11 @@ import { saveQuestionnaireStatic } from '@/apis/ow/onboarding';
 import type { DynamicList } from '#/dynamic';
 
 const props = defineProps<{
-	staticFields: string[]; // 需要显示的字段名列表
+	staticFields: {
+		id: string;
+		isRequired: boolean;
+		order: number;
+	}[]; // 需要显示的字段名列表
 	onboardingId: string;
 	stageId: string;
 	disabled?: boolean;
@@ -109,12 +113,19 @@ const loadDynamicFields = async () => {
 	try {
 		loading.value = true;
 		const res = await batchIdsDynamicFields({
-			ids: props.staticFields,
+			ids: props.staticFields.map((item) => item.id),
 		});
 
 		if (res.code === '200' && Array.isArray(res.data)) {
 			// 按 staticFields 顺序获取字段
-			dynamicFields.value = res?.data;
+			dynamicFields.value = res?.data.map((item) => {
+				return {
+					...item,
+					isRequired:
+						props.staticFields.find((field) => field.id === item.id)?.isRequired ||
+						false,
+				};
+			});
 		}
 	} finally {
 		loading.value = false;

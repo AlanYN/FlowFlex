@@ -286,7 +286,7 @@ import {
 	onboardingSave,
 	updateStageFields,
 } from '@/apis/ow/onboarding';
-import { OnboardingItem, ComponentData, SectionAnswer, Stage } from '#/onboard';
+import { OnboardingItem, SectionAnswer, Stage, StageComponentData } from '#/onboard';
 import { useAdaptiveScrollbar } from '@/hooks/useAdaptiveScrollbar';
 import { useI18n } from 'vue-i18n';
 import { defaultStr } from '@/settings/projectSetting';
@@ -477,7 +477,7 @@ const clearQuestionnaireDetailsRefs = () => {
 };
 
 // 辅助函数：根据组件的checklistIds获取对应的checklist数据
-const getChecklistDataForComponent = (component: ComponentData) => {
+const getChecklistDataForComponent = (component: StageComponentData) => {
 	if (!component.checklistIds || component.checklistIds.length === 0) {
 		return [];
 	}
@@ -487,7 +487,7 @@ const getChecklistDataForComponent = (component: ComponentData) => {
 };
 
 // 辅助函数：根据组件的questionnaireIds获取对应的questionnaire数据
-const getQuestionnaireDataForComponent = (component: ComponentData) => {
+const getQuestionnaireDataForComponent = (component: StageComponentData) => {
 	if (!component.questionnaireIds || component.questionnaireIds.length === 0) {
 		return null;
 	}
@@ -503,7 +503,7 @@ const getQuestionnaireDataForComponent = (component: ComponentData) => {
 };
 
 // 根据组件获取对应问卷答案数组
-const getQuestionnaireAnswersForComponent = (component: ComponentData) => {
+const getQuestionnaireAnswersForComponent = (component: StageComponentData) => {
 	if (!component.questionnaireIds || component.questionnaireIds.length === 0) {
 		return [];
 	}

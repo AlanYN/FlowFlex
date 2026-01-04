@@ -66,6 +66,7 @@
 						:active-text="field.additionalInfo?.trueLabel || 'Yes'"
 						:inactive-text="field.additionalInfo?.falseLabel || 'No'"
 						:disabled="readonly"
+						inline-prompt
 					/>
 					<el-checkbox
 						v-else-if="field.additionalInfo?.displayStyle === 'checkbox'"
@@ -361,7 +362,7 @@ const getFieldRules = (field: DynamicList) => {
 	// 优先使用 isRequired 字段（由 stage 设置），其次检查 fieldValidate.message
 	if (field.isRequired || field.fieldValidate?.message) {
 		rules.push({
-			required: true,
+			required: field.isRequired,
 			message: field.fieldValidate?.message || `${field.displayName} is required`,
 			trigger: field.dataType === propertyTypeEnum.DropdownSelect ? 'change' : 'blur',
 		});
@@ -375,7 +376,8 @@ const getFieldClass = (field: DynamicList) => {
 	// 文件、多行文本 占满整行
 	if (
 		field.dataType === propertyTypeEnum.File ||
-		field.dataType === propertyTypeEnum.MultilineText
+		field.dataType === propertyTypeEnum.MultilineText ||
+		field.dataType === propertyTypeEnum.Pepole
 	) {
 		return 'full-width';
 	}

@@ -324,7 +324,7 @@ import {
 	cancelImportDownload,
 } from '@/apis/integration';
 import { timeZoneConvert } from '@/hooks/time';
-import { DocumentItem, ComponentData } from '#/onboard';
+import { DocumentItem, StageComponentData } from '#/onboard';
 import { IntegrationAttachment } from '#/integration';
 import vuePreviewFile from '@/components/previewFile/previewFile.vue';
 import ImportAttachmentsDialog from './ImportAttachmentsDialog.vue';
@@ -336,7 +336,7 @@ const { t } = useI18n();
 interface Props {
 	onboardingId: string;
 	stageId?: string;
-	component: ComponentData;
+	component: StageComponentData;
 	disabled?: boolean;
 	documentIsRequired?: boolean;
 	systemId?: string;
