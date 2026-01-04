@@ -81,7 +81,7 @@
 								</div>
 								<div class="flex items-center space-x-2 shrink-0">
 									<span class="text-xs text-gray-400 whitespace-nowrap">
-										{{ message.receivedDateDisplay }}
+										{{ formatMessageTime(message.receivedDate) }}
 									</span>
 								</div>
 							</div>
@@ -127,6 +127,7 @@ import { MessageTypeEnum, MessageTag } from '@/enums/appEnum';
 import { getAvatarColor } from '@/utils';
 import { Icon } from '@iconify/vue';
 import { useRouter } from 'vue-router';
+import { formatMessageTime } from '@/hooks/time';
 
 interface Props {
 	messages: IDashboardMessage[];
