@@ -11,6 +11,7 @@
 					:loading="loading"
 					:disabled="loading"
 					:icon="Download"
+					v-if="functionPermission(ProjectPermissionEnum.dynamicField.read)"
 				>
 					Export {{ selectedItems.length > 0 ? `(${selectedItems.length})` : 'All' }}
 				</el-button>
@@ -21,6 +22,7 @@
 					:disabled="loading"
 					:loading="loading"
 					:icon="Plus"
+					v-if="functionPermission(ProjectPermissionEnum.dynamicField.create)"
 				>
 					Add New Field
 				</el-button>
@@ -95,11 +97,21 @@
 
 					<el-table-column label="Actions" width="80" fixed="right" align="center">
 						<template #default="{ row }">
-							<el-button v-if="!row.isSystemDefine" link @click="handleEdit(row)">
+							<el-button
+								v-if="
+									!row.isSystemDefine &&
+									functionPermission(ProjectPermissionEnum.dynamicField.update)
+								"
+								link
+								@click="handleEdit(row)"
+							>
 								<Icon icon="lucide-pencil" />
 							</el-button>
 							<el-button
-								v-if="!row.isSystemDefine"
+								v-if="
+									!row.isSystemDefine &&
+									functionPermission(ProjectPermissionEnum.dynamicField.delete)
+								"
 								link
 								@click="hanDelete(row)"
 								type="danger"
