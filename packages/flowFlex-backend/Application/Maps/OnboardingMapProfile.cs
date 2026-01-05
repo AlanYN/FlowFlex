@@ -150,7 +150,7 @@ namespace FlowFlex.Application.Maps
                 // Ensure all components have proper default values
                 foreach (var component in components)
                 {
-                    component.StaticFields ??= new List<string>();
+                    component.StaticFields ??= new List<StaticFieldConfig>();
                     component.ChecklistIds ??= new List<long>();
                     component.QuestionnaireIds ??= new List<long>();
                 }

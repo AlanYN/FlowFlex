@@ -1762,7 +1762,8 @@ namespace FlowFlex.Application.Service.OW
                     case "fields":
                         if (component.StaticFields?.Any() == true)
                         {
-                            details.Add($"{component.StaticFields.Count} static fields ({string.Join(", ", component.StaticFields.Take(3))}{(component.StaticFields.Count > 3 ? ", etc." : "")})");
+                            var fieldIds = component.StaticFields.Select(f => f.Id).Take(3);
+                            details.Add($"{component.StaticFields.Count} static fields ({string.Join(", ", fieldIds)}{(component.StaticFields.Count > 3 ? ", etc." : "")})");
                         }
                         break;
 
@@ -1829,11 +1830,14 @@ namespace FlowFlex.Application.Service.OW
                 switch (before.Key?.ToLower())
                 {
                     case "fields":
-                        var beforeFields = before.StaticFields ?? new List<string>();
-                        var afterFields = after.StaticFields ?? new List<string>();
+                        var beforeFields = before.StaticFields ?? new List<StaticFieldConfig>();
+                        var afterFields = after.StaticFields ?? new List<StaticFieldConfig>();
 
-                        var addedFields = afterFields.Except(beforeFields).ToList();
-                        var removedFields = beforeFields.Except(afterFields).ToList();
+                        var beforeFieldIds = beforeFields.Select(f => f.Id).ToList();
+                        var afterFieldIds = afterFields.Select(f => f.Id).ToList();
+
+                        var addedFields = afterFieldIds.Except(beforeFieldIds).ToList();
+                        var removedFields = beforeFieldIds.Except(afterFieldIds).ToList();
 
                         if (addedFields.Any())
                         {
@@ -1914,7 +1918,7 @@ namespace FlowFlex.Application.Service.OW
             foreach (var component in components)
             {
                 // Ensure all components have proper default values
-                component.StaticFields ??= new List<string>();
+                component.StaticFields ??= new List<StaticFieldConfig>();
                 component.ChecklistIds ??= new List<long>();
                 component.QuestionnaireIds ??= new List<long>();
                 component.QuickLinkIds ??= new List<long>();
@@ -2684,7 +2688,7 @@ namespace FlowFlex.Application.Service.OW
                                     Order = elem.TryGetProperty("Order", out var orderProp) && orderProp.TryGetInt32(out var oi) ? oi : 0,
                                     IsEnabled = isEnabled,
                                     Configuration = elem.TryGetProperty("Configuration", out var cfgProp) ? (cfgProp.ValueKind == JsonValueKind.String ? cfgProp.GetString() : null) : null,
-                                    StaticFields = elem.TryGetProperty("StaticFields", out var sfProp) && sfProp.ValueKind == JsonValueKind.Array ? sfProp.EnumerateArray().Select(x => x.GetString() ?? string.Empty).ToList() : new List<string>(),
+                                    StaticFields = ParseStaticFieldsFromJson(elem),
                                     ChecklistIds = elem.TryGetProperty("ChecklistIds", out var clProp) && clProp.ValueKind == JsonValueKind.Array ? clProp.EnumerateArray().Select(x => x.TryGetInt64(out var v) ? v : 0).ToList() : new List<long>(),
                                     QuestionnaireIds = elem.TryGetProperty("QuestionnaireIds", out var qProp) && qProp.ValueKind == JsonValueKind.Array ? qProp.EnumerateArray().Select(x => x.TryGetInt64(out var v) ? v : 0).ToList() : new List<long>(),
                                     ChecklistNames = elem.TryGetProperty("ChecklistNames", out var clnProp) && clnProp.ValueKind == JsonValueKind.Array ? clnProp.EnumerateArray().Select(x => x.GetString() ?? string.Empty).ToList() : new List<string>(),
@@ -2712,6 +2716,57 @@ namespace FlowFlex.Application.Service.OW
                 _logger.LogError(ex, "Failed to parse stage components JSON for stage {StageId}", stageId);
                 return new List<StageComponent>();
             }
+        }
+
+        /// <summary>
+        /// Parse StaticFields from JSON element, supporting both legacy string array and new object array format
+        /// </summary>
+        private List<StaticFieldConfig> ParseStaticFieldsFromJson(JsonElement elem)
+        {
+            var result = new List<StaticFieldConfig>();
+            
+            if (!elem.TryGetProperty("StaticFields", out var sfProp) && !elem.TryGetProperty("staticFields", out sfProp))
+            {
+                return result;
+            }
+            
+            if (sfProp.ValueKind != JsonValueKind.Array)
+            {
+                return result;
+            }
+            
+            int order = 1;
+            foreach (var item in sfProp.EnumerateArray())
+            {
+                if (item.ValueKind == JsonValueKind.String)
+                {
+                    // Legacy format: string array
+                    var id = item.GetString();
+                    if (!string.IsNullOrWhiteSpace(id))
+                    {
+                        result.Add(new StaticFieldConfig { Id = id, IsRequired = false, Order = order++ });
+                    }
+                }
+                else if (item.ValueKind == JsonValueKind.Object)
+                {
+                    // New format: object array with id, isRequired, order
+                    var id = item.TryGetProperty("id", out var idProp) ? idProp.GetString() :
+                            (item.TryGetProperty("Id", out idProp) ? idProp.GetString() : null);
+                    
+                    if (!string.IsNullOrWhiteSpace(id))
+                    {
+                        var isRequired = item.TryGetProperty("isRequired", out var reqProp) ? reqProp.GetBoolean() :
+                                        (item.TryGetProperty("IsRequired", out reqProp) ? reqProp.GetBoolean() : false);
+                        var fieldOrder = item.TryGetProperty("order", out var ordProp) && ordProp.TryGetInt32(out var o) ? o :
+                                        (item.TryGetProperty("Order", out ordProp) && ordProp.TryGetInt32(out o) ? o : order);
+                        
+                        result.Add(new StaticFieldConfig { Id = id, IsRequired = isRequired, Order = fieldOrder });
+                        order++;
+                    }
+                }
+            }
+            
+            return result;
         }
 
         /// <summary>

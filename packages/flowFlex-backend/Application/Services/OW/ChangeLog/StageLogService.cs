@@ -1306,10 +1306,11 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                         (c.QuickLinkIds ?? new List<long>()).SequenceEqual(targetQuickLinkIds));
 
                 case "fields":
-                    var targetFields = target.StaticFields ?? new List<string>();
+                    var targetFields = target.StaticFields ?? new List<StaticFieldConfig>();
+                    var targetFieldIds = targetFields.Select(f => f.Id).ToList();
                     return components.FirstOrDefault(c =>
                         c.Key?.ToLower() == "fields" &&
-                        (c.StaticFields ?? new List<string>()).SequenceEqual(targetFields));
+                        (c.StaticFields ?? new List<StaticFieldConfig>()).Select(f => f.Id).SequenceEqual(targetFieldIds));
 
                 default:
                     // For other types (like files), match by key only (case-insensitive)
@@ -1405,7 +1406,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                 switch (componentKey?.ToLower())
                 {
                     case "fields":
-                        var allFields = components.SelectMany(c => c.StaticFields ?? new List<string>()).Distinct().ToList();
+                        var allFields = components.SelectMany(c => c.StaticFields ?? new List<StaticFieldConfig>()).Select(f => f.Id).Distinct().ToList();
                         if (allFields.Any())
                         {
                             return $"{allFields.Count} static fields ({string.Join(", ", allFields.Take(5))}{(allFields.Count > 5 ? $" +{allFields.Count - 5} more" : "")})";
@@ -1486,8 +1487,8 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                 switch (componentKey?.ToLower())
                 {
                     case "fields":
-                        var beforeFields = beforeComps.SelectMany(c => c.StaticFields ?? new List<string>()).Distinct().ToList();
-                        var afterFields = afterComps.SelectMany(c => c.StaticFields ?? new List<string>()).Distinct().ToList();
+                        var beforeFields = beforeComps.SelectMany(c => c.StaticFields ?? new List<StaticFieldConfig>()).Select(f => f.Id).Distinct().ToList();
+                        var afterFields = afterComps.SelectMany(c => c.StaticFields ?? new List<StaticFieldConfig>()).Select(f => f.Id).Distinct().ToList();
 
                         var addedFields = afterFields.Except(beforeFields).ToList();
                         var removedFields = beforeFields.Except(afterFields).ToList();
@@ -1597,7 +1598,8 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                     case "fields":
                         if (component.StaticFields?.Any() == true)
                         {
-                            details.Add($"{component.StaticFields.Count} static fields ({string.Join(", ", component.StaticFields.Take(3))}{(component.StaticFields.Count > 3 ? ", ..." : "")})");
+                            var fieldIds = component.StaticFields.Select(f => f.Id).Take(3);
+                            details.Add($"{component.StaticFields.Count} static fields ({string.Join(", ", fieldIds)}{(component.StaticFields.Count > 3 ? ", ..." : "")})");
                         }
                         break;
 
@@ -1728,11 +1730,14 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
         {
             var changes = new List<string>();
 
-            var beforeFields = before.StaticFields ?? new List<string>();
-            var afterFields = after.StaticFields ?? new List<string>();
+            var beforeFields = before.StaticFields ?? new List<StaticFieldConfig>();
+            var afterFields = after.StaticFields ?? new List<StaticFieldConfig>();
 
-            var addedFields = afterFields.Except(beforeFields).ToList();
-            var removedFields = beforeFields.Except(afterFields).ToList();
+            var beforeFieldIds = beforeFields.Select(f => f.Id).ToList();
+            var afterFieldIds = afterFields.Select(f => f.Id).ToList();
+
+            var addedFields = afterFieldIds.Except(beforeFieldIds).ToList();
+            var removedFields = beforeFieldIds.Except(afterFieldIds).ToList();
 
             if (addedFields.Any())
             {

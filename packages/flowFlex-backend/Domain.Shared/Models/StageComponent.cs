@@ -32,9 +32,10 @@ namespace FlowFlex.Domain.Shared.Models
         public string Configuration { get; set; }
 
         /// <summary>
-        /// Static fields list (for fields component)
+        /// Static fields configuration list (for fields component)
+        /// Contains field ID, isRequired, and order
         /// </summary>
-        public List<string> StaticFields { get; set; } = new List<string>();
+        public List<StaticFieldConfig> StaticFields { get; set; } = new List<StaticFieldConfig>();
 
         /// <summary>
         /// Selected checklist IDs (for checklist component)

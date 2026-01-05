@@ -328,7 +328,7 @@ namespace FlowFlex.Application.Services.OW
             }
 
             // Parse static field configuration from Components
-            List<string> staticFields = new List<string>();
+            List<StaticFieldConfig> staticFields = new List<StaticFieldConfig>();
             if (!string.IsNullOrEmpty(stage.ComponentsJson))
             {
                 try

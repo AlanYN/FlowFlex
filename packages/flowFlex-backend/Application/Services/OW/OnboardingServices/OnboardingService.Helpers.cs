@@ -417,22 +417,40 @@ namespace FlowFlex.Application.Services.OW
                         }
                         else if (string.Equals(key, "fields", StringComparison.OrdinalIgnoreCase))
                         {
-                            // Extract static field names
+                            // Extract static field configurations
                             var sfArr = GetJsonArrayProperty(elem, "staticFields", "StaticFields");
                             if (sfArr.HasValue)
                             {
+                                var fieldConfigs = new List<StaticFieldConfig>();
                                 foreach (var s in sfArr.Value.EnumerateArray())
                                 {
                                     if (s.ValueKind == JsonValueKind.String)
                                     {
+                                        // Legacy format: string array
                                         var name = s.GetString();
-                                        if (!string.IsNullOrWhiteSpace(name)) staticFieldNames.Add(name);
+                                        if (!string.IsNullOrWhiteSpace(name))
+                                        {
+                                            staticFieldNames.Add(name);
+                                            fieldConfigs.Add(new StaticFieldConfig { Id = name, IsRequired = false, Order = fieldConfigs.Count + 1 });
+                                        }
+                                    }
+                                    else if (s.ValueKind == JsonValueKind.Object)
+                                    {
+                                        // New format: object array with id, isRequired, order
+                                        var id = GetJsonProperty(s, "id", "Id");
+                                        if (!string.IsNullOrWhiteSpace(id))
+                                        {
+                                            staticFieldNames.Add(id);
+                                            var isRequired = s.TryGetProperty("isRequired", out var reqProp) ? reqProp.GetBoolean() :
+                                                            (s.TryGetProperty("IsRequired", out reqProp) ? reqProp.GetBoolean() : false);
+                                            var order = s.TryGetProperty("order", out var ordProp) ? ordProp.GetInt32() :
+                                                       (s.TryGetProperty("Order", out ordProp) ? ordProp.GetInt32() : fieldConfigs.Count + 1);
+                                            fieldConfigs.Add(new StaticFieldConfig { Id = id, IsRequired = isRequired, Order = order });
+                                        }
                                     }
                                 }
+                                component.StaticFields = fieldConfigs;
                             }
-
-                            // Also populate the StageComponent
-                            component.StaticFields = new List<string>(staticFieldNames);
                         }
 
                         // Add component to list after processing all types
@@ -724,11 +742,11 @@ namespace FlowFlex.Application.Services.OW
                 {
                     if (comp.StaticFields != null)
                     {
-                        foreach (var name in comp.StaticFields)
+                        foreach (var fieldConfig in comp.StaticFields)
                         {
-                            if (!string.IsNullOrWhiteSpace(name) && !staticFieldNames.Contains(name))
+                            if (!string.IsNullOrWhiteSpace(fieldConfig.Id) && !staticFieldNames.Contains(fieldConfig.Id))
                             {
-                                staticFieldNames.Add(name);
+                                staticFieldNames.Add(fieldConfig.Id);
                             }
                         }
                     }
@@ -754,13 +772,21 @@ namespace FlowFlex.Application.Services.OW
                                 {
                                     foreach (var s in sfArr.Value.EnumerateArray())
                                     {
+                                        string fieldId = null;
                                         if (s.ValueKind == JsonValueKind.String)
                                         {
-                                            var name = s.GetString();
-                                            if (!string.IsNullOrWhiteSpace(name) && !staticFieldNames.Contains(name))
-                                            {
-                                                staticFieldNames.Add(name);
-                                            }
+                                            // Legacy format: string array
+                                            fieldId = s.GetString();
+                                        }
+                                        else if (s.ValueKind == JsonValueKind.Object)
+                                        {
+                                            // New format: object array
+                                            fieldId = GetJsonProperty(s, "id", "Id");
+                                        }
+                                        
+                                        if (!string.IsNullOrWhiteSpace(fieldId) && !staticFieldNames.Contains(fieldId))
+                                        {
+                                            staticFieldNames.Add(fieldId);
                                         }
                                     }
                                 }
