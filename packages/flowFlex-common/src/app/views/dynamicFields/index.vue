@@ -180,6 +180,8 @@ import { fieldsTypeEnum } from '@/enums/appEnum';
 import { useI18n } from '@/hooks/useI18n';
 import { timeZoneConvert } from '@/hooks/time';
 import CustomerPagination from '@/components/global/u-pagination/index.vue';
+import { ProjectPermissionEnum } from '@/enums/permissionEnum';
+import { functionPermission } from '@/hooks';
 
 import { DynamicList } from '#/dynamic';
 
@@ -228,7 +230,7 @@ const handleExport = async () => {
 		const response = await exportDynamicFields(exportParams);
 
 		// 创建下载链接
-		const blob = new Blob([response.data], {
+		const blob = new Blob([response], {
 			type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
 		});
 		const url = window.URL.createObjectURL(blob);

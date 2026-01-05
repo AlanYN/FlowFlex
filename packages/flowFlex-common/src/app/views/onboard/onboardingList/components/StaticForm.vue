@@ -118,14 +118,16 @@ const loadDynamicFields = async () => {
 
 		if (res.code === '200' && Array.isArray(res.data)) {
 			// 按 staticFields 顺序获取字段
-			dynamicFields.value = res?.data.map((item) => {
-				return {
-					...item,
-					isRequired:
-						props.staticFields.find((field) => field.id === item.id)?.isRequired ||
-						false,
-				};
-			});
+			dynamicFields.value = res?.data
+				.map((item) => {
+					const field = props.staticFields.find((field) => field.id === item.id);
+					return {
+						...item,
+						order: field?.order || item.sort,
+						isRequired: field?.isRequired || false,
+					};
+				})
+				.sort((a, b) => a.order - b.order);
 		}
 	} finally {
 		loading.value = false;

@@ -73,6 +73,7 @@
 						onboardingData?.isDisabled ||
 						!hasCasePermission(ProjectPermissionEnum.case.update)
 					"
+					:onboardingId="onboardingId"
 					@update:stage-data="handleStageDataUpdate"
 				/>
 				<el-scrollbar ref="leftScrollbarRef" class="h-full px-2 w-full">
@@ -1064,6 +1065,8 @@ const handleStageDataUpdate = async (updateData: {
 	stageId: string;
 	customEstimatedDays: number;
 	customEndTime: string;
+	assignee: string[];
+	coAssignees: string[];
 }) => {
 	try {
 		// 这里应该调用API来更新阶段数据

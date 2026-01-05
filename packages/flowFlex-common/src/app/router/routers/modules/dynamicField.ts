@@ -14,6 +14,7 @@ const dynamic: AppRouteModule = {
 		hideChildrenInMenu: true,
 		icon: dyanmicFieldsIcon,
 		title: t('sys.router.dynamicFields'),
+		code: 'DYNAMICFIELD',
 		ordinal: 3,
 		hidden: false,
 		status: true,
@@ -25,6 +26,7 @@ const dynamic: AppRouteModule = {
 			component: () => import('@/views/dynamicFields/index.vue'),
 			meta: {
 				title: t('sys.router.dynamicFields'),
+				code: 'DYNAMICFIELD',
 				ordinal: 1,
 				hidden: false,
 				status: true,

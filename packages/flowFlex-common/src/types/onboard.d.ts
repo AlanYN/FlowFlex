@@ -360,6 +360,8 @@ export interface Stage {
 		canOperate: boolean;
 		errorMessage?: string;
 	};
+	assignee?: string[];
+	coAssignees?: string[];
 }
 
 // 检查清单任务完成记录相关类型定义
