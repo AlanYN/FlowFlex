@@ -133,6 +133,14 @@ public class DynamicDataService : IBusinessDataService, IPropertyService, IScope
 
     public async Task<PagedResult<DefineFieldDto>> GetPropertyPagedListAsync(PropertyQueryRequest request)
     {
+        // Check if system fields are initialized
+        var allFields = await _defineFieldRepository.GetAllAsync();
+        if (!allFields.Any(f => f.IsSystemDefine))
+        {
+            _logger.LogInformation("No system defined fields found, initializing default properties");
+            await InitializeDefaultPropertiesAsync();
+        }
+
         var pagedResult = await _defineFieldRepository.GetPagedListAsync(request);
         return new PagedResult<DefineFieldDto>
         {
@@ -452,7 +460,6 @@ public class DynamicDataService : IBusinessDataService, IPropertyService, IScope
             var categories = staticFields.FormFields.Select(f => f.Category).Distinct().ToList();
             var categoryGroupMap = new Dictionary<string, long>();
 
-            long.TryParse(_userContext.UserId, out var userId);
             var sortOrder = 0;
 
             foreach (var category in categories)
@@ -468,11 +475,11 @@ public class DynamicDataService : IBusinessDataService, IPropertyService, IScope
                     TenantId = _userContext.TenantId ?? "DEFAULT",
                     AppCode = _userContext.AppCode ?? "DEFAULT",
                     CreateDate = DateTimeOffset.UtcNow,
-                    CreateBy = _userContext.UserName ?? "SYSTEM",
-                    CreateUserId = userId,
+                    CreateBy = "SYSTEM",
+                    CreateUserId = 0,
                     ModifyDate = DateTimeOffset.UtcNow,
-                    ModifyBy = _userContext.UserName ?? "SYSTEM",
-                    ModifyUserId = userId
+                    ModifyBy = string.Empty,
+                    ModifyUserId = 0
                 };
 
                 var groupId = await _fieldGroupRepository.InsertReturnSnowflakeIdAsync(group);
@@ -513,11 +520,11 @@ public class DynamicDataService : IBusinessDataService, IPropertyService, IScope
                     TenantId = _userContext.TenantId ?? "DEFAULT",
                     AppCode = _userContext.AppCode ?? "DEFAULT",
                     CreateDate = DateTimeOffset.UtcNow,
-                    CreateBy = _userContext.UserName ?? "SYSTEM",
-                    CreateUserId = userId,
+                    CreateBy = "SYSTEM",
+                    CreateUserId = 0,
                     ModifyDate = DateTimeOffset.UtcNow,
-                    ModifyBy = _userContext.UserName ?? "SYSTEM",
-                    ModifyUserId = userId
+                    ModifyBy = string.Empty,
+                    ModifyUserId = 0
                 };
 
                 var fieldId = await _defineFieldRepository.InsertReturnSnowflakeIdAsync(entity);
