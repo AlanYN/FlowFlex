@@ -143,6 +143,12 @@ namespace FlowFlex.Application.Service.OW
 
                 var entity = _mapper.Map<Stage>(input);
 
+                // Filter CoAssignees to exclude any IDs already in DefaultAssignee
+                if (!string.IsNullOrEmpty(entity.CoAssignees) && !string.IsNullOrEmpty(entity.DefaultAssignee))
+                {
+                    entity.CoAssignees = FilterCoAssigneesJson(entity.CoAssignees, entity.DefaultAssignee);
+                }
+
                 // If no order specified, automatically set to last
                 if (entity.Order == 0)
                 {
@@ -621,6 +627,12 @@ namespace FlowFlex.Application.Service.OW
 
                 // Map update data
                 _mapper.Map(input, stageInTransaction);
+
+                // Filter CoAssignees to exclude any IDs already in DefaultAssignee
+                if (!string.IsNullOrEmpty(stageInTransaction.CoAssignees) && !string.IsNullOrEmpty(stageInTransaction.DefaultAssignee))
+                {
+                    stageInTransaction.CoAssignees = FilterCoAssigneesJson(stageInTransaction.CoAssignees, stageInTransaction.DefaultAssignee);
+                }
 
                 // Extract new components for sync comparison (after mapping)
                 var newChecklistIds = new List<long>();
@@ -2836,6 +2848,81 @@ namespace FlowFlex.Application.Service.OW
                 Console.WriteLine($"[StageService] Error getting questionnaire names: {ex.Message}");
                 // Return fallback names based on IDs instead of empty list
                 return questionnaireIds.Select(id => $"Questionnaire {id}").ToList();
+            }
+        }
+
+        /// <summary>
+        /// Filter CoAssignees JSON to exclude any IDs already in DefaultAssignee JSON
+        /// </summary>
+        private string FilterCoAssigneesJson(string coAssigneesJson, string defaultAssigneeJson)
+        {
+            try
+            {
+                var coAssignees = ParseAssigneeJsonToList(coAssigneesJson);
+                var defaultAssignees = ParseAssigneeJsonToList(defaultAssigneeJson);
+
+                if (!defaultAssignees.Any())
+                {
+                    return coAssigneesJson;
+                }
+
+                // Filter out any IDs that are already in DefaultAssignee
+                var filtered = coAssignees
+                    .Where(id => !defaultAssignees.Contains(id))
+                    .ToList();
+
+                if (!filtered.Any())
+                {
+                    return null;
+                }
+
+                return JsonSerializer.Serialize(filtered);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[StageService] Error filtering CoAssignees: {ex.Message}");
+                return coAssigneesJson;
+            }
+        }
+
+        /// <summary>
+        /// Parse assignee JSON string to List of user IDs
+        /// </summary>
+        private List<string> ParseAssigneeJsonToList(string assigneeJson)
+        {
+            if (string.IsNullOrWhiteSpace(assigneeJson))
+            {
+                return new List<string>();
+            }
+
+            try
+            {
+                var jsonString = assigneeJson.Trim();
+                
+                // Handle double-serialized JSON
+                if (jsonString.StartsWith("\"") && jsonString.EndsWith("\""))
+                {
+                    jsonString = JsonSerializer.Deserialize<string>(jsonString) ?? "[]";
+                }
+
+                // Try to parse as array
+                if (jsonString.StartsWith("["))
+                {
+                    var result = JsonSerializer.Deserialize<List<string>>(jsonString, _jsonOptions);
+                    return result ?? new List<string>();
+                }
+
+                // If it's a single value, wrap it in a list
+                if (!string.IsNullOrWhiteSpace(jsonString))
+                {
+                    return new List<string> { jsonString };
+                }
+
+                return new List<string>();
+            }
+            catch (JsonException)
+            {
+                return new List<string>();
             }
         }
     }

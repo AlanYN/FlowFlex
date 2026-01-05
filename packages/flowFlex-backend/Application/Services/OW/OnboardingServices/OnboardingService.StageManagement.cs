@@ -644,70 +644,44 @@ namespace FlowFlex.Application.Services.OW
         }
 
         /// <summary>
-        /// Send email notification to stage's default assignees
+        /// Send email notification to stage's default assignees and co-assignees
         /// </summary>
         private async Task SendEmailToStageAssigneesAsync(Onboarding entity, Stage stage, string caseId, string caseName, string completedStageName, string nextStageName, string completedBy, string completionTime, string caseUrl)
         {
             try
             {
-                // Parse default assignee from stage
-                if (string.IsNullOrWhiteSpace(stage.DefaultAssignee))
+                // Collect all assignee IDs from both DefaultAssignee and CoAssignees
+                var allAssigneeIds = new HashSet<string>();
+
+                // Parse default assignees
+                var defaultAssigneeIds = ParseAssigneeJson(stage.DefaultAssignee, stage.Id, "DefaultAssignee");
+                foreach (var id in defaultAssigneeIds)
                 {
-                    _logger.LogDebug("Next stage {StageId} has no default assignees, skipping email notification", stage.Id);
-                    return;
+                    allAssigneeIds.Add(id);
                 }
 
-                List<string> assigneeIds = new List<string>();
-                try
+                // Parse co-assignees
+                var coAssigneeIds = ParseAssigneeJson(stage.CoAssignees, stage.Id, "CoAssignees");
+                foreach (var id in coAssigneeIds)
                 {
-                    // Try to parse as JSON array
-                    var jsonDoc = JsonDocument.Parse(stage.DefaultAssignee);
-                    if (jsonDoc.RootElement.ValueKind == JsonValueKind.Array)
-                    {
-                        assigneeIds = jsonDoc.RootElement.EnumerateArray()
-                            .Select(e => e.GetString())
-                            .Where(id => !string.IsNullOrWhiteSpace(id))
-                            .ToList();
-                    }
-                    else if (jsonDoc.RootElement.ValueKind == JsonValueKind.String)
-                    {
-                        // Nested JSON string
-                        var innerJson = jsonDoc.RootElement.GetString();
-                        if (!string.IsNullOrWhiteSpace(innerJson))
-                        {
-                            var innerDoc = JsonDocument.Parse(innerJson);
-                            if (innerDoc.RootElement.ValueKind == JsonValueKind.Array)
-                            {
-                                assigneeIds = innerDoc.RootElement.EnumerateArray()
-                                    .Select(e => e.GetString())
-                                    .Where(id => !string.IsNullOrWhiteSpace(id))
-                                    .ToList();
-                            }
-                        }
-                    }
-                }
-                catch (JsonException ex)
-                {
-                    _logger.LogWarning(ex, "Failed to parse default assignee JSON for next stage {StageId}: {DefaultAssignee}",
-                        stage.Id, stage.DefaultAssignee);
-                    return;
+                    allAssigneeIds.Add(id);
                 }
 
-                if (assigneeIds.Count == 0)
+                if (allAssigneeIds.Count == 0)
                 {
-                    _logger.LogDebug("Next stage {StageId} has no valid default assignee IDs, skipping email notification", stage.Id);
+                    _logger.LogDebug("Next stage {StageId} has no assignees (default or co-assignees), skipping email notification", stage.Id);
                     return;
                 }
 
                 // Convert string IDs to long IDs
-                var userIds = assigneeIds
+                var userIds = allAssigneeIds
                     .Where(id => long.TryParse(id, out _))
                     .Select(id => long.Parse(id))
                     .ToList();
 
                 if (userIds.Count == 0)
                 {
-                    _logger.LogWarning("No valid user IDs found in default assignees for next stage {StageId}", stage.Id);
+                    _logger.LogWarning("No valid user IDs found in assignees for next stage {StageId}", stage.Id);
                     return;
                 }
 
@@ -806,6 +780,52 @@ namespace FlowFlex.Application.Services.OW
         /// <summary>
         /// Pause onboarding
         /// </summary>
+
+        /// <summary>
+        /// Parse assignee JSON string to list of user IDs
+        /// </summary>
+        private List<string> ParseAssigneeJson(string assigneeJson, long stageId, string fieldName)
+        {
+            if (string.IsNullOrWhiteSpace(assigneeJson))
+            {
+                return new List<string>();
+            }
+
+            try
+            {
+                var jsonDoc = JsonDocument.Parse(assigneeJson);
+                if (jsonDoc.RootElement.ValueKind == JsonValueKind.Array)
+                {
+                    return jsonDoc.RootElement.EnumerateArray()
+                        .Select(e => e.GetString())
+                        .Where(id => !string.IsNullOrWhiteSpace(id))
+                        .ToList();
+                }
+                else if (jsonDoc.RootElement.ValueKind == JsonValueKind.String)
+                {
+                    // Nested JSON string
+                    var innerJson = jsonDoc.RootElement.GetString();
+                    if (!string.IsNullOrWhiteSpace(innerJson))
+                    {
+                        var innerDoc = JsonDocument.Parse(innerJson);
+                        if (innerDoc.RootElement.ValueKind == JsonValueKind.Array)
+                        {
+                            return innerDoc.RootElement.EnumerateArray()
+                                .Select(e => e.GetString())
+                                .Where(id => !string.IsNullOrWhiteSpace(id))
+                                .ToList();
+                        }
+                    }
+                }
+            }
+            catch (JsonException ex)
+            {
+                _logger.LogWarning(ex, "Failed to parse {FieldName} JSON for stage {StageId}: {Json}",
+                    fieldName, stageId, assigneeJson);
+            }
+
+            return new List<string>();
+        }
     }
 }
 

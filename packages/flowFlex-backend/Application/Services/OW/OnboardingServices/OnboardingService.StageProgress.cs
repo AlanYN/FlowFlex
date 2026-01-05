@@ -78,7 +78,7 @@ namespace FlowFlex.Application.Services.OW
                         Notes = null,
                         IsCurrent = sequentialOrder == 1, // First stage is current
                         Assignee = ParseDefaultAssignee(stage.DefaultAssignee), // Initialize from Stage.DefaultAssignee
-                        CoAssignees = new List<string>(), // Empty by default
+                        CoAssignees = GetFilteredCoAssignees(stage.CoAssignees, stage.DefaultAssignee), // Initialize from Stage.CoAssignees, excluding DefaultAssignee
 
                         // Stage configuration fields (not serialized, populated dynamically)
                         StageName = stage.Name,
@@ -636,6 +636,22 @@ namespace FlowFlex.Application.Services.OW
                         // Always sync DefaultAssignee from Stage configuration (read-only field)
                         stageProgress.DefaultAssignee = ParseDefaultAssignee(stage.DefaultAssignee);
 
+                        // Auto-fill CoAssignees from Stage.CoAssignees if not set
+                        if (stageProgress.CoAssignees == null || !stageProgress.CoAssignees.Any())
+                        {
+                            stageProgress.CoAssignees = GetFilteredCoAssignees(stage.CoAssignees, stage.DefaultAssignee);
+                            _logger.LogDebug("Auto-filled CoAssignees from Stage: StageId={StageId}, CoAssignees={CoAssignees}",
+                                stage.Id, string.Join(",", stageProgress.CoAssignees ?? new List<string>()));
+                        }
+                        else
+                        {
+                            // Filter out any IDs that are already in Assignee
+                            var assigneeIds = stageProgress.Assignee ?? new List<string>();
+                            stageProgress.CoAssignees = stageProgress.CoAssignees
+                                .Where(id => !assigneeIds.Contains(id))
+                                .ToList();
+                        }
+
                         stageProgress.VisibleInPortal = stage.VisibleInPortal;
                         stageProgress.PortalPermission = stage.PortalPermission;
                         stageProgress.AttachmentManagementNeeded = stage.AttachmentManagementNeeded;
@@ -720,7 +736,7 @@ namespace FlowFlex.Application.Services.OW
                             Notes = null,
                             IsCurrent = false,
                             Assignee = ParseDefaultAssignee(newStage.DefaultAssignee),
-                            CoAssignees = new List<string>()
+                            CoAssignees = GetFilteredCoAssignees(newStage.CoAssignees, newStage.DefaultAssignee)
                         };
 
 
@@ -1647,6 +1663,25 @@ namespace FlowFlex.Application.Services.OW
                 // If parsing fails, return empty list
                 return new List<string>();
             }
+        }
+
+        /// <summary>
+        /// Get CoAssignees filtered to exclude any IDs already in DefaultAssignee
+        /// </summary>
+        private List<string> GetFilteredCoAssignees(string coAssigneesJson, string defaultAssigneeJson)
+        {
+            var coAssignees = ParseDefaultAssignee(coAssigneesJson);
+            var defaultAssignees = ParseDefaultAssignee(defaultAssigneeJson);
+
+            if (!defaultAssignees.Any())
+            {
+                return coAssignees;
+            }
+
+            // Filter out any IDs that are already in DefaultAssignee
+            return coAssignees
+                .Where(id => !defaultAssignees.Contains(id))
+                .ToList();
         }
     }
 }

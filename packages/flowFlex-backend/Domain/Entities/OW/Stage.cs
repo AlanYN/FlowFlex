@@ -59,6 +59,12 @@ namespace FlowFlex.Domain.Entities.OW
         public string DefaultAssignee { get; set; }
 
         /// <summary>
+        /// Co-Assignees (JSONB array of user IDs for additional assignees)
+        /// </summary>
+        [SugarColumn(ColumnName = "co_assignees", ColumnDataType = "jsonb", IsJson = true)]
+        public string CoAssignees { get; set; }
+
+        /// <summary>
         /// Estimated Duration in Days (supports decimal)
         /// </summary>
         public decimal? EstimatedDuration { get; set; }
