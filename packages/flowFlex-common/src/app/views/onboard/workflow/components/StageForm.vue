@@ -65,9 +65,21 @@
 							<FlowflexUser
 								v-model="formData.defaultAssignee"
 								placeholder="Select default assignee"
-								:multiple="false"
 								:clearable="true"
 								selection-type="user"
+								:choosable-tree-data="availableAssigneeData"
+							/>
+						</el-form-item>
+					</div>
+
+					<div class="flex items-center gap-2 w-full">
+						<el-form-item label="Co-assignees" prop="coAssignees" class="w-full">
+							<FlowflexUser
+								v-model="formData.coAssignees"
+								placeholder="Select Co-assignees"
+								:clearable="true"
+								selection-type="user"
+								:choosable-tree-data="availableCoAssigneesData"
 							/>
 						</el-form-item>
 					</div>
@@ -174,6 +186,55 @@ const colorOptions = stageColorOptions;
 const userStore = useUserStore();
 const menuStore = menuRoles();
 
+// 用户数据
+const allUserData = ref<FlowflexUserType[]>([]);
+
+// 获取用户数据
+const fetchUserData = async () => {
+	try {
+		const data = await menuStore.getFlowflexUserDataWithCache();
+		allUserData.value = Array.isArray(data) ? data : [];
+	} catch (error) {
+		console.error('Failed to fetch user data:', error);
+		allUserData.value = [];
+	}
+};
+
+// 递归过滤用户数据，排除指定的用户ID
+const filterUserData = (data: FlowflexUserType[], excludeIds: string[]): FlowflexUserType[] => {
+	if (!excludeIds.length) return data;
+
+	return data
+		.map((item) => {
+			// 如果是用户类型且在排除列表中，则跳过
+			if (item.type === 'user' && excludeIds.includes(item.id)) {
+				return null;
+			}
+
+			// 如果有子节点，递归过滤
+			if (item.children && item.children.length > 0) {
+				const filteredChildren = filterUserData(item.children, excludeIds);
+				return {
+					...item,
+					children: filteredChildren,
+				};
+			}
+
+			return item;
+		})
+		.filter(Boolean) as FlowflexUserType[];
+};
+
+// 计算属性 - Default Assignee 可选用户（排除已选的 Co-assignees）
+const availableAssigneeData = computed(() => {
+	return filterUserData(allUserData.value, formData.value.coAssignees);
+});
+
+// 计算属性 - Co-assignees 可选用户（排除已选的 Default Assignee）
+const availableCoAssigneesData = computed(() => {
+	return filterUserData(allUserData.value, formData.value.defaultAssignee);
+});
+
 // Props
 const props = defineProps({
 	stage: {
@@ -277,7 +338,7 @@ const formData = ref({
 	visibleInPortal: false,
 	portalPermission: PortalPermissionEnum.Viewable,
 	defaultAssignedGroup: '',
-	defaultAssignee: '',
+	defaultAssignee: [] as string[],
 	estimatedDuration: null as number | null,
 	requiredFieldsJson: '',
 	components: [] as StageComponentData[],
@@ -289,6 +350,7 @@ const formData = ref({
 	viewTeams: [] as string[],
 	operateTeams: [] as string[],
 	useSameTeamForOperate: true,
+	coAssignees: [] as string[],
 });
 
 // 表单验证规则
@@ -341,7 +403,10 @@ const onTabChange = (tab: string) => {
 };
 
 // 初始化表单数据
-onMounted(() => {
+onMounted(async () => {
+	// 获取用户数据
+	await fetchUserData();
+
 	if (props.stage) {
 		Object.keys(formData.value).forEach((key) => {
 			if (key === 'color') {
@@ -365,6 +430,28 @@ onMounted(() => {
 				formData.value[key] = (props.stage as any)?.operateTeams || [];
 			} else if (key === 'useSameTeamForOperate') {
 				formData.value[key] = (props.stage as any)?.useSameTeamForOperate ?? true;
+			} else if (key === 'defaultAssignee') {
+				// 处理 defaultAssignee 数组类型
+				const value = (props.stage as any)?.defaultAssignee;
+				if (Array.isArray(value)) {
+					formData.value[key] = value;
+				} else if (value) {
+					// 兼容旧数据：如果是字符串，转换为数组
+					formData.value[key] = [value];
+				} else {
+					formData.value[key] = [];
+				}
+			} else if (key === 'coAssignees') {
+				// 处理 coAssignees 数组类型
+				const value = (props.stage as any)?.coAssignees;
+				if (Array.isArray(value)) {
+					formData.value[key] = value;
+				} else if (value) {
+					// 兼容旧数据：如果是字符串，转换为数组
+					formData.value[key] = [value];
+				} else {
+					formData.value[key] = [];
+				}
 			} else {
 				formData.value[key] = props.stage ? (props.stage as any)[key] : '';
 			}
