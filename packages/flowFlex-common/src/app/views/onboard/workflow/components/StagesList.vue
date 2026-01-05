@@ -254,7 +254,7 @@
 									class="stage-components-section"
 									v-if="getSelectedStaticFields(element).length > 0"
 								>
-									<div class="text-sm font-medium mb-3">Required Fields</div>
+									<div class="text-sm font-medium mb-3">Fields</div>
 									<div class="required-fields-tags">
 										<span
 											v-for="fieldName in getSelectedStaticFields(element)"
@@ -395,13 +395,13 @@ import { useAdaptiveScrollbar } from '@/hooks/useAdaptiveScrollbar';
 import { Stage } from '#/onboard';
 import FlowflexUserAssign from '@/components/form/flowflexUser/index.vue';
 // 导入静态字段配置
-import staticFieldConfig from '../static-field.json';
 import { defaultStr } from '@/settings/projectSetting';
 import { ElDropdown } from 'element-plus';
 import { FlowflexUser } from '#/golbal';
 import { getAvatarColor } from '@/utils';
 import { functionPermission } from '@/hooks';
 import { ProjectPermissionEnum } from '@/enums/permissionEnum';
+import { DynamicList } from '#/dynamic';
 
 // Portal权限枚举常量
 const PortalPermissionEnum = {
@@ -436,6 +436,10 @@ const props = defineProps({
 	hasWorkflowPermission: {
 		type: Boolean,
 		default: true,
+	},
+	staticFields: {
+		type: Array as PropType<DynamicList[]>,
+		default: () => [],
 	},
 });
 
@@ -590,7 +594,7 @@ const getStageComponents = (stage: Stage) => {
 				case 'fields':
 					componentList.push({
 						id: `${stage.id}-fields`,
-						name: 'Required Fields',
+						name: 'Fields',
 						type: 'fields',
 					});
 					break;
@@ -666,8 +670,8 @@ const getComponentIcon = (type: string) => {
 // 创建从vIfKey到label的映射
 const fieldLabelMap = computed(() => {
 	const map: Record<string, string> = {};
-	staticFieldConfig.formFields.forEach((field) => {
-		map[field.vIfKey] = field.label;
+	props.staticFields.forEach((field) => {
+		map[field.id] = field?.fieldName;
 	});
 	return map;
 });
@@ -687,7 +691,7 @@ const getSelectedStaticFields = (stage: Stage) => {
 		return [];
 	}
 
-	return fieldsComponent.staticFields.map((field) => getFieldLabel(field));
+	return fieldsComponent.staticFields.map((field) => getFieldLabel(field?.id));
 };
 
 // 获取Portal权限图标

@@ -2,7 +2,6 @@ import { MenuTypeEnum, MenuModeEnum, TriggerEnum, MixSidebarTriggerEnum } from '
 import { inputTextraAutosize } from '@/settings/projectSetting';
 import {
 	ContentEnum,
-	PermissionModeEnum,
 	ThemeEnum,
 	RouterTransitionEnum,
 	SettingButtonPositionEnum,
@@ -92,8 +91,6 @@ export interface ProjectConfig {
 	showDarkModeToggle: boolean;
 	// Configure where the button is displayed
 	settingButtonPosition: SettingButtonPositionEnum;
-	// Permission mode
-	permissionMode: PermissionModeEnum;
 	// Session timeout processing
 	sessionTimeoutProcessing: SessionTimeoutProcessingEnum;
 	// Website gray mode, open for possible mourning dates

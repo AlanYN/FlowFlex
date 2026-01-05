@@ -419,6 +419,7 @@
 								:has-workflow-permission="
 									workflow.permission ? workflow.permission.canOperate : true
 								"
+								:static-fields="staticFields"
 								@edit="(stage) => editStage(stage)"
 								@delete="(stageId) => deleteStage(stageId)"
 								@drag-start="onDragStart"
@@ -544,6 +545,7 @@
 					:questionnaires="questionnaires"
 					:workflow-id="workflow?.id || ''"
 					:quickLinks="quickLinks"
+					:static-fields="staticFields"
 					@submit="submitStage"
 					@cancel="dialogVisible.stageForm = false"
 				/>
@@ -697,6 +699,8 @@ import {
 import { getChecklists } from '@/apis/ow/checklist';
 import { queryQuestionnaires } from '@/apis/ow/questionnaire';
 import { getQuickLinks } from '@/apis/integration';
+import { getDynamicField } from '@/apis/global/dyanmicField';
+import { DynamicList } from '#/dynamic';
 
 // 引入自定义组件
 import StagesList from './components/StagesList.vue';
@@ -903,6 +907,8 @@ onMounted(async () => {
 	fetchChecklists();
 	fetchQuestionnaires();
 	fetchQuickLinks();
+
+	loadDynamicField();
 });
 
 // 获取工作流列表（分页数据，用于列表视图）
@@ -1980,6 +1986,20 @@ const getUserGroup = async () => {
 		}
 	} catch {
 		userList.value = [];
+	}
+};
+
+const staticFields = ref<DynamicList[]>([]);
+const loadingDynamicField = ref(false);
+const loadDynamicField = async () => {
+	try {
+		loadingDynamicField.value = true;
+		const response = await getDynamicField();
+		if (response.code === '200') {
+			staticFields.value = response?.data || [];
+		}
+	} finally {
+		loadingDynamicField.value = false;
 	}
 };
 </script>

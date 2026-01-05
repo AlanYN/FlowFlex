@@ -27,6 +27,8 @@ const Api = (id?: string | number) => {
 		userPermissions: `${globSetting.idmUrl}/api/v1/users/current/permissions`,
 
 		userList: `${globSetting.apiProName}/ow/onboardings/${globSetting.apiVersion}/${id}/authorized-users`,
+
+		phoneNumber: `${globSetting.apiProName}/shared/${globSetting.apiVersion}/dictionary/phone-number-prefixes`,
 	};
 };
 
@@ -90,4 +92,8 @@ export function userPermissions() {
 
 export function findUserList(id: string) {
 	return defHttp.get({ url: `${Api(id).userList}` });
+}
+
+export function getPhoneAreaEnum() {
+	return defHttp.get({ url: Api().phoneNumber });
 }

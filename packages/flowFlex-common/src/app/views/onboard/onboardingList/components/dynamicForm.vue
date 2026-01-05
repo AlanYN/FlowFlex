@@ -34,7 +34,7 @@
 						<div class="flex items-center gap-2">
 							<span class="text-sm font-medium form-question-number">
 								{{ currentSectionIndex + 1 }}-{{
-									getQuestionNumber(questionIndex)
+									getQuestionNumber(+questionIndex)
 								}}.
 								{{ question.title }}
 								<span
@@ -587,7 +587,7 @@
 							<button
 								v-for="(section, index) in formattedQuestionnaires[0].sections"
 								:key="section.id"
-								@click="goToSection(index)"
+								@click="goToSection(+index)"
 								:class="['section-dot', { active: index === currentSectionIndex }]"
 								:title="section.title"
 							></button>

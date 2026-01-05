@@ -3,16 +3,118 @@
 		<div class="case-header rounded-xl p-2.5">
 			<!-- 显示状态 -->
 			<div v-if="!isEditing">
-				<!-- 头部标题和编辑按钮 -->
+				<!-- 头部标题和操作按钮 -->
 				<div class="flex items-center justify-between">
 					<h2 class="font-bold text-xl">{{ displayTitle }}</h2>
-					<el-button
-						link
-						type="primary"
-						@click="handleEdit"
-						:icon="Edit"
-						:disabled="disabled || !currentStage?.startTime"
-					/>
+					<div class="flex items-center gap-2">
+						<template v-if="!disabled">
+							<el-button
+								type="primary"
+								size="small"
+								plain
+								@click="openReassignDialog"
+							>
+								Reassign
+							</el-button>
+							<el-button
+								type="primary"
+								size="small"
+								plain
+								:icon="Plus"
+								@click="openAddCoassigneeDialog"
+							>
+								Add Co-assignee
+							</el-button>
+						</template>
+						<el-button
+							link
+							type="primary"
+							@click="handleEdit"
+							:icon="Edit"
+							:disabled="disabled || !currentStage?.startTime"
+						/>
+					</div>
+				</div>
+				<div class="my-2 space-y-2">
+					<!-- Assigned to 行 -->
+					<div class="assignees-row">
+						<div class="flex items-center gap-x-2 flex-shrink-0">
+							<Icon icon="lucide-user" class="text-gray-500" />
+							<span class="text-gray-600">Assigned to:</span>
+						</div>
+						<template v-if="displayAssignees.length > 0">
+							<div
+								ref="assigneesTagsRef"
+								class="assignees-tags"
+								:class="{ 'assignees-collapsed': !isAssigneesExpanded }"
+							>
+								<el-tag
+									v-for="userId in displayAssignees"
+									:key="userId"
+									:closable="!disabled"
+									size="small"
+									type="primary"
+									@close="handleRemoveAssignee(userId)"
+								>
+									{{ getUserDisplayName(userId) }}
+								</el-tag>
+							</div>
+							<el-button
+								v-if="showAssigneesExpandButton || isAssigneesExpanded"
+								link
+								type="primary"
+								size="small"
+								class="flex-shrink-0"
+								@click="toggleAssigneesExpand"
+							>
+								{{
+									isAssigneesExpanded
+										? 'Less'
+										: `Show all ${displayAssignees.length}`
+								}}
+							</el-button>
+						</template>
+						<span v-else class="text-gray-400">--</span>
+					</div>
+					<!-- Co-assignees 行 -->
+					<div class="co-assignees-row">
+						<div class="flex items-center gap-x-2 flex-shrink-0">
+							<Icon icon="lucide-users" class="text-gray-500" />
+							<span class="text-gray-600">Co-assignees:</span>
+						</div>
+						<template v-if="displayCoAssignees.length > 0">
+							<div
+								ref="coAssigneesTagsRef"
+								class="co-assignees-tags mt-1"
+								:class="{ 'co-assignees-collapsed': !isCoAssigneesExpanded }"
+							>
+								<el-tag
+									v-for="userId in displayCoAssignees"
+									:key="userId"
+									:closable="!disabled"
+									size="small"
+									@close="handleRemoveCoassignee(userId)"
+								>
+									{{ getUserDisplayName(userId) }}
+								</el-tag>
+							</div>
+							<el-button
+								v-if="showExpandButton || isCoAssigneesExpanded"
+								link
+								type="primary"
+								size="small"
+								class="flex-shrink-0"
+								@click="toggleCoAssigneesExpand"
+							>
+								{{
+									isCoAssigneesExpanded
+										? 'Less'
+										: `Show all ${displayCoAssignees.length}`
+								}}
+							</el-button>
+						</template>
+						<span v-else class="text-gray-400">--</span>
+					</div>
 				</div>
 				<div
 					v-if="currentStage?.stageDescription"
@@ -95,28 +197,137 @@
 				</div>
 			</div>
 		</div>
+
+		<!-- Reassign 弹窗 -->
+		<el-dialog
+			v-model="reassignDialogVisible"
+			title="Reassign Stage"
+			:width="dialogWidth"
+			:close-on-click-modal="false"
+			append-to-body
+		>
+			<p class="text-gray-600 mb-4">
+				Select assignees for the "{{ currentStage?.stageName }}" stage.
+			</p>
+			<!-- 负责人选择 -->
+			<div>
+				<div class="text-sm text-gray-500 mb-1">Select Assignees</div>
+				<el-select
+					v-model="reassignForm.selectedAssignees"
+					placeholder="Select users..."
+					class="w-full"
+					multiple
+					filterable
+					:loading="optionsLoading"
+					tag-type="primary"
+					collapse-tags
+					collapse-tags-tooltip
+					:max-collapse-tags="3"
+				>
+					<el-option
+						v-for="user in allAssignOptions"
+						:key="String(user.key)"
+						:label="user.value"
+						:value="String(user.key)"
+					>
+						<span>{{ user.value }}</span>
+						<span v-if="user.email" class="text-gray-400 text-xs ml-2">
+							{{ user.email }}
+						</span>
+					</el-option>
+				</el-select>
+			</div>
+			<template #footer>
+				<el-button @click="handleReassignCancel">Cancel</el-button>
+				<el-button
+					type="primary"
+					:disabled="reassignForm.selectedAssignees.length === 0"
+					@click="handleReassignConfirm"
+				>
+					Confirm
+				</el-button>
+			</template>
+		</el-dialog>
+
+		<!-- Add Co-assignee 弹窗 -->
+		<el-dialog
+			v-model="addCoassigneeDialogVisible"
+			title="Add Co-assignee"
+			:width="dialogWidth"
+			:close-on-click-modal="false"
+			append-to-body
+		>
+			<p class="text-gray-600 mb-4">
+				Select one or more users to add as co-assignees to this stage.
+			</p>
+			<!-- 多选用户列表 -->
+			<div>
+				<div class="text-sm text-gray-500 mb-1">Select Co-assignees</div>
+				<el-select
+					v-model="addCoassigneeForm.selectedUsers"
+					placeholder="Select users..."
+					class="w-full"
+					multiple
+					filterable
+					:loading="optionsLoading"
+					tag-type="primary"
+					collapse-tags
+					collapse-tags-tooltip
+					:max-collapse-tags="3"
+				>
+					<el-option
+						v-for="user in availableCoAssignees"
+						:key="String(user.key)"
+						:label="user.value"
+						:value="String(user.key)"
+					>
+						<span>{{ user.value }}</span>
+						<span v-if="user.email" class="text-gray-400 text-xs ml-2">
+							{{ user.email }}
+						</span>
+					</el-option>
+				</el-select>
+			</div>
+			<template #footer>
+				<el-button @click="handleAddCoassigneeCancel">Cancel</el-button>
+				<el-button
+					type="primary"
+					:disabled="addCoassigneeForm.selectedUsers.length === 0"
+					@click="handleAddCoassigneeConfirm"
+				>
+					Add Co-assignee
+				</el-button>
+			</template>
+		</el-dialog>
 	</div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue';
-import { ElMessage } from 'element-plus';
-import { Edit } from '@element-plus/icons-vue';
+import { ref, computed, watch, nextTick, onMounted } from 'vue';
+import { ElMessage, ElMessageBox } from 'element-plus';
+import { Edit, Plus } from '@element-plus/icons-vue';
+import { Icon } from '@iconify/vue';
 import { timeZoneConvert } from '@/hooks/time';
-import { defaultStr, projectTenMinutesSsecondsDate } from '@/settings/projectSetting';
+import { defaultStr, dialogWidth, projectTenMinutesSsecondsDate } from '@/settings/projectSetting';
 import InputNumber from '@/components/form/InputNumber/index.vue';
+import { useInternalNoteUsers } from '@/hooks/useInternalNoteUsers';
 import type { Stage } from '#/onboard';
 
 // Props 定义
 interface Props {
 	currentStage?: Stage | null;
 	disabled?: boolean;
+	onboardingId?: string;
 }
 
 const props = withDefaults(defineProps<Props>(), {
 	currentStage: null,
 	disabled: false,
+	onboardingId: '',
 });
+
+// 使用用户列表 hook
+const { allAssignOptions, optionsLoading } = useInternalNoteUsers(props.onboardingId);
 
 // Emits 定义
 const emit = defineEmits(['update:stage-data']);
@@ -125,16 +336,75 @@ const emit = defineEmits(['update:stage-data']);
 const isEditing = ref(false);
 const saving = ref(false);
 
+// Co-assignees 展开/收起控制
+const isCoAssigneesExpanded = ref(false);
+const coAssigneesTagsRef = ref<HTMLElement | null>(null);
+const showExpandButton = ref(false);
+
+// Assignees 展开/收起控制
+const isAssigneesExpanded = ref(false);
+const assigneesTagsRef = ref<HTMLElement | null>(null);
+const showAssigneesExpandButton = ref(false);
+
+// 检测是否需要显示展开按钮（内容是否溢出）
+const checkOverflow = () => {
+	if (coAssigneesTagsRef.value) {
+		const el = coAssigneesTagsRef.value;
+		showExpandButton.value = el.scrollHeight > el.clientHeight;
+	}
+	if (assigneesTagsRef.value) {
+		const el = assigneesTagsRef.value;
+		showAssigneesExpandButton.value = el.scrollHeight > el.clientHeight;
+	}
+};
+
+// 弹窗控制
+const reassignDialogVisible = ref(false);
+const addCoassigneeDialogVisible = ref(false);
+
+// 弹窗表单数据
+const reassignForm = ref({
+	selectedAssignees: [] as string[],
+});
+
+const addCoassigneeForm = ref({
+	selectedUsers: [] as string[],
+});
+
 // 编辑表单数据
 const editForm = ref({
 	customEstimatedDays: null as number | null,
 	customEndTime: null as string | null,
+	assignee: [] as string[],
+	coAssignees: [] as string[],
 });
 
 // 计算属性 - 显示标题
 const displayTitle = computed(() => {
 	return props.currentStage?.stageName || defaultStr;
 });
+
+// 计算属性 - 显示负责人列表
+const displayAssignees = computed(() => {
+	return props.currentStage?.assignee || [];
+});
+
+// 计算属性 - 显示协作负责人列表
+const displayCoAssignees = computed(() => {
+	return props.currentStage?.coAssignees || [];
+});
+
+// 计算属性 - 可选择的协作负责人列表 (排除当前负责人，但保留已选的协作负责人用于回显)
+const availableCoAssignees = computed(() => {
+	const currentAssignee = props.currentStage?.assignee || [];
+	return allAssignOptions.value.filter((user) => !currentAssignee.includes(String(user.key)));
+});
+
+// 获取用户显示名称
+const getUserDisplayName = (userId: string): string => {
+	const user = allAssignOptions.value.find((u) => String(u.key) === userId);
+	return user?.value || userId;
+};
 
 // 计算属性 - 显示开始日期
 const displayStartDate = computed(() => {
@@ -182,6 +452,8 @@ const initEditForm = () => {
 	editForm.value = {
 		customEstimatedDays: props.currentStage.estimatedDays || null,
 		customEndTime: null, // 可以直接编辑结束时间
+		assignee: props.currentStage.assignee || [],
+		coAssignees: props.currentStage.coAssignees || [],
 	};
 
 	// 如果有开始时间和预估天数，计算默认结束时间
@@ -211,10 +483,45 @@ watch(
 	() => props.currentStage,
 	() => {
 		isEditing.value = false;
+		isCoAssigneesExpanded.value = false;
+		isAssigneesExpanded.value = false;
+		showExpandButton.value = false;
+		showAssigneesExpandButton.value = false;
 		initEditForm();
+		// 等待 DOM 更新后检测溢出
+		nextTick(() => {
+			checkOverflow();
+		});
 	},
 	{ immediate: true }
 );
+
+// 监听 assignees 和 co-assignees 变化，重新检测溢出
+watch(
+	() => [props.currentStage?.assignee, props.currentStage?.coAssignees],
+	() => {
+		nextTick(() => {
+			checkOverflow();
+		});
+	}
+);
+
+// 组件挂载后检测溢出
+onMounted(() => {
+	nextTick(() => {
+		checkOverflow();
+	});
+});
+
+// 切换展开/收起状态
+const toggleCoAssigneesExpand = () => {
+	isCoAssigneesExpanded.value = !isCoAssigneesExpanded.value;
+};
+
+// 切换 Assignees 展开/收起状态
+const toggleAssigneesExpand = () => {
+	isAssigneesExpanded.value = !isAssigneesExpanded.value;
+};
 
 // 预估天数变化时，自动计算结束时间
 const handleEstimatedDaysChange = (estimatedDays: number | null) => {
@@ -362,6 +669,8 @@ const handleSave = async () => {
 			stageId: props.currentStage.stageId,
 			customEstimatedDays: editForm.value.customEstimatedDays,
 			customEndTime: customEndTimeStr,
+			assignee: editForm.value.assignee,
+			coAssignees: editForm.value.coAssignees,
 		};
 
 		// 发送更新事件给父组件
@@ -373,9 +682,185 @@ const handleSave = async () => {
 		saving.value = false;
 	}
 };
+
+// ========== Reassign 弹窗相关方法 ==========
+const openReassignDialog = () => {
+	// 回显已添加的负责人
+	reassignForm.value.selectedAssignees = [...(props.currentStage?.assignee || [])];
+	reassignDialogVisible.value = true;
+};
+
+const handleReassignConfirm = () => {
+	if (!props.currentStage?.stageId) return;
+
+	const updateData = {
+		stageId: props.currentStage.stageId,
+		assignee: reassignForm.value.selectedAssignees,
+	};
+
+	emit('update:stage-data', updateData);
+	reassignDialogVisible.value = false;
+};
+
+const handleReassignCancel = () => {
+	reassignDialogVisible.value = false;
+	reassignForm.value.selectedAssignees = [];
+};
+
+// ========== 删除负责人 ==========
+const handleRemoveAssignee = async (userId: string) => {
+	if (!props.currentStage?.stageId) return;
+
+	const userName = getUserDisplayName(userId);
+
+	ElMessageBox.confirm(
+		`Are you sure you want to remove "${userName}" from assignees?`,
+		'⚠️ Confirm Remove Assignee',
+		{
+			confirmButtonText: 'Remove',
+			cancelButtonText: 'Cancel',
+			confirmButtonClass: 'warning-confirm-btn',
+			cancelButtonClass: 'cancel-confirm-btn',
+			distinguishCancelAndClose: true,
+			customClass: 'remove-confirmation-dialog',
+			showCancelButton: true,
+			showConfirmButton: true,
+			beforeClose: async (action, instance, done) => {
+				if (action === 'confirm') {
+					instance.confirmButtonLoading = true;
+					instance.confirmButtonText = 'Removing...';
+
+					const currentAssignees = props.currentStage?.assignee || [];
+					const newAssignees = currentAssignees.filter((id) => id !== userId);
+
+					const updateData = {
+						stageId: props.currentStage?.stageId,
+						assignee: newAssignees,
+					};
+
+					emit('update:stage-data', updateData);
+					done();
+				} else {
+					done();
+				}
+			},
+		}
+	);
+};
+
+// ========== Add Co-assignee 弹窗相关方法 ==========
+const openAddCoassigneeDialog = () => {
+	// 回显已添加的协作负责人
+	addCoassigneeForm.value.selectedUsers = [...(props.currentStage?.coAssignees || [])];
+	addCoassigneeDialogVisible.value = true;
+};
+
+const handleAddCoassigneeConfirm = () => {
+	if (!props.currentStage?.stageId) return;
+
+	const updateData = {
+		stageId: props.currentStage.stageId,
+		coAssignees: addCoassigneeForm.value.selectedUsers,
+	};
+
+	emit('update:stage-data', updateData);
+	addCoassigneeDialogVisible.value = false;
+};
+
+const handleAddCoassigneeCancel = () => {
+	addCoassigneeDialogVisible.value = false;
+	addCoassigneeForm.value.selectedUsers = [];
+};
+
+// ========== 删除协作负责人 ==========
+const handleRemoveCoassignee = async (userId: string) => {
+	if (!props.currentStage?.stageId) return;
+
+	const userName = getUserDisplayName(userId);
+
+	ElMessageBox.confirm(
+		`Are you sure you want to remove "${userName}" from co-assignees?`,
+		'⚠️ Confirm Remove Co-assignee',
+		{
+			confirmButtonText: 'Remove',
+			cancelButtonText: 'Cancel',
+			confirmButtonClass: 'warning-confirm-btn',
+			cancelButtonClass: 'cancel-confirm-btn',
+			distinguishCancelAndClose: true,
+			customClass: 'remove-confirmation-dialog',
+			showCancelButton: true,
+			showConfirmButton: true,
+			beforeClose: async (action, instance, done) => {
+				if (action === 'confirm') {
+					instance.confirmButtonLoading = true;
+					instance.confirmButtonText = 'Removing...';
+
+					const currentCoAssignees = props.currentStage?.coAssignees || [];
+					const newCoAssignees = currentCoAssignees.filter((id) => id !== userId);
+
+					const updateData = {
+						stageId: props.currentStage?.stageId,
+						coAssignees: newCoAssignees,
+					};
+
+					emit('update:stage-data', updateData);
+					done();
+				} else {
+					done();
+				}
+			},
+		}
+	);
+};
 </script>
 
 <style scoped lang="scss">
+/* Assignees 行样式 */
+.assignees-row {
+	display: flex;
+	align-items: flex-start;
+	gap: 0.5rem;
+	flex-wrap: wrap;
+}
+
+.assignees-tags {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.25rem;
+	flex: 1;
+	min-width: 0;
+	max-height: 500px;
+	overflow: hidden;
+	transition: max-height 0.3s ease-in-out;
+}
+
+.assignees-collapsed {
+	max-height: 24px;
+}
+
+/* Co-assignees 行样式 */
+.co-assignees-row {
+	display: flex;
+	align-items: flex-start;
+	gap: 0.5rem;
+	flex-wrap: wrap;
+}
+
+.co-assignees-tags {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.25rem;
+	flex: 1;
+	min-width: 0;
+	max-height: 500px;
+	overflow: hidden;
+	transition: max-height 0.3s ease-in-out;
+}
+
+.co-assignees-collapsed {
+	max-height: 24px;
+}
+
 /* 响应式设计 */
 @media (max-width: 768px) {
 	:deep(.grid) {
