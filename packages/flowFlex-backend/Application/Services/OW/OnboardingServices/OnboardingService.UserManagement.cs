@@ -20,6 +20,7 @@ using FlowFlex.Infrastructure.Services;
 using MediatR;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Microsoft.OpenApi.Models;
 using OfficeOpenXml;
 using SqlSugar;
@@ -574,11 +575,11 @@ namespace FlowFlex.Application.Services.OW
                         Id = entity.Id
                     });
 
-                    LoggingExtensions.WriteLine($"[INFO] Auto-generated CaseCode '{entity.CaseCode}' for Onboarding {entity.Id}");
+                    _logger.LogInformation("Auto-generated CaseCode '{CaseCode}' for Onboarding {OnboardingId}", entity.CaseCode, entity.Id);
                 }
                 catch (Exception ex)
                 {
-                    LoggingExtensions.WriteLine($"[ERROR] Failed to auto-generate CaseCode for Onboarding {entity.Id}: {ex.Message}");
+                    _logger.LogError(ex, "Failed to auto-generate CaseCode for Onboarding {OnboardingId}", entity.Id);
                     // Don't throw - this is a background enhancement, not critical
                 }
             }

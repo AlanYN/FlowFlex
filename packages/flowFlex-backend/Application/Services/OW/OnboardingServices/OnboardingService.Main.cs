@@ -81,6 +81,18 @@ namespace FlowFlex.Application.Services.OW
         internal static readonly HashSet<long> _initializingEntities = new HashSet<long>();
         internal static readonly object _initializationLock = new object();
 
+        // Shared JSON serializer options for consistent serialization across the service
+        internal static readonly JsonSerializerOptions JsonOptions = new JsonSerializerOptions
+        {
+            PropertyNameCaseInsensitive = true,
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+            ReadCommentHandling = JsonCommentHandling.Skip,
+            AllowTrailingCommas = true,
+            NumberHandling = System.Text.Json.Serialization.JsonNumberHandling.AllowReadingFromString,
+            DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull,
+            WriteIndented = false
+        };
+
         #endregion
 
         #region Constructor

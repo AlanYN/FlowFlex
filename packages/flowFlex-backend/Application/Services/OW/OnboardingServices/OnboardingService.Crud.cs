@@ -741,7 +741,8 @@ namespace FlowFlex.Application.Services.OW
                     {
                         entity.CurrentStageId = currentStageProgress.StageId;
                         result.CurrentStageId = currentStageProgress.StageId;
-                        LoggingExtensions.WriteLine($"[DEBUG] GetByIdAsync - Recovered CurrentStageId from StagesProgress: {entity.CurrentStageId} for Onboarding {id}");
+                        _logger.LogDebug("GetByIdAsync - Recovered CurrentStageId {CurrentStageId} from StagesProgress for Onboarding {OnboardingId}", 
+                            entity.CurrentStageId, id);
 
                         // Update database to fix the missing CurrentStageId
                         try
@@ -752,11 +753,12 @@ namespace FlowFlex.Application.Services.OW
                                 CurrentStageId = entity.CurrentStageId.Value,
                                 Id = id
                             });
-                            LoggingExtensions.WriteLine($"[DEBUG] GetByIdAsync - Updated database with CurrentStageId: {entity.CurrentStageId} for Onboarding {id}");
+                            _logger.LogDebug("GetByIdAsync - Updated database with CurrentStageId {CurrentStageId} for Onboarding {OnboardingId}", 
+                                entity.CurrentStageId, id);
                         }
                         catch (Exception ex)
                         {
-                            LoggingExtensions.WriteLine($"[ERROR] GetByIdAsync - Failed to update CurrentStageId in database: {ex.Message}");
+                            _logger.LogError(ex, "GetByIdAsync - Failed to update CurrentStageId in database for Onboarding {OnboardingId}", id);
                         }
                     }
                 }
@@ -765,6 +767,11 @@ namespace FlowFlex.Application.Services.OW
                 result.CurrentStageStartTime = null;
                 result.CurrentStageEndTime = null;
                 double? estimatedDays = null;
+                
+                // OPTIMIZATION: Fetch current stage once to avoid N+1 queries
+                Stage currentStage = entity.CurrentStageId.HasValue 
+                    ? await _stageRepository.GetByIdAsync(entity.CurrentStageId.Value) 
+                    : null;
                 if (entity.CurrentStageId.HasValue && result.StagesProgress != null && result.StagesProgress.Any())
                 {
                     var currentStageProgress = result.StagesProgress.FirstOrDefault(sp => sp.StageId == entity.CurrentStageId.Value);
@@ -790,11 +797,10 @@ namespace FlowFlex.Application.Services.OW
                             if (!estimatedDays.HasValue || estimatedDays.Value <= 0)
                             {
                                 estimatedDays = (double?)currentStageProgress.EstimatedDays;
-                                if ((!estimatedDays.HasValue || estimatedDays.Value <= 0) && entity.CurrentStageId.HasValue)
+                                if ((!estimatedDays.HasValue || estimatedDays.Value <= 0) && currentStage != null)
                                 {
-                                    var stage = await _stageRepository.GetByIdAsync(entity.CurrentStageId.Value);
-                                    if (stage?.EstimatedDuration != null && stage.EstimatedDuration > 0)
-                                        estimatedDays = (double?)stage.EstimatedDuration;
+                                    if (currentStage.EstimatedDuration != null && currentStage.EstimatedDuration > 0)
+                                        estimatedDays = (double?)currentStage.EstimatedDuration;
                                 }
                             }
                         }
@@ -806,44 +812,27 @@ namespace FlowFlex.Application.Services.OW
                     result.CurrentStageEndTime = result.CurrentStageStartTime.Value.AddDays(estimatedDays.Value);
                 }
 
-                // Get current stage name and estimated days
-                if (entity.CurrentStageId.HasValue)
+                // Get current stage name and estimated days (using pre-fetched stage from above)
+                if (entity.CurrentStageId.HasValue && currentStage != null)
                 {
-                    var stage = await _stageRepository.GetByIdAsync(entity.CurrentStageId.Value);
-                    result.CurrentStageName = stage?.Name;
+                    result.CurrentStageName = currentStage.Name;
 
                     // IMPORTANT: Priority for EstimatedDays: customEstimatedDays > stage.EstimatedDuration
                     var currentStageProgress = result.StagesProgress?.FirstOrDefault(sp => sp.StageId == entity.CurrentStageId.Value);
                     if (currentStageProgress != null && currentStageProgress.CustomEstimatedDays.HasValue && currentStageProgress.CustomEstimatedDays.Value > 0)
                     {
                         result.CurrentStageEstimatedDays = currentStageProgress.CustomEstimatedDays.Value;
-                        LoggingExtensions.WriteLine($"[DEBUG] GetByIdAsync - Using customEstimatedDays: {result.CurrentStageEstimatedDays} for Stage {entity.CurrentStageId}");
+                        _logger.LogDebug("GetByIdAsync - Using customEstimatedDays {EstimatedDays} for Stage {StageId}", 
+                            result.CurrentStageEstimatedDays, entity.CurrentStageId);
                     }
                     else
                     {
-                        result.CurrentStageEstimatedDays = stage?.EstimatedDuration;
+                        result.CurrentStageEstimatedDays = currentStage.EstimatedDuration;
                     }
-
-                    // Fallback: if still missing, fetch stage directly
-                    if ((!result.CurrentStageEstimatedDays.HasValue || result.CurrentStageEstimatedDays.Value <= 0) && entity.CurrentStageId.HasValue)
-                    {
-                        try
-                        {
-                            var stageFallback = await _stageRepository.GetByIdAsync(entity.CurrentStageId.Value);
-                            if (stageFallback?.EstimatedDuration != null && stageFallback.EstimatedDuration > 0)
-                            {
-                                result.CurrentStageEstimatedDays = stageFallback.EstimatedDuration;
-                                LoggingExtensions.WriteLine($"[DEBUG] GetByIdAsync - Fallback EstimatedDays from Stage fetch: {result.CurrentStageEstimatedDays} for Onboarding {id}");
-                            }
-                        }
-                        catch { }
-                    }
-
-                    // End time already derived strictly from stagesProgress above
                 }
                 else
                 {
-                    LoggingExtensions.WriteLine($"[WARNING] GetByIdAsync - CurrentStageId is null for Onboarding {id} after fallback attempt");
+                    _logger.LogWarning("GetByIdAsync - CurrentStageId is null for Onboarding {OnboardingId} after fallback attempt", id);
                 }
 
                 // Get user ID for permission checks
