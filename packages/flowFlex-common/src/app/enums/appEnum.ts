@@ -62,13 +62,13 @@ export enum ViewType {
 }
 
 export const fieldsTypeEnum = [
+	{ key: 11, value: 'Single-line Text' },
 	{ key: 3, value: 'Phone' },
 	{ key: 4, value: 'Email' },
-	{ key: 5, value: 'Dropdown select' },
+	{ key: 5, value: 'Dropdown Select' },
 	{ key: 7, value: 'Switch' },
-	{ key: 10, value: 'Date picker' },
-	{ key: 11, value: 'Single-line text' },
-	{ key: 12, value: 'Multiline text' },
+	{ key: 10, value: 'Date Picker' },
+	{ key: 12, value: 'Multiline Text' },
 	{ key: 13, value: 'Number' },
 	{ key: 16, value: 'File' },
 	{ key: 19, value: 'People' },
