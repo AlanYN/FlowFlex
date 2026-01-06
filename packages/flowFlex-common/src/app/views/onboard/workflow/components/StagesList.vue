@@ -109,10 +109,12 @@
 													content="Users must complete this stage before proceeding to subsequent stages"
 													placement="top"
 												>
-													<Icon
-														icon="mingcute:warning-line"
-														class="w-5 h-5 text-[var(--el-color-warning)]"
-													/>
+													<div
+														class="text-orange-400 px-2 border border-orange-400 rounded-xl flex items-center gap-x-2 dark:bg-orange-900"
+													>
+														<Icon icon="mdi:information-outline" />
+														Required
+													</div>
 												</el-tooltip>
 												<!-- Portal Permission Icon -->
 												<el-tooltip
