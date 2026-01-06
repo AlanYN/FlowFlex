@@ -362,6 +362,7 @@ export interface Stage {
 	};
 	assignee?: string[];
 	coAssignees?: string[];
+	required: boolean;
 }
 
 // 检查清单任务完成记录相关类型定义

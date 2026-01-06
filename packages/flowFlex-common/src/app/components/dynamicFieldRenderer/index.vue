@@ -217,6 +217,16 @@
 					class="w-full"
 				/>
 
+				<!-- Email 邮箱 -->
+				<el-input
+					v-else-if="field.dataType === propertyTypeEnum.Email"
+					v-model="formValues[field.fieldName]"
+					type="email"
+					:placeholder="`Please enter ${field.displayName}`"
+					:disabled="readonly"
+					clearable
+				/>
+
 				<!-- Phone 电话 -->
 				<MergedArea
 					v-else-if="field.dataType === propertyTypeEnum.Phone"
@@ -365,6 +375,15 @@ const getFieldRules = (field: DynamicList) => {
 			required: field.isRequired,
 			message: field.fieldValidate?.message || `${field.displayName} is required`,
 			trigger: field.dataType === propertyTypeEnum.DropdownSelect ? 'change' : 'blur',
+		});
+	}
+
+	// Email 类型添加格式校验
+	if (field.dataType === propertyTypeEnum.Email) {
+		rules.push({
+			type: 'email',
+			message: 'Please enter a valid email address',
+			trigger: 'blur',
 		});
 	}
 
