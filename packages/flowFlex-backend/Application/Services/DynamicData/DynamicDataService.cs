@@ -207,11 +207,10 @@ public class DynamicDataService : IBusinessDataService, IPropertyService, IScope
         using var package = new ExcelPackage();
         var worksheet = package.Workbook.Worksheets.Add("Dynamic Fields Export");
 
-        // Set headers
+        // Set headers (match page display)
         var headers = new[]
         {
-            "Field ID", "Field Name", "Display Name", "Description", "Data Type",
-            "Is Required", "Is System Define", "Created By", "Create Date", "Modified By", "Modify Date"
+            "Name", "Description", "Type", "Created Time", "Created By", "Updated Time", "Updated By"
         };
 
         for (int i = 0; i < headers.Length; i++)
@@ -224,17 +223,13 @@ public class DynamicDataService : IBusinessDataService, IPropertyService, IScope
         for (int row = 0; row < data.Count; row++)
         {
             var item = data[row];
-            worksheet.Cells[row + 2, 1].Value = item.Id;
-            worksheet.Cells[row + 2, 2].Value = item.FieldName;
-            worksheet.Cells[row + 2, 3].Value = item.DisplayName;
-            worksheet.Cells[row + 2, 4].Value = item.Description;
-            worksheet.Cells[row + 2, 5].Value = item.DataType;
-            worksheet.Cells[row + 2, 6].Value = item.IsRequired;
-            worksheet.Cells[row + 2, 7].Value = item.IsSystemDefine;
-            worksheet.Cells[row + 2, 8].Value = item.CreateBy;
-            worksheet.Cells[row + 2, 9].Value = item.CreateDate;
-            worksheet.Cells[row + 2, 10].Value = item.ModifyBy;
-            worksheet.Cells[row + 2, 11].Value = item.ModifyDate;
+            worksheet.Cells[row + 2, 1].Value = item.FieldName;
+            worksheet.Cells[row + 2, 2].Value = item.Description;
+            worksheet.Cells[row + 2, 3].Value = item.DataType;
+            worksheet.Cells[row + 2, 4].Value = item.CreateDate;
+            worksheet.Cells[row + 2, 5].Value = item.CreateBy;
+            worksheet.Cells[row + 2, 6].Value = item.ModifyDate;
+            worksheet.Cells[row + 2, 7].Value = item.ModifyBy;
         }
 
         // Auto-fit columns

@@ -8,6 +8,11 @@ namespace FlowFlex.Domain.Shared.Models.DynamicData;
 public class PropertyQueryRequest
 {
     /// <summary>
+    /// Property IDs filter (for batch export)
+    /// </summary>
+    public List<long>? Ids { get; set; }
+
+    /// <summary>
     /// Page index (1-based)
     /// </summary>
     public int PageIndex { get; set; } = 1;
