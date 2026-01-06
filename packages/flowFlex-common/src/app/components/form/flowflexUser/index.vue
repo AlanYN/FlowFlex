@@ -72,11 +72,11 @@
 		<!-- 可编辑模式 -->
 		<div
 			v-else
-			class="w-full min-h-8 px-3 el-input__wrapper cursor-pointer transition-colors duration-200 flex items-center"
+			class="w-full min-h-8 px-3 el-input__wrapper transition-colors duration-200 flex items-center"
 			:class="[
 				disabled
-					? 'bg-gray-50 dark:bg-gray-700 cursor-not-allowed'
-					: 'hover:border-gray-400 dark:hover:border-gray-500',
+					? 'bg-gray-50 dark:bg-[--el-disabled-bg-color] cursor-not-allowed'
+					: 'hover:border-gray-400 dark:hover:border-gray-500 cursor-pointer',
 			]"
 			@click="openModal"
 		>
@@ -96,7 +96,7 @@
 						>
 							<div class="flex items-center gap-1">
 								<div
-									class="w-4 h-4 rounded-full flex items-center justify-center text-white font-semibold text-xs relative cursor-pointer transition-transform duration-200 hover:scale-105 group flex-shrink-0"
+									class="w-4 h-4 rounded-full flex items-center justify-center text-white font-semibold text-xs relative transition-transform duration-200 hover:scale-105 group flex-shrink-0"
 									:class="{ 'cursor-not-allowed': disabled }"
 									:style="{ backgroundColor: getAvatarColor(item.name) }"
 								>
@@ -115,7 +115,7 @@
 					</div>
 					<div
 						v-if="selectedItems.length > maxShowCount"
-						class="w-8 h-6 ml-2 rounded-full flex items-center justify-center text-white font-semibold text-xs relative cursor-pointer transition-transform duration-200 hover:scale-105 group"
+						class="w-8 h-6 ml-2 rounded-full flex items-center justify-center text-white font-semibold text-xs relative transition-transform duration-200 hover:scale-105 group"
 						:class="{ 'cursor-not-allowed': disabled }"
 						:style="{
 							backgroundColor: getAvatarColor(
