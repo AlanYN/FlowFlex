@@ -104,6 +104,16 @@
 										<div class="stage-name-container">
 											<span class="stage-name">
 												{{ element.name }}
+												<el-tooltip
+													v-if="element.required"
+													content="Users must complete this stage before proceeding to subsequent stages"
+													placement="top"
+												>
+													<Icon
+														icon="mingcute:warning-line"
+														class="w-5 h-5 text-[var(--el-color-warning)]"
+													/>
+												</el-tooltip>
 												<!-- Portal Permission Icon -->
 												<el-tooltip
 													v-if="element.visibleInPortal"

@@ -103,27 +103,38 @@
 									<div class="flex-1 min-w-0">
 										<div class="flex items-center gap-2 min-w-0">
 											<div
-												class="text-gray-900 dark:text-white-100 text-sm stage-title-text flex-1 min-w-0"
+												class="text-gray-900 flex gap-x-1 items-center dark:text-white-100 text-sm stage-title-text flex-1 min-w-0"
 												:title="stage.title"
 											>
 												{{ stage.title }}
 											</div>
 											<!-- Action Tag for completed stages -->
-											<div
-												v-if="
-													stage.completed &&
-													stage.actions &&
-													stage.actions.length > 0
-												"
-												class="flex items-center gap-2 flex-shrink-0"
-											>
-												<ActionTag
-													:actions="stage.actions"
-													:triggerSourceId="stage.stageId"
-													:onboarding-id="onboardingData.id"
-													type="warning"
-													size="small"
-												/>
+											<div class="flex items-center gap-2 flex-shrink-0">
+												<el-tooltip
+													v-if="stage.required"
+													content="Users must complete this stage before proceeding to subsequent stages"
+													placement="top"
+												>
+													<Icon
+														icon="mingcute:warning-line"
+														class="w-5 h-5 text-[var(--el-color-warning)]"
+													/>
+												</el-tooltip>
+												<template
+													v-if="
+														stage.completed &&
+														stage.actions &&
+														stage.actions.length > 0
+													"
+												>
+													<ActionTag
+														:actions="stage.actions"
+														:triggerSourceId="stage.stageId"
+														:onboarding-id="onboardingData.id"
+														type="warning"
+														size="small"
+													/>
+												</template>
 											</div>
 										</div>
 									</div>
