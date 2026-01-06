@@ -107,6 +107,30 @@
 							</div>
 						</div>
 					</el-form-item>
+
+					<el-form-item label="Required Stage" prop="required">
+						<template #label="{ label }">
+							<span class="inline-flex items-center gap-x-1">
+								{{ label }}
+								<el-tooltip
+									content="Users must complete this stage before proceeding to subsequent stages"
+									placement="top"
+								>
+									<Icon
+										icon="mdi:information-outline"
+										class="text-gray-400 cursor-help"
+									/>
+								</el-tooltip>
+							</span>
+						</template>
+
+						<el-switch
+							v-model="formData.required"
+							inline-prompt
+							active-text="Yes"
+							inactive-text="No"
+						/>
+					</el-form-item>
 				</el-form>
 			</TabPane>
 			<TabPane value="components">
@@ -351,6 +375,7 @@ const formData = ref({
 	operateTeams: [] as string[],
 	useSameTeamForOperate: true,
 	coAssignees: [] as string[],
+	required: false,
 });
 
 // 表单验证规则
