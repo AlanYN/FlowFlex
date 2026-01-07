@@ -858,7 +858,7 @@ namespace FlowFlex.Application.Services.OW
                             stageProgress.Actions = new List<ActionTriggerMappingWithActionInfo>();
                         }
 
-                        // Get permission for this stage (STRICT MODE: Workflow 鈭?Stage)
+                        // Get permission for this stage (STRICT MODE: Workflow ∩ Stage)
                         if (hasUserId)
                         {
                             try
@@ -884,6 +884,28 @@ namespace FlowFlex.Application.Services.OW
                                 CanOperate = false,
                                 ErrorMessage = "User not authenticated"
                             };
+                        }
+                    }
+
+                    // Apply Required Stage constraint: if current stage is required and not completed,
+                    // subsequent stages should have canOperate = false
+                    var orderedStages = result.StagesProgress.OrderBy(s => s.StageOrder).ToList();
+                    var currentStageProgress = orderedStages.FirstOrDefault(s => s.IsCurrent);
+                    
+                    if (currentStageProgress != null && currentStageProgress.Required && !currentStageProgress.IsCompleted)
+                    {
+                        // Find all stages after the current required stage and set canOperate = false
+                        foreach (var stageProgress in orderedStages.Where(s => s.StageOrder > currentStageProgress.StageOrder))
+                        {
+                            if (stageProgress.Permission != null && stageProgress.Permission.CanOperate)
+                            {
+                                stageProgress.Permission = new Application.Contracts.Dtos.OW.Permission.PermissionInfoDto
+                                {
+                                    CanView = stageProgress.Permission.CanView,
+                                    CanOperate = false,
+                                    ErrorMessage = stageProgress.Permission.ErrorMessage
+                                };
+                            }
                         }
                     }
                 }
