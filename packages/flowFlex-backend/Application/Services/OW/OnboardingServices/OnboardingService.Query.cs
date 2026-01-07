@@ -850,23 +850,36 @@ namespace FlowFlex.Application.Services.OW
                     return new List<OnboardingOutputDto>();
                 }
 
+                // Batch load workflows and stages to avoid N+1 queries
+                var workflowIds = entities.Select(e => e.WorkflowId).Distinct().ToList();
+                var stageIds = entities.Where(e => e.CurrentStageId.HasValue).Select(e => e.CurrentStageId!.Value).Distinct().ToList();
+
+                var workflows = await _workflowRepository.GetListAsync(w => workflowIds.Contains(w.Id));
+                var workflowDict = workflows.ToDictionary(w => w.Id, w => w.Name);
+
+                var stageDict = new Dictionary<long, string>();
+                if (stageIds.Any())
+                {
+                    var stages = await _stageRepository.GetListAsync(s => stageIds.Contains(s.Id));
+                    stageDict = stages.ToDictionary(s => s.Id, s => s.Name);
+                }
+
                 // Map to DTOs
                 var results = new List<OnboardingOutputDto>();
                 foreach (var entity in entities)
                 {
-                    // Auto-generate CaseCode for legacy data
-                    await EnsureCaseCodeAsync(entity);
-
-                    // Ensure stages progress is properly initialized and synced
-                    await EnsureStagesProgressInitializedAsync(entity);
-
                     var dto = _mapper.Map<OnboardingOutputDto>(entity);
 
-                    // Get workflow name
-                    var workflow = await _workflowRepository.GetByIdAsync(entity.WorkflowId);
-                    if (workflow != null)
+                    // Set workflow name from cache
+                    if (workflowDict.TryGetValue(entity.WorkflowId, out var workflowName))
                     {
-                        dto.WorkflowName = workflow.Name;
+                        dto.WorkflowName = workflowName;
+                    }
+
+                    // Set current stage name from cache
+                    if (entity.CurrentStageId.HasValue && stageDict.TryGetValue(entity.CurrentStageId.Value, out var stageName))
+                    {
+                        dto.CurrentStageName = stageName;
                     }
 
                     results.Add(dto);
