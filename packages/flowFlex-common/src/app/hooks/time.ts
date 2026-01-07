@@ -195,3 +195,46 @@ export function formatDateUSOnly(dateString: string | Date): string {
 		return String(dateString);
 	}
 }
+
+/**
+ * Format message time for display in message list
+ * Shows relative time (Today shows time only, Yesterday, X days ago) or absolute date
+ * @param timestamp - The timestamp string from API (ISO 8601 format with timezone)
+ * @returns Formatted time string for display
+ */
+export function formatMessageTime(timestamp: string): string {
+	if (!timestamp) return '';
+
+	// 获取用户设置的时区
+	const { timeZone } = getTimeZoneInfo();
+
+	// 使用 dayjs 将 API 返回的时间转换为用户时区
+	const messageDate = dayjs(timestamp).tz(timeZone);
+	// 获取用户时区的当前时间（使用 dayjs.tz 确保不受本地计算机时区影响）
+	const now = dayjs().tz(timeZone);
+
+	// 提取日期部分进行比较（格式：YYYY-MM-DD）
+	const messageDateStr = messageDate.format('YYYY-MM-DD');
+	const todayStr = now.format('YYYY-MM-DD');
+	const yesterdayStr = now.subtract(1, 'day').format('YYYY-MM-DD');
+
+	// 今天
+	if (messageDateStr === todayStr) {
+		return messageDate.format('h:mm A'); // 如 2:30 PM
+	}
+
+	// 昨天
+	if (messageDateStr === yesterdayStr) {
+		return 'Yesterday';
+	}
+
+	// 计算天数差
+	const days = now.startOf('day').diff(messageDate.startOf('day'), 'day');
+
+	if (days > 0 && days < 7) {
+		return `${days} days ago`;
+	}
+
+	// 格式化为 "MMM D YYYY"
+	return messageDate.format('MMM D YYYY');
+}

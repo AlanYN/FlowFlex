@@ -2,7 +2,7 @@
 	<div class="pb-6 customer-overview-bg">
 		<!-- 加载状态 -->
 		<PageHeader
-			:title="`Customer Overview: ${customerData?.leadName || 'Loading...'}`"
+			:title="`Customer Overview: ${customerData?.caseName || 'Loading...'}`"
 			:show-back-button="true"
 			@go-back="handleBack"
 		>
@@ -39,7 +39,7 @@
 						<p class="text-sm font-medium text-el-text-color-secondary">
 							Customer Name
 						</p>
-						<p class="font-medium">{{ customerData.leadName }}</p>
+						<p class="font-medium">{{ customerData.caseName }}</p>
 					</div>
 					<div>
 						<p class="text-sm font-medium text-el-text-color-secondary">Contact Name</p>
@@ -740,7 +740,7 @@ interface OnboardingData {
 	currentStageId: string;
 	currentStageName: string;
 	leadId: string;
-	leadName: string;
+	caseName: string;
 	leadEmail: string;
 	leadPhone: string;
 	contactPerson: string; // 联系人姓名
@@ -2034,7 +2034,7 @@ const handleExportExcel = () => {
 		XLSX.utils.book_append_sheet(workbook, worksheet, 'Customer Overview');
 
 		// Add filter info to filename if filters are active
-		let filename = `Customer_Overview_${customerData.value?.leadName}_${customerData.value?.leadId}`;
+		let filename = `Customer_Overview_${customerData.value?.caseName}_${customerData.value?.leadId}`;
 		if (hasActiveFilters.value) {
 			filename += '_Filtered';
 		}
@@ -2491,7 +2491,7 @@ const handleExportPDF = async () => {
 		}
 
 		pdf.save(
-			`Customer_Overview_${customerData.value?.leadName}_${customerData.value?.leadId}.pdf`
+			`Customer_Overview_${customerData.value?.caseName}_${customerData.value?.leadId}.pdf`
 		);
 		console.log('[PDF Export] PDF file saved successfully');
 		ElMessage.success('PDF file exported successfully');
@@ -3371,36 +3371,6 @@ html.dark .question-number {
 
 html.dark .filter-label {
 	color: var(--primary-300);
-}
-
-/* Element Plus 组件样式覆盖 */
-:deep(.filter-select .el-input__wrapper) {
-	border-color: var(--primary-200);
-}
-
-html.dark :deep(.filter-select .el-input__wrapper) {
-	border-color: var(--black-200);
-}
-
-:deep(.filter-select .el-input__wrapper:hover) {
-	border-color: var(--primary-400);
-}
-
-html.dark :deep(.filter-select .el-input__wrapper:hover) {
-	border-color: var(--primary-600);
-}
-
-:deep(.filter-select .el-input__wrapper.is-focus) {
-	border-color: var(--primary-500);
-}
-
-html.dark :deep(.filter-select .el-input__wrapper.is-focus) {
-	border-color: var(--primary-500);
-	box-shadow: 0 0 0 3px rgba(126, 34, 206, 0.2);
-}
-
-html.dark :deep(.filter-select .el-input__inner) {
-	color: var(--white-100);
 }
 
 .customer-overview-bg {

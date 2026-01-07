@@ -226,3 +226,30 @@ export enum ToolsType {
 	NewTool = 3,
 	SystemTools = 4,
 }
+
+export enum MessageFolder {
+	Inbox = 0,
+	Sent = 1,
+	Archive = 2,
+	Trash = 3,
+	Starred = 4,
+}
+
+export enum MessageTag {
+	Internal = 0,
+	External = 1,
+	Important = 2,
+	Portal = 3,
+}
+
+export enum MessageType {
+	Internal = '0',
+	Email = '1',
+	Portal = '2',
+}
+
+export const MessageTypeEnum = {
+	0: 'Internal',
+	1: 'Email',
+	2: 'Portal',
+};

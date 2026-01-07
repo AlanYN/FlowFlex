@@ -1,6 +1,7 @@
 using FlowFlex.Application.Contracts.IServices.OW;
 using FlowFlex.Application.Filter;
 using FlowFlex.Domain.Shared;
+using FlowFlex.Domain.Shared.Const;
 using FlowFlex.Domain.Shared.Enums.Permission;
 using FlowFlex.Domain.Shared.Models;
 using Microsoft.AspNetCore.Mvc;
@@ -105,6 +106,26 @@ namespace FlowFlex.WebApi.Filters
                 // Step 4: Handle permission result
                 if (!permissionResult.Success)
                 {
+                    // Check if this is a "resource not found" error
+                    // Resource not found should return success with empty data, not an error
+                    if (IsResourceNotFoundError(permissionResult.ErrorCode))
+                    {
+                        logger.LogInformation(
+                            "Resource not found, returning empty data - UserId: {UserId}, EntityType: {EntityType}, EntityId: {EntityId}, Operation: {Operation}",
+                            userId, _entityType, entityId, _operationType);
+
+                        // Return success with empty data instead of error
+                        context.Result = new OkObjectResult(new
+                        {
+                            data = Array.Empty<object>(),
+                            success = true,
+                            msg = "",
+                            code = "200"
+                        });
+                        return;
+                    }
+
+                    // For actual permission denied errors, return 403
                     logger.LogWarning(
                         "Permission denied - UserId: {UserId}, EntityType: {EntityType}, EntityId: {EntityId}, Operation: {Operation}, Reason: {Reason}",
                         userId, _entityType, entityId, _operationType, permissionResult.ErrorMessage);
@@ -116,7 +137,7 @@ namespace FlowFlex.WebApi.Filters
                         message = permissionResult.ErrorMessage
                     })
                     {
-                        StatusCode = 403 // Forbidden
+                        StatusCode = 403
                     };
                     return;
                 }
@@ -195,6 +216,18 @@ namespace FlowFlex.WebApi.Filters
             bool hasPortalAccess = controllerPortalAccess != null || actionPortalAccess != null;
 
             return hasPortalAccess;
+        }
+
+        /// <summary>
+        /// Checks if the error code indicates a resource not found error
+        /// </summary>
+        /// <param name="errorCode">Permission error code</param>
+        /// <returns>True if the error is a resource not found error</returns>
+        private static bool IsResourceNotFoundError(string errorCode)
+        {
+            return errorCode == PermissionErrorCodes.WorkflowNotFound ||
+                   errorCode == PermissionErrorCodes.StageNotFound ||
+                   errorCode == PermissionErrorCodes.CaseNotFound;
         }
     }
 }

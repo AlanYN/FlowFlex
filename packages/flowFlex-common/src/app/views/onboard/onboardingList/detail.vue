@@ -2,7 +2,7 @@
 	<div class="pb-6">
 		<!-- 页面头部 -->
 		<PageHeader
-			:title="`${onboardingData?.caseCode || ''} - ${onboardingData?.leadName || ''}`"
+			:title="`${onboardingData?.caseCode || ''} - ${onboardingData?.caseName || ''}`"
 			:show-back-button="true"
 			@go-back="handleBack"
 		>
@@ -194,6 +194,7 @@
 										!hasCasePermission(ProjectPermissionEnum.case.update)
 									"
 									:systemId="onboardingData?.systemId"
+									:entityId="onboardingData?.entityId"
 									@document-uploaded="handleDocumentUploaded"
 									@document-deleted="handleDocumentDeleted"
 								/>
@@ -781,7 +782,7 @@ const handleCustomerOverview = () => {
 			leadId: onboardingId.value,
 		},
 		query: {
-			companyName: onboardingData.value?.leadName || '',
+			companyName: onboardingData.value?.caseName || '',
 			from: 'onboardingDetail',
 		},
 	});

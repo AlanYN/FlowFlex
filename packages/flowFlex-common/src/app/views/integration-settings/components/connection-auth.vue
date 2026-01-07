@@ -167,12 +167,14 @@
 								:class="
 									integrationStatus === 1
 										? 'bg-success-light text-success'
-										: 'bg-danger-light text-danger'
+										: 'bg-danger-light text-[--el-color-danger]'
 								"
 							>
 								<el-icon
 									:class="
-										integrationStatus === 1 ? 'text-success' : 'text-danger'
+										integrationStatus === 1
+											? 'text-success'
+											: 'text-[--el-color-danger]'
 									"
 								>
 									<component
@@ -182,13 +184,15 @@
 								<span class="text-sm font-medium">
 									{{ integrationStatus === 1 ? 'Connected' : 'Not Connected' }}
 								</span>
-								<span class="text-sm font-medium" v-if="testErrorMsg">
-									<Icon
-										icon="tabler:alert-circle"
-										class="text-danger"
-										@click="handleTestError"
-									/>
-								</span>
+								<el-tooltip
+									v-if="testErrorMsg"
+									:content="testErrorMsg"
+									placement="top"
+								>
+									<span class="text-sm font-medium">
+										<Icon icon="tabler:alert-circle" class="text-danger" />
+									</span>
+								</el-tooltip>
 							</div>
 						</div>
 					</div>
@@ -467,10 +471,6 @@ watch(
 	},
 	{ immediate: true, deep: true }
 );
-
-const handleTestError = () => {
-	ElMessage.error(props?.testErrorMsg);
-};
 
 // 初始化
 onMounted(() => {

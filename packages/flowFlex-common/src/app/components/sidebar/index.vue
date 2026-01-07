@@ -1,10 +1,13 @@
 <template>
 	<div
-		class="bg-siderbarGray dark:bg-black py-8 unis-sidebar sidebar-container"
+		class="bg-siderbarGray dark:bg-black py-8 unis-sidebar sidebar-container h-screen"
 		:class="{ 'sidebar-collapsed': props.isCollapse }"
 	>
-		<div class="sidebar-content" :class="{ 'content-hidden': props.isCollapse }">
-			<div class="flex px-3 gap-x-2 cursor-pointer" @click="goToHomePage">
+		<div
+			class="sidebar-content flex flex-col h-full"
+			:class="{ 'content-hidden': props.isCollapse }"
+		>
+			<div class="flex px-3 gap-x-2 cursor-pointer flex-shrink-0" @click="goToHomePage">
 				<Logo v-if="theme.theme == 'dark'" width="48" height="48" />
 				<PurpleLogo v-else width="48" height="48" />
 				<div class="flex flex-col dark:text-white">
@@ -12,7 +15,7 @@
 					<div class="text-sm font-bold">{{ globSetting.title }}</div>
 				</div>
 			</div>
-			<el-scrollbar :class="['mt-4 pr-1']">
+			<el-scrollbar class="mt-4 pr-1 flex-1">
 				<Menu
 					:collapse="false"
 					:uniqueOpened="true"

@@ -56,6 +56,7 @@
 								:integration-id="integrationId"
 								:attachmentApiMd="attachmentInboundApiMd"
 								:loading="isLoadingAttachmentApiMd"
+								:integration-name="integrationName"
 								:workflows="workflows"
 								:inboundFieldMappings="integrationData?.inboundFieldMappings || []"
 								:actions="actions"
@@ -68,6 +69,7 @@
 								:integration-id="integrationId"
 								:attachmentApiMd="attachmentOutboundApiMd"
 								:loading="isLoadingAttachmentApiMd"
+								:integration-name="integrationName"
 								:workflows="workflows"
 								:outboundFieldMappings="
 									integrationData?.outboundFieldMappings || []
@@ -98,7 +100,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, nextTick } from 'vue';
+import { ref, onMounted, onUnmounted, nextTick } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { ElMessage } from 'element-plus';
 import { PrototypeTabs, TabPane } from '@/components/PrototypeTabs';
@@ -116,6 +118,9 @@ import PageHeader from '@/components/global/PageHeader/index.vue';
 
 const route = useRoute();
 const router = useRouter();
+
+// 定时器引用
+let testConnectionTimer: number | null = null;
 
 // 状态管理
 const integrationId = ref<string>('new');
@@ -316,7 +321,21 @@ const loadAttachmentApiMd = async () => {
 
 // 初始化
 onMounted(async () => {
-	loadIntegrationData();
-	loadAttachmentApiMd();
+	await Promise.all([loadIntegrationData(), loadAttachmentApiMd()]);
+
+	handleTestConnection();
+
+	// 启动定时器，每分钟（60000毫秒）调用一次测试连接
+	testConnectionTimer = setInterval(() => {
+		handleTestConnection();
+	}, 60000) as unknown as number;
+});
+
+// 组件卸载时清理定时器
+onUnmounted(() => {
+	if (testConnectionTimer) {
+		clearInterval(testConnectionTimer);
+		testConnectionTimer = null;
+	}
 });
 </script>

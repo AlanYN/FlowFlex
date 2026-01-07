@@ -1,10 +1,13 @@
 using FlowFlex.Application.Contracts;
 using FlowFlex.Application.Contracts.Dtos;
+using FlowFlex.Application.Contracts.Options;
 using FlowFlex.Domain.Shared;
 using FlowFlex.Domain.Shared.Enums;
 using FlowFlex.Domain.Entities.OW;
 using FlowFlex.Domain.Repository.OW;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using System.Collections.Generic;
 using System.IO;
 using System.Threading;
@@ -16,20 +19,27 @@ namespace FlowFlex.Application.Services.OW
 {
     /// <summary>
     /// Real implementation of AttachmentService
+    /// Supports hybrid storage: both cloud (OSS/AWS) and local file storage
     /// </summary>
     public class AttachmentService : IAttachmentService, IScopedService
     {
         private readonly IFileStorageService _fileStorageService;
         private readonly IOnboardingFileRepository _onboardingFileRepository;
+        private readonly IWebHostEnvironment _webHostEnvironment;
+        private readonly FileStorageOptions _fileStorageOptions;
         private readonly ILogger<AttachmentService> _logger;
 
         public AttachmentService(
             IFileStorageService fileStorageService,
             IOnboardingFileRepository onboardingFileRepository,
+            IWebHostEnvironment webHostEnvironment,
+            IOptions<FileStorageOptions> fileStorageOptions,
             ILogger<AttachmentService> logger)
         {
             _fileStorageService = fileStorageService;
             _onboardingFileRepository = onboardingFileRepository;
+            _webHostEnvironment = webHostEnvironment;
+            _fileStorageOptions = fileStorageOptions?.Value ?? new FileStorageOptions();
             _logger = logger;
         }
 
@@ -154,8 +164,6 @@ namespace FlowFlex.Application.Services.OW
                 }
                 else if (!string.IsNullOrEmpty(onboardingFile.AccessUrl))
                 {
-                    // AccessUrl might be a full OSS URL, we need to extract the file path
-                    // CloudFileStorageService.ExtractFilePathFromUrl will handle this
                     filePath = onboardingFile.AccessUrl;
                 }
 
@@ -166,7 +174,14 @@ namespace FlowFlex.Application.Services.OW
                     return fallbackUrl;
                 }
 
-                // Generate real-time signed URL using file storage service
+                // Check if it's local storage - return direct access URL
+                if (IsLocalStoragePath(filePath))
+                {
+                    _logger.LogDebug("Local storage detected for attachment {AttachmentId}, returning local URL: {Url}", id, filePath);
+                    return filePath; // Return the /uploads/... path directly
+                }
+
+                // For cloud storage, generate real-time signed URL
                 var signedUrl = await _fileStorageService.GetFileUrlAsync(filePath);
                 
                 // Check if the returned URL is valid (not null, not empty, and not just the original path)
@@ -231,32 +246,31 @@ namespace FlowFlex.Application.Services.OW
                 // Try to get real file from file storage
                 try
                 {
-                    // Extract file path from AccessUrl or FilePath
-                    string filePath;
+                    // Determine storage type based on AccessUrl or FilePath
+                    var accessUrl = attachment.AccessUrl ?? attachment.FilePath ?? "";
+                    var isLocalStorage = IsLocalStoragePath(accessUrl);
 
-                    if (!string.IsNullOrEmpty(attachment.FilePath))
+                    _logger.LogDebug("GetAttachmentAsync - Id: {Id}, AccessUrl: {AccessUrl}, IsLocal: {IsLocal}", 
+                        id, accessUrl, isLocalStorage);
+
+                    Stream stream;
+                    string fileName;
+                    string contentType;
+
+                    if (isLocalStorage)
                     {
-                        // Remove /uploads/ prefix if present (for local storage compatibility)
-                        filePath = attachment.FilePath.Replace("/uploads/", "");
-                    }
-                    else if (!string.IsNullOrEmpty(attachment.AccessUrl))
-                    {
-                        // For cloud storage, AccessUrl might be a full URL or a path
-                        // CloudFileStorageService.GetFileAsync will handle URL extraction
-                        filePath = attachment.AccessUrl;
-                        
-                        // If it's a local storage URL, remove /uploads/ prefix
-                        if (filePath.StartsWith("/uploads/", StringComparison.OrdinalIgnoreCase))
-                        {
-                            filePath = filePath.Replace("/uploads/", "");
-                        }
+                        // Handle local storage - read file directly from local file system
+                        (stream, fileName, contentType) = await GetLocalFileAsync(accessUrl);
                     }
                     else
                     {
-                        throw new FileNotFoundException($"No file path found for attachment {id}");
-                    }
+                        // Handle cloud storage (OSS/AWS) - use file storage service
+                        string filePath = !string.IsNullOrEmpty(attachment.FilePath)
+                            ? attachment.FilePath
+                            : attachment.AccessUrl;
 
-                    var (stream, fileName, contentType) = await _fileStorageService.GetFileAsync(filePath);
+                        (stream, fileName, contentType) = await _fileStorageService.GetFileAsync(filePath);
+                    }
 
                     // Update attachment info with actual file data
                     attachment.FileType = contentType;
@@ -275,6 +289,116 @@ namespace FlowFlex.Application.Services.OW
                 _logger.LogError(ex, $"Error getting attachment stream {id}");
                 throw;
             }
+        }
+
+        /// <summary>
+        /// Determine if the path represents local storage
+        /// Local storage paths start with /uploads/ or are relative paths without http(s)://
+        /// </summary>
+        private bool IsLocalStoragePath(string path)
+        {
+            if (string.IsNullOrEmpty(path))
+                return false;
+
+            // Check for local storage URL prefix
+            if (path.StartsWith("/uploads/", StringComparison.OrdinalIgnoreCase))
+                return true;
+
+            // If it's a full URL (http:// or https://), it's cloud storage
+            if (path.StartsWith("http://", StringComparison.OrdinalIgnoreCase) ||
+                path.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+                return false;
+
+            // Other relative paths without http are considered local
+            // But we need to be careful - some relative paths might be for cloud storage
+            // Default to false (cloud) for ambiguous cases
+            return false;
+        }
+
+        /// <summary>
+        /// Get file from local storage
+        /// </summary>
+        private async Task<(Stream stream, string fileName, string contentType)> GetLocalFileAsync(string accessUrl)
+        {
+            try
+            {
+                // Remove /uploads/ prefix to get relative path
+                var relativePath = accessUrl;
+                if (relativePath.StartsWith("/uploads/", StringComparison.OrdinalIgnoreCase))
+                {
+                    relativePath = relativePath.Substring("/uploads/".Length);
+                }
+                else if (relativePath.StartsWith("uploads/", StringComparison.OrdinalIgnoreCase))
+                {
+                    relativePath = relativePath.Substring("uploads/".Length);
+                }
+
+                // Build full path
+                var localStoragePath = _fileStorageOptions.LocalStoragePath ?? "uploads";
+                var fullPath = Path.Combine(_webHostEnvironment.ContentRootPath, localStoragePath, relativePath);
+
+                _logger.LogDebug("Reading local file - RelativePath: {RelativePath}, FullPath: {FullPath}", 
+                    relativePath, fullPath);
+
+                // Check if file exists
+                if (!File.Exists(fullPath))
+                {
+                    _logger.LogWarning("Local file not found: {FullPath}", fullPath);
+                    throw new FileNotFoundException($"Local file not found: {relativePath}", fullPath);
+                }
+
+                // Open file stream
+                var stream = new FileStream(
+                    fullPath,
+                    FileMode.Open,
+                    FileAccess.Read,
+                    FileShare.Read,
+                    bufferSize: 4096,
+                    useAsync: true);
+
+                var fileName = Path.GetFileName(fullPath);
+                var contentType = GetContentType(fileName);
+
+                _logger.LogInformation("Successfully retrieved local file: {FileName}", fileName);
+                return (stream, fileName, contentType);
+            }
+            catch (FileNotFoundException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error reading local file: {AccessUrl}", accessUrl);
+                throw new FileNotFoundException($"Failed to read local file: {accessUrl}", ex);
+            }
+        }
+
+        /// <summary>
+        /// Get content type from file name
+        /// </summary>
+        private string GetContentType(string fileName)
+        {
+            var extension = Path.GetExtension(fileName).ToLowerInvariant();
+            return extension switch
+            {
+                ".jpg" or ".jpeg" => "image/jpeg",
+                ".png" => "image/png",
+                ".gif" => "image/gif",
+                ".pdf" => "application/pdf",
+                ".doc" => "application/msword",
+                ".docx" => "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                ".xls" => "application/vnd.ms-excel",
+                ".xlsx" => "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                ".txt" => "text/plain",
+                ".zip" => "application/zip",
+                ".rar" => "application/x-rar-compressed",
+                ".mp4" => "video/mp4",
+                ".avi" => "video/x-msvideo",
+                ".mov" => "video/quicktime",
+                ".eml" => "message/rfc822",
+                ".msg" => "application/vnd.ms-outlook",
+                _ => "application/octet-stream"
+            };
         }
     }
 }
