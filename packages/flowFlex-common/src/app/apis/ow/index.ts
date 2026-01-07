@@ -34,6 +34,8 @@ const Api = (id?: string | number) => {
 
 		// 权限检查API
 		permissionCheck: `${globSetting.apiProName}/ow/permissions/${globSetting.apiVersion}/check`,
+
+		components: `${globSetting.apiProName}/ow/components/${globSetting.apiVersion}`,
 	};
 };
 
@@ -257,4 +259,100 @@ export function checkPermission(params: {
 	resourceType: 1 | 2 | 3; // 1: Workflow, 2: Stage, 3: Case
 }) {
 	return defHttp.post({ url: `${Api().permissionCheck}`, params });
+}
+
+// ========================= Stage Condition 相关接口 =========================
+
+/**
+ * 获取 Workflow 的所有 Conditions
+ * @param workflowId Workflow ID
+ * @returns List<StageConditionOutputDto>
+ */
+export function getConditionsByWorkflow(workflowId: string | number) {
+	return defHttp.get({
+		url: `${Api().workflows}/${workflowId}/conditions`,
+	});
+}
+
+/**
+ * 获取 Stage 的所有 Conditions
+ * @param stageId Stage ID
+ * @returns List<StageConditionOutputDto>
+ */
+export function getConditionsByStage(stageId: string | number) {
+	return defHttp.get({
+		url: `${Api().stages}/${stageId}/conditions`,
+	});
+}
+
+/**
+ * 创建 Condition
+ * @param stageId Stage ID
+ * @param params StageConditionInputDto
+ * @returns StageConditionOutputDto
+ */
+export function createCondition(stageId: string | number, params: any) {
+	return defHttp.post({
+		url: `${Api().stages}/${stageId}/conditions`,
+		params,
+	});
+}
+
+/**
+ * 更新 Condition
+ * @param stageId Stage ID
+ * @param conditionId Condition ID
+ * @param params StageConditionInputDto
+ * @returns StageConditionOutputDto
+ */
+export function updateCondition(
+	stageId: string | number,
+	conditionId: string | number,
+	params: any
+) {
+	return defHttp.put({
+		url: `${Api().stages}/${stageId}/conditions/${conditionId}`,
+		params,
+	});
+}
+
+/**
+ * 删除 Condition
+ * @param stageId Stage ID
+ * @param conditionId Condition ID
+ * @returns bool
+ */
+export function deleteCondition(stageId: string | number, conditionId: string | number) {
+	return defHttp.delete({
+		url: `${Api().stages}/${stageId}/conditions/${conditionId}`,
+	});
+}
+
+/**
+ * 获取 Stage 组件列表（用于规则配置）
+ * @param stageId Stage ID
+ * @returns List<StageComponentInfo>
+ */
+export function getStageComponents(stageId: string | number) {
+	return defHttp.get({
+		url: `${Api().stages}/${stageId}/components`,
+	});
+}
+
+/**
+ * 获取组件字段列表（用于规则配置）
+ * @param componentType 组件类型
+ * @param componentId 组件 ID
+ * @returns List<ComponentFieldInfo>
+ */
+export function getComponentFields(componentType: string, componentId: string | number) {
+	return defHttp.get({
+		url: `${Api().components}/${componentType}/${componentId}/fields`,
+	});
+}
+
+export function getAvailableActions() {
+	return defHttp.get({
+		url: `${Api().components}/actions`,
+	});
 }

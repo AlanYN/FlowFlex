@@ -312,6 +312,19 @@
 												</el-icon>
 												Add Stage
 											</el-dropdown-item>
+											<!-- <el-dropdown-item
+												command="manageConditions"
+												v-if="
+													hasWorkflowPermission(
+														ProjectPermissionEnum.workflow.update
+													)
+												"
+											>
+												<el-icon>
+													<Connection />
+												</el-icon>
+												Manage Conditions
+											</el-dropdown-item> -->
 
 											<el-dropdown-item
 												divided
@@ -654,6 +667,14 @@
 				</div>
 			</div>
 		</el-dialog>
+
+		<!-- Workflow Condition 管理弹窗 -->
+		<WorkflowConditionDialog
+			v-model="dialogVisible.conditionDialog"
+			:workflow-id="workflow?.id || ''"
+			:stages="workflow?.stages || []"
+			@refresh="workflow?.id && fetchStages(workflow.id)"
+		/>
 	</div>
 </template>
 
@@ -668,7 +689,7 @@ import {
 	Check,
 	CopyDocument,
 	Download,
-	// Connection,
+	Connection,
 	Loading,
 	Star,
 	DocumentAdd,
@@ -708,6 +729,7 @@ import NewWorkflowForm from './components/NewWorkflowForm.vue';
 import StageForm from './components/StageForm.vue';
 import WorkflowCardView from './components/WorkflowCardView.vue';
 import WorkflowListView from './components/WorkflowListView.vue';
+import WorkflowConditionDialog from './components/condition/WorkflowConditionDialog.vue';
 import { Stage, Workflow, Questionnaire, Checklist } from '#/onboard';
 import { getFlowflexUser } from '@/apis/global';
 import { FlowflexUser } from '#/golbal';
@@ -835,6 +857,7 @@ const dialogVisible = reactive({
 	workflowForm: false,
 	stageForm: false,
 	combineStages: false,
+	conditionDialog: false,
 });
 
 // 计算对话框标题
@@ -1100,6 +1123,12 @@ const handleCommand = (command: string, targetWorkflow?: any) => {
 			break;
 		case 'combineStages':
 			showCombineStagesDialog();
+			// 清除loading状态
+			currentActionWorkflow.value = null;
+			currentActionType.value = null;
+			break;
+		case 'manageConditions':
+			dialogVisible.conditionDialog = true;
 			// 清除loading状态
 			currentActionWorkflow.value = null;
 			currentActionType.value = null;
