@@ -884,13 +884,19 @@ namespace FlowFlex.Application.Services.OW
                 var workflowIds = entities.Select(e => e.WorkflowId).Distinct().ToList();
                 var stageIds = entities.Where(e => e.CurrentStageId.HasValue).Select(e => e.CurrentStageId!.Value).Distinct().ToList();
 
-                var workflows = await _workflowRepository.GetListAsync(w => workflowIds.Contains(w.Id));
+                // Use ClearFilter to bypass tenant/appCode filtering for workflow queries
+                var workflows = await _workflowRepository.ClearFilter()
+                    .Where(w => workflowIds.Contains(w.Id) && w.IsValid)
+                    .ToListAsync();
                 var workflowDict = workflows.ToDictionary(w => w.Id, w => w.Name);
 
                 var stageDict = new Dictionary<long, string>();
                 if (stageIds.Any())
                 {
-                    var stages = await _stageRepository.GetListAsync(s => stageIds.Contains(s.Id));
+                    // Use ClearFilter to bypass tenant/appCode filtering for stage queries
+                    var stages = await _stageRepository.ClearFilter()
+                        .Where(s => stageIds.Contains(s.Id) && s.IsValid)
+                        .ToListAsync();
                     stageDict = stages.ToDictionary(s => s.Id, s => s.Name);
                 }
 
