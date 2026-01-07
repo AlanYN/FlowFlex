@@ -312,7 +312,7 @@
 												</el-icon>
 												Add Stage
 											</el-dropdown-item>
-											<el-dropdown-item
+											<!-- <el-dropdown-item
 												command="manageConditions"
 												v-if="
 													hasWorkflowPermission(
@@ -324,7 +324,7 @@
 													<Connection />
 												</el-icon>
 												Manage Conditions
-											</el-dropdown-item>
+											</el-dropdown-item> -->
 
 											<el-dropdown-item
 												divided
