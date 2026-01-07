@@ -858,7 +858,7 @@ namespace FlowFlex.Application.Services.OW
                             stageProgress.Actions = new List<ActionTriggerMappingWithActionInfo>();
                         }
 
-                        // Get permission for this stage (STRICT MODE: Workflow 鈭?Stage)
+                        // Get permission for this stage (STRICT MODE: Workflow ∩ Stage)
                         if (hasUserId)
                         {
                             try
@@ -883,6 +883,29 @@ namespace FlowFlex.Application.Services.OW
                                 CanView = false,
                                 CanOperate = false,
                                 ErrorMessage = "User not authenticated"
+                            };
+                        }
+                    }
+
+                    // Apply Required Stage constraint: 
+                    // For each stage, if there's any preceding required stage that is not completed,
+                    // the current stage should have canOperate = false
+                    var orderedStages = result.StagesProgress.OrderBy(s => s.StageOrder).ToList();
+                    
+                    foreach (var stageProgress in orderedStages)
+                    {
+                        // Check if any preceding required stage is not completed
+                        var hasBlockingRequiredStage = orderedStages
+                            .Where(s => s.StageOrder < stageProgress.StageOrder && s.Required && !s.IsCompleted)
+                            .Any();
+                        
+                        if (hasBlockingRequiredStage && stageProgress.Permission != null && stageProgress.Permission.CanOperate)
+                        {
+                            stageProgress.Permission = new Application.Contracts.Dtos.OW.Permission.PermissionInfoDto
+                            {
+                                CanView = stageProgress.Permission.CanView,
+                                CanOperate = false,
+                                ErrorMessage = stageProgress.Permission.ErrorMessage
                             };
                         }
                     }
