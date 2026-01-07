@@ -364,7 +364,9 @@
 								class="grid-row"
 							>
 								<div class="grid-cell grid-row-header">
-									<span class="w-[200px] min-w-0 truncate">{{ row.label }}</span>
+									<span class="w-[200px] min-w-0 truncate" :title="row.label">
+										{{ row.label }}
+									</span>
 								</div>
 								<div
 									v-for="(column, colIndex) in question.columns"
@@ -433,7 +435,11 @@
 								:key="rowIndex"
 								class="grid-row"
 							>
-								<div class="grid-cell grid-row-header">{{ row.label }}</div>
+								<div class="grid-cell grid-row-header">
+									<span class="w-[200px] min-w-0 truncate" :title="row.label">
+										{{ row.label }}
+									</span>
+								</div>
 								<div
 									v-for="(column, colIndex) in question.columns"
 									:key="colIndex"
@@ -510,7 +516,11 @@
 								:key="rowIndex"
 								class="grid-row"
 							>
-								<div class="grid-cell grid-row-header">{{ row.label }}</div>
+								<div class="grid-cell grid-row-header">
+									<span class="w-[200px] min-w-0 truncate" :title="row.label">
+										{{ row.label }}
+									</span>
+								</div>
 								<div
 									v-for="(column, colIndex) in question.columns"
 									:key="colIndex"

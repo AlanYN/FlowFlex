@@ -487,7 +487,10 @@
 										class="grid-row"
 									>
 										<div class="grid-cell grid-row-header">
-											<span class="w-[200px] min-w-0 truncate">
+											<span
+												class="w-[200px] min-w-0 truncate"
+												:title="row.label"
+											>
 												{{ row.label }}
 											</span>
 										</div>
@@ -602,7 +605,14 @@
 										:key="rowIndex"
 										class="grid-row"
 									>
-										<div class="grid-cell grid-row-header">{{ row.label }}</div>
+										<div class="grid-cell grid-row-header">
+											<span
+												class="w-[200px] min-w-0 truncate"
+												:title="row.label"
+											>
+												{{ row.label }}
+											</span>
+										</div>
 										<div
 											v-for="(column, colIndex) in item.columns"
 											:key="colIndex"
@@ -707,7 +717,14 @@
 										:key="rowIndex"
 										class="grid-row"
 									>
-										<div class="grid-cell grid-row-header">{{ row.label }}</div>
+										<div class="grid-cell grid-row-header">
+											<span
+												class="w-[200px] min-w-0 truncate"
+												:title="row.label"
+											>
+												{{ row.label }}
+											</span>
+										</div>
 										<div
 											v-for="(column, colIndex) in item.columns"
 											:key="colIndex"
@@ -991,17 +1008,29 @@ const clearSkippedQuestions = () => {
 };
 
 // 生成问题项的唯一键
-const getItemKey = (sectionIndex: number, itemIndex: number, isOther?: boolean) => {
+const getItemKey = (
+	sectionIndex: string | number,
+	itemIndex: string | number,
+	isOther?: boolean
+) => {
 	return `section_${sectionIndex}_item_${itemIndex}${isOther ? '_other' : ''}`;
 };
 
 // 生成网格问题的唯一键
-const getGridKey = (sectionIndex: number, itemIndex: number, rowIndex: number) => {
+const getGridKey = (
+	sectionIndex: string | number,
+	itemIndex: string | number,
+	rowIndex: string | number
+) => {
 	return `section_${sectionIndex}_item_${itemIndex}_row_${rowIndex}`;
 };
 
 // 生成Other文本输入框的唯一键
-const getOtherTextKey = (sectionIndex: number, itemIndex: number, rowIndex: number) => {
+const getOtherTextKey = (
+	sectionIndex: string | number,
+	itemIndex: string | number,
+	rowIndex: string | number
+) => {
 	return `section_${sectionIndex}_item_${itemIndex}_row_${rowIndex}_other_text`;
 };
 
@@ -1098,7 +1127,12 @@ watch(
 );
 
 // 处理文件选择（仅本地预览，不上传）
-const handleFileChange = (sectionIndex: number, itemIndex: number, file: any, fileList: any[]) => {
+const handleFileChange = (
+	sectionIndex: string | number,
+	itemIndex: string | number,
+	file: any,
+	fileList: any[]
+) => {
 	console.log('handleFileChange called:', { sectionIndex, itemIndex, file, fileList });
 	const key = getItemKey(sectionIndex, itemIndex);
 	// 只存储文件信息用于预览，不进行实际上传
@@ -1113,8 +1147,8 @@ const handleFileChange = (sectionIndex: number, itemIndex: number, file: any, fi
 
 // 处理单选变化 - 清空Other输入框并处理跳转逻辑
 const handleRadioChange = (
-	sectionIndex: number,
-	itemIndex: number,
+	sectionIndex: string | number,
+	itemIndex: string | number,
 	item: any,
 	value?: string | number | boolean
 ) => {
@@ -1162,8 +1196,8 @@ const handleRadioChange = (
 
 // 计算被跳过的问题
 const calculateSkippedQuestions = (
-	currentSectionIndex: number,
-	currentItemIndex: number,
+	currentSectionIndex: string | number,
+	currentItemIndex: string | number,
 	jumpRule: any
 ) => {
 	const skipped = new Set<string>();
@@ -1194,15 +1228,15 @@ const calculateSkippedQuestions = (
 	// 判断是同section内跳转还是跨section跳转
 	if (currentSectionIndex === targetSectionIndex) {
 		// 同section内跳转：跳过当前问题之后到目标问题之前的所有问题
-		for (let i = currentItemIndex + 1; i < targetQuestionIndex; i++) {
+		for (let i = Number(currentItemIndex) + 1; i < targetQuestionIndex; i++) {
 			skipped.add(`${currentSectionIndex}_${i}`);
 		}
 	} else {
 		// 跨section跳转：
 		// 1. 跳过当前section中当前问题之后的所有问题
-		const currentSection = props.questionnaire?.sections[currentSectionIndex];
+		const currentSection = props.questionnaire?.sections[currentSectionIndex as number];
 		if (currentSection) {
-			for (let i = currentItemIndex + 1; i < currentSection.questions.length; i++) {
+			for (let i = Number(currentItemIndex) + 1; i < currentSection.questions.length; i++) {
 				skipped.add(`${currentSectionIndex}_${i}`);
 			}
 		}
@@ -1254,14 +1288,14 @@ const scrollToTargetQuestion = (jumpRule: any) => {
 };
 
 // 检查问题是否被跳过
-const isQuestionSkipped = (sectionIndex: number, itemIndex: number) => {
+const isQuestionSkipped = (sectionIndex: string | number, itemIndex: string | number) => {
 	return skippedQuestions.value.has(`${sectionIndex}_${itemIndex}`);
 };
 
 // 处理多选变化 - 清空Other输入框
 const handleCheckboxChange = (
-	sectionIndex: number,
-	itemIndex: number,
+	sectionIndex: string | number,
+	itemIndex: string | number,
 	item: any,
 	value: string[]
 ) => {
@@ -1281,9 +1315,9 @@ const handleCheckboxChange = (
 
 // 处理网格多选选项变化
 const handleGridCheckboxChange = (
-	sectionIndex: number,
-	itemIndex: number,
-	rowIndex: number,
+	sectionIndex: string | number,
+	itemIndex: string | number,
+	rowIndex: string | number,
 	item: any,
 	value: string[]
 ) => {
@@ -1304,9 +1338,9 @@ const handleGridCheckboxChange = (
 
 // 处理单选网格选项变化
 const handleGridRadioChange = (
-	sectionIndex: number,
-	itemIndex: number,
-	rowIndex: number,
+	sectionIndex: string | number,
+	itemIndex: string | number,
+	rowIndex: string | number,
 	item: any,
 	value?: string | number | boolean
 ) => {
@@ -1498,7 +1532,7 @@ const clearValidationErrors = () => {
 };
 
 // 获取指定字段的错误信息
-const getFieldError = (sectionIndex: number, itemIndex: number) => {
+const getFieldError = (sectionIndex: string | number, itemIndex: string | number) => {
 	const key = getItemKey(sectionIndex, itemIndex);
 	return validationErrors.value[key] || '';
 };
@@ -1611,17 +1645,19 @@ const getSliderMarks = (item: any) => {
 };
 
 // 计算问题的实际序号（跳过page_break类型）
-const getQuestionNumber = (sectionIndex: number, itemIndex: number) => {
-	if (!props.questionnaire?.sections) return itemIndex + 1;
+const getQuestionNumber = (sectionIndex: string | number, itemIndex: string | number) => {
+	const secIdx = Number(sectionIndex);
+	const itemIdx = Number(itemIndex);
+	if (!props.questionnaire?.sections) return itemIdx + 1;
 
-	const section = props.questionnaire.sections[sectionIndex];
-	if (!section?.questions) return itemIndex + 1;
+	const section = props.questionnaire.sections[secIdx];
+	if (!section?.questions) return itemIdx + 1;
 
 	let actualQuestionNumber = 1;
-	for (let i = 0; i <= itemIndex; i++) {
+	for (let i = 0; i <= itemIdx; i++) {
 		const item = section.questions[i];
 		if (item.type !== 'page_break') {
-			if (i === itemIndex) {
+			if (i === itemIdx) {
 				return actualQuestionNumber;
 			}
 			actualQuestionNumber++;
