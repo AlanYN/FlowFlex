@@ -187,8 +187,8 @@ namespace FlowFlex.Application.Services.OW.Extensions
         {
             DateTimeOffset now = DateTimeOffset.UtcNow;
 
-            // Generate timestamp-based ID for OwEntityBase
-            entity.Id = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+            // Generate snowflake ID for OwEntityBase
+            entity.InitNewId();
 
             // Set timestamps
             entity.CreateDate = now;

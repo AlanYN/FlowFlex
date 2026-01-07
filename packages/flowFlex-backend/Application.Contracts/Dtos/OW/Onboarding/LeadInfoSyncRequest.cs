@@ -14,9 +14,9 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.Onboarding
         public string LeadId { get; set; } = string.Empty;
 
         /// <summary>
-        /// Lead名称
+        /// Case 名称
         /// </summary>
-        public string? LeadName { get; set; }
+        public string? CaseName { get; set; }
 
         /// <summary>
         /// Lead邮箱

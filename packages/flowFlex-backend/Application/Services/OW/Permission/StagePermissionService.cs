@@ -138,10 +138,11 @@ namespace FlowFlex.Application.Services.OW.Permission
 
             // Step 3: Check Operate Permission (STRICT MODE)
             // User must have BOTH Workflow AND Stage operate permission
+            // Note: Delete operation also requires Operate permission
             bool canOperate = false;
             string operateReason = null;
 
-            if (canView && operationType == PermissionOperationType.Operate)
+            if (canView && (operationType == PermissionOperationType.Operate || operationType == PermissionOperationType.Delete))
             {
                 // First, check Workflow operate permission (always required)
                 bool hasWorkflowOperatePermission = _workflowPermissionService.CheckOperatePermission(workflow, userTeamIds);
@@ -214,6 +215,28 @@ namespace FlowFlex.Application.Services.OW.Permission
                 {
                     return PermissionResult.CreateFailure(
                         "User does not have permission for this stage",
+                        "PERMISSION_DENIED");
+                }
+            }
+            else if (operationType == PermissionOperationType.Delete)
+            {
+                // Delete requires Operate permission (delete is a form of operation)
+                if (canOperate)
+                {
+                    return PermissionResult.CreateSuccess(true, true, operateReason);
+                }
+                else if (canView)
+                {
+                    var result = PermissionResult.CreateFailure(
+                        "User has view permission but not delete permission for this stage",
+                        "DELETE_PERMISSION_DENIED");
+                    result.CanView = true;
+                    return result;
+                }
+                else
+                {
+                    return PermissionResult.CreateFailure(
+                        "User does not have permission to delete this stage",
                         "PERMISSION_DENIED");
                 }
             }

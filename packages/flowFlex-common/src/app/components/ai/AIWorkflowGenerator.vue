@@ -864,6 +864,7 @@
 									</div>
 									<div class="input-right-actions">
 										<AIFileAnalyzer
+											:model-config="currentAIModel"
 											@file-analyzed="handleFileAnalyzed"
 											@analysis-complete="handleAnalysisComplete"
 											@stream-chunk="handleStreamChunk"
@@ -3883,24 +3884,124 @@ const saveChatHistoryToStorage = () => {
 };
 
 // File Analysis Handlers
-const handleFileAnalyzed = (content: string, fileName: string) => {
+const handleFileAnalyzed = async (content: string, fileName: string) => {
 	console.log('File analyzed:', fileName, 'Content length:', content.length);
 
 	// Add a user message showing the file was uploaded
+	const userMessageContent = `Uploaded file: ${fileName}\n\nContent preview:\n${content.substring(
+		0,
+		500
+	)}${content.length > 500 ? '...' : ''}`;
+
 	const fileMessage: ChatMessage = {
 		id: Date.now().toString(),
 		type: 'user',
-		content: `Uploaded file: ${fileName}\n\nContent preview:\n${content.substring(0, 500)}${
-			content.length > 500 ? '...' : ''
-		}`,
+		content: userMessageContent,
 		timestamp: new Date(),
 	};
 
 	chatMessages.value.push(fileMessage);
 	saveChatSession();
-	scrollToBottom();
+	scrollToBottom(true); // Force scroll when user sends message
 
-	ElMessage.success(`File "${fileName}" has been analyzed and content extracted`);
+	// Create AI message for streaming response
+	const aiMessageId = (Date.now() + 1).toString();
+	const aiMessage: ChatMessage = {
+		id: aiMessageId,
+		type: 'ai',
+		content: '',
+		timestamp: new Date(),
+	};
+	chatMessages.value.push(aiMessage);
+	scrollToBottom(true); // Force scroll for new AI message
+
+	// Send to AI for analysis
+	try {
+		const analysisPrompt = `Please analyze the following file content and provide insights, summary, or answer any questions about it:
+
+File: ${fileName}
+Content:
+${content}
+
+Please provide a comprehensive analysis of this content.`;
+
+		// Get current AI model configuration if not already loaded
+		if (!currentAIModel.value) {
+			try {
+				const modelResponse = await getDefaultAIModel();
+				if (modelResponse.success && modelResponse.data) {
+					currentAIModel.value = modelResponse.data;
+				}
+			} catch (error) {
+				console.warn('Failed to get default AI model:', error);
+			}
+		}
+
+		// Prepare chat messages for API
+		const apiMessages: AIChatMessage[] = [
+			{
+				role: 'system',
+				content:
+					'You are an AI assistant specialized in analyzing and understanding various types of documents and files. Provide detailed, helpful analysis of the content provided.',
+				timestamp: new Date().toISOString(),
+			},
+			{
+				role: 'user',
+				content: analysisPrompt,
+				timestamp: new Date().toISOString(),
+			},
+		];
+
+		// Prepare chat request
+		const chatRequest = {
+			messages: apiMessages,
+			context: 'file_analysis',
+			mode: 'general' as const,
+			...(currentAIModel.value && {
+				modelId: currentAIModel.value.id.toString(),
+				modelProvider: currentAIModel.value.provider,
+				modelName: currentAIModel.value.modelName,
+			}),
+		};
+
+		// Use streaming API
+		isChatStreaming.value = true;
+		await streamAIChatMessageNative(
+			chatRequest,
+			(chunk: string) => {
+				// Update the AI message content with streaming chunks
+				const messageIndex = chatMessages.value.findIndex((msg) => msg.id === aiMessageId);
+				if (messageIndex !== -1) {
+					chatMessages.value[messageIndex].content += chunk;
+					scrollToBottom();
+				}
+			},
+			(data: any) => {
+				console.log('File analysis stream completed:', data);
+				isChatStreaming.value = false;
+				saveChatSession();
+			},
+			(error: any) => {
+				console.error('File analysis stream failed:', error);
+				isChatStreaming.value = false;
+				const messageIndex = chatMessages.value.findIndex((msg) => msg.id === aiMessageId);
+				if (messageIndex !== -1 && !chatMessages.value[messageIndex].content) {
+					chatMessages.value[messageIndex].content =
+						'Sorry, I encountered an error while analyzing the file. Please try again.';
+				}
+			}
+		);
+	} catch (error) {
+		console.error('Failed to analyze file:', error);
+		isChatStreaming.value = false;
+		const messageIndex = chatMessages.value.findIndex((msg) => msg.id === aiMessageId);
+		if (messageIndex !== -1) {
+			chatMessages.value[messageIndex].content =
+				'Sorry, I encountered an error while analyzing the file. Please try again.';
+		}
+	}
+
+	saveChatSession();
 };
 
 // Track current AI response message ID
@@ -3975,10 +4076,20 @@ const getStageNameFromQuestionnaire = (questionnaireName: string) => {
 	return questionnaireName.replace(/ Questionnaire$/i, '');
 };
 
-const scrollToBottom = async () => {
+// Check if user is near the bottom of the chat (within 100px)
+const isNearBottom = (): boolean => {
+	if (!chatMessagesRef.value) return true;
+	const { scrollTop, scrollHeight, clientHeight } = chatMessagesRef.value;
+	return scrollHeight - scrollTop - clientHeight < 100;
+};
+
+const scrollToBottom = async (force = false) => {
 	await nextTick();
 	if (chatMessagesRef.value) {
-		chatMessagesRef.value.scrollTop = chatMessagesRef.value.scrollHeight;
+		// Only auto-scroll if user is near bottom or force is true
+		if (force || isNearBottom()) {
+			chatMessagesRef.value.scrollTop = chatMessagesRef.value.scrollHeight;
+		}
 	}
 };
 

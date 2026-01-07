@@ -363,7 +363,9 @@
 								:key="rowIndex"
 								class="grid-row"
 							>
-								<div class="grid-cell grid-row-header">{{ row.label }}</div>
+								<div class="grid-cell grid-row-header">
+									<span class="w-[200px] min-w-0 truncate">{{ row.label }}</span>
+								</div>
 								<div
 									v-for="(column, colIndex) in question.columns"
 									:key="colIndex"
@@ -923,10 +925,9 @@ const handleHasOtherQuestion = (question: QuestionnaireSection & { id: string },
 				if (question.type === 'multiple_choice' && matchingRule.targetQuestionId) {
 					// 计算被跳过的问题并触发跳转
 					handleJumpToQuestion(matchingRule, question);
+				} else {
+					internalSkippedQuestions.value = new Set();
 				}
-			} else {
-				// 如果没有匹配的跳转规则，清除跳过状态
-				internalSkippedQuestions.value = new Set();
 			}
 		}
 	} else if (question.type == 'multiple_choice_grid' || question.type == 'checkbox_grid') {
@@ -1921,9 +1922,9 @@ html.dark {
 		&:first-child {
 			justify-content: flex-start;
 			font-weight: 500;
-			background-color: var(--el-fill-color-lighter);
+			background-color: var(--primary-25);
 			min-width: 200px;
-			flex: 2;
+			flex: none;
 		}
 
 		&:last-child {
@@ -1932,10 +1933,11 @@ html.dark {
 	}
 
 	.grid-row-header {
-		background-color: var(--el-fill-color-lighter);
+		background-color: var(--primary-25);
 		font-weight: 500;
 		text-align: left;
 		justify-content: flex-start !important;
+		@apply w-[200px] min-w-0 truncate;
 	}
 
 	.grid-column-header {

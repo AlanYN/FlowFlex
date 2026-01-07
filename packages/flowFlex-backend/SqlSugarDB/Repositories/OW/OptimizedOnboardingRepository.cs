@@ -102,7 +102,7 @@ namespace FlowFlex.SqlSugarDB.Repositories.OW
 
             if (!string.IsNullOrEmpty(searchKeyword))
             {
-                query = query.Where(x => x.LeadName.Contains(searchKeyword) || x.LeadId.Contains(searchKeyword));
+                query = query.Where(x => x.CaseName.Contains(searchKeyword) || x.LeadId.Contains(searchKeyword));
             }
 
             var totalCount = await query.CountAsync();
@@ -246,6 +246,17 @@ namespace FlowFlex.SqlSugarDB.Repositories.OW
                 // 恢复全局过滤器
                 _db.QueryFilter.Restore();
             }
+        }
+
+        /// <summary>
+        /// Get onboarding by ID without tenant isolation
+        /// Used for background tasks where HttpContext is not available (e.g., AI Summary updates)
+        /// </summary>
+        public async Task<Onboarding> GetByIdWithoutTenantFilterAsync(long id, CancellationToken cancellationToken = default)
+        {
+            return await _db.Queryable<Onboarding>()
+                .Where(x => x.Id == id && x.IsValid)
+                .FirstAsync();
         }
 
         public async Task<Dictionary<string, object>> GetStatisticsAsync()
@@ -804,6 +815,30 @@ namespace FlowFlex.SqlSugarDB.Repositories.OW
         public SugarUnitOfWork CreateContext()
         {
             return _db.CreateContext();
+        }
+
+        #endregion
+
+        #region Dashboard Methods
+
+        /// <summary>
+        /// Get recently completed cases for achievements
+        /// </summary>
+        public async Task<List<Onboarding>> GetRecentlyCompletedAsync(int limit, string? team = null)
+        {
+            var query = _db.Queryable<Onboarding>()
+                .Where(x => x.IsValid == true)
+                .Where(x => x.Status == "Completed" || x.Status == "Force Completed");
+
+            if (!string.IsNullOrEmpty(team))
+            {
+                query = query.Where(x => x.CurrentTeam == team);
+            }
+
+            return await query
+                .OrderByDescending(x => x.ActualCompletionDate)
+                .Take(limit)
+                .ToListAsync();
         }
 
         #endregion

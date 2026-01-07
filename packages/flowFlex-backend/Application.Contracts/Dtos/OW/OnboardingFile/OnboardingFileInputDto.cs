@@ -59,6 +59,12 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.OnboardingFile
         /// If not set, uses current user context
         /// </summary>
         public string OverrideUploaderName { get; set; }
+
+        /// <summary>
+        /// Override tenant ID (for background import tasks)
+        /// If not set, uses current user context
+        /// </summary>
+        public string OverrideTenantId { get; set; }
     }
 
     /// <summary>

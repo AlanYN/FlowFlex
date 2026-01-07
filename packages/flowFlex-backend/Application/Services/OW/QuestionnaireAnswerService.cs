@@ -155,7 +155,7 @@ namespace FlowFlex.Application.Services.OW
                 {
                     OnboardingId = onboardingId,
                     LeadId = onboarding?.LeadId,
-                    LeadName = onboarding?.LeadName,
+                    LeadName = onboarding?.CaseName,
                     StageId = stageId,
                     StageName = stage?.Name ?? "Unknown",
                     QuestionnaireId = questionnaireId,

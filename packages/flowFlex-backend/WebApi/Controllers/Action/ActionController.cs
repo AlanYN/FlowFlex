@@ -206,7 +206,7 @@ namespace FlowFlex.WebApi.Controllers.Action
                     }
                 }
 
-                // Handle fieldMappings update
+                // Handle fieldMappings update (full replacement mode)
                 if (requestData["fieldMappings"] != null)
                 {
                     _logger.LogInformation("Processing fieldMappings update for Action {ActionId}", id);
@@ -214,6 +214,11 @@ namespace FlowFlex.WebApi.Controllers.Action
                     var fieldMappings = requestData["fieldMappings"]?.ToObject<List<JObject>>();
                     if (fieldMappings != null)
                     {
+                        // Get existing field mappings for this action
+                        var existingMappings = await _fieldMappingService.GetByActionIdAsync(id);
+                        var existingIds = existingMappings.Select(m => m.Id).ToHashSet();
+                        var incomingIds = new HashSet<long>();
+
                         foreach (var mapping in fieldMappings)
                         {
                             var fieldMappingId = mapping["id"]?.ToString();
@@ -236,6 +241,7 @@ namespace FlowFlex.WebApi.Controllers.Action
                             // Update existing or create new field mapping
                             if (!string.IsNullOrEmpty(fieldMappingId) && long.TryParse(fieldMappingId, out var fieldMappingIdLong) && fieldMappingIdLong > 0)
                             {
+                                incomingIds.Add(fieldMappingIdLong);
                                 // Update existing field mapping
                                 await _fieldMappingService.UpdateAsync(fieldMappingIdLong, fieldMappingInput);
                                 _logger.LogInformation("Updated field mapping {FieldMappingId} for Action {ActionId}", fieldMappingIdLong, id);
@@ -244,8 +250,22 @@ namespace FlowFlex.WebApi.Controllers.Action
                             {
                                 // Create new field mapping
                                 var newId = await _fieldMappingService.CreateAsync(fieldMappingInput);
+                                incomingIds.Add(newId);
                                 _logger.LogInformation("Created new field mapping {FieldMappingId} for Action {ActionId}", newId, id);
                             }
+                        }
+
+                        // Delete field mappings that are not in the incoming list (full replacement)
+                        var idsToDelete = existingIds.Except(incomingIds).ToList();
+                        foreach (var deleteId in idsToDelete)
+                        {
+                            await _fieldMappingService.DeleteAsync(deleteId);
+                            _logger.LogInformation("Deleted field mapping {FieldMappingId} for Action {ActionId} (not in incoming list)", deleteId, id);
+                        }
+
+                        if (idsToDelete.Any())
+                        {
+                            _logger.LogInformation("Removed {Count} field mappings not in incoming list for Action {ActionId}", idsToDelete.Count, id);
                         }
                     }
                 }

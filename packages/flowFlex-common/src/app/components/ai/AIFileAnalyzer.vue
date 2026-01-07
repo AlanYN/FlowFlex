@@ -1,7 +1,7 @@
 <template>
 	<div class="ai-file-analyzer">
 		<el-tooltip
-			content="Supported: TXT, PDF, DOCX, XLSX, CSV, MD, JSON"
+			content="Supported: TXT, PDF, DOCX, XLSX, CSV, MD, JSON, JPG, PNG, GIF, BMP, WebP"
 			placement="top"
 			effect="dark"
 		>
@@ -50,6 +50,46 @@
 						<p class="file-name">{{ selectedFile?.name }}</p>
 						<p class="file-size">{{ formatFileSize(selectedFile?.size || 0) }}</p>
 					</div>
+				</div>
+
+				<!-- Image Preview with Rotation Controls -->
+				<div v-if="isImageFile && imagePreviewUrl" class="image-preview-section">
+					<div class="image-preview-container">
+						<img :src="imagePreviewUrl" alt="Preview" class="image-preview" />
+					</div>
+					<div class="rotation-controls">
+						<el-button
+							:icon="RefreshLeft"
+							circle
+							size="small"
+							@click="rotateImageCounterClockwise"
+							:disabled="isRotating"
+							title="Rotate Left 90°"
+						/>
+						<span class="rotation-label">{{ currentRotation }}°</span>
+						<el-button
+							:icon="RefreshRight"
+							circle
+							size="small"
+							@click="rotateImageClockwise"
+							:disabled="isRotating"
+							title="Rotate Right 90°"
+						/>
+						<el-button
+							v-if="needsReanalyze"
+							type="primary"
+							size="small"
+							@click="reanalyzeImage"
+							:loading="isReanalyzing"
+							:disabled="isReanalyzing"
+							class="reanalyze-btn"
+						>
+							Re-analyze
+						</el-button>
+					</div>
+					<p class="rotation-hint">
+						Rotate image if text appears sideways or upside down
+					</p>
 				</div>
 
 				<div class="processing-steps">
@@ -103,7 +143,6 @@
 						type="primary"
 						@click="sendToAI"
 						:disabled="!extractedContent || isProcessing"
-						:loading="isSendingToAI"
 					>
 						Send to AI Chat
 					</el-button>
@@ -115,11 +154,26 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue';
-import { ElMessage } from 'element-plus';
-import { Document, Check, Close, Loading } from '@element-plus/icons-vue';
+import { ElMessage, ElMessageBox } from 'element-plus';
+import {
+	Document,
+	Check,
+	Close,
+	Loading,
+	RefreshLeft,
+	RefreshRight,
+} from '@element-plus/icons-vue';
 import * as XLSX from 'xlsx-js-style';
-import { streamAIChatMessageNative, type AIChatMessage } from '@/apis/ai/workflow';
-import { getDefaultAIModel, type AIModelConfig } from '@/apis/ai/config';
+import {
+	getOCRService,
+	getPDFDetector,
+	getContentMerger,
+	getImageProcessor,
+	isLargePDF,
+	LARGE_PDF_PAGE_THRESHOLD,
+	type ContentBlock,
+	type RotationAngle,
+} from './utils';
 
 // External library loaders (CDN-based to avoid local dependency issues)
 const PDF_JS_VERSION = '3.11.174';
@@ -185,12 +239,9 @@ const loadMammoth = async () => {
 	return mammothLoadingPromise;
 };
 
-// Props & Emits
+// Emits
 const emit = defineEmits<{
 	fileAnalyzed: [content: string, fileName: string];
-	analysisComplete: [result: any];
-	streamChunk: [chunk: string];
-	analysisStarted: [fileName: string];
 }>();
 
 // Reactive Data
@@ -198,14 +249,30 @@ const uploadRef = ref();
 const selectedFile = ref<File | null>(null);
 const showProcessingDialog = ref(false);
 const isProcessing = ref(false);
-const isSendingToAI = ref(false);
 const currentStep = ref(0);
 const extractedContent = ref('');
-const currentAIModel = ref<AIModelConfig | null>(null);
+
+// Image rotation state
+const isImageFile = ref(false);
+const imagePreviewUrl = ref('');
+const currentRotation = ref<RotationAngle>(0);
+const rotatedImageBlob = ref<Blob | null>(null);
+const lastAnalyzedRotation = ref<RotationAngle>(0);
+const isRotating = ref(false);
+const isReanalyzing = ref(false);
+const shouldCancelProcessing = ref(false);
+
+// Computed: Check if re-analysis is needed after rotation
+const needsReanalyze = computed(
+	() => isImageFile.value && currentRotation.value !== lastAnalyzedRotation.value
+);
 
 // File Types Configuration
-const acceptedFileTypes = '.txt,.pdf,.docx,.xlsx,.csv,.md,.json';
+const acceptedFileTypes = '.txt,.pdf,.docx,.xlsx,.csv,.md,.json,.jpg,.jpeg,.png,.gif,.bmp,.webp';
 const maxFileSize = 10 * 1024 * 1024; // 10MB
+
+// Image file extensions
+const imageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'];
 
 // Processing Steps
 const processingSteps = ref([
@@ -216,7 +283,7 @@ const processingSteps = ref([
 
 // Computed
 const supportedFormats = computed(() => {
-	return ['txt', 'pdf', 'docx', 'xlsx', 'csv', 'md', 'json'];
+	return ['txt', 'pdf', 'docx', 'xlsx', 'csv', 'md', 'json', ...imageExtensions];
 });
 
 // Methods
@@ -233,7 +300,17 @@ const handleFileSelect = async (file: any) => {
 		return;
 	}
 
+	// Reset rotation state
+	resetRotationState();
+
 	selectedFile.value = rawFile;
+	isImageFile.value = checkIsImageFile(rawFile);
+
+	// Create preview for image files
+	if (isImageFile.value) {
+		createImagePreview(rawFile);
+	}
+
 	showProcessingDialog.value = true;
 	await processFile(rawFile);
 };
@@ -257,6 +334,7 @@ const formatFileSize = (bytes: number): string => {
 
 const processFile = async (file: File) => {
 	isProcessing.value = true;
+	shouldCancelProcessing.value = false;
 	currentStep.value = 0;
 	extractedContent.value = '';
 
@@ -266,6 +344,7 @@ const processFile = async (file: File) => {
 	try {
 		// Step 1: Reading file
 		await delay(500);
+		if (shouldCancelProcessing.value) return;
 		currentStep.value = 1;
 
 		// Step 2: Extract text based on file type
@@ -285,14 +364,25 @@ const processFile = async (file: File) => {
 				content = await readExcelFile(file);
 				break;
 			case 'pdf':
-				content = await readPDFFile(file);
+				content = await readPDFFileWithOCR(file);
 				break;
 			case 'docx':
 				content = await readDocxFile(file);
 				break;
+			case 'jpg':
+			case 'jpeg':
+			case 'png':
+			case 'gif':
+			case 'bmp':
+			case 'webp':
+				content = await readImageFile(file);
+				break;
 			default:
 				throw new Error(`Unsupported file type: ${extension}`);
 		}
+
+		// Check if cancelled during processing
+		if (shouldCancelProcessing.value) return;
 
 		await delay(500);
 		currentStep.value = 2;
@@ -307,8 +397,8 @@ const processFile = async (file: File) => {
 		await delay(500);
 		currentStep.value = 3;
 
-		// Emit file analyzed event
-		emit('fileAnalyzed', extractedContent.value, file.name);
+		// Content extracted successfully, wait for user to click "Send to AI Chat"
+		// Do not emit fileAnalyzed here - only emit when user clicks send button
 	} catch (error) {
 		console.error('File processing error:', error);
 		processingSteps.value[currentStep.value].error =
@@ -392,6 +482,142 @@ const readPDFFile = async (file: File): Promise<string> => {
 	}
 };
 
+// Enhanced PDF reading with OCR support
+const readPDFFileWithOCR = async (file: File): Promise<string> => {
+	try {
+		const originalBuffer = await new Promise<ArrayBuffer>((resolve, reject) => {
+			const reader = new FileReader();
+			reader.onload = () => resolve(reader.result as ArrayBuffer);
+			reader.onerror = () => reject(new Error('Failed to read PDF file'));
+			reader.readAsArrayBuffer(file);
+		});
+
+		// Create a copy of the ArrayBuffer to avoid detached buffer issues
+		// PDF.js transfers ownership of ArrayBuffer, so we need separate copies for each operation
+		const pdfDetector = getPDFDetector();
+		const detectionResult = await pdfDetector.detectPDFType(originalBuffer.slice(0));
+
+		// Check for large PDF warning
+		if (isLargePDF(detectionResult.pageCount)) {
+			try {
+				await ElMessageBox.confirm(
+					`This PDF has ${detectionResult.pageCount} pages (exceeds ${LARGE_PDF_PAGE_THRESHOLD}). Processing may take a while. Continue?`,
+					'Large PDF Warning',
+					{
+						confirmButtonText: 'Continue',
+						cancelButtonText: 'Cancel',
+						type: 'warning',
+					}
+				);
+			} catch {
+				throw new Error('Processing cancelled by user');
+			}
+		}
+
+		// Update processing step description
+		processingSteps.value[1].description = `Detected: ${detectionResult.type} PDF (${detectionResult.pageCount} pages)`;
+
+		const contentBlocks: ContentBlock[] = [];
+
+		// Extract text layer content for text pages
+		if (detectionResult.textPages.length > 0) {
+			const textContent = await readPDFFile(file);
+			contentBlocks.push({
+				content: textContent,
+				source: 'text-layer',
+				pageNumber: 1,
+			});
+		}
+
+		// Perform OCR for image-based pages
+		if (pdfDetector.shouldTriggerOCR(detectionResult)) {
+			const pagesToOCR = pdfDetector.getPagesNeedingOCR(detectionResult);
+
+			if (pagesToOCR.length > 0) {
+				processingSteps.value[1].description = `Running OCR on ${pagesToOCR.length} pages...`;
+
+				const ocrService = getOCRService();
+				await ocrService.initialize();
+
+				for (const pageNum of pagesToOCR) {
+					processingSteps.value[1].description = `OCR: Page ${pageNum}/${detectionResult.pageCount}`;
+
+					// Use a fresh copy of the buffer for each page extraction
+					const pageImage = await pdfDetector.extractPageAsImage(
+						originalBuffer.slice(0),
+						pageNum
+					);
+					const ocrResult = await ocrService.recognizeImage(pageImage);
+
+					if (ocrResult.text.trim()) {
+						contentBlocks.push({
+							content: `Page ${pageNum} (OCR):\n${ocrResult.text}`,
+							source: 'ocr',
+							pageNumber: pageNum,
+							confidence: ocrResult.confidence,
+						});
+					}
+				}
+			}
+		}
+
+		// Merge content
+		const contentMerger = getContentMerger();
+		const mergedContent = contentMerger.merge(contentBlocks);
+
+		processingSteps.value[1].description = `Extracted ${mergedContent.statistics.totalCharacters} characters`;
+
+		return mergedContent.fullText || 'No readable content found in the PDF';
+	} catch (error) {
+		console.error('PDF processing error:', error);
+		if (error instanceof Error && error.message === 'Processing cancelled by user') {
+			throw error;
+		}
+		// Fallback to basic PDF reading
+		console.log('Falling back to basic PDF reading');
+		return readPDFFile(file);
+	}
+};
+
+// Read image file using OCR
+const readImageFile = async (file: File): Promise<string> => {
+	try {
+		processingSteps.value[1].description = 'Performing OCR on image...';
+
+		const ocrService = getOCRService();
+		await ocrService.initialize();
+
+		// Use rotated image if available, otherwise use original file
+		const imageToProcess = rotatedImageBlob.value || file;
+
+		const result = await ocrService.recognizeImage(imageToProcess, (progress) => {
+			processingSteps.value[1].description = `OCR: ${progress.status} (${Math.round(
+				progress.progress * 100
+			)}%)`;
+		});
+
+		if (!result.text.trim()) {
+			throw new Error('No text found in the image');
+		}
+
+		const rotationInfo =
+			currentRotation.value > 0 ? ` (rotated ${currentRotation.value}°)` : '';
+		processingSteps.value[1].description = `Extracted ${
+			result.text.length
+		} characters (confidence: ${Math.round(result.confidence)}%)${rotationInfo}`;
+
+		// Update last analyzed rotation
+		lastAnalyzedRotation.value = currentRotation.value;
+
+		return result.text;
+	} catch (error) {
+		console.error('Image OCR error:', error);
+		throw new Error(
+			'Failed to extract text from image. Please ensure the image contains readable text.'
+		);
+	}
+};
+
 const readDocxFile = async (file: File): Promise<string> => {
 	try {
 		const mammoth = await loadMammoth();
@@ -412,105 +638,17 @@ const readDocxFile = async (file: File): Promise<string> => {
 	}
 };
 
-const sendToAI = async () => {
+const sendToAI = () => {
 	if (!extractedContent.value) {
 		ElMessage.error('No content to send');
 		return;
 	}
 
-	isSendingToAI.value = true;
-
-	// 立即关闭弹窗
+	// Close dialog
 	showProcessingDialog.value = false;
 
-	// 通知父组件分析开始
-	emit('analysisStarted', selectedFile.value?.name || 'Unknown file');
-
-	try {
-		// Get current AI model configuration
-		if (!currentAIModel.value) {
-			const modelResponse = await getDefaultAIModel();
-			if (modelResponse.success && modelResponse.data) {
-				currentAIModel.value = modelResponse.data;
-			}
-		}
-
-		// Prepare the message for AI analysis
-		const analysisPrompt = `Please analyze the following file content and provide insights, summary, or answer any questions about it:
-
-File: ${selectedFile.value?.name}
-Content:
-${extractedContent.value}
-
-Please provide a comprehensive analysis of this content.`;
-
-		const messages: AIChatMessage[] = [
-			{
-				role: 'system',
-				content:
-					'You are an AI assistant specialized in analyzing and understanding various types of documents and files. Provide detailed, helpful analysis of the content provided.',
-				timestamp: new Date().toISOString(),
-			},
-			{
-				role: 'user',
-				content: analysisPrompt,
-				timestamp: new Date().toISOString(),
-			},
-		];
-
-		// Prepare chat request
-		const chatRequest = {
-			messages,
-			context: 'file_analysis',
-			mode: 'general' as const,
-			...(currentAIModel.value && {
-				modelId: currentAIModel.value.id.toString(),
-				modelProvider: currentAIModel.value.provider,
-				modelName: currentAIModel.value.modelName,
-			}),
-		};
-
-		let analysisResult = '';
-
-		// Call streaming API
-		await streamAIChatMessageNative(
-			chatRequest,
-			(chunk: string) => {
-				analysisResult += chunk;
-				// 实时发送流式响应给父组件
-				emit('streamChunk', chunk);
-			},
-			(data: any) => {
-				console.log('File analysis completed:', data);
-
-				// Emit analysis complete event
-				emit('analysisComplete', {
-					fileName: selectedFile.value?.name,
-					originalContent: extractedContent.value,
-					analysis: analysisResult,
-					metadata: {
-						fileSize: selectedFile.value?.size,
-						fileType: selectedFile.value?.type,
-						analysisTimestamp: new Date().toISOString(),
-					},
-				});
-
-				ElMessage.success('File analysis completed successfully!');
-			},
-			(error: any) => {
-				console.error('File analysis failed:', error);
-				ElMessage.error('Failed to analyze file: ' + (error.message || 'Unknown error'));
-			}
-		);
-	} catch (error) {
-		console.error('Send to AI error:', error);
-		ElMessage.error(
-			'Failed to send content to AI: ' +
-				(error instanceof Error ? error.message : 'Unknown error')
-		);
-	} finally {
-		isSendingToAI.value = false;
-	}
+	// Emit fileAnalyzed event - parent component will handle the AI chat
+	emit('fileAnalyzed', extractedContent.value, selectedFile.value?.name || 'Unknown file');
 };
 
 const cancelProcessing = () => {
@@ -519,10 +657,130 @@ const cancelProcessing = () => {
 	extractedContent.value = '';
 	currentStep.value = 0;
 	isProcessing.value = false;
-	isSendingToAI.value = false;
+	resetRotationState();
 };
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+// Check if file is an image
+const checkIsImageFile = (file: File): boolean => {
+	const extension = file.name.toLowerCase().split('.').pop();
+	return imageExtensions.includes(extension || '');
+};
+
+// Create image preview URL
+const createImagePreview = (file: File | Blob) => {
+	if (imagePreviewUrl.value) {
+		URL.revokeObjectURL(imagePreviewUrl.value);
+	}
+	imagePreviewUrl.value = URL.createObjectURL(file);
+};
+
+// Rotate image by 90 degrees clockwise
+const rotateImageClockwise = async () => {
+	if (!selectedFile.value || isRotating.value) return;
+
+	isRotating.value = true;
+	const newRotation = ((currentRotation.value + 90) % 360) as RotationAngle;
+	currentRotation.value = newRotation;
+
+	try {
+		const imageProcessor = getImageProcessor();
+		const image = await imageProcessor.loadImage(selectedFile.value);
+		const rotatedBlob = await imageProcessor.rotateImage(image, newRotation);
+		rotatedImageBlob.value = rotatedBlob;
+		createImagePreview(rotatedBlob);
+	} catch (error) {
+		console.error('Failed to rotate image:', error);
+		ElMessage.error('Failed to rotate image');
+	} finally {
+		isRotating.value = false;
+	}
+};
+
+// Rotate image by 90 degrees counter-clockwise
+const rotateImageCounterClockwise = async () => {
+	if (!selectedFile.value || isRotating.value) return;
+
+	isRotating.value = true;
+	const newRotation = ((currentRotation.value - 90 + 360) % 360) as RotationAngle;
+	currentRotation.value = newRotation;
+
+	try {
+		const imageProcessor = getImageProcessor();
+		const image = await imageProcessor.loadImage(selectedFile.value);
+		const rotatedBlob = await imageProcessor.rotateImage(image, newRotation);
+		rotatedImageBlob.value = rotatedBlob;
+		createImagePreview(rotatedBlob);
+	} catch (error) {
+		console.error('Failed to rotate image:', error);
+		ElMessage.error('Failed to rotate image');
+	} finally {
+		isRotating.value = false;
+	}
+};
+
+// Reset rotation state
+const resetRotationState = () => {
+	if (imagePreviewUrl.value) {
+		URL.revokeObjectURL(imagePreviewUrl.value);
+		imagePreviewUrl.value = '';
+	}
+	currentRotation.value = 0;
+	rotatedImageBlob.value = null;
+	isImageFile.value = false;
+	lastAnalyzedRotation.value = 0;
+};
+
+// Re-analyze image after rotation
+const reanalyzeImage = async () => {
+	if (!selectedFile.value || isReanalyzing.value) return;
+
+	// Cancel any ongoing processing
+	if (isProcessing.value) {
+		shouldCancelProcessing.value = true;
+		// Terminate OCR worker to stop current processing
+		const ocrService = getOCRService();
+		await ocrService.terminate();
+		isProcessing.value = false;
+	}
+
+	isReanalyzing.value = true;
+	currentStep.value = 1;
+	extractedContent.value = '';
+
+	// Reset error states
+	processingSteps.value.forEach((step) => (step.error = ''));
+
+	try {
+		const content = await readImageFile(selectedFile.value);
+
+		await delay(300);
+		currentStep.value = 2;
+
+		if (!content.trim()) {
+			throw new Error('No readable content found in the image');
+		}
+
+		extractedContent.value = content.trim();
+		lastAnalyzedRotation.value = currentRotation.value;
+
+		await delay(300);
+		currentStep.value = 3;
+
+		// Content extracted successfully, wait for user to click "Send to AI Chat"
+	} catch (error) {
+		console.error('Re-analyze error:', error);
+		processingSteps.value[currentStep.value].error =
+			error instanceof Error ? error.message : 'Re-analysis failed';
+		ElMessage.error(
+			'Failed to re-analyze: ' + (error instanceof Error ? error.message : 'Unknown error')
+		);
+	} finally {
+		isReanalyzing.value = false;
+		shouldCancelProcessing.value = false;
+	}
+};
 </script>
 
 <style scoped lang="scss">
@@ -735,5 +993,59 @@ const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 	display: flex;
 	justify-content: flex-end;
 	gap: 0.5rem;
+}
+
+/* Image Preview and Rotation Styles */
+.image-preview-section {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 0.75rem;
+	padding: 1rem;
+	background: var(--el-fill-color-blank);
+	border: 1px solid var(--el-border-color-light);
+	@apply rounded-xl;
+}
+
+.image-preview-container {
+	max-width: 100%;
+	max-height: 200px;
+	overflow: hidden;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	background: var(--el-fill-color-lighter);
+	@apply rounded-lg;
+}
+
+.image-preview {
+	max-width: 100%;
+	max-height: 200px;
+	object-fit: contain;
+}
+
+.rotation-controls {
+	display: flex;
+	align-items: center;
+	gap: 1rem;
+}
+
+.rotation-label {
+	font-size: 14px;
+	font-weight: 500;
+	color: var(--el-text-color-regular);
+	min-width: 40px;
+	text-align: center;
+}
+
+.rotation-hint {
+	margin: 0;
+	font-size: 12px;
+	color: var(--el-text-color-secondary);
+	text-align: center;
+}
+
+.reanalyze-btn {
+	margin-left: 0.5rem;
 }
 </style>

@@ -24,12 +24,48 @@ namespace FlowFlex.SqlSugarDB.Migrations
                         return;
                     }
 
-                    Console.WriteLine($"[ConvertTextJsonColumnsToJsonb] Converting {table}.{column} to jsonb...");
-                    db.Ado.ExecuteCommand($@"
-                        ALTER TABLE {table}
-                        ALTER COLUMN {column} TYPE jsonb
-                        USING CASE WHEN {column} IS NULL OR {column} = '' THEN NULL ELSE {column}::jsonb END;
-                    ");
+                    // Check if column is already jsonb type
+                    var isJsonb = db.Ado.GetDataTable($@"
+                        SELECT 1 FROM information_schema.columns 
+                        WHERE table_name = '{table}' AND column_name = '{column}' AND data_type = 'jsonb'
+                    ").Rows.Count > 0;
+
+                    if (isJsonb)
+                    {
+                        Console.WriteLine($"[ConvertTextJsonColumnsToJsonb] Column {table}.{column} is already jsonb, skip conversion.");
+                    }
+                    else
+                    {
+                        Console.WriteLine($"[ConvertTextJsonColumnsToJsonb] Converting {table}.{column} to jsonb...");
+
+                        // First, clean up invalid JSON data by setting them to NULL
+                        try
+                        {
+                            db.Ado.ExecuteCommand($@"
+                                UPDATE {table}
+                                SET {column} = NULL
+                                WHERE {column} IS NOT NULL 
+                                  AND {column} != ''
+                                  AND {column} !~ '^\s*[\[{{].*[\]}}]\s*$';
+                            ");
+                            Console.WriteLine($"[ConvertTextJsonColumnsToJsonb] Cleaned invalid JSON data in {table}.{column}.");
+                        }
+                        catch (Exception cleanEx)
+                        {
+                            Console.WriteLine($"[ConvertTextJsonColumnsToJsonb] Warning: Could not clean data: {cleanEx.Message}");
+                        }
+
+                        // Now convert to jsonb with safer handling
+                        db.Ado.ExecuteCommand($@"
+                            ALTER TABLE {table}
+                            ALTER COLUMN {column} TYPE jsonb
+                            USING CASE 
+                                WHEN {column} IS NULL OR {column} = '' OR TRIM({column}) = '' THEN NULL 
+                                WHEN {column} ~ '^\s*[\[{{].*[\]}}]\s*$' THEN {column}::jsonb
+                                ELSE NULL 
+                            END;
+                        ");
+                    }
 
                     if (!string.IsNullOrWhiteSpace(indexName))
                     {

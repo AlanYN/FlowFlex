@@ -710,9 +710,12 @@ Please return the results in JSON format with the following structure:
         {
             try
             {
+                // For native DeepSeek API, strip provider prefix from model name
+                var modelName = GetNativeModelName(config.ModelName, config.Provider);
+
                 var requestBody = new
                 {
-                    model = config.ModelName,
+                    model = modelName,
                     messages = new[]
                     {
                         new { role = "system", content = "You are a professional action analysis and creation expert. Generate structured responses based on user requirements. CRITICAL: Always provide complete and full JSON responses. NEVER truncate data or use '...' patterns. Include ALL data fields completely without any omissions. IMPORTANT: When extracting HTTP headers, especially 'authorization' values (Bearer tokens, JWT, API keys), you MUST copy them EXACTLY as provided - do NOT modify, shorten, or use placeholders. Complete JSON is mandatory." },
@@ -886,9 +889,12 @@ Please return the results in JSON format with the following structure:
         {
             try
             {
+                // For native OpenAI API, strip provider prefix from model name
+                var modelName = GetNativeModelName(config.ModelName, config.Provider);
+
                 var requestBody = new
                 {
-                    model = config.ModelName,
+                    model = modelName,
                     messages = new[]
                     {
                         new { role = "system", content = "You are a professional action analysis and creation expert. Generate structured responses based on user requirements. Be concise and precise." },
@@ -1622,9 +1628,12 @@ Please return the results in JSON format with the following structure:
         /// </summary>
         private async IAsyncEnumerable<string> CallDeepSeekStreamForActionAsync(string prompt, AIModelConfig config)
         {
+            // For native DeepSeek API, strip provider prefix from model name
+            var modelName = GetNativeModelName(config.ModelName, config.Provider);
+
             var requestBody = new
             {
-                model = config.ModelName,
+                model = modelName,
                 messages = new[]
                 {
                     new { role = "system", content = "You are a professional action analysis and creation expert. Generate structured responses based on user requirements. CRITICAL: Always provide complete and full JSON responses. NEVER truncate data or use '...' patterns. Include ALL data fields completely without any omissions. IMPORTANT: When extracting HTTP headers, especially 'authorization' values (Bearer tokens, JWT, API keys), you MUST copy them EXACTLY as provided - do NOT modify, shorten, or use placeholders. Complete JSON is mandatory." },
@@ -1767,9 +1776,12 @@ Please return the results in JSON format with the following structure:
             var isItemGateway = !string.IsNullOrEmpty(config.BaseUrl) &&
                               config.BaseUrl.Contains("aiop-gateway.item.com", StringComparison.OrdinalIgnoreCase);
 
+            // For native OpenAI API, strip provider prefix from model name
+            var modelName = isItemGateway ? config.ModelName : GetNativeModelName(config.ModelName, config.Provider);
+
             var requestBody = new
             {
-                model = config.ModelName,
+                model = modelName,
                 messages = new[]
                 {
                     new { role = "system", content = "You are a professional action analysis and creation expert. Generate structured responses based on user requirements. CRITICAL: Always provide complete and full JSON responses. NEVER truncate data or use '...' patterns. Include ALL data fields completely without any omissions. IMPORTANT: When extracting HTTP headers, especially 'authorization' values (Bearer tokens, JWT, API keys), you MUST copy them EXACTLY as provided - do NOT modify, shorten, or use placeholders. Complete JSON is mandatory." },

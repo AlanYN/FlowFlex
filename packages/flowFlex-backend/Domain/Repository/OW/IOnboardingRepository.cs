@@ -88,5 +88,26 @@ namespace FlowFlex.Domain.Repository.OW
         /// <param name="appCode">应用代码</param>
         /// <returns>入职流程列表</returns>
         Task<List<Onboarding>> GetListWithExplicitFiltersAsync(string tenantId, string appCode);
+
+        /// <summary>
+        /// Get onboarding by ID without tenant isolation
+        /// Used for background tasks where HttpContext is not available (e.g., AI Summary updates)
+        /// </summary>
+        /// <param name="id">Onboarding ID</param>
+        /// <param name="cancellationToken">Cancellation token</param>
+        /// <returns>Onboarding entity or null</returns>
+        Task<Onboarding> GetByIdWithoutTenantFilterAsync(long id, CancellationToken cancellationToken = default);
+
+        #region Dashboard Methods
+
+        /// <summary>
+        /// Get recently completed cases for achievements
+        /// </summary>
+        /// <param name="limit">Maximum number of cases to return</param>
+        /// <param name="team">Optional team filter</param>
+        /// <returns>List of recently completed onboarding cases</returns>
+        Task<List<Onboarding>> GetRecentlyCompletedAsync(int limit, string? team = null);
+
+        #endregion
     }
 }

@@ -186,6 +186,19 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
         }
 
         /// <summary>
+        /// Get onboarding by ID without tenant isolation
+        /// Used for background tasks where HttpContext is not available (e.g., AI Summary updates)
+        /// </summary>
+        public async Task<Onboarding> GetByIdWithoutTenantFilterAsync(long id, CancellationToken cancellationToken = default)
+        {
+            db.Ado.CancellationToken = cancellationToken;
+            
+            return await db.Queryable<Onboarding>()
+                .Where(x => x.Id == id && x.IsValid)
+                .FirstAsync();
+        }
+
+        /// <summary>
         /// 获取当前租户ID
         /// </summary>
         private string GetCurrentTenantId()
@@ -579,6 +592,29 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
         }
 
         /// <summary>
+        /// Get onboarding list by expression with tenant isolation
+        /// </summary>
+        public new async Task<List<Onboarding>> GetListAsync(Expression<Func<Onboarding, bool>> whereExpression, CancellationToken cancellationToken = default, bool copyNew = false)
+        {
+            var currentTenantId = GetCurrentTenantId();
+            var currentAppCode = GetCurrentAppCode();
+
+            _logger.LogInformation($"[OnboardingRepository] GetListAsync(Expression) applying filters: TenantId={currentTenantId}, AppCode={currentAppCode}");
+
+            var dbNew = copyNew ? db.CopyNew() : db;
+            dbNew.Ado.CancellationToken = cancellationToken;
+
+            var result = await dbNew.Queryable<Onboarding>()
+                .Where(whereExpression)
+                .Where(x => x.TenantId == currentTenantId && x.AppCode == currentAppCode)
+                .ToListAsync();
+
+            _logger.LogInformation($"[OnboardingRepository] GetListAsync(Expression) returned {result.Count} onboardings");
+
+            return result;
+        }
+
+        /// <summary>
         /// 分页查询方法，添加显式过滤条件
         /// </summary>
         public new async Task<(List<Onboarding> datas, int total)> GetPageListAsync(
@@ -646,5 +682,36 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
                 db.QueryFilter.Restore();
             }
         }
+
+        #region Dashboard Methods
+
+        /// <summary>
+        /// Get recently completed cases for achievements
+        /// </summary>
+        public async Task<List<Onboarding>> GetRecentlyCompletedAsync(int limit, string? team = null)
+        {
+            // Get current tenant ID and app code for filtering
+            var currentTenantId = GetCurrentTenantId();
+            var currentAppCode = GetCurrentAppCode();
+
+            _logger.LogInformation($"[OnboardingRepository] GetRecentlyCompletedAsync with TenantId={currentTenantId}, AppCode={currentAppCode}");
+
+            var query = db.Queryable<Onboarding>()
+                .Where(x => x.IsValid == true)
+                .Where(x => x.TenantId == currentTenantId && x.AppCode == currentAppCode)
+                .Where(x => x.Status == "Completed" || x.Status == "Force Completed");
+
+            if (!string.IsNullOrEmpty(team))
+            {
+                query = query.Where(x => x.CurrentTeam == team);
+            }
+
+            return await query
+                .OrderByDescending(x => x.ActualCompletionDate)
+                .Take(limit)
+                .ToListAsync();
+        }
+
+        #endregion
     }
 }

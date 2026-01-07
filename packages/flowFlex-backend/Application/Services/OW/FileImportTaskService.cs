@@ -245,7 +245,8 @@ namespace FlowFlex.Application.Services.OW
                             Category = input.Category ?? "Document",
                             Description = fileInput.Description ?? input.Description,
                             OverrideUploaderId = input.OperatorId,
-                            OverrideUploaderName = input.OperatorName
+                            OverrideUploaderName = input.OperatorName,
+                            OverrideTenantId = input.TenantId
                         };
 
                         item.ProgressPercentage = 80;

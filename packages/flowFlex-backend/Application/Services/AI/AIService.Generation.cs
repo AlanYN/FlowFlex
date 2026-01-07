@@ -383,7 +383,7 @@ namespace FlowFlex.Application.Services.AI
                     new { role = "user", content = prompt }
                 };
 
-                // 获取用户配置
+                // Get user configuration
                 AIModelConfig userConfig = null;
                 if (!string.IsNullOrEmpty(input.ModelId) && long.TryParse(input.ModelId, out var modelId))
                 {
@@ -1332,13 +1332,26 @@ IMPORTANT: Each stage must contain both checklist and questionnaire fields!");
 
             try
             {
+                // Clean up markdown code blocks if present
+                var cleanedResponse = aiResponse;
+                if (cleanedResponse.Contains("```json"))
+                {
+                    cleanedResponse = cleanedResponse.Replace("```json", "").Replace("```", "").Trim();
+                    _logger.LogInformation("🧹 Cleaned markdown code blocks from response");
+                }
+                else if (cleanedResponse.Contains("```"))
+                {
+                    cleanedResponse = cleanedResponse.Replace("```", "").Trim();
+                    _logger.LogInformation("🧹 Cleaned generic code blocks from response");
+                }
+
                 // Try to parse JSON response from AI
-                if (aiResponse.Contains("{") && aiResponse.Contains("}"))
+                if (cleanedResponse.Contains("{") && cleanedResponse.Contains("}"))
                 {
                     _logger.LogInformation("📄 Found JSON content, extracting...");
-                    var jsonStart = aiResponse.IndexOf('{');
-                    var jsonEnd = aiResponse.LastIndexOf('}') + 1;
-                    var jsonContent = aiResponse.Substring(jsonStart, jsonEnd - jsonStart);
+                    var jsonStart = cleanedResponse.IndexOf('{');
+                    var jsonEnd = cleanedResponse.LastIndexOf('}') + 1;
+                    var jsonContent = cleanedResponse.Substring(jsonStart, jsonEnd - jsonStart);
 
                     _logger.LogDebug("🔧 Deserializing JSON, content length: {Length}", jsonContent.Length);
                     _logger.LogDebug("🔍 JSON Preview: {JsonPreview}",

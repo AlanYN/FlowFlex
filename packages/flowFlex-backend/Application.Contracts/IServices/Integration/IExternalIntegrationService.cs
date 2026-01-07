@@ -8,6 +8,13 @@ namespace FlowFlex.Application.Contracts.IServices.Integration
     public interface IExternalIntegrationService
     {
         /// <summary>
+        /// Get entity type mappings by Integration System Name
+        /// </summary>
+        /// <param name="systemName">Integration System Name</param>
+        /// <returns>Entity type mappings response</returns>
+        Task<EntityTypeMappingResponse> GetEntityTypeMappingsBySystemNameAsync(string systemName);
+
+        /// <summary>
         /// Get workflows available for a specific entity mapping by System ID
         /// </summary>
         /// <param name="systemId">System ID (unique identifier for entity mapping)</param>
@@ -47,8 +54,9 @@ namespace FlowFlex.Application.Contracts.IServices.Integration
         /// Retrieves attachment list from all onboardings associated with the System ID
         /// </summary>
         /// <param name="systemId">System ID (unique identifier for entity mapping)</param>
+        /// <param name="entityId">External system entity ID (optional, for filtering attachments by specific entity)</param>
         /// <returns>Attachments list response</returns>
-        Task<GetAttachmentsFromExternalResponse> GetInboundAttachmentsBySystemIdAsync(string systemId);
+        Task<GetAttachmentsFromExternalResponse> GetInboundAttachmentsBySystemIdAsync(string systemId, string? entityId = null);
 
         /// <summary>
         /// Fetch inbound attachments from external system by System ID
@@ -58,8 +66,9 @@ namespace FlowFlex.Application.Contracts.IServices.Integration
         /// 4. Parse and return the attachment list
         /// </summary>
         /// <param name="systemId">System ID (unique identifier for entity mapping)</param>
+        /// <param name="entityId">Entity ID (optional, the external entity ID to fetch attachments for)</param>
         /// <returns>Attachments list response from external system</returns>
-        Task<GetAttachmentsFromExternalResponse> FetchInboundAttachmentsFromExternalAsync(string systemId);
+        Task<GetAttachmentsFromExternalResponse> FetchInboundAttachmentsFromExternalAsync(string systemId, string? entityId = null);
     }
 }
 

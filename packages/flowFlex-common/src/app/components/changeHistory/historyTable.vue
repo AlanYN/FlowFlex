@@ -191,46 +191,7 @@ const getChangeComponent = (change: any) => {
 
 // 渲染函数
 const renderFieldChange = (change: any) => {
-	// 对于问卷类型的变更，直接使用 operationDescription
-	if (change.operationType === 'QuestionnaireUpdate') {
-		return h(
-			'div',
-			{ class: 'bg-blue-50 dark:bg-blue-900/20 p-3 rounded-xl border-l-4 border-blue-400' },
-			[
-				h(
-					'div',
-					{ class: 'font-semibold text-blue-800 dark:text-blue-200 mb-2' },
-					change.operationTitle || 'Questionnaire Update'
-				),
-				h(
-					'div',
-					{ class: 'text-gray-700 dark:text-gray-300 text-sm whitespace-pre-line' },
-					change.operationDescription || 'Questionnaire has been updated'
-				),
-			]
-		);
-	}
-
-	if (!change.beforeData && !change.afterData) {
-		return h(
-			'div',
-			{ class: 'text-gray-700 dark:text-gray-300' },
-			change.operationTitle || 'Field changed'
-		);
-	}
-
-	// 解析JSON数据以便比较
-	let beforeObj, afterObj;
-	try {
-		beforeObj = change.beforeData ? JSON.parse(change.beforeData) : {};
-		afterObj = change.afterData ? JSON.parse(change.afterData) : {};
-	} catch (e) {
-		return h('div', { class: 'text-gray-700 dark:text-gray-300' }, change.operationDescription);
-	}
-
-	// 显示变更的字段
-	const changedFields = change.changedFields || [];
-
+	// 统一使用 operationDescription 显示变更描述，不再显示字段对比
 	return h(
 		'div',
 		{ class: 'bg-yellow-50 dark:bg-yellow-900/20 p-3 rounded-xl border-l-4 border-yellow-400' },
@@ -238,51 +199,13 @@ const renderFieldChange = (change: any) => {
 			h(
 				'div',
 				{ class: 'font-semibold text-yellow-800 dark:text-yellow-200 mb-2' },
-				change.operationTitle || 'Field Update'
+				change.operationTitle || 'Update'
 			),
-
-			// 显示每个变更的字段
-			...changedFields.map((fieldName) =>
-				h('div', { class: 'mb-2' }, [
-					h(
-						'div',
-						{ class: 'font-medium text-sm text-gray-800 dark:text-gray-200 mb-1' },
-						fieldName
-					),
-					h('div', { class: 'flex items-center text-xs mb-1' }, [
-						h(
-							'span',
-							{ class: 'text-red-600 dark:text-red-400 font-medium mr-2' },
-							'Before:'
-						),
-						h(
-							'span',
-							{
-								class: 'bg-red-100 dark:bg-red-900/30 px-2 py-1 rounded-xl text-red-800 dark:text-red-200',
-							},
-							String(beforeObj[fieldName] || 'N/A')
-						),
-					]),
-					h('div', { class: 'flex items-center text-xs' }, [
-						h(
-							'span',
-							{ class: 'text-green-600 dark:text-green-400 font-medium mr-2' },
-							'After:'
-						),
-						h(
-							'span',
-							{
-								class: 'bg-green-100 dark:bg-green-900/30 px-2 py-1 rounded-xl text-green-800 dark:text-green-200',
-							},
-							String(afterObj[fieldName] || 'N/A')
-						),
-					]),
-				])
+			h(
+				'div',
+				{ class: 'text-gray-700 dark:text-gray-300 text-sm whitespace-pre-line' },
+				change.operationDescription || 'Record has been updated'
 			),
-
-			// 如果没有具体字段信息，显示描述
-			changedFields.length === 0 &&
-				h('div', { class: 'text-gray-600 text-sm' }, change.operationDescription),
 		]
 	);
 };
@@ -412,7 +335,7 @@ defineExpose({
 	height: 22px;
 	background-color: hsl(0 0% 96.1%);
 	@apply flex items-center justify-center mr-2
-	rounded-full bg-gradient-to-r 
+	rounded-full bg-gradient-to-r
 	from-[var(--primary-500)] to-[var(--primary-reverse-500)] text-white;
 
 	svg {

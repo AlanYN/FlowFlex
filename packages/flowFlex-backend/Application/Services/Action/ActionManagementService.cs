@@ -2027,6 +2027,13 @@ namespace FlowFlex.Application.Services.Action
                         actionDto.IntegrationId = integration.Id;
                         actionDto.IntegrationName = integration.Name;
                     }
+
+                    // Load field mappings for this action
+                    var fieldMappings = await _fieldMappingRepository.GetByActionIdAsync(actionDto.Id);
+                    if (fieldMappings != null && fieldMappings.Any())
+                    {
+                        actionDto.FieldMappings = fieldMappings.Select(MapToActionFieldMappingDto).ToList();
+                    }
                 }
             }
             catch (Exception ex)

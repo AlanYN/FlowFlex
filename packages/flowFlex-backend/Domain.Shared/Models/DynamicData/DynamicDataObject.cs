@@ -1,186 +1,172 @@
 using Newtonsoft.Json.Linq;
-using System;
-using System.Collections.Generic;
-using System.Diagnostics;
-using System.Linq;
 
 namespace FlowFlex.Domain.Shared.Models.DynamicData;
 
 /// <summary>
-/// Represents a collection of FieldDataItems as a dynamic data object
+/// Dynamic data object - represents a business data record with dynamic fields
 /// </summary>
-[DebuggerTypeProxy(typeof(DynamicDataObjectDebugView))]
 public class DynamicDataObject : List<FieldDataItem>
 {
     /// <summary>
-    /// Initializes a new instance of the DynamicDataObject class
+    /// Business data ID
     /// </summary>
-    public DynamicDataObject() { }
+    public long BusinessId { get; set; }
 
     /// <summary>
-    /// Initializes a new instance of the DynamicDataObject class with a specified business ID
+    /// Module ID
     /// </summary>
-    /// <param name="businessId">The business identifier</param>
-    public DynamicDataObject(long businessId)
+    public int ModuleId { get; private set; }
+
+    /// <summary>
+    /// Internal extension data (JSONB)
+    /// </summary>
+    public JObject? InternalData { get; set; }
+
+    /// <summary>
+    /// Create date
+    /// </summary>
+    public DateTimeOffset CreateDate { get; set; }
+
+    /// <summary>
+    /// Modify date
+    /// </summary>
+    public DateTimeOffset ModifyDate { get; set; }
+
+    /// <summary>
+    /// Create by
+    /// </summary>
+    public string? CreateBy { get; set; }
+
+    /// <summary>
+    /// Modify by
+    /// </summary>
+    public string? ModifyBy { get; set; }
+
+    /// <summary>
+    /// Create user ID
+    /// </summary>
+    public long CreateUserId { get; set; }
+
+    /// <summary>
+    /// Modify user ID
+    /// </summary>
+    public long ModifyUserId { get; set; }
+
+    public DynamicDataObject()
     {
-        BusinessId = businessId;
     }
 
-    public DynamicDataObject(long businessId, int moduleId)
-        : this(businessId)
+    public DynamicDataObject(int moduleId)
     {
         ModuleId = moduleId;
     }
 
     /// <summary>
-    /// Initializes a new instance of the DynamicDataObject class with a list of FieldDataItems
+    /// Set module ID
     /// </summary>
-    /// <param name="dataItems">The list of FieldDataItems</param>
-    public DynamicDataObject(List<FieldDataItem> dataItems)
+    public void SetModuleId(int moduleId)
     {
-        if (dataItems.Count != 0)
-        {
-            BusinessId = dataItems.First().BusinessId;
-            AddRange(dataItems);
-        }
+        ModuleId = moduleId;
     }
 
-    private long _businessId;
-
     /// <summary>
-    /// Gets or sets the business identifier for all FieldDataItems in the collection
+    /// Indexer to access field value by name
     /// </summary>
-    public long BusinessId
+    public object? this[string name]
     {
         get
         {
-            if (Count == 0)
-                return _businessId;
-            var businessId = this.First().BusinessId;
-            _businessId = businessId;
-
-            return _businessId;
+            var item = this.FirstOrDefault(x => 
+                string.Equals(x.FieldName, name, StringComparison.OrdinalIgnoreCase));
+            return item?.Value;
         }
         set
         {
-            _businessId = value;
-            foreach (var item in this)
+            var item = this.FirstOrDefault(x => 
+                string.Equals(x.FieldName, name, StringComparison.OrdinalIgnoreCase));
+            if (item != null)
             {
-                item.BusinessId = _businessId;
+                item.Value = value;
+            }
+            else
+            {
+                Add(new FieldDataItem { FieldName = name, Value = value });
             }
         }
     }
 
-    public int ModuleId { get; private set; }
-
-    public JObject InternalData { get; set; }
-
-    public new void Sort()
+    /// <summary>
+    /// Get value with type safety
+    /// </summary>
+    public T? GetValueOrDefault<T>(string name)
     {
-        Sort((self, target) => self.Sort.CompareTo(target.Sort));
+        return GetValueOrDefault(name, default(T));
     }
-
-    public DateTimeOffset CreateDate { get; set; }
-
-    public DateTimeOffset ModifyDate { get; set; }
-
-    public string CreateBy { get; set; }
-
-    public string ModifyBy { get; set; }
-
-    public long CreateUserId { get; set; }
-
-    public long ModifyUserId { get; set; }
-
-    public UserPermissionsModel UserPermissions { get; set; }
-
-    #region Methods
 
     /// <summary>
-    /// Gets the value of a FieldDataItem by its field name
+    /// Get value with type safety and default value
     /// </summary>
-    /// <param name="name">The field name</param>
-    /// <returns>The value of the field, or null if not found</returns>
-    public object this[string name]
+    public T? GetValueOrDefault<T>(string name, T? defaultValue)
     {
-        get
+        var value = this[name];
+        if (value == null)
+            return defaultValue;
+
+        try
         {
-            var item = Find(x => x.FieldName == name);
-            if (item != null) return item.Value;
-            else return null;
+            if (value is T typedValue)
+                return typedValue;
+
+            // Handle JToken conversion
+            if (value is JToken jToken)
+                return jToken.ToObject<T>();
+
+            // Handle type conversion
+            return (T)Convert.ChangeType(value, typeof(T));
         }
-        set
+        catch
         {
-            var item = Find(x => x.FieldName == name);
-            if (item != null) item.Value = value;
+            return defaultValue;
         }
     }
 
-    public T GetValueOrDefault<T>(string name)
+    /// <summary>
+    /// Check if field exists
+    /// </summary>
+    public bool ContainsFieldName(string name)
     {
-        var item = Find(x => x.FieldName == name);
-        if (item != null && item.Value != null)
-        {
-            return (T)Convert.ChangeType(item.Value, typeof(T));
-        }
-        else return default;
+        return this.Any(x => 
+            string.Equals(x.FieldName, name, StringComparison.OrdinalIgnoreCase));
     }
 
-    public T GetValueOrDefault<T>(string name, T defaultValue)
+    /// <summary>
+    /// Get field item by name
+    /// </summary>
+    public FieldDataItem? GetFieldItem(string name)
     {
-        var item = Find(x => x.FieldName == name);
-        if (item != null && item.Value != null)
-        {
-            return (T)Convert.ChangeType(item.Value, typeof(T));
-        }
-        else return defaultValue;
+        return this.FirstOrDefault(x => 
+            string.Equals(x.FieldName, name, StringComparison.OrdinalIgnoreCase));
     }
 
-    public bool Contains(string name)
+    /// <summary>
+    /// Remove field by name
+    /// </summary>
+    public bool RemoveField(string name)
     {
-        var item = Find(x => x.FieldName == name);
-        return item != null;
-    }
-
-    public void Remove(Func<FieldDataItem, bool> func)
-    {
-        var items = this.Where(func).ToList();
-        foreach (var item in items)
+        var item = GetFieldItem(name);
+        if (item != null)
         {
             Remove(item);
+            return true;
         }
+        return false;
     }
 
     /// <summary>
-    /// Adds a new FieldDataItem to the collection
+    /// Convert to dictionary
     /// </summary>
-    /// <param name="item">The FieldDataItem to add</param>
-    public new void Add(FieldDataItem item)
+    public Dictionary<string, object?> ToDictionary()
     {
-        if (item.BusinessId == 0)
-            item.BusinessId = _businessId;
-        else if (item.BusinessId != 0 && _businessId == 0)
-            _businessId = item.BusinessId;
-
-        var temp = this.FirstOrDefault(x => x.FieldName == item.FieldName);
-        if (temp != null)
-            Remove(temp);
-
-        base.Add(item);
+        return this.ToDictionary(x => x.FieldName, x => x.Value);
     }
-
-    /// <summary>
-    /// Adds a range of FieldDataItems to the collection
-    /// </summary>
-    /// <param name="items">The collection of FieldDataItems to add</param>
-    public new void AddRange(IEnumerable<FieldDataItem> items)
-    {
-        if (items == null)
-            return;
-
-        foreach (var item in items)
-            Add(item);
-    }
-
-    #endregion
 }

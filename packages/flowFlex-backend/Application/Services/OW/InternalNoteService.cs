@@ -1,10 +1,12 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.Json;
 using System.Threading.Tasks;
 using AutoMapper;
 using Microsoft.AspNetCore.Http;
 using FlowFlex.Application.Contracts.Dtos.OW.InternalNote;
+using FlowFlex.Application.Contracts.Dtos.OW.Message;
 using FlowFlex.Application.Contracts.IServices.OW;
 
 using FlowFlex.Domain.Entities.OW;
@@ -24,6 +26,7 @@ public class InternalNoteService : IInternalNoteService, IScopedService
     private readonly IInternalNoteRepository _noteRepository;
     private readonly IOnboardingRepository _onboardingRepository;
     private readonly IStageRepository _stageRepository;
+    private readonly IMessageRepository _messageRepository;
     private readonly IMapper _mapper;
     private readonly IHttpContextAccessor _httpContextAccessor;
     private readonly UserContext _userContext;
@@ -33,6 +36,7 @@ public class InternalNoteService : IInternalNoteService, IScopedService
         IInternalNoteRepository noteRepository,
         IOnboardingRepository onboardingRepository,
         IStageRepository stageRepository,
+        IMessageRepository messageRepository,
         IMapper mapper,
         IHttpContextAccessor httpContextAccessor,
         UserContext userContext,
@@ -41,6 +45,7 @@ public class InternalNoteService : IInternalNoteService, IScopedService
         _noteRepository = noteRepository;
         _onboardingRepository = onboardingRepository;
         _stageRepository = stageRepository;
+        _messageRepository = messageRepository;
         _mapper = mapper;
         _httpContextAccessor = httpContextAccessor;
         _userContext = userContext;
@@ -81,7 +86,109 @@ public class InternalNoteService : IInternalNoteService, IScopedService
 
         await _noteRepository.InsertAsync(entity);
 
+        // Create a message for this internal note
+        await CreateMessageForNoteAsync(entity, onboarding);
+
         return entity.Id;
+    }
+
+    /// <summary>
+    /// Create a message record for the internal note
+    /// </summary>
+    private async Task CreateMessageForNoteAsync(InternalNote note, Onboarding onboarding)
+    {
+        try
+        {
+            var ownerId = GetCurrentUserId();
+            var senderName = _operatorContextService.GetOperatorDisplayName();
+            var senderEmail = _userContext.Email ?? string.Empty;
+
+            var message = new Message
+            {
+                Subject = !string.IsNullOrEmpty(note.Title) ? note.Title : "Internal Note",
+                Body = note.Content,
+                BodyPreview = GetBodyPreview(note.Content),
+                MessageType = "Internal",
+                Folder = "Sent",
+                Labels = "[\"Internal\"]",
+                SenderId = ownerId,
+                SenderName = senderName,
+                SenderEmail = senderEmail,
+                Recipients = "[]",
+                CcRecipients = "[]",
+                BccRecipients = "[]",
+                RelatedEntityType = "Onboarding",
+                RelatedEntityId = note.OnboardingId,
+                RelatedEntityCode = onboarding.CaseCode,
+                // Use ConversationId to store the note ID for later reference
+                ConversationId = $"note:{note.Id}",
+                OwnerId = ownerId,
+                SentDate = DateTimeOffset.UtcNow,
+                ReceivedDate = DateTimeOffset.UtcNow
+            };
+
+            message.InitCreateInfo(_userContext);
+            await _messageRepository.InsertAsync(message);
+        }
+        catch (Exception)
+        {
+            // Log error but don't fail the note creation
+            // Message creation is a secondary operation
+        }
+    }
+
+    /// <summary>
+    /// Update the message associated with an internal note
+    /// </summary>
+    private async Task UpdateMessageForNoteAsync(InternalNote note)
+    {
+        try
+        {
+            // Find message by ConversationId which stores the note ID
+            var conversationId = $"note:{note.Id}";
+            var message = await _messageRepository.GetByConversationIdAsync(conversationId);
+            
+            if (message != null)
+            {
+                message.Subject = !string.IsNullOrEmpty(note.Title) ? note.Title : "Internal Note";
+                message.Body = note.Content;
+                message.BodyPreview = GetBodyPreview(note.Content);
+                message.InitUpdateInfo(_userContext);
+                
+                await _messageRepository.UpdateAsync(message);
+            }
+        }
+        catch (Exception)
+        {
+            // Log error but don't fail the note update
+            // Message update is a secondary operation
+        }
+    }
+
+    /// <summary>
+    /// Get current user ID
+    /// </summary>
+    private long GetCurrentUserId()
+    {
+        if (string.IsNullOrEmpty(_userContext.UserId) || !long.TryParse(_userContext.UserId, out var userId))
+        {
+            return 0;
+        }
+        return userId;
+    }
+
+    /// <summary>
+    /// Get body preview (first 200 characters)
+    /// </summary>
+    private static string GetBodyPreview(string body)
+    {
+        if (string.IsNullOrEmpty(body)) return string.Empty;
+
+        // Strip HTML tags for preview
+        var text = System.Text.RegularExpressions.Regex.Replace(body, "<[^>]*>", " ");
+        text = System.Text.RegularExpressions.Regex.Replace(text, @"\s+", " ").Trim();
+
+        return text.Length > 200 ? text.Substring(0, 200) + "..." : text;
     }
 
     /// <summary>
@@ -143,7 +250,15 @@ public class InternalNoteService : IInternalNoteService, IScopedService
 
         existingNote.InitUpdateInfo(_userContext);
 
-        return await _noteRepository.UpdateAsync(existingNote);
+        var result = await _noteRepository.UpdateAsync(existingNote);
+
+        // Update the associated message
+        if (result)
+        {
+            await UpdateMessageForNoteAsync(existingNote);
+        }
+
+        return result;
     }
 
     /// <summary>
@@ -197,7 +312,7 @@ public class InternalNoteService : IInternalNoteService, IScopedService
         existingNote.InitUpdateInfo(_userContext);
 
         // Explicitly specify columns to update, excluding StageId to prevent accidental modification
-        return await _noteRepository.UpdateAsync(existingNote, x => new
+        var result = await _noteRepository.UpdateAsync(existingNote, x => new
         {
             x.OnboardingId,
             x.Title,
@@ -208,6 +323,14 @@ public class InternalNoteService : IInternalNoteService, IScopedService
             x.ModifyBy,
             x.ModifyUserId
         });
+
+        // Update the associated message
+        if (result)
+        {
+            await UpdateMessageForNoteAsync(existingNote);
+        }
+
+        return result;
     }
 
     /// <summary>

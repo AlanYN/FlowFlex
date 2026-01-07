@@ -58,12 +58,41 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
         }
 
         /// <summary>
+        /// Get stage list by expression with tenant isolation
+        /// </summary>
+        public new async Task<List<Stage>> GetListAsync(Expression<Func<Stage, bool>> whereExpression, CancellationToken cancellationToken = default, bool copyNew = false)
+        {
+            var currentTenantId = GetCurrentTenantId();
+            var currentAppCode = GetCurrentAppCode();
+
+            _logger.LogInformation($"[StageRepository] GetListAsync(Expression) applying filters: TenantId={currentTenantId}, AppCode={currentAppCode}");
+
+            var dbNew = copyNew ? db.CopyNew() : db;
+            dbNew.Ado.CancellationToken = cancellationToken;
+
+            var result = await dbNew.Queryable<Stage>()
+                .Where(whereExpression)
+                .Where(x => x.TenantId == currentTenantId && x.AppCode == currentAppCode)
+                .ToListAsync();
+
+            _logger.LogInformation($"[StageRepository] GetListAsync(Expression) returned {result.Count} stages");
+
+            return result;
+        }
+
+        /// <summary>
         /// Get stage list by workflow ID
         /// </summary>
         public async Task<List<Stage>> GetByWorkflowIdAsync(long workflowId)
         {
+            var currentTenantId = GetCurrentTenantId();
+            var currentAppCode = GetCurrentAppCode();
+
+            _logger.LogInformation($"[StageRepository] GetByWorkflowIdAsync with TenantId={currentTenantId}, AppCode={currentAppCode}, WorkflowId={workflowId}");
+
             return await db.Queryable<Stage>()
                 .Where(x => x.WorkflowId == workflowId && x.IsValid == true)
+                .Where(x => x.TenantId == currentTenantId && x.AppCode == currentAppCode)
                 .OrderBy(x => x.Order)
                 .ToListAsync();
         }
@@ -78,8 +107,14 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
                 return new List<Stage>();
             }
 
+            var currentTenantId = GetCurrentTenantId();
+            var currentAppCode = GetCurrentAppCode();
+
+            _logger.LogInformation($"[StageRepository] GetByWorkflowIdsAsync with TenantId={currentTenantId}, AppCode={currentAppCode}, WorkflowIds count={workflowIds.Count}");
+
             return await db.Queryable<Stage>()
                 .Where(x => workflowIds.Contains(x.WorkflowId) && x.IsValid == true)
+                .Where(x => x.TenantId == currentTenantId && x.AppCode == currentAppCode)
                 .OrderBy(x => x.WorkflowId)
                 .OrderBy(x => x.Order)
                 .ToListAsync();
@@ -132,8 +167,12 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
         /// </summary>
         public async Task<int> GetMaxOrderByWorkflowIdAsync(long workflowId)
         {
+            var currentTenantId = GetCurrentTenantId();
+            var currentAppCode = GetCurrentAppCode();
+
             var maxOrder = await db.Queryable<Stage>()
                 .Where(x => x.WorkflowId == workflowId && x.IsValid == true)
+                .Where(x => x.TenantId == currentTenantId && x.AppCode == currentAppCode)
                 .MaxAsync(x => (int?)x.Order);
 
             return maxOrder ?? 0;
@@ -171,8 +210,12 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
         /// </summary>
         public async Task<List<Stage>> GetByWorkflowIdAndOrderRangeAsync(long workflowId, int minOrder, int maxOrder)
         {
+            var currentTenantId = GetCurrentTenantId();
+            var currentAppCode = GetCurrentAppCode();
+
             return await db.Queryable<Stage>()
                 .Where(x => x.WorkflowId == workflowId && x.IsValid == true && x.Order >= minOrder && x.Order <= maxOrder)
+                .Where(x => x.TenantId == currentTenantId && x.AppCode == currentAppCode)
                 .OrderBy(x => x.Order)
                 .ToListAsync();
         }
@@ -221,8 +264,14 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
         /// </summary>
         public async Task<List<Stage>> GetActiveStagesByWorkflowIdAsync(long workflowId)
         {
+            var currentTenantId = GetCurrentTenantId();
+            var currentAppCode = GetCurrentAppCode();
+
+            _logger.LogInformation($"[StageRepository] GetActiveStagesByWorkflowIdAsync with TenantId={currentTenantId}, AppCode={currentAppCode}, WorkflowId={workflowId}");
+
             return await db.Queryable<Stage>()
                 .Where(x => x.WorkflowId == workflowId && x.IsActive == true && x.IsValid == true)
+                .Where(x => x.TenantId == currentTenantId && x.AppCode == currentAppCode)
                 .OrderBy(x => x.Order)
                 .ToListAsync();
         }
@@ -264,8 +313,12 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
         /// </summary>
         public async Task<bool> ExistsNameInWorkflowAsync(long workflowId, string name, long? excludeId = null)
         {
+            var currentTenantId = GetCurrentTenantId();
+            var currentAppCode = GetCurrentAppCode();
+
             var query = db.Queryable<Stage>()
-                .Where(x => x.WorkflowId == workflowId && x.Name == name && x.IsValid == true);
+                .Where(x => x.WorkflowId == workflowId && x.Name == name && x.IsValid == true)
+                .Where(x => x.TenantId == currentTenantId && x.AppCode == currentAppCode);
 
             if (excludeId.HasValue)
             {
@@ -291,8 +344,12 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
             if (!stageIds?.Any() == true)
                 return new List<Stage>();
 
+            var currentTenantId = GetCurrentTenantId();
+            var currentAppCode = GetCurrentAppCode();
+
             return await db.Queryable<Stage>()
                 .Where(x => stageIds.Contains(x.Id) && x.IsValid == true)
+                .Where(x => x.TenantId == currentTenantId && x.AppCode == currentAppCode)
                 .OrderBy(x => x.WorkflowId, OrderByType.Asc)
                 .OrderBy(x => x.Order, OrderByType.Asc)
                 .ToListAsync();

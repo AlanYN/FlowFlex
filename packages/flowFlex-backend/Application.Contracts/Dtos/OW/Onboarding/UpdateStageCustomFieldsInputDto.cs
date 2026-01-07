@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 
 namespace FlowFlex.Application.Contracts.Dtos.OW.Onboarding
@@ -24,6 +25,16 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.Onboarding
         /// Custom end time (overrides calculated EndTime)
         /// </summary>
         public DateTimeOffset? CustomEndTime { get; set; }
+
+        /// <summary>
+        /// Stage Assignee - User IDs assigned to this stage (Reassign functionality)
+        /// </summary>
+        public List<string> Assignee { get; set; }
+
+        /// <summary>
+        /// Stage Co-Assignees - Additional user IDs assigned to help with this stage
+        /// </summary>
+        public List<string> CoAssignees { get; set; }
 
         /// <summary>
         /// Notes for the update

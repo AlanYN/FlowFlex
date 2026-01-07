@@ -5,9 +5,7 @@ using System.ComponentModel.DataAnnotations;
 using FlowFlex.Application.Contracts.Dtos.OW.InternalNote;
 using FlowFlex.Application.Contracts.IServices.OW;
 using FlowFlex.Application.Contracts.Dtos;
-
 using Item.Internal.StandardApi.Response;
-
 using FlowFlex.Domain.Shared.Attr;
 using FlowFlex.Domain.Shared.Models;
 
@@ -148,21 +146,5 @@ public class InternalNoteController : Controllers.ControllerBase
             pageIndex, pageSize, onboardingId, stageId, noteType, priority, isResolved, sortField, sortDirection);
         return Success(result);
     }
-}
-
-/// <summary>
-/// Resolve note request model
-/// </summary>
-public class ResolveNoteRequest
-{
-    /// <summary>
-    /// Resolved by
-    /// </summary>
-    public string ResolvedBy { get; set; } = string.Empty;
-
-    /// <summary>
-    /// Resolution notes
-    /// </summary>
-    public string ResolutionNotes { get; set; } = string.Empty;
 }
 

@@ -78,6 +78,22 @@ namespace FlowFlex.Application.Contracts.IServices.OW
         Task<bool> LogFileUploadAsync(long fileId, string fileName, long onboardingId, long? stageId, long fileSize, string contentType, string category);
 
         /// <summary>
+        /// Log file upload operation with operator override (for background tasks)
+        /// </summary>
+        /// <param name="fileId">File ID</param>
+        /// <param name="fileName">File name</param>
+        /// <param name="onboardingId">Onboarding ID</param>
+        /// <param name="stageId">Stage ID</param>
+        /// <param name="fileSize">File size</param>
+        /// <param name="contentType">File type</param>
+        /// <param name="category">File category</param>
+        /// <param name="operatorId">Operator ID (override)</param>
+        /// <param name="operatorName">Operator name (override)</param>
+        /// <param name="tenantId">Tenant ID (override)</param>
+        /// <returns>Whether successful</returns>
+        Task<bool> LogFileUploadAsync(long fileId, string fileName, long onboardingId, long? stageId, long fileSize, string contentType, string category, long operatorId, string operatorName, string tenantId);
+
+        /// <summary>
         /// Log file deletion operation
         /// </summary>
         /// <param name="fileId">File ID</param>

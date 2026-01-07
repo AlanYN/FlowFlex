@@ -6,13 +6,13 @@ using System.Text.Json;
 namespace FlowFlex.Application.Maps
 {
     /// <summary>
-    /// 操作变更日志映射配置
+    /// Operation change log mapping profile
     /// </summary>
     public class OperationChangeLogMapProfile : Profile
     {
         public OperationChangeLogMapProfile()
         {
-            // 实体到输出DTO的映射
+            // Entity to output DTO mapping
             CreateMap<OperationChangeLog, OperationChangeLogOutputDto>()
                 .ForMember(dest => dest.Id, opt => opt.MapFrom(src => src.Id))
                 .ForMember(dest => dest.TenantId, opt => opt.MapFrom(src => src.TenantId))
@@ -40,7 +40,11 @@ namespace FlowFlex.Application.Maps
         }
 
         /// <summary>
-        /// 解析变更字段JSON字符串为字符串列表
+        /// Parse changed fields JSON string to string list
+        /// Handles multiple scenarios:
+        /// 1. Normal JSON array: ["field1", "field2"]
+        /// 2. Double-encoded JSON: "\"[\\\"field1\\\",\\\"field2\\\"]\""
+        /// 3. SqlSugar JSONB auto-deserialized format
         /// </summary>
         private static List<string> ParseChangedFields(string changedFieldsJson)
         {
@@ -49,12 +53,91 @@ namespace FlowFlex.Application.Maps
 
             try
             {
-                var fields = JsonSerializer.Deserialize<string[]>(changedFieldsJson);
-                return fields?.ToList() ?? new List<string>();
+                var trimmed = changedFieldsJson.Trim();
+
+                // Scenario 1: Normal JSON array (most common case from PostgreSQL JSONB)
+                if (trimmed.StartsWith("[") && trimmed.EndsWith("]"))
+                {
+                    var fields = JsonSerializer.Deserialize<string[]>(trimmed);
+                    if (fields != null && fields.Length > 0)
+                    {
+                        return fields.ToList();
+                    }
+                    return new List<string>();
+                }
+
+                // Scenario 2: Double-encoded JSON string (e.g., "\"[\\\"field1\\\",\\\"field2\\\"]\"")
+                if (trimmed.StartsWith("\"") && trimmed.EndsWith("\""))
+                {
+                    try
+                    {
+                        // First deserialize to get the inner JSON string
+                        var innerJson = JsonSerializer.Deserialize<string>(trimmed);
+                        if (!string.IsNullOrEmpty(innerJson))
+                        {
+                            var innerTrimmed = innerJson.Trim();
+                            if (innerTrimmed.StartsWith("[") && innerTrimmed.EndsWith("]"))
+                            {
+                                var innerFields = JsonSerializer.Deserialize<string[]>(innerTrimmed);
+                                if (innerFields != null && innerFields.Length > 0)
+                                {
+                                    return innerFields.ToList();
+                                }
+                            }
+                        }
+                    }
+                    catch
+                    {
+                        // If double-decode fails, continue with other scenarios
+                    }
+                }
+
+                // Scenario 3: Try to parse as JsonElement (handles various JSON formats)
+                try
+                {
+                    using var doc = JsonDocument.Parse(trimmed);
+                    var root = doc.RootElement;
+
+                    if (root.ValueKind == JsonValueKind.Array)
+                    {
+                        var result = new List<string>();
+                        foreach (var element in root.EnumerateArray())
+                        {
+                            if (element.ValueKind == JsonValueKind.String)
+                            {
+                                result.Add(element.GetString() ?? string.Empty);
+                            }
+                        }
+                        if (result.Count > 0)
+                        {
+                            return result;
+                        }
+                    }
+                    else if (root.ValueKind == JsonValueKind.String)
+                    {
+                        // The JSON value itself is a string containing JSON array
+                        var innerValue = root.GetString();
+                        if (!string.IsNullOrEmpty(innerValue) && innerValue.Trim().StartsWith("["))
+                        {
+                            var innerFields = JsonSerializer.Deserialize<string[]>(innerValue);
+                            if (innerFields != null && innerFields.Length > 0)
+                            {
+                                return innerFields.ToList();
+                            }
+                        }
+                    }
+                }
+                catch
+                {
+                    // If JsonDocument parsing fails, return empty list
+                }
+
+                // If nothing works, return empty list
+                return new List<string>();
             }
             catch
             {
-                // 如果解析失败，返回空列表
+                // If all parsing fails, return empty list
                 return new List<string>();
             }
         }

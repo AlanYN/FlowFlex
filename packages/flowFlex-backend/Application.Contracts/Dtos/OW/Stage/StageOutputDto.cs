@@ -135,6 +135,11 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.Stage
         public bool AttachmentManagementNeeded { get; set; }
 
         /// <summary>
+        /// Required - Indicates whether this stage is required to complete the workflow
+        /// </summary>
+        public bool Required { get; set; }
+
+        /// <summary>
         /// Whether it's valid
         /// </summary>
         public bool IsValid { get; set; }

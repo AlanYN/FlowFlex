@@ -94,6 +94,10 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
         {
             try
             {
+                // Debug logging for changedFields parameter
+                _logger.LogInformation("[BaseOperationLogService] LogOperationWithUserContextAsync called for {BusinessModule} {BusinessId} with changedFields: {ChangedFields}",
+                    businessModule, businessId, changedFields ?? "null");
+
                 var currentUtcTime = DateTimeOffset.UtcNow;
                 var operationLog = new OperationChangeLog
                 {
@@ -2366,24 +2370,25 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                         .GroupBy(k => k)
                         .ToDictionary(g => g.Key, g => g.Count());
 
-                    // Find added components
+                    // Find added components (new component types)
                     var addedKeys = afterKeys.Keys.Except(beforeKeys.Keys).ToList();
                     if (addedKeys.Any())
                     {
                         var addedDetails = new List<string>();
                         foreach (var key in addedKeys)
                         {
-                            var component = afterArray.FirstOrDefault(c =>
+                            var componentsOfType = afterArray.Where(c =>
                             {
                                 if (c.TryGetProperty("key", out var k) && k.GetString() == key)
                                     return true;
                                 if (c.TryGetProperty("Key", out var k2) && k2.GetString() == key)
                                     return true;
                                 return false;
-                            });
-                            if (component.ValueKind != JsonValueKind.Undefined)
+                            }).ToList();
+
+                            foreach (var component in componentsOfType)
                             {
-                                var componentSummary = GetComponentsSummary(component);
+                                var componentSummary = GetSingleComponentSummary(component);
                                 if (!string.IsNullOrEmpty(componentSummary))
                                 {
                                     addedDetails.Add($"{key} ({componentSummary})");
@@ -2393,15 +2398,56 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                                     addedDetails.Add(key);
                                 }
                             }
-                            else
-                            {
-                                addedDetails.Add(key);
-                            }
                         }
                         changes.Add($"added: {string.Join(", ", addedDetails)}");
                     }
 
-                    // Find removed components
+                    // Find components with increased count (same type but more instances)
+                    var commonKeysForCount = beforeKeys.Keys.Intersect(afterKeys.Keys).ToList();
+                    foreach (var key in commonKeysForCount)
+                    {
+                        var beforeCount = beforeKeys[key];
+                        var afterCount = afterKeys[key];
+                        if (afterCount > beforeCount)
+                        {
+                            // Get the newly added components of this type
+                            var afterComponentsOfType = afterArray.Where(c =>
+                            {
+                                if (c.TryGetProperty("key", out var k) && k.GetString() == key)
+                                    return true;
+                                if (c.TryGetProperty("Key", out var k2) && k2.GetString() == key)
+                                    return true;
+                                return false;
+                            }).ToList();
+
+                            // Get names/details of new components (skip the first beforeCount items)
+                            var newComponents = afterComponentsOfType.Skip(beforeCount).ToList();
+                            var newComponentDetails = new List<string>();
+                            foreach (var component in newComponents)
+                            {
+                                var componentSummary = GetSingleComponentSummary(component);
+                                if (!string.IsNullOrEmpty(componentSummary))
+                                {
+                                    newComponentDetails.Add(componentSummary);
+                                }
+                            }
+
+                            if (newComponentDetails.Any())
+                            {
+                                changes.Add($"{key} added: {string.Join(", ", newComponentDetails)}");
+                            }
+                            else
+                            {
+                                changes.Add($"{key} count: {beforeCount} → {afterCount}");
+                            }
+                        }
+                        else if (afterCount < beforeCount)
+                        {
+                            changes.Add($"{key} count: {beforeCount} → {afterCount}");
+                        }
+                    }
+
+                    // Find removed components (component types that no longer exist)
                     var removedKeys = beforeKeys.Keys.Except(afterKeys.Keys).ToList();
                     if (removedKeys.Any())
                     {
@@ -2588,6 +2634,21 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                     if (staticFields.Any())
                     {
                         componentDetails.Add($"fields: {string.Join(", ", staticFields)}");
+                    }
+                }
+
+                // Extract quick link names
+                if ((component.TryGetProperty("quickLinkNames", out var quickLinkNamesElement) ||
+                     component.TryGetProperty("QuickLinkNames", out quickLinkNamesElement)) &&
+                    quickLinkNamesElement.ValueKind == JsonValueKind.Array)
+                {
+                    var quickLinkNames = quickLinkNamesElement.EnumerateArray()
+                        .Select(n => n.GetString())
+                        .Where(n => !string.IsNullOrEmpty(n))
+                        .ToList();
+                    if (quickLinkNames.Any())
+                    {
+                        componentDetails.Add($"quick links: {string.Join(", ", quickLinkNames.Select(n => $"'{n}'"))}");
                     }
                 }
 

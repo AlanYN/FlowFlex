@@ -199,6 +199,53 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
         }
 
         /// <summary>
+        /// Log file upload operation with operator override (for background tasks)
+        /// </summary>
+        public async Task<bool> LogFileUploadAsync(long fileId, string fileName, long onboardingId, long? stageId, long fileSize, string contentType, string category, long operatorId, string operatorName, string tenantId)
+        {
+            try
+            {
+                var extendedData = new
+                {
+                    FileId = fileId,
+                    FileName = fileName,
+                    FileSize = fileSize,
+                    FileSizeFormatted = FormatFileSize(fileSize),
+                    ContentType = contentType,
+                    Category = category,
+                    UploadedAt = DateTimeOffset.UtcNow
+                };
+
+                var operationLog = BuildOperationLogEntity(
+                    OperationTypeEnum.FileUpload,
+                    BusinessModuleEnum.File,
+                    fileId,
+                    onboardingId,
+                    stageId,
+                    $"File Uploaded: {fileName}",
+                    $"File '{fileName}' has been uploaded successfully by {operatorName}",
+                    extendedData: JsonSerializer.Serialize(extendedData)
+                );
+
+                // Override operator and tenant information for background tasks
+                operationLog.OperatorId = operatorId;
+                operationLog.OperatorName = operatorName;
+                operationLog.TenantId = tenantId;
+                operationLog.CreateBy = operatorName;
+                operationLog.ModifyBy = operatorName;
+                operationLog.CreateUserId = operatorId;
+                operationLog.ModifyUserId = operatorId;
+
+                return await _operationChangeLogRepository.InsertOperationLogAsync(operationLog);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to log file upload operation for file {FileId}", fileId);
+                return false;
+            }
+        }
+
+        /// <summary>
         /// Log file delete operation
         /// </summary>
         public async Task<bool> LogFileDeleteAsync(long fileId, string fileName, long onboardingId, long? stageId, string reason = null)

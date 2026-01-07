@@ -96,7 +96,16 @@ namespace FlowFlex.SqlSugarDB.Migrations
                     ("20251114000001_IncreaseOperationDescriptionLength", (Action)(() => Migration_20251114000001_IncreaseOperationDescriptionLength.Up(_db))),
                     ("20251124000001_CreateIntegrationTables", (Action)(() => Migration_20251124000001_CreateIntegrationTables.Up(_db))),
                     ("20250125000001_CreateDynamicFieldTable", (Action)(() => Migration_20250125000001_CreateDynamicFieldTable.Up(_db))),
-                    ("20250126000002_AddSystemIdAndIntegrationIdToOnboarding", (Action)(() => Migration_20250126000002_AddSystemIdAndIntegrationIdToOnboarding.Up(_db)))
+                    ("20250126000002_AddSystemIdAndIntegrationIdToOnboarding", (Action)(() => Migration_20250126000002_AddSystemIdAndIntegrationIdToOnboarding.Up(_db))),
+                    ("20251215000001_CreateMessageCenterTables", (Action)(() => _20251215000001_CreateMessageCenterTables.Up(_db))),
+                    ("20251215000002_CreateEmailBindingTable", (Action)(() => new Migration_20251215000002_CreateEmailBindingTable().Up(_db))),
+                    ("20251219000001_AddMessageFullTextIndex", (Action)(() => _20251219000001_AddMessageFullTextIndex.Up(_db))),
+                    ("20251222000001_AddDeltaLinkColumnsToEmailBinding", (Action)(() => _20251222000001_AddDeltaLinkColumnsToEmailBinding.Up(_db))),
+                    ("20251223000001_AddEntityTypeAndEntityIdToOnboarding", (Action)(() => Migration_20251223000001_AddEntityTypeAndEntityIdToOnboarding.Up(_db))),
+                    ("20251226000001_CreateDynamicDataTables", (Action)(() => CreateDynamicDataTables_20251226000001.Up(_db))),
+                    ("20251226000002_AddAuditFieldsToDataValue", (Action)(() => AddAuditFieldsToDataValue_20251226000002.Up(_db))),
+                    ("20251226000003_AddRequiredFieldToStage", (Action)(() => Migration_20251226000003_AddRequiredFieldToStage.Up(_db))),
+                    ("20251231000001_CreatePhoneNumberPrefixesTable", (Action)(() => Migration_20251231000001_CreatePhoneNumberPrefixesTable.Up(_db)))
                 };
 
                 // Pre-check all migrations to reduce individual SQL queries

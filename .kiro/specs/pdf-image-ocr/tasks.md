@@ -1,0 +1,182 @@
+# Implementation Plan
+
+- [x] 1. Set up project structure and dependencies
+  - [x] 1.1 Create utility module directory structure under `src/app/components/ai/utils/`
+    - Create directories for OCR, PDF detection, image processing, and content merging utilities
+    - _Requirements: 6.1_
+  - [x] 1.2 Install and configure Tesseract.js CDN loading
+    - Add Tesseract.js CDN URL constants
+    - Implement lazy loading mechanism similar to existing pdf.js loading
+    - _Requirements: 6.4_
+  - [x] 1.3 Install fast-check for property-based testing
+    - Add fast-check to devDependencies
+    - Configure test environment for property tests
+    - _Requirements: Testing Strategy_
+
+- [x] 2. Implement OCR Utility Module
+  - [x] 2.1 Create OCR service interface and types (`ocrUtils.ts`)
+    - Define OCRConfig, OCRResult, OCRBlock interfaces
+    - Define IOCRService interface
+    - _Requirements: 6.1, 6.2_
+  - [x] 2.2 Implement Tesseract.js wrapper with Web Worker support
+    - Implement lazy loading of Tesseract.js from CDN
+    - Create Web Worker wrapper for non-blocking OCR processing
+    - Implement language configuration support
+    - _Requirements: 1.4, 6.2, 6.3_
+  - [ ]* 2.3 Write property test for OCR text extraction round-trip
+    - **Property 2: OCR text extraction round-trip**
+    - **Validates: Requirements 1.4, 2.4**
+  - [ ]* 2.4 Write property test for language configuration
+    - **Property 12: Language configuration affects OCR**
+    - **Validates: Requirements 6.2**
+
+- [x] 3. Implement Image Processor Module
+  - [x] 3.1 Create image processor interface and types (`imageProcessor.ts`)
+    - Define ImageProcessingOptions interface
+    - Define IImageProcessor interface
+    - _Requirements: 1.1, 1.2_
+  - [x] 3.2 Implement image loading, resizing, and preview functions
+    - Implement loadImage function for File/Blob
+    - Implement resizeImage for optimization before OCR
+    - Implement preview URL creation and revocation
+    - _Requirements: 1.2, 7.4_
+  - [ ]* 3.3 Write property test for image file type validation
+    - **Property 1: Image file type validation**
+    - **Validates: Requirements 1.1**
+
+- [x] 4. Implement PDF Detection Module
+  - [x] 4.1 Create PDF detector interface and types (`pdfDetector.ts`)
+    - Define PDFDetectionResult interface
+    - Define IPDFDetector interface
+    - _Requirements: 2.1_
+  - [x] 4.2 Implement PDF type detection logic
+    - Analyze text layer content density
+    - Detect embedded images in PDF pages
+    - Classify PDF as text-based, image-based, or mixed
+    - _Requirements: 2.1, 2.2_
+  - [x] 4.3 Implement PDF page to image extraction
+    - Use pdf.js to render pages to canvas
+    - Convert canvas to Blob for OCR processing
+    - Implement async generator for memory-efficient page processing
+    - _Requirements: 2.3, 7.1_
+  - [ ]* 4.4 Write property test for PDF type detection accuracy
+    - **Property 3: PDF type detection accuracy**
+    - **Validates: Requirements 2.1**
+  - [ ]* 4.5 Write property test for automatic OCR triggering
+    - **Property 4: Automatic OCR triggering**
+    - **Validates: Requirements 2.2**
+  - [ ]* 4.6 Write property test for page image extraction completeness
+    - **Property 5: PDF page image extraction completeness**
+    - **Validates: Requirements 2.3**
+
+- [x] 5. Checkpoint - Ensure all tests pass
+  - Ensure all tests pass, ask the user if questions arise.
+
+- [x] 6. Implement Content Merger Module
+  - [x] 6.1 Create content merger interface and types (`contentMerger.ts`)
+    - Define ContentSource, ContentBlock, MergedContent interfaces
+    - Define IContentMerger interface
+    - _Requirements: 4.1, 4.2, 4.3_
+  - [x] 6.2 Implement content merging and deduplication logic
+    - Implement merge function to combine content blocks
+    - Implement deduplicate function using similarity detection
+    - Implement orderByPage function for logical reading order
+    - Calculate statistics (character count, word count, confidence)
+    - _Requirements: 2.5, 4.1, 4.2, 4.3, 8.2_
+  - [ ]* 6.3 Write property test for content merger preserves all content
+    - **Property 6: Content merger preserves all content**
+    - **Validates: Requirements 2.5, 4.1**
+  - [ ]* 6.4 Write property test for content ordering by page
+    - **Property 9: Content ordering by page**
+    - **Validates: Requirements 4.2**
+  - [ ]* 6.5 Write property test for content deduplication effectiveness
+    - **Property 10: Content deduplication effectiveness**
+    - **Validates: Requirements 4.3**
+  - [ ]* 6.6 Write property test for statistics calculation accuracy
+    - **Property 8: Statistics calculation accuracy**
+    - **Validates: Requirements 3.4**
+  - [ ]* 6.7 Write property test for content source tracking
+    - **Property 14: Content source tracking**
+    - **Validates: Requirements 8.2**
+
+- [x] 7. Implement Vision API Client
+  - [x] 7.1 Create Vision API client interface and types (`visionApiClient.ts`)
+    - Define VisionAnalysisRequest, VisionAnalysisResponse interfaces
+    - Define IVisionApiClient interface
+    - _Requirements: 5.1, 5.2_
+  - [x] 7.2 Implement Vision API integration
+    - Implement isVisionSupported to check model capabilities
+    - Implement analyzeImage using existing AI chat API
+    - Implement fallback logic to OCR on failure
+    - _Requirements: 5.2, 5.3, 5.4_
+  - [ ]* 7.3 Write property test for Vision API fallback on failure
+    - **Property 11: Vision API fallback on failure**
+    - **Validates: Requirements 5.4**
+
+- [x] 8. Checkpoint - Ensure all tests pass
+  - Ensure all tests pass, ask the user if questions arise.
+
+- [x] 9. Update AIFileAnalyzer Component
+  - [x] 9.1 Update file type configuration to include image formats
+    - Add JPG, JPEG, PNG, GIF, BMP, WebP to acceptedFileTypes
+    - Update tooltip text to show all supported formats
+    - _Requirements: 1.1, 9.1_
+  - [x] 9.2 Add image preview functionality
+    - Display image preview in processing dialog for image files
+    - _Requirements: 1.2_
+  - [x] 9.3 Add analysis method selection UI
+    - Add radio buttons or dropdown for Tesseract.js OCR vs Vision API
+    - Show Vision API option only when model supports vision
+    - _Requirements: 1.3, 5.1_
+  - [x] 9.4 Implement image file processing flow
+    - Integrate image processor for loading and preview
+    - Integrate OCR service for text extraction
+    - Integrate Vision API client for AI analysis
+    - _Requirements: 1.4, 1.5_
+  - [x] 9.5 Implement enhanced PDF processing flow
+    - Integrate PDF detector for type detection
+    - Implement automatic OCR triggering for image-based PDFs
+    - Integrate content merger for combining text and OCR results
+    - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5_
+
+- [x] 10. Implement Progress and Error Handling UI
+  - [x] 10.1 Update processing steps to show OCR progress
+    - Add page-by-page progress for multi-page PDFs
+    - Show current page number and total count
+    - _Requirements: 3.1, 3.2_
+  - [x] 10.2 Implement error handling and display
+    - Map error types to user-friendly messages
+    - Display error messages in processing dialog
+    - _Requirements: 3.3_
+  - [x] 10.3 Add content preview with source indicators
+    - Show extracted content preview
+    - Indicate which portions came from OCR vs text layer
+    - Display statistics (character count, confidence)
+    - _Requirements: 3.4, 8.1, 8.2_
+  - [x] 10.4 Add manual editing capability for extracted text
+    - Allow user to edit extracted text before sending to AI
+    - _Requirements: 8.3_
+  - [ ]* 10.5 Write property test for error handling produces descriptive messages
+    - **Property 7: Error handling produces descriptive messages**
+    - **Validates: Requirements 3.3, 9.2**
+
+- [x] 11. Implement Large File Handling
+  - [x] 11.1 Add page count warning for large PDFs
+    - Check page count after PDF loading
+    - Display warning dialog for PDFs exceeding 50 pages
+    - _Requirements: 7.2_
+  - [x] 11.2 Implement cancel operation functionality
+    - Add cancel button during processing
+    - Implement proper cleanup on cancel
+    - _Requirements: 7.3_
+  - [x] 11.3 Implement memory management for page processing
+    - Release page resources after processing each page
+    - Implement page-by-page processing to manage memory
+    - _Requirements: 7.1, 7.4_
+  - [ ]* 11.4 Write property test for large PDF warning threshold
+    - **Property 13: Large PDF warning threshold**
+    - **Validates: Requirements 7.2**
+
+- [x] 12. Final Checkpoint - Ensure all tests pass
+
+  - Ensure all tests pass, ask the user if questions arise.

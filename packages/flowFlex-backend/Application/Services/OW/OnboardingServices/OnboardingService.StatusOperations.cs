@@ -116,7 +116,7 @@ namespace FlowFlex.Application.Services.OW
                     {
                         await _onboardingLogService.LogOnboardingStartAsync(
                             id,
-                            entity.LeadName ?? entity.CaseCode ?? "Unknown",
+                            entity.CaseName ?? entity.CaseCode ?? "Unknown",
                             reason: input.Reason
                         );
                     }
@@ -189,7 +189,7 @@ namespace FlowFlex.Application.Services.OW
                     {
                         await _onboardingLogService.LogOnboardingAbortAsync(
                             id,
-                            entity.LeadName ?? entity.CaseCode ?? "Unknown",
+                            entity.CaseName ?? entity.CaseCode ?? "Unknown",
                             reason: input.Reason
                         );
                     }
@@ -267,7 +267,7 @@ namespace FlowFlex.Application.Services.OW
                     {
                         await _onboardingLogService.LogOnboardingReactivateAsync(
                             id,
-                            entity.LeadName ?? entity.CaseCode ?? "Unknown",
+                            entity.CaseName ?? entity.CaseCode ?? "Unknown",
                             reason: input.Reason
                         );
                     }
@@ -343,7 +343,7 @@ namespace FlowFlex.Application.Services.OW
                     {
                         await _onboardingLogService.LogOnboardingResumeAsync(
                             id,
-                            entity.LeadName ?? entity.CaseCode ?? "Unknown",
+                            entity.CaseName ?? entity.CaseCode ?? "Unknown",
                             reason: input.Reason
                         );
                     }
@@ -428,7 +428,7 @@ namespace FlowFlex.Application.Services.OW
                     {
                         await _onboardingLogService.LogOnboardingForceCompleteAsync(
                             id,
-                            entity.LeadName ?? entity.CaseCode ?? "Unknown",
+                            entity.CaseName ?? entity.CaseCode ?? "Unknown",
                             reason: input.Reason
                         );
                     }
@@ -460,7 +460,7 @@ namespace FlowFlex.Application.Services.OW
                         it.CurrentStageId,
                         it.CurrentStageOrder,
                         it.LeadId,
-                        it.LeadName,
+                        it.CaseName,
                         it.LeadEmail,
                         it.LeadPhone,
                         it.ContactPerson,
@@ -653,7 +653,7 @@ namespace FlowFlex.Application.Services.OW
             long onboardingId,
             long stageId,
             string originalLeadId,
-            string originalLeadName,
+            string originalCaseName,
             string originalContactPerson,
             string originalContactEmail,
             string originalLeadPhone,
@@ -683,14 +683,14 @@ namespace FlowFlex.Application.Services.OW
                     ));
                 }
 
-                if (!string.Equals(originalLeadName, input.LeadName, StringComparison.Ordinal))
+                if (!string.Equals(originalCaseName, input.CaseName, StringComparison.Ordinal))
                 {
-                    _logger.LogDebug("CUSTOMERNAME changed: '{OriginalValue}' -> '{NewValue}'", originalLeadName, input.LeadName);
+                    _logger.LogDebug("CUSTOMERNAME changed: '{OriginalValue}' -> '{NewValue}'", originalCaseName, input.CaseName);
                     staticFieldUpdates.Add(CreateStaticFieldInput(
                         onboardingId,
                         stageId,
                         "CUSTOMERNAME",
-                        input.LeadName,
+                        input.CaseName,
                         "text",
                         "Customer Name",
                         isRequired: false

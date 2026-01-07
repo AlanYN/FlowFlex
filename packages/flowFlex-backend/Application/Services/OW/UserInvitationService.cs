@@ -109,7 +109,7 @@ namespace FlowFlex.Application.Services.OW
                         var emailSent = await _emailService.SendOnboardingInvitationEmailAsync(
                             email,
                             existingInvitation.InvitationUrl,
-                            onboarding.LeadName ?? "Onboarding Process");
+                            onboarding.CaseName ?? "Onboarding Process");
 
                         if (emailSent)
                         {
@@ -158,7 +158,7 @@ namespace FlowFlex.Application.Services.OW
                         var emailSent = await _emailService.SendOnboardingInvitationEmailAsync(
                             email,
                             invitation.InvitationUrl,
-                            onboarding.LeadName ?? "Onboarding Process");
+                            onboarding.CaseName ?? "Onboarding Process");
 
                         if (emailSent)
                         {
@@ -243,7 +243,7 @@ namespace FlowFlex.Application.Services.OW
                 return await _emailService.SendOnboardingInvitationEmailAsync(
                     request.Email,
                     invitation.InvitationUrl,
-                    onboarding?.LeadName ?? "Onboarding Process");
+                    onboarding?.CaseName ?? "Onboarding Process");
             }
             catch (Exception ex)
             {

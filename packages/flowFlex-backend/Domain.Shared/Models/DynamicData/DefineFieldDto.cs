@@ -1,146 +1,258 @@
-using System;
-using System.Collections.Generic;
 using FlowFlex.Domain.Shared.Enums.DynamicData;
-using FlowFlex.Domain.Shared.Models;
-using FlowFlex.Domain.Shared.Models.DynamicData;
+using Newtonsoft.Json.Linq;
 
 namespace FlowFlex.Domain.Shared.Models.DynamicData;
 
-public class DefineFieldDto : IField
+/// <summary>
+/// Field definition DTO
+/// </summary>
+public class DefineFieldDto
 {
     /// <summary>
-    /// Unique identifier for the field
+    /// Field ID
     /// </summary>
     public long Id { get; set; }
 
     /// <summary>
-    /// ID of the module this field belongs to
+    /// Module ID
     /// </summary>
     public int ModuleId { get; set; }
 
     /// <summary>
-    /// ID of the group this field belongs to
+    /// Group ID
     /// </summary>
-    public int GroupId { get; set; }
+    public long GroupId { get; set; }
 
     /// <summary>
-    /// Display name of the field
+    /// Display name
     /// </summary>
-    public string DisplayName { get; set; }
+    public string DisplayName { get; set; } = string.Empty;
 
     /// <summary>
-    /// Internal name of the field
+    /// Field name (identifier)
     /// </summary>
-    public string FieldName { get; set; }
+    public string FieldName { get; set; } = string.Empty;
 
     /// <summary>
-    /// Description of the field
+    /// Description
     /// </summary>
-    public string Description { get; set; }
+    public string? Description { get; set; }
 
     /// <summary>
-    /// Data type of the field
+    /// Data type
     /// </summary>
     public DataType DataType { get; set; }
 
-    public DataType FieldType => DataType;
-
-    public SourceType SourceType { get; set; }
-
-    public string SourceName { get; set; }
-
-    public int Sort { get; set; }
-
     /// <summary>
-    /// Sort type for the field
+    /// Source type
     /// </summary>
-    public SortType SortType { get; set; }
+    public int? SourceType { get; set; }
 
     /// <summary>
-    /// reference field id
+    /// Source name
+    /// </summary>
+    public string? SourceName { get; set; }
+
+    /// <summary>
+    /// Reference field ID
     /// </summary>
     public long? RefFieldId { get; set; }
 
     /// <summary>
-    /// Indicates if the field is system-defined
+    /// Whether is system defined
     /// </summary>
     public bool IsSystemDefine { get; set; }
 
     /// <summary>
-    /// Whether the field is a static field
+    /// Whether is static field
     /// </summary>
     public bool IsStatic { get; set; }
 
     /// <summary>
-    /// ID of the format settings for this field
-    /// </summary>
-    public long? FormatId { get; set; }
-
-    /// <summary>
-    /// ID of the validation settings for this field
-    /// </summary>
-    public long? ValidateId { get; set; }
-
-    /// <summary>
-    /// Format settings for the field
-    /// </summary>
-    public FieldTypeFormatDto Format { get; set; }
-
-    /// <summary>
-    /// List of dropdown items if the field is a dropdown type
-    /// </summary>
-    public List<DropdownItemDto> DropdownItems { get; set; }
-
-    public List<ConnectionDto> ConnectionItems { get; set; }
-
-    /// <summary>
-    /// Validation settings for the field
-    /// </summary>
-    public FieldValidateDto FieldValidate { get; set; }
-
-    public string CreateBy { get; set; }
-
-    public DateTimeOffset CreateDate { get; set; }
-
-    public string ModifyBy { get; set; }
-
-    public DateTimeOffset ModifyDate { get; set; }
-
-    public long CreateUserId { get; set; }
-
-    public long ModifyUserId { get; set; }
-
-    /// <summary>
-    /// Whether editing is allowed
-    /// </summary>
-    public bool AllowEdit { get; set; } = true;
-
-    /// <summary>
-    /// Whether editing options is allowed
-    /// </summary>
-    public bool AllowEditItem { get; set; } = true;
-
-    /// <summary>
-    /// Whether this is a display field name
+    /// Whether is display field
     /// </summary>
     public bool IsDisplayField { get; set; }
 
     /// <summary>
-    /// Whether the field is required
+    /// Whether must use
+    /// </summary>
+    public bool IsMustUse { get; set; }
+
+    /// <summary>
+    /// Whether is required
     /// </summary>
     public bool IsRequired { get; set; }
 
+    /// <summary>
+    /// Whether must show in table
+    /// </summary>
     public bool IsTableMustShow { get; set; }
 
     /// <summary>
-    /// Hidden field, will not be displayed on the frontend page
+    /// Whether is hidden
     /// </summary>
     public bool IsHidden { get; set; }
 
     /// <summary>
-    /// Whether it is a computed property
+    /// Whether is computed field
     /// </summary>
     public bool IsComputed { get; set; }
 
-    public AdditionalInfo AdditionalInfo { get; set; } = new();
+    /// <summary>
+    /// Whether allow edit
+    /// </summary>
+    public bool AllowEdit { get; set; } = true;
+
+    /// <summary>
+    /// Whether allow edit item
+    /// </summary>
+    public bool AllowEditItem { get; set; } = true;
+
+    /// <summary>
+    /// Sort order
+    /// </summary>
+    public int Sort { get; set; }
+
+    /// <summary>
+    /// Create date
+    /// </summary>
+    public DateTimeOffset? CreateDate { get; set; }
+
+    /// <summary>
+    /// Modify date
+    /// </summary>
+    public DateTimeOffset? ModifyDate { get; set; }
+
+    /// <summary>
+    /// Created by
+    /// </summary>
+    public string? CreateBy { get; set; }
+
+    /// <summary>
+    /// Modified by
+    /// </summary>
+    public string? ModifyBy { get; set; }
+
+    /// <summary>
+    /// Dropdown items (for dropdown type)
+    /// </summary>
+    public List<DropdownItemDto>? DropdownItems { get; set; }
+
+    /// <summary>
+    /// Field format configuration
+    /// </summary>
+    public FieldTypeFormatDto? Format { get; set; }
+
+    /// <summary>
+    /// Field validation configuration
+    /// </summary>
+    public FieldValidateDto? FieldValidate { get; set; }
+
+    /// <summary>
+    /// Additional info (JSONB)
+    /// </summary>
+    public JObject? AdditionalInfo { get; set; }
+}
+
+/// <summary>
+/// Dropdown item DTO
+/// </summary>
+public class DropdownItemDto
+{
+    /// <summary>
+    /// Item ID
+    /// </summary>
+    public long Id { get; set; }
+
+    /// <summary>
+    /// Item value
+    /// </summary>
+    public string Value { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Item label
+    /// </summary>
+    public string Label { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Sort order
+    /// </summary>
+    public int Sort { get; set; }
+
+    /// <summary>
+    /// Whether is default
+    /// </summary>
+    public bool IsDefault { get; set; }
+}
+
+/// <summary>
+/// Field type format DTO
+/// </summary>
+public class FieldTypeFormatDto
+{
+    /// <summary>
+    /// Format ID
+    /// </summary>
+    public long Id { get; set; }
+
+    /// <summary>
+    /// Format type
+    /// </summary>
+    public int FormatType { get; set; }
+
+    /// <summary>
+    /// Format pattern
+    /// </summary>
+    public string? Pattern { get; set; }
+
+    /// <summary>
+    /// Decimal places (for number type)
+    /// </summary>
+    public int? DecimalPlaces { get; set; }
+
+    /// <summary>
+    /// Date format (for date type)
+    /// </summary>
+    public string? DateFormat { get; set; }
+}
+
+/// <summary>
+/// Field validation DTO
+/// </summary>
+public class FieldValidateDto
+{
+    /// <summary>
+    /// Validation ID
+    /// </summary>
+    public long Id { get; set; }
+
+    /// <summary>
+    /// Min length
+    /// </summary>
+    public int? MinLength { get; set; }
+
+    /// <summary>
+    /// Max length
+    /// </summary>
+    public int? MaxLength { get; set; }
+
+    /// <summary>
+    /// Min value
+    /// </summary>
+    public decimal? MinValue { get; set; }
+
+    /// <summary>
+    /// Max value
+    /// </summary>
+    public decimal? MaxValue { get; set; }
+
+    /// <summary>
+    /// Regex pattern
+    /// </summary>
+    public string? Pattern { get; set; }
+
+    /// <summary>
+    /// Custom validation message
+    /// </summary>
+    public string? Message { get; set; }
 }

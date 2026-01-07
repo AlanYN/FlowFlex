@@ -508,6 +508,28 @@ namespace FlowFlex.Application.Service.OW
                 throw new CRMException(ErrorCodeEnum.DataNotFound, "Stage not found");
             }
 
+            // IMPORTANT: Create a snapshot of original values BEFORE any modifications
+            // This prevents SqlSugar's change tracking from affecting our comparison
+            var originalStageSnapshot = new
+            {
+                Name = stage.Name,
+                Description = stage.Description,
+                Order = stage.Order,
+                ComponentsJson = stage.ComponentsJson,
+                DefaultAssignee = stage.DefaultAssignee,
+                DefaultAssignedGroup = stage.DefaultAssignedGroup,
+                EstimatedDuration = stage.EstimatedDuration,
+                IsActive = stage.IsActive,
+                VisibleInPortal = stage.VisibleInPortal,
+                PortalPermission = stage.PortalPermission,
+                ViewPermissionMode = stage.ViewPermissionMode,
+                ViewTeams = stage.ViewTeams,
+                OperateTeams = stage.OperateTeams,
+                Color = stage.Color,
+                AttachmentManagementNeeded = stage.AttachmentManagementNeeded,
+                UseSameTeamForOperate = stage.UseSameTeamForOperate
+            };
+
             // Get workflow information for error messages
             var workflow = await _workflowRepository.GetByIdAsync(stage.WorkflowId);
             if (workflow == null)
@@ -713,23 +735,25 @@ namespace FlowFlex.Application.Service.OW
                     var updatedStage = await _stageRepository.GetByIdAsync(id);
                     if (updatedStage != null)
                     {
-                        // Prepare before and after data for logging
+                        // Prepare before and after data for logging using the SNAPSHOT (not the tracked entity)
                         var beforeData = JsonSerializer.Serialize(new
                         {
-                            Name = stage.Name,
-                            Description = stage.Description,
-                            Order = stage.Order,
-                            ComponentsJson = stage.ComponentsJson,
-                            DefaultAssignee = stage.DefaultAssignee,
-                            DefaultAssignedGroup = stage.DefaultAssignedGroup,
-                            EstimatedDuration = stage.EstimatedDuration,
-                            IsActive = stage.IsActive,
-                            VisibleInPortal = stage.VisibleInPortal,
-                            PortalPermission = stage.PortalPermission,
-                            ViewPermissionMode = stage.ViewPermissionMode,
-                            ViewTeams = stage.ViewTeams,
-                            OperateTeams = stage.OperateTeams,
-                            Color = stage.Color
+                            Name = originalStageSnapshot.Name,
+                            Description = originalStageSnapshot.Description,
+                            Order = originalStageSnapshot.Order,
+                            ComponentsJson = originalStageSnapshot.ComponentsJson,
+                            DefaultAssignee = originalStageSnapshot.DefaultAssignee,
+                            DefaultAssignedGroup = originalStageSnapshot.DefaultAssignedGroup,
+                            EstimatedDuration = originalStageSnapshot.EstimatedDuration,
+                            IsActive = originalStageSnapshot.IsActive,
+                            VisibleInPortal = originalStageSnapshot.VisibleInPortal,
+                            PortalPermission = originalStageSnapshot.PortalPermission,
+                            ViewPermissionMode = originalStageSnapshot.ViewPermissionMode,
+                            ViewTeams = originalStageSnapshot.ViewTeams,
+                            OperateTeams = originalStageSnapshot.OperateTeams,
+                            Color = originalStageSnapshot.Color,
+                            AttachmentManagementNeeded = originalStageSnapshot.AttachmentManagementNeeded,
+                            UseSameTeamForOperate = originalStageSnapshot.UseSameTeamForOperate
                         });
 
                         var afterData = JsonSerializer.Serialize(new
@@ -747,31 +771,43 @@ namespace FlowFlex.Application.Service.OW
                             ViewPermissionMode = updatedStage.ViewPermissionMode,
                             ViewTeams = updatedStage.ViewTeams,
                             OperateTeams = updatedStage.OperateTeams,
-                            Color = updatedStage.Color
+                            Color = updatedStage.Color,
+                            AttachmentManagementNeeded = updatedStage.AttachmentManagementNeeded,
+                            UseSameTeamForOperate = updatedStage.UseSameTeamForOperate
                         });
 
-                        // Determine changed fields
+                        // Determine changed fields using the SNAPSHOT (not the tracked entity)
                         var changedFields = new List<string>();
-                        if (stage.Name != updatedStage.Name) changedFields.Add("Name");
-                        if (stage.Description != updatedStage.Description) changedFields.Add("Description");
-                        if (stage.Order != updatedStage.Order) changedFields.Add("Order");
-                        if (stage.ComponentsJson != updatedStage.ComponentsJson) changedFields.Add("ComponentsJson");
-                        if (stage.DefaultAssignee != updatedStage.DefaultAssignee) changedFields.Add("DefaultAssignee");
-                        if (stage.DefaultAssignedGroup != updatedStage.DefaultAssignedGroup) changedFields.Add("DefaultAssignedGroup");
-                        if (stage.EstimatedDuration != updatedStage.EstimatedDuration) changedFields.Add("EstimatedDuration");
-                        if (stage.IsActive != updatedStage.IsActive) changedFields.Add("IsActive");
-                        if (stage.VisibleInPortal != updatedStage.VisibleInPortal) changedFields.Add("VisibleInPortal");
-                        if (stage.PortalPermission != updatedStage.PortalPermission) changedFields.Add("PortalPermission");
-                        if (stage.ViewPermissionMode != updatedStage.ViewPermissionMode) changedFields.Add("ViewPermissionMode");
-                        if (stage.ViewTeams != updatedStage.ViewTeams) changedFields.Add("ViewTeams");
-                        if (stage.OperateTeams != updatedStage.OperateTeams) changedFields.Add("OperateTeams");
-                        if (stage.Color != updatedStage.Color) changedFields.Add("Color");
+                        if (originalStageSnapshot.Name != updatedStage.Name) changedFields.Add("Name");
+                        if (originalStageSnapshot.Description != updatedStage.Description) changedFields.Add("Description");
+                        if (originalStageSnapshot.Order != updatedStage.Order) changedFields.Add("Order");
+                        if (originalStageSnapshot.ComponentsJson != updatedStage.ComponentsJson) changedFields.Add("ComponentsJson");
+                        if (originalStageSnapshot.DefaultAssignee != updatedStage.DefaultAssignee) changedFields.Add("DefaultAssignee");
+                        if (originalStageSnapshot.DefaultAssignedGroup != updatedStage.DefaultAssignedGroup) changedFields.Add("DefaultAssignedGroup");
+                        if (originalStageSnapshot.EstimatedDuration != updatedStage.EstimatedDuration) changedFields.Add("EstimatedDuration");
+                        if (originalStageSnapshot.IsActive != updatedStage.IsActive) changedFields.Add("IsActive");
+                        if (originalStageSnapshot.VisibleInPortal != updatedStage.VisibleInPortal) changedFields.Add("VisibleInPortal");
+                        if (originalStageSnapshot.PortalPermission != updatedStage.PortalPermission) changedFields.Add("PortalPermission");
+                        if (originalStageSnapshot.ViewPermissionMode != updatedStage.ViewPermissionMode) changedFields.Add("ViewPermissionMode");
+                        if (originalStageSnapshot.ViewTeams != updatedStage.ViewTeams) changedFields.Add("ViewTeams");
+                        if (originalStageSnapshot.OperateTeams != updatedStage.OperateTeams) changedFields.Add("OperateTeams");
+                        if (originalStageSnapshot.Color != updatedStage.Color) changedFields.Add("Color");
+                        if (originalStageSnapshot.AttachmentManagementNeeded != updatedStage.AttachmentManagementNeeded) changedFields.Add("AttachmentManagementNeeded");
+                        if (originalStageSnapshot.UseSameTeamForOperate != updatedStage.UseSameTeamForOperate) changedFields.Add("UseSameTeamForOperate");
+
+                        // Debug logging for changed fields detection
+                        _logger.LogInformation("[StageService] Stage {StageId} update - Detected {ChangedFieldsCount} changed fields: {ChangedFields}",
+                            id, changedFields.Count, string.Join(", ", changedFields));
+
+                        // Create a copy of changedFields for the background task to avoid closure issues
+                        var changedFieldsCopy = new List<string>(changedFields);
 
                         // Log the update operation (fire-and-forget via background queue)
+                        // Use changedFieldsCopy to avoid closure issues with the original list
                         _backgroundTaskQueue.QueueBackgroundWorkItem(async _ =>
                         {
                             // Check if components were changed and log separately for better tracking
-                            bool componentsChanged = changedFields.Contains("ComponentsJson");
+                            bool componentsChanged = changedFieldsCopy.Contains("ComponentsJson");
 
                             if (componentsChanged)
                             {
@@ -782,9 +818,9 @@ namespace FlowFlex.Application.Service.OW
                                     StageName = updatedStage.Name,
                                     WorkflowId = updatedStage.WorkflowId,
                                     ComponentsChanged = true,
-                                    FieldsChanged = changedFields,
+                                    FieldsChanged = changedFieldsCopy,
                                     UpdatedAt = FormatUsDateTime(DateTimeOffset.UtcNow),
-                                    ComponentChangeDetails = GetComponentUpdateSummary(stage.ComponentsJson, updatedStage.ComponentsJson)
+                                    ComponentChangeDetails = GetComponentUpdateSummary(originalStageSnapshot.ComponentsJson, updatedStage.ComponentsJson)
                                 });
 
                                 // Log general stage update
@@ -793,7 +829,7 @@ namespace FlowFlex.Application.Service.OW
                                     stageName: updatedStage.Name,
                                     beforeData: beforeData,
                                     afterData: afterData,
-                                    changedFields: changedFields,
+                                    changedFields: changedFieldsCopy,
                                     workflowId: updatedStage.WorkflowId,
                                     extendedData: enhancedExtendedData
                                 );
@@ -806,7 +842,7 @@ namespace FlowFlex.Application.Service.OW
                                     stageName: updatedStage.Name,
                                     beforeData: beforeData,
                                     afterData: afterData,
-                                    changedFields: changedFields,
+                                    changedFields: changedFieldsCopy,
                                     workflowId: updatedStage.WorkflowId
                                 );
                             }

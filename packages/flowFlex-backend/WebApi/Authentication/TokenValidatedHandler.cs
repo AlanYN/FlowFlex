@@ -123,6 +123,17 @@ namespace WebApi.Authentication
             var configuration = context.HttpContext.RequestServices.GetRequiredService<IConfiguration>();
 
             var tokenType = claims!.FirstOrDefault(x => x.Type == "grant_type")?.Value;
+            var tokenCategory = claims!.FirstOrDefault(x => x.Type == "token_category")?.Value;
+            
+            // If grant_type is not present, determine token type from token_category
+            // token_category = "User" indicates a user token (password/authorization_code/refresh_token)
+            // token_category = "Client" indicates a client credentials token
+            if (string.IsNullOrEmpty(tokenType) && !string.IsNullOrEmpty(tokenCategory))
+            {
+                tokenType = tokenCategory == "User" ? "password" : "client_credentials";
+                Console.WriteLine($"[TokenValidatedHandler.OnIamItemTokenValidated] grant_type not found, inferred from token_category: {tokenCategory} -> {tokenType}");
+            }
+            
             try
             {
                 var identityHubClient = context.HttpContext.RequestServices.GetService<IdentityHubClient>();
@@ -145,6 +156,7 @@ namespace WebApi.Authentication
                         userContext.RoleIds = validatedUserExtensionResult.Data.RoleIds;
                         userContext.ValidationVersion = claims!.FirstOrDefault(x => x.Type == "jti")?.Value;
                         userContext.UserId = userInfo.UserId;
+                        Console.WriteLine($"[TokenValidatedHandler.OnIamItemTokenValidated] Set UserId from userInfo: {userContext.UserId}");
                         userContext.UserName = userInfo.UserName;
                         userContext.LastName = userInfo.LastName;
                         userContext.FirstName = userInfo.FirstName;
