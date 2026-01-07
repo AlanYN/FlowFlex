@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Headers;
@@ -9,12 +10,14 @@ using FlowFlex.Application.Contracts.Dtos.Integration;
 using FlowFlex.Application.Contracts.IServices;
 using FlowFlex.Application.Contracts.IServices.Integration;
 using FlowFlex.Application.Services.OW.Extensions;
+using FlowFlex.Domain.Entities.Action;
 using FlowFlex.Domain.Repository.Action;
 using FlowFlex.Domain.Repository.Integration;
 using FlowFlex.Domain.Shared;
 using FlowFlex.Domain.Shared.Exceptions;
 using FlowFlex.Domain.Shared.Models;
 using Domain.Shared.Enums;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
@@ -33,14 +36,19 @@ namespace FlowFlex.Application.Services.Integration
         private readonly IQuickLinkRepository _quickLinkRepository;
         private readonly IActionDefinitionRepository _actionDefinitionRepository;
         private readonly IActionTriggerMappingRepository _actionTriggerMappingRepository;
+        private readonly IActionExecutionRepository _actionExecutionRepository;
         private readonly ISqlSugarClient _sqlSugarClient;
         private readonly IHttpClientFactory _httpClientFactory;
         private readonly IMapper _mapper;
         private readonly UserContext _userContext;
         private readonly ILogger<IntegrationService> _logger;
+        private readonly IMemoryCache _memoryCache;
 
         // AES encryption key (should be moved to configuration in production)
         private const string ENCRYPTION_KEY = "FlowFlex2024IntegrationKey123456"; // 32 bytes for AES-256
+        
+        // Cache key prefix for LastDaysSeconds
+        private const string LAST_DAYS_SECONDS_CACHE_PREFIX = "Integration_LastDaysSeconds_";
 
         public IntegrationService(
             IIntegrationRepository integrationRepository,
@@ -49,11 +57,13 @@ namespace FlowFlex.Application.Services.Integration
             IQuickLinkRepository quickLinkRepository,
             IActionDefinitionRepository actionDefinitionRepository,
             IActionTriggerMappingRepository actionTriggerMappingRepository,
+            IActionExecutionRepository actionExecutionRepository,
             ISqlSugarClient sqlSugarClient,
             IHttpClientFactory httpClientFactory,
             IMapper mapper,
             UserContext userContext,
-            ILogger<IntegrationService> logger)
+            ILogger<IntegrationService> logger,
+            IMemoryCache memoryCache)
         {
             _integrationRepository = integrationRepository;
             _entityMappingRepository = entityMappingRepository;
@@ -61,11 +71,13 @@ namespace FlowFlex.Application.Services.Integration
             _quickLinkRepository = quickLinkRepository;
             _actionDefinitionRepository = actionDefinitionRepository;
             _actionTriggerMappingRepository = actionTriggerMappingRepository;
+            _actionExecutionRepository = actionExecutionRepository;
             _sqlSugarClient = sqlSugarClient;
             _httpClientFactory = httpClientFactory;
             _mapper = mapper;
             _userContext = userContext;
             _logger = logger;
+            _memoryCache = memoryCache;
         }
 
         public async Task<long> CreateAsync(IntegrationInputDto input)
@@ -444,6 +456,9 @@ namespace FlowFlex.Application.Services.Integration
                 _logger.LogWarning(ex, $"Failed to extract outbound mappings from action configs for integration {id}");
             }
             
+            // Populate LastDaysSeconds with real execution data
+            dto.LastDaysSeconds = await GetLastDaysSecondsAsync(id);
+            
             return dto;
         }
 
@@ -456,11 +471,49 @@ namespace FlowFlex.Application.Services.Integration
 
             var dtos = _mapper.Map<List<IntegrationOutputDto>>(items);
             
-            // Populate ConfiguredEntityTypeNames and LastDaysSeconds for each integration
+            // Get all integration IDs
+            var integrationIds = dtos.Select(d => d.Id).ToList();
+            
+            // Batch query: Get all entity mappings for all integrations
+            var allEntityMappings = await _sqlSugarClient.Queryable<Domain.Entities.Integration.EntityMapping>()
+                .Where(em => integrationIds.Contains(em.IntegrationId) && em.IsActive && em.IsValid)
+                .Select(em => new { em.IntegrationId, em.ExternalEntityType })
+                .ToListAsync();
+            
+            // Group by integration ID
+            var entityMappingsByIntegration = allEntityMappings
+                .GroupBy(em => em.IntegrationId)
+                .ToDictionary(
+                    g => g.Key,
+                    g => g.Select(em => em.ExternalEntityType)
+                          .Where(t => !string.IsNullOrEmpty(t))
+                          .Distinct()
+                          .OrderBy(t => t)
+                          .ToList()
+                );
+            
+            // Batch populate LastDaysSeconds for all integrations
+            var lastDaysSecondsMap = await GetLastDaysSecondsBatchAsync(integrationIds);
+            
+            // Populate data for each integration
             foreach (var dto in dtos)
             {
-                await PopulateConfiguredEntityTypeNamesAsync(dto);
-                dto.LastDaysSeconds = GenerateLastDaysSeconds();
+                // Populate ConfiguredEntityTypeNames from batch query result
+                if (entityMappingsByIntegration.TryGetValue(dto.Id, out var entityTypes))
+                {
+                    dto.ConfiguredEntityTypeNames = entityTypes;
+                    dto.ConfiguredEntityTypes = entityTypes.Count;
+                }
+                else
+                {
+                    dto.ConfiguredEntityTypeNames = new List<string>();
+                    dto.ConfiguredEntityTypes = 0;
+                }
+                
+                // Populate LastDaysSeconds from batch query result
+                dto.LastDaysSeconds = lastDaysSecondsMap.TryGetValue(dto.Id, out var data) 
+                    ? data 
+                    : GetEmptyLastDaysSeconds();
             }
             
             return dtos;
@@ -812,24 +865,273 @@ namespace FlowFlex.Application.Services.Integration
         }
 
         /// <summary>
-        /// Generate last 30 days random seconds statistics
+        /// <summary>
+        /// Get last 30 days execution duration statistics for an integration
         /// </summary>
-        private Dictionary<string, string> GenerateLastDaysSeconds()
+        /// <param name="integrationId">Integration ID</param>
+        /// <returns>Dictionary with date as key (yyyy-MM-dd) and total duration in seconds as value</returns>
+        private async Task<Dictionary<string, string>> GetLastDaysSecondsAsync(long integrationId)
         {
-            var result = new Dictionary<string, string>();
-            var random = new Random();
-            var today = DateTime.Today;
+            var today = DateTime.UtcNow.Date;
+            var cacheKey = $"{LAST_DAYS_SECONDS_CACHE_PREFIX}{_userContext.TenantId}_{integrationId}_{today:yyyyMMdd}";
 
-            // Generate data for the last 30 days
+            // Try to get from cache first
+            if (_memoryCache.TryGetValue(cacheKey, out Dictionary<string, string>? cachedResult) && cachedResult != null)
+            {
+                return cachedResult;
+            }
+
+            var result = new Dictionary<string, string>();
+            var startDate = today.AddDays(-29);
+
+            // Initialize all 30 days with 0
             for (int i = 29; i >= 0; i--)
             {
                 var date = today.AddDays(-i);
                 var dateKey = date.ToString("yyyy-MM-dd");
-                var randomValue = random.Next(0, 1001).ToString(); // 0-1000
-                result[dateKey] = randomValue;
+                result[dateKey] = "0";
+            }
+
+            try
+            {
+                // Get all ActionDefinition IDs associated with this integration
+                // through ActionTriggerMapping (TriggerType = 'Integration', TriggerSourceId = IntegrationId)
+                var actionDefinitionIds = await _sqlSugarClient.Queryable<ActionTriggerMapping>()
+                    .Where(m => m.TriggerType == "Integration" && m.TriggerSourceId == integrationId && m.IsValid)
+                    .Select(m => m.ActionDefinitionId)
+                    .Distinct()
+                    .ToListAsync();
+
+                if (actionDefinitionIds.Count == 0)
+                {
+                    // Cache empty result until end of day
+                    CacheLastDaysSeconds(cacheKey, result);
+                    return result;
+                }
+
+                // Query execution records for these actions in the last 30 days
+                var startDateOffset = new DateTimeOffset(startDate, TimeSpan.Zero);
+                var executions = await _sqlSugarClient.Queryable<ActionExecution>()
+                    .Where(e => actionDefinitionIds.Contains(e.ActionDefinitionId) &&
+                                e.CreateDate >= startDateOffset)
+                    .Select(e => new { e.CreateDate, e.DurationMs, e.StartedAt, e.CompletedAt })
+                    .ToListAsync();
+
+                // Group by date and sum duration (convert ms to seconds)
+                // Calculate duration from StartedAt/CompletedAt if DurationMs is null
+                var groupedData = executions
+                    .GroupBy(e => e.CreateDate.UtcDateTime.Date.ToString("yyyy-MM-dd"))
+                    .ToDictionary(
+                        g => g.Key,
+                        g => g.Sum(e => 
+                        {
+                            // Use DurationMs if available
+                            if (e.DurationMs.HasValue)
+                            {
+                                return e.DurationMs.Value / 1000.0;
+                            }
+                            // Calculate from StartedAt and CompletedAt
+                            else if (e.StartedAt.HasValue && e.CompletedAt.HasValue)
+                            {
+                                var duration = (e.CompletedAt.Value - e.StartedAt.Value).TotalSeconds;
+                                return duration > 0 ? duration : 0;
+                            }
+                            return 0;
+                        }).ToString("F0")
+                    );
+
+                // Merge with result
+                foreach (var kvp in groupedData)
+                {
+                    if (result.ContainsKey(kvp.Key))
+                    {
+                        result[kvp.Key] = kvp.Value;
+                    }
+                }
+
+                // Cache result until end of day
+                CacheLastDaysSeconds(cacheKey, result);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to get execution statistics for integration {IntegrationId}", integrationId);
             }
 
             return result;
+        }
+
+        /// <summary>
+        /// Batch get last 30 days execution duration statistics for multiple integrations
+        /// </summary>
+        private async Task<Dictionary<long, Dictionary<string, string>>> GetLastDaysSecondsBatchAsync(List<long> integrationIds)
+        {
+            var result = new Dictionary<long, Dictionary<string, string>>();
+            var today = DateTime.UtcNow.Date;
+            var todayKey = today.ToString("yyyyMMdd");
+            var uncachedIds = new List<long>();
+
+            // Check cache first for each integration
+            foreach (var integrationId in integrationIds)
+            {
+                var cacheKey = $"{LAST_DAYS_SECONDS_CACHE_PREFIX}{_userContext.TenantId}_{integrationId}_{todayKey}";
+                if (_memoryCache.TryGetValue(cacheKey, out Dictionary<string, string>? cachedResult) && cachedResult != null)
+                {
+                    result[integrationId] = cachedResult;
+                }
+                else
+                {
+                    uncachedIds.Add(integrationId);
+                }
+            }
+
+            // If all cached, return immediately
+            if (uncachedIds.Count == 0)
+            {
+                return result;
+            }
+
+            try
+            {
+                // Batch query: Get all ActionTriggerMappings for uncached integrations
+                var triggerMappings = await _sqlSugarClient.Queryable<ActionTriggerMapping>()
+                    .Where(m => m.TriggerType == "Integration" && uncachedIds.Contains(m.TriggerSourceId) && m.IsValid)
+                    .Select(m => new { m.TriggerSourceId, m.ActionDefinitionId })
+                    .ToListAsync();
+
+                // Group by integration ID
+                var integrationActionMap = triggerMappings
+                    .GroupBy(m => m.TriggerSourceId)
+                    .ToDictionary(g => g.Key, g => g.Select(m => m.ActionDefinitionId).Distinct().ToList());
+
+                // Get all action definition IDs
+                var allActionIds = integrationActionMap.Values.SelectMany(x => x).Distinct().ToList();
+
+                // Batch query execution records
+                var startDate = today.AddDays(-29);
+                var startDateOffset = new DateTimeOffset(startDate, TimeSpan.Zero);
+                
+                List<ExecutionStatData> executions;
+                if (allActionIds.Count > 0)
+                {
+                    executions = await _sqlSugarClient.Queryable<ActionExecution>()
+                        .Where(e => allActionIds.Contains(e.ActionDefinitionId) && e.CreateDate >= startDateOffset)
+                        .Select(e => new ExecutionStatData
+                        {
+                            ActionDefinitionId = e.ActionDefinitionId,
+                            CreateDate = e.CreateDate,
+                            DurationMs = e.DurationMs,
+                            StartedAt = e.StartedAt,
+                            CompletedAt = e.CompletedAt
+                        })
+                        .ToListAsync();
+                }
+                else
+                {
+                    executions = new List<ExecutionStatData>();
+                }
+
+                // Group executions by action definition ID
+                var executionsByAction = executions
+                    .GroupBy(e => e.ActionDefinitionId)
+                    .ToDictionary(g => g.Key, g => g.ToList());
+
+                // Calculate statistics for each uncached integration
+                foreach (var integrationId in uncachedIds)
+                {
+                    var data = GetEmptyLastDaysSeconds();
+
+                    if (integrationActionMap.TryGetValue(integrationId, out var actionIds) && actionIds.Count > 0)
+                    {
+                        // Get all executions for this integration's actions
+                        var integrationExecutions = actionIds
+                            .Where(aid => executionsByAction.ContainsKey(aid))
+                            .SelectMany(aid => executionsByAction[aid])
+                            .ToList();
+
+                        // Group by date and sum duration
+                        var groupedData = integrationExecutions
+                            .GroupBy(e => e.CreateDate.UtcDateTime.Date.ToString("yyyy-MM-dd"))
+                            .ToDictionary(
+                                g => g.Key,
+                                g => g.Sum(e =>
+                                {
+                                    if (e.DurationMs.HasValue)
+                                    {
+                                        return e.DurationMs.Value / 1000.0;
+                                    }
+                                    else if (e.StartedAt.HasValue && e.CompletedAt.HasValue)
+                                    {
+                                        var duration = (e.CompletedAt.Value - e.StartedAt.Value).TotalSeconds;
+                                        return duration > 0 ? duration : 0;
+                                    }
+                                    return 0.0;
+                                }).ToString("F0")
+                            );
+
+                        foreach (var kvp in groupedData)
+                        {
+                            if (data.ContainsKey(kvp.Key))
+                            {
+                                data[kvp.Key] = kvp.Value;
+                            }
+                        }
+                    }
+
+                    // Cache and add to result
+                    var cacheKey = $"{LAST_DAYS_SECONDS_CACHE_PREFIX}{_userContext.TenantId}_{integrationId}_{todayKey}";
+                    CacheLastDaysSeconds(cacheKey, data);
+                    result[integrationId] = data;
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to batch get execution statistics for integrations");
+                
+                // Return empty data for uncached integrations
+                foreach (var integrationId in uncachedIds)
+                {
+                    if (!result.ContainsKey(integrationId))
+                    {
+                        result[integrationId] = GetEmptyLastDaysSeconds();
+                    }
+                }
+            }
+
+            return result;
+        }
+
+        /// <summary>
+        /// Get empty LastDaysSeconds dictionary with all 30 days initialized to 0
+        /// </summary>
+        private Dictionary<string, string> GetEmptyLastDaysSeconds()
+        {
+            var result = new Dictionary<string, string>();
+            var today = DateTime.UtcNow.Date;
+
+            for (int i = 29; i >= 0; i--)
+            {
+                var date = today.AddDays(-i);
+                var dateKey = date.ToString("yyyy-MM-dd");
+                result[dateKey] = "0";
+            }
+
+            return result;
+        }
+
+        /// <summary>
+        /// Cache LastDaysSeconds result until end of current UTC day
+        /// </summary>
+        private void CacheLastDaysSeconds(string cacheKey, Dictionary<string, string> data)
+        {
+            var now = DateTime.UtcNow;
+            var endOfDay = now.Date.AddDays(1);
+            var expiration = endOfDay - now;
+
+            var cacheOptions = new MemoryCacheEntryOptions()
+                .SetAbsoluteExpiration(expiration)
+                .SetSize(1);
+
+            _memoryCache.Set(cacheKey, data, cacheOptions);
         }
 
         private string EncryptCredentials(Dictionary<string, string> credentials)
@@ -1176,6 +1478,18 @@ namespace FlowFlex.Application.Services.Integration
                 integrationId, integration.OutboundAttachments);
 
             return result;
+        }
+
+        /// <summary>
+        /// Internal class for execution statistics data
+        /// </summary>
+        private class ExecutionStatData
+        {
+            public long ActionDefinitionId { get; set; }
+            public DateTimeOffset CreateDate { get; set; }
+            public long? DurationMs { get; set; }
+            public DateTimeOffset? StartedAt { get; set; }
+            public DateTimeOffset? CompletedAt { get; set; }
         }
     }
 }
