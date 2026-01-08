@@ -441,6 +441,42 @@ namespace FlowFlex.Application.Contracts.Dtos.Integration
         /// </summary>
         public List<ExternalAttachmentDto> Attachments { get; set; } = new();
     }
+
+    /// <summary>
+    /// Response DTO for retry field mapping operation
+    /// </summary>
+    public class RetryFieldMappingResponse
+    {
+        /// <summary>
+        /// Success flag
+        /// </summary>
+        public bool Success { get; set; }
+
+        /// <summary>
+        /// Case ID
+        /// </summary>
+        public long CaseId { get; set; }
+
+        /// <summary>
+        /// Number of actions executed
+        /// </summary>
+        public int ActionsExecuted { get; set; }
+
+        /// <summary>
+        /// Number of fields mapped
+        /// </summary>
+        public int FieldsMapped { get; set; }
+
+        /// <summary>
+        /// Response message
+        /// </summary>
+        public string Message { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Error details if failed
+        /// </summary>
+        public string? ErrorDetails { get; set; }
+    }
 }
 
 

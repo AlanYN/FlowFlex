@@ -69,6 +69,14 @@ namespace FlowFlex.Application.Contracts.IServices.Integration
         /// <param name="entityId">Entity ID (optional, the external entity ID to fetch attachments for)</param>
         /// <returns>Attachments list response from external system</returns>
         Task<GetAttachmentsFromExternalResponse> FetchInboundAttachmentsFromExternalAsync(string systemId, string? entityId = null);
+
+        /// <summary>
+        /// Retry field mapping execution for a specific case
+        /// Re-executes CaseInfo actions and applies field mappings to update case data
+        /// </summary>
+        /// <param name="caseId">Case ID (onboarding ID) to retry field mapping for</param>
+        /// <returns>Result indicating success or failure with details</returns>
+        Task<RetryFieldMappingResponse> RetryFieldMappingAsync(long caseId);
     }
 }
 

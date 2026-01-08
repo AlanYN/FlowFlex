@@ -223,6 +223,20 @@ namespace FlowFlex.WebApi.Controllers.Integration
         }
 
         /// <summary>
+        /// Retry field mapping for a specific case
+        /// Re-executes CaseInfo actions and applies field mappings to update case data
+        /// </summary>
+        /// <param name="caseId">Case ID (onboarding ID) to retry field mapping for</param>
+        /// <returns>Retry result with execution details</returns>
+        [HttpPost("cases/{caseId}/retry-field-mapping")]
+        [ProducesResponseType<SuccessResponse<RetryFieldMappingResponse>>((int)HttpStatusCode.OK)]
+        public async Task<IActionResult> RetryFieldMapping([FromRoute] long caseId)
+        {
+            var result = await _externalIntegrationService.RetryFieldMappingAsync(caseId);
+            return Success(result);
+        }
+
+        /// <summary>
         /// Get Attachment integration protocol documentation
         /// Returns the API documentation for both Inbound and Outbound Attachment integration protocols
         /// </summary>
