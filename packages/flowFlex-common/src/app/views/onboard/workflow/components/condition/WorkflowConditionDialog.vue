@@ -2,7 +2,7 @@
 	<el-dialog
 		v-model="visible"
 		title="Workflow Conditions"
-		:width="900"
+		:width="800"
 		destroy-on-close
 		:show-close="true"
 		:close-on-click-modal="false"
@@ -13,8 +13,7 @@
 			<div class="dialog-header">
 				<h2 class="dialog-title">Workflow Conditions</h2>
 				<p class="dialog-subtitle">
-					Configure conditions for each stage to control workflow flow and trigger
-					actions.
+					Configure conditions for each stage to control workflow transitions.
 				</p>
 			</div>
 		</template>
@@ -31,24 +30,24 @@
 					v-for="(stage, index) in stages"
 					:key="stage.id"
 					class="stage-condition-wrapper"
-					:class="{ 'has-connector': index < stages.length - 1 }"
 				>
 					<!-- Stage 卡片 -->
 					<div
 						class="stage-condition-item"
-						:style="{ borderLeftColor: stage.color || 'var(--el-color-primary)' }"
+						:class="{ 'has-condition': getStageCondition(stage.id) }"
+						@click="handleStageClick(stage)"
 					>
-						<!-- Stage 信息 -->
-						<div class="stage-info">
+						<!-- 左侧：Stage 信息 -->
+						<div class="stage-left">
 							<div
-								class="stage-avatar"
+								class="stage-order"
 								:style="{
 									backgroundColor: stage.color || 'var(--el-color-primary)',
 								}"
 							>
 								{{ index + 1 }}
 							</div>
-							<div class="stage-details">
+							<div class="stage-info">
 								<span class="stage-name">{{ stage.name }}</span>
 								<span v-if="stage.description" class="stage-desc">
 									{{ stage.description }}
@@ -56,46 +55,37 @@
 							</div>
 						</div>
 
-						<!-- Condition 操作区 -->
-						<div class="condition-actions">
-							<!-- 已有 Condition -->
+						<!-- 右侧：Condition 状态 -->
+						<div class="stage-right">
 							<template v-if="getStageCondition(stage.id)">
-								<div class="condition-summary">
-									<el-tag type="primary">
-										<el-icon class="mr-1"><Connection /></el-icon>
-										{{ getStageCondition(stage.id)?.name }}
-									</el-tag>
-									<span class="condition-rules-count">
-										{{ getRulesCount(stage.id) }} rules
-									</span>
-								</div>
-								<div class="condition-btns">
-									<el-button
-										text
-										type="primary"
-										@click="handleEditCondition(stage)"
-									>
-										<el-icon><Edit /></el-icon>
-										Edit
+								<el-tag type="primary" size="small">
+									{{ getStageCondition(stage.id)?.name }}
+								</el-tag>
+								<el-dropdown
+									trigger="click"
+									@command="(cmd: string) => handleConditionCommand(cmd, stage)"
+									@click.stop
+								>
+									<el-button text class="more-btn" @click.stop>
+										<el-icon><MoreFilled /></el-icon>
 									</el-button>
-									<el-button
-										text
-										type="danger"
-										@click="handleDeleteCondition(stage)"
-									>
-										<el-icon><Delete /></el-icon>
-										Delete
-									</el-button>
-								</div>
+									<template #dropdown>
+										<el-dropdown-menu>
+											<el-dropdown-item command="edit">
+												<el-icon><Edit /></el-icon>
+												Edit Condition
+											</el-dropdown-item>
+											<el-dropdown-item command="delete" divided>
+												<el-icon class="text-red-500"><Delete /></el-icon>
+												<span class="text-red-500">Delete</span>
+											</el-dropdown-item>
+										</el-dropdown-menu>
+									</template>
+								</el-dropdown>
 							</template>
-
-							<!-- 无 Condition -->
 							<template v-else>
-								<span class="no-condition-text">No condition configured</span>
-								<el-button type="primary" plain @click="handleAddCondition(stage)">
-									<el-icon><Plus /></el-icon>
-									Add Condition
-								</el-button>
+								<span class="no-condition">No condition</span>
+								<el-icon class="arrow-icon"><ArrowRight /></el-icon>
 							</template>
 						</div>
 					</div>
@@ -103,9 +93,6 @@
 					<!-- 连接线 -->
 					<div v-if="index < stages.length - 1" class="stage-connector">
 						<div class="connector-line"></div>
-						<div class="connector-arrow">
-							<el-icon><ArrowDown /></el-icon>
-						</div>
 					</div>
 				</div>
 
@@ -124,44 +111,33 @@
 
 		<!-- Condition 编辑器抽屉 -->
 		<StageConditionEditor
-			v-model:visible="editorVisible"
-			:stage-id="currentStage?.id || ''"
-			:stage-name="currentStage?.name || ''"
-			:condition="currentCondition"
+			ref="conditionEditorRef"
 			:stages="stages"
-			:current-stage-index="currentStageIndex"
 			:workflow-id="workflowId"
 			@save="handleSaveCondition"
-			@cancel="editorVisible = false"
 		/>
 	</el-dialog>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, PropType } from 'vue';
+import { ref, computed, watch, useTemplateRef } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { Plus, Edit, Delete, Connection, ArrowDown } from '@element-plus/icons-vue';
+import { Edit, Delete, ArrowRight, MoreFilled } from '@element-plus/icons-vue';
 import { Stage } from '#/onboard';
 import type { StageCondition } from '#/condition';
 import StageConditionEditor from './StageConditionEditor.vue';
 import { getConditionsByWorkflow, deleteCondition as deleteConditionApi } from '@/apis/ow';
 
-const props = defineProps({
-	modelValue: {
-		type: Boolean,
-		default: false,
-	},
-	workflowId: {
-		type: String,
-		required: true,
-	},
-	stages: {
-		type: Array as PropType<Stage[]>,
-		default: () => [],
-	},
-});
+const props = defineProps<{
+	modelValue: boolean;
+	workflowId: string;
+	stages: Stage[];
+}>();
 
-const emit = defineEmits(['update:modelValue', 'refresh']);
+const emit = defineEmits<{
+	(e: 'update:modelValue', value: boolean): void;
+	(e: 'refresh'): void;
+}>();
 
 // 弹窗可见性
 const visible = computed({
@@ -172,20 +148,11 @@ const visible = computed({
 // 状态
 const loading = ref(false);
 const conditions = ref<StageCondition[]>([]);
-const editorVisible = ref(false);
-const currentStage = ref<Stage | null>(null);
-const currentCondition = ref<StageCondition | null>(null);
-const currentStageIndex = ref(0);
+const conditionEditorRef = useTemplateRef('conditionEditorRef');
 
 // 获取 Stage 的 Condition
 const getStageCondition = (stageId: string): StageCondition | undefined => {
 	return conditions.value.find((c) => c.stageId === stageId);
-};
-
-// 获取规则数量
-const getRulesCount = (stageId: string): number => {
-	const condition = getStageCondition(stageId);
-	return condition?.rulesJson?.rules?.length || 0;
 };
 
 // 加载 Conditions
@@ -217,20 +184,20 @@ watch(
 	}
 );
 
-// 添加 Condition
-const handleAddCondition = (stage: Stage) => {
-	currentStage.value = stage;
-	currentCondition.value = null;
-	currentStageIndex.value = props.stages.findIndex((s) => s.id === stage.id);
-	editorVisible.value = true;
+// 点击 Stage 卡片
+const handleStageClick = (stage: Stage) => {
+	const stageIndex = props.stages.findIndex((s) => s.id === stage.id);
+	const condition = getStageCondition(stage.id);
+	conditionEditorRef.value?.open(stage.id, stage.name, stageIndex, condition);
 };
 
-// 编辑 Condition
-const handleEditCondition = (stage: Stage) => {
-	currentStage.value = stage;
-	currentCondition.value = getStageCondition(stage.id) || null;
-	currentStageIndex.value = props.stages.findIndex((s) => s.id === stage.id);
-	editorVisible.value = true;
+// 处理 Condition 命令
+const handleConditionCommand = (command: string, stage: Stage) => {
+	if (command === 'edit') {
+		handleStageClick(stage);
+	} else if (command === 'delete') {
+		handleDeleteCondition(stage);
+	}
 };
 
 // 删除 Condition
@@ -249,7 +216,7 @@ const handleDeleteCondition = async (stage: Stage) => {
 			}
 		);
 
-		const res: any = await deleteConditionApi(stage.id, condition.id);
+		const res: any = await deleteConditionApi(condition.id);
 		if (res.code === '200') {
 			ElMessage.success('Condition deleted successfully');
 			await fetchConditions();
@@ -262,7 +229,6 @@ const handleDeleteCondition = async (stage: Stage) => {
 
 // 保存 Condition
 const handleSaveCondition = async () => {
-	editorVisible.value = false;
 	await fetchConditions();
 	emit('refresh');
 };
@@ -292,10 +258,9 @@ const handleClose = () => {
 }
 
 .condition-dialog-content {
-	min-height: 300px;
+	min-height: 200px;
 	max-height: 60vh;
 	overflow-y: auto;
-	padding: 4px;
 }
 
 .stages-condition-list {
@@ -311,41 +276,20 @@ const handleClose = () => {
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
-	padding: 16px;
+	padding: 12px 16px;
 	border: 1px solid var(--el-border-color-light);
-	border-radius: 12px;
-	border-left-width: 4px;
-	border-left-style: solid;
-	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+	border-radius: 8px;
+	cursor: pointer;
 	transition: all 0.2s ease;
+	background: var(--el-bg-color);
 }
 
 .stage-condition-item:hover {
-	box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08);
-	transform: translateY(-1px);
+	border-color: var(--el-color-primary-light-5);
+	background: var(--el-color-primary-light-9);
 }
 
-/* 连接线样式 */
-.stage-connector {
-	display: flex;
-	flex-direction: column;
-	align-items: center;
-	padding: 8px 0;
-}
-
-.connector-line {
-	width: 2px;
-	height: 16px;
-	background: var(--el-border-color);
-}
-
-.connector-arrow {
-	color: var(--el-text-color-placeholder);
-	font-size: 14px;
-	line-height: 1;
-}
-
-.stage-info {
+.stage-left {
 	display: flex;
 	align-items: center;
 	gap: 12px;
@@ -353,25 +297,24 @@ const handleClose = () => {
 	min-width: 0;
 }
 
-.stage-avatar {
-	width: 32px;
-	height: 32px;
+.stage-order {
+	width: 28px;
+	height: 28px;
 	border-radius: 50%;
 	display: flex;
 	align-items: center;
 	justify-content: center;
 	font-size: 12px;
 	font-weight: 600;
-	color: var(--el-color-white);
+	color: #fff;
 	flex-shrink: 0;
 }
 
-.stage-details {
+.stage-info {
 	display: flex;
 	flex-direction: column;
 	gap: 2px;
 	min-width: 0;
-	flex: 1;
 }
 
 .stage-name {
@@ -391,32 +334,39 @@ const handleClose = () => {
 	text-overflow: ellipsis;
 }
 
-.condition-actions {
-	display: flex;
-	align-items: center;
-	gap: 16px;
-	flex-shrink: 0;
-}
-
-.condition-summary {
+.stage-right {
 	display: flex;
 	align-items: center;
 	gap: 8px;
+	flex-shrink: 0;
 }
 
-.condition-rules-count {
-	font-size: 12px;
-	color: var(--el-text-color-secondary);
+.more-btn {
+	padding: 4px;
+	height: auto;
 }
 
-.condition-btns {
-	display: flex;
-	gap: 4px;
-}
-
-.no-condition-text {
+.no-condition {
 	font-size: 13px;
 	color: var(--el-text-color-placeholder);
+}
+
+.arrow-icon {
+	color: var(--el-text-color-placeholder);
+	font-size: 14px;
+}
+
+/* 连接线 */
+.stage-connector {
+	display: flex;
+	justify-content: center;
+	padding: 4px 0;
+}
+
+.connector-line {
+	width: 2px;
+	height: 12px;
+	background: var(--el-border-color);
 }
 
 .empty-state {
@@ -428,11 +378,12 @@ const handleClose = () => {
 	justify-content: flex-end;
 }
 
-html.dark .stage-condition-item:hover {
-	box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
+/* Dark mode */
+html.dark .stage-condition-item {
+	background: var(--el-bg-color);
 }
 
-html.dark .connector-line {
-	background: var(--el-border-color-darker);
+html.dark .stage-condition-item:hover {
+	background: var(--el-color-primary-light-9);
 }
 </style>

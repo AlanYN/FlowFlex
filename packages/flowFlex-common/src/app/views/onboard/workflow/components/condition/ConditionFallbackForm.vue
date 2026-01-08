@@ -6,7 +6,7 @@
 		</div>
 
 		<el-form-item label="Fallback Behavior" class="fallback-field">
-			<el-radio-group :model-value="modelValue.type" @change="onTypeChange">
+			<el-radio-group v-model="fallbackType">
 				<el-radio value="default">
 					<div class="option-content">
 						<span class="option-label">Continue to next stage</span>
@@ -22,12 +22,8 @@
 			</el-radio-group>
 		</el-form-item>
 
-		<el-form-item v-if="modelValue.type === 'specified'" label="Fallback Stage">
-			<el-select
-				:model-value="modelValue.fallbackStageId"
-				placeholder="Select fallback stage"
-				@update:model-value="handleStageChange"
-			>
+		<el-form-item v-if="fallbackType === 'specified'" label="Fallback Stage">
+			<el-select v-model="fallbackStageId" placeholder="Select fallback stage">
 				<el-option
 					v-for="stage in availableStages"
 					:key="stage.id"
@@ -57,28 +53,26 @@ const emit = defineEmits<{
 	(e: 'update:modelValue', value: FallbackConfig): void;
 }>();
 
+// 计算属性处理 fallback type
+const fallbackType = computed({
+	get: () => props.modelValue.type,
+	set: (val: 'default' | 'specified') => {
+		emit('update:modelValue', { ...props.modelValue, type: val });
+	},
+});
+
+// 计算属性处理 fallback stage id
+const fallbackStageId = computed({
+	get: () => props.modelValue.fallbackStageId,
+	set: (val: string | undefined) => {
+		emit('update:modelValue', { ...props.modelValue, fallbackStageId: val });
+	},
+});
+
 // 可选的 Stage（当前之后的 Stage）
 const availableStages = computed(() => {
 	return props.stages.slice(props.currentStageIndex + 1);
 });
-
-// 处理类型变化
-const onTypeChange = (val: string | number | boolean | undefined) => {
-	if (val === 'default' || val === 'specified') {
-		emit('update:modelValue', {
-			type: val,
-			fallbackStageId: val === 'default' ? undefined : props.modelValue.fallbackStageId,
-		});
-	}
-};
-
-// 处理 Stage 变化
-const handleStageChange = (val: string) => {
-	emit('update:modelValue', {
-		...props.modelValue,
-		fallbackStageId: val,
-	});
-};
 </script>
 
 <style lang="scss" scoped>
@@ -87,7 +81,8 @@ const handleStageChange = (val: string) => {
 }
 
 .fallback-description {
-	@apply flex items-start gap-2 p-3 rounded-lg text-sm bg-black-400;
+	@apply flex items-start gap-2 p-3 rounded-lg text-sm;
+	background-color: var(--el-fill-color-lighter);
 	color: var(--el-text-color-regular);
 }
 

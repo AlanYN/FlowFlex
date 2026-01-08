@@ -758,13 +758,17 @@ const loadCurrentStageData = async () => {
 
 // 检查是否有权限（功能权限 && 数据权限）
 const hasCasePermission = (functionalPermission: string) => {
-	if (onboardingData.value && onboardingData.value.permission) {
-		return (
-			functionPermission(functionalPermission) && onboardingData.value.permission.canOperate
-		);
-	}
+	// if (onboardingData.value && onboardingData.value.permission) {
+	// 	return (
+	// 		functionPermission(functionalPermission) && onboardingData.value.permission.canOperate
+	// 	);
+	// }
 	const currentStage = workflowStages.value?.find((stage) => stage.stageId === activeStage.value);
-	return functionPermission(functionalPermission) && !!currentStage?.permission?.canOperate;
+	return (
+		functionPermission(functionalPermission) &&
+		!!currentStage?.permission?.canOperate &&
+		!!onboardingData.value?.permission?.canOperate
+	);
 };
 
 // 事件处理函数
