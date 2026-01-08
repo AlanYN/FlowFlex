@@ -468,11 +468,6 @@ const handleSave = async () => {
 			emit('save', res.data);
 			close();
 		}
-	} catch (error: any) {
-		if (error !== false) {
-			// 非表单验证错误
-			ElMessage.error(error?.message || 'Failed to save condition');
-		}
 	} finally {
 		saving.value = false;
 	}
