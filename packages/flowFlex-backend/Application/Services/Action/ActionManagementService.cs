@@ -201,7 +201,7 @@ namespace FlowFlex.Application.Services.Action
             var currentUserContext = _userContext;
             var currentUserName = _operatorContextService.GetOperatorDisplayName();
             var currentUserId = _operatorContextService.GetOperatorId();
-            var currentTenantId = currentUserContext?.TenantId ?? "DEFAULT";
+            var currentTenantId = currentUserContext?.TenantId ?? "default";
 
             // Async change log recording to database using IActionLogService (fire-and-forget)
             _backgroundTaskQueue.QueueBackgroundWorkItem(async token =>
@@ -533,7 +533,7 @@ namespace FlowFlex.Application.Services.Action
                 var currentUserContext = _userContext;
                 var currentUserName = _operatorContextService.GetOperatorDisplayName();
                 var currentUserId = _operatorContextService.GetOperatorId();
-                var currentTenantId = currentUserContext?.TenantId ?? "DEFAULT";
+                var currentTenantId = currentUserContext?.TenantId ?? "default";
 
                 // Async change log recording to database using IActionLogService (fire-and-forget)
                 _backgroundTaskQueue.QueueBackgroundWorkItem(async token =>
@@ -942,7 +942,7 @@ namespace FlowFlex.Application.Services.Action
             var currentUserContext = _userContext;
             var currentUserName = _operatorContextService.GetOperatorDisplayName();
             var currentUserId = _operatorContextService.GetOperatorId();
-            var currentTenantId = currentUserContext?.TenantId ?? "DEFAULT";
+            var currentTenantId = currentUserContext?.TenantId ?? "default";
 
             // Async change log recording to database using IActionLogService (fire-and-forget)
             _backgroundTaskQueue.QueueBackgroundWorkItem(async token =>
@@ -1028,7 +1028,7 @@ namespace FlowFlex.Application.Services.Action
             var currentUserContext = _userContext;
             var currentUserName = _operatorContextService.GetOperatorDisplayName();
             var currentUserId = _operatorContextService.GetOperatorId();
-            var currentTenantId = currentUserContext?.TenantId ?? "DEFAULT";
+            var currentTenantId = currentUserContext?.TenantId ?? "default";
 
             // Async change log recording to database using IActionLogService (fire-and-forget)
             _backgroundTaskQueue.QueueBackgroundWorkItem(async token =>
@@ -2072,7 +2072,7 @@ namespace FlowFlex.Application.Services.Action
         {
             try
             {
-                var currentTenantId = _userContext?.TenantId ?? "DEFAULT";
+                var currentTenantId = _userContext?.TenantId ?? "default";
                 _logger.LogInformation("Checking for system predefined actions for tenant: {TenantId}", currentTenantId);
 
                 // Get existing system actions for current tenant to check which ones exist
@@ -2147,7 +2147,7 @@ namespace FlowFlex.Application.Services.Action
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error ensuring system predefined actions exist for tenant: {TenantId}",
-                    _userContext?.TenantId ?? "DEFAULT");
+                    _userContext?.TenantId ?? "default");
                 // Don't throw - this should not break the main query
             }
         }
@@ -2306,7 +2306,7 @@ namespace FlowFlex.Application.Services.Action
             {
                 // Use GetListWithExplicitFiltersAsync to bypass HttpContext dependency
                 // Background tasks don't have HttpContext, so GetListAsync would return DEFAULT tenant
-                var questionnaires = await questionnaireRepository.GetListWithExplicitFiltersAsync(tenantId, "DEFAULT");
+                var questionnaires = await questionnaireRepository.GetListWithExplicitFiltersAsync(tenantId, "default");
 
                 logger.LogInformation("Retrieved {Count} questionnaires for tenant {TenantId} with AppCode=DEFAULT",
                     questionnaires.Count, tenantId);

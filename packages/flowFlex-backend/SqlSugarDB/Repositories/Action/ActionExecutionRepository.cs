@@ -328,7 +328,7 @@ namespace FlowFlex.SqlSugarDB.Repositories.Action
         {
             var httpContext = _httpContextAccessor?.HttpContext;
             if (httpContext == null)
-                return "DEFAULT";
+                return "default";
 
             // Try to get from AppContext first
             if (httpContext.Items.TryGetValue("AppContext", out var appContextObj) &&
@@ -346,7 +346,7 @@ namespace FlowFlex.SqlSugarDB.Repositories.Action
                 return tenantId;
             }
 
-            return "DEFAULT";
+            return "default";
         }
 
         /// <summary>
@@ -356,7 +356,7 @@ namespace FlowFlex.SqlSugarDB.Repositories.Action
         {
             var httpContext = _httpContextAccessor?.HttpContext;
             if (httpContext == null)
-                return "DEFAULT";
+                return "default";
 
             // Try to get from AppContext first
             if (httpContext.Items.TryGetValue("AppContext", out var appContextObj) &&
@@ -374,7 +374,7 @@ namespace FlowFlex.SqlSugarDB.Repositories.Action
                 return appCode;
             }
 
-            return "DEFAULT";
+            return "default";
         }
     }
 }

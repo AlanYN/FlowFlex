@@ -78,7 +78,7 @@ namespace Application.Services.AI
             if (httpContext == null)
             {
                 _logger.LogWarning("HttpContext is null, using DEFAULT tenant");
-                return "DEFAULT";
+                return "default";
             }
 
             // 记录请求头（调试用）
@@ -109,7 +109,7 @@ namespace Application.Services.AI
 
             // 4. 默认值
             _logger.LogWarning("No TenantId found in headers or UserContext, using DEFAULT");
-            return "DEFAULT";
+            return "default";
         }
 
         /// <summary>
@@ -122,7 +122,7 @@ namespace Application.Services.AI
             if (httpContext == null)
             {
                 _logger.LogWarning("HttpContext is null, using DEFAULT app code");
-                return "DEFAULT";
+                return "default";
             }
 
             // 1. 优先从 X-App-Code 请求头获取
@@ -150,7 +150,7 @@ namespace Application.Services.AI
 
             // 4. 默认值
             _logger.LogWarning("No AppCode found in headers or UserContext, using DEFAULT");
-            return "DEFAULT";
+            return "default";
         }
 
         /// <summary>

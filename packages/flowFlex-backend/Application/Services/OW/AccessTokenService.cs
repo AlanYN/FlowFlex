@@ -58,8 +58,8 @@ namespace FlowFlex.Application.Services.OW
                     TokenType = tokenType,
                     IssuedIp = ipAddress,
                     UserAgent = userAgent,
-                    TenantId = _userContext.TenantId ?? "DEFAULT",
-                    AppCode = _userContext.AppCode ?? "DEFAULT"
+                    TenantId = _userContext.TenantId ?? "default",
+                    AppCode = _userContext.AppCode ?? "default"
                 };
 
                 // Initialize create info which should set the ID

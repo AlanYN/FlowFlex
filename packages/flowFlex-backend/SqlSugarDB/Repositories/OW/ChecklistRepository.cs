@@ -353,7 +353,7 @@ public class ChecklistRepository : BaseRepository<Checklist>, IChecklistReposito
     {
         var httpContext = _httpContextAccessor?.HttpContext;
         if (httpContext == null)
-            return "DEFAULT";
+            return "default";
 
         // 从请求头获取
         var tenantId = httpContext.Request.Headers["X-Tenant-Id"].FirstOrDefault();
@@ -369,7 +369,7 @@ public class ChecklistRepository : BaseRepository<Checklist>, IChecklistReposito
             return appContext.TenantId;
         }
 
-        return "DEFAULT";
+        return "default";
     }
 
     /// <summary>
@@ -379,7 +379,7 @@ public class ChecklistRepository : BaseRepository<Checklist>, IChecklistReposito
     {
         var httpContext = _httpContextAccessor?.HttpContext;
         if (httpContext == null)
-            return "DEFAULT";
+            return "default";
 
         // 从请求头获取
         var appCode = httpContext.Request.Headers["X-App-Code"].FirstOrDefault();
@@ -395,6 +395,6 @@ public class ChecklistRepository : BaseRepository<Checklist>, IChecklistReposito
             return appContext.AppCode;
         }
 
-        return "DEFAULT";
+        return "default";
     }
 }

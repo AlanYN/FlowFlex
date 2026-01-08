@@ -35,14 +35,14 @@ namespace FlowFlex.Domain.Entities
         /// </summary>
         [MaxLength(32)]
         [SugarColumn(ColumnName = "tenant_id")]
-        public string TenantId { get; set; } = "DEFAULT";
+        public string TenantId { get; set; } = "default";
 
         /// <summary>
         /// 应用代码
         /// </summary>
         [MaxLength(32)]
         [SugarColumn(ColumnName = "app_code")]
-        public string AppCode { get; set; } = "DEFAULT";
+        public string AppCode { get; set; } = "default";
 
         /// <summary>
         /// 是否有效

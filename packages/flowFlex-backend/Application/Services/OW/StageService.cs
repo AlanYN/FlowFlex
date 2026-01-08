@@ -1114,7 +1114,7 @@ namespace FlowFlex.Application.Service.OW
                 var tenantId = _userContext?.TenantId ?? "default";
                 if (string.IsNullOrWhiteSpace(tenantId))
                 {
-                    tenantId = "DEFAULT";
+                    tenantId = "default";
                 }
                 // Debug logging handled by structured logging
                 // Build cache key using safe tenant ID

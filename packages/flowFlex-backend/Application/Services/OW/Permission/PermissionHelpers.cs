@@ -242,7 +242,7 @@ namespace FlowFlex.Application.Services.OW.Permission
         /// </summary>
         public string GetCurrentTenantId()
         {
-            return _userContext?.TenantId ?? "DEFAULT";
+            return _userContext?.TenantId ?? "default";
         }
 
         /// <summary>

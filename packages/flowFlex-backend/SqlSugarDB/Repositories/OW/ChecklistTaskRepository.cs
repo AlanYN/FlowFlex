@@ -39,7 +39,7 @@ public class ChecklistTaskRepository : BaseRepository<ChecklistTask>, IChecklist
                 return tenantId;
             }
         }
-        return "DEFAULT";
+        return "default";
     }
 
     /// <summary>
@@ -56,7 +56,7 @@ public class ChecklistTaskRepository : BaseRepository<ChecklistTask>, IChecklist
                 return appCode;
             }
         }
-        return "DEFAULT";
+        return "default";
     }
 
     /// <summary>

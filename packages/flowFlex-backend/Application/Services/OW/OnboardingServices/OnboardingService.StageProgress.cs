@@ -1074,8 +1074,8 @@ namespace FlowFlex.Application.Services.OW
                 // Generate invitation URL (using default base URL)
                 invitation.InvitationUrl = GenerateShortInvitationUrl(
                     invitation.ShortUrlId,
-                    onboarding.TenantId ?? "DEFAULT",
-                    onboarding.AppCode ?? "DEFAULT");
+                    onboarding.TenantId ?? "default",
+                    onboarding.AppCode ?? "default");
 
                 // Initialize create info
                 invitation.InitCreateInfo(_userContext);

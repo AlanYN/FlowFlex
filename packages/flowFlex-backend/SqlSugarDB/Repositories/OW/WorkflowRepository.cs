@@ -516,7 +516,7 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
         {
             var httpContext = _httpContextAccessor?.HttpContext;
             if (httpContext == null)
-                return "DEFAULT";
+                return "default";
 
             // 从请求头获取
             var tenantId = httpContext.Request.Headers["X-Tenant-Id"].FirstOrDefault();
@@ -532,7 +532,7 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
                 return appContext.TenantId;
             }
 
-            return "DEFAULT";
+            return "default";
         }
 
         /// <summary>
@@ -542,7 +542,7 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
         {
             var httpContext = _httpContextAccessor?.HttpContext;
             if (httpContext == null)
-                return "DEFAULT";
+                return "default";
 
             // 从请求头获取
             var appCode = httpContext.Request.Headers["X-App-Code"].FirstOrDefault();
@@ -558,7 +558,7 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
                 return appContext.AppCode;
             }
 
-            return "DEFAULT";
+            return "default";
         }
     }
 }

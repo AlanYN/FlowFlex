@@ -134,8 +134,8 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                     operationLog.ModifyBy = customOperatorName;
                     operationLog.CreateUserId = customOperatorId.Value;
                     operationLog.ModifyUserId = customOperatorId.Value;
-                    operationLog.TenantId = customTenantId ?? "DEFAULT";
-                    operationLog.AppCode = _userContext?.AppCode ?? "DEFAULT";
+                    operationLog.TenantId = customTenantId ?? "default";
+                    operationLog.AppCode = _userContext?.AppCode ?? "default";
                     operationLog.CreateDate = currentUtcTime;
                     operationLog.ModifyDate = currentUtcTime;
                     operationLog.IsValid = true;
@@ -1027,7 +1027,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                             afterJson.TryGetProperty("isDefault", out isDefaultElement))
                         {
                             var isDefault = isDefaultElement.ValueKind == JsonValueKind.True;
-                            details.Add($"set as default workflow: {(isDefault ? "Default" : "Not Default")}");
+                            details.Add($"set as default workflow: {(isDefault ? "default" : "Not Default")}");
                         }
 
                         // Extract ViewPermissionMode and Teams for Workflow
@@ -1547,9 +1547,9 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                         }
                         else if (field.Equals("IsDefault", StringComparison.OrdinalIgnoreCase) && businessModule == BusinessModuleEnum.Workflow)
                         {
-                            // For Workflow IsDefault field, show "Default" or "Not Default"
-                            var beforeStr = GetBooleanDisplayValue(beforeValue, "Default", "Not Default");
-                            var afterStr = GetBooleanDisplayValue(afterValue, "Default", "Not Default");
+                            // For Workflow IsDefault field, show "default" or "Not Default"
+                            var beforeStr = GetBooleanDisplayValue(beforeValue, "default", "Not Default");
+                            var afterStr = GetBooleanDisplayValue(afterValue, "default", "Not Default");
                             changeList.Add($"Set as default workflow from {beforeStr} to {afterStr}");
                         }
                         else if (field.Equals("SourceCode", StringComparison.OrdinalIgnoreCase) && businessModule == BusinessModuleEnum.Action)

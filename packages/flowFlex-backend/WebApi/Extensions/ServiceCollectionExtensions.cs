@@ -170,7 +170,7 @@ namespace FlowFlex.WebApi.Extensions
                                           (!string.IsNullOrEmpty(userContext.UserName) ? userContext.UserName :
                                           (!string.IsNullOrEmpty(userContext.Email) ? userContext.Email : "SYSTEM"));
                             var userId = long.TryParse(userContext.UserId, out var parsedUserId) ? parsedUserId : 0;
-                            var tenantId = userContext.TenantId ?? "DEFAULT";
+                            var tenantId = userContext.TenantId ?? "default";
 
                             if (entityInfo.EntityColumnInfo.PropertyInfo.PropertyType == typeof(DateTimeOffset?))
                             {
@@ -328,8 +328,8 @@ namespace FlowFlex.WebApi.Extensions
                         var userId = userIdHeader ?? userIdClaim?.Value ?? "1";
                         var email = emailClaim?.Value ?? string.Empty;
                         var userName = userNameHeader ?? usernameClaim?.Value ?? email ?? "System";
-                        var tenantId = tenantIdHeader ?? tenantIdClaim?.Value ?? appContext?.TenantId ?? "DEFAULT";
-                        var appCode = appCodeHeader ?? appCodeClaim?.Value ?? appContext?.AppCode ?? "DEFAULT";
+                        var tenantId = tenantIdHeader ?? tenantIdClaim?.Value ?? appContext?.TenantId ?? "default";
+                        var appCode = appCodeHeader ?? appCodeClaim?.Value ?? appContext?.AppCode ?? "default";
 
                         // Note: No inference from email domain - use explicit headers only
 
@@ -351,8 +351,8 @@ namespace FlowFlex.WebApi.Extensions
                         UserId = "1",
                         UserName = "TestUser",
                         Email = string.Empty,
-                        TenantId = "DEFAULT",
-                        AppCode = "DEFAULT"
+                        TenantId = "default",
+                        AppCode = "default"
                     };
                 }
                 catch (ObjectDisposedException)
@@ -363,8 +363,8 @@ namespace FlowFlex.WebApi.Extensions
                         UserId = "1",
                         UserName = "System",
                         Email = string.Empty,
-                        TenantId = "DEFAULT",
-                        AppCode = "DEFAULT"
+                        TenantId = "default",
+                        AppCode = "default"
                     };
                 }
                 catch (Exception ex)
@@ -376,8 +376,8 @@ namespace FlowFlex.WebApi.Extensions
                         UserId = "1",
                         UserName = "System",
                         Email = string.Empty,
-                        TenantId = "DEFAULT",
-                        AppCode = "DEFAULT"
+                        TenantId = "default",
+                        AppCode = "default"
                     };
                 }
             });
@@ -521,7 +521,7 @@ namespace FlowFlex.WebApi.Extensions
             catch (ObjectDisposedException)
             {
                 // Service provider was disposed, use default
-                return "DEFAULT";
+                return "default";
             }
             catch
             {

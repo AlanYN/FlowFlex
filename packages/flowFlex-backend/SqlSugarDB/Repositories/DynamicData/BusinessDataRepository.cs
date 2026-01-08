@@ -84,8 +84,8 @@ public class BusinessDataRepository : BaseRepository<BusinessData>, IBusinessDat
         {
             ModuleId = DefaultModuleId,
             InternalData = data.InternalData,
-            TenantId = _userContext.TenantId ?? "DEFAULT",
-            AppCode = _userContext.AppCode ?? "DEFAULT",
+            TenantId = _userContext.TenantId ?? "default",
+            AppCode = _userContext.AppCode ?? "default",
             CreateDate = DateTimeOffset.UtcNow,
             CreateBy = _userContext.UserName ?? "SYSTEM",
             CreateUserId = userId,

@@ -30,13 +30,13 @@ namespace FlowFlex.WebApi.Middlewares
                 if (string.IsNullOrEmpty(appContext.AppCode))
                 {
                     _logger.LogWarning("[FilterValidationMiddleware] AppContext.AppCode is empty, using DEFAULT");
-                    appContext.AppCode = "DEFAULT";
+                    appContext.AppCode = "default";
                 }
 
                 if (string.IsNullOrEmpty(appContext.TenantId))
                 {
                     _logger.LogWarning("[FilterValidationMiddleware] AppContext.TenantId is empty, using DEFAULT");
-                    appContext.TenantId = "DEFAULT";
+                    appContext.TenantId = "default";
                 }
 
                 // 记录当前请求的过滤器状态
@@ -73,8 +73,8 @@ namespace FlowFlex.WebApi.Middlewares
                 // 创建默认的 AppContext
                 var defaultAppContext = new AppContext
                 {
-                    AppCode = "DEFAULT",
-                    TenantId = "DEFAULT",
+                    AppCode = "default",
+                    TenantId = "default",
                     RequestId = System.Guid.NewGuid().ToString("N")[..8],
                     ClientIp = context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
                     UserAgent = context.Request.Headers["User-Agent"].ToString(),
@@ -86,13 +86,13 @@ namespace FlowFlex.WebApi.Middlewares
                 // 确保请求头包含这些值
                 if (!context.Request.Headers.ContainsKey("X-App-Code"))
                 {
-                    context.Request.Headers["X-App-Code"] = "DEFAULT";
+                    context.Request.Headers["X-App-Code"] = "default";
                     _logger.LogInformation("[FilterValidationMiddleware] Added default X-App-Code header: DEFAULT");
                 }
 
                 if (!context.Request.Headers.ContainsKey("X-Tenant-Id"))
                 {
-                    context.Request.Headers["X-Tenant-Id"] = "DEFAULT";
+                    context.Request.Headers["X-Tenant-Id"] = "default";
                     _logger.LogInformation("[FilterValidationMiddleware] Added default X-Tenant-Id header: DEFAULT");
                 }
             }

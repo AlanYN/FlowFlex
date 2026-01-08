@@ -102,8 +102,8 @@ namespace FlowFlex.WebApi.Middlewares
                 }
             }
 
-            // 6. 使用默认租户ID "DEFAULT"
-            tenantId = "DEFAULT";
+            // 6. 使用默认租户ID "default"
+            tenantId = "default";
             _logger.LogDebug($"[TenantMiddleware] Using default TenantId: {tenantId}");
             return tenantId;
         }

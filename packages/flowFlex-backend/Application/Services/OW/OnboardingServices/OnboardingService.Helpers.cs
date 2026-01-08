@@ -174,7 +174,7 @@ namespace FlowFlex.Application.Services.OW
                     CompletionRate = onboarding.CompletionRate,
                     IsFinalStage = isFinalStage,
                     AssigneeName = onboarding.CurrentAssigneeName ?? _operatorContextService.GetOperatorDisplayName(),
-                    ResponsibleTeam = onboarding.CurrentTeam ?? "Default",
+                    ResponsibleTeam = onboarding.CurrentTeam ?? "default",
                     Priority = onboarding.Priority ?? "Medium",
                     Source = "CustomerPortal",
                     BusinessContext = new Dictionary<string, object>

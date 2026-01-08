@@ -33,7 +33,7 @@ namespace FlowFlex.Application.Services.OW
             _blobStoreOptions = blobStoreOptions;
         }
 
-        public async Task<FileStorageResult> SaveFileAsync(IFormFile file, string category = "DEFAULT", string tenantId = "DEFAULT")
+        public async Task<FileStorageResult> SaveFileAsync(IFormFile file, string category = "default", string tenantId = "default")
         {
             try
             {

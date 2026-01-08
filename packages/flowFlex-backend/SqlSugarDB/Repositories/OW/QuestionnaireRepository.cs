@@ -36,7 +36,7 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
         {
             var httpContext = _httpContextAccessor?.HttpContext;
             if (httpContext == null)
-                return "DEFAULT";
+                return "default";
 
             // 从请求头获取
             var tenantId = httpContext.Request.Headers["X-Tenant-Id"].FirstOrDefault();
@@ -52,7 +52,7 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
                 return appContext.TenantId;
             }
 
-            return "DEFAULT";
+            return "default";
         }
 
         /// <summary>
@@ -62,7 +62,7 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
         {
             var httpContext = _httpContextAccessor?.HttpContext;
             if (httpContext == null)
-                return "DEFAULT";
+                return "default";
 
             // 从请求头获取
             var appCode = httpContext.Request.Headers["X-App-Code"].FirstOrDefault();
@@ -78,7 +78,7 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
                 return appContext.AppCode;
             }
 
-            return "DEFAULT";
+            return "default";
         }
 
         /// <summary>
@@ -521,7 +521,7 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
             try
             {
                 // 使用显式过滤条件
-                // Note: AppCode comparison is case-insensitive to handle both "DEFAULT" and "default"
+                // Note: AppCode comparison is case-insensitive to handle both "default" and "default"
                 var query = db.Queryable<Questionnaire>()
                     .Where(x => x.IsValid == true)
                     .Where(x => x.TenantId == tenantId && x.AppCode.ToLower() == appCode.ToLower());

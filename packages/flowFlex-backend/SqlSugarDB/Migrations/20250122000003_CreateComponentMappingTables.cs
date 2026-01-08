@@ -128,8 +128,8 @@ namespace FlowFlex.SqlSugarDB.Migrations
                         var stageId = Convert.ToInt64(row["id"]);
                         var workflowId = Convert.ToInt64(row["workflow_id"]);
                         var componentsJson = row["components_json"]?.ToString();
-                        var tenantId = row["tenant_id"]?.ToString() ?? "DEFAULT";
-                        var appCode = row["app_code"]?.ToString() ?? "DEFAULT";
+                        var tenantId = row["tenant_id"]?.ToString() ?? "default";
+                        var appCode = row["app_code"]?.ToString() ?? "default";
 
                         if (string.IsNullOrEmpty(componentsJson))
                         {

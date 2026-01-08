@@ -71,7 +71,7 @@ namespace FlowFlex.Application.Services.OW
         /// <returns>JWT token</returns>
         public string GenerateJwtToken(long userId, string email, string username)
         {
-            return GenerateToken(userId, email, username, "DEFAULT");
+            return GenerateToken(userId, email, username, "default");
         }
 
         /// <summary>
@@ -83,7 +83,7 @@ namespace FlowFlex.Application.Services.OW
         /// <returns>JWT token</returns>
         public string GenerateToken(long userId, string email, string username)
         {
-            return GenerateToken(userId, email, username, "DEFAULT");
+            return GenerateToken(userId, email, username, "default");
         }
 
         /// <summary>
@@ -106,7 +106,7 @@ namespace FlowFlex.Application.Services.OW
                 new Claim(ClaimTypes.Email, email),
                 new Claim(ClaimTypes.NameIdentifier, userId.ToString()),
                 new Claim("username", username),
-                new Claim("tenantId", tenantId ?? "DEFAULT"),
+                new Claim("tenantId", tenantId ?? "default"),
                 new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
             };
 
@@ -213,7 +213,7 @@ namespace FlowFlex.Application.Services.OW
         /// <summary>
         /// Generate JWT token with detailed information for token management
         /// </summary>
-        public TokenDetailsDto GenerateTokenWithDetails(long userId, string email, string username, string tenantId = "DEFAULT", string tokenType = "login")
+        public TokenDetailsDto GenerateTokenWithDetails(long userId, string email, string username, string tenantId = "default", string tokenType = "login")
         {
             var jti = Guid.NewGuid().ToString();
             var issuedAt = DateTimeOffset.UtcNow;
@@ -229,7 +229,7 @@ namespace FlowFlex.Application.Services.OW
                 new Claim(ClaimTypes.Email, email),
                 new Claim(ClaimTypes.NameIdentifier, userId.ToString()),
                 new Claim("username", username),
-                new Claim("tenantId", tenantId ?? "DEFAULT"),
+                new Claim("tenantId", tenantId ?? "default"),
                 new Claim(JwtRegisteredClaimNames.Jti, jti),
             };
 
@@ -353,7 +353,7 @@ namespace FlowFlex.Application.Services.OW
                 var username = usernameClaim?.Value ?? emailClaim.Value;
 
                 var tenantIdClaim = jwtToken.Claims.FirstOrDefault(x => x.Type == "tenantId");
-                var tenantId = tenantIdClaim?.Value ?? "DEFAULT";
+                var tenantId = tenantIdClaim?.Value ?? "default";
 
                 // Generate a new token with the same user information
                 return GenerateToken(userId, emailClaim.Value, username, tenantId);

@@ -51,7 +51,7 @@ namespace FlowFlex.Tests.Services.OW
             _userContext = new UserContext
             {
                 UserId = "123",
-                TenantId = "DEFAULT",
+                TenantId = "default",
                 UserTeams = new UserTeamModel
                 {
                     TeamId = 1,

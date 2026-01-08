@@ -268,8 +268,8 @@ public class DynamicDataService : IBusinessDataService, IPropertyService, IScope
 
         var entity = MapToDefineField(defineFieldDto);
         entity.ModuleId = DefaultModuleId;
-        entity.TenantId = _userContext.TenantId ?? "DEFAULT";
-        entity.AppCode = _userContext.AppCode ?? "DEFAULT";
+        entity.TenantId = _userContext.TenantId ?? "default";
+        entity.AppCode = _userContext.AppCode ?? "default";
         entity.CreateDate = DateTimeOffset.UtcNow;
         entity.CreateBy = _userContext.UserName ?? "SYSTEM";
         entity.CreateUserId = userId;
@@ -467,8 +467,8 @@ public class DynamicDataService : IBusinessDataService, IPropertyService, IScope
                     IsSystemDefine = true,
                     IsDefault = category == "Basic Info",
                     Fields = Array.Empty<long>(),
-                    TenantId = _userContext.TenantId ?? "DEFAULT",
-                    AppCode = _userContext.AppCode ?? "DEFAULT",
+                    TenantId = _userContext.TenantId ?? "default",
+                    AppCode = _userContext.AppCode ?? "default",
                     CreateDate = DateTimeOffset.UtcNow,
                     CreateBy = "SYSTEM",
                     CreateUserId = 0,
@@ -512,8 +512,8 @@ public class DynamicDataService : IBusinessDataService, IPropertyService, IScope
                     AllowEdit = true,
                     AllowEditItem = true,
                     Sort = fieldSortOrder++,
-                    TenantId = _userContext.TenantId ?? "DEFAULT",
-                    AppCode = _userContext.AppCode ?? "DEFAULT",
+                    TenantId = _userContext.TenantId ?? "default",
+                    AppCode = _userContext.AppCode ?? "default",
                     CreateDate = DateTimeOffset.UtcNow,
                     CreateBy = "SYSTEM",
                     CreateUserId = 0,
