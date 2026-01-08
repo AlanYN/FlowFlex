@@ -1156,28 +1156,35 @@ namespace FlowFlex.Application.Services.Integration
                     return attachments;
                 }
 
+                // Log the parsed response structure for debugging
+                _logger.LogDebug("Parsed response data structure: {ResponseData}", responseData.ToString(Newtonsoft.Json.Formatting.None).Substring(0, Math.Min(500, responseData.ToString(Newtonsoft.Json.Formatting.None).Length)));
+
                 // Try to find attachments in various nested structures
                 JArray? attachmentsArray = null;
 
                 // Path 1: data.data.attachments (nested external API response)
                 attachmentsArray = responseData.SelectToken("data.data.attachments") as JArray;
+                _logger.LogDebug("Path 1 (data.data.attachments): {Found}", attachmentsArray != null ? $"Found {attachmentsArray.Count} items" : "Not found");
 
                 // Path 2: data.attachments (standard response)
                 if (attachmentsArray == null)
                 {
                     attachmentsArray = responseData.SelectToken("data.attachments") as JArray;
+                    _logger.LogDebug("Path 2 (data.attachments): {Found}", attachmentsArray != null ? $"Found {attachmentsArray.Count} items" : "Not found");
                 }
 
                 // Path 3: attachments (direct)
                 if (attachmentsArray == null)
                 {
                     attachmentsArray = responseData.SelectToken("attachments") as JArray;
+                    _logger.LogDebug("Path 3 (attachments): {Found}", attachmentsArray != null ? $"Found {attachmentsArray.Count} items" : "Not found");
                 }
 
                 // Path 4: Check if response itself is an array
                 if (attachmentsArray == null && responseData is JArray directArray)
                 {
                     attachmentsArray = directArray;
+                    _logger.LogDebug("Path 4 (direct array): Found {Count} items", attachmentsArray.Count);
                 }
 
                 if (attachmentsArray == null || !attachmentsArray.Any())
@@ -1872,6 +1879,11 @@ namespace FlowFlex.Application.Services.Integration
             JObject responseData,
             List<Domain.Entities.Integration.InboundFieldMapping> fieldMappings)
         {
+            _logger.LogInformation("Starting Field Mapping for Case {CaseId}. Response data: {ResponseData}, Mapping count: {MappingCount}",
+                caseEntity.Id, 
+                responseData.ToString(Newtonsoft.Json.Formatting.None),
+                fieldMappings.Count);
+
             var caseUpdated = false;
             var staticFieldValues = new List<StaticFieldValueInputDto>();
             var customFields = !string.IsNullOrEmpty(caseEntity.CustomFieldsJson)
@@ -2105,6 +2117,214 @@ namespace FlowFlex.Application.Services.Integration
             catch
             {
                 return value;
+            }
+        }
+
+        #endregion
+
+        #region Retry Field Mapping
+
+        /// <summary>
+        /// Retry field mapping execution for a specific case
+        /// Re-executes CaseInfo actions and applies field mappings to update case data
+        /// </summary>
+        public async Task<RetryFieldMappingResponse> RetryFieldMappingAsync(long caseId)
+        {
+            _logger.LogInformation("Retrying field mapping for Case {CaseId}", caseId);
+
+            try
+            {
+                // Get case entity
+                var caseEntity = await _onboardingRepository.GetByIdAsync(caseId);
+                if (caseEntity == null)
+                {
+                    return new RetryFieldMappingResponse
+                    {
+                        Success = false,
+                        CaseId = caseId,
+                        Message = $"Case {caseId} not found",
+                        ErrorDetails = "Case does not exist"
+                    };
+                }
+
+                // Get entity mapping by SystemId
+                if (string.IsNullOrEmpty(caseEntity.SystemId))
+                {
+                    return new RetryFieldMappingResponse
+                    {
+                        Success = false,
+                        CaseId = caseId,
+                        Message = "Case does not have SystemId configured",
+                        ErrorDetails = "SystemId is required to retry field mapping"
+                    };
+                }
+
+                var entityMapping = await _entityMappingRepository.GetBySystemIdAsync(caseEntity.SystemId);
+                if (entityMapping == null)
+                {
+                    return new RetryFieldMappingResponse
+                    {
+                        Success = false,
+                        CaseId = caseId,
+                        Message = $"Entity mapping not found for SystemId: {caseEntity.SystemId}",
+                        ErrorDetails = "Entity mapping does not exist"
+                    };
+                }
+
+                // Get integration
+                var integration = await _integrationRepository.GetByIdAsync(entityMapping.IntegrationId);
+                if (integration == null)
+                {
+                    return new RetryFieldMappingResponse
+                    {
+                        Success = false,
+                        CaseId = caseId,
+                        Message = $"Integration {entityMapping.IntegrationId} not found",
+                        ErrorDetails = "Integration does not exist"
+                    };
+                }
+
+                // Get actions with field mappings
+                var actionsWithMappings = await GetActionsWithFieldMappingsAsync(entityMapping.IntegrationId);
+                if (!actionsWithMappings.Any())
+                {
+                    return new RetryFieldMappingResponse
+                    {
+                        Success = false,
+                        CaseId = caseId,
+                        Message = "No CaseInfo Actions with field mappings found",
+                        ErrorDetails = "No actions configured for field mapping"
+                    };
+                }
+
+                _logger.LogInformation("Found {Count} CaseInfo Actions for retry on Case {CaseId}",
+                    actionsWithMappings.Count, caseId);
+
+                // Get authentication info once for all actions
+                string? accessToken = null;
+                string? tenantCode = null;
+
+                int actionsExecuted = 0;
+                int totalFieldsMapped = 0;
+
+                foreach (var (actionDefinition, fieldMappings) in actionsWithMappings)
+                {
+                    try
+                    {
+                        _logger.LogInformation("Executing CaseInfo Action {ActionId} ({ActionName}) for Case {CaseId}",
+                            actionDefinition.Id, actionDefinition.ActionName, caseId);
+
+                        // Get authentication if not already obtained
+                        if (string.IsNullOrEmpty(accessToken))
+                        {
+                            accessToken = await GetIntegrationAccessTokenAsync(integration);
+                            if (!string.IsNullOrEmpty(accessToken))
+                            {
+                                tenantCode = await GetTenantCodeAsync(integration.TenantId, accessToken);
+                                _logger.LogInformation("Obtained authentication for CaseInfo Actions: HasToken={HasToken}, TenantCode={TenantCode}",
+                                    !string.IsNullOrEmpty(accessToken), tenantCode ?? "N/A");
+                            }
+                        }
+
+                        // Prepare context data with entityId from case
+                        var contextData = new Dictionary<string, object>
+                        {
+                            { "entityId", caseEntity.EntityId ?? "" },
+                            { "EntityId", caseEntity.EntityId ?? "" },
+                            { "caseId", caseId.ToString() },
+                            { "CaseId", caseId.ToString() },
+                            { "systemId", entityMapping.SystemId ?? "" },
+                            { "SystemId", entityMapping.SystemId ?? "" },
+                            { "integrationId", entityMapping.IntegrationId.ToString() },
+                            { "IntegrationId", entityMapping.IntegrationId.ToString() }
+                        };
+
+                        // Execute action with fresh authentication
+                        JToken? actionResult;
+                        if (!string.IsNullOrEmpty(accessToken))
+                        {
+                            _logger.LogInformation("Injecting fresh authentication headers for CaseInfo Action {ActionId}", actionDefinition.Id);
+                            var modifiedConfig = InjectAuthenticationHeaders(actionDefinition, accessToken, tenantCode);
+                            var actionType = Enum.Parse<ActionTypeEnum>(actionDefinition.ActionType);
+                            var result = await _actionExecutionService.ExecuteActionDirectlyAsync(
+                                actionType,
+                                JsonConvert.SerializeObject(modifiedConfig),
+                                contextData);
+                            actionResult = result != null ? JToken.FromObject(result) : null;
+                        }
+                        else
+                        {
+                            _logger.LogWarning("No access token available for CaseInfo Action {ActionId}, executing with original config", actionDefinition.Id);
+                            actionResult = await _actionExecutionService.ExecuteActionAsync(actionDefinition.Id, contextData);
+                        }
+
+                        if (actionResult == null)
+                        {
+                            _logger.LogWarning("CaseInfo Action {ActionId} returned null result", actionDefinition.Id);
+                            continue;
+                        }
+
+                        // Check if action was successful
+                        var resultJson = actionResult as JObject ?? JObject.FromObject(actionResult);
+                        var statusCode = resultJson["statusCode"]?.Value<int>() ?? 0;
+                        var success = resultJson["success"]?.Value<bool>() ?? (statusCode >= 200 && statusCode < 300);
+
+                        if (!success)
+                        {
+                            _logger.LogWarning("CaseInfo Action {ActionId} failed with status {StatusCode}", actionDefinition.Id, statusCode);
+                            continue;
+                        }
+
+                        // Parse response data
+                        _logger.LogInformation("CaseInfo Action {ActionId} raw result: {Result}", 
+                            actionDefinition.Id, resultJson.ToString(Newtonsoft.Json.Formatting.None));
+                        
+                        var responseData = ExtractResponseData(resultJson);
+                        if (responseData == null)
+                        {
+                            _logger.LogWarning("CaseInfo Action {ActionId} returned no data to map. ResultJson keys: {Keys}", 
+                                actionDefinition.Id, string.Join(", ", resultJson.Properties().Select(p => p.Name)));
+                            continue;
+                        }
+
+                        _logger.LogInformation("CaseInfo Action {ActionId} extracted response data: {Data}", 
+                            actionDefinition.Id, responseData.ToString(Newtonsoft.Json.Formatting.None));
+
+                        // Apply field mappings to populate case data
+                        await ApplyFieldMappingsToCase(caseEntity, responseData, fieldMappings);
+
+                        actionsExecuted++;
+                        totalFieldsMapped += fieldMappings.Count;
+
+                        _logger.LogInformation("Successfully executed CaseInfo Action {ActionId} and populated {FieldCount} fields for Case {CaseId}",
+                            actionDefinition.Id, fieldMappings.Count, caseId);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Error executing CaseInfo Action {ActionId} for Case {CaseId}",
+                            actionDefinition.Id, caseId);
+                    }
+                }
+
+                return new RetryFieldMappingResponse
+                {
+                    Success = true,
+                    CaseId = caseId,
+                    ActionsExecuted = actionsExecuted,
+                    FieldsMapped = totalFieldsMapped,
+                    Message = $"Successfully retried field mapping. Executed {actionsExecuted} actions and mapped {totalFieldsMapped} fields."
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrying field mapping for Case {CaseId}", caseId);
+                return new RetryFieldMappingResponse
+                {
+                    Success = false,
+                    CaseId = caseId,
+                    Message = "Failed to retry field mapping",
+                    ErrorDetails = ex.Message
+                };
             }
         }
 
