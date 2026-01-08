@@ -270,7 +270,7 @@ const getOriginalStageIndex = (stage: any) => {
 // 检查阶段是否可以访问
 const isStageAccessible = (stage: any): boolean => {
 	if (!props.stageAccessCheck) {
-		return !!stage.permission?.canOperate; // 如果没有权限检查函数，默认允许访问
+		return !!stage.permission?.canView; // 如果没有权限检查函数，默认允许访问
 	}
 	return props.stageAccessCheck(stage.stageId);
 };
