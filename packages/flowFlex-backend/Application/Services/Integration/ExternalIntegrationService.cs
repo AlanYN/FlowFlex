@@ -4,6 +4,7 @@ using FlowFlex.Application.Contracts.Dtos.OW.StaticField;
 using FlowFlex.Application.Contracts.IServices.Action;
 using FlowFlex.Application.Contracts.IServices.Integration;
 using FlowFlex.Application.Contracts.IServices.OW;
+using FlowFlex.Application.Contracts.Options;
 using FlowFlex.Application.Services.OW.Extensions;
 using FlowFlex.Domain.Repository.Action;
 using FlowFlex.Domain.Repository.Integration;
@@ -13,6 +14,7 @@ using FlowFlex.Domain.Shared.Enums.Action;
 using FlowFlex.Domain.Shared.Exceptions;
 using FlowFlex.Domain.Shared.Models;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System.Linq;
@@ -42,6 +44,7 @@ namespace FlowFlex.Application.Services.Integration
         private readonly IInboundFieldMappingRepository _fieldMappingRepository;
         private readonly IStaticFieldValueService _staticFieldValueService;
         private readonly IHttpClientFactory _httpClientFactory;
+        private readonly IdentityHubOptions _idmOptions;
         private readonly UserContext _userContext;
         private readonly ILogger<ExternalIntegrationService> _logger;
 
@@ -104,6 +107,7 @@ namespace FlowFlex.Application.Services.Integration
             IInboundFieldMappingRepository fieldMappingRepository,
             IStaticFieldValueService staticFieldValueService,
             IHttpClientFactory httpClientFactory,
+            IOptions<IdentityHubOptions> idmOptions,
             UserContext userContext,
             ILogger<ExternalIntegrationService> logger)
         {
@@ -120,6 +124,7 @@ namespace FlowFlex.Application.Services.Integration
             _fieldMappingRepository = fieldMappingRepository;
             _staticFieldValueService = staticFieldValueService;
             _httpClientFactory = httpClientFactory;
+            _idmOptions = idmOptions.Value;
             _userContext = userContext;
             _logger = logger;
         }
@@ -1408,11 +1413,17 @@ namespace FlowFlex.Application.Services.Integration
                     return null;
                 }
 
-                // IDM service URL - should be configured, using dev URL for now
-                var idmBaseUrl = Environment.GetEnvironmentVariable("IDM_BASE_URL") ?? "https://idm-dev.item.pub";
+                // Get IDM service URL from configuration
+                var idmBaseUrl = _idmOptions.BaseUrl;
+                if (string.IsNullOrEmpty(idmBaseUrl))
+                {
+                    _logger.LogError("IDM BaseUrl is not configured in IdmApis settings");
+                    return null;
+                }
+
                 var idmUrl = $"{idmBaseUrl}/api/v1/tenant/{tenantId}";
 
-                _logger.LogInformation("Fetching tenant code from IDM: TenantId={TenantId}", tenantId);
+                _logger.LogInformation("Fetching tenant code from IDM: TenantId={TenantId}, Url={Url}", tenantId, idmUrl);
 
                 using var httpClient = _httpClientFactory.CreateClient();
                 httpClient.Timeout = TimeSpan.FromSeconds(30);
@@ -1448,7 +1459,7 @@ namespace FlowFlex.Application.Services.Integration
                 _logger.LogError(ex, "Error getting tenant code for TenantId={TenantId}", tenantId);
                 return null;
             }
-        }
+        }        
 
         /// <summary>
         /// Check if action config has Authorization header configured
@@ -1738,6 +1749,17 @@ namespace FlowFlex.Application.Services.Integration
 
                         _logger.LogInformation("CaseInfo Action {ActionId} extracted response data: {Data}", 
                             actionDefinition.Id, responseData.ToString(Newtonsoft.Json.Formatting.None));
+
+                        // Check if external API response indicates success
+                        var externalSuccess = responseData["success"]?.Value<bool>();
+                        if (externalSuccess.HasValue && !externalSuccess.Value)
+                        {
+                            var errorMsg = responseData["msg"]?.ToString() ?? responseData["message"]?.ToString() ?? "Unknown error";
+                            var errorCode = responseData["code"]?.ToString() ?? "";
+                            _logger.LogWarning("CaseInfo Action {ActionId} - External API returned error: {ErrorMsg} (Code: {ErrorCode})", 
+                                actionDefinition.Id, errorMsg, errorCode);
+                            continue;
+                        }
 
                         // Apply field mappings to populate case data
                         await ApplyFieldMappingsToCase(createdCase, responseData, fieldMappings);
@@ -2289,6 +2311,17 @@ namespace FlowFlex.Application.Services.Integration
 
                         _logger.LogInformation("CaseInfo Action {ActionId} extracted response data: {Data}", 
                             actionDefinition.Id, responseData.ToString(Newtonsoft.Json.Formatting.None));
+
+                        // Check if external API response indicates success
+                        var externalSuccess = responseData["success"]?.Value<bool>();
+                        if (externalSuccess.HasValue && !externalSuccess.Value)
+                        {
+                            var errorMsg = responseData["msg"]?.ToString() ?? responseData["message"]?.ToString() ?? "Unknown error";
+                            var errorCode = responseData["code"]?.ToString() ?? "";
+                            _logger.LogWarning("CaseInfo Action {ActionId} - External API returned error: {ErrorMsg} (Code: {ErrorCode})", 
+                                actionDefinition.Id, errorMsg, errorCode);
+                            continue;
+                        }
 
                         // Apply field mappings to populate case data
                         await ApplyFieldMappingsToCase(caseEntity, responseData, fieldMappings);
