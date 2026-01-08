@@ -302,7 +302,7 @@ namespace FlowFlex.Application.Contracts.IServices
     {
         public string Id { get; set; } = string.Empty;
         public string Question { get; set; } = string.Empty;
-        public string Type { get; set; } = "text"; // text, select, multiselect, number, date, boolean
+        public string Type { get; set; } = "short_answer"; // short_answer, paragraph, multiple_choice, checkboxes, dropdown, file_upload, linear_scale, rating, date, time
         public List<string> Options { get; set; } = new();
         public bool IsRequired { get; set; }
         public string Category { get; set; } = string.Empty;

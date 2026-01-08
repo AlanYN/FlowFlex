@@ -297,6 +297,7 @@
 																	</span>
 																	<span class="stage-name">
 																		{{
+																			checklist.stageName ||
 																			getStageNameFromChecklist(
 																				checklist.name
 																			)
@@ -460,6 +461,7 @@
 																	</span>
 																	<span class="stage-name">
 																		{{
+																			questionnaire.stageName ||
 																			getStageNameFromQuestionnaire(
 																				questionnaire.name
 																			)
@@ -555,12 +557,18 @@
 																		class="question-options"
 																	>
 																		<el-tag
-																			v-for="option in question.options"
-																			:key="option"
+																			v-for="(
+																				option, optIdx
+																			) in question.options"
+																			:key="optIdx"
 																			size="small"
 																			class="option-tag"
 																		>
-																			{{ option }}
+																			{{
+																				getOptionLabel(
+																					option
+																				)
+																			}}
 																		</el-tag>
 																	</div>
 																</div>
@@ -2455,6 +2463,7 @@ const generateWorkflow = async () => {
 							return {
 								name: checklistName,
 								description: checklistDescription,
+								stageName: stage.name,
 								tasks: tasks.map((task: any, taskIndex: number) =>
 									convertTaskToFrontendFormat(task, taskIndex)
 								),
@@ -2466,6 +2475,7 @@ const generateWorkflow = async () => {
 					return {
 						name: `${stage.name} Checklist`,
 						description: `Essential tasks to complete during the ${stage.name} stage`,
+						stageName: stage.name,
 						tasks: generateChecklistTasks(stage),
 					};
 				}
@@ -2534,6 +2544,7 @@ const generateWorkflow = async () => {
 							return {
 								name: questionnaireName,
 								description: questionnaireDescription,
+								stageName: stage.name,
 								questions: questions.map((question: any, questionIndex: number) =>
 									convertQuestionToFrontendFormat(question, questionIndex)
 								),
@@ -2545,6 +2556,7 @@ const generateWorkflow = async () => {
 					return {
 						name: `${stage.name} Questionnaire`,
 						description: `Key questions to gather information for the ${stage.name} stage`,
+						stageName: stage.name,
 						questions: generateQuestionnaireQuestions(stage),
 					};
 				}
@@ -4074,6 +4086,24 @@ const getStageNameFromChecklist = (checklistName: string) => {
 
 const getStageNameFromQuestionnaire = (questionnaireName: string) => {
 	return questionnaireName.replace(/ Questionnaire$/i, '');
+};
+
+// Get option label from option object or string
+const getOptionLabel = (option: any): string => {
+	if (!option) return '';
+	if (typeof option === 'string') {
+		// Try to parse as JSON object
+		try {
+			const parsed = JSON.parse(option);
+			return parsed.label || parsed.value || option;
+		} catch {
+			return option;
+		}
+	}
+	if (typeof option === 'object') {
+		return option.label || option.value || '';
+	}
+	return String(option);
 };
 
 // Check if user is near the bottom of the chat (within 100px)

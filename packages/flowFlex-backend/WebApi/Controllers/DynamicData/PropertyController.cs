@@ -67,6 +67,7 @@ public class PropertyController : Controllers.ControllerBase
     [HttpGet("export-excel")]
     [ProducesResponseType(typeof(FileResult), 200)]
     public async Task<IActionResult> ExportToExcelAsync(
+        [FromQuery] string? ids = null,
         [FromQuery] string? fieldName = null,
         [FromQuery] string? displayName = null,
         [FromQuery] int? dataType = null,
@@ -75,6 +76,7 @@ public class PropertyController : Controllers.ControllerBase
     {
         var request = new PropertyQueryRequest
         {
+            Ids = ParseIds(ids),
             FieldName = fieldName,
             DisplayName = displayName,
             DataType = dataType.HasValue ? (Domain.Shared.Enums.DynamicData.DataType)dataType.Value : null,
@@ -85,6 +87,25 @@ public class PropertyController : Controllers.ControllerBase
         var stream = await _propertyService.ExportToExcelAsync(request);
         var fileName = $"DynamicFields_{DateTimeOffset.Now:MMddyyyy_HHmmss}.xlsx";
         return File(stream, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", fileName);
+    }
+
+    /// <summary>
+    /// Parse comma-separated IDs string to list of long
+    /// </summary>
+    private static List<long>? ParseIds(string? ids)
+    {
+        if (string.IsNullOrWhiteSpace(ids))
+            return null;
+
+        var result = new List<long>();
+        foreach (var idStr in ids.Split(',', StringSplitOptions.RemoveEmptyEntries))
+        {
+            if (long.TryParse(idStr.Trim(), out var id))
+            {
+                result.Add(id);
+            }
+        }
+        return result.Count > 0 ? result : null;
     }
 
     /// <summary>

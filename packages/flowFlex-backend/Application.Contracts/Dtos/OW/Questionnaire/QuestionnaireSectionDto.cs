@@ -120,6 +120,11 @@ public class QuestionDto
 public class QuestionOptionDto
 {
     /// <summary>
+    /// Option ID
+    /// </summary>
+    public string Id { get; set; }
+
+    /// <summary>
     /// Option value
     /// </summary>
     public string Value { get; set; }

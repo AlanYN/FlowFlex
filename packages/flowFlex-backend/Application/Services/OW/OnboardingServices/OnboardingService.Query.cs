@@ -373,33 +373,37 @@ namespace FlowFlex.Application.Services.OW
             var userTeamIds = context.UserTeamIds;
             var userIdString = context.UserIdString;
 
-            // Build permission filter expression
+            // Build permission filter using raw SQL for PostgreSQL jsonb compatibility
             // A user can view a case if:
             // 1. User is the owner (Ownership == userId)
             // 2. Case is in Public mode (ViewPermissionMode == Public)
-            // 3. Case is in Team mode and user's team is in ViewTeams (using SQL LIKE for JSON array)
-            // 4. Case is in User mode and user is in ViewUsers (using SQL LIKE for JSON array)
+            // 3. Case is in Team mode and user's team is in ViewTeams (using PostgreSQL jsonb::text LIKE)
+            // 4. Case is in User mode and user is in ViewUsers (using PostgreSQL jsonb::text LIKE)
 
-            // Build team ID patterns for SQL LIKE matching in JSON arrays
-            // e.g., ["123", "456"] - we search for "123" or "456" in the JSON string
-            var teamPatterns = userTeamIds.Select(t => $"\"{t}\"").ToList();
+            // Build SQL condition for team check using jsonb::text LIKE
+            var teamConditions = userTeamIds.Select(t => $"view_teams::text LIKE '%\"{t}\"%'").ToList();
+            var teamSqlCondition = teamConditions.Count > 0 
+                ? $"({string.Join(" OR ", teamConditions)})" 
+                : "false";
 
-            queryable = queryable.Where(x =>
-                // Owner has full access
-                x.Ownership == userId ||
-                // Public mode - accessible to all
-                x.ViewPermissionMode == ViewPermissionModeEnum.Public ||
-                // Team mode - check if any user's team is in ViewTeams using LIKE
-                (x.ViewPermissionMode == ViewPermissionModeEnum.VisibleToTeams &&
-                 x.ViewPermissionSubjectType == PermissionSubjectTypeEnum.Team &&
-                 x.ViewTeams != null &&
-                 teamPatterns.Any(pattern => x.ViewTeams.Contains(pattern))) ||
-                // User mode - check if user is in ViewUsers using LIKE
-                (x.ViewPermissionMode == ViewPermissionModeEnum.VisibleToTeams &&
-                 x.ViewPermissionSubjectType == PermissionSubjectTypeEnum.User &&
-                 x.ViewUsers != null &&
-                 x.ViewUsers.Contains($"\"{userIdString}\""))
-            );
+            // Build SQL condition for user check
+            var userSqlCondition = $"view_users::text LIKE '%\"{userIdString}\"%'";
+
+            // Use raw SQL for the entire permission filter to avoid jsonb ILIKE issue
+            var permissionSql = $@"(
+                ownership = {userId} OR 
+                view_permission_mode = {(int)ViewPermissionModeEnum.Public} OR
+                (view_permission_mode = {(int)ViewPermissionModeEnum.VisibleToTeams} AND 
+                 view_permission_subject_type = {(int)PermissionSubjectTypeEnum.Team} AND 
+                 view_teams IS NOT NULL AND 
+                 {teamSqlCondition}) OR
+                (view_permission_mode = {(int)ViewPermissionModeEnum.VisibleToTeams} AND 
+                 view_permission_subject_type = {(int)PermissionSubjectTypeEnum.User} AND 
+                 view_users IS NOT NULL AND 
+                 {userSqlCondition})
+            )";
+
+            queryable = queryable.Where(permissionSql);
 
             _logger.LogDebug("Applied SQL-level permission filter for user {UserId} with {TeamCount} teams", 
                 userId, userTeamIds.Count);
@@ -876,23 +880,42 @@ namespace FlowFlex.Application.Services.OW
                     return new List<OnboardingOutputDto>();
                 }
 
+                // Batch load workflows and stages to avoid N+1 queries
+                var workflowIds = entities.Select(e => e.WorkflowId).Distinct().ToList();
+                var stageIds = entities.Where(e => e.CurrentStageId.HasValue).Select(e => e.CurrentStageId!.Value).Distinct().ToList();
+
+                // Use ClearFilter to bypass tenant/appCode filtering for workflow queries
+                var workflows = await _workflowRepository.ClearFilter()
+                    .Where(w => workflowIds.Contains(w.Id) && w.IsValid)
+                    .ToListAsync();
+                var workflowDict = workflows.ToDictionary(w => w.Id, w => w.Name);
+
+                var stageDict = new Dictionary<long, string>();
+                if (stageIds.Any())
+                {
+                    // Use ClearFilter to bypass tenant/appCode filtering for stage queries
+                    var stages = await _stageRepository.ClearFilter()
+                        .Where(s => stageIds.Contains(s.Id) && s.IsValid)
+                        .ToListAsync();
+                    stageDict = stages.ToDictionary(s => s.Id, s => s.Name);
+                }
+
                 // Map to DTOs
                 var results = new List<OnboardingOutputDto>();
                 foreach (var entity in entities)
                 {
-                    // Auto-generate CaseCode for legacy data
-                    await EnsureCaseCodeAsync(entity);
-
-                    // Ensure stages progress is properly initialized and synced
-                    await EnsureStagesProgressInitializedAsync(entity);
-
                     var dto = _mapper.Map<OnboardingOutputDto>(entity);
 
-                    // Get workflow name
-                    var workflow = await _workflowRepository.GetByIdAsync(entity.WorkflowId);
-                    if (workflow != null)
+                    // Set workflow name from cache
+                    if (workflowDict.TryGetValue(entity.WorkflowId, out var workflowName))
                     {
-                        dto.WorkflowName = workflow.Name;
+                        dto.WorkflowName = workflowName;
+                    }
+
+                    // Set current stage name from cache
+                    if (entity.CurrentStageId.HasValue && stageDict.TryGetValue(entity.CurrentStageId.Value, out var stageName))
+                    {
+                        dto.CurrentStageName = stageName;
                     }
 
                     results.Add(dto);

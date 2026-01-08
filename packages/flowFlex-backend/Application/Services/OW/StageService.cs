@@ -32,6 +32,8 @@ using FlowFlex.Domain.Shared.Const;
 using FlowFlex.Application.Contracts.IServices.OW;
 using FlowFlex.Application.Contracts.Dtos.OW.User;
 using FlowFlex.Application.Contracts.IServices.Integration;
+using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace FlowFlex.Application.Service.OW
 {
@@ -64,12 +66,14 @@ namespace FlowFlex.Application.Service.OW
         private readonly IPermissionService _permissionService;
         private readonly ILogger<StageService> _logger;
         private readonly IUserService _userService;
+        private readonly IRulesEngineService _rulesEngineService;
+        private readonly IConditionActionExecutor _conditionActionExecutor;
 
         // Cache key constants
         private const string STAGE_CACHE_PREFIX = "ow:stage";
         private static readonly TimeSpan STAGE_CACHE_DURATION = TimeSpan.FromMinutes(10);
 
-        public StageService(IStageRepository stageRepository, IWorkflowRepository workflowRepository, IMapper mapper, IStagesProgressSyncService stagesProgressSyncService, IChecklistService checklistService, IQuestionnaireService questionnaireService, IQuickLinkService quickLinkService, IQuestionnaireAnswerService questionnaireAnswerService, IAIService aiService, IChecklistTaskCompletionRepository checklistTaskCompletionRepository, UserContext userContext, IComponentMappingService mappingService, ISqlSugarClient db, IDistributedCacheService cacheService, IBackgroundTaskQueue backgroundTaskQueue, IOperationChangeLogService operationChangeLogService, IPermissionService permissionService, ILogger<StageService> logger, IUserService userService)
+        public StageService(IStageRepository stageRepository, IWorkflowRepository workflowRepository, IMapper mapper, IStagesProgressSyncService stagesProgressSyncService, IChecklistService checklistService, IQuestionnaireService questionnaireService, IQuickLinkService quickLinkService, IQuestionnaireAnswerService questionnaireAnswerService, IAIService aiService, IChecklistTaskCompletionRepository checklistTaskCompletionRepository, UserContext userContext, IComponentMappingService mappingService, ISqlSugarClient db, IDistributedCacheService cacheService, IBackgroundTaskQueue backgroundTaskQueue, IOperationChangeLogService operationChangeLogService, IPermissionService permissionService, ILogger<StageService> logger, IUserService userService, IRulesEngineService rulesEngineService = null, IConditionActionExecutor conditionActionExecutor = null)
         {
             _stageRepository = stageRepository;
             _workflowRepository = workflowRepository;
@@ -90,6 +94,8 @@ namespace FlowFlex.Application.Service.OW
             _permissionService = permissionService;
             _logger = logger;
             _userService = userService;
+            _rulesEngineService = rulesEngineService;
+            _conditionActionExecutor = conditionActionExecutor;
         }
 
         public async Task<long> CreateAsync(StageInputDto input)
@@ -1450,8 +1456,188 @@ namespace FlowFlex.Application.Service.OW
 
         public async Task<bool> CompleteStageAsync(long stageId, long onboardingId, string completionNotes = null)
         {
-            // Stage completion logic - future enhancement
-            throw new NotImplementedException("CompleteStageAsync will be implemented in next phase");
+            // Get stage and onboarding
+            var stage = await _stageRepository.GetByIdAsync(stageId);
+            if (stage == null || !stage.IsActive)
+            {
+                throw new CRMException(ErrorCodeEnum.NotFound, $"Stage {stageId} not found or inactive");
+            }
+
+            var onboarding = await _db.Queryable<Onboarding>()
+                .Where(o => o.Id == onboardingId && o.IsValid)
+                .Where(o => o.TenantId == _userContext.TenantId)
+                .FirstAsync();
+
+            if (onboarding == null)
+            {
+                throw new CRMException(ErrorCodeEnum.NotFound, $"Onboarding {onboardingId} not found");
+            }
+
+            // Check permission
+            var userId = _userContext?.UserId;
+            if (string.IsNullOrEmpty(userId) || !long.TryParse(userId, out var userIdLong))
+            {
+                throw new CRMException(ErrorCodeEnum.AuthenticationFail, "User not authenticated");
+            }
+
+            // Check if stage condition exists
+            var condition = await _db.Queryable<StageCondition>()
+                .Where(c => c.StageId == stageId && c.IsValid && c.IsActive)
+                .Where(c => c.TenantId == _userContext.TenantId)
+                .FirstAsync();
+
+            if (condition == null)
+            {
+                // No condition configured, proceed with normal stage completion
+                _logger.LogDebug("No condition configured for stage {StageId}, proceeding with normal completion", stageId);
+                return true;
+            }
+
+            // Evaluate condition using RulesEngineService
+            try
+            {
+                if (_rulesEngineService == null)
+                {
+                    _logger.LogWarning("RulesEngineService not available, skipping condition evaluation for stage {StageId}", stageId);
+                    return true;
+                }
+
+                var evaluationResult = await _rulesEngineService.EvaluateConditionAsync(onboardingId, stageId);
+
+                // Log the evaluation result
+                await LogConditionEvaluationAsync(condition, onboarding, evaluationResult);
+
+                if (evaluationResult.IsConditionMet)
+                {
+                    // Execute configured actions
+                    if (_conditionActionExecutor != null)
+                    {
+                        var context = new FlowFlex.Application.Contracts.Dtos.OW.StageCondition.ActionExecutionContext
+                        {
+                            OnboardingId = onboardingId,
+                            StageId = stageId,
+                            ConditionId = condition.Id,
+                            TenantId = _userContext.TenantId,
+                            UserId = userIdLong
+                        };
+
+                        var actionResult = await _conditionActionExecutor.ExecuteActionsAsync(condition.ActionsJson, context);
+
+                        // Log action execution results
+                        await LogActionExecutionAsync(condition, onboarding, actionResult);
+
+                        _logger.LogInformation("Condition '{ConditionName}' met and actions executed for stage {StageId}, onboarding {OnboardingId}",
+                            condition.Name, stageId, onboardingId);
+                    }
+                }
+                else
+                {
+                    // Condition not met, go to fallback stage if configured
+                    if (evaluationResult.NextStageId.HasValue)
+                    {
+                        await _db.Updateable<Onboarding>()
+                            .SetColumns(o => new Onboarding
+                            {
+                                CurrentStageId = evaluationResult.NextStageId.Value,
+                                ModifyDate = DateTimeOffset.UtcNow,
+                                ModifyBy = _userContext.UserName ?? "SYSTEM"
+                            })
+                            .Where(o => o.Id == onboardingId)
+                            .ExecuteCommandAsync();
+
+                        _logger.LogInformation("Condition '{ConditionName}' not met for stage {StageId}, moved to fallback stage {NextStageId}",
+                            condition.Name, stageId, evaluationResult.NextStageId.Value);
+                    }
+                }
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error evaluating condition for stage {StageId}, onboarding {OnboardingId}", stageId, onboardingId);
+                // Continue with normal flow on error
+                return true;
+            }
+        }
+
+        /// <summary>
+        /// Log condition evaluation result to OperationChangeLog
+        /// </summary>
+        private async Task LogConditionEvaluationAsync(StageCondition condition, Onboarding onboarding, FlowFlex.Application.Contracts.Dtos.OW.StageCondition.ConditionEvaluationResult result)
+        {
+            try
+            {
+                var extendedData = new
+                {
+                    conditionId = condition.Id,
+                    conditionName = condition.Name,
+                    isConditionMet = result.IsConditionMet,
+                    ruleResults = result.RuleResults?.Select(r => new
+                    {
+                        ruleName = r.RuleName,
+                        isSuccess = r.IsSuccess,
+                        expression = r.Expression,
+                        errorMessage = r.ErrorMessage
+                    }),
+                    nextStageId = result.NextStageId,
+                    errorMessage = result.ErrorMessage
+                };
+
+                await _operationChangeLogService.LogOperationAsync(
+                    operationType: Domain.Shared.Enums.OW.OperationTypeEnum.StageConditionEvaluate,
+                    businessModule: Domain.Shared.Enums.OW.BusinessModuleEnum.Stage,
+                    businessId: condition.Id,
+                    onboardingId: onboarding.Id,
+                    stageId: condition.StageId,
+                    operationTitle: "Condition Evaluated",
+                    operationDescription: $"Condition '{condition.Name}' evaluated: {(result.IsConditionMet ? "Met" : "Not Met")}",
+                    extendedData: JsonSerializer.Serialize(extendedData)
+                );
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to log condition evaluation for condition {ConditionId}", condition.Id);
+            }
+        }
+
+        /// <summary>
+        /// Log action execution results to OperationChangeLog
+        /// </summary>
+        private async Task LogActionExecutionAsync(StageCondition condition, Onboarding onboarding, FlowFlex.Application.Contracts.Dtos.OW.StageCondition.ActionExecutionResult result)
+        {
+            try
+            {
+                foreach (var detail in result.Details)
+                {
+                    var extendedData = new
+                    {
+                        conditionId = condition.Id,
+                        conditionName = condition.Name,
+                        actionType = detail.ActionType,
+                        order = detail.Order,
+                        success = detail.Success,
+                        errorMessage = detail.ErrorMessage,
+                        resultData = detail.ResultData
+                    };
+
+                    await _operationChangeLogService.LogOperationAsync(
+                        operationType: Domain.Shared.Enums.OW.OperationTypeEnum.StageConditionActionExecute,
+                        businessModule: Domain.Shared.Enums.OW.BusinessModuleEnum.Stage,
+                        businessId: condition.Id,
+                        onboardingId: onboarding.Id,
+                        stageId: condition.StageId,
+                        operationTitle: "Condition Action Executed",
+                        operationDescription: $"Action '{detail.ActionType}' executed: {(detail.Success ? "Success" : "Failed")}",
+                        operationStatus: detail.Success ? Domain.Shared.Enums.OW.OperationStatusEnum.Success : Domain.Shared.Enums.OW.OperationStatusEnum.Failed,
+                        extendedData: JsonSerializer.Serialize(extendedData),
+                        errorMessage: detail.ErrorMessage
+                    );
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to log action execution for condition {ConditionId}", condition.Id);
+            }
         }
 
         public async Task<bool> AddStageNoteAsync(long stageId, long onboardingId, string noteContent, bool isPrivate = false)
