@@ -4,6 +4,7 @@ using FlowFlex.Application.Contracts.Dtos.OW.StaticField;
 using FlowFlex.Application.Contracts.IServices.Action;
 using FlowFlex.Application.Contracts.IServices.Integration;
 using FlowFlex.Application.Contracts.IServices.OW;
+using FlowFlex.Application.Contracts.Options;
 using FlowFlex.Application.Services.OW.Extensions;
 using FlowFlex.Domain.Repository.Action;
 using FlowFlex.Domain.Repository.Integration;
@@ -13,6 +14,7 @@ using FlowFlex.Domain.Shared.Enums.Action;
 using FlowFlex.Domain.Shared.Exceptions;
 using FlowFlex.Domain.Shared.Models;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System.Linq;
@@ -42,6 +44,7 @@ namespace FlowFlex.Application.Services.Integration
         private readonly IInboundFieldMappingRepository _fieldMappingRepository;
         private readonly IStaticFieldValueService _staticFieldValueService;
         private readonly IHttpClientFactory _httpClientFactory;
+        private readonly IdentityHubOptions _idmOptions;
         private readonly UserContext _userContext;
         private readonly ILogger<ExternalIntegrationService> _logger;
 
@@ -104,6 +107,7 @@ namespace FlowFlex.Application.Services.Integration
             IInboundFieldMappingRepository fieldMappingRepository,
             IStaticFieldValueService staticFieldValueService,
             IHttpClientFactory httpClientFactory,
+            IOptions<IdentityHubOptions> idmOptions,
             UserContext userContext,
             ILogger<ExternalIntegrationService> logger)
         {
@@ -120,6 +124,7 @@ namespace FlowFlex.Application.Services.Integration
             _fieldMappingRepository = fieldMappingRepository;
             _staticFieldValueService = staticFieldValueService;
             _httpClientFactory = httpClientFactory;
+            _idmOptions = idmOptions.Value;
             _userContext = userContext;
             _logger = logger;
         }
@@ -1408,11 +1413,17 @@ namespace FlowFlex.Application.Services.Integration
                     return null;
                 }
 
-                // IDM service URL - should be configured, using dev URL for now
-                var idmBaseUrl = Environment.GetEnvironmentVariable("IDM_BASE_URL") ?? "https://idm-dev.item.pub";
+                // Get IDM service URL from configuration
+                var idmBaseUrl = _idmOptions.BaseUrl;
+                if (string.IsNullOrEmpty(idmBaseUrl))
+                {
+                    _logger.LogError("IDM BaseUrl is not configured in IdmApis settings");
+                    return null;
+                }
+
                 var idmUrl = $"{idmBaseUrl}/api/v1/tenant/{tenantId}";
 
-                _logger.LogInformation("Fetching tenant code from IDM: TenantId={TenantId}", tenantId);
+                _logger.LogInformation("Fetching tenant code from IDM: TenantId={TenantId}, Url={Url}", tenantId, idmUrl);
 
                 using var httpClient = _httpClientFactory.CreateClient();
                 httpClient.Timeout = TimeSpan.FromSeconds(30);
@@ -1448,7 +1459,7 @@ namespace FlowFlex.Application.Services.Integration
                 _logger.LogError(ex, "Error getting tenant code for TenantId={TenantId}", tenantId);
                 return null;
             }
-        }
+        }        
 
         /// <summary>
         /// Check if action config has Authorization header configured
@@ -1615,6 +1626,151 @@ namespace FlowFlex.Application.Services.Integration
         }
 
         /// <summary>
+        /// Execute CaseInfo Actions and populate fields via Field Mapping (Core logic)
+        /// </summary>
+        /// <param name="integration">Integration entity</param>
+        /// <param name="entityMapping">Entity mapping</param>
+        /// <param name="caseEntity">The case/onboarding entity</param>
+        /// <param name="entityId">External entity ID to pass to the action</param>
+        /// <returns>Tuple of (actionsExecuted, fieldsMapped)</returns>
+        private async Task<(int ActionsExecuted, int FieldsMapped)> ExecuteCaseInfoActionsInternalAsync(
+            Domain.Entities.Integration.Integration integration,
+            Domain.Entities.Integration.EntityMapping entityMapping,
+            Domain.Entities.OW.Onboarding caseEntity,
+            string entityId)
+        {
+            int actionsExecuted = 0;
+            int totalFieldsMapped = 0;
+
+            // Get all actions that have field mappings (these are CaseInfo Actions)
+            var actionsWithMappings = await GetActionsWithFieldMappingsAsync(entityMapping.IntegrationId);
+            if (actionsWithMappings == null || !actionsWithMappings.Any())
+            {
+                _logger.LogInformation("No CaseInfo Actions found for Integration {IntegrationId}", entityMapping.IntegrationId);
+                return (0, 0);
+            }
+
+            _logger.LogInformation("Found {Count} CaseInfo Actions for Integration {IntegrationId}",
+                actionsWithMappings.Count, entityMapping.IntegrationId);
+
+            // Get authentication info once for all actions
+            string? accessToken = null;
+            string? tenantCode = null;
+
+            foreach (var (actionDefinition, fieldMappings) in actionsWithMappings)
+            {
+                try
+                {
+                    _logger.LogInformation("Executing CaseInfo Action {ActionId} ({ActionName}) for Case {CaseId}",
+                        actionDefinition.Id, actionDefinition.ActionName, caseEntity.Id);
+
+                    // Get authentication if not already obtained
+                    if (string.IsNullOrEmpty(accessToken))
+                    {
+                        accessToken = await GetIntegrationAccessTokenAsync(integration);
+                        if (!string.IsNullOrEmpty(accessToken))
+                        {
+                            tenantCode = await GetTenantCodeAsync(integration.TenantId, accessToken);
+                            _logger.LogInformation("Obtained authentication for CaseInfo Actions: HasToken={HasToken}, TenantCode={TenantCode}",
+                                !string.IsNullOrEmpty(accessToken), tenantCode ?? "N/A");
+                        }
+                    }
+
+                    // Prepare context data with entityId
+                    var contextData = new Dictionary<string, object>
+                    {
+                        { "entityId", entityId },
+                        { "EntityId", entityId },
+                        { "caseId", caseEntity.Id.ToString() },
+                        { "CaseId", caseEntity.Id.ToString() },
+                        { "systemId", entityMapping.SystemId ?? "" },
+                        { "SystemId", entityMapping.SystemId ?? "" },
+                        { "integrationId", entityMapping.IntegrationId.ToString() },
+                        { "IntegrationId", entityMapping.IntegrationId.ToString() }
+                    };
+
+                    // Execute action with fresh authentication
+                    JToken? actionResult;
+                    if (!string.IsNullOrEmpty(accessToken))
+                    {
+                        _logger.LogInformation("Injecting fresh authentication headers for CaseInfo Action {ActionId}", actionDefinition.Id);
+                        var modifiedConfig = InjectAuthenticationHeaders(actionDefinition, accessToken, tenantCode);
+                        var actionType = Enum.Parse<ActionTypeEnum>(actionDefinition.ActionType);
+                        var result = await _actionExecutionService.ExecuteActionDirectlyAsync(
+                            actionType,
+                            JsonConvert.SerializeObject(modifiedConfig),
+                            contextData);
+                        actionResult = result != null ? JToken.FromObject(result) : null;
+                    }
+                    else
+                    {
+                        _logger.LogWarning("No access token available for CaseInfo Action {ActionId}, executing with original config", actionDefinition.Id);
+                        actionResult = await _actionExecutionService.ExecuteActionAsync(actionDefinition.Id, contextData);
+                    }
+
+                    if (actionResult == null)
+                    {
+                        _logger.LogWarning("CaseInfo Action {ActionId} returned null result", actionDefinition.Id);
+                        continue;
+                    }
+
+                    // Check if action was successful
+                    var resultJson = actionResult as JObject ?? JObject.FromObject(actionResult);
+                    var statusCode = resultJson["statusCode"]?.Value<int>() ?? 0;
+                    var success = resultJson["success"]?.Value<bool>() ?? (statusCode >= 200 && statusCode < 300);
+
+                    if (!success)
+                    {
+                        _logger.LogWarning("CaseInfo Action {ActionId} failed with status {StatusCode}", actionDefinition.Id, statusCode);
+                        continue;
+                    }
+
+                    // Parse response data
+                    _logger.LogInformation("CaseInfo Action {ActionId} raw result: {Result}", 
+                        actionDefinition.Id, resultJson.ToString(Newtonsoft.Json.Formatting.None));
+                    
+                    var responseData = ExtractResponseData(resultJson);
+                    if (responseData == null)
+                    {
+                        _logger.LogWarning("CaseInfo Action {ActionId} returned no data to map. ResultJson keys: {Keys}", 
+                            actionDefinition.Id, string.Join(", ", resultJson.Properties().Select(p => p.Name)));
+                        continue;
+                    }
+
+                    _logger.LogInformation("CaseInfo Action {ActionId} extracted response data: {Data}", 
+                        actionDefinition.Id, responseData.ToString(Newtonsoft.Json.Formatting.None));
+
+                    // Check if external API response indicates success
+                    var externalSuccess = responseData["success"]?.Value<bool>();
+                    if (externalSuccess.HasValue && !externalSuccess.Value)
+                    {
+                        var errorMsg = responseData["msg"]?.ToString() ?? responseData["message"]?.ToString() ?? "Unknown error";
+                        var errorCode = responseData["code"]?.ToString() ?? "";
+                        _logger.LogWarning("CaseInfo Action {ActionId} - External API returned error: {ErrorMsg} (Code: {ErrorCode})", 
+                            actionDefinition.Id, errorMsg, errorCode);
+                        continue;
+                    }
+
+                    // Apply field mappings to populate case data
+                    await ApplyFieldMappingsToCase(caseEntity, responseData, fieldMappings);
+
+                    actionsExecuted++;
+                    totalFieldsMapped += fieldMappings.Count;
+
+                    _logger.LogInformation("Successfully executed CaseInfo Action {ActionId} and populated {FieldCount} fields for Case {CaseId}",
+                        actionDefinition.Id, fieldMappings.Count, caseEntity.Id);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Error executing CaseInfo Action {ActionId} for Case {CaseId}",
+                        actionDefinition.Id, caseEntity.Id);
+                }
+            }
+
+            return (actionsExecuted, totalFieldsMapped);
+        }
+
+        /// <summary>
         /// Execute CaseInfo Actions after case creation and populate fields via Field Mapping
         /// Actions with InboundFieldMapping configured are considered CaseInfo Actions
         /// </summary>
@@ -1639,117 +1795,14 @@ namespace FlowFlex.Application.Services.Integration
                     return;
                 }
 
-                // Get all actions that have field mappings (these are CaseInfo Actions)
-                var actionsWithMappings = await GetActionsWithFieldMappingsAsync(entityMapping.IntegrationId);
-                if (actionsWithMappings == null || !actionsWithMappings.Any())
+                // Execute CaseInfo Actions using core logic
+                var (actionsExecuted, fieldsMapped) = await ExecuteCaseInfoActionsInternalAsync(
+                    integration, entityMapping, createdCase, entityId);
+
+                if (actionsExecuted > 0)
                 {
-                    _logger.LogInformation("No CaseInfo Actions found for Integration {IntegrationId}", entityMapping.IntegrationId);
-                    return;
-                }
-
-                _logger.LogInformation("Found {Count} CaseInfo Actions for Integration {IntegrationId}",
-                    actionsWithMappings.Count, entityMapping.IntegrationId);
-
-                // Get authentication info once for all actions
-                string? accessToken = null;
-                string? tenantCode = null;
-
-                foreach (var (actionDefinition, fieldMappings) in actionsWithMappings)
-                {
-                    try
-                    {
-                        _logger.LogInformation("Executing CaseInfo Action {ActionId} ({ActionName}) for Case {CaseId}",
-                            actionDefinition.Id, actionDefinition.ActionName, createdCase.Id);
-
-                        // Always inject fresh authentication for CaseInfo Actions
-                        // The token in action config may be expired
-                        if (string.IsNullOrEmpty(accessToken))
-                        {
-                            // Get OAuth2 token from integration (only once)
-                            accessToken = await GetIntegrationAccessTokenAsync(integration);
-                            if (!string.IsNullOrEmpty(accessToken))
-                            {
-                                tenantCode = await GetTenantCodeAsync(integration.TenantId, accessToken);
-                                _logger.LogInformation("Obtained authentication for CaseInfo Actions: HasToken={HasToken}, TenantCode={TenantCode}",
-                                    !string.IsNullOrEmpty(accessToken), tenantCode ?? "N/A");
-                            }
-                        }
-
-                        // Prepare context data with entityId
-                        var contextData = new Dictionary<string, object>
-                        {
-                            { "entityId", entityId },
-                            { "EntityId", entityId },
-                            { "caseId", createdCase.Id.ToString() },
-                            { "CaseId", createdCase.Id.ToString() },
-                            { "systemId", entityMapping.SystemId ?? "" },
-                            { "SystemId", entityMapping.SystemId ?? "" },
-                            { "integrationId", entityMapping.IntegrationId.ToString() },
-                            { "IntegrationId", entityMapping.IntegrationId.ToString() }
-                        };
-
-                        // Execute action with fresh authentication
-                        JToken? actionResult;
-                        if (!string.IsNullOrEmpty(accessToken))
-                        {
-                            _logger.LogInformation("Injecting fresh authentication headers for CaseInfo Action {ActionId}", actionDefinition.Id);
-                            var modifiedConfig = InjectAuthenticationHeaders(actionDefinition, accessToken, tenantCode);
-                            var actionType = Enum.Parse<ActionTypeEnum>(actionDefinition.ActionType);
-                            var result = await _actionExecutionService.ExecuteActionDirectlyAsync(
-                                actionType,
-                                JsonConvert.SerializeObject(modifiedConfig),
-                                contextData);
-                            actionResult = result != null ? JToken.FromObject(result) : null;
-                        }
-                        else
-                        {
-                            _logger.LogWarning("No access token available for CaseInfo Action {ActionId}, executing with original config", actionDefinition.Id);
-                            actionResult = await _actionExecutionService.ExecuteActionAsync(actionDefinition.Id, contextData);
-                        }
-
-                        if (actionResult == null)
-                        {
-                            _logger.LogWarning("CaseInfo Action {ActionId} returned null result", actionDefinition.Id);
-                            continue;
-                        }
-
-                        // Check if action was successful
-                        var resultJson = actionResult as JObject ?? JObject.FromObject(actionResult);
-                        var statusCode = resultJson["statusCode"]?.Value<int>() ?? 0;
-                        var success = resultJson["success"]?.Value<bool>() ?? (statusCode >= 200 && statusCode < 300);
-
-                        if (!success)
-                        {
-                            _logger.LogWarning("CaseInfo Action {ActionId} failed with status {StatusCode}", actionDefinition.Id, statusCode);
-                            continue;
-                        }
-
-                        // Parse response data
-                        _logger.LogInformation("CaseInfo Action {ActionId} raw result: {Result}", 
-                            actionDefinition.Id, resultJson.ToString(Newtonsoft.Json.Formatting.None));
-                        
-                        var responseData = ExtractResponseData(resultJson);
-                        if (responseData == null)
-                        {
-                            _logger.LogWarning("CaseInfo Action {ActionId} returned no data to map. ResultJson keys: {Keys}", 
-                                actionDefinition.Id, string.Join(", ", resultJson.Properties().Select(p => p.Name)));
-                            continue;
-                        }
-
-                        _logger.LogInformation("CaseInfo Action {ActionId} extracted response data: {Data}", 
-                            actionDefinition.Id, responseData.ToString(Newtonsoft.Json.Formatting.None));
-
-                        // Apply field mappings to populate case data
-                        await ApplyFieldMappingsToCase(createdCase, responseData, fieldMappings);
-
-                        _logger.LogInformation("Successfully executed CaseInfo Action {ActionId} and populated {FieldCount} fields for Case {CaseId}",
-                            actionDefinition.Id, fieldMappings.Count, createdCase.Id);
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogError(ex, "Error executing CaseInfo Action {ActionId} for Case {CaseId}",
-                            actionDefinition.Id, createdCase.Id);
-                    }
+                    _logger.LogInformation("Completed CaseInfo Actions for Case {CaseId}: Executed {ActionsExecuted} actions, mapped {FieldsMapped} fields",
+                        createdCase.Id, actionsExecuted, fieldsMapped);
                 }
             }
             catch (Exception ex)
@@ -2184,126 +2237,19 @@ namespace FlowFlex.Application.Services.Integration
                     };
                 }
 
-                // Get actions with field mappings
-                var actionsWithMappings = await GetActionsWithFieldMappingsAsync(entityMapping.IntegrationId);
-                if (!actionsWithMappings.Any())
+                // Execute CaseInfo Actions using core logic
+                var (actionsExecuted, fieldsMapped) = await ExecuteCaseInfoActionsInternalAsync(
+                    integration, entityMapping, caseEntity, caseEntity.EntityId ?? "");
+
+                if (actionsExecuted == 0)
                 {
                     return new RetryFieldMappingResponse
                     {
                         Success = false,
                         CaseId = caseId,
-                        Message = "No CaseInfo Actions with field mappings found",
-                        ErrorDetails = "No actions configured for field mapping"
+                        Message = "No CaseInfo Actions were executed",
+                        ErrorDetails = "No actions configured for field mapping or all actions failed"
                     };
-                }
-
-                _logger.LogInformation("Found {Count} CaseInfo Actions for retry on Case {CaseId}",
-                    actionsWithMappings.Count, caseId);
-
-                // Get authentication info once for all actions
-                string? accessToken = null;
-                string? tenantCode = null;
-
-                int actionsExecuted = 0;
-                int totalFieldsMapped = 0;
-
-                foreach (var (actionDefinition, fieldMappings) in actionsWithMappings)
-                {
-                    try
-                    {
-                        _logger.LogInformation("Executing CaseInfo Action {ActionId} ({ActionName}) for Case {CaseId}",
-                            actionDefinition.Id, actionDefinition.ActionName, caseId);
-
-                        // Get authentication if not already obtained
-                        if (string.IsNullOrEmpty(accessToken))
-                        {
-                            accessToken = await GetIntegrationAccessTokenAsync(integration);
-                            if (!string.IsNullOrEmpty(accessToken))
-                            {
-                                tenantCode = await GetTenantCodeAsync(integration.TenantId, accessToken);
-                                _logger.LogInformation("Obtained authentication for CaseInfo Actions: HasToken={HasToken}, TenantCode={TenantCode}",
-                                    !string.IsNullOrEmpty(accessToken), tenantCode ?? "N/A");
-                            }
-                        }
-
-                        // Prepare context data with entityId from case
-                        var contextData = new Dictionary<string, object>
-                        {
-                            { "entityId", caseEntity.EntityId ?? "" },
-                            { "EntityId", caseEntity.EntityId ?? "" },
-                            { "caseId", caseId.ToString() },
-                            { "CaseId", caseId.ToString() },
-                            { "systemId", entityMapping.SystemId ?? "" },
-                            { "SystemId", entityMapping.SystemId ?? "" },
-                            { "integrationId", entityMapping.IntegrationId.ToString() },
-                            { "IntegrationId", entityMapping.IntegrationId.ToString() }
-                        };
-
-                        // Execute action with fresh authentication
-                        JToken? actionResult;
-                        if (!string.IsNullOrEmpty(accessToken))
-                        {
-                            _logger.LogInformation("Injecting fresh authentication headers for CaseInfo Action {ActionId}", actionDefinition.Id);
-                            var modifiedConfig = InjectAuthenticationHeaders(actionDefinition, accessToken, tenantCode);
-                            var actionType = Enum.Parse<ActionTypeEnum>(actionDefinition.ActionType);
-                            var result = await _actionExecutionService.ExecuteActionDirectlyAsync(
-                                actionType,
-                                JsonConvert.SerializeObject(modifiedConfig),
-                                contextData);
-                            actionResult = result != null ? JToken.FromObject(result) : null;
-                        }
-                        else
-                        {
-                            _logger.LogWarning("No access token available for CaseInfo Action {ActionId}, executing with original config", actionDefinition.Id);
-                            actionResult = await _actionExecutionService.ExecuteActionAsync(actionDefinition.Id, contextData);
-                        }
-
-                        if (actionResult == null)
-                        {
-                            _logger.LogWarning("CaseInfo Action {ActionId} returned null result", actionDefinition.Id);
-                            continue;
-                        }
-
-                        // Check if action was successful
-                        var resultJson = actionResult as JObject ?? JObject.FromObject(actionResult);
-                        var statusCode = resultJson["statusCode"]?.Value<int>() ?? 0;
-                        var success = resultJson["success"]?.Value<bool>() ?? (statusCode >= 200 && statusCode < 300);
-
-                        if (!success)
-                        {
-                            _logger.LogWarning("CaseInfo Action {ActionId} failed with status {StatusCode}", actionDefinition.Id, statusCode);
-                            continue;
-                        }
-
-                        // Parse response data
-                        _logger.LogInformation("CaseInfo Action {ActionId} raw result: {Result}", 
-                            actionDefinition.Id, resultJson.ToString(Newtonsoft.Json.Formatting.None));
-                        
-                        var responseData = ExtractResponseData(resultJson);
-                        if (responseData == null)
-                        {
-                            _logger.LogWarning("CaseInfo Action {ActionId} returned no data to map. ResultJson keys: {Keys}", 
-                                actionDefinition.Id, string.Join(", ", resultJson.Properties().Select(p => p.Name)));
-                            continue;
-                        }
-
-                        _logger.LogInformation("CaseInfo Action {ActionId} extracted response data: {Data}", 
-                            actionDefinition.Id, responseData.ToString(Newtonsoft.Json.Formatting.None));
-
-                        // Apply field mappings to populate case data
-                        await ApplyFieldMappingsToCase(caseEntity, responseData, fieldMappings);
-
-                        actionsExecuted++;
-                        totalFieldsMapped += fieldMappings.Count;
-
-                        _logger.LogInformation("Successfully executed CaseInfo Action {ActionId} and populated {FieldCount} fields for Case {CaseId}",
-                            actionDefinition.Id, fieldMappings.Count, caseId);
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogError(ex, "Error executing CaseInfo Action {ActionId} for Case {CaseId}",
-                            actionDefinition.Id, caseId);
-                    }
                 }
 
                 return new RetryFieldMappingResponse
@@ -2311,8 +2257,8 @@ namespace FlowFlex.Application.Services.Integration
                     Success = true,
                     CaseId = caseId,
                     ActionsExecuted = actionsExecuted,
-                    FieldsMapped = totalFieldsMapped,
-                    Message = $"Successfully retried field mapping. Executed {actionsExecuted} actions and mapped {totalFieldsMapped} fields."
+                    FieldsMapped = fieldsMapped,
+                    Message = $"Successfully retried field mapping. Executed {actionsExecuted} actions and mapped {fieldsMapped} fields."
                 };
             }
             catch (Exception ex)
