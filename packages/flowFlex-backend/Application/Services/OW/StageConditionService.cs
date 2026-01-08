@@ -84,16 +84,18 @@ namespace FlowFlex.Application.Service.OW
             var rulesValidation = await ValidateRulesJsonAsync(input.RulesJson);
             if (!rulesValidation.IsValid)
             {
+                var ruleErrorMessages = rulesValidation.Errors.Select(e => $"[{e.Code}] {e.Message}");
                 throw new CRMException(ErrorCodeEnum.BusinessError, 
-                    $"Invalid RulesJson: {string.Join(", ", rulesValidation.Errors)}");
+                    $"Invalid RulesJson: {string.Join("; ", ruleErrorMessages)}");
             }
 
             // Validate ActionsJson format
             var actionsValidation = ValidateActionsJson(input.ActionsJson);
             if (!actionsValidation.IsValid)
             {
+                var actionErrorMessages = actionsValidation.Errors.Select(e => $"[{e.Code}] {e.Message}");
                 throw new CRMException(ErrorCodeEnum.BusinessError, 
-                    $"Invalid ActionsJson: {string.Join(", ", actionsValidation.Errors)}");
+                    $"Invalid ActionsJson: {string.Join("; ", actionErrorMessages)}");
             }
 
             // Create entity
@@ -151,16 +153,18 @@ namespace FlowFlex.Application.Service.OW
             var rulesValidation = await ValidateRulesJsonAsync(input.RulesJson);
             if (!rulesValidation.IsValid)
             {
+                var ruleErrorMessages = rulesValidation.Errors.Select(e => $"[{e.Code}] {e.Message}");
                 throw new CRMException(ErrorCodeEnum.BusinessError, 
-                    $"Invalid RulesJson: {string.Join(", ", rulesValidation.Errors)}");
+                    $"Invalid RulesJson: {string.Join("; ", ruleErrorMessages)}");
             }
 
             // Validate ActionsJson format
             var actionsValidation = ValidateActionsJson(input.ActionsJson);
             if (!actionsValidation.IsValid)
             {
+                var actionErrorMessages = actionsValidation.Errors.Select(e => $"[{e.Code}] {e.Message}");
                 throw new CRMException(ErrorCodeEnum.BusinessError, 
-                    $"Invalid ActionsJson: {string.Join(", ", actionsValidation.Errors)}");
+                    $"Invalid ActionsJson: {string.Join("; ", actionErrorMessages)}");
             }
 
             // Update entity
@@ -498,10 +502,40 @@ namespace FlowFlex.Application.Service.OW
                             break;
 
                         case "assignuser":
-                            if (!action.UserId.HasValue && string.IsNullOrEmpty(action.TeamId))
+                            // Check parameters dictionary for userIds or teamIds (array only)
+                            var hasUserIds = false;
+                            var hasTeamIds = false;
+                            
+                            if (action.Parameters != null)
+                            {
+                                hasUserIds = HasNonEmptyArray(action.Parameters, "userIds");
+                                hasTeamIds = HasNonEmptyArray(action.Parameters, "teamIds");
+                                
+                                // Check assigneeType in parameters
+                                if (action.Parameters.TryGetValue("assigneeType", out var assigneeType))
+                                {
+                                    var assigneeTypeStr = assigneeType?.ToString()?.ToLower();
+                                    if (assigneeTypeStr == "user" && !hasUserIds)
+                                    {
+                                        result.IsValid = false;
+                                        result.Errors.Add(new ValidationError { Code = "ASSIGNUSER_USERIDS_REQUIRED", Message = "AssignUser action with assigneeType='user' requires userIds (array) in parameters" });
+                                    }
+                                    else if (assigneeTypeStr == "team" && !hasTeamIds)
+                                    {
+                                        result.IsValid = false;
+                                        result.Errors.Add(new ValidationError { Code = "ASSIGNUSER_TEAMIDS_REQUIRED", Message = "AssignUser action with assigneeType='team' requires teamIds (array) in parameters" });
+                                    }
+                                }
+                                else if (!hasUserIds && !hasTeamIds)
+                                {
+                                    result.IsValid = false;
+                                    result.Errors.Add(new ValidationError { Code = "ASSIGNUSER_TARGET_REQUIRED", Message = "AssignUser action requires userIds or teamIds (array) in parameters" });
+                                }
+                            }
+                            else
                             {
                                 result.IsValid = false;
-                                result.Errors.Add(new ValidationError { Code = "ASSIGNUSER_TARGET_REQUIRED", Message = "AssignUser action requires userId or teamId" });
+                                result.Errors.Add(new ValidationError { Code = "ASSIGNUSER_PARAMS_REQUIRED", Message = "AssignUser action requires parameters with assigneeType and userIds/teamIds" });
                             }
                             break;
                     }
@@ -621,6 +655,28 @@ namespace FlowFlex.Application.Service.OW
             {
                 // Ignore errors in circular reference check
             }
+        }
+
+        /// <summary>
+        /// Check if parameters dictionary has a non-empty array for the given key
+        /// </summary>
+        private bool HasNonEmptyArray(Dictionary<string, object> parameters, string key)
+        {
+            if (!parameters.TryGetValue(key, out var value) || value == null)
+                return false;
+
+            // Check if it's a JArray
+            if (value is Newtonsoft.Json.Linq.JArray jArray)
+                return jArray.Count > 0;
+
+            // Check if it's an IEnumerable (but not string)
+            if (value is System.Collections.IEnumerable enumerable && !(value is string))
+            {
+                var enumerator = enumerable.GetEnumerator();
+                return enumerator.MoveNext();
+            }
+
+            return false;
         }
 
         /// <summary>

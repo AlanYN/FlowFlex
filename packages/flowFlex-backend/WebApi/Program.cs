@@ -475,6 +475,9 @@ builder.Services.AddHostedService<FlowFlex.Infrastructure.Services.BackgroundTas
 // Register email sync background service
 builder.Services.AddHostedService<FlowFlex.Application.Services.MessageCenter.EmailSyncBackgroundService>();
 
+// Register IntegrationApiLogFilter for external API logging
+builder.Services.AddScoped<FlowFlex.WebApi.Filters.IntegrationApiLogFilter>();
+
 // Note: Most services are auto-registered via IScopedService/ISingletonService/ITransientService interfaces  
 // Only register services that are not auto-registered or need special configuration
 

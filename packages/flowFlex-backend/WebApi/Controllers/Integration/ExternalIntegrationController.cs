@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using System.ComponentModel.DataAnnotations;
 using FlowFlex.Application.Contracts.Dtos.Integration;
 using FlowFlex.Application.Contracts.IServices.Integration;
+using FlowFlex.WebApi.Filters;
 using Item.Internal.StandardApi.Response;
 using System.Net;
 using System.IO;
@@ -17,6 +18,7 @@ namespace FlowFlex.WebApi.Controllers.Integration
     [Route("integration/external/v{version:apiVersion}")]
     [Display(Name = "external-integration")]
     [Authorize]
+    [ServiceFilter(typeof(IntegrationApiLogFilter))]
     public class ExternalIntegrationController : Controllers.ControllerBase
     {
         private readonly IExternalIntegrationService _externalIntegrationService;
