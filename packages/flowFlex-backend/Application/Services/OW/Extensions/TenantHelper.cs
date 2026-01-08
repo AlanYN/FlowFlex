@@ -16,7 +16,7 @@ namespace FlowFlex.Application.Services.OW.Extensions
         {
             if (string.IsNullOrEmpty(email) || !email.Contains('@'))
             {
-                return "DEFAULT";
+                return "default";
             }
 
             // Extract email domain
@@ -36,7 +36,7 @@ namespace FlowFlex.Application.Services.OW.Extensions
         {
             if (string.IsNullOrEmpty(domain))
             {
-                return "DEFAULT";
+                return "default";
             }
 
             return domain.ToUpper();

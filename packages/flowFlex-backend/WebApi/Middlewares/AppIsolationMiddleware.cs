@@ -160,9 +160,9 @@ namespace FlowFlex.WebApi.Middlewares
                 }
             }
 
-            // 5. 使用默认值 "DEFAULT"
+            // 5. 使用默认值 "default"
             _logger.LogDebug("[AppIsolationMiddleware] No AppCode found in headers, query or JWT. Using default AppCode: DEFAULT");
-            return "DEFAULT";
+            return "default";
         }
 
         private async Task<string> ExtractTenantIdAsync(HttpContext context, string appCode)
@@ -217,9 +217,9 @@ namespace FlowFlex.WebApi.Middlewares
                 }
             }
 
-            // 6. 使用默认值 "DEFAULT"
-            _logger.LogDebug("[AppIsolationMiddleware] Using default TenantId: {TenantId}", "DEFAULT");
-            return "DEFAULT";
+            // 6. 使用默认值 "default"
+            _logger.LogDebug("[AppIsolationMiddleware] Using default TenantId: {TenantId}", "default");
+            return "default";
         }
 
         private string GetRequestId(HttpContext context)

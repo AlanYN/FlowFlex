@@ -81,7 +81,7 @@ namespace FlowFlex.Application.Services.OW
             var httpContext = _httpContextAccessor?.HttpContext;
             if (httpContext == null)
             {
-                return "DEFAULT";
+                return "default";
             }
 
             // 1. Try X-Tenant-Id header
@@ -106,7 +106,7 @@ namespace FlowFlex.Application.Services.OW
             }
 
             // 4. Default
-            return "DEFAULT";
+            return "default";
         }
 
         /// <summary>
@@ -118,7 +118,7 @@ namespace FlowFlex.Application.Services.OW
             var httpContext = _httpContextAccessor?.HttpContext;
             if (httpContext == null)
             {
-                return "DEFAULT";
+                return "default";
             }
 
             // 1. Try X-App-Code header
@@ -143,7 +143,7 @@ namespace FlowFlex.Application.Services.OW
             }
 
             // 4. Default
-            return "DEFAULT";
+            return "default";
         }
     }
 }

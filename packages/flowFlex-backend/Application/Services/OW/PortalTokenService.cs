@@ -55,7 +55,7 @@ namespace FlowFlex.Application.Services.OW
         /// <param name="onboardingId">Onboarding ID</param>
         /// <param name="tenantId">Tenant ID</param>
         /// <returns>Portal token details</returns>
-        public TokenDetailsDto GeneratePortalToken(long userId, string email, long onboardingId, string tenantId = "DEFAULT")
+        public TokenDetailsDto GeneratePortalToken(long userId, string email, long onboardingId, string tenantId = "default")
         {
             var jti = Guid.NewGuid().ToString();
             var issuedAt = DateTimeOffset.UtcNow;
@@ -72,7 +72,7 @@ namespace FlowFlex.Application.Services.OW
                 new Claim(ClaimTypes.Email, email),
                 new Claim(ClaimTypes.NameIdentifier, userId.ToString()),
                 new Claim("username", email), // Use email as username for portal users
-                new Claim("tenantId", tenantId ?? "DEFAULT"),
+                new Claim("tenantId", tenantId ?? "default"),
                 new Claim("onboardingId", onboardingId.ToString()),
                 new Claim("scope", PORTAL_SCOPE), // Critical: Portal scope restriction
                 new Claim("token_type", PORTAL_TOKEN_TYPE), // Mark as portal token

@@ -10,12 +10,12 @@ namespace FlowFlex.Domain.Shared.Models
         /// <summary>
         /// Application code for application isolation
         /// </summary>
-        public string AppCode { get; set; } = "DEFAULT";
+        public string AppCode { get; set; } = "default";
 
         /// <summary>
         /// Tenant ID for tenant isolation
         /// </summary>
-        public string TenantId { get; set; } = "DEFAULT";
+        public string TenantId { get; set; } = "default";
 
         /// <summary>
         /// Request ID for tracing

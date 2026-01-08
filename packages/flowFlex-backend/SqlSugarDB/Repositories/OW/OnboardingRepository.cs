@@ -167,7 +167,7 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
 
         /// <summary>
         /// Get onboarding by ID with tenant isolation
-        /// Case-insensitive app_code comparison to support "default", "Default", "DEFAULT", etc.
+        /// Case-insensitive app_code comparison to support "default", "default", "default", etc.
         /// </summary>
         public new async Task<Onboarding> GetByIdAsync(object id, bool copyNew = false, CancellationToken cancellationToken = default)
         {
@@ -205,7 +205,7 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
         {
             var httpContext = _httpContextAccessor?.HttpContext;
             if (httpContext == null)
-                return "DEFAULT";
+                return "default";
 
             // 从请求头获取
             var tenantId = httpContext.Request.Headers["X-Tenant-Id"].FirstOrDefault();
@@ -221,7 +221,7 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
                 return appContext.TenantId;
             }
 
-            return "DEFAULT";
+            return "default";
         }
 
         /// <summary>
@@ -232,7 +232,7 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
         {
             var httpContext = _httpContextAccessor?.HttpContext;
             if (httpContext == null)
-                return "DEFAULT";
+                return "default";
 
             string appCode = null;
 
@@ -254,7 +254,7 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
             // Return original case - comparison will be case-insensitive at database level
             if (string.IsNullOrEmpty(appCode))
             {
-                return "DEFAULT";
+                return "default";
             }
 
             return appCode;

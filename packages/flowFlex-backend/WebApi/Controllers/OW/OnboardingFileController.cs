@@ -185,7 +185,7 @@ namespace FlowFlex.WebApi.Controllers.OW
             
             // Get TenantId from AppContext for background task
             var appContext = HttpContext.Items["AppContext"] as AppContext;
-            input.TenantId = appContext?.TenantId ?? "DEFAULT";
+            input.TenantId = appContext?.TenantId ?? "default";
 
             var createdBy = _operatorContextService.GetOperatorDisplayName();
             var result = await _onboardingFileService.StartImportTaskAsync(input, createdBy);

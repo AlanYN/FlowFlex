@@ -93,7 +93,7 @@ namespace WebApi.Authentication
 
                     userContext.CompanyId = "";
                     userContext.Schema = AuthSchemes.Identification;
-                    userContext.AppCode = context.HttpContext.Request.Headers["X-App-Code"].FirstOrDefault() ?? "DEFAULT";
+                    userContext.AppCode = context.HttpContext.Request.Headers["X-App-Code"].FirstOrDefault() ?? "default";
 
                     // Load user teams and user type in parallel to reduce latency
                     var loadTeamsTask = LoadUserTeamsAsync(context, userContext);
@@ -178,7 +178,7 @@ namespace WebApi.Authentication
                             userContext.TenantId = userInfo.TenantId.ToString();
                             userContext.CompanyId = userInfo.TenantId.ToString();
                         }
-                        userContext.AppCode = context.HttpContext.Request.Headers["X-App-Code"].FirstOrDefault() ?? "DEFAULT";
+                        userContext.AppCode = context.HttpContext.Request.Headers["X-App-Code"].FirstOrDefault() ?? "default";
 
                         // Load user teams and user type in parallel to reduce latency
                         var loadTeamsTask = LoadUserTeamsAsync(context, userContext);
@@ -189,7 +189,7 @@ namespace WebApi.Authentication
                         userContext.Schema = AuthSchemes.ItemIamClientIdentification;
                         userContext.SystemSource = SourceEnum.Client;
                         await SetTenantIdAndUserName(identityHubClient, userContext, context.HttpContext, claims);
-                        userContext.AppCode = context.HttpContext.Request.Headers["X-App-Code"].FirstOrDefault() ?? "DEFAULT";
+                        userContext.AppCode = context.HttpContext.Request.Headers["X-App-Code"].FirstOrDefault() ?? "default";
                         break;
                 }
             }

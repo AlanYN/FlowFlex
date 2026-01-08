@@ -66,7 +66,7 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
             // Set default value if TenantId is empty
             if (string.IsNullOrEmpty(entity.TenantId))
             {
-                entity.TenantId = "DEFAULT";
+                entity.TenantId = "default";
             }
 
             await _db.Insertable(entity).ExecuteCommandAsync();
@@ -89,7 +89,7 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
                 // Set default value if TenantId is empty
                 if (string.IsNullOrEmpty(entity.TenantId))
                 {
-                    entity.TenantId = "DEFAULT";
+                    entity.TenantId = "default";
                 }
             }
 

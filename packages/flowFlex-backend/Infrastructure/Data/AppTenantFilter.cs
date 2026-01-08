@@ -148,7 +148,7 @@ namespace FlowFlex.Infrastructure.Data
             if (httpContext == null)
             {
                 Console.WriteLine("[AppTenantFilter] HttpContext is null, using DEFAULT tenant");
-                return "DEFAULT";
+                return "default";
             }
 
             // Try to get from AppContext first
@@ -170,7 +170,7 @@ namespace FlowFlex.Infrastructure.Data
             }
 
             Console.WriteLine("[AppTenantFilter] No TenantId found, using DEFAULT");
-            return "DEFAULT";
+            return "default";
         }
 
         /// <summary>
@@ -184,7 +184,7 @@ namespace FlowFlex.Infrastructure.Data
             if (httpContext == null)
             {
                 Console.WriteLine("[AppTenantFilter] HttpContext is null, using DEFAULT app code");
-                return "DEFAULT";
+                return "default";
             }
 
             // Try to get from AppContext first
@@ -206,7 +206,7 @@ namespace FlowFlex.Infrastructure.Data
             }
 
             Console.WriteLine("[AppTenantFilter] No AppCode found, using DEFAULT");
-            return "DEFAULT";
+            return "default";
         }
 
         /// <summary>

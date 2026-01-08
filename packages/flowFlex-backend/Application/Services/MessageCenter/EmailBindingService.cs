@@ -58,7 +58,7 @@ public class EmailBindingService : IEmailBindingService, IScopedService
     public Task<AuthorizeUrlDto> GetAuthorizationUrlAsync()
     {
         var userId = GetCurrentUserId();
-        var tenantId = _userContext.TenantId ?? "DEFAULT";
+        var tenantId = _userContext.TenantId ?? "default";
 
         // Generate state for CSRF protection
         var state = Guid.NewGuid().ToString("N");
@@ -165,24 +165,24 @@ public class EmailBindingService : IEmailBindingService, IScopedService
         binding.InitCreateInfo(_userContext);
 
         // Use TenantId from state if current context is empty/DEFAULT
-        if (string.IsNullOrEmpty(binding.TenantId) || binding.TenantId == "DEFAULT")
+        if (string.IsNullOrEmpty(binding.TenantId) || binding.TenantId == "default")
         {
             binding.TenantId = tenantId;
             _logger.LogInformation("Using TenantId from OAuth state: {TenantId}", tenantId);
         }
 
         // If TenantId or AppCode is still empty/DEFAULT, try to get from user's record
-        if (string.IsNullOrEmpty(binding.TenantId) || binding.TenantId == "DEFAULT" ||
-            string.IsNullOrEmpty(binding.AppCode) || binding.AppCode == "DEFAULT")
+        if (string.IsNullOrEmpty(binding.TenantId) || binding.TenantId == "default" ||
+            string.IsNullOrEmpty(binding.AppCode) || binding.AppCode == "default")
         {
             var user = await _userRepository.GetByIdAsync(userId);
             if (user != null)
             {
-                if (string.IsNullOrEmpty(binding.TenantId) || binding.TenantId == "DEFAULT")
+                if (string.IsNullOrEmpty(binding.TenantId) || binding.TenantId == "default")
                 {
                     binding.TenantId = user.TenantId;
                 }
-                if (string.IsNullOrEmpty(binding.AppCode) || binding.AppCode == "DEFAULT")
+                if (string.IsNullOrEmpty(binding.AppCode) || binding.AppCode == "default")
                 {
                     binding.AppCode = user.AppCode;
                 }

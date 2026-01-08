@@ -658,7 +658,7 @@ public class ChecklistTaskCompletionService : IChecklistTaskCompletionService, I
         // If still empty, use default value
         if (string.IsNullOrEmpty(tenantId))
         {
-            tenantId = "DEFAULT";
+            tenantId = "default";
             // Debug logging handled by structured logging
         }
         else

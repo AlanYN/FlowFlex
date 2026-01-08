@@ -20,7 +20,7 @@ public class IntegrationAction : EntityBase
     /// App code
     /// </summary>
     [SugarColumn(ColumnName = "app_code")]
-    public string AppCode { get; set; } = "DEFAULT";
+    public string AppCode { get; set; } = "default";
 
     /// <summary>
     /// Integration ID

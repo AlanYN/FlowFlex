@@ -77,7 +77,7 @@ namespace FlowFlex.Application.Services.OW
                 return TenantHelper.GetTenantIdByEmail(email);
             }
 
-            return "DEFAULT";
+            return "default";
         }
 
         /// <summary>

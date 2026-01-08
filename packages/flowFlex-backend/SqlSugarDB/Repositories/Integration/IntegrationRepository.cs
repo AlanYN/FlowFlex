@@ -177,9 +177,9 @@ namespace FlowFlex.SqlSugarDB.Implements.Integration
             var httpContext = _httpContextAccessor.HttpContext;
             if (httpContext != null && httpContext.Items.TryGetValue("TenantId", out var tenantId))
             {
-                return tenantId?.ToString() ?? "DEFAULT";
+                return tenantId?.ToString() ?? "default";
             }
-            return "DEFAULT";
+            return "default";
         }
     }
 }

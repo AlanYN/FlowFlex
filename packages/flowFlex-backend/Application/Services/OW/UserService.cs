@@ -223,7 +223,7 @@ namespace FlowFlex.Application.Services.OW
                     Status = "active",
                     EmailVerificationCode = null,
                     VerificationCodeExpiry = null,
-                    TenantId = "DEFAULT" // Set default tenant ID
+                    TenantId = "default" // Set default tenant ID
                 };
 
                 // Initialize create information
@@ -278,7 +278,7 @@ namespace FlowFlex.Application.Services.OW
                     Status = "pending", // Pending verification status
                     EmailVerificationCode = verificationCode,
                     VerificationCodeExpiry = DateTimeOffset.UtcNow.AddMinutes(_emailOptions.VerificationCodeExpiryMinutes),
-                    TenantId = "DEFAULT" // Set default tenant ID
+                    TenantId = "default" // Set default tenant ID
                 };
 
                 // Initialize create information with proper ID and timestamps
@@ -397,8 +397,8 @@ namespace FlowFlex.Application.Services.OW
                 TokenType = "Bearer",
                 ExpiresIn = _jwtService.GetTokenExpiryInSeconds(),
                 User = _mapper.Map<UserDto>(user),
-                AppCode = "DEFAULT",
-                TenantId = user.TenantId ?? "DEFAULT"
+                AppCode = "default",
+                TenantId = user.TenantId ?? "default"
             };
         }
 
@@ -476,8 +476,8 @@ namespace FlowFlex.Application.Services.OW
                 TokenType = "Bearer",
                 ExpiresIn = _jwtService.GetTokenExpiryInSeconds(),
                 User = _mapper.Map<UserDto>(user),
-                AppCode = "DEFAULT",
-                TenantId = user.TenantId ?? "DEFAULT"
+                AppCode = "default",
+                TenantId = user.TenantId ?? "default"
             };
         }
 
@@ -589,7 +589,7 @@ namespace FlowFlex.Application.Services.OW
                 PasswordHash = BC.HashPassword(password),
                 EmailVerified = true,
                 Status = "active",
-                TenantId = "DEFAULT" // Set default tenant ID
+                TenantId = "default" // Set default tenant ID
             };
             user.InitCreateInfo(null);
 
@@ -668,8 +668,8 @@ namespace FlowFlex.Application.Services.OW
                     TokenType = "Bearer",
                     ExpiresIn = _jwtService.GetTokenExpiryInSeconds(),
                     User = _mapper.Map<UserDto>(user),
-                    AppCode = "DEFAULT",
-                    TenantId = user.TenantId ?? "DEFAULT"
+                    AppCode = "default",
+                    TenantId = user.TenantId ?? "default"
                 };
             }
             catch (Exception ex)
@@ -1062,7 +1062,7 @@ namespace FlowFlex.Application.Services.OW
         {
             var httpContext = _httpContextAccessor?.HttpContext;
             if (httpContext == null)
-                return "DEFAULT";
+                return "default";
 
             // Try to get from AppContext first
             if (httpContext.Items.TryGetValue("AppContext", out var appContextObj) &&
@@ -1080,7 +1080,7 @@ namespace FlowFlex.Application.Services.OW
                 return tenantId;
             }
 
-            return "DEFAULT";
+            return "default";
         }
 
         /// <summary>
@@ -1090,7 +1090,7 @@ namespace FlowFlex.Application.Services.OW
         {
             var httpContext = _httpContextAccessor?.HttpContext;
             if (httpContext == null)
-                return "DEFAULT";
+                return "default";
 
             // Try to get from AppContext first
             if (httpContext.Items.TryGetValue("AppContext", out var appContextObj) &&
@@ -1108,7 +1108,7 @@ namespace FlowFlex.Application.Services.OW
                 return appCode;
             }
 
-            return "DEFAULT";
+            return "default";
         }
 
         /// <summary>

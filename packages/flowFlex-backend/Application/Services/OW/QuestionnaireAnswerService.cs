@@ -612,7 +612,7 @@ namespace FlowFlex.Application.Services.OW
         private string GetTenantId()
         {
             var context = _httpContextAccessor.HttpContext;
-            return context?.Request.Headers["X-Tenant-Id"].FirstOrDefault() ?? "DEFAULT";
+            return context?.Request.Headers["X-Tenant-Id"].FirstOrDefault() ?? "default";
         }
 
         private string GetCurrentUser()

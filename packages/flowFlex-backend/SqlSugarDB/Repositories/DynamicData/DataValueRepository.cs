@@ -60,8 +60,8 @@ public class DataValueRepository : BaseRepository<DataValue>, IDataValueReposito
             {
                 dataValue.InitNewId();
             }
-            dataValue.TenantId = _userContext.TenantId ?? "DEFAULT";
-            dataValue.AppCode = _userContext.AppCode ?? "DEFAULT";
+            dataValue.TenantId = _userContext.TenantId ?? "default";
+            dataValue.AppCode = _userContext.AppCode ?? "default";
         }
 
         await db.Insertable(dataValues).ExecuteCommandAsync();

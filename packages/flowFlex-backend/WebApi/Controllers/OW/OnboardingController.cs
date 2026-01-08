@@ -117,7 +117,7 @@ namespace FlowFlex.WebApi.Controllers.OW
         {
             // Validate tenant isolation - ensure tenant ID is provided
             var appContext = HttpContext.Items["AppContext"] as AppContext;
-            if (appContext == null || string.IsNullOrEmpty(appContext.TenantId) || appContext.TenantId == "DEFAULT")
+            if (appContext == null || string.IsNullOrEmpty(appContext.TenantId) || appContext.TenantId == "default")
             {
                 return BadRequest("Tenant ID is required. Please provide X-Tenant-Id header.");
             }
