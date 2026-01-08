@@ -36,6 +36,8 @@ const Api = (id?: string | number) => {
 		permissionCheck: `${globSetting.apiProName}/ow/permissions/${globSetting.apiVersion}/check`,
 
 		components: `${globSetting.apiProName}/ow/components/${globSetting.apiVersion}`,
+
+		stageConditions: `${globSetting.apiProName}/ow/stage-conditions/${globSetting.apiVersion}`,
 	};
 };
 
@@ -262,97 +264,108 @@ export function checkPermission(params: {
 }
 
 // ========================= Stage Condition 相关接口 =========================
+// 基础路径: /api/ow/stage-conditions/v1
 
 /**
- * 获取 Workflow 的所有 Conditions
- * @param workflowId Workflow ID
- * @returns List<StageConditionOutputDto>
+ * 按工作流查询条件
+ * GET /stage-conditions/v1/by-workflow/{workflowId}
  */
 export function getConditionsByWorkflow(workflowId: string | number) {
 	return defHttp.get({
-		url: `${Api().workflows}/${workflowId}/conditions`,
+		url: `${Api().stageConditions}/by-workflow/${workflowId}`,
 	});
 }
 
 /**
- * 获取 Stage 的所有 Conditions
- * @param stageId Stage ID
- * @returns List<StageConditionOutputDto>
+ * 按阶段查询条件
+ * GET /stage-conditions/v1/by-stage/{stageId}
  */
-export function getConditionsByStage(stageId: string | number) {
+export function getConditionByStage(stageId: string | number) {
 	return defHttp.get({
-		url: `${Api().stages}/${stageId}/conditions`,
+		url: `${Api().stageConditions}/by-stage/${stageId}`,
 	});
 }
 
 /**
- * 创建 Condition
- * @param stageId Stage ID
- * @param params StageConditionInputDto
- * @returns StageConditionOutputDto
+ * 获取条件详情
+ * GET /stage-conditions/v1/{id}
  */
-export function createCondition(stageId: string | number, params: any) {
+export function getConditionById(id: string | number) {
+	return defHttp.get({
+		url: `${Api().stageConditions}/${id}`,
+	});
+}
+
+/**
+ * 创建条件
+ * POST /stage-conditions/v1
+ */
+export function createCondition(params: {
+	stageId: string;
+	workflowId?: string;
+	name: string;
+	description?: string;
+	rulesJson: string;
+	actionsJson: string;
+	fallbackStageId?: string;
+	isActive?: boolean;
+}) {
 	return defHttp.post({
-		url: `${Api().stages}/${stageId}/conditions`,
+		url: Api().stageConditions,
 		params,
 	});
 }
 
 /**
- * 更新 Condition
- * @param stageId Stage ID
- * @param conditionId Condition ID
- * @param params StageConditionInputDto
- * @returns StageConditionOutputDto
+ * 更新条件
+ * PUT /stage-conditions/v1/{id}
  */
 export function updateCondition(
-	stageId: string | number,
-	conditionId: string | number,
-	params: any
+	id: string | number,
+	params: {
+		stageId: string;
+		workflowId?: string;
+		name: string;
+		description?: string;
+		rulesJson: string;
+		actionsJson: string;
+		fallbackStageId?: string;
+		isActive?: boolean;
+	}
 ) {
 	return defHttp.put({
-		url: `${Api().stages}/${stageId}/conditions/${conditionId}`,
+		url: `${Api().stageConditions}/${id}`,
 		params,
 	});
 }
 
 /**
- * 删除 Condition
- * @param stageId Stage ID
- * @param conditionId Condition ID
- * @returns bool
+ * 删除条件
+ * DELETE /stage-conditions/v1/{id}
  */
-export function deleteCondition(stageId: string | number, conditionId: string | number) {
+export function deleteCondition(id: string | number) {
 	return defHttp.delete({
-		url: `${Api().stages}/${stageId}/conditions/${conditionId}`,
+		url: `${Api().stageConditions}/${id}`,
 	});
 }
 
 /**
- * 获取 Stage 组件列表（用于规则配置）
- * @param stageId Stage ID
- * @returns List<StageComponentInfo>
+ * 验证规则 JSON（语法验证，保存前使用）
+ * POST /stage-conditions/v1/validate-rules
  */
-export function getStageComponents(stageId: string | number) {
-	return defHttp.get({
-		url: `${Api().stages}/${stageId}/components`,
+export function validateRules(rulesJson: string) {
+	return defHttp.post({
+		url: `${Api().stageConditions}/validate-rules`,
+		params: { rulesJson },
 	});
 }
 
 /**
- * 获取组件字段列表（用于规则配置）
- * @param componentType 组件类型
- * @param componentId 组件 ID
- * @returns List<ComponentFieldInfo>
+ * 验证条件配置（完整验证，保存后使用）
+ * POST /stage-conditions/v1/{id}/validate
  */
-export function getComponentFields(componentType: string, componentId: string | number) {
-	return defHttp.get({
-		url: `${Api().components}/${componentType}/${componentId}/fields`,
-	});
-}
-
-export function getAvailableActions() {
-	return defHttp.get({
-		url: `${Api().components}/actions`,
+export function validateCondition(id: string | number) {
+	return defHttp.post({
+		url: `${Api().stageConditions}/${id}/validate`,
 	});
 }

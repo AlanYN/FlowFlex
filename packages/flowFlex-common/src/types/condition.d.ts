@@ -6,23 +6,18 @@
 // ============ 操作符枚举 ============
 
 /**
- * 条件操作符（14种）
+ * 条件操作符（用于 Microsoft RulesEngine 表达式）
  */
 export type ConditionOperator =
-	| 'Equals' // 等于
-	| 'NotEquals' // 不等于
-	| 'GreaterThan' // 大于
-	| 'LessThan' // 小于
-	| 'GreaterThanOrEqual' // 大于等于
-	| 'LessThanOrEqual' // 小于等于
+	| '==' // 等于
+	| '!=' // 不等于
+	| '>' // 大于
+	| '<' // 小于
+	| '>=' // 大于等于
+	| '<=' // 小于等于
 	| 'Contains' // 包含
-	| 'DoesNotContain' // 不包含
 	| 'StartsWith' // 开头是
-	| 'EndsWith' // 结尾是
-	| 'IsEmpty' // 为空
-	| 'IsNotEmpty' // 不为空
-	| 'InList' // 在列表中
-	| 'NotInList'; // 不在列表中
+	| 'EndsWith'; // 结尾是
 
 /**
  * 操作符配置（用于 UI 展示）
@@ -31,7 +26,7 @@ export interface OperatorConfig {
 	value: ConditionOperator;
 	label: string;
 	description: string;
-	requiresValue: boolean; // IsEmpty/IsNotEmpty 不需要值
+	requiresValue: boolean;
 }
 
 // ============ 动作类型枚举 ============
@@ -73,10 +68,10 @@ export type ComponentType = 'checklist' | 'questionnaires' | 'fields' | 'files';
 export interface ConditionRule {
 	sourceStageId: string;
 	componentType: ComponentType;
-	componentId: string;
+	componentId?: string; // checklist/questionnaire 需要，fields 不需要
 	fieldPath: string;
 	operator: ConditionOperator;
-	value: string | number | boolean | string[];
+	value: string;
 }
 
 /**
@@ -210,18 +205,12 @@ export interface ComponentFieldInfo {
 /**
  * 规则表单项（UI 使用）
  */
-export interface RuleFormItem extends ConditionRule {
-	_id: string; // 临时 ID，用于列表渲染
-	_componentOptions?: StageComponentInfo[]; // 组件选项
-	_fieldOptions?: ComponentFieldInfo[]; // 字段选项
-}
+export interface RuleFormItem extends ConditionRule {}
 
 /**
  * 动作表单项（UI 使用）
  */
-export interface ActionFormItem extends ConditionAction {
-	_id: string; // 临时 ID，用于列表渲染
-}
+export interface ActionFormItem extends ConditionAction {}
 
 /**
  * Condition 编辑器表单数据
