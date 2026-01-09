@@ -54,7 +54,7 @@
 					<span class="detail-label">Rules:</span>
 					<span class="detail-value">
 						{{ rulesCount }} {{ rulesCount > 1 ? 'rules' : 'rule' }} ({{
-							condition.rulesJson.logic
+							rulesLogic
 						}})
 					</span>
 				</div>
@@ -93,13 +93,45 @@ const emit = defineEmits<{
 	(e: 'delete', conditionId: string): void;
 }>();
 
+// 解析 rulesJson 的辅助函数
+const parseRulesJson = (rulesJson: any) => {
+	if (!rulesJson) return { count: 0, logic: 'AND' };
+
+	// 如果是字符串，解析为对象
+	if (typeof rulesJson === 'string') {
+		try {
+			const parsed = JSON.parse(rulesJson);
+			return { count: parsed.rules?.length || 0, logic: parsed.logic || 'AND' };
+		} catch {
+			return { count: 0, logic: 'AND' };
+		}
+	}
+
+	// 如果已经是对象，直接读取
+	return { count: rulesJson.rules?.length || 0, logic: rulesJson.logic || 'AND' };
+};
+
 // Computed
-const rulesCount = computed(() => {
-	return props.condition?.rulesJson?.rules?.length || 0;
+const rulesInfo = computed(() => {
+	return parseRulesJson(props.condition?.rulesJson);
 });
 
+const rulesCount = computed(() => rulesInfo.value.count);
+const rulesLogic = computed(() => rulesInfo.value.logic);
+
 const actionsCount = computed(() => {
-	return props.condition?.actionsJson?.length || 0;
+	const actionsJson = props.condition?.actionsJson;
+	if (!actionsJson) return 0;
+	if (Array.isArray(actionsJson)) return actionsJson.length;
+	if (typeof actionsJson === 'string') {
+		try {
+			const parsed = JSON.parse(actionsJson);
+			return Array.isArray(parsed) ? parsed.length : 0;
+		} catch {
+			return 0;
+		}
+	}
+	return 0;
 });
 
 // Methods

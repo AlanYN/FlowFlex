@@ -30,7 +30,6 @@ export interface DynamicFieldValidate {
 export interface DynamicDropdownItem {
 	id: number;
 	value: string;
-	label: string;
 	sort: number;
 	isDefault: boolean;
 }

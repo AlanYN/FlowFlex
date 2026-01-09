@@ -158,7 +158,6 @@
 						:key="index"
 						class="flex items-center gap-2"
 					>
-						<el-input v-model="item.label" placeholder="Label" class="flex-1" />
 						<div class="flex-1">
 							<el-input
 								v-model="item.value"
@@ -389,7 +388,6 @@ const addDropdownItem = () => {
 	formData.dropdownItems.push({
 		id: Date.now(),
 		value: '',
-		label: '',
 		sort: formData.dropdownItems.length + 1,
 		isDefault: false,
 	});

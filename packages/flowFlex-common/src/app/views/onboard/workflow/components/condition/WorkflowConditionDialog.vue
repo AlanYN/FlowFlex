@@ -48,9 +48,24 @@
 								{{ index + 1 }}
 							</div>
 							<div class="stage-info">
-								<span class="stage-name">{{ stage.name }}</span>
-								<span v-if="stage.description" class="stage-desc">
-									{{ stage.description }}
+								<div class="flex items-center gap-x-2">
+									<span class="stage-name">{{ stage.name }}</span>
+									<el-tooltip
+										v-if="stage.required"
+										content="Users must complete this stage before proceeding to subsequent stages"
+										placement="top"
+									>
+										<div
+											class="text-orange-400 px-2 border border-orange-400 rounded-xl flex items-center gap-x-2 dark:bg-orange-900"
+										>
+											<Icon icon="mdi:information-outline" />
+											Required
+										</div>
+									</el-tooltip>
+								</div>
+								<span class="stage-desc">
+									{{ stage.components?.length || 0 }}
+									{{ stage.components.length > 1 ? 'Components' : 'Component' }}
 								</span>
 							</div>
 						</div>

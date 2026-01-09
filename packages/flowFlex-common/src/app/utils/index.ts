@@ -228,7 +228,7 @@ export const deepDecodeURIComponent = (str: string) => {
  * @param numberType 需要转换的语言环境，默认为 'en-US'
  * @returns
  */
-export function formatToFinancial(numStr, numberType = 'en-US') {
+export function formatToFinancial(numStr, numberType = 'en-US', fractionDigits = 2) {
 	if (!numStr && numStr !== 0) return numStr;
 	const num = parseFloat(numStr);
 
@@ -237,8 +237,8 @@ export function formatToFinancial(numStr, numberType = 'en-US') {
 	}
 
 	return num.toLocaleString(numberType, {
-		minimumFractionDigits: 2,
-		maximumFractionDigits: 2,
+		minimumFractionDigits: fractionDigits,
+		maximumFractionDigits: fractionDigits,
 	});
 }
 

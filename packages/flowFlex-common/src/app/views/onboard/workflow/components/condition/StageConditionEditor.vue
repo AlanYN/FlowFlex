@@ -157,84 +157,6 @@ const availableSourceStages = computed(() => {
 	return props.stages.slice(0, currentStageIndex.value + 1);
 });
 
-// 从 RulesEngine 表达式解析出规则
-const parseExpressionToRules = (expression: string): RuleFormItem[] => {
-	const rules: RuleFormItem[] = [];
-
-	// 按 && 或 || 分割表达式
-	// 例如: "input.checklist.status == \"Completed\" && input.questionnaire.totalScore >= 80"
-	const parts = expression.split(/\s*(&&|\|\|)\s*/);
-
-	for (let i = 0; i < parts.length; i += 2) {
-		const part = parts[i].trim();
-		if (!part) continue;
-
-		// 解析单个条件: input.xxx.yyy operator value
-		// 支持的格式:
-		// - input.checklist.tasks["checklistId"]["taskId"].isCompleted == true
-		// - input.questionnaire.answers["questionnaireId"]["questionId"] == "value"
-		// - input.fields.fieldId == "value"
-		const conditionMatch = part.match(
-			/^(input\.[^\s]+)\s*(==|!=|>=|<=|>|<|Contains|NotContains|StartsWith|EndsWith|IsEmpty|IsNotEmpty|InList|NotInList)\s*(.*)$/
-		);
-
-		if (conditionMatch) {
-			const [, fieldPath, operator, rawValue] = conditionMatch;
-			let value = rawValue.trim();
-
-			// 去除引号
-			if (
-				(value.startsWith('"') && value.endsWith('"')) ||
-				(value.startsWith("'") && value.endsWith("'"))
-			) {
-				value = value.slice(1, -1);
-			}
-
-			// 解析 fieldPath 获取 componentType 和 componentId
-			let componentType: 'questionnaires' | 'checklist' | 'fields' = 'fields';
-			let componentId: string | undefined;
-
-			if (fieldPath.startsWith('input.questionnaire.answers')) {
-				componentType = 'questionnaires';
-				// 提取 questionnaireId: input.questionnaire.answers["questionnaireId"]["questionId"]
-				const idMatch = fieldPath.match(/input\.questionnaire\.answers\["([^"]+)"\]/);
-				if (idMatch) {
-					componentId = idMatch[1];
-				}
-			} else if (fieldPath.startsWith('input.checklist.tasks')) {
-				componentType = 'checklist';
-				// 提取 checklistId: input.checklist.tasks["checklistId"]["taskId"].isCompleted
-				const idMatch = fieldPath.match(/input\.checklist\.tasks\["([^"]+)"\]/);
-				if (idMatch) {
-					componentId = idMatch[1];
-				}
-			} else if (fieldPath.startsWith('input.fields.')) {
-				componentType = 'fields';
-			}
-
-			rules.push({
-				sourceStageId: currentStageId.value,
-				componentType,
-				componentId,
-				fieldPath,
-				operator: operator as any,
-				value,
-			});
-		}
-	}
-
-	return rules;
-};
-
-// 从 RulesEngine 表达式判断逻辑运算符
-const parseLogicFromExpression = (expression: string): 'AND' | 'OR' => {
-	// 检查表达式中是否包含 || (OR)
-	if (expression.includes('||')) {
-		return 'OR';
-	}
-	return 'AND';
-};
-
 // 初始化表单数据
 const initFormData = () => {
 	if (currentCondition.value) {
@@ -242,31 +164,19 @@ const initFormData = () => {
 		formData.name = currentCondition.value.name;
 		formData.description = currentCondition.value.description || '';
 
-		// 解析 rulesJson（API 返回的是 Microsoft RulesEngine 格式的字符串）
-		let rulesJsonStr = currentCondition.value.rulesJson;
+		// 解析 rulesJson - 格式为 JSON 字符串，解析后是 {logic, rules}
 		let parsedRules: RuleFormItem[] = [];
 		let logic: 'AND' | 'OR' = 'AND';
 
-		if (typeof rulesJsonStr === 'string') {
-			try {
-				const rulesEngineData = JSON.parse(rulesJsonStr);
-				// RulesEngine 格式: [{WorkflowName, Rules: [{RuleName, Expression}]}]
-				if (Array.isArray(rulesEngineData) && rulesEngineData.length > 0) {
-					const workflow = rulesEngineData[0];
-					if (workflow.Rules && workflow.Rules.length > 0) {
-						const expression = workflow.Rules[0].Expression || '';
-						logic = parseLogicFromExpression(expression);
-						parsedRules = parseExpressionToRules(expression);
-					}
-				}
-			} catch (e) {
-				console.error('Failed to parse rulesJson:', e);
-			}
-		} else if (rulesJsonStr && typeof rulesJsonStr === 'object') {
-			// 兼容旧格式 {logic, rules}
-			const rulesData = rulesJsonStr as any;
-			logic = rulesData.logic || 'AND';
-			parsedRules = (rulesData.rules || []).map((rule: any) => ({ ...rule }));
+		try {
+			const rulesData =
+				typeof currentCondition.value.rulesJson === 'string'
+					? JSON.parse(currentCondition.value.rulesJson)
+					: currentCondition.value.rulesJson;
+			logic = rulesData?.logic || 'AND';
+			parsedRules = (rulesData?.rules || []).map((rule: any) => ({ ...rule }));
+		} catch (e) {
+			console.error('Failed to parse rulesJson:', e);
 		}
 
 		formData.logic = logic;
@@ -371,39 +281,11 @@ const handleCancel = () => {
 
 // 构建提交数据
 const buildSubmitData = () => {
-	// 构建 rulesJson - Microsoft RulesEngine 格式
-	const expression = formData.rules
-		.map((rule, index) => {
-			const fieldPath = rule.fieldPath;
-			let condition: string;
-
-			// 根据值类型构建条件表达式
-			if (typeof rule.value === 'string') {
-				condition = `${fieldPath} ${rule.operator} "${rule.value}"`;
-			} else {
-				condition = `${fieldPath} ${rule.operator} ${rule.value}`;
-			}
-
-			// 添加逻辑操作符
-			if (index > 0) {
-				const logicOp = formData.logic === 'OR' ? '||' : '&&';
-				return ` ${logicOp} ${condition}`;
-			}
-			return condition;
-		})
-		.join('');
-
-	const rulesJson = JSON.stringify([
-		{
-			WorkflowName: 'StageCondition',
-			Rules: [
-				{
-					RuleName: 'CombinedRule',
-					Expression: expression,
-				},
-			],
-		},
-	]);
+	// 构建 rulesJson - 格式为 {logic, rules}
+	const rulesJson = JSON.stringify({
+		logic: formData.logic,
+		rules: formData.rules,
+	});
 
 	// 构建 actionsJson
 	const actionsJson = JSON.stringify(
@@ -468,11 +350,6 @@ const handleSave = async () => {
 			emit('save', res.data);
 			close();
 		}
-	} catch (error: any) {
-		if (error !== false) {
-			// 非表单验证错误
-			ElMessage.error(error?.message || 'Failed to save condition');
-		}
 	} finally {
 		saving.value = false;
 	}
@@ -534,5 +411,9 @@ defineExpose({
 	justify-content: flex-end;
 	gap: 12px;
 	padding: 16px 20px;
+}
+
+:deep(.el-drawer__body) {
+	padding: 0;
 }
 </style>

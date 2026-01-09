@@ -540,7 +540,6 @@ const selectedFieldsList = computed<SelectedFieldItem[]>({
 			isRequired: item.isRequired,
 			order: index + 1,
 		}));
-
 		updateComponent('fields', {
 			staticFields: newStaticFields,
 			isEnabled: newStaticFields.length > 0,
@@ -759,10 +758,13 @@ const toggleField = (fieldId: string, checked: boolean) => {
 		}
 	}
 
+	const componen = selectedItems.value.find((item) => item.type == 'fields');
 	updateComponent('fields', {
 		staticFields: normalizedFields,
 		isEnabled: normalizedFields.length > 0,
-		customerPortalAccess: StageComponentPortal.Hidden,
+		customerPortalAccess: componen
+			? componen.customerPortalAccess
+			: StageComponentPortal.Hidden,
 	});
 };
 
