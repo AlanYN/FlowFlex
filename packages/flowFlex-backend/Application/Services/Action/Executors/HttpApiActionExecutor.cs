@@ -1,6 +1,7 @@
 ﻿using System.Text.Json;
 using Microsoft.Extensions.Logging;
 using FlowFlex.Application.Contracts.Dtos.Action;
+using FlowFlex.Application.Contracts.Helpers;
 using FlowFlex.Application.Contracts.IServices.Action;
 using FlowFlex.Domain.Shared.Enums.Action;
 using System.Text.RegularExpressions;
@@ -473,31 +474,7 @@ namespace FlowFlex.Application.Services.Action.Executors
                 // Auto-download binary content types
                 if (!string.IsNullOrEmpty(contentType))
                 {
-                    var binaryContentTypes = new[]
-                    {
-                        "application/pdf",
-                        "application/zip",
-                        "application/x-rar-compressed",
-                        "application/vnd.ms-excel",
-                        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                        "application/msword",
-                        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                        "application/vnd.ms-powerpoint",
-                        "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-                        "application/octet-stream",
-                        "image/jpeg",
-                        "image/png",
-                        "image/gif",
-                        "image/bmp",
-                        "image/tiff",
-                        "audio/mpeg",
-                        "audio/wav",
-                        "video/mp4",
-                        "video/avi",
-                        "video/mov"
-                    };
-
-                    if (binaryContentTypes.Contains(contentType))
+                    if (MimeTypeHelper.IsBinaryContentType(contentType))
                     {
                         _logger.LogInformation("Auto-downloading binary content: ContentType={ContentType}, Size={Size}",
                             contentType, contentLength?.ToString() ?? "unknown");
@@ -636,28 +613,7 @@ namespace FlowFlex.Application.Services.Action.Executors
         /// </summary>
         private string GetFileExtensionFromContentType(string contentType)
         {
-            return contentType.ToLower() switch
-            {
-                "application/pdf" => ".pdf",
-                "application/json" => ".json",
-                "application/xml" => ".xml",
-                "text/plain" => ".txt",
-                "text/html" => ".html",
-                "text/css" => ".css",
-                "text/javascript" => ".js",
-                "application/javascript" => ".js",
-                "image/jpeg" => ".jpg",
-                "image/png" => ".png",
-                "image/gif" => ".gif",
-                "image/svg+xml" => ".svg",
-                "application/zip" => ".zip",
-                "application/x-rar-compressed" => ".rar",
-                "application/vnd.ms-excel" => ".xls",
-                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" => ".xlsx",
-                "application/msword" => ".doc",
-                "application/vnd.openxmlformats-officedocument.wordprocessingml.document" => ".docx",
-                _ => ".bin"
-            };
+            return MimeTypeHelper.GetExtensionFromMimeType(contentType);
         }
 
         /// <summary>

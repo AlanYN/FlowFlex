@@ -1,9 +1,11 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.Extensions.Options;
 using System.ComponentModel.DataAnnotations;
 using System.Net;
 using FlowFlex.Application.Contracts.IServices.OW;
 using FlowFlex.Application.Contracts.Dtos.OW.OnboardingFile;
+using FlowFlex.Application.Contracts.Options;
 
 using Item.Internal.StandardApi.Response;
 using System.ComponentModel;
@@ -26,13 +28,16 @@ namespace FlowFlex.WebApi.Controllers.OW
     {
         private readonly IOnboardingFileService _onboardingFileService;
         private readonly IOperatorContextService _operatorContextService;
+        private readonly FileStorageOptions _fileStorageOptions;
 
         public OnboardingFileController(
             IOnboardingFileService onboardingFileService,
-            IOperatorContextService operatorContextService)
+            IOperatorContextService operatorContextService,
+            IOptions<FileStorageOptions> fileStorageOptions)
         {
             _onboardingFileService = onboardingFileService;
             _operatorContextService = operatorContextService;
+            _fileStorageOptions = fileStorageOptions.Value;
         }
 
         /// <summary>
@@ -399,9 +404,12 @@ namespace FlowFlex.WebApi.Controllers.OW
             [FromBody] string fileName,
             [FromQuery] long fileSize = 0)
         {
-            // Basic file validation logic
-            var allowedExtensions = new[] { ".pdf", ".doc", ".docx", ".jpg", ".jpeg", ".png", ".gif", ".txt", ".xlsx", ".xls" };
-            var maxFileSize = 100 * 1024 * 1024; // 100MB
+            // Get allowed extensions from configuration
+            var allowedExtensions = _fileStorageOptions.AllowedExtensions
+                .Split(',')
+                .Select(x => x.Trim().ToLowerInvariant())
+                .ToArray();
+            var maxFileSize = _fileStorageOptions.MaxFileSize;
 
             var extension = Path.GetExtension(fileName).ToLowerInvariant();
             var isValidExtension = allowedExtensions.Contains(extension);

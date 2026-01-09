@@ -1,5 +1,6 @@
 using FlowFlex.Application.Contracts;
 using FlowFlex.Application.Contracts.Dtos;
+using FlowFlex.Application.Contracts.Helpers;
 using FlowFlex.Application.Contracts.Options;
 using FlowFlex.Domain.Shared;
 using FlowFlex.Domain.Shared.Enums;
@@ -378,27 +379,7 @@ namespace FlowFlex.Application.Services.OW
         /// </summary>
         private string GetContentType(string fileName)
         {
-            var extension = Path.GetExtension(fileName).ToLowerInvariant();
-            return extension switch
-            {
-                ".jpg" or ".jpeg" => "image/jpeg",
-                ".png" => "image/png",
-                ".gif" => "image/gif",
-                ".pdf" => "application/pdf",
-                ".doc" => "application/msword",
-                ".docx" => "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                ".xls" => "application/vnd.ms-excel",
-                ".xlsx" => "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                ".txt" => "text/plain",
-                ".zip" => "application/zip",
-                ".rar" => "application/x-rar-compressed",
-                ".mp4" => "video/mp4",
-                ".avi" => "video/x-msvideo",
-                ".mov" => "video/quicktime",
-                ".eml" => "message/rfc822",
-                ".msg" => "application/vnd.ms-outlook",
-                _ => "application/octet-stream"
-            };
+            return MimeTypeHelper.GetMimeTypeFromFileName(fileName);
         }
     }
 }
