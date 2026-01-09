@@ -98,24 +98,25 @@
 												</span>
 											</el-tooltip>
 										</div>
-										<el-checkbox
-											:model-value="element.isRequired"
-											@change="
-												(checked) =>
-													toggleFieldRequired(element.id, !!checked)
-											"
-											size="small"
-										>
-											<span class="text-xs">Required</span>
-										</el-checkbox>
-										<el-button
-											size="small"
-											type="danger"
-											link
-											@click="removeFieldTag(element.id)"
-										>
-											<el-icon class="text-sm"><Close /></el-icon>
-										</el-button>
+										<div class="flex items-center">
+											<el-radio
+												:model-value="element.isRequired"
+												:value="true"
+												@change="toggleFieldRequired(element.id, true)"
+												size="small"
+												class="mr-2"
+											>
+												Required
+											</el-radio>
+											<el-button
+												size="small"
+												type="danger"
+												link
+												@click="removeFieldTag(element.id)"
+											>
+												<el-icon class="text-sm"><Close /></el-icon>
+											</el-button>
+										</div>
 									</div>
 								</template>
 							</draggable>
@@ -537,10 +538,14 @@ const selectedFieldsList = computed<SelectedFieldItem[]>({
 			isRequired: item.isRequired,
 			order: index + 1,
 		}));
+
+		const componen = selectedItems.value?.find((item) => item.type == 'fields');
 		updateComponent('fields', {
 			staticFields: newStaticFields,
 			isEnabled: newStaticFields.length > 0,
-			customerPortalAccess: StageComponentPortal.Hidden,
+			customerPortalAccess: componen
+				? componen.customerPortalAccess
+				: StageComponentPortal.Hidden,
 		});
 	},
 });
@@ -917,10 +922,13 @@ const removeFieldTag = (fieldId: string) => {
 		field.order = idx + 1;
 	});
 
+	const componen = selectedItems.value?.find((item) => item.type == 'fields');
 	updateComponent('fields', {
 		staticFields: normalizedFields,
 		isEnabled: normalizedFields.length > 0,
-		customerPortalAccess: StageComponentPortal.Hidden,
+		customerPortalAccess: componen
+			? componen.customerPortalAccess
+			: StageComponentPortal.Hidden,
 	});
 };
 
@@ -941,10 +949,13 @@ const toggleFieldRequired = (fieldId: string, isRequired: boolean) => {
 		return normalized;
 	});
 
+	const componen = selectedItems.value?.find((item) => item.type == 'fields');
 	updateComponent('fields', {
 		staticFields: normalizedFields,
 		isEnabled: normalizedFields.length > 0,
-		customerPortalAccess: StageComponentPortal.Hidden,
+		customerPortalAccess: componen
+			? componen.customerPortalAccess
+			: StageComponentPortal.Hidden,
 	});
 };
 
