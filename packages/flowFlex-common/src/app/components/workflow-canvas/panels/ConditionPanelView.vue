@@ -90,9 +90,11 @@ import type {
 	ActionFormItem,
 	FallbackConfig,
 } from '#/condition';
-import ConditionRuleForm from '@/views/onboard/workflow/components/condition/ConditionRuleForm.vue';
-import ConditionActionForm from '@/views/onboard/workflow/components/condition/ConditionActionForm.vue';
-import ConditionFallbackForm from '@/views/onboard/workflow/components/condition/ConditionFallbackForm.vue';
+import {
+	ConditionRuleForm,
+	ConditionActionForm,
+	ConditionFallbackForm,
+} from '@/views/onboard/workflow/components/condition';
 
 // Props
 const props = defineProps<{
