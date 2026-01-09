@@ -200,7 +200,7 @@
 								link
 								size="small"
 								:disabled="readonly"
-								@click="handleRemoveFile(field.fieldName, file)"
+								@click="handleRemoveFile(field.fieldName, file?.id)"
 							>
 								<Icon icon="mdi:close" />
 							</el-button>
@@ -531,11 +531,9 @@ const handleFileChange = async (file: any, field: DynamicList) => {
 };
 
 // 移除已上传文件
-const handleRemoveFile = (fieldName: string, file: UploadedFile) => {
-	if (uploadedFilesMap[fieldName]) {
-		uploadedFilesMap[fieldName] = uploadedFilesMap[fieldName].filter(
-			(f) => f?.id !== file.id || f.fileName !== file.fileName
-		);
+const handleRemoveFile = (fieldName: string, fileId: string) => {
+	if (uploadedFilesMap[fieldName] && fileId) {
+		uploadedFilesMap[fieldName] = uploadedFilesMap[fieldName].filter((f) => f?.id !== fileId);
 		updateFileIds(fieldName);
 	}
 };
