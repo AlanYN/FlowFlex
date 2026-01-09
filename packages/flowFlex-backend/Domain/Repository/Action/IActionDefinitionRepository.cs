@@ -89,5 +89,11 @@ namespace FlowFlex.Domain.Repository.Action
         /// <param name="ids">List of action definition IDs</param>
         /// <returns>List of action definitions</returns>
         Task<List<ActionDefinition>> GetByIdsAsync(List<long> ids);
+
+        /// <summary>
+        /// Get all enabled action definitions summary (lightweight)
+        /// </summary>
+        /// <returns>List of enabled action definitions with basic info only</returns>
+        Task<List<ActionDefinition>> GetAllEnabledSummaryAsync();
     }
 }
