@@ -68,7 +68,7 @@ import { ElMessageBox } from 'element-plus';
 import type { ViewportTransform, Node } from '@vue-flow/core';
 import { useWorkflowCanvasStore } from '@/stores/modules/workflowCanvas';
 import { WorkflowCanvas, NodePanel, CanvasToolbar } from '@/components/workflow-canvas';
-import StageConditionEditor from './components/condition/StageConditionEditor.vue';
+import { StageConditionEditor } from './components/condition';
 import type { StageConditionInput } from '#/condition';
 import type { StageNodeData, ConditionNodeData, CanvasNodeData } from '#/workflow-canvas';
 

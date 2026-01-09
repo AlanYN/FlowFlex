@@ -73,11 +73,49 @@
 						<el-select
 							v-model="getActionParams(action).recipientType"
 							placeholder="Select recipient type"
+							@change="() => handleRecipientTypeChange(action)"
 						>
 							<el-option value="user" label="User" />
 							<el-option value="team" label="Team" />
 							<el-option value="email" label="Email" />
 						</el-select>
+					</el-form-item>
+					<!-- User/Team 选择器 -->
+					<el-form-item
+						v-if="getActionParams(action).recipientType === 'user'"
+						label="Select User"
+						class="action-field"
+					>
+						<FlowflexUserSelector
+							v-model="getActionParams(action).recipientId"
+							selection-type="user"
+							placeholder="Select user"
+							@change="(val) => handleUserChange(action, val)"
+						/>
+					</el-form-item>
+					<el-form-item
+						v-if="getActionParams(action).recipientType === 'team'"
+						label="Select Team"
+						class="action-field"
+					>
+						<FlowflexUserSelector
+							v-model="getActionParams(action).recipientId"
+							selection-type="team"
+							placeholder="Select team"
+							@change="(val) => handleUserChange(action, val)"
+						/>
+					</el-form-item>
+					<!-- Email 输入框 -->
+					<el-form-item
+						v-if="getActionParams(action).recipientType === 'email'"
+						label="Email Address"
+						class="action-field"
+					>
+						<el-input
+							v-model="getActionParams(action).recipientEmail"
+							placeholder="Enter email address"
+							type="email"
+						/>
 					</el-form-item>
 				</template>
 
@@ -103,10 +141,37 @@
 						<el-select
 							v-model="getActionParams(action).assigneeType"
 							placeholder="Select assignee type"
+							@change="() => handleAssigneeTypeChange(action)"
 						>
 							<el-option value="user" label="User" />
 							<el-option value="team" label="Team" />
 						</el-select>
+					</el-form-item>
+					<!-- User 选择器 (多选) -->
+					<el-form-item
+						v-if="getActionParams(action).assigneeType === 'user'"
+						label="Select Users"
+						class="action-field"
+					>
+						<FlowflexUserSelector
+							v-model="getActionParams(action).assigneeIds"
+							selection-type="user"
+							placeholder="Select users"
+							@change="(val) => handleAssigneeChange(action, val)"
+						/>
+					</el-form-item>
+					<!-- Team 选择器 (多选) -->
+					<el-form-item
+						v-if="getActionParams(action).assigneeType === 'team'"
+						label="Select Teams"
+						class="action-field"
+					>
+						<FlowflexUserSelector
+							v-model="getActionParams(action).assigneeIds"
+							selection-type="team"
+							placeholder="Select teams"
+							@change="(val) => handleAssigneeChange(action, val)"
+						/>
 					</el-form-item>
 				</template>
 			</div>
@@ -125,6 +190,7 @@ import { ref, onMounted } from 'vue';
 import { Plus, Delete, Warning } from '@element-plus/icons-vue';
 import type { ActionFormItem } from '#/condition';
 import type { Stage } from '#/onboard';
+import FlowflexUserSelector from '@/components/form/flowflexUser/index.vue';
 
 // Props
 const props = defineProps<{
@@ -184,6 +250,31 @@ const handleActionTypeReset = (action: ActionFormItem) => {
 	action.targetStageId = undefined;
 	action.actionDefinitionId = undefined;
 	action.parameters = {};
+};
+
+// 处理 SendNotification 的 recipientType 变化
+const handleRecipientTypeChange = (action: ActionFormItem) => {
+	const params = getActionParams(action);
+	params.recipientId = undefined;
+	params.recipientEmail = undefined;
+};
+
+// 处理 User/Team 选择变化
+const handleUserChange = (action: ActionFormItem, value: string | string[] | undefined) => {
+	const params = getActionParams(action);
+	params.recipientId = Array.isArray(value) ? value[0] : value;
+};
+
+// 处理 AssignUser 的 assigneeType 变化
+const handleAssigneeTypeChange = (action: ActionFormItem) => {
+	const params = getActionParams(action);
+	params.assigneeIds = [];
+};
+
+// 处理 Assignee 选择变化
+const handleAssigneeChange = (action: ActionFormItem, value: string | string[] | undefined) => {
+	const params = getActionParams(action);
+	params.assigneeIds = Array.isArray(value) ? value : value ? [value] : [];
 };
 
 // 添加动作

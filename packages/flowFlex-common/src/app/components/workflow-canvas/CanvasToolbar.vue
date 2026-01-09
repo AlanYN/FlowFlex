@@ -2,7 +2,7 @@
 	<div class="canvas-toolbar">
 		<!-- 左侧：返回按钮和标题 -->
 		<div class="canvas-toolbar__left">
-			<el-button text @click="handleBack" :icon="ArrowLeft" />
+			<el-button link @click="handleBack" :icon="ArrowLeft" />
 			<el-divider direction="vertical" />
 			<span class="canvas-toolbar__title">{{ title }}</span>
 			<el-tag v-if="hasUnsavedChanges" type="warning" size="small" effect="plain">
