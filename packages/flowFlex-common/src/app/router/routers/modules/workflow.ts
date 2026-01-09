@@ -18,6 +18,7 @@ const leads: AppRouteModule = {
 		ordinal: 2,
 		hidden: false,
 		status: true,
+		keepAlive: true,
 	},
 	children: [
 		{
@@ -30,6 +31,20 @@ const leads: AppRouteModule = {
 				ordinal: 2,
 				hidden: false,
 				status: true,
+				keepAlive: true,
+			},
+		},
+		{
+			path: 'workflow/:workflowId/conditions',
+			name: 'WorkflowConditionEditor',
+			component: () => import('@/views/onboard/workflow/condition-editor.vue'),
+			meta: {
+				title: 'Condition Editor',
+				code: 'WORKFLOWS',
+				ordinal: 2,
+				hidden: true,
+				status: true,
+				activeMenu: '/onboard/onboardWorkflow',
 			},
 		},
 	],

@@ -680,6 +680,7 @@
 
 <script setup lang="ts">
 import { ref, reactive, onMounted, computed, markRaw } from 'vue';
+import { useRouter } from 'vue-router';
 import { ElMessage, ElMessageBox, ElNotification } from 'element-plus';
 import {
 	Plus,
@@ -749,6 +750,9 @@ import { menuRoles } from '@/stores/modules/menuFunction';
 import { IQuickLink } from '#/integration';
 
 const { t } = useI18n();
+
+// Router instance
+const router = useRouter();
 
 // Store instances
 const userStore = useUserStore();
@@ -1128,7 +1132,10 @@ const handleCommand = (command: string, targetWorkflow?: any) => {
 			currentActionType.value = null;
 			break;
 		case 'manageConditions':
-			dialogVisible.conditionDialog = true;
+			// 跳转到可视化条件编辑器页面
+			if (targetWorkflow) {
+				router.push(`/onboard/workflow/${targetWorkflow.id}/conditions`);
+			}
 			// 清除loading状态
 			currentActionWorkflow.value = null;
 			currentActionType.value = null;
