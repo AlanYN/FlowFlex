@@ -667,14 +667,6 @@
 				</div>
 			</div>
 		</el-dialog>
-
-		<!-- Workflow Condition 管理弹窗 -->
-		<WorkflowConditionDialog
-			v-model="dialogVisible.conditionDialog"
-			:workflow-id="workflow?.id || ''"
-			:stages="workflow?.stages || []"
-			@refresh="workflow?.id && fetchStages(workflow.id)"
-		/>
 	</div>
 </template>
 
@@ -730,7 +722,6 @@ import NewWorkflowForm from './components/NewWorkflowForm.vue';
 import StageForm from './components/StageForm.vue';
 import WorkflowCardView from './components/WorkflowCardView.vue';
 import WorkflowListView from './components/WorkflowListView.vue';
-import WorkflowConditionDialog from './components/condition/WorkflowConditionDialog.vue';
 import { Stage, Workflow, Questionnaire, Checklist } from '#/onboard';
 import { getFlowflexUser } from '@/apis/global';
 import { FlowflexUser } from '#/golbal';
@@ -861,7 +852,6 @@ const dialogVisible = reactive({
 	workflowForm: false,
 	stageForm: false,
 	combineStages: false,
-	conditionDialog: false,
 });
 
 // 计算对话框标题

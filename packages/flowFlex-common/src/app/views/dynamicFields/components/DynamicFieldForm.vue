@@ -172,10 +172,18 @@
 								Duplicate value
 							</div>
 						</div>
-						<el-checkbox
+						<!-- <el-checkbox
 							v-model="item.isDefault"
 							title="Default"
 							@change="handleDefaultChange(index, $event as boolean)"
+						/> -->
+						<el-radio
+							:model-value="item.isDefault"
+							:value="true"
+							@change="handleDefaultChange(index)"
+							size="small"
+							class="mr-2"
+							title="Default"
 						/>
 						<el-button
 							type="danger"
@@ -446,10 +454,10 @@ const validateDropdownOptions = (): boolean => {
 };
 
 // 处理默认值变更，确保只有一个默认值
-const handleDefaultChange = (index: number, val: boolean) => {
-	if (val && formData.dropdownItems) {
+const handleDefaultChange = (index: number) => {
+	if (formData.dropdownItems) {
 		formData.dropdownItems.forEach((item, i) => {
-			if (i !== index) item.isDefault = false;
+			item.isDefault = i === index;
 		});
 	}
 };

@@ -572,11 +572,11 @@ const getFormData = () => {
 
 // 设置表单数据（日期从 UTC 转换为项目时区）
 const setFormData = (data: Record<string, any>) => {
+	initFormValues();
 	Object.keys(data).forEach((key) => {
 		// 查找对应的字段配置
 		const field = props.fields.find((f) => f?.fieldName === key);
 		let value = data[key];
-
 		// 日期类型转换为项目时区时间
 		if (field?.dataType === propertyTypeEnum.DatePicker && value) {
 			const format = field.format?.dateFormat || projectDate;
