@@ -116,5 +116,15 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.OnboardingFile
         /// 租户ID
         /// </summary>
         public string TenantId { get; set; }
+
+        /// <summary>
+        /// Is External Import - Indicates if the file was imported from external system
+        /// </summary>
+        public bool IsExternalImport { get; set; }
+
+        /// <summary>
+        /// Source of the file (e.g., CRM, Portal, Manual)
+        /// </summary>
+        public string Source { get; set; }
     }
 }

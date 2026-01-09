@@ -107,7 +107,8 @@ namespace FlowFlex.SqlSugarDB.Migrations
                     ("20251231000001_CreatePhoneNumberPrefixesTable", (Action)(() => Migration_20251231000001_CreatePhoneNumberPrefixesTable.Up(_db))),
                     ("20250105000001_AddCoAssigneesToStage", (Action)(() => AddCoAssigneesToStage_20250105000001.Up(_db))),
                     ("20260106000001_CreateStageConditionTable", (Action)(() => Migration_20260106000001_CreateStageConditionTable.Up(_db))),
-                    ("20260108000001_CreateIntegrationApiLogTable", (Action)(() => Integration.Migration_20260108000001_CreateIntegrationApiLogTable.Up(_db)))
+                    ("20260108000001_CreateIntegrationApiLogTable", (Action)(() => Integration.Migration_20260108000001_CreateIntegrationApiLogTable.Up(_db))),
+                    ("20260108000002_AddIsExternalImportToOnboardingFile", (Action)(() => Migration_20260108000002_AddIsExternalImportToOnboardingFile.Up(_db)))
                 };
 
                 // Pre-check all migrations to reduce individual SQL queries

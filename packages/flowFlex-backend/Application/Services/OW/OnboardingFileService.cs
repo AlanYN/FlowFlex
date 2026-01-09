@@ -158,7 +158,9 @@ namespace FlowFlex.Application.Services.OW
                     UploadedDate = DateTimeOffset.UtcNow,
                     Status = "Active",
                     Version = 1,
-                    SortOrder = 0
+                    SortOrder = 0,
+                    IsExternalImport = input.IsExternalImport,
+                    Source = input.Source
                 };
                 // Debug logging handled by structured logging
                 // Initialize create information
@@ -766,7 +768,8 @@ namespace FlowFlex.Application.Services.OW
                         StageId = input.StageId,
                         FormFile = formFile,
                         Category = input.Category ?? "Document",
-                        Description = fileItem.Description ?? input.Description
+                        Description = fileItem.Description ?? input.Description,
+                        IsExternalImport = true  // Mark as external import
                     };
 
                     progressItem.ProgressPercentage = 80;
