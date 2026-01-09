@@ -1,5 +1,53 @@
 # Code Conventions
 
+## TenantId and AppCode Source Convention
+
+For `/api/ow/` endpoints, the CRUD operations must get TenantId and AppCode from HTTP headers:
+
+- **TenantId**: Get from `X-Tenant-Id` header
+- **AppCode**: Get from `X-App-Code` header
+
+### Implementation
+
+The `UserContext` is automatically populated from HTTP headers in `ServiceCollectionExtensions.cs`:
+
+```csharp
+// Priority: headers > JWT claims > AppContext > defaults
+var tenantId = tenantIdHeader ?? tenantIdClaim?.Value ?? appContext?.TenantId ?? "default";
+var appCode = appCodeHeader ?? appCodeClaim?.Value ?? appContext?.AppCode ?? "default";
+```
+
+### Usage in Services
+
+Services should use `UserContext` to get TenantId and AppCode:
+
+```csharp
+// Good ✅
+entity.TenantId = _userContext.TenantId ?? "default";
+entity.AppCode = _userContext.AppCode ?? "default";
+
+// Bad ❌ - Hardcoding values
+entity.TenantId = "some-tenant";
+entity.AppCode = "some-app";
+```
+
+### Query Filtering
+
+Always filter queries by TenantId for tenant isolation:
+
+```csharp
+// Good ✅
+var entities = await _db.Queryable<Entity>()
+    .Where(e => e.TenantId == _userContext.TenantId)
+    .ToListAsync();
+
+// Bad ❌ - No tenant filtering
+var entities = await _db.Queryable<Entity>()
+    .ToListAsync();
+```
+
+---
+
 ## AppCode Naming Convention
 
 - **NEVER** use uppercase `"DEFAULT"` for AppCode values in code

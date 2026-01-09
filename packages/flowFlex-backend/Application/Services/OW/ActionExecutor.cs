@@ -384,10 +384,40 @@ namespace FlowFlex.Application.Service.OW
                 ResultData = new Dictionary<string, object>()
             };
 
-            if (string.IsNullOrEmpty(action.FieldName))
+            // Support both top-level fieldName and parameters.fieldPath/fieldName
+            var fieldName = action.FieldName;
+            var fieldValue = action.FieldValue;
+
+            // If top-level fieldName is empty, try to get from parameters
+            if (string.IsNullOrEmpty(fieldName) && action.Parameters != null)
+            {
+                if (action.Parameters.TryGetValue("fieldPath", out var fieldPathObj))
+                {
+                    fieldName = fieldPathObj?.ToString();
+                }
+                else if (action.Parameters.TryGetValue("fieldName", out var fieldNameObj))
+                {
+                    fieldName = fieldNameObj?.ToString();
+                }
+
+                // Get value from parameters if not set at top level
+                if (fieldValue == null)
+                {
+                    if (action.Parameters.TryGetValue("newValue", out var newValueObj))
+                    {
+                        fieldValue = newValueObj;
+                    }
+                    else if (action.Parameters.TryGetValue("fieldValue", out var fieldValueObj))
+                    {
+                        fieldValue = fieldValueObj;
+                    }
+                }
+            }
+
+            if (string.IsNullOrEmpty(fieldName))
             {
                 result.Success = false;
-                result.ErrorMessage = "FieldName is required for UpdateField action";
+                result.ErrorMessage = "FieldName or parameters.fieldPath is required for UpdateField action";
                 return result;
             }
 
@@ -407,8 +437,8 @@ namespace FlowFlex.Application.Service.OW
                     ? new Dictionary<string, object>()
                     : JsonConvert.DeserializeObject<Dictionary<string, object>>(onboarding.CustomFieldsJson) ?? new Dictionary<string, object>();
 
-                var oldValue = customFields.ContainsKey(action.FieldName) ? customFields[action.FieldName] : null;
-                customFields[action.FieldName] = action.FieldValue!;
+                var oldValue = customFields.ContainsKey(fieldName) ? customFields[fieldName] : null;
+                customFields[fieldName] = fieldValue!;
 
                 // Update onboarding
                 await _db.Updateable<Onboarding>()
@@ -422,12 +452,12 @@ namespace FlowFlex.Application.Service.OW
                     .ExecuteCommandAsync();
 
                 result.Success = true;
-                result.ResultData["fieldName"] = action.FieldName;
+                result.ResultData["fieldName"] = fieldName;
                 result.ResultData["oldValue"] = oldValue!;
-                result.ResultData["newValue"] = action.FieldValue!;
+                result.ResultData["newValue"] = fieldValue!;
 
                 _logger.LogInformation("UpdateField executed: Onboarding {OnboardingId}, Field {FieldName} updated from {OldValue} to {NewValue}",
-                    context.OnboardingId, action.FieldName, oldValue, action.FieldValue);
+                    context.OnboardingId, fieldName, oldValue, fieldValue);
             }
             catch (Exception ex)
             {
@@ -492,7 +522,7 @@ namespace FlowFlex.Application.Service.OW
         }
 
         /// <summary>
-        /// Execute AssignUser action - assign user to onboarding
+        /// Execute AssignUser action - assign user or team to onboarding
         /// </summary>
         private async Task<ActionExecutionDetail> ExecuteAssignUserAsync(ConditionAction action, ActionExecutionContext context)
         {
@@ -503,10 +533,49 @@ namespace FlowFlex.Application.Service.OW
                 ResultData = new Dictionary<string, object>()
             };
 
-            if (!action.UserId.HasValue && string.IsNullOrEmpty(action.TeamId))
+            // Get assigneeType and assigneeIds from parameters
+            string? assigneeType = null;
+            List<string> assigneeIds = new List<string>();
+
+            if (action.Parameters != null)
+            {
+                if (action.Parameters.TryGetValue("assigneeType", out var typeObj))
+                {
+                    assigneeType = typeObj?.ToString()?.ToLower();
+                }
+
+                if (action.Parameters.TryGetValue("assigneeIds", out var idsObj))
+                {
+                    if (idsObj is Newtonsoft.Json.Linq.JArray jArray)
+                    {
+                        assigneeIds = jArray.Select(x => x.ToString()).ToList();
+                    }
+                    else if (idsObj is IEnumerable<object> enumerable)
+                    {
+                        assigneeIds = enumerable.Select(x => x?.ToString() ?? "").Where(x => !string.IsNullOrEmpty(x)).ToList();
+                    }
+                }
+            }
+
+            // Fallback to legacy top-level properties
+            if (string.IsNullOrEmpty(assigneeType))
+            {
+                if (action.UserId.HasValue)
+                {
+                    assigneeType = "user";
+                    assigneeIds.Add(action.UserId.Value.ToString());
+                }
+                else if (!string.IsNullOrEmpty(action.TeamId))
+                {
+                    assigneeType = "team";
+                    assigneeIds.Add(action.TeamId);
+                }
+            }
+
+            if (string.IsNullOrEmpty(assigneeType) || !assigneeIds.Any())
             {
                 result.Success = false;
-                result.ErrorMessage = "UserId or TeamId is required for AssignUser action";
+                result.ErrorMessage = "AssignUser action requires assigneeType and assigneeIds in parameters";
                 return result;
             }
 
@@ -521,31 +590,109 @@ namespace FlowFlex.Application.Service.OW
                     return result;
                 }
 
-                // Update assignee
-                if (action.UserId.HasValue)
+                if (assigneeType == "user")
                 {
+                    // Parse current ViewUsers list (JSONB array)
+                    var currentUsers = string.IsNullOrEmpty(onboarding.ViewUsers)
+                        ? new List<string>()
+                        : JsonConvert.DeserializeObject<List<string>>(onboarding.ViewUsers) ?? new List<string>();
+
+                    // Add new users (avoid duplicates)
+                    foreach (var id in assigneeIds)
+                    {
+                        if (!currentUsers.Contains(id))
+                        {
+                            currentUsers.Add(id);
+                        }
+                    }
+
+                    var newViewUsers = JsonConvert.SerializeObject(currentUsers);
+
+                    // Also update OperateUsers
+                    var currentOperateUsers = string.IsNullOrEmpty(onboarding.OperateUsers)
+                        ? new List<string>()
+                        : JsonConvert.DeserializeObject<List<string>>(onboarding.OperateUsers) ?? new List<string>();
+
+                    foreach (var id in assigneeIds)
+                    {
+                        if (!currentOperateUsers.Contains(id))
+                        {
+                            currentOperateUsers.Add(id);
+                        }
+                    }
+
+                    var newOperateUsers = JsonConvert.SerializeObject(currentOperateUsers);
+
                     await _db.Updateable<Onboarding>()
                         .SetColumns(o => new Onboarding
                         {
-                            CurrentAssigneeId = action.UserId.Value,
+                            ViewUsers = newViewUsers,
+                            OperateUsers = newOperateUsers,
                             ModifyDate = DateTimeOffset.UtcNow,
                             ModifyBy = _userContext.UserName ?? "SYSTEM"
                         })
                         .Where(o => o.Id == context.OnboardingId)
                         .ExecuteCommandAsync();
 
-                    result.ResultData["userId"] = action.UserId.Value;
+                    result.ResultData["assigneeType"] = "user";
+                    result.ResultData["assigneeIds"] = assigneeIds;
+                    result.ResultData["newViewUsers"] = currentUsers;
+                    result.ResultData["newOperateUsers"] = currentOperateUsers;
                 }
-
-                if (!string.IsNullOrEmpty(action.TeamId))
+                else if (assigneeType == "team")
                 {
-                    result.ResultData["teamId"] = action.TeamId;
+                    // Parse current ViewTeams list (JSONB array)
+                    var currentTeams = string.IsNullOrEmpty(onboarding.ViewTeams)
+                        ? new List<string>()
+                        : JsonConvert.DeserializeObject<List<string>>(onboarding.ViewTeams) ?? new List<string>();
+
+                    // Add new teams (avoid duplicates)
+                    foreach (var id in assigneeIds)
+                    {
+                        if (!currentTeams.Contains(id))
+                        {
+                            currentTeams.Add(id);
+                        }
+                    }
+
+                    var newViewTeams = JsonConvert.SerializeObject(currentTeams);
+
+                    // Also update OperateTeams
+                    var currentOperateTeams = string.IsNullOrEmpty(onboarding.OperateTeams)
+                        ? new List<string>()
+                        : JsonConvert.DeserializeObject<List<string>>(onboarding.OperateTeams) ?? new List<string>();
+
+                    foreach (var id in assigneeIds)
+                    {
+                        if (!currentOperateTeams.Contains(id))
+                        {
+                            currentOperateTeams.Add(id);
+                        }
+                    }
+
+                    var newOperateTeams = JsonConvert.SerializeObject(currentOperateTeams);
+
+                    await _db.Updateable<Onboarding>()
+                        .SetColumns(o => new Onboarding
+                        {
+                            ViewTeams = newViewTeams,
+                            OperateTeams = newOperateTeams,
+                            ModifyDate = DateTimeOffset.UtcNow,
+                            ModifyBy = _userContext.UserName ?? "SYSTEM"
+                        })
+                        .Where(o => o.Id == context.OnboardingId)
+                        .ExecuteCommandAsync();
+
+                    result.ResultData["assigneeType"] = "team";
+                    result.ResultData["assigneeIds"] = assigneeIds;
+                    result.ResultData["newViewTeams"] = currentTeams;
+                    result.ResultData["newOperateTeams"] = currentOperateTeams;
                 }
 
                 result.Success = true;
 
-                _logger.LogInformation("AssignUser executed: Onboarding {OnboardingId}, UserId={UserId}, TeamId={TeamId}",
-                    context.OnboardingId, action.UserId, action.TeamId);
+                _logger.LogInformation("AssignUser executed: Onboarding {OnboardingId}, Type={AssigneeType}, Ids={AssigneeIds}",
+                    context.OnboardingId, assigneeType, string.Join(",", assigneeIds));
             }
             catch (Exception ex)
             {

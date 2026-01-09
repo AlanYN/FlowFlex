@@ -84,7 +84,7 @@
     - 处理评估结果（所有规则 IsSuccess=true 时条件满足）
     - _Requirements: 4.1-4.5, 2.1-2.8_
 
-  - [ ]* 4.3 编写 RulesEngineService 单元测试
+  - [x]* 4.3 编写 RulesEngineService 单元测试
     - 测试各种表达式评估（比较、字符串、空值、数学运算）
     - 测试嵌套规则（AND/OR 组合）
     - 测试自定义函数调用
