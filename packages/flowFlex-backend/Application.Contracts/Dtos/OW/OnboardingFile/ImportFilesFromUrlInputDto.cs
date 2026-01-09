@@ -73,6 +73,11 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.OnboardingFile
         /// File description (optional)
         /// </summary>
         public string Description { get; set; }
+
+        /// <summary>
+        /// Source of the file (e.g., CRM, Portal, Manual)
+        /// </summary>
+        public string Source { get; set; }
     }
 }
 

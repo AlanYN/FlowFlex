@@ -784,8 +784,9 @@ namespace FlowFlex.Application.Services.Integration
                 foreach (var onboarding in onboardings)
                 {
                     // Use ClearFilter for file repository as well
+                    // Filter out external imported files (IsExternalImport = true)
                     var files = await _onboardingFileRepository.ClearFilter()
-                        .Where(f => f.OnboardingId == onboarding.Id && f.IsValid == true)
+                        .Where(f => f.OnboardingId == onboarding.Id && f.IsValid == true && f.IsExternalImport == false)
                         .OrderByDescending(f => f.UploadedDate)
                         .ToListAsync();
                         
