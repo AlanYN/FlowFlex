@@ -109,6 +109,7 @@
 					:maxlength="field.fieldValidate?.maxLength || 5000"
 					:placeholder="`Please enter ${field.displayName}`"
 					:disabled="readonly"
+					:resize="Number(field.additionalInfo?.rows) > 1 ? 'none' : 'vertical'"
 					:show-word-limit="true"
 				/>
 
@@ -127,7 +128,7 @@
 					<el-option
 						v-for="item in field.dropdownItems"
 						:key="item.id"
-						:label="item.label"
+						:label="`${item.value}`"
 						:value="item.value"
 					/>
 				</el-select>
@@ -199,7 +200,7 @@
 								link
 								size="small"
 								:disabled="readonly"
-								@click="handleRemoveFile(field.fieldName, file.id)"
+								@click="handleRemoveFile(field.fieldName, file)"
 							>
 								<Icon icon="mdi:close" />
 							</el-button>
@@ -326,7 +327,7 @@ const initFormValues = (initialData?: Record<string, any>) => {
 				// 文件对象数组
 				uploadedFilesMap[field.fieldName] = value.map((f: any) => ({
 					id: f?.id,
-					fileName: f.fileName || f.name || 'Unknown',
+					fileName: f.originalFileName || f.name || 'Unknown',
 					fileSize: f.fileSize || f.size || 0,
 				}));
 				// formValues 也存储完整的文件对象数组
@@ -505,11 +506,10 @@ const handleFileChange = async (file: any, field: DynamicList) => {
 
 		if (response?.data?.code === '200') {
 			ElMessage.success(`${file.name} uploaded successfully`);
-
 			// 添加到已上传文件列表
 			const uploadedFile: UploadedFile = {
 				id: response?.data?.data?.id,
-				fileName: response?.data?.data?.fileName || file.name,
+				fileName: response?.data?.data?.originalFileName || file.name,
 				fileSize: response?.data?.data?.fileSize || file.raw?.size || 0,
 			};
 
@@ -531,9 +531,11 @@ const handleFileChange = async (file: any, field: DynamicList) => {
 };
 
 // 移除已上传文件
-const handleRemoveFile = (fieldName: string, fileId: string) => {
+const handleRemoveFile = (fieldName: string, file: UploadedFile) => {
 	if (uploadedFilesMap[fieldName]) {
-		uploadedFilesMap[fieldName] = uploadedFilesMap[fieldName].filter((f) => f.id !== fileId);
+		uploadedFilesMap[fieldName] = uploadedFilesMap[fieldName].filter(
+			(f) => f?.id !== file.id || f.fileName !== file.fileName
+		);
 		updateFileIds(fieldName);
 	}
 };
@@ -596,6 +598,8 @@ const setFormData = (data: Record<string, any>) => {
 				uploadedFilesMap[key] = [];
 				formValues[key] = [];
 			}
+		} else if (field?.dataType == propertyTypeEnum.DropdownSelect && !value) {
+			formValues[key] = getDefaultValue(field);
 		} else {
 			formValues[key] = value;
 		}
