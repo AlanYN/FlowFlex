@@ -10,6 +10,7 @@ using FlowFlex.Domain.Entities.OW;
 using FlowFlex.Domain.Repository.OW;
 using FlowFlex.Domain.Shared;
 using FlowFlex.Domain.Shared.Models;
+using FlowFlex.Domain.Shared.Enums.OW;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 using RulesEngine.Models;
@@ -120,6 +121,7 @@ namespace FlowFlex.Application.Service.OW
 
         /// <summary>
         /// Evaluate condition with transaction lock for concurrency control
+        /// Implements Requirements 9.1-9.5: Transaction wrapping, row-level lock, single execution guarantee
         /// </summary>
         public async Task<ConditionEvaluationResult> EvaluateConditionWithLockAsync(long onboardingId, long stageId)
         {
@@ -127,7 +129,8 @@ namespace FlowFlex.Application.Service.OW
             {
                 var dbResult = await _db.Ado.UseTranAsync(async () =>
                 {
-                    // Row-level lock on onboarding record
+                    // Row-level lock on onboarding record (SELECT ... FOR UPDATE)
+                    // This prevents concurrent modifications and ensures only one request succeeds
                     var onboarding = await _db.Queryable<Onboarding>()
                         .Where(o => o.Id == onboardingId && o.IsValid)
                         .Where(o => o.TenantId == _userContext.TenantId)
@@ -139,7 +142,21 @@ namespace FlowFlex.Application.Service.OW
                         throw new InvalidOperationException($"Onboarding {onboardingId} not found");
                     }
 
-                    // Evaluate condition
+                    // Check if stage is already completed to prevent duplicate evaluation
+                    var stageProgress = onboarding.StagesProgress?.FirstOrDefault(sp => sp.StageId == stageId);
+                    if (stageProgress != null && stageProgress.IsCompleted)
+                    {
+                        _logger.LogWarning("Stage {StageId} already completed for onboarding {OnboardingId}, skipping condition evaluation",
+                            stageId, onboardingId);
+                        return new ConditionEvaluationResult
+                        {
+                            IsConditionMet = false,
+                            ErrorMessage = "Stage already completed",
+                            NextStageId = await GetNextStageIdAsync(stageId)
+                        };
+                    }
+
+                    // Evaluate condition within transaction
                     var result = await EvaluateConditionAsync(onboardingId, stageId);
 
                     return result;
@@ -151,6 +168,166 @@ namespace FlowFlex.Application.Service.OW
             {
                 _logger.LogError(ex, "Error evaluating condition with lock for onboarding {OnboardingId}, stage {StageId}", onboardingId, stageId);
                 return await CreateFallbackResultAsync(stageId, ex.Message);
+            }
+        }
+
+        /// <summary>
+        /// Evaluate condition and execute actions with full transaction support
+        /// Implements Requirements 9.1-9.5: Complete evaluation flow with concurrency control
+        /// </summary>
+        public async Task<ConditionEvaluationResult> EvaluateAndExecuteWithTransactionAsync(
+            long onboardingId, 
+            long stageId,
+            IConditionActionExecutor actionExecutor,
+            IOperationChangeLogService changeLogService)
+        {
+            ConditionEvaluationResult result = null;
+            StageCondition condition = null;
+
+            try
+            {
+                var dbResult = await _db.Ado.UseTranAsync(async () =>
+                {
+                    // 1. Acquire row-level lock on onboarding record
+                    var onboarding = await _db.Queryable<Onboarding>()
+                        .Where(o => o.Id == onboardingId && o.IsValid)
+                        .Where(o => o.TenantId == _userContext.TenantId)
+                        .With(SqlWith.UpdLock)
+                        .FirstAsync();
+
+                    if (onboarding == null)
+                    {
+                        throw new InvalidOperationException($"Onboarding {onboardingId} not found");
+                    }
+
+                    // 2. Check if stage is already completed
+                    var stageProgress = onboarding.StagesProgress?.FirstOrDefault(sp => sp.StageId == stageId);
+                    if (stageProgress != null && stageProgress.IsCompleted)
+                    {
+                        _logger.LogWarning("Stage {StageId} already completed, concurrent request detected", stageId);
+                        return new ConditionEvaluationResult
+                        {
+                            IsConditionMet = false,
+                            ErrorMessage = "Stage already completed by another request",
+                            NextStageId = await GetNextStageIdAsync(stageId)
+                        };
+                    }
+
+                    // 3. Load condition configuration
+                    condition = await GetConditionByStageIdAsync(stageId);
+                    
+                    if (condition == null || !condition.IsActive || condition.Status != "Valid")
+                    {
+                        _logger.LogDebug("No active condition for stage {StageId}, proceeding to next stage", stageId);
+                        return new ConditionEvaluationResult
+                        {
+                            IsConditionMet = false,
+                            NextStageId = await GetNextStageIdAsync(stageId)
+                        };
+                    }
+
+                    // 4. Build input data and evaluate rules
+                    var inputData = await BuildInputDataAsync(onboardingId, stageId);
+                    var ruleResults = await ExecuteRulesAsync(condition.RulesJson, inputData);
+                    bool isConditionMet = ruleResults.All(r => r.IsSuccess);
+
+                    result = new ConditionEvaluationResult
+                    {
+                        IsConditionMet = isConditionMet,
+                        RuleResults = ruleResults
+                    };
+
+                    // 5. Execute actions if condition is met
+                    if (isConditionMet && actionExecutor != null)
+                    {
+                        var context = new ActionExecutionContext
+                        {
+                            OnboardingId = onboardingId,
+                            StageId = stageId,
+                            ConditionId = condition.Id,
+                            TenantId = _userContext.TenantId,
+                            UserId = long.TryParse(_userContext.UserId, out var uid) ? uid : 0
+                        };
+
+                        var actionResult = await actionExecutor.ExecuteActionsAsync(condition.ActionsJson, context);
+                        result.ActionResults = actionResult.Details;
+
+                        _logger.LogInformation("Condition '{ConditionName}' met, executed {ActionCount} actions",
+                            condition.Name, actionResult.Details.Count);
+                    }
+                    else if (!isConditionMet)
+                    {
+                        // Condition not met - determine fallback stage
+                        result.NextStageId = condition.FallbackStageId ?? await GetNextStageIdAsync(stageId);
+                        _logger.LogInformation("Condition '{ConditionName}' not met, fallback to stage {NextStageId}",
+                            condition.Name, result.NextStageId);
+                    }
+
+                    return result;
+                });
+
+                result = dbResult.Data;
+
+                // 6. Log changes AFTER transaction commits successfully (Requirements 9.5)
+                if (changeLogService != null && condition != null)
+                {
+                    await LogConditionEvaluationAsync(changeLogService, onboardingId, stageId, condition, result);
+                }
+
+                return result;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error in EvaluateAndExecuteWithTransactionAsync for onboarding {OnboardingId}, stage {StageId}",
+                    onboardingId, stageId);
+                return await CreateFallbackResultAsync(stageId, ex.Message);
+            }
+        }
+
+        /// <summary>
+        /// Log condition evaluation result to OperationChangeLog
+        /// Called after transaction commits to ensure data consistency
+        /// </summary>
+        private async Task LogConditionEvaluationAsync(
+            IOperationChangeLogService changeLogService,
+            long onboardingId,
+            long stageId,
+            StageCondition condition,
+            ConditionEvaluationResult result)
+        {
+            try
+            {
+                var extendedData = System.Text.Json.JsonSerializer.Serialize(new
+                {
+                    conditionId = condition.Id,
+                    conditionName = condition.Name,
+                    result = result.IsConditionMet,
+                    ruleEvaluations = result.RuleResults?.Select(r => new
+                    {
+                        ruleName = r.RuleName,
+                        isSuccess = r.IsSuccess,
+                        expression = r.Expression,
+                        errorMessage = r.ErrorMessage
+                    }),
+                    nextStageId = result.NextStageId,
+                    actionCount = result.ActionResults?.Count ?? 0
+                });
+
+                await changeLogService.LogOperationAsync(
+                    operationType: Domain.Shared.Enums.OW.OperationTypeEnum.StageConditionEvaluate,
+                    businessModule: Domain.Shared.Enums.OW.BusinessModuleEnum.StageCondition,
+                    businessId: condition.Id,
+                    onboardingId: onboardingId,
+                    stageId: stageId,
+                    operationTitle: $"Condition Evaluated: {condition.Name}",
+                    operationDescription: $"Condition '{condition.Name}' evaluated: {(result.IsConditionMet ? "Met" : "Not Met")}",
+                    extendedData: extendedData
+                );
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to log condition evaluation for condition {ConditionId}", condition.Id);
+                // Don't throw - logging failure should not affect main flow
             }
         }
 
@@ -229,6 +406,7 @@ namespace FlowFlex.Application.Service.OW
 
         /// <summary>
         /// Execute rules using Microsoft RulesEngine
+        /// Supports both frontend custom format and RulesEngine format
         /// </summary>
         private async Task<List<RuleEvaluationDetail>> ExecuteRulesAsync(string rulesJson, object inputData)
         {
@@ -236,8 +414,11 @@ namespace FlowFlex.Application.Service.OW
 
             try
             {
+                // Convert frontend format to RulesEngine format if needed
+                var convertedRulesJson = ConvertToRulesEngineFormatIfNeeded(rulesJson);
+                
                 // Parse RulesEngine workflow JSON
-                var workflows = JsonConvert.DeserializeObject<RulesEngine.Models.Workflow[]>(rulesJson);
+                var workflows = JsonConvert.DeserializeObject<RulesEngine.Models.Workflow[]>(convertedRulesJson);
                 
                 if (workflows == null || workflows.Length == 0)
                 {
@@ -352,6 +533,201 @@ namespace FlowFlex.Application.Service.OW
             var result = CreateFallbackResult(stageId, errorMessage);
             result.NextStageId = await GetNextStageIdAsync(stageId);
             return result;
+        }
+
+        /// <summary>
+        /// Convert frontend custom rule format to RulesEngine format if needed
+        /// </summary>
+        private string ConvertToRulesEngineFormatIfNeeded(string rulesJson)
+        {
+            try
+            {
+                var jsonObj = Newtonsoft.Json.Linq.JToken.Parse(rulesJson);
+                
+                // Check if it's frontend format (has "logic" property)
+                if (jsonObj is Newtonsoft.Json.Linq.JObject jObject && jObject.ContainsKey("logic"))
+                {
+                    _logger.LogDebug("Converting frontend rule format to RulesEngine format");
+                    return ConvertFrontendRulesToRulesEngineFormat(rulesJson);
+                }
+                
+                // Already in RulesEngine format
+                return rulesJson;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to detect rules format, assuming RulesEngine format");
+                return rulesJson;
+            }
+        }
+
+        /// <summary>
+        /// Convert frontend custom rule format to RulesEngine format
+        /// Frontend format: {"logic":"AND","rules":[{"fieldPath":"...","operator":"==","value":"..."}]}
+        /// RulesEngine format: [{"WorkflowName":"StageCondition","Rules":[{"RuleName":"Rule1","Expression":"..."}]}]
+        /// </summary>
+        private string ConvertFrontendRulesToRulesEngineFormat(string frontendRulesJson)
+        {
+            try
+            {
+                var frontendRules = JsonConvert.DeserializeObject<FrontendRuleConfig>(frontendRulesJson);
+                if (frontendRules == null || frontendRules.Rules == null || !frontendRules.Rules.Any())
+                {
+                    return "[]";
+                }
+
+                var expressions = new List<string>();
+                var rulesEngineRules = new List<RulesEngine.Models.Rule>();
+                int ruleIndex = 1;
+
+                foreach (var rule in frontendRules.Rules)
+                {
+                    var expression = BuildExpressionFromFrontendRule(rule);
+                    if (!string.IsNullOrEmpty(expression))
+                    {
+                        rulesEngineRules.Add(new RulesEngine.Models.Rule
+                        {
+                            RuleName = $"Rule{ruleIndex}",
+                            Expression = expression,
+                            SuccessEvent = "true"
+                        });
+                        expressions.Add(expression);
+                        ruleIndex++;
+                    }
+                }
+
+                // If logic is OR, combine all rules into one with OR operator
+                if (frontendRules.Logic?.ToUpper() == "OR" && rulesEngineRules.Count > 1)
+                {
+                    var combinedExpression = string.Join(" || ", expressions.Select(e => $"({e})"));
+                    rulesEngineRules = new List<RulesEngine.Models.Rule>
+                    {
+                        new RulesEngine.Models.Rule
+                        {
+                            RuleName = "CombinedOrRule",
+                            Expression = combinedExpression,
+                            SuccessEvent = "true"
+                        }
+                    };
+                }
+
+                var workflow = new RulesEngine.Models.Workflow
+                {
+                    WorkflowName = "StageCondition",
+                    Rules = rulesEngineRules
+                };
+
+                return JsonConvert.SerializeObject(new[] { workflow });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to convert frontend rules to RulesEngine format");
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// Build RulesEngine expression from frontend rule
+        /// </summary>
+        private string BuildExpressionFromFrontendRule(FrontendRule rule)
+        {
+            if (string.IsNullOrEmpty(rule.FieldPath))
+            {
+                return null;
+            }
+
+            // Get the value representation
+            string valueStr;
+            if (rule.Value == null)
+            {
+                valueStr = "null";
+            }
+            else if (rule.Value is string strValue)
+            {
+                valueStr = $"\"{strValue}\"";
+            }
+            else if (rule.Value is bool boolValue)
+            {
+                valueStr = boolValue.ToString().ToLower();
+            }
+            else
+            {
+                valueStr = rule.Value.ToString();
+            }
+
+            // Map frontend operator to C# expression operator
+            var op = rule.Operator?.ToLower() switch
+            {
+                "==" or "equals" or "eq" => "==",
+                "!=" or "notequals" or "ne" => "!=",
+                ">" or "gt" => ">",
+                "<" or "lt" => "<",
+                ">=" or "gte" => ">=",
+                "<=" or "lte" => "<=",
+                "contains" => ".Contains",
+                "startswith" => ".StartsWith",
+                "endswith" => ".EndsWith",
+                "isnull" => "== null",
+                "isnotnull" => "!= null",
+                "isempty" => "IsEmpty",
+                "isnotempty" => "!IsEmpty",
+                _ => "=="
+            };
+
+            // Build expression based on operator type
+            if (op == ".Contains" || op == ".StartsWith" || op == ".EndsWith")
+            {
+                return $"{rule.FieldPath}{op}({valueStr})";
+            }
+            else if (op == "== null" || op == "!= null")
+            {
+                return $"{rule.FieldPath} {op}";
+            }
+            else if (op == "IsEmpty" || op == "!IsEmpty")
+            {
+                var prefix = op.StartsWith("!") ? "!" : "";
+                return $"{prefix}RuleUtils.IsEmpty({rule.FieldPath})";
+            }
+            else
+            {
+                return $"{rule.FieldPath} {op} {valueStr}";
+            }
+        }
+
+        /// <summary>
+        /// Frontend rule configuration model
+        /// </summary>
+        private class FrontendRuleConfig
+        {
+            [JsonProperty("logic")]
+            public string Logic { get; set; }
+
+            [JsonProperty("rules")]
+            public List<FrontendRule> Rules { get; set; }
+        }
+
+        /// <summary>
+        /// Frontend individual rule model
+        /// </summary>
+        private class FrontendRule
+        {
+            [JsonProperty("sourceStageId")]
+            public string SourceStageId { get; set; }
+
+            [JsonProperty("componentType")]
+            public string ComponentType { get; set; }
+
+            [JsonProperty("componentId")]
+            public string ComponentId { get; set; }
+
+            [JsonProperty("fieldPath")]
+            public string FieldPath { get; set; }
+
+            [JsonProperty("operator")]
+            public string Operator { get; set; }
+
+            [JsonProperty("value")]
+            public object Value { get; set; }
         }
 
         #endregion

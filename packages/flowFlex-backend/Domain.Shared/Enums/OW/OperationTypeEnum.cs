@@ -465,7 +465,13 @@ namespace FlowFlex.Domain.Shared.Enums.OW
         /// Action Mapping
         /// </summary>
         [Description("ActionMapping")]
-        ActionMapping = 13
+        ActionMapping = 13,
+
+        /// <summary>
+        /// Stage Condition
+        /// </summary>
+        [Description("StageCondition")]
+        StageCondition = 14
     }
 
     /// <summary>

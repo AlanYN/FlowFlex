@@ -114,8 +114,8 @@ namespace FlowFlex.Application.Service.OW
 
             // Initialize entity fields
             entity.InitNewId();
-            entity.TenantId = _userContext.TenantId ?? "DEFAULT";
-            entity.AppCode = _userContext.AppCode ?? "DEFAULT";
+            entity.TenantId = _userContext.TenantId ?? "default";
+            entity.AppCode = _userContext.AppCode ?? "default";
             entity.CreateDate = DateTimeOffset.UtcNow;
             entity.ModifyDate = DateTimeOffset.UtcNow;
             entity.CreateBy = _userContext.UserName ?? "SYSTEM";
@@ -318,7 +318,7 @@ namespace FlowFlex.Application.Service.OW
         }
 
         /// <summary>
-        /// Validate RulesJson format
+        /// Validate RulesJson format - supports both frontend custom format and RulesEngine format
         /// </summary>
         public async Task<ConditionValidationResult> ValidateRulesJsonAsync(string rulesJson)
         {
@@ -333,8 +333,31 @@ namespace FlowFlex.Application.Service.OW
 
             try
             {
-                // Try to parse as RulesEngine Workflow array
-                var workflows = JsonConvert.DeserializeObject<RulesEngine.Models.Workflow[]>(rulesJson);
+                RulesEngine.Models.Workflow[] workflows = null;
+
+                // First, try to detect if it's frontend custom format (has "logic" property)
+                var jsonObj = Newtonsoft.Json.Linq.JToken.Parse(rulesJson);
+                
+                if (jsonObj is Newtonsoft.Json.Linq.JObject jObject && jObject.ContainsKey("logic"))
+                {
+                    // Frontend custom format - convert to RulesEngine format
+                    var convertedJson = ConvertFrontendRulesToRulesEngineFormat(rulesJson);
+                    workflows = JsonConvert.DeserializeObject<RulesEngine.Models.Workflow[]>(convertedJson);
+                    
+                    // Add info that format was converted
+                    result.Warnings.Add(new ValidationWarning { Code = "FORMAT_CONVERTED", Message = "Frontend rule format detected and converted to RulesEngine format" });
+                }
+                else if (jsonObj is Newtonsoft.Json.Linq.JArray)
+                {
+                    // Standard RulesEngine format
+                    workflows = JsonConvert.DeserializeObject<RulesEngine.Models.Workflow[]>(rulesJson);
+                }
+                else
+                {
+                    result.IsValid = false;
+                    result.Errors.Add(new ValidationError { Code = "INVALID_FORMAT", Message = "RulesJson must be either a RulesEngine workflow array or frontend rule format with 'logic' property" });
+                    return result;
+                }
                 
                 if (workflows == null || workflows.Length == 0)
                 {
@@ -396,6 +419,179 @@ namespace FlowFlex.Application.Service.OW
             }
 
             return await Task.FromResult(result);
+        }
+
+        /// <summary>
+        /// Convert frontend custom rule format to RulesEngine format
+        /// Frontend format: {"logic":"AND","rules":[{"fieldPath":"...","operator":"==","value":"..."}]}
+        /// RulesEngine format: [{"WorkflowName":"StageCondition","Rules":[{"RuleName":"Rule1","Expression":"..."}]}]
+        /// </summary>
+        private string ConvertFrontendRulesToRulesEngineFormat(string frontendRulesJson)
+        {
+            try
+            {
+                var frontendRules = JsonConvert.DeserializeObject<FrontendRuleConfig>(frontendRulesJson);
+                if (frontendRules == null || frontendRules.Rules == null || !frontendRules.Rules.Any())
+                {
+                    // Return empty workflow array
+                    return "[]";
+                }
+
+                var expressions = new List<string>();
+                var rulesEngineRules = new List<RulesEngine.Models.Rule>();
+                int ruleIndex = 1;
+
+                foreach (var rule in frontendRules.Rules)
+                {
+                    // Build expression from frontend rule
+                    var expression = BuildExpressionFromFrontendRule(rule);
+                    if (!string.IsNullOrEmpty(expression))
+                    {
+                        rulesEngineRules.Add(new RulesEngine.Models.Rule
+                        {
+                            RuleName = $"Rule{ruleIndex}",
+                            Expression = expression,
+                            SuccessEvent = "true"
+                        });
+                        expressions.Add(expression);
+                        ruleIndex++;
+                    }
+                }
+
+                // If logic is OR, we need to combine all rules into one with OR operator
+                // If logic is AND, each rule is evaluated separately (all must pass)
+                if (frontendRules.Logic?.ToUpper() == "OR" && rulesEngineRules.Count > 1)
+                {
+                    // Combine all expressions with OR
+                    var combinedExpression = string.Join(" || ", expressions.Select(e => $"({e})"));
+                    rulesEngineRules = new List<RulesEngine.Models.Rule>
+                    {
+                        new RulesEngine.Models.Rule
+                        {
+                            RuleName = "CombinedOrRule",
+                            Expression = combinedExpression,
+                            SuccessEvent = "true"
+                        }
+                    };
+                }
+
+                var workflow = new RulesEngine.Models.Workflow
+                {
+                    WorkflowName = "StageCondition",
+                    Rules = rulesEngineRules
+                };
+
+                return JsonConvert.SerializeObject(new[] { workflow });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to convert frontend rules to RulesEngine format");
+                throw new JsonException($"Failed to convert frontend rules format: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Build RulesEngine expression from frontend rule
+        /// </summary>
+        private string BuildExpressionFromFrontendRule(FrontendRule rule)
+        {
+            if (string.IsNullOrEmpty(rule.FieldPath))
+            {
+                return null;
+            }
+
+            // Get the value representation
+            string valueStr;
+            if (rule.Value == null)
+            {
+                valueStr = "null";
+            }
+            else if (rule.Value is string strValue)
+            {
+                valueStr = $"\"{strValue}\"";
+            }
+            else if (rule.Value is bool boolValue)
+            {
+                valueStr = boolValue.ToString().ToLower();
+            }
+            else
+            {
+                valueStr = rule.Value.ToString();
+            }
+
+            // Map frontend operator to C# expression operator
+            var op = rule.Operator?.ToLower() switch
+            {
+                "==" or "equals" or "eq" => "==",
+                "!=" or "notequals" or "ne" => "!=",
+                ">" or "gt" => ">",
+                "<" or "lt" => "<",
+                ">=" or "gte" => ">=",
+                "<=" or "lte" => "<=",
+                "contains" => ".Contains",
+                "startswith" => ".StartsWith",
+                "endswith" => ".EndsWith",
+                "isnull" => "== null",
+                "isnotnull" => "!= null",
+                "isempty" => "IsEmpty",
+                "isnotempty" => "!IsEmpty",
+                _ => "=="
+            };
+
+            // Build expression based on operator type
+            if (op == ".Contains" || op == ".StartsWith" || op == ".EndsWith")
+            {
+                return $"{rule.FieldPath}{op}({valueStr})";
+            }
+            else if (op == "== null" || op == "!= null")
+            {
+                return $"{rule.FieldPath} {op}";
+            }
+            else if (op == "IsEmpty" || op == "!IsEmpty")
+            {
+                var prefix = op.StartsWith("!") ? "!" : "";
+                return $"{prefix}RuleUtils.IsEmpty({rule.FieldPath})";
+            }
+            else
+            {
+                return $"{rule.FieldPath} {op} {valueStr}";
+            }
+        }
+
+        /// <summary>
+        /// Frontend rule configuration model
+        /// </summary>
+        private class FrontendRuleConfig
+        {
+            [JsonProperty("logic")]
+            public string Logic { get; set; }
+
+            [JsonProperty("rules")]
+            public List<FrontendRule> Rules { get; set; }
+        }
+
+        /// <summary>
+        /// Frontend individual rule model
+        /// </summary>
+        private class FrontendRule
+        {
+            [JsonProperty("sourceStageId")]
+            public string SourceStageId { get; set; }
+
+            [JsonProperty("componentType")]
+            public string ComponentType { get; set; }
+
+            [JsonProperty("componentId")]
+            public string ComponentId { get; set; }
+
+            [JsonProperty("fieldPath")]
+            public string FieldPath { get; set; }
+
+            [JsonProperty("operator")]
+            public string Operator { get; set; }
+
+            [JsonProperty("value")]
+            public object Value { get; set; }
         }
 
         #endregion

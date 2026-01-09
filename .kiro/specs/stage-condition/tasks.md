@@ -153,7 +153,7 @@
     - 测试验证逻辑
     - _Requirements: 1.1-1.9, 6.1-6.6_
 
-- [ ] 7. 检查点 - 确保所有测试通过
+- [x] 7. 检查点 - 确保所有测试通过
   - 运行所有单元测试
   - 如有问题请询问用户
 
@@ -189,7 +189,7 @@
     - 如果条件不满足，进入 Fallback Stage
     - _Requirements: 4.1-4.2, 4.11_
 
-  - [ ] 9.2 实现并发控制
+  - [x] 9.2 实现并发控制
     - 使用数据库事务包装整个评估流程
     - 使用行级锁（SELECT ... FOR UPDATE）防止并发修改
     - 确保只有一个请求成功执行条件评估
@@ -217,13 +217,13 @@
     - 失败时记录 operationStatus: "Failed" 和 errorMessage
     - _Requirements: 8.3-8.4_
 
-  - [ ] 10.3 扩展 ChangeLog 查询
+  - [x] 10.3 扩展 ChangeLog 查询
     - 支持通过 onboardingId 查询条件评估历史
     - 支持通过 stageId 查询条件评估历史
     - 支持通过 operationType 过滤日志
     - _Requirements: 8.5-8.7_
 
-- [ ] 11. 检查点 - 确保所有测试通过
+- [x] 11. 检查点 - 确保所有测试通过
   - 运行所有单元测试和集成测试
   - 如有问题请询问用户
 
@@ -239,6 +239,19 @@
   - 所有代码编译成功
   - 接口重命名为 IConditionActionExecutor 避免与现有 IActionExecutor 冲突
   - 修复了所有类型引用和字段名称问题
+
+- [x] 14. RulesJson 格式兼容性
+  - [x] 14.1 支持前端自定义格式转换
+    - 前端格式: `{"logic":"AND","rules":[{"fieldPath":"...","operator":"==","value":"..."}]}`
+    - RulesEngine格式: `[{"WorkflowName":"StageCondition","Rules":[{"RuleName":"Rule1","Expression":"..."}]}]`
+    - 在 StageConditionService.ValidateRulesJsonAsync 中实现格式检测和转换
+    - 在 RulesEngineService.ExecuteRulesAsync 中实现运行时格式转换
+    - 支持 AND/OR 逻辑组合
+    - 支持多种操作符: ==, !=, >, <, >=, <=, contains, startswith, endswith, isnull, isnotnull, isempty, isnotempty
+
+- [x] 15. 代码规范修复
+  - [x] 15.1 修复 AppCode 大写问题
+    - 将 "DEFAULT" 改为 "default" 符合代码规范
 
 ---
 

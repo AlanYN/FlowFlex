@@ -83,6 +83,49 @@ namespace FlowFlex.Application.Contracts.IServices.OW.ChangeLog
             List<BusinessModuleEnum> businessModules = null,
             DateTimeOffset? startDate = null,
             DateTimeOffset? endDate = null);
+
+        /// <summary>
+        /// Get condition evaluation history for an onboarding
+        /// Implements Requirements 8.5: Query condition evaluation history by onboardingId
+        /// </summary>
+        /// <param name="onboardingId">Onboarding ID</param>
+        /// <param name="pageIndex">Page index (1-based)</param>
+        /// <param name="pageSize">Page size</param>
+        /// <returns>Paged condition evaluation logs</returns>
+        Task<PagedResult<OperationChangeLogOutputDto>> GetConditionEvaluationHistoryByOnboardingAsync(
+            long onboardingId,
+            int pageIndex = 1,
+            int pageSize = 20);
+
+        /// <summary>
+        /// Get condition evaluation history for a stage
+        /// Implements Requirements 8.6: Query condition evaluation history by stageId
+        /// </summary>
+        /// <param name="stageId">Stage ID</param>
+        /// <param name="onboardingId">Optional onboarding ID filter</param>
+        /// <param name="pageIndex">Page index (1-based)</param>
+        /// <param name="pageSize">Page size</param>
+        /// <returns>Paged condition evaluation logs</returns>
+        Task<PagedResult<OperationChangeLogOutputDto>> GetConditionEvaluationHistoryByStageAsync(
+            long stageId,
+            long? onboardingId = null,
+            int pageIndex = 1,
+            int pageSize = 20);
+
+        /// <summary>
+        /// Get condition action execution history
+        /// Implements Requirements 8.7: Query condition action execution logs
+        /// </summary>
+        /// <param name="onboardingId">Optional onboarding ID filter</param>
+        /// <param name="stageId">Optional stage ID filter</param>
+        /// <param name="pageIndex">Page index (1-based)</param>
+        /// <param name="pageSize">Page size</param>
+        /// <returns>Paged condition action execution logs</returns>
+        Task<PagedResult<OperationChangeLogOutputDto>> GetConditionActionExecutionHistoryAsync(
+            long? onboardingId = null,
+            long? stageId = null,
+            int pageIndex = 1,
+            int pageSize = 20);
     }
 
     /// <summary>

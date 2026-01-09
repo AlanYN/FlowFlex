@@ -40,3 +40,72 @@ const string DEFAULT_APP_CODE = "DEFAULT";
 - Consistency with database values
 - Avoid case-sensitivity issues in queries
 - Maintain uniform naming convention across the codebase
+
+---
+
+## Migration File Naming Convention
+
+Database migration files in `SqlSugarDB/Migrations` folder must follow a consistent naming pattern.
+
+### Naming Format
+
+```
+Migration_{YYYYMMDDHHMMSS}_{DescriptiveName}.cs
+```
+
+Or for special cases (initial create, seed data, etc.):
+
+```
+{DescriptiveName}_{YYYYMMDDHHMMSS}.cs
+```
+
+### Rules
+
+1. **Timestamp Format**: Use `YYYYMMDDHHMMSS` format (e.g., `20260108000002`)
+   - Year (4 digits) + Month (2 digits) + Day (2 digits) + Hour (2 digits) + Minute (2 digits) + Second (2 digits)
+   - For most migrations, use `000001`, `000002`, etc. for the time portion within the same day
+
+2. **Descriptive Name**: Use PascalCase with clear description of what the migration does
+   - Good: `AddIsExternalImportToOnboardingFile`, `CreateIntegrationTables`, `AddCaseCodeToOnboarding`
+   - Bad: `Update1`, `Fix`, `Changes`
+
+3. **Class Name**: Must match the file name (without `.cs` extension)
+   - File: `Migration_20260108000002_AddIsExternalImportToOnboardingFile.cs`
+   - Class: `Migration_20260108000002_AddIsExternalImportToOnboardingFile`
+
+4. **Subfolder Organization**: Domain-specific migrations can be placed in subfolders
+   - Example: `SqlSugarDB/Migrations/Integration/Migration_20260108000001_CreateIntegrationApiLogTable.cs`
+
+### Examples
+
+#### Good ✅
+```
+Migration_20260108000001_CreateIntegrationApiLogTable.cs
+Migration_20260108000002_AddIsExternalImportToOnboardingFile.cs
+Migration_20251124000001_CreateIntegrationTables.cs
+Migration_20251105000001_AddCaseCodeToOnboarding.cs
+```
+
+#### Bad ❌
+```
+Migration1.cs
+AddNewColumn.cs
+20260108_Update.cs
+migration_20260108000001_createtable.cs  // lowercase
+```
+
+### Registration in MigrationManager
+
+All migrations must be registered in `MigrationManager.cs`:
+
+```csharp
+var migrations = new[]
+{
+    // ... existing migrations
+    ("20260108000002_AddIsExternalImportToOnboardingFile", (Action)(() => Migration_20260108000002_AddIsExternalImportToOnboardingFile.Up(_db)))
+};
+```
+
+- The migration ID string should match the timestamp and name portion of the file
+- Migrations are executed in the order they appear in the array
+- Keep migrations in chronological order
