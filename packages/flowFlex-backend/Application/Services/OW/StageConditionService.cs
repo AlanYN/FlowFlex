@@ -682,10 +682,15 @@ namespace FlowFlex.Application.Service.OW
                             break;
 
                         case "updatefield":
-                            if (string.IsNullOrEmpty(action.FieldName))
+                            // Support both top-level fieldName and parameters.fieldPath/fieldName
+                            var hasFieldName = !string.IsNullOrEmpty(action.FieldName);
+                            var hasFieldPathInParams = action.Parameters != null && 
+                                (action.Parameters.ContainsKey("fieldPath") || action.Parameters.ContainsKey("fieldName"));
+                            
+                            if (!hasFieldName && !hasFieldPathInParams)
                             {
                                 result.IsValid = false;
-                                result.Errors.Add(new ValidationError { Code = "UPDATEFIELD_NAME_REQUIRED", Message = "UpdateField action requires fieldName" });
+                                result.Errors.Add(new ValidationError { Code = "UPDATEFIELD_NAME_REQUIRED", Message = "UpdateField action requires fieldName or parameters.fieldPath" });
                             }
                             break;
 
@@ -698,40 +703,37 @@ namespace FlowFlex.Application.Service.OW
                             break;
 
                         case "assignuser":
-                            // Check parameters dictionary for userIds or teamIds (array only)
-                            var hasUserIds = false;
-                            var hasTeamIds = false;
-                            
+                            // Check parameters dictionary for assigneeType and assigneeIds
                             if (action.Parameters != null)
                             {
-                                hasUserIds = HasNonEmptyArray(action.Parameters, "userIds");
-                                hasTeamIds = HasNonEmptyArray(action.Parameters, "teamIds");
-                                
                                 // Check assigneeType in parameters
-                                if (action.Parameters.TryGetValue("assigneeType", out var assigneeType))
-                                {
-                                    var assigneeTypeStr = assigneeType?.ToString()?.ToLower();
-                                    if (assigneeTypeStr == "user" && !hasUserIds)
-                                    {
-                                        result.IsValid = false;
-                                        result.Errors.Add(new ValidationError { Code = "ASSIGNUSER_USERIDS_REQUIRED", Message = "AssignUser action with assigneeType='user' requires userIds (array) in parameters" });
-                                    }
-                                    else if (assigneeTypeStr == "team" && !hasTeamIds)
-                                    {
-                                        result.IsValid = false;
-                                        result.Errors.Add(new ValidationError { Code = "ASSIGNUSER_TEAMIDS_REQUIRED", Message = "AssignUser action with assigneeType='team' requires teamIds (array) in parameters" });
-                                    }
-                                }
-                                else if (!hasUserIds && !hasTeamIds)
+                                if (!action.Parameters.TryGetValue("assigneeType", out var assigneeType) || 
+                                    string.IsNullOrEmpty(assigneeType?.ToString()))
                                 {
                                     result.IsValid = false;
-                                    result.Errors.Add(new ValidationError { Code = "ASSIGNUSER_TARGET_REQUIRED", Message = "AssignUser action requires userIds or teamIds (array) in parameters" });
+                                    result.Errors.Add(new ValidationError { Code = "ASSIGNUSER_TYPE_REQUIRED", Message = "AssignUser action requires assigneeType ('user' or 'team') in parameters" });
+                                }
+                                else
+                                {
+                                    var assigneeTypeStr = assigneeType.ToString()?.ToLower();
+                                    if (assigneeTypeStr != "user" && assigneeTypeStr != "team")
+                                    {
+                                        result.IsValid = false;
+                                        result.Errors.Add(new ValidationError { Code = "ASSIGNUSER_TYPE_INVALID", Message = "AssignUser action assigneeType must be 'user' or 'team'" });
+                                    }
+                                }
+
+                                // Check assigneeIds array
+                                if (!HasNonEmptyArray(action.Parameters, "assigneeIds"))
+                                {
+                                    result.IsValid = false;
+                                    result.Errors.Add(new ValidationError { Code = "ASSIGNUSER_IDS_REQUIRED", Message = "AssignUser action requires assigneeIds (non-empty array) in parameters" });
                                 }
                             }
                             else
                             {
                                 result.IsValid = false;
-                                result.Errors.Add(new ValidationError { Code = "ASSIGNUSER_PARAMS_REQUIRED", Message = "AssignUser action requires parameters with assigneeType and userIds/teamIds" });
+                                result.Errors.Add(new ValidationError { Code = "ASSIGNUSER_PARAMS_REQUIRED", Message = "AssignUser action requires parameters with assigneeType and assigneeIds" });
                             }
                             break;
                     }

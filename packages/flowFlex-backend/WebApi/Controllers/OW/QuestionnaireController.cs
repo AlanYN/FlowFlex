@@ -2,10 +2,14 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
+using System.Threading;
 using System.Threading.Tasks;
 using FlowFlex.Application.Contracts.Dtos.OW.Questionnaire;
 using FlowFlex.Application.Contracts.IServices.OW;
 using FlowFlex.Application.Contracts;
+using FlowFlex.Application.Contracts.Dtos;
+using FlowFlex.Domain.Shared;
+using FlowFlex.Domain.Shared.Models;
 using Item.Internal.StandardApi.Response;
 using System.Net;
 using FlowFlex.Application.Filter;
@@ -26,13 +30,22 @@ namespace FlowFlex.WebApi.Controllers.OW
     {
         private readonly IQuestionnaireService _questionnaireService;
         private readonly IFileStorageService _fileStorageService;
+        private readonly IAttachmentService _attachmentService;
         private readonly IComponentMappingService _mappingService;
+        private readonly UserContext _userContext;
 
-        public QuestionnaireController(IQuestionnaireService questionnaireService, IFileStorageService fileStorageService, IComponentMappingService mappingService)
+        public QuestionnaireController(
+            IQuestionnaireService questionnaireService, 
+            IFileStorageService fileStorageService, 
+            IAttachmentService attachmentService,
+            IComponentMappingService mappingService,
+            UserContext userContext)
         {
             _questionnaireService = questionnaireService;
             _fileStorageService = fileStorageService;
+            _attachmentService = attachmentService;
             _mappingService = mappingService;
+            _userContext = userContext;
         }
 
         /// <summary>
@@ -295,11 +308,6 @@ namespace FlowFlex.WebApi.Controllers.OW
             IFormFile formFile,
             [FromForm] string category = "QuestionnaireQuestion")
         {
-            if (formFile == null || formFile.Length == 0)
-            {
-                return BadRequest("File is required");
-            }
-
             // Validate file first
             var validationResult = await _fileStorageService.ValidateFileAsync(formFile);
             if (!validationResult.IsValid)
@@ -307,35 +315,39 @@ namespace FlowFlex.WebApi.Controllers.OW
                 return BadRequest($"File validation failed: {validationResult.ErrorMessage}");
             }
 
-            // Save file using file storage service
-            var storageResult = await _fileStorageService.SaveFileAsync(formFile, category);
-
-            if (!storageResult.Success)
+            // Use AttachmentService to save file and get ID
+            var attachmentDto = new AttachmentDto
             {
-                return BadRequest($"File upload failed: {storageResult.ErrorMessage}");
-            }
+                FileData = formFile,
+                CreateBy = _userContext.UserName
+            };
+
+            var tenantId = _userContext.TenantId ?? "default";
+            var attachment = await _attachmentService.CreateAttachmentAsync(
+                attachmentDto, tenantId, CancellationToken.None);
 
             // Get current gateway/host information
             var request = HttpContext.Request;
             var gateway = $"{request.Scheme}://{request.Host}";
-            var fullAccessUrl = storageResult.AccessUrl?.StartsWith("http") == true
-                ? storageResult.AccessUrl
-                : $"{gateway}{storageResult.AccessUrl}";
+            var fullAccessUrl = attachment.AccessUrl?.StartsWith("http") == true
+                ? attachment.AccessUrl
+                : $"{gateway}{attachment.AccessUrl}";
 
-            // Create comprehensive response
+            // Create comprehensive response with ID
             var response = new QuestionnaireFileUploadResponseDto
             {
-                Success = storageResult.Success,
-                AccessUrl = storageResult.AccessUrl,
-                OriginalFileName = storageResult.OriginalFileName,
-                FileName = storageResult.FileName,
-                FilePath = storageResult.FilePath,
-                FileSize = storageResult.FileSize,
-                ContentType = storageResult.ContentType,
+                Id = attachment.Id,
+                Success = true,
+                AccessUrl = attachment.AccessUrl,
+                OriginalFileName = attachment.RealName,
+                FileName = attachment.FileName,
+                FilePath = attachment.FilePath,
+                FileSize = attachment.FileSize,
+                ContentType = attachment.FileType,
                 Category = category,
-                FileHash = storageResult.FileHash,
+                FileHash = attachment.FileHash,
                 UploadTime = DateTime.UtcNow,
-                ErrorMessage = storageResult.ErrorMessage,
+                ErrorMessage = null,
                 Gateway = gateway,
                 FullAccessUrl = fullAccessUrl
             };
@@ -357,17 +369,13 @@ namespace FlowFlex.WebApi.Controllers.OW
             List<IFormFile> formFiles,
             [FromForm] string category = "QuestionnaireQuestion")
         {
-            if (formFiles == null || formFiles.Count == 0)
-            {
-                return BadRequest("At least one file is required");
-            }
-
             var uploadResults = new List<QuestionnaireFileUploadResponseDto>();
             var errors = new List<string>();
 
             // Get current gateway/host information
             var request = HttpContext.Request;
             var gateway = $"{request.Scheme}://{request.Host}";
+            var tenantId = _userContext.TenantId ?? "default";
 
             foreach (var formFile in formFiles)
             {
@@ -399,31 +407,41 @@ namespace FlowFlex.WebApi.Controllers.OW
                     continue;
                 }
 
-                // Save file
-                var storageResult = await _fileStorageService.SaveFileAsync(formFile, category);
-                if (!storageResult.Success)
+                try
+                {
+                    // Use AttachmentService to save file and get ID
+                    var attachmentDto = new AttachmentDto
+                    {
+                        FileData = formFile,
+                        CreateBy = _userContext.UserName
+                    };
+
+                    var attachment = await _attachmentService.CreateAttachmentAsync(
+                        attachmentDto, tenantId, CancellationToken.None);
+
+                    // Success case
+                    var fullAccessUrl = attachment.AccessUrl?.StartsWith("http") == true
+                        ? attachment.AccessUrl
+                        : $"{gateway}{attachment.AccessUrl}";
+
+                    response.Id = attachment.Id;
+                    response.Success = true;
+                    response.AccessUrl = attachment.AccessUrl;
+                    response.FileName = attachment.FileName;
+                    response.FilePath = attachment.FilePath;
+                    response.FileSize = attachment.FileSize;
+                    response.ContentType = attachment.FileType;
+                    response.FileHash = attachment.FileHash;
+                    response.FullAccessUrl = fullAccessUrl;
+                    uploadResults.Add(response);
+                }
+                catch (Exception ex)
                 {
                     response.Success = false;
-                    response.ErrorMessage = $"Upload failed: {storageResult.ErrorMessage}";
+                    response.ErrorMessage = $"Upload failed: {ex.Message}";
                     uploadResults.Add(response);
-                    errors.Add($"File {formFile.FileName} upload failed: {storageResult.ErrorMessage}");
-                    continue;
+                    errors.Add($"File {formFile.FileName} upload failed: {ex.Message}");
                 }
-
-                // Success case
-                var fullAccessUrl = storageResult.AccessUrl?.StartsWith("http") == true
-                    ? storageResult.AccessUrl
-                    : $"{gateway}{storageResult.AccessUrl}";
-
-                response.Success = storageResult.Success;
-                response.AccessUrl = storageResult.AccessUrl;
-                response.FileName = storageResult.FileName;
-                response.FilePath = storageResult.FilePath;
-                response.FileSize = storageResult.FileSize;
-                response.ContentType = storageResult.ContentType;
-                response.FileHash = storageResult.FileHash;
-                response.FullAccessUrl = fullAccessUrl;
-                uploadResults.Add(response);
             }
 
             // Return all results, both successful and failed

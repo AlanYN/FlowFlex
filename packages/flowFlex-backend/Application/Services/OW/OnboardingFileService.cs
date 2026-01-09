@@ -113,12 +113,6 @@ namespace FlowFlex.Application.Services.OW
             try
             {
                 // Debug logging handled by structured logging
-                // Validate file
-                if (input.FormFile == null || input.FormFile.Length == 0)
-                {
-                    throw new CRMException(ErrorCodeEnum.BusinessError, "File is required");
-                }
-                // Debug logging handled by structured logging
                 // Upload file to attachment system
                 // Debug logging handled by structured logging
                 var attachmentDto = new AttachmentDto

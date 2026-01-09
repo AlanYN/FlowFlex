@@ -56,11 +56,6 @@ namespace FlowFlex.WebApi.Controllers.OW
             [FromForm] string category = "Document",
             [FromForm] string description = "")
         {
-            if (formFile == null || formFile.Length == 0)
-            {
-                return BadRequest("File is required");
-            }
-
             var input = new OnboardingFileInputDto
             {
                 OnboardingId = onboardingId,
@@ -93,11 +88,6 @@ namespace FlowFlex.WebApi.Controllers.OW
             [FromForm] string category = "Document",
             [FromForm] string description = "")
         {
-            if (formFiles == null || formFiles.Count == 0)
-            {
-                return BadRequest("At least one file is required");
-            }
-
             var results = new List<OnboardingFileOutputDto>();
 
             foreach (var formFile in formFiles)

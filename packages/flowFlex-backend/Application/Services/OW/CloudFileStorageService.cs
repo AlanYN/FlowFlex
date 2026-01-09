@@ -361,18 +361,8 @@ namespace FlowFlex.Application.Services.OW
 
         public async Task<FileValidationResult> ValidateFileAsync(IFormFile file)
         {
-            // Check if file is empty
-            if (file == null || file.Length == 0)
-            {
-                return new FileValidationResult
-                {
-                    IsValid = false,
-                    ErrorMessage = "File cannot be empty"
-                };
-            }
-
             // Check file size
-            if (file.Length > _options.MaxFileSize)
+            if (file != null && file.Length > _options.MaxFileSize)
             {
                 return new FileValidationResult
                 {
