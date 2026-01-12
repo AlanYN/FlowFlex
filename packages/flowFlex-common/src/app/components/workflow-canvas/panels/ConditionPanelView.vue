@@ -1,5 +1,5 @@
 <template>
-	<div>
+	<div class="condition-panel">
 		<el-form
 			ref="formRef"
 			:model="formData"
@@ -67,14 +67,6 @@
 				/>
 			</div>
 		</el-form>
-
-		<!-- 底部按钮 -->
-		<div class="panel-footer">
-			<el-button @click="$emit('cancel')">Cancel</el-button>
-			<el-button type="primary" :loading="saving" @click="handleSave">
-				{{ saving ? 'Saving...' : 'Save' }}
-			</el-button>
-		</div>
 	</div>
 </template>
 
@@ -101,13 +93,10 @@ const props = defineProps<{
 	condition: StageCondition | null;
 	stages: Stage[];
 	currentStageIndex: number;
-	saving?: boolean;
 }>();
 
 // Emits
 const emit = defineEmits<{
-	(e: 'save', input: StageConditionInput): void;
-	(e: 'cancel'): void;
 	(e: 'change'): void;
 }>();
 
@@ -253,27 +242,27 @@ const buildSubmitData = (): StageConditionInput => {
 	};
 };
 
-// 处理保存
-const handleSave = async () => {
-	if (!formRef.value) return;
+// 处理保存 - 验证并返回数据
+const validateAndGetData = async (): Promise<StageConditionInput | null> => {
+	if (!formRef.value) return null;
 
 	try {
 		await formRef.value.validate();
 
 		if (formData.rules.length === 0) {
 			ElMessage.error('Please add at least one rule');
-			return;
+			return null;
 		}
 
 		if (formData.actions.length === 0) {
 			ElMessage.error('Please add at least one action');
-			return;
+			return null;
 		}
 
-		const submitData = buildSubmitData();
-		emit('save', submitData);
+		return buildSubmitData();
 	} catch (error) {
 		// 验证失败
+		return null;
 	}
 };
 
@@ -290,9 +279,18 @@ watch(
 	},
 	{ immediate: true }
 );
+
+// 暴露方法给父组件
+defineExpose({
+	validateAndGetData,
+});
 </script>
 
 <style lang="scss" scoped>
+.condition-panel {
+	height: 100%;
+}
+
 .form-section {
 	margin-bottom: 16px;
 	padding-bottom: 16px;
@@ -310,14 +308,5 @@ watch(
 	font-weight: 600;
 	color: var(--el-text-color-primary);
 	margin-bottom: 12px;
-}
-
-.panel-footer {
-	display: flex;
-	justify-content: flex-end;
-	gap: 12px;
-	padding-top: 16px;
-	margin-top: auto;
-	border-top: 1px solid var(--el-border-color-lighter);
 }
 </style>

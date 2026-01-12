@@ -36,6 +36,7 @@
 				@node-click="handleNodeClick"
 				@pane-click="handlePaneClick"
 				@viewport-change="handleViewportChange"
+				@delete-condition="handleDeleteCondition"
 			/>
 
 			<!-- 侧边面板 -->
@@ -150,7 +151,7 @@ const handleFitView = () => {
 
 // 返回
 const handleBack = () => {
-	router.push('/onboard/onboardWorkflow');
+	router.push({ path: '/onboard/onboardWorkflow', query: { id: workflowId } });
 };
 
 // 重试
@@ -205,6 +206,51 @@ const handleConditionSaved = async () => {
 // 数据变更
 const handleChange = () => {
 	store.setHasUnsavedChanges(true);
+};
+
+// 删除 Condition
+const handleDeleteCondition = async (conditionId: string) => {
+	// 获取 condition 名称
+	const condition = store.conditions.find((c) => c.id === conditionId);
+	const conditionName = condition?.name || 'this condition';
+
+	ElMessageBox.confirm(
+		`Are you sure you want to delete the condition "${conditionName}"? This action cannot be undone.`,
+		'⚠️ Confirm Condition Deletion',
+		{
+			confirmButtonText: 'Delete Condition',
+			cancelButtonText: 'Cancel',
+			confirmButtonClass: 'danger-confirm-btn',
+			cancelButtonClass: 'cancel-confirm-btn',
+			distinguishCancelAndClose: true,
+			customClass: 'delete-confirmation-dialog',
+			showCancelButton: true,
+			showConfirmButton: true,
+			beforeClose: async (action, instance, done) => {
+				if (action === 'confirm') {
+					// 显示 loading 状态
+					instance.confirmButtonLoading = true;
+					instance.confirmButtonText = 'Deleting...';
+					try {
+						const success = await store.deleteConditionById(conditionId);
+						if (success) {
+							done();
+						} else {
+							// 恢复按钮状态
+							instance.confirmButtonLoading = false;
+							instance.confirmButtonText = 'Delete Condition';
+						}
+					} catch {
+						// 恢复按钮状态
+						instance.confirmButtonLoading = false;
+						instance.confirmButtonText = 'Delete Condition';
+					}
+				} else {
+					done();
+				}
+			},
+		}
+	);
 };
 </script>
 

@@ -17,6 +17,14 @@
 			@pane-click="handlePaneClick"
 			@viewport-change="handleViewportChange"
 		>
+			<!-- 自定义节点模板 -->
+			<template #node-condition="nodeProps">
+				<ConditionNode
+					v-bind="nodeProps"
+					@delete="() => handleConditionDelete(nodeProps.id)"
+				/>
+			</template>
+
 			<!-- 背景 -->
 			<Background :gap="20" :size="1" />
 
@@ -60,10 +68,9 @@ import StageNode from './nodes/StageNode.vue';
 import ConditionNode from './nodes/ConditionNode.vue';
 import type { CanvasNodeData } from '#/workflow-canvas';
 
-// 注册自定义节点类型
+// 注册自定义节点类型（只注册 stage，condition 使用模板插槽）
 const nodeTypes: Record<string, any> = {
 	stage: markRaw(StageNode),
-	condition: markRaw(ConditionNode),
 };
 
 interface Props {
@@ -87,6 +94,7 @@ const emit = defineEmits<{
 	(e: 'pane-click'): void;
 	(e: 'viewport-change', viewport: ViewportTransform): void;
 	(e: 'retry'): void;
+	(e: 'delete-condition', conditionId: string): void;
 }>();
 
 // Vue Flow 实例
@@ -122,6 +130,7 @@ const getMinimapNodeColor = (node: Node): string => {
 
 // 节点点击
 const handleNodeClick = (event: NodeMouseEvent) => {
+	console.log('event:', event);
 	emit('node-click', event.node as Node<CanvasNodeData>);
 };
 
@@ -133,6 +142,13 @@ const handlePaneClick = () => {
 // 视口变化
 const handleViewportChange = (viewport: ViewportTransform) => {
 	emit('viewport-change', viewport);
+};
+
+// 处理 Condition 删除
+const handleConditionDelete = (nodeId: string) => {
+	// nodeId 格式为 'condition-{conditionId}'，需要提取 conditionId
+	const conditionId = nodeId.replace('condition-', '');
+	emit('delete-condition', conditionId);
 };
 
 // 暴露方法给父组件

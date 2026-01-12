@@ -6,7 +6,7 @@
 		:size="450"
 		:close-on-click-modal="false"
 		:destroy-on-close="false"
-		class="node-panel stage-condition-editor"
+		class="node-panel"
 	>
 		<template #header>
 			<div class="node-panel__header">
@@ -15,37 +15,47 @@
 			</div>
 		</template>
 
-		<div class="node-panel__content">
-			<!-- Stage 面板 -->
-			<StagePanelView
-				v-if="nodeType === 'stage'"
-				:stage="stageData"
-				:has-condition="hasCondition"
-				@add-condition="$emit('add-condition')"
-			/>
+		<el-scrollbar class="node-panel__scrollbar">
+			<div class="node-panel__content">
+				<!-- Stage 面板 -->
+				<StagePanelView
+					v-if="nodeType === 'stage'"
+					:stage="stageData"
+					:has-condition="hasCondition"
+					@add-condition="$emit('add-condition')"
+				/>
 
-			<!-- Condition 面板 -->
-			<ConditionPanelView
-				v-else-if="nodeType === 'condition'"
-				:condition="conditionData"
-				:stages="stages"
-				:current-stage-index="currentStageIndex"
-				:saving="saving"
-				@save="handleSave"
-				@cancel="handleCancel"
-				@change="handleChange"
-			/>
+				<!-- Condition 面板 -->
+				<ConditionPanelView
+					v-else-if="nodeType === 'condition'"
+					ref="conditionPanelRef"
+					:condition="conditionData"
+					:stages="stages"
+					:current-stage-index="currentStageIndex"
+					@change="handleChange"
+				/>
 
-			<!-- 空状态 -->
-			<div v-else class="node-panel__empty">
-				<el-empty description="Select a node to view details" />
+				<!-- 空状态 -->
+				<div v-else class="node-panel__empty">
+					<el-empty description="Select a node to view details" />
+				</div>
 			</div>
-		</div>
+		</el-scrollbar>
+
+		<!-- Condition 面板的 Footer -->
+		<template v-if="nodeType === 'condition'" #footer>
+			<div class="node-panel__footer">
+				<el-button @click="handleCancel">Cancel</el-button>
+				<el-button type="primary" :loading="saving" @click="handleSaveClick">
+					{{ saving ? 'Saving...' : 'Save' }}
+				</el-button>
+			</div>
+		</template>
 	</el-drawer>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
+import { ref, computed } from 'vue';
 import type { Node } from '@vue-flow/core';
 import type { Stage } from '#/onboard';
 import type { StageCondition, StageConditionInput } from '#/condition';
@@ -71,6 +81,9 @@ const emit = defineEmits<{
 	(e: 'add-condition'): void;
 	(e: 'change'): void;
 }>();
+
+// Refs
+const conditionPanelRef = ref<InstanceType<typeof ConditionPanelView> | null>(null);
 
 // 双向绑定
 const visible = computed({
@@ -135,14 +148,16 @@ const panelSubtitle = computed((): string => {
 	return '';
 });
 
-// 保存
-const handleSave = (input: StageConditionInput) => {
-	const stageId =
-		nodeType.value === 'condition'
-			? (props.selectedNode?.data as ConditionNodeData)?.stageId
-			: stageData.value?.id;
-	if (stageId) {
-		emit('save', stageId, input);
+// 保存按钮点击
+const handleSaveClick = async () => {
+	if (conditionPanelRef.value) {
+		const submitData = await conditionPanelRef.value.validateAndGetData();
+		if (submitData) {
+			const stageId = (props.selectedNode?.data as ConditionNodeData)?.stageId;
+			if (stageId) {
+				emit('save', stageId, submitData);
+			}
+		}
 	}
 };
 
@@ -156,6 +171,26 @@ const handleChange = () => {
 	emit('change');
 };
 </script>
+
+<style lang="scss">
+.node-panel {
+	.el-drawer__header {
+		margin-bottom: 0 !important;
+	}
+
+	.el-drawer__body {
+		display: flex;
+		flex-direction: column;
+		padding: 0;
+		overflow: hidden;
+	}
+
+	.el-drawer__footer {
+		border-top: 1px solid var(--el-border-color-lighter);
+		padding: 16px 20px;
+	}
+}
+</style>
 
 <style scoped>
 .node-panel__header {
@@ -177,8 +212,13 @@ const handleChange = () => {
 	margin: 0;
 }
 
+.node-panel__scrollbar {
+	flex: 1;
+	overflow: hidden;
+}
+
 .node-panel__content {
-	height: 100%;
+	padding: 16px 20px;
 }
 
 .node-panel__empty {
@@ -188,9 +228,9 @@ const handleChange = () => {
 	height: 100%;
 }
 
-.stage-condition-editor {
-	.el-drawer__header {
-		margin-bottom: 0px !important;
-	}
+.node-panel__footer {
+	display: flex;
+	justify-content: flex-end;
+	gap: 12px;
 }
 </style>

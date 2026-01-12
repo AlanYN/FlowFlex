@@ -58,12 +58,18 @@
 					class="action-field"
 				>
 					<el-select v-model="action.actionDefinitionId" placeholder="Select action">
-						<el-option
-							v-for="act in availableActions"
-							:key="act.id"
-							:label="act.name"
-							:value="act.id"
-						/>
+						<el-option-group
+							v-for="(actions, groupName) in groupedActions"
+							:key="groupName"
+							:label="groupName"
+						>
+							<el-option
+								v-for="act in actions"
+								:key="act.id"
+								:label="act.name"
+								:value="act.id"
+							/>
+						</el-option-group>
 					</el-select>
 				</el-form-item>
 
@@ -186,11 +192,13 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, computed } from 'vue';
 import { Plus, Delete, Warning } from '@element-plus/icons-vue';
 import type { ActionFormItem } from '#/condition';
 import type { Stage } from '#/onboard';
 import FlowflexUserSelector from '@/components/form/flowflexUser/index.vue';
+import { conditionAction } from '@/apis/ow';
+import { ToolsType } from '@/enums/appEnum';
 
 // Props
 const props = defineProps<{
@@ -204,8 +212,35 @@ const emit = defineEmits<{
 	(e: 'update:modelValue', value: ActionFormItem[]): void;
 }>();
 
+// ToolsType 标签映射
+const TOOLS_TYPE_LABELS: Record<number, string> = {
+	[ToolsType.UseTool]: 'Public Tools',
+	[ToolsType.MyTool]: 'My Tools',
+	[ToolsType.SystemTools]: 'System Tools',
+};
+
 // 可用的 Action 定义
-const availableActions = ref<Array<{ id: string; name: string }>>([]);
+interface ActionOption {
+	id: string;
+	name: string;
+	toolsType: ToolsType;
+}
+const availableActions = ref<ActionOption[]>([]);
+
+// 按 ToolsType 分组的 Actions
+const groupedActions = computed(() => {
+	const groups: Record<string, ActionOption[]> = {};
+
+	availableActions.value.forEach((action) => {
+		const typeName = TOOLS_TYPE_LABELS[action.toolsType] || 'Other';
+		if (!groups[typeName]) {
+			groups[typeName] = [];
+		}
+		groups[typeName].push(action);
+	});
+
+	return groups;
+});
 
 // 动作类型选项
 const actionTypes = [
@@ -293,13 +328,38 @@ const handleRemoveAction = (index: number) => {
 	emit('update:modelValue', newActions);
 };
 
-// 加载可用的 Action 定义
-onMounted(async () => {
+// 加载 Actions
+const loadAvailableActions = async () => {
 	try {
-		availableActions.value = [];
+		const res = await conditionAction();
+		if (res.code === '200' && res.data) {
+			availableActions.value = res.data.map((item: any) => {
+				// 根据 isSystemTools 和 isTools 判断 ToolsType
+				let toolsType: ToolsType;
+				if (item.isSystemTools) {
+					toolsType = ToolsType.SystemTools;
+				} else if (item.isTools) {
+					toolsType = ToolsType.UseTool;
+				} else {
+					toolsType = ToolsType.MyTool;
+				}
+
+				return {
+					id: item.id,
+					name: item.name || item.actionCode || 'Unnamed Action',
+					toolsType,
+				};
+			});
+		}
 	} catch (error) {
 		console.error('Failed to load available actions:', error);
+		availableActions.value = [];
 	}
+};
+
+// 加载可用的 Action 定义
+onMounted(async () => {
+	await loadAvailableActions();
 });
 </script>
 

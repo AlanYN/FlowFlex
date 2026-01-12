@@ -412,8 +412,4 @@ defineExpose({
 	gap: 12px;
 	padding: 16px 20px;
 }
-
-:deep(.el-drawer__body) {
-	padding: 0;
-}
 </style>
