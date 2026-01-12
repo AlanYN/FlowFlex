@@ -659,7 +659,7 @@ const isEditingWorkflow = ref(false);
 const originalStagesOrder = ref<Stage[]>([]); // 保存拖动前的原始阶段顺序
 
 // 新增状态变量
-const viewMode = ref<'list' | 'detail'>('list'); // 视图模式
+const viewMode = ref<'list' | 'detail'>(route?.query?.id ? 'detail' : 'list'); // 视图模式
 const activeView = ref('list'); // table/card切换
 const pagination = ref({
 	pageIndex: 1,
