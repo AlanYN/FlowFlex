@@ -1,5 +1,6 @@
 import { defHttp } from '@/apis/axios';
 import { useGlobSetting } from '@/settings';
+import { ApiResponse, TriggerMapping } from '#/action';
 
 const globSetting = useGlobSetting();
 
@@ -22,7 +23,6 @@ const Api = (id?: string | number) => {
 		stages: `${globSetting.apiProName}/ow/stages/${globSetting.apiVersion}`,
 		stage: `${globSetting.apiProName}/ow/stages/${globSetting.apiVersion}/${id}`,
 		stagesByWorkflow: `${globSetting.apiProName}/ow/workflows/${globSetting.apiVersion}/${id}/stages`,
-		stageCombine: `${globSetting.apiProName}/ow/stages/${globSetting.apiVersion}/combine`,
 		stageSort: `${globSetting.apiProName}/ow/stages/${globSetting.apiVersion}/sort`,
 		stageColor: `${globSetting.apiProName}/ow/stages/${globSetting.apiVersion}/${id}/color`,
 		stageRequiredFields: `${globSetting.apiProName}/ow/stages/${globSetting.apiVersion}/${id}/required-fields`,
@@ -38,6 +38,8 @@ const Api = (id?: string | number) => {
 		components: `${globSetting.apiProName}/ow/components/${globSetting.apiVersion}`,
 
 		stageConditions: `${globSetting.apiProName}/ow/stage-conditions/${globSetting.apiVersion}`,
+
+		conditionAction: `${globSetting.apiProName}/action/${globSetting.apiVersion}/definitions/all`,
 	};
 };
 
@@ -152,15 +154,6 @@ export function createStage(params: any) {
  */
 export function getStagesByWorkflow(workflowId: string | number) {
 	return defHttp.get({ url: `${Api(workflowId).stagesByWorkflow}` });
-}
-
-/**
- * 合并阶段 [S03]
- * @param params CombineStagesInputDto
- * @returns long (新阶段ID)
- */
-export function combineStages(params: any) {
-	return defHttp.post({ url: `${Api().stageCombine}`, params });
 }
 
 /**
@@ -367,5 +360,15 @@ export function validateRules(rulesJson: string) {
 export function validateCondition(id: string | number) {
 	return defHttp.post({
 		url: `${Api().stageConditions}/${id}/validate`,
+	});
+}
+
+/**
+ *
+ * @returns List<TriggerMapping>
+ */
+export function conditionAction(): Promise<ApiResponse<TriggerMapping[]>> {
+	return defHttp.get({
+		url: `${Api().conditionAction}`,
 	});
 }

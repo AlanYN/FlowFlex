@@ -456,6 +456,7 @@ const validateFile = (file: File, field: DynamicList): boolean => {
 
 // 处理文件选择变化 - 立即上传
 const handleFileChange = async (file: any, field: DynamicList) => {
+	formRef.value?.clearValidate();
 	if (!file.raw) return;
 
 	// 验证文件
