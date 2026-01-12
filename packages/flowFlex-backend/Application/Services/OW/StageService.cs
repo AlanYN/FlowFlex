@@ -529,6 +529,7 @@ namespace FlowFlex.Application.Service.OW
                 Order = stage.Order,
                 ComponentsJson = stage.ComponentsJson,
                 DefaultAssignee = stage.DefaultAssignee,
+                CoAssignees = stage.CoAssignees,
                 DefaultAssignedGroup = stage.DefaultAssignedGroup,
                 EstimatedDuration = stage.EstimatedDuration,
                 IsActive = stage.IsActive,
@@ -710,6 +711,32 @@ namespace FlowFlex.Application.Service.OW
                         "Stages progress sync is DISABLED to preserve existing onboarding data.",
                         stageInTransaction.WorkflowId, id);
 
+                    // Sync Assignee/CoAssignees to related onboardings when DefaultAssignee/CoAssignees changed
+                    // This only updates the synced values, not the custom values set by users
+                    if (originalStageSnapshot.DefaultAssignee != stageInTransaction.DefaultAssignee ||
+                        originalStageSnapshot.CoAssignees != stageInTransaction.CoAssignees)
+                    {
+                        _logger.LogInformation("Stage {StageId} DefaultAssignee/CoAssignees changed, syncing to related onboardings...", id);
+                        
+                        // Queue background task to sync assignees to all related onboardings
+                        var stageIdForSync = id;
+                        var newDefaultAssignee = stageInTransaction.DefaultAssignee;
+                        var newCoAssignees = stageInTransaction.CoAssignees;
+                        var workflowIdForSync = stageInTransaction.WorkflowId;
+                        
+                        _backgroundTaskQueue.QueueBackgroundWorkItem(async _ =>
+                        {
+                            try
+                            {
+                                await SyncStageAssigneesToOnboardingsAsync(stageIdForSync, workflowIdForSync, newDefaultAssignee, newCoAssignees);
+                            }
+                            catch (Exception ex)
+                            {
+                                _logger.LogError(ex, "Failed to sync stage assignees to onboardings for stage {StageId}", stageIdForSync);
+                            }
+                        });
+                    }
+
                     // Note: If sync is absolutely necessary, it should be done manually or
                     // with explicit user confirmation to prevent accidental data loss
 
@@ -761,6 +788,7 @@ namespace FlowFlex.Application.Service.OW
                             Order = originalStageSnapshot.Order,
                             ComponentsJson = originalStageSnapshot.ComponentsJson,
                             DefaultAssignee = originalStageSnapshot.DefaultAssignee,
+                            CoAssignees = originalStageSnapshot.CoAssignees,
                             DefaultAssignedGroup = originalStageSnapshot.DefaultAssignedGroup,
                             EstimatedDuration = originalStageSnapshot.EstimatedDuration,
                             IsActive = originalStageSnapshot.IsActive,
@@ -781,6 +809,7 @@ namespace FlowFlex.Application.Service.OW
                             Order = updatedStage.Order,
                             ComponentsJson = updatedStage.ComponentsJson,
                             DefaultAssignee = updatedStage.DefaultAssignee,
+                            CoAssignees = updatedStage.CoAssignees,
                             DefaultAssignedGroup = updatedStage.DefaultAssignedGroup,
                             EstimatedDuration = updatedStage.EstimatedDuration,
                             IsActive = updatedStage.IsActive,
@@ -801,6 +830,7 @@ namespace FlowFlex.Application.Service.OW
                         if (originalStageSnapshot.Order != updatedStage.Order) changedFields.Add("Order");
                         if (originalStageSnapshot.ComponentsJson != updatedStage.ComponentsJson) changedFields.Add("ComponentsJson");
                         if (originalStageSnapshot.DefaultAssignee != updatedStage.DefaultAssignee) changedFields.Add("DefaultAssignee");
+                        if (originalStageSnapshot.CoAssignees != updatedStage.CoAssignees) changedFields.Add("CoAssignees");
                         if (originalStageSnapshot.DefaultAssignedGroup != updatedStage.DefaultAssignedGroup) changedFields.Add("DefaultAssignedGroup");
                         if (originalStageSnapshot.EstimatedDuration != updatedStage.EstimatedDuration) changedFields.Add("EstimatedDuration");
                         if (originalStageSnapshot.IsActive != updatedStage.IsActive) changedFields.Add("IsActive");
@@ -3109,6 +3139,114 @@ namespace FlowFlex.Application.Service.OW
             catch (JsonException)
             {
                 return new List<string>();
+            }
+        }
+
+        /// <summary>
+        /// Sync stage assignees to all related onboardings when Stage.DefaultAssignee or Stage.CoAssignees is updated.
+        /// This updates the synced values (Assignee/CoAssignees) in stagesProgress, NOT the custom values (CustomStageAssignee/CustomStageCoAssignees).
+        /// </summary>
+        /// <param name="stageId">The stage ID that was updated</param>
+        /// <param name="workflowId">The workflow ID to find related onboardings</param>
+        /// <param name="newDefaultAssignee">New DefaultAssignee JSON from Stage</param>
+        /// <param name="newCoAssignees">New CoAssignees JSON from Stage</param>
+        private async Task SyncStageAssigneesToOnboardingsAsync(long stageId, long workflowId, string newDefaultAssignee, string newCoAssignees)
+        {
+            try
+            {
+                _logger.LogInformation("Starting sync of stage assignees to onboardings. StageId: {StageId}, WorkflowId: {WorkflowId}", stageId, workflowId);
+
+                // Parse new assignee values from Stage
+                var newAssigneeList = ParseAssigneeJsonToList(newDefaultAssignee);
+                var newCoAssigneesList = ParseAssigneeJsonToList(newCoAssignees);
+
+                // Filter CoAssignees to exclude any IDs already in DefaultAssignee
+                if (newAssigneeList.Any() && newCoAssigneesList.Any())
+                {
+                    newCoAssigneesList = newCoAssigneesList.Where(id => !newAssigneeList.Contains(id)).ToList();
+                }
+
+                // Query all onboardings with this workflowId (with tenant isolation)
+                var tenantId = _userContext?.TenantId ?? "default";
+                var onboardings = await _db.Queryable<Onboarding>()
+                    .Where(o => o.WorkflowId == workflowId && o.TenantId == tenantId && o.IsValid)
+                    .Select(o => new { o.Id, o.StagesProgressJson })
+                    .ToListAsync();
+
+                if (!onboardings.Any())
+                {
+                    _logger.LogInformation("No onboardings found for workflow {WorkflowId}, skipping sync", workflowId);
+                    return;
+                }
+
+                _logger.LogInformation("Found {Count} onboardings to sync for workflow {WorkflowId}", onboardings.Count, workflowId);
+
+                var updatedCount = 0;
+                var errorCount = 0;
+
+                foreach (var onboarding in onboardings)
+                {
+                    try
+                    {
+                        if (string.IsNullOrEmpty(onboarding.StagesProgressJson))
+                        {
+                            continue;
+                        }
+
+                        // Parse stagesProgress JSON
+                        var stagesProgressJson = onboarding.StagesProgressJson.Trim();
+                        
+                        // Handle double-serialized JSON
+                        if (stagesProgressJson.StartsWith("\"") && stagesProgressJson.EndsWith("\""))
+                        {
+                            stagesProgressJson = JsonSerializer.Deserialize<string>(stagesProgressJson, _jsonOptions) ?? "[]";
+                        }
+
+                        var stagesProgress = JsonSerializer.Deserialize<List<OnboardingStageProgress>>(stagesProgressJson, _jsonOptions);
+                        if (stagesProgress == null || !stagesProgress.Any())
+                        {
+                            continue;
+                        }
+
+                        // Find the stage in stagesProgress
+                        var stageProgress = stagesProgress.FirstOrDefault(sp => sp.StageId == stageId);
+                        if (stageProgress == null)
+                        {
+                            continue;
+                        }
+
+                        // Update synced values (Assignee/CoAssignees), NOT custom values
+                        stageProgress.Assignee = newAssigneeList;
+                        stageProgress.CoAssignees = newCoAssigneesList;
+
+                        // Serialize back to JSON with camelCase property naming
+                        var updatedJson = JsonSerializer.Serialize(stagesProgress, new JsonSerializerOptions
+                        {
+                            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+                            DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
+                        });
+
+                        // Update the onboarding record using raw SQL to handle JSONB type casting
+                        await _db.Ado.ExecuteCommandAsync(
+                            "UPDATE ff_onboarding SET stages_progress_json = @json::jsonb WHERE id = @id",
+                            new { json = updatedJson, id = onboarding.Id });
+
+                        updatedCount++;
+                    }
+                    catch (Exception ex)
+                    {
+                        errorCount++;
+                        _logger.LogWarning(ex, "Failed to sync stage assignees for onboarding {OnboardingId}", onboarding.Id);
+                    }
+                }
+
+                _logger.LogInformation("Completed sync of stage assignees. Updated: {UpdatedCount}, Errors: {ErrorCount}, Total: {TotalCount}",
+                    updatedCount, errorCount, onboardings.Count);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to sync stage assignees to onboardings. StageId: {StageId}, WorkflowId: {WorkflowId}", stageId, workflowId);
+                throw;
             }
         }
     }

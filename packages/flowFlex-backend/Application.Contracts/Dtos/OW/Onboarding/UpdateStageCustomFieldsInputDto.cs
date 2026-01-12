@@ -27,12 +27,14 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.Onboarding
         public DateTimeOffset? CustomEndTime { get; set; }
 
         /// <summary>
-        /// Stage Assignee - User IDs assigned to this stage (Reassign functionality)
+        /// Stage Assignee - User IDs assigned to this stage (will be saved to CustomStageAssignee)
+        /// Frontend uses this field, backend saves to CustomStageAssignee
         /// </summary>
         public List<string> Assignee { get; set; }
 
         /// <summary>
-        /// Stage Co-Assignees - Additional user IDs assigned to help with this stage
+        /// Stage Co-Assignees - Additional user IDs (will be saved to CustomStageCoAssignees)
+        /// Frontend uses this field, backend saves to CustomStageCoAssignees
         /// </summary>
         public List<string> CoAssignees { get; set; }
 

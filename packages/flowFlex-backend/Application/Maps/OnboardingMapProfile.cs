@@ -66,6 +66,22 @@ namespace FlowFlex.Application.Maps
                 // Keep CustomEstimatedDays for transparency
                 .ForMember(dest => dest.CustomEstimatedDays, opt => opt.MapFrom(src => src.CustomEstimatedDays))
                 .ForMember(dest => dest.CustomEndTime, opt => opt.MapFrom(src => src.CustomEndTime))
+                // Assignee priority: CustomStageAssignee > Assignee (synced from Stage)
+                .ForMember(dest => dest.Assignee, opt => opt.MapFrom(src => 
+                    src.CustomStageAssignee != null && src.CustomStageAssignee.Any() 
+                        ? src.CustomStageAssignee 
+                        : src.Assignee ?? new List<string>()))
+                // CoAssignees priority: CustomStageCoAssignees > CoAssignees (synced from Stage)
+                .ForMember(dest => dest.CoAssignees, opt => opt.MapFrom(src => 
+                    src.CustomStageCoAssignees != null && src.CustomStageCoAssignees.Any() 
+                        ? src.CustomStageCoAssignees 
+                        : src.CoAssignees ?? new List<string>()))
+                // Keep custom fields for transparency
+                .ForMember(dest => dest.CustomStageAssignee, opt => opt.MapFrom(src => src.CustomStageAssignee))
+                .ForMember(dest => dest.CustomStageCoAssignees, opt => opt.MapFrom(src => src.CustomStageCoAssignees))
+                // Synced values from Stage template (read-only)
+                .ForMember(dest => dest.SyncedAssignee, opt => opt.MapFrom(src => src.Assignee ?? new List<string>()))
+                .ForMember(dest => dest.SyncedCoAssignees, opt => opt.MapFrom(src => src.CoAssignees ?? new List<string>()))
                 // AI summary fields
                 .ForMember(dest => dest.AiSummary, opt => opt.MapFrom(src => src.AiSummary))
                 .ForMember(dest => dest.AiSummaryGeneratedAt, opt => opt.MapFrom(src => src.AiSummaryGeneratedAt))

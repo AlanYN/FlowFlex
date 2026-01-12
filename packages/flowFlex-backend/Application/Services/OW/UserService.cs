@@ -1764,7 +1764,7 @@ namespace FlowFlex.Application.Services.OW
                                 // Note: Same user may appear multiple times (one per team), so we need to deduplicate
                                 // Filter out UserType == 1
                                 var idmUsers = teamUsersResponse
-                                    .Where(tu => long.TryParse(tu.Id, out var userId) && missingUserIds.Contains(userId) && tu.UserType != 1) // Filter out UserType == 1
+                                    .Where(tu => long.TryParse(tu.Id, out var userId) && missingUserIds.Contains(userId))
                                     .GroupBy(tu => tu.Id) // Group by user ID to deduplicate
                                     .Select(g => g.First()) // Take first occurrence of each user
                                     .Select(tu =>

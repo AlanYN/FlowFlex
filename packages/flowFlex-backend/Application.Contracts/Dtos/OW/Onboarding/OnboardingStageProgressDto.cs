@@ -98,19 +98,34 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.Onboarding
         public bool IsCurrent { get; set; }
 
         /// <summary>
-        /// Stage Assignee - User IDs assigned to this stage (can be modified by user)
+        /// Stage Assignee - Display value (priority: CustomStageAssignee > synced Assignee)
         /// </summary>
         public List<string> Assignee { get; set; } = new List<string>();
 
         /// <summary>
-        /// Default Assignee - User IDs from workflow stage configuration (read-only, always synced from workflow)
-        /// </summary>
-        public List<string> DefaultAssignee { get; set; } = new List<string>();
-
-        /// <summary>
-        /// Stage Co-Assignees - Additional user IDs assigned to help with this stage
+        /// Stage Co-Assignees - Display value (priority: CustomStageCoAssignees > synced CoAssignees)
         /// </summary>
         public List<string> CoAssignees { get; set; } = new List<string>();
+
+        /// <summary>
+        /// Custom Stage Assignee - User-defined assignees (stored separately, used for override)
+        /// </summary>
+        public List<string> CustomStageAssignee { get; set; }
+
+        /// <summary>
+        /// Custom Stage Co-Assignees - User-defined co-assignees (stored separately, used for override)
+        /// </summary>
+        public List<string> CustomStageCoAssignees { get; set; }
+
+        /// <summary>
+        /// Synced Assignee - Original assignee synced from Stage template (read-only)
+        /// </summary>
+        public List<string> SyncedAssignee { get; set; } = new List<string>();
+
+        /// <summary>
+        /// Synced Co-Assignees - Original co-assignees synced from Stage template (read-only)
+        /// </summary>
+        public List<string> SyncedCoAssignees { get; set; } = new List<string>();
 
         /// <summary>
         /// 是否已保存

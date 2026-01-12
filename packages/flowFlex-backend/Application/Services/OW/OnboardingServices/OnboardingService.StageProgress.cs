@@ -77,8 +77,10 @@ namespace FlowFlex.Application.Services.OW
                         CompletedBy = null,
                         Notes = null,
                         IsCurrent = sequentialOrder == 1, // First stage is current
-                        Assignee = ParseDefaultAssignee(stage.DefaultAssignee), // Initialize from Stage.DefaultAssignee
-                        CoAssignees = GetFilteredCoAssignees(stage.CoAssignees, stage.DefaultAssignee), // Initialize from Stage.CoAssignees, excluding DefaultAssignee
+                        Assignee = ParseDefaultAssignee(stage.DefaultAssignee), // Sync from Stage.DefaultAssignee
+                        CoAssignees = GetFilteredCoAssignees(stage.CoAssignees, stage.DefaultAssignee), // Sync from Stage.CoAssignees
+                        CustomStageAssignee = null, // User customization, initially null
+                        CustomStageCoAssignees = null, // User customization, initially null
 
                         // Stage configuration fields (not serialized, populated dynamically)
                         StageName = stage.Name,
@@ -516,33 +518,6 @@ namespace FlowFlex.Application.Services.OW
                         // If CustomEstimatedDays exists, EstimatedDays should show the custom value
                         // (This will be handled by AutoMapper: EstimatedDays = CustomEstimatedDays ?? EstimatedDays)
 
-                        // Auto-fill Assignee from Stage.DefaultAssignee if not set
-                        if (stageProgress.Assignee == null || !stageProgress.Assignee.Any())
-                        {
-                            stageProgress.Assignee = ParseDefaultAssignee(stage.DefaultAssignee);
-                            _logger.LogDebug("Auto-filled Assignee from DefaultAssignee: StageId={StageId}, DefaultAssignee={DefaultAssignee}, ParsedAssignee={ParsedAssignee}",
-                                stage.Id, stage.DefaultAssignee, string.Join(",", stageProgress.Assignee ?? new List<string>()));
-                        }
-
-                        // Always sync DefaultAssignee from Stage configuration (read-only field)
-                        stageProgress.DefaultAssignee = ParseDefaultAssignee(stage.DefaultAssignee);
-
-                        // Auto-fill CoAssignees from Stage.CoAssignees if not set
-                        if (stageProgress.CoAssignees == null || !stageProgress.CoAssignees.Any())
-                        {
-                            stageProgress.CoAssignees = GetFilteredCoAssignees(stage.CoAssignees, stage.DefaultAssignee);
-                            _logger.LogDebug("Auto-filled CoAssignees from Stage: StageId={StageId}, CoAssignees={CoAssignees}",
-                                stage.Id, string.Join(",", stageProgress.CoAssignees ?? new List<string>()));
-                        }
-                        else
-                        {
-                            // Filter out any IDs that are already in Assignee
-                            var assigneeIds = stageProgress.Assignee ?? new List<string>();
-                            stageProgress.CoAssignees = stageProgress.CoAssignees
-                                .Where(id => !assigneeIds.Contains(id))
-                                .ToList();
-                        }
-
                         stageProgress.VisibleInPortal = stage.VisibleInPortal;
                         stageProgress.PortalPermission = stage.PortalPermission;
                         stageProgress.AttachmentManagementNeeded = stage.AttachmentManagementNeeded;
@@ -626,8 +601,10 @@ namespace FlowFlex.Application.Services.OW
                             CompletedBy = null,
                             Notes = null,
                             IsCurrent = false,
-                            Assignee = ParseDefaultAssignee(newStage.DefaultAssignee),
-                            CoAssignees = GetFilteredCoAssignees(newStage.CoAssignees, newStage.DefaultAssignee)
+                            Assignee = ParseDefaultAssignee(newStage.DefaultAssignee), // Sync from Stage.DefaultAssignee
+                            CoAssignees = GetFilteredCoAssignees(newStage.CoAssignees, newStage.DefaultAssignee), // Sync from Stage.CoAssignees
+                            CustomStageAssignee = null, // User customization, initially null
+                            CustomStageCoAssignees = null // User customization, initially null
                         };
 
 
@@ -967,7 +944,16 @@ namespace FlowFlex.Application.Services.OW
                 // If stages progress is empty, initialize it
                 if (entity.StagesProgress == null || !entity.StagesProgress.Any())
                 {
+                    _logger.LogInformation("Initializing empty stagesProgress for Onboarding {OnboardingId} with {StageCount} stages from workflow {WorkflowId}",
+                        entity.Id, stages.Count, entity.WorkflowId);
                     await InitializeStagesProgressAsync(entity, stages);
+                    
+                    // Save the initialized stages progress to database
+                    entity.StagesProgressJson = SerializeStagesProgress(entity.StagesProgress);
+                    await SafeUpdateOnboardingAsync(entity);
+                    
+                    _logger.LogInformation("Successfully initialized and saved stagesProgress for Onboarding {OnboardingId}",
+                        entity.Id);
                 }
                 else
                 {
@@ -977,14 +963,12 @@ namespace FlowFlex.Application.Services.OW
 
                 // Always enrich with stage data to ensure consistency
                 await EnrichStagesProgressWithStageDataAsync(entity);
-
-                // NOTE: Do NOT call SafeUpdateOnboardingAsync here to avoid recursion
-                // The caller is responsible for saving changes
             }
             catch (Exception ex)
             {
-                // Log error but don't throw to avoid breaking the main flow
-                // The validation will catch if stages progress is still missing
+                _logger.LogError(ex, "Error initializing stages progress for Onboarding {OnboardingId}", entity.Id);
+                // Re-throw the exception so the caller knows initialization failed
+                throw;
             }
             finally
             {
@@ -1199,7 +1183,7 @@ namespace FlowFlex.Application.Services.OW
 
         /// <summary>
         /// Update custom fields for a specific stage in onboarding's stagesProgress
-        /// Updates CustomEstimatedDays and CustomEndTime fields
+        /// Updates CustomEstimatedDays, CustomEndTime, CustomStageAssignee, and CustomStageCoAssignees fields
         /// </summary>
         public async Task<bool> UpdateStageCustomFieldsAsync(long onboardingId, UpdateStageCustomFieldsInputDto input)
         {
@@ -1226,16 +1210,16 @@ namespace FlowFlex.Application.Services.OW
                 // Capture original values for comparison
                 var originalEstimatedDays = stageProgress.CustomEstimatedDays;
                 var originalEndTime = stageProgress.CustomEndTime;
-                var originalAssignee = stageProgress.Assignee?.ToList() ?? new List<string>();
-                var originalCoAssignees = stageProgress.CoAssignees?.ToList() ?? new List<string>();
+                var originalCustomAssignee = stageProgress.CustomStageAssignee?.ToList() ?? new List<string>();
+                var originalCustomCoAssignees = stageProgress.CustomStageCoAssignees?.ToList() ?? new List<string>();
 
                 // Capture before data for change log
                 var beforeData = JsonSerializer.Serialize(new
                 {
                     CustomEstimatedDays = stageProgress.CustomEstimatedDays,
                     CustomEndTime = stageProgress.CustomEndTime,
-                    Assignee = stageProgress.Assignee,
-                    CoAssignees = stageProgress.CoAssignees,
+                    CustomStageAssignee = stageProgress.CustomStageAssignee,
+                    CustomStageCoAssignees = stageProgress.CustomStageCoAssignees,
                     LastUpdatedTime = stageProgress.LastUpdatedTime,
                     LastUpdatedBy = stageProgress.LastUpdatedBy
                 });
@@ -1244,16 +1228,16 @@ namespace FlowFlex.Application.Services.OW
                 stageProgress.CustomEstimatedDays = input.CustomEstimatedDays;
                 stageProgress.CustomEndTime = input.CustomEndTime;
 
-                // Update Assignee if provided
+                // Update CustomStageAssignee if Assignee is provided (frontend uses Assignee field)
                 if (input.Assignee != null)
                 {
-                    stageProgress.Assignee = input.Assignee;
+                    stageProgress.CustomStageAssignee = input.Assignee;
                 }
 
-                // Update CoAssignees if provided
+                // Update CustomStageCoAssignees if CoAssignees is provided (frontend uses CoAssignees field)
                 if (input.CoAssignees != null)
                 {
-                    stageProgress.CoAssignees = input.CoAssignees;
+                    stageProgress.CustomStageCoAssignees = input.CoAssignees;
                 }
 
                 // Add notes if provided
@@ -1282,8 +1266,8 @@ namespace FlowFlex.Application.Services.OW
                 {
                     CustomEstimatedDays = stageProgress.CustomEstimatedDays,
                     CustomEndTime = stageProgress.CustomEndTime,
-                    Assignee = stageProgress.Assignee,
-                    CoAssignees = stageProgress.CoAssignees,
+                    CustomStageAssignee = stageProgress.CustomStageAssignee,
+                    CustomStageCoAssignees = stageProgress.CustomStageCoAssignees,
                     LastUpdatedTime = stageProgress.LastUpdatedTime,
                     LastUpdatedBy = stageProgress.LastUpdatedBy
                 });
@@ -1300,12 +1284,61 @@ namespace FlowFlex.Application.Services.OW
                     var changedFields = new List<string>();
                     var changeDetails = new List<string>();
 
+                    // Collect all user IDs that need name resolution
+                    var allUserIds = new HashSet<long>();
+                    
+                    // Add user IDs from assignee changes
+                    foreach (var id in originalCustomAssignee.Concat(input.Assignee ?? new List<string>())
+                        .Concat(originalCustomCoAssignees).Concat(input.CoAssignees ?? new List<string>()))
+                    {
+                        if (long.TryParse(id, out var userId))
+                        {
+                            allUserIds.Add(userId);
+                        }
+                    }
+
+                    // Fetch user names for all IDs
+                    var userNameMap = new Dictionary<long, string>();
+                    if (allUserIds.Any())
+                    {
+                        try
+                        {
+                            var tenantId = _userContext?.TenantId ?? "default";
+                            var users = await _userService.GetUsersByIdsAsync(allUserIds.ToList(), tenantId);
+                            userNameMap = users
+                                .GroupBy(u => u.Id)
+                                .ToDictionary(
+                                    g => g.Key,
+                                    g =>
+                                    {
+                                        var user = g.First();
+                                        return !string.IsNullOrEmpty(user.Username) ? user.Username :
+                                               (!string.IsNullOrEmpty(user.Email) ? user.Email : $"User_{user.Id}");
+                                    }
+                                );
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogWarning(ex, "Failed to fetch user names for stage custom fields change log");
+                        }
+                    }
+
+                    // Helper function to convert user IDs to names
+                    string GetUserDisplayNames(IEnumerable<string> userIds)
+                    {
+                        if (userIds == null || !userIds.Any()) return "empty";
+                        var names = userIds
+                            .Select(id => long.TryParse(id, out var userId) && userNameMap.TryGetValue(userId, out var name) ? name : id)
+                            .ToList();
+                        return string.Join(", ", names);
+                    }
+
                     // Check for actual changes in CustomEstimatedDays
                     if (input.CustomEstimatedDays.HasValue && originalEstimatedDays != input.CustomEstimatedDays)
                     {
                         changedFields.Add("CustomEstimatedDays");
                         var beforeValue = originalEstimatedDays?.ToString() ?? "null";
-                        changeDetails.Add($"EstimatedDays: {beforeValue} 鈫?{input.CustomEstimatedDays}");
+                        changeDetails.Add($"EstimatedDays: {beforeValue} → {input.CustomEstimatedDays}");
                     }
 
                     // Check for actual changes in CustomEndTime
@@ -1316,21 +1349,21 @@ namespace FlowFlex.Application.Services.OW
                         changeDetails.Add($"EndTime: {beforeValue} → {input.CustomEndTime?.ToString("yyyy-MM-dd HH:mm")}");
                     }
 
-                    // Check for actual changes in Assignee
-                    if (input.Assignee != null && !originalAssignee.SequenceEqual(input.Assignee))
+                    // Check for actual changes in CustomStageAssignee (input uses Assignee field)
+                    if (input.Assignee != null && !originalCustomAssignee.SequenceEqual(input.Assignee))
                     {
-                        changedFields.Add("Assignee");
-                        var beforeValue = originalAssignee.Any() ? string.Join(", ", originalAssignee) : "empty";
-                        var afterValue = input.Assignee.Any() ? string.Join(", ", input.Assignee) : "empty";
+                        changedFields.Add("CustomStageAssignee");
+                        var beforeValue = GetUserDisplayNames(originalCustomAssignee);
+                        var afterValue = GetUserDisplayNames(input.Assignee);
                         changeDetails.Add($"Assignee: {beforeValue} → {afterValue}");
                     }
 
-                    // Check for actual changes in CoAssignees
-                    if (input.CoAssignees != null && !originalCoAssignees.SequenceEqual(input.CoAssignees))
+                    // Check for actual changes in CustomStageCoAssignees (input uses CoAssignees field)
+                    if (input.CoAssignees != null && !originalCustomCoAssignees.SequenceEqual(input.CoAssignees))
                     {
-                        changedFields.Add("CoAssignees");
-                        var beforeValue = originalCoAssignees.Any() ? string.Join(", ", originalCoAssignees) : "empty";
-                        var afterValue = input.CoAssignees.Any() ? string.Join(", ", input.CoAssignees) : "empty";
+                        changedFields.Add("CustomStageCoAssignees");
+                        var beforeValue = GetUserDisplayNames(originalCustomCoAssignees);
+                        var afterValue = GetUserDisplayNames(input.CoAssignees);
                         changeDetails.Add($"CoAssignees: {beforeValue} → {afterValue}");
                     }
 
@@ -1341,13 +1374,14 @@ namespace FlowFlex.Application.Services.OW
                         changeDetails.Add("Notes: Added");
                     }
 
-                    // Only log if there are actual changes or notes added
+                    // Log as Stage operation with onboardingId to associate with Case
+                    // Use BusinessModule.Stage because legacy adapter doesn't support Onboarding module
                     if (changeDetails.Any())
                     {
                         var operationTitle = $"Update Stage Custom Fields: {string.Join(", ", changeDetails)}";
-                        var operationDescription = $"Updated custom fields for stage {input.StageId} in onboarding {onboardingId}";
+                        var operationDescription = $"Updated custom fields for stage {input.StageId} in case {onboardingId}";
 
-                        // Log the stage custom fields update operation
+                        // Log the case stage custom fields update operation
                         await _operationChangeLogService.LogOperationAsync(
                             operationType: FlowFlex.Domain.Shared.Enums.OW.OperationTypeEnum.StageUpdate,
                             businessModule: BusinessModuleEnum.Stage,
@@ -1367,27 +1401,13 @@ namespace FlowFlex.Application.Services.OW
                             })
                         );
                     }
-                    // Note: No log entry is created when there are no actual changes
-                    // This reduces log noise and focuses on meaningful operations
                 }
 
                 return result;
             }
             catch (Exception ex)
             {
-                // Log the failed operation
-                await _operationChangeLogService.LogOperationAsync(
-                    operationType: FlowFlex.Domain.Shared.Enums.OW.OperationTypeEnum.StageUpdate,
-                    businessModule: BusinessModuleEnum.Stage,
-                    businessId: input.StageId,
-                    onboardingId: onboardingId,
-                    stageId: input.StageId,
-                    operationTitle: "Update Stage Custom Fields",
-                    operationDescription: $"Failed to update custom fields for stage {input.StageId} in onboarding {onboardingId}",
-                    operationStatus: OperationStatusEnum.Failed,
-                    errorMessage: ex.Message
-                );
-
+                _logger.LogError(ex, "Failed to update custom fields for stage {StageId} in onboarding {OnboardingId}", input.StageId, onboardingId);
                 throw new CRMException(ErrorCodeEnum.SystemError, $"Failed to update custom fields for stage {input.StageId} in onboarding {onboardingId}: {ex.Message}");
             }
         }

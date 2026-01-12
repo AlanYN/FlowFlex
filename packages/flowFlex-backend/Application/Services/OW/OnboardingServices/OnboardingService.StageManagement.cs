@@ -567,24 +567,75 @@ namespace FlowFlex.Application.Services.OW
         }
 
         /// <summary>
-        /// Send email notification to stage's default assignees and co-assignees
+        /// Send email notification to stage's assignees and co-assignees
+        /// Priority: CustomStageAssignee/CustomStageCoAssignees (user customization) > Assignee/CoAssignees (synced from Stage)
         /// </summary>
         private async Task SendEmailToStageAssigneesAsync(Onboarding entity, Stage stage, string caseId, string caseName, string completedStageName, string nextStageName, string completedBy, string completionTime, string caseUrl)
         {
             try
             {
-                // Collect all assignee IDs from both DefaultAssignee and CoAssignees
+                // Collect all assignee IDs from both Assignee and CoAssignees
                 var allAssigneeIds = new HashSet<string>();
 
-                // Parse default assignees
-                var defaultAssigneeIds = ParseAssigneeJson(stage.DefaultAssignee, stage.Id, "DefaultAssignee");
-                foreach (var id in defaultAssigneeIds)
+                // Get StagesProgress for this stage
+                var stageProgress = entity.StagesProgress?.FirstOrDefault(sp => sp.StageId == stage.Id);
+                
+                List<string> assigneeIds;
+                List<string> coAssigneeIds;
+
+                // Priority: CustomStageAssignee > Assignee (synced from Stage)
+                if (stageProgress?.CustomStageAssignee?.Any() == true)
+                {
+                    // Use user-customized assignee
+                    assigneeIds = stageProgress.CustomStageAssignee;
+                    _logger.LogDebug("Using CustomStageAssignee for stage {StageId}: {CustomStageAssignee}",
+                        stage.Id, string.Join(",", assigneeIds));
+                }
+                else if (stageProgress?.Assignee?.Any() == true)
+                {
+                    // Use synced assignee from Stage template
+                    assigneeIds = stageProgress.Assignee;
+                    _logger.LogDebug("Using synced Assignee for stage {StageId}: {Assignee}",
+                        stage.Id, string.Join(",", assigneeIds));
+                }
+                else
+                {
+                    // Fallback to Stage entity defaults (for backward compatibility)
+                    assigneeIds = ParseAssigneeJson(stage.DefaultAssignee, stage.Id, "DefaultAssignee");
+                    _logger.LogDebug("Using Stage template DefaultAssignee for stage {StageId}: {DefaultAssignee}",
+                        stage.Id, string.Join(",", assigneeIds));
+                }
+
+                // Priority: CustomStageCoAssignees > CoAssignees (synced from Stage)
+                if (stageProgress?.CustomStageCoAssignees?.Any() == true)
+                {
+                    // Use user-customized co-assignees
+                    coAssigneeIds = stageProgress.CustomStageCoAssignees;
+                    _logger.LogDebug("Using CustomStageCoAssignees for stage {StageId}: {CustomStageCoAssignees}",
+                        stage.Id, string.Join(",", coAssigneeIds));
+                }
+                else if (stageProgress?.CoAssignees?.Any() == true)
+                {
+                    // Use synced co-assignees from Stage template
+                    coAssigneeIds = stageProgress.CoAssignees;
+                    _logger.LogDebug("Using synced CoAssignees for stage {StageId}: {CoAssignees}",
+                        stage.Id, string.Join(",", coAssigneeIds));
+                }
+                else
+                {
+                    // Fallback to Stage entity defaults (for backward compatibility)
+                    coAssigneeIds = ParseAssigneeJson(stage.CoAssignees, stage.Id, "CoAssignees");
+                    _logger.LogDebug("Using Stage template CoAssignees for stage {StageId}: {CoAssignees}",
+                        stage.Id, string.Join(",", coAssigneeIds));
+                }
+
+                // Add all assignees
+                foreach (var id in assigneeIds)
                 {
                     allAssigneeIds.Add(id);
                 }
 
-                // Parse co-assignees
-                var coAssigneeIds = ParseAssigneeJson(stage.CoAssignees, stage.Id, "CoAssignees");
+                // Add all co-assignees
                 foreach (var id in coAssigneeIds)
                 {
                     allAssigneeIds.Add(id);
@@ -592,7 +643,7 @@ namespace FlowFlex.Application.Services.OW
 
                 if (allAssigneeIds.Count == 0)
                 {
-                    _logger.LogDebug("Next stage {StageId} has no assignees (default or co-assignees), skipping email notification", stage.Id);
+                    _logger.LogDebug("Next stage {StageId} has no assignees (assignee or co-assignees), skipping email notification", stage.Id);
                     return;
                 }
 

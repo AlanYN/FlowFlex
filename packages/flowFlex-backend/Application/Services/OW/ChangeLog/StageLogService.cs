@@ -965,7 +965,16 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
 
                             // Use the base class method for assignee change details (now properly async)
                             var assigneeChange = await GetAssigneeChangeDetailsAsync(beforeJsonStr, afterJsonStr);
-                            changeList.Add(assigneeChange);
+                            changeList.Add($"DefaultAssignee: {assigneeChange}");
+                        }
+                        else if (field.Equals("CoAssignees", StringComparison.OrdinalIgnoreCase))
+                        {
+                            var beforeJsonStr = beforeValue?.ToString() ?? string.Empty;
+                            var afterJsonStr = afterValue?.ToString() ?? string.Empty;
+
+                            // Use the base class method for co-assignee change details
+                            var coAssigneeChange = await GetAssigneeChangeDetailsAsync(beforeJsonStr, afterJsonStr);
+                            changeList.Add($"CoAssignees: {coAssigneeChange}");
                         }
                         else if (field.Equals("AttachmentManagementNeeded", StringComparison.OrdinalIgnoreCase))
                         {
