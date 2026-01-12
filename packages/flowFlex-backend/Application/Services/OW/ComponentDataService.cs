@@ -49,35 +49,84 @@ namespace FlowFlex.Application.Service.OW
             {
                 var result = new ChecklistData();
 
-                // Get checklist task completions for this onboarding and stage
+                // Get checklist task completions for this onboarding
                 var completions = await _db.Queryable<ChecklistTaskCompletion>()
                     .Where(c => c.OnboardingId == onboardingId && c.IsValid)
                     .Where(c => c.TenantId == _userContext.TenantId)
                     .ToListAsync();
 
-                // Get stage to find associated checklist
+                // Get stage to find associated checklists from components_json
                 var stage = await _stageRepository.GetByIdAsync(stageId);
-                if (stage?.ChecklistId == null)
+                if (stage == null)
                 {
+                    _logger.LogDebug("Stage {StageId} not found", stageId);
                     return result;
                 }
 
-                // Get checklist tasks
+                // Get all checklist IDs from components_json
+                var checklistIds = new List<long>();
+                
+                // First try to get from components_json
+                if (!string.IsNullOrEmpty(stage.ComponentsJson))
+                {
+                    try
+                    {
+                        var components = System.Text.Json.JsonSerializer.Deserialize<List<FlowFlex.Domain.Shared.Models.StageComponent>>(
+                            stage.ComponentsJson, 
+                            new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                        
+                        if (components != null)
+                        {
+                            foreach (var component in components)
+                            {
+                                if (component.Key == "checklist" && component.ChecklistIds != null)
+                                {
+                                    checklistIds.AddRange(component.ChecklistIds);
+                                }
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Failed to parse components_json for stage {StageId}", stageId);
+                    }
+                }
+
+                // Fallback to stage.ChecklistId if no checklists found in components_json
+                if (!checklistIds.Any() && stage.ChecklistId.HasValue)
+                {
+                    checklistIds.Add(stage.ChecklistId.Value);
+                }
+
+                if (!checklistIds.Any())
+                {
+                    _logger.LogDebug("No checklists found for stage {StageId}", stageId);
+                    return result;
+                }
+
+                _logger.LogDebug("Found {ChecklistCount} checklists for stage {StageId}: [{ChecklistIds}]", 
+                    checklistIds.Count, stageId, string.Join(", ", checklistIds));
+
+                // Get checklist tasks for all checklists
                 var tasks = await _db.Queryable<ChecklistTask>()
-                    .Where(t => t.ChecklistId == stage.ChecklistId && t.IsValid)
+                    .Where(t => checklistIds.Contains(t.ChecklistId) && t.IsValid)
                     .ToListAsync();
 
                 result.TotalCount = tasks.Count;
-                result.CompletedCount = completions.Count(c => c.IsCompleted);
-                result.Status = result.CompletedCount >= result.TotalCount ? "Completed" : "Pending";
+                result.CompletedCount = completions.Count(c => c.IsCompleted && tasks.Any(t => t.Id == c.TaskId));
+                result.Status = result.CompletedCount >= result.TotalCount && result.TotalCount > 0 ? "Completed" : "Pending";
 
                 result.Tasks = tasks.Select(t => new TaskStatusData
                 {
                     TaskId = t.Id,
+                    ChecklistId = t.ChecklistId,
                     Name = t.Name,
                     IsCompleted = completions.Any(c => c.TaskId == t.Id && c.IsCompleted),
                     CompletionNotes = completions.FirstOrDefault(c => c.TaskId == t.Id)?.CompletionNotes
                 }).ToList();
+
+                _logger.LogDebug("Retrieved {TaskCount} tasks from {ChecklistCount} checklists for stage {StageId}", 
+                    result.Tasks.Count, checklistIds.Count, stageId);
 
                 return result;
             }
@@ -97,43 +146,158 @@ namespace FlowFlex.Application.Service.OW
             {
                 var result = new QuestionnaireData();
 
-                // Get stage to find associated questionnaire
+                // Get stage to find associated questionnaires from components_json
                 var stage = await _stageRepository.GetByIdAsync(stageId);
-                if (stage?.QuestionnaireId == null)
+                if (stage == null)
                 {
+                    _logger.LogDebug("Stage {StageId} not found", stageId);
                     return result;
                 }
 
-                // Get questionnaire answer (one answer record per onboarding/questionnaire)
-                var answer = await _db.Queryable<QuestionnaireAnswer>()
-                    .Where(a => a.OnboardingId == onboardingId && a.QuestionnaireId == stage.QuestionnaireId && a.IsValid)
-                    .Where(a => a.TenantId == _userContext.TenantId)
-                    .FirstAsync();
-
-                if (answer != null)
+                // Get all questionnaire IDs from components_json
+                var questionnaireIds = new List<long>();
+                
+                // First try to get from components_json
+                if (!string.IsNullOrEmpty(stage.ComponentsJson))
                 {
-                    result.Status = answer.Status;
-                    // Parse Answer JToken to dictionary
+                    try
+                    {
+                        var components = System.Text.Json.JsonSerializer.Deserialize<List<FlowFlex.Domain.Shared.Models.StageComponent>>(
+                            stage.ComponentsJson, 
+                            new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                        
+                        if (components != null)
+                        {
+                            foreach (var component in components)
+                            {
+                                if (component.Key == "questionnaires" && component.QuestionnaireIds != null)
+                                {
+                                    questionnaireIds.AddRange(component.QuestionnaireIds);
+                                }
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Failed to parse components_json for stage {StageId}", stageId);
+                    }
+                }
+
+                // Fallback to stage.QuestionnaireId if no questionnaires found in components_json
+                if (!questionnaireIds.Any() && stage.QuestionnaireId.HasValue)
+                {
+                    questionnaireIds.Add(stage.QuestionnaireId.Value);
+                }
+
+                if (!questionnaireIds.Any())
+                {
+                    _logger.LogDebug("No questionnaires found for stage {StageId}", stageId);
+                    return result;
+                }
+
+                _logger.LogDebug("Found {QuestionnaireCount} questionnaires for stage {StageId}: [{QuestionnaireIds}]", 
+                    questionnaireIds.Count, stageId, string.Join(", ", questionnaireIds));
+
+                // Get questionnaire answers for all questionnaires
+                // Build nested structure: answers[questionnaireId][questionId] = value
+                var answers = await _db.Queryable<QuestionnaireAnswer>()
+                    .Where(a => a.OnboardingId == onboardingId && a.QuestionnaireId.HasValue && questionnaireIds.Contains(a.QuestionnaireId.Value) && a.IsValid)
+                    .Where(a => a.TenantId == _userContext.TenantId)
+                    .ToListAsync();
+
+                foreach (var answer in answers)
+                {
+                    var questionnaireIdStr = answer.QuestionnaireId.ToString();
+                    
+                    _logger.LogDebug("Processing questionnaire answer: QuestionnaireId={QuestionnaireId}, AnswerType={AnswerType}", 
+                        questionnaireIdStr, 
+                        answer.Answer?.GetType().Name ?? "null");
+
                     if (answer.Answer != null)
                     {
                         try
                         {
-                            var answerDict = answer.Answer.ToObject<Dictionary<string, object>>();
-                            if (answerDict != null)
+                            // The answer JSON structure is: { "responses": [{ "questionId": "xxx", "answer": "value", ... }, ...] }
+                            // We need to convert it to: { "questionId": "value", ... }
+                            var answerDict = new Dictionary<string, object>();
+                            
+                            // answer.Answer is a JToken, check if it's a JObject
+                            Newtonsoft.Json.Linq.JObject jObj = null;
+                            if (answer.Answer is Newtonsoft.Json.Linq.JObject directJObj)
                             {
-                                foreach (var kvp in answerDict)
+                                jObj = directJObj;
+                            }
+                            else if (answer.Answer is Newtonsoft.Json.Linq.JToken jToken)
+                            {
+                                // Try to convert JToken to JObject
+                                jObj = jToken as Newtonsoft.Json.Linq.JObject ?? jToken.ToObject<Newtonsoft.Json.Linq.JObject>();
+                            }
+
+                            if (jObj != null)
+                            {
+                                // Check if it has "responses" array
+                                if (jObj.TryGetValue("responses", out var responsesToken) && responsesToken is Newtonsoft.Json.Linq.JArray responsesArray)
                                 {
-                                    result.Answers[kvp.Key] = kvp.Value;
+                                    foreach (var response in responsesArray)
+                                    {
+                                        if (response is Newtonsoft.Json.Linq.JObject responseObj)
+                                        {
+                                            var questionId = responseObj["questionId"]?.ToString();
+                                            var answerValue = responseObj["answer"]?.ToString();
+                                            if (!string.IsNullOrEmpty(questionId))
+                                            {
+                                                answerDict[questionId] = answerValue ?? string.Empty;
+                                            }
+                                        }
+                                    }
+                                    _logger.LogDebug("Parsed questionnaire {QuestionnaireId} responses array with {KeyCount} questions: [{Keys}]", 
+                                        questionnaireIdStr, answerDict.Count, string.Join(", ", answerDict.Keys));
+                                }
+                                else
+                                {
+                                    // Fallback: try to parse as flat dictionary
+                                    foreach (var prop in jObj.Properties())
+                                    {
+                                        answerDict[prop.Name] = prop.Value?.ToString() ?? string.Empty;
+                                    }
+                                    _logger.LogDebug("Parsed questionnaire {QuestionnaireId} as flat dictionary with {KeyCount} keys: [{Keys}]", 
+                                        questionnaireIdStr, answerDict.Count, string.Join(", ", answerDict.Keys));
                                 }
                             }
+                            else
+                            {
+                                // Try to deserialize as dictionary
+                                var parsed = answer.Answer.ToObject<Dictionary<string, object>>();
+                                if (parsed != null)
+                                {
+                                    answerDict = parsed;
+                                    _logger.LogDebug("Parsed questionnaire {QuestionnaireId} via ToObject with {KeyCount} keys", 
+                                        questionnaireIdStr, answerDict.Count);
+                                }
+                            }
+
+                            if (answerDict.Count > 0)
+                            {
+                                result.Answers[questionnaireIdStr] = answerDict;
+                            }
                         }
-                        catch
+                        catch (Exception parseEx)
                         {
                             // If parsing fails, store the raw answer
-                            result.Answers["raw_answer"] = answer.Answer.ToString();
+                            result.Answers[questionnaireIdStr] = answer.Answer.ToString();
+                            _logger.LogWarning(parseEx, "Failed to parse questionnaire {QuestionnaireId} answer, stored as string", questionnaireIdStr);
                         }
                     }
+
+                    // Update status if any answer is completed
+                    if (!string.IsNullOrEmpty(answer.Status) && answer.Status != "Pending")
+                    {
+                        result.Status = answer.Status;
+                    }
                 }
+
+                _logger.LogDebug("Retrieved answers for {AnswerCount} questionnaires for stage {StageId}", 
+                    result.Answers.Count, stageId);
 
                 return result;
             }

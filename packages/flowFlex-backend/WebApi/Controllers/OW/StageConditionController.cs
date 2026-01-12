@@ -24,13 +24,16 @@ namespace FlowFlex.WebApi.Controllers.OW
     {
         private readonly IStageConditionService _conditionService;
         private readonly IComponentDataService _componentDataService;
+        private readonly IRulesEngineService _rulesEngineService;
 
         public StageConditionController(
             IStageConditionService conditionService,
-            IComponentDataService componentDataService)
+            IComponentDataService componentDataService,
+            IRulesEngineService rulesEngineService)
         {
             _conditionService = conditionService;
             _componentDataService = componentDataService;
+            _rulesEngineService = rulesEngineService;
         }
 
         #region CRUD Operations
@@ -144,6 +147,42 @@ namespace FlowFlex.WebApi.Controllers.OW
         public async Task<IActionResult> ValidateRulesJson([FromBody] ValidateRulesJsonRequest request)
         {
             var result = await _conditionService.ValidateRulesJsonAsync(request.RulesJson);
+            return Success(result);
+        }
+
+        #endregion
+
+        #region Evaluation
+
+        /// <summary>
+        /// Evaluate stage condition by case code and stage ID
+        /// Requires CASE:READ permission
+        /// </summary>
+        /// <param name="caseCode">Case code (unique identifier for the case)</param>
+        /// <param name="stageId">Stage ID to evaluate condition for</param>
+        /// <returns>Condition evaluation result</returns>
+        [HttpPost("evaluate/by-case/{caseCode}/stage/{stageId}")]
+        [WFEAuthorize(PermissionConsts.Case.Read)]
+        [ProducesResponseType<SuccessResponse<ConditionEvaluationResult>>((int)HttpStatusCode.OK)]
+        public async Task<IActionResult> EvaluateConditionByCaseCode(string caseCode, long stageId)
+        {
+            var result = await _rulesEngineService.EvaluateConditionByCaseCodeAsync(caseCode, stageId);
+            return Success(result);
+        }
+
+        /// <summary>
+        /// Evaluate stage condition by onboarding ID and stage ID
+        /// Requires CASE:READ permission
+        /// </summary>
+        /// <param name="onboardingId">Onboarding ID</param>
+        /// <param name="stageId">Stage ID to evaluate condition for</param>
+        /// <returns>Condition evaluation result</returns>
+        [HttpPost("evaluate/by-onboarding/{onboardingId}/stage/{stageId}")]
+        [WFEAuthorize(PermissionConsts.Case.Read)]
+        [ProducesResponseType<SuccessResponse<ConditionEvaluationResult>>((int)HttpStatusCode.OK)]
+        public async Task<IActionResult> EvaluateConditionByOnboardingId(long onboardingId, long stageId)
+        {
+            var result = await _rulesEngineService.EvaluateConditionAsync(onboardingId, stageId);
             return Success(result);
         }
 

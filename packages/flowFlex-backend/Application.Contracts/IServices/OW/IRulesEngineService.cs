@@ -18,6 +18,14 @@ namespace FlowFlex.Application.Contracts.IServices.OW
         Task<ConditionEvaluationResult> EvaluateConditionAsync(long onboardingId, long stageId);
 
         /// <summary>
+        /// Evaluate condition for a completed stage by case code and stage ID
+        /// </summary>
+        /// <param name="caseCode">Case code (unique identifier for the case)</param>
+        /// <param name="stageId">Stage ID</param>
+        /// <returns>Condition evaluation result</returns>
+        Task<ConditionEvaluationResult> EvaluateConditionByCaseCodeAsync(string caseCode, long stageId);
+
+        /// <summary>
         /// Evaluate condition with transaction lock for concurrency control
         /// Implements Requirements 9.1-9.5
         /// </summary>

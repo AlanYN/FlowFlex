@@ -304,6 +304,16 @@ namespace WebApi.Authentication
         {
             try
             {
+                // Skip IDM API call if TenantId is not a valid numeric value
+                // IDM expects numeric TenantId, "default" or empty values will cause API errors
+                if (string.IsNullOrEmpty(userContext.TenantId) || 
+                    userContext.TenantId == "default" || 
+                    !long.TryParse(userContext.TenantId, out _))
+                {
+                    Console.WriteLine($"[TokenValidatedHandler] Skipping team loading - TenantId '{userContext.TenantId}' is not a valid numeric value");
+                    return;
+                }
+
                 // Get IdmUserDataClient to fetch team information
                 var idmUserDataClient = context.HttpContext.RequestServices.GetService<FlowFlex.Application.Services.OW.IdmUserDataClient>();
                 if (idmUserDataClient == null)

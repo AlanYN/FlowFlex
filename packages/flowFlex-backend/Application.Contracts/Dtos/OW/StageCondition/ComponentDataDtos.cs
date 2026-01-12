@@ -47,6 +47,12 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.StageCondition
         public long TaskId { get; set; }
 
         /// <summary>
+        /// Checklist ID
+        /// </summary>
+        [JsonConverter(typeof(LongToStringConverter))]
+        public long ChecklistId { get; set; }
+
+        /// <summary>
         /// Task Name
         /// </summary>
         public string Name { get; set; } = string.Empty;

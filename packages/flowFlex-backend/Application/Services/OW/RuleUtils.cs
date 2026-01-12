@@ -70,11 +70,32 @@ namespace FlowFlex.Application.Service.OW
         }
 
         /// <summary>
+        /// Check if a value is in a comma-separated list string
+        /// </summary>
+        public static bool InList(string? value, string? commaSeparatedList)
+        {
+            if (string.IsNullOrEmpty(value) || string.IsNullOrEmpty(commaSeparatedList))
+                return false;
+            var list = commaSeparatedList.Split(',', StringSplitOptions.RemoveEmptyEntries)
+                .Select(s => s.Trim())
+                .ToArray();
+            return list.Contains(value, StringComparer.OrdinalIgnoreCase);
+        }
+
+        /// <summary>
         /// Check if a value is not in a list
         /// </summary>
         public static bool NotInList(string? value, params string[] list)
         {
             return !InList(value, list);
+        }
+
+        /// <summary>
+        /// Check if a value is not in a comma-separated list string
+        /// </summary>
+        public static bool NotInList(string? value, string? commaSeparatedList)
+        {
+            return !InList(value, commaSeparatedList);
         }
 
         /// <summary>
