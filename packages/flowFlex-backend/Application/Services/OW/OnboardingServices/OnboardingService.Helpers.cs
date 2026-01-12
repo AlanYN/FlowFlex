@@ -162,6 +162,8 @@ namespace FlowFlex.Application.Services.OW
                     Timestamp = DateTimeOffset.UtcNow,
                     Version = "1.0",
                     TenantId = onboarding.TenantId,
+                    UserId = long.TryParse(_userContext?.UserId, out var uid) ? uid : onboarding.CreateUserId,
+                    UserName = _userContext?.UserName ?? _operatorContextService.GetOperatorDisplayName() ?? "System",
                     OnboardingId = onboarding.Id,
                     LeadId = onboarding.LeadId,
                     WorkflowId = onboarding.WorkflowId,

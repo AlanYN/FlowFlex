@@ -1,85 +1,124 @@
 using FlowFlex.Domain.Shared.Events;
-using FlowFlex.Domain.Shared.Events.Action;
 using MediatR;
 using Microsoft.Extensions.Logging;
 using FlowFlex.Domain.Repository.OW;
 using FlowFlex.Domain.Entities.OW;
 using FlowFlex.Domain.Shared;
 using System.Text.Json;
-using FlowFlex.Domain.Shared.Models;
 using FlowFlex.Application.Services.OW.Extensions;
 using FlowFlex.Application.Contracts.IServices.OW;
-using FlowFlex.Application.Contracts.Dtos.OW.Questionnaire;
+using FlowFlex.Domain.Shared.Models;
 
 namespace FlowFlex.Application.Notification
 {
     /// <summary>
-    /// Onboarding stage completion event handler - stores events to database
+    /// Onboarding stage completion event handler - stores events to database and evaluates stage conditions
     /// </summary>
     public class OnboardingStageCompletedLogHandler : INotificationHandler<OnboardingStageCompletedEvent>
     {
         private readonly ILogger<OnboardingStageCompletedLogHandler> _logger;
-        private readonly IMediator _mediator;
         private readonly IEventRepository _eventRepository;
         private readonly UserContext _userContext;
-        private readonly IStageService _stageService;
-        private readonly IQuestionnaireService _questionnaireService;
-        private readonly IQuestionnaireAnswerService _questionnaireAnswerService;
+        private readonly IRulesEngineService _rulesEngineService;
 
         public OnboardingStageCompletedLogHandler(
             ILogger<OnboardingStageCompletedLogHandler> logger,
-            IMediator mediator,
             IEventRepository eventRepository,
             UserContext userContext,
-            IStageService stageService,
-            IQuestionnaireService questionnaireService,
-            IQuestionnaireAnswerService questionnaireAnswerService)
+            IRulesEngineService rulesEngineService)
         {
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-            _mediator = mediator ?? throw new ArgumentNullException(nameof(mediator));
             _eventRepository = eventRepository ?? throw new ArgumentNullException(nameof(eventRepository));
             _userContext = userContext ?? throw new ArgumentNullException(nameof(userContext));
-            _stageService = stageService ?? throw new ArgumentNullException(nameof(stageService));
-            _questionnaireService = questionnaireService ?? throw new ArgumentNullException(nameof(questionnaireService));
-            _questionnaireAnswerService = questionnaireAnswerService ?? throw new ArgumentNullException(nameof(questionnaireAnswerService));
+            _rulesEngineService = rulesEngineService ?? throw new ArgumentNullException(nameof(rulesEngineService));
         }
 
         public async Task Handle(OnboardingStageCompletedEvent notification, CancellationToken cancellationToken)
         {
             try
             {
-                _logger.LogInformation("开始处理 OnboardingStageCompletedEvent: {EventId}", notification.EventId);
+                _logger.LogInformation("Processing OnboardingStageCompletedEvent: {EventId}", notification.EventId);
 
-                // 1. 保存到新的事件表 ff_events
+                // Set UserContext from event data for background task compatibility
+                // This ensures downstream services use the correct TenantId
+                if (!string.IsNullOrEmpty(notification.TenantId))
+                {
+                    _userContext.TenantId = notification.TenantId;
+                }
+                if (notification.UserId > 0)
+                {
+                    _userContext.UserId = notification.UserId.ToString();
+                }
+                if (!string.IsNullOrEmpty(notification.UserName))
+                {
+                    _userContext.UserName = notification.UserName;
+                }
+
+                // 1. Save to ff_events table
                 await SaveToEventTableAsync(notification);
 
-                // 2. 发布 ActionTriggerEvent 
-                await PublishActionTriggerEventAsync(notification);
+                // 2. Evaluate stage condition (no longer execute actions directly)
+                await EvaluateStageConditionAsync(notification);
 
-                // 3. 保存到原有的阶段完成日志表 ff_stage_completion_log (保持向后兼容)
-                // Stage completion log functionality removed
-
-                _logger.LogInformation("成功处理 OnboardingStageCompletedEvent: {EventId}", notification.EventId);
+                _logger.LogInformation("Successfully processed OnboardingStageCompletedEvent: {EventId}", notification.EventId);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "处理 OnboardingStageCompletedEvent 时发生错误: {EventId}, 错误: {Error}",
+                _logger.LogError(ex, "Error processing OnboardingStageCompletedEvent: {EventId}, Error: {Error}",
                     notification.EventId, ex.Message);
 
-                // 不重新抛出异常，避免影响其他事件处理器
-                // 可以考虑将失败的事件标记为需要重试
+                // Don't rethrow exception to avoid affecting other event handlers
                 await HandleEventProcessingErrorAsync(notification, ex);
             }
         }
 
         /// <summary>
-        /// 保存事件到新的事件表 ff_events
+        /// Evaluate stage condition for the completed stage
+        /// </summary>
+        private async Task EvaluateStageConditionAsync(OnboardingStageCompletedEvent eventData)
+        {
+            try
+            {
+                _logger.LogDebug("Evaluating stage condition for OnboardingId={OnboardingId}, StageId={StageId}",
+                    eventData.OnboardingId, eventData.CompletedStageId);
+
+                // Evaluate condition using RulesEngineService
+                var result = await _rulesEngineService.EvaluateConditionAsync(
+                    eventData.OnboardingId, 
+                    eventData.CompletedStageId);
+
+                if (result.IsConditionMet)
+                {
+                    _logger.LogInformation("Stage condition met for OnboardingId={OnboardingId}, StageId={StageId}",
+                        eventData.OnboardingId, eventData.CompletedStageId);
+                }
+                else
+                {
+                    _logger.LogInformation("Stage condition not met for OnboardingId={OnboardingId}, StageId={StageId}, NextStageId={NextStageId}, Error={Error}",
+                        eventData.OnboardingId, eventData.CompletedStageId, result.NextStageId, result.ErrorMessage);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error evaluating stage condition for OnboardingId={OnboardingId}, StageId={StageId}",
+                    eventData.OnboardingId, eventData.CompletedStageId);
+                // Don't rethrow - condition evaluation failure should not block event processing
+            }
+        }
+
+        /// <summary>
+        /// Save event to ff_events table
         /// </summary>
         private async Task SaveToEventTableAsync(OnboardingStageCompletedEvent eventData)
         {
             try
             {
-                // 构建事件元数据
+                // Use event data for user info (available in background tasks)
+                var processedBy = !string.IsNullOrEmpty(eventData.UserName) 
+                    ? eventData.UserName 
+                    : (_userContext?.UserName ?? "System");
+
+                // Build event metadata
                 var eventMetadata = new
                 {
                     RoutingTags = eventData.RoutingTags,
@@ -88,12 +127,12 @@ namespace FlowFlex.Application.Notification
                     ProcessingInfo = new
                     {
                         ProcessedAt = DateTimeOffset.UtcNow,
-                        ProcessedBy = _userContext?.UserName ?? "System",
+                        ProcessedBy = processedBy,
                         ProcessorVersion = "1.0"
                     }
                 };
 
-                // 创建事件实体
+                // Create event entity
                 var eventEntity = new Event
                 {
                     EventId = eventData.EventId,
@@ -121,95 +160,34 @@ namespace FlowFlex.Application.Notification
                     ProcessCount = 1,
                     LastProcessedAt = DateTimeOffset.UtcNow,
                     RequiresRetry = false,
-                    NextRetryAt = null, // 显式设置为 null，因为不需要重试
+                    NextRetryAt = null,
                     MaxRetryCount = 3,
                     TenantId = eventData.TenantId
                 };
 
-                // 设置创建信息
-                eventEntity.InitCreateInfo(_userContext);
+                // Set creation info using event data for background task compatibility
+                eventEntity.InitCreateInfoFromEvent(eventData.UserId, eventData.UserName);
 
-                // 保存到数据库
+                // Save to database
                 await _eventRepository.InsertAsync(eventEntity);
 
-                _logger.LogDebug("事件已保存到 ff_events 表: {EventId}", eventData.EventId);
+                _logger.LogDebug("Event saved to ff_events table: {EventId}", eventData.EventId);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "保存事件到 ff_events 表时发生错误: {EventId}", eventData.EventId);
+                _logger.LogError(ex, "Error saving event to ff_events table: {EventId}", eventData.EventId);
                 throw;
             }
         }
 
         /// <summary>
-        /// 发布 ActionTriggerEvent 以触发相关动作
-        /// </summary>
-        private async Task PublishActionTriggerEventAsync(OnboardingStageCompletedEvent eventData)
-        {
-            try
-            {
-                // 构建上下文数据
-                var contextData = new
-                {
-                    OnboardingId = eventData.OnboardingId,
-                    LeadId = eventData.LeadId,
-                    WorkflowId = eventData.WorkflowId,
-                    WorkflowName = eventData.WorkflowName,
-                    CompletedStageId = eventData.CompletedStageId,
-                    CompletedStageName = eventData.CompletedStageName,
-                    NextStageId = eventData.NextStageId,
-                    NextStageName = eventData.NextStageName,
-                    CompletionRate = eventData.CompletionRate,
-                    IsFinalStage = eventData.IsFinalStage,
-                    BusinessContext = eventData.BusinessContext,
-                    Components = eventData.Components,
-                    TenantId = eventData.TenantId,
-                    Source = eventData.Source,
-                    Priority = eventData.Priority,
-                    OriginalEventId = eventData.EventId
-                };
-
-                // 获取当前用户ID
-                var currentUserId = GetCurrentUserId();
-
-                // 创建并发布 ActionTriggerEvent
-                var actionTriggerEvent = new ActionTriggerEvent(
-                    triggerSourceType: "",
-                    triggerSourceId: eventData.CompletedStageId,
-                    triggerEventType: "Completed",
-                    contextData: contextData,
-                    userId: currentUserId > 0 ? currentUserId : null
-                );
-
-                await _mediator.Publish(actionTriggerEvent);
-
-                // 通过stage的compose获取checklist的task，question 对应的action，发送ActionTriggerEvent
-                await PublishComponentActionTriggerEventsAsync(eventData, contextData, currentUserId);
-
-
-                _logger.LogDebug("已发布 ActionTriggerEvent: SourceType={SourceType}, SourceId={SourceId}, EventType={EventType}, OriginalEventId={OriginalEventId}",
-                    actionTriggerEvent.TriggerSourceType,
-                    actionTriggerEvent.TriggerSourceId,
-                    actionTriggerEvent.TriggerEventType,
-                    eventData.EventId);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "发布 ActionTriggerEvent 时发生错误: {EventId}", eventData.EventId);
-                throw;
-            }
-        }
-
-        // Stage completion log functionality removed
-
-        /// <summary>
-        /// 处理事件处理错误
+        /// Handle event processing error
         /// </summary>
         private async Task HandleEventProcessingErrorAsync(OnboardingStageCompletedEvent eventData, Exception error)
         {
             try
             {
-                // 尝试将失败的事件保存到事件表，标记为失败状态
+                // Save failed event to events table for retry
                 var failedEventEntity = new Event
                 {
                     EventId = eventData.EventId + "_failed",
@@ -234,987 +212,20 @@ namespace FlowFlex.Application.Notification
                     RequiresRetry = true,
                     MaxRetryCount = 3,
                     ErrorMessage = error.Message,
-                    NextRetryAt = DateTimeOffset.UtcNow.AddMinutes(5), // 5分钟后重试
+                    NextRetryAt = DateTimeOffset.UtcNow.AddMinutes(5),
                     TenantId = eventData.TenantId
                 };
 
-                failedEventEntity.InitCreateInfo(_userContext);
+                // Set creation info using event data for background task compatibility
+                failedEventEntity.InitCreateInfoFromEvent(eventData.UserId, eventData.UserName);
                 await _eventRepository.InsertAsync(failedEventEntity);
 
-                _logger.LogWarning("失败的事件已保存到 ff_events 表以供重试: {EventId}", failedEventEntity.EventId);
+                _logger.LogWarning("Failed event saved to ff_events table for retry: {EventId}", failedEventEntity.EventId);
             }
             catch (Exception saveEx)
             {
-                _logger.LogError(saveEx, "保存失败事件时发生错误: {EventId}", eventData.EventId);
+                _logger.LogError(saveEx, "Error saving failed event: {EventId}", eventData.EventId);
             }
         }
-
-        /// <summary>
-        /// 发布组件相关的 ActionTriggerEvent（为 checklist task 和 questionnaire question 发布事件）
-        /// </summary>
-        private async Task PublishComponentActionTriggerEventsAsync(OnboardingStageCompletedEvent eventData, object contextData, long currentUserId)
-        {
-            try
-            {
-                _logger.LogDebug("开始发布组件相关的 ActionTriggerEvent: StageId={StageId}", eventData.CompletedStageId);
-
-                // 获取 stage components
-                var stageComponents = await _stageService.GetComponentsAsync(eventData.CompletedStageId);
-
-                if (stageComponents == null || !stageComponents.Any())
-                {
-                    _logger.LogDebug("Stage {StageId} 没有配置组件", eventData.CompletedStageId);
-                    return;
-                }
-
-                _logger.LogDebug("Stage {StageId} 找到 {Count} 个组件", eventData.CompletedStageId, stageComponents.Count);
-
-                // 处理 checklist 组件现在通过 API 调用处理，不在这里处理
-                // await ProcessChecklistComponentsAsync(eventData, contextData, currentUserId, stageComponents);
-
-                // 处理 questionnaire 组件
-                await ProcessQuestionnaireComponentsAsync(eventData, contextData, currentUserId, stageComponents);
-
-                _logger.LogDebug("完成发布组件相关的 ActionTriggerEvent: StageId={StageId}", eventData.CompletedStageId);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "发布组件相关的 ActionTriggerEvent 时发生错误: StageId={StageId}", eventData.CompletedStageId);
-                // 不重新抛出异常，避免影响主流程
-            }
-        }
-
-
-        /// <summary>
-        /// 处理 questionnaire 组件，为每个 question 发布 ActionTriggerEvent
-        /// </summary>
-        private async Task ProcessQuestionnaireComponentsAsync(OnboardingStageCompletedEvent eventData, object contextData, long currentUserId, List<StageComponent> stageComponents)
-        {
-            try
-            {
-                // 获取所有 questionnaire 组件
-                var questionnaireComponents = stageComponents.Where(c => c.Key == "questionnaires").ToList();
-
-                if (!questionnaireComponents.Any())
-                {
-                    _logger.LogDebug("Stage {StageId} 没有 questionnaire 组件", eventData.CompletedStageId);
-                    return;
-                }
-
-                // 收集所有 questionnaire IDs
-                var questionnaireIds = questionnaireComponents
-                    .SelectMany(c => c.QuestionnaireIds ?? new List<long>())
-                    .Distinct()
-                    .ToList();
-
-                if (!questionnaireIds.Any())
-                {
-                    _logger.LogDebug("Stage {StageId} 的 questionnaire 组件没有配置 questionnaire IDs", eventData.CompletedStageId);
-                    return;
-                }
-
-                _logger.LogDebug("Stage {StageId} 找到 {Count} 个 questionnaire IDs: [{QuestionnaireIds}]",
-                    eventData.CompletedStageId, questionnaireIds.Count, string.Join(", ", questionnaireIds));
-
-                // 批量获取 questionnaires
-                var questionnaires = await _questionnaireService.GetByIdsAsync(questionnaireIds);
-
-                // 获取当前 onboarding 和 stage 的所有 questionnaire answers
-                var allQuestionnaireAnswers = await _questionnaireAnswerService.GetAllAnswersAsync(eventData.OnboardingId, eventData.CompletedStageId);
-                if (!allQuestionnaireAnswers.Any())
-                {
-                    _logger.LogDebug("Onboarding {OnboardingId} Stage {StageId} 中没有任何答案数据，跳过处理",
-                        eventData.OnboardingId, eventData.CompletedStageId);
-                    return;
-                }
-
-                _logger.LogDebug("找到 {Count} 个 questionnaire answers 用于处理", allQuestionnaireAnswers.Count);
-
-                // 输出所有答案的概要信息用于调试
-                for (int i = 0; i < allQuestionnaireAnswers.Count; i++)
-                {
-                    var answer = allQuestionnaireAnswers[i];
-                    _logger.LogDebug("Answer {Index}: ID={AnswerId}, 长度={Length}, 前100字符={Preview}",
-                        i + 1, answer.Id, answer.AnswerJson?.Length ?? 0,
-                        answer.AnswerJson?.Length > 100 ? answer.AnswerJson.Substring(0, 100) + "..." : answer.AnswerJson);
-                }
-
-                foreach (var questionnaire in questionnaires)
-                {
-                    // 解析 StructureJson 获取实际的 sections 和 questions
-                    if (string.IsNullOrWhiteSpace(questionnaire.StructureJson))
-                    {
-                        _logger.LogDebug("Questionnaire {QuestionnaireId} ({QuestionnaireName}) 没有 StructureJson 数据，跳过处理",
-                            questionnaire.Id, questionnaire.Name);
-                        continue;
-                    }
-
-                    // 查找与当前 questionnaire 相关的答案
-                    // 注意：这里可能需要根据实际的数据结构来匹配答案和问卷
-                    // 目前先使用所有答案，后续可以根据需要优化匹配逻辑
-                    var relevantAnswers = allQuestionnaireAnswers.Where(a => !string.IsNullOrWhiteSpace(a.AnswerJson)).ToList();
-                    if (!relevantAnswers.Any())
-                    {
-                        _logger.LogDebug("Questionnaire {QuestionnaireId} 没有找到相关的答案数据，跳过处理",
-                            questionnaire.Id);
-                        continue;
-                    }
-
-                    try
-                    {
-                        var structureData = JsonSerializer.Deserialize<QuestionnaireStructure>(questionnaire.StructureJson, new JsonSerializerOptions
-                        {
-                            PropertyNameCaseInsensitive = true
-                        });
-
-                        if (structureData?.Sections == null || !structureData.Sections.Any())
-                        {
-                            _logger.LogDebug("Questionnaire {QuestionnaireId} ({QuestionnaireName}) 的 StructureJson 中没有 sections，跳过处理",
-                                questionnaire.Id, questionnaire.Name);
-                            continue;
-                        }
-
-                        foreach (var section in structureData.Sections)
-                        {
-                            // 只解析 "questions" 里的问题，忽略 "items"
-                            var allQuestions = new List<QuestionnaireQuestion>();
-                            if (section.Questions != null && section.Questions.Any())
-                            {
-                                allQuestions.AddRange(section.Questions);
-                            }
-
-                            _logger.LogDebug("Section {SectionId} ({SectionName}) 包含 {QuestionCount} 个 questions",
-                                section.Id, section.Name, allQuestions.Count);
-
-                            if (allQuestions.Any())
-                            {
-                                foreach (var question in allQuestions)
-                                {
-                                    // 在所有相关答案中检查 question 是否已回答
-                                    bool isAnswered = false;
-                                    string matchedAnswerJson = null;
-
-                                    foreach (var answer in relevantAnswers)
-                                    {
-                                        if (CheckIfQuestionIsAnswered(answer.AnswerJson, question.Id))
-                                        {
-                                            isAnswered = true;
-                                            matchedAnswerJson = answer.AnswerJson;
-                                            break;
-                                        }
-                                    }
-
-                                    // 处理 Question 的 Action（如果有的话）
-                                    if (question.Action != null && !string.IsNullOrWhiteSpace(question.Action.Id))
-                                    {
-                                        if (!isAnswered)
-                                        {
-                                            // 输出调试信息，显示在所有答案中都未找到
-                                            var debugInfos = relevantAnswers.Select(a => ExtractAnswerAndResponseText(a.AnswerJson, question.Id)).ToList();
-                                            _logger.LogDebug("Question {QuestionId} ({QuestionTitle}) 在所有 {AnswerCount} 个答案中都尚未回答，跳过处理。调试信息: {DebugInfos}",
-                                                question.Id, question.Title ?? question.Question, relevantAnswers.Count,
-                                                string.Join(" | ", debugInfos.Select(d => $"answer={d.Answer},responseText={d.ResponseText}")));
-
-                                            // 额外输出：显示每个答案中实际包含的所有 questionId
-                                            for (int i = 0; i < relevantAnswers.Count; i++)
-                                            {
-                                                var answerJson = relevantAnswers[i].AnswerJson;
-                                                var actualQuestionIds = ExtractAllQuestionIds(answerJson);
-                                                _logger.LogDebug("Answer {Index} 包含的 questionIds: [{QuestionIds}]",
-                                                    i + 1, string.Join(", ", actualQuestionIds));
-                                            }
-                                            continue;
-                                        }
-
-                                        // 为每个 question 创建 ActionTriggerEvent
-                                        var questionContextData = new
-                                        {
-                                            // 包含原始上下文数据
-                                            ((dynamic)contextData).OnboardingId,
-                                            ((dynamic)contextData).LeadId,
-                                            ((dynamic)contextData).WorkflowId,
-                                            ((dynamic)contextData).WorkflowName,
-                                            ((dynamic)contextData).CompletedStageId,
-                                            ((dynamic)contextData).CompletedStageName,
-                                            ((dynamic)contextData).NextStageId,
-                                            ((dynamic)contextData).NextStageName,
-                                            ((dynamic)contextData).CompletionRate,
-                                            ((dynamic)contextData).IsFinalStage,
-                                            ((dynamic)contextData).BusinessContext,
-                                            ((dynamic)contextData).Components,
-                                            ((dynamic)contextData).TenantId,
-                                            ((dynamic)contextData).Source,
-                                            ((dynamic)contextData).Priority,
-                                            ((dynamic)contextData).OriginalEventId,
-
-                                            // 添加 question 相关的上下文数据
-                                            QuestionnaireId = questionnaire.Id,
-                                            QuestionnaireName = questionnaire.Name,
-                                            QuestionnaireCategory = questionnaire.Category,
-                                            QuestionnaireVersion = questionnaire.Version,
-                                            SectionId = section.Id,
-                                            SectionName = section.Name,
-                                            SectionTitle = section.Title,
-                                            SectionDescription = section.Description,
-                                            SectionOrder = section.Order,
-                                            QuestionId = question.Id,
-                                            QuestionTitle = question.Title,
-                                            QuestionText = question.Question,
-                                            QuestionType = question.Type,
-                                            QuestionIsRequired = question.Required,
-                                            QuestionOrder = question.Order,
-                                            QuestionActionId = question.Action.Id,
-                                            QuestionActionName = question.Action.Name
-                                        };
-
-                                        var questionActionTriggerEvent = new ActionTriggerEvent(
-                                            triggerSourceType: "",
-                                            triggerSourceId: long.TryParse(question.Id, out long questionIdLong) ? questionIdLong : 0,
-                                            triggerEventType: "Completed",
-                                            contextData: questionContextData,
-                                            userId: currentUserId > 0 ? currentUserId : null
-                                        );
-
-                                        await _mediator.Publish(questionActionTriggerEvent);
-
-                                        _logger.LogDebug("已发布 Question ActionTriggerEvent: QuestionId={QuestionId}, QuestionTitle={QuestionTitle}, QuestionActionId={QuestionActionId}, QuestionnaireId={QuestionnaireId}, StageId={StageId}",
-                                            question.Id, question.Title ?? question.Question, question.Action.Id, questionnaire.Id, eventData.CompletedStageId);
-                                    }
-                                    else
-                                    {
-                                        _logger.LogDebug("Question {QuestionId} ({QuestionTitle}) 没有配置 Action，跳过发布 Question ActionTriggerEvent",
-                                            question.Id, question.Title ?? question.Question);
-                                    }
-
-                                    // 处理 question 的 options，为选中的有 action 的 option 发布 ActionTriggerEvent
-                                    // 这个处理独立于 question 是否有 action
-                                    // 使用匹配的答案JSON，如果没有匹配的则使用第一个答案
-                                    var answerJsonToUse = matchedAnswerJson ?? relevantAnswers.FirstOrDefault()?.AnswerJson;
-                                    if (!string.IsNullOrWhiteSpace(answerJsonToUse))
-                                    {
-                                        await ProcessQuestionOptionsAsync(question, questionnaire, section, answerJsonToUse, contextData, currentUserId, eventData.CompletedStageId);
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    catch (JsonException ex)
-                    {
-                        _logger.LogError(ex, "解析 Questionnaire {QuestionnaireId} 的 StructureJson 时发生错误", questionnaire.Id);
-                    }
-                }
-
-                _logger.LogDebug("完成处理 questionnaire 组件: StageId={StageId}, QuestionnaireCount={QuestionnaireCount}",
-                    eventData.CompletedStageId, questionnaires.Count);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "处理 questionnaire 组件时发生错误: StageId={StageId}", eventData.CompletedStageId);
-            }
-        }
-
-        /// <summary>
-        /// 获取当前用户ID
-        /// </summary>
-        private long GetCurrentUserId()
-        {
-            if (long.TryParse(_userContext?.UserId, out long userId))
-            {
-                return userId;
-            }
-            return 0;
-        }
-
-        /// <summary>
-        /// 检查 question 是否已回答
-        /// </summary>
-        private bool CheckIfQuestionIsAnswered(string answerJson, string questionId)
-        {
-            try
-            {
-                if (string.IsNullOrWhiteSpace(answerJson) || string.IsNullOrWhiteSpace(questionId))
-                {
-                    return false;
-                }
-
-                _logger.LogDebug("CheckIfQuestionIsAnswered: questionId={QuestionId}, answerJson={AnswerJson}", questionId, answerJson);
-
-                using var answersDoc = JsonDocument.Parse(answerJson);
-                var answersRoot = answersDoc.RootElement;
-
-                // 检查是否有 responses 数组结构
-                if (answersRoot.TryGetProperty("responses", out var responsesElement) && responsesElement.ValueKind == JsonValueKind.Array)
-                {
-                    foreach (var responseElement in responsesElement.EnumerateArray())
-                    {
-                        if (responseElement.TryGetProperty("questionId", out var qIdElement))
-                        {
-                            var responseQuestionId = qIdElement.ValueKind == JsonValueKind.String ? qIdElement.GetString() : qIdElement.ToString();
-                            if (responseQuestionId == questionId)
-                            {
-                                // 找到匹配的 question，检查是否有答案
-                                // 优先检查 answer 字段，如果没有有效答案则检查 responseText 字段
-                                bool hasAnswer = false;
-
-                                if (responseElement.TryGetProperty("answer", out var answerElement))
-                                {
-                                    hasAnswer = HasValidAnswer(answerElement);
-                                    _logger.LogDebug("Question {QuestionId} answer field check: value={AnswerValue}, hasAnswer={HasAnswer}",
-                                        questionId, answerElement.ToString(), hasAnswer);
-                                }
-
-                                // 如果 answer 字段没有有效答案，检查 responseText 字段
-                                if (!hasAnswer && responseElement.TryGetProperty("responseText", out var responseTextElement))
-                                {
-                                    hasAnswer = HasValidAnswer(responseTextElement);
-                                    _logger.LogDebug("Question {QuestionId} responseText field check: value={ResponseTextValue}, hasAnswer={HasAnswer}",
-                                        questionId, responseTextElement.ToString(), hasAnswer);
-                                }
-
-                                _logger.LogDebug("Question {QuestionId} final answered status: {HasAnswer}", questionId, hasAnswer);
-                                return hasAnswer;
-                            }
-                        }
-                    }
-                }
-                else
-                {
-                    // 检查是否为单个 response 对象（包含 questionId 属性）
-                    if (answersRoot.TryGetProperty("questionId", out var qIdElement))
-                    {
-                        var responseQuestionId = qIdElement.ValueKind == JsonValueKind.String ? qIdElement.GetString() : qIdElement.ToString();
-                        if (responseQuestionId == questionId)
-                        {
-                            // 找到匹配的 question，检查是否有答案
-                            bool hasAnswer = false;
-
-                            if (answersRoot.TryGetProperty("answer", out var answerElement))
-                            {
-                                hasAnswer = HasValidAnswer(answerElement);
-                                _logger.LogDebug("Single response - Question {QuestionId} answer field check: value={AnswerValue}, hasAnswer={HasAnswer}",
-                                    questionId, answerElement.ToString(), hasAnswer);
-                            }
-
-                            // 如果 answer 字段没有有效答案，检查 responseText 字段
-                            if (!hasAnswer && answersRoot.TryGetProperty("responseText", out var responseTextElement))
-                            {
-                                hasAnswer = HasValidAnswer(responseTextElement);
-                                _logger.LogDebug("Single response - Question {QuestionId} responseText field check: value={ResponseTextValue}, hasAnswer={HasAnswer}",
-                                    questionId, responseTextElement.ToString(), hasAnswer);
-                            }
-
-                            _logger.LogDebug("Single response - Question {QuestionId} final answered status: {HasAnswer}", questionId, hasAnswer);
-                            return hasAnswer;
-                        }
-                    }
-
-                    // 检查直接属性结构 (question ID 作为属性名)
-                    if (answersRoot.TryGetProperty(questionId, out var answerProperty))
-                    {
-                        return HasValidAnswer(answerProperty);
-                    }
-                }
-
-                return false;
-            }
-            catch (JsonException ex)
-            {
-                _logger.LogError(ex, "解析 answerJson 时发生错误: QuestionId={QuestionId}", questionId);
-                return false;
-            }
-        }
-
-        /// <summary>
-        /// 处理 question 的 options，为选中的有 action 的 option 发布 ActionTriggerEvent
-        /// </summary>
-        private async Task ProcessQuestionOptionsAsync(QuestionnaireQuestion question, QuestionnaireOutputDto questionnaire, QuestionnaireSection section, string answerJson, object contextData, long currentUserId, long stageId)
-        {
-            try
-            {
-                // 检查 question 是否有 options
-                if (question.Options == null || !question.Options.Any())
-                {
-                    return;
-                }
-
-                // 获取 question 的答案，确定哪些 option 被选中
-                var selectedOptionValues = GetSelectedOptionValues(answerJson, question.Id);
-                if (!selectedOptionValues.Any())
-                {
-                    _logger.LogDebug("Question {QuestionId} 没有选中的 options", question.Id);
-                    return;
-                }
-
-                _logger.LogDebug("Question {QuestionId} 找到 {Count} 个选中的 options: [{SelectedOptions}]",
-                    question.Id, selectedOptionValues.Count, string.Join(", ", selectedOptionValues));
-
-                // 解析 options 并处理有 action 的选中项
-                foreach (var optionObj in question.Options)
-                {
-                    try
-                    {
-                        // 将 option object 转换为 JsonElement 进行解析
-                        var optionJson = JsonSerializer.Serialize(optionObj);
-                        using var optionDoc = JsonDocument.Parse(optionJson);
-                        var optionElement = optionDoc.RootElement;
-
-                        // 提取 option 的基本信息
-                        var optionValue = optionElement.TryGetProperty("value", out var valueEl) ? valueEl.GetString() : null;
-                        var optionLabel = optionElement.TryGetProperty("label", out var labelEl) ? labelEl.GetString() : null;
-                        var optionId = optionElement.TryGetProperty("id", out var idEl) ? idEl.GetString() :
-                                      optionElement.TryGetProperty("temporaryId", out var tempIdEl) ? tempIdEl.GetString() : null;
-
-                        // 检查这个 option 是否被选中
-                        if (string.IsNullOrWhiteSpace(optionValue) || !selectedOptionValues.Contains(optionValue))
-                        {
-                            continue;
-                        }
-
-                        // 检查 option 是否有 action
-                        if (!optionElement.TryGetProperty("action", out var actionElement))
-                        {
-                            _logger.LogDebug("Option {OptionValue} ({OptionLabel}) 没有配置 Action，跳过发布 ActionTriggerEvent",
-                                optionValue, optionLabel);
-                            continue;
-                        }
-
-                        var actionId = actionElement.TryGetProperty("id", out var actionIdEl) ? actionIdEl.GetString() : null;
-                        var actionName = actionElement.TryGetProperty("name", out var actionNameEl) ? actionNameEl.GetString() : null;
-
-                        if (string.IsNullOrWhiteSpace(actionId))
-                        {
-                            _logger.LogDebug("Option {OptionValue} ({OptionLabel}) 的 Action 没有配置 ID，跳过发布 ActionTriggerEvent",
-                                optionValue, optionLabel);
-                            continue;
-                        }
-
-                        // 为选中的 option 创建 ActionTriggerEvent
-                        var optionContextData = new
-                        {
-                            // 包含原始上下文数据
-                            ((dynamic)contextData).OnboardingId,
-                            ((dynamic)contextData).LeadId,
-                            ((dynamic)contextData).WorkflowId,
-                            ((dynamic)contextData).WorkflowName,
-                            ((dynamic)contextData).CompletedStageId,
-                            ((dynamic)contextData).CompletedStageName,
-                            ((dynamic)contextData).NextStageId,
-                            ((dynamic)contextData).NextStageName,
-                            ((dynamic)contextData).CompletionRate,
-                            ((dynamic)contextData).IsFinalStage,
-                            ((dynamic)contextData).BusinessContext,
-                            ((dynamic)contextData).Components,
-                            ((dynamic)contextData).TenantId,
-                            ((dynamic)contextData).Source,
-                            ((dynamic)contextData).Priority,
-                            ((dynamic)contextData).OriginalEventId,
-
-                            // 添加 questionnaire 相关的上下文数据
-                            QuestionnaireId = questionnaire.Id,
-                            QuestionnaireName = questionnaire.Name,
-                            QuestionnaireCategory = questionnaire.Category,
-                            QuestionnaireVersion = questionnaire.Version,
-                            SectionId = section.Id,
-                            SectionName = section.Name,
-                            SectionTitle = section.Title,
-                            SectionDescription = section.Description,
-                            SectionOrder = section.Order,
-                            QuestionId = question.Id,
-                            QuestionTitle = question.Title,
-                            QuestionText = question.Question,
-                            QuestionType = question.Type,
-                            QuestionIsRequired = question.Required,
-                            QuestionOrder = question.Order,
-
-                            // 添加 option 相关的上下文数据
-                            OptionId = optionId,
-                            OptionValue = optionValue,
-                            OptionLabel = optionLabel,
-                            OptionActionId = actionId,
-                            OptionActionName = actionName
-                        };
-
-                        // 只处理有效的数字 ID
-                        if (string.IsNullOrWhiteSpace(optionId) || !long.TryParse(optionId, out var optionIdLong))
-                        {
-                            _logger.LogDebug("Option has non-numeric ID '{OptionId}', skipping ActionTriggerEvent", optionId);
-                            continue;
-                        }
-
-                        var optionActionTriggerEvent = new ActionTriggerEvent(
-                            triggerSourceType: "",
-                            triggerSourceId: optionIdLong,
-                            triggerEventType: "Completed",
-                            contextData: optionContextData,
-                            userId: currentUserId > 0 ? currentUserId : null
-                        );
-
-                        await _mediator.Publish(optionActionTriggerEvent);
-
-                        _logger.LogDebug("已发布 Option ActionTriggerEvent: OptionId={OptionId}, OptionValue={OptionValue}, OptionLabel={OptionLabel}, OptionActionId={OptionActionId}, QuestionId={QuestionId}, QuestionnaireId={QuestionnaireId}, StageId={StageId}",
-                            optionId, optionValue, optionLabel, actionId, question.Id, questionnaire.Id, stageId);
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogError(ex, "处理 option 时发生错误: QuestionId={QuestionId}", question.Id);
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "处理 Question {QuestionId} 的 options 时发生错误", question.Id);
-            }
-        }
-
-        /// <summary>
-        /// 获取 question 的选中 option 值列表
-        /// </summary>
-        private List<string> GetSelectedOptionValues(string answerJson, string questionId)
-        {
-            var selectedValues = new List<string>();
-
-            try
-            {
-                if (string.IsNullOrWhiteSpace(answerJson) || string.IsNullOrWhiteSpace(questionId))
-                {
-                    return selectedValues;
-                }
-
-                using var answersDoc = JsonDocument.Parse(answerJson);
-                var answersRoot = answersDoc.RootElement;
-
-                // 检查是否有 responses 数组结构
-                if (answersRoot.TryGetProperty("responses", out var responsesElement) && responsesElement.ValueKind == JsonValueKind.Array)
-                {
-                    foreach (var responseElement in responsesElement.EnumerateArray())
-                    {
-                        if (responseElement.TryGetProperty("questionId", out var qIdElement))
-                        {
-                            var responseQuestionId = qIdElement.ValueKind == JsonValueKind.String ? qIdElement.GetString() : qIdElement.ToString();
-                            if (responseQuestionId == questionId)
-                            {
-                                // 找到匹配的 question，提取选中的 option 值
-                                // 优先从 answer 字段获取，如果没有则从 responseText 字段获取
-                                if (responseElement.TryGetProperty("answer", out var answerElement))
-                                {
-                                    var answerValues = ParseAnswerToOptionValues(answerElement);
-                                    if (answerValues.Any())
-                                    {
-                                        selectedValues.AddRange(answerValues);
-                                    }
-                                }
-
-                                // 如果 answer 字段没有值，尝试从 responseText 字段获取
-                                if (!selectedValues.Any() && responseElement.TryGetProperty("responseText", out var responseTextElement))
-                                {
-                                    var responseTextValues = ParseAnswerToOptionValues(responseTextElement);
-                                    selectedValues.AddRange(responseTextValues);
-                                }
-
-                                break;
-                            }
-                        }
-                    }
-                }
-                else
-                {
-                    // 检查直接属性结构 (question ID 作为属性名)
-                    if (answersRoot.TryGetProperty(questionId, out var answerProperty))
-                    {
-                        selectedValues.AddRange(ParseAnswerToOptionValues(answerProperty));
-                    }
-                }
-
-                _logger.LogDebug("Question {QuestionId} selected option values: [{SelectedValues}]", questionId, string.Join(", ", selectedValues));
-                return selectedValues;
-            }
-            catch (JsonException ex)
-            {
-                _logger.LogError(ex, "解析 answerJson 时发生错误: QuestionId={QuestionId}", questionId);
-                return selectedValues;
-            }
-        }
-
-        /// <summary>
-        /// 检查JsonElement是否包含有效答案（支持字符串、数组、数字、布尔类型）
-        /// </summary>
-        private bool HasValidAnswer(JsonElement answerElement)
-        {
-            try
-            {
-                switch (answerElement.ValueKind)
-                {
-                    case JsonValueKind.String:
-                        var stringValue = answerElement.GetString();
-
-                        // 检查是否为空字符串
-                        if (string.IsNullOrWhiteSpace(stringValue))
-                        {
-                            return false;
-                        }
-
-                        // 检查是否为空的JSON对象字符串（如 "{}" 或 "[]"）
-                        var trimmedValue = stringValue.Trim();
-                        if (trimmedValue == "{}" || trimmedValue == "[]")
-                        {
-                            return false;
-                        }
-
-                        // 尝试解析为JSON，如果是空对象也算无效
-                        if (IsJsonString(trimmedValue))
-                        {
-                            try
-                            {
-                                using var doc = JsonDocument.Parse(trimmedValue);
-                                var root = doc.RootElement;
-
-                                if (root.ValueKind == JsonValueKind.Object)
-                                {
-                                    // 空对象算无效答案
-                                    return root.EnumerateObject().Any();
-                                }
-                                else if (root.ValueKind == JsonValueKind.Array)
-                                {
-                                    // 空数组算无效答案
-                                    return root.EnumerateArray().Any();
-                                }
-                            }
-                            catch
-                            {
-                                // JSON解析失败，当作普通字符串处理
-                            }
-                        }
-
-                        return true;
-
-                    case JsonValueKind.Array:
-                        // 数组类型（多选题），检查是否有非空元素
-                        foreach (var item in answerElement.EnumerateArray())
-                        {
-                            if (item.ValueKind == JsonValueKind.String)
-                            {
-                                var value = item.GetString();
-                                if (!string.IsNullOrWhiteSpace(value))
-                                {
-                                    return true;
-                                }
-                            }
-                            else if (item.ValueKind != JsonValueKind.Null)
-                            {
-                                return true; // 非空非字符串值也算有效答案
-                            }
-                        }
-                        return false;
-
-                    case JsonValueKind.Object:
-                        // 对象类型，检查是否为空对象
-                        return answerElement.EnumerateObject().Any();
-
-                    case JsonValueKind.Number:
-                        return true; // 数字类型都算有效答案
-
-                    case JsonValueKind.True:
-                    case JsonValueKind.False:
-                        return true; // 布尔类型都算有效答案
-
-                    case JsonValueKind.Null:
-                        return false; // null值算无效答案
-
-                    default:
-                        return false; // 未知类型算无效答案
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "检查答案有效性时发生错误");
-                return false;
-            }
-        }
-
-        /// <summary>
-        /// 检查字符串是否为JSON格式
-        /// </summary>
-        private bool IsJsonString(string value)
-        {
-            if (string.IsNullOrWhiteSpace(value))
-                return false;
-
-            var trimmed = value.Trim();
-            return (trimmed.StartsWith("{") && trimmed.EndsWith("}")) ||
-                   (trimmed.StartsWith("[") && trimmed.EndsWith("]"));
-        }
-
-        /// <summary>
-        /// 提取答案JSON中的所有 questionId
-        /// </summary>
-        private List<string> ExtractAllQuestionIds(string answerJson)
-        {
-            var questionIds = new List<string>();
-
-            try
-            {
-                if (string.IsNullOrWhiteSpace(answerJson))
-                {
-                    return questionIds;
-                }
-
-                using var answersDoc = JsonDocument.Parse(answerJson);
-                var answersRoot = answersDoc.RootElement;
-
-                // 检查是否有 responses 数组结构
-                if (answersRoot.TryGetProperty("responses", out var responsesElement) && responsesElement.ValueKind == JsonValueKind.Array)
-                {
-                    foreach (var responseElement in responsesElement.EnumerateArray())
-                    {
-                        if (responseElement.TryGetProperty("questionId", out var qIdElement))
-                        {
-                            var responseQuestionId = qIdElement.ValueKind == JsonValueKind.String ? qIdElement.GetString() : qIdElement.ToString();
-                            if (!string.IsNullOrWhiteSpace(responseQuestionId))
-                            {
-                                questionIds.Add(responseQuestionId);
-                            }
-                        }
-                    }
-                }
-                else
-                {
-                    // 检查是否为单个 response 对象（包含 questionId 属性）
-                    if (answersRoot.TryGetProperty("questionId", out var qIdElement))
-                    {
-                        var responseQuestionId = qIdElement.ValueKind == JsonValueKind.String ? qIdElement.GetString() : qIdElement.ToString();
-                        if (!string.IsNullOrWhiteSpace(responseQuestionId))
-                        {
-                            questionIds.Add(responseQuestionId);
-                        }
-                    }
-                    else
-                    {
-                        // 检查直接属性结构 (question ID 作为属性名)
-                        foreach (var property in answersRoot.EnumerateObject())
-                        {
-                            questionIds.Add(property.Name);
-                        }
-                    }
-                }
-
-                return questionIds;
-            }
-            catch (JsonException ex)
-            {
-                _logger.LogError(ex, "解析 answerJson 提取 questionIds 时发生错误");
-                return questionIds;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "提取 questionIds 时发生未知错误");
-                return questionIds;
-            }
-        }
-
-        /// <summary>
-        /// 提取指定问题的 answer 和 responseText 字段值用于调试
-        /// </summary>
-        private (string Answer, string ResponseText) ExtractAnswerAndResponseText(string answerJson, string questionId)
-        {
-            try
-            {
-                if (string.IsNullOrWhiteSpace(answerJson) || string.IsNullOrWhiteSpace(questionId))
-                {
-                    return ("null", "null");
-                }
-
-                using var answersDoc = JsonDocument.Parse(answerJson);
-                var answersRoot = answersDoc.RootElement;
-
-                _logger.LogDebug("ExtractAnswerAndResponseText: JSON结构类型={JsonType}, 查找questionId={QuestionId}",
-                    answersRoot.ValueKind, questionId);
-
-                // 检查是否有 responses 数组结构
-                if (answersRoot.TryGetProperty("responses", out var responsesElement) && responsesElement.ValueKind == JsonValueKind.Array)
-                {
-                    _logger.LogDebug("ExtractAnswerAndResponseText: 找到responses数组，包含{Count}个元素", responsesElement.GetArrayLength());
-
-                    // 收集所有的 questionId 用于调试
-                    var allQuestionIds = new List<string>();
-
-                    foreach (var responseElement in responsesElement.EnumerateArray())
-                    {
-                        if (responseElement.TryGetProperty("questionId", out var qIdElement))
-                        {
-                            var responseQuestionId = qIdElement.ValueKind == JsonValueKind.String ? qIdElement.GetString() : qIdElement.ToString();
-                            allQuestionIds.Add(responseQuestionId);
-
-                            if (responseQuestionId == questionId)
-                            {
-                                var answer = responseElement.TryGetProperty("answer", out var answerElement)
-                                    ? answerElement.ToString() : "not_found";
-                                var responseText = responseElement.TryGetProperty("responseText", out var responseTextElement)
-                                    ? responseTextElement.ToString() : "not_found";
-                                _logger.LogDebug("ExtractAnswerAndResponseText: 在responses数组中找到匹配，answer={Answer}, responseText={ResponseText}", answer, responseText);
-                                return (answer, responseText);
-                            }
-                        }
-                    }
-
-                    _logger.LogDebug("ExtractAnswerAndResponseText: 在responses数组中未找到匹配的questionId。目标={TargetQuestionId}, 数组中的所有questionId=[{AllQuestionIds}]",
-                        questionId, string.Join(", ", allQuestionIds));
-                }
-                else
-                {
-                    _logger.LogDebug("ExtractAnswerAndResponseText: 没有responses数组，检查其他结构");
-
-                    // 检查是否为单个 response 对象（包含 questionId 属性）
-                    if (answersRoot.TryGetProperty("questionId", out var qIdElement))
-                    {
-                        var responseQuestionId = qIdElement.ValueKind == JsonValueKind.String ? qIdElement.GetString() : qIdElement.ToString();
-                        _logger.LogDebug("ExtractAnswerAndResponseText: 单个response对象，questionId={ResponseQuestionId}, 目标={TargetQuestionId}", responseQuestionId, questionId);
-                        if (responseQuestionId == questionId)
-                        {
-                            var answer = answersRoot.TryGetProperty("answer", out var answerElement)
-                                ? answerElement.ToString() : "not_found";
-                            var responseText = answersRoot.TryGetProperty("responseText", out var responseTextElement)
-                                ? responseTextElement.ToString() : "not_found";
-                            _logger.LogDebug("ExtractAnswerAndResponseText: 单个response对象匹配，answer={Answer}, responseText={ResponseText}", answer, responseText);
-                            return (answer, responseText);
-                        }
-                    }
-                    else
-                    {
-                        _logger.LogDebug("ExtractAnswerAndResponseText: 没有找到questionId属性");
-                    }
-
-                    // 检查直接属性结构 (question ID 作为属性名)
-                    if (answersRoot.TryGetProperty(questionId, out var answerProperty))
-                    {
-                        _logger.LogDebug("ExtractAnswerAndResponseText: 找到直接属性结构，questionId作为属性名");
-                        return (answerProperty.ToString(), "not_applicable");
-                    }
-
-                    _logger.LogDebug("ExtractAnswerAndResponseText: 所有结构检查都未匹配");
-                }
-
-                return ("not_found_in_json", "not_found_in_json");
-            }
-            catch (JsonException ex)
-            {
-                return ($"json_parse_error: {ex.Message}", "json_parse_error");
-            }
-            catch (Exception ex)
-            {
-                return ($"error: {ex.Message}", "error");
-            }
-        }
-
-        /// <summary>
-        /// 解析答案值为 option 值列表（支持单选、多选）
-        /// </summary>
-        private List<string> ParseAnswerToOptionValues(JsonElement answerElement)
-        {
-            var values = new List<string>();
-
-            try
-            {
-                switch (answerElement.ValueKind)
-                {
-                    case JsonValueKind.String:
-                        // 单选情况
-                        var singleValue = answerElement.GetString();
-                        if (!string.IsNullOrWhiteSpace(singleValue))
-                        {
-                            values.Add(singleValue);
-                        }
-                        break;
-
-                    case JsonValueKind.Array:
-                        // 多选情况
-                        foreach (var item in answerElement.EnumerateArray())
-                        {
-                            if (item.ValueKind == JsonValueKind.String)
-                            {
-                                var value = item.GetString();
-                                if (!string.IsNullOrWhiteSpace(value))
-                                {
-                                    values.Add(value);
-                                }
-                            }
-                        }
-                        break;
-
-                    default:
-                        // 其他类型（如数字、布尔等），转换为字符串
-                        var rawValue = answerElement.GetRawText();
-                        if (!string.IsNullOrWhiteSpace(rawValue))
-                        {
-                            values.Add(rawValue.Trim('"'));
-                        }
-                        break;
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "解析答案值时发生错误");
-            }
-
-            return values;
-        }
-
-
-    }
-
-    /// <summary>
-    /// Questionnaire Structure JSON 数据模型
-    /// </summary>
-    public class QuestionnaireStructure
-    {
-        public List<QuestionnaireSection> Sections { get; set; } = new List<QuestionnaireSection>();
-    }
-
-    /// <summary>
-    /// Questionnaire Section 数据模型
-    /// </summary>
-    public class QuestionnaireSection
-    {
-        public string Id { get; set; }
-        public string Name { get; set; }
-        public string Title { get; set; }
-        public string Description { get; set; }
-        public int Order { get; set; }
-        public string TemporaryId { get; set; }
-        public List<QuestionnaireQuestion> Items { get; set; } = new List<QuestionnaireQuestion>();
-        public List<QuestionnaireQuestion> Questions { get; set; } = new List<QuestionnaireQuestion>();
-    }
-
-    /// <summary>
-    /// Questionnaire Question 数据模型
-    /// </summary>
-    public class QuestionnaireQuestion
-    {
-        public string Id { get; set; }
-        public string Type { get; set; }
-        public int Order { get; set; }
-        public string Title { get; set; }
-        public string Question { get; set; }
-        public string Description { get; set; }
-        public string TemporaryId { get; set; }
-        public bool Required { get; set; }
-        public List<object> Options { get; set; } = new List<object>();
-        public List<object> Rows { get; set; } = new List<object>();
-        public List<object> Columns { get; set; } = new List<object>();
-        public List<object> JumpRules { get; set; } = new List<object>();
-        public QuestionAction Action { get; set; }
-        public object QuestionProps { get; set; }
-        public string IconType { get; set; }
-        public string MaxLabel { get; set; }
-        public string MinLabel { get; set; }
-        public bool RequireOneResponsePerRow { get; set; }
-    }
-
-    /// <summary>
-    /// Question Action 数据模型
-    /// </summary>
-    public class QuestionAction
-    {
-        public string Id { get; set; }
-        public string Name { get; set; }
     }
 }

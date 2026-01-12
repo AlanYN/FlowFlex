@@ -1,8 +1,129 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 
 namespace FlowFlex.Application.Service.OW
 {
+    /// <summary>
+    /// A wrapper that provides safe dictionary access for RulesEngine expressions.
+    /// Returns empty dictionary for missing keys instead of throwing KeyNotFoundException.
+    /// </summary>
+    public class SafeNestedDictionary
+    {
+        private readonly Dictionary<string, SafeInnerDictionary> _data = new Dictionary<string, SafeInnerDictionary>();
+
+        /// <summary>
+        /// Gets the value associated with the specified key, or an empty dictionary if the key doesn't exist.
+        /// </summary>
+        public SafeInnerDictionary this[string key]
+        {
+            get
+            {
+                if (_data.TryGetValue(key, out var value))
+                {
+                    return value;
+                }
+                // Return empty dictionary for missing keys
+                return new SafeInnerDictionary();
+            }
+            set => _data[key] = value;
+        }
+
+        public bool ContainsKey(string key) => _data.ContainsKey(key);
+        public int Count => _data.Count;
+        public IEnumerable<string> Keys => _data.Keys;
+    }
+
+    /// <summary>
+    /// Inner dictionary wrapper that returns null for missing keys instead of throwing KeyNotFoundException.
+    /// </summary>
+    public class SafeInnerDictionary
+    {
+        private readonly Dictionary<string, object> _data = new Dictionary<string, object>();
+
+        /// <summary>
+        /// Gets the value associated with the specified key, or null if the key doesn't exist.
+        /// </summary>
+        public object this[string key]
+        {
+            get
+            {
+                if (_data.TryGetValue(key, out var value))
+                {
+                    return value;
+                }
+                // Return null for missing keys
+                return null;
+            }
+            set => _data[key] = value;
+        }
+
+        public bool ContainsKey(string key) => _data.ContainsKey(key);
+        public int Count => _data.Count;
+        public IEnumerable<string> Keys => _data.Keys;
+    }
+
+    /// <summary>
+    /// Safe nested dictionary for tasks: tasks[checklistId][taskId] returns TaskData
+    /// </summary>
+    public class SafeTasksDictionary
+    {
+        private readonly Dictionary<string, SafeTaskInnerDictionary> _data = new Dictionary<string, SafeTaskInnerDictionary>();
+
+        public SafeTaskInnerDictionary this[string key]
+        {
+            get
+            {
+                if (_data.TryGetValue(key, out var value))
+                {
+                    return value;
+                }
+                return new SafeTaskInnerDictionary();
+            }
+            set => _data[key] = value;
+        }
+
+        public bool ContainsKey(string key) => _data.ContainsKey(key);
+        public int Count => _data.Count;
+        public IEnumerable<string> Keys => _data.Keys;
+    }
+
+    /// <summary>
+    /// Inner dictionary for tasks: returns TaskData for each taskId
+    /// </summary>
+    public class SafeTaskInnerDictionary
+    {
+        private readonly Dictionary<string, TaskData> _data = new Dictionary<string, TaskData>();
+
+        public TaskData this[string key]
+        {
+            get
+            {
+                if (_data.TryGetValue(key, out var value))
+                {
+                    return value;
+                }
+                // Return default TaskData for missing keys
+                return new TaskData();
+            }
+            set => _data[key] = value;
+        }
+
+        public bool ContainsKey(string key) => _data.ContainsKey(key);
+        public int Count => _data.Count;
+        public IEnumerable<string> Keys => _data.Keys;
+    }
+
+    /// <summary>
+    /// Task data with strongly-typed properties for RulesEngine expressions
+    /// </summary>
+    public class TaskData
+    {
+        public bool isCompleted { get; set; } = false;
+        public string name { get; set; } = string.Empty;
+        public string completionNotes { get; set; } = string.Empty;
+    }
+
     /// <summary>
     /// Custom utility functions for RulesEngine expressions
     /// </summary>
@@ -70,11 +191,32 @@ namespace FlowFlex.Application.Service.OW
         }
 
         /// <summary>
+        /// Check if a value is in a comma-separated list string
+        /// </summary>
+        public static bool InList(string? value, string? commaSeparatedList)
+        {
+            if (string.IsNullOrEmpty(value) || string.IsNullOrEmpty(commaSeparatedList))
+                return false;
+            var list = commaSeparatedList.Split(',', StringSplitOptions.RemoveEmptyEntries)
+                .Select(s => s.Trim())
+                .ToArray();
+            return list.Contains(value, StringComparer.OrdinalIgnoreCase);
+        }
+
+        /// <summary>
         /// Check if a value is not in a list
         /// </summary>
         public static bool NotInList(string? value, params string[] list)
         {
             return !InList(value, list);
+        }
+
+        /// <summary>
+        /// Check if a value is not in a comma-separated list string
+        /// </summary>
+        public static bool NotInList(string? value, string? commaSeparatedList)
+        {
+            return !InList(value, commaSeparatedList);
         }
 
         /// <summary>

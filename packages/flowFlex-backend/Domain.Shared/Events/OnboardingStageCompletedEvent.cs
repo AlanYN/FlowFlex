@@ -30,6 +30,16 @@ namespace FlowFlex.Domain.Shared.Events
         public string TenantId { get; set; }
 
         /// <summary>
+        /// User ID who triggered the event
+        /// </summary>
+        public long UserId { get; set; }
+
+        /// <summary>
+        /// User name who triggered the event
+        /// </summary>
+        public string UserName { get; set; }
+
+        /// <summary>
         /// Onboarding ID
         /// </summary>
         public long OnboardingId { get; set; }

@@ -295,17 +295,6 @@ public class ChecklistTaskCompletionController : Controllers.ControllerBase
         var summary = await _noteService.GetNotesSummaryAsync(taskId, onboardingId);
         return Success(summary);
     }
-
-    /// <summary>
-    /// Process checklist components and publish action trigger events for completed tasks
-    /// </summary>
-    [HttpPost("process-checklist-actions")]
-    [ProducesResponseType<SuccessResponse<ChecklistActionProcessingResultDto>>((int)HttpStatusCode.OK)]
-    public async Task<IActionResult> ProcessChecklistActions([FromBody] ProcessChecklistActionsRequestDto request)
-    {
-        var result = await _completionService.ProcessChecklistComponentActionsAsync(request);
-        return Success(result);
-    }
 }
 
 

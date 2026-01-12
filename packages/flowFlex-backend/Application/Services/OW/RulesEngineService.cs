@@ -120,6 +120,56 @@ namespace FlowFlex.Application.Service.OW
         }
 
         /// <summary>
+        /// Evaluate condition for a completed stage by case code and stage ID
+        /// </summary>
+        public async Task<ConditionEvaluationResult> EvaluateConditionByCaseCodeAsync(string caseCode, long stageId)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(caseCode))
+                {
+                    _logger.LogWarning("CaseCode is null or empty for stage condition evaluation");
+                    return new ConditionEvaluationResult
+                    {
+                        IsConditionMet = false,
+                        ErrorMessage = "CaseCode is required"
+                    };
+                }
+
+                // Find onboarding by case code
+                var onboarding = await _db.Queryable<Onboarding>()
+                    .Where(o => o.CaseCode == caseCode && o.IsValid)
+                    .Where(o => o.TenantId == _userContext.TenantId)
+                    .FirstAsync();
+
+                if (onboarding == null)
+                {
+                    _logger.LogWarning("Onboarding not found for CaseCode={CaseCode}", caseCode);
+                    return new ConditionEvaluationResult
+                    {
+                        IsConditionMet = false,
+                        ErrorMessage = $"Onboarding not found for CaseCode: {caseCode}"
+                    };
+                }
+
+                _logger.LogDebug("Found onboarding {OnboardingId} for CaseCode={CaseCode}, evaluating stage condition for StageId={StageId}",
+                    onboarding.Id, caseCode, stageId);
+
+                // Delegate to the existing method
+                return await EvaluateConditionAsync(onboarding.Id, stageId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error evaluating condition for CaseCode={CaseCode}, StageId={StageId}", caseCode, stageId);
+                return new ConditionEvaluationResult
+                {
+                    IsConditionMet = false,
+                    ErrorMessage = ex.Message
+                };
+            }
+        }
+
+        /// <summary>
         /// Evaluate condition with transaction lock for concurrency control
         /// Implements Requirements 9.1-9.5: Transaction wrapping, row-level lock, single execution guarantee
         /// </summary>
@@ -348,7 +398,10 @@ namespace FlowFlex.Application.Service.OW
                 dynamic input = new ExpandoObject();
                 var inputDict = (IDictionary<string, object>)input;
 
-                // Add checklist data
+                // Build nested tasks dictionary: tasks[checklistId][taskId] = { isCompleted, name, completionNotes }
+                var tasksDict = BuildNestedTasksDictionary(checklistData, stageId);
+
+                // Add checklist data with nested tasks dictionary
                 inputDict["checklist"] = new
                 {
                     status = checklistData.Status,
@@ -357,15 +410,18 @@ namespace FlowFlex.Application.Service.OW
                     completionPercentage = checklistData.TotalCount > 0 
                         ? (double)checklistData.CompletedCount / checklistData.TotalCount * 100 
                         : 0,
-                    tasks = checklistData.Tasks
+                    tasks = tasksDict
                 };
 
-                // Add questionnaire data
+                // Build nested answers dictionary: answers[questionnaireId][questionId] = value
+                var answersDict = BuildNestedAnswersDictionary(questionnaireData, stageId);
+
+                // Add questionnaire data with nested answers dictionary
                 inputDict["questionnaire"] = new
                 {
                     status = questionnaireData.Status,
                     totalScore = questionnaireData.TotalScore,
-                    answers = questionnaireData.Answers
+                    answers = answersDict
                 };
 
                 // Add attachment data
@@ -388,6 +444,141 @@ namespace FlowFlex.Application.Service.OW
                 // Return empty input to allow evaluation to continue
                 return new ExpandoObject();
             }
+        }
+
+        /// <summary>
+        /// Build nested tasks dictionary for RulesEngine access
+        /// Format: tasks[checklistId][taskId] = TaskData { isCompleted, name, completionNotes }
+        /// Uses SafeTasksDictionary to handle missing keys gracefully
+        /// </summary>
+        private SafeTasksDictionary BuildNestedTasksDictionary(ChecklistData checklistData, long stageId)
+        {
+            var result = new SafeTasksDictionary();
+
+            if (checklistData?.Tasks == null || !checklistData.Tasks.Any())
+            {
+                _logger.LogDebug("No tasks found in checklist data for stage {StageId}", stageId);
+                return result;
+            }
+
+            _logger.LogDebug("Building nested tasks dictionary with {TaskCount} tasks for stage {StageId}", 
+                checklistData.Tasks.Count, stageId);
+
+            // Group tasks by checklistId
+            // The frontend fieldPath format is: tasks["checklistId"]["taskId"].isCompleted
+            foreach (var task in checklistData.Tasks)
+            {
+                var checklistIdStr = task.ChecklistId.ToString();
+                var taskIdStr = task.TaskId.ToString();
+                
+                _logger.LogDebug("Adding task: ChecklistId={ChecklistId}, TaskId={TaskId}, IsCompleted={IsCompleted}", 
+                    checklistIdStr, taskIdStr, task.IsCompleted);
+
+                // Create task data object with strongly-typed properties
+                var taskData = new TaskData
+                {
+                    isCompleted = task.IsCompleted,
+                    name = task.Name ?? string.Empty,
+                    completionNotes = task.CompletionNotes ?? string.Empty
+                };
+
+                // Ensure checklist dictionary exists
+                if (!result.ContainsKey(checklistIdStr))
+                {
+                    result[checklistIdStr] = new SafeTaskInnerDictionary();
+                }
+
+                // Add task under its checklistId
+                result[checklistIdStr][taskIdStr] = taskData;
+            }
+
+            _logger.LogDebug("Built nested tasks dictionary with {ChecklistCount} checklists: [{ChecklistIds}]", 
+                result.Count, string.Join(", ", result.Keys));
+
+            return result;
+        }
+
+        /// <summary>
+        /// Build nested answers dictionary for RulesEngine access
+        /// Format: answers[questionnaireId][questionId] = value
+        /// Uses SafeNestedDictionary to handle missing keys gracefully
+        /// </summary>
+        private SafeNestedDictionary BuildNestedAnswersDictionary(QuestionnaireData questionnaireData, long stageId)
+        {
+            var result = new SafeNestedDictionary();
+
+            if (questionnaireData?.Answers == null || !questionnaireData.Answers.Any())
+            {
+                _logger.LogDebug("No questionnaire answers found for stage {StageId}", stageId);
+                return result;
+            }
+
+            _logger.LogDebug("Building nested answers dictionary with {AnswerCount} questionnaire answers for stage {StageId}", 
+                questionnaireData.Answers.Count, stageId);
+
+            // The frontend fieldPath format is: answers["questionnaireId"]["questionId"]
+            // QuestionnaireData.Answers should already be: { "questionnaireId": { "questionId": value, ... }, ... }
+            foreach (var kvp in questionnaireData.Answers)
+            {
+                var questionnaireIdStr = kvp.Key;
+                
+                _logger.LogDebug("Processing questionnaire {QuestionnaireId}, value type: {ValueType}", 
+                    questionnaireIdStr, kvp.Value?.GetType().Name ?? "null");
+
+                // Check if the value is already a dictionary (nested structure)
+                if (kvp.Value is Dictionary<string, object> nestedDict)
+                {
+                    var safeDict = new SafeInnerDictionary();
+                    foreach (var item in nestedDict)
+                    {
+                        safeDict[item.Key] = item.Value;
+                    }
+                    result[questionnaireIdStr] = safeDict;
+                    _logger.LogDebug("Questionnaire {QuestionnaireId} has {QuestionCount} questions: [{QuestionIds}]", 
+                        questionnaireIdStr, nestedDict.Count, string.Join(", ", nestedDict.Keys));
+                }
+                else if (kvp.Value is Newtonsoft.Json.Linq.JObject jObj)
+                {
+                    // Convert JObject to SafeInnerDictionary
+                    var dict = new SafeInnerDictionary();
+                    foreach (var prop in jObj.Properties())
+                    {
+                        dict[prop.Name] = prop.Value.Type == Newtonsoft.Json.Linq.JTokenType.Object 
+                            ? prop.Value.ToString() 
+                            : prop.Value.ToObject<object>();
+                    }
+                    result[questionnaireIdStr] = dict;
+                    _logger.LogDebug("Questionnaire {QuestionnaireId} (JObject) has {QuestionCount} questions: [{QuestionIds}]", 
+                        questionnaireIdStr, dict.Count, string.Join(", ", dict.Keys));
+                }
+                else if (kvp.Value is IDictionary<string, object> iDict)
+                {
+                    var safeDict = new SafeInnerDictionary();
+                    foreach (var item in iDict)
+                    {
+                        safeDict[item.Key] = item.Value;
+                    }
+                    result[questionnaireIdStr] = safeDict;
+                    _logger.LogDebug("Questionnaire {QuestionnaireId} (IDictionary) has {QuestionCount} questions", 
+                        questionnaireIdStr, iDict.Count);
+                }
+                else
+                {
+                    // Single value - wrap it
+                    if (!result.ContainsKey(questionnaireIdStr))
+                    {
+                        result[questionnaireIdStr] = new SafeInnerDictionary();
+                    }
+                    result[questionnaireIdStr][questionnaireIdStr] = kvp.Value;
+                    _logger.LogDebug("Questionnaire {QuestionnaireId} has single value: {Value}", 
+                        questionnaireIdStr, kvp.Value);
+                }
+            }
+
+            _logger.LogDebug("Built nested answers dictionary with {QuestionnaireCount} questionnaires: [{QuestionnaireIds}]", 
+                result.Count, string.Join(", ", result.Keys));
+
+            return result;
         }
 
 
@@ -474,9 +665,9 @@ namespace FlowFlex.Application.Service.OW
         }
 
         /// <summary>
-        /// Get next stage ID based on order
+        /// Get next stage ID based on order with explicit tenant ID
         /// </summary>
-        private async Task<long?> GetNextStageIdAsync(long currentStageId)
+        private async Task<long?> GetNextStageIdAsync(long currentStageId, string tenantId)
         {
             try
             {
@@ -490,12 +681,36 @@ namespace FlowFlex.Application.Service.OW
                 // Get next stage by order
                 var nextStage = await _db.Queryable<Stage>()
                     .Where(s => s.WorkflowId == currentStage.WorkflowId && s.IsValid && s.IsActive)
-                    .Where(s => s.TenantId == _userContext.TenantId)
+                    .Where(s => s.TenantId == tenantId)
                     .Where(s => s.Order > currentStage.Order)
                     .OrderBy(s => s.Order)
                     .FirstAsync();
 
                 return nextStage?.Id;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting next stage for stage {StageId}", currentStageId);
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Get next stage ID based on order (gets TenantId from current stage)
+        /// </summary>
+        private async Task<long?> GetNextStageIdAsync(long currentStageId)
+        {
+            try
+            {
+                // Get current stage to obtain TenantId
+                var currentStage = await _stageRepository.GetByIdAsync(currentStageId);
+                if (currentStage == null)
+                {
+                    return null;
+                }
+
+                // Use stage's TenantId
+                return await GetNextStageIdAsync(currentStageId, currentStage.TenantId);
             }
             catch (Exception ex)
             {
@@ -656,7 +871,33 @@ namespace FlowFlex.Application.Service.OW
             }
 
             // Map frontend operator to C# expression operator
-            var op = rule.Operator?.ToLower() switch
+            var operatorLower = rule.Operator?.ToLower();
+            
+            // Handle special checklist operators
+            if (operatorLower == "completetask")
+            {
+                // CompleteTask: check if task isCompleted == true
+                // fieldPath already points to .isCompleted
+                return $"{rule.FieldPath} == true";
+            }
+            else if (operatorLower == "completestage")
+            {
+                // CompleteStage: check if the specified task/field is completed
+                // If fieldPath points to a specific task's isCompleted, use it
+                // Otherwise, check the overall checklist status
+                if (!string.IsNullOrEmpty(rule.FieldPath) && rule.FieldPath.Contains(".isCompleted"))
+                {
+                    // fieldPath points to a specific task's isCompleted property
+                    return $"{rule.FieldPath} == true";
+                }
+                else
+                {
+                    // Fallback: check if all tasks in stage are completed
+                    return "input.checklist.status == \"Completed\"";
+                }
+            }
+
+            var op = operatorLower switch
             {
                 "==" or "equals" or "eq" => "==",
                 "!=" or "notequals" or "ne" => "!=",
@@ -665,12 +906,15 @@ namespace FlowFlex.Application.Service.OW
                 ">=" or "gte" => ">=",
                 "<=" or "lte" => "<=",
                 "contains" => ".Contains",
+                "notcontains" => "!.Contains",
                 "startswith" => ".StartsWith",
                 "endswith" => ".EndsWith",
                 "isnull" => "== null",
                 "isnotnull" => "!= null",
                 "isempty" => "IsEmpty",
                 "isnotempty" => "!IsEmpty",
+                "inlist" => "InList",
+                "notinlist" => "!InList",
                 _ => "=="
             };
 
@@ -678,6 +922,10 @@ namespace FlowFlex.Application.Service.OW
             if (op == ".Contains" || op == ".StartsWith" || op == ".EndsWith")
             {
                 return $"{rule.FieldPath}{op}({valueStr})";
+            }
+            else if (op == "!.Contains")
+            {
+                return $"!{rule.FieldPath}.Contains({valueStr})";
             }
             else if (op == "== null" || op == "!= null")
             {
@@ -687,6 +935,12 @@ namespace FlowFlex.Application.Service.OW
             {
                 var prefix = op.StartsWith("!") ? "!" : "";
                 return $"{prefix}RuleUtils.IsEmpty({rule.FieldPath})";
+            }
+            else if (op == "InList" || op == "!InList")
+            {
+                // InList: check if value is in a comma-separated list
+                var prefix = op.StartsWith("!") ? "!" : "";
+                return $"{prefix}RuleUtils.InList({rule.FieldPath}, {valueStr})";
             }
             else
             {
