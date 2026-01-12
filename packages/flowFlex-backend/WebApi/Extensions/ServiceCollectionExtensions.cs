@@ -4,6 +4,7 @@ using FlowFlex.Application.Contracts.IServices.OW;
 using FlowFlex.Application.Contracts.IServices;
 using FlowFlex.Application.Service.OW;
 using FlowFlex.Application.Services.OW;
+using FlowFlex.Application.Services.MessageCenter;
 using FlowFlex.Domain;
 using FlowFlex.Domain.Entities.OW;
 using FlowFlex.Domain.Repository.OW;
@@ -107,7 +108,9 @@ namespace FlowFlex.WebApi.Extensions
                                 // Add prefix
                                 entity.DbTableName = $"ff_{UtilMethods.ToUnderLine(tableName)}";
                             }
-                        }
+                        },
+                        // Custom serializer to prevent double serialization of JSON strings
+                        SerializeService = new SqlSugarJsonSerializer()
                     }
                 };
 
@@ -167,7 +170,7 @@ namespace FlowFlex.WebApi.Extensions
                                           (!string.IsNullOrEmpty(userContext.UserName) ? userContext.UserName :
                                           (!string.IsNullOrEmpty(userContext.Email) ? userContext.Email : "SYSTEM"));
                             var userId = long.TryParse(userContext.UserId, out var parsedUserId) ? parsedUserId : 0;
-                            var tenantId = userContext.TenantId ?? "DEFAULT";
+                            var tenantId = userContext.TenantId ?? "default";
 
                             if (entityInfo.EntityColumnInfo.PropertyInfo.PropertyType == typeof(DateTimeOffset?))
                             {
@@ -272,9 +275,12 @@ namespace FlowFlex.WebApi.Extensions
                         var appContext = httpContext.Items["AppContext"] as AppContext;
 
                         // Try to get user information from JWT claims first
-                        var userIdClaim = httpContext.User?.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)
-                                        ?? httpContext.User?.FindFirst("sub");
-                        var emailClaim = httpContext.User?.FindFirst(System.Security.Claims.ClaimTypes.Email);
+                        // Priority: userId claim > sub claim > NameIdentifier claim
+                        var userIdClaim = httpContext.User?.FindFirst("userId")
+                                        ?? httpContext.User?.FindFirst("sub")
+                                        ?? httpContext.User?.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier);
+                        var emailClaim = httpContext.User?.FindFirst(System.Security.Claims.ClaimTypes.Email)
+                                        ?? httpContext.User?.FindFirst("email");
                         var usernameClaim = httpContext.User?.FindFirst("username");
                         var tenantIdClaim = httpContext.User?.FindFirst("tenantId");
                         var appCodeClaim = httpContext.User?.FindFirst("appCode");
@@ -300,8 +306,8 @@ namespace FlowFlex.WebApi.Extensions
                         var userId = userIdHeader ?? userIdClaim?.Value ?? "1";
                         var email = emailClaim?.Value ?? string.Empty;
                         var userName = userNameHeader ?? usernameClaim?.Value ?? email ?? "System";
-                        var tenantId = tenantIdHeader ?? tenantIdClaim?.Value ?? appContext?.TenantId ?? "DEFAULT";
-                        var appCode = appCodeHeader ?? appCodeClaim?.Value ?? appContext?.AppCode ?? "DEFAULT";
+                        var tenantId = tenantIdHeader ?? tenantIdClaim?.Value ?? appContext?.TenantId ?? "default";
+                        var appCode = appCodeHeader ?? appCodeClaim?.Value ?? appContext?.AppCode ?? "default";
 
                         // Note: No inference from email domain - use explicit headers only
 
@@ -323,8 +329,8 @@ namespace FlowFlex.WebApi.Extensions
                         UserId = "1",
                         UserName = "TestUser",
                         Email = string.Empty,
-                        TenantId = "DEFAULT",
-                        AppCode = "DEFAULT"
+                        TenantId = "default",
+                        AppCode = "default"
                     };
                 }
                 catch (ObjectDisposedException)
@@ -335,8 +341,8 @@ namespace FlowFlex.WebApi.Extensions
                         UserId = "1",
                         UserName = "System",
                         Email = string.Empty,
-                        TenantId = "DEFAULT",
-                        AppCode = "DEFAULT"
+                        TenantId = "default",
+                        AppCode = "default"
                     };
                 }
                 catch (Exception ex)
@@ -348,8 +354,8 @@ namespace FlowFlex.WebApi.Extensions
                         UserId = "1",
                         UserName = "System",
                         Email = string.Empty,
-                        TenantId = "DEFAULT",
-                        AppCode = "DEFAULT"
+                        TenantId = "default",
+                        AppCode = "default"
                     };
                 }
             });
@@ -493,7 +499,7 @@ namespace FlowFlex.WebApi.Extensions
             catch (ObjectDisposedException)
             {
                 // Service provider was disposed, use default
-                return "DEFAULT";
+                return "default";
             }
             catch
             {

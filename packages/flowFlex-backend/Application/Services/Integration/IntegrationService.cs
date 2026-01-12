@@ -1,4 +1,3 @@
-using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Security.Cryptography;
@@ -9,6 +8,8 @@ using FlowFlex.Application.Contracts.Dtos.Integration;
 using FlowFlex.Application.Contracts.IServices;
 using FlowFlex.Application.Contracts.IServices.Integration;
 using FlowFlex.Application.Services.OW.Extensions;
+using FlowFlex.Domain.Entities.Action;
+using FlowFlex.Domain.Entities.Integration;
 using FlowFlex.Domain.Repository.Action;
 using FlowFlex.Domain.Repository.Integration;
 using FlowFlex.Domain.Shared;
@@ -444,6 +445,9 @@ namespace FlowFlex.Application.Services.Integration
                 _logger.LogWarning(ex, $"Failed to extract outbound mappings from action configs for integration {id}");
             }
             
+            // Populate LastDaysSeconds with real execution data
+            dto.LastDaysSeconds = await GetLastDaysSecondsAsync(id);
+            
             return dto;
         }
 
@@ -456,11 +460,49 @@ namespace FlowFlex.Application.Services.Integration
 
             var dtos = _mapper.Map<List<IntegrationOutputDto>>(items);
             
-            // Populate ConfiguredEntityTypeNames and LastDaysSeconds for each integration
+            // Get all integration IDs
+            var integrationIds = dtos.Select(d => d.Id).ToList();
+            
+            // Batch query: Get all entity mappings for all integrations
+            var allEntityMappings = await _sqlSugarClient.Queryable<Domain.Entities.Integration.EntityMapping>()
+                .Where(em => integrationIds.Contains(em.IntegrationId) && em.IsActive && em.IsValid)
+                .Select(em => new { em.IntegrationId, em.ExternalEntityType })
+                .ToListAsync();
+            
+            // Group by integration ID
+            var entityMappingsByIntegration = allEntityMappings
+                .GroupBy(em => em.IntegrationId)
+                .ToDictionary(
+                    g => g.Key,
+                    g => g.Select(em => em.ExternalEntityType)
+                          .Where(t => !string.IsNullOrEmpty(t))
+                          .Distinct()
+                          .OrderBy(t => t)
+                          .ToList()
+                );
+            
+            // Batch populate LastDaysSeconds for all integrations
+            var lastDaysSecondsMap = await GetLastDaysSecondsBatchAsync(integrationIds);
+            
+            // Populate data for each integration
             foreach (var dto in dtos)
             {
-                await PopulateConfiguredEntityTypeNamesAsync(dto);
-                dto.LastDaysSeconds = GenerateLastDaysSeconds();
+                // Populate ConfiguredEntityTypeNames from batch query result
+                if (entityMappingsByIntegration.TryGetValue(dto.Id, out var entityTypes))
+                {
+                    dto.ConfiguredEntityTypeNames = entityTypes;
+                    dto.ConfiguredEntityTypes = entityTypes.Count;
+                }
+                else
+                {
+                    dto.ConfiguredEntityTypeNames = new List<string>();
+                    dto.ConfiguredEntityTypes = 0;
+                }
+                
+                // Populate LastDaysSeconds from batch query result
+                dto.LastDaysSeconds = lastDaysSecondsMap.TryGetValue(dto.Id, out var data) 
+                    ? data 
+                    : GetEmptyLastDaysSeconds();
             }
             
             return dtos;
@@ -606,6 +648,7 @@ namespace FlowFlex.Application.Services.Integration
 
                     case AuthenticationMethod.OAuth2:
                         // OAuth 2.0 - POST to token endpoint with client credentials
+                        // Use Basic Auth header for client credentials (RFC 6749 recommended)
                         request = new HttpRequestMessage(HttpMethod.Post, endpointUrl);
                         var oauthFormData = new Dictionary<string, string>
                         {
@@ -613,10 +656,13 @@ namespace FlowFlex.Application.Services.Integration
                         };
                         if (credentials != null)
                         {
-                            if (credentials.TryGetValue("clientId", out var clientId))
-                                oauthFormData["client_id"] = clientId;
-                            if (credentials.TryGetValue("clientSecret", out var clientSecret))
-                                oauthFormData["client_secret"] = clientSecret;
+                            // Use Basic Auth header to pass client credentials (more secure and widely supported)
+                            if (credentials.TryGetValue("clientId", out var clientId) &&
+                                credentials.TryGetValue("clientSecret", out var clientSecret))
+                            {
+                                var authValue = Convert.ToBase64String(Encoding.UTF8.GetBytes($"{clientId}:{clientSecret}"));
+                                request.Headers.Authorization = new AuthenticationHeaderValue("Basic", authValue);
+                            }
                         }
                         request.Content = new FormUrlEncodedContent(oauthFormData);
                         break;
@@ -808,21 +854,142 @@ namespace FlowFlex.Application.Services.Integration
         }
 
         /// <summary>
-        /// Generate last 30 days random seconds statistics
+        /// Get last 30 days API call count statistics for an integration
         /// </summary>
-        private Dictionary<string, string> GenerateLastDaysSeconds()
+        /// <param name="integrationId">Integration ID</param>
+        /// <returns>Dictionary with date as key (yyyy-MM-dd) and call count as value</returns>
+        private async Task<Dictionary<string, string>> GetLastDaysSecondsAsync(long integrationId)
         {
+            var today = DateTime.UtcNow.Date;
             var result = new Dictionary<string, string>();
-            var random = new Random();
-            var today = DateTime.Today;
+            var startDate = today.AddDays(-29);
 
-            // Generate data for the last 30 days
+            // Initialize all 30 days with 0
             for (int i = 29; i >= 0; i--)
             {
                 var date = today.AddDays(-i);
                 var dateKey = date.ToString("yyyy-MM-dd");
-                var randomValue = random.Next(0, 1001).ToString(); // 0-1000
-                result[dateKey] = randomValue;
+                result[dateKey] = "0";
+            }
+
+            try
+            {
+                var startDateOffset = new DateTimeOffset(startDate, TimeSpan.Zero);
+
+                // Query API log records and count by date
+                var apiLogs = await _sqlSugarClient.Queryable<IntegrationApiLog>()
+                    .Where(l => l.IntegrationId == integrationId &&
+                                l.CreateDate >= startDateOffset &&
+                                l.IsValid)
+                    .Select(l => new { l.CreateDate })
+                    .ToListAsync();
+
+                // Count API calls by date
+                var countByDate = apiLogs
+                    .GroupBy(l => l.CreateDate.UtcDateTime.Date.ToString("yyyy-MM-dd"))
+                    .ToDictionary(g => g.Key, g => g.Count());
+
+                // Merge counts into result
+                foreach (var kvp in countByDate)
+                {
+                    if (result.ContainsKey(kvp.Key))
+                    {
+                        result[kvp.Key] = kvp.Value.ToString();
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to get API call statistics for integration {IntegrationId}", integrationId);
+            }
+
+            return result;
+        }
+
+        /// <summary>
+        /// Batch get last 30 days API call count statistics for multiple integrations
+        /// </summary>
+        private async Task<Dictionary<long, Dictionary<string, string>>> GetLastDaysSecondsBatchAsync(List<long> integrationIds)
+        {
+            var result = new Dictionary<long, Dictionary<string, string>>();
+            if (integrationIds == null || integrationIds.Count == 0)
+            {
+                return result;
+            }
+
+            var today = DateTime.UtcNow.Date;
+
+            try
+            {
+                var startDate = today.AddDays(-29);
+                var startDateOffset = new DateTimeOffset(startDate, TimeSpan.Zero);
+
+                // Batch query API logs for all integrations
+                var apiLogs = await _sqlSugarClient.Queryable<IntegrationApiLog>()
+                    .Where(l => integrationIds.Contains(l.IntegrationId) && 
+                                l.CreateDate >= startDateOffset &&
+                                l.IsValid)
+                    .Select(l => new { l.IntegrationId, l.CreateDate })
+                    .ToListAsync();
+
+                // Group API logs by integration ID and date, count calls
+                var countByIntegration = apiLogs
+                    .GroupBy(l => l.IntegrationId)
+                    .ToDictionary(
+                        g => g.Key,
+                        g => g.GroupBy(l => l.CreateDate.UtcDateTime.Date.ToString("yyyy-MM-dd"))
+                              .ToDictionary(dg => dg.Key, dg => dg.Count())
+                    );
+
+                // Build result for each integration
+                foreach (var integrationId in integrationIds)
+                {
+                    var data = GetEmptyLastDaysSeconds();
+
+                    if (countByIntegration.TryGetValue(integrationId, out var dateCounts))
+                    {
+                        foreach (var kvp in dateCounts)
+                        {
+                            if (data.ContainsKey(kvp.Key))
+                            {
+                                data[kvp.Key] = kvp.Value.ToString();
+                            }
+                        }
+                    }
+
+                    result[integrationId] = data;
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to batch get API call statistics for integrations");
+                
+                // Return empty data for all integrations
+                foreach (var integrationId in integrationIds)
+                {
+                    if (!result.ContainsKey(integrationId))
+                    {
+                        result[integrationId] = GetEmptyLastDaysSeconds();
+                    }
+                }
+            }
+
+            return result;
+        }
+
+        /// <summary>
+        /// Get empty LastDaysSeconds dictionary with all 30 days initialized to 0
+        /// </summary>
+        private Dictionary<string, string> GetEmptyLastDaysSeconds()
+        {
+            var result = new Dictionary<string, string>();
+            var today = DateTime.UtcNow.Date;
+
+            for (int i = 29; i >= 0; i--)
+            {
+                var date = today.AddDays(-i);
+                var dateKey = date.ToString("yyyy-MM-dd");
+                result[dateKey] = "0";
             }
 
             return result;
@@ -1172,6 +1339,18 @@ namespace FlowFlex.Application.Services.Integration
                 integrationId, integration.OutboundAttachments);
 
             return result;
+        }
+
+        /// <summary>
+        /// Internal class for execution statistics data
+        /// </summary>
+        private class ExecutionStatData
+        {
+            public long ActionDefinitionId { get; set; }
+            public DateTimeOffset CreateDate { get; set; }
+            public long? DurationMs { get; set; }
+            public DateTimeOffset? StartedAt { get; set; }
+            public DateTimeOffset? CompletedAt { get; set; }
         }
     }
 }

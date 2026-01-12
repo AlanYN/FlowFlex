@@ -242,7 +242,7 @@ namespace FlowFlex.Application.Services.OW.Permission
         /// </summary>
         public string GetCurrentTenantId()
         {
-            return _userContext?.TenantId ?? "DEFAULT";
+            return _userContext?.TenantId ?? "default";
         }
 
         /// <summary>
@@ -265,7 +265,7 @@ namespace FlowFlex.Application.Services.OW.Permission
         /// <summary>
         /// Check if user has admin privileges (System Admin or Tenant Admin)
         /// </summary>
-        public bool HasAdminPrivileges()
+        public virtual bool HasAdminPrivileges()
         {
             return IsSystemAdmin() || IsTenantAdmin();
         }

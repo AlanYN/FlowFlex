@@ -935,10 +935,9 @@ const handleHasOtherQuestion = (question: QuestionnaireSection & { id: string },
 				if (question.type === 'multiple_choice' && matchingRule.targetQuestionId) {
 					// 计算被跳过的问题并触发跳转
 					handleJumpToQuestion(matchingRule, question);
+				} else {
+					internalSkippedQuestions.value = new Set();
 				}
-			} else {
-				// 如果没有匹配的跳转规则，清除跳过状态
-				internalSkippedQuestions.value = new Set();
 			}
 		}
 	} else if (question.type == 'multiple_choice_grid' || question.type == 'checkbox_grid') {
@@ -1525,7 +1524,10 @@ const goToNextSection = async () => {
 		// 根据跳转规则跳转到指定section
 		const targetSectionIndex = findSectionIndexById(targetSectionId);
 		if (targetSectionIndex !== -1) {
-			currentSectionIndex.value = targetSectionIndex;
+			currentSectionIndex.value =
+				targetSectionIndex == currentSectionIndex.value
+					? targetSectionIndex + 1
+					: targetSectionIndex;
 			return;
 		}
 	}
@@ -2058,7 +2060,7 @@ html.dark {
 }
 
 .form-radio-disabled {
-	background-color: var(--el-fill-color-light);
+	background-color: var(--el-disabled-bg-color);
 }
 
 .form-radio-checked {

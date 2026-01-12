@@ -155,7 +155,7 @@ namespace FlowFlex.Application.Services.OW
                 {
                     OnboardingId = onboardingId,
                     LeadId = onboarding?.LeadId,
-                    LeadName = onboarding?.LeadName,
+                    LeadName = onboarding?.CaseName,
                     StageId = stageId,
                     StageName = stage?.Name ?? "Unknown",
                     QuestionnaireId = questionnaireId,
@@ -612,7 +612,7 @@ namespace FlowFlex.Application.Services.OW
         private string GetTenantId()
         {
             var context = _httpContextAccessor.HttpContext;
-            return context?.Request.Headers["X-Tenant-Id"].FirstOrDefault() ?? "DEFAULT";
+            return context?.Request.Headers["X-Tenant-Id"].FirstOrDefault() ?? "default";
         }
 
         private string GetCurrentUser()

@@ -88,7 +88,6 @@
 						<InputNumber
 							v-model="formData.estimatedDuration as number"
 							:decimalPlaces="2"
-							:minNumber="0.01"
 							placeholder="e.g., 3 days"
 						/>
 					</el-form-item>

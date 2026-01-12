@@ -91,6 +91,18 @@ namespace FlowFlex.Infrastructure.Data
             db.QueryFilter.AddTableFilter<FlowFlex.Domain.Entities.OW.Checklist>(entity =>
                 entity.AppCode == GetCurrentAppCode(httpContextAccessor));
 
+            // ChecklistTask filters
+            db.QueryFilter.AddTableFilter<FlowFlex.Domain.Entities.OW.ChecklistTask>(entity =>
+                entity.TenantId == GetCurrentTenantId(httpContextAccessor));
+            db.QueryFilter.AddTableFilter<FlowFlex.Domain.Entities.OW.ChecklistTask>(entity =>
+                entity.AppCode == GetCurrentAppCode(httpContextAccessor));
+
+            // ChecklistStageMapping filters
+            db.QueryFilter.AddTableFilter<FlowFlex.Domain.Entities.OW.ChecklistStageMapping>(entity =>
+                entity.TenantId == GetCurrentTenantId(httpContextAccessor));
+            db.QueryFilter.AddTableFilter<FlowFlex.Domain.Entities.OW.ChecklistStageMapping>(entity =>
+                entity.AppCode == GetCurrentAppCode(httpContextAccessor));
+
             // Questionnaire filters
             db.QueryFilter.AddTableFilter<FlowFlex.Domain.Entities.OW.Questionnaire>(entity =>
                 entity.TenantId == GetCurrentTenantId(httpContextAccessor));
@@ -136,7 +148,7 @@ namespace FlowFlex.Infrastructure.Data
             if (httpContext == null)
             {
                 Console.WriteLine("[AppTenantFilter] HttpContext is null, using DEFAULT tenant");
-                return "DEFAULT";
+                return "default";
             }
 
             // Try to get from AppContext first
@@ -158,7 +170,7 @@ namespace FlowFlex.Infrastructure.Data
             }
 
             Console.WriteLine("[AppTenantFilter] No TenantId found, using DEFAULT");
-            return "DEFAULT";
+            return "default";
         }
 
         /// <summary>
@@ -172,7 +184,7 @@ namespace FlowFlex.Infrastructure.Data
             if (httpContext == null)
             {
                 Console.WriteLine("[AppTenantFilter] HttpContext is null, using DEFAULT app code");
-                return "DEFAULT";
+                return "default";
             }
 
             // Try to get from AppContext first
@@ -194,7 +206,7 @@ namespace FlowFlex.Infrastructure.Data
             }
 
             Console.WriteLine("[AppTenantFilter] No AppCode found, using DEFAULT");
-            return "DEFAULT";
+            return "default";
         }
 
         /// <summary>

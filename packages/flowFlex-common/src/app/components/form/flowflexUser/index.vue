@@ -1,7 +1,16 @@
 <template>
-	<div class="w-full">
+	<div class="w-full" :class="{ 'w-auto': triggerOnly }">
+		<!-- 仅触发器模式 - 使用 slot 内容作为触发器 -->
+		<div v-if="triggerOnly" @click="openModal" class="cursor-pointer">
+			<slot>
+				<el-button :disabled="disabled">
+					<el-icon><User /></el-icon>
+				</el-button>
+			</slot>
+		</div>
+
 		<!-- 只读模式 -->
-		<div v-if="readonly" class="flex items-center">
+		<div v-else-if="readonly" class="flex items-center">
 			<div v-if="selectedItems.length > 0" class="flex items-center">
 				<!-- 显示限制数量内的用户 -->
 				<div
@@ -16,12 +25,7 @@
 					}"
 				>
 					<el-tooltip
-						:content="
-							item.name +
-							(showEmail && item?.userDetails?.email
-								? ` (${item?.userDetails?.email})`
-								: '')
-						"
+						:content="item.name + (showEmail && item?.email ? ` (${item?.email})` : '')"
 						:show-after="500"
 					>
 						<div
@@ -86,10 +90,7 @@
 					>
 						<el-tooltip
 							:content="
-								item.name +
-								(showEmail && item?.userDetails?.email
-									? ` (${item?.userDetails?.email})`
-									: '')
+								item.name + (showEmail && item?.email ? ` (${item?.email})` : '')
 							"
 							:show-after="500"
 						>
@@ -233,12 +234,12 @@
 													<div
 														v-if="
 															data.type === 'user' &&
-															data.userDetails?.email &&
+															data?.email &&
 															showEmail
 														"
 														class="text-gray-500 dark:text-gray-400 text-xs block overflow-hidden text-ellipsis whitespace-nowrap mt-0.5"
 													>
-														{{ data.userDetails.email }}
+														{{ data.email }}
 													</div>
 												</div>
 
@@ -308,10 +309,10 @@
 												{{ item.name }}
 											</div>
 											<div
-												v-if="item.userDetails?.email && showEmail"
+												v-if="item?.email && showEmail"
 												class="text-gray-500 dark:text-gray-400 text-xs overflow-hidden text-ellipsis whitespace-nowrap mt-0.5"
 											>
-												{{ item.userDetails.email }}
+												{{ item.email }}
 											</div>
 										</div>
 										<el-button
@@ -344,7 +345,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue';
-import { Search, Close, Refresh } from '@element-plus/icons-vue';
+import { Search, Close, Refresh, User } from '@element-plus/icons-vue';
 import CustomTree from './CustomTree.vue';
 import { ElMessage } from 'element-plus';
 import { menuRoles } from '@/stores/modules/menuFunction';
@@ -360,11 +361,13 @@ interface Props {
 	maxCount?: number; // 最大选择数量，0表示无限制
 	minCount?: number; // 最小选择数量
 	readonly?: boolean; // 只读模式，只显示用户不显示输入框样式
+	triggerOnly?: boolean; // 仅触发器模式，只显示 slot 内容作为触发器，不显示输入框
 	maxShowCount?: number; // 最大显示数量
 	readonlyNoDataText?: string; // 只读模式下没有数据时的文本
 	clearable?: boolean; // 是否可清除
 	checkStrictly?: boolean; // 是否严格模式，不遵循父子节点联动逻辑
 	choosableTreeData?: FlowflexUser[]; // 自定义可选择的树形数据，传入时优先使用此数据而不是缓存数据，支持动态更新
+	isShowAdminUser?: boolean;
 	beforeOpen?: () => boolean | string | Promise<boolean | string>; // 打开弹窗前的钩子函数，返回 false 或 string 则阻止打开，string 为错误提示信息
 }
 
@@ -389,9 +392,11 @@ const props = withDefaults(defineProps<Props>(), {
 	maxCount: 0,
 	minCount: 0,
 	readonly: false,
+	triggerOnly: false,
 	maxShowCount: 10,
 	readonlyNoDataText: 'No users selected',
 	checkStrictly: undefined,
+	isShowAdminUser: false,
 });
 
 // 计算 placeholder
@@ -429,9 +434,9 @@ const defaultCheckedKeys = computed(() => {
 
 // 过滤后的树数据（用于搜索）
 const filteredTreeData = computed(() => {
-	if (!searchText.value) {
-		return treeData.value;
-	}
+	// if (!searchText.value) {
+	// 	return treeData.value;
+	// }
 
 	// 递归过滤树数据
 	const filterTree = (nodes: FlowflexUser[]): FlowflexUser[] => {
@@ -495,13 +500,20 @@ const buildUserDataMap = (data: FlowflexUser[], clear = false) => {
 };
 
 // 过滤节点方法，支持搜索
-const filterNode = (value: string, data: any): boolean => {
-	if (!value) return true;
-	const searchValue = value.toLowerCase();
+const filterNode = (value: string, data: FlowflexUser): boolean => {
 	const nodeData = data as FlowflexUser;
+
+	if (!props.isShowAdminUser && nodeData.userType == 1) {
+		return false;
+	}
+
+	// 如果没有搜索关键词，显示所有未被过滤的节点
+	if (!value) return true;
+
+	// 搜索匹配
+	const searchValue = value.toLowerCase();
 	const matchesName = nodeData.name?.toLowerCase().includes(searchValue) || false;
-	const matchesEmail =
-		(nodeData.userDetails?.email?.toLowerCase().includes(searchValue) || false) && true;
+	const matchesEmail = nodeData?.email?.toLowerCase().includes(searchValue) || false;
 	return matchesName || matchesEmail;
 };
 
@@ -583,6 +595,21 @@ const removeSelectedItem = (id: string) => {
 	}
 };
 
+// 获取当前过滤后树中所有节点的 ID
+const getCurrentTreeNodeIds = (): Set<string> => {
+	const nodeIds = new Set<string>();
+	const collectAllNodeIds = (nodes: FlowflexUser[]) => {
+		nodes.forEach((node) => {
+			nodeIds.add(node.id);
+			if (node.children && node.children.length > 0) {
+				collectAllNodeIds(node.children);
+			}
+		});
+	};
+	collectAllNodeIds(filteredTreeData.value);
+	return nodeIds;
+};
+
 // 树节点选中事件
 const handleTreeCheck = (
 	data: FlowflexUser,
@@ -626,13 +653,24 @@ const handleTreeCheck = (
 		checkedNodes: checkState.checkedNodes.length,
 	});
 
-	// 过滤出目标类型的节点
-	const filteredNodes = checkState.checkedNodes.filter(
+	// 过滤出当前树中目标类型的选中节点
+	const currentTreeCheckedNodes = checkState.checkedNodes.filter(
 		(node: FlowflexUser) => node.type === targetType
 	);
 
+	// 获取当前树中所有节点的 ID（用于判断哪些之前的选择不在当前树中）
+	const currentTreeNodeIds = getCurrentTreeNodeIds();
+
+	// 保留之前选择的但不在当前树中的项目（搜索过滤导致不可见的项目）
+	const previouslySelectedNotInCurrentTree = tempSelectedItems.value.filter(
+		(item) => !currentTreeNodeIds.has(item.id)
+	);
+
+	// 合并：之前选择的但不在当前树中 + 当前树中选择的
+	const combinedSelection = [...previouslySelectedNotInCurrentTree, ...currentTreeCheckedNodes];
+
 	// 检查数量限制
-	if (props.maxCount > 0 && filteredNodes.length > props.maxCount) {
+	if (props.maxCount > 0 && combinedSelection.length > props.maxCount) {
 		ElMessage.warning(`Maximum ${props.maxCount} items can be selected`);
 		// 取消当前选中的节点
 		nextTick(() => {
@@ -644,7 +682,7 @@ const handleTreeCheck = (
 	}
 
 	// 去重：基于ID去重，只保留一个相同ID的节点
-	const uniqueNodes = filteredNodes.reduce((acc: FlowflexUser[], current: FlowflexUser) => {
+	const uniqueNodes = combinedSelection.reduce((acc: FlowflexUser[], current: FlowflexUser) => {
 		const existingNode = acc.find((node) => node.id === current.id);
 		if (!existingNode) {
 			acc.push(current);
@@ -652,7 +690,7 @@ const handleTreeCheck = (
 		return acc;
 	}, []);
 
-	// 只将目标类型的节点设置为临时选中项
+	// 更新临时选中项
 	tempSelectedItems.value = uniqueNodes;
 };
 
@@ -725,47 +763,18 @@ const removeFromSelection = (id: string) => {
 		(item) => !idsToRemove.includes(item.id)
 	);
 
-	// 同步更新树的选中状态
+	// 同步更新树的选中状态（只更新当前树中存在的节点）
 	nextTick(() => {
 		if (treeRef.value) {
-			// 如果没有开启严格模式，需要处理父子关系
-			const checkStrictly =
-				props.checkStrictly !== undefined ? props.checkStrictly : props.maxCount === 1;
+			// 获取当前树中所有节点的 ID
+			const currentTreeNodeIds = getCurrentTreeNodeIds();
 
-			if (!checkStrictly && nodeToRemove) {
-				// 非严格模式下，直接取消该节点的选中状态，让树组件处理父子关系
-				treeRef.value.setChecked(id, false);
+			// 只设置当前树中存在的已选节点
+			const shouldBeCheckedIds = tempSelectedItems.value
+				.filter((item) => currentTreeNodeIds.has(item.id))
+				.map((item) => item.id);
 
-				// 等待树组件更新完成后，重新同步右侧选择列表
-				setTimeout(() => {
-					if (treeRef.value) {
-						const allCheckedNodes = treeRef.value.getCheckedNodes();
-						const targetType = props.selectionType;
-
-						// 过滤出目标类型的节点并去重
-						const filteredNodes = allCheckedNodes.filter(
-							(node: FlowflexUser) => node.type === targetType
-						);
-
-						const uniqueNodes = filteredNodes.reduce(
-							(acc: FlowflexUser[], current: FlowflexUser) => {
-								const existingNode = acc.find((node) => node.id === current.id);
-								if (!existingNode) {
-									acc.push(current);
-								}
-								return acc;
-							},
-							[]
-						);
-
-						tempSelectedItems.value = uniqueNodes;
-					}
-				}, 0);
-			} else {
-				// 严格模式下，只设置当前应该选中的节点
-				const shouldBeCheckedIds = tempSelectedItems.value.map((item) => item.id);
-				treeRef.value.setCheckedKeys(shouldBeCheckedIds);
-			}
+			treeRef.value.setCheckedKeys(shouldBeCheckedIds);
 		}
 	});
 };
@@ -922,7 +931,9 @@ const initializeData = async (searchQuery = '', forceRemote = false) => {
 			if (modalVisible.value) {
 				nextTick(() => {
 					if (treeRef.value) {
-						const checkedKeys = selectedItems.value.map((item) => item.id);
+						// 使用 tempSelectedItems（当前弹窗中的临时选择）恢复选中状态
+						// 这样搜索/刷新后之前的选择不会丢失
+						const checkedKeys = tempSelectedItems.value.map((item) => item.id);
 						treeRef.value.setCheckedKeys(checkedKeys);
 					}
 				});
@@ -1113,62 +1124,4 @@ defineExpose({
 });
 </script>
 
-<style>
-/* Element Plus 树形组件样式优化 */
-.el-tree-node__content {
-	height: auto !important;
-	min-height: 40px !important;
-	align-items: flex-center !important;
-	line-height: 1.4 !important;
-}
-
-.el-tree-node__content:hover {
-	background-color: var(--el-fill-color-blank) !important;
-}
-
-/* Dark mode 树形组件样式 */
-html.dark .el-tree-node__content:hover {
-	background-color: var(--el-fill-color) !important;
-}
-
-html.dark .el-tree-node__content {
-	color: var(--el-text-color-primary) !important;
-}
-
-html.dark .el-tree .el-tree-node__expand-icon {
-	color: var(--el-text-color-regular) !important;
-}
-
-/* 确保树节点内容正确换行 */
-.el-tree-node__label {
-	width: 100% !important;
-	overflow: visible !important;
-}
-
-/* 防止内容重叠 */
-.el-tree .el-tree-node {
-	white-space: normal !important;
-}
-
-html.dark .el-scrollbar__wrap {
-	background-color: transparent !important;
-}
-
-/* Dark mode 输入框样式 */
-html.dark .el-input__wrapper {
-	background-color: var(--el-fill-color-blank) !important;
-	border-color: var(--el-border-color) !important;
-}
-
-html.dark .el-input__wrapper:hover {
-	border-color: var(--el-border-color-hover) !important;
-}
-
-html.dark .el-input__inner {
-	color: var(--el-text-color-primary) !important;
-}
-
-html.dark .el-input__inner::placeholder {
-	color: var(--el-text-color-placeholder) !important;
-}
-</style>
+<style></style>

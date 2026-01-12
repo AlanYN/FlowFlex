@@ -16,7 +16,7 @@ namespace FlowFlex.Application.Contracts.IServices.OW
         /// <param name="onboardingId">Onboarding ID</param>
         /// <param name="tenantId">Tenant ID</param>
         /// <returns>Portal token details</returns>
-        TokenDetailsDto GeneratePortalToken(long userId, string email, long onboardingId, string tenantId = "DEFAULT");
+        TokenDetailsDto GeneratePortalToken(long userId, string email, long onboardingId, string tenantId = "default");
 
         /// <summary>
         /// Validate Portal token and extract claims

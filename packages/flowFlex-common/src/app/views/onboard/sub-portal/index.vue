@@ -720,7 +720,7 @@ export default {
 			const data = onboardingData.value;
 			return {
 				id: data.leadId,
-				companyName: data.leadName,
+				companyName: data.caseName,
 				contactName: data.contactPerson,
 				email: data.contactEmail,
 				phone: '',

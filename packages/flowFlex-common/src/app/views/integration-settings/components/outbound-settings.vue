@@ -5,7 +5,8 @@
 			<div>
 				<h3 class="text-lg font-semibold text-text-primary m-0">Fields to Share</h3>
 				<p class="text-sm text-text-secondary mt-1">
-					Fields shared with IAM System through outbound actions (read-only view).
+					Fields shared with {{ integrationName }} System through outbound actions
+					(read-only view).
 				</p>
 			</div>
 
@@ -257,6 +258,7 @@ interface Props {
 	loading?: boolean;
 	workflows?: any[];
 	outboundFieldMappings?: FieldMapping[];
+	integrationName: string;
 }
 
 const props = defineProps<Props>();

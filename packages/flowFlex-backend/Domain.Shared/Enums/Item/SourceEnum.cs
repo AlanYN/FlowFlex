@@ -12,7 +12,7 @@ namespace FlowFlex.Domain.Shared.Enums.Item
         /// <summary>
         /// System added
         /// </summary>
-        [Description("Default")]
+        [Description("default")]
         Default = 1,
 
         /// <summary>

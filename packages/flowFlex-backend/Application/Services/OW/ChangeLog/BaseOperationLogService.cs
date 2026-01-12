@@ -94,6 +94,10 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
         {
             try
             {
+                // Debug logging for changedFields parameter
+                _logger.LogInformation("[BaseOperationLogService] LogOperationWithUserContextAsync called for {BusinessModule} {BusinessId} with changedFields: {ChangedFields}",
+                    businessModule, businessId, changedFields ?? "null");
+
                 var currentUtcTime = DateTimeOffset.UtcNow;
                 var operationLog = new OperationChangeLog
                 {
@@ -130,8 +134,8 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                     operationLog.ModifyBy = customOperatorName;
                     operationLog.CreateUserId = customOperatorId.Value;
                     operationLog.ModifyUserId = customOperatorId.Value;
-                    operationLog.TenantId = customTenantId ?? "DEFAULT";
-                    operationLog.AppCode = _userContext?.AppCode ?? "DEFAULT";
+                    operationLog.TenantId = customTenantId ?? "default";
+                    operationLog.AppCode = _userContext?.AppCode ?? "default";
                     operationLog.CreateDate = currentUtcTime;
                     operationLog.ModifyDate = currentUtcTime;
                     operationLog.IsValid = true;
@@ -1023,7 +1027,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                             afterJson.TryGetProperty("isDefault", out isDefaultElement))
                         {
                             var isDefault = isDefaultElement.ValueKind == JsonValueKind.True;
-                            details.Add($"set as default workflow: {(isDefault ? "Default" : "Not Default")}");
+                            details.Add($"set as default workflow: {(isDefault ? "default" : "Not Default")}");
                         }
 
                         // Extract ViewPermissionMode and Teams for Workflow
@@ -1543,9 +1547,9 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                         }
                         else if (field.Equals("IsDefault", StringComparison.OrdinalIgnoreCase) && businessModule == BusinessModuleEnum.Workflow)
                         {
-                            // For Workflow IsDefault field, show "Default" or "Not Default"
-                            var beforeStr = GetBooleanDisplayValue(beforeValue, "Default", "Not Default");
-                            var afterStr = GetBooleanDisplayValue(afterValue, "Default", "Not Default");
+                            // For Workflow IsDefault field, show "default" or "Not Default"
+                            var beforeStr = GetBooleanDisplayValue(beforeValue, "default", "Not Default");
+                            var afterStr = GetBooleanDisplayValue(afterValue, "default", "Not Default");
                             changeList.Add($"Set as default workflow from {beforeStr} to {afterStr}");
                         }
                         else if (field.Equals("SourceCode", StringComparison.OrdinalIgnoreCase) && businessModule == BusinessModuleEnum.Action)
@@ -2366,24 +2370,25 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                         .GroupBy(k => k)
                         .ToDictionary(g => g.Key, g => g.Count());
 
-                    // Find added components
+                    // Find added components (new component types)
                     var addedKeys = afterKeys.Keys.Except(beforeKeys.Keys).ToList();
                     if (addedKeys.Any())
                     {
                         var addedDetails = new List<string>();
                         foreach (var key in addedKeys)
                         {
-                            var component = afterArray.FirstOrDefault(c =>
+                            var componentsOfType = afterArray.Where(c =>
                             {
                                 if (c.TryGetProperty("key", out var k) && k.GetString() == key)
                                     return true;
                                 if (c.TryGetProperty("Key", out var k2) && k2.GetString() == key)
                                     return true;
                                 return false;
-                            });
-                            if (component.ValueKind != JsonValueKind.Undefined)
+                            }).ToList();
+
+                            foreach (var component in componentsOfType)
                             {
-                                var componentSummary = GetComponentsSummary(component);
+                                var componentSummary = GetSingleComponentSummary(component);
                                 if (!string.IsNullOrEmpty(componentSummary))
                                 {
                                     addedDetails.Add($"{key} ({componentSummary})");
@@ -2393,15 +2398,56 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                                     addedDetails.Add(key);
                                 }
                             }
-                            else
-                            {
-                                addedDetails.Add(key);
-                            }
                         }
                         changes.Add($"added: {string.Join(", ", addedDetails)}");
                     }
 
-                    // Find removed components
+                    // Find components with increased count (same type but more instances)
+                    var commonKeysForCount = beforeKeys.Keys.Intersect(afterKeys.Keys).ToList();
+                    foreach (var key in commonKeysForCount)
+                    {
+                        var beforeCount = beforeKeys[key];
+                        var afterCount = afterKeys[key];
+                        if (afterCount > beforeCount)
+                        {
+                            // Get the newly added components of this type
+                            var afterComponentsOfType = afterArray.Where(c =>
+                            {
+                                if (c.TryGetProperty("key", out var k) && k.GetString() == key)
+                                    return true;
+                                if (c.TryGetProperty("Key", out var k2) && k2.GetString() == key)
+                                    return true;
+                                return false;
+                            }).ToList();
+
+                            // Get names/details of new components (skip the first beforeCount items)
+                            var newComponents = afterComponentsOfType.Skip(beforeCount).ToList();
+                            var newComponentDetails = new List<string>();
+                            foreach (var component in newComponents)
+                            {
+                                var componentSummary = GetSingleComponentSummary(component);
+                                if (!string.IsNullOrEmpty(componentSummary))
+                                {
+                                    newComponentDetails.Add(componentSummary);
+                                }
+                            }
+
+                            if (newComponentDetails.Any())
+                            {
+                                changes.Add($"{key} added: {string.Join(", ", newComponentDetails)}");
+                            }
+                            else
+                            {
+                                changes.Add($"{key} count: {beforeCount} → {afterCount}");
+                            }
+                        }
+                        else if (afterCount < beforeCount)
+                        {
+                            changes.Add($"{key} count: {beforeCount} → {afterCount}");
+                        }
+                    }
+
+                    // Find removed components (component types that no longer exist)
                     var removedKeys = beforeKeys.Keys.Except(afterKeys.Keys).ToList();
                     if (removedKeys.Any())
                     {
@@ -2588,6 +2634,21 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                     if (staticFields.Any())
                     {
                         componentDetails.Add($"fields: {string.Join(", ", staticFields)}");
+                    }
+                }
+
+                // Extract quick link names
+                if ((component.TryGetProperty("quickLinkNames", out var quickLinkNamesElement) ||
+                     component.TryGetProperty("QuickLinkNames", out quickLinkNamesElement)) &&
+                    quickLinkNamesElement.ValueKind == JsonValueKind.Array)
+                {
+                    var quickLinkNames = quickLinkNamesElement.EnumerateArray()
+                        .Select(n => n.GetString())
+                        .Where(n => !string.IsNullOrEmpty(n))
+                        .ToList();
+                    if (quickLinkNames.Any())
+                    {
+                        componentDetails.Add($"quick links: {string.Join(", ", quickLinkNames.Select(n => $"'{n}'"))}");
                     }
                 }
 

@@ -24,7 +24,7 @@ public class BadRequestExceptionHandler : IExceptionHandler
         var errorCode = StandardApiCodeProvider.GenerateApiCode(ex, options.CurrentValue);
 
         var defaultcode = options.CurrentValue.Moudle_Codes
-                        .FirstOrDefault(m => m.Name.Any(n => n.Key.Equals("Default", StringComparison.OrdinalIgnoreCase)))?.Code;
+                        .FirstOrDefault(m => m.Name.Any(n => n.Key.Equals("default", StringComparison.OrdinalIgnoreCase)))?.Code;
 
         // records unconfigured modules
         if (errorCode.Contains(defaultcode))

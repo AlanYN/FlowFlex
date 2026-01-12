@@ -55,9 +55,9 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.Onboarding
         public List<long>? OnboardingIds { get; set; }
 
         /// <summary>
-        /// Filter by lead name (supports comma-separated values)
+        /// Filter by case name (supports comma-separated values)
         /// </summary>
-        public string? LeadName { get; set; }
+        public string? CaseName { get; set; }
 
         /// <summary>
         /// Filter by case code (fuzzy matching)
@@ -184,14 +184,14 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.Onboarding
         }
 
         /// <summary>
-        /// Get Lead Names as list (splits comma-separated values)
+        /// Get Case Names as list (splits comma-separated values)
         /// </summary>
-        public List<string> GetLeadNamesList()
+        public List<string> GetCaseNamesList()
         {
-            if (string.IsNullOrEmpty(LeadName))
+            if (string.IsNullOrEmpty(CaseName))
                 return new List<string>();
 
-            return LeadName.Split(',', StringSplitOptions.RemoveEmptyEntries)
+            return CaseName.Split(',', StringSplitOptions.RemoveEmptyEntries)
                           .Select(name => name.Trim())
                           .Where(name => !string.IsNullOrEmpty(name))
                           .ToList();

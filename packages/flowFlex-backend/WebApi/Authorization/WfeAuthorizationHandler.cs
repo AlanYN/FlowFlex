@@ -67,7 +67,7 @@ namespace WebApi.Authorization
             }
 
             // Tenant Admin bypass - check if user is tenant administrator for current tenant
-            var currentTenantId = _userContext?.TenantId ?? "DEFAULT";
+            var currentTenantId = _userContext?.TenantId ?? "default";
             if (_userContext != null && _userContext.HasAdminPrivileges(currentTenantId))
             {
                 return true;

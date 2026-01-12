@@ -115,7 +115,7 @@ namespace FlowFlex.Application.Services.OW
                 {
                     OnboardingId = onboarding.Id,
                     LeadId = onboarding.LeadId,
-                    LeadName = onboarding.LeadName,
+                    CaseName = onboarding.CaseName,
                     WorkflowId = onboarding.WorkflowId,
                     CurrentStageId = onboarding.CurrentStageId,
                     Status = onboarding.Status,
@@ -173,7 +173,7 @@ namespace FlowFlex.Application.Services.OW
                     CompletionRate = onboarding.CompletionRate,
                     IsFinalStage = isFinalStage,
                     AssigneeName = onboarding.CurrentAssigneeName ?? _operatorContextService.GetOperatorDisplayName(),
-                    ResponsibleTeam = onboarding.CurrentTeam ?? "Default",
+                    ResponsibleTeam = onboarding.CurrentTeam ?? "default",
                     Priority = onboarding.Priority ?? "Medium",
                     Source = "CustomerPortal",
                     BusinessContext = new Dictionary<string, object>
@@ -824,7 +824,7 @@ namespace FlowFlex.Application.Services.OW
             // Transform to export format
             var exportData = data.Select(item => new OnboardingExportDto
             {
-                CustomerName = item.LeadName,
+                CustomerName = item.CaseName,
                 Id = item.LeadId,
                 CaseCode = item.CaseCode,
                 ContactName = item.ContactPerson,

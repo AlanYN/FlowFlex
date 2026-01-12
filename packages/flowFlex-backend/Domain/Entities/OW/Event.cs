@@ -146,6 +146,6 @@ namespace FlowFlex.Domain.Entities.OW
         /// </summary>
         [StringLength(50)]
         [SugarColumn(ColumnName = "app_code")]
-        public string AppCode { get; set; } = "DEFAULT";
+        public string AppCode { get; set; } = "default";
     }
 }

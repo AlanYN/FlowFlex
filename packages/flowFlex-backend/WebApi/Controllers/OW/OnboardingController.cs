@@ -117,7 +117,7 @@ namespace FlowFlex.WebApi.Controllers.OW
         {
             // Validate tenant isolation - ensure tenant ID is provided
             var appContext = HttpContext.Items["AppContext"] as AppContext;
-            if (appContext == null || string.IsNullOrEmpty(appContext.TenantId) || appContext.TenantId == "DEFAULT")
+            if (appContext == null || string.IsNullOrEmpty(appContext.TenantId) || appContext.TenantId == "default")
             {
                 return BadRequest("Tenant ID is required. Please provide X-Tenant-Id header.");
             }
@@ -131,10 +131,10 @@ namespace FlowFlex.WebApi.Controllers.OW
 
         /// <summary>
         /// Query onboarding list with pagination (POST method)
-        /// Supports comma-separated values for leadId, leadName, and updatedBy fields
+        /// Supports comma-separated values for leadId, caseName, and updatedBy fields
         /// All text search queries are case-insensitive and support fuzzy matching
         /// leadId supports fuzzy search (partial matching)
-        /// Example: {"leadId": "c", "leadName": "company1,company2", "updatedBy": "user1,user2"}
+        /// Example: {"leadId": "c", "caseName": "company1,company2", "updatedBy": "user1,user2"}
         /// Requires CASE:READ permission
         /// </summary>
         [HttpPost("query")]
@@ -321,7 +321,7 @@ namespace FlowFlex.WebApi.Controllers.OW
 
         /// <summary>
         /// Export onboarding list to Excel
-        /// Supports comma-separated values for leadId, leadName, and updatedBy fields
+        /// Supports comma-separated values for leadId, caseName, and updatedBy fields
         /// All text search queries are case-insensitive
         /// Requires CASE:READ permission
         /// </summary>
@@ -337,7 +337,7 @@ namespace FlowFlex.WebApi.Controllers.OW
 
         /// <summary>
         /// Export onboarding list to Excel (GET method with query parameters)
-        /// Supports comma-separated values for leadId, leadName, and updatedBy parameters
+        /// Supports comma-separated values for leadId, caseName, and updatedBy parameters
         /// All text search queries are case-insensitive
         /// Requires CASE:READ permission
         /// </summary>
@@ -350,7 +350,7 @@ namespace FlowFlex.WebApi.Controllers.OW
             [FromQuery] string sortField = "CreateDate",
             [FromQuery] string sortDirection = "desc",
             [FromQuery] string leadId = null,
-            [FromQuery] string leadName = null,
+            [FromQuery] string caseName = null,
             [FromQuery] long? lifeCycleStageId = null,
             [FromQuery] string lifeCycleStageName = null,
             [FromQuery] long? currentStageId = null,
@@ -369,7 +369,7 @@ namespace FlowFlex.WebApi.Controllers.OW
                 SortField = sortField,
                 SortDirection = sortDirection,
                 LeadId = leadId,
-                LeadName = leadName,
+                CaseName = caseName,
                 LifeCycleStageId = lifeCycleStageId,
                 LifeCycleStageName = lifeCycleStageName,
                 CurrentStageId = currentStageId,
@@ -448,31 +448,32 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// Returns all onboarding records where SystemId matches and IsActive is true
         /// Requires CASE:READ permission
         /// </summary>
+        /// <param name="systemId">External system identifier (required)</param>
+        /// <param name="entityId">External entity ID for filtering (optional)</param>
+        /// <param name="sortField">Sort field: createDate, modifyDate, caseName, caseCode, status (default: createDate)</param>
+        /// <param name="sortOrder">Sort order: asc, desc (default: desc)</param>
+        /// <param name="limit">Maximum number of records to return (default: 100, max: 1000)</param>
         [HttpGet("by-system")]
         [WFEAuthorize(PermissionConsts.Case.Read)]
         [ProducesResponseType<SuccessResponse<List<OnboardingOutputDto>>>((int)HttpStatusCode.OK)]
-        public async Task<IActionResult> GetActiveBySystemIdAsync([FromQuery] string systemId)
+        public async Task<IActionResult> GetActiveBySystemIdAsync(
+            [FromQuery] string systemId,
+            [FromQuery] string? entityId = null,
+            [FromQuery] string sortField = "createDate",
+            [FromQuery] string sortOrder = "desc",
+            [FromQuery] int limit = 100)
         {
             if (string.IsNullOrWhiteSpace(systemId))
             {
                 return BadRequest("systemId parameter is required");
             }
 
-            var result = await _onboardingService.GetActiveBySystemIdAsync(systemId);
+            // Validate and cap limit
+            if (limit <= 0) limit = 100;
+            if (limit > 1000) limit = 1000;
+
+            var result = await _onboardingService.GetActiveBySystemIdAsync(systemId, entityId, sortField, sortOrder, limit);
             return Success(result);
         }
     }
-
-    /// <summary>
-    /// Batch update status DTO
-    /// </summary>
-    public class BatchUpdateStatusDto
-    {
-        /// <summary>Onboarding IDs</summary>
-        public List<long> Ids { get; set; }
-
-        /// <summary>Target status</summary>
-        public string Status { get; set; }
-    }
 }
-

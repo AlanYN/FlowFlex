@@ -20,7 +20,7 @@ public class Integration : EntityBaseCreateInfo
     /// App code
     /// </summary>
     [SugarColumn(ColumnName = "app_code")]
-    public new string AppCode { get; set; } = "DEFAULT";
+    public new string AppCode { get; set; } = "default";
 
     /// <summary>
     /// Integration type (CRM, ERP, Marketing, etc.)

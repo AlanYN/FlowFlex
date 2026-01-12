@@ -153,6 +153,27 @@ builder.Services.Configure<FileStorageOptions>(builder.Configuration.GetSection(
 // Configure IDM API options
 builder.Services.Configure<IdentityHubOptions>(builder.Configuration.GetSection("IdmApis"));
 
+// Configure Outlook API options
+builder.Services.Configure<FlowFlex.Application.Services.MessageCenter.OutlookOptions>(
+    builder.Configuration.GetSection(FlowFlex.Application.Services.MessageCenter.OutlookOptions.SectionName));
+
+// Register HttpClient for OutlookService with connection pooling and retry policy
+builder.Services.AddHttpClient<FlowFlex.Application.Contracts.IServices.OW.IOutlookService, 
+    FlowFlex.Application.Services.MessageCenter.OutlookService>("OutlookService", client =>
+{
+    client.DefaultRequestHeaders.Add("User-Agent", "FlowFlex-OutlookClient/1.0");
+    client.Timeout = TimeSpan.FromSeconds(60);
+})
+.ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
+{
+    // Connection pooling settings
+    PooledConnectionLifetime = TimeSpan.FromMinutes(5),
+    PooledConnectionIdleTimeout = TimeSpan.FromMinutes(2),
+    MaxConnectionsPerServer = 10,
+    EnableMultipleHttp2Connections = true
+})
+.AddPolicyHandler(GetRetryPolicy());
+
 // Register HttpClient for IdmUserDataClient with retry policy and timeout
 builder.Services.AddHttpClient<FlowFlex.Application.Services.OW.IdmUserDataClient>("FlowFlexIdmUserDataClient", client =>
 {
@@ -450,6 +471,12 @@ builder.Services.AddMemoryCache();
 // Register background task processing service
 builder.Services.AddSingleton<FlowFlex.Infrastructure.Services.IBackgroundTaskQueue, FlowFlex.Infrastructure.Services.BackgroundTaskQueue>();
 builder.Services.AddHostedService<FlowFlex.Infrastructure.Services.BackgroundTaskService>();
+
+// Register email sync background service
+builder.Services.AddHostedService<FlowFlex.Application.Services.MessageCenter.EmailSyncBackgroundService>();
+
+// Register IntegrationApiLogFilter for external API logging
+builder.Services.AddScoped<FlowFlex.WebApi.Filters.IntegrationApiLogFilter>();
 
 // Note: Most services are auto-registered via IScopedService/ISingletonService/ITransientService interfaces  
 // Only register services that are not auto-registered or need special configuration

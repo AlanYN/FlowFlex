@@ -214,9 +214,3 @@ const handleChange = () => {
 	emit('change');
 };
 </script>
-
-<style lang="scss" scoped>
-:deep(.el-select__wrapper) {
-	@apply m-0;
-}
-</style>

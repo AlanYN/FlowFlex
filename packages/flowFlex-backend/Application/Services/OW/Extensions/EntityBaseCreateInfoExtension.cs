@@ -47,12 +47,12 @@ namespace FlowFlex.Application.Services.OW.Extensions
 
             // Set default values
             createInfo.IsValid = true;
-            createInfo.TenantId = userContext?.TenantId ?? "DEFAULT";
+            createInfo.TenantId = userContext?.TenantId ?? "default";
 
             // Set app code if entity supports it
             if (createInfo is AbstractEntityBase abstractEntity)
             {
-                abstractEntity.AppCode = userContext?.AppCode ?? "DEFAULT";
+                abstractEntity.AppCode = userContext?.AppCode ?? "default";
             }
         }
 
@@ -187,8 +187,8 @@ namespace FlowFlex.Application.Services.OW.Extensions
         {
             DateTimeOffset now = DateTimeOffset.UtcNow;
 
-            // Generate timestamp-based ID for OwEntityBase
-            entity.Id = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+            // Generate snowflake ID for OwEntityBase
+            entity.InitNewId();
 
             // Set timestamps
             entity.CreateDate = now;
@@ -203,8 +203,8 @@ namespace FlowFlex.Application.Services.OW.Extensions
 
             // Set default values
             entity.IsValid = true;
-            entity.TenantId = userContext?.TenantId ?? "DEFAULT";
-            entity.AppCode = userContext?.AppCode ?? "DEFAULT";
+            entity.TenantId = userContext?.TenantId ?? "default";
+            entity.AppCode = userContext?.AppCode ?? "default";
         }
 
         /// <summary>
@@ -249,8 +249,8 @@ namespace FlowFlex.Application.Services.OW.Extensions
 
             // Set default values
             user.IsValid = true;
-            user.TenantId = userContext?.TenantId ?? "DEFAULT";
-            user.AppCode = userContext?.AppCode ?? "DEFAULT";
+            user.TenantId = userContext?.TenantId ?? "default";
+            user.AppCode = userContext?.AppCode ?? "default";
         }
 
         /// <summary>
@@ -295,8 +295,8 @@ namespace FlowFlex.Application.Services.OW.Extensions
 
             // Set default values
             note.IsValid = true;
-            note.TenantId = userContext?.TenantId ?? "DEFAULT";
-            note.AppCode = userContext?.AppCode ?? "DEFAULT";
+            note.TenantId = userContext?.TenantId ?? "default";
+            note.AppCode = userContext?.AppCode ?? "default";
         }
 
         /// <summary>
@@ -324,8 +324,8 @@ namespace FlowFlex.Application.Services.OW.Extensions
 
             // Set default values
             invitation.IsValid = true;
-            invitation.TenantId = userContext?.TenantId ?? "DEFAULT";
-            invitation.AppCode = userContext?.AppCode ?? "DEFAULT";
+            invitation.TenantId = userContext?.TenantId ?? "default";
+            invitation.AppCode = userContext?.AppCode ?? "default";
         }
 
         /// <summary>
@@ -370,7 +370,7 @@ namespace FlowFlex.Application.Services.OW.Extensions
 
             // Set default values
             log.IsValid = true;
-            log.TenantId = userContext?.TenantId ?? "DEFAULT";
+            log.TenantId = userContext?.TenantId ?? "default";
         }
 
         /// <summary>
@@ -398,8 +398,8 @@ namespace FlowFlex.Application.Services.OW.Extensions
         public static void InitCreateInfo(this AIModelConfig config, UserContext userContext)
         {
             // Set tenant and app information from UserContext
-            config.TenantId = userContext?.TenantId ?? "DEFAULT";
-            config.AppCode = userContext?.AppCode ?? "DEFAULT";
+            config.TenantId = userContext?.TenantId ?? "default";
+            config.AppCode = userContext?.AppCode ?? "default";
 
             // Set IsValid to true for new records
             config.IsValid = true;

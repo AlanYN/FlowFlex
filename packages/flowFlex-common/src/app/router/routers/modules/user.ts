@@ -14,7 +14,7 @@ const user: AppRouteModule = {
 		icon: userIcon,
 		title: t('sys.router.userManagement'),
 		code: 'USER',
-		ordinal: 8,
+		ordinal: 10,
 		hidden: false,
 		status: true,
 	},

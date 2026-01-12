@@ -38,11 +38,11 @@ namespace FlowFlex.Domain.Entities.OW
         public string? LeadId { get; set; }
 
         /// <summary>
-        /// Customer/Lead Name
+        /// Case Name (Customer/Lead Name)
         /// </summary>
         [StringLength(200)]
-        [SugarColumn(ColumnName = "lead_name")]
-        public string LeadName { get; set; }
+        [SugarColumn(ColumnName = "case_name")]
+        public string CaseName { get; set; }
 
         /// <summary>
         /// Case Code - Unique identifier generated from Lead Name
@@ -310,6 +310,20 @@ namespace FlowFlex.Domain.Entities.OW
         /// </summary>
         [SugarColumn(ColumnName = "integration_id", IsNullable = true)]
         public long? IntegrationId { get; set; }
+
+        /// <summary>
+        /// External Entity Type (e.g., "lead", "customer", "account") from external integration
+        /// </summary>
+        [StringLength(100)]
+        [SugarColumn(ColumnName = "entity_type", IsNullable = true)]
+        public string? EntityType { get; set; }
+
+        /// <summary>
+        /// External Entity ID from external integration (e.g., Lead ID, Customer ID)
+        /// </summary>
+        [StringLength(100)]
+        [SugarColumn(ColumnName = "entity_id", IsNullable = true)]
+        public string? EntityId { get; set; }
 
         /// <summary>
         /// Stage Progress Details (not mapped to database, used for business logic)

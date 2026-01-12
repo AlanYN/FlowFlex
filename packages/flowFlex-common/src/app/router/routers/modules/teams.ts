@@ -13,7 +13,7 @@ const teams: AppRouteModule = {
 		hideChildrenInMenu: true,
 		icon: teamsIcon,
 		title: t('sys.router.teamsManagement'),
-		ordinal: 10,
+		ordinal: 12,
 		code: 'TEAMS',
 		hidden: false,
 		status: true,

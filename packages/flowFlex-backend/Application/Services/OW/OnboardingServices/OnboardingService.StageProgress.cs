@@ -77,6 +77,8 @@ namespace FlowFlex.Application.Services.OW
                         CompletedBy = null,
                         Notes = null,
                         IsCurrent = sequentialOrder == 1, // First stage is current
+                        Assignee = ParseDefaultAssignee(stage.DefaultAssignee), // Initialize from Stage.DefaultAssignee
+                        CoAssignees = new List<string>(), // Empty by default
 
                         // Stage configuration fields (not serialized, populated dynamically)
                         StageName = stage.Name,
@@ -86,6 +88,7 @@ namespace FlowFlex.Application.Services.OW
                         VisibleInPortal = stage.VisibleInPortal,
                         PortalPermission = stage.PortalPermission,
                         AttachmentManagementNeeded = stage.AttachmentManagementNeeded,
+                        Required = stage.Required,
                         ComponentsJson = stage.ComponentsJson,
                         Components = stage.Components
                     };
@@ -622,92 +625,24 @@ namespace FlowFlex.Application.Services.OW
                         // If CustomEstimatedDays exists, EstimatedDays should show the custom value
                         // (This will be handled by AutoMapper: EstimatedDays = CustomEstimatedDays ?? EstimatedDays)
 
+                        // Auto-fill Assignee from Stage.DefaultAssignee if not set
+                        if (stageProgress.Assignee == null || !stageProgress.Assignee.Any())
+                        {
+                            stageProgress.Assignee = ParseDefaultAssignee(stage.DefaultAssignee);
+                            _logger.LogDebug("Auto-filled Assignee from DefaultAssignee: StageId={StageId}, DefaultAssignee={DefaultAssignee}, ParsedAssignee={ParsedAssignee}",
+                                stage.Id, stage.DefaultAssignee, string.Join(",", stageProgress.Assignee ?? new List<string>()));
+                        }
+
+                        // Always sync DefaultAssignee from Stage configuration (read-only field)
+                        stageProgress.DefaultAssignee = ParseDefaultAssignee(stage.DefaultAssignee);
+
                         stageProgress.VisibleInPortal = stage.VisibleInPortal;
                         stageProgress.PortalPermission = stage.PortalPermission;
                         stageProgress.AttachmentManagementNeeded = stage.AttachmentManagementNeeded;
+                        stageProgress.Required = stage.Required;
                         stageProgress.ComponentsJson = stage.ComponentsJson;
                         stageProgress.Components = stage.Components;
-                        // AI Summary 鍥炲～绛栫暐宸茬Щ闄わ細Stage涓嶅啀鍖呭惈AI鎽樿瀛楁
-                        // AI鎽樿鏁版嵁鐜板湪浠呭瓨鍌ㄥ湪Onboarding鐨凷tageProgress涓?
-
-                        // Backfill: If stage is completed but Onboarding's AI Summary is still empty, trigger async generation once
-                        if (stageProgress.IsCompleted && string.IsNullOrWhiteSpace(stageProgress.AiSummary))
-                        {
-                            try
-                            {
-                                var opts = new StageSummaryOptions
-                                {
-                                    Language = "auto",
-                                    SummaryLength = "short",
-                                    IncludeTaskAnalysis = true,
-                                    IncludeQuestionnaireInsights = true
-                                };
-                                _backgroundTaskQueue.QueueBackgroundWorkItem(async token =>
-                                {
-                                    var ai = await _stageService.GenerateAISummaryAsync(stageProgress.StageId, entity.Id, opts);
-                                    if (ai != null && ai.Success)
-                                    {
-                                        LoadStagesProgressFromJson(entity);
-                                        var sp = entity.StagesProgress?.FirstOrDefault(s => s.StageId == stageProgress.StageId);
-                                        if (sp != null && string.IsNullOrWhiteSpace(sp.AiSummary))
-                                        {
-                                            sp.AiSummary = ai.Summary;
-                                            sp.AiSummaryGeneratedAt = DateTime.UtcNow;
-                                            sp.AiSummaryConfidence = (decimal?)Convert.ToDecimal(ai.ConfidenceScore);
-                                            sp.AiSummaryModel = ai.ModelUsed;
-                                            var detailedData = new { ai.Breakdown, ai.KeyInsights, ai.Recommendations, ai.CompletionStatus, generatedAt = DateTime.UtcNow };
-                                            sp.AiSummaryData = System.Text.Json.JsonSerializer.Serialize(detailedData);
-                                            entity.StagesProgressJson = SerializeStagesProgress(entity.StagesProgress);
-                                            await SafeUpdateOnboardingAsync(entity);
-                                        }
-                                    }
-                                });
-                            }
-                            catch { /* fire-and-forget */ }
-                        }
-
-                        // Retry: If placeholder exists for a while, attempt regeneration in background
-                        if (stageProgress.IsCompleted &&
-                            !string.IsNullOrWhiteSpace(stageProgress.AiSummary) &&
-                            stageProgress.AiSummary.StartsWith("AI summary is being generated", StringComparison.OrdinalIgnoreCase))
-                        {
-                            var shouldRetry = !stageProgress.AiSummaryGeneratedAt.HasValue ||
-                                              (DateTime.UtcNow - stageProgress.AiSummaryGeneratedAt.Value).TotalMinutes >= 1;
-                            if (shouldRetry)
-                            {
-                                try
-                                {
-                                    var opts = new StageSummaryOptions
-                                    {
-                                        Language = "auto",
-                                        SummaryLength = "short",
-                                        IncludeTaskAnalysis = true,
-                                        IncludeQuestionnaireInsights = true
-                                    };
-                                    _backgroundTaskQueue.QueueBackgroundWorkItem(async token =>
-                                    {
-                                        var ai = await _stageService.GenerateAISummaryAsync(stageProgress.StageId, entity.Id, opts);
-                                        if (ai != null && ai.Success)
-                                        {
-                                            LoadStagesProgressFromJson(entity);
-                                            var sp = entity.StagesProgress?.FirstOrDefault(s => s.StageId == stageProgress.StageId);
-                                            if (sp != null && sp.AiSummary != null && sp.AiSummary.StartsWith("AI summary is being generated", StringComparison.OrdinalIgnoreCase))
-                                            {
-                                                sp.AiSummary = ai.Summary;
-                                                sp.AiSummaryGeneratedAt = DateTime.UtcNow;
-                                                sp.AiSummaryConfidence = (decimal?)Convert.ToDecimal(ai.ConfidenceScore);
-                                                sp.AiSummaryModel = ai.ModelUsed;
-                                                var dd = new { ai.Breakdown, ai.KeyInsights, ai.Recommendations, ai.CompletionStatus, generatedAt = DateTime.UtcNow };
-                                                sp.AiSummaryData = System.Text.Json.JsonSerializer.Serialize(dd);
-                                                entity.StagesProgressJson = SerializeStagesProgress(entity.StagesProgress);
-                                                await SafeUpdateOnboardingAsync(entity);
-                                            }
-                                        }
-                                    });
-                                }
-                                catch { /* fire-and-forget */ }
-                            }
-                        }
+                        // AI Summary auto-generation removed - should only be triggered explicitly by user action
                     }
                 }
 
@@ -744,7 +679,6 @@ namespace FlowFlex.Application.Services.OW
                 {
                     return;
                 }
-
 
                 // Load current stages progress
                 LoadStagesProgressFromJson(entity);
@@ -784,7 +718,9 @@ namespace FlowFlex.Application.Services.OW
                             CompletedById = null,
                             CompletedBy = null,
                             Notes = null,
-                            IsCurrent = false
+                            IsCurrent = false,
+                            Assignee = ParseDefaultAssignee(newStage.DefaultAssignee),
+                            CoAssignees = new List<string>()
                         };
 
 
@@ -954,7 +890,7 @@ namespace FlowFlex.Application.Services.OW
                         it.CurrentStageId,
                         it.CurrentStageOrder,
                         it.LeadId,
-                        it.LeadName,
+                        it.CaseName,
                         it.LeadEmail,
                         it.LeadPhone,
                         it.ContactPerson,
@@ -1209,8 +1145,8 @@ namespace FlowFlex.Application.Services.OW
                 // Generate invitation URL (using default base URL)
                 invitation.InvitationUrl = GenerateShortInvitationUrl(
                     invitation.ShortUrlId,
-                    onboarding.TenantId ?? "DEFAULT",
-                    onboarding.AppCode ?? "DEFAULT");
+                    onboarding.TenantId ?? "default",
+                    onboarding.AppCode ?? "default");
 
                 // Initialize create info
                 invitation.InitCreateInfo(_userContext);
@@ -1271,8 +1207,8 @@ namespace FlowFlex.Application.Services.OW
         {
             try
             {
-                // Get current onboarding
-                var onboarding = await _onboardingRepository.GetByIdAsync(onboardingId);
+                // Get current onboarding without tenant filter (for background tasks where HttpContext is not available)
+                var onboarding = await _onboardingRepository.GetByIdWithoutTenantFilterAsync(onboardingId);
                 if (onboarding == null)
                 {
                     LoggingExtensions.WriteLine($"Onboarding {onboardingId} not found for AI summary update");
@@ -1346,8 +1282,9 @@ namespace FlowFlex.Application.Services.OW
                     throw new CRMException(ErrorCodeEnum.DataNotFound, "Onboarding not found");
                 }
 
-                // Load stages progress from JSON
-                LoadStagesProgressFromJson(onboarding);
+                // Ensure stages progress is properly initialized and synced
+                // This handles cases where stagesProgress is empty or outdated
+                await EnsureStagesProgressInitializedAsync(onboarding);
 
                 // Find the stage progress entry
                 var stageProgress = onboarding.StagesProgress?.FirstOrDefault(sp => sp.StageId == input.StageId);
@@ -1359,12 +1296,16 @@ namespace FlowFlex.Application.Services.OW
                 // Capture original values for comparison
                 var originalEstimatedDays = stageProgress.CustomEstimatedDays;
                 var originalEndTime = stageProgress.CustomEndTime;
+                var originalAssignee = stageProgress.Assignee?.ToList() ?? new List<string>();
+                var originalCoAssignees = stageProgress.CoAssignees?.ToList() ?? new List<string>();
 
                 // Capture before data for change log
                 var beforeData = JsonSerializer.Serialize(new
                 {
                     CustomEstimatedDays = stageProgress.CustomEstimatedDays,
                     CustomEndTime = stageProgress.CustomEndTime,
+                    Assignee = stageProgress.Assignee,
+                    CoAssignees = stageProgress.CoAssignees,
                     LastUpdatedTime = stageProgress.LastUpdatedTime,
                     LastUpdatedBy = stageProgress.LastUpdatedBy
                 });
@@ -1372,6 +1313,18 @@ namespace FlowFlex.Application.Services.OW
                 // Update custom fields
                 stageProgress.CustomEstimatedDays = input.CustomEstimatedDays;
                 stageProgress.CustomEndTime = input.CustomEndTime;
+
+                // Update Assignee if provided
+                if (input.Assignee != null)
+                {
+                    stageProgress.Assignee = input.Assignee;
+                }
+
+                // Update CoAssignees if provided
+                if (input.CoAssignees != null)
+                {
+                    stageProgress.CoAssignees = input.CoAssignees;
+                }
 
                 // Add notes if provided
                 if (!string.IsNullOrEmpty(input.Notes))
@@ -1399,6 +1352,8 @@ namespace FlowFlex.Application.Services.OW
                 {
                     CustomEstimatedDays = stageProgress.CustomEstimatedDays,
                     CustomEndTime = stageProgress.CustomEndTime,
+                    Assignee = stageProgress.Assignee,
+                    CoAssignees = stageProgress.CoAssignees,
                     LastUpdatedTime = stageProgress.LastUpdatedTime,
                     LastUpdatedBy = stageProgress.LastUpdatedBy
                 });
@@ -1428,7 +1383,25 @@ namespace FlowFlex.Application.Services.OW
                     {
                         changedFields.Add("CustomEndTime");
                         var beforeValue = originalEndTime?.ToString("yyyy-MM-dd HH:mm") ?? "null";
-                        changeDetails.Add($"EndTime: {beforeValue} 鈫?{input.CustomEndTime?.ToString("yyyy-MM-dd HH:mm")}");
+                        changeDetails.Add($"EndTime: {beforeValue} → {input.CustomEndTime?.ToString("yyyy-MM-dd HH:mm")}");
+                    }
+
+                    // Check for actual changes in Assignee
+                    if (input.Assignee != null && !originalAssignee.SequenceEqual(input.Assignee))
+                    {
+                        changedFields.Add("Assignee");
+                        var beforeValue = originalAssignee.Any() ? string.Join(", ", originalAssignee) : "empty";
+                        var afterValue = input.Assignee.Any() ? string.Join(", ", input.Assignee) : "empty";
+                        changeDetails.Add($"Assignee: {beforeValue} → {afterValue}");
+                    }
+
+                    // Check for actual changes in CoAssignees
+                    if (input.CoAssignees != null && !originalCoAssignees.SequenceEqual(input.CoAssignees))
+                    {
+                        changedFields.Add("CoAssignees");
+                        var beforeValue = originalCoAssignees.Any() ? string.Join(", ", originalCoAssignees) : "empty";
+                        var afterValue = input.CoAssignees.Any() ? string.Join(", ", input.CoAssignees) : "empty";
+                        changeDetails.Add($"CoAssignees: {beforeValue} → {afterValue}");
                     }
 
                     // Check if notes were added
@@ -1511,8 +1484,9 @@ namespace FlowFlex.Application.Services.OW
                     throw new CRMException(ErrorCodeEnum.DataNotFound, "Onboarding not found");
                 }
 
-                // Load stages progress from JSON
-                LoadStagesProgressFromJson(onboarding);
+                // Ensure stages progress is properly initialized and synced
+                // This handles cases where stagesProgress is empty or outdated
+                await EnsureStagesProgressInitializedAsync(onboarding);
 
                 // Find the stage progress entry
                 var stageProgress = onboarding.StagesProgress?.FirstOrDefault(sp => sp.StageId == stageId);
@@ -1630,6 +1604,52 @@ namespace FlowFlex.Application.Services.OW
         /// <summary>
         /// Check if current user has permission to operate on a case
         /// </summary>
+
+        /// <summary>
+        /// Parse DefaultAssignee JSON string to List of user IDs
+        /// </summary>
+        private List<string> ParseDefaultAssignee(string defaultAssigneeJson)
+        {
+            if (string.IsNullOrWhiteSpace(defaultAssigneeJson))
+            {
+                return new List<string>();
+            }
+
+            try
+            {
+                var options = new JsonSerializerOptions
+                {
+                    PropertyNameCaseInsensitive = true
+                };
+
+                // Handle double-serialized JSON
+                var jsonString = defaultAssigneeJson.Trim();
+                if (jsonString.StartsWith("\"") && jsonString.EndsWith("\""))
+                {
+                    jsonString = JsonSerializer.Deserialize<string>(jsonString, options) ?? "[]";
+                }
+
+                // Try to parse as array
+                if (jsonString.StartsWith("["))
+                {
+                    var result = JsonSerializer.Deserialize<List<string>>(jsonString, options);
+                    return result ?? new List<string>();
+                }
+
+                // If it's a single value, wrap it in a list
+                if (!string.IsNullOrWhiteSpace(jsonString))
+                {
+                    return new List<string> { jsonString };
+                }
+
+                return new List<string>();
+            }
+            catch (JsonException)
+            {
+                // If parsing fails, return empty list
+                return new List<string>();
+            }
+        }
     }
 }
 

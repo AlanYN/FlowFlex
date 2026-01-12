@@ -99,14 +99,14 @@ namespace FlowFlex.Application.Services.OW
                     whereExpressions.Add(x => request.OnboardingIds.Contains(x.Id));
                 }
 
-                // Support comma-separated Lead Names
-                if (!string.IsNullOrEmpty(request.LeadName) && request.LeadName != "string")
+                // Support comma-separated Case Names
+                if (!string.IsNullOrEmpty(request.CaseName) && request.CaseName != "string")
                 {
-                    var leadNames = request.GetLeadNamesList();
-                    if (leadNames.Any())
+                    var caseNames = request.GetCaseNamesList();
+                    if (caseNames.Any())
                     {
-                        // Use OR condition to match any of the lead names (case-insensitive)
-                        whereExpressions.Add(x => leadNames.Any(name => x.LeadName.ToLower().Contains(name.ToLower())));
+                        // Use OR condition to match any of the case names (case-insensitive)
+                        whereExpressions.Add(x => caseNames.Any(name => x.CaseName.ToLower().Contains(name.ToLower())));
                     }
                 }
 
@@ -357,8 +357,8 @@ namespace FlowFlex.Application.Services.OW
                 {
                     var entity = pagedEntities[i];
                     var result = results[i];
-                    LoggingExtensions.WriteLine($"[DEBUG] Entity[{i}]: ID={entity.Id}, LeadName={entity.LeadName}, Status={entity.Status}");
-                    LoggingExtensions.WriteLine($"[DEBUG] Result[{i}]: ID={result.Id}, LeadName={result.LeadName}, Status={result.Status}");
+                    LoggingExtensions.WriteLine($"[DEBUG] Entity[{i}]: ID={entity.Id}, CaseName={entity.CaseName}, Status={entity.Status}");
+                    LoggingExtensions.WriteLine($"[DEBUG] Result[{i}]: ID={result.Id}, CaseName={result.CaseName}, Status={result.Status}");
                 }
 
                 // Populate workflow/stage names and calculate current stage end time
@@ -394,7 +394,8 @@ namespace FlowFlex.Application.Services.OW
             {
                 "id" => x => x.Id,
                 "leadid" => x => x.LeadId,
-                "leadname" => x => x.LeadName,
+                "leadname" => x => x.CaseName,
+                "casename" => x => x.CaseName,
                 "casecode" => x => x.CaseCode ?? "",
                 "contactperson" => x => x.ContactPerson ?? "",
                 "contactemail" => x => x.ContactEmail ?? "",
@@ -784,8 +785,12 @@ namespace FlowFlex.Application.Services.OW
         /// Returns all onboarding records where SystemId matches and IsActive is true
         /// </summary>
         /// <param name="systemId">External system identifier</param>
+        /// <param name="entityId">External entity ID for filtering (optional)</param>
+        /// <param name="sortField">Sort field: createDate, modifyDate, leadName, caseCode, status (default: createDate)</param>
+        /// <param name="sortOrder">Sort order: asc, desc (default: desc)</param>
+        /// <param name="limit">Maximum number of records to return (default: 100, max: 1000)</param>
         /// <returns>List of active onboarding records</returns>
-        public async Task<List<OnboardingOutputDto>> GetActiveBySystemIdAsync(string systemId)
+        public async Task<List<OnboardingOutputDto>> GetActiveBySystemIdAsync(string systemId, string? entityId = null, string sortField = "createDate", string sortOrder = "desc", int limit = 100)
         {
             if (string.IsNullOrWhiteSpace(systemId))
             {
@@ -803,6 +808,12 @@ namespace FlowFlex.Application.Services.OW
                     .Where(x => x.IsActive == true)
                     .Where(x => x.SystemId == systemId);
 
+                // Apply entityId filter if provided
+                if (!string.IsNullOrWhiteSpace(entityId))
+                {
+                    queryable = queryable.Where(x => x.EntityId == entityId);
+                }
+
                 // Apply tenant isolation
                 if (!string.IsNullOrEmpty(tenantId))
                 {
@@ -813,8 +824,23 @@ namespace FlowFlex.Application.Services.OW
                     queryable = queryable.Where(x => x.AppCode.ToLower() == appCode.ToLower());
                 }
 
-                // Order by CreateDate descending
-                queryable = queryable.OrderByDescending(x => x.CreateDate);
+                // Apply sorting based on sortField and sortOrder
+                var isAscending = sortOrder?.ToLower() == "asc";
+                queryable = (sortField?.ToLower()) switch
+                {
+                    "modifydate" => isAscending ? queryable.OrderBy(x => x.ModifyDate) : queryable.OrderByDescending(x => x.ModifyDate),
+                    "leadname" => isAscending ? queryable.OrderBy(x => x.CaseName) : queryable.OrderByDescending(x => x.CaseName),
+                    "casename" => isAscending ? queryable.OrderBy(x => x.CaseName) : queryable.OrderByDescending(x => x.CaseName),
+                    "casecode" => isAscending ? queryable.OrderBy(x => x.CaseCode) : queryable.OrderByDescending(x => x.CaseCode),
+                    "status" => isAscending ? queryable.OrderBy(x => x.Status) : queryable.OrderByDescending(x => x.Status),
+                    _ => isAscending ? queryable.OrderBy(x => x.CreateDate) : queryable.OrderByDescending(x => x.CreateDate) // default: createDate
+                };
+
+                // Apply limit
+                if (limit > 0)
+                {
+                    queryable = queryable.Take(limit);
+                }
 
                 // Execute query
                 var entities = await queryable.ToListAsync();
@@ -824,23 +850,42 @@ namespace FlowFlex.Application.Services.OW
                     return new List<OnboardingOutputDto>();
                 }
 
+                // Batch load workflows and stages to avoid N+1 queries
+                var workflowIds = entities.Select(e => e.WorkflowId).Distinct().ToList();
+                var stageIds = entities.Where(e => e.CurrentStageId.HasValue).Select(e => e.CurrentStageId!.Value).Distinct().ToList();
+
+                // Use ClearFilter to bypass tenant/appCode filtering for workflow queries
+                var workflows = await _workflowRepository.ClearFilter()
+                    .Where(w => workflowIds.Contains(w.Id) && w.IsValid)
+                    .ToListAsync();
+                var workflowDict = workflows.ToDictionary(w => w.Id, w => w.Name);
+
+                var stageDict = new Dictionary<long, string>();
+                if (stageIds.Any())
+                {
+                    // Use ClearFilter to bypass tenant/appCode filtering for stage queries
+                    var stages = await _stageRepository.ClearFilter()
+                        .Where(s => stageIds.Contains(s.Id) && s.IsValid)
+                        .ToListAsync();
+                    stageDict = stages.ToDictionary(s => s.Id, s => s.Name);
+                }
+
                 // Map to DTOs
                 var results = new List<OnboardingOutputDto>();
                 foreach (var entity in entities)
                 {
-                    // Auto-generate CaseCode for legacy data
-                    await EnsureCaseCodeAsync(entity);
-
-                    // Ensure stages progress is properly initialized and synced
-                    await EnsureStagesProgressInitializedAsync(entity);
-
                     var dto = _mapper.Map<OnboardingOutputDto>(entity);
 
-                    // Get workflow name
-                    var workflow = await _workflowRepository.GetByIdAsync(entity.WorkflowId);
-                    if (workflow != null)
+                    // Set workflow name from cache
+                    if (workflowDict.TryGetValue(entity.WorkflowId, out var workflowName))
                     {
-                        dto.WorkflowName = workflow.Name;
+                        dto.WorkflowName = workflowName;
+                    }
+
+                    // Set current stage name from cache
+                    if (entity.CurrentStageId.HasValue && stageDict.TryGetValue(entity.CurrentStageId.Value, out var stageName))
+                    {
+                        dto.CurrentStageName = stageName;
                     }
 
                     results.Add(dto);
@@ -850,7 +895,8 @@ namespace FlowFlex.Application.Services.OW
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error getting active onboardings by SystemId: {SystemId}", systemId);
+                _logger.LogError(ex, "Error getting active onboardings by SystemId: {SystemId}, SortField: {SortField}, SortOrder: {SortOrder}, Limit: {Limit}", 
+                    systemId, sortField, sortOrder, limit);
                 throw;
             }
         }

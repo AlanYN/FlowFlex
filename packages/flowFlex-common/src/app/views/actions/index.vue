@@ -745,32 +745,46 @@ const handleHistoryLimitUpdate = async () => {
 const handleDelete = async (row: ActionDefinition) => {
 	try {
 		await ElMessageBox.confirm(
-			`Are you sure you want to delete action "${row.name}"?`,
-			'Confirm Delete',
+			`Are you sure you want to delete action "${row.name}"? This action cannot be undone.`,
+			'⚠️ Confirm Deletion',
 			{
 				confirmButtonText: 'Delete',
 				cancelButtonText: 'Cancel',
-				type: 'warning',
+				confirmButtonClass: 'danger-confirm-btn',
+				cancelButtonClass: 'cancel-confirm-btn',
+				distinguishCancelAndClose: true,
+				customClass: 'delete-confirmation-dialog',
+				showCancelButton: true,
+				showConfirmButton: true,
+				beforeClose: async (action, instance, done) => {
+					if (action === 'confirm') {
+						instance.confirmButtonLoading = true;
+						instance.confirmButtonText = 'Deleting...';
+						try {
+							const response = await deleteAction(row?.id || '');
+							if (response.code === '200' && response.success) {
+								ElMessage.success('Action deleted successfully');
+								done();
+								await loadActionsList();
+							} else {
+								ElMessage.error(response.msg || 'Failed to delete action');
+								instance.confirmButtonLoading = false;
+								instance.confirmButtonText = 'Delete';
+							}
+						} catch (error) {
+							console.error('Failed to delete action:', error);
+							ElMessage.error('Failed to delete action');
+							instance.confirmButtonLoading = false;
+							instance.confirmButtonText = 'Delete';
+						}
+					} else {
+						done();
+					}
+				},
 			}
 		);
-
-		loading.value = true;
-		const response = await deleteAction(row?.id || '');
-
-		if (response.code === '200' && response.success) {
-			ElMessage.success('Action deleted successfully');
-			// Reload data
-			await loadActionsList();
-		} else {
-			ElMessage.error(response.msg || 'Failed to delete action');
-		}
-	} catch (error) {
-		if (error !== 'cancel') {
-			console.error('Failed to delete action:', error);
-			ElMessage.error('Failed to delete action');
-		}
-	} finally {
-		loading.value = false;
+	} catch {
+		// User cancelled
 	}
 };
 

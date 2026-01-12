@@ -223,6 +223,7 @@ export function getAttachmentApiMd(): Promise<IApiResponse<{ inbound: string; ou
 
 export function getCaseAttachmentIntegration(params: {
 	systemId: string;
+	entityId: string;
 }): Promise<
 	IApiResponse<{ actionExecutions: CaseImportDowmLoadFiles<IntegrationAttachment[]>[] }>
 > {

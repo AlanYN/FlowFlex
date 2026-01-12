@@ -99,7 +99,7 @@ namespace FlowFlex.Application.Services.OW
                             request.OnboardingId,
                             email,
                             existingInvitation.InvitationToken);
-                        existingInvitation.InvitationUrl = GenerateShortInvitationUrl(existingInvitation.ShortUrlId, onboarding.TenantId ?? "DEFAULT", onboarding.AppCode ?? "DEFAULT", request.BaseUrl);
+                        existingInvitation.InvitationUrl = GenerateShortInvitationUrl(existingInvitation.ShortUrlId, onboarding.TenantId ?? "default", onboarding.AppCode ?? "default", request.BaseUrl);
                         existingInvitation.ModifyDate = GetCurrentTimeWithTimeZone();
                         existingInvitation.ModifyBy = _userContextService.GetCurrentUserEmail() ?? "System";
 
@@ -109,7 +109,7 @@ namespace FlowFlex.Application.Services.OW
                         var emailSent = await _emailService.SendOnboardingInvitationEmailAsync(
                             email,
                             existingInvitation.InvitationUrl,
-                            onboarding.LeadName ?? "Onboarding Process");
+                            onboarding.CaseName ?? "Onboarding Process");
 
                         if (emailSent)
                         {
@@ -139,15 +139,15 @@ namespace FlowFlex.Application.Services.OW
                             request.OnboardingId,
                             email,
                             invitation.InvitationToken);
-                        invitation.InvitationUrl = GenerateShortInvitationUrl(invitation.ShortUrlId, onboarding.TenantId ?? "DEFAULT", onboarding.AppCode ?? "DEFAULT", request.BaseUrl);
+                        invitation.InvitationUrl = GenerateShortInvitationUrl(invitation.ShortUrlId, onboarding.TenantId ?? "default", onboarding.AppCode ?? "default", request.BaseUrl);
 
                         // Create system user context for initialization
                         var systemUserContext = new UserContext
                         {
                             UserName = "SYSTEM",
                             UserId = "0",
-                            TenantId = onboarding.TenantId ?? "DEFAULT",
-                            AppCode = "DEFAULT"
+                            TenantId = onboarding.TenantId ?? "default",
+                            AppCode = "default"
                         };
 
                         invitation.InitCreateInfo(systemUserContext);
@@ -158,7 +158,7 @@ namespace FlowFlex.Application.Services.OW
                         var emailSent = await _emailService.SendOnboardingInvitationEmailAsync(
                             email,
                             invitation.InvitationUrl,
-                            onboarding.LeadName ?? "Onboarding Process");
+                            onboarding.CaseName ?? "Onboarding Process");
 
                         if (emailSent)
                         {
@@ -234,7 +234,7 @@ namespace FlowFlex.Application.Services.OW
                     request.OnboardingId,
                     request.Email,
                     invitation.InvitationToken);
-                invitation.InvitationUrl = GenerateShortInvitationUrl(invitation.ShortUrlId, onboarding?.TenantId ?? "DEFAULT", onboarding?.AppCode ?? "DEFAULT", request.BaseUrl);
+                invitation.InvitationUrl = GenerateShortInvitationUrl(invitation.ShortUrlId, onboarding?.TenantId ?? "default", onboarding?.AppCode ?? "default", request.BaseUrl);
                 invitation.ModifyDate = GetCurrentTimeWithTimeZone();
 
                 await _invitationRepository.UpdateAsync(invitation);
@@ -243,7 +243,7 @@ namespace FlowFlex.Application.Services.OW
                 return await _emailService.SendOnboardingInvitationEmailAsync(
                     request.Email,
                     invitation.InvitationUrl,
-                    onboarding?.LeadName ?? "Onboarding Process");
+                    onboarding?.CaseName ?? "Onboarding Process");
             }
             catch (Exception ex)
             {
@@ -405,7 +405,7 @@ namespace FlowFlex.Application.Services.OW
                 var onboarding = await _onboardingRepository.GetByIdAsync(invitation.OnboardingId);
 
                 // Generate short invitation URL using short URL ID
-                var invitationUrl = GenerateShortInvitationUrl(invitation.ShortUrlId ?? "", onboarding?.TenantId ?? "DEFAULT", onboarding?.AppCode ?? "DEFAULT", baseUrl);
+                var invitationUrl = GenerateShortInvitationUrl(invitation.ShortUrlId ?? "", onboarding?.TenantId ?? "default", onboarding?.AppCode ?? "default", baseUrl);
 
                 return new
                 {
@@ -485,8 +485,8 @@ namespace FlowFlex.Application.Services.OW
                     {
                         UserName = "SYSTEM",
                         UserId = "0",
-                        TenantId = invitation.TenantId ?? "DEFAULT",
-                        AppCode = "DEFAULT"
+                        TenantId = invitation.TenantId ?? "default",
+                        AppCode = "default"
                     };
 
                     user.InitCreateInfo(systemUserContext);
@@ -498,7 +498,7 @@ namespace FlowFlex.Application.Services.OW
                     user.Id,
                     user.Email,
                     invitation.OnboardingId,
-                    user.TenantId ?? "DEFAULT"
+                    user.TenantId ?? "default"
                 );
 
                 _logger.LogInformation(

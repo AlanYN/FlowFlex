@@ -223,7 +223,7 @@ namespace FlowFlex.Application.Services.OW
                     Status = "active",
                     EmailVerificationCode = null,
                     VerificationCodeExpiry = null,
-                    TenantId = "DEFAULT" // Set default tenant ID
+                    TenantId = "default" // Set default tenant ID
                 };
 
                 // Initialize create information
@@ -278,7 +278,7 @@ namespace FlowFlex.Application.Services.OW
                     Status = "pending", // Pending verification status
                     EmailVerificationCode = verificationCode,
                     VerificationCodeExpiry = DateTimeOffset.UtcNow.AddMinutes(_emailOptions.VerificationCodeExpiryMinutes),
-                    TenantId = "DEFAULT" // Set default tenant ID
+                    TenantId = "default" // Set default tenant ID
                 };
 
                 // Initialize create information with proper ID and timestamps
@@ -397,8 +397,8 @@ namespace FlowFlex.Application.Services.OW
                 TokenType = "Bearer",
                 ExpiresIn = _jwtService.GetTokenExpiryInSeconds(),
                 User = _mapper.Map<UserDto>(user),
-                AppCode = "DEFAULT",
-                TenantId = user.TenantId ?? "DEFAULT"
+                AppCode = "default",
+                TenantId = user.TenantId ?? "default"
             };
         }
 
@@ -476,8 +476,8 @@ namespace FlowFlex.Application.Services.OW
                 TokenType = "Bearer",
                 ExpiresIn = _jwtService.GetTokenExpiryInSeconds(),
                 User = _mapper.Map<UserDto>(user),
-                AppCode = "DEFAULT",
-                TenantId = user.TenantId ?? "DEFAULT"
+                AppCode = "default",
+                TenantId = user.TenantId ?? "default"
             };
         }
 
@@ -589,7 +589,7 @@ namespace FlowFlex.Application.Services.OW
                 PasswordHash = BC.HashPassword(password),
                 EmailVerified = true,
                 Status = "active",
-                TenantId = "DEFAULT" // Set default tenant ID
+                TenantId = "default" // Set default tenant ID
             };
             user.InitCreateInfo(null);
 
@@ -668,8 +668,8 @@ namespace FlowFlex.Application.Services.OW
                     TokenType = "Bearer",
                     ExpiresIn = _jwtService.GetTokenExpiryInSeconds(),
                     User = _mapper.Map<UserDto>(user),
-                    AppCode = "DEFAULT",
-                    TenantId = user.TenantId ?? "DEFAULT"
+                    AppCode = "default",
+                    TenantId = user.TenantId ?? "default"
                 };
             }
             catch (Exception ex)
@@ -1062,7 +1062,7 @@ namespace FlowFlex.Application.Services.OW
         {
             var httpContext = _httpContextAccessor?.HttpContext;
             if (httpContext == null)
-                return "DEFAULT";
+                return "default";
 
             // Try to get from AppContext first
             if (httpContext.Items.TryGetValue("AppContext", out var appContextObj) &&
@@ -1080,7 +1080,7 @@ namespace FlowFlex.Application.Services.OW
                 return tenantId;
             }
 
-            return "DEFAULT";
+            return "default";
         }
 
         /// <summary>
@@ -1090,7 +1090,7 @@ namespace FlowFlex.Application.Services.OW
         {
             var httpContext = _httpContextAccessor?.HttpContext;
             if (httpContext == null)
-                return "DEFAULT";
+                return "default";
 
             // Try to get from AppContext first
             if (httpContext.Items.TryGetValue("AppContext", out var appContextObj) &&
@@ -1108,7 +1108,7 @@ namespace FlowFlex.Application.Services.OW
                 return appCode;
             }
 
-            return "DEFAULT";
+            return "default";
         }
 
         /// <summary>
@@ -1250,14 +1250,13 @@ namespace FlowFlex.Application.Services.OW
                 {
                     _logger.LogWarning("No team tree data returned from IDM API");
 
-                    // If we have team users, create "Other" team for them (filter out UserType == 1)
+                    // If we have team users, create "Other" team for them
                     if (teamUsers != null && teamUsers.Any())
                     {
                         _logger.LogInformation("Creating 'Other' team for users without team structure");
 
-                        // Add all users to "Other" team, deduplicate by ID and filter out UserType == 1
+                        // Add all users to "Other" team, deduplicate by ID
                         var uniqueUsers = teamUsers
-                            .Where(tu => tu.UserType != 1) // Filter out UserType == 1
                             .GroupBy(tu => tu.Id)
                             .Select(g => g.First())
                             .ToList();
@@ -1283,13 +1282,14 @@ namespace FlowFlex.Application.Services.OW
                                     MemberCount = 0,
                                     Username = teamUser.UserName,
                                     Email = teamUser.Email,
+                                    UserType = teamUser.UserType,
                                     Children = null
                                 };
 
                                 otherTeamNode.Children.Add(userNode);
                             }
 
-                            _logger.LogInformation("Created 'Other' team with {UserCount} users (excluding UserType=1)", uniqueUsers.Count);
+                            _logger.LogInformation("Created 'Other' team with {UserCount} users", uniqueUsers.Count);
                             return new List<UserTreeNodeDto> { otherTeamNode };
                         }
                     }
@@ -1387,12 +1387,10 @@ namespace FlowFlex.Application.Services.OW
                     userTreeNode.Children.AddRange(childTeams);
                 }
 
-                // Then, add users for this team (filter out UserType == 1)
+                // Then, add users for this team
                 if (teamUserLookup.ContainsKey(idmNode.Value))
                 {
-                    var usersInTeam = teamUserLookup[idmNode.Value]
-                        .Where(tu => tu.UserType != 1) // Filter out UserType == 1
-                        .ToList();
+                    var usersInTeam = teamUserLookup[idmNode.Value];
 
                     foreach (var teamUser in usersInTeam)
                     {
@@ -1404,6 +1402,7 @@ namespace FlowFlex.Application.Services.OW
                             MemberCount = 0,
                             Username = teamUser.UserName,
                             Email = teamUser.Email,
+                            UserType = teamUser.UserType,
                             Children = null // Users have no children
                         };
 
@@ -1424,16 +1423,16 @@ namespace FlowFlex.Application.Services.OW
                 var allTeamIds = new HashSet<string>();
                 CollectAllTeamIds(idmNodes, allTeamIds);
 
-                // Find users without team or users whose team is not in the tree (filter out UserType == 1)
+                // Find users without team or users whose team is not in the tree
                 var usersWithoutTeam = teamUsers
-                    .Where(tu => (string.IsNullOrEmpty(tu.TeamId) || !allTeamIds.Contains(tu.TeamId)) && tu.UserType != 1) // Filter out UserType == 1
+                    .Where(tu => string.IsNullOrEmpty(tu.TeamId) || !allTeamIds.Contains(tu.TeamId))
                     .GroupBy(u => u.Id) // Deduplicate users by ID
                     .Select(g => g.First())
                     .ToList();
 
                 if (usersWithoutTeam.Any())
                 {
-                    _logger.LogInformation("Found {Count} users without team (excluding UserType=1), adding to 'Other' team at root level", usersWithoutTeam.Count);
+                    _logger.LogInformation("Found {Count} users without team, adding to 'Other' team at root level", usersWithoutTeam.Count);
 
                     var otherTeamNode = new UserTreeNodeDto
                     {
@@ -1454,6 +1453,7 @@ namespace FlowFlex.Application.Services.OW
                             MemberCount = 0,
                             Username = teamUser.UserName,
                             Email = teamUser.Email,
+                            UserType = teamUser.UserType,
                             Children = null
                         };
 

@@ -23,12 +23,12 @@
 				<div class="space-y-2">
 					<label class="text-sm font-medium">Company/Contact Name</label>
 					<InputTag
-						v-model="leadNameTags"
+						v-model="caseNameTags"
 						placeholder="Enter Company/Contact Name and press enter"
 						style-type="normal"
 						:limit="10"
 						clearable
-						@change="handleLeadNameTagsChange"
+						@change="handleCaseNameTagsChange"
 						class="w-full"
 					/>
 				</div>
@@ -167,7 +167,7 @@ const searchFormRef = ref();
 const searchParams = reactive<SearchParams>({
 	workFlowId: '',
 	caseCode: '',
-	leadName: '',
+	caseName: '',
 	lifeCycleStageName: '',
 	currentStageId: '',
 	updatedBy: '',
@@ -178,7 +178,7 @@ const searchParams = reactive<SearchParams>({
 
 // 标签数组
 const caseCodeTags = ref<string[]>([]);
-const leadNameTags = ref<string[]>([]);
+const caseNameTags = ref<string[]>([]);
 const updatedByTags = ref<string[]>([]);
 
 // 动态 stages 管理
@@ -255,8 +255,8 @@ const handleCaseCodeTagsChange = (tags: string[]) => {
 	handleAutoSearch();
 };
 
-const handleLeadNameTagsChange = (tags: string[]) => {
-	searchParams.leadName = tags.join(',');
+const handleCaseNameTagsChange = (tags: string[]) => {
+	searchParams.caseName = tags.join(',');
 	handleAutoSearch();
 };
 
@@ -271,7 +271,7 @@ const handleSearch = () => {
 	const searchParamsWithTags = {
 		...searchParams,
 		caseCodeTags: caseCodeTags.value,
-		leadNameTags: leadNameTags.value,
+		caseNameTags: caseNameTags.value,
 		updatedByTags: updatedByTags.value,
 	};
 	emit('search', searchParamsWithTags);
@@ -288,46 +288,8 @@ defineExpose({
 </script>
 
 <style scoped lang="scss">
-/* Element Plus 组件样式覆盖 */
-:deep(.filter-select .el-input__wrapper) {
-	border-color: var(--primary-200);
-	@apply dark:border-black-200;
-}
-
-:deep(.filter-select .el-input__wrapper:hover) {
-	border-color: var(--primary-400);
-	@apply dark:border-primary-600;
-}
-
-:deep(.filter-select .el-input__wrapper.is-focus) {
-	border-color: var(--primary-500);
-	@apply dark:border-primary-500;
-}
-
 /* 搜索表单样式 */
 .onboardSearch-form :deep(.el-form-item) {
 	margin-bottom: 0;
-}
-
-/* 暗色主题样式 */
-html.dark {
-	/* Element Plus 组件暗色主题 */
-	:deep(.filter-select .el-input__wrapper) {
-		background-color: var(--black-200) !important;
-		border-color: var(--black-200) !important;
-	}
-
-	:deep(.filter-select .el-input__wrapper:hover) {
-		border-color: var(--black-100) !important;
-	}
-
-	:deep(.filter-select .el-input__wrapper.is-focus) {
-		border-color: var(--primary-500);
-		box-shadow: 0 0 0 3px rgba(126, 34, 206, 0.2);
-	}
-
-	:deep(.filter-select .el-input__inner) {
-		@apply text-white-100;
-	}
 }
 </style>

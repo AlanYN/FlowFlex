@@ -33,7 +33,7 @@ namespace FlowFlex.Application.Services.OW
             _blobStoreOptions = blobStoreOptions;
         }
 
-        public async Task<FileStorageResult> SaveFileAsync(IFormFile file, string category = "DEFAULT", string tenantId = "DEFAULT")
+        public async Task<FileStorageResult> SaveFileAsync(IFormFile file, string category = "default", string tenantId = "default")
         {
             try
             {
@@ -340,6 +340,13 @@ namespace FlowFlex.Application.Services.OW
                 {
                     _logger.LogWarning("BlobContainer.GetAccessUrl returned null or empty for path: {FilePath}", actualFilePath);
                     return null;
+                }
+                
+                // Ensure HTTPS protocol for security
+                if (signedUrl.StartsWith("http://", StringComparison.OrdinalIgnoreCase))
+                {
+                    signedUrl = "https://" + signedUrl.Substring(7);
+                    _logger.LogDebug("Converted HTTP to HTTPS for signed URL");
                 }
                 
                 _logger.LogDebug("Successfully generated signed URL for path: {FilePath}", actualFilePath);

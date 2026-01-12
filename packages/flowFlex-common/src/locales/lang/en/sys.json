@@ -52,11 +52,13 @@
 		"actions": "Actions",
 		"tools": "Tools",
 		"integration": "Integration Settings",
+		"messageCenter": "Message Center",
 		"actionDetail": "Action Detail",
 		"createAction": "Create Action",
 		"list" : "Lists",
 		"listDetail":"List Detail",
-		"listView":"List View"
+		"listView":"List View",
+		"dashboard": "Dashboard"
 	},
 	"home": {
 		"involces": "Open involces",

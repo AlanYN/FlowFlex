@@ -98,6 +98,21 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.Onboarding
         public bool IsCurrent { get; set; }
 
         /// <summary>
+        /// Stage Assignee - User IDs assigned to this stage (can be modified by user)
+        /// </summary>
+        public List<string> Assignee { get; set; } = new List<string>();
+
+        /// <summary>
+        /// Default Assignee - User IDs from workflow stage configuration (read-only, always synced from workflow)
+        /// </summary>
+        public List<string> DefaultAssignee { get; set; } = new List<string>();
+
+        /// <summary>
+        /// Stage Co-Assignees - Additional user IDs assigned to help with this stage
+        /// </summary>
+        public List<string> CoAssignees { get; set; } = new List<string>();
+
+        /// <summary>
         /// 是否已保存
         /// </summary>
         public bool IsSaved { get; set; }
@@ -132,6 +147,11 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.Onboarding
         /// Attachment Management Needed - Indicates whether file upload is required for this stage
         /// </summary>
         public bool AttachmentManagementNeeded { get; set; } = false;
+
+        /// <summary>
+        /// Required - Indicates whether this stage is required to complete the workflow
+        /// </summary>
+        public bool Required { get; set; } = false;
 
         /// <summary>
         /// Stage组件配置列表

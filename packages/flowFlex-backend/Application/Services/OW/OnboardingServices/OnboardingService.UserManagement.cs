@@ -564,7 +564,7 @@ namespace FlowFlex.Application.Services.OW
                 try
                 {
                     // Generate case code from lead name
-                    entity.CaseCode = await _caseCodeGeneratorService.GenerateCaseCodeAsync(entity.LeadName);
+                    entity.CaseCode = await _caseCodeGeneratorService.GenerateCaseCodeAsync(entity.CaseName);
 
                     // Update database
                     var updateSql = "UPDATE ff_onboarding SET case_code = @CaseCode WHERE id = @Id";

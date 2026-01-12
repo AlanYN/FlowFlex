@@ -14,7 +14,7 @@ const permission: AppRouteModule = {
 		icon: dealsIcon,
 		title: t('sys.router.permissionManagement'),
 		code: 'PERMISSION',
-		ordinal: 7,
+		ordinal: 9,
 		hidden: false,
 		status: true,
 	},

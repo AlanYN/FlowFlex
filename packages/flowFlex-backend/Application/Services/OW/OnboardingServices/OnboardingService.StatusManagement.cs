@@ -75,7 +75,7 @@ namespace FlowFlex.Application.Services.OW
                     {
                         await _onboardingLogService.LogOnboardingPauseAsync(
                             id,
-                            entity.LeadName ?? entity.CaseCode ?? "Unknown",
+                            entity.CaseName ?? entity.CaseCode ?? "Unknown",
                             reason: null
                         );
                     }
@@ -123,7 +123,7 @@ namespace FlowFlex.Application.Services.OW
                     {
                         await _onboardingLogService.LogOnboardingResumeAsync(
                             id,
-                            entity.LeadName ?? entity.CaseCode ?? "Unknown",
+                            entity.CaseName ?? entity.CaseCode ?? "Unknown",
                             reason: null
                         );
                     }

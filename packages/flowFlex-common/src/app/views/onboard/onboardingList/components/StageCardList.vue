@@ -90,7 +90,7 @@
 							<template #content>
 								<div class="p-3 max-w-xs">
 									<div class="font-medium mb-1 text-gray-900">
-										{{ lead.leadName }}
+										{{ lead.caseName }}
 									</div>
 									<div class="text-xs text-gray-500 mb-1">
 										{{ lead.leadId }}
@@ -154,7 +154,7 @@
 								@click="handleEdit(lead.id)"
 							>
 								<span class="truncate max-w-[180px]">
-									{{ lead.leadName }}
+									{{ lead.caseName }}
 								</span>
 								<div class="flex items-center ml-1">
 									<el-icon

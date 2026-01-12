@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using System.ComponentModel.DataAnnotations;
 using FlowFlex.Application.Contracts.Dtos.Integration;
 using FlowFlex.Application.Contracts.IServices.Integration;
+using FlowFlex.WebApi.Filters;
 using Item.Internal.StandardApi.Response;
 using System.Net;
 using System.IO;
@@ -17,6 +18,7 @@ namespace FlowFlex.WebApi.Controllers.Integration
     [Route("integration/external/v{version:apiVersion}")]
     [Display(Name = "external-integration")]
     [Authorize]
+    [ServiceFilter(typeof(IntegrationApiLogFilter))]
     public class ExternalIntegrationController : Controllers.ControllerBase
     {
         private readonly IExternalIntegrationService _externalIntegrationService;
@@ -28,6 +30,20 @@ namespace FlowFlex.WebApi.Controllers.Integration
         {
             _externalIntegrationService = externalIntegrationService;
             _webHostEnvironment = webHostEnvironment;
+        }
+
+        /// <summary>
+        /// Get entity type mappings by Integration System Name
+        /// Returns entity type mappings configured for a specific integration identified by System Name
+        /// </summary>
+        /// <param name="systemName">Integration System Name</param>
+        /// <returns>Entity type mappings response</returns>
+        [HttpGet("entity-type-mappings")]
+        [ProducesResponseType<SuccessResponse<EntityTypeMappingResponse>>((int)HttpStatusCode.OK)]
+        public async Task<IActionResult> GetEntityTypeMappingsBySystemName([FromQuery] string systemName)
+        {
+            var result = await _externalIntegrationService.GetEntityTypeMappingsBySystemNameAsync(systemName);
+            return Success(result);
         }
 
         /// <summary>
@@ -56,80 +72,7 @@ namespace FlowFlex.WebApi.Controllers.Integration
         {
             var result = await _externalIntegrationService.CreateCaseAsync(request);
             return Success(result);
-        }
-
-        /// <summary>
-        /// Get case info (demo endpoint)
-        /// Retrieves case information based on search parameters. 
-        /// Returns the same parameter structure with additional case data if found.
-        /// </summary>
-        /// <param name="leadId">Lead ID from external system</param>
-        /// <param name="customerName">Customer name</param>
-        /// <param name="contactName">Contact person name</param>
-        /// <param name="contactEmail">Contact email</param>
-        /// <param name="contactPhone">Contact phone</param>
-        /// <returns>Case information response</returns>
-        [HttpGet("case-info")]
-        [ProducesResponseType<SuccessResponse<CaseInfoResponse>>((int)HttpStatusCode.OK)]
-        public async Task<IActionResult> GetCaseInfo(
-            [FromQuery(Name = "Lead ID")] string? leadId = null,
-            [FromQuery(Name = "Customer Name")] string? customerName = null,
-            [FromQuery(Name = "Contact Name")] string? contactName = null,
-            [FromQuery(Name = "Contact Email")] string? contactEmail = null,
-            [FromQuery(Name = "Contact Phone")] string? contactPhone = null)
-        {
-            var request = new CaseInfoRequest
-            {
-                LeadId = leadId,
-                CustomerName = customerName,
-                ContactName = contactName,
-                ContactEmail = contactEmail,
-                ContactPhone = contactPhone
-            };
-
-            var result = await _externalIntegrationService.GetCaseInfoAsync(request);
-            return Success(result);
-        }
-
-        /// <summary>
-        /// CRM Case Info Demo Endpoint (GET with Query Parameters)
-        /// This endpoint demonstrates the HTTP API Action configuration.
-        /// It accepts the same parameters shown in the action configuration and returns case information.
-        /// Note: This endpoint does not require authentication.
-        /// </summary>
-        /// <param name="leadId">Lead ID</param>
-        /// <param name="customerName">Customer Name</param>
-        /// <param name="contactName">Contact Name</param>
-        /// <param name="contactEmail">Contact Email</param>
-        /// <param name="contactPhone">Contact Phone</param>
-        /// <returns>Case information with the same parameter structure</returns>
-        [HttpGet("crm-case-info-demo")]
-        [AllowAnonymous]
-        [ProducesResponseType<SuccessResponse<CaseInfoResponse>>((int)HttpStatusCode.OK)]
-        public async Task<IActionResult> GetCrmCaseInfoDemo(
-            [FromQuery(Name = "Lead ID")] string? leadId = null,
-            [FromQuery(Name = "Customer Name")] string? customerName = null,
-            [FromQuery(Name = "Contact Name")] string? contactName = null,
-            [FromQuery(Name = "Contact Email")] string? contactEmail = null,
-            [FromQuery(Name = "Contact Phone")] string? contactPhone = null)
-        {
-            var request = new CaseInfoRequest
-            {
-                LeadId = leadId,
-                CustomerName = customerName,
-                ContactName = contactName,
-                ContactEmail = contactEmail,
-                ContactPhone = contactPhone
-            };
-
-            var result = await _externalIntegrationService.GetCaseInfoAsync(request);
-
-            // Return with custom JSON settings to include null values
-            return new JsonResult(SuccessResponse.Create(result), new Newtonsoft.Json.JsonSerializerSettings
-            {
-                NullValueHandling = Newtonsoft.Json.NullValueHandling.Include
-            });
-        }
+        }        
 
         /// <summary>
         /// CRM Case Info Demo Endpoint (POST with JSON Body)
@@ -246,12 +189,15 @@ namespace FlowFlex.WebApi.Controllers.Integration
         /// Retrieves attachment list from all onboardings associated with the System ID
         /// </summary>
         /// <param name="systemId">System ID (unique identifier for entity mapping)</param>
+        /// <param name="entityId">External system entity ID (optional, for filtering attachments by specific entity)</param>
         /// <returns>Attachments list response</returns>
         [HttpGet("inbound-attachments")]
         [ProducesResponseType<GetAttachmentsFromExternalResponse>((int)HttpStatusCode.OK)]
-        public async Task<IActionResult> GetInboundAttachments([FromQuery(Name = "SystemId")] string systemId)
+        public async Task<IActionResult> GetInboundAttachments(
+            [FromQuery(Name = "SystemId")] string systemId,
+            [FromQuery(Name = "entityId")] string? entityId = null)
         {
-            var result = await _externalIntegrationService.GetInboundAttachmentsBySystemIdAsync(systemId);
+            var result = await _externalIntegrationService.GetInboundAttachmentsBySystemIdAsync(systemId, entityId);
             return Ok(result);
         }
 
@@ -264,13 +210,30 @@ namespace FlowFlex.WebApi.Controllers.Integration
         /// 4. Parse and return the attachment list
         /// </summary>
         /// <param name="systemId">System ID (unique identifier for entity mapping)</param>
+        /// <param name="entityId">Entity ID (optional, the external entity ID to fetch attachments for)</param>
         /// <returns>Attachments list response from external system</returns>
         [HttpGet("fetch-inbound-attachments")]
         [ProducesResponseType<GetAttachmentsFromExternalResponse>((int)HttpStatusCode.OK)]
-        public async Task<IActionResult> FetchInboundAttachments([FromQuery(Name = "SystemId")] string systemId)
+        public async Task<IActionResult> FetchInboundAttachments(
+            [FromQuery(Name = "SystemId")] string systemId,
+            [FromQuery(Name = "EntityId")] string? entityId = null)
         {
-            var result = await _externalIntegrationService.FetchInboundAttachmentsFromExternalAsync(systemId);
+            var result = await _externalIntegrationService.FetchInboundAttachmentsFromExternalAsync(systemId, entityId);
             return Ok(result);
+        }
+
+        /// <summary>
+        /// Retry field mapping for a specific case
+        /// Re-executes CaseInfo actions and applies field mappings to update case data
+        /// </summary>
+        /// <param name="caseId">Case ID (onboarding ID) to retry field mapping for</param>
+        /// <returns>Retry result with execution details</returns>
+        [HttpPost("cases/{caseId}/retry-field-mapping")]
+        [ProducesResponseType<SuccessResponse<RetryFieldMappingResponse>>((int)HttpStatusCode.OK)]
+        public async Task<IActionResult> RetryFieldMapping([FromRoute] long caseId)
+        {
+            var result = await _externalIntegrationService.RetryFieldMappingAsync(caseId);
+            return Success(result);
         }
 
         /// <summary>

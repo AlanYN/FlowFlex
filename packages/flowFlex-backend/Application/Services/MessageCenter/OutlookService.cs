@@ -1,0 +1,1451 @@
+using System.Net.Http.Headers;
+using System.Text;
+using System.Text.Json;
+using System.Text.RegularExpressions;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using FlowFlex.Domain.Shared;
+using FlowFlex.Domain.Shared.Models;
+using FlowFlex.Domain.Shared.Constants;
+using FlowFlex.Domain.Entities.OW;
+using FlowFlex.Domain.Repository.OW;
+using FlowFlex.Application.Contracts.Dtos.OW.Message;
+using FlowFlex.Application.Contracts.IServices.OW;
+using FlowFlex.Application.Services.OW.Extensions;
+
+namespace FlowFlex.Application.Services.MessageCenter;
+
+/// <summary>
+/// Outlook integration service using Microsoft Graph API
+/// </summary>
+public class OutlookService : IOutlookService, IScopedService
+{
+    private readonly HttpClient _httpClient;
+    private readonly OutlookOptions _options;
+    private readonly IMessageRepository _messageRepository;
+    private readonly IMessageAttachmentRepository _attachmentRepository;
+    private readonly UserContext _userContext;
+    private readonly ILogger<OutlookService> _logger;
+
+    public OutlookService(
+        HttpClient httpClient,
+        IOptions<OutlookOptions> options,
+        IMessageRepository messageRepository,
+        IMessageAttachmentRepository attachmentRepository,
+        UserContext userContext,
+        ILogger<OutlookService> logger)
+    {
+        _httpClient = httpClient;
+        _options = options.Value;
+        _messageRepository = messageRepository;
+        _attachmentRepository = attachmentRepository;
+        _userContext = userContext;
+        _logger = logger;
+    }
+
+    #region HTTP Helper Methods
+
+    /// <summary>
+    /// Create HTTP request with Bearer token authorization
+    /// Avoids modifying DefaultRequestHeaders which is not thread-safe
+    /// </summary>
+    private static HttpRequestMessage CreateAuthorizedRequest(HttpMethod method, string url, string accessToken)
+    {
+        var request = new HttpRequestMessage(method, url);
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+        return request;
+    }
+
+    /// <summary>
+    /// Send GET request with authorization
+    /// </summary>
+    private async Task<HttpResponseMessage> SendAuthorizedGetAsync(string url, string accessToken)
+    {
+        using var request = CreateAuthorizedRequest(HttpMethod.Get, url, accessToken);
+        return await _httpClient.SendAsync(request);
+    }
+
+    /// <summary>
+    /// Send POST request with authorization and JSON body
+    /// </summary>
+    private async Task<HttpResponseMessage> SendAuthorizedPostAsync(string url, string accessToken, object? body = null)
+    {
+        using var request = CreateAuthorizedRequest(HttpMethod.Post, url, accessToken);
+        if (body != null)
+        {
+            var json = JsonSerializer.Serialize(body);
+            request.Content = new StringContent(json, Encoding.UTF8, "application/json");
+        }
+        return await _httpClient.SendAsync(request);
+    }
+
+    /// <summary>
+    /// Send PATCH request with authorization and JSON body
+    /// </summary>
+    private async Task<HttpResponseMessage> SendAuthorizedPatchAsync(string url, string accessToken, object body)
+    {
+        using var request = CreateAuthorizedRequest(new HttpMethod("PATCH"), url, accessToken);
+        var json = JsonSerializer.Serialize(body);
+        request.Content = new StringContent(json, Encoding.UTF8, "application/json");
+        return await _httpClient.SendAsync(request);
+    }
+
+    /// <summary>
+    /// Send DELETE request with authorization
+    /// </summary>
+    private async Task<HttpResponseMessage> SendAuthorizedDeleteAsync(string url, string accessToken)
+    {
+        using var request = CreateAuthorizedRequest(HttpMethod.Delete, url, accessToken);
+        return await _httpClient.SendAsync(request);
+    }
+
+    #endregion
+
+    #region OAuth Authentication
+
+    /// <summary>
+    /// Get Microsoft OAuth authorization URL
+    /// </summary>
+    public string GetAuthorizationUrl(string state)
+    {
+        var scopes = "User.Read Mail.Read Mail.ReadWrite Mail.Send offline_access";
+        //// 优先使用本地开发环境的 RedirectUri
+        //var redirectUri = !string.IsNullOrEmpty(_options.RedirectUriLocal) 
+        //    ? _options.RedirectUriLocal 
+        //    : _options.RedirectUri;
+
+        var redirectUri = _options.RedirectUri;
+
+        // Use "common" for multi-tenant apps that support both organizational and personal accounts
+        // Use "consumers" for personal Microsoft accounts only
+        // Use "organizations" for organizational accounts only
+        // Use specific tenant ID for single-tenant apps
+        var tenant = GetOAuthTenant();
+
+        // prompt=select_account forces Microsoft to show account selection screen
+        // This allows users to choose a different account or add a new one
+        var authUrl = $"{_options.Instance}/{tenant}/oauth2/v2.0/authorize" +
+            $"?client_id={_options.ClientId}" +
+            $"&response_type=code" +
+            $"&redirect_uri={Uri.EscapeDataString(redirectUri)}" +
+            $"&scope={Uri.EscapeDataString(scopes)}" +
+            $"&state={state}" +
+            $"&response_mode=query" +
+            $"&prompt=select_account";
+
+        return authUrl;
+    }
+
+    /// <summary>
+    /// Get OAuth tenant identifier based on configuration
+    /// Returns "common" for multi-tenant apps, or specific tenant ID for single-tenant
+    /// </summary>
+    private string GetOAuthTenant()
+    {
+        // If TenantId is empty, "common", "consumers", or "organizations", use it directly
+        // Otherwise use "common" to support both organizational and personal accounts
+        if (string.IsNullOrEmpty(_options.TenantId) ||
+            _options.TenantId.Equals("common", StringComparison.OrdinalIgnoreCase) ||
+            _options.TenantId.Equals("consumers", StringComparison.OrdinalIgnoreCase) ||
+            _options.TenantId.Equals("organizations", StringComparison.OrdinalIgnoreCase))
+        {
+            return string.IsNullOrEmpty(_options.TenantId) ? "common" : _options.TenantId;
+        }
+
+        // For multi-tenant apps supporting personal accounts, use "common"
+        // This allows both Azure AD accounts and personal Microsoft accounts (outlook.com, live.com, etc.)
+        return "common";
+    }
+
+    /// <summary>
+    /// Exchange authorization code for access token
+    /// </summary>
+    public async Task<OutlookTokenResult?> GetTokenFromAuthorizationCodeAsync(string authorizationCode)
+    {
+        try
+        {
+            // Use the same redirect URI as authorization
+            //var redirectUri = !string.IsNullOrEmpty(_options.RedirectUriLocal) 
+            //    ? _options.RedirectUriLocal 
+            //    : _options.RedirectUri;
+            var redirectUri = _options.RedirectUri;
+            var tokenRequestParams = new Dictionary<string, string>
+            {
+                { "client_id", _options.ClientId },
+                { "client_secret", _options.ClientSecret },
+                { "code", authorizationCode },
+                { "redirect_uri", redirectUri },
+                { "grant_type", "authorization_code" },
+                { "scope", "User.Read Mail.Read Mail.ReadWrite Mail.Send offline_access" }
+            };
+
+            var content = new FormUrlEncodedContent(tokenRequestParams);
+            var tenant = GetOAuthTenant();
+            var tokenEndpoint = $"{_options.Instance}/{tenant}{_options.TokenEndpoint}";
+
+            var response = await _httpClient.PostAsync(tokenEndpoint, content);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                var errorContent = await response.Content.ReadAsStringAsync();
+                _logger.LogError("Failed to get token: {Error}", errorContent);
+                return null;
+            }
+
+            var responseContent = await response.Content.ReadAsStringAsync();
+            var tokenResponse = JsonSerializer.Deserialize<OAuthTokenResponse>(responseContent);
+
+            return tokenResponse?.ToOutlookTokenResult();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting token from authorization code");
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Refresh access token using refresh token
+    /// </summary>
+    public async Task<OutlookTokenResult?> RefreshTokenAsync(string refreshToken)
+    {
+        try
+        {
+            var tokenRequestParams = new Dictionary<string, string>
+            {
+                { "client_id", _options.ClientId },
+                { "client_secret", _options.ClientSecret },
+                { "refresh_token", refreshToken },
+                { "grant_type", "refresh_token" },
+                { "scope", "User.Read Mail.Read Mail.ReadWrite Mail.Send offline_access" }
+            };
+
+            var content = new FormUrlEncodedContent(tokenRequestParams);
+            var tenant = GetOAuthTenant();
+            var tokenEndpoint = $"{_options.Instance}/{tenant}{_options.TokenEndpoint}";
+
+            var response = await _httpClient.PostAsync(tokenEndpoint, content);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                var errorContent = await response.Content.ReadAsStringAsync();
+                _logger.LogError("Failed to refresh token: {Error}", errorContent);
+                return null;
+            }
+
+            var responseContent = await response.Content.ReadAsStringAsync();
+            var tokenResponse = JsonSerializer.Deserialize<OAuthTokenResponse>(responseContent);
+
+            return tokenResponse?.ToOutlookTokenResult();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error refreshing token");
+            return null;
+        }
+    }
+
+    #endregion
+
+    #region Email Operations
+
+    /// <summary>
+    /// Get emails from Outlook
+    /// </summary>
+    public async Task<List<OutlookEmailDto>> GetEmailsAsync(
+        string accessToken,
+        string folderId = "inbox",
+        int top = 50,
+        int skip = 0,
+        bool? onlyUnread = null,
+        DateTimeOffset? receivedAfter = null)
+    {
+        try
+        {
+            var url = $"{_options.BaseUrl}/me/mailFolders/{folderId}/messages" +
+                $"?$top={top}&$skip={skip}" +
+                $"&$orderby=receivedDateTime desc" +
+                $"&$select=id,subject,bodyPreview,from,toRecipients,receivedDateTime,sentDateTime,isRead,hasAttachments,isDraft";
+
+            // Build filter conditions
+            var filters = new List<string>();
+            if (onlyUnread == true)
+            {
+                filters.Add("isRead eq false");
+            }
+            if (receivedAfter.HasValue)
+            {
+                // Format: 2025-12-19T00:00:00Z
+                var dateFilter = receivedAfter.Value.UtcDateTime.ToString("yyyy-MM-ddTHH:mm:ssZ");
+                filters.Add($"receivedDateTime ge {dateFilter}");
+            }
+            if (filters.Count > 0)
+            {
+                url += "&$filter=" + string.Join(" and ", filters);
+            }
+
+            var response = await SendAuthorizedGetAsync(url, accessToken);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                var errorContent = await response.Content.ReadAsStringAsync();
+                _logger.LogError("Failed to get emails: {Error}", errorContent);
+                return new List<OutlookEmailDto>();
+            }
+
+            var content = await response.Content.ReadAsStringAsync();
+            var result = JsonSerializer.Deserialize<GraphEmailListResponse>(content);
+
+            return result?.Value?.Select(MapToOutlookEmailDto).ToList() ?? new List<OutlookEmailDto>();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting emails from Outlook");
+            return new List<OutlookEmailDto>();
+        }
+    }
+
+    /// <summary>
+    /// Get email detail by ID
+    /// </summary>
+    public async Task<OutlookEmailDto?> GetEmailByIdAsync(string accessToken, string messageId)
+    {
+        try
+        {
+            var url = $"{_options.BaseUrl}/me/messages/{messageId}" +
+                $"?$select=id,subject,body,bodyPreview,from,toRecipients,ccRecipients,bccRecipients," +
+                $"receivedDateTime,sentDateTime,isRead,hasAttachments,isDraft,parentFolderId";
+
+            var response = await SendAuthorizedGetAsync(url, accessToken);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                return null;
+            }
+
+            var content = await response.Content.ReadAsStringAsync();
+            var email = JsonSerializer.Deserialize<GraphEmailMessage>(content);
+
+            if (email == null) return null;
+
+            var dto = MapToOutlookEmailDto(email);
+
+            // Process inline attachments (cid: references) if email has attachments
+            if (email.HasAttachments == true && !string.IsNullOrEmpty(dto.Body) && dto.Body.Contains("cid:"))
+            {
+                dto.Body = await ReplaceCidWithBase64Async(accessToken, messageId, dto.Body);
+            }
+
+            return dto;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting email by ID: {MessageId}", messageId);
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Send email via Outlook
+    /// </summary>
+    public async Task<bool> SendEmailAsync(string accessToken, OutlookSendEmailDto input)
+    {
+        try
+        {
+            // Build message object
+            var messageObj = new Dictionary<string, object>
+            {
+                ["subject"] = input.Subject,
+                ["body"] = new Dictionary<string, object>
+                {
+                    ["contentType"] = input.IsHtml ? "HTML" : "Text",
+                    ["content"] = input.Body
+                },
+                ["toRecipients"] = input.ToRecipients.Select(r => new
+                {
+                    emailAddress = new { address = r.Email, name = r.Name }
+                }).ToList()
+            };
+
+            // Add CC recipients if present
+            if (input.CcRecipients?.Any() == true)
+            {
+                messageObj["ccRecipients"] = input.CcRecipients.Select(r => new
+                {
+                    emailAddress = new { address = r.Email, name = r.Name }
+                }).ToList();
+            }
+
+            // Add BCC recipients if present
+            if (input.BccRecipients?.Any() == true)
+            {
+                messageObj["bccRecipients"] = input.BccRecipients.Select(r => new
+                {
+                    emailAddress = new { address = r.Email, name = r.Name }
+                }).ToList();
+            }
+
+            // Add attachments if present
+            if (input.Attachments?.Any() == true)
+            {
+                messageObj["attachments"] = input.Attachments.Select(a => new Dictionary<string, object>
+                {
+                    ["@odata.type"] = "#microsoft.graph.fileAttachment",
+                    ["name"] = a.FileName,
+                    ["contentType"] = a.ContentType,
+                    ["contentBytes"] = Convert.ToBase64String(a.ContentBytes),
+                    ["isInline"] = a.IsInline,
+                    ["contentId"] = a.ContentId ?? ""
+                }).ToList();
+            }
+
+            var requestBody = new Dictionary<string, object>
+            {
+                ["message"] = messageObj,
+                ["saveToSentItems"] = true
+            };
+
+            var response = await SendAuthorizedPostAsync($"{_options.BaseUrl}/me/sendMail", accessToken, requestBody);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                var errorContent = await response.Content.ReadAsStringAsync();
+                _logger.LogError("Failed to send email: {Error}", errorContent);
+                return false;
+            }
+
+            _logger.LogInformation("Email sent successfully with {AttachmentCount} attachments",
+                input.Attachments?.Count ?? 0);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error sending email via Outlook");
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Mark email as read
+    /// </summary>
+    public async Task<bool> MarkAsReadAsync(string accessToken, string messageId)
+    {
+        return await UpdateEmailPropertyAsync(accessToken, messageId, new { isRead = true });
+    }
+
+    /// <summary>
+    /// Mark email as unread
+    /// </summary>
+    public async Task<bool> MarkAsUnreadAsync(string accessToken, string messageId)
+    {
+        return await UpdateEmailPropertyAsync(accessToken, messageId, new { isRead = false });
+    }
+
+    /// <summary>
+    /// Delete email (move to deleted items folder)
+    /// </summary>
+    public async Task<bool> DeleteEmailAsync(string accessToken, string messageId)
+    {
+        try
+        {
+            // Move to deleted items folder instead of permanent delete
+            // This matches user expectation: delete = move to trash, not permanent delete
+            var body = new { destinationId = EmailConstants.OutlookFolder.DeletedItems };
+            var response = await SendAuthorizedPostAsync(
+                $"{_options.BaseUrl}/me/messages/{messageId}/move", accessToken, body);
+
+            return response.IsSuccessStatusCode;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error deleting email: {MessageId}", messageId);
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Permanently delete email from Outlook
+    /// </summary>
+    public async Task<bool> PermanentDeleteEmailAsync(string accessToken, string messageId)
+    {
+        try
+        {
+            var response = await SendAuthorizedDeleteAsync(
+                $"{_options.BaseUrl}/me/messages/{messageId}", accessToken);
+
+            if (response.IsSuccessStatusCode)
+            {
+                _logger.LogDebug("Permanently deleted email {MessageId} from Outlook", messageId);
+                return true;
+            }
+
+            var errorContent = await response.Content.ReadAsStringAsync();
+            _logger.LogWarning("Failed to permanently delete email {MessageId} from Outlook: {Error}",
+                messageId, errorContent);
+            return false;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error permanently deleting email: {MessageId}", messageId);
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Move email to folder
+    /// </summary>
+    public async Task<bool> MoveEmailAsync(string accessToken, string messageId, string destinationFolderId)
+    {
+        try
+        {
+            var body = new { destinationId = destinationFolderId };
+            var response = await SendAuthorizedPostAsync(
+                $"{_options.BaseUrl}/me/messages/{messageId}/move", accessToken, body);
+
+            return response.IsSuccessStatusCode;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error moving email: {MessageId}", messageId);
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Get folder statistics
+    /// </summary>
+    public async Task<OutlookFolderStats?> GetFolderStatsAsync(string accessToken, string folderId)
+    {
+        try
+        {
+            var url = $"{_options.BaseUrl}/me/mailFolders/{folderId}?$select=displayName,totalItemCount,unreadItemCount";
+            var response = await SendAuthorizedGetAsync(url, accessToken);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                return null;
+            }
+
+            var content = await response.Content.ReadAsStringAsync();
+            var folder = JsonSerializer.Deserialize<GraphMailFolder>(content);
+
+            return folder != null ? new OutlookFolderStats
+            {
+                FolderId = folderId,
+                DisplayName = folder.DisplayName,
+                TotalCount = folder.TotalItemCount ?? 0,
+                UnreadCount = folder.UnreadItemCount ?? 0
+            } : null;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting folder stats: {FolderId}", folderId);
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Process cid: references in HTML body by replacing them with base64 data URIs
+    /// Used for emails that were previously synced without inline image processing
+    /// </summary>
+    public async Task<string> ProcessCidReferencesAsync(string accessToken, string externalMessageId, string htmlBody)
+    {
+        if (string.IsNullOrEmpty(htmlBody) || !htmlBody.Contains("cid:"))
+        {
+            return htmlBody;
+        }
+
+        return await ReplaceCidWithBase64Async(accessToken, externalMessageId, htmlBody);
+    }
+
+    #endregion
+
+    #region Sync Operations
+
+    /// <summary>
+    /// Sync emails from Outlook to local database (get latest emails, insert new ones and update status for existing ones)
+    /// </summary>
+    public async Task<int> SyncEmailsToLocalAsync(string accessToken, long ownerId, string folderId = "inbox", int maxCount = 100, DateTimeOffset? lastSyncTime = null)
+    {
+        try
+        {
+            // Always get latest emails (ignore lastSyncTime for fetching, use it only for reference)
+            var emails = await GetEmailsAsync(accessToken, folderId, maxCount, 0);
+            if (emails.Count == 0)
+            {
+                return 0;
+            }
+
+            var syncedCount = 0;
+            var localFolder = MapOutlookFolderToLocal(folderId);
+
+            // Batch query: get all local messages matching these external IDs
+            var outlookMessageIds = emails.Select(e => e.Id).ToList();
+            var localMessages = await _messageRepository.GetByExternalIdsAsync(outlookMessageIds, ownerId);
+            var existingIdsMap = localMessages.ToDictionary(m => m.ExternalMessageId!, m => m);
+
+            _logger.LogDebug("Found {ExistingCount} existing emails out of {TotalCount} from Outlook",
+                existingIdsMap.Count, emails.Count);
+
+            // Prepare status update lists
+            var toMarkAsRead = new List<long>();
+            var toMarkAsUnread = new List<long>();
+
+            foreach (var email in emails)
+            {
+                // Check if already exists
+                if (existingIdsMap.TryGetValue(email.Id, out var existingMessage))
+                {
+                    // Update status if different
+                    if (existingMessage.IsRead != email.IsRead)
+                    {
+                        if (email.IsRead)
+                        {
+                            toMarkAsRead.Add(existingMessage.Id);
+                        }
+                        else
+                        {
+                            toMarkAsUnread.Add(existingMessage.Id);
+                        }
+                    }
+                    continue;
+                }
+
+                // Check if this is a locally sent email (same subject, sender, and sent time within 5 minutes)
+                if (localFolder == EmailConstants.Folder.Sent && email.SentDateTime.HasValue)
+                {
+                    var localMessage = await _messageRepository.FindLocalSentMessageAsync(
+                        ownerId,
+                        email.Subject ?? "",
+                        email.SentDateTime.Value,
+                        TimeSpan.FromMinutes(5));
+
+                    if (localMessage != null)
+                    {
+                        localMessage.ExternalMessageId = email.Id;
+                        await _messageRepository.UpdateAsync(localMessage);
+                        _logger.LogDebug("Linked local sent message {LocalId} with Outlook message {OutlookId}",
+                            localMessage.Id, email.Id);
+                        continue;
+                    }
+                }
+
+                // Create local message
+                var message = new Message
+                {
+                    Subject = email.Subject ?? "",
+                    Body = email.Body ?? "",
+                    BodyPreview = email.BodyPreview ?? "",
+                    MessageType = EmailConstants.MessageType.Email,
+                    Folder = localFolder,
+                    Labels = $"[\"{EmailConstants.Label.External}\"]",
+                    SenderName = email.FromName ?? "",
+                    SenderEmail = email.FromEmail ?? "",
+                    Recipients = JsonSerializer.Serialize(email.ToRecipients ?? new List<RecipientDto>()),
+                    IsRead = localFolder == EmailConstants.Folder.Sent || email.IsRead, // Sent folder messages are always read
+                    IsDraft = email.IsDraft,
+                    HasAttachments = email.HasAttachments,
+                    SentDate = email.SentDateTime,
+                    ReceivedDate = email.ReceivedDateTime,
+                    ExternalMessageId = email.Id,
+                    OwnerId = ownerId
+                };
+
+                message.InitCreateInfo(_userContext);
+                await _messageRepository.InsertAsync(message);
+
+                if (email.HasAttachments)
+                {
+                    await SyncAttachmentsAsync(accessToken, email.Id, message.Id);
+                }
+
+                syncedCount++;
+            }
+
+            // Batch update status
+            if (toMarkAsRead.Count > 0)
+            {
+                await _messageRepository.BatchUpdateReadStatusAsync(toMarkAsRead, true);
+                _logger.LogDebug("Marked {Count} emails as read", toMarkAsRead.Count);
+            }
+            if (toMarkAsUnread.Count > 0)
+            {
+                await _messageRepository.BatchUpdateReadStatusAsync(toMarkAsUnread, false);
+                _logger.LogDebug("Marked {Count} emails as unread", toMarkAsUnread.Count);
+            }
+
+            _logger.LogDebug("Synced {NewCount} new emails, updated {StatusCount} email status for user {UserId}",
+                syncedCount, toMarkAsRead.Count + toMarkAsUnread.Count, ownerId);
+            return syncedCount;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error syncing emails from Outlook");
+            return 0;
+        }
+    }
+
+    /// <summary>
+    /// Full sync emails from Outlook with pagination support
+    /// Returns synced count and delta link for subsequent incremental syncs
+    /// </summary>
+    public async Task<(int syncedCount, string? deltaLink)> FullSyncEmailsAsync(string accessToken, long ownerId, string folderId = "inbox", int maxCount = 500)
+    {
+        try
+        {
+            var syncedCount = 0;
+            var skip = 0;
+            var batchSize = EmailConstants.SyncSettings.BatchSize;
+            var localFolder = MapOutlookFolderToLocal(folderId);
+
+            _logger.LogDebug("Starting full sync for folder {FolderId}, maxCount: {MaxCount}", folderId, maxCount);
+
+            while (syncedCount < maxCount)
+            {
+                var remaining = maxCount - syncedCount;
+                var fetchCount = Math.Min(batchSize, remaining);
+
+                var emails = await GetEmailsAsync(accessToken, folderId, fetchCount, skip);
+                if (emails.Count == 0)
+                {
+                    _logger.LogDebug("No more emails to sync from folder {FolderId}", folderId);
+                    break;
+                }
+
+                // Batch query: get all existing external IDs in one query for performance
+                var outlookMessageIds = emails.Select(e => e.Id).ToList();
+                var existingIds = await _messageRepository.GetExistingExternalIdsAsync(outlookMessageIds, ownerId);
+
+                foreach (var email in emails)
+                {
+                    // Skip if already exists (using batch query result)
+                    if (existingIds.Contains(email.Id))
+                    {
+                        continue;
+                    }
+
+                    // Create local message
+                    var message = new Message
+                    {
+                        Subject = email.Subject ?? "",
+                        Body = email.Body ?? "",
+                        BodyPreview = email.BodyPreview ?? "",
+                        MessageType = EmailConstants.MessageType.Email,
+                        Folder = localFolder,
+                        Labels = $"[\"{EmailConstants.Label.External}\"]",
+                        SenderName = email.FromName ?? "",
+                        SenderEmail = email.FromEmail ?? "",
+                        Recipients = JsonSerializer.Serialize(email.ToRecipients ?? new List<RecipientDto>()),
+                        IsRead = localFolder == EmailConstants.Folder.Sent || email.IsRead, // Sent folder messages are always read
+                        IsDraft = email.IsDraft,
+                        HasAttachments = email.HasAttachments,
+                        SentDate = email.SentDateTime,
+                        ReceivedDate = email.ReceivedDateTime,
+                        ExternalMessageId = email.Id,
+                        OwnerId = ownerId
+                    };
+
+                    message.InitCreateInfo(_userContext);
+                    await _messageRepository.InsertAsync(message);
+
+                    // Sync attachment metadata only (content downloaded on-demand)
+                    if (email.HasAttachments)
+                    {
+                        await SyncAttachmentsAsync(accessToken, email.Id, message.Id);
+                    }
+
+                    syncedCount++;
+                }
+
+                skip += emails.Count;
+
+                // If we got fewer emails than requested, we've reached the end
+                if (emails.Count < fetchCount)
+                {
+                    break;
+                }
+            }
+
+            // After full sync, get delta link for subsequent incremental syncs
+            string? deltaLink = null;
+            try
+            {
+                deltaLink = await GetDeltaLinkAsync(accessToken, folderId);
+                _logger.LogDebug("Obtained delta link for folder {FolderId} after full sync", folderId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to get delta link for folder {FolderId}, incremental sync will start fresh", folderId);
+            }
+
+            _logger.LogDebug("Full sync completed for folder {FolderId}: synced {Count} emails", folderId, syncedCount);
+            return (syncedCount, deltaLink);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error during full sync for folder {FolderId}", folderId);
+            return (0, null);
+        }
+    }
+
+    /// <summary>
+    /// Get delta link for a folder (used after full sync to enable incremental sync)
+    /// </summary>
+    private async Task<string?> GetDeltaLinkAsync(string accessToken, string folderId)
+    {
+        // Request delta with $deltaToken=latest to get only the delta link without any messages
+        // This is the recommended way to initialize delta sync after a full sync
+        var url = $"{_options.BaseUrl}/me/mailFolders/{folderId}/messages/delta?$deltaToken=latest";
+        
+        var response = await SendAuthorizedGetAsync(url, accessToken);
+        if (!response.IsSuccessStatusCode)
+        {
+            return null;
+        }
+
+        var content = await response.Content.ReadAsStringAsync();
+        var deltaResponse = JsonSerializer.Deserialize<GraphDeltaResponse>(content);
+        
+        return deltaResponse?.DeltaLink;
+    }
+
+    /// <summary>
+    /// Get total email count in a folder
+    /// </summary>
+    public async Task<int> GetFolderEmailCountAsync(string accessToken, string folderId)
+    {
+        try
+        {
+            var stats = await GetFolderStatsAsync(accessToken, folderId);
+            return stats?.TotalCount ?? 0;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting folder email count for {FolderId}", folderId);
+            return 0;
+        }
+    }
+
+    /// <summary>
+    /// Sync emails using Delta Query (incremental sync with change tracking)
+    /// This is the most efficient way to sync emails as it only returns changes since last sync
+    /// </summary>
+    public async Task<DeltaSyncResult> SyncEmailsWithDeltaAsync(string accessToken, long ownerId, string folderId, string? deltaLink)
+    {
+        var result = new DeltaSyncResult
+        {
+            IsInitialSync = string.IsNullOrEmpty(deltaLink)
+        };
+
+        try
+        {
+            var localFolder = MapOutlookFolderToLocal(folderId);
+            string? nextLink;
+            string? newDeltaLink = null;
+
+            // Build initial URL or use existing delta link
+            // For initial sync, limit to recent emails to avoid long sync times
+            var url = string.IsNullOrEmpty(deltaLink)
+                ? $"{_options.BaseUrl}/me/mailFolders/{folderId}/messages/delta" +
+                  $"?$select=id,subject,bodyPreview,from,toRecipients,receivedDateTime,sentDateTime,isRead,hasAttachments,isDraft" +
+                  $"&$top={EmailConstants.SyncSettings.InitialSyncPageSize}"
+                : deltaLink;
+
+            var addedMessages = new List<GraphDeltaMessage>();
+            var updatedMessages = new List<GraphDeltaMessage>();
+            var deletedMessageIds = new List<string>();
+
+            // Track page count for initial sync limit
+            var pageCount = 0;
+            var maxPagesForInitialSync = EmailConstants.SyncSettings.InitialSyncMaxPages;
+
+            // Follow pagination until we get the delta link
+            do
+            {
+                var response = await SendAuthorizedGetAsync(url, accessToken);
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    var errorContent = await response.Content.ReadAsStringAsync();
+                    _logger.LogError("Delta query failed: {Error}", errorContent);
+
+                    // If delta link is invalid (410 Gone), return error to trigger full sync
+                    if (response.StatusCode == System.Net.HttpStatusCode.Gone)
+                    {
+                        result.ErrorMessage = "Delta link expired, full sync required";
+                        result.DeltaLink = null; // Clear delta link to trigger full sync
+                        return result;
+                    }
+
+                    result.ErrorMessage = $"Delta query failed: {response.StatusCode}";
+                    return result;
+                }
+
+                var content = await response.Content.ReadAsStringAsync();
+                var deltaResponse = JsonSerializer.Deserialize<GraphDeltaResponse>(content);
+
+                if (deltaResponse?.Value != null)
+                {
+                    foreach (var message in deltaResponse.Value)
+                    {
+                        if (message.IsDeleted)
+                        {
+                            if (!string.IsNullOrEmpty(message.Id))
+                            {
+                                deletedMessageIds.Add(message.Id);
+                            }
+                        }
+                        else
+                        {
+                            // Collect all non-deleted messages for batch processing
+                            addedMessages.Add(message);
+                        }
+                    }
+                }
+
+                nextLink = deltaResponse?.NextLink;
+                newDeltaLink = deltaResponse?.DeltaLink;
+                pageCount++;
+
+                // For initial sync, limit pages to avoid long sync times
+                // Incremental sync (with deltaLink) should process all changes
+                if (result.IsInitialSync && pageCount >= maxPagesForInitialSync && !string.IsNullOrEmpty(nextLink))
+                {
+                    _logger.LogInformation("Initial sync reached page limit ({PageCount} pages, {MessageCount} messages) for folder {Folder}, will continue in next sync",
+                        pageCount, addedMessages.Count, folderId);
+                    // Don't save deltaLink for partial initial sync, so next sync continues from where we left off
+                    // Actually, we should save the nextLink as deltaLink to continue from here
+                    newDeltaLink = nextLink;
+                    break;
+                }
+
+                // Continue with next page if available
+                if (!string.IsNullOrEmpty(nextLink))
+                {
+                    url = nextLink;
+                }
+
+            } while (!string.IsNullOrEmpty(nextLink));
+
+            // Batch query: get all existing messages by external IDs
+            var allExternalIds = addedMessages
+                .Where(m => !string.IsNullOrEmpty(m.Id))
+                .Select(m => m.Id!)
+                .ToList();
+            
+            var existingMessages = allExternalIds.Count > 0
+                ? await _messageRepository.GetByExternalIdsAsync(allExternalIds, ownerId)
+                : new List<Message>();
+            var existingMessageMap = existingMessages.ToDictionary(m => m.ExternalMessageId!, m => m);
+
+            // Separate messages into truly new and updates
+            var trulyNewMessages = new List<GraphDeltaMessage>();
+            var statusUpdateMessages = new List<(GraphDeltaMessage delta, Message local)>();
+
+            foreach (var message in addedMessages)
+            {
+                if (string.IsNullOrEmpty(message.Id)) continue;
+
+                if (existingMessageMap.TryGetValue(message.Id, out var existingMessage))
+                {
+                    // Message exists, check for status updates
+                    statusUpdateMessages.Add((message, existingMessage));
+                }
+                else
+                {
+                    trulyNewMessages.Add(message);
+                }
+            }
+
+            // Process truly new messages in batch
+            if (trulyNewMessages.Count > 0)
+            {
+                var messagesToInsert = new List<Message>();
+                var messagesWithAttachments = new List<(Message message, string externalId)>();
+
+                foreach (var message in trulyNewMessages)
+                {
+                    if (string.IsNullOrEmpty(message.Id)) continue;
+
+                    // Check if this is a locally sent email
+                    if (localFolder == EmailConstants.Folder.Sent && message.SentDateTime.HasValue)
+                    {
+                        var localMessage = await _messageRepository.FindLocalSentMessageAsync(
+                            ownerId,
+                            message.Subject ?? "",
+                            message.SentDateTime.Value,
+                            TimeSpan.FromMinutes(5));
+
+                        if (localMessage != null)
+                        {
+                            localMessage.ExternalMessageId = message.Id;
+                            await _messageRepository.UpdateAsync(localMessage);
+                            _logger.LogDebug("Linked local sent message {LocalId} with Outlook message {OutlookId}",
+                                localMessage.Id, message.Id);
+                            continue;
+                        }
+                    }
+
+                    // Create new local message
+                    var newMessage = new Message
+                    {
+                        Subject = message.Subject ?? "",
+                        Body = "", // Body not included in delta for performance
+                        BodyPreview = message.BodyPreview ?? "",
+                        MessageType = EmailConstants.MessageType.Email,
+                        Folder = localFolder,
+                        Labels = $"[\"{EmailConstants.Label.External}\"]",
+                        SenderName = message.From?.EmailAddress?.Name ?? "",
+                        SenderEmail = message.From?.EmailAddress?.Address ?? "",
+                        Recipients = JsonSerializer.Serialize(message.ToRecipients?.Select(r => new RecipientDto
+                        {
+                            Name = r.EmailAddress?.Name ?? "",
+                            Email = r.EmailAddress?.Address ?? ""
+                        }).ToList() ?? new List<RecipientDto>()),
+                        IsRead = localFolder == EmailConstants.Folder.Sent || (message.IsRead ?? false), // Sent folder messages are always read
+                        IsDraft = message.IsDraft ?? false,
+                        HasAttachments = message.HasAttachments ?? false,
+                        SentDate = message.SentDateTime,
+                        ReceivedDate = message.ReceivedDateTime,
+                        ExternalMessageId = message.Id,
+                        OwnerId = ownerId
+                    };
+
+                    newMessage.InitCreateInfo(_userContext);
+                    messagesToInsert.Add(newMessage);
+
+                    if (message.HasAttachments == true)
+                    {
+                        messagesWithAttachments.Add((newMessage, message.Id));
+                    }
+                }
+
+                // Batch insert all new messages
+                if (messagesToInsert.Count > 0)
+                {
+                    await _messageRepository.InsertRangeAsync(messagesToInsert);
+                    result.AddedCount = messagesToInsert.Count;
+                    _logger.LogDebug("Delta sync: batch inserted {Count} new messages", messagesToInsert.Count);
+
+                    // Sync attachments for messages that have them
+                    foreach (var (message, externalId) in messagesWithAttachments)
+                    {
+                        await SyncAttachmentsAsync(accessToken, externalId, message.Id);
+                    }
+                }
+            }
+
+            // Process status updates (read/unread changes)
+            var toMarkAsRead = new List<long>();
+            var toMarkAsUnread = new List<long>();
+
+            foreach (var (deltaMessage, localMessage) in statusUpdateMessages)
+            {
+                var newIsRead = deltaMessage.IsRead ?? false;
+                if (localMessage.IsRead != newIsRead)
+                {
+                    if (newIsRead)
+                    {
+                        toMarkAsRead.Add(localMessage.Id);
+                    }
+                    else
+                    {
+                        toMarkAsUnread.Add(localMessage.Id);
+                    }
+                    result.UpdatedCount++;
+                }
+            }
+
+            // Batch update read status
+            if (toMarkAsRead.Count > 0)
+            {
+                await _messageRepository.BatchUpdateReadStatusAsync(toMarkAsRead, true);
+                _logger.LogDebug("Delta sync: marked {Count} emails as read", toMarkAsRead.Count);
+            }
+            if (toMarkAsUnread.Count > 0)
+            {
+                await _messageRepository.BatchUpdateReadStatusAsync(toMarkAsUnread, false);
+                _logger.LogDebug("Delta sync: marked {Count} emails as unread", toMarkAsUnread.Count);
+            }
+
+            // Process deleted messages in batch
+            if (deletedMessageIds.Count > 0)
+            {
+                var deletedLocalMessages = await _messageRepository.GetByExternalIdsAsync(deletedMessageIds, ownerId);
+                if (deletedLocalMessages.Count > 0)
+                {
+                    // Batch move to Trash
+                    var idsToMove = deletedLocalMessages.Select(m => m.Id).ToList();
+                    var movedCount = await _messageRepository.BatchMoveToFolderAsync(
+                        idsToMove, EmailConstants.Folder.Trash, localFolder);
+                    result.DeletedCount = movedCount;
+                    _logger.LogDebug("Delta sync: batch moved {Count} deleted emails to Trash", movedCount);
+                }
+            }
+            result.DeltaLink = newDeltaLink;
+
+            _logger.LogDebug("Delta sync completed for folder {FolderId}: added={Added}, updated={Updated}, deleted={Deleted}, isInitial={IsInitial}",
+                folderId, result.AddedCount, result.UpdatedCount, result.DeletedCount, result.IsInitialSync);
+
+            return result;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error during delta sync for folder {FolderId}", folderId);
+            result.ErrorMessage = ex.Message;
+            return result;
+        }
+    }
+
+    /// <summary>
+    /// Sync deleted emails: move local emails to Trash if they no longer exist in Outlook
+    /// Note: This should only be called when we have fetched ALL emails from Outlook folder,
+    /// not just a partial batch. Otherwise, older emails will be incorrectly marked as deleted.
+    /// </summary>
+    private async Task SyncDeletedEmailsAsync(long ownerId, string folder, HashSet<string> outlookMessageIds, bool isCompleteFetch = false)
+    {
+        // Only sync deleted emails if we have a complete fetch of the folder
+        // Otherwise, older emails not in the current batch would be incorrectly moved to Trash
+        if (!isCompleteFetch)
+        {
+            _logger.LogDebug("Skipping deleted email sync - not a complete fetch for folder {Folder}", folder);
+            return;
+        }
+
+        try
+        {
+            // Get local emails with ExternalMessageId in this folder
+            var localEmails = await _messageRepository.GetByFolderWithExternalIdAsync(ownerId, folder);
+
+            foreach (var localEmail in localEmails)
+            {
+                if (string.IsNullOrEmpty(localEmail.ExternalMessageId)) continue;
+
+                // If local email's ExternalMessageId is not in Outlook's list, it was deleted
+                if (!outlookMessageIds.Contains(localEmail.ExternalMessageId))
+                {
+                    // Move to Trash
+                    await _messageRepository.MoveToFolderAsync(localEmail.Id, "Trash", localEmail.Folder);
+                    _logger.LogInformation("Moved deleted email {MessageId} to Trash (no longer in Outlook)",
+                        localEmail.Id);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error syncing deleted emails for user {UserId}", ownerId);
+            // Don't throw - continue with sync
+        }
+    }
+
+    /// <summary>
+    /// Download attachment content from Outlook
+    /// </summary>
+    public async Task<byte[]?> DownloadAttachmentAsync(string accessToken, string externalMessageId, string externalAttachmentId)
+    {
+        try
+        {
+            var url = $"{_options.BaseUrl}/me/messages/{externalMessageId}/attachments/{externalAttachmentId}";
+            var response = await SendAuthorizedGetAsync(url, accessToken);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                var errorContent = await response.Content.ReadAsStringAsync();
+                _logger.LogWarning("Failed to download attachment {AttachmentId} for message {MessageId}: {Error}",
+                    externalAttachmentId, externalMessageId, errorContent);
+                return null;
+            }
+
+            var content = await response.Content.ReadAsStringAsync();
+            var attachment = JsonSerializer.Deserialize<GraphAttachment>(content);
+
+            if (attachment?.ContentBytes == null)
+            {
+                _logger.LogWarning("Attachment {AttachmentId} has no content bytes", externalAttachmentId);
+                return null;
+            }
+
+            return Convert.FromBase64String(attachment.ContentBytes);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error downloading attachment {AttachmentId} for message {MessageId}",
+                externalAttachmentId, externalMessageId);
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Sync attachments for a specific message from Outlook (public interface)
+    /// Optimized with batch operations
+    /// </summary>
+    public async Task<int> SyncAttachmentsAsync(string accessToken, string externalMessageId, long localMessageId)
+    {
+        try
+        {
+            var attachments = await GetAttachmentsAsync(accessToken, externalMessageId);
+            if (attachments.Count == 0)
+            {
+                return 0;
+            }
+
+            // Batch query: get all existing external attachment IDs
+            var externalIds = attachments
+                .Where(a => !string.IsNullOrEmpty(a.Id))
+                .Select(a => a.Id!)
+                .ToList();
+            
+            var existingIds = externalIds.Count > 0
+                ? await _attachmentRepository.GetExistingExternalIdsAsync(externalIds)
+                : new HashSet<string>();
+
+            // Prepare attachments to insert
+            var attachmentsToInsert = new List<MessageAttachment>();
+
+            foreach (var attachment in attachments)
+            {
+                // Skip if already synced
+                if (!string.IsNullOrEmpty(attachment.Id) && existingIds.Contains(attachment.Id))
+                {
+                    continue;
+                }
+
+                // Create local attachment record (without downloading content for now)
+                var localAttachment = new MessageAttachment
+                {
+                    MessageId = localMessageId,
+                    FileName = attachment.Name ?? "attachment",
+                    FileSize = attachment.Size ?? 0,
+                    ContentType = attachment.ContentType ?? "application/octet-stream",
+                    ExternalAttachmentId = attachment.Id,
+                    ContentId = attachment.ContentId?.Trim('<', '>'),
+                    IsInline = attachment.IsInline ?? false,
+                    StoragePath = "" // Will be populated when user downloads
+                };
+
+                // Initialize create info (sets Id, TenantId, AppCode, timestamps, etc.)
+                localAttachment.InitCreateInfo(_userContext);
+                attachmentsToInsert.Add(localAttachment);
+            }
+
+            // Batch insert all new attachments
+            if (attachmentsToInsert.Count > 0)
+            {
+                await _attachmentRepository.InsertRangeAsync(attachmentsToInsert);
+                _logger.LogDebug("Batch synced {Count} attachments for message {MessageId}", 
+                    attachmentsToInsert.Count, externalMessageId);
+            }
+
+            return attachmentsToInsert.Count;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error syncing attachments for message {MessageId}", externalMessageId);
+            return 0;
+        }
+    }
+
+    /// <summary>
+    /// Get attachments metadata for a message (without content bytes for performance)
+    /// </summary>
+    private async Task<List<GraphAttachment>> GetAttachmentsAsync(string accessToken, string messageId)
+    {
+        try
+        {
+            var url = $"{_options.BaseUrl}/me/messages/{messageId}/attachments";
+            var response = await SendAuthorizedGetAsync(url, accessToken);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                var errorContent = await response.Content.ReadAsStringAsync();
+                _logger.LogWarning("Failed to get attachments for message {MessageId}: {Error}", messageId, errorContent);
+                return new List<GraphAttachment>();
+            }
+
+            var content = await response.Content.ReadAsStringAsync();
+            var result = JsonSerializer.Deserialize<GraphAttachmentListResponse>(content);
+
+            // Filter out inline attachments (they are embedded in HTML body)
+            var regularAttachments = result?.Value?
+                .Where(a => a.IsInline != true)
+                .ToList() ?? new List<GraphAttachment>();
+
+            return regularAttachments;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting attachments for message {MessageId}", messageId);
+            return new List<GraphAttachment>();
+        }
+    }
+
+    #endregion
+
+    #region Private Methods
+
+    private async Task<bool> UpdateEmailPropertyAsync(string accessToken, string messageId, object updateData)
+    {
+        try
+        {
+            var response = await SendAuthorizedPatchAsync(
+                $"{_options.BaseUrl}/me/messages/{messageId}", accessToken, updateData);
+            return response.IsSuccessStatusCode;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error updating email property: {MessageId}", messageId);
+            return false;
+        }
+    }
+
+    private static OutlookEmailDto MapToOutlookEmailDto(GraphEmailMessage email)
+    {
+        return new OutlookEmailDto
+        {
+            Id = email.Id ?? "",
+            Subject = email.Subject ?? "",
+            Body = email.Body?.Content ?? "",
+            BodyPreview = email.BodyPreview ?? "",
+            FromName = email.From?.EmailAddress?.Name ?? "",
+            FromEmail = email.From?.EmailAddress?.Address ?? "",
+            ToRecipients = email.ToRecipients?.Select(r => new RecipientDto
+            {
+                Name = r.EmailAddress?.Name ?? "",
+                Email = r.EmailAddress?.Address ?? ""
+            }).ToList() ?? new List<RecipientDto>(),
+            CcRecipients = email.CcRecipients?.Select(r => new RecipientDto
+            {
+                Name = r.EmailAddress?.Name ?? "",
+                Email = r.EmailAddress?.Address ?? ""
+            }).ToList(),
+            BccRecipients = email.BccRecipients?.Select(r => new RecipientDto
+            {
+                Name = r.EmailAddress?.Name ?? "",
+                Email = r.EmailAddress?.Address ?? ""
+            }).ToList(),
+            SentDateTime = email.SentDateTime,
+            ReceivedDateTime = email.ReceivedDateTime,
+            IsRead = email.IsRead ?? false,
+            IsDraft = email.IsDraft ?? false,
+            HasAttachments = email.HasAttachments ?? false,
+            ParentFolderId = email.ParentFolderId
+        };
+    }
+
+    private static string MapOutlookFolderToLocal(string outlookFolderId)
+    {
+        return outlookFolderId.ToLower() switch
+        {
+            EmailConstants.OutlookFolder.Inbox => EmailConstants.Folder.Inbox,
+            EmailConstants.OutlookFolder.SentItems => EmailConstants.Folder.Sent,
+            EmailConstants.OutlookFolder.Drafts => EmailConstants.Folder.Drafts,
+            EmailConstants.OutlookFolder.DeletedItems => EmailConstants.Folder.Trash,
+            EmailConstants.OutlookFolder.Archive => EmailConstants.Folder.Archive,
+            _ => EmailConstants.Folder.Inbox
+        };
+    }
+
+    /// <summary>
+    /// Get inline attachments for a message
+    /// </summary>
+    private async Task<List<GraphAttachment>> GetInlineAttachmentsAsync(string accessToken, string messageId)
+    {
+        try
+        {
+            var url = $"{_options.BaseUrl}/me/messages/{messageId}/attachments";
+            var response = await SendAuthorizedGetAsync(url, accessToken);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                var errorContent = await response.Content.ReadAsStringAsync();
+                _logger.LogWarning("Failed to get attachments for message {MessageId}: {Error}", messageId, errorContent);
+                return new List<GraphAttachment>();
+            }
+
+            var content = await response.Content.ReadAsStringAsync();
+            var result = JsonSerializer.Deserialize<GraphAttachmentListResponse>(content);
+
+            // Filter for inline attachments only (those with isInline=true and contentId)
+            var inlineAttachments = result?.Value?
+                .Where(a => a.IsInline == true && !string.IsNullOrEmpty(a.ContentId))
+                .ToList() ?? new List<GraphAttachment>();
+
+            _logger.LogDebug("Found {Total} attachments, {Inline} are inline for message {MessageId}",
+                result?.Value?.Count ?? 0, inlineAttachments.Count, messageId);
+
+            return inlineAttachments;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting inline attachments for message {MessageId}", messageId);
+            return new List<GraphAttachment>();
+        }
+    }
+
+    /// <summary>
+    /// Replace cid: references in HTML body with base64 data URIs
+    /// </summary>
+    private async Task<string> ReplaceCidWithBase64Async(string accessToken, string messageId, string htmlBody)
+    {
+        try
+        {
+            var inlineAttachments = await GetInlineAttachmentsAsync(accessToken, messageId);
+
+            if (inlineAttachments.Count == 0)
+            {
+                return htmlBody;
+            }
+
+            // Build a dictionary of contentId -> base64 data URI
+            var cidMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var attachment in inlineAttachments)
+            {
+                if (!string.IsNullOrEmpty(attachment.ContentId) && !string.IsNullOrEmpty(attachment.ContentBytes))
+                {
+                    var contentType = attachment.ContentType ?? "image/png";
+                    var dataUri = $"data:{contentType};base64,{attachment.ContentBytes}";
+
+                    // ContentId may or may not have angle brackets, handle both cases
+                    var contentId = attachment.ContentId.Trim('<', '>');
+                    cidMap[contentId] = dataUri;
+                }
+            }
+
+            if (cidMap.Count == 0)
+            {
+                return htmlBody;
+            }
+
+            // Replace all cid: references with base64 data URIs
+            var result = Regex.Replace(
+                htmlBody,
+                @"(src|background)=[""']cid:([^""']+)[""']",
+                match =>
+                {
+                    var attribute = match.Groups[1].Value;
+                    var contentId = match.Groups[2].Value;
+
+                    if (cidMap.TryGetValue(contentId, out var dataUri))
+                    {
+                        return $"{attribute}=\"{dataUri}\"";
+                    }
+
+                    // If no matching attachment found, keep original
+                    return match.Value;
+                },
+                RegexOptions.IgnoreCase);
+
+            _logger.LogInformation("Replaced {Count} cid references with base64 data URIs for message {MessageId}",
+                cidMap.Count, messageId);
+
+            return result;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error replacing cid references for message {MessageId}", messageId);
+            return htmlBody;
+        }
+    }
+
+    #endregion
+}

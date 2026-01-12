@@ -258,6 +258,12 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
         {
             try
             {
+                // Debug logging for changedFields parameter
+                _stageLogger.LogInformation("[StageLogService] LogStageUpdateAsync called for stage {StageId} with changedFields: Count={Count}, Values={Values}",
+                    stageId,
+                    changedFields?.Count ?? 0,
+                    changedFields != null ? string.Join(", ", changedFields) : "null");
+
                 // Check if there's actually a meaningful change
                 if (!HasMeaningfulValueChangeEnhanced(beforeData, afterData))
                 {
@@ -276,7 +282,9 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                     changedFields,
                     workflowId);
 
-                var changedFieldsJson = changedFields?.Any() == true ? JsonSerializer.Serialize(changedFields) : null;
+                // Set changedFields to null (empty array in API response)
+                // Change details are already included in operationDescription
+                string changedFieldsJson = null;
 
                 var extendedDataObj = JsonSerializer.Serialize(new
                 {
@@ -916,7 +924,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
 
                 var changeList = new List<string>();
 
-                foreach (var field in changedFields.Take(3)) // Limit to first 3 changes
+                foreach (var field in changedFields) // Show all changed fields
                 {
                     if (beforeJson.TryGetValue(field, out var beforeValue) &&
                         afterJson.TryGetValue(field, out var afterValue))
@@ -1160,12 +1168,15 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
 
             try
             {
-                // Group components by key to handle multiple components of the same type
-                var beforeGroups = beforeComponents.GroupBy(c => c.Key).ToDictionary(g => g.Key, g => g.ToList());
-                var afterGroups = afterComponents.GroupBy(c => c.Key).ToDictionary(g => g.Key, g => g.ToList());
+                // Group components by key (case-insensitive) to handle multiple components of the same type
+                var beforeGroups = beforeComponents.GroupBy(c => c.Key?.ToLower() ?? "unknown").ToDictionary(g => g.Key, g => g.ToList());
+                var afterGroups = afterComponents.GroupBy(c => c.Key?.ToLower() ?? "unknown").ToDictionary(g => g.Key, g => g.ToList());
+
+                // Get all unique component keys from both before and after
+                var allKeys = beforeGroups.Keys.Union(afterGroups.Keys).Distinct().ToList();
 
                 // Check each component type for changes
-                foreach (var key in new[] { "fields", "checklist", "questionnaires", "files" })
+                foreach (var key in allKeys)
                 {
                     var beforeComps = beforeGroups.GetValueOrDefault(key, new List<Domain.Shared.Models.StageComponent>());
                     var afterComps = afterGroups.GetValueOrDefault(key, new List<Domain.Shared.Models.StageComponent>());
@@ -1182,6 +1193,20 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                             key, beforeComps.Count, afterComps.Count);
                     }
                 }
+
+                // Also detect order changes for components
+                var orderChanges = GetComponentOrderChanges(beforeComponents, afterComponents);
+                if (!string.IsNullOrEmpty(orderChanges))
+                {
+                    changes.Add(orderChanges);
+                }
+
+                // Detect enabled/disabled state changes for individual components
+                var stateChanges = GetComponentStateChanges(beforeComponents, afterComponents);
+                if (stateChanges.Any())
+                {
+                    changes.AddRange(stateChanges);
+                }
             }
             catch (Exception ex)
             {
@@ -1189,6 +1214,138 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
             }
 
             return changes;
+        }
+
+        /// <summary>
+        /// Get order changes for components
+        /// </summary>
+        private string GetComponentOrderChanges(List<Domain.Shared.Models.StageComponent> beforeComponents, List<Domain.Shared.Models.StageComponent> afterComponents)
+        {
+            try
+            {
+                var orderChanges = new List<string>();
+
+                // Create a map of component identifiers to their orders
+                foreach (var afterComp in afterComponents)
+                {
+                    var matchingBefore = FindMatchingComponent(beforeComponents, afterComp);
+                    if (matchingBefore != null && matchingBefore.Order != afterComp.Order)
+                    {
+                        var componentName = GetComponentDisplayName(afterComp);
+                        orderChanges.Add($"{componentName} order: {matchingBefore.Order} → {afterComp.Order}");
+                    }
+                }
+
+                if (orderChanges.Any())
+                {
+                    return $"reordered: {string.Join("; ", orderChanges.Take(3))}{(orderChanges.Count > 3 ? ", etc." : "")}";
+                }
+            }
+            catch (Exception ex)
+            {
+                _stageLogger.LogWarning(ex, "Failed to get component order changes");
+            }
+
+            return string.Empty;
+        }
+
+        /// <summary>
+        /// Get enabled/disabled state changes for individual components
+        /// </summary>
+        private List<string> GetComponentStateChanges(List<Domain.Shared.Models.StageComponent> beforeComponents, List<Domain.Shared.Models.StageComponent> afterComponents)
+        {
+            var changes = new List<string>();
+
+            try
+            {
+                foreach (var afterComp in afterComponents)
+                {
+                    var matchingBefore = FindMatchingComponent(beforeComponents, afterComp);
+                    if (matchingBefore != null && matchingBefore.IsEnabled != afterComp.IsEnabled)
+                    {
+                        var componentName = GetComponentDisplayName(afterComp);
+                        var stateChange = afterComp.IsEnabled ? "enabled" : "disabled";
+                        changes.Add($"{componentName} {stateChange}");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _stageLogger.LogWarning(ex, "Failed to get component state changes");
+            }
+
+            return changes;
+        }
+
+        /// <summary>
+        /// Find a matching component from the before list based on key and content
+        /// </summary>
+        private Domain.Shared.Models.StageComponent FindMatchingComponent(List<Domain.Shared.Models.StageComponent> components, Domain.Shared.Models.StageComponent target)
+        {
+            var targetKeyLower = target.Key?.ToLower();
+
+            // First try to match by key and specific IDs
+            switch (targetKeyLower)
+            {
+                case "checklist":
+                    var targetChecklistIds = target.ChecklistIds ?? new List<long>();
+                    return components.FirstOrDefault(c =>
+                        c.Key?.ToLower() == "checklist" &&
+                        (c.ChecklistIds ?? new List<long>()).SequenceEqual(targetChecklistIds));
+
+                case "questionnaires":
+                    var targetQuestionnaireIds = target.QuestionnaireIds ?? new List<long>();
+                    return components.FirstOrDefault(c =>
+                        c.Key?.ToLower() == "questionnaires" &&
+                        (c.QuestionnaireIds ?? new List<long>()).SequenceEqual(targetQuestionnaireIds));
+
+                case "quicklink":
+                    var targetQuickLinkIds = target.QuickLinkIds ?? new List<long>();
+                    return components.FirstOrDefault(c =>
+                        c.Key?.ToLower() == "quicklink" &&
+                        (c.QuickLinkIds ?? new List<long>()).SequenceEqual(targetQuickLinkIds));
+
+                case "fields":
+                    var targetFields = target.StaticFields ?? new List<string>();
+                    return components.FirstOrDefault(c =>
+                        c.Key?.ToLower() == "fields" &&
+                        (c.StaticFields ?? new List<string>()).SequenceEqual(targetFields));
+
+                default:
+                    // For other types (like files), match by key only (case-insensitive)
+                    return components.FirstOrDefault(c => c.Key?.ToLower() == targetKeyLower);
+            }
+        }
+
+        /// <summary>
+        /// Get a display name for a component
+        /// </summary>
+        private string GetComponentDisplayName(Domain.Shared.Models.StageComponent component)
+        {
+            switch (component.Key?.ToLower())
+            {
+                case "checklist":
+                    var checklistName = component.ChecklistNames?.FirstOrDefault();
+                    return !string.IsNullOrEmpty(checklistName) ? $"checklist '{checklistName}'" : "checklist";
+
+                case "questionnaires":
+                    var questionnaireName = component.QuestionnaireNames?.FirstOrDefault();
+                    return !string.IsNullOrEmpty(questionnaireName) ? $"questionnaire '{questionnaireName}'" : "questionnaire";
+
+                case "quicklink":
+                    var quickLinkName = component.QuickLinkNames?.FirstOrDefault();
+                    return !string.IsNullOrEmpty(quickLinkName) ? $"quick link '{quickLinkName}'" : "quick link";
+
+                case "fields":
+                    var fieldCount = component.StaticFields?.Count ?? 0;
+                    return fieldCount > 0 ? $"fields ({fieldCount} fields)" : "fields";
+
+                case "files":
+                    return "files";
+
+                default:
+                    return component.Key ?? "unknown";
+            }
         }
 
         /// <summary>
@@ -1251,7 +1408,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                         var allFields = components.SelectMany(c => c.StaticFields ?? new List<string>()).Distinct().ToList();
                         if (allFields.Any())
                         {
-                            return $"{allFields.Count} static fields ({string.Join(", ", allFields.Take(3))}{(allFields.Count > 3 ? ", etc." : "")})";
+                            return $"{allFields.Count} static fields ({string.Join(", ", allFields.Take(5))}{(allFields.Count > 5 ? $" +{allFields.Count - 5} more" : "")})";
                         }
                         break;
 
@@ -1259,7 +1416,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                         var allChecklistNames = components.SelectMany(c => c.ChecklistNames ?? new List<string>()).Distinct().ToList();
                         if (allChecklistNames.Any())
                         {
-                            return $"{allChecklistNames.Count} checklists ({string.Join(", ", allChecklistNames.Take(2).Select(n => $"'{n}'"))}{(allChecklistNames.Count > 2 ? ", etc." : "")})";
+                            return $"{allChecklistNames.Count} checklists ({string.Join(", ", allChecklistNames.Select(n => $"'{n}'"))})";
                         }
                         var allChecklistIds = components.SelectMany(c => c.ChecklistIds ?? new List<long>()).Distinct().ToList();
                         if (allChecklistIds.Any())
@@ -1272,12 +1429,25 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                         var allQuestionnaireNames = components.SelectMany(c => c.QuestionnaireNames ?? new List<string>()).Distinct().ToList();
                         if (allQuestionnaireNames.Any())
                         {
-                            return $"{allQuestionnaireNames.Count} questionnaires ({string.Join(", ", allQuestionnaireNames.Take(2).Select(n => $"'{n}'"))}{(allQuestionnaireNames.Count > 2 ? ", etc." : "")})";
+                            return $"{allQuestionnaireNames.Count} questionnaires ({string.Join(", ", allQuestionnaireNames.Select(n => $"'{n}'"))})";
                         }
                         var allQuestionnaireIds = components.SelectMany(c => c.QuestionnaireIds ?? new List<long>()).Distinct().ToList();
                         if (allQuestionnaireIds.Any())
                         {
                             return $"{allQuestionnaireIds.Count} questionnaires";
+                        }
+                        break;
+
+                    case "quicklink":
+                        var allQuickLinkNames = components.SelectMany(c => c.QuickLinkNames ?? new List<string>()).Distinct().ToList();
+                        if (allQuickLinkNames.Any())
+                        {
+                            return $"{allQuickLinkNames.Count} quick links ({string.Join(", ", allQuickLinkNames.Select(n => $"'{n}'"))})";
+                        }
+                        var allQuickLinkIds = components.SelectMany(c => c.QuickLinkIds ?? new List<long>()).Distinct().ToList();
+                        if (allQuickLinkIds.Any())
+                        {
+                            return $"{allQuickLinkIds.Count} quick links";
                         }
                         break;
 
@@ -1289,6 +1459,10 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                             return "file management";
                         }
                         return "file management (disabled)";
+
+                    default:
+                        // For unknown component types
+                        return $"{components.Count} {componentKey} component(s)";
                 }
 
                 return string.Empty;
@@ -1320,11 +1494,11 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
 
                         if (addedFields.Any())
                         {
-                            changes.Add($"added fields: {string.Join(", ", addedFields.Take(3))}{(addedFields.Count > 3 ? ", etc." : "")}");
+                            changes.Add($"added fields: {string.Join(", ", addedFields.Take(5))}{(addedFields.Count > 5 ? $" (+{addedFields.Count - 5} more)" : "")}");
                         }
                         if (removedFields.Any())
                         {
-                            changes.Add($"removed fields: {string.Join(", ", removedFields.Take(3))}{(removedFields.Count > 3 ? ", etc." : "")}");
+                            changes.Add($"removed fields: {string.Join(", ", removedFields.Take(5))}{(removedFields.Count > 5 ? $" (+{removedFields.Count - 5} more)" : "")}");
                         }
                         break;
 
@@ -1337,11 +1511,11 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
 
                         if (addedChecklists.Any())
                         {
-                            changes.Add($"added checklists: {string.Join(", ", addedChecklists.Take(2).Select(n => $"'{n}'"))}{(addedChecklists.Count > 2 ? ", etc." : "")}");
+                            changes.Add($"added checklists: {string.Join(", ", addedChecklists.Select(n => $"'{n}'"))}{(addedChecklists.Count > 3 ? $" (+{addedChecklists.Count - 3} more)" : "")}");
                         }
                         if (removedChecklists.Any())
                         {
-                            changes.Add($"removed checklists: {string.Join(", ", removedChecklists.Take(2).Select(n => $"'{n}'"))}{(removedChecklists.Count > 2 ? ", etc." : "")}");
+                            changes.Add($"removed checklists: {string.Join(", ", removedChecklists.Select(n => $"'{n}'"))}{(removedChecklists.Count > 3 ? $" (+{removedChecklists.Count - 3} more)" : "")}");
                         }
                         break;
 
@@ -1354,11 +1528,28 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
 
                         if (addedQuestionnaires.Any())
                         {
-                            changes.Add($"added questionnaires: {string.Join(", ", addedQuestionnaires.Take(2).Select(n => $"'{n}'"))}{(addedQuestionnaires.Count > 2 ? ", etc." : "")}");
+                            changes.Add($"added questionnaires: {string.Join(", ", addedQuestionnaires.Select(n => $"'{n}'"))}{(addedQuestionnaires.Count > 3 ? $" (+{addedQuestionnaires.Count - 3} more)" : "")}");
                         }
                         if (removedQuestionnaires.Any())
                         {
-                            changes.Add($"removed questionnaires: {string.Join(", ", removedQuestionnaires.Take(2).Select(n => $"'{n}'"))}{(removedQuestionnaires.Count > 2 ? ", etc." : "")}");
+                            changes.Add($"removed questionnaires: {string.Join(", ", removedQuestionnaires.Select(n => $"'{n}'"))}{(removedQuestionnaires.Count > 3 ? $" (+{removedQuestionnaires.Count - 3} more)" : "")}");
+                        }
+                        break;
+
+                    case "quicklink":
+                        var beforeQuickLinkNames = beforeComps.SelectMany(c => c.QuickLinkNames ?? new List<string>()).Distinct().ToList();
+                        var afterQuickLinkNames = afterComps.SelectMany(c => c.QuickLinkNames ?? new List<string>()).Distinct().ToList();
+
+                        var addedQuickLinks = afterQuickLinkNames.Except(beforeQuickLinkNames).ToList();
+                        var removedQuickLinks = beforeQuickLinkNames.Except(afterQuickLinkNames).ToList();
+
+                        if (addedQuickLinks.Any())
+                        {
+                            changes.Add($"added quick links: {string.Join(", ", addedQuickLinks.Select(n => $"'{n}'"))}{(addedQuickLinks.Count > 3 ? $" (+{addedQuickLinks.Count - 3} more)" : "")}");
+                        }
+                        if (removedQuickLinks.Any())
+                        {
+                            changes.Add($"removed quick links: {string.Join(", ", removedQuickLinks.Select(n => $"'{n}'"))}{(removedQuickLinks.Count > 3 ? $" (+{removedQuickLinks.Count - 3} more)" : "")}");
                         }
                         break;
 
@@ -1371,6 +1562,14 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                         {
                             var statusChange = afterFilesEnabled ? "enabled" : "disabled";
                             changes.Add($"file management {statusChange}");
+                        }
+                        break;
+
+                    default:
+                        // For unknown component types, just report count changes
+                        if (beforeComps.Count != afterComps.Count)
+                        {
+                            changes.Add($"{componentKey} count changed from {beforeComps.Count} to {afterComps.Count}");
                         }
                         break;
                 }
@@ -1421,6 +1620,17 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                         else if (component.QuestionnaireIds?.Any() == true)
                         {
                             details.Add($"{component.QuestionnaireIds.Count} questionnaires");
+                        }
+                        break;
+
+                    case "quicklink":
+                        if (component.QuickLinkNames?.Any() == true)
+                        {
+                            details.Add($"{component.QuickLinkNames.Count} quick links ({string.Join(", ", component.QuickLinkNames.Take(2).Select(n => $"'{n}'"))}{(component.QuickLinkNames.Count > 2 ? ", ..." : "")})");
+                        }
+                        else if (component.QuickLinkIds?.Any() == true)
+                        {
+                            details.Add($"{component.QuickLinkIds.Count} quick links");
                         }
                         break;
 
@@ -1491,6 +1701,14 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                         if (questionnaireChanges.Any())
                         {
                             changes.AddRange(questionnaireChanges);
+                        }
+                        break;
+
+                    case "quicklink":
+                        var quickLinkChanges = GetQuickLinkComponentChanges(before, after);
+                        if (quickLinkChanges.Any())
+                        {
+                            changes.AddRange(quickLinkChanges);
                         }
                         break;
                 }
@@ -1576,6 +1794,32 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
             if (removedNames.Any())
             {
                 changes.Add($"removed questionnaires: {string.Join(", ", removedNames.Take(2).Select(n => $"'{n}'"))}{(removedNames.Count > 2 ? $" (+{removedNames.Count - 2} more)" : "")}");
+            }
+
+            return changes;
+        }
+
+        /// <summary>
+        /// Get changes for quick link component
+        /// </summary>
+        private List<string> GetQuickLinkComponentChanges(Domain.Shared.Models.StageComponent before, Domain.Shared.Models.StageComponent after)
+        {
+            var changes = new List<string>();
+
+            var beforeNames = before.QuickLinkNames ?? new List<string>();
+            var afterNames = after.QuickLinkNames ?? new List<string>();
+
+            var addedNames = afterNames.Except(beforeNames).ToList();
+            var removedNames = beforeNames.Except(afterNames).ToList();
+
+            if (addedNames.Any())
+            {
+                changes.Add($"added quick links: {string.Join(", ", addedNames.Take(2).Select(n => $"'{n}'"))}{(addedNames.Count > 2 ? $" (+{addedNames.Count - 2} more)" : "")}");
+            }
+
+            if (removedNames.Any())
+            {
+                changes.Add($"removed quick links: {string.Join(", ", removedNames.Take(2).Select(n => $"'{n}'"))}{(removedNames.Count > 2 ? $" (+{removedNames.Count - 2} more)" : "")}");
             }
 
             return changes;

@@ -90,7 +90,7 @@ namespace FlowFlex.Application.Contracts.IServices.OW
         /// <param name="tenantId">Tenant ID</param>
         /// <param name="tokenType">Token type</param>
         /// <returns>Token details</returns>
-        TokenDetailsDto GenerateTokenWithDetails(long userId, string email, string username, string tenantId = "DEFAULT", string tokenType = "login");
+        TokenDetailsDto GenerateTokenWithDetails(long userId, string email, string username, string tenantId = "default", string tokenType = "login");
 
         /// <summary>
         /// Extract JTI from token
