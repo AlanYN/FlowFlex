@@ -1212,8 +1212,9 @@ namespace FlowFlex.Application.Services.OW
                     throw new CRMException(ErrorCodeEnum.DataNotFound, "Onboarding not found");
                 }
 
-                // Load stages progress from JSON
-                LoadStagesProgressFromJson(onboarding);
+                // Ensure stages progress is properly initialized and synced
+                // This handles cases where stagesProgress is empty or outdated
+                await EnsureStagesProgressInitializedAsync(onboarding);
 
                 // Find the stage progress entry
                 var stageProgress = onboarding.StagesProgress?.FirstOrDefault(sp => sp.StageId == input.StageId);
@@ -1409,8 +1410,9 @@ namespace FlowFlex.Application.Services.OW
                     throw new CRMException(ErrorCodeEnum.DataNotFound, "Onboarding not found");
                 }
 
-                // Load stages progress from JSON
-                LoadStagesProgressFromJson(onboarding);
+                // Ensure stages progress is properly initialized and synced
+                // This handles cases where stagesProgress is empty or outdated
+                await EnsureStagesProgressInitializedAsync(onboarding);
 
                 // Find the stage progress entry
                 var stageProgress = onboarding.StagesProgress?.FirstOrDefault(sp => sp.StageId == stageId);
