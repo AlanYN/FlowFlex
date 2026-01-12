@@ -91,12 +91,7 @@ export const booleanEnum = [
 	{ key: false, value: 'No' },
 	{ key: true, value: 'Yes' },
 ];
-
 export enum TriggerTypeEnum {
-	Stage = 'Stage',
-	Task = 'Task',
-	Questionnaire = 'Question',
-	Workflow = 'Workflow',
 	Integration = 'Integration',
 }
 
