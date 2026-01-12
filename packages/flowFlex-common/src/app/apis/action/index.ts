@@ -183,6 +183,12 @@ export function addMappingAction(data: any) {
 	});
 }
 
+export function deleteMappingAction(id: string) {
+	return defHttp.delete({
+		url: `${Api().mappingAction}/${id}`,
+	});
+}
+
 export function getActionResult(
 	id: string,
 	params: {

@@ -17,7 +17,9 @@ export type ConditionOperator =
 	| '<=' // 小于等于
 	| 'Contains' // 包含
 	| 'StartsWith' // 开头是
-	| 'EndsWith'; // 结尾是
+	| 'EndsWith' // 结尾是
+	| 'CompleteTask' // Checklist: 完成任务时触发
+	| 'CompleteStage'; // Checklist: 完成阶段时触发
 
 /**
  * 操作符配置（用于 UI 展示）

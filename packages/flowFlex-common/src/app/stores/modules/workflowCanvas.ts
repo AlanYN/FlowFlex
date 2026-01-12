@@ -22,7 +22,7 @@ import { ElMessage } from 'element-plus';
 // ============ 常量定义 ============
 const STAGE_NODE_WIDTH = 280;
 const STAGE_NODE_HEIGHT = 80;
-const CONDITION_NODE_HEIGHT = 80;
+const CONDITION_NODE_HEIGHT = 60;
 const VERTICAL_GAP = 100;
 const HORIZONTAL_GAP = 150;
 const MIN_ZOOM = 0.25;
@@ -195,7 +195,8 @@ export const useWorkflowCanvasStore = defineStore({
 				if (stageIndex === undefined) return;
 
 				const stage = this.stages[stageIndex];
-				const yPos = index * (CONDITION_NODE_HEIGHT + VERTICAL_GAP);
+				const yPos =
+					stageIndex * (STAGE_NODE_HEIGHT + VERTICAL_GAP) + STAGE_NODE_HEIGHT / 5;
 
 				// 创建 stages 名称映射，用于在 ConditionNode 中查找 stage 名称
 				const stagesMap: Record<string, string> = {};
@@ -288,7 +289,7 @@ export const useWorkflowCanvasStore = defineStore({
 									: 'var(--el-color-success)',
 								strokeDasharray: isLoop ? '5,5' : undefined,
 							},
-							label: isLoop ? '⚠️ Loop' : 'Go To',
+							label: isLoop ? '⚠️ Loop' : `Go To `,
 							labelStyle: {
 								fill: isLoop ? 'var(--el-color-danger)' : 'var(--el-color-success)',
 							},
