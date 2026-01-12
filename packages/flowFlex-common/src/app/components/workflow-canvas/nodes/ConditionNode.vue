@@ -1,45 +1,48 @@
 <template>
-	<div class="condition-node" :class="{ 'condition-node--selected': selected }">
-		<!-- 左侧 Handle（输入） -->
-		<Handle type="target" :position="Position.Left" id="left-in" class="condition-handle" />
+	<div class="condition-node-wrapper">
+		<!-- 主节点内容 -->
+		<div class="condition-node" :class="{ 'condition-node--selected': selected }">
+			<!-- 左侧 Handle（输入） -->
+			<Handle type="target" :position="Position.Left" id="left-in" class="condition-handle" />
 
-		<!-- 菱形装饰 -->
-		<div class="condition-node__diamond"></div>
+			<!-- 菱形装饰 -->
+			<div class="condition-node__diamond"></div>
 
-		<!-- 节点内容 -->
-		<div class="condition-node__content">
-			<div class="condition-node__header">
-				<el-icon class="condition-node__icon"><Share /></el-icon>
-				<span class="condition-node__name">{{ data.condition.name }}</span>
+			<!-- 节点内容 -->
+			<div class="condition-node__content">
+				<div class="condition-node__header">
+					<el-icon class="condition-node__icon"><Share /></el-icon>
+					<span class="condition-node__name">{{ data.condition.name }}</span>
+				</div>
+				<div class="condition-node__summary">
+					{{ rulesCount }} {{ rulesCount > 1 ? 'rules' : 'rule' }}
+					<span v-if="actionsCount > 0">
+						· {{ actionsCount }} {{ actionsCount > 1 ? 'actions' : 'action' }}
+					</span>
+				</div>
 			</div>
-			<div class="condition-node__summary">
-				{{ rulesCount }} {{ rulesCount > 1 ? 'rules' : 'rule' }}
-				<span v-if="actionsCount > 0">
-					· {{ actionsCount }} {{ actionsCount > 1 ? 'actions' : 'action' }}
-				</span>
-			</div>
+
+			<!-- 删除按钮 -->
+			<el-button
+				class="condition-node__delete"
+				type="danger"
+				size="small"
+				circle
+				@click.stop="handleDelete"
+				:icon="Delete"
+			/>
+
+			<!-- 右侧 Handle（Fallback 输出） -->
+			<Handle
+				type="source"
+				:position="Position.Right"
+				id="fallback-out"
+				class="condition-handle condition-handle--fallback"
+			/>
 		</div>
 
-		<!-- 删除按钮 -->
-		<el-button
-			class="condition-node__delete"
-			type="danger"
-			size="small"
-			circle
-			@click.stop="handleDelete"
-			:icon="Delete"
-		/>
-
-		<!-- 右侧 Handle（Fallback 输出） -->
-		<Handle
-			type="source"
-			:position="Position.Right"
-			id="fallback-out"
-			class="condition-handle condition-handle--fallback"
-		/>
-
-		<!-- 底部 Actions Handle（每个 action 一个输出） -->
-		<div class="condition-node__actions-handles">
+		<!-- 底部 Actions 区域（在节点外部） -->
+		<div class="condition-node__actions-area">
 			<div
 				v-for="(action, index) in parsedActions"
 				:key="index"
@@ -128,7 +131,7 @@ const actionsCount = computed(() => {
 	return parsedActions.value.length;
 });
 
-// 获取 action 的显示标签
+// // 获取 action 的显示标签
 const getActionLabel = (action: any): string => {
 	if (!action || !action.type) return 'Action';
 
@@ -163,12 +166,18 @@ const handleDelete = () => {
 </script>
 
 <style scoped>
+/* 外层包装器 */
+.condition-node-wrapper {
+	display: flex;
+	flex-direction: column;
+	width: 200px;
+}
+
 .condition-node {
 	position: relative;
-	width: 200px;
+	width: 100%;
 	padding: 10px 14px;
 	padding-left: 24px;
-	padding-bottom: 28px; /* 为底部 actions 留出空间 */
 	border-radius: 8px;
 	border: 2px solid var(--el-color-primary-light-5);
 	background: var(--el-color-primary-light-9);
@@ -230,17 +239,16 @@ const handleDelete = () => {
 	color: var(--el-color-primary-light-3);
 }
 
-/* 底部 Actions Handles 容器 */
-.condition-node__actions-handles {
-	position: absolute;
-	bottom: 0;
-	left: 0;
-	right: 0;
-	height: 24px;
+/* 底部 Actions 区域 */
+.condition-node__actions-area {
+	position: relative;
+	width: 100%;
+	height: 28px; /* 为 handles 和 labels 提供空间 */
 }
 
 .condition-node__action-handle-wrapper {
 	position: absolute;
+	top: 0;
 	transform: translateX(-50%);
 	display: flex;
 	flex-direction: column;
@@ -250,6 +258,7 @@ const handleDelete = () => {
 .condition-node__action-label {
 	position: absolute;
 	top: 4px;
+	left: 4px;
 	font-size: 9px;
 	color: var(--el-text-color-secondary);
 	white-space: nowrap;

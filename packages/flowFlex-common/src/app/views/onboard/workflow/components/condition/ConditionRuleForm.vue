@@ -52,6 +52,7 @@
 						v-model="rule.fieldPath"
 						placeholder="Select field"
 						:loading="loadingFields[index]"
+						@change="() => handleFieldChange(rule)"
 					>
 						<el-option
 							v-for="field in ruleFieldOptions[index] || []"
@@ -62,8 +63,8 @@
 					</el-select>
 				</el-form-item>
 
-				<!-- Operator -->
-				<el-form-item label="Operator">
+				<!-- Operator (非 checklist 类型) -->
+				<el-form-item v-if="rule.componentType !== 'checklist'" label="Operator">
 					<el-select v-model="rule.operator" placeholder="Select operator">
 						<el-option
 							v-for="op in operators"
@@ -74,8 +75,20 @@
 					</el-select>
 				</el-form-item>
 
-				<!-- Value -->
-				<el-form-item label="Value">
+				<!-- Checklist 专用 Operator -->
+				<el-form-item v-else label="Trigger When">
+					<el-select v-model="rule.operator" placeholder="Select trigger">
+						<el-option
+							v-for="op in checklistOperators"
+							:key="op.value"
+							:label="op.label"
+							:value="op.value"
+						/>
+					</el-select>
+				</el-form-item>
+
+				<!-- Value (非 checklist 类型) -->
+				<el-form-item v-if="rule.componentType !== 'checklist'" label="Value">
 					<el-input v-model="rule.value" placeholder="Enter value" />
 				</el-form-item>
 			</div>
@@ -156,6 +169,12 @@ const operators = [
 	{ value: 'IsNotEmpty', label: 'Is Not Empty' },
 	{ value: 'InList', label: 'In List' },
 	{ value: 'NotInList', label: 'Not In List' },
+];
+
+// Checklist 专用操作符
+const checklistOperators = [
+	{ value: 'CompleteTask', label: 'Complete Task' },
+	{ value: 'CompleteStage', label: 'Complete Stage' },
 ];
 
 // 每个规则的字段选项（按规则索引）
@@ -400,6 +419,15 @@ const handleComponentChange = (rule: RuleFormItem, componentKey: string, ruleInd
 	rule.fieldPath = '';
 	ruleFieldOptions[ruleIndex] = [];
 
+	// Checklist 类型设置默认 operator 并清空 value
+	if (type === 'checklist') {
+		rule.operator = 'CompleteTask';
+		rule.value = '';
+	} else {
+		rule.operator = '==';
+		rule.value = '';
+	}
+
 	// 根据类型加载对应的字段选项
 	if (type === 'fields') {
 		loadStaticFieldOptions(ruleIndex);
@@ -407,6 +435,17 @@ const handleComponentChange = (rule: RuleFormItem, componentKey: string, ruleInd
 		loadQuestionnaireQuestions(id, ruleIndex);
 	} else if (type === 'checklist' && id) {
 		loadChecklistTasks(id, ruleIndex);
+	}
+};
+
+// 处理字段选择变化（checklist 类型需要设置默认 operator）
+const handleFieldChange = (rule: RuleFormItem) => {
+	if (rule.componentType === 'checklist') {
+		// 确保 checklist 类型使用正确的 operator
+		if (!['CompleteTask', 'CompleteStage'].includes(rule.operator)) {
+			rule.operator = 'CompleteTask';
+		}
+		rule.value = '';
 	}
 };
 

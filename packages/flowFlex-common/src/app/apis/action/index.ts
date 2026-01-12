@@ -176,28 +176,16 @@ export function testAction(id: string) {
 	});
 }
 
-export function getActionList(stageId: string) {
-	return defHttp.get({
-		url: `${Api().actionList}/${stageId}`,
-	});
-}
-
-export function getStageAction(stageId: string) {
-	return defHttp.get({
-		url: `${Api().stageAction}/${stageId}`,
+export function addMappingAction(data: any) {
+	return defHttp.post({
+		url: `${Api().mappingAction}`,
+		data,
 	});
 }
 
 export function deleteMappingAction(id: string) {
 	return defHttp.delete({
 		url: `${Api().mappingAction}/${id}`,
-	});
-}
-
-export function addMappingAction(data: any) {
-	return defHttp.post({
-		url: `${Api().mappingAction}`,
-		data,
 	});
 }
 

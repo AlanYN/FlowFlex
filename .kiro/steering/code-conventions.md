@@ -88,6 +88,7 @@ const string DEFAULT_APP_CODE = "DEFAULT";
 - Consistency with database values
 - Avoid case-sensitivity issues in queries
 - Maintain uniform naming convention across the codebase
+<<<<<<< HEAD
 
 ---
 
@@ -157,3 +158,5 @@ var migrations = new[]
 - The migration ID string should match the timestamp and name portion of the file
 - Migrations are executed in the order they appear in the array
 - Keep migrations in chronological order
+=======
+>>>>>>> feature/1223

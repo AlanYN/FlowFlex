@@ -13,7 +13,13 @@
 
 		<!-- 加载状态 -->
 		<div v-if="store.loading" class="conditionLoading-container">
-			<el-skeleton :rows="10" animated />
+			<div class="wave-loading">
+				<div class="bar"></div>
+				<div class="bar"></div>
+				<div class="bar"></div>
+				<div class="bar"></div>
+				<div class="bar"></div>
+			</div>
 		</div>
 
 		<!-- 错误状态 -->
@@ -271,5 +277,53 @@ const handleDeleteCondition = async (conditionId: string) => {
 	justify-content: center;
 	flex: 1;
 	padding: 40px;
+	background: var(--el-bg-color-page);
+}
+
+/* Wave Loading 样式 */
+.wave-loading {
+	display: flex;
+	justify-content: center;
+	align-items: center;
+	gap: 3px;
+}
+
+.wave-loading .bar {
+	width: 4px;
+	height: 20px;
+	background: var(--el-color-primary);
+	border-radius: 2px;
+	animation: wave 1.2s ease-in-out infinite;
+}
+
+.wave-loading .bar:nth-child(1) {
+	animation-delay: -1.1s;
+}
+
+.wave-loading .bar:nth-child(2) {
+	animation-delay: -1s;
+}
+
+.wave-loading .bar:nth-child(3) {
+	animation-delay: -0.9s;
+}
+
+.wave-loading .bar:nth-child(4) {
+	animation-delay: -0.8s;
+}
+
+.wave-loading .bar:nth-child(5) {
+	animation-delay: -0.7s;
+}
+
+@keyframes wave {
+	0%,
+	40%,
+	100% {
+		transform: scaleY(0.4);
+	}
+	20% {
+		transform: scaleY(1);
+	}
 }
 </style>

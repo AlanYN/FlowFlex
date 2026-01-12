@@ -156,14 +156,6 @@
 					:work-flow-view-use-same-team-for-operate="workFlowViewUseSameTeamForOperate"
 				/>
 			</TabPane>
-			<TabPane value="actions">
-				<Action
-					ref="actionRef"
-					:stage-id="formData.id"
-					:workflow-id="workflowId"
-					:trigger-type="TriggerTypeEnum.Stage"
-				/>
-			</TabPane>
 		</PrototypeTabs>
 
 		<div class="form-actions mr-4">
@@ -187,9 +179,7 @@ import InputNumber from '@/components/form/InputNumber/index.vue';
 import { stageColorOptions, StageColorType } from '@/enums/stageColorEnum';
 import { PortalPermissionEnum, portalPermissionOptions } from '@/enums/portalPermissionEnum';
 import StageComponentsSelector from './StageComponentsSelector.vue';
-import Action from '@/components/actionTools/Action.vue';
 import FlowflexUser from '@/components/form/flowflexUser/index.vue';
-import { TriggerTypeEnum } from '@/enums/appEnum';
 
 import { PrototypeTabs, TabPane } from '@/components/PrototypeTabs';
 import { Checklist, Questionnaire, Stage, ComponentsData, StageComponentData } from '#/onboard';
@@ -313,45 +303,20 @@ const props = defineProps({
 
 // Tab配置
 const currentTab = ref('basicInfo');
-const tabsConfig = computed(() => {
-	// 编辑模式：Basic Info -> Components -> Permissions -> Actions
-	if (props?.stage?.id) {
-		return [
-			{
-				value: 'basicInfo',
-				label: 'Basic Info',
-			},
-			{
-				value: 'components',
-				label: 'Components',
-			},
-			{
-				value: 'permissions',
-				label: 'Permissions',
-			},
-			{
-				value: 'actions',
-				label: 'Actions',
-			},
-		];
-	}
-
-	// 新建模式：Basic Info -> Permissions -> Components
-	return [
-		{
-			value: 'basicInfo',
-			label: 'Basic Info',
-		},
-		{
-			value: 'components',
-			label: 'Components',
-		},
-		{
-			value: 'permissions',
-			label: 'Permissions',
-		},
-	];
-});
+const tabsConfig = ref([
+	{
+		value: 'basicInfo',
+		label: 'Basic Info',
+	},
+	{
+		value: 'components',
+		label: 'Components',
+	},
+	{
+		value: 'permissions',
+		label: 'Permissions',
+	},
+]);
 
 // 表单数据
 const formData = ref({
@@ -417,13 +382,9 @@ const permissionsData = computed({
 
 // 表单引用
 const formRef = ref<FormInstance>();
-const actionRef = ref<InstanceType<typeof Action>>();
 
 const onTabChange = (tab: string) => {
 	currentTab.value = tab;
-	if (tab === 'actions') {
-		actionRef.value?.getActionList();
-	}
 };
 
 // 初始化表单数据

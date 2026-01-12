@@ -127,17 +127,17 @@ export const ProjectPermissionEnum = {
 		update: 'INTEGRATION:UPDATE',
 		delete: 'INTEGRATION:DELETE',
 	},
-	messageCenter: {
-		create: 'MESSAGECENTER:CREATE',
-		read: 'MESSAGECENTER:READ',
-		update: 'MESSAGECENTER:UPDATE',
-		delete: 'MESSAGECENTER:DELETE',
-	},
 	dynamicField: {
 		create: 'DYNAMICFIELD:CREATE',
 		read: 'DYNAMICFIELD:READ',
 		update: 'DYNAMICFIELD:UPDATE',
 		delete: 'DYNAMICFIELD:DELETE',
+	},
+	messageCenter: {
+		create: 'MESSAGECENTER:CREATE',
+		read: 'MESSAGECENTER:READ',
+		update: 'MESSAGECENTER:UPDATE',
+		delete: 'MESSAGECENTER:DELETE',
 	},
 } as const;
 
@@ -149,8 +149,8 @@ export type ProjectPermissionType =
 	| (typeof ProjectPermissionEnum.question)[keyof typeof ProjectPermissionEnum.question]
 	| (typeof ProjectPermissionEnum.tool)[keyof typeof ProjectPermissionEnum.tool]
 	| (typeof ProjectPermissionEnum.integration)[keyof typeof ProjectPermissionEnum.integration]
-	| (typeof ProjectPermissionEnum.messageCenter)[keyof typeof ProjectPermissionEnum.messageCenter]
-	| (typeof ProjectPermissionEnum.dynamicField)[keyof typeof ProjectPermissionEnum.dynamicField];
+	| (typeof ProjectPermissionEnum.dynamicField)[keyof typeof ProjectPermissionEnum.dynamicField]
+	| (typeof ProjectPermissionEnum.messageCenter)[keyof typeof ProjectPermissionEnum.messageCenter];
 
 // 辅助类型：获取所有权限值的联合类型
 export type ProjectPermissionValue = ProjectPermissionType;
