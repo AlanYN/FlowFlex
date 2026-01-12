@@ -115,7 +115,7 @@
     - 更新 StagesProgress
     - _Requirements: 4.7-4.9_
 
-  - [ ]* 5.4 编写 ActionExecutor 单元测试
+  - [x] 5.4 编写 ActionExecutor 单元测试
     - 测试各种动作类型执行
     - 测试动作顺序执行
     - 测试动作失败后继续执行
@@ -147,7 +147,7 @@
     - 查询操作验证 WorkflowRead 权限
     - _Requirements: 5.1-5.5_
 
-  - [ ]* 6.4 编写 StageConditionService 单元测试
+  - [x] 6.4 编写 StageConditionService 单元测试
     - 测试 CRUD 操作
     - 测试 Stage 唯一性约束
     - 测试验证逻辑

@@ -351,6 +351,231 @@ namespace FlowFlex.Tests.Services.OW
 
         #endregion
 
+        #region ValidateActionsJson Tests
+
+        [Fact]
+        public async Task ValidateRulesJsonAsync_WithStartsWithOperator_ShouldConvertCorrectly()
+        {
+            // Arrange
+            var rulesJson = @"{
+                ""logic"": ""AND"",
+                ""rules"": [
+                    {
+                        ""fieldPath"": ""input.fields.email"",
+                        ""operator"": ""startswith"",
+                        ""value"": ""admin""
+                    }
+                ]
+            }";
+
+            // Act
+            var result = await _service.ValidateRulesJsonAsync(rulesJson);
+
+            // Assert
+            result.IsValid.Should().BeTrue();
+        }
+
+        [Fact]
+        public async Task ValidateRulesJsonAsync_WithEndsWithOperator_ShouldConvertCorrectly()
+        {
+            // Arrange
+            var rulesJson = @"{
+                ""logic"": ""AND"",
+                ""rules"": [
+                    {
+                        ""fieldPath"": ""input.fields.email"",
+                        ""operator"": ""endswith"",
+                        ""value"": ""@company.com""
+                    }
+                ]
+            }";
+
+            // Act
+            var result = await _service.ValidateRulesJsonAsync(rulesJson);
+
+            // Assert
+            result.IsValid.Should().BeTrue();
+        }
+
+        [Fact]
+        public async Task ValidateRulesJsonAsync_WithIsEmptyOperator_ShouldConvertCorrectly()
+        {
+            // Arrange
+            var rulesJson = @"{
+                ""logic"": ""AND"",
+                ""rules"": [
+                    {
+                        ""fieldPath"": ""input.fields.notes"",
+                        ""operator"": ""isempty"",
+                        ""value"": null
+                    }
+                ]
+            }";
+
+            // Act
+            var result = await _service.ValidateRulesJsonAsync(rulesJson);
+
+            // Assert
+            result.IsValid.Should().BeTrue();
+        }
+
+        [Fact]
+        public async Task ValidateRulesJsonAsync_WithIsNotEmptyOperator_ShouldConvertCorrectly()
+        {
+            // Arrange
+            var rulesJson = @"{
+                ""logic"": ""AND"",
+                ""rules"": [
+                    {
+                        ""fieldPath"": ""input.fields.description"",
+                        ""operator"": ""isnotempty"",
+                        ""value"": null
+                    }
+                ]
+            }";
+
+            // Act
+            var result = await _service.ValidateRulesJsonAsync(rulesJson);
+
+            // Assert
+            result.IsValid.Should().BeTrue();
+        }
+
+        [Fact]
+        public async Task ValidateRulesJsonAsync_WithComparisonOperators_ShouldConvertCorrectly()
+        {
+            // Arrange - Test >, <, >=, <= operators
+            var rulesJson = @"{
+                ""logic"": ""AND"",
+                ""rules"": [
+                    {
+                        ""fieldPath"": ""input.questionnaire.score"",
+                        ""operator"": "">"",
+                        ""value"": 50
+                    },
+                    {
+                        ""fieldPath"": ""input.questionnaire.score"",
+                        ""operator"": ""<"",
+                        ""value"": 100
+                    }
+                ]
+            }";
+
+            // Act
+            var result = await _service.ValidateRulesJsonAsync(rulesJson);
+
+            // Assert
+            result.IsValid.Should().BeTrue();
+        }
+
+        [Fact]
+        public async Task ValidateRulesJsonAsync_WithNotEqualsOperator_ShouldConvertCorrectly()
+        {
+            // Arrange
+            var rulesJson = @"{
+                ""logic"": ""AND"",
+                ""rules"": [
+                    {
+                        ""fieldPath"": ""input.fields.status"",
+                        ""operator"": ""!="",
+                        ""value"": ""Cancelled""
+                    }
+                ]
+            }";
+
+            // Act
+            var result = await _service.ValidateRulesJsonAsync(rulesJson);
+
+            // Assert
+            result.IsValid.Should().BeTrue();
+        }
+
+        [Fact]
+        public async Task ValidateRulesJsonAsync_WithBooleanValue_ShouldConvertCorrectly()
+        {
+            // Arrange
+            var rulesJson = @"{
+                ""logic"": ""AND"",
+                ""rules"": [
+                    {
+                        ""fieldPath"": ""input.checklist.isCompleted"",
+                        ""operator"": ""=="",
+                        ""value"": true
+                    }
+                ]
+            }";
+
+            // Act
+            var result = await _service.ValidateRulesJsonAsync(rulesJson);
+
+            // Assert
+            result.IsValid.Should().BeTrue();
+        }
+
+        [Fact]
+        public async Task ValidateRulesJsonAsync_WithNumericValue_ShouldConvertCorrectly()
+        {
+            // Arrange
+            var rulesJson = @"{
+                ""logic"": ""AND"",
+                ""rules"": [
+                    {
+                        ""fieldPath"": ""input.attachments.count"",
+                        ""operator"": "">="",
+                        ""value"": 3
+                    }
+                ]
+            }";
+
+            // Act
+            var result = await _service.ValidateRulesJsonAsync(rulesJson);
+
+            // Assert
+            result.IsValid.Should().BeTrue();
+        }
+
+        [Fact]
+        public async Task ValidateRulesJsonAsync_WithEmptyRulesArray_ShouldReturnInvalid()
+        {
+            // Arrange
+            var rulesJson = @"{
+                ""logic"": ""AND"",
+                ""rules"": []
+            }";
+
+            // Act
+            var result = await _service.ValidateRulesJsonAsync(rulesJson);
+
+            // Assert
+            result.IsValid.Should().BeFalse();
+            result.Errors.Should().Contain(e => e.Code == "RULES_EMPTY");
+        }
+
+        [Fact]
+        public async Task ValidateRulesJsonAsync_WithNestedAndOrLogic_ShouldValidate()
+        {
+            // Arrange - Complex rule with multiple conditions
+            var rulesJson = @"[
+                {
+                    ""WorkflowName"": ""StageCondition"",
+                    ""Rules"": [
+                        {
+                            ""RuleName"": ""ComplexRule"",
+                            ""Expression"": ""(input.checklist.status == \""Completed\"" && input.questionnaire.score >= 80) || input.fields.priority == \""High\""""
+                        }
+                    ]
+                }
+            ]";
+
+            // Act
+            var result = await _service.ValidateRulesJsonAsync(rulesJson);
+
+            // Assert
+            result.IsValid.Should().BeTrue();
+        }
+
+        #endregion
+
         #region Helper Methods
 
         private StageConditionInputDto CreateValidInput()
