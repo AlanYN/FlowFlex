@@ -12,13 +12,15 @@ namespace FlowFlex.Application.Contracts.IServices.OW
     {
         /// <summary>
         /// Create a new stage condition
+        /// Returns ID and any validation warnings
         /// </summary>
-        Task<long> CreateAsync(StageConditionInputDto input);
+        Task<StageConditionSaveResultDto> CreateAsync(StageConditionInputDto input);
 
         /// <summary>
         /// Update an existing stage condition
+        /// Returns success status and any validation warnings
         /// </summary>
-        Task<bool> UpdateAsync(long id, StageConditionInputDto input);
+        Task<StageConditionSaveResultDto> UpdateAsync(long id, StageConditionInputDto input);
 
         /// <summary>
         /// Delete a stage condition
