@@ -384,20 +384,36 @@ namespace FlowFlex.Application.Service.OW
                 ResultData = new Dictionary<string, object>()
             };
 
-            // Support both top-level fieldName and parameters.fieldPath/fieldName
+            // Support stageId, fieldId, fieldName, and parameters
+            var stageId = action.StageId;
+            var fieldId = action.FieldId;
             var fieldName = action.FieldName;
             var fieldValue = action.FieldValue;
 
-            // If top-level fieldName is empty, try to get from parameters
-            if (string.IsNullOrEmpty(fieldName) && action.Parameters != null)
+            // If top-level fields are empty, try to get from parameters
+            if (action.Parameters != null)
             {
-                if (action.Parameters.TryGetValue("fieldPath", out var fieldPathObj))
+                if (!stageId.HasValue && action.Parameters.TryGetValue("stageId", out var stageIdObj))
                 {
-                    fieldName = fieldPathObj?.ToString();
+                    if (long.TryParse(stageIdObj?.ToString(), out var parsedStageId))
+                    {
+                        stageId = parsedStageId;
+                    }
                 }
-                else if (action.Parameters.TryGetValue("fieldName", out var fieldNameObj))
+                if (string.IsNullOrEmpty(fieldId) && action.Parameters.TryGetValue("fieldId", out var fieldIdObj))
                 {
-                    fieldName = fieldNameObj?.ToString();
+                    fieldId = fieldIdObj?.ToString();
+                }
+                if (string.IsNullOrEmpty(fieldName))
+                {
+                    if (action.Parameters.TryGetValue("fieldPath", out var fieldPathObj))
+                    {
+                        fieldName = fieldPathObj?.ToString();
+                    }
+                    else if (action.Parameters.TryGetValue("fieldName", out var fieldNameObj))
+                    {
+                        fieldName = fieldNameObj?.ToString();
+                    }
                 }
 
                 // Get value from parameters if not set at top level
@@ -414,10 +430,13 @@ namespace FlowFlex.Application.Service.OW
                 }
             }
 
-            if (string.IsNullOrEmpty(fieldName))
+            // Use fieldId as key if provided, otherwise use fieldName
+            var fieldKey = !string.IsNullOrEmpty(fieldId) ? fieldId : fieldName;
+
+            if (string.IsNullOrEmpty(fieldKey))
             {
                 result.Success = false;
-                result.ErrorMessage = "FieldName or parameters.fieldPath is required for UpdateField action";
+                result.ErrorMessage = "FieldId, FieldName or parameters.fieldPath is required for UpdateField action";
                 return result;
             }
 
@@ -432,32 +451,79 @@ namespace FlowFlex.Application.Service.OW
                     return result;
                 }
 
-                // Parse and update CustomFieldsJson
-                var customFields = string.IsNullOrEmpty(onboarding.CustomFieldsJson)
-                    ? new Dictionary<string, object>()
-                    : JsonConvert.DeserializeObject<Dictionary<string, object>>(onboarding.CustomFieldsJson) ?? new Dictionary<string, object>();
+                // Determine target stageId: use action.StageId if provided, otherwise use context.StageId
+                var targetStageId = stageId ?? context.StageId;
 
-                var oldValue = customFields.ContainsKey(fieldName) ? customFields[fieldName] : null;
-                customFields[fieldName] = fieldValue!;
+                // Update field in DynamicData (stage-specific) or CustomFieldsJson (onboarding-level)
+                if (stageId.HasValue)
+                {
+                    // Update stage-specific field in DynamicData
+                    var dynamicData = string.IsNullOrEmpty(onboarding.DynamicData)
+                        ? new Dictionary<string, object>()
+                        : JsonConvert.DeserializeObject<Dictionary<string, object>>(onboarding.DynamicData) ?? new Dictionary<string, object>();
 
-                // Update onboarding
-                await _db.Updateable<Onboarding>()
-                    .SetColumns(o => new Onboarding
-                    {
-                        CustomFieldsJson = JsonConvert.SerializeObject(customFields),
-                        ModifyDate = DateTimeOffset.UtcNow,
-                        ModifyBy = _userContext.UserName ?? "SYSTEM"
-                    })
-                    .Where(o => o.Id == context.OnboardingId)
-                    .ExecuteCommandAsync();
+                    var stageKey = stageId.Value.ToString();
+                    var stageData = dynamicData.ContainsKey(stageKey)
+                        ? JsonConvert.DeserializeObject<Dictionary<string, object>>(dynamicData[stageKey]?.ToString() ?? "{}") ?? new Dictionary<string, object>()
+                        : new Dictionary<string, object>();
 
-                result.Success = true;
-                result.ResultData["fieldName"] = fieldName;
-                result.ResultData["oldValue"] = oldValue!;
-                result.ResultData["newValue"] = fieldValue!;
+                    var oldValue = stageData.ContainsKey(fieldKey) ? stageData[fieldKey] : null;
+                    stageData[fieldKey] = fieldValue!;
+                    dynamicData[stageKey] = stageData;
 
-                _logger.LogInformation("UpdateField executed: Onboarding {OnboardingId}, Field {FieldName} updated from {OldValue} to {NewValue}",
-                    context.OnboardingId, fieldName, oldValue, fieldValue);
+                    await _db.Updateable<Onboarding>()
+                        .SetColumns(o => new Onboarding
+                        {
+                            DynamicData = JsonConvert.SerializeObject(dynamicData),
+                            ModifyDate = DateTimeOffset.UtcNow,
+                            ModifyBy = _userContext.UserName ?? "SYSTEM"
+                        })
+                        .Where(o => o.Id == context.OnboardingId)
+                        .ExecuteCommandAsync();
+
+                    result.Success = true;
+                    result.ResultData["stageId"] = stageId.Value;
+                    result.ResultData["fieldId"] = fieldId ?? string.Empty;
+                    result.ResultData["fieldName"] = fieldName ?? string.Empty;
+                    result.ResultData["fieldKey"] = fieldKey;
+                    result.ResultData["oldValue"] = oldValue!;
+                    result.ResultData["newValue"] = fieldValue!;
+                    result.ResultData["location"] = "DynamicData";
+
+                    _logger.LogInformation("UpdateField executed: Onboarding {OnboardingId}, Stage {StageId}, Field {FieldKey} updated from {OldValue} to {NewValue}",
+                        context.OnboardingId, stageId.Value, fieldKey, oldValue, fieldValue);
+                }
+                else
+                {
+                    // Update onboarding-level field in CustomFieldsJson
+                    var customFields = string.IsNullOrEmpty(onboarding.CustomFieldsJson)
+                        ? new Dictionary<string, object>()
+                        : JsonConvert.DeserializeObject<Dictionary<string, object>>(onboarding.CustomFieldsJson) ?? new Dictionary<string, object>();
+
+                    var oldValue = customFields.ContainsKey(fieldKey) ? customFields[fieldKey] : null;
+                    customFields[fieldKey] = fieldValue!;
+
+                    await _db.Updateable<Onboarding>()
+                        .SetColumns(o => new Onboarding
+                        {
+                            CustomFieldsJson = JsonConvert.SerializeObject(customFields),
+                            ModifyDate = DateTimeOffset.UtcNow,
+                            ModifyBy = _userContext.UserName ?? "SYSTEM"
+                        })
+                        .Where(o => o.Id == context.OnboardingId)
+                        .ExecuteCommandAsync();
+
+                    result.Success = true;
+                    result.ResultData["fieldId"] = fieldId ?? string.Empty;
+                    result.ResultData["fieldName"] = fieldName ?? string.Empty;
+                    result.ResultData["fieldKey"] = fieldKey;
+                    result.ResultData["oldValue"] = oldValue!;
+                    result.ResultData["newValue"] = fieldValue!;
+                    result.ResultData["location"] = "CustomFieldsJson";
+
+                    _logger.LogInformation("UpdateField executed: Onboarding {OnboardingId}, Field {FieldKey} (id={FieldId}, name={FieldName}) updated from {OldValue} to {NewValue}",
+                        context.OnboardingId, fieldKey, fieldId, fieldName, oldValue, fieldValue);
+                }
             }
             catch (Exception ex)
             {

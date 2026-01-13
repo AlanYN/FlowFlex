@@ -682,15 +682,16 @@ namespace FlowFlex.Application.Service.OW
                             break;
 
                         case "updatefield":
-                            // Support both top-level fieldName and parameters.fieldPath/fieldName
+                            // Support fieldId, fieldName, and parameters.fieldPath/fieldName
+                            var hasFieldId = !string.IsNullOrEmpty(action.FieldId);
                             var hasFieldName = !string.IsNullOrEmpty(action.FieldName);
-                            var hasFieldPathInParams = action.Parameters != null && 
-                                (action.Parameters.ContainsKey("fieldPath") || action.Parameters.ContainsKey("fieldName"));
+                            var hasFieldInParams = action.Parameters != null && 
+                                (action.Parameters.ContainsKey("fieldId") || action.Parameters.ContainsKey("fieldPath") || action.Parameters.ContainsKey("fieldName"));
                             
-                            if (!hasFieldName && !hasFieldPathInParams)
+                            if (!hasFieldId && !hasFieldName && !hasFieldInParams)
                             {
                                 result.IsValid = false;
-                                result.Errors.Add(new ValidationError { Code = "UPDATEFIELD_NAME_REQUIRED", Message = "UpdateField action requires fieldName or parameters.fieldPath" });
+                                result.Errors.Add(new ValidationError { Code = "UPDATEFIELD_NAME_REQUIRED", Message = "UpdateField action requires fieldId, fieldName or parameters.fieldPath" });
                             }
                             break;
 

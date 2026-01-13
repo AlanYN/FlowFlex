@@ -100,6 +100,19 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.StageCondition
         public string? TemplateId { get; set; }
 
         /// <summary>
+        /// Stage ID for field update (for UpdateField action)
+        /// </summary>
+        [JsonProperty("stageId")]
+        [JsonConverter(typeof(LongToStringConverter))]
+        public long? StageId { get; set; }
+
+        /// <summary>
+        /// Field ID to update (for UpdateField action)
+        /// </summary>
+        [JsonProperty("fieldId")]
+        public string? FieldId { get; set; }
+
+        /// <summary>
         /// Field name to update (for UpdateField action)
         /// </summary>
         [JsonProperty("fieldName")]
