@@ -270,10 +270,10 @@ namespace FlowFlex.WebApi.Middlewares
 
             var response = new ApiResponse<object>
             {
-                Code = (int)HttpStatusCode.Unauthorized,
-                Message = message, // 设置Message字段
-                Msg = message, // 同时设置Msg字段以保持兼容性
-                Data = null
+                Data = null,
+                Success = false,
+                Msg = message,
+                Code = (int)HttpStatusCode.Unauthorized
             };
 
             var options = new JsonSerializerOptions

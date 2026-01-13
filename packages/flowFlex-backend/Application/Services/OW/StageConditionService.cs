@@ -85,8 +85,8 @@ namespace FlowFlex.Application.Service.OW
             if (!rulesValidation.IsValid)
             {
                 var ruleErrorMessages = rulesValidation.Errors.Select(e => $"[{e.Code}] {e.Message}");
-                throw new CRMException(ErrorCodeEnum.BusinessError, 
-                    $"Invalid RulesJson: {string.Join("; ", ruleErrorMessages)}");
+                throw new CRMException(ErrorCodeEnum.ValidFail, 
+                    $"Invalid RulesJson: {string.Join("; ", ruleErrorMessages)}") { ResponseCode = 410 };
             }
 
             // Validate ActionsJson format
@@ -94,8 +94,8 @@ namespace FlowFlex.Application.Service.OW
             if (!actionsValidation.IsValid)
             {
                 var actionErrorMessages = actionsValidation.Errors.Select(e => $"[{e.Code}] {e.Message}");
-                throw new CRMException(ErrorCodeEnum.BusinessError, 
-                    $"Invalid ActionsJson: {string.Join("; ", actionErrorMessages)}");
+                throw new CRMException(ErrorCodeEnum.ValidFail, 
+                    $"Invalid ActionsJson: {string.Join("; ", actionErrorMessages)}") { ResponseCode = 410 };
             }
 
             // Create entity
@@ -154,8 +154,8 @@ namespace FlowFlex.Application.Service.OW
             if (!rulesValidation.IsValid)
             {
                 var ruleErrorMessages = rulesValidation.Errors.Select(e => $"[{e.Code}] {e.Message}");
-                throw new CRMException(ErrorCodeEnum.BusinessError, 
-                    $"Invalid RulesJson: {string.Join("; ", ruleErrorMessages)}");
+                throw new CRMException(ErrorCodeEnum.ValidFail, 
+                    $"Invalid RulesJson: {string.Join("; ", ruleErrorMessages)}") { ResponseCode = 410 };
             }
 
             // Validate ActionsJson format
@@ -163,8 +163,8 @@ namespace FlowFlex.Application.Service.OW
             if (!actionsValidation.IsValid)
             {
                 var actionErrorMessages = actionsValidation.Errors.Select(e => $"[{e.Code}] {e.Message}");
-                throw new CRMException(ErrorCodeEnum.BusinessError, 
-                    $"Invalid ActionsJson: {string.Join("; ", actionErrorMessages)}");
+                throw new CRMException(ErrorCodeEnum.ValidFail, 
+                    $"Invalid ActionsJson: {string.Join("; ", actionErrorMessages)}") { ResponseCode = 410 };
             }
 
             // Update entity

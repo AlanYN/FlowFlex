@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace FlowFlex.Domain.Shared.Models
 {
     /// <summary>
@@ -7,24 +9,24 @@ namespace FlowFlex.Domain.Shared.Models
     public class ApiResponse<T>
     {
         /// <summary>
-        /// Status code
+        /// Data
         /// </summary>
-        public int Code { get; set; }
+        public T Data { get; set; }
 
         /// <summary>
-        /// Message (for backward compatibility)
+        /// Success flag
         /// </summary>
-        public string Message { get; set; }
+        public bool Success { get; set; }
 
         /// <summary>
-        /// Msg (new field for frontend compatibility)
+        /// Message
         /// </summary>
         public string Msg { get; set; }
 
         /// <summary>
-        /// Data
+        /// Status code
         /// </summary>
-        public T Data { get; set; }
+        public int Code { get; set; }
 
         /// <summary>
         /// Create success response
@@ -32,14 +34,14 @@ namespace FlowFlex.Domain.Shared.Models
         /// <param name="data">Data</param>
         /// <param name="message">Message</param>
         /// <returns>API response</returns>
-        public static ApiResponse<T> Success(T data, string message = "Operation successful")
+        public static ApiResponse<T> Ok(T data, string message = "")
         {
             return new ApiResponse<T>
             {
-                Code = 200,
-                Message = message,
-                Msg = message, // 同时设置两个字段
-                Data = data
+                Data = data,
+                Success = true,
+                Msg = message,
+                Code = 200
             };
         }
 
@@ -53,10 +55,10 @@ namespace FlowFlex.Domain.Shared.Models
         {
             return new ApiResponse<T>
             {
-                Code = errorCode,
-                Message = message,
-                Msg = message, // 同时设置两个字段
-                Data = default
+                Data = default,
+                Success = false,
+                Msg = message,
+                Code = errorCode
             };
         }
     }

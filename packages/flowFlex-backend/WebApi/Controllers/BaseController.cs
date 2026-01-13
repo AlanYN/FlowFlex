@@ -27,7 +27,7 @@ namespace FlowFlex.WebApi.Controllers
         /// <returns>API response</returns>
         protected IActionResult Success<T>(T data, string message = "Operation successful")
         {
-            return Ok(ApiResponse<T>.Success(data, message));
+            return Ok(ApiResponse<T>.Ok(data, message));
         }
 
         /// <summary>

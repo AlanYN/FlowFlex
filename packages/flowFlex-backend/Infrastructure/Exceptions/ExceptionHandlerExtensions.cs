@@ -124,10 +124,10 @@ namespace FlowFlex.Infrastructure.Exceptions
             var responseCode = crmException.ResponseCode ?? statusCode;
             return new ApiResponse<object>
             {
-                Code = responseCode,
-                Message = crmException.Message,
+                Data = crmException.ErrorData ?? new { ErrorCode = crmException.Code.ToString() },
+                Success = false,
                 Msg = crmException.Message,
-                Data = crmException.ErrorData ?? new { ErrorCode = crmException.Code.ToString() }
+                Code = responseCode
             };
         }
 
@@ -161,9 +161,6 @@ namespace FlowFlex.Infrastructure.Exceptions
 
             return new ApiResponse<object>
             {
-                Code = (int)statusCode,
-                Message = message,
-                Msg = message,
                 Data = isDevelopment ? new
                 {
                     SqlState = pgException.SqlState,
@@ -175,7 +172,10 @@ namespace FlowFlex.Infrastructure.Exceptions
                 {
                     ErrorType = "DatabaseError",
                     SqlState = pgException.SqlState
-                }
+                },
+                Success = false,
+                Msg = message,
+                Code = (int)statusCode
             };
         }
 
@@ -194,10 +194,10 @@ namespace FlowFlex.Infrastructure.Exceptions
 
             return new ApiResponse<object>
             {
-                Code = (int)HttpStatusCode.BadRequest,
-                Message = invalidOpException.Message,
+                Data = new { ErrorType = errorType },
+                Success = false,
                 Msg = invalidOpException.Message,
-                Data = new { ErrorType = errorType }
+                Code = (int)HttpStatusCode.BadRequest
             };
         }
 
@@ -210,14 +210,14 @@ namespace FlowFlex.Infrastructure.Exceptions
 
             return new ApiResponse<object>
             {
-                Code = (int)HttpStatusCode.BadRequest,
-                Message = "Invalid request parameters",
-                Msg = "Invalid request parameters",
                 Data = new
                 {
                     Details = isDevelopment ? argException.Message : "Invalid parameter provided",
                     ErrorType = "ArgumentError"
-                }
+                },
+                Success = false,
+                Msg = "Invalid request parameters",
+                Code = (int)HttpStatusCode.BadRequest
             };
         }
 
@@ -234,10 +234,10 @@ namespace FlowFlex.Infrastructure.Exceptions
         {
             return new ApiResponse<object>
             {
-                Code = (int)statusCode,
-                Message = userFriendlyMessage,
+                Data = new { ErrorType = exception.GetType().Name },
+                Success = false,
                 Msg = userFriendlyMessage,
-                Data = new { ErrorType = exception.GetType().Name }
+                Code = (int)statusCode
             };
         }
 
@@ -271,10 +271,10 @@ namespace FlowFlex.Infrastructure.Exceptions
         {
             return new ApiResponse<object>
             {
-                Code = (int)HttpStatusCode.Unauthorized,
-                Message = "Unauthorized access",
+                Data = new { ErrorType = "UnauthorizedAccess" },
+                Success = false,
                 Msg = "Unauthorized access",
-                Data = new { ErrorType = "UnauthorizedAccess" }
+                Code = (int)HttpStatusCode.Unauthorized
             };
         }
 
@@ -282,10 +282,10 @@ namespace FlowFlex.Infrastructure.Exceptions
         {
             return new ApiResponse<object>
             {
-                Code = (int)HttpStatusCode.RequestTimeout,
-                Message = "Request timeout",
+                Data = new { ErrorType = "Timeout" },
+                Success = false,
                 Msg = "Request timeout",
-                Data = new { ErrorType = "Timeout" }
+                Code = (int)HttpStatusCode.RequestTimeout
             };
         }
 
@@ -293,10 +293,10 @@ namespace FlowFlex.Infrastructure.Exceptions
         {
             return new ApiResponse<object>
             {
-                Code = (int)HttpStatusCode.NotImplemented,
-                Message = "Feature not implemented",
+                Data = new { ErrorType = "NotImplemented" },
+                Success = false,
                 Msg = "Feature not implemented",
-                Data = new { ErrorType = "NotImplemented" }
+                Code = (int)HttpStatusCode.NotImplemented
             };
         }
 
@@ -311,9 +311,6 @@ namespace FlowFlex.Infrastructure.Exceptions
 
             return new ApiResponse<object>
             {
-                Code = (int)HttpStatusCode.InternalServerError,
-                Message = message,
-                Msg = message,
                 Data = isDevelopment ? new
                 {
                     ExceptionType = exception.GetType().Name,
@@ -323,7 +320,10 @@ namespace FlowFlex.Infrastructure.Exceptions
                 } : new
                 {
                     ErrorType = "InternalError"
-                }
+                },
+                Success = false,
+                Msg = message,
+                Code = (int)HttpStatusCode.InternalServerError
             };
         }
 
