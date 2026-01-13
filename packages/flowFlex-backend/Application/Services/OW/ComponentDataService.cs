@@ -43,16 +43,19 @@ namespace FlowFlex.Application.Service.OW
         /// <summary>
         /// Get checklist data for a stage
         /// </summary>
-        public async Task<ChecklistData> GetChecklistDataAsync(long onboardingId, long stageId)
+        public async Task<ChecklistData> GetChecklistDataAsync(long onboardingId, long stageId, string? tenantId = null)
         {
             try
             {
                 var result = new ChecklistData();
 
+                // Use provided tenantId or fall back to UserContext
+                var effectiveTenantId = tenantId ?? _userContext.TenantId;
+
                 // Get checklist task completions for this onboarding
                 var completions = await _db.Queryable<ChecklistTaskCompletion>()
                     .Where(c => c.OnboardingId == onboardingId && c.IsValid)
-                    .Where(c => c.TenantId == _userContext.TenantId)
+                    .Where(c => c.TenantId == effectiveTenantId)
                     .ToListAsync();
 
                 // Get stage to find associated checklists from components_json
@@ -140,11 +143,14 @@ namespace FlowFlex.Application.Service.OW
         /// <summary>
         /// Get questionnaire data for a stage
         /// </summary>
-        public async Task<QuestionnaireData> GetQuestionnaireDataAsync(long onboardingId, long stageId)
+        public async Task<QuestionnaireData> GetQuestionnaireDataAsync(long onboardingId, long stageId, string? tenantId = null)
         {
             try
             {
                 var result = new QuestionnaireData();
+
+                // Use provided tenantId or fall back to UserContext
+                var effectiveTenantId = tenantId ?? _userContext.TenantId;
 
                 // Get stage to find associated questionnaires from components_json
                 var stage = await _stageRepository.GetByIdAsync(stageId);
@@ -198,11 +204,23 @@ namespace FlowFlex.Application.Service.OW
                 _logger.LogDebug("Found {QuestionnaireCount} questionnaires for stage {StageId}: [{QuestionnaireIds}]", 
                     questionnaireIds.Count, stageId, string.Join(", ", questionnaireIds));
 
+                // Initialize empty dictionaries for all questionnaires in components_json
+                // This ensures rules can safely access answers[questionnaireId] without KeyNotFoundException
+                foreach (var questionnaireId in questionnaireIds)
+                {
+                    var questionnaireIdStr = questionnaireId.ToString();
+                    if (!result.Answers.ContainsKey(questionnaireIdStr))
+                    {
+                        result.Answers[questionnaireIdStr] = new Dictionary<string, object>();
+                        _logger.LogDebug("Initialized empty answers dictionary for questionnaire {QuestionnaireId}", questionnaireIdStr);
+                    }
+                }
+
                 // Get questionnaire answers for all questionnaires
                 // Build nested structure: answers[questionnaireId][questionId] = value
                 var answers = await _db.Queryable<QuestionnaireAnswer>()
                     .Where(a => a.OnboardingId == onboardingId && a.QuestionnaireId.HasValue && questionnaireIds.Contains(a.QuestionnaireId.Value) && a.IsValid)
-                    .Where(a => a.TenantId == _userContext.TenantId)
+                    .Where(a => a.TenantId == effectiveTenantId)
                     .ToListAsync();
 
                 foreach (var answer in answers)
@@ -311,16 +329,19 @@ namespace FlowFlex.Application.Service.OW
         /// <summary>
         /// Get attachment data for a stage
         /// </summary>
-        public async Task<AttachmentData> GetAttachmentDataAsync(long onboardingId, long stageId)
+        public async Task<AttachmentData> GetAttachmentDataAsync(long onboardingId, long stageId, string? tenantId = null)
         {
             try
             {
                 var result = new AttachmentData();
 
+                // Use provided tenantId or fall back to UserContext
+                var effectiveTenantId = tenantId ?? _userContext.TenantId;
+
                 // Get files for this onboarding and stage
                 var files = await _db.Queryable<OnboardingFile>()
                     .Where(f => f.OnboardingId == onboardingId && f.StageId == stageId && f.IsValid)
-                    .Where(f => f.TenantId == _userContext.TenantId)
+                    .Where(f => f.TenantId == effectiveTenantId)
                     .ToListAsync();
 
                 result.FileCount = files.Count;
@@ -339,11 +360,12 @@ namespace FlowFlex.Application.Service.OW
         /// <summary>
         /// Get fields data from onboarding CustomFieldsJson
         /// </summary>
-        public async Task<Dictionary<string, object>> GetFieldsDataAsync(long onboardingId)
+        public async Task<Dictionary<string, object>> GetFieldsDataAsync(long onboardingId, string? tenantId = null)
         {
             try
             {
-                var onboarding = await _onboardingRepository.GetByIdAsync(onboardingId);
+                // Use GetByIdWithoutTenantFilterAsync to avoid tenant filter issues in background tasks
+                var onboarding = await _onboardingRepository.GetByIdWithoutTenantFilterAsync(onboardingId);
                 if (onboarding?.CustomFieldsJson == null)
                 {
                     return new Dictionary<string, object>();

@@ -15,31 +15,35 @@ namespace FlowFlex.Application.Contracts.IServices.OW
         /// </summary>
         /// <param name="onboardingId">Onboarding ID</param>
         /// <param name="stageId">Stage ID</param>
+        /// <param name="tenantId">Optional tenant ID (uses UserContext.TenantId if not provided)</param>
         /// <returns>Checklist data</returns>
-        Task<ChecklistData> GetChecklistDataAsync(long onboardingId, long stageId);
+        Task<ChecklistData> GetChecklistDataAsync(long onboardingId, long stageId, string? tenantId = null);
 
         /// <summary>
         /// Get questionnaire data for a stage
         /// </summary>
         /// <param name="onboardingId">Onboarding ID</param>
         /// <param name="stageId">Stage ID</param>
+        /// <param name="tenantId">Optional tenant ID (uses UserContext.TenantId if not provided)</param>
         /// <returns>Questionnaire data</returns>
-        Task<QuestionnaireData> GetQuestionnaireDataAsync(long onboardingId, long stageId);
+        Task<QuestionnaireData> GetQuestionnaireDataAsync(long onboardingId, long stageId, string? tenantId = null);
 
         /// <summary>
         /// Get attachment data for a stage
         /// </summary>
         /// <param name="onboardingId">Onboarding ID</param>
         /// <param name="stageId">Stage ID</param>
+        /// <param name="tenantId">Optional tenant ID (uses UserContext.TenantId if not provided)</param>
         /// <returns>Attachment data</returns>
-        Task<AttachmentData> GetAttachmentDataAsync(long onboardingId, long stageId);
+        Task<AttachmentData> GetAttachmentDataAsync(long onboardingId, long stageId, string? tenantId = null);
 
         /// <summary>
         /// Get fields data from onboarding DynamicData
         /// </summary>
         /// <param name="onboardingId">Onboarding ID</param>
+        /// <param name="tenantId">Optional tenant ID (uses UserContext.TenantId if not provided)</param>
         /// <returns>Fields data dictionary</returns>
-        Task<Dictionary<string, object>> GetFieldsDataAsync(long onboardingId);
+        Task<Dictionary<string, object>> GetFieldsDataAsync(long onboardingId, string? tenantId = null);
 
         /// <summary>
         /// Get available components for a stage (for condition configuration UI)

@@ -27,6 +27,7 @@ namespace FlowFlex.Application.Service.OW
         private readonly IStageRepository _stageRepository;
         private readonly IOnboardingRepository _onboardingRepository;
         private readonly IComponentDataService _componentDataService;
+        private readonly IConditionActionExecutor _actionExecutor;
         private readonly UserContext _userContext;
         private readonly ILogger<RulesEngineService> _logger;
 
@@ -38,6 +39,7 @@ namespace FlowFlex.Application.Service.OW
             IStageRepository stageRepository,
             IOnboardingRepository onboardingRepository,
             IComponentDataService componentDataService,
+            IConditionActionExecutor actionExecutor,
             UserContext userContext,
             ILogger<RulesEngineService> logger)
         {
@@ -45,6 +47,7 @@ namespace FlowFlex.Application.Service.OW
             _stageRepository = stageRepository;
             _onboardingRepository = onboardingRepository;
             _componentDataService = componentDataService;
+            _actionExecutor = actionExecutor;
             _userContext = userContext;
             _logger = logger;
 
@@ -62,8 +65,24 @@ namespace FlowFlex.Application.Service.OW
         {
             try
             {
-                // 1. Load condition for the stage
-                var condition = await GetConditionByStageIdAsync(stageId);
+                // 0. First get onboarding to obtain the correct TenantId
+                // Use GetByIdWithoutTenantFilterAsync to avoid tenant filter issues in background tasks
+                var onboarding = await _onboardingRepository.GetByIdWithoutTenantFilterAsync(onboardingId);
+                if (onboarding == null)
+                {
+                    _logger.LogWarning("Onboarding {OnboardingId} not found", onboardingId);
+                    return new ConditionEvaluationResult
+                    {
+                        IsConditionMet = false,
+                        ErrorMessage = $"Onboarding {onboardingId} not found"
+                    };
+                }
+
+                // Use onboarding's TenantId for all subsequent queries
+                var tenantId = onboarding.TenantId;
+
+                // 1. Load condition for the stage using onboarding's TenantId
+                var condition = await GetConditionByStageIdAsync(stageId, tenantId);
                 
                 if (condition == null || !condition.IsActive || condition.Status != "Valid")
                 {
@@ -71,7 +90,7 @@ namespace FlowFlex.Application.Service.OW
                     return new ConditionEvaluationResult
                     {
                         IsConditionMet = false,
-                        NextStageId = await GetNextStageIdAsync(stageId)
+                        NextStageId = await GetNextStageIdAsync(stageId, tenantId)
                     };
                 }
 
@@ -93,14 +112,33 @@ namespace FlowFlex.Application.Service.OW
 
                 if (isConditionMet)
                 {
-                    // Condition met - actions will be executed by ActionExecutor
+                    // Condition met - execute actions
                     _logger.LogInformation("Condition '{ConditionName}' met for onboarding {OnboardingId}, stage {StageId}",
                         condition.Name, onboardingId, stageId);
+
+                    // Execute actions if configured
+                    if (!string.IsNullOrEmpty(condition.ActionsJson))
+                    {
+                        var context = new ActionExecutionContext
+                        {
+                            OnboardingId = onboardingId,
+                            StageId = stageId,
+                            ConditionId = condition.Id,
+                            TenantId = tenantId,
+                            UserId = long.TryParse(_userContext.UserId, out var uid) ? uid : 0
+                        };
+
+                        var actionResult = await _actionExecutor.ExecuteActionsAsync(condition.ActionsJson, context);
+                        result.ActionResults = actionResult.Details;
+
+                        _logger.LogInformation("Executed {ActionCount} actions for condition '{ConditionName}', Success={Success}",
+                            actionResult.Details.Count, condition.Name, actionResult.Success);
+                    }
                 }
                 else
                 {
                     // Condition not met - go to fallback stage or next stage
-                    result.NextStageId = condition.FallbackStageId ?? await GetNextStageIdAsync(stageId);
+                    result.NextStageId = condition.FallbackStageId ?? await GetNextStageIdAsync(stageId, tenantId);
                     _logger.LogInformation("Condition '{ConditionName}' not met for onboarding {OnboardingId}, stage {StageId}, fallback to stage {NextStageId}",
                         condition.Name, onboardingId, stageId, result.NextStageId);
                 }
@@ -183,7 +221,6 @@ namespace FlowFlex.Application.Service.OW
                     // This prevents concurrent modifications and ensures only one request succeeds
                     var onboarding = await _db.Queryable<Onboarding>()
                         .Where(o => o.Id == onboardingId && o.IsValid)
-                        .Where(o => o.TenantId == _userContext.TenantId)
                         .With(SqlWith.UpdLock)
                         .FirstAsync();
 
@@ -191,6 +228,9 @@ namespace FlowFlex.Application.Service.OW
                     {
                         throw new InvalidOperationException($"Onboarding {onboardingId} not found");
                     }
+
+                    // Use onboarding's TenantId
+                    var tenantId = onboarding.TenantId;
 
                     // Check if stage is already completed to prevent duplicate evaluation
                     var stageProgress = onboarding.StagesProgress?.FirstOrDefault(sp => sp.StageId == stageId);
@@ -202,7 +242,7 @@ namespace FlowFlex.Application.Service.OW
                         {
                             IsConditionMet = false,
                             ErrorMessage = "Stage already completed",
-                            NextStageId = await GetNextStageIdAsync(stageId)
+                            NextStageId = await GetNextStageIdAsync(stageId, tenantId)
                         };
                     }
 
@@ -241,7 +281,6 @@ namespace FlowFlex.Application.Service.OW
                     // 1. Acquire row-level lock on onboarding record
                     var onboarding = await _db.Queryable<Onboarding>()
                         .Where(o => o.Id == onboardingId && o.IsValid)
-                        .Where(o => o.TenantId == _userContext.TenantId)
                         .With(SqlWith.UpdLock)
                         .FirstAsync();
 
@@ -249,6 +288,9 @@ namespace FlowFlex.Application.Service.OW
                     {
                         throw new InvalidOperationException($"Onboarding {onboardingId} not found");
                     }
+
+                    // Use onboarding's TenantId for all queries
+                    var tenantId = onboarding.TenantId;
 
                     // 2. Check if stage is already completed
                     var stageProgress = onboarding.StagesProgress?.FirstOrDefault(sp => sp.StageId == stageId);
@@ -259,12 +301,12 @@ namespace FlowFlex.Application.Service.OW
                         {
                             IsConditionMet = false,
                             ErrorMessage = "Stage already completed by another request",
-                            NextStageId = await GetNextStageIdAsync(stageId)
+                            NextStageId = await GetNextStageIdAsync(stageId, tenantId)
                         };
                     }
 
                     // 3. Load condition configuration
-                    condition = await GetConditionByStageIdAsync(stageId);
+                    condition = await GetConditionByStageIdAsync(stageId, tenantId);
                     
                     if (condition == null || !condition.IsActive || condition.Status != "Valid")
                     {
@@ -272,7 +314,7 @@ namespace FlowFlex.Application.Service.OW
                         return new ConditionEvaluationResult
                         {
                             IsConditionMet = false,
-                            NextStageId = await GetNextStageIdAsync(stageId)
+                            NextStageId = await GetNextStageIdAsync(stageId, tenantId)
                         };
                     }
 
@@ -295,7 +337,7 @@ namespace FlowFlex.Application.Service.OW
                             OnboardingId = onboardingId,
                             StageId = stageId,
                             ConditionId = condition.Id,
-                            TenantId = _userContext.TenantId,
+                            TenantId = tenantId,
                             UserId = long.TryParse(_userContext.UserId, out var uid) ? uid : 0
                         };
 
@@ -308,7 +350,7 @@ namespace FlowFlex.Application.Service.OW
                     else if (!isConditionMet)
                     {
                         // Condition not met - determine fallback stage
-                        result.NextStageId = condition.FallbackStageId ?? await GetNextStageIdAsync(stageId);
+                        result.NextStageId = condition.FallbackStageId ?? await GetNextStageIdAsync(stageId, tenantId);
                         _logger.LogInformation("Condition '{ConditionName}' not met, fallback to stage {NextStageId}",
                             condition.Name, result.NextStageId);
                     }
@@ -388,11 +430,15 @@ namespace FlowFlex.Application.Service.OW
         {
             try
             {
-                // Get component data
-                var checklistData = await _componentDataService.GetChecklistDataAsync(onboardingId, stageId);
-                var questionnaireData = await _componentDataService.GetQuestionnaireDataAsync(onboardingId, stageId);
-                var attachmentData = await _componentDataService.GetAttachmentDataAsync(onboardingId, stageId);
-                var fieldsData = await _componentDataService.GetFieldsDataAsync(onboardingId);
+                // Get onboarding to obtain TenantId for component data queries
+                var onboarding = await _onboardingRepository.GetByIdWithoutTenantFilterAsync(onboardingId);
+                var tenantId = onboarding?.TenantId;
+
+                // Get component data with explicit tenantId
+                var checklistData = await _componentDataService.GetChecklistDataAsync(onboardingId, stageId, tenantId);
+                var questionnaireData = await _componentDataService.GetQuestionnaireDataAsync(onboardingId, stageId, tenantId);
+                var attachmentData = await _componentDataService.GetAttachmentDataAsync(onboardingId, stageId, tenantId);
+                var fieldsData = await _componentDataService.GetFieldsDataAsync(onboardingId, tenantId);
 
                 // Build dynamic input object
                 dynamic input = new ExpandoObject();
@@ -448,11 +494,12 @@ namespace FlowFlex.Application.Service.OW
 
         /// <summary>
         /// Build nested tasks dictionary for RulesEngine access
-        /// Format: tasks[checklistId][taskId] = { isCompleted, name, completionNotes }
+        /// Format: tasks[checklistId][taskId] = TaskData { isCompleted, name, completionNotes }
+        /// Uses SafeTasksDictionary to handle missing keys gracefully
         /// </summary>
-        private Dictionary<string, Dictionary<string, object>> BuildNestedTasksDictionary(ChecklistData checklistData, long stageId)
+        private SafeTasksDictionary BuildNestedTasksDictionary(ChecklistData checklistData, long stageId)
         {
-            var result = new Dictionary<string, Dictionary<string, object>>();
+            var result = new SafeTasksDictionary();
 
             if (checklistData?.Tasks == null || !checklistData.Tasks.Any())
             {
@@ -473,18 +520,18 @@ namespace FlowFlex.Application.Service.OW
                 _logger.LogDebug("Adding task: ChecklistId={ChecklistId}, TaskId={TaskId}, IsCompleted={IsCompleted}", 
                     checklistIdStr, taskIdStr, task.IsCompleted);
 
-                // Create task data object as dictionary for property access
-                var taskData = new Dictionary<string, object>
+                // Create task data object with strongly-typed properties
+                var taskData = new TaskData
                 {
-                    ["isCompleted"] = task.IsCompleted,
-                    ["name"] = task.Name ?? string.Empty,
-                    ["completionNotes"] = task.CompletionNotes ?? string.Empty
+                    isCompleted = task.IsCompleted,
+                    name = task.Name ?? string.Empty,
+                    completionNotes = task.CompletionNotes ?? string.Empty
                 };
 
                 // Ensure checklist dictionary exists
                 if (!result.ContainsKey(checklistIdStr))
                 {
-                    result[checklistIdStr] = new Dictionary<string, object>();
+                    result[checklistIdStr] = new SafeTaskInnerDictionary();
                 }
 
                 // Add task under its checklistId
@@ -500,10 +547,11 @@ namespace FlowFlex.Application.Service.OW
         /// <summary>
         /// Build nested answers dictionary for RulesEngine access
         /// Format: answers[questionnaireId][questionId] = value
+        /// Uses SafeNestedDictionary to handle missing keys gracefully
         /// </summary>
-        private Dictionary<string, Dictionary<string, object>> BuildNestedAnswersDictionary(QuestionnaireData questionnaireData, long stageId)
+        private SafeNestedDictionary BuildNestedAnswersDictionary(QuestionnaireData questionnaireData, long stageId)
         {
-            var result = new Dictionary<string, Dictionary<string, object>>();
+            var result = new SafeNestedDictionary();
 
             if (questionnaireData?.Answers == null || !questionnaireData.Answers.Any())
             {
@@ -526,14 +574,19 @@ namespace FlowFlex.Application.Service.OW
                 // Check if the value is already a dictionary (nested structure)
                 if (kvp.Value is Dictionary<string, object> nestedDict)
                 {
-                    result[questionnaireIdStr] = nestedDict;
+                    var safeDict = new SafeInnerDictionary();
+                    foreach (var item in nestedDict)
+                    {
+                        safeDict[item.Key] = item.Value;
+                    }
+                    result[questionnaireIdStr] = safeDict;
                     _logger.LogDebug("Questionnaire {QuestionnaireId} has {QuestionCount} questions: [{QuestionIds}]", 
                         questionnaireIdStr, nestedDict.Count, string.Join(", ", nestedDict.Keys));
                 }
                 else if (kvp.Value is Newtonsoft.Json.Linq.JObject jObj)
                 {
-                    // Convert JObject to Dictionary<string, object>
-                    var dict = new Dictionary<string, object>();
+                    // Convert JObject to SafeInnerDictionary
+                    var dict = new SafeInnerDictionary();
                     foreach (var prop in jObj.Properties())
                     {
                         dict[prop.Name] = prop.Value.Type == Newtonsoft.Json.Linq.JTokenType.Object 
@@ -546,7 +599,12 @@ namespace FlowFlex.Application.Service.OW
                 }
                 else if (kvp.Value is IDictionary<string, object> iDict)
                 {
-                    result[questionnaireIdStr] = new Dictionary<string, object>(iDict);
+                    var safeDict = new SafeInnerDictionary();
+                    foreach (var item in iDict)
+                    {
+                        safeDict[item.Key] = item.Value;
+                    }
+                    result[questionnaireIdStr] = safeDict;
                     _logger.LogDebug("Questionnaire {QuestionnaireId} (IDictionary) has {QuestionCount} questions", 
                         questionnaireIdStr, iDict.Count);
                 }
@@ -555,7 +613,7 @@ namespace FlowFlex.Application.Service.OW
                     // Single value - wrap it
                     if (!result.ContainsKey(questionnaireIdStr))
                     {
-                        result[questionnaireIdStr] = new Dictionary<string, object>();
+                        result[questionnaireIdStr] = new SafeInnerDictionary();
                     }
                     result[questionnaireIdStr][questionnaireIdStr] = kvp.Value;
                     _logger.LogDebug("Questionnaire {QuestionnaireId} has single value: {Value}", 
@@ -573,13 +631,13 @@ namespace FlowFlex.Application.Service.OW
         #region Private Methods
 
         /// <summary>
-        /// Get condition by stage ID
+        /// Get condition by stage ID with explicit tenant ID
         /// </summary>
-        private async Task<StageCondition?> GetConditionByStageIdAsync(long stageId)
+        private async Task<StageCondition?> GetConditionByStageIdAsync(long stageId, string tenantId)
         {
             return await _db.Queryable<StageCondition>()
                 .Where(c => c.StageId == stageId && c.IsValid)
-                .Where(c => c.TenantId == _userContext.TenantId)
+                .Where(c => c.TenantId == tenantId)
                 .FirstAsync();
         }
 
@@ -653,9 +711,9 @@ namespace FlowFlex.Application.Service.OW
         }
 
         /// <summary>
-        /// Get next stage ID based on order
+        /// Get next stage ID based on order with explicit tenant ID
         /// </summary>
-        private async Task<long?> GetNextStageIdAsync(long currentStageId)
+        private async Task<long?> GetNextStageIdAsync(long currentStageId, string tenantId)
         {
             try
             {
@@ -669,12 +727,36 @@ namespace FlowFlex.Application.Service.OW
                 // Get next stage by order
                 var nextStage = await _db.Queryable<Stage>()
                     .Where(s => s.WorkflowId == currentStage.WorkflowId && s.IsValid && s.IsActive)
-                    .Where(s => s.TenantId == _userContext.TenantId)
+                    .Where(s => s.TenantId == tenantId)
                     .Where(s => s.Order > currentStage.Order)
                     .OrderBy(s => s.Order)
                     .FirstAsync();
 
                 return nextStage?.Id;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting next stage for stage {StageId}", currentStageId);
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Get next stage ID based on order (gets TenantId from current stage)
+        /// </summary>
+        private async Task<long?> GetNextStageIdAsync(long currentStageId)
+        {
+            try
+            {
+                // Get current stage to obtain TenantId
+                var currentStage = await _stageRepository.GetByIdAsync(currentStageId);
+                if (currentStage == null)
+                {
+                    return null;
+                }
+
+                // Use stage's TenantId
+                return await GetNextStageIdAsync(currentStageId, currentStage.TenantId);
             }
             catch (Exception ex)
             {
@@ -846,9 +928,19 @@ namespace FlowFlex.Application.Service.OW
             }
             else if (operatorLower == "completestage")
             {
-                // CompleteStage: check if all tasks in stage are completed
-                // This requires checking checklist.status == "Completed"
-                return "input.checklist.status == \"Completed\"";
+                // CompleteStage: check if the specified task/field is completed
+                // If fieldPath points to a specific task's isCompleted, use it
+                // Otherwise, check the overall checklist status
+                if (!string.IsNullOrEmpty(rule.FieldPath) && rule.FieldPath.Contains(".isCompleted"))
+                {
+                    // fieldPath points to a specific task's isCompleted property
+                    return $"{rule.FieldPath} == true";
+                }
+                else
+                {
+                    // Fallback: check if all tasks in stage are completed
+                    return "input.checklist.status == \"Completed\"";
+                }
             }
 
             var op = operatorLower switch

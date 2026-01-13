@@ -172,8 +172,8 @@ namespace FlowFlex.Application.Service.OW
                     return result;
                 }
 
-                // Get onboarding
-                var onboarding = await _onboardingRepository.GetByIdAsync(context.OnboardingId);
+                // Get onboarding - use GetByIdWithoutTenantFilterAsync to avoid tenant filter issues in background tasks
+                var onboarding = await _onboardingRepository.GetByIdWithoutTenantFilterAsync(context.OnboardingId);
                 if (onboarding == null)
                 {
                     result.Success = false;
@@ -245,7 +245,7 @@ namespace FlowFlex.Application.Service.OW
                 var skipCount = action.SkipCount > 0 ? action.SkipCount : 1;
                 var nextStages = await _db.Queryable<Stage>()
                     .Where(s => s.WorkflowId == currentStage.WorkflowId && s.IsValid && s.IsActive)
-                    .Where(s => s.TenantId == _userContext.TenantId)
+                    .Where(s => s.TenantId == context.TenantId)
                     .Where(s => s.Order > currentStage.Order)
                     .OrderBy(s => s.Order)
                     .Take(skipCount + 1)
@@ -271,8 +271,8 @@ namespace FlowFlex.Application.Service.OW
                 var targetStage = nextStages[skipCount];
                 action.TargetStageId = targetStage.Id;
 
-                // Mark skipped stages
-                var onboarding = await _onboardingRepository.GetByIdAsync(context.OnboardingId);
+                // Mark skipped stages - use GetByIdWithoutTenantFilterAsync to avoid tenant filter issues in background tasks
+                var onboarding = await _onboardingRepository.GetByIdWithoutTenantFilterAsync(context.OnboardingId);
                 if (onboarding != null)
                 {
                     await MarkSkippedStagesAsync(onboarding, currentStage.Order, targetStage.Order);
@@ -492,7 +492,7 @@ namespace FlowFlex.Application.Service.OW
                 // Validate action definition exists
                 var actionDefinition = await _db.Queryable<Domain.Entities.Action.ActionDefinition>()
                     .Where(a => a.Id == action.ActionDefinitionId.Value && a.IsValid)
-                    .Where(a => a.TenantId == _userContext.TenantId)
+                    .Where(a => a.TenantId == context.TenantId)
                     .FirstAsync();
 
                 if (actionDefinition == null || !actionDefinition.IsEnabled)
@@ -704,16 +704,57 @@ namespace FlowFlex.Application.Service.OW
         }
 
         /// <summary>
+        /// Parse StagesProgressJson handling double-escaped JSON strings
+        /// </summary>
+        private List<OnboardingStageProgress> ParseStagesProgressJson(string json, long onboardingId)
+        {
+            if (string.IsNullOrEmpty(json))
+            {
+                return new List<OnboardingStageProgress>();
+            }
+
+            try
+            {
+                // First, try direct parsing as List<OnboardingStageProgress>
+                return JsonConvert.DeserializeObject<List<OnboardingStageProgress>>(json) 
+                    ?? new List<OnboardingStageProgress>();
+            }
+            catch (JsonException)
+            {
+                // If direct parsing fails, try to unescape first (handle double-escaped JSON)
+                try
+                {
+                    // The JSON might be stored as a double-escaped string like: "\"[{\\\"stageId\\\":1}]\""
+                    // First deserialize to get the inner string
+                    var unescapedJson = JsonConvert.DeserializeObject<string>(json);
+                    if (!string.IsNullOrEmpty(unescapedJson))
+                    {
+                        return JsonConvert.DeserializeObject<List<OnboardingStageProgress>>(unescapedJson) 
+                            ?? new List<OnboardingStageProgress>();
+                    }
+                }
+                catch (JsonException)
+                {
+                    // If still fails, the format is unexpected
+                }
+
+                _logger.LogWarning("Failed to parse StagesProgressJson for onboarding {OnboardingId}, starting with empty list. Raw value: {RawJson}", 
+                    onboardingId, json.Length > 200 ? json.Substring(0, 200) + "..." : json);
+                return new List<OnboardingStageProgress>();
+            }
+        }
+
+        /// <summary>
         /// Mark stages as skipped in StagesProgressJson
         /// </summary>
         private async Task MarkSkippedStagesAsync(Onboarding onboarding, int fromOrder, int toOrder)
         {
             try
             {
-                // Get stages to mark as skipped
+                // Get stages to mark as skipped using onboarding's TenantId
                 var stagesToSkip = await _db.Queryable<Stage>()
                     .Where(s => s.WorkflowId == onboarding.WorkflowId && s.IsValid && s.IsActive)
-                    .Where(s => s.TenantId == _userContext.TenantId)
+                    .Where(s => s.TenantId == onboarding.TenantId)
                     .Where(s => s.Order > fromOrder && s.Order < toOrder)
                     .ToListAsync();
 
@@ -722,10 +763,22 @@ namespace FlowFlex.Application.Service.OW
                     return;
                 }
 
-                // Parse and update StagesProgressJson
-                var stagesProgress = string.IsNullOrEmpty(onboarding.StagesProgressJson)
-                    ? new List<OnboardingStageProgress>()
-                    : JsonConvert.DeserializeObject<List<OnboardingStageProgress>>(onboarding.StagesProgressJson) ?? new List<OnboardingStageProgress>();
+                // Parse StagesProgressJson - handle both string and already-parsed scenarios
+                List<OnboardingStageProgress> stagesProgress;
+                
+                if (onboarding.StagesProgress != null && onboarding.StagesProgress.Any())
+                {
+                    // Use already-parsed StagesProgress if available
+                    stagesProgress = onboarding.StagesProgress;
+                }
+                else if (!string.IsNullOrEmpty(onboarding.StagesProgressJson))
+                {
+                    stagesProgress = ParseStagesProgressJson(onboarding.StagesProgressJson, onboarding.Id);
+                }
+                else
+                {
+                    stagesProgress = new List<OnboardingStageProgress>();
+                }
 
                 foreach (var stage in stagesToSkip)
                 {
