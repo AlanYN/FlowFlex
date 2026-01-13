@@ -81,8 +81,20 @@ namespace FlowFlex.Application.Service.OW
                 // 3. Parse and execute RulesEngine
                 var ruleResults = await ExecuteRulesAsync(condition.RulesJson, inputData);
 
-                // 4. Determine if condition is met (all rules must pass)
-                bool isConditionMet = ruleResults.All(r => r.IsSuccess);
+                // 4. Determine if condition is met based on logic type (AND/OR)
+                var logic = GetLogicFromRulesJson(condition.RulesJson);
+                bool isConditionMet;
+                
+                if (logic?.ToUpper() == "OR")
+                {
+                    // OR logic: at least one rule must pass
+                    isConditionMet = ruleResults.Any(r => r.IsSuccess);
+                }
+                else
+                {
+                    // AND logic (default): all rules must pass
+                    isConditionMet = ruleResults.All(r => r.IsSuccess);
+                }
 
                 // 5. Build result
                 var result = new ConditionEvaluationResult
@@ -94,8 +106,8 @@ namespace FlowFlex.Application.Service.OW
                 if (isConditionMet)
                 {
                     // Condition met - actions will be executed by ActionExecutor
-                    _logger.LogInformation("Condition '{ConditionName}' met for onboarding {OnboardingId}, stage {StageId}",
-                        condition.Name, onboardingId, stageId);
+                    _logger.LogInformation("Condition '{ConditionName}' met for onboarding {OnboardingId}, stage {StageId} (Logic={Logic}, {SuccessCount}/{TotalCount} rules passed)",
+                        condition.Name, onboardingId, stageId, logic ?? "AND", ruleResults.Count(r => r.IsSuccess), ruleResults.Count);
                 }
                 else
                 {
@@ -117,6 +129,26 @@ namespace FlowFlex.Application.Service.OW
                 _logger.LogError(ex, "Error evaluating condition for onboarding {OnboardingId}, stage {StageId}", onboardingId, stageId);
                 return CreateFallbackResult(stageId, ex.Message);
             }
+        }
+
+        /// <summary>
+        /// Extract logic type (AND/OR) from RulesJson
+        /// </summary>
+        private string GetLogicFromRulesJson(string rulesJson)
+        {
+            try
+            {
+                var jsonObj = Newtonsoft.Json.Linq.JToken.Parse(rulesJson);
+                if (jsonObj is Newtonsoft.Json.Linq.JObject jObject && jObject.ContainsKey("logic"))
+                {
+                    return jObject["logic"]?.ToString();
+                }
+            }
+            catch
+            {
+                // Ignore parsing errors
+            }
+            return null; // Default to AND logic
         }
 
         /// <summary>
@@ -279,7 +311,21 @@ namespace FlowFlex.Application.Service.OW
                     // 4. Build input data and evaluate rules
                     var inputData = await BuildInputDataAsync(onboardingId, stageId);
                     var ruleResults = await ExecuteRulesAsync(condition.RulesJson, inputData);
-                    bool isConditionMet = ruleResults.All(r => r.IsSuccess);
+                    
+                    // Determine if condition is met based on logic type (AND/OR)
+                    var logic = GetLogicFromRulesJson(condition.RulesJson);
+                    bool isConditionMet;
+                    
+                    if (logic?.ToUpper() == "OR")
+                    {
+                        // OR logic: at least one rule must pass
+                        isConditionMet = ruleResults.Any(r => r.IsSuccess);
+                    }
+                    else
+                    {
+                        // AND logic (default): all rules must pass
+                        isConditionMet = ruleResults.All(r => r.IsSuccess);
+                    }
 
                     result = new ConditionEvaluationResult
                     {
@@ -347,6 +393,14 @@ namespace FlowFlex.Application.Service.OW
         {
             try
             {
+                // Get successful and failed rule names
+                var successfulRules = result.RuleResults?.Where(r => r.IsSuccess).Select(r => r.RuleName).ToList() ?? new List<string>();
+                var failedRules = result.RuleResults?.Where(r => !r.IsSuccess).Select(r => r.RuleName).ToList() ?? new List<string>();
+                
+                // Get successful and failed action types
+                var successfulActions = result.ActionResults?.Where(a => a.Success).Select(a => a.ActionType).ToList() ?? new List<string>();
+                var failedActions = result.ActionResults?.Where(a => !a.Success).Select(a => a.ActionType).ToList() ?? new List<string>();
+
                 var extendedData = System.Text.Json.JsonSerializer.Serialize(new
                 {
                     conditionId = condition.Id,
@@ -363,14 +417,79 @@ namespace FlowFlex.Application.Service.OW
                     actionCount = result.ActionResults?.Count ?? 0
                 });
 
+                // Build descriptive title with specific rule and action names
+                // Format: "Condition Met: t1 | Rules: Rule_3 ✓ | Actions: GoToStage ✓, SkipStage ✓, SendNotification ✗"
+                var statusText = result.IsConditionMet ? "Met" : "Not Met";
+                
+                // Build rules summary (show successful rules for Met, failed rules for Not Met)
+                var rulesSummary = "";
+                if (successfulRules.Any())
+                {
+                    rulesSummary = string.Join(", ", successfulRules.Take(3).Select(r => $"{r} ✓"));
+                    if (successfulRules.Count > 3)
+                    {
+                        rulesSummary += $" +{successfulRules.Count - 3}";
+                    }
+                }
+                
+                // Build actions summary with status indicators
+                var actionsSummary = "";
+                if (result.ActionResults != null && result.ActionResults.Any())
+                {
+                    var actionParts = result.ActionResults
+                        .OrderBy(a => a.Order)
+                        .Take(4)
+                        .Select(a => $"{a.ActionType} {(a.Success ? "✓" : "✗")}");
+                    actionsSummary = string.Join(", ", actionParts);
+                    if (result.ActionResults.Count > 4)
+                    {
+                        actionsSummary += $" +{result.ActionResults.Count - 4}";
+                    }
+                }
+
+                // Build operationTitle
+                var titleParts = new List<string> { $"Condition {statusText}: {condition.Name}" };
+                if (!string.IsNullOrEmpty(rulesSummary))
+                {
+                    titleParts.Add($"Rules: {rulesSummary}");
+                }
+                if (!string.IsNullOrEmpty(actionsSummary))
+                {
+                    titleParts.Add($"Actions: {actionsSummary}");
+                }
+                var operationTitle = string.Join(" | ", titleParts);
+                
+                // Build detailed description
+                var descParts = new List<string>();
+                descParts.Add($"Condition '{condition.Name}' evaluated: {statusText}");
+                
+                if (successfulRules.Any())
+                {
+                    descParts.Add($"Passed rules: {string.Join(", ", successfulRules)}");
+                }
+                if (failedRules.Any())
+                {
+                    descParts.Add($"Failed rules: {string.Join(", ", failedRules)}");
+                }
+                if (successfulActions.Any())
+                {
+                    descParts.Add($"Executed actions: {string.Join(", ", successfulActions)}");
+                }
+                if (failedActions.Any())
+                {
+                    descParts.Add($"Failed actions: {string.Join(", ", failedActions)}");
+                }
+                
+                var operationDescription = string.Join(". ", descParts);
+
                 await changeLogService.LogOperationAsync(
                     operationType: Domain.Shared.Enums.OW.OperationTypeEnum.StageConditionEvaluate,
                     businessModule: Domain.Shared.Enums.OW.BusinessModuleEnum.StageCondition,
                     businessId: condition.Id,
                     onboardingId: onboardingId,
                     stageId: stageId,
-                    operationTitle: $"Condition Evaluated: {condition.Name}",
-                    operationDescription: $"Condition '{condition.Name}' evaluated: {(result.IsConditionMet ? "Met" : "Not Met")}",
+                    operationTitle: operationTitle,
+                    operationDescription: operationDescription,
                     extendedData: extendedData
                 );
             }
@@ -433,8 +552,8 @@ namespace FlowFlex.Application.Service.OW
                     fileNames = attachmentData.FileNames
                 };
 
-                // Add fields data (dynamic data from onboarding)
-                inputDict["fields"] = fieldsData;
+                // Add fields data (dynamic data from onboarding) - use SafeFieldsDictionary for safe access
+                inputDict["fields"] = SafeFieldsDictionary.FromDictionary(fieldsData);
 
                 return input;
             }
@@ -800,9 +919,11 @@ namespace FlowFlex.Application.Service.OW
                     var expression = BuildExpressionFromFrontendRule(rule);
                     if (!string.IsNullOrEmpty(expression))
                     {
+                        // Use descriptive rule name based on field path
+                        var ruleName = GetDescriptiveRuleName(rule, ruleIndex);
                         rulesEngineRules.Add(new RulesEngine.Models.Rule
                         {
-                            RuleName = $"Rule{ruleIndex}",
+                            RuleName = ruleName,
                             Expression = expression,
                             SuccessEvent = "true"
                         });
@@ -811,20 +932,8 @@ namespace FlowFlex.Application.Service.OW
                     }
                 }
 
-                // If logic is OR, combine all rules into one with OR operator
-                if (frontendRules.Logic?.ToUpper() == "OR" && rulesEngineRules.Count > 1)
-                {
-                    var combinedExpression = string.Join(" || ", expressions.Select(e => $"({e})"));
-                    rulesEngineRules = new List<RulesEngine.Models.Rule>
-                    {
-                        new RulesEngine.Models.Rule
-                        {
-                            RuleName = "CombinedOrRule",
-                            Expression = combinedExpression,
-                            SuccessEvent = "true"
-                        }
-                    };
-                }
+                // Keep all rules separate for detailed results
+                // The evaluation logic will handle OR/AND based on frontendRules.Logic
 
                 var workflow = new RulesEngine.Models.Workflow
                 {
@@ -851,7 +960,10 @@ namespace FlowFlex.Application.Service.OW
                 return null;
             }
 
-            // Get the value representation
+            // Convert input.fields.xxx to input.fields["xxx"] for numeric field IDs
+            var fieldPath = ConvertFieldPathToDictionaryAccess(rule.FieldPath);
+
+            // Get the value representation - escape special characters for expression parser
             string valueStr;
             if (rule.Value == null)
             {
@@ -859,7 +971,11 @@ namespace FlowFlex.Application.Service.OW
             }
             else if (rule.Value is string strValue)
             {
-                valueStr = $"\"{strValue}\"";
+                // Escape backslashes and quotes, then wrap in quotes
+                var escaped = strValue
+                    .Replace("\\", "\\\\")
+                    .Replace("\"", "\\\"");
+                valueStr = $"\"{escaped}\"";
             }
             else if (rule.Value is bool boolValue)
             {
@@ -878,17 +994,17 @@ namespace FlowFlex.Application.Service.OW
             {
                 // CompleteTask: check if task isCompleted == true
                 // fieldPath already points to .isCompleted
-                return $"{rule.FieldPath} == true";
+                return $"{fieldPath} == true";
             }
             else if (operatorLower == "completestage")
             {
                 // CompleteStage: check if the specified task/field is completed
                 // If fieldPath points to a specific task's isCompleted, use it
                 // Otherwise, check the overall checklist status
-                if (!string.IsNullOrEmpty(rule.FieldPath) && rule.FieldPath.Contains(".isCompleted"))
+                if (!string.IsNullOrEmpty(fieldPath) && fieldPath.Contains(".isCompleted"))
                 {
                     // fieldPath points to a specific task's isCompleted property
-                    return $"{rule.FieldPath} == true";
+                    return $"{fieldPath} == true";
                 }
                 else
                 {
@@ -905,10 +1021,10 @@ namespace FlowFlex.Application.Service.OW
                 "<" or "lt" => "<",
                 ">=" or "gte" => ">=",
                 "<=" or "lte" => "<=",
-                "contains" => ".Contains",
-                "notcontains" => "!.Contains",
-                "startswith" => ".StartsWith",
-                "endswith" => ".EndsWith",
+                "contains" => "Contains",
+                "notcontains" => "NotContains",
+                "startswith" => "StartsWith",
+                "endswith" => "EndsWith",
                 "isnull" => "== null",
                 "isnotnull" => "!= null",
                 "isempty" => "IsEmpty",
@@ -919,33 +1035,149 @@ namespace FlowFlex.Application.Service.OW
             };
 
             // Build expression based on operator type
-            if (op == ".Contains" || op == ".StartsWith" || op == ".EndsWith")
+            // Handle null values safely - if field is null, comparison should return false (except for null checks)
+            var fieldPathStr = $"(np({fieldPath}) == null ? \"\" : np({fieldPath}).ToString())";
+            
+            if (op == "Contains")
             {
-                return $"{rule.FieldPath}{op}({valueStr})";
+                return $"(np({fieldPath}) != null && np({fieldPath}).ToString().Contains({valueStr}))";
             }
-            else if (op == "!.Contains")
+            else if (op == "NotContains")
             {
-                return $"!{rule.FieldPath}.Contains({valueStr})";
+                return $"(np({fieldPath}) == null || !np({fieldPath}).ToString().Contains({valueStr}))";
             }
-            else if (op == "== null" || op == "!= null")
+            else if (op == "StartsWith")
             {
-                return $"{rule.FieldPath} {op}";
+                return $"(np({fieldPath}) != null && np({fieldPath}).ToString().StartsWith({valueStr}))";
             }
-            else if (op == "IsEmpty" || op == "!IsEmpty")
+            else if (op == "EndsWith")
             {
-                var prefix = op.StartsWith("!") ? "!" : "";
-                return $"{prefix}RuleUtils.IsEmpty({rule.FieldPath})";
+                return $"(np({fieldPath}) != null && np({fieldPath}).ToString().EndsWith({valueStr}))";
+            }
+            else if (op == "== null")
+            {
+                return $"np({fieldPath}) == null";
+            }
+            else if (op == "!= null")
+            {
+                return $"np({fieldPath}) != null";
+            }
+            else if (op == "IsEmpty")
+            {
+                return $"(np({fieldPath}) == null || string.IsNullOrWhiteSpace(np({fieldPath}).ToString()))";
+            }
+            else if (op == "!IsEmpty")
+            {
+                return $"(np({fieldPath}) != null && !string.IsNullOrWhiteSpace(np({fieldPath}).ToString()))";
             }
             else if (op == "InList" || op == "!InList")
             {
                 // InList: check if value is in a comma-separated list
                 var prefix = op.StartsWith("!") ? "!" : "";
-                return $"{prefix}RuleUtils.InList({rule.FieldPath}, {valueStr})";
+                return $"(np({fieldPath}) != null && {prefix}{valueStr}.Contains(np({fieldPath}).ToString()))";
+            }
+            else if (op == ">" || op == "<" || op == ">=" || op == "<=")
+            {
+                // For numeric comparison - use Convert.ToDouble for simpler expression
+                // If field is null or not a number, the comparison will fail gracefully
+                return $"(np({fieldPath}) != null && double.Parse(np({fieldPath}).ToString()) {op} double.Parse({valueStr}))";
+            }
+            else if (op == "==")
+            {
+                // For equality - null field equals empty string or null value
+                return $"(np({fieldPath}) == null ? {valueStr} == \"\" : np({fieldPath}).ToString() == {valueStr})";
+            }
+            else if (op == "!=")
+            {
+                // For inequality
+                return $"(np({fieldPath}) == null ? {valueStr} != \"\" : np({fieldPath}).ToString() != {valueStr})";
             }
             else
             {
-                return $"{rule.FieldPath} {op} {valueStr}";
+                // Default to equality comparison
+                return $"(np({fieldPath}) == null ? {valueStr} == \"\" : np({fieldPath}).ToString() == {valueStr})";
             }
+        }
+
+        /// <summary>
+        /// Generate descriptive rule name based on field path and operator
+        /// </summary>
+        private string GetDescriptiveRuleName(FrontendRule rule, int index)
+        {
+            var componentType = rule.ComponentType?.ToLower() ?? "unknown";
+            var op = rule.Operator?.ToLower() ?? "eq";
+            
+            // Extract meaningful identifier from field path
+            var fieldId = ExtractFieldIdFromPath(rule.FieldPath);
+            
+            // Build descriptive name
+            var name = componentType switch
+            {
+                "field" or "fields" => $"Field_{fieldId}_{op}",
+                "questionnaire" => $"Question_{fieldId}_{op}",
+                "checklist" => $"Task_{fieldId}_{op}",
+                "attachment" => $"Attachment_{fieldId}_{op}",
+                _ => $"Rule_{index}_{componentType}_{op}"
+            };
+
+            return name;
+        }
+
+        /// <summary>
+        /// Extract field/question/task ID from field path
+        /// </summary>
+        private string ExtractFieldIdFromPath(string fieldPath)
+        {
+            if (string.IsNullOrEmpty(fieldPath))
+            {
+                return "unknown";
+            }
+
+            // Try to extract numeric ID from various path formats
+            // e.g., input.fields["2006236814662307840"] -> 2006236814662307840
+            // e.g., input.questionnaire.answers["123"]["456"] -> 456
+            // e.g., input.checklist.tasks["123"]["456"].isCompleted -> 456
+            
+            var matches = System.Text.RegularExpressions.Regex.Matches(fieldPath, @"\[""(\d+)""\]");
+            if (matches.Count > 0)
+            {
+                // Return the last numeric ID (most specific)
+                var lastMatch = matches[matches.Count - 1];
+                var id = lastMatch.Groups[1].Value;
+                // Truncate long IDs for readability
+                return id.Length > 8 ? id.Substring(id.Length - 8) : id;
+            }
+
+            // Try to extract from dot notation: input.fields.123456
+            var dotMatch = System.Text.RegularExpressions.Regex.Match(fieldPath, @"\.(\d+)(?:\.|$)");
+            if (dotMatch.Success)
+            {
+                var id = dotMatch.Groups[1].Value;
+                return id.Length > 8 ? id.Substring(id.Length - 8) : id;
+            }
+
+            return "unknown";
+        }
+
+        /// <summary>
+        /// Convert field path with numeric identifiers to dictionary access syntax
+        /// e.g., input.fields.2006236814662307840 -> input.fields["2006236814662307840"]
+        /// </summary>
+        private string ConvertFieldPathToDictionaryAccess(string fieldPath)
+        {
+            if (string.IsNullOrEmpty(fieldPath))
+            {
+                return fieldPath;
+            }
+
+            // Pattern: input.fields.{numericId} -> input.fields["{numericId}"]
+            var pattern = @"input\.fields\.(\d+)";
+            var result = System.Text.RegularExpressions.Regex.Replace(
+                fieldPath, 
+                pattern, 
+                "input.fields[\"$1\"]");
+
+            return result;
         }
 
         /// <summary>

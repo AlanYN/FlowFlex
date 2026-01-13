@@ -125,6 +125,51 @@ namespace FlowFlex.Application.Service.OW
     }
 
     /// <summary>
+    /// Safe dictionary for fields: returns null for missing keys instead of throwing KeyNotFoundException.
+    /// </summary>
+    public class SafeFieldsDictionary
+    {
+        private readonly Dictionary<string, object> _data = new Dictionary<string, object>();
+
+        /// <summary>
+        /// Gets the value associated with the specified key, or null if the key doesn't exist.
+        /// </summary>
+        public object this[string key]
+        {
+            get
+            {
+                if (_data.TryGetValue(key, out var value))
+                {
+                    return value;
+                }
+                // Return null for missing keys instead of throwing exception
+                return null;
+            }
+            set => _data[key] = value;
+        }
+
+        public bool ContainsKey(string key) => _data.ContainsKey(key);
+        public int Count => _data.Count;
+        public IEnumerable<string> Keys => _data.Keys;
+
+        /// <summary>
+        /// Create SafeFieldsDictionary from a regular dictionary
+        /// </summary>
+        public static SafeFieldsDictionary FromDictionary(Dictionary<string, object> source)
+        {
+            var result = new SafeFieldsDictionary();
+            if (source != null)
+            {
+                foreach (var kvp in source)
+                {
+                    result._data[kvp.Key] = kvp.Value;
+                }
+            }
+            return result;
+        }
+    }
+
+    /// <summary>
     /// Custom utility functions for RulesEngine expressions
     /// </summary>
     public static class RuleUtils
@@ -295,6 +340,90 @@ namespace FlowFlex.Application.Service.OW
         public static decimal Round(decimal value, int decimals = 0)
         {
             return Math.Round(value, decimals);
+        }
+
+        /// <summary>
+        /// Compare two values (supports object types from dictionary)
+        /// Returns: -1 if left < right, 0 if equal, 1 if left > right
+        /// </summary>
+        public static int Compare(object? left, object? right)
+        {
+            if (left == null && right == null) return 0;
+            if (left == null) return -1;
+            if (right == null) return 1;
+
+            var leftStr = left.ToString();
+            var rightStr = right.ToString();
+
+            // Try numeric comparison first
+            if (decimal.TryParse(leftStr, out var leftNum) && decimal.TryParse(rightStr, out var rightNum))
+            {
+                return leftNum.CompareTo(rightNum);
+            }
+
+            // Fall back to string comparison
+            return string.Compare(leftStr, rightStr, StringComparison.OrdinalIgnoreCase);
+        }
+
+        /// <summary>
+        /// Check if left > right (supports object types)
+        /// </summary>
+        public static bool GreaterThan(object? left, object? right)
+        {
+            return Compare(left, right) > 0;
+        }
+
+        /// <summary>
+        /// Check if left >= right (supports object types)
+        /// </summary>
+        public static bool GreaterThanOrEqual(object? left, object? right)
+        {
+            return Compare(left, right) >= 0;
+        }
+
+        /// <summary>
+        /// Check if left < right (supports object types)
+        /// </summary>
+        public static bool LessThan(object? left, object? right)
+        {
+            return Compare(left, right) < 0;
+        }
+
+        /// <summary>
+        /// Check if left <= right (supports object types)
+        /// </summary>
+        public static bool LessThanOrEqual(object? left, object? right)
+        {
+            return Compare(left, right) <= 0;
+        }
+
+        /// <summary>
+        /// Check if two values are equal (supports object types)
+        /// </summary>
+        public static bool Equals(object? left, object? right)
+        {
+            if (left == null && right == null) return true;
+            if (left == null || right == null) return false;
+
+            var leftStr = left.ToString();
+            var rightStr = right.ToString();
+
+            // Try numeric comparison first
+            if (decimal.TryParse(leftStr, out var leftNum) && decimal.TryParse(rightStr, out var rightNum))
+            {
+                return leftNum == rightNum;
+            }
+
+            // Fall back to string comparison
+            return string.Equals(leftStr, rightStr, StringComparison.OrdinalIgnoreCase);
+        }
+
+        /// <summary>
+        /// Check if two values are not equal (supports object types)
+        /// </summary>
+        public static bool NotEquals(object? left, object? right)
+        {
+            return !Equals(left, right);
         }
     }
 }

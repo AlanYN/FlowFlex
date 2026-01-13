@@ -6,6 +6,7 @@ using System.Net;
 using System.Threading.Tasks;
 using FlowFlex.Application.Contracts.Dtos.OW.StageCondition;
 using FlowFlex.Application.Contracts.IServices.OW;
+using FlowFlex.Application.Contracts.IServices;
 using FlowFlex.WebApi.Filters;
 using Item.Internal.StandardApi.Response;
 using FlowFlex.Domain.Shared.Const;
@@ -25,15 +26,21 @@ namespace FlowFlex.WebApi.Controllers.OW
         private readonly IStageConditionService _conditionService;
         private readonly IComponentDataService _componentDataService;
         private readonly IRulesEngineService _rulesEngineService;
+        private readonly IConditionActionExecutor _actionExecutor;
+        private readonly IOperationChangeLogService _changeLogService;
 
         public StageConditionController(
             IStageConditionService conditionService,
             IComponentDataService componentDataService,
-            IRulesEngineService rulesEngineService)
+            IRulesEngineService rulesEngineService,
+            IConditionActionExecutor actionExecutor,
+            IOperationChangeLogService changeLogService)
         {
             _conditionService = conditionService;
             _componentDataService = componentDataService;
             _rulesEngineService = rulesEngineService;
+            _actionExecutor = actionExecutor;
+            _changeLogService = changeLogService;
         }
 
         #region CRUD Operations
@@ -171,18 +178,39 @@ namespace FlowFlex.WebApi.Controllers.OW
         }
 
         /// <summary>
-        /// Evaluate stage condition by onboarding ID and stage ID
+        /// Evaluate stage condition by onboarding ID and stage ID (evaluation only, no action execution)
         /// Requires CASE:READ permission
         /// </summary>
         /// <param name="onboardingId">Onboarding ID</param>
         /// <param name="stageId">Stage ID to evaluate condition for</param>
-        /// <returns>Condition evaluation result</returns>
+        /// <returns>Condition evaluation result with rule details</returns>
         [HttpPost("evaluate/by-onboarding/{onboardingId}/stage/{stageId}")]
         [WFEAuthorize(PermissionConsts.Case.Read)]
         [ProducesResponseType<SuccessResponse<ConditionEvaluationResult>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> EvaluateConditionByOnboardingId(long onboardingId, long stageId)
         {
             var result = await _rulesEngineService.EvaluateConditionAsync(onboardingId, stageId);
+            return Success(result);
+        }
+
+        /// <summary>
+        /// Evaluate stage condition and execute actions if condition is met
+        /// Returns detailed results for each rule and action execution
+        /// Requires CASE:UPDATE permission
+        /// </summary>
+        /// <param name="onboardingId">Onboarding ID</param>
+        /// <param name="stageId">Stage ID to evaluate condition for</param>
+        /// <returns>Condition evaluation result with rule and action execution details</returns>
+        [HttpPost("evaluate-and-execute/by-onboarding/{onboardingId}/stage/{stageId}")]
+        [WFEAuthorize(PermissionConsts.Case.Update)]
+        [ProducesResponseType<SuccessResponse<ConditionEvaluationResult>>((int)HttpStatusCode.OK)]
+        public async Task<IActionResult> EvaluateAndExecuteByOnboardingId(long onboardingId, long stageId)
+        {
+            var result = await _rulesEngineService.EvaluateAndExecuteWithTransactionAsync(
+                onboardingId, 
+                stageId, 
+                _actionExecutor, 
+                _changeLogService);
             return Success(result);
         }
 

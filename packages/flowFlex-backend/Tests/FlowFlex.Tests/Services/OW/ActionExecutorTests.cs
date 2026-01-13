@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using FlowFlex.Application.Contracts.Dtos.OW.StageCondition;
+using FlowFlex.Application.Contracts.IServices.OW;
 using FlowFlex.Application.Service.OW;
 using FlowFlex.Domain.Entities.OW;
 using FlowFlex.Domain.Repository.OW;
@@ -26,6 +27,8 @@ namespace FlowFlex.Tests.Services.OW
         private readonly Mock<ISqlSugarClient> _mockDb;
         private readonly Mock<IStageRepository> _mockStageRepository;
         private readonly Mock<IOnboardingRepository> _mockOnboardingRepository;
+        private readonly Mock<IEmailService> _mockEmailService;
+        private readonly Mock<IUserService> _mockUserService;
         private readonly Mock<ILogger<ConditionActionExecutor>> _mockLogger;
         private readonly UserContext _userContext;
         private readonly ConditionActionExecutor _executor;
@@ -35,14 +38,29 @@ namespace FlowFlex.Tests.Services.OW
             _mockDb = new Mock<ISqlSugarClient>();
             _mockStageRepository = MockHelper.CreateMockStageRepository();
             _mockOnboardingRepository = MockHelper.CreateMockOnboardingRepository();
+            _mockEmailService = new Mock<IEmailService>();
+            _mockUserService = new Mock<IUserService>();
             _mockLogger = MockHelper.CreateMockLogger<ConditionActionExecutor>();
 
             _userContext = TestDataBuilder.CreateUserContext(TestDataBuilder.DefaultUserId);
+
+            // Setup default email service mock
+            _mockEmailService.Setup(e => e.SendStageCompletedNotificationAsync(
+                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(),
+                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(),
+                It.IsAny<string>(), It.IsAny<string>()))
+                .ReturnsAsync(true);
+
+            // Setup default user service mock
+            _mockUserService.Setup(u => u.GetUsersByIdsAsync(It.IsAny<List<long>>(), It.IsAny<string>()))
+                .ReturnsAsync(new List<Application.Contracts.Dtos.OW.User.UserDto>());
 
             _executor = new ConditionActionExecutor(
                 _mockDb.Object,
                 _mockStageRepository.Object,
                 _mockOnboardingRepository.Object,
+                _mockEmailService.Object,
+                _mockUserService.Object,
                 _userContext,
                 _mockLogger.Object);
         }

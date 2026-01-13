@@ -23,6 +23,8 @@ namespace FlowFlex.Application.Service.OW
         private readonly ISqlSugarClient _db;
         private readonly IStageRepository _stageRepository;
         private readonly IOnboardingRepository _onboardingRepository;
+        private readonly IEmailService _emailService;
+        private readonly IUserService _userService;
         private readonly UserContext _userContext;
         private readonly ILogger<ConditionActionExecutor> _logger;
 
@@ -30,12 +32,16 @@ namespace FlowFlex.Application.Service.OW
             ISqlSugarClient db,
             IStageRepository stageRepository,
             IOnboardingRepository onboardingRepository,
+            IEmailService emailService,
+            IUserService userService,
             UserContext userContext,
             ILogger<ConditionActionExecutor> logger)
         {
             _db = db;
             _stageRepository = stageRepository;
             _onboardingRepository = onboardingRepository;
+            _emailService = emailService;
+            _userService = userService;
             _userContext = userContext;
             _logger = logger;
         }
@@ -49,8 +55,20 @@ namespace FlowFlex.Application.Service.OW
 
             try
             {
-                // Parse actions JSON
-                var actions = JsonConvert.DeserializeObject<List<ConditionAction>>(actionsJson);
+                _logger.LogDebug("Parsing actionsJson: {ActionsJson}", actionsJson);
+                
+                // Parse actions JSON with settings to handle various formats
+                var settings = new JsonSerializerSettings
+                {
+                    Error = (sender, args) =>
+                    {
+                        _logger.LogWarning("JSON deserialization error at path {Path}: {Error}", 
+                            args.ErrorContext.Path, args.ErrorContext.Error.Message);
+                        args.ErrorContext.Handled = true;
+                    }
+                };
+                
+                var actions = JsonConvert.DeserializeObject<List<ConditionAction>>(actionsJson, settings);
                 
                 if (actions == null || actions.Count == 0)
                 {
@@ -352,21 +370,150 @@ namespace FlowFlex.Application.Service.OW
 
             try
             {
-                // TODO: Integrate with notification service
-                // For now, just log the notification request
-                _logger.LogInformation("SendNotification requested: RecipientType={RecipientType}, RecipientId={RecipientId}, TemplateId={TemplateId}",
-                    action.RecipientType, action.RecipientId, action.TemplateId);
+                // Get recipient info from action or parameters
+                var recipientType = action.RecipientType;
+                var recipientId = action.RecipientId;
+                var templateId = action.TemplateId;
 
-                result.Success = true;
-                result.ResultData["recipientType"] = action.RecipientType ?? string.Empty;
-                result.ResultData["recipientId"] = action.RecipientId ?? string.Empty;
-                result.ResultData["templateId"] = action.TemplateId ?? string.Empty;
-                result.ResultData["status"] = "Queued";
+                // Try to get from parameters if not set at top level
+                if (action.Parameters != null)
+                {
+                    if (string.IsNullOrEmpty(recipientType) && action.Parameters.TryGetValue("recipientType", out var typeObj))
+                    {
+                        recipientType = typeObj?.ToString();
+                    }
+                    if (string.IsNullOrEmpty(recipientId) && action.Parameters.TryGetValue("recipientId", out var idObj))
+                    {
+                        recipientId = idObj?.ToString();
+                    }
+                    if (string.IsNullOrEmpty(templateId) && action.Parameters.TryGetValue("templateId", out var templateObj))
+                    {
+                        templateId = templateObj?.ToString();
+                    }
+                }
+
+                if (string.IsNullOrEmpty(recipientId))
+                {
+                    result.Success = false;
+                    result.ErrorMessage = "RecipientId is required for SendNotification action";
+                    return result;
+                }
+
+                // Get recipient email based on recipientType
+                string recipientEmail = null;
+                string recipientName = null;
+
+                if (recipientType?.ToLower() == "user")
+                {
+                    // Get user email using UserService (supports IDM integration)
+                    if (long.TryParse(recipientId, out var userId))
+                    {
+                        var users = await _userService.GetUsersByIdsAsync(new List<long> { userId }, context.TenantId);
+                        var user = users?.FirstOrDefault();
+
+                        if (user != null && !string.IsNullOrWhiteSpace(user.Email))
+                        {
+                            recipientEmail = user.Email;
+                            recipientName = user.Username ?? user.Email;
+                            _logger.LogDebug("Found user {UserId} with email {Email} via UserService", userId, recipientEmail);
+                        }
+                        else
+                        {
+                            _logger.LogWarning("User {UserId} not found or has no email via UserService", userId);
+                        }
+                    }
+                }
+                else if (recipientType?.ToLower() == "email")
+                {
+                    // recipientId is the email address directly
+                    recipientEmail = recipientId;
+                    recipientName = recipientId;
+                }
+
+                if (string.IsNullOrEmpty(recipientEmail))
+                {
+                    result.Success = false;
+                    result.ErrorMessage = $"Could not find email for recipient: {recipientType}={recipientId}";
+                    return result;
+                }
+
+                // Get onboarding info for email content
+                var onboarding = await _onboardingRepository.GetByIdWithoutTenantFilterAsync(context.OnboardingId);
+                var stage = await _stageRepository.GetByIdAsync(context.StageId);
+
+                var caseName = onboarding?.CaseName ?? $"Case #{context.OnboardingId}";
+                var stageName = stage?.Name ?? "Current Stage";
+                
+                // Get next stage name - try to find the stage after current one
+                var nextStageName = "Next Stage";
+                if (stage != null && onboarding != null)
+                {
+                    // First check if onboarding has a current stage (might have been updated by GoToStage action)
+                    if (onboarding.CurrentStageId.HasValue && onboarding.CurrentStageId.Value != context.StageId)
+                    {
+                        var currentStage = await _stageRepository.GetByIdAsync(onboarding.CurrentStageId.Value);
+                        if (currentStage != null)
+                        {
+                            nextStageName = currentStage.Name;
+                        }
+                    }
+                    else
+                    {
+                        // Find the next stage by order
+                        var nextStage = await _db.Queryable<Stage>()
+                            .Where(s => s.WorkflowId == stage.WorkflowId && s.IsValid && s.IsActive)
+                            .Where(s => s.TenantId == onboarding.TenantId)
+                            .Where(s => s.Order > stage.Order)
+                            .OrderBy(s => s.Order)
+                            .FirstAsync();
+                        
+                        if (nextStage != null)
+                        {
+                            nextStageName = nextStage.Name;
+                        }
+                    }
+                }
+                
+                var completedBy = _userContext.UserName ?? "System";
+                var completionTime = DateTimeOffset.UtcNow.ToString("yyyy-MM-dd HH:mm:ss");
+                var caseUrl = $"/onboarding/{context.OnboardingId}";
+
+                // Send stage completed notification email
+                var emailSent = await _emailService.SendStageCompletedNotificationAsync(
+                    recipientEmail,
+                    context.OnboardingId.ToString(),
+                    caseName,
+                    stageName,
+                    nextStageName,
+                    completedBy,
+                    completionTime,
+                    caseUrl);
+
+                result.Success = emailSent;
+                result.ResultData["recipientType"] = recipientType ?? string.Empty;
+                result.ResultData["recipientId"] = recipientId ?? string.Empty;
+                result.ResultData["recipientEmail"] = recipientEmail;
+                result.ResultData["recipientName"] = recipientName ?? string.Empty;
+                result.ResultData["templateId"] = templateId ?? string.Empty;
+                result.ResultData["status"] = emailSent ? "Sent" : "Failed";
+
+                if (emailSent)
+                {
+                    _logger.LogInformation("SendNotification executed: Email sent to {RecipientEmail} for onboarding {OnboardingId}",
+                        recipientEmail, context.OnboardingId);
+                }
+                else
+                {
+                    result.ErrorMessage = "Failed to send email";
+                    _logger.LogWarning("SendNotification failed: Could not send email to {RecipientEmail} for onboarding {OnboardingId}",
+                        recipientEmail, context.OnboardingId);
+                }
             }
             catch (Exception ex)
             {
                 result.Success = false;
                 result.ErrorMessage = ex.Message;
+                _logger.LogError(ex, "Error executing SendNotification action");
             }
 
             return result;
@@ -451,79 +598,51 @@ namespace FlowFlex.Application.Service.OW
                     return result;
                 }
 
-                // Determine target stageId: use action.StageId if provided, otherwise use context.StageId
-                var targetStageId = stageId ?? context.StageId;
+                // All fields are stored in CustomFieldsJson
+                // For stage-specific fields, use key format: stage_{stageId}_{fieldKey}
+                var customFields = string.IsNullOrEmpty(onboarding.CustomFieldsJson)
+                    ? new Dictionary<string, object>()
+                    : JsonConvert.DeserializeObject<Dictionary<string, object>>(onboarding.CustomFieldsJson) ?? new Dictionary<string, object>();
 
-                // Update field in DynamicData (stage-specific) or CustomFieldsJson (onboarding-level)
+                string storageKey;
                 if (stageId.HasValue)
                 {
-                    // Update stage-specific field in DynamicData
-                    var dynamicData = string.IsNullOrEmpty(onboarding.DynamicData)
-                        ? new Dictionary<string, object>()
-                        : JsonConvert.DeserializeObject<Dictionary<string, object>>(onboarding.DynamicData) ?? new Dictionary<string, object>();
-
-                    var stageKey = stageId.Value.ToString();
-                    var stageData = dynamicData.ContainsKey(stageKey)
-                        ? JsonConvert.DeserializeObject<Dictionary<string, object>>(dynamicData[stageKey]?.ToString() ?? "{}") ?? new Dictionary<string, object>()
-                        : new Dictionary<string, object>();
-
-                    var oldValue = stageData.ContainsKey(fieldKey) ? stageData[fieldKey] : null;
-                    stageData[fieldKey] = fieldValue!;
-                    dynamicData[stageKey] = stageData;
-
-                    await _db.Updateable<Onboarding>()
-                        .SetColumns(o => new Onboarding
-                        {
-                            DynamicData = JsonConvert.SerializeObject(dynamicData),
-                            ModifyDate = DateTimeOffset.UtcNow,
-                            ModifyBy = _userContext.UserName ?? "SYSTEM"
-                        })
-                        .Where(o => o.Id == context.OnboardingId)
-                        .ExecuteCommandAsync();
-
-                    result.Success = true;
-                    result.ResultData["stageId"] = stageId.Value;
-                    result.ResultData["fieldId"] = fieldId ?? string.Empty;
-                    result.ResultData["fieldName"] = fieldName ?? string.Empty;
-                    result.ResultData["fieldKey"] = fieldKey;
-                    result.ResultData["oldValue"] = oldValue!;
-                    result.ResultData["newValue"] = fieldValue!;
-                    result.ResultData["location"] = "DynamicData";
-
-                    _logger.LogInformation("UpdateField executed: Onboarding {OnboardingId}, Stage {StageId}, Field {FieldKey} updated from {OldValue} to {NewValue}",
-                        context.OnboardingId, stageId.Value, fieldKey, oldValue, fieldValue);
+                    // Stage-specific field: use prefixed key
+                    storageKey = $"stage_{stageId.Value}_{fieldKey}";
                 }
                 else
                 {
-                    // Update onboarding-level field in CustomFieldsJson
-                    var customFields = string.IsNullOrEmpty(onboarding.CustomFieldsJson)
-                        ? new Dictionary<string, object>()
-                        : JsonConvert.DeserializeObject<Dictionary<string, object>>(onboarding.CustomFieldsJson) ?? new Dictionary<string, object>();
-
-                    var oldValue = customFields.ContainsKey(fieldKey) ? customFields[fieldKey] : null;
-                    customFields[fieldKey] = fieldValue!;
-
-                    await _db.Updateable<Onboarding>()
-                        .SetColumns(o => new Onboarding
-                        {
-                            CustomFieldsJson = JsonConvert.SerializeObject(customFields),
-                            ModifyDate = DateTimeOffset.UtcNow,
-                            ModifyBy = _userContext.UserName ?? "SYSTEM"
-                        })
-                        .Where(o => o.Id == context.OnboardingId)
-                        .ExecuteCommandAsync();
-
-                    result.Success = true;
-                    result.ResultData["fieldId"] = fieldId ?? string.Empty;
-                    result.ResultData["fieldName"] = fieldName ?? string.Empty;
-                    result.ResultData["fieldKey"] = fieldKey;
-                    result.ResultData["oldValue"] = oldValue!;
-                    result.ResultData["newValue"] = fieldValue!;
-                    result.ResultData["location"] = "CustomFieldsJson";
-
-                    _logger.LogInformation("UpdateField executed: Onboarding {OnboardingId}, Field {FieldKey} (id={FieldId}, name={FieldName}) updated from {OldValue} to {NewValue}",
-                        context.OnboardingId, fieldKey, fieldId, fieldName, oldValue, fieldValue);
+                    // Onboarding-level field: use fieldKey directly
+                    storageKey = fieldKey;
                 }
+
+                var oldValue = customFields.ContainsKey(storageKey) ? customFields[storageKey] : null;
+                customFields[storageKey] = fieldValue!;
+
+                await _db.Updateable<Onboarding>()
+                    .SetColumns(o => new Onboarding
+                    {
+                        CustomFieldsJson = JsonConvert.SerializeObject(customFields),
+                        ModifyDate = DateTimeOffset.UtcNow,
+                        ModifyBy = _userContext.UserName ?? "SYSTEM"
+                    })
+                    .Where(o => o.Id == context.OnboardingId)
+                    .ExecuteCommandAsync();
+
+                result.Success = true;
+                if (stageId.HasValue)
+                {
+                    result.ResultData["stageId"] = stageId.Value;
+                }
+                result.ResultData["fieldId"] = fieldId ?? string.Empty;
+                result.ResultData["fieldName"] = fieldName ?? string.Empty;
+                result.ResultData["fieldKey"] = fieldKey;
+                result.ResultData["storageKey"] = storageKey;
+                result.ResultData["oldValue"] = oldValue!;
+                result.ResultData["newValue"] = fieldValue!;
+
+                _logger.LogInformation("UpdateField executed: Onboarding {OnboardingId}, StorageKey {StorageKey}, Field {FieldKey} updated from {OldValue} to {NewValue}",
+                    context.OnboardingId, storageKey, fieldKey, oldValue, fieldValue);
             }
             catch (Exception ex)
             {
@@ -612,13 +731,75 @@ namespace FlowFlex.Application.Service.OW
 
                 if (action.Parameters.TryGetValue("assigneeIds", out var idsObj))
                 {
+                    _logger.LogDebug("AssignUser: assigneeIds raw value type={Type}, value={Value}", 
+                        idsObj?.GetType().FullName ?? "null", idsObj?.ToString() ?? "null");
+                    
                     if (idsObj is Newtonsoft.Json.Linq.JArray jArray)
                     {
                         assigneeIds = jArray.Select(x => x.ToString()).ToList();
+                        _logger.LogDebug("AssignUser: Parsed as JArray, count={Count}", assigneeIds.Count);
                     }
-                    else if (idsObj is IEnumerable<object> enumerable)
+                    else if (idsObj is Newtonsoft.Json.Linq.JToken jToken)
+                    {
+                        // Handle JToken (could be JArray or JValue)
+                        if (jToken.Type == Newtonsoft.Json.Linq.JTokenType.Array)
+                        {
+                            assigneeIds = jToken.ToObject<List<string>>() ?? new List<string>();
+                            _logger.LogDebug("AssignUser: Parsed JToken as array, count={Count}", assigneeIds.Count);
+                        }
+                        else
+                        {
+                            var val = jToken.ToString();
+                            if (!string.IsNullOrEmpty(val))
+                            {
+                                assigneeIds.Add(val);
+                            }
+                        }
+                    }
+                    else if (idsObj is List<object> objList)
+                    {
+                        assigneeIds = objList.Select(x => x?.ToString() ?? "").Where(x => !string.IsNullOrEmpty(x)).ToList();
+                        _logger.LogDebug("AssignUser: Parsed as List<object>, count={Count}", assigneeIds.Count);
+                    }
+                    else if (idsObj is IEnumerable<object> enumerable && !(idsObj is string))
                     {
                         assigneeIds = enumerable.Select(x => x?.ToString() ?? "").Where(x => !string.IsNullOrEmpty(x)).ToList();
+                        _logger.LogDebug("AssignUser: Parsed as IEnumerable, count={Count}", assigneeIds.Count);
+                    }
+                    else if (idsObj is string strValue)
+                    {
+                        _logger.LogDebug("AssignUser: assigneeIds is string: {Value}", strValue);
+                        // Handle case where assigneeIds is a JSON string array
+                        if (strValue.TrimStart().StartsWith("["))
+                        {
+                            try
+                            {
+                                var parsed = JsonConvert.DeserializeObject<List<string>>(strValue);
+                                if (parsed != null)
+                                {
+                                    assigneeIds = parsed;
+                                    _logger.LogDebug("AssignUser: Parsed JSON string as List, count={Count}", assigneeIds.Count);
+                                }
+                            }
+                            catch
+                            {
+                                assigneeIds.Add(strValue);
+                            }
+                        }
+                        else if (!string.IsNullOrEmpty(strValue))
+                        {
+                            assigneeIds.Add(strValue);
+                        }
+                    }
+                    else
+                    {
+                        _logger.LogWarning("AssignUser: Unhandled assigneeIds type: {Type}", idsObj?.GetType().FullName ?? "null");
+                        // Try to convert to string and add
+                        var strVal = idsObj?.ToString();
+                        if (!string.IsNullOrEmpty(strVal))
+                        {
+                            assigneeIds.Add(strVal);
+                        }
                     }
                 }
             }
@@ -659,9 +840,8 @@ namespace FlowFlex.Application.Service.OW
                 if (assigneeType == "user")
                 {
                     // Parse current ViewUsers list (JSONB array)
-                    var currentUsers = string.IsNullOrEmpty(onboarding.ViewUsers)
-                        ? new List<string>()
-                        : JsonConvert.DeserializeObject<List<string>>(onboarding.ViewUsers) ?? new List<string>();
+                    // Handle both normal JSON array and double-encoded string
+                    var currentUsers = ParseJsonStringArray(onboarding.ViewUsers);
 
                     // Add new users (avoid duplicates)
                     foreach (var id in assigneeIds)
@@ -675,9 +855,7 @@ namespace FlowFlex.Application.Service.OW
                     var newViewUsers = JsonConvert.SerializeObject(currentUsers);
 
                     // Also update OperateUsers
-                    var currentOperateUsers = string.IsNullOrEmpty(onboarding.OperateUsers)
-                        ? new List<string>()
-                        : JsonConvert.DeserializeObject<List<string>>(onboarding.OperateUsers) ?? new List<string>();
+                    var currentOperateUsers = ParseJsonStringArray(onboarding.OperateUsers);
 
                     foreach (var id in assigneeIds)
                     {
@@ -884,6 +1062,52 @@ namespace FlowFlex.Application.Service.OW
             {
                 _logger.LogError(ex, "Error marking skipped stages for onboarding {OnboardingId}", onboarding.Id);
             }
+        }
+
+        /// <summary>
+        /// Parse JSON string array, handling both normal and double-encoded formats
+        /// </summary>
+        private List<string> ParseJsonStringArray(string json)
+        {
+            if (string.IsNullOrEmpty(json))
+            {
+                return new List<string>();
+            }
+
+            try
+            {
+                // First try normal JSON array deserialization
+                var result = JsonConvert.DeserializeObject<List<string>>(json);
+                if (result != null)
+                {
+                    return result;
+                }
+            }
+            catch (JsonException)
+            {
+                // If normal parsing fails, try to handle double-encoded string
+                try
+                {
+                    // Check if it's a double-encoded JSON string (e.g., "\"[\\\"123\\\"]\"")
+                    var unescaped = JsonConvert.DeserializeObject<string>(json);
+                    if (!string.IsNullOrEmpty(unescaped))
+                    {
+                        var result = JsonConvert.DeserializeObject<List<string>>(unescaped);
+                        if (result != null)
+                        {
+                            return result;
+                        }
+                    }
+                }
+                catch
+                {
+                    // Ignore nested parsing errors
+                }
+            }
+
+            _logger.LogWarning("Failed to parse JSON string array: {Json}", 
+                json.Length > 100 ? json.Substring(0, 100) + "..." : json);
+            return new List<string>();
         }
 
         #endregion
