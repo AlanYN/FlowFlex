@@ -17,7 +17,7 @@ import {
 	updateCondition,
 	deleteCondition,
 } from '@/apis/ow';
-import { ElMessage } from 'element-plus';
+import { ElMessage, ElMessageBox } from 'element-plus';
 
 // ============ 常量定义 ============
 const STAGE_NODE_WIDTH = 280;
@@ -428,7 +428,17 @@ export const useWorkflowCanvasStore = defineStore({
 					this.hasUnsavedChanges = false;
 					return true;
 				} else {
-					ElMessage.error(res.msg || 'Failed to update condition');
+					res?.msg &&
+						ElMessageBox.confirm(res.msg, '⚠️ Save Condition Error', {
+							confirmButtonText: 'Confirm',
+							confirmButtonClass: 'danger-confirm-btn',
+							showCancelButton: false,
+							showConfirmButton: true,
+							beforeClose: async (action, instance, done) => {
+								done(); // 取消或关闭时直接关闭对话框
+							},
+						});
+
 					return false;
 				}
 			} catch (error: any) {

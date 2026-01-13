@@ -93,7 +93,7 @@
 
 <script setup lang="ts">
 import { ref, computed, reactive } from 'vue';
-import { ElMessage } from 'element-plus';
+import { ElMessage, ElMessageBox } from 'element-plus';
 import type { FormInstance, FormRules } from 'element-plus';
 import type { Stage } from '#/onboard';
 import type { StageCondition, RuleFormItem, ActionFormItem, FallbackConfig } from '#/condition';
@@ -311,7 +311,6 @@ const buildSubmitData = () => {
 // 处理保存
 const handleSave = async () => {
 	if (!formRef.value) return;
-
 	try {
 		// 表单验证
 		await formRef.value.validate();
@@ -349,6 +348,17 @@ const handleSave = async () => {
 			);
 			emit('save', res.data);
 			close();
+		} else {
+			res.msg &&
+				ElMessageBox.confirm(res.msg, '⚠️ Save Condition Error', {
+					confirmButtonText: 'Confirm',
+					confirmButtonClass: 'danger-confirm-btn',
+					showCancelButton: false,
+					showConfirmButton: true,
+					beforeClose: async (action, instance, done) => {
+						done(); // 取消或关闭时直接关闭对话框
+					},
+				});
 		}
 	} finally {
 		saving.value = false;
