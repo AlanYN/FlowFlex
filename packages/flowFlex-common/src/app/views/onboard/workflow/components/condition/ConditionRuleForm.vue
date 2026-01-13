@@ -1,98 +1,134 @@
 <template>
 	<div class="condition-rule-form">
-		<!-- 逻辑运算符选择 -->
-		<div class="logic-selector" v-if="modelValue.length > 1">
-			<span class="logic-label">Match</span>
-			<el-radio-group v-model="logicValue" size="small">
-				<el-radio-button value="AND">All (AND)</el-radio-button>
-				<el-radio-button value="OR">Any (OR)</el-radio-button>
-			</el-radio-group>
-			<span class="logic-hint">of the following rules</span>
-		</div>
-
-		<!-- 规则列表 -->
-		<div class="rules-list">
-			<div v-for="(rule, index) in modelValue" :key="index" class="rule-item">
-				<div class="rule-header">
-					<span class="rule-number">Rule {{ index + 1 }}</span>
-					<el-button
-						type="danger"
-						link
-						:disabled="modelValue.length <= 1"
-						@click="handleRemoveRule(index)"
-						:icon="Delete"
-					/>
+		<!-- Loading 骨架屏 -->
+		<template v-if="isLoading">
+			<div class="rules-list">
+				<div v-for="(_, index) in modelValue" :key="index" class="rule-item">
+					<div class="rule-header">
+						<el-skeleton :rows="0" animated style="width: 80px">
+							<template #template>
+								<el-skeleton-item variant="text" style="width: 80px" />
+							</template>
+						</el-skeleton>
+					</div>
+					<el-skeleton :rows="3" animated />
 				</div>
+			</div>
+		</template>
 
-				<!-- Select Component: 显示具体的问卷名称、checklist名称、或 Required Field -->
-				<el-form-item label="Select Component">
-					<el-select
-						v-model="ruleComponentKeys[index]"
-						placeholder="Select component"
-						@change="(val: string) => handleComponentChange(rule, val, index)"
+		<!-- 实际内容 -->
+		<template v-else>
+			<!-- 逻辑运算符选择 -->
+			<div class="logic-selector" v-if="modelValue.length > 1">
+				<span class="logic-label">Match</span>
+				<el-radio-group v-model="logicValue" size="small">
+					<el-radio-button value="AND">All (AND)</el-radio-button>
+					<el-radio-button value="OR">Any (OR)</el-radio-button>
+				</el-radio-group>
+				<span class="logic-hint">of the following rules</span>
+			</div>
+
+			<!-- 规则列表 -->
+			<div class="rules-list">
+				<div v-for="(rule, index) in modelValue" :key="index" class="rule-item">
+					<div class="rule-header">
+						<span class="rule-number">Rule {{ index + 1 }}</span>
+						<el-button
+							type="danger"
+							link
+							:disabled="modelValue.length <= 1"
+							@click="handleRemoveRule(index)"
+							:icon="Delete"
+						/>
+					</div>
+
+					<!-- Select Component: 显示具体的问卷名称、checklist名称、或 Required Field -->
+					<el-form-item label="Select Component">
+						<el-select
+							v-model="ruleComponentKeys[index]"
+							placeholder="Select component"
+							@change="(val: string) => handleComponentChange(rule, val, index)"
+						>
+							<el-option-group
+								v-for="group in componentOptionGroups"
+								:key="group.type"
+								:label="group.label"
+							>
+								<el-option
+									v-for="item in group.items"
+									:key="item.key"
+									:label="item.name"
+									:value="item.key"
+								/>
+							</el-option-group>
+						</el-select>
+					</el-form-item>
+
+					<!-- 第二级选择：问题/任务（字段类型不需要第二级选择） -->
+					<el-form-item
+						v-if="rule.componentType !== 'fields'"
+						:label="getFieldLabel(rule.componentType)"
 					>
-						<el-option-group
-							v-for="group in componentOptionGroups"
-							:key="group.type"
-							:label="group.label"
+						<el-select
+							v-model="rule.fieldPath"
+							placeholder="Select field"
+							:loading="loadingFields[index]"
+							@change="() => handleFieldChange(rule)"
 						>
 							<el-option
-								v-for="item in group.items"
-								:key="item.key"
-								:label="item.name"
-								:value="item.key"
+								v-for="field in ruleFieldOptions[index] || []"
+								:key="field.value"
+								:label="field.label"
+								:value="field.value"
 							/>
-						</el-option-group>
-					</el-select>
-				</el-form-item>
+						</el-select>
+					</el-form-item>
 
-				<!-- 第二级选择：问题/任务/字段 -->
-				<el-form-item :label="getFieldLabel(rule.componentType)">
-					<el-select
-						v-model="rule.fieldPath"
-						placeholder="Select field"
-						:loading="loadingFields[index]"
-						@change="() => handleFieldChange(rule)"
-					>
-						<el-option
-							v-for="field in ruleFieldOptions[index] || []"
-							:key="field.value"
-							:label="field.label"
-							:value="field.value"
-						/>
-					</el-select>
-				</el-form-item>
+					<!-- Operator (非 checklist 类型) -->
+					<el-form-item v-if="rule.componentType !== 'checklist'" label="Operator">
+						<el-select v-model="rule.operator" placeholder="Select operator">
+							<el-option
+								v-for="op in operators"
+								:key="op.value"
+								:label="op.label"
+								:value="op.value"
+							/>
+						</el-select>
+					</el-form-item>
 
-				<!-- Operator (非 checklist 类型) -->
-				<el-form-item v-if="rule.componentType !== 'checklist'" label="Operator">
-					<el-select v-model="rule.operator" placeholder="Select operator">
-						<el-option
-							v-for="op in operators"
-							:key="op.value"
-							:label="op.label"
-							:value="op.value"
-						/>
-					</el-select>
-				</el-form-item>
+					<!-- Checklist 专用 Operator -->
+					<el-form-item v-else label="Trigger When">
+						<el-select v-model="rule.operator" placeholder="Select trigger">
+							<el-option
+								v-for="op in checklistOperators"
+								:key="op.value"
+								:label="op.label"
+								:value="op.value"
+							/>
+						</el-select>
+					</el-form-item>
 
-				<!-- Checklist 专用 Operator -->
-				<el-form-item v-else label="Trigger When">
-					<el-select v-model="rule.operator" placeholder="Select trigger">
-						<el-option
-							v-for="op in checklistOperators"
-							:key="op.value"
-							:label="op.label"
-							:value="op.value"
-						/>
-					</el-select>
-				</el-form-item>
-
-				<!-- Value (非 checklist 类型) -->
-				<el-form-item v-if="rule.componentType !== 'checklist'" label="Value">
-					<el-input v-model="rule.value" placeholder="Enter value" />
-				</el-form-item>
+					<!-- Value (非 checklist 类型) -->
+					<el-form-item v-if="rule.componentType !== 'checklist'" label="Value">
+						<!-- 有固定选项的字段类型（下拉框、开关）使用下拉选择 -->
+						<el-select
+							v-if="hasFixedOptions(rule)"
+							v-model="rule.value"
+							placeholder="Select value"
+						>
+							<el-option
+								v-for="opt in getValueOptions(rule, index)"
+								:key="opt.value"
+								:label="opt.label"
+								:value="opt.value"
+							/>
+						</el-select>
+						<!-- 其他类型使用输入框 -->
+						<el-input v-else v-model="rule.value" placeholder="Enter value" />
+					</el-form-item>
+				</div>
 			</div>
-		</div>
+		</template>
 
 		<!-- 添加规则按钮 -->
 		<el-button type="primary" link @click="handleAddRule">
@@ -107,7 +143,8 @@ import { reactive, watch, onMounted, computed, ref } from 'vue';
 import { Plus, Delete } from '@element-plus/icons-vue';
 import type { RuleFormItem } from '#/condition';
 import type { Stage } from '#/onboard';
-import type { DynamicList } from '#/dynamic';
+import type { DynamicList, DynamicDropdownItem } from '#/dynamic';
+import { propertyTypeEnum } from '@/enums/appEnum';
 import { getQuestionnaireDetail } from '@/apis/ow/questionnaire';
 import { getChecklistDetail } from '@/apis/ow/checklist';
 import { batchIdsDynamicFields } from '@/apis/global/dyanmicField';
@@ -116,6 +153,12 @@ import { batchIdsDynamicFields } from '@/apis/global/dyanmicField';
 interface FieldOption {
 	label: string;
 	value: string; // expressionPath
+}
+
+// Value 选项接口
+interface ValueOption {
+	label: string;
+	value: string;
 }
 
 // 组件选项接口
@@ -189,6 +232,15 @@ const loadingFields = reactive<Record<number, boolean>>({});
 // 静态字段映射缓存
 const staticFieldsMap = ref<Map<string, DynamicList>>(new Map());
 
+// 每个规则的 Value 选项（用于下拉类型字段）
+const ruleValueOptions = reactive<Record<number, ValueOption[]>>({});
+
+// Loading 状态
+const loadingStaticFields = ref(false);
+
+// 整体 loading 状态
+const isLoading = computed(() => loadingStaticFields.value);
+
 // 获取当前 Stage
 const getCurrentStage = (): Stage | undefined => {
 	return props.stages[props.currentStageIndex];
@@ -202,7 +254,7 @@ const componentOptionGroups = computed<ComponentOptionGroup[]>(() => {
 	const groups: ComponentOptionGroup[] = [];
 	const questionnaireItems: ComponentOption[] = [];
 	const checklistItems: ComponentOption[] = [];
-	let hasFields = false;
+	const fieldItems: ComponentOption[] = [];
 
 	// 遍历所有组件，收集问卷、checklist 和静态字段
 	stage.components.forEach((comp) => {
@@ -229,7 +281,16 @@ const componentOptionGroups = computed<ComponentOptionGroup[]>(() => {
 				});
 			});
 		} else if (comp.key === 'fields' && comp.staticFields?.length) {
-			hasFields = true;
+			// 收集所有动态字段，显示具体字段名称
+			comp.staticFields.forEach((field) => {
+				const fieldInfo = staticFieldsMap.value.get(field.id);
+				fieldItems.push({
+					key: `field_${field.id}`,
+					type: 'fields' as const,
+					id: field.id,
+					name: fieldInfo?.displayName || field.id,
+				});
+			});
 		}
 	});
 
@@ -243,12 +304,12 @@ const componentOptionGroups = computed<ComponentOptionGroup[]>(() => {
 		groups.push({ type: 'checklist', label: 'Checklists', items: checklistItems });
 	}
 
-	// 添加静态字段组
-	if (hasFields) {
+	// 添加动态字段组
+	if (fieldItems.length > 0) {
 		groups.push({
 			type: 'fields',
 			label: 'Required Fields',
-			items: [{ key: 'fields', type: 'fields' as const, name: 'Required Field' }],
+			items: fieldItems,
 		});
 	}
 
@@ -270,6 +331,9 @@ const parseComponentKey = (key: string): { type: string; id?: string } => {
 	if (key === 'fields') {
 		return { type: 'fields' };
 	}
+	if (key.startsWith('field_')) {
+		return { type: 'fields', id: key.replace('field_', '') };
+	}
 	if (key.startsWith('questionnaire_')) {
 		return { type: 'questionnaires', id: key.replace('questionnaire_', '') };
 	}
@@ -282,6 +346,13 @@ const parseComponentKey = (key: string): { type: string; id?: string } => {
 // 根据rule生成组件key
 const generateComponentKey = (rule: RuleFormItem): string => {
 	if (rule.componentType === 'fields') {
+		// 从 fieldPath 中提取字段 ID: input.fields.{fieldId}
+		if (rule.fieldPath) {
+			const match = rule.fieldPath.match(/input\.fields\.(.+)/);
+			if (match) {
+				return `field_${match[1]}`;
+			}
+		}
 		return 'fields';
 	}
 	if (rule.componentType === 'questionnaires' && rule.componentId) {
@@ -291,6 +362,65 @@ const generateComponentKey = (rule: RuleFormItem): string => {
 		return `checklist_${rule.componentId}`;
 	}
 	return '';
+};
+
+// 从 fieldPath 中提取字段 ID
+const getFieldIdFromPath = (fieldPath: string): string | null => {
+	const match = fieldPath.match(/input\.fields\.(.+)/);
+	return match ? match[1] : null;
+};
+
+// 获取字段信息
+const getFieldInfo = (rule: RuleFormItem): DynamicList | undefined => {
+	if (rule.componentType !== 'fields') return undefined;
+	const fieldId = getFieldIdFromPath(rule.fieldPath);
+	if (!fieldId) return undefined;
+	return staticFieldsMap.value.get(fieldId);
+};
+
+// 判断字段是否有固定选项（下拉框、开关等）
+const hasFixedOptions = (rule: RuleFormItem): boolean => {
+	const fieldInfo = getFieldInfo(rule);
+	if (!fieldInfo) return false;
+	// DropdownSelect 或 Switch 类型有固定选项
+	return (
+		fieldInfo.dataType === propertyTypeEnum.DropdownSelect ||
+		fieldInfo.dataType === propertyTypeEnum.Switch
+	);
+};
+
+// 获取字段的值选项
+const getValueOptions = (rule: RuleFormItem, ruleIndex: number): ValueOption[] => {
+	// 如果已经缓存了选项，直接返回
+	if (ruleValueOptions[ruleIndex]?.length > 0) {
+		return ruleValueOptions[ruleIndex];
+	}
+
+	const fieldInfo = getFieldInfo(rule);
+	if (!fieldInfo) return [];
+
+	const options: ValueOption[] = [];
+
+	if (fieldInfo.dataType === propertyTypeEnum.DropdownSelect) {
+		// 下拉框类型，使用 dropdownItems
+		if (fieldInfo.dropdownItems?.length) {
+			fieldInfo.dropdownItems.forEach((item: DynamicDropdownItem) => {
+				options.push({
+					label: item.value,
+					value: item.value,
+				});
+			});
+		}
+	} else if (fieldInfo.dataType === propertyTypeEnum.Switch) {
+		// 开关类型，固定 Yes/No 选项
+		const trueLabel = fieldInfo.additionalInfo?.trueLabel || 'Yes';
+		const falseLabel = fieldInfo.additionalInfo?.falseLabel || 'No';
+		options.push({ label: trueLabel, value: 'true' }, { label: falseLabel, value: 'false' });
+	}
+
+	// 缓存选项
+	ruleValueOptions[ruleIndex] = options;
+	return options;
 };
 
 // 加载静态字段映射
@@ -308,6 +438,7 @@ const loadStaticFieldsMapping = async () => {
 
 	if (uncachedIds.length === 0) return;
 
+	loadingStaticFields.value = true;
 	try {
 		const res: any = await batchIdsDynamicFields({ ids: uncachedIds });
 		if (res.code === '200' && res.data) {
@@ -317,6 +448,8 @@ const loadStaticFieldsMapping = async () => {
 		}
 	} catch (error) {
 		console.error('Failed to load static fields mapping:', error);
+	} finally {
+		loadingStaticFields.value = false;
 	}
 };
 
@@ -387,29 +520,6 @@ const loadChecklistTasks = async (checklistId: string, ruleIndex: number) => {
 	}
 };
 
-// 加载静态字段选项
-const loadStaticFieldOptions = (ruleIndex: number) => {
-	const stage = getCurrentStage();
-	if (!stage?.components) {
-		ruleFieldOptions[ruleIndex] = [];
-		return;
-	}
-
-	const fieldsComponent = stage.components.find((c) => c.key === 'fields');
-	if (!fieldsComponent?.staticFields?.length) {
-		ruleFieldOptions[ruleIndex] = [];
-		return;
-	}
-
-	ruleFieldOptions[ruleIndex] = fieldsComponent.staticFields.map((field) => {
-		const fieldInfo = staticFieldsMap.value.get(field.id);
-		return {
-			label: fieldInfo?.displayName || field.id,
-			value: `input.fields.${field.id}`,
-		};
-	});
-};
-
 // 处理组件选择变化
 const handleComponentChange = (rule: RuleFormItem, componentKey: string, ruleIndex: number) => {
 	const { type, id } = parseComponentKey(componentKey);
@@ -418,6 +528,7 @@ const handleComponentChange = (rule: RuleFormItem, componentKey: string, ruleInd
 	rule.componentId = id;
 	rule.fieldPath = '';
 	ruleFieldOptions[ruleIndex] = [];
+	ruleValueOptions[ruleIndex] = []; // 清空值选项
 
 	// Checklist 类型设置默认 operator 并清空 value
 	if (type === 'checklist') {
@@ -430,7 +541,14 @@ const handleComponentChange = (rule: RuleFormItem, componentKey: string, ruleInd
 
 	// 根据类型加载对应的字段选项
 	if (type === 'fields') {
-		loadStaticFieldOptions(ruleIndex);
+		// 选择具体字段时，直接设置 fieldPath
+		if (id) {
+			rule.fieldPath = `input.fields.${id}`;
+			// 字段类型不需要第二级选择，清空选项
+			ruleFieldOptions[ruleIndex] = [];
+			// 预加载值选项
+			getValueOptions(rule, ruleIndex);
+		}
 	} else if (type === 'questionnaires' && id) {
 		loadQuestionnaireQuestions(id, ruleIndex);
 	} else if (type === 'checklist' && id) {
@@ -454,9 +572,10 @@ const handleAddRule = () => {
 	const stage = getCurrentStage();
 
 	// 获取第一个可用的组件选项
-	let defaultKey = 'fields';
+	let defaultKey = '';
 	let defaultType: 'questionnaires' | 'checklist' | 'fields' = 'fields';
 	let defaultId: string | undefined;
+	let defaultFieldPath = '';
 
 	if (componentOptionGroups.value.length > 0) {
 		const firstGroup = componentOptionGroups.value[0];
@@ -465,6 +584,10 @@ const handleAddRule = () => {
 			defaultKey = firstItem.key;
 			defaultType = firstItem.type;
 			defaultId = firstItem.id;
+			// 如果是字段类型，直接设置 fieldPath
+			if (firstItem.type === 'fields' && firstItem.id) {
+				defaultFieldPath = `input.fields.${firstItem.id}`;
+			}
 		}
 	}
 
@@ -472,7 +595,7 @@ const handleAddRule = () => {
 		sourceStageId: stage?.id || '',
 		componentType: defaultType,
 		componentId: defaultId,
-		fieldPath: '',
+		fieldPath: defaultFieldPath,
 		operator: '==',
 		value: '',
 	};
@@ -483,10 +606,8 @@ const handleAddRule = () => {
 	// 设置组件key
 	ruleComponentKeys[newIndex] = defaultKey;
 
-	// 加载字段选项
-	if (defaultType === 'fields') {
-		loadStaticFieldOptions(newIndex);
-	} else if (defaultType === 'questionnaires' && defaultId) {
+	// 加载字段选项（字段类型不需要加载，因为已经在第一级选择了）
+	if (defaultType === 'questionnaires' && defaultId) {
 		loadQuestionnaireQuestions(defaultId, newIndex);
 	} else if (defaultType === 'checklist' && defaultId) {
 		loadChecklistTasks(defaultId, newIndex);
@@ -503,6 +624,7 @@ const handleRemoveRule = (index: number) => {
 	delete ruleFieldOptions[index];
 	delete ruleComponentKeys[index];
 	delete loadingFields[index];
+	delete ruleValueOptions[index];
 };
 
 // 初始化现有规则的字段选项
@@ -514,10 +636,8 @@ const initExistingRules = async () => {
 		const componentKey = generateComponentKey(rule);
 		ruleComponentKeys[index] = componentKey;
 
-		// 加载字段选项
-		if (rule.componentType === 'fields') {
-			loadStaticFieldOptions(index);
-		} else if (rule.componentType === 'questionnaires' && rule.componentId) {
+		// 加载字段选项（字段类型不需要加载，因为已经在第一级选择了）
+		if (rule.componentType === 'questionnaires' && rule.componentId) {
 			loadQuestionnaireQuestions(rule.componentId, index);
 		} else if (rule.componentType === 'checklist' && rule.componentId) {
 			loadChecklistTasks(rule.componentId, index);

@@ -533,7 +533,9 @@ const processOnboardingData = (responseData: any) => {
 	// 根据 workflowStages 返回第一个未完成的 stageId
 	// 首先按 order 排序，然后找到第一个未完成的阶段
 	const sortedStages = [...workflowStages.value].sort((a, b) => (a.order || 0) - (b.order || 0));
-	const firstIncompleteStage = sortedStages.find((stage) => !stage.isCompleted);
+	const firstIncompleteStage = sortedStages.find(
+		(stage) => !stage.isCompleted && stage.status != 'Skipped'
+	);
 
 	// 如果所有阶段都完成了，返回最后一个阶段
 	const newStageId =
