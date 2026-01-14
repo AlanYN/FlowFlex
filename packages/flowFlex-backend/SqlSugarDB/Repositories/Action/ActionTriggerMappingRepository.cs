@@ -43,8 +43,8 @@ namespace FlowFlex.SqlSugarDB.Repositories.Action
                          && x.IsEnabled
                          && x.IsValid)
                 .WhereIF(!string.IsNullOrEmpty(triggerSourceType), x => x.TriggerType == triggerSourceType)
-                .WhereIF(workflowId.HasValue, x => x.WorkFlowId == workflowId.Value || SqlFunc.IsNullOrEmpty(x.WorkFlowId))
-                .WhereIF(stageId.HasValue, x => x.StageId == stageId.Value || SqlFunc.IsNullOrEmpty(x.StageId))
+                .WhereIF(workflowId.HasValue, x => x.WorkFlowId == workflowId.Value || x.WorkFlowId == null)
+                .WhereIF(stageId.HasValue, x => x.StageId == stageId.Value || x.StageId == null)
                 .OrderBy(x => x.ExecutionOrder)
                 .ToListAsync();
         }
