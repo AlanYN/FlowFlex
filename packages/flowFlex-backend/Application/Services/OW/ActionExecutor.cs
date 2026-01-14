@@ -5,10 +5,13 @@ using System.Threading.Tasks;
 using FlowFlex.Application.Contracts.Dtos.OW.StageCondition;
 using FlowFlex.Application.Contracts.IServices.OW;
 using FlowFlex.Application.Contracts.IServices;
+using FlowFlex.Application.Contracts.IServices.Action;
 using FlowFlex.Domain.Entities.OW;
 using FlowFlex.Domain.Repository.OW;
 using FlowFlex.Domain.Shared;
+using FlowFlex.Domain.Shared.Events.Action;
 using FlowFlex.Domain.Shared.Models;
+using MediatR;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 using SqlSugar;
@@ -26,6 +29,8 @@ namespace FlowFlex.Application.Service.OW
         private readonly IEmailService _emailService;
         private readonly IUserService _userService;
         private readonly UserContext _userContext;
+        private readonly IMediator _mediator;
+        private readonly IActionExecutionService _actionExecutionService;
         private readonly ILogger<ConditionActionExecutor> _logger;
 
         public ConditionActionExecutor(
@@ -35,6 +40,8 @@ namespace FlowFlex.Application.Service.OW
             IEmailService emailService,
             IUserService userService,
             UserContext userContext,
+            IMediator mediator,
+            IActionExecutionService actionExecutionService,
             ILogger<ConditionActionExecutor> logger)
         {
             _db = db;
@@ -43,6 +50,8 @@ namespace FlowFlex.Application.Service.OW
             _emailService = emailService;
             _userService = userService;
             _userContext = userContext;
+            _mediator = mediator;
+            _actionExecutionService = actionExecutionService;
             _logger = logger;
         }
 
@@ -314,7 +323,7 @@ namespace FlowFlex.Application.Service.OW
         }
 
         /// <summary>
-        /// Execute EndWorkflow action - end the workflow
+        /// Execute EndWorkflow action - end the workflow (equivalent to Force Complete)
         /// </summary>
         private async Task<ActionExecutionDetail> ExecuteEndWorkflowAsync(ConditionAction action, ActionExecutionContext context)
         {
@@ -327,29 +336,70 @@ namespace FlowFlex.Application.Service.OW
 
             try
             {
-                var endStatus = action.EndStatus ?? "Completed";
+                var endStatus = action.EndStatus ?? "Force Completed";
 
-                // Update onboarding status
+                // Get onboarding to check current status
+                var onboarding = await _onboardingRepository.GetByIdWithoutTenantFilterAsync(context.OnboardingId);
+                if (onboarding == null)
+                {
+                    result.Success = false;
+                    result.ErrorMessage = $"Onboarding {context.OnboardingId} not found";
+                    return result;
+                }
+
+                // Skip if already completed
+                if (onboarding.Status == "Completed" || onboarding.Status == "Force Completed")
+                {
+                    result.Success = true;
+                    result.ResultData["endStatus"] = onboarding.Status;
+                    result.ResultData["message"] = "Onboarding already completed";
+                    _logger.LogInformation("EndWorkflow skipped: Onboarding {OnboardingId} already has status {Status}",
+                        context.OnboardingId, onboarding.Status);
+                    return result;
+                }
+
+                // Build completion notes
+                var completionNotes = $"[EndWorkflow Action] Workflow ended by Stage Condition - ConditionId: {context.ConditionId}";
+
+                // Update onboarding status - equivalent to Force Complete operation
+                // Important: Do NOT modify stagesProgress data - keep it as is (same as ForceCompleteAsync)
                 await _db.Updateable<Onboarding>()
                     .SetColumns(o => new Onboarding
                     {
                         Status = endStatus,
+                        CompletionRate = 100,
+                        ActualCompletionDate = DateTimeOffset.UtcNow,
                         ModifyDate = DateTimeOffset.UtcNow,
                         ModifyBy = _userContext.UserName ?? "SYSTEM"
                     })
                     .Where(o => o.Id == context.OnboardingId)
                     .ExecuteCommandAsync();
 
+                // Append notes using raw SQL to avoid overwriting existing notes
+                var existingNotes = onboarding.Notes ?? "";
+                var newNotes = string.IsNullOrEmpty(existingNotes) 
+                    ? completionNotes 
+                    : $"{existingNotes}\n{completionNotes}";
+                
+                await _db.Updateable<Onboarding>()
+                    .SetColumns(o => new Onboarding { Notes = newNotes })
+                    .Where(o => o.Id == context.OnboardingId)
+                    .ExecuteCommandAsync();
+
                 result.Success = true;
                 result.ResultData["endStatus"] = endStatus;
+                result.ResultData["completionRate"] = 100;
+                result.ResultData["actualCompletionDate"] = DateTimeOffset.UtcNow;
+                result.ResultData["previousStatus"] = onboarding.Status;
 
-                _logger.LogInformation("EndWorkflow executed: Onboarding {OnboardingId} ended with status {Status}",
-                    context.OnboardingId, endStatus);
+                _logger.LogInformation("EndWorkflow executed (Force Complete): Onboarding {OnboardingId} ended with status {Status}, previous status was {PreviousStatus}",
+                    context.OnboardingId, endStatus, onboarding.Status);
             }
             catch (Exception ex)
             {
                 result.Success = false;
                 result.ErrorMessage = ex.Message;
+                _logger.LogError(ex, "Error executing EndWorkflow action for OnboardingId={OnboardingId}", context.OnboardingId);
             }
 
             return result;
@@ -386,6 +436,16 @@ namespace FlowFlex.Application.Service.OW
                     {
                         recipientId = idObj?.ToString();
                     }
+                    // Also support recipientEmail parameter directly
+                    if (string.IsNullOrEmpty(recipientId) && action.Parameters.TryGetValue("recipientEmail", out var emailObj))
+                    {
+                        recipientId = emailObj?.ToString();
+                        // If recipientEmail is provided directly, treat it as email type
+                        if (string.IsNullOrEmpty(recipientType))
+                        {
+                            recipientType = "email";
+                        }
+                    }
                     if (string.IsNullOrEmpty(templateId) && action.Parameters.TryGetValue("templateId", out var templateObj))
                     {
                         templateId = templateObj?.ToString();
@@ -395,7 +455,7 @@ namespace FlowFlex.Application.Service.OW
                 if (string.IsNullOrEmpty(recipientId))
                 {
                     result.Success = false;
-                    result.ErrorMessage = "RecipientId is required for SendNotification action";
+                    result.ErrorMessage = "RecipientId or RecipientEmail is required for SendNotification action";
                     return result;
                 }
 
@@ -654,7 +714,7 @@ namespace FlowFlex.Application.Service.OW
         }
 
         /// <summary>
-        /// Execute TriggerAction action - trigger a predefined action
+        /// Execute TriggerAction action - publish ActionTriggerEvent to trigger predefined action
         /// </summary>
         private async Task<ActionExecutionDetail> ExecuteTriggerActionAsync(ConditionAction action, ActionExecutionContext context)
         {
@@ -687,27 +747,61 @@ namespace FlowFlex.Application.Service.OW
                     return result;
                 }
 
-                // TODO: Integrate with ActionService to execute the action
-                // For now, just log the trigger request
-                _logger.LogInformation("TriggerAction requested: ActionDefinitionId={ActionDefinitionId}, ActionName={ActionName}",
-                    action.ActionDefinitionId, actionDefinition.ActionName);
+                // Get onboarding info for context data
+                var onboarding = await _onboardingRepository.GetByIdWithoutTenantFilterAsync(context.OnboardingId);
+
+                // Build context data for action execution
+                var contextData = new
+                {
+                    OnboardingId = context.OnboardingId,
+                    StageId = context.StageId,
+                    ConditionId = context.ConditionId,
+                    TenantId = context.TenantId,
+                    ActionDefinitionId = action.ActionDefinitionId.Value,
+                    ActionName = actionDefinition.ActionName,
+                    TriggerSource = "StageCondition",
+                    CaseName = onboarding?.CaseName,
+                    CaseCode = onboarding?.CaseCode,
+                    WorkflowId = onboarding?.WorkflowId
+                };
+
+                // Get current user ID
+                long? currentUserId = null;
+                if (long.TryParse(_userContext.UserId, out var userId))
+                {
+                    currentUserId = userId;
+                }
+
+                // Execute action directly using ActionExecutionService
+                _logger.LogInformation("TriggerAction: Executing ActionDefinitionId={ActionDefinitionId}, ActionName={ActionName}, OnboardingId={OnboardingId}",
+                    action.ActionDefinitionId, actionDefinition.ActionName, context.OnboardingId);
+
+                var executionResult = await _actionExecutionService.ExecuteActionAsync(
+                    action.ActionDefinitionId.Value,
+                    contextData,
+                    currentUserId);
+
+                _logger.LogInformation("TriggerAction executed successfully: ActionDefinitionId={ActionDefinitionId}, ActionName={ActionName}, OnboardingId={OnboardingId}",
+                    action.ActionDefinitionId, actionDefinition.ActionName, context.OnboardingId);
 
                 result.Success = true;
                 result.ResultData["actionDefinitionId"] = action.ActionDefinitionId.Value;
                 result.ResultData["actionName"] = actionDefinition.ActionName;
-                result.ResultData["status"] = "Triggered";
+                result.ResultData["status"] = "Executed";
+                result.ResultData["executionResult"] = executionResult?.ToString() ?? "null";
             }
             catch (Exception ex)
             {
                 result.Success = false;
                 result.ErrorMessage = ex.Message;
+                _logger.LogError(ex, "Error executing TriggerAction for ActionDefinitionId={ActionDefinitionId}", action.ActionDefinitionId);
             }
 
             return result;
         }
 
         /// <summary>
-        /// Execute AssignUser action - assign user or team to onboarding
+        /// Execute AssignUser action - assign user or team to current stage's CustomStageAssignee
         /// </summary>
         private async Task<ActionExecutionDetail> ExecuteAssignUserAsync(ConditionAction action, ActionExecutionContext context)
         {
@@ -828,8 +922,8 @@ namespace FlowFlex.Application.Service.OW
 
             try
             {
-                // Get onboarding
-                var onboarding = await _onboardingRepository.GetByIdAsync(context.OnboardingId);
+                // Get onboarding - use GetByIdWithoutTenantFilterAsync to avoid tenant filter issues
+                var onboarding = await _onboardingRepository.GetByIdWithoutTenantFilterAsync(context.OnboardingId);
                 if (onboarding == null)
                 {
                     result.Success = false;
@@ -837,41 +931,70 @@ namespace FlowFlex.Application.Service.OW
                     return result;
                 }
 
+                // Get current stage ID from context (the completed stage)
+                var currentStageId = context.StageId;
+
+                // Parse StagesProgress from StagesProgressJson (since StagesProgress is [SugarColumn(IsIgnore = true)])
+                // Handle double-encoded JSON (string containing escaped JSON)
+                var stagesProgress = new List<OnboardingStageProgress>();
+                if (!string.IsNullOrEmpty(onboarding.StagesProgressJson))
+                {
+                    try
+                    {
+                        var jsonValue = onboarding.StagesProgressJson.Trim();
+                        
+                        // Check if it's double-encoded (starts with quote, indicating a string value)
+                        if (jsonValue.StartsWith("\""))
+                        {
+                            // First deserialize to get the inner JSON string
+                            var innerJson = JsonConvert.DeserializeObject<string>(jsonValue);
+                            if (!string.IsNullOrEmpty(innerJson))
+                            {
+                                stagesProgress = JsonConvert.DeserializeObject<List<OnboardingStageProgress>>(innerJson) 
+                                    ?? new List<OnboardingStageProgress>();
+                            }
+                        }
+                        else
+                        {
+                            // Normal JSON array
+                            stagesProgress = JsonConvert.DeserializeObject<List<OnboardingStageProgress>>(jsonValue) 
+                                ?? new List<OnboardingStageProgress>();
+                        }
+                    }
+                    catch (JsonException ex)
+                    {
+                        _logger.LogWarning(ex, "Failed to parse StagesProgressJson for Onboarding {OnboardingId}", context.OnboardingId);
+                    }
+                }
+
+                // Find the stage progress for the current stage
+                var stageProgress = stagesProgress.FirstOrDefault(sp => sp.StageId == currentStageId);
+
+                if (stageProgress == null)
+                {
+                    result.Success = false;
+                    result.ErrorMessage = $"Stage progress not found for StageId {currentStageId}";
+                    _logger.LogWarning("AssignUser: Stage progress not found. OnboardingId={OnboardingId}, StageId={StageId}, AvailableStageIds={AvailableStageIds}",
+                        context.OnboardingId, currentStageId, string.Join(",", stagesProgress.Select(sp => sp.StageId)));
+                    return result;
+                }
+
+                // Store original values for logging
+                var originalCustomAssignee = stageProgress.CustomStageAssignee?.ToList() ?? new List<string>();
+
                 if (assigneeType == "user")
                 {
-                    // Parse current ViewUsers list (JSONB array)
-                    // Handle both normal JSON array and double-encoded string
-                    var currentUsers = ParseJsonStringArray(onboarding.ViewUsers);
+                    // Update CustomStageAssignee for the current stage
+                    stageProgress.CustomStageAssignee = assigneeIds;
+                    stageProgress.LastUpdatedTime = DateTimeOffset.UtcNow;
 
-                    // Add new users (avoid duplicates)
-                    foreach (var id in assigneeIds)
-                    {
-                        if (!currentUsers.Contains(id))
-                        {
-                            currentUsers.Add(id);
-                        }
-                    }
-
-                    var newViewUsers = JsonConvert.SerializeObject(currentUsers);
-
-                    // Also update OperateUsers
-                    var currentOperateUsers = ParseJsonStringArray(onboarding.OperateUsers);
-
-                    foreach (var id in assigneeIds)
-                    {
-                        if (!currentOperateUsers.Contains(id))
-                        {
-                            currentOperateUsers.Add(id);
-                        }
-                    }
-
-                    var newOperateUsers = JsonConvert.SerializeObject(currentOperateUsers);
+                    // Serialize updated stagesProgress
+                    var updatedStagesProgressJson = JsonConvert.SerializeObject(stagesProgress);
 
                     await _db.Updateable<Onboarding>()
                         .SetColumns(o => new Onboarding
                         {
-                            ViewUsers = newViewUsers,
-                            OperateUsers = newOperateUsers,
+                            StagesProgressJson = updatedStagesProgressJson,
                             ModifyDate = DateTimeOffset.UtcNow,
                             ModifyBy = _userContext.UserName ?? "SYSTEM"
                         })
@@ -880,47 +1003,28 @@ namespace FlowFlex.Application.Service.OW
 
                     result.ResultData["assigneeType"] = "user";
                     result.ResultData["assigneeIds"] = assigneeIds;
-                    result.ResultData["newViewUsers"] = currentUsers;
-                    result.ResultData["newOperateUsers"] = currentOperateUsers;
+                    result.ResultData["assigneeCount"] = assigneeIds.Count;
+                    result.ResultData["stageId"] = currentStageId;
+                    result.ResultData["originalCustomStageAssignee"] = originalCustomAssignee;
+                    result.ResultData["newCustomStageAssignee"] = assigneeIds;
+
+                    _logger.LogInformation("AssignUser executed: Updated CustomStageAssignee for Onboarding {OnboardingId}, StageId={StageId}, OldAssignee={OldAssignee}, NewAssignee={NewAssignee}",
+                        context.OnboardingId, currentStageId, string.Join(",", originalCustomAssignee), string.Join(",", assigneeIds));
                 }
                 else if (assigneeType == "team")
                 {
-                    // Parse current ViewTeams list (JSONB array)
-                    var currentTeams = string.IsNullOrEmpty(onboarding.ViewTeams)
-                        ? new List<string>()
-                        : JsonConvert.DeserializeObject<List<string>>(onboarding.ViewTeams) ?? new List<string>();
+                    // For team assignment, update CustomStageCoAssignees (teams are typically co-assignees)
+                    var originalCustomCoAssignees = stageProgress.CustomStageCoAssignees?.ToList() ?? new List<string>();
+                    stageProgress.CustomStageCoAssignees = assigneeIds;
+                    stageProgress.LastUpdatedTime = DateTimeOffset.UtcNow;
 
-                    // Add new teams (avoid duplicates)
-                    foreach (var id in assigneeIds)
-                    {
-                        if (!currentTeams.Contains(id))
-                        {
-                            currentTeams.Add(id);
-                        }
-                    }
-
-                    var newViewTeams = JsonConvert.SerializeObject(currentTeams);
-
-                    // Also update OperateTeams
-                    var currentOperateTeams = string.IsNullOrEmpty(onboarding.OperateTeams)
-                        ? new List<string>()
-                        : JsonConvert.DeserializeObject<List<string>>(onboarding.OperateTeams) ?? new List<string>();
-
-                    foreach (var id in assigneeIds)
-                    {
-                        if (!currentOperateTeams.Contains(id))
-                        {
-                            currentOperateTeams.Add(id);
-                        }
-                    }
-
-                    var newOperateTeams = JsonConvert.SerializeObject(currentOperateTeams);
+                    // Serialize updated stagesProgress
+                    var updatedStagesProgressJson = JsonConvert.SerializeObject(stagesProgress);
 
                     await _db.Updateable<Onboarding>()
                         .SetColumns(o => new Onboarding
                         {
-                            ViewTeams = newViewTeams,
-                            OperateTeams = newOperateTeams,
+                            StagesProgressJson = updatedStagesProgressJson,
                             ModifyDate = DateTimeOffset.UtcNow,
                             ModifyBy = _userContext.UserName ?? "SYSTEM"
                         })
@@ -929,19 +1033,23 @@ namespace FlowFlex.Application.Service.OW
 
                     result.ResultData["assigneeType"] = "team";
                     result.ResultData["assigneeIds"] = assigneeIds;
-                    result.ResultData["newViewTeams"] = currentTeams;
-                    result.ResultData["newOperateTeams"] = currentOperateTeams;
+                    result.ResultData["assigneeCount"] = assigneeIds.Count;
+                    result.ResultData["stageId"] = currentStageId;
+                    result.ResultData["originalCustomStageCoAssignees"] = originalCustomCoAssignees;
+                    result.ResultData["newCustomStageCoAssignees"] = assigneeIds;
+
+                    _logger.LogInformation("AssignUser executed: Updated CustomStageCoAssignees for Onboarding {OnboardingId}, StageId={StageId}, OldCoAssignees={OldCoAssignees}, NewCoAssignees={NewCoAssignees}",
+                        context.OnboardingId, currentStageId, string.Join(",", originalCustomCoAssignees), string.Join(",", assigneeIds));
                 }
 
                 result.Success = true;
-
-                _logger.LogInformation("AssignUser executed: Onboarding {OnboardingId}, Type={AssigneeType}, Ids={AssigneeIds}",
-                    context.OnboardingId, assigneeType, string.Join(",", assigneeIds));
             }
             catch (Exception ex)
             {
                 result.Success = false;
                 result.ErrorMessage = ex.Message;
+                _logger.LogError(ex, "Error executing AssignUser action for OnboardingId={OnboardingId}, StageId={StageId}",
+                    context.OnboardingId, context.StageId);
             }
 
             return result;

@@ -397,10 +397,11 @@ namespace FlowFlex.Application.Service.OW
                 var successfulRules = result.RuleResults?.Where(r => r.IsSuccess).Select(r => r.RuleName).ToList() ?? new List<string>();
                 var failedRules = result.RuleResults?.Where(r => !r.IsSuccess).Select(r => r.RuleName).ToList() ?? new List<string>();
                 
-                // Get successful and failed action types
-                var successfulActions = result.ActionResults?.Where(a => a.Success).Select(a => a.ActionType).ToList() ?? new List<string>();
-                var failedActions = result.ActionResults?.Where(a => !a.Success).Select(a => a.ActionType).ToList() ?? new List<string>();
+                // Get successful and failed action details
+                var successfulActions = result.ActionResults?.Where(a => a.Success).ToList() ?? new List<ActionExecutionDetail>();
+                var failedActions = result.ActionResults?.Where(a => !a.Success).ToList() ?? new List<ActionExecutionDetail>();
 
+                // Build extended data with detailed action results
                 var extendedData = System.Text.Json.JsonSerializer.Serialize(new
                 {
                     conditionId = condition.Id,
@@ -414,11 +415,20 @@ namespace FlowFlex.Application.Service.OW
                         errorMessage = r.ErrorMessage
                     }),
                     nextStageId = result.NextStageId,
-                    actionCount = result.ActionResults?.Count ?? 0
+                    actionCount = result.ActionResults?.Count ?? 0,
+                    // Include detailed action execution results
+                    actionExecutions = result.ActionResults?.Select(a => new
+                    {
+                        actionType = a.ActionType,
+                        order = a.Order,
+                        success = a.Success,
+                        errorMessage = a.ErrorMessage,
+                        resultSummary = BuildActionResultSummary(a)
+                    })
                 });
 
                 // Build descriptive title with specific rule and action names
-                // Format: "Condition Met: t1 | Rules: Rule_3 ✓ | Actions: GoToStage ✓, SkipStage ✓, SendNotification ✗"
+                // Format: "Condition Met: t1 | Rules: Rule_3 ✓ | Actions: GoToStage→Stage4 ✓, SendNotification→admin@test.com ✓"
                 var statusText = result.IsConditionMet ? "Met" : "Not Met";
                 
                 // Build rules summary (show successful rules for Met, failed rules for Not Met)
@@ -432,14 +442,14 @@ namespace FlowFlex.Application.Service.OW
                     }
                 }
                 
-                // Build actions summary with status indicators
+                // Build actions summary with detailed result indicators
                 var actionsSummary = "";
                 if (result.ActionResults != null && result.ActionResults.Any())
                 {
                     var actionParts = result.ActionResults
                         .OrderBy(a => a.Order)
                         .Take(4)
-                        .Select(a => $"{a.ActionType} {(a.Success ? "✓" : "✗")}");
+                        .Select(a => BuildActionTitlePart(a));
                     actionsSummary = string.Join(", ", actionParts);
                     if (result.ActionResults.Count > 4)
                     {
@@ -473,11 +483,13 @@ namespace FlowFlex.Application.Service.OW
                 }
                 if (successfulActions.Any())
                 {
-                    descParts.Add($"Executed actions: {string.Join(", ", successfulActions)}");
+                    var actionDetails = successfulActions.Select(a => BuildActionDescriptionPart(a));
+                    descParts.Add($"Executed actions: {string.Join("; ", actionDetails)}");
                 }
                 if (failedActions.Any())
                 {
-                    descParts.Add($"Failed actions: {string.Join(", ", failedActions)}");
+                    var failedDetails = failedActions.Select(a => $"{a.ActionType}({a.ErrorMessage ?? "unknown error"})");
+                    descParts.Add($"Failed actions: {string.Join("; ", failedDetails)}");
                 }
                 
                 var operationDescription = string.Join(". ", descParts);
@@ -498,6 +510,102 @@ namespace FlowFlex.Application.Service.OW
                 _logger.LogError(ex, "Failed to log condition evaluation for condition {ConditionId}", condition.Id);
                 // Don't throw - logging failure should not affect main flow
             }
+        }
+
+        /// <summary>
+        /// Build action title part with result details for operationTitle
+        /// Format: "GoToStage→Stage4 ✓" or "SendNotification→admin@test.com ✓"
+        /// </summary>
+        private string BuildActionTitlePart(ActionExecutionDetail action)
+        {
+            var statusIcon = action.Success ? "✓" : "✗";
+            var resultDetail = GetActionResultDetail(action);
+            
+            if (!string.IsNullOrEmpty(resultDetail))
+            {
+                return $"{action.ActionType}→{resultDetail} {statusIcon}";
+            }
+            return $"{action.ActionType} {statusIcon}";
+        }
+
+        /// <summary>
+        /// Build action description part with full details for operationDescription
+        /// </summary>
+        private string BuildActionDescriptionPart(ActionExecutionDetail action)
+        {
+            var resultDetail = GetActionResultDetail(action);
+            if (!string.IsNullOrEmpty(resultDetail))
+            {
+                return $"{action.ActionType}({resultDetail})";
+            }
+            return action.ActionType;
+        }
+
+        /// <summary>
+        /// Get action result detail based on action type
+        /// </summary>
+        private string GetActionResultDetail(ActionExecutionDetail action)
+        {
+            if (action.ResultData == null || !action.ResultData.Any())
+                return string.Empty;
+
+            return action.ActionType.ToLower() switch
+            {
+                "gotostage" => action.ResultData.TryGetValue("targetStageName", out var stageName) 
+                    ? stageName?.ToString() ?? "" : "",
+                "skipstage" => action.ResultData.TryGetValue("skippedCount", out var count) 
+                    ? $"skip{count}" : "",
+                "endworkflow" => action.ResultData.TryGetValue("endStatus", out var status) 
+                    ? status?.ToString() ?? "" : "",
+                "sendnotification" => action.ResultData.TryGetValue("recipientEmail", out var email) 
+                    ? TruncateEmail(email?.ToString()) : "",
+                "updatefield" => action.ResultData.TryGetValue("fieldKey", out var fieldKey) 
+                    ? fieldKey?.ToString() ?? "" : "",
+                "triggeraction" => action.ResultData.TryGetValue("actionName", out var actionName) 
+                    ? actionName?.ToString() ?? "" : "",
+                "assignuser" => BuildAssignUserDetail(action.ResultData),
+                _ => ""
+            };
+        }
+
+        /// <summary>
+        /// Build AssignUser action detail
+        /// </summary>
+        private string BuildAssignUserDetail(Dictionary<string, object> resultData)
+        {
+            var assigneeType = resultData.TryGetValue("assigneeType", out var type) ? type?.ToString() : "";
+            var assigneeCount = resultData.TryGetValue("assigneeCount", out var count) ? count?.ToString() : "0";
+            return $"{assigneeType}×{assigneeCount}";
+        }
+
+        /// <summary>
+        /// Truncate email for display (show first part only if too long)
+        /// </summary>
+        private string TruncateEmail(string? email)
+        {
+            if (string.IsNullOrEmpty(email)) return "";
+            if (email.Length <= 20) return email;
+            
+            var atIndex = email.IndexOf('@');
+            if (atIndex > 0 && atIndex <= 15)
+            {
+                return email;
+            }
+            return email.Substring(0, 17) + "...";
+        }
+
+        /// <summary>
+        /// Build action result summary for extendedData
+        /// </summary>
+        private string BuildActionResultSummary(ActionExecutionDetail action)
+        {
+            if (!action.Success)
+            {
+                return $"Failed: {action.ErrorMessage ?? "unknown error"}";
+            }
+
+            var detail = GetActionResultDetail(action);
+            return string.IsNullOrEmpty(detail) ? "Success" : $"Success: {detail}";
         }
 
         /// <summary>
@@ -1101,26 +1209,57 @@ namespace FlowFlex.Application.Service.OW
 
         /// <summary>
         /// Generate descriptive rule name based on field path and operator
+        /// Format: Task_1_completed, Question_2_equals, Field_3_contains
         /// </summary>
         private string GetDescriptiveRuleName(FrontendRule rule, int index)
         {
             var componentType = rule.ComponentType?.ToLower() ?? "unknown";
-            var op = rule.Operator?.ToLower() ?? "eq";
+            var op = GetOperatorDisplayName(rule.Operator);
             
-            // Extract meaningful identifier from field path
-            var fieldId = ExtractFieldIdFromPath(rule.FieldPath);
+            // Use 1-based index for human readability
+            var ruleNumber = index + 1;
             
-            // Build descriptive name
+            // Build descriptive name without meaningless IDs
             var name = componentType switch
             {
-                "field" or "fields" => $"Field_{fieldId}_{op}",
-                "questionnaire" => $"Question_{fieldId}_{op}",
-                "checklist" => $"Task_{fieldId}_{op}",
-                "attachment" => $"Attachment_{fieldId}_{op}",
-                _ => $"Rule_{index}_{componentType}_{op}"
+                "field" or "fields" => $"Field_{ruleNumber}_{op}",
+                "questionnaire" => $"Question_{ruleNumber}_{op}",
+                "checklist" => $"Task_{ruleNumber}_{op}",
+                "attachment" => $"Attachment_{ruleNumber}_{op}",
+                _ => $"Rule_{ruleNumber}_{op}"
             };
 
             return name;
+        }
+
+        /// <summary>
+        /// Get human-readable operator display name
+        /// </summary>
+        private string GetOperatorDisplayName(string op)
+        {
+            if (string.IsNullOrEmpty(op)) return "check";
+            
+            return op.ToLower() switch
+            {
+                "==" or "eq" or "equals" => "equals",
+                "!=" or "ne" or "notequals" => "notEquals",
+                ">" or "gt" => "greaterThan",
+                ">=" or "gte" => "greaterOrEqual",
+                "<" or "lt" => "lessThan",
+                "<=" or "lte" => "lessOrEqual",
+                "contains" => "contains",
+                "notcontains" => "notContains",
+                "startswith" => "startsWith",
+                "endswith" => "endsWith",
+                "isempty" => "isEmpty",
+                "isnotempty" => "isNotEmpty",
+                "isnull" => "isNull",
+                "isnotnull" => "isNotNull",
+                "in" or "inlist" => "inList",
+                "notin" or "notinlist" => "notInList",
+                "completestage" => "completed",
+                _ => op.Length > 10 ? op.Substring(0, 10) : op
+            };
         }
 
         /// <summary>

@@ -56,8 +56,10 @@ namespace FlowFlex.Application.Service.OW
         /// <summary>
         /// Create a new stage condition
         /// </summary>
-        public async Task<long> CreateAsync(StageConditionInputDto input)
+        public async Task<StageConditionSaveResultDto> CreateAsync(StageConditionInputDto input)
         {
+            var result = new StageConditionSaveResultDto();
+
             // Validate permission
             await ValidateWorkflowPermissionAsync(input.WorkflowId, OperationTypeEnum.Operate);
 
@@ -88,6 +90,8 @@ namespace FlowFlex.Application.Service.OW
                 throw new CRMException(ErrorCodeEnum.ValidFail, 
                     $"Invalid RulesJson: {string.Join("; ", ruleErrorMessages)}") { ResponseCode = 410 };
             }
+            // Collect warnings from rules validation
+            result.Warnings.AddRange(rulesValidation.Warnings);
 
             // Validate ActionsJson format
             var actionsValidation = ValidateActionsJson(input.ActionsJson);
@@ -97,6 +101,8 @@ namespace FlowFlex.Application.Service.OW
                 throw new CRMException(ErrorCodeEnum.ValidFail, 
                     $"Invalid ActionsJson: {string.Join("; ", actionErrorMessages)}") { ResponseCode = 410 };
             }
+            // Collect warnings from actions validation
+            result.Warnings.AddRange(actionsValidation.Warnings);
 
             // Create entity
             var entity = new StageCondition
@@ -131,14 +137,18 @@ namespace FlowFlex.Application.Service.OW
 
             _logger.LogInformation("Created stage condition {ConditionId} for stage {StageId}", entity.Id, input.StageId);
 
-            return entity.Id;
+            result.Id = entity.Id;
+            result.Success = true;
+            return result;
         }
 
         /// <summary>
         /// Update an existing stage condition
         /// </summary>
-        public async Task<bool> UpdateAsync(long id, StageConditionInputDto input)
+        public async Task<StageConditionSaveResultDto> UpdateAsync(long id, StageConditionInputDto input)
         {
+            var result = new StageConditionSaveResultDto { Id = id };
+
             // Get existing condition
             var condition = await GetEntityByIdAsync(id);
             if (condition == null)
@@ -157,6 +167,8 @@ namespace FlowFlex.Application.Service.OW
                 throw new CRMException(ErrorCodeEnum.ValidFail, 
                     $"Invalid RulesJson: {string.Join("; ", ruleErrorMessages)}") { ResponseCode = 410 };
             }
+            // Collect warnings from rules validation
+            result.Warnings.AddRange(rulesValidation.Warnings);
 
             // Validate ActionsJson format
             var actionsValidation = ValidateActionsJson(input.ActionsJson);
@@ -166,6 +178,8 @@ namespace FlowFlex.Application.Service.OW
                 throw new CRMException(ErrorCodeEnum.ValidFail, 
                     $"Invalid ActionsJson: {string.Join("; ", actionErrorMessages)}") { ResponseCode = 410 };
             }
+            // Collect warnings from actions validation
+            result.Warnings.AddRange(actionsValidation.Warnings);
 
             // Update entity
             condition.Name = input.Name;
@@ -178,11 +192,12 @@ namespace FlowFlex.Application.Service.OW
             condition.ModifyDate = DateTimeOffset.UtcNow;
             condition.ModifyBy = _userContext.UserName ?? "SYSTEM";
 
-            var result = await _db.Updateable(condition).ExecuteCommandAsync();
+            var updateResult = await _db.Updateable(condition).ExecuteCommandAsync();
 
             _logger.LogInformation("Updated stage condition {ConditionId}", id);
 
-            return result > 0;
+            result.Success = updateResult > 0;
+            return result;
         }
 
         /// <summary>
@@ -205,13 +220,13 @@ namespace FlowFlex.Application.Service.OW
             condition.ModifyDate = DateTimeOffset.UtcNow;
             condition.ModifyBy = _userContext.UserName ?? "SYSTEM";
 
-            var result = await _db.Updateable(condition)
+            var deleteResult = await _db.Updateable(condition)
                 .UpdateColumns(c => new { c.IsValid, c.ModifyDate, c.ModifyBy })
                 .ExecuteCommandAsync();
 
             _logger.LogInformation("Deleted stage condition {ConditionId}", id);
 
-            return result > 0;
+            return deleteResult > 0;
         }
 
         /// <summary>
@@ -418,7 +433,164 @@ namespace FlowFlex.Application.Service.OW
                 result.Errors.Add(new ValidationError { Code = "INVALID_JSON", Message = $"Invalid JSON format: {ex.Message}" });
             }
 
+            // Check for conflicting rules in frontend format
+            try
+            {
+                var jsonObj = Newtonsoft.Json.Linq.JToken.Parse(rulesJson);
+                if (jsonObj is Newtonsoft.Json.Linq.JObject jObject && jObject.ContainsKey("logic"))
+                {
+                    var frontendRules = JsonConvert.DeserializeObject<FrontendRuleConfig>(rulesJson);
+                    if (frontendRules != null && frontendRules.Rules != null)
+                    {
+                        // Check for conflicting rules (same field with contradictory conditions under AND logic)
+                        var conflictWarnings = DetectConflictingRules(frontendRules);
+                        result.Warnings.AddRange(conflictWarnings);
+                    }
+                }
+            }
+            catch
+            {
+                // Ignore errors in conflict detection - it's just a warning
+            }
+
             return await Task.FromResult(result);
+        }
+
+        /// <summary>
+        /// Detect conflicting rules that can never be satisfied together
+        /// For example: field > 10 AND field < 10 (impossible)
+        /// </summary>
+        private List<ValidationWarning> DetectConflictingRules(FrontendRuleConfig config)
+        {
+            var warnings = new List<ValidationWarning>();
+            
+            if (config.Logic?.ToUpper() != "AND" || config.Rules == null || config.Rules.Count < 2)
+            {
+                return warnings; // Only check AND logic with multiple rules
+            }
+
+            // Group rules by fieldPath
+            var rulesByField = config.Rules
+                .Where(r => !string.IsNullOrEmpty(r.FieldPath))
+                .GroupBy(r => r.FieldPath)
+                .Where(g => g.Count() > 1);
+
+            foreach (var fieldGroup in rulesByField)
+            {
+                var rules = fieldGroup.ToList();
+                
+                // Check for contradictory comparison operators on the same field
+                for (int i = 0; i < rules.Count; i++)
+                {
+                    for (int j = i + 1; j < rules.Count; j++)
+                    {
+                        var rule1 = rules[i];
+                        var rule2 = rules[j];
+                        
+                        var conflict = DetectOperatorConflict(rule1, rule2);
+                        if (conflict != null)
+                        {
+                            warnings.Add(new ValidationWarning
+                            {
+                                Code = "CONFLICTING_RULES",
+                                Message = conflict
+                            });
+                        }
+                    }
+                }
+            }
+
+            return warnings;
+        }
+
+        /// <summary>
+        /// Detect if two rules on the same field have contradictory operators
+        /// </summary>
+        private string DetectOperatorConflict(FrontendRule rule1, FrontendRule rule2)
+        {
+            var op1 = rule1.Operator?.ToLower();
+            var op2 = rule2.Operator?.ToLower();
+            var val1 = rule1.Value?.ToString();
+            var val2 = rule2.Value?.ToString();
+
+            // Try to parse as numbers for comparison
+            var isNum1 = double.TryParse(val1, out var num1);
+            var isNum2 = double.TryParse(val2, out var num2);
+
+            // Check for impossible conditions
+            // Case 1: > X AND < X (or >= X AND <= Y where Y < X)
+            if ((op1 == ">" || op1 == "gt") && (op2 == "<" || op2 == "lt"))
+            {
+                if (isNum1 && isNum2 && num1 >= num2)
+                {
+                    return $"Conflicting rules: '{rule1.FieldPath}' > {val1} AND < {val2} can never be satisfied (impossible range)";
+                }
+            }
+            if ((op1 == "<" || op1 == "lt") && (op2 == ">" || op2 == "gt"))
+            {
+                if (isNum1 && isNum2 && num1 <= num2)
+                {
+                    return $"Conflicting rules: '{rule1.FieldPath}' < {val1} AND > {val2} can never be satisfied (impossible range)";
+                }
+            }
+
+            // Case 2: >= X AND <= Y where X > Y
+            if ((op1 == ">=" || op1 == "gte") && (op2 == "<=" || op2 == "lte"))
+            {
+                if (isNum1 && isNum2 && num1 > num2)
+                {
+                    return $"Conflicting rules: '{rule1.FieldPath}' >= {val1} AND <= {val2} can never be satisfied (impossible range)";
+                }
+            }
+            if ((op1 == "<=" || op1 == "lte") && (op2 == ">=" || op2 == "gte"))
+            {
+                if (isNum1 && isNum2 && num1 < num2)
+                {
+                    return $"Conflicting rules: '{rule1.FieldPath}' <= {val1} AND >= {val2} can never be satisfied (impossible range)";
+                }
+            }
+
+            // Case 3: == X AND == Y where X != Y
+            if ((op1 == "==" || op1 == "equals" || op1 == "eq") && 
+                (op2 == "==" || op2 == "equals" || op2 == "eq"))
+            {
+                if (val1 != val2)
+                {
+                    return $"Conflicting rules: '{rule1.FieldPath}' == '{val1}' AND == '{val2}' can never be satisfied (different values)";
+                }
+            }
+
+            // Case 4: == X AND != X
+            if ((op1 == "==" || op1 == "equals" || op1 == "eq") && 
+                (op2 == "!=" || op2 == "notequals" || op2 == "ne"))
+            {
+                if (val1 == val2)
+                {
+                    return $"Conflicting rules: '{rule1.FieldPath}' == '{val1}' AND != '{val2}' can never be satisfied";
+                }
+            }
+            if ((op1 == "!=" || op1 == "notequals" || op1 == "ne") && 
+                (op2 == "==" || op2 == "equals" || op2 == "eq"))
+            {
+                if (val1 == val2)
+                {
+                    return $"Conflicting rules: '{rule1.FieldPath}' != '{val1}' AND == '{val2}' can never be satisfied";
+                }
+            }
+
+            // Case 5: isNull AND isNotNull
+            if ((op1 == "isnull" && op2 == "isnotnull") || (op1 == "isnotnull" && op2 == "isnull"))
+            {
+                return $"Conflicting rules: '{rule1.FieldPath}' isNull AND isNotNull can never be satisfied";
+            }
+
+            // Case 6: isEmpty AND isNotEmpty
+            if ((op1 == "isempty" && op2 == "isnotempty") || (op1 == "isnotempty" && op2 == "isempty"))
+            {
+                return $"Conflicting rules: '{rule1.FieldPath}' isEmpty AND isNotEmpty can never be satisfied";
+            }
+
+            return null;
         }
 
         /// <summary>
@@ -654,6 +826,48 @@ namespace FlowFlex.Application.Service.OW
                 }
 
                 var validActionTypes = new[] { "gotostage", "skipstage", "endworkflow", "sendnotification", "updatefield", "triggeraction", "assignuser" };
+
+                // Check for conflicting actions (multiple GoToStage, SkipStage, or EndWorkflow)
+                var stageControlActions = actions.Where(a => 
+                    a.Type?.ToLower() == "gotostage" || 
+                    a.Type?.ToLower() == "skipstage" || 
+                    a.Type?.ToLower() == "endworkflow").ToList();
+                
+                if (stageControlActions.Count > 1)
+                {
+                    // Multiple stage control actions - this is a conflict
+                    var actionTypes = stageControlActions.Select(a => a.Type).Distinct().ToList();
+                    var actionDetails = stageControlActions.Select(a => 
+                    {
+                        if (a.Type?.ToLower() == "gotostage" && a.TargetStageId.HasValue)
+                            return $"{a.Type}(targetStageId={a.TargetStageId})";
+                        else if (a.Type?.ToLower() == "skipstage")
+                            return $"{a.Type}(skipCount={a.SkipCount})";
+                        else
+                            return a.Type;
+                    });
+                    
+                    result.Warnings.Add(new ValidationWarning 
+                    { 
+                        Code = "CONFLICTING_STAGE_ACTIONS", 
+                        Message = $"Multiple stage control actions detected: [{string.Join(", ", actionDetails)}]. Only the first action will take effect for stage navigation." 
+                    });
+                }
+
+                // Check for multiple GoToStage with different targets
+                var goToStageActions = actions.Where(a => a.Type?.ToLower() == "gotostage" && a.TargetStageId.HasValue).ToList();
+                if (goToStageActions.Count > 1)
+                {
+                    var targetStageIds = goToStageActions.Select(a => a.TargetStageId!.Value).Distinct().ToList();
+                    if (targetStageIds.Count > 1)
+                    {
+                        result.Warnings.Add(new ValidationWarning 
+                        { 
+                            Code = "MULTIPLE_GOTOSTAGE_TARGETS", 
+                            Message = $"Multiple GoToStage actions with different targets: [{string.Join(", ", targetStageIds)}]. Only the first GoToStage action will be executed." 
+                        });
+                    }
+                }
 
                 foreach (var action in actions)
                 {

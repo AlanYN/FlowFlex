@@ -498,6 +498,19 @@ namespace FlowFlex.Application.Services.OW
                         entity.Id, stageToComplete.Id);
                     // Don't re-throw to avoid breaking the main flow
                 }
+
+                // Synchronously evaluate stage condition and execute actions
+                // This replaces the async event handler (OnboardingStageCompletedLogHandler) for condition evaluation
+                try
+                {
+                    await EvaluateAndExecuteStageConditionAsync(entity.Id, stageToComplete.Id);
+                }
+                catch (Exception conditionEx)
+                {
+                    _logger.LogError(conditionEx, "Failed to evaluate stage condition: OnboardingId={OnboardingId}, StageId={StageId}",
+                        entity.Id, stageToComplete.Id);
+                    // Don't re-throw to avoid breaking the main flow
+                }
             }
 
             // Debug logging handled by structured logging End ===");
@@ -799,6 +812,53 @@ namespace FlowFlex.Application.Services.OW
             }
 
             return new List<string>();
+        }
+
+        /// <summary>
+        /// Synchronously evaluate stage condition and execute actions
+        /// This is called directly after stage completion instead of via async event handler
+        /// </summary>
+        private async Task EvaluateAndExecuteStageConditionAsync(long onboardingId, long stageId)
+        {
+            _logger.LogDebug("Evaluating stage condition synchronously for OnboardingId={OnboardingId}, StageId={StageId}",
+                onboardingId, stageId);
+
+            try
+            {
+                // Evaluate condition and execute actions using EvaluateAndExecuteWithTransactionAsync
+                var result = await _rulesEngineService.EvaluateAndExecuteWithTransactionAsync(
+                    onboardingId,
+                    stageId,
+                    _conditionActionExecutor,
+                    _operationChangeLogService);
+
+                if (result.IsConditionMet)
+                {
+                    _logger.LogInformation("Stage condition met for OnboardingId={OnboardingId}, StageId={StageId}, ActionsExecuted={ActionCount}",
+                        onboardingId, stageId, result.ActionResults?.Count ?? 0);
+
+                    // Log action execution details
+                    if (result.ActionResults != null && result.ActionResults.Any())
+                    {
+                        foreach (var actionResult in result.ActionResults)
+                        {
+                            _logger.LogDebug("Action {ActionType} (Order={Order}): Success={Success}, Error={Error}",
+                                actionResult.ActionType, actionResult.Order, actionResult.Success, actionResult.ErrorMessage);
+                        }
+                    }
+                }
+                else
+                {
+                    _logger.LogDebug("Stage condition not met for OnboardingId={OnboardingId}, StageId={StageId}, NextStageId={NextStageId}, Error={Error}",
+                        onboardingId, stageId, result.NextStageId, result.ErrorMessage);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error evaluating stage condition for OnboardingId={OnboardingId}, StageId={StageId}",
+                    onboardingId, stageId);
+                // Don't rethrow - condition evaluation failure should not block stage completion
+            }
         }
     }
 }

@@ -48,23 +48,25 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// <summary>
         /// Create a new stage condition
         /// Requires WORKFLOW:CREATE permission
+        /// Returns ID and any validation warnings (e.g., conflicting rules or actions)
         /// </summary>
         [HttpPost]
         [WFEAuthorize(PermissionConsts.Workflow.Create)]
-        [ProducesResponseType<SuccessResponse<long>>((int)HttpStatusCode.OK)]
+        [ProducesResponseType<SuccessResponse<StageConditionSaveResultDto>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> Create([FromBody] StageConditionInputDto input)
         {
-            var id = await _conditionService.CreateAsync(input);
-            return Success(id);
+            var result = await _conditionService.CreateAsync(input);
+            return Success(result);
         }
 
         /// <summary>
         /// Update an existing stage condition
         /// Requires WORKFLOW:UPDATE permission
+        /// Returns success status and any validation warnings (e.g., conflicting rules or actions)
         /// </summary>
         [HttpPut("{id}")]
         [WFEAuthorize(PermissionConsts.Workflow.Update)]
-        [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
+        [ProducesResponseType<SuccessResponse<StageConditionSaveResultDto>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> Update(long id, [FromBody] StageConditionInputDto input)
         {
             var result = await _conditionService.UpdateAsync(id, input);

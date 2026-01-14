@@ -6,38 +6,28 @@ using FlowFlex.Domain.Entities.OW;
 using FlowFlex.Domain.Shared;
 using System.Text.Json;
 using FlowFlex.Application.Services.OW.Extensions;
-using FlowFlex.Application.Contracts.IServices.OW;
-using FlowFlex.Application.Contracts.IServices;
 using FlowFlex.Domain.Shared.Models;
 
 namespace FlowFlex.Application.Notification
 {
     /// <summary>
-    /// Onboarding stage completion event handler - stores events to database and evaluates stage conditions
+    /// Onboarding stage completion event handler - stores events to database
+    /// Note: Stage condition evaluation is now done synchronously in CompleteCurrentStageAsync
     /// </summary>
     public class OnboardingStageCompletedLogHandler : INotificationHandler<OnboardingStageCompletedEvent>
     {
         private readonly ILogger<OnboardingStageCompletedLogHandler> _logger;
         private readonly IEventRepository _eventRepository;
         private readonly UserContext _userContext;
-        private readonly IRulesEngineService _rulesEngineService;
-        private readonly IConditionActionExecutor _actionExecutor;
-        private readonly IOperationChangeLogService _changeLogService;
 
         public OnboardingStageCompletedLogHandler(
             ILogger<OnboardingStageCompletedLogHandler> logger,
             IEventRepository eventRepository,
-            UserContext userContext,
-            IRulesEngineService rulesEngineService,
-            IConditionActionExecutor actionExecutor,
-            IOperationChangeLogService changeLogService)
+            UserContext userContext)
         {
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
             _eventRepository = eventRepository ?? throw new ArgumentNullException(nameof(eventRepository));
             _userContext = userContext ?? throw new ArgumentNullException(nameof(userContext));
-            _rulesEngineService = rulesEngineService ?? throw new ArgumentNullException(nameof(rulesEngineService));
-            _actionExecutor = actionExecutor ?? throw new ArgumentNullException(nameof(actionExecutor));
-            _changeLogService = changeLogService ?? throw new ArgumentNullException(nameof(changeLogService));
         }
 
         public async Task Handle(OnboardingStageCompletedEvent notification, CancellationToken cancellationToken)
@@ -64,8 +54,8 @@ namespace FlowFlex.Application.Notification
                 // 1. Save to ff_events table
                 await SaveToEventTableAsync(notification);
 
-                // 2. Evaluate stage condition (no longer execute actions directly)
-                await EvaluateStageConditionAsync(notification);
+                // Note: Stage condition evaluation is now done synchronously in CompleteCurrentStageAsync
+                // instead of asynchronously here to ensure immediate execution
 
                 _logger.LogInformation("Successfully processed OnboardingStageCompletedEvent: {EventId}", notification.EventId);
             }
@@ -76,53 +66,6 @@ namespace FlowFlex.Application.Notification
 
                 // Don't rethrow exception to avoid affecting other event handlers
                 await HandleEventProcessingErrorAsync(notification, ex);
-            }
-        }
-
-        /// <summary>
-        /// Evaluate stage condition and execute actions for the completed stage
-        /// </summary>
-        private async Task EvaluateStageConditionAsync(OnboardingStageCompletedEvent eventData)
-        {
-            try
-            {
-                _logger.LogDebug("Evaluating stage condition for OnboardingId={OnboardingId}, StageId={StageId}",
-                    eventData.OnboardingId, eventData.CompletedStageId);
-
-                // Evaluate condition and execute actions using EvaluateAndExecuteWithTransactionAsync
-                // This is consistent with the evaluate-and-execute API endpoint
-                var result = await _rulesEngineService.EvaluateAndExecuteWithTransactionAsync(
-                    eventData.OnboardingId, 
-                    eventData.CompletedStageId,
-                    _actionExecutor,
-                    _changeLogService);
-
-                if (result.IsConditionMet)
-                {
-                    _logger.LogInformation("Stage condition met for OnboardingId={OnboardingId}, StageId={StageId}, ActionsExecuted={ActionCount}",
-                        eventData.OnboardingId, eventData.CompletedStageId, result.ActionResults?.Count ?? 0);
-                    
-                    // Log action execution details
-                    if (result.ActionResults != null && result.ActionResults.Any())
-                    {
-                        foreach (var actionResult in result.ActionResults)
-                        {
-                            _logger.LogDebug("Action {ActionType} (Order={Order}): Success={Success}, Error={Error}",
-                                actionResult.ActionType, actionResult.Order, actionResult.Success, actionResult.ErrorMessage);
-                        }
-                    }
-                }
-                else
-                {
-                    _logger.LogInformation("Stage condition not met for OnboardingId={OnboardingId}, StageId={StageId}, NextStageId={NextStageId}, Error={Error}",
-                        eventData.OnboardingId, eventData.CompletedStageId, result.NextStageId, result.ErrorMessage);
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error evaluating stage condition for OnboardingId={OnboardingId}, StageId={StageId}",
-                    eventData.OnboardingId, eventData.CompletedStageId);
-                // Don't rethrow - condition evaluation failure should not block event processing
             }
         }
 
