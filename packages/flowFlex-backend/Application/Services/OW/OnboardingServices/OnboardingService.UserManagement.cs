@@ -177,6 +177,7 @@ namespace FlowFlex.Application.Services.OW
                     Username = ownershipUserNode.Username,
                     Email = ownershipUserNode.Email,
                     UserDetails = ownershipUserNode.UserDetails,
+                    UserType = ownershipUserNode.UserType,
                     MemberCount = 0,
                     Children = null
                 }
@@ -312,6 +313,7 @@ namespace FlowFlex.Application.Services.OW
                             Username = node.Username,
                             Email = node.Email,
                             UserDetails = node.UserDetails,
+                            UserType = node.UserType,
                             MemberCount = 0,
                             Children = null
                         });
@@ -511,6 +513,7 @@ namespace FlowFlex.Application.Services.OW
                         Username = node.Username,
                         Email = node.Email,
                         UserDetails = node.UserDetails,
+                        UserType = node.UserType,
                         MemberCount = 0,
                         Children = null
                     };
