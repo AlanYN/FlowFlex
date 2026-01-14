@@ -172,24 +172,11 @@
 							}&quot;`"
 							class="action-field"
 						>
-							<!-- 有固定选项的字段类型使用下拉选择 -->
-							<el-select
-								v-if="hasFieldFixedOptions(action)"
+							<DynamicValueInput
 								v-model="getActionParams(action).fieldValue"
-								placeholder="Select value"
-							>
-								<el-option
-									v-for="opt in getFieldValueOptions(action)"
-									:key="opt.value"
-									:label="opt.label"
-									:value="opt.value"
-								/>
-							</el-select>
-							<!-- 其他类型使用输入框 -->
-							<el-input
-								v-else
-								v-model="getActionParams(action).fieldValue"
-								placeholder="Enter new value"
+								:input-type="getFieldInputType(action)"
+								:options="getFieldValueOptions(action)"
+								:constraints="getFieldConstraints(action)"
 							/>
 						</el-form-item>
 					</template>
@@ -248,13 +235,17 @@
 <script setup lang="ts">
 import { ref, onMounted, computed, watch } from 'vue';
 import { Plus, Delete, Warning } from '@element-plus/icons-vue';
-import type { ActionFormItem } from '#/condition';
+import type { ActionFormItem, DynamicFieldConstraints } from '#/condition';
 import type { Stage } from '#/onboard';
 import type { DynamicList, DynamicDropdownItem } from '#/dynamic';
 import FlowflexUserSelector from '@/components/form/flowflexUser/index.vue';
+import DynamicValueInput from './DynamicValueInput.vue';
 import { conditionAction } from '@/apis/ow';
 import { batchIdsDynamicFields } from '@/apis/global/dyanmicField';
 import { ToolsType, propertyTypeEnum } from '@/enums/appEnum';
+
+// 值输入类型
+type ValueInputType = 'text' | 'number' | 'select' | 'date' | 'people' | 'phone';
 
 // Props
 const props = defineProps<{
@@ -436,6 +427,8 @@ interface FieldOption {
 	dataType: number;
 	dropdownItems?: DynamicDropdownItem[];
 	additionalInfo?: DynamicList['additionalInfo'];
+	format?: DynamicList['format'];
+	fieldValidate?: DynamicList['fieldValidate'];
 }
 
 // 字段分组接口
@@ -473,6 +466,8 @@ const groupedFieldOptions = computed<FieldOptionGroup[]>(() => {
 					dataType: fieldInfo.dataType,
 					dropdownItems: fieldInfo.dropdownItems,
 					additionalInfo: fieldInfo.additionalInfo,
+					format: fieldInfo.format,
+					fieldValidate: fieldInfo.fieldValidate,
 				});
 			}
 		});
@@ -547,27 +542,6 @@ const handleFieldSelect = (action: ActionFormItem, fieldKey: string) => {
 	}
 };
 
-// 判断字段是否有固定选项
-const hasFieldFixedOptions = (action: ActionFormItem): boolean => {
-	const params = getActionParams(action);
-	const fieldKey = params.fieldPath;
-	if (!fieldKey) return false;
-
-	// 从所有分组中查找字段
-	let fieldInfo: FieldOption | undefined;
-	for (const group of groupedFieldOptions.value) {
-		fieldInfo = group.fields.find((f) => f.key === fieldKey);
-		if (fieldInfo) break;
-	}
-
-	if (!fieldInfo) return false;
-
-	return (
-		fieldInfo.dataType === propertyTypeEnum.DropdownSelect ||
-		fieldInfo.dataType === propertyTypeEnum.Switch
-	);
-};
-
 // 获取字段的值选项
 const getFieldValueOptions = (action: ActionFormItem): ValueOption[] => {
 	const params = getActionParams(action);
@@ -601,6 +575,82 @@ const getFieldValueOptions = (action: ActionFormItem): ValueOption[] => {
 	}
 
 	return options;
+};
+
+// 获取字段的输入类型
+const getFieldInputType = (action: ActionFormItem): ValueInputType => {
+	const params = getActionParams(action);
+	const fieldKey = params.fieldPath;
+	if (!fieldKey) return 'text';
+
+	// 从所有分组中查找字段
+	let fieldInfo: FieldOption | undefined;
+	for (const group of groupedFieldOptions.value) {
+		fieldInfo = group.fields.find((f) => f.key === fieldKey);
+		if (fieldInfo) break;
+	}
+
+	if (!fieldInfo) return 'text';
+
+	// 根据 dataType 返回对应的输入类型
+	const inputTypeMap: Record<number, ValueInputType> = {
+		[propertyTypeEnum.SingleLineText]: 'text',
+		[propertyTypeEnum.MultilineText]: 'text',
+		[propertyTypeEnum.Phone]: 'phone',
+		[propertyTypeEnum.Email]: 'text',
+		[propertyTypeEnum.Number]: 'number',
+		[propertyTypeEnum.DropdownSelect]: 'select',
+		[propertyTypeEnum.Switch]: 'select',
+		[propertyTypeEnum.DatePicker]: 'date',
+		[propertyTypeEnum.File]: 'text',
+		[propertyTypeEnum.Pepole]: 'people',
+	};
+
+	return inputTypeMap[fieldInfo.dataType] || 'text';
+};
+
+// 获取字段的约束配置
+const getFieldConstraints = (action: ActionFormItem): DynamicFieldConstraints => {
+	const params = getActionParams(action);
+	const fieldKey = params.fieldPath;
+	if (!fieldKey) return {};
+
+	// 从所有分组中查找字段
+	let fieldInfo: FieldOption | undefined;
+	for (const group of groupedFieldOptions.value) {
+		fieldInfo = group.fields.find((f) => f.key === fieldKey);
+		if (fieldInfo) break;
+	}
+
+	if (!fieldInfo) return {};
+
+	const constraints: DynamicFieldConstraints = {};
+
+	// Number 类型约束
+	if (fieldInfo.dataType === propertyTypeEnum.Number) {
+		constraints.isFloat = fieldInfo.additionalInfo?.isFloat ?? true;
+		constraints.allowNegative = fieldInfo.additionalInfo?.allowNegative ?? false;
+		constraints.isFinancial = fieldInfo.additionalInfo?.isFinancial ?? false;
+		constraints.decimalPlaces = Number(fieldInfo.format?.decimalPlaces) || 2;
+	}
+
+	// DatePicker 类型约束
+	if (fieldInfo.dataType === propertyTypeEnum.DatePicker) {
+		constraints.dateFormat = fieldInfo.format?.dateFormat || 'YYYY-MM-DD';
+		// 根据格式判断是否包含时间
+		const format = fieldInfo.format?.dateFormat || '';
+		constraints.dateType = format.includes('HH:mm') ? 'datetime' : 'date';
+	}
+
+	// Text 类型约束
+	if (
+		fieldInfo.dataType === propertyTypeEnum.SingleLineText ||
+		fieldInfo.dataType === propertyTypeEnum.MultilineText
+	) {
+		constraints.maxLength = fieldInfo.fieldValidate?.maxLength;
+	}
+
+	return constraints;
 };
 
 // 加载可用的 Action 定义

@@ -64,67 +64,169 @@
 						</el-select>
 					</el-form-item>
 
-					<!-- 第二级选择：问题/任务（字段类型不需要第二级选择） -->
-					<el-form-item
-						v-if="rule.componentType !== 'fields'"
-						:label="getFieldLabel(rule.componentType)"
-					>
-						<el-select
-							v-model="rule.fieldPath"
-							placeholder="Select field"
-							:loading="loadingFields[index]"
-							@change="() => handleFieldChange(rule)"
+					<!-- 以下字段仅在选择了组件后显示 -->
+					<template v-if="rule.componentType">
+						<!-- 第二级选择：问题/任务（字段类型不需要第二级选择） -->
+						<el-form-item
+							v-if="rule.componentType !== 'fields'"
+							:label="getFieldLabel(rule.componentType)"
 						>
-							<el-option
-								v-for="field in ruleFieldOptions[index] || []"
-								:key="field.value"
-								:label="field.label"
-								:value="field.value"
-							/>
-						</el-select>
-					</el-form-item>
+							<el-select
+								v-model="rule.fieldPath"
+								placeholder="Select field"
+								:loading="loadingFields[index]"
+								@change="() => handleFieldChange(rule, index)"
+							>
+								<el-option
+									v-for="field in ruleFieldOptions[index] || []"
+									:key="field.value"
+									:label="field.label"
+									:value="field.value"
+								/>
+							</el-select>
+						</el-form-item>
 
-					<!-- Operator (非 checklist 类型) -->
-					<el-form-item v-if="rule.componentType !== 'checklist'" label="Operator">
-						<el-select v-model="rule.operator" placeholder="Select operator">
-							<el-option
-								v-for="op in operators"
-								:key="op.value"
-								:label="op.label"
-								:value="op.value"
-							/>
-						</el-select>
-					</el-form-item>
+						<!-- Operator (非 checklist 类型) -->
+						<el-form-item v-if="rule.componentType !== 'checklist'" label="Operator">
+							<el-select v-model="rule.operator" placeholder="Select operator">
+								<el-option
+									v-for="op in getOperatorsForRule(rule, index)"
+									:key="op.value"
+									:label="op.label"
+									:value="op.value"
+								/>
+							</el-select>
+						</el-form-item>
 
-					<!-- Checklist 专用 Operator -->
-					<el-form-item v-else label="Trigger When">
-						<el-select v-model="rule.operator" placeholder="Select trigger">
-							<el-option
-								v-for="op in checklistOperators"
-								:key="op.value"
-								:label="op.label"
-								:value="op.value"
-							/>
-						</el-select>
-					</el-form-item>
+						<!-- Checklist 专用 Operator -->
+						<el-form-item v-else label="Trigger When">
+							<el-select v-model="rule.operator" placeholder="Select trigger">
+								<el-option
+									v-for="op in checklistOperators"
+									:key="op.value"
+									:label="op.label"
+									:value="op.value"
+								/>
+							</el-select>
+						</el-form-item>
+					</template>
 
-					<!-- Value (非 checklist 类型) -->
+					<!-- Value (非 checklist 类型，且已选择组件) -->
 					<el-form-item v-if="rule.componentType !== 'checklist'" label="Value">
-						<!-- 有固定选项的字段类型（下拉框、开关）使用下拉选择 -->
-						<el-select
-							v-if="hasFixedOptions(rule)"
-							v-model="rule.value"
-							placeholder="Select value"
-						>
-							<el-option
-								v-for="opt in getValueOptions(rule, index)"
-								:key="opt.value"
-								:label="opt.label"
-								:value="opt.value"
+						<!-- Grid 类型：单独处理 -->
+						<template v-if="isGridType(index)">
+							<div class="grid-selectors w-full mb-3 flex items-center gap-x-2">
+								<el-form-item label="Row" class="w-6/12">
+									<el-select v-model="rule.rowKey" placeholder="Select row">
+										<el-option
+											v-for="row in getGridRowOptions(index)"
+											:key="row.value"
+											:label="row.label"
+											:value="row.value"
+										/>
+									</el-select>
+								</el-form-item>
+								<el-form-item label="Column" class="w-6/12">
+									<el-select
+										v-model="rule.columnKey"
+										placeholder="Select column"
+										@change="
+											(val: string) =>
+												handleGridColumnChange(rule, index, val)
+										"
+									>
+										<el-option
+											v-for="col in getGridColumnOptions(index)"
+											:key="col.value"
+											:label="col.label"
+											:value="col.value"
+										/>
+									</el-select>
+								</el-form-item>
+							</div>
+							<!-- Grid Value 输入：short_answer_grid 或 Other 列使用文本输入，否则使用选中/未选中 -->
+							<el-input
+								v-if="isGridTextInput(index)"
+								v-model="rule.value"
+								placeholder="Enter value"
 							/>
-						</el-select>
-						<!-- 其他类型使用输入框 -->
-						<el-input v-else v-model="rule.value" placeholder="Enter value" />
+							<el-select v-else v-model="rule.value" placeholder="Select value">
+								<el-option label="Selected" value="true" />
+								<el-option label="Not Selected" value="false" />
+							</el-select>
+						</template>
+
+						<!-- 非 Grid 类型：根据值输入类型渲染不同控件 -->
+						<template v-else>
+							<!-- 下拉选择类型 -->
+							<el-select
+								v-if="getValueInputType(rule, index) === 'select'"
+								v-model="rule.value"
+								placeholder="Select value"
+							>
+								<el-option
+									v-for="opt in getValueOptions(rule, index)"
+									:key="opt.value"
+									:label="opt.label"
+									:value="opt.value"
+								/>
+							</el-select>
+
+							<!-- 数字输入类型 -->
+							<InputNumber
+								v-else-if="getValueInputType(rule, index) === 'number'"
+								v-model="rule.value"
+								:is-foloat="getFieldConstraints(rule).isFloat ?? true"
+								:minus-number="getFieldConstraints(rule).allowNegative ?? false"
+								:is-financial="getFieldConstraints(rule).isFinancial ?? false"
+								:decimal-places="getFieldConstraints(rule).decimalPlaces ?? 2"
+								:property="{ placeholder: 'Enter number' }"
+							/>
+
+							<!-- 日期选择类型 -->
+							<el-date-picker
+								v-else-if="getValueInputType(rule, index) === 'date'"
+								v-model="rule.value"
+								:type="getFieldConstraints(rule).dateType || 'date'"
+								placeholder="Select date"
+								:format="getFieldConstraints(rule).dateFormat || 'YYYY-MM-DD'"
+								:value-format="getFieldConstraints(rule).dateFormat || 'YYYY-MM-DD'"
+								class="w-full"
+							/>
+
+							<!-- 时间选择类型 -->
+							<el-time-picker
+								v-else-if="getValueInputType(rule, index) === 'time'"
+								v-model="rule.value"
+								placeholder="Select time"
+								format="HH:mm"
+								value-format="HH:mm"
+								class="w-full"
+							/>
+
+							<!-- 人员选择类型 -->
+							<FlowflexUserSelector
+								v-else-if="getValueInputType(rule, index) === 'people'"
+								v-model="rule.value"
+								selection-type="user"
+								placeholder="Select user"
+							/>
+
+							<!-- 电话输入类型 -->
+							<MergedArea
+								v-else-if="getValueInputType(rule, index) === 'phone'"
+								v-model="rule.value"
+							/>
+
+							<!-- 默认文本输入 (包括 text, hidden/file 类型) -->
+							<el-input
+								v-else
+								v-model="rule.value"
+								placeholder="Enter value"
+								:maxlength="getFieldConstraints(rule).maxLength"
+								:show-word-limit="!!getFieldConstraints(rule).maxLength"
+							/>
+						</template>
 					</el-form-item>
 				</div>
 			</div>
@@ -141,40 +243,39 @@
 <script setup lang="ts">
 import { reactive, watch, onMounted, computed, ref } from 'vue';
 import { Plus, Delete } from '@element-plus/icons-vue';
-import type { RuleFormItem } from '#/condition';
+import type {
+	RuleFormItem,
+	DynamicFieldConstraints,
+	QuestionMetadata,
+	FieldOption,
+	ValueOption,
+	ComponentOption,
+	ComponentOptionGroup,
+} from '#/condition';
+
 import type { Stage } from '#/onboard';
 import type { DynamicList, DynamicDropdownItem } from '#/dynamic';
 import { propertyTypeEnum } from '@/enums/appEnum';
+import {
+	dynamicFieldInputTypeMap,
+	questionTypeInputMap,
+	unsupportedQuestionTypes,
+	dynamicFieldOperatorMap,
+	questionTypeOperatorMap,
+	checklistOperators,
+	allOperators,
+} from '@/enums/conditionEnum';
 import { getQuestionnaireDetail } from '@/apis/ow/questionnaire';
 import { getChecklistDetail } from '@/apis/ow/checklist';
 import { batchIdsDynamicFields } from '@/apis/global/dyanmicField';
+import FlowflexUserSelector from '@/components/form/flowflexUser/index.vue';
+import InputNumber from '@/components/form/InputNumber/index.vue';
+import MergedArea from '@/components/form/inputPhone/mergedArea.vue';
 
-// 字段选项接口
-interface FieldOption {
-	label: string;
-	value: string; // expressionPath
-}
+// ============ 类型定义 ============
 
-// Value 选项接口
-interface ValueOption {
-	label: string;
-	value: string;
-}
-
-// 组件选项接口
-interface ComponentOption {
-	key: string; // 唯一标识: questionnaire_{id}, checklist_{id}, fields
-	type: 'questionnaires' | 'checklist' | 'fields';
-	id?: string; // 问卷或checklist的ID
-	name: string; // 显示名称
-}
-
-// 组件选项分组
-interface ComponentOptionGroup {
-	type: string;
-	label: string;
-	items: ComponentOption[];
-}
+// 值输入类型（从 condition.d.ts 导入的类型别名）
+type ValueInputType = 'text' | 'number' | 'select' | 'date' | 'time' | 'people' | 'phone';
 
 // Props
 const props = defineProps<{
@@ -196,30 +297,6 @@ const logicValue = computed({
 	set: (val: 'AND' | 'OR') => emit('update:logic', val),
 });
 
-// 操作符选项
-const operators = [
-	{ value: '==', label: '=' },
-	{ value: '!=', label: '≠' },
-	{ value: '>', label: '>' },
-	{ value: '<', label: '<' },
-	{ value: '>=', label: '>=' },
-	{ value: '<=', label: '<=' },
-	{ value: 'Contains', label: 'Contains' },
-	{ value: 'NotContains', label: 'Does Not Contain' },
-	{ value: 'StartsWith', label: 'Starts With' },
-	{ value: 'EndsWith', label: 'Ends With' },
-	{ value: 'IsEmpty', label: 'Is Empty' },
-	{ value: 'IsNotEmpty', label: 'Is Not Empty' },
-	{ value: 'InList', label: 'In List' },
-	{ value: 'NotInList', label: 'Not In List' },
-];
-
-// Checklist 专用操作符
-const checklistOperators = [
-	{ value: 'CompleteTask', label: 'Complete Task' },
-	{ value: 'CompleteStage', label: 'Complete Stage' },
-];
-
 // 每个规则的字段选项（按规则索引）
 const ruleFieldOptions = reactive<Record<number, FieldOption[]>>({});
 
@@ -234,6 +311,101 @@ const staticFieldsMap = ref<Map<string, DynamicList>>(new Map());
 
 // 每个规则的 Value 选项（用于下拉类型字段）
 const ruleValueOptions = reactive<Record<number, ValueOption[]>>({});
+
+// 问题元数据映射（按规则索引）
+const questionMetadataMap = reactive<Record<number, QuestionMetadata>>({});
+
+// ============ Grid 类型辅助函数 ============
+
+/**
+ * 判断问题是否为 Grid 类型
+ */
+const isGridType = (ruleIndex: number): boolean => {
+	const metadata = questionMetadataMap[ruleIndex];
+	if (!metadata) return false;
+	return ['multiple_choice_grid', 'checkbox_grid', 'short_answer_grid'].includes(metadata.type);
+};
+
+/**
+ * 获取 Grid 问题的行选项
+ */
+const getGridRowOptions = (ruleIndex: number): ValueOption[] => {
+	const metadata = questionMetadataMap[ruleIndex];
+	if (!metadata?.rows?.length) return [];
+	return metadata.rows.map((row) => ({
+		label: row.label,
+		value: row.id,
+	}));
+};
+
+/**
+ * 获取 Grid 问题的列选项
+ */
+const getGridColumnOptions = (ruleIndex: number): ValueOption[] => {
+	const metadata = questionMetadataMap[ruleIndex];
+	if (!metadata?.columns?.length) return [];
+	return metadata.columns.map((col) => ({
+		label: col.label + (col.isOther ? ' (Other)' : ''),
+		value: col.id,
+	}));
+};
+
+/**
+ * 判断 Grid 类型是否需要文本输入
+ * - short_answer_grid 类型：始终使用文本输入
+ * - multiple_choice_grid / checkbox_grid 类型：如果选择的列是 Other，使用文本输入
+ */
+const isGridTextInput = (ruleIndex: number): boolean => {
+	const metadata = questionMetadataMap[ruleIndex];
+	if (!metadata) return true;
+
+	// short_answer_grid 始终使用文本输入
+	if (metadata.type === 'short_answer_grid') {
+		return true;
+	}
+
+	// multiple_choice_grid / checkbox_grid：检查选择的列是否是 Other
+	const rule = props.modelValue[ruleIndex];
+	const selectedColId = rule?.columnKey;
+	if (selectedColId && metadata.columns?.length) {
+		const selectedCol = metadata.columns.find((col) => col.id === selectedColId);
+		if (selectedCol?.isOther) {
+			return true;
+		}
+	}
+
+	return false;
+};
+
+/**
+ * 判断列是否是 Other 类型
+ */
+const isColumnOther = (ruleIndex: number, colId: string): boolean => {
+	const metadata = questionMetadataMap[ruleIndex];
+	if (!metadata?.columns?.length) return false;
+	const col = metadata.columns.find((c) => c.id === colId);
+	return col?.isOther ?? false;
+};
+
+// 保存上一次的列选择 Other 状态（用于检测切换）
+const prevColumnOtherState = reactive<Record<number, boolean>>({});
+
+/**
+ * 处理 Grid 列选择变化
+ * 当从普通列切换到 Other 列或从 Other 列切换到普通列时，清空 value
+ */
+const handleGridColumnChange = (rule: RuleFormItem, ruleIndex: number, newColId: string) => {
+	const wasOther = prevColumnOtherState[ruleIndex] ?? false;
+	const isNowOther = isColumnOther(ruleIndex, newColId);
+
+	// 如果 Other 状态发生变化，清空 value
+	if (wasOther !== isNowOther) {
+		rule.value = '';
+	}
+
+	// 更新状态
+	prevColumnOtherState[ruleIndex] = isNowOther;
+};
 
 // Loading 状态
 const loadingStaticFields = ref(false);
@@ -378,15 +550,46 @@ const getFieldInfo = (rule: RuleFormItem): DynamicList | undefined => {
 	return staticFieldsMap.value.get(fieldId);
 };
 
-// 判断字段是否有固定选项（下拉框、开关等）
-const hasFixedOptions = (rule: RuleFormItem): boolean => {
+/**
+ * 获取动态字段的约束配置
+ */
+const getFieldConstraints = (rule: RuleFormItem): DynamicFieldConstraints => {
 	const fieldInfo = getFieldInfo(rule);
-	if (!fieldInfo) return false;
-	// DropdownSelect 或 Switch 类型有固定选项
-	return (
-		fieldInfo.dataType === propertyTypeEnum.DropdownSelect ||
-		fieldInfo.dataType === propertyTypeEnum.Switch
-	);
+	if (!fieldInfo) return {};
+
+	const constraints: DynamicFieldConstraints = {};
+
+	// Number 类型约束
+	if (fieldInfo.dataType === propertyTypeEnum.Number) {
+		constraints.isFloat = fieldInfo.additionalInfo?.isFloat ?? true;
+		constraints.allowNegative = fieldInfo.additionalInfo?.allowNegative ?? false;
+		constraints.isFinancial = fieldInfo.additionalInfo?.isFinancial ?? false;
+		constraints.decimalPlaces = Number(fieldInfo.format?.decimalPlaces) || 2;
+	}
+
+	// DatePicker 类型约束
+	if (fieldInfo.dataType === propertyTypeEnum.DatePicker) {
+		constraints.dateFormat = fieldInfo.format?.dateFormat || 'YYYY-MM-DD';
+		// 根据格式判断是否包含时间
+		const format = fieldInfo.format?.dateFormat || '';
+		constraints.dateType = format.includes('HH:mm') ? 'datetime' : 'date';
+	}
+
+	// Text 类型约束
+	if (
+		fieldInfo.dataType === propertyTypeEnum.SingleLineText ||
+		fieldInfo.dataType === propertyTypeEnum.MultilineText
+	) {
+		constraints.maxLength = fieldInfo.fieldValidate?.maxLength;
+	}
+
+	// DropdownSelect 类型约束
+	if (fieldInfo.dataType === propertyTypeEnum.DropdownSelect) {
+		constraints.allowMultiple = fieldInfo.additionalInfo?.allowMultiple ?? false;
+		constraints.allowSearch = fieldInfo.additionalInfo?.allowSearch ?? true;
+	}
+
+	return constraints;
 };
 
 // 获取字段的值选项
@@ -396,26 +599,69 @@ const getValueOptions = (rule: RuleFormItem, ruleIndex: number): ValueOption[] =
 		return ruleValueOptions[ruleIndex];
 	}
 
-	const fieldInfo = getFieldInfo(rule);
-	if (!fieldInfo) return [];
-
 	const options: ValueOption[] = [];
 
-	if (fieldInfo.dataType === propertyTypeEnum.DropdownSelect) {
-		// 下拉框类型，使用 dropdownItems
-		if (fieldInfo.dropdownItems?.length) {
-			fieldInfo.dropdownItems.forEach((item: DynamicDropdownItem) => {
+	// 动态字段类型
+	if (rule.componentType === 'fields') {
+		const fieldInfo = getFieldInfo(rule);
+		if (!fieldInfo) return [];
+
+		if (fieldInfo.dataType === propertyTypeEnum.DropdownSelect) {
+			// 下拉框类型，使用 dropdownItems
+			if (fieldInfo.dropdownItems?.length) {
+				fieldInfo.dropdownItems.forEach((item: DynamicDropdownItem) => {
+					options.push({
+						label: item.value,
+						value: item.value,
+					});
+				});
+			}
+		} else if (fieldInfo.dataType === propertyTypeEnum.Switch) {
+			// 开关类型，固定 Yes/No 选项
+			const trueLabel = fieldInfo.additionalInfo?.trueLabel || 'Yes';
+			const falseLabel = fieldInfo.additionalInfo?.falseLabel || 'No';
+			options.push(
+				{ label: trueLabel, value: 'true' },
+				{ label: falseLabel, value: 'false' }
+			);
+		}
+	}
+
+	// 问卷问题类型
+	if (rule.componentType === 'questionnaires') {
+		const metadata = questionMetadataMap[ruleIndex];
+		if (metadata?.options?.length) {
+			// 选择类型问题 (multiple_choice, checkboxes, dropdown)
+			metadata.options.forEach((opt) => {
 				options.push({
-					label: item.value,
-					value: item.value,
+					label: opt.label,
+					value: opt.value || opt.label,
 				});
 			});
+		} else if (metadata?.type === 'rating') {
+			// 评分类型：生成 1 到 max 的选项
+			const max = metadata.max || 5;
+			for (let i = 1; i <= max; i++) {
+				options.push({
+					label: `${i} Star${i > 1 ? 's' : ''}`,
+					value: String(i),
+				});
+			}
+		} else if (metadata?.type === 'linear_scale') {
+			// 线性量表：生成 min 到 max 的选项
+			const min = metadata.min || 1;
+			const max = metadata.max || 10;
+			for (let i = min; i <= max; i++) {
+				let label = String(i);
+				if (i === min && metadata.minLabel) {
+					label = `${i} - ${metadata.minLabel}`;
+				} else if (i === max && metadata.maxLabel) {
+					label = `${i} - ${metadata.maxLabel}`;
+				}
+				options.push({ label, value: String(i) });
+			}
 		}
-	} else if (fieldInfo.dataType === propertyTypeEnum.Switch) {
-		// 开关类型，固定 Yes/No 选项
-		const trueLabel = fieldInfo.additionalInfo?.trueLabel || 'Yes';
-		const falseLabel = fieldInfo.additionalInfo?.falseLabel || 'No';
-		options.push({ label: trueLabel, value: 'true' }, { label: falseLabel, value: 'false' });
+		// Grid 类型使用文本输入，不需要选项
 	}
 
 	// 缓存选项
@@ -454,7 +700,11 @@ const loadStaticFieldsMapping = async () => {
 };
 
 // 加载问卷问题列表
-const loadQuestionnaireQuestions = async (questionnaireId: string, ruleIndex: number) => {
+const loadQuestionnaireQuestions = async (
+	questionnaireId: string,
+	ruleIndex: number,
+	restoreMetadata = false
+) => {
 	loadingFields[ruleIndex] = true;
 	const fields: FieldOption[] = [];
 
@@ -479,14 +729,63 @@ const loadQuestionnaireQuestions = async (questionnaireId: string, ruleIndex: nu
 				}
 			}
 
+			// 过滤不支持条件配置的问题类型
+			questions = questions.filter((q) => !unsupportedQuestionTypes.includes(q.type));
+
 			questions.forEach((q: any) => {
+				const questionId = q.id || q.questionId || q.temporaryId;
 				fields.push({
-					label: q.title || q.questionText || `Question ${q.order || ''}`,
-					value: `input.questionnaire.answers["${questionnaireId}"]["${
-						q.id || q.questionId
-					}"]`,
+					label: q.title || q.question || q.questionText || `Question ${q.order || ''}`,
+					value: `input.questionnaire.answers["${questionnaireId}"]["${questionId}"]`,
+					// 存储问题元数据供后续使用
+					metadata: {
+						type: q.type,
+						options: q.options?.map((opt: any) => ({
+							id: opt.id || opt.temporaryId,
+							label: opt.label || opt.value,
+							value: opt.value || opt.label,
+						})),
+						rows: q.rows?.map((row: any) => ({
+							id: row.id,
+							label: row.label,
+						})),
+						columns: q.columns?.map((col: any) => ({
+							id: col.id,
+							label: col.label,
+							isOther: col.isOther,
+						})),
+						min: q.min,
+						max: q.max,
+						minLabel: q.minLabel,
+						maxLabel: q.maxLabel,
+						iconType: q.iconType || 'star',
+					},
 				});
 			});
+
+			// 如果需要恢复元数据（初始化现有规则时）
+			if (restoreMetadata) {
+				const rule = props.modelValue[ruleIndex];
+				if (rule?.fieldPath) {
+					const selectedField = fields.find((f) => f.value === rule.fieldPath);
+					if (selectedField?.metadata) {
+						questionMetadataMap[ruleIndex] = selectedField.metadata;
+
+						// 如果是 Grid 类型且有 columnKey，初始化 prevColumnOtherState
+						if (
+							['multiple_choice_grid', 'checkbox_grid', 'short_answer_grid'].includes(
+								selectedField.metadata.type
+							) &&
+							rule.columnKey
+						) {
+							const col = selectedField.metadata.columns?.find(
+								(c) => c.id === rule.columnKey
+							);
+							prevColumnOtherState[ruleIndex] = col?.isOther ?? false;
+						}
+					}
+				}
+			}
 		}
 	} catch (error) {
 		console.error('Failed to load questionnaire questions:', error);
@@ -530,6 +829,13 @@ const handleComponentChange = (rule: RuleFormItem, componentKey: string, ruleInd
 	ruleFieldOptions[ruleIndex] = [];
 	ruleValueOptions[ruleIndex] = []; // 清空值选项
 
+	// 清除 Grid 选择
+	rule.rowKey = undefined;
+	rule.columnKey = undefined;
+
+	// 清除问题元数据
+	delete questionMetadataMap[ruleIndex];
+
 	// Checklist 类型设置默认 operator 并清空 value
 	if (type === 'checklist') {
 		rule.operator = 'CompleteTask';
@@ -556,14 +862,94 @@ const handleComponentChange = (rule: RuleFormItem, componentKey: string, ruleInd
 	}
 };
 
-// 处理字段选择变化（checklist 类型需要设置默认 operator）
-const handleFieldChange = (rule: RuleFormItem) => {
+/**
+ * 根据规则获取值输入类型
+ */
+const getValueInputType = (rule: RuleFormItem, ruleIndex: number): ValueInputType => {
+	// 动态字段类型
+	if (rule.componentType === 'fields') {
+		const fieldInfo = getFieldInfo(rule);
+		if (!fieldInfo) return 'text';
+		return dynamicFieldInputTypeMap[fieldInfo.dataType] || 'text';
+	}
+
+	// 问卷问题类型
+	if (rule.componentType === 'questionnaires') {
+		const metadata = questionMetadataMap[ruleIndex];
+		if (!metadata) return 'text';
+		return questionTypeInputMap[metadata.type] || 'text';
+	}
+
+	return 'text';
+};
+
+/**
+ * 根据规则获取可用的操作符列表
+ */
+const getOperatorsForRule = (rule: RuleFormItem, ruleIndex: number) => {
+	// Checklist 类型使用专用操作符
 	if (rule.componentType === 'checklist') {
+		return checklistOperators;
+	}
+
+	// 动态字段类型
+	if (rule.componentType === 'fields') {
+		const fieldInfo = getFieldInfo(rule);
+		if (!fieldInfo) return allOperators;
+		return dynamicFieldOperatorMap[fieldInfo.dataType] || allOperators;
+	}
+
+	// 问卷问题类型
+	if (rule.componentType === 'questionnaires') {
+		const metadata = questionMetadataMap[ruleIndex];
+		if (!metadata) return allOperators;
+		return questionTypeOperatorMap[metadata.type] || allOperators;
+	}
+
+	return allOperators;
+};
+
+// 处理字段选择变化（checklist 类型需要设置默认 operator）
+const handleFieldChange = (rule: RuleFormItem, ruleIndex: number) => {
+	// 清除之前的值
+	rule.value = '';
+	ruleValueOptions[ruleIndex] = [];
+
+	// 清除 Grid 选择
+	rule.rowKey = undefined;
+	rule.columnKey = undefined;
+
+	// 如果是问卷问题，存储元数据
+	if (rule.componentType === 'questionnaires') {
+		const fieldOptions = ruleFieldOptions[ruleIndex] || [];
+		const selectedField = fieldOptions.find((f) => f.value === rule.fieldPath);
+		if (selectedField?.metadata) {
+			questionMetadataMap[ruleIndex] = selectedField.metadata;
+
+			// 如果有选项，预加载值选项
+			if (selectedField.metadata.options?.length) {
+				ruleValueOptions[ruleIndex] = selectedField.metadata.options.map((opt) => ({
+					label: opt.label,
+					value: opt.value || opt.label,
+				}));
+			}
+		} else {
+			delete questionMetadataMap[ruleIndex];
+		}
+
+		// 重置操作符为该类型的第一个可用操作符
+		const availableOperators = getOperatorsForRule(rule, ruleIndex);
+		if (
+			availableOperators.length > 0 &&
+			!availableOperators.find((op) => op.value === rule.operator)
+		) {
+			rule.operator = availableOperators[0].value as any;
+		}
+	} else if (rule.componentType === 'checklist') {
 		// 确保 checklist 类型使用正确的 operator
 		if (!['CompleteTask', 'CompleteStage'].includes(rule.operator)) {
 			rule.operator = 'CompleteTask';
 		}
-		rule.value = '';
 	}
 };
 
@@ -573,27 +959,12 @@ const handleAddRule = () => {
 
 	// 获取第一个可用的组件选项
 	let defaultKey = '';
-	let defaultType: 'questionnaires' | 'checklist' | 'fields' = 'fields';
 	let defaultId: string | undefined;
 	let defaultFieldPath = '';
 
-	if (componentOptionGroups.value.length > 0) {
-		const firstGroup = componentOptionGroups.value[0];
-		if (firstGroup.items.length > 0) {
-			const firstItem = firstGroup.items[0];
-			defaultKey = firstItem.key;
-			defaultType = firstItem.type;
-			defaultId = firstItem.id;
-			// 如果是字段类型，直接设置 fieldPath
-			if (firstItem.type === 'fields' && firstItem.id) {
-				defaultFieldPath = `input.fields.${firstItem.id}`;
-			}
-		}
-	}
-
 	const newRule: RuleFormItem = {
 		sourceStageId: stage?.id || '',
-		componentType: defaultType,
+		componentType: '',
 		componentId: defaultId,
 		fieldPath: defaultFieldPath,
 		operator: '==',
@@ -605,13 +976,6 @@ const handleAddRule = () => {
 
 	// 设置组件key
 	ruleComponentKeys[newIndex] = defaultKey;
-
-	// 加载字段选项（字段类型不需要加载，因为已经在第一级选择了）
-	if (defaultType === 'questionnaires' && defaultId) {
-		loadQuestionnaireQuestions(defaultId, newIndex);
-	} else if (defaultType === 'checklist' && defaultId) {
-		loadChecklistTasks(defaultId, newIndex);
-	}
 };
 
 // 删除规则
@@ -625,6 +989,8 @@ const handleRemoveRule = (index: number) => {
 	delete ruleComponentKeys[index];
 	delete loadingFields[index];
 	delete ruleValueOptions[index];
+	delete questionMetadataMap[index];
+	delete prevColumnOtherState[index];
 };
 
 // 初始化现有规则的字段选项
@@ -638,7 +1004,8 @@ const initExistingRules = async () => {
 
 		// 加载字段选项（字段类型不需要加载，因为已经在第一级选择了）
 		if (rule.componentType === 'questionnaires' && rule.componentId) {
-			loadQuestionnaireQuestions(rule.componentId, index);
+			// 传入 restoreMetadata = true 以恢复元数据和 Grid 选择
+			loadQuestionnaireQuestions(rule.componentId, index, true);
 		} else if (rule.componentType === 'checklist' && rule.componentId) {
 			loadChecklistTasks(rule.componentId, index);
 		}

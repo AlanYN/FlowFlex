@@ -5,9 +5,6 @@
 			<el-button link @click="handleBack" :icon="ArrowLeft" />
 			<el-divider direction="vertical" />
 			<span class="canvas-toolbar__title">{{ title }}</span>
-			<el-tag v-if="hasUnsavedChanges" type="warning" size="small" effect="plain">
-				Unsaved
-			</el-tag>
 		</div>
 
 		<!-- 右侧：缩放控制 -->

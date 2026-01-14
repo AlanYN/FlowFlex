@@ -194,8 +194,7 @@ const viewAllAchievements = () => {
 }
 
 .team-badge {
-	@apply w-6 h-6 rounded-full flex items-center justify-center text-xs font-medium;
+	@apply w-6 h-6 rounded-full flex items-center justify-center text-xs font-medium text-white;
 	background: var(--el-color-primary-light-7);
-	color: var(--el-color-primary);
 }
 </style>
