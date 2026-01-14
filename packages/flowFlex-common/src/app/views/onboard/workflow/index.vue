@@ -1522,6 +1522,7 @@ const submitStage = async (stage: Partial<Stage>) => {
 	try {
 		// 更新阶段
 		loading.updateStage = true;
+		loading.createStage = true;
 		// 注意：权限检查已在 StageForm.vue 组件内部完成，这里不需要重复检查
 
 		const params = {

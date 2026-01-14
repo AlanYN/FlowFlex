@@ -60,7 +60,7 @@ export interface ActionTypeConfig {
 /**
  * Stage 组件类型
  */
-export type ComponentType = 'checklist' | 'questionnaires' | 'fields' | 'files';
+export type ComponentType = 'checklist' | 'questionnaires' | 'fields' | 'files' | '';
 
 // ============ 条件规则 ============
 
@@ -74,6 +74,8 @@ export interface ConditionRule {
 	fieldPath: string;
 	operator: ConditionOperator;
 	value: string;
+	rowKey?: string; // Grid 类型问题的行选择
+	columnKey?: string; // Grid 类型问题的列选择
 }
 
 /**
@@ -203,6 +205,102 @@ export interface ComponentFieldInfo {
 }
 
 // ============ UI 辅助类型 ============
+
+/**
+ * 值输入类型
+ */
+export type ValueInputType = 'text' | 'number' | 'select' | 'date' | 'time' | 'people' | 'phone';
+
+/**
+ * 操作符选项（用于 UI 下拉选择）
+ */
+export interface OperatorOption {
+	value: string;
+	label: string;
+}
+
+/**
+ * 动态字段约束配置
+ * 用于条件规则值输入控件的约束
+ */
+export interface DynamicFieldConstraints {
+	// Number 类型约束
+	isFloat?: boolean;
+	allowNegative?: boolean;
+	isFinancial?: boolean;
+	decimalPlaces?: number;
+	// DatePicker 类型约束
+	dateFormat?: string;
+	dateType?: 'date' | 'datetime';
+	// Text 类型约束
+	maxLength?: number;
+	// DropdownSelect 类型约束
+	allowMultiple?: boolean;
+	allowSearch?: boolean;
+}
+
+/**
+ * 问卷问题元数据
+ * 用于条件规则值输入控件的配置
+ */
+export interface QuestionMetadata {
+	type: string;
+	options?: Array<{
+		id: string;
+		label: string;
+		value: string;
+	}>;
+	rows?: Array<{
+		id: string;
+		label: string;
+	}>;
+	columns?: Array<{
+		id: string;
+		label: string;
+		isOther?: boolean;
+	}>;
+	min?: number;
+	max?: number;
+	minLabel?: string;
+	maxLabel?: string;
+	iconType?: string;
+}
+
+/**
+ * 字段选项接口（扩展以支持元数据）
+ */
+export interface FieldOption {
+	label: string;
+	value: string;
+	metadata?: QuestionMetadata;
+}
+
+/**
+ * Value 选项接口
+ */
+export interface ValueOption {
+	label: string;
+	value: string;
+}
+
+/**
+ * 组件选项接口
+ */
+export interface ComponentOption {
+	key: string;
+	type: 'questionnaires' | 'checklist' | 'fields';
+	id?: string;
+	name: string;
+}
+
+/**
+ * 组件选项分组
+ */
+export interface ComponentOptionGroup {
+	type: string;
+	label: string;
+	items: ComponentOption[];
+}
 
 /**
  * 规则表单项（UI 使用）
