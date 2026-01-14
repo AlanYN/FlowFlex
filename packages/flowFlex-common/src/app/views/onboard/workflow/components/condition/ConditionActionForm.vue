@@ -44,9 +44,11 @@
 								:label="type.label"
 								:value="type.value"
 							>
-								<div class="action-type-option">
-									<span>{{ type.label }}</span>
-									<span class="action-type-desc">{{ type.description }}</span>
+								<div>
+									<span>{{ `${type.label}   ` }}</span>
+									<span class="action-type-desc">
+										{{ `( ${type.description} )` }}
+									</span>
 								</div>
 							</el-option>
 						</el-select>
@@ -298,8 +300,16 @@ const groupedActions = computed(() => {
 
 // 动作类型选项
 const actionTypes = [
-	{ value: 'GoToStage', label: 'Go To Stage', description: 'Jump to a specific stage' },
-	{ value: 'SkipStage', label: 'Skip Stage', description: 'Skip the next stage' },
+	{
+		value: 'GoToStage',
+		label: 'Go to Stage',
+		description: 'Jump to a specific workflow stage',
+	},
+	{
+		value: 'SkipStage',
+		label: 'Skip Stage',
+		description: 'Skip the next stage and continue',
+	},
 	{
 		value: 'EndWorkflow',
 		label: 'End Workflow',
@@ -308,15 +318,23 @@ const actionTypes = [
 	{
 		value: 'SendNotification',
 		label: 'Send Notification',
-		description: 'Send email/SMS notification',
+		description: 'Send email/SMS to user or team',
 	},
 	{
 		value: 'UpdateField',
 		label: 'Update Field',
 		description: 'Automatically update a field value',
 	},
-	{ value: 'TriggerAction', label: 'Trigger Action', description: 'Execute a predefined action' },
-	{ value: 'AssignUser', label: 'Assign User', description: 'Reassign to user/team' },
+	{
+		value: 'TriggerAction',
+		label: 'Trigger Action',
+		description: 'Execute a predefined action',
+	},
+	{
+		value: 'AssignUser',
+		label: 'Assign User',
+		description: 'Reassign stage to specific user/team',
+	},
 ];
 
 // 检查是否会产生循环
@@ -688,10 +706,6 @@ watch(
 
 .action-number {
 	@apply text-sm font-medium text-primary;
-}
-
-.action-type-option {
-	@apply flex flex-col;
 }
 
 .action-type-desc {

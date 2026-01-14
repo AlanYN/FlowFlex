@@ -2,6 +2,7 @@ import { ref, onMounted } from 'vue';
 import { Options } from '#/setting';
 import { useUserStore } from '@/stores/modules/user';
 import { findUserList } from '@/apis/global';
+import { UserType } from '@/enums/permissionEnum';
 
 interface UrlExtension {
 	headUrl?: string;
@@ -32,7 +33,7 @@ export function useInternalNoteUsers(id: string) {
 			const findUser = await findUserList(id);
 			if (findUser.code === '200') {
 				const data = findUser.data
-					.filter((item) => item.userType == 1)
+					.filter((item) => item.userType == UserType.user)
 					.map((item) => ({
 						key: item.id,
 						value: item.name,
