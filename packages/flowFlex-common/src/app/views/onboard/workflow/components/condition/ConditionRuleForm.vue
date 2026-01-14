@@ -86,29 +86,34 @@
 							</el-select>
 						</el-form-item>
 
-						<!-- Operator (非 checklist 类型) -->
-						<el-form-item v-if="rule.componentType !== 'checklist'" label="Operator">
-							<el-select v-model="rule.operator" placeholder="Select operator">
-								<el-option
-									v-for="op in getOperatorsForRule(rule, index)"
-									:key="op.value"
-									:label="op.label"
-									:value="op.value"
-								/>
-							</el-select>
-						</el-form-item>
+						<template v-if="!!rule?.fieldPath">
+							<!-- Operator (非 checklist 类型) -->
+							<el-form-item
+								v-if="rule.componentType !== 'checklist'"
+								label="Operator"
+							>
+								<el-select v-model="rule.operator" placeholder="Select operator">
+									<el-option
+										v-for="op in getOperatorsForRule(rule, index)"
+										:key="op.value"
+										:label="op.label"
+										:value="op.value"
+									/>
+								</el-select>
+							</el-form-item>
 
-						<!-- Checklist 专用 Operator -->
-						<el-form-item v-else label="Trigger When">
-							<el-select v-model="rule.operator" placeholder="Select trigger">
-								<el-option
-									v-for="op in checklistOperators"
-									:key="op.value"
-									:label="op.label"
-									:value="op.value"
-								/>
-							</el-select>
-						</el-form-item>
+							<!-- Checklist 专用 Operator -->
+							<el-form-item v-else label="Trigger When">
+								<el-select v-model="rule.operator" placeholder="Select trigger">
+									<el-option
+										v-for="op in checklistOperators"
+										:key="op.value"
+										:label="op.label"
+										:value="op.value"
+									/>
+								</el-select>
+							</el-form-item>
+						</template>
 					</template>
 
 					<!-- Value (非 checklist 类型，且已选择组件) -->
@@ -957,16 +962,11 @@ const handleFieldChange = (rule: RuleFormItem, ruleIndex: number) => {
 const handleAddRule = () => {
 	const stage = getCurrentStage();
 
-	// 获取第一个可用的组件选项
-	let defaultKey = '';
-	let defaultId: string | undefined;
-	let defaultFieldPath = '';
-
 	const newRule: RuleFormItem = {
 		sourceStageId: stage?.id || '',
 		componentType: '',
-		componentId: defaultId,
-		fieldPath: defaultFieldPath,
+		componentId: '',
+		fieldPath: '',
 		operator: '==',
 		value: '',
 	};
@@ -975,7 +975,7 @@ const handleAddRule = () => {
 	emit('update:modelValue', [...props.modelValue, newRule]);
 
 	// 设置组件key
-	ruleComponentKeys[newIndex] = defaultKey;
+	ruleComponentKeys[newIndex] = '';
 };
 
 // 删除规则

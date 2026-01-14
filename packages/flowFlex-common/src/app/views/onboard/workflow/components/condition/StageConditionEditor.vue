@@ -207,7 +207,7 @@ const initFormData = () => {
 			formData.rules = [
 				{
 					sourceStageId: currentStageId.value,
-					componentType: 'questionnaires',
+					componentType: '',
 					fieldPath: '',
 					operator: '==',
 					value: '',
@@ -233,7 +233,7 @@ const initFormData = () => {
 		formData.rules = [
 			{
 				sourceStageId: currentStageId.value,
-				componentType: 'questionnaires',
+				componentType: '',
 				fieldPath: '',
 				operator: '==',
 				value: '',
@@ -273,8 +273,29 @@ const close = () => {
 	visible.value = false;
 };
 
+// 重置表单数据
+const resetFormData = () => {
+	formData.name = '';
+	formData.description = '';
+	formData.logic = 'AND';
+	formData.rules = [];
+	formData.actions = [];
+	formData.fallback = {
+		type: 'default',
+		fallbackStageId: undefined,
+	};
+	// 重置内部状态
+	currentStageId.value = '';
+	currentStageName.value = '';
+	currentStageIndex.value = 0;
+	currentCondition.value = null;
+	// 清除表单验证状态
+	formRef.value?.resetFields();
+};
+
 // 处理取消
 const handleCancel = () => {
+	resetFormData();
 	emit('cancel');
 	close();
 };

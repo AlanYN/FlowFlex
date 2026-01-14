@@ -154,3 +154,9 @@ export type ProjectPermissionType =
 
 // 辅助类型：获取所有权限值的联合类型
 export type ProjectPermissionValue = ProjectPermissionType;
+
+export enum UserType {
+	SystemAdmin = 1,
+	TenantAdmin = 2,
+	user = 3,
+}
