@@ -31,11 +31,13 @@ export function useInternalNoteUsers(id: string) {
 		try {
 			const findUser = await findUserList(id);
 			if (findUser.code === '200') {
-				const data = findUser.data.map((item) => ({
-					key: item.id,
-					value: item.name,
-					email: item.email,
-				}));
+				const data = findUser.data
+					.filter((item) => item.userType == 1)
+					.map((item) => ({
+						key: item.id,
+						value: item.name,
+						email: item.email,
+					}));
 				allAssignOptions.value = data;
 			}
 		} catch (error) {
