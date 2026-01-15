@@ -227,16 +227,6 @@
 			</div>
 		</div>
 
-		<!-- 弹窗底部按钮 -->
-		<template #footer>
-			<div class="dialog-footer">
-				<el-button @click="handleClose">Cancel</el-button>
-				<el-button type="primary" @click="handleSave" :disabled="disabled">
-					Save Changes
-				</el-button>
-			</div>
-		</template>
-
 		<!-- 上传进度显示区域 -->
 		<div v-if="uploadProgress.length > 0" class="upload-progress-section">
 			<div class="section-header">
@@ -260,6 +250,57 @@
 				</div>
 			</div>
 		</div>
+
+		<div class="notes-section mt-4">
+			<div class="section-header">
+				<div class="section-title">Change Log</div>
+			</div>
+			<div v-loading="notesLoading">
+				<template v-if="systemNotes && systemNotes.length > 0">
+					<el-scrollbar class="notes-scrollbar" max-height="300px">
+						<div class="notes-list">
+							<div
+								v-for="(note, index) in systemNotes"
+								:key="note.id || index"
+								class="note-item"
+							>
+								<!-- 查看模式 -->
+								<template v-if="editingNoteIndex !== index">
+									<div class="note-content">
+										<p class="note-text">{{ note.content }}</p>
+										<div class="note-meta">
+											<span class="note-author">
+												By
+												{{ note.createdByName || defaultStr }}
+											</span>
+											<span class="note-date">
+												on {{ timeZoneConvert(note.createdAt) }}
+											</span>
+										</div>
+									</div>
+								</template>
+							</div>
+						</div>
+					</el-scrollbar>
+				</template>
+				<template v-else-if="notes.length <= 0 && !showAddNoteInput">
+					<div class="no-notes">
+						<el-icon><Edit /></el-icon>
+						<span>No notes added yet</span>
+					</div>
+				</template>
+			</div>
+		</div>
+
+		<!-- 弹窗底部按钮 -->
+		<template #footer>
+			<div class="dialog-footer">
+				<el-button @click="handleClose">Cancel</el-button>
+				<el-button type="primary" @click="handleSave" :disabled="disabled">
+					Save Changes
+				</el-button>
+			</div>
+		</template>
 	</el-dialog>
 </template>
 
@@ -326,6 +367,7 @@ const uploadProgress = ref<{ uid: string; name: string; percentage: number }[]>(
 
 // Notes 相关
 const notes = ref<TaskNote[]>([]);
+const systemNotes = ref<TaskNote[]>([]);
 const showAddNoteInput = ref(false);
 const newNoteContent = ref('');
 const notesLoading = ref(false);
@@ -398,7 +440,8 @@ const loadTaskNotes = async () => {
 
 		// 转换API响应为组件需要的格式
 		if (response.code == '200') {
-			notes.value = response?.data || [];
+			notes.value = response?.data?.filter((item) => item.noteType != 'System') || [];
+			systemNotes.value = response?.data.filter((item) => item.noteType == 'System') || [];
 		}
 	} finally {
 		notesLoading.value = false;
