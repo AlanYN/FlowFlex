@@ -38,7 +38,7 @@ namespace FlowFlex.SqlSugarDB.Implements.Integration
             _logger.LogInformation($"[IntegrationRepository] GetAllAsync with TenantId={currentTenantId}");
 
             var query = db.Queryable<Domain.Entities.Integration.Integration>()
-                .Where(x => x.TenantId == currentTenantId);
+                .Where(x => x.TenantId == currentTenantId && x.IsValid);
 
             if (!string.IsNullOrWhiteSpace(name))
             {
