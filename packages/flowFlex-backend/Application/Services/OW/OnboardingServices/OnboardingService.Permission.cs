@@ -19,6 +19,9 @@ namespace FlowFlex.Application.Services.OW
     /// </summary>
     public partial class OnboardingService
     {
+        /// <summary>
+        /// Check if current user has operate permission on the case
+        /// </summary>
         private async Task<bool> CheckCaseOperatePermissionAsync(long caseId)
         {
             var userId = _userContext?.UserId;
@@ -33,6 +36,18 @@ namespace FlowFlex.Application.Services.OW
                 PermissionOperationType.Operate);
 
             return permissionResult.Success && permissionResult.CanOperate;
+        }
+
+        /// <summary>
+        /// Ensure current user has operate permission on the case, throw exception if not
+        /// </summary>
+        private async Task EnsureCaseOperatePermissionAsync(long caseId)
+        {
+            if (!await CheckCaseOperatePermissionAsync(caseId))
+            {
+                throw new CRMException(ErrorCodeEnum.OperationNotAllowed,
+                    $"User does not have permission to operate on case {caseId}");
+            }
         }
 
         private async Task PopulateOnboardingOutputDtoAsync(List<OnboardingOutputDto> results, List<Onboarding> entities)
@@ -197,7 +212,8 @@ namespace FlowFlex.Application.Services.OW
                 if (currentStageProgress != null)
                 {
                     result.CurrentStageId = currentStageProgress.StageId;
-                    LoggingExtensions.WriteLine($"[DEBUG] PopulateOnboardingOutputDto - Recovered CurrentStageId from StagesProgress: {result.CurrentStageId} for Onboarding {result.Id}");
+                    _logger.LogDebug("PopulateOnboardingOutputDto - Recovered CurrentStageId {CurrentStageId} from StagesProgress for Onboarding {OnboardingId}",
+                        result.CurrentStageId, result.Id);
                 }
             }
 
@@ -268,7 +284,8 @@ namespace FlowFlex.Application.Services.OW
             else
             {
                 // Log when CurrentStageId is still null after fallback attempt
-                LoggingExtensions.WriteLine($"[WARNING] PopulateOnboardingOutputDto - CurrentStageId is null for Onboarding {result.Id}, StagesProgress count: {result.StagesProgress?.Count ?? 0}");
+                _logger.LogWarning("PopulateOnboardingOutputDto - CurrentStageId is null for Onboarding {OnboardingId}, StagesProgress count: {StagesProgressCount}",
+                    result.Id, result.StagesProgress?.Count ?? 0);
             }
         }
 
@@ -296,7 +313,7 @@ namespace FlowFlex.Application.Services.OW
             catch (Exception ex)
             {
                 // Do not block the operation if IDM is unavailable; just log
-                LoggingExtensions.WriteLine($"[TeamValidation] Skipped due to error fetching team tree: {ex.Message}");
+                _logger.LogWarning(ex, "Team validation skipped due to error fetching team tree");
                 return;
             }
 

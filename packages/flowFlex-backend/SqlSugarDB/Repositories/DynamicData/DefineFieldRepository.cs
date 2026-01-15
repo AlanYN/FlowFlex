@@ -40,6 +40,12 @@ public class DefineFieldRepository : BaseRepository<DefineField>, IDefineFieldRe
             .Where(x => x.IsValid)
             .Where(x => x.TenantId == _userContext.TenantId && x.AppCode == _userContext.AppCode);
 
+        // Apply IDs filter (for batch export)
+        if (request.Ids != null && request.Ids.Any())
+        {
+            query = query.Where(x => request.Ids.Contains(x.Id));
+        }
+
         // Apply filters - support comma-separated values
         if (!string.IsNullOrWhiteSpace(request.FieldName))
         {

@@ -181,6 +181,12 @@ namespace FlowFlex.WebApi.Extensions
                                 }
                             }
 
+                            // Check if this is a system-initialized entity (CreateBy = "SYSTEM")
+                            // If so, skip auto-fill for audit fields to preserve system values
+                            var createByProperty = entityInfo.EntityValue.GetType().GetProperty("CreateBy");
+                            var isSystemInit = createByProperty != null && 
+                                              (string)createByProperty.GetValue(entityInfo.EntityValue) == "SYSTEM";
+
                             if (entityInfo.OperationType == DataFilterType.InsertByObject)
                             {
                                 switch (entityInfo.PropertyName)
@@ -201,19 +207,35 @@ namespace FlowFlex.WebApi.Extensions
                                         break;
 
                                     case nameof(EntityBaseCreateInfo.CreateBy):
-                                        entityInfo.SetValue(userName);
+                                        // Only set if not already specified
+                                        if (string.IsNullOrEmpty((string)oldValue))
+                                        {
+                                            entityInfo.SetValue(userName);
+                                        }
                                         break;
 
                                     case nameof(EntityBaseCreateInfo.ModifyBy):
-                                        entityInfo.SetValue(userName);
+                                        // Skip if system initialized, otherwise only set if empty
+                                        if (!isSystemInit && string.IsNullOrEmpty((string)oldValue))
+                                        {
+                                            entityInfo.SetValue(userName);
+                                        }
                                         break;
 
                                     case nameof(EntityBaseCreateInfo.CreateUserId):
-                                        entityInfo.SetValue(userId);
+                                        // Skip if system initialized
+                                        if (!isSystemInit && (oldValue == null || (long)oldValue == 0))
+                                        {
+                                            entityInfo.SetValue(userId);
+                                        }
                                         break;
 
                                     case nameof(EntityBaseCreateInfo.ModifyUserId):
-                                        entityInfo.SetValue(userId);
+                                        // Skip if system initialized
+                                        if (!isSystemInit && (oldValue == null || (long)oldValue == 0))
+                                        {
+                                            entityInfo.SetValue(userId);
+                                        }
                                         break;
                                 }
                             }

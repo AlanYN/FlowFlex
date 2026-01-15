@@ -510,5 +510,123 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
         }
 
         #endregion
+
+        #region Condition Evaluation History Methods
+
+        /// <summary>
+        /// Get condition evaluation history for an onboarding
+        /// Implements Requirements 8.5: Query condition evaluation history by onboardingId
+        /// </summary>
+        public async Task<PagedResult<OperationChangeLogOutputDto>> GetConditionEvaluationHistoryByOnboardingAsync(
+            long onboardingId,
+            int pageIndex = 1,
+            int pageSize = 20)
+        {
+            try
+            {
+                _logger.LogInformation("Getting condition evaluation history for onboarding {OnboardingId}", onboardingId);
+
+                // Query logs with condition evaluation operation types
+                var conditionOperationTypes = new List<OperationTypeEnum>
+                {
+                    OperationTypeEnum.StageConditionEvaluate,
+                    OperationTypeEnum.StageConditionActionExecute
+                };
+
+                return await GetAggregatedLogsAsync(
+                    onboardingId: onboardingId,
+                    stageId: null,
+                    businessModules: new List<BusinessModuleEnum> { BusinessModuleEnum.StageCondition },
+                    operationTypes: conditionOperationTypes,
+                    startDate: null,
+                    endDate: null,
+                    pageIndex: pageIndex,
+                    pageSize: pageSize);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting condition evaluation history for onboarding {OnboardingId}", onboardingId);
+                return new PagedResult<OperationChangeLogOutputDto>();
+            }
+        }
+
+        /// <summary>
+        /// Get condition evaluation history for a stage
+        /// Implements Requirements 8.6: Query condition evaluation history by stageId
+        /// </summary>
+        public async Task<PagedResult<OperationChangeLogOutputDto>> GetConditionEvaluationHistoryByStageAsync(
+            long stageId,
+            long? onboardingId = null,
+            int pageIndex = 1,
+            int pageSize = 20)
+        {
+            try
+            {
+                _logger.LogInformation("Getting condition evaluation history for stage {StageId}, onboarding {OnboardingId}", 
+                    stageId, onboardingId);
+
+                // Query logs with condition evaluation operation types
+                var conditionOperationTypes = new List<OperationTypeEnum>
+                {
+                    OperationTypeEnum.StageConditionEvaluate,
+                    OperationTypeEnum.StageConditionActionExecute
+                };
+
+                return await GetAggregatedLogsAsync(
+                    onboardingId: onboardingId,
+                    stageId: stageId,
+                    businessModules: new List<BusinessModuleEnum> { BusinessModuleEnum.StageCondition },
+                    operationTypes: conditionOperationTypes,
+                    startDate: null,
+                    endDate: null,
+                    pageIndex: pageIndex,
+                    pageSize: pageSize);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting condition evaluation history for stage {StageId}", stageId);
+                return new PagedResult<OperationChangeLogOutputDto>();
+            }
+        }
+
+        /// <summary>
+        /// Get condition action execution history
+        /// Implements Requirements 8.7: Query condition action execution logs
+        /// </summary>
+        public async Task<PagedResult<OperationChangeLogOutputDto>> GetConditionActionExecutionHistoryAsync(
+            long? onboardingId = null,
+            long? stageId = null,
+            int pageIndex = 1,
+            int pageSize = 20)
+        {
+            try
+            {
+                _logger.LogInformation("Getting condition action execution history for onboarding {OnboardingId}, stage {StageId}", 
+                    onboardingId, stageId);
+
+                // Query logs with condition action execution operation type only
+                var actionOperationTypes = new List<OperationTypeEnum>
+                {
+                    OperationTypeEnum.StageConditionActionExecute
+                };
+
+                return await GetAggregatedLogsAsync(
+                    onboardingId: onboardingId,
+                    stageId: stageId,
+                    businessModules: new List<BusinessModuleEnum> { BusinessModuleEnum.StageCondition },
+                    operationTypes: actionOperationTypes,
+                    startDate: null,
+                    endDate: null,
+                    pageIndex: pageIndex,
+                    pageSize: pageSize);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting condition action execution history");
+                return new PagedResult<OperationChangeLogOutputDto>();
+            }
+        }
+
+        #endregion
     }
 }

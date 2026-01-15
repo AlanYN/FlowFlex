@@ -6,7 +6,7 @@
 			<el-scrollbar ref="scrollbarRefLeft" class="stage-components-selector">
 				<!-- Required Fields -->
 				<div class="space-y-2">
-					<label class="text-base font-bold">Required Fields</label>
+					<label class="text-base font-bold">Fields</label>
 					<p class="text-sm">Select fields that are required for this stage</p>
 					<div class="border rounded-xl">
 						<div class="p-2 border-b">
@@ -26,21 +26,21 @@
 							<div class="p-2">
 								<div
 									v-for="field in filteredStaticFields"
-									:key="field.vIfKey"
+									:key="field.id"
 									class="flex items-center space-x-2 py-1"
 								>
 									<el-checkbox
-										:model-value="isFieldSelected(field.vIfKey)"
-										@change="(checked) => toggleField(field.vIfKey, !!checked)"
-										:id="`field-${field.vIfKey}`"
+										:model-value="isFieldSelected(field.id)"
+										@change="(checked) => toggleField(field.id, !!checked)"
+										:id="`field-${field.id}`"
 										size="small"
 									/>
 									<div class="flex-1 min-w-0">
 										<label
-											:for="`field-${field.vIfKey}`"
+											:for="`field-${field.id}`"
 											class="text-sm font-medium leading-none flex-1 cursor-pointer min-w-0"
 										>
-											<span class="truncate">{{ field.label }}</span>
+											<span class="truncate">{{ field.fieldName }}</span>
 										</label>
 									</div>
 								</div>
@@ -55,21 +55,72 @@
 					</div>
 				</div>
 
-				<!-- Selected Fields Tags -->
-				<div v-if="getSelectedFieldTags().length > 0" class="space-y-2">
+				<!-- Selected Fields List -->
+				<div v-if="selectedFieldsList.length > 0" class="space-y-2">
 					<label class="text-base font-bold">Selected Fields</label>
-					<div class="border rounded-xl p-2">
-						<div class="flex flex-wrap gap-1">
-							<el-tag
-								v-for="fieldTag in getSelectedFieldTags()"
-								:key="fieldTag.key"
-								type="primary"
-								closable
-								@close="removeFieldTag(fieldTag.key)"
+					<p class="text-sm">Drag to reorder, toggle required status</p>
+					<div class="border rounded-xl">
+						<el-scrollbar max-height="200px">
+							<draggable
+								v-model="selectedFieldsList"
+								group="fields"
+								handle=".field-drag-handle"
+								class="p-2 space-y-1"
+								item-key="id"
+								ghost-class="ghost-field"
+								@change="updateFieldsOrder"
+								:animation="300"
 							>
-								{{ fieldTag.label }}
-							</el-tag>
-						</div>
+								<template #item="{ element, index }">
+									<div
+										class="flex items-center gap-2 p-2 border rounded-lg bg-white dark:bg-black-400 hover:shadow-sm transition-all"
+									>
+										<div
+											class="field-drag-handle flex items-center justify-center w-5 h-5 cursor-row-resize flex-shrink-0"
+										>
+											<el-icon class="text-gray-400 text-sm">
+												<GripVertical />
+											</el-icon>
+										</div>
+										<span
+											class="text-xs bg-primary text-white w-5 h-5 flex items-center justify-center rounded font-medium flex-shrink-0"
+										>
+											{{ index + 1 }}
+										</span>
+										<div class="flex-1 min-w-0">
+											<el-tooltip
+												:content="element.label"
+												placement="top"
+												:disabled="element.label.length <= 20"
+											>
+												<span class="text-sm block truncate">
+													{{ element.label }}
+												</span>
+											</el-tooltip>
+										</div>
+										<div class="flex items-center">
+											<el-radio
+												:model-value="element.isRequired"
+												:value="true"
+												@change="toggleFieldRequired(element.id, true)"
+												size="small"
+												class="mr-2"
+											>
+												Required
+											</el-radio>
+											<el-button
+												size="small"
+												type="danger"
+												link
+												@click="removeFieldTag(element.id)"
+											>
+												<el-icon class="text-sm"><Close /></el-icon>
+											</el-button>
+										</div>
+									</div>
+								</template>
+							</draggable>
+						</el-scrollbar>
 					</div>
 				</div>
 
@@ -289,7 +340,7 @@
 									<div class="flex items-center p-2">
 										<div class="flex items-center flex-1 min-w-0 gap-x-2">
 											<div
-												class="drag-handle flex items-center justify-center w-5 h-5 rounded-xl cursor-move transition-colors flex-shrink-0"
+												class="drag-handle flex items-center justify-center w-5 h-5 rounded-xl cursor-row-resize transition-colors flex-shrink-0"
 											>
 												<el-icon class="text-black dark:text-white text-sm">
 													<GripVertical />
@@ -406,14 +457,11 @@ import {
 } from '@element-plus/icons-vue';
 import GripVertical from '@assets/svg/workflow/grip-vertical.svg';
 import draggable from 'vuedraggable';
-import staticFieldsData from '../static-field.json';
 import { useAdaptiveScrollbar } from '@/hooks/useAdaptiveScrollbar';
 import {
 	StageComponentData,
 	ComponentsData,
-	StaticField,
 	SelectedItem,
-	FieldTag,
 	Checklist,
 	Questionnaire,
 } from '#/onboard';
@@ -421,6 +469,7 @@ import { IQuickLink } from '#/integration';
 
 import { StageComponentPortal } from '@/enums/appEnum';
 import { defaultStr } from '@/settings/projectSetting';
+import { DynamicList } from '#/dynamic';
 
 // Props
 const props = defineProps<{
@@ -428,6 +477,7 @@ const props = defineProps<{
 	checklists: Checklist[];
 	questionnaires: Questionnaire[];
 	quickLinks: IQuickLink[];
+	staticFields: DynamicList[];
 }>();
 
 // Emits
@@ -442,16 +492,74 @@ const { scrollbarRef: scrollbarRefRight } = useAdaptiveScrollbar(200); // 预留
 
 // Data
 const searchQuery = ref('');
-const staticFields = ref<StaticField[]>(staticFieldsData.formFields);
 const selectedItems = ref<SelectedItem[]>([]);
+
+// 选中的字段列表（用于拖动排序）- 使用 computed
+interface SelectedFieldItem {
+	id: string;
+	label: string;
+	isRequired: boolean;
+	order: number;
+}
+
+// 标准化静态字段数据（兼容旧数据格式）
+const normalizeStaticField = (
+	field: string | { id: string; isRequired?: boolean; order?: number },
+	index: number
+): { id: string; isRequired: boolean; order: number } => {
+	// 旧数据格式：string[]
+	if (typeof field === 'string') {
+		return { id: field, isRequired: false, order: index + 1 };
+	}
+	// 新数据格式：{ id, isRequired, order }
+	return {
+		id: field.id,
+		isRequired: field.isRequired ?? false,
+		order: field.order ?? index + 1,
+	};
+};
+
+const selectedFieldsList = computed<SelectedFieldItem[]>({
+	get() {
+		const fieldsComponent = getFieldsComponent();
+		const normalizedFields = fieldsComponent.staticFields.map((staticField, index) => {
+			const normalized = normalizeStaticField(staticField as any, index);
+			const field = props.staticFields.find((f) => f.id === normalized.id);
+			return {
+				id: normalized.id,
+				label: field?.fieldName || normalized.id,
+				isRequired: normalized.isRequired,
+				order: normalized.order,
+			};
+		});
+		// 按 order 排序
+		return normalizedFields.sort((a, b) => a.order - b.order);
+	},
+	set(newList: SelectedFieldItem[]) {
+		const newStaticFields = newList.map((item, index) => ({
+			id: item.id,
+			isRequired: item.isRequired,
+			order: index + 1,
+		}));
+
+		const componen = selectedItems.value?.find((item) => item.type == 'fields');
+		updateComponent('fields', {
+			staticFields: newStaticFields,
+			isEnabled: newStaticFields.length > 0,
+			customerPortalAccess: componen
+				? componen.customerPortalAccess
+				: StageComponentPortal.Hidden,
+		});
+	},
+});
 
 // Computed
 const filteredStaticFields = computed(() => {
 	if (!searchQuery.value) {
-		return staticFields.value;
+		return props.staticFields;
 	}
-	return staticFields.value.filter((field) =>
-		field.label.toLowerCase().includes(searchQuery.value.toLowerCase())
+	return props.staticFields.filter((field) =>
+		field.fieldName.toLowerCase().includes(searchQuery.value.toLowerCase())
 	);
 });
 
@@ -602,8 +710,15 @@ const updateAllComponents = (newComponents: StageComponentData[]) => {
 };
 
 // Methods
-const isFieldSelected = (fieldKey: string): boolean => {
-	return getFieldsComponent().staticFields.includes(fieldKey);
+const isFieldSelected = (fieldId: string): boolean => {
+	const staticFields = getFieldsComponent().staticFields || [];
+	return staticFields.some((item) => {
+		// 兼容旧数据格式（string）和新数据格式（object）
+		if (typeof item === 'string') {
+			return item === fieldId;
+		}
+		return item?.id === fieldId;
+	});
 };
 
 const isChecklistSelected = (checklistId: string): boolean => {
@@ -621,25 +736,40 @@ const isQuickLinkSelected = (quickLinkId: string): boolean => {
 	return quickLinkComponents.some((c) => c.quickLinkIds.includes(quickLinkId));
 };
 
-const toggleField = (fieldKey: string, checked: boolean) => {
+const toggleField = (fieldId: string, checked: boolean) => {
 	const fieldsComponent = getFieldsComponent();
-	const newStaticFields = [...fieldsComponent.staticFields];
+	// 标准化现有字段数据
+	const normalizedFields = fieldsComponent.staticFields.map((field, index) =>
+		normalizeStaticField(field as any, index)
+	);
 
 	if (checked) {
-		if (!newStaticFields.includes(fieldKey)) {
-			newStaticFields.push(fieldKey);
+		const existingIndex = normalizedFields.findIndex((item) => item.id === fieldId);
+		if (existingIndex === -1) {
+			normalizedFields.push({
+				id: fieldId,
+				isRequired: false,
+				order: normalizedFields.length + 1,
+			});
 		}
 	} else {
-		const index = newStaticFields.indexOf(fieldKey);
+		const index = normalizedFields.findIndex((item) => item.id === fieldId);
 		if (index > -1) {
-			newStaticFields.splice(index, 1);
+			normalizedFields.splice(index, 1);
+			// 重新计算 order
+			normalizedFields.forEach((field, idx) => {
+				field.order = idx + 1;
+			});
 		}
 	}
 
+	const componen = selectedItems.value.find((item) => item.type == 'fields');
 	updateComponent('fields', {
-		staticFields: newStaticFields,
-		isEnabled: newStaticFields.length > 0,
-		customerPortalAccess: StageComponentPortal.Hidden,
+		staticFields: normalizedFields,
+		isEnabled: normalizedFields.length > 0,
+		customerPortalAccess: componen
+			? componen.customerPortalAccess
+			: StageComponentPortal.Hidden,
 	});
 };
 
@@ -783,27 +913,52 @@ const commandChangePortalAccess = (element: SelectedItem, value) => {
 	updateItemOrder();
 };
 
-// 获取选中的字段tags
-const getSelectedFieldTags = (): FieldTag[] => {
+// 移除字段tag
+const removeFieldTag = (fieldId: string) => {
 	const fieldsComponent = getFieldsComponent();
-	return fieldsComponent.staticFields.map((fieldKey) => {
-		const field = staticFields.value.find((f) => f.vIfKey === fieldKey);
-		return {
-			key: fieldKey,
-			label: field?.label || fieldKey,
-		};
+	// 标准化并过滤
+	const normalizedFields = fieldsComponent.staticFields
+		.map((field, index) => normalizeStaticField(field as any, index))
+		.filter((item) => item.id !== fieldId);
+	// 重新计算 order
+	normalizedFields.forEach((field, idx) => {
+		field.order = idx + 1;
+	});
+
+	const componen = selectedItems.value?.find((item) => item.type == 'fields');
+	updateComponent('fields', {
+		staticFields: normalizedFields,
+		isEnabled: normalizedFields.length > 0,
+		customerPortalAccess: componen
+			? componen.customerPortalAccess
+			: StageComponentPortal.Hidden,
 	});
 };
 
-// 移除字段tag
-const removeFieldTag = (fieldKey: string) => {
-	const fieldsComponent = getFieldsComponent();
-	const newStaticFields = fieldsComponent.staticFields.filter((key) => key !== fieldKey);
+// 更新字段排序（draggable @change 事件触发）
+const updateFieldsOrder = () => {
+	// computed setter 已经处理了更新逻辑，这里不需要额外操作
+};
 
+// 切换字段必填状态
+const toggleFieldRequired = (fieldId: string, isRequired: boolean) => {
+	const fieldsComponent = getFieldsComponent();
+	// 标准化并更新
+	const normalizedFields = fieldsComponent.staticFields.map((field, index) => {
+		const normalized = normalizeStaticField(field as any, index);
+		if (normalized.id === fieldId) {
+			return { ...normalized, isRequired };
+		}
+		return normalized;
+	});
+
+	const componen = selectedItems.value?.find((item) => item.type == 'fields');
 	updateComponent('fields', {
-		staticFields: newStaticFields,
-		isEnabled: newStaticFields.length > 0,
-		customerPortalAccess: StageComponentPortal.Hidden,
+		staticFields: normalizedFields,
+		isEnabled: normalizedFields.length > 0,
+		customerPortalAccess: componen
+			? componen.customerPortalAccess
+			: StageComponentPortal.Hidden,
 	});
 };
 
@@ -841,7 +996,7 @@ const updateItemsDisplay = () => {
 					newSelectedItems.push({
 						...component,
 						id: component.key,
-						name: 'Required Fields',
+						name: 'Fields',
 						description: `${component.staticFields.length} fields selected`,
 						type: 'fields',
 						order: component.order,
@@ -1105,6 +1260,12 @@ const getQuestionnaireComponent = (): { questionnaireIds: string[] } => {
 }
 
 .ghost-stage {
+	opacity: 0.6;
+	background: var(--primary-50);
+	border: 1px dashed var(--primary-500);
+}
+
+.ghost-field {
 	opacity: 0.6;
 	background: var(--primary-50);
 	border: 1px dashed var(--primary-500);

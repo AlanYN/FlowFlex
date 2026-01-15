@@ -1322,6 +1322,87 @@ namespace FlowFlex.Application.Services.OW
         }
 
         /// <summary>
+        /// Get all users as a flat list (without team hierarchy)
+        /// </summary>
+        /// <returns>Flat list of all users</returns>
+        public async Task<List<UserTreeNodeDto>> GetAllUsersAsync()
+        {
+            _logger.LogInformation("=== GetAllUsersAsync Started ===");
+
+            try
+            {
+                // Get the full user tree first
+                var userTree = await GetUserTreeAsync();
+
+                // Extract all users from the tree into a flat list
+                var allUsers = ExtractAllUsersFromTree(userTree);
+
+                _logger.LogInformation("=== GetAllUsersAsync Completed Successfully ===");
+                _logger.LogInformation("Total users extracted: {UserCount}", allUsers.Count);
+
+                return allUsers;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error occurred while getting all users");
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// Extract all user nodes from tree structure into a flat list with deduplication
+        /// </summary>
+        private List<UserTreeNodeDto> ExtractAllUsersFromTree(List<UserTreeNodeDto> nodes)
+        {
+            var result = new List<UserTreeNodeDto>();
+            var seenUserIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            if (nodes == null || nodes.Count == 0) return result;
+
+            void Traverse(UserTreeNodeDto node)
+            {
+                if (node == null) return;
+
+                if (node.Type == "user")
+                {
+                    // Deduplicate by user ID
+                    if (!string.IsNullOrEmpty(node.Id) && !seenUserIds.Contains(node.Id))
+                    {
+                        seenUserIds.Add(node.Id);
+                        result.Add(new UserTreeNodeDto
+                        {
+                            Id = node.Id,
+                            Name = node.Name,
+                            Type = node.Type,
+                            Username = node.Username,
+                            Email = node.Email,
+                            UserDetails = node.UserDetails,
+                            UserType = node.UserType,
+                            MemberCount = 0,
+                            Children = null
+                        });
+                    }
+                }
+
+                // Traverse children
+                if (node.Children != null)
+                {
+                    foreach (var child in node.Children)
+                    {
+                        Traverse(child);
+                    }
+                }
+            }
+
+            foreach (var root in nodes)
+            {
+                Traverse(root);
+            }
+
+            return result;
+        }
+
+        /// <summary>
         /// Get user display name with priority: FirstName + LastName > UserName
         /// </summary>
         private string GetUserDisplayName(IdmTeamUserDto teamUser)
@@ -1764,7 +1845,7 @@ namespace FlowFlex.Application.Services.OW
                                 // Note: Same user may appear multiple times (one per team), so we need to deduplicate
                                 // Filter out UserType == 1
                                 var idmUsers = teamUsersResponse
-                                    .Where(tu => long.TryParse(tu.Id, out var userId) && missingUserIds.Contains(userId) && tu.UserType != 1) // Filter out UserType == 1
+                                    .Where(tu => long.TryParse(tu.Id, out var userId) && missingUserIds.Contains(userId))
                                     .GroupBy(tu => tu.Id) // Group by user ID to deduplicate
                                     .Select(g => g.First()) // Take first occurrence of each user
                                     .Select(tu =>

@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia';
 import { store } from '@/stores';
 import { AppEnum, Country, PhoneArea, ProjectOptions } from '#/golbal';
+import { getPhoneAreaEnum } from '@/apis/global';
 
 const defaultPropertyObj = {
 	dataType: null,
@@ -72,6 +73,13 @@ export const useCrmEnumStore = defineStore({
 		},
 		setAssignOptions(searchText: string, options: any[]) {
 			this.assignOptionsCache[searchText] = options;
+		},
+		async setPhineAreaEnum() {
+			getPhoneAreaEnum().then((res) => {
+				if (res.code == '200') {
+					this.setPhone(res.data);
+				}
+			});
 		},
 	},
 });

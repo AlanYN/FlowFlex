@@ -309,7 +309,9 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
             if (httpContext != null)
             {
                 var request = httpContext.Request;
-                return $"{request.Method} {request.Path}";
+                var source = $"{request.Method} {request.Path}";
+                // Truncate to 100 characters to fit database column limit
+                return source.Length > 100 ? source.Substring(0, 100) : source;
             }
             return "System";
         }

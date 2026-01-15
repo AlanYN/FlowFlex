@@ -153,11 +153,6 @@ public class ChecklistTaskCompletionController : Controllers.ControllerBase
         [FromForm] long? taskId = null,
         [FromForm] long? onboardingId = null)
     {
-        if (formFile == null || formFile.Length == 0)
-        {
-            return BadRequest("File is required");
-        }
-
         // Validate file first
         var validationResult = await _fileStorageService.ValidateFileAsync(formFile);
         if (!validationResult.IsValid)
@@ -220,11 +215,6 @@ public class ChecklistTaskCompletionController : Controllers.ControllerBase
         [FromForm] long? taskId = null,
         [FromForm] long? onboardingId = null)
     {
-        if (formFiles == null || formFiles.Count == 0)
-        {
-            return BadRequest("At least one file is required");
-        }
-
         var uploadResults = new List<ChecklistTaskFileUploadResponseDto>();
         var errors = new List<string>();
 
@@ -304,17 +294,6 @@ public class ChecklistTaskCompletionController : Controllers.ControllerBase
     {
         var summary = await _noteService.GetNotesSummaryAsync(taskId, onboardingId);
         return Success(summary);
-    }
-
-    /// <summary>
-    /// Process checklist components and publish action trigger events for completed tasks
-    /// </summary>
-    [HttpPost("process-checklist-actions")]
-    [ProducesResponseType<SuccessResponse<ChecklistActionProcessingResultDto>>((int)HttpStatusCode.OK)]
-    public async Task<IActionResult> ProcessChecklistActions([FromBody] ProcessChecklistActionsRequestDto request)
-    {
-        var result = await _completionService.ProcessChecklistComponentActionsAsync(request);
-        return Success(result);
     }
 }
 

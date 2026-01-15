@@ -88,6 +88,43 @@ namespace FlowFlex.Application.Services.OW.Extensions
         }
 
         /// <summary>
+        /// Initialize create information from event data (for background tasks without HttpContext)
+        /// </summary>
+        /// <param name="createInfo">Entity to initialize</param>
+        /// <param name="userId">User ID from event</param>
+        /// <param name="userName">User name from event</param>
+        public static void InitCreateInfoFromEvent(this EntityBaseCreateInfo createInfo, long userId, string userName)
+        {
+            DateTimeOffset now = DateTimeOffset.UtcNow;
+
+            // Generate snowflake ID using entity's InitNewId method
+            if (createInfo is IdEntityBase entityBase)
+            {
+                entityBase.InitNewId();
+            }
+            else
+            {
+                // Fallback: generate a simple timestamp-based ID
+                createInfo.Id = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+            }
+
+            // Set timestamps (UTC)
+            createInfo.CreateDate = now;
+            createInfo.ModifyDate = now;
+
+            // Set user information from event data
+            var displayName = !string.IsNullOrEmpty(userName) ? userName : "System";
+            createInfo.CreateBy = displayName;
+            createInfo.ModifyBy = displayName;
+            createInfo.CreateUserId = userId;
+            createInfo.ModifyUserId = userId;
+
+            // Set default values
+            createInfo.IsValid = true;
+            // Note: TenantId should be set separately from event data
+        }
+
+        /// <summary>
         /// Initialize create information for new entity with specific parameters
         /// </summary>
         /// <param name="createInfo">Entity to initialize</param>

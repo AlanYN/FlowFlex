@@ -369,7 +369,19 @@ namespace FlowFlex.Domain.Shared.Enums.OW
         /// Stage co-assignees updated
         /// </summary>
         [Description("Stage Co-Assignees Update")]
-        StageCoAssigneesUpdate = 58
+        StageCoAssigneesUpdate = 58,
+
+        /// <summary>
+        /// Stage condition evaluated
+        /// </summary>
+        [Description("Stage Condition Evaluate")]
+        StageConditionEvaluate = 59,
+
+        /// <summary>
+        /// Stage condition action executed
+        /// </summary>
+        [Description("Stage Condition Action Execute")]
+        StageConditionActionExecute = 60
     }
 
     /// <summary>
@@ -453,7 +465,13 @@ namespace FlowFlex.Domain.Shared.Enums.OW
         /// Action Mapping
         /// </summary>
         [Description("ActionMapping")]
-        ActionMapping = 13
+        ActionMapping = 13,
+
+        /// <summary>
+        /// Stage Condition
+        /// </summary>
+        [Description("StageCondition")]
+        StageCondition = 14
     }
 
     /// <summary>

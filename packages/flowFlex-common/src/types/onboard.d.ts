@@ -157,45 +157,15 @@ export interface DocumentItem {
 	uploadedDate: string;
 }
 
-// 入职阶段枚举
-export type OnboardingStage =
-	| 'Warm Lead Created'
-	| 'Application Sent'
-	| 'Application Filled'
-	| 'Application Approved'
-	| 'Deal Sent'
-	| 'Customer Questionnaire'
-	| 'Service Quote Signed'
-	| 'MSA Signed'
-	| 'Legal & Compliance Checked'
-	| 'Deal Closed Won'
-	| 'W9 Sent'
-	| 'Customer Account Created'
-	| 'Order Interface Setup'
-	| 'WMS Process Rule Setup'
-	| 'Item Master Setup'
-	| 'Billing Setup'
-	| 'System Settings Cross Check'
-	| 'Client Portal Access Setup'
-	| 'WMS Email Notification Setup'
-	| 'System UAT Testing'
-	| 'Operation Training'
-	| 'Go Live';
-
-// 优先级枚举
-export type Priority = 'High' | 'Medium' | 'Low';
-
-// 生命周期阶段枚举
-export type LifeCycleStage = 'Lead' | 'Qualified' | 'Proposal' | 'Negotiation' | 'Closed';
-
-// 状态枚举
-export type OnboardingStatus = 'Active' | 'Paused' | 'Completed' | 'Cancelled';
-
 export interface ComponentData {
 	key: 'fields' | 'checklist' | 'questionnaires' | 'files' | 'quickLink';
 	order: number;
 	isEnabled: boolean;
-	staticFields: string[];
+	staticFields: {
+		id: string;
+		isRequired: boolean;
+		order: number;
+	}[];
 	checklistIds: string[];
 	questionnaireIds: string[];
 	checklistNames?: string[];
@@ -234,7 +204,11 @@ export type StageComponentData = {
 	key: 'fields' | 'checklist' | 'questionnaires' | 'files' | 'quickLink';
 	order: number;
 	isEnabled: boolean;
-	staticFields: string[];
+	staticFields: {
+		id: string;
+		isRequired: boolean;
+		order: number;
+	}[];
 	checklistIds: string[];
 	checklistNames?: string[];
 	questionnaireIds: string[];
@@ -345,7 +319,11 @@ export interface Stage {
 	defaultAssignee: string;
 	estimatedDuration: number;
 	requiredFieldsJson: string;
-	staticFields?: string[];
+	staticFields?: {
+		id: string;
+		isRequired: boolean;
+		order: number;
+	}[];
 	order: number;
 	selected?: boolean;
 	color?: string;
@@ -382,6 +360,9 @@ export interface Stage {
 		canOperate: boolean;
 		errorMessage?: string;
 	};
+	assignee?: string[];
+	coAssignees?: string[];
+	required: boolean;
 }
 
 // 检查清单任务完成记录相关类型定义

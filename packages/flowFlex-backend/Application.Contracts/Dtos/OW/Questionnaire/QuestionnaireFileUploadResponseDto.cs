@@ -6,6 +6,11 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.Questionnaire
     public class QuestionnaireFileUploadResponseDto
     {
         /// <summary>
+        /// File ID (unique identifier)
+        /// </summary>
+        public long Id { get; set; }
+
+        /// <summary>
         /// Whether upload was successful
         /// </summary>
         public bool Success { get; set; }

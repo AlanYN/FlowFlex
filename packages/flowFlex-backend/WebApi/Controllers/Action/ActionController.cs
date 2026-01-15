@@ -133,6 +133,21 @@ namespace FlowFlex.WebApi.Controllers.Action
         }
 
         /// <summary>
+        /// Get all enabled action definitions summary (lightweight)
+        /// Returns only id, name, actionType, actionCode, triggerType for current tenant
+        /// </summary>
+        /// <returns>List of enabled action definition summaries</returns>
+        /// Requires TOOL:READ permission
+        [HttpGet("definitions/all")]
+        [WFEAuthorize(PermissionConsts.Tool.Read)]
+        [ProducesResponseType<SuccessResponse<List<ActionDefinitionSummaryDto>>>((int)HttpStatusCode.OK)]
+        public async Task<IActionResult> GetAllEnabledActionSummary()
+        {
+            var result = await _actionManagementService.GetAllEnabledActionSummaryAsync();
+            return Success(result);
+        }
+
+        /// <summary>
         /// Create new action definition
         /// </summary>
         /// <param name="dto">Create action definition DTO. 

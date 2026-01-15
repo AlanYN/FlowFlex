@@ -1,5 +1,6 @@
 import type { Router, RouteLocationNormalized, RouteRecordRaw } from 'vue-router';
 import { useUserStoreWithOut } from '@/stores/modules/user';
+import { appEnum } from '@/stores/modules/appEnum';
 import { menuRoles } from '@/stores/modules/menuFunction';
 import { ElNotification, ElMessageBox } from 'element-plus';
 import { createStateGuard } from './stateGuard';
@@ -180,6 +181,13 @@ export async function createDynamicRoutes(router: Router) {
 			!userStore.getUserInfo.tenants
 		) {
 			await userStore.afterLoginAction(false);
+		}
+		const appEnumStore = appEnum();
+		if (
+			(!appEnumStore.getPhoneArea || appEnumStore.getPhoneArea.length <= 0) &&
+			getTokenobj()?.accessToken?.token
+		) {
+			await appEnumStore.setPhineAreaEnum();
 		}
 		const permissionStore = usePermissionStoreWithOut();
 		if (permissionStore.getFrontMenuList.length <= 0) {

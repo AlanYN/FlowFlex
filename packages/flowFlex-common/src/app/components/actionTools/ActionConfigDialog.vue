@@ -277,9 +277,9 @@
 															>
 																<el-option
 																	v-for="field in wfeFieldOptions"
-																	:key="field.fieldId"
-																	:label="field.fieldLabel"
-																	:value="field.fieldId"
+																	:key="field.id"
+																	:label="field.fieldName"
+																	:value="field.id"
 																/>
 															</el-select>
 														</template>
@@ -375,9 +375,9 @@ import {
 	addMappingAction,
 } from '@/apis/action';
 import { getDynamicField } from '@/apis/global/dyanmicField';
-import { TriggerTypeEnum, ToolsType } from '@/enums/appEnum';
+import { ToolsType } from '@/enums/appEnum';
 import { ActionItem, ActionDefinition, ActionQueryRequest } from '#/action';
-import { DynamciFile } from '#/dynamic';
+import { DynamicList } from '#/dynamic';
 
 const { scrollbarRef: scrollbarRefLeft, updateScrollbarHeight: updateScrollbarHeightLeft } =
 	useAdaptiveScrollbar(80);
@@ -391,8 +391,8 @@ const { nextZIndex } = useZIndex();
 interface Props {
 	triggerSourceId?: string;
 	workflowId?: string;
-	triggerType?: TriggerTypeEnum;
 	mappingRequired?: boolean;
+	triggerType?: string;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -409,7 +409,6 @@ const loading = ref(false);
 const currentActionId = ref<string>('');
 const currentTriggerSourceId = ref<string>('');
 const currentWorkflowId = ref<string>('');
-const currentTriggerType = ref<TriggerTypeEnum | undefined>(undefined);
 const forceEditable = ref(false);
 
 // Form data
@@ -570,7 +569,7 @@ interface IFieldMappingItem {
 }
 
 const showFieldMapping = ref(false);
-const wfeFieldOptions = ref<DynamciFile[]>([]);
+const wfeFieldOptions = ref<DynamicList[]>([]);
 const loadingDynamicField = ref(false);
 const isFieldMappingExpanded = ref(false);
 
@@ -692,11 +691,9 @@ const changeConfigModeChange = async (mode: ToolsType) => {
 	if (mode === ToolsType.UseTool) {
 		// 使用已有工具：加载工具列表
 		await loadExistingTools(true);
-		formData.value.isTools = true;
 		selectedToolId.value = formData.value.id;
 	} else if (mode === ToolsType.MyTool) {
 		await loadExistingTools(false);
-		formData.value.isTools = false;
 		// 检查当前 action 是否在加载的列表中
 		if (
 			formData.value.id &&
@@ -712,11 +709,9 @@ const changeConfigModeChange = async (mode: ToolsType) => {
 	} else if (mode === ToolsType.NewTool) {
 		// 创建普通 Action：清空列表，设置为非工具模式
 		existingToolsList.value = [];
-		formData.value.isTools = false;
 		selectedToolId.value = '';
 	} else if (mode === ToolsType.SystemTools) {
 		await loadExistingTools(false, true);
-		formData.value.isTools = true;
 		selectedToolId.value = formData.value.id;
 	}
 };
@@ -738,13 +733,7 @@ const loadExistingTools = async (isTools: boolean, isSystemTools?: boolean) => {
 
 		if (response.code === '200' && response.success) {
 			// 过滤出标记为工具的 action
-			existingToolsList.value =
-				response.data?.data.filter((item) => {
-					return (
-						!item.triggerType ||
-						(item.triggerType && item.triggerType == currentTriggerType.value)
-					);
-				}) || [];
+			existingToolsList.value = response.data?.data || [];
 		} else {
 			ElMessage.error('Failed to load existing tools');
 			existingToolsList.value = [];
@@ -772,7 +761,7 @@ const loadActionDetail = async (actionId: string) => {
 			formData.value.description = actionDetail.description || '';
 			formData.value.actionType = actionDetail.actionType;
 			formData.value.actionConfig = JSON.parse(actionDetail.actionConfig || '{}');
-			formData.value.isTools = actionDetail.isTools || false;
+			formData.value.isTools = !!actionDetail?.isTools;
 			formData.value.condition = actionDetail.condition || 'Stage Completed';
 			formData.value.fieldMappings = actionDetail.fieldMappings || [];
 
@@ -820,7 +809,7 @@ const handleExistingToolSelect = async (toolId: string) => {
 			formData.value.actionType = toolDetail.actionType;
 			formData.value.actionConfig = JSON.parse(toolDetail.actionConfig || '{}');
 			formData.value.id = toolDetail.id;
-			formData.value.isTools = toolDetail.isTools || false;
+			formData.value.isTools = !!toolDetail?.isTools;
 			formData.value.fieldMappings = toolDetail.fieldMappings || [];
 			disabledActionForMyTool.value = false;
 		} else {
@@ -869,8 +858,8 @@ const createActionMapping = async (actionDefinitionId: string) => {
 	const mappingParams = {
 		actionDefinitionId,
 		triggerSourceId: props?.triggerSourceId || null,
-		triggerType: props?.triggerType || null,
 		workFlowId: props?.workflowId || null,
+		triggerType: props.triggerType,
 	};
 
 	const mappingRes = await addMappingAction(mappingParams);
@@ -935,7 +924,6 @@ const onSave = async () => {
 			workflowId: currentWorkflowId.value || null,
 			actionType: formData.value.actionType,
 			triggerSourceId: currentTriggerSourceId.value || null,
-			triggerType: currentTriggerType.value || null,
 			isAIGenerated: isAiGenerated.value,
 			aiGeneratedConfig: aiGeneratedConfig.value
 				? JSON.stringify(aiGeneratedConfig.value)
@@ -951,13 +939,7 @@ const onSave = async () => {
 			const savedAction = actionRes.data;
 			const actionId = savedAction.id || formData.value.id;
 
-			// 根据条件判断是否需要创建映射关系
-			const needMapping =
-				(currentTriggerSourceId.value || currentTriggerType.value) &&
-				!formData.value.id && // 新建时才需要创建映射
-				configMode.value !== ToolsType.SystemTools; // 系统工具不需要映射
-
-			if (needMapping || props?.mappingRequired) {
+			if (props?.mappingRequired) {
 				await createActionMapping(actionId);
 			}
 
@@ -992,14 +974,12 @@ const open = async (options?: {
 	actionId?: string;
 	triggerSourceId?: string;
 	workflowId?: string;
-	triggerType?: TriggerTypeEnum;
 	forceEditable?: boolean;
 }) => {
 	// 重置状态
 	currentActionId.value = options?.actionId || '';
 	currentTriggerSourceId.value = options?.triggerSourceId || props.triggerSourceId || '';
 	currentWorkflowId.value = options?.workflowId || props.workflowId || '';
-	currentTriggerType.value = options?.triggerType || props.triggerType;
 	forceEditable.value = options?.forceEditable || false;
 
 	// 重置表单（不关闭对话框）

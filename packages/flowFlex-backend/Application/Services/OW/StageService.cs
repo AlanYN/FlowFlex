@@ -32,6 +32,8 @@ using FlowFlex.Domain.Shared.Const;
 using FlowFlex.Application.Contracts.IServices.OW;
 using FlowFlex.Application.Contracts.Dtos.OW.User;
 using FlowFlex.Application.Contracts.IServices.Integration;
+using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace FlowFlex.Application.Service.OW
 {
@@ -64,12 +66,14 @@ namespace FlowFlex.Application.Service.OW
         private readonly IPermissionService _permissionService;
         private readonly ILogger<StageService> _logger;
         private readonly IUserService _userService;
+        private readonly IRulesEngineService _rulesEngineService;
+        private readonly IConditionActionExecutor _conditionActionExecutor;
 
         // Cache key constants
         private const string STAGE_CACHE_PREFIX = "ow:stage";
         private static readonly TimeSpan STAGE_CACHE_DURATION = TimeSpan.FromMinutes(10);
 
-        public StageService(IStageRepository stageRepository, IWorkflowRepository workflowRepository, IMapper mapper, IStagesProgressSyncService stagesProgressSyncService, IChecklistService checklistService, IQuestionnaireService questionnaireService, IQuickLinkService quickLinkService, IQuestionnaireAnswerService questionnaireAnswerService, IAIService aiService, IChecklistTaskCompletionRepository checklistTaskCompletionRepository, UserContext userContext, IComponentMappingService mappingService, ISqlSugarClient db, IDistributedCacheService cacheService, IBackgroundTaskQueue backgroundTaskQueue, IOperationChangeLogService operationChangeLogService, IPermissionService permissionService, ILogger<StageService> logger, IUserService userService)
+        public StageService(IStageRepository stageRepository, IWorkflowRepository workflowRepository, IMapper mapper, IStagesProgressSyncService stagesProgressSyncService, IChecklistService checklistService, IQuestionnaireService questionnaireService, IQuickLinkService quickLinkService, IQuestionnaireAnswerService questionnaireAnswerService, IAIService aiService, IChecklistTaskCompletionRepository checklistTaskCompletionRepository, UserContext userContext, IComponentMappingService mappingService, ISqlSugarClient db, IDistributedCacheService cacheService, IBackgroundTaskQueue backgroundTaskQueue, IOperationChangeLogService operationChangeLogService, IPermissionService permissionService, ILogger<StageService> logger, IUserService userService, IRulesEngineService rulesEngineService = null, IConditionActionExecutor conditionActionExecutor = null)
         {
             _stageRepository = stageRepository;
             _workflowRepository = workflowRepository;
@@ -90,6 +94,8 @@ namespace FlowFlex.Application.Service.OW
             _permissionService = permissionService;
             _logger = logger;
             _userService = userService;
+            _rulesEngineService = rulesEngineService;
+            _conditionActionExecutor = conditionActionExecutor;
         }
 
         public async Task<long> CreateAsync(StageInputDto input)
@@ -142,6 +148,12 @@ namespace FlowFlex.Application.Service.OW
                 }
 
                 var entity = _mapper.Map<Stage>(input);
+
+                // Filter CoAssignees to exclude any IDs already in DefaultAssignee
+                if (!string.IsNullOrEmpty(entity.CoAssignees) && !string.IsNullOrEmpty(entity.DefaultAssignee))
+                {
+                    entity.CoAssignees = FilterCoAssigneesJson(entity.CoAssignees, entity.DefaultAssignee);
+                }
 
                 // If no order specified, automatically set to last
                 if (entity.Order == 0)
@@ -517,6 +529,7 @@ namespace FlowFlex.Application.Service.OW
                 Order = stage.Order,
                 ComponentsJson = stage.ComponentsJson,
                 DefaultAssignee = stage.DefaultAssignee,
+                CoAssignees = stage.CoAssignees,
                 DefaultAssignedGroup = stage.DefaultAssignedGroup,
                 EstimatedDuration = stage.EstimatedDuration,
                 IsActive = stage.IsActive,
@@ -622,6 +635,12 @@ namespace FlowFlex.Application.Service.OW
                 // Map update data
                 _mapper.Map(input, stageInTransaction);
 
+                // Filter CoAssignees to exclude any IDs already in DefaultAssignee
+                if (!string.IsNullOrEmpty(stageInTransaction.CoAssignees) && !string.IsNullOrEmpty(stageInTransaction.DefaultAssignee))
+                {
+                    stageInTransaction.CoAssignees = FilterCoAssigneesJson(stageInTransaction.CoAssignees, stageInTransaction.DefaultAssignee);
+                }
+
                 // Extract new components for sync comparison (after mapping)
                 var newChecklistIds = new List<long>();
                 var newQuestionnaireIds = new List<long>();
@@ -692,6 +711,32 @@ namespace FlowFlex.Application.Service.OW
                         "Stages progress sync is DISABLED to preserve existing onboarding data.",
                         stageInTransaction.WorkflowId, id);
 
+                    // Sync Assignee/CoAssignees to related onboardings when DefaultAssignee/CoAssignees changed
+                    // This only updates the synced values, not the custom values set by users
+                    if (originalStageSnapshot.DefaultAssignee != stageInTransaction.DefaultAssignee ||
+                        originalStageSnapshot.CoAssignees != stageInTransaction.CoAssignees)
+                    {
+                        _logger.LogInformation("Stage {StageId} DefaultAssignee/CoAssignees changed, syncing to related onboardings...", id);
+                        
+                        // Queue background task to sync assignees to all related onboardings
+                        var stageIdForSync = id;
+                        var newDefaultAssignee = stageInTransaction.DefaultAssignee;
+                        var newCoAssignees = stageInTransaction.CoAssignees;
+                        var workflowIdForSync = stageInTransaction.WorkflowId;
+                        
+                        _backgroundTaskQueue.QueueBackgroundWorkItem(async _ =>
+                        {
+                            try
+                            {
+                                await SyncStageAssigneesToOnboardingsAsync(stageIdForSync, workflowIdForSync, newDefaultAssignee, newCoAssignees);
+                            }
+                            catch (Exception ex)
+                            {
+                                _logger.LogError(ex, "Failed to sync stage assignees to onboardings for stage {StageId}", stageIdForSync);
+                            }
+                        });
+                    }
+
                     // Note: If sync is absolutely necessary, it should be done manually or
                     // with explicit user confirmation to prevent accidental data loss
 
@@ -743,6 +788,7 @@ namespace FlowFlex.Application.Service.OW
                             Order = originalStageSnapshot.Order,
                             ComponentsJson = originalStageSnapshot.ComponentsJson,
                             DefaultAssignee = originalStageSnapshot.DefaultAssignee,
+                            CoAssignees = originalStageSnapshot.CoAssignees,
                             DefaultAssignedGroup = originalStageSnapshot.DefaultAssignedGroup,
                             EstimatedDuration = originalStageSnapshot.EstimatedDuration,
                             IsActive = originalStageSnapshot.IsActive,
@@ -763,6 +809,7 @@ namespace FlowFlex.Application.Service.OW
                             Order = updatedStage.Order,
                             ComponentsJson = updatedStage.ComponentsJson,
                             DefaultAssignee = updatedStage.DefaultAssignee,
+                            CoAssignees = updatedStage.CoAssignees,
                             DefaultAssignedGroup = updatedStage.DefaultAssignedGroup,
                             EstimatedDuration = updatedStage.EstimatedDuration,
                             IsActive = updatedStage.IsActive,
@@ -783,6 +830,7 @@ namespace FlowFlex.Application.Service.OW
                         if (originalStageSnapshot.Order != updatedStage.Order) changedFields.Add("Order");
                         if (originalStageSnapshot.ComponentsJson != updatedStage.ComponentsJson) changedFields.Add("ComponentsJson");
                         if (originalStageSnapshot.DefaultAssignee != updatedStage.DefaultAssignee) changedFields.Add("DefaultAssignee");
+                        if (originalStageSnapshot.CoAssignees != updatedStage.CoAssignees) changedFields.Add("CoAssignees");
                         if (originalStageSnapshot.DefaultAssignedGroup != updatedStage.DefaultAssignedGroup) changedFields.Add("DefaultAssignedGroup");
                         if (originalStageSnapshot.EstimatedDuration != updatedStage.EstimatedDuration) changedFields.Add("EstimatedDuration");
                         if (originalStageSnapshot.IsActive != updatedStage.IsActive) changedFields.Add("IsActive");
@@ -1438,8 +1486,188 @@ namespace FlowFlex.Application.Service.OW
 
         public async Task<bool> CompleteStageAsync(long stageId, long onboardingId, string completionNotes = null)
         {
-            // Stage completion logic - future enhancement
-            throw new NotImplementedException("CompleteStageAsync will be implemented in next phase");
+            // Get stage and onboarding
+            var stage = await _stageRepository.GetByIdAsync(stageId);
+            if (stage == null || !stage.IsActive)
+            {
+                throw new CRMException(ErrorCodeEnum.NotFound, $"Stage {stageId} not found or inactive");
+            }
+
+            var onboarding = await _db.Queryable<Onboarding>()
+                .Where(o => o.Id == onboardingId && o.IsValid)
+                .Where(o => o.TenantId == _userContext.TenantId)
+                .FirstAsync();
+
+            if (onboarding == null)
+            {
+                throw new CRMException(ErrorCodeEnum.NotFound, $"Onboarding {onboardingId} not found");
+            }
+
+            // Check permission
+            var userId = _userContext?.UserId;
+            if (string.IsNullOrEmpty(userId) || !long.TryParse(userId, out var userIdLong))
+            {
+                throw new CRMException(ErrorCodeEnum.AuthenticationFail, "User not authenticated");
+            }
+
+            // Check if stage condition exists
+            var condition = await _db.Queryable<StageCondition>()
+                .Where(c => c.StageId == stageId && c.IsValid && c.IsActive)
+                .Where(c => c.TenantId == _userContext.TenantId)
+                .FirstAsync();
+
+            if (condition == null)
+            {
+                // No condition configured, proceed with normal stage completion
+                _logger.LogDebug("No condition configured for stage {StageId}, proceeding with normal completion", stageId);
+                return true;
+            }
+
+            // Evaluate condition using RulesEngineService
+            try
+            {
+                if (_rulesEngineService == null)
+                {
+                    _logger.LogWarning("RulesEngineService not available, skipping condition evaluation for stage {StageId}", stageId);
+                    return true;
+                }
+
+                var evaluationResult = await _rulesEngineService.EvaluateConditionAsync(onboardingId, stageId);
+
+                // Log the evaluation result
+                await LogConditionEvaluationAsync(condition, onboarding, evaluationResult);
+
+                if (evaluationResult.IsConditionMet)
+                {
+                    // Execute configured actions
+                    if (_conditionActionExecutor != null)
+                    {
+                        var context = new FlowFlex.Application.Contracts.Dtos.OW.StageCondition.ActionExecutionContext
+                        {
+                            OnboardingId = onboardingId,
+                            StageId = stageId,
+                            ConditionId = condition.Id,
+                            TenantId = _userContext.TenantId,
+                            UserId = userIdLong
+                        };
+
+                        var actionResult = await _conditionActionExecutor.ExecuteActionsAsync(condition.ActionsJson, context);
+
+                        // Log action execution results
+                        await LogActionExecutionAsync(condition, onboarding, actionResult);
+
+                        _logger.LogInformation("Condition '{ConditionName}' met and actions executed for stage {StageId}, onboarding {OnboardingId}",
+                            condition.Name, stageId, onboardingId);
+                    }
+                }
+                else
+                {
+                    // Condition not met, go to fallback stage if configured
+                    if (evaluationResult.NextStageId.HasValue)
+                    {
+                        await _db.Updateable<Onboarding>()
+                            .SetColumns(o => new Onboarding
+                            {
+                                CurrentStageId = evaluationResult.NextStageId.Value,
+                                ModifyDate = DateTimeOffset.UtcNow,
+                                ModifyBy = _userContext.UserName ?? "SYSTEM"
+                            })
+                            .Where(o => o.Id == onboardingId)
+                            .ExecuteCommandAsync();
+
+                        _logger.LogInformation("Condition '{ConditionName}' not met for stage {StageId}, moved to fallback stage {NextStageId}",
+                            condition.Name, stageId, evaluationResult.NextStageId.Value);
+                    }
+                }
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error evaluating condition for stage {StageId}, onboarding {OnboardingId}", stageId, onboardingId);
+                // Continue with normal flow on error
+                return true;
+            }
+        }
+
+        /// <summary>
+        /// Log condition evaluation result to OperationChangeLog
+        /// </summary>
+        private async Task LogConditionEvaluationAsync(StageCondition condition, Onboarding onboarding, FlowFlex.Application.Contracts.Dtos.OW.StageCondition.ConditionEvaluationResult result)
+        {
+            try
+            {
+                var extendedData = new
+                {
+                    conditionId = condition.Id,
+                    conditionName = condition.Name,
+                    isConditionMet = result.IsConditionMet,
+                    ruleResults = result.RuleResults?.Select(r => new
+                    {
+                        ruleName = r.RuleName,
+                        isSuccess = r.IsSuccess,
+                        expression = r.Expression,
+                        errorMessage = r.ErrorMessage
+                    }),
+                    nextStageId = result.NextStageId,
+                    errorMessage = result.ErrorMessage
+                };
+
+                await _operationChangeLogService.LogOperationAsync(
+                    operationType: Domain.Shared.Enums.OW.OperationTypeEnum.StageConditionEvaluate,
+                    businessModule: Domain.Shared.Enums.OW.BusinessModuleEnum.Stage,
+                    businessId: condition.Id,
+                    onboardingId: onboarding.Id,
+                    stageId: condition.StageId,
+                    operationTitle: "Condition Evaluated",
+                    operationDescription: $"Condition '{condition.Name}' evaluated: {(result.IsConditionMet ? "Met" : "Not Met")}",
+                    extendedData: JsonSerializer.Serialize(extendedData)
+                );
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to log condition evaluation for condition {ConditionId}", condition.Id);
+            }
+        }
+
+        /// <summary>
+        /// Log action execution results to OperationChangeLog
+        /// </summary>
+        private async Task LogActionExecutionAsync(StageCondition condition, Onboarding onboarding, FlowFlex.Application.Contracts.Dtos.OW.StageCondition.ActionExecutionResult result)
+        {
+            try
+            {
+                foreach (var detail in result.Details)
+                {
+                    var extendedData = new
+                    {
+                        conditionId = condition.Id,
+                        conditionName = condition.Name,
+                        actionType = detail.ActionType,
+                        order = detail.Order,
+                        success = detail.Success,
+                        errorMessage = detail.ErrorMessage,
+                        resultData = detail.ResultData
+                    };
+
+                    await _operationChangeLogService.LogOperationAsync(
+                        operationType: Domain.Shared.Enums.OW.OperationTypeEnum.StageConditionActionExecute,
+                        businessModule: Domain.Shared.Enums.OW.BusinessModuleEnum.Stage,
+                        businessId: condition.Id,
+                        onboardingId: onboarding.Id,
+                        stageId: condition.StageId,
+                        operationTitle: "Condition Action Executed",
+                        operationDescription: $"Action '{detail.ActionType}' executed: {(detail.Success ? "Success" : "Failed")}",
+                        operationStatus: detail.Success ? Domain.Shared.Enums.OW.OperationStatusEnum.Success : Domain.Shared.Enums.OW.OperationStatusEnum.Failed,
+                        extendedData: JsonSerializer.Serialize(extendedData),
+                        errorMessage: detail.ErrorMessage
+                    );
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to log action execution for condition {ConditionId}", condition.Id);
+            }
         }
 
         public async Task<bool> AddStageNoteAsync(long stageId, long onboardingId, string noteContent, bool isPrivate = false)
@@ -1762,7 +1990,8 @@ namespace FlowFlex.Application.Service.OW
                     case "fields":
                         if (component.StaticFields?.Any() == true)
                         {
-                            details.Add($"{component.StaticFields.Count} static fields ({string.Join(", ", component.StaticFields.Take(3))}{(component.StaticFields.Count > 3 ? ", etc." : "")})");
+                            var fieldIds = component.StaticFields.Select(f => f.Id).Take(3);
+                            details.Add($"{component.StaticFields.Count} static fields ({string.Join(", ", fieldIds)}{(component.StaticFields.Count > 3 ? ", etc." : "")})");
                         }
                         break;
 
@@ -1829,11 +2058,14 @@ namespace FlowFlex.Application.Service.OW
                 switch (before.Key?.ToLower())
                 {
                     case "fields":
-                        var beforeFields = before.StaticFields ?? new List<string>();
-                        var afterFields = after.StaticFields ?? new List<string>();
+                        var beforeFields = before.StaticFields ?? new List<StaticFieldConfig>();
+                        var afterFields = after.StaticFields ?? new List<StaticFieldConfig>();
 
-                        var addedFields = afterFields.Except(beforeFields).ToList();
-                        var removedFields = beforeFields.Except(afterFields).ToList();
+                        var beforeFieldIds = beforeFields.Select(f => f.Id).ToList();
+                        var afterFieldIds = afterFields.Select(f => f.Id).ToList();
+
+                        var addedFields = afterFieldIds.Except(beforeFieldIds).ToList();
+                        var removedFields = beforeFieldIds.Except(afterFieldIds).ToList();
 
                         if (addedFields.Any())
                         {
@@ -1914,7 +2146,7 @@ namespace FlowFlex.Application.Service.OW
             foreach (var component in components)
             {
                 // Ensure all components have proper default values
-                component.StaticFields ??= new List<string>();
+                component.StaticFields ??= new List<StaticFieldConfig>();
                 component.ChecklistIds ??= new List<long>();
                 component.QuestionnaireIds ??= new List<long>();
                 component.QuickLinkIds ??= new List<long>();
@@ -2684,7 +2916,7 @@ namespace FlowFlex.Application.Service.OW
                                     Order = elem.TryGetProperty("Order", out var orderProp) && orderProp.TryGetInt32(out var oi) ? oi : 0,
                                     IsEnabled = isEnabled,
                                     Configuration = elem.TryGetProperty("Configuration", out var cfgProp) ? (cfgProp.ValueKind == JsonValueKind.String ? cfgProp.GetString() : null) : null,
-                                    StaticFields = elem.TryGetProperty("StaticFields", out var sfProp) && sfProp.ValueKind == JsonValueKind.Array ? sfProp.EnumerateArray().Select(x => x.GetString() ?? string.Empty).ToList() : new List<string>(),
+                                    StaticFields = ParseStaticFieldsFromJson(elem),
                                     ChecklistIds = elem.TryGetProperty("ChecklistIds", out var clProp) && clProp.ValueKind == JsonValueKind.Array ? clProp.EnumerateArray().Select(x => x.TryGetInt64(out var v) ? v : 0).ToList() : new List<long>(),
                                     QuestionnaireIds = elem.TryGetProperty("QuestionnaireIds", out var qProp) && qProp.ValueKind == JsonValueKind.Array ? qProp.EnumerateArray().Select(x => x.TryGetInt64(out var v) ? v : 0).ToList() : new List<long>(),
                                     ChecklistNames = elem.TryGetProperty("ChecklistNames", out var clnProp) && clnProp.ValueKind == JsonValueKind.Array ? clnProp.EnumerateArray().Select(x => x.GetString() ?? string.Empty).ToList() : new List<string>(),
@@ -2712,6 +2944,57 @@ namespace FlowFlex.Application.Service.OW
                 _logger.LogError(ex, "Failed to parse stage components JSON for stage {StageId}", stageId);
                 return new List<StageComponent>();
             }
+        }
+
+        /// <summary>
+        /// Parse StaticFields from JSON element, supporting both legacy string array and new object array format
+        /// </summary>
+        private List<StaticFieldConfig> ParseStaticFieldsFromJson(JsonElement elem)
+        {
+            var result = new List<StaticFieldConfig>();
+            
+            if (!elem.TryGetProperty("StaticFields", out var sfProp) && !elem.TryGetProperty("staticFields", out sfProp))
+            {
+                return result;
+            }
+            
+            if (sfProp.ValueKind != JsonValueKind.Array)
+            {
+                return result;
+            }
+            
+            int order = 1;
+            foreach (var item in sfProp.EnumerateArray())
+            {
+                if (item.ValueKind == JsonValueKind.String)
+                {
+                    // Legacy format: string array
+                    var id = item.GetString();
+                    if (!string.IsNullOrWhiteSpace(id))
+                    {
+                        result.Add(new StaticFieldConfig { Id = id, IsRequired = false, Order = order++ });
+                    }
+                }
+                else if (item.ValueKind == JsonValueKind.Object)
+                {
+                    // New format: object array with id, isRequired, order
+                    var id = item.TryGetProperty("id", out var idProp) ? idProp.GetString() :
+                            (item.TryGetProperty("Id", out idProp) ? idProp.GetString() : null);
+                    
+                    if (!string.IsNullOrWhiteSpace(id))
+                    {
+                        var isRequired = item.TryGetProperty("isRequired", out var reqProp) ? reqProp.GetBoolean() :
+                                        (item.TryGetProperty("IsRequired", out reqProp) ? reqProp.GetBoolean() : false);
+                        var fieldOrder = item.TryGetProperty("order", out var ordProp) && ordProp.TryGetInt32(out var o) ? o :
+                                        (item.TryGetProperty("Order", out ordProp) && ordProp.TryGetInt32(out o) ? o : order);
+                        
+                        result.Add(new StaticFieldConfig { Id = id, IsRequired = isRequired, Order = fieldOrder });
+                        order++;
+                    }
+                }
+            }
+            
+            return result;
         }
 
         /// <summary>
@@ -2781,6 +3064,189 @@ namespace FlowFlex.Application.Service.OW
                 Console.WriteLine($"[StageService] Error getting questionnaire names: {ex.Message}");
                 // Return fallback names based on IDs instead of empty list
                 return questionnaireIds.Select(id => $"Questionnaire {id}").ToList();
+            }
+        }
+
+        /// <summary>
+        /// Filter CoAssignees JSON to exclude any IDs already in DefaultAssignee JSON
+        /// </summary>
+        private string FilterCoAssigneesJson(string coAssigneesJson, string defaultAssigneeJson)
+        {
+            try
+            {
+                var coAssignees = ParseAssigneeJsonToList(coAssigneesJson);
+                var defaultAssignees = ParseAssigneeJsonToList(defaultAssigneeJson);
+
+                if (!defaultAssignees.Any())
+                {
+                    return coAssigneesJson;
+                }
+
+                // Filter out any IDs that are already in DefaultAssignee
+                var filtered = coAssignees
+                    .Where(id => !defaultAssignees.Contains(id))
+                    .ToList();
+
+                if (!filtered.Any())
+                {
+                    return null;
+                }
+
+                return JsonSerializer.Serialize(filtered);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[StageService] Error filtering CoAssignees: {ex.Message}");
+                return coAssigneesJson;
+            }
+        }
+
+        /// <summary>
+        /// Parse assignee JSON string to List of user IDs
+        /// </summary>
+        private List<string> ParseAssigneeJsonToList(string assigneeJson)
+        {
+            if (string.IsNullOrWhiteSpace(assigneeJson))
+            {
+                return new List<string>();
+            }
+
+            try
+            {
+                var jsonString = assigneeJson.Trim();
+                
+                // Handle double-serialized JSON
+                if (jsonString.StartsWith("\"") && jsonString.EndsWith("\""))
+                {
+                    jsonString = JsonSerializer.Deserialize<string>(jsonString) ?? "[]";
+                }
+
+                // Try to parse as array
+                if (jsonString.StartsWith("["))
+                {
+                    var result = JsonSerializer.Deserialize<List<string>>(jsonString, _jsonOptions);
+                    return result ?? new List<string>();
+                }
+
+                // If it's a single value, wrap it in a list
+                if (!string.IsNullOrWhiteSpace(jsonString))
+                {
+                    return new List<string> { jsonString };
+                }
+
+                return new List<string>();
+            }
+            catch (JsonException)
+            {
+                return new List<string>();
+            }
+        }
+
+        /// <summary>
+        /// Sync stage assignees to all related onboardings when Stage.DefaultAssignee or Stage.CoAssignees is updated.
+        /// This updates the synced values (Assignee/CoAssignees) in stagesProgress, NOT the custom values (CustomStageAssignee/CustomStageCoAssignees).
+        /// </summary>
+        /// <param name="stageId">The stage ID that was updated</param>
+        /// <param name="workflowId">The workflow ID to find related onboardings</param>
+        /// <param name="newDefaultAssignee">New DefaultAssignee JSON from Stage</param>
+        /// <param name="newCoAssignees">New CoAssignees JSON from Stage</param>
+        private async Task SyncStageAssigneesToOnboardingsAsync(long stageId, long workflowId, string newDefaultAssignee, string newCoAssignees)
+        {
+            try
+            {
+                _logger.LogInformation("Starting sync of stage assignees to onboardings. StageId: {StageId}, WorkflowId: {WorkflowId}", stageId, workflowId);
+
+                // Parse new assignee values from Stage
+                var newAssigneeList = ParseAssigneeJsonToList(newDefaultAssignee);
+                var newCoAssigneesList = ParseAssigneeJsonToList(newCoAssignees);
+
+                // Filter CoAssignees to exclude any IDs already in DefaultAssignee
+                if (newAssigneeList.Any() && newCoAssigneesList.Any())
+                {
+                    newCoAssigneesList = newCoAssigneesList.Where(id => !newAssigneeList.Contains(id)).ToList();
+                }
+
+                // Query all onboardings with this workflowId (with tenant isolation)
+                var tenantId = _userContext?.TenantId ?? "default";
+                var onboardings = await _db.Queryable<Onboarding>()
+                    .Where(o => o.WorkflowId == workflowId && o.TenantId == tenantId && o.IsValid)
+                    .Select(o => new { o.Id, o.StagesProgressJson })
+                    .ToListAsync();
+
+                if (!onboardings.Any())
+                {
+                    _logger.LogInformation("No onboardings found for workflow {WorkflowId}, skipping sync", workflowId);
+                    return;
+                }
+
+                _logger.LogInformation("Found {Count} onboardings to sync for workflow {WorkflowId}", onboardings.Count, workflowId);
+
+                var updatedCount = 0;
+                var errorCount = 0;
+
+                foreach (var onboarding in onboardings)
+                {
+                    try
+                    {
+                        if (string.IsNullOrEmpty(onboarding.StagesProgressJson))
+                        {
+                            continue;
+                        }
+
+                        // Parse stagesProgress JSON
+                        var stagesProgressJson = onboarding.StagesProgressJson.Trim();
+                        
+                        // Handle double-serialized JSON
+                        if (stagesProgressJson.StartsWith("\"") && stagesProgressJson.EndsWith("\""))
+                        {
+                            stagesProgressJson = JsonSerializer.Deserialize<string>(stagesProgressJson, _jsonOptions) ?? "[]";
+                        }
+
+                        var stagesProgress = JsonSerializer.Deserialize<List<OnboardingStageProgress>>(stagesProgressJson, _jsonOptions);
+                        if (stagesProgress == null || !stagesProgress.Any())
+                        {
+                            continue;
+                        }
+
+                        // Find the stage in stagesProgress
+                        var stageProgress = stagesProgress.FirstOrDefault(sp => sp.StageId == stageId);
+                        if (stageProgress == null)
+                        {
+                            continue;
+                        }
+
+                        // Update synced values (Assignee/CoAssignees), NOT custom values
+                        stageProgress.Assignee = newAssigneeList;
+                        stageProgress.CoAssignees = newCoAssigneesList;
+
+                        // Serialize back to JSON with camelCase property naming
+                        var updatedJson = JsonSerializer.Serialize(stagesProgress, new JsonSerializerOptions
+                        {
+                            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+                            DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
+                        });
+
+                        // Update the onboarding record using raw SQL to handle JSONB type casting
+                        await _db.Ado.ExecuteCommandAsync(
+                            "UPDATE ff_onboarding SET stages_progress_json = @json::jsonb WHERE id = @id",
+                            new { json = updatedJson, id = onboarding.Id });
+
+                        updatedCount++;
+                    }
+                    catch (Exception ex)
+                    {
+                        errorCount++;
+                        _logger.LogWarning(ex, "Failed to sync stage assignees for onboarding {OnboardingId}", onboarding.Id);
+                    }
+                }
+
+                _logger.LogInformation("Completed sync of stage assignees. Updated: {UpdatedCount}, Errors: {ErrorCount}, Total: {TotalCount}",
+                    updatedCount, errorCount, onboardings.Count);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to sync stage assignees to onboardings. StageId: {StageId}, WorkflowId: {WorkflowId}", stageId, workflowId);
+                throw;
             }
         }
     }

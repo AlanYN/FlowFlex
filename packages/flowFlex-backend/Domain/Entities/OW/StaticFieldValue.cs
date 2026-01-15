@@ -39,6 +39,12 @@ namespace FlowFlex.Domain.Entities.OW
         public string FieldName { get; set; }
 
         /// <summary>
+        /// Field ID (Dynamic Property ID)
+        /// </summary>
+        [SugarColumn(ColumnName = "field_id", IsNullable = true)]
+        public long? FieldId { get; set; }
+
+        /// <summary>
         /// Field Display Name
         /// </summary>
         [StringLength(200)]

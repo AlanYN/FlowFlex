@@ -165,6 +165,20 @@ namespace FlowFlex.Domain.Entities.OW
         [SugarColumn(ColumnName = "extended_properties")]
         public string ExtendedProperties { get; set; }
 
+        /// <summary>
+        /// Is External Import - Indicates if the file was imported from external system (e.g., CRM)
+        /// Files with IsExternalImport=true will be excluded from inbound-attachments API
+        /// </summary>
+        [SugarColumn(ColumnName = "is_external_import")]
+        public bool IsExternalImport { get; set; } = false;
+
+        /// <summary>
+        /// Source of the file (e.g., CRM, Portal, Manual)
+        /// </summary>
+        [StringLength(100)]
+        [SugarColumn(ColumnName = "source")]
+        public string Source { get; set; }
+
         // Navigation Properties (SqlSugar doesn't need configuration, only for code logic)
 
         /// <summary>

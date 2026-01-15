@@ -48,17 +48,6 @@
 											<el-tag v-if="item.required" size="small" type="danger">
 												Required
 											</el-tag>
-
-											<el-tag
-												v-if="item.action"
-												size="small"
-												type="success"
-												closable
-												@close="handleRemoveAction(index)"
-												@click="editAction(index)"
-											>
-												{{ item.action.name }}
-											</el-tag>
 										</div>
 										<div class="question-meta mt-2">
 											<div class="question-text">{{ item.question }}</div>
@@ -118,20 +107,6 @@
 														/>
 														<span class="text-xs">
 															{{ getJumpRuleMenuText(item) }}
-														</span>
-													</div>
-												</el-dropdown-item>
-												<el-dropdown-item
-													@click="openActionEditor(index)"
-													divided
-												>
-													<div class="flex items-center gap-2">
-														<Icon
-															icon="tabler:math-function"
-															class="drag-icon"
-														/>
-														<span class="text-xs">
-															Configure Action
 														</span>
 													</div>
 												</el-dropdown-item>
@@ -239,7 +214,7 @@
 											class="option-content flex max-w-[50%] items-center gap-2 flex-1"
 										>
 											<span class="option-number">
-												{{ optionIndex + 1 }}.
+												{{ +optionIndex + 1 }}.
 											</span>
 											<el-tag v-if="option.isOther" type="warning">
 												Other
@@ -247,7 +222,6 @@
 											<div v-else class="option-badge truncate">
 												{{ option.label }}
 											</div>
-											<!-- 显示选项的action标签 -->
 											<el-tag
 												v-if="
 													item.type === 'multiple_choice' ||
@@ -258,48 +232,7 @@
 												→
 												{{ getJumpTargetName(item, option.temporaryId) }}
 											</el-tag>
-											<el-tag
-												v-if="option.action"
-												type="success"
-												closable
-												@close="handleRemoveAction(index, optionIndex)"
-												@click="editAction(index, optionIndex)"
-											>
-												{{ option.action.name }}
-											</el-tag>
 										</div>
-										<!-- 选项操作下拉菜单，和问题级别保持一致 -->
-										<el-dropdown
-											placement="bottom"
-											v-if="
-												functionPermission(
-													ProjectPermissionEnum.question.update
-												) &&
-												(item.type == 'multiple_choice' ||
-													item.type == 'checkboxes')
-											"
-										>
-											<el-button :icon="MoreFilled" link size="small" />
-											<template #dropdown>
-												<el-dropdown-menu>
-													<el-dropdown-item
-														@click="
-															openActionEditor(index, optionIndex)
-														"
-													>
-														<div class="flex items-center gap-2">
-															<Icon
-																icon="tabler:math-function"
-																class="drag-icon"
-															/>
-															<span class="text-xs">
-																Configure Action
-															</span>
-														</div>
-													</el-dropdown-item>
-												</el-dropdown-menu>
-											</template>
-										</el-dropdown>
 									</div>
 								</div>
 							</div>
@@ -326,20 +259,13 @@
 			:sections="sections"
 			@save="handleJumpRulesSave"
 		/>
-
-		<ActionConfigDialog
-			ref="actionConfigDialogRef"
-			:triggerSourceId="actionConfig?.id || ''"
-			:triggerType="TriggerTypeEnum.Questionnaire"
-			@save-success="onActionSave"
-		/>
 	</div>
 </template>
 
 <script setup lang="ts">
 import { ref, watch, nextTick } from 'vue';
 import { Delete, Document, Edit, MoreFilled } from '@element-plus/icons-vue';
-import { ElMessage, ElMessageBox } from 'element-plus';
+import { ElMessage } from 'element-plus';
 import draggable from 'vuedraggable';
 import DragIcon from '@assets/svg/publicPage/drag.svg';
 import JumpRuleEditor from './JumpRuleEditor.vue';
@@ -347,14 +273,8 @@ import QuestionEditor from './QuestionEditor.vue';
 import type { Section, JumpRule, QuestionWithJumpRules } from '#/section';
 import { QuestionnaireSection } from '#/section';
 import { triggerFileUpload } from '@/utils/fileUploadUtils';
-import ActionConfigDialog from '@/components/actionTools/ActionConfigDialog.vue';
-import { TriggerTypeEnum } from '@/enums/appEnum';
 import { functionPermission } from '@/hooks';
 import { ProjectPermissionEnum } from '@/enums/permissionEnum';
-
-import { useI18n } from 'vue-i18n';
-
-const { t } = useI18n();
 
 interface QuestionType {
 	id: string;
@@ -585,138 +505,6 @@ const openJumpRuleEditor = (index: number) => {
 		currentEditingQuestion.value = question as QuestionWithJumpRules;
 		currentEditingIndex.value = index;
 		jumpRuleEditorVisible.value = true;
-	}
-};
-
-const actionConfig = ref<any>(null);
-const actionType = ref<'question' | 'option'>('question');
-const openActionEditor = (index: number, optionIndex?: number) => {
-	const question = questionsData.value[index];
-	if (!question) return;
-	currentEditingQuestion.value = question as QuestionWithJumpRules;
-	if (optionIndex !== undefined) {
-		actionType.value = 'option';
-		const option = question.options?.[optionIndex];
-		if (option) {
-			actionConfig.value = option || '';
-			actionConfigDialogRef.value?.open({
-				triggerSourceId: option.id,
-				triggerType: TriggerTypeEnum.Questionnaire,
-			});
-		}
-	} else {
-		actionType.value = 'question';
-		if (question) {
-			actionConfig.value = question || '';
-			actionConfigDialogRef.value?.open({
-				triggerSourceId: question.id,
-				triggerType: TriggerTypeEnum.Questionnaire,
-			});
-		}
-	}
-};
-
-const actionConfigDialogRef = ref<InstanceType<typeof ActionConfigDialog>>();
-const onActionSave = (res) => {
-	const questionIndex = questionsData.value.findIndex(
-		(q) => q.temporaryId === currentEditingQuestion.value?.temporaryId
-	);
-	if (actionType.value === 'question') {
-		if (res.id && questionIndex !== -1) {
-			questionsData.value[questionIndex].action = {
-				id: res.id,
-				name: res.name,
-			};
-		}
-	} else if (actionType.value === 'option') {
-		if (res.id && questionIndex !== -1) {
-			const option = questionsData.value[questionIndex].options?.find(
-				(option) =>
-					(option?.temporaryId !== undefined &&
-						option?.temporaryId === actionConfig.value?.temporaryId) ||
-					(option?.id !== undefined && option?.id === actionConfig.value?.id)
-			);
-			if (option) {
-				option.action = {
-					id: res.id,
-					name: res.name,
-				};
-			}
-		}
-	}
-};
-
-const handleRemoveAction = async (index: number, optionIndex?: number) => {
-	const question = questionsData.value[index];
-	if (!question) return;
-	if (optionIndex !== undefined) {
-		const option = question.options?.[optionIndex];
-		if (option) {
-			await removeAction(option.action?.id || '', () => {
-				option.action = undefined;
-			});
-		}
-	} else {
-		await removeAction(question.action?.id || '', () => {
-			question.action = undefined;
-		});
-	}
-};
-
-const editAction = async (index: number, optionIndex?: number) => {
-	const question = questionsData.value[index];
-	if (!question) return;
-	currentEditingQuestion.value = question as QuestionWithJumpRules;
-	actionType.value = optionIndex !== undefined ? 'option' : 'question';
-	let actionId = '';
-
-	if (optionIndex !== undefined) {
-		const option = question.options?.[optionIndex];
-		actionId = option?.action?.id || '';
-		actionConfig.value = option;
-	} else {
-		actionId = question.action?.id || '';
-		actionConfig.value = question;
-	}
-	actionConfigDialogRef.value?.open({
-		actionId: actionId,
-		triggerSourceId: question.id,
-		triggerType: TriggerTypeEnum.Questionnaire,
-	});
-};
-
-const removeAction = async (id, callback) => {
-	try {
-		ElMessageBox.confirm(
-			'This will permanently delete the action. Continue?',
-			'Delete Action',
-			{
-				confirmButtonText: 'Delete',
-				cancelButtonText: 'Cancel',
-				type: 'warning',
-				beforeClose: async (action, instance, done) => {
-					if (action === 'confirm') {
-						// 显示loading状态
-						instance.confirmButtonLoading = true;
-						instance.confirmButtonText = 'Activating...';
-
-						try {
-							callback && callback();
-							done(); // 关闭对话框
-						} catch (error) {
-							ElMessage.error(t('sys.api.operationFailed'));
-							// 恢复按钮状态
-							instance.confirmButtonLoading = false;
-							instance.confirmButtonText = 'Delete';
-						}
-					} else {
-						done(); // 取消或关闭时直接关闭对话框
-					}
-				},
-			}
-		);
-	} catch {
-		// User cancelled
 	}
 };
 

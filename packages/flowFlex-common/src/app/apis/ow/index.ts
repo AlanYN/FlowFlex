@@ -1,5 +1,6 @@
 import { defHttp } from '@/apis/axios';
 import { useGlobSetting } from '@/settings';
+import { ApiResponse, TriggerMapping } from '#/action';
 
 const globSetting = useGlobSetting();
 
@@ -22,7 +23,6 @@ const Api = (id?: string | number) => {
 		stages: `${globSetting.apiProName}/ow/stages/${globSetting.apiVersion}`,
 		stage: `${globSetting.apiProName}/ow/stages/${globSetting.apiVersion}/${id}`,
 		stagesByWorkflow: `${globSetting.apiProName}/ow/workflows/${globSetting.apiVersion}/${id}/stages`,
-		stageCombine: `${globSetting.apiProName}/ow/stages/${globSetting.apiVersion}/combine`,
 		stageSort: `${globSetting.apiProName}/ow/stages/${globSetting.apiVersion}/sort`,
 		stageColor: `${globSetting.apiProName}/ow/stages/${globSetting.apiVersion}/${id}/color`,
 		stageRequiredFields: `${globSetting.apiProName}/ow/stages/${globSetting.apiVersion}/${id}/required-fields`,
@@ -34,6 +34,12 @@ const Api = (id?: string | number) => {
 
 		// 权限检查API
 		permissionCheck: `${globSetting.apiProName}/ow/permissions/${globSetting.apiVersion}/check`,
+
+		components: `${globSetting.apiProName}/ow/components/${globSetting.apiVersion}`,
+
+		stageConditions: `${globSetting.apiProName}/ow/stage-conditions/${globSetting.apiVersion}`,
+
+		conditionAction: `${globSetting.apiProName}/action/${globSetting.apiVersion}/definitions/all`,
 	};
 };
 
@@ -151,15 +157,6 @@ export function getStagesByWorkflow(workflowId: string | number) {
 }
 
 /**
- * 合并阶段 [S03]
- * @param params CombineStagesInputDto
- * @returns long (新阶段ID)
- */
-export function combineStages(params: any) {
-	return defHttp.post({ url: `${Api().stageCombine}`, params });
-}
-
-/**
  * 阶段排序 [S04]
  * @param params SortStagesInputDto
  * @returns bool
@@ -257,4 +254,121 @@ export function checkPermission(params: {
 	resourceType: 1 | 2 | 3; // 1: Workflow, 2: Stage, 3: Case
 }) {
 	return defHttp.post({ url: `${Api().permissionCheck}`, params });
+}
+
+// ========================= Stage Condition 相关接口 =========================
+// 基础路径: /api/ow/stage-conditions/v1
+
+/**
+ * 按工作流查询条件
+ * GET /stage-conditions/v1/by-workflow/{workflowId}
+ */
+export function getConditionsByWorkflow(workflowId: string | number) {
+	return defHttp.get({
+		url: `${Api().stageConditions}/by-workflow/${workflowId}`,
+	});
+}
+
+/**
+ * 按阶段查询条件
+ * GET /stage-conditions/v1/by-stage/{stageId}
+ */
+export function getConditionByStage(stageId: string | number) {
+	return defHttp.get({
+		url: `${Api().stageConditions}/by-stage/${stageId}`,
+	});
+}
+
+/**
+ * 获取条件详情
+ * GET /stage-conditions/v1/{id}
+ */
+export function getConditionById(id: string | number) {
+	return defHttp.get({
+		url: `${Api().stageConditions}/${id}`,
+	});
+}
+
+/**
+ * 创建条件
+ * POST /stage-conditions/v1
+ */
+export function createCondition(params: {
+	stageId: string;
+	workflowId?: string;
+	name: string;
+	description?: string;
+	rulesJson: string;
+	actionsJson: string;
+	fallbackStageId?: string;
+	isActive?: boolean;
+}) {
+	return defHttp.post({
+		url: Api().stageConditions,
+		params,
+	});
+}
+
+/**
+ * 更新条件
+ * PUT /stage-conditions/v1/{id}
+ */
+export function updateCondition(
+	id: string | number,
+	params: {
+		stageId: string;
+		workflowId?: string;
+		name: string;
+		description?: string;
+		rulesJson: string;
+		actionsJson: string;
+		fallbackStageId?: string;
+		isActive?: boolean;
+	}
+) {
+	return defHttp.put({
+		url: `${Api().stageConditions}/${id}`,
+		params,
+	});
+}
+
+/**
+ * 删除条件
+ * DELETE /stage-conditions/v1/{id}
+ */
+export function deleteCondition(id: string | number) {
+	return defHttp.delete({
+		url: `${Api().stageConditions}/${id}`,
+	});
+}
+
+/**
+ * 验证规则 JSON（语法验证，保存前使用）
+ * POST /stage-conditions/v1/validate-rules
+ */
+export function validateRules(rulesJson: string) {
+	return defHttp.post({
+		url: `${Api().stageConditions}/validate-rules`,
+		params: { rulesJson },
+	});
+}
+
+/**
+ * 验证条件配置（完整验证，保存后使用）
+ * POST /stage-conditions/v1/{id}/validate
+ */
+export function validateCondition(id: string | number) {
+	return defHttp.post({
+		url: `${Api().stageConditions}/${id}/validate`,
+	});
+}
+
+/**
+ *
+ * @returns List<TriggerMapping>
+ */
+export function conditionAction(): Promise<ApiResponse<TriggerMapping[]>> {
+	return defHttp.get({
+		url: `${Api().conditionAction}`,
+	});
 }

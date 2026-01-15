@@ -10,7 +10,6 @@
 					type="primary"
 					class="page-header-btn page-header-btn-secondary"
 					@click="handleCompose"
-					:loading="syncMessageLoading"
 					v-permission="ProjectPermissionEnum.messageCenter.create"
 				>
 					New Message

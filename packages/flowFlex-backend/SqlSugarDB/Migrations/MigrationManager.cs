@@ -95,7 +95,6 @@ namespace FlowFlex.SqlSugarDB.Migrations
                     ("20251106000003_MakeSentDateNullableInUserInvitations", (Action)(() => MakeSentDateNullableInUserInvitations_20251106000003.Up(_db))),
                     ("20251114000001_IncreaseOperationDescriptionLength", (Action)(() => Migration_20251114000001_IncreaseOperationDescriptionLength.Up(_db))),
                     ("20251124000001_CreateIntegrationTables", (Action)(() => Migration_20251124000001_CreateIntegrationTables.Up(_db))),
-                    ("20250125000001_CreateDynamicFieldTable", (Action)(() => Migration_20250125000001_CreateDynamicFieldTable.Up(_db))),
                     ("20250126000002_AddSystemIdAndIntegrationIdToOnboarding", (Action)(() => Migration_20250126000002_AddSystemIdAndIntegrationIdToOnboarding.Up(_db))),
                     ("20251215000001_CreateMessageCenterTables", (Action)(() => _20251215000001_CreateMessageCenterTables.Up(_db))),
                     ("20251215000002_CreateEmailBindingTable", (Action)(() => new Migration_20251215000002_CreateEmailBindingTable().Up(_db))),
@@ -106,7 +105,13 @@ namespace FlowFlex.SqlSugarDB.Migrations
                     ("20251226000002_AddAuditFieldsToDataValue", (Action)(() => AddAuditFieldsToDataValue_20251226000002.Up(_db))),
                     ("20251226000003_AddRequiredFieldToStage", (Action)(() => Migration_20251226000003_AddRequiredFieldToStage.Up(_db))),
                     ("20251231000001_CreatePhoneNumberPrefixesTable", (Action)(() => Migration_20251231000001_CreatePhoneNumberPrefixesTable.Up(_db))),
-                    ("20260108000001_CreateIntegrationApiLogTable", (Action)(() => Integration.Migration_20260108000001_CreateIntegrationApiLogTable.Up(_db)))
+                    ("20250105000001_AddCoAssigneesToStage", (Action)(() => AddCoAssigneesToStage_20250105000001.Up(_db))),
+                    ("20260106000001_CreateStageConditionTable", (Action)(() => Migration_20260106000001_CreateStageConditionTable.Up(_db))),
+                    ("20260108000001_CreateIntegrationApiLogTable", (Action)(() => Integration.Migration_20260108000001_CreateIntegrationApiLogTable.Up(_db))),
+                    ("20260108000002_AddIsExternalImportToOnboardingFile", (Action)(() => Migration_20260108000002_AddIsExternalImportToOnboardingFile.Up(_db))),
+                    ("20260114000001_UpdateStageConditionUniqueConstraint", (Action)(() => Migration_20260114000001_UpdateStageConditionUniqueConstraint.Up(_db))),
+                    ("20260114000002_AddStageNameUniqueConstraint", (Action)(() => Migration_20260114000002_AddStageNameUniqueConstraint.Up(_db))),
+                    ("20260115000001_AddFieldIdToStaticFieldValue", (Action)(() => Migration_20260115000001_AddFieldIdToStaticFieldValue.Up(_db)))
                 };
 
                 // Pre-check all migrations to reduce individual SQL queries

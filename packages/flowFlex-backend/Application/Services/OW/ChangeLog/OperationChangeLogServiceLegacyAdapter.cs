@@ -144,6 +144,10 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                     operationType, businessModule, businessId, onboardingId, stageId,
                     operationTitle, operationDescription, null, beforeData, afterData,
                     changedFields?.FirstOrDefault(), extendedData),
+                BusinessModuleEnum.StageCondition => _stageLogService.LogOperationAsync(
+                    operationType, businessModule, businessId, onboardingId, stageId,
+                    operationTitle, operationDescription, null, beforeData, afterData,
+                    changedFields?.FirstOrDefault(), extendedData),
                 _ => throw new NotSupportedException($"Business module {businessModule} is not supported by the legacy adapter.")
             };
         }

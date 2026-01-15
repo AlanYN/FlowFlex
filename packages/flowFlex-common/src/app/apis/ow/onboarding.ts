@@ -865,6 +865,8 @@ export function updateStageFields(
 		stageId: string;
 		customEstimatedDays: number;
 		customEndTime: string;
+		assignee: string[];
+		coAssignees: string[];
 	}
 ) {
 	return defHttp.post({ url: `${Api(id).updateStageFields}`, params });

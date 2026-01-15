@@ -164,6 +164,12 @@ namespace FlowFlex.Application.Services.Action
             return _mapper.Map<List<ActionDefinitionDto>>(entities);
         }
 
+        public async Task<List<ActionDefinitionSummaryDto>> GetAllEnabledActionSummaryAsync()
+        {
+            var entities = await _actionDefinitionRepository.GetAllEnabledSummaryAsync();
+            return _mapper.Map<List<ActionDefinitionSummaryDto>>(entities);
+        }
+
         public async Task<ActionDefinitionDto> CreateActionDefinitionAsync(CreateActionDefinitionDto dto)
         {
             ValidateActionConfig(dto.ActionType, dto.ActionConfig);

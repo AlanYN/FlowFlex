@@ -65,6 +65,18 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.OnboardingFile
         /// If not set, uses current user context
         /// </summary>
         public string OverrideTenantId { get; set; }
+
+        /// <summary>
+        /// Is External Import - Indicates if the file was imported from external system (e.g., CRM)
+        /// Files with IsExternalImport=true will be excluded from inbound-attachments API
+        /// </summary>
+        public bool IsExternalImport { get; set; } = false;
+
+        /// <summary>
+        /// Source of the file (e.g., CRM, Portal, Manual)
+        /// </summary>
+        [StringLength(100)]
+        public string Source { get; set; }
     }
 
     /// <summary>

@@ -1,5 +1,4 @@
 import { ActionType } from '@/apis/action';
-import { TriggerTypeEnum } from '@/enums/appEnum';
 
 export interface ActionDefinition {
 	id?: string;
@@ -16,7 +15,6 @@ export interface ActionDefinition {
 	triggerMappings?: TriggerMapping[];
 	workflowId: string | null;
 	triggerSourceId: string | null;
-	triggerType: string | null;
 }
 
 export interface TriggerMapping {

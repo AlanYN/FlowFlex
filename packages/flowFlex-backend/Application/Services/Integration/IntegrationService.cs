@@ -6,6 +6,7 @@ using AutoMapper;
 using FlowFlex.Application.Contracts.Dtos.Action;
 using FlowFlex.Application.Contracts.Dtos.Integration;
 using FlowFlex.Application.Contracts.IServices;
+using FlowFlex.Application.Contracts.IServices.DynamicData;
 using FlowFlex.Application.Contracts.IServices.Integration;
 using FlowFlex.Application.Services.OW.Extensions;
 using FlowFlex.Domain.Entities.Action;
@@ -34,6 +35,7 @@ namespace FlowFlex.Application.Services.Integration
         private readonly IQuickLinkRepository _quickLinkRepository;
         private readonly IActionDefinitionRepository _actionDefinitionRepository;
         private readonly IActionTriggerMappingRepository _actionTriggerMappingRepository;
+        private readonly IPropertyService _propertyService;
         private readonly ISqlSugarClient _sqlSugarClient;
         private readonly IHttpClientFactory _httpClientFactory;
         private readonly IMapper _mapper;
@@ -50,6 +52,7 @@ namespace FlowFlex.Application.Services.Integration
             IQuickLinkRepository quickLinkRepository,
             IActionDefinitionRepository actionDefinitionRepository,
             IActionTriggerMappingRepository actionTriggerMappingRepository,
+            IPropertyService propertyService,
             ISqlSugarClient sqlSugarClient,
             IHttpClientFactory httpClientFactory,
             IMapper mapper,
@@ -62,6 +65,7 @@ namespace FlowFlex.Application.Services.Integration
             _quickLinkRepository = quickLinkRepository;
             _actionDefinitionRepository = actionDefinitionRepository;
             _actionTriggerMappingRepository = actionTriggerMappingRepository;
+            _propertyService = propertyService;
             _sqlSugarClient = sqlSugarClient;
             _httpClientFactory = httpClientFactory;
             _mapper = mapper;
@@ -334,42 +338,83 @@ namespace FlowFlex.Application.Services.Integration
                     var inboundMappings = new List<ActionFieldMappingDto>();
                     var outboundMappings = new List<ActionFieldMappingDto>();
 
+                    // Collect all field mappings first to batch query property names
+                    var allFieldMappings = new List<(Domain.Entities.Integration.InboundFieldMapping fm, ActionDefinition action)>();
                     foreach (var actionId in actionIds)
                     {
                         var action = await _actionDefinitionRepository.GetByIdAsync(actionId);
                         if (action == null || !action.IsValid) continue;
 
                         var fieldMappings = await _fieldMappingRepository.GetByActionIdAsync(actionId);
-                        
                         foreach (var fm in fieldMappings)
                         {
-                            var mappingDto = new ActionFieldMappingDto
-                            {
-                                Id = fm.Id,
-                                ActionId = fm.ActionId,
-                                ActionCode = action.ActionCode,
-                                ActionName = action.ActionName,
-                                ExternalFieldName = fm.ExternalFieldName,
-                                WfeFieldId = fm.WfeFieldId,
-                                WfeFieldName = fm.WfeFieldId,
-                                FieldType = fm.FieldType.ToString(),
-                                SyncDirection = fm.SyncDirection.ToString(),
-                                IsRequired = fm.IsRequired,
-                                DefaultValue = fm.DefaultValue,
-                                SortOrder = fm.SortOrder
-                            };
+                            allFieldMappings.Add((fm, action));
+                        }
+                    }
 
-                            // Inbound: ViewOnly or Editable
-                            if (fm.SyncDirection == SyncDirection.ViewOnly || fm.SyncDirection == SyncDirection.Editable)
-                            {
-                                inboundMappings.Add(mappingDto);
-                            }
+                    // Batch query property names by wfeFieldIds
+                    var wfeFieldIds = allFieldMappings
+                        .Select(x => x.fm.WfeFieldId)
+                        .Where(wfeFieldId => !string.IsNullOrEmpty(wfeFieldId) && long.TryParse(wfeFieldId, out _))
+                        .Select(wfeFieldId => long.Parse(wfeFieldId))
+                        .Distinct()
+                        .ToList();
 
-                            // Outbound: OutboundOnly or Editable
-                            if (fm.SyncDirection == SyncDirection.OutboundOnly || fm.SyncDirection == SyncDirection.Editable)
+                    var propertyNameMap = new Dictionary<string, string>();
+                    if (wfeFieldIds.Any())
+                    {
+                        try
+                        {
+                            var properties = await _propertyService.GetPropertiesByIdsAsync(wfeFieldIds);
+                            foreach (var prop in properties)
                             {
-                                outboundMappings.Add(mappingDto);
+                                // Use DisplayName if available, otherwise use FieldName
+                                var displayName = !string.IsNullOrEmpty(prop.DisplayName) ? prop.DisplayName : prop.FieldName;
+                                propertyNameMap[prop.Id.ToString()] = displayName ?? prop.Id.ToString();
                             }
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogWarning(ex, "Failed to batch query property names for field mappings");
+                        }
+                    }
+
+                    // Create DTOs with resolved property names
+                    foreach (var (fm, action) in allFieldMappings)
+                    {
+                        // Get WfeFieldName from property service, fallback to WfeFieldId
+                        var wfeFieldName = fm.WfeFieldId;
+                        if (!string.IsNullOrEmpty(fm.WfeFieldId) && propertyNameMap.TryGetValue(fm.WfeFieldId, out var resolvedName))
+                        {
+                            wfeFieldName = resolvedName;
+                        }
+
+                        var mappingDto = new ActionFieldMappingDto
+                        {
+                            Id = fm.Id,
+                            ActionId = fm.ActionId,
+                            ActionCode = action.ActionCode,
+                            ActionName = action.ActionName,
+                            ExternalFieldName = fm.ExternalFieldName,
+                            WfeFieldId = fm.WfeFieldId,
+                            WfeFieldName = wfeFieldName,
+                            FieldType = fm.FieldType.ToString(),
+                            SyncDirection = fm.SyncDirection.ToString(),
+                            IsRequired = fm.IsRequired,
+                            DefaultValue = fm.DefaultValue,
+                            SortOrder = fm.SortOrder
+                        };
+
+                        // Inbound: ViewOnly or Editable
+                        if (fm.SyncDirection == SyncDirection.ViewOnly || fm.SyncDirection == SyncDirection.Editable)
+                        {
+                            inboundMappings.Add(mappingDto);
+                        }
+
+                        // Outbound: OutboundOnly or Editable
+                        if (fm.SyncDirection == SyncDirection.OutboundOnly || fm.SyncDirection == SyncDirection.Editable)
+                        {
+                            outboundMappings.Add(mappingDto);
                         }
                     }
 

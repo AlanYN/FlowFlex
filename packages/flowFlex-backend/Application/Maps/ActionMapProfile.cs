@@ -57,6 +57,11 @@ namespace FlowFlex.Application.Maps
             // ActionTriggerMappingWithDetails to ActionTriggerMappingInfo mapping
             CreateMap<ActionTriggerMappingWithDetails, ActionTriggerMappingInfo>();
 
+            // ActionDefinition to ActionDefinitionSummaryDto mapping (lightweight)
+            CreateMap<ActionDefinition, ActionDefinitionSummaryDto>()
+                .ForMember(dest => dest.Name, opt => opt.MapFrom(src => src.ActionName))
+                .ForMember(dest => dest.ActionType, opt => opt.MapFrom(src => Enum.Parse<ActionTypeEnum>(src.ActionType)));
+
             // ActionTriggerMappingWithActionDetails to ActionTriggerMappingWithActionInfo mapping
             CreateMap<ActionTriggerMappingWithActionDetails, ActionTriggerMappingWithActionInfo>();
 

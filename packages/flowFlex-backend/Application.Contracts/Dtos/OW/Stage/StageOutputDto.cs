@@ -57,6 +57,11 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.Stage
         public List<string> DefaultAssignee { get; set; }
 
         /// <summary>
+        /// Co-assignees (additional assignees for the stage)
+        /// </summary>
+        public List<string> CoAssignees { get; set; }
+
+        /// <summary>
         /// Estimated duration in days (supports decimal)
         /// </summary>
         public decimal? EstimatedDuration { get; set; }

@@ -34,6 +34,7 @@ using System.Text;
 using System.Text.Json;
 using PermissionOperationType = FlowFlex.Domain.Shared.Enums.Permission.OperationTypeEnum;
 using FlowFlex.Application.Contracts.Dtos.OW.User;
+using FlowFlex.Application.Contracts.Dtos.OW.StageCondition;
 
 namespace FlowFlex.Application.Services.OW
 {
@@ -70,6 +71,8 @@ namespace FlowFlex.Application.Services.OW
         internal readonly IUserService _userService;
         internal readonly ICaseCodeGeneratorService _caseCodeGeneratorService;
         internal readonly IEmailService _emailService;
+        internal readonly IRulesEngineService _rulesEngineService;
+        internal readonly IConditionActionExecutor _conditionActionExecutor;
         internal readonly ILogger<OnboardingService> _logger;
 
         // Cache key constants - temporarily disable Redis cache
@@ -80,6 +83,18 @@ namespace FlowFlex.Application.Services.OW
         // Initialization tracking
         internal static readonly HashSet<long> _initializingEntities = new HashSet<long>();
         internal static readonly object _initializationLock = new object();
+
+        // Shared JSON serializer options for consistent serialization across the service
+        internal static readonly JsonSerializerOptions JsonOptions = new JsonSerializerOptions
+        {
+            PropertyNameCaseInsensitive = true,
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+            ReadCommentHandling = JsonCommentHandling.Skip,
+            AllowTrailingCommas = true,
+            NumberHandling = System.Text.Json.Serialization.JsonNumberHandling.AllowReadingFromString,
+            DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull,
+            WriteIndented = false
+        };
 
         #endregion
 
@@ -112,6 +127,8 @@ namespace FlowFlex.Application.Services.OW
             IUserService userService,
             ICaseCodeGeneratorService caseCodeGeneratorService,
             IEmailService emailService,
+            IRulesEngineService rulesEngineService,
+            IConditionActionExecutor conditionActionExecutor,
             ILogger<OnboardingService> logger)
         {
             _onboardingRepository = onboardingRepository ?? throw new ArgumentNullException(nameof(onboardingRepository));
@@ -140,6 +157,8 @@ namespace FlowFlex.Application.Services.OW
             _userService = userService ?? throw new ArgumentNullException(nameof(userService));
             _caseCodeGeneratorService = caseCodeGeneratorService ?? throw new ArgumentNullException(nameof(caseCodeGeneratorService));
             _emailService = emailService ?? throw new ArgumentNullException(nameof(emailService));
+            _rulesEngineService = rulesEngineService ?? throw new ArgumentNullException(nameof(rulesEngineService));
+            _conditionActionExecutor = conditionActionExecutor ?? throw new ArgumentNullException(nameof(conditionActionExecutor));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
 

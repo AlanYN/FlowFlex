@@ -77,8 +77,10 @@ namespace FlowFlex.Application.Services.OW
                         CompletedBy = null,
                         Notes = null,
                         IsCurrent = sequentialOrder == 1, // First stage is current
-                        Assignee = ParseDefaultAssignee(stage.DefaultAssignee), // Initialize from Stage.DefaultAssignee
-                        CoAssignees = new List<string>(), // Empty by default
+                        Assignee = ParseDefaultAssignee(stage.DefaultAssignee), // Sync from Stage.DefaultAssignee
+                        CoAssignees = GetFilteredCoAssignees(stage.CoAssignees, stage.DefaultAssignee), // Sync from Stage.CoAssignees
+                        CustomStageAssignee = null, // User customization, initially null
+                        CustomStageCoAssignees = null, // User customization, initially null
 
                         // Stage configuration fields (not serialized, populated dynamically)
                         StageName = stage.Name,
@@ -119,26 +121,14 @@ namespace FlowFlex.Application.Services.OW
                 // Load current progress using the proper method that handles JSON formatting
                 LoadStagesProgressFromJson(entity);
 
-                // Debug: Check if stageIds are correctly loaded
-                LoggingExtensions.WriteLine($"[DEBUG] UpdateStagesProgressAsync - After LoadStagesProgressFromJson:");
-                LoggingExtensions.WriteLine($"[DEBUG] StagesProgress count: {entity.StagesProgress?.Count ?? 0}");
-                if (entity.StagesProgress != null)
-                {
-                    foreach (var sp in entity.StagesProgress)
-                    {
-                        LoggingExtensions.WriteLine($"[DEBUG] StageProgress: StageId={sp.StageId}, Status={sp.Status}, IsCurrent={sp.IsCurrent}");
-                    }
-                }
+                _logger.LogDebug("UpdateStagesProgressAsync - Onboarding {OnboardingId} has {StageCount} stages",
+                    entity.Id, entity.StagesProgress?.Count ?? 0);
 
                 var currentTime = DateTimeOffset.UtcNow;
                 var completedStage = entity.StagesProgress.FirstOrDefault(s => s.StageId == completedStageId);
 
                 if (completedStage != null)
                 {
-                    // Debug logging handled by structured logging
-                    // Debug logging handled by structured logging");
-
-                    // Check if stage can be re-completed
                     var wasAlreadyCompleted = completedStage.IsCompleted;
 
                     // Mark current stage as completed
@@ -151,8 +141,7 @@ namespace FlowFlex.Application.Services.OW
                     completedStage.LastUpdatedTime = currentTime;
                     completedStage.LastUpdatedBy = completedBy ?? _operatorContextService.GetOperatorDisplayName();
 
-                    // Set StartTime if not already set (only during complete operations)
-                    // This ensures StartTime is set when user actually completes work, not during status changes
+                    // Set StartTime if not already set
                     if (!completedStage.StartTime.HasValue)
                     {
                         completedStage.StartTime = currentTime;
@@ -160,7 +149,6 @@ namespace FlowFlex.Application.Services.OW
 
                     if (!string.IsNullOrEmpty(notes))
                     {
-                        // Append new notes to existing notes if stage was re-completed
                         if (wasAlreadyCompleted && !string.IsNullOrEmpty(completedStage.Notes))
                         {
                             completedStage.Notes += $"\n[Re-completed {currentTime:yyyy-MM-dd HH:mm:ss}] {notes}";
@@ -171,9 +159,7 @@ namespace FlowFlex.Application.Services.OW
                         }
                     }
 
-                    // Debug logging handled by structured logging}");
-
-                    // Find next stage to activate (first incomplete stage after current completed stage)
+                    // Find next stage to activate
                     var nextStage = entity.StagesProgress
                         .Where(s => s.StageOrder > completedStage.StageOrder && !s.IsCompleted)
                         .OrderBy(s => s.StageOrder)
@@ -187,35 +173,30 @@ namespace FlowFlex.Application.Services.OW
 
                     if (nextStage != null)
                     {
-                        // Activate the next incomplete stage
                         nextStage.Status = "InProgress";
-                        // Don't set StartTime here - only set it during save or complete operations
                         nextStage.IsCurrent = true;
                         nextStage.LastUpdatedTime = currentTime;
                         nextStage.LastUpdatedBy = completedBy ?? _operatorContextService.GetOperatorDisplayName();
 
-                        // Debug logging handled by structured logging");
-                    }
-                    else
-                    {
-                        // All stages after the completed stage are already completed
-                        // Don't go backward to find incomplete stages - this maintains forward progression
-                        // Debug logging handled by structured logging
+                        _logger.LogDebug("UpdateStagesProgressAsync - Activated next stage {StageId} for Onboarding {OnboardingId}",
+                            nextStage.StageId, entity.Id);
                     }
 
-                    // Update completion rate based on completed stages
+                    // Update completion rate
                     entity.CompletionRate = CalculateCompletionRateByCompletedStages(entity.StagesProgress);
 
-                    // Debug logging handled by structured logging");
+                    _logger.LogDebug("UpdateStagesProgressAsync - Completed stage {StageId}, CompletionRate: {Rate}%",
+                        completedStageId, entity.CompletionRate);
                 }
 
-                // Serialize back to JSON (only progress fields)
+                // Serialize back to JSON
                 await FilterValidStagesProgress(entity);
                 entity.StagesProgressJson = SerializeStagesProgress(entity.StagesProgress);
             }
             catch (Exception ex)
             {
-                // Debug logging handled by structured logging
+                _logger.LogError(ex, "Error updating stages progress for Onboarding {OnboardingId}, Stage {StageId}",
+                    entity.Id, completedStageId);
             }
         }
 
@@ -229,44 +210,24 @@ namespace FlowFlex.Application.Services.OW
             {
                 if (!string.IsNullOrEmpty(entity.StagesProgressJson))
                 {
-                    // Debug: Show input JSON
-                    LoggingExtensions.WriteLine($"[DEBUG] LoadStagesProgressFromJson - Input JSON:");
-                    LoggingExtensions.WriteLine($"[DEBUG] {entity.StagesProgressJson}");
-
-                    // Configure JsonSerializer options to handle both formats
-                    var options = new JsonSerializerOptions
-                    {
-                        PropertyNameCaseInsensitive = true,
-                        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-                        // Allow trailing commas and comments for JSONB compatibility
-                        ReadCommentHandling = JsonCommentHandling.Skip,
-                        AllowTrailingCommas = true,
-                        // Allow reading numbers from string format (e.g., "stageId": "1234" -> long)
-                        NumberHandling = System.Text.Json.Serialization.JsonNumberHandling.AllowReadingFromString
-                    };
+                    _logger.LogDebug("LoadStagesProgressFromJson - Loading JSON for Onboarding {OnboardingId}", entity.Id);
 
                     var jsonString = entity.StagesProgressJson.Trim();
 
-                    // Handle double-serialized JSON (e.g., "\"[{...}]\"" instead of "[{...}]")
-                    // This can happen when JSONB data is stored as escaped string
+                    // Handle double-serialized JSON
                     if (jsonString.StartsWith("\"") && jsonString.EndsWith("\""))
                     {
-                        // First deserialize to get the actual JSON string
-                        jsonString = JsonSerializer.Deserialize<string>(jsonString, options) ?? "[]";
-                        LoggingExtensions.WriteLine($"[DEBUG] LoadStagesProgressFromJson - Unwrapped double-serialized JSON");
+                        jsonString = JsonSerializer.Deserialize<string>(jsonString, JsonOptions) ?? "[]";
+                        _logger.LogDebug("LoadStagesProgressFromJson - Unwrapped double-serialized JSON");
                     }
 
                     entity.StagesProgress = JsonSerializer.Deserialize<List<OnboardingStageProgress>>(
-                        jsonString, options) ?? new List<OnboardingStageProgress>();
+                        jsonString, JsonOptions) ?? new List<OnboardingStageProgress>();
 
-                    // Debug: Show loaded data
-                    LoggingExtensions.WriteLine($"[DEBUG] LoadStagesProgressFromJson - Loaded {entity.StagesProgress.Count} items:");
-                    foreach (var sp in entity.StagesProgress)
-                    {
-                        LoggingExtensions.WriteLine($"[DEBUG] Loaded StageProgress: StageId={sp.StageId}, Status={sp.Status}, IsCurrent={sp.IsCurrent}");
-                    }
+                    _logger.LogDebug("LoadStagesProgressFromJson - Loaded {Count} stages for Onboarding {OnboardingId}",
+                        entity.StagesProgress.Count, entity.Id);
 
-                    // Only fix stage order when needed, avoid unnecessary serialization
+                    // Only fix stage order when needed
                     if (NeedsStageOrderFix(entity.StagesProgress))
                     {
                         FixStageOrderSequence(entity.StagesProgress);
@@ -280,15 +241,12 @@ namespace FlowFlex.Application.Services.OW
             }
             catch (JsonException jsonEx)
             {
-                // Handle JSON parsing errors specifically
-                LoggingExtensions.WriteLine($"JSON parsing error in LoadStagesProgressFromJson: {jsonEx.Message}");
+                _logger.LogWarning(jsonEx, "JSON parsing error in LoadStagesProgressFromJson for Onboarding {OnboardingId}", entity.Id);
                 entity.StagesProgress = new List<OnboardingStageProgress>();
             }
             catch (Exception ex)
             {
-#if DEBUG
-                // Debug logging handled by structured logging
-#endif
+                _logger.LogWarning(ex, "Error loading stages progress for Onboarding {OnboardingId}", entity.Id);
                 entity.StagesProgress = new List<OnboardingStageProgress>();
             }
         }
@@ -487,99 +445,34 @@ namespace FlowFlex.Application.Services.OW
                 }
 
                 var completionRate = Math.Round((decimal)completedStagesCount / totalStagesCount * 100, 2);
-                // Debug logging handled by structured logging
-                // Debug logging handled by structured logging.Select(s => $"{s.StageOrder}:{s.StageName}"))}]");
-                // Debug logging handled by structured logging.Select(s => $"{s.StageOrder}:{s.StageName}"))}]");
-
                 return completionRate;
             }
             catch (Exception ex)
             {
-                // Debug logging handled by structured logging
+                _logger.LogWarning(ex, "Error calculating completion rate");
                 return 0;
             }
         }
 
         /// <summary>
-        /// Clear related cache data
+        /// Clear related cache data (placeholder for future cache implementation)
         /// </summary>
-        private async Task ClearRelatedCacheAsync(long? workflowId = null, long? stageId = null)
+        private Task ClearRelatedCacheAsync(long? workflowId = null, long? stageId = null)
         {
-            try
-            {
-                // Safely get tenant ID
-                var tenantId = !string.IsNullOrEmpty(_userContext?.TenantId)
-                    ? _userContext.TenantId.ToLowerInvariant()
-                    : "default";
-
-                var tasks = new List<Task>();
-
-                if (workflowId.HasValue)
-                {
-                    var workflowCacheKey = $"{WORKFLOW_CACHE_PREFIX}:{tenantId}:{workflowId.Value}";
-                    // Redis cache temporarily disabled
-                    // tasks.Add(_redisService.KeyDelAsync(workflowCacheKey));
-                }
-
-                if (stageId.HasValue)
-                {
-                    var stageCacheKey = $"{STAGE_CACHE_PREFIX}:{tenantId}:{stageId.Value}";
-                    // Redis cache temporarily disabled
-                    // tasks.Add(_redisService.KeyDelAsync(stageCacheKey));
-                }
-
-                if (tasks.Any())
-                {
-                    await Task.WhenAll(tasks);
-#if DEBUG
-                    // Debug logging handled by structured logging
-#endif
-                }
-            }
-            catch (Exception ex)
-            {
-                // Debug logging handled by structured logging
-                // Cache cleanup failure should not affect main flow
-            }
+            // Redis cache temporarily disabled - no-op for now
+            _logger.LogDebug("ClearRelatedCacheAsync called - cache disabled, WorkflowId: {WorkflowId}, StageId: {StageId}", 
+                workflowId, stageId);
+            return Task.CompletedTask;
         }
 
         /// <summary>
-        /// Clear Onboarding query cache
+        /// Clear Onboarding query cache (placeholder for future cache implementation)
         /// </summary>
-        private async Task ClearOnboardingQueryCacheAsync()
+        private Task ClearOnboardingQueryCacheAsync()
         {
-            try
-            {
-                string tenantId = _userContext?.TenantId ?? "default";
-
-                // Use Keys method to get all matching keys, then batch delete
-                var pattern = $"ow:onboarding:query:{tenantId}:*";
-                // Redis cache temporarily disabled
-                var keys = new List<string>();
-
-                if (keys != null && keys.Any())
-                {
-                    // Batch delete all matching keys
-                    // Redis cache temporarily disabled
-                    var deleteTasks = keys.Select(key => Task.CompletedTask);
-                    await Task.WhenAll(deleteTasks);
-
-#if DEBUG
-                    // Debug logging handled by structured logging
-#endif
-                }
-                else
-                {
-#if DEBUG
-                    // Debug logging handled by structured logging
-#endif
-                }
-            }
-            catch (Exception ex)
-            {
-                // Debug logging handled by structured logging
-                // Cache cleanup failure should not affect main flow
-            }
+            // Redis cache temporarily disabled - no-op for now
+            _logger.LogDebug("ClearOnboardingQueryCacheAsync called - cache disabled");
+            return Task.CompletedTask;
         }
 
         /// <summary>
@@ -624,17 +517,6 @@ namespace FlowFlex.Application.Services.OW
                         }
                         // If CustomEstimatedDays exists, EstimatedDays should show the custom value
                         // (This will be handled by AutoMapper: EstimatedDays = CustomEstimatedDays ?? EstimatedDays)
-
-                        // Auto-fill Assignee from Stage.DefaultAssignee if not set
-                        if (stageProgress.Assignee == null || !stageProgress.Assignee.Any())
-                        {
-                            stageProgress.Assignee = ParseDefaultAssignee(stage.DefaultAssignee);
-                            _logger.LogDebug("Auto-filled Assignee from DefaultAssignee: StageId={StageId}, DefaultAssignee={DefaultAssignee}, ParsedAssignee={ParsedAssignee}",
-                                stage.Id, stage.DefaultAssignee, string.Join(",", stageProgress.Assignee ?? new List<string>()));
-                        }
-
-                        // Always sync DefaultAssignee from Stage configuration (read-only field)
-                        stageProgress.DefaultAssignee = ParseDefaultAssignee(stage.DefaultAssignee);
 
                         stageProgress.VisibleInPortal = stage.VisibleInPortal;
                         stageProgress.PortalPermission = stage.PortalPermission;
@@ -719,8 +601,10 @@ namespace FlowFlex.Application.Services.OW
                             CompletedBy = null,
                             Notes = null,
                             IsCurrent = false,
-                            Assignee = ParseDefaultAssignee(newStage.DefaultAssignee),
-                            CoAssignees = new List<string>()
+                            Assignee = ParseDefaultAssignee(newStage.DefaultAssignee), // Sync from Stage.DefaultAssignee
+                            CoAssignees = GetFilteredCoAssignees(newStage.CoAssignees, newStage.DefaultAssignee), // Sync from Stage.CoAssignees
+                            CustomStageAssignee = null, // User customization, initially null
+                            CustomStageCoAssignees = null // User customization, initially null
                         };
 
 
@@ -821,174 +705,210 @@ namespace FlowFlex.Application.Services.OW
         {
             try
             {
-                LoggingExtensions.WriteLine($"[DEBUG] SafeUpdateOnboardingAsync - Updating Onboarding {entity.Id}: CurrentStageId={entity.CurrentStageId}, Status={entity.Status}");
+                _logger.LogDebug("SafeUpdateOnboardingAsync - Updating Onboarding {OnboardingId}: CurrentStageId={CurrentStageId}, Status={Status}",
+                    entity.Id, entity.CurrentStageId, entity.Status);
 
-                // Always use the JSONB-safe approach to avoid type conversion errors
                 var db = _onboardingRepository.GetSqlSugarClient();
 
-                // First, update permission JSONB fields AND permission mode/type together with explicit JSONB casting
-                // This ensures that the database constraints are satisfied in a single transaction
-                try
-                {
-                    var permissionSql = @"
-                        UPDATE ff_onboarding 
-                        SET view_teams = @ViewTeams::jsonb,
-                            view_users = @ViewUsers::jsonb,
-                            operate_teams = @OperateTeams::jsonb,
-                            operate_users = @OperateUsers::jsonb,
-                            view_permission_mode = @ViewPermissionMode,
-                            view_permission_subject_type = @ViewPermissionSubjectType,
-                            operate_permission_subject_type = @OperatePermissionSubjectType,
-                            use_same_team_for_operate = @UseSameTeamForOperate
-                        WHERE id = @Id";
+                // Step 1: Update permission JSONB fields
+                await UpdatePermissionFieldsAsync(db, entity);
 
-                    await db.Ado.ExecuteCommandAsync(permissionSql, new
-                    {
-                        ViewTeams = entity.ViewTeams,
-                        ViewUsers = entity.ViewUsers,
-                        OperateTeams = entity.OperateTeams,
-                        OperateUsers = entity.OperateUsers,
-                        ViewPermissionMode = (int)entity.ViewPermissionMode,
-                        ViewPermissionSubjectType = (int)entity.ViewPermissionSubjectType,
-                        OperatePermissionSubjectType = (int)entity.OperatePermissionSubjectType,
-                        UseSameTeamForOperate = entity.UseSameTeamForOperate,
-                        Id = entity.Id
-                    });
-                }
-                catch (Exception permEx)
-                {
-                    LoggingExtensions.WriteLine($"Error: Failed to update permission JSONB fields: {permEx.Message}");
-                    // This is critical, so we should throw
-                    throw new CRMException($"Failed to update permission fields: {permEx.Message}");
-                }
-
-                // Then update all other fields (permission fields were already updated above)
-                // Now the constraint will be satisfied because JSONB fields and permission modes are already updated
-                LoggingExtensions.WriteLine($"[DEBUG] SafeUpdateOnboardingAsync - About to update repository with CurrentStageId={entity.CurrentStageId}");
-
-                // Serialize back to JSON (only progress fields)
+                // Step 2: Filter valid stages progress
                 await FilterValidStagesProgress(entity);
 
-                // IMPORTANT: Get fresh audit values and save them to local variables BEFORE any update
-                // This prevents SqlSugar from resetting entity values
-                var modifyDate = DateTimeOffset.UtcNow;
-                var modifyBy = _operatorContextService.GetOperatorDisplayName();
-                var modifyUserId = _operatorContextService.GetOperatorId();
+                // Step 3: Prepare audit values
+                var auditInfo = PrepareAuditInfo();
+                entity.ModifyDate = auditInfo.ModifyDate;
+                entity.ModifyBy = auditInfo.ModifyBy;
+                entity.ModifyUserId = auditInfo.ModifyUserId;
 
-                LoggingExtensions.WriteLine($"[DEBUG] SafeUpdateOnboardingAsync - Using ModifyBy: '{modifyBy}'");
+                // Step 4: Update main entity fields
+                var result = await UpdateMainEntityFieldsAsync(entity);
 
-                // Update entity with fresh audit values
-                entity.ModifyDate = modifyDate;
-                entity.ModifyBy = modifyBy;
-                entity.ModifyUserId = modifyUserId;
+                // Step 5: Update audit fields via SQL (workaround for SqlSugar reset issue)
+                await UpdateAuditFieldsAsync(db, entity.Id, auditInfo);
 
-                // Use UpdateColumns with the entity (now with fresh audit values)
-                var result = await _onboardingRepository.UpdateAsync(entity,
-                    it => new
-                    {
-                        it.WorkflowId,
-                        it.CurrentStageId,
-                        it.CurrentStageOrder,
-                        it.LeadId,
-                        it.CaseName,
-                        it.LeadEmail,
-                        it.LeadPhone,
-                        it.ContactPerson,
-                        it.ContactEmail,
-                        it.LifeCycleStageId,
-                        it.LifeCycleStageName,
-                        it.Status,
-                        it.CompletionRate,
-                        it.StartDate,
-                        it.EstimatedCompletionDate,
-                        it.ActualCompletionDate,
-                        it.CurrentAssigneeId,
-                        it.CurrentAssigneeName,
-                        it.CurrentTeam,
-                        it.StageUpdatedById,
-                        it.StageUpdatedBy,
-                        it.StageUpdatedByEmail,
-                        it.StageUpdatedTime,
-                        it.CurrentStageStartTime,
-                        it.Priority,
-                        it.IsPrioritySet,
-                        it.Ownership,
-                        it.OwnershipName,
-                        it.OwnershipEmail,
-                        it.CustomFieldsJson,
-                        it.Notes,
-                        it.IsActive,
-                        // Note: ViewPermissionSubjectType, OperatePermissionSubjectType, ViewPermissionMode were already updated above
-                        // Note: ViewTeams, ViewUsers, OperateTeams, OperateUsers were already updated above
-                        it.ModifyDate,
-                        it.ModifyBy,
-                        it.ModifyUserId,
-                        it.IsValid
-                    });
-
-                // WORKAROUND: Update audit fields again with manual SQL using saved local variables
-                // This ensures the correct values are used, not the entity's potentially reset values
-                try
-                {
-                    var auditSql = @"
-                        UPDATE ff_onboarding 
-                        SET modify_date = @ModifyDate,
-                            modify_by = @ModifyBy,
-                            modify_user_id = @ModifyUserId
-                        WHERE id = @Id";
-
-                    await db.Ado.ExecuteCommandAsync(auditSql, new
-                    {
-                        ModifyDate = modifyDate,  // Use local variable, not entity property
-                        ModifyBy = modifyBy,      // Use local variable, not entity property
-                        ModifyUserId = modifyUserId,  // Use local variable, not entity property
-                        Id = entity.Id
-                    });
-
-                    LoggingExtensions.WriteLine($"[DEBUG] SafeUpdateOnboardingAsync - Audit fields updated via SQL: ModifyBy='{modifyBy}'");
-                }
-                catch (Exception auditEx)
-                {
-                    LoggingExtensions.WriteLine($"Warning: Failed to update audit fields via SQL: {auditEx.Message}");
-                    // Don't fail the entire update if audit field update fails
-                }
-
-                // Update stages_progress_json separately with explicit JSONB casting
-                if (!string.IsNullOrEmpty(entity.StagesProgressJson))
-                {
-                    try
-                    {
-                        var progressSql = "UPDATE ff_onboarding SET stages_progress_json = @StagesProgressJson::jsonb WHERE id = @Id";
-                        await db.Ado.ExecuteCommandAsync(progressSql, new
-                        {
-                            StagesProgressJson = entity.StagesProgressJson,
-                            Id = entity.Id
-                        });
-                    }
-                    catch (Exception progressEx)
-                    {
-                        // Log but don't fail the main update
-                        LoggingExtensions.WriteLine($"Warning: Failed to update stages_progress_json: {progressEx.Message}");
-                        // Try alternative approach with parameter substitution
-                        try
-                        {
-                            var escapedJson = entity.StagesProgressJson.Replace("'", "''");
-                            var directSql = $"UPDATE ff_onboarding SET stages_progress_json = '{escapedJson}'::jsonb WHERE id = {entity.Id}";
-                            await db.Ado.ExecuteCommandAsync(directSql);
-                        }
-                        catch (Exception directEx)
-                        {
-                            LoggingExtensions.WriteLine($"Error: Both parameterized and direct JSONB update failed: {directEx.Message}");
-                        }
-                    }
-                }
+                // Step 6: Update stages_progress_json separately with JSONB casting
+                await UpdateStagesProgressJsonAsync(db, entity);
 
                 return result;
             }
             catch (Exception ex)
             {
+                _logger.LogError(ex, "Failed to safely update onboarding {OnboardingId}", entity.Id);
                 throw new CRMException(ErrorCodeEnum.SystemError,
                     $"Failed to safely update onboarding: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Update permission JSONB fields with explicit casting
+        /// </summary>
+        private async Task UpdatePermissionFieldsAsync(ISqlSugarClient db, Onboarding entity)
+        {
+            try
+            {
+                var permissionSql = @"
+                    UPDATE ff_onboarding 
+                    SET view_teams = @ViewTeams::jsonb,
+                        view_users = @ViewUsers::jsonb,
+                        operate_teams = @OperateTeams::jsonb,
+                        operate_users = @OperateUsers::jsonb,
+                        view_permission_mode = @ViewPermissionMode,
+                        view_permission_subject_type = @ViewPermissionSubjectType,
+                        operate_permission_subject_type = @OperatePermissionSubjectType,
+                        use_same_team_for_operate = @UseSameTeamForOperate
+                    WHERE id = @Id";
+
+                await db.Ado.ExecuteCommandAsync(permissionSql, new
+                {
+                    ViewTeams = entity.ViewTeams,
+                    ViewUsers = entity.ViewUsers,
+                    OperateTeams = entity.OperateTeams,
+                    OperateUsers = entity.OperateUsers,
+                    ViewPermissionMode = (int)entity.ViewPermissionMode,
+                    ViewPermissionSubjectType = (int)entity.ViewPermissionSubjectType,
+                    OperatePermissionSubjectType = (int)entity.OperatePermissionSubjectType,
+                    UseSameTeamForOperate = entity.UseSameTeamForOperate,
+                    Id = entity.Id
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to update permission JSONB fields for onboarding {OnboardingId}", entity.Id);
+                throw new CRMException($"Failed to update permission fields: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Audit info container
+        /// </summary>
+        private record AuditInfo(DateTimeOffset ModifyDate, string ModifyBy, long ModifyUserId);
+
+        /// <summary>
+        /// Prepare audit information
+        /// </summary>
+        private AuditInfo PrepareAuditInfo()
+        {
+            return new AuditInfo(
+                DateTimeOffset.UtcNow,
+                _operatorContextService.GetOperatorDisplayName(),
+                _operatorContextService.GetOperatorId()
+            );
+        }
+
+        /// <summary>
+        /// Update main entity fields using repository
+        /// </summary>
+        private async Task<bool> UpdateMainEntityFieldsAsync(Onboarding entity)
+        {
+            return await _onboardingRepository.UpdateAsync(entity,
+                it => new
+                {
+                    it.WorkflowId,
+                    it.CurrentStageId,
+                    it.CurrentStageOrder,
+                    it.LeadId,
+                    it.CaseName,
+                    it.LeadEmail,
+                    it.LeadPhone,
+                    it.ContactPerson,
+                    it.ContactEmail,
+                    it.LifeCycleStageId,
+                    it.LifeCycleStageName,
+                    it.Status,
+                    it.CompletionRate,
+                    it.StartDate,
+                    it.EstimatedCompletionDate,
+                    it.ActualCompletionDate,
+                    it.CurrentAssigneeId,
+                    it.CurrentAssigneeName,
+                    it.CurrentTeam,
+                    it.StageUpdatedById,
+                    it.StageUpdatedBy,
+                    it.StageUpdatedByEmail,
+                    it.StageUpdatedTime,
+                    it.CurrentStageStartTime,
+                    it.Priority,
+                    it.IsPrioritySet,
+                    it.Ownership,
+                    it.OwnershipName,
+                    it.OwnershipEmail,
+                    it.Notes,
+                    it.IsActive,
+                    it.ModifyDate,
+                    it.ModifyBy,
+                    it.ModifyUserId,
+                    it.IsValid
+                });
+        }
+
+        /// <summary>
+        /// Update audit fields via direct SQL
+        /// </summary>
+        private async Task UpdateAuditFieldsAsync(ISqlSugarClient db, long entityId, AuditInfo auditInfo)
+        {
+            try
+            {
+                var auditSql = @"
+                    UPDATE ff_onboarding 
+                    SET modify_date = @ModifyDate,
+                        modify_by = @ModifyBy,
+                        modify_user_id = @ModifyUserId
+                    WHERE id = @Id";
+
+                await db.Ado.ExecuteCommandAsync(auditSql, new
+                {
+                    ModifyDate = auditInfo.ModifyDate,
+                    ModifyBy = auditInfo.ModifyBy,
+                    ModifyUserId = auditInfo.ModifyUserId,
+                    Id = entityId
+                });
+
+                _logger.LogDebug("Audit fields updated for onboarding {OnboardingId}: ModifyBy='{ModifyBy}'",
+                    entityId, auditInfo.ModifyBy);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to update audit fields for onboarding {OnboardingId}", entityId);
+                // Don't fail the entire update if audit field update fails
+            }
+        }
+
+        /// <summary>
+        /// Update stages_progress_json with JSONB casting
+        /// </summary>
+        private async Task UpdateStagesProgressJsonAsync(ISqlSugarClient db, Onboarding entity)
+        {
+            if (string.IsNullOrEmpty(entity.StagesProgressJson))
+            {
+                return;
+            }
+
+            try
+            {
+                var progressSql = "UPDATE ff_onboarding SET stages_progress_json = @StagesProgressJson::jsonb WHERE id = @Id";
+                await db.Ado.ExecuteCommandAsync(progressSql, new
+                {
+                    StagesProgressJson = entity.StagesProgressJson,
+                    Id = entity.Id
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to update stages_progress_json with parameterized query for onboarding {OnboardingId}", entity.Id);
+                
+                // Try alternative approach with direct SQL
+                try
+                {
+                    var escapedJson = entity.StagesProgressJson.Replace("'", "''");
+                    var directSql = $"UPDATE ff_onboarding SET stages_progress_json = '{escapedJson}'::jsonb WHERE id = {entity.Id}";
+                    await db.Ado.ExecuteCommandAsync(directSql);
+                }
+                catch (Exception directEx)
+                {
+                    _logger.LogError(directEx, "Both parameterized and direct JSONB update failed for onboarding {OnboardingId}", entity.Id);
+                }
             }
         }
 
@@ -1023,7 +943,16 @@ namespace FlowFlex.Application.Services.OW
                 // If stages progress is empty, initialize it
                 if (entity.StagesProgress == null || !entity.StagesProgress.Any())
                 {
+                    _logger.LogInformation("Initializing empty stagesProgress for Onboarding {OnboardingId} with {StageCount} stages from workflow {WorkflowId}",
+                        entity.Id, stages.Count, entity.WorkflowId);
                     await InitializeStagesProgressAsync(entity, stages);
+                    
+                    // Save the initialized stages progress to database
+                    entity.StagesProgressJson = SerializeStagesProgress(entity.StagesProgress);
+                    await SafeUpdateOnboardingAsync(entity);
+                    
+                    _logger.LogInformation("Successfully initialized and saved stagesProgress for Onboarding {OnboardingId}",
+                        entity.Id);
                 }
                 else
                 {
@@ -1033,14 +962,12 @@ namespace FlowFlex.Application.Services.OW
 
                 // Always enrich with stage data to ensure consistency
                 await EnrichStagesProgressWithStageDataAsync(entity);
-
-                // NOTE: Do NOT call SafeUpdateOnboardingAsync here to avoid recursion
-                // The caller is responsible for saving changes
             }
             catch (Exception ex)
             {
-                // Log error but don't throw to avoid breaking the main flow
-                // The validation will catch if stages progress is still missing
+                _logger.LogError(ex, "Error initializing stages progress for Onboarding {OnboardingId}", entity.Id);
+                // Re-throw the exception so the caller knows initialization failed
+                throw;
             }
             finally
             {
@@ -1066,31 +993,16 @@ namespace FlowFlex.Application.Services.OW
                     return "[]";
                 }
 
-                // Debug: Check input data before serialization
-                LoggingExtensions.WriteLine($"[DEBUG] SerializeStagesProgress - Input data:");
-                foreach (var sp in stagesProgress)
-                {
-                    LoggingExtensions.WriteLine($"[DEBUG] Input StageProgress: StageId={sp.StageId}, Status={sp.Status}, IsCurrent={sp.IsCurrent}");
-                }
+                // Use shared JSON options for consistent serialization
+                var result = JsonSerializer.Serialize(stagesProgress, JsonOptions);
 
-                // Serialize OnboardingStageProgress objects with JsonIgnore attributes respected
-                // Only progress-related fields will be included, not stage configuration fields
-                var result = System.Text.Json.JsonSerializer.Serialize(stagesProgress, new System.Text.Json.JsonSerializerOptions
-                {
-                    PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase,
-                    WriteIndented = false,
-                    DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull
-                });
-
-                // Debug: Check final result
-                LoggingExtensions.WriteLine($"[DEBUG] SerializeStagesProgress - Final JSON result:");
-                LoggingExtensions.WriteLine($"[DEBUG] {result}");
+                _logger.LogDebug("SerializeStagesProgress - Serialized {Count} stages", stagesProgress.Count);
 
                 return result;
             }
             catch (Exception ex)
             {
-                // Debug logging handled by structured logging
+                _logger.LogWarning(ex, "Error serializing stages progress");
                 return "[]";
             }
         }
@@ -1211,7 +1123,7 @@ namespace FlowFlex.Application.Services.OW
                 var onboarding = await _onboardingRepository.GetByIdWithoutTenantFilterAsync(onboardingId);
                 if (onboarding == null)
                 {
-                    LoggingExtensions.WriteLine($"Onboarding {onboardingId} not found for AI summary update");
+                    _logger.LogWarning("Onboarding {OnboardingId} not found for AI summary update", onboardingId);
                     return false;
                 }
 
@@ -1225,7 +1137,8 @@ namespace FlowFlex.Application.Services.OW
                 var stageProgress = onboarding.StagesProgress?.FirstOrDefault(sp => sp.StageId == stageId);
                 if (stageProgress == null)
                 {
-                    LoggingExtensions.WriteLine($"Stage progress not found for stage {stageId} in onboarding {onboardingId} even after sync. Available stages: {string.Join(", ", onboarding.StagesProgress?.Select(sp => sp.StageId.ToString()) ?? Array.Empty<string>())}");
+                    _logger.LogWarning("Stage progress not found for stage {StageId} in onboarding {OnboardingId}. Available stages: {AvailableStages}",
+                        stageId, onboardingId, string.Join(", ", onboarding.StagesProgress?.Select(sp => sp.StageId.ToString()) ?? Array.Empty<string>()));
                     return false;
                 }
 
@@ -1251,25 +1164,25 @@ namespace FlowFlex.Application.Services.OW
 
                 if (result)
                 {
-                    LoggingExtensions.WriteLine($"鉁?Successfully updated AI summary for stage {stageId} in onboarding {onboardingId}");
+                    _logger.LogInformation("Successfully updated AI summary for stage {StageId} in onboarding {OnboardingId}", stageId, onboardingId);
                 }
                 else
                 {
-                    LoggingExtensions.WriteLine($"鉂?Failed to save AI summary for stage {stageId} in onboarding {onboardingId} - database update failed");
+                    _logger.LogWarning("Failed to save AI summary for stage {StageId} in onboarding {OnboardingId} - database update failed", stageId, onboardingId);
                 }
 
                 return result;
             }
             catch (Exception ex)
             {
-                LoggingExtensions.WriteLine($"鉂?Failed to update AI summary for stage {stageId} in onboarding {onboardingId}: {ex.Message}");
+                _logger.LogError(ex, "Failed to update AI summary for stage {StageId} in onboarding {OnboardingId}", stageId, onboardingId);
                 return false;
             }
         }
 
         /// <summary>
         /// Update custom fields for a specific stage in onboarding's stagesProgress
-        /// Updates CustomEstimatedDays and CustomEndTime fields
+        /// Updates CustomEstimatedDays, CustomEndTime, CustomStageAssignee, and CustomStageCoAssignees fields
         /// </summary>
         public async Task<bool> UpdateStageCustomFieldsAsync(long onboardingId, UpdateStageCustomFieldsInputDto input)
         {
@@ -1296,16 +1209,16 @@ namespace FlowFlex.Application.Services.OW
                 // Capture original values for comparison
                 var originalEstimatedDays = stageProgress.CustomEstimatedDays;
                 var originalEndTime = stageProgress.CustomEndTime;
-                var originalAssignee = stageProgress.Assignee?.ToList() ?? new List<string>();
-                var originalCoAssignees = stageProgress.CoAssignees?.ToList() ?? new List<string>();
+                var originalCustomAssignee = stageProgress.CustomStageAssignee?.ToList() ?? new List<string>();
+                var originalCustomCoAssignees = stageProgress.CustomStageCoAssignees?.ToList() ?? new List<string>();
 
                 // Capture before data for change log
                 var beforeData = JsonSerializer.Serialize(new
                 {
                     CustomEstimatedDays = stageProgress.CustomEstimatedDays,
                     CustomEndTime = stageProgress.CustomEndTime,
-                    Assignee = stageProgress.Assignee,
-                    CoAssignees = stageProgress.CoAssignees,
+                    CustomStageAssignee = stageProgress.CustomStageAssignee,
+                    CustomStageCoAssignees = stageProgress.CustomStageCoAssignees,
                     LastUpdatedTime = stageProgress.LastUpdatedTime,
                     LastUpdatedBy = stageProgress.LastUpdatedBy
                 });
@@ -1314,16 +1227,16 @@ namespace FlowFlex.Application.Services.OW
                 stageProgress.CustomEstimatedDays = input.CustomEstimatedDays;
                 stageProgress.CustomEndTime = input.CustomEndTime;
 
-                // Update Assignee if provided
+                // Update CustomStageAssignee if Assignee is provided (frontend uses Assignee field)
                 if (input.Assignee != null)
                 {
-                    stageProgress.Assignee = input.Assignee;
+                    stageProgress.CustomStageAssignee = input.Assignee;
                 }
 
-                // Update CoAssignees if provided
+                // Update CustomStageCoAssignees if CoAssignees is provided (frontend uses CoAssignees field)
                 if (input.CoAssignees != null)
                 {
-                    stageProgress.CoAssignees = input.CoAssignees;
+                    stageProgress.CustomStageCoAssignees = input.CoAssignees;
                 }
 
                 // Add notes if provided
@@ -1352,8 +1265,8 @@ namespace FlowFlex.Application.Services.OW
                 {
                     CustomEstimatedDays = stageProgress.CustomEstimatedDays,
                     CustomEndTime = stageProgress.CustomEndTime,
-                    Assignee = stageProgress.Assignee,
-                    CoAssignees = stageProgress.CoAssignees,
+                    CustomStageAssignee = stageProgress.CustomStageAssignee,
+                    CustomStageCoAssignees = stageProgress.CustomStageCoAssignees,
                     LastUpdatedTime = stageProgress.LastUpdatedTime,
                     LastUpdatedBy = stageProgress.LastUpdatedBy
                 });
@@ -1370,12 +1283,61 @@ namespace FlowFlex.Application.Services.OW
                     var changedFields = new List<string>();
                     var changeDetails = new List<string>();
 
+                    // Collect all user IDs that need name resolution
+                    var allUserIds = new HashSet<long>();
+                    
+                    // Add user IDs from assignee changes
+                    foreach (var id in originalCustomAssignee.Concat(input.Assignee ?? new List<string>())
+                        .Concat(originalCustomCoAssignees).Concat(input.CoAssignees ?? new List<string>()))
+                    {
+                        if (long.TryParse(id, out var userId))
+                        {
+                            allUserIds.Add(userId);
+                        }
+                    }
+
+                    // Fetch user names for all IDs
+                    var userNameMap = new Dictionary<long, string>();
+                    if (allUserIds.Any())
+                    {
+                        try
+                        {
+                            var tenantId = _userContext?.TenantId ?? "default";
+                            var users = await _userService.GetUsersByIdsAsync(allUserIds.ToList(), tenantId);
+                            userNameMap = users
+                                .GroupBy(u => u.Id)
+                                .ToDictionary(
+                                    g => g.Key,
+                                    g =>
+                                    {
+                                        var user = g.First();
+                                        return !string.IsNullOrEmpty(user.Username) ? user.Username :
+                                               (!string.IsNullOrEmpty(user.Email) ? user.Email : $"User_{user.Id}");
+                                    }
+                                );
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogWarning(ex, "Failed to fetch user names for stage custom fields change log");
+                        }
+                    }
+
+                    // Helper function to convert user IDs to names
+                    string GetUserDisplayNames(IEnumerable<string> userIds)
+                    {
+                        if (userIds == null || !userIds.Any()) return "empty";
+                        var names = userIds
+                            .Select(id => long.TryParse(id, out var userId) && userNameMap.TryGetValue(userId, out var name) ? name : id)
+                            .ToList();
+                        return string.Join(", ", names);
+                    }
+
                     // Check for actual changes in CustomEstimatedDays
                     if (input.CustomEstimatedDays.HasValue && originalEstimatedDays != input.CustomEstimatedDays)
                     {
                         changedFields.Add("CustomEstimatedDays");
                         var beforeValue = originalEstimatedDays?.ToString() ?? "null";
-                        changeDetails.Add($"EstimatedDays: {beforeValue} 鈫?{input.CustomEstimatedDays}");
+                        changeDetails.Add($"EstimatedDays: {beforeValue} → {input.CustomEstimatedDays}");
                     }
 
                     // Check for actual changes in CustomEndTime
@@ -1386,21 +1348,21 @@ namespace FlowFlex.Application.Services.OW
                         changeDetails.Add($"EndTime: {beforeValue} → {input.CustomEndTime?.ToString("yyyy-MM-dd HH:mm")}");
                     }
 
-                    // Check for actual changes in Assignee
-                    if (input.Assignee != null && !originalAssignee.SequenceEqual(input.Assignee))
+                    // Check for actual changes in CustomStageAssignee (input uses Assignee field)
+                    if (input.Assignee != null && !originalCustomAssignee.SequenceEqual(input.Assignee))
                     {
-                        changedFields.Add("Assignee");
-                        var beforeValue = originalAssignee.Any() ? string.Join(", ", originalAssignee) : "empty";
-                        var afterValue = input.Assignee.Any() ? string.Join(", ", input.Assignee) : "empty";
+                        changedFields.Add("CustomStageAssignee");
+                        var beforeValue = GetUserDisplayNames(originalCustomAssignee);
+                        var afterValue = GetUserDisplayNames(input.Assignee);
                         changeDetails.Add($"Assignee: {beforeValue} → {afterValue}");
                     }
 
-                    // Check for actual changes in CoAssignees
-                    if (input.CoAssignees != null && !originalCoAssignees.SequenceEqual(input.CoAssignees))
+                    // Check for actual changes in CustomStageCoAssignees (input uses CoAssignees field)
+                    if (input.CoAssignees != null && !originalCustomCoAssignees.SequenceEqual(input.CoAssignees))
                     {
-                        changedFields.Add("CoAssignees");
-                        var beforeValue = originalCoAssignees.Any() ? string.Join(", ", originalCoAssignees) : "empty";
-                        var afterValue = input.CoAssignees.Any() ? string.Join(", ", input.CoAssignees) : "empty";
+                        changedFields.Add("CustomStageCoAssignees");
+                        var beforeValue = GetUserDisplayNames(originalCustomCoAssignees);
+                        var afterValue = GetUserDisplayNames(input.CoAssignees);
                         changeDetails.Add($"CoAssignees: {beforeValue} → {afterValue}");
                     }
 
@@ -1411,13 +1373,14 @@ namespace FlowFlex.Application.Services.OW
                         changeDetails.Add("Notes: Added");
                     }
 
-                    // Only log if there are actual changes or notes added
+                    // Log as Stage operation with onboardingId to associate with Case
+                    // Use BusinessModule.Stage because legacy adapter doesn't support Onboarding module
                     if (changeDetails.Any())
                     {
                         var operationTitle = $"Update Stage Custom Fields: {string.Join(", ", changeDetails)}";
-                        var operationDescription = $"Updated custom fields for stage {input.StageId} in onboarding {onboardingId}";
+                        var operationDescription = $"Updated custom fields for stage {input.StageId} in case {onboardingId}";
 
-                        // Log the stage custom fields update operation
+                        // Log the case stage custom fields update operation
                         await _operationChangeLogService.LogOperationAsync(
                             operationType: FlowFlex.Domain.Shared.Enums.OW.OperationTypeEnum.StageUpdate,
                             businessModule: BusinessModuleEnum.Stage,
@@ -1437,27 +1400,13 @@ namespace FlowFlex.Application.Services.OW
                             })
                         );
                     }
-                    // Note: No log entry is created when there are no actual changes
-                    // This reduces log noise and focuses on meaningful operations
                 }
 
                 return result;
             }
             catch (Exception ex)
             {
-                // Log the failed operation
-                await _operationChangeLogService.LogOperationAsync(
-                    operationType: FlowFlex.Domain.Shared.Enums.OW.OperationTypeEnum.StageUpdate,
-                    businessModule: BusinessModuleEnum.Stage,
-                    businessId: input.StageId,
-                    onboardingId: onboardingId,
-                    stageId: input.StageId,
-                    operationTitle: "Update Stage Custom Fields",
-                    operationDescription: $"Failed to update custom fields for stage {input.StageId} in onboarding {onboardingId}",
-                    operationStatus: OperationStatusEnum.Failed,
-                    errorMessage: ex.Message
-                );
-
+                _logger.LogError(ex, "Failed to update custom fields for stage {StageId} in onboarding {OnboardingId}", input.StageId, onboardingId);
                 throw new CRMException(ErrorCodeEnum.SystemError, $"Failed to update custom fields for stage {input.StageId} in onboarding {onboardingId}: {ex.Message}");
             }
         }
@@ -1469,11 +1418,7 @@ namespace FlowFlex.Application.Services.OW
         public async Task<bool> SaveStageAsync(long onboardingId, long stageId)
         {
             // Check permission
-            if (!await CheckCaseOperatePermissionAsync(onboardingId))
-            {
-                throw new CRMException(ErrorCodeEnum.OperationNotAllowed,
-                    $"User does not have permission to operate on case {onboardingId}");
-            }
+            await EnsureCaseOperatePermissionAsync(onboardingId);
 
             try
             {
@@ -1512,7 +1457,8 @@ namespace FlowFlex.Application.Services.OW
                 if (stageProgress.StageId == onboarding.CurrentStageId && !onboarding.CurrentStageStartTime.HasValue)
                 {
                     onboarding.CurrentStageStartTime = stageProgress.StartTime;
-                    LoggingExtensions.WriteLine($"[DEBUG] SaveStageAsync - Set CurrentStageStartTime to {onboarding.CurrentStageStartTime} for Stage {stageId}");
+                    _logger.LogDebug("SaveStageAsync - Set CurrentStageStartTime to {StartTime} for Stage {StageId}", 
+                        onboarding.CurrentStageStartTime, stageId);
                 }
 
                 // Save stages progress back to JSON
@@ -1649,6 +1595,25 @@ namespace FlowFlex.Application.Services.OW
                 // If parsing fails, return empty list
                 return new List<string>();
             }
+        }
+
+        /// <summary>
+        /// Get CoAssignees filtered to exclude any IDs already in DefaultAssignee
+        /// </summary>
+        private List<string> GetFilteredCoAssignees(string coAssigneesJson, string defaultAssigneeJson)
+        {
+            var coAssignees = ParseDefaultAssignee(coAssigneesJson);
+            var defaultAssignees = ParseDefaultAssignee(defaultAssigneeJson);
+
+            if (!defaultAssignees.Any())
+            {
+                return coAssignees;
+            }
+
+            // Filter out any IDs that are already in DefaultAssignee
+            return coAssignees
+                .Where(id => !defaultAssignees.Contains(id))
+                .ToList();
         }
     }
 }

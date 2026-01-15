@@ -16,17 +16,21 @@ const Api = (id?: string | number) => {
 
 		delete: `${globSetting.apiProName}/modules/${globSetting.apiVersion}/${id}/datas/batch`,
 
-		sendEmailCode: `${globSetting.apiProName}/ow/users/send-verification-code`,
+		sendEmailCode: `${globSetting.apiProName}/ow/users/${globSetting.apiVersion}/send-verification-code`,
 
-		flowflexUser: `${globSetting.apiProName}/ow/users/tree`,
+		flowflexUser: `${globSetting.apiProName}/ow/users/${globSetting.apiVersion}/tree`,
 
 		changeLog: `${globSetting.apiProName}/ow/change-logs/${globSetting.apiVersion}/business`,
 
-		userPermissionsByMenu: `${globSetting.idmUrl}/api/v1/menus`,
+		userPermissionsByMenu: `${globSetting.idmUrl}/api/${globSetting.apiVersion}/menus`,
 
-		userPermissions: `${globSetting.idmUrl}/api/v1/users/current/permissions`,
+		userPermissions: `${globSetting.idmUrl}/api/${globSetting.apiVersion}/users/current/permissions`,
 
 		userList: `${globSetting.apiProName}/ow/onboardings/${globSetting.apiVersion}/${id}/authorized-users`,
+
+		allUser: `${globSetting.apiProName}/ow/users/${globSetting.apiVersion}/allUsers`,
+
+		phoneNumber: `${globSetting.apiProName}/shared/${globSetting.apiVersion}/dictionary/phone-number-prefixes`,
 	};
 };
 
@@ -90,4 +94,12 @@ export function userPermissions() {
 
 export function findUserList(id: string) {
 	return defHttp.get({ url: `${Api(id).userList}` });
+}
+
+export function getAllUser() {
+	return defHttp.get({ url: `${Api().allUser}` });
+}
+
+export function getPhoneAreaEnum() {
+	return defHttp.get({ url: Api().phoneNumber });
 }

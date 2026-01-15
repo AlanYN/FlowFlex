@@ -46,11 +46,7 @@ namespace FlowFlex.Application.Services.OW
         public async Task<bool> MoveToNextStageAsync(long id)
         {
             // Check permission
-            if (!await CheckCaseOperatePermissionAsync(id))
-            {
-                throw new CRMException(ErrorCodeEnum.OperationNotAllowed,
-                    $"User does not have permission to operate on case {id}");
-            }
+            await EnsureCaseOperatePermissionAsync(id);
 
             var entity = await _onboardingRepository.GetByIdAsync(id);
             if (entity == null || !entity.IsValid)
@@ -85,11 +81,7 @@ namespace FlowFlex.Application.Services.OW
         public async Task<bool> MoveToStageAsync(long id, MoveToStageInputDto input)
         {
             // Check permission
-            if (!await CheckCaseOperatePermissionAsync(id))
-            {
-                throw new CRMException(ErrorCodeEnum.OperationNotAllowed,
-                    $"User does not have permission to operate on case {id}");
-            }
+            await EnsureCaseOperatePermissionAsync(id);
 
             var entity = await _onboardingRepository.GetByIdAsync(id);
             if (entity == null || !entity.IsValid)
@@ -247,11 +239,7 @@ namespace FlowFlex.Application.Services.OW
         public async Task<bool> CompleteCurrentStageAsync(long id, CompleteCurrentStageInputDto input)
         {
             // Check permission
-            if (!await CheckCaseOperatePermissionAsync(id))
-            {
-                throw new CRMException(ErrorCodeEnum.OperationNotAllowed,
-                    $"User does not have permission to operate on case {id}");
-            }
+            await EnsureCaseOperatePermissionAsync(id);
 
             var entity = await _onboardingRepository.GetByIdAsync(id);
             if (entity == null || !entity.IsValid)
@@ -347,74 +335,8 @@ namespace FlowFlex.Application.Services.OW
             // Debug logging handled by structured logging
             await UpdateStagesProgressAsync(entity, stageToComplete.Id, GetCurrentUserName(), GetCurrentUserId(), input.CompletionNotes);
 
-            // After updating progress, synchronously generate AI summary so client can fetch it right after completion
-            //try
-            //{
-            //    var lang = string.IsNullOrWhiteSpace(input.Language) ? "auto" : input.Language;
-            //    var opts = new StageSummaryOptions { Language = lang, SummaryLength = "short", IncludeTaskAnalysis = true, IncludeQuestionnaireInsights = true };
-            //    // Try multiple attempts synchronously before falling back to placeholder
-            //    var ai = await _stageService.GenerateAISummaryAsync(stageToComplete.Id, null, opts);
-            //    if (ai == null || !ai.Success)
-            //    {
-            //        try { await Task.Delay(1500); } catch {}
-            //        ai = await _stageService.GenerateAISummaryAsync(stageToComplete.Id, null, opts);
-            //    }
-            //    LoadStagesProgressFromJson(entity);
-            //    var sp = entity.StagesProgress?.FirstOrDefault(s => s.StageId == stageToComplete.Id);
-            //    if (sp != null)
-            //    {
-            //        if (ai != null && ai.Success)
-            //        {
-            //            sp.AiSummary = ai.Summary;
-            //            sp.AiSummaryGeneratedAt = DateTime.UtcNow;
-            //            sp.AiSummaryConfidence = (decimal?)Convert.ToDecimal(ai.ConfidenceScore);
-            //            sp.AiSummaryModel = ai.ModelUsed;
-            //            var detailedData = new { ai.Breakdown, ai.KeyInsights, ai.Recommendations, ai.CompletionStatus, generatedAt = DateTime.UtcNow };
-            //            sp.AiSummaryData = System.Text.Json.JsonSerializer.Serialize(detailedData);
-            //        }
-            //        else
-            //        {
-            //            // Fallback placeholder to ensure frontend sees a value immediately; schedule retry in background
-            //            sp.AiSummary = "AI summary is being generated...";
-            //            sp.AiSummaryGeneratedAt = DateTime.UtcNow;
-            //            sp.AiSummaryConfidence = null;
-            //            sp.AiSummaryModel = null;
-            //            sp.AiSummaryData = null;
-            //            _backgroundTaskQueue.QueueBackgroundWorkItem(async token =>
-            //            {
-            //                try
-            //                {
-            //                    var retry = await _stageService.GenerateAISummaryAsync(stageToComplete.Id, null, opts);
-            //                    if (retry == null || !retry.Success)
-            //                    {
-            //                        try { await Task.Delay(3000); } catch {}
-            //                        retry = await _stageService.GenerateAISummaryAsync(stageToComplete.Id, null, opts);
-            //                    }
-            //                    if (retry != null && retry.Success)
-            //                    {
-            //                        LoadStagesProgressFromJson(entity);
-            //                        var sp2 = entity.StagesProgress?.FirstOrDefault(s => s.StageId == stageToComplete.Id);
-            //                        if (sp2 != null)
-            //                        {
-            //                            sp2.AiSummary = retry.Summary;
-            //                            sp2.AiSummaryGeneratedAt = DateTime.UtcNow;
-            //                            sp2.AiSummaryConfidence = (decimal?)Convert.ToDecimal(retry.ConfidenceScore);
-            //                            sp2.AiSummaryModel = retry.ModelUsed;
-            //                            var dd = new { retry.Breakdown, retry.KeyInsights, retry.Recommendations, retry.CompletionStatus, generatedAt = DateTime.UtcNow };
-            //                            sp2.AiSummaryData = System.Text.Json.JsonSerializer.Serialize(dd);
-            //                            entity.StagesProgressJson = SerializeStagesProgress(entity.StagesProgress);
-            //                            await SafeUpdateOnboardingAsync(entity);
-            //                        }
-            //                    }
-            //                }
-            //                catch { }
-            //            });
-            //        }
-            //        entity.StagesProgressJson = SerializeStagesProgress(entity.StagesProgress);
-            //        await SafeUpdateOnboardingAsync(entity);
-            //    }
-            //}
-            //catch { /* keep non-blocking if AI fails */ }
+            // NOTE: AI summary generation has been moved to a separate background service
+            // to avoid blocking stage completion. The frontend should poll for AI summary updates.
 
             // Calculate new completion rate based on completed stages
             entity.CompletionRate = CalculateCompletionRateByCompletedStages(entity.StagesProgress);
@@ -452,7 +374,8 @@ namespace FlowFlex.Application.Services.OW
                 var currentStageIndex = orderedStages.FindIndex(x => x.Id == entity.CurrentStageId);
                 var nextStageIndex = currentStageIndex + 1;
 
-                LoggingExtensions.WriteLine($"[DEBUG] CompleteCurrentStageAsync - Before auto-advance: CurrentStageId={entity.CurrentStageId}, CompletedStageId={stageToComplete.Id}, NextIndex={nextStageIndex}");
+                _logger.LogDebug("CompleteCurrentStageAsync - Before auto-advance: CurrentStageId={CurrentStageId}, CompletedStageId={CompletedStageId}, NextIndex={NextIndex}",
+                    entity.CurrentStageId, stageToComplete.Id, nextStageIndex);
 
                 // If current stage is the completed stage and there's a next stage, advance to it
                 if (entity.CurrentStageId == stageToComplete.Id && nextStageIndex < orderedStages.Count)
@@ -462,8 +385,8 @@ namespace FlowFlex.Application.Services.OW
                     entity.CurrentStageId = nextStage.Id;
                     entity.CurrentStageOrder = nextStage.Order;
                     entity.CurrentStageStartTime = DateTimeOffset.UtcNow;
-                    // Debug logging handled by structured logging
-                    LoggingExtensions.WriteLine($"[DEBUG] CompleteCurrentStageAsync - Advanced to next stage: OldStageId={oldStageId}, NewStageId={entity.CurrentStageId}, StageName={nextStage.Name}");
+                    _logger.LogDebug("CompleteCurrentStageAsync - Advanced to next stage: OldStageId={OldStageId}, NewStageId={NewStageId}, StageName={StageName}",
+                        oldStageId, entity.CurrentStageId, nextStage.Name);
                 }
                 else if (entity.CurrentStageId != stageToComplete.Id)
                 {
@@ -575,6 +498,19 @@ namespace FlowFlex.Application.Services.OW
                         entity.Id, stageToComplete.Id);
                     // Don't re-throw to avoid breaking the main flow
                 }
+
+                // Synchronously evaluate stage condition and execute actions
+                // This replaces the async event handler (OnboardingStageCompletedLogHandler) for condition evaluation
+                try
+                {
+                    await EvaluateAndExecuteStageConditionAsync(entity.Id, stageToComplete.Id);
+                }
+                catch (Exception conditionEx)
+                {
+                    _logger.LogError(conditionEx, "Failed to evaluate stage condition: OnboardingId={OnboardingId}, StageId={StageId}",
+                        entity.Id, stageToComplete.Id);
+                    // Don't re-throw to avoid breaking the main flow
+                }
             }
 
             // Debug logging handled by structured logging End ===");
@@ -644,70 +580,95 @@ namespace FlowFlex.Application.Services.OW
         }
 
         /// <summary>
-        /// Send email notification to stage's default assignees
+        /// Send email notification to stage's assignees and co-assignees
+        /// Priority: CustomStageAssignee/CustomStageCoAssignees (user customization) > Assignee/CoAssignees (synced from Stage)
         /// </summary>
         private async Task SendEmailToStageAssigneesAsync(Onboarding entity, Stage stage, string caseId, string caseName, string completedStageName, string nextStageName, string completedBy, string completionTime, string caseUrl)
         {
             try
             {
-                // Parse default assignee from stage
-                if (string.IsNullOrWhiteSpace(stage.DefaultAssignee))
+                // Collect all assignee IDs from both Assignee and CoAssignees
+                var allAssigneeIds = new HashSet<string>();
+
+                // Get StagesProgress for this stage
+                var stageProgress = entity.StagesProgress?.FirstOrDefault(sp => sp.StageId == stage.Id);
+                
+                List<string> assigneeIds;
+                List<string> coAssigneeIds;
+
+                // Priority: CustomStageAssignee > Assignee (synced from Stage)
+                if (stageProgress?.CustomStageAssignee?.Any() == true)
                 {
-                    _logger.LogDebug("Next stage {StageId} has no default assignees, skipping email notification", stage.Id);
-                    return;
+                    // Use user-customized assignee
+                    assigneeIds = stageProgress.CustomStageAssignee;
+                    _logger.LogDebug("Using CustomStageAssignee for stage {StageId}: {CustomStageAssignee}",
+                        stage.Id, string.Join(",", assigneeIds));
+                }
+                else if (stageProgress?.Assignee?.Any() == true)
+                {
+                    // Use synced assignee from Stage template
+                    assigneeIds = stageProgress.Assignee;
+                    _logger.LogDebug("Using synced Assignee for stage {StageId}: {Assignee}",
+                        stage.Id, string.Join(",", assigneeIds));
+                }
+                else
+                {
+                    // Fallback to Stage entity defaults (for backward compatibility)
+                    assigneeIds = ParseAssigneeJson(stage.DefaultAssignee, stage.Id, "DefaultAssignee");
+                    _logger.LogDebug("Using Stage template DefaultAssignee for stage {StageId}: {DefaultAssignee}",
+                        stage.Id, string.Join(",", assigneeIds));
                 }
 
-                List<string> assigneeIds = new List<string>();
-                try
+                // Priority: CustomStageCoAssignees > CoAssignees (synced from Stage)
+                if (stageProgress?.CustomStageCoAssignees?.Any() == true)
                 {
-                    // Try to parse as JSON array
-                    var jsonDoc = JsonDocument.Parse(stage.DefaultAssignee);
-                    if (jsonDoc.RootElement.ValueKind == JsonValueKind.Array)
-                    {
-                        assigneeIds = jsonDoc.RootElement.EnumerateArray()
-                            .Select(e => e.GetString())
-                            .Where(id => !string.IsNullOrWhiteSpace(id))
-                            .ToList();
-                    }
-                    else if (jsonDoc.RootElement.ValueKind == JsonValueKind.String)
-                    {
-                        // Nested JSON string
-                        var innerJson = jsonDoc.RootElement.GetString();
-                        if (!string.IsNullOrWhiteSpace(innerJson))
-                        {
-                            var innerDoc = JsonDocument.Parse(innerJson);
-                            if (innerDoc.RootElement.ValueKind == JsonValueKind.Array)
-                            {
-                                assigneeIds = innerDoc.RootElement.EnumerateArray()
-                                    .Select(e => e.GetString())
-                                    .Where(id => !string.IsNullOrWhiteSpace(id))
-                                    .ToList();
-                            }
-                        }
-                    }
+                    // Use user-customized co-assignees
+                    coAssigneeIds = stageProgress.CustomStageCoAssignees;
+                    _logger.LogDebug("Using CustomStageCoAssignees for stage {StageId}: {CustomStageCoAssignees}",
+                        stage.Id, string.Join(",", coAssigneeIds));
                 }
-                catch (JsonException ex)
+                else if (stageProgress?.CoAssignees?.Any() == true)
                 {
-                    _logger.LogWarning(ex, "Failed to parse default assignee JSON for next stage {StageId}: {DefaultAssignee}",
-                        stage.Id, stage.DefaultAssignee);
-                    return;
+                    // Use synced co-assignees from Stage template
+                    coAssigneeIds = stageProgress.CoAssignees;
+                    _logger.LogDebug("Using synced CoAssignees for stage {StageId}: {CoAssignees}",
+                        stage.Id, string.Join(",", coAssigneeIds));
+                }
+                else
+                {
+                    // Fallback to Stage entity defaults (for backward compatibility)
+                    coAssigneeIds = ParseAssigneeJson(stage.CoAssignees, stage.Id, "CoAssignees");
+                    _logger.LogDebug("Using Stage template CoAssignees for stage {StageId}: {CoAssignees}",
+                        stage.Id, string.Join(",", coAssigneeIds));
                 }
 
-                if (assigneeIds.Count == 0)
+                // Add all assignees
+                foreach (var id in assigneeIds)
                 {
-                    _logger.LogDebug("Next stage {StageId} has no valid default assignee IDs, skipping email notification", stage.Id);
+                    allAssigneeIds.Add(id);
+                }
+
+                // Add all co-assignees
+                foreach (var id in coAssigneeIds)
+                {
+                    allAssigneeIds.Add(id);
+                }
+
+                if (allAssigneeIds.Count == 0)
+                {
+                    _logger.LogDebug("Next stage {StageId} has no assignees (assignee or co-assignees), skipping email notification", stage.Id);
                     return;
                 }
 
                 // Convert string IDs to long IDs
-                var userIds = assigneeIds
+                var userIds = allAssigneeIds
                     .Where(id => long.TryParse(id, out _))
                     .Select(id => long.Parse(id))
                     .ToList();
 
                 if (userIds.Count == 0)
                 {
-                    _logger.LogWarning("No valid user IDs found in default assignees for next stage {StageId}", stage.Id);
+                    _logger.LogWarning("No valid user IDs found in assignees for next stage {StageId}", stage.Id);
                     return;
                 }
 
@@ -806,6 +767,99 @@ namespace FlowFlex.Application.Services.OW
         /// <summary>
         /// Pause onboarding
         /// </summary>
+
+        /// <summary>
+        /// Parse assignee JSON string to list of user IDs
+        /// </summary>
+        private List<string> ParseAssigneeJson(string assigneeJson, long stageId, string fieldName)
+        {
+            if (string.IsNullOrWhiteSpace(assigneeJson))
+            {
+                return new List<string>();
+            }
+
+            try
+            {
+                var jsonDoc = JsonDocument.Parse(assigneeJson);
+                if (jsonDoc.RootElement.ValueKind == JsonValueKind.Array)
+                {
+                    return jsonDoc.RootElement.EnumerateArray()
+                        .Select(e => e.GetString())
+                        .Where(id => !string.IsNullOrWhiteSpace(id))
+                        .ToList();
+                }
+                else if (jsonDoc.RootElement.ValueKind == JsonValueKind.String)
+                {
+                    // Nested JSON string
+                    var innerJson = jsonDoc.RootElement.GetString();
+                    if (!string.IsNullOrWhiteSpace(innerJson))
+                    {
+                        var innerDoc = JsonDocument.Parse(innerJson);
+                        if (innerDoc.RootElement.ValueKind == JsonValueKind.Array)
+                        {
+                            return innerDoc.RootElement.EnumerateArray()
+                                .Select(e => e.GetString())
+                                .Where(id => !string.IsNullOrWhiteSpace(id))
+                                .ToList();
+                        }
+                    }
+                }
+            }
+            catch (JsonException ex)
+            {
+                _logger.LogWarning(ex, "Failed to parse {FieldName} JSON for stage {StageId}: {Json}",
+                    fieldName, stageId, assigneeJson);
+            }
+
+            return new List<string>();
+        }
+
+        /// <summary>
+        /// Synchronously evaluate stage condition and execute actions
+        /// This is called directly after stage completion instead of via async event handler
+        /// </summary>
+        private async Task EvaluateAndExecuteStageConditionAsync(long onboardingId, long stageId)
+        {
+            _logger.LogDebug("Evaluating stage condition synchronously for OnboardingId={OnboardingId}, StageId={StageId}",
+                onboardingId, stageId);
+
+            try
+            {
+                // Evaluate condition and execute actions using EvaluateAndExecuteWithTransactionAsync
+                var result = await _rulesEngineService.EvaluateAndExecuteWithTransactionAsync(
+                    onboardingId,
+                    stageId,
+                    _conditionActionExecutor,
+                    _operationChangeLogService);
+
+                if (result.IsConditionMet)
+                {
+                    _logger.LogInformation("Stage condition met for OnboardingId={OnboardingId}, StageId={StageId}, ActionsExecuted={ActionCount}",
+                        onboardingId, stageId, result.ActionResults?.Count ?? 0);
+
+                    // Log action execution details
+                    if (result.ActionResults != null && result.ActionResults.Any())
+                    {
+                        foreach (var actionResult in result.ActionResults)
+                        {
+                            _logger.LogDebug("Action {ActionType} (Order={Order}): Success={Success}, Error={Error}",
+                                actionResult.ActionType, actionResult.Order, actionResult.Success, actionResult.ErrorMessage);
+                        }
+                    }
+                }
+                else
+                {
+                    _logger.LogDebug("Stage condition not met for OnboardingId={OnboardingId}, StageId={StageId}, NextStageId={NextStageId}, Error={Error}",
+                        onboardingId, stageId, result.NextStageId, result.ErrorMessage);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error evaluating stage condition for OnboardingId={OnboardingId}, StageId={StageId}",
+                    onboardingId, stageId);
+                // Don't rethrow - condition evaluation failure should not block stage completion
+            }
+        }
     }
 }
 

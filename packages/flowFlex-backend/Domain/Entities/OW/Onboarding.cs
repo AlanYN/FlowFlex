@@ -209,8 +209,9 @@ namespace FlowFlex.Domain.Entities.OW
         public string OwnershipEmail { get; set; }
 
         /// <summary>
-        /// Dynamic Extension Fields (redundant common fields for easy list search/sorting/export) - JSONB
+        /// Dynamic Extension Fields (DEPRECATED - Use StaticFieldValue instead)
         /// </summary>
+        [Obsolete("CustomFieldsJson is deprecated. Use StaticFieldValue instead.")]
         [SugarColumn(ColumnName = "custom_fields_json", ColumnDataType = "jsonb", IsJson = true)]
         public string CustomFieldsJson { get; set; }
 

@@ -51,6 +51,12 @@ namespace FlowFlex.Application.Contracts.IServices.Action
         Task<List<ActionDefinitionDto>> GetEnabledActionDefinitionsAsync();
 
         /// <summary>
+        /// Get all enabled action definitions summary (lightweight)
+        /// </summary>
+        /// <returns>List of enabled action definition summary DTOs</returns>
+        Task<List<ActionDefinitionSummaryDto>> GetAllEnabledActionSummaryAsync();
+
+        /// <summary>
         /// Create new action definition
         /// </summary>
         /// <param name="dto">Create action definition DTO</param>

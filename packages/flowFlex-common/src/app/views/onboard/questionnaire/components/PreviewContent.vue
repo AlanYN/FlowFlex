@@ -462,73 +462,71 @@
 								class="preview-grid"
 							>
 								<!-- 如果有网格数据（rows + columns），渲染为多选网格 -->
-								<div v-if="item.columns && item.rows" class="grid-container">
-									<div class="grid-header">
-										<div class="grid-cell grid-row-header"></div>
-										<div
-											v-for="(column, colIndex) in item.columns"
-											:key="colIndex"
-											class="grid-cell grid-column-header"
-										>
-											{{ column.label }}
-											<el-tag
-												v-if="column.isOther"
-												size="small"
-												type="warning"
-												class="other-column-tag"
-											>
-												Other
-											</el-tag>
-										</div>
-									</div>
-									<div
-										v-for="(row, rowIndex) in item.rows"
-										:key="rowIndex"
-										class="grid-row"
+								<el-table v-if="item.columns && item.rows" :data="item.rows" border>
+									<el-table-column
+										prop="label"
+										label=""
+										fixed="left"
+										min-width="200"
 									>
-										<div class="grid-cell grid-row-header">
-											<span class="w-[200px] min-w-0 truncate">
+										<template #default="{ row }">
+											<span class="truncate" :title="row.label">
 												{{ row.label }}
 											</span>
-										</div>
-										<div
-											v-for="(column, colIndex) in item.columns"
-											:key="colIndex"
-											class="grid-cell grid-checkbox-cell gap-x-2"
-										>
-											<el-checkbox-group
-												v-model="
-													previewData[
-														getGridKey(
+										</template>
+									</el-table-column>
+									<el-table-column
+										v-for="(column, colIndex) in item.columns"
+										:key="colIndex"
+										:label="column.label"
+										min-width="120"
+										align="center"
+									>
+										<template #header>
+											<div class="flex items-center justify-center gap-1">
+												{{ column.label }}
+												<el-tag
+													v-if="column.isOther"
+													size="small"
+													type="warning"
+												>
+													Other
+												</el-tag>
+											</div>
+										</template>
+										<template #default="{ $index: rowIndex }">
+											<div class="flex items-center justify-center gap-2">
+												<el-checkbox-group
+													v-model="
+														previewData[
+															getGridKey(
+																sectionIndex,
+																itemIndex,
+																rowIndex
+															)
+														]
+													"
+													@change="
+														handleGridCheckboxChange(
 															sectionIndex,
 															itemIndex,
-															rowIndex
+															rowIndex,
+															item,
+															$event
 														)
-													]
-												"
-												@change="
-													handleGridCheckboxChange(
-														sectionIndex,
-														itemIndex,
-														rowIndex,
-														item,
-														$event
-													)
-												"
-											>
-												<el-checkbox
-													:value="
-														column.value ||
-														column.label ||
-														`col_${colIndex}`
 													"
-													class="grid-checkbox"
-												/>
-											</el-checkbox-group>
-
-											<!-- Other选项的文字输入框 - 简化判断逻辑 -->
-											<div v-if="column.isOther">
+												>
+													<el-checkbox
+														:value="
+															column.value ||
+															column.label ||
+															`col_${colIndex}`
+														"
+														class="grid-checkbox"
+													/>
+												</el-checkbox-group>
 												<el-input
+													v-if="column.isOther"
 													v-model="
 														previewData[
 															getOtherTextKey(
@@ -552,9 +550,9 @@
 													class="other-input"
 												/>
 											</div>
-										</div>
-									</div>
-								</div>
+										</template>
+									</el-table-column>
+								</el-table>
 
 								<!-- 如果没有任何数据，显示占位符 -->
 								<div
@@ -570,75 +568,78 @@
 
 							<!-- 单选网格 -->
 							<div v-else-if="item.type === 'checkbox_grid'" class="preview-grid">
-								<div
+								<el-table
 									v-if="
 										item.rows &&
 										item.rows.length > 0 &&
 										item.columns &&
 										item.columns.length > 0
 									"
-									class="grid-container"
+									:data="item.rows"
+									border
 								>
-									<div class="grid-header">
-										<div class="grid-cell grid-row-header"></div>
-										<div
-											v-for="(column, colIndex) in item.columns"
-											:key="colIndex"
-											class="grid-cell grid-column-header"
-										>
-											{{ column.label }}
-											<el-tag
-												v-if="column.isOther"
-												size="small"
-												type="warning"
-												class="other-column-tag"
-											>
-												Other
-											</el-tag>
-										</div>
-									</div>
-									<div
-										v-for="(row, rowIndex) in item.rows"
-										:key="rowIndex"
-										class="grid-row"
+									<el-table-column
+										prop="label"
+										label=""
+										fixed="left"
+										min-width="200"
 									>
-										<div class="grid-cell grid-row-header">{{ row.label }}</div>
-										<div
-											v-for="(column, colIndex) in item.columns"
-											:key="colIndex"
-											class="grid-cell grid-radio-cell gap-x-2"
-										>
-											<el-radio
-												v-model="
-													previewData[
-														getGridKey(
+										<template #default="{ row }">
+											<span class="truncate" :title="row.label">
+												{{ row.label }}
+											</span>
+										</template>
+									</el-table-column>
+									<el-table-column
+										v-for="(column, colIndex) in item.columns"
+										:key="colIndex"
+										:label="column.label"
+										min-width="120"
+										align="center"
+									>
+										<template #header>
+											<div class="flex items-center justify-center gap-1">
+												{{ column.label }}
+												<el-tag
+													v-if="column.isOther"
+													size="small"
+													type="warning"
+												>
+													Other
+												</el-tag>
+											</div>
+										</template>
+										<template #default="{ $index: rowIndex }">
+											<div class="flex items-center justify-center gap-2">
+												<el-radio
+													v-model="
+														previewData[
+															getGridKey(
+																sectionIndex,
+																itemIndex,
+																rowIndex
+															)
+														]
+													"
+													:name="`grid_${sectionIndex}_${itemIndex}_${rowIndex}`"
+													:value="
+														column.value ||
+														column.label ||
+														`${rowIndex}_${colIndex}`
+													"
+													@change="
+														handleGridRadioChange(
 															sectionIndex,
 															itemIndex,
-															rowIndex
+															rowIndex,
+															item,
+															$event
 														)
-													]
-												"
-												:name="`grid_${sectionIndex}_${itemIndex}_${rowIndex}`"
-												:value="
-													column.value ||
-													column.label ||
-													`${rowIndex}_${colIndex}`
-												"
-												@change="
-													handleGridRadioChange(
-														sectionIndex,
-														itemIndex,
-														rowIndex,
-														item,
-														$event
-													)
-												"
-												class="grid-radio"
-											/>
-
-											<!-- Other选项的文字输入框 - 简化判断逻辑 -->
-											<div v-if="column.isOther">
+													"
+													class="grid-radio"
+												/>
 												<el-input
+													v-if="column.isOther"
 													v-model="
 														previewData[
 															getOtherTextKey(
@@ -662,9 +663,9 @@
 													class="other-input"
 												/>
 											</div>
-										</div>
-									</div>
-								</div>
+										</template>
+									</el-table-column>
+								</el-table>
 
 								<!-- 如果没有数据，显示占位符 -->
 								<div
@@ -683,36 +684,39 @@
 							</div>
 
 							<div v-else-if="item.type === 'short_answer_grid'" class="preview-grid">
-								<div v-if="item.columns && item.rows" class="grid-container">
-									<div class="grid-header">
-										<div class="grid-cell grid-row-header"></div>
-										<div
-											v-for="(column, colIndex) in item.columns"
-											:key="colIndex"
-											class="grid-cell grid-column-header"
-										>
-											{{ column.label }}
-											<el-tag
-												v-if="column.isOther"
-												size="small"
-												type="warning"
-												class="other-column-tag"
-											>
-												Other
-											</el-tag>
-										</div>
-									</div>
-									<div
-										v-for="(row, rowIndex) in item.rows"
-										:key="rowIndex"
-										class="grid-row"
+								<el-table v-if="item.columns && item.rows" :data="item.rows" border>
+									<el-table-column
+										prop="label"
+										label=""
+										fixed="left"
+										min-width="200"
 									>
-										<div class="grid-cell grid-row-header">{{ row.label }}</div>
-										<div
-											v-for="(column, colIndex) in item.columns"
-											:key="colIndex"
-											class="grid-cell grid-checkbox-cell gap-x-2"
-										>
+										<template #default="{ row }">
+											<span class="truncate" :title="row.label">
+												{{ row.label }}
+											</span>
+										</template>
+									</el-table-column>
+									<el-table-column
+										v-for="(column, colIndex) in item.columns"
+										:key="colIndex"
+										:label="column.label"
+										min-width="150"
+										align="center"
+									>
+										<template #header>
+											<div class="flex items-center justify-center gap-1">
+												{{ column.label }}
+												<el-tag
+													v-if="column.isOther"
+													size="small"
+													type="warning"
+												>
+													Other
+												</el-tag>
+											</div>
+										</template>
+										<template #default="{ $index: rowIndex }">
 											<el-input
 												v-model="
 													previewData[
@@ -726,9 +730,9 @@
 													]
 												"
 											/>
-										</div>
-									</div>
-								</div>
+										</template>
+									</el-table-column>
+								</el-table>
 							</div>
 
 							<!-- 说明文本 -->
@@ -886,6 +890,50 @@ const printQuestionnaire = () => {
 			buildAttributeString(document.body, ['class'])
 		);
 
+		// 克隆内容并处理表格宽度
+		const clonedContent = container.cloneNode(true) as HTMLElement;
+
+		// 处理所有 el-table 相关元素，移除内联宽度样式
+		const tables = clonedContent.querySelectorAll('.el-table');
+		tables.forEach((table) => {
+			(table as HTMLElement).style.width = '100%';
+			// 移除固定列容器
+			const fixedElements = table.querySelectorAll(
+				'.el-table__fixed, .el-table__fixed-right'
+			);
+			fixedElements.forEach((el) => el.remove());
+		});
+
+		// 处理表格内部元素
+		const tableInners = clonedContent.querySelectorAll(
+			'.el-table__header-wrapper, .el-table__body-wrapper'
+		);
+		tableInners.forEach((el) => {
+			(el as HTMLElement).style.overflow = 'visible';
+			(el as HTMLElement).style.width = '100%';
+		});
+
+		// 处理 table 元素
+		const tableElements = clonedContent.querySelectorAll('.el-table__header, .el-table__body');
+		tableElements.forEach((el) => {
+			(el as HTMLElement).style.width = '100%';
+			(el as HTMLElement).style.tableLayout = 'fixed';
+		});
+
+		// 处理 colgroup 中的 col 元素，移除固定宽度
+		const colElements = clonedContent.querySelectorAll('.el-table colgroup col');
+		colElements.forEach((col) => {
+			(col as HTMLElement).style.width = 'auto';
+			col.removeAttribute('width');
+		});
+
+		// 处理 th 和 td 元素
+		const cells = clonedContent.querySelectorAll('.el-table th, .el-table td');
+		cells.forEach((cell) => {
+			(cell as HTMLElement).style.minWidth = '0';
+			(cell as HTMLElement).style.width = 'auto';
+		});
+
 		const printStyles = `
 			@page {
 				size: A4;
@@ -939,7 +987,6 @@ const printQuestionnaire = () => {
 					-webkit-print-color-adjust: exact !important;
 					print-color-adjust: exact !important;
 				}
-
 			}
 		`;
 
@@ -953,7 +1000,7 @@ const printQuestionnaire = () => {
 
 		printWindow.document.open();
 		printWindow.document.write(
-			`<!DOCTYPE html><html${htmlAttributes}><head><meta charset="utf-8" /><title></title>${headContent}<style>${printStyles}</style></head><body${bodyAttributes}><div class="print-wrapper">${container.innerHTML}</div></body></html>`
+			`<!DOCTYPE html><html${htmlAttributes}><head><meta charset="utf-8" /><title></title>${headContent}<style>${printStyles}</style></head><body${bodyAttributes}><div class="print-wrapper">${clonedContent.innerHTML}</div></body></html>`
 		);
 		printWindow.document.close();
 		printWindow.document.title = '';
@@ -991,17 +1038,29 @@ const clearSkippedQuestions = () => {
 };
 
 // 生成问题项的唯一键
-const getItemKey = (sectionIndex: number, itemIndex: number, isOther?: boolean) => {
+const getItemKey = (
+	sectionIndex: string | number,
+	itemIndex: string | number,
+	isOther?: boolean
+) => {
 	return `section_${sectionIndex}_item_${itemIndex}${isOther ? '_other' : ''}`;
 };
 
 // 生成网格问题的唯一键
-const getGridKey = (sectionIndex: number, itemIndex: number, rowIndex: number) => {
+const getGridKey = (
+	sectionIndex: string | number,
+	itemIndex: string | number,
+	rowIndex: string | number
+) => {
 	return `section_${sectionIndex}_item_${itemIndex}_row_${rowIndex}`;
 };
 
 // 生成Other文本输入框的唯一键
-const getOtherTextKey = (sectionIndex: number, itemIndex: number, rowIndex: number) => {
+const getOtherTextKey = (
+	sectionIndex: string | number,
+	itemIndex: string | number,
+	rowIndex: string | number
+) => {
 	return `section_${sectionIndex}_item_${itemIndex}_row_${rowIndex}_other_text`;
 };
 
@@ -1098,7 +1157,12 @@ watch(
 );
 
 // 处理文件选择（仅本地预览，不上传）
-const handleFileChange = (sectionIndex: number, itemIndex: number, file: any, fileList: any[]) => {
+const handleFileChange = (
+	sectionIndex: string | number,
+	itemIndex: string | number,
+	file: any,
+	fileList: any[]
+) => {
 	console.log('handleFileChange called:', { sectionIndex, itemIndex, file, fileList });
 	const key = getItemKey(sectionIndex, itemIndex);
 	// 只存储文件信息用于预览，不进行实际上传
@@ -1113,8 +1177,8 @@ const handleFileChange = (sectionIndex: number, itemIndex: number, file: any, fi
 
 // 处理单选变化 - 清空Other输入框并处理跳转逻辑
 const handleRadioChange = (
-	sectionIndex: number,
-	itemIndex: number,
+	sectionIndex: string | number,
+	itemIndex: string | number,
 	item: any,
 	value?: string | number | boolean
 ) => {
@@ -1162,8 +1226,8 @@ const handleRadioChange = (
 
 // 计算被跳过的问题
 const calculateSkippedQuestions = (
-	currentSectionIndex: number,
-	currentItemIndex: number,
+	currentSectionIndex: string | number,
+	currentItemIndex: string | number,
 	jumpRule: any
 ) => {
 	const skipped = new Set<string>();
@@ -1194,15 +1258,15 @@ const calculateSkippedQuestions = (
 	// 判断是同section内跳转还是跨section跳转
 	if (currentSectionIndex === targetSectionIndex) {
 		// 同section内跳转：跳过当前问题之后到目标问题之前的所有问题
-		for (let i = currentItemIndex + 1; i < targetQuestionIndex; i++) {
+		for (let i = Number(currentItemIndex) + 1; i < targetQuestionIndex; i++) {
 			skipped.add(`${currentSectionIndex}_${i}`);
 		}
 	} else {
 		// 跨section跳转：
 		// 1. 跳过当前section中当前问题之后的所有问题
-		const currentSection = props.questionnaire?.sections[currentSectionIndex];
+		const currentSection = props.questionnaire?.sections[currentSectionIndex as number];
 		if (currentSection) {
-			for (let i = currentItemIndex + 1; i < currentSection.questions.length; i++) {
+			for (let i = Number(currentItemIndex) + 1; i < currentSection.questions.length; i++) {
 				skipped.add(`${currentSectionIndex}_${i}`);
 			}
 		}
@@ -1254,14 +1318,14 @@ const scrollToTargetQuestion = (jumpRule: any) => {
 };
 
 // 检查问题是否被跳过
-const isQuestionSkipped = (sectionIndex: number, itemIndex: number) => {
+const isQuestionSkipped = (sectionIndex: string | number, itemIndex: string | number) => {
 	return skippedQuestions.value.has(`${sectionIndex}_${itemIndex}`);
 };
 
 // 处理多选变化 - 清空Other输入框
 const handleCheckboxChange = (
-	sectionIndex: number,
-	itemIndex: number,
+	sectionIndex: string | number,
+	itemIndex: string | number,
 	item: any,
 	value: string[]
 ) => {
@@ -1281,9 +1345,9 @@ const handleCheckboxChange = (
 
 // 处理网格多选选项变化
 const handleGridCheckboxChange = (
-	sectionIndex: number,
-	itemIndex: number,
-	rowIndex: number,
+	sectionIndex: string | number,
+	itemIndex: string | number,
+	rowIndex: string | number,
 	item: any,
 	value: string[]
 ) => {
@@ -1304,9 +1368,9 @@ const handleGridCheckboxChange = (
 
 // 处理单选网格选项变化
 const handleGridRadioChange = (
-	sectionIndex: number,
-	itemIndex: number,
-	rowIndex: number,
+	sectionIndex: string | number,
+	itemIndex: string | number,
+	rowIndex: string | number,
 	item: any,
 	value?: string | number | boolean
 ) => {
@@ -1498,7 +1562,7 @@ const clearValidationErrors = () => {
 };
 
 // 获取指定字段的错误信息
-const getFieldError = (sectionIndex: number, itemIndex: number) => {
+const getFieldError = (sectionIndex: string | number, itemIndex: string | number) => {
 	const key = getItemKey(sectionIndex, itemIndex);
 	return validationErrors.value[key] || '';
 };
@@ -1611,17 +1675,19 @@ const getSliderMarks = (item: any) => {
 };
 
 // 计算问题的实际序号（跳过page_break类型）
-const getQuestionNumber = (sectionIndex: number, itemIndex: number) => {
-	if (!props.questionnaire?.sections) return itemIndex + 1;
+const getQuestionNumber = (sectionIndex: string | number, itemIndex: string | number) => {
+	const secIdx = Number(sectionIndex);
+	const itemIdx = Number(itemIndex);
+	if (!props.questionnaire?.sections) return itemIdx + 1;
 
-	const section = props.questionnaire.sections[sectionIndex];
-	if (!section?.questions) return itemIndex + 1;
+	const section = props.questionnaire.sections[secIdx];
+	if (!section?.questions) return itemIdx + 1;
 
 	let actualQuestionNumber = 1;
-	for (let i = 0; i <= itemIndex; i++) {
+	for (let i = 0; i <= itemIdx; i++) {
 		const item = section.questions[i];
 		if (item.type !== 'page_break') {
-			if (i === itemIndex) {
+			if (i === itemIdx) {
 				return actualQuestionNumber;
 			}
 			actualQuestionNumber++;
@@ -1853,84 +1919,6 @@ html.dark .preview_assignment-label {
 .preview-grid {
 	@apply w-full;
 
-	.grid-container {
-		border: 1px solid var(--primary-200);
-		overflow: hidden;
-		@apply dark:border-black-200 rounded-xl;
-	}
-
-	.grid-header {
-		display: flex;
-		background-color: var(--primary-50);
-		border-bottom: 1px solid var(--primary-200);
-		@apply dark:bg-primary-800 dark:border-black-200;
-	}
-
-	.grid-row {
-		display: flex;
-		border-bottom: 1px solid var(--primary-100);
-		@apply dark:border-black-100;
-
-		&:hover {
-			background-color: var(--primary-25);
-			@apply dark:bg-black-300;
-		}
-	}
-
-	.grid-row:last-child {
-		border-bottom: none;
-	}
-
-	.grid-cell {
-		padding: 0.75rem;
-		border-right: 1px solid var(--primary-100);
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		align-items: center;
-		min-width: 120px;
-		flex: 1;
-		@apply dark:border-black-100;
-
-		&:first-child {
-			justify-content: flex-start;
-			font-weight: 500;
-			background-color: var(--primary-25);
-			min-width: 200px;
-			flex: none;
-			@apply dark:bg-black-400;
-		}
-
-		&:last-child {
-			border-right: none;
-		}
-	}
-
-	.grid-row-header {
-		background-color: var(--primary-25);
-		font-weight: 500;
-		text-align: left;
-		justify-content: flex-start !important;
-		@apply dark:bg-black-400 w-[200px] min-w-0 truncate;
-	}
-
-	.grid-column-header {
-		font-weight: 500;
-		text-align: center;
-		background-color: var(--primary-50);
-		@apply dark:bg-primary-800;
-	}
-
-	.grid-radio-cell {
-		background-color: white;
-		@apply dark:bg-black-500;
-	}
-
-	.grid-checkbox-cell {
-		background-color: white;
-		@apply dark:bg-black-500;
-	}
-
 	.grid-radio {
 		margin: 0;
 
@@ -1955,22 +1943,9 @@ html.dark .preview_assignment-label {
 		}
 	}
 
-	.other-column-tag {
-		margin-left: 0.5rem;
-		font-size: 0.625rem;
-		height: 1.125rem;
-		line-height: 1;
-		padding: 0.125rem 0.25rem;
-	}
-
 	.other-input {
 		width: 100%;
 		max-width: 180px;
-
-		:deep(.el-input__wrapper) {
-			border-color: var(--primary-200);
-			@apply dark:border-black-200;
-		}
 	}
 }
 

@@ -310,6 +310,7 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
 
         /// <summary>
         /// Get workflow and related stage logs by workflow ID
+        /// Excludes Case-level logs (where onboardingId is not null)
         /// </summary>
         public async Task<PagedResult<OperationChangeLog>> GetWorkflowWithRelatedLogsAsync(long workflowId, int pageIndex = 1, int pageSize = 20)
         {
@@ -319,6 +320,7 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
                 // 1. Workflow operations where business_id = workflowId AND business_module = 'Workflow'
                 // 2. Stage operations where the stage belongs to the workflow (using JOIN with ff_stage table)
                 // 3. ActionMapping operations where the mapping belongs to the workflow (using JOIN with ff_action_trigger_mappings table)
+                // Excludes: Case-level logs where onboardingId is not null (those are Case-specific stage updates)
 
                 var query = base.db.Queryable<OperationChangeLog>()
                     .LeftJoin<Domain.Entities.OW.Stage>((log, stage) =>
@@ -326,9 +328,10 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
                     .LeftJoin<Domain.Entities.Action.ActionTriggerMapping>((log, stage, mapping) =>
                         log.BusinessModule == "ActionMapping" && log.BusinessId == mapping.Id)
                     .Where((log, stage, mapping) =>
-                        (log.BusinessModule == "Workflow" && log.BusinessId == workflowId) ||
+                        log.OnboardingId == null && // Exclude Case-level logs
+                        ((log.BusinessModule == "Workflow" && log.BusinessId == workflowId) ||
                         (log.BusinessModule == "Stage" && stage.WorkflowId == workflowId) ||
-                        (log.BusinessModule == "ActionMapping" && mapping.WorkFlowId == workflowId))
+                        (log.BusinessModule == "ActionMapping" && mapping.WorkFlowId == workflowId)))
                     .OrderByDescending(log => log.OperationTime)
                     .Select(log => log);
 

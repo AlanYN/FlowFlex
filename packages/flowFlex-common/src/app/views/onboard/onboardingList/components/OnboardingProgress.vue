@@ -55,7 +55,7 @@
 						<div
 							v-for="(stage, index) in displayedStages"
 							:key="stage.stageId"
-							class="flex items-center gap-2 p-3 cursor-pointer transition-colors hover:bg-gray-50 dark:hover:bg-indigo-900/20 rounded-xl min-w-0 w-full"
+							class="flex items-center gap-2 p-3 transition-colors hover:bg-gray-50 dark:hover:bg-indigo-900/20 rounded-xl min-w-0 w-full"
 							:class="[
 								stage.completed
 									? 'border-primary'
@@ -68,7 +68,7 @@
 									? 'cursor-pointer hover:bg-gray-50 dark:hover:bg-indigo-900/20'
 									: 'cursor-not-allowed opacity-60 hover:bg-gray-100 dark:hover:bg-indigo-900/10',
 							]"
-							@click="handleStageClick(stage.stageId)"
+							@click="isStageAccessible(stage) && handleStageClick(stage.stageId)"
 						>
 							<!-- 阶段状态图标 -->
 							<div
@@ -103,27 +103,40 @@
 									<div class="flex-1 min-w-0">
 										<div class="flex items-center gap-2 min-w-0">
 											<div
-												class="text-gray-900 dark:text-white-100 text-sm stage-title-text flex-1 min-w-0"
+												class="text-gray-900 flex gap-x-1 items-center dark:text-white-100 text-sm stage-title-text flex-1 min-w-0"
 												:title="stage.title"
 											>
 												{{ stage.title }}
 											</div>
 											<!-- Action Tag for completed stages -->
-											<div
-												v-if="
-													stage.completed &&
-													stage.actions &&
-													stage.actions.length > 0
-												"
-												class="flex items-center gap-2 flex-shrink-0"
-											>
-												<ActionTag
-													:actions="stage.actions"
-													:triggerSourceId="stage.stageId"
-													:onboarding-id="onboardingData.id"
-													type="warning"
-													size="small"
-												/>
+											<div class="flex items-center gap-2 flex-shrink-0">
+												<el-tooltip
+													v-if="stage.required"
+													content="Users must complete this stage before proceeding to subsequent stages"
+													placement="top"
+												>
+													<div
+														class="text-orange-400 px-2 border border-orange-400 rounded-xl flex items-center gap-x-2 text-sm dark:bg-orange-900"
+													>
+														<Icon icon="mdi:information-outline" />
+														Required
+													</div>
+												</el-tooltip>
+												<template
+													v-if="
+														stage.completed &&
+														stage.actions &&
+														stage.actions.length > 0
+													"
+												>
+													<ActionTag
+														:actions="stage.actions"
+														:triggerSourceId="stage.stageId"
+														:onboarding-id="onboardingData.id"
+														type="warning"
+														size="small"
+													/>
+												</template>
 											</div>
 										</div>
 									</div>
@@ -257,7 +270,7 @@ const getOriginalStageIndex = (stage: any) => {
 // 检查阶段是否可以访问
 const isStageAccessible = (stage: any): boolean => {
 	if (!props.stageAccessCheck) {
-		return true; // 如果没有权限检查函数，默认允许访问
+		return !!stage.permission?.canView; // 如果没有权限检查函数，默认允许访问
 	}
 	return props.stageAccessCheck(stage.stageId);
 };
@@ -273,12 +286,6 @@ const toggleStagesView = () => {
 
 const handleStageClick = (stageId?: string) => {
 	if (!stageId) return;
-	// 如果提供了权限检查函数，先检查权限
-	if (props.stageAccessCheck && !props.stageAccessCheck(stageId)) {
-		// 权限检查失败，不发送事件，让父组件处理
-		emit('setActiveStage', stageId);
-		return;
-	}
 
 	emit('setActiveStage', stageId);
 };

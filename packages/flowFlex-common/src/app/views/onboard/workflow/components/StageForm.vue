@@ -65,9 +65,21 @@
 							<FlowflexUser
 								v-model="formData.defaultAssignee"
 								placeholder="Select default assignee"
-								:multiple="false"
 								:clearable="true"
 								selection-type="user"
+								:choosable-tree-data="availableAssigneeData"
+							/>
+						</el-form-item>
+					</div>
+
+					<div class="flex items-center gap-2 w-full">
+						<el-form-item label="Co-assignees" prop="coAssignees" class="w-full">
+							<FlowflexUser
+								v-model="formData.coAssignees"
+								placeholder="Select Co-assignees"
+								:clearable="true"
+								selection-type="user"
+								:choosable-tree-data="availableCoAssigneesData"
 							/>
 						</el-form-item>
 					</div>
@@ -94,6 +106,30 @@
 							</div>
 						</div>
 					</el-form-item>
+
+					<el-form-item label="Required Stage" prop="required">
+						<template #label="{ label }">
+							<span class="inline-flex items-center gap-x-1">
+								{{ label }}
+								<el-tooltip
+									content="Users must complete this stage before proceeding to subsequent stages"
+									placement="top"
+								>
+									<Icon
+										icon="mdi:information-outline"
+										class="text-gray-400 cursor-help"
+									/>
+								</el-tooltip>
+							</span>
+						</template>
+
+						<el-switch
+							v-model="formData.required"
+							inline-prompt
+							active-text="Yes"
+							inactive-text="No"
+						/>
+					</el-form-item>
 				</el-form>
 			</TabPane>
 			<TabPane value="components">
@@ -107,6 +143,7 @@
 						portalPermission: formData.portalPermission,
 						attachmentManagementNeeded: formData.attachmentManagementNeeded,
 					}"
+					:staticFields="staticFields"
 					@update:model-value="updateComponentsData"
 				/>
 			</TabPane>
@@ -117,14 +154,6 @@
 					:work-flow-view-teams="workFlowViewTeams"
 					:work-flow-view-permission-mode="workFlowViewPermissionMode"
 					:work-flow-view-use-same-team-for-operate="workFlowViewUseSameTeamForOperate"
-				/>
-			</TabPane>
-			<TabPane value="actions">
-				<Action
-					ref="actionRef"
-					:stage-id="formData.id"
-					:workflow-id="workflowId"
-					:trigger-type="TriggerTypeEnum.Stage"
 				/>
 			</TabPane>
 		</PrototypeTabs>
@@ -150,9 +179,7 @@ import InputNumber from '@/components/form/InputNumber/index.vue';
 import { stageColorOptions, StageColorType } from '@/enums/stageColorEnum';
 import { PortalPermissionEnum, portalPermissionOptions } from '@/enums/portalPermissionEnum';
 import StageComponentsSelector from './StageComponentsSelector.vue';
-import Action from '@/components/actionTools/Action.vue';
 import FlowflexUser from '@/components/form/flowflexUser/index.vue';
-import { TriggerTypeEnum } from '@/enums/appEnum';
 
 import { PrototypeTabs, TabPane } from '@/components/PrototypeTabs';
 import { Checklist, Questionnaire, Stage, ComponentsData, StageComponentData } from '#/onboard';
@@ -163,6 +190,7 @@ import { menuRoles } from '@/stores/modules/menuFunction';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import type { FlowflexUser as FlowflexUserType } from '#/golbal';
 import { IQuickLink } from '#/integration';
+import { DynamicList } from '#/dynamic';
 
 // 颜色选项
 const colorOptions = stageColorOptions;
@@ -170,6 +198,55 @@ const colorOptions = stageColorOptions;
 // Store instances
 const userStore = useUserStore();
 const menuStore = menuRoles();
+
+// 用户数据
+const allUserData = ref<FlowflexUserType[]>([]);
+
+// 获取用户数据
+const fetchUserData = async () => {
+	try {
+		const data = await menuStore.getFlowflexUserDataWithCache();
+		allUserData.value = Array.isArray(data) ? data : [];
+	} catch (error) {
+		console.error('Failed to fetch user data:', error);
+		allUserData.value = [];
+	}
+};
+
+// 递归过滤用户数据，排除指定的用户ID
+const filterUserData = (data: FlowflexUserType[], excludeIds: string[]): FlowflexUserType[] => {
+	if (!excludeIds.length) return data;
+
+	return data
+		.map((item) => {
+			// 如果是用户类型且在排除列表中，则跳过
+			if (item.type === 'user' && excludeIds.includes(item.id)) {
+				return null;
+			}
+
+			// 如果有子节点，递归过滤
+			if (item.children && item.children.length > 0) {
+				const filteredChildren = filterUserData(item.children, excludeIds);
+				return {
+					...item,
+					children: filteredChildren,
+				};
+			}
+
+			return item;
+		})
+		.filter(Boolean) as FlowflexUserType[];
+};
+
+// 计算属性 - Default Assignee 可选用户（排除已选的 Co-assignees）
+const availableAssigneeData = computed(() => {
+	return filterUserData(allUserData.value, formData.value.coAssignees);
+});
+
+// 计算属性 - Co-assignees 可选用户（排除已选的 Default Assignee）
+const availableCoAssigneesData = computed(() => {
+	return filterUserData(allUserData.value, formData.value.defaultAssignee);
+});
 
 // Props
 const props = defineProps({
@@ -217,49 +294,29 @@ const props = defineProps({
 		type: Boolean as PropType<boolean>,
 		default: undefined,
 	},
+	staticFields: {
+		type: Array as PropType<DynamicList[]>,
+		default: () => [],
+		required: true,
+	},
 });
 
 // Tab配置
 const currentTab = ref('basicInfo');
-const tabsConfig = computed(() => {
-	// 编辑模式：Basic Info -> Components -> Permissions -> Actions
-	if (props?.stage?.id) {
-		return [
-			{
-				value: 'basicInfo',
-				label: 'Basic Info',
-			},
-			{
-				value: 'components',
-				label: 'Components',
-			},
-			{
-				value: 'permissions',
-				label: 'Permissions',
-			},
-			{
-				value: 'actions',
-				label: 'Actions',
-			},
-		];
-	}
-
-	// 新建模式：Basic Info -> Permissions -> Components
-	return [
-		{
-			value: 'basicInfo',
-			label: 'Basic Info',
-		},
-		{
-			value: 'components',
-			label: 'Components',
-		},
-		{
-			value: 'permissions',
-			label: 'Permissions',
-		},
-	];
-});
+const tabsConfig = ref([
+	{
+		value: 'basicInfo',
+		label: 'Basic Info',
+	},
+	{
+		value: 'components',
+		label: 'Components',
+	},
+	{
+		value: 'permissions',
+		label: 'Permissions',
+	},
+]);
 
 // 表单数据
 const formData = ref({
@@ -269,7 +326,7 @@ const formData = ref({
 	visibleInPortal: false,
 	portalPermission: PortalPermissionEnum.Viewable,
 	defaultAssignedGroup: '',
-	defaultAssignee: '',
+	defaultAssignee: [] as string[],
 	estimatedDuration: null as number | null,
 	requiredFieldsJson: '',
 	components: [] as StageComponentData[],
@@ -281,6 +338,8 @@ const formData = ref({
 	viewTeams: [] as string[],
 	operateTeams: [] as string[],
 	useSameTeamForOperate: true,
+	coAssignees: [] as string[],
+	required: false,
 });
 
 // 表单验证规则
@@ -323,17 +382,16 @@ const permissionsData = computed({
 
 // 表单引用
 const formRef = ref<FormInstance>();
-const actionRef = ref<InstanceType<typeof Action>>();
 
 const onTabChange = (tab: string) => {
 	currentTab.value = tab;
-	if (tab === 'actions') {
-		actionRef.value?.getActionList();
-	}
 };
 
 // 初始化表单数据
-onMounted(() => {
+onMounted(async () => {
+	// 获取用户数据
+	await fetchUserData();
+
 	if (props.stage) {
 		Object.keys(formData.value).forEach((key) => {
 			if (key === 'color') {
@@ -357,6 +415,28 @@ onMounted(() => {
 				formData.value[key] = (props.stage as any)?.operateTeams || [];
 			} else if (key === 'useSameTeamForOperate') {
 				formData.value[key] = (props.stage as any)?.useSameTeamForOperate ?? true;
+			} else if (key === 'defaultAssignee') {
+				// 处理 defaultAssignee 数组类型
+				const value = (props.stage as any)?.defaultAssignee;
+				if (Array.isArray(value)) {
+					formData.value[key] = value;
+				} else if (value) {
+					// 兼容旧数据：如果是字符串，转换为数组
+					formData.value[key] = [value];
+				} else {
+					formData.value[key] = [];
+				}
+			} else if (key === 'coAssignees') {
+				// 处理 coAssignees 数组类型
+				const value = (props.stage as any)?.coAssignees;
+				if (Array.isArray(value)) {
+					formData.value[key] = value;
+				} else if (value) {
+					// 兼容旧数据：如果是字符串，转换为数组
+					formData.value[key] = [value];
+				} else {
+					formData.value[key] = [];
+				}
 			} else {
 				formData.value[key] = props.stage ? (props.stage as any)[key] : '';
 			}

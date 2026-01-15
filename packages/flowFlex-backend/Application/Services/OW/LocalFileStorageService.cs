@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using FlowFlex.Application.Contracts;
+using FlowFlex.Application.Contracts.Helpers;
 using FlowFlex.Application.Contracts.Options;
 using FlowFlex.Domain.Shared;
 using System.Security.Cryptography;
@@ -123,7 +124,7 @@ namespace FlowFlex.Application.Services.OW
                     useAsync: true);
 
                 var fileName = Path.GetFileName(fullPath);
-                var contentType = GetContentType(fileName);
+                var contentType = MimeTypeHelper.GetMimeTypeFromFileName(fileName);
 
                 return (stream, fileName, contentType);
             }
@@ -192,18 +193,8 @@ namespace FlowFlex.Application.Services.OW
 
         public async Task<FileValidationResult> ValidateFileAsync(IFormFile file)
         {
-            // Check if file is empty
-            if (file == null || file.Length == 0)
-            {
-                return new FileValidationResult
-                {
-                    IsValid = false,
-                    ErrorMessage = "File cannot be empty"
-                };
-            }
-
             // Check file size
-            if (file.Length > _options.MaxFileSize)
+            if (file != null && file.Length > _options.MaxFileSize)
             {
                 return new FileValidationResult
                 {
@@ -226,7 +217,7 @@ namespace FlowFlex.Application.Services.OW
             }
 
             // Check file content (simple MIME type validation)
-            if (!IsValidMimeType(file.ContentType, extension))
+            if (!MimeTypeHelper.IsValidMimeType(file.ContentType, extension))
             {
                 return new FileValidationResult
                 {
@@ -325,52 +316,6 @@ namespace FlowFlex.Application.Services.OW
             using var stream = File.OpenRead(filePath);
             var bytes = await sha256.ComputeHashAsync(stream);
             return Convert.ToHexString(bytes).ToLowerInvariant();
-        }
-
-        private string GetContentType(string fileName)
-        {
-            var extension = Path.GetExtension(fileName).ToLowerInvariant();
-            return extension switch
-            {
-                ".jpg" or ".jpeg" => "image/jpeg",
-                ".png" => "image/png",
-                ".gif" => "image/gif",
-                ".pdf" => "application/pdf",
-                ".doc" => "application/msword",
-                ".docx" => "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                ".xls" => "application/vnd.ms-excel",
-                ".xlsx" => "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                ".txt" => "text/plain",
-                ".zip" => "application/zip",
-                ".rar" => "application/x-rar-compressed",
-                ".mp4" => "video/mp4",
-                ".avi" => "video/x-msvideo",
-                ".mov" => "video/quicktime",
-                ".eml" => "message/rfc822",
-                ".msg" => "application/vnd.ms-outlook",
-                _ => "application/octet-stream"
-            };
-        }
-
-        private bool IsValidMimeType(string contentType, string extension)
-        {
-            var expectedContentType = GetContentType($"file{extension}");
-
-            // Allow some common MIME type variants
-            return contentType switch
-            {
-                var ct when ct == expectedContentType => true,
-                "application/octet-stream" => true, // Generic binary type
-                var ct when ct.StartsWith("image/") && extension.StartsWith(".") &&
-                           new[] { ".jpg", ".jpeg", ".png", ".gif" }.Contains(extension) => true,
-                var ct when ct.StartsWith("video/") && extension.StartsWith(".") &&
-                           new[] { ".mp4", ".avi", ".mov" }.Contains(extension) => true,
-                var ct when ct.StartsWith("message/") && extension.StartsWith(".") &&
-                           new[] { ".eml" }.Contains(extension) => true,
-                var ct when ct.StartsWith("application/") && extension.StartsWith(".") &&
-                           new[] { ".msg", ".pdf", ".doc", ".docx", ".xls", ".xlsx", ".zip", ".rar" }.Contains(extension) => true,
-                _ => false
-            };
         }
 
         #endregion

@@ -246,7 +246,9 @@ namespace FlowFlex.Application.Services.OW
                             Description = fileInput.Description ?? input.Description,
                             OverrideUploaderId = input.OperatorId,
                             OverrideUploaderName = input.OperatorName,
-                            OverrideTenantId = input.TenantId
+                            OverrideTenantId = input.TenantId,
+                            IsExternalImport = true,  // Mark as external import
+                            Source = fileInput.Source // Record file source from each file item
                         };
 
                         item.ProgressPercentage = 80;

@@ -119,7 +119,6 @@
 						@remove-file="handleRemoveUploadedFile"
 					/>
 				</el-form>
-				<ComingSoon />
 			</TabPane>
 		</PrototypeTabs>
 
@@ -127,7 +126,6 @@
 			<div class="flex justify-end gap-3">
 				<el-button @click="handleClose">Cancel</el-button>
 				<el-button
-					v-if="messageType != MessageType.Portal"
 					type="primary"
 					@click="handleSend"
 					:loading="sendLoading"
@@ -159,7 +157,6 @@ import { sendMessageCenter, uploadMessageFile } from '@/apis/messageCenter';
 import FlowflexUserSelect from '@/components/form/flowflexUser/index.vue';
 import { Icon } from '@iconify/vue';
 import { timeZoneConvert } from '@/hooks/time';
-import ComingSoon from '@/components/common/ComingSoonOverlay.vue';
 
 import { FlowflexUser } from '#/golbal';
 

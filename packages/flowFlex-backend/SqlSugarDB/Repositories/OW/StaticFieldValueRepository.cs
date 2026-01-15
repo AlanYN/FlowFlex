@@ -82,6 +82,7 @@ namespace FlowFlex.SqlSugarDB.Repositories.OW
                             SET
                                 field_value_json = @FieldValueJson::jsonb,
                                 display_name = @DisplayName,
+                                field_id = @FieldId,
                                 field_type = @FieldType,
                                 is_required = @IsRequired,
                                 status = @Status,
@@ -101,6 +102,7 @@ namespace FlowFlex.SqlSugarDB.Repositories.OW
                             Id = existing.Id,
                             FieldValueJson = EnsureValidJson(fieldValue.FieldValueJson),
                             DisplayName = fieldValue.DisplayName,
+                            FieldId = fieldValue.FieldId,
                             FieldType = fieldValue.FieldType,
                             IsRequired = fieldValue.IsRequired,
                             Status = fieldValue.Status,
@@ -126,14 +128,14 @@ namespace FlowFlex.SqlSugarDB.Repositories.OW
                         // Insert new record using raw SQL to handle JSONB properly
                         var insertSql = @"
                             INSERT INTO ff_static_field_values (
-                                id, onboarding_id, stage_id, field_name, display_name, field_value_json,
+                                id, onboarding_id, stage_id, field_name, field_id, display_name, field_value_json,
                                 field_type, is_required, status, completion_rate, validation_status,
                                 validation_errors, version, is_latest, is_submitted, source,
                                 ip_address, user_agent, metadata, create_date, modify_date,
                                 create_by, modify_by, create_user_id, modify_user_id, is_valid,
                                 tenant_id, app_code
                             ) VALUES (
-                                @Id, @OnboardingId, @StageId, @FieldName, @DisplayName, @FieldValueJson::jsonb,
+                                @Id, @OnboardingId, @StageId, @FieldName, @FieldId, @DisplayName, @FieldValueJson::jsonb,
                                 @FieldType, @IsRequired, @Status, @CompletionRate, @ValidationStatus,
                                 @ValidationErrors, @Version, @IsLatest, @IsSubmitted, @Source,
                                 @IpAddress, @UserAgent, @Metadata::jsonb, @CreateDate, @ModifyDate,
@@ -147,6 +149,7 @@ namespace FlowFlex.SqlSugarDB.Repositories.OW
                             OnboardingId = fieldValue.OnboardingId,
                             StageId = fieldValue.StageId,
                             FieldName = fieldValue.FieldName,
+                            FieldId = fieldValue.FieldId,
                             DisplayName = fieldValue.DisplayName,
                             FieldValueJson = EnsureValidJson(fieldValue.FieldValueJson),
                             FieldType = fieldValue.FieldType,

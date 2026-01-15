@@ -1234,7 +1234,7 @@ namespace FlowFlex.Application.Services.AI
             }
 
             promptBuilder.AppendLine();
-            promptBuilder.AppendLine("Generate complete workflow, must include checklist and questionnaire for each stage. Each stage should have 0-3 tasks and 0-3 questions:");
+            promptBuilder.AppendLine("Generate complete workflow, must include checklist and questionnaire for each stage. Each stage should have 3-10 tasks and 3-10 questions:");
             promptBuilder.AppendLine(@"{
   ""name"": ""Workflow Name"",
   ""description"": ""Workflow Description"",
@@ -1245,22 +1245,26 @@ namespace FlowFlex.Application.Services.AI
       ""assignedGroup"": ""Assigned Team"",
       ""estimatedDuration"": 1,
       ""checklist"": {
-        ""name"": ""Task List"",
+        ""name"": ""Stage Name Checklist"",
         ""tasks"": [
           { ""title"": ""Task Name"", ""description"": ""Description"", ""isRequired"": true, ""estimatedMinutes"": 60, ""category"": ""Execution"" }
         ]
       },
       ""questionnaire"": {
-        ""name"": ""Information Collection"",
+        ""name"": ""Stage Name Questionnaire"",
         ""questions"": [
-          { ""question"": ""Key Question?"", ""type"": ""text"", ""isRequired"": true, ""category"": ""Requirements"" },
-          { ""question"": ""Priority?"", ""type"": ""select"", ""isRequired"": true, ""options"": [""High"", ""Medium"", ""Low""] }
+          { ""question"": ""Key Question?"", ""type"": ""short_answer"", ""isRequired"": true, ""category"": ""Requirements"" },
+          { ""question"": ""Priority?"", ""type"": ""multiple_choice"", ""isRequired"": true, ""options"": [{""id"": ""1"", ""value"": ""high"", ""label"": ""High""}, {""id"": ""2"", ""value"": ""medium"", ""label"": ""Medium""}, {""id"": ""3"", ""value"": ""low"", ""label"": ""Low""}] }
         ]
       }
     }
   ]
 }
-IMPORTANT: Each stage must contain both checklist and questionnaire fields!");
+IMPORTANT: 
+1. Each stage must contain both checklist and questionnaire fields!
+2. Checklist name MUST include the stage name (e.g., ""Requirements Analysis Checklist"")
+3. Questionnaire name MUST include the stage name (e.g., ""Requirements Analysis Questionnaire"")
+4. For multiple_choice, checkboxes, dropdown types, options MUST be array of objects with id, value, label fields!");
 
             return promptBuilder.ToString();
         }
@@ -1352,6 +1356,9 @@ IMPORTANT: Each stage must contain both checklist and questionnaire fields!");
                     var jsonStart = cleanedResponse.IndexOf('{');
                     var jsonEnd = cleanedResponse.LastIndexOf('}') + 1;
                     var jsonContent = cleanedResponse.Substring(jsonStart, jsonEnd - jsonStart);
+
+                    // Fix common JSON issues from AI responses
+                    jsonContent = FixJsonContent(jsonContent);
 
                     _logger.LogDebug("🔧 Deserializing JSON, content length: {Length}", jsonContent.Length);
                     _logger.LogDebug("🔍 JSON Preview: {JsonPreview}",
@@ -2141,10 +2148,10 @@ Please provide a JSON response with the following structure:
     ""questions"": [
         {{
             ""question"": ""Question text"",
-            ""type"": ""text"" | ""select"" | ""multiselect"" | ""boolean"" | ""number"",
+            ""type"": ""short_answer"" | ""paragraph"" | ""multiple_choice"" | ""checkboxes"" | ""dropdown"" | ""date"" | ""time"",
             ""isRequired"": true/false,
             ""category"": ""Question category"",
-            ""options"": [""option1"", ""option2""] // only for select/multiselect types
+            ""options"": [{{""id"": ""1"", ""value"": ""option1"", ""label"": ""Option 1""}}, {{""id"": ""2"", ""value"": ""option2"", ""label"": ""Option 2""}}] // only for multiple_choice/checkboxes/dropdown types, MUST be array of objects with id, value, label
         }}
     ]
 }}
@@ -2235,7 +2242,7 @@ IMPORTANT: Respond ONLY with valid JSON in the exact format below, no additional
 }}
 
 Create {stages.Count} questionnaire entries (stageIndex 0 to {stages.Count - 1}), each with 3-6 specific questions.
-Use question types: text, select, multiselect, boolean, number.
+Use question types: short_answer, paragraph, multiple_choice, checkboxes, dropdown, file_upload, linear_scale, rating, date, time.
 Include ""options"" array only for select/multiselect types.
 Make questions relevant to the project context and stage objectives.";
         }
@@ -2918,6 +2925,8 @@ Make questions relevant to the project context and stage objectives.";
                 {
                     Success = true,
                     Message = "Checklist generated successfully",
+                    StageName = stage.Name,
+                    StageOrder = stageIndex + 1,
                     GeneratedChecklist = new ChecklistInputDto
                     {
                         Name = checklistEl.TryGetProperty("name", out var nameEl) ? nameEl.GetString() : $"Checklist for {stage.Name}",
@@ -2949,22 +2958,38 @@ Make questions relevant to the project context and stage objectives.";
                         var question = new AIQuestionGenerationResult
                         {
                             Question = questionEl.TryGetProperty("question", out var qEl) ? qEl.GetString() : "Question",
-                            Type = questionEl.TryGetProperty("type", out var typeEl) ? typeEl.GetString() : "text",
+                            Type = questionEl.TryGetProperty("type", out var typeEl) ? typeEl.GetString() : "short_answer",
                             IsRequired = questionEl.TryGetProperty("isRequired", out var reqEl) && reqEl.GetBoolean(),
                             Category = questionEl.TryGetProperty("category", out var catEl) ? catEl.GetString() : "General"
                         };
 
-                        // 处理select和multiselect的options
-                        if ((question.Type == "select" || question.Type == "multiselect") &&
+                        // Handle options for multiple_choice, checkboxes, dropdown types
+                        if ((question.Type == "multiple_choice" || question.Type == "checkboxes" || question.Type == "dropdown" ||
+                             question.Type == "select" || question.Type == "multiselect") &&
                             questionEl.TryGetProperty("options", out var optionsEl) && optionsEl.ValueKind == JsonValueKind.Array)
                         {
                             var options = new List<string>();
+                            var optionIndex = 1;
                             foreach (var optionEl in optionsEl.EnumerateArray())
                             {
                                 if (optionEl.ValueKind == JsonValueKind.String)
                                 {
+                                    // Simple string format: ["option1", "option2"]
                                     options.Add(optionEl.GetString());
                                 }
+                                else if (optionEl.ValueKind == JsonValueKind.Object)
+                                {
+                                    // Object format: [{"id": "1", "value": "val", "label": "Label"}]
+                                    // Convert to JSON string to preserve the structure
+                                    var optionObj = new Dictionary<string, string>
+                                    {
+                                        ["id"] = optionEl.TryGetProperty("id", out var idEl) ? idEl.GetString() : optionIndex.ToString(),
+                                        ["value"] = optionEl.TryGetProperty("value", out var valEl) ? valEl.GetString() : $"option{optionIndex}",
+                                        ["label"] = optionEl.TryGetProperty("label", out var labelEl) ? labelEl.GetString() : $"Option {optionIndex}"
+                                    };
+                                    options.Add(JsonSerializer.Serialize(optionObj));
+                                }
+                                optionIndex++;
                             }
                             question.Options = options;
                         }
@@ -2977,6 +3002,8 @@ Make questions relevant to the project context and stage objectives.";
                 {
                     Success = true,
                     Message = "Questionnaire generated successfully",
+                    StageName = stage.Name,
+                    StageOrder = stageIndex + 1,
                     GeneratedQuestionnaire = new QuestionnaireInputDto
                     {
                         Name = questionnaireEl.TryGetProperty("name", out var nameEl) ? nameEl.GetString() : $"Questionnaire for {stage.Name}",
@@ -3045,6 +3072,111 @@ Make questions relevant to the project context and stage objectives.";
                 ErrorMessage = $"AI call failed after {maxRetries} retries",
                 Content = string.Empty
             };
+        }
+
+        /// <summary>
+        /// Fix common JSON formatting issues from AI responses
+        /// </summary>
+        private string FixJsonContent(string jsonContent)
+        {
+            if (string.IsNullOrEmpty(jsonContent))
+                return jsonContent;
+
+            var result = jsonContent;
+
+            try
+            {
+                // Fix unquoted property names in objects (e.g., {id: "1"} -> {"id": "1"})
+                // This regex finds property names without quotes
+                result = System.Text.RegularExpressions.Regex.Replace(
+                    result,
+                    @"(?<=[{,]\s*)([a-zA-Z_][a-zA-Z0-9_]*)\s*:",
+                    "\"$1\":");
+
+                // Fix single quotes to double quotes
+                // Be careful not to replace single quotes inside strings
+                result = result.Replace("'", "\"");
+
+                // Fix trailing commas before closing brackets
+                result = System.Text.RegularExpressions.Regex.Replace(result, @",\s*}", "}");
+                result = System.Text.RegularExpressions.Regex.Replace(result, @",\s*\]", "]");
+
+                // Fix missing commas between array elements (common AI mistake)
+                // e.g., }{ -> },{
+                result = System.Text.RegularExpressions.Regex.Replace(result, @"}\s*{", "},{");
+
+                _logger.LogDebug("🔧 JSON content fixed");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to fix JSON content, using original");
+            }
+
+            return result;
+        }
+
+        /// <summary>
+        /// Parse question options from AI response, supporting both string array and object array formats
+        /// </summary>
+        private List<QuestionOptionDto> ParseQuestionOptions(List<string> options, int questionIndex)
+        {
+            if (options == null || !options.Any())
+                return new List<QuestionOptionDto>();
+
+            var result = new List<QuestionOptionDto>();
+            var optionIndex = 1;
+
+            foreach (var opt in options)
+            {
+                if (string.IsNullOrEmpty(opt))
+                    continue;
+
+                try
+                {
+                    // Try to parse as JSON object first
+                    if (opt.TrimStart().StartsWith("{"))
+                    {
+                        var optionObj = JsonSerializer.Deserialize<JsonElement>(opt);
+                        var id = optionObj.TryGetProperty("id", out var idEl) ? idEl.GetString() : optionIndex.ToString();
+                        var value = optionObj.TryGetProperty("value", out var valEl) ? valEl.GetString() : opt;
+                        var label = optionObj.TryGetProperty("label", out var labelEl) ? labelEl.GetString() : value;
+
+                        result.Add(new QuestionOptionDto
+                        {
+                            Id = id,
+                            Label = label,
+                            Value = value,
+                            Order = optionIndex
+                        });
+                    }
+                    else
+                    {
+                        // Plain string format
+                        result.Add(new QuestionOptionDto
+                        {
+                            Id = optionIndex.ToString(),
+                            Label = opt,
+                            Value = opt,
+                            Order = optionIndex
+                        });
+                    }
+                }
+                catch (Exception)
+                {
+                    // Fallback to plain string
+                    result.Add(new QuestionOptionDto
+                    {
+                        Id = optionIndex.ToString(),
+                        Label = opt,
+                        Value = opt,
+                        Order = optionIndex
+                    });
+                }
+
+                optionIndex++;
+            }
+
+            return result;
         }
 
         private AIChecklistGenerationResult GenerateFallbackChecklist(AIStageGenerationResult stage)
@@ -3558,15 +3690,10 @@ Make questions relevant to the project context and stage objectives.";
                             {
                                 Id = q.Id,
                                 Text = q.Question,
-                                Type = q.Type ?? "text",
+                                Type = q.Type ?? "short_answer",
                                 IsRequired = q.IsRequired,
                                 Order = index + 1,
-                                Options = q.Options?.Select((opt, optIndex) => new QuestionOptionDto
-                                {
-                                    Label = opt,
-                                    Value = opt,
-                                    Order = optIndex + 1
-                                }).ToList() ?? new List<QuestionOptionDto>()
+                                Options = ParseQuestionOptions(q.Options, index)
                             }).ToList()
                         };
 
@@ -3583,12 +3710,13 @@ Make questions relevant to the project context and stage objectives.";
                                     questions = section.Questions.Select(q => new
                                     {
                                         id = q.Id,
-                                        title = q.Text,  // 使用 title 而不是 text
+                                        title = q.Text,
                                         type = q.Type,
                                         required = q.IsRequired,
                                         order = q.Order,
                                         options = q.Options.Select(opt => new
                                         {
+                                            id = opt.Id,
                                             label = opt.Label,
                                             value = opt.Value,
                                             order = opt.Order

@@ -110,12 +110,6 @@ namespace FlowFlex.Infrastructure.Data
                 entity.AppCode == GetCurrentAppCode(httpContextAccessor));
 
             // Integration module filters
-            // DynamicField filters
-            db.QueryFilter.AddTableFilter<FlowFlex.Domain.Entities.Integration.DynamicField>(entity =>
-                entity.TenantId == GetCurrentTenantId(httpContextAccessor));
-            db.QueryFilter.AddTableFilter<FlowFlex.Domain.Entities.Integration.DynamicField>(entity =>
-                entity.AppCode == GetCurrentAppCode(httpContextAccessor));
-
             // Integration filters
             db.QueryFilter.AddTableFilter<FlowFlex.Domain.Entities.Integration.Integration>(entity =>
                 entity.TenantId == GetCurrentTenantId(httpContextAccessor));

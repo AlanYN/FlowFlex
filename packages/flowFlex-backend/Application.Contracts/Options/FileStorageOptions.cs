@@ -23,7 +23,7 @@ namespace FlowFlex.Application.Contracts.Options
         /// <summary>
         /// Allowed file extensions (comma-separated)
         /// </summary>
-        public string AllowedExtensions { get; set; } = ".jpg,.jpeg,.png,.gif,.pdf,.doc,.docx,.xls,.xlsx,.txt,.zip,.rar";
+        public string AllowedExtensions { get; set; } = ".jpg,.jpeg,.png,.gif,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip,.rar,.mp4,.avi,.mov,.eml,.msg";
 
         /// <summary>
         /// Maximum file size (bytes)

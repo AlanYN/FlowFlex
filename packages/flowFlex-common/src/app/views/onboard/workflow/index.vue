@@ -82,7 +82,7 @@
 							<WorkflowCardView
 								:workflows="workflowListData"
 								:loading="loading.workflows"
-								:empty-message="getEmptyStateMessage()"
+								empty-message="No workflows have been created yet"
 								:action-loading="actionLoading"
 								@command="handleCommand"
 								@select-workflow="handleWorkflowSelect"
@@ -312,6 +312,19 @@
 												</el-icon>
 												Add Stage
 											</el-dropdown-item>
+											<el-dropdown-item
+												command="manageConditions"
+												v-if="
+													hasWorkflowPermission(
+														ProjectPermissionEnum.workflow.update
+													)
+												"
+											>
+												<el-icon>
+													<Connection />
+												</el-icon>
+												Manage Conditions
+											</el-dropdown-item>
 
 											<el-dropdown-item
 												divided
@@ -419,6 +432,7 @@
 								:has-workflow-permission="
 									workflow.permission ? workflow.permission.canOperate : true
 								"
+								:static-fields="staticFields"
 								@edit="(stage) => editStage(stage)"
 								@delete="(stageId) => deleteStage(stageId)"
 								@drag-start="onDragStart"
@@ -544,112 +558,10 @@
 					:questionnaires="questionnaires"
 					:workflow-id="workflow?.id || ''"
 					:quickLinks="quickLinks"
+					:static-fields="staticFields"
 					@submit="submitStage"
 					@cancel="dialogVisible.stageForm = false"
 				/>
-			</div>
-		</el-dialog>
-
-		<!-- 合并阶段对话框 -->
-		<el-dialog
-			v-model="dialogVisible.combineStages"
-			title="Combine Stages"
-			:width="dialogWidth"
-			destroy-on-close
-			draggable
-		>
-			<div v-if="dialogVisible.combineStages" class="combine-stages-form">
-				<p class="text-sm text-muted mb-4">
-					Select the stages you want to combine. The selected stages will be merged into a
-					new stage.
-				</p>
-
-				<div class="stages-to-combine-list mb-4">
-					<el-checkbox-group v-model="stagesToCombine">
-						<div
-							v-for="stage in getWorkflowStages()"
-							:key="stage.id"
-							class="stage-item-select"
-						>
-							<el-checkbox :label="stage.id">
-								<div class="flex items-center">
-									<div
-										class="stage-color-indicator"
-										:style="{
-											backgroundColor:
-												stage.color || getAvatarColor(stage.name),
-										}"
-									></div>
-									<span>{{ stage.name }}</span>
-								</div>
-							</el-checkbox>
-						</div>
-					</el-checkbox-group>
-				</div>
-
-				<div class="combined-stage-info space-y-4">
-					<div>
-						<label class="block text-sm font-medium mb-1">New Stage Name</label>
-						<el-input
-							v-model="combinedStageName"
-							placeholder="Enter name for combined stage"
-						/>
-					</div>
-
-					<div>
-						<label class="block text-sm font-medium mb-1">Assigned Group</label>
-						<el-select
-							v-model="combinedStageGroup"
-							placeholder="Select group"
-							class="w-full"
-						>
-							<el-option label="Account Management" value="Account Management" />
-							<el-option label="Sales" value="Sales" />
-							<el-option label="Customer" value="Customer" />
-							<el-option label="Legal" value="Legal" />
-							<el-option label="IT" value="IT" />
-						</el-select>
-					</div>
-
-					<div>
-						<label class="block text-sm font-medium mb-1">
-							Estimated Duration (days)
-						</label>
-						<el-input-number v-model="combinedStageDuration" :min="1" :max="30" />
-					</div>
-				</div>
-
-				<div class="flex justify-end space-x-2 mt-6">
-					<el-button
-						@click="dialogVisible.combineStages = false"
-						:disabled="loading.combineStages"
-					>
-						Cancel
-					</el-button>
-					<el-button
-						type="primary"
-						:loading="loading.combineStages"
-						:disabled="
-							stagesToCombine.length < 2 ||
-							!combinedStageName ||
-							!combinedStageGroup ||
-							!combinedStageDuration ||
-							loading.combineStages
-						"
-						class="combine-btn"
-						:class="{
-							'disabled-btn':
-								stagesToCombine.length < 2 ||
-								!combinedStageName ||
-								!combinedStageGroup ||
-								!combinedStageDuration ||
-								loading.combineStages,
-						}"
-						@click="combineSelectedStages"
-					>
-						Combine Stages
-					</el-button>
-				</div>
 			</div>
 		</el-dialog>
 	</div>
@@ -657,6 +569,7 @@
 
 <script setup lang="ts">
 import { ref, reactive, onMounted, computed, markRaw } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 import { ElMessage, ElMessageBox, ElNotification } from 'element-plus';
 import {
 	Plus,
@@ -666,7 +579,7 @@ import {
 	Check,
 	CopyDocument,
 	Download,
-	// Connection,
+	Connection,
 	Loading,
 	Star,
 	DocumentAdd,
@@ -675,7 +588,7 @@ import {
 
 import StarIcon from '@assets/svg/workflow/star.svg';
 import { timeZoneConvert } from '@/hooks/time';
-import { dialogWidth, bigDialogWidth, projectTenMinuteDate } from '@/settings/projectSetting';
+import { bigDialogWidth, projectTenMinuteDate } from '@/settings/projectSetting';
 import { useI18n } from '@/hooks/useI18n';
 
 // 引入OW模块API接口
@@ -687,7 +600,6 @@ import {
 	duplicateWorkflow as duplicateWorkflowApi,
 	createStage,
 	getStagesByWorkflow,
-	combineStages,
 	sortStages,
 	updateStage,
 	deleteStage as deleteStageApi,
@@ -697,6 +609,8 @@ import {
 import { getChecklists } from '@/apis/ow/checklist';
 import { queryQuestionnaires } from '@/apis/ow/questionnaire';
 import { getQuickLinks } from '@/apis/integration';
+import { getDynamicField } from '@/apis/global/dyanmicField';
+import { DynamicList } from '#/dynamic';
 
 // 引入自定义组件
 import StagesList from './components/StagesList.vue';
@@ -707,7 +621,6 @@ import WorkflowListView from './components/WorkflowListView.vue';
 import { Stage, Workflow, Questionnaire, Checklist } from '#/onboard';
 import { getFlowflexUser } from '@/apis/global';
 import { FlowflexUser } from '#/golbal';
-import { getAvatarColor } from '@/utils';
 import { WFEMoudels } from '@/enums/appEnum';
 import PageHeader from '@/components/global/PageHeader/index.vue';
 import { PrototypeTabs, TabPane, TabButtonGroup } from '@/components/PrototypeTabs';
@@ -724,6 +637,10 @@ import { IQuickLink } from '#/integration';
 
 const { t } = useI18n();
 
+// Router instance
+const route = useRoute();
+const router = useRouter();
+
 // Store instances
 const userStore = useUserStore();
 const menuStore = menuRoles();
@@ -733,10 +650,6 @@ const { scrollbarRef } = useAdaptiveScrollbar(70);
 
 // 状态
 const workflow = ref<Workflow | null>(null); // 当前操作的工作流
-// const displayWorkflow = ref<Workflow | null>(null); // 用于显示的工作流副本
-// const isEditingFromHistory = ref(false); // 是否从历史版本编辑
-// const editingWorkflowData = ref<Workflow | null>(null); // 编辑中的工作流数据
-
 const isEditing = ref(true);
 const currentStage = ref<Stage | null>(null);
 const isEditingStage = ref(false);
@@ -746,13 +659,16 @@ const isEditingWorkflow = ref(false);
 const originalStagesOrder = ref<Stage[]>([]); // 保存拖动前的原始阶段顺序
 
 // 新增状态变量
-const viewMode = ref<'list' | 'detail'>('list'); // 视图模式
+const viewMode = ref<'list' | 'detail'>(route?.query?.id ? 'detail' : 'list'); // 视图模式
 const activeView = ref('list'); // table/card切换
 const pagination = ref({
 	pageIndex: 1,
 	pageSize: 15,
 	total: 0,
 });
+
+// 路由 query 中的 workflowId
+const routeWorkflowId = computed(() => route.query.id as string | undefined);
 
 // 视图切换配置
 const tabsConfig = ref([
@@ -773,7 +689,6 @@ const loading = reactive({
 	updateStage: false, // 更新阶段
 	deleteStage: false, // 删除阶段
 	sortStages: false, // 排序阶段
-	combineStages: false, // 合并阶段
 	exportWorkflow: false, // 导出工作流
 });
 
@@ -820,17 +735,10 @@ const actionLoading = computed(() => {
 	};
 });
 
-// 合并阶段相关状态
-const stagesToCombine = ref<string[]>([]);
-const combinedStageName = ref<string>('');
-const combinedStageGroup = ref<string>('');
-const combinedStageDuration = ref<number>(1);
-
 // 对话框状态
 const dialogVisible = reactive({
 	workflowForm: false,
 	stageForm: false,
-	combineStages: false,
 });
 
 // 计算对话框标题
@@ -896,14 +804,25 @@ const fetchQuickLinks = async () => {
 	}
 };
 
-// 初始化数据
-onMounted(async () => {
-	// 获取工作流列表数据（默认显示列表视图）
-	await fetchWorkflows();
-	fetchChecklists();
-	fetchQuestionnaires();
-	fetchQuickLinks();
-});
+// 加载 workflow 详情
+const loadWorkflowDetail = async (workflowId: string) => {
+	// 先从列表数据中查找
+	let selectedWorkflowData = workflowListData.value.find((wf) => wf.id === workflowId);
+
+	if (selectedWorkflowData) {
+		// 设置基本信息
+		workflow.value = selectedWorkflowData;
+		selectedWorkflow.value = workflowId;
+		viewMode.value = 'detail';
+
+		// 获取完整的workflow详情（包括stages）
+		await fetchStages(workflowId);
+	} else {
+		ElMessage.error('Workflow not found');
+		// 清除无效的 query 参数
+		router.replace({ query: {} });
+	}
+};
 
 // 获取工作流列表（分页数据，用于列表视图）
 // 筛选
@@ -989,30 +908,37 @@ const handleViewChange = (value: string) => {
 
 const handleWorkflowSelect = async (workflowId: string) => {
 	// 从列表数据中查找选中的workflow
+
 	const selectedWorkflowData = workflowListData.value.find((wf) => wf.id === workflowId);
 
 	if (selectedWorkflowData) {
 		// 设置基本信息
+
 		workflow.value = selectedWorkflowData;
+
 		selectedWorkflow.value = workflowId.toString();
 
 		// 切换到详情视图
+
 		viewMode.value = 'detail';
 
+		// 更新路由 query 参数（不会触发组件重新挂载）
+
+		router.replace({ query: { id: workflowId } });
+
 		// 获取完整的workflow详情（包括stages）
+
 		await fetchStages(workflowId);
 	} else {
-		ElMessage.error('Workflow not found');
+		workflow.value = null;
 	}
 };
 
 const handleBackToList = () => {
 	viewMode.value = 'list';
 	workflow.value = null;
-};
-
-const getEmptyStateMessage = () => {
-	return 'No workflows have been created yet';
+	// 清除路由 query 参数
+	router.replace({ query: {} });
 };
 
 // 分页处理函数
@@ -1038,7 +964,7 @@ const handleSortChange = (sort: any) => {
 };
 
 const handleCommand = (command: string, targetWorkflow?: any) => {
-	// 设置当前操作的workflow和操作类型（用于loading状态）
+	// 设置当前操作的workflow和操作类型（用于loading状态
 	if (targetWorkflow) {
 		currentActionWorkflow.value = targetWorkflow.id;
 		currentActionType.value = command;
@@ -1087,13 +1013,11 @@ const handleCommand = (command: string, targetWorkflow?: any) => {
 				exportWorkflow(targetWorkflow);
 			}
 			break;
-		case 'delete':
+		case 'manageConditions':
+			// 跳转到可视化条件编辑器页面
 			if (targetWorkflow) {
-				deleteWorkflow(targetWorkflow);
+				router.push(`/onboard/workflow/${targetWorkflow.id}/conditions`);
 			}
-			break;
-		case 'combineStages':
-			showCombineStagesDialog();
 			// 清除loading状态
 			currentActionWorkflow.value = null;
 			currentActionType.value = null;
@@ -1598,6 +1522,7 @@ const submitStage = async (stage: Partial<Stage>) => {
 	try {
 		// 更新阶段
 		loading.updateStage = true;
+		loading.createStage = true;
 		// 注意：权限检查已在 StageForm.vue 组件内部完成，这里不需要重复检查
 
 		const params = {
@@ -1849,120 +1774,6 @@ const duplicateWorkflow = async (targetWorkflow?: any) => {
 	}
 };
 
-const deleteWorkflow = async (targetWorkflow?: any) => {
-	const workflowToDelete = targetWorkflow || workflow.value;
-	if (!workflowToDelete) return;
-
-	ElMessageBox.confirm(
-		`Are you sure you want to delete the workflow "${workflowToDelete.name}"? This action cannot be undone and will permanently remove all associated stages and data.`,
-		'⚠️ Confirm Workflow Deletion',
-		{
-			confirmButtonText: 'Delete Workflow',
-			cancelButtonText: 'Cancel',
-			confirmButtonClass: 'danger-confirm-btn',
-			cancelButtonClass: 'cancel-confirm-btn',
-			distinguishCancelAndClose: true,
-			customClass: 'delete-confirmation-dialog',
-			showCancelButton: true,
-			showConfirmButton: true,
-			beforeClose: async (action, instance, done) => {
-				if (action === 'confirm') {
-					// 显示loading状态
-					instance.confirmButtonLoading = true;
-					instance.confirmButtonText = 'Deleting...';
-
-					try {
-						// TODO: 调用删除工作流API（当API可用时）
-						// const res = await deleteWorkflowApi(workflowToDelete.id);
-
-						// 临时实现：显示消息表示功能暂不可用
-						ElMessage.warning(
-							'Delete workflow functionality is not yet implemented in the API.'
-						);
-						done(); // 关闭对话框
-
-						// 当API可用时，取消注释以下代码：
-						/*
-						if (res.code === '200') {
-							ElMessage.success(t('sys.api.operationSuccess'));
-							// 如果删除的是当前选中的workflow，返回列表视图
-							if (workflow.value && workflow.value.id === workflowToDelete.id) {
-								handleBackToList();
-							}
-							// 重新获取工作流列表
-							await fetchWorkflows();
-							done(); // 关闭对话框
-						} else {
-							ElMessage.error(res.msg || t('sys.api.operationFailed'));
-							// 恢复按钮状态
-							instance.confirmButtonLoading = false;
-							instance.confirmButtonText = 'Delete Workflow';
-						}
-						*/
-					} catch (error) {
-						ElMessage.error('An error occurred while deleting the workflow.');
-						// 恢复按钮状态
-						instance.confirmButtonLoading = false;
-						instance.confirmButtonText = 'Delete Workflow';
-					}
-				} else {
-					done(); // 取消或关闭时直接关闭对话框
-				}
-			},
-		}
-	);
-};
-
-const showCombineStagesDialog = () => {
-	resetCombineStagesForm();
-	dialogVisible.combineStages = true;
-};
-
-const getWorkflowStages = () => {
-	if (!workflow.value) return [];
-	return workflow.value.stages;
-};
-
-const combineSelectedStages = async () => {
-	if (stagesToCombine.value.length < 2 || !combinedStageName.value || !workflow.value) {
-		return;
-	}
-
-	try {
-		loading.combineStages = true;
-		const params = {
-			stageIds: stagesToCombine.value,
-			newStageName: combinedStageName.value,
-			description: '从多个阶段合并而来',
-			defaultAssignedGroup: combinedStageGroup.value,
-			defaultAssignee: '',
-			estimatedDuration: combinedStageDuration.value,
-			color: getAvatarColor(combinedStageName.value),
-		};
-
-		const res = await combineStages(params);
-
-		if (res.code === '200') {
-			ElMessage.success(t('sys.api.operationSuccess'));
-			// 重新获取阶段列表
-			await fetchStages(workflow.value.id);
-			resetCombineStagesForm();
-			dialogVisible.combineStages = false;
-		} else {
-			ElMessage.error(res.msg || t('sys.api.operationFailed'));
-		}
-	} finally {
-		loading.combineStages = false;
-	}
-};
-
-const resetCombineStagesForm = () => {
-	stagesToCombine.value = [];
-	combinedStageName.value = '';
-	combinedStageGroup.value = '';
-	combinedStageDuration.value = 1;
-};
-
 // 检查是否有权限（功能权限 && 数据权限）
 const hasWorkflowPermission = (functionalPermission: string) => {
 	if (workflow.value && workflow.value.permission) {
@@ -1982,6 +1793,34 @@ const getUserGroup = async () => {
 		userList.value = [];
 	}
 };
+
+const staticFields = ref<DynamicList[]>([]);
+const loadingDynamicField = ref(false);
+const loadDynamicField = async () => {
+	try {
+		loadingDynamicField.value = true;
+		const response = await getDynamicField();
+		if (response.code === '200') {
+			staticFields.value = response?.data || [];
+		}
+	} finally {
+		loadingDynamicField.value = false;
+	}
+};
+
+onMounted(async () => {
+	// 初始化数据
+	await fetchWorkflows();
+	fetchChecklists();
+	fetchQuestionnaires();
+	fetchQuickLinks();
+	loadDynamicField();
+
+	// 如果路由 query 中有 id，加载详情
+	if (routeWorkflowId.value) {
+		await loadWorkflowDetail(routeWorkflowId.value);
+	}
+});
 </script>
 
 <style lang="scss" scoped>
@@ -1989,8 +1828,6 @@ const getUserGroup = async () => {
 	margin: 0 auto;
 	height: 100%;
 }
-
-/* 使用 Tailwind 类替代 */
 
 .workflow-card {
 	@apply mb-4 shadow-sm transition-all duration-300 overflow-hidden flex flex-col;
@@ -2024,8 +1861,6 @@ const getUserGroup = async () => {
 	@apply flex items-center gap-4;
 }
 
-/* workflow-selector样式已移除，因为详情视图不再需要选择器 */
-
 .more-actions-btn {
 	display: flex;
 	align-items: center;
@@ -2040,54 +1875,27 @@ const getUserGroup = async () => {
 	min-width: 180px;
 }
 
-.actions-dropdown :deep(.el-dropdown-menu__item) {
-	display: flex;
-	align-items: center;
-}
-
 .ai-tag {
-	background: var(--el-color-primary);
-	background-color: var(--el-color-primary);
-	color: white;
-	border-color: transparent;
 	padding: 2px 8px;
-	font-size: var(--caption-size); /* 10px - closest to 11px */
+	font-size: var(--caption-size);
 	display: inline-flex;
 	align-items: center;
 	margin-left: 8px;
 }
 
-/* Increase specificity to override Element Plus tag presets */
-.ai-tag,
-.ai-tag.is-light,
-.ai-tag,
-.is-light.ai-tag {
-	background: var(--el-color-primary) !important;
-	background-color: var(--el-color-primary) !important;
-	background-image: none !important;
-	color: var(--el-color-white) !important;
-	border-color: transparent !important;
-	--el-tag-text-color: var(--el-color-white) !important;
-}
-
 .default-tag {
-	background: var(--el-color-warning);
-	color: var(--el-color-white);
-	border-color: transparent;
 	padding: 2px 8px;
-	font-size: var(--caption-size); /* 10px - closest to 11px */
+	font-size: var(--caption-size);
 	display: inline-flex;
 	align-items: center;
 	margin-left: 8px;
 }
 
 .ai-sparkles {
-	font-size: var(--button-2-size); /* 12px - Item Button 2 */
+	font-size: var(--button-2-size);
 	animation: sparkle 2s ease-in-out infinite;
 	display: inline-block;
 }
-
-/* ai-dropdown-sparkles样式已移除，因为详情视图不再需要选择器 */
 
 @keyframes sparkle {
 	0%,
@@ -2116,18 +1924,6 @@ const getUserGroup = async () => {
 	height: 12px;
 }
 
-/* ai-dropdown-icon和inactive-icon样式已移除，因为详情视图不再需要选择器 */
-
-.calendar-icon {
-	color: var(--primary-500);
-	margin-right: 0;
-	font-size: var(--base-1-size); /* 16px - Item Base 1 */
-}
-
-.delete-item {
-	color: var(--red-500, var(--el-color-danger));
-}
-
 .workflow-card-body {
 	@apply py-4 px-2.5 pl-6 flex-1;
 }
@@ -2140,33 +1936,10 @@ const getUserGroup = async () => {
 	@apply flex items-center gap-4 text-sm;
 }
 
-.date-item {
-	display: flex;
-	align-items: center;
-	gap: 4px;
-}
-
-.date-label {
-	font-weight: 500;
-	color: var(--el-text-color-primary);
-	margin-right: 2px;
-}
-
-.date-value {
-	color: var(--el-text-color-regular);
-}
-
 .stages-header {
 	display: flex;
 	justify-content: right;
 	margin: 16px 0;
-}
-
-.stages-header h3 {
-	margin: 0;
-	font-size: var(--base-1-size); /* 16px - Item Base 1 */
-	color: var(--el-text-color-primary);
-	font-weight: 500;
 }
 
 .stages-header-actions {
@@ -2175,45 +1948,8 @@ const getUserGroup = async () => {
 	gap: 12px;
 }
 
-.viewing-history-tag {
-	font-size: var(--button-2-size); /* 12px - Item Button 2 */
-}
-
-.back-to-current-btn {
-	font-size: var(--button-2-size); /* 12px - Item Button 2 */
-	padding: 4px 8px;
-}
-
-.version-tag {
-	font-size: var(--button-2-size); /* 12px - Item Button 2 */
-	font-weight: 600;
-	background: var(--el-color-primary);
-	color: var(--el-color-white);
-	border: none;
-}
-
 .action-buttons-group {
 	@apply flex items-center gap-3;
-}
-
-/* Hover and disabled states handled by Tailwind classes */
-
-.drag-handle {
-	cursor: move;
-	color: var(--el-text-color-placeholder);
-}
-
-.ghost-workflow {
-	opacity: 0.5;
-	background: var(--el-color-info-light-7);
-}
-
-.version-history-placeholder {
-	padding: 10px;
-}
-
-:deep(.el-icon) {
-	vertical-align: middle;
 }
 
 .workflow-footer {
@@ -2224,294 +1960,24 @@ const getUserGroup = async () => {
 	@apply font-normal m-0;
 }
 
-.text-primary {
-	color: var(--el-color-primary);
-}
-
-.combine-stages-form {
-	padding: 0 10px;
-}
-
-.text-muted {
-	color: var(--el-text-color-secondary);
-}
-
-.stage-item-select {
-	padding: 8px;
-	margin-bottom: 4px;
-	transition: background-color 0.2s;
-	@apply rounded-xl;
-}
-
-.stage-item-select:hover {
-	background-color: var(--el-fill-color-lighter);
-}
-
-.stage-color-indicator {
-	width: 12px;
-	height: 12px;
-	border-radius: 50%;
-	margin-right: 8px;
-	display: inline-block;
-}
-
-.disabled-btn {
-	opacity: 0.6;
-	cursor: not-allowed;
-}
-
 .dialog-header {
 	border-bottom: none;
 }
 
 .dialog-title {
-	font-size: var(--body-2-size); /* 18px - Item Body 2 */
+	font-size: var(--body-2-size);
 	font-weight: 600;
 	margin: 0 0 4px 0;
 }
 
 .dialog-subtitle {
 	color: var(--el-text-color-regular);
-	font-size: var(--button-2-size); /* 12px - closest to 13px */
+	font-size: var(--button-2-size);
 	margin: 0;
 	font-weight: normal;
 	line-height: 1.4;
 }
 
-:deep(.workflow-dialog .el-dialog__header) {
-	padding: 0;
-	margin-right: 0;
-	border-bottom: none;
-}
-
-:deep(.workflow-dialog .el-dialog__headerbtn) {
-	top: 16px;
-	right: 16px;
-	z-index: 10;
-}
-
-:deep(.workflow-dialog .el-dialog__body) {
-	padding: 24px;
-}
-
-/* 版本历史对话框样式 */
-:deep(.version-history-dialog) {
-	overflow: hidden;
-	@apply rounded-xl;
-}
-
-:deep(.version-history-dialog .el-dialog__header) {
-	padding: 0;
-	margin-right: 0;
-	border-bottom: 1px solid var(--el-border-color-lighter);
-}
-
-:deep(.version-history-dialog .el-dialog__headerbtn) {
-	top: 20px;
-	right: 20px;
-	z-index: 10;
-}
-
-:deep(.version-history-dialog .el-dialog__body) {
-	padding: 0;
-}
-
-:deep(.version-history-dialog .el-dialog__footer) {
-	padding: 20px 24px;
-	border-top: 1px solid var(--el-border-color-lighter);
-	background-color: var(--el-fill-color-lighter);
-}
-
-.version-dialog-header {
-	padding: 24px 24px 20px 24px;
-	background-color: var(--el-bg-color);
-}
-
-.version-dialog-title {
-	font-size: var(--body-1-size); /* 20px - Item Body 1 */
-	font-weight: 600;
-	color: var(--el-text-color-primary);
-	margin: 0 0 8px 0;
-	line-height: 1.2;
-}
-
-.version-dialog-subtitle {
-	color: var(--el-text-color-secondary);
-	font-size: var(--button-1-size); /* 14px - Item Button 1 */
-	margin: 0;
-	font-weight: normal;
-	line-height: 1.4;
-}
-
-.version-history-content {
-	padding: 0;
-	background-color: var(--el-bg-color);
-}
-
-.version-history-table {
-	width: 100%;
-	table-layout: fixed;
-}
-
-.version-history-table .el-table__body-wrapper {
-	overflow-x: hidden;
-}
-
-:deep(.version-table-header) {
-	background-color: var(--el-fill-color-lighter);
-	border-bottom: 1px solid var(--el-border-color-light);
-}
-
-:deep(.version-table-header th) {
-	background-color: var(--el-fill-color-lighter) !important;
-	color: var(--el-text-color-primary);
-	font-weight: 600;
-	font-size: var(--button-2-size); /* 12px - closest to 13px */
-	padding: 16px 12px;
-	border-bottom: 1px solid var(--el-border-color-light);
-}
-
-:deep(.version-table-row td) {
-	padding: 14px 12px;
-	border-bottom: 1px solid var(--el-fill-color-light);
-	vertical-align: middle;
-}
-
-:deep(.version-table-header th) {
-	padding: 14px 12px;
-}
-
-:deep(.version-table-row:hover td) {
-	background-color: var(--el-fill-color-lighter);
-}
-
-.version-name {
-	font-weight: 500;
-	color: var(--el-text-color-primary);
-	font-size: var(--button-1-size); /* 14px - Item Button 1 */
-	white-space: nowrap;
-	overflow: hidden;
-	text-overflow: ellipsis;
-}
-
-.status-tag {
-	font-weight: 500;
-	font-size: var(--button-2-size); /* 12px - Item Button 2 */
-}
-
-.default-tag {
-	background: var(--el-color-warning);
-	color: var(--el-color-white);
-	border: none;
-	font-weight: 500;
-	font-size: var(--button-2-size); /* 12px - Item Button 2 */
-}
-
-.date-text {
-	color: var(--el-text-color-secondary);
-	font-size: var(--button-2-size); /* 12px - closest to 13px */
-	white-space: nowrap;
-}
-
-.created-by {
-	color: var(--el-text-color-primary);
-	font-size: var(--button-2-size); /* 12px - closest to 13px */
-	font-weight: 500;
-	white-space: nowrap;
-	overflow: hidden;
-	text-overflow: ellipsis;
-}
-
-.action-buttons {
-	display: flex;
-	align-items: center;
-	gap: 8px;
-}
-
-.view-btn {
-	font-size: var(--button-2-size); /* 12px - closest to 13px */
-	font-weight: 500;
-}
-
-.edit-btn {
-	padding: 4px;
-	transition: all 0.2s ease;
-	@apply rounded-xl;
-}
-
-.edit-btn:hover {
-	background-color: var(--el-fill-color-light);
-}
-
-.version-dialog-footer {
-	display: flex;
-	justify-content: flex-end;
-	margin: 0;
-}
-
-.close-btn {
-	color: var(--el-text-color-secondary);
-	border-color: var(--el-border-color);
-	background-color: var(--el-bg-color);
-	font-weight: 500;
-	padding: 8px 16px;
-}
-
-.close-btn:hover {
-	background-color: var(--el-fill-color-lighter);
-	border-color: var(--el-text-color-secondary);
-}
-
-.new-workflow-btn-footer {
-	background: var(--el-color-primary);
-	border: none;
-	color: var(--el-color-white);
-	font-weight: 500;
-	padding: 8px 16px;
-	display: flex;
-	align-items: center;
-	gap: 6px;
-	transition: all 0.2s ease;
-}
-
-.new-workflow-btn-footer:hover {
-	background: var(--el-color-primary-dark-2);
-	transform: translateY(-1px);
-	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-}
-
-.mr-1 {
-	margin-right: 4px;
-}
-
-/* 改善下拉菜单的可访问性 */
-:deep(.el-dropdown__popper) {
-	z-index: 9999;
-}
-
-:deep(.el-dropdown__popper[aria-hidden='true']) {
-	visibility: hidden;
-	pointer-events: none;
-}
-
-:deep(.el-dropdown__popper[aria-hidden='false']) {
-	visibility: visible;
-	pointer-events: auto;
-}
-
-:deep(.el-dropdown-menu__item:focus) {
-	background-color: var(--el-dropdown-menuItem-hover-fill);
-	color: var(--el-dropdown-menuItem-hover-color);
-	outline: 2px solid var(--el-color-primary);
-	outline-offset: -2px;
-}
-
-.version-badge {
-	font-size: var(--button-2-size); /* 12px - Item Button 2 */
-	opacity: 0.7;
-}
-
-/* 空状态样式 */
 .empty-state-container {
 	@apply py-16 px-5 text-center mb-4;
 }
@@ -2534,247 +2000,5 @@ const getUserGroup = async () => {
 
 .create-workflow-btn {
 	@apply py-3 px-6 text-base;
-}
-</style>
-
-<!-- 全局样式用于 MessageBox 删除确认对话框 -->
-<style lang="scss">
-/* 删除确认对话框样式 */
-.delete-confirmation-dialog {
-	/* border-radius removed - using rounded-xl class */
-
-	.el-message-box__message {
-		color: var(--el-text-color-regular);
-		font-size: var(--button-1-size); /* 14px - Item Button 1 */
-		line-height: 1.5;
-	}
-}
-
-/* 停用确认对话框样式 */
-.deactivate-confirmation-dialog {
-	.el-message-box__message {
-		color: var(--el-text-color-regular);
-		font-size: var(--button-1-size); /* 14px - Item Button 1 */
-		line-height: 1.5;
-	}
-}
-
-/* 过期日期确认对话框样式 */
-.expired-date-confirmation-dialog {
-	.el-message-box__message {
-		color: var(--el-text-color-regular);
-		font-size: var(--button-1-size); /* 14px - Item Button 1 */
-		line-height: 1.5;
-		white-space: pre-line;
-		/* 保持换行格式 */
-	}
-}
-
-/* 确保删除按钮为纯红色 - 仅限于删除确认对话框 */
-.delete-confirmation-dialog {
-	.el-message-box__btns .danger-confirm-btn,
-	.danger-confirm-btn {
-		background: var(--el-color-danger) !important;
-		background-color: var(--el-color-danger) !important;
-		background-image: none !important;
-		border-color: var(--el-color-danger) !important;
-		color: var(--el-color-white) !important;
-		opacity: 1 !important;
-		box-shadow: none !important;
-
-		&:hover,
-		&:focus {
-			background: var(--el-color-danger-light-3) !important;
-			background-color: var(--el-color-danger-light-3) !important;
-			background-image: none !important;
-			border-color: var(--el-color-danger-light-3) !important;
-			color: var(--el-color-white) !important;
-			opacity: 1 !important;
-			box-shadow: 0 0 0 2px var(--el-color-danger-light-8) !important;
-		}
-
-		&:active {
-			background: var(--el-color-danger-dark-2) !important;
-			background-color: var(--el-color-danger-dark-2) !important;
-			background-image: none !important;
-			border-color: var(--el-color-danger-dark-2) !important;
-			color: var(--el-color-white) !important;
-			opacity: 1 !important;
-		}
-
-		&::before,
-		&::after {
-			display: none !important;
-		}
-	}
-
-	/* 额外的强制样式，处理 Element Plus 的默认样式覆盖 */
-	.el-button--primary.danger-confirm-btn,
-	.el-message-box__btns .el-button--primary.danger-confirm-btn {
-		background: var(--el-color-danger) !important;
-		background-color: var(--el-color-danger) !important;
-		background-image: none !important;
-		border: 1px solid var(--el-color-danger) !important;
-		border-color: var(--el-color-danger) !important;
-		color: var(--el-color-white) !important;
-
-		&:not(:disabled):not(.is-disabled) {
-			background: var(--el-color-danger) !important;
-			background-color: var(--el-color-danger) !important;
-			background-image: none !important;
-			border-color: var(--el-color-danger) !important;
-			color: var(--el-color-white) !important;
-		}
-	}
-}
-
-/* 取消按钮样式 - 仅限于删除确认对话框 */
-.delete-confirmation-dialog {
-	.cancel-confirm-btn {
-		border-color: var(--el-border-color) !important;
-		color: var(--el-text-color-regular) !important;
-
-		&:hover {
-			background-color: var(--el-fill-color-lighter) !important;
-			border-color: var(--el-border-color-dark) !important;
-			color: var(--el-text-color-regular) !important;
-		}
-	}
-}
-
-/* 停用确认对话框的警告按钮样式 */
-.deactivate-confirmation-dialog {
-	.el-message-box__btns .warning-confirm-btn,
-	.warning-confirm-btn {
-		background: var(--el-color-warning) !important;
-		background-color: var(--el-color-warning) !important;
-		background-image: none !important;
-		border-color: var(--el-color-warning) !important;
-		color: var(--el-color-white) !important;
-		opacity: 1 !important;
-		box-shadow: none !important;
-
-		&:hover,
-		&:focus {
-			background: var(--el-color-warning-light-3) !important;
-			background-color: var(--el-color-warning-light-3) !important;
-			background-image: none !important;
-			border-color: var(--el-color-warning-light-3) !important;
-			color: var(--el-color-white) !important;
-			opacity: 1 !important;
-			box-shadow: 0 0 0 2px var(--el-color-warning-light-8) !important;
-		}
-
-		&:active {
-			background: var(--el-color-warning-dark-2) !important;
-			background-color: var(--el-color-warning-dark-2) !important;
-			background-image: none !important;
-			border-color: var(--el-color-warning-dark-2) !important;
-			color: var(--el-color-white) !important;
-			opacity: 1 !important;
-		}
-
-		&::before,
-		&::after {
-			display: none !important;
-		}
-	}
-
-	/* 额外的强制样式，处理 Element Plus 的默认样式覆盖 */
-	.el-button--primary.warning-confirm-btn,
-	.el-message-box__btns .el-button--primary.warning-confirm-btn {
-		background: var(--el-color-warning) !important;
-		background-color: var(--el-color-warning) !important;
-		background-image: none !important;
-		border: 1px solid var(--el-color-warning) !important;
-		border-color: var(--el-color-warning) !important;
-		color: var(--el-color-white) !important;
-
-		&:not(:disabled):not(.is-disabled) {
-			background: var(--el-color-warning) !important;
-			background-color: var(--el-color-warning) !important;
-			background-image: none !important;
-			border-color: var(--el-color-warning) !important;
-			color: var(--el-color-white) !important;
-		}
-	}
-
-	/* 取消按钮样式 */
-	.cancel-confirm-btn {
-		background-color: var(--el-fill-color-lighter) !important;
-		border-color: var(--el-border-color-dark) !important;
-		color: var(--el-text-color-regular) !important;
-	}
-}
-
-/* 过期日期确认对话框的警告按钮样式 */
-.expired-date-confirmation-dialog {
-	.el-message-box__btns .warning-confirm-btn,
-	.warning-confirm-btn {
-		background: var(--el-color-warning) !important;
-		background-color: var(--el-color-warning) !important;
-		background-image: none !important;
-		border-color: var(--el-color-warning) !important;
-		color: var(--el-color-white) !important;
-		opacity: 1 !important;
-		box-shadow: none !important;
-
-		&:hover,
-		&:focus {
-			background: var(--el-color-warning-light-3) !important;
-			background-color: var(--el-color-warning-light-3) !important;
-			background-image: none !important;
-			border-color: var(--el-color-warning-light-3) !important;
-			color: var(--el-color-white) !important;
-			opacity: 1 !important;
-			box-shadow: 0 0 0 2px var(--el-color-warning-light-8) !important;
-		}
-
-		&:active {
-			background: var(--el-color-warning-dark-2) !important;
-			background-color: var(--el-color-warning-dark-2) !important;
-			background-image: none !important;
-			border-color: var(--el-color-warning-dark-2) !important;
-			color: var(--el-color-white) !important;
-			opacity: 1 !important;
-		}
-
-		&::before,
-		&::after {
-			display: none !important;
-		}
-	}
-
-	/* 额外的强制样式，处理 Element Plus 的默认样式覆盖 */
-	.el-button--primary.warning-confirm-btn,
-	.el-message-box__btns .el-button--primary.warning-confirm-btn {
-		background: var(--el-color-warning) !important;
-		background-color: var(--el-color-warning) !important;
-		background-image: none !important;
-		border: 1px solid var(--el-color-warning) !important;
-		border-color: var(--el-color-warning) !important;
-		color: var(--el-color-white) !important;
-
-		&:not(:disabled):not(.is-disabled) {
-			background: var(--el-color-warning) !important;
-			background-color: var(--el-color-warning) !important;
-			background-image: none !important;
-			border-color: var(--el-color-warning) !important;
-			color: var(--el-color-white) !important;
-		}
-	}
-
-	/* 取消按钮样式 */
-	.cancel-confirm-btn {
-		background-color: var(--el-fill-color-lighter) !important;
-		border-color: var(--el-border-color-dark) !important;
-		color: var(--el-text-color-regular) !important;
-
-		&:hover {
-			background-color: var(--el-fill-color-lighter) !important;
-			border-color: var(--el-border-color-dark) !important;
-			color: var(--el-text-color-regular) !important;
-		}
-	}
 }
 </style>

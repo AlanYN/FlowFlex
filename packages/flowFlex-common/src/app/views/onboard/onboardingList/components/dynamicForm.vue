@@ -34,7 +34,7 @@
 						<div class="flex items-center gap-2">
 							<span class="text-sm font-medium form-question-number">
 								{{ currentSectionIndex + 1 }}-{{
-									getQuestionNumber(questionIndex)
+									getQuestionNumber(+questionIndex)
 								}}.
 								{{ question.title }}
 								<span
@@ -340,48 +340,49 @@
 
 					<!-- 多选网格 -->
 					<div v-else-if="question.type === 'multiple_choice_grid'" class="preview-grid">
-						<div v-if="question.columns && question.rows" class="grid-container">
-							<div class="grid-header">
-								<div class="grid-cell grid-row-header"></div>
-								<div
-									v-for="(column, colIndex) in question.columns"
-									:key="colIndex"
-									class="grid-cell grid-column-header"
-								>
-									{{ column.label }}
-									<el-tag
-										v-if="column.isOther"
-										type="warning"
-										class="other-column-tag"
-									>
-										Other
-									</el-tag>
-								</div>
-							</div>
-							<div
-								v-for="(row, rowIndex) in question.rows"
-								:key="rowIndex"
-								class="grid-row"
+						<el-table
+							v-if="question.columns && question.rows"
+							:data="question.rows"
+							border
+							resizable
+							class="grid-table"
+						>
+							<el-table-column
+								prop="label"
+								label=""
+								fixed="left"
+								min-width="200"
+								resizable
 							>
-								<div class="grid-cell grid-row-header">
-									<span class="w-[200px] min-w-0 truncate">{{ row.label }}</span>
-								</div>
-								<div
-									v-for="(column, colIndex) in question.columns"
-									:key="colIndex"
-									class="grid-cell grid-checkbox-cell gap-x-2"
-								>
-									<el-checkbox-group
-										v-model="formData[`${question.id}_${row.id}`]"
-										@change="handleHasOtherQuestion(question, row.id)"
-										:disabled="questionIsDisabled(question.id)"
-									>
-										<el-checkbox :value="column.id" class="grid-checkbox" />
-									</el-checkbox-group>
-
-									<!-- Other选项的文字输入框 -->
-									<div v-if="column.isOther">
+								<template #default="{ row }">
+									<span class="truncate" :title="row.label">{{ row.label }}</span>
+								</template>
+							</el-table-column>
+							<el-table-column
+								v-for="(column, colIndex) in question.columns"
+								:key="colIndex"
+								:label="column.label"
+								min-width="120"
+								resizable
+								align="center"
+							>
+								<template #header>
+									<div class="flex items-center justify-center gap-1">
+										{{ column.label }}
+										<el-tag v-if="column.isOther" type="warning">Other</el-tag>
+									</div>
+								</template>
+								<template #default="{ row }">
+									<div class="flex items-center justify-center gap-2">
+										<el-checkbox-group
+											v-model="formData[`${question.id}_${row.id}`]"
+											@change="handleHasOtherQuestion(question, row.id)"
+											:disabled="questionIsDisabled(question.id)"
+										>
+											<el-checkbox :value="column.id" class="grid-checkbox" />
+										</el-checkbox-group>
 										<el-input
+											v-if="column.isOther"
 											v-model="
 												formData[`${question.id}_${row.id}_${column.id}`]
 											"
@@ -395,66 +396,66 @@
 											class="other-input"
 										/>
 									</div>
-								</div>
-							</div>
-						</div>
+								</template>
+							</el-table-column>
+						</el-table>
 					</div>
 
 					<!-- 单选网格 (Checkbox grid) -->
 					<div v-else-if="question.type === 'checkbox_grid'" class="preview-grid">
-						<div
+						<el-table
 							v-if="
 								question.rows &&
 								question.rows.length > 0 &&
 								question.columns &&
 								question.columns.length > 0
 							"
-							class="grid-container"
+							:data="question.rows"
+							border
+							resizable
+							class="grid-table"
 						>
-							<div class="grid-header">
-								<div class="grid-cell grid-row-header"></div>
-								<div
-									v-for="(column, colIndex) in question.columns"
-									:key="colIndex"
-									class="grid-cell grid-column-header"
-								>
-									{{ column.label }}
-									<el-tag
-										v-if="column.isOther"
-										type="warning"
-										class="other-column-tag"
-									>
-										Other
-									</el-tag>
-								</div>
-							</div>
-							<div
-								v-for="(row, rowIndex) in question.rows"
-								:key="rowIndex"
-								class="grid-row"
+							<el-table-column
+								prop="label"
+								label=""
+								fixed="left"
+								min-width="200"
+								resizable
 							>
-								<div class="grid-cell grid-row-header">{{ row.label }}</div>
-								<div
-									v-for="(column, colIndex) in question.columns"
-									:key="colIndex"
-									class="grid-cell grid-radio-cell gap-x-2"
-								>
-									<el-radio
-										v-model="formData[`${question.id}_${row.id}`]"
-										:name="`grid_${question.id}_${rowIndex}`"
-										:value="
-											column.value ||
-											column.label ||
-											`${rowIndex}_${colIndex}`
-										"
-										:disabled="questionIsDisabled(question.id)"
-										@change="handleHasOtherQuestion(question, row.id)"
-										class="grid-radio"
-									/>
-
-									<!-- Other选项的文字输入框 -->
-									<div v-if="column.isOther">
+								<template #default="{ row }">
+									<span class="truncate" :title="row.label">{{ row.label }}</span>
+								</template>
+							</el-table-column>
+							<el-table-column
+								v-for="(column, colIndex) in question.columns"
+								:key="colIndex"
+								:label="column.label"
+								min-width="120"
+								resizable
+								align="center"
+							>
+								<template #header>
+									<div class="flex items-center justify-center gap-1">
+										{{ column.label }}
+										<el-tag v-if="column.isOther" type="warning">Other</el-tag>
+									</div>
+								</template>
+								<template #default="{ row, $index: rowIndex }">
+									<div class="flex items-center justify-center gap-2">
+										<el-radio
+											v-model="formData[`${question.id}_${row.id}`]"
+											:name="`grid_${question.id}_${rowIndex}`"
+											:value="
+												column.value ||
+												column.label ||
+												`${rowIndex}_${colIndex}`
+											"
+											:disabled="questionIsDisabled(question.id)"
+											@change="handleHasOtherQuestion(question, row.id)"
+											class="grid-radio"
+										/>
 										<el-input
+											v-if="column.isOther"
 											v-model="
 												formData[`${question.id}_${row.id}_${column.id}`]
 											"
@@ -468,9 +469,9 @@
 											class="other-input"
 										/>
 									</div>
-								</div>
-							</div>
-						</div>
+								</template>
+							</el-table-column>
+						</el-table>
 
 						<!-- 如果没有数据，显示占位符 -->
 						<div
@@ -487,43 +488,47 @@
 					</div>
 
 					<div v-else-if="question.type === 'short_answer_grid'" class="preview-grid">
-						<div v-if="question.columns && question.rows" class="grid-container">
-							<div class="grid-header">
-								<div class="grid-cell grid-row-header"></div>
-								<div
-									v-for="(column, colIndex) in question.columns"
-									:key="colIndex"
-									class="grid-cell grid-column-header"
-								>
-									{{ column.label }}
-									<el-tag
-										v-if="column.isOther"
-										type="warning"
-										class="other-column-tag"
-									>
-										Other
-									</el-tag>
-								</div>
-							</div>
-							<div
-								v-for="(row, rowIndex) in question.rows"
-								:key="rowIndex"
-								class="grid-row"
+						<el-table
+							v-if="question.columns && question.rows"
+							:data="question.rows"
+							border
+							resizable
+							class="grid-table"
+						>
+							<el-table-column
+								prop="label"
+								label=""
+								fixed="left"
+								min-width="200"
+								resizable
 							>
-								<div class="grid-cell grid-row-header">{{ row.label }}</div>
-								<div
-									v-for="(column, colIndex) in question.columns"
-									:key="colIndex"
-									class="grid-cell grid-checkbox-cell gap-x-2"
-								>
+								<template #default="{ row }">
+									<span class="truncate" :title="row.label">{{ row.label }}</span>
+								</template>
+							</el-table-column>
+							<el-table-column
+								v-for="(column, colIndex) in question.columns"
+								:key="colIndex"
+								:label="column.label"
+								min-width="150"
+								resizable
+								align="center"
+							>
+								<template #header>
+									<div class="flex items-center justify-center gap-1">
+										{{ column.label }}
+										<el-tag v-if="column.isOther" type="warning">Other</el-tag>
+									</div>
+								</template>
+								<template #default="{ row }">
 									<el-input
 										v-model="formData[`${question.id}_${column.id}_${row.id}`]"
 										:maxlength="questionMaxlength"
 										:disabled="questionIsDisabled(question.id)"
 									/>
-								</div>
-							</div>
-						</div>
+								</template>
+							</el-table-column>
+						</el-table>
 					</div>
 
 					<div v-else-if="question.type === 'page_break'" class="form-page-break italic">
@@ -587,7 +592,7 @@
 							<button
 								v-for="(section, index) in formattedQuestionnaires[0].sections"
 								:key="section.id"
-								@click="goToSection(index)"
+								@click="goToSection(+index)"
 								:class="['section-dot', { active: index === currentSectionIndex }]"
 								:title="section.title"
 							></button>
@@ -1885,74 +1890,9 @@ html.dark {
 .preview-grid {
 	@apply w-full;
 
-	.grid-container {
-		border: 1px solid var(--el-border-color);
-		overflow: hidden;
-		@apply rounded-xl;
-	}
-
-	.grid-header {
-		display: flex;
-		background-color: var(--el-fill-color-light);
-		border-bottom: 1px solid var(--el-border-color);
-	}
-
-	.grid-row {
-		display: flex;
-		border-bottom: 1px solid var(--el-border-color);
-		&:last-child {
-			border-bottom: none;
-		}
-
-		&:hover {
-			background-color: var(--el-fill-color-lighter);
-		}
-	}
-
-	.grid-cell {
-		padding: 12px;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		align-items: center;
-		min-width: 120px;
-		flex: 1;
-		border-right: 1px solid var(--el-border-color);
-
-		&:first-child {
-			justify-content: flex-start;
-			font-weight: 500;
-			background-color: var(--primary-25);
-			min-width: 200px;
-			flex: none;
-		}
-
-		&:last-child {
-			border-right: none;
-		}
-	}
-
-	.grid-row-header {
-		background-color: var(--primary-25);
-		font-weight: 500;
-		text-align: left;
-		justify-content: flex-start !important;
-		@apply w-[200px] min-w-0 truncate;
-	}
-
-	.grid-column-header {
-		font-weight: 500;
-		text-align: center;
-		background-color: var(--el-fill-color-light);
-	}
-
-	.grid-radio-cell {
-		background-color: var(--el-color-white);
-	}
-
-	.grid-checkbox-cell {
-		background-color: var(--el-color-white);
-		justify-content: center;
+	.grid-table {
+		width: 100%;
+		@apply rounded-xl overflow-hidden;
 	}
 
 	.grid-radio {
@@ -1980,44 +1920,8 @@ html.dark {
 	}
 }
 
-.other-column-tag {
-	font-size: 0.625rem;
-	height: 1.125rem;
-	line-height: 1;
-	padding: 0.125rem 0.25rem;
-	margin-left: 0.25rem;
-}
-
 .other-input {
 	width: 100%;
-}
-
-/* 暗色主题支持 */
-html.dark {
-	.preview-grid {
-		.grid-container {
-			border-color: var(--el-border-color-dark);
-		}
-
-		.grid-header,
-		.grid-row {
-			border-color: var(--el-border-color-dark);
-		}
-
-		.grid-cell {
-			border-color: var(--el-border-color-dark);
-		}
-
-		.grid-row-header,
-		.grid-column-header {
-			background-color: var(--el-bg-color-dark);
-		}
-
-		.grid-radio-cell,
-		.grid-checkbox-cell {
-			background-color: var(--el-bg-color-dark);
-		}
-	}
 }
 
 .responsive-image {

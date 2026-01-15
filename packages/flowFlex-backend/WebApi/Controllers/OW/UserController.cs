@@ -15,8 +15,9 @@ namespace FlowFlex.WebApi.Controllers.OW
     /// <summary>
     /// User controller
     /// </summary>
-    [Route("ow/users")]
+    [Route("ow/users/v{version:apiVersion}")]
     [ApiController]
+    [Asp.Versioning.ApiVersion("1.0")]
     public class UserController : Controllers.ControllerBase
     {
         private readonly IUserService _userService;
@@ -396,6 +397,22 @@ namespace FlowFlex.WebApi.Controllers.OW
         {
             var treeStructure = await _userService.GetUserTreeAsync();
             return Success(treeStructure);
+        }
+
+        /// <summary>
+        /// Get all users as a flat list (without team hierarchy)
+        /// </summary>
+        /// <returns>Flat list of all users</returns>
+        [HttpGet("allUsers")]
+        [Authorize]
+        [PortalAccess] // Allow Portal token access - Portal users can view all users
+        [ProducesResponseType<SuccessResponse<List<UserTreeNodeDto>>>((int)HttpStatusCode.OK)]
+        [ProducesResponseType(typeof(ErrorResponse), 400)]
+        [ProducesResponseType(typeof(ErrorResponse), 401)]
+        public async Task<IActionResult> GetAllUsers()
+        {
+            var allUsers = await _userService.GetAllUsersAsync();
+            return Success(allUsers);
         }
 
         /// <summary>

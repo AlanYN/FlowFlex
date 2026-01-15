@@ -47,11 +47,7 @@ namespace FlowFlex.Application.Services.OW
         public async Task<bool> PauseAsync(long id)
         {
             // Check permission
-            if (!await CheckCaseOperatePermissionAsync(id))
-            {
-                throw new CRMException(ErrorCodeEnum.OperationNotAllowed,
-                    $"User does not have permission to operate on case {id}");
-            }
+            await EnsureCaseOperatePermissionAsync(id);
 
             var entity = await _onboardingRepository.GetByIdAsync(id);
             if (entity == null || !entity.IsValid)
@@ -95,11 +91,7 @@ namespace FlowFlex.Application.Services.OW
         public async Task<bool> ResumeAsync(long id)
         {
             // Check permission
-            if (!await CheckCaseOperatePermissionAsync(id))
-            {
-                throw new CRMException(ErrorCodeEnum.OperationNotAllowed,
-                    $"User does not have permission to operate on case {id}");
-            }
+            await EnsureCaseOperatePermissionAsync(id);
 
             var entity = await _onboardingRepository.GetByIdAsync(id);
             if (entity == null || !entity.IsValid)
@@ -143,11 +135,7 @@ namespace FlowFlex.Application.Services.OW
         public async Task<bool> CancelAsync(long id, string reason)
         {
             // Check permission
-            if (!await CheckCaseOperatePermissionAsync(id))
-            {
-                throw new CRMException(ErrorCodeEnum.OperationNotAllowed,
-                    $"User does not have permission to operate on case {id}");
-            }
+            await EnsureCaseOperatePermissionAsync(id);
 
             var entity = await _onboardingRepository.GetByIdAsync(id);
             if (entity == null || !entity.IsValid)
@@ -196,11 +184,7 @@ namespace FlowFlex.Application.Services.OW
         public async Task<bool> RejectAsync(long id, RejectOnboardingInputDto input)
         {
             // Check permission
-            if (!await CheckCaseOperatePermissionAsync(id))
-            {
-                throw new CRMException(ErrorCodeEnum.OperationNotAllowed,
-                    $"User does not have permission to operate on case {id}");
-            }
+            await EnsureCaseOperatePermissionAsync(id);
 
             var entity = await _onboardingRepository.GetByIdAsync(id);
             if (entity == null || !entity.IsValid)

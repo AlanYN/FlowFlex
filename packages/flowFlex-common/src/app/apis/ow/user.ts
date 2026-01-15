@@ -6,13 +6,13 @@ const globSetting = useGlobSetting();
 const Api = () => {
 	return {
 		// 用户相关API
-		checkEmail: `${globSetting.apiProName}/ow/users/check-email`,
-		register: `${globSetting.apiProName}/ow/users/register`,
-		login: `${globSetting.apiProName}/ow/users/login`,
-		sendVerificationCode: `${globSetting.apiProName}/ow/users/send-verification-code`,
-		verifyEmail: `${globSetting.apiProName}/ow/users/verify-email`,
-		currentUser: `${globSetting.apiProName}/ow/users/current`,
-		userTree: `${globSetting.apiProName}/ow/users/tree`,
+		checkEmail: `${globSetting.apiProName}/ow/users/${globSetting.apiVersion}/check-email`,
+		register: `${globSetting.apiProName}/ow/users/${globSetting.apiVersion}/register`,
+		login: `${globSetting.apiProName}/ow/users/${globSetting.apiVersion}/login`,
+		sendVerificationCode: `${globSetting.apiProName}/ow/users/${globSetting.apiVersion}/send-verification-code`,
+		verifyEmail: `${globSetting.apiProName}/ow/users/${globSetting.apiVersion}/verify-email`,
+		currentUser: `${globSetting.apiProName}/ow/user/${globSetting.apiVersion}s/current`,
+		userTree: `${globSetting.apiProName}/ow/users/${globSetting.apiVersion}/tree`,
 	};
 };
 

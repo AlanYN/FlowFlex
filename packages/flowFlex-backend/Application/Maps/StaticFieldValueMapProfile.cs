@@ -37,6 +37,7 @@ namespace FlowFlex.Application.Maps
                 .ForMember(dest => dest.OnboardingId, opt => opt.MapFrom(src => src.OnboardingId))
                 .ForMember(dest => dest.StageId, opt => opt.MapFrom(src => src.StageId))
                 .ForMember(dest => dest.FieldName, opt => opt.MapFrom(src => src.FieldName))
+                .ForMember(dest => dest.FieldId, opt => opt.MapFrom(src => src.FieldId))
                 .ForMember(dest => dest.DisplayName, opt => opt.MapFrom(src => src.DisplayName))
                 .ForMember(dest => dest.FieldValueJson, opt => opt.MapFrom(src => src.FieldValueJson))
                 .ForMember(dest => dest.FieldType, opt => opt.MapFrom(src => src.FieldType))

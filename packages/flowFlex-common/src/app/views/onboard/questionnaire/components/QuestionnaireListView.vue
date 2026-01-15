@@ -18,12 +18,7 @@
 			<el-table-column label="Actions" fixed="left" width="80">
 				<template #default="{ row }">
 					<el-dropdown trigger="click">
-						<el-button
-							size="small"
-							class="p-1 list-action-btn"
-							link
-							:icon="ArrowDownBold"
-						/>
+						<el-button size="small" class="p-1" link :icon="ArrowDownBold" />
 
 						<template #dropdown>
 							<el-dropdown-menu>
@@ -194,7 +189,6 @@
 </template>
 
 <script setup lang="ts">
-import { defineProps, defineEmits } from 'vue';
 import { Edit, CopyDocument, Delete, View, ArrowDownBold } from '@element-plus/icons-vue';
 import { timeZoneConvert } from '@/hooks/time';
 import { projectTenMinuteDate, defaultStr, tableMaxHeight } from '@/settings/projectSetting';
@@ -276,13 +270,3 @@ const getUniqueAssignments = (assignments: any[]) => {
 	});
 };
 </script>
-
-<style scoped lang="scss">
-.list-action-btn {
-	color: var(--el-text-color-regular);
-
-	&:hover {
-		color: var(--el-color-primary);
-	}
-}
-</style>

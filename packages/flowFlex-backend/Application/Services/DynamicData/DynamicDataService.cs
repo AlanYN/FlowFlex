@@ -133,6 +133,14 @@ public class DynamicDataService : IBusinessDataService, IPropertyService, IScope
 
     public async Task<PagedResult<DefineFieldDto>> GetPropertyPagedListAsync(PropertyQueryRequest request)
     {
+        // Check if system fields are initialized
+        var allFields = await _defineFieldRepository.GetAllAsync();
+        if (!allFields.Any(f => f.IsSystemDefine))
+        {
+            _logger.LogInformation("No system defined fields found, initializing default properties");
+            await InitializeDefaultPropertiesAsync();
+        }
+
         var pagedResult = await _defineFieldRepository.GetPagedListAsync(request);
         return new PagedResult<DefineFieldDto>
         {
@@ -199,11 +207,10 @@ public class DynamicDataService : IBusinessDataService, IPropertyService, IScope
         using var package = new ExcelPackage();
         var worksheet = package.Workbook.Worksheets.Add("Dynamic Fields Export");
 
-        // Set headers
+        // Set headers (match page display)
         var headers = new[]
         {
-            "Field ID", "Field Name", "Display Name", "Description", "Data Type",
-            "Is Required", "Is System Define", "Created By", "Create Date", "Modified By", "Modify Date"
+            "Name", "Description", "Type", "Created Time", "Created By", "Updated Time", "Updated By"
         };
 
         for (int i = 0; i < headers.Length; i++)
@@ -216,17 +223,13 @@ public class DynamicDataService : IBusinessDataService, IPropertyService, IScope
         for (int row = 0; row < data.Count; row++)
         {
             var item = data[row];
-            worksheet.Cells[row + 2, 1].Value = item.Id;
-            worksheet.Cells[row + 2, 2].Value = item.FieldName;
-            worksheet.Cells[row + 2, 3].Value = item.DisplayName;
-            worksheet.Cells[row + 2, 4].Value = item.Description;
-            worksheet.Cells[row + 2, 5].Value = item.DataType;
-            worksheet.Cells[row + 2, 6].Value = item.IsRequired;
-            worksheet.Cells[row + 2, 7].Value = item.IsSystemDefine;
-            worksheet.Cells[row + 2, 8].Value = item.CreateBy;
-            worksheet.Cells[row + 2, 9].Value = item.CreateDate;
-            worksheet.Cells[row + 2, 10].Value = item.ModifyBy;
-            worksheet.Cells[row + 2, 11].Value = item.ModifyDate;
+            worksheet.Cells[row + 2, 1].Value = item.FieldName;
+            worksheet.Cells[row + 2, 2].Value = item.Description;
+            worksheet.Cells[row + 2, 3].Value = item.DataType;
+            worksheet.Cells[row + 2, 4].Value = item.CreateDate;
+            worksheet.Cells[row + 2, 5].Value = item.CreateBy;
+            worksheet.Cells[row + 2, 6].Value = item.ModifyDate;
+            worksheet.Cells[row + 2, 7].Value = item.ModifyBy;
         }
 
         // Auto-fit columns
@@ -452,7 +455,6 @@ public class DynamicDataService : IBusinessDataService, IPropertyService, IScope
             var categories = staticFields.FormFields.Select(f => f.Category).Distinct().ToList();
             var categoryGroupMap = new Dictionary<string, long>();
 
-            long.TryParse(_userContext.UserId, out var userId);
             var sortOrder = 0;
 
             foreach (var category in categories)
@@ -468,11 +470,11 @@ public class DynamicDataService : IBusinessDataService, IPropertyService, IScope
                     TenantId = _userContext.TenantId ?? "default",
                     AppCode = _userContext.AppCode ?? "default",
                     CreateDate = DateTimeOffset.UtcNow,
-                    CreateBy = _userContext.UserName ?? "SYSTEM",
-                    CreateUserId = userId,
+                    CreateBy = "SYSTEM",
+                    CreateUserId = 0,
                     ModifyDate = DateTimeOffset.UtcNow,
-                    ModifyBy = _userContext.UserName ?? "SYSTEM",
-                    ModifyUserId = userId
+                    ModifyBy = string.Empty,
+                    ModifyUserId = 0
                 };
 
                 var groupId = await _fieldGroupRepository.InsertReturnSnowflakeIdAsync(group);
@@ -513,11 +515,11 @@ public class DynamicDataService : IBusinessDataService, IPropertyService, IScope
                     TenantId = _userContext.TenantId ?? "default",
                     AppCode = _userContext.AppCode ?? "default",
                     CreateDate = DateTimeOffset.UtcNow,
-                    CreateBy = _userContext.UserName ?? "SYSTEM",
-                    CreateUserId = userId,
+                    CreateBy = "SYSTEM",
+                    CreateUserId = 0,
                     ModifyDate = DateTimeOffset.UtcNow,
-                    ModifyBy = _userContext.UserName ?? "SYSTEM",
-                    ModifyUserId = userId
+                    ModifyBy = string.Empty,
+                    ModifyUserId = 0
                 };
 
                 var fieldId = await _defineFieldRepository.InsertReturnSnowflakeIdAsync(entity);

@@ -50,7 +50,8 @@ namespace FlowFlex.Application.Services.OW
             var appCode = _userContext?.AppCode ?? "default";
             try
             {
-                // Debug logging handled by structured logging
+                _logger.LogDebug("QueryAsync started - TenantId: {TenantId}, AppCode: {AppCode}", tenantId, appCode);
+                
                 // Build query conditions list - using safe BaseRepository approach
                 var whereExpressions = new List<Expression<Func<Onboarding, bool>>>();
 
@@ -189,152 +190,48 @@ namespace FlowFlex.Application.Services.OW
                 Expression<Func<Onboarding, object>> orderByExpression = GetOrderByExpression(request);
                 bool isAsc = GetSortDirection(request);
 
-                // Step 1: Get all data matching query criteria (for accurate filtering and pagination)
+                // Pagination parameters
                 int pageIndex = Math.Max(1, request.PageIndex > 0 ? request.PageIndex : 1);
                 int pageSize = Math.Max(1, Math.Min(100, request.PageSize > 0 ? request.PageSize : 10));
 
-                List<Onboarding> allEntities;
+                // Build base queryable
+                var queryable = _onboardingRepository.GetSqlSugarClient().Queryable<Onboarding>();
+
+                // Apply all where conditions
+                foreach (var whereExpression in whereExpressions)
+                {
+                    queryable = queryable.Where(whereExpression);
+                }
+
+                // PERFORMANCE OPTIMIZATION: Apply permission filter at SQL level for regular users
+                // This reduces memory usage by filtering at database level instead of loading all data
+                var permissionContext = BuildPermissionFilterContext();
+                if (permissionContext.NeedsPermissionFilter)
+                {
+                    queryable = ApplyPermissionFilterToQuery(queryable, permissionContext);
+                }
+
+                // Apply sorting
+                queryable = isAsc 
+                    ? queryable.OrderBy(orderByExpression) 
+                    : queryable.OrderByDescending(orderByExpression);
+
+                // Execute query with pagination at SQL level
+                List<Onboarding> pagedEntities;
+                int totalCount;
 
                 if (request.AllData)
                 {
-                    // Get all data without pagination
-                    var queryable = _onboardingRepository.GetSqlSugarClient().Queryable<Onboarding>();
-
-                    // Apply all where conditions
-                    foreach (var whereExpression in whereExpressions)
-                    {
-                        queryable = queryable.Where(whereExpression);
-                    }
-
-                    // Apply sorting
-                    if (isAsc)
-                    {
-                        queryable = queryable.OrderBy(orderByExpression);
-                    }
-                    else
-                    {
-                        queryable = queryable.OrderByDescending(orderByExpression);
-                    }
-
-                    allEntities = await queryable.ToListAsync();
+                    pagedEntities = await queryable.ToListAsync();
+                    totalCount = pagedEntities.Count;
                 }
                 else
                 {
-                    // For pagination: Get all matching records first (not just one page)
-                    // This ensures accurate totalCount after permission filtering
-                    var queryable = _onboardingRepository.GetSqlSugarClient().Queryable<Onboarding>();
-
-                    // Apply all where conditions
-                    foreach (var whereExpression in whereExpressions)
-                    {
-                        queryable = queryable.Where(whereExpression);
-                    }
-
-                    // Apply sorting
-                    if (isAsc)
-                    {
-                        queryable = queryable.OrderBy(orderByExpression);
-                    }
-                    else
-                    {
-                        queryable = queryable.OrderByDescending(orderByExpression);
-                    }
-
-                    allEntities = await queryable.ToListAsync();
+                    // Use SQL-level pagination for better performance
+                    var pageResult = await queryable.ToPageListAsync(pageIndex, pageSize);
+                    pagedEntities = pageResult;
+                    totalCount = await queryable.CountAsync();
                 }
-
-                // Step 2: Apply permission filtering - filter out cases user cannot view
-                List<Onboarding> filteredEntities;
-
-                // Fast path: If using Client Credentials token (special authentication scheme), skip permission filtering
-                // Client tokens are used for service-to-service communication and have full access
-                if (_userContext?.Schema == Domain.Shared.Const.AuthSchemes.ItemIamClientIdentification)
-                {
-                    LoggingExtensions.WriteLine($"[Permission Filter] Client Credentials token detected (Schema: {_userContext.Schema}), skipping permission checks for {allEntities.Count} cases");
-                    filteredEntities = allEntities;
-                }
-                else
-                {
-                    var userId = _userContext?.UserId;
-                    if (!string.IsNullOrEmpty(userId) && long.TryParse(userId, out var userIdLong))
-                    {
-                        // Fast path: If user is System Admin, skip permission checks
-                        if (_userContext?.IsSystemAdmin == true)
-                        {
-                            LoggingExtensions.WriteLine($"[Permission Filter] User {userIdLong} is System Admin, skipping permission checks for {allEntities.Count} cases");
-                            filteredEntities = allEntities;
-                        }
-                        // Fast path: If user is Tenant Admin for current tenant, skip permission checks
-                        else if (_userContext != null && _userContext.HasAdminPrivileges(_userContext.TenantId))
-                        {
-                            LoggingExtensions.WriteLine($"[Permission Filter] User {userIdLong} is Tenant Admin for tenant {_userContext.TenantId}, skipping permission checks for {allEntities.Count} cases");
-                            filteredEntities = allEntities;
-                        }
-                        else
-                        {
-                            // PERFORMANCE OPTIMIZATION: Batch load all unique Workflows first
-                            // This reduces N+1 queries from (N Cases x 2 Workflow queries) to (1 batch query)
-                            var uniqueWorkflowIds = allEntities.Select(e => e.WorkflowId).Distinct().ToList();
-                            var workflowEntities = await _workflowRepository.GetListAsync(w => uniqueWorkflowIds.Contains(w.Id));
-                            var workflowEntityDict = workflowEntities.ToDictionary(w => w.Id);
-
-                            LoggingExtensions.WriteLine($"[Performance] Batch loaded {workflowEntities.Count} unique workflows for {allEntities.Count} cases");
-
-                            // Get user teams once (avoid repeated calls)
-                            var userTeams = _permissionService.GetUserTeamIds();
-                            var userTeamLongs = userTeams?.Select(t => long.TryParse(t, out var tid) ? tid : 0).Where(t => t > 0).ToList() ?? new List<long>();
-                            var userIdString = userIdLong.ToString();
-
-                            // Regular users need permission filtering (now using in-memory workflow data)
-                            filteredEntities = new List<Onboarding>();
-
-                            foreach (var entity in allEntities)
-                            {
-                                // In-memory permission check using pre-loaded Workflow
-                                if (!workflowEntityDict.TryGetValue(entity.WorkflowId, out var workflow))
-                                {
-                                    LoggingExtensions.WriteLine($"[Permission Debug] Case {entity.Id} - Workflow {entity.WorkflowId} not found in dictionary");
-                                    continue;
-                                }
-
-                                // Check Workflow view permission (in-memory, no DB query)
-                                bool hasWorkflowViewPermission = CheckWorkflowViewPermissionInMemory(workflow, userIdLong, userTeamLongs);
-                                LoggingExtensions.WriteLine($"[Permission Debug] Case {entity.Id} - Workflow {workflow.Id} permission: {hasWorkflowViewPermission} (ViewMode={workflow.ViewPermissionMode}, ViewTeams={workflow.ViewTeams ?? "NULL"})");
-                                if (!hasWorkflowViewPermission)
-                                {
-                                    continue; // No Workflow permission, skip this Case
-                                }
-
-                                // PERFORMANCE FIX: Use in-memory Case permission check instead of async DB query
-                                // This eliminates N+1 queries (was: N async calls to CheckCasePermissionAsync)
-                                bool hasCaseViewPermission = CheckCaseViewPermissionInMemory(entity, workflow, userIdLong, userTeamLongs, userIdString);
-
-                                LoggingExtensions.WriteLine($"[Permission Debug] Case {entity.Id} - Case permission: {hasCaseViewPermission} (ViewMode={entity.ViewPermissionMode}, SubjectType={entity.ViewPermissionSubjectType}, ViewTeams={entity.ViewTeams ?? "NULL"}, ViewUsers={entity.ViewUsers ?? "NULL"}, Ownership={entity.Ownership})");
-                                if (!hasCaseViewPermission)
-                                {
-                                    continue; // No Case permission, skip
-                                }
-
-                                // Both Workflow and Case permissions passed
-                                LoggingExtensions.WriteLine($"[Permission Debug] Case {entity.Id} - GRANTED (both checks passed)");
-                                filteredEntities.Add(entity);
-                            }
-
-                            LoggingExtensions.WriteLine($"[Permission Filter] Original count: {allEntities.Count}, Filtered count: {filteredEntities.Count}");
-                        }
-                    }
-                    else
-                    {
-                        // No user context, return empty result
-                        filteredEntities = new List<Onboarding>();
-                    }
-                }
-
-                // Step 3: Apply pagination to filtered results
-                var totalCount = filteredEntities.Count;
-                var pagedEntities = request.AllData
-                    ? filteredEntities
-                    : filteredEntities.Skip((pageIndex - 1) * pageSize).Take(pageSize).ToList();
 
                 // Batch get Workflow and Stage information to avoid N+1 queries (only for paged data)
                 var (workflows, stages) = await GetRelatedDataBatchOptimizedAsync(pagedEntities);
@@ -349,17 +246,8 @@ namespace FlowFlex.Application.Services.OW
                 // Map to output DTOs
                 var results = _mapper.Map<List<OnboardingOutputDto>>(pagedEntities);
 
-                // Add debug log - Check status mapping
-                LoggingExtensions.WriteLine($"[DEBUG] Query Results Count: {results.Count}");
-                LoggingExtensions.WriteLine($"[DEBUG] Original Entities Count: {pagedEntities.Count}");
-
-                for (int i = 0; i < Math.Min(3, pagedEntities.Count); i++)
-                {
-                    var entity = pagedEntities[i];
-                    var result = results[i];
-                    LoggingExtensions.WriteLine($"[DEBUG] Entity[{i}]: ID={entity.Id}, CaseName={entity.CaseName}, Status={entity.Status}");
-                    LoggingExtensions.WriteLine($"[DEBUG] Result[{i}]: ID={result.Id}, CaseName={result.CaseName}, Status={result.Status}");
-                }
+                _logger.LogDebug("Query mapped {ResultCount} results from {EntityCount} entities", 
+                    results.Count, pagedEntities.Count);
 
                 // Populate workflow/stage names and calculate current stage end time
                 await PopulateOnboardingOutputDtoAsync(results, pagedEntities);
@@ -371,17 +259,159 @@ namespace FlowFlex.Application.Services.OW
 
                 // Record performance statistics
                 stopwatch.Stop();
-                // Debug logging handled by structured logging
+                _logger.LogDebug("QueryAsync completed in {ElapsedMs}ms - TotalCount: {TotalCount}, PageSize: {PageSize}", 
+                    stopwatch.ElapsedMilliseconds, totalCount, pageSize);
                 return pageModel;
             }
             catch (Exception ex)
             {
                 stopwatch.Stop();
-                // Debug logging handled by structured logging
+                _logger.LogError(ex, "QueryAsync failed after {ElapsedMs}ms", stopwatch.ElapsedMilliseconds);
                 throw new CRMException(ErrorCodeEnum.SystemError,
                     $"Error querying onboardings: {ex.Message}");
             }
         }
+
+        #region Permission Filter Context
+
+        /// <summary>
+        /// Context for building permission filter SQL conditions
+        /// </summary>
+        private class PermissionFilterContext
+        {
+            public bool NeedsPermissionFilter { get; set; }
+            public bool SkipAllFilters { get; set; }
+            public long UserId { get; set; }
+            public string UserIdString { get; set; } = string.Empty;
+            public List<long> UserTeamIds { get; set; } = new();
+            public List<long> AccessibleWorkflowIds { get; set; } = new();
+        }
+
+        /// <summary>
+        /// Build permission filter context based on current user
+        /// </summary>
+        private PermissionFilterContext BuildPermissionFilterContext()
+        {
+            var context = new PermissionFilterContext();
+
+            // Fast path: Client Credentials token - skip all permission checks
+            if (_userContext?.Schema == Domain.Shared.Const.AuthSchemes.ItemIamClientIdentification)
+            {
+                _logger.LogDebug("Client Credentials token detected, skipping permission filters");
+                context.SkipAllFilters = true;
+                return context;
+            }
+
+            var userId = _userContext?.UserId;
+            if (string.IsNullOrEmpty(userId) || !long.TryParse(userId, out var userIdLong))
+            {
+                // No valid user context - will return empty results
+                context.NeedsPermissionFilter = true;
+                return context;
+            }
+
+            context.UserId = userIdLong;
+            context.UserIdString = userIdLong.ToString();
+
+            // Fast path: System Admin - skip permission checks
+            if (_userContext?.IsSystemAdmin == true)
+            {
+                _logger.LogDebug("User {UserId} is System Admin, skipping permission filters", userIdLong);
+                context.SkipAllFilters = true;
+                return context;
+            }
+
+            // Fast path: Tenant Admin - skip permission checks
+            if (_userContext != null && _userContext.HasAdminPrivileges(_userContext.TenantId))
+            {
+                _logger.LogDebug("User {UserId} is Tenant Admin, skipping permission filters", userIdLong);
+                context.SkipAllFilters = true;
+                return context;
+            }
+
+            // Regular user - needs permission filtering
+            context.NeedsPermissionFilter = true;
+
+            // Get user teams once
+            var userTeams = _permissionService.GetUserTeamIds();
+            context.UserTeamIds = userTeams?
+                .Select(t => long.TryParse(t, out var tid) ? tid : 0)
+                .Where(t => t > 0)
+                .ToList() ?? new List<long>();
+
+            _logger.LogDebug("User {UserId} has {TeamCount} teams for permission filtering", 
+                userIdLong, context.UserTeamIds.Count);
+
+            return context;
+        }
+
+        /// <summary>
+        /// Apply permission filter to queryable at SQL level
+        /// This pushes permission filtering to the database for better performance
+        /// </summary>
+        private ISugarQueryable<Onboarding> ApplyPermissionFilterToQuery(
+            ISugarQueryable<Onboarding> queryable, 
+            PermissionFilterContext context)
+        {
+            if (context.SkipAllFilters)
+            {
+                return queryable;
+            }
+
+            if (!context.NeedsPermissionFilter)
+            {
+                return queryable;
+            }
+
+            // No valid user - return empty result
+            if (context.UserId == 0)
+            {
+                return queryable.Where(x => false);
+            }
+
+            var userId = context.UserId;
+            var userTeamIds = context.UserTeamIds;
+            var userIdString = context.UserIdString;
+
+            // Build permission filter using raw SQL for PostgreSQL jsonb compatibility
+            // A user can view a case if:
+            // 1. User is the owner (Ownership == userId)
+            // 2. Case is in Public mode (ViewPermissionMode == Public)
+            // 3. Case is in Team mode and user's team is in ViewTeams (using PostgreSQL jsonb::text LIKE)
+            // 4. Case is in User mode and user is in ViewUsers (using PostgreSQL jsonb::text LIKE)
+
+            // Build SQL condition for team check using jsonb::text LIKE
+            var teamConditions = userTeamIds.Select(t => $"view_teams::text LIKE '%\"{t}\"%'").ToList();
+            var teamSqlCondition = teamConditions.Count > 0 
+                ? $"({string.Join(" OR ", teamConditions)})" 
+                : "false";
+
+            // Build SQL condition for user check
+            var userSqlCondition = $"view_users::text LIKE '%\"{userIdString}\"%'";
+
+            // Use raw SQL for the entire permission filter to avoid jsonb ILIKE issue
+            var permissionSql = $@"(
+                ownership = {userId} OR 
+                view_permission_mode = {(int)ViewPermissionModeEnum.Public} OR
+                (view_permission_mode = {(int)ViewPermissionModeEnum.VisibleToTeams} AND 
+                 view_permission_subject_type = {(int)PermissionSubjectTypeEnum.Team} AND 
+                 view_teams IS NOT NULL AND 
+                 {teamSqlCondition}) OR
+                (view_permission_mode = {(int)ViewPermissionModeEnum.VisibleToTeams} AND 
+                 view_permission_subject_type = {(int)PermissionSubjectTypeEnum.User} AND 
+                 view_users IS NOT NULL AND 
+                 {userSqlCondition})
+            )";
+
+            queryable = queryable.Where(permissionSql);
+
+            _logger.LogDebug("Applied SQL-level permission filter for user {UserId} with {TeamCount} teams", 
+                userId, userTeamIds.Count);
+
+            return queryable;
+        }
+
+        #endregion
 
         /// <summary>
         /// Get sort expression

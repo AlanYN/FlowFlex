@@ -123,6 +123,12 @@ namespace FlowFlex.Application.Contracts.IServices.OW
         /// <returns>Tree structure with teams and users</returns>
         Task<List<UserTreeNodeDto>> GetUserTreeAsync();
 
+        /// <summary>
+        /// Get all users as a flat list (without team hierarchy)
+        /// </summary>
+        /// <returns>Flat list of all users</returns>
+        Task<List<UserTreeNodeDto>> GetAllUsersAsync();
+
         Task<UserDto> GetUserByEmail(string email);
 
         /// <summary>

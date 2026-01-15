@@ -47,11 +47,7 @@ namespace FlowFlex.Application.Services.OW
         public async Task<bool> StartOnboardingAsync(long id, StartOnboardingInputDto input)
         {
             // Check permission
-            if (!await CheckCaseOperatePermissionAsync(id))
-            {
-                throw new CRMException(ErrorCodeEnum.OperationNotAllowed,
-                    $"User does not have permission to operate on case {id}");
-            }
+            await EnsureCaseOperatePermissionAsync(id);
 
             var entity = await _onboardingRepository.GetByIdAsync(id);
             if (entity == null || !entity.IsValid)
@@ -136,11 +132,7 @@ namespace FlowFlex.Application.Services.OW
         public async Task<bool> AbortAsync(long id, AbortOnboardingInputDto input)
         {
             // Check permission
-            if (!await CheckCaseOperatePermissionAsync(id))
-            {
-                throw new CRMException(ErrorCodeEnum.OperationNotAllowed,
-                    $"User does not have permission to operate on case {id}");
-            }
+            await EnsureCaseOperatePermissionAsync(id);
 
             var entity = await _onboardingRepository.GetByIdAsync(id);
             if (entity == null || !entity.IsValid)
@@ -209,11 +201,7 @@ namespace FlowFlex.Application.Services.OW
         public async Task<bool> ReactivateAsync(long id, ReactivateOnboardingInputDto input)
         {
             // Check permission
-            if (!await CheckCaseOperatePermissionAsync(id))
-            {
-                throw new CRMException(ErrorCodeEnum.OperationNotAllowed,
-                    $"User does not have permission to operate on case {id}");
-            }
+            await EnsureCaseOperatePermissionAsync(id);
 
             var entity = await _onboardingRepository.GetByIdAsync(id);
             if (entity == null || !entity.IsValid)
@@ -287,11 +275,7 @@ namespace FlowFlex.Application.Services.OW
         public async Task<bool> ResumeWithConfirmationAsync(long id, ResumeOnboardingInputDto input)
         {
             // Check permission
-            if (!await CheckCaseOperatePermissionAsync(id))
-            {
-                throw new CRMException(ErrorCodeEnum.OperationNotAllowed,
-                    $"User does not have permission to operate on case {id}");
-            }
+            await EnsureCaseOperatePermissionAsync(id);
 
             var entity = await _onboardingRepository.GetByIdAsync(id);
             if (entity == null || !entity.IsValid)
@@ -362,11 +346,7 @@ namespace FlowFlex.Application.Services.OW
         public async Task<bool> ForceCompleteAsync(long id, ForceCompleteOnboardingInputDto input)
         {
             // Check permission
-            if (!await CheckCaseOperatePermissionAsync(id))
-            {
-                throw new CRMException(ErrorCodeEnum.OperationNotAllowed,
-                    $"User does not have permission to operate on case {id}");
-            }
+            await EnsureCaseOperatePermissionAsync(id);
 
             var entity = await _onboardingRepository.GetByIdAsync(id);
             if (entity == null || !entity.IsValid)
@@ -485,7 +465,6 @@ namespace FlowFlex.Application.Services.OW
                         it.Ownership,
                         it.OwnershipName,
                         it.OwnershipEmail,
-                        it.CustomFieldsJson,
                         it.Notes,
                         it.IsActive,
                         it.ModifyDate,
@@ -506,12 +485,12 @@ namespace FlowFlex.Application.Services.OW
                             Id = entity.Id
                         });
 
-                        LoggingExtensions.WriteLine($"[ForceComplete] Preserved original stages_progress_json for onboarding {entity.Id}");
+                        _logger.LogDebug("ForceComplete - Preserved original stages_progress_json for onboarding {OnboardingId}", entity.Id);
                     }
                     catch (Exception progressEx)
                     {
                         // Log but don't fail the main update
-                        LoggingExtensions.WriteLine($"Warning: Failed to preserve stages_progress_json: {progressEx.Message}");
+                        _logger.LogWarning(progressEx, "Failed to preserve stages_progress_json for onboarding {OnboardingId}", entity.Id);
                         // Try alternative approach with parameter substitution
                         try
                         {
@@ -519,11 +498,11 @@ namespace FlowFlex.Application.Services.OW
                             var directSql = $"UPDATE ff_onboarding SET stages_progress_json = '{escapedJson}'::jsonb WHERE id = {entity.Id}";
                             await db.Ado.ExecuteCommandAsync(directSql);
 
-                            LoggingExtensions.WriteLine($"[ForceComplete] Preserved original stages_progress_json for onboarding {entity.Id} using direct SQL");
+                            _logger.LogDebug("ForceComplete - Preserved original stages_progress_json for onboarding {OnboardingId} using direct SQL", entity.Id);
                         }
                         catch (Exception directEx)
                         {
-                            LoggingExtensions.WriteLine($"Error: Both parameterized and direct JSONB preserve failed: {directEx.Message}");
+                            _logger.LogError(directEx, "Both parameterized and direct JSONB preserve failed for onboarding {OnboardingId}", entity.Id);
                         }
                     }
                 }
@@ -592,26 +571,23 @@ namespace FlowFlex.Application.Services.OW
             {
                 if (string.IsNullOrWhiteSpace(workflow.ViewTeams))
                 {
-                    LoggingExtensions.WriteLine($"[Permission Debug] Workflow {workflow.Id} - VisibleToTeams mode with NULL ViewTeams = DENY");
-                    return false; // NULL ViewTeams in VisibleToTeams mode = deny all (whitelist is empty)
+                    _logger.LogDebug("Workflow {WorkflowId} - VisibleToTeams mode with NULL ViewTeams = DENY", workflow.Id);
+                    return false;
                 }
 
-                // Parse ViewTeams JSON array (handles double-encoding)
+                // Parse ViewTeams JSON array
                 var viewTeams = ParseJsonArraySafe(workflow.ViewTeams);
-                LoggingExtensions.WriteLine($"[Permission Debug] Workflow {workflow.Id} - Parsed ViewTeams: [{string.Join(", ", viewTeams)}]");
 
                 if (viewTeams.Count == 0)
                 {
-                    LoggingExtensions.WriteLine($"[Permission Debug] Workflow {workflow.Id} - Empty ViewTeams = DENY");
-                    return false; // Empty whitelist = deny all
+                    _logger.LogDebug("Workflow {WorkflowId} - Empty ViewTeams = DENY", workflow.Id);
+                    return false;
                 }
 
                 var viewTeamLongs = viewTeams.Select(t => long.TryParse(t, out var tid) ? tid : 0).Where(t => t > 0).ToHashSet();
-                LoggingExtensions.WriteLine($"[Permission Debug] Workflow {workflow.Id} - ViewTeamLongs: [{string.Join(", ", viewTeamLongs)}]");
-                LoggingExtensions.WriteLine($"[Permission Debug] Workflow {workflow.Id} - UserTeamIds: [{string.Join(", ", userTeamIds)}]");
-
                 bool hasMatch = userTeamIds.Any(ut => viewTeamLongs.Contains(ut));
-                LoggingExtensions.WriteLine($"[Permission Debug] Workflow {workflow.Id} - Team match result: {hasMatch}");
+
+                _logger.LogDebug("Workflow {WorkflowId} - Team match result: {HasMatch}", workflow.Id, hasMatch);
 
                 return hasMatch;
             }

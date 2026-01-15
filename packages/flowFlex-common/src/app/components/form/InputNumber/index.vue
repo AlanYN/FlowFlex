@@ -86,7 +86,7 @@ export default {
 
 				// 如果是财务格式，且有值，则格式化
 				return props.isFinancial && props.modelValue
-					? formatToFinancial(props.modelValue)
+					? formatToFinancial(props.modelValue, 'en-US', props.decimalPlaces)
 					: props.modelValue;
 			},
 			set(val) {
