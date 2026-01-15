@@ -15,8 +15,9 @@ namespace FlowFlex.WebApi.Controllers.OW
     /// <summary>
     /// User controller
     /// </summary>
-    [Route("ow/users")]
+    [Route("ow/users/v{version:apiVersion}")]
     [ApiController]
+    [Asp.Versioning.ApiVersion("1.0")]
     public class UserController : Controllers.ControllerBase
     {
         private readonly IUserService _userService;
