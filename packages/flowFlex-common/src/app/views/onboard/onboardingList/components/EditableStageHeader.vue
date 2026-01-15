@@ -310,7 +310,7 @@ import { Icon } from '@iconify/vue';
 import { timeZoneConvert } from '@/hooks/time';
 import { defaultStr, dialogWidth, projectTenMinutesSsecondsDate } from '@/settings/projectSetting';
 import InputNumber from '@/components/form/InputNumber/index.vue';
-import { useInternalNoteUsers } from '@/hooks/useInternalNoteUsers';
+import { getAllUser } from '@/apis/global';
 import type { Stage } from '#/onboard';
 
 // Props 定义
@@ -326,8 +326,45 @@ const props = withDefaults(defineProps<Props>(), {
 	onboardingId: '',
 });
 
-// 使用用户列表 hook
-const { allAssignOptions, optionsLoading } = useInternalNoteUsers(props.onboardingId);
+// 用户列表数据
+interface UserOption {
+	key: string;
+	value: string;
+	email?: string;
+}
+
+const allAssignOptions = ref<UserOption[]>([]);
+const optionsLoading = ref(false);
+
+// 获取所有用户列表
+const fetchAllUsers = async () => {
+	optionsLoading.value = true;
+	try {
+		const res = await getAllUser();
+		if (res?.data && Array.isArray(res.data)) {
+			allAssignOptions.value = res.data
+				.filter((item) => item.userType == 3)
+				.map((user: any) => ({
+					key: String(user.id),
+					value: user.name,
+					email: user.email,
+				}));
+		}
+	} catch (error) {
+		console.error('Failed to fetch users:', error);
+		allAssignOptions.value = [];
+	} finally {
+		optionsLoading.value = false;
+	}
+};
+
+// 组件挂载后检测溢出
+onMounted(() => {
+	fetchAllUsers();
+	nextTick(() => {
+		checkOverflow();
+	});
+});
 
 // Emits 定义
 const emit = defineEmits(['update:stage-data']);
@@ -505,13 +542,6 @@ watch(
 		});
 	}
 );
-
-// 组件挂载后检测溢出
-onMounted(() => {
-	nextTick(() => {
-		checkOverflow();
-	});
-});
 
 // 切换展开/收起状态
 const toggleCoAssigneesExpand = () => {
