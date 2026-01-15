@@ -369,13 +369,7 @@
 								<template #header>
 									<div class="flex items-center justify-center gap-1">
 										{{ column.label }}
-										<el-tag
-											v-if="column.isOther"
-											type="warning"
-											class="other-column-tag"
-										>
-											Other
-										</el-tag>
+										<el-tag v-if="column.isOther" type="warning">Other</el-tag>
 									</div>
 								</template>
 								<template #default="{ row }">
@@ -443,13 +437,7 @@
 								<template #header>
 									<div class="flex items-center justify-center gap-1">
 										{{ column.label }}
-										<el-tag
-											v-if="column.isOther"
-											type="warning"
-											class="other-column-tag"
-										>
-											Other
-										</el-tag>
+										<el-tag v-if="column.isOther" type="warning">Other</el-tag>
 									</div>
 								</template>
 								<template #default="{ row, $index: rowIndex }">
@@ -529,13 +517,7 @@
 								<template #header>
 									<div class="flex items-center justify-center gap-1">
 										{{ column.label }}
-										<el-tag
-											v-if="column.isOther"
-											type="warning"
-											class="other-column-tag"
-										>
-											Other
-										</el-tag>
+										<el-tag v-if="column.isOther" type="warning">Other</el-tag>
 									</div>
 								</template>
 								<template #default="{ row }">
@@ -1936,14 +1918,6 @@ html.dark {
 			display: none;
 		}
 	}
-}
-
-.other-column-tag {
-	font-size: 0.625rem;
-	height: 1.125rem;
-	line-height: 1;
-	padding: 0.125rem 0.25rem;
-	margin-left: 0.25rem;
 }
 
 .other-input {

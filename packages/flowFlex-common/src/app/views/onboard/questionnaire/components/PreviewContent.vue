@@ -462,76 +462,71 @@
 								class="preview-grid"
 							>
 								<!-- 如果有网格数据（rows + columns），渲染为多选网格 -->
-								<div v-if="item.columns && item.rows" class="grid-container">
-									<div class="grid-header">
-										<div class="grid-cell grid-row-header"></div>
-										<div
-											v-for="(column, colIndex) in item.columns"
-											:key="colIndex"
-											class="grid-cell grid-column-header"
-										>
-											{{ column.label }}
-											<el-tag
-												v-if="column.isOther"
-												size="small"
-												type="warning"
-												class="other-column-tag"
-											>
-												Other
-											</el-tag>
-										</div>
-									</div>
-									<div
-										v-for="(row, rowIndex) in item.rows"
-										:key="rowIndex"
-										class="grid-row"
+								<el-table v-if="item.columns && item.rows" :data="item.rows" border>
+									<el-table-column
+										prop="label"
+										label=""
+										fixed="left"
+										min-width="200"
 									>
-										<div class="grid-cell grid-row-header">
-											<span
-												class="w-[200px] min-w-0 truncate"
-												:title="row.label"
-											>
+										<template #default="{ row }">
+											<span class="truncate" :title="row.label">
 												{{ row.label }}
 											</span>
-										</div>
-										<div
-											v-for="(column, colIndex) in item.columns"
-											:key="colIndex"
-											class="grid-cell grid-checkbox-cell gap-x-2"
-										>
-											<el-checkbox-group
-												v-model="
-													previewData[
-														getGridKey(
+										</template>
+									</el-table-column>
+									<el-table-column
+										v-for="(column, colIndex) in item.columns"
+										:key="colIndex"
+										:label="column.label"
+										min-width="120"
+										align="center"
+									>
+										<template #header>
+											<div class="flex items-center justify-center gap-1">
+												{{ column.label }}
+												<el-tag
+													v-if="column.isOther"
+													size="small"
+													type="warning"
+												>
+													Other
+												</el-tag>
+											</div>
+										</template>
+										<template #default="{ $index: rowIndex }">
+											<div class="flex items-center justify-center gap-2">
+												<el-checkbox-group
+													v-model="
+														previewData[
+															getGridKey(
+																sectionIndex,
+																itemIndex,
+																rowIndex
+															)
+														]
+													"
+													@change="
+														handleGridCheckboxChange(
 															sectionIndex,
 															itemIndex,
-															rowIndex
+															rowIndex,
+															item,
+															$event
 														)
-													]
-												"
-												@change="
-													handleGridCheckboxChange(
-														sectionIndex,
-														itemIndex,
-														rowIndex,
-														item,
-														$event
-													)
-												"
-											>
-												<el-checkbox
-													:value="
-														column.value ||
-														column.label ||
-														`col_${colIndex}`
 													"
-													class="grid-checkbox"
-												/>
-											</el-checkbox-group>
-
-											<!-- Other选项的文字输入框 - 简化判断逻辑 -->
-											<div v-if="column.isOther">
+												>
+													<el-checkbox
+														:value="
+															column.value ||
+															column.label ||
+															`col_${colIndex}`
+														"
+														class="grid-checkbox"
+													/>
+												</el-checkbox-group>
 												<el-input
+													v-if="column.isOther"
 													v-model="
 														previewData[
 															getOtherTextKey(
@@ -555,9 +550,9 @@
 													class="other-input"
 												/>
 											</div>
-										</div>
-									</div>
-								</div>
+										</template>
+									</el-table-column>
+								</el-table>
 
 								<!-- 如果没有任何数据，显示占位符 -->
 								<div
@@ -573,82 +568,78 @@
 
 							<!-- 单选网格 -->
 							<div v-else-if="item.type === 'checkbox_grid'" class="preview-grid">
-								<div
+								<el-table
 									v-if="
 										item.rows &&
 										item.rows.length > 0 &&
 										item.columns &&
 										item.columns.length > 0
 									"
-									class="grid-container"
+									:data="item.rows"
+									border
 								>
-									<div class="grid-header">
-										<div class="grid-cell grid-row-header"></div>
-										<div
-											v-for="(column, colIndex) in item.columns"
-											:key="colIndex"
-											class="grid-cell grid-column-header"
-										>
-											{{ column.label }}
-											<el-tag
-												v-if="column.isOther"
-												size="small"
-												type="warning"
-												class="other-column-tag"
-											>
-												Other
-											</el-tag>
-										</div>
-									</div>
-									<div
-										v-for="(row, rowIndex) in item.rows"
-										:key="rowIndex"
-										class="grid-row"
+									<el-table-column
+										prop="label"
+										label=""
+										fixed="left"
+										min-width="200"
 									>
-										<div class="grid-cell grid-row-header">
-											<span
-												class="w-[200px] min-w-0 truncate"
-												:title="row.label"
-											>
+										<template #default="{ row }">
+											<span class="truncate" :title="row.label">
 												{{ row.label }}
 											</span>
-										</div>
-										<div
-											v-for="(column, colIndex) in item.columns"
-											:key="colIndex"
-											class="grid-cell grid-radio-cell gap-x-2"
-										>
-											<el-radio
-												v-model="
-													previewData[
-														getGridKey(
+										</template>
+									</el-table-column>
+									<el-table-column
+										v-for="(column, colIndex) in item.columns"
+										:key="colIndex"
+										:label="column.label"
+										min-width="120"
+										align="center"
+									>
+										<template #header>
+											<div class="flex items-center justify-center gap-1">
+												{{ column.label }}
+												<el-tag
+													v-if="column.isOther"
+													size="small"
+													type="warning"
+												>
+													Other
+												</el-tag>
+											</div>
+										</template>
+										<template #default="{ $index: rowIndex }">
+											<div class="flex items-center justify-center gap-2">
+												<el-radio
+													v-model="
+														previewData[
+															getGridKey(
+																sectionIndex,
+																itemIndex,
+																rowIndex
+															)
+														]
+													"
+													:name="`grid_${sectionIndex}_${itemIndex}_${rowIndex}`"
+													:value="
+														column.value ||
+														column.label ||
+														`${rowIndex}_${colIndex}`
+													"
+													@change="
+														handleGridRadioChange(
 															sectionIndex,
 															itemIndex,
-															rowIndex
+															rowIndex,
+															item,
+															$event
 														)
-													]
-												"
-												:name="`grid_${sectionIndex}_${itemIndex}_${rowIndex}`"
-												:value="
-													column.value ||
-													column.label ||
-													`${rowIndex}_${colIndex}`
-												"
-												@change="
-													handleGridRadioChange(
-														sectionIndex,
-														itemIndex,
-														rowIndex,
-														item,
-														$event
-													)
-												"
-												class="grid-radio"
-											/>
-
-											<!-- Other选项的文字输入框 - 简化判断逻辑 -->
-											<div v-if="column.isOther">
+													"
+													class="grid-radio"
+												/>
 												<el-input
+													v-if="column.isOther"
 													v-model="
 														previewData[
 															getOtherTextKey(
@@ -672,9 +663,9 @@
 													class="other-input"
 												/>
 											</div>
-										</div>
-									</div>
-								</div>
+										</template>
+									</el-table-column>
+								</el-table>
 
 								<!-- 如果没有数据，显示占位符 -->
 								<div
@@ -693,43 +684,39 @@
 							</div>
 
 							<div v-else-if="item.type === 'short_answer_grid'" class="preview-grid">
-								<div v-if="item.columns && item.rows" class="grid-container">
-									<div class="grid-header">
-										<div class="grid-cell grid-row-header"></div>
-										<div
-											v-for="(column, colIndex) in item.columns"
-											:key="colIndex"
-											class="grid-cell grid-column-header"
-										>
-											{{ column.label }}
-											<el-tag
-												v-if="column.isOther"
-												size="small"
-												type="warning"
-												class="other-column-tag"
-											>
-												Other
-											</el-tag>
-										</div>
-									</div>
-									<div
-										v-for="(row, rowIndex) in item.rows"
-										:key="rowIndex"
-										class="grid-row"
+								<el-table v-if="item.columns && item.rows" :data="item.rows" border>
+									<el-table-column
+										prop="label"
+										label=""
+										fixed="left"
+										min-width="200"
 									>
-										<div class="grid-cell grid-row-header">
-											<span
-												class="w-[200px] min-w-0 truncate"
-												:title="row.label"
-											>
+										<template #default="{ row }">
+											<span class="truncate" :title="row.label">
 												{{ row.label }}
 											</span>
-										</div>
-										<div
-											v-for="(column, colIndex) in item.columns"
-											:key="colIndex"
-											class="grid-cell grid-checkbox-cell gap-x-2"
-										>
+										</template>
+									</el-table-column>
+									<el-table-column
+										v-for="(column, colIndex) in item.columns"
+										:key="colIndex"
+										:label="column.label"
+										min-width="150"
+										align="center"
+									>
+										<template #header>
+											<div class="flex items-center justify-center gap-1">
+												{{ column.label }}
+												<el-tag
+													v-if="column.isOther"
+													size="small"
+													type="warning"
+												>
+													Other
+												</el-tag>
+											</div>
+										</template>
+										<template #default="{ $index: rowIndex }">
 											<el-input
 												v-model="
 													previewData[
@@ -743,9 +730,9 @@
 													]
 												"
 											/>
-										</div>
-									</div>
-								</div>
+										</template>
+									</el-table-column>
+								</el-table>
 							</div>
 
 							<!-- 说明文本 -->
@@ -903,6 +890,50 @@ const printQuestionnaire = () => {
 			buildAttributeString(document.body, ['class'])
 		);
 
+		// 克隆内容并处理表格宽度
+		const clonedContent = container.cloneNode(true) as HTMLElement;
+
+		// 处理所有 el-table 相关元素，移除内联宽度样式
+		const tables = clonedContent.querySelectorAll('.el-table');
+		tables.forEach((table) => {
+			(table as HTMLElement).style.width = '100%';
+			// 移除固定列容器
+			const fixedElements = table.querySelectorAll(
+				'.el-table__fixed, .el-table__fixed-right'
+			);
+			fixedElements.forEach((el) => el.remove());
+		});
+
+		// 处理表格内部元素
+		const tableInners = clonedContent.querySelectorAll(
+			'.el-table__header-wrapper, .el-table__body-wrapper'
+		);
+		tableInners.forEach((el) => {
+			(el as HTMLElement).style.overflow = 'visible';
+			(el as HTMLElement).style.width = '100%';
+		});
+
+		// 处理 table 元素
+		const tableElements = clonedContent.querySelectorAll('.el-table__header, .el-table__body');
+		tableElements.forEach((el) => {
+			(el as HTMLElement).style.width = '100%';
+			(el as HTMLElement).style.tableLayout = 'fixed';
+		});
+
+		// 处理 colgroup 中的 col 元素，移除固定宽度
+		const colElements = clonedContent.querySelectorAll('.el-table colgroup col');
+		colElements.forEach((col) => {
+			(col as HTMLElement).style.width = 'auto';
+			col.removeAttribute('width');
+		});
+
+		// 处理 th 和 td 元素
+		const cells = clonedContent.querySelectorAll('.el-table th, .el-table td');
+		cells.forEach((cell) => {
+			(cell as HTMLElement).style.minWidth = '0';
+			(cell as HTMLElement).style.width = 'auto';
+		});
+
 		const printStyles = `
 			@page {
 				size: A4;
@@ -956,7 +987,6 @@ const printQuestionnaire = () => {
 					-webkit-print-color-adjust: exact !important;
 					print-color-adjust: exact !important;
 				}
-
 			}
 		`;
 
@@ -970,7 +1000,7 @@ const printQuestionnaire = () => {
 
 		printWindow.document.open();
 		printWindow.document.write(
-			`<!DOCTYPE html><html${htmlAttributes}><head><meta charset="utf-8" /><title></title>${headContent}<style>${printStyles}</style></head><body${bodyAttributes}><div class="print-wrapper">${container.innerHTML}</div></body></html>`
+			`<!DOCTYPE html><html${htmlAttributes}><head><meta charset="utf-8" /><title></title>${headContent}<style>${printStyles}</style></head><body${bodyAttributes}><div class="print-wrapper">${clonedContent.innerHTML}</div></body></html>`
 		);
 		printWindow.document.close();
 		printWindow.document.title = '';
@@ -1889,84 +1919,6 @@ html.dark .preview_assignment-label {
 .preview-grid {
 	@apply w-full;
 
-	.grid-container {
-		border: 1px solid var(--primary-200);
-		overflow: hidden;
-		@apply dark:border-black-200 rounded-xl;
-	}
-
-	.grid-header {
-		display: flex;
-		background-color: var(--primary-50);
-		border-bottom: 1px solid var(--primary-200);
-		@apply dark:bg-primary-800 dark:border-black-200;
-	}
-
-	.grid-row {
-		display: flex;
-		border-bottom: 1px solid var(--primary-100);
-		@apply dark:border-black-100;
-
-		&:hover {
-			background-color: var(--primary-25);
-			@apply dark:bg-black-300;
-		}
-	}
-
-	.grid-row:last-child {
-		border-bottom: none;
-	}
-
-	.grid-cell {
-		padding: 0.75rem;
-		border-right: 1px solid var(--primary-100);
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		align-items: center;
-		min-width: 120px;
-		flex: 1;
-		@apply dark:border-black-100;
-
-		&:first-child {
-			justify-content: flex-start;
-			font-weight: 500;
-			background-color: var(--primary-25);
-			min-width: 200px;
-			flex: none;
-			@apply dark:bg-black-400;
-		}
-
-		&:last-child {
-			border-right: none;
-		}
-	}
-
-	.grid-row-header {
-		background-color: var(--primary-25);
-		font-weight: 500;
-		text-align: left;
-		justify-content: flex-start !important;
-		@apply dark:bg-black-400 w-[200px] min-w-0 truncate;
-	}
-
-	.grid-column-header {
-		font-weight: 500;
-		text-align: center;
-		background-color: var(--primary-50);
-		@apply dark:bg-primary-800;
-	}
-
-	.grid-radio-cell {
-		background-color: white;
-		@apply dark:bg-black-500;
-	}
-
-	.grid-checkbox-cell {
-		background-color: white;
-		@apply dark:bg-black-500;
-	}
-
 	.grid-radio {
 		margin: 0;
 
@@ -1991,22 +1943,9 @@ html.dark .preview_assignment-label {
 		}
 	}
 
-	.other-column-tag {
-		margin-left: 0.5rem;
-		font-size: 0.625rem;
-		height: 1.125rem;
-		line-height: 1;
-		padding: 0.125rem 0.25rem;
-	}
-
 	.other-input {
 		width: 100%;
 		max-width: 180px;
-
-		:deep(.el-input__wrapper) {
-			border-color: var(--primary-200);
-			@apply dark:border-black-200;
-		}
 	}
 }
 
