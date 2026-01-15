@@ -399,6 +399,22 @@ namespace FlowFlex.WebApi.Controllers.OW
         }
 
         /// <summary>
+        /// Get all users as a flat list (without team hierarchy)
+        /// </summary>
+        /// <returns>Flat list of all users</returns>
+        [HttpGet("allUsers")]
+        [Authorize]
+        [PortalAccess] // Allow Portal token access - Portal users can view all users
+        [ProducesResponseType<SuccessResponse<List<UserTreeNodeDto>>>((int)HttpStatusCode.OK)]
+        [ProducesResponseType(typeof(ErrorResponse), 400)]
+        [ProducesResponseType(typeof(ErrorResponse), 401)]
+        public async Task<IActionResult> GetAllUsers()
+        {
+            var allUsers = await _userService.GetAllUsersAsync();
+            return Success(allUsers);
+        }
+
+        /// <summary>
         /// Get user by ID
         /// </summary>
         /// <param name="id">User ID</param>
