@@ -106,6 +106,10 @@ namespace FlowFlex.Tests.TestBase
         {
             mockRepo.Setup(x => x.GetByIdAsync(It.Is<object>(id => id.Equals(caseId)), It.IsAny<bool>(), It.IsAny<CancellationToken>()))
                 .ReturnsAsync(onboarding);
+            
+            // Also setup GetByIdWithoutTenantFilterAsync for ActionExecutor tests
+            mockRepo.Setup(x => x.GetByIdWithoutTenantFilterAsync(It.Is<long>(id => id == caseId), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(onboarding);
         }
 
         public static void SetupIdentityHubClientPermissionCheck(
