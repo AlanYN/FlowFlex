@@ -32,6 +32,7 @@ using FlowFlex.Domain.Shared.Const;
 using FlowFlex.Application.Contracts.IServices.OW;
 using FlowFlex.Application.Contracts.Dtos.OW.User;
 using FlowFlex.Application.Contracts.IServices.Integration;
+using FlowFlex.Application.Contracts.IServices.DynamicData;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -68,12 +69,13 @@ namespace FlowFlex.Application.Service.OW
         private readonly IUserService _userService;
         private readonly IRulesEngineService _rulesEngineService;
         private readonly IConditionActionExecutor _conditionActionExecutor;
+        private readonly IPropertyService _propertyService;
 
         // Cache key constants
         private const string STAGE_CACHE_PREFIX = "ow:stage";
         private static readonly TimeSpan STAGE_CACHE_DURATION = TimeSpan.FromMinutes(10);
 
-        public StageService(IStageRepository stageRepository, IWorkflowRepository workflowRepository, IMapper mapper, IStagesProgressSyncService stagesProgressSyncService, IChecklistService checklistService, IQuestionnaireService questionnaireService, IQuickLinkService quickLinkService, IQuestionnaireAnswerService questionnaireAnswerService, IAIService aiService, IChecklistTaskCompletionRepository checklistTaskCompletionRepository, UserContext userContext, IComponentMappingService mappingService, ISqlSugarClient db, IDistributedCacheService cacheService, IBackgroundTaskQueue backgroundTaskQueue, IOperationChangeLogService operationChangeLogService, IPermissionService permissionService, ILogger<StageService> logger, IUserService userService, IRulesEngineService rulesEngineService = null, IConditionActionExecutor conditionActionExecutor = null)
+        public StageService(IStageRepository stageRepository, IWorkflowRepository workflowRepository, IMapper mapper, IStagesProgressSyncService stagesProgressSyncService, IChecklistService checklistService, IQuestionnaireService questionnaireService, IQuickLinkService quickLinkService, IQuestionnaireAnswerService questionnaireAnswerService, IAIService aiService, IChecklistTaskCompletionRepository checklistTaskCompletionRepository, UserContext userContext, IComponentMappingService mappingService, ISqlSugarClient db, IDistributedCacheService cacheService, IBackgroundTaskQueue backgroundTaskQueue, IOperationChangeLogService operationChangeLogService, IPermissionService permissionService, ILogger<StageService> logger, IUserService userService, IPropertyService propertyService, IRulesEngineService rulesEngineService = null, IConditionActionExecutor conditionActionExecutor = null)
         {
             _stageRepository = stageRepository;
             _workflowRepository = workflowRepository;
@@ -94,6 +96,7 @@ namespace FlowFlex.Application.Service.OW
             _permissionService = permissionService;
             _logger = logger;
             _userService = userService;
+            _propertyService = propertyService;
             _rulesEngineService = rulesEngineService;
             _conditionActionExecutor = conditionActionExecutor;
         }
@@ -996,6 +999,9 @@ namespace FlowFlex.Application.Service.OW
             var entity = await _stageRepository.GetByIdAsync(id);
             var result = _mapper.Map<StageOutputDto>(entity);
 
+            // Convert legacy field names to numeric IDs in components.staticFields
+            await ConvertLegacyStaticFieldsToIdsAsync(result);
+
             // Fill permission info (optimized single call)
             var userId = _userContext?.UserId;
 
@@ -1049,6 +1055,8 @@ namespace FlowFlex.Application.Service.OW
                         CanOperate = true,
                         ErrorMessage = null
                     };
+                    // Convert legacy field names to numeric IDs
+                    await ConvertLegacyStaticFieldsToIdsAsync(stageDto);
                 }
 
                 return adminResult;
@@ -1074,6 +1082,8 @@ namespace FlowFlex.Application.Service.OW
                         CanOperate = true,
                         ErrorMessage = null
                     };
+                    // Convert legacy field names to numeric IDs
+                    await ConvertLegacyStaticFieldsToIdsAsync(stageDto);
                 }
 
                 return tenantAdminResult;
@@ -1122,6 +1132,12 @@ namespace FlowFlex.Application.Service.OW
                 {
                     stageDto.Permission = permissionInfo;
                 }
+            }
+
+            // Convert legacy field names to numeric IDs in components.staticFields
+            foreach (var stageDto in result)
+            {
+                await ConvertLegacyStaticFieldsToIdsAsync(stageDto);
             }
 
             _logger.LogInformation(
@@ -3247,6 +3263,80 @@ namespace FlowFlex.Application.Service.OW
             {
                 _logger.LogError(ex, "Failed to sync stage assignees to onboardings. StageId: {StageId}, WorkflowId: {WorkflowId}", stageId, workflowId);
                 throw;
+            }
+        }
+
+        /// <summary>
+        /// Convert legacy field names (e.g., "CUSTOMERNAME") to numeric IDs in components.staticFields
+        /// Legacy format: StaticFields: ["CUSTOMERNAME", "CONTACTNAME"]
+        /// New format: StaticFields: [{"id": "2006236814662307840", "isRequired": false, "order": 0}]
+        /// </summary>
+        private async Task ConvertLegacyStaticFieldsToIdsAsync(StageOutputDto result)
+        {
+            if (result?.Components == null || !result.Components.Any())
+            {
+                return;
+            }
+
+            // Collect all legacy field names that need to be converted
+            var legacyFieldNames = new HashSet<string>();
+            foreach (var component in result.Components)
+            {
+                if (component.Key != "fields" || component.StaticFields == null) continue;
+                
+                foreach (var field in component.StaticFields)
+                {
+                    // Check if the ID is a legacy field name (not a numeric ID)
+                    if (!string.IsNullOrEmpty(field.Id) && !long.TryParse(field.Id, out _))
+                    {
+                        legacyFieldNames.Add(field.Id);
+                    }
+                }
+            }
+
+            if (!legacyFieldNames.Any())
+            {
+                return; // No legacy field names to convert
+            }
+
+            // Get all properties to build a name-to-ID mapping
+            try
+            {
+                var allProperties = await _propertyService.GetPropertyListAsync();
+                var fieldNameToIdMap = allProperties
+                    .Where(p => !string.IsNullOrEmpty(p.FieldName))
+                    .ToDictionary(
+                        p => p.FieldName.ToUpperInvariant(),
+                        p => p.Id.ToString(),
+                        StringComparer.OrdinalIgnoreCase
+                    );
+
+                // Convert legacy field names to IDs
+                foreach (var component in result.Components)
+                {
+                    if (component.Key != "fields" || component.StaticFields == null) continue;
+                    
+                    foreach (var field in component.StaticFields)
+                    {
+                        if (!string.IsNullOrEmpty(field.Id) && !long.TryParse(field.Id, out _))
+                        {
+                            // This is a legacy field name, try to convert to ID
+                            if (fieldNameToIdMap.TryGetValue(field.Id.ToUpperInvariant(), out var numericId))
+                            {
+                                field.Id = numericId;
+                            }
+                            else
+                            {
+                                _logger.LogWarning("Could not find property ID for legacy field name: {FieldName}", field.Id);
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error converting legacy static field names to IDs");
+                // Don't throw - allow the response to continue with legacy field names
             }
         }
     }

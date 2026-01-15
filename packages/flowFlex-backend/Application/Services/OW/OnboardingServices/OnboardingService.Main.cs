@@ -35,6 +35,7 @@ using System.Text.Json;
 using PermissionOperationType = FlowFlex.Domain.Shared.Enums.Permission.OperationTypeEnum;
 using FlowFlex.Application.Contracts.Dtos.OW.User;
 using FlowFlex.Application.Contracts.Dtos.OW.StageCondition;
+using FlowFlex.Application.Contracts.IServices.DynamicData;
 
 namespace FlowFlex.Application.Services.OW
 {
@@ -73,6 +74,7 @@ namespace FlowFlex.Application.Services.OW
         internal readonly IEmailService _emailService;
         internal readonly IRulesEngineService _rulesEngineService;
         internal readonly IConditionActionExecutor _conditionActionExecutor;
+        internal readonly IPropertyService _propertyService;
         internal readonly ILogger<OnboardingService> _logger;
 
         // Cache key constants - temporarily disable Redis cache
@@ -129,6 +131,7 @@ namespace FlowFlex.Application.Services.OW
             IEmailService emailService,
             IRulesEngineService rulesEngineService,
             IConditionActionExecutor conditionActionExecutor,
+            IPropertyService propertyService,
             ILogger<OnboardingService> logger)
         {
             _onboardingRepository = onboardingRepository ?? throw new ArgumentNullException(nameof(onboardingRepository));
@@ -159,6 +162,7 @@ namespace FlowFlex.Application.Services.OW
             _emailService = emailService ?? throw new ArgumentNullException(nameof(emailService));
             _rulesEngineService = rulesEngineService ?? throw new ArgumentNullException(nameof(rulesEngineService));
             _conditionActionExecutor = conditionActionExecutor ?? throw new ArgumentNullException(nameof(conditionActionExecutor));
+            _propertyService = propertyService ?? throw new ArgumentNullException(nameof(propertyService));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
 

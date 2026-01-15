@@ -928,6 +928,9 @@ namespace FlowFlex.Application.Services.OW
                     };
                 }
 
+                // Convert legacy field names to numeric IDs in stagesProgress.components.staticFields
+                await ConvertLegacyStaticFieldsToIdsAsync(result);
+
                 return result;
             }
             catch (Exception ex)
@@ -1149,6 +1152,90 @@ namespace FlowFlex.Application.Services.OW
                     _logger.LogError(ex, "Failed to log onboarding create operation for onboarding {OnboardingId}", insertedId);
                 }
             });
+        }
+
+        /// <summary>
+        /// Convert legacy field names (e.g., "CUSTOMERNAME") to numeric IDs in stagesProgress.components.staticFields
+        /// Legacy format: StaticFields: ["CUSTOMERNAME", "CONTACTNAME"]
+        /// New format: StaticFields: [{"id": "2006236814662307840", "isRequired": false, "order": 0}]
+        /// </summary>
+        private async Task ConvertLegacyStaticFieldsToIdsAsync(OnboardingOutputDto result)
+        {
+            if (result?.StagesProgress == null || !result.StagesProgress.Any())
+            {
+                return;
+            }
+
+            // Collect all legacy field names that need to be converted
+            var legacyFieldNames = new HashSet<string>();
+            foreach (var stageProgress in result.StagesProgress)
+            {
+                if (stageProgress.Components == null) continue;
+                
+                foreach (var component in stageProgress.Components)
+                {
+                    if (component.Key != "fields" || component.StaticFields == null) continue;
+                    
+                    foreach (var field in component.StaticFields)
+                    {
+                        // Check if the ID is a legacy field name (not a numeric ID)
+                        if (!string.IsNullOrEmpty(field.Id) && !long.TryParse(field.Id, out _))
+                        {
+                            legacyFieldNames.Add(field.Id);
+                        }
+                    }
+                }
+            }
+
+            if (!legacyFieldNames.Any())
+            {
+                return; // No legacy field names to convert
+            }
+
+            // Get all properties to build a name-to-ID mapping
+            try
+            {
+                var allProperties = await _propertyService.GetPropertyListAsync();
+                var fieldNameToIdMap = allProperties
+                    .Where(p => !string.IsNullOrEmpty(p.FieldName))
+                    .ToDictionary(
+                        p => p.FieldName.ToUpperInvariant(),
+                        p => p.Id.ToString(),
+                        StringComparer.OrdinalIgnoreCase
+                    );
+
+                // Convert legacy field names to IDs
+                foreach (var stageProgress in result.StagesProgress)
+                {
+                    if (stageProgress.Components == null) continue;
+                    
+                    foreach (var component in stageProgress.Components)
+                    {
+                        if (component.Key != "fields" || component.StaticFields == null) continue;
+                        
+                        foreach (var field in component.StaticFields)
+                        {
+                            if (!string.IsNullOrEmpty(field.Id) && !long.TryParse(field.Id, out _))
+                            {
+                                // This is a legacy field name, try to convert to ID
+                                if (fieldNameToIdMap.TryGetValue(field.Id.ToUpperInvariant(), out var numericId))
+                                {
+                                    field.Id = numericId;
+                                }
+                                else
+                                {
+                                    _logger.LogWarning("Could not find property ID for legacy field name: {FieldName}", field.Id);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error converting legacy static field names to IDs");
+                // Don't throw - allow the response to continue with legacy field names
+            }
         }
 
         #endregion
