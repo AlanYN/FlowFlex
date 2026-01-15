@@ -23,6 +23,7 @@ namespace FlowFlex.Application.Service.OW
         private readonly ISqlSugarClient _db;
         private readonly IOnboardingRepository _onboardingRepository;
         private readonly IStageRepository _stageRepository;
+        private readonly IStaticFieldValueService _staticFieldValueService;
         private readonly UserContext _userContext;
         private readonly ILogger<ComponentDataService> _logger;
 
@@ -30,12 +31,14 @@ namespace FlowFlex.Application.Service.OW
             ISqlSugarClient db,
             IOnboardingRepository onboardingRepository,
             IStageRepository stageRepository,
+            IStaticFieldValueService staticFieldValueService,
             UserContext userContext,
             ILogger<ComponentDataService> logger)
         {
             _db = db;
             _onboardingRepository = onboardingRepository;
             _stageRepository = stageRepository;
+            _staticFieldValueService = staticFieldValueService;
             _userContext = userContext;
             _logger = logger;
         }
@@ -349,22 +352,46 @@ namespace FlowFlex.Application.Service.OW
         }
 
         /// <summary>
-        /// Get fields data from onboarding CustomFieldsJson
+        /// Get fields data from StaticFieldValue table
         /// </summary>
         public async Task<Dictionary<string, object>> GetFieldsDataAsync(long onboardingId)
         {
             try
             {
-                // Use GetByIdWithoutTenantFilterAsync to support background tasks without HttpContext
-                var onboarding = await _onboardingRepository.GetByIdWithoutTenantFilterAsync(onboardingId);
-                if (onboarding?.CustomFieldsJson == null)
+                var result = new Dictionary<string, object>();
+                
+                // Get all static field values for this onboarding
+                var staticFieldValues = await _staticFieldValueService.GetByOnboardingIdAsync(onboardingId);
+                
+                if (staticFieldValues == null || !staticFieldValues.Any())
                 {
-                    return new Dictionary<string, object>();
+                    return result;
                 }
 
-                // Parse CustomFieldsJson
-                var customFields = JsonConvert.DeserializeObject<Dictionary<string, object>>(onboarding.CustomFieldsJson);
-                return customFields ?? new Dictionary<string, object>();
+                // Convert to dictionary with stage-prefixed keys for stage-specific fields
+                foreach (var field in staticFieldValues)
+                {
+                    // Use stage-prefixed key format: stage_{stageId}_{fieldName}
+                    var key = $"stage_{field.StageId}_{field.FieldName}";
+                    
+                    // Parse the JSON value
+                    object? value = null;
+                    if (!string.IsNullOrEmpty(field.FieldValueJson))
+                    {
+                        try
+                        {
+                            value = JsonConvert.DeserializeObject(field.FieldValueJson);
+                        }
+                        catch
+                        {
+                            value = field.FieldValueJson;
+                        }
+                    }
+                    
+                    result[key] = value!;
+                }
+
+                return result;
             }
             catch (Exception ex)
             {

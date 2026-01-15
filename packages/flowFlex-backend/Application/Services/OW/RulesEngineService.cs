@@ -559,8 +559,7 @@ namespace FlowFlex.Application.Service.OW
                     ? status?.ToString() ?? "" : "",
                 "sendnotification" => action.ResultData.TryGetValue("recipientEmail", out var email) 
                     ? TruncateEmail(email?.ToString()) : "",
-                "updatefield" => action.ResultData.TryGetValue("fieldKey", out var fieldKey) 
-                    ? fieldKey?.ToString() ?? "" : "",
+                "updatefield" => GetUpdateFieldDetail(action.ResultData),
                 "triggeraction" => action.ResultData.TryGetValue("actionName", out var actionName) 
                     ? actionName?.ToString() ?? "" : "",
                 "assignuser" => BuildAssignUserDetail(action.ResultData),
@@ -576,6 +575,27 @@ namespace FlowFlex.Application.Service.OW
             var assigneeType = resultData.TryGetValue("assigneeType", out var type) ? type?.ToString() : "";
             var assigneeCount = resultData.TryGetValue("assigneeCount", out var count) ? count?.ToString() : "0";
             return $"{assigneeType}×{assigneeCount}";
+        }
+
+        /// <summary>
+        /// Get UpdateField action detail - prefer fieldName over fieldId
+        /// </summary>
+        private string GetUpdateFieldDetail(Dictionary<string, object> resultData)
+        {
+            // Prefer fieldName for display, fallback to fieldKey/fieldId
+            if (resultData.TryGetValue("fieldName", out var fieldName) && !string.IsNullOrEmpty(fieldName?.ToString()))
+            {
+                return fieldName.ToString()!;
+            }
+            if (resultData.TryGetValue("fieldKey", out var fieldKey) && !string.IsNullOrEmpty(fieldKey?.ToString()))
+            {
+                return fieldKey.ToString()!;
+            }
+            if (resultData.TryGetValue("fieldId", out var fieldId) && !string.IsNullOrEmpty(fieldId?.ToString()))
+            {
+                return fieldId.ToString()!;
+            }
+            return "";
         }
 
         /// <summary>

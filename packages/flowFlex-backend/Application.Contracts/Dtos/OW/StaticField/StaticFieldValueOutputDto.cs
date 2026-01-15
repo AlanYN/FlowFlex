@@ -33,6 +33,11 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.StaticField
         public string FieldName { get; set; }
 
         /// <summary>
+        /// 字段ID（动态属性ID）
+        /// </summary>
+        public long? FieldId { get; set; }
+
+        /// <summary>
         /// 字段显示名称
         /// </summary>
         public string DisplayName { get; set; }

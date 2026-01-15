@@ -34,6 +34,11 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.StaticField
         public string FieldName { get; set; }
 
         /// <summary>
+        /// 字段ID（动态属性ID）
+        /// </summary>
+        public long? FieldId { get; set; }
+
+        /// <summary>
         /// 字段显示名称
         /// </summary>
         [StringLength(200, ErrorMessage = "字段显示名称长度不能超过200个字符")]

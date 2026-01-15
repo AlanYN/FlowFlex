@@ -317,10 +317,7 @@ namespace FlowFlex.Application.Services.Integration
                 Status = "Started",
                 StartDate = DateTimeOffset.UtcNow,
                 Priority = "Medium",
-                IsActive = true,
-                CustomFieldsJson = request.CustomFields != null
-                    ? JsonConvert.SerializeObject(request.CustomFields)
-                    : null
+                IsActive = true
             };
 
             caseId = await _onboardingService.CreateAsync(onboardingInput);
@@ -333,7 +330,7 @@ namespace FlowFlex.Application.Services.Integration
                 targetCase.IntegrationId = entityMapping.IntegrationId;
                 targetCase.EntityType = request.EntityType;
                 targetCase.EntityId = request.EntityId;
-                
+
                 // Ensure CurrentStageId is set to first stage if not already set
                 if (!targetCase.CurrentStageId.HasValue)
                 {
@@ -341,10 +338,10 @@ namespace FlowFlex.Application.Services.Integration
                     targetCase.CurrentStageOrder = firstStage.Order;
                     _logger.LogInformation("Set CurrentStageId={StageId} for case {CaseId}", firstStage.Id, caseId);
                 }
-                
+
                 targetCase.InitModifyInfo(_userContext);
                 await _onboardingRepository.UpdateAsync(targetCase);
-                
+
                 _logger.LogInformation("Updated SystemId={SystemId}, IntegrationId={IntegrationId}, EntityType={EntityType}, EntityId={EntityId}, CurrentStageId={CurrentStageId} for case {CaseId}",
                     request.SystemId, entityMapping.IntegrationId, request.EntityType, request.EntityId, targetCase.CurrentStageId, caseId);
             }
@@ -355,8 +352,8 @@ namespace FlowFlex.Application.Services.Integration
             if (targetCase != null)
             {
                 await ExecuteCaseInfoActionsAndPopulateFieldsAsync(
-                    entityMapping, 
-                    targetCase, 
+                    entityMapping,
+                    targetCase,
                     request.EntityId);
             }
 
@@ -686,12 +683,12 @@ namespace FlowFlex.Application.Services.Integration
                 // Use ClearFilter to skip tenant filtering for external integration queries
                 var query = _onboardingRepository.ClearFilter()
                     .Where(o => o.SystemId == systemId && o.IsValid);
-                
+
                 if (!string.IsNullOrWhiteSpace(entityId))
                 {
                     query = query.Where(o => o.EntityId == entityId);
                 }
-                
+
                 var onboardings = await query.ToListAsync();
 
                 if (!onboardings.Any())
@@ -719,7 +716,7 @@ namespace FlowFlex.Application.Services.Integration
                         .Where(f => f.OnboardingId == onboarding.Id && f.IsValid == true && f.IsExternalImport == false)
                         .OrderByDescending(f => f.UploadedDate)
                         .ToListAsync();
-                        
+
                     foreach (var f in files)
                     {
                         // Generate real-time OSS URL instead of using stored URL (which may expire and return 403)
@@ -791,7 +788,7 @@ namespace FlowFlex.Application.Services.Integration
         /// </summary>
         public async Task<GetAttachmentsFromExternalResponse> FetchInboundAttachmentsFromExternalAsync(string systemId, string? entityId = null)
         {
-            _logger.LogInformation("Fetching inbound attachments from external system: SystemId={SystemId}, EntityId={EntityId}", 
+            _logger.LogInformation("Fetching inbound attachments from external system: SystemId={SystemId}, EntityId={EntityId}",
                 systemId, entityId ?? "(not provided)");
 
             if (string.IsNullOrWhiteSpace(systemId))
@@ -894,7 +891,7 @@ namespace FlowFlex.Application.Services.Integration
                 // Step 4: Get authentication token if needed (do this once for all actions)
                 string? accessToken = null;
                 string? tenantCode = null;
-                
+
                 // Pre-fetch authentication info for actions that need it
                 accessToken = await GetIntegrationAccessTokenAsync(integration);
                 if (!string.IsNullOrEmpty(accessToken))
@@ -948,7 +945,7 @@ namespace FlowFlex.Application.Services.Integration
                             { "moduleName", config.ModuleName },
                             { "ModuleName", config.ModuleName }
                         };
-                        
+
                         // Add entityId if provided
                         if (!string.IsNullOrEmpty(entityId))
                         {
@@ -957,23 +954,23 @@ namespace FlowFlex.Application.Services.Integration
                         }
 
                         // Check if action needs authentication injection
-                        var needsAuthInjection = !HasAuthorizationConfigured(actionDefinition.ActionConfig) && 
+                        var needsAuthInjection = !HasAuthorizationConfigured(actionDefinition.ActionConfig) &&
                                                   !string.IsNullOrEmpty(accessToken);
-                        
+
                         JToken? actionResult;
-                        
+
                         if (needsAuthInjection)
                         {
                             _logger.LogInformation("Injecting authentication headers for Action {ActionId}", config.ActionId);
-                            
+
                             // Inject authentication headers into action config
                             var modifiedConfig = InjectAuthenticationHeaders(actionDefinition, accessToken!, tenantCode);
-                            
+
                             // Execute action directly with modified config
                             var actionType = Enum.Parse<ActionTypeEnum>(actionDefinition.ActionType);
                             var result = await _actionExecutionService.ExecuteActionDirectlyAsync(
-                                actionType, 
-                                JsonConvert.SerializeObject(modifiedConfig), 
+                                actionType,
+                                JsonConvert.SerializeObject(modifiedConfig),
                                 contextData);
                             actionResult = result != null ? JToken.FromObject(result) : null;
                         }
@@ -1279,8 +1276,8 @@ namespace FlowFlex.Application.Services.Integration
                 502 => "Bad Gateway - The external server received an invalid response",
                 503 => "Service Unavailable - The external service is temporarily unavailable",
                 504 => "Gateway Timeout - The external server did not respond in time",
-                _ => statusCode.HasValue 
-                    ? $"HTTP Error {statusCode} - Request failed" 
+                _ => statusCode.HasValue
+                    ? $"HTTP Error {statusCode} - Request failed"
                     : "Unknown error - Request failed without status code"
             };
 
@@ -1290,7 +1287,7 @@ namespace FlowFlex.Application.Services.Integration
                 try
                 {
                     var responseJson = JObject.Parse(responseContent);
-                    var detailMessage = responseJson["message"]?.ToString() 
+                    var detailMessage = responseJson["message"]?.ToString()
                         ?? responseJson["error"]?.ToString()
                         ?? responseJson["msg"]?.ToString();
                     if (!string.IsNullOrEmpty(detailMessage))
@@ -1334,7 +1331,7 @@ namespace FlowFlex.Application.Services.Integration
                 // Only OAuth2 authentication is supported for auto-auth
                 if (integration.AuthMethod != AuthenticationMethod.OAuth2)
                 {
-                    _logger.LogDebug("Integration {IntegrationId} uses {AuthMethod}, skipping auto-auth", 
+                    _logger.LogDebug("Integration {IntegrationId} uses {AuthMethod}, skipping auto-auth",
                         integration.Id, integration.AuthMethod);
                     return null;
                 }
@@ -1352,14 +1349,14 @@ namespace FlowFlex.Application.Services.Integration
                     return null;
                 }
 
-                _logger.LogInformation("Requesting OAuth2 token for Integration {IntegrationId} from {EndpointUrl}", 
+                _logger.LogInformation("Requesting OAuth2 token for Integration {IntegrationId} from {EndpointUrl}",
                     integration.Id, integration.EndpointUrl);
 
                 using var httpClient = _httpClientFactory.CreateClient();
                 httpClient.Timeout = TimeSpan.FromSeconds(30);
 
                 var request = new HttpRequestMessage(HttpMethod.Post, integration.EndpointUrl);
-                
+
                 // Use Basic Auth header for client credentials (RFC 6749)
                 var authValue = Convert.ToBase64String(Encoding.UTF8.GetBytes($"{clientId}:{clientSecret}"));
                 request.Headers.Authorization = new AuthenticationHeaderValue("Basic", authValue);
@@ -1375,7 +1372,7 @@ namespace FlowFlex.Application.Services.Integration
 
                 if (!response.IsSuccessStatusCode)
                 {
-                    _logger.LogWarning("OAuth2 token request failed for Integration {IntegrationId}: {StatusCode} - {Response}", 
+                    _logger.LogWarning("OAuth2 token request failed for Integration {IntegrationId}: {StatusCode} - {Response}",
                         integration.Id, response.StatusCode, responseContent);
                     return null;
                 }
@@ -1437,7 +1434,7 @@ namespace FlowFlex.Application.Services.Integration
 
                 if (!response.IsSuccessStatusCode)
                 {
-                    _logger.LogWarning("Failed to get tenant info from IDM: {StatusCode} - {Response}", 
+                    _logger.LogWarning("Failed to get tenant info from IDM: {StatusCode} - {Response}",
                         response.StatusCode, responseContent);
                     return null;
                 }
@@ -1451,7 +1448,7 @@ namespace FlowFlex.Application.Services.Integration
                     return null;
                 }
 
-                _logger.LogInformation("Successfully obtained tenant code: TenantId={TenantId}, TenantCode={TenantCode}", 
+                _logger.LogInformation("Successfully obtained tenant code: TenantId={TenantId}, TenantCode={TenantCode}",
                     tenantId, tenantCode);
                 return tenantCode;
             }
@@ -1460,7 +1457,7 @@ namespace FlowFlex.Application.Services.Integration
                 _logger.LogError(ex, "Error getting tenant code for TenantId={TenantId}", tenantId);
                 return null;
             }
-        }        
+        }
 
         /// <summary>
         /// Check if action config has Authorization header configured
@@ -1496,7 +1493,7 @@ namespace FlowFlex.Application.Services.Integration
                     {
                         var key = item["key"]?.ToString();
                         var value = item["value"]?.ToString();
-                        if (!string.IsNullOrEmpty(key) && 
+                        if (!string.IsNullOrEmpty(key) &&
                             key.Equals("Authorization", StringComparison.OrdinalIgnoreCase) &&
                             !string.IsNullOrEmpty(value))
                         {
@@ -1525,7 +1522,7 @@ namespace FlowFlex.Application.Services.Integration
             try
             {
                 var config = actionDefinition.ActionConfig?.DeepClone() ?? new JObject();
-                
+
                 // Ensure headers object exists
                 if (config["headers"] == null)
                 {
@@ -1537,7 +1534,7 @@ namespace FlowFlex.Application.Services.Integration
                 {
                     // Add Authorization header
                     headers["Authorization"] = $"Bearer {accessToken}";
-                    
+
                     // Add x-tenant-id header if tenant code is available
                     if (!string.IsNullOrEmpty(tenantCode))
                     {
@@ -1551,14 +1548,14 @@ namespace FlowFlex.Application.Services.Integration
                 {
                     // Remove existing Authorization and x-tenant-id entries
                     var toRemove = headersList
-                        .Where(h => 
+                        .Where(h =>
                         {
                             var key = h["key"]?.ToString();
                             return key?.Equals("Authorization", StringComparison.OrdinalIgnoreCase) == true ||
                                    key?.Equals("x-tenant-id", StringComparison.OrdinalIgnoreCase) == true;
                         })
                         .ToList();
-                    
+
                     foreach (var item in toRemove)
                     {
                         headersList.Remove(item);
@@ -1622,7 +1619,7 @@ namespace FlowFlex.Application.Services.Integration
             using var ms = new MemoryStream(Convert.FromBase64String(cipherText));
             using var cs = new CryptoStream(ms, decryptor, CryptoStreamMode.Read);
             using var sr = new StreamReader(cs);
-            
+
             return sr.ReadToEnd();
         }
 
@@ -1727,18 +1724,18 @@ namespace FlowFlex.Application.Services.Integration
                     }
 
                     // Parse response data
-                    _logger.LogInformation("CaseInfo Action {ActionId} raw result: {Result}", 
+                    _logger.LogInformation("CaseInfo Action {ActionId} raw result: {Result}",
                         actionDefinition.Id, resultJson.ToString(Newtonsoft.Json.Formatting.None));
-                    
+
                     var responseData = ExtractResponseData(resultJson);
                     if (responseData == null)
                     {
-                        _logger.LogWarning("CaseInfo Action {ActionId} returned no data to map. ResultJson keys: {Keys}", 
+                        _logger.LogWarning("CaseInfo Action {ActionId} returned no data to map. ResultJson keys: {Keys}",
                             actionDefinition.Id, string.Join(", ", resultJson.Properties().Select(p => p.Name)));
                         continue;
                     }
 
-                    _logger.LogInformation("CaseInfo Action {ActionId} extracted response data: {Data}", 
+                    _logger.LogInformation("CaseInfo Action {ActionId} extracted response data: {Data}",
                         actionDefinition.Id, responseData.ToString(Newtonsoft.Json.Formatting.None));
 
                     // Check if external API response indicates success
@@ -1747,7 +1744,7 @@ namespace FlowFlex.Application.Services.Integration
                     {
                         var errorMsg = responseData["msg"]?.ToString() ?? responseData["message"]?.ToString() ?? "Unknown error";
                         var errorCode = responseData["code"]?.ToString() ?? "";
-                        _logger.LogWarning("CaseInfo Action {ActionId} - External API returned error: {ErrorMsg} (Code: {ErrorCode})", 
+                        _logger.LogWarning("CaseInfo Action {ActionId} - External API returned error: {ErrorMsg} (Code: {ErrorCode})",
                             actionDefinition.Id, errorMsg, errorCode);
                         continue;
                     }
@@ -1832,7 +1829,7 @@ namespace FlowFlex.Application.Services.Integration
                 }
 
                 var configuredActionIds = new HashSet<long>();
-                
+
                 // Parse InboundAttachments to get configured action IDs
                 if (!string.IsNullOrEmpty(integration.InboundAttachments))
                 {
@@ -1934,16 +1931,12 @@ namespace FlowFlex.Application.Services.Integration
             List<Domain.Entities.Integration.InboundFieldMapping> fieldMappings)
         {
             _logger.LogInformation("Starting Field Mapping for Case {CaseId}. Response data: {ResponseData}, Mapping count: {MappingCount}",
-                caseEntity.Id, 
+                caseEntity.Id,
                 responseData.ToString(Newtonsoft.Json.Formatting.None),
                 fieldMappings.Count);
 
             var caseUpdated = false;
             var staticFieldValues = new List<StaticFieldValueInputDto>();
-            var customFields = !string.IsNullOrEmpty(caseEntity.CustomFieldsJson)
-                ? JsonConvert.DeserializeObject<Dictionary<string, object>>(caseEntity.CustomFieldsJson) ?? new Dictionary<string, object>()
-                : new Dictionary<string, object>();
-
             var onboardingType = typeof(Domain.Entities.OW.Onboarding);
 
             foreach (var mapping in fieldMappings)
@@ -1958,7 +1951,7 @@ namespace FlowFlex.Application.Services.Integration
 
                     // Get value from response data using externalFieldName
                     var externalValue = GetValueFromResponseData(responseData, mapping.ExternalFieldName);
-                    
+
                     // Use default value if external value is empty
                     if (string.IsNullOrEmpty(externalValue) && !string.IsNullOrEmpty(mapping.DefaultValue))
                     {
@@ -1971,7 +1964,6 @@ namespace FlowFlex.Application.Services.Integration
                     }
 
                     var wfeFieldId = mapping.WfeFieldId?.ToUpper() ?? "";
-                    var propertySet = false;
 
                     // Try to map to Onboarding entity property using the mapping dictionary
                     if (FieldToPropertyMapping.TryGetValue(wfeFieldId, out var propertyName))
@@ -1984,7 +1976,6 @@ namespace FlowFlex.Application.Services.Integration
                                 var convertedValue = ConvertToPropertyType(externalValue, property.PropertyType);
                                 property.SetValue(caseEntity, convertedValue);
                                 caseUpdated = true;
-                                propertySet = true;
                                 _logger.LogDebug("Set property {PropertyName} = {Value} via reflection", propertyName, externalValue);
                             }
                             catch (Exception ex)
@@ -1994,14 +1985,7 @@ namespace FlowFlex.Application.Services.Integration
                         }
                     }
 
-                    // If not a standard field, store in custom fields
-                    if (!propertySet)
-                    {
-                        customFields[mapping.WfeFieldId] = ConvertFieldValue(externalValue, mapping.FieldType);
-                        caseUpdated = true;
-                    }
-
-                    // Prepare StaticFieldValue for saving to stage
+                    // Save all fields to StaticFieldValue (both standard and custom fields)
                     if (caseEntity.CurrentStageId.HasValue)
                     {
                         staticFieldValues.Add(new StaticFieldValueInputDto
@@ -2028,14 +2012,12 @@ namespace FlowFlex.Application.Services.Integration
                 }
             }
 
-            // Update case entity if any fields were mapped
+            // Update case entity if any standard fields were mapped
             if (caseUpdated)
             {
-                caseEntity.CustomFieldsJson = JsonConvert.SerializeObject(customFields);
                 caseEntity.InitModifyInfo(_userContext);
                 await _onboardingRepository.UpdateAsync(caseEntity);
-                _logger.LogInformation("Updated case {CaseId} with {FieldCount} mapped field values", 
-                    caseEntity.Id, fieldMappings.Count);
+                _logger.LogInformation("Updated case {CaseId} with mapped field values", caseEntity.Id);
             }
 
             // Save static field values to stage
@@ -2062,6 +2044,8 @@ namespace FlowFlex.Application.Services.Integration
                 }
             }
         }
+
+
 
         /// <summary>
         /// Convert string value to target property type

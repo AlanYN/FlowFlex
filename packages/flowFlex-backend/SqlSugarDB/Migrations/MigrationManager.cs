@@ -110,7 +110,8 @@ namespace FlowFlex.SqlSugarDB.Migrations
                     ("20260108000001_CreateIntegrationApiLogTable", (Action)(() => Integration.Migration_20260108000001_CreateIntegrationApiLogTable.Up(_db))),
                     ("20260108000002_AddIsExternalImportToOnboardingFile", (Action)(() => Migration_20260108000002_AddIsExternalImportToOnboardingFile.Up(_db))),
                     ("20260114000001_UpdateStageConditionUniqueConstraint", (Action)(() => Migration_20260114000001_UpdateStageConditionUniqueConstraint.Up(_db))),
-                    ("20260114000002_AddStageNameUniqueConstraint", (Action)(() => Migration_20260114000002_AddStageNameUniqueConstraint.Up(_db)))
+                    ("20260114000002_AddStageNameUniqueConstraint", (Action)(() => Migration_20260114000002_AddStageNameUniqueConstraint.Up(_db))),
+                    ("20260115000001_AddFieldIdToStaticFieldValue", (Action)(() => Migration_20260115000001_AddFieldIdToStaticFieldValue.Up(_db)))
                 };
 
                 // Pre-check all migrations to reduce individual SQL queries

@@ -465,7 +465,6 @@ namespace FlowFlex.Application.Services.OW
                         it.Ownership,
                         it.OwnershipName,
                         it.OwnershipEmail,
-                        it.CustomFieldsJson,
                         it.Notes,
                         it.IsActive,
                         it.ModifyDate,

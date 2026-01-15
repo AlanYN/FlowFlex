@@ -3,9 +3,11 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using FlowFlex.Application.Contracts.Dtos.OW.StageCondition;
+using FlowFlex.Application.Contracts.Dtos.OW.StaticField;
 using FlowFlex.Application.Contracts.IServices.OW;
 using FlowFlex.Application.Contracts.IServices;
 using FlowFlex.Application.Contracts.IServices.Action;
+using FlowFlex.Application.Contracts.IServices.DynamicData;
 using FlowFlex.Domain.Entities.OW;
 using FlowFlex.Domain.Repository.OW;
 using FlowFlex.Domain.Shared;
@@ -31,6 +33,8 @@ namespace FlowFlex.Application.Service.OW
         private readonly UserContext _userContext;
         private readonly IMediator _mediator;
         private readonly IActionExecutionService _actionExecutionService;
+        private readonly IStaticFieldValueService _staticFieldValueService;
+        private readonly IPropertyService _propertyService;
         private readonly ILogger<ConditionActionExecutor> _logger;
 
         public ConditionActionExecutor(
@@ -42,6 +46,8 @@ namespace FlowFlex.Application.Service.OW
             UserContext userContext,
             IMediator mediator,
             IActionExecutionService actionExecutionService,
+            IStaticFieldValueService staticFieldValueService,
+            IPropertyService propertyService,
             ILogger<ConditionActionExecutor> logger)
         {
             _db = db;
@@ -52,6 +58,8 @@ namespace FlowFlex.Application.Service.OW
             _userContext = userContext;
             _mediator = mediator;
             _actionExecutionService = actionExecutionService;
+            _staticFieldValueService = staticFieldValueService;
+            _propertyService = propertyService;
             _logger = logger;
         }
 
@@ -649,7 +657,7 @@ namespace FlowFlex.Application.Service.OW
 
             try
             {
-                // Get onboarding
+                // Verify onboarding exists
                 var onboarding = await _onboardingRepository.GetByIdAsync(context.OnboardingId);
                 if (onboarding == null)
                 {
@@ -658,51 +666,67 @@ namespace FlowFlex.Application.Service.OW
                     return result;
                 }
 
-                // All fields are stored in CustomFieldsJson
-                // For stage-specific fields, use key format: stage_{stageId}_{fieldKey}
-                var customFields = string.IsNullOrEmpty(onboarding.CustomFieldsJson)
-                    ? new Dictionary<string, object>()
-                    : JsonConvert.DeserializeObject<Dictionary<string, object>>(onboarding.CustomFieldsJson) ?? new Dictionary<string, object>();
+                // Always use stageId = 0 for case-level shared fields
+                const long caseSharedStageId = 0;
 
-                string storageKey;
-                if (stageId.HasValue)
+                // Resolve the actual fieldName from property definition if fieldId is provided
+                var storageFieldName = fieldKey;
+                var displayFieldName = fieldName ?? fieldKey;
+                
+                if (!string.IsNullOrEmpty(fieldId) && long.TryParse(fieldId, out var propertyId))
                 {
-                    // Stage-specific field: use prefixed key
-                    storageKey = $"stage_{stageId.Value}_{fieldKey}";
-                }
-                else
-                {
-                    // Onboarding-level field: use fieldKey directly
-                    storageKey = fieldKey;
-                }
-
-                var oldValue = customFields.ContainsKey(storageKey) ? customFields[storageKey] : null;
-                customFields[storageKey] = fieldValue!;
-
-                await _db.Updateable<Onboarding>()
-                    .SetColumns(o => new Onboarding
+                    try
                     {
-                        CustomFieldsJson = JsonConvert.SerializeObject(customFields),
-                        ModifyDate = DateTimeOffset.UtcNow,
-                        ModifyBy = _userContext.UserName ?? "SYSTEM"
-                    })
-                    .Where(o => o.Id == context.OnboardingId)
-                    .ExecuteCommandAsync();
+                        var property = await _propertyService.GetPropertyByIdAsync(propertyId);
+                        if (property != null && !string.IsNullOrEmpty(property.FieldName))
+                        {
+                            // Use the actual fieldName from property definition
+                            storageFieldName = property.FieldName;
+                            displayFieldName = property.DisplayName ?? property.FieldName;
+                            _logger.LogDebug("Resolved fieldId {FieldId} to fieldName {FieldName}", fieldId, storageFieldName);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Failed to resolve fieldId {FieldId} to fieldName, using fieldId as key", fieldId);
+                    }
+                }
+
+                // Save field value to StaticFieldValue table
+                var staticFieldInput = new StaticFieldValueInputDto
+                {
+                    OnboardingId = context.OnboardingId,
+                    StageId = caseSharedStageId,
+                    FieldName = storageFieldName,
+                    FieldId = !string.IsNullOrEmpty(fieldId) && long.TryParse(fieldId, out var parsedFieldId) ? parsedFieldId : null,
+                    DisplayName = displayFieldName,
+                    FieldLabel = displayFieldName,
+                    FieldValueJson = JsonConvert.SerializeObject(fieldValue),
+                    FieldType = "text",
+                    Source = "stage_condition",
+                    Status = "Submitted"
+                };
+
+                var batchInput = new BatchStaticFieldValueInputDto
+                {
+                    OnboardingId = context.OnboardingId,
+                    StageId = caseSharedStageId,
+                    FieldValues = new List<StaticFieldValueInputDto> { staticFieldInput },
+                    OverwriteExisting = true,
+                    Source = "stage_condition"
+                };
+
+                await _staticFieldValueService.BatchSaveAsync(batchInput);
 
                 result.Success = true;
-                if (stageId.HasValue)
-                {
-                    result.ResultData["stageId"] = stageId.Value;
-                }
+                result.ResultData["stageId"] = caseSharedStageId;
                 result.ResultData["fieldId"] = fieldId ?? string.Empty;
-                result.ResultData["fieldName"] = fieldName ?? string.Empty;
-                result.ResultData["fieldKey"] = fieldKey;
-                result.ResultData["storageKey"] = storageKey;
-                result.ResultData["oldValue"] = oldValue!;
+                result.ResultData["fieldName"] = storageFieldName;
+                result.ResultData["fieldKey"] = storageFieldName;
                 result.ResultData["newValue"] = fieldValue!;
 
-                _logger.LogInformation("UpdateField executed: Onboarding {OnboardingId}, StorageKey {StorageKey}, Field {FieldKey} updated from {OldValue} to {NewValue}",
-                    context.OnboardingId, storageKey, fieldKey, oldValue, fieldValue);
+                _logger.LogInformation("UpdateField executed: Onboarding {OnboardingId}, Field {FieldKey} set to {NewValue} (case-level shared)",
+                    context.OnboardingId, storageFieldName, fieldValue);
             }
             catch (Exception ex)
             {

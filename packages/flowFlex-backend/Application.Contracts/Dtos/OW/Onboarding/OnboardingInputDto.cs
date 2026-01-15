@@ -162,8 +162,9 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.Onboarding
         public string OwnershipEmail { get; set; }
 
         /// <summary>
-        /// 动态扩展字段
+        /// 动态扩展字段 (已废弃，请使用 StaticFieldValue)
         /// </summary>
+        [Obsolete("CustomFieldsJson is deprecated. Use StaticFieldValue instead.")]
         public string CustomFieldsJson { get; set; }
 
         /// <summary>

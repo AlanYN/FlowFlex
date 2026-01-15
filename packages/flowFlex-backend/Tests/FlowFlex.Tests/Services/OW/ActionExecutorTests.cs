@@ -576,7 +576,6 @@ namespace FlowFlex.Tests.Services.OW
             var onboarding = new Onboarding
             {
                 Id = context.OnboardingId,
-                CustomFieldsJson = "{}",
                 TenantId = "default"
             };
             MockHelper.SetupOnboardingRepositoryGetById(_mockOnboardingRepository, context.OnboardingId, onboarding);
@@ -613,7 +612,6 @@ namespace FlowFlex.Tests.Services.OW
             var onboarding = new Onboarding
             {
                 Id = context.OnboardingId,
-                CustomFieldsJson = "{\"priority\": \"Low\"}",
                 TenantId = "default"
             };
             MockHelper.SetupOnboardingRepositoryGetById(_mockOnboardingRepository, context.OnboardingId, onboarding);
@@ -625,9 +623,10 @@ namespace FlowFlex.Tests.Services.OW
             // Assert
             result.Details.Should().NotBeEmpty();
             result.Details[0].Success.Should().BeTrue();
-            result.Details[0].ResultData.Should().ContainKey("oldValue");
             result.Details[0].ResultData.Should().ContainKey("newValue");
             result.Details[0].ResultData["newValue"].Should().Be("High");
+            // StageId should default to 0 for case-level shared fields
+            result.Details[0].ResultData["stageId"].Should().Be(0L);
         }
 
         [Fact]
