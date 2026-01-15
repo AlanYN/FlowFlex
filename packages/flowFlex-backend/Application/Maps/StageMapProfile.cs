@@ -107,8 +107,137 @@ namespace FlowFlex.Application.Maps
 
             try
             {
-                var parsedComponents = JsonSerializer.Deserialize<List<StageComponent>>(normalized, _jsonOptions);
-                return parsedComponents ?? new List<StageComponent>();
+                // First try to parse with custom converter to handle legacy StaticFields format
+                var options = new JsonSerializerOptions
+                {
+                    NumberHandling = JsonNumberHandling.AllowReadingFromString,
+                    PropertyNameCaseInsensitive = true
+                };
+                
+                // Try parsing as JsonDocument first to check StaticFields format
+                using var doc = JsonDocument.Parse(normalized);
+                var components = new List<StageComponent>();
+                
+                foreach (var element in doc.RootElement.EnumerateArray())
+                {
+                    var component = new StageComponent
+                    {
+                        Key = element.TryGetProperty("Key", out var keyProp) ? keyProp.GetString() : "",
+                        Order = element.TryGetProperty("Order", out var orderProp) ? orderProp.GetInt32() : 0,
+                        IsEnabled = element.TryGetProperty("IsEnabled", out var enabledProp) ? enabledProp.GetBoolean() : true,
+                        Configuration = element.TryGetProperty("Configuration", out var configProp) && configProp.ValueKind != JsonValueKind.Null ? configProp.GetString() : null,
+                        ChecklistIds = new List<long>(),
+                        QuestionnaireIds = new List<long>(),
+                        ChecklistNames = new List<string>(),
+                        QuestionnaireNames = new List<string>(),
+                        QuickLinkIds = new List<long>(),
+                        QuickLinkNames = new List<string>(),
+                        StaticFields = new List<StaticFieldConfig>()
+                    };
+                    
+                    // Parse ChecklistIds
+                    if (element.TryGetProperty("ChecklistIds", out var checklistIdsProp) && checklistIdsProp.ValueKind == JsonValueKind.Array)
+                    {
+                        foreach (var id in checklistIdsProp.EnumerateArray())
+                        {
+                            if (id.TryGetInt64(out var longId))
+                                component.ChecklistIds.Add(longId);
+                        }
+                    }
+                    
+                    // Parse QuestionnaireIds
+                    if (element.TryGetProperty("QuestionnaireIds", out var questionnaireIdsProp) && questionnaireIdsProp.ValueKind == JsonValueKind.Array)
+                    {
+                        foreach (var id in questionnaireIdsProp.EnumerateArray())
+                        {
+                            if (id.TryGetInt64(out var longId))
+                                component.QuestionnaireIds.Add(longId);
+                        }
+                    }
+                    
+                    // Parse QuickLinkIds
+                    if (element.TryGetProperty("QuickLinkIds", out var quickLinkIdsProp) && quickLinkIdsProp.ValueKind == JsonValueKind.Array)
+                    {
+                        foreach (var id in quickLinkIdsProp.EnumerateArray())
+                        {
+                            if (id.TryGetInt64(out var longId))
+                                component.QuickLinkIds.Add(longId);
+                        }
+                    }
+                    
+                    // Parse ChecklistNames
+                    if (element.TryGetProperty("ChecklistNames", out var checklistNamesProp) && checklistNamesProp.ValueKind == JsonValueKind.Array)
+                    {
+                        foreach (var name in checklistNamesProp.EnumerateArray())
+                        {
+                            if (name.ValueKind == JsonValueKind.String)
+                                component.ChecklistNames.Add(name.GetString());
+                        }
+                    }
+                    
+                    // Parse QuestionnaireNames
+                    if (element.TryGetProperty("QuestionnaireNames", out var questionnaireNamesProp) && questionnaireNamesProp.ValueKind == JsonValueKind.Array)
+                    {
+                        foreach (var name in questionnaireNamesProp.EnumerateArray())
+                        {
+                            if (name.ValueKind == JsonValueKind.String)
+                                component.QuestionnaireNames.Add(name.GetString());
+                        }
+                    }
+                    
+                    // Parse QuickLinkNames
+                    if (element.TryGetProperty("QuickLinkNames", out var quickLinkNamesProp) && quickLinkNamesProp.ValueKind == JsonValueKind.Array)
+                    {
+                        foreach (var name in quickLinkNamesProp.EnumerateArray())
+                        {
+                            if (name.ValueKind == JsonValueKind.String)
+                                component.QuickLinkNames.Add(name.GetString());
+                        }
+                    }
+                    
+                    // Parse CustomerPortalAccess
+                    if (element.TryGetProperty("CustomerPortalAccess", out var portalAccessProp))
+                    {
+                        if (portalAccessProp.TryGetInt32(out var portalAccessInt))
+                        {
+                            component.CustomerPortalAccess = (Domain.Shared.Enums.PortalPermissionEnum)portalAccessInt;
+                        }
+                    }
+                    
+                    // Parse StaticFields - handle both legacy string array and new object array format
+                    if (element.TryGetProperty("StaticFields", out var staticFieldsProp) && staticFieldsProp.ValueKind == JsonValueKind.Array)
+                    {
+                        int order = 0;
+                        foreach (var field in staticFieldsProp.EnumerateArray())
+                        {
+                            if (field.ValueKind == JsonValueKind.String)
+                            {
+                                // Legacy format: string array ["COMPANYNAME", "CONTACTNAME", ...]
+                                component.StaticFields.Add(new StaticFieldConfig
+                                {
+                                    Id = field.GetString(),
+                                    IsRequired = false,
+                                    Order = order++
+                                });
+                            }
+                            else if (field.ValueKind == JsonValueKind.Object)
+                            {
+                                // New format: object array [{"Id": "COMPANYNAME", "IsRequired": true, "Order": 0}, ...]
+                                var config = new StaticFieldConfig
+                                {
+                                    Id = field.TryGetProperty("Id", out var idProp) ? idProp.GetString() : "",
+                                    IsRequired = field.TryGetProperty("IsRequired", out var requiredProp) && requiredProp.GetBoolean(),
+                                    Order = field.TryGetProperty("Order", out var fieldOrderProp) ? fieldOrderProp.GetInt32() : order++
+                                };
+                                component.StaticFields.Add(config);
+                            }
+                        }
+                    }
+                    
+                    components.Add(component);
+                }
+                
+                return components;
             }
             catch
             {
