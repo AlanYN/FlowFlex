@@ -343,11 +343,11 @@ const fetchAllUsers = async () => {
 		const res = await getAllUser();
 		if (res?.data && Array.isArray(res.data)) {
 			allAssignOptions.value = res.data
-				.filter((item) => item.userType == 3)
+				.filter((item) => item?.userType == 3)
 				.map((user: any) => ({
-					key: String(user.id),
-					value: user.name,
-					email: user.email,
+					key: String(user?.id),
+					value: user?.name,
+					email: user?.email,
 				}));
 		}
 	} catch (error) {
