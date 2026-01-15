@@ -14,6 +14,7 @@ const Dashboard: AppRouteModule = {
 		hideChildrenInMenu: true,
 		icon: dashboardIcon,
 		title: t('sys.router.dashboard'),
+		code: 'DASHBOARD',
 		ordinal: 1,
 		hidden: false,
 		status: true,
@@ -25,6 +26,7 @@ const Dashboard: AppRouteModule = {
 			component: () => import('@/views/dashboard/index.vue'),
 			meta: {
 				title: t('sys.router.dashboard'),
+				code: 'DASHBOARD',
 				ordinal: 1,
 				hidden: false,
 				status: true,

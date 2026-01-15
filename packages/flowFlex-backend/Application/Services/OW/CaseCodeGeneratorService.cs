@@ -1,7 +1,9 @@
 using FlowFlex.Application.Contracts.IServices.OW;
+using FlowFlex.Domain.Entities.OW;
 using Item.Redis;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
+using SqlSugar;
 
 namespace FlowFlex.Application.Services.OW
 {
@@ -10,12 +12,14 @@ namespace FlowFlex.Application.Services.OW
     /// Generates unique case codes with fixed prefix "C" and auto-increment number
     /// Format: C00001, C00002, ..., C99999, C100000, C100001, ...
     /// Supports tenant isolation - each tenant has independent counter
+    /// Auto-syncs with database to ensure continuity
     /// </summary>
     public class CaseCodeGeneratorService : ICaseCodeGeneratorService
     {
         private readonly IRedisService _redisService;
         private readonly IConfiguration _configuration;
         private readonly IHttpContextAccessor _httpContextAccessor;
+        private readonly ISqlSugarClient _db;
 
         // Configuration constants
         private const string CodePrefix = "C";          // Fixed prefix
@@ -25,19 +29,26 @@ namespace FlowFlex.Application.Services.OW
         public CaseCodeGeneratorService(
             IRedisService redisService,
             IConfiguration configuration,
-            IHttpContextAccessor httpContextAccessor)
+            IHttpContextAccessor httpContextAccessor,
+            ISqlSugarClient db)
         {
             _redisService = redisService ?? throw new ArgumentNullException(nameof(redisService));
             _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
             _httpContextAccessor = httpContextAccessor ?? throw new ArgumentNullException(nameof(httpContextAccessor));
+            _db = db ?? throw new ArgumentNullException(nameof(db));
         }
 
         /// <summary>
         /// Generate case code with format: C00001, C00002, ..., C99999, C100000, ...
+        /// Auto-syncs with database to ensure counter is always greater than max existing value
         /// </summary>
         public async Task<string> GenerateCaseCodeAsync(string leadName)
         {
             var counterKey = GetCounterKey();
+            
+            // Sync Redis counter with database max value
+            await SyncCounterWithDatabaseAsync(counterKey);
+            
             var uniqueId = await GenerateUniqueIdAsync(counterKey);
 
             // Determine padding length based on number size
@@ -46,6 +57,50 @@ namespace FlowFlex.Application.Services.OW
             var numberLength = Math.Max(InitialNumberLength, uniqueId.ToString().Length);
 
             return $"{CodePrefix}{uniqueId.ToString().PadLeft(numberLength, PaddingChar)}";
+        }
+
+        /// <summary>
+        /// Sync Redis counter with database max value to ensure continuity
+        /// </summary>
+        private async Task SyncCounterWithDatabaseAsync(string counterKey)
+        {
+            try
+            {
+                var tenantId = GetCurrentTenantId();
+                var appCode = GetCurrentAppCode();
+
+                // Get max case code number from database
+                var maxCaseCode = await _db.Queryable<Onboarding>()
+                    .Where(o => o.TenantId == tenantId 
+                             && o.AppCode == appCode 
+                             && o.CaseCode != null 
+                             && o.CaseCode != "")
+                    .OrderByDescending(o => o.CaseCode)
+                    .Select(o => o.CaseCode)
+                    .FirstAsync();
+
+                if (!string.IsNullOrEmpty(maxCaseCode) && maxCaseCode.StartsWith(CodePrefix))
+                {
+                    // Extract number from case code (e.g., "C00021" -> 21)
+                    var numberPart = maxCaseCode.Substring(CodePrefix.Length);
+                    if (long.TryParse(numberPart, out var maxNumber))
+                    {
+                        // Get current Redis counter value
+                        var currentCounter = await _redisService.StringGetAsync<long?>(counterKey);
+                        
+                        // If Redis counter is less than or equal to database max, update it
+                        if (!currentCounter.HasValue || currentCounter.Value <= maxNumber)
+                        {
+                            await _redisService.StringSetAsync(counterKey, maxNumber);
+                        }
+                    }
+                }
+            }
+            catch (Exception)
+            {
+                // If sync fails, continue with Redis counter
+                // This ensures the service doesn't break if database is unavailable
+            }
         }
 
         /// <summary>
