@@ -253,7 +253,6 @@ import { ref, reactive, computed, onMounted, nextTick, useTemplateRef } from 'vu
 import { useRouter, useRoute } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { Edit, MoreFilled, Plus, Document } from '@element-plus/icons-vue';
-import '../styles/errorDialog.css';
 import PreviewContent from './components/PreviewContent.vue';
 import { PrototypeTabs, TabPane } from '@/components/PrototypeTabs';
 import { useAdaptiveScrollbar } from '@/hooks/useAdaptiveScrollbar';

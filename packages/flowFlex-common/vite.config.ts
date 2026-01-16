@@ -77,28 +77,66 @@ export default defineConfig(async ({ command, mode }) => {
 			rollupOptions: {
 				output: {
 					manualChunks: (id) => {
-						// node_modules 中的包单独打包
 						if (id.includes('node_modules')) {
-							// 大型库单独打包
-							if (id.includes('element-plus')) {
-								return 'element-plus';
-							}
-							if (id.includes('echarts')) {
-								return 'echarts';
-							}
-							if (id.includes('gsap')) {
-								return 'gsap';
-							}
-							if (id.includes('chart.js')) {
-								return 'chartjs';
-							}
+							// Vue 核心 - 精确匹配，避免误匹配其他 vue 相关库
 							if (
-								id.includes('vue-router') ||
-								id.includes('pinia') ||
-								id.includes('vue')
+								id.includes('/vue/') ||
+								id.includes('/@vue/runtime') ||
+								id.includes('/@vue/reactivity') ||
+								id.includes('/@vue/shared')
 							) {
-								return 'vue-vendor';
+								return 'vue-core';
 							}
+							if (id.includes('/vue-router/')) return 'vue-core';
+							if (id.includes('/pinia/')) return 'vue-core';
+							if (id.includes('/vue-i18n/')) return 'vue-core';
+
+							// UI 框架
+							if (id.includes('element-plus')) return 'element-plus';
+
+							// 图表库
+							if (id.includes('echarts') || id.includes('zrender')) return 'echarts';
+							if (id.includes('chart.js') || id.includes('vue-chartjs'))
+								return 'chartjs';
+
+							// 动画库
+							if (id.includes('gsap')) return 'gsap';
+
+							// VueUse 工具库
+							if (id.includes('@vueuse')) return 'vueuse';
+
+							// Vue Flow 流程图
+							if (id.includes('@vue-flow')) return 'vue-flow';
+
+							// Office 文档处理
+							if (id.includes('@vue-office') || id.includes('xlsx')) return 'office';
+
+							// 富文本/Markdown 编辑器
+							if (
+								id.includes('quill') ||
+								id.includes('markdown-it') ||
+								id.includes('highlight.js')
+							) {
+								return 'editor';
+							}
+
+							// PDF/Canvas 处理
+							if (id.includes('jspdf') || id.includes('html2canvas')) return 'pdf';
+
+							// 工具库
+							if (
+								id.includes('lodash') ||
+								id.includes('dayjs') ||
+								id.includes('axios')
+							) {
+								return 'utils';
+							}
+
+							// 图标库
+							if (id.includes('@iconify') || id.includes('@element-plus/icons')) {
+								return 'icons';
+							}
+
 							// 其他第三方库
 							return 'vendor';
 						}

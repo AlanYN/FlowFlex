@@ -19,4 +19,4 @@
 @use './styles/index.scss' as *;
 
 /* ========== 3. 使用 @import 的遗留样式 ========== */
-@import './styles/json-syntax-highlight.scss';
+@use './styles/json-syntax-highlight.scss' as *;
