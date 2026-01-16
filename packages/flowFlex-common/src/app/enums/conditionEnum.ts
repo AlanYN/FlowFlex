@@ -65,8 +65,11 @@ export const textOperators: OperatorOption[] = [
 	{ value: '==', label: '=' },
 	{ value: '!=', label: '≠' },
 	{ value: 'Contains', label: 'Contains' },
+	{ value: 'DoesNotContains', label: 'Does Not Contains' },
 	{ value: 'StartsWith', label: 'Starts With' },
 	{ value: 'EndsWith', label: 'Ends With' },
+	{ value: 'IsEmpty', label: 'Is Empty' },
+	{ value: 'IsNotEmpty', label: 'Is Not Empty' },
 ];
 
 /**
@@ -79,6 +82,8 @@ export const numericOperators: OperatorOption[] = [
 	{ value: '<', label: '<' },
 	{ value: '>=', label: '>=' },
 	{ value: '<=', label: '<=' },
+	{ value: 'IsEmpty', label: 'Is Empty' },
+	{ value: 'IsNotEmpty', label: 'Is Not Empty' },
 ];
 
 /**
@@ -87,6 +92,10 @@ export const numericOperators: OperatorOption[] = [
 export const selectionOperators: OperatorOption[] = [
 	{ value: '==', label: '=' },
 	{ value: '!=', label: '≠' },
+	{ value: 'InList', label: 'In List' },
+	{ value: 'NotInList', label: 'Not In List' },
+	{ value: 'IsEmpty', label: 'Is Empty' },
+	{ value: 'IsNotEmpty', label: 'Is Not Empty' },
 ];
 
 /**
@@ -99,6 +108,8 @@ export const dateOperators: OperatorOption[] = [
 	{ value: '<', label: '<' },
 	{ value: '>=', label: '>=' },
 	{ value: '<=', label: '<=' },
+	{ value: 'IsEmpty', label: 'Is Empty' },
+	{ value: 'IsNotEmpty', label: 'Is Not Empty' },
 ];
 
 /**
@@ -120,8 +131,13 @@ export const allOperators: OperatorOption[] = [
 	{ value: '>=', label: '>=' },
 	{ value: '<=', label: '<=' },
 	{ value: 'Contains', label: 'Contains' },
+	{ value: 'DoesNotContains', label: 'Does Not Contains' },
 	{ value: 'StartsWith', label: 'Starts With' },
 	{ value: 'EndsWith', label: 'Ends With' },
+	{ value: 'IsEmpty', label: 'Is Empty' },
+	{ value: 'IsNotEmpty', label: 'Is Not Empty' },
+	{ value: 'InList', label: 'In List' },
+	{ value: 'NotInList', label: 'Not In List' },
 ];
 
 /**
