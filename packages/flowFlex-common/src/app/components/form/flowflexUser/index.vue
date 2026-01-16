@@ -504,7 +504,7 @@ const buildUserDataMap = (data: FlowflexUser[], clear = false) => {
 const filterNode = (value: string, data: FlowflexUser): boolean => {
 	const nodeData = data as FlowflexUser;
 
-	if (!props.isShowAdminUser && nodeData.userType != UserType.user) {
+	if (!props.isShowAdminUser && nodeData.userType && nodeData.userType != UserType.user) {
 		return false;
 	}
 
