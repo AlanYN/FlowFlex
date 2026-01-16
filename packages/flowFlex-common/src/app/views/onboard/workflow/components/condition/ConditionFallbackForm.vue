@@ -1,11 +1,6 @@
 <template>
 	<div class="condition-fallback-form">
-		<div class="fallback-description">
-			<el-icon class="info-icon"><InfoFilled /></el-icon>
-			<span>Fallback determines what happens when the condition rules are not met.</span>
-		</div>
-
-		<el-form-item label="Fallback Behavior" class="fallback-field">
+		<el-form-item label="Fallback Stage (when condition is NOT met)" class="fallback-field">
 			<el-radio-group v-model="fallbackType">
 				<el-radio value="default">
 					<div class="option-content">
@@ -37,7 +32,6 @@
 
 <script setup lang="ts">
 import { computed } from 'vue';
-import { InfoFilled } from '@element-plus/icons-vue';
 import type { FallbackConfig } from '#/condition';
 import type { Stage } from '#/onboard';
 
@@ -78,12 +72,6 @@ const availableStages = computed(() => {
 <style lang="scss" scoped>
 .condition-fallback-form {
 	@apply flex flex-col gap-4;
-}
-
-.fallback-description {
-	@apply flex items-start gap-2 p-3 rounded-lg text-sm;
-	background-color: var(--el-fill-color-lighter);
-	color: var(--el-text-color-regular);
 }
 
 .info-icon {

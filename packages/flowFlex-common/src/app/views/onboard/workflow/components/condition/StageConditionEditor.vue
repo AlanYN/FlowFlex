@@ -14,7 +14,9 @@
 				<span class="drawer-title">
 					{{ isEditMode ? 'Edit Condition' : 'Add Condition' }}
 				</span>
-				<span class="drawer-subtitle">{{ currentStageName }}</span>
+				<span class="drawer-subtitle">
+					Set up conditions to create dynamic workflow paths based on stage results
+				</span>
 			</div>
 		</template>
 
@@ -71,7 +73,6 @@
 
 			<!-- Fallback 配置 -->
 			<div class="form-section">
-				<div class="section-title">Fallback</div>
 				<ConditionFallbackForm
 					v-model="formData.fallback"
 					:stages="stages"
@@ -397,6 +398,7 @@ defineExpose({
 .stage-condition-editor {
 	.el-drawer__header {
 		margin-bottom: 0px !important;
+		align-items: start;
 	}
 }
 </style>

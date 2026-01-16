@@ -58,7 +58,6 @@
 
 			<!-- Fallback 配置 -->
 			<div class="form-section">
-				<div class="section-title">Fallback</div>
 				<ConditionFallbackForm
 					v-model="formData.fallback"
 					:stages="stages"

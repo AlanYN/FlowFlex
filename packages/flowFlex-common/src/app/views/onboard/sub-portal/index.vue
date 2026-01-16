@@ -25,10 +25,8 @@
 						v-for="item in navigation"
 						:key="item.name"
 						:class="[
-							'group flex items-center px-2 py-2 text-sm font-medium rounded-xl cursor-pointer',
-							currentView === item.view
-								? 'bg-primary-100 text-primary-900'
-								: 'text-gray-600 hover:bg-gray-50 hover:text-gray-900',
+							'group flex items-center px-2 py-2 text-sm font-medium rounded-xl cursor-pointer portal-nav-item',
+							currentView === item.view ? 'portal-nav-active' : '',
 						]"
 						@click="
 							handleNavigation(item.view);
@@ -86,10 +84,8 @@
 						v-for="item in navigation"
 						:key="item.name"
 						:class="[
-							'group flex items-center px-2 py-2 text-sm font-medium rounded-xl cursor-pointer',
-							currentView === item.view
-								? 'bg-primary-100 text-primary-900'
-								: 'text-gray-600 hover:bg-gray-50 hover:text-gray-900',
+							'group flex items-center px-2 py-2 text-sm font-medium rounded-xl cursor-pointer portal-nav-item',
+							currentView === item.view ? 'portal-nav-active' : '',
 						]"
 						@click="handleNavigation(item.view)"
 					>
@@ -278,8 +274,8 @@
 									</span>
 								</div>
 							</div>
-							<div v-if="currentStageData" class="mt-4 p-3 bg-primary-50 rounded-xl">
-								<p class="text-sm font-medium text-primary-900">
+							<div v-if="currentStageData" class="mt-4 p-3 border rounded-xl">
+								<p class="text-sm font-medium text-primary">
 									Current Stage: {{ currentStageData.name }}
 								</p>
 								<p class="text-sm text-primary-700">
@@ -566,446 +562,427 @@
 				<!-- Other Views -->
 				<MessageCenter v-else-if="currentView === 'messages'" />
 				<DocumentCenter v-else-if="currentView === 'documents'" />
-				<ContactUs v-else-if="currentView === 'contact'" />
 			</main>
 		</div>
 	</div>
 </template>
 
-<script>
-import { computed, ref, onMounted } from 'vue';
+<script setup lang="ts">
+import { computed, ref, onMounted, defineComponent, h, type Component } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { ElMessage } from 'element-plus';
 import { getOnboardingByLead } from '@/apis/ow/onboarding';
 import { formatDateUS } from '@/hooks/time';
 import MessageCenter from './components/MessageCenter.vue';
 import DocumentCenter from './components/DocumentCenter.vue';
-import ContactUs from './components/ContactUs.vue';
 import PageHeader from '@/components/global/PageHeader/index.vue';
 import GradientTag from '@/components/global/GradientTag/index.vue';
 import { defaultStr } from '@/settings/projectSetting';
 
-// Icon components
-const HomeIcon = {
-	template: `
-		<svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-			<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-		</svg>
-	`,
-};
-
-const DetailsIcon = {
-	template: `
-		<svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-			<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-		</svg>
-	`,
-};
-
-const MessageSquareIcon = {
-	template: `
-		<svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-			<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-		</svg>
-	`,
-};
-
-const FileTextIcon = {
-	template: `
-		<svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-			<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-		</svg>
-	`,
-};
-
-const PhoneIcon = {
-	template: `
-		<svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-			<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-		</svg>
-	`,
-};
-
-export default {
-	name: 'OnboardPortal', // Change name to avoid conflicts
-	components: {
-		MessageCenter,
-		DocumentCenter,
-		ContactUs,
-		PageHeader,
-		GradientTag,
-		HomeIcon,
-		DetailsIcon,
-		MessageSquareIcon,
-		FileTextIcon,
-		PhoneIcon,
+// Icon components - 使用 defineComponent + h 函数
+const HomeIcon = defineComponent({
+	name: 'HomeIcon',
+	render() {
+		return h(
+			'svg',
+			{ class: 'h-5 w-5', fill: 'none', stroke: 'currentColor', viewBox: '0 0 24 24' },
+			[
+				h('path', {
+					'stroke-linecap': 'round',
+					'stroke-linejoin': 'round',
+					'stroke-width': '2',
+					d: 'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6',
+				}),
+			]
+		);
 	},
-	setup() {
-		const route = useRoute();
-		const router = useRouter();
+});
 
-		// 响应式数据
-		const sidebarOpen = ref(false);
-		const currentView = ref('progress');
-		const loading = ref(true);
-		const onboardingData = ref(null);
+const DetailsIcon = defineComponent({
+	name: 'DetailsIcon',
+	render() {
+		return h(
+			'svg',
+			{ class: 'h-5 w-5', fill: 'none', stroke: 'currentColor', viewBox: '0 0 24 24' },
+			[
+				h('path', {
+					'stroke-linecap': 'round',
+					'stroke-linejoin': 'round',
+					'stroke-width': '2',
+					d: 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z',
+				}),
+			]
+		);
+	},
+});
 
-		// 导航菜单
-		const navigation = ref([
-			{
-				name: 'Case Progress',
-				view: 'progress',
-				icon: HomeIcon,
-			},
-			{
-				name: 'Case Detail',
-				view: 'detail',
-				icon: DetailsIcon,
-			},
-			// {
-			// 	name: 'Message Center',
-			// 	view: 'messages',
-			// 	icon: MessageSquareIcon,
-			// },
-			// {
-			// 	name: 'Document Center',
-			// 	view: 'documents',
-			// 	icon: FileTextIcon,
-			// },
-			// {
-			// 	name: 'Contact Us',
-			// 	view: 'contact',
-			// 	icon: PhoneIcon,
-			// },
-		]);
+// 类型定义
+interface NavigationItem {
+	name: string;
+	view: string;
+	icon: Component;
+}
 
-		// 从路由参数获取 onboardingId
-		const onboardingId = computed(() => {
-			return route.query.onboardingId || '1945406045400731649';
-		});
+interface CustomerStage {
+	id: string;
+	name: string;
+	description: string;
+	order: number;
+	originalOrder: number;
+	status: 'pending' | 'in_progress' | 'completed';
+	editable: boolean;
+	color: string;
+	completedDate: string | null;
+	portalVisible: boolean;
+	portalEditable: boolean;
+	estimatedDays: number;
+	actualDays: number;
+	startTime: string;
+	completionTime: string;
+	components: unknown[];
+}
 
-		// 加载 onboarding 数据
-		const loadOnboardingData = async () => {
-			try {
-				loading.value = true;
-				const response = await getOnboardingByLead(onboardingId.value, true);
-				if (response.code === '200') {
-					onboardingData.value = response.data;
-				} else {
-					ElMessage.error('Failed to load onboarding data');
-				}
-			} finally {
-				loading.value = false;
-			}
-		};
+const route = useRoute();
+const router = useRouter();
 
-		// 计算属性 - 客户数据
-		const customerData = computed(() => {
-			if (!onboardingData.value) {
-				return {
-					id: 'CUST-001',
-					companyName: 'Loading...',
-					contactName: 'Loading...',
-					email: '',
-					phone: '',
-					currentStage: '',
-					overallProgress: 0,
-					startDate: '',
-					estimatedCompletion: '',
-					accountManager: '',
-					onboardingId: onboardingId.value,
-				};
-			}
+// 响应式数据
+const sidebarOpen = ref<boolean>(false);
+const currentView = ref<string>('progress');
+const loading = ref<boolean>(true);
+const onboardingData = ref<any>(null);
 
-			const data = onboardingData.value;
-			return {
-				id: data.leadId,
-				companyName: data.caseName,
-				contactName: data.contactPerson,
-				email: data.contactEmail,
-				phone: '',
-				currentStage: data.currentStageName,
-				overallProgress: Math.round(data.completionRate || 0),
-				startDate: data.startDate ? formatDateUS(data.startDate) : '',
-				estimatedCompletion: data.estimatedCompletionDate
-					? formatDateUS(data.estimatedCompletionDate)
-					: data.targetCompletionDate
-					? formatDateUS(data.targetCompletionDate)
-					: '',
-				accountManager: data.ownershipName || data.createBy || '',
-				onboardingId: data.id,
-			};
-		});
+// 导航菜单
+const navigation = ref<NavigationItem[]>([
+	{
+		name: 'Case Progress',
+		view: 'progress',
+		icon: HomeIcon,
+	},
+	{
+		name: 'Case Detail',
+		view: 'detail',
+		icon: DetailsIcon,
+	},
+	// {
+	// 	name: 'Message Center',
+	// 	view: 'messages',
+	// 	icon: MessageSquareIcon,
+	// },
+	// {
+	// 	name: 'Document Center',
+	// 	view: 'documents',
+	// 	icon: FileTextIcon,
+	// },
+	// {
+	// 	name: 'Contact Us',
+	// 	view: 'contact',
+	// 	icon: PhoneIcon,
+	// },
+]);
 
-		// 计算属性 - 客户阶段
-		const customerStages = computed(() => {
-			if (!onboardingData.value || !onboardingData.value.stagesProgress) {
-				return [];
-			}
+// 从路由参数获取 onboardingId
+const onboardingId = computed<string>(() => {
+	const id = route.query.onboardingId;
+	if (Array.isArray(id)) {
+		return id[0] || '1945406045400731649';
+	}
+	return id || '1945406045400731649';
+});
 
-			// 只显示在Portal中可见的阶段
-			const visibleStages = onboardingData.value.stagesProgress.filter(
-				(stage) => stage.visibleInPortal !== false
-			); // 默认显示，除非明确设置为false
+// 加载 onboarding 数据
+const loadOnboardingData = async () => {
+	try {
+		loading.value = true;
+		const response = await getOnboardingByLead(onboardingId.value, true);
+		if (response.code === '200') {
+			onboardingData.value = response.data;
+		} else {
+			ElMessage.error('Failed to load onboarding data');
+		}
+	} finally {
+		loading.value = false;
+	}
+};
 
-			// 找到第一个未完成的阶段作为当前阶段
-			let currentStageFound = false;
-
-			return visibleStages.map((stage, index) => {
-				// 根据 stage.status 和 isCompleted 确定状态
-				let status = 'pending';
-				if (stage.isCompleted) {
-					status = 'completed';
-				} else if (stage.isCurrent) {
-					status = 'in_progress';
-					currentStageFound = true;
-				} else if (!currentStageFound && !stage.isCompleted) {
-					// 如果还没找到当前阶段，且这个阶段未完成，则设为当前阶段
-					status = 'in_progress';
-					currentStageFound = true;
-				}
-
-				// 为每个阶段分配颜色
-				const colors = [
-					'#4f46e5',
-					'#0ea5e9',
-					'#10b981',
-					'#f59e0b',
-					'#ec4899',
-					'#8b5cf6',
-					'#06b6d4',
-					'#14b8a6',
-					'#22c55e',
-					'#a855f7',
-					'#ef4444',
-					'#84cc16',
-					'#10b981',
-					'#0ea5e9',
-					'#4f46e5',
-					'#22c55e',
-				];
-
-				return {
-					id: stage.stageId,
-					name: stage.stageName,
-					description: stage.stageDescription || stage.stageName, // 优先使用阶段描述，如果没有则使用阶段名称
-					order: index + 1, // 从1开始重新编号，而不是使用原始的 stageOrder
-					originalOrder: stage.stageOrder, // 保留原始顺序用于后端交互
-					status: status,
-					editable: status !== 'completed', // 简化条件：只要未完成就可编辑
-					color: colors[index % colors.length],
-					completedDate: stage.completionTime ? formatDateUS(stage.completionTime) : null,
-					portalVisible: true,
-					portalEditable: status !== 'completed',
-					estimatedDays: stage.estimatedDays,
-					actualDays: stage.actualDays,
-					startTime: stage.startTime,
-					completionTime: stage.completionTime,
-					components: stage.components || [],
-				};
-			});
-		});
-
-		// 其他计算属性
-		const currentStageData = computed(() => {
-			return customerStages.value.find((stage) => stage.status === 'in_progress');
-		});
-
-		const completedStages = computed(() => {
-			return customerStages.value.filter((stage) => stage.status === 'completed').length;
-		});
-
-		const totalStages = computed(() => {
-			return customerStages.value.length;
-		});
-
-		const progressPercentage = computed(() => {
-			// 基于可见阶段重新计算进度百分比
-			if (customerStages.value.length === 0) {
-				return 0;
-			}
-			const completedVisibleStages = customerStages.value.filter(
-				(stage) => stage.status === 'completed'
-			).length;
-			return Math.round((completedVisibleStages / customerStages.value.length) * 100);
-		});
-
-		const nextSteps = computed(() => {
-			// 优先返回当前进行中的阶段，如果没有则返回第一个待处理的阶段
-			const inProgressStage = customerStages.value.find(
-				(stage) => stage.status === 'in_progress'
-			);
-			if (inProgressStage) {
-				return [inProgressStage];
-			}
-
-			// 如果没有进行中的阶段，找到第一个待处理且可编辑的阶段
-			const nextPendingStage = customerStages.value.find(
-				(stage) => stage.status === 'pending' && stage.editable
-			);
-			return nextPendingStage ? [nextPendingStage] : [];
-		});
-
-		// 状态显示映射 - 与portal.vue保持一致
-		const statusTagType = computed(() => {
-			const status = onboardingData.value?.status;
-			if (!status) return 'default';
-
-			switch (status) {
-				case 'Inactive':
-					return 'info';
-				case 'Active':
-				case 'InProgress':
-				case 'Started':
-					return 'primary';
-				case 'Completed':
-					return 'success';
-				case 'Force Completed':
-					return 'success';
-				case 'Paused':
-					return 'warning';
-				case 'Aborted':
-				case 'Cancelled':
-					return 'danger';
-				default:
-					return 'info';
-			}
-		});
-
-		const statusDisplayText = computed(() => {
-			const status = onboardingData.value?.status;
-			if (!status) return defaultStr;
-
-			switch (status) {
-				case 'Active':
-				case 'Started':
-					return 'In progress';
-				case 'Cancelled':
-					return 'Aborted';
-				case 'Force Completed':
-					return 'Force Completed';
-				default:
-					return status;
-			}
-		});
-
-		const statusShouldPulse = computed(() => {
-			const status = onboardingData.value?.status;
-			return ['Active', 'InProgress', 'Started', 'Paused'].includes(status || '');
-		});
-
-		// 计算是否禁用编辑按钮 - 与portal.vue保持一致
-		const isStageEditable = computed(() => {
-			const status = onboardingData.value?.status;
-			if (!status) return true;
-
-			// 对于Aborted/Cancelled/Paused/Force Completed状态，禁用编辑
-			return !['Aborted', 'Cancelled', 'Paused', 'Force Completed'].includes(status);
-		});
-
-		// 方法
-		const getStageStatusText = (status) => {
-			switch (status) {
-				case 'completed':
-					return 'Completed';
-				case 'in_progress':
-					return 'In Progress';
-				default:
-					return 'Pending';
-			}
-		};
-
-		const handleNavigation = (view) => {
-			if (view === 'detail') {
-				// Navigate to portal page with onboardingId
-				router.push({
-					path: '/onboard/sub-portal/portal',
-					query: {
-						onboardingId: onboardingId.value,
-					},
-				});
-			} else {
-				currentView.value = view;
-			}
-		};
-
-		const handleStageAction = (stage) => {
-			// 检查状态是否允许编辑
-			if (!isStageEditable.value) {
-				ElMessage.warning('This case cannot be edited in its current status');
-				return;
-			}
-
-			// Navigate to portal page with specific onboardingId
-			router.push({
-				path: '/onboard/sub-portal/portal',
-				query: {
-					onboardingId: customerData.value.onboardingId,
-					stageId: stage.id,
-				},
-			});
-		};
-
-		// 生命周期
-		onMounted(() => {
-			// 首先检查URL中的token参数，如果存在则进行portal验证
-			checkUrlTokenAndVerify();
-		});
-
-		// 检查URL中的token参数并自动验证
-		const checkUrlTokenAndVerify = async () => {
-			const urlToken = route.query.token;
-			const portalAccessToken = localStorage.getItem('portal_access_token');
-
-			// 如果URL中有token但localStorage中没有portal_access_token，进行自动验证
-			if (urlToken && !portalAccessToken) {
-				try {
-					// 这里我们需要知道用户的邮箱才能验证
-					// 但是URL中没有邮箱信息，所以我们需要重定向到portal-access页面
-					router.replace({
-						path: '/portal-access',
-						query: { token: urlToken },
-					});
-					return;
-				} catch (error) {
-					console.error('Auto verification failed:', error);
-					// 如果自动验证失败，也重定向到portal-access页面
-					router.replace({
-						path: '/portal-access',
-						query: { token: urlToken },
-					});
-					return;
-				}
-			}
-
-			// 如果已经有portal_access_token或者没有token参数，正常加载数据
-			loadOnboardingData();
-		};
-
-		// 返回所有需要在模板中使用的数据和方法
+// 计算属性 - 客户数据
+const customerData = computed(() => {
+	if (!onboardingData.value) {
 		return {
-			sidebarOpen,
-			currentView,
-			loading,
-			navigation,
-			customerData,
-			customerStages,
-			currentStageData,
-			completedStages,
-			totalStages,
-			progressPercentage,
-			nextSteps,
-			getStageStatusText,
-			handleNavigation,
-			handleStageAction,
-			loadOnboardingData,
-			onboardingData,
-			statusTagType,
-			statusDisplayText,
-			statusShouldPulse,
-			isStageEditable,
+			id: 'CUST-001',
+			companyName: 'Loading...',
+			contactName: 'Loading...',
+			email: '',
+			phone: '',
+			currentStage: '',
+			overallProgress: 0,
+			startDate: '',
+			estimatedCompletion: '',
+			accountManager: '',
+			onboardingId: onboardingId.value,
 		};
-	},
+	}
+
+	const data = onboardingData.value;
+	return {
+		id: data.leadId,
+		companyName: data.caseName,
+		contactName: data.contactPerson,
+		email: data.contactEmail,
+		phone: '',
+		currentStage: data.currentStageName,
+		overallProgress: Math.round(data.completionRate || 0),
+		startDate: data.startDate ? formatDateUS(data.startDate) : '',
+		estimatedCompletion: data.estimatedCompletionDate
+			? formatDateUS(data.estimatedCompletionDate)
+			: data.targetCompletionDate
+			? formatDateUS(data.targetCompletionDate)
+			: '',
+		accountManager: data.ownershipName || data.createBy || '',
+		onboardingId: data.id,
+	};
+});
+
+// 计算属性 - 客户阶段
+const customerStages = computed(() => {
+	if (!onboardingData.value || !onboardingData.value.stagesProgress) {
+		return [];
+	}
+
+	// 只显示在Portal中可见的阶段
+	const visibleStages = onboardingData.value.stagesProgress.filter(
+		(stage) => stage.visibleInPortal !== false
+	); // 默认显示，除非明确设置为false
+
+	// 找到第一个未完成的阶段作为当前阶段
+	let currentStageFound = false;
+
+	return visibleStages.map((stage, index) => {
+		// 根据 stage.status 和 isCompleted 确定状态
+		let status = 'pending';
+		if (stage.isCompleted) {
+			status = 'completed';
+		} else if (stage.isCurrent) {
+			status = 'in_progress';
+			currentStageFound = true;
+		} else if (!currentStageFound && !stage.isCompleted) {
+			// 如果还没找到当前阶段，且这个阶段未完成，则设为当前阶段
+			status = 'in_progress';
+			currentStageFound = true;
+		}
+
+		// 为每个阶段分配颜色
+		const colors = [
+			'#4f46e5',
+			'#0ea5e9',
+			'#10b981',
+			'#f59e0b',
+			'#ec4899',
+			'#8b5cf6',
+			'#06b6d4',
+			'#14b8a6',
+			'#22c55e',
+			'#a855f7',
+			'#ef4444',
+			'#84cc16',
+			'#10b981',
+			'#0ea5e9',
+			'#4f46e5',
+			'#22c55e',
+		];
+
+		return {
+			id: stage.stageId,
+			name: stage.stageName,
+			description: stage.stageDescription || stage.stageName, // 优先使用阶段描述，如果没有则使用阶段名称
+			order: index + 1, // 从1开始重新编号，而不是使用原始的 stageOrder
+			originalOrder: stage.stageOrder, // 保留原始顺序用于后端交互
+			status: status,
+			editable: status !== 'completed', // 简化条件：只要未完成就可编辑
+			color: colors[index % colors.length],
+			completedDate: stage.completionTime ? formatDateUS(stage.completionTime) : null,
+			portalVisible: true,
+			portalEditable: status !== 'completed',
+			estimatedDays: stage.estimatedDays,
+			actualDays: stage.actualDays,
+			startTime: stage.startTime,
+			completionTime: stage.completionTime,
+			components: stage.components || [],
+		};
+	});
+});
+
+// 其他计算属性
+const currentStageData = computed(() => {
+	return customerStages.value.find((stage) => stage.status === 'in_progress');
+});
+
+const completedStages = computed(() => {
+	return customerStages.value.filter((stage) => stage.status === 'completed').length;
+});
+
+const totalStages = computed(() => {
+	return customerStages.value.length;
+});
+
+const progressPercentage = computed(() => {
+	// 基于可见阶段重新计算进度百分比
+	if (customerStages.value.length === 0) {
+		return 0;
+	}
+	const completedVisibleStages = customerStages.value.filter(
+		(stage) => stage.status === 'completed'
+	).length;
+	return Math.round((completedVisibleStages / customerStages.value.length) * 100);
+});
+
+const nextSteps = computed(() => {
+	// 优先返回当前进行中的阶段，如果没有则返回第一个待处理的阶段
+	const inProgressStage = customerStages.value.find((stage) => stage.status === 'in_progress');
+	if (inProgressStage) {
+		return [inProgressStage];
+	}
+
+	// 如果没有进行中的阶段，找到第一个待处理且可编辑的阶段
+	const nextPendingStage = customerStages.value.find(
+		(stage) => stage.status === 'pending' && stage.editable
+	);
+	return nextPendingStage ? [nextPendingStage] : [];
+});
+
+// 状态显示映射 - 与portal.vue保持一致
+const statusTagType = computed(() => {
+	const status = onboardingData.value?.status;
+	if (!status) return 'default';
+
+	switch (status) {
+		case 'Inactive':
+			return 'info';
+		case 'Active':
+		case 'InProgress':
+		case 'Started':
+			return 'primary';
+		case 'Completed':
+			return 'success';
+		case 'Force Completed':
+			return 'success';
+		case 'Paused':
+			return 'warning';
+		case 'Aborted':
+		case 'Cancelled':
+			return 'danger';
+		default:
+			return 'info';
+	}
+});
+
+const statusDisplayText = computed(() => {
+	const status = onboardingData.value?.status;
+	if (!status) return defaultStr;
+
+	switch (status) {
+		case 'Active':
+		case 'Started':
+			return 'In progress';
+		case 'Cancelled':
+			return 'Aborted';
+		case 'Force Completed':
+			return 'Force Completed';
+		default:
+			return status;
+	}
+});
+
+const statusShouldPulse = computed(() => {
+	const status = onboardingData.value?.status;
+	return ['Active', 'InProgress', 'Started', 'Paused'].includes(status || '');
+});
+
+// 计算是否禁用编辑按钮 - 与portal.vue保持一致
+const isStageEditable = computed(() => {
+	const status = onboardingData.value?.status;
+	if (!status) return true;
+
+	// 对于Aborted/Cancelled/Paused/Force Completed状态，禁用编辑
+	return !['Aborted', 'Cancelled', 'Paused', 'Force Completed'].includes(status);
+});
+
+// 方法
+const getStageStatusText = (status: string): string => {
+	switch (status) {
+		case 'completed':
+			return 'Completed';
+		case 'in_progress':
+			return 'In Progress';
+		default:
+			return 'Pending';
+	}
+};
+
+const handleNavigation = (view: string): void => {
+	if (view === 'detail') {
+		// Navigate to portal page with onboardingId
+		router.push({
+			path: '/onboard/sub-portal/portal',
+			query: {
+				onboardingId: onboardingId.value,
+			},
+		});
+	} else {
+		currentView.value = view;
+	}
+};
+
+const handleStageAction = (stage: CustomerStage): void => {
+	// 检查状态是否允许编辑
+	if (!isStageEditable.value) {
+		ElMessage.warning('This case cannot be edited in its current status');
+		return;
+	}
+
+	// Navigate to portal page with specific onboardingId
+	router.push({
+		path: '/onboard/sub-portal/portal',
+		query: {
+			onboardingId: customerData.value.onboardingId,
+			stageId: stage.id,
+		},
+	});
+};
+
+// 生命周期
+onMounted(() => {
+	// 首先检查URL中的token参数，如果存在则进行portal验证
+	checkUrlTokenAndVerify();
+});
+
+// 检查URL中的token参数并自动验证
+const checkUrlTokenAndVerify = async () => {
+	const urlToken = route.query.token;
+	const portalAccessToken = localStorage.getItem('portal_access_token');
+
+	// 如果URL中有token但localStorage中没有portal_access_token，进行自动验证
+	if (urlToken && !portalAccessToken) {
+		try {
+			// 这里我们需要知道用户的邮箱才能验证
+			// 但是URL中没有邮箱信息，所以我们需要重定向到portal-access页面
+			router.replace({
+				path: '/portal-access',
+				query: { token: urlToken },
+			});
+			return;
+		} catch (error) {
+			console.error('Auto verification failed:', error);
+			// 如果自动验证失败，也重定向到portal-access页面
+			router.replace({
+				path: '/portal-access',
+				query: { token: urlToken },
+			});
+			return;
+		}
+	}
+
+	// 如果已经有portal_access_token或者没有token参数，正常加载数据
+	loadOnboardingData();
 };
 </script>
 
@@ -1032,5 +1009,10 @@ button:focus {
 /* Hover effects */
 button:hover {
 	transition: all 0.15s ease-in-out;
+}
+
+.portal-nav-active {
+	background-color: var(--el-color-primary-light-9);
+	color: var(--el-color-primary);
 }
 </style>

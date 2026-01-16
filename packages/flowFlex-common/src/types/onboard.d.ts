@@ -157,7 +157,7 @@ export interface DocumentItem {
 	uploadedDate: string;
 }
 
-export interface ComponentData {
+export interface CompStageComponentDataonentData {
 	key: 'fields' | 'checklist' | 'questionnaires' | 'files' | 'quickLink';
 	order: number;
 	isEnabled: boolean;
@@ -228,7 +228,7 @@ export interface StageInfo {
 	stageOrder: number;
 	startTime: string;
 	status: string;
-	components: ComponentData[];
+	components: StageComponentData[];
 	aiSummary?: string;
 	aiSummaryGeneratedAt?: string;
 	aiSummaryConfidence?: number;
