@@ -701,7 +701,6 @@
 import { ref, reactive, computed, onMounted, markRaw, watch, nextTick } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import '../styles/errorDialog.css';
 import {
 	ArrowDownBold,
 	Link,
