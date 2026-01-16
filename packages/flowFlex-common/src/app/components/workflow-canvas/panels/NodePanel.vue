@@ -129,10 +129,10 @@ const currentStageIndex = computed((): number => {
 // 面板标题
 const panelTitle = computed((): string => {
 	if (nodeType.value === 'stage') {
-		return stageData.value?.name || 'Stage Details';
+		return 'Stage Details';
 	}
 	if (nodeType.value === 'condition') {
-		return conditionData.value?.name || 'Condition Details';
+		return 'Edit Condition';
 	}
 	return 'Node Details';
 });
@@ -143,7 +143,7 @@ const panelSubtitle = computed((): string => {
 		return 'View stage information and manage conditions';
 	}
 	if (nodeType.value === 'condition') {
-		return 'Configure condition rules and actions';
+		return 'Set up conditions to create dynamic workflow paths based on stage results';
 	}
 	return '';
 });
@@ -176,6 +176,7 @@ const handleChange = () => {
 .node-panel {
 	.el-drawer__header {
 		margin-bottom: 0 !important;
+		align-items: start;
 	}
 
 	.el-drawer__body {

@@ -471,16 +471,6 @@ const componentOptionGroups = computed<ComponentOptionGroup[]>(() => {
 		}
 	});
 
-	// 添加问卷组
-	if (questionnaireItems.length > 0) {
-		groups.push({ type: 'questionnaires', label: 'Questionnaires', items: questionnaireItems });
-	}
-
-	// 添加 Checklist 组
-	if (checklistItems.length > 0) {
-		groups.push({ type: 'checklist', label: 'Checklists', items: checklistItems });
-	}
-
 	// 添加动态字段组
 	if (fieldItems.length > 0) {
 		groups.push({
@@ -488,6 +478,16 @@ const componentOptionGroups = computed<ComponentOptionGroup[]>(() => {
 			label: 'Required Fields',
 			items: fieldItems,
 		});
+	}
+
+	// 添加 Checklist 组
+	if (checklistItems.length > 0) {
+		groups.push({ type: 'checklist', label: 'Checklists', items: checklistItems });
+	}
+
+	// 添加问卷组
+	if (questionnaireItems.length > 0) {
+		groups.push({ type: 'questionnaires', label: 'Questionnaires', items: questionnaireItems });
 	}
 
 	return groups;
