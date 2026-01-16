@@ -353,10 +353,43 @@ namespace FlowFlex.Application.Service.OW
                     }
                     else if (!isConditionMet)
                     {
-                        // Condition not met - determine fallback stage
+                        // Condition not met - execute fallback stage jump if configured
                         result.NextStageId = condition.FallbackStageId ?? await GetNextStageIdAsync(stageId);
-                        _logger.LogInformation("Condition '{ConditionName}' not met, fallback to stage {NextStageId}",
-                            condition.Name, result.NextStageId);
+                        
+                        // If fallback stage is configured, execute GoToStage action
+                        if (condition.FallbackStageId.HasValue && actionExecutor != null)
+                        {
+                            var context = new ActionExecutionContext
+                            {
+                                OnboardingId = onboardingId,
+                                StageId = stageId,
+                                ConditionId = condition.Id,
+                                TenantId = _userContext.TenantId,
+                                UserId = long.TryParse(_userContext.UserId, out var uid) ? uid : 0
+                            };
+
+                            // Create a GoToStage action for fallback
+                            var fallbackActionsJson = System.Text.Json.JsonSerializer.Serialize(new[]
+                            {
+                                new
+                                {
+                                    type = "GoToStage",
+                                    order = 0,
+                                    targetStageId = condition.FallbackStageId.Value.ToString()
+                                }
+                            });
+
+                            var actionResult = await actionExecutor.ExecuteActionsAsync(fallbackActionsJson, context);
+                            result.ActionResults = actionResult.Details;
+
+                            _logger.LogInformation("Condition '{ConditionName}' not met, executed fallback GoToStage to stage {FallbackStageId}",
+                                condition.Name, condition.FallbackStageId.Value);
+                        }
+                        else
+                        {
+                            _logger.LogInformation("Condition '{ConditionName}' not met, fallback to stage {NextStageId}",
+                                condition.Name, result.NextStageId);
+                        }
                     }
 
                     return result;
@@ -429,21 +462,23 @@ namespace FlowFlex.Application.Service.OW
 
                 // Build descriptive title with specific rule and action names
                 // Format: "Condition Met: t1 | Rules: Rule_3 ✓ | Actions: GoToStage→Stage4 ✓, SendNotification→admin@test.com ✓"
+                // Or for Not Met with fallback: "Condition Not Met: t1 | Fallback: GoToStage→Stage4 ✓"
                 var statusText = result.IsConditionMet ? "Met" : "Not Met";
                 
                 // Build rules summary (show successful rules for Met, failed rules for Not Met)
                 var rulesSummary = "";
-                if (successfulRules.Any())
+                if (result.IsConditionMet && successfulRules.Any())
                 {
-                    rulesSummary = string.Join(", ", successfulRules.Take(3).Select(r => $"{r} ✓"));
-                    if (successfulRules.Count > 3)
-                    {
-                        rulesSummary += $" +{successfulRules.Count - 3}";
-                    }
+                    rulesSummary = string.Join(", ", successfulRules.Select(r => $"{r} ✓"));
+                }
+                else if (!result.IsConditionMet && failedRules.Any())
+                {
+                    rulesSummary = string.Join(", ", failedRules.Select(r => $"{r} ✗"));
                 }
                 
                 // Build actions summary with detailed result indicators (show all actions)
                 var actionsSummary = "";
+                var actionsLabel = result.IsConditionMet ? "Actions" : "Fallback";
                 if (result.ActionResults != null && result.ActionResults.Any())
                 {
                     var actionParts = result.ActionResults
@@ -460,7 +495,7 @@ namespace FlowFlex.Application.Service.OW
                 }
                 if (!string.IsNullOrEmpty(actionsSummary))
                 {
-                    titleParts.Add($"Actions: {actionsSummary}");
+                    titleParts.Add($"{actionsLabel}: {actionsSummary}");
                 }
                 var operationTitle = string.Join(" | ", titleParts);
                 
