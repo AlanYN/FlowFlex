@@ -351,6 +351,7 @@ import { ElMessage } from 'element-plus';
 import { menuRoles } from '@/stores/modules/menuFunction';
 import type { FlowflexUser } from '#/golbal';
 import { getAvatarColor } from '@/utils';
+import { UserType } from '@/enums/permissionEnum';
 
 interface Props {
 	modelValue?: string | string[];
@@ -503,7 +504,7 @@ const buildUserDataMap = (data: FlowflexUser[], clear = false) => {
 const filterNode = (value: string, data: FlowflexUser): boolean => {
 	const nodeData = data as FlowflexUser;
 
-	if (!props.isShowAdminUser && nodeData.userType == 1) {
+	if (!props.isShowAdminUser && nodeData.userType != UserType.user) {
 		return false;
 	}
 
