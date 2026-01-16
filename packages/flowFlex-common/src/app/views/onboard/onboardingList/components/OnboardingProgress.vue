@@ -76,17 +76,26 @@
 								:class="[
 									stage.completed
 										? 'bg-primary text-white'
-										: activeStage === stage.stageId
+										: onboardingData?.currentStageId === stage.stageId
 										? 'bg-primary-500 text-white'
 										: 'bg-[var(--el-bg-color-page)] dark:bg-black',
 								]"
+								:title="stage?.status"
 							>
 								<el-icon v-if="stage.completed" class="text-xs">
 									<Check />
 								</el-icon>
-								<el-icon v-else-if="activeStage === stage.stageId" class="text-xs">
+								<el-icon
+									v-else-if="onboardingData?.currentStageId === stage.stageId"
+									class="text-xs"
+								>
 									<Clock />
 								</el-icon>
+								<Icon
+									v-else-if="stage.status == 'Skipped'"
+									icon="mdi:transit-skip"
+									class="rotate-180"
+								/>
 								<text v-else class="text-xs font-bold leading-6">
 									{{ getOriginalStageIndex(stage) + 1 }}
 								</text>
@@ -122,6 +131,7 @@
 														Required
 													</div>
 												</el-tooltip>
+
 												<template
 													v-if="
 														stage.completed &&

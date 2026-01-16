@@ -469,7 +469,7 @@ import {
 	getOnboardingFilesByStage,
 	onboardingSave,
 } from '@/apis/ow/onboarding';
-import { OnboardingItem, StageInfo, ComponentData, SectionAnswer } from '#/onboard';
+import { OnboardingItem, StageInfo, StageComponentData, SectionAnswer } from '#/onboard';
 import { useAdaptiveScrollbar } from '@/hooks/useAdaptiveScrollbar';
 import { useI18n } from 'vue-i18n';
 import { defaultStr } from '@/settings/projectSetting';
@@ -1230,7 +1230,7 @@ const validateHiddenComponents = async (): Promise<{
 		if (!validationResult.isValid && validationResult.errors.length > 0) {
 			allErrors.push({
 				componentType: componentTypeName,
-				componentName: component.name || componentTypeName,
+				componentName: componentTypeName,
 				errors: validationResult.errors,
 			});
 		}
@@ -1398,7 +1398,7 @@ const loadOnboardingDetail = async () => {
 };
 
 // 其他函数的简化版本
-const getChecklistDataForComponent = (component: ComponentData) => {
+const getChecklistDataForComponent = (component: StageComponentData) => {
 	if (!component.checklistIds || component.checklistIds.length === 0) {
 		return [];
 	}
@@ -1407,7 +1407,7 @@ const getChecklistDataForComponent = (component: ComponentData) => {
 	);
 };
 
-const getQuestionnaireDataForComponent = (component: ComponentData) => {
+const getQuestionnaireDataForComponent = (component: StageComponentData) => {
 	if (!component.questionnaireIds || component.questionnaireIds.length === 0) {
 		return null;
 	}
@@ -1419,7 +1419,7 @@ const getQuestionnaireDataForComponent = (component: ComponentData) => {
 	return null;
 };
 
-const getQuestionnaireAnswersForComponent = (component: ComponentData) => {
+const getQuestionnaireAnswersForComponent = (component: StageComponentData) => {
 	if (!component.questionnaireIds || component.questionnaireIds.length === 0) {
 		return undefined;
 	}
