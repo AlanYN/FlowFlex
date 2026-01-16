@@ -96,9 +96,45 @@ namespace FlowFlex.Application.Services.OW
                 "Auto-generating CaseCode for {Count} legacy entities",
                 entitiesWithoutCaseCode.Count);
 
+            // Batch generate case codes to reduce database round trips
+            var updateTasks = new List<(long Id, string CaseCode)>();
             foreach (var entity in entitiesWithoutCaseCode)
             {
-                await EnsureCaseCodeAsync(entity);
+                try
+                {
+                    entity.CaseCode = await _caseCodeGeneratorService.GenerateCaseCodeAsync(entity.CaseName);
+                    updateTasks.Add((entity.Id, entity.CaseCode));
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to generate CaseCode for Onboarding {OnboardingId}", entity.Id);
+                }
+            }
+
+            // Batch update database if there are any codes to update
+            if (updateTasks.Any())
+            {
+                try
+                {
+                    // Use batch update for better performance
+                    var db = _onboardingRepository.GetSqlSugarClient();
+                    foreach (var batch in updateTasks.Chunk(100)) // Process in batches of 100
+                    {
+                        var updates = batch.Select(t => new { Id = t.Id, CaseCode = t.CaseCode }).ToList();
+                        foreach (var update in updates)
+                        {
+                            await db.Updateable<Onboarding>()
+                                .SetColumns(o => o.CaseCode == update.CaseCode)
+                                .Where(o => o.Id == update.Id)
+                                .ExecuteCommandAsync();
+                        }
+                    }
+                    _logger.LogInformation("Batch updated {Count} CaseCodes", updateTasks.Count);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to batch update CaseCodes");
+                }
             }
         }
 

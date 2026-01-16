@@ -206,29 +206,42 @@ namespace FlowFlex.Application.Services.OW
         /// </summary>
         private void LoadStagesProgressFromJson(Onboarding entity)
         {
+            LoadStagesProgressFromJson(entity, fixStageOrder: true);
+        }
+
+        /// <summary>
+        /// Load stages progress from JSONB - read-only version for query operations
+        /// Does not fix stage order or serialize back to JSON
+        /// </summary>
+        private void LoadStagesProgressFromJsonReadOnly(Onboarding entity)
+        {
+            LoadStagesProgressFromJson(entity, fixStageOrder: false);
+        }
+
+        /// <summary>
+        /// Load stages progress from JSONB - core implementation
+        /// </summary>
+        /// <param name="entity">Onboarding entity</param>
+        /// <param name="fixStageOrder">Whether to fix stage order and serialize back</param>
+        private void LoadStagesProgressFromJson(Onboarding entity, bool fixStageOrder)
+        {
             try
             {
                 if (!string.IsNullOrEmpty(entity.StagesProgressJson))
                 {
-                    _logger.LogDebug("LoadStagesProgressFromJson - Loading JSON for Onboarding {OnboardingId}", entity.Id);
-
                     var jsonString = entity.StagesProgressJson.Trim();
 
                     // Handle double-serialized JSON
                     if (jsonString.StartsWith("\"") && jsonString.EndsWith("\""))
                     {
                         jsonString = JsonSerializer.Deserialize<string>(jsonString, JsonOptions) ?? "[]";
-                        _logger.LogDebug("LoadStagesProgressFromJson - Unwrapped double-serialized JSON");
                     }
 
                     entity.StagesProgress = JsonSerializer.Deserialize<List<OnboardingStageProgress>>(
                         jsonString, JsonOptions) ?? new List<OnboardingStageProgress>();
 
-                    _logger.LogDebug("LoadStagesProgressFromJson - Loaded {Count} stages for Onboarding {OnboardingId}",
-                        entity.StagesProgress.Count, entity.Id);
-
-                    // Only fix stage order when needed
-                    if (NeedsStageOrderFix(entity.StagesProgress))
+                    // Only fix stage order when needed and requested
+                    if (fixStageOrder && NeedsStageOrderFix(entity.StagesProgress))
                     {
                         FixStageOrderSequence(entity.StagesProgress);
                         entity.StagesProgressJson = SerializeStagesProgress(entity.StagesProgress);
@@ -480,7 +493,7 @@ namespace FlowFlex.Application.Services.OW
         /// This method dynamically populates fields like stageName, stageOrder, estimatedDays etc.
         /// from the Stage entities, ensuring consistency and reducing data duplication.
         /// </summary>
-        private async Task EnrichStagesProgressWithStageDataAsync(Onboarding entity)
+        private void EnrichStagesProgressWithStageData(Onboarding entity, List<Stage> stages)
         {
             try
             {
@@ -489,8 +502,6 @@ namespace FlowFlex.Application.Services.OW
                     return;
                 }
 
-                // Get all stages for this workflow
-                var stages = await _stageRepository.GetByWorkflowIdAsync(entity.WorkflowId);
                 if (stages == null || !stages.Any())
                 {
                     return;
@@ -548,15 +559,24 @@ namespace FlowFlex.Application.Services.OW
         }
 
         /// <summary>
+        /// Enrich stages progress with data from Stage entities (async version for backward compatibility)
+        /// </summary>
+        private async Task EnrichStagesProgressWithStageDataAsync(Onboarding entity)
+        {
+            var stages = await _stageRepository.GetByWorkflowIdAsync(entity.WorkflowId);
+            EnrichStagesProgressWithStageData(entity, stages?.ToList() ?? new List<Stage>());
+        }
+
+        /// <summary>
         /// Sync stages progress with workflow stages - handle new stages addition
         /// This method ensures that if workflow has new stages, they are added to stagesProgress.
         /// </summary>
-        private async Task SyncStagesProgressWithWorkflowAsync(Onboarding entity)
+        private async Task SyncStagesProgressWithWorkflowAsync(Onboarding entity, List<Stage>? preloadedStages = null)
         {
             try
             {
-                // Get current workflow stages
-                var stages = await _stageRepository.GetByWorkflowIdAsync(entity.WorkflowId);
+                // Get current workflow stages (use preloaded if available)
+                var stages = preloadedStages ?? (await _stageRepository.GetByWorkflowIdAsync(entity.WorkflowId))?.ToList();
                 if (stages == null || !stages.Any())
                 {
                     return;
@@ -569,7 +589,7 @@ namespace FlowFlex.Application.Services.OW
                 {
                     entity.StagesProgress = new List<OnboardingStageProgress>();
                 }
-                // 杩囨护鏃犳晥鐨?stageId
+                // Filter invalid stageIds
                 var validStageIds = stages.Select(s => s.Id).ToHashSet();
                 entity.StagesProgress?.RemoveAll(x => !validStageIds.Contains(x.StageId));
 
@@ -916,7 +936,7 @@ namespace FlowFlex.Application.Services.OW
         /// Ensure stages progress is properly initialized and synced with workflow
         /// This method handles cases where stages progress might be empty or outdated
         /// </summary>
-        private async Task EnsureStagesProgressInitializedAsync(Onboarding entity)
+        private async Task EnsureStagesProgressInitializedAsync(Onboarding entity, IEnumerable<Stage>? preloadedStages = null)
         {
             // Prevent infinite recursion using thread-safe entity tracking
             lock (_initializationLock)
@@ -933,8 +953,8 @@ namespace FlowFlex.Application.Services.OW
                 // Load current stages progress
                 LoadStagesProgressFromJson(entity);
 
-                // Get current workflow stages
-                var stages = await _stageRepository.GetByWorkflowIdAsync(entity.WorkflowId);
+                // Get current workflow stages (use preloaded if available)
+                var stages = preloadedStages?.ToList() ?? await _stageRepository.GetByWorkflowIdAsync(entity.WorkflowId);
                 if (stages == null || !stages.Any())
                 {
                     throw new CRMException(ErrorCodeEnum.DataNotFound, "No stages found for workflow");
@@ -957,11 +977,11 @@ namespace FlowFlex.Application.Services.OW
                 else
                 {
                     // Sync with workflow stages (handle new stages addition)
-                    await SyncStagesProgressWithWorkflowAsync(entity);
+                    await SyncStagesProgressWithWorkflowAsync(entity, stages);
                 }
 
                 // Always enrich with stage data to ensure consistency
-                await EnrichStagesProgressWithStageDataAsync(entity);
+                EnrichStagesProgressWithStageData(entity, stages);
             }
             catch (Exception ex)
             {
@@ -994,11 +1014,7 @@ namespace FlowFlex.Application.Services.OW
                 }
 
                 // Use shared JSON options for consistent serialization
-                var result = JsonSerializer.Serialize(stagesProgress, JsonOptions);
-
-                _logger.LogDebug("SerializeStagesProgress - Serialized {Count} stages", stagesProgress.Count);
-
-                return result;
+                return JsonSerializer.Serialize(stagesProgress, JsonOptions);
             }
             catch (Exception ex)
             {

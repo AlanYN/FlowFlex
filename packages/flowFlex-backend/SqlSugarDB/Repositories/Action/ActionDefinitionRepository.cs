@@ -361,6 +361,46 @@ namespace FlowFlex.SqlSugarDB.Repositories.Action
         }
 
         /// <summary>
+        /// Get trigger mappings with action details by multiple trigger source ids (batch query)
+        /// </summary>
+        public async Task<Dictionary<long, List<ActionTriggerMappingWithActionDetails>>> GetMappingsWithActionDetailsByTriggerSourceIdsAsync(List<long> triggerSourceIds)
+        {
+            if (triggerSourceIds == null || !triggerSourceIds.Any())
+            {
+                return new Dictionary<long, List<ActionTriggerMappingWithActionDetails>>();
+            }
+
+            var query = db.Queryable<ActionTriggerMapping>()
+                .InnerJoin<ActionDefinition>((m, a) => m.ActionDefinitionId == a.Id)
+                .Where((m, a) => triggerSourceIds.Contains(m.TriggerSourceId) &&
+                                   m.IsValid &&
+                                   a.IsValid)
+                .Select((m, a) => new ActionTriggerMappingWithActionDetails
+                {
+                    Id = m.Id,
+                    ActionDefinitionId = m.ActionDefinitionId,
+                    ActionCode = a.ActionCode,
+                    ActionName = a.ActionName,
+                    ActionType = a.ActionType,
+                    ActionDescription = a.Description,
+                    ActionIsEnabled = a.IsEnabled,
+                    TriggerType = m.TriggerType,
+                    TriggerSourceId = m.TriggerSourceId,
+                    TriggerEvent = m.TriggerEvent,
+                    IsEnabled = m.IsEnabled,
+                    ExecutionOrder = m.ExecutionOrder,
+                    Description = m.Description,
+                    LastApplied = SqlFunc.Subqueryable<ActionExecution>().Where(e => e.ActionTriggerMappingId == m.Id && e.IsValid).Max(e => e.CreateDate)
+                });
+
+            var allMappings = await query.ToListAsync();
+
+            // Group by TriggerSourceId
+            return allMappings.GroupBy(m => m.TriggerSourceId)
+                .ToDictionary(g => g.Key, g => g.ToList());
+        }
+
+        /// <summary>
         /// Get action definitions by IDs
         /// </summary>
         /// <param name="ids">List of action definition IDs</param>

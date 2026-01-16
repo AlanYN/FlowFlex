@@ -51,10 +51,12 @@ namespace FlowFlex.Application.Services.OW
                 throw new CRMException(ErrorCodeEnum.DataNotFound, "Onboarding not found");
             }
 
-            // Ensure stages progress is properly initialized and synced
-            await EnsureStagesProgressInitializedAsync(entity);
-
+            // OPTIMIZATION: Get stages once and pass to EnsureStagesProgressInitializedAsync
             var stages = await _stageRepository.GetByWorkflowIdAsync(entity.WorkflowId);
+            
+            // Ensure stages progress is properly initialized and synced (pass preloaded stages)
+            await EnsureStagesProgressInitializedAsync(entity, stages);
+
             var totalStages = stages.Count;
             var completedStages = entity.CurrentStageOrder;
 
@@ -71,19 +73,26 @@ namespace FlowFlex.Application.Services.OW
             // Map stages progress to DTO
             var stagesProgressDto = _mapper.Map<List<OnboardingStageProgressDto>>(entity.StagesProgress);
 
-            // Get actions for each stage
-            foreach (var stageProgress in stagesProgressDto)
+            // OPTIMIZATION: Batch query all actions for all stages at once
+            if (stagesProgressDto != null && stagesProgressDto.Any())
             {
+                var stageIds = stagesProgressDto.Select(sp => sp.StageId).ToList();
+                Dictionary<long, List<ActionTriggerMappingWithActionInfo>> actionsDict;
                 try
                 {
-                    var actions = await _actionManagementService.GetActionTriggerMappingsByTriggerSourceIdAsync(stageProgress.StageId);
-                    stageProgress.Actions = actions;
+                    actionsDict = await _actionManagementService.GetActionTriggerMappingsByTriggerSourceIdsAsync(stageIds);
                 }
                 catch (Exception ex)
                 {
-                    // Log error but don't fail the entire request
-                    // Debug logging handled by structured logging
-                    stageProgress.Actions = new List<ActionTriggerMappingWithActionInfo>();
+                    _logger.LogWarning(ex, "Failed to batch query actions for stages in GetProgressAsync");
+                    actionsDict = new Dictionary<long, List<ActionTriggerMappingWithActionInfo>>();
+                }
+
+                foreach (var stageProgress in stagesProgressDto)
+                {
+                    stageProgress.Actions = actionsDict.TryGetValue(stageProgress.StageId, out var actions)
+                        ? actions
+                        : new List<ActionTriggerMappingWithActionInfo>();
                 }
             }
 

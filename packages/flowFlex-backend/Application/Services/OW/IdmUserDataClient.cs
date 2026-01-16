@@ -36,13 +36,13 @@ namespace FlowFlex.Application.Services.OW
             _cache = cache;
             _logger = logger;
 
-            // Log configuration validation
-            _logger.LogInformation("IdmUserDataClient initialized with configuration:");
-            _logger.LogInformation("BaseUrl: {BaseUrl}", _options.BaseUrl);
-            _logger.LogInformation("ClientId: {ClientId}", _options.ClientId);
-            _logger.LogInformation("TokenEndpoint: {TokenEndpoint}", _options.TokenEndpoint);
-            _logger.LogInformation("QueryUser: {QueryUser}", _options.QueryUser);
-            _logger.LogInformation("HttpClient BaseAddress: {BaseAddress}", _client.BaseAddress);
+            // Log configuration validation at Debug level to reduce noise
+            _logger.LogDebug("IdmUserDataClient initialized with configuration:");
+            _logger.LogDebug("BaseUrl: {BaseUrl}", _options.BaseUrl);
+            _logger.LogDebug("ClientId: {ClientId}", _options.ClientId);
+            _logger.LogDebug("TokenEndpoint: {TokenEndpoint}", _options.TokenEndpoint);
+            _logger.LogDebug("QueryUser: {QueryUser}", _options.QueryUser);
+            _logger.LogDebug("HttpClient BaseAddress: {BaseAddress}", _client.BaseAddress);
 
             // Validate critical configuration
             if (string.IsNullOrEmpty(_options.BaseUrl))

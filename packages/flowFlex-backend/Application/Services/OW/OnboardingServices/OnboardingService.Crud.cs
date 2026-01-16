@@ -841,22 +841,27 @@ namespace FlowFlex.Application.Services.OW
                 bool hasUserId = !string.IsNullOrEmpty(userId) && long.TryParse(userId, out userIdLong);
 
                 // Get actions and permissions for each stage in stagesProgress
-                if (result.StagesProgress != null)
+                if (result.StagesProgress != null && result.StagesProgress.Any())
                 {
+                    // OPTIMIZATION: Batch query all actions for all stages at once
+                    var stageIds = result.StagesProgress.Select(sp => sp.StageId).ToList();
+                    Dictionary<long, List<ActionTriggerMappingWithActionInfo>> actionsDict;
+                    try
+                    {
+                        actionsDict = await _actionManagementService.GetActionTriggerMappingsByTriggerSourceIdsAsync(stageIds);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Failed to batch query actions for stages, falling back to empty actions");
+                        actionsDict = new Dictionary<long, List<ActionTriggerMappingWithActionInfo>>();
+                    }
+
                     foreach (var stageProgress in result.StagesProgress)
                     {
-                        // Get actions for this stage
-                        try
-                        {
-                            var actions = await _actionManagementService.GetActionTriggerMappingsByTriggerSourceIdAsync(stageProgress.StageId);
-                            stageProgress.Actions = actions;
-                        }
-                        catch (Exception ex)
-                        {
-                            // Log error but don't fail the entire request
-                            // Debug logging handled by structured logging
-                            stageProgress.Actions = new List<ActionTriggerMappingWithActionInfo>();
-                        }
+                        // Get actions for this stage from batch result
+                        stageProgress.Actions = actionsDict.TryGetValue(stageProgress.StageId, out var actions) 
+                            ? actions 
+                            : new List<ActionTriggerMappingWithActionInfo>();
 
                         // Get permission for this stage (STRICT MODE: Workflow ∩ Stage)
                         if (hasUserId)

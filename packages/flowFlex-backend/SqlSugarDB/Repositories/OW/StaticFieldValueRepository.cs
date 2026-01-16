@@ -97,25 +97,27 @@ namespace FlowFlex.SqlSugarDB.Repositories.OW
                                 metadata = COALESCE(@Metadata::jsonb, metadata)
                             WHERE id = @Id";
 
-                        await db.Ado.ExecuteCommandAsync(sql, new
+                        var updateParams = new List<SugarParameter>
                         {
-                            Id = existing.Id,
-                            FieldValueJson = EnsureValidJson(fieldValue.FieldValueJson),
-                            DisplayName = fieldValue.DisplayName,
-                            FieldId = fieldValue.FieldId,
-                            FieldType = fieldValue.FieldType,
-                            IsRequired = fieldValue.IsRequired,
-                            Status = fieldValue.Status,
-                            CompletionRate = fieldValue.CompletionRate,
-                            ValidationStatus = fieldValue.ValidationStatus,
-                            ValidationErrors = fieldValue.ValidationErrors,
-                            Version = existing.Version + 1,
-                            IsLatest = true,
-                            ModifyDate = DateTimeOffset.UtcNow,
-                            ModifyBy = fieldValue.ModifyBy ?? fieldValue.CreateBy,
-                            ModifyUserId = fieldValue.ModifyUserId > 0 ? fieldValue.ModifyUserId : fieldValue.CreateUserId,
-                            Metadata = EnsureValidJson(fieldValue.Metadata) ?? EnsureValidJson(existing.Metadata)
-                        });
+                            new SugarParameter("@Id", existing.Id),
+                            new SugarParameter("@FieldValueJson", EnsureValidJson(fieldValue.FieldValueJson)),
+                            new SugarParameter("@DisplayName", fieldValue.DisplayName),
+                            new SugarParameter("@FieldId", fieldValue.FieldId.HasValue ? fieldValue.FieldId.Value : DBNull.Value, System.Data.DbType.Int64),
+                            new SugarParameter("@FieldType", fieldValue.FieldType),
+                            new SugarParameter("@IsRequired", fieldValue.IsRequired),
+                            new SugarParameter("@Status", fieldValue.Status),
+                            new SugarParameter("@CompletionRate", fieldValue.CompletionRate),
+                            new SugarParameter("@ValidationStatus", fieldValue.ValidationStatus),
+                            new SugarParameter("@ValidationErrors", fieldValue.ValidationErrors),
+                            new SugarParameter("@Version", existing.Version + 1),
+                            new SugarParameter("@IsLatest", true),
+                            new SugarParameter("@ModifyDate", DateTimeOffset.UtcNow),
+                            new SugarParameter("@ModifyBy", fieldValue.ModifyBy ?? fieldValue.CreateBy),
+                            new SugarParameter("@ModifyUserId", fieldValue.ModifyUserId > 0 ? fieldValue.ModifyUserId : fieldValue.CreateUserId),
+                            new SugarParameter("@Metadata", EnsureValidJson(fieldValue.Metadata) ?? EnsureValidJson(existing.Metadata))
+                        };
+
+                        await db.Ado.ExecuteCommandAsync(sql, updateParams);
                     }
                     else
                     {
@@ -143,38 +145,40 @@ namespace FlowFlex.SqlSugarDB.Repositories.OW
                                 @TenantId, @AppCode
                             )";
 
-                        await db.Ado.ExecuteCommandAsync(insertSql, new
+                        var insertParams = new List<SugarParameter>
                         {
-                            Id = fieldValue.Id,
-                            OnboardingId = fieldValue.OnboardingId,
-                            StageId = fieldValue.StageId,
-                            FieldName = fieldValue.FieldName,
-                            FieldId = fieldValue.FieldId,
-                            DisplayName = fieldValue.DisplayName,
-                            FieldValueJson = EnsureValidJson(fieldValue.FieldValueJson),
-                            FieldType = fieldValue.FieldType,
-                            IsRequired = fieldValue.IsRequired,
-                            Status = fieldValue.Status,
-                            CompletionRate = fieldValue.CompletionRate,
-                            ValidationStatus = fieldValue.ValidationStatus,
-                            ValidationErrors = fieldValue.ValidationErrors,
-                            Version = 1,
-                            IsLatest = true,
-                            IsSubmitted = fieldValue.IsSubmitted,
-                            Source = fieldValue.Source,
-                            IpAddress = fieldValue.IpAddress,
-                            UserAgent = fieldValue.UserAgent,
-                            Metadata = EnsureValidJson(fieldValue.Metadata),
-                            CreateDate = DateTimeOffset.UtcNow,
-                            ModifyDate = DateTimeOffset.UtcNow,
-                            CreateBy = fieldValue.CreateBy,
-                            ModifyBy = fieldValue.ModifyBy,
-                            CreateUserId = fieldValue.CreateUserId,
-                            ModifyUserId = fieldValue.ModifyUserId,
-                            IsValid = fieldValue.IsValid,
-                            TenantId = fieldValue.TenantId,
-                            AppCode = fieldValue.AppCode
-                        });
+                            new SugarParameter("@Id", fieldValue.Id),
+                            new SugarParameter("@OnboardingId", fieldValue.OnboardingId),
+                            new SugarParameter("@StageId", fieldValue.StageId),
+                            new SugarParameter("@FieldName", fieldValue.FieldName),
+                            new SugarParameter("@FieldId", fieldValue.FieldId.HasValue ? fieldValue.FieldId.Value : DBNull.Value, System.Data.DbType.Int64),
+                            new SugarParameter("@DisplayName", fieldValue.DisplayName),
+                            new SugarParameter("@FieldValueJson", EnsureValidJson(fieldValue.FieldValueJson)),
+                            new SugarParameter("@FieldType", fieldValue.FieldType),
+                            new SugarParameter("@IsRequired", fieldValue.IsRequired),
+                            new SugarParameter("@Status", fieldValue.Status),
+                            new SugarParameter("@CompletionRate", fieldValue.CompletionRate),
+                            new SugarParameter("@ValidationStatus", fieldValue.ValidationStatus),
+                            new SugarParameter("@ValidationErrors", fieldValue.ValidationErrors),
+                            new SugarParameter("@Version", 1),
+                            new SugarParameter("@IsLatest", true),
+                            new SugarParameter("@IsSubmitted", fieldValue.IsSubmitted),
+                            new SugarParameter("@Source", fieldValue.Source),
+                            new SugarParameter("@IpAddress", fieldValue.IpAddress),
+                            new SugarParameter("@UserAgent", fieldValue.UserAgent),
+                            new SugarParameter("@Metadata", EnsureValidJson(fieldValue.Metadata)),
+                            new SugarParameter("@CreateDate", DateTimeOffset.UtcNow),
+                            new SugarParameter("@ModifyDate", DateTimeOffset.UtcNow),
+                            new SugarParameter("@CreateBy", fieldValue.CreateBy),
+                            new SugarParameter("@ModifyBy", fieldValue.ModifyBy),
+                            new SugarParameter("@CreateUserId", fieldValue.CreateUserId),
+                            new SugarParameter("@ModifyUserId", fieldValue.ModifyUserId),
+                            new SugarParameter("@IsValid", fieldValue.IsValid),
+                            new SugarParameter("@TenantId", fieldValue.TenantId),
+                            new SugarParameter("@AppCode", fieldValue.AppCode)
+                        };
+
+                        await db.Ado.ExecuteCommandAsync(insertSql, insertParams);
                     }
                 }
 

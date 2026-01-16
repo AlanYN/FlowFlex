@@ -233,13 +233,6 @@ namespace FlowFlex.Application.Services.OW
                     totalCount = await queryable.CountAsync();
                 }
 
-                // Batch get Workflow and Stage information to avoid N+1 queries (only for paged data)
-                var (workflows, stages) = await GetRelatedDataBatchOptimizedAsync(pagedEntities);
-
-                // Create lookup dictionaries to improve search performance
-                var workflowDict = workflows.ToDictionary(w => w.Id, w => w.Name);
-                var stageDict = stages.ToDictionary(s => s.Id, s => s.Name);
-
                 // Batch process JSON deserialization (only for paged data)
                 ProcessStagesProgressParallel(pagedEntities);
 
@@ -250,6 +243,8 @@ namespace FlowFlex.Application.Services.OW
                     results.Count, pagedEntities.Count);
 
                 // Populate workflow/stage names and calculate current stage end time
+                // Note: GetRelatedDataBatchOptimizedAsync is called inside PopulateOnboardingOutputDtoAsync
+                // to avoid duplicate queries
                 await PopulateOnboardingOutputDtoAsync(results, pagedEntities);
 
                 // Create page model with appropriate pagination info
@@ -475,7 +470,7 @@ namespace FlowFlex.Application.Services.OW
         }
 
         /// <summary>
-        /// Parallel processing of stage progress
+        /// Parallel processing of stage progress - read-only for query operations
         /// </summary>
         private void ProcessStagesProgressParallel(List<Onboarding> entities)
         {
@@ -486,7 +481,7 @@ namespace FlowFlex.Application.Services.OW
                     // Direct processing for small datasets
                     foreach (var entity in entities)
                     {
-                        LoadStagesProgressFromJson(entity);
+                        LoadStagesProgressFromJsonReadOnly(entity);
                     }
                 }
                 else
@@ -501,11 +496,10 @@ namespace FlowFlex.Application.Services.OW
                     {
                         try
                         {
-                            LoadStagesProgressFromJson(entity);
+                            LoadStagesProgressFromJsonReadOnly(entity);
                         }
                         catch (Exception ex)
                         {
-                            // Debug logging handled by structured logging
                             // Ensure that even if single entity processing fails, it doesn't affect other entities
                             entity.StagesProgress = new List<OnboardingStageProgress>();
                         }
@@ -514,17 +508,15 @@ namespace FlowFlex.Application.Services.OW
             }
             catch (Exception ex)
             {
-                // Debug logging handled by structured logging
                 // If parallel processing fails, fallback to sequential processing
                 foreach (var entity in entities)
                 {
                     try
                     {
-                        LoadStagesProgressFromJson(entity);
+                        LoadStagesProgressFromJsonReadOnly(entity);
                     }
                     catch (Exception entityEx)
                     {
-                        // Debug logging handled by structured logging
                         entity.StagesProgress = new List<OnboardingStageProgress>();
                     }
                 }

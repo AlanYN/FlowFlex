@@ -30,13 +30,6 @@ namespace FlowFlex.WebApi.Middlewares
 
             try
             {
-                // 记录所有请求头，用于调试
-                _logger.LogInformation("[AppIsolationMiddleware] Request headers:");
-                foreach (var header in context.Request.Headers)
-                {
-                    _logger.LogInformation($"[AppIsolationMiddleware] Header: {header.Key}={header.Value}");
-                }
-
                 // Extract AppCode from request
                 var appCode = await ExtractAppCodeAsync(context);
                 context.Items["AppCode"] = appCode;
@@ -45,7 +38,7 @@ namespace FlowFlex.WebApi.Middlewares
                 var tenantId = await ExtractTenantIdAsync(context, appCode);
                 context.Items["TenantId"] = tenantId;
 
-                // 创建AppContext对象并存储到HttpContext.Items中，确保数据隔离正常工作
+                // Create AppContext object and store in HttpContext.Items for data isolation
                 var appContext = new AppContext
                 {
                     AppCode = appCode,
@@ -58,16 +51,10 @@ namespace FlowFlex.WebApi.Middlewares
 
                 context.Items["AppContext"] = appContext;
 
-                // 确保AppContext正确设置
-                _logger.LogInformation($"[AppIsolationMiddleware] AppContext set: AppCode={appContext.AppCode}, TenantId={appContext.TenantId}, RequestId={appContext.RequestId}");
-
-                // 确保请求头包含正确的租户ID和应用代码
+                // Ensure headers contain correct tenant ID and app code
                 EnsureHeaders(context, appContext);
 
-                // 再次检查请求头是否已正确设置
-                _logger.LogInformation($"[AppIsolationMiddleware] After EnsureHeaders: X-App-Code={context.Request.Headers["X-App-Code"]}, X-Tenant-Id={context.Request.Headers["X-Tenant-Id"]}");
-
-                _logger.LogInformation(
+                _logger.LogDebug(
                     "[AppIsolationMiddleware] Request: {Method} {Path}, AppCode: {AppCode}, TenantId: {TenantId}, RequestId: {RequestId}",
                     context.Request.Method,
                     context.Request.Path,
@@ -91,7 +78,7 @@ namespace FlowFlex.WebApi.Middlewares
             finally
             {
                 stopwatch.Stop();
-                if (stopwatch.ElapsedMilliseconds > 1000) // Log slow requests
+                if (stopwatch.ElapsedMilliseconds > 3000) // Log slow requests (threshold increased to 3s)
                 {
                     _logger.LogWarning(
                         "[AppIsolationMiddleware] Slow request detected: {Method} {Path}, RequestId: {RequestId}, Duration: {ElapsedMs}ms",
@@ -110,19 +97,10 @@ namespace FlowFlex.WebApi.Middlewares
 
         private async Task<string> ExtractAppCodeAsync(HttpContext context)
         {
-            _logger.LogDebug("[AppIsolationMiddleware] Starting AppCode extraction");
-
-            // 记录所有请求头，用于调试
-            foreach (var header in context.Request.Headers)
-            {
-                _logger.LogDebug($"[AppIsolationMiddleware] Request header: {header.Key}={header.Value}");
-            }
-
             // 1. Get from X-App-Code header
             var appCode = context.Request.Headers["X-App-Code"].FirstOrDefault();
             if (!string.IsNullOrEmpty(appCode))
             {
-                _logger.LogDebug("[AppIsolationMiddleware] Found AppCode from X-App-Code header: {AppCode}", appCode);
                 return appCode;
             }
 
@@ -130,7 +108,6 @@ namespace FlowFlex.WebApi.Middlewares
             appCode = context.Request.Headers["AppCode"].FirstOrDefault();
             if (!string.IsNullOrEmpty(appCode))
             {
-                _logger.LogDebug("[AppIsolationMiddleware] Found AppCode from AppCode header: {AppCode}", appCode);
                 return appCode;
             }
 
@@ -139,29 +116,20 @@ namespace FlowFlex.WebApi.Middlewares
                    ?? context.Request.Query["app_code"].FirstOrDefault();
             if (!string.IsNullOrEmpty(appCode))
             {
-                _logger.LogDebug("[AppIsolationMiddleware] Found AppCode from query parameter: {AppCode}", appCode);
                 return appCode;
             }
 
             // 4. Get from JWT Token (if available)
             if (context.User?.Identity?.IsAuthenticated == true)
             {
-                _logger.LogDebug("[AppIsolationMiddleware] User is authenticated, checking JWT claims");
-                foreach (var claim in context.User.Claims)
-                {
-                    _logger.LogDebug($"[AppIsolationMiddleware] JWT claim: {claim.Type}={claim.Value}");
-                }
-
                 var appCodeClaim = context.User?.FindFirst("appCode");
                 if (!string.IsNullOrEmpty(appCodeClaim?.Value))
                 {
-                    _logger.LogDebug("[AppIsolationMiddleware] Found AppCode from JWT token: {AppCode}", appCodeClaim.Value);
                     return appCodeClaim.Value;
                 }
             }
 
-            // 5. 使用默认值 "default"
-            _logger.LogDebug("[AppIsolationMiddleware] No AppCode found in headers, query or JWT. Using default AppCode: DEFAULT");
+            // 5. Use default value "default"
             return "default";
         }
 
@@ -171,7 +139,6 @@ namespace FlowFlex.WebApi.Middlewares
             var tenantId = context.Request.Headers["X-Tenant-Id"].FirstOrDefault();
             if (!string.IsNullOrEmpty(tenantId))
             {
-                _logger.LogDebug("[AppIsolationMiddleware] Found TenantId from X-Tenant-Id header: {TenantId}", tenantId);
                 return tenantId;
             }
 
@@ -179,7 +146,6 @@ namespace FlowFlex.WebApi.Middlewares
             tenantId = context.Request.Headers["TenantId"].FirstOrDefault();
             if (!string.IsNullOrEmpty(tenantId))
             {
-                _logger.LogDebug("[AppIsolationMiddleware] Found TenantId from TenantId header: {TenantId}", tenantId);
                 return tenantId;
             }
 
@@ -188,7 +154,6 @@ namespace FlowFlex.WebApi.Middlewares
                     ?? context.Request.Query["tenant_id"].FirstOrDefault();
             if (!string.IsNullOrEmpty(tenantId))
             {
-                _logger.LogDebug("[AppIsolationMiddleware] Found TenantId from query parameter: {TenantId}", tenantId);
                 return tenantId;
             }
 
@@ -196,7 +161,6 @@ namespace FlowFlex.WebApi.Middlewares
             var tenantIdClaim = context.User?.FindFirst("tenantId");
             if (!string.IsNullOrEmpty(tenantIdClaim?.Value))
             {
-                _logger.LogDebug("[AppIsolationMiddleware] Found TenantId from JWT token: {TenantId}", tenantIdClaim.Value);
                 return tenantIdClaim.Value;
             }
 
@@ -211,14 +175,12 @@ namespace FlowFlex.WebApi.Middlewares
                     var inferredTenantId = MapDomainToTenantId(domain);
                     if (!string.IsNullOrEmpty(inferredTenantId))
                     {
-                        _logger.LogDebug("[AppIsolationMiddleware] Inferred TenantId from email domain: {TenantId}", inferredTenantId);
                         return inferredTenantId;
                     }
                 }
             }
 
-            // 6. 使用默认值 "default"
-            _logger.LogDebug("[AppIsolationMiddleware] Using default TenantId: {TenantId}", "default");
+            // 6. Use default value "default"
             return "default";
         }
 

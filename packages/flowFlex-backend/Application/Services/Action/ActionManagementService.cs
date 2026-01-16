@@ -1178,6 +1178,18 @@ namespace FlowFlex.Application.Services.Action
             return _mapper.Map<List<ActionTriggerMappingWithActionInfo>>(entities);
         }
 
+        public async Task<Dictionary<long, List<ActionTriggerMappingWithActionInfo>>> GetActionTriggerMappingsByTriggerSourceIdsAsync(List<long> triggerSourceIds)
+        {
+            var entitiesDict = await _actionDefinitionRepository.GetMappingsWithActionDetailsByTriggerSourceIdsAsync(triggerSourceIds);
+            
+            var result = new Dictionary<long, List<ActionTriggerMappingWithActionInfo>>();
+            foreach (var kvp in entitiesDict)
+            {
+                result[kvp.Key] = _mapper.Map<List<ActionTriggerMappingWithActionInfo>>(kvp.Value);
+            }
+            return result;
+        }
+
         public async Task<ActionTriggerMappingDto> CreateActionTriggerMappingAsync(CreateActionTriggerMappingDto dto)
         {
             // Business rule: Task/Question type can only have ONE mapping per TriggerSourceId

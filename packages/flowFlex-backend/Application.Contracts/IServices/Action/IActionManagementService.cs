@@ -144,6 +144,13 @@ namespace FlowFlex.Application.Contracts.IServices.Action
         Task<List<ActionTriggerMappingWithActionInfo>> GetActionTriggerMappingsByTriggerSourceIdAsync(long triggerSourceId);
 
         /// <summary>
+        /// Get action trigger mappings by multiple trigger source ids (batch query)
+        /// </summary>
+        /// <param name="triggerSourceIds">List of trigger source IDs</param>
+        /// <returns>Dictionary mapping trigger source ID to its action trigger mappings</returns>
+        Task<Dictionary<long, List<ActionTriggerMappingWithActionInfo>>> GetActionTriggerMappingsByTriggerSourceIdsAsync(List<long> triggerSourceIds);
+
+        /// <summary>
         /// Create new action trigger mapping
         /// </summary>
         /// <param name="dto">Create action trigger mapping DTO</param>

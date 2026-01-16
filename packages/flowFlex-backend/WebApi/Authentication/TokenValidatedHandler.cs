@@ -55,6 +55,14 @@ namespace WebApi.Authentication
             var claims = principal.Claims.ToList();
             var userContext = context.HttpContext.RequestServices.GetService<UserContext>() ??
                               throw new NullReferenceException(nameof(UserContext));
+            
+            // Skip if UserContext is already populated by another authentication scheme
+            if (!string.IsNullOrEmpty(userContext.UserId) && userContext.UserPermissions?.Any() == true)
+            {
+                Console.WriteLine($"[TokenValidatedHandler.OnIdmTokenValidated] UserContext already populated, skipping duplicate processing for user {userContext.UserId}");
+                return;
+            }
+            
             try
             {
                 var tokenCategory = claims!.FirstOrDefault(x => x.Type == "token_category")?.Value;
@@ -95,10 +103,18 @@ namespace WebApi.Authentication
                     userContext.Schema = AuthSchemes.Identification;
                     userContext.AppCode = context.HttpContext.Request.Headers["X-App-Code"].FirstOrDefault() ?? "default";
 
-                    // Load user teams and user type in parallel to reduce latency
-                    var loadTeamsTask = LoadUserTeamsAsync(context, userContext);
-                    var loadUserTypeTask = LoadUserTypeAsync(context, userContext, authorization);
-                    await Task.WhenAll(loadTeamsTask, loadUserTypeTask);
+                    // First load user type/permissions to determine if user is admin
+                    await LoadUserTypeAsync(context, userContext, authorization);
+                    
+                    // Skip loading teams for System Admin or Tenant Admin - they bypass permission checks
+                    if (!userContext.IsSystemAdmin && !userContext.HasAdminPrivileges(userContext.TenantId))
+                    {
+                        await LoadUserTeamsAsync(context, userContext);
+                    }
+                    else
+                    {
+                        Console.WriteLine($"[TokenValidatedHandler] Skipping team loading for admin user {userContext.UserId} (IsSystemAdmin={userContext.IsSystemAdmin})");
+                    }
                 }
             }
             catch
@@ -119,6 +135,13 @@ namespace WebApi.Authentication
             var claims = principal.Claims.ToList();
             var userContext = context.HttpContext.RequestServices.GetService<UserContext>() ??
                               throw new NullReferenceException(nameof(UserContext));
+
+            // Skip if UserContext is already populated by another authentication scheme
+            if (!string.IsNullOrEmpty(userContext.UserId) && userContext.UserPermissions?.Any() == true)
+            {
+                Console.WriteLine($"[TokenValidatedHandler.OnIamItemTokenValidated] UserContext already populated, skipping duplicate processing for user {userContext.UserId}");
+                return;
+            }
 
             var configuration = context.HttpContext.RequestServices.GetRequiredService<IConfiguration>();
 
@@ -180,10 +203,18 @@ namespace WebApi.Authentication
                         }
                         userContext.AppCode = context.HttpContext.Request.Headers["X-App-Code"].FirstOrDefault() ?? "default";
 
-                        // Load user teams and user type in parallel to reduce latency
-                        var loadTeamsTask = LoadUserTeamsAsync(context, userContext);
-                        var loadUserTypeTask = LoadUserTypeAsync(context, userContext, authorization);
-                        await Task.WhenAll(loadTeamsTask, loadUserTypeTask);
+                        // First load user type/permissions to determine if user is admin
+                        await LoadUserTypeAsync(context, userContext, authorization);
+                        
+                        // Skip loading teams for System Admin or Tenant Admin - they bypass permission checks
+                        if (!userContext.IsSystemAdmin && !userContext.HasAdminPrivileges(userContext.TenantId))
+                        {
+                            await LoadUserTeamsAsync(context, userContext);
+                        }
+                        else
+                        {
+                            Console.WriteLine($"[TokenValidatedHandler] Skipping team loading for admin user {userContext.UserId} (IsSystemAdmin={userContext.IsSystemAdmin})");
+                        }
                         break;
                     case "client_credentials":
                         userContext.Schema = AuthSchemes.ItemIamClientIdentification;
