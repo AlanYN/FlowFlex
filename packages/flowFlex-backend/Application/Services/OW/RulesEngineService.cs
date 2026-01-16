@@ -442,19 +442,14 @@ namespace FlowFlex.Application.Service.OW
                     }
                 }
                 
-                // Build actions summary with detailed result indicators
+                // Build actions summary with detailed result indicators (show all actions)
                 var actionsSummary = "";
                 if (result.ActionResults != null && result.ActionResults.Any())
                 {
                     var actionParts = result.ActionResults
                         .OrderBy(a => a.Order)
-                        .Take(4)
                         .Select(a => BuildActionTitlePart(a));
                     actionsSummary = string.Join(", ", actionParts);
-                    if (result.ActionResults.Count > 4)
-                    {
-                        actionsSummary += $" +{result.ActionResults.Count - 4}";
-                    }
                 }
 
                 // Build operationTitle
@@ -553,28 +548,176 @@ namespace FlowFlex.Application.Service.OW
             {
                 "gotostage" => action.ResultData.TryGetValue("targetStageName", out var stageName) 
                     ? stageName?.ToString() ?? "" : "",
-                "skipstage" => action.ResultData.TryGetValue("skippedCount", out var count) 
-                    ? $"skip{count}" : "",
-                "endworkflow" => action.ResultData.TryGetValue("endStatus", out var status) 
-                    ? status?.ToString() ?? "" : "",
-                "sendnotification" => action.ResultData.TryGetValue("recipientEmail", out var email) 
-                    ? TruncateEmail(email?.ToString()) : "",
-                "updatefield" => GetUpdateFieldDetail(action.ResultData),
+                "skipstage" => GetSkipStageDetail(action.ResultData),
+                "endworkflow" => GetEndWorkflowDetail(action.ResultData),
+                "sendnotification" => GetSendNotificationDetail(action.ResultData),
+                "updatefield" => GetUpdateFieldDetailWithValue(action.ResultData),
                 "triggeraction" => action.ResultData.TryGetValue("actionName", out var actionName) 
                     ? actionName?.ToString() ?? "" : "",
-                "assignuser" => BuildAssignUserDetail(action.ResultData),
+                "assignuser" => GetAssignUserDetail(action.ResultData),
                 _ => ""
             };
         }
 
         /// <summary>
-        /// Build AssignUser action detail
+        /// Get SkipStage action detail - show target stage name and skip count
+        /// Format: "StageName(skip2)" or just "StageName"
+        /// </summary>
+        private string GetSkipStageDetail(Dictionary<string, object> resultData)
+        {
+            var targetStageName = resultData.TryGetValue("targetStageName", out var stageName) 
+                ? stageName?.ToString() : "";
+            var skippedCount = resultData.TryGetValue("skippedCount", out var count) 
+                ? count?.ToString() : "";
+
+            if (!string.IsNullOrEmpty(targetStageName))
+            {
+                // Show stage name with skip count if > 1
+                if (!string.IsNullOrEmpty(skippedCount) && skippedCount != "1")
+                {
+                    return $"{targetStageName}(skip{skippedCount})";
+                }
+                return targetStageName;
+            }
+            
+            // Fallback to skip count only
+            return !string.IsNullOrEmpty(skippedCount) ? $"skip{skippedCount}" : "";
+        }
+
+        /// <summary>
+        /// Get EndWorkflow action detail - show end status
+        /// Format: "Force Completed" or "Completed(was:In Progress)"
+        /// </summary>
+        private string GetEndWorkflowDetail(Dictionary<string, object> resultData)
+        {
+            var endStatus = resultData.TryGetValue("endStatus", out var status) 
+                ? status?.ToString() : "";
+            var previousStatus = resultData.TryGetValue("previousStatus", out var prevStatus) 
+                ? prevStatus?.ToString() : "";
+
+            if (string.IsNullOrEmpty(endStatus))
+            {
+                return "";
+            }
+
+            // Show previous status if different and meaningful
+            if (!string.IsNullOrEmpty(previousStatus) && previousStatus != endStatus)
+            {
+                return $"{endStatus}(was:{previousStatus})";
+            }
+            return endStatus;
+        }
+
+        /// <summary>
+        /// Get SendNotification action detail - show recipient info
+        /// Format: "UserName<email>" or just "email"
+        /// </summary>
+        private string GetSendNotificationDetail(Dictionary<string, object> resultData)
+        {
+            var recipientName = resultData.TryGetValue("recipientName", out var name) 
+                ? name?.ToString() : "";
+            var recipientEmail = resultData.TryGetValue("recipientEmail", out var email) 
+                ? email?.ToString() : "";
+            var sendStatus = resultData.TryGetValue("status", out var statusObj) 
+                ? statusObj?.ToString() : "";
+
+            if (string.IsNullOrEmpty(recipientEmail))
+            {
+                return "";
+            }
+
+            var truncatedEmail = TruncateEmail(recipientEmail);
+            
+            // If we have a name that's different from email, show both
+            if (!string.IsNullOrEmpty(recipientName) && recipientName != recipientEmail)
+            {
+                var truncatedName = recipientName.Length > 10 ? recipientName.Substring(0, 8) + ".." : recipientName;
+                return $"{truncatedName}<{truncatedEmail}>";
+            }
+            
+            return truncatedEmail;
+        }
+
+        /// <summary>
+        /// Get UpdateField action detail with value - show fieldName=value
+        /// Format: "FieldName=Value" (value truncated if too long)
+        /// </summary>
+        private string GetUpdateFieldDetailWithValue(Dictionary<string, object> resultData)
+        {
+            // Get field name (prefer displayName > fieldName > fieldKey > fieldId)
+            var fieldDisplayName = GetUpdateFieldDetail(resultData);
+            if (string.IsNullOrEmpty(fieldDisplayName))
+            {
+                return "";
+            }
+
+            // Get field value
+            var fieldValue = "";
+            if (resultData.TryGetValue("newValue", out var newValue) && newValue != null)
+            {
+                fieldValue = newValue.ToString() ?? "";
+                // Truncate long values
+                if (fieldValue.Length > 20)
+                {
+                    fieldValue = fieldValue.Substring(0, 17) + "...";
+                }
+            }
+
+            // Return fieldName=value format
+            if (!string.IsNullOrEmpty(fieldValue))
+            {
+                return $"{fieldDisplayName}={fieldValue}";
+            }
+            return fieldDisplayName;
+        }
+
+        /// <summary>
+        /// Get AssignUser action detail - show assignee type and all names
+        /// Format: "user:John,Jane,Bob" or "team:TeamA,TeamB"
+        /// </summary>
+        private string GetAssignUserDetail(Dictionary<string, object> resultData)
+        {
+            var assigneeType = resultData.TryGetValue("assigneeType", out var type) 
+                ? type?.ToString() : "";
+            
+            // Try to get assignee names first (preferred for display)
+            List<string> assigneeNames = new List<string>();
+            if (resultData.TryGetValue("assigneeNames", out var namesObj))
+            {
+                if (namesObj is IEnumerable<object> enumerable)
+                {
+                    assigneeNames = enumerable.Select(x => x?.ToString() ?? "").Where(x => !string.IsNullOrEmpty(x)).ToList();
+                }
+                else if (namesObj is Newtonsoft.Json.Linq.JArray jArray)
+                {
+                    assigneeNames = jArray.Select(x => x.ToString()).ToList();
+                }
+            }
+
+            if (string.IsNullOrEmpty(assigneeType))
+            {
+                return "";
+            }
+
+            // Show all names without truncation
+            if (assigneeNames.Count > 0)
+            {
+                var namesDisplay = string.Join(",", assigneeNames);
+                return $"{assigneeType}:{namesDisplay}";
+            }
+            
+            // Fallback: show count only
+            var assigneeCount = resultData.TryGetValue("assigneeCount", out var count) 
+                ? count?.ToString() : "0";
+            return $"{assigneeType}×{assigneeCount}";
+        }
+
+        /// <summary>
+        /// Build AssignUser action detail (legacy method for backward compatibility)
         /// </summary>
         private string BuildAssignUserDetail(Dictionary<string, object> resultData)
         {
-            var assigneeType = resultData.TryGetValue("assigneeType", out var type) ? type?.ToString() : "";
-            var assigneeCount = resultData.TryGetValue("assigneeCount", out var count) ? count?.ToString() : "0";
-            return $"{assigneeType}×{assigneeCount}";
+            return GetAssignUserDetail(resultData);
         }
 
         /// <summary>

@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ITEM WFE - Stage Notification</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f5f5f5;
+            color: #333;
+            line-height: 1.6;
+        }
+
+        .email-container {
+            max-width: 600px;
+            margin: 20px auto;
+            background-color: #ffffff;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background-color: #667eea;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 28px;
+            margin-bottom: 10px;
+            font-weight: 600;
+        }
+
+        .header p {
+            font-size: 16px;
+            opacity: 0.9;
+        }
+
+        .content {
+            padding: 40px 30px;
+        }
+
+        .notification-message {
+            font-size: 16px;
+            color: #2c3e50;
+            margin-bottom: 30px;
+            text-align: center;
+            line-height: 1.8;
+        }
+
+        .action-section {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .action-button {
+            display: inline-block;
+            background-color: #667eea;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 15px 35px;
+            text-decoration: none;
+            border-radius: 6px;
+            font-weight: 600;
+            font-size: 16px;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            box-shadow: 0 2px 4px rgba(102, 126, 234, 0.3);
+        }
+
+        .action-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        .footer {
+            background-color: #f8f9fa;
+            padding: 20px 30px;
+            text-align: center;
+            border-top: 1px solid #e9ecef;
+        }
+
+        .footer p {
+            color: #6c757d;
+            font-size: 12px;
+            margin-bottom: 5px;
+        }
+
+        .contact-info {
+            color: #667eea;
+            font-weight: 500;
+        }
+
+        @media (max-width: 768px) {
+            .email-container {
+                margin: 10px;
+                border-radius: 4px;
+            }
+
+            .header {
+                padding: 20px;
+            }
+
+            .content {
+                padding: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="email-container">
+        <div class="header" style="background-color: #7e22ce; color: white; padding: 30px; text-align: center;">
+            <h1 style="font-size: 28px; margin-bottom: 10px; font-weight: 600; color: white;">ITEM WFE</h1>
+            <p style="font-size: 16px; opacity: 0.9; color: white;">Stage Notification</p>
+        </div>
+
+        <div class="content">
+            <div class="notification-message" style="text-align: left; margin-bottom: 30px;">
+                <p style="font-size: 16px; color: #2c3e50; margin-bottom: 20px; line-height: 1.8;">
+                    The previous stage <strong>"{{previousStageName}}"</strong> has been completed.
+                </p>
+                <p style="font-size: 16px; color: #2c3e50; margin-bottom: 20px; line-height: 1.8;">
+                    Please log in to the WFE system to proceed with the current stage <strong>"{{currentStageName}}"</strong>
+                </p>
+                <p style="font-size: 16px; color: #2c3e50; margin-top: 30px; line-height: 1.8;">
+                    Thank you.
+                </p>
+            </div>
+
+            <div class="action-section">
+                <a href="{{caseUrl}}" class="action-button" style="display: inline-block; background-color: #7e22ce; color: white; padding: 15px 35px; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 16px;">
+                    🔗 View Case Details
+                </a>
+            </div>
+        </div>
+
+        <div class="footer">
+            <p>Thank you for using ITEM WFE</p>
+            <p>For any questions, please contact: <span class="contact-info">WFESupport@item.com</span></p>
+            <p>© {{year}} ITEM WFE. All rights reserved.</p>
+        </div>
+    </div>
+</body>
+</html>

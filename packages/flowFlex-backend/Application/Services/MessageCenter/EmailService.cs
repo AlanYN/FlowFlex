@@ -239,6 +239,43 @@ namespace FlowFlex.Application.Services.MessageCenter
         }
 
         /// <summary>
+        /// Send condition triggered stage notification email (for Stage Condition SendNotification action)
+        /// Shows "current stage" instead of "next stage"
+        /// </summary>
+        /// <param name="to">Recipient email</param>
+        /// <param name="caseId">Case ID</param>
+        /// <param name="caseName">Case name</param>
+        /// <param name="previousStageName">Previous stage name (the completed stage)</param>
+        /// <param name="currentStageName">Current stage name (the stage to proceed with)</param>
+        /// <param name="caseUrl">URL to view case details</param>
+        /// <returns>Whether the email was sent successfully</returns>
+        public async Task<bool> SendConditionStageNotificationAsync(string to, string caseId, string caseName, string previousStageName, string currentStageName, string caseUrl)
+        {
+            try
+            {
+                // Format subject: [Case XXX] Stage Update – Action Required
+                var subject = $"[Case {caseName}] Stage Update – Action Required";
+
+                var body = _templateService.Render("condition_stage_notification_en", new Dictionary<string, object>
+                {
+                    ["caseId"] = caseId ?? string.Empty,
+                    ["caseName"] = caseName ?? string.Empty,
+                    ["previousStageName"] = previousStageName ?? string.Empty,
+                    ["currentStageName"] = currentStageName ?? string.Empty,
+                    ["caseUrl"] = caseUrl ?? GetRequestOrigin(),
+                    ["year"] = DateTime.UtcNow.Year.ToString()
+                });
+
+                return await SendEmailAsync(to, subject, body);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to send condition stage notification email: {Message}", ex.Message);
+                return false;
+            }
+        }
+
+        /// <summary>
         /// Send email
         /// </summary>
         /// <param name="to">Recipient email address</param>

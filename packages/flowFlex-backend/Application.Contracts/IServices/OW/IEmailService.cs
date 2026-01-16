@@ -53,5 +53,18 @@ namespace FlowFlex.Application.Contracts.IServices.OW
         /// <param name="caseUrl">URL to view case details</param>
         /// <returns>Whether the email was sent successfully</returns>
         Task<bool> SendStageCompletedNotificationAsync(string to, string caseId, string caseName, string stageName, string nextStageName, string completedBy, string completionTime, string caseUrl);
+
+        /// <summary>
+        /// Send condition triggered stage notification email (for Stage Condition SendNotification action)
+        /// Shows "current stage" instead of "next stage"
+        /// </summary>
+        /// <param name="to">Recipient email</param>
+        /// <param name="caseId">Case ID</param>
+        /// <param name="caseName">Case name</param>
+        /// <param name="previousStageName">Previous stage name (the completed stage)</param>
+        /// <param name="currentStageName">Current stage name (the stage to proceed with)</param>
+        /// <param name="caseUrl">URL to view case details</param>
+        /// <returns>Whether the email was sent successfully</returns>
+        Task<bool> SendConditionStageNotificationAsync(string to, string caseId, string caseName, string previousStageName, string currentStageName, string caseUrl);
     }
 }

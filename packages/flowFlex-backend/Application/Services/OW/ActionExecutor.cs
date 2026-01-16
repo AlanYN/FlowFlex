@@ -510,51 +510,28 @@ namespace FlowFlex.Application.Service.OW
                 var stage = await _stageRepository.GetByIdAsync(context.StageId);
 
                 var caseName = onboarding?.CaseName ?? $"Case #{context.OnboardingId}";
-                var stageName = stage?.Name ?? "Current Stage";
+                var previousStageName = stage?.Name ?? "Previous Stage";
                 
-                // Get next stage name - try to find the stage after current one
-                var nextStageName = "Next Stage";
-                if (stage != null && onboarding != null)
+                // Get current stage name - the stage that onboarding is currently at
+                var currentStageName = "Current Stage";
+                if (onboarding != null && onboarding.CurrentStageId.HasValue)
                 {
-                    // First check if onboarding has a current stage (might have been updated by GoToStage action)
-                    if (onboarding.CurrentStageId.HasValue && onboarding.CurrentStageId.Value != context.StageId)
+                    var currentStage = await _stageRepository.GetByIdAsync(onboarding.CurrentStageId.Value);
+                    if (currentStage != null)
                     {
-                        var currentStage = await _stageRepository.GetByIdAsync(onboarding.CurrentStageId.Value);
-                        if (currentStage != null)
-                        {
-                            nextStageName = currentStage.Name;
-                        }
-                    }
-                    else
-                    {
-                        // Find the next stage by order
-                        var nextStage = await _db.Queryable<Stage>()
-                            .Where(s => s.WorkflowId == stage.WorkflowId && s.IsValid && s.IsActive)
-                            .Where(s => s.TenantId == onboarding.TenantId)
-                            .Where(s => s.Order > stage.Order)
-                            .OrderBy(s => s.Order)
-                            .FirstAsync();
-                        
-                        if (nextStage != null)
-                        {
-                            nextStageName = nextStage.Name;
-                        }
+                        currentStageName = currentStage.Name;
                     }
                 }
                 
-                var completedBy = _userContext.UserName ?? "System";
-                var completionTime = DateTimeOffset.UtcNow.ToString("yyyy-MM-dd HH:mm:ss");
                 var caseUrl = $"/onboarding/{context.OnboardingId}";
 
-                // Send stage completed notification email
-                var emailSent = await _emailService.SendStageCompletedNotificationAsync(
+                // Send condition stage notification email (uses "current stage" instead of "next stage")
+                var emailSent = await _emailService.SendConditionStageNotificationAsync(
                     recipientEmail,
                     context.OnboardingId.ToString(),
                     caseName,
-                    stageName,
-                    nextStageName,
-                    completedBy,
-                    completionTime,
+                    previousStageName,
+                    currentStageName,
                     caseUrl);
 
                 result.Success = emailSent;
@@ -563,6 +540,8 @@ namespace FlowFlex.Application.Service.OW
                 result.ResultData["recipientEmail"] = recipientEmail;
                 result.ResultData["recipientName"] = recipientName ?? string.Empty;
                 result.ResultData["templateId"] = templateId ?? string.Empty;
+                result.ResultData["previousStageName"] = previousStageName;
+                result.ResultData["currentStageName"] = currentStageName;
                 result.ResultData["status"] = emailSent ? "Sent" : "Failed";
 
                 if (emailSent)
@@ -1025,8 +1004,26 @@ namespace FlowFlex.Application.Service.OW
                         .Where(o => o.Id == context.OnboardingId)
                         .ExecuteCommandAsync();
 
+                    // Get user names for display
+                    var assigneeNames = new List<string>();
+                    var userIds = assigneeIds.Where(id => long.TryParse(id, out _)).Select(long.Parse).ToList();
+                    if (userIds.Any())
+                    {
+                        try
+                        {
+                            var users = await _userService.GetUsersByIdsAsync(userIds, context.TenantId);
+                            assigneeNames = users?.Select(u => u.Username ?? u.Email ?? u.Id.ToString()).ToList() ?? new List<string>();
+                        }
+                        catch
+                        {
+                            // Fallback to IDs if user lookup fails
+                            assigneeNames = assigneeIds.ToList();
+                        }
+                    }
+
                     result.ResultData["assigneeType"] = "user";
                     result.ResultData["assigneeIds"] = assigneeIds;
+                    result.ResultData["assigneeNames"] = assigneeNames;
                     result.ResultData["assigneeCount"] = assigneeIds.Count;
                     result.ResultData["stageId"] = currentStageId;
                     result.ResultData["originalCustomStageAssignee"] = originalCustomAssignee;
