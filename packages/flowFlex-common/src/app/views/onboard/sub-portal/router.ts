@@ -46,15 +46,6 @@ export default [
 					icon: 'el-icon-edit-outline',
 				},
 			},
-			{
-				path: 'contact',
-				name: 'sub-ContactUs',
-				component: () => import('./components/ContactUs.vue'),
-				meta: {
-					title: 'Contact Us',
-					icon: 'el-icon-service',
-				},
-			},
 		],
 	},
 	{
