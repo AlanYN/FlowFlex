@@ -270,9 +270,7 @@ import { ref, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { ElMessage, type FormInstance } from 'element-plus';
 import * as userInvitationApi from '@/apis/ow/userInvitation';
-import * as userApi from '@/apis/ow/user';
 import { useUserStore } from '@/stores/modules/user';
-import dayjs from 'dayjs';
 import { parseJWT } from '@/utils';
 
 // Router and route
@@ -284,7 +282,6 @@ const formRef = ref<FormInstance>();
 
 // States
 const loading = ref(false);
-const registering = ref(false);
 const verificationState = ref<'form' | 'success' | 'error' | 'expired' | 'userLoggedIn'>('form');
 const successMessage = ref('');
 const errorMessage = ref('');
