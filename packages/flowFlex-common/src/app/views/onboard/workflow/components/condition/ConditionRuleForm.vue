@@ -31,208 +31,228 @@
 			<!-- 规则列表 -->
 			<div class="rules-list">
 				<div v-for="(rule, index) in modelValue" :key="index" class="rule-item">
-					<div class="rule-header">
-						<span class="rule-number">Rule {{ index + 1 }}</span>
-						<el-button
-							type="danger"
-							link
-							:disabled="modelValue.length <= 1"
-							@click="handleRemoveRule(index)"
-							:icon="Delete"
-						/>
-					</div>
+					<el-form
+						:ref="(el: any) => setFormRef(el, index)"
+						:model="rule"
+						:rules="getRuleValidationRules(rule, index)"
+						label-position="top"
+						:validate-on-rule-change="false"
+						@submit.prevent
+					>
+						<div class="rule-header">
+							<span class="rule-number">Rule {{ index + 1 }}</span>
+							<el-button
+								type="danger"
+								link
+								:disabled="modelValue.length <= 1"
+								@click="handleRemoveRule(index)"
+								:icon="Delete"
+							/>
+						</div>
 
-					<!-- Select Component: 显示具体的问卷名称、checklist名称、或 Required Field -->
-					<el-form-item label="Select Component">
-						<el-select
-							v-model="ruleComponentKeys[index]"
-							placeholder="Select component"
-							@change="(val: string) => handleComponentChange(rule, val, index)"
-						>
-							<el-option-group
-								v-for="group in componentOptionGroups"
-								:key="group.type"
-								:label="group.label"
-							>
-								<el-option
-									v-for="item in group.items"
-									:key="item.key"
-									:label="item.name"
-									:value="item.key"
-								/>
-							</el-option-group>
-						</el-select>
-					</el-form-item>
-
-					<!-- 以下字段仅在选择了组件后显示 -->
-					<template v-if="rule.componentType">
-						<!-- 第二级选择：问题/任务（字段类型不需要第二级选择） -->
-						<el-form-item
-							v-if="rule.componentType !== 'fields'"
-							:label="getFieldLabel(rule.componentType)"
-						>
+						<!-- Select Component: 显示具体的问卷名称、checklist名称、或 Required Field -->
+						<el-form-item label="Select Component" prop="componentType">
 							<el-select
-								v-model="rule.fieldPath"
-								placeholder="Select field"
-								:loading="loadingFields[index]"
-								@change="() => handleFieldChange(rule, index)"
+								v-model="ruleComponentKeys[index]"
+								placeholder="Select component"
+								@change="(val: string) => handleComponentChange(rule, val, index)"
 							>
-								<el-option
-									v-for="field in ruleFieldOptions[index] || []"
-									:key="field.value"
-									:label="field.label"
-									:value="field.value"
-								/>
+								<el-option-group
+									v-for="group in componentOptionGroups"
+									:key="group.type"
+									:label="group.label"
+								>
+									<el-option
+										v-for="item in group.items"
+										:key="item.key"
+										:label="item.name"
+										:value="item.key"
+									/>
+								</el-option-group>
 							</el-select>
 						</el-form-item>
 
-						<template v-if="!!rule?.fieldPath">
-							<!-- Operator (非 checklist 类型) -->
+						<!-- 以下字段仅在选择了组件后显示 -->
+						<template v-if="rule.componentType">
+							<!-- 第二级选择：问题/任务（字段类型不需要第二级选择） -->
 							<el-form-item
-								v-if="rule.componentType !== 'checklist'"
-								label="Operator"
+								v-if="rule.componentType !== 'fields'"
+								:label="getFieldLabel(rule.componentType)"
+								prop="fieldPath"
 							>
-								<el-select v-model="rule.operator" placeholder="Select operator">
+								<el-select
+									v-model="rule.fieldPath"
+									placeholder="Select field"
+									:loading="loadingFields[index]"
+									@change="() => handleFieldChange(rule, index)"
+								>
 									<el-option
-										v-for="op in getOperatorsForRule(rule, index)"
-										:key="op.value"
-										:label="op.label"
-										:value="op.value"
+										v-for="field in ruleFieldOptions[index] || []"
+										:key="field.value"
+										:label="field.label"
+										:value="field.value"
 									/>
 								</el-select>
 							</el-form-item>
 
-							<!-- Checklist 专用 Operator -->
-							<el-form-item v-else label="Trigger When">
-								<el-select v-model="rule.operator" placeholder="Select trigger">
-									<el-option
-										v-for="op in checklistOperators"
-										:key="op.value"
-										:label="op.label"
-										:value="op.value"
-									/>
-								</el-select>
-							</el-form-item>
-						</template>
-					</template>
-
-					<!-- Value (非 checklist 类型，且已选择组件) -->
-					<el-form-item v-if="rule.componentType !== 'checklist'" label="Value">
-						<!-- Grid 类型：单独处理 -->
-						<template v-if="isGridType(index)">
-							<div class="grid-selectors w-full mb-3 flex items-center gap-x-2">
-								<el-form-item label="Row" class="w-6/12">
-									<el-select v-model="rule.rowKey" placeholder="Select row">
-										<el-option
-											v-for="row in getGridRowOptions(index)"
-											:key="row.value"
-											:label="row.label"
-											:value="row.value"
-										/>
-									</el-select>
-								</el-form-item>
-								<el-form-item label="Column" class="w-6/12">
+							<template v-if="!!rule?.fieldPath">
+								<!-- Operator (非 checklist 类型) -->
+								<el-form-item
+									v-if="rule.componentType !== 'checklist'"
+									label="Operator"
+									prop="operator"
+								>
 									<el-select
-										v-model="rule.columnKey"
-										placeholder="Select column"
-										@change="
-											(val: string) =>
-												handleGridColumnChange(rule, index, val)
-										"
+										v-model="rule.operator"
+										placeholder="Select operator"
 									>
 										<el-option
-											v-for="col in getGridColumnOptions(index)"
-											:key="col.value"
-											:label="col.label"
-											:value="col.value"
+											v-for="op in getOperatorsForRule(rule, index)"
+											:key="op.value"
+											:label="op.label"
+											:value="op.value"
 										/>
 									</el-select>
 								</el-form-item>
-							</div>
-							<!-- Grid Value 输入：short_answer_grid 或 Other 列使用文本输入，否则使用选中/未选中 -->
-							<el-input
-								v-if="isGridTextInput(index)"
-								v-model="rule.value"
-								placeholder="Enter value"
-							/>
-							<el-select v-else v-model="rule.value" placeholder="Select value">
-								<el-option label="Selected" value="true" />
-								<el-option label="Not Selected" value="false" />
-							</el-select>
+
+								<!-- Checklist 专用 Operator -->
+								<el-form-item v-else label="Trigger When" prop="operator">
+									<el-select v-model="rule.operator" placeholder="Select trigger">
+										<el-option
+											v-for="op in checklistOperators"
+											:key="op.value"
+											:label="op.label"
+											:value="op.value"
+										/>
+									</el-select>
+								</el-form-item>
+							</template>
 						</template>
 
-						<!-- 非 Grid 类型：根据值输入类型渲染不同控件 -->
-						<template v-else>
-							<!-- 下拉选择类型 -->
-							<el-select
-								v-if="getValueInputType(rule, index) === 'select'"
-								v-model="rule.value"
-								placeholder="Select value"
-							>
-								<el-option
-									v-for="opt in getValueOptions(rule, index)"
-									:key="opt.value"
-									:label="opt.label"
-									:value="opt.value"
+						<!-- Value (非 checklist 类型，且已选择组件) -->
+						<el-form-item
+							v-if="rule.componentType !== 'checklist'"
+							label="Value"
+							prop="value"
+						>
+							<!-- Grid 类型：单独处理 -->
+							<template v-if="isGridType(index)">
+								<div class="grid-selectors w-full mb-3 flex items-center gap-x-2">
+									<el-form-item label="Row" class="w-6/12" prop="rowKey">
+										<el-select v-model="rule.rowKey" placeholder="Select row">
+											<el-option
+												v-for="row in getGridRowOptions(index)"
+												:key="row.value"
+												:label="row.label"
+												:value="row.value"
+											/>
+										</el-select>
+									</el-form-item>
+									<el-form-item label="Column" class="w-6/12" prop="columnKey">
+										<el-select
+											v-model="rule.columnKey"
+											placeholder="Select column"
+											@change="
+												(val: string) =>
+													handleGridColumnChange(rule, index, val)
+											"
+										>
+											<el-option
+												v-for="col in getGridColumnOptions(index)"
+												:key="col.value"
+												:label="col.label"
+												:value="col.value"
+											/>
+										</el-select>
+									</el-form-item>
+								</div>
+								<!-- Grid Value 输入：short_answer_grid 或 Other 列使用文本输入，否则使用选中/未选中 -->
+								<el-input
+									v-if="isGridTextInput(index)"
+									v-model="rule.value"
+									placeholder="Enter value"
 								/>
-							</el-select>
+								<el-select v-else v-model="rule.value" placeholder="Select value">
+									<el-option label="Selected" value="true" />
+									<el-option label="Not Selected" value="false" />
+								</el-select>
+							</template>
 
-							<!-- 数字输入类型 -->
-							<InputNumber
-								v-else-if="getValueInputType(rule, index) === 'number'"
-								v-model="rule.value"
-								:is-foloat="getFieldConstraints(rule).isFloat ?? true"
-								:minus-number="getFieldConstraints(rule).allowNegative ?? false"
-								:is-financial="getFieldConstraints(rule).isFinancial ?? false"
-								:decimal-places="getFieldConstraints(rule).decimalPlaces ?? 2"
-								:property="{ placeholder: 'Enter number' }"
-							/>
+							<!-- 非 Grid 类型：根据值输入类型渲染不同控件 -->
+							<template v-else>
+								<!-- 下拉选择类型 -->
+								<el-select
+									v-if="getValueInputType(rule, index) === 'select'"
+									v-model="rule.value"
+									placeholder="Select value"
+								>
+									<el-option
+										v-for="opt in getValueOptions(rule, index)"
+										:key="opt.value"
+										:label="opt.label"
+										:value="opt.value"
+									/>
+								</el-select>
 
-							<!-- 日期选择类型 -->
-							<el-date-picker
-								v-else-if="getValueInputType(rule, index) === 'date'"
-								v-model="rule.value"
-								:type="getFieldConstraints(rule).dateType || 'date'"
-								placeholder="Select date"
-								:format="getFieldConstraints(rule).dateFormat || 'YYYY-MM-DD'"
-								:value-format="getFieldConstraints(rule).dateFormat || 'YYYY-MM-DD'"
-								class="w-full"
-							/>
+								<!-- 数字输入类型 -->
+								<InputNumber
+									v-else-if="getValueInputType(rule, index) === 'number'"
+									v-model="rule.value"
+									:is-foloat="getFieldConstraints(rule).isFloat ?? true"
+									:minus-number="getFieldConstraints(rule).allowNegative ?? false"
+									:is-financial="getFieldConstraints(rule).isFinancial ?? false"
+									:decimal-places="getFieldConstraints(rule).decimalPlaces ?? 2"
+									:property="{ placeholder: 'Enter number' }"
+								/>
 
-							<!-- 时间选择类型 -->
-							<el-time-picker
-								v-else-if="getValueInputType(rule, index) === 'time'"
-								v-model="rule.value"
-								placeholder="Select time"
-								format="HH:mm"
-								value-format="HH:mm"
-								class="w-full"
-							/>
+								<!-- 日期选择类型 -->
+								<el-date-picker
+									v-else-if="getValueInputType(rule, index) === 'date'"
+									v-model="rule.value"
+									:type="getFieldConstraints(rule).dateType || 'date'"
+									placeholder="Select date"
+									:format="getFieldConstraints(rule).dateFormat || 'YYYY-MM-DD'"
+									:value-format="
+										getFieldConstraints(rule).dateFormat || 'YYYY-MM-DD'
+									"
+									class="w-full"
+								/>
 
-							<!-- 人员选择类型 -->
-							<FlowflexUserSelector
-								v-else-if="getValueInputType(rule, index) === 'people'"
-								v-model="rule.value"
-								selection-type="user"
-								placeholder="Select user"
-							/>
+								<!-- 时间选择类型 -->
+								<el-time-picker
+									v-else-if="getValueInputType(rule, index) === 'time'"
+									v-model="rule.value"
+									placeholder="Select time"
+									format="HH:mm"
+									value-format="HH:mm"
+									class="w-full"
+								/>
 
-							<!-- 电话输入类型 -->
-							<MergedArea
-								v-else-if="getValueInputType(rule, index) === 'phone'"
-								v-model="rule.value"
-							/>
+								<!-- 人员选择类型 -->
+								<FlowflexUserSelector
+									v-else-if="getValueInputType(rule, index) === 'people'"
+									v-model="rule.value"
+									selection-type="user"
+									placeholder="Select user"
+								/>
 
-							<!-- 默认文本输入 (包括 text, hidden/file 类型) -->
-							<el-input
-								v-else
-								v-model="rule.value"
-								placeholder="Enter value"
-								:maxlength="getFieldConstraints(rule).maxLength"
-								:show-word-limit="!!getFieldConstraints(rule).maxLength"
-							/>
-						</template>
-					</el-form-item>
+								<!-- 电话输入类型 -->
+								<MergedArea
+									v-else-if="getValueInputType(rule, index) === 'phone'"
+									v-model="rule.value"
+								/>
+
+								<!-- 默认文本输入 (包括 text, hidden/file 类型) -->
+								<el-input
+									v-else
+									v-model="rule.value"
+									placeholder="Enter value"
+									:maxlength="getFieldConstraints(rule).maxLength"
+									:show-word-limit="!!getFieldConstraints(rule).maxLength"
+								/>
+							</template>
+						</el-form-item>
+					</el-form>
 				</div>
 			</div>
 		</template>
@@ -248,6 +268,7 @@
 <script setup lang="ts">
 import { reactive, watch, onMounted, computed, ref } from 'vue';
 import { Plus, Delete } from '@element-plus/icons-vue';
+import type { FormInstance, FormRules } from 'element-plus';
 import type {
 	RuleFormItem,
 	DynamicFieldConstraints,
@@ -301,6 +322,53 @@ const logicValue = computed({
 	get: () => props.logic,
 	set: (val: 'AND' | 'OR') => emit('update:logic', val),
 });
+
+// 表单引用映射（按规则索引）
+const formRefs = reactive<Record<number, FormInstance | null>>({});
+
+// 设置表单引用
+const setFormRef = (el: FormInstance | null, index: number) => {
+	formRefs[index] = el;
+};
+
+// 获取规则的验证规则
+const getRuleValidationRules = (rule: RuleFormItem, index: number): FormRules => {
+	const noValueOperators = ['IsEmpty', 'IsNotEmpty'];
+	const needsValue =
+		rule.componentType !== 'checklist' && !noValueOperators.includes(rule.operator);
+
+	return {
+		componentType: [
+			{ required: true, message: 'Please select a component', trigger: 'change' },
+		],
+		fieldPath: [
+			{
+				required: rule.componentType !== 'fields',
+				message: `Please select a ${getFieldLabel(rule.componentType).toLowerCase()}`,
+				trigger: 'change',
+			},
+		],
+		operator: [{ required: true, message: 'Please select an operator', trigger: 'change' }],
+		value: [
+			{
+				required: needsValue,
+				message: 'Please enter a value',
+				trigger: ['change', 'blur'],
+				validator: (_rule: any, value: any, callback: any) => {
+					if (!needsValue) {
+						callback();
+						return;
+					}
+					if (value === '' || value === undefined || value === null) {
+						callback(new Error('Please enter a value'));
+					} else {
+						callback();
+					}
+				},
+			},
+		],
+	};
+};
 
 // 每个规则的字段选项（按规则索引）
 const ruleFieldOptions = reactive<Record<number, FieldOption[]>>({});
@@ -1010,6 +1078,13 @@ const initExistingRules = async () => {
 			loadChecklistTasks(rule.componentId, index);
 		}
 	});
+
+	// 清除所有表单的验证状态
+	setTimeout(() => {
+		Object.values(formRefs).forEach((formRef) => {
+			formRef?.clearValidate();
+		});
+	}, 0);
 };
 
 // 初始化
@@ -1026,6 +1101,41 @@ watch(
 		initExistingRules();
 	}
 );
+
+// 验证规则完整性
+const validate = async (): Promise<{ valid: boolean; message: string }> => {
+	if (props.modelValue.length === 0) {
+		return { valid: false, message: 'Please add at least one rule' };
+	}
+
+	// 验证所有表单
+	const validationPromises: Promise<boolean>[] = [];
+	for (let i = 0; i < props.modelValue.length; i++) {
+		const formRef = formRefs[i];
+		if (formRef) {
+			validationPromises.push(
+				formRef
+					.validate()
+					.then(() => true)
+					.catch(() => false)
+			);
+		}
+	}
+
+	const results = await Promise.all(validationPromises);
+	const allValid = results.every((result) => result);
+
+	if (!allValid) {
+		return { valid: false, message: '' }; // 错误信息已由表单显示
+	}
+
+	return { valid: true, message: '' };
+};
+
+// 暴露方法给父组件
+defineExpose({
+	validate,
+});
 </script>
 
 <style lang="scss" scoped>

@@ -157,7 +157,8 @@ const handleFitView = () => {
 
 // 返回
 const handleBack = () => {
-	router.push({ path: '/onboard/onboardWorkflow', query: { id: workflowId } });
+	// router.push({ path: '/onboard/onboardWorkflow', query: { id: workflowId } });
+	router.back();
 };
 
 // 重试
