@@ -166,6 +166,7 @@ const getFormData = () => {
 		fieldType: String(field.dataType),
 		isRequired: field.isRequired || false,
 		fieldLabel: field.displayName,
+		fieldId: field.id,
 	}));
 };
 
