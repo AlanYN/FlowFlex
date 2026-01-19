@@ -653,7 +653,7 @@ const isCompleteStageDisabled = computed(() => {
 	if (!status) return false;
 
 	// 对于已中止、已取消或暂停的状态，禁用完成阶段
-	return ['Aborted', 'Cancelled', 'Paused'].includes(status);
+	return ['Aborted', 'Cancelled', 'Paused', 'Force Completed'].includes(status);
 });
 
 // 计算当前阶段是否已完成 - 与detail.vue保持一致
