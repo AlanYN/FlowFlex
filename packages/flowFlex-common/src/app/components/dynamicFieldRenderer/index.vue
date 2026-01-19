@@ -249,7 +249,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive } from 'vue';
+import { ref, reactive, nextTick } from 'vue';
 import { ElMessage } from 'element-plus';
 import { propertyTypeEnum } from '@/enums/appEnum';
 import { projectDate } from '@/settings/projectSetting';
@@ -572,8 +572,9 @@ const getFormData = () => {
 };
 
 // 设置表单数据（日期从 UTC 转换为项目时区）
-const setFormData = (data: Record<string, any>) => {
+const setFormData = async (data: Record<string, any>) => {
 	initFormValues();
+	await nextTick();
 	Object.keys(data).forEach((key) => {
 		// 查找对应的字段配置
 		const field = props.fields.find((f) => f?.fieldName === key);

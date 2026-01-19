@@ -5,7 +5,10 @@
 			v-if="inputType === 'select'"
 			:model-value="modelValue"
 			placeholder="Select value"
+			:multiple="!!constraints?.allowMultiple"
 			@update:model-value="handleChange"
+			clearable
+			tag-type="primary"
 		>
 			<el-option
 				v-for="opt in options"
@@ -113,7 +116,7 @@ const textConstraints = computed(() => ({
 
 // 处理值变化
 const handleChange = (value: string | number | null | undefined) => {
-	emit('update:modelValue', value != null ? String(value) : '');
+	emit('update:modelValue', value != null ? value : '');
 };
 
 // 处理用户选择变化（FlowflexUserSelector 返回 string | string[] | undefined）

@@ -807,6 +807,10 @@ const getFieldConstraints = (action: ActionFormItem): DynamicFieldConstraints =>
 		constraints.maxLength = fieldInfo.fieldValidate?.maxLength;
 	}
 
+	if (fieldInfo.dataType === propertyTypeEnum.DropdownSelect) {
+		constraints.allowMultiple = fieldInfo.additionalInfo?.allowMultiple || false;
+	}
+
 	return constraints;
 };
 
