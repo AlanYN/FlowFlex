@@ -351,7 +351,7 @@
 								prop="label"
 								label=""
 								fixed="left"
-								min-width="200"
+								width="300"
 								resizable
 							>
 								<template #default="{ row }">
@@ -419,7 +419,7 @@
 								prop="label"
 								label=""
 								fixed="left"
-								min-width="200"
+								width="300"
 								resizable
 							>
 								<template #default="{ row }">
@@ -499,7 +499,7 @@
 								prop="label"
 								label=""
 								fixed="left"
-								min-width="200"
+								width="300"
 								resizable
 							>
 								<template #default="{ row }">
@@ -639,7 +639,12 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch, nextTick, readonly } from 'vue';
 import { Upload, Warning, ArrowLeft, ArrowRight, Document } from '@element-plus/icons-vue';
-import { QuestionnaireAnswer, QuestionnaireData, ComponentData, SectionAnswer } from '#/onboard';
+import {
+	QuestionnaireAnswer,
+	QuestionnaireData,
+	CompStageComponentDataonentData,
+	SectionAnswer,
+} from '#/onboard';
 import { QuestionnaireSection } from '#/section';
 // import { ElNotification } from 'element-plus';
 import {
@@ -661,7 +666,7 @@ import IconThumbUpOutline from '~icons/mdi/thumb-up-outline';
 interface Props {
 	stageId: string;
 	onboardingId?: string;
-	questionnaireData?: ComponentData;
+	questionnaireData?: CompStageComponentDataonentData;
 	isStageCompleted?: boolean;
 	questionnaireAnswers?: SectionAnswer;
 	disabled?: boolean;

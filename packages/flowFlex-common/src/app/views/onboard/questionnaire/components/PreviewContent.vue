@@ -463,12 +463,7 @@
 							>
 								<!-- 如果有网格数据（rows + columns），渲染为多选网格 -->
 								<el-table v-if="item.columns && item.rows" :data="item.rows" border>
-									<el-table-column
-										prop="label"
-										label=""
-										fixed="left"
-										min-width="200"
-									>
+									<el-table-column prop="label" label="" fixed="left" width="300">
 										<template #default="{ row }">
 											<span class="truncate" :title="row.label">
 												{{ row.label }}
@@ -578,12 +573,7 @@
 									:data="item.rows"
 									border
 								>
-									<el-table-column
-										prop="label"
-										label=""
-										fixed="left"
-										min-width="200"
-									>
+									<el-table-column prop="label" label="" fixed="left" width="300">
 										<template #default="{ row }">
 											<span class="truncate" :title="row.label">
 												{{ row.label }}
@@ -685,12 +675,7 @@
 
 							<div v-else-if="item.type === 'short_answer_grid'" class="preview-grid">
 								<el-table v-if="item.columns && item.rows" :data="item.rows" border>
-									<el-table-column
-										prop="label"
-										label=""
-										fixed="left"
-										min-width="200"
-									>
+									<el-table-column prop="label" label="" fixed="left" width="300">
 										<template #default="{ row }">
 											<span class="truncate" :title="row.label">
 												{{ row.label }}
@@ -1725,7 +1710,7 @@ html.dark .preview_assignment-label {
 }
 
 .preview_assignment-tag {
-	@apply inline-flex items-center rounded-full border text-xs font-semibold transition-colors bg-primary-50 text-primary-500 border-primary-200 px-2 py-1;
+	@apply inline-flex items-center rounded-full  text-xs font-semibold transition-colors bg-primary text-white  px-2 py-1;
 	white-space: nowrap;
 	max-width: 200px;
 	/* 固定宽度 */
@@ -1735,12 +1720,8 @@ html.dark .preview_assignment-label {
 	/* 增加右边距 */
 }
 
-.preview_assignment-tag:hover {
-	@apply bg-primary-100 border-primary-300;
-}
-
 .preview_assignment-tag-more {
-	@apply inline-flex items-center rounded-full border text-xs font-semibold transition-colors bg-primary-50 text-primary-500 border-primary-200 px-2 py-1;
+	@apply inline-flex items-center rounded-full  text-xs font-semibold transition-colors bg-primary text-white px-2 py-1;
 	white-space: nowrap;
 	width: 40px;
 	/* 固定宽度 */
@@ -1752,10 +1733,6 @@ html.dark .preview_assignment-label {
 	/* 防止收缩 */
 	margin-right: 8px;
 	/* 增加右边距 */
-}
-
-.preview_assignment-tag-more:hover {
-	@apply bg-primary-100 border-primary-300;
 }
 
 .preview_popover-title {
