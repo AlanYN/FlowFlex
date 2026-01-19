@@ -416,7 +416,7 @@ const isCompleteStageDisabled = computed(() => {
 	if (!status) return false;
 
 	// 对于已中止、已取消或暂停的状态，禁用完成阶段
-	return ['Aborted', 'Cancelled', 'Paused'].includes(status);
+	return ['Aborted', 'Cancelled', 'Paused', 'Force Completed'].includes(status);
 });
 
 // 计算是否因为Aborted状态而禁用组件（类似于Viewable only逻辑）
