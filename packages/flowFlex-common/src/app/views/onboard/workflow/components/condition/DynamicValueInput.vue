@@ -79,7 +79,7 @@ type ValueInputType = 'text' | 'number' | 'select' | 'date' | 'people' | 'phone'
 
 // Props
 const props = defineProps<{
-	modelValue: string;
+	modelValue: any;
 	inputType: ValueInputType;
 	options?: ValueOption[];
 	constraints?: DynamicFieldConstraints;
@@ -88,7 +88,7 @@ const props = defineProps<{
 
 // Emits
 const emit = defineEmits<{
-	(e: 'update:modelValue', value: string): void;
+	(e: 'update:modelValue', value: any): void;
 }>();
 
 // 计算属性：数字类型约束
@@ -118,8 +118,7 @@ const handleChange = (value: string | number | null | undefined) => {
 
 // 处理用户选择变化（FlowflexUserSelector 返回 string | string[] | undefined）
 const handleUserChange = (value: string | string[] | undefined) => {
-	const result = Array.isArray(value) ? value[0] : value;
-	emit('update:modelValue', result || '');
+	emit('update:modelValue', value || '');
 };
 </script>
 
