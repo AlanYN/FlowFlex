@@ -452,27 +452,30 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// <param name="entityId">External entity ID for filtering (optional)</param>
         /// <param name="sortField">Sort field: createDate, modifyDate, caseName, caseCode, status (default: createDate)</param>
         /// <param name="sortOrder">Sort order: asc, desc (default: desc)</param>
-        /// <param name="limit">Maximum number of records to return (default: 100, max: 1000)</param>
+        /// <param name="pageIndex">Page index (from 1, default: 1)</param>
+        /// <param name="pageSize">Page size (default: 20, max: 100)</param>
         [HttpGet("by-system")]
         [WFEAuthorize(PermissionConsts.Case.Read)]
-        [ProducesResponseType<SuccessResponse<List<OnboardingOutputDto>>>((int)HttpStatusCode.OK)]
+        [ProducesResponseType<SuccessResponse<PagedResult<OnboardingOutputDto>>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> GetActiveBySystemIdAsync(
             [FromQuery] string systemId,
             [FromQuery] string? entityId = null,
             [FromQuery] string sortField = "createDate",
             [FromQuery] string sortOrder = "desc",
-            [FromQuery] int limit = 100)
+            [FromQuery] int pageIndex = 1,
+            [FromQuery] int pageSize = 20)
         {
             if (string.IsNullOrWhiteSpace(systemId))
             {
                 return BadRequest("systemId parameter is required");
             }
 
-            // Validate and cap limit
-            if (limit <= 0) limit = 100;
-            if (limit > 1000) limit = 1000;
+            // Validate pagination parameters
+            if (pageIndex < 1) pageIndex = 1;
+            if (pageSize < 1) pageSize = 20;
+            if (pageSize > 100) pageSize = 100;
 
-            var result = await _onboardingService.GetActiveBySystemIdAsync(systemId, entityId, sortField, sortOrder, limit);
+            var result = await _onboardingService.GetActiveBySystemIdAsync(systemId, entityId, sortField, sortOrder, pageIndex, pageSize);
             return Success(result);
         }
     }

@@ -803,21 +803,33 @@ namespace FlowFlex.Application.Services.OW
         #region GetActiveBySystemId
 
         /// <summary>
-        /// Get all active onboardings by System ID
+        /// Get all active onboardings by System ID with pagination
         /// Returns all onboarding records where SystemId matches and IsActive is true
         /// </summary>
         /// <param name="systemId">External system identifier</param>
         /// <param name="entityId">External entity ID for filtering (optional)</param>
         /// <param name="sortField">Sort field: createDate, modifyDate, leadName, caseCode, status (default: createDate)</param>
         /// <param name="sortOrder">Sort order: asc, desc (default: desc)</param>
-        /// <param name="limit">Maximum number of records to return (default: 100, max: 1000)</param>
-        /// <returns>List of active onboarding records</returns>
-        public async Task<List<OnboardingOutputDto>> GetActiveBySystemIdAsync(string systemId, string? entityId = null, string sortField = "createDate", string sortOrder = "desc", int limit = 100)
+        /// <param name="pageIndex">Page index (from 1, default: 1)</param>
+        /// <param name="pageSize">Page size (default: 20, max: 100)</param>
+        /// <returns>Paged result of active onboarding records</returns>
+        public async Task<PagedResult<OnboardingOutputDto>> GetActiveBySystemIdAsync(string systemId, string? entityId = null, string sortField = "createDate", string sortOrder = "desc", int pageIndex = 1, int pageSize = 20)
         {
             if (string.IsNullOrWhiteSpace(systemId))
             {
-                return new List<OnboardingOutputDto>();
+                return new PagedResult<OnboardingOutputDto>
+                {
+                    Items = new List<OnboardingOutputDto>(),
+                    TotalCount = 0,
+                    PageIndex = pageIndex,
+                    PageSize = pageSize
+                };
             }
+
+            // Validate pagination parameters
+            if (pageIndex < 1) pageIndex = 1;
+            if (pageSize < 1) pageSize = 20;
+            if (pageSize > 100) pageSize = 100;
 
             var tenantId = _userContext?.TenantId ?? "default";
             var appCode = _userContext?.AppCode ?? "default";
@@ -858,18 +870,24 @@ namespace FlowFlex.Application.Services.OW
                     _ => isAscending ? queryable.OrderBy(x => x.CreateDate) : queryable.OrderByDescending(x => x.CreateDate) // default: createDate
                 };
 
-                // Apply limit
-                if (limit > 0)
-                {
-                    queryable = queryable.Take(limit);
-                }
+                // Get total count
+                var totalCount = await queryable.CountAsync();
 
-                // Execute query
-                var entities = await queryable.ToListAsync();
+                // Apply pagination
+                var entities = await queryable
+                    .Skip((pageIndex - 1) * pageSize)
+                    .Take(pageSize)
+                    .ToListAsync();
 
                 if (!entities.Any())
                 {
-                    return new List<OnboardingOutputDto>();
+                    return new PagedResult<OnboardingOutputDto>
+                    {
+                        Items = new List<OnboardingOutputDto>(),
+                        TotalCount = totalCount,
+                        PageIndex = pageIndex,
+                        PageSize = pageSize
+                    };
                 }
 
                 // Batch load workflows and stages to avoid N+1 queries
@@ -913,12 +931,18 @@ namespace FlowFlex.Application.Services.OW
                     results.Add(dto);
                 }
 
-                return results;
+                return new PagedResult<OnboardingOutputDto>
+                {
+                    Items = results,
+                    TotalCount = totalCount,
+                    PageIndex = pageIndex,
+                    PageSize = pageSize
+                };
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error getting active onboardings by SystemId: {SystemId}, SortField: {SortField}, SortOrder: {SortOrder}, Limit: {Limit}", 
-                    systemId, sortField, sortOrder, limit);
+                _logger.LogError(ex, "Error getting active onboardings by SystemId: {SystemId}, SortField: {SortField}, SortOrder: {SortOrder}, PageIndex: {PageIndex}, PageSize: {PageSize}", 
+                    systemId, sortField, sortOrder, pageIndex, pageSize);
                 throw;
             }
         }

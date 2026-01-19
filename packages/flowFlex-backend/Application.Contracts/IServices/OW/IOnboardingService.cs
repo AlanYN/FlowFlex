@@ -164,15 +164,16 @@ namespace FlowFlex.Application.Contracts.IServices.OW
         Task<List<UserTreeNodeDto>> GetAuthorizedUsersAsync(long id);
 
         /// <summary>
-        /// Get all active onboardings by System ID
+        /// Get all active onboardings by System ID with pagination
         /// Returns all onboarding records where SystemId matches and IsActive is true
         /// </summary>
         /// <param name="systemId">External system identifier</param>
         /// <param name="entityId">External entity ID for filtering (optional)</param>
         /// <param name="sortField">Sort field: createDate, modifyDate, leadName, caseCode, status (default: createDate)</param>
         /// <param name="sortOrder">Sort order: asc, desc (default: desc)</param>
-        /// <param name="limit">Maximum number of records to return (default: 100, max: 1000)</param>
-        /// <returns>List of active onboarding records</returns>
-        Task<List<OnboardingOutputDto>> GetActiveBySystemIdAsync(string systemId, string? entityId = null, string sortField = "createDate", string sortOrder = "desc", int limit = 100);
+        /// <param name="pageIndex">Page index (from 1, default: 1)</param>
+        /// <param name="pageSize">Page size (default: 20, max: 100)</param>
+        /// <returns>Paged result of active onboarding records</returns>
+        Task<PagedResult<OnboardingOutputDto>> GetActiveBySystemIdAsync(string systemId, string? entityId = null, string sortField = "createDate", string sortOrder = "desc", int pageIndex = 1, int pageSize = 20);
     }
 }
