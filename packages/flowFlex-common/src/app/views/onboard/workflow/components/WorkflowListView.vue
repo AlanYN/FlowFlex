@@ -80,6 +80,17 @@
 									Duplicate
 								</el-dropdown-item>
 								<el-dropdown-item
+									v-if="
+										hasPermission(row.id, ProjectPermissionEnum.workflow.read)
+									"
+									@click="$emit('command', 'workflowChart', row)"
+								>
+									<el-icon>
+										<Connection />
+									</el-icon>
+									Workflow Chart
+								</el-dropdown-item>
+								<el-dropdown-item
 									v-if="functionPermission(ProjectPermissionEnum.workflow.read)"
 									divided
 								>
@@ -189,6 +200,7 @@ import {
 	CircleClose,
 	Check,
 	Download,
+	Connection,
 } from '@element-plus/icons-vue';
 import { timeZoneConvert } from '@/hooks/time';
 import { projectTenMinuteDate, tableMaxHeight } from '@/settings/projectSetting';

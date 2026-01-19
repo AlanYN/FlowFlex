@@ -313,17 +313,17 @@
 												Add Stage
 											</el-dropdown-item>
 											<el-dropdown-item
-												command="manageConditions"
+												command="workflowChart"
 												v-if="
 													hasWorkflowPermission(
-														ProjectPermissionEnum.workflow.update
+														ProjectPermissionEnum.workflow.read
 													)
 												"
 											>
 												<el-icon>
 													<Connection />
 												</el-icon>
-												Manage Conditions
+												Workflow Chart
 											</el-dropdown-item>
 
 											<el-dropdown-item
@@ -1013,7 +1013,7 @@ const handleCommand = (command: string, targetWorkflow?: any) => {
 				exportWorkflow(targetWorkflow);
 			}
 			break;
-		case 'manageConditions':
+		case 'workflowChart':
 			// 跳转到可视化条件编辑器页面
 			if (targetWorkflow) {
 				router.push(`/onboard/workflow/${targetWorkflow.id}/conditions`);

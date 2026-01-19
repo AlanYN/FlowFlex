@@ -133,6 +133,20 @@
 												Duplicate
 											</el-dropdown-item>
 											<el-dropdown-item
+												command="workflowChart"
+												v-if="
+													hasPermission(
+														workflow.id,
+														ProjectPermissionEnum.workflow.read
+													)
+												"
+											>
+												<el-icon>
+													<Connection />
+												</el-icon>
+												Workflow Chart
+											</el-dropdown-item>
+											<el-dropdown-item
 												v-if="
 													functionPermission(
 														ProjectPermissionEnum.workflow.read
@@ -261,6 +275,7 @@ import {
 	Star,
 	CircleClose,
 	Check,
+	Connection,
 	Download,
 } from '@element-plus/icons-vue';
 import { Icon } from '@iconify/vue';
