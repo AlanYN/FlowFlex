@@ -36,6 +36,7 @@
 			<div class="form-section">
 				<div class="section-title">Condition Rules</div>
 				<ConditionRuleForm
+					ref="ruleFormRef"
 					v-model="formData.rules"
 					v-model:logic="formData.logic"
 					:stages="availableSourceStages"
@@ -49,6 +50,7 @@
 			<div class="form-section">
 				<div class="section-title">Actions</div>
 				<ConditionActionForm
+					ref="actionFormRef"
 					v-model="formData.actions"
 					:stages="stages"
 					:current-stage-index="currentStageIndex"
@@ -71,7 +73,6 @@
 
 <script setup lang="ts">
 import { ref, reactive, computed, watch } from 'vue';
-import { ElMessage } from 'element-plus';
 import type { FormInstance, FormRules } from 'element-plus';
 import type { Stage } from '#/onboard';
 import type {
@@ -101,6 +102,8 @@ const emit = defineEmits<{
 
 // Refs
 const formRef = ref<FormInstance>();
+const ruleFormRef = ref<InstanceType<typeof ConditionRuleForm>>();
+const actionFormRef = ref<InstanceType<typeof ConditionActionForm>>();
 
 // 表单数据
 const formData = reactive({
@@ -245,24 +248,22 @@ const buildSubmitData = (): StageConditionInput => {
 const validateAndGetData = async (): Promise<StageConditionInput | null> => {
 	if (!formRef.value) return null;
 
-	try {
-		await formRef.value.validate();
+	// 并行验证所有表单
+	const [formValid, ruleValidation, actionValidation] = await Promise.all([
+		formRef.value
+			.validate()
+			.then(() => true)
+			.catch(() => false),
+		ruleFormRef.value?.validate() ?? Promise.resolve({ valid: true, message: '' }),
+		actionFormRef.value?.validate() ?? Promise.resolve({ valid: true, message: '' }),
+	]);
 
-		if (formData.rules.length === 0) {
-			ElMessage.error('Please add at least one rule');
-			return null;
-		}
-
-		if (formData.actions.length === 0) {
-			ElMessage.error('Please add at least one action');
-			return null;
-		}
-
-		return buildSubmitData();
-	} catch (error) {
-		// 验证失败
+	// 任意一个校验失败则返回
+	if (!formValid || !ruleValidation.valid || !actionValidation.valid) {
 		return null;
 	}
+
+	return buildSubmitData();
 };
 
 // 处理数据变更

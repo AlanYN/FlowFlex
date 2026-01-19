@@ -21,207 +21,245 @@
 			<!-- 动作列表 -->
 			<div class="actions-list">
 				<div v-for="(action, index) in modelValue" :key="index" class="action-item">
-					<div class="action-header">
-						<span class="action-number">Action {{ index + 1 }}</span>
-						<el-button
-							type="danger"
-							link
-							:icon="Delete"
-							@click="handleRemoveAction(index)"
-						/>
-					</div>
-
-					<!-- Action Type -->
-					<el-form-item label="Action Type" class="action-field">
-						<el-select
-							v-model="action.type"
-							placeholder="Select action type"
-							@change="() => handleActionTypeReset(action)"
-						>
-							<el-option
-								v-for="type in actionTypes"
-								:key="type.value"
-								:label="type.label"
-								:value="type.value"
-							>
-								<div>
-									<span>{{ `${type.label}   ` }}</span>
-									<span class="action-type-desc">
-										{{ `( ${type.description} )` }}
-									</span>
-								</div>
-							</el-option>
-						</el-select>
-					</el-form-item>
-
-					<!-- GoToStage: Target Stage -->
-					<el-form-item v-if="action.type === 'GoToStage'" label="Target Stage">
-						<el-select v-model="action.targetStageId" placeholder="Select target stage">
-							<el-option
-								v-for="stage in stages"
-								:key="stage.id"
-								:label="stage.name"
-								:value="stage.id"
-							/>
-						</el-select>
-						<!-- 循环警告 -->
-						<div v-if="isLoopWarning(action.targetStageId)" class="loop-warning">
-							<el-icon><Warning /></el-icon>
-							<span>Warning: This may cause a loop in the workflow</span>
-						</div>
-					</el-form-item>
-
-					<!-- TriggerAction: Action Definition -->
-					<el-form-item
-						v-if="action.type === 'TriggerAction'"
-						label="Action"
-						class="action-field"
+					<el-form
+						:ref="(el: any) => setFormRef(el, index)"
+						:model="action"
+						:rules="getActionValidationRules(action)"
+						label-position="top"
+						:validate-on-rule-change="false"
+						@submit.prevent
 					>
-						<el-select v-model="action.actionDefinitionId" placeholder="Select action">
-							<el-option-group
-								v-for="(actions, groupName) in groupedActions"
-								:key="groupName"
-								:label="groupName"
+						<div class="action-header">
+							<span class="action-number">Action {{ index + 1 }}</span>
+							<el-button
+								type="danger"
+								link
+								:icon="Delete"
+								@click="handleRemoveAction(index)"
+							/>
+						</div>
+
+						<!-- Action Type -->
+						<el-form-item label="Action Type" class="action-field" prop="type">
+							<el-select
+								v-model="action.type"
+								placeholder="Select action type"
+								@change="() => handleActionTypeReset(action)"
 							>
 								<el-option
-									v-for="act in actions"
-									:key="act.id"
-									:label="act.name"
-									:value="act.id"
-								/>
-							</el-option-group>
-						</el-select>
-					</el-form-item>
-
-					<!-- SendNotification: Recipient -->
-					<template v-if="action.type === 'SendNotification'">
-						<el-form-item label="Recipient Type" class="action-field">
-							<el-select
-								v-model="getActionParams(action).recipientType"
-								placeholder="Select recipient type"
-								@change="() => handleRecipientTypeChange(action)"
-							>
-								<el-option value="user" label="User" />
-								<el-option value="team" label="Team" />
-								<el-option value="email" label="Email" />
+									v-for="type in actionTypes"
+									:key="type.value"
+									:label="type.label"
+									:value="type.value"
+								>
+									<div>
+										<span>{{ `${type.label}   ` }}</span>
+										<span class="action-type-desc">
+											{{ `( ${type.description} )` }}
+										</span>
+									</div>
+								</el-option>
 							</el-select>
 						</el-form-item>
-						<!-- User/Team 选择器 -->
-						<el-form-item
-							v-if="getActionParams(action).recipientType === 'user'"
-							label="Select User"
-							class="action-field"
-						>
-							<FlowflexUserSelector
-								v-model="getActionParams(action).recipientId"
-								selection-type="user"
-								placeholder="Select user"
-								@change="(val) => handleUserChange(action, val)"
-							/>
-						</el-form-item>
-						<el-form-item
-							v-if="getActionParams(action).recipientType === 'team'"
-							label="Select Team"
-							class="action-field"
-						>
-							<FlowflexUserSelector
-								v-model="getActionParams(action).recipientId"
-								selection-type="team"
-								placeholder="Select team"
-								@change="(val) => handleUserChange(action, val)"
-							/>
-						</el-form-item>
-						<!-- Email 输入框 -->
-						<el-form-item
-							v-if="getActionParams(action).recipientType === 'email'"
-							label="Email Address"
-							class="action-field"
-						>
-							<el-input
-								v-model="getActionParams(action).recipientEmail"
-								placeholder="Enter email address"
-								type="email"
-							/>
-						</el-form-item>
-					</template>
 
-					<!-- UpdateField: Field and Value -->
-					<template v-if="action.type === 'UpdateField'">
-						<el-form-item label="Target Field to Update" class="action-field">
+						<!-- GoToStage: Target Stage -->
+						<el-form-item
+							v-if="action.type === 'GoToStage'"
+							label="Target Stage"
+							prop="targetStageId"
+						>
 							<el-select
-								v-model="getActionParams(action).fieldPath"
-								placeholder="Select field"
-								@change="(val: string) => handleFieldSelect(action, val)"
+								v-model="action.targetStageId"
+								placeholder="Select target stage"
+							>
+								<el-option
+									v-for="stage in stages"
+									:key="stage.id"
+									:label="stage.name"
+									:value="stage.id"
+								/>
+							</el-select>
+							<!-- 循环警告 -->
+							<div v-if="isLoopWarning(action.targetStageId)" class="loop-warning">
+								<el-icon><Warning /></el-icon>
+								<span>Warning: This may cause a loop in the workflow</span>
+							</div>
+						</el-form-item>
+
+						<!-- TriggerAction: Action Definition -->
+						<el-form-item
+							v-if="action.type === 'TriggerAction'"
+							label="Action"
+							class="action-field"
+							prop="actionDefinitionId"
+						>
+							<el-select
+								v-model="action.actionDefinitionId"
+								placeholder="Select action"
 							>
 								<el-option-group
-									v-for="group in groupedFieldOptions"
-									:key="group.stageId"
-									:label="group.stageName"
+									v-for="(actions, groupName) in groupedActions"
+									:key="groupName"
+									:label="groupName"
 								>
 									<el-option
-										v-for="field in group.fields"
-										:key="field.key"
-										:value="field.key"
-										:label="field.name"
+										v-for="act in actions"
+										:key="act.id"
+										:label="act.name"
+										:value="act.id"
 									/>
 								</el-option-group>
 							</el-select>
 						</el-form-item>
-						<el-form-item
-							v-if="getActionParams(action).fieldPath"
-							:label="`Value for &quot;${
-								getActionParams(action).fieldName || ''
-							}&quot;`"
-							class="action-field"
-						>
-							<DynamicValueInput
-								v-model="getActionParams(action).fieldValue"
-								:input-type="getFieldInputType(action)"
-								:options="getFieldValueOptions(action)"
-								:constraints="getFieldConstraints(action)"
-							/>
-						</el-form-item>
-					</template>
 
-					<!-- AssignUser: Assignee -->
-					<template v-if="action.type === 'AssignUser'">
-						<el-form-item label="Assignee Type" class="action-field">
-							<el-select
-								v-model="getActionParams(action).assigneeType"
-								placeholder="Select assignee type"
-								@change="() => handleAssigneeTypeChange(action)"
+						<!-- SendNotification: Recipient -->
+						<template v-if="action.type === 'SendNotification'">
+							<el-form-item
+								label="Recipient Type"
+								class="action-field"
+								prop="parameters.recipientType"
 							>
-								<el-option value="user" label="User" />
-								<el-option value="team" label="Team" />
-							</el-select>
-						</el-form-item>
-						<!-- User 选择器 (多选) -->
-						<el-form-item
-							v-if="getActionParams(action).assigneeType === 'user'"
-							label="Select Users"
-							class="action-field"
-						>
-							<FlowflexUserSelector
-								v-model="getActionParams(action).assigneeIds"
-								selection-type="user"
-								placeholder="Select users"
-								@change="(val) => handleAssigneeChange(action, val)"
-							/>
-						</el-form-item>
-						<!-- Team 选择器 (多选) -->
-						<el-form-item
-							v-if="getActionParams(action).assigneeType === 'team'"
-							label="Select Teams"
-							class="action-field"
-						>
-							<FlowflexUserSelector
-								v-model="getActionParams(action).assigneeIds"
-								selection-type="team"
-								placeholder="Select teams"
-								@change="(val) => handleAssigneeChange(action, val)"
-							/>
-						</el-form-item>
-					</template>
+								<el-select
+									v-model="getActionParams(action).recipientType"
+									placeholder="Select recipient type"
+									@change="() => handleRecipientTypeChange(action)"
+								>
+									<el-option value="user" label="User" />
+									<el-option value="team" label="Team" />
+									<el-option value="email" label="Email" />
+								</el-select>
+							</el-form-item>
+							<!-- User/Team 选择器 -->
+							<el-form-item
+								v-if="getActionParams(action).recipientType === 'user'"
+								label="Select User"
+								class="action-field"
+								prop="parameters.recipientId"
+							>
+								<FlowflexUserSelector
+									v-model="getActionParams(action).recipientId"
+									selection-type="user"
+									placeholder="Select user"
+									@change="(val) => handleUserChange(action, val)"
+								/>
+							</el-form-item>
+							<el-form-item
+								v-if="getActionParams(action).recipientType === 'team'"
+								label="Select Team"
+								class="action-field"
+								prop="parameters.recipientId"
+							>
+								<FlowflexUserSelector
+									v-model="getActionParams(action).recipientId"
+									selection-type="team"
+									placeholder="Select team"
+									@change="(val) => handleUserChange(action, val)"
+								/>
+							</el-form-item>
+							<!-- Email 输入框 -->
+							<el-form-item
+								v-if="getActionParams(action).recipientType === 'email'"
+								label="Email Address"
+								class="action-field"
+								prop="parameters.recipientEmail"
+							>
+								<el-input
+									v-model="getActionParams(action).recipientEmail"
+									placeholder="Enter email address"
+									type="email"
+								/>
+							</el-form-item>
+						</template>
+
+						<!-- UpdateField: Field and Value -->
+						<template v-if="action.type === 'UpdateField'">
+							<el-form-item
+								label="Target Field to Update"
+								class="action-field"
+								prop="parameters.fieldPath"
+							>
+								<el-select
+									v-model="getActionParams(action).fieldPath"
+									placeholder="Select field"
+									@change="(val: string) => handleFieldSelect(action, val)"
+								>
+									<el-option-group
+										v-for="group in groupedFieldOptions"
+										:key="group.stageId"
+										:label="group.stageName"
+									>
+										<el-option
+											v-for="field in group.fields"
+											:key="field.key"
+											:value="field.key"
+											:label="field.name"
+										/>
+									</el-option-group>
+								</el-select>
+							</el-form-item>
+							<el-form-item
+								v-if="getActionParams(action).fieldPath"
+								:label="`Value for &quot;${
+									getActionParams(action).fieldName || ''
+								}&quot;`"
+								class="action-field"
+								prop="parameters.fieldValue"
+							>
+								<DynamicValueInput
+									v-model="getActionParams(action).fieldValue"
+									:input-type="getFieldInputType(action)"
+									:options="getFieldValueOptions(action)"
+									:constraints="getFieldConstraints(action)"
+								/>
+							</el-form-item>
+						</template>
+
+						<!-- AssignUser: Assignee -->
+						<template v-if="action.type === 'AssignUser'">
+							<el-form-item
+								label="Assignee Type"
+								class="action-field"
+								prop="parameters.assigneeType"
+							>
+								<el-select
+									v-model="getActionParams(action).assigneeType"
+									placeholder="Select assignee type"
+									@change="() => handleAssigneeTypeChange(action)"
+								>
+									<el-option value="user" label="User" />
+									<el-option value="team" label="Team" />
+								</el-select>
+							</el-form-item>
+							<!-- User 选择器 (多选) -->
+							<el-form-item
+								v-if="getActionParams(action).assigneeType === 'user'"
+								label="Select Users"
+								class="action-field"
+								prop="parameters.assigneeIds"
+							>
+								<FlowflexUserSelector
+									v-model="getActionParams(action).assigneeIds"
+									selection-type="user"
+									placeholder="Select users"
+									@change="(val) => handleAssigneeChange(action, val)"
+								/>
+							</el-form-item>
+							<!-- Team 选择器 (多选) -->
+							<el-form-item
+								v-if="getActionParams(action).assigneeType === 'team'"
+								label="Select Teams"
+								class="action-field"
+								prop="parameters.assigneeIds"
+							>
+								<FlowflexUserSelector
+									v-model="getActionParams(action).assigneeIds"
+									selection-type="team"
+									placeholder="Select teams"
+									@change="(val) => handleAssigneeChange(action, val)"
+								/>
+							</el-form-item>
+						</template>
+					</el-form>
 				</div>
 			</div>
 		</template>
@@ -235,8 +273,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed, watch } from 'vue';
+import { ref, reactive, onMounted, computed, watch } from 'vue';
 import { Plus, Delete, Warning } from '@element-plus/icons-vue';
+import type { FormInstance, FormRules } from 'element-plus';
 import type { ActionFormItem, DynamicFieldConstraints } from '#/condition';
 import type { Stage } from '#/onboard';
 import type { DynamicList, DynamicDropdownItem } from '#/dynamic';
@@ -260,6 +299,106 @@ const props = defineProps<{
 const emit = defineEmits<{
 	(e: 'update:modelValue', value: ActionFormItem[]): void;
 }>();
+
+// 表单引用映射（按动作索引）
+const formRefs = reactive<Record<number, FormInstance | null>>({});
+
+// 设置表单引用
+const setFormRef = (el: FormInstance | null, index: number) => {
+	formRefs[index] = el;
+};
+
+// 获取动作的验证规则
+const getActionValidationRules = (action: ActionFormItem): FormRules => {
+	const rules: FormRules = {
+		type: [{ required: true, message: 'Please select an action type', trigger: 'change' }],
+	};
+
+	// 根据动作类型添加特定验证规则
+	switch (action.type) {
+		case 'GoToStage':
+			rules.targetStageId = [
+				{ required: true, message: 'Please select a target stage', trigger: 'change' },
+			];
+			break;
+
+		case 'TriggerAction':
+			rules.actionDefinitionId = [
+				{
+					required: true,
+					message: 'Please select an action to trigger',
+					trigger: 'change',
+				},
+			];
+			break;
+
+		case 'SendNotification':
+			rules['parameters.recipientType'] = [
+				{ required: true, message: 'Please select a recipient type', trigger: 'change' },
+			];
+			if (action.parameters?.recipientType === 'email') {
+				rules['parameters.recipientEmail'] = [
+					{ required: true, message: 'Please enter an email address', trigger: 'blur' },
+					{
+						type: 'email',
+						message: 'Please enter a valid email address',
+						trigger: 'blur',
+					},
+				];
+			} else if (action.parameters?.recipientType) {
+				rules['parameters.recipientId'] = [
+					{ required: true, message: 'Please select a recipient', trigger: 'change' },
+				];
+			}
+			break;
+
+		case 'UpdateField':
+			rules['parameters.fieldPath'] = [
+				{ required: true, message: 'Please select a field to update', trigger: 'change' },
+			];
+			if (action.parameters?.fieldPath) {
+				rules['parameters.fieldValue'] = [
+					{
+						required: true,
+						message: 'Please enter a value for the field',
+						trigger: ['change', 'blur'],
+						validator: (_rule: any, value: any, callback: any) => {
+							if (value === '' || value === undefined || value === null) {
+								callback(new Error('Please enter a value for the field'));
+							} else {
+								callback();
+							}
+						},
+					},
+				];
+			}
+			break;
+
+		case 'AssignUser':
+			rules['parameters.assigneeType'] = [
+				{ required: true, message: 'Please select an assignee type', trigger: 'change' },
+			];
+			if (action.parameters?.assigneeType) {
+				rules['parameters.assigneeIds'] = [
+					{
+						required: true,
+						message: 'Please select at least one assignee',
+						trigger: 'change',
+						validator: (_rule: any, value: any, callback: any) => {
+							if (!value || (Array.isArray(value) && value.length === 0)) {
+								callback(new Error('Please select at least one assignee'));
+							} else {
+								callback();
+							}
+						},
+					},
+				];
+			}
+			break;
+	}
+
+	return rules;
+};
 
 // ToolsType 标签映射
 const TOOLS_TYPE_LABELS: Record<number, string> = {
@@ -675,6 +814,13 @@ const getFieldConstraints = (action: ActionFormItem): DynamicFieldConstraints =>
 onMounted(async () => {
 	await loadAvailableActions();
 	await loadStaticFieldsMapping();
+
+	// 清除所有表单的验证状态
+	setTimeout(() => {
+		Object.values(formRefs).forEach((formRef) => {
+			formRef?.clearValidate();
+		});
+	}, 0);
 });
 
 // 监听 stage 变化重新构建字段选项
@@ -684,6 +830,41 @@ watch(
 		loadStaticFieldsMapping();
 	}
 );
+
+// 验证动作完整性
+const validate = async (): Promise<{ valid: boolean; message: string }> => {
+	if (props.modelValue.length === 0) {
+		return { valid: false, message: 'Please add at least one action' };
+	}
+
+	// 验证所有表单
+	const validationPromises: Promise<boolean>[] = [];
+	for (let i = 0; i < props.modelValue.length; i++) {
+		const formRef = formRefs[i];
+		if (formRef) {
+			validationPromises.push(
+				formRef
+					.validate()
+					.then(() => true)
+					.catch(() => false)
+			);
+		}
+	}
+
+	const results = await Promise.all(validationPromises);
+	const allValid = results.every((result) => result);
+
+	if (!allValid) {
+		return { valid: false, message: '' }; // 错误信息已由表单显示
+	}
+
+	return { valid: true, message: '' };
+};
+
+// 暴露方法给父组件
+defineExpose({
+	validate,
+});
 </script>
 
 <style lang="scss" scoped>
