@@ -368,12 +368,9 @@ namespace FlowFlex.Application.Service.OW
                     return result;
                 }
 
-                // Convert to dictionary with stage-prefixed keys for stage-specific fields
+                // Convert to dictionary with multiple key formats for flexible access
                 foreach (var field in staticFieldValues)
                 {
-                    // Use stage-prefixed key format: stage_{stageId}_{fieldName}
-                    var key = $"stage_{field.StageId}_{field.FieldName}";
-                    
                     // Parse the JSON value
                     object? value = null;
                     if (!string.IsNullOrEmpty(field.FieldValueJson))
@@ -388,7 +385,21 @@ namespace FlowFlex.Application.Service.OW
                         }
                     }
                     
-                    result[key] = value!;
+                    // 1. Use FieldId as primary key (for condition rules that use componentId)
+                    if (field.FieldId.HasValue)
+                    {
+                        result[field.FieldId.Value.ToString()] = value!;
+                    }
+                    
+                    // 2. Stage-prefixed key format: stage_{stageId}_{fieldName} (for backward compatibility)
+                    var stageKey = $"stage_{field.StageId}_{field.FieldName}";
+                    result[stageKey] = value!;
+                    
+                    // 3. FieldName as key (for simple access)
+                    if (!string.IsNullOrEmpty(field.FieldName))
+                    {
+                        result[field.FieldName] = value!;
+                    }
                 }
 
                 return result;

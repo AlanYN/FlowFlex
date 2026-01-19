@@ -8,6 +8,7 @@ using FlowFlex.Application.Contracts.IServices.OW;
 using FlowFlex.Application.Contracts.IServices;
 using FlowFlex.Application.Contracts.IServices.Action;
 using FlowFlex.Application.Contracts.IServices.DynamicData;
+using FlowFlex.Application.Services.OW;
 using FlowFlex.Domain.Entities.OW;
 using FlowFlex.Domain.Repository.OW;
 using FlowFlex.Domain.Shared;
@@ -35,6 +36,7 @@ namespace FlowFlex.Application.Service.OW
         private readonly IActionExecutionService _actionExecutionService;
         private readonly IStaticFieldValueService _staticFieldValueService;
         private readonly IPropertyService _propertyService;
+        private readonly IdmUserDataClient _idmUserDataClient;
         private readonly ILogger<ConditionActionExecutor> _logger;
 
         public ConditionActionExecutor(
@@ -48,6 +50,7 @@ namespace FlowFlex.Application.Service.OW
             IActionExecutionService actionExecutionService,
             IStaticFieldValueService staticFieldValueService,
             IPropertyService propertyService,
+            IdmUserDataClient idmUserDataClient,
             ILogger<ConditionActionExecutor> logger)
         {
             _db = db;
@@ -60,6 +63,7 @@ namespace FlowFlex.Application.Service.OW
             _actionExecutionService = actionExecutionService;
             _staticFieldValueService = staticFieldValueService;
             _propertyService = propertyService;
+            _idmUserDataClient = idmUserDataClient;
             _logger = logger;
         }
 
@@ -415,7 +419,7 @@ namespace FlowFlex.Application.Service.OW
 
 
         /// <summary>
-        /// Execute SendNotification action - send notification to user
+        /// Execute SendNotification action - send notification to user or team members
         /// </summary>
         private async Task<ActionExecutionDetail> ExecuteSendNotificationAsync(ConditionAction action, ActionExecutionContext context)
         {
@@ -467,7 +471,33 @@ namespace FlowFlex.Application.Service.OW
                     return result;
                 }
 
-                // Get recipient email based on recipientType
+                // Get onboarding info for email content (needed for all recipient types)
+                var onboarding = await _onboardingRepository.GetByIdWithoutTenantFilterAsync(context.OnboardingId);
+                var stage = await _stageRepository.GetByIdAsync(context.StageId);
+
+                var caseName = onboarding?.CaseName ?? $"Case #{context.OnboardingId}";
+                var previousStageName = stage?.Name ?? "Previous Stage";
+                
+                // Get current stage name - the stage that onboarding is currently at
+                var currentStageName = "Current Stage";
+                if (onboarding != null && onboarding.CurrentStageId.HasValue)
+                {
+                    var currentStage = await _stageRepository.GetByIdAsync(onboarding.CurrentStageId.Value);
+                    if (currentStage != null)
+                    {
+                        currentStageName = currentStage.Name;
+                    }
+                }
+                
+                var caseUrl = $"/onboarding/{context.OnboardingId}";
+
+                // Handle team type - send notification to all team members
+                if (recipientType?.ToLower() == "team")
+                {
+                    return await ExecuteSendNotificationToTeamAsync(recipientId, context, result, templateId, caseName, previousStageName, currentStageName, caseUrl);
+                }
+
+                // Get recipient email based on recipientType (user or email)
                 string recipientEmail = null;
                 string recipientName = null;
 
@@ -505,26 +535,6 @@ namespace FlowFlex.Application.Service.OW
                     return result;
                 }
 
-                // Get onboarding info for email content
-                var onboarding = await _onboardingRepository.GetByIdWithoutTenantFilterAsync(context.OnboardingId);
-                var stage = await _stageRepository.GetByIdAsync(context.StageId);
-
-                var caseName = onboarding?.CaseName ?? $"Case #{context.OnboardingId}";
-                var previousStageName = stage?.Name ?? "Previous Stage";
-                
-                // Get current stage name - the stage that onboarding is currently at
-                var currentStageName = "Current Stage";
-                if (onboarding != null && onboarding.CurrentStageId.HasValue)
-                {
-                    var currentStage = await _stageRepository.GetByIdAsync(onboarding.CurrentStageId.Value);
-                    if (currentStage != null)
-                    {
-                        currentStageName = currentStage.Name;
-                    }
-                }
-                
-                var caseUrl = $"/onboarding/{context.OnboardingId}";
-
                 // Send condition stage notification email (uses "current stage" instead of "next stage")
                 var emailSent = await _emailService.SendConditionStageNotificationAsync(
                     recipientEmail,
@@ -561,6 +571,136 @@ namespace FlowFlex.Application.Service.OW
                 result.Success = false;
                 result.ErrorMessage = ex.Message;
                 _logger.LogError(ex, "Error executing SendNotification action");
+            }
+
+            return result;
+        }
+
+        /// <summary>
+        /// Send notification to all members of a team
+        /// </summary>
+        private async Task<ActionExecutionDetail> ExecuteSendNotificationToTeamAsync(
+            string teamId,
+            ActionExecutionContext context,
+            ActionExecutionDetail result,
+            string templateId,
+            string caseName,
+            string previousStageName,
+            string currentStageName,
+            string caseUrl)
+        {
+            try
+            {
+                _logger.LogInformation("SendNotification to team: Getting team members for teamId={TeamId}, tenantId={TenantId}",
+                    teamId, context.TenantId);
+
+                // Get all team users from IDM
+                var teamUsers = await _idmUserDataClient.GetAllTeamUsersAsync(context.TenantId, 10000, 1);
+
+                if (teamUsers == null || !teamUsers.Any())
+                {
+                    result.Success = false;
+                    result.ErrorMessage = $"No team users found for tenant {context.TenantId}";
+                    _logger.LogWarning("SendNotification to team failed: No team users found for tenant {TenantId}", context.TenantId);
+                    return result;
+                }
+
+                // Filter users by teamId
+                var teamMembers = teamUsers.Where(tu => tu.TeamId == teamId).ToList();
+
+                if (!teamMembers.Any())
+                {
+                    result.Success = false;
+                    result.ErrorMessage = $"No members found for team {teamId}";
+                    _logger.LogWarning("SendNotification to team failed: No members found for teamId={TeamId}", teamId);
+                    return result;
+                }
+
+                _logger.LogInformation("Found {MemberCount} members in team {TeamId}", teamMembers.Count, teamId);
+
+                // Send email to each team member with valid email
+                var sentEmails = new List<string>();
+                var failedEmails = new List<string>();
+
+                foreach (var member in teamMembers)
+                {
+                    if (string.IsNullOrWhiteSpace(member.Email))
+                    {
+                        _logger.LogDebug("Skipping team member {UserName} - no email address", member.UserName);
+                        continue;
+                    }
+
+                    try
+                    {
+                        var emailSent = await _emailService.SendConditionStageNotificationAsync(
+                            member.Email,
+                            context.OnboardingId.ToString(),
+                            caseName,
+                            previousStageName,
+                            currentStageName,
+                            caseUrl);
+
+                        if (emailSent)
+                        {
+                            sentEmails.Add(member.Email);
+                            _logger.LogDebug("Email sent to team member {Email}", member.Email);
+                        }
+                        else
+                        {
+                            failedEmails.Add(member.Email);
+                            _logger.LogWarning("Failed to send email to team member {Email}", member.Email);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        failedEmails.Add(member.Email);
+                        _logger.LogWarning(ex, "Exception sending email to team member {Email}", member.Email);
+                    }
+                }
+
+                // Determine overall success
+                result.Success = sentEmails.Any();
+                result.ResultData["recipientType"] = "team";
+                result.ResultData["recipientId"] = teamId;
+                result.ResultData["teamMemberCount"] = teamMembers.Count;
+                result.ResultData["sentCount"] = sentEmails.Count;
+                result.ResultData["failedCount"] = failedEmails.Count;
+                result.ResultData["sentEmails"] = sentEmails;
+                result.ResultData["failedEmails"] = failedEmails;
+                result.ResultData["templateId"] = templateId ?? string.Empty;
+                result.ResultData["previousStageName"] = previousStageName;
+                result.ResultData["currentStageName"] = currentStageName;
+                result.ResultData["status"] = sentEmails.Any() ? "Sent" : "Failed";
+
+                if (sentEmails.Any())
+                {
+                    _logger.LogInformation("SendNotification to team executed: {SentCount}/{TotalCount} emails sent for team {TeamId}, onboarding {OnboardingId}",
+                        sentEmails.Count, teamMembers.Count, teamId, context.OnboardingId);
+                }
+                else
+                {
+                    result.ErrorMessage = $"Failed to send email to any team member. Team has {teamMembers.Count} members.";
+                    _logger.LogWarning("SendNotification to team failed: No emails sent for team {TeamId}", teamId);
+                }
+
+                if (failedEmails.Any())
+                {
+                    var failedMessage = $"Failed to send to {failedEmails.Count} members: {string.Join(", ", failedEmails)}";
+                    if (string.IsNullOrEmpty(result.ErrorMessage))
+                    {
+                        result.ErrorMessage = failedMessage;
+                    }
+                    else
+                    {
+                        result.ErrorMessage += $"; {failedMessage}";
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                result.Success = false;
+                result.ErrorMessage = $"Error getting team members: {ex.Message}";
+                _logger.LogError(ex, "Error executing SendNotification to team {TeamId}", teamId);
             }
 
             return result;

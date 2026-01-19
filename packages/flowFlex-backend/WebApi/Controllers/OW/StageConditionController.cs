@@ -55,8 +55,16 @@ namespace FlowFlex.WebApi.Controllers.OW
         [ProducesResponseType<SuccessResponse<StageConditionSaveResultDto>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> Create([FromBody] StageConditionInputDto input)
         {
-            var result = await _conditionService.CreateAsync(input);
-            return Success(result);
+            try
+            {
+                var result = await _conditionService.CreateAsync(input);
+                return Success(result);
+            }
+            catch (FlowFlex.Domain.Shared.CRMException ex) when (ex.ResponseCode == 410)
+            {
+                // Return HTTP 200 with error code 410 in response body
+                return Ok(new { success = false, code = 410, msg = ex.Message, data = new { errorCode = ex.Code.ToString() } });
+            }
         }
 
         /// <summary>
@@ -69,8 +77,16 @@ namespace FlowFlex.WebApi.Controllers.OW
         [ProducesResponseType<SuccessResponse<StageConditionSaveResultDto>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> Update(long id, [FromBody] StageConditionInputDto input)
         {
-            var result = await _conditionService.UpdateAsync(id, input);
-            return Success(result);
+            try
+            {
+                var result = await _conditionService.UpdateAsync(id, input);
+                return Success(result);
+            }
+            catch (FlowFlex.Domain.Shared.CRMException ex) when (ex.ResponseCode == 410)
+            {
+                // Return HTTP 200 with error code 410 in response body
+                return Ok(new { success = false, code = 410, msg = ex.Message, data = new { errorCode = ex.Code.ToString() } });
+            }
         }
 
         /// <summary>

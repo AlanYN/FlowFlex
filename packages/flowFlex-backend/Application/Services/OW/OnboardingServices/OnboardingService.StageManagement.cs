@@ -369,45 +369,6 @@ namespace FlowFlex.Application.Services.OW
                     // Debug logging handled by structured logging
                 }
 
-                // Auto-advance to next stage logic (similar to CompleteCurrentStageAsync without input)
-                // Find the next incomplete stage to advance to
-                var currentStageIndex = orderedStages.FindIndex(x => x.Id == entity.CurrentStageId);
-                var nextStageIndex = currentStageIndex + 1;
-
-                _logger.LogDebug("CompleteCurrentStageAsync - Before auto-advance: CurrentStageId={CurrentStageId}, CompletedStageId={CompletedStageId}, NextIndex={NextIndex}",
-                    entity.CurrentStageId, stageToComplete.Id, nextStageIndex);
-
-                // If current stage is the completed stage and there's a next stage, advance to it
-                if (entity.CurrentStageId == stageToComplete.Id && nextStageIndex < orderedStages.Count)
-                {
-                    var nextStage = orderedStages[nextStageIndex];
-                    var oldStageId = entity.CurrentStageId;
-                    entity.CurrentStageId = nextStage.Id;
-                    entity.CurrentStageOrder = nextStage.Order;
-                    entity.CurrentStageStartTime = DateTimeOffset.UtcNow;
-                    _logger.LogDebug("CompleteCurrentStageAsync - Advanced to next stage: OldStageId={OldStageId}, NewStageId={NewStageId}, StageName={StageName}",
-                        oldStageId, entity.CurrentStageId, nextStage.Name);
-                }
-                else if (entity.CurrentStageId != stageToComplete.Id)
-                {
-                    // If we completed a different stage (not the current one), 
-                    // advance to the next incomplete stage AFTER the completed stage (only look forward)
-                    var completedStageOrder = orderedStages.FirstOrDefault(s => s.Id == stageToComplete.Id)?.Order ?? 0;
-                    var nextIncompleteStage = orderedStages
-                        .Where(stage => stage.Order > completedStageOrder &&
-                                       !entity.StagesProgress.Any(sp => sp.StageId == stage.Id && sp.IsCompleted))
-                        .OrderBy(stage => stage.Order)
-                        .FirstOrDefault();
-
-                    if (nextIncompleteStage != null)
-                    {
-                        entity.CurrentStageId = nextIncompleteStage.Id;
-                        entity.CurrentStageOrder = nextIncompleteStage.Order;
-                        entity.CurrentStageStartTime = DateTimeOffset.UtcNow;
-                        // Debug logging handled by structured logging
-                    }
-                }
-
                 // Add completion notes if provided
                 if (!string.IsNullOrEmpty(input.CompletionNotes))
                 {
@@ -420,7 +381,7 @@ namespace FlowFlex.Application.Services.OW
             // Update stage tracking info
             await UpdateStageTrackingInfoAsync(entity);
 
-            // Update the entity using safe method
+            // Update the entity using safe method (without auto-advance yet)
             var result = await SafeUpdateOnboardingAsync(entity);
             // Debug logging handled by structured logging
             // Log stage completion to operation_change_log
@@ -487,6 +448,82 @@ namespace FlowFlex.Application.Services.OW
                 // Debug logging handled by structured logging
                 await PublishStageCompletionEventForCurrentStageAsync(entity, stageToComplete, allStagesCompleted);
 
+                // First, evaluate stage condition and execute actions
+                // If condition is met and actions are executed, skip auto-advance
+                bool conditionActionExecuted = false;
+                if (!allStagesCompleted)
+                {
+                    try
+                    {
+                        conditionActionExecuted = await EvaluateAndExecuteStageConditionAsync(entity.Id, stageToComplete.Id);
+                        if (conditionActionExecuted)
+                        {
+                            _logger.LogInformation("Stage condition actions executed, skipping auto-advance: OnboardingId={OnboardingId}, StageId={StageId}",
+                                entity.Id, stageToComplete.Id);
+                        }
+                    }
+                    catch (Exception conditionEx)
+                    {
+                        _logger.LogError(conditionEx, "Failed to evaluate stage condition: OnboardingId={OnboardingId}, StageId={StageId}",
+                            entity.Id, stageToComplete.Id);
+                        // Don't re-throw to avoid breaking the main flow
+                    }
+                }
+
+                // Auto-advance to next stage only if no condition action was executed
+                if (!allStagesCompleted && !conditionActionExecuted)
+                {
+                    // Reload entity to get latest state
+                    entity = await _onboardingRepository.GetByIdAsync(id);
+                    
+                    // Auto-advance to next stage logic
+                    var currentStageIndex = orderedStages.FindIndex(x => x.Id == entity.CurrentStageId);
+                    var nextStageIndex = currentStageIndex + 1;
+
+                    _logger.LogDebug("CompleteCurrentStageAsync - Before auto-advance: CurrentStageId={CurrentStageId}, CompletedStageId={CompletedStageId}, NextIndex={NextIndex}",
+                        entity.CurrentStageId, stageToComplete.Id, nextStageIndex);
+
+                    bool needsUpdate = false;
+                    // If current stage is the completed stage and there's a next stage, advance to it
+                    if (entity.CurrentStageId == stageToComplete.Id && nextStageIndex < orderedStages.Count)
+                    {
+                        var nextStage = orderedStages[nextStageIndex];
+                        var oldStageId = entity.CurrentStageId;
+                        entity.CurrentStageId = nextStage.Id;
+                        entity.CurrentStageOrder = nextStage.Order;
+                        entity.CurrentStageStartTime = DateTimeOffset.UtcNow;
+                        needsUpdate = true;
+                        _logger.LogDebug("CompleteCurrentStageAsync - Advanced to next stage: OldStageId={OldStageId}, NewStageId={NewStageId}, StageName={StageName}",
+                            oldStageId, entity.CurrentStageId, nextStage.Name);
+                    }
+                    else if (entity.CurrentStageId != stageToComplete.Id)
+                    {
+                        // If we completed a different stage (not the current one), 
+                        // advance to the next incomplete stage AFTER the completed stage (only look forward)
+                        var completedStageOrder = orderedStages.FirstOrDefault(s => s.Id == stageToComplete.Id)?.Order ?? 0;
+                        var nextIncompleteStage = orderedStages
+                            .Where(stage => stage.Order > completedStageOrder &&
+                                           !entity.StagesProgress.Any(sp => sp.StageId == stage.Id && sp.IsCompleted))
+                            .OrderBy(stage => stage.Order)
+                            .FirstOrDefault();
+
+                        if (nextIncompleteStage != null)
+                        {
+                            entity.CurrentStageId = nextIncompleteStage.Id;
+                            entity.CurrentStageOrder = nextIncompleteStage.Order;
+                            entity.CurrentStageStartTime = DateTimeOffset.UtcNow;
+                            needsUpdate = true;
+                            // Debug logging handled by structured logging
+                        }
+                    }
+
+                    // Save auto-advance changes
+                    if (needsUpdate)
+                    {
+                        await SafeUpdateOnboardingAsync(entity);
+                    }
+                }
+
                 // Send email notification to stage default assignees
                 try
                 {
@@ -495,19 +532,6 @@ namespace FlowFlex.Application.Services.OW
                 catch (Exception emailEx)
                 {
                     _logger.LogError(emailEx, "Failed to send stage completion email notification: OnboardingId={OnboardingId}, StageId={StageId}",
-                        entity.Id, stageToComplete.Id);
-                    // Don't re-throw to avoid breaking the main flow
-                }
-
-                // Synchronously evaluate stage condition and execute actions
-                // This replaces the async event handler (OnboardingStageCompletedLogHandler) for condition evaluation
-                try
-                {
-                    await EvaluateAndExecuteStageConditionAsync(entity.Id, stageToComplete.Id);
-                }
-                catch (Exception conditionEx)
-                {
-                    _logger.LogError(conditionEx, "Failed to evaluate stage condition: OnboardingId={OnboardingId}, StageId={StageId}",
                         entity.Id, stageToComplete.Id);
                     // Don't re-throw to avoid breaking the main flow
                 }
@@ -818,7 +842,8 @@ namespace FlowFlex.Application.Services.OW
         /// Synchronously evaluate stage condition and execute actions
         /// This is called directly after stage completion instead of via async event handler
         /// </summary>
-        private async Task EvaluateAndExecuteStageConditionAsync(long onboardingId, long stageId)
+        /// <returns>True if condition was met and actions were executed, false otherwise</returns>
+        private async Task<bool> EvaluateAndExecuteStageConditionAsync(long onboardingId, long stageId)
         {
             _logger.LogDebug("Evaluating stage condition synchronously for OnboardingId={OnboardingId}, StageId={StageId}",
                 onboardingId, stageId);
@@ -845,6 +870,9 @@ namespace FlowFlex.Application.Services.OW
                             _logger.LogDebug("Action {ActionType} (Order={Order}): Success={Success}, Error={Error}",
                                 actionResult.ActionType, actionResult.Order, actionResult.Success, actionResult.ErrorMessage);
                         }
+                        
+                        // Return true if any action was successfully executed
+                        return result.ActionResults.Any(a => a.Success);
                     }
                 }
                 else
@@ -852,12 +880,15 @@ namespace FlowFlex.Application.Services.OW
                     _logger.LogDebug("Stage condition not met for OnboardingId={OnboardingId}, StageId={StageId}, NextStageId={NextStageId}, Error={Error}",
                         onboardingId, stageId, result.NextStageId, result.ErrorMessage);
                 }
+                
+                return false;
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error evaluating stage condition for OnboardingId={OnboardingId}, StageId={StageId}",
                     onboardingId, stageId);
                 // Don't rethrow - condition evaluation failure should not block stage completion
+                return false;
             }
         }
     }

@@ -1151,14 +1151,9 @@ namespace FlowFlex.Application.Service.OW
                             // Check parameters dictionary for assigneeType and assigneeIds
                             if (action.Parameters != null)
                             {
-                                // Check assigneeType in parameters
-                                if (!action.Parameters.TryGetValue("assigneeType", out var assigneeType) || 
-                                    string.IsNullOrEmpty(assigneeType?.ToString()))
-                                {
-                                    result.IsValid = false;
-                                    result.Errors.Add(new ValidationError { Code = "ASSIGNUSER_TYPE_REQUIRED", Message = "AssignUser action requires assigneeType ('user' or 'team') in parameters" });
-                                }
-                                else
+                                // Check assigneeType in parameters (optional, defaults to 'user')
+                                if (action.Parameters.TryGetValue("assigneeType", out var assigneeType) && 
+                                    !string.IsNullOrEmpty(assigneeType?.ToString()))
                                 {
                                     var assigneeTypeStr = assigneeType.ToString()?.ToLower();
                                     if (assigneeTypeStr != "user" && assigneeTypeStr != "team")
@@ -1167,6 +1162,7 @@ namespace FlowFlex.Application.Service.OW
                                         result.Errors.Add(new ValidationError { Code = "ASSIGNUSER_TYPE_INVALID", Message = "AssignUser action assigneeType must be 'user' or 'team'" });
                                     }
                                 }
+                                // If assigneeType is not provided, it defaults to 'user' - no validation error
 
                                 // Check assigneeIds array
                                 if (!HasNonEmptyArray(action.Parameters, "assigneeIds"))

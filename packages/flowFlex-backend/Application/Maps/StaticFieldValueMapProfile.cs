@@ -13,6 +13,7 @@ namespace FlowFlex.Application.Maps
             // 输入DTO到实体的映射
             CreateMap<StaticFieldValueInputDto, StaticFieldValue>()
                 .ForMember(dest => dest.Id, opt => opt.MapFrom(src => src.Id ?? 0))
+                .ForMember(dest => dest.FieldId, opt => opt.MapFrom(src => src.FieldId))
                 .ForMember(dest => dest.TenantId, opt => opt.Ignore())
                 .ForMember(dest => dest.SubmitTime, opt => opt.Ignore())
                 .ForMember(dest => dest.ReviewTime, opt => opt.Ignore())

@@ -3,10 +3,12 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using FlowFlex.Application.Contracts.Dtos.OW.StageCondition;
+using FlowFlex.Application.Contracts.Dtos.OW.User;
 using FlowFlex.Application.Contracts.IServices.OW;
 using FlowFlex.Application.Contracts.IServices.Action;
 using FlowFlex.Application.Contracts.IServices.DynamicData;
 using FlowFlex.Application.Service.OW;
+using FlowFlex.Application.Services.OW;
 using FlowFlex.Domain.Entities.OW;
 using FlowFlex.Domain.Repository.OW;
 using FlowFlex.Domain.Shared.Models;
@@ -36,6 +38,7 @@ namespace FlowFlex.Tests.Services.OW
         private readonly Mock<IActionExecutionService> _mockActionExecutionService;
         private readonly Mock<IStaticFieldValueService> _mockStaticFieldValueService;
         private readonly Mock<IPropertyService> _mockPropertyService;
+        private readonly Mock<IdmUserDataClient> _mockIdmUserDataClient;
         private readonly Mock<ILogger<ConditionActionExecutor>> _mockLogger;
         private readonly UserContext _userContext;
         private readonly ConditionActionExecutor _executor;
@@ -51,6 +54,7 @@ namespace FlowFlex.Tests.Services.OW
             _mockActionExecutionService = new Mock<IActionExecutionService>();
             _mockStaticFieldValueService = new Mock<IStaticFieldValueService>();
             _mockPropertyService = new Mock<IPropertyService>();
+            _mockIdmUserDataClient = new Mock<IdmUserDataClient>(MockBehavior.Loose, null, null, null, null);
             _mockLogger = MockHelper.CreateMockLogger<ConditionActionExecutor>();
 
             _userContext = TestDataBuilder.CreateUserContext(TestDataBuilder.DefaultUserId);
@@ -66,6 +70,10 @@ namespace FlowFlex.Tests.Services.OW
             _mockUserService.Setup(u => u.GetUsersByIdsAsync(It.IsAny<List<long>>(), It.IsAny<string>()))
                 .ReturnsAsync(new List<Application.Contracts.Dtos.OW.User.UserDto>());
 
+            // Setup default IdmUserDataClient mock for team users
+            _mockIdmUserDataClient.Setup(i => i.GetAllTeamUsersAsync(It.IsAny<string>(), It.IsAny<int>(), It.IsAny<int>()))
+                .ReturnsAsync(new List<IdmTeamUserDto>());
+
             _executor = new ConditionActionExecutor(
                 _mockDb.Object,
                 _mockStageRepository.Object,
@@ -77,6 +85,7 @@ namespace FlowFlex.Tests.Services.OW
                 _mockActionExecutionService.Object,
                 _mockStaticFieldValueService.Object,
                 _mockPropertyService.Object,
+                _mockIdmUserDataClient.Object,
                 _mockLogger.Object);
         }
 
