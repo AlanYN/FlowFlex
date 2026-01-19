@@ -235,6 +235,11 @@ export interface StageInfo {
 	aiSummaryModel?: string;
 	aiSummaryData?: string;
 	visibleInPortal?: boolean;
+	permission?: {
+		canView: boolean;
+		canOperate: boolean;
+		errorMessage?: string;
+	};
 }
 
 export interface ComponentsData {

@@ -8,6 +8,7 @@
 		:close-on-press-escape="false"
 		class="stage-condition-editor"
 		append-to-body
+		:before-close="handleCancel"
 	>
 		<template #header>
 			<div class="drawer-header">

@@ -7,6 +7,7 @@
 		:close-on-click-modal="false"
 		:destroy-on-close="false"
 		class="node-panel"
+		:before-close="handleCancel"
 	>
 		<template #header>
 			<div class="node-panel__header">
