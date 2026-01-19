@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.Json;
 using System.Threading.Tasks;
 using AutoMapper;
 using FlowFlex.Application.Contracts.Dtos.OW.StageCondition;
@@ -17,6 +18,8 @@ using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 using RulesEngine.Models;
 using SqlSugar;
+using OwOperationTypeEnum = FlowFlex.Domain.Shared.Enums.OW.OperationTypeEnum;
+using OwBusinessModuleEnum = FlowFlex.Domain.Shared.Enums.OW.BusinessModuleEnum;
 
 namespace FlowFlex.Application.Service.OW
 {
@@ -29,6 +32,7 @@ namespace FlowFlex.Application.Service.OW
         private readonly IStageRepository _stageRepository;
         private readonly IWorkflowRepository _workflowRepository;
         private readonly IPermissionService _permissionService;
+        private readonly IOperationChangeLogService _operationChangeLogService;
         private readonly IMapper _mapper;
         private readonly UserContext _userContext;
         private readonly ILogger<StageConditionService> _logger;
@@ -38,6 +42,7 @@ namespace FlowFlex.Application.Service.OW
             IStageRepository stageRepository,
             IWorkflowRepository workflowRepository,
             IPermissionService permissionService,
+            IOperationChangeLogService operationChangeLogService,
             IMapper mapper,
             UserContext userContext,
             ILogger<StageConditionService> logger)
@@ -46,6 +51,7 @@ namespace FlowFlex.Application.Service.OW
             _stageRepository = stageRepository;
             _workflowRepository = workflowRepository;
             _permissionService = permissionService;
+            _operationChangeLogService = operationChangeLogService;
             _mapper = mapper;
             _userContext = userContext;
             _logger = logger;
@@ -67,7 +73,7 @@ namespace FlowFlex.Application.Service.OW
             var stage = await _stageRepository.GetByIdAsync(input.StageId);
             if (stage == null)
             {
-                throw new CRMException(ErrorCodeEnum.NotFound, $"Stage {input.StageId} not found");
+                throw new CRMException(ErrorCodeEnum.NotFound, "The specified stage does not exist.");
             }
 
             // Validate one condition per stage
@@ -79,7 +85,7 @@ namespace FlowFlex.Application.Service.OW
             if (existingCondition != null)
             {
                 throw new CRMException(ErrorCodeEnum.BusinessError, 
-                    $"Stage {input.StageId} already has a condition configured. Each stage can only have one condition.");
+                    $"Stage \"{stage.Name}\" already has a condition configured. Each stage can only have one condition.");
             }
 
             // Validate RulesJson format
@@ -137,6 +143,55 @@ namespace FlowFlex.Application.Service.OW
 
             _logger.LogInformation("Created stage condition {ConditionId} for stage {StageId}", entity.Id, input.StageId);
 
+            // Log to workflow change log
+            try
+            {
+                var workflow = await _workflowRepository.GetByIdAsync(entity.WorkflowId);
+                var workflowName = workflow?.Name ?? "Unknown Workflow";
+
+                var afterData = System.Text.Json.JsonSerializer.Serialize(new
+                {
+                    ConditionId = entity.Id,
+                    ConditionName = entity.Name,
+                    StageId = entity.StageId,
+                    StageName = stage.Name,
+                    Description = entity.Description,
+                    IsActive = entity.IsActive,
+                    RulesJson = entity.RulesJson,
+                    ActionsJson = entity.ActionsJson,
+                    FallbackStageId = entity.FallbackStageId
+                });
+
+                var extendedData = System.Text.Json.JsonSerializer.Serialize(new
+                {
+                    WorkflowId = entity.WorkflowId,
+                    WorkflowName = workflowName,
+                    StageId = entity.StageId,
+                    StageName = stage.Name,
+                    ConditionId = entity.Id,
+                    ConditionName = entity.Name,
+                    CreatedAt = entity.CreateDate.ToString("MM/dd/yyyy hh:mm tt")
+                });
+
+                await _operationChangeLogService.LogOperationAsync(
+                    operationType: OwOperationTypeEnum.StageConditionCreate,
+                    businessModule: OwBusinessModuleEnum.Workflow,
+                    businessId: entity.WorkflowId,
+                    onboardingId: null,
+                    stageId: entity.StageId,
+                    operationTitle: $"Stage Condition Created: {entity.Name}",
+                    operationDescription: $"Stage condition '{entity.Name}' has been created for stage '{stage.Name}' in workflow '{workflowName}' by {_userContext.UserName}.",
+                    beforeData: null,
+                    afterData: afterData,
+                    changedFields: new List<string> { "Name", "Description", "RulesJson", "ActionsJson", "IsActive", "FallbackStageId" },
+                    extendedData: extendedData
+                );
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to log stage condition create operation for condition {ConditionId}", entity.Id);
+            }
+
             result.Id = entity.Id;
             result.Success = true;
             return result;
@@ -155,6 +210,14 @@ namespace FlowFlex.Application.Service.OW
             {
                 throw new CRMException(ErrorCodeEnum.NotFound, $"Condition {id} not found");
             }
+
+            // Capture original values for change log
+            var originalName = condition.Name;
+            var originalDescription = condition.Description;
+            var originalRulesJson = condition.RulesJson;
+            var originalActionsJson = condition.ActionsJson;
+            var originalFallbackStageId = condition.FallbackStageId;
+            var originalIsActive = condition.IsActive;
 
             // Validate permission
             await ValidateWorkflowPermissionAsync(condition.WorkflowId, OperationTypeEnum.Operate);
@@ -196,6 +259,113 @@ namespace FlowFlex.Application.Service.OW
 
             _logger.LogInformation("Updated stage condition {ConditionId}", id);
 
+            // Log to workflow change log
+            if (updateResult > 0)
+            {
+                try
+                {
+                    var workflow = await _workflowRepository.GetByIdAsync(condition.WorkflowId);
+                    var workflowName = workflow?.Name ?? "Unknown Workflow";
+                    var stage = await _stageRepository.GetByIdAsync(condition.StageId);
+                    var stageName = stage?.Name ?? "Unknown Stage";
+
+                    // Determine changed fields
+                    var changedFields = new List<string>();
+                    var changeDescriptions = new List<string>();
+
+                    if (originalName != condition.Name)
+                    {
+                        changedFields.Add("Name");
+                        changeDescriptions.Add($"Name from '{originalName}' to '{condition.Name}'");
+                    }
+                    if (originalDescription != condition.Description)
+                    {
+                        changedFields.Add("Description");
+                        changeDescriptions.Add($"Description updated");
+                    }
+                    if (originalRulesJson != condition.RulesJson)
+                    {
+                        changedFields.Add("RulesJson");
+                        changeDescriptions.Add($"Rules configuration updated");
+                    }
+                    if (originalActionsJson != condition.ActionsJson)
+                    {
+                        changedFields.Add("ActionsJson");
+                        changeDescriptions.Add($"Actions configuration updated");
+                    }
+                    if (originalFallbackStageId != condition.FallbackStageId)
+                    {
+                        changedFields.Add("FallbackStageId");
+                        changeDescriptions.Add($"Fallback stage updated");
+                    }
+                    if (originalIsActive != condition.IsActive)
+                    {
+                        changedFields.Add("IsActive");
+                        changeDescriptions.Add($"IsActive from '{originalIsActive}' to '{condition.IsActive}'");
+                    }
+
+                    if (changedFields.Count > 0)
+                    {
+                        var beforeData = System.Text.Json.JsonSerializer.Serialize(new
+                        {
+                            ConditionId = condition.Id,
+                            ConditionName = originalName,
+                            StageId = condition.StageId,
+                            StageName = stageName,
+                            Description = originalDescription,
+                            IsActive = originalIsActive,
+                            RulesJson = originalRulesJson,
+                            ActionsJson = originalActionsJson,
+                            FallbackStageId = originalFallbackStageId
+                        });
+
+                        var afterData = System.Text.Json.JsonSerializer.Serialize(new
+                        {
+                            ConditionId = condition.Id,
+                            ConditionName = condition.Name,
+                            StageId = condition.StageId,
+                            StageName = stageName,
+                            Description = condition.Description,
+                            IsActive = condition.IsActive,
+                            RulesJson = condition.RulesJson,
+                            ActionsJson = condition.ActionsJson,
+                            FallbackStageId = condition.FallbackStageId
+                        });
+
+                        var extendedData = System.Text.Json.JsonSerializer.Serialize(new
+                        {
+                            WorkflowId = condition.WorkflowId,
+                            WorkflowName = workflowName,
+                            StageId = condition.StageId,
+                            StageName = stageName,
+                            ConditionId = condition.Id,
+                            ConditionName = condition.Name,
+                            ChangedFieldsCount = changedFields.Count,
+                            UpdatedAt = condition.ModifyDate.ToString("MM/dd/yyyy hh:mm tt")
+                        });
+
+                        var changeDescription = string.Join(". ", changeDescriptions);
+                        await _operationChangeLogService.LogOperationAsync(
+                            operationType: OwOperationTypeEnum.StageConditionUpdate,
+                            businessModule: OwBusinessModuleEnum.Workflow,
+                            businessId: condition.WorkflowId,
+                            onboardingId: null,
+                            stageId: condition.StageId,
+                            operationTitle: $"Stage Condition Updated: {condition.Name}",
+                            operationDescription: $"Stage condition '{condition.Name}' has been updated in workflow '{workflowName}' by {_userContext.UserName}. Changes: {changeDescription}",
+                            beforeData: beforeData,
+                            afterData: afterData,
+                            changedFields: changedFields,
+                            extendedData: extendedData
+                        );
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to log stage condition update operation for condition {ConditionId}", id);
+                }
+            }
+
             result.Success = updateResult > 0;
             return result;
         }
@@ -212,6 +382,12 @@ namespace FlowFlex.Application.Service.OW
                 throw new CRMException(ErrorCodeEnum.NotFound, $"Condition {id} not found");
             }
 
+            // Capture condition info for change log before deletion
+            var conditionName = condition.Name;
+            var conditionDescription = condition.Description;
+            var workflowId = condition.WorkflowId;
+            var stageId = condition.StageId;
+
             // Validate permission
             await ValidateWorkflowPermissionAsync(condition.WorkflowId, OperationTypeEnum.Operate);
 
@@ -225,6 +401,60 @@ namespace FlowFlex.Application.Service.OW
                 .ExecuteCommandAsync();
 
             _logger.LogInformation("Deleted stage condition {ConditionId}", id);
+
+            // Log to workflow change log
+            if (deleteResult > 0)
+            {
+                try
+                {
+                    var workflow = await _workflowRepository.GetByIdAsync(workflowId);
+                    var workflowName = workflow?.Name ?? "Unknown Workflow";
+                    var stage = await _stageRepository.GetByIdAsync(stageId);
+                    var stageName = stage?.Name ?? "Unknown Stage";
+
+                    var beforeData = System.Text.Json.JsonSerializer.Serialize(new
+                    {
+                        ConditionId = id,
+                        ConditionName = conditionName,
+                        StageId = stageId,
+                        StageName = stageName,
+                        Description = conditionDescription,
+                        IsActive = condition.IsActive,
+                        RulesJson = condition.RulesJson,
+                        ActionsJson = condition.ActionsJson,
+                        FallbackStageId = condition.FallbackStageId
+                    });
+
+                    var extendedData = System.Text.Json.JsonSerializer.Serialize(new
+                    {
+                        WorkflowId = workflowId,
+                        WorkflowName = workflowName,
+                        StageId = stageId,
+                        StageName = stageName,
+                        ConditionId = id,
+                        ConditionName = conditionName,
+                        DeletedAt = condition.ModifyDate.ToString("MM/dd/yyyy hh:mm tt")
+                    });
+
+                    await _operationChangeLogService.LogOperationAsync(
+                        operationType: OwOperationTypeEnum.StageConditionDelete,
+                        businessModule: OwBusinessModuleEnum.Workflow,
+                        businessId: workflowId,
+                        onboardingId: null,
+                        stageId: stageId,
+                        operationTitle: $"Stage Condition Deleted: {conditionName}",
+                        operationDescription: $"Stage condition '{conditionName}' has been deleted from stage '{stageName}' in workflow '{workflowName}' by {_userContext.UserName}.",
+                        beforeData: beforeData,
+                        afterData: null,
+                        changedFields: new List<string> { "IsValid" },
+                        extendedData: extendedData
+                    );
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to log stage condition delete operation for condition {ConditionId}", id);
+                }
+            }
 
             return deleteResult > 0;
         }
@@ -427,7 +657,7 @@ namespace FlowFlex.Application.Service.OW
                     result.Errors.Add(new ValidationError { Code = "INVALID_EXPRESSION", Message = $"Invalid rule expression: {ex.Message}" });
                 }
             }
-            catch (JsonException ex)
+            catch (Newtonsoft.Json.JsonException ex)
             {
                 result.IsValid = false;
                 result.Errors.Add(new ValidationError { Code = "INVALID_JSON", Message = $"Invalid JSON format: {ex.Message}" });
@@ -658,7 +888,7 @@ namespace FlowFlex.Application.Service.OW
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Failed to convert frontend rules to RulesEngine format");
-                throw new JsonException($"Failed to convert frontend rules format: {ex.Message}");
+                throw new Newtonsoft.Json.JsonException($"Failed to convert frontend rules format: {ex.Message}");
             }
         }
 
@@ -954,7 +1184,7 @@ namespace FlowFlex.Application.Service.OW
                     }
                 }
             }
-            catch (JsonException ex)
+            catch (Newtonsoft.Json.JsonException ex)
             {
                 result.IsValid = false;
                 result.Errors.Add(new ValidationError { Code = "INVALID_JSON", Message = $"Invalid JSON format: {ex.Message}" });
