@@ -110,6 +110,11 @@ namespace FlowFlex.Application.Contracts.Dtos.Integration
         public string CaseCode { get; set; } = string.Empty;
 
         /// <summary>
+        /// Case name (may include suffix like -2, -3 if duplicate)
+        /// </summary>
+        public string CaseName { get; set; } = string.Empty;
+
+        /// <summary>
         /// Workflow ID
         /// </summary>
         public long WorkflowId { get; set; }
