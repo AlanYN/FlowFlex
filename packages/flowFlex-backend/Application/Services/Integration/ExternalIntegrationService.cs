@@ -302,6 +302,10 @@ namespace FlowFlex.Application.Services.Integration
                 throw new CRMException(ErrorCodeEnum.BusinessError, "Workflow has no stages configured");
             }
 
+            // Generate unique case name (add suffix -2, -3, etc. if duplicate)
+            var uniqueCaseName = await GenerateUniqueCaseNameAsync(request.CaseName);
+            _logger.LogInformation("Generated unique case name: {OriginalName} -> {UniqueName}", request.CaseName, uniqueCaseName);
+
             long caseId;
             Domain.Entities.OW.Onboarding? targetCase;
 
@@ -310,7 +314,7 @@ namespace FlowFlex.Application.Services.Integration
             {
                 WorkflowId = request.WorkflowId,
                 LeadId = request.EntityId,
-                CaseName = request.CaseName,
+                CaseName = uniqueCaseName,
                 ContactPerson = request.ContactName,
                 ContactEmail = request.ContactEmail,
                 LeadPhone = request.ContactPhone,
@@ -361,6 +365,7 @@ namespace FlowFlex.Application.Services.Integration
             {
                 CaseId = caseId,
                 CaseCode = targetCase?.CaseCode ?? "",
+                CaseName = targetCase?.CaseName ?? uniqueCaseName,
                 WorkflowId = request.WorkflowId,
                 WorkflowName = workflow.Name,
                 CurrentStageId = targetCase?.CurrentStageId ?? firstStage.Id,
@@ -1303,6 +1308,68 @@ namespace FlowFlex.Application.Services.Integration
 
             return baseMessage;
         }
+
+        #region Unique Case Name Generation
+
+        /// <summary>
+        /// Generate a unique case name by adding suffix (-2, -3, etc.) if duplicate exists within the same tenant
+        /// Different tenants are allowed to have the same case name
+        /// </summary>
+        /// <param name="baseCaseName">Original case name</param>
+        /// <returns>Unique case name</returns>
+        private async Task<string> GenerateUniqueCaseNameAsync(string baseCaseName)
+        {
+            var tenantId = _userContext.TenantId ?? "default";
+
+            // Check if the base name already exists within the same tenant
+            var existingCases = await _onboardingRepository.GetListAsync(
+                o => o.TenantId == tenantId 
+                    && o.CaseName != null 
+                    && o.CaseName.StartsWith(baseCaseName) 
+                    && o.IsValid);
+
+            if (!existingCases.Any())
+            {
+                // No duplicates in this tenant, return original name
+                return baseCaseName;
+            }
+
+            // Check if exact match exists
+            var exactMatch = existingCases.Any(o => o.CaseName == baseCaseName);
+            if (!exactMatch)
+            {
+                // No exact match, return original name
+                return baseCaseName;
+            }
+
+            // Find the highest suffix number
+            int maxSuffix = 1;
+            var suffixPattern = new System.Text.RegularExpressions.Regex($@"^{System.Text.RegularExpressions.Regex.Escape(baseCaseName)}-(\d+)$");
+
+            foreach (var existingCase in existingCases)
+            {
+                if (string.IsNullOrEmpty(existingCase.CaseName))
+                    continue;
+
+                var match = suffixPattern.Match(existingCase.CaseName);
+                if (match.Success && int.TryParse(match.Groups[1].Value, out int suffix))
+                {
+                    if (suffix > maxSuffix)
+                    {
+                        maxSuffix = suffix;
+                    }
+                }
+            }
+
+            // Generate new name with next suffix
+            var newCaseName = $"{baseCaseName}-{maxSuffix + 1}";
+            _logger.LogDebug("Generated unique case name for tenant {TenantId}: {NewCaseName} (found {Count} existing cases with base name {BaseName})",
+                tenantId, newCaseName, existingCases.Count, baseCaseName);
+
+            return newCaseName;
+        }
+
+        #endregion
 
         #region Integration Authentication Helper Methods
 
