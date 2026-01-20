@@ -60,9 +60,9 @@
 						'condition-handle--skip': action.type === 'SkipStage',
 					}"
 				/>
-				<div class="condition-node__action-label">
+				<!-- <div class="condition-node__action-label">
 					{{ getActionLabel(action) }}
-				</div>
+				</div> -->
 			</div>
 		</div>
 	</div>
@@ -132,33 +132,33 @@ const actionsCount = computed(() => {
 });
 
 // // 获取 action 的显示标签
-const getActionLabel = (action: any): string => {
-	if (!action || !action.type) return 'Action';
+// const getActionLabel = (action: any): string => {
+// 	if (!action || !action.type) return 'Action';
 
-	switch (action.type) {
-		case 'EndWorkflow':
-			return 'End';
-		case 'GoToStage':
-			// 使用 stagesMap 查找目标 stage 名称
-			if (action.targetStageId && props.data.stagesMap) {
-				const stageName = props.data.stagesMap[action.targetStageId];
-				return stageName ? `Go: ${stageName}` : 'Go To';
-			}
-			return 'Go To';
-		case 'SkipStage':
-			return 'Skip';
-		case 'SendNotification':
-			return 'Notify';
-		case 'UpdateField':
-			return 'Update';
-		case 'TriggerAction':
-			return 'Trigger';
-		case 'AssignUser':
-			return 'Assign';
-		default:
-			return action.type;
-	}
-};
+// 	switch (action.type) {
+// 		case 'EndWorkflow':
+// 			return 'End';
+// 		case 'GoToStage':
+// 			// 使用 stagesMap 查找目标 stage 名称
+// 			if (action.targetStageId && props.data.stagesMap) {
+// 				const stageName = props.data.stagesMap[action.targetStageId];
+// 				return stageName ? `Go: ${stageName}` : 'Go To';
+// 			}
+// 			return 'Go To';
+// 		case 'SkipStage':
+// 			return 'Skip';
+// 		case 'SendNotification':
+// 			return 'Notify';
+// 		case 'UpdateField':
+// 			return 'Update';
+// 		case 'TriggerAction':
+// 			return 'Trigger';
+// 		case 'AssignUser':
+// 			return 'Assign';
+// 		default:
+// 			return action.type;
+// 	}
+// };
 
 const handleDelete = () => {
 	emit('delete');
@@ -265,6 +265,7 @@ const handleDelete = () => {
 	display: flex;
 	align-items: center;
 	gap: 2px;
+	writing-mode: vertical-rl;
 }
 
 .condition-node__action-label .el-icon {
