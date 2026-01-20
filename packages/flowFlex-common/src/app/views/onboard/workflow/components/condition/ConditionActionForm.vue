@@ -508,7 +508,7 @@ const handleRecipientTypeChange = (action: ActionFormItem) => {
 // 处理 User/Team 选择变化
 const handleUserChange = (action: ActionFormItem, value: string | string[] | undefined) => {
 	const params = getActionParams(action);
-	params.recipientId = Array.isArray(value) ? value[0] : value;
+	params.recipientId = Array.isArray(value) ? value : value;
 };
 
 // 处理 AssignUser 的 assigneeType 变化
