@@ -134,6 +134,21 @@ namespace FlowFlex.WebApi.Controllers.OW
         }
 
         /// <summary>
+        /// Reopen submitted questionnaire answer for re-editing
+        /// </summary>
+        /// <param name="onboardingId">Onboarding ID</param>
+        /// <param name="stageId">Stage ID</param>
+        /// <param name="questionnaireId">Questionnaire ID</param>
+        /// <returns>Reopen result</returns>
+        [HttpPost("{onboardingId}/stage/{stageId}/questionnaire/{questionnaire_id}/reopen")]
+        [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
+        public async Task<IActionResult> ReopenAnswerAsync(long onboardingId, long stageId, [FromRoute(Name = "questionnaire_id")] long questionnaireId)
+        {
+            bool result = await _questionnaireAnswerService.ReopenAnswerAsync(onboardingId, stageId, questionnaireId);
+            return Success(result);
+        }
+
+        /// <summary>
         /// Review questionnaire answers
         /// </summary>
         /// <param name="input">Review data</param>

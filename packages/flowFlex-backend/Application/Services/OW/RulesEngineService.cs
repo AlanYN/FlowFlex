@@ -1287,9 +1287,57 @@ namespace FlowFlex.Application.Service.OW
             {
                 valueStr = boolValue.ToString().ToLower();
             }
+            else if (rule.Value is Newtonsoft.Json.Linq.JArray jArray)
+            {
+                // Handle JSON array - extract first element for simple comparison
+                // or join all elements for InList comparison
+                if (jArray.Count == 1)
+                {
+                    var firstValue = jArray[0]?.ToString() ?? "";
+                    var escaped = firstValue
+                        .Replace("\\", "\\\\")
+                        .Replace("\"", "\\\"");
+                    valueStr = $"\"{escaped}\"";
+                }
+                else if (jArray.Count > 1)
+                {
+                    // For multiple values, create a comma-separated string for InList comparison
+                    var values = jArray.Select(v => v?.ToString() ?? "").ToList();
+                    var escaped = string.Join(",", values)
+                        .Replace("\\", "\\\\")
+                        .Replace("\"", "\\\"");
+                    valueStr = $"\"{escaped}\"";
+                }
+                else
+                {
+                    valueStr = "\"\"";
+                }
+            }
+            else if (rule.Value is Newtonsoft.Json.Linq.JToken jToken)
+            {
+                // Handle other JToken types (JValue, JObject, etc.)
+                var tokenValue = jToken.ToString();
+                var escaped = tokenValue
+                    .Replace("\\", "\\\\")
+                    .Replace("\"", "\\\"");
+                valueStr = $"\"{escaped}\"";
+            }
             else
             {
-                valueStr = rule.Value.ToString();
+                // For other types (numbers, etc.), convert to string
+                var strVal = rule.Value.ToString();
+                // Check if it's a numeric value - don't wrap in quotes
+                if (double.TryParse(strVal, out _))
+                {
+                    valueStr = strVal;
+                }
+                else
+                {
+                    var escaped = strVal
+                        .Replace("\\", "\\\\")
+                        .Replace("\"", "\\\"");
+                    valueStr = $"\"{escaped}\"";
+                }
             }
 
             // Map frontend operator to C# expression operator
