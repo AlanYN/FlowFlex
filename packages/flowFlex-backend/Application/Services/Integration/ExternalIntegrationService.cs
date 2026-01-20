@@ -296,10 +296,9 @@ namespace FlowFlex.Application.Services.Integration
                 throw new CRMException(ErrorCodeEnum.BusinessError, "Workflow has no stages configured");
             }
 
-                        // Generate unique case name (add suffix -2, -3, etc. if duplicate)
+            // Generate unique case name (add suffix -2, -3, etc. if duplicate)
             var uniqueCaseName = await GenerateUniqueCaseNameAsync(request.CaseName);
             _logger.LogInformation("Generated unique case name: {OriginalName} -> {UniqueName}", request.CaseName, uniqueCaseName);
-
 
             long caseId;
             Domain.Entities.OW.Onboarding? targetCase;
@@ -431,6 +430,7 @@ namespace FlowFlex.Application.Services.Integration
             {
                 CaseId = caseId,
                 CaseCode = targetCase?.CaseCode ?? "",
+                CaseName = targetCase?.CaseName ?? uniqueCaseName,
                 WorkflowId = request.WorkflowId,
                 WorkflowName = workflow.Name,
                 CurrentStageId = targetCase?.CurrentStageId ?? firstStage.Id,
@@ -1377,7 +1377,7 @@ namespace FlowFlex.Application.Services.Integration
             return baseMessage;
         }
 
-                #region Unique Case Name Generation
+        #region Unique Case Name Generation
 
         /// <summary>
         /// Generate a unique case name by adding suffix (-2, -3, etc.) if duplicate exists within the same tenant
