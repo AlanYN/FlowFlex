@@ -380,7 +380,18 @@ namespace FlowFlex.Application.Service.OW
                     {
                         try
                         {
-                            value = JsonConvert.DeserializeObject(field.FieldValueJson);
+                            var parsed = JsonConvert.DeserializeObject(field.FieldValueJson);
+                            
+                            // If the value is a single-element array, extract the first element
+                            // This handles cases like ["1935628523372941312"] -> "1935628523372941312"
+                            if (parsed is Newtonsoft.Json.Linq.JArray jArray && jArray.Count == 1)
+                            {
+                                value = jArray[0]?.ToString();
+                            }
+                            else
+                            {
+                                value = parsed;
+                            }
                         }
                         catch
                         {

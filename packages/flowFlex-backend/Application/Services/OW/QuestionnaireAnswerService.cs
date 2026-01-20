@@ -523,6 +523,52 @@ namespace FlowFlex.Application.Services.OW
         }
 
         /// <summary>
+        /// Reopen submitted answer for re-editing
+        /// </summary>
+        public async Task<bool> ReopenAnswerAsync(long onboardingId, long stageId, long questionnaireId)
+        {
+            try
+            {
+                var answer = await _repository.GetByOnboardingAndStageAsync(onboardingId, stageId, questionnaireId);
+                if (answer == null) return false;
+
+                // Only submitted answers can be reopened
+                if (!string.Equals(answer.Status, "Submitted", StringComparison.OrdinalIgnoreCase))
+                {
+                    return false;
+                }
+
+                var oldStatus = answer.Status;
+                var oldSubmitTime = answer.SubmitTime;
+
+                answer.Status = "Draft";
+                answer.ModifyDate = DateTimeOffset.UtcNow;
+
+                var result = await _repository.UpdateAsync(answer);
+
+                // Log the reopen operation
+                if (result)
+                {
+                    await _operationChangeLogService.LogQuestionnaireAnswerSubmitAsync(
+                        answer.Id,
+                        onboardingId,
+                        stageId,
+                        answer.QuestionnaireId,
+                        System.Text.Json.JsonSerializer.Serialize(new { Status = oldStatus, SubmitTime = oldSubmitTime }),
+                        System.Text.Json.JsonSerializer.Serialize(new { Status = answer.Status, Action = "Reopened" }),
+                        false // isUpdate = false (this is a reopen operation)
+                    );
+                }
+
+                return result;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        /// <summary>
         /// Review answers
         /// </summary>
         public async Task<bool> ReviewAnswersAsync(QuestionnaireAnswerReviewDto input)

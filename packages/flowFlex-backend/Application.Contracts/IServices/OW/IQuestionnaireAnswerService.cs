@@ -74,6 +74,15 @@ namespace FlowFlex.Application.Contracts.IServices.OW
         Task<bool> SubmitAnswerAsync(long onboardingId, long stageId, long questionnaireId);
 
         /// <summary>
+        /// Reopen submitted answer for re-editing
+        /// </summary>
+        /// <param name="onboardingId">Onboarding ID</param>
+        /// <param name="stageId">Stage ID</param>
+        /// <param name="questionnaireId">Questionnaire ID</param>
+        /// <returns>Whether successful</returns>
+        Task<bool> ReopenAnswerAsync(long onboardingId, long stageId, long questionnaireId);
+
+        /// <summary>
         /// Review answers
         /// </summary>
         /// <param name="input">Review parameters</param>
