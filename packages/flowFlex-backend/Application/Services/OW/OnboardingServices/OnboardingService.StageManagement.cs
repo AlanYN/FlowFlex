@@ -842,7 +842,7 @@ namespace FlowFlex.Application.Services.OW
         /// Synchronously evaluate stage condition and execute actions
         /// This is called directly after stage completion instead of via async event handler
         /// </summary>
-        /// <returns>True if condition was met and actions were executed, false otherwise</returns>
+        /// <returns>True if any actions were executed (either from condition met or fallback), false otherwise</returns>
         private async Task<bool> EvaluateAndExecuteStageConditionAsync(long onboardingId, long stageId)
         {
             _logger.LogDebug("Evaluating stage condition synchronously for OnboardingId={OnboardingId}, StageId={StageId}",
@@ -879,6 +879,16 @@ namespace FlowFlex.Application.Services.OW
                 {
                     _logger.LogDebug("Stage condition not met for OnboardingId={OnboardingId}, StageId={StageId}, NextStageId={NextStageId}, Error={Error}",
                         onboardingId, stageId, result.NextStageId, result.ErrorMessage);
+                    
+                    // IMPORTANT: Even when condition is not met, fallback actions may have been executed
+                    // (e.g., GoToStage fallback). If any action was executed successfully, return true
+                    // to prevent auto-advance from overwriting the stage change made by fallback action.
+                    if (result.ActionResults != null && result.ActionResults.Any(a => a.Success))
+                    {
+                        _logger.LogInformation("Stage condition not met but fallback actions executed for OnboardingId={OnboardingId}, StageId={StageId}, ActionsExecuted={ActionCount}",
+                            onboardingId, stageId, result.ActionResults.Count(a => a.Success));
+                        return true;
+                    }
                 }
                 
                 return false;

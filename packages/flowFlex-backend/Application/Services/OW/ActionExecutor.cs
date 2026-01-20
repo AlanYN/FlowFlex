@@ -968,76 +968,7 @@ namespace FlowFlex.Application.Service.OW
 
                 if (action.Parameters.TryGetValue("assigneeIds", out var idsObj))
                 {
-                    _logger.LogDebug("AssignUser: assigneeIds raw value type={Type}, value={Value}", 
-                        idsObj?.GetType().FullName ?? "null", idsObj?.ToString() ?? "null");
-                    
-                    if (idsObj is Newtonsoft.Json.Linq.JArray jArray)
-                    {
-                        assigneeIds = jArray.Select(x => x.ToString()).ToList();
-                        _logger.LogDebug("AssignUser: Parsed as JArray, count={Count}", assigneeIds.Count);
-                    }
-                    else if (idsObj is Newtonsoft.Json.Linq.JToken jToken)
-                    {
-                        // Handle JToken (could be JArray or JValue)
-                        if (jToken.Type == Newtonsoft.Json.Linq.JTokenType.Array)
-                        {
-                            assigneeIds = jToken.ToObject<List<string>>() ?? new List<string>();
-                            _logger.LogDebug("AssignUser: Parsed JToken as array, count={Count}", assigneeIds.Count);
-                        }
-                        else
-                        {
-                            var val = jToken.ToString();
-                            if (!string.IsNullOrEmpty(val))
-                            {
-                                assigneeIds.Add(val);
-                            }
-                        }
-                    }
-                    else if (idsObj is List<object> objList)
-                    {
-                        assigneeIds = objList.Select(x => x?.ToString() ?? "").Where(x => !string.IsNullOrEmpty(x)).ToList();
-                        _logger.LogDebug("AssignUser: Parsed as List<object>, count={Count}", assigneeIds.Count);
-                    }
-                    else if (idsObj is IEnumerable<object> enumerable && !(idsObj is string))
-                    {
-                        assigneeIds = enumerable.Select(x => x?.ToString() ?? "").Where(x => !string.IsNullOrEmpty(x)).ToList();
-                        _logger.LogDebug("AssignUser: Parsed as IEnumerable, count={Count}", assigneeIds.Count);
-                    }
-                    else if (idsObj is string strValue)
-                    {
-                        _logger.LogDebug("AssignUser: assigneeIds is string: {Value}", strValue);
-                        // Handle case where assigneeIds is a JSON string array
-                        if (strValue.TrimStart().StartsWith("["))
-                        {
-                            try
-                            {
-                                var parsed = JsonConvert.DeserializeObject<List<string>>(strValue);
-                                if (parsed != null)
-                                {
-                                    assigneeIds = parsed;
-                                    _logger.LogDebug("AssignUser: Parsed JSON string as List, count={Count}", assigneeIds.Count);
-                                }
-                            }
-                            catch
-                            {
-                                assigneeIds.Add(strValue);
-                            }
-                        }
-                        else if (!string.IsNullOrEmpty(strValue))
-                        {
-                            assigneeIds.Add(strValue);
-                        }
-                    }
-                    else
-                    {
-                        _logger.LogWarning("AssignUser: Unhandled assigneeIds type: {Type}", idsObj?.GetType().FullName ?? "null");
-                        // Try to convert to string and add
-                        var strVal = idsObj?.ToString();
-                        if (!string.IsNullOrEmpty(strVal))
-                        {
-                            assigneeIds.Add(strVal);
-                        }
-                    }
+                    assigneeIds = ParseObjectToStringList(idsObj);
                 }
             }
 
@@ -1287,35 +1218,61 @@ namespace FlowFlex.Application.Service.OW
                 return new List<OnboardingStageProgress>();
             }
 
+            return ParseJsonWithDoubleEscapeHandling<List<OnboardingStageProgress>>(json, 
+                () => {
+                    _logger.LogWarning("Failed to parse StagesProgressJson for onboarding {OnboardingId}", onboardingId);
+                    return new List<OnboardingStageProgress>();
+                });
+        }
+
+        /// <summary>
+        /// Parse JSON string array, handling both normal and double-encoded formats
+        /// </summary>
+        private List<string> ParseJsonStringArray(string json)
+        {
+            if (string.IsNullOrEmpty(json))
+            {
+                return new List<string>();
+            }
+
+            return ParseJsonWithDoubleEscapeHandling<List<string>>(json, 
+                () => {
+                    _logger.LogWarning("Failed to parse JSON string array: {Json}", 
+                        json.Length > 100 ? json.Substring(0, 100) + "..." : json);
+                    return new List<string>();
+                });
+        }
+
+        /// <summary>
+        /// Generic JSON parser that handles double-escaped JSON strings
+        /// </summary>
+        private T ParseJsonWithDoubleEscapeHandling<T>(string json, Func<T> onError) where T : class, new()
+        {
             try
             {
-                // First, try direct parsing as List<OnboardingStageProgress>
-                return JsonConvert.DeserializeObject<List<OnboardingStageProgress>>(json) 
-                    ?? new List<OnboardingStageProgress>();
+                // First try direct parsing
+                var result = JsonConvert.DeserializeObject<T>(json);
+                if (result != null) return result;
             }
             catch (JsonException)
             {
                 // If direct parsing fails, try to unescape first (handle double-escaped JSON)
                 try
                 {
-                    // The JSON might be stored as a double-escaped string like: "\"[{\\\"stageId\\\":1}]\""
-                    // First deserialize to get the inner string
                     var unescapedJson = JsonConvert.DeserializeObject<string>(json);
                     if (!string.IsNullOrEmpty(unescapedJson))
                     {
-                        return JsonConvert.DeserializeObject<List<OnboardingStageProgress>>(unescapedJson) 
-                            ?? new List<OnboardingStageProgress>();
+                        var result = JsonConvert.DeserializeObject<T>(unescapedJson);
+                        if (result != null) return result;
                     }
                 }
                 catch (JsonException)
                 {
-                    // If still fails, the format is unexpected
+                    // Format is unexpected
                 }
-
-                _logger.LogWarning("Failed to parse StagesProgressJson for onboarding {OnboardingId}, starting with empty list. Raw value: {RawJson}", 
-                    onboardingId, json.Length > 200 ? json.Substring(0, 200) + "..." : json);
-                return new List<OnboardingStageProgress>();
             }
+
+            return onError();
         }
 
         /// <summary>
@@ -1395,49 +1352,55 @@ namespace FlowFlex.Application.Service.OW
         }
 
         /// <summary>
-        /// Parse JSON string array, handling both normal and double-encoded formats
+        /// Parse various object types to string list (handles JArray, JToken, List, IEnumerable, string)
         /// </summary>
-        private List<string> ParseJsonStringArray(string json)
+        private List<string> ParseObjectToStringList(object? obj)
         {
-            if (string.IsNullOrEmpty(json))
+            if (obj == null) return new List<string>();
+
+            // Handle JArray
+            if (obj is Newtonsoft.Json.Linq.JArray jArray)
             {
-                return new List<string>();
+                return jArray.Select(x => x.ToString()).Where(x => !string.IsNullOrEmpty(x)).ToList();
             }
 
-            try
+            // Handle JToken (could be JArray or JValue)
+            if (obj is Newtonsoft.Json.Linq.JToken jToken)
             {
-                // First try normal JSON array deserialization
-                var result = JsonConvert.DeserializeObject<List<string>>(json);
-                if (result != null)
+                if (jToken.Type == Newtonsoft.Json.Linq.JTokenType.Array)
                 {
-                    return result;
+                    return jToken.ToObject<List<string>>() ?? new List<string>();
                 }
+                var val = jToken.ToString();
+                return !string.IsNullOrEmpty(val) ? new List<string> { val } : new List<string>();
             }
-            catch (JsonException)
+
+            // Handle List<object> or IEnumerable<object>
+            if (obj is IEnumerable<object> enumerable && !(obj is string))
             {
-                // If normal parsing fails, try to handle double-encoded string
-                try
+                return enumerable.Select(x => x?.ToString() ?? "").Where(x => !string.IsNullOrEmpty(x)).ToList();
+            }
+
+            // Handle string (could be JSON array or single value)
+            if (obj is string strValue)
+            {
+                if (strValue.TrimStart().StartsWith("["))
                 {
-                    // Check if it's a double-encoded JSON string (e.g., "\"[\\\"123\\\"]\"")
-                    var unescaped = JsonConvert.DeserializeObject<string>(json);
-                    if (!string.IsNullOrEmpty(unescaped))
+                    try
                     {
-                        var result = JsonConvert.DeserializeObject<List<string>>(unescaped);
-                        if (result != null)
-                        {
-                            return result;
-                        }
+                        return JsonConvert.DeserializeObject<List<string>>(strValue) ?? new List<string>();
+                    }
+                    catch
+                    {
+                        // Fall through to single value
                     }
                 }
-                catch
-                {
-                    // Ignore nested parsing errors
-                }
+                return !string.IsNullOrEmpty(strValue) ? new List<string> { strValue } : new List<string>();
             }
 
-            _logger.LogWarning("Failed to parse JSON string array: {Json}", 
-                json.Length > 100 ? json.Substring(0, 100) + "..." : json);
-            return new List<string>();
+            // Fallback: convert to string
+            var strVal = obj.ToString();
+            return !string.IsNullOrEmpty(strVal) ? new List<string> { strVal } : new List<string>();
         }
 
         #endregion

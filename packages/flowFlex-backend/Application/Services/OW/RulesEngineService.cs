@@ -600,10 +600,8 @@ namespace FlowFlex.Application.Service.OW
         /// </summary>
         private string GetSkipStageDetail(Dictionary<string, object> resultData)
         {
-            var targetStageName = resultData.TryGetValue("targetStageName", out var stageName) 
-                ? stageName?.ToString() : "";
-            var skippedCount = resultData.TryGetValue("skippedCount", out var count) 
-                ? count?.ToString() : "";
+            var targetStageName = GetResultDataString(resultData, "targetStageName") ?? "";
+            var skippedCount = GetResultDataString(resultData, "skippedCount") ?? "";
 
             if (!string.IsNullOrEmpty(targetStageName))
             {
@@ -625,10 +623,8 @@ namespace FlowFlex.Application.Service.OW
         /// </summary>
         private string GetEndWorkflowDetail(Dictionary<string, object> resultData)
         {
-            var endStatus = resultData.TryGetValue("endStatus", out var status) 
-                ? status?.ToString() : "";
-            var previousStatus = resultData.TryGetValue("previousStatus", out var prevStatus) 
-                ? prevStatus?.ToString() : "";
+            var endStatus = GetResultDataString(resultData, "endStatus") ?? "";
+            var previousStatus = GetResultDataString(resultData, "previousStatus") ?? "";
 
             if (string.IsNullOrEmpty(endStatus))
             {
@@ -649,24 +645,20 @@ namespace FlowFlex.Application.Service.OW
         /// </summary>
         private string GetSendNotificationDetail(Dictionary<string, object> resultData)
         {
-            var recipientName = resultData.TryGetValue("recipientName", out var name) 
-                ? name?.ToString() : "";
-            var recipientEmail = resultData.TryGetValue("recipientEmail", out var email) 
-                ? email?.ToString() : "";
-            var sendStatus = resultData.TryGetValue("status", out var statusObj) 
-                ? statusObj?.ToString() : "";
+            var recipientName = GetResultDataString(resultData, "recipientName");
+            var recipientEmail = GetResultDataString(resultData, "recipientEmail");
 
             if (string.IsNullOrEmpty(recipientEmail))
             {
                 return "";
             }
 
-            var truncatedEmail = TruncateEmail(recipientEmail);
+            var truncatedEmail = TruncateString(recipientEmail, 20);
             
             // If we have a name that's different from email, show both
             if (!string.IsNullOrEmpty(recipientName) && recipientName != recipientEmail)
             {
-                var truncatedName = recipientName.Length > 10 ? recipientName.Substring(0, 8) + ".." : recipientName;
+                var truncatedName = TruncateString(recipientName, 10);
                 return $"{truncatedName}<{truncatedEmail}>";
             }
             
@@ -679,29 +671,16 @@ namespace FlowFlex.Application.Service.OW
         /// </summary>
         private string GetUpdateFieldDetailWithValue(Dictionary<string, object> resultData)
         {
-            // Get field name (prefer displayName > fieldName > fieldKey > fieldId)
             var fieldDisplayName = GetUpdateFieldDetail(resultData);
             if (string.IsNullOrEmpty(fieldDisplayName))
             {
                 return "";
             }
 
-            // Get field value
-            var fieldValue = "";
-            if (resultData.TryGetValue("newValue", out var newValue) && newValue != null)
-            {
-                fieldValue = newValue.ToString() ?? "";
-                // Truncate long values
-                if (fieldValue.Length > 20)
-                {
-                    fieldValue = fieldValue.Substring(0, 17) + "...";
-                }
-            }
-
-            // Return fieldName=value format
+            var fieldValue = GetResultDataString(resultData, "newValue");
             if (!string.IsNullOrEmpty(fieldValue))
             {
-                return $"{fieldDisplayName}={fieldValue}";
+                return $"{fieldDisplayName}={TruncateString(fieldValue, 20)}";
             }
             return fieldDisplayName;
         }
@@ -712,47 +691,22 @@ namespace FlowFlex.Application.Service.OW
         /// </summary>
         private string GetAssignUserDetail(Dictionary<string, object> resultData)
         {
-            var assigneeType = resultData.TryGetValue("assigneeType", out var type) 
-                ? type?.ToString() : "";
-            
-            // Try to get assignee names first (preferred for display)
-            List<string> assigneeNames = new List<string>();
-            if (resultData.TryGetValue("assigneeNames", out var namesObj))
-            {
-                if (namesObj is IEnumerable<object> enumerable)
-                {
-                    assigneeNames = enumerable.Select(x => x?.ToString() ?? "").Where(x => !string.IsNullOrEmpty(x)).ToList();
-                }
-                else if (namesObj is Newtonsoft.Json.Linq.JArray jArray)
-                {
-                    assigneeNames = jArray.Select(x => x.ToString()).ToList();
-                }
-            }
-
+            var assigneeType = GetResultDataString(resultData, "assigneeType");
             if (string.IsNullOrEmpty(assigneeType))
             {
                 return "";
             }
 
-            // Show all names without truncation
+            // Try to get assignee names first (preferred for display)
+            var assigneeNames = GetResultDataStringList(resultData, "assigneeNames");
             if (assigneeNames.Count > 0)
             {
-                var namesDisplay = string.Join(",", assigneeNames);
-                return $"{assigneeType}:{namesDisplay}";
+                return $"{assigneeType}:{string.Join(",", assigneeNames)}";
             }
             
             // Fallback: show count only
-            var assigneeCount = resultData.TryGetValue("assigneeCount", out var count) 
-                ? count?.ToString() : "0";
+            var assigneeCount = GetResultDataString(resultData, "assigneeCount") ?? "0";
             return $"{assigneeType}×{assigneeCount}";
-        }
-
-        /// <summary>
-        /// Build AssignUser action detail (legacy method for backward compatibility)
-        /// </summary>
-        private string BuildAssignUserDetail(Dictionary<string, object> resultData)
-        {
-            return GetAssignUserDetail(resultData);
         }
 
         /// <summary>
@@ -761,35 +715,50 @@ namespace FlowFlex.Application.Service.OW
         private string GetUpdateFieldDetail(Dictionary<string, object> resultData)
         {
             // Prefer fieldName for display, fallback to fieldKey/fieldId
-            if (resultData.TryGetValue("fieldName", out var fieldName) && !string.IsNullOrEmpty(fieldName?.ToString()))
-            {
-                return fieldName.ToString()!;
-            }
-            if (resultData.TryGetValue("fieldKey", out var fieldKey) && !string.IsNullOrEmpty(fieldKey?.ToString()))
-            {
-                return fieldKey.ToString()!;
-            }
-            if (resultData.TryGetValue("fieldId", out var fieldId) && !string.IsNullOrEmpty(fieldId?.ToString()))
-            {
-                return fieldId.ToString()!;
-            }
-            return "";
+            return GetResultDataString(resultData, "fieldName")
+                ?? GetResultDataString(resultData, "fieldKey")
+                ?? GetResultDataString(resultData, "fieldId")
+                ?? "";
         }
 
         /// <summary>
-        /// Truncate email for display (show first part only if too long)
+        /// Truncate string for display
         /// </summary>
-        private string TruncateEmail(string? email)
+        private string TruncateString(string? value, int maxLength)
         {
-            if (string.IsNullOrEmpty(email)) return "";
-            if (email.Length <= 20) return email;
-            
-            var atIndex = email.IndexOf('@');
-            if (atIndex > 0 && atIndex <= 15)
+            if (string.IsNullOrEmpty(value)) return "";
+            if (value.Length <= maxLength) return value;
+            return value.Substring(0, maxLength - 3) + "...";
+        }
+
+        /// <summary>
+        /// Get string value from result data dictionary
+        /// </summary>
+        private string? GetResultDataString(Dictionary<string, object> resultData, string key)
+        {
+            return resultData.TryGetValue(key, out var value) ? value?.ToString() : null;
+        }
+
+        /// <summary>
+        /// Get string list from result data dictionary
+        /// </summary>
+        private List<string> GetResultDataStringList(Dictionary<string, object> resultData, string key)
+        {
+            if (!resultData.TryGetValue(key, out var value) || value == null)
             {
-                return email;
+                return new List<string>();
             }
-            return email.Substring(0, 17) + "...";
+
+            if (value is IEnumerable<object> enumerable)
+            {
+                return enumerable.Select(x => x?.ToString() ?? "").Where(x => !string.IsNullOrEmpty(x)).ToList();
+            }
+            if (value is Newtonsoft.Json.Linq.JArray jArray)
+            {
+                return jArray.Select(x => x.ToString()).Where(x => !string.IsNullOrEmpty(x)).ToList();
+            }
+            
+            return new List<string>();
         }
 
         /// <summary>
