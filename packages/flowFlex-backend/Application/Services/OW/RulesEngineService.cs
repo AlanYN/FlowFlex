@@ -667,7 +667,7 @@ namespace FlowFlex.Application.Service.OW
 
         /// <summary>
         /// Get UpdateField action detail with value - show fieldName=value
-        /// Format: "FieldName=Value" (value truncated if too long)
+        /// Format: "FieldName=Value" (shows all user names without truncation for People type fields)
         /// </summary>
         private string GetUpdateFieldDetailWithValue(Dictionary<string, object> resultData)
         {
@@ -677,10 +677,13 @@ namespace FlowFlex.Application.Service.OW
                 return "";
             }
 
-            var fieldValue = GetResultDataString(resultData, "newValue");
+            // Prefer displayValue (user names) over newValue (user IDs) for People type fields
+            // Do not truncate - show all user names
+            var fieldValue = GetResultDataString(resultData, "displayValue") 
+                ?? GetResultDataString(resultData, "newValue");
             if (!string.IsNullOrEmpty(fieldValue))
             {
-                return $"{fieldDisplayName}={TruncateString(fieldValue, 20)}";
+                return $"{fieldDisplayName}={fieldValue}";
             }
             return fieldDisplayName;
         }

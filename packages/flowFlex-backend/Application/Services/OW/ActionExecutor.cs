@@ -837,12 +837,16 @@ namespace FlowFlex.Application.Service.OW
 
                 await _staticFieldValueService.BatchSaveAsync(batchInput);
 
+                // Try to convert user IDs to display names for People type fields
+                var displayValue = await TryConvertUserIdsToNamesAsync(fieldValue, context.TenantId);
+
                 result.Success = true;
                 result.ResultData["stageId"] = caseSharedStageId;
                 result.ResultData["fieldId"] = fieldId ?? string.Empty;
                 result.ResultData["fieldName"] = storageFieldName;
                 result.ResultData["fieldKey"] = storageFieldName;
                 result.ResultData["newValue"] = fieldValue!;
+                result.ResultData["displayValue"] = displayValue ?? fieldValue!;
 
                 _logger.LogInformation("UpdateField executed: Onboarding {OnboardingId}, Field {FieldKey} set to {NewValue} (case-level shared)",
                     context.OnboardingId, storageFieldName, fieldValue);
@@ -1126,13 +1130,19 @@ namespace FlowFlex.Application.Service.OW
                             string.Join(",", availableTeamIds));
 
                         // Filter users by teamIds and collect their user IDs and names
+                        // Only include normal users (userType == 3), exclude SystemAdmin (1) and TenantAdmin (2)
                         foreach (var teamId in teamIds)
                         {
                             var teamMembers = teamUsers.Where(tu => tu.TeamId == teamId).ToList();
-                            _logger.LogDebug("AssignUser team: Team {TeamId} has {MemberCount} members",
+                            _logger.LogDebug("AssignUser team: Team {TeamId} has {MemberCount} total members",
                                 teamId, teamMembers.Count);
 
-                            foreach (var member in teamMembers)
+                            // Filter to only include normal users (userType == 3)
+                            var normalUsers = teamMembers.Where(m => m.UserType == 3).ToList();
+                            _logger.LogDebug("AssignUser team: Team {TeamId} has {NormalUserCount} normal users (userType=3)",
+                                teamId, normalUsers.Count);
+
+                            foreach (var member in normalUsers)
                             {
                                 if (!string.IsNullOrEmpty(member.Id) && !memberUserIds.Contains(member.Id))
                                 {
@@ -1142,8 +1152,8 @@ namespace FlowFlex.Application.Service.OW
                                         ? $"{member.FirstName} {member.LastName}".Trim()
                                         : member.UserName ?? member.Email ?? member.Id;
                                     memberNames.Add(displayName);
-                                    _logger.LogDebug("AssignUser team: Added member Id={MemberId}, UserName={UserName}",
-                                        member.Id, member.UserName);
+                                    _logger.LogDebug("AssignUser team: Added normal user Id={MemberId}, UserName={UserName}, UserType={UserType}",
+                                        member.Id, member.UserName, member.UserType);
                                 }
                             }
                         }
@@ -1348,6 +1358,75 @@ namespace FlowFlex.Application.Service.OW
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error marking skipped stages for onboarding {OnboardingId}", onboarding.Id);
+            }
+        }
+
+        /// <summary>
+        /// Try to convert user IDs to display names for People type fields
+        /// Returns the display value string if conversion is successful, otherwise returns null
+        /// </summary>
+        private async Task<string?> TryConvertUserIdsToNamesAsync(object? fieldValue, string tenantId)
+        {
+            if (fieldValue == null) return null;
+
+            try
+            {
+                // Parse field value to get potential user IDs
+                var stringValues = ParseObjectToStringList(fieldValue);
+                if (!stringValues.Any()) return null;
+
+                // Check if all values look like user IDs (numeric strings)
+                var userIds = new List<long>();
+                foreach (var val in stringValues)
+                {
+                    if (long.TryParse(val, out var userId))
+                    {
+                        userIds.Add(userId);
+                    }
+                    else
+                    {
+                        // Not all values are numeric, probably not user IDs
+                        return null;
+                    }
+                }
+
+                if (!userIds.Any()) return null;
+
+                // Try to get user names from UserService
+                var users = await _userService.GetUsersByIdsAsync(userIds, tenantId);
+                if (users == null || !users.Any())
+                {
+                    _logger.LogDebug("TryConvertUserIdsToNames: No users found for IDs {UserIds}", string.Join(",", userIds));
+                    return null;
+                }
+
+                // Build display names list
+                var displayNames = new List<string>();
+                foreach (var userId in userIds)
+                {
+                    var user = users.FirstOrDefault(u => u.Id == userId);
+                    if (user != null)
+                    {
+                        // Use Username which already has display name with priority: FirstName + LastName > UserName
+                        var displayName = user.Username ?? user.Email ?? userId.ToString();
+                        displayNames.Add(displayName);
+                    }
+                    else
+                    {
+                        // User not found, keep the ID
+                        displayNames.Add(userId.ToString());
+                    }
+                }
+
+                _logger.LogDebug("TryConvertUserIdsToNames: Converted {IdCount} user IDs to names: {Names}",
+                    userIds.Count, string.Join(",", displayNames));
+
+                return string.Join(",", displayNames);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "TryConvertUserIdsToNames: Failed to convert user IDs to names");
+                return null;
             }
         }
 
