@@ -171,6 +171,7 @@
 									:questionnaire-data="
 										getQuestionnaireDataForComponent(component)
 									"
+									:currentstageCanCompleted="!!stageCanCompleted"
 									:onboardingId="onboardingId"
 									@stage-updated="handleStageUpdated"
 									:loading="questionnaireLoading"
