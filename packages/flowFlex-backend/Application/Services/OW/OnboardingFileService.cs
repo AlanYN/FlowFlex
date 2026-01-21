@@ -1,10 +1,12 @@
 using Microsoft.AspNetCore.Http;
 using FlowFlex.Application.Contracts.Dtos.OW.OnboardingFile;
 using FlowFlex.Application.Contracts.IServices.OW;
+using FlowFlex.Application.Contracts.IServices.Integration;
 using FlowFlex.Domain.Entities.OW;
 using FlowFlex.Domain.Repository.OW;
 using AutoMapper;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.DependencyInjection;
 using FlowFlex.Domain.Shared;
 using FlowFlex.Domain.Shared.Models;
 using FlowFlex.Application.Contracts;
@@ -31,6 +33,7 @@ namespace FlowFlex.Application.Services.OW
         private readonly IStageRepository _stageRepository;
         private readonly IAttachmentService _attachmentService;
         private readonly IOperationChangeLogService _operationChangeLogService;
+        private readonly IServiceProvider _serviceProvider;
         private readonly IMapper _mapper;
         private readonly ILogger<OnboardingFileService> _logger;
         private readonly UserContext _userContext;
@@ -45,6 +48,7 @@ namespace FlowFlex.Application.Services.OW
             IStageRepository stageRepository,
             IAttachmentService attachmentService,
             IOperationChangeLogService operationChangeLogService,
+            IServiceProvider serviceProvider,
             IMapper mapper,
             ILogger<OnboardingFileService> logger,
             UserContext userContext,
@@ -58,6 +62,7 @@ namespace FlowFlex.Application.Services.OW
             _stageRepository = stageRepository;
             _attachmentService = attachmentService;
             _operationChangeLogService = operationChangeLogService;
+            _serviceProvider = serviceProvider;
             _mapper = mapper;
             _logger = logger;
             _userContext = userContext;
@@ -324,6 +329,16 @@ namespace FlowFlex.Application.Services.OW
                     files = files.Where(f => f.Category == category).ToList();
                 }
 
+                // Check if onboarding has SystemId, sync external attachments and mark deleted files
+                await SyncExternalImportFilesAsync(onboardingId, files);
+
+                // Re-fetch files after sync to get updated status
+                files = await _onboardingFileRepository.GetFilesByOnboardingAsync(onboardingId, stageId);
+                if (!string.IsNullOrEmpty(category))
+                {
+                    files = files.Where(f => f.Category == category).ToList();
+                }
+
                 var results = _mapper.Map<List<OnboardingFileOutputDto>>(files);
 
                 foreach (var result in results)
@@ -338,6 +353,108 @@ namespace FlowFlex.Application.Services.OW
             {
                 _logger.LogError(ex, $"Error getting files for Onboarding {onboardingId}");
                 throw new CRMException(ErrorCodeEnum.SystemError, $"Failed to get files: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Sync external import files with external system
+        /// If case has SystemId, fetch attachments from external system and mark deleted files that no longer exist
+        /// </summary>
+        private async Task SyncExternalImportFilesAsync(long onboardingId, List<OnboardingFile> files)
+        {
+            try
+            {
+                // Get onboarding to check if it has SystemId
+                var onboarding = await _onboardingRepository.GetByIdAsync(onboardingId);
+                if (onboarding == null || string.IsNullOrEmpty(onboarding.SystemId))
+                {
+                    return;
+                }
+
+                // Get external import files (IsExternalImport = true and has Source)
+                var externalImportFiles = files
+                    .Where(f => f.IsExternalImport && !string.IsNullOrEmpty(f.Source) && f.IsValid && f.Status == "Active")
+                    .ToList();
+
+                if (!externalImportFiles.Any())
+                {
+                    return;
+                }
+
+                _logger.LogInformation("Syncing external import files for Onboarding {OnboardingId}, SystemId={SystemId}, EntityId={EntityId}, ExternalFileCount={Count}",
+                    onboardingId, onboarding.SystemId, onboarding.EntityId, externalImportFiles.Count);
+
+                // Lazy resolve IExternalIntegrationService to avoid circular dependency
+                var externalIntegrationService = _serviceProvider.GetRequiredService<IExternalIntegrationService>();
+
+                // Fetch attachments from external system
+                var externalResponse = await externalIntegrationService.FetchInboundAttachmentsFromExternalAsync(
+                    onboarding.SystemId, onboarding.EntityId);
+
+                if (!externalResponse.Success || externalResponse.Data?.ActionExecutions == null)
+                {
+                    _logger.LogWarning("Failed to fetch external attachments for SystemId={SystemId}: {Message}",
+                        onboarding.SystemId, externalResponse.Message);
+                    return;
+                }
+
+                // Build a set of external attachment identifiers (IntegrationName + FileName)
+                var externalAttachmentKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                foreach (var actionExecution in externalResponse.Data.ActionExecutions)
+                {
+                    if (actionExecution.IsSuccess && actionExecution.Attachments != null)
+                    {
+                        foreach (var attachment in actionExecution.Attachments)
+                        {
+                            // Use IntegrationName + FileName as unique key
+                            var key = $"{actionExecution.IntegrationName}|{attachment.FileName}";
+                            externalAttachmentKeys.Add(key);
+                        }
+                    }
+                }
+
+                _logger.LogInformation("Found {Count} attachments from external system for SystemId={SystemId}",
+                    externalAttachmentKeys.Count, onboarding.SystemId);
+
+                // Check each external import file and mark as deleted if not found in external system
+                foreach (var file in externalImportFiles)
+                {
+                    var fileKey = $"{file.Source}|{file.OriginalFileName}";
+                    if (!externalAttachmentKeys.Contains(fileKey))
+                    {
+                        _logger.LogInformation("External file no longer exists, marking as deleted: FileId={FileId}, FileName={FileName}, Source={Source}",
+                            file.Id, file.OriginalFileName, file.Source);
+
+                        // Mark file as deleted
+                        file.IsValid = false;
+                        file.Status = "Deleted";
+                        file.ModifyBy = "System";
+                        file.ModifyDate = DateTimeOffset.UtcNow;
+
+                        await _onboardingFileRepository.UpdateAsync(file);
+
+                        // Log the deletion
+                        try
+                        {
+                            await _operationChangeLogService.LogFileDeleteAsync(
+                                file.Id,
+                                file.OriginalFileName,
+                                file.OnboardingId,
+                                file.StageId,
+                                $"File automatically deleted - no longer exists in external system ({file.Source})"
+                            );
+                        }
+                        catch (Exception logEx)
+                        {
+                            _logger.LogError(logEx, "Failed to log file deletion for FileId={FileId}", file.Id);
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                // Log error but don't fail the main operation
+                _logger.LogError(ex, "Error syncing external import files for Onboarding {OnboardingId}", onboardingId);
             }
         }
 
