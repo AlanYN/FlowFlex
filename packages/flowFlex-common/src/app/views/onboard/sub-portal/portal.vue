@@ -1345,26 +1345,21 @@ const processOnboardingData = (responseData: any) => {
 	let newStageId = '';
 
 	// 优先使用路由中的 stageId
-	if (stageIdFromRoute.value) {
-		// 验证路由中的 stageId 是否存在于工作流阶段中
-		const foundStage = workflowStages.value.find(
-			(stage) => stage.stageId === stageIdFromRoute.value
-		);
-		if (foundStage) {
-			newStageId = stageIdFromRoute.value;
-		}
-	}
 
-	// 如果路由中没有 stageId 或者无效，则使用默认逻辑
-	if (!newStageId) {
-		const sortedStages = [...workflowStages.value].sort(
-			(a, b) => (a.order || 0) - (b.order || 0)
-		);
-		const curentStageStage =
-			sortedStages.find((stage) => (stage.id == stage.id) == responseData.currentStageId)
-				?.id || '';
-		if (curentStageStage) {
-			newStageId = curentStageStage;
+	const sortedStages = workflowStages.value.sort((a, b) => (a.order || 0) - (b.order || 0));
+	const curentStageStage =
+		sortedStages.find((stage) => stage.stageId == responseData.currentStageId)?.stageId || '';
+	if (curentStageStage) {
+		newStageId = curentStageStage;
+	} else {
+		if (stageIdFromRoute.value) {
+			// 验证路由中的 stageId 是否存在于工作流阶段中
+			const foundStage = workflowStages.value.find(
+				(stage) => stage.stageId === stageIdFromRoute.value
+			);
+			if (foundStage) {
+				newStageId = stageIdFromRoute.value;
+			}
 		} else {
 			const firstIncompleteStage = sortedStages.find(
 				(stage) => stage.id == !stage.isCompleted
