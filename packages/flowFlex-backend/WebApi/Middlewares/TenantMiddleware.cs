@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Http;
 using FlowFlex.Domain.Shared.Models;
+using FlowFlex.Application.Contracts.IServices.OW;
 using System.Threading.Tasks;
 
 namespace FlowFlex.WebApi.Middlewares
@@ -18,10 +19,10 @@ namespace FlowFlex.WebApi.Middlewares
             _logger = logger;
         }
 
-        public async Task InvokeAsync(HttpContext context)
+        public async Task InvokeAsync(HttpContext context, IPortalTokenService portalTokenService)
         {
             // Get tenant ID
-            var tenantId = GetTenantId(context);
+            var tenantId = GetTenantId(context, portalTokenService);
 
             // 详细记录租户ID的来源和值
             _logger.LogInformation($"[TenantMiddleware] Request: {context.Request.Method} {context.Request.Path}, TenantId: {tenantId}");
@@ -41,6 +42,20 @@ namespace FlowFlex.WebApi.Middlewares
                 context.Request.Headers["X-Tenant-Id"] = tenantId;
                 _logger.LogDebug($"[TenantMiddleware] Added X-Tenant-Id header: {tenantId}");
             }
+            else
+            {
+                // For Portal tokens, override the header with token's tenantId
+                var authHeader = context.Request.Headers["Authorization"].FirstOrDefault();
+                if (!string.IsNullOrEmpty(authHeader) && authHeader.StartsWith("Bearer "))
+                {
+                    var token = authHeader.Substring("Bearer ".Length).Trim();
+                    if (portalTokenService.IsPortalToken(token))
+                    {
+                        context.Request.Headers["X-Tenant-Id"] = tenantId;
+                        _logger.LogDebug($"[TenantMiddleware] Overrode X-Tenant-Id header for Portal token: {tenantId}");
+                    }
+                }
+            }
 
             // Add tenant ID to response headers (for debugging)
             context.Response.Headers["X-Response-Tenant-Id"] = tenantId;
@@ -48,8 +63,24 @@ namespace FlowFlex.WebApi.Middlewares
             await _next(context);
         }
 
-        private string GetTenantId(HttpContext context)
+        private string GetTenantId(HttpContext context, IPortalTokenService portalTokenService)
         {
+            // For Portal tokens, always use tenantId from token (security requirement)
+            var authHeader = context.Request.Headers["Authorization"].FirstOrDefault();
+            if (!string.IsNullOrEmpty(authHeader) && authHeader.StartsWith("Bearer "))
+            {
+                var token = authHeader.Substring("Bearer ".Length).Trim();
+                if (portalTokenService.IsPortalToken(token))
+                {
+                    var validationResult = portalTokenService.ValidatePortalToken(token);
+                    if (validationResult.IsValid && !string.IsNullOrEmpty(validationResult.TenantId))
+                    {
+                        _logger.LogDebug($"[TenantMiddleware] Found TenantId from Portal token: {validationResult.TenantId}");
+                        return validationResult.TenantId;
+                    }
+                }
+            }
+
             // Try to get tenant ID from multiple sources
 
             // 1. Get from X-Tenant-Id header
