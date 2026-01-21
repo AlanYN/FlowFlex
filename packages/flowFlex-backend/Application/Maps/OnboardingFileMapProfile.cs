@@ -32,12 +32,14 @@ namespace FlowFlex.Application.Maps
                 .ForMember(dest => dest.LastModifiedDate, opt => opt.MapFrom(src => src.LastModifiedDate))
                 .ForMember(dest => dest.Status, opt => opt.MapFrom(src => src.Status))
                 .ForMember(dest => dest.TenantId, opt => opt.MapFrom(src => src.TenantId))
-                // 忽略DTO中有但实体中没有的属�?
+                .ForMember(dest => dest.IsExternalImport, opt => opt.MapFrom(src => src.IsExternalImport))
+                .ForMember(dest => dest.Source, opt => opt.MapFrom(src => src.Source))
+                // 忽略DTO中有但实体中没有的属性
                 .ForMember(dest => dest.StageName, opt => opt.Ignore())
                 .ForMember(dest => dest.FileSizeFormatted, opt => opt.Ignore())
                 .ForMember(dest => dest.DownloadUrl, opt => opt.Ignore());
 
-            // InputDto -> Entity 映射 - 只映射基本属性，忽略InputDto中不存在的属�?
+            // InputDto -> Entity 映射 - 只映射基本属性，忽略InputDto中不存在的属�?
             CreateMap<OnboardingFileInputDto, OnboardingFile>()
                 .ForMember(dest => dest.OnboardingId, opt => opt.MapFrom(src => src.OnboardingId))
                 .ForMember(dest => dest.StageId, opt => opt.MapFrom(src => src.StageId))
@@ -46,7 +48,7 @@ namespace FlowFlex.Application.Maps
                 .ForMember(dest => dest.IsRequired, opt => opt.MapFrom(src => src.IsRequired))
                 .ForMember(dest => dest.Tags, opt => opt.MapFrom(src => src.Tags))
                 .ForMember(dest => dest.Status, opt => opt.MapFrom(src => "Active"))
-                // 忽略所有其他属�?
+                // 忽略所有其他属�?
                 .ForMember(dest => dest.Id, opt => opt.Ignore())
                 .ForMember(dest => dest.TenantId, opt => opt.Ignore())
                 .ForMember(dest => dest.IsValid, opt => opt.Ignore())
