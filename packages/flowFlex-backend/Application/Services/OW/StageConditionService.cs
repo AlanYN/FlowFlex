@@ -283,15 +283,19 @@ namespace FlowFlex.Application.Service.OW
                         changedFields.Add("Description");
                         changeDescriptions.Add($"Description updated");
                     }
-                    if (originalRulesJson != condition.RulesJson)
+                    // Use semantic JSON comparison for RulesJson
+                    if (!AreJsonSemanticallyEqual(originalRulesJson, condition.RulesJson))
                     {
                         changedFields.Add("RulesJson");
-                        changeDescriptions.Add($"Rules configuration updated");
+                        var rulesChangeDetail = GetRulesChangeDescription(originalRulesJson, condition.RulesJson);
+                        changeDescriptions.Add(rulesChangeDetail);
                     }
-                    if (originalActionsJson != condition.ActionsJson)
+                    // Use semantic JSON comparison for ActionsJson
+                    if (!AreJsonSemanticallyEqual(originalActionsJson, condition.ActionsJson))
                     {
                         changedFields.Add("ActionsJson");
-                        changeDescriptions.Add($"Actions configuration updated");
+                        var actionsChangeDetail = GetActionsChangeDescription(originalActionsJson, condition.ActionsJson);
+                        changeDescriptions.Add(actionsChangeDetail);
                     }
                     if (originalFallbackStageId != condition.FallbackStageId)
                     {
@@ -1316,6 +1320,211 @@ namespace FlowFlex.Application.Service.OW
             }
 
             return false;
+        }
+
+        /// <summary>
+        /// Compare two JSON strings semantically (ignoring formatting differences like whitespace)
+        /// Returns true if they represent the same JSON structure and values
+        /// </summary>
+        private bool AreJsonSemanticallyEqual(string json1, string json2)
+        {
+            // Handle null/empty cases
+            if (string.IsNullOrWhiteSpace(json1) && string.IsNullOrWhiteSpace(json2))
+                return true;
+            if (string.IsNullOrWhiteSpace(json1) || string.IsNullOrWhiteSpace(json2))
+                return false;
+
+            try
+            {
+                var token1 = Newtonsoft.Json.Linq.JToken.Parse(json1);
+                var token2 = Newtonsoft.Json.Linq.JToken.Parse(json2);
+                return Newtonsoft.Json.Linq.JToken.DeepEquals(token1, token2);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to parse JSON for semantic comparison, falling back to string comparison");
+                // Fallback to string comparison if JSON parsing fails
+                return json1 == json2;
+            }
+        }
+
+        /// <summary>
+        /// Get detailed description of rules changes
+        /// </summary>
+        private string GetRulesChangeDescription(string originalRulesJson, string newRulesJson)
+        {
+            try
+            {
+                var originalRules = ParseFrontendRules(originalRulesJson);
+                var newRules = ParseFrontendRules(newRulesJson);
+
+                if (originalRules == null && newRules == null)
+                    return "Rules configuration updated";
+
+                var changes = new List<string>();
+
+                // Compare logic
+                var originalLogic = originalRules?.Logic ?? "AND";
+                var newLogic = newRules?.Logic ?? "AND";
+                if (!string.Equals(originalLogic, newLogic, StringComparison.OrdinalIgnoreCase))
+                {
+                    changes.Add($"Logic changed from '{originalLogic}' to '{newLogic}'");
+                }
+
+                // Compare rule counts
+                var originalCount = originalRules?.Rules?.Count ?? 0;
+                var newCount = newRules?.Rules?.Count ?? 0;
+
+                if (originalCount != newCount)
+                {
+                    if (newCount > originalCount)
+                        changes.Add($"Added {newCount - originalCount} rule(s) (total: {newCount})");
+                    else
+                        changes.Add($"Removed {originalCount - newCount} rule(s) (total: {newCount})");
+                }
+
+                // Compare individual rules for modifications
+                if (originalRules?.Rules != null && newRules?.Rules != null)
+                {
+                    var modifiedRules = 0;
+                    var minCount = Math.Min(originalCount, newCount);
+                    for (int i = 0; i < minCount; i++)
+                    {
+                        var origRule = originalRules.Rules[i];
+                        var newRule = newRules.Rules[i];
+                        if (origRule.FieldPath != newRule.FieldPath ||
+                            origRule.Operator != newRule.Operator ||
+                            origRule.Value?.ToString() != newRule.Value?.ToString())
+                        {
+                            modifiedRules++;
+                        }
+                    }
+                    if (modifiedRules > 0)
+                    {
+                        changes.Add($"Modified {modifiedRules} existing rule(s)");
+                    }
+                }
+
+                return changes.Count > 0 
+                    ? $"Rules: {string.Join(", ", changes)}" 
+                    : "Rules configuration updated";
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to parse rules for change description");
+                return "Rules configuration updated";
+            }
+        }
+
+        /// <summary>
+        /// Get detailed description of actions changes
+        /// </summary>
+        private string GetActionsChangeDescription(string originalActionsJson, string newActionsJson)
+        {
+            try
+            {
+                var originalActions = ParseActions(originalActionsJson);
+                var newActions = ParseActions(newActionsJson);
+
+                var changes = new List<string>();
+
+                var originalCount = originalActions?.Count ?? 0;
+                var newCount = newActions?.Count ?? 0;
+
+                if (originalCount != newCount)
+                {
+                    if (newCount > originalCount)
+                        changes.Add($"Added {newCount - originalCount} action(s) (total: {newCount})");
+                    else
+                        changes.Add($"Removed {originalCount - newCount} action(s) (total: {newCount})");
+                }
+
+                // Describe action types
+                if (newActions != null && newActions.Count > 0)
+                {
+                    var actionTypes = newActions
+                        .Where(a => !string.IsNullOrEmpty(a.Type))
+                        .GroupBy(a => a.Type)
+                        .Select(g => $"{g.Count()} {g.Key}")
+                        .ToList();
+                    
+                    if (actionTypes.Count > 0)
+                    {
+                        changes.Add($"Current actions: {string.Join(", ", actionTypes)}");
+                    }
+                }
+
+                // Compare individual actions for modifications
+                if (originalActions != null && newActions != null)
+                {
+                    var modifiedActions = 0;
+                    var minCount = Math.Min(originalCount, newCount);
+                    for (int i = 0; i < minCount; i++)
+                    {
+                        var origAction = originalActions[i];
+                        var newAction = newActions[i];
+                        if (origAction.Type != newAction.Type ||
+                            origAction.TargetStageId != newAction.TargetStageId)
+                        {
+                            modifiedActions++;
+                        }
+                    }
+                    if (modifiedActions > 0)
+                    {
+                        changes.Add($"Modified {modifiedActions} existing action(s)");
+                    }
+                }
+
+                return changes.Count > 0 
+                    ? $"Actions: {string.Join(", ", changes)}" 
+                    : "Actions configuration updated";
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to parse actions for change description");
+                return "Actions configuration updated";
+            }
+        }
+
+        /// <summary>
+        /// Parse frontend rules JSON format
+        /// </summary>
+        private FrontendRuleConfig ParseFrontendRules(string rulesJson)
+        {
+            if (string.IsNullOrWhiteSpace(rulesJson))
+                return null;
+
+            try
+            {
+                var jsonObj = Newtonsoft.Json.Linq.JToken.Parse(rulesJson);
+                if (jsonObj is Newtonsoft.Json.Linq.JObject jObject && jObject.ContainsKey("logic"))
+                {
+                    return JsonConvert.DeserializeObject<FrontendRuleConfig>(rulesJson);
+                }
+            }
+            catch
+            {
+                // Ignore parsing errors
+            }
+            return null;
+        }
+
+        /// <summary>
+        /// Parse actions JSON
+        /// </summary>
+        private List<ConditionActionDto> ParseActions(string actionsJson)
+        {
+            if (string.IsNullOrWhiteSpace(actionsJson))
+                return null;
+
+            try
+            {
+                return JsonConvert.DeserializeObject<List<ConditionActionDto>>(actionsJson);
+            }
+            catch
+            {
+                return null;
+            }
         }
 
         /// <summary>
