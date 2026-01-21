@@ -1360,9 +1360,17 @@ const processOnboardingData = (responseData: any) => {
 		const sortedStages = [...workflowStages.value].sort(
 			(a, b) => (a.order || 0) - (b.order || 0)
 		);
-		const firstIncompleteStage = sortedStages.find((stage) => !stage.isCompleted);
-		newStageId =
-			firstIncompleteStage?.stageId || sortedStages[sortedStages.length - 1]?.stageId;
+		const curentStageStage =
+			sortedStages.find((stage) => (stage.id == stage.id) == responseData.currentStageId)
+				?.id || '';
+		if (curentStageStage) {
+			newStageId = curentStageStage;
+		} else {
+			const firstIncompleteStage = sortedStages.find(
+				(stage) => stage.id == !stage.isCompleted
+			);
+			newStageId = firstIncompleteStage?.stageId;
+		}
 	}
 
 	onboardingActiveStageInfo.value = workflowStages.value.find(
