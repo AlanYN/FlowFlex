@@ -729,12 +729,12 @@ const handleImportDialogClose = () => {
 // Handle start download from dialog
 const handleStartDownload = async (attachments: IntegrationAttachment[]) => {
 	if (attachments.length === 0) return;
-
 	try {
 		// 调用importDownLoadFiles接口开始下载
 		const files = attachments.map((att) => ({
 			downLoadLink: att.downloadLink,
 			fileName: att.fileName,
+			source: att.integrationName,
 		}));
 
 		const res = await importDownLoadFiles(props.onboardingId, {
