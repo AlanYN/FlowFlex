@@ -64,19 +64,20 @@ namespace FlowFlex.Application.Services.OW
                 {
                     var stage = orderedStages[i];
                     var sequentialOrder = i + 1; // Sequential order starting from 1
+                    var isFirstStage = sequentialOrder == 1;
 
                     var stageProgress = new OnboardingStageProgress
                     {
                         // Core progress fields (will be serialized to JSON)
                         StageId = stage.Id,
-                        Status = sequentialOrder == 1 ? "InProgress" : "Pending", // First stage starts as InProgress
+                        Status = isFirstStage ? "InProgress" : "Pending", // First stage starts as InProgress
                         IsCompleted = false,
-                        StartTime = null, // StartTime is now null by default, will be set when stage is saved or completed
+                        StartTime = isFirstStage ? currentTime : null, // First stage starts immediately with current time
                         CompletionTime = null,
                         CompletedById = null,
                         CompletedBy = null,
                         Notes = null,
-                        IsCurrent = sequentialOrder == 1, // First stage is current
+                        IsCurrent = isFirstStage, // First stage is current
                         Assignee = ParseDefaultAssignee(stage.DefaultAssignee), // Sync from Stage.DefaultAssignee
                         CoAssignees = GetFilteredCoAssignees(stage.CoAssignees, stage.DefaultAssignee), // Sync from Stage.CoAssignees
                         CustomStageAssignee = null, // User customization, initially null
