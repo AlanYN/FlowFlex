@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using System.ComponentModel.DataAnnotations;
 using FlowFlex.Application.Contracts.IServices.DynamicData;
 using FlowFlex.Application.Contracts.Dtos.DynamicData;
+using FlowFlex.Application.Filter;
 using FlowFlex.Domain.Shared.Models;
 using FlowFlex.Domain.Shared.Models.DynamicData;
 using Item.Internal.StandardApi.Response;
@@ -129,6 +130,7 @@ public class PropertyController : Controllers.ControllerBase
     /// </summary>
     /// <param name="request">Batch query request containing property IDs</param>
     [HttpPost("batch")]
+    [PortalAccess]
     [ProducesResponseType<SuccessResponse<List<DefineFieldDto>>>((int)HttpStatusCode.OK)]
     public async Task<IActionResult> GetByIds([FromBody] BatchGetPropertiesRequest request)
     {
