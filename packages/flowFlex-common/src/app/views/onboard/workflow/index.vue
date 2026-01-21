@@ -604,6 +604,7 @@ import {
 	updateStage,
 	deleteStage as deleteStageApi,
 	exportWorkflowToExcel,
+	getWorkflowInfo,
 } from '@/apis/ow';
 
 import { getChecklists } from '@/apis/ow/checklist';
@@ -807,20 +808,25 @@ const fetchQuickLinks = async () => {
 // 加载 workflow 详情
 const loadWorkflowDetail = async (workflowId: string) => {
 	// 先从列表数据中查找
-	let selectedWorkflowData = workflowListData.value.find((wf) => wf.id === workflowId);
+	try {
+		loading.workflows = true;
+		const res = await getWorkflowInfo(workflowId);
+		if (res.code == '200' && res.data) {
+			// 设置基本信息
+			workflow.value = res.data;
+			selectedWorkflow.value = workflowId;
+			viewMode.value = 'detail';
 
-	if (selectedWorkflowData) {
-		// 设置基本信息
-		workflow.value = selectedWorkflowData;
-		selectedWorkflow.value = workflowId;
-		viewMode.value = 'detail';
-
-		// 获取完整的workflow详情（包括stages）
-		await fetchStages(workflowId);
-	} else {
-		ElMessage.error('Workflow not found');
-		// 清除无效的 query 参数
-		router.replace({ query: {} });
+			// 获取完整的workflow详情（包括stages）
+			await fetchStages(workflowId);
+		} else {
+			ElMessage.error(res?.msg || 'Workflow not found');
+			// 清除无效的 query 参数
+			router.replace({ query: {} });
+			viewMode.value = 'list';
+		}
+	} finally {
+		loading.workflows = false;
 	}
 };
 
