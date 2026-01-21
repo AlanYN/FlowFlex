@@ -346,6 +346,7 @@
 												:questionnaire-data="
 													getQuestionnaireDataForComponent(component)
 												"
+												:currentstageCanCompleted="!!stageCanCompleted"
 												:onboardingId="onboardingId"
 												@stage-updated="handleStageUpdated"
 												@question-submitted="handleQuestionSubmitted"

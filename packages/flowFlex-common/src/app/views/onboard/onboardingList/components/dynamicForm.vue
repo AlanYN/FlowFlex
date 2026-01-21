@@ -608,8 +608,21 @@
 							Next
 							<el-icon class="ml-1"><ArrowRight /></el-icon>
 						</el-button>
+
 						<el-button
-							v-if="isLastSection"
+							v-if="
+								questionnaireAnswers?.status === 'Submitted' &&
+								!currentstageCanCompleted
+							"
+							@click="Reopen()"
+							type="primary"
+							:icon="Document"
+							:loading="loading"
+						>
+							Reopen
+						</el-button>
+						<el-button
+							v-if="questionnaireAnswers?.status !== 'Submitted' && isLastSection"
 							@click="Submit()"
 							type="primary"
 							:icon="Document"
@@ -673,10 +686,11 @@ interface Props {
 	isSubmitEnabled?: boolean;
 	skippedQuestions?: Set<string>;
 	loading?: boolean;
+	currentstageCanCompleted: boolean;
 }
 
 const props = defineProps<Props>();
-const emit = defineEmits(['submit', 'change']);
+const emit = defineEmits(['submit', 'change', 'reopen']);
 
 const formData = ref<Record<string, any>>({});
 const currentSectionIndex = ref(0);
@@ -1710,6 +1724,10 @@ const questionIsDisabled = (questionId: string): boolean => {
 
 const Submit = () => {
 	emit('submit');
+};
+
+const Reopen = () => {
+	emit('reopen');
 };
 
 defineExpose({
