@@ -32,7 +32,18 @@ namespace WebApi.Authentication
             {
                 var authorization = context.HttpContext.Request.Headers.Authorization;
                 var user = await userService.GetUserByEmail(claims.FirstOrDefault(x => x.Type == ClaimTypes.Email)!.Value);
-                userContext.TenantId = claims.FirstOrDefault(x => x.Type == "tenantId")?.Value ?? "";
+                
+                // Priority: X-Tenant-Id header > JWT claim
+                if (context.Request.Headers.ContainsKey("X-Tenant-Id"))
+                {
+                    var headerTenantId = context.Request.Headers["X-Tenant-Id"].FirstOrDefault();
+                    userContext.TenantId = headerTenantId;
+                }
+                else
+                {
+                    userContext.TenantId = claims.FirstOrDefault(x => x.Type == "tenantId")?.Value ?? "";
+                }
+                
                 userContext.UserId = user.Id.ToString();
                 userContext.UserName = user.Username;
                 userContext.Email = user.Email;
@@ -77,7 +88,18 @@ namespace WebApi.Authentication
                         context.Fail("Version mismatch");
                         return;
                     }
-                    userContext.TenantId = userExtensionResult.Data.TenantId;
+                    
+                    // Priority: X-Tenant-Id header > IDM response
+                    if (context.Request.Headers.ContainsKey("X-Tenant-Id"))
+                    {
+                        var headerTenantId = context.Request.Headers["X-Tenant-Id"].FirstOrDefault();
+                        userContext.TenantId = headerTenantId;
+                    }
+                    else
+                    {
+                        userContext.TenantId = userExtensionResult.Data.TenantId;
+                    }
+                    
                     userContext.ClientShortName = userExtensionResult.Data.ClientShortName;
                     userContext.RoleIds = userExtensionResult.Data.RoleIds;
 
