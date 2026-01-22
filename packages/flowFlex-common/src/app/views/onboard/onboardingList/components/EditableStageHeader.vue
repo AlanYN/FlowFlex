@@ -72,8 +72,7 @@
 							placeholder="Enter days"
 							class="w-full stage-edit-input"
 							:disabled="saving"
-							:decimalPlaces="2"
-							:minNumber="0.01"
+							:isFoloat="false"
 							@change="handleEstimatedDaysChange"
 						/>
 					</div>

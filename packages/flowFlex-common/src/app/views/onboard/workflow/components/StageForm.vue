@@ -75,7 +75,7 @@
 					<el-form-item label="Estimated Duration" prop="estimatedDuration">
 						<InputNumber
 							v-model="formData.estimatedDuration as number"
-							:decimalPlaces="2"
+							:isFoloat="false"
 							placeholder="e.g., 3 days"
 						/>
 					</el-form-item>
