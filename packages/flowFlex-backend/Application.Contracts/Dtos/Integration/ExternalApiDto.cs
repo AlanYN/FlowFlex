@@ -92,6 +92,12 @@ namespace FlowFlex.Application.Contracts.Dtos.Integration
         /// Custom fields as JSON
         /// </summary>
         public Dictionary<string, object>? CustomFields { get; set; }
+
+        /// <summary>
+        /// Created by (first name + last name)
+        /// </summary>
+        [StringLength(200)]
+        public string? CreatedBy { get; set; }
     }
 
     /// <summary>
