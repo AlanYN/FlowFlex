@@ -1,534 +1,720 @@
 <template>
-	<div class="wfe-global-block-bg">
-		<!-- 统一的头部卡片 -->
-		<div
-			class="case-change-log-header rounded"
-			:class="{ expanded: isExpanded }"
-			@click="toggleExpanded"
-		>
-			<div class="flex justify-between">
-				<div>
-					<div class="flex items-center">
-						<el-icon
-							class="case-component-expand-icon text-lg mr-2"
-							:class="{ rotated: isExpanded }"
-						>
-							<ArrowRight />
-						</el-icon>
-						<h3 class="case-component-title">Change Log</h3>
+	<!-- 悬浮按钮 -->
+	<div
+		class="changelog-fab"
+		title="Change log"
+		:class="{ 'fab-hidden': isExpanded }"
+		@click="toggleExpanded"
+	>
+		<el-icon class="fab-icon">
+			<Document />
+		</el-icon>
+		<span class="fab-badge" v-if="total > 0">{{ total > 99 ? '99+' : total }}</span>
+	</div>
+
+	<!-- 弹出面板 -->
+	<Teleport to="body">
+		<Transition name="changelog-panel">
+			<div v-if="isExpanded" class="changelog-wrapper">
+				<div class="changelog-overlay" @click="toggleExpanded"></div>
+				<div class="changelog-panel">
+					<!-- 面板头部 -->
+					<div class="changelog-panel-header">
+						<div class="flex items-center">
+							<el-icon class="text-xl mr-2">
+								<Document />
+							</el-icon>
+							<h3 class="text-lg font-semibold">Change Log</h3>
+						</div>
+						<div class="flex items-center gap-2">
+							<el-button
+								:icon="RefreshRight"
+								:loading="loading"
+								type="primary"
+								circle
+								@click="loadChangeLogs"
+							/>
+							<el-button :icon="Close" @click="toggleExpanded" circle />
+						</div>
 					</div>
-				</div>
-				<div class="case-component-actions">
-					<el-button
-						v-if="isExpanded"
-						size="small"
-						:icon="RefreshRight"
-						:loading="loading"
-						type="primary"
-						@click.stop="loadChangeLogs"
-					/>
-				</div>
-			</div>
-		</div>
 
-		<!-- 可折叠内容 -->
-		<el-collapse-transition>
-			<div v-show="isExpanded" class="">
-				<div class="pb-4" v-loading="loading">
-					<el-table
-						:data="processedChanges"
-						max-height="384px"
-						class="w-full"
-						border
-						stripe
-						row-key="id"
-					>
-						<el-table-column label="Type" width="140">
-							<template #default="{ row }">
-								<el-tag
-									:type="getTagType(row.type)"
-									class="flex items-center w-fit"
-									size="small"
-								>
-									<span class="mr-1 text-xs">{{ row.typeIcon }}</span>
-									{{ row.type }}
-								</el-tag>
-							</template>
-						</el-table-column>
-
-						<el-table-column label="Changes" min-width="350">
-							<template #default="{ row }">
-								<div class="text-sm">
-									<!-- 静态字段变更详情 -->
-									<div
-										v-if="
-											row.type === 'Field Change' && row.fieldChanges?.length
-										"
+					<!-- 面板内容 -->
+					<div class="changelog-panel-content" v-loading="loading">
+						<el-table
+							:data="processedChanges"
+							class="w-full"
+							border
+							stripe
+							row-key="id"
+						>
+							<el-table-column label="Type" width="200">
+								<template #default="{ row }">
+									<el-tag
+										:type="getTagType(row.type)"
+										class="flex items-center w-fit"
+										size="small"
 									>
-										<div class="space-y-2">
+										<span class="mr-1 text-xs">{{ row.typeIcon }}</span>
+										{{ row.type }}
+									</el-tag>
+								</template>
+							</el-table-column>
+
+							<el-table-column label="Changes" min-width="350">
+								<template #default="{ row }">
+									<div class="text-sm">
+										<!-- 静态字段变更详情 -->
+										<div
+											v-if="
+												row.type === 'Field Change' &&
+												row.fieldChanges?.length
+											"
+										>
+											<div class="space-y-2">
+												<div
+													v-for="(change, index) in row.fieldChanges"
+													:key="index"
+													class="field-change-card p-3 rounded border border-l-4"
+												>
+													<div class="text-sm">
+														<div
+															class="field-change-title font-semibold mb-2"
+														>
+															{{ change.fieldName }}
+														</div>
+														<div class="space-y-1">
+															<!-- 如果有原值，显示前后对比 -->
+															<template v-if="change.beforeValue">
+																<div
+																	class="flex items-center text-xs"
+																>
+																	<span
+																		class="before-label font-medium mr-2"
+																	>
+																		Before:
+																	</span>
+																	<span
+																		class="before-value px-2 py-1 rounded"
+																	>
+																		{{ change.beforeValue }}
+																	</span>
+																</div>
+																<div
+																	class="flex items-center text-xs"
+																>
+																	<span
+																		class="after-label font-medium mr-2"
+																	>
+																		After:
+																	</span>
+																	<span
+																		class="after-value px-2 py-1 rounded"
+																	>
+																		{{
+																			change.afterValue !==
+																				undefined &&
+																			change.afterValue !==
+																				null &&
+																			change.afterValue !== ''
+																				? change.afterValue
+																				: ''
+																		}}
+																	</span>
+																</div>
+															</template>
+															<!-- 如果没有原值，只显示新设置的值 -->
+															<template v-else>
+																<div
+																	class="flex items-center text-xs"
+																>
+																	<span
+																		class="value-set-label font-medium mr-2"
+																	>
+																		Value Set:
+																	</span>
+																	<span
+																		class="value-set-value px-2 py-1 rounded"
+																	>
+																		{{
+																			change.afterValue !==
+																				undefined &&
+																			change.afterValue !==
+																				null &&
+																			change.afterValue !== ''
+																				? change.afterValue
+																				: ''
+																		}}
+																	</span>
+																</div>
+															</template>
+														</div>
+													</div>
+												</div>
+											</div>
+										</div>
+
+										<!-- 问卷答案变更详情 - 直接显示后端提供的描述 -->
+										<div
+											v-else-if="
+												row.type === 'Answer Update' ||
+												row.type === 'Answer Submit' ||
+												row.type === 'QuestionnaireAnswerUpdate' ||
+												row.type === 'QuestionnaireAnswerSubmit'
+											"
+										>
 											<div
-												v-for="(change, index) in row.fieldChanges"
-												:key="index"
-												class="field-change-card p-3 rounded border-l-4"
+												class="answer-update-card p-3 rounded text-sm border border-l-4"
+											>
+												<div class="answer-update-text whitespace-pre-line">
+													{{ getSimplifiedTitle(row) }}
+												</div>
+											</div>
+										</div>
+
+										<!-- 文件上传详情 -->
+										<div v-else-if="row.type === 'File Upload' && row.fileInfo">
+											<div
+												class="p-2 rounded text-xs border-l-4 border border-l-cyan-400"
+											>
+												<div class="flex items-center">
+													<el-icon class="mr-2 text-cyan-600">
+														<Document />
+													</el-icon>
+													<span class="font-medium">
+														{{ row.fileInfo.fileName }}
+													</span>
+													<span
+														v-if="row.fileInfo.fileSize"
+														class="ml-2 text-gray-500"
+													>
+														({{
+															formatFileSize(row.fileInfo.fileSize)
+														}})
+													</span>
+												</div>
+											</div>
+										</div>
+
+										<!-- 任务状态变更详情 -->
+										<div
+											v-else-if="
+												(row.type === 'Task Complete' ||
+													row.type === 'Task Incomplete') &&
+												row.taskInfo
+											"
+										>
+											<div
+												class="p-2 rounded text-xs border-l-4 border border-l-green-400"
+											>
+												<div class="text-gray-600 mt-1">
+													{{ row.taskInfo.statusChange }}
+												</div>
+											</div>
+										</div>
+
+										<!-- Action Execution 详情 -->
+										<div
+											v-else-if="
+												(row.type === 'Action Success' ||
+													row.type === 'Action Failed' ||
+													row.type === 'Action Running' ||
+													row.type === 'Action Pending' ||
+													row.type === 'Action Cancelled' ||
+													row.type === 'ActionExecutionSuccess' ||
+													row.type === 'ActionExecutionFailed' ||
+													row.type === 'ActionExecutionRunning' ||
+													row.type === 'ActionExecutionPending' ||
+													row.type === 'ActionExecutionCancelled' ||
+													row.type === 'Stage Action' ||
+													row.type === 'Task Action' ||
+													row.type === 'Question Action') &&
+												row.actionInfo
+											"
+										>
+											<div
+												:class="getActionExecutionBgClass(row.type)"
+												class="p-3 rounded border-l-4"
 											>
 												<div class="text-sm">
 													<div
-														class="field-change-title font-semibold mb-2"
+														class="font-semibold mb-2 flex items-center justify-between"
 													>
-														{{ change.fieldName }}
-													</div>
-													<div class="space-y-1">
-														<!-- 如果有原值，显示前后对比 -->
-														<template v-if="change.beforeValue">
-															<div class="flex items-center text-xs">
-																<span
-																	class="before-label font-medium mr-2"
-																>
-																	Before:
-																</span>
-																<span
-																	class="before-value px-2 py-1 rounded"
-																>
-																	{{ change.beforeValue }}
-																</span>
-															</div>
-															<div class="flex items-center text-xs">
-																<span
-																	class="after-label font-medium mr-2"
-																>
-																	After:
-																</span>
-																<span
-																	class="after-value px-2 py-1 rounded"
-																>
-																	{{
-																		change.afterValue !==
-																			undefined &&
-																		change.afterValue !==
-																			null &&
-																		change.afterValue !== ''
-																			? change.afterValue
-																			: ''
-																	}}
-																</span>
-															</div>
-														</template>
-														<!-- 如果没有原值，只显示新设置的值 -->
-														<template v-else>
-															<div class="flex items-center text-xs">
-																<span
-																	class="value-set-label font-medium mr-2"
-																>
-																	Value Set:
-																</span>
-																<span
-																	class="value-set-value px-2 py-1 rounded"
-																>
-																	{{
-																		change.afterValue !==
-																			undefined &&
-																		change.afterValue !==
-																			null &&
-																		change.afterValue !== ''
-																			? change.afterValue
-																			: ''
-																	}}
-																</span>
-															</div>
-														</template>
-													</div>
-												</div>
-											</div>
-										</div>
-									</div>
-
-									<!-- 问卷答案变更详情 - 直接显示后端提供的描述 -->
-									<div
-										v-else-if="
-											row.type === 'Answer Update' ||
-											row.type === 'Answer Submit' ||
-											row.type === 'QuestionnaireAnswerUpdate' ||
-											row.type === 'QuestionnaireAnswerSubmit'
-										"
-									>
-										<div
-											class="answer-update-card p-3 rounded text-sm border-l-4"
-										>
-											<div class="answer-update-text whitespace-pre-line">
-												{{ getSimplifiedTitle(row) }}
-											</div>
-										</div>
-									</div>
-
-									<!-- 文件上传详情 -->
-									<div v-else-if="row.type === 'File Upload' && row.fileInfo">
-										<div
-											class="bg-cyan-50 dark:bg-cyan-900/20 p-2 rounded text-xs border-l-4 border-cyan-400"
-										>
-											<div class="flex items-center">
-												<el-icon class="mr-2 text-cyan-600">
-													<Document />
-												</el-icon>
-												<span class="font-medium">
-													{{ row.fileInfo.fileName }}
-												</span>
-												<span
-													v-if="row.fileInfo.fileSize"
-													class="ml-2 text-gray-500"
-												>
-													({{ formatFileSize(row.fileInfo.fileSize) }})
-												</span>
-											</div>
-										</div>
-									</div>
-
-									<!-- 任务状态变更详情 -->
-									<div
-										v-else-if="
-											(row.type === 'Task Complete' ||
-												row.type === 'Task Incomplete') &&
-											row.taskInfo
-										"
-									>
-										<div
-											class="bg-green-50 dark:bg-green-900/20 p-2 rounded text-xs border-l-4 border-green-400"
-										>
-											<div class="text-gray-600 mt-1">
-												{{ row.taskInfo.statusChange }}
-											</div>
-										</div>
-									</div>
-
-									<!-- Action Execution 详情 -->
-									<div
-										v-else-if="
-											(row.type === 'Action Success' ||
-												row.type === 'Action Failed' ||
-												row.type === 'Action Running' ||
-												row.type === 'Action Pending' ||
-												row.type === 'Action Cancelled' ||
-												row.type === 'ActionExecutionSuccess' ||
-												row.type === 'ActionExecutionFailed' ||
-												row.type === 'ActionExecutionRunning' ||
-												row.type === 'ActionExecutionPending' ||
-												row.type === 'ActionExecutionCancelled' ||
-												row.type === 'Stage Action' ||
-												row.type === 'Task Action' ||
-												row.type === 'Question Action') &&
-											row.actionInfo
-										"
-									>
-										<div
-											:class="getActionExecutionBgClass(row.type)"
-											class="p-3 rounded border-l-4"
-										>
-											<div class="text-sm">
-												<div
-													class="font-semibold mb-2 flex items-center justify-between"
-												>
-													<span class="text-gray-800 dark:text-gray-200">
-														{{ row.actionInfo.actionName }}
-													</span>
-													<span
-														:class="
-															getActionExecutionStatusClass(row.type)
-														"
-														class="px-2 py-1 rounded text-xs font-medium"
-													>
-														{{ getActionExecutionStatusText(row.type) }}
-													</span>
-												</div>
-
-												<!-- 显示 operationTitle -->
-												<div v-if="row.operationTitle" class="mb-2">
-													<div
-														class="text-gray-800 dark:text-gray-200 text-sm font-medium"
-													>
-														{{ row.operationTitle }}
-													</div>
-												</div>
-
-												<!-- 显示 operationDescription -->
-												<div v-if="row.operationDescription" class="mb-3">
-													<div
-														class="text-gray-700 dark:text-gray-300 text-sm leading-relaxed whitespace-pre-line"
-													>
-														{{ row.operationDescription }}
-													</div>
-												</div>
-
-												<div class="space-y-1 text-xs">
-													<!-- 显示 Action 来源 -->
-													<div
-														v-if="getActionSource(row.type)"
-														class="flex items-center"
-													>
-														<span class="text-gray-500 mr-2">
-															Source:
-														</span>
 														<span
-															:class="getActionSourceClass(row.type)"
-															class="px-2 py-1 rounded text-xs font-medium"
+															class="text-gray-800 dark:text-gray-200"
 														>
-															{{ getActionSource(row.type) }}
-														</span>
-													</div>
-													<div class="flex items-center">
-														<span class="text-gray-500 mr-2">
-															Type:
-														</span>
-														<span
-															class="text-gray-700 dark:text-gray-300"
-														>
-															{{ row.actionInfo.actionType }}
-														</span>
-													</div>
-													<!-- 执行状态 -->
-													<div
-														v-if="row.actionInfo.executionStatus"
-														class="flex items-center"
-													>
-														<span class="text-gray-500 mr-2">
-															Status:
+															{{ row.actionInfo.actionName }}
 														</span>
 														<span
 															:class="
-																getExecutionStatusClass(
-																	row.actionInfo.executionStatus
+																getActionExecutionStatusClass(
+																	row.type
 																)
 															"
 															class="px-2 py-1 rounded text-xs font-medium"
 														>
-															{{ row.actionInfo.executionStatus }}
+															{{
+																getActionExecutionStatusText(
+																	row.type
+																)
+															}}
 														</span>
 													</div>
 
-													<!-- 执行时间范围 -->
-													<div
-														v-if="row.actionInfo.startedAt"
-														class="flex items-center"
-													>
-														<span class="text-gray-500 mr-2">
-															Started:
-														</span>
-														<span
-															class="text-gray-700 dark:text-gray-300 text-xs"
+													<!-- 显示 operationTitle -->
+													<div v-if="row.operationTitle" class="mb-2">
+														<div
+															class="text-gray-800 dark:text-gray-200 text-sm font-medium"
 														>
-															{{
-																formatDateTime(
-																	row.actionInfo.startedAt
-																)
-															}}
-														</span>
+															{{ row.operationTitle }}
+														</div>
 													</div>
+
+													<!-- 显示 operationDescription -->
 													<div
-														v-if="row.actionInfo.completedAt"
-														class="flex items-center"
+														v-if="row.operationDescription"
+														class="mb-3"
 													>
-														<span class="text-gray-500 mr-2">
-															Completed:
-														</span>
-														<span
-															class="text-gray-700 dark:text-gray-300 text-xs"
+														<div
+															class="text-gray-700 dark:text-gray-300 text-sm leading-relaxed whitespace-pre-line"
 														>
-															{{
-																formatDateTime(
-																	row.actionInfo.completedAt
-																)
-															}}
-														</span>
+															{{ row.operationDescription }}
+														</div>
 													</div>
-													<div
-														v-if="row.actionInfo.duration"
-														class="flex items-center"
-													>
-														<span class="text-gray-500 mr-2">
-															Duration:
-														</span>
-														<span
-															class="text-gray-700 dark:text-gray-300"
+
+													<div class="space-y-1 text-xs">
+														<!-- 显示 Action 来源 -->
+														<div
+															v-if="getActionSource(row.type)"
+															class="flex items-center"
 														>
-															{{
-																formatDuration(
-																	row.actionInfo.duration
-																)
-															}}
-														</span>
-													</div>
-													<div
-														v-if="row.actionInfo.executionId"
-														class="flex items-center"
-													>
-														<span class="text-gray-500 mr-2">
-															Execution ID:
-														</span>
-														<span
-															class="text-gray-700 dark:text-gray-300 font-mono text-xs"
+															<span class="text-gray-500 mr-2">
+																Source:
+															</span>
+															<span
+																:class="
+																	getActionSourceClass(row.type)
+																"
+																class="px-2 py-1 rounded text-xs font-medium"
+															>
+																{{ getActionSource(row.type) }}
+															</span>
+														</div>
+														<div class="flex items-center">
+															<span class="text-gray-500 mr-2">
+																Type:
+															</span>
+															<span
+																class="text-gray-700 dark:text-gray-300"
+															>
+																{{ row.actionInfo.actionType }}
+															</span>
+														</div>
+														<!-- 执行状态 -->
+														<div
+															v-if="row.actionInfo.executionStatus"
+															class="flex items-center"
 														>
-															{{ row.actionInfo.executionId }}
-														</span>
-													</div>
-													<!-- 显示执行输出摘要 -->
-													<div
-														v-if="
-															getExecutionOutputSummary(
-																row.actionInfo.executionOutput
-															)
-														"
-														class="mt-2"
-													>
-														<div class="text-gray-500 text-xs mb-1">
-															Output:
+															<span class="text-gray-500 mr-2">
+																Status:
+															</span>
+															<span
+																:class="
+																	getExecutionStatusClass(
+																		row.actionInfo
+																			.executionStatus
+																	)
+																"
+																class="px-2 py-1 rounded text-xs font-medium"
+															>
+																{{ row.actionInfo.executionStatus }}
+															</span>
+														</div>
+
+														<!-- 执行时间范围 -->
+														<div
+															v-if="row.actionInfo.startedAt"
+															class="flex items-center"
+														>
+															<span class="text-gray-500 mr-2">
+																Started:
+															</span>
+															<span
+																class="text-gray-700 dark:text-gray-300 text-xs"
+															>
+																{{
+																	formatDateTime(
+																		row.actionInfo.startedAt
+																	)
+																}}
+															</span>
 														</div>
 														<div
-															class="bg-gray-100 dark:bg-gray-800 p-2 rounded text-xs"
+															v-if="row.actionInfo.completedAt"
+															class="flex items-center"
 														>
-															{{
+															<span class="text-gray-500 mr-2">
+																Completed:
+															</span>
+															<span
+																class="text-gray-700 dark:text-gray-300 text-xs"
+															>
+																{{
+																	formatDateTime(
+																		row.actionInfo.completedAt
+																	)
+																}}
+															</span>
+														</div>
+														<div
+															v-if="row.actionInfo.duration"
+															class="flex items-center"
+														>
+															<span class="text-gray-500 mr-2">
+																Duration:
+															</span>
+															<span
+																class="text-gray-700 dark:text-gray-300"
+															>
+																{{
+																	formatDuration(
+																		row.actionInfo.duration
+																	)
+																}}
+															</span>
+														</div>
+														<div
+															v-if="row.actionInfo.executionId"
+															class="flex items-center"
+														>
+															<span class="text-gray-500 mr-2">
+																Execution ID:
+															</span>
+															<span
+																class="text-gray-700 dark:text-gray-300 font-mono text-xs"
+															>
+																{{ row.actionInfo.executionId }}
+															</span>
+														</div>
+														<!-- 显示执行输出摘要 -->
+														<div
+															v-if="
 																getExecutionOutputSummary(
 																	row.actionInfo.executionOutput
 																)
-															}}
-														</div>
-													</div>
-
-													<!-- 显示执行输入摘要 -->
-													<div
-														v-if="
-															getExecutionInputSummary(
-																row.actionInfo.executionInput
-															)
-														"
-														class="mt-2"
-													>
-														<div class="text-gray-500 text-xs mb-1">
-															Input:
-														</div>
-														<div
-															class="bg-blue-50 dark:bg-blue-900/20 p-2 rounded text-xs"
+															"
+															class="mt-2"
 														>
-															{{
+															<div class="text-gray-500 text-xs mb-1">
+																Output:
+															</div>
+															<div
+																class="bg-gray-100 dark:bg-gray-800 p-2 rounded text-xs"
+															>
+																{{
+																	getExecutionOutputSummary(
+																		row.actionInfo
+																			.executionOutput
+																	)
+																}}
+															</div>
+														</div>
+
+														<!-- 显示执行输入摘要 -->
+														<div
+															v-if="
 																getExecutionInputSummary(
 																	row.actionInfo.executionInput
 																)
-															}}
-														</div>
-													</div>
-
-													<!-- 错误信息显示 -->
-													<div
-														v-if="row.actionInfo.errorMessage"
-														class="mt-2"
-													>
-														<div
-															class="text-red-600 dark:text-red-400 text-xs"
+															"
+															class="mt-2"
 														>
-															<span class="font-medium">Error:</span>
-															{{ row.actionInfo.errorMessage }}
+															<div class="text-gray-500 text-xs mb-1">
+																Input:
+															</div>
+															<div
+																class="bg-blue-50 dark:bg-blue-900/20 p-2 rounded text-xs"
+															>
+																{{
+																	getExecutionInputSummary(
+																		row.actionInfo
+																			.executionInput
+																	)
+																}}
+															</div>
 														</div>
-													</div>
 
-													<!-- 错误堆栈跟踪（只在有错误时显示） -->
-													<div
-														v-if="row.actionInfo.errorStackTrace"
-														class="mt-1"
-													>
-														<details class="text-red-500 text-xs">
-															<summary
-																class="cursor-pointer hover:text-red-700"
+														<!-- 错误信息显示 -->
+														<div
+															v-if="row.actionInfo.errorMessage"
+															class="mt-2"
+														>
+															<div
+																class="text-red-600 dark:text-red-400 text-xs"
 															>
-																Stack Trace
-															</summary>
-															<pre
-																class="mt-1 whitespace-pre-wrap bg-red-50 dark:bg-red-900/20 p-2 rounded text-xs overflow-x-auto"
-																>{{
-																	row.actionInfo.errorStackTrace
-																}}</pre
-															>
-														</details>
+																<span class="font-medium">
+																	Error:
+																</span>
+																{{ row.actionInfo.errorMessage }}
+															</div>
+														</div>
+
+														<!-- 错误堆栈跟踪（只在有错误时显示） -->
+														<div
+															v-if="row.actionInfo.errorStackTrace"
+															class="mt-1"
+														>
+															<details class="text-red-500 text-xs">
+																<summary
+																	class="cursor-pointer hover:text-red-700"
+																>
+																	Stack Trace
+																</summary>
+																<pre
+																	class="mt-1 whitespace-pre-wrap bg-red-50 dark:bg-red-900/20 p-2 rounded text-xs overflow-x-auto"
+																	>{{
+																		row.actionInfo
+																			.errorStackTrace
+																	}}</pre
+																>
+															</details>
+														</div>
 													</div>
 												</div>
 											</div>
 										</div>
+
+										<div
+											v-else-if="
+												row.type == 'StageConditionEvaluate' ||
+												row.type == 'Stage Condition'
+											"
+										>
+											<div
+												class="condition-evaluate-card p-3 rounded border-l-4 border border-l-purple-500"
+											>
+												<div class="text-sm">
+													<!-- 条件名称 -->
+													<div class="font-semibold mb-2">
+														<span class="">
+															{{
+																parseConditionEvaluate(row.details)
+																	?.conditionName || 'Condition'
+															}}
+														</span>
+													</div>
+
+													<!-- Passed Rules -->
+													<div
+														v-if="
+															parseConditionEvaluate(row.details)
+																?.passedRules?.length
+														"
+														class="mb-2"
+													>
+														<div
+															class="text-gray-500 text-xs mb-1 font-medium"
+														>
+															Passed Rules:
+														</div>
+														<div class="flex flex-wrap gap-1">
+															<span
+																v-for="(
+																	rule, idx
+																) in parseConditionEvaluate(
+																	row.details
+																)?.passedRules"
+																:key="idx"
+																class="inline-flex items-center px-2 py-1 rounded text-xs bg-blue-100 text-blue-800 dark:bg-blue-800 dark:text-blue-100"
+															>
+																{{ rule }}
+															</span>
+														</div>
+													</div>
+
+													<!-- Failed Rules -->
+													<div
+														v-if="
+															parseConditionEvaluate(row.details)
+																?.failedRules?.length
+														"
+														class="mb-2"
+													>
+														<div
+															class="text-gray-500 text-xs mb-1 font-medium"
+														>
+															Failed Rules:
+														</div>
+														<div class="flex flex-wrap gap-1">
+															<span
+																v-for="(
+																	rule, idx
+																) in parseConditionEvaluate(
+																	row.details
+																)?.failedRules"
+																:key="idx"
+																class="inline-flex items-center px-2 py-1 rounded text-xs bg-yellow-100 text-yellow-700 dark:bg-yellow-800/30 dark:text-yellow-300"
+															>
+																<el-icon class="mr-1 text-xs">
+																	<Warning />
+																</el-icon>
+																{{ rule }}
+															</span>
+														</div>
+													</div>
+
+													<!-- Executed Actions -->
+													<div
+														v-if="
+															parseConditionEvaluate(row.details)
+																?.executedActions?.length
+														"
+														class="mb-2"
+													>
+														<div
+															class="text-gray-500 text-xs mb-1 font-medium"
+														>
+															Executed Actions:
+														</div>
+														<div class="space-y-1">
+															<div
+																v-for="(
+																	action, idx
+																) in parseConditionEvaluate(
+																	row.details
+																)?.executedActions"
+																:key="idx"
+																class="flex items-center text-xs bg-green-50 dark:bg-green-900/20 px-2 py-1 rounded"
+															>
+																<el-icon
+																	class="mr-1 text-green-500"
+																>
+																	<Check />
+																</el-icon>
+																<span class="">
+																	{{ action }}
+																</span>
+															</div>
+														</div>
+													</div>
+
+													<!-- Failed Actions -->
+													<div
+														v-if="
+															parseConditionEvaluate(row.details)
+																?.failedActions?.length
+														"
+													>
+														<div
+															class="text-gray-500 text-xs mb-1 font-medium"
+														>
+															Failed Actions:
+														</div>
+														<div class="space-y-1">
+															<div
+																v-for="(
+																	action, idx
+																) in parseConditionEvaluate(
+																	row.details
+																)?.failedActions"
+																:key="idx"
+																class="text-xs px-2 py-1 rounded border border-l-2 border-l-[--el-color-warning]"
+															>
+																<div
+																	class="text-[--el-color-warning] whitespace-pre-wrap flex items-start"
+																>
+																	<el-icon
+																		class="mr-1 mt-0.5 flex-shrink-0"
+																	>
+																		<Close />
+																	</el-icon>
+																	<span>{{ action.error }}</span>
+																</div>
+															</div>
+														</div>
+													</div>
+												</div>
+											</div>
+										</div>
+
+										<!-- 默认显示（简化的标题） -->
+										<div v-else class="text-gray-700 dark:text-gray-300">
+											{{ getSimplifiedTitle(row) }}
+										</div>
 									</div>
+								</template>
+							</el-table-column>
 
-									<!-- 默认显示（简化的标题） -->
-									<div v-else class="text-gray-700 dark:text-gray-300">
-										{{ getSimplifiedTitle(row) }}
+							<el-table-column label="Updated By" width="150">
+								<template #default="{ row }">
+									<span
+										v-if="row.updatedBy && row.updatedBy.trim() !== ''"
+										class="text-gray-900 dark:text-white-100 truncate"
+										:title="row.updatedBy"
+									>
+										{{ row.updatedBy }}
+									</span>
+									<span
+										v-else
+										class="text-gray-400 dark:text-gray-500 text-sm italic"
+									>
+										<!-- 系统操作不显示操作者 -->
+									</span>
+								</template>
+							</el-table-column>
+
+							<el-table-column label="Date & Time" width="200">
+								<template #default="{ row }">
+									<div
+										class="flex items-center text-gray-600 dark:text-gray-400 text-sm"
+									>
+										<el-icon class="mr-1 text-xs">
+											<Clock />
+										</el-icon>
+										{{ formatDateTime(row.dateTime) }}
 									</div>
-								</div>
-							</template>
-						</el-table-column>
+								</template>
+							</el-table-column>
 
-						<el-table-column label="Updated By" width="150">
-							<template #default="{ row }">
-								<span
-									v-if="row.updatedBy && row.updatedBy.trim() !== ''"
-									class="text-gray-900 dark:text-white-100 truncate"
-									:title="row.updatedBy"
-								>
-									{{ row.updatedBy }}
-								</span>
-								<span
-									v-else
-									class="text-gray-400 dark:text-gray-500 text-sm italic"
-								>
-									<!-- 系统操作不显示操作者 -->
-								</span>
-							</template>
-						</el-table-column>
-
-						<el-table-column label="Date & Time" width="200">
-							<template #default="{ row }">
-								<div
-									class="flex items-center text-gray-600 dark:text-gray-400 text-sm"
-								>
-									<el-icon class="mr-1 text-xs">
-										<Clock />
+							<template #empty>
+								<div class="py-8 text-gray-500 dark:text-gray-400 text-center">
+									<el-icon class="text-4xl mb-2">
+										<Document />
 									</el-icon>
-									{{ formatDateTime(row.dateTime) }}
+									<div v-if="!props.stageId" class="text-lg mb-2">
+										Please select a stage
+									</div>
+									<div v-else class="text-lg mb-2">No change records found</div>
+									<div class="text-sm">
+										{{
+											!props.stageId
+												? 'Change logs require a stage selection. Please select a stage to view its change history.'
+												: 'No changes recorded for this stage yet.'
+										}}
+									</div>
 								</div>
 							</template>
-						</el-table-column>
+						</el-table>
 
-						<template #empty>
-							<div class="py-8 text-gray-500 dark:text-gray-400 text-center">
-								<el-icon class="text-4xl mb-2">
-									<Document />
-								</el-icon>
-								<div v-if="!props.stageId" class="text-lg mb-2">
-									Please select a stage
-								</div>
-								<div v-else class="text-lg mb-2">No change records found</div>
-								<div class="text-sm">
-									{{
-										!props.stageId
-											? 'Change logs require a stage selection. Please select a stage to view its change history.'
-											: 'No changes recorded for this stage yet.'
-									}}
-								</div>
-							</div>
-						</template>
-					</el-table>
-
-					<!-- 分页 -->
-					<CustomerPagination
-						:total="total"
-						:limit="pageSize"
-						:page="currentPage"
-						:background="true"
-						@pagination="handlePaginationUpdate"
-						@update:page="handleCurrentChange"
-						@update:limit="handlePageUpdate"
-					/>
+						<!-- 分页 -->
+						<CustomerPagination
+							:total="total"
+							:limit="pageSize"
+							:page="currentPage"
+							:background="true"
+							@pagination="handlePaginationUpdate"
+							@update:page="handleCurrentChange"
+							@update:limit="handlePageUpdate"
+						/>
+					</div>
 				</div>
 			</div>
-		</el-collapse-transition>
-	</div>
+		</Transition>
+	</Teleport>
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue'; // 移除 computed
-import { Clock, Document, RefreshRight, ArrowRight } from '@element-plus/icons-vue';
+import { ref, watch } from 'vue';
+import { Clock, Document, RefreshRight, Close, Check, Warning } from '@element-plus/icons-vue';
 import { defaultStr, projectTenMinutesSsecondsDate } from '@/settings/projectSetting';
 import { timeZoneConvert } from '@/hooks/time';
 import {
@@ -692,6 +878,7 @@ const processChangesData = async () => {
 			'TaskActionExecution',
 			'QuestionActionExecution',
 		],
+		condition: ['StageConditionEvaluate', 'Stage Condition'],
 		basic: ['Completion', 'Update', 'StageTransition', 'PriorityChange'],
 	};
 
@@ -799,6 +986,91 @@ const formatFileSize = (bytes: number): string => {
 	return `${parseFloat((bytes / Math.pow(k, i)).toFixed(2))} ${sizes[i]}`;
 };
 
+// StageConditionEvaluate 解析函数
+interface ConditionEvaluateInfo {
+	conditionName: string;
+	result: string;
+	passedRules: string[];
+	failedRules: string[];
+	executedActions: string[];
+	failedActions: Array<{ name: string; error: string }>;
+}
+
+const parseConditionEvaluate = (details: string): ConditionEvaluateInfo | null => {
+	if (!details) return null;
+
+	try {
+		// 解析格式: Condition 'xxx' evaluated: Met/Not Met. Passed rules: xxx. Failed rules: xxx. Executed actions: xxx. Failed actions: xxx
+		const conditionMatch = details.match(/Condition '([^']+)' evaluated: (\w+)/);
+
+		const conditionName = conditionMatch?.[1] || 'Unknown';
+		const result = conditionMatch?.[2] || 'Unknown';
+
+		// 解析 Passed rules
+		const passedRulesMatch = details.match(/Passed rules: ([^.]+)\./);
+		const passedRules = passedRulesMatch?.[1]
+			? passedRulesMatch[1]
+					.split(';')
+					.map((r) => r.trim())
+					.filter((r) => r)
+			: [];
+
+		// 解析 Failed rules
+		const failedRulesMatch = details.match(/Failed rules: ([^.]+)\./);
+		const failedRules = failedRulesMatch?.[1]
+			? failedRulesMatch[1]
+					.split(';')
+					.map((r) => r.trim())
+					.filter((r) => r)
+			: [];
+
+		// 解析 Executed actions - 需要处理括号内可能包含特殊字符
+		const executedActions: string[] = [];
+		const executedActionsMatch = details.match(
+			/Executed actions: ([^.]+?)(?:\. Failed actions:|$)/
+		);
+		if (executedActionsMatch?.[1]) {
+			// 使用更复杂的解析来处理嵌套括号
+			const actionsStr = executedActionsMatch[1];
+			let depth = 0;
+			let current = '';
+			for (const char of actionsStr) {
+				if (char === '(') depth++;
+				if (char === ')') depth--;
+				if (char === ';' && depth === 0) {
+					if (current.trim()) executedActions.push(current.trim());
+					current = '';
+				} else {
+					current += char;
+				}
+			}
+			if (current.trim()) executedActions.push(current.trim());
+		}
+
+		// 解析 Failed actions - 直接获取 "Failed actions:" 后的全部内容
+		const failedActions: Array<{ name: string; error: string }> = [];
+		const failedActionsMatch = details.match(/Failed actions: (.+)$/s);
+		if (failedActionsMatch?.[1]) {
+			failedActions.push({
+				name: 'Failed',
+				error: failedActionsMatch[1].trim(),
+			});
+		}
+
+		return {
+			conditionName,
+			result,
+			passedRules,
+			failedRules,
+			executedActions,
+			failedActions,
+		};
+	} catch (error) {
+		console.warn('Failed to parse condition evaluate:', error);
+		return null;
+	}
+};
+
 const formatDateTime = (dateString: string): string => {
 	try {
 		return dateString
@@ -861,6 +1133,11 @@ const getTagType = (type: string): 'success' | 'warning' | 'info' | 'primary' | 
 			'Stage Action',
 			'StageActionExecution',
 		].map((t): [string, string] => [t, 'info']),
+		// Primary types (condition)
+		...['StageConditionEvaluate', 'Stage Condition'].map((t): [string, string] => [
+			t,
+			'primary',
+		]),
 	]);
 
 	return (tagTypeMap.get(type) ?? 'info') as
@@ -1193,87 +1470,193 @@ defineExpose({
 </script>
 
 <style scoped lang="scss">
-/* 头部卡片样式 - 主题色 */
-.change-log-header-card {
+/* 悬浮按钮样式 */
+.changelog-fab {
+	position: fixed;
+	right: 24px;
+	bottom: 24px;
+	width: 36px;
+	height: 36px;
+	border-radius: 50%;
 	background: var(--el-color-primary);
-	padding: 10px;
-	color: var(--el-color-white);
-	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-	display: flex;
-	flex-direction: column;
-	gap: 16px;
-	cursor: pointer;
-	transition: all 0.2s ease;
-
-	&:hover {
-		box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15);
-		transform: translateY(-1px);
-	}
-}
-
-.change-log-title {
-	font-size: var(--button-1-size); /* 14px - Item Button 1 */
-	font-weight: 600;
-	margin: 0;
-	color: var(--el-color-white);
-}
-
-.change-log-subtitle {
-	font-size: var(--button-1-size); /* 14px - Item Button 1 */
-	margin: 4px 0 0 0;
-	color: rgba(255, 255, 255, 0.9);
-	font-weight: 400;
-}
-
-.change-log-actions {
+	color: white;
 	display: flex;
 	align-items: center;
-}
+	justify-content: center;
+	cursor: pointer;
+	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+	transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+	z-index: 2001;
 
-.expand-icon {
-	transition: transform 0.2s ease;
-	color: var(--el-color-white);
+	&:hover {
+		transform: scale(1.1);
+		box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
+	}
 
-	&.rotated {
-		transform: rotate(90deg);
+	&.fab-hidden {
+		transform: scale(0);
+		opacity: 0;
+		pointer-events: none;
+	}
+
+	.fab-icon {
+		font-size: 18px;
+	}
+
+	.fab-badge {
+		position: absolute;
+		top: -4px;
+		right: -4px;
+		min-width: 20px;
+		height: 20px;
+		padding: 0 6px;
+		font-size: 12px;
+		font-weight: 600;
+		line-height: 20px;
+		text-align: center;
+		background: var(--el-color-danger);
+		border-radius: 10px;
 	}
 }
 
-/* 优化折叠动画 */
-:deep(.el-collapse-transition) {
-	transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+/* 包装器 */
+.changelog-wrapper {
+	position: fixed;
+	inset: 0;
+	z-index: 2000;
 }
 
-:deep(.el-collapse-transition .el-collapse-item__content) {
-	will-change: height;
-	transform: translateZ(0); /* 启用硬件加速 */
+/* 遮罩层 */
+.changelog-overlay {
+	position: absolute;
+	inset: 0;
+	background: rgba(0, 0, 0, 0.3);
 }
 
-// 暗色主题支持
+/* 弹出面板 - 固定在右下角 */
+.changelog-panel {
+	position: absolute;
+	right: 24px;
+	bottom: 90px;
+	width: 1100px;
+	height: 700px;
+	max-width: calc(100vw - 48px);
+	max-height: calc(100vh - 120px);
+	background: var(--el-bg-color);
+	border-radius: 12px;
+	box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+	display: flex;
+	flex-direction: column;
+	overflow: hidden;
+}
+
+.changelog-panel-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 16px 20px;
+	border-bottom: 1px solid var(--el-border-color-lighter);
+	background: var(--el-fill-color-light);
+	flex-shrink: 0;
+}
+
+.changelog-panel-content {
+	flex: 1;
+	overflow: auto;
+}
+
+/* 面板弹出动画 - 从右下角滑出抽离效果 */
+.changelog-panel-enter-active {
+	transition: opacity 0.3s ease;
+
+	.changelog-overlay {
+		transition: opacity 0.3s ease;
+	}
+
+	.changelog-panel {
+		transition:
+			transform 0.35s cubic-bezier(0.4, 0, 0.2, 1),
+			opacity 0.3s ease;
+	}
+}
+
+.changelog-panel-leave-active {
+	transition: opacity 0.25s ease;
+
+	.changelog-overlay {
+		transition: opacity 0.25s ease;
+	}
+
+	.changelog-panel {
+		transition:
+			transform 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+			opacity 0.2s ease;
+	}
+}
+
+.changelog-panel-enter-from,
+.changelog-panel-leave-to {
+	.changelog-overlay {
+		opacity: 0;
+	}
+
+	.changelog-panel {
+		transform: translateX(calc(100% + 24px)) translateY(calc(100% + 90px));
+		opacity: 0;
+	}
+}
+
+/* 暗色主题 */
 html.dark {
-	.change-log-header-card {
-		background: var(--el-color-primary);
-		box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+	.changelog-fab {
+		box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
 
 		&:hover {
-			box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
+			box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5);
 		}
+	}
+
+	.changelog-overlay {
+		background: rgba(0, 0, 0, 0.5);
+	}
+
+	.changelog-panel {
+		box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
 	}
 }
 
-/* 响应式设计 */
-@media (max-width: 768px) {
-	.change-log-header-card {
-		padding: 12px 16px;
+/* 响应式 */
+@media (max-width: 120px) {
+	.changelog-fanel {
+		width: 900px;
+	}
+}
 
-		.change-log-actions {
-			margin-top: 8px;
+@media (max-width: 992px) {
+	.changelog-panel {
+		width: calc(100vw - 48px);
+		height: calc(100vh - 120px);
+	}
+}
+
+@media (max-width: 768px) {
+	.changelog-fab {
+		right: 16px;
+		bottom: 16px;
+		width: 48px;
+		height: 48px;
+
+		.fab-icon {
+			font-size: 20px;
 		}
 	}
 
-	.change-log-header-card .flex {
-		flex-direction: column;
-		align-items: flex-start;
+	.changelog-panel {
+		right: 12px;
+		bottom: 76px;
+		width: calc(100vw - 24px);
+		height: calc(100vh - 100px);
+		border-radius: 12px;
 	}
 }
 </style>

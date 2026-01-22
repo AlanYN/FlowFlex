@@ -12,6 +12,7 @@
 			:nodes-draggable="true"
 			:nodes-connectable="false"
 			:edges-updatable="false"
+			:delete-key-code="null"
 			class="workflow-canvas__flow"
 			@node-click="handleNodeClick"
 			@pane-click="handlePaneClick"
