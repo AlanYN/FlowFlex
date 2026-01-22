@@ -174,8 +174,7 @@
 							placeholder="Enter days"
 							class="w-full stage-edit-input"
 							:disabled="saving"
-							:decimalPlaces="2"
-							:minNumber="0.01"
+							:isFoloat="false"
 							@change="handleEstimatedDaysChange"
 						/>
 					</div>
@@ -184,12 +183,12 @@
 						<div class="mb-2">End Time</div>
 						<el-date-picker
 							v-model="editForm.customEndTime as string"
-							type="datetime"
+							type="date"
 							placeholder="Select end date"
 							class="w-full stage-edit-input"
 							:disabled="saving"
-							:format="projectTenMinutesSsecondsDate"
-							:value-format="projectTenMinutesSsecondsDate"
+							:format="projectDate"
+							:value-format="projectDate"
 							:disabledDate="disabledEndDate"
 							@change="handleEndTimeChange"
 						/>
@@ -308,7 +307,12 @@ import { ElMessage, ElMessageBox } from 'element-plus';
 import { Edit, Plus } from '@element-plus/icons-vue';
 import { Icon } from '@iconify/vue';
 import { timeZoneConvert } from '@/hooks/time';
-import { defaultStr, dialogWidth, projectTenMinutesSsecondsDate } from '@/settings/projectSetting';
+import {
+	defaultStr,
+	dialogWidth,
+	projectTenMinutesSsecondsDate,
+	projectDate,
+} from '@/settings/projectSetting';
 import InputNumber from '@/components/form/InputNumber/index.vue';
 import { getAllUser } from '@/apis/global';
 import type { Stage } from '#/onboard';
@@ -446,7 +450,7 @@ const getUserDisplayName = (userId: string): string => {
 // 计算属性 - 显示开始日期
 const displayStartDate = computed(() => {
 	if (!props.currentStage?.startTime) return defaultStr;
-	return timeZoneConvert(props.currentStage.startTime, false, projectTenMinutesSsecondsDate);
+	return timeZoneConvert(props.currentStage.startTime, false, projectDate);
 });
 
 // 计算属性 - 显示预估时长
@@ -474,7 +478,7 @@ const displayETA = computed(() => {
 			timeZoneConvert(
 				props.currentStage?.customEndTime || props.currentStage?.endTime || '',
 				false,
-				projectTenMinutesSsecondsDate
+				projectDate
 			) || defaultStr
 		);
 	} catch (error) {
