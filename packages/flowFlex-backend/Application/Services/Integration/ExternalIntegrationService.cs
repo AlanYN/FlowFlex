@@ -335,6 +335,13 @@ namespace FlowFlex.Application.Services.Integration
                 targetCase.EntityType = request.EntityType;
                 targetCase.EntityId = request.EntityId;
 
+                // Update CreateBy and ModifyBy if CreatedBy is provided (first name + last name)
+                if (!string.IsNullOrWhiteSpace(request.CreatedBy))
+                {
+                    targetCase.CreateBy = request.CreatedBy;
+                    targetCase.ModifyBy = request.CreatedBy;
+                }
+
                 // Ensure CurrentStageId is set to first stage if not already set
                 if (!targetCase.CurrentStageId.HasValue)
                 {
@@ -346,8 +353,8 @@ namespace FlowFlex.Application.Services.Integration
                 targetCase.InitModifyInfo(_userContext);
                 await _onboardingRepository.UpdateAsync(targetCase);
 
-                _logger.LogInformation("Updated SystemId={SystemId}, IntegrationId={IntegrationId}, EntityType={EntityType}, EntityId={EntityId}, CurrentStageId={CurrentStageId} for case {CaseId}",
-                    request.SystemId, entityMapping.IntegrationId, request.EntityType, request.EntityId, targetCase.CurrentStageId, caseId);
+                _logger.LogInformation("Updated SystemId={SystemId}, IntegrationId={IntegrationId}, EntityType={EntityType}, EntityId={EntityId}, CurrentStageId={CurrentStageId}, CreatedBy={CreatedBy} for case {CaseId}",
+                    request.SystemId, entityMapping.IntegrationId, request.EntityType, request.EntityId, targetCase.CurrentStageId, targetCase.CreateBy, caseId);
             }
 
             _logger.LogInformation("Successfully created new case {CaseId} from external system", caseId);

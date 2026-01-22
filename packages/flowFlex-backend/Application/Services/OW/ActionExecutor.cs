@@ -1034,67 +1034,9 @@ namespace FlowFlex.Application.Service.OW
                 }
                 else if (assigneeType == "team")
                 {
-                    // For team assignment, get team members and update CustomStageAssignee with member user IDs
-                    var teamIds = assigneeIds;
-                    var memberUserIds = new List<string>();
-                    var memberNames = new List<string>();
-
-                    _logger.LogDebug("AssignUser team: Starting team member lookup for teams: {TeamIds}, TenantId: {TenantId}",
-                        string.Join(",", teamIds), context.TenantId);
-
-                    // Get all team users from IDM
-                    var teamUsers = await _idmUserDataClient.GetAllTeamUsersAsync(context.TenantId, 10000, 1);
-
-                    _logger.LogDebug("AssignUser team: IDM returned {TotalUsers} team users", teamUsers?.Count ?? 0);
-
-                    if (teamUsers != null && teamUsers.Any())
-                    {
-                        // Log sample of available team IDs for debugging
-                        var availableTeamIds = teamUsers.Select(tu => tu.TeamId).Distinct().Take(10).ToList();
-                        _logger.LogDebug("AssignUser team: Available team IDs (sample): {AvailableTeamIds}",
-                            string.Join(",", availableTeamIds));
-
-                        // Filter users by teamIds and collect their user IDs and names
-                        foreach (var teamId in teamIds)
-                        {
-                            var teamMembers = teamUsers.Where(tu => tu.TeamId == teamId).ToList();
-                            _logger.LogDebug("AssignUser team: Team {TeamId} has {MemberCount} members",
-                                teamId, teamMembers.Count);
-
-                            foreach (var member in teamMembers)
-                            {
-                                if (!string.IsNullOrEmpty(member.Id) && !memberUserIds.Contains(member.Id))
-                                {
-                                    memberUserIds.Add(member.Id);
-                                    // Collect member display name
-                                    var displayName = !string.IsNullOrEmpty(member.FirstName) || !string.IsNullOrEmpty(member.LastName)
-                                        ? $"{member.FirstName} {member.LastName}".Trim()
-                                        : member.UserName ?? member.Email ?? member.Id;
-                                    memberNames.Add(displayName);
-                                    _logger.LogDebug("AssignUser team: Added member Id={MemberId}, UserName={UserName}",
-                                        member.Id, member.UserName);
-                                }
-                            }
-                        }
-
-                        _logger.LogInformation("AssignUser team: Found {MemberCount} members from {TeamCount} teams: {TeamIds}",
-                            memberUserIds.Count, teamIds.Count, string.Join(",", teamIds));
-                    }
-                    else
-                    {
-                        _logger.LogWarning("AssignUser team: IDM returned no team users for tenant {TenantId}", context.TenantId);
-                    }
-
-                    if (!memberUserIds.Any())
-                    {
-                        _logger.LogWarning("AssignUser team: No members found for teams {TeamIds}, will use team IDs as fallback",
-                            string.Join(",", teamIds));
-                        // Fallback: use team IDs if no members found
-                        memberUserIds = teamIds;
-                    }
-
-                    // Update CustomStageAssignee with team member user IDs
-                    stageProgress.CustomStageAssignee = memberUserIds;
+                    // For team assignment, update CustomStageCoAssignees (teams are typically co-assignees)
+                    var originalCustomCoAssignees = stageProgress.CustomStageCoAssignees?.ToList() ?? new List<string>();
+                    stageProgress.CustomStageCoAssignees = assigneeIds;
                     stageProgress.LastUpdatedTime = DateTimeOffset.UtcNow;
 
                     // Serialize updated stagesProgress
@@ -1111,17 +1053,14 @@ namespace FlowFlex.Application.Service.OW
                         .ExecuteCommandAsync();
 
                     result.ResultData["assigneeType"] = "team";
-                    result.ResultData["teamIds"] = teamIds;
-                    result.ResultData["memberUserIds"] = memberUserIds;
-                    result.ResultData["memberCount"] = memberUserIds.Count;
-                    result.ResultData["assigneeNames"] = memberNames;
-                    result.ResultData["assigneeCount"] = memberUserIds.Count;
+                    result.ResultData["assigneeIds"] = assigneeIds;
+                    result.ResultData["assigneeCount"] = assigneeIds.Count;
                     result.ResultData["stageId"] = currentStageId;
-                    result.ResultData["originalCustomStageAssignee"] = originalCustomAssignee;
-                    result.ResultData["newCustomStageAssignee"] = memberUserIds;
+                    result.ResultData["originalCustomStageCoAssignees"] = originalCustomCoAssignees;
+                    result.ResultData["newCustomStageCoAssignees"] = assigneeIds;
 
-                    _logger.LogInformation("AssignUser executed: Updated CustomStageAssignee with team members for Onboarding {OnboardingId}, StageId={StageId}, Teams={Teams}, OldAssignee={OldAssignee}, NewAssignee={NewAssignee}",
-                        context.OnboardingId, currentStageId, string.Join(",", teamIds), string.Join(",", originalCustomAssignee), string.Join(",", memberUserIds));
+                    _logger.LogInformation("AssignUser executed: Updated CustomStageCoAssignees for Onboarding {OnboardingId}, StageId={StageId}, OldCoAssignees={OldCoAssignees}, NewCoAssignees={NewCoAssignees}",
+                        context.OnboardingId, currentStageId, string.Join(",", originalCustomCoAssignees), string.Join(",", assigneeIds));
                 }
 
                 result.Success = true;
