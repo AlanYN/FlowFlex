@@ -143,6 +143,7 @@
 						portalPermission: formData.portalPermission,
 						attachmentManagementNeeded: formData.attachmentManagementNeeded,
 					}"
+					:stage="stage"
 					:staticFields="staticFields"
 					@update:model-value="updateComponentsData"
 				/>

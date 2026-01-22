@@ -129,6 +129,8 @@ export interface DynamicList {
 	additionalInfo?: DynamicFieldAdditionalInfo;
 	// 下拉选项 (DropDown 类型)
 	dropdownItems?: DynamicDropdownItem[];
+	// 是否被选择
+	inStages: string[];
 }
 
 export interface DynamicSearch {

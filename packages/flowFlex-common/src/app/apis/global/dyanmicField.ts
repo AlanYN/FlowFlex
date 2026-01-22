@@ -18,8 +18,10 @@ const Api = () => {
 	};
 };
 
-export function getDynamicField(): Promise<DynamicApiResponse<DynamicList[]>> {
-	return defHttp.get({ url: `${Api().dynamicField}/properties` });
+export function getDynamicField(params?: {
+	workflowId: string;
+}): Promise<DynamicApiResponse<DynamicList[]>> {
+	return defHttp.get({ url: `${Api().dynamicField}/properties`, params });
 }
 
 export function deleteDynamicField(id: string): Promise<DynamicApiResponse<string>> {
