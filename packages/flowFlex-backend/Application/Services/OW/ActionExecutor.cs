@@ -420,6 +420,7 @@ namespace FlowFlex.Application.Service.OW
 
         /// <summary>
         /// Execute SendNotification action - send notification to user or team members
+        /// Supports both single recipientId and array of recipientIds
         /// </summary>
         private async Task<ActionExecutionDetail> ExecuteSendNotificationAsync(ConditionAction action, ActionExecutionContext context)
         {
@@ -434,8 +435,8 @@ namespace FlowFlex.Application.Service.OW
             {
                 // Get recipient info from action or parameters
                 var recipientType = action.RecipientType;
-                var recipientId = action.RecipientId;
                 var templateId = action.TemplateId;
+                List<string> recipientIds = new List<string>();
 
                 // Try to get from parameters if not set at top level
                 if (action.Parameters != null)
@@ -444,32 +445,44 @@ namespace FlowFlex.Application.Service.OW
                     {
                         recipientType = typeObj?.ToString();
                     }
-                    if (string.IsNullOrEmpty(recipientId) && action.Parameters.TryGetValue("recipientId", out var idObj))
+                    
+                    // Handle recipientId - can be single value or array
+                    if (action.Parameters.TryGetValue("recipientId", out var idObj) && idObj != null)
                     {
-                        recipientId = idObj?.ToString();
+                        recipientIds = ParseRecipientIds(idObj);
                     }
+                    
                     // Also support recipientEmail parameter directly
-                    if (string.IsNullOrEmpty(recipientId) && action.Parameters.TryGetValue("recipientEmail", out var emailObj))
+                    if (!recipientIds.Any() && action.Parameters.TryGetValue("recipientEmail", out var emailObj) && emailObj != null)
                     {
-                        recipientId = emailObj?.ToString();
+                        recipientIds = ParseRecipientIds(emailObj);
                         // If recipientEmail is provided directly, treat it as email type
                         if (string.IsNullOrEmpty(recipientType))
                         {
                             recipientType = "email";
                         }
                     }
+                    
                     if (string.IsNullOrEmpty(templateId) && action.Parameters.TryGetValue("templateId", out var templateObj))
                     {
                         templateId = templateObj?.ToString();
                     }
                 }
 
-                if (string.IsNullOrEmpty(recipientId))
+                // Fallback to action-level recipientId if parameters didn't have it
+                if (!recipientIds.Any() && !string.IsNullOrEmpty(action.RecipientId))
+                {
+                    recipientIds.Add(action.RecipientId);
+                }
+
+                if (!recipientIds.Any())
                 {
                     result.Success = false;
                     result.ErrorMessage = "RecipientId or RecipientEmail is required for SendNotification action";
                     return result;
                 }
+
+                _logger.LogDebug("SendNotification: Processing {Count} recipients, type={Type}", recipientIds.Count, recipientType);
 
                 // Get onboarding info for email content (needed for all recipient types)
                 var onboarding = await _onboardingRepository.GetByIdWithoutTenantFilterAsync(context.OnboardingId);
@@ -494,76 +507,123 @@ namespace FlowFlex.Application.Service.OW
                 // Handle team type - send notification to all team members
                 if (recipientType?.ToLower() == "team")
                 {
-                    return await ExecuteSendNotificationToTeamAsync(recipientId, context, result, templateId, caseName, previousStageName, currentStageName, caseUrl);
+                    // For team type, join all team IDs with comma
+                    var teamIdsStr = string.Join(",", recipientIds);
+                    return await ExecuteSendNotificationToTeamAsync(teamIdsStr, context, result, templateId, caseName, previousStageName, currentStageName, caseUrl);
                 }
 
-                // Get recipient email based on recipientType (user or email)
-                string recipientEmail = null;
-                string recipientName = null;
+                // Process multiple recipients for user or email type
+                var successCount = 0;
+                var failedRecipients = new List<string>();
+                var sentEmails = new List<string>();
 
                 if (recipientType?.ToLower() == "user")
                 {
-                    // Get user email using UserService (supports IDM integration)
-                    if (long.TryParse(recipientId, out var userId))
-                    {
-                        var users = await _userService.GetUsersByIdsAsync(new List<long> { userId }, context.TenantId);
-                        var user = users?.FirstOrDefault();
+                    // Batch get all users at once for efficiency
+                    var userIds = recipientIds
+                        .Where(id => long.TryParse(id, out _))
+                        .Select(id => long.Parse(id))
+                        .ToList();
 
-                        if (user != null && !string.IsNullOrWhiteSpace(user.Email))
+                    if (userIds.Any())
+                    {
+                        var users = await _userService.GetUsersByIdsAsync(userIds, context.TenantId);
+                        var userDict = users?.ToDictionary(u => u.Id.ToString(), u => u) ?? new Dictionary<string, Application.Contracts.Dtos.OW.User.UserDto>();
+
+                        foreach (var recipientId in recipientIds)
                         {
-                            recipientEmail = user.Email;
-                            recipientName = user.Username ?? user.Email;
-                            _logger.LogDebug("Found user {UserId} with email {Email} via UserService", userId, recipientEmail);
+                            if (userDict.TryGetValue(recipientId, out var user) && !string.IsNullOrWhiteSpace(user.Email))
+                            {
+                                var emailSent = await _emailService.SendConditionStageNotificationAsync(
+                                    user.Email,
+                                    context.OnboardingId.ToString(),
+                                    caseName,
+                                    previousStageName,
+                                    currentStageName,
+                                    caseUrl);
+
+                                if (emailSent)
+                                {
+                                    successCount++;
+                                    sentEmails.Add(user.Email);
+                                    _logger.LogDebug("SendNotification: Email sent to user {UserId} ({Email})", recipientId, user.Email);
+                                }
+                                else
+                                {
+                                    failedRecipients.Add($"{recipientId}(send failed)");
+                                }
+                            }
+                            else
+                            {
+                                failedRecipients.Add($"{recipientId}(no email)");
+                                _logger.LogWarning("SendNotification: User {UserId} not found or has no email", recipientId);
+                            }
                         }
-                        else
-                        {
-                            _logger.LogWarning("User {UserId} not found or has no email via UserService", userId);
-                        }
+                    }
+                    else
+                    {
+                        failedRecipients.AddRange(recipientIds.Select(id => $"{id}(invalid id)"));
                     }
                 }
                 else if (recipientType?.ToLower() == "email")
                 {
-                    // recipientId is the email address directly
-                    recipientEmail = recipientId;
-                    recipientName = recipientId;
-                }
+                    // recipientIds are email addresses directly
+                    foreach (var email in recipientIds)
+                    {
+                        var emailSent = await _emailService.SendConditionStageNotificationAsync(
+                            email,
+                            context.OnboardingId.ToString(),
+                            caseName,
+                            previousStageName,
+                            currentStageName,
+                            caseUrl);
 
-                if (string.IsNullOrEmpty(recipientEmail))
-                {
-                    result.Success = false;
-                    result.ErrorMessage = $"Could not find email for recipient: {recipientType}={recipientId}";
-                    return result;
-                }
-
-                // Send condition stage notification email (uses "current stage" instead of "next stage")
-                var emailSent = await _emailService.SendConditionStageNotificationAsync(
-                    recipientEmail,
-                    context.OnboardingId.ToString(),
-                    caseName,
-                    previousStageName,
-                    currentStageName,
-                    caseUrl);
-
-                result.Success = emailSent;
-                result.ResultData["recipientType"] = recipientType ?? string.Empty;
-                result.ResultData["recipientId"] = recipientId ?? string.Empty;
-                result.ResultData["recipientEmail"] = recipientEmail;
-                result.ResultData["recipientName"] = recipientName ?? string.Empty;
-                result.ResultData["templateId"] = templateId ?? string.Empty;
-                result.ResultData["previousStageName"] = previousStageName;
-                result.ResultData["currentStageName"] = currentStageName;
-                result.ResultData["status"] = emailSent ? "Sent" : "Failed";
-
-                if (emailSent)
-                {
-                    _logger.LogInformation("SendNotification executed: Email sent to {RecipientEmail} for onboarding {OnboardingId}",
-                        recipientEmail, context.OnboardingId);
+                        if (emailSent)
+                        {
+                            successCount++;
+                            sentEmails.Add(email);
+                        }
+                        else
+                        {
+                            failedRecipients.Add($"{email}(send failed)");
+                        }
+                    }
                 }
                 else
                 {
-                    result.ErrorMessage = "Failed to send email";
-                    _logger.LogWarning("SendNotification failed: Could not send email to {RecipientEmail} for onboarding {OnboardingId}",
-                        recipientEmail, context.OnboardingId);
+                    result.Success = false;
+                    result.ErrorMessage = $"Unknown recipientType: {recipientType}";
+                    return result;
+                }
+
+                // Set result based on success/failure counts
+                result.Success = successCount > 0;
+                result.ResultData["recipientType"] = recipientType ?? string.Empty;
+                result.ResultData["recipientIds"] = recipientIds;
+                result.ResultData["sentEmails"] = sentEmails;
+                result.ResultData["successCount"] = successCount;
+                result.ResultData["failedCount"] = failedRecipients.Count;
+                result.ResultData["templateId"] = templateId ?? string.Empty;
+                result.ResultData["previousStageName"] = previousStageName;
+                result.ResultData["currentStageName"] = currentStageName;
+
+                if (successCount > 0 && !failedRecipients.Any())
+                {
+                    _logger.LogInformation("SendNotification executed: Sent {Count} emails for onboarding {OnboardingId}",
+                        successCount, context.OnboardingId);
+                }
+                else if (successCount > 0 && failedRecipients.Any())
+                {
+                    result.ErrorMessage = $"Partial success: {successCount} sent, {failedRecipients.Count} failed ({string.Join(", ", failedRecipients)})";
+                    _logger.LogWarning("SendNotification partial success: {SuccessCount} sent, {FailedCount} failed for onboarding {OnboardingId}. Failed: {Failed}",
+                        successCount, failedRecipients.Count, context.OnboardingId, string.Join(", ", failedRecipients));
+                }
+                else
+                {
+                    result.Success = false;
+                    result.ErrorMessage = $"Failed to send notifications to all recipients: {string.Join(", ", failedRecipients)}";
+                    _logger.LogWarning("SendNotification failed: Could not send to any recipient for onboarding {OnboardingId}. Failed: {Failed}",
+                        context.OnboardingId, string.Join(", ", failedRecipients));
                 }
             }
             catch (Exception ex)
@@ -571,6 +631,106 @@ namespace FlowFlex.Application.Service.OW
                 result.Success = false;
                 result.ErrorMessage = ex.Message;
                 _logger.LogError(ex, "Error executing SendNotification action");
+            }
+
+            return result;
+        }
+
+        /// <summary>
+        /// Parse recipientId(s) from various formats: single string, JSON array, or actual array
+        /// </summary>
+        private List<string> ParseRecipientIds(object idObj)
+        {
+            var result = new List<string>();
+            
+            if (idObj == null)
+                return result;
+
+            // Handle JsonElement (from System.Text.Json deserialization)
+            if (idObj is System.Text.Json.JsonElement jsonElement)
+            {
+                if (jsonElement.ValueKind == System.Text.Json.JsonValueKind.Array)
+                {
+                    foreach (var item in jsonElement.EnumerateArray())
+                    {
+                        var value = item.GetString();
+                        if (!string.IsNullOrWhiteSpace(value))
+                        {
+                            result.Add(value);
+                        }
+                    }
+                }
+                else if (jsonElement.ValueKind == System.Text.Json.JsonValueKind.String)
+                {
+                    var value = jsonElement.GetString();
+                    if (!string.IsNullOrWhiteSpace(value))
+                    {
+                        result.Add(value);
+                    }
+                }
+                return result;
+            }
+
+            // Handle Newtonsoft.Json JArray
+            if (idObj is Newtonsoft.Json.Linq.JArray jArray)
+            {
+                foreach (var item in jArray)
+                {
+                    var value = item?.ToString();
+                    if (!string.IsNullOrWhiteSpace(value))
+                    {
+                        result.Add(value);
+                    }
+                }
+                return result;
+            }
+
+            // Handle IEnumerable<string> or similar
+            if (idObj is IEnumerable<string> stringList)
+            {
+                result.AddRange(stringList.Where(s => !string.IsNullOrWhiteSpace(s)));
+                return result;
+            }
+
+            // Handle IEnumerable (non-string)
+            if (idObj is System.Collections.IEnumerable enumerable && !(idObj is string))
+            {
+                foreach (var item in enumerable)
+                {
+                    var value = item?.ToString();
+                    if (!string.IsNullOrWhiteSpace(value))
+                    {
+                        result.Add(value);
+                    }
+                }
+                return result;
+            }
+
+            // Handle single string value (might be JSON array string)
+            var strValue = idObj.ToString();
+            if (!string.IsNullOrWhiteSpace(strValue))
+            {
+                // Check if it's a JSON array string
+                strValue = strValue.Trim();
+                if (strValue.StartsWith("[") && strValue.EndsWith("]"))
+                {
+                    try
+                    {
+                        var parsed = System.Text.Json.JsonSerializer.Deserialize<List<string>>(strValue);
+                        if (parsed != null)
+                        {
+                            result.AddRange(parsed.Where(s => !string.IsNullOrWhiteSpace(s)));
+                            return result;
+                        }
+                    }
+                    catch
+                    {
+                        // Not a valid JSON array, treat as single value
+                    }
+                }
+                
+                // Single value
+                result.Add(strValue);
             }
 
             return result;
