@@ -1,6 +1,7 @@
 using FlowFlex.Application.Contracts.IServices.DynamicData;
 using FlowFlex.Domain.Entities.DynamicData;
 using FlowFlex.Domain.Repository.DynamicData;
+using FlowFlex.Domain.Repository.OW;
 using FlowFlex.Domain.Shared;
 using FlowFlex.Domain.Shared.Enums.DynamicData;
 using FlowFlex.Domain.Shared.Exceptions;
@@ -21,6 +22,7 @@ public class DynamicDataService : IBusinessDataService, IPropertyService, IScope
     private readonly IDataValueRepository _dataValueRepository;
     private readonly IDefineFieldRepository _defineFieldRepository;
     private readonly IFieldGroupRepository _fieldGroupRepository;
+    private readonly IStageRepository _stageRepository;
     private readonly UserContext _userContext;
     private readonly ILogger<DynamicDataService> _logger;
     
@@ -32,6 +34,7 @@ public class DynamicDataService : IBusinessDataService, IPropertyService, IScope
         IDataValueRepository dataValueRepository,
         IDefineFieldRepository defineFieldRepository,
         IFieldGroupRepository fieldGroupRepository,
+        IStageRepository stageRepository,
         UserContext userContext,
         ILogger<DynamicDataService> logger)
     {
@@ -39,6 +42,7 @@ public class DynamicDataService : IBusinessDataService, IPropertyService, IScope
         _dataValueRepository = dataValueRepository;
         _defineFieldRepository = defineFieldRepository;
         _fieldGroupRepository = fieldGroupRepository;
+        _stageRepository = stageRepository;
         _userContext = userContext;
         _logger = logger;
     }
@@ -125,10 +129,85 @@ public class DynamicDataService : IBusinessDataService, IPropertyService, IScope
 
     #region IPropertyService Implementation
 
-    public async Task<List<DefineFieldDto>> GetPropertyListAsync()
+    public async Task<List<DefineFieldDto>> GetPropertyListAsync(long? workflowId = null)
     {
         var fields = await _defineFieldRepository.GetAllAsync();
-        return fields.Select(MapToDefineFieldDto).ToList();
+        var result = fields.Select(MapToDefineFieldDto).ToList();
+
+        // If workflowId is provided, check which properties are used in workflow stages
+        if (workflowId.HasValue)
+        {
+            var propertyStageMap = await GetPropertyStageMapInWorkflowAsync(workflowId.Value);
+            foreach (var dto in result)
+            {
+                if (propertyStageMap.TryGetValue(dto.Id, out var stageIds))
+                {
+                    dto.InStages = stageIds;
+                }
+                else
+                {
+                    dto.InStages = new List<long>();
+                }
+            }
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// Get a map of property IDs to stage IDs where they are used in workflow
+    /// </summary>
+    private async Task<Dictionary<long, List<long>>> GetPropertyStageMapInWorkflowAsync(long workflowId)
+    {
+        var propertyStageMap = new Dictionary<long, List<long>>();
+
+        try
+        {
+            var stages = await _stageRepository.GetByWorkflowIdAsync(workflowId);
+            
+            foreach (var stage in stages)
+            {
+                if (string.IsNullOrWhiteSpace(stage.ComponentsJson))
+                    continue;
+
+                try
+                {
+                    var components = System.Text.Json.JsonSerializer.Deserialize<List<FlowFlex.Domain.Shared.Models.StageComponent>>(
+                        stage.ComponentsJson,
+                        new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+                    if (components == null)
+                        continue;
+
+                    // Find fields component and extract property IDs from StaticFields
+                    var fieldsComponent = components.FirstOrDefault(c => c.Key == "fields");
+                    if (fieldsComponent?.StaticFields != null)
+                    {
+                        foreach (var staticField in fieldsComponent.StaticFields)
+                        {
+                            if (long.TryParse(staticField.Id, out var fieldId))
+                            {
+                                if (!propertyStageMap.ContainsKey(fieldId))
+                                {
+                                    propertyStageMap[fieldId] = new List<long>();
+                                }
+                                propertyStageMap[fieldId].Add(stage.Id);
+                            }
+                        }
+                    }
+                }
+                catch (System.Text.Json.JsonException ex)
+                {
+                    _logger.LogWarning(ex, "Failed to parse ComponentsJson for stage {StageId}", stage.Id);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting property stage map for workflow {WorkflowId}", workflowId);
+        }
+
+        return propertyStageMap;
     }
 
     public async Task<PagedResult<DefineFieldDto>> GetPropertyPagedListAsync(PropertyQueryRequest request)
