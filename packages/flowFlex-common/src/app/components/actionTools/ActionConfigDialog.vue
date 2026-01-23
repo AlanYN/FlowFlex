@@ -468,7 +468,7 @@ const isShowTools = computed(() => {
 // 计算是否应该禁用表单字段
 const shouldDisableFields = computed(() => {
 	// 如果强制允许编辑，直接返回false
-	if (forceEditable.value) {
+	if (forceEditable.value || isShowTools.value) {
 		return false;
 	}
 
