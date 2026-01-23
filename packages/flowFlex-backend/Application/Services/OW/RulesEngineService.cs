@@ -351,6 +351,51 @@ namespace FlowFlex.Application.Service.OW
 
                         _logger.LogInformation("Condition '{ConditionName}' met, executed {ActionCount} actions",
                             condition.Name, actionResult.Details.Count);
+
+                        // 6. Check if any stage-related action was executed successfully
+                        // Stage-related actions: GoToStage, SkipStage, EndWorkflow
+                        var stageRelatedActionTypes = new[] { "gotostage", "skipstage", "endworkflow" };
+                        var hasSuccessfulStageAction = actionResult.Details.Any(d => 
+                            d.Success && stageRelatedActionTypes.Contains(d.ActionType.ToLower()));
+
+                        // If no stage-related action was executed, auto-advance to next stage
+                        if (!hasSuccessfulStageAction)
+                        {
+                            var nextStageId = await GetNextStageIdAsync(stageId);
+                            if (nextStageId.HasValue)
+                            {
+                                _logger.LogInformation("Condition '{ConditionName}' met but no stage-related action executed, auto-advancing to next stage {NextStageId}",
+                                    condition.Name, nextStageId.Value);
+
+                                // Execute auto-advance to next stage
+                                var autoAdvanceActionsJson = System.Text.Json.JsonSerializer.Serialize(new[]
+                                {
+                                    new
+                                    {
+                                        type = "GoToStage",
+                                        order = 999, // High order to indicate it's auto-generated
+                                        targetStageId = nextStageId.Value.ToString()
+                                    }
+                                });
+
+                                var autoAdvanceResult = await actionExecutor.ExecuteActionsAsync(autoAdvanceActionsJson, context);
+                                
+                                // Append auto-advance action result to the existing results
+                                if (autoAdvanceResult.Details.Any())
+                                {
+                                    var autoAdvanceDetail = autoAdvanceResult.Details.First();
+                                    autoAdvanceDetail.ActionType = "AutoToNextStage"; // Mark as auto-advance
+                                    result.ActionResults.Add(autoAdvanceDetail);
+                                }
+
+                                result.NextStageId = nextStageId;
+                            }
+                            else
+                            {
+                                _logger.LogInformation("Condition '{ConditionName}' met but no next stage available, workflow may be at final stage",
+                                    condition.Name);
+                            }
+                        }
                     }
                     else if (!isConditionMet)
                     {
