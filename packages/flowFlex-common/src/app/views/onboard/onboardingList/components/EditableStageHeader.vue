@@ -531,32 +531,11 @@ const displayETA = computed(() => {
 const initEditForm = () => {
 	if (!props.currentStage) return;
 	editForm.value = {
-		customEstimatedDays: props.currentStage.estimatedDays || null,
-		customEndTime: null, // 可以直接编辑结束时间
 		assignee: props.currentStage.assignee || [],
 		coAssignees: props.currentStage.coAssignees || [],
+		customEstimatedDays: props.currentStage?.estimatedDays || null,
+		customEndTime: timeZoneConvert(props.currentStage?.endTime || '') || null, // 可以直接编辑结束时间
 	};
-
-	// 如果有开始时间和预估天数，计算默认结束时间
-	if (props.currentStage.startTime && editForm.value.customEstimatedDays) {
-		try {
-			// 直接使用原始的ISO时间字符串创建Date对象
-			const startDate = new Date(props.currentStage.startTime);
-			// 使用毫秒计算支持小数天数，保持原始时分秒
-			const millisecondsToAdd = editForm.value.customEstimatedDays * 24 * 60 * 60 * 1000;
-			const endDate = new Date(startDate.getTime() + millisecondsToAdd);
-			// 将计算出的结束时间转换为 projectTenMinutesSsecondsDate 格式
-			const endTimeFormatted = timeZoneConvert(
-				endDate.toString(),
-				false,
-				projectTenMinutesSsecondsDate
-			);
-			editForm.value.customEndTime = endTimeFormatted;
-		} catch (error) {
-			console.error('Error initializing end time:', error);
-			editForm.value.customEndTime = null;
-		}
-	}
 };
 
 // 监听当前阶段变化，更新编辑表单
@@ -609,11 +588,7 @@ const handleEstimatedDaysChange = (estimatedDays: number | null) => {
 			const endDate = new Date(startDate.getTime() + millisecondsToAdd);
 
 			// 将计算出的结束时间转换为 projectTenMinutesSsecondsDate 格式
-			const endTimeFormatted = timeZoneConvert(
-				endDate.toString(),
-				false,
-				projectTenMinutesSsecondsDate
-			);
+			const endTimeFormatted = timeZoneConvert(endDate.toString(), false, projectDate);
 			editForm.value.customEndTime = endTimeFormatted;
 		} catch (error) {
 			console.error('Error calculating end time from estimated days:', error);
@@ -659,8 +634,8 @@ const handleEndTimeChange = (endTime: string | Date | null) => {
 	if (props.currentStage?.startTime && endTime) {
 		try {
 			// 直接使用原始的ISO时间字符串创建Date对象
-			const startDate = new Date(props.currentStage.startTime);
-			const endDate = new Date(endTime);
+			const startDate = new Date(timeZoneConvert(displayStartDate.value, true));
+			const endDate = new Date(timeZoneConvert(endTime as string, true));
 			// 验证结束时间不能小于开始时间
 			if (endDate < startDate) {
 				ElMessage.error('End time cannot be earlier than start time');
