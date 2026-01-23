@@ -271,7 +271,7 @@ namespace FlowFlex.Application.Service.OW
             var opIdUpdate = _operatorContextService.GetOperatorId();
             entity.ModifyBy = opNameUpdate;
             entity.ModifyUserId = opIdUpdate;
-            entity.ModifyDate = DateTimeOffset.Now;
+            entity.ModifyDate = DateTimeOffset.UtcNow;
 
             // Recalculate question statistics
             await CalculateQuestionStatistics(entity, input.Sections);

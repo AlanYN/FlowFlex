@@ -157,7 +157,7 @@ public class ChecklistTaskRepository : BaseRepository<ChecklistTask>, IChecklist
     {
         var currentTenantId = GetCurrentTenantId();
         var currentAppCode = GetCurrentAppCode();
-        var now = DateTimeOffset.Now;
+        var now = DateTimeOffset.UtcNow;
 
         return await db.Queryable<ChecklistTask>()
             .Where(x => x.DueDate.HasValue
@@ -181,11 +181,11 @@ public class ChecklistTaskRepository : BaseRepository<ChecklistTask>, IChecklist
             .SetColumns(x => new ChecklistTask
             {
                 IsCompleted = true,
-                CompletedDate = DateTimeOffset.Now,
+                CompletedDate = DateTimeOffset.UtcNow,
                 CompletionNotes = completionNotes,
                 ActualHours = actualHours,
                 Status = "Completed",
-                ModifyDate = DateTimeOffset.Now
+                ModifyDate = DateTimeOffset.UtcNow
             })
             .Where(x => taskIds.Contains(x.Id) && x.IsValid == true)
             .Where(x => x.TenantId == currentTenantId && x.AppCode == currentAppCode)
@@ -335,7 +335,7 @@ public class ChecklistTaskRepository : BaseRepository<ChecklistTask>, IChecklist
                 TotalTasks = SqlFunc.AggregateCount(x.Id),
                 CompletedTasks = SqlFunc.AggregateSum(SqlFunc.IIF(x.IsCompleted == true, 1, 0)),
                 RequiredTasks = SqlFunc.AggregateSum(SqlFunc.IIF(x.IsRequired == true, 1, 0)),
-                OverdueTasks = SqlFunc.AggregateSum(SqlFunc.IIF(x.DueDate.HasValue && x.DueDate.Value < DateTimeOffset.Now && x.IsCompleted == false, 1, 0)),
+                OverdueTasks = SqlFunc.AggregateSum(SqlFunc.IIF(x.DueDate.HasValue && x.DueDate.Value < DateTimeOffset.UtcNow && x.IsCompleted == false, 1, 0)),
                 TotalEstimatedHours = SqlFunc.AggregateSum(x.EstimatedHours),
                 TotalActualHours = SqlFunc.AggregateSum(x.ActualHours)
             })

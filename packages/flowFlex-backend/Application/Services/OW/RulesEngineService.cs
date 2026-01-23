@@ -13,6 +13,7 @@ using FlowFlex.Domain.Shared.Models;
 using FlowFlex.Domain.Shared.Enums.OW;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using RulesEngine.Models;
 using SqlSugar;
 
@@ -350,6 +351,51 @@ namespace FlowFlex.Application.Service.OW
 
                         _logger.LogInformation("Condition '{ConditionName}' met, executed {ActionCount} actions",
                             condition.Name, actionResult.Details.Count);
+
+                        // 6. Check if any stage-related action was executed successfully
+                        // Stage-related actions: GoToStage, SkipStage, EndWorkflow
+                        var stageRelatedActionTypes = new[] { "gotostage", "skipstage", "endworkflow" };
+                        var hasSuccessfulStageAction = actionResult.Details.Any(d => 
+                            d.Success && stageRelatedActionTypes.Contains(d.ActionType.ToLower()));
+
+                        // If no stage-related action was executed, auto-advance to next stage
+                        if (!hasSuccessfulStageAction)
+                        {
+                            var nextStageId = await GetNextStageIdAsync(stageId);
+                            if (nextStageId.HasValue)
+                            {
+                                _logger.LogInformation("Condition '{ConditionName}' met but no stage-related action executed, auto-advancing to next stage {NextStageId}",
+                                    condition.Name, nextStageId.Value);
+
+                                // Execute auto-advance to next stage
+                                var autoAdvanceActionsJson = System.Text.Json.JsonSerializer.Serialize(new[]
+                                {
+                                    new
+                                    {
+                                        type = "GoToStage",
+                                        order = 999, // High order to indicate it's auto-generated
+                                        targetStageId = nextStageId.Value.ToString()
+                                    }
+                                });
+
+                                var autoAdvanceResult = await actionExecutor.ExecuteActionsAsync(autoAdvanceActionsJson, context);
+                                
+                                // Append auto-advance action result to the existing results
+                                if (autoAdvanceResult.Details.Any())
+                                {
+                                    var autoAdvanceDetail = autoAdvanceResult.Details.First();
+                                    autoAdvanceDetail.ActionType = "AutoToNextStage"; // Mark as auto-advance
+                                    result.ActionResults.Add(autoAdvanceDetail);
+                                }
+
+                                result.NextStageId = nextStageId;
+                            }
+                            else
+                            {
+                                _logger.LogInformation("Condition '{ConditionName}' met but no next stage available, workflow may be at final stage",
+                                    condition.Name);
+                            }
+                        }
                     }
                     else if (!isConditionMet)
                     {
@@ -1448,7 +1494,11 @@ namespace FlowFlex.Application.Service.OW
                 {
                     if (string.IsNullOrEmpty(rule.FieldPath)) continue;
                     
-                    var componentType = rule.ComponentType?.ToLower() ?? "";
+                    // Detect component type from both componentType field and fieldPath pattern
+                    var componentType = DetectComponentType(rule);
+                    
+                    _logger.LogDebug("Rule detection - ComponentType: {ComponentType}, FieldPath: {FieldPath}, DetectedType: {DetectedType}",
+                        rule.ComponentType, rule.FieldPath, componentType);
                     
                     if (componentType == "checklist")
                     {
@@ -1460,6 +1510,8 @@ namespace FlowFlex.Application.Service.OW
                     {
                         // Extract questionnaire ID and question ID from path
                         var (questionnaireId, questionId) = ExtractQuestionnaireAndQuestionIdFromPath(rule.FieldPath);
+                        _logger.LogDebug("Extracted questionnaire IDs - QuestionnaireId: {QuestionnaireId}, QuestionId: {QuestionId}",
+                            questionnaireId, questionId);
                         if (questionnaireId > 0 && questionId > 0)
                         {
                             if (!questionnaireQuestionMap.ContainsKey(questionnaireId))
@@ -1497,17 +1549,25 @@ namespace FlowFlex.Application.Service.OW
                 if (questionnaireQuestionMap.Any())
                 {
                     var questionnaireIds = questionnaireQuestionMap.Keys.ToList();
-                    var questionnaires = await _db.Queryable<Questionnaire>()
-                        .Where(q => questionnaireIds.Contains(q.Id) && q.IsValid)
-                        .Select(q => new { q.Id, q.Structure, q.Name })
-                        .ToListAsync();
+                    
+                    // Query questionnaire data using raw SQL to avoid JToken deserialization issues
+                    // SqlSugar's System.Text.Json serializer cannot deserialize Newtonsoft.Json.Linq.JToken
+                    // Use IN clause with dynamic parameter placeholders for better compatibility
+                    var idPlaceholders = string.Join(", ", questionnaireIds.Select((_, i) => $"@id{i}"));
+                    var parameters = questionnaireIds.Select((id, i) => new SugarParameter($"@id{i}", id)).ToList();
+                    
+                    var questionnaires = await _db.Ado.SqlQueryAsync<QuestionnaireNameStructure>(
+                        $@"SELECT id AS ""Id"", name AS ""Name"", structure_json::text AS ""StructureJson"" 
+                           FROM ff_questionnaire 
+                           WHERE id IN ({idPlaceholders}) AND is_valid = true",
+                        parameters);
                     
                     _logger.LogDebug("Found {Count} questionnaires for IDs: {QuestionnaireIds}", 
                         questionnaires.Count, string.Join(", ", questionnaireIds));
                     
                     foreach (var questionnaire in questionnaires)
                     {
-                        if (questionnaire.Structure == null)
+                        if (string.IsNullOrEmpty(questionnaire.StructureJson))
                         {
                             _logger.LogDebug("Questionnaire {Id} has null structure", questionnaire.Id);
                             continue;
@@ -1516,8 +1576,20 @@ namespace FlowFlex.Application.Service.OW
                         var neededQuestionIds = questionnaireQuestionMap.GetValueOrDefault(questionnaire.Id);
                         if (neededQuestionIds == null || !neededQuestionIds.Any()) continue;
                         
+                        // Parse structure JSON string to JToken
+                        JToken structureToken = null;
+                        try
+                        {
+                            structureToken = JToken.Parse(questionnaire.StructureJson);
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogDebug(ex, "Failed to parse structure JSON for questionnaire {Id}", questionnaire.Id);
+                            continue;
+                        }
+                        
                         // Extract question titles from structure JSON
-                        var questionTitles = ExtractQuestionTitlesFromStructure(questionnaire.Structure, neededQuestionIds);
+                        var questionTitles = ExtractQuestionTitlesFromStructure(structureToken, neededQuestionIds);
                         
                         // If no titles found, use questionnaire name as fallback
                         foreach (var questionId in neededQuestionIds)
@@ -1560,6 +1632,52 @@ namespace FlowFlex.Application.Service.OW
             }
             
             return nameMap;
+        }
+
+        /// <summary>
+        /// Detect component type from rule's componentType field or fieldPath pattern
+        /// This handles case-insensitive matching and fallback detection from path
+        /// </summary>
+        private string DetectComponentType(FrontendRule rule)
+        {
+            // First try componentType field (case-insensitive)
+            var componentType = rule.ComponentType?.ToLower()?.Trim() ?? "";
+            
+            // If componentType is set and valid, use it
+            if (!string.IsNullOrEmpty(componentType))
+            {
+                // Normalize common variations
+                if (componentType == "checklist" || componentType == "task" || componentType == "tasks")
+                    return "checklist";
+                if (componentType == "questionnaire" || componentType == "question" || componentType == "questions")
+                    return "questionnaire";
+                if (componentType == "field" || componentType == "fields" || componentType == "dynamicfield")
+                    return "field";
+                if (componentType == "attachment" || componentType == "attachments")
+                    return "attachment";
+            }
+            
+            // Fallback: detect from fieldPath pattern
+            var fieldPath = rule.FieldPath ?? "";
+            
+            // Check for checklist pattern: input.checklist.tasks["..."]["..."]
+            if (fieldPath.Contains("input.checklist") || fieldPath.Contains(".tasks["))
+                return "checklist";
+            
+            // Check for questionnaire pattern: input.questionnaire.answers["..."]["..."]
+            if (fieldPath.Contains("input.questionnaire") || fieldPath.Contains(".answers["))
+                return "questionnaire";
+            
+            // Check for field pattern: input.fields["..."] or input.fields.xxx
+            if (fieldPath.Contains("input.fields"))
+                return "field";
+            
+            // Check for attachment pattern
+            if (fieldPath.Contains("input.attachment") || fieldPath.Contains(".attachments"))
+                return "attachment";
+            
+            // Return original componentType or empty string
+            return componentType;
         }
 
         /// <summary>
@@ -1693,7 +1811,8 @@ namespace FlowFlex.Application.Service.OW
         /// </summary>
         private string GetDescriptiveRuleName(FrontendRule rule, int index, Dictionary<string, string> componentNameMap)
         {
-            var componentType = rule.ComponentType?.ToLower() ?? "unknown";
+            // Use DetectComponentType for consistent component type detection
+            var componentType = DetectComponentType(rule);
             var op = GetOperatorDisplayName(rule.Operator);
             
             // Try to get actual component name
@@ -1891,6 +2010,17 @@ namespace FlowFlex.Application.Service.OW
 
             [JsonProperty("value")]
             public object Value { get; set; }
+        }
+
+        /// <summary>
+        /// DTO for questionnaire name and structure query result
+        /// Used to avoid JToken deserialization issues with SqlSugar
+        /// </summary>
+        private class QuestionnaireNameStructure
+        {
+            public long Id { get; set; }
+            public string Name { get; set; }
+            public string StructureJson { get; set; }
         }
 
         #endregion

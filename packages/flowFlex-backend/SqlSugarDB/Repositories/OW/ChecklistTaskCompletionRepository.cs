@@ -70,7 +70,7 @@ public class ChecklistTaskCompletionRepository : BaseRepository<ChecklistTaskCom
 
             // Update existing - only update isCompleted and completion time, preserve other data
             existing.IsCompleted = completion.IsCompleted;
-            existing.CompletedTime = completion.IsCompleted ? (completion.CompletedTime ?? DateTimeOffset.Now) : null;
+            existing.CompletedTime = completion.IsCompleted ? (completion.CompletedTime ?? DateTimeOffset.UtcNow) : null;
 
             // Only update other fields if they have meaningful values
             if (!string.IsNullOrEmpty(completion.CompletionNotes))
@@ -88,7 +88,7 @@ public class ChecklistTaskCompletionRepository : BaseRepository<ChecklistTaskCom
                 existing.StageId = completion.StageId;
             }
 
-            existing.ModifyDate = DateTimeOffset.Now;
+            existing.ModifyDate = DateTimeOffset.UtcNow;
             existing.ModifyBy = completion.ModifyBy;
             existing.ModifyUserId = completion.ModifyUserId;
 
@@ -176,8 +176,8 @@ public class ChecklistTaskCompletionRepository : BaseRepository<ChecklistTaskCom
         {
             // Only update completion status and related timestamp
             existing.IsCompleted = isCompleted;
-            existing.CompletedTime = isCompleted ? DateTimeOffset.Now : null;
-            existing.ModifyDate = DateTimeOffset.Now;
+            existing.CompletedTime = isCompleted ? DateTimeOffset.UtcNow : null;
+            existing.ModifyDate = DateTimeOffset.UtcNow;
             existing.ModifyBy = modifyBy;
             if (modifyUserId.HasValue)
             {
