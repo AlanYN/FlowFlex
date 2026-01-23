@@ -67,11 +67,12 @@ namespace FlowFlex.Application.Services.OW
 
             // Update status to Active
             entity.Status = "Active";
-            entity.StartDate = DateTimeOffset.UtcNow;
+            entity.StartDate = NormalizeToStartOfDay(DateTimeOffset.UtcNow);
 
             // IMPORTANT: Set CurrentStageStartTime when starting onboarding
             // This marks the beginning of the current stage timeline
-            entity.CurrentStageStartTime = DateTimeOffset.UtcNow;
+            // Normalize to start of day (00:00:00)
+            entity.CurrentStageStartTime = GetNormalizedUtcNow();
 
             // Reset progress if requested
             if (input.ResetProgress)

@@ -40,31 +40,44 @@ namespace FlowFlex.Domain.Entities.OW
         /// <summary>
         /// End Time - Estimated end time based on StartTime + EstimatedDays (UTC)
         /// Priority: CustomEndTime > StartTime + CustomEstimatedDays > StartTime + EstimatedDays
+        /// All times are normalized to start of day (00:00:00)
         /// </summary>
         public DateTimeOffset? EndTime
         {
             get
             {
-                // Priority 1: Use custom end time if set
+                // Priority 1: Use custom end time if set (already normalized to start of day)
                 if (CustomEndTime.HasValue)
                 {
-                    return CustomEndTime.Value;
+                    return NormalizeToStartOfDay(CustomEndTime.Value);
                 }
 
-                // Priority 2: Use custom estimated days if available
+                // Priority 2: Use custom estimated days if available (rounded to integer)
                 if (StartTime.HasValue && CustomEstimatedDays.HasValue && CustomEstimatedDays > 0)
                 {
-                    return StartTime.Value.AddDays((double)CustomEstimatedDays.Value);
+                    var normalizedStartTime = NormalizeToStartOfDay(StartTime.Value);
+                    var days = (int)Math.Round(CustomEstimatedDays.Value, 0);
+                    return normalizedStartTime.AddDays(days);
                 }
 
-                // Priority 3: Use default estimated days from Stage
+                // Priority 3: Use default estimated days from Stage (rounded to integer)
                 if (StartTime.HasValue && EstimatedDays.HasValue && EstimatedDays > 0)
                 {
-                    return StartTime.Value.AddDays((double)EstimatedDays.Value);
+                    var normalizedStartTime = NormalizeToStartOfDay(StartTime.Value);
+                    var days = (int)Math.Round(EstimatedDays.Value, 0);
+                    return normalizedStartTime.AddDays(days);
                 }
 
                 return null;
             }
+        }
+
+        /// <summary>
+        /// Normalize DateTimeOffset to start of day (00:00:00)
+        /// </summary>
+        private static DateTimeOffset NormalizeToStartOfDay(DateTimeOffset dateTime)
+        {
+            return new DateTimeOffset(dateTime.Year, dateTime.Month, dateTime.Day, 0, 0, 0, dateTime.Offset);
         }
 
         /// <summary>
