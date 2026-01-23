@@ -5,6 +5,7 @@ using FlowFlex.Domain.Shared.Const;
 using FlowFlex.Domain.Shared.JsonConverters;
 using FlowFlex.Infrastructure.Extensions;
 using FlowFlex.SqlSugarDB.Extensions;
+using FlowFlex.WebApi.Converters;
 using FlowFlex.WebApi.Extensions;
 using FlowFlex.WebApi.Middlewares;
 using Item.Internal.Auth.Authorization;
@@ -101,6 +102,8 @@ builder.Services.AddControllers(options =>
     // Add global converter for long to string
     options.SerializerSettings.Converters.Add(new LongToStringConverter());
     options.SerializerSettings.Converters.Add(new NullableLongToStringConverter());
+    // Add converter for DateTimeOffset to always serialize as UTC
+    options.SerializerSettings.Converters.Add(new DateTimeOffsetUtcConverter());
 })
 // Disable automatic model validation, allow model validation errors to pass through, handle manually in controllers
 .ConfigureApiBehaviorOptions(options =>

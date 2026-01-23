@@ -358,7 +358,7 @@ namespace FlowFlex.Domain.Entities.OW
             {
                 if (StartDate.HasValue)
                 {
-                    var endDate = ActualCompletionDate ?? DateTimeOffset.Now;
+                    var endDate = ActualCompletionDate ?? DateTimeOffset.UtcNow;
                     return (int)(endDate - StartDate.Value).TotalDays;
                 }
                 return null;
