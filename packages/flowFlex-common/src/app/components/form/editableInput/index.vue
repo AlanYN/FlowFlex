@@ -566,11 +566,6 @@ const getConnectionValue = (value: any, field: 'value' | 'businessValue') => {
 </script>
 
 <style lang="scss" scoped>
-:deep(.el-button--info) {
-	background-color: initial;
-	border-color: transparent;
-}
-
 .editText-hover {
 	@apply px-2 transition-all duration-200 leading-6 box-border;
 	border: 1px solid transparent;
@@ -586,9 +581,5 @@ const getConnectionValue = (value: any, field: 'value' | 'businessValue') => {
 
 .group:hover .edit-icon {
 	@apply opacity-100;
-}
-
-:deep(.el-button--info.is-link) {
-	@apply text-regular;
 }
 </style>

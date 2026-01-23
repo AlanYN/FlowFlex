@@ -31,11 +31,12 @@ public class PropertyController : Controllers.ControllerBase
     /// <summary>
     /// Get all properties
     /// </summary>
+    /// <param name="workflowId">Optional workflow ID to check if properties are used in workflow stages</param>
     [HttpGet]
     [ProducesResponseType<SuccessResponse<List<DefineFieldDto>>>((int)HttpStatusCode.OK)]
-    public async Task<IActionResult> GetAll()
+    public async Task<IActionResult> GetAll([FromQuery] long? workflowId = null)
     {
-        var data = await _propertyService.GetPropertyListAsync();
+        var data = await _propertyService.GetPropertyListAsync(workflowId);
         return Success(data);
     }
 
@@ -70,7 +71,6 @@ public class PropertyController : Controllers.ControllerBase
     public async Task<IActionResult> ExportToExcelAsync(
         [FromQuery] string? ids = null,
         [FromQuery] string? fieldName = null,
-        [FromQuery] string? displayName = null,
         [FromQuery] int? dataType = null,
         [FromQuery] string? createBy = null,
         [FromQuery] string? modifyBy = null)
@@ -79,7 +79,6 @@ public class PropertyController : Controllers.ControllerBase
         {
             Ids = ParseIds(ids),
             FieldName = fieldName,
-            DisplayName = displayName,
             DataType = dataType.HasValue ? (Domain.Shared.Enums.DynamicData.DataType)dataType.Value : null,
             CreateBy = createBy,
             ModifyBy = modifyBy

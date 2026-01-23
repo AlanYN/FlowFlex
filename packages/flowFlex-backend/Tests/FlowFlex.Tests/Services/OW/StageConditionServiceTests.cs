@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using AutoMapper;
 using FlowFlex.Application.Contracts.Dtos.OW.StageCondition;
+using FlowFlex.Application.Contracts.IServices;
 using FlowFlex.Application.Contracts.IServices.OW;
 using FlowFlex.Application.Service.OW;
 using FlowFlex.Domain.Entities.OW;
@@ -29,6 +30,7 @@ namespace FlowFlex.Tests.Services.OW
         private readonly Mock<IStageRepository> _mockStageRepository;
         private readonly Mock<IWorkflowRepository> _mockWorkflowRepository;
         private readonly Mock<IPermissionService> _mockPermissionService;
+        private readonly Mock<IOperationChangeLogService> _mockOperationChangeLogService;
         private readonly Mock<IMapper> _mockMapper;
         private readonly Mock<ILogger<StageConditionService>> _mockLogger;
         private readonly UserContext _userContext;
@@ -40,6 +42,7 @@ namespace FlowFlex.Tests.Services.OW
             _mockStageRepository = MockHelper.CreateMockStageRepository();
             _mockWorkflowRepository = MockHelper.CreateMockWorkflowRepository();
             _mockPermissionService = new Mock<IPermissionService>();
+            _mockOperationChangeLogService = new Mock<IOperationChangeLogService>();
             _mockMapper = new Mock<IMapper>();
             _mockLogger = MockHelper.CreateMockLogger<StageConditionService>();
 
@@ -50,6 +53,7 @@ namespace FlowFlex.Tests.Services.OW
                 _mockStageRepository.Object,
                 _mockWorkflowRepository.Object,
                 _mockPermissionService.Object,
+                _mockOperationChangeLogService.Object,
                 _mockMapper.Object,
                 _userContext,
                 _mockLogger.Object);

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.Json;
 using System.Threading.Tasks;
 using AutoMapper;
 using FlowFlex.Application.Contracts.Dtos.OW.StageCondition;
@@ -17,6 +18,8 @@ using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 using RulesEngine.Models;
 using SqlSugar;
+using OwOperationTypeEnum = FlowFlex.Domain.Shared.Enums.OW.OperationTypeEnum;
+using OwBusinessModuleEnum = FlowFlex.Domain.Shared.Enums.OW.BusinessModuleEnum;
 
 namespace FlowFlex.Application.Service.OW
 {
@@ -29,6 +32,7 @@ namespace FlowFlex.Application.Service.OW
         private readonly IStageRepository _stageRepository;
         private readonly IWorkflowRepository _workflowRepository;
         private readonly IPermissionService _permissionService;
+        private readonly IOperationChangeLogService _operationChangeLogService;
         private readonly IMapper _mapper;
         private readonly UserContext _userContext;
         private readonly ILogger<StageConditionService> _logger;
@@ -38,6 +42,7 @@ namespace FlowFlex.Application.Service.OW
             IStageRepository stageRepository,
             IWorkflowRepository workflowRepository,
             IPermissionService permissionService,
+            IOperationChangeLogService operationChangeLogService,
             IMapper mapper,
             UserContext userContext,
             ILogger<StageConditionService> logger)
@@ -46,6 +51,7 @@ namespace FlowFlex.Application.Service.OW
             _stageRepository = stageRepository;
             _workflowRepository = workflowRepository;
             _permissionService = permissionService;
+            _operationChangeLogService = operationChangeLogService;
             _mapper = mapper;
             _userContext = userContext;
             _logger = logger;
@@ -67,7 +73,7 @@ namespace FlowFlex.Application.Service.OW
             var stage = await _stageRepository.GetByIdAsync(input.StageId);
             if (stage == null)
             {
-                throw new CRMException(ErrorCodeEnum.NotFound, $"Stage {input.StageId} not found");
+                throw new CRMException(ErrorCodeEnum.NotFound, "The specified stage does not exist.");
             }
 
             // Validate one condition per stage
@@ -79,7 +85,7 @@ namespace FlowFlex.Application.Service.OW
             if (existingCondition != null)
             {
                 throw new CRMException(ErrorCodeEnum.BusinessError, 
-                    $"Stage {input.StageId} already has a condition configured. Each stage can only have one condition.");
+                    $"Stage \"{stage.Name}\" already has a condition configured. Each stage can only have one condition.");
             }
 
             // Validate RulesJson format
@@ -137,6 +143,55 @@ namespace FlowFlex.Application.Service.OW
 
             _logger.LogInformation("Created stage condition {ConditionId} for stage {StageId}", entity.Id, input.StageId);
 
+            // Log to workflow change log
+            try
+            {
+                var workflow = await _workflowRepository.GetByIdAsync(entity.WorkflowId);
+                var workflowName = workflow?.Name ?? "Unknown Workflow";
+
+                var afterData = System.Text.Json.JsonSerializer.Serialize(new
+                {
+                    ConditionId = entity.Id,
+                    ConditionName = entity.Name,
+                    StageId = entity.StageId,
+                    StageName = stage.Name,
+                    Description = entity.Description,
+                    IsActive = entity.IsActive,
+                    RulesJson = entity.RulesJson,
+                    ActionsJson = entity.ActionsJson,
+                    FallbackStageId = entity.FallbackStageId
+                });
+
+                var extendedData = System.Text.Json.JsonSerializer.Serialize(new
+                {
+                    WorkflowId = entity.WorkflowId,
+                    WorkflowName = workflowName,
+                    StageId = entity.StageId,
+                    StageName = stage.Name,
+                    ConditionId = entity.Id,
+                    ConditionName = entity.Name,
+                    CreatedAt = entity.CreateDate.ToString("MM/dd/yyyy hh:mm tt")
+                });
+
+                await _operationChangeLogService.LogOperationAsync(
+                    operationType: OwOperationTypeEnum.StageConditionCreate,
+                    businessModule: OwBusinessModuleEnum.Workflow,
+                    businessId: entity.WorkflowId,
+                    onboardingId: null,
+                    stageId: entity.StageId,
+                    operationTitle: $"Stage Condition Created: {entity.Name}",
+                    operationDescription: $"Stage condition '{entity.Name}' has been created for stage '{stage.Name}' in workflow '{workflowName}' by {_userContext.UserName}.",
+                    beforeData: null,
+                    afterData: afterData,
+                    changedFields: new List<string> { "Name", "Description", "RulesJson", "ActionsJson", "IsActive", "FallbackStageId" },
+                    extendedData: extendedData
+                );
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to log stage condition create operation for condition {ConditionId}", entity.Id);
+            }
+
             result.Id = entity.Id;
             result.Success = true;
             return result;
@@ -155,6 +210,14 @@ namespace FlowFlex.Application.Service.OW
             {
                 throw new CRMException(ErrorCodeEnum.NotFound, $"Condition {id} not found");
             }
+
+            // Capture original values for change log
+            var originalName = condition.Name;
+            var originalDescription = condition.Description;
+            var originalRulesJson = condition.RulesJson;
+            var originalActionsJson = condition.ActionsJson;
+            var originalFallbackStageId = condition.FallbackStageId;
+            var originalIsActive = condition.IsActive;
 
             // Validate permission
             await ValidateWorkflowPermissionAsync(condition.WorkflowId, OperationTypeEnum.Operate);
@@ -196,6 +259,117 @@ namespace FlowFlex.Application.Service.OW
 
             _logger.LogInformation("Updated stage condition {ConditionId}", id);
 
+            // Log to workflow change log
+            if (updateResult > 0)
+            {
+                try
+                {
+                    var workflow = await _workflowRepository.GetByIdAsync(condition.WorkflowId);
+                    var workflowName = workflow?.Name ?? "Unknown Workflow";
+                    var stage = await _stageRepository.GetByIdAsync(condition.StageId);
+                    var stageName = stage?.Name ?? "Unknown Stage";
+
+                    // Determine changed fields
+                    var changedFields = new List<string>();
+                    var changeDescriptions = new List<string>();
+
+                    if (originalName != condition.Name)
+                    {
+                        changedFields.Add("Name");
+                        changeDescriptions.Add($"Name from '{originalName}' to '{condition.Name}'");
+                    }
+                    if (originalDescription != condition.Description)
+                    {
+                        changedFields.Add("Description");
+                        changeDescriptions.Add($"Description updated");
+                    }
+                    // Use semantic JSON comparison for RulesJson
+                    if (!AreJsonSemanticallyEqual(originalRulesJson, condition.RulesJson))
+                    {
+                        changedFields.Add("RulesJson");
+                        var rulesChangeDetail = GetRulesChangeDescription(originalRulesJson, condition.RulesJson);
+                        changeDescriptions.Add(rulesChangeDetail);
+                    }
+                    // Use semantic JSON comparison for ActionsJson
+                    if (!AreJsonSemanticallyEqual(originalActionsJson, condition.ActionsJson))
+                    {
+                        changedFields.Add("ActionsJson");
+                        var actionsChangeDetail = GetActionsChangeDescription(originalActionsJson, condition.ActionsJson);
+                        changeDescriptions.Add(actionsChangeDetail);
+                    }
+                    if (originalFallbackStageId != condition.FallbackStageId)
+                    {
+                        changedFields.Add("FallbackStageId");
+                        changeDescriptions.Add($"Fallback stage updated");
+                    }
+                    if (originalIsActive != condition.IsActive)
+                    {
+                        changedFields.Add("IsActive");
+                        changeDescriptions.Add($"IsActive from '{originalIsActive}' to '{condition.IsActive}'");
+                    }
+
+                    if (changedFields.Count > 0)
+                    {
+                        var beforeData = System.Text.Json.JsonSerializer.Serialize(new
+                        {
+                            ConditionId = condition.Id,
+                            ConditionName = originalName,
+                            StageId = condition.StageId,
+                            StageName = stageName,
+                            Description = originalDescription,
+                            IsActive = originalIsActive,
+                            RulesJson = originalRulesJson,
+                            ActionsJson = originalActionsJson,
+                            FallbackStageId = originalFallbackStageId
+                        });
+
+                        var afterData = System.Text.Json.JsonSerializer.Serialize(new
+                        {
+                            ConditionId = condition.Id,
+                            ConditionName = condition.Name,
+                            StageId = condition.StageId,
+                            StageName = stageName,
+                            Description = condition.Description,
+                            IsActive = condition.IsActive,
+                            RulesJson = condition.RulesJson,
+                            ActionsJson = condition.ActionsJson,
+                            FallbackStageId = condition.FallbackStageId
+                        });
+
+                        var extendedData = System.Text.Json.JsonSerializer.Serialize(new
+                        {
+                            WorkflowId = condition.WorkflowId,
+                            WorkflowName = workflowName,
+                            StageId = condition.StageId,
+                            StageName = stageName,
+                            ConditionId = condition.Id,
+                            ConditionName = condition.Name,
+                            ChangedFieldsCount = changedFields.Count,
+                            UpdatedAt = condition.ModifyDate.ToString("MM/dd/yyyy hh:mm tt")
+                        });
+
+                        var changeDescription = string.Join(". ", changeDescriptions);
+                        await _operationChangeLogService.LogOperationAsync(
+                            operationType: OwOperationTypeEnum.StageConditionUpdate,
+                            businessModule: OwBusinessModuleEnum.Workflow,
+                            businessId: condition.WorkflowId,
+                            onboardingId: null,
+                            stageId: condition.StageId,
+                            operationTitle: $"Stage Condition Updated: {condition.Name}",
+                            operationDescription: $"Stage condition '{condition.Name}' has been updated in workflow '{workflowName}' by {_userContext.UserName}. Changes: {changeDescription}",
+                            beforeData: beforeData,
+                            afterData: afterData,
+                            changedFields: changedFields,
+                            extendedData: extendedData
+                        );
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to log stage condition update operation for condition {ConditionId}", id);
+                }
+            }
+
             result.Success = updateResult > 0;
             return result;
         }
@@ -212,6 +386,12 @@ namespace FlowFlex.Application.Service.OW
                 throw new CRMException(ErrorCodeEnum.NotFound, $"Condition {id} not found");
             }
 
+            // Capture condition info for change log before deletion
+            var conditionName = condition.Name;
+            var conditionDescription = condition.Description;
+            var workflowId = condition.WorkflowId;
+            var stageId = condition.StageId;
+
             // Validate permission
             await ValidateWorkflowPermissionAsync(condition.WorkflowId, OperationTypeEnum.Operate);
 
@@ -225,6 +405,60 @@ namespace FlowFlex.Application.Service.OW
                 .ExecuteCommandAsync();
 
             _logger.LogInformation("Deleted stage condition {ConditionId}", id);
+
+            // Log to workflow change log
+            if (deleteResult > 0)
+            {
+                try
+                {
+                    var workflow = await _workflowRepository.GetByIdAsync(workflowId);
+                    var workflowName = workflow?.Name ?? "Unknown Workflow";
+                    var stage = await _stageRepository.GetByIdAsync(stageId);
+                    var stageName = stage?.Name ?? "Unknown Stage";
+
+                    var beforeData = System.Text.Json.JsonSerializer.Serialize(new
+                    {
+                        ConditionId = id,
+                        ConditionName = conditionName,
+                        StageId = stageId,
+                        StageName = stageName,
+                        Description = conditionDescription,
+                        IsActive = condition.IsActive,
+                        RulesJson = condition.RulesJson,
+                        ActionsJson = condition.ActionsJson,
+                        FallbackStageId = condition.FallbackStageId
+                    });
+
+                    var extendedData = System.Text.Json.JsonSerializer.Serialize(new
+                    {
+                        WorkflowId = workflowId,
+                        WorkflowName = workflowName,
+                        StageId = stageId,
+                        StageName = stageName,
+                        ConditionId = id,
+                        ConditionName = conditionName,
+                        DeletedAt = condition.ModifyDate.ToString("MM/dd/yyyy hh:mm tt")
+                    });
+
+                    await _operationChangeLogService.LogOperationAsync(
+                        operationType: OwOperationTypeEnum.StageConditionDelete,
+                        businessModule: OwBusinessModuleEnum.Workflow,
+                        businessId: workflowId,
+                        onboardingId: null,
+                        stageId: stageId,
+                        operationTitle: $"Stage Condition Deleted: {conditionName}",
+                        operationDescription: $"Stage condition '{conditionName}' has been deleted from stage '{stageName}' in workflow '{workflowName}' by {_userContext.UserName}.",
+                        beforeData: beforeData,
+                        afterData: null,
+                        changedFields: new List<string> { "IsValid" },
+                        extendedData: extendedData
+                    );
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to log stage condition delete operation for condition {ConditionId}", id);
+                }
+            }
 
             return deleteResult > 0;
         }
@@ -427,7 +661,7 @@ namespace FlowFlex.Application.Service.OW
                     result.Errors.Add(new ValidationError { Code = "INVALID_EXPRESSION", Message = $"Invalid rule expression: {ex.Message}" });
                 }
             }
-            catch (JsonException ex)
+            catch (Newtonsoft.Json.JsonException ex)
             {
                 result.IsValid = false;
                 result.Errors.Add(new ValidationError { Code = "INVALID_JSON", Message = $"Invalid JSON format: {ex.Message}" });
@@ -658,7 +892,7 @@ namespace FlowFlex.Application.Service.OW
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Failed to convert frontend rules to RulesEngine format");
-                throw new JsonException($"Failed to convert frontend rules format: {ex.Message}");
+                throw new Newtonsoft.Json.JsonException($"Failed to convert frontend rules format: {ex.Message}");
             }
         }
 
@@ -921,14 +1155,9 @@ namespace FlowFlex.Application.Service.OW
                             // Check parameters dictionary for assigneeType and assigneeIds
                             if (action.Parameters != null)
                             {
-                                // Check assigneeType in parameters
-                                if (!action.Parameters.TryGetValue("assigneeType", out var assigneeType) || 
-                                    string.IsNullOrEmpty(assigneeType?.ToString()))
-                                {
-                                    result.IsValid = false;
-                                    result.Errors.Add(new ValidationError { Code = "ASSIGNUSER_TYPE_REQUIRED", Message = "AssignUser action requires assigneeType ('user' or 'team') in parameters" });
-                                }
-                                else
+                                // Check assigneeType in parameters (optional, defaults to 'user')
+                                if (action.Parameters.TryGetValue("assigneeType", out var assigneeType) && 
+                                    !string.IsNullOrEmpty(assigneeType?.ToString()))
                                 {
                                     var assigneeTypeStr = assigneeType.ToString()?.ToLower();
                                     if (assigneeTypeStr != "user" && assigneeTypeStr != "team")
@@ -937,6 +1166,7 @@ namespace FlowFlex.Application.Service.OW
                                         result.Errors.Add(new ValidationError { Code = "ASSIGNUSER_TYPE_INVALID", Message = "AssignUser action assigneeType must be 'user' or 'team'" });
                                     }
                                 }
+                                // If assigneeType is not provided, it defaults to 'user' - no validation error
 
                                 // Check assigneeIds array
                                 if (!HasNonEmptyArray(action.Parameters, "assigneeIds"))
@@ -954,7 +1184,7 @@ namespace FlowFlex.Application.Service.OW
                     }
                 }
             }
-            catch (JsonException ex)
+            catch (Newtonsoft.Json.JsonException ex)
             {
                 result.IsValid = false;
                 result.Errors.Add(new ValidationError { Code = "INVALID_JSON", Message = $"Invalid JSON format: {ex.Message}" });
@@ -1090,6 +1320,211 @@ namespace FlowFlex.Application.Service.OW
             }
 
             return false;
+        }
+
+        /// <summary>
+        /// Compare two JSON strings semantically (ignoring formatting differences like whitespace)
+        /// Returns true if they represent the same JSON structure and values
+        /// </summary>
+        private bool AreJsonSemanticallyEqual(string json1, string json2)
+        {
+            // Handle null/empty cases
+            if (string.IsNullOrWhiteSpace(json1) && string.IsNullOrWhiteSpace(json2))
+                return true;
+            if (string.IsNullOrWhiteSpace(json1) || string.IsNullOrWhiteSpace(json2))
+                return false;
+
+            try
+            {
+                var token1 = Newtonsoft.Json.Linq.JToken.Parse(json1);
+                var token2 = Newtonsoft.Json.Linq.JToken.Parse(json2);
+                return Newtonsoft.Json.Linq.JToken.DeepEquals(token1, token2);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to parse JSON for semantic comparison, falling back to string comparison");
+                // Fallback to string comparison if JSON parsing fails
+                return json1 == json2;
+            }
+        }
+
+        /// <summary>
+        /// Get detailed description of rules changes
+        /// </summary>
+        private string GetRulesChangeDescription(string originalRulesJson, string newRulesJson)
+        {
+            try
+            {
+                var originalRules = ParseFrontendRules(originalRulesJson);
+                var newRules = ParseFrontendRules(newRulesJson);
+
+                if (originalRules == null && newRules == null)
+                    return "Rules configuration updated";
+
+                var changes = new List<string>();
+
+                // Compare logic
+                var originalLogic = originalRules?.Logic ?? "AND";
+                var newLogic = newRules?.Logic ?? "AND";
+                if (!string.Equals(originalLogic, newLogic, StringComparison.OrdinalIgnoreCase))
+                {
+                    changes.Add($"Logic changed from '{originalLogic}' to '{newLogic}'");
+                }
+
+                // Compare rule counts
+                var originalCount = originalRules?.Rules?.Count ?? 0;
+                var newCount = newRules?.Rules?.Count ?? 0;
+
+                if (originalCount != newCount)
+                {
+                    if (newCount > originalCount)
+                        changes.Add($"Added {newCount - originalCount} rule(s) (total: {newCount})");
+                    else
+                        changes.Add($"Removed {originalCount - newCount} rule(s) (total: {newCount})");
+                }
+
+                // Compare individual rules for modifications
+                if (originalRules?.Rules != null && newRules?.Rules != null)
+                {
+                    var modifiedRules = 0;
+                    var minCount = Math.Min(originalCount, newCount);
+                    for (int i = 0; i < minCount; i++)
+                    {
+                        var origRule = originalRules.Rules[i];
+                        var newRule = newRules.Rules[i];
+                        if (origRule.FieldPath != newRule.FieldPath ||
+                            origRule.Operator != newRule.Operator ||
+                            origRule.Value?.ToString() != newRule.Value?.ToString())
+                        {
+                            modifiedRules++;
+                        }
+                    }
+                    if (modifiedRules > 0)
+                    {
+                        changes.Add($"Modified {modifiedRules} existing rule(s)");
+                    }
+                }
+
+                return changes.Count > 0 
+                    ? $"Rules: {string.Join(", ", changes)}" 
+                    : "Rules configuration updated";
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to parse rules for change description");
+                return "Rules configuration updated";
+            }
+        }
+
+        /// <summary>
+        /// Get detailed description of actions changes
+        /// </summary>
+        private string GetActionsChangeDescription(string originalActionsJson, string newActionsJson)
+        {
+            try
+            {
+                var originalActions = ParseActions(originalActionsJson);
+                var newActions = ParseActions(newActionsJson);
+
+                var changes = new List<string>();
+
+                var originalCount = originalActions?.Count ?? 0;
+                var newCount = newActions?.Count ?? 0;
+
+                if (originalCount != newCount)
+                {
+                    if (newCount > originalCount)
+                        changes.Add($"Added {newCount - originalCount} action(s) (total: {newCount})");
+                    else
+                        changes.Add($"Removed {originalCount - newCount} action(s) (total: {newCount})");
+                }
+
+                // Describe action types
+                if (newActions != null && newActions.Count > 0)
+                {
+                    var actionTypes = newActions
+                        .Where(a => !string.IsNullOrEmpty(a.Type))
+                        .GroupBy(a => a.Type)
+                        .Select(g => $"{g.Count()} {g.Key}")
+                        .ToList();
+                    
+                    if (actionTypes.Count > 0)
+                    {
+                        changes.Add($"Current actions: {string.Join(", ", actionTypes)}");
+                    }
+                }
+
+                // Compare individual actions for modifications
+                if (originalActions != null && newActions != null)
+                {
+                    var modifiedActions = 0;
+                    var minCount = Math.Min(originalCount, newCount);
+                    for (int i = 0; i < minCount; i++)
+                    {
+                        var origAction = originalActions[i];
+                        var newAction = newActions[i];
+                        if (origAction.Type != newAction.Type ||
+                            origAction.TargetStageId != newAction.TargetStageId)
+                        {
+                            modifiedActions++;
+                        }
+                    }
+                    if (modifiedActions > 0)
+                    {
+                        changes.Add($"Modified {modifiedActions} existing action(s)");
+                    }
+                }
+
+                return changes.Count > 0 
+                    ? $"Actions: {string.Join(", ", changes)}" 
+                    : "Actions configuration updated";
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to parse actions for change description");
+                return "Actions configuration updated";
+            }
+        }
+
+        /// <summary>
+        /// Parse frontend rules JSON format
+        /// </summary>
+        private FrontendRuleConfig ParseFrontendRules(string rulesJson)
+        {
+            if (string.IsNullOrWhiteSpace(rulesJson))
+                return null;
+
+            try
+            {
+                var jsonObj = Newtonsoft.Json.Linq.JToken.Parse(rulesJson);
+                if (jsonObj is Newtonsoft.Json.Linq.JObject jObject && jObject.ContainsKey("logic"))
+                {
+                    return JsonConvert.DeserializeObject<FrontendRuleConfig>(rulesJson);
+                }
+            }
+            catch
+            {
+                // Ignore parsing errors
+            }
+            return null;
+        }
+
+        /// <summary>
+        /// Parse actions JSON
+        /// </summary>
+        private List<ConditionActionDto> ParseActions(string actionsJson)
+        {
+            if (string.IsNullOrWhiteSpace(actionsJson))
+                return null;
+
+            try
+            {
+                return JsonConvert.DeserializeObject<List<ConditionActionDto>>(actionsJson);
+            }
+            catch
+            {
+                return null;
+            }
         }
 
         /// <summary>

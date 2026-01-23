@@ -56,15 +56,6 @@ public class DefineFieldRepository : BaseRepository<DefineField>, IDefineFieldRe
             }
         }
 
-        if (!string.IsNullOrWhiteSpace(request.DisplayName))
-        {
-            var displayNames = request.GetDisplayNameList();
-            if (displayNames.Any())
-            {
-                query = query.Where(x => displayNames.Any(n => x.DisplayName.ToLower().Contains(n.ToLower())));
-            }
-        }
-
         if (request.DataType.HasValue)
             query = query.Where(x => x.DataType == request.DataType.Value);
 
@@ -124,7 +115,6 @@ public class DefineFieldRepository : BaseRepository<DefineField>, IDefineFieldRe
         return sortField?.ToLowerInvariant() switch
         {
             "fieldname" => isAsc ? query.OrderBy(x => x.FieldName) : query.OrderByDescending(x => x.FieldName),
-            "displayname" => isAsc ? query.OrderBy(x => x.DisplayName) : query.OrderByDescending(x => x.DisplayName),
             "datatype" => isAsc ? query.OrderBy(x => x.DataType) : query.OrderByDescending(x => x.DataType),
             "createdate" => isAsc ? query.OrderBy(x => x.CreateDate) : query.OrderByDescending(x => x.CreateDate),
             "modifydate" => isAsc ? query.OrderBy(x => x.ModifyDate) : query.OrderByDescending(x => x.ModifyDate),

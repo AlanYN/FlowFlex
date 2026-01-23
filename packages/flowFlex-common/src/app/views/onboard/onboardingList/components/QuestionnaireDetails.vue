@@ -66,9 +66,11 @@
 					:isSubmitEnabled="canSubmitQuestionnaire"
 					:skippedQuestions="skippedQuestionsSet"
 					:disabled="disabled || questionnaireAnswers?.status === 'Submitted'"
-					:loading="submitting || loading"
+					:loading="submitting || loading || reopenLoading"
+					:currentstageCanCompleted="currentstageCanCompleted"
 					@stage-updated="handleStageUpdated"
 					@submit="handleSubmit"
+					@reopen="handleReopen"
 				/>
 			</div>
 		</el-collapse-transition>
@@ -90,7 +92,7 @@ import { ArrowRight } from '@element-plus/icons-vue';
 import { OnboardingItem, SectionAnswer } from '#/onboard';
 
 import { saveQuestionnaireAnswer } from '@/apis/ow/onboarding';
-import { submitQuestionnaireAnswer } from '@/apis/ow/questionnaire';
+import { submitQuestionnaireAnswer, reopenQuestionnaireAnswer } from '@/apis/ow/questionnaire';
 import DynamicForm from './dynamicForm.vue';
 
 // 组件属性
@@ -103,6 +105,7 @@ interface Props {
 	questionnaireAnswers?: SectionAnswer;
 	disabled?: boolean;
 	loading?: boolean;
+	currentstageCanCompleted: boolean;
 }
 
 const props = defineProps<Props>();
@@ -798,6 +801,46 @@ const handleSubmit = async () => {
 		return false;
 	} finally {
 		submitting.value = false;
+	}
+};
+
+const reopenLoading = ref(false);
+const handleReopen = async () => {
+	try {
+		// 显示确认对话框
+		await ElMessageBox.confirm(
+			'Are you sure you want to reopen this questionnaire? This will allow the questionnaire to be edited again.',
+			'⚠️ Confirm Reopen',
+			{
+				confirmButtonText: 'Reopen',
+				cancelButtonText: 'Cancel',
+				distinguishCancelAndClose: true,
+			}
+		);
+
+		reopenLoading.value = true;
+		const res = await reopenQuestionnaireAnswer(
+			props?.onboardingId || '',
+			props.stageId,
+			props.questionnaireData.id
+		);
+		if (res.code == '200') {
+			ElMessage.success('Questionnaire reopened successfully');
+			emit(
+				'questionSubmitted',
+				props?.onboardingId || '',
+				props.stageId,
+				props.questionnaireData.id
+			);
+		}
+	} catch (error) {
+		// 用户取消或关闭对话框
+		if (error === 'cancel' || error === 'close') {
+			return;
+		}
+		console.error('Error reopening questionnaire:', error);
+	} finally {
+		reopenLoading.value = false;
 	}
 };
 

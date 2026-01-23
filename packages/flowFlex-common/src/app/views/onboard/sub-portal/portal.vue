@@ -346,6 +346,7 @@
 												:questionnaire-data="
 													getQuestionnaireDataForComponent(component)
 												"
+												:currentstageCanCompleted="!!stageCanCompleted"
 												:onboardingId="onboardingId"
 												@stage-updated="handleStageUpdated"
 												@question-submitted="handleQuestionSubmitted"
@@ -653,7 +654,7 @@ const isCompleteStageDisabled = computed(() => {
 	if (!status) return false;
 
 	// 对于已中止、已取消或暂停的状态，禁用完成阶段
-	return ['Aborted', 'Cancelled', 'Paused'].includes(status);
+	return ['Aborted', 'Cancelled', 'Paused', 'Force Completed'].includes(status);
 });
 
 // 计算当前阶段是否已完成 - 与detail.vue保持一致
@@ -1344,24 +1345,27 @@ const processOnboardingData = (responseData: any) => {
 	let newStageId = '';
 
 	// 优先使用路由中的 stageId
-	if (stageIdFromRoute.value) {
-		// 验证路由中的 stageId 是否存在于工作流阶段中
-		const foundStage = workflowStages.value.find(
-			(stage) => stage.stageId === stageIdFromRoute.value
-		);
-		if (foundStage) {
-			newStageId = stageIdFromRoute.value;
-		}
-	}
 
-	// 如果路由中没有 stageId 或者无效，则使用默认逻辑
-	if (!newStageId) {
-		const sortedStages = [...workflowStages.value].sort(
-			(a, b) => (a.order || 0) - (b.order || 0)
-		);
-		const firstIncompleteStage = sortedStages.find((stage) => !stage.isCompleted);
-		newStageId =
-			firstIncompleteStage?.stageId || sortedStages[sortedStages.length - 1]?.stageId;
+	const sortedStages = workflowStages.value.sort((a, b) => (a.order || 0) - (b.order || 0));
+	const curentStageStage =
+		sortedStages.find((stage) => stage.stageId == responseData.currentStageId)?.stageId || '';
+	if (curentStageStage) {
+		newStageId = curentStageStage;
+	} else {
+		if (stageIdFromRoute.value) {
+			// 验证路由中的 stageId 是否存在于工作流阶段中
+			const foundStage = workflowStages.value.find(
+				(stage) => stage.stageId === stageIdFromRoute.value
+			);
+			if (foundStage) {
+				newStageId = stageIdFromRoute.value;
+			}
+		} else {
+			const firstIncompleteStage = sortedStages.find(
+				(stage) => stage.id == !stage.isCompleted
+			);
+			newStageId = firstIncompleteStage?.stageId;
+		}
 	}
 
 	onboardingActiveStageInfo.value = workflowStages.value.find(

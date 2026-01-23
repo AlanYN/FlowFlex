@@ -228,6 +228,24 @@ export function submitQuestionnaireAnswer(
 }
 
 /**
+ * 重置问卷答案 [QA04]
+ * @param onboardingId 入职ID
+ * @param stageId 阶段ID
+ * @returns bool
+ */
+export function reopenQuestionnaireAnswer(
+	onboardingId: string | number,
+	stageId: string | number,
+	questionnaireId: string | number
+) {
+	return defHttp.post({
+		url: `${
+			AnswerApi(onboardingId, stageId).submitAnswer
+		}/questionnaire/${questionnaireId}/reopen`,
+	});
+}
+
+/**
  * 获取答案历史 [QA05]
  * @param onboardingId 入职ID
  * @param stageId 阶段ID

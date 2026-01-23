@@ -381,7 +381,25 @@ namespace FlowFlex.Domain.Shared.Enums.OW
         /// Stage condition action executed
         /// </summary>
         [Description("Stage Condition Action Execute")]
-        StageConditionActionExecute = 60
+        StageConditionActionExecute = 60,
+
+        /// <summary>
+        /// Stage condition created
+        /// </summary>
+        [Description("Stage Condition Create")]
+        StageConditionCreate = 61,
+
+        /// <summary>
+        /// Stage condition updated
+        /// </summary>
+        [Description("Stage Condition Update")]
+        StageConditionUpdate = 62,
+
+        /// <summary>
+        /// Stage condition deleted
+        /// </summary>
+        [Description("Stage Condition Delete")]
+        StageConditionDelete = 63
     }
 
     /// <summary>

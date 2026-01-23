@@ -479,7 +479,7 @@ export function parseStaticFieldChanges(
  * 判断是否为 Assignee 字段
  */
 function isAssigneeField(fieldName: string): boolean {
-	return (
+	return !!(
 		fieldName &&
 		(fieldName.toUpperCase() === 'ASSIGNEE' || fieldName.toLowerCase() === 'assignee')
 	);
@@ -649,6 +649,7 @@ export function getOperationTypeInfo(operationType: string) {
 		StageActionExecution: { label: 'Stage Action', icon: '🏛️', color: 'blue' },
 		TaskActionExecution: { label: 'Task Action', icon: '✅', color: 'green' },
 		QuestionActionExecution: { label: 'Question Action', icon: '❓', color: 'purple' },
+		StageConditionEvaluate: { label: 'Stage Condition', icon: '📋', color: 'purple' },
 	};
 
 	return typeMap[operationType] || { label: operationType, icon: '📋', color: 'gray' };

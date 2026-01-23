@@ -12,6 +12,7 @@
 			:nodes-draggable="true"
 			:nodes-connectable="false"
 			:edges-updatable="false"
+			:delete-key-code="null"
 			class="workflow-canvas__flow"
 			@node-click="handleNodeClick"
 			@pane-click="handlePaneClick"
@@ -177,7 +178,6 @@ defineExpose({
 .workflow-canvas__minimap {
 	background: var(--el-bg-color);
 	border: 1px solid var(--el-border-color-light);
-	border-radius: 8px;
 }
 
 .workflow-canvas__loading,

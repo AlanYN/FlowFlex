@@ -165,7 +165,8 @@ const getFormData = () => {
 		fieldValueJson: JSON.stringify(formData[field.fieldName] ?? null),
 		fieldType: String(field.dataType),
 		isRequired: field.isRequired || false,
-		fieldLabel: field.displayName,
+		fieldLabel: field.fieldName,
+		fieldId: field.id,
 	}));
 };
 

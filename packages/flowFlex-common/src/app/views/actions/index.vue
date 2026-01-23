@@ -44,7 +44,7 @@
 				<div class="space-y-2">
 					<label class="filter-label text-sm font-medium">Tool ID or Tool Name</label>
 					<el-input
-						v-model="searchForm.keyword"
+						v-model="searchForm.search"
 						placeholder="Enter Tool ID or Tool Name"
 						clearable
 						class="w-full"
@@ -55,7 +55,7 @@
 				<div class="space-y-2">
 					<label class="filter-label text-sm font-medium">Type</label>
 					<el-select
-						v-model="searchForm.type"
+						v-model="searchForm.actionType"
 						placeholder="Select Type"
 						clearable
 						class="w-full"
@@ -83,234 +83,147 @@
 		>
 			<!-- Tools Tab -->
 			<TabPane value="tools">
-				<div class="">
-					<el-table
-						:data="actionsList"
-						style="width: 100%"
-						@selection-change="handleSelectionChange"
-						:max-height="tableMaxHeight"
-						v-loading="loading"
-						border
-					>
-						<el-table-column type="selection" width="55" />
-						<el-table-column prop="actionCode" label="Tool ID" width="120" />
-						<el-table-column prop="name" label="Tool Name" min-width="200">
-							<template #default="{ row }">
-								<div class="flex items-center gap-2">
-									<span>{{ row.name }}</span>
-									<span
-										v-if="row.isAIGenerated"
-										class="el-tag el-tag--primary el-tag--small el-tag--light ai-tag rounded-md"
-									>
-										<span class="el-tag__content">
-											<div class="flex items-center gap-1">
-												<span class="ai-sparkles">✨</span>
-												AI
-											</div>
-										</span>
-									</span>
-								</div>
-							</template>
-						</el-table-column>
-						<el-table-column prop="actionType" label="Type" width="150">
-							<template #default="{ row }">
-								<el-tag class="type-tag">
-									{{ getActionTypeName(row.actionType) }}
+				<el-table
+					:data="actionsList"
+					style="width: 100%"
+					@selection-change="handleSelectionChange"
+					:max-height="tableMaxHeight"
+					v-loading="loading"
+					border
+				>
+					<el-table-column type="selection" width="55" />
+					<el-table-column prop="actionCode" label="Tool ID" width="120" />
+					<el-table-column prop="name" label="Tool Name" min-width="200">
+						<template #default="{ row }">
+							<div class="flex items-center gap-2">
+								<span>{{ row.name }}</span>
+								<el-tag v-if="row.isAIGenerated" type="primary">
+									<div class="flex items-center gap-1">✨ AI</div>
 								</el-tag>
-							</template>
-						</el-table-column>
-						<el-table-column label="Actions" width="160" fixed="right">
-							<template #default="{ row }">
-								<div class="action-buttons">
-									<el-tooltip content="Edit" placement="top">
-										<el-button
-											v-if="
-												functionPermission(
-													ProjectPermissionEnum.tool.update
-												)
-											"
-											type="primary"
-											link
-											@click="handleEdit(row)"
-										>
-											<el-icon>
-												<Edit />
-											</el-icon>
-										</el-button>
-									</el-tooltip>
-									<el-tooltip content="Change History" placement="top">
-										<el-button
-											v-if="
-												functionPermission(ProjectPermissionEnum.tool.read)
-											"
-											type="info"
-											link
-											@click="handleChangeHistory(row)"
-										>
-											<i class="el-icon mr-2 change-history-icon">
-												<svg
-													xmlns="http://www.w3.org/2000/svg"
-													width="16"
-													height="16"
-													viewBox="0 0 24 24"
-												>
-													<path
-														fill="currentColor"
-														d="M12 5q-1.725 0-3.225.8T6.25 8H8q.425 0 .713.288T9 9t-.288.713T8 10H4q-.425 0-.712-.288T3 9V5q0-.425.288-.712T4 4t.713.288T5 5v1.35q1.275-1.6 3.113-2.475T12 3q1.875 0 3.513.7t2.862 1.925q1.05 1.05 1.725 2.425t.85 2.95q.05.425-.25.7t-.725.275-.712-.275-.338-.7q-.175-1.15-.675-2.15t-1.3-1.8q-.95-.95-2.212-1.5T12 5m-7.9 8.15q.4-.05.725.15t.45.6q.55 2.025 2.125 3.375t3.65 1.625q.525.075.75.388t.225.662q0 .4-.262.725t-.738.275q-2.775-.325-4.887-2.137T3.3 14.325q-.125-.425.125-.775t.675-.4M13 11.6l1.2 1.2q.35.35.313.738t-.313.662-.662.313-.738-.313l-1.5-1.5q-.15-.15-.225-.337T11 11.975V8q0-.425.288-.712T12 7t.713.288T13 8zM18.775 24q-.35 0-.612-.225t-.338-.575l-.15-.7q-.3-.125-.562-.262t-.538-.338l-.725.225q-.325.1-.638-.025t-.487-.4l-.2-.35q-.175-.3-.125-.65t.325-.575l.55-.475q-.05-.325-.05-.65t.05-.65l-.55-.475q-.275-.225-.325-.562t.125-.638l.225-.375q.175-.275.475-.4t.625-.025l.725.225q.275-.2.538-.337t.562-.263l.15-.725q.075-.35.338-.562t.612-.213h.4q.35 0 .613.225t.337.575l.15.7q.3.125.575.287t.525.363l.675-.225q.35-.125.675 0t.5.425l.2.35q.175.3.125.65t-.325.575l-.55.475q.05.325.05.625t-.05.625l.55.475q.275.225.325.563t-.125.637l-.225.375q-.175.275-.475.4t-.625.025l-.725-.225q-.275.2-.538.337t-.562.263l-.15.725q-.075.35-.337.563t-.613.212zm.2-3q.825 0 1.412-.587T20.976 19t-.587-1.412T18.975 17t-1.412.588T16.975 19t.588 1.413 1.412.587"
-													/>
-												</svg>
-											</i>
-										</el-button>
-									</el-tooltip>
-									<el-tooltip content="Delete" placement="top">
-										<el-button
-											v-if="
-												functionPermission(
-													ProjectPermissionEnum.tool.delete
-												)
-											"
-											type="danger"
-											link
-											@click="handleDelete(row)"
-										>
-											<el-icon>
-												<Delete />
-											</el-icon>
-										</el-button>
-									</el-tooltip>
-								</div>
-							</template>
-						</el-table-column>
-					</el-table>
-
-					<!-- Pagination -->
-					<CustomerPagination
-						:total="pagination.total"
-						:limit="pagination.pageSize"
-						:page="pagination.currentPage"
-						:background="true"
-						@pagination="handleLimitUpdate"
-						@update:page="handleCurrentChange"
-						@update:limit="handlePageUpdate"
-					/>
-				</div>
+							</div>
+						</template>
+					</el-table-column>
+					<el-table-column prop="actionType" label="Type" width="150">
+						<template #default="{ row }">
+							<el-tag type="primary">
+								{{ ACTION_TYPE_MAPPING[row.actionType] }}
+							</el-tag>
+						</template>
+					</el-table-column>
+					<el-table-column v-if="isShowTools" label="Actions" width="100" fixed="right">
+						<template #default="{ row }">
+							<div class="flex items-center">
+								<el-tooltip content="Edit" placement="top">
+									<el-button
+										v-if="functionPermission(ProjectPermissionEnum.tool.update)"
+										type="primary"
+										link
+										@click="handleEdit(row)"
+										:icon="Edit"
+									/>
+								</el-tooltip>
+								<el-tooltip content="Change History" placement="top">
+									<el-button
+										v-if="functionPermission(ProjectPermissionEnum.tool.read)"
+										type="primary"
+										link
+										@click="handleChangeHistory(row)"
+									>
+										<Icon icon="material-symbols:history" />
+									</el-button>
+								</el-tooltip>
+								<el-tooltip content="Delete" placement="top">
+									<el-button
+										v-if="functionPermission(ProjectPermissionEnum.tool.delete)"
+										type="danger"
+										link
+										@click="handleDelete(row)"
+										:icon="Delete"
+									/>
+								</el-tooltip>
+							</div>
+						</template>
+					</el-table-column>
+				</el-table>
 			</TabPane>
 
 			<!-- My Action Tab -->
 			<TabPane value="myAction">
-				<div class="">
-					<el-table
-						:data="actionsList"
-						style="width: 100%"
-						@selection-change="handleSelectionChange"
-						:max-height="tableMaxHeight"
-						v-loading="loading"
-						border
-					>
-						<el-table-column type="selection" width="55" />
-						<el-table-column prop="actionCode" label="Tool ID" width="120" />
-						<el-table-column prop="name" label="Tool Name" min-width="200">
-							<template #default="{ row }">
-								<div class="flex items-center gap-2">
-									<span>{{ row.name }}</span>
-									<span
-										v-if="row.isAIGenerated"
-										class="el-tag el-tag--primary el-tag--small el-tag--light ai-tag rounded-md"
-									>
-										<span class="el-tag__content">
-											<div class="flex items-center gap-1">
-												<span class="ai-sparkles">✨</span>
-												AI
-											</div>
-										</span>
-									</span>
-								</div>
-							</template>
-						</el-table-column>
-						<el-table-column prop="actionType" label="Type" width="150">
-							<template #default="{ row }">
-								<el-tag class="type-tag">
-									{{ getActionTypeName(row.actionType) }}
+				<el-table
+					:data="actionsList"
+					style="width: 100%"
+					@selection-change="handleSelectionChange"
+					:max-height="tableMaxHeight"
+					v-loading="loading"
+					border
+				>
+					<el-table-column type="selection" width="55" />
+					<el-table-column prop="actionCode" label="Tool ID" width="120" />
+					<el-table-column prop="name" label="Tool Name" min-width="200">
+						<template #default="{ row }">
+							<div class="flex items-center gap-2">
+								<span>{{ row.name }}</span>
+								<el-tag v-if="row.isAIGenerated" type="primary">
+									<div class="flex items-center gap-1">✨AI</div>
 								</el-tag>
-							</template>
-						</el-table-column>
-						<el-table-column label="Actions" width="160" fixed="right">
-							<template #default="{ row }">
-								<div class="action-buttons">
-									<el-tooltip content="Edit" placement="top">
-										<el-button
-											v-if="
-												functionPermission(
-													ProjectPermissionEnum.tool.update
-												)
-											"
-											type="primary"
-											link
-											@click="handleEdit(row)"
-										>
-											<el-icon>
-												<Edit />
-											</el-icon>
-										</el-button>
-									</el-tooltip>
-									<el-tooltip content="Change History" placement="top">
-										<el-button
-											v-if="
-												functionPermission(ProjectPermissionEnum.tool.read)
-											"
-											type="info"
-											link
-											@click="handleChangeHistory(row)"
-										>
-											<i class="el-icon mr-2 change-history-icon">
-												<svg
-													xmlns="http://www.w3.org/2000/svg"
-													width="16"
-													height="16"
-													viewBox="0 0 24 24"
-												>
-													<path
-														fill="currentColor"
-														d="M12 5q-1.725 0-3.225.8T6.25 8H8q.425 0 .713.288T9 9t-.288.713T8 10H4q-.425 0-.712-.288T3 9V5q0-.425.288-.712T4 4t.713.288T5 5v1.35q1.275-1.6 3.113-2.475T12 3q1.875 0 3.513.7t2.862 1.925q1.05 1.05 1.725 2.425t.85 2.95q.05.425-.25.7t-.725.275-.712-.275-.338-.7q-.175-1.15-.675-2.15t-1.3-1.8q-.95-.95-2.212-1.5T12 5m-7.9 8.15q.4-.05.725.15t.45.6q.55 2.025 2.125 3.375t3.65 1.625q.525.075.75.388t.225.662q0 .4-.262.725t-.738.275q-2.775-.325-4.887-2.137T3.3 14.325q-.125-.425.125-.775t.675-.4M13 11.6l1.2 1.2q.35.35.313.738t-.313.662-.662.313-.738-.313l-1.5-1.5q-.15-.15-.225-.337T11 11.975V8q0-.425.288-.712T12 7t.713.288T13 8zM18.775 24q-.35 0-.612-.225t-.338-.575l-.15-.7q-.3-.125-.562-.262t-.538-.338l-.725.225q-.325.1-.638-.025t-.487-.4l-.2-.35q-.175-.3-.125-.65t.325-.575l.55-.475q-.05-.325-.05-.65t.05-.65l-.55-.475q-.275-.225-.325-.562t.125-.638l.225-.375q.175-.275.475-.4t.625-.025l.725.225q.275-.2.538-.337t.562-.263l.15-.725q.075-.35.338-.562t.612-.213h.4q.35 0 .613.225t.337.575l.15.7q.3.125.575.287t.525.363l.675-.225q.35-.125.675 0t.5.425l.2.35q.175.3.125.65t-.325.575l-.55.475q.05.325.05.625t-.05.625l.55.475q.275.225.325.563t-.125.637l-.225.375q-.175.275-.475.4t-.625.025l-.725-.225q-.275.2-.538.337t-.562.263l-.15.725q-.075.35-.337.563t-.613.212zm.2-3q.825 0 1.412-.587T20.976 19t-.587-1.412T18.975 17t-1.412.588T16.975 19t.588 1.413 1.412.587"
-													/>
-												</svg>
-											</i>
-										</el-button>
-									</el-tooltip>
-									<el-tooltip content="Delete" placement="top">
-										<el-button
-											v-if="
-												functionPermission(
-													ProjectPermissionEnum.tool.delete
-												)
-											"
-											type="danger"
-											link
-											@click="handleDelete(row)"
-										>
-											<el-icon>
-												<Delete />
-											</el-icon>
-										</el-button>
-									</el-tooltip>
-								</div>
-							</template>
-						</el-table-column>
-					</el-table>
-
-					<!-- Pagination -->
-					<CustomerPagination
-						:total="pagination.total"
-						:limit="pagination.pageSize"
-						:page="pagination.currentPage"
-						:background="true"
-						@pagination="handleLimitUpdate"
-						@update:page="handleCurrentChange"
-						@update:limit="handlePageUpdate"
-					/>
-				</div>
+							</div>
+						</template>
+					</el-table-column>
+					<el-table-column prop="actionType" label="Type" width="150">
+						<template #default="{ row }">
+							<el-tag type="primary">
+								{{ ACTION_TYPE_MAPPING[row.actionType] }}
+							</el-tag>
+						</template>
+					</el-table-column>
+					<el-table-column label="Actions" width="100" fixed="right">
+						<template #default="{ row }">
+							<div class="flex items-center">
+								<el-tooltip content="Edit" placement="top">
+									<el-button
+										v-if="functionPermission(ProjectPermissionEnum.tool.update)"
+										type="primary"
+										link
+										@click="handleEdit(row)"
+										:icon="Edit"
+									/>
+								</el-tooltip>
+								<el-tooltip content="Change History" placement="top">
+									<el-button
+										v-if="functionPermission(ProjectPermissionEnum.tool.read)"
+										type="primary"
+										link
+										@click="handleChangeHistory(row)"
+									>
+										<Icon icon="material-symbols:history" />
+									</el-button>
+								</el-tooltip>
+								<el-tooltip content="Delete" placement="top">
+									<el-button
+										v-if="functionPermission(ProjectPermissionEnum.tool.delete)"
+										type="danger"
+										link
+										@click="handleDelete(row)"
+										:icon="Delete"
+									/>
+								</el-tooltip>
+							</div>
+						</template>
+					</el-table-column>
+				</el-table>
 			</TabPane>
 		</PrototypeTabs>
+
+		<!-- Pagination -->
+		<CustomerPagination
+			:total="pagination.total"
+			:limit="pagination.pageSize"
+			:page="pagination.currentPage"
+			:background="true"
+			@pagination="handleLimitUpdate"
+			@update:page="handleCurrentChange"
+			@update:limit="handlePageUpdate"
+		/>
 
 		<!-- Action Config Dialog -->
 		<ActionConfigDialog
@@ -437,7 +350,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, markRaw } from 'vue';
+import { ref, onMounted, markRaw, computed, useTemplateRef } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { Plus, Download, Edit, Delete } from '@element-plus/icons-vue';
 import CustomerPagination from '@/components/global/u-pagination/index.vue';
@@ -449,18 +362,19 @@ import {
 	deleteAction,
 	exportActions,
 	getActionChangeHistory,
-	ActionType,
 	ACTION_TYPE_MAPPING,
 	type ActionChangeHistoryItem,
 } from '@/apis/action';
-import { ActionDefinition, ActionQueryRequest } from '#/action';
+import { ActionDefinition } from '#/action';
 import { tableMaxHeight } from '@/settings/projectSetting';
 import TableViewIcon from '@assets/svg/onboard/tavleView.svg';
 import { functionPermission } from '@/hooks';
-import { ProjectPermissionEnum } from '@/enums/permissionEnum';
+import { ProjectPermissionEnum, UserType } from '@/enums/permissionEnum';
+import { useUserStoreWithOut } from '@/stores/modules/user';
+import { useI18n } from '@/hooks/useI18n';
 
-// Use flexible type for change history items to handle different API response structures
-type ChangeHistoryItem = ActionChangeHistoryItem | any;
+const usersStore = useUserStoreWithOut();
+const { t } = useI18n();
 
 // Reactive data
 const loading = ref(false);
@@ -468,22 +382,22 @@ const exportLoading = ref(false);
 const selectedActions = ref<any[]>([]);
 
 // Action 弹窗相关状态
-const actionConfigDialogRef = ref<InstanceType<typeof ActionConfigDialog>>();
+const actionConfigDialogRef = useTemplateRef('actionConfigDialogRef');
 const currentEditAction = ref<ActionDefinition | null>(null);
 
 // Change History 弹窗相关状态
 const showChangeHistoryDialog = ref(false);
 const changeHistoryLoading = ref(false);
 const currentActionForHistory = ref<ActionDefinition | null>(null);
-const changeHistoryData = ref<ChangeHistoryItem[]>([]);
+const changeHistoryData = ref<ActionChangeHistoryItem[]>([]);
 const historyCurrentPage = ref(1);
 const historyPageSize = ref(15);
 const historyTotalElements = ref(0);
 
 // Search form
-const searchForm = reactive({
-	keyword: '',
-	type: '',
+const searchForm = ref({
+	search: '',
+	actionType: '',
 });
 
 // Tabs configuration
@@ -494,7 +408,7 @@ const tabsConfig = ref([
 ]);
 
 // Pagination
-const pagination = reactive({
+const pagination = ref({
 	currentPage: 1,
 	pageSize: 15,
 	total: 0,
@@ -502,11 +416,6 @@ const pagination = reactive({
 
 // Current page data
 const actionsList = ref<ActionDefinition[]>([]);
-
-// Methods
-const getActionTypeName = (actionType: number) => {
-	return ACTION_TYPE_MAPPING[actionType as ActionType] || 'Unknown';
-};
 
 // Safe getter functions for Change History data
 const getOperationType = (item: any) => {
@@ -563,48 +472,12 @@ const handleExport = async () => {
 	try {
 		// Show export loading
 		exportLoading.value = true;
-
-		// Build query parameters
-		let params: ActionQueryRequest = {};
-		let exportMessage = '';
-
-		// If there are selected items, prioritize exporting selected data
-		if (selectedActions.value.length > 0) {
-			// Export selected data - use selected item IDs, converted to comma-separated string
-			const selectedActionIds = selectedActions.value.map((item) => item.id).join(',');
-			params = {
-				actionIds: selectedActionIds,
-				pageIndex: 1,
-				pageSize: 10000, // Large page to ensure all matching data is retrieved
-			};
-
-			exportMessage = `Export completed successfully (${selectedActions.value.length} items selected)`;
-		} else {
-			// No selected data, export based on current search conditions
-			params = {
-				pageIndex: 1,
-				pageSize: 10000, // Large page to ensure all matching data is retrieved
-			};
-
-			// Add search conditions
-			if (searchForm.keyword) {
-				params.search = searchForm.keyword;
-			}
-			if (searchForm.type) {
-				params.actionType = searchForm.type;
-			}
-			// Handle tab-based filtering
-			if (activeTab.value === 'tools') {
-				params.isTools = true; // 只筛选 isTools = true 的记录
-			} else if (activeTab.value === 'myAction') {
-				params.isTools = false; // 只筛选 isTools = false 的记录
-			}
-
-			exportMessage = 'Filtered data exported successfully';
-		}
-
 		// Call export API
-		const response = await exportActions(params);
+		const response = await exportActions({
+			...pagination.value,
+			...searchForm.value,
+			isTools: activeTab.value === 'tools',
+		});
 
 		// Create download link
 		const blob = new Blob([response], {
@@ -629,7 +502,7 @@ const handleExport = async () => {
 		document.body.removeChild(link);
 		window.URL.revokeObjectURL(url);
 
-		ElMessage.success(exportMessage);
+		ElMessage.success(t('sys.api.operationSuccess'));
 	} catch (error) {
 		console.error('Export failed:', error);
 		ElMessage.error('Export failed. Please try again.');
@@ -639,16 +512,12 @@ const handleExport = async () => {
 };
 
 const handleSearch = async () => {
-	// Reset to first page when searching
-	pagination.currentPage = 1;
-	// Reload data with search conditions
+	pagination.value.currentPage = 1;
 	await loadActionsList();
 };
 
 const handleTabChange = async (tabValue: string) => {
-	// Reset to first page when switching tabs
-	pagination.currentPage = 1;
-	// Reload data based on the selected tab
+	pagination.value.currentPage = 1;
 	await loadActionsList();
 };
 
@@ -789,12 +658,12 @@ const handleDelete = async (row: ActionDefinition) => {
 };
 
 const handlePageUpdate = async (size: number) => {
-	pagination.pageSize = size;
-	pagination.currentPage = 1;
+	pagination.value.pageSize = size;
+	pagination.value.currentPage = 1;
 };
 
 const handleCurrentChange = async (page: number) => {
-	pagination.currentPage = page;
+	pagination.value.currentPage = page;
 };
 
 const handleLimitUpdate = () => {
@@ -813,50 +682,35 @@ const onActionSave = async (actionResult) => {
 const loadActionsList = async () => {
 	try {
 		loading.value = true;
-
-		// Build query parameters
-		const params: ActionQueryRequest = {
-			pageIndex: pagination.currentPage,
-			pageSize: pagination.pageSize,
-		};
-
-		// Add search conditions
-		if (searchForm.keyword) {
-			params.search = searchForm.keyword;
-		}
-
-		if (searchForm.type) {
-			// Use enum value directly, convert to string
-			params.actionType = searchForm.type;
-		}
-
-		// Handle tab-based filtering
-		if (activeTab.value === 'tools') {
-			params.isTools = true; // 只筛选 isTools = true 的记录
-		} else if (activeTab.value === 'myAction') {
-			params.isTools = false; // 只筛选 isTools = false 的记录
-		}
-
 		// Call API
-		const response = await getActionDefinitions(params);
+		const response = await getActionDefinitions({
+			...pagination.value,
+			...searchForm.value,
+			isTools: activeTab.value === 'tools',
+		});
 
 		if (response.code === '200' && response.success) {
 			actionsList.value = response.data.data || [];
-			pagination.total = response.data.total || 0;
+			pagination.value.total = response.data.total || 0;
 		} else {
 			actionsList.value = [];
-			pagination.total = 0;
+			pagination.value.total = 0;
 			ElMessage.error(response.msg || 'Failed to load actions');
 		}
 	} catch (error) {
 		console.error('Failed to load actions:', error);
 		actionsList.value = [];
-		pagination.total = 0;
+		pagination.value.total = 0;
 		ElMessage.error('Failed to load actions');
 	} finally {
 		loading.value = false;
 	}
 };
+
+const isShowTools = computed(() => {
+	const userInfo = usersStore.getUserInfo?.userType;
+	return userInfo == UserType.SystemAdmin || userInfo == UserType.TenantAdmin;
+});
 
 // Lifecycle
 onMounted(() => {
@@ -866,66 +720,6 @@ onMounted(() => {
 </script>
 
 <style scoped lang="scss">
-.assignments-list {
-	.assignment-item {
-		display: flex;
-		flex-direction: column;
-		margin-bottom: 8px;
-		padding: 8px;
-
-		&:last-child {
-			margin-bottom: 0;
-		}
-
-		.assignment-name {
-			font-weight: 500;
-			color: var(--el-text-color-regular);
-			margin-bottom: 4px;
-		}
-
-		.assignment-date {
-			font-size: 12px;
-			color: var(--el-text-color-secondary);
-		}
-	}
-}
-
-.action-buttons {
-	display: flex;
-	gap: 8px;
-	justify-content: center;
-}
-
-.change-history-icon {
-	color: var(--primary-500) !important;
-}
-
-.type-tag {
-	background-color: var(--el-color-primary-light-9) !important;
-	border-color: var(--el-color-primary-light-5) !important;
-	color: var(--el-color-primary) !important;
-	padding: 4px 12px !important;
-	font-size: 12px !important;
-	font-weight: 500 !important;
-}
-
-/* AI标签样式 */
-.ai-tag {
-	background-color: var(--el-color-primary-light-9) !important;
-	border-color: var(--el-color-primary-light-5) !important;
-	color: var(--el-color-primary) !important;
-	border-radius: 4px !important;
-	padding: 2px 6px !important;
-	font-size: 11px !important;
-	font-weight: 500 !important;
-	display: inline-flex !important;
-	align-items: center !important;
-	gap: 2px !important;
-}
-
-.ai-sparkles {
-	font-size: 10px !important;
-}
 /* Change History 弹窗样式 */
 .change-history-item {
 	@apply transition-all duration-200 hover:shadow-md;
@@ -939,15 +733,6 @@ onMounted(() => {
 
 /* 暗色主题样式 */
 html.dark {
-	/* 标签样式在暗色主题下的适配 */
-	.assignments-list .assignment-item .assignment-name {
-		color: var(--white-100) !important;
-	}
-
-	.assignments-list .assignment-item .assignment-date {
-		color: var(--gray-300) !important;
-	}
-
 	/* Change History 暗色主题样式 */
 	.change-history-item {
 		@apply bg-black-400 border-black-200;
@@ -972,11 +757,6 @@ html.dark {
 
 	.change-history-item .text-gray-500 {
 		@apply text-gray-400;
-	}
-
-	/* Change History 图标暗色主题样式 */
-	.change-history-icon {
-		color: var(--primary-400) !important;
 	}
 }
 </style>

@@ -63,6 +63,15 @@ export function getWorkflowList(params?: any) {
 }
 
 /**
+ *
+ * @param id workflowID
+ * @returns workflow
+ */
+export function getWorkflowInfo(id: string) {
+	return defHttp.get({ url: `${Api().workflows}/${id}` });
+}
+
+/**
  * 获取工作流详情 [W03]
  * @param id 工作流ID
  * @returns WorkflowOutputDto

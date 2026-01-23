@@ -2718,7 +2718,7 @@ namespace FlowFlex.Application.Service.OW
         }
 
         /// <summary>
-        /// Validate that checklist and questionnaire components are unique within the same workflow across different stages
+        /// Validate that checklist, questionnaire, and field components are unique within the same workflow across different stages
         /// </summary>
         /// <param name="workflowId">Workflow ID</param>
         /// <param name="currentStageId">Current stage ID to exclude from validation (null for new stage)</param>
@@ -2740,8 +2740,17 @@ namespace FlowFlex.Application.Service.OW
                 .SelectMany(c => c.QuestionnaireIds ?? new List<long>())
                     .ToHashSet();
 
+                // Extract field IDs from new components (fields component with staticFields)
+                var newFieldIds = components
+                    .Where(c => c.Key == "fields")
+                    .SelectMany(c => c.StaticFields ?? new List<StaticFieldConfig>())
+                    .Where(sf => !string.IsNullOrWhiteSpace(sf.Id) && long.TryParse(sf.Id, out _))
+                    .Select(sf => long.Parse(sf.Id))
+                    .ToHashSet();
+
                 Console.WriteLine($"[StageService] New checklist IDs: [{string.Join(", ", newChecklistIds)}]");
                 Console.WriteLine($"[StageService] New questionnaire IDs: [{string.Join(", ", newQuestionnaireIds)}]");
+                Console.WriteLine($"[StageService] New field IDs: [{string.Join(", ", newFieldIds)}]");
 
                 // Get all stages in the same workflow
                 var allStagesInWorkflow = await _stageRepository.GetByWorkflowIdAsync(workflowId);
@@ -2809,14 +2818,24 @@ namespace FlowFlex.Application.Service.OW
                         .SelectMany(c => c.QuestionnaireIds ?? new List<long>())
                         .ToHashSet();
 
+                    // Extract existing field IDs from fields component
+                    var existingFieldIds = existingComponents
+                        .Where(c => c.Key == "fields")
+                        .SelectMany(c => c.StaticFields ?? new List<StaticFieldConfig>())
+                        .Where(sf => !string.IsNullOrWhiteSpace(sf.Id) && long.TryParse(sf.Id, out _))
+                        .Select(sf => long.Parse(sf.Id))
+                        .ToHashSet();
+
                     Console.WriteLine($"[StageService] Stage {stage.Id} ({stage.Name}) existing checklist IDs: [{string.Join(", ", existingChecklistIds)}]");
                     Console.WriteLine($"[StageService] Stage {stage.Id} ({stage.Name}) existing questionnaire IDs: [{string.Join(", ", existingQuestionnaireIds)}]");
+                    Console.WriteLine($"[StageService] Stage {stage.Id} ({stage.Name}) existing field IDs: [{string.Join(", ", existingFieldIds)}]");
 
                     // Check for conflicts
                     var conflictingChecklists = newChecklistIds.Intersect(existingChecklistIds).ToList();
                     var conflictingQuestionnaires = newQuestionnaireIds.Intersect(existingQuestionnaireIds).ToList();
+                    var conflictingFields = newFieldIds.Intersect(existingFieldIds).ToList();
 
-                    if (conflictingChecklists.Any() || conflictingQuestionnaires.Any())
+                    if (conflictingChecklists.Any() || conflictingQuestionnaires.Any() || conflictingFields.Any())
                     {
                         var conflictMessages = new List<string>();
 
@@ -2836,6 +2855,15 @@ namespace FlowFlex.Application.Service.OW
                             var conflictMsg = $"Questionnaire '{string.Join(", ", questionnaireNames)}' already used in stage '{stage.Name}'";
                             conflictMessages.Add(conflictMsg);
                             Console.WriteLine($"[StageService] CONFLICT DETECTED: {conflictMsg} (IDs: {string.Join(", ", conflictingQuestionnaires)})");
+                        }
+
+                        if (conflictingFields.Any())
+                        {
+                            // Get field names for user-friendly error message
+                            var fieldNames = await GetFieldNamesByIdsAsync(conflictingFields.ToList());
+                            var conflictMsg = $"Field '{string.Join(", ", fieldNames)}' already used in stage '{stage.Name}'";
+                            conflictMessages.Add(conflictMsg);
+                            Console.WriteLine($"[StageService] CONFLICT DETECTED: {conflictMsg} (IDs: {string.Join(", ", conflictingFields)})");
                         }
 
                         var fullErrorMessage = $"Components must be unique within the same workflow. {string.Join("; ", conflictMessages)}.";
@@ -3080,6 +3108,38 @@ namespace FlowFlex.Application.Service.OW
                 Console.WriteLine($"[StageService] Error getting questionnaire names: {ex.Message}");
                 // Return fallback names based on IDs instead of empty list
                 return questionnaireIds.Select(id => $"Questionnaire {id}").ToList();
+            }
+        }
+
+        /// <summary>
+        /// Helper method to get field names by IDs
+        /// </summary>
+        private async Task<List<string>> GetFieldNamesByIdsAsync(List<long> fieldIds)
+        {
+            try
+            {
+                var fieldNames = new List<string>();
+                var fields = await _propertyService.GetPropertiesByIdsAsync(fieldIds);
+                var fieldDict = fields.ToDictionary(f => f.Id, f => f.FieldName ?? $"Field {f.Id}");
+                
+                foreach (var id in fieldIds)
+                {
+                    if (fieldDict.TryGetValue(id, out var name))
+                    {
+                        fieldNames.Add(name);
+                    }
+                    else
+                    {
+                        fieldNames.Add($"Field {id}");
+                    }
+                }
+                return fieldNames;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[StageService] Error getting field names: {ex.Message}");
+                // Return fallback names based on IDs instead of empty list
+                return fieldIds.Select(id => $"Field {id}").ToList();
             }
         }
 

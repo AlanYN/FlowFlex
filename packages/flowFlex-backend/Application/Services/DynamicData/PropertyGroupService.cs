@@ -157,7 +157,6 @@ public class PropertyGroupService : IPropertyGroupService, IScopedService
                         Id = f.Id,
                         ModuleId = f.ModuleId,
                         GroupId = group.Id,
-                        DisplayName = f.DisplayName,
                         FieldName = f.FieldName,
                         Description = f.Description,
                         DataType = f.DataType,

@@ -171,6 +171,7 @@
 									:questionnaire-data="
 										getQuestionnaireDataForComponent(component)
 									"
+									:currentstageCanCompleted="!!stageCanCompleted"
 									:onboardingId="onboardingId"
 									@stage-updated="handleStageUpdated"
 									:loading="questionnaireLoading"
@@ -416,7 +417,7 @@ const isCompleteStageDisabled = computed(() => {
 	if (!status) return false;
 
 	// 对于已中止、已取消或暂停的状态，禁用完成阶段
-	return ['Aborted', 'Cancelled', 'Paused'].includes(status);
+	return ['Aborted', 'Cancelled', 'Paused', 'Force Completed'].includes(status);
 });
 
 // 计算是否因为Aborted状态而禁用组件（类似于Viewable only逻辑）
@@ -525,10 +526,13 @@ const sortedComponents = computed(() => {
 });
 
 // 处理onboarding数据的共同逻辑
-const processOnboardingData = (responseData: any) => {
+const processOnboardingData = (responseData: OnboardingItem) => {
 	onboardingData.value = responseData;
 
-	workflowStages.value = responseData.stagesProgress.filter((stage) => stage.permission?.canView);
+	workflowStages.value =
+		(responseData.stagesProgress.filter(
+			(stage) => stage?.permission?.canView
+		) as any as Stage[]) || [];
 
 	// 根据 workflowStages 返回第一个未完成的 stageId
 	// 首先按 order 排序，然后找到第一个未完成的阶段
@@ -539,7 +543,9 @@ const processOnboardingData = (responseData: any) => {
 
 	// 如果所有阶段都完成了，返回最后一个阶段
 	const newStageId =
-		firstIncompleteStage?.stageId || sortedStages[sortedStages.length - 1]?.stageId;
+		responseData.currentStageId ||
+		firstIncompleteStage?.stageId ||
+		sortedStages[sortedStages.length - 1]?.stageId;
 
 	onboardingActiveStageInfo.value =
 		workflowStages.value.find((stage) => stage.stageId === newStageId) || null;

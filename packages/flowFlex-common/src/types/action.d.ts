@@ -5,7 +5,7 @@ export interface ActionDefinition {
 	actionCode?: string;
 	name: string;
 	description: string;
-	actionType: number;
+	actionType: ActionType;
 	actionConfig: string;
 	isEnabled?: boolean;
 	isAIGenerated?: boolean;

@@ -8,6 +8,7 @@
 		:close-on-press-escape="false"
 		class="stage-condition-editor"
 		append-to-body
+		:before-close="handleCancel"
 	>
 		<template #header>
 			<div class="drawer-header">
@@ -54,6 +55,7 @@
 			<div class="form-section">
 				<div class="section-title">Condition Rules</div>
 				<ConditionRuleForm
+					ref="ruleFormRef"
 					v-model="formData.rules"
 					v-model:logic="formData.logic"
 					:stages="availableSourceStages"
@@ -65,6 +67,7 @@
 			<div class="form-section">
 				<div class="section-title">Actions</div>
 				<ConditionActionForm
+					ref="actionFormRef"
 					v-model="formData.actions"
 					:stages="stages"
 					:current-stage-index="currentStageIndex"
@@ -124,6 +127,8 @@ const currentCondition = ref<StageCondition | null>(null);
 
 // Refs
 const formRef = ref<FormInstance>();
+const ruleFormRef = ref<InstanceType<typeof ConditionRuleForm>>();
+const actionFormRef = ref<InstanceType<typeof ConditionActionForm>>();
 const saving = ref(false);
 
 // 表单数据
@@ -334,18 +339,18 @@ const buildSubmitData = () => {
 const handleSave = async () => {
 	if (!formRef.value) return;
 	try {
-		// 表单验证
-		await formRef.value.validate();
+		// 并行验证所有表单
+		const [formValid, ruleValidation, actionValidation] = await Promise.all([
+			formRef.value
+				.validate()
+				.then(() => true)
+				.catch(() => false),
+			ruleFormRef.value?.validate() ?? Promise.resolve({ valid: true, message: '' }),
+			actionFormRef.value?.validate() ?? Promise.resolve({ valid: true, message: '' }),
+		]);
 
-		// 验证规则
-		if (formData.rules.length === 0) {
-			ElMessage.error('Please add at least one rule');
-			return;
-		}
-
-		// 验证动作
-		if (formData.actions.length === 0) {
-			ElMessage.error('Please add at least one action');
+		// 任意一个校验失败则返回
+		if (!formValid || !ruleValidation.valid || !actionValidation.valid) {
 			return;
 		}
 

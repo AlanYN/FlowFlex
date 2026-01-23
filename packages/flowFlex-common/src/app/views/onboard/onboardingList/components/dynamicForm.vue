@@ -351,7 +351,7 @@
 								prop="label"
 								label=""
 								fixed="left"
-								min-width="200"
+								width="300"
 								resizable
 							>
 								<template #default="{ row }">
@@ -419,7 +419,7 @@
 								prop="label"
 								label=""
 								fixed="left"
-								min-width="200"
+								width="300"
 								resizable
 							>
 								<template #default="{ row }">
@@ -499,7 +499,7 @@
 								prop="label"
 								label=""
 								fixed="left"
-								min-width="200"
+								width="300"
 								resizable
 							>
 								<template #default="{ row }">
@@ -608,8 +608,21 @@
 							Next
 							<el-icon class="ml-1"><ArrowRight /></el-icon>
 						</el-button>
+
 						<el-button
-							v-if="isLastSection"
+							v-if="
+								questionnaireAnswers?.status === 'Submitted' &&
+								!currentstageCanCompleted
+							"
+							@click="Reopen()"
+							type="primary"
+							:icon="Document"
+							:loading="loading"
+						>
+							Reopen
+						</el-button>
+						<el-button
+							v-if="questionnaireAnswers?.status !== 'Submitted' && isLastSection"
 							@click="Submit()"
 							type="primary"
 							:icon="Document"
@@ -639,7 +652,12 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch, nextTick, readonly } from 'vue';
 import { Upload, Warning, ArrowLeft, ArrowRight, Document } from '@element-plus/icons-vue';
-import { QuestionnaireAnswer, QuestionnaireData, ComponentData, SectionAnswer } from '#/onboard';
+import {
+	QuestionnaireAnswer,
+	QuestionnaireData,
+	CompStageComponentDataonentData,
+	SectionAnswer,
+} from '#/onboard';
 import { QuestionnaireSection } from '#/section';
 // import { ElNotification } from 'element-plus';
 import {
@@ -661,17 +679,18 @@ import IconThumbUpOutline from '~icons/mdi/thumb-up-outline';
 interface Props {
 	stageId: string;
 	onboardingId?: string;
-	questionnaireData?: ComponentData;
+	questionnaireData?: CompStageComponentDataonentData;
 	isStageCompleted?: boolean;
 	questionnaireAnswers?: SectionAnswer;
 	disabled?: boolean;
 	isSubmitEnabled?: boolean;
 	skippedQuestions?: Set<string>;
 	loading?: boolean;
+	currentstageCanCompleted: boolean;
 }
 
 const props = defineProps<Props>();
-const emit = defineEmits(['submit', 'change']);
+const emit = defineEmits(['submit', 'change', 'reopen']);
 
 const formData = ref<Record<string, any>>({});
 const currentSectionIndex = ref(0);
@@ -1705,6 +1724,10 @@ const questionIsDisabled = (questionId: string): boolean => {
 
 const Submit = () => {
 	emit('submit');
+};
+
+const Reopen = () => {
+	emit('reopen');
 };
 
 defineExpose({

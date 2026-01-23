@@ -12,14 +12,14 @@ const globSetting = useGlobSetting();
 
 const Api = () => {
 	return {
-		dynamicField: `${globSetting.apiProName}/ow/dynamic-data/${globSetting.apiVersion}`,
-
 		fieldsList: `${globSetting.apiProName}/ow/dynamic-data/${globSetting.apiVersion}/properties`,
 	};
 };
 
-export function getDynamicField(): Promise<DynamicApiResponse<DynamicList[]>> {
-	return defHttp.get({ url: `${Api().dynamicField}/properties` });
+export function getDynamicField(params?: {
+	workflowId: string;
+}): Promise<DynamicApiResponse<DynamicList[]>> {
+	return defHttp.get({ url: Api().fieldsList, params });
 }
 
 export function deleteDynamicField(id: string): Promise<DynamicApiResponse<string>> {

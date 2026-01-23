@@ -28,11 +28,6 @@ public class PropertyQueryRequest
     public string? FieldName { get; set; }
 
     /// <summary>
-    /// Display name filter (supports comma-separated values for fuzzy search)
-    /// </summary>
-    public string? DisplayName { get; set; }
-
-    /// <summary>
     /// Data type filter
     /// </summary>
     public DataType? DataType { get; set; }
@@ -68,7 +63,7 @@ public class PropertyQueryRequest
     public DateTimeOffset? ModifyDateEnd { get; set; }
 
     /// <summary>
-    /// Sort field (fieldName, displayName, dataType, createDate, modifyDate)
+    /// Sort field (fieldName, dataType, createDate, modifyDate)
     /// </summary>
     public string? SortField { get; set; }
 
@@ -89,20 +84,6 @@ public class PropertyQueryRequest
                        .Select(n => n.Trim())
                        .Where(n => !string.IsNullOrEmpty(n))
                        .ToList();
-    }
-
-    /// <summary>
-    /// Get display names as list (splits comma-separated values)
-    /// </summary>
-    public List<string> GetDisplayNameList()
-    {
-        if (string.IsNullOrEmpty(DisplayName))
-            return new List<string>();
-
-        return DisplayName.Split(',', StringSplitOptions.RemoveEmptyEntries)
-                         .Select(n => n.Trim())
-                         .Where(n => !string.IsNullOrEmpty(n))
-                         .ToList();
     }
 
     /// <summary>
