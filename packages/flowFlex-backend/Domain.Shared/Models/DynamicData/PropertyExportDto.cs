@@ -11,14 +11,9 @@ public class PropertyExportDto
     public string Id { get; set; } = string.Empty;
 
     /// <summary>
-    /// Field name
+    /// Field name (also used as display name)
     /// </summary>
     public string FieldName { get; set; } = string.Empty;
-
-    /// <summary>
-    /// Display name
-    /// </summary>
-    public string DisplayName { get; set; } = string.Empty;
 
     /// <summary>
     /// Description

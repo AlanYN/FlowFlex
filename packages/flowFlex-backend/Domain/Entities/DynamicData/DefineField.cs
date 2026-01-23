@@ -18,15 +18,9 @@ public class DefineField : OwEntityBase
     public int ModuleId { get; set; }
 
     /// <summary>
-    /// Display name
+    /// Field name (identifier and display name)
     /// </summary>
-    [SugarColumn(ColumnName = "display_name", Length = 200)]
-    public string DisplayName { get; set; } = string.Empty;
-
-    /// <summary>
-    /// Field name (identifier)
-    /// </summary>
-    [SugarColumn(ColumnName = "field_name", Length = 100)]
+    [SugarColumn(ColumnName = "field_name", Length = 200)]
     public string FieldName { get; set; } = string.Empty;
 
     /// <summary>

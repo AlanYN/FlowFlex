@@ -24,12 +24,7 @@ public class DefineFieldDto
     public long GroupId { get; set; }
 
     /// <summary>
-    /// Display name
-    /// </summary>
-    public string DisplayName { get; set; } = string.Empty;
-
-    /// <summary>
-    /// Field name (identifier)
+    /// Field name (identifier and display name)
     /// </summary>
     public string FieldName { get; set; } = string.Empty;
 

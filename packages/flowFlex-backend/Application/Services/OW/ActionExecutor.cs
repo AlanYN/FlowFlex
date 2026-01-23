@@ -961,7 +961,7 @@ namespace FlowFlex.Application.Service.OW
                         {
                             // Use the actual fieldName from property definition
                             storageFieldName = property.FieldName;
-                            displayFieldName = property.DisplayName ?? property.FieldName;
+                            displayFieldName = property.FieldName;
                             _logger.LogDebug("Resolved fieldId {FieldId} to fieldName {FieldName}", fieldId, storageFieldName);
                         }
                     }

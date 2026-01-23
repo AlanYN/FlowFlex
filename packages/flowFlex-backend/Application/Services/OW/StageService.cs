@@ -3120,7 +3120,7 @@ namespace FlowFlex.Application.Service.OW
             {
                 var fieldNames = new List<string>();
                 var fields = await _propertyService.GetPropertiesByIdsAsync(fieldIds);
-                var fieldDict = fields.ToDictionary(f => f.Id, f => f.DisplayName ?? f.FieldName ?? $"Field {f.Id}");
+                var fieldDict = fields.ToDictionary(f => f.Id, f => f.FieldName ?? $"Field {f.Id}");
                 
                 foreach (var id in fieldIds)
                 {

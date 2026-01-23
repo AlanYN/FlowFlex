@@ -212,11 +212,11 @@ public class DynamicDataService : IBusinessDataService, IPropertyService, IScope
 
     public async Task<PagedResult<DefineFieldDto>> GetPropertyPagedListAsync(PropertyQueryRequest request)
     {
-        // Check if system fields are initialized
+        // Check if static fields are initialized (IsStatic = true means default/static fields)
         var allFields = await _defineFieldRepository.GetAllAsync();
-        if (!allFields.Any(f => f.IsSystemDefine))
+        if (!allFields.Any(f => f.IsStatic))
         {
-            _logger.LogInformation("No system defined fields found, initializing default properties");
+            _logger.LogInformation("No static fields found, initializing default properties");
             await InitializeDefaultPropertiesAsync();
         }
 
@@ -243,7 +243,6 @@ public class DynamicDataService : IBusinessDataService, IPropertyService, IScope
         {
             Id = item.Id.ToString(),
             FieldName = item.FieldName,
-            DisplayName = item.DisplayName,
             Description = item.Description ?? string.Empty,
             DataType = GetDataTypeName(item.DataType),
             IsRequired = item.IsRequired ? "Yes" : "No",
@@ -381,7 +380,6 @@ public class DynamicDataService : IBusinessDataService, IPropertyService, IScope
         // Parse UserId to long, default to 0 if parsing fails
         long.TryParse(_userContext.UserId, out var userId);
         
-        existing.DisplayName = defineFieldDto.DisplayName;
         existing.FieldName = defineFieldDto.FieldName;
         existing.Description = defineFieldDto.Description;
         existing.DataType = defineFieldDto.DataType;
@@ -576,8 +574,7 @@ public class DynamicDataService : IBusinessDataService, IPropertyService, IScope
                 var entity = new DefineField
                 {
                     ModuleId = DefaultModuleId,
-                    DisplayName = field.Label,
-                    FieldName = field.VIfKey,
+                    FieldName = field.Label,
                     Description = field.Label,
                     DataType = dataType,
                     IsSystemDefine = false,
@@ -695,7 +692,6 @@ public class DynamicDataService : IBusinessDataService, IPropertyService, IScope
         {
             Id = entity.Id,
             ModuleId = entity.ModuleId,
-            DisplayName = entity.DisplayName,
             FieldName = entity.FieldName,
             Description = entity.Description,
             DataType = entity.DataType,
@@ -751,7 +747,6 @@ public class DynamicDataService : IBusinessDataService, IPropertyService, IScope
         {
             Id = dto.Id,
             ModuleId = dto.ModuleId,
-            DisplayName = dto.DisplayName,
             FieldName = dto.FieldName,
             Description = dto.Description,
             DataType = dto.DataType,
