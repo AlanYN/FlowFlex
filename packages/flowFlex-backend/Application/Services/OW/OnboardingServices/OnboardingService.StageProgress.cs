@@ -1176,8 +1176,9 @@ namespace FlowFlex.Application.Services.OW
                 // Save stages progress back to JSON
                 onboarding.StagesProgressJson = SerializeStagesProgress(onboarding.StagesProgress);
 
-                // Update in database
-                var result = await SafeUpdateOnboardingAsync(onboarding);
+                // Update only stages_progress_json in database WITHOUT updating modifyBy/modifyDate/modifyUserId
+                // AI summary updates are system-generated and should not affect audit fields
+                var result = await UpdateStagesProgressJsonOnlyAsync(onboarding.Id, onboarding.StagesProgressJson);
 
                 if (result)
                 {
@@ -1193,6 +1194,42 @@ namespace FlowFlex.Application.Services.OW
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Failed to update AI summary for stage {StageId} in onboarding {OnboardingId}", stageId, onboardingId);
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Update only stages_progress_json field without modifying audit fields (modifyBy, modifyDate, modifyUserId)
+        /// Used for system-generated updates like AI summary that should not affect audit trail
+        /// </summary>
+        /// <param name="onboardingId">Onboarding ID</param>
+        /// <param name="stagesProgressJson">Serialized stages progress JSON</param>
+        /// <returns>Success status</returns>
+        private async Task<bool> UpdateStagesProgressJsonOnlyAsync(long onboardingId, string stagesProgressJson)
+        {
+            if (string.IsNullOrEmpty(stagesProgressJson))
+            {
+                return true;
+            }
+
+            try
+            {
+                var db = _onboardingRepository.GetSqlSugarClient();
+                var sql = "UPDATE ff_onboarding SET stages_progress_json = @StagesProgressJson::jsonb WHERE id = @Id";
+                var rowsAffected = await db.Ado.ExecuteCommandAsync(sql, new
+                {
+                    StagesProgressJson = stagesProgressJson,
+                    Id = onboardingId
+                });
+
+                _logger.LogDebug("Updated stages_progress_json only for onboarding {OnboardingId}, rows affected: {RowsAffected}", 
+                    onboardingId, rowsAffected);
+
+                return rowsAffected > 0;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to update stages_progress_json for onboarding {OnboardingId}", onboardingId);
                 return false;
             }
         }
