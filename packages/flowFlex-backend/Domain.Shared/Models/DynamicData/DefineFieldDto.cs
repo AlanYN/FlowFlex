@@ -24,12 +24,7 @@ public class DefineFieldDto
     public long GroupId { get; set; }
 
     /// <summary>
-    /// Display name
-    /// </summary>
-    public string DisplayName { get; set; } = string.Empty;
-
-    /// <summary>
-    /// Field name (identifier)
+    /// Field name (identifier and display name)
     /// </summary>
     public string FieldName { get; set; } = string.Empty;
 
@@ -152,6 +147,12 @@ public class DefineFieldDto
     /// Additional info (JSONB)
     /// </summary>
     public JObject? AdditionalInfo { get; set; }
+
+    /// <summary>
+    /// List of stage IDs where this property is used in the specified workflow's stage components (fields)
+    /// Only populated when WorkflowId query parameter is provided
+    /// </summary>
+    public List<long>? InStages { get; set; }
 }
 
 /// <summary>

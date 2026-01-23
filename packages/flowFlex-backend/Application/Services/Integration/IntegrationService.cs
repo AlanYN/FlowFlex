@@ -368,9 +368,8 @@ namespace FlowFlex.Application.Services.Integration
                             var properties = await _propertyService.GetPropertiesByIdsAsync(wfeFieldIds);
                             foreach (var prop in properties)
                             {
-                                // Use DisplayName if available, otherwise use FieldName
-                                var displayName = !string.IsNullOrEmpty(prop.DisplayName) ? prop.DisplayName : prop.FieldName;
-                                propertyNameMap[prop.Id.ToString()] = displayName ?? prop.Id.ToString();
+                                // Use FieldName as display name
+                                propertyNameMap[prop.Id.ToString()] = prop.FieldName ?? prop.Id.ToString();
                             }
                         }
                         catch (Exception ex)

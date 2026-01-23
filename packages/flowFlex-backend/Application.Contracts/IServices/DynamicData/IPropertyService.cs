@@ -11,7 +11,8 @@ public interface IPropertyService
     /// <summary>
     /// Get all properties
     /// </summary>
-    Task<List<DefineFieldDto>> GetPropertyListAsync();
+    /// <param name="workflowId">Optional workflow ID to check if properties are used in workflow stages</param>
+    Task<List<DefineFieldDto>> GetPropertyListAsync(long? workflowId = null);
 
     /// <summary>
     /// Get properties with pagination and filters

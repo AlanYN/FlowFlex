@@ -261,7 +261,7 @@ public class BusinessDataRepository : BaseRepository<BusinessData>, IBusinessDat
                 BusinessId = dataValue.BusinessId,
                 FieldId = dataValue.FieldId,
                 FieldName = dataValue.FieldName,
-                DisplayName = fieldDef?.DisplayName ?? dataValue.FieldName,
+                DisplayName = fieldDef?.FieldName ?? dataValue.FieldName,
                 DataType = dataValue.DataType,
                 Description = fieldDef?.Description,
                 Sort = fieldDef?.Sort ?? 0,
