@@ -564,26 +564,30 @@ const handleInput = (value: string) => {
 	}
 };
 
-const handleKeydown = (event: KeyboardEvent): void => {
+const handleKeydown = (event: Event | KeyboardEvent): void => {
 	if (!showVariables.value) return;
 
-	switch (event.key) {
+	// Type guard to ensure we have a KeyboardEvent
+	if (!('key' in event)) return;
+	const keyEvent = event as KeyboardEvent;
+
+	switch (keyEvent.key) {
 		case 'ArrowDown':
-			event.preventDefault();
+			keyEvent.preventDefault();
 			activeIndex.value = Math.min(activeIndex.value + 1, filteredVariables.value.length - 1);
 			break;
 		case 'ArrowUp':
-			event.preventDefault();
+			keyEvent.preventDefault();
 			activeIndex.value = Math.max(activeIndex.value - 1, 0);
 			break;
 		case 'Enter':
-			event.preventDefault();
+			keyEvent.preventDefault();
 			if (filteredVariables.value[activeIndex.value]) {
 				selectVariable(filteredVariables.value[activeIndex.value]);
 			}
 			break;
 		case 'Escape':
-			event.preventDefault();
+			keyEvent.preventDefault();
 			hideVariables();
 			break;
 	}

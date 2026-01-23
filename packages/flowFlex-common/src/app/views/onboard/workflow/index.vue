@@ -875,10 +875,6 @@ const fetchWorkflows = async (resetPage = false) => {
 	}
 };
 
-// 注意：fetchAllWorkflows函数已移除，因为详情视图不再需要选择器
-
-// 注意：setCurrentWorkflow函数已被handleWorkflowSelect替代
-
 // 获取工作流关联的阶段
 const fetchStages = async (workflowId: string | number) => {
 	try {
@@ -886,7 +882,9 @@ const fetchStages = async (workflowId: string | number) => {
 		if (!userList.value || userList.value.length <= 0) {
 			await getUserGroup();
 		}
+		await loadDynamicField();
 		const res = await getStagesByWorkflow(workflowId);
+
 		if (res.code === '200') {
 			// 只有当 workflow 还存在时才更新（用户可能已经返回列表）
 			if (workflow.value) {
@@ -1805,7 +1803,9 @@ const loadingDynamicField = ref(false);
 const loadDynamicField = async () => {
 	try {
 		loadingDynamicField.value = true;
-		const response = await getDynamicField();
+		const response = await getDynamicField({
+			workflowId: workflow.value?.id || '',
+		});
 		if (response.code === '200') {
 			staticFields.value = response?.data || [];
 		}
@@ -1820,7 +1820,6 @@ onMounted(async () => {
 	fetchChecklists();
 	fetchQuestionnaires();
 	fetchQuickLinks();
-	loadDynamicField();
 
 	// 如果路由 query 中有 id，加载详情
 	if (routeWorkflowId.value) {

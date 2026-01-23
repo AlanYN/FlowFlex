@@ -34,11 +34,29 @@
 										@change="(checked) => toggleField(field.id, !!checked)"
 										:id="`field-${field.id}`"
 										size="small"
+										:disabled="
+											!!(
+												(stage?.id &&
+													field?.inStages?.length > 0 &&
+													!field.inStages.includes(stage?.id)) ||
+												(!stage?.id && field?.inStages?.length > 0)
+											)
+										"
 									/>
 									<div class="flex-1 min-w-0">
 										<label
 											:for="`field-${field.id}`"
-											class="text-sm font-medium leading-none flex-1 cursor-pointer min-w-0"
+											class="text-sm font-medium leading-none flex-1 min-w-0"
+											:class="
+												!!(
+													(stage?.id &&
+														field?.inStages?.length > 0 &&
+														!field.inStages.includes(stage?.id)) ||
+													(!stage?.id && field?.inStages?.length > 0)
+												)
+													? 'cursor-not-allowed text-gray-400'
+													: 'cursor-pointer'
+											"
 										>
 											<span class="truncate">{{ field.fieldName }}</span>
 										</label>
@@ -464,6 +482,7 @@ import {
 	SelectedItem,
 	Checklist,
 	Questionnaire,
+	Stage,
 } from '#/onboard';
 import { IQuickLink } from '#/integration';
 
@@ -478,6 +497,7 @@ const props = defineProps<{
 	questionnaires: Questionnaire[];
 	quickLinks: IQuickLink[];
 	staticFields: DynamicList[];
+	stage: Stage | null;
 }>();
 
 // Emits

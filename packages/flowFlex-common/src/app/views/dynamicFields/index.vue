@@ -46,7 +46,7 @@
 						</slot>
 					</template>
 					<el-table-column type="selection" fixed="left" width="50" />
-					<el-table-column min-width="140" prop="displayName" label="Name">
+					<el-table-column min-width="140" prop="fieldName" label="Name">
 						<template #default="{ row }">
 							<div class="flex items-center gap-1">
 								<el-icon
@@ -56,7 +56,7 @@
 								>
 									<Lock />
 								</el-icon>
-								<span class="truncate">{{ row.displayName }}</span>
+								<span class="truncate">{{ row.fieldName }}</span>
 							</div>
 						</template>
 					</el-table-column>
@@ -364,7 +364,7 @@ const handleEdit = (row: DynamicList) => {
 
 const hanDelete = (row: DynamicList) => {
 	ElMessageBox.confirm(
-		`Are you sure you want to delete the field "${row.displayName}"? This action cannot be undone.`,
+		`Are you sure you want to delete the field "${row.fieldName}"? This action cannot be undone.`,
 		'⚠️ Confirm Field Deletion',
 		{
 			confirmButtonText: 'Delete Field',

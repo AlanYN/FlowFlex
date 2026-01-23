@@ -145,6 +145,13 @@
 								/>
 							</el-form-item>
 
+							<el-form-item label="Is Tools" prop="isTools" v-if="isShowTools">
+								<el-switch
+									v-model="formData.isTools"
+									:disabled="shouldDisableFields"
+								/>
+							</el-form-item>
+
 							<el-form-item label="Action Type" prop="actionType">
 								<el-radio-group
 									v-model="formData.actionType"
@@ -378,6 +385,8 @@ import { getDynamicField } from '@/apis/global/dyanmicField';
 import { ToolsType } from '@/enums/appEnum';
 import { ActionItem, ActionDefinition, ActionQueryRequest } from '#/action';
 import { DynamicList } from '#/dynamic';
+import { UserType } from '@/enums/permissionEnum';
+import { useUserStoreWithOut } from '@/stores/modules/user';
 
 const { scrollbarRef: scrollbarRefLeft, updateScrollbarHeight: updateScrollbarHeightLeft } =
 	useAdaptiveScrollbar(80);
@@ -387,6 +396,7 @@ const { scrollbarRef: scrollbarRefRight, updateScrollbarHeight: updateScrollbarH
 
 // 使用Element Plus的z-index管理
 const { nextZIndex } = useZIndex();
+const usersStore = useUserStoreWithOut();
 
 interface Props {
 	triggerSourceId?: string;
@@ -450,6 +460,11 @@ const dialogTitle = computed(() => {
 	return currentActionId.value ? 'Edit Action' : 'Add New Action';
 });
 
+const isShowTools = computed(() => {
+	const userInfo = usersStore.getUserInfo?.userType;
+	return userInfo == UserType.SystemAdmin || userInfo == UserType.TenantAdmin;
+});
+
 // 计算是否应该禁用表单字段
 const shouldDisableFields = computed(() => {
 	// 如果强制允许编辑，直接返回false
@@ -461,7 +476,6 @@ const shouldDisableFields = computed(() => {
 		return true;
 	}
 
-	// 编辑状态：根据 isTools 决定
 	if (currentActionId.value && formData.value.isTools) {
 		return true;
 	}
