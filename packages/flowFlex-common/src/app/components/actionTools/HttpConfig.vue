@@ -585,7 +585,6 @@
 												effect="dark"
 											>
 												<el-upload
-													ref="fileUploadRef"
 													:show-file-list="false"
 													:before-upload="handleFileUpload"
 													accept=".txt,.pdf,.docx,.xlsx,.csv,.md,.json"
@@ -1467,7 +1466,6 @@ const currentAIModel = ref<AIModelConfig | null>(null);
 const availableModels = ref<AIModelConfig[]>([]);
 const uploadedFile = ref<File | null>(null);
 const chatMessagesRef = ref<HTMLElement>();
-const fileUploadRef = ref();
 
 // File Types Configuration
 const maxFileSize = 5 * 1024 * 1024; // 5MB

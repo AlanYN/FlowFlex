@@ -223,9 +223,10 @@
 					collapse-tags
 					collapse-tags-tooltip
 					:max-collapse-tags="3"
+					clearable
 				>
 					<el-option
-						v-for="user in allAssignOptions"
+						v-for="user in canSelectAssignOptions"
 						:key="String(user.key)"
 						:label="user.value"
 						:value="String(user.key)"
@@ -274,6 +275,7 @@
 					collapse-tags
 					collapse-tags-tooltip
 					:max-collapse-tags="3"
+					clearable
 				>
 					<el-option
 						v-for="user in availableCoAssignees"
@@ -290,11 +292,7 @@
 			</div>
 			<template #footer>
 				<el-button @click="handleAddCoassigneeCancel">Cancel</el-button>
-				<el-button
-					type="primary"
-					:disabled="addCoassigneeForm.selectedUsers.length === 0"
-					@click="handleAddCoassigneeConfirm"
-				>
+				<el-button type="primary" @click="handleAddCoassigneeConfirm">
 					Add Co-assignee
 				</el-button>
 			</template>
@@ -303,7 +301,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, nextTick, onMounted } from 'vue';
+import { ref, computed, watch, nextTick, onMounted, toRaw } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { Edit, Plus } from '@element-plus/icons-vue';
 import { Icon } from '@iconify/vue';
@@ -312,6 +310,7 @@ import { defaultStr, dialogWidth, projectTenMinutesSsecondsDate } from '@/settin
 import InputNumber from '@/components/form/InputNumber/index.vue';
 import { getAllUser } from '@/apis/global';
 import type { Stage } from '#/onboard';
+import { useInternalNoteUsers } from '@/hooks/useInternalNoteUsers';
 
 // Props 定义
 interface Props {
@@ -333,6 +332,7 @@ interface UserOption {
 	email?: string;
 }
 
+const { allAssignOptions: canSelectAllAssignOption } = useInternalNoteUsers(props.onboardingId);
 const allAssignOptions = ref<UserOption[]>([]);
 const optionsLoading = ref(false);
 
@@ -431,10 +431,50 @@ const displayCoAssignees = computed(() => {
 	return props.currentStage?.coAssignees || [];
 });
 
+// 根据 key 去重的工具函数
+const deduplicateByKey = (
+	items: Array<{ key: string | number | boolean; value: string; email?: string }>
+): UserOption[] => {
+	const uniqueMap = new Map<string, UserOption>();
+	items.forEach((item) => {
+		const rawItem = toRaw(item);
+		const key = String(rawItem.key);
+		if (!uniqueMap.has(key)) {
+			uniqueMap.set(key, {
+				key,
+				value: rawItem.value,
+				email: rawItem.email,
+			});
+		}
+	});
+	return Array.from(uniqueMap.values());
+};
+
 // 计算属性 - 可选择的协作负责人列表 (排除当前负责人，但保留已选的协作负责人用于回显)
 const availableCoAssignees = computed(() => {
+	const currentAssigneeOptions =
+		addCoassigneeForm.value.selectedUsers.length > 0
+			? allAssignOptions.value.filter((item) =>
+					addCoassigneeForm.value.selectedUsers.includes(item.key)
+			  )
+			: [];
 	const currentAssignee = props.currentStage?.assignee || [];
-	return allAssignOptions.value.filter((user) => !currentAssignee.includes(String(user.key)));
+	const canselectAssigneeOption = canSelectAllAssignOption.value.filter(
+		(user) => !currentAssignee.includes(String(user.key))
+	);
+	const combined = [...currentAssigneeOptions, ...canselectAssigneeOption];
+	return deduplicateByKey(combined);
+});
+
+const canSelectAssignOptions = computed(() => {
+	const currentAssigneeOptions =
+		reassignForm.value.selectedAssignees.length > 0
+			? allAssignOptions.value.filter((item) =>
+					reassignForm.value.selectedAssignees.includes(item.key)
+			  )
+			: [];
+	const combined = [...currentAssigneeOptions, ...canSelectAllAssignOption.value];
+	return deduplicateByKey(combined);
 });
 
 // 获取用户显示名称

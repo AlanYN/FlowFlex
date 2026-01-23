@@ -275,7 +275,6 @@ const formRef = ref();
 
 const getDefaultFormData = (): CreateDynamicFieldParams => ({
 	fieldName: '',
-	displayName: '',
 	description: '',
 	dataType: propertyTypeEnum.SingleLineText,
 	format: {},
@@ -465,14 +464,12 @@ const handleDefaultChange = (index: number) => {
 // 获取表单数据
 const getFormData = (): CreateDynamicFieldParams => ({
 	...formData,
-	displayName: formData.fieldName,
 });
 
 // 设置表单数据（编辑时回显）
 const setFormData = (data: DynamicList) => {
 	Object.assign(formData, {
 		fieldName: data.fieldName,
-		displayName: data.displayName,
 		description: data.description,
 		dataType: data.dataType,
 		format: data.format || {},
@@ -486,7 +483,6 @@ const setFormData = (data: DynamicList) => {
 const resetForm = () => {
 	const defaultData = getDefaultFormData();
 	formData.fieldName = defaultData.fieldName;
-	formData.displayName = defaultData.displayName;
 	formData.description = defaultData.description;
 	formData.dataType = defaultData.dataType;
 	formData.format = { ...defaultData.format };

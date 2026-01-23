@@ -70,7 +70,6 @@ export interface DynamicFieldAdditionalInfo {
 
 // 创建动态字段时使用的类型
 export interface CreateDynamicFieldParams {
-	displayName: string;
 	fieldName: string;
 	description?: string;
 	dataType: propertyTypeEnum;
@@ -103,7 +102,6 @@ export type DynamicApiListResponse<T> = {
 export interface DynamicList {
 	id: string;
 	moduleId: number;
-	displayName: string;
 	fieldName: string;
 	description: string;
 	dataType: number;
