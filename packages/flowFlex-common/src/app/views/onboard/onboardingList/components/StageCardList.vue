@@ -37,8 +37,8 @@
 							</div>
 						</div>
 						<template #footer>
-							<div class="bg-gray-50 py-2 px-3 border-t -mx-6 -mb-6">
-								<div class="flex justify-between items-center text-xs">
+							<div class="py-2 px-3 border-t -mx-6 -mb-6">
+								<div class="flex justify-between items-center">
 									<el-skeleton-item variant="text" style="width: 50px" />
 									<el-skeleton-item variant="text" style="width: 60px" />
 									<el-skeleton-item variant="text" style="width: 40px" />
@@ -59,11 +59,14 @@
 				class="stage-card shadow-sm rounded-xl"
 			>
 				<template #header>
-					<div class="flex justify-between items-center cursor-pointer py-1">
+					<div
+						class="flex justify-between items-center cursor-pointer py-1"
+						@click="toggleStage(stage)"
+					>
 						<div class="flex items-center">
 							<el-icon
 								class="mr-2 transition-transform text-gray-600"
-								:class="{ 'rotate-90': activeStages.includes(stage) }"
+								:class="{ 'rotate-90': isExpanded(stage) }"
 							>
 								<ArrowRight />
 							</el-icon>
@@ -78,7 +81,7 @@
 					</div>
 				</template>
 
-				<div v-if="activeStages.includes(stage)" class="stage-content p-3">
+				<div v-if="isExpanded(stage)" class="stage-content p-3">
 					<div v-if="groupedLeads[stage]?.length" class="flex flex-wrap gap-2">
 						<el-tooltip
 							v-for="lead in groupedLeads[stage]"
@@ -92,10 +95,10 @@
 									<div class="font-medium mb-1 text-gray-900">
 										{{ lead.caseName }}
 									</div>
-									<div class="text-xs text-gray-500 mb-1">
+									<div class="text-gray-500 mb-1">
 										{{ lead.leadId }}
 									</div>
-									<div class="grid grid-cols-1 gap-2 text-xs mb-2 text-gray-600">
+									<div class="grid grid-cols-1 gap-2 mb-2 text-gray-600">
 										<div class="flex items-center">
 											<el-icon class="mr-1 text-gray-500">
 												<Calendar />
@@ -106,7 +109,7 @@
 													timeZoneConvert(
 														lead.currentStageStartTime,
 														false,
-														projectTenMinutesSsecondsDate
+														projectDate
 													)
 												}}
 											</span>
@@ -121,13 +124,13 @@
 													timeZoneConvert(
 														lead?.currentStageEndTime,
 														false,
-														projectTenMinutesSsecondsDate
+														projectDate
 													)
 												}}
 											</span>
 										</div>
 									</div>
-									<div class="flex items-center justify-between text-xs">
+									<div class="flex items-center justify-between">
 										<el-tag
 											:type="getPriorityTagType(lead.priority)"
 											size="small"
@@ -144,12 +147,11 @@
 									</div>
 								</div>
 							</template>
-							<el-button
-								size="small"
-								class="pipeline-lead-button rounded-xl"
+							<div
+								class="pipeline-lead-button border rounded flex items-center"
 								:class="[
 									getPriorityBorderClass(lead.priority),
-									isOverdue(lead.currentStageEndTime) ? 'border-red-500' : '',
+									isOverdue(lead.currentStageEndTime) ? ' border-l-red-500' : '',
 								]"
 								@click="handleEdit(lead.id)"
 							>
@@ -164,7 +166,7 @@
 										<Warning />
 									</el-icon>
 								</div>
-							</el-button>
+							</div>
 						</el-tooltip>
 					</div>
 					<div v-else class="text-center py-4 text-gray-500 text-sm">
@@ -173,8 +175,8 @@
 				</div>
 
 				<template #footer>
-					<div class="bg-gray-50 py-2 px-3 border-t -mx-6 -mb-6">
-						<div class="flex justify-between items-center text-xs text-gray-500">
+					<div class="py-2 px-3 border-t -mx-6 -mb-6">
+						<div class="flex justify-between items-center text-gray-500">
 							<span>High: {{ getStageCountByPriority(stage, 'High') }}</span>
 							<span>Medium: {{ getStageCountByPriority(stage, 'Medium') }}</span>
 							<span>Low: {{ getStageCountByPriority(stage, 'Low') }}</span>
@@ -185,10 +187,7 @@
 			</el-card>
 		</template>
 
-		<div
-			v-if="!loading && activeStages.length === 0"
-			class="text-center py-10 bg-gray-50 rounded-xl"
-		>
+		<div v-if="!loading && activeStages.length === 0" class="text-center py-10 rounded-xl">
 			<p class="text-gray-500">
 				No stages selected. Please select at least one stage to view.
 			</p>
@@ -197,13 +196,13 @@
 </template>
 
 <script setup lang="ts">
-import { PropType } from 'vue';
+import { PropType, ref, watch } from 'vue';
 import { ArrowRight, User, Calendar, Warning } from '@element-plus/icons-vue';
 import { OnboardingItem } from '#/onboard';
-import { projectTenMinutesSsecondsDate } from '@/settings/projectSetting';
+import { projectDate } from '@/settings/projectSetting';
 import { timeZoneConvert } from '@/hooks/time';
 
-defineProps({
+const props = defineProps({
 	loading: {
 		type: Boolean,
 		default: false,
@@ -224,10 +223,6 @@ defineProps({
 		type: Function,
 		required: true,
 	},
-	getPriorityBorderClass: {
-		type: Function,
-		required: true,
-	},
 	getStageCountByPriority: {
 		type: Function,
 		required: true,
@@ -241,6 +236,49 @@ defineProps({
 		required: true,
 	},
 });
+
+// 本地状态：跟踪哪些 stage 是展开的
+const expandedStages = ref<Set<string>>(new Set());
+
+// 切换展开/折叠状态
+const toggleStage = (stage: string) => {
+	if (expandedStages.value.has(stage)) {
+		expandedStages.value.delete(stage);
+	} else {
+		expandedStages.value.add(stage);
+	}
+};
+
+// 检查 stage 是否展开
+const isExpanded = (stage: string) => expandedStages.value.has(stage);
+
+// 监听 activeStages 变化，新增的 stage 默认展开
+watch(
+	() => props.activeStages,
+	(newStages) => {
+		if (newStages) {
+			newStages.forEach((stage) => {
+				if (!expandedStages.value.has(stage)) {
+					expandedStages.value.add(stage);
+				}
+			});
+		}
+	},
+	{ immediate: true }
+);
+
+const getPriorityBorderClass = (priority: string) => {
+	switch (priority.toLowerCase()) {
+		case 'high':
+			return 'border-l-danger';
+		case 'medium':
+			return 'border-l-warning';
+		case 'low':
+			return 'border-l-success';
+		default:
+			return 'border-l-default';
+	}
+};
 </script>
 
 <style scoped lang="scss">
@@ -265,7 +303,6 @@ defineProps({
 }
 
 :deep(.pipeline-lead-button) {
-	border: 1px solid var(--el-border-color);
 	border-left-width: 4px;
 	background: var(--el-bg-color);
 	color: var(--el-text-color-regular);
@@ -349,8 +386,7 @@ html.dark {
 	}
 
 	.stage-card :deep(.el-card__header) {
-		background-color: var(--el-color-primary-dark-2) !important;
-		border-bottom: 1px solid var(--el-color-primary-dark-2) !important;
+		background-color: var(--black-200) !important;
 		color: var(--el-text-color-primary) !important;
 	}
 

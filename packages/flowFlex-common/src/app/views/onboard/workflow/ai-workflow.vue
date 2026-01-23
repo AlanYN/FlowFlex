@@ -22,10 +22,10 @@
 		<div class="grid grid-cols-12 gap-6">
 			<!-- AI Generator -->
 			<div :class="showWorkflowList ? 'col-span-8' : 'col-span-12'">
-			<AIWorkflowGenerator
-				@workflow-generated="handleWorkflowGenerated"
-				@open-ai-config="showAIConfig"
-			/>
+				<AIWorkflowGenerator
+					@workflow-generated="handleWorkflowGenerated"
+					@open-ai-config="showAIConfig"
+				/>
 			</div>
 
 			<!-- Workflow List -->

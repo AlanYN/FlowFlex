@@ -374,7 +374,7 @@
 							sortable="custom"
 						>
 							<template #default="{ row }">
-								<div class="text-xs space-y-1">
+								<div class="space-y-1">
 									<div class="flex items-center">
 										<span
 											class="table-cell-content flex-1"
@@ -382,7 +382,7 @@
 												timeZoneConvert(
 													row.currentStageStartTime,
 													false,
-													projectTenMinutesSsecondsDate
+													projectDate
 												)
 											"
 										>
@@ -390,7 +390,7 @@
 												timeZoneConvert(
 													row.currentStageStartTime,
 													false,
-													projectTenMinutesSsecondsDate
+													projectDate
 												)
 											}}
 										</span>
@@ -405,14 +405,14 @@
 							sortable="custom"
 						>
 							<template #default="{ row }">
-								<div class="text-xs flex items-center gap-x-2">
+								<div class="flex items-center gap-x-2">
 									<span
 										class="table-cell-content"
 										:title="
 											timeZoneConvert(
 												row.currentStageEndTime,
 												false,
-												projectTenMinutesSsecondsDate
+												projectDate
 											)
 										"
 									>
@@ -420,7 +420,7 @@
 											timeZoneConvert(
 												row.currentStageEndTime,
 												false,
-												projectTenMinutesSsecondsDate
+												projectDate
 											)
 										}}
 									</span>
@@ -528,7 +528,6 @@
 					:grouped-leads="groupedLeads"
 					:is-overdue="isOverdue"
 					:get-priority-tag-type="getPriorityTagType"
-					:get-priority-border-class="getPriorityBorderClass"
 					:get-stage-count-by-priority="getStageCountByPriority"
 					:get-stage-overdue-count="getStageOverdueCount"
 					:handle-edit="handleEdit"
@@ -747,6 +746,7 @@ import {
 	projectTenMinutesSsecondsDate,
 	tableMaxHeight,
 	bigDialogWidth,
+	projectDate,
 } from '@/settings/projectSetting';
 import CustomerPagination from '@/components/global/u-pagination/index.vue';
 import OnboardFilter from './components/OnboardFilter.vue';
@@ -1153,19 +1153,6 @@ const isInProgressStatus = (status: string) => {
 // 判断是否为已中止状态的辅助函数
 const isAbortedStatus = (status: string) => {
 	return status === 'Aborted' || status === 'Cancelled';
-};
-
-const getPriorityBorderClass = (priority: string) => {
-	switch (priority.toLowerCase()) {
-		case 'high':
-			return 'border-danger';
-		case 'medium':
-			return 'border-warning';
-		case 'low':
-			return 'border-success';
-		default:
-			return 'border-default';
-	}
 };
 
 const isOverdue = (eta: string | null) => {
