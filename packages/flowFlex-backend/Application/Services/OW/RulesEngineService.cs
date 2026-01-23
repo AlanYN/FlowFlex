@@ -1002,8 +1002,8 @@ namespace FlowFlex.Application.Service.OW
 
             try
             {
-                // Convert frontend format to RulesEngine format if needed
-                var convertedRulesJson = ConvertToRulesEngineFormatIfNeeded(rulesJson);
+                // Convert frontend format to RulesEngine format if needed (async to fetch component names)
+                var convertedRulesJson = await ConvertToRulesEngineFormatIfNeededAsync(rulesJson);
                 
                 // Parse RulesEngine workflow JSON
                 var workflows = JsonConvert.DeserializeObject<RulesEngine.Models.Workflow[]>(convertedRulesJson);
@@ -1150,7 +1150,7 @@ namespace FlowFlex.Application.Service.OW
         /// <summary>
         /// Convert frontend custom rule format to RulesEngine format if needed
         /// </summary>
-        private string ConvertToRulesEngineFormatIfNeeded(string rulesJson)
+        private async Task<string> ConvertToRulesEngineFormatIfNeededAsync(string rulesJson)
         {
             try
             {
@@ -1160,7 +1160,7 @@ namespace FlowFlex.Application.Service.OW
                 if (jsonObj is Newtonsoft.Json.Linq.JObject jObject && jObject.ContainsKey("logic"))
                 {
                     _logger.LogDebug("Converting frontend rule format to RulesEngine format");
-                    return ConvertFrontendRulesToRulesEngineFormat(rulesJson);
+                    return await ConvertFrontendRulesToRulesEngineFormatAsync(rulesJson);
                 }
                 
                 // Already in RulesEngine format
@@ -1178,7 +1178,7 @@ namespace FlowFlex.Application.Service.OW
         /// Frontend format: {"logic":"AND","rules":[{"fieldPath":"...","operator":"==","value":"..."}]}
         /// RulesEngine format: [{"WorkflowName":"StageCondition","Rules":[{"RuleName":"Rule1","Expression":"..."}]}]
         /// </summary>
-        private string ConvertFrontendRulesToRulesEngineFormat(string frontendRulesJson)
+        private async Task<string> ConvertFrontendRulesToRulesEngineFormatAsync(string frontendRulesJson)
         {
             try
             {
@@ -1187,6 +1187,9 @@ namespace FlowFlex.Application.Service.OW
                 {
                     return "[]";
                 }
+
+                // Pre-fetch component names for all rules
+                var componentNameMap = await BuildComponentNameMapAsync(frontendRules.Rules);
 
                 var expressions = new List<string>();
                 var rulesEngineRules = new List<RulesEngine.Models.Rule>();
@@ -1197,8 +1200,8 @@ namespace FlowFlex.Application.Service.OW
                     var expression = BuildExpressionFromFrontendRule(rule);
                     if (!string.IsNullOrEmpty(expression))
                     {
-                        // Use descriptive rule name based on field path
-                        var ruleName = GetDescriptiveRuleName(rule, ruleIndex);
+                        // Use descriptive rule name with actual component name
+                        var ruleName = GetDescriptiveRuleName(rule, ruleIndex, componentNameMap);
                         rulesEngineRules.Add(new RulesEngine.Models.Rule
                         {
                             RuleName = ruleName,
@@ -1426,19 +1429,325 @@ namespace FlowFlex.Application.Service.OW
         }
 
         /// <summary>
-        /// Generate descriptive rule name based on field path and operator
-        /// Format: Task_1_completed, Question_2_equals, Field_3_contains
+        /// Build a map of component IDs to their display names
         /// </summary>
-        private string GetDescriptiveRuleName(FrontendRule rule, int index)
+        private async Task<Dictionary<string, string>> BuildComponentNameMapAsync(List<FrontendRule> rules)
+        {
+            var nameMap = new Dictionary<string, string>();
+            
+            try
+            {
+                // Extract all task IDs from checklist rules
+                var taskIds = new HashSet<long>();
+                // Extract questionnaire IDs and question IDs from questionnaire rules
+                var questionnaireQuestionMap = new Dictionary<long, HashSet<long>>(); // questionnaireId -> questionIds
+                // Extract field IDs from field rules
+                var fieldIds = new HashSet<long>();
+                
+                foreach (var rule in rules)
+                {
+                    if (string.IsNullOrEmpty(rule.FieldPath)) continue;
+                    
+                    var componentType = rule.ComponentType?.ToLower() ?? "";
+                    
+                    if (componentType == "checklist")
+                    {
+                        // Extract task ID from path like: input.checklist.tasks["checklistId"]["taskId"].isCompleted
+                        var taskId = ExtractTaskIdFromPath(rule.FieldPath);
+                        if (taskId > 0) taskIds.Add(taskId);
+                    }
+                    else if (componentType == "questionnaire")
+                    {
+                        // Extract questionnaire ID and question ID from path
+                        var (questionnaireId, questionId) = ExtractQuestionnaireAndQuestionIdFromPath(rule.FieldPath);
+                        if (questionnaireId > 0 && questionId > 0)
+                        {
+                            if (!questionnaireQuestionMap.ContainsKey(questionnaireId))
+                            {
+                                questionnaireQuestionMap[questionnaireId] = new HashSet<long>();
+                            }
+                            questionnaireQuestionMap[questionnaireId].Add(questionId);
+                        }
+                    }
+                    else if (componentType == "field" || componentType == "fields")
+                    {
+                        // Extract field ID from path like: input.fields["fieldId"] or input.fields.fieldId
+                        var fieldId = ExtractFieldIdFromFieldPath(rule.FieldPath);
+                        if (fieldId > 0) fieldIds.Add(fieldId);
+                    }
+                }
+                
+                // Batch query task names
+                if (taskIds.Any())
+                {
+                    var tasks = await _db.Queryable<ChecklistTask>()
+                        .Where(t => taskIds.Contains(t.Id) && t.IsValid)
+                        .Select(t => new { t.Id, t.Name })
+                        .ToListAsync();
+                    
+                    foreach (var task in tasks)
+                    {
+                        nameMap[$"task_{task.Id}"] = task.Name ?? $"Task {task.Id}";
+                    }
+                    
+                    _logger.LogDebug("Found {Count} task names for IDs: {TaskIds}", tasks.Count, string.Join(", ", taskIds));
+                }
+                
+                // Query question titles from questionnaire structure_json
+                if (questionnaireQuestionMap.Any())
+                {
+                    var questionnaireIds = questionnaireQuestionMap.Keys.ToList();
+                    var questionnaires = await _db.Queryable<Questionnaire>()
+                        .Where(q => questionnaireIds.Contains(q.Id) && q.IsValid)
+                        .Select(q => new { q.Id, q.Structure, q.Name })
+                        .ToListAsync();
+                    
+                    _logger.LogDebug("Found {Count} questionnaires for IDs: {QuestionnaireIds}", 
+                        questionnaires.Count, string.Join(", ", questionnaireIds));
+                    
+                    foreach (var questionnaire in questionnaires)
+                    {
+                        if (questionnaire.Structure == null)
+                        {
+                            _logger.LogDebug("Questionnaire {Id} has null structure", questionnaire.Id);
+                            continue;
+                        }
+                        
+                        var neededQuestionIds = questionnaireQuestionMap.GetValueOrDefault(questionnaire.Id);
+                        if (neededQuestionIds == null || !neededQuestionIds.Any()) continue;
+                        
+                        // Extract question titles from structure JSON
+                        var questionTitles = ExtractQuestionTitlesFromStructure(questionnaire.Structure, neededQuestionIds);
+                        
+                        // If no titles found, use questionnaire name as fallback
+                        foreach (var questionId in neededQuestionIds)
+                        {
+                            if (questionTitles.TryGetValue(questionId, out var title))
+                            {
+                                nameMap[$"question_{questionId}"] = title;
+                            }
+                            else
+                            {
+                                // Fallback: use questionnaire name + question ID suffix
+                                var fallbackName = !string.IsNullOrEmpty(questionnaire.Name) 
+                                    ? $"{questionnaire.Name} Q{questionId % 10000}" 
+                                    : $"Question {questionId % 10000}";
+                                nameMap[$"question_{questionId}"] = fallbackName;
+                                _logger.LogDebug("Question {QuestionId} not found in structure, using fallback: {FallbackName}", 
+                                    questionId, fallbackName);
+                            }
+                        }
+                    }
+                }
+                
+                // Batch query field names from DefineField
+                if (fieldIds.Any())
+                {
+                    var fields = await _db.Queryable<Domain.Entities.DynamicData.DefineField>()
+                        .Where(f => fieldIds.Contains(f.Id) && f.IsValid)
+                        .Select(f => new { f.Id, f.FieldName })
+                        .ToListAsync();
+                    
+                    foreach (var field in fields)
+                    {
+                        nameMap[$"field_{field.Id}"] = field.FieldName ?? $"Field {field.Id}";
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to build component name map, will use default names");
+            }
+            
+            return nameMap;
+        }
+
+        /// <summary>
+        /// Extract field ID from field path
+        /// Path format: input.fields["fieldId"] or input.fields.fieldId
+        /// </summary>
+        private long ExtractFieldIdFromFieldPath(string fieldPath)
+        {
+            try
+            {
+                // Try dictionary access format: input.fields["123"]
+                var match = System.Text.RegularExpressions.Regex.Match(fieldPath, @"input\.fields\[""(\d+)""\]");
+                if (match.Success && long.TryParse(match.Groups[1].Value, out var fieldId1))
+                {
+                    return fieldId1;
+                }
+                
+                // Try dot notation format: input.fields.123
+                var dotMatch = System.Text.RegularExpressions.Regex.Match(fieldPath, @"input\.fields\.(\d+)");
+                if (dotMatch.Success && long.TryParse(dotMatch.Groups[1].Value, out var fieldId2))
+                {
+                    return fieldId2;
+                }
+            }
+            catch { }
+            return 0;
+        }
+
+        /// <summary>
+        /// Extract question titles from questionnaire structure JSON
+        /// </summary>
+        private Dictionary<long, string> ExtractQuestionTitlesFromStructure(Newtonsoft.Json.Linq.JToken structure, HashSet<long> questionIds)
+        {
+            var result = new Dictionary<long, string>();
+            
+            try
+            {
+                // Structure format: { "sections": [{ "questions": [{ "id": "123", "title": "..." }] }] }
+                // or { "sections": [{ "items": [{ "id": "123", "title": "..." }] }] }
+                // or { "questions": [{ "id": "123", "title": "..." }] }
+                
+                var questions = new List<Newtonsoft.Json.Linq.JToken>();
+                
+                // Try to find questions in sections.questions
+                var sectionsQuestions = structure.SelectTokens("$.sections[*].questions[*]");
+                questions.AddRange(sectionsQuestions);
+                
+                // Try to find questions in sections.items
+                var sectionsItems = structure.SelectTokens("$.sections[*].items[*]");
+                questions.AddRange(sectionsItems);
+                
+                // Also try direct questions array
+                var directQuestions = structure.SelectTokens("$.questions[*]");
+                questions.AddRange(directQuestions);
+                
+                // Also try direct items array
+                var directItems = structure.SelectTokens("$.items[*]");
+                questions.AddRange(directItems);
+                
+                foreach (var question in questions)
+                {
+                    var idToken = question["id"];
+                    var titleToken = question["title"] ?? question["label"] ?? question["name"] ?? question["text"];
+                    
+                    if (idToken != null && titleToken != null)
+                    {
+                        var idStr = idToken.ToString();
+                        if (long.TryParse(idStr, out var questionId) && questionIds.Contains(questionId))
+                        {
+                            result[questionId] = titleToken.ToString();
+                        }
+                    }
+                }
+                
+                _logger.LogDebug("Extracted {Count} question titles from questionnaire structure for IDs: {QuestionIds}", 
+                    result.Count, string.Join(", ", questionIds));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex, "Failed to extract question titles from structure");
+            }
+            
+            return result;
+        }
+
+        /// <summary>
+        /// Extract questionnaire ID and question ID from field path
+        /// Path format: input.questionnaire.answers["questionnaireId"]["questionId"]
+        /// </summary>
+        private (long questionnaireId, long questionId) ExtractQuestionnaireAndQuestionIdFromPath(string fieldPath)
+        {
+            try
+            {
+                var matches = System.Text.RegularExpressions.Regex.Matches(fieldPath, @"\[""(\d+)""\]");
+                if (matches.Count >= 2)
+                {
+                    long.TryParse(matches[0].Groups[1].Value, out var questionnaireId);
+                    long.TryParse(matches[1].Groups[1].Value, out var questionId);
+                    return (questionnaireId, questionId);
+                }
+            }
+            catch { }
+            return (0, 0);
+        }
+
+        /// <summary>
+        /// Extract task ID from field path
+        /// Path format: input.checklist.tasks["checklistId"]["taskId"].isCompleted
+        /// </summary>
+        private long ExtractTaskIdFromPath(string fieldPath)
+        {
+            try
+            {
+                // Match pattern like ["123"]["456"] and get the second ID (task ID)
+                var matches = System.Text.RegularExpressions.Regex.Matches(fieldPath, @"\[""(\d+)""\]");
+                if (matches.Count >= 2)
+                {
+                    if (long.TryParse(matches[1].Groups[1].Value, out var taskId))
+                    {
+                        return taskId;
+                    }
+                }
+            }
+            catch { }
+            return 0;
+        }
+
+        /// <summary>
+        /// Generate descriptive rule name based on field path, operator and actual component name
+        /// Format: Task: Verify all onboarding tasks are complete - Complete
+        /// </summary>
+        private string GetDescriptiveRuleName(FrontendRule rule, int index, Dictionary<string, string> componentNameMap)
         {
             var componentType = rule.ComponentType?.ToLower() ?? "unknown";
             var op = GetOperatorDisplayName(rule.Operator);
             
-            // Use 1-based index for human readability
-            var ruleNumber = index + 1;
+            // Try to get actual component name
+            string componentName = null;
             
-            // Build descriptive name without meaningless IDs
-            var name = componentType switch
+            if (componentType == "checklist" && !string.IsNullOrEmpty(rule.FieldPath))
+            {
+                var taskId = ExtractTaskIdFromPath(rule.FieldPath);
+                if (taskId > 0 && componentNameMap.TryGetValue($"task_{taskId}", out var taskName))
+                {
+                    componentName = taskName;
+                }
+            }
+            else if (componentType == "questionnaire" && !string.IsNullOrEmpty(rule.FieldPath))
+            {
+                var (_, questionId) = ExtractQuestionnaireAndQuestionIdFromPath(rule.FieldPath);
+                if (questionId > 0 && componentNameMap.TryGetValue($"question_{questionId}", out var questionTitle))
+                {
+                    componentName = questionTitle;
+                }
+            }
+            else if ((componentType == "field" || componentType == "fields") && !string.IsNullOrEmpty(rule.FieldPath))
+            {
+                var fieldId = ExtractFieldIdFromFieldPath(rule.FieldPath);
+                if (fieldId > 0 && componentNameMap.TryGetValue($"field_{fieldId}", out var fieldName))
+                {
+                    componentName = fieldName;
+                }
+            }
+            
+            // Build descriptive name with actual component name if available
+            if (!string.IsNullOrEmpty(componentName))
+            {
+                // Truncate long names for readability (max 50 chars)
+                if (componentName.Length > 50)
+                {
+                    componentName = componentName.Substring(0, 47) + "...";
+                }
+                
+                var typePrefix = componentType switch
+                {
+                    "checklist" => "Task",
+                    "questionnaire" => "Question",
+                    "field" or "fields" => "Field",
+                    "attachment" => "Attachment",
+                    _ => "Rule"
+                };
+                
+                return $"{typePrefix}: {componentName} - {op}";
+            }
+            
+            // Fallback to index-based name
+            var ruleNumber = index + 1;
+            return componentType switch
             {
                 "field" or "fields" => $"Field_{ruleNumber}_{op}",
                 "questionnaire" => $"Question_{ruleNumber}_{op}",
@@ -1446,8 +1755,14 @@ namespace FlowFlex.Application.Service.OW
                 "attachment" => $"Attachment_{ruleNumber}_{op}",
                 _ => $"Rule_{ruleNumber}_{op}"
             };
+        }
 
-            return name;
+        /// <summary>
+        /// Generate descriptive rule name (legacy overload for backward compatibility)
+        /// </summary>
+        private string GetDescriptiveRuleName(FrontendRule rule, int index)
+        {
+            return GetDescriptiveRuleName(rule, index, new Dictionary<string, string>());
         }
 
         /// <summary>
@@ -1475,8 +1790,13 @@ namespace FlowFlex.Application.Service.OW
                 "isnotnull" => "isNotNull",
                 "in" or "inlist" => "inList",
                 "notin" or "notinlist" => "notInList",
-                "completestage" => "completed",
-                _ => op.Length > 10 ? op.Substring(0, 10) : op
+                "completestage" => "Complete",
+                "completetask" => "Complete",
+                "iscompleted" or "completed" => "Complete",
+                "isnotcompleted" or "notcompleted" => "NotComplete",
+                "true" => "isTrue",
+                "false" => "isFalse",
+                _ => op.Length > 15 ? op.Substring(0, 12) + "..." : op
             };
         }
 
