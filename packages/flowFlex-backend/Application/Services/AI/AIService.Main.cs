@@ -1333,8 +1333,8 @@ namespace FlowFlex.Application.Services.AI
                     ModifyBy = _operatorContextService?.GetOperatorDisplayName() ?? "",
                     CreateUserId = _operatorContextService?.GetOperatorId() ?? 0,
                     ModifyUserId = _operatorContextService?.GetOperatorId() ?? 0,
-                    CreateDate = DateTimeOffset.Now,
-                    ModifyDate = DateTimeOffset.Now,
+                    CreateDate = DateTimeOffset.UtcNow,
+                    ModifyDate = DateTimeOffset.UtcNow,
                     IsValid = true
                 };
 

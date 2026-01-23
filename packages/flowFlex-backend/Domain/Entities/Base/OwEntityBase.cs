@@ -54,13 +54,13 @@ namespace FlowFlex.Domain.Entities
         /// 创建时间
         /// </summary>
         [SugarColumn(ColumnName = "create_date")]
-        public DateTimeOffset CreateDate { get; set; } = DateTimeOffset.Now;
+        public DateTimeOffset CreateDate { get; set; } = DateTimeOffset.UtcNow;
 
         /// <summary>
         /// 修改时间
         /// </summary>
         [SugarColumn(ColumnName = "modify_date")]
-        public DateTimeOffset ModifyDate { get; set; } = DateTimeOffset.Now;
+        public DateTimeOffset ModifyDate { get; set; } = DateTimeOffset.UtcNow;
 
         /// <summary>
         /// 创建�?

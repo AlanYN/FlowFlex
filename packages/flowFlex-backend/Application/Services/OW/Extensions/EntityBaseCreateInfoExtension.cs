@@ -314,7 +314,7 @@ namespace FlowFlex.Application.Services.OW.Extensions
         /// <param name="userContext">User context</param>
         public static void InitCreateInfo(this InternalNote note, UserContext userContext)
         {
-            DateTimeOffset now = DateTimeOffset.Now;
+            DateTimeOffset now = DateTimeOffset.UtcNow;
 
             // Generate timestamp-based ID
             note.Id = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
@@ -389,7 +389,7 @@ namespace FlowFlex.Application.Services.OW.Extensions
         /// <param name="userContext">User context</param>
         public static void InitCreateInfo(this Domain.Entities.OW.OperationChangeLog log, UserContext userContext)
         {
-            DateTimeOffset now = DateTimeOffset.Now;
+            DateTimeOffset now = DateTimeOffset.UtcNow;
 
             // Generate timestamp-based ID
             log.Id = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();

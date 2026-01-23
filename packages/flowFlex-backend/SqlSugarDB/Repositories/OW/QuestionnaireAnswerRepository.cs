@@ -123,7 +123,7 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
             {
                 updateData.ReviewerId = reviewerId.Value;
                 updateData.ReviewNotes = reviewNotes;
-                updateData.ReviewTime = DateTimeOffset.Now;
+                updateData.ReviewTime = DateTimeOffset.UtcNow;
             }
 
             return await base.UpdateAsync(x => updateData, x => ids.Contains(x.Id) && x.IsValid);

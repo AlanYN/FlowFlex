@@ -7,6 +7,7 @@ using FlowFlex.Application.Contracts.IServices.OW;
 using FlowFlex.Application.Contracts.Options;
 using FlowFlex.Application.Services.OW.Extensions;
 using FlowFlex.Domain.Repository.Action;
+using FlowFlex.Domain.Repository.DynamicData;
 using FlowFlex.Domain.Repository.Integration;
 using FlowFlex.Domain.Repository.OW;
 using FlowFlex.Domain.Shared;
@@ -43,6 +44,7 @@ namespace FlowFlex.Application.Services.Integration
         private readonly IActionExecutionService _actionExecutionService;
         private readonly IInboundFieldMappingRepository _fieldMappingRepository;
         private readonly IStaticFieldValueService _staticFieldValueService;
+        private readonly IDefineFieldRepository _defineFieldRepository;
         private readonly IHttpClientFactory _httpClientFactory;
         private readonly IdentityHubOptions _idmOptions;
         private readonly UserContext _userContext;
@@ -106,6 +108,7 @@ namespace FlowFlex.Application.Services.Integration
             IActionExecutionService actionExecutionService,
             IInboundFieldMappingRepository fieldMappingRepository,
             IStaticFieldValueService staticFieldValueService,
+            IDefineFieldRepository defineFieldRepository,
             IHttpClientFactory httpClientFactory,
             IOptions<IdentityHubOptions> idmOptions,
             UserContext userContext,
@@ -123,6 +126,7 @@ namespace FlowFlex.Application.Services.Integration
             _actionExecutionService = actionExecutionService;
             _fieldMappingRepository = fieldMappingRepository;
             _staticFieldValueService = staticFieldValueService;
+            _defineFieldRepository = defineFieldRepository;
             _httpClientFactory = httpClientFactory;
             _idmOptions = idmOptions.Value;
             _userContext = userContext;
@@ -2052,6 +2056,22 @@ namespace FlowFlex.Application.Services.Integration
             var staticFieldValues = new List<StaticFieldValueInputDto>();
             var onboardingType = typeof(Domain.Entities.OW.Onboarding);
 
+            // Pre-fetch field definitions from DefineField table
+            var fieldIds = fieldMappings
+                .Where(m => !string.IsNullOrEmpty(m.WfeFieldId) && long.TryParse(m.WfeFieldId, out _))
+                .Select(m => long.Parse(m.WfeFieldId))
+                .Distinct()
+                .ToList();
+
+            var fieldDefinitions = fieldIds.Any()
+                ? await _defineFieldRepository.GetByIdsAsync(fieldIds)
+                : new List<Domain.Entities.DynamicData.DefineField>();
+
+            // Create a lookup dictionary for field definitions (FieldName and DataType)
+            var fieldDefinitionLookup = fieldDefinitions.ToDictionary(
+                f => f.Id.ToString(),
+                f => new { f.FieldName, f.DataType });
+
             foreach (var mapping in fieldMappings)
             {
                 try
@@ -2101,15 +2121,33 @@ namespace FlowFlex.Application.Services.Integration
                     // Save all fields to StaticFieldValue (both standard and custom fields)
                     if (caseEntity.CurrentStageId.HasValue)
                     {
+                        // Try to parse WfeFieldId as long for FieldId
+                        long? fieldIdValue = null;
+                        if (!string.IsNullOrEmpty(mapping.WfeFieldId) && long.TryParse(mapping.WfeFieldId, out var parsedFieldId))
+                        {
+                            fieldIdValue = parsedFieldId;
+                        }
+
+                        // Get field display name and data type from lookup, fallback to mapping values if not found
+                        var fieldDisplayName = mapping.WfeFieldId ?? "";
+                        var fieldType = ((int)mapping.FieldType).ToString(); // Default to mapping's FieldType as numeric string
+                        
+                        if (!string.IsNullOrEmpty(mapping.WfeFieldId) && fieldDefinitionLookup.TryGetValue(mapping.WfeFieldId, out var fieldDef))
+                        {
+                            fieldDisplayName = fieldDef.FieldName;
+                            fieldType = ((int)fieldDef.DataType).ToString(); // Use DataType from DefineField as numeric string
+                        }
+
                         staticFieldValues.Add(new StaticFieldValueInputDto
                         {
                             OnboardingId = caseEntity.Id,
                             StageId = caseEntity.CurrentStageId.Value,
-                            FieldName = mapping.WfeFieldId,
-                            DisplayName = mapping.WfeFieldId,
-                            FieldLabel = mapping.WfeFieldId,
+                            FieldName = fieldDisplayName,
+                            FieldId = fieldIdValue,
+                            DisplayName = fieldDisplayName,
+                            FieldLabel = fieldDisplayName,
                             FieldValueJson = JsonConvert.SerializeObject(externalValue),
-                            FieldType = mapping.FieldType.ToString().ToLower(),
+                            FieldType = fieldType,
                             Source = "external_integration",
                             Status = "Submitted"
                         });

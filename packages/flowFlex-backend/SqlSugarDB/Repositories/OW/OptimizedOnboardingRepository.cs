@@ -71,7 +71,7 @@ namespace FlowFlex.SqlSugarDB.Repositories.OW
                 return false;
 
             var result = await _db.Updateable<Onboarding>()
-                .SetColumns(x => new Onboarding { Status = status, ModifyDate = DateTimeOffset.Now })
+                .SetColumns(x => new Onboarding { Status = status, ModifyDate = DateTimeOffset.UtcNow })
                 .Where(x => ids.Contains(x.Id) && x.IsValid)
                 .ExecuteCommandAsync();
 
@@ -206,7 +206,7 @@ namespace FlowFlex.SqlSugarDB.Repositories.OW
         public async Task<List<Onboarding>> GetOverdueListAsync()
         {
             return await _db.Queryable<Onboarding>()
-                .Where(x => x.IsValid && x.IsActive && x.EstimatedCompletionDate.HasValue && x.EstimatedCompletionDate.Value < DateTimeOffset.Now)
+                .Where(x => x.IsValid && x.IsActive && x.EstimatedCompletionDate.HasValue && x.EstimatedCompletionDate.Value < DateTimeOffset.UtcNow)
                 .ToListAsync();
         }
 
