@@ -281,6 +281,7 @@
 																placeholder="Select WFE field"
 																:disabled="shouldDisableFields"
 																class="w-full"
+																filterable
 															>
 																<el-option
 																	v-for="field in wfeFieldOptions"
