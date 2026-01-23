@@ -151,7 +151,10 @@
 						:disabled="!configForm.provider"
 					>
 						<template #append>
-							<el-button @click="resetToDefaultBaseUrl" :disabled="!configForm.provider">
+							<el-button
+								@click="resetToDefaultBaseUrl"
+								:disabled="!configForm.provider"
+							>
 								Reset to Default
 							</el-button>
 						</template>
@@ -576,9 +579,7 @@ const onProviderChange = () => {
 		if (provider.supportedModels && provider.supportedModels.length > 0) {
 			const firstModel = provider.supportedModels[0];
 			const isGateway = configForm.baseUrl?.includes('aiop-gateway.item.com');
-			configForm.modelName = isGateway
-				? `${configForm.provider}/${firstModel}`
-				: firstModel;
+			configForm.modelName = isGateway ? `${configForm.provider}/${firstModel}` : firstModel;
 		}
 	}
 };

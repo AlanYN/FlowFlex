@@ -9,7 +9,7 @@
 	>
 		<template v-for="field in fields" :key="field.id">
 			<el-form-item
-				:label="field.displayName"
+				:label="field.fieldName"
 				:prop="field.fieldName"
 				:rules="getFieldRules(field)"
 				:class="getFieldClass(field)"
@@ -40,7 +40,7 @@
 					:decimal-places="Number(field.format?.decimalPlaces) || 2"
 					class="w-full"
 					:property="{
-						placeholder: `Please enter ${field.displayName}`,
+						placeholder: `Please enter ${field.fieldName}`,
 						disabled: readonly,
 					}"
 				/>
@@ -52,7 +52,7 @@
 					:type="getDateType(field)"
 					:format="field.format?.dateFormat || projectDate"
 					:value-format="field.format?.dateFormat || projectDate"
-					:placeholder="`Select ${field.displayName}`"
+					:placeholder="`Select ${field.fieldName}`"
 					:disabled="readonly"
 					class="w-full"
 					:clearable="true"
@@ -94,7 +94,7 @@
 					v-else-if="field.dataType === propertyTypeEnum.SingleLineText"
 					v-model="formValues[field.fieldName]"
 					:maxlength="field.fieldValidate?.maxLength || 100"
-					:placeholder="`Please enter ${field.displayName}`"
+					:placeholder="`Please enter ${field.fieldName}`"
 					:disabled="readonly"
 					:show-word-limit="true"
 					clearable
@@ -107,7 +107,7 @@
 					type="textarea"
 					:rows="Number(field.additionalInfo?.rows) || 4"
 					:maxlength="field.fieldValidate?.maxLength || 5000"
-					:placeholder="`Please enter ${field.displayName}`"
+					:placeholder="`Please enter ${field.fieldName}`"
 					:disabled="readonly"
 					:resize="Number(field.additionalInfo?.rows) > 1 ? 'none' : 'vertical'"
 					:show-word-limit="true"
@@ -119,7 +119,7 @@
 					v-model="formValues[field.fieldName]"
 					:multiple="field.additionalInfo?.allowMultiple ?? false"
 					:filterable="field.additionalInfo?.allowSearch ?? true"
-					:placeholder="`Select ${field.displayName}`"
+					:placeholder="`Select ${field.fieldName}`"
 					:disabled="readonly"
 					class="w-full"
 					clearable
@@ -223,7 +223,7 @@
 					v-else-if="field.dataType === propertyTypeEnum.Email"
 					v-model="formValues[field.fieldName]"
 					type="email"
-					:placeholder="`Please enter ${field.displayName}`"
+					:placeholder="`Please enter ${field.fieldName}`"
 					:disabled="readonly"
 					clearable
 				/>
@@ -239,7 +239,7 @@
 				<el-input
 					v-else
 					v-model="formValues[field.fieldName]"
-					:placeholder="`Please enter ${field.displayName}`"
+					:placeholder="`Please enter ${field.fieldName}`"
 					:disabled="readonly"
 					clearable
 				/>
@@ -374,7 +374,7 @@ const getFieldRules = (field: DynamicList) => {
 	if (field.isRequired || field.fieldValidate?.message) {
 		rules.push({
 			required: field.isRequired,
-			message: field.fieldValidate?.message || `${field.displayName} is required`,
+			message: field.fieldValidate?.message || `${field.fieldName} is required`,
 			trigger: field.dataType === propertyTypeEnum.DropdownSelect ? 'change' : 'blur',
 		});
 	}
