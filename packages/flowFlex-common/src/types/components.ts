@@ -1,6 +1,4 @@
 import { InputProperty } from '#/config';
-import { DealAndLeadsFormData } from '#/leadAndDeal';
-import { Options } from '#/setting';
 
 export interface AboutProps {
 	label: string;
@@ -22,18 +20,6 @@ export interface AboutProps {
 	searchApi?: (text: string) => Promise<any>;
 	required?: boolean;
 	errorTip?: string;
-}
-
-export interface RangeEnergyProps<T> {
-	info: DealAndLeadsFormData[];
-	nameKey: string;
-	presentId?: string;
-	moduleType: T;
-	pipelineOptions?: Options[] | [];
-	dealStatusOptions?: Options[] | [];
-	initLoading?: boolean;
-	imageId?: string;
-	canEdit?: boolean;
 }
 
 export interface BaseRangeInfo {

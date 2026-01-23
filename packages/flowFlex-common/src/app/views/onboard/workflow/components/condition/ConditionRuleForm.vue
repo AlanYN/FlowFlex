@@ -533,7 +533,7 @@ const componentOptionGroups = computed<ComponentOptionGroup[]>(() => {
 					key: `field_${field.id}`,
 					type: 'fields' as const,
 					id: field.id,
-					name: fieldInfo?.displayName || field.id,
+					name: fieldInfo?.fieldName || field.id,
 				});
 			});
 		}

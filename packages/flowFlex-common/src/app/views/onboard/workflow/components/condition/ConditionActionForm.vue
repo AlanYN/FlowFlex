@@ -617,7 +617,7 @@ const groupedFieldOptions = computed<FieldOptionGroup[]>(() => {
 				fields.push({
 					key: `${stage.id}_${field.id}`,
 					id: field.id,
-					name: fieldInfo.displayName || field.id,
+					name: fieldInfo.fieldName || field.id,
 					stageId: stage.id,
 					stageName: stage.name,
 					dataType: fieldInfo.dataType,
