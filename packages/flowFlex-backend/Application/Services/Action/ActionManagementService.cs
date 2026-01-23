@@ -501,11 +501,17 @@ namespace FlowFlex.Application.Services.Action
                     entity.IsEnabled = dto.IsEnabled;
                     changedFields.Add("IsEnabled");
                 }
-                //if (entity.IsTools != dto.IsTools)
-                //{
-                //    entity.IsTools = dto.IsTools;
-                //    changedFields.Add("IsTools");
-                //}
+
+                // Only admin users (SystemAdmin or TenantAdmin) can modify IsTools field
+                var isAdmin = _userContext?.IsSystemAdmin == true || 
+                              (_userContext != null && _userContext.HasAdminPrivileges(_userContext.TenantId));
+                if (entity.IsTools != dto.IsTools && isAdmin)
+                {
+                    entity.IsTools = dto.IsTools;
+                    changedFields.Add("IsTools");
+                    _logger.LogInformation("Admin user {UserId} modified IsTools field for action {ActionId} from {OldValue} to {NewValue}",
+                        _userContext.UserId, id, originalIsTools, dto.IsTools);
+                }
 
                 // Initialize update information with proper tenant and app context
                 entity.InitUpdateInfo(_userContext);
