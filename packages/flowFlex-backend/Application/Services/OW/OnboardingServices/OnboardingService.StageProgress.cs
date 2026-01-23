@@ -72,7 +72,7 @@ namespace FlowFlex.Application.Services.OW
                         StageId = stage.Id,
                         Status = isFirstStage ? "InProgress" : "Pending", // First stage starts as InProgress
                         IsCompleted = false,
-                        StartTime = isFirstStage ? currentTime : null, // First stage starts immediately with current time
+                        StartTime = isFirstStage ? GetNormalizedUtcNow() : null, // First stage starts immediately with normalized time (00:00:00)
                         CompletionTime = null,
                         CompletedById = null,
                         CompletedBy = null,
@@ -87,7 +87,7 @@ namespace FlowFlex.Application.Services.OW
                         StageName = stage.Name,
                         StageDescription = stage.Description,
                         StageOrder = sequentialOrder,
-                        EstimatedDays = stage.EstimatedDuration,
+                        EstimatedDays = NormalizeEstimatedDays(stage.EstimatedDuration),
                         VisibleInPortal = stage.VisibleInPortal,
                         PortalPermission = stage.PortalPermission,
                         AttachmentManagementNeeded = stage.AttachmentManagementNeeded,
@@ -145,7 +145,7 @@ namespace FlowFlex.Application.Services.OW
                     // Set StartTime if not already set
                     if (!completedStage.StartTime.HasValue)
                     {
-                        completedStage.StartTime = currentTime;
+                        completedStage.StartTime = GetNormalizedUtcNow();
                     }
 
                     if (!string.IsNullOrEmpty(notes))
@@ -525,7 +525,7 @@ namespace FlowFlex.Application.Services.OW
                         // CustomEstimatedDays > EstimatedDays (from Stage)
                         if (!stageProgress.CustomEstimatedDays.HasValue)
                         {
-                            stageProgress.EstimatedDays = stage.EstimatedDuration;
+                            stageProgress.EstimatedDays = NormalizeEstimatedDays(stage.EstimatedDuration);
                         }
                         // If CustomEstimatedDays exists, EstimatedDays should show the custom value
                         // (This will be handled by AutoMapper: EstimatedDays = CustomEstimatedDays ?? EstimatedDays)
@@ -1277,9 +1277,9 @@ namespace FlowFlex.Application.Services.OW
                     LastUpdatedBy = stageProgress.LastUpdatedBy
                 });
 
-                // Update custom fields
-                stageProgress.CustomEstimatedDays = input.CustomEstimatedDays;
-                stageProgress.CustomEndTime = input.CustomEndTime;
+                // Update custom fields - normalize estimated days to integer and end time to start of day
+                stageProgress.CustomEstimatedDays = NormalizeEstimatedDays(input.CustomEstimatedDays);
+                stageProgress.CustomEndTime = NormalizeToStartOfDay(input.CustomEndTime);
 
                 // Update CustomStageAssignee if Assignee is provided (frontend uses Assignee field)
                 if (input.Assignee != null)
@@ -1502,15 +1502,17 @@ namespace FlowFlex.Application.Services.OW
 
                 // Set StartTime if not already set (only during save operations)
                 // This ensures StartTime is only set when user actually saves or completes work
+                // Normalize to start of day (00:00:00)
                 if (!stageProgress.StartTime.HasValue)
                 {
-                    stageProgress.StartTime = DateTimeOffset.UtcNow;
+                    stageProgress.StartTime = GetNormalizedUtcNow();
                 }
 
                 // IMPORTANT: If this is the current stage and CurrentStageStartTime is not set, set it now
+                // Normalize to start of day (00:00:00)
                 if (stageProgress.StageId == onboarding.CurrentStageId && !onboarding.CurrentStageStartTime.HasValue)
                 {
-                    onboarding.CurrentStageStartTime = stageProgress.StartTime;
+                    onboarding.CurrentStageStartTime = NormalizeToStartOfDay(stageProgress.StartTime);
                     _logger.LogDebug("SaveStageAsync - Set CurrentStageStartTime to {StartTime} for Stage {StageId}", 
                         onboarding.CurrentStageStartTime, stageId);
                 }
@@ -1668,6 +1670,40 @@ namespace FlowFlex.Application.Services.OW
             return coAssignees
                 .Where(id => !defaultAssignees.Contains(id))
                 .ToList();
+        }
+
+        /// <summary>
+        /// Normalize DateTimeOffset to start of day (00:00:00) for stage time fields
+        /// </summary>
+        private static DateTimeOffset NormalizeToStartOfDay(DateTimeOffset dateTime)
+        {
+            return new DateTimeOffset(dateTime.Year, dateTime.Month, dateTime.Day, 0, 0, 0, dateTime.Offset);
+        }
+
+        /// <summary>
+        /// Normalize nullable DateTimeOffset to start of day (00:00:00) for stage time fields
+        /// </summary>
+        private static DateTimeOffset? NormalizeToStartOfDay(DateTimeOffset? dateTime)
+        {
+            if (!dateTime.HasValue) return null;
+            return NormalizeToStartOfDay(dateTime.Value);
+        }
+
+        /// <summary>
+        /// Normalize estimated days to integer (round to nearest whole number)
+        /// </summary>
+        private static decimal? NormalizeEstimatedDays(decimal? days)
+        {
+            if (!days.HasValue) return null;
+            return Math.Round(days.Value, 0);
+        }
+
+        /// <summary>
+        /// Get current UTC time normalized to start of day (00:00:00)
+        /// </summary>
+        private static DateTimeOffset GetNormalizedUtcNow()
+        {
+            return NormalizeToStartOfDay(DateTimeOffset.UtcNow);
         }
     }
 }

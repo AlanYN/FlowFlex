@@ -264,30 +264,36 @@ namespace FlowFlex.Application.Services.OW
                 {
                     if (currentStageProgress.StartTime.HasValue)
                     {
-                        result.CurrentStageStartTime = currentStageProgress.StartTime;
+                        result.CurrentStageStartTime = NormalizeToStartOfDay(currentStageProgress.StartTime);
                     }
                     // currentStageEndTime priority: customEndTime > endTime > (startTime+estimatedDays) > null
+                    // All times normalized to start of day (00:00:00)
                     if (currentStageProgress.CustomEndTime.HasValue)
                     {
-                        result.CurrentStageEndTime = currentStageProgress.CustomEndTime.Value;
+                        result.CurrentStageEndTime = NormalizeToStartOfDay(currentStageProgress.CustomEndTime.Value);
                     }
                     else if (currentStageProgress.EndTime.HasValue)
                     {
-                        result.CurrentStageEndTime = currentStageProgress.EndTime.Value;
+                        result.CurrentStageEndTime = NormalizeToStartOfDay(currentStageProgress.EndTime.Value);
                     }
                     else
                     {
                         // Three-level priority: json.customEstimatedDays > json.estimatedDays > stageDict
-                        estimatedDays = (double?)currentStageProgress.CustomEstimatedDays;
+                        // Normalize to integer
+                        estimatedDays = currentStageProgress.CustomEstimatedDays.HasValue 
+                            ? (double?)Math.Round(currentStageProgress.CustomEstimatedDays.Value, 0) 
+                            : null;
                         if (!estimatedDays.HasValue || estimatedDays.Value <= 0)
                         {
-                            estimatedDays = (double?)currentStageProgress.EstimatedDays;
+                            estimatedDays = currentStageProgress.EstimatedDays.HasValue 
+                                ? (double?)Math.Round(currentStageProgress.EstimatedDays.Value, 0) 
+                                : null;
                             if ((!estimatedDays.HasValue || estimatedDays.Value <= 0) && result.CurrentStageId.HasValue)
                             {
                                 // stageEstimatedDaysDict key: stageId -> EstimatedDuration
                                 if (stageEstimatedDaysDict.TryGetValue(result.CurrentStageId.Value, out var val) && val != null && val > 0)
                                 {
-                                    estimatedDays = (double?)val;
+                                    estimatedDays = (double?)Math.Round(val.Value, 0);
                                 }
                             }
                         }
@@ -295,9 +301,11 @@ namespace FlowFlex.Application.Services.OW
                 }
             }
             // Calculate currentStageEndTime separately - only when both startTime and estimatedDays exist
+            // Normalize to start of day (00:00:00)
             if (result.CurrentStageEndTime == null && result.CurrentStageStartTime.HasValue && (estimatedDays.HasValue && estimatedDays.Value > 0))
             {
-                result.CurrentStageEndTime = result.CurrentStageStartTime.Value.AddDays(estimatedDays.Value);
+                var normalizedStartTime = NormalizeToStartOfDay(result.CurrentStageStartTime.Value);
+                result.CurrentStageEndTime = normalizedStartTime.AddDays((int)estimatedDays.Value);
             }
 
             if (result.CurrentStageId.HasValue)
@@ -305,14 +313,18 @@ namespace FlowFlex.Application.Services.OW
                 result.CurrentStageName = stageDict.GetValueOrDefault(result.CurrentStageId.Value);
 
                 // IMPORTANT: Priority for EstimatedDays: customEstimatedDays > stage.EstimatedDuration
+                // Normalize to integer (round to nearest whole number)
                 var currentStageProgress = result.StagesProgress?.FirstOrDefault(sp => sp.StageId == result.CurrentStageId.Value);
                 if (currentStageProgress != null && currentStageProgress.CustomEstimatedDays.HasValue && currentStageProgress.CustomEstimatedDays.Value > 0)
                 {
-                    result.CurrentStageEstimatedDays = currentStageProgress.CustomEstimatedDays.Value;
+                    result.CurrentStageEstimatedDays = Math.Round(currentStageProgress.CustomEstimatedDays.Value, 0);
                 }
                 else
                 {
-                    result.CurrentStageEstimatedDays = stageEstimatedDaysDict.GetValueOrDefault(result.CurrentStageId.Value);
+                    var stageEstimatedDays = stageEstimatedDaysDict.GetValueOrDefault(result.CurrentStageId.Value);
+                    result.CurrentStageEstimatedDays = stageEstimatedDays.HasValue 
+                        ? Math.Round(stageEstimatedDays.Value, 0) 
+                        : null;
                 }
 
                 // End time already derived strictly from stagesProgress above
