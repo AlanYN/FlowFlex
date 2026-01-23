@@ -175,7 +175,7 @@ namespace FlowFlex.Application.Services.OW
                     {
                         entity.CurrentStageId = nextIncompleteStage.Id;
                         entity.CurrentStageOrder = nextIncompleteStage.Order;
-                        entity.CurrentStageStartTime = DateTimeOffset.UtcNow;
+                        entity.CurrentStageStartTime = GetNormalizedUtcNow();
                     }
                 }
                 else if (entity.CurrentStageId != stageToComplete.Id && !input.PreventAutoMove)
@@ -194,7 +194,7 @@ namespace FlowFlex.Application.Services.OW
                     {
                         entity.CurrentStageId = nextIncompleteStage.Id;
                         entity.CurrentStageOrder = nextIncompleteStage.Order;
-                        entity.CurrentStageStartTime = DateTimeOffset.UtcNow;
+                        entity.CurrentStageStartTime = GetNormalizedUtcNow();
                     }
                 }
 
@@ -491,7 +491,7 @@ namespace FlowFlex.Application.Services.OW
                         var oldStageId = entity.CurrentStageId;
                         entity.CurrentStageId = nextStage.Id;
                         entity.CurrentStageOrder = nextStage.Order;
-                        entity.CurrentStageStartTime = DateTimeOffset.UtcNow;
+                        entity.CurrentStageStartTime = GetNormalizedUtcNow();
                         needsUpdate = true;
                         _logger.LogDebug("CompleteCurrentStageAsync - Advanced to next stage: OldStageId={OldStageId}, NewStageId={NewStageId}, StageName={StageName}",
                             oldStageId, entity.CurrentStageId, nextStage.Name);
@@ -511,7 +511,7 @@ namespace FlowFlex.Application.Services.OW
                         {
                             entity.CurrentStageId = nextIncompleteStage.Id;
                             entity.CurrentStageOrder = nextIncompleteStage.Order;
-                            entity.CurrentStageStartTime = DateTimeOffset.UtcNow;
+                            entity.CurrentStageStartTime = GetNormalizedUtcNow();
                             needsUpdate = true;
                             // Debug logging handled by structured logging
                         }
