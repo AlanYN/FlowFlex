@@ -335,13 +335,6 @@ namespace FlowFlex.Application.Services.Integration
                 targetCase.EntityType = request.EntityType;
                 targetCase.EntityId = request.EntityId;
 
-                // Update CreateBy and ModifyBy if CreatedBy is provided (first name + last name)
-                if (!string.IsNullOrWhiteSpace(request.CreatedBy))
-                {
-                    targetCase.CreateBy = request.CreatedBy;
-                    targetCase.ModifyBy = request.CreatedBy;
-                }
-
                 // Ensure CurrentStageId is set to first stage if not already set
                 if (!targetCase.CurrentStageId.HasValue)
                 {
@@ -350,8 +343,32 @@ namespace FlowFlex.Application.Services.Integration
                     _logger.LogInformation("Set CurrentStageId={StageId} for case {CaseId}", firstStage.Id, caseId);
                 }
 
+                // Update ModifyDate and ModifyBy from UserContext first
                 targetCase.InitModifyInfo(_userContext);
+
                 await _onboardingRepository.UpdateAsync(targetCase);
+
+                // Override CreateBy and ModifyBy if CreatedBy is provided from external system
+                // Use direct SQL because UpdateAsync doesn't update CreateBy field
+                if (!string.IsNullOrWhiteSpace(request.CreatedBy))
+                {
+                    var db = _onboardingRepository.GetSqlSugarClient();
+                    var updateSql = @"
+                        UPDATE ff_onboarding 
+                        SET create_by = @CreateBy, modify_by = @ModifyBy
+                        WHERE id = @Id";
+                    await db.Ado.ExecuteCommandAsync(updateSql, new
+                    {
+                        CreateBy = request.CreatedBy,
+                        ModifyBy = request.CreatedBy,
+                        Id = caseId
+                    });
+                    
+                    // Update local entity for logging
+                    targetCase.CreateBy = request.CreatedBy;
+                    targetCase.ModifyBy = request.CreatedBy;
+                    _logger.LogDebug("Updated CreateBy and ModifyBy with external CreatedBy: {CreatedBy} for case {CaseId}", request.CreatedBy, caseId);
+                }
 
                 _logger.LogInformation("Updated SystemId={SystemId}, IntegrationId={IntegrationId}, EntityType={EntityType}, EntityId={EntityId}, CurrentStageId={CurrentStageId}, CreatedBy={CreatedBy} for case {CaseId}",
                     request.SystemId, entityMapping.IntegrationId, request.EntityType, request.EntityId, targetCase.CurrentStageId, targetCase.CreateBy, caseId);
@@ -366,6 +383,27 @@ namespace FlowFlex.Application.Services.Integration
                     entityMapping,
                     targetCase,
                     request.EntityId);
+
+                // Re-apply external CreatedBy after field mapping updates (which may have overwritten ModifyBy)
+                if (!string.IsNullOrWhiteSpace(request.CreatedBy))
+                {
+                    var db = _onboardingRepository.GetSqlSugarClient();
+                    var updateSql = @"
+                        UPDATE ff_onboarding 
+                        SET create_by = @CreateBy, modify_by = @ModifyBy
+                        WHERE id = @Id";
+                    await db.Ado.ExecuteCommandAsync(updateSql, new
+                    {
+                        CreateBy = request.CreatedBy,
+                        ModifyBy = request.CreatedBy,
+                        Id = caseId
+                    });
+                    
+                    // Update local entity for response
+                    targetCase.CreateBy = request.CreatedBy;
+                    targetCase.ModifyBy = request.CreatedBy;
+                    _logger.LogDebug("Re-applied external CreatedBy after field mapping: {CreatedBy} for case {CaseId}", request.CreatedBy, caseId);
+                }
             }
 
             return new CreateCaseFromExternalResponse
@@ -378,6 +416,7 @@ namespace FlowFlex.Application.Services.Integration
                 CurrentStageId = targetCase?.CurrentStageId ?? firstStage.Id,
                 CurrentStageName = firstStage.Name ?? "",
                 Status = targetCase?.Status ?? "Started",
+                CreatedBy = targetCase?.CreateBy,
                 CreatedAt = DateTimeOffset.UtcNow
             };
         }

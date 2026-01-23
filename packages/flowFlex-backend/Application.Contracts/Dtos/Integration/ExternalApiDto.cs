@@ -146,6 +146,11 @@ namespace FlowFlex.Application.Contracts.Dtos.Integration
         public string Status { get; set; } = string.Empty;
 
         /// <summary>
+        /// Created by (first name + last name)
+        /// </summary>
+        public string? CreatedBy { get; set; }
+
+        /// <summary>
         /// Creation time
         /// </summary>
         public DateTimeOffset CreatedAt { get; set; }
