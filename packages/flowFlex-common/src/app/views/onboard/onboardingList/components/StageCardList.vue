@@ -95,9 +95,6 @@
 									<div class="font-medium mb-1 text-gray-900">
 										{{ lead.caseName }}
 									</div>
-									<div class="text-gray-500 mb-1">
-										{{ lead.leadId }}
-									</div>
 									<div class="grid grid-cols-1 gap-2 mb-2 text-gray-600">
 										<div class="flex items-center">
 											<el-icon class="mr-1 text-gray-500">
