@@ -952,6 +952,148 @@ namespace FlowFlex.Application.Services.OW
         }
 
         /// <summary>
+        /// Search user by username or email from IDM
+        /// </summary>
+        /// <param name="searchTerm">Username or email to search</param>
+        /// <param name="tenantId">Tenant ID</param>
+        /// <returns>User information if found, null otherwise</returns>
+        public async Task<IdmUserOutputDto?> SearchUserByNameOrEmailAsync(string searchTerm, string tenantId = null)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(searchTerm))
+                {
+                    _logger.LogWarning("SearchUserByNameOrEmailAsync called with empty search term");
+                    return null;
+                }
+
+                _logger.LogInformation("=== Starting SearchUserByNameOrEmailAsync ===");
+                _logger.LogInformation("Parameters - SearchTerm: {SearchTerm}, TenantId: {TenantId}", searchTerm, tenantId);
+
+                // First try using GetAllTeamUsersAsync (public API with X-App-Id)
+                // This is more reliable as it uses the public API endpoint
+                try
+                {
+                    var teamUsers = await GetAllTeamUsersAsync(tenantId);
+                    if (teamUsers != null && teamUsers.Any())
+                    {
+                        // Search by username (exact match, case-insensitive)
+                        var matchedUser = teamUsers.FirstOrDefault(u =>
+                            string.Equals(u.UserName, searchTerm, StringComparison.OrdinalIgnoreCase));
+
+                        // If not found by username, try by full name (FirstName + LastName)
+                        if (matchedUser == null)
+                        {
+                            matchedUser = teamUsers.FirstOrDefault(u =>
+                            {
+                                var fullName = $"{u.FirstName} {u.LastName}".Trim();
+                                return string.Equals(fullName, searchTerm, StringComparison.OrdinalIgnoreCase);
+                            });
+                        }
+
+                        // If not found by full name, try by email
+                        if (matchedUser == null)
+                        {
+                            matchedUser = teamUsers.FirstOrDefault(u =>
+                                string.Equals(u.Email, searchTerm, StringComparison.OrdinalIgnoreCase));
+                        }
+
+                        if (matchedUser != null)
+                        {
+                            _logger.LogInformation("=== SearchUserByNameOrEmailAsync Success (via TeamUsers API) ===");
+                            _logger.LogInformation("Found user - Id: {Id}, Username: {Username}, Email: {Email}",
+                                matchedUser.Id, matchedUser.UserName, matchedUser.Email);
+
+                            // Convert IdmTeamUserDto to IdmUserOutputDto
+                            return new IdmUserOutputDto
+                            {
+                                Id = matchedUser.Id,
+                                Username = matchedUser.UserName,
+                                Email = matchedUser.Email,
+                                FirstName = matchedUser.FirstName,
+                                LastName = matchedUser.LastName
+                            };
+                        }
+
+                        _logger.LogInformation("User not found in TeamUsers for search term: {SearchTerm}", searchTerm);
+                    }
+                }
+                catch (Exception teamUsersEx)
+                {
+                    _logger.LogWarning(teamUsersEx, "Failed to search user via TeamUsers API, falling back to Users API");
+                }
+
+                // Fallback: try using /api/v1/users endpoint (may require higher permissions)
+                _client.DefaultRequestHeaders.Clear();
+
+                var tokenInfo = await GetTokenAsync();
+                _logger.LogDebug("Retrieved token - Type: {TokenType}", tokenInfo?.TokenType);
+
+                _client.DefaultRequestHeaders.Authorization =
+                    new AuthenticationHeaderValue(tokenInfo.TokenType, tokenInfo.AccessToken);
+
+                // Build request URI - search by username
+                var requestUri = $"{_options.QueryUser}?PageIndex=1&PageSize=100&UserNames={Uri.EscapeDataString(searchTerm)}";
+                if (!string.IsNullOrEmpty(tenantId))
+                {
+                    requestUri += $"&TenantId={tenantId}";
+                }
+
+                var fullUrl = $"{_client.BaseAddress?.ToString().TrimEnd('/')}{requestUri}";
+                _logger.LogInformation("Making GET request to: {FullUrl}", fullUrl);
+
+                var startTime = DateTimeOffset.UtcNow;
+                using var resp = await _client.GetAsync(requestUri);
+                var elapsed = DateTimeOffset.UtcNow - startTime;
+
+                _logger.LogInformation("IDM search user API response - StatusCode: {StatusCode}, Elapsed: {ElapsedMs}ms",
+                    resp.StatusCode, elapsed.TotalMilliseconds);
+
+                if (!resp.IsSuccessStatusCode)
+                {
+                    var errorContent = await resp.Content.ReadAsStringAsync();
+                    _logger.LogError("IDM search user API request failed: {StatusCode} - {ErrorContent}",
+                        resp.StatusCode, errorContent);
+                    return null;
+                }
+
+                var result = await resp.Content.ReadFromJsonAsync<BasicResponse<PageModel<List<IdmUserOutputDto>>>>();
+
+                if (result?.Data?.Data == null || !result.Data.Data.Any())
+                {
+                    _logger.LogInformation("No user found for search term: {SearchTerm}", searchTerm);
+                    return null;
+                }
+
+                // Try exact match first
+                var exactMatch = result.Data.Data.FirstOrDefault(u =>
+                    string.Equals(u.Username, searchTerm, StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(u.Email, searchTerm, StringComparison.OrdinalIgnoreCase));
+
+                if (exactMatch != null)
+                {
+                    _logger.LogInformation("=== SearchUserByNameOrEmailAsync Success (exact match) ===");
+                    _logger.LogInformation("Found user - Id: {Id}, Username: {Username}, Email: {Email}",
+                        exactMatch.Id, exactMatch.Username, exactMatch.Email);
+                    return exactMatch;
+                }
+
+                // Return first result if no exact match
+                var firstResult = result.Data.Data.First();
+                _logger.LogInformation("=== SearchUserByNameOrEmailAsync Success (first match) ===");
+                _logger.LogInformation("Found user - Id: {Id}, Username: {Username}, Email: {Email}",
+                    firstResult.Id, firstResult.Username, firstResult.Email);
+                return firstResult;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "=== SearchUserByNameOrEmailAsync Failed ===");
+                _logger.LogError("Exception details: {ExceptionType} - {ExceptionMessage}", ex.GetType().Name, ex.Message);
+                return null;
+            }
+        }
+
+        /// <summary>
         /// Get team users from IDM
         /// </summary>
         /// <param name="tenantId">Tenant ID</param>

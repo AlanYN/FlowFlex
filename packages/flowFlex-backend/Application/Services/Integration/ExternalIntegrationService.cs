@@ -5,6 +5,7 @@ using FlowFlex.Application.Contracts.IServices.Action;
 using FlowFlex.Application.Contracts.IServices.Integration;
 using FlowFlex.Application.Contracts.IServices.OW;
 using FlowFlex.Application.Contracts.Options;
+using FlowFlex.Application.Services.OW;
 using FlowFlex.Application.Services.OW.Extensions;
 using FlowFlex.Domain.Repository.Action;
 using FlowFlex.Domain.Repository.Integration;
@@ -44,6 +45,7 @@ namespace FlowFlex.Application.Services.Integration
         private readonly IInboundFieldMappingRepository _fieldMappingRepository;
         private readonly IStaticFieldValueService _staticFieldValueService;
         private readonly IHttpClientFactory _httpClientFactory;
+        private readonly IdmUserDataClient _idmUserDataClient;
         private readonly IdentityHubOptions _idmOptions;
         private readonly UserContext _userContext;
         private readonly ILogger<ExternalIntegrationService> _logger;
@@ -107,6 +109,7 @@ namespace FlowFlex.Application.Services.Integration
             IInboundFieldMappingRepository fieldMappingRepository,
             IStaticFieldValueService staticFieldValueService,
             IHttpClientFactory httpClientFactory,
+            IdmUserDataClient idmUserDataClient,
             IOptions<IdentityHubOptions> idmOptions,
             UserContext userContext,
             ILogger<ExternalIntegrationService> logger)
@@ -124,6 +127,7 @@ namespace FlowFlex.Application.Services.Integration
             _fieldMappingRepository = fieldMappingRepository;
             _staticFieldValueService = staticFieldValueService;
             _httpClientFactory = httpClientFactory;
+            _idmUserDataClient = idmUserDataClient;
             _idmOptions = idmOptions.Value;
             _userContext = userContext;
             _logger = logger;
@@ -262,16 +266,6 @@ namespace FlowFlex.Application.Services.Integration
                 throw new CRMException(ErrorCodeEnum.ParamInvalid, "Case Name is required");
             }
 
-            if (string.IsNullOrWhiteSpace(request.ContactName))
-            {
-                throw new CRMException(ErrorCodeEnum.ParamInvalid, "Contact Name is required");
-            }
-
-            if (string.IsNullOrWhiteSpace(request.ContactEmail))
-            {
-                throw new CRMException(ErrorCodeEnum.ParamInvalid, "Contact Email is required");
-            }
-
             // Get entity mapping by System ID
             var entityMapping = await _entityMappingRepository.GetBySystemIdAsync(request.SystemId);
             if (entityMapping == null)
@@ -302,6 +296,11 @@ namespace FlowFlex.Application.Services.Integration
                 throw new CRMException(ErrorCodeEnum.BusinessError, "Workflow has no stages configured");
             }
 
+                        // Generate unique case name (add suffix -2, -3, etc. if duplicate)
+            var uniqueCaseName = await GenerateUniqueCaseNameAsync(request.CaseName);
+            _logger.LogInformation("Generated unique case name: {OriginalName} -> {UniqueName}", request.CaseName, uniqueCaseName);
+
+
             long caseId;
             Domain.Entities.OW.Onboarding? targetCase;
 
@@ -310,9 +309,9 @@ namespace FlowFlex.Application.Services.Integration
             {
                 WorkflowId = request.WorkflowId,
                 LeadId = request.EntityId,
-                CaseName = request.CaseName,
-                ContactPerson = request.ContactName,
-                ContactEmail = request.ContactEmail,
+                CaseName = uniqueCaseName,
+                ContactPerson = request.ContactName ?? string.Empty,
+                ContactEmail = request.ContactEmail ?? string.Empty,
                 LeadPhone = request.ContactPhone,
                 Status = "Started",
                 StartDate = DateTimeOffset.UtcNow,
@@ -344,9 +343,77 @@ namespace FlowFlex.Application.Services.Integration
                 
                 targetCase.InitModifyInfo(_userContext);
                 await _onboardingRepository.UpdateAsync(targetCase);
-                
-                _logger.LogInformation("Updated SystemId={SystemId}, IntegrationId={IntegrationId}, EntityType={EntityType}, EntityId={EntityId}, CurrentStageId={CurrentStageId} for case {CaseId}",
-                    request.SystemId, entityMapping.IntegrationId, request.EntityType, request.EntityId, targetCase.CurrentStageId, caseId);
+
+                // Override CreateBy and ModifyBy if CreatedBy is provided from external system
+                // Use direct SQL because UpdateAsync doesn't update CreateBy field
+                if (!string.IsNullOrWhiteSpace(request.CreatedBy))
+                {
+                    var db = _onboardingRepository.GetSqlSugarClient();
+                    var updateSql = @"
+                        UPDATE ff_onboarding 
+                        SET create_by = @CreateBy, modify_by = @ModifyBy
+                        WHERE id = @Id";
+                    await db.Ado.ExecuteCommandAsync(updateSql, new
+                    {
+                        CreateBy = request.CreatedBy,
+                        ModifyBy = request.CreatedBy,
+                        Id = caseId
+                    });
+                    
+                    // Update local entity for logging
+                    targetCase.CreateBy = request.CreatedBy;
+                    targetCase.ModifyBy = request.CreatedBy;
+                    _logger.LogDebug("Updated CreateBy and ModifyBy with external CreatedBy: {CreatedBy} for case {CaseId}", request.CreatedBy, caseId);
+
+                    // Lookup user by CreatedBy name to get userId for Ownership field
+                    try
+                    {
+                        var tenantId = _userContext.TenantId ?? "default";
+                        var userInfo = await _idmUserDataClient.SearchUserByNameOrEmailAsync(request.CreatedBy, tenantId);
+                        
+                        if (userInfo != null && !string.IsNullOrEmpty(userInfo.Id))
+                        {
+                            // Parse userId to long for Ownership field
+                            if (long.TryParse(userInfo.Id, out var ownershipId))
+                            {
+                                targetCase.Ownership = ownershipId;
+                                targetCase.OwnershipName = userInfo.Username ?? request.CreatedBy;
+                                targetCase.OwnershipEmail = userInfo.Email;
+                                
+                                // Update Ownership fields in database
+                                var updateOwnershipSql = @"
+                                    UPDATE ff_onboarding 
+                                    SET ownership = @Ownership, ownership_name = @OwnershipName, ownership_email = @OwnershipEmail
+                                    WHERE id = @Id";
+                                await db.Ado.ExecuteCommandAsync(updateOwnershipSql, new
+                                {
+                                    Ownership = ownershipId,
+                                    OwnershipName = targetCase.OwnershipName,
+                                    OwnershipEmail = targetCase.OwnershipEmail ?? string.Empty,
+                                    Id = caseId
+                                });
+                                
+                                _logger.LogInformation("Set Ownership from CreatedBy: UserId={UserId}, UserName={UserName}, Email={Email} for case {CaseId}",
+                                    ownershipId, targetCase.OwnershipName, targetCase.OwnershipEmail, caseId);
+                            }
+                            else
+                            {
+                                _logger.LogWarning("Failed to parse userId '{UserId}' to long for Ownership field", userInfo.Id);
+                            }
+                        }
+                        else
+                        {
+                            _logger.LogWarning("User not found in IDM for CreatedBy: {CreatedBy}, Ownership will not be set", request.CreatedBy);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Failed to lookup user for Ownership from CreatedBy: {CreatedBy}", request.CreatedBy);
+                    }
+                }
+
+                _logger.LogInformation("Updated SystemId={SystemId}, IntegrationId={IntegrationId}, EntityType={EntityType}, EntityId={EntityId}, CurrentStageId={CurrentStageId}, CreatedBy={CreatedBy} for case {CaseId}",
+                    request.SystemId, entityMapping.IntegrationId, request.EntityType, request.EntityId, targetCase.CurrentStageId, targetCase.CreateBy, caseId);
             }
 
             _logger.LogInformation("Successfully created new case {CaseId} from external system", caseId);
@@ -369,6 +436,9 @@ namespace FlowFlex.Application.Services.Integration
                 CurrentStageId = targetCase?.CurrentStageId ?? firstStage.Id,
                 CurrentStageName = firstStage.Name ?? "",
                 Status = targetCase?.Status ?? "Started",
+                Ownership = targetCase?.Ownership,
+                OwnershipName = targetCase?.OwnershipName,
+                CreatedBy = targetCase?.CreateBy,
                 CreatedAt = DateTimeOffset.UtcNow
             };
         }
@@ -1305,6 +1375,69 @@ namespace FlowFlex.Application.Services.Integration
 
             return baseMessage;
         }
+
+                #region Unique Case Name Generation
+
+        /// <summary>
+        /// Generate a unique case name by adding suffix (-2, -3, etc.) if duplicate exists within the same tenant
+        /// Different tenants are allowed to have the same case name
+        /// </summary>
+        /// <param name="baseCaseName">Original case name</param>
+        /// <returns>Unique case name</returns>
+        private async Task<string> GenerateUniqueCaseNameAsync(string baseCaseName)
+        {
+            var tenantId = _userContext.TenantId ?? "default";
+
+            // Check if the base name already exists within the same tenant
+            var existingCases = await _onboardingRepository.GetListAsync(
+                o => o.TenantId == tenantId 
+                    && o.CaseName != null 
+                    && o.CaseName.StartsWith(baseCaseName) 
+                    && o.IsValid);
+
+            if (!existingCases.Any())
+            {
+                // No duplicates in this tenant, return original name
+                return baseCaseName;
+            }
+
+            // Check if exact match exists
+            var exactMatch = existingCases.Any(o => o.CaseName == baseCaseName);
+            if (!exactMatch)
+            {
+                // No exact match, return original name
+                return baseCaseName;
+            }
+
+            // Find the highest suffix number
+            int maxSuffix = 1;
+            var suffixPattern = new System.Text.RegularExpressions.Regex($@"^{System.Text.RegularExpressions.Regex.Escape(baseCaseName)}-(\d+)$");
+
+            foreach (var existingCase in existingCases)
+            {
+                if (string.IsNullOrEmpty(existingCase.CaseName))
+                    continue;
+
+                var match = suffixPattern.Match(existingCase.CaseName);
+                if (match.Success && int.TryParse(match.Groups[1].Value, out int suffix))
+                {
+                    if (suffix > maxSuffix)
+                    {
+                        maxSuffix = suffix;
+                    }
+                }
+            }
+
+            // Generate new name with next suffix
+            var newCaseName = $"{baseCaseName}-{maxSuffix + 1}";
+            _logger.LogDebug("Generated unique case name for tenant {TenantId}: {NewCaseName} (found {Count} existing cases with base name {BaseName})",
+                tenantId, newCaseName, existingCases.Count, baseCaseName);
+
+            return newCaseName;
+        }
+
+        #endregion
+
 
         #region Integration Authentication Helper Methods
 

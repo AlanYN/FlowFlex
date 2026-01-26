@@ -69,18 +69,16 @@ namespace FlowFlex.Application.Contracts.Dtos.Integration
         public string CaseName { get; set; } = string.Empty;
 
         /// <summary>
-        /// Contact person name
+        /// Contact person name (optional)
         /// </summary>
-        [Required]
         [StringLength(200)]
-        public string ContactName { get; set; } = string.Empty;
+        public string? ContactName { get; set; }
 
         /// <summary>
-        /// Contact email
+        /// Contact email (optional)
         /// </summary>
-        [Required]
         [StringLength(200)]
-        public string ContactEmail { get; set; }
+        public string? ContactEmail { get; set; }
 
         /// <summary>
         /// Contact phone
@@ -92,6 +90,12 @@ namespace FlowFlex.Application.Contracts.Dtos.Integration
         /// Custom fields as JSON
         /// </summary>
         public Dictionary<string, object>? CustomFields { get; set; }
+
+        /// <summary>
+        /// Created by (first name + last name)
+        /// </summary>
+        [StringLength(200)]
+        public string? CreatedBy { get; set; }
     }
 
     /// <summary>
@@ -133,6 +137,22 @@ namespace FlowFlex.Application.Contracts.Dtos.Integration
         /// Case status
         /// </summary>
         public string Status { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Ownership - User ID who owns this case
+        /// </summary>
+        public long? Ownership { get; set; }
+
+        /// <summary>
+        /// Ownership Name - User name who owns this case
+        /// </summary>
+        public string? OwnershipName { get; set; }
+
+
+        /// <summary>
+        /// Created by (first name + last name)
+        /// </summary>
+        public string? CreatedBy { get; set; }
 
         /// <summary>
         /// Creation time
@@ -481,69 +501,69 @@ namespace FlowFlex.Application.Contracts.Dtos.Integration
 
 
 
+/// <summary>
+/// Response DTO for entity type mappings query by system name
+/// </summary>
+public class EntityTypeMappingResponse
+{
     /// <summary>
-    /// Response DTO for entity type mappings query by system name
+    /// Integration ID
     /// </summary>
-    public class EntityTypeMappingResponse
-    {
-        /// <summary>
-        /// Integration ID
-        /// </summary>
-        public long IntegrationId { get; set; }
-
-        /// <summary>
-        /// Integration name
-        /// </summary>
-        public string IntegrationName { get; set; } = string.Empty;
-
-        /// <summary>
-        /// External system name
-        /// </summary>
-        public string SystemName { get; set; } = string.Empty;
-
-        /// <summary>
-        /// Entity type mappings
-        /// </summary>
-        public List<EntityTypeMappingItemDto> EntityTypeMappings { get; set; } = new();
-    }
+    public long IntegrationId { get; set; }
 
     /// <summary>
-    /// Entity type mapping item DTO
+    /// Integration name
     /// </summary>
-    public class EntityTypeMappingItemDto
-    {
-        /// <summary>
-        /// Entity mapping ID
-        /// </summary>
-        public long Id { get; set; }
+    public string IntegrationName { get; set; } = string.Empty;
 
-        /// <summary>
-        /// System ID (unique identifier for this entity mapping)
-        /// </summary>
-        public string SystemId { get; set; } = string.Empty;
+    /// <summary>
+    /// External system name
+    /// </summary>
+    public string SystemName { get; set; } = string.Empty;
 
-        /// <summary>
-        /// External entity display name
-        /// </summary>
-        public string ExternalEntityName { get; set; } = string.Empty;
+    /// <summary>
+    /// Entity type mappings
+    /// </summary>
+    public List<EntityTypeMappingItemDto> EntityTypeMappings { get; set; } = new();
+}
 
-        /// <summary>
-        /// External entity technical identifier
-        /// </summary>
-        public string ExternalEntityType { get; set; } = string.Empty;
+/// <summary>
+/// Entity type mapping item DTO
+/// </summary>
+public class EntityTypeMappingItemDto
+{
+    /// <summary>
+    /// Entity mapping ID
+    /// </summary>
+    public long Id { get; set; }
 
-        /// <summary>
-        /// WFE entity type
-        /// </summary>
-        public string WfeEntityType { get; set; } = string.Empty;
+    /// <summary>
+    /// System ID (unique identifier for this entity mapping)
+    /// </summary>
+    public string SystemId { get; set; } = string.Empty;
 
-        /// <summary>
-        /// Associated workflow IDs
-        /// </summary>
-        public List<long> WorkflowIds { get; set; } = new();
+    /// <summary>
+    /// External entity display name
+    /// </summary>
+    public string ExternalEntityName { get; set; } = string.Empty;
 
-        /// <summary>
-        /// Whether this mapping is active
-        /// </summary>
-        public bool IsActive { get; set; }
-    }
+    /// <summary>
+    /// External entity technical identifier
+    /// </summary>
+    public string ExternalEntityType { get; set; } = string.Empty;
+
+    /// <summary>
+    /// WFE entity type
+    /// </summary>
+    public string WfeEntityType { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Associated workflow IDs
+    /// </summary>
+    public List<long> WorkflowIds { get; set; } = new();
+
+    /// <summary>
+    /// Whether this mapping is active
+    /// </summary>
+    public bool IsActive { get; set; }
+}
