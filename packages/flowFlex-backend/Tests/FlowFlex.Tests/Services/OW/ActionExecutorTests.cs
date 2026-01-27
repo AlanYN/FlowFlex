@@ -696,16 +696,18 @@ namespace FlowFlex.Tests.Services.OW
         [Fact]
         public async Task ExecuteActionsAsync_SendNotification_WithoutRecipient_ShouldFail()
         {
-            // Arrange
+            // Arrange - New format uses users[] and teams[] arrays
             var actions = new List<ConditionAction>
             {
                 new ConditionAction 
                 { 
                     Type = "SendNotification", 
-                    Order = 1, 
-                    RecipientType = null,
-                    RecipientId = null,
-                    TemplateId = "template-001"
+                    Order = 1,
+                    // No users or teams specified
+                    Parameters = new Dictionary<string, object>
+                    {
+                        { "subject", "Test Subject" }
+                    }
                 }
             };
             var actionsJson = JsonConvert.SerializeObject(actions);
@@ -716,25 +718,14 @@ namespace FlowFlex.Tests.Services.OW
 
             // Assert
             result.Details[0].Success.Should().BeFalse();
-            result.Details[0].ErrorMessage.Should().Contain("RecipientId");
+            result.Details[0].ErrorMessage.Should().Contain("Either users or teams array is required");
         }
 
         [Fact]
         public async Task ExecuteActionsAsync_SendNotification_WithUserType_ShouldSendEmail()
         {
-            // Arrange
-            var actions = new List<ConditionAction>
-            {
-                new ConditionAction 
-                { 
-                    Type = "SendNotification", 
-                    Order = 1, 
-                    RecipientType = "user",
-                    RecipientId = "456",
-                    TemplateId = "template-001"
-                }
-            };
-            var actionsJson = JsonConvert.SerializeObject(actions);
+            // Arrange - Use JSON string directly to ensure correct format
+            var actionsJson = @"[{""type"":""SendNotification"",""order"":1,""parameters"":{""users"":[""456""],""subject"":""Test Subject"",""emailBody"":""Test Body""}}]";
             var context = CreateExecutionContext();
 
             // Setup user service mock
@@ -745,10 +736,11 @@ namespace FlowFlex.Tests.Services.OW
             _mockUserService.Setup(u => u.GetUsersByIdsAsync(It.IsAny<List<long>>(), It.IsAny<string>()))
                 .ReturnsAsync(users);
 
-            // Setup email service mock
+            // Setup email service mock - 8 parameter version with customSubject and customEmailBody
             _mockEmailService.Setup(e => e.SendConditionStageNotificationAsync(
                 It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(),
-                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
+                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(),
+                It.IsAny<string>(), It.IsAny<string>()))
                 .ReturnsAsync(true);
 
             // Setup onboarding and stage mocks
@@ -774,34 +766,30 @@ namespace FlowFlex.Tests.Services.OW
 
             // Assert
             result.Details[0].Success.Should().BeTrue();
-            result.Details[0].ResultData.Should().ContainKey("recipientType");
-            result.Details[0].ResultData["recipientType"].Should().Be("user");
+            result.Details[0].ResultData.Should().ContainKey("successCount");
+            ((int)result.Details[0].ResultData["successCount"]).Should().Be(1);
         }
 
         [Fact]
         public async Task ExecuteActionsAsync_SendNotification_WithEmailType_ShouldSendDirectly()
         {
-            // Arrange
-            var actions = new List<ConditionAction>
-            {
-                new ConditionAction 
-                { 
-                    Type = "SendNotification", 
-                    Order = 1, 
-                    RecipientType = "email",
-                    Parameters = new Dictionary<string, object>
-                    {
-                        { "recipientEmail", "direct@example.com" }
-                    }
-                }
-            };
-            var actionsJson = JsonConvert.SerializeObject(actions);
+            // Arrange - Use JSON string directly to ensure correct format
+            var actionsJson = @"[{""type"":""SendNotification"",""order"":1,""parameters"":{""users"":[""123""],""subject"":""Custom Subject"",""emailBody"":""Custom Body""}}]";
             var context = CreateExecutionContext();
 
-            // Setup email service mock
+            // Setup user service mock
+            var users = new List<UserDto>
+            {
+                new UserDto { Id = 123, Email = "direct@example.com", Username = "DirectUser" }
+            };
+            _mockUserService.Setup(u => u.GetUsersByIdsAsync(It.IsAny<List<long>>(), It.IsAny<string>()))
+                .ReturnsAsync(users);
+
+            // Setup email service mock - 8 parameter version with customSubject and customEmailBody
             _mockEmailService.Setup(e => e.SendConditionStageNotificationAsync(
                 It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(),
-                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
+                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(),
+                It.IsAny<string>(), It.IsAny<string>()))
                 .ReturnsAsync(true);
 
             // Setup onboarding and stage mocks
@@ -827,35 +815,25 @@ namespace FlowFlex.Tests.Services.OW
 
             // Assert
             result.Details[0].Success.Should().BeTrue();
-            result.Details[0].ResultData.Should().ContainKey("recipientType");
-            result.Details[0].ResultData["recipientType"].Should().Be("email");
+            result.Details[0].ResultData.Should().ContainKey("successCount");
         }
 
         [Fact]
         public async Task ExecuteActionsAsync_SendNotification_WithTeamType_ShouldSendToTeamMembers()
         {
-            // Arrange
-            var actions = new List<ConditionAction>
-            {
-                new ConditionAction 
-                { 
-                    Type = "SendNotification", 
-                    Order = 1, 
-                    RecipientType = "team",
-                    RecipientId = "team-001"
-                }
-            };
-            var actionsJson = JsonConvert.SerializeObject(actions);
+            // Arrange - New format uses teams[] array
+            var actionsJson = @"[{""type"":""SendNotification"",""order"":1,""parameters"":{""teams"":[""team-001""],""subject"":""Team Notification""}}]";
             var context = CreateExecutionContext();
 
             // Note: IdmUserDataClient.GetAllTeamUsersAsync is not virtual, cannot be mocked
             // This test verifies the action flow but will fail to find team members
             // For full team notification testing, use integration tests
 
-            // Setup email service mock
+            // Setup email service mock - 8 parameter version
             _mockEmailService.Setup(e => e.SendConditionStageNotificationAsync(
                 It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(),
-                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
+                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(),
+                It.IsAny<string>(), It.IsAny<string>()))
                 .ReturnsAsync(true);
 
             // Setup onboarding and stage mocks
@@ -890,21 +868,8 @@ namespace FlowFlex.Tests.Services.OW
         [Fact]
         public async Task ExecuteActionsAsync_SendNotification_WithMultipleRecipients_ShouldSendToAll()
         {
-            // Arrange
-            var actions = new List<ConditionAction>
-            {
-                new ConditionAction 
-                { 
-                    Type = "SendNotification", 
-                    Order = 1, 
-                    RecipientType = "user",
-                    Parameters = new Dictionary<string, object>
-                    {
-                        { "recipientId", new[] { "456", "789" } }
-                    }
-                }
-            };
-            var actionsJson = JsonConvert.SerializeObject(actions);
+            // Arrange - Use JSON string directly to ensure correct format
+            var actionsJson = @"[{""type"":""SendNotification"",""order"":1,""parameters"":{""users"":[""456"",""789""],""subject"":""Multi-recipient Notification""}}]";
             var context = CreateExecutionContext();
 
             // Setup user service mock
@@ -916,10 +881,11 @@ namespace FlowFlex.Tests.Services.OW
             _mockUserService.Setup(u => u.GetUsersByIdsAsync(It.IsAny<List<long>>(), It.IsAny<string>()))
                 .ReturnsAsync(users);
 
-            // Setup email service mock
+            // Setup email service mock - 8 parameter version with customSubject and customEmailBody
             _mockEmailService.Setup(e => e.SendConditionStageNotificationAsync(
                 It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(),
-                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
+                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(),
+                It.IsAny<string>(), It.IsAny<string>()))
                 .ReturnsAsync(true);
 
             // Setup onboarding and stage mocks
@@ -952,15 +918,19 @@ namespace FlowFlex.Tests.Services.OW
         [Fact]
         public async Task ExecuteActionsAsync_SendNotification_WithUnknownRecipientType_ShouldFail()
         {
-            // Arrange
+            // Arrange - Test with empty users and teams arrays (no valid recipients)
             var actions = new List<ConditionAction>
             {
                 new ConditionAction 
                 { 
                     Type = "SendNotification", 
-                    Order = 1, 
-                    RecipientType = "unknown",
-                    RecipientId = "123"
+                    Order = 1,
+                    Parameters = new Dictionary<string, object>
+                    {
+                        { "users", new string[] { } },
+                        { "teams", new string[] { } },
+                        { "subject", "Test" }
+                    }
                 }
             };
             var actionsJson = JsonConvert.SerializeObject(actions);
@@ -989,7 +959,7 @@ namespace FlowFlex.Tests.Services.OW
 
             // Assert
             result.Details[0].Success.Should().BeFalse();
-            result.Details[0].ErrorMessage.Should().Contain("Unknown recipientType");
+            result.Details[0].ErrorMessage.Should().Contain("Either users or teams array is required");
         }
 
         #endregion

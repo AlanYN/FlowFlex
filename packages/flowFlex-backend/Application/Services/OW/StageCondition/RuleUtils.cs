@@ -23,7 +23,6 @@ namespace FlowFlex.Application.Service.OW
                 {
                     return value;
                 }
-                // Return empty dictionary for missing keys
                 return new SafeInnerDictionary();
             }
             set => _data[key] = value;
@@ -52,7 +51,6 @@ namespace FlowFlex.Application.Service.OW
                 {
                     return value;
                 }
-                // Return null for missing keys
                 return null;
             }
             set => _data[key] = value;
@@ -103,7 +101,6 @@ namespace FlowFlex.Application.Service.OW
                 {
                     return value;
                 }
-                // Return default TaskData for missing keys
                 return new TaskData();
             }
             set => _data[key] = value;
@@ -142,7 +139,6 @@ namespace FlowFlex.Application.Service.OW
                 {
                     return value;
                 }
-                // Return null for missing keys instead of throwing exception
                 return null;
             }
             set => _data[key] = value;
@@ -205,7 +201,7 @@ namespace FlowFlex.Application.Service.OW
         /// </summary>
         public static bool IsWorkday(DateTime date)
         {
-            return date.DayOfWeek != DayOfWeek.Saturday 
+            return date.DayOfWeek != DayOfWeek.Saturday
                 && date.DayOfWeek != DayOfWeek.Sunday;
         }
 
@@ -355,13 +351,11 @@ namespace FlowFlex.Application.Service.OW
             var leftStr = left.ToString();
             var rightStr = right.ToString();
 
-            // Try numeric comparison first
             if (decimal.TryParse(leftStr, out var leftNum) && decimal.TryParse(rightStr, out var rightNum))
             {
                 return leftNum.CompareTo(rightNum);
             }
 
-            // Fall back to string comparison
             return string.Compare(leftStr, rightStr, StringComparison.OrdinalIgnoreCase);
         }
 
@@ -408,13 +402,11 @@ namespace FlowFlex.Application.Service.OW
             var leftStr = left.ToString();
             var rightStr = right.ToString();
 
-            // Try numeric comparison first
             if (decimal.TryParse(leftStr, out var leftNum) && decimal.TryParse(rightStr, out var rightNum))
             {
                 return leftNum == rightNum;
             }
 
-            // Fall back to string comparison
             return string.Equals(leftStr, rightStr, StringComparison.OrdinalIgnoreCase);
         }
 

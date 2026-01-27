@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using FlowFlex.Application.Contracts.Dtos.OW.StageCondition;
 using FlowFlex.Application.Contracts.IServices.OW;
 using FlowFlex.Application.Service.OW;
+using FlowFlex.Application.Service.OW.StageCondition;
 using FlowFlex.Domain.Entities.OW;
 using FlowFlex.Domain.Repository.OW;
 using FlowFlex.Domain.Shared.Models;
@@ -28,6 +29,7 @@ namespace FlowFlex.Tests.Services.OW
         private readonly Mock<IStageRepository> _mockStageRepository;
         private readonly Mock<IOnboardingRepository> _mockOnboardingRepository;
         private readonly Mock<IComponentDataService> _mockComponentDataService;
+        private readonly Mock<IComponentNameQueryService> _mockComponentNameQueryService;
         private readonly Mock<ILogger<RulesEngineService>> _mockLogger;
         private readonly UserContext _userContext;
         private readonly RulesEngineService _service;
@@ -40,6 +42,7 @@ namespace FlowFlex.Tests.Services.OW
             _mockStageRepository = MockHelper.CreateMockStageRepository();
             _mockOnboardingRepository = MockHelper.CreateMockOnboardingRepository();
             _mockComponentDataService = new Mock<IComponentDataService>();
+            _mockComponentNameQueryService = new Mock<IComponentNameQueryService>();
             _mockLogger = MockHelper.CreateMockLogger<RulesEngineService>();
 
             _userContext = TestDataBuilder.CreateUserContext(TestDataBuilder.DefaultUserId);
@@ -49,6 +52,7 @@ namespace FlowFlex.Tests.Services.OW
                 _mockStageRepository.Object,
                 _mockOnboardingRepository.Object,
                 _mockComponentDataService.Object,
+                _mockComponentNameQueryService.Object,
                 _userContext,
                 _mockLogger.Object);
         }
