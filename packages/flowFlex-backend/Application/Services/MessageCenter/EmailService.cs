@@ -251,12 +251,31 @@ namespace FlowFlex.Application.Services.MessageCenter
         /// <returns>Whether the email was sent successfully</returns>
         public async Task<bool> SendConditionStageNotificationAsync(string to, string caseId, string caseName, string previousStageName, string currentStageName, string caseUrl)
         {
+            return await SendConditionStageNotificationAsync(to, caseId, caseName, previousStageName, currentStageName, caseUrl, null, null);
+        }
+
+        /// <summary>
+        /// Send condition triggered stage notification email with custom subject and body
+        /// </summary>
+        /// <param name="to">Recipient email</param>
+        /// <param name="caseId">Case ID</param>
+        /// <param name="caseName">Case name</param>
+        /// <param name="previousStageName">Previous stage name (the completed stage)</param>
+        /// <param name="currentStageName">Current stage name (the stage to proceed with)</param>
+        /// <param name="caseUrl">URL to view case details</param>
+        /// <param name="customSubject">Custom email subject (optional, uses default if null)</param>
+        /// <param name="customEmailBody">Custom email body content (optional, uses default template if null)</param>
+        /// <returns>Whether the email was sent successfully</returns>
+        public async Task<bool> SendConditionStageNotificationAsync(string to, string caseId, string caseName, string previousStageName, string currentStageName, string caseUrl, string? customSubject, string? customEmailBody)
+        {
             try
             {
-                // Format subject: [Case XXX] Stage Update – Action Required
-                var subject = $"[Case {caseName}] Stage Update – Action Required";
+                // Use custom subject or default format: [Case XXX] Stage Update – Action Required
+                var subject = !string.IsNullOrWhiteSpace(customSubject) 
+                    ? customSubject 
+                    : $"[Case {caseName}] Stage Update – Action Required";
 
-                var body = _templateService.Render("condition_stage_notification_en", new Dictionary<string, object>
+                var templateData = new Dictionary<string, object>
                 {
                     ["caseId"] = caseId ?? string.Empty,
                     ["caseName"] = caseName ?? string.Empty,
@@ -264,7 +283,15 @@ namespace FlowFlex.Application.Services.MessageCenter
                     ["currentStageName"] = currentStageName ?? string.Empty,
                     ["caseUrl"] = caseUrl ?? GetRequestOrigin(),
                     ["year"] = DateTime.UtcNow.Year.ToString()
-                });
+                };
+
+                // Add custom content if provided
+                if (!string.IsNullOrWhiteSpace(customEmailBody))
+                {
+                    templateData["customContent"] = customEmailBody;
+                }
+
+                var body = _templateService.Render("condition_stage_notification_en", templateData);
 
                 return await SendEmailAsync(to, subject, body);
             }

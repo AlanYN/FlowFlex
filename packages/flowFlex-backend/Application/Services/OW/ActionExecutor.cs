@@ -419,8 +419,9 @@ namespace FlowFlex.Application.Service.OW
 
 
         /// <summary>
-        /// Execute SendNotification action - send notification to user or team members
-        /// Supports both single recipientId and array of recipientIds
+        /// Execute SendNotification action - send notification to users and/or team members
+        /// Supports new format with users[], teams[], subject, emailBody parameters
+        /// Also maintains backward compatibility with old recipientType/recipientId format
         /// </summary>
         private async Task<ActionExecutionDetail> ExecuteSendNotificationAsync(ConditionAction action, ActionExecutionContext context)
         {
@@ -433,14 +434,42 @@ namespace FlowFlex.Application.Service.OW
 
             try
             {
-                // Get recipient info from action or parameters
+                // Get custom subject and emailBody from parameters
+                string? customSubject = null;
+                string? customEmailBody = null;
+                List<string> userIds = new List<string>();
+                List<string> teamIds = new List<string>();
+                
+                // Legacy parameters
                 var recipientType = action.RecipientType;
                 var templateId = action.TemplateId;
                 List<string> recipientIds = new List<string>();
 
-                // Try to get from parameters if not set at top level
+                // Try to get from parameters
                 if (action.Parameters != null)
                 {
+                    // New format: users[] and teams[] arrays with subject and emailBody
+                    if (action.Parameters.TryGetValue("users", out var usersObj) && usersObj != null)
+                    {
+                        userIds = ParseRecipientIds(usersObj);
+                    }
+                    
+                    if (action.Parameters.TryGetValue("teams", out var teamsObj) && teamsObj != null)
+                    {
+                        teamIds = ParseRecipientIds(teamsObj);
+                    }
+                    
+                    if (action.Parameters.TryGetValue("subject", out var subjectObj) && subjectObj != null)
+                    {
+                        customSubject = subjectObj.ToString();
+                    }
+                    
+                    if (action.Parameters.TryGetValue("emailBody", out var emailBodyObj) && emailBodyObj != null)
+                    {
+                        customEmailBody = emailBodyObj.ToString();
+                    }
+                    
+                    // Legacy format support
                     if (string.IsNullOrEmpty(recipientType) && action.Parameters.TryGetValue("recipientType", out var typeObj))
                     {
                         recipientType = typeObj?.ToString();
@@ -475,14 +504,18 @@ namespace FlowFlex.Application.Service.OW
                     recipientIds.Add(action.RecipientId);
                 }
 
-                if (!recipientIds.Any())
+                // Check if using new format (users/teams) or legacy format (recipientType/recipientId)
+                var useNewFormat = userIds.Any() || teamIds.Any();
+                
+                if (!useNewFormat && !recipientIds.Any())
                 {
                     result.Success = false;
-                    result.ErrorMessage = "RecipientId or RecipientEmail is required for SendNotification action";
+                    result.ErrorMessage = "Either users/teams arrays or recipientId is required for SendNotification action";
                     return result;
                 }
 
-                _logger.LogDebug("SendNotification: Processing {Count} recipients, type={Type}", recipientIds.Count, recipientType);
+                _logger.LogDebug("SendNotification: Processing users={UserCount}, teams={TeamCount}, legacy recipients={LegacyCount}, customSubject={HasSubject}, customBody={HasBody}",
+                    userIds.Count, teamIds.Count, recipientIds.Count, !string.IsNullOrEmpty(customSubject), !string.IsNullOrEmpty(customEmailBody));
 
                 // Get onboarding info for email content (needed for all recipient types)
                 var onboarding = await _onboardingRepository.GetByIdWithoutTenantFilterAsync(context.OnboardingId);
@@ -504,106 +537,186 @@ namespace FlowFlex.Application.Service.OW
                 
                 var caseUrl = $"/onboarding/{context.OnboardingId}";
 
-                // Handle team type - send notification to all team members
-                if (recipientType?.ToLower() == "team")
-                {
-                    // For team type, join all team IDs with comma
-                    var teamIdsStr = string.Join(",", recipientIds);
-                    return await ExecuteSendNotificationToTeamAsync(teamIdsStr, context, result, templateId, caseName, previousStageName, currentStageName, caseUrl);
-                }
-
-                // Process multiple recipients for user or email type
+                // Process multiple recipients
                 var successCount = 0;
                 var failedRecipients = new List<string>();
                 var sentEmails = new List<string>();
 
-                if (recipientType?.ToLower() == "user")
+                // New format: process users and teams together
+                if (useNewFormat)
                 {
-                    // Batch get all users at once for efficiency
-                    var userIds = recipientIds
-                        .Where(id => long.TryParse(id, out _))
-                        .Select(id => long.Parse(id))
-                        .ToList();
-
+                    // Process users
                     if (userIds.Any())
                     {
-                        var users = await _userService.GetUsersByIdsAsync(userIds, context.TenantId);
-                        var userDict = users?.ToDictionary(u => u.Id.ToString(), u => u) ?? new Dictionary<string, Application.Contracts.Dtos.OW.User.UserDto>();
+                        var parsedUserIds = userIds
+                            .Where(id => long.TryParse(id, out _))
+                            .Select(id => long.Parse(id))
+                            .ToList();
 
-                        foreach (var recipientId in recipientIds)
+                        if (parsedUserIds.Any())
                         {
-                            if (userDict.TryGetValue(recipientId, out var user) && !string.IsNullOrWhiteSpace(user.Email))
-                            {
-                                var emailSent = await _emailService.SendConditionStageNotificationAsync(
-                                    user.Email,
-                                    context.OnboardingId.ToString(),
-                                    caseName,
-                                    previousStageName,
-                                    currentStageName,
-                                    caseUrl);
+                            var users = await _userService.GetUsersByIdsAsync(parsedUserIds, context.TenantId);
+                            var userDict = users?.ToDictionary(u => u.Id.ToString(), u => u) ?? new Dictionary<string, Application.Contracts.Dtos.OW.User.UserDto>();
 
-                                if (emailSent)
+                            foreach (var userId in userIds)
+                            {
+                                if (userDict.TryGetValue(userId, out var user) && !string.IsNullOrWhiteSpace(user.Email))
                                 {
-                                    successCount++;
-                                    sentEmails.Add(user.Email);
-                                    _logger.LogDebug("SendNotification: Email sent to user {UserId} ({Email})", recipientId, user.Email);
+                                    var emailSent = await _emailService.SendConditionStageNotificationAsync(
+                                        user.Email,
+                                        context.OnboardingId.ToString(),
+                                        caseName,
+                                        previousStageName,
+                                        currentStageName,
+                                        caseUrl,
+                                        customSubject,
+                                        customEmailBody);
+
+                                    if (emailSent)
+                                    {
+                                        successCount++;
+                                        sentEmails.Add(user.Email);
+                                        _logger.LogDebug("SendNotification: Email sent to user {UserId} ({Email})", userId, user.Email);
+                                    }
+                                    else
+                                    {
+                                        failedRecipients.Add($"user:{userId}(send failed)");
+                                    }
                                 }
                                 else
                                 {
-                                    failedRecipients.Add($"{recipientId}(send failed)");
+                                    failedRecipients.Add($"user:{userId}(no email)");
+                                    _logger.LogWarning("SendNotification: User {UserId} not found or has no email", userId);
                                 }
+                            }
+                        }
+                        else
+                        {
+                            failedRecipients.AddRange(userIds.Select(id => $"user:{id}(invalid id)"));
+                        }
+                    }
+
+                    // Process teams
+                    if (teamIds.Any())
+                    {
+                        var teamResult = await ExecuteSendNotificationToTeamsAsync(
+                            teamIds, context, caseName, previousStageName, currentStageName, caseUrl, customSubject, customEmailBody);
+                        
+                        successCount += teamResult.SuccessCount;
+                        sentEmails.AddRange(teamResult.SentEmails);
+                        failedRecipients.AddRange(teamResult.FailedRecipients);
+                    }
+
+                    // Set result data for new format
+                    result.ResultData["users"] = userIds;
+                    result.ResultData["teams"] = teamIds;
+                    result.ResultData["subject"] = customSubject ?? string.Empty;
+                    result.ResultData["emailBody"] = !string.IsNullOrEmpty(customEmailBody) ? "(custom)" : "(default)";
+                }
+                else
+                {
+                    // Legacy format: use recipientType/recipientId
+                    // Handle team type - send notification to all team members
+                    if (recipientType?.ToLower() == "team")
+                    {
+                        // For team type, join all team IDs with comma
+                        var teamIdsStr = string.Join(",", recipientIds);
+                        return await ExecuteSendNotificationToTeamAsync(teamIdsStr, context, result, templateId, caseName, previousStageName, currentStageName, caseUrl, customSubject, customEmailBody);
+                    }
+
+                    if (recipientType?.ToLower() == "user")
+                    {
+                        // Batch get all users at once for efficiency
+                        var parsedUserIds = recipientIds
+                            .Where(id => long.TryParse(id, out _))
+                            .Select(id => long.Parse(id))
+                            .ToList();
+
+                        if (parsedUserIds.Any())
+                        {
+                            var users = await _userService.GetUsersByIdsAsync(parsedUserIds, context.TenantId);
+                            var userDict = users?.ToDictionary(u => u.Id.ToString(), u => u) ?? new Dictionary<string, Application.Contracts.Dtos.OW.User.UserDto>();
+
+                            foreach (var recipientId in recipientIds)
+                            {
+                                if (userDict.TryGetValue(recipientId, out var user) && !string.IsNullOrWhiteSpace(user.Email))
+                                {
+                                    var emailSent = await _emailService.SendConditionStageNotificationAsync(
+                                        user.Email,
+                                        context.OnboardingId.ToString(),
+                                        caseName,
+                                        previousStageName,
+                                        currentStageName,
+                                        caseUrl,
+                                        customSubject,
+                                        customEmailBody);
+
+                                    if (emailSent)
+                                    {
+                                        successCount++;
+                                        sentEmails.Add(user.Email);
+                                        _logger.LogDebug("SendNotification: Email sent to user {UserId} ({Email})", recipientId, user.Email);
+                                    }
+                                    else
+                                    {
+                                        failedRecipients.Add($"{recipientId}(send failed)");
+                                    }
+                                }
+                                else
+                                {
+                                    failedRecipients.Add($"{recipientId}(no email)");
+                                    _logger.LogWarning("SendNotification: User {UserId} not found or has no email", recipientId);
+                                }
+                            }
+                        }
+                        else
+                        {
+                            failedRecipients.AddRange(recipientIds.Select(id => $"{id}(invalid id)"));
+                        }
+                    }
+                    else if (recipientType?.ToLower() == "email")
+                    {
+                        // recipientIds are email addresses directly
+                        foreach (var email in recipientIds)
+                        {
+                            var emailSent = await _emailService.SendConditionStageNotificationAsync(
+                                email,
+                                context.OnboardingId.ToString(),
+                                caseName,
+                                previousStageName,
+                                currentStageName,
+                                caseUrl,
+                                customSubject,
+                                customEmailBody);
+
+                            if (emailSent)
+                            {
+                                successCount++;
+                                sentEmails.Add(email);
                             }
                             else
                             {
-                                failedRecipients.Add($"{recipientId}(no email)");
-                                _logger.LogWarning("SendNotification: User {UserId} not found or has no email", recipientId);
+                                failedRecipients.Add($"{email}(send failed)");
                             }
                         }
                     }
                     else
                     {
-                        failedRecipients.AddRange(recipientIds.Select(id => $"{id}(invalid id)"));
+                        result.Success = false;
+                        result.ErrorMessage = $"Unknown recipientType: {recipientType}";
+                        return result;
                     }
-                }
-                else if (recipientType?.ToLower() == "email")
-                {
-                    // recipientIds are email addresses directly
-                    foreach (var email in recipientIds)
-                    {
-                        var emailSent = await _emailService.SendConditionStageNotificationAsync(
-                            email,
-                            context.OnboardingId.ToString(),
-                            caseName,
-                            previousStageName,
-                            currentStageName,
-                            caseUrl);
 
-                        if (emailSent)
-                        {
-                            successCount++;
-                            sentEmails.Add(email);
-                        }
-                        else
-                        {
-                            failedRecipients.Add($"{email}(send failed)");
-                        }
-                    }
-                }
-                else
-                {
-                    result.Success = false;
-                    result.ErrorMessage = $"Unknown recipientType: {recipientType}";
-                    return result;
+                    result.ResultData["recipientType"] = recipientType ?? string.Empty;
+                    result.ResultData["recipientIds"] = recipientIds;
+                    result.ResultData["templateId"] = templateId ?? string.Empty;
                 }
 
-                // Set result based on success/failure counts
+                // Set common result data
                 result.Success = successCount > 0;
-                result.ResultData["recipientType"] = recipientType ?? string.Empty;
-                result.ResultData["recipientIds"] = recipientIds;
                 result.ResultData["sentEmails"] = sentEmails;
                 result.ResultData["successCount"] = successCount;
                 result.ResultData["failedCount"] = failedRecipients.Count;
-                result.ResultData["templateId"] = templateId ?? string.Empty;
                 result.ResultData["previousStageName"] = previousStageName;
                 result.ResultData["currentStageName"] = currentStageName;
 
@@ -631,6 +744,122 @@ namespace FlowFlex.Application.Service.OW
                 result.Success = false;
                 result.ErrorMessage = ex.Message;
                 _logger.LogError(ex, "Error executing SendNotification action");
+            }
+
+            return result;
+        }
+
+        /// <summary>
+        /// Result class for team notification sending
+        /// </summary>
+        private class TeamNotificationResult
+        {
+            public int SuccessCount { get; set; }
+            public List<string> SentEmails { get; set; } = new List<string>();
+            public List<string> FailedRecipients { get; set; } = new List<string>();
+        }
+
+        /// <summary>
+        /// Send notifications to multiple teams with custom subject and body
+        /// </summary>
+        private async Task<TeamNotificationResult> ExecuteSendNotificationToTeamsAsync(
+            List<string> teamIds,
+            ActionExecutionContext context,
+            string caseName,
+            string previousStageName,
+            string currentStageName,
+            string caseUrl,
+            string? customSubject,
+            string? customEmailBody)
+        {
+            var result = new TeamNotificationResult();
+
+            try
+            {
+                _logger.LogInformation("SendNotification to teams: Getting team members for {TeamCount} teams, tenantId={TenantId}",
+                    teamIds.Count, context.TenantId);
+
+                // Get all team users from IDM
+                var teamUsers = await _idmUserDataClient.GetAllTeamUsersAsync(context.TenantId, 10000, 1);
+
+                if (teamUsers == null || !teamUsers.Any())
+                {
+                    _logger.LogWarning("SendNotification to teams failed: No team users found for tenant {TenantId}", context.TenantId);
+                    result.FailedRecipients.AddRange(teamIds.Select(id => $"team:{id}(no users found)"));
+                    return result;
+                }
+
+                // Filter users by teamIds and collect unique emails
+                var processedEmails = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+                foreach (var teamId in teamIds)
+                {
+                    var teamMembers = teamUsers.Where(tu => tu.TeamId == teamId).ToList();
+
+                    if (!teamMembers.Any())
+                    {
+                        result.FailedRecipients.Add($"team:{teamId}(no members)");
+                        _logger.LogWarning("SendNotification to team failed: No members found for teamId={TeamId}", teamId);
+                        continue;
+                    }
+
+                    _logger.LogDebug("Found {MemberCount} members in team {TeamId}", teamMembers.Count, teamId);
+
+                    foreach (var member in teamMembers)
+                    {
+                        if (string.IsNullOrWhiteSpace(member.Email))
+                        {
+                            _logger.LogDebug("Skipping team member {UserName} - no email address", member.UserName);
+                            continue;
+                        }
+
+                        // Skip if already processed (user might be in multiple teams)
+                        if (processedEmails.Contains(member.Email))
+                        {
+                            _logger.LogDebug("Skipping duplicate email {Email} (already sent)", member.Email);
+                            continue;
+                        }
+
+                        try
+                        {
+                            var emailSent = await _emailService.SendConditionStageNotificationAsync(
+                                member.Email,
+                                context.OnboardingId.ToString(),
+                                caseName,
+                                previousStageName,
+                                currentStageName,
+                                caseUrl,
+                                customSubject,
+                                customEmailBody);
+
+                            if (emailSent)
+                            {
+                                result.SuccessCount++;
+                                result.SentEmails.Add(member.Email);
+                                processedEmails.Add(member.Email);
+                                _logger.LogDebug("Email sent to team member {Email} (team {TeamId})", member.Email, teamId);
+                            }
+                            else
+                            {
+                                result.FailedRecipients.Add($"team:{teamId}:{member.Email}(send failed)");
+                                _logger.LogWarning("Failed to send email to team member {Email}", member.Email);
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            result.FailedRecipients.Add($"team:{teamId}:{member.Email}(error)");
+                            _logger.LogWarning(ex, "Exception sending email to team member {Email}", member.Email);
+                        }
+                    }
+                }
+
+                _logger.LogInformation("SendNotification to teams completed: {SuccessCount} emails sent, {FailedCount} failed",
+                    result.SuccessCount, result.FailedRecipients.Count);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error sending notifications to teams");
+                result.FailedRecipients.AddRange(teamIds.Select(id => $"team:{id}(error)"));
             }
 
             return result;
@@ -737,7 +966,7 @@ namespace FlowFlex.Application.Service.OW
         }
 
         /// <summary>
-        /// Send notification to all members of a team
+        /// Send notification to all members of a team (legacy method with custom subject/body support)
         /// </summary>
         private async Task<ActionExecutionDetail> ExecuteSendNotificationToTeamAsync(
             string teamId,
@@ -747,7 +976,9 @@ namespace FlowFlex.Application.Service.OW
             string caseName,
             string previousStageName,
             string currentStageName,
-            string caseUrl)
+            string caseUrl,
+            string? customSubject = null,
+            string? customEmailBody = null)
         {
             try
             {
@@ -798,7 +1029,9 @@ namespace FlowFlex.Application.Service.OW
                             caseName,
                             previousStageName,
                             currentStageName,
-                            caseUrl);
+                            caseUrl,
+                            customSubject,
+                            customEmailBody);
 
                         if (emailSent)
                         {

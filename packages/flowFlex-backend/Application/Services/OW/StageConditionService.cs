@@ -1151,6 +1151,64 @@ namespace FlowFlex.Application.Service.OW
                             }
                             break;
 
+                        case "sendnotification":
+                            // Validate SendNotification action parameters
+                            // New format: users[], teams[], subject, emailBody
+                            // Legacy format: recipientType, recipientId
+                            if (action.Parameters != null)
+                            {
+                                var hasUsers = HasNonEmptyArray(action.Parameters, "users");
+                                var hasTeams = HasNonEmptyArray(action.Parameters, "teams");
+                                var hasLegacyRecipientId = action.Parameters.ContainsKey("recipientId") || 
+                                                          action.Parameters.ContainsKey("recipientEmail");
+                                
+                                // Must have at least one recipient source
+                                if (!hasUsers && !hasTeams && !hasLegacyRecipientId && string.IsNullOrEmpty(action.RecipientId))
+                                {
+                                    result.IsValid = false;
+                                    result.Errors.Add(new ValidationError 
+                                    { 
+                                        Code = "SENDNOTIFICATION_RECIPIENT_REQUIRED", 
+                                        Message = "SendNotification action requires users[], teams[], recipientId, or recipientEmail" 
+                                    });
+                                }
+
+                                // Validate subject if provided (optional but should be non-empty if present)
+                                if (action.Parameters.TryGetValue("subject", out var subjectObj) && 
+                                    subjectObj != null && 
+                                    string.IsNullOrWhiteSpace(subjectObj.ToString()))
+                                {
+                                    result.Warnings.Add(new ValidationWarning 
+                                    { 
+                                        Code = "SENDNOTIFICATION_EMPTY_SUBJECT", 
+                                        Message = "SendNotification subject is empty, default subject will be used" 
+                                    });
+                                }
+
+                                // Validate emailBody if provided (optional but should be non-empty if present)
+                                if (action.Parameters.TryGetValue("emailBody", out var emailBodyObj) && 
+                                    emailBodyObj != null && 
+                                    string.IsNullOrWhiteSpace(emailBodyObj.ToString()))
+                                {
+                                    result.Warnings.Add(new ValidationWarning 
+                                    { 
+                                        Code = "SENDNOTIFICATION_EMPTY_BODY", 
+                                        Message = "SendNotification emailBody is empty, default template content will be used" 
+                                    });
+                                }
+                            }
+                            else if (string.IsNullOrEmpty(action.RecipientId) && string.IsNullOrEmpty(action.RecipientType))
+                            {
+                                // No parameters and no top-level recipient info
+                                result.IsValid = false;
+                                result.Errors.Add(new ValidationError 
+                                { 
+                                    Code = "SENDNOTIFICATION_RECIPIENT_REQUIRED", 
+                                    Message = "SendNotification action requires users[], teams[], recipientId, or recipientEmail in parameters" 
+                                });
+                            }
+                            break;
+
                         case "assignuser":
                             // Check parameters dictionary for assigneeType and assigneeIds
                             if (action.Parameters != null)
