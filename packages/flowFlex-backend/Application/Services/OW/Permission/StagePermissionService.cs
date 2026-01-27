@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using FlowFlex.Application.Contracts.Dtos.OW.Permission;
 using FlowFlex.Domain.Entities.OW;
@@ -506,6 +507,196 @@ namespace FlowFlex.Application.Services.OW.Permission
         }
 
         #endregion
+
+        #region Authorized Teams for User Tree
+
+        /// <summary>
+        /// Get authorized team IDs for a Stage (used for filtering user tree)
+        /// Returns the set of team IDs that have view permission for the specified Stage
+        /// </summary>
+        /// <param name="stageId">Stage ID</param>
+        /// <returns>
+        /// AuthorizedTeamsResult containing:
+        /// - IsPublicAccess: true if all teams are authorized (Public mode with no restrictions)
+        /// - IsBlacklistMode: true if using blacklist mode (InvisibleToTeams)
+        /// - AuthorizedTeamIds: set of authorized team IDs (whitelist) or blacklisted team IDs (blacklist)
+        /// </returns>
+        public async Task<AuthorizedTeamsResult> GetAuthorizedTeamIdsAsync(long stageId)
+        {
+            _logger.LogInformation("GetAuthorizedTeamIdsAsync - StageId: {StageId}", stageId);
+
+            // Load Stage entity
+            var stage = await _stageRepository.GetByIdAsync(stageId);
+            if (stage == null)
+            {
+                _logger.LogWarning("Stage not found with ID: {StageId}", stageId);
+                return new AuthorizedTeamsResult
+                {
+                    IsPublicAccess = false,
+                    IsBlacklistMode = false,
+                    TeamIds = new HashSet<string>(),
+                    ErrorMessage = $"Stage with ID {stageId} not found"
+                };
+            }
+
+            // Load parent Workflow entity (for permission inheritance check)
+            var workflow = await _workflowRepository.GetByIdAsync(stage.WorkflowId);
+            if (workflow == null)
+            {
+                _logger.LogWarning("Parent Workflow not found with ID: {WorkflowId}", stage.WorkflowId);
+                return new AuthorizedTeamsResult
+                {
+                    IsPublicAccess = false,
+                    IsBlacklistMode = false,
+                    TeamIds = new HashSet<string>(),
+                    ErrorMessage = $"Parent Workflow with ID {stage.WorkflowId} not found"
+                };
+            }
+
+            return GetAuthorizedTeamIds(stage, workflow);
+        }
+
+        /// <summary>
+        /// Get authorized team IDs based on Stage and Workflow permission settings
+        /// </summary>
+        public AuthorizedTeamsResult GetAuthorizedTeamIds(Stage stage, Workflow workflow)
+        {
+            _logger.LogDebug("GetAuthorizedTeamIds - Stage ViewMode: {StageViewMode}, ViewTeams: {StageViewTeams}, Workflow ViewMode: {WorkflowViewMode}, ViewTeams: {WorkflowViewTeams}",
+                stage.ViewPermissionMode, stage.ViewTeams ?? "NULL",
+                workflow.ViewPermissionMode, workflow.ViewTeams ?? "NULL");
+
+            var result = new AuthorizedTeamsResult
+            {
+                IsPublicAccess = false,
+                IsBlacklistMode = false,
+                TeamIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+            };
+
+            // Check if Stage inherits from Workflow (ViewTeams is NULL or empty)
+            bool stageInheritsView = string.IsNullOrWhiteSpace(stage.ViewTeams);
+
+            if (stageInheritsView)
+            {
+                // Stage inherits from Workflow - use Workflow's permission settings
+                _logger.LogDebug("Stage inherits view permission from Workflow");
+                return GetAuthorizedTeamIdsFromEntity(workflow.ViewPermissionMode, workflow.ViewTeams, "Workflow");
+            }
+            else
+            {
+                // Stage has its own permission settings (narrowed from Workflow)
+                _logger.LogDebug("Stage has its own view permission settings");
+                return GetAuthorizedTeamIdsFromEntity(stage.ViewPermissionMode, stage.ViewTeams, "Stage");
+            }
+        }
+
+        /// <summary>
+        /// Get authorized team IDs from entity permission settings
+        /// </summary>
+        private AuthorizedTeamsResult GetAuthorizedTeamIdsFromEntity(
+            ViewPermissionModeEnum viewMode,
+            string viewTeamsJson,
+            string entityName)
+        {
+            var result = new AuthorizedTeamsResult
+            {
+                IsPublicAccess = false,
+                IsBlacklistMode = false,
+                TeamIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+            };
+
+            switch (viewMode)
+            {
+                case ViewPermissionModeEnum.Public:
+                    // Public mode - check if there are specific teams
+                    var publicTeams = _helpers.DeserializeTeamList(viewTeamsJson);
+                    if (!publicTeams.Any())
+                    {
+                        // No specific teams - all teams are authorized
+                        result.IsPublicAccess = true;
+                        _logger.LogDebug("{EntityName} is Public mode with no team restrictions - all teams authorized", entityName);
+                    }
+                    else
+                    {
+                        // Public mode with specific teams (whitelist)
+                        foreach (var teamId in publicTeams)
+                        {
+                            result.TeamIds.Add(teamId);
+                        }
+                        _logger.LogDebug("{EntityName} Public with specific teams (whitelist): [{Teams}]", entityName, string.Join(", ", result.TeamIds));
+                    }
+                    break;
+
+                case ViewPermissionModeEnum.VisibleToTeams:
+                    // Whitelist mode - only specified teams are authorized
+                    var whitelistTeams = _helpers.DeserializeTeamList(viewTeamsJson);
+                    foreach (var teamId in whitelistTeams)
+                    {
+                        result.TeamIds.Add(teamId);
+                    }
+                    _logger.LogDebug("{EntityName} VisibleToTeams (whitelist): [{Teams}]", entityName, string.Join(", ", result.TeamIds));
+                    break;
+
+                case ViewPermissionModeEnum.InvisibleToTeams:
+                    // Blacklist mode - all teams except specified ones are authorized
+                    result.IsBlacklistMode = true;
+                    var blacklistTeams = _helpers.DeserializeTeamList(viewTeamsJson);
+                    foreach (var teamId in blacklistTeams)
+                    {
+                        result.TeamIds.Add(teamId);
+                    }
+                    _logger.LogDebug("{EntityName} InvisibleToTeams (blacklist): [{Teams}]", entityName, string.Join(", ", result.TeamIds));
+                    break;
+
+                case ViewPermissionModeEnum.Private:
+                    // Private mode - only owner can view, no teams authorized
+                    _logger.LogDebug("{EntityName} is Private mode - no teams authorized", entityName);
+                    break;
+
+                default:
+                    _logger.LogWarning("Unknown ViewPermissionMode: {ViewMode}", viewMode);
+                    break;
+            }
+
+            return result;
+        }
+
+        #endregion
+    }
+
+    /// <summary>
+    /// Result of authorized teams calculation for user tree filtering
+    /// </summary>
+    public class AuthorizedTeamsResult
+    {
+        /// <summary>
+        /// True if all teams are authorized (Public mode with no restrictions)
+        /// </summary>
+        public bool IsPublicAccess { get; set; }
+
+        /// <summary>
+        /// True if using blacklist mode (InvisibleToTeams)
+        /// When true, TeamIds contains teams to EXCLUDE
+        /// When false, TeamIds contains teams to INCLUDE (whitelist)
+        /// </summary>
+        public bool IsBlacklistMode { get; set; }
+
+        /// <summary>
+        /// Set of team IDs
+        /// - If IsPublicAccess is true, this is ignored
+        /// - If IsBlacklistMode is true, these are teams to EXCLUDE
+        /// - If IsBlacklistMode is false, these are teams to INCLUDE
+        /// </summary>
+        public HashSet<string> TeamIds { get; set; } = new HashSet<string>();
+
+        /// <summary>
+        /// Error message if any error occurred
+        /// </summary>
+        public string ErrorMessage { get; set; }
+
+        /// <summary>
+        /// Check if there was an error
+        /// </summary>
+        public bool HasError => !string.IsNullOrEmpty(ErrorMessage);
     }
 }
 

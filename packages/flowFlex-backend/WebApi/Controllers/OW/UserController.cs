@@ -393,8 +393,16 @@ namespace FlowFlex.WebApi.Controllers.OW
         [ProducesResponseType<SuccessResponse<List<UserTreeNodeDto>>>((int)HttpStatusCode.OK)]
         [ProducesResponseType(typeof(ErrorResponse), 400)]
         [ProducesResponseType(typeof(ErrorResponse), 401)]
-        public async Task<IActionResult> GetUserTree()
+        public async Task<IActionResult> GetUserTree([FromQuery] long? stageId = null)
         {
+            if (stageId.HasValue && stageId.Value > 0)
+            {
+                // Return user tree filtered by Stage permissions
+                var filteredTree = await _userService.GetUserTreeByStageAsync(stageId.Value);
+                return Success(filteredTree);
+            }
+
+            // Return full user tree
             var treeStructure = await _userService.GetUserTreeAsync();
             return Success(treeStructure);
         }
