@@ -5,6 +5,7 @@ using FlowFlex.Application.Contracts.IServices.Action;
 using FlowFlex.Application.Contracts.IServices.Integration;
 using FlowFlex.Application.Contracts.IServices.OW;
 using FlowFlex.Application.Contracts.Options;
+using FlowFlex.Application.Services.OW;
 using FlowFlex.Application.Services.OW.Extensions;
 using FlowFlex.Domain.Repository.Action;
 using FlowFlex.Domain.Repository.DynamicData;
@@ -46,6 +47,7 @@ namespace FlowFlex.Application.Services.Integration
         private readonly IStaticFieldValueService _staticFieldValueService;
         private readonly IDefineFieldRepository _defineFieldRepository;
         private readonly IHttpClientFactory _httpClientFactory;
+        private readonly IdmUserDataClient _idmUserDataClient;
         private readonly IdentityHubOptions _idmOptions;
         private readonly UserContext _userContext;
         private readonly ILogger<ExternalIntegrationService> _logger;
@@ -110,6 +112,7 @@ namespace FlowFlex.Application.Services.Integration
             IStaticFieldValueService staticFieldValueService,
             IDefineFieldRepository defineFieldRepository,
             IHttpClientFactory httpClientFactory,
+            IdmUserDataClient idmUserDataClient,
             IOptions<IdentityHubOptions> idmOptions,
             UserContext userContext,
             ILogger<ExternalIntegrationService> logger)
@@ -128,6 +131,7 @@ namespace FlowFlex.Application.Services.Integration
             _staticFieldValueService = staticFieldValueService;
             _defineFieldRepository = defineFieldRepository;
             _httpClientFactory = httpClientFactory;
+            _idmUserDataClient = idmUserDataClient;
             _idmOptions = idmOptions.Value;
             _userContext = userContext;
             _logger = logger;
@@ -266,16 +270,6 @@ namespace FlowFlex.Application.Services.Integration
                 throw new CRMException(ErrorCodeEnum.ParamInvalid, "Case Name is required");
             }
 
-            if (string.IsNullOrWhiteSpace(request.ContactName))
-            {
-                throw new CRMException(ErrorCodeEnum.ParamInvalid, "Contact Name is required");
-            }
-
-            if (string.IsNullOrWhiteSpace(request.ContactEmail))
-            {
-                throw new CRMException(ErrorCodeEnum.ParamInvalid, "Contact Email is required");
-            }
-
             // Get entity mapping by System ID
             var entityMapping = await _entityMappingRepository.GetBySystemIdAsync(request.SystemId);
             if (entityMapping == null)
@@ -319,8 +313,8 @@ namespace FlowFlex.Application.Services.Integration
                 WorkflowId = request.WorkflowId,
                 LeadId = request.EntityId,
                 CaseName = uniqueCaseName,
-                ContactPerson = request.ContactName,
-                ContactEmail = request.ContactEmail,
+                ContactPerson = request.ContactName ?? string.Empty,
+                ContactEmail = request.ContactEmail ?? string.Empty,
                 LeadPhone = request.ContactPhone,
                 Status = "Started",
                 StartDate = DateTimeOffset.UtcNow,
@@ -372,6 +366,52 @@ namespace FlowFlex.Application.Services.Integration
                     targetCase.CreateBy = request.CreatedBy;
                     targetCase.ModifyBy = request.CreatedBy;
                     _logger.LogDebug("Updated CreateBy and ModifyBy with external CreatedBy: {CreatedBy} for case {CaseId}", request.CreatedBy, caseId);
+
+                    // Lookup user by CreatedBy name to get userId for Ownership field
+                    try
+                    {
+                        var tenantId = _userContext.TenantId ?? "default";
+                        var userInfo = await _idmUserDataClient.SearchUserByNameOrEmailAsync(request.CreatedBy, tenantId);
+                        
+                        if (userInfo != null && !string.IsNullOrEmpty(userInfo.Id))
+                        {
+                            // Parse userId to long for Ownership field
+                            if (long.TryParse(userInfo.Id, out var ownershipId))
+                            {
+                                targetCase.Ownership = ownershipId;
+                                targetCase.OwnershipName = userInfo.Username ?? request.CreatedBy;
+                                targetCase.OwnershipEmail = userInfo.Email;
+                                
+                                // Update Ownership fields in database
+                                var updateOwnershipSql = @"
+                                    UPDATE ff_onboarding 
+                                    SET ownership = @Ownership, ownership_name = @OwnershipName, ownership_email = @OwnershipEmail
+                                    WHERE id = @Id";
+                                await db.Ado.ExecuteCommandAsync(updateOwnershipSql, new
+                                {
+                                    Ownership = ownershipId,
+                                    OwnershipName = targetCase.OwnershipName,
+                                    OwnershipEmail = targetCase.OwnershipEmail ?? string.Empty,
+                                    Id = caseId
+                                });
+                                
+                                _logger.LogInformation("Set Ownership from CreatedBy: UserId={UserId}, UserName={UserName}, Email={Email} for case {CaseId}",
+                                    ownershipId, targetCase.OwnershipName, targetCase.OwnershipEmail, caseId);
+                            }
+                            else
+                            {
+                                _logger.LogWarning("Failed to parse userId '{UserId}' to long for Ownership field", userInfo.Id);
+                            }
+                        }
+                        else
+                        {
+                            _logger.LogWarning("User not found in IDM for CreatedBy: {CreatedBy}, Ownership will not be set", request.CreatedBy);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Failed to lookup user for Ownership from CreatedBy: {CreatedBy}", request.CreatedBy);
+                    }
                 }
 
                 _logger.LogInformation("Updated SystemId={SystemId}, IntegrationId={IntegrationId}, EntityType={EntityType}, EntityId={EntityId}, CurrentStageId={CurrentStageId}, CreatedBy={CreatedBy} for case {CaseId}",
@@ -420,6 +460,8 @@ namespace FlowFlex.Application.Services.Integration
                 CurrentStageId = targetCase?.CurrentStageId ?? firstStage.Id,
                 CurrentStageName = firstStage.Name ?? "",
                 Status = targetCase?.Status ?? "Started",
+                Ownership = targetCase?.Ownership,
+                OwnershipName = targetCase?.OwnershipName,
                 CreatedBy = targetCase?.CreateBy,
                 CreatedAt = DateTimeOffset.UtcNow
             };

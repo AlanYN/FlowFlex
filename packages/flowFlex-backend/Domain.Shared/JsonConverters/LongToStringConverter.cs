@@ -4,7 +4,7 @@ using System;
 namespace FlowFlex.Domain.Shared.JsonConverters;
 
 /// <summary>
-/// 将long类型转换为string类型的JSON转换�?
+/// 将long类型转换为string类型的JSON转换�?
 /// </summary>
 public class LongToStringConverter : JsonConverter<long>
 {
@@ -20,8 +20,15 @@ public class LongToStringConverter : JsonConverter<long>
 
         if (reader.Value is string stringValue)
         {
+            // Handle empty string as 0
+            if (string.IsNullOrWhiteSpace(stringValue))
+                return 0;
+            
             if (long.TryParse(stringValue, out long result))
                 return result;
+            
+            // If parsing fails, return 0 instead of throwing
+            return 0;
         }
         else if (reader.Value is long longValue)
         {
@@ -32,12 +39,19 @@ public class LongToStringConverter : JsonConverter<long>
             return intValue;
         }
 
-        return Convert.ToInt64(reader.Value);
+        try
+        {
+            return Convert.ToInt64(reader.Value);
+        }
+        catch (FormatException)
+        {
+            return 0;
+        }
     }
 }
 
 /// <summary>
-/// 将可空long类型转换为string类型的JSON转换�?
+/// 将可空long类型转换为string类型的JSON转换�?
 /// </summary>
 public class NullableLongToStringConverter : JsonConverter<long?>
 {
@@ -56,8 +70,15 @@ public class NullableLongToStringConverter : JsonConverter<long?>
 
         if (reader.Value is string stringValue)
         {
+            // Handle empty string as null for nullable type
+            if (string.IsNullOrWhiteSpace(stringValue))
+                return null;
+            
             if (long.TryParse(stringValue, out long result))
                 return result;
+            
+            // If parsing fails, return null instead of throwing
+            return null;
         }
         else if (reader.Value is long longValue)
         {
@@ -68,6 +89,13 @@ public class NullableLongToStringConverter : JsonConverter<long?>
             return intValue;
         }
 
-        return Convert.ToInt64(reader.Value);
+        try
+        {
+            return Convert.ToInt64(reader.Value);
+        }
+        catch (FormatException)
+        {
+            return null;
+        }
     }
 }

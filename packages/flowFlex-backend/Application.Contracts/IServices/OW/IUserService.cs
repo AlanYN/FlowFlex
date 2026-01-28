@@ -160,5 +160,13 @@ namespace FlowFlex.Application.Contracts.IServices.OW
         /// <param name="tenantId">Tenant ID</param>
         /// <returns>Dictionary mapping Team ID to Team Name</returns>
         Task<Dictionary<string, string>> GetTeamNamesByIdsAsync(List<string> teamIds, string tenantId);
+
+        /// <summary>
+        /// Get User Tree Structure filtered by Stage permissions
+        /// Returns only teams and users that have access to the specified Stage
+        /// </summary>
+        /// <param name="stageId">Stage ID to filter by</param>
+        /// <returns>Tree structure with authorized teams and users</returns>
+        Task<List<UserTreeNodeDto>> GetUserTreeByStageAsync(long stageId);
     }
 }

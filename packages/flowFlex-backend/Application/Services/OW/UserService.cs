@@ -11,6 +11,7 @@ using Microsoft.Extensions.Options;
 using FlowFlex.Application.Contracts.Dtos.OW.User;
 using FlowFlex.Application.Contracts.IServices.OW;
 using FlowFlex.Application.Contracts.Options;
+using FlowFlex.Application.Services.OW.Permission;
 using FlowFlex.Domain.Entities.OW;
 using FlowFlex.Domain.Repository.OW;
 using FlowFlex.Infrastructure.Services;
@@ -2008,6 +2009,225 @@ namespace FlowFlex.Application.Services.OW
                 // Return empty dictionary instead of throwing to allow graceful degradation
                 return new Dictionary<string, string>();
             }
+        }
+
+        /// <summary>
+        /// Get User Tree Structure filtered by Stage permissions
+        /// Returns only teams and users that have access to the specified Stage
+        /// </summary>
+        /// <param name="stageId">Stage ID to filter by</param>
+        /// <returns>Tree structure with authorized teams and users</returns>
+        public async Task<List<UserTreeNodeDto>> GetUserTreeByStageAsync(long stageId)
+        {
+            _logger.LogInformation("=== GetUserTreeByStageAsync Started ===");
+            _logger.LogInformation("StageId: {StageId}", stageId);
+
+            try
+            {
+                // Step 1: Get authorized teams from StagePermissionService
+                var stagePermissionService = _httpContextAccessor.HttpContext?.RequestServices
+                    .GetService<StagePermissionService>();
+
+                if (stagePermissionService == null)
+                {
+                    _logger.LogError("StagePermissionService not available");
+                    throw new CRMException(HttpStatusCode.InternalServerError,
+                        "Permission service is not available. Please try again later.");
+                }
+
+                var authorizedTeamsResult = await stagePermissionService.GetAuthorizedTeamIdsAsync(stageId);
+
+                if (authorizedTeamsResult.HasError)
+                {
+                    _logger.LogWarning("Error getting authorized teams: {Error}", authorizedTeamsResult.ErrorMessage);
+                    throw new CRMException(HttpStatusCode.NotFound, authorizedTeamsResult.ErrorMessage);
+                }
+
+                // Step 2: Get full user tree
+                var fullUserTree = await GetUserTreeAsync();
+                if (fullUserTree == null || !fullUserTree.Any())
+                {
+                    _logger.LogWarning("Full user tree is empty");
+                    return new List<UserTreeNodeDto>();
+                }
+
+                // Step 3: If Public mode with no restrictions, return full tree
+                if (authorizedTeamsResult.IsPublicAccess)
+                {
+                    _logger.LogInformation("Stage is Public with no team restrictions, returning full user tree");
+                    return fullUserTree;
+                }
+
+                // Step 4: Filter user tree by authorized teams
+                var filteredTree = FilterUserTreeByTeams(
+                    fullUserTree,
+                    authorizedTeamsResult.TeamIds,
+                    authorizedTeamsResult.IsBlacklistMode);
+
+                _logger.LogInformation("=== GetUserTreeByStageAsync Completed ===");
+                _logger.LogInformation("Filtered tree has {NodeCount} root nodes", filteredTree.Count);
+
+                return filteredTree;
+            }
+            catch (CRMException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error occurred while getting user tree by stage ID: {StageId}", stageId);
+                throw new CRMException(HttpStatusCode.InternalServerError,
+                    "An error occurred while retrieving the user tree. Please try again.");
+            }
+        }
+
+        /// <summary>
+        /// Filter user tree by authorized team IDs
+        /// </summary>
+        private List<UserTreeNodeDto> FilterUserTreeByTeams(
+            List<UserTreeNodeDto> fullTree,
+            HashSet<string> teamIds,
+            bool isBlacklistMode)
+        {
+            // If no team IDs and not blacklist mode, return empty (Private mode)
+            if (!teamIds.Any() && !isBlacklistMode)
+            {
+                _logger.LogDebug("No authorized teams (Private mode), returning empty tree");
+                return new List<UserTreeNodeDto>();
+            }
+
+            _logger.LogDebug("Filtering tree - IsBlacklistMode: {IsBlacklistMode}, TeamIds: [{TeamIds}]",
+                isBlacklistMode, string.Join(", ", teamIds));
+
+            var filteredTree = new List<UserTreeNodeDto>();
+
+            foreach (var node in fullTree)
+            {
+                if (node.Type == "team")
+                {
+                    bool includeTeam;
+
+                    if (isBlacklistMode)
+                    {
+                        // Blacklist mode: include if NOT in blacklist
+                        includeTeam = !teamIds.Contains(node.Id);
+                    }
+                    else
+                    {
+                        // Whitelist mode: include if in authorized list
+                        includeTeam = teamIds.Contains(node.Id);
+                    }
+
+                    if (includeTeam)
+                    {
+                        // Include this team and all its children
+                        var filteredNode = FilterTeamNodeRecursively(node, teamIds, isBlacklistMode);
+                        if (filteredNode != null)
+                        {
+                            filteredTree.Add(filteredNode);
+                        }
+                    }
+                    else
+                    {
+                        _logger.LogDebug("Excluding team: {TeamId} ({TeamName})", node.Id, node.Name);
+                    }
+                }
+                else if (node.Type == "user")
+                {
+                    // Individual users at root level - include them
+                    filteredTree.Add(node);
+                }
+            }
+
+            return filteredTree;
+        }
+
+        /// <summary>
+        /// Recursively filter team node and its children
+        /// </summary>
+        private UserTreeNodeDto FilterTeamNodeRecursively(
+            UserTreeNodeDto teamNode,
+            HashSet<string> teamIds,
+            bool isBlacklistMode)
+        {
+            var filteredNode = new UserTreeNodeDto
+            {
+                Id = teamNode.Id,
+                Name = teamNode.Name,
+                Type = teamNode.Type,
+                MemberCount = 0,
+                Username = teamNode.Username,
+                Email = teamNode.Email,
+                UserType = teamNode.UserType,
+                UserDetails = teamNode.UserDetails,
+                Children = new List<UserTreeNodeDto>()
+            };
+
+            if (teamNode.Children != null)
+            {
+                foreach (var child in teamNode.Children)
+                {
+                    if (child.Type == "team")
+                    {
+                        // Sub-team - check if authorized
+                        bool includeSubTeam;
+                        if (isBlacklistMode)
+                        {
+                            includeSubTeam = !teamIds.Contains(child.Id);
+                        }
+                        else
+                        {
+                            // For whitelist mode, include sub-teams of authorized teams
+                            includeSubTeam = teamIds.Contains(child.Id) ||
+                                             teamIds.Contains(teamNode.Id);
+                        }
+
+                        if (includeSubTeam)
+                        {
+                            var filteredChild = FilterTeamNodeRecursively(child, teamIds, isBlacklistMode);
+                            if (filteredChild != null)
+                            {
+                                filteredNode.Children.Add(filteredChild);
+                            }
+                        }
+                    }
+                    else if (child.Type == "user")
+                    {
+                        // Users under authorized team - include them
+                        filteredNode.Children.Add(child);
+                    }
+                }
+            }
+
+            // Update member count
+            filteredNode.MemberCount = CountUsersInNode(filteredNode);
+
+            return filteredNode;
+        }
+
+        /// <summary>
+        /// Count total users in a tree node (including nested children)
+        /// </summary>
+        private int CountUsersInNode(UserTreeNodeDto node)
+        {
+            if (node == null) return 0;
+
+            int count = 0;
+            if (node.Children != null)
+            {
+                foreach (var child in node.Children)
+                {
+                    if (child.Type == "user")
+                    {
+                        count++;
+                    }
+                    else if (child.Type == "team")
+                    {
+                        count += CountUsersInNode(child);
+                    }
+                }
+            }
+            return count;
         }
     }
 }

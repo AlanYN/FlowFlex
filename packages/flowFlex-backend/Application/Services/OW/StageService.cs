@@ -28,6 +28,7 @@ using JsonSerializer = System.Text.Json.JsonSerializer;
 using JsonException = System.Text.Json.JsonException;
 using System.Text.RegularExpressions;
 using SqlSugar;
+using StageConditionEntity = FlowFlex.Domain.Entities.OW.StageCondition;
 using FlowFlex.Domain.Shared.Const;
 using FlowFlex.Application.Contracts.IServices.OW;
 using FlowFlex.Application.Contracts.Dtos.OW.User;
@@ -1527,7 +1528,7 @@ namespace FlowFlex.Application.Service.OW
             }
 
             // Check if stage condition exists
-            var condition = await _db.Queryable<StageCondition>()
+            var condition = await _db.Queryable<StageConditionEntity>()
                 .Where(c => c.StageId == stageId && c.IsValid && c.IsActive)
                 .Where(c => c.TenantId == _userContext.TenantId)
                 .FirstAsync();
@@ -1609,7 +1610,7 @@ namespace FlowFlex.Application.Service.OW
         /// <summary>
         /// Log condition evaluation result to OperationChangeLog
         /// </summary>
-        private async Task LogConditionEvaluationAsync(StageCondition condition, Onboarding onboarding, FlowFlex.Application.Contracts.Dtos.OW.StageCondition.ConditionEvaluationResult result)
+        private async Task LogConditionEvaluationAsync(StageConditionEntity condition, Onboarding onboarding, FlowFlex.Application.Contracts.Dtos.OW.StageCondition.ConditionEvaluationResult result)
         {
             try
             {
@@ -1649,7 +1650,7 @@ namespace FlowFlex.Application.Service.OW
         /// <summary>
         /// Log action execution results to OperationChangeLog
         /// </summary>
-        private async Task LogActionExecutionAsync(StageCondition condition, Onboarding onboarding, FlowFlex.Application.Contracts.Dtos.OW.StageCondition.ActionExecutionResult result)
+        private async Task LogActionExecutionAsync(StageConditionEntity condition, Onboarding onboarding, FlowFlex.Application.Contracts.Dtos.OW.StageCondition.ActionExecutionResult result)
         {
             try
             {

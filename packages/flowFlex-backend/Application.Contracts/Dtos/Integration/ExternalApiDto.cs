@@ -69,18 +69,16 @@ namespace FlowFlex.Application.Contracts.Dtos.Integration
         public string CaseName { get; set; } = string.Empty;
 
         /// <summary>
-        /// Contact person name
+        /// Contact person name (optional)
         /// </summary>
-        [Required]
         [StringLength(200)]
-        public string ContactName { get; set; } = string.Empty;
+        public string? ContactName { get; set; }
 
         /// <summary>
-        /// Contact email
+        /// Contact email (optional)
         /// </summary>
-        [Required]
         [StringLength(200)]
-        public string ContactEmail { get; set; }
+        public string? ContactEmail { get; set; }
 
         /// <summary>
         /// Contact phone
@@ -144,6 +142,16 @@ namespace FlowFlex.Application.Contracts.Dtos.Integration
         /// Case status
         /// </summary>
         public string Status { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Ownership - User ID who owns this case
+        /// </summary>
+        public long? Ownership { get; set; }
+
+        /// <summary>
+        /// Ownership Name - User name who owns this case
+        /// </summary>
+        public string? OwnershipName { get; set; }
 
         /// <summary>
         /// Created by (first name + last name)

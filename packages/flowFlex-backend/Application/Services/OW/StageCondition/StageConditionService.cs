@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
@@ -7,9 +7,11 @@ using AutoMapper;
 using FlowFlex.Application.Contracts.Dtos.OW.StageCondition;
 using FlowFlex.Application.Contracts.IServices.OW;
 using FlowFlex.Application.Contracts.IServices;
+using FlowFlex.Application.Helpers;
 using FlowFlex.Domain.Entities.OW;
 using FlowFlex.Domain.Repository.OW;
 using FlowFlex.Domain.Shared;
+using FlowFlex.Domain.Shared.Const;
 using FlowFlex.Domain.Shared.Models;
 using FlowFlex.Domain.Shared.Enums.Permission;
 using FlowFlex.Domain.Shared.Exceptions;
@@ -20,6 +22,7 @@ using RulesEngine.Models;
 using SqlSugar;
 using OwOperationTypeEnum = FlowFlex.Domain.Shared.Enums.OW.OperationTypeEnum;
 using OwBusinessModuleEnum = FlowFlex.Domain.Shared.Enums.OW.BusinessModuleEnum;
+using StageConditionEntity = FlowFlex.Domain.Entities.OW.StageCondition;
 
 namespace FlowFlex.Application.Service.OW
 {
@@ -77,7 +80,7 @@ namespace FlowFlex.Application.Service.OW
             }
 
             // Validate one condition per stage
-            var existingCondition = await _db.Queryable<StageCondition>()
+            var existingCondition = await _db.Queryable<StageConditionEntity>()
                 .Where(c => c.StageId == input.StageId && c.IsValid)
                 .Where(c => c.TenantId == _userContext.TenantId)
                 .FirstAsync();
@@ -111,7 +114,7 @@ namespace FlowFlex.Application.Service.OW
             result.Warnings.AddRange(actionsValidation.Warnings);
 
             // Create entity
-            var entity = new StageCondition
+            var entity = new StageConditionEntity
             {
                 StageId = input.StageId,
                 WorkflowId = input.WorkflowId > 0 ? input.WorkflowId : stage.WorkflowId,
@@ -121,7 +124,7 @@ namespace FlowFlex.Application.Service.OW
                 ActionsJson = input.ActionsJson,
                 FallbackStageId = input.FallbackStageId,
                 IsActive = input.IsActive,
-                Status = "Valid"
+                Status = StageConditionConstants.StatusValid
             };
 
             // Initialize entity fields
@@ -130,8 +133,8 @@ namespace FlowFlex.Application.Service.OW
             entity.AppCode = _userContext.AppCode ?? "default";
             entity.CreateDate = DateTimeOffset.UtcNow;
             entity.ModifyDate = DateTimeOffset.UtcNow;
-            entity.CreateBy = _userContext.UserName ?? "SYSTEM";
-            entity.ModifyBy = _userContext.UserName ?? "SYSTEM";
+            entity.CreateBy = _userContext.UserName ?? StageConditionConstants.SystemUser;
+            entity.ModifyBy = _userContext.UserName ?? StageConditionConstants.SystemUser;
             if (long.TryParse(_userContext.UserId, out var userId))
             {
                 entity.CreateUserId = userId;
@@ -251,9 +254,9 @@ namespace FlowFlex.Application.Service.OW
             condition.ActionsJson = input.ActionsJson;
             condition.FallbackStageId = input.FallbackStageId;
             condition.IsActive = input.IsActive;
-            condition.Status = "Valid";
+            condition.Status = StageConditionConstants.StatusValid;
             condition.ModifyDate = DateTimeOffset.UtcNow;
-            condition.ModifyBy = _userContext.UserName ?? "SYSTEM";
+            condition.ModifyBy = _userContext.UserName ?? StageConditionConstants.SystemUser;
 
             var updateResult = await _db.Updateable(condition).ExecuteCommandAsync();
 
@@ -398,7 +401,7 @@ namespace FlowFlex.Application.Service.OW
             // Soft delete
             condition.IsValid = false;
             condition.ModifyDate = DateTimeOffset.UtcNow;
-            condition.ModifyBy = _userContext.UserName ?? "SYSTEM";
+            condition.ModifyBy = _userContext.UserName ?? StageConditionConstants.SystemUser;
 
             var deleteResult = await _db.Updateable(condition)
                 .UpdateColumns(c => new { c.IsValid, c.ModifyDate, c.ModifyBy })
@@ -485,7 +488,7 @@ namespace FlowFlex.Application.Service.OW
         /// </summary>
         public async Task<StageConditionOutputDto?> GetByStageIdAsync(long stageId)
         {
-            var entity = await _db.Queryable<StageCondition>()
+            var entity = await _db.Queryable<StageConditionEntity>()
                 .Where(c => c.StageId == stageId && c.IsValid)
                 .Where(c => c.TenantId == _userContext.TenantId)
                 .FirstAsync();
@@ -509,7 +512,7 @@ namespace FlowFlex.Application.Service.OW
             // Validate read permission
             await ValidateWorkflowPermissionAsync(workflowId, OperationTypeEnum.View);
 
-            var entities = await _db.Queryable<StageCondition>()
+            var entities = await _db.Queryable<StageConditionEntity>()
                 .Where(c => c.WorkflowId == workflowId && c.IsValid)
                 .Where(c => c.TenantId == _userContext.TenantId)
                 .OrderBy(c => c.CreateDate)
@@ -576,7 +579,7 @@ namespace FlowFlex.Application.Service.OW
             if (string.IsNullOrWhiteSpace(rulesJson))
             {
                 result.IsValid = false;
-                result.Errors.Add(new ValidationError { Code = "RULES_REQUIRED", Message = "RulesJson is required" });
+                result.Errors.Add(new ValidationError { Code = StageConditionConstants.ErrorCodeRulesRequired, Message = "RulesJson is required" });
                 return result;
             }
 
@@ -594,7 +597,7 @@ namespace FlowFlex.Application.Service.OW
                     workflows = JsonConvert.DeserializeObject<RulesEngine.Models.Workflow[]>(convertedJson);
                     
                     // Add info that format was converted
-                    result.Warnings.Add(new ValidationWarning { Code = "FORMAT_CONVERTED", Message = "Frontend rule format detected and converted to RulesEngine format" });
+                    result.Warnings.Add(new ValidationWarning { Code = StageConditionConstants.WarningCodeFormatConverted, Message = "Frontend rule format detected and converted to RulesEngine format" });
                 }
                 else if (jsonObj is Newtonsoft.Json.Linq.JArray)
                 {
@@ -604,14 +607,14 @@ namespace FlowFlex.Application.Service.OW
                 else
                 {
                     result.IsValid = false;
-                    result.Errors.Add(new ValidationError { Code = "INVALID_FORMAT", Message = "RulesJson must be either a RulesEngine workflow array or frontend rule format with 'logic' property" });
+                    result.Errors.Add(new ValidationError { Code = StageConditionConstants.ErrorCodeInvalidFormat, Message = "RulesJson must be either a RulesEngine workflow array or frontend rule format with 'logic' property" });
                     return result;
                 }
                 
                 if (workflows == null || workflows.Length == 0)
                 {
                     result.IsValid = false;
-                    result.Errors.Add(new ValidationError { Code = "RULES_EMPTY", Message = "RulesJson must contain at least one workflow" });
+                    result.Errors.Add(new ValidationError { Code = StageConditionConstants.ErrorCodeRulesEmpty, Message = "RulesJson must contain at least one workflow" });
                     return result;
                 }
 
@@ -619,13 +622,13 @@ namespace FlowFlex.Application.Service.OW
                 {
                     if (string.IsNullOrEmpty(workflow.WorkflowName))
                     {
-                        result.Warnings.Add(new ValidationWarning { Code = "WORKFLOW_NAME_EMPTY", Message = "Workflow name is empty, will use default name 'StageCondition'" });
+                        result.Warnings.Add(new ValidationWarning { Code = StageConditionConstants.WarningCodeWorkflowNameEmpty, Message = $"Workflow name is empty, will use default name '{StageConditionConstants.DefaultWorkflowName}'" });
                     }
 
                     if (workflow.Rules == null || !workflow.Rules.Any())
                     {
                         result.IsValid = false;
-                        result.Errors.Add(new ValidationError { Code = "RULES_EMPTY", Message = $"Workflow '{workflow.WorkflowName}' must contain at least one rule" });
+                        result.Errors.Add(new ValidationError { Code = StageConditionConstants.ErrorCodeRulesEmpty, Message = $"Workflow '{workflow.WorkflowName}' must contain at least one rule" });
                     }
                     else
                     {
@@ -634,13 +637,13 @@ namespace FlowFlex.Application.Service.OW
                             if (string.IsNullOrEmpty(rule.RuleName))
                             {
                                 result.IsValid = false;
-                                result.Errors.Add(new ValidationError { Code = "RULE_NAME_REQUIRED", Message = "Rule name is required" });
+                                result.Errors.Add(new ValidationError { Code = StageConditionConstants.ErrorCodeRuleNameRequired, Message = "Rule name is required" });
                             }
 
                             if (string.IsNullOrEmpty(rule.Expression))
                             {
                                 result.IsValid = false;
-                                result.Errors.Add(new ValidationError { Code = "RULE_EXPRESSION_REQUIRED", Message = $"Rule '{rule.RuleName}' must have an expression" });
+                                result.Errors.Add(new ValidationError { Code = StageConditionConstants.ErrorCodeRuleExpressionRequired, Message = $"Rule '{rule.RuleName}' must have an expression" });
                             }
                         }
                     }
@@ -658,13 +661,13 @@ namespace FlowFlex.Application.Service.OW
                 catch (Exception ex)
                 {
                     result.IsValid = false;
-                    result.Errors.Add(new ValidationError { Code = "INVALID_EXPRESSION", Message = $"Invalid rule expression: {ex.Message}" });
+                    result.Errors.Add(new ValidationError { Code = StageConditionConstants.ErrorCodeInvalidExpression, Message = $"Invalid rule expression: {ex.Message}" });
                 }
             }
             catch (Newtonsoft.Json.JsonException ex)
             {
                 result.IsValid = false;
-                result.Errors.Add(new ValidationError { Code = "INVALID_JSON", Message = $"Invalid JSON format: {ex.Message}" });
+                result.Errors.Add(new ValidationError { Code = StageConditionConstants.ErrorCodeInvalidJson, Message = $"Invalid JSON format: {ex.Message}" });
             }
 
             // Check for conflicting rules in frontend format
@@ -897,7 +900,7 @@ namespace FlowFlex.Application.Service.OW
         }
 
         /// <summary>
-        /// Build RulesEngine expression from frontend rule
+        /// Build RulesEngine expression from frontend rule with security validation
         /// </summary>
         private string BuildExpressionFromFrontendRule(FrontendRule rule)
         {
@@ -906,24 +909,24 @@ namespace FlowFlex.Application.Service.OW
                 return null;
             }
 
-            // Get the value representation
-            string valueStr;
-            if (rule.Value == null)
+            // Validate field path for security
+            var fieldPathValidation = ExpressionValidator.ValidateFieldPath(rule.FieldPath);
+            if (!fieldPathValidation.IsValid)
             {
-                valueStr = "null";
+                _logger.LogWarning("Invalid field path rejected: {FieldPath}. Reason: {Reason}", 
+                    rule.FieldPath, fieldPathValidation.ErrorMessage);
+                return null;
             }
-            else if (rule.Value is string strValue)
+
+            // Validate and sanitize the value
+            var valueValidation = ExpressionValidator.ValidateValue(rule.Value);
+            if (!valueValidation.IsValid)
             {
-                valueStr = $"\"{strValue}\"";
+                _logger.LogWarning("Invalid value rejected for field {FieldPath}. Reason: {Reason}", 
+                    rule.FieldPath, valueValidation.ErrorMessage);
+                return null;
             }
-            else if (rule.Value is bool boolValue)
-            {
-                valueStr = boolValue.ToString().ToLower();
-            }
-            else
-            {
-                valueStr = rule.Value.ToString();
-            }
+            var valueStr = valueValidation.SanitizedValue;
 
             // Map frontend operator to C# expression operator
             var op = rule.Operator?.ToLower() switch
@@ -964,42 +967,6 @@ namespace FlowFlex.Application.Service.OW
             }
         }
 
-        /// <summary>
-        /// Frontend rule configuration model
-        /// </summary>
-        private class FrontendRuleConfig
-        {
-            [JsonProperty("logic")]
-            public string Logic { get; set; }
-
-            [JsonProperty("rules")]
-            public List<FrontendRule> Rules { get; set; }
-        }
-
-        /// <summary>
-        /// Frontend individual rule model
-        /// </summary>
-        private class FrontendRule
-        {
-            [JsonProperty("sourceStageId")]
-            public string SourceStageId { get; set; }
-
-            [JsonProperty("componentType")]
-            public string ComponentType { get; set; }
-
-            [JsonProperty("componentId")]
-            public string ComponentId { get; set; }
-
-            [JsonProperty("fieldPath")]
-            public string FieldPath { get; set; }
-
-            [JsonProperty("operator")]
-            public string Operator { get; set; }
-
-            [JsonProperty("value")]
-            public object Value { get; set; }
-        }
-
         #endregion
 
         #region Private Methods
@@ -1007,9 +974,9 @@ namespace FlowFlex.Application.Service.OW
         /// <summary>
         /// Get entity by ID with tenant isolation
         /// </summary>
-        private async Task<StageCondition?> GetEntityByIdAsync(long id)
+        private async Task<StageConditionEntity?> GetEntityByIdAsync(long id)
         {
-            return await _db.Queryable<StageCondition>()
+            return await _db.Queryable<StageConditionEntity>()
                 .Where(c => c.Id == id && c.IsValid)
                 .Where(c => c.TenantId == _userContext.TenantId)
                 .FirstAsync();
@@ -1039,174 +1006,32 @@ namespace FlowFlex.Application.Service.OW
         /// </summary>
         private ConditionValidationResult ValidateActionsJson(string actionsJson)
         {
-            var result = new ConditionValidationResult { IsValid = true };
-
-            if (string.IsNullOrWhiteSpace(actionsJson))
-            {
-                result.IsValid = false;
-                result.Errors.Add(new ValidationError { Code = "ACTIONS_REQUIRED", Message = "ActionsJson is required" });
-                return result;
-            }
-
-            try
-            {
-                var actions = JsonConvert.DeserializeObject<List<ConditionAction>>(actionsJson);
-                
-                if (actions == null || actions.Count == 0)
-                {
-                    result.IsValid = false;
-                    result.Errors.Add(new ValidationError { Code = "ACTIONS_EMPTY", Message = "ActionsJson must contain at least one action" });
-                    return result;
-                }
-
-                var validActionTypes = new[] { "gotostage", "skipstage", "endworkflow", "sendnotification", "updatefield", "triggeraction", "assignuser" };
-
-                // Check for conflicting actions (multiple GoToStage, SkipStage, or EndWorkflow)
-                var stageControlActions = actions.Where(a => 
-                    a.Type?.ToLower() == "gotostage" || 
-                    a.Type?.ToLower() == "skipstage" || 
-                    a.Type?.ToLower() == "endworkflow").ToList();
-                
-                if (stageControlActions.Count > 1)
-                {
-                    // Multiple stage control actions - this is a conflict
-                    var actionTypes = stageControlActions.Select(a => a.Type).Distinct().ToList();
-                    var actionDetails = stageControlActions.Select(a => 
-                    {
-                        if (a.Type?.ToLower() == "gotostage" && a.TargetStageId.HasValue)
-                            return $"{a.Type}(targetStageId={a.TargetStageId})";
-                        else if (a.Type?.ToLower() == "skipstage")
-                            return $"{a.Type}(skipCount={a.SkipCount})";
-                        else
-                            return a.Type;
-                    });
-                    
-                    result.Warnings.Add(new ValidationWarning 
-                    { 
-                        Code = "CONFLICTING_STAGE_ACTIONS", 
-                        Message = $"Multiple stage control actions detected: [{string.Join(", ", actionDetails)}]. Only the first action will take effect for stage navigation." 
-                    });
-                }
-
-                // Check for multiple GoToStage with different targets
-                var goToStageActions = actions.Where(a => a.Type?.ToLower() == "gotostage" && a.TargetStageId.HasValue).ToList();
-                if (goToStageActions.Count > 1)
-                {
-                    var targetStageIds = goToStageActions.Select(a => a.TargetStageId!.Value).Distinct().ToList();
-                    if (targetStageIds.Count > 1)
-                    {
-                        result.Warnings.Add(new ValidationWarning 
-                        { 
-                            Code = "MULTIPLE_GOTOSTAGE_TARGETS", 
-                            Message = $"Multiple GoToStage actions with different targets: [{string.Join(", ", targetStageIds)}]. Only the first GoToStage action will be executed." 
-                        });
-                    }
-                }
-
-                foreach (var action in actions)
-                {
-                    if (string.IsNullOrEmpty(action.Type))
-                    {
-                        result.IsValid = false;
-                        result.Errors.Add(new ValidationError { Code = "ACTION_TYPE_REQUIRED", Message = "Action type is required" });
-                        continue;
-                    }
-
-                    if (!validActionTypes.Contains(action.Type.ToLower()))
-                    {
-                        result.IsValid = false;
-                        result.Errors.Add(new ValidationError { Code = "INVALID_ACTION_TYPE", Message = $"Invalid action type: {action.Type}" });
-                    }
-
-                    // Validate required parameters for each action type
-                    switch (action.Type.ToLower())
-                    {
-                        case "gotostage":
-                            if (!action.TargetStageId.HasValue)
-                            {
-                                result.IsValid = false;
-                                result.Errors.Add(new ValidationError { Code = "GOTOSTAGE_TARGET_REQUIRED", Message = "GoToStage action requires targetStageId" });
-                            }
-                            break;
-
-                        case "updatefield":
-                            // Support fieldId, fieldName, and parameters.fieldPath/fieldName
-                            var hasFieldId = !string.IsNullOrEmpty(action.FieldId);
-                            var hasFieldName = !string.IsNullOrEmpty(action.FieldName);
-                            var hasFieldInParams = action.Parameters != null && 
-                                (action.Parameters.ContainsKey("fieldId") || action.Parameters.ContainsKey("fieldPath") || action.Parameters.ContainsKey("fieldName"));
-                            
-                            if (!hasFieldId && !hasFieldName && !hasFieldInParams)
-                            {
-                                result.IsValid = false;
-                                result.Errors.Add(new ValidationError { Code = "UPDATEFIELD_NAME_REQUIRED", Message = "UpdateField action requires fieldId, fieldName or parameters.fieldPath" });
-                            }
-                            break;
-
-                        case "triggeraction":
-                            if (!action.ActionDefinitionId.HasValue)
-                            {
-                                result.IsValid = false;
-                                result.Errors.Add(new ValidationError { Code = "TRIGGERACTION_ID_REQUIRED", Message = "TriggerAction action requires actionDefinitionId" });
-                            }
-                            break;
-
-                        case "assignuser":
-                            // Check parameters dictionary for assigneeType and assigneeIds
-                            if (action.Parameters != null)
-                            {
-                                // Check assigneeType in parameters (optional, defaults to 'user')
-                                if (action.Parameters.TryGetValue("assigneeType", out var assigneeType) && 
-                                    !string.IsNullOrEmpty(assigneeType?.ToString()))
-                                {
-                                    var assigneeTypeStr = assigneeType.ToString()?.ToLower();
-                                    if (assigneeTypeStr != "user" && assigneeTypeStr != "team")
-                                    {
-                                        result.IsValid = false;
-                                        result.Errors.Add(new ValidationError { Code = "ASSIGNUSER_TYPE_INVALID", Message = "AssignUser action assigneeType must be 'user' or 'team'" });
-                                    }
-                                }
-                                // If assigneeType is not provided, it defaults to 'user' - no validation error
-
-                                // Check assigneeIds array
-                                if (!HasNonEmptyArray(action.Parameters, "assigneeIds"))
-                                {
-                                    result.IsValid = false;
-                                    result.Errors.Add(new ValidationError { Code = "ASSIGNUSER_IDS_REQUIRED", Message = "AssignUser action requires assigneeIds (non-empty array) in parameters" });
-                                }
-                            }
-                            else
-                            {
-                                result.IsValid = false;
-                                result.Errors.Add(new ValidationError { Code = "ASSIGNUSER_PARAMS_REQUIRED", Message = "AssignUser action requires parameters with assigneeType and assigneeIds" });
-                            }
-                            break;
-                    }
-                }
-            }
-            catch (Newtonsoft.Json.JsonException ex)
-            {
-                result.IsValid = false;
-                result.Errors.Add(new ValidationError { Code = "INVALID_JSON", Message = $"Invalid JSON format: {ex.Message}" });
-            }
-
-            return result;
+            return ActionValidationHelper.ValidateActionsJson(actionsJson);
         }
 
         /// <summary>
-        /// Validate referenced stages exist
+        /// Check if parameters dictionary has a non-empty array for the given key
         /// </summary>
-        private async Task ValidateReferencedStagesAsync(StageCondition condition, ConditionValidationResult result)
+        private bool HasNonEmptyArray(Dictionary<string, object> parameters, string key)
         {
-            // Validate fallback stage
+            return ActionValidationHelper.HasNonEmptyArray(parameters, key);
+        }
+
+        /// <summary>
+        /// Validate referenced stages exist (batch query optimized)
+        /// </summary>
+        private async Task ValidateReferencedStagesAsync(StageConditionEntity condition, ConditionValidationResult result)
+        {
+            // Collect all stage IDs to validate
+            var stageIdsToValidate = new HashSet<long>();
+            
+            // Add fallback stage ID
             if (condition.FallbackStageId.HasValue)
             {
-                var fallbackStage = await _stageRepository.GetByIdAsync(condition.FallbackStageId.Value);
-                if (fallbackStage == null || !fallbackStage.IsActive)
-                {
-                    result.Warnings.Add(new ValidationWarning { Code = "FALLBACK_STAGE_INVALID", Message = $"Fallback stage {condition.FallbackStageId} not found or inactive" });
-                }
-            }            // Validate target stages in actions
+                stageIdsToValidate.Add(condition.FallbackStageId.Value);
+            }
+            
+            // Add target stage IDs from actions
             try
             {
                 var actions = JsonConvert.DeserializeObject<List<ConditionAction>>(condition.ActionsJson);
@@ -1214,8 +1039,47 @@ namespace FlowFlex.Application.Service.OW
                 {
                     foreach (var action in actions.Where(a => a.TargetStageId.HasValue))
                     {
-                        var targetStage = await _stageRepository.GetByIdAsync(action.TargetStageId!.Value);
-                        if (targetStage == null || !targetStage.IsActive)
+                        stageIdsToValidate.Add(action.TargetStageId!.Value);
+                    }
+                }
+            }
+            catch
+            {
+                // Already validated in ValidateActionsJson
+            }
+            
+            if (!stageIdsToValidate.Any())
+            {
+                return;
+            }
+            
+            // Batch query all stages at once
+            var stageIdList = stageIdsToValidate.ToList();
+            var stages = await _db.Queryable<Stage>()
+                .Where(s => stageIdList.Contains(s.Id) && s.IsValid)
+                .Select(s => new { s.Id, s.IsActive })
+                .ToListAsync();
+            
+            var stageDict = stages.ToDictionary(s => s.Id, s => s.IsActive);
+            
+            // Validate fallback stage
+            if (condition.FallbackStageId.HasValue)
+            {
+                if (!stageDict.TryGetValue(condition.FallbackStageId.Value, out var isActive) || !isActive)
+                {
+                    result.Warnings.Add(new ValidationWarning { Code = "FALLBACK_STAGE_INVALID", Message = $"Fallback stage {condition.FallbackStageId} not found or inactive" });
+                }
+            }
+            
+            // Validate target stages in actions
+            try
+            {
+                var actions = JsonConvert.DeserializeObject<List<ConditionAction>>(condition.ActionsJson);
+                if (actions != null)
+                {
+                    foreach (var action in actions.Where(a => a.TargetStageId.HasValue))
+                    {
+                        if (!stageDict.TryGetValue(action.TargetStageId!.Value, out var isActive) || !isActive)
                         {
                             result.Warnings.Add(new ValidationWarning { Code = "TARGET_STAGE_INVALID", Message = $"Target stage {action.TargetStageId} in action not found or inactive" });
                         }
@@ -1229,26 +1093,45 @@ namespace FlowFlex.Application.Service.OW
         }
 
         /// <summary>
-        /// Validate referenced action definitions exist
+        /// Validate referenced action definitions exist (batch query optimized)
         /// </summary>
-        private async Task ValidateReferencedActionsAsync(StageCondition condition, ConditionValidationResult result)
+        private async Task ValidateReferencedActionsAsync(StageConditionEntity condition, ConditionValidationResult result)
         {
             try
             {
                 var actions = JsonConvert.DeserializeObject<List<ConditionAction>>(condition.ActionsJson);
-                if (actions != null)
+                if (actions == null)
                 {
-                    foreach (var action in actions.Where(a => a.ActionDefinitionId.HasValue))
+                    return;
+                }
+                
+                // Collect all action definition IDs
+                var actionDefIds = actions
+                    .Where(a => a.ActionDefinitionId.HasValue)
+                    .Select(a => a.ActionDefinitionId!.Value)
+                    .Distinct()
+                    .ToList();
+                
+                if (!actionDefIds.Any())
+                {
+                    return;
+                }
+                
+                // Batch query all action definitions at once
+                var actionDefs = await _db.Queryable<Domain.Entities.Action.ActionDefinition>()
+                    .Where(a => actionDefIds.Contains(a.Id) && a.IsValid)
+                    .Where(a => a.TenantId == _userContext.TenantId)
+                    .Select(a => new { a.Id, a.IsEnabled })
+                    .ToListAsync();
+                
+                var actionDefDict = actionDefs.ToDictionary(a => a.Id, a => a.IsEnabled);
+                
+                // Validate each action definition
+                foreach (var actionDefId in actionDefIds)
+                {
+                    if (!actionDefDict.TryGetValue(actionDefId, out var isEnabled) || !isEnabled)
                     {
-                        var actionDef = await _db.Queryable<Domain.Entities.Action.ActionDefinition>()
-                            .Where(a => a.Id == action.ActionDefinitionId!.Value && a.IsValid)
-                            .Where(a => a.TenantId == _userContext.TenantId)
-                            .FirstAsync();
-
-                        if (actionDef == null || !actionDef.IsEnabled)
-                        {
-                            result.Warnings.Add(new ValidationWarning { Code = "ACTION_DEF_INVALID", Message = $"ActionDefinition {action.ActionDefinitionId} not found or disabled" });
-                        }
+                        result.Warnings.Add(new ValidationWarning { Code = "ACTION_DEF_INVALID", Message = $"ActionDefinition {actionDefId} not found or disabled" });
                     }
                 }
             }
@@ -1261,7 +1144,7 @@ namespace FlowFlex.Application.Service.OW
         /// <summary>
         /// Check for circular references in stage jumps
         /// </summary>
-        private async Task CheckCircularReferencesAsync(StageCondition condition, ConditionValidationResult result)
+        private async Task CheckCircularReferencesAsync(StageConditionEntity condition, ConditionValidationResult result)
         {
             try
             {
@@ -1273,7 +1156,7 @@ namespace FlowFlex.Application.Service.OW
                 foreach (var action in goToActions)
                 {
                     // Check if target stage has a condition that points back
-                    var targetCondition = await _db.Queryable<StageCondition>()
+                    var targetCondition = await _db.Queryable<StageConditionEntity>()
                         .Where(c => c.StageId == action.TargetStageId!.Value && c.IsValid && c.IsActive)
                         .Where(c => c.TenantId == _userContext.TenantId)
                         .FirstAsync();
@@ -1298,28 +1181,6 @@ namespace FlowFlex.Application.Service.OW
             {
                 // Ignore errors in circular reference check
             }
-        }
-
-        /// <summary>
-        /// Check if parameters dictionary has a non-empty array for the given key
-        /// </summary>
-        private bool HasNonEmptyArray(Dictionary<string, object> parameters, string key)
-        {
-            if (!parameters.TryGetValue(key, out var value) || value == null)
-                return false;
-
-            // Check if it's a JArray
-            if (value is Newtonsoft.Json.Linq.JArray jArray)
-                return jArray.Count > 0;
-
-            // Check if it's an IEnumerable (but not string)
-            if (value is System.Collections.IEnumerable enumerable && !(value is string))
-            {
-                var enumerator = enumerable.GetEnumerator();
-                return enumerator.MoveNext();
-            }
-
-            return false;
         }
 
         /// <summary>
@@ -1530,7 +1391,7 @@ namespace FlowFlex.Application.Service.OW
         /// <summary>
         /// Map entity to output DTO
         /// </summary>
-        private StageConditionOutputDto MapToOutputDto(StageCondition entity)
+        private StageConditionOutputDto MapToOutputDto(StageConditionEntity entity)
         {
             var dto = new StageConditionOutputDto
             {
@@ -1582,3 +1443,6 @@ namespace FlowFlex.Application.Service.OW
         #endregion
     }
 }
+
+
+

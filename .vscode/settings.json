@@ -10,9 +10,7 @@
   "[vue]": {
     "editor.defaultFormatter": "esbenp.prettier-vscode"
   },
-  "eslint.workingDirectories": [
-    "./packages/flowFlex-common"
-  ],
+  "eslint.workingDirectories": ["./packages/flowFlex-common"],
   "prettier.useEditorConfig": true,
   "volar.takeOverMode.enabled": true,
   // Markdown and Mermaid settings
@@ -27,11 +25,6 @@
   "markdown.preview.breaks": true,
   "markdown.preview.fontSize": 14,
   "markdown.preview.lineHeight": 1.6,
-  "markdown.mermaid.themes": [
-    "default",
-    "forest",
-    "dark",
-    "neutral"
-  ],
+  "markdown.mermaid.themes": ["default", "forest", "dark", "neutral"],
   "kiroAgent.configureMCP": "Disabled"
 }
