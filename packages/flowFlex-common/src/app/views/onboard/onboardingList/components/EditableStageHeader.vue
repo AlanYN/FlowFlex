@@ -45,7 +45,7 @@
 						<template v-if="displayAssignees.length > 0">
 							<div
 								ref="assigneesTagsRef"
-								class="assignees-tags"
+								class="assignees-tags mt-1"
 								:class="{ 'assignees-collapsed': !isAssigneesExpanded }"
 							>
 								<el-tag
