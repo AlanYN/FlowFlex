@@ -29,19 +29,28 @@
 				>
 					Save
 				</el-button>
-				<el-button
-					type="primary"
-					@click="handleCompleteStage"
-					:loading="completing"
-					:disabled="
-						isCompleteStageDisabled || stageCanCompleted || onboardingData?.isDisabled
-					"
-					class="page-header-btn page-header-btn-primary"
-					:icon="Check"
-					v-if="hasCasePermission(ProjectPermissionEnum.case.update) && !!activeStage"
+				<el-tooltip
+					:content="completeDisabledReason"
+					:disabled="!completeDisabledReason"
+					placement="top"
+					effect="dark"
 				>
-					Complete
-				</el-button>
+					<el-button
+						type="primary"
+						@click="handleCompleteStage"
+						:loading="completing"
+						:disabled="
+							isCompleteStageDisabled ||
+							stageCanCompleted ||
+							onboardingData?.isDisabled
+						"
+						class="page-header-btn page-header-btn-primary"
+						:icon="Check"
+						v-if="hasCasePermission(ProjectPermissionEnum.case.update) && !!activeStage"
+					>
+						Complete
+					</el-button>
+				</el-tooltip>
 				<el-button
 					@click="handleCustomerOverview"
 					class="page-header-btn page-header-btn-secondary"
@@ -413,11 +422,61 @@ const isSaveDisabled = computed(() => {
 
 // 计算是否禁用完成阶段按钮
 const isCompleteStageDisabled = computed(() => {
+	// 检查当前阶段之前是否有未完成的必填阶段
+	const currentStageIndex = workflowStages.value.findIndex(
+		(stage) => stage.stageId === activeStage.value
+	);
+	if (currentStageIndex > 0) {
+		const previousStages = workflowStages.value.slice(0, currentStageIndex);
+		const hasIncompleteRequiredStage = previousStages.some(
+			(stage) => stage.required && !stage.isCompleted && stage.status !== 'Skipped'
+		);
+		if (hasIncompleteRequiredStage) {
+			return true;
+		}
+	}
+
 	const status = onboardingData.value?.status;
 	if (!status) return false;
 
 	// 对于已中止、已取消或暂停的状态，禁用完成阶段
-	return ['Aborted', 'Cancelled', 'Paused', 'Force Completed'].includes(status);
+	if (['Aborted', 'Cancelled', 'Paused', 'Force Completed'].includes(status)) {
+		return true;
+	}
+
+	return false;
+});
+
+// 获取 Complete 按钮禁用的原因提示
+const completeDisabledReason = computed(() => {
+	if (onboardingData.value?.isDisabled) {
+		return 'This case is disabled';
+	}
+
+	if (stageCanCompleted.value) {
+		return 'This stage has already been completed';
+	}
+
+	// 检查前置必填阶段
+	const currentStageIndex = workflowStages.value.findIndex(
+		(stage) => stage.stageId === activeStage.value
+	);
+	if (currentStageIndex > 0) {
+		const previousStages = workflowStages.value.slice(0, currentStageIndex);
+		const hasIncompleteRequiredStage = previousStages.some(
+			(stage) => stage.required && !stage.isCompleted && stage.status !== 'Skipped'
+		);
+		if (hasIncompleteRequiredStage) {
+			return 'There are incomplete required stages. Please complete them first.';
+		}
+	}
+
+	const status = onboardingData.value?.status;
+	if (status && ['Aborted', 'Cancelled', 'Paused', 'Force Completed'].includes(status)) {
+		return `Cannot complete stage when case status is ${status}`;
+	}
+
+	return '';
 });
 
 // 计算是否因为Aborted状态而禁用组件（类似于Viewable only逻辑）

@@ -119,8 +119,24 @@
 											</div>
 											<!-- Action Tag for completed stages -->
 											<div class="flex items-center gap-2 flex-shrink-0">
+												<!-- Required + Skipped: 蓝灰色提示样式 -->
 												<el-tooltip
-													v-if="stage.required"
+													v-if="
+														stage.required && stage.status === 'Skipped'
+													"
+													content="This required stage was skipped"
+													placement="top"
+												>
+													<div
+														class="text-slate-500 px-2 border border-slate-400 rounded-xl flex items-center gap-x-2 text-sm bg-slate-50 dark:text-slate-300 dark:border-slate-500 dark:bg-slate-800"
+													>
+														<Icon icon="mdi:skip-forward" />
+														Skipped Required
+													</div>
+												</el-tooltip>
+												<!-- Required: 正常样式 -->
+												<el-tooltip
+													v-else-if="stage.required"
 													content="Users must complete this stage before proceeding to subsequent stages"
 													placement="top"
 												>
@@ -250,7 +266,9 @@ const stages = computed(() => {
 });
 
 const progressPercentage = computed(() => {
-	const completedStages = stages.value.filter((stage) => stage.completed).length;
+	const completedStages = stages.value.filter(
+		(stage) => stage.completed || stage.status == 'Skipped'
+	).length;
 	const totalStages = stages.value.length;
 
 	if (totalStages === 0) return 0;

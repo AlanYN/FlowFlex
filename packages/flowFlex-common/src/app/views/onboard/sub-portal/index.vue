@@ -9,7 +9,7 @@
 			<div class="fixed inset-y-0 left-0 flex w-64 flex-col bg-siderbarGray dark:bg-black">
 				<div class="flex h-16 items-center justify-between px-4 border-b">
 					<h1 class="text-xl font-bold text-primary">Customer Portal</h1>
-					<button @click="sidebarOpen = false" class="p-1 rounded-xl hover:bg-gray-100">
+					<el-button @click="sidebarOpen = false">
 						<svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 							<path
 								stroke-linecap="round"
@@ -18,7 +18,7 @@
 								d="M6 18L18 6M6 6l12 12"
 							/>
 						</svg>
-					</button>
+					</el-button>
 				</div>
 				<nav class="flex-1 space-y-1 px-2 py-4">
 					<div
@@ -149,7 +149,7 @@
 		<div class="lg:pl-64">
 			<!-- Mobile header -->
 			<div class="flex h-16 items-center justify-between border-b bg-white px-4 lg:hidden">
-				<button @click="sidebarOpen = true" class="p-1 rounded-xl hover:bg-gray-100">
+				<el-button @click="sidebarOpen = true">
 					<svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 						<path
 							stroke-linecap="round"
@@ -158,7 +158,7 @@
 							d="M4 6h16M4 12h16M4 18h16"
 						/>
 					</svg>
-				</button>
+				</el-button>
 				<h1 class="text-lg font-semibold">Customer Portal</h1>
 				<div></div>
 			</div>
@@ -342,15 +342,10 @@
 									</div>
 								</div>
 								<div class="flex items-center space-x-2">
-									<button
+									<el-button
 										@click="handleStageAction(stage)"
 										:disabled="!isStageEditable"
-										:class="[
-											'inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500',
-											isStageEditable
-												? 'bg-primary hover:bg-primary cursor-pointer'
-												: 'bg-gray-400 cursor-not-allowed opacity-60',
-										]"
+										type="primary"
 									>
 										Continue
 										<svg
@@ -366,7 +361,7 @@
 												d="M9 5l7 7-7 7"
 											/>
 										</svg>
-									</button>
+									</el-button>
 								</div>
 							</div>
 							<div v-if="nextSteps.length === 0" class="text-center py-6">
@@ -468,7 +463,7 @@
 											>
 												{{ getStageStatusText(stage.status) }}
 											</span>
-											<button
+											<el-button
 												v-if="
 													stage.editable &&
 													(stage.status === 'completed' ||
@@ -476,12 +471,7 @@
 												"
 												@click="handleStageAction(stage)"
 												:disabled="!isStageEditable"
-												:class="[
-													'inline-flex items-center px-3 py-1 border text-sm font-medium rounded-xl focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500',
-													isStageEditable
-														? 'border-gray-200 text-gray-700 bg-gray-50 hover:bg-primary cursor-pointer'
-														: 'border-gray-300 text-gray-400 bg-gray-100 cursor-not-allowed opacity-60',
-												]"
+												type="primary"
 											>
 												<svg
 													v-if="stage.status === 'completed'"
@@ -522,7 +512,7 @@
 														? 'View'
 														: 'Continue'
 												}}
-											</button>
+											</el-button>
 										</div>
 									</div>
 									<p class="text-sm text-gray-600 mt-1">

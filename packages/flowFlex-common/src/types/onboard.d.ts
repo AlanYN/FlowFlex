@@ -51,7 +51,7 @@ export interface OnboardingItem {
 	workflowName: string;
 	timelineDays: number;
 	workflowId: string;
-	stagesProgress: StageInfo[];
+	stagesProgress: Stage[];
 	currentStageStartTime: string;
 	currentStageEndTime: string;
 	currentStageEstimatedDays: string;

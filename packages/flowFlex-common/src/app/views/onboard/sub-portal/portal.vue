@@ -9,7 +9,7 @@
 			<div class="fixed inset-y-0 left-0 flex w-64 flex-col bg-siderbarGray dark:bg-black">
 				<div class="flex h-16 items-center justify-between px-4 border-b">
 					<h1 class="text-xl font-bold text-primary">Customer Portal</h1>
-					<button @click="sidebarOpen = false" class="p-1 rounded-xl portal-btn-hover">
+					<el-button @click="sidebarOpen = false">
 						<svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 							<path
 								stroke-linecap="round"
@@ -18,7 +18,7 @@
 								d="M6 18L18 6M6 6l12 12"
 							/>
 						</svg>
-					</button>
+					</el-button>
 				</div>
 				<nav class="flex-1 space-y-1 px-2 py-4">
 					<div
@@ -146,7 +146,7 @@
 		<div class="lg:pl-64">
 			<!-- Mobile header -->
 			<div class="flex h-16 items-center justify-between border-b bg-white px-4 lg:hidden">
-				<button @click="sidebarOpen = true" class="p-1 rounded-xl portal-btn-hover">
+				<el-button @click="sidebarOpen = true">
 					<svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 						<path
 							stroke-linecap="round"
@@ -155,7 +155,7 @@
 							d="M4 6h16M4 12h16M4 18h16"
 						/>
 					</svg>
-				</button>
+				</el-button>
 				<h1 class="text-lg font-semibold">Customer Portal</h1>
 				<div></div>
 			</div>
@@ -200,22 +200,28 @@
 							>
 								Save
 							</el-button>
-							<el-button
-								type="primary"
-								@click="handleCompleteStage"
-								:loading="completing"
-								:disabled="
-									isCompleteStageDisabled ||
-									stageCanCompleted ||
-									(onboardingActiveStageInfo?.visibleInPortal &&
-										stagePortalPermission)
-								"
-								:icon="Check"
-								class="page-header-btn page-header-btn-primary"
-								v-if="!!activeStage"
+							<el-tooltip
+								:content="completeDisabledReason"
+								:disabled="!completeDisabledReason"
+								placement="bottom"
 							>
-								Complete Stage
-							</el-button>
+								<el-button
+									type="primary"
+									@click="handleCompleteStage"
+									:loading="completing"
+									:disabled="
+										isCompleteStageDisabled ||
+										stageCanCompleted ||
+										(onboardingActiveStageInfo?.visibleInPortal &&
+											stagePortalPermission)
+									"
+									:icon="Check"
+									class="page-header-btn page-header-btn-primary"
+									v-if="!!activeStage"
+								>
+									Complete Stage
+								</el-button>
+							</el-tooltip>
 						</template>
 					</PageHeader>
 
@@ -650,11 +656,61 @@ const isSaveDisabled = computed(() => {
 
 // 计算是否禁用完成阶段按钮 - 与detail.vue保持一致
 const isCompleteStageDisabled = computed(() => {
+	// 检查当前阶段之前是否有未完成的必填阶段
+	const currentStageIndex = workflowStages.value.findIndex(
+		(stage) => stage.stageId === activeStage.value
+	);
+	if (currentStageIndex > 0) {
+		const previousStages = workflowStages.value.slice(0, currentStageIndex);
+		const hasIncompleteRequiredStage = previousStages.some(
+			(stage) => stage.required && !stage.isCompleted && stage.status !== 'Skipped'
+		);
+		if (hasIncompleteRequiredStage) {
+			return true;
+		}
+	}
+
 	const status = onboardingData.value?.status;
 	if (!status) return false;
 
 	// 对于已中止、已取消或暂停的状态，禁用完成阶段
-	return ['Aborted', 'Cancelled', 'Paused', 'Force Completed'].includes(status);
+	if (['Aborted', 'Cancelled', 'Paused', 'Force Completed'].includes(status)) {
+		return true;
+	}
+
+	return false;
+});
+
+// 获取 Complete 按钮禁用的原因提示 - 与detail.vue保持一致
+const completeDisabledReason = computed(() => {
+	if (stageCanCompleted.value) {
+		return 'This stage has already been completed';
+	}
+
+	if (onboardingActiveStageInfo.value?.visibleInPortal && stagePortalPermission.value) {
+		return 'You do not have permission to complete this stage';
+	}
+
+	// 检查前置必填阶段
+	const currentStageIndex = workflowStages.value.findIndex(
+		(stage) => stage.stageId === activeStage.value
+	);
+	if (currentStageIndex > 0) {
+		const previousStages = workflowStages.value.slice(0, currentStageIndex);
+		const hasIncompleteRequiredStage = previousStages.some(
+			(stage) => stage.required && !stage.isCompleted && stage.status !== 'Skipped'
+		);
+		if (hasIncompleteRequiredStage) {
+			return 'There are incomplete required stages. Please complete them first.';
+		}
+	}
+
+	const status = onboardingData.value?.status;
+	if (status && ['Aborted', 'Cancelled', 'Paused', 'Force Completed'].includes(status)) {
+		return `Cannot complete stage when case status is ${status}`;
+	}
+
+	return '';
 });
 
 // 计算当前阶段是否已完成 - 与detail.vue保持一致
@@ -1924,11 +1980,6 @@ watch(stageIdFromRoute, async (newStageId) => {
 </script>
 
 <style scoped lang="scss">
-/* Portal custom classes */
-.portal-btn-hover:hover {
-	background-color: var(--el-fill-color-light);
-}
-
 .portal-nav-item {
 	color: var(--el-text-color-regular);
 	&:hover {
