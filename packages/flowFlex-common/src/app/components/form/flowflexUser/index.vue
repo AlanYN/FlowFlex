@@ -369,6 +369,9 @@ interface Props {
 	checkStrictly?: boolean; // 是否严格模式，不遵循父子节点联动逻辑
 	choosableTreeData?: FlowflexUser[]; // 自定义可选择的树形数据，传入时优先使用此数据而不是缓存数据，支持动态更新
 	isShowAdminUser?: boolean;
+	args?: {
+		[key: string]: any;
+	};
 	beforeOpen?: () => boolean | string | Promise<boolean | string>; // 打开弹窗前的钩子函数，返回 false 或 string 则阻止打开，string 为错误提示信息
 }
 
@@ -892,7 +895,7 @@ const initializeData = async (searchQuery = '', forceRemote = false) => {
 
 		if (shouldFetchRemote) {
 			await menuStore.clearFlowflexUserData();
-			const fetched = await menuStore.getFlowflexUserDataWithCache(searchQuery);
+			const fetched = await menuStore.getFlowflexUserDataWithCache(searchQuery, props.args);
 			remoteData = Array.isArray(fetched) ? fetched : [];
 		}
 
