@@ -50,11 +50,8 @@
 				v-model="store.panelVisible"
 				:selected-node="store.getSelectedNode"
 				:stages="store.stages"
-				:saving="store.saving"
-				@save="handleSave"
 				@cancel="handleCancel"
 				@add-condition="handleAddCondition"
-				@change="handleChange"
 			/>
 
 			<!-- 新建 Condition 编辑器 -->
@@ -76,7 +73,6 @@ import type { ViewportTransform, Node } from '@vue-flow/core';
 import { useWorkflowCanvasStore } from '@/stores/modules/workflowCanvas';
 import { WorkflowCanvas, NodePanel, CanvasToolbar } from '@/components/workflow-canvas';
 import { StageConditionEditor } from './components/condition';
-import type { StageConditionInput } from '#/condition';
 import type { StageNodeData, ConditionNodeData, CanvasNodeData } from '#/workflow-canvas';
 
 // Route
@@ -127,7 +123,23 @@ onBeforeRouteLeave(async (to, from, next) => {
 
 // 节点点击
 const handleNodeClick = (node: Node<CanvasNodeData>) => {
-	store.selectNode(node.id);
+	// 如果是 Condition 节点，直接打开 StageConditionEditor 进行编辑
+	if (node.data?.type === 'condition') {
+		const conditionData = node.data as ConditionNodeData;
+		const stageIndex = store.stages.findIndex((s) => s.id === conditionData.stageId);
+		const stage = store.stages[stageIndex];
+		if (stage) {
+			conditionEditorRef.value?.open(
+				stage.id,
+				stage.name,
+				stageIndex,
+				conditionData.condition
+			);
+		}
+	} else {
+		// Stage 节点使用 NodePanel
+		store.selectNode(node.id);
+	}
 };
 
 // 画布空白区域点击
@@ -168,25 +180,9 @@ const handleRetry = () => {
 	}
 };
 
-// 保存 Condition
-const handleSave = async (stageId: string, input: StageConditionInput) => {
-	const selectedNode = store.getSelectedNode;
-	if (!selectedNode) return;
-
-	if (selectedNode.data?.type === 'condition') {
-		// 更新现有 Condition
-		const conditionData = selectedNode.data as ConditionNodeData;
-		const success = await store.updateConditionById(conditionData.condition.id, stageId, input);
-		if (success) {
-			store.closePanel();
-		}
-	}
-};
-
 // 取消
 const handleCancel = () => {
 	store.closePanel();
-	store.setHasUnsavedChanges(false);
 };
 
 // 添加 Condition（从 Stage 面板）
@@ -208,11 +204,6 @@ const handleConditionSaved = async () => {
 	store.generateNodesAndEdges();
 	// 关闭面板
 	store.closePanel();
-};
-
-// 数据变更
-const handleChange = () => {
-	store.setHasUnsavedChanges(true);
 };
 
 // 删除 Condition

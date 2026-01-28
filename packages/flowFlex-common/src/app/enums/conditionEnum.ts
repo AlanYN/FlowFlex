@@ -117,7 +117,7 @@ export const dateOperators: OperatorOption[] = [
  */
 export const checklistOperators: OperatorOption[] = [
 	{ value: 'CompleteTask', label: 'Complete Task' },
-	{ value: 'CompleteStage', label: 'Complete Stage' },
+	// { value: 'CompleteStage', label: 'Complete Stage' },
 ];
 
 /**

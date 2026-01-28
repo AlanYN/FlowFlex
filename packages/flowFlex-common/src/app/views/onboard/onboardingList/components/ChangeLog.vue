@@ -1530,7 +1530,9 @@ defineExpose({
 .changelog-overlay {
 	position: absolute;
 	inset: 0;
-	background: rgba(0, 0, 0, 0.3);
+	background-color: rgba(var(--black-400-rgb), 0.6);
+	backdrop-filter: blur(1px);
+	-webkit-backdrop-filter: blur(1px);
 }
 
 /* 弹出面板 - 固定在右下角 */
