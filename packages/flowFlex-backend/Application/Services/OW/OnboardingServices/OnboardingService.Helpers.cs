@@ -43,76 +43,11 @@ namespace FlowFlex.Application.Services.OW
     /// </summary>
     public partial class OnboardingService
     {
-        public async Task<OnboardingProgressDto> GetProgressAsync(long id)
-        {
-            var entity = await _onboardingRepository.GetByIdAsync(id);
-            if (entity == null || !entity.IsValid)
-            {
-                throw new CRMException(ErrorCodeEnum.DataNotFound, "Onboarding not found");
-            }
-
-            // OPTIMIZATION: Get stages once and pass to EnsureStagesProgressInitializedAsync
-            var stages = await _stageRepository.GetByWorkflowIdAsync(entity.WorkflowId);
-            
-            // Ensure stages progress is properly initialized and synced (pass preloaded stages)
-            await EnsureStagesProgressInitializedAsync(entity, stages);
-
-            var totalStages = stages.Count;
-            var completedStages = entity.CurrentStageOrder;
-
-            // Calculate estimated completion time based on average stage duration
-            var avgStageDuration = TimeSpan.FromDays(7); // Default 7 days per stage
-            var remainingStages = totalStages - completedStages;
-            var estimatedCompletion = entity.CreateDate.AddDays(totalStages * 7);
-
-            // Check if overdue
-            var isOverdue = entity.Status != "Completed" &&
-                           entity.EstimatedCompletionDate.HasValue &&
-                           DateTimeOffset.UtcNow > entity.EstimatedCompletionDate.Value;
-
-            // Map stages progress to DTO
-            var stagesProgressDto = _mapper.Map<List<OnboardingStageProgressDto>>(entity.StagesProgress);
-
-            // OPTIMIZATION: Batch query all actions for all stages at once
-            if (stagesProgressDto != null && stagesProgressDto.Any())
-            {
-                var stageIds = stagesProgressDto.Select(sp => sp.StageId).ToList();
-                Dictionary<long, List<ActionTriggerMappingWithActionInfo>> actionsDict;
-                try
-                {
-                    actionsDict = await _actionManagementService.GetActionTriggerMappingsByTriggerSourceIdsAsync(stageIds);
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogWarning(ex, "Failed to batch query actions for stages in GetProgressAsync");
-                    actionsDict = new Dictionary<long, List<ActionTriggerMappingWithActionInfo>>();
-                }
-
-                foreach (var stageProgress in stagesProgressDto)
-                {
-                    stageProgress.Actions = actionsDict.TryGetValue(stageProgress.StageId, out var actions)
-                        ? actions
-                        : new List<ActionTriggerMappingWithActionInfo>();
-                }
-            }
-
-            return new OnboardingProgressDto
-            {
-                OnboardingId = entity.Id,
-                CurrentStageId = entity.CurrentStageId,
-                CurrentStageName = stages.FirstOrDefault(s => s.Id == entity.CurrentStageId)?.Name,
-                TotalStages = totalStages,
-                CompletedStages = completedStages,
-                CompletionPercentage = entity.CompletionRate,
-                StartTime = entity.CreateDate,
-                EstimatedCompletionTime = entity.EstimatedCompletionDate ?? estimatedCompletion,
-                ActualCompletionTime = entity.ActualCompletionDate,
-                IsOverdue = isOverdue,
-                Status = entity.Status,
-                Priority = entity.Priority,
-                StagesProgress = stagesProgressDto
-            };
-        }
+        /// <summary>
+        /// Get onboarding progress - delegates to OnboardingQueryService
+        /// </summary>
+        public Task<OnboardingProgressDto> GetProgressAsync(long id)
+            => _queryService.GetProgressAsync(id);
 
         /// <summary>
         /// Log general onboarding action to change log
@@ -858,120 +793,232 @@ namespace FlowFlex.Application.Services.OW
         }
 
         /// <summary>
-        /// Export onboarding data to Excel
-        /// </summary>
-        public async Task<Stream> ExportToExcelAsync(OnboardingQueryRequest query)
-        {
-            // Get data using existing query method
-            var result = await QueryAsync(query);
-            var data = result.Data;
-
-            // Transform to export format
-            var exportData = data.Select(item => new OnboardingExportDto
-            {
-                CustomerName = item.CaseName,
-                Id = item.LeadId,
-                CaseCode = item.CaseCode,
-                ContactName = item.ContactPerson,
-                LifeCycleStage = item.LifeCycleStageName,
-                WorkFlow = item.WorkflowName,
-                OnboardStage = item.CurrentStageName,
-                Priority = item.Priority,
-                Ownership = !string.IsNullOrWhiteSpace(item.OwnershipName)
-                    ? $"{item.OwnershipName} ({item.OwnershipEmail})"
-                    : string.Empty,
-                Status = GetDisplayStatus(item.Status),
-                StartDate = FormatDateForExport(item.CurrentStageStartTime),
-                EndDate = FormatDateForExport(item.CurrentStageEndTime),
-                UpdatedBy = string.IsNullOrWhiteSpace(item.StageUpdatedBy) ? item.ModifyBy : item.StageUpdatedBy,
-                UpdateTime = (item.StageUpdatedTime.HasValue ? item.StageUpdatedTime.Value : item.ModifyDate)
-                  .ToString("MM/dd/yyyy HH:mm:ss")
-            }).ToList();
-            // Use EPPlus to generate Excel file (avoid NPOI version conflict)
-            return GenerateExcelWithEPPlus(exportData);
-        }
-
-        /// <summary>
-        /// Convert status to display format to match frontend logic
-        /// </summary>
-        private string GetDisplayStatus(string status)
-        {
-            if (string.IsNullOrEmpty(status))
-                return status;
-
-            return status switch
-            {
-                "Active" or "Started" => "InProgress",
-                "Cancelled" => "Aborted",
-                "Force Completed" => "Force Completed",
-                _ => status
-            };
-        }
-
-        /// <summary>
-        /// Format date to match frontend display format (MM/dd/yyyy HH:mm)
-        /// </summary>
-        private string FormatDateForExport(DateTimeOffset? dateTime)
-        {
-            if (!dateTime.HasValue)
-                return "";
-
-            // Format as MM/dd/yyyy HH:mm to include time precision to minutes
-            return dateTime.Value.ToString("MM/dd/yyyy HH:mm");
-        }
-
-        /// <summary>
-        /// Generate Excel file using EPPlus
-        /// </summary>
-        private Stream GenerateExcelWithEPPlus(List<OnboardingExportDto> data)
-        {
-            using var package = new OfficeOpenXml.ExcelPackage();
-            var worksheet = package.Workbook.Worksheets.Add("Onboarding Export");
-
-            // Set headers
-            var headers = new[]
-            {
-                "Customer Name", "Case Code", "Contact Name", "Life Cycle Stage", "Workflow", "Stage",
-                "Priority", "Ownership", "Status", "Start Date", "End Date", "Updated By", "Update Time"
-            };
-
-            for (int i = 0; i < headers.Length; i++)
-            {
-                worksheet.Cells[1, i + 1].Value = headers[i];
-                worksheet.Cells[1, i + 1].Style.Font.Bold = true;
-            }
-
-            // Set data
-            for (int row = 0; row < data.Count; row++)
-            {
-                var item = data[row];
-                worksheet.Cells[row + 2, 1].Value = item.CustomerName;
-                worksheet.Cells[row + 2, 2].Value = item.CaseCode;
-                worksheet.Cells[row + 2, 3].Value = item.ContactName;
-                worksheet.Cells[row + 2, 4].Value = item.LifeCycleStage;
-                worksheet.Cells[row + 2, 5].Value = item.WorkFlow;
-                worksheet.Cells[row + 2, 6].Value = item.OnboardStage;
-                worksheet.Cells[row + 2, 7].Value = item.Priority;
-                worksheet.Cells[row + 2, 8].Value = item.Ownership;
-                worksheet.Cells[row + 2, 9].Value = item.Status;
-                worksheet.Cells[row + 2, 10].Value = item.StartDate;
-                worksheet.Cells[row + 2, 11].Value = item.EndDate;
-                worksheet.Cells[row + 2, 12].Value = item.UpdatedBy;
-                worksheet.Cells[row + 2, 13].Value = item.UpdateTime;
-            }
-
-            // Auto-fit columns
-            worksheet.Cells.AutoFitColumns();
-
-            var stream = new MemoryStream();
-            package.SaveAs(stream);
-            stream.Position = 0;
-            return stream;
-        }
-
-        /// <summary>
         /// Initialize stages progress array for a new onboarding
         /// </summary>
+
+        #region Utility Methods (moved from StatusOperations)
+
+        /// <summary>
+        /// Parse JSON array that might be double-encoded
+        /// </summary>
+        private static List<string> ParseJsonArraySafe(string jsonString)
+        {
+            if (string.IsNullOrWhiteSpace(jsonString))
+            {
+                return new List<string>();
+            }
+
+            try
+            {
+                var workingString = jsonString.Trim();
+                if (workingString.StartsWith("\"") && workingString.EndsWith("\""))
+                {
+                    workingString = Newtonsoft.Json.JsonConvert.DeserializeObject<string>(workingString);
+                }
+                var result = Newtonsoft.Json.JsonConvert.DeserializeObject<List<string>>(workingString);
+                return result ?? new List<string>();
+            }
+            catch
+            {
+                return new List<string>();
+            }
+        }
+
+        /// <summary>
+        /// Validates and formats JSON array string for PostgreSQL JSONB
+        /// </summary>
+        private static string ValidateAndFormatJsonArray(string jsonArray)
+        {
+            if (string.IsNullOrWhiteSpace(jsonArray))
+            {
+                return "[]";
+            }
+
+            try
+            {
+                var parsed = Newtonsoft.Json.JsonConvert.DeserializeObject(jsonArray);
+                if (parsed is Newtonsoft.Json.Linq.JArray)
+                {
+                    return jsonArray;
+                }
+                return "[]";
+            }
+            catch
+            {
+                return "[]";
+            }
+        }
+
+        /// <summary>
+        /// Update stage tracking information
+        /// </summary>
+        private async Task UpdateStageTrackingInfoAsync(Onboarding entity)
+        {
+            entity.StageUpdatedTime = DateTimeOffset.UtcNow;
+            entity.StageUpdatedBy = _operatorContextService.GetOperatorDisplayName();
+            entity.StageUpdatedById = _operatorContextService.GetOperatorId();
+            entity.StageUpdatedByEmail = GetCurrentUserEmail();
+
+            if (entity.StagesProgress != null && entity.StagesProgress.Any())
+            {
+                foreach (var stage in entity.StagesProgress)
+                {
+                    stage.IsCurrent = stage.StageId == entity.CurrentStageId;
+                    if (stage.IsCompleted)
+                    {
+                        stage.Status = "Completed";
+                    }
+                    else if (stage.IsCurrent)
+                    {
+                        stage.Status = "InProgress";
+                    }
+                    else
+                    {
+                        stage.Status = "Pending";
+                    }
+                }
+                entity.StagesProgressJson = SerializeStagesProgress(entity.StagesProgress);
+            }
+        }
+
+        /// <summary>
+        /// Sync Onboarding fields to Static Field Values when Onboarding is updated
+        /// </summary>
+        private async Task SyncStaticFieldValuesAsync(
+            long onboardingId,
+            long stageId,
+            string originalLeadId,
+            string originalCaseName,
+            string originalContactPerson,
+            string originalContactEmail,
+            string originalLeadPhone,
+            long? originalLifeCycleStageId,
+            string originalPriority,
+            OnboardingInputDto input)
+        {
+            try
+            {
+                _logger.LogDebug("Starting static field sync - OnboardingId: {OnboardingId}, StageId: {StageId}", onboardingId, stageId);
+
+                var staticFieldUpdates = new List<FlowFlex.Application.Contracts.Dtos.OW.StaticField.StaticFieldValueInputDto>();
+
+                if (!string.Equals(originalLeadId, input.LeadId, StringComparison.Ordinal))
+                {
+                    staticFieldUpdates.Add(CreateStaticFieldInput(onboardingId, stageId, "LEADID", input.LeadId, "text", "Lead ID", false));
+                }
+
+                if (!string.Equals(originalCaseName, input.CaseName, StringComparison.Ordinal))
+                {
+                    staticFieldUpdates.Add(CreateStaticFieldInput(onboardingId, stageId, "CUSTOMERNAME", input.CaseName, "text", "Customer Name", false));
+                }
+
+                if (!string.Equals(originalContactPerson, input.ContactPerson, StringComparison.Ordinal))
+                {
+                    staticFieldUpdates.Add(CreateStaticFieldInput(onboardingId, stageId, "CONTACTNAME", input.ContactPerson, "text", "Contact Name", false));
+                }
+
+                if (!string.Equals(originalContactEmail, input.ContactEmail, StringComparison.Ordinal))
+                {
+                    staticFieldUpdates.Add(CreateStaticFieldInput(onboardingId, stageId, "CONTACTEMAIL", input.ContactEmail, "email", "Contact Email", false));
+                }
+
+                if (!string.Equals(originalLeadPhone, input.LeadPhone, StringComparison.Ordinal))
+                {
+                    staticFieldUpdates.Add(CreateStaticFieldInput(onboardingId, stageId, "CONTACTPHONE", input.LeadPhone, "tel", "Contact Phone", false));
+                }
+
+                if (originalLifeCycleStageId != input.LifeCycleStageId)
+                {
+                    staticFieldUpdates.Add(CreateStaticFieldInput(onboardingId, stageId, "LIFECYCLESTAGE", input.LifeCycleStageId?.ToString() ?? "", "select", "Life Cycle Stage", false));
+                }
+
+                if (!string.Equals(originalPriority, input.Priority, StringComparison.Ordinal))
+                {
+                    staticFieldUpdates.Add(CreateStaticFieldInput(onboardingId, stageId, "PRIORITY", input.Priority, "select", "Priority", false));
+                }
+
+                if (staticFieldUpdates.Any())
+                {
+                    _logger.LogDebug("Syncing {FieldCount} static field(s) to database", staticFieldUpdates.Count);
+                    var batchInput = new FlowFlex.Application.Contracts.Dtos.OW.StaticField.BatchStaticFieldValueInputDto
+                    {
+                        OnboardingId = onboardingId,
+                        StageId = stageId,
+                        FieldValues = staticFieldUpdates,
+                        Source = "onboarding_update",
+                        IpAddress = GetClientIpAddress(),
+                        UserAgent = GetUserAgent()
+                    };
+
+                    await _staticFieldValueService.BatchSaveAsync(batchInput);
+                    _logger.LogDebug("Static field sync completed successfully");
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to sync static field values for Onboarding {OnboardingId}", onboardingId);
+            }
+        }
+
+        /// <summary>
+        /// Get client IP address from HTTP context
+        /// </summary>
+        private string GetClientIpAddress()
+        {
+            var httpContext = _httpContextAccessor?.HttpContext;
+            if (httpContext == null) return string.Empty;
+
+            var ipAddress = httpContext.Request.Headers["X-Forwarded-For"].FirstOrDefault();
+            if (string.IsNullOrEmpty(ipAddress))
+            {
+                ipAddress = httpContext.Request.Headers["X-Real-IP"].FirstOrDefault();
+            }
+            if (string.IsNullOrEmpty(ipAddress))
+            {
+                ipAddress = httpContext.Connection.RemoteIpAddress?.ToString();
+            }
+
+            return ipAddress ?? string.Empty;
+        }
+
+        /// <summary>
+        /// Get user agent from HTTP context
+        /// </summary>
+        private string GetUserAgent()
+        {
+            var httpContext = _httpContextAccessor?.HttpContext;
+            return httpContext?.Request.Headers["User-Agent"].ToString() ?? string.Empty;
+        }
+
+        /// <summary>
+        /// Create StaticFieldValueInputDto for static field sync
+        /// </summary>
+        private FlowFlex.Application.Contracts.Dtos.OW.StaticField.StaticFieldValueInputDto CreateStaticFieldInput(
+            long onboardingId,
+            long stageId,
+            string fieldName,
+            string fieldValue,
+            string fieldType,
+            string fieldLabel,
+            bool isRequired)
+        {
+            return new FlowFlex.Application.Contracts.Dtos.OW.StaticField.StaticFieldValueInputDto
+            {
+                OnboardingId = onboardingId,
+                StageId = stageId,
+                FieldName = fieldName,
+                FieldValueJson = JsonSerializer.Serialize(fieldValue),
+                FieldType = fieldType,
+                DisplayName = fieldLabel,
+                FieldLabel = fieldLabel,
+                IsRequired = isRequired,
+                Status = "Draft",
+                CompletionRate = string.IsNullOrWhiteSpace(fieldValue) ? 0 : 100,
+                ValidationStatus = "Pending"
+            };
+        }
+
+        #endregion
     }
 }
 

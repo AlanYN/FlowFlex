@@ -45,160 +45,14 @@ namespace FlowFlex.Application.Services.OW
     {
         private async Task InitializeStagesProgressAsync(Onboarding entity, List<Stage> stages)
         {
-            try
-            {
-                entity.StagesProgress = new List<OnboardingStageProgress>();
-
-                if (stages == null || !stages.Any())
-                {
-                    // Debug logging handled by structured logging
-                    entity.StagesProgressJson = "[]";
-                    return;
-                }
-
-                var orderedStages = stages.OrderBy(s => s.Order).ToList();
-                var currentTime = DateTimeOffset.UtcNow;
-
-                // Use sequential stage order (1, 2, 3, 4, 5...) instead of the original stage.Order
-                for (int i = 0; i < orderedStages.Count; i++)
-                {
-                    var stage = orderedStages[i];
-                    var sequentialOrder = i + 1; // Sequential order starting from 1
-                    var isFirstStage = sequentialOrder == 1;
-
-                    var stageProgress = new OnboardingStageProgress
-                    {
-                        // Core progress fields (will be serialized to JSON)
-                        StageId = stage.Id,
-                        Status = isFirstStage ? "InProgress" : "Pending", // First stage starts as InProgress
-                        IsCompleted = false,
-                        StartTime = isFirstStage ? GetNormalizedUtcNow() : null, // First stage starts immediately with normalized time (00:00:00)
-                        CompletionTime = null,
-                        CompletedById = null,
-                        CompletedBy = null,
-                        Notes = null,
-                        IsCurrent = isFirstStage, // First stage is current
-                        Assignee = ParseDefaultAssignee(stage.DefaultAssignee), // Sync from Stage.DefaultAssignee
-                        CoAssignees = GetFilteredCoAssignees(stage.CoAssignees, stage.DefaultAssignee), // Sync from Stage.CoAssignees
-                        CustomStageAssignee = null, // User customization, initially null
-                        CustomStageCoAssignees = null, // User customization, initially null
-
-                        // Stage configuration fields (not serialized, populated dynamically)
-                        StageName = stage.Name,
-                        StageDescription = stage.Description,
-                        StageOrder = sequentialOrder,
-                        EstimatedDays = NormalizeEstimatedDays(stage.EstimatedDuration),
-                        VisibleInPortal = stage.VisibleInPortal,
-                        PortalPermission = stage.PortalPermission,
-                        AttachmentManagementNeeded = stage.AttachmentManagementNeeded,
-                        Required = stage.Required,
-                        ComponentsJson = stage.ComponentsJson,
-                        Components = stage.Components
-                    };
-
-                    entity.StagesProgress.Add(stageProgress);
-
-                    // Debug logging handled by structured logging");
-                }
-
-                // Serialize to JSON for database storage (only progress fields, not stage configuration)
-                entity.StagesProgressJson = SerializeStagesProgress(entity.StagesProgress);
-                // Debug logging handled by structured logging
-            }
-            catch (Exception ex)
-            {
-                // Debug logging handled by structured logging
-                entity.StagesProgress = new List<OnboardingStageProgress>();
-                entity.StagesProgressJson = "[]";
-            }
+            await _stageProgressService.InitializeStagesProgressAsync(entity, stages);
         }
         /// <summary>
         /// Update stages progress - supports non-sequential stage completion
         /// </summary>
         private async Task UpdateStagesProgressAsync(Onboarding entity, long completedStageId, string completedBy = null, long? completedById = null, string notes = null)
         {
-            try
-            {
-                // Load current progress using the proper method that handles JSON formatting
-                LoadStagesProgressFromJson(entity);
-
-                _logger.LogDebug("UpdateStagesProgressAsync - Onboarding {OnboardingId} has {StageCount} stages",
-                    entity.Id, entity.StagesProgress?.Count ?? 0);
-
-                var currentTime = DateTimeOffset.UtcNow;
-                var completedStage = entity.StagesProgress.FirstOrDefault(s => s.StageId == completedStageId);
-
-                if (completedStage != null)
-                {
-                    var wasAlreadyCompleted = completedStage.IsCompleted;
-
-                    // Mark current stage as completed
-                    completedStage.Status = "Completed";
-                    completedStage.IsCompleted = true;
-                    completedStage.CompletionTime = currentTime;
-                    completedStage.CompletedBy = completedBy ?? _operatorContextService.GetOperatorDisplayName();
-                    completedStage.CompletedById = completedById ?? _operatorContextService.GetOperatorId();
-                    completedStage.IsCurrent = false;
-                    completedStage.LastUpdatedTime = currentTime;
-                    completedStage.LastUpdatedBy = completedBy ?? _operatorContextService.GetOperatorDisplayName();
-
-                    // Set StartTime if not already set
-                    if (!completedStage.StartTime.HasValue)
-                    {
-                        completedStage.StartTime = GetNormalizedUtcNow();
-                    }
-
-                    if (!string.IsNullOrEmpty(notes))
-                    {
-                        if (wasAlreadyCompleted && !string.IsNullOrEmpty(completedStage.Notes))
-                        {
-                            completedStage.Notes += $"\n[Re-completed {currentTime:yyyy-MM-dd HH:mm:ss}] {notes}";
-                        }
-                        else
-                        {
-                            completedStage.Notes = notes;
-                        }
-                    }
-
-                    // Find next stage to activate
-                    var nextStage = entity.StagesProgress
-                        .Where(s => s.StageOrder > completedStage.StageOrder && !s.IsCompleted)
-                        .OrderBy(s => s.StageOrder)
-                        .FirstOrDefault();
-
-                    // Clear all current stage flags first
-                    foreach (var stage in entity.StagesProgress)
-                    {
-                        stage.IsCurrent = false;
-                    }
-
-                    if (nextStage != null)
-                    {
-                        nextStage.Status = "InProgress";
-                        nextStage.IsCurrent = true;
-                        nextStage.LastUpdatedTime = currentTime;
-                        nextStage.LastUpdatedBy = completedBy ?? _operatorContextService.GetOperatorDisplayName();
-
-                        _logger.LogDebug("UpdateStagesProgressAsync - Activated next stage {StageId} for Onboarding {OnboardingId}",
-                            nextStage.StageId, entity.Id);
-                    }
-
-                    // Update completion rate
-                    entity.CompletionRate = CalculateCompletionRateByCompletedStages(entity.StagesProgress);
-
-                    _logger.LogDebug("UpdateStagesProgressAsync - Completed stage {StageId}, CompletionRate: {Rate}%",
-                        completedStageId, entity.CompletionRate);
-                }
-
-                // Serialize back to JSON
-                await FilterValidStagesProgress(entity);
-                entity.StagesProgressJson = SerializeStagesProgress(entity.StagesProgress);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error updating stages progress for Onboarding {OnboardingId}, Stage {StageId}",
-                    entity.Id, completedStageId);
-            }
+            await _stageProgressService.UpdateStagesProgressAsync(entity, completedStageId, completedBy, completedById, notes);
         }
 
         /// <summary>
@@ -207,7 +61,7 @@ namespace FlowFlex.Application.Services.OW
         /// </summary>
         private void LoadStagesProgressFromJson(Onboarding entity)
         {
-            LoadStagesProgressFromJson(entity, fixStageOrder: true);
+            _stageProgressService.LoadStagesProgressFromJson(entity);
         }
 
         /// <summary>
@@ -216,53 +70,7 @@ namespace FlowFlex.Application.Services.OW
         /// </summary>
         private void LoadStagesProgressFromJsonReadOnly(Onboarding entity)
         {
-            LoadStagesProgressFromJson(entity, fixStageOrder: false);
-        }
-
-        /// <summary>
-        /// Load stages progress from JSONB - core implementation
-        /// </summary>
-        /// <param name="entity">Onboarding entity</param>
-        /// <param name="fixStageOrder">Whether to fix stage order and serialize back</param>
-        private void LoadStagesProgressFromJson(Onboarding entity, bool fixStageOrder)
-        {
-            try
-            {
-                if (!string.IsNullOrEmpty(entity.StagesProgressJson))
-                {
-                    var jsonString = entity.StagesProgressJson.Trim();
-
-                    // Handle double-serialized JSON
-                    if (jsonString.StartsWith("\"") && jsonString.EndsWith("\""))
-                    {
-                        jsonString = JsonSerializer.Deserialize<string>(jsonString, JsonOptions) ?? "[]";
-                    }
-
-                    entity.StagesProgress = JsonSerializer.Deserialize<List<OnboardingStageProgress>>(
-                        jsonString, JsonOptions) ?? new List<OnboardingStageProgress>();
-
-                    // Only fix stage order when needed and requested
-                    if (fixStageOrder && NeedsStageOrderFix(entity.StagesProgress))
-                    {
-                        FixStageOrderSequence(entity.StagesProgress);
-                        entity.StagesProgressJson = SerializeStagesProgress(entity.StagesProgress);
-                    }
-                }
-                else
-                {
-                    entity.StagesProgress = new List<OnboardingStageProgress>();
-                }
-            }
-            catch (JsonException jsonEx)
-            {
-                _logger.LogWarning(jsonEx, "JSON parsing error in LoadStagesProgressFromJson for Onboarding {OnboardingId}", entity.Id);
-                entity.StagesProgress = new List<OnboardingStageProgress>();
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Error loading stages progress for Onboarding {OnboardingId}", entity.Id);
-                entity.StagesProgress = new List<OnboardingStageProgress>();
-            }
+            _stageProgressService.LoadStagesProgressFromJsonReadOnly(entity);
         }
 
         /// <summary>
@@ -270,18 +78,7 @@ namespace FlowFlex.Application.Services.OW
         /// </summary>
         private bool NeedsStageOrderFix(List<OnboardingStageProgress> stagesProgress)
         {
-            if (stagesProgress == null || !stagesProgress.Any())
-                return false;
-
-            var orderedStages = stagesProgress.OrderBy(s => s.StageOrder).ToList();
-            for (int i = 0; i < orderedStages.Count; i++)
-            {
-                if (orderedStages[i].StageOrder != i + 1)
-                {
-                    return true;
-                }
-            }
-            return false;
+            return _stageProgressService.NeedsStageOrderFix(stagesProgress);
         }
 
         /// <summary>
@@ -289,59 +86,7 @@ namespace FlowFlex.Application.Services.OW
         /// </summary>
         private void FixStageOrderSequence(List<OnboardingStageProgress> stagesProgress)
         {
-            try
-            {
-                if (stagesProgress == null || !stagesProgress.Any())
-                {
-                    return;
-                }
-
-                // Sort by current stage order to maintain the original sequence
-                var orderedStages = stagesProgress.OrderBy(s => s.StageOrder).ToList();
-
-                // Check if stage orders are already sequential
-                bool needsFixing = false;
-                for (int i = 0; i < orderedStages.Count; i++)
-                {
-                    if (orderedStages[i].StageOrder != i + 1)
-                    {
-                        needsFixing = true;
-                        break;
-                    }
-                }
-
-                if (!needsFixing)
-                {
-                    // Debug logging handled by structured logging
-                    return;
-                }
-                // Debug logging handled by structured logging
-                // Reassign sequential stage orders
-                for (int i = 0; i < orderedStages.Count; i++)
-                {
-                    var oldOrder = orderedStages[i].StageOrder;
-                    var newOrder = i + 1;
-
-                    orderedStages[i].StageOrder = newOrder;
-                    // Debug logging handled by structured logging
-                }
-
-                // Update the original list with fixed orders safely
-                // Instead of modifying the list during enumeration, replace each item individually
-                for (int i = 0; i < stagesProgress.Count; i++)
-                {
-                    var matchingStage = orderedStages.FirstOrDefault(s => s.StageId == stagesProgress[i].StageId);
-                    if (matchingStage != null)
-                    {
-                        stagesProgress[i] = matchingStage;
-                    }
-                }
-                // Debug logging handled by structured logging
-            }
-            catch (Exception ex)
-            {
-                // Debug logging handled by structured logging
-            }
+            _stageProgressService.FixStageOrderSequence(stagesProgress);
         }
 
         /// <summary>
@@ -349,52 +94,7 @@ namespace FlowFlex.Application.Services.OW
         /// </summary>
         private async Task<(bool CanComplete, string ErrorMessage)> ValidateStageCanBeCompletedAsync(Onboarding entity, long stageId)
         {
-            try
-            {
-                // Debug logging handled by structured logging
-                // Load stages progress
-                LoadStagesProgressFromJson(entity);
-
-                if (entity.StagesProgress == null || !entity.StagesProgress.Any())
-                {
-                    return (false, "No stages progress found");
-                }
-
-                var stageToComplete = entity.StagesProgress.FirstOrDefault(s => s.StageId == stageId);
-                if (stageToComplete == null)
-                {
-                    return (false, "Stage not found in progress");
-                }
-
-                // Debug logging handled by structured logging");
-
-                // Check if stage is already completed
-                if (stageToComplete.IsCompleted)
-                {
-                    // Debug logging handled by structured logging
-                    // Don't return false, allow re-completion but log the warning
-                }
-
-                // Check onboarding status
-                if (entity.Status == "Completed")
-                {
-                    return (false, "Onboarding is already completed");
-                }
-
-                if (entity.Status == "Cancelled" || entity.Status == "Rejected")
-                {
-                    return (false, $"Cannot complete stages when onboarding status is {entity.Status}");
-                }
-
-                // Allow completing any non-completed stage (removed sequential restriction)
-                // Debug logging handled by structured logging");
-                return (true, string.Empty);
-            }
-            catch (Exception ex)
-            {
-                // Debug logging handled by structured logging
-                return (false, $"Validation error: {ex.Message}");
-            }
+            return await _stageProgressService.ValidateStageCanBeCompletedAsync(entity, stageId);
         }
 
         /// <summary>
@@ -443,29 +143,7 @@ namespace FlowFlex.Application.Services.OW
         /// </summary>
         private decimal CalculateCompletionRateByCompletedStages(List<OnboardingStageProgress> stagesProgress)
         {
-            try
-            {
-                if (stagesProgress == null || !stagesProgress.Any())
-                {
-                    return 0;
-                }
-
-                var totalStagesCount = stagesProgress.Count;
-                var completedStagesCount = stagesProgress.Count(s => s.IsCompleted);
-
-                if (totalStagesCount == 0)
-                {
-                    return 0;
-                }
-
-                var completionRate = Math.Round((decimal)completedStagesCount / totalStagesCount * 100, 2);
-                return completionRate;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Error calculating completion rate");
-                return 0;
-            }
+            return _stageProgressService.CalculateCompletionRateByCompletedStages(stagesProgress);
         }
 
         /// <summary>
@@ -496,67 +174,7 @@ namespace FlowFlex.Application.Services.OW
         /// </summary>
         private void EnrichStagesProgressWithStageData(Onboarding entity, List<Stage> stages)
         {
-            try
-            {
-                if (entity?.StagesProgress == null || !entity.StagesProgress.Any())
-                {
-                    return;
-                }
-
-                if (stages == null || !stages.Any())
-                {
-                    return;
-                }
-
-                // Create a dictionary for fast lookup
-                var stageDict = stages.ToDictionary(s => s.Id, s => s);
-
-                // Enrich each stage progress with stage data
-                foreach (var stageProgress in entity.StagesProgress)
-                {
-                    if (stageDict.TryGetValue(stageProgress.StageId, out var stage))
-                    {
-                        // Populate fields from Stage entity
-                        stageProgress.StageName = stage.Name;
-                        stageProgress.StageDescription = stage.Description;
-
-                        // IMPORTANT: Only update EstimatedDays if CustomEstimatedDays is not set
-                        // This preserves the custom values set by users and maintains the correct priority:
-                        // CustomEstimatedDays > EstimatedDays (from Stage)
-                        if (!stageProgress.CustomEstimatedDays.HasValue)
-                        {
-                            stageProgress.EstimatedDays = NormalizeEstimatedDays(stage.EstimatedDuration);
-                        }
-                        // If CustomEstimatedDays exists, EstimatedDays should show the custom value
-                        // (This will be handled by AutoMapper: EstimatedDays = CustomEstimatedDays ?? EstimatedDays)
-
-                        stageProgress.VisibleInPortal = stage.VisibleInPortal;
-                        stageProgress.PortalPermission = stage.PortalPermission;
-                        stageProgress.AttachmentManagementNeeded = stage.AttachmentManagementNeeded;
-                        stageProgress.Required = stage.Required;
-                        stageProgress.ComponentsJson = stage.ComponentsJson;
-                        stageProgress.Components = stage.Components;
-                        // AI Summary auto-generation removed - should only be triggered explicitly by user action
-                    }
-                }
-
-                // Set stage orders based on the order in workflow (sequential: 1, 2, 3, ...)
-                var orderedStages = stages.OrderBy(s => s.Order).ToList();
-                for (int i = 0; i < orderedStages.Count; i++)
-                {
-                    var stage = orderedStages[i];
-                    var stageProgress = entity.StagesProgress.FirstOrDefault(sp => sp.StageId == stage.Id);
-                    if (stageProgress != null)
-                    {
-                        stageProgress.StageOrder = i + 1; // Sequential order starting from 1
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                // Debug logging handled by structured logging
-                // Don't throw exception here to avoid breaking the main flow
-            }
+            _stageProgressService.EnrichStagesProgressWithStageData(entity, stages);
         }
 
         /// <summary>
@@ -564,8 +182,7 @@ namespace FlowFlex.Application.Services.OW
         /// </summary>
         private async Task EnrichStagesProgressWithStageDataAsync(Onboarding entity)
         {
-            var stages = await _stageRepository.GetByWorkflowIdAsync(entity.WorkflowId);
-            EnrichStagesProgressWithStageData(entity, stages?.ToList() ?? new List<Stage>());
+            await _stageProgressService.EnrichStagesProgressWithStageDataAsync(entity);
         }
 
         /// <summary>
@@ -574,80 +191,7 @@ namespace FlowFlex.Application.Services.OW
         /// </summary>
         private async Task SyncStagesProgressWithWorkflowAsync(Onboarding entity, List<Stage>? preloadedStages = null)
         {
-            try
-            {
-                // Get current workflow stages (use preloaded if available)
-                var stages = preloadedStages ?? (await _stageRepository.GetByWorkflowIdAsync(entity.WorkflowId))?.ToList();
-                if (stages == null || !stages.Any())
-                {
-                    return;
-                }
-
-                // Load current stages progress
-                LoadStagesProgressFromJson(entity);
-
-                if (entity.StagesProgress == null)
-                {
-                    entity.StagesProgress = new List<OnboardingStageProgress>();
-                }
-                // Filter invalid stageIds
-                var validStageIds = stages.Select(s => s.Id).ToHashSet();
-                entity.StagesProgress?.RemoveAll(x => !validStageIds.Contains(x.StageId));
-
-                // Get existing stage IDs
-                var existingStageIds = entity.StagesProgress.Select(sp => sp.StageId).ToHashSet();
-
-                // Find new stages that are not in stagesProgress
-                var newStages = stages.Where(s => !existingStageIds.Contains(s.Id)).ToList();
-
-                if (newStages.Any())
-                {
-                    // Order all stages properly
-                    var orderedStages = stages.OrderBy(s => s.Order).ToList();
-
-                    foreach (var newStage in newStages)
-                    {
-                        // Find the position to insert
-                        var stageIndex = orderedStages.FindIndex(s => s.Id == newStage.Id);
-                        var sequentialOrder = stageIndex + 1;
-
-                        var newStageProgress = new OnboardingStageProgress
-                        {
-                            StageId = newStage.Id,
-                            Status = "Pending",
-                            IsCompleted = false,
-                            StartTime = null,
-                            CompletionTime = null,
-                            CompletedById = null,
-                            CompletedBy = null,
-                            Notes = null,
-                            IsCurrent = false,
-                            Assignee = ParseDefaultAssignee(newStage.DefaultAssignee), // Sync from Stage.DefaultAssignee
-                            CoAssignees = GetFilteredCoAssignees(newStage.CoAssignees, newStage.DefaultAssignee), // Sync from Stage.CoAssignees
-                            CustomStageAssignee = null, // User customization, initially null
-                            CustomStageCoAssignees = null // User customization, initially null
-                        };
-
-
-                        // Insert at the correct position to maintain order
-                        if (stageIndex < entity.StagesProgress.Count)
-                        {
-                            entity.StagesProgress.Insert(stageIndex, newStageProgress);
-                        }
-                        else
-                        {
-                            entity.StagesProgress.Add(newStageProgress);
-                        }
-                    }
-
-                    // Serialize updated progress back to JSON (only progress fields)
-                    entity.StagesProgressJson = SerializeStagesProgress(entity.StagesProgress);
-                }
-            }
-            catch (Exception ex)
-            {
-                // Debug logging handled by structured logging
-            }
+            await _stageProgressService.SyncStagesProgressWithWorkflowAsync(entity, preloadedStages);
         }
 
         /// <summary>
@@ -939,65 +483,7 @@ namespace FlowFlex.Application.Services.OW
         /// </summary>
         private async Task EnsureStagesProgressInitializedAsync(Onboarding entity, IEnumerable<Stage>? preloadedStages = null)
         {
-            // Prevent infinite recursion using thread-safe entity tracking
-            lock (_initializationLock)
-            {
-                if (_initializingEntities.Contains(entity.Id))
-                {
-                    return; // Already being initialized, avoid recursion
-                }
-                _initializingEntities.Add(entity.Id);
-            }
-
-            try
-            {
-                // Load current stages progress
-                LoadStagesProgressFromJson(entity);
-
-                // Get current workflow stages (use preloaded if available)
-                var stages = preloadedStages?.ToList() ?? await _stageRepository.GetByWorkflowIdAsync(entity.WorkflowId);
-                if (stages == null || !stages.Any())
-                {
-                    throw new CRMException(ErrorCodeEnum.DataNotFound, "No stages found for workflow");
-                }
-
-                // If stages progress is empty, initialize it
-                if (entity.StagesProgress == null || !entity.StagesProgress.Any())
-                {
-                    _logger.LogInformation("Initializing empty stagesProgress for Onboarding {OnboardingId} with {StageCount} stages from workflow {WorkflowId}",
-                        entity.Id, stages.Count, entity.WorkflowId);
-                    await InitializeStagesProgressAsync(entity, stages);
-                    
-                    // Save the initialized stages progress to database
-                    entity.StagesProgressJson = SerializeStagesProgress(entity.StagesProgress);
-                    await SafeUpdateOnboardingAsync(entity);
-                    
-                    _logger.LogInformation("Successfully initialized and saved stagesProgress for Onboarding {OnboardingId}",
-                        entity.Id);
-                }
-                else
-                {
-                    // Sync with workflow stages (handle new stages addition)
-                    await SyncStagesProgressWithWorkflowAsync(entity, stages);
-                }
-
-                // Always enrich with stage data to ensure consistency
-                EnrichStagesProgressWithStageData(entity, stages);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error initializing stages progress for Onboarding {OnboardingId}", entity.Id);
-                // Re-throw the exception so the caller knows initialization failed
-                throw;
-            }
-            finally
-            {
-                // Remove from initialization tracking
-                lock (_initializationLock)
-                {
-                    _initializingEntities.Remove(entity.Id);
-                }
-            }
+            await _stageProgressService.EnsureStagesProgressInitializedAsync(entity, preloadedStages);
         }
 
         /// <summary>
@@ -1007,21 +493,7 @@ namespace FlowFlex.Application.Services.OW
         /// </summary>
         private string SerializeStagesProgress(List<OnboardingStageProgress> stagesProgress)
         {
-            try
-            {
-                if (stagesProgress == null || !stagesProgress.Any())
-                {
-                    return "[]";
-                }
-
-                // Use shared JSON options for consistent serialization
-                return JsonSerializer.Serialize(stagesProgress, JsonOptions);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Error serializing stages progress");
-                return "[]";
-            }
+            return _stageProgressService.SerializeStagesProgress(stagesProgress);
         }
 
         /// <summary>
@@ -1590,67 +1062,19 @@ namespace FlowFlex.Application.Services.OW
         }
 
         /// <summary>
-        /// 杩囨护鏃犳晥鐨?stagesProgress锛屼繚鐣欏綋鍓?workflow 涓湁鏁?stage 鐨勮繘搴?
+        /// Filter invalid stagesProgress, keeping only stages that exist in current workflow
         /// </summary>
         private async Task FilterValidStagesProgress(Onboarding entity)
         {
-            var stages = await _stageRepository.GetByWorkflowIdAsync(entity.WorkflowId);
-            if (stages == null || !stages.Any()) return;
-            var validStageIds = stages.Select(s => s.Id).ToHashSet();
-            entity.StagesProgress?.RemoveAll(x => !validStageIds.Contains(x.StageId));
+            await _stageProgressService.FilterValidStagesProgressAsync(entity);
         }
-
-        /// <summary>
-        /// Helper method to populate workflow/stage names and calculate current stage end time for OnboardingOutputDto lists
-        /// </summary>
-        /// <summary>
-        /// Check if current user has permission to operate on a case
-        /// </summary>
 
         /// <summary>
         /// Parse DefaultAssignee JSON string to List of user IDs
         /// </summary>
         private List<string> ParseDefaultAssignee(string defaultAssigneeJson)
         {
-            if (string.IsNullOrWhiteSpace(defaultAssigneeJson))
-            {
-                return new List<string>();
-            }
-
-            try
-            {
-                var options = new JsonSerializerOptions
-                {
-                    PropertyNameCaseInsensitive = true
-                };
-
-                // Handle double-serialized JSON
-                var jsonString = defaultAssigneeJson.Trim();
-                if (jsonString.StartsWith("\"") && jsonString.EndsWith("\""))
-                {
-                    jsonString = JsonSerializer.Deserialize<string>(jsonString, options) ?? "[]";
-                }
-
-                // Try to parse as array
-                if (jsonString.StartsWith("["))
-                {
-                    var result = JsonSerializer.Deserialize<List<string>>(jsonString, options);
-                    return result ?? new List<string>();
-                }
-
-                // If it's a single value, wrap it in a list
-                if (!string.IsNullOrWhiteSpace(jsonString))
-                {
-                    return new List<string> { jsonString };
-                }
-
-                return new List<string>();
-            }
-            catch (JsonException)
-            {
-                // If parsing fails, return empty list
-                return new List<string>();
-            }
+            return _stageProgressService.ParseDefaultAssignee(defaultAssigneeJson);
         }
 
         /// <summary>
@@ -1658,18 +1082,7 @@ namespace FlowFlex.Application.Services.OW
         /// </summary>
         private List<string> GetFilteredCoAssignees(string coAssigneesJson, string defaultAssigneeJson)
         {
-            var coAssignees = ParseDefaultAssignee(coAssigneesJson);
-            var defaultAssignees = ParseDefaultAssignee(defaultAssigneeJson);
-
-            if (!defaultAssignees.Any())
-            {
-                return coAssignees;
-            }
-
-            // Filter out any IDs that are already in DefaultAssignee
-            return coAssignees
-                .Where(id => !defaultAssignees.Contains(id))
-                .ToList();
+            return _stageProgressService.GetFilteredCoAssignees(coAssigneesJson, defaultAssigneeJson);
         }
 
         /// <summary>

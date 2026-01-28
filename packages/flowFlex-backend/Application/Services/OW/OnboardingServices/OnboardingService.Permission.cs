@@ -159,6 +159,25 @@ namespace FlowFlex.Application.Services.OW
         }
 
         /// <summary>
+        /// Batch get related Workflow and Stage data (avoid N+1 queries)
+        /// </summary>
+        private async Task<(List<Workflow> workflows, List<Stage> stages)> GetRelatedDataBatchOptimizedAsync(List<Onboarding> entities)
+        {
+            var workflowIds = entities.Select(x => x.WorkflowId).Distinct().ToList();
+            var stageIds = entities.Where(x => x.CurrentStageId.HasValue)
+                    .Select(x => x.CurrentStageId.Value).Distinct().ToList();
+
+            var workflows = workflowIds.Any() 
+                ? await _workflowRepository.GetListAsync(w => workflowIds.Contains(w.Id) && w.IsValid)
+                : new List<Workflow>();
+            var stages = stageIds.Any()
+                ? await _stageRepository.GetListAsync(s => stageIds.Contains(s.Id) && s.IsValid)
+                : new List<Stage>();
+
+            return (workflows, stages);
+        }
+
+        /// <summary>
         /// Build permission context for batch permission checking
         /// </summary>
         private async Task<PermissionBatchContext> BuildPermissionContextAsync(

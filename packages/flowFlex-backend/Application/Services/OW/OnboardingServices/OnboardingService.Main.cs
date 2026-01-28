@@ -36,6 +36,7 @@ using PermissionOperationType = FlowFlex.Domain.Shared.Enums.Permission.Operatio
 using FlowFlex.Application.Contracts.Dtos.OW.User;
 using FlowFlex.Application.Contracts.Dtos.OW.StageCondition;
 using FlowFlex.Application.Contracts.IServices.DynamicData;
+using FlowFlex.Application.Contracts.IServices.OW.Onboarding;
 
 namespace FlowFlex.Application.Services.OW
 {
@@ -76,6 +77,11 @@ namespace FlowFlex.Application.Services.OW
         internal readonly IConditionActionExecutor _conditionActionExecutor;
         internal readonly IPropertyService _propertyService;
         internal readonly ILogger<OnboardingService> _logger;
+        internal readonly IOnboardingStageProgressService _stageProgressService;
+        internal readonly IOnboardingQueryService _queryService;
+        internal readonly IOnboardingStatusService _statusService;
+        internal readonly IOnboardingStageManagementService _stageManagementService;
+        internal readonly IOnboardingCrudService _crudService;
 
         // Cache key constants - temporarily disable Redis cache
         internal const string WORKFLOW_CACHE_PREFIX = "ow:workflow";
@@ -132,6 +138,11 @@ namespace FlowFlex.Application.Services.OW
             IRulesEngineService rulesEngineService,
             IConditionActionExecutor conditionActionExecutor,
             IPropertyService propertyService,
+            IOnboardingStageProgressService stageProgressService,
+            IOnboardingQueryService queryService,
+            IOnboardingStatusService statusService,
+            IOnboardingStageManagementService stageManagementService,
+            IOnboardingCrudService crudService,
             ILogger<OnboardingService> logger)
         {
             _onboardingRepository = onboardingRepository ?? throw new ArgumentNullException(nameof(onboardingRepository));
@@ -163,6 +174,11 @@ namespace FlowFlex.Application.Services.OW
             _rulesEngineService = rulesEngineService ?? throw new ArgumentNullException(nameof(rulesEngineService));
             _conditionActionExecutor = conditionActionExecutor ?? throw new ArgumentNullException(nameof(conditionActionExecutor));
             _propertyService = propertyService ?? throw new ArgumentNullException(nameof(propertyService));
+            _stageProgressService = stageProgressService ?? throw new ArgumentNullException(nameof(stageProgressService));
+            _queryService = queryService ?? throw new ArgumentNullException(nameof(queryService));
+            _statusService = statusService ?? throw new ArgumentNullException(nameof(statusService));
+            _stageManagementService = stageManagementService ?? throw new ArgumentNullException(nameof(stageManagementService));
+            _crudService = crudService ?? throw new ArgumentNullException(nameof(crudService));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
 
