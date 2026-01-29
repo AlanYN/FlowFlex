@@ -483,6 +483,10 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
         private async Task AutoAdvanceToNextStageAsync(Onboarding entity, Stage completedStage, List<Stage> orderedStages)
         {
             entity = await _onboardingRepository.GetByIdAsync(entity.Id);
+            
+            // Load stages progress from JSON to prevent overwriting with empty array
+            _stageProgressService.LoadStagesProgressFromJson(entity);
+            
             var currentStageIndex = orderedStages.FindIndex(x => x.Id == entity.CurrentStageId);
             var nextStageIndex = currentStageIndex + 1;
 
