@@ -237,6 +237,7 @@ export function importDownLoadFiles(
 		files: {
 			downLoadLink: string;
 			fileName: string;
+			source: string;
 		}[];
 	}
 ) {
