@@ -1088,40 +1088,49 @@ const validateQuestionnaireData = (component: any): { isValid: boolean; errors: 
 };
 
 // 检查清单数据校验函数
-const validateChecklistData = (component: any): { isValid: boolean; errors: string[] } => {
-	if (component.key !== 'checklist' || !component.checklistIds?.length) {
-		return { isValid: true, errors: [] };
-	}
+// const validateChecklistData = (component: any): { isValid: boolean; errors: string[] } => {
+// 	if (component.key !== 'checklist' || !component.checklistIds?.length) {
+// 		return { isValid: true, errors: [] };
+// 	}
 
-	const errors: string[] = [];
+// 	const errors: string[] = [];
 
-	component.checklistIds.forEach((checklistId: string) => {
-		const checklist = checklistsData.value.find((c) => c.id === checklistId);
-		if (!checklist?.tasks) return;
+// 	component.checklistIds.forEach((checklistId: string) => {
+// 		const checklist = checklistsData.value.find((c) => c.id === checklistId);
+// 		if (!checklist?.tasks) return;
 
-		// 查找必填且未完成的任务
-		const incompleteRequiredTasks = checklist.tasks.filter(
-			(task: any) => task.isRequired !== false && !task.isCompleted
-		);
+// 		// 查找必填且未完成的任务
+// 		const incompleteRequiredTasks = checklist.tasks.filter(
+// 			(task: any) => task.isRequired !== false && !task.isCompleted
+// 		);
 
-		if (incompleteRequiredTasks.length > 0) {
-			const taskNames = incompleteRequiredTasks
-				.map((task: any) => task.name || `Task ${task.id}`)
-				.join(', ');
-			errors.push(
-				`${checklist.name}: ${incompleteRequiredTasks.length} required tasks not completed (${taskNames})`
-			);
-		}
-	});
+// 		if (incompleteRequiredTasks.length > 0) {
+// 			const taskNames = incompleteRequiredTasks
+// 				.map((task: any) => task.name || `Task ${task.id}`)
+// 				.join(', ');
+// 			errors.push(
+// 				`${checklist.name}: ${incompleteRequiredTasks.length} required tasks not completed (${taskNames})`
+// 			);
+// 		}
+// 	});
 
-	return { isValid: errors.length === 0, errors };
-};
+// 	return { isValid: errors.length === 0, errors };
+// };
 
 // 文件组件数据校验函数
 const validateDocumentsData = async (
 	component: any
 ): Promise<{ isValid: boolean; errors: string[] }> => {
 	if (component.key !== 'files') {
+		return { isValid: true, errors: [] };
+	}
+
+	// 检查当前阶段是否要求必须上传文档（与 detail.vue 保持一致）
+	const currentStage = workflowStages.value.find((stage) => stage.stageId === activeStage.value);
+	const documentIsRequired = currentStage?.attachmentManagementNeeded;
+
+	// 如果文档不是必填的，直接返回校验通过
+	if (!documentIsRequired) {
 		return { isValid: true, errors: [] };
 	}
 
@@ -1134,8 +1143,8 @@ const validateDocumentsData = async (
 		);
 		const documents = response.code === '200' ? response.data || [] : [];
 
-		// 复用Documents.vue中的vailComponent逻辑
-		if (component.isEnabled && documents.length <= 0) {
+		// 复用Documents.vue中的vailComponent逻辑：只有当文档必填且没有文档时才校验失败
+		if (documents.length <= 0) {
 			return {
 				isValid: false,
 				errors: ['At least one document is required'],
@@ -1189,10 +1198,10 @@ const validateHiddenComponents = async (): Promise<{
 				validationResult = validateQuestionnaireData(component);
 				componentTypeName = 'Questionnaire';
 				break;
-			case 'checklist':
-				validationResult = validateChecklistData(component);
-				componentTypeName = 'Checklist';
-				break;
+			// case 'checklist':
+			// 	validationResult = validateChecklistData(component);
+			// 	componentTypeName = 'Checklist';
+			// 	break;
 			case 'files':
 				validationResult = await validateDocumentsData(component);
 				componentTypeName = 'Documents';
@@ -1425,7 +1434,6 @@ const loadCheckListData = async (onboardingId: string, stageId: string) => {
 			getCheckListIds(allChecklistIds),
 			getCheckListIsCompleted(onboardingId, stageId),
 		]);
-
 		if (checklistResponse.code === '200') {
 			// 获取已完成的任务信息，包含完成者与完成时间
 			const completedTasksMap = new Map<string, any>();
