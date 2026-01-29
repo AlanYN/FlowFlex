@@ -115,17 +115,16 @@
 		</div>
 
 		<!-- 统一分页组件 -->
-		<div v-if="!loading && pagination.total > 0">
-			<CustomerPagination
-				:total="pagination.total"
-				:limit="pagination.pageSize"
-				:page="pagination.pageIndex"
-				:background="true"
-				@pagination="handleLimitUpdate"
-				@update:page="handleCurrentChange"
-				@update:limit="handlePageUpdate"
-			/>
-		</div>
+		<CustomerPagination
+			:total="pagination.total"
+			:limit="pagination.pageSize"
+			:page="pagination.pageIndex"
+			:background="true"
+			:hidden="loading"
+			@pagination="handleLimitUpdate"
+			@update:page="handleCurrentChange"
+			@update:limit="handlePageUpdate"
+		/>
 
 		<!-- Task列表弹窗 -->
 		<el-dialog

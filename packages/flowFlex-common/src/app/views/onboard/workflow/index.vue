@@ -106,17 +106,16 @@
 				</PrototypeTabs>
 
 				<!-- 统一分页组件 -->
-				<div v-if="!loading.workflows && pagination.total > 0">
-					<CustomerPagination
-						:total="pagination.total"
-						:limit="pagination.pageSize"
-						:page="pagination.pageIndex"
-						:background="true"
-						@pagination="handleLimitUpdate"
-						@update:page="handleCurrentChange"
-						@update:limit="handlePageUpdate"
-					/>
-				</div>
+				<CustomerPagination
+					:total="pagination.total"
+					:limit="pagination.pageSize"
+					:page="pagination.pageIndex"
+					:background="true"
+					:hidden="loading.workflows"
+					@pagination="handleLimitUpdate"
+					@update:page="handleCurrentChange"
+					@update:limit="handlePageUpdate"
+				/>
 			</div>
 
 			<!-- 详情视图模式 -->
