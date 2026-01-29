@@ -1,6 +1,7 @@
 using FlowFlex.Application.Contracts.Dtos.OW.User;
 using FlowFlex.Application.Contracts.IServices.OW;
 using FlowFlex.Application.Contracts.IServices.OW.Onboarding;
+using FlowFlex.Application.Helpers.OW;
 using FlowFlex.Domain.Entities.OW;
 using FlowFlex.Domain.Repository.OW;
 using FlowFlex.Domain.Shared;
@@ -63,8 +64,8 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
             }
 
             // Parse permission fields
-            var viewTeams = ParseJsonArraySafe(onboarding.ViewTeams) ?? new List<string>();
-            var viewUsers = ParseJsonArraySafe(onboarding.ViewUsers) ?? new List<string>();
+            var viewTeams = OnboardingSharedUtilities.ParseJsonArraySafe(onboarding.ViewTeams) ?? new List<string>();
+            var viewUsers = OnboardingSharedUtilities.ParseJsonArraySafe(onboarding.ViewUsers) ?? new List<string>();
 
             // Filter users based on permission configuration
             var filteredTree = await FilterUserTreeByPermissionAsync(
@@ -573,31 +574,8 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
             return null;
         }
 
-        /// <summary>
-        /// Parse JSON array that might be double-encoded
-        /// </summary>
-        private static List<string> ParseJsonArraySafe(string jsonString)
-        {
-            if (string.IsNullOrWhiteSpace(jsonString))
-            {
-                return new List<string>();
-            }
-
-            try
-            {
-                var workingString = jsonString.Trim();
-                if (workingString.StartsWith("\"") && workingString.EndsWith("\""))
-                {
-                    workingString = Newtonsoft.Json.JsonConvert.DeserializeObject<string>(workingString);
-                }
-                var result = Newtonsoft.Json.JsonConvert.DeserializeObject<List<string>>(workingString);
-                return result ?? new List<string>();
-            }
-            catch
-            {
-                return new List<string>();
-            }
-        }
+        // Note: ParseJsonArraySafe has been removed.
+        // Use OnboardingSharedUtilities.ParseJsonArraySafe(jsonString) directly.
 
         #endregion
     }

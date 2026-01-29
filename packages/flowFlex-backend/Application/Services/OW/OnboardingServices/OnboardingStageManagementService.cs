@@ -2,6 +2,7 @@ using FlowFlex.Application.Contracts.Dtos.OW.Onboarding;
 using FlowFlex.Application.Contracts.IServices.OW;
 using FlowFlex.Application.Contracts.IServices.OW.ChangeLog;
 using FlowFlex.Application.Contracts.IServices.OW.Onboarding;
+using FlowFlex.Application.Helpers.OW;
 using FlowFlex.Domain.Entities.OW;
 using FlowFlex.Domain.Repository.OW;
 using FlowFlex.Domain.Shared;
@@ -73,35 +74,11 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
         #region Permission Check
 
         /// <summary>
-        /// Check if current user has operate permission on the case
-        /// </summary>
-        private async Task<bool> CheckCaseOperatePermissionAsync(long caseId)
-        {
-            var userId = _userContext?.UserId;
-            if (string.IsNullOrEmpty(userId) || !long.TryParse(userId, out var userIdLong))
-            {
-                return false;
-            }
-
-            var permissionResult = await _permissionService.CheckCaseAccessAsync(
-                userIdLong,
-                caseId,
-                Domain.Shared.Enums.Permission.OperationTypeEnum.Operate);
-
-            return permissionResult.Success && permissionResult.CanOperate;
-        }
-
-        /// <summary>
         /// Ensure current user has operate permission on the case
+        /// Uses shared utility method
         /// </summary>
-        private async Task EnsureCaseOperatePermissionAsync(long caseId)
-        {
-            if (!await CheckCaseOperatePermissionAsync(caseId))
-            {
-                throw new CRMException(ErrorCodeEnum.OperationNotAllowed,
-                    $"User does not have permission to operate on case {caseId}");
-            }
-        }
+        private Task EnsureCaseOperatePermissionAsync(long caseId)
+            => OnboardingSharedUtilities.EnsureCaseOperatePermissionAsync(_permissionService, _userContext, caseId);
 
         #endregion
 
@@ -126,50 +103,18 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
         }
 
         /// <summary>
-        /// Normalize DateTimeOffset to start of day (00:00:00)
+        /// Get current UTC time normalized to start of day
+        /// Uses shared utility method
         /// </summary>
         private static DateTimeOffset GetNormalizedUtcNow()
-        {
-            var now = DateTimeOffset.UtcNow;
-            return new DateTimeOffset(now.Year, now.Month, now.Day, 0, 0, 0, now.Offset);
-        }
+            => OnboardingSharedUtilities.GetNormalizedUtcNowOffset();
 
         /// <summary>
-        /// Safely append text to Notes field with length validation
+        /// Get current user email
+        /// Uses shared utility method
         /// </summary>
-        private static void SafeAppendToNotes(Onboarding entity, string noteText)
-        {
-            const int maxNotesLength = 1000;
-            if (string.IsNullOrEmpty(noteText)) return;
-
-            var currentNotes = entity.Notes ?? string.Empty;
-            var newContent = string.IsNullOrEmpty(currentNotes) ? noteText : $"{currentNotes}\n{noteText}";
-
-            if (newContent.Length > maxNotesLength)
-            {
-                var truncationMessage = "[...truncated older notes...]\n";
-                var availableSpace = maxNotesLength - truncationMessage.Length - noteText.Length - 1;
-
-                if (availableSpace > 0 && currentNotes.Length > availableSpace)
-                {
-                    var recentNotes = currentNotes.Substring(currentNotes.Length - availableSpace);
-                    var firstNewlineIndex = recentNotes.IndexOf('\n');
-                    if (firstNewlineIndex > 0)
-                    {
-                        recentNotes = recentNotes.Substring(firstNewlineIndex + 1);
-                    }
-                    entity.Notes = $"{truncationMessage}{recentNotes}\n{noteText}";
-                }
-                else
-                {
-                    entity.Notes = noteText.Substring(0, Math.Min(noteText.Length, maxNotesLength));
-                }
-            }
-            else
-            {
-                entity.Notes = newContent;
-            }
-        }
+        private string GetCurrentUserEmail()
+            => OnboardingSharedUtilities.GetCurrentUserEmail(_userContext, _operatorContextService);
 
         #endregion
 
@@ -298,7 +243,7 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
 
                 if (!string.IsNullOrEmpty(input.CompletionNotes))
                 {
-                    SafeAppendToNotes(entity, $"[Stage Completed] {stageToComplete.Name}: {input.CompletionNotes}");
+                    OnboardingSharedUtilities.SafeAppendToNotes(entity, $"[Stage Completed] {stageToComplete.Name}: {input.CompletionNotes}");
                 }
             }
 
@@ -389,7 +334,7 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
 
                 if (!string.IsNullOrEmpty(input.CompletionNotes))
                 {
-                    SafeAppendToNotes(entity, $"[Onboarding Completed] Final stage '{stageToComplete.Name}' completed: {input.CompletionNotes}");
+                    OnboardingSharedUtilities.SafeAppendToNotes(entity, $"[Onboarding Completed] Final stage '{stageToComplete.Name}' completed: {input.CompletionNotes}");
                 }
             }
             else
@@ -401,7 +346,7 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
 
                 if (!string.IsNullOrEmpty(input.CompletionNotes))
                 {
-                    SafeAppendToNotes(entity, $"[Stage Completed] {stageToComplete.Name}: {input.CompletionNotes}");
+                    OnboardingSharedUtilities.SafeAppendToNotes(entity, $"[Stage Completed] {stageToComplete.Name}: {input.CompletionNotes}");
                 }
             }
 
@@ -509,19 +454,6 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
             entity.StageUpdatedBy = _operatorContextService.GetOperatorDisplayName();
             entity.StageUpdatedById = _operatorContextService.GetOperatorId();
             entity.StageUpdatedByEmail = GetCurrentUserEmail();
-        }
-
-        /// <summary>
-        /// Get current user email
-        /// </summary>
-        private string GetCurrentUserEmail()
-        {
-            var displayName = _operatorContextService.GetOperatorDisplayName();
-            if (!string.IsNullOrEmpty(displayName) && displayName.Contains("@"))
-            {
-                return displayName;
-            }
-            return !string.IsNullOrEmpty(_userContext?.Email) ? _userContext.Email : "system@example.com";
         }
 
         /// <summary>

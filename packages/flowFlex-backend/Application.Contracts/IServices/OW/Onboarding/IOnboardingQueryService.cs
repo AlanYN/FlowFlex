@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.IO;
 using System.Threading.Tasks;
 using FlowFlex.Application.Contracts.Dtos.OW.Onboarding;
@@ -50,5 +51,14 @@ namespace FlowFlex.Application.Contracts.IServices.OW.Onboarding
         /// <param name="id">Onboarding ID</param>
         /// <returns>Progress information including stages and completion status</returns>
         Task<OnboardingProgressDto> GetProgressAsync(long id);
+
+        /// <summary>
+        /// Populate onboarding output DTOs with related data
+        /// </summary>
+        /// <param name="results">List of OnboardingOutputDto to populate</param>
+        /// <param name="entities">List of Onboarding entities with source data</param>
+        Task PopulateOnboardingOutputDtoAsync(
+            List<OnboardingOutputDto> results, 
+            List<Domain.Entities.OW.Onboarding> entities);
     }
 }

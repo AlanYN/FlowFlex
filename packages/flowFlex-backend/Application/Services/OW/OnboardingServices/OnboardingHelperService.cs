@@ -1,13 +1,17 @@
 using AutoMapper;
 using FlowFlex.Application.Contracts.Dtos.OW.Onboarding;
 using FlowFlex.Application.Contracts.Dtos.OW.StaticField;
+using FlowFlex.Application.Contracts.Dtos.OW.User;
 using FlowFlex.Application.Contracts.IServices.OW;
 using FlowFlex.Application.Contracts.IServices.OW.Onboarding;
+using FlowFlex.Application.Helpers.OW;
+using FlowFlex.Application.Services.OW.Extensions;
 using FlowFlex.Domain.Entities.OW;
 using FlowFlex.Domain.Repository.OW;
 using FlowFlex.Domain.Shared;
 using FlowFlex.Domain.Shared.Events;
 using FlowFlex.Domain.Shared.Models;
+using FlowFlex.Domain.Shared.Utils;
 using FlowFlex.Infrastructure.Services;
 using MediatR;
 using Microsoft.AspNetCore.Http;
@@ -28,14 +32,16 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
         private readonly IOnboardingRepository _onboardingRepository;
         private readonly IWorkflowRepository _workflowRepository;
         private readonly IStageRepository _stageRepository;
+        private readonly IUserInvitationRepository _userInvitationRepository;
         private readonly IStageService _stageService;
         private readonly IChecklistService _checklistService;
         private readonly IQuestionnaireService _questionnaireService;
         private readonly IChecklistTaskCompletionService _checklistTaskCompletionService;
         private readonly IQuestionnaireAnswerService _questionnaireAnswerService;
         private readonly IStaticFieldValueService _staticFieldValueService;
-        private readonly IOnboardingQueryService _queryService;
         private readonly IOperatorContextService _operatorContextService;
+        private readonly ICaseCodeGeneratorService _caseCodeGeneratorService;
+        private readonly IUserService _userService;
         private readonly IServiceScopeFactory _serviceScopeFactory;
         private readonly IBackgroundTaskQueue _backgroundTaskQueue;
         private readonly IHttpContextAccessor _httpContextAccessor;
@@ -43,17 +49,8 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
         private readonly IMediator _mediator;
         private readonly ILogger<OnboardingHelperService> _logger;
 
-        // Shared JSON serializer options
-        private static readonly JsonSerializerOptions JsonOptions = new JsonSerializerOptions
-        {
-            PropertyNameCaseInsensitive = true,
-            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-            ReadCommentHandling = JsonCommentHandling.Skip,
-            AllowTrailingCommas = true,
-            NumberHandling = System.Text.Json.Serialization.JsonNumberHandling.AllowReadingFromString,
-            DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull,
-            WriteIndented = false
-        };
+        // Use shared JSON serializer options for consistency
+        private static readonly JsonSerializerOptions JsonOptions = OnboardingSharedUtilities.JsonOptions;
 
         #endregion
 
@@ -63,14 +60,16 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
             IOnboardingRepository onboardingRepository,
             IWorkflowRepository workflowRepository,
             IStageRepository stageRepository,
+            IUserInvitationRepository userInvitationRepository,
             IStageService stageService,
             IChecklistService checklistService,
             IQuestionnaireService questionnaireService,
             IChecklistTaskCompletionService checklistTaskCompletionService,
             IQuestionnaireAnswerService questionnaireAnswerService,
             IStaticFieldValueService staticFieldValueService,
-            IOnboardingQueryService queryService,
             IOperatorContextService operatorContextService,
+            ICaseCodeGeneratorService caseCodeGeneratorService,
+            IUserService userService,
             IServiceScopeFactory serviceScopeFactory,
             IBackgroundTaskQueue backgroundTaskQueue,
             IHttpContextAccessor httpContextAccessor,
@@ -81,14 +80,16 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
             _onboardingRepository = onboardingRepository ?? throw new ArgumentNullException(nameof(onboardingRepository));
             _workflowRepository = workflowRepository ?? throw new ArgumentNullException(nameof(workflowRepository));
             _stageRepository = stageRepository ?? throw new ArgumentNullException(nameof(stageRepository));
+            _userInvitationRepository = userInvitationRepository ?? throw new ArgumentNullException(nameof(userInvitationRepository));
             _stageService = stageService ?? throw new ArgumentNullException(nameof(stageService));
             _checklistService = checklistService ?? throw new ArgumentNullException(nameof(checklistService));
             _questionnaireService = questionnaireService ?? throw new ArgumentNullException(nameof(questionnaireService));
             _checklistTaskCompletionService = checklistTaskCompletionService ?? throw new ArgumentNullException(nameof(checklistTaskCompletionService));
             _questionnaireAnswerService = questionnaireAnswerService ?? throw new ArgumentNullException(nameof(questionnaireAnswerService));
             _staticFieldValueService = staticFieldValueService ?? throw new ArgumentNullException(nameof(staticFieldValueService));
-            _queryService = queryService ?? throw new ArgumentNullException(nameof(queryService));
             _operatorContextService = operatorContextService ?? throw new ArgumentNullException(nameof(operatorContextService));
+            _caseCodeGeneratorService = caseCodeGeneratorService ?? throw new ArgumentNullException(nameof(caseCodeGeneratorService));
+            _userService = userService ?? throw new ArgumentNullException(nameof(userService));
             _serviceScopeFactory = serviceScopeFactory ?? throw new ArgumentNullException(nameof(serviceScopeFactory));
             _backgroundTaskQueue = backgroundTaskQueue ?? throw new ArgumentNullException(nameof(backgroundTaskQueue));
             _httpContextAccessor = httpContextAccessor;
@@ -100,10 +101,6 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
         #endregion
 
         #region Public Methods
-
-        /// <inheritdoc />
-        public Task<OnboardingProgressDto> GetProgressAsync(long id)
-            => _queryService.GetProgressAsync(id);
 
         /// <inheritdoc />
         public async Task LogOnboardingActionAsync(
@@ -466,27 +463,7 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
 
         /// <inheritdoc />
         public List<string> ParseJsonArraySafe(string jsonString)
-        {
-            if (string.IsNullOrWhiteSpace(jsonString))
-            {
-                return new List<string>();
-            }
-
-            try
-            {
-                var workingString = jsonString.Trim();
-                if (workingString.StartsWith("\"") && workingString.EndsWith("\""))
-                {
-                    workingString = Newtonsoft.Json.JsonConvert.DeserializeObject<string>(workingString);
-                }
-                var result = Newtonsoft.Json.JsonConvert.DeserializeObject<List<string>>(workingString);
-                return result ?? new List<string>();
-            }
-            catch
-            {
-                return new List<string>();
-            }
-        }
+            => OnboardingSharedUtilities.ParseJsonArraySafe(jsonString);
 
         /// <inheritdoc />
         public string ValidateAndFormatJsonArray(string jsonArray)
@@ -1094,6 +1071,282 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
                 CompletionRate = string.IsNullOrWhiteSpace(fieldValue) ? 0 : 100,
                 ValidationStatus = "Pending"
             };
+        }
+
+        #endregion
+
+        #region Shared Utility Methods (moved from other services to eliminate duplication)
+
+        /// <inheritdoc />
+        public async Task ValidateTeamSelectionsFromJsonAsync(string viewTeamsJson, string operateTeamsJson)
+        {
+            var viewTeams = OnboardingSharedUtilities.ParseJsonArraySafe(viewTeamsJson) ?? new List<string>();
+            var operateTeams = OnboardingSharedUtilities.ParseJsonArraySafe(operateTeamsJson) ?? new List<string>();
+
+            var needsValidation = (viewTeams.Any() || operateTeams.Any());
+            if (!needsValidation)
+            {
+                return;
+            }
+
+            HashSet<string> allTeamIds;
+            try
+            {
+                allTeamIds = await GetAllTeamIdsFromUserTreeAsync();
+            }
+            catch (Exception ex)
+            {
+                // Do not block the operation if IDM is unavailable; just log
+                _logger.LogWarning(ex, "Team validation skipped due to error fetching team tree");
+                return;
+            }
+
+            // Add "Other" as a valid special team ID (for users without team assignment)
+            allTeamIds.Add("Other");
+
+            var invalid = new List<string>();
+            invalid.AddRange(viewTeams.Where(id => !string.IsNullOrWhiteSpace(id) && !allTeamIds.Contains(id)));
+            invalid.AddRange(operateTeams.Where(id => !string.IsNullOrWhiteSpace(id) && !allTeamIds.Contains(id)));
+            invalid = invalid.Distinct(StringComparer.Ordinal).ToList();
+
+            if (invalid.Any())
+            {
+                throw new CRMException(ErrorCodeEnum.BusinessError,
+                    $"The following team IDs do not exist: {string.Join(", ", invalid)}");
+            }
+        }
+
+        /// <inheritdoc />
+        public bool IsJsonbTypeError(Exception ex)
+        {
+            if (ex == null) return false;
+            
+            var errorMessage = ex.ToString().ToLowerInvariant();
+            return errorMessage.Contains("jsonb") ||
+                   errorMessage.Contains("json") && errorMessage.Contains("type") ||
+                   errorMessage.Contains("cannot cast") ||
+                   errorMessage.Contains("invalid input syntax for type json");
+        }
+
+        /// <inheritdoc />
+        public void SafeAppendToNotes(Domain.Entities.OW.Onboarding entity, string noteText)
+        {
+            if (entity == null || string.IsNullOrWhiteSpace(noteText))
+            {
+                return;
+            }
+
+            const int maxNotesLength = 1000;
+            var timestamp = DateTimeOffset.UtcNow.ToString("yyyy-MM-dd HH:mm:ss");
+            var formattedNote = $"[{timestamp}] {noteText}";
+
+            if (string.IsNullOrWhiteSpace(entity.Notes))
+            {
+                entity.Notes = formattedNote.Length > maxNotesLength
+                    ? formattedNote.Substring(0, maxNotesLength)
+                    : formattedNote;
+            }
+            else
+            {
+                var newNotes = $"{entity.Notes}\n{formattedNote}";
+                if (newNotes.Length > maxNotesLength)
+                {
+                    // Truncate from the beginning to keep the most recent notes
+                    var overflow = newNotes.Length - maxNotesLength;
+                    var firstNewlineAfterOverflow = newNotes.IndexOf('\n', overflow);
+                    if (firstNewlineAfterOverflow > 0)
+                    {
+                        entity.Notes = newNotes.Substring(firstNewlineAfterOverflow + 1);
+                    }
+                    else
+                    {
+                        entity.Notes = newNotes.Substring(overflow);
+                    }
+                }
+                else
+                {
+                    entity.Notes = newNotes;
+                }
+            }
+        }
+
+        /// <inheritdoc />
+        public async Task CreateDefaultUserInvitationAsync(Domain.Entities.OW.Onboarding onboarding)
+        {
+            try
+            {
+                // Determine which email to use (prefer ContactEmail, fallback to LeadEmail)
+                var emailToUse = !string.IsNullOrWhiteSpace(onboarding.ContactEmail)
+                    ? onboarding.ContactEmail
+                    : onboarding.LeadEmail;
+
+                // Skip if no email is available
+                if (string.IsNullOrWhiteSpace(emailToUse))
+                {
+                    _logger.LogDebug("CreateDefaultUserInvitationAsync - Skipping: No email available for Onboarding {OnboardingId}", onboarding.Id);
+                    return;
+                }
+
+                // Check if invitation already exists for this onboarding and email
+                var existingInvitation = await _userInvitationRepository.GetByEmailAndOnboardingIdAsync(emailToUse, onboarding.Id);
+                if (existingInvitation != null)
+                {
+                    // Invitation already exists, skip creation
+                    _logger.LogDebug("CreateDefaultUserInvitationAsync - Skipping: Invitation already exists for email {Email} and Onboarding {OnboardingId}", 
+                        emailToUse, onboarding.Id);
+                    return;
+                }
+
+                // Create new UserInvitation record
+                var invitation = new UserInvitation
+                {
+                    OnboardingId = onboarding.Id,
+                    Email = emailToUse,
+                    InvitationToken = CryptoHelper.GenerateSecureToken(),
+                    Status = "Pending",
+                    SentDate = null, // Leave empty - will be set when invitation is actually sent
+                    TokenExpiry = null, // No expiry
+                    SendCount = 0, // Not sent via email
+                    TenantId = onboarding.TenantId ?? _userContext.TenantId ?? "default",
+                    Notes = "Auto-created default invitation (no email sent)"
+                };
+
+                // Generate short URL ID and invitation URL
+                invitation.ShortUrlId = CryptoHelper.GenerateShortUrlId(
+                    onboarding.Id,
+                    emailToUse,
+                    invitation.InvitationToken);
+
+                // Generate invitation URL (using default base URL)
+                invitation.InvitationUrl = GenerateShortInvitationUrl(
+                    invitation.ShortUrlId,
+                    onboarding.TenantId ?? _userContext.TenantId ?? "default",
+                    onboarding.AppCode ?? _userContext.AppCode ?? "default");
+
+                // Initialize create info
+                invitation.InitCreateInfo(_userContext);
+
+                // Insert the invitation record
+                await _userInvitationRepository.InsertAsync(invitation);
+
+                _logger.LogInformation("CreateDefaultUserInvitationAsync - Created invitation for email {Email}, Onboarding {OnboardingId}", 
+                    emailToUse, onboarding.Id);
+            }
+            catch (Exception ex)
+            {
+                // Log error but don't fail the onboarding creation
+                // This is a non-critical operation
+                _logger.LogWarning(ex, "CreateDefaultUserInvitationAsync - Failed to create invitation for Onboarding {OnboardingId}", onboarding.Id);
+            }
+        }
+
+        /// <inheritdoc />
+        public async Task EnsureCaseCodesAsync(List<Domain.Entities.OW.Onboarding> entities)
+        {
+            var entitiesWithoutCaseCode = entities.Where(e => string.IsNullOrWhiteSpace(e.CaseCode)).ToList();
+            if (!entitiesWithoutCaseCode.Any())
+            {
+                return;
+            }
+
+            _logger.LogInformation(
+                "EnsureCaseCodesAsync - Auto-generating CaseCode for {Count} legacy entities",
+                entitiesWithoutCaseCode.Count);
+
+            // Batch generate case codes to reduce database round trips
+            var updateTasks = new List<(long Id, string CaseCode)>();
+            foreach (var entity in entitiesWithoutCaseCode)
+            {
+                try
+                {
+                    entity.CaseCode = await _caseCodeGeneratorService.GenerateCaseCodeAsync(entity.CaseName);
+                    updateTasks.Add((entity.Id, entity.CaseCode));
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "EnsureCaseCodesAsync - Failed to generate CaseCode for Onboarding {OnboardingId}", entity.Id);
+                }
+            }
+
+            // Batch update database if there are any codes to update
+            if (updateTasks.Any())
+            {
+                try
+                {
+                    // Use batch update for better performance
+                    var db = _onboardingRepository.GetSqlSugarClient();
+                    foreach (var batch in updateTasks.Chunk(100)) // Process in batches of 100
+                    {
+                        var updates = batch.Select(t => new { Id = t.Id, CaseCode = t.CaseCode }).ToList();
+                        foreach (var update in updates)
+                        {
+                            await db.Updateable<Domain.Entities.OW.Onboarding>()
+                                .SetColumns(o => o.CaseCode == update.CaseCode)
+                                .Where(o => o.Id == update.Id)
+                                .ExecuteCommandAsync();
+                        }
+                    }
+                    _logger.LogInformation("EnsureCaseCodesAsync - Batch updated {Count} CaseCodes", updateTasks.Count);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "EnsureCaseCodesAsync - Failed to batch update CaseCodes");
+                }
+            }
+        }
+
+        /// <inheritdoc />
+        public async Task<HashSet<string>> GetAllTeamIdsFromUserTreeAsync()
+        {
+            var tree = await _userService.GetUserTreeAsync();
+            var ids = new HashSet<string>(StringComparer.Ordinal);
+            if (tree == null || !tree.Any())
+            {
+                return ids;
+            }
+
+            void Traverse(IEnumerable<UserTreeNodeDto> nodes)
+            {
+                foreach (var node in nodes)
+                {
+                    if (node == null) continue;
+                    if (string.Equals(node.Type, "team", StringComparison.OrdinalIgnoreCase))
+                    {
+                        if (!string.IsNullOrWhiteSpace(node.Id) && !string.Equals(node.Id, "Other", StringComparison.Ordinal))
+                        {
+                            ids.Add(node.Id);
+                        }
+                    }
+                    if (node.Children != null && node.Children.Any())
+                    {
+                        Traverse(node.Children);
+                    }
+                }
+            }
+
+            Traverse(tree);
+            return ids;
+        }
+
+        #endregion
+
+        #region Private Helper Methods for New Methods
+
+        /// <summary>
+        /// Generate short invitation URL
+        /// </summary>
+        /// <param name="shortUrlId">Short URL ID</param>
+        /// <param name="tenantId">Tenant ID</param>
+        /// <param name="appCode">App code</param>
+        /// <param name="baseUrl">Base URL (optional)</param>
+        /// <returns>Generated invitation URL</returns>
+        private string GenerateShortInvitationUrl(string shortUrlId, string tenantId, string appCode, string? baseUrl = null)
+        {
+            // Use provided base URL or fall back to a default one
+            var effectiveBaseUrl = baseUrl ?? "https://portal.flowflex.com"; // Default base URL
+
+            // Generate the short URL format: {baseUrl}/portal/{tenantId}/{appCode}/invite/{shortUrlId}
+            return $"{effectiveBaseUrl.TrimEnd('/')}/portal/{tenantId}/{appCode}/invite/{shortUrlId}";
         }
 
         #endregion

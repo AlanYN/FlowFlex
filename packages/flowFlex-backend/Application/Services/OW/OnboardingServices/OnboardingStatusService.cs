@@ -2,6 +2,7 @@ using FlowFlex.Application.Contracts.Dtos.OW.Onboarding;
 using FlowFlex.Application.Contracts.IServices.OW;
 using FlowFlex.Application.Contracts.IServices.OW.ChangeLog;
 using FlowFlex.Application.Contracts.IServices.OW.Onboarding;
+using FlowFlex.Application.Helpers.OW;
 using FlowFlex.Domain.Entities.OW;
 using FlowFlex.Domain.Repository.OW;
 using FlowFlex.Domain.Shared;
@@ -56,35 +57,11 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
         #region Permission Check
 
         /// <summary>
-        /// Check if current user has operate permission on the case
-        /// </summary>
-        private async Task<bool> CheckCaseOperatePermissionAsync(long caseId)
-        {
-            var userId = _userContext?.UserId;
-            if (string.IsNullOrEmpty(userId) || !long.TryParse(userId, out var userIdLong))
-            {
-                return false;
-            }
-
-            var permissionResult = await _permissionService.CheckCaseAccessAsync(
-                userIdLong,
-                caseId,
-                Domain.Shared.Enums.Permission.OperationTypeEnum.Operate);
-
-            return permissionResult.Success && permissionResult.CanOperate;
-        }
-
-        /// <summary>
         /// Ensure current user has operate permission on the case
+        /// Uses shared utility method
         /// </summary>
-        private async Task EnsureCaseOperatePermissionAsync(long caseId)
-        {
-            if (!await CheckCaseOperatePermissionAsync(caseId))
-            {
-                throw new CRMException(ErrorCodeEnum.OperationNotAllowed,
-                    $"User does not have permission to operate on case {caseId}");
-            }
-        }
+        private Task EnsureCaseOperatePermissionAsync(long caseId)
+            => OnboardingSharedUtilities.EnsureCaseOperatePermissionAsync(_permissionService, _userContext, caseId);
 
         #endregion
 
@@ -92,69 +69,24 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
 
         /// <summary>
         /// Get current user email from OperatorContextService
+        /// Uses shared utility method
         /// </summary>
         private string GetCurrentUserEmail()
-        {
-            var displayName = _operatorContextService.GetOperatorDisplayName();
-            if (!string.IsNullOrEmpty(displayName) && displayName.Contains("@"))
-            {
-                return displayName;
-            }
-            return !string.IsNullOrEmpty(_userContext?.Email) ? _userContext.Email : "system@example.com";
-        }
+            => OnboardingSharedUtilities.GetCurrentUserEmail(_userContext, _operatorContextService);
 
         /// <summary>
         /// Normalize DateTimeOffset to start of day (00:00:00)
+        /// Uses shared utility method
         /// </summary>
         private static DateTimeOffset NormalizeToStartOfDay(DateTimeOffset dateTime)
-        {
-            return new DateTimeOffset(dateTime.Year, dateTime.Month, dateTime.Day, 0, 0, 0, dateTime.Offset);
-        }
+            => OnboardingSharedUtilities.NormalizeToStartOfDay(dateTime);
 
         /// <summary>
         /// Get current UTC time normalized to start of day
+        /// Uses shared utility method
         /// </summary>
         private static DateTimeOffset GetNormalizedUtcNow()
-        {
-            return NormalizeToStartOfDay(DateTimeOffset.UtcNow);
-        }
-
-        /// <summary>
-        /// Safely append text to Notes field with length validation
-        /// </summary>
-        private static void SafeAppendToNotes(Onboarding entity, string noteText)
-        {
-            const int maxNotesLength = 1000;
-            if (string.IsNullOrEmpty(noteText)) return;
-
-            var currentNotes = entity.Notes ?? string.Empty;
-            var newContent = string.IsNullOrEmpty(currentNotes) ? noteText : $"{currentNotes}\n{noteText}";
-
-            if (newContent.Length > maxNotesLength)
-            {
-                var truncationMessage = "[...truncated older notes...]\n";
-                var availableSpace = maxNotesLength - truncationMessage.Length - noteText.Length - 1;
-
-                if (availableSpace > 0 && currentNotes.Length > availableSpace)
-                {
-                    var recentNotes = currentNotes.Substring(currentNotes.Length - availableSpace);
-                    var firstNewlineIndex = recentNotes.IndexOf('\n');
-                    if (firstNewlineIndex > 0)
-                    {
-                        recentNotes = recentNotes.Substring(firstNewlineIndex + 1);
-                    }
-                    entity.Notes = $"{truncationMessage}{recentNotes}\n{noteText}";
-                }
-                else
-                {
-                    entity.Notes = noteText.Substring(0, Math.Min(noteText.Length, maxNotesLength));
-                }
-            }
-            else
-            {
-                entity.Notes = newContent;
-            }
-        }
+            => OnboardingSharedUtilities.GetNormalizedUtcNowOffset();
 
         #endregion
 
@@ -272,7 +204,7 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
 
             var originalStagesProgressJson = entity.StagesProgressJson;
 
-            entity.Status = "Active";
+            entity.Status = OnboardingStatusEnum.Active.ToDbString();
             entity.StartDate = NormalizeToStartOfDay(DateTimeOffset.UtcNow);
             entity.CurrentStageStartTime = GetNormalizedUtcNow();
 
@@ -286,7 +218,7 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
             var startText = $"[Start Onboarding] Onboarding activated";
             if (!string.IsNullOrEmpty(input.Reason)) startText += $" - Reason: {input.Reason}";
             if (!string.IsNullOrEmpty(input.Notes)) startText += $" - Notes: {input.Notes}";
-            SafeAppendToNotes(entity, startText);
+            OnboardingSharedUtilities.SafeAppendToNotes(entity, startText);
 
             UpdateStageTrackingInfo(entity);
 
@@ -406,12 +338,12 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
 
             var originalStagesProgressJson = entity.StagesProgressJson;
 
-            entity.Status = "Active";
+            entity.Status = OnboardingStatusEnum.Active.ToDbString();
 
             var resumeText = $"[Resume] Onboarding resumed from Paused status";
             if (!string.IsNullOrEmpty(input.Reason)) resumeText += $" - Reason: {input.Reason}";
             if (!string.IsNullOrEmpty(input.Notes)) resumeText += $" - Notes: {input.Notes}";
-            SafeAppendToNotes(entity, resumeText);
+            OnboardingSharedUtilities.SafeAppendToNotes(entity, resumeText);
 
             UpdateStageTrackingInfo(entity);
 
@@ -485,12 +417,12 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
 
             var originalStagesProgressJson = entity.StagesProgressJson;
 
-            entity.Status = "Aborted";
+            entity.Status = OnboardingStatusEnum.Aborted.ToDbString();
             entity.EstimatedCompletionDate = null;
 
             var abortText = $"[Abort] Onboarding terminated - Reason: {input.Reason}";
             if (!string.IsNullOrEmpty(input.Notes)) abortText += $" - Notes: {input.Notes}";
-            SafeAppendToNotes(entity, abortText);
+            OnboardingSharedUtilities.SafeAppendToNotes(entity, abortText);
 
             UpdateStageTrackingInfo(entity);
 
@@ -538,13 +470,13 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
 
             var originalStagesProgressJson = entity.StagesProgressJson;
 
-            entity.Status = "Active";
+            entity.Status = OnboardingStatusEnum.Active.ToDbString();
             entity.ActualCompletionDate = null;
 
             var reactivateText = $"[Reactivate] Onboarding reactivated from Aborted status - Reason: {input.Reason}";
             if (!string.IsNullOrEmpty(input.Notes)) reactivateText += $" - Notes: {input.Notes}";
             if (input.PreserveAnswers) reactivateText += " - Questionnaire answers preserved";
-            SafeAppendToNotes(entity, reactivateText);
+            OnboardingSharedUtilities.SafeAppendToNotes(entity, reactivateText);
 
             UpdateStageTrackingInfo(entity);
 
@@ -598,7 +530,7 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
             var rejectionNote = $"[{(input.TerminateWorkflow ? "TERMINATED" : "REJECTED")}] {input.RejectionReason}";
             if (!string.IsNullOrEmpty(input.AdditionalNotes)) rejectionNote += $" - Additional Notes: {input.AdditionalNotes}";
             rejectionNote += $" - {(input.TerminateWorkflow ? "Terminated" : "Rejected")} by: {input.RejectedBy} at {currentTime:yyyy-MM-dd HH:mm:ss}";
-            SafeAppendToNotes(entity, rejectionNote);
+            OnboardingSharedUtilities.SafeAppendToNotes(entity, rejectionNote);
 
             // Update stages progress to reflect rejection
             _stageProgressService.LoadStagesProgressFromJson(entity);
@@ -654,7 +586,7 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
 
             var originalStagesProgressJson = entity.StagesProgressJson;
 
-            entity.Status = "Force Completed";
+            entity.Status = OnboardingStatusEnum.ForceCompleted.ToDbString();
             entity.ActualCompletionDate = DateTimeOffset.UtcNow;
             entity.CompletionRate = 100;
 
@@ -662,7 +594,7 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
             if (!string.IsNullOrEmpty(input.CompletionNotes)) completionText += $" - Notes: {input.CompletionNotes}";
             if (input.Rating.HasValue) completionText += $" - Rating: {input.Rating}/5";
             if (!string.IsNullOrEmpty(input.Feedback)) completionText += $" - Feedback: {input.Feedback}";
-            SafeAppendToNotes(entity, completionText);
+            OnboardingSharedUtilities.SafeAppendToNotes(entity, completionText);
 
             UpdateStageTrackingInfo(entity);
 

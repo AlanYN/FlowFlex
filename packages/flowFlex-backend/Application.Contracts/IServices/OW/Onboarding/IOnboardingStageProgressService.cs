@@ -121,5 +121,51 @@ namespace FlowFlex.Application.Contracts.IServices.OW.Onboarding
         /// <param name="defaultAssigneeJson">DefaultAssignee JSON string</param>
         /// <returns>Filtered list of co-assignee IDs</returns>
         List<string> GetFilteredCoAssignees(string coAssigneesJson, string defaultAssigneeJson);
+
+        /// <summary>
+        /// Safely update onboarding entity with JSONB compatibility
+        /// This method handles the JSONB type conversion issue for stages_progress_json
+        /// </summary>
+        /// <param name="entity">Onboarding entity to update</param>
+        /// <returns>True if update was successful, false otherwise</returns>
+        Task<bool> SafeUpdateOnboardingAsync(Domain.Entities.OW.Onboarding entity);
+
+        /// <summary>
+        /// Update AI Summary for a specific stage in onboarding's stagesProgress
+        /// </summary>
+        /// <param name="onboardingId">Onboarding ID</param>
+        /// <param name="stageId">Stage ID</param>
+        /// <param name="aiSummary">AI Summary content</param>
+        /// <param name="generatedAt">Generated timestamp</param>
+        /// <param name="confidence">Confidence score</param>
+        /// <param name="modelUsed">AI model used</param>
+        /// <returns>True if update was successful, false otherwise</returns>
+        Task<bool> UpdateOnboardingStageAISummaryAsync(
+            long onboardingId,
+            long stageId,
+            string aiSummary,
+            DateTime generatedAt,
+            double? confidence,
+            string modelUsed);
+
+        /// <summary>
+        /// Update custom fields for a specific stage in onboarding's stagesProgress
+        /// Updates CustomEstimatedDays, CustomEndTime, CustomStageAssignee, and CustomStageCoAssignees fields
+        /// </summary>
+        /// <param name="onboardingId">Onboarding ID</param>
+        /// <param name="input">Input DTO containing custom field values</param>
+        /// <returns>True if update was successful, false otherwise</returns>
+        Task<bool> UpdateStageCustomFieldsAsync(
+            long onboardingId,
+            UpdateStageCustomFieldsInputDto input);
+
+        /// <summary>
+        /// Save a specific stage in onboarding's stagesProgress
+        /// Sets IsSaved, SaveTime, SavedById fields and optionally StartTime if not set
+        /// </summary>
+        /// <param name="onboardingId">Onboarding ID</param>
+        /// <param name="stageId">Stage ID to save</param>
+        /// <returns>True if save was successful, false otherwise</returns>
+        Task<bool> SaveStageAsync(long onboardingId, long stageId);
     }
 }

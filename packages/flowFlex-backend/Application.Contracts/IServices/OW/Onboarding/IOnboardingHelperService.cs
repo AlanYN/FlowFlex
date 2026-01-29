@@ -1,4 +1,5 @@
 using FlowFlex.Application.Contracts.Dtos.OW.Onboarding;
+using FlowFlex.Application.Contracts.Dtos.OW.User;
 using FlowFlex.Domain.Entities.OW;
 using FlowFlex.Domain.Shared;
 using FlowFlex.Domain.Shared.Events;
@@ -12,11 +13,6 @@ namespace FlowFlex.Application.Contracts.IServices.OW.Onboarding
     /// </summary>
     public interface IOnboardingHelperService : IScopedService
     {
-        /// <summary>
-        /// Get onboarding progress
-        /// </summary>
-        Task<OnboardingProgressDto> GetProgressAsync(long id);
-
         /// <summary>
         /// Publish stage completion event for current stage completion
         /// </summary>
@@ -103,5 +99,46 @@ namespace FlowFlex.Application.Contracts.IServices.OW.Onboarding
         /// Get current user email from context
         /// </summary>
         string GetCurrentUserEmail();
+
+        /// <summary>
+        /// Validate that team IDs from JSON arrays exist in the team tree from UserService.
+        /// Throws BusinessError if any invalid IDs are found.
+        /// </summary>
+        /// <param name="viewTeamsJson">JSON array of view team IDs</param>
+        /// <param name="operateTeamsJson">JSON array of operate team IDs</param>
+        Task ValidateTeamSelectionsFromJsonAsync(string viewTeamsJson, string operateTeamsJson);
+
+        /// <summary>
+        /// Check if exception is a JSONB type error from PostgreSQL
+        /// </summary>
+        /// <param name="ex">Exception to check</param>
+        /// <returns>True if the exception is related to JSONB type conversion</returns>
+        bool IsJsonbTypeError(Exception ex);
+
+        /// <summary>
+        /// Safely append text to Notes field with length validation
+        /// Ensures the total length doesn't exceed the database constraint (1000 characters)
+        /// </summary>
+        /// <param name="entity">Onboarding entity to update</param>
+        /// <param name="noteText">Text to append to notes</param>
+        void SafeAppendToNotes(Domain.Entities.OW.Onboarding entity, string noteText);
+
+        /// <summary>
+        /// Create default UserInvitation record without sending email
+        /// </summary>
+        /// <param name="onboarding">Onboarding entity to create invitation for</param>
+        Task CreateDefaultUserInvitationAsync(Domain.Entities.OW.Onboarding onboarding);
+
+        /// <summary>
+        /// Ensure CaseCode exists for all entities (batch processing)
+        /// </summary>
+        /// <param name="entities">List of onboarding entities to ensure CaseCode for</param>
+        Task EnsureCaseCodesAsync(List<Domain.Entities.OW.Onboarding> entities);
+
+        /// <summary>
+        /// Get all valid team IDs from user tree
+        /// </summary>
+        /// <returns>HashSet of all valid team IDs</returns>
+        Task<HashSet<string>> GetAllTeamIdsFromUserTreeAsync();
     }
 }

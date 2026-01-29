@@ -6,6 +6,7 @@ using FlowFlex.Application.Contracts.IServices.DynamicData;
 using FlowFlex.Application.Contracts.IServices.OW;
 using FlowFlex.Application.Contracts.IServices.OW.ChangeLog;
 using FlowFlex.Application.Contracts.IServices.OW.Onboarding;
+using FlowFlex.Application.Helpers.OW;
 using FlowFlex.Application.Services.OW.Extensions;
 using FlowFlex.Domain.Entities.Base;
 using FlowFlex.Domain.Entities.OW;
@@ -47,17 +48,8 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
         private readonly IUserService _userService;
         private readonly ILogger<OnboardingCrudService> _logger;
 
-        // Shared JSON serializer options
-        private static readonly JsonSerializerOptions JsonOptions = new JsonSerializerOptions
-        {
-            PropertyNameCaseInsensitive = true,
-            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-            ReadCommentHandling = JsonCommentHandling.Skip,
-            AllowTrailingCommas = true,
-            NumberHandling = System.Text.Json.Serialization.JsonNumberHandling.AllowReadingFromString,
-            DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull,
-            WriteIndented = false
-        };
+        // Shared JSON serializer options - use OnboardingSharedUtilities.JsonOptions for consistency
+        private static readonly JsonSerializerOptions JsonOptions = OnboardingSharedUtilities.JsonOptions;
 
         #endregion
 
@@ -584,7 +576,7 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
             // Set initial values
             entity.CurrentStageId = firstStage?.Id;
             entity.CurrentStageOrder = firstStage?.Order ?? 0;
-            entity.Status = string.IsNullOrEmpty(entity.Status) ? "Inactive" : entity.Status;
+            entity.Status = string.IsNullOrEmpty(entity.Status) ? OnboardingStatusEnum.Inactive.ToDbString() : entity.Status;
             entity.StartDate = entity.StartDate ?? DateTimeOffset.UtcNow;
             entity.CurrentStageStartTime = null;
             entity.CompletionRate = 0;
@@ -1095,17 +1087,17 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
                 {
                     if (currentStageProgress.StartTime.HasValue)
                     {
-                        result.CurrentStageStartTime = NormalizeToStartOfDay(currentStageProgress.StartTime);
+                        result.CurrentStageStartTime = OnboardingSharedUtilities.NormalizeToStartOfDay(currentStageProgress.StartTime);
                     }
 
                     // Priority: customEndTime > endTime > (startTime+estimatedDays) > null
                     if (currentStageProgress.CustomEndTime.HasValue)
                     {
-                        result.CurrentStageEndTime = NormalizeToStartOfDay(currentStageProgress.CustomEndTime.Value);
+                        result.CurrentStageEndTime = OnboardingSharedUtilities.NormalizeToStartOfDay(currentStageProgress.CustomEndTime.Value);
                     }
                     else if (currentStageProgress.EndTime.HasValue)
                     {
-                        result.CurrentStageEndTime = NormalizeToStartOfDay(currentStageProgress.EndTime.Value);
+                        result.CurrentStageEndTime = OnboardingSharedUtilities.NormalizeToStartOfDay(currentStageProgress.EndTime.Value);
                     }
                     else
                     {
@@ -1131,11 +1123,8 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
             // Calculate currentStageEndTime when both startTime and estimatedDays exist
             if (result.CurrentStageEndTime == null && result.CurrentStageStartTime.HasValue && (estimatedDays.HasValue && estimatedDays.Value > 0))
             {
-                var normalizedStartTime = NormalizeToStartOfDay(result.CurrentStageStartTime.Value);
-                if (normalizedStartTime.HasValue)
-                {
-                    result.CurrentStageEndTime = normalizedStartTime.Value.AddDays((int)estimatedDays.Value);
-                }
+                var normalizedStartTime = OnboardingSharedUtilities.NormalizeToStartOfDay(result.CurrentStageStartTime.Value);
+                result.CurrentStageEndTime = normalizedStartTime.AddDays((int)estimatedDays.Value);
             }
         }
 
@@ -1293,26 +1282,15 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
 
         #region Common Helper Methods
 
-        /// <summary>
-        /// Normalize DateTimeOffset to start of day (00:00:00)
-        /// </summary>
-        private static DateTimeOffset? NormalizeToStartOfDay(DateTimeOffset? dateTime)
-        {
-            if (!dateTime.HasValue) return null;
-            var dt = dateTime.Value;
-            return new DateTimeOffset(dt.Year, dt.Month, dt.Day, 0, 0, 0, dt.Offset);
-        }
+        // Note: NormalizeToStartOfDay has been removed.
+        // Use OnboardingSharedUtilities.NormalizeToStartOfDay(dateTime) directly.
 
         /// <summary>
         /// Check if exception is a JSONB type error
+        /// Uses shared utility method
         /// </summary>
         private static bool IsJsonbTypeError(Exception ex)
-        {
-            return ex.Message.Contains("jsonb") ||
-                   ex.Message.Contains("JSONB") ||
-                   ex.Message.Contains("type conversion") ||
-                   ex.Message.Contains("cannot cast");
-        }
+            => OnboardingSharedUtilities.IsJsonbTypeError(ex);
 
         /// <summary>
         /// Validate and format JSON array

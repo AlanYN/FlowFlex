@@ -34,6 +34,7 @@ using FlowFlex.Application.Contracts.IServices.OW;
 using FlowFlex.Application.Contracts.Dtos.OW.User;
 using FlowFlex.Application.Contracts.IServices.Integration;
 using FlowFlex.Application.Contracts.IServices.DynamicData;
+using FlowFlex.Application.Contracts.Dtos.OW.User;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -2319,7 +2320,10 @@ namespace FlowFlex.Application.Service.OW
         {
             var tree = await _userService.GetUserTreeAsync();
             var ids = new HashSet<string>(StringComparer.Ordinal);
-            if (tree == null || !tree.Any()) return ids;
+            if (tree == null || !tree.Any())
+            {
+                return ids;
+            }
 
             void Traverse(IEnumerable<UserTreeNodeDto> nodes)
             {
