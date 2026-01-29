@@ -272,6 +272,7 @@
 				:limit="pageSize"
 				:page="currentPage"
 				:background="true"
+				:hidden="loading"
 				@pagination="handlePagination"
 				@update:page="handleCurrentChange"
 				@update:limit="handlePageUpdate"

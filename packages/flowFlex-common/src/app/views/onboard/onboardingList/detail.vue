@@ -30,6 +30,7 @@
 					Save
 				</el-button>
 				<el-tooltip
+					v-if="hasCasePermission(ProjectPermissionEnum.case.update) && !!activeStage"
 					:content="completeDisabledReason"
 					:disabled="!completeDisabledReason"
 					placement="top"
@@ -46,7 +47,6 @@
 						"
 						class="page-header-btn page-header-btn-primary"
 						:icon="Check"
-						v-if="hasCasePermission(ProjectPermissionEnum.case.update) && !!activeStage"
 					>
 						Complete
 					</el-button>
@@ -256,15 +256,12 @@
 		</div>
 
 		<!-- 变更日志 -->
-		<!-- ChangeLog 加载状态 -->
-		<div class="mt-4">
-			<ChangeLog
-				v-if="onboardingId"
-				ref="changeLogRef"
-				:onboarding-id="onboardingId"
-				:stage-id="activeStage"
-			/>
-		</div>
+		<ChangeLog
+			v-if="onboardingId"
+			ref="changeLogRef"
+			:onboarding-id="onboardingId"
+			:stage-id="activeStage"
+		/>
 
 		<!-- Portal Access Management 对话框 -->
 		<el-dialog
@@ -878,9 +875,11 @@ const loadStaticFieldValues = async () => {
 					formRef.setFieldValues(response.data);
 				});
 			});
+		} else {
+			response.msg && ElMessage.error(response.msg);
 		}
-	} catch (error) {
-		ElMessage.error('Failed to load static field values');
+	} catch {
+		//deep
 	}
 };
 
@@ -894,7 +893,6 @@ const setActiveStage = async (stageId: string) => {
 	if (aiSummaryAbortController) {
 		aiSummaryAbortController.abort();
 		aiSummaryLoading.value = false;
-		console.log('🚫 [Stage Switch] Cancelled AI summary generation due to stage change');
 	}
 
 	// 更新activeStage
@@ -909,14 +907,7 @@ const setActiveStage = async (stageId: string) => {
 	await loadStageRelatedData(stageId);
 	await loadStaticFieldValues(); // 添加加载字段值的调用
 
-	// 页面切换时自动检查并生成AI Summary
-	console.log(
-		'🔄 [Stage Switch] Stage switched to:',
-		stageId,
-		'AI Summary exists:',
-		!!onboardingActiveStageInfo.value?.aiSummary
-	);
-
+	refreshChangeLog();
 	// 自动检查并生成AI Summary（如果不存在）
 	await checkAndGenerateAISummary();
 };
@@ -1177,7 +1168,6 @@ const refreshAISummary = async () => {
 	// 取消之前的请求（如果存在）
 	if (aiSummaryAbortController) {
 		aiSummaryAbortController.abort();
-		console.log('🚫 [AI Summary] Cancelled previous request');
 	}
 
 	// 创建新的AbortController
@@ -1188,7 +1178,6 @@ const refreshAISummary = async () => {
 	aiSummaryLoading.value = true;
 	aiSummaryLoadingText.value = 'Starting AI summary generation...';
 	currentAISummary.value = ''; // 清空现有内容，准备流式显示
-	console.log('🔄 [AI Summary] Starting generation for stage:', currentStageId);
 
 	try {
 		// 获取认证信息
@@ -1243,9 +1232,6 @@ const refreshAISummary = async () => {
 
 			// 检查当前阶段是否已经改变
 			if (activeStage.value !== currentStageId) {
-				console.log(
-					'🚫 [AI Summary] Stage changed during generation, stopping stream processing'
-				);
 				aiSummaryLoading.value = false;
 				return;
 			}
@@ -1254,8 +1240,6 @@ const refreshAISummary = async () => {
 
 			// 检查是否是错误信息
 			if (chunk.startsWith('Error:')) {
-				console.warn('⚠️ [AI Summary] AI service unavailable:', chunk);
-				// 不显示错误弹窗，只记录日志
 				aiSummaryLoading.value = false;
 				return;
 			}
@@ -1263,21 +1247,16 @@ const refreshAISummary = async () => {
 			// 直接将文本内容添加到AI Summary中
 			if (chunk.trim()) {
 				currentAISummary.value += chunk;
-				console.log('📝 [AI Summary] Text chunk received:', chunk.length, 'chars');
 			}
 		}
 
 		// 最终验证阶段是否仍然是开始时的阶段
 		if (activeStage.value !== currentStageId) {
-			console.log(
-				'🚫 [AI Summary] Stage changed after generation completed, discarding result'
-			);
 			aiSummaryLoading.value = false;
 			return;
 		}
 
 		// 流结束，设置状态
-		console.log('✅ [AI Summary] Stream completed for stage:', currentStageId);
 		currentAISummaryGeneratedAt.value = new Date().toISOString();
 		aiSummaryLoading.value = false;
 		//ElMessage.success('AI Summary generated successfully');
@@ -1287,19 +1266,14 @@ const refreshAISummary = async () => {
 			onboardingActiveStageInfo.value.aiSummary = currentAISummary.value;
 			onboardingActiveStageInfo.value.aiSummaryGeneratedAt =
 				currentAISummaryGeneratedAt.value;
-			console.log('📝 [AI Summary] Updated stage info for stage:', currentStageId);
-		} else {
-			console.log('⚠️ [AI Summary] Skipped updating stage info due to stage change');
 		}
 	} catch (error: any) {
 		// 检查是否是用户取消的请求
 		if (error.name === 'AbortError') {
-			console.log('🚫 [AI Summary] Request was cancelled');
 			aiSummaryLoading.value = false;
 			return;
 		}
 
-		console.warn('⚠️ [AI Summary] Generation failed:', error);
 		aiSummaryLoading.value = false;
 		// 不显示错误弹窗，只记录日志
 	} finally {
@@ -1308,7 +1282,7 @@ const refreshAISummary = async () => {
 	}
 };
 
-const checkAndGenerateAISummary = async () => {
+const checkAndGenerateAISummary = () => {
 	// 检查当前阶段是否有AI Summary，如果没有则自动生成
 	// 只有在stagesProgress中确实没有aiSummary时才自动生成
 	if (
@@ -1317,20 +1291,7 @@ const checkAndGenerateAISummary = async () => {
 		onboardingActiveStageInfo.value &&
 		activeStage.value
 	) {
-		console.log(
-			'🤖 [AI Summary] Auto-generating for stage without existing summary:',
-			activeStage.value
-		);
-		await refreshAISummary();
-	} else if (onboardingActiveStageInfo.value?.aiSummary) {
-		console.log('✅ [AI Summary] Stage already has AI summary, skipping auto-generation');
-	} else {
-		console.log('⏸️ [AI Summary] Skipping auto-generation:', {
-			hasAiSummary: !!onboardingActiveStageInfo.value?.aiSummary,
-			isLoading: aiSummaryLoading.value,
-			hasStageInfo: !!onboardingActiveStageInfo.value,
-			hasActiveStage: !!activeStage.value,
-		});
+		refreshAISummary();
 	}
 };
 
@@ -1344,7 +1305,6 @@ const handleQuestionSubmitted = async (
 		questionnaireLoading.value = true;
 		// 重新获取问卷答案数据
 		await refreshQuestionnaireAnswers(onboardingId, stageId, questionnaireId);
-		console.log('Questionnaire answers refreshed after submission');
 	} finally {
 		questionnaireLoading.value = false;
 	}
@@ -1379,7 +1339,6 @@ const refreshQuestionnaireAnswers = async (
 				}
 			}
 		});
-		console.log('map:', map);
 		// 将新获取的答案合并到现有的 map 中，而不是完全替换
 		Object.assign(questionnaireAnswersMap.value, map);
 	}
@@ -1420,21 +1379,5 @@ onMounted(async () => {
 	-webkit-hyphens: auto;
 	-moz-hyphens: auto;
 	hyphens: auto;
-}
-
-/* 响应式设计 */
-@media (max-width: 1024px) {
-	/* 在小屏幕设备上的样式调整 */
-}
-
-/* 暗色主题样式 */
-html.dark {
-	:deep(.el-scrollbar__thumb) {
-		background-color: rgba(255, 255, 255, 0.2);
-	}
-
-	:deep(.el-scrollbar__track) {
-		background-color: rgba(0, 0, 0, 0.1);
-	}
 }
 </style>

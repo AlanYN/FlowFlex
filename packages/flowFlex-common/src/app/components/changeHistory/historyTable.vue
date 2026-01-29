@@ -81,6 +81,7 @@
 			:limit="paginationPages.pageSize"
 			:page="paginationPages.pageIndex"
 			:background="true"
+			:hidden="loading"
 			@pagination="handleCurrentChange"
 			@update:page="handlePageUpdate"
 			@update:limit="handleLimitUpdate"
@@ -155,7 +156,9 @@ const handleCurrentChange = () => {
 	getHisttoryTable();
 };
 
-const getTagType = (operationType: string): string => {
+const getTagType = (
+	operationType: string
+): 'success' | 'warning' | 'info' | 'primary' | 'danger' => {
 	if (!operationType) return 'info';
 
 	// 根据实际的operationType进行判断
