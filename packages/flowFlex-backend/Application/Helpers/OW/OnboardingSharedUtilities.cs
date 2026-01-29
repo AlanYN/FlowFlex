@@ -344,5 +344,29 @@ namespace FlowFlex.Application.Helpers.OW
         }
 
         #endregion
+
+        #region Stage Tracking Methods
+
+        /// <summary>
+        /// Update stage tracking information on an onboarding entity
+        /// Sets StageUpdatedTime, StageUpdatedBy, StageUpdatedById, and StageUpdatedByEmail
+        /// </summary>
+        /// <param name="entity">Onboarding entity to update</param>
+        /// <param name="operatorContextService">Operator context service for getting current user info</param>
+        /// <param name="userContext">User context for getting email</param>
+        public static void UpdateStageTrackingInfo(
+            Onboarding entity,
+            IOperatorContextService operatorContextService,
+            UserContext? userContext = null)
+        {
+            if (entity == null) return;
+
+            entity.StageUpdatedTime = DateTimeOffset.UtcNow;
+            entity.StageUpdatedBy = operatorContextService?.GetOperatorDisplayName();
+            entity.StageUpdatedById = operatorContextService?.GetOperatorId() ?? 0;
+            entity.StageUpdatedByEmail = GetCurrentUserEmail(userContext, operatorContextService);
+        }
+
+        #endregion
     }
 }

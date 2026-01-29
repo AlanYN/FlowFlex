@@ -10,8 +10,6 @@ using FlowFlex.Domain.Shared.Enums.OW;
 using FlowFlex.Domain.Shared.Models;
 using FlowFlex.Infrastructure.Services;
 using Microsoft.Extensions.Logging;
-using SqlSugar;
-using System.Text.Json;
 
 namespace FlowFlex.Application.Services.OW.OnboardingServices
 {
@@ -23,7 +21,7 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
     {
         private readonly IOnboardingRepository _onboardingRepository;
         private readonly IStageRepository _stageRepository;
-        private readonly IPermissionService _permissionService;
+        private readonly IOnboardingPermissionService _permissionService;
         private readonly IOnboardingStageProgressService _stageProgressService;
         private readonly IOnboardingLogService _onboardingLogService;
         private readonly IOperatorContextService _operatorContextService;
@@ -34,7 +32,7 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
         public OnboardingStatusService(
             IOnboardingRepository onboardingRepository,
             IStageRepository stageRepository,
-            IPermissionService permissionService,
+            IOnboardingPermissionService permissionService,
             IOnboardingStageProgressService stageProgressService,
             IOnboardingLogService onboardingLogService,
             IOperatorContextService operatorContextService,
@@ -53,37 +51,22 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
 
-
-        #region Permission Check
-
-        /// <summary>
-        /// Ensure current user has operate permission on the case
-        /// Uses shared utility method
-        /// </summary>
-        private Task EnsureCaseOperatePermissionAsync(long caseId)
-            => OnboardingSharedUtilities.EnsureCaseOperatePermissionAsync(_permissionService, _userContext, caseId);
-
-        #endregion
-
         #region Helper Methods
 
         /// <summary>
         /// Get current user email from OperatorContextService
-        /// Uses shared utility method
         /// </summary>
         private string GetCurrentUserEmail()
             => OnboardingSharedUtilities.GetCurrentUserEmail(_userContext, _operatorContextService);
 
         /// <summary>
         /// Normalize DateTimeOffset to start of day (00:00:00)
-        /// Uses shared utility method
         /// </summary>
         private static DateTimeOffset NormalizeToStartOfDay(DateTimeOffset dateTime)
             => OnboardingSharedUtilities.NormalizeToStartOfDay(dateTime);
 
         /// <summary>
         /// Get current UTC time normalized to start of day
-        /// Uses shared utility method
         /// </summary>
         private static DateTimeOffset GetNormalizedUtcNow()
             => OnboardingSharedUtilities.GetNormalizedUtcNowOffset();
@@ -173,12 +156,7 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
         /// Update stage tracking information
         /// </summary>
         private void UpdateStageTrackingInfo(Onboarding entity)
-        {
-            entity.StageUpdatedTime = DateTimeOffset.UtcNow;
-            entity.StageUpdatedBy = _operatorContextService.GetOperatorDisplayName();
-            entity.StageUpdatedById = _operatorContextService.GetOperatorId();
-            entity.StageUpdatedByEmail = GetCurrentUserEmail();
-        }
+            => OnboardingSharedUtilities.UpdateStageTrackingInfo(entity, _operatorContextService, _userContext);
 
         #endregion
 
@@ -188,7 +166,7 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
         /// <inheritdoc />
         public async Task<bool> StartOnboardingAsync(long id, StartOnboardingInputDto input)
         {
-            await EnsureCaseOperatePermissionAsync(id);
+            await _permissionService.EnsureCaseOperatePermissionAsync(id);
 
             var entity = await _onboardingRepository.GetByIdAsync(id);
             if (entity == null || !entity.IsValid)
@@ -245,7 +223,7 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
         /// <inheritdoc />
         public async Task<bool> PauseAsync(long id)
         {
-            await EnsureCaseOperatePermissionAsync(id);
+            await _permissionService.EnsureCaseOperatePermissionAsync(id);
 
             var entity = await _onboardingRepository.GetByIdAsync(id);
             if (entity == null || !entity.IsValid)
@@ -281,7 +259,7 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
         /// <inheritdoc />
         public async Task<bool> ResumeAsync(long id)
         {
-            await EnsureCaseOperatePermissionAsync(id);
+            await _permissionService.EnsureCaseOperatePermissionAsync(id);
 
             var entity = await _onboardingRepository.GetByIdAsync(id);
             if (entity == null || !entity.IsValid)
@@ -322,7 +300,7 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
         /// <inheritdoc />
         public async Task<bool> ResumeWithConfirmationAsync(long id, ResumeOnboardingInputDto input)
         {
-            await EnsureCaseOperatePermissionAsync(id);
+            await _permissionService.EnsureCaseOperatePermissionAsync(id);
 
             var entity = await _onboardingRepository.GetByIdAsync(id);
             if (entity == null || !entity.IsValid)
@@ -370,7 +348,7 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
         /// <inheritdoc />
         public async Task<bool> CancelAsync(long id, string reason)
         {
-            await EnsureCaseOperatePermissionAsync(id);
+            await _permissionService.EnsureCaseOperatePermissionAsync(id);
 
             var entity = await _onboardingRepository.GetByIdAsync(id);
             if (entity == null || !entity.IsValid)
@@ -401,7 +379,7 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
         /// <inheritdoc />
         public async Task<bool> AbortAsync(long id, AbortOnboardingInputDto input)
         {
-            await EnsureCaseOperatePermissionAsync(id);
+            await _permissionService.EnsureCaseOperatePermissionAsync(id);
 
             var entity = await _onboardingRepository.GetByIdAsync(id);
             if (entity == null || !entity.IsValid)
@@ -454,7 +432,7 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
         /// <inheritdoc />
         public async Task<bool> ReactivateAsync(long id, ReactivateOnboardingInputDto input)
         {
-            await EnsureCaseOperatePermissionAsync(id);
+            await _permissionService.EnsureCaseOperatePermissionAsync(id);
 
             var entity = await _onboardingRepository.GetByIdAsync(id);
             if (entity == null || !entity.IsValid)
@@ -503,7 +481,7 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
         /// <inheritdoc />
         public async Task<bool> RejectAsync(long id, RejectOnboardingInputDto input)
         {
-            await EnsureCaseOperatePermissionAsync(id);
+            await _permissionService.EnsureCaseOperatePermissionAsync(id);
 
             var entity = await _onboardingRepository.GetByIdAsync(id);
             if (entity == null || !entity.IsValid)
@@ -570,7 +548,7 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
         /// <inheritdoc />
         public async Task<bool> ForceCompleteAsync(long id, ForceCompleteOnboardingInputDto input)
         {
-            await EnsureCaseOperatePermissionAsync(id);
+            await _permissionService.EnsureCaseOperatePermissionAsync(id);
 
             var entity = await _onboardingRepository.GetByIdAsync(id);
             if (entity == null || !entity.IsValid)

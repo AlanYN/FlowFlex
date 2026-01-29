@@ -10,7 +10,6 @@ using FlowFlex.Application.Services.OW.Permission;
 using FlowFlex.Domain.Entities.OW;
 using FlowFlex.Domain.Repository.OW;
 using FlowFlex.Domain.Shared;
-using FlowFlex.Domain.Shared.Const;
 using FlowFlex.Domain.Shared.Enums.OW;
 using FlowFlex.Domain.Shared.Models;
 using FlowFlex.Infrastructure.Extensions;
@@ -34,17 +33,12 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
         private readonly IStageRepository _stageRepository;
         private readonly IMapper _mapper;
         private readonly UserContext _userContext;
-        private readonly IPermissionService _permissionService;
+        private readonly IOnboardingPermissionService _permissionService;
         private readonly CasePermissionService _casePermissionService;
         private readonly IActionManagementService _actionManagementService;
         private readonly IOnboardingStageProgressService _stageProgressService;
         private readonly IOnboardingHelperService _helperService;
         private readonly ILogger<OnboardingQueryService> _logger;
-
-        // Cache key constants
-        private const string WORKFLOW_CACHE_PREFIX = "ow:workflow";
-        private const string STAGE_CACHE_PREFIX = "ow:stage";
-        private const int CACHE_EXPIRY_MINUTES = 30;
 
         // Use shared JSON serializer options for consistency
         private static readonly JsonSerializerOptions JsonOptions = OnboardingSharedUtilities.JsonOptions;
@@ -55,7 +49,7 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
             IStageRepository stageRepository,
             IMapper mapper,
             UserContext userContext,
-            IPermissionService permissionService,
+            IOnboardingPermissionService permissionService,
             CasePermissionService casePermissionService,
             IActionManagementService actionManagementService,
             IOnboardingStageProgressService stageProgressService,
@@ -584,8 +578,8 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
             context.UserIdLong = userIdLong;
 
             // Pre-check module permissions once (batch optimization)
-            context.CanViewCases = await _permissionService.CheckGroupPermissionAsync(userIdLong, PermissionConsts.Case.Read);
-            context.CanOperateCases = await _permissionService.CheckGroupPermissionAsync(userIdLong, PermissionConsts.Case.Update);
+            context.CanViewCases = await _permissionService.CanViewCasesAsync();
+            context.CanOperateCases = await _permissionService.CanOperateCasesAsync();
 
             _logger.LogDebug(
                 "BuildPermissionContextAsync - User {UserId} module permissions: CanView={CanView}, CanOperate={CanOperate}",

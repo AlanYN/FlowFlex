@@ -7,7 +7,6 @@ using FlowFlex.Domain.Repository.OW;
 using FlowFlex.Domain.Shared;
 using FlowFlex.Domain.Shared.Enums.OW;
 using Microsoft.Extensions.Logging;
-using System.Net;
 
 namespace FlowFlex.Application.Services.OW.OnboardingServices
 {
@@ -51,7 +50,7 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
             var onboarding = await _onboardingRepository.GetByIdAsync(id);
             if (onboarding == null)
             {
-                throw new CRMException(HttpStatusCode.NotFound, $"Onboarding with ID {id} not found");
+                throw new CRMException(ErrorCodeEnum.DataNotFound, $"Onboarding with ID {id} not found");
             }
 
             // Get all users tree

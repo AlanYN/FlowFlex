@@ -10,6 +10,7 @@ using FlowFlex.Domain.Shared.Models;
 using FlowFlex.Infrastructure.Services;
 using Microsoft.Extensions.Logging;
 using SqlSugar;
+using System.Collections.Concurrent;
 using System.Text.Json;
 
 namespace FlowFlex.Application.Services.OW.OnboardingServices
@@ -24,14 +25,14 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
         private readonly IOnboardingRepository _onboardingRepository;
         private readonly IOperatorContextService _operatorContextService;
         private readonly IOperationChangeLogService _operationChangeLogService;
-        private readonly IPermissionService _permissionService;
+        private readonly IOnboardingPermissionService _permissionService;
         private readonly IUserService _userService;
         private readonly UserContext _userContext;
         private readonly ILogger<OnboardingStageProgressService> _logger;
 
-        // Initialization tracking to prevent infinite recursion
-        private static readonly HashSet<long> _initializingEntities = new HashSet<long>();
-        private static readonly object _initializationLock = new object();
+        // Initialization tracking to prevent infinite recursion using thread-safe ConcurrentDictionary
+        // Value is timestamp when initialization started (for potential timeout handling)
+        private static readonly ConcurrentDictionary<long, DateTimeOffset> _initializingEntities = new();
 
         // Use shared JSON serializer options for consistency
         private static readonly JsonSerializerOptions JsonOptions = OnboardingSharedUtilities.JsonOptions;
@@ -41,7 +42,7 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
             IOnboardingRepository onboardingRepository,
             IOperatorContextService operatorContextService,
             IOperationChangeLogService operationChangeLogService,
-            IPermissionService permissionService,
+            IOnboardingPermissionService permissionService,
             IUserService userService,
             UserContext userContext,
             ILogger<OnboardingStageProgressService> logger)
@@ -553,14 +554,11 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
         /// <inheritdoc />
         public async Task EnsureStagesProgressInitializedAsync(Domain.Entities.OW.Onboarding entity, IEnumerable<Stage>? preloadedStages = null)
         {
-            // Prevent infinite recursion using thread-safe entity tracking
-            lock (_initializationLock)
+            // Prevent infinite recursion using thread-safe ConcurrentDictionary
+            // TryAdd returns false if key already exists (entity is being initialized)
+            if (!_initializingEntities.TryAdd(entity.Id, DateTimeOffset.UtcNow))
             {
-                if (_initializingEntities.Contains(entity.Id))
-                {
-                    return;
-                }
-                _initializingEntities.Add(entity.Id);
+                return;
             }
 
             try
@@ -596,10 +594,7 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
             }
             finally
             {
-                lock (_initializationLock)
-                {
-                    _initializingEntities.Remove(entity.Id);
-                }
+                _initializingEntities.TryRemove(entity.Id, out _);
             }
         }
 
@@ -1257,7 +1252,7 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
         public async Task<bool> SaveStageAsync(long onboardingId, long stageId)
         {
             // Check permission
-            await OnboardingSharedUtilities.EnsureCaseOperatePermissionAsync(_permissionService, _userContext, onboardingId);
+            await _permissionService.EnsureCaseOperatePermissionAsync(onboardingId);
 
             try
             {

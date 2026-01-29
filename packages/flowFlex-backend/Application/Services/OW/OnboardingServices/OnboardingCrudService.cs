@@ -39,7 +39,7 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
         private readonly IOperatorContextService _operatorContextService;
         private readonly IBackgroundTaskQueue _backgroundTaskQueue;
         private readonly IOnboardingLogService _onboardingLogService;
-        private readonly IPermissionService _permissionService;
+        private readonly IOnboardingPermissionService _permissionService;
         private readonly IActionManagementService _actionManagementService;
         private readonly ICaseCodeGeneratorService _caseCodeGeneratorService;
         private readonly IOnboardingStageProgressService _stageProgressService;
@@ -65,7 +65,7 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
             IOperatorContextService operatorContextService,
             IBackgroundTaskQueue backgroundTaskQueue,
             IOnboardingLogService onboardingLogService,
-            IPermissionService permissionService,
+            IOnboardingPermissionService permissionService,
             IActionManagementService actionManagementService,
             ICaseCodeGeneratorService caseCodeGeneratorService,
             IOnboardingStageProgressService stageProgressService,
@@ -467,7 +467,7 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
                 // Check Case permission
                 if (hasUserId)
                 {
-                    result.Permission = await _permissionService.GetCasePermissionInfoAsync(userIdLong, id);
+                    result.Permission = await _permissionService.GetCasePermissionInfoAsync(id);
                     result.IsDisabled = !result.Permission.CanOperate;
                 }
                 else
@@ -1176,7 +1176,7 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
                 {
                     try
                     {
-                        stageProgress.Permission = await _permissionService.GetStagePermissionInfoAsync(userIdLong, stageProgress.StageId);
+                        stageProgress.Permission = await _permissionService.GetStagePermissionInfoAsync(stageProgress.StageId);
                     }
                     catch (Exception ex)
                     {

@@ -23,7 +23,7 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
     {
         private readonly IOnboardingRepository _onboardingRepository;
         private readonly IStageRepository _stageRepository;
-        private readonly IPermissionService _permissionService;
+        private readonly IOnboardingPermissionService _permissionService;
         private readonly IOnboardingStageProgressService _stageProgressService;
         private readonly IOperationChangeLogService _operationChangeLogService;
         private readonly IOnboardingLogService _onboardingLogService;
@@ -40,7 +40,7 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
         public OnboardingStageManagementService(
             IOnboardingRepository onboardingRepository,
             IStageRepository stageRepository,
-            IPermissionService permissionService,
+            IOnboardingPermissionService permissionService,
             IOnboardingStageProgressService stageProgressService,
             IOperationChangeLogService operationChangeLogService,
             IOnboardingLogService onboardingLogService,
@@ -70,18 +70,6 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
             _userContext = userContext ?? throw new ArgumentNullException(nameof(userContext));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
-
-        #region Permission Check
-
-        /// <summary>
-        /// Ensure current user has operate permission on the case
-        /// Uses shared utility method
-        /// </summary>
-        private Task EnsureCaseOperatePermissionAsync(long caseId)
-            => OnboardingSharedUtilities.EnsureCaseOperatePermissionAsync(_permissionService, _userContext, caseId);
-
-        #endregion
-
 
         #region Helper Methods
 
@@ -124,7 +112,7 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
         /// <inheritdoc />
         public async Task<bool> MoveToNextStageAsync(long id)
         {
-            await EnsureCaseOperatePermissionAsync(id);
+            await _permissionService.EnsureCaseOperatePermissionAsync(id);
 
             var entity = await _onboardingRepository.GetByIdAsync(id);
             if (entity == null || !entity.IsValid)
@@ -156,7 +144,7 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
         /// <inheritdoc />
         public async Task<bool> MoveToStageAsync(long id, MoveToStageInputDto input)
         {
-            await EnsureCaseOperatePermissionAsync(id);
+            await _permissionService.EnsureCaseOperatePermissionAsync(id);
 
             var entity = await _onboardingRepository.GetByIdAsync(id);
             if (entity == null || !entity.IsValid)
@@ -270,7 +258,7 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
         /// <inheritdoc />
         public async Task<bool> CompleteCurrentStageAsync(long id, CompleteCurrentStageInputDto input)
         {
-            await EnsureCaseOperatePermissionAsync(id);
+            await _permissionService.EnsureCaseOperatePermissionAsync(id);
 
             var entity = await _onboardingRepository.GetByIdAsync(id);
             if (entity == null || !entity.IsValid)
@@ -449,12 +437,7 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
         /// Update stage tracking information
         /// </summary>
         private void UpdateStageTrackingInfo(Onboarding entity)
-        {
-            entity.StageUpdatedTime = DateTimeOffset.UtcNow;
-            entity.StageUpdatedBy = _operatorContextService.GetOperatorDisplayName();
-            entity.StageUpdatedById = _operatorContextService.GetOperatorId();
-            entity.StageUpdatedByEmail = GetCurrentUserEmail();
-        }
+            => OnboardingSharedUtilities.UpdateStageTrackingInfo(entity, _operatorContextService, _userContext);
 
         /// <summary>
         /// Update current stage after completion
