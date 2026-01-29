@@ -264,37 +264,6 @@ html.flowflex-app {
 }
 
 /* ========== 向后兼容的 Utility Classes ========== */
-/* 保持现有类名以避免破坏现有代码 */
-.text-xl {
-	font-size: var(--text-xl-size);
-	line-height: var(--text-xl-line-height);
-	font-weight: var(--text-xl-weight);
-}
-
-.text-lg {
-	font-size: var(--text-lg-size);
-	line-height: var(--text-lg-line-height);
-	font-weight: var(--text-lg-weight);
-}
-
-.text-base {
-	font-size: var(--text-base-size);
-	line-height: var(--text-base-line-height);
-	font-weight: var(--text-base-weight);
-}
-
-.text-sm {
-	font-size: var(--text-sm-size);
-	line-height: var(--text-sm-line-height);
-	font-weight: var(--text-sm-weight);
-}
-
-.text-xs {
-	font-size: var(--text-xs-size);
-	line-height: var(--text-xs-line-height);
-	font-weight: var(--text-xs-weight);
-}
-
 /* 特殊文本 Utility Classes */
 .label {
 	font-size: var(--label-size);

@@ -8,16 +8,9 @@
 			></div>
 			<div class="fixed inset-y-0 left-0 flex w-64 flex-col bg-siderbarGray dark:bg-black">
 				<div class="flex h-16 items-center justify-between px-4 border-b">
-					<h1 class="text-xl font-bold text-primary">Customer Portal</h1>
+					<h1 class="text-xl font-bold">Customer Portal</h1>
 					<el-button @click="sidebarOpen = false">
-						<svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-							<path
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								stroke-width="2"
-								d="M6 18L18 6M6 6l12 12"
-							/>
-						</svg>
+						<Icon icon="mdi:close" class="h-5 w-5" />
 					</el-button>
 				</div>
 				<nav class="flex-1 space-y-1 px-2 py-4">
@@ -25,12 +18,12 @@
 						v-for="item in navigation"
 						:key="item.name"
 						:class="[
-							'group flex items-center px-2 py-2 text-sm font-medium rounded-xl cursor-pointer portal-nav-item',
+							' flex items-center px-2 py-2 text-sm font-medium rounded-xl cursor-pointer ',
 							currentView === item.view ? 'portal-nav-active' : '',
 						]"
 						@click="handleNavigation(item)"
 					>
-						<component :is="item.icon" class="mr-3 h-5 w-5" />
+						<Icon :icon="item.icon" class="mr-3 h-5 w-5" />
 						{{ item.name }}
 					</div>
 				</nav>
@@ -40,19 +33,7 @@
 					<div class="rounded-xl border bg-siderbarGray dark:bg-black p-4 shadow-sm">
 						<div class="flex items-center space-x-3">
 							<div class="portal-company-icon">
-								<svg
-									class="h-5 w-5"
-									fill="none"
-									stroke="currentColor"
-									viewBox="0 0 24 24"
-								>
-									<path
-										stroke-linecap="round"
-										stroke-linejoin="round"
-										stroke-width="2"
-										d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
-									/>
-								</svg>
+								<Icon icon="mdi:office-building-outline" class="h-5 w-5" />
 							</div>
 							<div class="flex-1 min-w-0">
 								<p class="text-sm font-medium portal-text-primary truncate">
@@ -74,19 +55,19 @@
 				class="flex flex-col flex-grow bg-siderbarGray dark:bg-black portal-sidebar-border"
 			>
 				<div class="flex h-16 items-center px-4 border-b">
-					<h1 class="text-xl font-bold text-primary">Customer Portal</h1>
+					<h1 class="text-xl font-bold">Customer Portal</h1>
 				</div>
 				<nav class="flex-1 space-y-1 px-2 py-4">
 					<div
 						v-for="item in navigation"
 						:key="item.name"
 						:class="[
-							'group flex items-center px-2 py-2 text-sm font-medium rounded-xl cursor-pointer portal-nav-item',
+							'group flex items-center px-2 py-2 text-sm font-medium rounded-xl cursor-pointer ',
 							currentView === item.view ? 'portal-nav-active' : '',
 						]"
 						@click="handleNavigation(item)"
 					>
-						<component :is="item.icon" class="mr-3 h-5 w-5" />
+						<Icon :icon="item.icon" class="mr-3 h-5 w-5" />
 						{{ item.name }}
 					</div>
 				</nav>
@@ -96,19 +77,7 @@
 					<div class="rounded-xl border bg-siderbarGray dark:bg-black p-4 shadow-sm">
 						<div class="flex items-center space-x-3 mb-3">
 							<div class="portal-company-icon">
-								<svg
-									class="h-5 w-5"
-									fill="none"
-									stroke="currentColor"
-									viewBox="0 0 24 24"
-								>
-									<path
-										stroke-linecap="round"
-										stroke-linejoin="round"
-										stroke-width="2"
-										d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
-									/>
-								</svg>
+								<Icon icon="mdi:office-building-outline" class="h-5 w-5" />
 							</div>
 							<div class="flex-1 min-w-0">
 								<p class="text-sm font-medium portal-text-primary truncate">
@@ -121,19 +90,7 @@
 						</div>
 						<div class="space-y-1">
 							<div class="flex items-center text-xs portal-text-secondary">
-								<svg
-									class="h-3 w-3 mr-1"
-									fill="none"
-									stroke="currentColor"
-									viewBox="0 0 24 24"
-								>
-									<path
-										stroke-linecap="round"
-										stroke-linejoin="round"
-										stroke-width="2"
-										d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
-									/>
-								</svg>
+								<Icon icon="mdi:account-outline" class="h-3 w-3 mr-1" />
 								Account Manager: {{ customerData.accountManager }}
 							</div>
 						</div>
@@ -145,18 +102,13 @@
 		<!-- Main content -->
 		<div class="lg:pl-64">
 			<!-- Mobile header -->
-			<div class="flex h-16 items-center justify-between border-b bg-white px-4 lg:hidden">
+			<div
+				class="flex h-16 items-center justify-between border-b bg-siderbarGray dark:bg-black px-4 lg:hidden"
+			>
 				<el-button @click="sidebarOpen = true">
-					<svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-						<path
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							stroke-width="2"
-							d="M4 6h16M4 12h16M4 18h16"
-						/>
-					</svg>
+					<Icon icon="mdi:menu" class="h-5 w-5" />
 				</el-button>
-				<h1 class="text-lg font-semibold">Customer Portal</h1>
+				<h1 class="text-lg font-bold">Customer Portal</h1>
 				<div></div>
 			</div>
 
@@ -201,6 +153,7 @@
 								Save
 							</el-button>
 							<el-tooltip
+								v-if="!!activeStage"
 								:content="completeDisabledReason"
 								:disabled="!completeDisabledReason"
 								placement="bottom"
@@ -217,7 +170,6 @@
 									"
 									:icon="Check"
 									class="page-header-btn page-header-btn-primary"
-									v-if="!!activeStage"
 								>
 									Complete Stage
 								</el-button>
@@ -476,7 +428,7 @@ import {
 	getOnboardingFilesByStage,
 	onboardingSave,
 } from '@/apis/ow/onboarding';
-import { OnboardingItem, StageInfo, StageComponentData, SectionAnswer } from '#/onboard';
+import { OnboardingItem, Stage, StageComponentData, SectionAnswer } from '#/onboard';
 import { useAdaptiveScrollbar } from '@/hooks/useAdaptiveScrollbar';
 import { useI18n } from 'vue-i18n';
 import { defaultStr } from '@/settings/projectSetting';
@@ -497,23 +449,6 @@ import { StageComponentPortal } from '@/enums/appEnum';
 import GradientTag from '@/components/global/GradientTag/index.vue';
 import { PortalPermissionEnum } from '@/enums/portalPermissionEnum';
 import { getAppCode } from '@/utils/threePartyLogin';
-
-// 图标组件
-const HomeIcon = {
-	template: `
-		<svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-			<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-		</svg>
-	`,
-};
-
-const DetailsIcon = {
-	template: `
-		<svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-			<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-		</svg>
-	`,
-};
 
 const { t } = useI18n();
 const userStore = useUserStore();
@@ -563,28 +498,13 @@ const navigation = ref([
 	{
 		name: 'Case Progress',
 		view: 'progress',
-		icon: HomeIcon,
+		icon: 'mdi:home-outline',
 	},
 	{
 		name: 'Case Detail',
 		view: 'onboarding',
-		icon: DetailsIcon,
+		icon: 'mdi:file-document-outline',
 	},
-	// {
-	// 	name: 'Message Center',
-	// 	view: 'messages',
-	// 	icon: MessageSquareIcon,
-	// },
-	// {
-	// 	name: 'Document Center',
-	// 	view: 'documents',
-	// 	icon: FileTextIcon,
-	// },
-	// {
-	// 	name: 'Contact Us',
-	// 	view: 'contact',
-	// 	icon: PhoneIcon,
-	// },
 ]);
 
 // 存储批量查询到的数据
@@ -626,7 +546,7 @@ const stageIdFromRoute = computed(() => {
 const questionnaireDetailsRefs = ref<any[]>([]);
 const staticFormRefs = ref<any[]>([]);
 const documentsRef = ref<any[]>([]);
-const onboardingActiveStageInfo = ref<StageInfo | null>(null);
+const onboardingActiveStageInfo = ref<Stage | null>(null);
 
 // 在组件更新前重置 refs，避免多次渲染导致重复收集
 onBeforeUpdate(() => {
@@ -657,11 +577,10 @@ const isSaveDisabled = computed(() => {
 // 计算是否禁用完成阶段按钮 - 与detail.vue保持一致
 const isCompleteStageDisabled = computed(() => {
 	// 检查当前阶段之前是否有未完成的必填阶段
-	const currentStageIndex = workflowStages.value.findIndex(
-		(stage) => stage.stageId === activeStage.value
-	);
+	const workflow = onboardingData.value?.stagesProgress || [];
+	const currentStageIndex = workflow.findIndex((stage) => stage.stageId === activeStage.value);
 	if (currentStageIndex > 0) {
-		const previousStages = workflowStages.value.slice(0, currentStageIndex);
+		const previousStages = workflow.slice(0, currentStageIndex);
 		const hasIncompleteRequiredStage = previousStages.some(
 			(stage) => stage.required && !stage.isCompleted && stage.status !== 'Skipped'
 		);
@@ -692,11 +611,10 @@ const completeDisabledReason = computed(() => {
 	}
 
 	// 检查前置必填阶段
-	const currentStageIndex = workflowStages.value.findIndex(
-		(stage) => stage.stageId === activeStage.value
-	);
+	const workflow = onboardingData.value?.stagesProgress || [];
+	const currentStageIndex = workflow.findIndex((stage) => stage.stageId === activeStage.value);
 	if (currentStageIndex > 0) {
-		const previousStages = workflowStages.value.slice(0, currentStageIndex);
+		const previousStages = workflow.slice(0, currentStageIndex);
 		const hasIncompleteRequiredStage = previousStages.some(
 			(stage) => stage.required && !stage.isCompleted && stage.status !== 'Skipped'
 		);
@@ -1717,8 +1635,6 @@ const handleTaskToggled = async (task: any) => {
 	}
 };
 
-// Removed isStageAccessible function - allow access to all stages
-
 // 重新加载 activeStage 并加载相关数据
 const setActiveStageWithData = async (stageId: string) => {
 	if (activeStage.value === stageId) {
@@ -1745,6 +1661,7 @@ const setActiveStageWithData = async (stageId: string) => {
 	await loadStageRelatedData(stageId);
 	await loadStaticFieldValues();
 
+	refreshChangeLog();
 	// 自动检查并生成AI Summary（如果不存在）
 	await checkAndGenerateAISummary();
 };
@@ -1980,24 +1897,8 @@ watch(stageIdFromRoute, async (newStageId) => {
 </script>
 
 <style scoped lang="scss">
-.portal-nav-item {
-	color: var(--el-text-color-regular);
-	&:hover {
-		background-color: var(--el-fill-color-lighter);
-		color: var(--el-text-color-primary);
-	}
-}
-
 .portal-nav-active {
-	background-color: var(--el-color-primary-light-9);
-	color: var(--el-color-primary);
-}
-
-.portal-company-icon {
-	background-color: var(--el-color-primary-light-9);
-	padding: 0.5rem;
-	border-radius: 9999px;
-	color: var(--el-color-primary);
+	@apply bg-primary-500 text-white;
 }
 
 .portal-text-primary {
@@ -2031,34 +1932,6 @@ html.dark .portal-loading-text {
 		box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15);
 		transform: translateY(-1px);
 	}
-}
-/* Smooth transitions */
-.transition-colors {
-	transition-property: color, background-color, border-color, text-decoration-color, fill, stroke;
-	transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
-	transition-duration: 150ms;
-}
-
-.transition-all {
-	transition-property: all;
-	transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
-	transition-duration: 150ms;
-}
-
-/* Focus styles */
-button:focus {
-	outline: 2px solid transparent;
-	outline-offset: 2px;
-}
-
-/* Hover effects */
-button:hover {
-	transition: all 0.15s ease-in-out;
-}
-
-/* Shadow styles to match original */
-.shadow-sm {
-	box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
 }
 
 /* 文字溢出处理 */

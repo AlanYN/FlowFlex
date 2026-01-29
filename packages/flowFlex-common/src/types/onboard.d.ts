@@ -219,29 +219,6 @@ export type StageComponentData = {
 	customerPortalAccess?: number;
 };
 
-export interface StageInfo {
-	estimatedDays: number;
-	isCompleted: boolean;
-	isCurrent: boolean;
-	stageId: string;
-	stageName: string;
-	stageOrder: number;
-	startTime: string;
-	status: string;
-	components: StageComponentData[];
-	aiSummary?: string;
-	aiSummaryGeneratedAt?: string;
-	aiSummaryConfidence?: number;
-	aiSummaryModel?: string;
-	aiSummaryData?: string;
-	visibleInPortal?: boolean;
-	permission?: {
-		canView: boolean;
-		canOperate: boolean;
-		errorMessage?: string;
-	};
-}
-
 export interface ComponentsData {
 	components: StageComponentData[];
 	visibleInPortal?: boolean;

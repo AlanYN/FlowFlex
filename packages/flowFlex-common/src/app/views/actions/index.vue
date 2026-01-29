@@ -220,6 +220,7 @@
 			:limit="pagination.pageSize"
 			:page="pagination.currentPage"
 			:background="true"
+			:hidden="loading"
 			@pagination="handleLimitUpdate"
 			@update:page="handleCurrentChange"
 			@update:limit="handlePageUpdate"
