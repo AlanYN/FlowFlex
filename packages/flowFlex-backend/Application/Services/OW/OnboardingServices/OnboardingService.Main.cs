@@ -82,6 +82,8 @@ namespace FlowFlex.Application.Services.OW
         internal readonly IOnboardingStatusService _statusService;
         internal readonly IOnboardingStageManagementService _stageManagementService;
         internal readonly IOnboardingCrudService _crudService;
+        internal readonly IOnboardingHelperService _helperService;
+        internal readonly IOnboardingUserManagementService _userManagementService;
 
         // Cache key constants - temporarily disable Redis cache
         internal const string WORKFLOW_CACHE_PREFIX = "ow:workflow";
@@ -143,6 +145,8 @@ namespace FlowFlex.Application.Services.OW
             IOnboardingStatusService statusService,
             IOnboardingStageManagementService stageManagementService,
             IOnboardingCrudService crudService,
+            IOnboardingHelperService helperService,
+            IOnboardingUserManagementService userManagementService,
             ILogger<OnboardingService> logger)
         {
             _onboardingRepository = onboardingRepository ?? throw new ArgumentNullException(nameof(onboardingRepository));
@@ -179,6 +183,8 @@ namespace FlowFlex.Application.Services.OW
             _statusService = statusService ?? throw new ArgumentNullException(nameof(statusService));
             _stageManagementService = stageManagementService ?? throw new ArgumentNullException(nameof(stageManagementService));
             _crudService = crudService ?? throw new ArgumentNullException(nameof(crudService));
+            _helperService = helperService ?? throw new ArgumentNullException(nameof(helperService));
+            _userManagementService = userManagementService ?? throw new ArgumentNullException(nameof(userManagementService));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
 
