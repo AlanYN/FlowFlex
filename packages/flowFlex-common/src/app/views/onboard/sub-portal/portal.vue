@@ -171,7 +171,7 @@
 									:icon="Check"
 									class="page-header-btn page-header-btn-primary"
 								>
-									Complete Stage
+									Complete
 								</el-button>
 							</el-tooltip>
 						</template>
@@ -1736,7 +1736,7 @@ const handleCompleteStage = async () => {
 		`Are you sure you want to mark this stage as complete? This action will record your name and the current time as the completion signature.`,
 		'⚠️ Confirm Stage Completion',
 		{
-			confirmButtonText: 'Complete Stage',
+			confirmButtonText: 'Complete',
 			cancelButtonText: 'Cancel',
 			distinguishCancelAndClose: true,
 			showCancelButton: true,
@@ -1753,7 +1753,7 @@ const handleCompleteStage = async () => {
 						if (!hiddenValidation.isValid) {
 							showHiddenComponentErrors(hiddenValidation.hiddenValidationErrors);
 							instance.confirmButtonLoading = false;
-							instance.confirmButtonText = 'Complete Stage';
+							instance.confirmButtonText = 'Complete';
 							done();
 							return; // 不关闭对话框，让用户知道问题
 						}
@@ -1762,7 +1762,7 @@ const handleCompleteStage = async () => {
 						const res = await saveAllForm();
 						if (!res) {
 							instance.confirmButtonLoading = false;
-							instance.confirmButtonText = 'Complete Stage';
+							instance.confirmButtonText = 'Complete';
 						} else {
 							// 3. 执行Complete Stage操作
 							const res = await completeCurrentStage(onboardingId.value, {
