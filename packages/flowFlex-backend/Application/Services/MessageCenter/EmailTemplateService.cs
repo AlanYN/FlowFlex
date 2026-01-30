@@ -11,8 +11,8 @@ using Microsoft.Extensions.Logging;
 namespace FlowFlex.Application.Services.MessageCenter
 {
     /// <summary>
-    /// Email template rendering service using embedded resources with simple placeholder replacement.
-    /// Placeholders format: {{VariableName}}
+    /// Email template rendering service using embedded resources with Handlebars-like syntax support.
+    /// Supports: {{variable}}, {{{unescaped}}}, {{#if var}}...{{else}}...{{/if}}
     /// </summary>
     public class EmailTemplateService : IEmailTemplateService, IScopedService
     {
@@ -36,30 +36,92 @@ namespace FlowFlex.Application.Services.MessageCenter
                 return string.Empty;
             }
 
-            if (variables == null || variables.Count == 0)
-            {
-                return html;
-            }
-
             try
             {
-                string result = Regex.Replace(html, "\\{\\{(.*?)\\}\\}", match =>
+                var data = variables ?? new Dictionary<string, object>();
+                
+                // Step 1: Process {{#if variable}}...{{else}}...{{/if}} blocks
+                html = ProcessIfBlocks(html, data);
+                
+                // Step 2: Replace {{{variable}}} (unescaped, triple braces)
+                html = Regex.Replace(html, @"\{\{\{(\w+)\}\}\}", match =>
                 {
-                    string key = match.Groups[1].Value.Trim();
-                    if (variables.TryGetValue(key, out var value) && value != null)
+                    string key = match.Groups[1].Value;
+                    if (data.TryGetValue(key, out var value) && value != null)
                     {
                         return value.ToString() ?? string.Empty;
                     }
-                    return match.Value; // keep original placeholder if not provided
-                }, RegexOptions.Singleline);
+                    return string.Empty;
+                });
+                
+                // Step 3: Replace {{variable}} (escaped, double braces)
+                html = Regex.Replace(html, @"\{\{(\w+)\}\}", match =>
+                {
+                    string key = match.Groups[1].Value;
+                    if (data.TryGetValue(key, out var value) && value != null)
+                    {
+                        return System.Net.WebUtility.HtmlEncode(value.ToString() ?? string.Empty);
+                    }
+                    return string.Empty;
+                });
 
-                return result;
+                return html;
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Failed to render email template: {Template}", templateName);
                 return html;
             }
+        }
+
+        /// <summary>
+        /// Process {{#if variable}}...{{else}}...{{/if}} blocks
+        /// </summary>
+        private string ProcessIfBlocks(string html, IDictionary<string, object> data)
+        {
+            // Pattern to match {{#if variable}}...{{else}}...{{/if}} or {{#if variable}}...{{/if}}
+            // Using non-greedy matching and allowing nested content
+            var ifPattern = new Regex(
+                @"\{\{#if\s+(\w+)\}\}(.*?)(?:\{\{else\}\}(.*?))?\{\{/if\}\}",
+                RegexOptions.Singleline);
+
+            // Process from innermost to outermost by iterating until no more matches
+            string result = html;
+            int maxIterations = 10; // Prevent infinite loops
+            int iteration = 0;
+
+            while (ifPattern.IsMatch(result) && iteration < maxIterations)
+            {
+                result = ifPattern.Replace(result, match =>
+                {
+                    string variableName = match.Groups[1].Value;
+                    string ifContent = match.Groups[2].Value;
+                    string elseContent = match.Groups[3].Success ? match.Groups[3].Value : string.Empty;
+
+                    // Check if variable exists and is truthy
+                    bool isTruthy = false;
+                    if (data.TryGetValue(variableName, out var value) && value != null)
+                    {
+                        if (value is bool boolValue)
+                        {
+                            isTruthy = boolValue;
+                        }
+                        else if (value is string strValue)
+                        {
+                            isTruthy = !string.IsNullOrWhiteSpace(strValue);
+                        }
+                        else
+                        {
+                            isTruthy = true;
+                        }
+                    }
+
+                    return isTruthy ? ifContent : elseContent;
+                });
+                iteration++;
+            }
+
+            return result;
         }
 
         private string LoadTemplate(string templateName)

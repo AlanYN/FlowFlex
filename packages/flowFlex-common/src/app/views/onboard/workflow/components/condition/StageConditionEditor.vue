@@ -9,6 +9,7 @@
 		class="stage-condition-editor"
 		append-to-body
 		:before-close="handleCancel"
+		destroy-on-close
 	>
 		<template #header>
 			<div class="drawer-header">
@@ -71,6 +72,7 @@
 					v-model="formData.actions"
 					:stages="stages"
 					:current-stage-index="currentStageIndex"
+					:currentStageId="currentStageId"
 				/>
 			</div>
 
@@ -105,6 +107,7 @@ import ConditionRuleForm from './ConditionRuleForm.vue';
 import ConditionActionForm from './ConditionActionForm.vue';
 import ConditionFallbackForm from './ConditionFallbackForm.vue';
 import { createCondition, updateCondition } from '@/apis/ow';
+import { getDefaultActionType } from '@/utils/actionTypeUtils';
 
 // Props
 const props = defineProps<{
@@ -225,7 +228,7 @@ const initFormData = () => {
 		if (formData.actions.length === 0) {
 			formData.actions = [
 				{
-					type: 'GoToStage',
+					type: getDefaultActionType(currentStageIndex.value, props.stages.length, []),
 					targetStageId: '',
 					order: 0,
 				},
@@ -247,7 +250,7 @@ const initFormData = () => {
 		];
 		formData.actions = [
 			{
-				type: 'GoToStage',
+				type: getDefaultActionType(currentStageIndex.value, props.stages.length, []),
 				targetStageId: '',
 				order: 0,
 			},

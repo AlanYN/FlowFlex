@@ -83,7 +83,10 @@ export const MenuFunctionStore = defineStore({
 			setAuthCache(MENU_MENUTYPE, menuType);
 		},
 		// 获取用户数据（带缓存）
-		async getFlowflexUserDataWithCache(searchText = ''): Promise<FlowflexUser[]> {
+		async getFlowflexUserDataWithCache(
+			searchText = '',
+			args: { [key: string]: any } = {}
+		): Promise<FlowflexUser[]> {
 			// 如果正在加载，等待加载完成
 			if (this.userDataLoading) {
 				return new Promise((resolve) => {
@@ -106,7 +109,7 @@ export const MenuFunctionStore = defineStore({
 			// 如果有搜索条件，直接调用接口不使用缓存
 			if (searchText) {
 				try {
-					const response = await getFlowflexUser({ searchText });
+					const response = await getFlowflexUser({ searchText, ...args });
 					if (response.code === '200' && response.data) {
 						return response.data;
 					}
@@ -120,7 +123,7 @@ export const MenuFunctionStore = defineStore({
 			// 首次加载数据
 			try {
 				this.userDataLoading = true;
-				const response = await getFlowflexUser({ searchText });
+				const response = await getFlowflexUser({ searchText, ...args });
 				if (response.code === '200' && response.data) {
 					this.flowflexUserData = response.data;
 					return response.data;

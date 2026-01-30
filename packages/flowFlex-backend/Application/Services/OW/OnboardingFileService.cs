@@ -383,9 +383,9 @@ namespace FlowFlex.Application.Services.OW
                 // Lazy resolve IExternalIntegrationService to avoid circular dependency
                 var externalIntegrationService = _serviceProvider.GetRequiredService<IExternalIntegrationService>();
 
-                // Fetch attachments from external system
+                // Fetch attachments from external system, filtered by current workflow
                 var externalResponse = await externalIntegrationService.FetchInboundAttachmentsFromExternalAsync(
-                    onboarding.SystemId, onboarding.EntityId);
+                    onboarding.SystemId, onboarding.EntityId, onboarding.WorkflowId);
 
                 if (!externalResponse.Success || externalResponse.Data?.ActionExecutions == null)
                 {

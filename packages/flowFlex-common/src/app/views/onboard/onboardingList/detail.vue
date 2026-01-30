@@ -29,19 +29,28 @@
 				>
 					Save
 				</el-button>
-				<el-button
-					type="primary"
-					@click="handleCompleteStage"
-					:loading="completing"
-					:disabled="
-						isCompleteStageDisabled || stageCanCompleted || onboardingData?.isDisabled
-					"
-					class="page-header-btn page-header-btn-primary"
-					:icon="Check"
+				<el-tooltip
 					v-if="hasCasePermission(ProjectPermissionEnum.case.update) && !!activeStage"
+					:content="completeDisabledReason"
+					:disabled="!completeDisabledReason"
+					placement="top"
+					effect="dark"
 				>
-					Complete
-				</el-button>
+					<el-button
+						type="primary"
+						@click="handleCompleteStage"
+						:loading="completing"
+						:disabled="
+							isCompleteStageDisabled ||
+							stageCanCompleted ||
+							onboardingData?.isDisabled
+						"
+						class="page-header-btn page-header-btn-primary"
+						:icon="Check"
+					>
+						Complete
+					</el-button>
+				</el-tooltip>
 				<el-button
 					@click="handleCustomerOverview"
 					class="page-header-btn page-header-btn-secondary"
@@ -197,6 +206,7 @@
 									"
 									:systemId="onboardingData?.systemId"
 									:entityId="onboardingData?.entityId"
+									:workflowId="onboardingData?.workflowId || ''"
 									@document-uploaded="handleDocumentUploaded"
 									@document-deleted="handleDocumentDeleted"
 								/>
@@ -247,15 +257,12 @@
 		</div>
 
 		<!-- 变更日志 -->
-		<!-- ChangeLog 加载状态 -->
-		<div class="mt-4">
-			<ChangeLog
-				v-if="onboardingId"
-				ref="changeLogRef"
-				:onboarding-id="onboardingId"
-				:stage-id="activeStage"
-			/>
-		</div>
+		<ChangeLog
+			v-if="onboardingId"
+			ref="changeLogRef"
+			:onboarding-id="onboardingId"
+			:stage-id="activeStage"
+		/>
 
 		<!-- Portal Access Management 对话框 -->
 		<el-dialog
@@ -413,11 +420,61 @@ const isSaveDisabled = computed(() => {
 
 // 计算是否禁用完成阶段按钮
 const isCompleteStageDisabled = computed(() => {
+	// 检查当前阶段之前是否有未完成的必填阶段
+	const currentStageIndex = workflowStages.value.findIndex(
+		(stage) => stage.stageId === activeStage.value
+	);
+	if (currentStageIndex > 0) {
+		const previousStages = workflowStages.value.slice(0, currentStageIndex);
+		const hasIncompleteRequiredStage = previousStages.some(
+			(stage) => stage.required && !stage.isCompleted && stage.status !== 'Skipped'
+		);
+		if (hasIncompleteRequiredStage) {
+			return true;
+		}
+	}
+
 	const status = onboardingData.value?.status;
 	if (!status) return false;
 
 	// 对于已中止、已取消或暂停的状态，禁用完成阶段
-	return ['Aborted', 'Cancelled', 'Paused', 'Force Completed'].includes(status);
+	if (['Aborted', 'Cancelled', 'Paused', 'Force Completed'].includes(status)) {
+		return true;
+	}
+
+	return false;
+});
+
+// 获取 Complete 按钮禁用的原因提示
+const completeDisabledReason = computed(() => {
+	if (onboardingData.value?.isDisabled) {
+		return 'This case is disabled';
+	}
+
+	if (stageCanCompleted.value) {
+		return 'This stage has already been completed';
+	}
+
+	// 检查前置必填阶段
+	const currentStageIndex = workflowStages.value.findIndex(
+		(stage) => stage.stageId === activeStage.value
+	);
+	if (currentStageIndex > 0) {
+		const previousStages = workflowStages.value.slice(0, currentStageIndex);
+		const hasIncompleteRequiredStage = previousStages.some(
+			(stage) => stage.required && !stage.isCompleted && stage.status !== 'Skipped'
+		);
+		if (hasIncompleteRequiredStage) {
+			return 'There are incomplete required stages. Please complete them first.';
+		}
+	}
+
+	const status = onboardingData.value?.status;
+	if (status && ['Aborted', 'Cancelled', 'Paused', 'Force Completed'].includes(status)) {
+		return `Cannot complete stage when case status is ${status}`;
+	}
+
+	return '';
 });
 
 // 计算是否因为Aborted状态而禁用组件（类似于Viewable only逻辑）
@@ -819,9 +876,11 @@ const loadStaticFieldValues = async () => {
 					formRef.setFieldValues(response.data);
 				});
 			});
+		} else {
+			response.msg && ElMessage.error(response.msg);
 		}
-	} catch (error) {
-		ElMessage.error('Failed to load static field values');
+	} catch {
+		//deep
 	}
 };
 
@@ -835,7 +894,6 @@ const setActiveStage = async (stageId: string) => {
 	if (aiSummaryAbortController) {
 		aiSummaryAbortController.abort();
 		aiSummaryLoading.value = false;
-		console.log('🚫 [Stage Switch] Cancelled AI summary generation due to stage change');
 	}
 
 	// 更新activeStage
@@ -850,14 +908,7 @@ const setActiveStage = async (stageId: string) => {
 	await loadStageRelatedData(stageId);
 	await loadStaticFieldValues(); // 添加加载字段值的调用
 
-	// 页面切换时自动检查并生成AI Summary
-	console.log(
-		'🔄 [Stage Switch] Stage switched to:',
-		stageId,
-		'AI Summary exists:',
-		!!onboardingActiveStageInfo.value?.aiSummary
-	);
-
+	refreshChangeLog();
 	// 自动检查并生成AI Summary（如果不存在）
 	await checkAndGenerateAISummary();
 };
@@ -1011,7 +1062,7 @@ const handleCompleteStage = async () => {
 		`Are you sure you want to mark this stage as complete? This action will record your name and the current time as the completion signature.`,
 		'⚠️ Confirm Stage Completion',
 		{
-			confirmButtonText: 'Complete Stage',
+			confirmButtonText: 'Complete',
 			cancelButtonText: 'Cancel',
 			distinguishCancelAndClose: true,
 			showCancelButton: true,
@@ -1020,14 +1071,14 @@ const handleCompleteStage = async () => {
 				if (action === 'confirm') {
 					// 显示loading状态
 					instance.confirmButtonLoading = true;
-					instance.confirmButtonText = 'Complete Stage';
+					instance.confirmButtonText = 'Complete';
 
 					completing.value = true;
 					try {
 						const res = await saveAllForm();
 						if (!res) {
 							instance.confirmButtonLoading = false;
-							instance.confirmButtonText = 'Complete Stage';
+							instance.confirmButtonText = 'Complete';
 						} else {
 							const res = await completeCurrentStage(onboardingId.value, {
 								currentStageId: activeStage.value,
@@ -1042,7 +1093,7 @@ const handleCompleteStage = async () => {
 						done();
 					} finally {
 						instance.confirmButtonLoading = false;
-						instance.confirmButtonText = 'Complete Stage';
+						instance.confirmButtonText = 'Complete';
 						completing.value = false;
 					}
 				} else {
@@ -1118,7 +1169,6 @@ const refreshAISummary = async () => {
 	// 取消之前的请求（如果存在）
 	if (aiSummaryAbortController) {
 		aiSummaryAbortController.abort();
-		console.log('🚫 [AI Summary] Cancelled previous request');
 	}
 
 	// 创建新的AbortController
@@ -1129,7 +1179,6 @@ const refreshAISummary = async () => {
 	aiSummaryLoading.value = true;
 	aiSummaryLoadingText.value = 'Starting AI summary generation...';
 	currentAISummary.value = ''; // 清空现有内容，准备流式显示
-	console.log('🔄 [AI Summary] Starting generation for stage:', currentStageId);
 
 	try {
 		// 获取认证信息
@@ -1184,9 +1233,6 @@ const refreshAISummary = async () => {
 
 			// 检查当前阶段是否已经改变
 			if (activeStage.value !== currentStageId) {
-				console.log(
-					'🚫 [AI Summary] Stage changed during generation, stopping stream processing'
-				);
 				aiSummaryLoading.value = false;
 				return;
 			}
@@ -1195,8 +1241,6 @@ const refreshAISummary = async () => {
 
 			// 检查是否是错误信息
 			if (chunk.startsWith('Error:')) {
-				console.warn('⚠️ [AI Summary] AI service unavailable:', chunk);
-				// 不显示错误弹窗，只记录日志
 				aiSummaryLoading.value = false;
 				return;
 			}
@@ -1204,21 +1248,16 @@ const refreshAISummary = async () => {
 			// 直接将文本内容添加到AI Summary中
 			if (chunk.trim()) {
 				currentAISummary.value += chunk;
-				console.log('📝 [AI Summary] Text chunk received:', chunk.length, 'chars');
 			}
 		}
 
 		// 最终验证阶段是否仍然是开始时的阶段
 		if (activeStage.value !== currentStageId) {
-			console.log(
-				'🚫 [AI Summary] Stage changed after generation completed, discarding result'
-			);
 			aiSummaryLoading.value = false;
 			return;
 		}
 
 		// 流结束，设置状态
-		console.log('✅ [AI Summary] Stream completed for stage:', currentStageId);
 		currentAISummaryGeneratedAt.value = new Date().toISOString();
 		aiSummaryLoading.value = false;
 		//ElMessage.success('AI Summary generated successfully');
@@ -1228,19 +1267,14 @@ const refreshAISummary = async () => {
 			onboardingActiveStageInfo.value.aiSummary = currentAISummary.value;
 			onboardingActiveStageInfo.value.aiSummaryGeneratedAt =
 				currentAISummaryGeneratedAt.value;
-			console.log('📝 [AI Summary] Updated stage info for stage:', currentStageId);
-		} else {
-			console.log('⚠️ [AI Summary] Skipped updating stage info due to stage change');
 		}
 	} catch (error: any) {
 		// 检查是否是用户取消的请求
 		if (error.name === 'AbortError') {
-			console.log('🚫 [AI Summary] Request was cancelled');
 			aiSummaryLoading.value = false;
 			return;
 		}
 
-		console.warn('⚠️ [AI Summary] Generation failed:', error);
 		aiSummaryLoading.value = false;
 		// 不显示错误弹窗，只记录日志
 	} finally {
@@ -1249,7 +1283,7 @@ const refreshAISummary = async () => {
 	}
 };
 
-const checkAndGenerateAISummary = async () => {
+const checkAndGenerateAISummary = () => {
 	// 检查当前阶段是否有AI Summary，如果没有则自动生成
 	// 只有在stagesProgress中确实没有aiSummary时才自动生成
 	if (
@@ -1258,20 +1292,7 @@ const checkAndGenerateAISummary = async () => {
 		onboardingActiveStageInfo.value &&
 		activeStage.value
 	) {
-		console.log(
-			'🤖 [AI Summary] Auto-generating for stage without existing summary:',
-			activeStage.value
-		);
-		await refreshAISummary();
-	} else if (onboardingActiveStageInfo.value?.aiSummary) {
-		console.log('✅ [AI Summary] Stage already has AI summary, skipping auto-generation');
-	} else {
-		console.log('⏸️ [AI Summary] Skipping auto-generation:', {
-			hasAiSummary: !!onboardingActiveStageInfo.value?.aiSummary,
-			isLoading: aiSummaryLoading.value,
-			hasStageInfo: !!onboardingActiveStageInfo.value,
-			hasActiveStage: !!activeStage.value,
-		});
+		refreshAISummary();
 	}
 };
 
@@ -1285,7 +1306,6 @@ const handleQuestionSubmitted = async (
 		questionnaireLoading.value = true;
 		// 重新获取问卷答案数据
 		await refreshQuestionnaireAnswers(onboardingId, stageId, questionnaireId);
-		console.log('Questionnaire answers refreshed after submission');
 	} finally {
 		questionnaireLoading.value = false;
 	}
@@ -1320,7 +1340,6 @@ const refreshQuestionnaireAnswers = async (
 				}
 			}
 		});
-		console.log('map:', map);
 		// 将新获取的答案合并到现有的 map 中，而不是完全替换
 		Object.assign(questionnaireAnswersMap.value, map);
 	}
@@ -1361,21 +1380,5 @@ onMounted(async () => {
 	-webkit-hyphens: auto;
 	-moz-hyphens: auto;
 	hyphens: auto;
-}
-
-/* 响应式设计 */
-@media (max-width: 1024px) {
-	/* 在小屏幕设备上的样式调整 */
-}
-
-/* 暗色主题样式 */
-html.dark {
-	:deep(.el-scrollbar__thumb) {
-		background-color: rgba(255, 255, 255, 0.2);
-	}
-
-	:deep(.el-scrollbar__track) {
-		background-color: rgba(0, 0, 0, 0.1);
-	}
 }
 </style>

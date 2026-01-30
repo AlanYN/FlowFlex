@@ -189,7 +189,7 @@
 						class="w-full"
 						border
 					>
-						<el-table-column label="File Name" min-width="200">
+						<el-table-column label="File Name" min-width="200" fixed="left">
 							<template #default="{ row }">
 								<div class="flex items-center">
 									<el-icon class="text-primary mr-2 flex-shrink-0">
@@ -207,21 +207,23 @@
 
 						<el-table-column label="Size" width="100">
 							<template #default="{ row }">
-								<div
-									class="text-sm text-gray-500 dark:text-gray-400 table-cell-content"
-									:title="formatFileSize(row.fileSize)"
-								>
+								<div class="text-sm table-cell-content">
 									{{ formatFileSize(row.fileSize) }}
+								</div>
+							</template>
+						</el-table-column>
+
+						<el-table-column label="Form" width="200">
+							<template #default="{ row }">
+								<div class="text-sm table-cell-content" :title="row?.source">
+									{{ row?.source }}
 								</div>
 							</template>
 						</el-table-column>
 
 						<el-table-column label="Uploaded By" width="150">
 							<template #default="{ row }">
-								<div
-									class="text-sm text-gray-500 dark:text-gray-400 table-cell-content"
-									:title="row.uploadedByName"
-								>
+								<div class="text-sm table-cell-content" :title="row.uploadedByName">
 									{{ row.uploadedByName }}
 								</div>
 							</template>
@@ -229,10 +231,7 @@
 
 						<el-table-column label="Date" width="150">
 							<template #default="{ row }">
-								<div
-									class="text-sm text-gray-500 dark:text-gray-400 table-cell-content"
-									:title="row.uploadedDate"
-								>
+								<div class="text-sm table-cell-content" :title="row.uploadedDate">
 									{{ row.uploadedDate }}
 								</div>
 							</template>
@@ -342,6 +341,7 @@ interface Props {
 	documentIsRequired?: boolean;
 	systemId?: string;
 	entityId?: string;
+	workflowId: string;
 }
 
 const props = defineProps<Props>();
@@ -669,6 +669,7 @@ const importFormIntegration = async () => {
 		const res = await getCaseAttachmentIntegration({
 			systemId: props?.systemId || '',
 			entityId: props?.entityId || '',
+			workflowId: props?.workflowId || '',
 		});
 		if (res?.code == '200') {
 			// Process the new API response structure with actionExecutions array

@@ -47,7 +47,7 @@
 								@change="() => handleActionTypeReset(action)"
 							>
 								<el-option
-									v-for="type in actionTypes"
+									v-for="type in getAvailableActionTypesForAction(action, index)"
 									:key="type.value"
 									:label="type.label"
 									:value="type.value"
@@ -73,7 +73,7 @@
 								placeholder="Select target stage"
 							>
 								<el-option
-									v-for="stage in stages"
+									v-for="stage in availableTargetStages"
 									:key="stage.id"
 									:label="stage.name"
 									:value="stage.id"
@@ -114,59 +114,51 @@
 
 						<!-- SendNotification: Recipient -->
 						<template v-if="action.type === 'SendNotification'">
-							<el-form-item
-								label="Recipient Type"
-								class="action-field"
-								prop="parameters.recipientType"
-							>
-								<el-select
-									v-model="getActionParams(action).recipientType"
-									placeholder="Select recipient type"
-									@change="() => handleRecipientTypeChange(action)"
-								>
-									<el-option value="user" label="User" />
-									<el-option value="team" label="Team" />
-									<el-option value="email" label="Email" />
-								</el-select>
-							</el-form-item>
 							<!-- User/Team 选择器 -->
 							<el-form-item
-								v-if="getActionParams(action).recipientType === 'user'"
-								label="Select User"
+								label="Recipients"
 								class="action-field"
-								prop="parameters.recipientId"
+								prop="parameters.recipients"
 							>
+								<div class="text-gray-500 mb-1">Select User</div>
 								<FlowflexUserSelector
-									v-model="getActionParams(action).recipientId"
+									v-model="getActionParams(action).users"
 									selection-type="user"
 									placeholder="Select user"
-									@change="(val) => handleUserChange(action, val)"
+									clearable
+									:args="{
+										stageId: currentStageId,
+									}"
 								/>
-							</el-form-item>
-							<el-form-item
-								v-if="getActionParams(action).recipientType === 'team'"
-								label="Select Team"
-								class="action-field"
-								prop="parameters.recipientId"
-							>
+								<div class="text-gray-500 mb-1">Select Team</div>
 								<FlowflexUserSelector
-									v-model="getActionParams(action).recipientId"
+									v-model="getActionParams(action).teams"
 									selection-type="team"
 									placeholder="Select team"
-									@change="(val) => handleUserChange(action, val)"
+									clearable
+									:args="{
+										stageId: currentStageId,
+									}"
 								/>
 							</el-form-item>
-							<!-- Email 输入框 -->
+
 							<el-form-item
-								v-if="getActionParams(action).recipientType === 'email'"
-								label="Email Address"
+								label="Email Content"
 								class="action-field"
-								prop="parameters.recipientEmail"
+								prop="parameters.emailContent"
 							>
+								<div class="text-gray-500 mb-1">subject</div>
 								<el-input
-									v-model="getActionParams(action).recipientEmail"
-									placeholder="Enter email address"
-									type="email"
+									v-model="getActionParams(action).subject"
+									placeholder="Enter email subject..."
+								/>
+								<div class="text-gray-500 mb-1">Email Body</div>
+								<el-input
+									v-model="getActionParams(action).emailBody"
+									type="textarea"
+									placeholder="Enter email content..."
+									:maxlength="textraMaxLength"
+									:autosize="inputTextraAutosize"
 								/>
 							</el-form-item>
 						</template>
@@ -184,7 +176,7 @@
 									@change="(val: string) => handleFieldSelect(action, val)"
 								>
 									<el-option-group
-										v-for="group in groupedFieldOptions"
+										v-for="group in getAvailableFieldOptions(action)"
 										:key="group.stageId"
 										:label="group.stageName"
 									>
@@ -242,6 +234,9 @@
 									selection-type="user"
 									placeholder="Select users"
 									@change="(val) => handleAssigneeChange(action, val)"
+									:args="{
+										stageId: currentStageId,
+									}"
 								/>
 							</el-form-item>
 							<!-- Team 选择器 (多选) -->
@@ -256,6 +251,9 @@
 									selection-type="team"
 									placeholder="Select teams"
 									@change="(val) => handleAssigneeChange(action, val)"
+									:args="{
+										stageId: currentStageId,
+									}"
 								/>
 							</el-form-item>
 						</template>
@@ -276,7 +274,7 @@
 import { ref, reactive, onMounted, computed, watch } from 'vue';
 import { Plus, Delete, Warning } from '@element-plus/icons-vue';
 import type { FormInstance, FormRules } from 'element-plus';
-import type { ActionFormItem, DynamicFieldConstraints } from '#/condition';
+import type { ActionFormItem, DynamicFieldConstraints, ConditionActionType } from '#/condition';
 import type { Stage } from '#/onboard';
 import type { DynamicList, DynamicDropdownItem } from '#/dynamic';
 import FlowflexUserSelector from '@/components/form/flowflexUser/index.vue';
@@ -284,6 +282,11 @@ import DynamicValueInput from './DynamicValueInput.vue';
 import { conditionAction } from '@/apis/ow';
 import { batchIdsDynamicFields } from '@/apis/global/dyanmicField';
 import { ToolsType, propertyTypeEnum } from '@/enums/appEnum';
+import { textraMaxLength, inputTextraAutosize } from '@/settings/projectSetting';
+import {
+	getAvailableActionTypes,
+	getDefaultActionType,
+} from '../../../../../utils/actionTypeUtils';
 
 // 值输入类型
 type ValueInputType = 'text' | 'number' | 'select' | 'date' | 'people' | 'phone';
@@ -293,6 +296,7 @@ const props = defineProps<{
 	modelValue: ActionFormItem[];
 	stages: Stage[];
 	currentStageIndex: number;
+	currentStageId: string;
 }>();
 
 // Emits
@@ -311,14 +315,14 @@ const setFormRef = (el: FormInstance | null, index: number) => {
 // 获取动作的验证规则
 const getActionValidationRules = (action: ActionFormItem): FormRules => {
 	const rules: FormRules = {
-		type: [{ required: true, message: 'Please select an action type', trigger: 'change' }],
+		type: [{ required: true, message: 'Please select an action type', trigger: [] }],
 	};
 
 	// 根据动作类型添加特定验证规则
 	switch (action.type) {
 		case 'GoToStage':
 			rules.targetStageId = [
-				{ required: true, message: 'Please select a target stage', trigger: 'change' },
+				{ required: true, message: 'Please select a target stage', trigger: [] },
 			];
 			break;
 
@@ -327,41 +331,62 @@ const getActionValidationRules = (action: ActionFormItem): FormRules => {
 				{
 					required: true,
 					message: 'Please select an action to trigger',
-					trigger: 'change',
+					trigger: [],
 				},
 			];
 			break;
 
 		case 'SendNotification':
-			rules['parameters.recipientType'] = [
-				{ required: true, message: 'Please select a recipient type', trigger: 'change' },
-			];
-			if (action.parameters?.recipientType === 'email') {
-				rules['parameters.recipientEmail'] = [
-					{ required: true, message: 'Please enter an email address', trigger: 'blur' },
-					{
-						type: 'email',
-						message: 'Please enter a valid email address',
-						trigger: 'blur',
+			rules['parameters.recipients'] = [
+				{
+					required: true,
+					message: 'Please select at least one user or team',
+					trigger: [],
+					validator: (_rule: any, _value: any, callback: any) => {
+						const params = action.parameters || {};
+						const hasUsers = params.users && params.users.length > 0;
+						const hasTeams = params.teams && params.teams.length > 0;
+						if (!hasUsers && !hasTeams) {
+							callback(new Error('Please select at least one user or team'));
+						} else {
+							callback();
+						}
 					},
-				];
-			} else if (action.parameters?.recipientType) {
-				rules['parameters.recipientId'] = [
-					{ required: true, message: 'Please select a recipient', trigger: 'change' },
-				];
-			}
+				},
+			];
+			rules['parameters.emailContent'] = [
+				{
+					required: true,
+					message: 'Please enter subject and email body',
+					trigger: [],
+					validator: (_rule: any, _value: any, callback: any) => {
+						const params = action.parameters || {};
+						const hasSubject = params.subject && params.subject.trim();
+						const hasEmailBody = params.emailBody && params.emailBody.trim();
+						if (!hasSubject && !hasEmailBody) {
+							callback(new Error('Please enter subject and email body'));
+						} else if (!hasSubject) {
+							callback(new Error('Please enter subject'));
+						} else if (!hasEmailBody) {
+							callback(new Error('Please enter email body'));
+						} else {
+							callback();
+						}
+					},
+				},
+			];
 			break;
 
 		case 'UpdateField':
 			rules['parameters.fieldPath'] = [
-				{ required: true, message: 'Please select a field to update', trigger: 'change' },
+				{ required: true, message: 'Please select a field to update', trigger: [] },
 			];
 			if (action.parameters?.fieldPath) {
 				rules['parameters.fieldValue'] = [
 					{
 						required: true,
 						message: 'Please enter a value for the field',
-						trigger: ['change', 'blur'],
+						trigger: [],
 						validator: (_rule: any, value: any, callback: any) => {
 							if (value === '' || value === undefined || value === null) {
 								callback(new Error('Please enter a value for the field'));
@@ -376,14 +401,14 @@ const getActionValidationRules = (action: ActionFormItem): FormRules => {
 
 		case 'AssignUser':
 			rules['parameters.assigneeType'] = [
-				{ required: true, message: 'Please select an assignee type', trigger: 'change' },
+				{ required: true, message: 'Please select an assignee type', trigger: [] },
 			];
 			if (action.parameters?.assigneeType) {
 				rules['parameters.assigneeIds'] = [
 					{
 						required: true,
 						message: 'Please select at least one assignee',
-						trigger: 'change',
+						trigger: [],
 						validator: (_rule: any, value: any, callback: any) => {
 							if (!value || (Array.isArray(value) && value.length === 0)) {
 								callback(new Error('Please select at least one assignee'));
@@ -437,44 +462,49 @@ const groupedActions = computed(() => {
 	return groups;
 });
 
-// 动作类型选项
-const actionTypes = [
-	{
-		value: 'GoToStage',
-		label: 'Go to Stage',
-		description: 'Jump to a specific workflow stage',
-	},
-	{
-		value: 'SkipStage',
-		label: 'Skip Stage',
-		description: 'Skip the next stage and continue',
-	},
-	{
-		value: 'EndWorkflow',
-		label: 'End Workflow',
-		description: 'Complete the workflow immediately',
-	},
-	{
-		value: 'SendNotification',
-		label: 'Send Notification',
-		description: 'Send email/SMS to user or team',
-	},
-	{
-		value: 'UpdateField',
-		label: 'Update Field',
-		description: 'Automatically update a field value',
-	},
-	{
-		value: 'TriggerAction',
-		label: 'Trigger Action',
-		description: 'Execute a predefined action',
-	},
-	{
-		value: 'AssignUser',
-		label: 'Assign User',
-		description: 'Reassign stage to specific user/team',
-	},
-];
+// 获取当前 action 可用的 action types（根据当前 action 的索引）
+const getAvailableActionTypesForAction = (currentAction: ActionFormItem, currentIndex: number) => {
+	return getAvailableActionTypes(
+		props.currentStageIndex,
+		props.stages.length,
+		props.modelValue,
+		currentIndex
+	);
+};
+
+// 获取默认的 action type
+const getDefaultType = (): ConditionActionType => {
+	return getDefaultActionType(props.currentStageIndex, props.stages.length, props.modelValue);
+};
+
+// GoToStage 可选的目标 stages（只能选择当前 stage 之后的）
+const availableTargetStages = computed(() => {
+	return props.stages.slice(props.currentStageIndex + 1);
+});
+
+// 已使用的字段路径（用于 UpdateField 去重）
+const usedFieldPaths = computed(() => {
+	return props.modelValue
+		.filter((action) => action.type === 'UpdateField' && action.parameters?.fieldPath)
+		.map((action) => action.parameters!.fieldPath);
+});
+
+// 获取当前 action 可用的字段选项（排除已被其他 UpdateField 使用的字段）
+const getAvailableFieldOptions = (currentAction: ActionFormItem): FieldOptionGroup[] => {
+	const currentFieldPath = currentAction.parameters?.fieldPath;
+
+	return groupedFieldOptions.value
+		.map((group) => ({
+			...group,
+			fields: group.fields.filter((field) => {
+				// 当前 action 已选的字段要保留
+				if (field.key === currentFieldPath) return true;
+				// 排除已被其他 action 使用的字段
+				return !usedFieldPaths.value.includes(field.key);
+			}),
+		}))
+		.filter((group) => group.fields.length > 0);
+};
 
 // 检查是否会产生循环
 const isLoopWarning = (targetStageId?: string) => {
@@ -498,19 +528,6 @@ const handleActionTypeReset = (action: ActionFormItem) => {
 	action.parameters = {};
 };
 
-// 处理 SendNotification 的 recipientType 变化
-const handleRecipientTypeChange = (action: ActionFormItem) => {
-	const params = getActionParams(action);
-	params.recipientId = undefined;
-	params.recipientEmail = undefined;
-};
-
-// 处理 User/Team 选择变化
-const handleUserChange = (action: ActionFormItem, value: string | string[] | undefined) => {
-	const params = getActionParams(action);
-	params.recipientId = Array.isArray(value) ? value : value;
-};
-
 // 处理 AssignUser 的 assigneeType 变化
 const handleAssigneeTypeChange = (action: ActionFormItem) => {
 	const params = getActionParams(action);
@@ -526,7 +543,7 @@ const handleAssigneeChange = (action: ActionFormItem, value: string | string[] |
 // 添加动作
 const handleAddAction = () => {
 	const newAction: ActionFormItem = {
-		type: 'GoToStage',
+		type: getDefaultType(),
 		order: props.modelValue.length,
 		parameters: {},
 	};
@@ -868,6 +885,7 @@ const validate = async (): Promise<{ valid: boolean; message: string }> => {
 // 暴露方法给父组件
 defineExpose({
 	validate,
+	getDefaultActionType: getDefaultType,
 });
 </script>
 

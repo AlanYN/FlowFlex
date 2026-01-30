@@ -104,6 +104,11 @@ html.dark .el-tag--primary {
 	@apply bg-gray-400;
 }
 
-.dark .el-message-box {
- @apply bg-black-400;
+.el-overlay {
+	backdrop-filter: blur(1px);
+	-webkit-backdrop-filter: blur(1px);
+}
+
+.dark .el-overlay{
+	background-color: rgba(var(--black-400-rgb), 0.6);
 }

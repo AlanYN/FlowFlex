@@ -1590,7 +1590,6 @@ namespace FlowFlex.Application.Service.OW
         {
             var tree = await _userService.GetUserTreeAsync();
             var ids = new HashSet<string>(StringComparer.Ordinal);
-
             if (tree == null || !tree.Any())
             {
                 return ids;
@@ -1603,13 +1602,11 @@ namespace FlowFlex.Application.Service.OW
                     if (node == null) continue;
                     if (string.Equals(node.Type, "team", StringComparison.OrdinalIgnoreCase))
                     {
-                        // Exclude placeholder team id 'Other'
                         if (!string.IsNullOrWhiteSpace(node.Id) && !string.Equals(node.Id, "Other", StringComparison.Ordinal))
                         {
                             ids.Add(node.Id);
                         }
                     }
-
                     if (node.Children != null && node.Children.Any())
                     {
                         Traverse(node.Children);

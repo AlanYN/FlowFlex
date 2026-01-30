@@ -352,8 +352,8 @@ export const useWorkflowCanvasStore = defineStore({
 		 * 关闭面板
 		 */
 		closePanel(): void {
-			this.selectedNodeId = null;
 			this.panelVisible = false;
+			this.selectedNodeId = null;
 		},
 
 		// ============ Condition CRUD ============

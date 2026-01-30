@@ -8,12 +8,12 @@
 						<span class="option-desc">Proceed to the next stage in order</span>
 					</div>
 				</el-radio>
-				<el-radio value="specified">
+				<!-- <el-radio value="specified">
 					<div class="option-content">
 						<span class="option-label">Go to specific stage</span>
 						<span class="option-desc">Jump to a designated stage</span>
 					</div>
-				</el-radio>
+				</el-radio> -->
 			</el-radio-group>
 		</el-form-item>
 

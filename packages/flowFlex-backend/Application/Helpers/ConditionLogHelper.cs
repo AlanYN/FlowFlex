@@ -61,6 +61,60 @@ namespace FlowFlex.Application.Helpers
         }
 
         /// <summary>
+        /// Build operation title for condition evaluation log with stage information
+        /// Format: "Condition Met: t1 | Rules: Rule_3@Stage1 ✓ | Actions: GoToStage→Stage4 ✓"
+        /// </summary>
+        public static string BuildOperationTitleWithStage(
+            string conditionName,
+            bool isConditionMet,
+            List<RuleEvaluationDetail> ruleResults,
+            List<ActionExecutionDetail> actionResults)
+        {
+            var statusText = isConditionMet ? "Met" : "Not Met";
+
+            // Build rules summary with stage names
+            var rulesSummary = "";
+            if (ruleResults != null && ruleResults.Any())
+            {
+                var rulesToShow = isConditionMet
+                    ? ruleResults.Where(r => r.IsSuccess)
+                    : ruleResults.Where(r => !r.IsSuccess);
+
+                var ruleParts = rulesToShow.Select(r =>
+                {
+                    var stagePart = !string.IsNullOrEmpty(r.SourceStageName) ? $"@{r.SourceStageName}" : "";
+                    var statusIcon = r.IsSuccess ? "✓" : "✗";
+                    return $"{r.RuleName}{stagePart} {statusIcon}";
+                });
+                rulesSummary = string.Join(", ", ruleParts);
+            }
+
+            // Build actions summary
+            var actionsSummary = "";
+            var actionsLabel = isConditionMet ? "Actions" : "Fallback";
+            if (actionResults != null && actionResults.Any())
+            {
+                var actionParts = actionResults
+                    .OrderBy(a => a.Order)
+                    .Select(a => BuildActionTitlePart(a));
+                actionsSummary = string.Join(", ", actionParts);
+            }
+
+            // Build title parts
+            var titleParts = new List<string> { $"Condition {statusText}: {conditionName}" };
+            if (!string.IsNullOrEmpty(rulesSummary))
+            {
+                titleParts.Add($"Rules: {rulesSummary}");
+            }
+            if (!string.IsNullOrEmpty(actionsSummary))
+            {
+                titleParts.Add($"{actionsLabel}: {actionsSummary}");
+            }
+
+            return string.Join(" | ", titleParts);
+        }
+
+        /// <summary>
         /// Build operation description for condition evaluation log
         /// </summary>
         public static string BuildOperationDescription(
@@ -98,6 +152,59 @@ namespace FlowFlex.Application.Helpers
         }
 
         /// <summary>
+        /// Build operation description for condition evaluation log with stage information
+        /// </summary>
+        public static string BuildOperationDescriptionWithStage(
+            string conditionName,
+            bool isConditionMet,
+            List<RuleEvaluationDetail> ruleResults,
+            List<ActionExecutionDetail> successfulActions,
+            List<ActionExecutionDetail> failedActions)
+        {
+            var statusText = isConditionMet ? "Met" : "Not Met";
+            var descParts = new List<string>();
+            descParts.Add($"Condition '{conditionName}' evaluated: {statusText}");
+
+            if (ruleResults != null && ruleResults.Any())
+            {
+                var passedRules = ruleResults.Where(r => r.IsSuccess).ToList();
+                var failedRules = ruleResults.Where(r => !r.IsSuccess).ToList();
+
+                if (passedRules.Any())
+                {
+                    var passedDetails = passedRules.Select(r =>
+                    {
+                        var stagePart = !string.IsNullOrEmpty(r.SourceStageName) ? $"(Stage: {r.SourceStageName})" : "";
+                        return $"{r.RuleName}{stagePart}";
+                    });
+                    descParts.Add($"Passed rules: {string.Join(", ", passedDetails)}");
+                }
+                if (failedRules.Any())
+                {
+                    var failedDetails = failedRules.Select(r =>
+                    {
+                        var stagePart = !string.IsNullOrEmpty(r.SourceStageName) ? $"(Stage: {r.SourceStageName})" : "";
+                        return $"{r.RuleName}{stagePart}";
+                    });
+                    descParts.Add($"Failed rules: {string.Join(", ", failedDetails)}");
+                }
+            }
+
+            if (successfulActions.Any())
+            {
+                var actionDetails = successfulActions.Select(a => BuildActionDescriptionPart(a));
+                descParts.Add($"Executed actions: {string.Join("; ", actionDetails)}");
+            }
+            if (failedActions.Any())
+            {
+                var failedDetails = failedActions.Select(a => $"{a.ActionType}({a.ErrorMessage ?? "unknown error"})");
+                descParts.Add($"Failed actions: {string.Join("; ", failedDetails)}");
+            }
+
+            return string.Join(". ", descParts);
+        }
+
+        /// <summary>
         /// Build extended data object for condition evaluation log
         /// </summary>
         public static object BuildExtendedData(
@@ -114,7 +221,9 @@ namespace FlowFlex.Application.Helpers
                     ruleName = r.RuleName,
                     isSuccess = r.IsSuccess,
                     expression = r.Expression,
-                    errorMessage = r.ErrorMessage
+                    errorMessage = r.ErrorMessage,
+                    sourceStageId = r.SourceStageId,
+                    sourceStageName = r.SourceStageName
                 }),
                 nextStageId = result.NextStageId,
                 actionCount = result.ActionResults?.Count ?? 0,

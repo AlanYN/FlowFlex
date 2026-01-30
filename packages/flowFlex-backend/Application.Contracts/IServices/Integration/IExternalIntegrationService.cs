@@ -67,8 +67,9 @@ namespace FlowFlex.Application.Contracts.IServices.Integration
         /// </summary>
         /// <param name="systemId">System ID (unique identifier for entity mapping)</param>
         /// <param name="entityId">Entity ID (optional, the external entity ID to fetch attachments for)</param>
+        /// <param name="workflowId">Workflow ID (optional, filter inbound attachments by workflow)</param>
         /// <returns>Attachments list response from external system</returns>
-        Task<GetAttachmentsFromExternalResponse> FetchInboundAttachmentsFromExternalAsync(string systemId, string? entityId = null);
+        Task<GetAttachmentsFromExternalResponse> FetchInboundAttachmentsFromExternalAsync(string systemId, string? entityId = null, long? workflowId = null);
 
         /// <summary>
         /// Retry field mapping execution for a specific case

@@ -169,6 +169,11 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.Onboarding
         public bool Required { get; set; } = false;
 
         /// <summary>
+        /// Stage Color - Color code for the stage (e.g., "#0EA5E9")
+        /// </summary>
+        public string Color { get; set; }
+
+        /// <summary>
         /// Stage组件配置列表
         /// 定义Stage包含的组件及其顺序
         /// </summary>

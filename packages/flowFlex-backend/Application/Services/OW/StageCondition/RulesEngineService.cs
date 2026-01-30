@@ -83,8 +83,13 @@ namespace FlowFlex.Application.Service.OW
                     };
                 }
 
-                var inputData = await RuleInputDataBuilder.BuildInputDataAsync(onboardingId, stageId, _componentDataService, _logger);
-                var ruleResults = await ExecuteRulesAsync(condition.RulesJson, inputData);
+                // Extract source stage IDs from rules to support multi-stage data collection
+                var sourceStageIds = RuleInputDataBuilder.ExtractSourceStageIdsFromRulesJson(condition.RulesJson, stageId, _logger);
+                var inputData = await RuleInputDataBuilder.BuildInputDataForMultipleStagesAsync(onboardingId, sourceStageIds, _componentDataService, _logger);
+                
+                // Build stage name map for logging
+                var stageNameMap = await BuildStageNameMapAsync(sourceStageIds);
+                var ruleResults = await ExecuteRulesWithStageInfoAsync(condition.RulesJson, inputData, stageNameMap);
                 var isConditionMet = EvaluateRuleResults(ruleResults, condition.RulesJson);
 
                 var result = new ConditionEvaluationResult
@@ -254,9 +259,13 @@ namespace FlowFlex.Application.Service.OW
                         };
                     }
 
-                    // 3. Evaluate rules
-                    var inputData = await RuleInputDataBuilder.BuildInputDataAsync(onboardingId, stageId, _componentDataService, _logger);
-                    var ruleResults = await ExecuteRulesAsync(condition.RulesJson, inputData);
+                    // 3. Evaluate rules - extract source stage IDs to support multi-stage data collection
+                    var sourceStageIds = RuleInputDataBuilder.ExtractSourceStageIdsFromRulesJson(condition.RulesJson, stageId, _logger);
+                    var inputData = await RuleInputDataBuilder.BuildInputDataForMultipleStagesAsync(onboardingId, sourceStageIds, _componentDataService, _logger);
+                    
+                    // Build stage name map for logging
+                    var stageNameMap = await BuildStageNameMapAsync(sourceStageIds);
+                    var ruleResults = await ExecuteRulesWithStageInfoAsync(condition.RulesJson, inputData, stageNameMap);
                     var isConditionMet = EvaluateRuleResults(ruleResults, condition.RulesJson);
 
                     result = new ConditionEvaluationResult
@@ -448,10 +457,21 @@ namespace FlowFlex.Application.Service.OW
 
         private async Task<List<RuleEvaluationDetail>> ExecuteRulesAsync(string rulesJson, object inputData)
         {
+            return await ExecuteRulesWithStageInfoAsync(rulesJson, inputData, null);
+        }
+
+        private async Task<List<RuleEvaluationDetail>> ExecuteRulesWithStageInfoAsync(
+            string rulesJson, 
+            object inputData, 
+            Dictionary<long, string> stageNameMap)
+        {
             var ruleResults = new List<RuleEvaluationDetail>();
 
             try
             {
+                // Extract source stage IDs from frontend rules for mapping
+                var frontendRules = ExtractFrontendRules(rulesJson);
+
                 var convertedRulesJson = await _ruleConversionHelper.ConvertToRulesEngineFormatIfNeededAsync(
                     rulesJson,
                     _componentNameQueryService.BuildComponentNameMapAsync);
@@ -469,21 +489,42 @@ namespace FlowFlex.Application.Service.OW
                 var workflowName = workflows[0].WorkflowName ?? "StageCondition";
                 var results = await rulesEngine.ExecuteAllRulesAsync(workflowName, ruleParameter);
 
+                // Map rule results with source stage info
+                var ruleIndex = 0;
                 foreach (var result in results)
                 {
-                    ruleResults.Add(new RuleEvaluationDetail
+                    var detail = new RuleEvaluationDetail
                     {
                         RuleName = result.Rule.RuleName,
                         IsSuccess = result.IsSuccess,
                         Expression = result.Rule.Expression ?? string.Empty,
                         ErrorMessage = result.ExceptionMessage
-                    });
+                    };
+
+                    // Try to get source stage info from frontend rules
+                    if (frontendRules != null && ruleIndex < frontendRules.Count)
+                    {
+                        var frontendRule = frontendRules[ruleIndex];
+                        if (!string.IsNullOrEmpty(frontendRule.SourceStageId) && 
+                            long.TryParse(frontendRule.SourceStageId, out var sourceStageId))
+                        {
+                            detail.SourceStageId = sourceStageId;
+                            if (stageNameMap != null && stageNameMap.TryGetValue(sourceStageId, out var stageName))
+                            {
+                                detail.SourceStageName = stageName;
+                            }
+                        }
+                    }
+
+                    ruleResults.Add(detail);
 
                     if (!result.IsSuccess && !string.IsNullOrEmpty(result.ExceptionMessage))
                     {
                         _logger.LogDebug("Rule '{RuleName}' failed: {ErrorMessage}",
                             result.Rule.RuleName, result.ExceptionMessage);
                     }
+
+                    ruleIndex++;
                 }
             }
             catch (JsonException ex)
@@ -503,6 +544,62 @@ namespace FlowFlex.Application.Service.OW
             }
 
             return ruleResults;
+        }
+
+        /// <summary>
+        /// Extract frontend rules from RulesJson
+        /// </summary>
+        private List<FrontendRule> ExtractFrontendRules(string rulesJson)
+        {
+            try
+            {
+                var jsonObj = Newtonsoft.Json.Linq.JToken.Parse(rulesJson);
+                if (jsonObj is Newtonsoft.Json.Linq.JObject jObject && jObject.ContainsKey("rules"))
+                {
+                    var config = JsonConvert.DeserializeObject<FrontendRuleConfig>(rulesJson);
+                    return config?.Rules ?? new List<FrontendRule>();
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex, "Failed to extract frontend rules from RulesJson");
+            }
+            return new List<FrontendRule>();
+        }
+
+        /// <summary>
+        /// Build stage name map from stage IDs
+        /// </summary>
+        private async Task<Dictionary<long, string>> BuildStageNameMapAsync(List<long> stageIds)
+        {
+            var result = new Dictionary<long, string>();
+            if (stageIds == null || !stageIds.Any())
+            {
+                return result;
+            }
+
+            try
+            {
+                var stages = await _db.Queryable<Stage>()
+                    .Where(s => stageIds.Contains(s.Id) && s.IsValid)
+                    .Select(s => new { s.Id, s.Name })
+                    .ToListAsync();
+
+                foreach (var stage in stages)
+                {
+                    result[stage.Id] = stage.Name;
+                }
+
+                _logger.LogDebug("Built stage name map for {Count} stages: [{StageNames}]",
+                    result.Count, string.Join(", ", result.Select(kv => $"{kv.Key}={kv.Value}")));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to build stage name map for stage IDs: [{StageIds}]",
+                    string.Join(", ", stageIds));
+            }
+
+            return result;
         }
 
         #endregion
@@ -558,16 +655,15 @@ namespace FlowFlex.Application.Service.OW
         {
             try
             {
-                var successfulRules = result.RuleResults?.Where(r => r.IsSuccess).Select(r => r.RuleName).ToList() ?? new List<string>();
-                var failedRules = result.RuleResults?.Where(r => !r.IsSuccess).Select(r => r.RuleName).ToList() ?? new List<string>();
                 var successfulActions = result.ActionResults?.Where(a => a.Success).ToList() ?? new List<ActionExecutionDetail>();
                 var failedActions = result.ActionResults?.Where(a => !a.Success).ToList() ?? new List<ActionExecutionDetail>();
 
-                var operationTitle = ConditionLogHelper.BuildOperationTitle(
-                    condition.Name, result.IsConditionMet, successfulRules, failedRules, result.ActionResults);
+                // Use the new methods with stage information
+                var operationTitle = ConditionLogHelper.BuildOperationTitleWithStage(
+                    condition.Name, result.IsConditionMet, result.RuleResults, result.ActionResults);
 
-                var operationDescription = ConditionLogHelper.BuildOperationDescription(
-                    condition.Name, result.IsConditionMet, successfulRules, failedRules, successfulActions, failedActions);
+                var operationDescription = ConditionLogHelper.BuildOperationDescriptionWithStage(
+                    condition.Name, result.IsConditionMet, result.RuleResults, successfulActions, failedActions);
 
                 var extendedData = System.Text.Json.JsonSerializer.Serialize(
                     ConditionLogHelper.BuildExtendedData(condition, result));

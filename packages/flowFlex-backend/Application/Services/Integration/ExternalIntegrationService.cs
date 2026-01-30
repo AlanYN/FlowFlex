@@ -883,10 +883,10 @@ namespace FlowFlex.Application.Services.Integration
         /// 3. Execute HTTP Action to fetch attachments from external system
         /// 4. Parse and return the attachment list
         /// </summary>
-        public async Task<GetAttachmentsFromExternalResponse> FetchInboundAttachmentsFromExternalAsync(string systemId, string? entityId = null)
+        public async Task<GetAttachmentsFromExternalResponse> FetchInboundAttachmentsFromExternalAsync(string systemId, string? entityId = null, long? workflowId = null)
         {
-            _logger.LogInformation("Fetching inbound attachments from external system: SystemId={SystemId}, EntityId={EntityId}",
-                systemId, entityId ?? "(not provided)");
+            _logger.LogInformation("Fetching inbound attachments from external system: SystemId={SystemId}, EntityId={EntityId}, WorkflowId={WorkflowId}",
+                systemId, entityId ?? "(not provided)", workflowId?.ToString() ?? "(not provided)");
 
             if (string.IsNullOrWhiteSpace(systemId))
             {
@@ -983,6 +983,34 @@ namespace FlowFlex.Application.Services.Integration
                         Msg = "",
                         Code = "200"
                     };
+                }
+
+                // Filter by WorkflowId if provided
+                if (workflowId.HasValue)
+                {
+                    var originalCount = inboundAttachmentConfigs.Count;
+                    inboundAttachmentConfigs = inboundAttachmentConfigs
+                        .Where(c => c.WorkflowId == workflowId.Value)
+                        .ToList();
+                    _logger.LogInformation("Filtered inbound attachments by WorkflowId={WorkflowId}: {OriginalCount} -> {FilteredCount}",
+                        workflowId.Value, originalCount, inboundAttachmentConfigs.Count);
+
+                    if (!inboundAttachmentConfigs.Any())
+                    {
+                        _logger.LogInformation("No inbound attachments match WorkflowId={WorkflowId}", workflowId.Value);
+                        return new GetAttachmentsFromExternalResponse
+                        {
+                            Success = true,
+                            Data = new AttachmentsData
+                            {
+                                Attachments = new List<ExternalAttachmentDto>(),
+                                Total = 0
+                            },
+                            Message = $"No inbound attachments configured for workflow {workflowId.Value}",
+                            Msg = "",
+                            Code = "200"
+                        };
+                    }
                 }
 
                 // Step 4: Get authentication token if needed (do this once for all actions)

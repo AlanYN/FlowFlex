@@ -233,24 +233,63 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
         {
             var operationTitle = $"Action Created: {actionName}";
 
-            // Build enhanced description with field details
+            // Build description with custom operator name (don't use GetOperatorDisplayName() in background tasks)
             var operationDescription = $"Action '{actionName}' has been created by {customOperatorName}";
+            
+            // Add action type and source code details for create operations
             if (!string.IsNullOrEmpty(afterData))
             {
-                var enhancedDescription = await BuildEnhancedOperationDescriptionAsync(
-                    BusinessModuleEnum.Action,
-                    actionName,
-                    "Created",
-                    beforeData: null,
-                    afterData: afterData,
-                    changedFields: null,
-                    relatedEntityId: null,
-                    relatedEntityType: null,
-                    reason: null);
-
-                if (!string.IsNullOrEmpty(enhancedDescription) && enhancedDescription != operationDescription)
+                try
                 {
-                    operationDescription = enhancedDescription;
+                    var afterJson = JsonSerializer.Deserialize<JsonElement>(afterData);
+                    var details = new List<string>();
+
+                    // Extract ActionType
+                    if (afterJson.TryGetProperty("ActionType", out var actionTypeElement))
+                    {
+                        details.Add($"type: {actionTypeElement.GetString()}");
+                    }
+
+                    // Extract SourceCode for Python actions (truncated)
+                    if (afterJson.TryGetProperty("SourceCode", out var sourceCodeElement) && 
+                        sourceCodeElement.ValueKind == JsonValueKind.String)
+                    {
+                        var sourceCode = sourceCodeElement.GetString();
+                        if (!string.IsNullOrEmpty(sourceCode))
+                        {
+                            // Truncate source code for display, replace newlines with spaces
+                            var truncatedCode = sourceCode.Length > 50 
+                                ? sourceCode.Substring(0, 50).Replace("\n", " ").Replace("\r", "") + "..."
+                                : sourceCode.Replace("\n", " ").Replace("\r", "");
+                            details.Add($"Python: {truncatedCode}");
+                        }
+                    }
+
+                    // Extract HttpUrl and HttpMethod for HttpApi actions
+                    if (afterJson.TryGetProperty("HttpUrl", out var httpUrlElement) && 
+                        httpUrlElement.ValueKind == JsonValueKind.String)
+                    {
+                        var httpUrl = httpUrlElement.GetString();
+                        if (!string.IsNullOrEmpty(httpUrl))
+                        {
+                            var httpMethod = "GET";
+                            if (afterJson.TryGetProperty("HttpMethod", out var httpMethodElement) && 
+                                httpMethodElement.ValueKind == JsonValueKind.String)
+                            {
+                                httpMethod = httpMethodElement.GetString() ?? "GET";
+                            }
+                            details.Add($"HTTP: {httpMethod} {httpUrl}");
+                        }
+                    }
+
+                    if (details.Any())
+                    {
+                        operationDescription += ". " + string.Join("; ", details);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogDebug(ex, "Failed to parse afterData for action create description");
                 }
             }
 

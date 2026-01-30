@@ -1,55 +1,56 @@
-﻿using AutoMapper;
-using FlowFlex.Application.Contracts.Dtos;
-using FlowFlex.Application.Contracts.Dtos.Action;
-using FlowFlex.Application.Contracts.Dtos.OW.Onboarding;
-using FlowFlex.Application.Contracts.Dtos.OW.Permission;
-using FlowFlex.Application.Contracts.IServices.Action;
+using FlowFlex.Application.Contracts.Dtos.OW.User;
 using FlowFlex.Application.Contracts.IServices.OW;
-using FlowFlex.Application.Services.OW.Extensions;
+using FlowFlex.Application.Contracts.IServices.OW.Onboarding;
+using FlowFlex.Application.Helpers.OW;
 using FlowFlex.Domain.Entities.OW;
 using FlowFlex.Domain.Repository.OW;
 using FlowFlex.Domain.Shared;
-using FlowFlex.Domain.Shared.Attr;
-using FlowFlex.Domain.Shared.Const;
 using FlowFlex.Domain.Shared.Enums.OW;
-using FlowFlex.Domain.Shared.Events;
-using FlowFlex.Domain.Shared.Models;
-using FlowFlex.Domain.Shared.Utils;
-using FlowFlex.Infrastructure.Extensions;
-using FlowFlex.Infrastructure.Services;
-using MediatR;
-using Microsoft.AspNetCore.Http;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using Microsoft.OpenApi.Models;
-using OfficeOpenXml;
-using SqlSugar;
-using System.Diagnostics;
-using System.Globalization;
-using System.IO;
-using System.Linq;
-using System.Linq.Expressions;
-using System.Text;
-// using Item.Redis; // Temporarily disable Redis
-using System.Text.Json;
-using PermissionOperationType = FlowFlex.Domain.Shared.Enums.Permission.OperationTypeEnum;
-using FlowFlex.Application.Contracts.Dtos.OW.User;
 
-
-namespace FlowFlex.Application.Services.OW
+namespace FlowFlex.Application.Services.OW.OnboardingServices
 {
     /// <summary>
-    /// Onboarding service - User tree and team management
+    /// Service for onboarding user tree and team management
+    /// Handles: User tree filtering, team management, authorized users
     /// </summary>
-    public partial class OnboardingService
+    public class OnboardingUserManagementService : IOnboardingUserManagementService
     {
+        #region Fields
+
+        private readonly IOnboardingRepository _onboardingRepository;
+        private readonly IUserService _userService;
+        private readonly ICaseCodeGeneratorService _caseCodeGeneratorService;
+        private readonly ILogger<OnboardingUserManagementService> _logger;
+
+        #endregion
+
+        #region Constructor
+
+        public OnboardingUserManagementService(
+            IOnboardingRepository onboardingRepository,
+            IUserService userService,
+            ICaseCodeGeneratorService caseCodeGeneratorService,
+            ILogger<OnboardingUserManagementService> logger)
+        {
+            _onboardingRepository = onboardingRepository ?? throw new ArgumentNullException(nameof(onboardingRepository));
+            _userService = userService ?? throw new ArgumentNullException(nameof(userService));
+            _caseCodeGeneratorService = caseCodeGeneratorService ?? throw new ArgumentNullException(nameof(caseCodeGeneratorService));
+            _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        }
+
+        #endregion
+
+        #region Public Methods
+
+        /// <inheritdoc />
         public async Task<List<UserTreeNodeDto>> GetAuthorizedUsersAsync(long id)
         {
             // Get onboarding entity
             var onboarding = await _onboardingRepository.GetByIdAsync(id);
             if (onboarding == null)
             {
-                throw new CRMException(System.Net.HttpStatusCode.NotFound, $"Onboarding with ID {id} not found");
+                throw new CRMException(ErrorCodeEnum.DataNotFound, $"Onboarding with ID {id} not found");
             }
 
             // Get all users tree
@@ -62,8 +63,8 @@ namespace FlowFlex.Application.Services.OW
             }
 
             // Parse permission fields
-            var viewTeams = ParseJsonArraySafe(onboarding.ViewTeams) ?? new List<string>();
-            var viewUsers = ParseJsonArraySafe(onboarding.ViewUsers) ?? new List<string>();
+            var viewTeams = OnboardingSharedUtilities.ParseJsonArraySafe(onboarding.ViewTeams) ?? new List<string>();
+            var viewUsers = OnboardingSharedUtilities.ParseJsonArraySafe(onboarding.ViewUsers) ?? new List<string>();
 
             // Filter users based on permission configuration
             var filteredTree = await FilterUserTreeByPermissionAsync(
@@ -79,10 +80,8 @@ namespace FlowFlex.Application.Services.OW
             return ExtractUserNodes(filteredTree);
         }
 
-        /// <summary>
-        /// Filter user tree based on permission configuration
-        /// </summary>
-        private async Task<List<UserTreeNodeDto>> FilterUserTreeByPermissionAsync(
+        /// <inheritdoc />
+        public async Task<List<UserTreeNodeDto>> FilterUserTreeByPermissionAsync(
             List<UserTreeNodeDto> allUsersTree,
             ViewPermissionModeEnum viewPermissionMode,
             PermissionSubjectTypeEnum viewPermissionSubjectType,
@@ -116,10 +115,8 @@ namespace FlowFlex.Application.Services.OW
             return allUsersTree;
         }
 
-        /// <summary>
-        /// Filter user tree to return only ownership user
-        /// </summary>
-        private async Task<List<UserTreeNodeDto>> FilterUserTreeByOwnershipAsync(
+        /// <inheritdoc />
+        public async Task<List<UserTreeNodeDto>> FilterUserTreeByOwnershipAsync(
             List<UserTreeNodeDto> allUsersTree,
             long? ownership)
         {
@@ -184,10 +181,8 @@ namespace FlowFlex.Application.Services.OW
             };
         }
 
-        /// <summary>
-        /// Find user node in the tree by user ID
-        /// </summary>
-        private UserTreeNodeDto FindUserNodeInTree(List<UserTreeNodeDto> tree, string userId)
+        /// <inheritdoc />
+        public UserTreeNodeDto FindUserNodeInTree(List<UserTreeNodeDto> tree, string userId)
         {
             if (tree == null || !tree.Any())
             {
@@ -216,10 +211,8 @@ namespace FlowFlex.Application.Services.OW
             return null;
         }
 
-        /// <summary>
-        /// Build tree structure for a single user, preserving team hierarchy if possible
-        /// </summary>
-        private List<UserTreeNodeDto> BuildTreeForSingleUser(UserTreeNodeDto userNode, List<UserTreeNodeDto> allUsersTree)
+        /// <inheritdoc />
+        public List<UserTreeNodeDto> BuildTreeForSingleUser(UserTreeNodeDto userNode, List<UserTreeNodeDto> allUsersTree)
         {
             if (userNode == null)
             {
@@ -286,10 +279,8 @@ namespace FlowFlex.Application.Services.OW
             }
         }
 
-        /// <summary>
-        /// Extract flat list of user nodes from a (team+user) tree, with deduplication by user ID
-        /// </summary>
-        private List<UserTreeNodeDto> ExtractUserNodes(List<UserTreeNodeDto> nodes)
+        /// <inheritdoc />
+        public List<UserTreeNodeDto> ExtractUserNodes(List<UserTreeNodeDto> nodes)
         {
             var result = new List<UserTreeNodeDto>();
             var seenUserIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -336,10 +327,8 @@ namespace FlowFlex.Application.Services.OW
             return result;
         }
 
-        /// <summary>
-        /// Find the team that contains a specific user
-        /// </summary>
-        private UserTreeNodeDto FindUserTeam(List<UserTreeNodeDto> tree, string userId)
+        /// <inheritdoc />
+        public UserTreeNodeDto FindUserTeam(List<UserTreeNodeDto> tree, string userId)
         {
             if (tree == null || !tree.Any())
             {
@@ -369,10 +358,8 @@ namespace FlowFlex.Application.Services.OW
             return null;
         }
 
-        /// <summary>
-        /// Filter user tree by teams based on permission mode
-        /// </summary>
-        private List<UserTreeNodeDto> FilterUserTreeByTeams(
+        /// <inheritdoc />
+        public List<UserTreeNodeDto> FilterUserTreeByTeams(
             List<UserTreeNodeDto> allUsersTree,
             ViewPermissionModeEnum viewPermissionMode,
             List<string> viewTeams)
@@ -451,10 +438,8 @@ namespace FlowFlex.Application.Services.OW
             return result;
         }
 
-        /// <summary>
-        /// Filter user tree by users based on permission mode
-        /// </summary>
-        private List<UserTreeNodeDto> FilterUserTreeByUsers(
+        /// <inheritdoc />
+        public List<UserTreeNodeDto> FilterUserTreeByUsers(
             List<UserTreeNodeDto> allUsersTree,
             ViewPermissionModeEnum viewPermissionMode,
             List<string> viewUsers)
@@ -473,6 +458,38 @@ namespace FlowFlex.Application.Services.OW
 
             return result;
         }
+
+        /// <inheritdoc />
+        public async Task EnsureCaseCodeAsync(Onboarding entity)
+        {
+            if (string.IsNullOrWhiteSpace(entity.CaseCode))
+            {
+                try
+                {
+                    // Generate case code from lead name
+                    entity.CaseCode = await _caseCodeGeneratorService.GenerateCaseCodeAsync(entity.CaseName);
+
+                    // Update database
+                    var updateSql = "UPDATE ff_onboarding SET case_code = @CaseCode WHERE id = @Id";
+                    await _onboardingRepository.GetSqlSugarClient().Ado.ExecuteCommandAsync(updateSql, new
+                    {
+                        CaseCode = entity.CaseCode,
+                        Id = entity.Id
+                    });
+
+                    _logger.LogInformation("Auto-generated CaseCode '{CaseCode}' for Onboarding {OnboardingId}", entity.CaseCode, entity.Id);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to auto-generate CaseCode for Onboarding {OnboardingId}", entity.Id);
+                    // Don't throw - this is a background enhancement, not critical
+                }
+            }
+        }
+
+        #endregion
+
+        #region Private Helper Methods
 
         /// <summary>
         /// Recursively filter a node and its children by users
@@ -556,37 +573,8 @@ namespace FlowFlex.Application.Services.OW
             return null;
         }
 
-        #region Case Code Auto-Fill for Legacy Data
-
-        /// <summary>
-        /// Ensure case code is generated for legacy data (if CaseCode is null or empty)
-        /// </summary>
-        private async Task EnsureCaseCodeAsync(Onboarding entity)
-        {
-            if (string.IsNullOrWhiteSpace(entity.CaseCode))
-            {
-                try
-                {
-                    // Generate case code from lead name
-                    entity.CaseCode = await _caseCodeGeneratorService.GenerateCaseCodeAsync(entity.CaseName);
-
-                    // Update database
-                    var updateSql = "UPDATE ff_onboarding SET case_code = @CaseCode WHERE id = @Id";
-                    await _onboardingRepository.GetSqlSugarClient().Ado.ExecuteCommandAsync(updateSql, new
-                    {
-                        CaseCode = entity.CaseCode,
-                        Id = entity.Id
-                    });
-
-                    _logger.LogInformation("Auto-generated CaseCode '{CaseCode}' for Onboarding {OnboardingId}", entity.CaseCode, entity.Id);
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "Failed to auto-generate CaseCode for Onboarding {OnboardingId}", entity.Id);
-                    // Don't throw - this is a background enhancement, not critical
-                }
-            }
-        }
+        // Note: ParseJsonArraySafe has been removed.
+        // Use OnboardingSharedUtilities.ParseJsonArraySafe(jsonString) directly.
 
         #endregion
     }

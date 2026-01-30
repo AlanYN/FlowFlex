@@ -224,6 +224,13 @@ namespace FlowFlex.Domain.Entities.OW
         public bool Required { get; set; } = false;
 
         /// <summary>
+        /// Stage Color (from Stage entity) - Not stored in JSON
+        /// </summary>
+        [JsonIgnore]
+        [StringLength(20)]
+        public string Color { get; set; }
+
+        /// <summary>
         /// Stage Components Configuration JSON (from Stage entity) - Not stored in JSON
         /// </summary>
         [JsonIgnore]

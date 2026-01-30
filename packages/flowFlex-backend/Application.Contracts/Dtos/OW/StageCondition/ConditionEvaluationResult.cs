@@ -65,6 +65,17 @@ namespace FlowFlex.Application.Contracts.Dtos.OW.StageCondition
         /// Error message (if rule evaluation failed)
         /// </summary>
         public string? ErrorMessage { get; set; }
+
+        /// <summary>
+        /// Source Stage ID where the component is located
+        /// </summary>
+        [JsonConverter(typeof(LongToStringConverter))]
+        public long? SourceStageId { get; set; }
+
+        /// <summary>
+        /// Source Stage Name for display purposes
+        /// </summary>
+        public string? SourceStageName { get; set; }
     }
 
     /// <summary>
