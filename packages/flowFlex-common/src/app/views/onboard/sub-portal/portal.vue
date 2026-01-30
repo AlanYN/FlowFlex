@@ -328,6 +328,7 @@
 													component.customerPortalAccess ===
 														StageComponentPortal.Viewable
 												"
+												:workflowId="onboardingData?.workflowId || ''"
 												@document-uploaded="handleDocumentUploaded"
 												@document-deleted="handleDocumentDeleted"
 											/>
