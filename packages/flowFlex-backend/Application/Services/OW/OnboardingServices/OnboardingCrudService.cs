@@ -400,8 +400,10 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
                 }
 
                 // Execute CaseInfo Actions to fetch and populate fields from external system
-                // Only execute if SystemId and EntityId are configured
-                if (!string.IsNullOrEmpty(entity.SystemId) && !string.IsNullOrEmpty(entity.EntityId))
+                // Only execute if SystemId and EntityId are configured and case is not completed
+                var completedStatuses = new[] { "Completed", "Force Completed" };
+                if (!string.IsNullOrEmpty(entity.SystemId) && !string.IsNullOrEmpty(entity.EntityId)
+                    && !completedStatuses.Contains(entity.Status, StringComparer.OrdinalIgnoreCase))
                 {
                     try
                     {
