@@ -21,10 +21,10 @@
 				</div>
 
 				<div class="space-y-2">
-					<label class="text-sm font-medium">Company/Contact Name</label>
+					<label class="text-sm font-medium">Case Name</label>
 					<InputTag
 						v-model="caseNameTags"
-						placeholder="Enter Company/Contact Name and press enter"
+						placeholder="Enter Case Name and press enter"
 						style-type="normal"
 						:limit="10"
 						clearable
