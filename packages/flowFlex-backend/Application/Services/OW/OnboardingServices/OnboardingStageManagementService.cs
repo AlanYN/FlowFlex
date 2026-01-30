@@ -215,8 +215,10 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
             // Update stages progress
             await _stageProgressService.UpdateStagesProgressAsync(entity, stageIdToComplete, GetCurrentUserName(), GetCurrentUserId(), input.CompletionNotes);
 
-            // Check if all stages are completed
-            var allStagesCompleted = entity.StagesProgress.All(sp => sp.IsCompleted);
+            // Check if all stages are completed (including skipped stages as "done")
+            var allStagesCompleted = entity.StagesProgress.All(sp => 
+                sp.IsCompleted || 
+                string.Equals(sp.Status, "Skipped", StringComparison.OrdinalIgnoreCase));
 
             if (allStagesCompleted)
             {
@@ -226,7 +228,10 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
             }
             else
             {
-                entity.CompletionRate = _stageProgressService.CalculateCompletionRateByCompletedStages(entity.StagesProgress);
+                // Ensure completion rate never decreases
+                var previousRate = entity.CompletionRate;
+                var newRate = _stageProgressService.CalculateCompletionRateByCompletedStages(entity.StagesProgress);
+                entity.CompletionRate = Math.Max(previousRate, newRate);
                 UpdateCurrentStageAfterCompletion(entity, stageToComplete, orderedStages, input.PreventAutoMove);
 
                 if (!string.IsNullOrEmpty(input.CompletionNotes))
@@ -308,12 +313,16 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
             // Update stages progress
             await _stageProgressService.UpdateStagesProgressAsync(entity, stageToComplete.Id, GetCurrentUserName(), GetCurrentUserId(), input.CompletionNotes);
 
-            // Calculate new completion rate
-            entity.CompletionRate = _stageProgressService.CalculateCompletionRateByCompletedStages(entity.StagesProgress);
+            // Calculate new completion rate - ensure it never decreases
+            var previousRate = entity.CompletionRate;
+            var newRate = _stageProgressService.CalculateCompletionRateByCompletedStages(entity.StagesProgress);
+            entity.CompletionRate = Math.Max(previousRate, newRate);
             var completedCount = entity.StagesProgress.Count(s => s.IsCompleted);
 
-            // Check if all stages are completed
-            var allStagesCompleted = entity.StagesProgress.All(s => s.IsCompleted);
+            // Check if all stages are completed (including skipped stages as "done")
+            var allStagesCompleted = entity.StagesProgress.All(s => 
+                s.IsCompleted || 
+                string.Equals(s.Status, "Skipped", StringComparison.OrdinalIgnoreCase));
             if (allStagesCompleted)
             {
                 entity.Status = "Completed";

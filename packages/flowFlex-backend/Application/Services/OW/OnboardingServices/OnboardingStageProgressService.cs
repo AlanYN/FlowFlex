@@ -163,9 +163,11 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
                         }
                     }
 
-                    // Find next stage to activate
+                    // Find next stage to activate (skip both completed and skipped stages)
                     var nextStage = entity.StagesProgress?
-                        .Where(s => s.StageOrder > completedStage.StageOrder && !s.IsCompleted)
+                        .Where(s => s.StageOrder > completedStage.StageOrder && 
+                                   !s.IsCompleted && 
+                                   !string.Equals(s.Status, "Skipped", StringComparison.OrdinalIgnoreCase))
                         .OrderBy(s => s.StageOrder)
                         .FirstOrDefault();
 
@@ -189,11 +191,13 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
                             nextStage.StageId, entity.Id);
                     }
 
-                    // Update completion rate
-                    entity.CompletionRate = CalculateCompletionRateByCompletedStages(entity.StagesProgress ?? new List<OnboardingStageProgress>());
+                    // Update completion rate - ensure it never decreases
+                    var previousRate = entity.CompletionRate;
+                    var newRate = CalculateCompletionRateByCompletedStages(entity.StagesProgress ?? new List<OnboardingStageProgress>());
+                    entity.CompletionRate = Math.Max(previousRate, newRate);
 
-                    _logger.LogDebug("UpdateStagesProgressAsync - Completed stage {StageId}, CompletionRate: {Rate}%",
-                        completedStageId, entity.CompletionRate);
+                    _logger.LogDebug("UpdateStagesProgressAsync - Completed stage {StageId}, CompletionRate: {Rate}% (previous: {PreviousRate}%)",
+                        completedStageId, entity.CompletionRate, previousRate);
                 }
 
                 await FilterValidStagesProgressAsync(entity);
@@ -379,14 +383,18 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
                 }
 
                 var totalStagesCount = stagesProgress.Count;
-                var completedStagesCount = stagesProgress.Count(s => s.IsCompleted);
+                // Count both completed stages AND skipped stages as "done"
+                // Skipped stages should contribute to progress since they are intentionally bypassed
+                var completedOrSkippedCount = stagesProgress.Count(s => 
+                    s.IsCompleted || 
+                    string.Equals(s.Status, "Skipped", StringComparison.OrdinalIgnoreCase));
 
                 if (totalStagesCount == 0)
                 {
                     return 0;
                 }
 
-                var completionRate = Math.Round((decimal)completedStagesCount / totalStagesCount * 100, 2);
+                var completionRate = Math.Round((decimal)completedOrSkippedCount / totalStagesCount * 100, 2);
                 return completionRate;
             }
             catch (Exception ex)
