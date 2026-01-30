@@ -9,6 +9,7 @@
 		class="stage-condition-editor"
 		append-to-body
 		:before-close="handleCancel"
+		destroy-on-close
 	>
 		<template #header>
 			<div class="drawer-header">
