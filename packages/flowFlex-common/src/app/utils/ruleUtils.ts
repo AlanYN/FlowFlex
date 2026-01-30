@@ -49,12 +49,9 @@ export const parseComponentKey = (key: string): { type: string; id?: string } =>
  * 根据 rule 生成组件 key
  */
 export const generateComponentKey = (rule: RuleFormItem): string => {
-	if (rule.componentType === 'fields') {
-		if (rule.fieldPath) {
-			const fieldId = getFieldIdFromPath(rule.fieldPath);
-			if (fieldId) return `field_${fieldId}`;
-		}
-		return 'fields';
+	if (rule.componentType === 'fields' && rule.fieldPath) {
+		const fieldId = getFieldIdFromPath(rule.fieldPath);
+		if (fieldId) return `field_${fieldId}`;
 	}
 	if (rule.componentType === 'questionnaires' && rule.componentId) {
 		return `questionnaire_${rule.componentId}`;
@@ -67,11 +64,11 @@ export const generateComponentKey = (rule: RuleFormItem): string => {
 
 /**
  * 从 fieldPath 中提取字段 ID
- * @example getFieldIdFromPath('input.fields.abc123') => 'abc123'
  */
-export const getFieldIdFromPath = (fieldPath: string): string | null => {
+export const getFieldIdFromPath = (fieldPath: string): string => {
+	if (!fieldPath) return '';
 	const match = fieldPath.match(/input\.fields\.(.+)/);
-	return match ? match[1] : null;
+	return match ? match[1] : '';
 };
 
 // ============ Label 映射 ============

@@ -101,6 +101,17 @@
 									:loading="loadingFields[index]"
 									@change="() => handleFieldChange(rule, index)"
 								>
+									<template #loading>
+										<svg class="circular" viewBox="0 0 50 50">
+											<circle
+												class="path"
+												cx="25"
+												cy="25"
+												r="20"
+												fill="none"
+											/>
+										</svg>
+									</template>
 									<el-option
 										v-for="field in ruleFieldOptions[index] || []"
 										:key="field.value"
@@ -432,6 +443,9 @@ const ruleValueOptions = reactive<Record<number, ValueOption[]>>({});
 // 问题元数据映射（按规则索引）
 const questionMetadataMap = reactive<Record<number, QuestionMetadata>>({});
 
+// 组件原始字段总数缓存（componentKey -> totalCount）
+const componentTotalFieldCount = ref<Map<string, number>>(new Map());
+
 // ============ 工具函数包装（使用索引访问状态） ============
 
 const isGridType = (ruleIndex: number): boolean => {
@@ -565,7 +579,10 @@ const getComponentOptionGroupsForStage = (stageId: string): ComponentOptionGroup
 /**
  * 获取指定规则的可用组件选项
  * 基于该规则选择的 sourceStageId 获取组件
- * AND 模式下过滤掉已被其他规则选择的组件，OR 模式下返回全部
+ * AND 模式下：
+ * - fields 类型：过滤掉已被其他规则选择的字段
+ * - questionnaires 和 checklist 类型：只有当所有问题/任务都被选完时才过滤掉该组件
+ * OR 模式下返回全部
  */
 const getAvailableComponentOptions = (currentIndex: number): ComponentOptionGroup[] => {
 	const rule = props.modelValue[currentIndex];
@@ -582,22 +599,61 @@ const getAvailableComponentOptions = (currentIndex: number): ComponentOptionGrou
 		return stageGroups;
 	}
 
-	// AND 模式下，收集其他规则已选择的组件 key（仅同一 stage 内）
-	const selectedKeys = new Set<string>();
+	// AND 模式下，收集其他规则已选择的 fields 组件 key
+	const selectedFieldKeys = new Set<string>();
 	props.modelValue.forEach((r, index) => {
-		if (index !== currentIndex && r.sourceStageId === stageId) {
+		if (index !== currentIndex && r.sourceStageId === stageId && r.componentType === 'fields') {
 			const key = ruleComponentKeys[index];
-			if (key) selectedKeys.add(key);
+			if (key) selectedFieldKeys.add(key);
 		}
 	});
 
-	// 过滤掉已选择的组件
+	// 收集每个 questionnaire/checklist 已选择的 fieldPath 数量
+	const componentFieldPathCount = new Map<string, number>(); // componentKey -> selected count
+	props.modelValue.forEach((r, index) => {
+		if (
+			index !== currentIndex &&
+			r.sourceStageId === stageId &&
+			(r.componentType === 'questionnaires' || r.componentType === 'checklist') &&
+			r.fieldPath
+		) {
+			const key = ruleComponentKeys[index];
+			if (key) {
+				componentFieldPathCount.set(key, (componentFieldPathCount.get(key) || 0) + 1);
+			}
+		}
+	});
+
+	// 过滤组件
 	return stageGroups
 		.map((group) => ({
 			...group,
-			items: group.items.filter((item) => !selectedKeys.has(item.key)),
+			items: group.items.filter((item) => {
+				// fields 类型：直接过滤已选择的
+				if (group.type === 'fields') {
+					return !selectedFieldKeys.has(item.key);
+				}
+
+				// questionnaires 和 checklist 类型：检查是否所有问题/任务都被选完
+				if (group.type === 'questionnaires' || group.type === 'checklist') {
+					const selectedCount = componentFieldPathCount.get(item.key) || 0;
+					const availableFieldCount = getComponentAvailableFieldCount(item.key);
+					// 如果没有缓存总数，不过滤；只有当所有字段都被选完时才过滤掉
+					if (availableFieldCount === null) return true;
+					return selectedCount < availableFieldCount;
+				}
+
+				return true;
+			}),
 		}))
 		.filter((group) => group.items.length > 0); // 移除空分组
+};
+
+/**
+ * 获取组件的可用字段数量
+ */
+const getComponentAvailableFieldCount = (componentKey: string): number | null => {
+	return componentTotalFieldCount.value.get(componentKey) || null;
 };
 
 // 获取字段信息
@@ -682,7 +738,7 @@ const loadQuestionnaireQuestions = async (
 	restoreMetadata = false
 ) => {
 	loadingFields[ruleIndex] = true;
-	const fields: FieldOption[] = [];
+	let fields: FieldOption[] = [];
 
 	try {
 		const res: any = await getQuestionnaireDetail(questionnaireId);
@@ -711,7 +767,7 @@ const loadQuestionnaireQuestions = async (
 			questions.forEach((q: any) => {
 				const questionId = q.id || q.questionId || q.temporaryId;
 				fields.push({
-					label: q.title || q.question || q.questionText || `Question ${q.order || ''}`,
+					label: q.title || q.question || q.questionText,
 					value: `input.questionnaire.answers["${questionnaireId}"]["${questionId}"]`,
 					// 存储问题元数据供后续使用
 					metadata: {
@@ -739,11 +795,66 @@ const loadQuestionnaireQuestions = async (
 				});
 			});
 
+			// 缓存该问卷的问题总数（在过滤之前）
+			const componentKey = `questionnaire_${questionnaireId}`;
+			componentTotalFieldCount.value.set(componentKey, fields.length);
+
+			// AND 模式下，过滤掉同一问卷中已被其他规则选择的问题
+			if (props.logic === 'AND') {
+				const rule = props.modelValue[ruleIndex];
+				const selectedQuestionPaths = new Set<string>();
+
+				props.modelValue.forEach((r, idx) => {
+					if (
+						idx !== ruleIndex &&
+						r.componentType === 'questionnaires' &&
+						r.componentId === questionnaireId &&
+						r.sourceStageId === rule.sourceStageId &&
+						r.fieldPath
+					) {
+						selectedQuestionPaths.add(r.fieldPath);
+					}
+				});
+
+				fields = fields.filter((f) => !selectedQuestionPaths.has(f.value));
+			}
+
 			// 如果需要恢复元数据（初始化现有规则时）
 			if (restoreMetadata) {
 				const rule = props.modelValue[ruleIndex];
 				if (rule?.fieldPath) {
-					const selectedField = fields.find((f) => f.value === rule.fieldPath);
+					// 需要从原始 fields 中查找（过滤前的），因为当前规则的 fieldPath 可能已被过滤
+					const allFields: FieldOption[] = [];
+					questions.forEach((q: any) => {
+						const questionId = q.id || q.questionId || q.temporaryId;
+						allFields.push({
+							label: q.title,
+							value: `input.questionnaire.answers["${questionnaireId}"]["${questionId}"]`,
+							metadata: {
+								type: q.type,
+								options: q.options?.map((opt: any) => ({
+									id: opt.id || opt.temporaryId,
+									label: opt.label || opt.value,
+									value: opt.value || opt.label,
+								})),
+								rows: q.rows?.map((row: any) => ({
+									id: row.id,
+									label: row.label,
+								})),
+								columns: q.columns?.map((col: any) => ({
+									id: col.id,
+									label: col.label,
+									isOther: col.isOther,
+								})),
+								min: q.min,
+								max: q.max,
+								minLabel: q.minLabel,
+								maxLabel: q.maxLabel,
+								iconType: q.iconType || 'star',
+							},
+						});
+					});
+					const selectedField = allFields.find((f) => f.value === rule.fieldPath);
 					if (selectedField?.metadata) {
 						questionMetadataMap[ruleIndex] = selectedField.metadata;
 
@@ -760,6 +871,11 @@ const loadQuestionnaireQuestions = async (
 							prevColumnOtherState[ruleIndex] = col?.isOther ?? false;
 						}
 					}
+
+					// 确保当前规则的 fieldPath 在选项中（即使被过滤了也要加回来）
+					if (!fields.find((f) => f.value === rule.fieldPath) && selectedField) {
+						fields.push(selectedField);
+					}
 				}
 			}
 		}
@@ -772,20 +888,61 @@ const loadQuestionnaireQuestions = async (
 };
 
 // 加载 Checklist 任务列表
-const loadChecklistTasks = async (checklistId: string, ruleIndex: number) => {
+const loadChecklistTasks = async (
+	checklistId: string,
+	ruleIndex: number,
+	restoreMetadata = false
+) => {
 	loadingFields[ruleIndex] = true;
-	const fields: FieldOption[] = [];
+	let fields: FieldOption[] = [];
+	let allFields: FieldOption[] = [];
 
 	try {
 		const res: any = await getChecklistDetail(checklistId);
 		if (res.code === '200' && res.data) {
 			const tasks = res.data.tasks || [];
-			tasks.forEach((task: any, index: number) => {
-				fields.push({
-					label: task.name || `Task ${index + 1}`,
+			tasks.forEach((task: any) => {
+				const field = {
+					label: task.name,
 					value: `input.checklist.tasks["${checklistId}"]["${task.id}"].isCompleted`,
-				});
+				};
+				fields.push(field);
+				allFields.push(field);
 			});
+
+			// 缓存该 checklist 的任务总数（在过滤之前）
+			const componentKey = `checklist_${checklistId}`;
+			componentTotalFieldCount.value.set(componentKey, fields.length);
+
+			// AND 模式下，过滤掉同一 checklist 中已被其他规则选择的任务
+			if (props.logic === 'AND') {
+				const rule = props.modelValue[ruleIndex];
+				const selectedTaskPaths = new Set<string>();
+
+				props.modelValue.forEach((r, idx) => {
+					if (
+						idx !== ruleIndex &&
+						r.componentType === 'checklist' &&
+						r.componentId === checklistId &&
+						r.sourceStageId === rule.sourceStageId &&
+						r.fieldPath
+					) {
+						selectedTaskPaths.add(r.fieldPath);
+					}
+				});
+
+				fields = fields.filter((f) => !selectedTaskPaths.has(f.value));
+
+				// 如果是恢复模式，确保当前规则的 fieldPath 在选项中
+				if (restoreMetadata && rule.fieldPath) {
+					if (!fields.find((f) => f.value === rule.fieldPath)) {
+						const selectedField = allFields.find((f) => f.value === rule.fieldPath);
+						if (selectedField) {
+							fields.push(selectedField);
+						}
+					}
+				}
+			}
 		}
 	} catch (error) {
 		console.error('Failed to load checklist tasks:', error);
@@ -1001,7 +1158,8 @@ const initExistingRules = async () => {
 			// 传入 restoreMetadata = true 以恢复元数据和 Grid 选择
 			loadQuestionnaireQuestions(rule.componentId, index, true);
 		} else if (rule.componentType === 'checklist' && rule.componentId) {
-			loadChecklistTasks(rule.componentId, index);
+			// 传入 restoreMetadata = true 以确保当前规则的 fieldPath 在选项中
+			loadChecklistTasks(rule.componentId, index, true);
 		}
 	});
 
@@ -1020,28 +1178,59 @@ onMounted(() => {
 
 /**
  * 检查是否存在重复的组件选择
- * @returns 重复的组件名称列表
+ * 对于 questionnaires 和 checklist 类型，检查的是 fieldPath（问题/任务）级别的重复
+ * 对于 fields 类型，检查的是组件级别的重复
+ * @returns 重复的组件/问题/任务名称列表
  */
 const findDuplicateComponents = (): string[] => {
-	const seenKeys = new Map<string, string>(); // key -> component name
+	const seenFieldKeys = new Map<string, string>(); // stageId_key -> component name (for fields)
+	const seenFieldPaths = new Map<string, string>(); // stageId_componentId_fieldPath -> name (for questionnaires/checklist)
 	const duplicates: string[] = [];
 
-	props.modelValue.forEach((_, index) => {
+	props.modelValue.forEach((rule, index) => {
 		const key = ruleComponentKeys[index];
-		if (key) {
-			if (seenKeys.has(key)) {
-				// 找到组件名称
+		if (!key) return;
+
+		// Questionnaires 和 Checklist 类型：检查 fieldPath（问题/任务）级别的重复
+		if (
+			(rule.componentType === 'questionnaires' || rule.componentType === 'checklist') &&
+			rule.fieldPath
+		) {
+			const fieldPathKey = `${rule.sourceStageId}_${rule.componentId}_${rule.fieldPath}`;
+			if (seenFieldPaths.has(fieldPathKey)) {
+				// 找到问题/任务名称
+				const fieldName = findFieldPathName(index);
+				if (fieldName && !duplicates.includes(fieldName)) {
+					duplicates.push(fieldName);
+				}
+			} else {
+				seenFieldPaths.set(fieldPathKey, fieldPathKey);
+			}
+		} else if (rule.componentType === 'fields') {
+			// Fields 类型：检查组件级别的重复
+			const componentKey = `${rule.sourceStageId}_${key}`;
+			if (seenFieldKeys.has(componentKey)) {
 				const componentName = findComponentName(key);
 				if (componentName && !duplicates.includes(componentName)) {
 					duplicates.push(componentName);
 				}
 			} else {
-				seenKeys.set(key, key);
+				seenFieldKeys.set(componentKey, key);
 			}
 		}
 	});
 
 	return duplicates;
+};
+
+/**
+ * 根据规则索引查找 fieldPath 对应的名称（问卷问题或 checklist 任务）
+ */
+const findFieldPathName = (ruleIndex: number): string => {
+	const rule = props.modelValue[ruleIndex];
+	const fieldOptions = ruleFieldOptions[ruleIndex] || [];
+	const field = fieldOptions.find((f) => f.value === rule.fieldPath);
+	return field?.label || rule.fieldPath;
 };
 
 /**
