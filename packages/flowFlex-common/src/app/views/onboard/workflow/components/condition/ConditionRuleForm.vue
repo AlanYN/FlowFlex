@@ -50,6 +50,22 @@
 							/>
 						</div>
 
+						<!-- Select Stage: 选择来源阶段 -->
+						<el-form-item label="Select Stage" prop="sourceStageId">
+							<el-select
+								v-model="rule.sourceStageId"
+								placeholder="Select stage"
+								@change="(val: string) => handleStageChange(rule, val, index)"
+							>
+								<el-option
+									v-for="stage in getAvailableStages()"
+									:key="stage.id"
+									:label="stage.name"
+									:value="stage.id"
+								/>
+							</el-select>
+						</el-form-item>
+
 						<!-- Select Component: 显示具体的问卷名称、checklist名称、或 Required Field -->
 						<el-form-item label="Select Component" prop="componentType">
 							<el-select
@@ -265,7 +281,7 @@
 </template>
 
 <script setup lang="ts">
-import { reactive, watch, onMounted, computed, ref } from 'vue';
+import { reactive, onMounted, computed, ref } from 'vue';
 import { Plus, Delete } from '@element-plus/icons-vue';
 import { ElMessageBox } from 'element-plus';
 import type { FormInstance, FormRules } from 'element-plus';
@@ -364,6 +380,7 @@ const getRuleValidationRules = (rule: RuleFormItem, index: number): FormRules =>
 	const trigger = hasValidated[index] ? 'change' : [];
 
 	return {
+		sourceStageId: [{ required: true, message: 'Please select a stage', trigger }],
 		componentType: [{ required: true, message: 'Please select a component', trigger }],
 		fieldPath: [
 			{
@@ -393,6 +410,9 @@ const getRuleValidationRules = (rule: RuleFormItem, index: number): FormRules =>
 		],
 	};
 };
+
+// 每个规则选择的 Stage ID（按规则索引）
+const ruleStageIds = reactive<Record<number, string>>({});
 
 // 每个规则的字段选项（按规则索引）
 const ruleFieldOptions = reactive<Record<number, FieldOption[]>>({});
@@ -462,9 +482,19 @@ const getCurrentStage = (): Stage | undefined => {
 	return props.stages[props.currentStageIndex];
 };
 
-// 构建组件选项分组列表
-const componentOptionGroups = computed<ComponentOptionGroup[]>(() => {
-	const stage = getCurrentStage();
+// 获取可选的 Stage 列表（当前 stage 及之前的 stage）
+const getAvailableStages = (): Stage[] => {
+	return props.stages.slice(0, props.currentStageIndex + 1);
+};
+
+// 根据 stageId 获取 Stage
+const getStageById = (stageId: string): Stage | undefined => {
+	return props.stages.find((s) => s.id === stageId);
+};
+
+// 构建组件选项分组列表（根据指定的 stageId）
+const getComponentOptionGroupsForStage = (stageId: string): ComponentOptionGroup[] => {
+	const stage = getStageById(stageId);
 	if (!stage?.components) return [];
 
 	const groups: ComponentOptionGroup[] = [];
@@ -530,29 +560,39 @@ const componentOptionGroups = computed<ComponentOptionGroup[]>(() => {
 	}
 
 	return groups;
-});
+};
 
 /**
  * 获取指定规则的可用组件选项
+ * 基于该规则选择的 sourceStageId 获取组件
  * AND 模式下过滤掉已被其他规则选择的组件，OR 模式下返回全部
  */
 const getAvailableComponentOptions = (currentIndex: number): ComponentOptionGroup[] => {
+	const rule = props.modelValue[currentIndex];
+	const stageId = rule?.sourceStageId || ruleStageIds[currentIndex];
+
+	// 如果没有选择 stage，返回空
+	if (!stageId) return [];
+
+	// 获取该 stage 的组件选项
+	const stageGroups = getComponentOptionGroupsForStage(stageId);
+
 	// OR 模式下不限制，返回全部选项
 	if (props.logic === 'OR') {
-		return componentOptionGroups.value;
+		return stageGroups;
 	}
 
-	// AND 模式下，收集其他规则已选择的组件 key
+	// AND 模式下，收集其他规则已选择的组件 key（仅同一 stage 内）
 	const selectedKeys = new Set<string>();
-	props.modelValue.forEach((_, index) => {
-		if (index !== currentIndex) {
+	props.modelValue.forEach((r, index) => {
+		if (index !== currentIndex && r.sourceStageId === stageId) {
 			const key = ruleComponentKeys[index];
 			if (key) selectedKeys.add(key);
 		}
 	});
 
 	// 过滤掉已选择的组件
-	return componentOptionGroups.value
+	return stageGroups
 		.map((group) => ({
 			...group,
 			items: group.items.filter((item) => !selectedKeys.has(item.key)),
@@ -605,9 +645,9 @@ const getValueOptions = (rule: RuleFormItem, ruleIndex: number): ValueOption[] =
 	return options;
 };
 
-// 加载静态字段映射
-const loadStaticFieldsMapping = async () => {
-	const stage = getCurrentStage();
+// 加载指定 stage 的静态字段映射
+const loadStaticFieldsMappingForStage = async (stageId: string) => {
+	const stage = getStageById(stageId);
 	if (!stage?.components) return;
 
 	const fieldsComponent = stage.components.find((c) => c.key === 'fields');
@@ -755,6 +795,35 @@ const loadChecklistTasks = async (checklistId: string, ruleIndex: number) => {
 	}
 };
 
+// 处理 Stage 选择变化
+const handleStageChange = (rule: RuleFormItem, stageId: string, ruleIndex: number) => {
+	// 更新 ruleStageIds
+	ruleStageIds[ruleIndex] = stageId;
+
+	// 清空组件相关的选择
+	rule.componentType = '';
+	rule.componentId = '';
+	rule.fieldPath = '';
+	rule.operator = '==';
+	rule.value = '';
+	rule.rowKey = undefined;
+	rule.columnKey = undefined;
+
+	// 清空组件 key
+	ruleComponentKeys[ruleIndex] = '';
+
+	// 清空字段选项和值选项
+	ruleFieldOptions[ruleIndex] = [];
+	ruleValueOptions[ruleIndex] = [];
+
+	// 清除问题元数据
+	delete questionMetadataMap[ruleIndex];
+	delete prevColumnOtherState[ruleIndex];
+
+	// 加载该 stage 的静态字段映射
+	loadStaticFieldsMappingForStage(stageId);
+};
+
 // 处理组件选择变化
 const handleComponentChange = (rule: RuleFormItem, componentKey: string, ruleIndex: number) => {
 	const { type, id } = parseComponentKey(componentKey);
@@ -845,9 +914,10 @@ const handleFieldChange = (rule: RuleFormItem, ruleIndex: number) => {
 // 添加规则
 const handleAddRule = () => {
 	const stage = getCurrentStage();
+	const defaultStageId = stage?.id || '';
 
 	const newRule: RuleFormItem = {
-		sourceStageId: stage?.id || '',
+		sourceStageId: defaultStageId,
 		componentType: '',
 		componentId: '',
 		fieldPath: '',
@@ -858,8 +928,9 @@ const handleAddRule = () => {
 	const newIndex = props.modelValue.length;
 	emit('update:modelValue', [...props.modelValue, newRule]);
 
-	// 设置组件key，重置校验状态
+	// 设置组件key和stageId，重置校验状态
 	ruleComponentKeys[newIndex] = '';
+	ruleStageIds[newIndex] = defaultStageId;
 	hasValidated[newIndex] = false;
 };
 
@@ -876,6 +947,7 @@ const handleRemoveRule = (index: number) => {
 	const totalCount = props.modelValue.length; // 删除前的长度
 	for (let i = index; i < totalCount - 1; i++) {
 		ruleComponentKeys[i] = ruleComponentKeys[i + 1] ?? '';
+		ruleStageIds[i] = ruleStageIds[i + 1] ?? '';
 		ruleFieldOptions[i] = ruleFieldOptions[i + 1] ?? [];
 		loadingFields[i] = loadingFields[i + 1] ?? false;
 		ruleValueOptions[i] = ruleValueOptions[i + 1] ?? [];
@@ -891,6 +963,7 @@ const handleRemoveRule = (index: number) => {
 	// 删除最后一个索引的状态
 	const lastIndex = totalCount - 1;
 	delete ruleComponentKeys[lastIndex];
+	delete ruleStageIds[lastIndex];
 	delete ruleFieldOptions[lastIndex];
 	delete loadingFields[lastIndex];
 	delete ruleValueOptions[lastIndex];
@@ -901,9 +974,23 @@ const handleRemoveRule = (index: number) => {
 
 // 初始化现有规则的字段选项
 const initExistingRules = async () => {
-	await loadStaticFieldsMapping();
+	// 先加载所有可能用到的 stage 的静态字段
+	const availableStages = getAvailableStages();
+	await Promise.all(availableStages.map((stage) => loadStaticFieldsMappingForStage(stage.id)));
+
+	const currentStage = getCurrentStage();
+	const defaultStageId = currentStage?.id || '';
 
 	props.modelValue.forEach((rule, index) => {
+		// 设置 stageId（如果没有则使用当前 stage）
+		const stageId = rule.sourceStageId || defaultStageId;
+		ruleStageIds[index] = stageId;
+
+		// 如果规则没有 sourceStageId，更新它
+		if (!rule.sourceStageId && stageId) {
+			rule.sourceStageId = stageId;
+		}
+
 		// 生成并设置组件key，重置校验状态
 		const componentKey = generateComponentKey(rule);
 		ruleComponentKeys[index] = componentKey;
@@ -930,16 +1017,6 @@ const initExistingRules = async () => {
 onMounted(() => {
 	initExistingRules();
 });
-
-// 监听 stage 变化重新加载
-watch(
-	() => props.currentStageIndex,
-	() => {
-		loadStaticFieldsMapping();
-		// 重新初始化现有规则
-		initExistingRules();
-	}
-);
 
 /**
  * 检查是否存在重复的组件选择
@@ -971,9 +1048,14 @@ const findDuplicateComponents = (): string[] => {
  * 根据组件 key 查找组件名称
  */
 const findComponentName = (key: string): string => {
-	for (const group of componentOptionGroups.value) {
-		const item = group.items.find((i) => i.key === key);
-		if (item) return item.name;
+	// 遍历所有可用的 stage 查找组件名称
+	const availableStages = getAvailableStages();
+	for (const stage of availableStages) {
+		const groups = getComponentOptionGroupsForStage(stage.id);
+		for (const group of groups) {
+			const item = group.items.find((i) => i.key === key);
+			if (item) return item.name;
+		}
 	}
 	return key;
 };
