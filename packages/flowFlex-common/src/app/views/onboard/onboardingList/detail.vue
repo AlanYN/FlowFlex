@@ -1061,7 +1061,7 @@ const handleCompleteStage = async () => {
 		`Are you sure you want to mark this stage as complete? This action will record your name and the current time as the completion signature.`,
 		'⚠️ Confirm Stage Completion',
 		{
-			confirmButtonText: 'Complete Stage',
+			confirmButtonText: 'Complete',
 			cancelButtonText: 'Cancel',
 			distinguishCancelAndClose: true,
 			showCancelButton: true,
@@ -1070,14 +1070,14 @@ const handleCompleteStage = async () => {
 				if (action === 'confirm') {
 					// 显示loading状态
 					instance.confirmButtonLoading = true;
-					instance.confirmButtonText = 'Complete Stage';
+					instance.confirmButtonText = 'Complete';
 
 					completing.value = true;
 					try {
 						const res = await saveAllForm();
 						if (!res) {
 							instance.confirmButtonLoading = false;
-							instance.confirmButtonText = 'Complete Stage';
+							instance.confirmButtonText = 'Complete';
 						} else {
 							const res = await completeCurrentStage(onboardingId.value, {
 								currentStageId: activeStage.value,
@@ -1092,7 +1092,7 @@ const handleCompleteStage = async () => {
 						done();
 					} finally {
 						instance.confirmButtonLoading = false;
-						instance.confirmButtonText = 'Complete Stage';
+						instance.confirmButtonText = 'Complete';
 						completing.value = false;
 					}
 				} else {
