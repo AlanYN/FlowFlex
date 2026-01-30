@@ -206,6 +206,7 @@
 									"
 									:systemId="onboardingData?.systemId"
 									:entityId="onboardingData?.entityId"
+									:workflowId="onboardingData?.workflowId || ''"
 									@document-uploaded="handleDocumentUploaded"
 									@document-deleted="handleDocumentDeleted"
 								/>
