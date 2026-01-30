@@ -1,11 +1,6 @@
 <template>
 	<el-card class="mb-6">
-		<el-form
-			ref="searchFormRef"
-			:model="searchParams"
-			@submit.prevent="handleSearch"
-			class="onboardSearch-form"
-		>
+		<el-form :model="searchParams" @submit.prevent="handleSearch">
 			<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
 				<div class="space-y-2">
 					<label class="text-sm font-medium">Case Code</label>
@@ -21,10 +16,10 @@
 				</div>
 
 				<div class="space-y-2">
-					<label class="text-sm font-medium">Company/Contact Name</label>
+					<label class="text-sm font-medium">Case Name</label>
 					<InputTag
 						v-model="caseNameTags"
-						placeholder="Enter Company/Contact Name and press enter"
+						placeholder="Enter Case Name and press enter"
 						style-type="normal"
 						:limit="10"
 						clearable
@@ -160,9 +155,6 @@ const emit = defineEmits<{
 	export: [];
 }>();
 
-// 表单引用
-const searchFormRef = ref();
-
 // 搜索参数
 const searchParams = reactive<SearchParams>({
 	workFlowId: '',
@@ -286,10 +278,3 @@ defineExpose({
 	handleExport,
 });
 </script>
-
-<style scoped lang="scss">
-/* 搜索表单样式 */
-.onboardSearch-form :deep(.el-form-item) {
-	margin-bottom: 0;
-}
-</style>

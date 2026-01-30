@@ -341,6 +341,7 @@ interface Props {
 	documentIsRequired?: boolean;
 	systemId?: string;
 	entityId?: string;
+	workflowId: string;
 }
 
 const props = defineProps<Props>();
@@ -668,6 +669,7 @@ const importFormIntegration = async () => {
 		const res = await getCaseAttachmentIntegration({
 			systemId: props?.systemId || '',
 			entityId: props?.entityId || '',
+			workflowId: props?.workflowId || '',
 		});
 		if (res?.code == '200') {
 			// Process the new API response structure with actionExecutions array
