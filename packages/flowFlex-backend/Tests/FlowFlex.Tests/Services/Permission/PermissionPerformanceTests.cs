@@ -278,7 +278,12 @@ namespace FlowFlex.Tests.Services.Permission
             _output.WriteLine($"   Reduction:           {stageCount - 1} fewer calls ({((double)(stageCount - 1) / stageCount * 100):F1}%)");
 
             // The optimized version should be at least as fast (or faster in real scenarios)
-            timeWithOptimization.Should().BeLessThanOrEqualTo((long)(timeWithoutOptimization * 1.2),
+            // When timeWithoutOptimization is 0ms, allow up to 50ms tolerance for the optimized version
+            // This handles edge cases where the non-optimized version runs too fast to measure
+            var maxAllowedTime = timeWithoutOptimization == 0 
+                ? 50L  // Allow 50ms tolerance when baseline is 0
+                : (long)(timeWithoutOptimization * 1.2);
+            timeWithOptimization.Should().BeLessThanOrEqualTo(maxAllowedTime,
                 "Optimized version should not be significantly slower");
         }
 

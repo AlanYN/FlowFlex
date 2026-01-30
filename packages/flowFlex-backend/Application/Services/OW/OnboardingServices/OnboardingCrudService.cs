@@ -16,6 +16,7 @@ using FlowFlex.Domain.Shared.Enums.OW;
 using FlowFlex.Domain.Shared.Models;
 using FlowFlex.Domain.Shared.Utils;
 using FlowFlex.Infrastructure.Services;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using SqlSugar;
 using System.Text.Json;
@@ -46,6 +47,7 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
         private readonly IStaticFieldValueService _staticFieldValueService;
         private readonly IPropertyService _propertyService;
         private readonly IUserService _userService;
+        private readonly IServiceProvider _serviceProvider;
         private readonly ILogger<OnboardingCrudService> _logger;
 
         // Shared JSON serializer options - use OnboardingSharedUtilities.JsonOptions for consistency
@@ -72,6 +74,7 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
             IStaticFieldValueService staticFieldValueService,
             IPropertyService propertyService,
             IUserService userService,
+            IServiceProvider serviceProvider,
             ILogger<OnboardingCrudService> logger)
         {
             _onboardingRepository = onboardingRepository ?? throw new ArgumentNullException(nameof(onboardingRepository));
@@ -90,6 +93,7 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
             _staticFieldValueService = staticFieldValueService ?? throw new ArgumentNullException(nameof(staticFieldValueService));
             _propertyService = propertyService ?? throw new ArgumentNullException(nameof(propertyService));
             _userService = userService ?? throw new ArgumentNullException(nameof(userService));
+            _serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
 
@@ -393,6 +397,44 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
                 if (entity == null)
                 {
                     return null;
+                }
+
+                // Execute CaseInfo Actions to fetch and populate fields from external system
+                // Only execute if SystemId and EntityId are configured
+                if (!string.IsNullOrEmpty(entity.SystemId) && !string.IsNullOrEmpty(entity.EntityId))
+                {
+                    try
+                    {
+                        _logger.LogInformation("GetByIdAsync - Executing CaseInfo Actions for Case {CaseId} with SystemId={SystemId}, EntityId={EntityId}",
+                            id, entity.SystemId, entity.EntityId);
+
+                        // Use IServiceProvider to resolve IExternalIntegrationService to avoid circular dependency
+                        var externalIntegrationService = _serviceProvider.GetRequiredService<FlowFlex.Application.Contracts.IServices.Integration.IExternalIntegrationService>();
+                        var fieldMappingResult = await externalIntegrationService.RetryFieldMappingAsync(id);
+
+                        if (fieldMappingResult.Success)
+                        {
+                            _logger.LogInformation("GetByIdAsync - Successfully executed CaseInfo Actions for Case {CaseId}: {ActionsExecuted} actions, {FieldsMapped} fields mapped",
+                                id, fieldMappingResult.ActionsExecuted, fieldMappingResult.FieldsMapped);
+
+                            // Reload entity to get updated field values
+                            entity = await _onboardingRepository.GetByIdAsync(id);
+                            if (entity == null)
+                            {
+                                return null;
+                            }
+                        }
+                        else
+                        {
+                            _logger.LogWarning("GetByIdAsync - CaseInfo Actions execution returned non-success for Case {CaseId}: {Message}",
+                                id, fieldMappingResult.Message);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        // Log error but don't fail the GetById operation
+                        _logger.LogError(ex, "GetByIdAsync - Error executing CaseInfo Actions for Case {CaseId}", id);
+                    }
                 }
 
                 // Auto-generate CaseCode for legacy data
