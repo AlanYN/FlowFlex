@@ -5,10 +5,10 @@
 		direction="rtl"
 		:size="450"
 		:close-on-click-modal="false"
-		:destroy-on-close="false"
 		class="node-panel"
 		append-to-body
 		:before-close="handleCancel"
+		destroy-on-close
 	>
 		<template #header>
 			<div class="node-panel__header">
