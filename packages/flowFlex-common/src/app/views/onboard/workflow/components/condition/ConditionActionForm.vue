@@ -120,10 +120,7 @@
 								class="action-field"
 								prop="parameters.recipients"
 							>
-								<div class="text-gray-500 mb-1">
-									Select User
-									{{ currentStageId }}
-								</div>
+								<div class="text-gray-500 mb-1">Select User</div>
 								<FlowflexUserSelector
 									v-model="getActionParams(action).users"
 									selection-type="user"
