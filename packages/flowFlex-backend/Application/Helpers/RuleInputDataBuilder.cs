@@ -7,6 +7,7 @@ using FlowFlex.Application.Contracts.Dtos.OW.StageCondition;
 using FlowFlex.Application.Contracts.IServices.OW;
 using FlowFlex.Application.Service.OW;
 using Microsoft.Extensions.Logging;
+using Newtonsoft.Json;
 
 namespace FlowFlex.Application.Helpers
 {
@@ -24,63 +25,190 @@ namespace FlowFlex.Application.Helpers
             IComponentDataService componentDataService,
             ILogger logger)
         {
+            // Use the multi-stage version with single stage for backward compatibility
+            return await BuildInputDataForMultipleStagesAsync(
+                onboardingId, 
+                new List<long> { stageId }, 
+                componentDataService, 
+                logger);
+        }
+
+        /// <summary>
+        /// Build input data object for RulesEngine evaluation from multiple stages
+        /// This method collects data from all specified stages and merges them
+        /// </summary>
+        public static async Task<object> BuildInputDataForMultipleStagesAsync(
+            long onboardingId,
+            List<long> stageIds,
+            IComponentDataService componentDataService,
+            ILogger logger)
+        {
             try
             {
-                // Get component data
-                var checklistData = await componentDataService.GetChecklistDataAsync(onboardingId, stageId);
-                var questionnaireData = await componentDataService.GetQuestionnaireDataAsync(onboardingId, stageId);
-                var attachmentData = await componentDataService.GetAttachmentDataAsync(onboardingId, stageId);
-                var fieldsData = await componentDataService.GetFieldsDataAsync(onboardingId);
+                if (stageIds == null || !stageIds.Any())
+                {
+                    logger.LogWarning("No stage IDs provided for building input data");
+                    return new ExpandoObject();
+                }
 
                 // Build dynamic input object
                 dynamic input = new ExpandoObject();
                 var inputDict = (IDictionary<string, object>)input;
 
-                // Build nested tasks dictionary
-                var tasksDict = BuildNestedTasksDictionary(checklistData, stageId, logger);
+                // Merged data containers
+                var mergedTasksDict = new SafeTasksDictionary();
+                var mergedAnswersDict = new SafeNestedDictionary();
+                var mergedAttachmentFileCount = 0;
+                var mergedAttachmentTotalSize = 0L;
+                var mergedAttachmentFileNames = new List<string>();
 
-                // Add checklist data with nested tasks dictionary
+                // Collect data from all stages
+                foreach (var stageId in stageIds.Distinct())
+                {
+                    logger.LogDebug("Building input data for onboarding {OnboardingId}, stage {StageId}", onboardingId, stageId);
+
+                    // Get checklist data for this stage
+                    var checklistData = await componentDataService.GetChecklistDataAsync(onboardingId, stageId);
+                    var tasksDict = BuildNestedTasksDictionary(checklistData, stageId, logger);
+                    
+                    // Merge tasks
+                    foreach (var checklistId in tasksDict.Keys)
+                    {
+                        if (!mergedTasksDict.ContainsKey(checklistId))
+                        {
+                            mergedTasksDict[checklistId] = new SafeTaskInnerDictionary();
+                        }
+                        foreach (var taskId in tasksDict[checklistId].Keys)
+                        {
+                            mergedTasksDict[checklistId][taskId] = tasksDict[checklistId][taskId];
+                        }
+                    }
+
+                    // Get questionnaire data for this stage
+                    var questionnaireData = await componentDataService.GetQuestionnaireDataAsync(onboardingId, stageId);
+                    var answersDict = BuildNestedAnswersDictionary(questionnaireData, stageId, logger);
+                    
+                    // Merge answers
+                    foreach (var questionnaireId in answersDict.Keys)
+                    {
+                        if (!mergedAnswersDict.ContainsKey(questionnaireId))
+                        {
+                            mergedAnswersDict[questionnaireId] = new SafeInnerDictionary();
+                        }
+                        foreach (var questionId in answersDict[questionnaireId].Keys)
+                        {
+                            mergedAnswersDict[questionnaireId][questionId] = answersDict[questionnaireId][questionId];
+                        }
+                    }
+
+                    // Get attachment data for this stage
+                    var attachmentData = await componentDataService.GetAttachmentDataAsync(onboardingId, stageId);
+                    mergedAttachmentFileCount += attachmentData.FileCount;
+                    mergedAttachmentTotalSize += attachmentData.TotalSize;
+                    if (attachmentData.FileNames != null)
+                    {
+                        mergedAttachmentFileNames.AddRange(attachmentData.FileNames);
+                    }
+                }
+
+                // Calculate merged checklist stats
+                var totalTaskCount = 0;
+                var completedTaskCount = 0;
+                foreach (var checklistId in mergedTasksDict.Keys)
+                {
+                    foreach (var taskId in mergedTasksDict[checklistId].Keys)
+                    {
+                        totalTaskCount++;
+                        if (mergedTasksDict[checklistId][taskId].isCompleted)
+                        {
+                            completedTaskCount++;
+                        }
+                    }
+                }
+
+                // Add merged checklist data
                 inputDict["checklist"] = new
                 {
-                    status = checklistData.Status,
-                    completedCount = checklistData.CompletedCount,
-                    totalCount = checklistData.TotalCount,
-                    completionPercentage = checklistData.TotalCount > 0
-                        ? (double)checklistData.CompletedCount / checklistData.TotalCount * 100
+                    status = totalTaskCount > 0 && completedTaskCount == totalTaskCount ? "Completed" : "InProgress",
+                    completedCount = completedTaskCount,
+                    totalCount = totalTaskCount,
+                    completionPercentage = totalTaskCount > 0
+                        ? (double)completedTaskCount / totalTaskCount * 100
                         : 0,
-                    tasks = tasksDict
+                    tasks = mergedTasksDict
                 };
 
-                // Build nested answers dictionary
-                var answersDict = BuildNestedAnswersDictionary(questionnaireData, stageId, logger);
-
-                // Add questionnaire data with nested answers dictionary
+                // Add merged questionnaire data
                 inputDict["questionnaire"] = new
                 {
-                    status = questionnaireData.Status,
-                    totalScore = questionnaireData.TotalScore,
-                    answers = answersDict
+                    status = mergedAnswersDict.Count > 0 ? "Completed" : "Pending",
+                    totalScore = 0, // Score calculation would need more complex logic
+                    answers = mergedAnswersDict
                 };
 
-                // Add attachment data
+                // Add merged attachment data
                 inputDict["attachments"] = new
                 {
-                    fileCount = attachmentData.FileCount,
-                    hasAttachment = attachmentData.FileCount > 0,
-                    totalSize = attachmentData.TotalSize,
-                    fileNames = attachmentData.FileNames
+                    fileCount = mergedAttachmentFileCount,
+                    hasAttachment = mergedAttachmentFileCount > 0,
+                    totalSize = mergedAttachmentTotalSize,
+                    fileNames = mergedAttachmentFileNames
                 };
 
-                // Add fields data (dynamic data from onboarding)
+                // Get fields data (global, not stage-specific)
+                var fieldsData = await componentDataService.GetFieldsDataAsync(onboardingId);
                 inputDict["fields"] = SafeFieldsDictionary.FromDictionary(fieldsData);
+
+                logger.LogDebug("Built merged input data from {StageCount} stages for onboarding {OnboardingId}", 
+                    stageIds.Count, onboardingId);
 
                 return input;
             }
             catch (Exception ex)
             {
-                logger.LogError(ex, "Error building input data for onboarding {OnboardingId}, stage {StageId}", onboardingId, stageId);
+                logger.LogError(ex, "Error building input data for onboarding {OnboardingId}, stages [{StageIds}]", 
+                    onboardingId, string.Join(", ", stageIds));
                 return new ExpandoObject();
             }
+        }
+
+        /// <summary>
+        /// Extract unique source stage IDs from RulesJson
+        /// </summary>
+        public static List<long> ExtractSourceStageIdsFromRulesJson(string rulesJson, long defaultStageId, ILogger logger)
+        {
+            var stageIds = new HashSet<long> { defaultStageId };
+
+            try
+            {
+                var jsonObj = Newtonsoft.Json.Linq.JToken.Parse(rulesJson);
+
+                // Check if it's frontend format (has "logic" and "rules" properties)
+                if (jsonObj is Newtonsoft.Json.Linq.JObject jObject && jObject.ContainsKey("rules"))
+                {
+                    var rules = jObject["rules"] as Newtonsoft.Json.Linq.JArray;
+                    if (rules != null)
+                    {
+                        foreach (var rule in rules)
+                        {
+                            var sourceStageIdStr = rule["sourceStageId"]?.ToString();
+                            if (!string.IsNullOrEmpty(sourceStageIdStr) && long.TryParse(sourceStageIdStr, out var sourceStageId))
+                            {
+                                stageIds.Add(sourceStageId);
+                            }
+                        }
+                    }
+                }
+
+                logger.LogDebug("Extracted {Count} unique source stage IDs from RulesJson: [{StageIds}]", 
+                    stageIds.Count, string.Join(", ", stageIds));
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "Failed to extract source stage IDs from RulesJson, using default stage {DefaultStageId}", defaultStageId);
+            }
+
+            return stageIds.ToList();
         }
 
         /// <summary>

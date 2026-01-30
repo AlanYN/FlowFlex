@@ -113,7 +113,8 @@ namespace FlowFlex.SqlSugarDB.Migrations
                     ("20260114000002_AddStageNameUniqueConstraint", (Action)(() => Migration_20260114000002_AddStageNameUniqueConstraint.Up(_db))),
                     ("20260115000001_AddFieldIdToStaticFieldValue", (Action)(() => Migration_20260115000001_AddFieldIdToStaticFieldValue.Up(_db))),
                     ("20260116000001_IncreaseOperationTitleLengthTo800", (Action)(() => Migration_20260116000001_IncreaseOperationTitleLengthTo800.Up(_db))),
-                    ("20260123000001_MergeDisplayNameToFieldName", (Action)(() => Migration_20260123000001_MergeDisplayNameToFieldName.Up(_db)))
+                    ("20260123000001_MergeDisplayNameToFieldName", (Action)(() => Migration_20260123000001_MergeDisplayNameToFieldName.Up(_db))),
+                    ("20260130000001_FillSourceStageIdInRulesJson", (Action)(() => Migration_20260130000001_FillSourceStageIdInRulesJson.Up(_db)))
                 };
 
                 // Pre-check all migrations to reduce individual SQL queries
