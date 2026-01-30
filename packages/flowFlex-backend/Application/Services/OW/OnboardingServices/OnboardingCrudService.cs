@@ -747,12 +747,25 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
         /// </summary>
         private async Task ProcessPostCreationAsync(long insertedId, List<Stage> stages)
         {
-            if (insertedId <= 0) return;
+            if (insertedId <= 0)
+            {
+                _logger.LogWarning("ProcessPostCreationAsync - Skipped: insertedId is {InsertedId}", insertedId);
+                return;
+            }
 
             try
             {
+                _logger.LogInformation("ProcessPostCreationAsync - Starting for Onboarding {OnboardingId}", insertedId);
+
                 var insertedEntity = await _onboardingRepository.GetByIdAsync(insertedId);
-                if (insertedEntity == null) return;
+                if (insertedEntity == null)
+                {
+                    _logger.LogWarning("ProcessPostCreationAsync - Could not retrieve inserted entity {OnboardingId}", insertedId);
+                    return;
+                }
+
+                _logger.LogInformation("ProcessPostCreationAsync - Retrieved entity {OnboardingId}, LeadEmail: {LeadEmail}",
+                    insertedId, insertedEntity.LeadEmail ?? "(null)");
 
                 // Initialize stage progress
                 await _stageProgressService.InitializeStagesProgressAsync(insertedEntity, stages);
@@ -766,6 +779,8 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
 
                 // Create default UserInvitation record if email is available
                 await CreateDefaultUserInvitationAsync(insertedEntity);
+
+                _logger.LogInformation("ProcessPostCreationAsync - Completed for Onboarding {OnboardingId}", insertedId);
             }
             catch (Exception ex)
             {
@@ -1489,26 +1504,60 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
         /// </summary>
         private async Task CreateDefaultUserInvitationAsync(Onboarding entity)
         {
-            if (string.IsNullOrEmpty(entity.LeadEmail)) return;
+            // Use ContactEmail instead of LeadEmail for user invitation
+            var email = entity.ContactEmail;
+            
+            _logger.LogInformation("CreateDefaultUserInvitationAsync - Starting for Onboarding {OnboardingId}, ContactEmail: {ContactEmail}",
+                entity.Id, email ?? "(null)");
+
+            if (string.IsNullOrEmpty(email))
+            {
+                _logger.LogInformation("CreateDefaultUserInvitationAsync - Skipped: ContactEmail is empty for Onboarding {OnboardingId}", entity.Id);
+                return;
+            }
 
             try
             {
-                var existingInvitation = await _userInvitationRepository.GetByOnboardingIdAsync(entity.Id);
-                if (existingInvitation != null) return;
+                // GetByOnboardingIdAsync returns List<UserInvitation>, check if any exists
+                var existingInvitations = await _userInvitationRepository.GetByOnboardingIdAsync(entity.Id);
+                if (existingInvitations != null && existingInvitations.Any())
+                {
+                    _logger.LogInformation("CreateDefaultUserInvitationAsync - Skipped: Invitation already exists for Onboarding {OnboardingId}", entity.Id);
+                    return;
+                }
+
+                var tenantId = entity.TenantId ?? "default";
+                var appCode = entity.AppCode ?? "default";
+
+                // Generate invitation token using CryptoHelper (consistent with UserInvitationService)
+                var invitationToken = CryptoHelper.GenerateSecureToken();
+                
+                // Generate short URL ID using CryptoHelper
+                var shortUrlId = CryptoHelper.GenerateShortUrlId(entity.Id, email, invitationToken);
+
+                // Generate invitation URL in format: portal-access/{shortUrlId}?tenantId={tenantId}&appCode={appCode}
+                var invitationUrl = $"portal-access/{shortUrlId}?tenantId={Uri.EscapeDataString(tenantId)}&appCode={Uri.EscapeDataString(appCode)}";
 
                 var invitation = new UserInvitation
                 {
                     OnboardingId = entity.Id,
-                    Email = entity.LeadEmail,
+                    Email = email,
+                    InvitationToken = invitationToken,
+                    ShortUrlId = shortUrlId,
+                    InvitationUrl = invitationUrl,
                     Status = "Pending",
-                    TenantId = entity.TenantId,
-                    AppCode = entity.AppCode,
-                    IsValid = true
+                    TenantId = tenantId,
+                    AppCode = appCode,
+                    IsValid = true,
+                    TokenExpiry = null, // No expiry (consistent with UserInvitationService)
+                    SendCount = 0 // Not sent yet, just created
                 };
                 invitation.InitCreateInfo(_userContext);
                 invitation.InitNewId();
 
                 await _userInvitationRepository.InsertAsync(invitation);
+                _logger.LogInformation("CreateDefaultUserInvitationAsync - Successfully created invitation {InvitationId} for Onboarding {OnboardingId}, URL: {InvitationUrl}",
+                    invitation.Id, entity.Id, invitationUrl);
             }
             catch (Exception ex)
             {
