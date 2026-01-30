@@ -306,6 +306,7 @@
 												"
 												:currentstageCanCompleted="!!stageCanCompleted"
 												:onboardingId="onboardingId"
+												:workflowId="onboardingData?.workflowId || ''"
 												@stage-updated="handleStageUpdated"
 												@question-submitted="handleQuestionSubmitted"
 												:questionnaire-answers="
