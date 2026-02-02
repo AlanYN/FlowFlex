@@ -4482,6 +4482,10 @@ onMounted(async () => {
 	color: var(--el-color-white);
 	padding: 0.75rem 1rem;
 	max-width: 70%;
+	/* 长字符串换行处理 */
+	word-break: break-word;
+	overflow-wrap: break-word;
+	word-wrap: break-word;
 	@apply rounded-xl;
 }
 
@@ -4518,6 +4522,10 @@ onMounted(async () => {
 	background: var(--el-fill-color-light);
 	padding: 0.75rem 1rem;
 	max-width: 70%;
+	/* 长字符串换行处理 */
+	word-break: break-word;
+	overflow-wrap: break-word;
+	word-wrap: break-word;
 	@apply rounded-xl;
 }
 
@@ -4559,6 +4567,10 @@ onMounted(async () => {
 .message-text {
 	margin-bottom: 0.25rem;
 	line-height: 1.5;
+	/* 长字符串换行处理 */
+	word-break: break-word;
+	overflow-wrap: break-word;
+	word-wrap: break-word;
 }
 
 .message-time {
