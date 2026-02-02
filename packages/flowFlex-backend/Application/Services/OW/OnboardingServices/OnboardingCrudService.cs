@@ -308,7 +308,7 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
             {
                 if (entityWithoutFilter != null)
                 {
-                    if (entityWithoutFilter.TenantId != _userContext.TenantId)
+                    if (entityWithoutFilter.TenantId != (_userContext?.TenantId ?? "default"))
                     {
                         throw new CRMException(ErrorCodeEnum.DataNotFound, "Onboarding not found or access denied. Record belongs to different tenant.");
                     }

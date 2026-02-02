@@ -1,6 +1,7 @@
 using FlowFlex.Application.Contracts.Dtos.Integration;
 using FlowFlex.Application.Contracts.Dtos.OW.Onboarding;
 using FlowFlex.Application.Contracts.Dtos.OW.StaticField;
+using FlowFlex.Application.Contracts.IServices;
 using FlowFlex.Application.Contracts.IServices.Action;
 using FlowFlex.Application.Contracts.IServices.Integration;
 using FlowFlex.Application.Contracts.IServices.OW;
@@ -22,7 +23,6 @@ using Newtonsoft.Json.Linq;
 using System.Linq;
 using System.Net.Http.Headers;
 using System.Reflection;
-using System.Security.Cryptography;
 using System.Text;
 using Domain.Shared.Enums;
 
@@ -51,9 +51,7 @@ namespace FlowFlex.Application.Services.Integration
         private readonly IdentityHubOptions _idmOptions;
         private readonly UserContext _userContext;
         private readonly ILogger<ExternalIntegrationService> _logger;
-
-        // AES encryption key (should match IntegrationService)
-        private const string ENCRYPTION_KEY = "FlowFlex2024IntegrationKey123456"; // 32 bytes for AES-256
+        private readonly IEncryptionService _encryptionService;
 
         // Field name to property mapping for Onboarding entity
         private static readonly Dictionary<string, string> FieldToPropertyMapping = new(StringComparer.OrdinalIgnoreCase)
@@ -115,7 +113,8 @@ namespace FlowFlex.Application.Services.Integration
             IdmUserDataClient idmUserDataClient,
             IOptions<IdentityHubOptions> idmOptions,
             UserContext userContext,
-            ILogger<ExternalIntegrationService> logger)
+            ILogger<ExternalIntegrationService> logger,
+            IEncryptionService encryptionService)
         {
             _integrationRepository = integrationRepository;
             _entityMappingRepository = entityMappingRepository;
@@ -135,6 +134,7 @@ namespace FlowFlex.Application.Services.Integration
             _idmOptions = idmOptions.Value;
             _userContext = userContext;
             _logger = logger;
+            _encryptionService = encryptionService;
         }
 
         /// <summary>
@@ -1783,7 +1783,7 @@ namespace FlowFlex.Application.Services.Integration
         {
             try
             {
-                var json = DecryptString(encryptedCredentials, ENCRYPTION_KEY);
+                var json = _encryptionService.Decrypt(encryptedCredentials);
                 return JsonConvert.DeserializeObject<Dictionary<string, string>>(json);
             }
             catch (Exception ex)
@@ -1791,23 +1791,6 @@ namespace FlowFlex.Application.Services.Integration
                 _logger.LogError(ex, "Failed to decrypt credentials");
                 return null;
             }
-        }
-
-        /// <summary>
-        /// Decrypt string using AES
-        /// </summary>
-        private string DecryptString(string cipherText, string key)
-        {
-            using var aes = Aes.Create();
-            aes.Key = Encoding.UTF8.GetBytes(key);
-            aes.IV = new byte[16]; // Use zero IV for simplicity (should use random IV in production)
-
-            using var decryptor = aes.CreateDecryptor(aes.Key, aes.IV);
-            using var ms = new MemoryStream(Convert.FromBase64String(cipherText));
-            using var cs = new CryptoStream(ms, decryptor, CryptoStreamMode.Read);
-            using var sr = new StreamReader(cs);
-
-            return sr.ReadToEnd();
         }
 
         /// <summary>

@@ -38,7 +38,7 @@ using FlowFlex.Application.Contracts.Dtos.OW.User;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace FlowFlex.Application.Service.OW
+namespace FlowFlex.Application.Services.OW
 {
     /// <summary>
     /// Stage service implementation
@@ -188,11 +188,11 @@ namespace FlowFlex.Application.Service.OW
                         try
                         {
                             await _mappingService.SyncStageMappingsInTransactionAsync(entity.Id, _db);
-                            Console.WriteLine($"[StageService] Synced stage mappings for new stage {entity.Id} within transaction");
+                            _logger.LogDebug("Synced stage mappings for new stage {StageId} within transaction", entity.Id);
                         }
                         catch (Exception ex)
                         {
-                            Console.WriteLine($"[StageService] Error syncing stage mappings for new stage {entity.Id}: {ex.Message}");
+                            _logger.LogError(ex, "Error syncing stage mappings for new stage {StageId}", entity.Id);
                             throw; // Re-throw to rollback transaction
                         }
                     }
@@ -684,24 +684,24 @@ namespace FlowFlex.Application.Service.OW
                         try
                         {
                             await _mappingService.SyncStageMappingsInTransactionAsync(id, _db);
-                            Console.WriteLine($"[StageService] Synced stage mappings for stage {id} after update within transaction");
+                            _logger.LogDebug("Synced stage mappings for stage {StageId} after update within transaction", id);
 
                             // Validate data consistency after sync
                             var isConsistent = await _mappingService.ValidateStageComponentConsistencyAsync(id);
                             if (!isConsistent)
                             {
-                                Console.WriteLine($"[StageService] WARNING: Data inconsistency detected after sync for stage {id}");
+                                _logger.LogWarning("Data inconsistency detected after sync for stage {StageId}", id);
                                 // Could throw exception to rollback transaction if strict consistency is required
                                 // throw new CRMException(ErrorCodeEnum.SystemError, "Data consistency validation failed after mapping sync");
                             }
                             else
                             {
-                                Console.WriteLine($"[StageService] Data consistency validated for stage {id}");
+                                _logger.LogDebug("Data consistency validated for stage {StageId}", id);
                             }
                         }
                         catch (Exception ex)
                         {
-                            Console.WriteLine($"[StageService] Error syncing stage mappings for stage {id}: {ex.Message}");
+                            _logger.LogError(ex, "Error syncing stage mappings for stage {StageId}", id);
                             throw; // Re-throw to rollback transaction
                         }
 
@@ -1511,9 +1511,10 @@ namespace FlowFlex.Application.Service.OW
                 throw new CRMException(ErrorCodeEnum.NotFound, $"Stage {stageId} not found or inactive");
             }
 
+            var tenantId = _userContext?.TenantId ?? "default";
             var onboarding = await _db.Queryable<Onboarding>()
                 .Where(o => o.Id == onboardingId && o.IsValid)
-                .Where(o => o.TenantId == _userContext.TenantId)
+                .Where(o => o.TenantId == tenantId)
                 .FirstAsync();
 
             if (onboarding == null)
@@ -1531,7 +1532,7 @@ namespace FlowFlex.Application.Service.OW
             // Check if stage condition exists
             var condition = await _db.Queryable<StageConditionEntity>()
                 .Where(c => c.StageId == stageId && c.IsValid && c.IsActive)
-                .Where(c => c.TenantId == _userContext.TenantId)
+                .Where(c => c.TenantId == tenantId)
                 .FirstAsync();
 
             if (condition == null)
@@ -1565,7 +1566,7 @@ namespace FlowFlex.Application.Service.OW
                             OnboardingId = onboardingId,
                             StageId = stageId,
                             ConditionId = condition.Id,
-                            TenantId = _userContext.TenantId,
+                            TenantId = _userContext?.TenantId ?? "default",
                             UserId = userIdLong
                         };
 
@@ -1781,24 +1782,24 @@ namespace FlowFlex.Application.Service.OW
                         try
                         {
                             await _mappingService.SyncStageMappingsInTransactionAsync(id, _db);
-                            Console.WriteLine($"[StageService] Synced stage mappings for stage {id} after component update within transaction");
+                            _logger.LogDebug("Synced stage mappings for stage {StageId} after component update within transaction", id);
 
                             // Validate data consistency after sync
                             var isConsistent = await _mappingService.ValidateStageComponentConsistencyAsync(id);
                             if (!isConsistent)
                             {
-                                Console.WriteLine($"[StageService] WARNING: Data inconsistency detected after component update sync for stage {id}");
+                                _logger.LogWarning("Data inconsistency detected after component update sync for stage {StageId}", id);
                                 // Could throw exception to rollback transaction if strict consistency is required
                                 // throw new CRMException(ErrorCodeEnum.SystemError, "Data consistency validation failed after component mapping sync");
                             }
                             else
                             {
-                                Console.WriteLine($"[StageService] Data consistency validated for stage {id} after component update");
+                                _logger.LogDebug("Data consistency validated for stage {StageId} after component update", id);
                             }
                         }
                         catch (Exception ex)
                         {
-                            Console.WriteLine($"[StageService] Error syncing stage mappings for stage {id}: {ex.Message}");
+                            _logger.LogError(ex, "Error syncing stage mappings for stage {StageId}", id);
                             throw; // Re-throw to rollback transaction
                         }
 
@@ -1838,10 +1839,10 @@ namespace FlowFlex.Application.Service.OW
             }
 
             // If no components configured, return empty list instead of default components
-            Console.WriteLine($"[DEBUG] GetComponentsAsync - Stage {id}, ComponentsJson: {entity.ComponentsJson ?? "NULL"}");
+            _logger.LogDebug("GetComponentsAsync - Stage {StageId}, ComponentsJson: {ComponentsJson}", id, entity.ComponentsJson ?? "NULL");
             if (string.IsNullOrEmpty(entity.ComponentsJson))
             {
-                Console.WriteLine($"[DEBUG] ComponentsJson is null or empty for stage {id}");
+                _logger.LogDebug("ComponentsJson is null or empty for stage {StageId}", id);
                 return new List<StageComponent>();
             }
 
@@ -2453,12 +2454,12 @@ namespace FlowFlex.Application.Service.OW
             {
                 // AI summary fields have been removed from Stage entity
                 // Stage no longer stores AI summary data, all AI summary data is now only stored in Onboarding StageProgress
-                Console.WriteLine($"StoreStageSummaryAsync: Stage {stageId} - AI summary storage skipped (fields removed from Stage entity)");
+                _logger.LogDebug("StoreStageSummaryAsync: Stage {StageId} - AI summary storage skipped (fields removed from Stage entity)", stageId);
                 // All AI summary data is now only stored in Onboarding StageProgress
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"StoreStageSummaryAsync: Exception occurred but ignored - {ex.Message}");
+                _logger.LogWarning(ex, "StoreStageSummaryAsync: Exception occurred but ignored for stage {StageId}", stageId);
             }
         }
 
@@ -2598,7 +2599,7 @@ namespace FlowFlex.Application.Service.OW
         {
             // AI summary fields have been removed from Stage entity
             // Stage no longer stores AI summary data, all AI summary data is now only stored in Onboarding StageProgress
-            Console.WriteLine($"UpdateStageAISummaryIfEmptyAsync: Stage {stageId} - AI summary fields removed from Stage entity");
+            _logger.LogDebug("UpdateStageAISummaryIfEmptyAsync: Stage {StageId} - AI summary fields removed from Stage entity", stageId);
             return true; // Return true to avoid breaking existing flow
         }
 
@@ -2649,18 +2650,18 @@ namespace FlowFlex.Application.Service.OW
 
                             if (isConsistentAfterRepair)
                             {
-                                Console.WriteLine($"[StageService] Successfully repaired data consistency for stage {stageId}");
+                                _logger.LogDebug("Successfully repaired data consistency for stage {StageId}", stageId);
                             }
                             else
                             {
-                                Console.WriteLine($"[StageService] Failed to repair data consistency for stage {stageId}");
+                                _logger.LogWarning("Failed to repair data consistency for stage {StageId}", stageId);
                             }
                         }
                         catch (Exception ex)
                         {
                             result.RepairSuccessful = false;
                             result.RepairError = ex.Message;
-                            Console.WriteLine($"[StageService] Error during consistency repair for stage {stageId}: {ex.Message}");
+                            _logger.LogError(ex, "Error during consistency repair for stage {StageId}", stageId);
                             throw; // Re-throw to rollback transaction
                         }
                     });
@@ -2671,7 +2672,7 @@ namespace FlowFlex.Application.Service.OW
             catch (Exception ex)
             {
                 result.ValidationError = ex.Message;
-                Console.WriteLine($"[StageService] Error validating consistency for stage {stageId}: {ex.Message}");
+                _logger.LogError(ex, "Error validating consistency for stage {StageId}", stageId);
                 return result;
             }
         }
@@ -2712,12 +2713,10 @@ namespace FlowFlex.Application.Service.OW
             var totalStages = results.Count;
             var consistentStages = results.Count(r => r.IsConsistent);
             var repairedStages = results.Count(r => r.RepairSuccessful == true);
+            var failedRepairs = results.Count(r => r.RepairAttempted && r.RepairSuccessful != true);
 
-            Console.WriteLine($"[StageService] Batch consistency validation completed:");
-            Console.WriteLine($"  Total stages: {totalStages}");
-            Console.WriteLine($"  Consistent stages: {consistentStages}");
-            Console.WriteLine($"  Repaired stages: {repairedStages}");
-            Console.WriteLine($"  Failed repairs: {results.Count(r => r.RepairAttempted && r.RepairSuccessful != true)}");
+            _logger.LogInformation("Batch consistency validation completed: TotalStages={TotalStages}, ConsistentStages={ConsistentStages}, RepairedStages={RepairedStages}, FailedRepairs={FailedRepairs}",
+                totalStages, consistentStages, repairedStages, failedRepairs);
 
             return results;
         }
@@ -2730,7 +2729,7 @@ namespace FlowFlex.Application.Service.OW
         /// <param name="components">Components to validate</param>
         private async Task ValidateComponentUniquenessInWorkflowAsync(long workflowId, long? currentStageId, List<StageComponent> components)
         {
-            Console.WriteLine($"[StageService] ValidateComponentUniquenessInWorkflowAsync called - WorkflowId: {workflowId}, CurrentStageId: {currentStageId}");
+            _logger.LogDebug("ValidateComponentUniquenessInWorkflowAsync called - WorkflowId: {WorkflowId}, CurrentStageId: {CurrentStageId}", workflowId, currentStageId);
 
             try
             {
@@ -2753,19 +2752,18 @@ namespace FlowFlex.Application.Service.OW
                     .Select(sf => long.Parse(sf.Id))
                     .ToHashSet();
 
-                Console.WriteLine($"[StageService] New checklist IDs: [{string.Join(", ", newChecklistIds)}]");
-                Console.WriteLine($"[StageService] New questionnaire IDs: [{string.Join(", ", newQuestionnaireIds)}]");
-                Console.WriteLine($"[StageService] New field IDs: [{string.Join(", ", newFieldIds)}]");
+                _logger.LogDebug("New checklist IDs: [{ChecklistIds}], questionnaire IDs: [{QuestionnaireIds}], field IDs: [{FieldIds}]",
+                    string.Join(", ", newChecklistIds), string.Join(", ", newQuestionnaireIds), string.Join(", ", newFieldIds));
 
                 // Get all stages in the same workflow
                 var allStagesInWorkflow = await _stageRepository.GetByWorkflowIdAsync(workflowId);
                 if (allStagesInWorkflow == null || !allStagesInWorkflow.Any())
                 {
-                    Console.WriteLine($"[StageService] No stages found in workflow {workflowId}, returning");
+                    _logger.LogDebug("No stages found in workflow {WorkflowId}, returning", workflowId);
                     return;
                 }
 
-                Console.WriteLine($"[StageService] Found {allStagesInWorkflow.Count} stages in workflow {workflowId}");
+                _logger.LogDebug("Found {StageCount} stages in workflow {WorkflowId}", allStagesInWorkflow.Count, workflowId);
 
                 // Track how many stages have components for validation integrity
                 var stagesWithComponents = 0;
@@ -2777,14 +2775,15 @@ namespace FlowFlex.Application.Service.OW
                     // Skip current stage
                     if (currentStageId.HasValue && stage.Id == currentStageId.Value)
                     {
-                        Console.WriteLine($"[StageService] Skipping current stage {stage.Id} ({stage.Name})");
+                        _logger.LogDebug("Skipping current stage {StageId} ({StageName})", stage.Id, stage.Name);
                         continue;
                     }
 
-                    Console.WriteLine($"[StageService] Checking stage {stage.Id} ({stage.Name}) for conflicts");
+                    _logger.LogDebug("Checking stage {StageId} ({StageName}) for conflicts", stage.Id, stage.Name);
 
                     // Parse existing components in this stage
-                    Console.WriteLine($"[StageService] Stage {stage.Id} ({stage.Name}) ComponentsJson: {(string.IsNullOrEmpty(stage.ComponentsJson) ? "NULL" : $"Length: {stage.ComponentsJson.Length}")}");
+                    _logger.LogDebug("Stage {StageId} ({StageName}) ComponentsJson: {ComponentsJsonInfo}", stage.Id, stage.Name,
+                        string.IsNullOrEmpty(stage.ComponentsJson) ? "NULL" : $"Length: {stage.ComponentsJson.Length}");
                     var existingComponents = await GetStageComponentsFromEntity(stage);
 
                     if (existingComponents == null || !existingComponents.Any())
@@ -2792,24 +2791,25 @@ namespace FlowFlex.Application.Service.OW
                         // Check if this was due to a parsing error or truly empty components
                         if (!string.IsNullOrEmpty(stage.ComponentsJson))
                         {
-                            Console.WriteLine($"[StageService] WARNING: Stage {stage.Id} ({stage.Name}) has ComponentsJson but no parsed components - possible parsing error");
+                            _logger.LogWarning("Stage {StageId} ({StageName}) has ComponentsJson but no parsed components - possible parsing error", stage.Id, stage.Name);
                             stagesWithParseErrors++;
                         }
                         else
                         {
-                            Console.WriteLine($"[StageService] Stage {stage.Id} ({stage.Name}) has no components, skipping validation");
+                            _logger.LogDebug("Stage {StageId} ({StageName}) has no components, skipping validation", stage.Id, stage.Name);
                         }
                         continue;
                     }
 
                     stagesWithComponents++;
 
-                    Console.WriteLine($"[StageService] Stage {stage.Id} ({stage.Name}) has {existingComponents.Count} components");
+                    _logger.LogDebug("Stage {StageId} ({StageName}) has {ComponentCount} components", stage.Id, stage.Name, existingComponents.Count);
 
                     // Log component details for debugging
                     foreach (var comp in existingComponents)
                     {
-                        Console.WriteLine($"[StageService] Stage {stage.Id} component: Key={comp.Key}, ChecklistIds=[{string.Join(",", comp.ChecklistIds ?? new List<long>())}], QuestionnaireIds=[{string.Join(",", comp.QuestionnaireIds ?? new List<long>())}]");
+                        _logger.LogDebug("Stage {StageId} component: Key={Key}, ChecklistIds=[{ChecklistIds}], QuestionnaireIds=[{QuestionnaireIds}]",
+                            stage.Id, comp.Key, string.Join(",", comp.ChecklistIds ?? new List<long>()), string.Join(",", comp.QuestionnaireIds ?? new List<long>()));
                     }
 
                     // Extract existing checklist and questionnaire IDs
@@ -2831,9 +2831,9 @@ namespace FlowFlex.Application.Service.OW
                         .Select(sf => long.Parse(sf.Id))
                         .ToHashSet();
 
-                    Console.WriteLine($"[StageService] Stage {stage.Id} ({stage.Name}) existing checklist IDs: [{string.Join(", ", existingChecklistIds)}]");
-                    Console.WriteLine($"[StageService] Stage {stage.Id} ({stage.Name}) existing questionnaire IDs: [{string.Join(", ", existingQuestionnaireIds)}]");
-                    Console.WriteLine($"[StageService] Stage {stage.Id} ({stage.Name}) existing field IDs: [{string.Join(", ", existingFieldIds)}]");
+                    _logger.LogDebug("Stage {StageId} ({StageName}) existing checklist IDs: [{ChecklistIds}]", stage.Id, stage.Name, string.Join(", ", existingChecklistIds));
+                    _logger.LogDebug("Stage {StageId} ({StageName}) existing questionnaire IDs: [{QuestionnaireIds}]", stage.Id, stage.Name, string.Join(", ", existingQuestionnaireIds));
+                    _logger.LogDebug("Stage {StageId} ({StageName}) existing field IDs: [{FieldIds}]", stage.Id, stage.Name, string.Join(", ", existingFieldIds));
 
                     // Check for conflicts
                     var conflictingChecklists = newChecklistIds.Intersect(existingChecklistIds).ToList();
@@ -2850,7 +2850,7 @@ namespace FlowFlex.Application.Service.OW
                             var checklistNames = await GetChecklistNamesByIdsAsync(conflictingChecklists.ToList());
                             var conflictMsg = $"Checklist '{string.Join(", ", checklistNames)}' already used in stage '{stage.Name}'";
                             conflictMessages.Add(conflictMsg);
-                            Console.WriteLine($"[StageService] CONFLICT DETECTED: {conflictMsg} (IDs: {string.Join(", ", conflictingChecklists)})");
+                            _logger.LogWarning("CONFLICT DETECTED: {ConflictMessage} (IDs: {ConflictingIds})", conflictMsg, string.Join(", ", conflictingChecklists));
                         }
 
                         if (conflictingQuestionnaires.Any())
@@ -2859,7 +2859,7 @@ namespace FlowFlex.Application.Service.OW
                             var questionnaireNames = await GetQuestionnaireNamesByIdsAsync(conflictingQuestionnaires.ToList());
                             var conflictMsg = $"Questionnaire '{string.Join(", ", questionnaireNames)}' already used in stage '{stage.Name}'";
                             conflictMessages.Add(conflictMsg);
-                            Console.WriteLine($"[StageService] CONFLICT DETECTED: {conflictMsg} (IDs: {string.Join(", ", conflictingQuestionnaires)})");
+                            _logger.LogWarning("CONFLICT DETECTED: {ConflictMessage} (IDs: {ConflictingIds})", conflictMsg, string.Join(", ", conflictingQuestionnaires));
                         }
 
                         if (conflictingFields.Any())
@@ -2868,23 +2868,23 @@ namespace FlowFlex.Application.Service.OW
                             var fieldNames = await GetFieldNamesByIdsAsync(conflictingFields.ToList());
                             var conflictMsg = $"Field '{string.Join(", ", fieldNames)}' already used in stage '{stage.Name}'";
                             conflictMessages.Add(conflictMsg);
-                            Console.WriteLine($"[StageService] CONFLICT DETECTED: {conflictMsg} (IDs: {string.Join(", ", conflictingFields)})");
+                            _logger.LogWarning("CONFLICT DETECTED: {ConflictMessage} (IDs: {ConflictingIds})", conflictMsg, string.Join(", ", conflictingFields));
                         }
 
                         var fullErrorMessage = $"Components must be unique within the same workflow. {string.Join("; ", conflictMessages)}.";
-                        Console.WriteLine($"[StageService] Component uniqueness validation FAILED: {fullErrorMessage}");
-                        _logger.LogWarning("Component uniqueness validation failed for workflow {WorkflowId}: {ErrorMessage}", workflowId, fullErrorMessage);
+                        _logger.LogWarning("Component uniqueness validation FAILED for workflow {WorkflowId}: {ErrorMessage}", workflowId, fullErrorMessage);
 
                         throw new CRMException(ErrorCodeEnum.BusinessError, fullErrorMessage);
                     }
                     else
                     {
-                        Console.WriteLine($"[StageService] No conflicts found with stage {stage.Id} ({stage.Name})");
+                        _logger.LogDebug("No conflicts found with stage {StageId} ({StageName})", stage.Id, stage.Name);
                     }
                 }
 
                 // Report validation statistics
-                Console.WriteLine($"[StageService] Validation completed for workflow {workflowId}: {stagesWithComponents} stages with components validated, {stagesWithParseErrors} stages with parse errors");
+                _logger.LogDebug("Validation completed for workflow {WorkflowId}: {StagesWithComponents} stages with components validated, {StagesWithParseErrors} stages with parse errors",
+                    workflowId, stagesWithComponents, stagesWithParseErrors);
 
                 // Warning if there were parse errors that could affect validation
                 if (stagesWithParseErrors > 0)
@@ -2893,11 +2893,11 @@ namespace FlowFlex.Application.Service.OW
                         workflowId, stagesWithParseErrors);
                 }
 
-                Console.WriteLine($"[StageService] Component uniqueness validation passed for workflow {workflowId}");
+                _logger.LogDebug("Component uniqueness validation passed for workflow {WorkflowId}", workflowId);
             }
             catch (Exception ex) when (!(ex is CRMException))
             {
-                Console.WriteLine($"[StageService] Error during component uniqueness validation: {ex.Message}");
+                _logger.LogError(ex, "Error during component uniqueness validation for workflow {WorkflowId}", workflowId);
                 throw new CRMException(ErrorCodeEnum.BusinessError, $"Failed to validate component uniqueness: {ex.Message}");
             }
         }
@@ -2911,7 +2911,7 @@ namespace FlowFlex.Application.Service.OW
             {
                 if (string.IsNullOrEmpty(componentsJson))
                 {
-                    Console.WriteLine($"[StageService] ComponentsJson is null or empty for stage {stageId}");
+                    _logger.LogDebug("ComponentsJson is null or empty for stage {StageId}", stageId);
                     return new List<StageComponent>();
                 }
 
@@ -2921,7 +2921,7 @@ namespace FlowFlex.Application.Service.OW
                 // If the string starts and ends with quotes, it's likely double-escaped
                 if (jsonString.StartsWith("\"") && jsonString.EndsWith("\""))
                 {
-                    Console.WriteLine($"[StageService] Detected double-escaped JSON for stage {stageId}, unescaping...");
+                    _logger.LogDebug("Detected double-escaped JSON for stage {StageId}, unescaping...", stageId);
                     // Remove outer quotes and unescape
                     jsonString = JsonSerializer.Deserialize<string>(jsonString) ?? jsonString.Trim('"');
                 }
@@ -2936,11 +2936,11 @@ namespace FlowFlex.Application.Service.OW
                 }
                 catch (JsonException jsonEx)
                 {
-                    Console.WriteLine($"[StageService] Direct JSON deserialization failed for stage {stageId}: {jsonEx.Message}");
+                    _logger.LogDebug("Direct JSON deserialization failed for stage {StageId}: {ErrorMessage}", stageId, jsonEx.Message);
                     // As a last resort, try to parse array items individually
                     try
                     {
-                        Console.WriteLine($"[StageService] Trying manual JSON parsing for stage {stageId}...");
+                        _logger.LogDebug("Trying manual JSON parsing for stage {StageId}...", stageId);
                         using var doc = JsonDocument.Parse(cleanedJson);
                         JsonElement root = doc.RootElement;
                         if (root.ValueKind == JsonValueKind.String)
@@ -2974,12 +2974,12 @@ namespace FlowFlex.Application.Service.OW
                                 list.Add(sc);
                             }
                             components = list;
-                            Console.WriteLine($"[StageService] Manual parsing succeeded for stage {stageId}, {components.Count} components");
+                            _logger.LogDebug("Manual parsing succeeded for stage {StageId}, {ComponentCount} components", stageId, components.Count);
                         }
                     }
                     catch (Exception manualEx)
                     {
-                        Console.WriteLine($"[StageService] Manual parsing also failed for stage {stageId}: {manualEx.Message}");
+                        _logger.LogDebug("Manual parsing also failed for stage {StageId}: {ErrorMessage}", stageId, manualEx.Message);
                         // Instead of throwing, return empty list to not break validation flow completely
                         return new List<StageComponent>();
                     }
@@ -2989,8 +2989,7 @@ namespace FlowFlex.Application.Service.OW
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[StageService] Error parsing components JSON for stage {stageId}: {ex.Message}");
-                _logger.LogError(ex, "Failed to parse stage components JSON for stage {StageId}", stageId);
+                _logger.LogError(ex, "Error parsing components JSON for stage {StageId}", stageId);
                 return new List<StageComponent>();
             }
         }
@@ -3071,7 +3070,7 @@ namespace FlowFlex.Application.Service.OW
                     }
                     catch (Exception ex)
                     {
-                        Console.WriteLine($"[StageService] Error getting checklist name for ID {id}: {ex.Message}");
+                        _logger.LogWarning(ex, "Error getting checklist name for ID {ChecklistId}", id);
                         checklists.Add($"Checklist {id}"); // Fallback to ID-based name
                     }
                 }
@@ -3079,7 +3078,7 @@ namespace FlowFlex.Application.Service.OW
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[StageService] Error getting checklist names: {ex.Message}");
+                _logger.LogWarning(ex, "Error getting checklist names");
                 // Return fallback names based on IDs instead of empty list
                 return checklistIds.Select(id => $"Checklist {id}").ToList();
             }
@@ -3102,7 +3101,7 @@ namespace FlowFlex.Application.Service.OW
                     }
                     catch (Exception ex)
                     {
-                        Console.WriteLine($"[StageService] Error getting questionnaire name for ID {id}: {ex.Message}");
+                        _logger.LogWarning(ex, "Error getting questionnaire name for ID {QuestionnaireId}", id);
                         questionnaires.Add($"Questionnaire {id}"); // Fallback to ID-based name
                     }
                 }
@@ -3110,7 +3109,7 @@ namespace FlowFlex.Application.Service.OW
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[StageService] Error getting questionnaire names: {ex.Message}");
+                _logger.LogWarning(ex, "Error getting questionnaire names");
                 // Return fallback names based on IDs instead of empty list
                 return questionnaireIds.Select(id => $"Questionnaire {id}").ToList();
             }
@@ -3142,7 +3141,7 @@ namespace FlowFlex.Application.Service.OW
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[StageService] Error getting field names: {ex.Message}");
+                _logger.LogWarning(ex, "Error getting field names");
                 // Return fallback names based on IDs instead of empty list
                 return fieldIds.Select(id => $"Field {id}").ToList();
             }
@@ -3177,7 +3176,7 @@ namespace FlowFlex.Application.Service.OW
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[StageService] Error filtering CoAssignees: {ex.Message}");
+                _logger.LogWarning(ex, "Error filtering CoAssignees");
                 return coAssigneesJson;
             }
         }

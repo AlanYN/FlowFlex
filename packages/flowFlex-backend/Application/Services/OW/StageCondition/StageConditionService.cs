@@ -24,7 +24,7 @@ using OwOperationTypeEnum = FlowFlex.Domain.Shared.Enums.OW.OperationTypeEnum;
 using OwBusinessModuleEnum = FlowFlex.Domain.Shared.Enums.OW.BusinessModuleEnum;
 using StageConditionEntity = FlowFlex.Domain.Entities.OW.StageCondition;
 
-namespace FlowFlex.Application.Service.OW
+namespace FlowFlex.Application.Services.OW
 {
     /// <summary>
     /// Stage Condition service implementation
@@ -80,9 +80,10 @@ namespace FlowFlex.Application.Service.OW
             }
 
             // Validate one condition per stage
+            var tenantId = _userContext?.TenantId ?? "default";
             var existingCondition = await _db.Queryable<StageConditionEntity>()
                 .Where(c => c.StageId == input.StageId && c.IsValid)
-                .Where(c => c.TenantId == _userContext.TenantId)
+                .Where(c => c.TenantId == tenantId)
                 .FirstAsync();
 
             if (existingCondition != null)
@@ -488,9 +489,10 @@ namespace FlowFlex.Application.Service.OW
         /// </summary>
         public async Task<StageConditionOutputDto?> GetByStageIdAsync(long stageId)
         {
+            var tenantId = _userContext?.TenantId ?? "default";
             var entity = await _db.Queryable<StageConditionEntity>()
                 .Where(c => c.StageId == stageId && c.IsValid)
-                .Where(c => c.TenantId == _userContext.TenantId)
+                .Where(c => c.TenantId == tenantId)
                 .FirstAsync();
 
             if (entity == null)
@@ -512,9 +514,10 @@ namespace FlowFlex.Application.Service.OW
             // Validate read permission
             await ValidateWorkflowPermissionAsync(workflowId, OperationTypeEnum.View);
 
+            var tenantId = _userContext?.TenantId ?? "default";
             var entities = await _db.Queryable<StageConditionEntity>()
                 .Where(c => c.WorkflowId == workflowId && c.IsValid)
-                .Where(c => c.TenantId == _userContext.TenantId)
+                .Where(c => c.TenantId == tenantId)
                 .OrderBy(c => c.CreateDate)
                 .ToListAsync();
 
@@ -976,9 +979,10 @@ namespace FlowFlex.Application.Service.OW
         /// </summary>
         private async Task<StageConditionEntity?> GetEntityByIdAsync(long id)
         {
+            var tenantId = _userContext?.TenantId ?? "default";
             return await _db.Queryable<StageConditionEntity>()
                 .Where(c => c.Id == id && c.IsValid)
-                .Where(c => c.TenantId == _userContext.TenantId)
+                .Where(c => c.TenantId == tenantId)
                 .FirstAsync();
         }
 
@@ -987,7 +991,7 @@ namespace FlowFlex.Application.Service.OW
         /// </summary>
         private async Task ValidateWorkflowPermissionAsync(long workflowId, OperationTypeEnum operationType)
         {
-            if (string.IsNullOrEmpty(_userContext.UserId) || !long.TryParse(_userContext.UserId, out var userId))
+            if (string.IsNullOrEmpty(_userContext?.UserId) || !long.TryParse(_userContext.UserId, out var userId))
             {
                 throw new CRMException(ErrorCodeEnum.AuthenticationFail, "User not authenticated");
             }
@@ -1118,9 +1122,10 @@ namespace FlowFlex.Application.Service.OW
                 }
                 
                 // Batch query all action definitions at once
+                var tenantId = _userContext?.TenantId ?? "default";
                 var actionDefs = await _db.Queryable<Domain.Entities.Action.ActionDefinition>()
                     .Where(a => actionDefIds.Contains(a.Id) && a.IsValid)
-                    .Where(a => a.TenantId == _userContext.TenantId)
+                    .Where(a => a.TenantId == tenantId)
                     .Select(a => new { a.Id, a.IsEnabled })
                     .ToListAsync();
                 
@@ -1156,9 +1161,10 @@ namespace FlowFlex.Application.Service.OW
                 foreach (var action in goToActions)
                 {
                     // Check if target stage has a condition that points back
+                    var tenantId = _userContext?.TenantId ?? "default";
                     var targetCondition = await _db.Queryable<StageConditionEntity>()
                         .Where(c => c.StageId == action.TargetStageId!.Value && c.IsValid && c.IsActive)
-                        .Where(c => c.TenantId == _userContext.TenantId)
+                        .Where(c => c.TenantId == tenantId)
                         .FirstAsync();
 
                     if (targetCondition != null)

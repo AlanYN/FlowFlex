@@ -21,7 +21,7 @@ using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 using SqlSugar;
 
-namespace FlowFlex.Application.Service.OW
+namespace FlowFlex.Application.Services.OW
 {
     /// <summary>
     /// Condition action executor implementation for Stage Condition feature

@@ -27,18 +27,24 @@ public class DefineFieldRepository : BaseRepository<DefineField>, IDefineFieldRe
 
     public async Task<List<DefineField>> GetAllAsync()
     {
+        var tenantId = _userContext?.TenantId ?? "default";
+        var appCode = _userContext?.AppCode ?? "default";
+        
         return await db.Queryable<DefineField>()
             .Where(x => x.IsValid)
-            .Where(x => x.TenantId == _userContext.TenantId && x.AppCode == _userContext.AppCode)
+            .Where(x => x.TenantId == tenantId && x.AppCode == appCode)
             .OrderBy(x => x.Sort)
             .ToListAsync();
     }
 
     public async Task<PagedResult<DefineField>> GetPagedListAsync(PropertyQueryRequest request)
     {
+        var tenantId = _userContext?.TenantId ?? "default";
+        var appCode = _userContext?.AppCode ?? "default";
+        
         var query = db.Queryable<DefineField>()
             .Where(x => x.IsValid)
-            .Where(x => x.TenantId == _userContext.TenantId && x.AppCode == _userContext.AppCode);
+            .Where(x => x.TenantId == tenantId && x.AppCode == appCode);
 
         // Apply IDs filter (for batch export)
         if (request.Ids != null && request.Ids.Any())
@@ -125,25 +131,34 @@ public class DefineFieldRepository : BaseRepository<DefineField>, IDefineFieldRe
 
     public async Task<DefineField?> GetByFieldNameAsync(string fieldName)
     {
+        var tenantId = _userContext?.TenantId ?? "default";
+        var appCode = _userContext?.AppCode ?? "default";
+        
         return await db.Queryable<DefineField>()
             .Where(x => x.FieldName == fieldName && x.IsValid)
-            .Where(x => x.TenantId == _userContext.TenantId && x.AppCode == _userContext.AppCode)
+            .Where(x => x.TenantId == tenantId && x.AppCode == appCode)
             .FirstAsync();
     }
 
     public async Task<DefineField?> GetByIdAsync(long fieldId)
     {
+        var tenantId = _userContext?.TenantId ?? "default";
+        var appCode = _userContext?.AppCode ?? "default";
+        
         return await db.Queryable<DefineField>()
             .Where(x => x.Id == fieldId && x.IsValid)
-            .Where(x => x.TenantId == _userContext.TenantId && x.AppCode == _userContext.AppCode)
+            .Where(x => x.TenantId == tenantId && x.AppCode == appCode)
             .FirstAsync();
     }
 
     public async Task<bool> ExistsFieldNameAsync(string fieldName, long? excludeId = null)
     {
+        var tenantId = _userContext?.TenantId ?? "default";
+        var appCode = _userContext?.AppCode ?? "default";
+        
         var query = db.Queryable<DefineField>()
             .Where(x => x.FieldName == fieldName && x.IsValid)
-            .Where(x => x.TenantId == _userContext.TenantId && x.AppCode == _userContext.AppCode);
+            .Where(x => x.TenantId == tenantId && x.AppCode == appCode);
 
         if (excludeId.HasValue)
             query = query.Where(x => x.Id != excludeId.Value);
@@ -153,10 +168,13 @@ public class DefineFieldRepository : BaseRepository<DefineField>, IDefineFieldRe
 
     public async Task<List<DefineField>> GetByGroupIdAsync(long groupId)
     {
+        var tenantId = _userContext?.TenantId ?? "default";
+        var appCode = _userContext?.AppCode ?? "default";
+        
         // Get group first to get field IDs
         var group = await db.Queryable<FieldGroup>()
             .Where(x => x.Id == groupId && x.IsValid)
-            .Where(x => x.TenantId == _userContext.TenantId && x.AppCode == _userContext.AppCode)
+            .Where(x => x.TenantId == tenantId && x.AppCode == appCode)
             .FirstAsync();
 
         if (group?.Fields == null || !group.Fields.Any())
@@ -164,19 +182,22 @@ public class DefineFieldRepository : BaseRepository<DefineField>, IDefineFieldRe
 
         return await db.Queryable<DefineField>()
             .Where(x => group.Fields.Contains(x.Id) && x.IsValid)
-            .Where(x => x.TenantId == _userContext.TenantId && x.AppCode == _userContext.AppCode)
+            .Where(x => x.TenantId == tenantId && x.AppCode == appCode)
             .OrderBy(x => x.Sort)
             .ToListAsync();
     }
 
     public async Task BatchUpdateSortAsync(Dictionary<long, int> fieldSorts)
     {
+        var tenantId = _userContext?.TenantId ?? "default";
+        var appCode = _userContext?.AppCode ?? "default";
+        
         foreach (var kvp in fieldSorts)
         {
             await db.Updateable<DefineField>()
                 .SetColumns(x => x.Sort == kvp.Value)
                 .Where(x => x.Id == kvp.Key)
-                .Where(x => x.TenantId == _userContext.TenantId && x.AppCode == _userContext.AppCode)
+                .Where(x => x.TenantId == tenantId && x.AppCode == appCode)
                 .ExecuteCommandAsync();
         }
     }
@@ -216,10 +237,13 @@ public class DefineFieldRepository : BaseRepository<DefineField>, IDefineFieldRe
         if (ids == null || !ids.Any())
             return new List<DefineField>();
 
+        var tenantId = _userContext?.TenantId ?? "default";
+        var appCode = _userContext?.AppCode ?? "default";
         var idList = ids.ToList();
+        
         return await db.Queryable<DefineField>()
             .Where(x => idList.Contains(x.Id) && x.IsValid)
-            .Where(x => x.TenantId == _userContext.TenantId && x.AppCode == _userContext.AppCode)
+            .Where(x => x.TenantId == tenantId && x.AppCode == appCode)
             .OrderBy(x => x.Sort)
             .ToListAsync();
     }

@@ -280,6 +280,11 @@ public class DynamicDataService : IBusinessDataService, IPropertyService, IScope
         };
     }
 
+    /// <summary>
+    /// Generate Excel file using EPPlus
+    /// Note: The returned Stream must be disposed by the caller
+    /// </summary>
+    /// <returns>A MemoryStream containing the Excel content. Caller is responsible for disposing.</returns>
     private static Stream GenerateExcelWithEPPlus(List<PropertyExportDto> data)
     {
         using var package = new ExcelPackage();
@@ -314,9 +319,17 @@ public class DynamicDataService : IBusinessDataService, IPropertyService, IScope
         worksheet.Cells.AutoFitColumns();
 
         var stream = new MemoryStream();
-        package.SaveAs(stream);
-        stream.Position = 0;
-        return stream;
+        try
+        {
+            package.SaveAs(stream);
+            stream.Position = 0;
+            return stream;
+        }
+        catch
+        {
+            stream.Dispose();
+            throw;
+        }
     }
 
     public async Task<DefineFieldDto?> GetPropertyByIdAsync(long propertyId)

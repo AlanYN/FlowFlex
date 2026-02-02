@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Microsoft.Extensions.Logging;
 using FlowFlex.Application.Contracts.IServices.OW;
 using FlowFlex.Domain.Entities.OW;
 using FlowFlex.Domain.Repository.OW;
@@ -7,7 +8,7 @@ using FlowFlex.Domain.Shared.Models;
 using FlowFlex.Application.Services.OW.Extensions;
 using SqlSugar;
 
-namespace FlowFlex.Application.Service.OW
+namespace FlowFlex.Application.Services.OW
 {
     /// <summary>
     /// Component mapping synchronization service
@@ -18,6 +19,7 @@ namespace FlowFlex.Application.Service.OW
         private readonly IStageRepository _stageRepository;
         private readonly UserContext _userContext;
         private readonly IStageComponentNameSyncService _nameSync;
+        private readonly ILogger<ComponentMappingService> _logger;
 
         private static readonly JsonSerializerOptions JsonOptions = new JsonSerializerOptions
         {
@@ -25,11 +27,17 @@ namespace FlowFlex.Application.Service.OW
             NumberHandling = System.Text.Json.Serialization.JsonNumberHandling.AllowReadingFromString,
         };
 
-        public ComponentMappingService(ISqlSugarClient db, IStageRepository stageRepository, UserContext userContext, IStageComponentNameSyncService nameSync = null)
+        public ComponentMappingService(
+            ISqlSugarClient db, 
+            IStageRepository stageRepository, 
+            UserContext userContext, 
+            ILogger<ComponentMappingService> logger,
+            IStageComponentNameSyncService nameSync = null)
         {
             _db = db;
             _stageRepository = stageRepository;
             _userContext = userContext;
+            _logger = logger;
             _nameSync = nameSync; // Optional to avoid circular dependency
         }
 
@@ -40,7 +48,7 @@ namespace FlowFlex.Application.Service.OW
         {
             try
             {
-                Console.WriteLine($"[ComponentMappingService] Syncing mappings for workflow {workflowId}");
+                _logger.LogInformation("Syncing mappings for workflow {WorkflowId}", workflowId);
 
                 // Get all stages in the workflow
                 var stages = await _stageRepository.GetListAsync(s => s.WorkflowId == workflowId && s.IsValid);
@@ -50,11 +58,11 @@ namespace FlowFlex.Application.Service.OW
                     await SyncStageMappingsAsync(stage.Id);
                 }
 
-                Console.WriteLine($"[ComponentMappingService] Completed syncing mappings for workflow {workflowId} - {stages.Count} stages processed");
+                _logger.LogInformation("Completed syncing mappings for workflow {WorkflowId} - {StageCount} stages processed", workflowId, stages.Count);
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[ComponentMappingService] Error syncing workflow {workflowId} mappings: {ex.Message}");
+                _logger.LogError(ex, "Error syncing workflow {WorkflowId} mappings", workflowId);
                 throw;
             }
         }
@@ -67,7 +75,7 @@ namespace FlowFlex.Application.Service.OW
             var stage = await _stageRepository.GetByIdAsync(stageId);
             if (stage == null) return;
 
-            Console.WriteLine($"[ComponentMappingService] Syncing mappings for stage {stageId}");
+            _logger.LogDebug("Syncing mappings for stage {StageId}", stageId);
 
             // Delete existing mappings for this stage
             await _db.Deleteable<QuestionnaireStageMapping>()
@@ -109,7 +117,7 @@ namespace FlowFlex.Application.Service.OW
                             }).ToList();
 
                             await _db.Insertable(questionnaireMappings).ExecuteCommandAsync();
-                            Console.WriteLine($"[ComponentMappingService] Synced {questionnaireMappings.Count} questionnaire mappings for stage {stageId}");
+                            _logger.LogDebug("Synced {Count} questionnaire mappings for stage {StageId}", questionnaireMappings.Count, stageId);
                         }
 
                         // Sync checklist mappings
@@ -133,13 +141,13 @@ namespace FlowFlex.Application.Service.OW
                             }).ToList();
 
                             await _db.Insertable(checklistMappings).ExecuteCommandAsync();
-                            Console.WriteLine($"[ComponentMappingService] Synced {checklistMappings.Count} checklist mappings for stage {stageId}");
+                            _logger.LogDebug("Synced {Count} checklist mappings for stage {StageId}", checklistMappings.Count, stageId);
                         }
                     }
                 }
                 catch (JsonException ex)
                 {
-                    Console.WriteLine($"[ComponentMappingService] Error parsing ComponentsJson for stage {stageId}: {ex.Message}");
+                    _logger.LogWarning(ex, "Error parsing ComponentsJson for stage {StageId}", stageId);
                 }
             }
         }
@@ -149,7 +157,7 @@ namespace FlowFlex.Application.Service.OW
         /// </summary>
         public async Task SyncAllStageMappingsAsync()
         {
-            Console.WriteLine("[ComponentMappingService] Starting full sync of all stage mappings");
+            _logger.LogInformation("Starting full sync of all stage mappings");
 
             var allStages = await _stageRepository.GetListAsync();
             var totalStages = allStages.Count;
@@ -162,11 +170,11 @@ namespace FlowFlex.Application.Service.OW
 
                 if (processedStages % 10 == 0)
                 {
-                    Console.WriteLine($"[ComponentMappingService] Progress: {processedStages}/{totalStages} stages processed");
+                    _logger.LogInformation("Progress: {ProcessedStages}/{TotalStages} stages processed", processedStages, totalStages);
                 }
             }
 
-            Console.WriteLine($"[ComponentMappingService] Full sync completed: {processedStages} stages processed");
+            _logger.LogInformation("Full sync completed: {ProcessedStages} stages processed", processedStages);
         }
 
         /// <summary>
@@ -181,15 +189,18 @@ namespace FlowFlex.Application.Service.OW
 
             try
             {
-                Console.WriteLine($"[ComponentMappingService] Getting assignments from mapping table for {questionnaireIds.Count} questionnaires");
+                _logger.LogDebug("Getting assignments from mapping table for {Count} questionnaires", questionnaireIds.Count);
+
+                var tenantId = _userContext?.TenantId ?? "default";
+                var appCode = _userContext?.AppCode ?? "default";
 
                 var mappings = await _db.Queryable<QuestionnaireStageMapping>()
                     .Where(m => questionnaireIds.Contains(m.QuestionnaireId))
-                    .Where(m => m.TenantId == _userContext.TenantId && m.AppCode == _userContext.AppCode)
+                    .Where(m => m.TenantId == tenantId && m.AppCode == appCode)
                     .Where(m => m.IsValid == true)
                     .ToListAsync();
 
-                Console.WriteLine($"[ComponentMappingService] Found {mappings.Count} mappings from mapping table");
+                _logger.LogDebug("Found {Count} mappings from mapping table", mappings.Count);
 
                 foreach (var questionnaireId in questionnaireIds)
                 {
@@ -203,7 +214,7 @@ namespace FlowFlex.Application.Service.OW
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[ComponentMappingService] Error getting questionnaire assignments: {ex.Message}");
+                _logger.LogError(ex, "Error getting questionnaire assignments");
                 return result;
             }
         }
@@ -220,15 +231,18 @@ namespace FlowFlex.Application.Service.OW
 
             try
             {
-                Console.WriteLine($"[ComponentMappingService] Getting checklist assignments from mapping table for {checklistIds.Count} checklists");
+                _logger.LogDebug("Getting checklist assignments from mapping table for {Count} checklists", checklistIds.Count);
+
+                var tenantId = _userContext?.TenantId ?? "default";
+                var appCode = _userContext?.AppCode ?? "default";
 
                 var mappings = await _db.Queryable<ChecklistStageMapping>()
                     .Where(m => checklistIds.Contains(m.ChecklistId))
-                    .Where(m => m.TenantId == _userContext.TenantId && m.AppCode == _userContext.AppCode)
+                    .Where(m => m.TenantId == tenantId && m.AppCode == appCode)
                     .Where(m => m.IsValid == true)
                     .ToListAsync();
 
-                Console.WriteLine($"[ComponentMappingService] Found {mappings.Count} checklist mappings from mapping table");
+                _logger.LogDebug("Found {Count} checklist mappings from mapping table", mappings.Count);
 
                 foreach (var checklistId in checklistIds)
                 {
@@ -242,7 +256,7 @@ namespace FlowFlex.Application.Service.OW
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[ComponentMappingService] Error getting checklist assignments: {ex.Message}");
+                _logger.LogError(ex, "Error getting checklist assignments");
                 return result;
             }
         }
@@ -254,10 +268,13 @@ namespace FlowFlex.Application.Service.OW
         {
             try
             {
-                Console.WriteLine($"[ComponentMappingService] Getting questionnaire IDs from mapping table - WorkflowId: {workflowId}, StageId: {stageId}");
+                _logger.LogDebug("Getting questionnaire IDs from mapping table - WorkflowId: {WorkflowId}, StageId: {StageId}", workflowId, stageId);
+
+                var tenantId = _userContext?.TenantId ?? "default";
+                var appCode = _userContext?.AppCode ?? "default";
 
                 var query = _db.Queryable<QuestionnaireStageMapping>()
-                    .Where(m => m.TenantId == _userContext.TenantId && m.AppCode == _userContext.AppCode)
+                    .Where(m => m.TenantId == tenantId && m.AppCode == appCode)
                     .Where(m => m.IsValid == true);
 
                 if (workflowId.HasValue)
@@ -273,12 +290,12 @@ namespace FlowFlex.Application.Service.OW
                 var mappings = await query.ToListAsync();
                 var questionnaireIds = mappings.Select(m => m.QuestionnaireId).Distinct().ToList();
 
-                Console.WriteLine($"[ComponentMappingService] Found {questionnaireIds.Count} distinct questionnaire IDs from mapping table");
+                _logger.LogDebug("Found {Count} distinct questionnaire IDs from mapping table", questionnaireIds.Count);
                 return questionnaireIds;
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[ComponentMappingService] Error getting questionnaire IDs by workflow/stage: {ex.Message}");
+                _logger.LogError(ex, "Error getting questionnaire IDs by workflow/stage");
                 return new List<long>();
             }
         }
@@ -290,10 +307,13 @@ namespace FlowFlex.Application.Service.OW
         {
             try
             {
-                Console.WriteLine($"[ComponentMappingService] Getting checklist IDs from mapping table - WorkflowId: {workflowId}, StageId: {stageId}");
+                _logger.LogDebug("Getting checklist IDs from mapping table - WorkflowId: {WorkflowId}, StageId: {StageId}", workflowId, stageId);
+
+                var tenantId = _userContext?.TenantId ?? "default";
+                var appCode = _userContext?.AppCode ?? "default";
 
                 var query = _db.Queryable<ChecklistStageMapping>()
-                    .Where(m => m.TenantId == _userContext.TenantId && m.AppCode == _userContext.AppCode)
+                    .Where(m => m.TenantId == tenantId && m.AppCode == appCode)
                     .Where(m => m.IsValid == true);
 
                 if (workflowId.HasValue)
@@ -309,12 +329,12 @@ namespace FlowFlex.Application.Service.OW
                 var mappings = await query.ToListAsync();
                 var checklistIds = mappings.Select(m => m.ChecklistId).Distinct().ToList();
 
-                Console.WriteLine($"[ComponentMappingService] Found {checklistIds.Count} distinct checklist IDs from mapping table");
+                _logger.LogDebug("Found {Count} distinct checklist IDs from mapping table", checklistIds.Count);
                 return checklistIds;
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[ComponentMappingService] Error getting checklist IDs by workflow/stage: {ex.Message}");
+                _logger.LogError(ex, "Error getting checklist IDs by workflow/stage");
                 return new List<long>();
             }
         }
@@ -327,7 +347,7 @@ namespace FlowFlex.Application.Service.OW
             var stage = await transaction.Queryable<Stage>().Where(s => s.Id == stageId).FirstAsync();
             if (stage == null) return;
 
-            Console.WriteLine($"[ComponentMappingService] Syncing mappings for stage {stageId} within transaction");
+            _logger.LogDebug("Syncing mappings for stage {StageId} within transaction", stageId);
 
             // Delete existing mappings for this stage within transaction
             await transaction.Deleteable<QuestionnaireStageMapping>()
@@ -369,7 +389,7 @@ namespace FlowFlex.Application.Service.OW
                             }).ToList();
 
                             await transaction.Insertable(questionnaireMappings).ExecuteCommandAsync();
-                            Console.WriteLine($"[ComponentMappingService] Synced {questionnaireMappings.Count} questionnaire mappings for stage {stageId} in transaction");
+                            _logger.LogDebug("Synced {Count} questionnaire mappings for stage {StageId} in transaction", questionnaireMappings.Count, stageId);
                         }
 
                         // Sync checklist mappings
@@ -393,13 +413,13 @@ namespace FlowFlex.Application.Service.OW
                             }).ToList();
 
                             await transaction.Insertable(checklistMappings).ExecuteCommandAsync();
-                            Console.WriteLine($"[ComponentMappingService] Synced {checklistMappings.Count} checklist mappings for stage {stageId} in transaction");
+                            _logger.LogDebug("Synced {Count} checklist mappings for stage {StageId} in transaction", checklistMappings.Count, stageId);
                         }
                     }
                 }
                 catch (JsonException ex)
                 {
-                    Console.WriteLine($"[ComponentMappingService] Error parsing ComponentsJson for stage {stageId} in transaction: {ex.Message}");
+                    _logger.LogError(ex, "Error parsing ComponentsJson for stage {StageId} in transaction", stageId);
                     throw; // Re-throw to rollback transaction
                 }
             }
@@ -442,7 +462,7 @@ namespace FlowFlex.Application.Service.OW
                     }
                     catch (JsonException)
                     {
-                        Console.WriteLine($"[ComponentMappingService] Invalid ComponentsJson for stage {stageId}");
+                        _logger.LogWarning("Invalid ComponentsJson for stage {StageId}", stageId);
                         return false;
                     }
                 }
@@ -466,11 +486,12 @@ namespace FlowFlex.Application.Service.OW
 
                 if (!checklistsMatch || !questionnairesMatch)
                 {
-                    Console.WriteLine($"[ComponentMappingService] Data inconsistency detected for stage {stageId}:");
-                    Console.WriteLine($"  Component Checklists: [{string.Join(", ", componentChecklistIds)}]");
-                    Console.WriteLine($"  Mapping Checklists: [{string.Join(", ", mappingChecklistIds)}]");
-                    Console.WriteLine($"  Component Questionnaires: [{string.Join(", ", componentQuestionnaireIds)}]");
-                    Console.WriteLine($"  Mapping Questionnaires: [{string.Join(", ", mappingQuestionnaireIds)}]");
+                    _logger.LogWarning("Data inconsistency detected for stage {StageId}: ComponentChecklists=[{ComponentChecklists}], MappingChecklists=[{MappingChecklists}], ComponentQuestionnaires=[{ComponentQuestionnaires}], MappingQuestionnaires=[{MappingQuestionnaires}]",
+                        stageId,
+                        string.Join(", ", componentChecklistIds),
+                        string.Join(", ", mappingChecklistIds),
+                        string.Join(", ", componentQuestionnaireIds),
+                        string.Join(", ", mappingQuestionnaireIds));
                     return false;
                 }
 
@@ -478,7 +499,7 @@ namespace FlowFlex.Application.Service.OW
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[ComponentMappingService] Error validating consistency for stage {stageId}: {ex.Message}");
+                _logger.LogError(ex, "Error validating consistency for stage {StageId}", stageId);
                 return false;
             }
         }
@@ -515,7 +536,7 @@ namespace FlowFlex.Application.Service.OW
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[ComponentMappingService] Error checking sync needs for stage {stageId}: {ex.Message}");
+                _logger.LogError(ex, "Error checking sync needs for stage {StageId}", stageId);
                 return true; // Assume sync is needed on error
             }
         }
@@ -553,7 +574,7 @@ namespace FlowFlex.Application.Service.OW
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine($"[ComponentMappingService] Error in checklist name sync notification: {ex.Message}");
+                    _logger.LogWarning(ex, "Error in checklist name sync notification for checklist {ChecklistId}", checklistId);
                     // Don't throw to avoid breaking the main operation
                 }
             }
@@ -573,7 +594,7 @@ namespace FlowFlex.Application.Service.OW
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine($"[ComponentMappingService] Error in questionnaire name sync notification: {ex.Message}");
+                    _logger.LogWarning(ex, "Error in questionnaire name sync notification for questionnaire {QuestionnaireId}", questionnaireId);
                     // Don't throw to avoid breaking the main operation
                 }
             }
@@ -592,7 +613,7 @@ namespace FlowFlex.Application.Service.OW
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine($"[ComponentMappingService] Error in batch checklist name sync notification: {ex.Message}");
+                    _logger.LogWarning(ex, "Error in batch checklist name sync notification");
                     // Don't throw to avoid breaking the main operation
                 }
             }
@@ -611,7 +632,7 @@ namespace FlowFlex.Application.Service.OW
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine($"[ComponentMappingService] Error in batch questionnaire name sync notification: {ex.Message}");
+                    _logger.LogWarning(ex, "Error in batch questionnaire name sync notification");
                     // Don't throw to avoid breaking the main operation
                 }
             }

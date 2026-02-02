@@ -1,6 +1,5 @@
 using System.Net.Http;
 using System.Net.Http.Headers;
-using System.Security.Cryptography;
 using System.Text;
 using AutoMapper;
 using FlowFlex.Application.Contracts.Dtos.Action;
@@ -41,9 +40,7 @@ namespace FlowFlex.Application.Services.Integration
         private readonly IMapper _mapper;
         private readonly UserContext _userContext;
         private readonly ILogger<IntegrationService> _logger;
-
-        // AES encryption key (should be moved to configuration in production)
-        private const string ENCRYPTION_KEY = "FlowFlex2024IntegrationKey123456"; // 32 bytes for AES-256
+        private readonly IEncryptionService _encryptionService;
 
         public IntegrationService(
             IIntegrationRepository integrationRepository,
@@ -57,7 +54,8 @@ namespace FlowFlex.Application.Services.Integration
             IHttpClientFactory httpClientFactory,
             IMapper mapper,
             UserContext userContext,
-            ILogger<IntegrationService> logger)
+            ILogger<IntegrationService> logger,
+            IEncryptionService encryptionService)
         {
             _integrationRepository = integrationRepository;
             _entityMappingRepository = entityMappingRepository;
@@ -71,6 +69,7 @@ namespace FlowFlex.Application.Services.Integration
             _mapper = mapper;
             _userContext = userContext;
             _logger = logger;
+            _encryptionService = encryptionService;
         }
 
         public async Task<long> CreateAsync(IntegrationInputDto input)
@@ -93,7 +92,7 @@ namespace FlowFlex.Application.Services.Integration
             
             // Initialize create information
             entity.InitCreateInfo(_userContext);
-            entity.TenantId = _userContext.TenantId;
+            entity.TenantId = _userContext?.TenantId ?? "default";
 
             var id = await _integrationRepository.InsertReturnSnowflakeIdAsync(entity);
             
@@ -179,37 +178,16 @@ namespace FlowFlex.Application.Services.Integration
             var dto = _mapper.Map<IntegrationOutputDto>(entity);
             await PopulateConfiguredEntityTypeNamesAsync(dto);
             
-            // Decrypt credentials
+            // Decrypt credentials using encryption service
             if (!string.IsNullOrEmpty(entity.EncryptedCredentials) && entity.EncryptedCredentials != "{}")
             {
-                try
-                {
-                    var decryptedJson = DecryptString(entity.EncryptedCredentials, ENCRYPTION_KEY);
-                    _logger.LogDebug($"Decrypted JSON for integration {id}: {decryptedJson}");
-                    
-                    if (!string.IsNullOrEmpty(decryptedJson) && decryptedJson != "{}")
-                    {
-                        dto.Credentials = JsonConvert.DeserializeObject<Dictionary<string, string>>(decryptedJson) ?? new Dictionary<string, string>();
-                        _logger.LogDebug($"Successfully decrypted credentials for integration {id}, found {dto.Credentials.Count} credential keys: {string.Join(", ", dto.Credentials.Keys)}");
-                    }
-                    else
-                    {
-                        _logger.LogDebug($"Decrypted JSON is empty or '{{}}' for integration {id}");
-                        dto.Credentials = new Dictionary<string, string>();
-                    }
-                }
-                catch (Exception ex)
-                {
-                    var preview = entity.EncryptedCredentials != null && entity.EncryptedCredentials.Length > 50 
-                        ? entity.EncryptedCredentials.Substring(0, 50) 
-                        : entity.EncryptedCredentials ?? "";
-                    _logger.LogWarning(ex, $"Failed to decrypt credentials for integration {id}. EncryptedCredentials: {preview}...");
-                    dto.Credentials = new Dictionary<string, string>();
-                }
+                dto.Credentials = DecryptCredentials(entity.EncryptedCredentials);
+                _logger.LogDebug("Decrypted credentials for integration {IntegrationId}, found {Count} credential keys", 
+                    id, dto.Credentials.Count);
             }
             else
             {
-                _logger.LogDebug($"Integration {id} has no encrypted credentials (empty or '{{}}')");
+                _logger.LogDebug("Integration {IntegrationId} has no encrypted credentials", id);
                 dto.Credentials = new Dictionary<string, string>();
             }
             
@@ -227,37 +205,16 @@ namespace FlowFlex.Application.Services.Integration
             var dto = _mapper.Map<IntegrationOutputDto>(entity);
             await PopulateConfiguredEntityTypeNamesAsync(dto);
             
-            // Decrypt credentials for details view
+            // Decrypt credentials for details view using encryption service
             if (!string.IsNullOrEmpty(entity.EncryptedCredentials) && entity.EncryptedCredentials != "{}")
             {
-                try
-                {
-                    var decryptedJson = DecryptString(entity.EncryptedCredentials, ENCRYPTION_KEY);
-                    _logger.LogDebug($"Decrypted JSON for integration {id}: {decryptedJson}");
-                    
-                    if (!string.IsNullOrEmpty(decryptedJson) && decryptedJson != "{}")
-                    {
-                        dto.Credentials = JsonConvert.DeserializeObject<Dictionary<string, string>>(decryptedJson) ?? new Dictionary<string, string>();
-                        _logger.LogDebug($"Successfully decrypted credentials for integration {id}, found {dto.Credentials.Count} credential keys: {string.Join(", ", dto.Credentials.Keys)}");
-                    }
-                    else
-                    {
-                        _logger.LogDebug($"Decrypted JSON is empty or '{{}}' for integration {id}");
-                        dto.Credentials = new Dictionary<string, string>();
-                    }
-                }
-                catch (Exception ex)
-                {
-                    var preview = entity.EncryptedCredentials != null && entity.EncryptedCredentials.Length > 50 
-                        ? entity.EncryptedCredentials.Substring(0, 50) 
-                        : entity.EncryptedCredentials ?? "";
-                    _logger.LogWarning(ex, $"Failed to decrypt credentials for integration {id}. EncryptedCredentials: {preview}...");
-                    dto.Credentials = new Dictionary<string, string>();
-                }
+                dto.Credentials = DecryptCredentials(entity.EncryptedCredentials);
+                _logger.LogDebug("Decrypted credentials for integration {IntegrationId}, found {Count} credential keys", 
+                    id, dto.Credentials.Count);
             }
             else
             {
-                _logger.LogDebug($"Integration {id} has no encrypted credentials (empty or '{{}}')");
+                _logger.LogDebug("Integration {IntegrationId} has no encrypted credentials", id);
                 dto.Credentials = new Dictionary<string, string>();
             }
 
@@ -1042,45 +999,21 @@ namespace FlowFlex.Application.Services.Integration
         private string EncryptCredentials(Dictionary<string, string> credentials)
         {
             var json = JsonConvert.SerializeObject(credentials);
-            var encrypted = EncryptString(json, ENCRYPTION_KEY);
-            return encrypted;
+            return _encryptionService.Encrypt(json);
         }
 
         private Dictionary<string, string> DecryptCredentials(string encryptedCredentials)
         {
-            var json = DecryptString(encryptedCredentials, ENCRYPTION_KEY);
-            return JsonConvert.DeserializeObject<Dictionary<string, string>>(json) ?? new Dictionary<string, string>();
-        }
-
-        private string EncryptString(string plainText, string key)
-        {
-            using var aes = Aes.Create();
-            aes.Key = Encoding.UTF8.GetBytes(key);
-            aes.IV = new byte[16]; // Use zero IV for simplicity (should use random IV in production)
-
-            using var encryptor = aes.CreateEncryptor(aes.Key, aes.IV);
-            using var ms = new MemoryStream();
-            using var cs = new CryptoStream(ms, encryptor, CryptoStreamMode.Write);
-            using (var sw = new StreamWriter(cs))
+            try
             {
-                sw.Write(plainText);
+                var json = _encryptionService.Decrypt(encryptedCredentials);
+                return JsonConvert.DeserializeObject<Dictionary<string, string>>(json) ?? new Dictionary<string, string>();
             }
-            
-            return Convert.ToBase64String(ms.ToArray());
-        }
-
-        private string DecryptString(string cipherText, string key)
-        {
-            using var aes = Aes.Create();
-            aes.Key = Encoding.UTF8.GetBytes(key);
-            aes.IV = new byte[16]; // Use zero IV for simplicity (should use random IV in production)
-
-            using var decryptor = aes.CreateDecryptor(aes.Key, aes.IV);
-            using var ms = new MemoryStream(Convert.FromBase64String(cipherText));
-            using var cs = new CryptoStream(ms, decryptor, CryptoStreamMode.Read);
-            using var sr = new StreamReader(cs);
-            
-            return sr.ReadToEnd();
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to decrypt credentials");
+                return new Dictionary<string, string>();
+            }
         }
 
         #endregion

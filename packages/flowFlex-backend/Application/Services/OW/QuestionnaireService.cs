@@ -28,7 +28,7 @@ using FlowFlex.Application.Contracts.IServices.Action;
 using FlowFlex.Application.Contracts.Dtos.Action;
 using SqlSugar;
 
-namespace FlowFlex.Application.Service.OW
+namespace FlowFlex.Application.Services.OW
 {
     /// <summary>
     /// Questionnaire service implementation
@@ -363,18 +363,18 @@ namespace FlowFlex.Application.Service.OW
                         try
                         {
                             await _mappingService.NotifyQuestionnaireNameChangeAsync(id, input.Name);
-                            Console.WriteLine($"[QuestionnaireService] Successfully synced name change for questionnaire {id}: '{originalName}' -> '{input.Name}'");
+                            _logger.LogDebug("Successfully synced name change for questionnaire {QuestionnaireId}: '{OriginalName}' -> '{NewName}'", id, originalName, input.Name);
                         }
                         catch (Exception ex)
                         {
-                            Console.WriteLine($"[QuestionnaireService] Error syncing questionnaire name change: {ex.Message}");
+                            _logger.LogWarning(ex, "Error syncing questionnaire name change for {QuestionnaireId}", id);
                             // Don't throw to avoid breaking the background task
                         }
                     });
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine($"[QuestionnaireService] Error starting questionnaire name sync background task: {ex.Message}");
+                    _logger.LogWarning(ex, "Error starting questionnaire name sync background task for {QuestionnaireId}", id);
                     // Don't throw to avoid breaking the main operation
                 }
             }
@@ -521,7 +521,8 @@ namespace FlowFlex.Application.Service.OW
 
         public async Task<PagedResult<QuestionnaireOutputDto>> QueryAsync(QuestionnaireQueryRequest query)
         {
-            Console.WriteLine($"[QuestionnaireService] QueryAsync - WorkflowId: {query.WorkflowId}, StageId: {query.StageId}, PageIndex: {query.PageIndex}, PageSize: {query.PageSize}");
+            _logger.LogDebug("QueryAsync - WorkflowId: {WorkflowId}, StageId: {StageId}, PageIndex: {PageIndex}, PageSize: {PageSize}",
+                query.WorkflowId, query.StageId, query.PageIndex, query.PageSize);
 
             List<Questionnaire> filteredItems;
             int totalCount;
@@ -529,11 +530,11 @@ namespace FlowFlex.Application.Service.OW
             // If workflowId or stageId filtering is needed, use ComponentMappingService
             if (query.WorkflowId.HasValue || query.StageId.HasValue)
             {
-                Console.WriteLine($"[QuestionnaireService] Using ComponentMappingService for WorkflowId: {query.WorkflowId}, StageId: {query.StageId}");
+                _logger.LogDebug("Using ComponentMappingService for WorkflowId: {WorkflowId}, StageId: {StageId}", query.WorkflowId, query.StageId);
 
                 // Get questionnaire IDs from mapping table (ultra-fast)
                 var questionnaireIds = await _mappingService.GetQuestionnaireIdsByWorkflowStageAsync(query.WorkflowId, query.StageId);
-                Console.WriteLine($"[QuestionnaireService] ComponentMappingService returned {questionnaireIds.Count} questionnaire IDs");
+                _logger.LogDebug("ComponentMappingService returned {QuestionnaireCount} questionnaire IDs", questionnaireIds.Count);
 
                 // Get paginated questionnaires by IDs
                 var (items, count) = await _questionnaireRepository.GetPagedByIdsAsync(
@@ -547,11 +548,11 @@ namespace FlowFlex.Application.Service.OW
 
                 filteredItems = items;
                 totalCount = count;
-                Console.WriteLine($"[QuestionnaireService] Mapping table query returned {items.Count} items, total count: {count}");
+                _logger.LogDebug("Mapping table query returned {ItemCount} items, total count: {TotalCount}", items.Count, count);
             }
             else
             {
-                Console.WriteLine("[QuestionnaireService] Using repository method for basic filtering (no workflow/stage filtering)");
+                _logger.LogDebug("Using repository method for basic filtering (no workflow/stage filtering)");
 
                 // Use repository method for basic filtering (no workflow/stage filtering needed)
                 var (items, count) = await _questionnaireRepository.GetPagedAsync(
@@ -567,7 +568,7 @@ namespace FlowFlex.Application.Service.OW
 
                 filteredItems = items;
                 totalCount = count;
-                Console.WriteLine($"[QuestionnaireService] Repository returned {items.Count} items, total count: {count}");
+                _logger.LogDebug("Repository returned {ItemCount} items, total count: {TotalCount}", items.Count, count);
             }
 
             var result = _mapper.Map<List<QuestionnaireOutputDto>>(filteredItems);
@@ -582,13 +583,13 @@ namespace FlowFlex.Application.Service.OW
             if (query.WorkflowId.HasValue || query.StageId.HasValue)
             {
                 // For filtered queries, we know the context and can fill assignments efficiently
-                Console.WriteLine("[QuestionnaireService] Filling assignments for filtered query");
+                _logger.LogDebug("Filling assignments for filtered query");
                 await FillAssignmentsFromFilterContext(result, query.WorkflowId, query.StageId);
             }
             else
             {
                 // For basic queries, now filling assignments (may impact performance for large datasets)
-                Console.WriteLine("[QuestionnaireService] Filling assignments for basic query");
+                _logger.LogDebug("Filling assignments for basic query");
                 await FillAssignmentsAsync(result);
             }
 
@@ -827,13 +828,13 @@ namespace FlowFlex.Application.Service.OW
                             {
                                 // Generate snowflake ID for all id fields (sections, questions, options, rows, columns, etc.)
                                 newId = GenerateUniqueSnowflakeId(usedIds);
-                                Console.WriteLine($"[QuestionnaireService] Generated new ID for duplication '{originalId}' -> '{newId}'");
+                                _logger.LogDebug("Generated new ID for duplication '{OriginalId}' -> '{NewId}'", originalId, newId);
                             }
                             else
                             {
                                 // Empty ID, generate a new one
                                 newId = GenerateUniqueSnowflakeId(usedIds);
-                                Console.WriteLine($"[QuestionnaireService] Generated new ID for empty field in duplication: {newId}");
+                                _logger.LogDebug("Generated new ID for empty field in duplication: {NewId}", newId);
                             }
 
                             obj[key] = newId;
@@ -852,7 +853,7 @@ namespace FlowFlex.Application.Service.OW
                         obj["id"] = newId;
                         usedIds.Add(newId);
                         var logType = objectType ?? "unknown";
-                        Console.WriteLine($"[QuestionnaireService] Generated missing ID for {logType} in duplication: {newId}");
+                        _logger.LogDebug("Generated missing ID for {ObjectType} in duplication: {NewId}", logType, newId);
                     }
 
                     return obj;
@@ -928,7 +929,7 @@ namespace FlowFlex.Application.Service.OW
             {
                 // If JSON parsing fails, return original structure
                 // Log the error but don't fail the operation
-                Console.WriteLine($"[QuestionnaireService] Error normalizing structure JSON IDs: {ex.Message}");
+                _logger.LogWarning(ex, "Error normalizing structure JSON IDs");
                 return structureJson;
             }
         }
@@ -974,7 +975,7 @@ namespace FlowFlex.Application.Service.OW
                             {
                                 isActionObject = true;
                                 objectType = "action";
-                                Console.WriteLine($"[QuestionnaireService] Detected action object with name: {property.Value.GetString()}");
+                                _logger.LogDebug("Detected action object with name: {ActionName}", property.Value.GetString());
                             }
                         }
                         // Detect object type based on properties
@@ -1030,7 +1031,7 @@ namespace FlowFlex.Application.Service.OW
                             if (isActionObject)
                             {
                                 newId = originalId;
-                                Console.WriteLine($"[QuestionnaireService] Preserving action ID: {originalId}");
+                                _logger.LogDebug("Preserving action ID: {ActionId}", originalId);
                             }
                             else if (!string.IsNullOrEmpty(originalId))
                             {
@@ -1041,7 +1042,7 @@ namespace FlowFlex.Application.Service.OW
                                     if (usedIds.Contains(originalId))
                                     {
                                         newId = GenerateUniqueSnowflakeId(usedIds);
-                                        Console.WriteLine($"[QuestionnaireService] Duplicate snowflake ID detected: {originalId}, regenerated as: {newId}");
+                                        _logger.LogDebug("Duplicate snowflake ID detected: {OriginalId}, regenerated as: {NewId}", originalId, newId);
                                     }
                                     else
                                     {
@@ -1052,14 +1053,14 @@ namespace FlowFlex.Application.Service.OW
                                 {
                                     // Convert prefixed ID to snowflake ID
                                     newId = GenerateUniqueSnowflakeId(usedIds);
-                                    Console.WriteLine($"[QuestionnaireService] Converted prefixed ID '{originalId}' to snowflake ID: {newId}");
+                                    _logger.LogDebug("Converted prefixed ID '{OriginalId}' to snowflake ID: {NewId}", originalId, newId);
                                 }
                             }
                             else
                             {
                                 // Empty ID, generate a new one
                                 newId = GenerateUniqueSnowflakeId(usedIds);
-                                Console.WriteLine($"[QuestionnaireService] Generated new ID for empty field: {newId}");
+                                _logger.LogDebug("Generated new ID for empty field: {NewId}", newId);
                             }
 
                             obj[key] = newId;
@@ -1081,7 +1082,7 @@ namespace FlowFlex.Application.Service.OW
                         obj["id"] = newId;
                         usedIds.Add(newId);
                         var logType = objectType ?? "unknown";
-                        Console.WriteLine($"[QuestionnaireService] Generated missing ID for {logType}: {newId}");
+                        _logger.LogDebug("Generated missing ID for {ObjectType}: {NewId}", logType, newId);
                     }
 
                     return obj;
@@ -1141,7 +1142,7 @@ namespace FlowFlex.Application.Service.OW
                     var timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
                     var random = new Random().Next(1000, 9999);
                     newId = $"{timestamp}{random}";
-                    Console.WriteLine($"[QuestionnaireService] Used fallback ID generation after {maxAttempts} attempts: {newId}");
+                    _logger.LogWarning("Used fallback ID generation after {MaxAttempts} attempts: {NewId}", maxAttempts, newId);
                     break;
                 }
             } while (usedIds.Contains(newId));
@@ -1164,14 +1165,14 @@ namespace FlowFlex.Application.Service.OW
         {
             try
             {
-                Console.WriteLine("[QuestionnaireService] Testing missing ID generation...");
+                _logger.LogDebug("Testing missing ID generation...");
                 var result = NormalizeStructureJsonIds(structureJsonWithMissingIds);
-                Console.WriteLine("[QuestionnaireService] Missing ID generation test completed.");
+                _logger.LogDebug("Missing ID generation test completed.");
                 return result;
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[QuestionnaireService] Error in missing ID generation test: {ex.Message}");
+                _logger.LogWarning(ex, "Error in missing ID generation test");
                 return structureJsonWithMissingIds;
             }
         }
@@ -1191,23 +1192,21 @@ namespace FlowFlex.Application.Service.OW
         {
             try
             {
-                Console.WriteLine("[QuestionnaireService] Testing row/column ID generation...");
+                _logger.LogDebug("Testing row/column ID generation...");
 
                 // First normalize the structure
                 var normalizedResult = NormalizeStructureJsonIds(structureJsonWithRowsColumns);
-                Console.WriteLine("[QuestionnaireService] Normalized structure for row/column testing:");
-                Console.WriteLine(normalizedResult);
+                _logger.LogDebug("Normalized structure for row/column testing: {NormalizedResult}", normalizedResult);
 
                 // Then test duplication (which should generate completely new IDs)
                 var duplicatedResult = GenerateNewIdsInStructureJson(normalizedResult);
-                Console.WriteLine("[QuestionnaireService] Duplicated structure with new IDs:");
-                Console.WriteLine(duplicatedResult);
+                _logger.LogDebug("Duplicated structure with new IDs: {DuplicatedResult}", duplicatedResult);
 
                 return duplicatedResult;
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[QuestionnaireService] Error in row/column ID generation test: {ex.Message}");
+                _logger.LogWarning(ex, "Error in row/column ID generation test");
                 return structureJsonWithRowsColumns;
             }
         }
@@ -1390,7 +1389,7 @@ namespace FlowFlex.Application.Service.OW
 
             var questionnaireIds = questionnaires.Select(q => q.Id).ToList();
 
-            Console.WriteLine($"[QuestionnaireService] Using mapping table to fill assignments for {questionnaireIds.Count} questionnaires");
+            _logger.LogDebug("Using mapping table to fill assignments for {QuestionnaireCount} questionnaires", questionnaireIds.Count);
 
             // Get assignments from mapping table (ultra-fast)
             var assignments = await _mappingService.GetQuestionnaireAssignmentsAsync(questionnaireIds);
@@ -1423,14 +1422,15 @@ namespace FlowFlex.Application.Service.OW
             if (!questionnaires.Any())
                 return;
 
-            Console.WriteLine($"[QuestionnaireService] FillAssignmentsFromFilterContext - WorkflowId: {workflowId}, StageId: {stageId}, Questionnaires: {questionnaires.Count}");
+            _logger.LogDebug("FillAssignmentsFromFilterContext - WorkflowId: {WorkflowId}, StageId: {StageId}, Questionnaires: {QuestionnaireCount}",
+                workflowId, stageId, questionnaires.Count);
 
             try
             {
                 // Use the mapping service to get assignments (same as FillAssignmentsAsync but more efficient)
                 var questionnaireIds = questionnaires.Select(q => q.Id).ToList();
 
-                Console.WriteLine($"[QuestionnaireService] Using mapping table to fill assignments for {questionnaireIds.Count} questionnaires");
+                _logger.LogDebug("Using mapping table to fill assignments for {QuestionnaireCount} questionnaires", questionnaireIds.Count);
 
                 // Get assignments from mapping table (ultra-fast)
                 var assignments = await _mappingService.GetQuestionnaireAssignmentsAsync(questionnaireIds);
@@ -1438,7 +1438,7 @@ namespace FlowFlex.Application.Service.OW
                 // Map assignments to questionnaires, filtering by context if needed
                 foreach (var questionnaire in questionnaires)
                 {
-                    Console.WriteLine($"[QuestionnaireService] Processing questionnaire {questionnaire.Id} ({questionnaire.Name})");
+                    _logger.LogDebug("Processing questionnaire {QuestionnaireId} ({QuestionnaireName})", questionnaire.Id, questionnaire.Name);
 
                     if (assignments.TryGetValue(questionnaire.Id, out var questionnaireAssignments))
                     {
@@ -1461,18 +1461,18 @@ namespace FlowFlex.Application.Service.OW
                             StageId = a.StageId
                         }).ToList();
 
-                        Console.WriteLine($"[QuestionnaireService] Found {questionnaire.Assignments.Count} assignments for questionnaire {questionnaire.Id} after filtering");
+                        _logger.LogDebug("Found {AssignmentCount} assignments for questionnaire {QuestionnaireId} after filtering", questionnaire.Assignments.Count, questionnaire.Id);
                     }
                     else
                     {
                         questionnaire.Assignments = new List<FlowFlex.Application.Contracts.Dtos.OW.Common.AssignmentDto>();
-                        Console.WriteLine($"[QuestionnaireService] No assignments found for questionnaire {questionnaire.Id}");
+                        _logger.LogDebug("No assignments found for questionnaire {QuestionnaireId}", questionnaire.Id);
                     }
                 }
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[QuestionnaireService] Error filling assignments from filter context: {ex.Message}");
+                _logger.LogWarning(ex, "Error filling assignments from filter context");
                 // Fallback to empty assignments
                 foreach (var questionnaire in questionnaires)
                 {
@@ -1507,18 +1507,19 @@ namespace FlowFlex.Application.Service.OW
         {
             try
             {
-                Console.WriteLine($"[QuestionnaireService] Getting questionnaire IDs for stage {stageId} using ComponentMappingService");
+                _logger.LogDebug("Getting questionnaire IDs for stage {StageId} using ComponentMappingService", stageId);
 
                 // Use ComponentMappingService for ultra-fast mapping table query
                 var questionnaireIds = await _mappingService.GetQuestionnaireIdsByWorkflowStageAsync(null, stageId);
 
-                Console.WriteLine($"[QuestionnaireService] ComponentMappingService found {questionnaireIds.Count} questionnaire IDs for stage {stageId}: [{string.Join(", ", questionnaireIds)}]");
+                _logger.LogDebug("ComponentMappingService found {QuestionnaireCount} questionnaire IDs for stage {StageId}: [{QuestionnaireIds}]",
+                    questionnaireIds.Count, stageId, string.Join(", ", questionnaireIds));
 
                 return questionnaireIds;
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[QuestionnaireService] Error getting questionnaire IDs for stage {stageId}: {ex.Message}");
+                _logger.LogWarning(ex, "Error getting questionnaire IDs for stage {StageId}", stageId);
                 return new List<long>();
             }
         }
@@ -1530,18 +1531,19 @@ namespace FlowFlex.Application.Service.OW
         {
             try
             {
-                Console.WriteLine($"[QuestionnaireService] GetQuestionnaireIdsByWorkflowAndStageAsync using database JSONB query - WorkflowId: {workflowId}, StageId: {stageId}");
+                _logger.LogDebug("GetQuestionnaireIdsByWorkflowAndStageAsync using database JSONB query - WorkflowId: {WorkflowId}, StageId: {StageId}",
+                    workflowId, stageId);
 
                 // Use database-level JSONB query for optimal performance
                 var questionnaireIds = await _questionnaireRepository.GetQuestionnaireIdsByStageComponentsAsync(workflowId, stageId);
 
-                Console.WriteLine($"[QuestionnaireService] Database JSONB query found {questionnaireIds.Count} questionnaire IDs");
+                _logger.LogDebug("Database JSONB query found {QuestionnaireCount} questionnaire IDs", questionnaireIds.Count);
 
                 return questionnaireIds;
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error getting questionnaire IDs for workflow {workflowId} and stage {stageId}: {ex.Message}");
+                _logger.LogWarning(ex, "Error getting questionnaire IDs for workflow {WorkflowId} and stage {StageId}", workflowId, stageId);
                 return new List<long>();
             }
         }
@@ -1557,7 +1559,7 @@ namespace FlowFlex.Application.Service.OW
             {
                 // Get all stages for debugging
                 var allStages = await _stageRepository.GetListAsync();
-                Console.WriteLine($"[QuestionnaireService] Checking {allStages.Count} stages for questionnaire {questionnaireId}");
+                _logger.LogDebug("Checking {StageCount} stages for questionnaire {QuestionnaireId}", allStages.Count, questionnaireId);
 
                 foreach (var stage in allStages)
                 {
@@ -1573,24 +1575,24 @@ namespace FlowFlex.Application.Service.OW
 
                         if (hasQuestionnaire == true)
                         {
-                            Console.WriteLine($"[QuestionnaireService] Found questionnaire {questionnaireId} in stage {stage.Id} (Workflow: {stage.WorkflowId})");
+                            _logger.LogDebug("Found questionnaire {QuestionnaireId} in stage {StageId} (Workflow: {WorkflowId})", questionnaireId, stage.Id, stage.WorkflowId);
                             matchingStages.Add(stage);
                         }
                     }
                     catch (JsonException ex)
                     {
-                        Console.WriteLine($"[QuestionnaireService] Error parsing ComponentsJson for stage {stage.Id}: {ex.Message}");
+                        _logger.LogWarning(ex, "Error parsing ComponentsJson for stage {StageId}", stage.Id);
                     }
                 }
 
                 if (!matchingStages.Any())
                 {
-                    Console.WriteLine($"[QuestionnaireService] Questionnaire {questionnaireId} not found in any stage components");
+                    _logger.LogDebug("Questionnaire {QuestionnaireId} not found in any stage components", questionnaireId);
                 }
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error finding stages for questionnaire {questionnaireId}: {ex.Message}");
+                _logger.LogWarning(ex, "Error finding stages for questionnaire {QuestionnaireId}", questionnaireId);
             }
 
             return matchingStages;
@@ -1627,7 +1629,7 @@ namespace FlowFlex.Application.Service.OW
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Failed to create action trigger mapping for question: {ex.Message}");
+                _logger.LogWarning(ex, "Failed to create action trigger mapping for question");
             }
         }
 
@@ -1659,7 +1661,7 @@ namespace FlowFlex.Application.Service.OW
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Failed to create action trigger mapping for option: {ex.Message}");
+                _logger.LogWarning(ex, "Failed to create action trigger mapping for option");
             }
         }
 
@@ -1688,7 +1690,7 @@ namespace FlowFlex.Application.Service.OW
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Failed to ensure Question ActionTriggerMappings for questionnaire '{questionnaire.Name}': {ex.Message}");
+                _logger.LogWarning(ex, "Failed to ensure Question ActionTriggerMappings for questionnaire '{QuestionnaireName}'", questionnaire.Name);
             }
         }
 
@@ -1748,19 +1750,19 @@ namespace FlowFlex.Application.Service.OW
 
                 if (!hasMapping)
                 {
-                    Console.WriteLine($"Creating missing ActionTriggerMapping for Question {questionIdLong} and Action {actionIdLong}");
+                    _logger.LogDebug("Creating missing ActionTriggerMapping for Question {QuestionId} and Action {ActionId}", questionIdLong, actionIdLong);
 
                     // Create the missing ActionTriggerMapping
                     await CreateQuestionActionTriggerMappingAsync(actionIdLong, questionId, questionnaireName);
                 }
                 else
                 {
-                    Console.WriteLine($"ActionTriggerMapping already exists for Question {questionIdLong} and Action {actionIdLong}");
+                    _logger.LogDebug("ActionTriggerMapping already exists for Question {QuestionId} and Action {ActionId}", questionIdLong, actionIdLong);
                 }
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Failed to ensure ActionTriggerMapping for question: {ex.Message}");
+                _logger.LogWarning(ex, "Failed to ensure ActionTriggerMapping for question");
             }
         }
 
@@ -1783,7 +1785,7 @@ namespace FlowFlex.Application.Service.OW
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Failed to ensure Option ActionTriggerMappings for question: {ex.Message}");
+                _logger.LogWarning(ex, "Failed to ensure Option ActionTriggerMappings for question");
             }
         }
 
@@ -1814,7 +1816,7 @@ namespace FlowFlex.Application.Service.OW
                 // Only process options with valid numeric IDs
                 if (!long.TryParse(optionId, out var optionIdLong))
                 {
-                    Console.WriteLine($"Option has non-numeric ID '{optionId}', skipping ActionTriggerMapping creation");
+                    _logger.LogDebug("Option has non-numeric ID '{OptionId}', skipping ActionTriggerMapping creation", optionId);
                     return;
                 }
 
@@ -1826,19 +1828,19 @@ namespace FlowFlex.Application.Service.OW
 
                 if (!hasMapping)
                 {
-                    Console.WriteLine($"Creating missing ActionTriggerMapping for Option {optionIdLong} (value: {optionValue}) and Action {actionIdLong}");
+                    _logger.LogDebug("Creating missing ActionTriggerMapping for Option {OptionId} (value: {OptionValue}) and Action {ActionId}", optionIdLong, optionValue, actionIdLong);
 
                     // Create the missing ActionTriggerMapping
                     await CreateOptionActionTriggerMappingAsync(actionIdLong, optionIdLong, optionValue, questionnaireName);
                 }
                 else
                 {
-                    Console.WriteLine($"ActionTriggerMapping already exists for Option {optionIdLong} (value: {optionValue}) and Action {actionIdLong}");
+                    _logger.LogDebug("ActionTriggerMapping already exists for Option {OptionId} (value: {OptionValue}) and Action {ActionId}", optionIdLong, optionValue, actionIdLong);
                 }
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Failed to ensure ActionTriggerMapping for option: {ex.Message}");
+                _logger.LogWarning(ex, "Failed to ensure ActionTriggerMapping for option");
             }
         }
 
@@ -1869,7 +1871,7 @@ namespace FlowFlex.Application.Service.OW
                 // Clean up removed ActionTriggerMappings
                 if (removedMappings.Any())
                 {
-                    Console.WriteLine($"[QuestionnaireService] Found {removedMappings.Count} removed action mappings to clean up");
+                    _logger.LogDebug("Found {RemovedCount} removed action mappings to clean up", removedMappings.Count);
                     await CleanupRemovedActionTriggerMappingsAsync(removedMappings, questionnaire.Name);
                 }
 
@@ -1878,7 +1880,7 @@ namespace FlowFlex.Application.Service.OW
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[QuestionnaireService] Error synchronizing ActionTriggerMappings for questionnaire '{questionnaire.Name}': {ex.Message}");
+                _logger.LogWarning(ex, "Error synchronizing ActionTriggerMappings for questionnaire '{QuestionnaireName}'", questionnaire.Name);
                 // Fall back to just ensuring current mappings exist
                 await EnsureQuestionActionTriggerMappingsExistAsync(questionnaire);
             }
@@ -1909,7 +1911,7 @@ namespace FlowFlex.Application.Service.OW
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[QuestionnaireService] Error extracting action mappings from structure JSON: {ex.Message}");
+                _logger.LogWarning(ex, "Error extracting action mappings from structure JSON");
             }
 
             return actionMappings;
@@ -1972,7 +1974,7 @@ namespace FlowFlex.Application.Service.OW
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[QuestionnaireService] Error extracting action mapping from question: {ex.Message}");
+                _logger.LogWarning(ex, "Error extracting action mapping from question");
             }
         }
 
@@ -1995,7 +1997,7 @@ namespace FlowFlex.Application.Service.OW
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[QuestionnaireService] Error extracting action mappings from question options: {ex.Message}");
+                _logger.LogWarning(ex, "Error extracting action mappings from question options");
             }
         }
 
@@ -2035,7 +2037,7 @@ namespace FlowFlex.Application.Service.OW
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[QuestionnaireService] Error extracting action mapping from option: {ex.Message}");
+                _logger.LogWarning(ex, "Error extracting action mapping from option");
             }
         }
 
@@ -2048,9 +2050,8 @@ namespace FlowFlex.Application.Service.OW
             {
                 try
                 {
-                    Console.WriteLine($"[QuestionnaireService] Cleaning up ActionTriggerMapping for {mapping.ElementType} {mapping.ElementId} " +
-                                    $"(TriggerSourceId: {mapping.TriggerSourceId}, ActionId: {mapping.ActionDefinitionId}) " +
-                                    $"from questionnaire '{questionnaireName}'");
+                    _logger.LogDebug("Cleaning up ActionTriggerMapping for {ElementType} {ElementId} (TriggerSourceId: {TriggerSourceId}, ActionId: {ActionId}) from questionnaire '{QuestionnaireName}'",
+                        mapping.ElementType, mapping.ElementId, mapping.TriggerSourceId, mapping.ActionDefinitionId, questionnaireName);
 
                     // Get existing mappings for this trigger source
                     var existingMappings = await _actionManagementService.GetActionTriggerMappingsByTriggerSourceIdAsync(mapping.TriggerSourceId);
@@ -2064,19 +2065,19 @@ namespace FlowFlex.Application.Service.OW
                     if (mappingToDelete != null)
                     {
                         await _actionManagementService.DeleteActionTriggerMappingAsync(mappingToDelete.Id);
-                        Console.WriteLine($"[QuestionnaireService] Successfully deleted ActionTriggerMapping {mappingToDelete.Id} " +
-                                        $"for {mapping.ElementType} {mapping.ElementId}");
+                        _logger.LogDebug("Successfully deleted ActionTriggerMapping {MappingId} for {ElementType} {ElementId}",
+                            mappingToDelete.Id, mapping.ElementType, mapping.ElementId);
                     }
                     else
                     {
-                        Console.WriteLine($"[QuestionnaireService] ActionTriggerMapping not found for {mapping.ElementType} {mapping.ElementId}, " +
-                                        $"may have been already deleted");
+                        _logger.LogDebug("ActionTriggerMapping not found for {ElementType} {ElementId}, may have been already deleted",
+                            mapping.ElementType, mapping.ElementId);
                     }
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine($"[QuestionnaireService] Error deleting ActionTriggerMapping for {mapping.ElementType} " +
-                                    $"{mapping.ElementId}: {ex.Message}");
+                    _logger.LogWarning(ex, "Error deleting ActionTriggerMapping for {ElementType} {ElementId}",
+                        mapping.ElementType, mapping.ElementId);
                 }
             }
         }

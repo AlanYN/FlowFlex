@@ -1644,8 +1644,9 @@ namespace FlowFlex.Application.Services.OW
         {
             try
             {
-                // Get all users (without pagination for tree structure)
-                var (users, _) = await _userRepository.GetPagedAsync(1, int.MaxValue);
+                // Get users with reasonable limit for tree structure to avoid memory issues
+                const int MaxUsersForTree = 2000;
+                var (users, _) = await _userRepository.GetPagedAsync(1, MaxUsersForTree);
 
                 // Ensure all users have teams
                 await EnsureUsersHaveTeams(users);

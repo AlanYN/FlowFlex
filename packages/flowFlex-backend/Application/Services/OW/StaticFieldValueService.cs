@@ -15,6 +15,7 @@ using System.Text.RegularExpressions;
 using FlowFlex.Application.Services.OW.Extensions;
 using System.Net.Http;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 
 namespace FlowFlex.Application.Services.OW
 {
@@ -31,6 +32,7 @@ namespace FlowFlex.Application.Services.OW
         private readonly UserContext _userContext;
         private readonly IOperatorContextService _operatorContextService;
         private readonly IdmUserDataClient _idmUserDataClient;
+        private readonly ILogger<StaticFieldValueService> _logger;
 
         public StaticFieldValueService(
             IStaticFieldValueRepository staticFieldValueRepository,
@@ -40,7 +42,8 @@ namespace FlowFlex.Application.Services.OW
             IMapper mapper,
             UserContext userContext,
             IOperatorContextService operatorContextService,
-            IdmUserDataClient idmUserDataClient)
+            IdmUserDataClient idmUserDataClient,
+            ILogger<StaticFieldValueService> logger)
         {
             _staticFieldValueRepository = staticFieldValueRepository;
             _stageRepository = stageRepository;
@@ -50,6 +53,7 @@ namespace FlowFlex.Application.Services.OW
             _userContext = userContext;
             _operatorContextService = operatorContextService;
             _idmUserDataClient = idmUserDataClient;
+            _logger = logger;
         }
 
         /// <summary>
@@ -194,7 +198,8 @@ namespace FlowFlex.Application.Services.OW
                 AuditHelper.ApplyCreateAudit(entity, _operatorContextService);
 
                 // Debug logging for audit fields
-                Console.WriteLine($"[StaticFieldValueService] After audit - Field: {entity.FieldName}, CreateBy: '{entity.CreateBy}', ModifyBy: '{entity.ModifyBy}', CreateUserId: {entity.CreateUserId}, ModifyUserId: {entity.ModifyUserId}");
+                _logger.LogDebug("After audit - Field: {FieldName}, CreateBy: {CreateBy}, ModifyBy: {ModifyBy}, CreateUserId: {CreateUserId}, ModifyUserId: {ModifyUserId}",
+                    entity.FieldName, entity.CreateBy, entity.ModifyBy, entity.CreateUserId, entity.ModifyUserId);
 
                 // Store fieldLabel mapping for operation logging
                 if (!string.IsNullOrEmpty(fieldValue.FieldLabel))
@@ -562,14 +567,14 @@ namespace FlowFlex.Application.Services.OW
 
             try
             {
-                Console.WriteLine($"Calling IDM API for user IDs: {string.Join(", ", userIds)}");
+                _logger.LogDebug("Calling IDM API for user IDs: {UserIds}", string.Join(", ", userIds));
 
                 // Use IdmUserDataClient to get team users with proper authentication
                 var teamUsers = await _idmUserDataClient.GetAllTeamUsersAsync("1401", 10000, 1);
 
                 if (teamUsers != null && teamUsers.Any())
                 {
-                    Console.WriteLine($"Found {teamUsers.Count} users from IDM API");
+                    _logger.LogDebug("Found {Count} users from IDM API", teamUsers.Count);
 
                     foreach (var user in teamUsers)
                     {
@@ -579,20 +584,19 @@ namespace FlowFlex.Application.Services.OW
                             var displayName = !string.IsNullOrEmpty(user.UserName) ? user.UserName : user.Id;
 
                             userMap[user.Id] = displayName;
-                            Console.WriteLine($"Mapped user {user.Id} to '{displayName}'");
+                            _logger.LogDebug("Mapped user {UserId} to {DisplayName}", user.Id, displayName);
                         }
                     }
                 }
                 else
                 {
-                    Console.WriteLine("No team users returned from IDM API");
+                    _logger.LogDebug("No team users returned from IDM API");
                 }
             }
             catch (Exception ex)
             {
                 // Log the error but continue processing without user names
-                Console.WriteLine($"Exception calling IDM API: {ex.Message}");
-                Console.WriteLine($"Stack trace: {ex.StackTrace}");
+                _logger.LogWarning(ex, "Exception calling IDM API for user IDs");
             }
 
             // For any user IDs that weren't found, use the ID as fallback
@@ -671,9 +675,7 @@ namespace FlowFlex.Application.Services.OW
             catch (Exception ex)
             {
                 // If processing fails, return original data
-                // Add some basic logging for debugging
-                Console.WriteLine($"Failed to process Assignee field data: {ex.Message}");
-                Console.WriteLine($"Field data: {fieldData}");
+                _logger.LogWarning(ex, "Failed to process Assignee field data: {FieldData}", fieldData);
             }
 
             return fieldData;

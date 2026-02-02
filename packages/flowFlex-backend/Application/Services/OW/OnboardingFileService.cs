@@ -129,7 +129,7 @@ namespace FlowFlex.Application.Services.OW
                 // Use override tenant ID if specified (for background import tasks)
                 var tenantId = !string.IsNullOrEmpty(input.OverrideTenantId) 
                     ? input.OverrideTenantId 
-                    : _userContext.TenantId;
+                    : (_userContext?.TenantId ?? "default");
 
                 var attachment = await _attachmentService.CreateAttachmentAsync(
                     attachmentDto, tenantId, CancellationToken.None);

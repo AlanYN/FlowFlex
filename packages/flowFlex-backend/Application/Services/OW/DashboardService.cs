@@ -64,14 +64,21 @@ namespace FlowFlex.Application.Services.OW
             var modules = query.Modules ?? new List<string>();
             var includeAll = modules.Count == 0;
 
-            // Execute modules in parallel for better performance
+            // Execute modules in parallel for better performance with proper exception handling
             var tasks = new List<Task>();
 
             if (includeAll || modules.Contains("statistics", StringComparer.OrdinalIgnoreCase))
             {
                 tasks.Add(Task.Run(async () =>
                 {
-                    result.Statistics = await GetStatisticsAsync(query.Team);
+                    try
+                    {
+                        result.Statistics = await GetStatisticsAsync(query.Team);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Failed to get dashboard statistics");
+                    }
                 }));
             }
 
@@ -79,7 +86,14 @@ namespace FlowFlex.Application.Services.OW
             {
                 tasks.Add(Task.Run(async () =>
                 {
-                    result.CasesOverview = await GetStageDistributionAsync(query.WorkflowId);
+                    try
+                    {
+                        result.CasesOverview = await GetStageDistributionAsync(query.WorkflowId);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Failed to get dashboard cases overview");
+                    }
                 }));
             }
 
@@ -87,12 +101,19 @@ namespace FlowFlex.Application.Services.OW
             {
                 tasks.Add(Task.Run(async () =>
                 {
-                    result.Tasks = await GetTasksAsync(new DashboardTaskQueryDto
+                    try
                     {
-                        Category = query.TaskCategory,
-                        PageIndex = query.TaskPageIndex,
-                        PageSize = query.TaskPageSize
-                    });
+                        result.Tasks = await GetTasksAsync(new DashboardTaskQueryDto
+                        {
+                            Category = query.TaskCategory,
+                            PageIndex = query.TaskPageIndex,
+                            PageSize = query.TaskPageSize
+                        });
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Failed to get dashboard tasks");
+                    }
                 }));
             }
 
@@ -100,7 +121,14 @@ namespace FlowFlex.Application.Services.OW
             {
                 tasks.Add(Task.Run(async () =>
                 {
-                    result.Messages = await GetMessageSummaryAsync(query.MessageLimit);
+                    try
+                    {
+                        result.Messages = await GetMessageSummaryAsync(query.MessageLimit);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Failed to get dashboard messages");
+                    }
                 }));
             }
 
@@ -108,7 +136,14 @@ namespace FlowFlex.Application.Services.OW
             {
                 tasks.Add(Task.Run(async () =>
                 {
-                    result.Achievements = await GetAchievementsAsync(query.AchievementLimit, query.Team);
+                    try
+                    {
+                        result.Achievements = await GetAchievementsAsync(query.AchievementLimit, query.Team);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Failed to get dashboard achievements");
+                    }
                 }));
             }
 
@@ -116,7 +151,14 @@ namespace FlowFlex.Application.Services.OW
             {
                 tasks.Add(Task.Run(async () =>
                 {
-                    result.Deadlines = await GetDeadlinesAsync(query.DeadlineDays);
+                    try
+                    {
+                        result.Deadlines = await GetDeadlinesAsync(query.DeadlineDays);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Failed to get dashboard deadlines");
+                    }
                 }));
             }
 
@@ -225,7 +267,7 @@ namespace FlowFlex.Application.Services.OW
         /// </summary>
         public async Task<PagedResult<DashboardTaskDto>> GetTasksAsync(DashboardTaskQueryDto query)
         {
-            var userId = long.TryParse(_userContext.UserId, out var uid) ? uid : 0;
+            var userId = long.TryParse(_userContext?.UserId, out var uid) ? uid : 0;
             var userTeamIds = _userContext.UserTeams?.GetAllTeamIds() ?? new List<long>();
 
             // Build query for tasks assigned to current user or their teams
@@ -512,7 +554,7 @@ namespace FlowFlex.Application.Services.OW
         /// </summary>
         public async Task<List<DeadlineDto>> GetDeadlinesAsync(int days = 7)
         {
-            var userId = long.TryParse(_userContext.UserId, out var uid) ? uid : 0;
+            var userId = long.TryParse(_userContext?.UserId, out var uid) ? uid : 0;
             var userTeamIds = _userContext.UserTeams?.GetAllTeamIds() ?? new List<long>();
             var now = DateTimeOffset.UtcNow;
             var endDate = now.AddDays(days);
@@ -523,8 +565,10 @@ namespace FlowFlex.Application.Services.OW
             {
                 // Get onboarding IDs from tasks assigned to current user (same logic as Tasks API)
                 // This ensures Deadlines and Tasks use the same filtering criteria
+                // Use reasonable limit to avoid memory issues - deadlines typically don't need all tasks
+                const int MaxTasksForDeadlines = 5000;
                 var userTasks = await _checklistTaskRepository.GetPendingTasksForUserAsync(
-                    userId, userTeamIds, null, 1, int.MaxValue);
+                    userId, userTeamIds, null, 1, MaxTasksForDeadlines);
                 
                 var onboardingIds = userTasks.Select(t => t.OnboardingId).Distinct().ToList();
                 
@@ -903,7 +947,7 @@ namespace FlowFlex.Application.Services.OW
                 return cases;
             }
 
-            var userId = long.TryParse(_userContext.UserId, out var uid) ? uid : 0;
+            var userId = long.TryParse(_userContext?.UserId, out var uid) ? uid : 0;
             var userTeamIds = _userContext.UserTeams?.GetAllTeamIds() ?? new List<long>();
             var userIdString = userId.ToString();
 
@@ -944,7 +988,7 @@ namespace FlowFlex.Application.Services.OW
                 return cases;
             }
 
-            var userId = long.TryParse(_userContext.UserId, out var uid) ? uid : 0;
+            var userId = long.TryParse(_userContext?.UserId, out var uid) ? uid : 0;
             var userTeamIds = _userContext.UserTeams?.GetAllTeamIds() ?? new List<long>();
             var userIdString = userId.ToString();
 

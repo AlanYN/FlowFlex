@@ -88,7 +88,7 @@ public class MessageAttachmentService : IMessageAttachmentService, IScopedServic
 
         // Save file to storage
         var formFile = CreateFormFile(content, fileName, contentType);
-        var storageResult = await _fileStorageService.SaveFileAsync(formFile, AttachmentCategory, _userContext.TenantId);
+        var storageResult = await _fileStorageService.SaveFileAsync(formFile, AttachmentCategory, _userContext?.TenantId ?? "default");
 
         if (!storageResult.Success)
         {
@@ -126,7 +126,7 @@ public class MessageAttachmentService : IMessageAttachmentService, IScopedServic
     {
         // Save file to storage
         var formFile = CreateFormFile(content, fileName, contentType);
-        var storageResult = await _fileStorageService.SaveFileAsync(formFile, AttachmentCategory, _userContext.TenantId);
+        var storageResult = await _fileStorageService.SaveFileAsync(formFile, AttachmentCategory, _userContext?.TenantId ?? "default");
 
         if (!storageResult.Success)
         {
@@ -187,7 +187,11 @@ public class MessageAttachmentService : IMessageAttachmentService, IScopedServic
 
     /// <summary>
     /// Download attachment from Outlook and optionally cache to local storage
+    /// <summary>
+    /// Download attachment from Outlook
+    /// Note: The returned Stream must be disposed by the caller
     /// </summary>
+    /// <returns>Tuple containing the stream, content type, and filename. Caller is responsible for disposing the stream.</returns>
     private async Task<(Stream Content, string ContentType, string FileName)?> DownloadFromOutlookAsync(
         MessageAttachment attachment, Message? message)
     {
@@ -245,8 +249,14 @@ public class MessageAttachmentService : IMessageAttachmentService, IScopedServic
             _logger.LogInformation("Downloaded attachment {AttachmentId} ({FileName}) from Outlook, size: {Size} bytes",
                 attachment.Id, attachment.FileName, contentBytes.Length);
 
+            // MemoryStream from byte array is safe - no external resources to manage
             var stream = new MemoryStream(contentBytes);
             return (stream, attachment.ContentType, attachment.FileName);
+        }
+        catch (HttpRequestException ex)
+        {
+            _logger.LogError(ex, "Network error downloading attachment {AttachmentId} from Outlook", attachment.Id);
+            return null;
         }
         catch (Exception ex)
         {

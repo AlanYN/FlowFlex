@@ -294,8 +294,9 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                     return new PagedResult<OperationChangeLogOutputDto>();
                 }
 
-                // Get all relevant logs first
-                var allLogs = await GetAggregatedLogsAsync(onboardingId, stageId, businessModules, pageIndex: 1, pageSize: int.MaxValue);
+                // Get logs with reasonable limit for search to avoid memory issues
+                const int MaxLogsForSearch = 5000;
+                var allLogs = await GetAggregatedLogsAsync(onboardingId, stageId, businessModules, pageIndex: 1, pageSize: MaxLogsForSearch);
 
                 // Perform in-memory search (in production, consider using full-text search)
                 var searchResults = allLogs.Items.Where(log =>
@@ -383,10 +384,11 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
         {
             try
             {
-                // Get all logs for export (without pagination)
+                // Get logs with reasonable limit for export to avoid memory issues
+                const int MaxLogsForExport = 10000;
                 var allLogs = await GetAggregatedLogsAsync(
                     onboardingId, stageId, businessModules, null, startDate, endDate,
-                    pageIndex: 1, pageSize: int.MaxValue);
+                    pageIndex: 1, pageSize: MaxLogsForExport);
 
                 return format.ToLowerInvariant() switch
                 {

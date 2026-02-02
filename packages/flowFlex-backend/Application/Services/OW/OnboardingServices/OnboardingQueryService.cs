@@ -1040,6 +1040,11 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
             return dateTime.Value.ToString("MM/dd/yyyy HH:mm");
         }
 
+        /// <summary>
+        /// Generate Excel file using EPPlus
+        /// Note: The returned Stream must be disposed by the caller
+        /// </summary>
+        /// <returns>A MemoryStream containing the Excel content. Caller is responsible for disposing.</returns>
         private Stream GenerateExcelWithEPPlus(List<OnboardingExportDto> data)
         {
             using var package = new ExcelPackage();
@@ -1078,9 +1083,17 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
             worksheet.Cells.AutoFitColumns();
 
             var stream = new MemoryStream();
-            package.SaveAs(stream);
-            stream.Position = 0;
-            return stream;
+            try
+            {
+                package.SaveAs(stream);
+                stream.Position = 0;
+                return stream;
+            }
+            catch
+            {
+                stream.Dispose();
+                throw;
+            }
         }
 
         #endregion

@@ -6,7 +6,7 @@ using FlowFlex.Application.Contracts.Dtos.OW.StageCondition;
 using FlowFlex.Application.Contracts.IServices.OW;
 using FlowFlex.Application.Contracts.IServices;
 using FlowFlex.Application.Helpers;
-using FlowFlex.Application.Service.OW.StageCondition;
+using FlowFlex.Application.Services.OW.StageCondition;
 using FlowFlex.Domain.Entities.OW;
 using FlowFlex.Domain.Repository.OW;
 using FlowFlex.Domain.Shared;
@@ -19,7 +19,7 @@ using RulesEngine.Models;
 using SqlSugar;
 using RulesEngineWorkflow = RulesEngine.Models.Workflow;
 
-namespace FlowFlex.Application.Service.OW
+namespace FlowFlex.Application.Services.OW
 {
     /// <summary>
     /// RulesEngine evaluation service implementation
@@ -143,9 +143,10 @@ namespace FlowFlex.Application.Service.OW
                     };
                 }
 
+                var tenantId = _userContext?.TenantId ?? "default";
                 var onboarding = await _db.Queryable<Onboarding>()
                     .Where(o => o.CaseCode == caseCode && o.IsValid)
-                    .Where(o => o.TenantId == _userContext.TenantId)
+                    .Where(o => o.TenantId == tenantId)
                     .FirstAsync();
 
                 if (onboarding == null)
@@ -183,9 +184,10 @@ namespace FlowFlex.Application.Service.OW
             {
                 var dbResult = await _db.Ado.UseTranAsync(async () =>
                 {
+                    var tenantId = _userContext?.TenantId ?? "default";
                     var onboarding = await _db.Queryable<Onboarding>()
                         .Where(o => o.Id == onboardingId && o.IsValid)
-                        .Where(o => o.TenantId == _userContext.TenantId)
+                        .Where(o => o.TenantId == tenantId)
                         .With(SqlWith.UpdLock)
                         .FirstAsync();
 
@@ -280,8 +282,8 @@ namespace FlowFlex.Application.Service.OW
                         OnboardingId = onboardingId,
                         StageId = stageId,
                         ConditionId = condition.Id,
-                        TenantId = _userContext.TenantId,
-                        UserId = long.TryParse(_userContext.UserId, out var uid) ? uid : 0
+                        TenantId = _userContext?.TenantId ?? "default",
+                        UserId = long.TryParse(_userContext?.UserId, out var uid) ? uid : 0
                     };
 
                     if (isConditionMet && actionExecutor != null)
@@ -328,9 +330,10 @@ namespace FlowFlex.Application.Service.OW
 
         private async Task<Onboarding> AcquireLockAndValidateAsync(long onboardingId, long stageId)
         {
+            var tenantId = _userContext?.TenantId ?? "default";
             var onboarding = await _db.Queryable<Onboarding>()
                 .Where(o => o.Id == onboardingId && o.IsValid)
-                .Where(o => o.TenantId == _userContext.TenantId)
+                .Where(o => o.TenantId == tenantId)
                 .With(SqlWith.UpdLock)
                 .FirstAsync();
 
@@ -608,9 +611,10 @@ namespace FlowFlex.Application.Service.OW
 
         private async Task<Domain.Entities.OW.StageCondition> GetConditionByStageIdAsync(long stageId)
         {
+            var tenantId = _userContext?.TenantId ?? "default";
             return await _db.Queryable<Domain.Entities.OW.StageCondition>()
                 .Where(c => c.StageId == stageId && c.IsValid)
-                .Where(c => c.TenantId == _userContext.TenantId)
+                .Where(c => c.TenantId == tenantId)
                 .FirstAsync();
         }
 

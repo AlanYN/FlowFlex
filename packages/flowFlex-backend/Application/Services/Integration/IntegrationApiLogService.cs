@@ -106,7 +106,7 @@ public class IntegrationApiLogService : IIntegrationApiLogService, IScopedServic
             };
 
             log.InitCreateInfo(_userContext);
-            log.TenantId = _userContext.TenantId;
+            log.TenantId = _userContext?.TenantId ?? "default";
 
             return await _repository.InsertLogAsync(log);
         }
@@ -145,7 +145,7 @@ public class IntegrationApiLogService : IIntegrationApiLogService, IScopedServic
             };
 
             log.InitCreateInfo(_userContext);
-            log.TenantId = _userContext.TenantId;
+            log.TenantId = _userContext?.TenantId ?? "default";
 
             return await _repository.InsertLogAsync(log);
         }

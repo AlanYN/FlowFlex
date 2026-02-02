@@ -21,7 +21,7 @@ using System.Linq;
 using System.Text.Json;
 using System.Threading.Tasks;
 
-namespace FlowFlex.Application.Service.OW;
+namespace FlowFlex.Application.Services.OW;
 
 /// <summary>
 /// ChecklistTask service implementation

@@ -13,7 +13,7 @@ using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 using SqlSugar;
 
-namespace FlowFlex.Application.Service.OW
+namespace FlowFlex.Application.Services.OW
 {
     /// <summary>
     /// Component data retrieval service implementation
@@ -53,9 +53,10 @@ namespace FlowFlex.Application.Service.OW
                 var result = new ChecklistData();
 
                 // Get checklist task completions for this onboarding
+                var tenantId = _userContext?.TenantId ?? "default";
                 var completions = await _db.Queryable<ChecklistTaskCompletion>()
                     .Where(c => c.OnboardingId == onboardingId && c.IsValid)
-                    .Where(c => c.TenantId == _userContext.TenantId)
+                    .Where(c => c.TenantId == tenantId)
                     .ToListAsync();
 
                 // Get stage to find associated checklists from components_json
@@ -215,9 +216,10 @@ namespace FlowFlex.Application.Service.OW
 
                 // Get questionnaire answers for all questionnaires
                 // Build nested structure: answers[questionnaireId][questionId] = value
+                var tenantId = _userContext?.TenantId ?? "default";
                 var answers = await _db.Queryable<QuestionnaireAnswer>()
                     .Where(a => a.OnboardingId == onboardingId && a.QuestionnaireId.HasValue && questionnaireIds.Contains(a.QuestionnaireId.Value) && a.IsValid)
-                    .Where(a => a.TenantId == _userContext.TenantId)
+                    .Where(a => a.TenantId == tenantId)
                     .ToListAsync();
 
                 foreach (var answer in answers)
@@ -333,9 +335,10 @@ namespace FlowFlex.Application.Service.OW
                 var result = new AttachmentData();
 
                 // Get files for this onboarding and stage
+                var tenantId = _userContext?.TenantId ?? "default";
                 var files = await _db.Queryable<OnboardingFile>()
                     .Where(f => f.OnboardingId == onboardingId && f.StageId == stageId && f.IsValid)
-                    .Where(f => f.TenantId == _userContext.TenantId)
+                    .Where(f => f.TenantId == tenantId)
                     .ToListAsync();
 
                 result.FileCount = files.Count;

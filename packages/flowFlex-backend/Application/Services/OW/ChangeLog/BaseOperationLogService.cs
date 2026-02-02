@@ -119,8 +119,8 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                     OperationTime = currentUtcTime, // Store as UTC in database
                     IpAddress = GetClientIpAddress(),
                     UserAgent = GetUserAgent(),
-                    TenantId = customTenantId ?? _userContext.TenantId,
-                    AppCode = _userContext.AppCode
+                    TenantId = customTenantId ?? _userContext?.TenantId ?? "default",
+                    AppCode = _userContext?.AppCode ?? "default"
                 };
 
                 // Initialize unique snowflake ID

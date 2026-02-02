@@ -27,7 +27,7 @@ using FlowFlex.Infrastructure.Services;
 using FlowFlex.Infrastructure.Extensions;
 using FlowFlex.Domain.Repository.Action;
 
-namespace FlowFlex.Application.Service.OW;
+namespace FlowFlex.Application.Services.OW;
 
 /// <summary>
 /// Checklist service implementation
@@ -591,7 +591,9 @@ public class ChecklistService : IChecklistService, IScopedService
 
     /// <summary>
     /// Export checklist to PDF
+    /// Note: The returned Stream must be disposed by the caller
     /// </summary>
+    /// <returns>A MemoryStream containing the PDF content. Caller is responsible for disposing.</returns>
     public async Task<Stream> ExportToPdfAsync(long id)
     {
         var checklist = await _checklistRepository.GetByIdAsync(id);
@@ -604,12 +606,20 @@ public class ChecklistService : IChecklistService, IScopedService
         // This is a placeholder implementation
         var content = GeneratePdfContent(checklist);
         var stream = new MemoryStream();
-        var writer = new StreamWriter(stream);
-        await writer.WriteAsync(content);
-        await writer.FlushAsync();
-        stream.Position = 0;
-
-        return stream;
+        try
+        {
+            var writer = new StreamWriter(stream, leaveOpen: true);
+            await writer.WriteAsync(content);
+            await writer.FlushAsync();
+            await writer.DisposeAsync();
+            stream.Position = 0;
+            return stream;
+        }
+        catch
+        {
+            await stream.DisposeAsync();
+            throw;
+        }
     }
 
     /// <summary>

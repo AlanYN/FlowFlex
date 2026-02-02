@@ -11,8 +11,9 @@ using FlowFlex.Domain.Shared.Models;
 using FlowFlex.Application.Services.OW.Extensions;
 using SqlSugar;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 
-namespace FlowFlex.Application.Service.OW
+namespace FlowFlex.Application.Services.OW
 {
     /// <summary>
     /// Stage component name synchronization service implementation
@@ -24,6 +25,7 @@ namespace FlowFlex.Application.Service.OW
         private readonly IStageRepository _stageRepository;
         private readonly UserContext _userContext;
         private readonly IServiceProvider _serviceProvider;
+        private readonly ILogger<StageComponentNameSyncService> _logger;
 
         private static readonly JsonSerializerOptions JsonOptions = new JsonSerializerOptions
         {
@@ -35,12 +37,14 @@ namespace FlowFlex.Application.Service.OW
             ISqlSugarClient db,
             IStageRepository stageRepository,
             UserContext userContext,
-            IServiceProvider serviceProvider)
+            IServiceProvider serviceProvider,
+            ILogger<StageComponentNameSyncService> logger)
         {
             _db = db;
             _stageRepository = stageRepository;
             _userContext = userContext;
             _serviceProvider = serviceProvider;
+            _logger = logger;
         }
 
         /// <summary>
@@ -63,7 +67,7 @@ namespace FlowFlex.Application.Service.OW
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[StageComponentNameSyncService] Error syncing checklist name change for {checklistId}: {ex.Message}");
+                _logger.LogError(ex, "Error syncing checklist name change for {ChecklistId}", checklistId);
                 throw;
             }
         }
@@ -88,7 +92,7 @@ namespace FlowFlex.Application.Service.OW
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[StageComponentNameSyncService] Error syncing questionnaire name change for {questionnaireId}: {ex.Message}");
+                _logger.LogError(ex, "Error syncing questionnaire name change for {QuestionnaireId}", questionnaireId);
                 throw;
             }
         }
@@ -100,9 +104,12 @@ namespace FlowFlex.Application.Service.OW
         {
             try
             {
+                var tenantId = _userContext?.TenantId ?? "default";
+                var appCode = _userContext?.AppCode ?? "default";
+                
                 var stageIds = await _db.Queryable<ChecklistStageMapping>()
                     .Where(m => m.ChecklistId == checklistId)
-                    .Where(m => m.TenantId == _userContext.TenantId && m.AppCode == _userContext.AppCode)
+                    .Where(m => m.TenantId == tenantId && m.AppCode == appCode)
                     .Where(m => m.IsValid == true)
                     .Select(m => m.StageId)
                     .ToListAsync();
@@ -111,7 +118,7 @@ namespace FlowFlex.Application.Service.OW
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[StageComponentNameSyncService] Error getting stages using checklist {checklistId}: {ex.Message}");
+                _logger.LogWarning(ex, "Error getting stages using checklist {ChecklistId}", checklistId);
                 return new List<long>();
             }
         }
@@ -123,9 +130,12 @@ namespace FlowFlex.Application.Service.OW
         {
             try
             {
+                var tenantId = _userContext?.TenantId ?? "default";
+                var appCode = _userContext?.AppCode ?? "default";
+                
                 var stageIds = await _db.Queryable<QuestionnaireStageMapping>()
                     .Where(m => m.QuestionnaireId == questionnaireId)
-                    .Where(m => m.TenantId == _userContext.TenantId && m.AppCode == _userContext.AppCode)
+                    .Where(m => m.TenantId == tenantId && m.AppCode == appCode)
                     .Where(m => m.IsValid == true)
                     .Select(m => m.StageId)
                     .ToListAsync();
@@ -134,7 +144,7 @@ namespace FlowFlex.Application.Service.OW
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[StageComponentNameSyncService] Error getting stages using questionnaire {questionnaireId}: {ex.Message}");
+                _logger.LogWarning(ex, "Error getting stages using questionnaire {QuestionnaireId}", questionnaireId);
                 return new List<long>();
             }
         }
@@ -180,18 +190,18 @@ namespace FlowFlex.Application.Service.OW
         {
             try
             {
-                Console.WriteLine($"[StageComponentNameSyncService] Refreshing component names for stage {stageId}");
+                _logger.LogDebug("Refreshing component names for stage {StageId}", stageId);
 
                 var stage = await _stageRepository.GetByIdAsync(stageId);
                 if (stage == null)
                 {
-                    Console.WriteLine($"[StageComponentNameSyncService] Stage {stageId} not found");
+                    _logger.LogDebug("Stage {StageId} not found", stageId);
                     return false;
                 }
 
                 if (string.IsNullOrEmpty(stage.ComponentsJson))
                 {
-                    Console.WriteLine($"[StageComponentNameSyncService] Stage {stageId} has no components");
+                    _logger.LogDebug("Stage {StageId} has no components", stageId);
                     return true; // No components to refresh
                 }
 
@@ -199,7 +209,7 @@ namespace FlowFlex.Application.Service.OW
                 var components = ParseStageComponents(stage.ComponentsJson);
                 if (components == null || !components.Any())
                 {
-                    Console.WriteLine($"[StageComponentNameSyncService] Stage {stageId} has no valid components");
+                    _logger.LogDebug("Stage {StageId} has no valid components", stageId);
                     return true;
                 }
 
@@ -277,7 +287,7 @@ namespace FlowFlex.Application.Service.OW
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[StageComponentNameSyncService] Error refreshing component names for stage {stageId}: {ex.Message}");
+                _logger.LogWarning(ex, "Error refreshing component names for stage {StageId}", stageId);
                 return false;
             }
         }
@@ -287,18 +297,21 @@ namespace FlowFlex.Application.Service.OW
         /// </summary>
         public async Task<int> ValidateAndFixAllStageComponentNamesAsync()
         {
-            Console.WriteLine("[StageComponentNameSyncService] Starting validation and fix of all stage component names");
+            _logger.LogInformation("Starting validation and fix of all stage component names");
 
             try
             {
+                var tenantId = _userContext?.TenantId ?? "default";
+                var appCode = _userContext?.AppCode ?? "default";
+                
                 // Get all stages that have components
                 var stages = await _db.Queryable<Stage>()
-                    .Where(s => s.TenantId == _userContext.TenantId && s.AppCode == _userContext.AppCode)
+                    .Where(s => s.TenantId == tenantId && s.AppCode == appCode)
                     .Where(s => s.IsValid == true)
                     .Where(s => !string.IsNullOrEmpty(s.ComponentsJson))
                     .ToListAsync();
 
-                Console.WriteLine($"[StageComponentNameSyncService] Found {stages.Count} stages with components to validate");
+                _logger.LogInformation("Found {StageCount} stages with components to validate", stages.Count);
 
                 var fixedCount = 0;
                 foreach (var stage in stages)
@@ -313,16 +326,16 @@ namespace FlowFlex.Application.Service.OW
                     }
                     catch (Exception ex)
                     {
-                        Console.WriteLine($"[StageComponentNameSyncService] Error fixing stage {stage.Id}: {ex.Message}");
+                        _logger.LogWarning(ex, "Error fixing stage {StageId}", stage.Id);
                     }
                 }
 
-                Console.WriteLine($"[StageComponentNameSyncService] Validation and fix completed: {fixedCount} stages processed");
+                _logger.LogInformation("Validation and fix completed: {FixedCount} stages processed", fixedCount);
                 return fixedCount;
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[StageComponentNameSyncService] Error in validate and fix all: {ex.Message}");
+                _logger.LogError(ex, "Error in validate and fix all");
                 throw;
             }
         }
@@ -358,10 +371,13 @@ namespace FlowFlex.Application.Service.OW
         {
             try
             {
+                var tenantId = _userContext?.TenantId ?? "default";
+                var appCode = _userContext?.AppCode ?? "default";
+                
                 // Get all stages in this batch
                 var stages = await _db.Queryable<Stage>()
                     .Where(s => stageIds.Contains(s.Id))
-                    .Where(s => s.TenantId == _userContext.TenantId && s.AppCode == _userContext.AppCode)
+                    .Where(s => s.TenantId == tenantId && s.AppCode == appCode)
                     .Where(s => s.IsValid == true)
                     .ToListAsync();
 
@@ -455,7 +471,7 @@ namespace FlowFlex.Application.Service.OW
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[StageComponentNameSyncService] Error processing stage batch: {ex.Message}");
+                _logger.LogWarning(ex, "Error processing stage batch");
                 return 0;
             }
         }
@@ -481,7 +497,7 @@ namespace FlowFlex.Application.Service.OW
             }
             catch (JsonException ex)
             {
-                Console.WriteLine($"[StageComponentNameSyncService] Error parsing components JSON: {ex.Message}");
+                _logger.LogWarning(ex, "Error parsing components JSON");
                 return new List<StageComponent>();
             }
         }
@@ -500,7 +516,7 @@ namespace FlowFlex.Application.Service.OW
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[StageComponentNameSyncService] Error getting checklist names: {ex.Message}");
+                _logger.LogWarning(ex, "Error getting checklist names");
                 return new Dictionary<long, string>();
             }
         }
@@ -519,7 +535,7 @@ namespace FlowFlex.Application.Service.OW
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[StageComponentNameSyncService] Error getting questionnaire names: {ex.Message}");
+                _logger.LogWarning(ex, "Error getting questionnaire names");
                 return new Dictionary<long, string>();
             }
         }

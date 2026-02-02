@@ -32,7 +32,7 @@ using FlowFlex.Application.Contracts.Dtos.OW.Permission;
 using FlowFlex.Application.Contracts.Dtos.OW.User;
 using FlowFlex.Infrastructure.Services;
 
-namespace FlowFlex.Application.Service.OW
+namespace FlowFlex.Application.Services.OW
 {
     public class WorkflowService : IWorkflowService, IScopedService
     {
@@ -305,7 +305,7 @@ namespace FlowFlex.Application.Service.OW
 
             if (updateResult)
             {
-                var cacheKey = $"workflow:get_by_id:{id}:{_userContext.AppCode}";
+                var cacheKey = $"workflow:get_by_id:{id}:{_userContext?.AppCode ?? "default"}";
                 await _cacheService.RemoveAsync(cacheKey);
 
                 // Log workflow update operation if there were actual changes (via background queue)
@@ -469,7 +469,7 @@ namespace FlowFlex.Application.Service.OW
             // Clear related cache after successful deletion
             if (result)
             {
-                var cacheKey = $"workflow:get_by_id:{id}:{_userContext.AppCode}";
+                var cacheKey = $"workflow:get_by_id:{id}:{_userContext?.AppCode ?? "default"}";
                 await _cacheService.RemoveAsync(cacheKey);
 
                 // Log workflow delete operation (fire-and-forget via background queue)
@@ -598,10 +598,12 @@ namespace FlowFlex.Application.Service.OW
 
         public async Task<PagedResult<WorkflowOutputDto>> QueryAsync(WorkflowQueryRequest query)
         {
-            // Step 1: Get all workflows matching the query criteria (without pagination)
+            // Step 1: Get workflows with a reasonable limit for permission filtering
+            // Use a larger page size to allow for permission filtering, but not int.MaxValue
+            const int MaxWorkflowsForFiltering = 1000;
             var (allItems, _) = await _workflowRepository.QueryPagedAsync(
                 1, // pageIndex
-                int.MaxValue, // pageSize - get all items
+                MaxWorkflowsForFiltering, // pageSize - reasonable limit to avoid memory issues
                 query.Name,
                 query.IsActive,
                 query.IsDefault,
@@ -770,7 +772,7 @@ namespace FlowFlex.Application.Service.OW
             // Clear related cache after successful activation
             if (result)
             {
-                var cacheKey = $"workflow:get_by_id:{id}:{_userContext.AppCode}";
+                var cacheKey = $"workflow:get_by_id:{id}:{_userContext?.AppCode ?? "default"}";
                 await _cacheService.RemoveAsync(cacheKey);
 
                 // Log workflow activation
@@ -818,7 +820,7 @@ namespace FlowFlex.Application.Service.OW
             // Clear related cache after successful deactivation
             if (result)
             {
-                var cacheKey = $"workflow:get_by_id:{id}:{_userContext.AppCode}";
+                var cacheKey = $"workflow:get_by_id:{id}:{_userContext?.AppCode ?? "default"}";
                 await _cacheService.RemoveAsync(cacheKey);
 
                 // Log workflow deactivation
@@ -1169,7 +1171,7 @@ namespace FlowFlex.Application.Service.OW
             // Clear related cache after successful version creation
             if (result)
             {
-                var cacheKey = $"workflow:get_by_id:{id}:{_userContext.AppCode}";
+                var cacheKey = $"workflow:get_by_id:{id}:{_userContext?.AppCode ?? "default"}";
                 await _cacheService.RemoveAsync(cacheKey);
             }
 
