@@ -36,13 +36,11 @@ namespace FlowFlex.Application.Services.OW
             _cache = cache;
             _logger = logger;
 
-            // Log configuration validation at Debug level to reduce noise
-            _logger.LogDebug("IdmUserDataClient initialized with configuration:");
-            _logger.LogDebug("BaseUrl: {BaseUrl}", _options.BaseUrl);
-            _logger.LogDebug("ClientId: {ClientId}", _options.ClientId);
-            _logger.LogDebug("TokenEndpoint: {TokenEndpoint}", _options.TokenEndpoint);
-            _logger.LogDebug("QueryUser: {QueryUser}", _options.QueryUser);
-            _logger.LogDebug("HttpClient BaseAddress: {BaseAddress}", _client.BaseAddress);
+            // Log configuration validation at Debug level (without sensitive data)
+            _logger.LogDebug("IdmUserDataClient initialized");
+            _logger.LogDebug("BaseUrl configured: {HasBaseUrl}", !string.IsNullOrEmpty(_options.BaseUrl));
+            _logger.LogDebug("ClientId configured: {HasClientId}", !string.IsNullOrEmpty(_options.ClientId));
+            _logger.LogDebug("TokenEndpoint configured: {HasTokenEndpoint}", !string.IsNullOrEmpty(_options.TokenEndpoint));
 
             // Validate critical configuration
             if (string.IsNullOrEmpty(_options.BaseUrl))
@@ -64,8 +62,8 @@ namespace FlowFlex.Application.Services.OW
         /// </summary>
         public async Task<IdentityHubClientTokenResponse> ClientTokenAsync(string clientId, string clientSecret)
         {
-            _logger.LogInformation("Requesting client token from IDM with ClientId: {ClientId}", clientId);
-            _logger.LogDebug("Token endpoint: {TokenEndpoint}", _options.TokenEndpoint);
+            _logger.LogInformation("Requesting client token from IDM");
+            _logger.LogDebug("Token endpoint configured: {HasEndpoint}", !string.IsNullOrEmpty(_options.TokenEndpoint));
 
             var formContent = new List<KeyValuePair<string, string>>
             {
@@ -74,25 +72,14 @@ namespace FlowFlex.Application.Services.OW
                 new("client_secret", clientSecret)
             };
 
-            _logger.LogDebug("Token request form data:");
-            foreach (var kvp in formContent)
-            {
-                if (kvp.Key == "client_secret")
-                {
-                    _logger.LogDebug("  {Key}: [REDACTED]", kvp.Key);
-                }
-                else
-                {
-                    _logger.LogDebug("  {Key}: {Value}", kvp.Key, kvp.Value);
-                }
-            }
+            // Log form data without sensitive values
+            _logger.LogDebug("Token request prepared with grant_type: client_credentials");
 
             using var content = new FormUrlEncodedContent(formContent);
 
             try
             {
-                var fullUrl = $"{_client.BaseAddress?.ToString().TrimEnd('/')}{_options.TokenEndpoint}";
-                _logger.LogDebug("Sending POST request to: {Url}", fullUrl);
+                _logger.LogDebug("Sending token request");
 
                 // Clear any existing authorization headers before setting new one
                 _client.DefaultRequestHeaders.Authorization = null;
@@ -110,21 +97,6 @@ namespace FlowFlex.Application.Services.OW
                 };
                 using var basicAuthContent = new FormUrlEncodedContent(basicAuthFormContent);
 
-                // Log request headers
-                _logger.LogDebug("Request headers:");
-                foreach (var header in _client.DefaultRequestHeaders)
-                {
-                    if (header.Key.Contains("Authorization", StringComparison.OrdinalIgnoreCase))
-                    {
-                        _logger.LogDebug("  {HeaderName}: Basic [REDACTED]", header.Key);
-                    }
-                    else
-                    {
-                        _logger.LogDebug("  {HeaderName}: {HeaderValue}", header.Key, string.Join(", ", header.Value));
-                    }
-                }
-                _logger.LogDebug("Content-Type: {ContentType}", basicAuthContent.Headers.ContentType?.ToString());
-
                 // First try with Basic Auth
                 _logger.LogDebug("Attempting token request with HTTP Basic Authentication");
                 using var basicResp = await _client.PostAsync(_options.TokenEndpoint, basicAuthContent);
@@ -133,9 +105,8 @@ namespace FlowFlex.Application.Services.OW
                 {
                     _logger.LogInformation("Token request succeeded with Basic Authentication: {StatusCode}", basicResp.StatusCode);
 
-                    // Log the raw response content for debugging
                     var rawContent = await basicResp.Content.ReadAsStringAsync();
-                    _logger.LogDebug("Raw token response content: {Content}", rawContent);
+                    // Do not log raw token response content
 
                     // Parse JSON from the string content
                     var basicResult = System.Text.Json.JsonSerializer.Deserialize<IdentityHubClientTokenResponse>(rawContent, new JsonSerializerOptions
@@ -157,7 +128,7 @@ namespace FlowFlex.Application.Services.OW
 
                         if (basicResult.ExpiresIn <= 0)
                         {
-                            _logger.LogWarning("ExpiresIn is {ExpiresIn}, using 3600 as fallback", basicResult.ExpiresIn);
+                            _logger.LogWarning("ExpiresIn is invalid, using 3600 as fallback");
                             basicResult.ExpiresIn = 3600; // Default 1 hour
                         }
                     }
@@ -169,8 +140,7 @@ namespace FlowFlex.Application.Services.OW
                 }
                 else
                 {
-                    var basicErrorContent = await basicResp.Content.ReadAsStringAsync();
-                    _logger.LogWarning("Basic Auth failed: {StatusCode} - {Content}", basicResp.StatusCode, basicErrorContent);
+                    _logger.LogWarning("Basic Auth failed: {StatusCode}", basicResp.StatusCode);
                 }
 
                 // Clear Basic Auth and try with form data method
@@ -182,13 +152,12 @@ namespace FlowFlex.Application.Services.OW
 
                 if (!resp.IsSuccessStatusCode)
                 {
-                    var errorContent = await resp.Content.ReadAsStringAsync();
-                    _logger.LogError("Token request failed: {StatusCode} - {Content}", resp.StatusCode, errorContent);
+                    _logger.LogError("Token request failed: {StatusCode}", resp.StatusCode);
                     resp.EnsureSuccessStatusCode();
                 }
 
                 var responseContent = await resp.Content.ReadAsStringAsync();
-                _logger.LogDebug("Form data raw token response content: {Content}", responseContent);
+                // Do not log raw token response content
 
                 var result = JsonSerializer.Deserialize<IdentityHubClientTokenResponse>(responseContent, new JsonSerializerOptions
                 {
@@ -209,7 +178,7 @@ namespace FlowFlex.Application.Services.OW
 
                     if (result.ExpiresIn <= 0)
                     {
-                        _logger.LogWarning("ExpiresIn is {ExpiresIn}, using 3600 as fallback", result.ExpiresIn);
+                        _logger.LogWarning("ExpiresIn is invalid, using 3600 as fallback");
                         result.ExpiresIn = 3600; // Default 1 hour
                     }
 
@@ -238,11 +207,11 @@ namespace FlowFlex.Application.Services.OW
         private async Task<IdentityHubClientTokenResponse> GetTokenAsync()
         {
             var cacheKey = $"idm:token:{_options.ClientId}";
-            _logger.LogDebug("Checking token cache with key: {CacheKey}", cacheKey);
+            _logger.LogDebug("Checking token cache");
 
             if (!_cache.TryGetValue(cacheKey, out IdentityHubClientTokenResponse tokenInfo))
             {
-                _logger.LogInformation("Token not found in cache, requesting new token from IDM for client: {ClientId}", _options.ClientId);
+                _logger.LogInformation("Token not found in cache, requesting new token from IDM");
 
                 tokenInfo = await ClientTokenAsync(_options.ClientId, _options.ClientSecret);
                 if (tokenInfo == null || !string.IsNullOrWhiteSpace(tokenInfo.Error))
@@ -259,7 +228,7 @@ namespace FlowFlex.Application.Services.OW
             }
             else
             {
-                _logger.LogDebug("Using cached token for client: {ClientId}", _options.ClientId);
+                _logger.LogDebug("Using cached token");
             }
             return tokenInfo;
         }
@@ -292,10 +261,6 @@ namespace FlowFlex.Application.Services.OW
                 _client.DefaultRequestHeaders.Authorization =
                     new AuthenticationHeaderValue(tokenInfo.TokenType, tokenInfo.AccessToken);
 
-                // Log the token being used for debugging (first 20 chars only)
-                var tokenPreview = tokenInfo.AccessToken?.Length > 20 ?
-                    tokenInfo.AccessToken.Substring(0, 20) + "..." : tokenInfo.AccessToken;
-                _logger.LogDebug("Using access token: {TokenPreview}", tokenPreview);
                 _logger.LogDebug("Set Authorization header with {TokenType} token", tokenInfo.TokenType);
 
                 // Build request URI
@@ -334,8 +299,7 @@ namespace FlowFlex.Application.Services.OW
                 }
 
                 var responseContent = await resp.Content.ReadAsStringAsync();
-                _logger.LogDebug("Raw response content (first 500 chars): {Content}",
-                    responseContent.Length > 500 ? responseContent.Substring(0, 500) + "..." : responseContent);
+                _logger.LogDebug("Response content length: {ContentLength} chars", responseContent.Length);
 
                 var result = await resp.Content.ReadFromJsonAsync<BasicResponse<PageModel<List<IdmUserOutputDto>>>>();
 
@@ -369,10 +333,8 @@ namespace FlowFlex.Application.Services.OW
 
                 if (userCount > 0)
                 {
-                    var firstUser = result.Data.Data.First();
-                    _logger.LogDebug("First user sample - Id: {Id}, Username: {Username}, Email: {Email}, UserGroups: {UserGroups}",
-                        firstUser.Id, firstUser.Username, firstUser.Email,
-                        firstUser.UserGroups != null ? string.Join(", ", firstUser.UserGroups) : "null");
+                    _logger.LogDebug("First user has {GroupCount} user groups",
+                        result.Data.Data.First().UserGroups?.Count ?? 0);
                 }
 
                 return result.Data;
@@ -535,24 +497,7 @@ namespace FlowFlex.Application.Services.OW
                     requestUri += $"&TenantId={tenantId}";
                 }
 
-                var fullUrl = $"{_client.BaseAddress?.ToString().TrimEnd('/')}{requestUri}";
-                _logger.LogInformation("Making GET request to full URL: {FullUrl}", fullUrl);
-
-                // Output cURL command for debugging
-                try
-                {
-                    var tokenPreview = string.IsNullOrEmpty(tokenInfo.AccessToken) ? "[NULL]" :
-                                      tokenInfo.AccessToken.Length > 20 ?
-                                      $"{tokenInfo.AccessToken.Substring(0, 20)}..." :
-                                      tokenInfo.AccessToken;
-                    var appIdHeader = !string.IsNullOrEmpty(_options.AppId) ? $" -H \"X-App-Id: {_options.AppId}\"" : "";
-                    var curlCommand = $"curl -X GET \"{fullUrl}\" -H \"Authorization: {tokenInfo.TokenType} {tokenPreview}\"{appIdHeader}";
-                    _logger.LogInformation("🔍 Teams API cURL equivalent: {CurlCommand}", curlCommand);
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogWarning("Failed to generate cURL command: {Exception}", ex.Message);
-                }
+                _logger.LogDebug("Making GET request to Teams API endpoint");
 
                 var startTime = DateTimeOffset.UtcNow;
                 using var resp = await _client.GetAsync(requestUri);
@@ -568,13 +513,11 @@ namespace FlowFlex.Application.Services.OW
                     _logger.LogError("  Status Code: {StatusCode}", resp.StatusCode);
                     _logger.LogError("  Error Content: {ErrorContent}", errorContent);
                     _logger.LogError("  Request URI: {RequestUri}", requestUri);
-                    _logger.LogError("  Full URL: {FullUrl}", fullUrl);
                     throw new HttpRequestException($"IDM Teams API request failed: {resp.StatusCode} - {errorContent}");
                 }
 
                 var responseContent = await resp.Content.ReadAsStringAsync();
-                _logger.LogDebug("Raw teams response content (first 500 chars): {Content}",
-                    responseContent.Length > 500 ? responseContent.Substring(0, 500) + "..." : responseContent);
+                _logger.LogDebug("Teams response content length: {ContentLength} chars", responseContent.Length);
 
                 var result = JsonSerializer.Deserialize<BasicResponse<PageModel<List<IdmTeamDto>>>>(responseContent, new JsonSerializerOptions
                 {
@@ -608,13 +551,6 @@ namespace FlowFlex.Application.Services.OW
                 _logger.LogInformation("Retrieved {TeamCount} teams from IDM", teamCount);
                 _logger.LogInformation("Pagination - Page {PageIndex} of {PageCount}, Total: {DataCount}",
                     result.Data.PageIndex, result.Data.PageCount, result.Data.DataCount);
-
-                if (teamCount > 0)
-                {
-                    var firstTeam = result.Data.Data.First();
-                    _logger.LogDebug("First team sample - Id: {Id}, TeamName: {TeamName}, TeamMembers: {TeamMembers}",
-                        firstTeam.Id, firstTeam.TeamName, firstTeam.TeamMembers);
-                }
 
                 return result.Data;
             }
@@ -663,24 +599,7 @@ namespace FlowFlex.Application.Services.OW
                 // Build request URI with TenantId parameter
                 var requestUri = $"{_options.QueryTeamTree}?TenantId={tenantId ?? "1000"}";
 
-                var fullUrl = $"{_client.BaseAddress?.ToString().TrimEnd('/')}{requestUri}";
-                _logger.LogInformation("Making GET request to full URL: {FullUrl}", fullUrl);
-
-                // Output cURL command for debugging
-                try
-                {
-                    var tokenPreview = string.IsNullOrEmpty(tokenInfo.AccessToken) ? "[NULL]" :
-                                      tokenInfo.AccessToken.Length > 20 ?
-                                      $"{tokenInfo.AccessToken.Substring(0, 20)}..." :
-                                      tokenInfo.AccessToken;
-                    var appIdHeader = !string.IsNullOrEmpty(_options.AppId) ? $" -H \"X-App-Id: {_options.AppId}\"" : "";
-                    var curlCommand = $"curl -X GET \"{fullUrl}\" -H \"Authorization: {tokenInfo.TokenType} {tokenPreview}\"{appIdHeader}";
-                    _logger.LogInformation("🔍 TeamTree API cURL equivalent: {CurlCommand}", curlCommand);
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogWarning("Failed to generate cURL command: {Exception}", ex.Message);
-                }
+                _logger.LogDebug("Making GET request to TeamTree API endpoint");
 
                 var startTime = DateTimeOffset.UtcNow;
                 using var resp = await _client.GetAsync(requestUri);
@@ -696,13 +615,11 @@ namespace FlowFlex.Application.Services.OW
                     _logger.LogError("  Status Code: {StatusCode}", resp.StatusCode);
                     _logger.LogError("  Error Content: {ErrorContent}", errorContent);
                     _logger.LogError("  Request URI: {RequestUri}", requestUri);
-                    _logger.LogError("  Full URL: {FullUrl}", fullUrl);
                     throw new HttpRequestException($"IDM TeamTree API request failed: {resp.StatusCode} - {errorContent}");
                 }
 
                 var responseContent = await resp.Content.ReadAsStringAsync();
-                _logger.LogDebug("Raw team tree response content (first 500 chars): {Content}",
-                    responseContent.Length > 500 ? responseContent.Substring(0, 500) + "..." : responseContent);
+                _logger.LogDebug("TeamTree response content length: {ContentLength} chars", responseContent.Length);
 
                 var result = JsonSerializer.Deserialize<BasicResponse<List<IdmTeamTreeNodeDto>>>(responseContent, new JsonSerializerOptions
                 {
@@ -727,13 +644,6 @@ namespace FlowFlex.Application.Services.OW
                 var teamCount = result.Data.Count;
                 _logger.LogInformation("=== GetTeamTreeAsync Success ===");
                 _logger.LogInformation("Retrieved {TeamCount} root team nodes from IDM", teamCount);
-
-                if (teamCount > 0)
-                {
-                    var firstTeam = result.Data.First();
-                    _logger.LogDebug("First team sample - Value: {Value}, Label: {Label}, ChildrenCount: {ChildrenCount}",
-                        firstTeam.Value, firstTeam.Label, firstTeam.Children?.Count ?? 0);
-                }
 
                 return result.Data;
             }
@@ -819,8 +729,7 @@ namespace FlowFlex.Application.Services.OW
                 }
 
                 var responseContent = await resp.Content.ReadAsStringAsync();
-                _logger.LogDebug("Raw user info response content (first 500 chars): {Content}",
-                    responseContent.Length > 500 ? responseContent.Substring(0, 500) + "..." : responseContent);
+                _logger.LogDebug("User info response content length: {ContentLength} chars", responseContent.Length);
 
                 var result = JsonSerializer.Deserialize<BasicResponse<IdmUserOutputDto>>(responseContent, new JsonSerializerOptions
                 {
@@ -843,18 +752,8 @@ namespace FlowFlex.Application.Services.OW
                 }
 
                 _logger.LogInformation("=== GetUserByIdAsync Success ===");
-                _logger.LogInformation("Retrieved user info - UserId: {UserId}, UserName: {UserName}, UserPermissions: {PermissionCount}",
-                    result.Data.Id, result.Data.Username, result.Data.UserPermissions?.Count ?? 0);
-
-                // Log user permissions for debugging
-                if (result.Data.UserPermissions != null && result.Data.UserPermissions.Any())
-                {
-                    foreach (var permission in result.Data.UserPermissions)
-                    {
-                        _logger.LogDebug("User permission - TenantId: {TenantId}, UserType: {UserType}, RoleIds: {RoleIds}",
-                            permission.TenantId, permission.UserType, string.Join(", ", permission.RoleIds ?? new List<string>()));
-                    }
-                }
+                _logger.LogDebug("Retrieved user info - UserId: {UserId}, UserPermissions: {PermissionCount}",
+                    result.Data.Id, result.Data.UserPermissions?.Count ?? 0);
 
                 return result.Data;
             }
@@ -909,8 +808,7 @@ namespace FlowFlex.Application.Services.OW
                 }
 
                 var responseContent = await resp.Content.ReadAsStringAsync();
-                _logger.LogDebug("Raw current user info response content (first 500 chars): {Content}",
-                    responseContent.Length > 500 ? responseContent.Substring(0, 500) + "..." : responseContent);
+                _logger.LogDebug("Current user info response content length: {ContentLength} chars", responseContent.Length);
 
                 var result = JsonSerializer.Deserialize<BasicResponse<IdmUserOutputDto>>(responseContent, new JsonSerializerOptions
                 {
@@ -933,8 +831,7 @@ namespace FlowFlex.Application.Services.OW
                 }
 
                 _logger.LogInformation("=== GetCurrentUserInfoAsync Success ===");
-                _logger.LogInformation("Retrieved current user info - UserId: {UserId}, UserName: {UserName}",
-                    result.Data.Id, result.Data.Username);
+                _logger.LogDebug("Retrieved current user info - UserId: {UserId}", result.Data.Id);
 
                 return result.Data;
             }
@@ -1001,8 +898,7 @@ namespace FlowFlex.Application.Services.OW
                         if (matchedUser != null)
                         {
                             _logger.LogInformation("=== SearchUserByNameOrEmailAsync Success (via TeamUsers API) ===");
-                            _logger.LogInformation("Found user - Id: {Id}, Username: {Username}, Email: {Email}",
-                                matchedUser.Id, matchedUser.UserName, matchedUser.Email);
+                            _logger.LogDebug("Found user - Id: {Id}", matchedUser.Id);
 
                             // Convert IdmTeamUserDto to IdmUserOutputDto
                             return new IdmUserOutputDto
@@ -1073,16 +969,14 @@ namespace FlowFlex.Application.Services.OW
                 if (exactMatch != null)
                 {
                     _logger.LogInformation("=== SearchUserByNameOrEmailAsync Success (exact match) ===");
-                    _logger.LogInformation("Found user - Id: {Id}, Username: {Username}, Email: {Email}",
-                        exactMatch.Id, exactMatch.Username, exactMatch.Email);
+                    _logger.LogDebug("Found user - Id: {Id}", exactMatch.Id);
                     return exactMatch;
                 }
 
                 // Return first result if no exact match
                 var firstResult = result.Data.Data.First();
                 _logger.LogInformation("=== SearchUserByNameOrEmailAsync Success (first match) ===");
-                _logger.LogInformation("Found user - Id: {Id}, Username: {Username}, Email: {Email}",
-                    firstResult.Id, firstResult.Username, firstResult.Email);
+                _logger.LogDebug("Found user - Id: {Id}", firstResult.Id);
                 return firstResult;
             }
             catch (Exception ex)
@@ -1135,24 +1029,7 @@ namespace FlowFlex.Application.Services.OW
                     requestUri += $"&TenantId={tenantId}";
                 }
 
-                var fullUrl = $"{_client.BaseAddress?.ToString().TrimEnd('/')}{requestUri}";
-                _logger.LogInformation("Making GET request to full URL: {FullUrl}", fullUrl);
-
-                // Output cURL command for debugging
-                try
-                {
-                    var tokenPreview = string.IsNullOrEmpty(tokenInfo.AccessToken) ? "[NULL]" :
-                                      tokenInfo.AccessToken.Length > 20 ?
-                                      $"{tokenInfo.AccessToken.Substring(0, 20)}..." :
-                                      tokenInfo.AccessToken;
-                    var appIdHeader = !string.IsNullOrEmpty(_options.AppId) ? $" -H \"X-App-Id: {_options.AppId}\"" : "";
-                    var curlCommand = $"curl -X GET \"{fullUrl}\" -H \"Authorization: {tokenInfo.TokenType} {tokenPreview}\"{appIdHeader}";
-                    _logger.LogInformation("🔍 TeamUsers API cURL equivalent: {CurlCommand}", curlCommand);
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogWarning("Failed to generate cURL command: {Exception}", ex.Message);
-                }
+                _logger.LogDebug("Making GET request to TeamUsers API endpoint");
 
                 var startTime = DateTimeOffset.UtcNow;
                 using var resp = await _client.GetAsync(requestUri);
@@ -1168,13 +1045,11 @@ namespace FlowFlex.Application.Services.OW
                     _logger.LogError("  Status Code: {StatusCode}", resp.StatusCode);
                     _logger.LogError("  Error Content: {ErrorContent}", errorContent);
                     _logger.LogError("  Request URI: {RequestUri}", requestUri);
-                    _logger.LogError("  Full URL: {FullUrl}", fullUrl);
                     throw new HttpRequestException($"IDM TeamUsers API request failed: {resp.StatusCode} - {errorContent}");
                 }
 
                 var responseContent = await resp.Content.ReadAsStringAsync();
-                _logger.LogDebug("Raw team users response content (first 500 chars): {Content}",
-                    responseContent.Length > 500 ? responseContent.Substring(0, 500) + "..." : responseContent);
+                _logger.LogDebug("TeamUsers response content length: {ContentLength} chars", responseContent.Length);
 
                 var result = JsonSerializer.Deserialize<BasicResponse<List<IdmTeamUserDto>>>(responseContent, new JsonSerializerOptions
                 {
@@ -1199,13 +1074,6 @@ namespace FlowFlex.Application.Services.OW
                 var teamUserCount = result.Data.Count;
                 _logger.LogInformation("=== GetAllTeamUsersAsync Success ===");
                 _logger.LogInformation("Retrieved {TeamUserCount} team user relationships from IDM", teamUserCount);
-
-                if (teamUserCount > 0)
-                {
-                    var firstTeamUser = result.Data.First();
-                    _logger.LogDebug("First team user sample - Id: {Id}, UserName: {UserName}, TeamId: {TeamId}",
-                        firstTeamUser.Id, firstTeamUser.UserName, firstTeamUser.TeamId);
-                }
 
                 return result.Data;
             }

@@ -22,8 +22,11 @@ namespace FlowFlex.WebApi.Extensions
         public static IServiceCollection AddService(this IServiceCollection services, IConfiguration configuration)
         {
             // Read connection string from configuration file
-            var connectionString = configuration["Database:ConnectionString"]
-                ?? "Host=localhost;Port=5432;Database=flowflex;Username=flowflex;Password=123456;";
+            var connectionString = configuration["Database:ConnectionString"];
+            if (string.IsNullOrEmpty(connectionString))
+            {
+                throw new InvalidOperationException("Database:ConnectionString is not configured. Please set it in appsettings.json or environment variables.");
+            }
 
             // Read database configuration
             var configId = configuration["Database:ConfigId"] ?? "FlowFlex";

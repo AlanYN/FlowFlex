@@ -165,21 +165,6 @@ namespace FlowFlex.WebApi.Controllers.OW
         }
 
         /// <summary>
-        /// Create test user (for testing environment only)
-        /// </summary>
-        /// <param name="email">Email</param>
-        /// <param name="password">Password</param>
-        /// <returns>User DTO</returns>
-        [HttpPost("create-test-user")]
-        [AllowAnonymous]
-        [ProducesResponseType<SuccessResponse<UserDto>>((int)HttpStatusCode.OK)]
-        [ProducesResponseType(typeof(ErrorResponse), 400)]
-        public async Task<IActionResult> CreateTestUser([FromQuery] string email, [FromQuery] string password)
-        {
-            var user = await _userService.CreateTestUserAsync(email, password);
-            return Success(user);
-        }
-
         /// <summary>
         /// Refresh access token
         /// </summary>
@@ -240,18 +225,20 @@ namespace FlowFlex.WebApi.Controllers.OW
 
         /// <summary>
         /// Parse JWT token and return detailed information
+        /// Requires authentication to prevent token enumeration attacks
         /// </summary>
         /// <param name="request">Parse token request</param>
         /// <returns>JWT Token information</returns>
         [HttpPost("parse-jwt-token")]
-        [AllowAnonymous]
+        [Authorize]
         [ProducesResponseType<SuccessResponse<JwtTokenInfoDto>>((int)HttpStatusCode.OK)]
         [ProducesResponseType(typeof(ErrorResponse), 400)]
+        [ProducesResponseType(typeof(ErrorResponse), 401)]
         public IActionResult ParseJwtToken([FromBody] ParseTokenRequestDto request)
         {
             if (request == null || string.IsNullOrWhiteSpace(request.Token))
             {
-                // 尝试从Authorization Header获取token
+                // Try to get token from Authorization Header
                 var authHeader = Request.Headers["Authorization"].FirstOrDefault();
                 if (!string.IsNullOrWhiteSpace(authHeader) && authHeader.StartsWith("Bearer "))
                 {
@@ -269,13 +256,15 @@ namespace FlowFlex.WebApi.Controllers.OW
 
         /// <summary>
         /// Parse JWT token from query parameter
+        /// Requires authentication to prevent token enumeration attacks
         /// </summary>
         /// <param name="token">JWT Token</param>
         /// <returns>JWT Token information</returns>
         [HttpGet("parse-jwt-token")]
-        [AllowAnonymous]
+        [Authorize]
         [ProducesResponseType<SuccessResponse<JwtTokenInfoDto>>((int)HttpStatusCode.OK)]
         [ProducesResponseType(typeof(ErrorResponse), 400)]
+        [ProducesResponseType(typeof(ErrorResponse), 401)]
         public IActionResult ParseJwtTokenFromQuery([FromQuery] string token)
         {
             if (string.IsNullOrWhiteSpace(token))

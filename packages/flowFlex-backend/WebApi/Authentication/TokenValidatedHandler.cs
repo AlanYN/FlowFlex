@@ -5,6 +5,7 @@ using FlowFlex.Domain.Shared.Enums.Item;
 using FlowFlex.Domain.Shared.Models;
 using Item.ThirdParty.IdentityHub;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Primitives;
 using Newtonsoft.Json;
@@ -14,6 +15,16 @@ namespace WebApi.Authentication
 {
     public static class TokenValidatedHandler
     {
+        /// <summary>
+        /// Get logger from service provider
+        /// </summary>
+        private static ILogger GetLogger(IServiceProvider serviceProvider)
+        {
+            var loggerFactory = serviceProvider.GetService<ILoggerFactory>();
+            return loggerFactory?.CreateLogger("TokenValidatedHandler") 
+                ?? Microsoft.Extensions.Logging.Abstractions.NullLogger.Instance;
+        }
+
         /// <summary>
         /// 
         /// </summary>
@@ -62,6 +73,7 @@ namespace WebApi.Authentication
         public static async Task OnIdmTokenValidated(TokenValidatedContext context)
         {
             await Task.CompletedTask;
+            var logger = GetLogger(context.HttpContext.RequestServices);
             var principal = context.Principal ?? throw new NullReferenceException(nameof(context.Principal));
             var claims = principal.Claims.ToList();
             var userContext = context.HttpContext.RequestServices.GetService<UserContext>() ??
@@ -70,7 +82,7 @@ namespace WebApi.Authentication
             // Skip if UserContext is already populated by another authentication scheme
             if (!string.IsNullOrEmpty(userContext.UserId) && userContext.UserPermissions?.Any() == true)
             {
-                Console.WriteLine($"[TokenValidatedHandler.OnIdmTokenValidated] UserContext already populated, skipping duplicate processing for user {userContext.UserId}");
+                logger.LogDebug("OnIdmTokenValidated: UserContext already populated, skipping duplicate processing");
                 return;
             }
             
@@ -135,7 +147,7 @@ namespace WebApi.Authentication
                     }
                     else
                     {
-                        Console.WriteLine($"[TokenValidatedHandler] Skipping team loading for admin user {userContext.UserId} (IsSystemAdmin={userContext.IsSystemAdmin})");
+                        logger.LogDebug("Skipping team loading for admin user (IsSystemAdmin={IsSystemAdmin})", userContext.IsSystemAdmin);
                     }
                 }
             }
@@ -153,6 +165,7 @@ namespace WebApi.Authentication
         public static async Task OnIamItemTokenValidated(TokenValidatedContext context)
         {
             await Task.CompletedTask;
+            var logger = GetLogger(context.HttpContext.RequestServices);
             var principal = context.Principal ?? throw new NullReferenceException(nameof(context.Principal));
             var claims = principal.Claims.ToList();
             var userContext = context.HttpContext.RequestServices.GetService<UserContext>() ??
@@ -161,7 +174,7 @@ namespace WebApi.Authentication
             // Skip if UserContext is already populated by another authentication scheme
             if (!string.IsNullOrEmpty(userContext.UserId) && userContext.UserPermissions?.Any() == true)
             {
-                Console.WriteLine($"[TokenValidatedHandler.OnIamItemTokenValidated] UserContext already populated, skipping duplicate processing for user {userContext.UserId}");
+                logger.LogDebug("OnIamItemTokenValidated: UserContext already populated, skipping duplicate processing");
                 return;
             }
 
@@ -176,7 +189,7 @@ namespace WebApi.Authentication
             if (string.IsNullOrEmpty(tokenType) && !string.IsNullOrEmpty(tokenCategory))
             {
                 tokenType = tokenCategory == "User" ? "password" : "client_credentials";
-                Console.WriteLine($"[TokenValidatedHandler.OnIamItemTokenValidated] grant_type not found, inferred from token_category: {tokenCategory} -> {tokenType}");
+                logger.LogDebug("grant_type not found, inferred from token_category: {TokenCategory} -> {TokenType}", tokenCategory, tokenType);
             }
             
             try
@@ -201,7 +214,7 @@ namespace WebApi.Authentication
                         userContext.RoleIds = validatedUserExtensionResult.Data.RoleIds;
                         userContext.ValidationVersion = claims!.FirstOrDefault(x => x.Type == "jti")?.Value;
                         userContext.UserId = userInfo.UserId;
-                        Console.WriteLine($"[TokenValidatedHandler.OnIamItemTokenValidated] Set UserId from userInfo: {userContext.UserId}");
+                        logger.LogDebug("Set UserId from userInfo: {UserId}", userContext.UserId);
                         userContext.UserName = userInfo.UserName;
                         userContext.LastName = userInfo.LastName;
                         userContext.FirstName = userInfo.FirstName;
@@ -235,7 +248,7 @@ namespace WebApi.Authentication
                         }
                         else
                         {
-                            Console.WriteLine($"[TokenValidatedHandler] Skipping team loading for admin user {userContext.UserId} (IsSystemAdmin={userContext.IsSystemAdmin})");
+                            logger.LogDebug("Skipping team loading for admin user (IsSystemAdmin={IsSystemAdmin})", userContext.IsSystemAdmin);
                         }
                         break;
                     case "client_credentials":
@@ -289,29 +302,31 @@ namespace WebApi.Authentication
         /// </summary>
         private static async Task LoadUserTypeAsync(TokenValidatedContext context, UserContext userContext, string authorization)
         {
+            var logger = GetLogger(context.HttpContext.RequestServices);
+            
             // Set default value first
             userContext.UserType = 2; // Default to normal user
             userContext.UserPermissions = new List<FlowFlex.Domain.Shared.Models.UserPermissionModel>();
 
             try
             {
-                Console.WriteLine($"[TokenValidatedHandler] LoadUserTypeAsync started for user {userContext.UserId}");
+                logger.LogDebug("LoadUserTypeAsync started for user {UserId}", userContext.UserId);
 
                 // Get IdmUserDataClient to fetch user information
                 var idmUserDataClient = context.HttpContext.RequestServices.GetService<FlowFlex.Application.Services.OW.IdmUserDataClient>();
                 if (idmUserDataClient == null)
                 {
-                    Console.WriteLine($"[TokenValidatedHandler] IdmUserDataClient not available, using default permissions");
+                    logger.LogDebug("IdmUserDataClient not available, using default permissions");
                     return;
                 }
 
                 // Call /api/v1/users/{userId} to get user permissions
-                Console.WriteLine($"[TokenValidatedHandler] Calling GetUserByIdAsync for user {userContext.UserId}");
+                logger.LogDebug("Calling GetUserByIdAsync for user {UserId}", userContext.UserId);
                 var userInfo = await idmUserDataClient.GetUserByIdAsync(userContext.UserId, authorization);
 
                 if (userInfo == null)
                 {
-                    Console.WriteLine($"[TokenValidatedHandler] GetUserByIdAsync returned null, using default permissions");
+                    logger.LogDebug("GetUserByIdAsync returned null, using default permissions");
                     return;
                 }
 
@@ -325,28 +340,19 @@ namespace WebApi.Authentication
                         RoleIds = p.RoleIds ?? new List<string>()
                     }).ToList();
 
-                    Console.WriteLine($"[TokenValidatedHandler] Loaded {userContext.UserPermissions.Count} user permissions");
-                    foreach (var permission in userContext.UserPermissions)
-                    {
-                        Console.WriteLine($"[TokenValidatedHandler] Permission - TenantId: {permission.TenantId}, UserType: {permission.UserType}");
-                    }
+                    logger.LogDebug("Loaded {Count} user permissions", userContext.UserPermissions.Count);
                 }
                 else
                 {
-                    Console.WriteLine($"[TokenValidatedHandler] No user permissions found in IDM response");
+                    logger.LogDebug("No user permissions found in IDM response");
                 }
 
-                Console.WriteLine($"[TokenValidatedHandler] Successfully loaded user permissions for user {userContext.UserId} (IsSystemAdmin={userContext.IsSystemAdmin})");
+                logger.LogDebug("Successfully loaded user permissions (IsSystemAdmin={IsSystemAdmin})", userContext.IsSystemAdmin);
             }
             catch (Exception ex)
             {
                 // Log error but don't fail authentication - keep default permissions
-                Console.WriteLine($"[TokenValidatedHandler] Error loading user permissions (will use default): {ex.GetType().Name} - {ex.Message}");
-                if (ex.InnerException != null)
-                {
-                    Console.WriteLine($"[TokenValidatedHandler] Inner exception: {ex.InnerException.GetType().Name} - {ex.InnerException.Message}");
-                }
-                // Don't log full stack trace to avoid cluttering logs
+                logger.LogWarning(ex, "Error loading user permissions (will use default)");
             }
         }
 
@@ -355,6 +361,8 @@ namespace WebApi.Authentication
         /// </summary>
         private static async Task LoadUserTeamsAsync(TokenValidatedContext context, UserContext userContext)
         {
+            var logger = GetLogger(context.HttpContext.RequestServices);
+            
             try
             {
                 // Skip IDM API call if TenantId is not a valid numeric value
@@ -363,7 +371,7 @@ namespace WebApi.Authentication
                     userContext.TenantId == "default" || 
                     !long.TryParse(userContext.TenantId, out _))
                 {
-                    Console.WriteLine($"[TokenValidatedHandler] Skipping team loading - TenantId '{userContext.TenantId}' is not a valid numeric value");
+                    logger.LogDebug("Skipping team loading - TenantId '{TenantId}' is not a valid numeric value", userContext.TenantId);
                     return;
                 }
 
@@ -372,7 +380,7 @@ namespace WebApi.Authentication
                 if (idmUserDataClient == null)
                 {
                     // Log warning but don't fail authentication
-                    Console.WriteLine($"[TokenValidatedHandler] IdmUserDataClient not available, UserTeams will not be populated for user {userContext.UserId}");
+                    logger.LogWarning("IdmUserDataClient not available, UserTeams will not be populated");
                     return;
                 }
 
@@ -380,7 +388,7 @@ namespace WebApi.Authentication
                 var teamUsersResponse = await idmUserDataClient.GetAllTeamUsersAsync(userContext.TenantId, 10000, 1);
                 if (teamUsersResponse == null || !teamUsersResponse.Any())
                 {
-                    Console.WriteLine($"[TokenValidatedHandler] No team users found for tenant {userContext.TenantId}");
+                    logger.LogDebug("No team users found for tenant {TenantId}", userContext.TenantId);
                     return;
                 }
 
@@ -392,7 +400,7 @@ namespace WebApi.Authentication
 
                 if (!userTeamRelations.Any())
                 {
-                    Console.WriteLine($"[TokenValidatedHandler] User {userContext.UserId} is not assigned to any teams");
+                    logger.LogDebug("User is not assigned to any teams");
                     return;
                 }
 
@@ -400,7 +408,7 @@ namespace WebApi.Authentication
                 var teamsResponse = await idmUserDataClient.GetAllTeamsAsync(userContext.TenantId, 10000, 1);
                 if (teamsResponse?.Data == null || !teamsResponse.Data.Any())
                 {
-                    Console.WriteLine($"[TokenValidatedHandler] No teams found for tenant {userContext.TenantId}");
+                    logger.LogDebug("No teams found for tenant {TenantId}", userContext.TenantId);
                     return;
                 }
 
@@ -431,14 +439,13 @@ namespace WebApi.Authentication
                         }
                     }
 
-                    Console.WriteLine($"[TokenValidatedHandler] Loaded {userTeamRelations.Count} teams for user {userContext.UserId}");
+                    logger.LogDebug("Loaded {Count} teams for user", userTeamRelations.Count);
                 }
             }
             catch (Exception ex)
             {
                 // Log error but don't fail authentication
-                Console.WriteLine($"[TokenValidatedHandler] Error loading user teams: {ex.Message}");
-                Console.WriteLine($"[TokenValidatedHandler] Stack trace: {ex.StackTrace}");
+                logger.LogWarning(ex, "Error loading user teams");
             }
         }
     }

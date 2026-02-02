@@ -860,6 +860,7 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
 
             try
             {
+                // Use parameterized query to prevent SQL injection
                 var progressSql = "UPDATE ff_onboarding SET stages_progress_json = @StagesProgressJson::jsonb WHERE id = @Id";
                 await db.Ado.ExecuteCommandAsync(progressSql, new
                 {
@@ -871,16 +872,20 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
             {
                 _logger.LogWarning(ex, "Failed to update stages_progress_json with parameterized query for onboarding {OnboardingId}", entity.Id);
                 
-                // Try alternative approach with direct SQL
+                // Try alternative parameterized approach with SugarParameter
                 try
                 {
-                    var escapedJson = entity.StagesProgressJson.Replace("'", "''");
-                    var directSql = $"UPDATE ff_onboarding SET stages_progress_json = '{escapedJson}'::jsonb WHERE id = {entity.Id}";
-                    await db.Ado.ExecuteCommandAsync(directSql);
+                    var parameters = new List<SugarParameter>
+                    {
+                        new SugarParameter("@json", entity.StagesProgressJson),
+                        new SugarParameter("@id", entity.Id)
+                    };
+                    var safeSql = "UPDATE ff_onboarding SET stages_progress_json = @json::jsonb WHERE id = @id";
+                    await db.Ado.ExecuteCommandAsync(safeSql, parameters);
                 }
-                catch (Exception directEx)
+                catch (Exception paramEx)
                 {
-                    _logger.LogError(directEx, "Both parameterized and direct JSONB update failed for onboarding {OnboardingId}", entity.Id);
+                    _logger.LogError(paramEx, "Parameterized JSONB update failed for onboarding {OnboardingId}", entity.Id);
                 }
             }
         }

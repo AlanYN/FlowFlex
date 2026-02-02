@@ -64,8 +64,9 @@ namespace FlowFlex.Application.Services.OW
             var modules = query.Modules ?? new List<string>();
             var includeAll = modules.Count == 0;
 
-            // Execute modules in parallel for better performance with proper exception handling
+            // Execute modules in parallel with timeout for better performance
             var tasks = new List<Task>();
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30)); // 30 second timeout
 
             if (includeAll || modules.Contains("statistics", StringComparer.OrdinalIgnoreCase))
             {
@@ -79,7 +80,7 @@ namespace FlowFlex.Application.Services.OW
                     {
                         _logger.LogError(ex, "Failed to get dashboard statistics");
                     }
-                }));
+                }, cts.Token));
             }
 
             if (includeAll || modules.Contains("casesOverview", StringComparer.OrdinalIgnoreCase) || modules.Contains("stageDistribution", StringComparer.OrdinalIgnoreCase))
@@ -94,7 +95,7 @@ namespace FlowFlex.Application.Services.OW
                     {
                         _logger.LogError(ex, "Failed to get dashboard cases overview");
                     }
-                }));
+                }, cts.Token));
             }
 
             if (includeAll || modules.Contains("tasks", StringComparer.OrdinalIgnoreCase))
@@ -114,7 +115,7 @@ namespace FlowFlex.Application.Services.OW
                     {
                         _logger.LogError(ex, "Failed to get dashboard tasks");
                     }
-                }));
+                }, cts.Token));
             }
 
             if (includeAll || modules.Contains("messages", StringComparer.OrdinalIgnoreCase))
@@ -129,7 +130,7 @@ namespace FlowFlex.Application.Services.OW
                     {
                         _logger.LogError(ex, "Failed to get dashboard messages");
                     }
-                }));
+                }, cts.Token));
             }
 
             if (includeAll || modules.Contains("achievements", StringComparer.OrdinalIgnoreCase))
@@ -144,7 +145,7 @@ namespace FlowFlex.Application.Services.OW
                     {
                         _logger.LogError(ex, "Failed to get dashboard achievements");
                     }
-                }));
+                }, cts.Token));
             }
 
             if (includeAll || modules.Contains("deadlines", StringComparer.OrdinalIgnoreCase))
@@ -159,51 +160,71 @@ namespace FlowFlex.Application.Services.OW
                     {
                         _logger.LogError(ex, "Failed to get dashboard deadlines");
                     }
-                }));
+                }, cts.Token));
             }
 
-            await Task.WhenAll(tasks);
+            try
+            {
+                await Task.WhenAll(tasks);
+            }
+            catch (OperationCanceledException)
+            {
+                _logger.LogWarning("Dashboard data fetch timed out after 30 seconds");
+            }
 
             return result;
         }
 
         /// <summary>
         /// Get statistics overview with month-over-month comparison
+        /// Performance optimized: uses parallel queries and batch data loading
         /// </summary>
         public async Task<DashboardStatisticsDto> GetStatisticsAsync(string? team = null)
         {
+            var sw = System.Diagnostics.Stopwatch.StartNew();
             var now = DateTimeOffset.UtcNow;
             var thisMonthStart = new DateTimeOffset(now.Year, now.Month, 1, 0, 0, 0, TimeSpan.Zero);
             var lastMonthStart = thisMonthStart.AddMonths(-1);
             var lastMonthEnd = thisMonthStart.AddTicks(-1);
 
-            // Get current month statistics
-            var activeCasesCount = await GetActiveCasesCountAsync(team);
-            var completedThisMonth = await GetCompletedCasesCountAsync(thisMonthStart, now, team);
-            var overdueTasksCount = await GetOverdueTasksCountAsync(team);
-            var avgCompletionTime = await GetAverageCompletionTimeAsync(thisMonthStart, now, team);
+            // Admin bypass for better performance
+            var isAdmin = _permissionHelpers.HasAdminPrivileges();
 
-            // Get last month statistics for comparison
-            var lastMonthActiveCases = await GetActiveCasesCountAtDateAsync(lastMonthEnd, team);
-            var lastMonthCompleted = await GetCompletedCasesCountAsync(lastMonthStart, lastMonthEnd, team);
-            var lastMonthOverdueTasks = await GetOverdueTasksCountAtDateAsync(lastMonthEnd, team);
-            var lastMonthAvgCompletionTime = await GetAverageCompletionTimeAsync(lastMonthStart, lastMonthEnd, team);
+            // Execute all queries in parallel for better performance
+            var activeCasesTask = GetActiveCasesCountOptimizedAsync(team, isAdmin);
+            var completedThisMonthTask = GetCompletedCasesCountOptimizedAsync(thisMonthStart, now, team, isAdmin);
+            var overdueTasksTask = GetOverdueTasksCountAsync(team);
+            var avgCompletionTimeTask = GetAverageCompletionTimeOptimizedAsync(thisMonthStart, now, team, isAdmin);
+            var lastMonthActiveCasesTask = GetActiveCasesCountAtDateOptimizedAsync(lastMonthEnd, team, isAdmin);
+            var lastMonthCompletedTask = GetCompletedCasesCountOptimizedAsync(lastMonthStart, lastMonthEnd, team, isAdmin);
+            var lastMonthOverdueTasksTask = GetOverdueTasksCountAtDateAsync(lastMonthEnd, team);
+            var lastMonthAvgCompletionTimeTask = GetAverageCompletionTimeOptimizedAsync(lastMonthStart, lastMonthEnd, team, isAdmin);
+
+            // Wait for all tasks to complete
+            await Task.WhenAll(
+                activeCasesTask, completedThisMonthTask, overdueTasksTask, avgCompletionTimeTask,
+                lastMonthActiveCasesTask, lastMonthCompletedTask, lastMonthOverdueTasksTask, lastMonthAvgCompletionTimeTask);
+
+            _logger.LogInformation("GetStatisticsAsync: Completed in {Ms}ms", sw.ElapsedMilliseconds);
 
             return new DashboardStatisticsDto
             {
-                ActiveCases = CreateStatisticItem(activeCasesCount, lastMonthActiveCases, true),
-                CompletedThisMonth = CreateStatisticItem(completedThisMonth, lastMonthCompleted, true),
-                OverdueTasks = CreateStatisticItem(overdueTasksCount, lastMonthOverdueTasks, false), // Decrease is positive
-                AvgCompletionTime = CreateStatisticItem(avgCompletionTime, lastMonthAvgCompletionTime, false, "days") // Decrease is positive
+                ActiveCases = CreateStatisticItem(await activeCasesTask, await lastMonthActiveCasesTask, true),
+                CompletedThisMonth = CreateStatisticItem(await completedThisMonthTask, await lastMonthCompletedTask, true),
+                OverdueTasks = CreateStatisticItem(await overdueTasksTask, await lastMonthOverdueTasksTask, false),
+                AvgCompletionTime = CreateStatisticItem(await avgCompletionTimeTask, await lastMonthAvgCompletionTimeTask, false, "days")
             };
         }
 
         /// <summary>
         /// Get case distribution by stage (optimized to avoid N+1 queries)
+        /// Performance optimized: uses lightweight projection and parallel permission check
         /// </summary>
         public async Task<StageDistributionResultDto> GetStageDistributionAsync(long? workflowId = null)
         {
-            // Get all stages ordered by sequence
+            var sw = System.Diagnostics.Stopwatch.StartNew();
+            
+            // Get all stages ordered by sequence (lightweight query)
             var stages = await _stageRepository.GetListAsync(s => 
                 s.IsActive && s.IsValid && 
                 (workflowId == null || s.WorkflowId == workflowId));
@@ -219,15 +240,26 @@ namespace FlowFlex.Application.Services.OW
                 };
             }
 
-            // Get all active cases with their stage IDs in a single query
-            // Note: "Started", "InProgress" and "Active" status represent active cases
+            _logger.LogDebug("GetStageDistributionAsync: Loaded {Count} stages in {Ms}ms", stages.Count, sw.ElapsedMilliseconds);
+
+            // Admin bypass - skip permission filtering for better performance
+            if (_permissionHelpers.HasAdminPrivileges())
+            {
+                return await GetStageDistributionForAdminAsync(stages, workflowId);
+            }
+
+            // Get active cases with minimal fields for permission check
             var activeCases = await _onboardingRepository.GetListAsync(o => 
                 o.IsActive && o.IsValid && 
                 (o.Status == "Started" || o.Status == "InProgress" || o.Status == "Active") &&
                 (workflowId == null || o.WorkflowId == workflowId));
 
-            // Apply permission filter
-            var filteredCases = await FilterCasesByPermissionAsync(activeCases);
+            _logger.LogDebug("GetStageDistributionAsync: Loaded {Count} active cases in {Ms}ms", activeCases.Count, sw.ElapsedMilliseconds);
+
+            // Apply permission filter with pre-loaded workflows
+            var filteredCases = await FilterCasesByPermissionOptimizedAsync(activeCases);
+
+            _logger.LogDebug("GetStageDistributionAsync: Filtered to {Count} cases in {Ms}ms", filteredCases.Count, sw.ElapsedMilliseconds);
 
             // Group by stage ID and count (filter out null CurrentStageId)
             var stageCounts = filteredCases
@@ -253,6 +285,48 @@ namespace FlowFlex.Application.Services.OW
             // Calculate overall progress (average completion rate of filtered cases)
             var overallProgress = filteredCases.Any() 
                 ? Math.Round(filteredCases.Average(c => c.CompletionRate), 0) 
+                : 0;
+
+            _logger.LogInformation("GetStageDistributionAsync: Completed in {Ms}ms", sw.ElapsedMilliseconds);
+
+            return new StageDistributionResultDto
+            {
+                Stages = stageDistribution,
+                OverallProgress = overallProgress
+            };
+        }
+
+        /// <summary>
+        /// Optimized stage distribution for admin users (no permission filtering)
+        /// </summary>
+        private async Task<StageDistributionResultDto> GetStageDistributionForAdminAsync(List<Stage> stages, long? workflowId)
+        {
+            var activeCases = await _onboardingRepository.GetListAsync(o => 
+                o.IsActive && o.IsValid && 
+                (o.Status == "Started" || o.Status == "InProgress" || o.Status == "Active") &&
+                (workflowId == null || o.WorkflowId == workflowId));
+
+            var stageCounts = activeCases
+                .Where(o => o.CurrentStageId.HasValue)
+                .GroupBy(o => o.CurrentStageId!.Value)
+                .ToDictionary(g => g.Key, g => g.Count());
+
+            var totalCases = activeCases.Count;
+
+            var stageDistribution = stages.Select(stage => new StageDistributionDto
+            {
+                StageId = stage.Id,
+                StageName = stage.Name,
+                CaseCount = stageCounts.TryGetValue(stage.Id, out var count) ? count : 0,
+                Order = stage.Order,
+                Color = stage.Color,
+                Percentage = totalCases > 0 
+                    ? Math.Round((decimal)(stageCounts.TryGetValue(stage.Id, out var c) ? c : 0) / totalCases * 100, 1) 
+                    : 0
+            }).ToList();
+
+            var overallProgress = activeCases.Any() 
+                ? Math.Round(activeCases.Average(c => c.CompletionRate), 0) 
                 : 0;
 
             return new StageDistributionResultDto
@@ -364,18 +438,27 @@ namespace FlowFlex.Application.Services.OW
 
         /// <summary>
         /// Get recent achievements/milestones (includes both case completions and stage completions)
+        /// Performance optimized: limits data loading and uses parallel processing
         /// </summary>
         public async Task<List<AchievementDto>> GetAchievementsAsync(int limit = 5, string? team = null)
         {
+            var sw = System.Diagnostics.Stopwatch.StartNew();
             var achievements = new List<AchievementDto>();
 
-            // Get recently completed cases (CaseCompleted type)
-            var completedCases = await _onboardingRepository.GetRecentlyCompletedAsync(limit, team);
+            // Admin bypass for better performance
+            var isAdmin = _permissionHelpers.HasAdminPrivileges();
+
+            // Get recently completed cases (CaseCompleted type) - already limited by repository
+            var completedCases = await _onboardingRepository.GetRecentlyCompletedAsync(limit * 2, team);
             
-            // Apply permission filter
-            var filteredCompletedCases = await FilterCasesByPermissionAsync(completedCases);
+            _logger.LogDebug("GetAchievementsAsync: Loaded {Count} completed cases in {Ms}ms", completedCases.Count, sw.ElapsedMilliseconds);
+
+            // Apply permission filter only for non-admin users
+            var filteredCompletedCases = isAdmin 
+                ? completedCases 
+                : await FilterCasesByPermissionOptimizedAsync(completedCases);
             
-            var caseAchievements = filteredCompletedCases.Select(c => new AchievementDto
+            var caseAchievements = filteredCompletedCases.Take(limit).Select(c => new AchievementDto
             {
                 Id = c.Id,
                 Title = $"{c.CaseName} case completed",
@@ -395,9 +478,13 @@ namespace FlowFlex.Application.Services.OW
 
             achievements.AddRange(caseAchievements);
 
-            // Get recently completed stages (StageCompleted type)
-            var stageAchievements = await GetRecentlyCompletedStagesAsync(limit, team);
+            _logger.LogDebug("GetAchievementsAsync: Processed case achievements in {Ms}ms", sw.ElapsedMilliseconds);
+
+            // Get recently completed stages (StageCompleted type) - optimized version
+            var stageAchievements = await GetRecentlyCompletedStagesOptimizedAsync(limit, team, isAdmin);
             achievements.AddRange(stageAchievements);
+
+            _logger.LogInformation("GetAchievementsAsync: Completed in {Ms}ms with {Count} achievements", sw.ElapsedMilliseconds, achievements.Count);
 
             // Sort by completion date descending and take the limit
             return achievements
@@ -407,28 +494,40 @@ namespace FlowFlex.Application.Services.OW
         }
 
         /// <summary>
-        /// Get recently completed stages from active cases
+        /// Optimized version of GetRecentlyCompletedStagesAsync
+        /// Limits data loading and avoids unnecessary JSON parsing
         /// </summary>
-        private async Task<List<AchievementDto>> GetRecentlyCompletedStagesAsync(int limit, string? team)
+        private async Task<List<AchievementDto>> GetRecentlyCompletedStagesOptimizedAsync(int limit, string? team, bool isAdmin)
         {
             var achievements = new List<AchievementDto>();
 
             try
             {
-                // Get all cases (not just Started) to find completed stages
-                // A case can have completed stages even if the case itself is still in progress
+                // Only get cases with non-empty StagesProgressJson to reduce data loading
+                // Limit to recent cases (last 30 days) for better performance
+                var cutoffDate = DateTimeOffset.UtcNow.AddDays(-30);
                 var filterByTeam = !string.IsNullOrEmpty(team);
+                
                 var allCases = await _onboardingRepository.GetListAsync(o =>
                     o.IsValid &&
+                    o.ModifyDate >= cutoffDate &&
+                    !string.IsNullOrEmpty(o.StagesProgressJson) &&
                     (!filterByTeam || o.CurrentTeam == team));
 
-                // Apply permission filter
-                var filteredCases = await FilterCasesByPermissionAsync(allCases);
+                // Limit cases to process for performance
+                var casesToProcess = allCases
+                    .OrderByDescending(o => o.ModifyDate)
+                    .Take(100) // Process at most 100 recent cases
+                    .ToList();
 
-                _logger.LogInformation("GetRecentlyCompletedStagesAsync: Found {Count} total cases, {FilteredCount} after permission filter", 
-                    allCases.Count, filteredCases.Count);
+                // Apply permission filter only for non-admin users
+                var filteredCases = isAdmin 
+                    ? casesToProcess 
+                    : await FilterCasesByPermissionOptimizedAsync(casesToProcess);
 
-                // Get all stages for enrichment
+                _logger.LogDebug("GetRecentlyCompletedStagesOptimizedAsync: Processing {Count} cases", filteredCases.Count);
+
+                // Get all stages for enrichment (batch load)
                 var stageIds = new HashSet<long>();
                 var jsonOptions = new JsonSerializerOptions
                 {
@@ -441,17 +540,11 @@ namespace FlowFlex.Application.Services.OW
                 var casesWithProgress = new List<(Onboarding Onboarding, List<OnboardingStageProgress> Progress)>();
                 foreach (var onboarding in filteredCases)
                 {
-                    if (string.IsNullOrEmpty(onboarding.StagesProgressJson))
-                    {
-                        _logger.LogDebug("Onboarding {Id} has empty StagesProgressJson", onboarding.Id);
-                        continue;
-                    }
-
                     try
                     {
-                        var jsonString = onboarding.StagesProgressJson.Trim();
+                        var jsonString = onboarding.StagesProgressJson!.Trim();
 
-                        // Handle double-serialized JSON (e.g., "\"[{...}]\"" instead of "[{...}]")
+                        // Handle double-serialized JSON
                         if (jsonString.StartsWith("\"") && jsonString.EndsWith("\""))
                         {
                             jsonString = JsonSerializer.Deserialize<string>(jsonString, jsonOptions) ?? "[]";
@@ -460,22 +553,12 @@ namespace FlowFlex.Application.Services.OW
                         var progress = JsonSerializer.Deserialize<List<OnboardingStageProgress>>(
                             jsonString, jsonOptions) ?? new List<OnboardingStageProgress>();
                         
-                        _logger.LogDebug("Onboarding {Id}: Parsed {Count} stages", onboarding.Id, progress.Count);
-                        
-                        // Log each stage's completion status
-                        foreach (var p in progress)
+                        // Only keep cases with completed stages
+                        var completedStages = progress.Where(p => p.IsCompleted && p.CompletionTime.HasValue).ToList();
+                        if (completedStages.Any())
                         {
-                            _logger.LogDebug("  Stage {StageId}: IsCompleted={IsCompleted}, CompletionTime={CompletionTime}, Status={Status}", 
-                                p.StageId, p.IsCompleted, p.CompletionTime, p.Status);
-                        }
-                        
-                        if (progress.Any())
-                        {
-                            casesWithProgress.Add((onboarding, progress));
-                            var completedCount = progress.Count(p => p.IsCompleted);
-                            _logger.LogDebug("Onboarding {Id}: {CompletedCount} completed stages", onboarding.Id, completedCount);
-                            
-                            foreach (var p in progress.Where(p => p.IsCompleted))
+                            casesWithProgress.Add((onboarding, completedStages));
+                            foreach (var p in completedStages)
                             {
                                 stageIds.Add(p.StageId);
                             }
@@ -487,9 +570,7 @@ namespace FlowFlex.Application.Services.OW
                     }
                 }
 
-                _logger.LogInformation("GetRecentlyCompletedStagesAsync: Found {Count} completed stage IDs", stageIds.Count);
-
-                // Get stage names from Stage repository
+                // Get stage names from Stage repository (batch load)
                 var stages = stageIds.Any() 
                     ? await _stageRepository.GetListAsync(s => stageIds.Contains(s.Id))
                     : new List<Stage>();
@@ -499,7 +580,6 @@ namespace FlowFlex.Application.Services.OW
                 foreach (var (onboarding, progress) in casesWithProgress)
                 {
                     var completedStages = progress
-                        .Where(s => s.IsCompleted && s.CompletionTime.HasValue)
                         .Select(s =>
                         {
                             var stage = stageDict.GetValueOrDefault(s.StageId);
@@ -532,8 +612,6 @@ namespace FlowFlex.Application.Services.OW
 
                     achievements.AddRange(completedStages);
                 }
-
-                _logger.LogInformation("GetRecentlyCompletedStagesAsync: Returning {Count} achievements", achievements.Count);
 
                 // Sort by completion date descending and take the limit
                 return achievements
@@ -717,6 +795,89 @@ namespace FlowFlex.Application.Services.OW
         }
 
         #region Private Helper Methods
+
+        /// <summary>
+        /// Optimized: Get active cases count (admin bypass, no permission filter)
+        /// </summary>
+        private async Task<int> GetActiveCasesCountOptimizedAsync(string? team, bool isAdmin)
+        {
+            var filterByTeam = !string.IsNullOrEmpty(team);
+            var cases = await _onboardingRepository.GetListAsync(o => 
+                o.IsActive && o.IsValid && 
+                (o.Status == "Started" || o.Status == "InProgress" || o.Status == "Active") &&
+                (!filterByTeam || o.CurrentTeam == team));
+            
+            if (isAdmin)
+                return cases.Count;
+            
+            var filteredCases = await FilterCasesByPermissionOptimizedAsync(cases);
+            return filteredCases.Count;
+        }
+
+        /// <summary>
+        /// Optimized: Get active cases count at specific date (admin bypass)
+        /// </summary>
+        private async Task<int> GetActiveCasesCountAtDateOptimizedAsync(DateTimeOffset date, string? team, bool isAdmin)
+        {
+            var filterByTeam = !string.IsNullOrEmpty(team);
+            var cases = await _onboardingRepository.GetListAsync(o => 
+                o.IsValid && 
+                o.StartDate <= date &&
+                (o.ActualCompletionDate == null || o.ActualCompletionDate > date) &&
+                (!filterByTeam || o.CurrentTeam == team));
+            
+            if (isAdmin)
+                return cases.Count;
+            
+            var filteredCases = await FilterCasesByPermissionOptimizedAsync(cases);
+            return filteredCases.Count;
+        }
+
+        /// <summary>
+        /// Optimized: Get completed cases count (admin bypass)
+        /// </summary>
+        private async Task<int> GetCompletedCasesCountOptimizedAsync(DateTimeOffset startDate, DateTimeOffset endDate, string? team, bool isAdmin)
+        {
+            var filterByTeam = !string.IsNullOrEmpty(team);
+            var cases = await _onboardingRepository.GetListAsync(o => 
+                o.IsValid && 
+                (o.Status == "Completed" || o.Status == "Force Completed") &&
+                o.ActualCompletionDate >= startDate &&
+                o.ActualCompletionDate <= endDate &&
+                (!filterByTeam || o.CurrentTeam == team));
+            
+            if (isAdmin)
+                return cases.Count;
+            
+            var filteredCases = await FilterCasesByPermissionOptimizedAsync(cases);
+            return filteredCases.Count;
+        }
+
+        /// <summary>
+        /// Optimized: Get average completion time (admin bypass)
+        /// </summary>
+        private async Task<decimal> GetAverageCompletionTimeOptimizedAsync(DateTimeOffset startDate, DateTimeOffset endDate, string? team, bool isAdmin)
+        {
+            var filterByTeam = !string.IsNullOrEmpty(team);
+            var completedCases = await _onboardingRepository.GetListAsync(o => 
+                o.IsValid && 
+                (o.Status == "Completed" || o.Status == "Force Completed") &&
+                o.ActualCompletionDate >= startDate &&
+                o.ActualCompletionDate <= endDate &&
+                o.StartDate.HasValue &&
+                (!filterByTeam || o.CurrentTeam == team));
+
+            var filteredCases = isAdmin ? completedCases : await FilterCasesByPermissionOptimizedAsync(completedCases);
+
+            if (!filteredCases.Any())
+                return 0;
+
+            var totalDays = filteredCases
+                .Where(c => c.StartDate.HasValue && c.ActualCompletionDate.HasValue)
+                .Sum(c => (c.ActualCompletionDate!.Value - c.StartDate!.Value).TotalDays);
+
+            return Math.Round((decimal)(totalDays / filteredCases.Count), 0);
+        }
 
         private async Task<int> GetActiveCasesCountAsync(string? team)
         {
@@ -928,6 +1089,56 @@ namespace FlowFlex.Application.Services.OW
                 <= 7 => "thisWeek",
                 _ => "upcoming"
             };
+        }
+
+        /// <summary>
+        /// Optimized filter cases by permission (with cached workflow data)
+        /// Reuses workflow data if already loaded, avoiding duplicate DB queries
+        /// </summary>
+        private async Task<List<Onboarding>> FilterCasesByPermissionOptimizedAsync(
+            List<Onboarding> cases, 
+            Dictionary<long, Workflow>? preloadedWorkflows = null)
+        {
+            if (cases == null || !cases.Any())
+            {
+                return new List<Onboarding>();
+            }
+
+            // Admin bypass - return all cases
+            if (_permissionHelpers.HasAdminPrivileges())
+            {
+                return cases;
+            }
+
+            var userId = long.TryParse(_userContext?.UserId, out var uid) ? uid : 0;
+            var userTeamIds = _userContext.UserTeams?.GetAllTeamIds() ?? new List<long>();
+            var userIdString = userId.ToString();
+
+            // Use preloaded workflows or load them
+            Dictionary<long, Workflow> workflowDict;
+            if (preloadedWorkflows != null)
+            {
+                workflowDict = preloadedWorkflows;
+            }
+            else
+            {
+                var workflowIds = cases.Select(c => c.WorkflowId).Distinct().ToList();
+                var workflows = await _workflowRepository.GetListAsync(w => workflowIds.Contains(w.Id));
+                workflowDict = workflows.ToDictionary(w => w.Id, w => w);
+            }
+
+            var filteredCases = new List<Onboarding>();
+
+            foreach (var entity in cases)
+            {
+                var workflow = workflowDict.GetValueOrDefault(entity.WorkflowId);
+                if (CheckCaseViewPermissionInMemory(entity, workflow, userId, userTeamIds, userIdString))
+                {
+                    filteredCases.Add(entity);
+                }
+            }
+
+            return filteredCases;
         }
 
         /// <summary>

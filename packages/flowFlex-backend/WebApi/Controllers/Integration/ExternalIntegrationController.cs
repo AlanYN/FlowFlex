@@ -79,83 +79,9 @@ namespace FlowFlex.WebApi.Controllers.Integration
         /// This endpoint accepts case info request parameters in JSON body format.
         /// Supports both application/json and text/plain content types.
         /// Also supports reading from query parameters as fallback.
-        /// Note: This endpoint does not require authentication.
+        /// WARNING: This endpoint is only available in Development environment for testing purposes.
         /// </summary>
         /// <param name="request">Case info request with parameters in body (optional)</param>
-        /// <param name="leadId">Lead ID from query (fallback if body is empty)</param>
-        /// <param name="customerName">Customer Name from query (fallback if body is empty)</param>
-        /// <param name="contactName">Contact Name from query (fallback if body is empty)</param>
-        /// <param name="contactEmail">Contact Email from query (fallback if body is empty)</param>
-        /// <param name="contactPhone">Contact Phone from query (fallback if body is empty)</param>
-        /// <returns>Case information with the same parameter structure</returns>
-        [HttpPost("crm-case-info-demo")]
-        [AllowAnonymous]
-        [ProducesResponseType<SuccessResponse<CaseInfoResponse>>((int)HttpStatusCode.OK)]
-        public async Task<IActionResult> PostCrmCaseInfoDemo(
-            [FromBody] CaseInfoRequest? request,
-            [FromQuery(Name = "Lead ID")] string? leadId = null,
-            [FromQuery(Name = "Customer Name")] string? customerName = null,
-            [FromQuery(Name = "Contact Name")] string? contactName = null,
-            [FromQuery(Name = "Contact Email")] string? contactEmail = null,
-            [FromQuery(Name = "Contact Phone")] string? contactPhone = null)
-        {
-            // If request is null or empty, try to read from request body manually
-            // This handles cases where Content-Type is text/plain or other non-JSON types
-            if (request == null || (string.IsNullOrEmpty(request.LeadId) && string.IsNullOrEmpty(request.CustomerName)))
-            {
-                try
-                {
-                    // Enable buffering to allow reading body multiple times
-                    Request.EnableBuffering();
-                    Request.Body.Position = 0;
-
-                    using var reader = new System.IO.StreamReader(Request.Body, System.Text.Encoding.UTF8, leaveOpen: true);
-                    var bodyContent = await reader.ReadToEndAsync();
-
-                    // Reset position for potential future reads
-                    Request.Body.Position = 0;
-
-                    if (!string.IsNullOrWhiteSpace(bodyContent))
-                    {
-                        // Try to parse JSON from body
-                        request = Newtonsoft.Json.JsonConvert.DeserializeObject<CaseInfoRequest>(bodyContent);
-                    }
-                }
-                catch (Exception)
-                {
-                    // If parsing fails, continue to use query parameters
-                }
-            }
-
-            // If still null or empty, try to use query parameters as fallback
-            if (request == null || (string.IsNullOrEmpty(request.LeadId) && string.IsNullOrEmpty(request.CustomerName)))
-            {
-                if (!string.IsNullOrEmpty(leadId) || !string.IsNullOrEmpty(customerName))
-                {
-                    request = new CaseInfoRequest
-                    {
-                        LeadId = leadId,
-                        CustomerName = customerName,
-                        ContactName = contactName,
-                        ContactEmail = contactEmail,
-                        ContactPhone = contactPhone
-                    };
-                }
-                else
-                {
-                    request = new CaseInfoRequest();
-                }
-            }
-
-            var result = await _externalIntegrationService.GetCaseInfoAsync(request);
-
-            // Return with custom JSON settings to include null values
-            return new JsonResult(SuccessResponse.Create(result), new Newtonsoft.Json.JsonSerializerSettings
-            {
-                NullValueHandling = Newtonsoft.Json.NullValueHandling.Include
-            });
-        }
-
         /// <summary>
         /// Get attachments by case ID
         /// Retrieves attachment list from ff_onboarding_file table based on case ID (onboarding ID)

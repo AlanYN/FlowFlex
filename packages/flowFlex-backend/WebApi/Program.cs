@@ -80,9 +80,9 @@ builder.Services.Configure<KestrelServerOptions>(options =>
 
 builder.Services.Configure<FormOptions>(options =>
 {
-    options.ValueLengthLimit = int.MaxValue;
+    options.ValueLengthLimit = 10 * 1024 * 1024; // 10MB for form values
     options.MultipartBodyLengthLimit = 52428800; // 50MB
-    options.MultipartHeadersLengthLimit = int.MaxValue;
+    options.MultipartHeadersLengthLimit = 32 * 1024; // 32KB for headers
 });
 
 // Add services to the container.
