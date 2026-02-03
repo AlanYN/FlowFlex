@@ -100,10 +100,12 @@ namespace FlowFlex.WebApi.Extensions
                     {
                         if (configuration.GetValue<bool>("Database:EnableSqlLogging", false))
                         {
-                            Console.WriteLine($"[SQL] {sql}");
+                            // SQL logging is controlled by configuration
+                            // Use structured logging in production via Serilog or similar
+                            System.Diagnostics.Debug.WriteLine($"[SQL] {sql}");
                             if (pars?.Any() == true)
                             {
-                                Console.WriteLine($"[Parameters] {string.Join(", ", pars.Select(p => $"{p.ParameterName}={p.Value}"))}");
+                                System.Diagnostics.Debug.WriteLine($"[Parameters] {string.Join(", ", pars.Select(p => $"{p.ParameterName}={p.Value}"))}");
                             }
                         }
                         var finalSql = UtilMethods.GetSqlString(DbType.PostgreSQL, sql, pars);
@@ -111,7 +113,8 @@ namespace FlowFlex.WebApi.Extensions
 
                     provider.Aop.OnError = (exp) =>
                     {
-                        Console.WriteLine($"[SQL Error] {exp.Message}");
+                        // SQL errors should be logged via structured logging
+                        System.Diagnostics.Debug.WriteLine($"[SQL Error] {exp.Message}");
                     };
 
                     provider.Aop.DataExecuting = (oldValue, entityInfo) =>
@@ -244,7 +247,7 @@ namespace FlowFlex.WebApi.Extensions
                         catch (Exception ex)
                         {
                             // Log other errors but don't interrupt operations
-                            Console.WriteLine($"[AOP Warning] Failed to set audit fields: {ex.Message}");
+                            System.Diagnostics.Debug.WriteLine($"[AOP Warning] Failed to set audit fields: {ex.Message}");
                         }
                     };
 
@@ -348,7 +351,7 @@ namespace FlowFlex.WebApi.Extensions
                 catch (Exception ex)
                 {
                     // Any other error, log and return safe default
-                    Console.WriteLine($"Warning: Failed to create UserContext: {ex.Message}");
+                    System.Diagnostics.Debug.WriteLine($"Warning: Failed to create UserContext: {ex.Message}");
                     return new UserContext
                     {
                         UserId = "1",

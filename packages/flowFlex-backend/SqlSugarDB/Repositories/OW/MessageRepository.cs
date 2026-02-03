@@ -53,9 +53,6 @@ public class MessageRepository : BaseRepository<Message>, IMessageRepository, IS
         // Label filter will be applied in memory after fetching results
         // Note: Due to SqlSugar's limited JSONB support, label filtering is done in memory
         var filterByLabel = !string.IsNullOrEmpty(label);
-        
-        // DEBUG: Log label filter status
-        Console.WriteLine($"[MessageRepository] Label filter: {label}, filterByLabel: {filterByLabel}");
 
         // Apply message type filter
         if (!string.IsNullOrEmpty(messageType))

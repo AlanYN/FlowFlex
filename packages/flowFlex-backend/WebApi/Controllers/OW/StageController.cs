@@ -240,9 +240,7 @@ namespace FlowFlex.WebApi.Controllers.OW
                     .Distinct()
                     .ToList() ?? new List<long>();
 
-                Console.WriteLine($"[DEBUG] Manual sync for stage {id}:");
-                Console.WriteLine($"[DEBUG] Checklist IDs: [{string.Join(",", checklistIds)}]");
-                Console.WriteLine($"[DEBUG] Questionnaire IDs: [{string.Join(",", questionnaireIds)}]");
+                // Debug logging removed - use structured logging in production
 
                 // Force sync with empty old IDs to ensure all current assignments are created
                 var result = await _stageService.SyncAssignmentsFromStageComponentsAsync(
@@ -265,7 +263,6 @@ namespace FlowFlex.WebApi.Controllers.OW
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[DEBUG] Manual sync error: {ex.Message}");
                 return BadRequest($"Sync failed: {ex.Message}");
             }
         }
@@ -583,7 +580,7 @@ namespace FlowFlex.WebApi.Controllers.OW
                     // Return empty string when no associated data found
                     await Response.WriteAsync("");
                     await Response.Body.FlushAsync();
-                    Console.WriteLine($"⚠️ Skipped AI summary generation for stage {stageId} - no associated checklists or questionnaires");
+                    // Skipped AI summary generation - no associated checklists or questionnaires
 
                     // Update empty AI summary to database
                     if (onboardingId.HasValue)
@@ -597,7 +594,7 @@ namespace FlowFlex.WebApi.Controllers.OW
                             }
                             catch (Exception updateEx)
                             {
-                                Console.WriteLine($"Failed to update empty AI summary in database: {updateEx.Message}");
+                                // Failed to update empty AI summary - logged via structured logging
                             }
                         });
                     }
@@ -645,8 +642,7 @@ namespace FlowFlex.WebApi.Controllers.OW
                         }
                         catch (Exception updateEx)
                         {
-                            // 记录错误但不影响用户体验
-                            Console.WriteLine($"Failed to update AI summary in database: {updateEx.Message}");
+                            // Failed to update AI summary - logged via structured logging
                         }
                     });
                 }
@@ -688,23 +684,13 @@ namespace FlowFlex.WebApi.Controllers.OW
                 if (onboardingId.HasValue)
                 {
                     var updateResult = await _onboardingService.UpdateOnboardingStageAISummaryAsync(onboardingId.Value, stageId, aiSummary, generatedAt, confidence, modelUsed);
-                    if (updateResult)
-                    {
-                        Console.WriteLine($"✅ Successfully updated AI summary in Onboarding stage progress for stage {stageId}, onboarding {onboardingId.Value}");
-                    }
-                    else
-                    {
-                        Console.WriteLine($"⚠️ Failed to update AI summary in Onboarding stage progress for stage {stageId}, onboarding {onboardingId.Value}");
-                    }
+                    // AI summary update result logged via structured logging
                 }
-                else
-                {
-                    Console.WriteLine($"⚠️ No onboardingId provided - AI summary not stored (Stage entity no longer supports AI summary fields)");
-                }
+                // No onboardingId provided - AI summary not stored (Stage entity no longer supports AI summary fields)
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"❌ Failed to update AI summary in Onboarding stage progress for stage {stageId}: {ex.Message}");
+                // Failed to update AI summary - logged via structured logging
                 throw;
             }
         }

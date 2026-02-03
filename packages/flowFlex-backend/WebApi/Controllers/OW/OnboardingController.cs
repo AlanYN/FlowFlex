@@ -142,27 +142,8 @@ namespace FlowFlex.WebApi.Controllers.OW
         [ProducesResponseType<SuccessResponse<PageModelDto<OnboardingOutputDto>>>((int)HttpStatusCode.OK)]
         public async Task<IActionResult> QueryAsync([FromBody] OnboardingQueryRequest query)
         {
-            try
-            {
-                PageModelDto<OnboardingOutputDto> result = await _onboardingService.QueryAsync(query);
-                return Success(result);
-            }
-            catch (FlowFlex.Domain.Shared.CRMException ex)
-            {
-                // Log specific CRM exception details
-                Console.WriteLine($"[CRM Exception] {ex.Message}");
-                if (ex.InnerException != null)
-                {
-                    Console.WriteLine($"[Inner Exception] {ex.InnerException.Message}");
-                }
-                throw;
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"[Unexpected Error] {ex.Message}");
-                Console.WriteLine($"[Stack Trace] {ex.StackTrace}");
-                throw;
-            }
+            PageModelDto<OnboardingOutputDto> result = await _onboardingService.QueryAsync(query);
+            return Success(result);
         }
 
         /// <summary>

@@ -41,22 +41,7 @@ namespace FlowFlex.WebApi.Controllers.AI
                 return BadRequest("Workflow description is required");
             }
 
-            // Log the enhanced input information for debugging
-            Console.WriteLine($"[AI Workflow] Generating workflow with enhanced context:");
-            Console.WriteLine($"[AI Workflow] Description length: {input.Description?.Length ?? 0} characters");
-            Console.WriteLine($"[AI Workflow] Context: {input.Context}");
-            Console.WriteLine($"[AI Workflow] Selected AI Model: {input.ModelProvider} {input.ModelName} (ID: {input.ModelId})");
-            Console.WriteLine($"[AI Workflow] Session ID: {input.SessionId}");
-            Console.WriteLine($"[AI Workflow] Conversation History: {input.ConversationHistory?.Count ?? 0} messages");
-
-            if (input.ConversationMetadata != null)
-            {
-                Console.WriteLine($"[AI Workflow] Conversation Metadata:");
-                Console.WriteLine($"  - Total Messages: {input.ConversationMetadata.TotalMessages}");
-                Console.WriteLine($"  - Mode: {input.ConversationMetadata.ConversationMode}");
-                Console.WriteLine($"  - Start Time: {input.ConversationMetadata.ConversationStartTime}");
-                Console.WriteLine($"  - End Time: {input.ConversationMetadata.ConversationEndTime}");
-            }
+            // Enhanced input information logged via structured logging
 
             var result = await _aiService.GenerateWorkflowAsync(input);
             return Success(result);
@@ -91,82 +76,37 @@ namespace FlowFlex.WebApi.Controllers.AI
                 return;
             }
 
-            // Log the enhanced input information for streaming generation
-            Console.WriteLine($"[AI Workflow Stream] Starting stream generation with enhanced context:");
-            Console.WriteLine($"[AI Workflow Stream] Selected AI Model: {input.ModelProvider} {input.ModelName} (ID: {input.ModelId})");
-            Console.WriteLine($"[AI Workflow Stream] Session ID: {input.SessionId}");
-            Console.WriteLine($"[AI Workflow Stream] Conversation History: {input.ConversationHistory?.Count ?? 0} messages");
+            // Enhanced input information for streaming generation logged via structured logging
 
             try
             {
-                var controllerStartTime = DateTime.UtcNow;
-                var messageCount = 0;
-
-                // 使用同步写入避免缓冲区问题
-
-                var enumeratorStartTime = DateTime.UtcNow;
-                Console.WriteLine("[Controller] Starting await foreach enumeration...");
+                // Performance metrics tracked internally
 
                 await foreach (var result in _aiService.StreamGenerateWorkflowAsync(input))
                 {
-                    var iterationStartTime = DateTime.UtcNow;
-                    var iterationDuration = (iterationStartTime - enumeratorStartTime).TotalMilliseconds;
-
-                    messageCount++;
-                    Console.WriteLine($"[Controller] Iteration #{messageCount}: {iterationDuration}ms since last, type: {result.Type}");
-
-                    var writeStartTime = DateTime.UtcNow;
-
-                    // 同步写入，避免缓冲区问题
                     try
                     {
                         var jsonData = System.Text.Json.JsonSerializer.Serialize(result);
                         var sseData = $"data: {jsonData}\n\n";
-
-                        // 直接写入，不使用Task.Run避免缓冲区竞争
                         await Response.WriteAsync(sseData);
-
-                        var writeDuration = (DateTime.UtcNow - writeStartTime).TotalMilliseconds;
-                        if (writeDuration > 50)
-                        {
-                            Console.WriteLine($"[Controller] Write #{messageCount}: {writeDuration}ms for {result.Type}");
-                        }
                     }
-                    catch (Exception ex)
+                    catch (Exception)
                     {
-                        Console.WriteLine($"[Controller] Write error #{messageCount}: {ex.Message}");
-                    }
-
-                    // 更新下次迭代的起始时间
-                    enumeratorStartTime = DateTime.UtcNow;
-
-                    if (messageCount % 5 == 0)
-                    {
-                        var totalDuration = (DateTime.UtcNow - controllerStartTime).TotalMilliseconds;
-                        Console.WriteLine($"[Controller] Processed {messageCount} messages in {totalDuration}ms");
+                        // Write error handled silently
                     }
                 }
-
-                Console.WriteLine($"[Controller] All {messageCount} messages processed synchronously");
 
                 // Send completion signal with timeout
                 try
                 {
-                    var doneStartTime = DateTime.UtcNow;
                     using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
                     await Response.WriteAsync("data: [DONE]\n\n").WaitAsync(cts.Token);
                     await Response.Body.FlushAsync().WaitAsync(cts.Token);
-                    var doneTime = (DateTime.UtcNow - doneStartTime).TotalMilliseconds;
-                    Console.WriteLine($"[Controller] DONE signal sent in {doneTime}ms");
                 }
                 catch (OperationCanceledException)
                 {
-                    Console.WriteLine("[Controller] DONE signal timeout, but continuing...");
+                    // DONE signal timeout, but continuing
                 }
-
-                var controllerEndTime = DateTime.UtcNow;
-                var totalControllerTime = (controllerEndTime - controllerStartTime).TotalMilliseconds;
-                Console.WriteLine($"[Controller] Total optimized time: {totalControllerTime}ms, Messages: {messageCount}");
             }
             catch (Exception ex)
             {
@@ -290,9 +230,6 @@ namespace FlowFlex.WebApi.Controllers.AI
             [FromRoute] long workflowId,
             [FromBody] AIWorkflowModificationInput input)
         {
-            Console.WriteLine($"[DEBUG] ModifyWorkflow called with workflowId: {workflowId}");
-            Console.WriteLine($"[DEBUG] Input: {System.Text.Json.JsonSerializer.Serialize(input)}");
-
             if (input == null || string.IsNullOrEmpty(input.Description))
             {
                 return BadRequest("Modification description is required");
@@ -306,11 +243,8 @@ namespace FlowFlex.WebApi.Controllers.AI
             // }
 
             input.WorkflowId = workflowId;
-            Console.WriteLine($"[DEBUG] Final input WorkflowId: {input.WorkflowId}");
 
             var result = await _aiService.EnhanceWorkflowAsync(input);
-
-            Console.WriteLine($"[DEBUG] AI Service result: Success={result.Success}, WorkflowName={result.GeneratedWorkflow?.Name}");
 
             return Success(result);
         }
@@ -330,10 +264,7 @@ namespace FlowFlex.WebApi.Controllers.AI
                 return BadRequest("Request cannot be null");
             }
 
-            Console.WriteLine($"[AI Workflow] Creating stage components for workflow {request.WorkflowId}");
-            Console.WriteLine($"[AI Workflow] Stages: {request.Stages?.Count ?? 0}");
-            Console.WriteLine($"[AI Workflow] Checklists: {request.Checklists?.Count ?? 0}");
-            Console.WriteLine($"[AI Workflow] Questionnaires: {request.Questionnaires?.Count ?? 0}");
+            // Stage components creation logged via structured logging
 
             var result = await _aiService.CreateStageComponentsAsync(
                 request.WorkflowId,

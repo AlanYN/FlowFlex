@@ -1,4 +1,5 @@
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using FlowFlex.SqlSugarDB.Migrations;
 using SqlSugar;
 using System;
@@ -16,21 +17,22 @@ namespace FlowFlex.SqlSugarDB.Extensions
         /// <param name="serviceProvider">Service provider</param>
         public static void InitializeDatabase(this IServiceProvider serviceProvider)
         {
+            var logger = serviceProvider.GetService<ILogger<MigrationManager>>();
+            
             try
             {
                 using var scope = serviceProvider.CreateScope();
                 var db = scope.ServiceProvider.GetRequiredService<ISqlSugarClient>();
 
-                Console.WriteLine("[DatabaseInitialization] Starting database initialization...");
+                logger?.LogInformation("Starting database initialization...");
                 // Use non-verbose logging for cleaner startup output
                 var migrationManager = new MigrationManager(db, verboseLogging: false);
                 migrationManager.RunMigrations();
-                Console.WriteLine("[DatabaseInitialization] Database initialization completed successfully");
+                logger?.LogInformation("Database initialization completed successfully");
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[DatabaseInitialization] Database initialization failed: {ex.Message}");
-                Console.WriteLine($"[DatabaseInitialization] Stack trace: {ex.StackTrace}");
+                logger?.LogError(ex, "Database initialization failed");
                 throw;
             }
         }

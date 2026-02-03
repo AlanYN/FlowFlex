@@ -539,45 +539,29 @@ namespace FlowFlex.SqlSugarDB
             var dbNew = copyNew ? db.CopyNew() : db;
             dbNew.Ado.CancellationToken = cancellationToken;
 
-            // 检查并记录当前查询过滤器状态
-            var filterCount = dbNew.QueryFilter.GeFilterList?.Count ?? 0;
-            Console.WriteLine($"[BaseRepository] GetListAsync(all) executing with {filterCount} filters applied");
-
-            // 如果是实体类型，检查租户过滤器是否存在
+            // Apply tenant filters for entity types that support multi-tenancy
             if (typeof(AbstractEntityBase).IsAssignableFrom(typeof(T)))
             {
-                Console.WriteLine($"[BaseRepository] Entity type {typeof(T).Name} should have tenant filters applied");
-
-                // 检查当前 HttpContext 中的租户ID和应用代码
                 var httpContext = new HttpContextAccessor().HttpContext;
                 if (httpContext != null)
                 {
                     var tenantId = httpContext.Request.Headers["X-Tenant-Id"].FirstOrDefault();
                     var appCode = httpContext.Request.Headers["X-App-Code"].FirstOrDefault();
-                    Console.WriteLine($"[BaseRepository] Current request headers: X-Tenant-Id={tenantId}, X-App-Code={appCode}");
 
-                    // 备份过滤器状态
                     var backupFilters = BackupFilters();
 
-                    // 获取实体类型
                     var entityType = typeof(T);
                     var propertyTenantId = entityType.GetProperty("TenantId");
                     var propertyAppCode = entityType.GetProperty("AppCode");
 
-                    // 如果实体有 TenantId 和 AppCode 属性，添加显式过滤条件
+                    // Add explicit filter conditions if entity has TenantId and AppCode properties
                     if (propertyTenantId != null && propertyAppCode != null &&
                         !string.IsNullOrEmpty(tenantId) && !string.IsNullOrEmpty(appCode))
                     {
-                        Console.WriteLine($"[BaseRepository] Adding explicit filter conditions: TenantId={tenantId}, AppCode={appCode}");
-
-                        // 使用 SqlSugar 的 Where 方法添加显式过滤条件
                         var queryable = dbNew.Queryable<T>();
                         queryable = queryable.Where($"{propertyTenantId.Name} = @0 AND {propertyAppCode.Name} = @1", tenantId, appCode);
                         var result = await queryable.ToListAsync();
 
-                        Console.WriteLine($"[BaseRepository] Query returned {result.Count} items");
-
-                        // 恢复过滤器状态（如果发生变化）
                         RestoreFiltersIfChanged(backupFilters);
                         return result;
                     }
@@ -596,28 +580,11 @@ namespace FlowFlex.SqlSugarDB
             var dbNew = copyNew ? db.CopyNew() : db;
             dbNew.Ado.CancellationToken = cancellationToken;
 
-            // 检查并记录当前查询过滤器状态
-            var filterCount = dbNew.QueryFilter.GeFilterList?.Count ?? 0;
-            Console.WriteLine($"[BaseRepository] GetListAsync executing with {filterCount} filters applied");
-
-            // 如果是实体类型，检查租户过滤器是否存在
+            // Apply tenant filters for entity types that support multi-tenancy
             if (typeof(AbstractEntityBase).IsAssignableFrom(typeof(T)))
             {
-                Console.WriteLine($"[BaseRepository] Entity type {typeof(T).Name} should have tenant filters applied");
-
-                // 检查当前 HttpContext 中的租户ID和应用代码
-                var httpContext = new HttpContextAccessor().HttpContext;
-                if (httpContext != null)
-                {
-                    var tenantId = httpContext.Request.Headers["X-Tenant-Id"].FirstOrDefault();
-                    var appCode = httpContext.Request.Headers["X-App-Code"].FirstOrDefault();
-                    Console.WriteLine($"[BaseRepository] Current request headers: X-Tenant-Id={tenantId}, X-App-Code={appCode}");
-                }
-
-                // 备份过滤器状态
                 var backupFilters = BackupFilters();
                 var result = await dbNew.Queryable<T>().Where(whereExpression).ToListAsync();
-                // 恢复过滤器状态（如果发生变化）
                 RestoreFiltersIfChanged(backupFilters);
                 return result;
             }
