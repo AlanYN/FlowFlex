@@ -29,7 +29,7 @@ public class FieldGroupRepository : BaseRepository<FieldGroup>, IFieldGroupRepos
         return await db.Queryable<FieldGroup>()
             .Where(x => x.IsValid)
             .Where(x => x.TenantId == _userContext.TenantId && x.AppCode == _userContext.AppCode)
-            .OrderBy(x => x.Sort)
+            .OrderByDescending(x => x.CreateDate)
             .ToListAsync();
     }
 
@@ -66,7 +66,7 @@ public class FieldGroupRepository : BaseRepository<FieldGroup>, IFieldGroupRepos
         var modifyBy = _userContext.UserName ?? "SYSTEM";
         // Parse UserId to long, default to 0 if parsing fails
         long.TryParse(_userContext.UserId, out var modifyUserId);
-        
+
         await db.Updateable<FieldGroup>()
             .SetColumns(x => x.Fields == fieldIds)
             .SetColumns(x => x.ModifyDate == DateTimeOffset.UtcNow)

@@ -30,7 +30,7 @@ public class DefineFieldRepository : BaseRepository<DefineField>, IDefineFieldRe
         return await db.Queryable<DefineField>()
             .Where(x => x.IsValid)
             .Where(x => x.TenantId == _userContext.TenantId && x.AppCode == _userContext.AppCode)
-            .OrderBy(x => x.Sort)
+            .OrderByDescending(x => x.CreateDate)
             .ToListAsync();
     }
 
@@ -165,7 +165,7 @@ public class DefineFieldRepository : BaseRepository<DefineField>, IDefineFieldRe
         return await db.Queryable<DefineField>()
             .Where(x => group.Fields.Contains(x.Id) && x.IsValid)
             .Where(x => x.TenantId == _userContext.TenantId && x.AppCode == _userContext.AppCode)
-            .OrderBy(x => x.Sort)
+            .OrderByDescending(x => x.CreateDate)
             .ToListAsync();
     }
 
@@ -220,7 +220,7 @@ public class DefineFieldRepository : BaseRepository<DefineField>, IDefineFieldRe
         return await db.Queryable<DefineField>()
             .Where(x => idList.Contains(x.Id) && x.IsValid)
             .Where(x => x.TenantId == _userContext.TenantId && x.AppCode == _userContext.AppCode)
-            .OrderBy(x => x.Sort)
+            .OrderByDescending(x => x.CreateDate)
             .ToListAsync();
     }
 }
