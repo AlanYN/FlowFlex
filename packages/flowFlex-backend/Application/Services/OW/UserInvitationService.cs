@@ -213,43 +213,43 @@ namespace FlowFlex.Application.Services.OW
         /// <returns>Whether resend was successful</returns>
         public async Task<bool> ResendInvitationAsync(ResendInvitationRequestDto request)
         {
-            try
+            var invitation = await _invitationRepository.GetByEmailAndOnboardingIdAsync(request.Email, request.OnboardingId);
+            if (invitation == null)
             {
-                var invitation = await _invitationRepository.GetByEmailAndOnboardingIdAsync(request.Email, request.OnboardingId);
-                if (invitation == null)
-                {
-                    throw new Exception("Invitation not found");
-                }
-
-                // Get onboarding info first
-                var onboarding = await _onboardingRepository.GetByIdAsync(request.OnboardingId);
-
-                // Update invitation
-                invitation.InvitationToken = CryptoHelper.GenerateSecureToken();
-                invitation.SentDate = GetCurrentTimeWithTimeZone();
-                invitation.TokenExpiry = null; // No expiry
-                invitation.Status = "Pending";
-                invitation.SendCount += 1;
-                invitation.ShortUrlId = CryptoHelper.GenerateShortUrlId(
-                    request.OnboardingId,
-                    request.Email,
-                    invitation.InvitationToken);
-                invitation.InvitationUrl = GenerateShortInvitationUrl(invitation.ShortUrlId, onboarding?.TenantId ?? "default", onboarding?.AppCode ?? "default", request.BaseUrl);
-                invitation.ModifyDate = GetCurrentTimeWithTimeZone();
-
-                await _invitationRepository.UpdateAsync(invitation);
-
-                // Send invitation email
-                return await _emailService.SendOnboardingInvitationEmailAsync(
-                    request.Email,
-                    invitation.InvitationUrl,
-                    onboarding?.CaseName ?? "Onboarding Process");
+                throw new Exception("Invitation not found");
             }
-            catch (Exception ex)
+
+            // Get onboarding info first
+            var onboarding = await _onboardingRepository.GetByIdAsync(request.OnboardingId);
+
+            // Update invitation
+            invitation.InvitationToken = CryptoHelper.GenerateSecureToken();
+            invitation.SentDate = GetCurrentTimeWithTimeZone();
+            invitation.TokenExpiry = null; // No expiry
+            invitation.Status = "Pending";
+            invitation.SendCount += 1;
+            invitation.ShortUrlId = CryptoHelper.GenerateShortUrlId(
+                request.OnboardingId,
+                request.Email,
+                invitation.InvitationToken);
+            invitation.InvitationUrl = GenerateShortInvitationUrl(invitation.ShortUrlId, onboarding?.TenantId ?? "default", onboarding?.AppCode ?? "default", request.BaseUrl);
+            invitation.ModifyDate = GetCurrentTimeWithTimeZone();
+
+            await _invitationRepository.UpdateAsync(invitation);
+
+            // Send invitation email
+            var emailSent = await _emailService.SendOnboardingInvitationEmailAsync(
+                request.Email,
+                invitation.InvitationUrl,
+                onboarding?.CaseName ?? "Onboarding Process");
+
+            if (!emailSent)
             {
-                _logger.LogError(ex, "Failed to resend invitation to {Email}", request.Email);
-                return false;
+                _logger.LogError("Failed to send invitation email to {Email}", request.Email);
+                throw new Exception($"Failed to send invitation email to {request.Email}");
             }
+
+            return true;
         }
 
         /// <summary>
