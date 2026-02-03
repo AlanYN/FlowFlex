@@ -29,11 +29,11 @@ public class DefineFieldRepository : BaseRepository<DefineField>, IDefineFieldRe
     {
         var tenantId = _userContext?.TenantId ?? "default";
         var appCode = _userContext?.AppCode ?? "default";
-        
+
         return await db.Queryable<DefineField>()
             .Where(x => x.IsValid)
             .Where(x => x.TenantId == tenantId && x.AppCode == appCode)
-            .OrderBy(x => x.Sort)
+            .OrderByDescending(x => x.CreateDate)
             .ToListAsync();
     }
 
@@ -41,7 +41,7 @@ public class DefineFieldRepository : BaseRepository<DefineField>, IDefineFieldRe
     {
         var tenantId = _userContext?.TenantId ?? "default";
         var appCode = _userContext?.AppCode ?? "default";
-        
+
         var query = db.Queryable<DefineField>()
             .Where(x => x.IsValid)
             .Where(x => x.TenantId == tenantId && x.AppCode == appCode);
@@ -133,7 +133,7 @@ public class DefineFieldRepository : BaseRepository<DefineField>, IDefineFieldRe
     {
         var tenantId = _userContext?.TenantId ?? "default";
         var appCode = _userContext?.AppCode ?? "default";
-        
+
         return await db.Queryable<DefineField>()
             .Where(x => x.FieldName == fieldName && x.IsValid)
             .Where(x => x.TenantId == tenantId && x.AppCode == appCode)
@@ -144,7 +144,7 @@ public class DefineFieldRepository : BaseRepository<DefineField>, IDefineFieldRe
     {
         var tenantId = _userContext?.TenantId ?? "default";
         var appCode = _userContext?.AppCode ?? "default";
-        
+
         return await db.Queryable<DefineField>()
             .Where(x => x.Id == fieldId && x.IsValid)
             .Where(x => x.TenantId == tenantId && x.AppCode == appCode)
@@ -155,7 +155,7 @@ public class DefineFieldRepository : BaseRepository<DefineField>, IDefineFieldRe
     {
         var tenantId = _userContext?.TenantId ?? "default";
         var appCode = _userContext?.AppCode ?? "default";
-        
+
         var query = db.Queryable<DefineField>()
             .Where(x => x.FieldName == fieldName && x.IsValid)
             .Where(x => x.TenantId == tenantId && x.AppCode == appCode);
@@ -170,7 +170,7 @@ public class DefineFieldRepository : BaseRepository<DefineField>, IDefineFieldRe
     {
         var tenantId = _userContext?.TenantId ?? "default";
         var appCode = _userContext?.AppCode ?? "default";
-        
+
         // Get group first to get field IDs
         var group = await db.Queryable<FieldGroup>()
             .Where(x => x.Id == groupId && x.IsValid)
@@ -183,7 +183,7 @@ public class DefineFieldRepository : BaseRepository<DefineField>, IDefineFieldRe
         return await db.Queryable<DefineField>()
             .Where(x => group.Fields.Contains(x.Id) && x.IsValid)
             .Where(x => x.TenantId == tenantId && x.AppCode == appCode)
-            .OrderBy(x => x.Sort)
+            .OrderByDescending(x => x.CreateDate)
             .ToListAsync();
     }
 
@@ -191,7 +191,7 @@ public class DefineFieldRepository : BaseRepository<DefineField>, IDefineFieldRe
     {
         var tenantId = _userContext?.TenantId ?? "default";
         var appCode = _userContext?.AppCode ?? "default";
-        
+
         foreach (var kvp in fieldSorts)
         {
             await db.Updateable<DefineField>()
@@ -240,11 +240,11 @@ public class DefineFieldRepository : BaseRepository<DefineField>, IDefineFieldRe
         var tenantId = _userContext?.TenantId ?? "default";
         var appCode = _userContext?.AppCode ?? "default";
         var idList = ids.ToList();
-        
+
         return await db.Queryable<DefineField>()
             .Where(x => idList.Contains(x.Id) && x.IsValid)
             .Where(x => x.TenantId == tenantId && x.AppCode == appCode)
-            .OrderBy(x => x.Sort)
+            .OrderByDescending(x => x.CreateDate)
             .ToListAsync();
     }
 }

@@ -28,11 +28,11 @@ public class FieldGroupRepository : BaseRepository<FieldGroup>, IFieldGroupRepos
     {
         var tenantId = _userContext?.TenantId ?? "default";
         var appCode = _userContext?.AppCode ?? "default";
-        
+
         return await db.Queryable<FieldGroup>()
             .Where(x => x.IsValid)
             .Where(x => x.TenantId == tenantId && x.AppCode == appCode)
-            .OrderBy(x => x.Sort)
+            .OrderByDescending(x => x.CreateDate)
             .ToListAsync();
     }
 
@@ -40,7 +40,7 @@ public class FieldGroupRepository : BaseRepository<FieldGroup>, IFieldGroupRepos
     {
         var tenantId = _userContext?.TenantId ?? "default";
         var appCode = _userContext?.AppCode ?? "default";
-        
+
         return await db.Queryable<FieldGroup>()
             .Where(x => x.Id == groupId && x.IsValid)
             .Where(x => x.TenantId == tenantId && x.AppCode == appCode)
@@ -51,7 +51,7 @@ public class FieldGroupRepository : BaseRepository<FieldGroup>, IFieldGroupRepos
     {
         var tenantId = _userContext?.TenantId ?? "default";
         var appCode = _userContext?.AppCode ?? "default";
-        
+
         return await db.Queryable<FieldGroup>()
             .Where(x => x.IsDefault && x.IsValid)
             .Where(x => x.TenantId == tenantId && x.AppCode == appCode)
@@ -62,7 +62,7 @@ public class FieldGroupRepository : BaseRepository<FieldGroup>, IFieldGroupRepos
     {
         var tenantId = _userContext?.TenantId ?? "default";
         var appCode = _userContext?.AppCode ?? "default";
-        
+
         var query = db.Queryable<FieldGroup>()
             .Where(x => x.GroupName == groupName && x.IsValid)
             .Where(x => x.TenantId == tenantId && x.AppCode == appCode);
@@ -80,7 +80,7 @@ public class FieldGroupRepository : BaseRepository<FieldGroup>, IFieldGroupRepos
         var modifyBy = _userContext?.UserName ?? "SYSTEM";
         // Parse UserId to long, default to 0 if parsing fails
         long.TryParse(_userContext?.UserId, out var modifyUserId);
-        
+
         await db.Updateable<FieldGroup>()
             .SetColumns(x => x.Fields == fieldIds)
             .SetColumns(x => x.ModifyDate == DateTimeOffset.UtcNow)
@@ -95,7 +95,7 @@ public class FieldGroupRepository : BaseRepository<FieldGroup>, IFieldGroupRepos
     {
         var tenantId = _userContext?.TenantId ?? "default";
         var appCode = _userContext?.AppCode ?? "default";
-        
+
         foreach (var kvp in groupSorts)
         {
             await db.Updateable<FieldGroup>()
