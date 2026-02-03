@@ -21,7 +21,7 @@ export const allActionTypes: { value: ConditionActionType; label: string; descri
 		{
 			value: 'SendNotification',
 			label: 'Send Notification',
-			description: 'Send email/SMS to user or team',
+			description: 'Send email to user or team',
 		},
 		{
 			value: 'UpdateField',

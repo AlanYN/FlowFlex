@@ -157,8 +157,9 @@
 									v-model="getActionParams(action).emailBody"
 									type="textarea"
 									placeholder="Enter email content..."
-									:maxlength="textraMaxLength"
+									:maxlength="textraTwoHundredLength"
 									:autosize="inputTextraAutosize"
+									show-word-limit
 								/>
 							</el-form-item>
 						</template>
@@ -282,7 +283,7 @@ import DynamicValueInput from './DynamicValueInput.vue';
 import { conditionAction } from '@/apis/ow';
 import { batchIdsDynamicFields } from '@/apis/global/dyanmicField';
 import { ToolsType, propertyTypeEnum } from '@/enums/appEnum';
-import { textraMaxLength, inputTextraAutosize } from '@/settings/projectSetting';
+import { textraTwoHundredLength, inputTextraAutosize } from '@/settings/projectSetting';
 import {
 	getAvailableActionTypes,
 	getDefaultActionType,
