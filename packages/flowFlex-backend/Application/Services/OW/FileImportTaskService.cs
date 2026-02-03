@@ -13,7 +13,7 @@ namespace FlowFlex.Application.Services.OW
     /// File import task service implementation
     /// Uses in-memory storage for task tracking with background processing
     /// </summary>
-    public class FileImportTaskService : IFileImportTaskService, ISingletonService
+    public class FileImportTaskService : IFileImportTaskService, ISingletonService, IDisposable
     {
         private readonly ConcurrentDictionary<string, FileImportTaskDto> _tasks = new();
         private readonly ConcurrentDictionary<string, CancellationTokenSource> _taskCancellationTokens = new();
@@ -24,6 +24,12 @@ namespace FlowFlex.Application.Services.OW
         // Lazy initialization to avoid circular dependency
         private IOnboardingFileService _lazyFileService;
         private readonly IServiceProvider _serviceProvider;
+        
+        // Memory management constants
+        private const int MaxTaskCount = 1000;
+        private const int MaxTaskAgeHours = 24;
+        private readonly object _cleanupLock = new();
+        private bool _disposed;
 
         public FileImportTaskService(
             IHttpClientFactory httpClientFactory,
@@ -50,6 +56,9 @@ namespace FlowFlex.Application.Services.OW
         /// </summary>
         public async Task<StartImportTaskResponseDto> StartImportTaskAsync(ImportFilesFromUrlInputDto input, string createdBy)
         {
+            // Memory protection: cleanup old tasks if limit exceeded
+            EnsureTaskCapacity();
+            
             var taskId = Guid.NewGuid().ToString("N");
             var cts = new CancellationTokenSource();
 
@@ -88,8 +97,9 @@ namespace FlowFlex.Application.Services.OW
             _tasks[taskId] = task;
             _taskCancellationTokens[taskId] = cts;
 
-            // Start background processing with error logging
-            _ = Task.Run(async () =>
+            // Start background processing with proper error handling
+            // Using Task.Run with explicit exception handling to ensure errors are logged
+            var backgroundTask = Task.Run(async () =>
             {
                 try
                 {
@@ -109,6 +119,15 @@ namespace FlowFlex.Application.Services.OW
                     }
                 }
             });
+
+            // Register continuation to log any unobserved exceptions
+            backgroundTask.ContinueWith(t =>
+            {
+                if (t.IsFaulted && t.Exception != null)
+                {
+                    _logger.LogError(t.Exception, "Unhandled exception in import task {TaskId}", taskId);
+                }
+            }, TaskContinuationOptions.OnlyOnFaulted);
 
             _logger.LogInformation("Started import task {TaskId} with {FileCount} files for Onboarding {OnboardingId}, Stage {StageId}",
                 taskId, task.TotalCount, input.OnboardingId, input.StageId);
@@ -528,10 +547,96 @@ namespace FlowFlex.Application.Services.OW
 
                 return fileName;
             }
-            catch
+            catch (Exception ex)
             {
+                _logger.LogWarning(ex, "Failed to extract file name from URL: {Url}", url?.Substring(0, Math.Min(100, url?.Length ?? 0)));
                 return $"file_{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}";
             }
+        }
+        
+        /// <summary>
+        /// Ensure task capacity by cleaning up old tasks if limit exceeded
+        /// </summary>
+        private void EnsureTaskCapacity()
+        {
+            if (_tasks.Count < MaxTaskCount)
+                return;
+                
+            lock (_cleanupLock)
+            {
+                if (_tasks.Count < MaxTaskCount)
+                    return;
+                    
+                _logger.LogWarning("Task count ({Count}) exceeded limit ({Limit}), cleaning up old tasks", 
+                    _tasks.Count, MaxTaskCount);
+                    
+                // Clean up completed tasks older than MaxTaskAgeHours
+                CleanupOldTasks(TimeSpan.FromHours(MaxTaskAgeHours));
+                
+                // If still over limit, force cleanup of oldest completed tasks
+                if (_tasks.Count >= MaxTaskCount)
+                {
+                    var completedTasks = _tasks
+                        .Where(kvp => kvp.Value.IsCompleted)
+                        .OrderBy(kvp => kvp.Value.CompletedAt)
+                        .Take(_tasks.Count - MaxTaskCount + 100) // Remove extra to avoid frequent cleanup
+                        .Select(kvp => kvp.Key)
+                        .ToList();
+                        
+                    foreach (var taskId in completedTasks)
+                    {
+                        _tasks.TryRemove(taskId, out _);
+                        if (_taskCancellationTokens.TryRemove(taskId, out var cts))
+                        {
+                            cts.Dispose();
+                        }
+                    }
+                    
+                    _logger.LogInformation("Force cleaned up {Count} oldest completed tasks", completedTasks.Count);
+                }
+            }
+        }
+        
+        /// <summary>
+        /// Dispose resources
+        /// </summary>
+        public void Dispose()
+        {
+            Dispose(true);
+            GC.SuppressFinalize(this);
+        }
+        
+        /// <summary>
+        /// Dispose resources
+        /// </summary>
+        protected virtual void Dispose(bool disposing)
+        {
+            if (_disposed)
+                return;
+                
+            if (disposing)
+            {
+                // Cancel all running tasks
+                foreach (var kvp in _taskCancellationTokens)
+                {
+                    try
+                    {
+                        kvp.Value.Cancel();
+                        kvp.Value.Dispose();
+                    }
+                    catch (ObjectDisposedException)
+                    {
+                        // Already disposed, ignore
+                    }
+                }
+                
+                _taskCancellationTokens.Clear();
+                _tasks.Clear();
+                
+                _logger.LogInformation("FileImportTaskService disposed, cleaned up all tasks");
+            }
+            
+            _disposed = true;
         }
     }
 }

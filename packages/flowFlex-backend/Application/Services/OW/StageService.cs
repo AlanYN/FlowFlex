@@ -1873,9 +1873,10 @@ namespace FlowFlex.Application.Services.OW
                         entity.Components = components;
                         await _stageRepository.UpdateAsync(entity);
                     }
-                    catch (Exception)
+                    catch (Exception ex)
                     {
-                        // Ignore persistence error here
+                        // Log persistence error but don't fail the operation
+                        _logger.LogWarning(ex, "Failed to persist component names for stage {StageId}", entity.Id);
                     }
                 }
 

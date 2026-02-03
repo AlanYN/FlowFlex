@@ -20,6 +20,7 @@ namespace FlowFlex.Application.Services.OW
 {
     /// <summary>
     /// Dashboard service implementation - provides aggregated data for dashboard UI
+    /// Performance optimized with request-scoped caching for workflow data
     /// </summary>
     public class DashboardService : IDashboardService, IScopedService
     {
@@ -32,6 +33,10 @@ namespace FlowFlex.Application.Services.OW
         private readonly UserContext _userContext;
         private readonly ILogger<DashboardService> _logger;
         private readonly PermissionHelpers _permissionHelpers;
+        
+        // Request-scoped cache for workflow data to avoid repeated DB queries
+        private Dictionary<long, Workflow> _workflowCache;
+        private readonly object _workflowCacheLock = new();
 
         public DashboardService(
             IOnboardingRepository onboardingRepository,
@@ -54,6 +59,44 @@ namespace FlowFlex.Application.Services.OW
             _logger = logger;
             _permissionHelpers = permissionHelpers;
         }
+        
+        /// <summary>
+        /// Get or load workflows into request-scoped cache
+        /// </summary>
+        private async Task<Dictionary<long, Workflow>> GetOrLoadWorkflowsAsync(IEnumerable<long> workflowIds)
+        {
+            var idsToLoad = workflowIds.Distinct().ToList();
+            
+            lock (_workflowCacheLock)
+            {
+                if (_workflowCache == null)
+                {
+                    _workflowCache = new Dictionary<long, Workflow>();
+                }
+                else
+                {
+                    // Filter out already cached IDs
+                    idsToLoad = idsToLoad.Where(id => !_workflowCache.ContainsKey(id)).ToList();
+                }
+            }
+            
+            if (idsToLoad.Any())
+            {
+                var workflows = await _workflowRepository.GetListAsync(w => idsToLoad.Contains(w.Id));
+                
+                lock (_workflowCacheLock)
+                {
+                    foreach (var workflow in workflows)
+                    {
+                        _workflowCache[workflow.Id] = workflow;
+                    }
+                }
+                
+                _logger.LogDebug("Loaded {Count} workflows into cache", workflows.Count);
+            }
+            
+            return _workflowCache;
+        }
 
         /// <summary>
         /// Get aggregated dashboard data with optional module selection
@@ -68,99 +111,58 @@ namespace FlowFlex.Application.Services.OW
             var tasks = new List<Task>();
             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30)); // 30 second timeout
 
+            // Use async lambdas directly instead of Task.Run to avoid thread pool overhead
             if (includeAll || modules.Contains("statistics", StringComparer.OrdinalIgnoreCase))
             {
-                tasks.Add(Task.Run(async () =>
+                tasks.Add(SafeExecuteAsync(async () =>
                 {
-                    try
-                    {
-                        result.Statistics = await GetStatisticsAsync(query.Team);
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogError(ex, "Failed to get dashboard statistics");
-                    }
-                }, cts.Token));
+                    result.Statistics = await GetStatisticsAsync(query.Team);
+                }, "statistics", cts.Token));
             }
 
             if (includeAll || modules.Contains("casesOverview", StringComparer.OrdinalIgnoreCase) || modules.Contains("stageDistribution", StringComparer.OrdinalIgnoreCase))
             {
-                tasks.Add(Task.Run(async () =>
+                tasks.Add(SafeExecuteAsync(async () =>
                 {
-                    try
-                    {
-                        result.CasesOverview = await GetStageDistributionAsync(query.WorkflowId);
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogError(ex, "Failed to get dashboard cases overview");
-                    }
-                }, cts.Token));
+                    result.CasesOverview = await GetStageDistributionAsync(query.WorkflowId);
+                }, "casesOverview", cts.Token));
             }
 
             if (includeAll || modules.Contains("tasks", StringComparer.OrdinalIgnoreCase))
             {
-                tasks.Add(Task.Run(async () =>
+                tasks.Add(SafeExecuteAsync(async () =>
                 {
-                    try
+                    result.Tasks = await GetTasksAsync(new DashboardTaskQueryDto
                     {
-                        result.Tasks = await GetTasksAsync(new DashboardTaskQueryDto
-                        {
-                            Category = query.TaskCategory,
-                            PageIndex = query.TaskPageIndex,
-                            PageSize = query.TaskPageSize
-                        });
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogError(ex, "Failed to get dashboard tasks");
-                    }
-                }, cts.Token));
+                        Category = query.TaskCategory,
+                        PageIndex = query.TaskPageIndex,
+                        PageSize = query.TaskPageSize
+                    });
+                }, "tasks", cts.Token));
             }
 
             if (includeAll || modules.Contains("messages", StringComparer.OrdinalIgnoreCase))
             {
-                tasks.Add(Task.Run(async () =>
+                tasks.Add(SafeExecuteAsync(async () =>
                 {
-                    try
-                    {
-                        result.Messages = await GetMessageSummaryAsync(query.MessageLimit);
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogError(ex, "Failed to get dashboard messages");
-                    }
-                }, cts.Token));
+                    result.Messages = await GetMessageSummaryAsync(query.MessageLimit);
+                }, "messages", cts.Token));
             }
 
             if (includeAll || modules.Contains("achievements", StringComparer.OrdinalIgnoreCase))
             {
-                tasks.Add(Task.Run(async () =>
+                tasks.Add(SafeExecuteAsync(async () =>
                 {
-                    try
-                    {
-                        result.Achievements = await GetAchievementsAsync(query.AchievementLimit, query.Team);
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogError(ex, "Failed to get dashboard achievements");
-                    }
-                }, cts.Token));
+                    result.Achievements = await GetAchievementsAsync(query.AchievementLimit, query.Team);
+                }, "achievements", cts.Token));
             }
 
             if (includeAll || modules.Contains("deadlines", StringComparer.OrdinalIgnoreCase))
             {
-                tasks.Add(Task.Run(async () =>
+                tasks.Add(SafeExecuteAsync(async () =>
                 {
-                    try
-                    {
-                        result.Deadlines = await GetDeadlinesAsync(query.DeadlineDays);
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogError(ex, "Failed to get dashboard deadlines");
-                    }
-                }, cts.Token));
+                    result.Deadlines = await GetDeadlinesAsync(query.DeadlineDays);
+                }, "deadlines", cts.Token));
             }
 
             try
@@ -173,6 +175,27 @@ namespace FlowFlex.Application.Services.OW
             }
 
             return result;
+        }
+
+        /// <summary>
+        /// Safely execute an async action with error handling and cancellation support
+        /// </summary>
+        private async Task SafeExecuteAsync(Func<Task> action, string moduleName, CancellationToken cancellationToken)
+        {
+            try
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                await action();
+            }
+            catch (OperationCanceledException)
+            {
+                _logger.LogWarning("Dashboard module {ModuleName} was cancelled", moduleName);
+                throw;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to get dashboard {ModuleName}", moduleName);
+            }
         }
 
         /// <summary>
@@ -1114,7 +1137,7 @@ namespace FlowFlex.Application.Services.OW
             var userTeamIds = _userContext.UserTeams?.GetAllTeamIds() ?? new List<long>();
             var userIdString = userId.ToString();
 
-            // Use preloaded workflows or load them
+            // Use preloaded workflows, request-scoped cache, or load them
             Dictionary<long, Workflow> workflowDict;
             if (preloadedWorkflows != null)
             {
@@ -1122,9 +1145,9 @@ namespace FlowFlex.Application.Services.OW
             }
             else
             {
+                // Use request-scoped cache to avoid repeated DB queries
                 var workflowIds = cases.Select(c => c.WorkflowId).Distinct().ToList();
-                var workflows = await _workflowRepository.GetListAsync(w => workflowIds.Contains(w.Id));
-                workflowDict = workflows.ToDictionary(w => w.Id, w => w);
+                workflowDict = await GetOrLoadWorkflowsAsync(workflowIds);
             }
 
             var filteredCases = new List<Onboarding>();
@@ -1143,6 +1166,7 @@ namespace FlowFlex.Application.Services.OW
 
         /// <summary>
         /// Filter cases by permission (in-memory check)
+        /// Uses request-scoped workflow cache for better performance
         /// </summary>
         private async Task<List<Onboarding>> FilterCasesByPermissionAsync(List<Onboarding> cases)
         {
@@ -1162,10 +1186,9 @@ namespace FlowFlex.Application.Services.OW
             var userTeamIds = _userContext.UserTeams?.GetAllTeamIds() ?? new List<long>();
             var userIdString = userId.ToString();
 
-            // Load all workflows for permission check (batch load to avoid N+1)
+            // Use request-scoped cache to avoid repeated DB queries
             var workflowIds = cases.Select(c => c.WorkflowId).Distinct().ToList();
-            var workflows = await _workflowRepository.GetListAsync(w => workflowIds.Contains(w.Id));
-            var workflowDict = workflows.ToDictionary(w => w.Id, w => w);
+            var workflowDict = await GetOrLoadWorkflowsAsync(workflowIds);
 
             var filteredCases = new List<Onboarding>();
 
@@ -1184,6 +1207,7 @@ namespace FlowFlex.Application.Services.OW
 
         /// <summary>
         /// Filter cases by operate permission (in-memory check)
+        /// Uses request-scoped workflow cache for better performance
         /// </summary>
         private async Task<List<Onboarding>> FilterCasesByOperatePermissionAsync(List<Onboarding> cases)
         {
@@ -1203,10 +1227,9 @@ namespace FlowFlex.Application.Services.OW
             var userTeamIds = _userContext.UserTeams?.GetAllTeamIds() ?? new List<long>();
             var userIdString = userId.ToString();
 
-            // Load all workflows for permission check (batch load to avoid N+1)
+            // Use request-scoped cache to avoid repeated DB queries
             var workflowIds = cases.Select(c => c.WorkflowId).Distinct().ToList();
-            var workflows = await _workflowRepository.GetListAsync(w => workflowIds.Contains(w.Id));
-            var workflowDict = workflows.ToDictionary(w => w.Id, w => w);
+            var workflowDict = await GetOrLoadWorkflowsAsync(workflowIds);
 
             var filteredCases = new List<Onboarding>();
 

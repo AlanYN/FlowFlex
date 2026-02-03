@@ -556,7 +556,10 @@ namespace FlowFlex.Application.Services.OW
                     if (inner.StartsWith("[") || inner.StartsWith("{")) return inner;
                 }
             }
-            catch { }
+            catch (JsonException)
+            {
+                // Not valid JSON string, return current
+            }
             return current;
         }
 

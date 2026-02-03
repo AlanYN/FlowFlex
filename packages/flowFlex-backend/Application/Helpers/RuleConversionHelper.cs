@@ -417,7 +417,10 @@ namespace FlowFlex.Application.Helpers
                     }
                 }
             }
-            catch { }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex, "Failed to extract task ID from field path: {FieldPath}", fieldPath);
+            }
             return 0;
         }
 
@@ -437,7 +440,10 @@ namespace FlowFlex.Application.Helpers
                     return (questionnaireId, questionId);
                 }
             }
-            catch { }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex, "Failed to extract questionnaire/question ID from field path: {FieldPath}", fieldPath);
+            }
             return (0, 0);
         }
 
@@ -461,7 +467,10 @@ namespace FlowFlex.Application.Helpers
                     return fieldId2;
                 }
             }
-            catch { }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex, "Failed to extract field ID from field path: {FieldPath}", fieldPath);
+            }
             return 0;
         }
 

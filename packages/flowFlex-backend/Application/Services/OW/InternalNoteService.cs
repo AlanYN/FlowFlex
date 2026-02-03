@@ -5,6 +5,7 @@ using System.Text.Json;
 using System.Threading.Tasks;
 using AutoMapper;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Logging;
 using FlowFlex.Application.Contracts.Dtos.OW.InternalNote;
 using FlowFlex.Application.Contracts.Dtos.OW.Message;
 using FlowFlex.Application.Contracts.IServices.OW;
@@ -31,6 +32,7 @@ public class InternalNoteService : IInternalNoteService, IScopedService
     private readonly IHttpContextAccessor _httpContextAccessor;
     private readonly UserContext _userContext;
     private readonly IOperatorContextService _operatorContextService;
+    private readonly ILogger<InternalNoteService> _logger;
 
     public InternalNoteService(
         IInternalNoteRepository noteRepository,
@@ -40,7 +42,8 @@ public class InternalNoteService : IInternalNoteService, IScopedService
         IMapper mapper,
         IHttpContextAccessor httpContextAccessor,
         UserContext userContext,
-        IOperatorContextService operatorContextService)
+        IOperatorContextService operatorContextService,
+        ILogger<InternalNoteService> logger)
     {
         _noteRepository = noteRepository;
         _onboardingRepository = onboardingRepository;
@@ -50,6 +53,7 @@ public class InternalNoteService : IInternalNoteService, IScopedService
         _httpContextAccessor = httpContextAccessor;
         _userContext = userContext;
         _operatorContextService = operatorContextService;
+        _logger = logger;
     }
 
     /// <summary>
@@ -130,10 +134,11 @@ public class InternalNoteService : IInternalNoteService, IScopedService
             message.InitCreateInfo(_userContext);
             await _messageRepository.InsertAsync(message);
         }
-        catch (Exception)
+        catch (Exception ex)
         {
             // Log error but don't fail the note creation
             // Message creation is a secondary operation
+            _logger.LogWarning(ex, "Failed to create message for note {NoteId}", note.Id);
         }
     }
 
@@ -158,10 +163,11 @@ public class InternalNoteService : IInternalNoteService, IScopedService
                 await _messageRepository.UpdateAsync(message);
             }
         }
-        catch (Exception)
+        catch (Exception ex)
         {
             // Log error but don't fail the note update
             // Message update is a secondary operation
+            _logger.LogWarning(ex, "Failed to update message for note {NoteId}", note.Id);
         }
     }
 

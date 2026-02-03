@@ -454,7 +454,10 @@ namespace FlowFlex.Application.Services.OW
                     return jObject["logic"]?.ToString();
                 }
             }
-            catch { }
+            catch (Newtonsoft.Json.JsonException)
+            {
+                // Not valid JSON, return null
+            }
             return null;
         }
 

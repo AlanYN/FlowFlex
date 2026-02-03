@@ -230,9 +230,10 @@ public class MessageService : IMessageService, IScopedService
                 await _messageRepository.UpdateAsync(message);
             }
         }
-        catch (Exception)
+        catch (Exception ex)
         {
-            // Silently ignore - user can still see preview
+            // Log but don't fail - user can still see preview
+            _logger.LogDebug(ex, "Failed to fetch full email body for message {MessageId}", message.Id);
         }
     }
 
@@ -278,9 +279,10 @@ public class MessageService : IMessageService, IScopedService
                 await _messageRepository.UpdateAsync(message);
             }
         }
-        catch (Exception)
+        catch (Exception ex)
         {
-            // Silently ignore - user can still see the email with broken images
+            // Log but don't fail - user can still see the email with broken images
+            _logger.LogDebug(ex, "Failed to process cid references for message {MessageId}", message.Id);
         }
     }
 
@@ -319,9 +321,10 @@ public class MessageService : IMessageService, IScopedService
                 message.ExternalMessageId!,
                 message.Id);
         }
-        catch (Exception)
+        catch (Exception ex)
         {
-            // Silently ignore - user can still see the email without attachments
+            // Log but don't fail - user can still see the email without attachments
+            _logger.LogDebug(ex, "Failed to sync attachments for message {MessageId}", message.Id);
         }
     }
 

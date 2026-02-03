@@ -1,6 +1,7 @@
 using AutoMapper;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using FlowFlex.Application.Contracts.Dtos.OW.QuestionnaireAnswer;
 using FlowFlex.Application.Contracts.IServices.OW;
 using FlowFlex.Domain.Entities.OW;
@@ -31,6 +32,7 @@ namespace FlowFlex.Application.Services.OW
         private readonly ISqlSugarClient _sqlSugarClient;
         private readonly UserContext _userContext;
         private readonly IOperatorContextService _operatorContextService;
+        private readonly ILogger<QuestionnaireAnswerService> _logger;
 
         public QuestionnaireAnswerService(
             IQuestionnaireAnswerRepository repository,
@@ -42,7 +44,8 @@ namespace FlowFlex.Application.Services.OW
             IHttpContextAccessor httpContextAccessor,
             ISqlSugarClient sqlSugarClient,
             UserContext userContext,
-            IOperatorContextService operatorContextService)
+            IOperatorContextService operatorContextService,
+            ILogger<QuestionnaireAnswerService> logger)
         {
             _repository = repository;
 
@@ -54,6 +57,7 @@ namespace FlowFlex.Application.Services.OW
             _sqlSugarClient = sqlSugarClient;
             _userContext = userContext;
             _operatorContextService = operatorContextService;
+            _logger = logger;
         }
 
         /// <summary>

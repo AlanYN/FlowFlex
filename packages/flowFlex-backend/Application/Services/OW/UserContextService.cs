@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Logging;
 using FlowFlex.Application.Contracts.IServices.OW;
 using FlowFlex.Application.Services.OW.Extensions;
 using FlowFlex.Domain;
@@ -14,10 +15,14 @@ namespace FlowFlex.Application.Services.OW
     public class UserContextService : IUserContextService, IScopedService
     {
         private readonly IHttpContextAccessor _httpContextAccessor;
+        private readonly ILogger<UserContextService> _logger;
 
-        public UserContextService(IHttpContextAccessor httpContextAccessor)
+        public UserContextService(
+            IHttpContextAccessor httpContextAccessor,
+            ILogger<UserContextService> logger)
         {
             _httpContextAccessor = httpContextAccessor;
+            _logger = logger;
         }
 
         /// <summary>
