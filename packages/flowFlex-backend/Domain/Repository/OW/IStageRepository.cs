@@ -76,8 +76,13 @@ namespace FlowFlex.Domain.Repository.OW
         Task<List<Stage>> GetAllOptimizedAsync();
 
         /// <summary>
-        /// 检查阶段名称在工作流中是否存在（重命名方法�?
+        /// Check if stage name exists in workflow (renamed method)
         /// </summary>
         Task<bool> IsNameExistsInWorkflowAsync(long workflowId, string name, long? excludeId = null);
+
+        /// <summary>
+        /// Batch get stages by IDs (performance optimization)
+        /// </summary>
+        Task<List<Stage>> GetByIdsAsync(List<long> stageIds);
     }
 }

@@ -1483,26 +1483,7 @@ namespace FlowFlex.Application.Services.OW
                 }
             }
         }
-
-        /// <summary>
-        /// Apply sorting to questionnaire list
-        /// </summary>
-        private List<Questionnaire> ApplySorting(List<Questionnaire> questionnaires, string sortField, string sortDirection)
-        {
-            if (questionnaires == null || !questionnaires.Any())
-                return questionnaires ?? new List<Questionnaire>();
-
-            bool isAsc = sortDirection?.ToLower() == "asc";
-
-            return (sortField?.ToLower()) switch
-            {
-                "name" => isAsc ? questionnaires.OrderBy(q => q.Name).ToList() : questionnaires.OrderByDescending(q => q.Name).ToList(),
-                "createdate" => isAsc ? questionnaires.OrderBy(q => q.CreateDate).ToList() : questionnaires.OrderByDescending(q => q.CreateDate).ToList(),
-                "modifydate" => isAsc ? questionnaires.OrderBy(q => q.ModifyDate).ToList() : questionnaires.OrderByDescending(q => q.ModifyDate).ToList(),
-                _ => isAsc ? questionnaires.OrderBy(q => q.CreateDate).ToList() : questionnaires.OrderByDescending(q => q.CreateDate).ToList()
-            };
-        }
-
+      
         /// <summary>
         /// Get questionnaire IDs by stage ID from mapping table (ultra-fast)
         /// </summary>

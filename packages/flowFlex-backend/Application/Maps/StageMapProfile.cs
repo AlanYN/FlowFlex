@@ -239,8 +239,9 @@ namespace FlowFlex.Application.Maps
                 
                 return components;
             }
-            catch
+            catch (Exception)
             {
+                // JSON parsing failed, return empty list
                 return new List<StageComponent>();
             }
         }

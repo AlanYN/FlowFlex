@@ -1273,7 +1273,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                         (afterJson.TryGetProperty("DefaultAssignee", out var defaultAssigneeElement) ||
                          afterJson.TryGetProperty("defaultAssignee", out defaultAssigneeElement)))
                     {
-                        var defaultAssigneeSummary = GetDefaultAssigneeSummary(defaultAssigneeElement);
+                        var defaultAssigneeSummary = await GetDefaultAssigneeSummaryAsync(defaultAssigneeElement);
                         if (!string.IsNullOrEmpty(defaultAssigneeSummary))
                         {
                             details.Add($"default assignee: {defaultAssigneeSummary}");
@@ -2759,83 +2759,40 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
         }
 
         /// <summary>
-        /// Get summary of teams for display in creation logs (synchronous version - for backward compatibility)
+        /// Get summary of default assignees for display in creation logs (async version)
         /// </summary>
-        protected virtual string GetTeamsSummary(JsonElement teamsElement)
+        protected virtual async Task<string> GetDefaultAssigneeSummaryAsync(JsonElement assigneeElement)
         {
             try
             {
-                if (teamsElement.ValueKind != JsonValueKind.Array)
-                {
-                    return string.Empty;
-                }
+                var userIds = new List<string>();
 
-                var teamIds = new List<string>();
-                foreach (var teamIdElement in teamsElement.EnumerateArray())
+                // Handle different JSON value kinds
+                if (assigneeElement.ValueKind == JsonValueKind.Array)
                 {
-                    var teamId = teamIdElement.GetString();
-                    if (!string.IsNullOrEmpty(teamId))
+                    // Direct array
+                    foreach (var userIdElement in assigneeElement.EnumerateArray())
                     {
-                        teamIds.Add(teamId);
-                    }
-                }
-
-                if (teamIds.Any())
-                {
-                    // Try to get team names if UserService is available
-                    try
-                    {
-                        var tenantId = _userContext?.TenantId ?? "999";
-                        var teamNameMap = _userService?.GetTeamNamesByIdsAsync(teamIds, tenantId).GetAwaiter().GetResult();
-
-                        if (teamNameMap != null && teamNameMap.Any())
+                        var userId = userIdElement.GetString();
+                        if (!string.IsNullOrEmpty(userId))
                         {
-                            var teamNames = teamIds
-                                .Select(id => teamNameMap.TryGetValue(id, out var name) && !string.IsNullOrEmpty(name)
-                                    ? name
-                                    : id)
-                                .ToList();
-                            return string.Join(", ", teamNames.Select(n => $"'{n}'"));
+                            userIds.Add(userId);
                         }
                     }
-                    catch
-                    {
-                        // If team name lookup fails, use IDs
-                    }
-
-                    // Fallback to IDs if team names are not available
-                    return string.Join(", ", teamIds.Select(id => $"'{id}'"));
                 }
-
-                return string.Empty;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Failed to get teams summary");
-                return string.Empty;
-            }
-        }
-
-        /// <summary>
-        /// Get summary of default assignees for display in creation logs
-        /// </summary>
-        protected virtual string GetDefaultAssigneeSummary(JsonElement assigneeElement)
-        {
-            try
-            {
-                if (assigneeElement.ValueKind != JsonValueKind.Array)
+                else if (assigneeElement.ValueKind == JsonValueKind.String)
+                {
+                    // String that contains JSON array (double-encoded)
+                    var usersJson = assigneeElement.GetString();
+                    if (!string.IsNullOrEmpty(usersJson))
+                    {
+                        var parsedUsers = ParseUserList(usersJson);
+                        userIds.AddRange(parsedUsers);
+                    }
+                }
+                else if (assigneeElement.ValueKind == JsonValueKind.Null)
                 {
                     return string.Empty;
-                }
-
-                var userIds = new List<string>();
-                foreach (var userIdElement in assigneeElement.EnumerateArray())
-                {
-                    var userId = userIdElement.GetString();
-                    if (!string.IsNullOrEmpty(userId))
-                    {
-                        userIds.Add(userId);
-                    }
                 }
 
                 if (userIds.Any())
@@ -2850,7 +2807,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
 
                         if (userIdsLong.Any() && _userService != null)
                         {
-                            var users = _userService.GetUsersByIdsAsync(userIdsLong, tenantId).GetAwaiter().GetResult();
+                            var users = await _userService.GetUsersByIdsAsync(userIdsLong, tenantId);
 
                             if (users != null && users.Any())
                             {
@@ -2873,8 +2830,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                     }
                     catch (Exception ex)
                     {
-                        _logger.LogWarning(ex, "Failed to get user names for default assignees");
-                        // If user name lookup fails, use IDs
+                        _logger.LogDebug(ex, "Failed to get user names for default assignees, using IDs as fallback");
                     }
 
                     // Fallback to IDs if user names are not available
@@ -4690,6 +4646,67 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
             catch (Exception ex)
             {
                 _logger.LogWarning(ex, "Failed to parse team list: {TeamsJson}", teamsJson);
+                return new List<string>();
+            }
+        }
+
+        /// <summary>
+        /// Parse user list from JSON string (handles double-encoded JSON)
+        /// </summary>
+        protected virtual List<string> ParseUserList(string usersJson)
+        {
+            if (string.IsNullOrWhiteSpace(usersJson))
+            {
+                return new List<string>();
+            }
+
+            try
+            {
+                var trimmedData = usersJson.Trim();
+
+                // Handle double-encoded JSON string (e.g., "\"[\\\"123\\\",\\\"456\\\"]\"")
+                // First, try to deserialize as a JSON string to get the actual JSON array string
+                if (trimmedData.StartsWith("\"") && trimmedData.EndsWith("\""))
+                {
+                    try
+                    {
+                        var unescapedJson = JsonSerializer.Deserialize<string>(trimmedData);
+                        if (!string.IsNullOrWhiteSpace(unescapedJson))
+                        {
+                            trimmedData = unescapedJson;
+                            _logger.LogDebug("Unescaped double-encoded user JSON: {UnescapedJson}", trimmedData);
+                        }
+                    }
+                    catch
+                    {
+                        // If deserialization fails, continue with original data
+                        _logger.LogDebug("Failed to unescape as double-encoded JSON, using original data");
+                    }
+                }
+
+                // Try to parse as JSON array
+                if (trimmedData.StartsWith("["))
+                {
+                    var users = JsonSerializer.Deserialize<List<string>>(trimmedData);
+                    if (users != null)
+                    {
+                        _logger.LogDebug("Successfully parsed {Count} users from JSON array", users.Count);
+                        return users.Where(s => !string.IsNullOrEmpty(s)).ToList();
+                    }
+                }
+
+                // Fallback: treat as comma-separated string
+                var userList = trimmedData.Split(',', StringSplitOptions.RemoveEmptyEntries)
+                    .Select(u => u.Trim())
+                    .Where(u => !string.IsNullOrEmpty(u))
+                    .ToList();
+
+                _logger.LogDebug("Parsed {Count} users from comma-separated string", userList.Count);
+                return userList;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to parse user list: {UsersJson}", usersJson);
                 return new List<string>();
             }
         }

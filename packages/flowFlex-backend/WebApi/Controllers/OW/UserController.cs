@@ -5,6 +5,7 @@ using FlowFlex.Application.Contracts.Dtos.OW.User;
 using FlowFlex.Application.Contracts.IServices.OW;
 using FlowFlex.WebApi.Controllers;
 using FlowFlex.WebApi.Model.Response;
+using FlowFlex.WebApi.Filters;
 using Item.Internal.StandardApi.Response;
 using System.Net;
 using System.Linq;
@@ -38,6 +39,7 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// <returns>User DTO</returns>
         [HttpPost("register")]
         [AllowAnonymous]
+        [RateLimit(maxRequests: 5, windowSeconds: 60, keyPrefix: "register")]
         [ProducesResponseType<SuccessResponse<UserDto>>((int)HttpStatusCode.OK)]
         [ProducesResponseType(typeof(ErrorResponse), 400)]
         public async Task<IActionResult> Register([FromBody] RegisterRequestDto request)
@@ -53,6 +55,7 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// <returns>Whether sending was successful</returns>
         [HttpPost("send-verification-code")]
         [AllowAnonymous]
+        [RateLimit(maxRequests: 3, windowSeconds: 60, keyPrefix: "send-code")]
         [ProducesResponseType<SuccessResponse<bool>>((int)HttpStatusCode.OK)]
         [ProducesResponseType(typeof(ErrorResponse), 400)]
         public async Task<IActionResult> SendVerificationCode([FromBody] SendVerificationCodeRequestDto request)
@@ -83,6 +86,7 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// <returns>Login response</returns>
         [HttpPost("login")]
         [AllowAnonymous]
+        [RateLimit(maxRequests: 10, windowSeconds: 60, keyPrefix: "login")]
         [ProducesResponseType<SuccessResponse<LoginResponseDto>>((int)HttpStatusCode.OK)]
         [ProducesResponseType(typeof(ErrorResponse), 400)]
         public async Task<IActionResult> Login([FromBody] LoginRequestDto request)
@@ -98,6 +102,7 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// <returns>Login response</returns>
         [HttpPost("login-with-code")]
         [AllowAnonymous]
+        [RateLimit(maxRequests: 10, windowSeconds: 60, keyPrefix: "login-code")]
         [ProducesResponseType<SuccessResponse<LoginResponseDto>>((int)HttpStatusCode.OK)]
         [ProducesResponseType(typeof(ErrorResponse), 400)]
         public async Task<IActionResult> LoginWithCode([FromBody] LoginWithCodeRequestDto request)
@@ -172,6 +177,7 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// <returns>Login response with new token</returns>
         [HttpPost("refresh-access-token")]
         [AllowAnonymous]
+        [RateLimit(maxRequests: 20, windowSeconds: 60, keyPrefix: "refresh-token")]
         [ProducesResponseType<SuccessResponse<LoginResponseDto>>((int)HttpStatusCode.OK)]
         [ProducesResponseType(typeof(ErrorResponse), 400)]
         [ProducesResponseType(typeof(ErrorResponse), 401)]
@@ -283,6 +289,7 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// <returns>Login response with system token</returns>
         [HttpPost("third-party-login")]
         [AllowAnonymous]
+        [RateLimit(maxRequests: 10, windowSeconds: 60, keyPrefix: "third-party-login")]
         [ProducesResponseType<SuccessResponse<LoginResponseDto>>((int)HttpStatusCode.OK)]
         [ProducesResponseType(typeof(ErrorResponse), 400)]
         [ProducesResponseType(typeof(ErrorResponse), 401)]

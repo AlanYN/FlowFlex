@@ -23,6 +23,173 @@ namespace FlowFlex.Application.Services.AI
 {
     public partial class AIService
     {
+        #region Generation Helper Methods
+        
+        /// <summary>
+        /// Execute AI generation with standardized error handling and prompt history logging
+        /// </summary>
+        /// <typeparam name="TResult">Result type that implements IAIGenerationResult</typeparam>
+        /// <param name="operationType">Type of generation operation (e.g., "WorkflowGeneration")</param>
+        /// <param name="entityType">Entity type being generated (e.g., "Workflow")</param>
+        /// <param name="buildPrompt">Function to build the prompt</param>
+        /// <param name="parseResponse">Function to parse AI response into result</param>
+        /// <param name="calculateConfidence">Function to calculate confidence score</param>
+        /// <param name="buildMetadata">Function to build metadata for logging</param>
+        /// <param name="modelId">Optional model ID</param>
+        /// <param name="modelProvider">Optional model provider</param>
+        /// <param name="modelName">Optional model name</param>
+        /// <param name="maxTokens">Optional max tokens override</param>
+        /// <param name="contextDescription">Description for logging context</param>
+        /// <returns>Generation result</returns>
+        private async Task<TResult> ExecuteGenerationAsync<TResult>(
+            string operationType,
+            string entityType,
+            Func<string> buildPrompt,
+            Func<string, TResult> parseResponse,
+            Func<TResult, double> calculateConfidence,
+            Func<object> buildMetadata,
+            string modelId = null,
+            string modelProvider = null,
+            string modelName = null,
+            int? maxTokens = null,
+            string contextDescription = null) where TResult : class, new()
+        {
+            var startTime = DateTime.UtcNow;
+            string prompt = null;
+            AIProviderResponse aiResponse = null;
+
+            try
+            {
+                _logger.LogInformation("Starting {OperationType}: {Context}", operationType, contextDescription ?? "N/A");
+
+                prompt = buildPrompt();
+                aiResponse = await CallAIProviderAsync(prompt, modelId, modelProvider, modelName, maxTokens);
+
+                // Save prompt history to database (fire-and-forget)
+                QueuePromptHistorySave(operationType, entityType, prompt, aiResponse, startTime, modelProvider, modelName, modelId, buildMetadata);
+
+                if (!aiResponse.Success)
+                {
+                    return CreateFailedResult<TResult>(aiResponse.ErrorMessage);
+                }
+
+                var result = parseResponse(aiResponse.Content);
+                SetConfidenceScore(result, calculateConfidence(result));
+
+                _logger.LogInformation("Successfully completed {OperationType}", operationType);
+                return result;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error during {OperationType}: {Context}", operationType, contextDescription ?? "N/A");
+
+                // Save failed prompt history
+                if (!string.IsNullOrEmpty(prompt))
+                {
+                    QueueFailedPromptHistorySave(operationType, entityType, prompt, ex, startTime, modelProvider, modelName, modelId, buildMetadata);
+                }
+
+                return CreateFailedResult<TResult>($"Failed to complete {operationType}: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Queue prompt history save as background task
+        /// </summary>
+        private void QueuePromptHistorySave(
+            string operationType, 
+            string entityType, 
+            string prompt, 
+            AIProviderResponse aiResponse, 
+            DateTime startTime,
+            string modelProvider,
+            string modelName,
+            string modelId,
+            Func<object> buildMetadata)
+        {
+            _backgroundTaskQueue.QueueBackgroundWorkItem(async token =>
+            {
+                try
+                {
+                    var metadata = JsonSerializer.Serialize(buildMetadata());
+                    await SavePromptHistoryAsync(operationType, entityType, null, null,
+                        prompt, aiResponse, startTime, modelProvider, modelName, modelId, metadata);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to save {OperationType} prompt history", operationType);
+                }
+            });
+        }
+
+        /// <summary>
+        /// Queue failed prompt history save as background task
+        /// </summary>
+        private void QueueFailedPromptHistorySave(
+            string operationType,
+            string entityType,
+            string prompt,
+            Exception error,
+            DateTime startTime,
+            string modelProvider,
+            string modelName,
+            string modelId,
+            Func<object> buildMetadata)
+        {
+            _backgroundTaskQueue.QueueBackgroundWorkItem(async token =>
+            {
+                try
+                {
+                    var failedResponse = new AIProviderResponse
+                    {
+                        Success = false,
+                        ErrorMessage = error.Message,
+                        Content = ""
+                    };
+                    var metadata = JsonSerializer.Serialize(new
+                    {
+                        originalMetadata = buildMetadata(),
+                        error = error.Message
+                    });
+                    await SavePromptHistoryAsync(operationType, entityType, null, null,
+                        prompt, failedResponse, startTime, modelProvider, modelName, modelId, metadata);
+                }
+                catch (Exception saveEx)
+                {
+                    _logger.LogWarning(saveEx, "Failed to save failed {OperationType} prompt history", operationType);
+                }
+            });
+        }
+
+        /// <summary>
+        /// Create a failed result with error message
+        /// </summary>
+        private static TResult CreateFailedResult<TResult>(string errorMessage) where TResult : class, new()
+        {
+            var result = new TResult();
+            
+            // Use reflection to set common properties
+            var successProp = typeof(TResult).GetProperty("Success");
+            var messageProp = typeof(TResult).GetProperty("Message");
+            var confidenceProp = typeof(TResult).GetProperty("ConfidenceScore");
+            
+            successProp?.SetValue(result, false);
+            messageProp?.SetValue(result, errorMessage);
+            confidenceProp?.SetValue(result, 0.0);
+            
+            return result;
+        }
+
+        /// <summary>
+        /// Set confidence score on result using reflection
+        /// </summary>
+        private static void SetConfidenceScore<TResult>(TResult result, double score) where TResult : class
+        {
+            var confidenceProp = typeof(TResult).GetProperty("ConfidenceScore");
+            confidenceProp?.SetValue(result, score);
+        }
+
+        #endregion
 
         public async Task<AIWorkflowGenerationResult> GenerateWorkflowAsync(AIWorkflowGenerationInput input)
         {
@@ -153,184 +320,38 @@ namespace FlowFlex.Application.Services.AI
 
         public async Task<AIQuestionnaireGenerationResult> GenerateQuestionnaireAsync(AIQuestionnaireGenerationInput input)
         {
-            var startTime = DateTime.UtcNow;
-            string prompt = null;
-            AIProviderResponse aiResponse = null;
-
-            try
-            {
-                _logger.LogInformation("Generating questionnaire for purpose: {Purpose}", input.Purpose);
-
-                prompt = BuildQuestionnaireGenerationPrompt(input);
-                aiResponse = await CallAIProviderAsync(prompt);
-
-                // Save prompt history to database (fire-and-forget)
-                // Background task queued
-                _backgroundTaskQueue.QueueBackgroundWorkItem(async token =>
+            return await ExecuteGenerationAsync<AIQuestionnaireGenerationResult>(
+                operationType: "QuestionnaireGeneration",
+                entityType: "Questionnaire",
+                buildPrompt: () => BuildQuestionnaireGenerationPrompt(input),
+                parseResponse: content => ParseQuestionnaireGenerationResponse(content),
+                calculateConfidence: result => CalculateQuestionnaireConfidenceScore(result.GeneratedQuestionnaire),
+                buildMetadata: () => new
                 {
-                    try
-                    {
-                        var metadata = JsonSerializer.Serialize(new
-                        {
-                            purpose = input.Purpose,
-                            targetAudience = input.TargetAudience,
-                            estimatedQuestions = input.EstimatedQuestions
-                        });
-                        await SavePromptHistoryAsync("QuestionnaireGeneration", "Questionnaire", null, null,
-                            prompt, aiResponse, startTime, null, null, null, metadata);
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogWarning(ex, "Failed to save questionnaire generation prompt history");
-                    }
-                });
-
-                if (!aiResponse.Success)
-                {
-                    return new AIQuestionnaireGenerationResult
-                    {
-                        Success = false,
-                        Message = aiResponse.ErrorMessage,
-                        ConfidenceScore = 0
-                    };
-                }
-
-                var result = ParseQuestionnaireGenerationResponse(aiResponse.Content);
-                result.ConfidenceScore = CalculateQuestionnaireConfidenceScore(result.GeneratedQuestionnaire);
-
-                return result;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error generating questionnaire: {Purpose}", input.Purpose);
-
-                // Save failed prompt history (fire-and-forget)
-                if (!string.IsNullOrEmpty(prompt))
-                {
-                    // Background task queued
-                    _backgroundTaskQueue.QueueBackgroundWorkItem(async token =>
-                        {
-                            try
-                            {
-                                var failedResponse = new AIProviderResponse
-                                {
-                                    Success = false,
-                                    ErrorMessage = ex.Message,
-                                    Content = ""
-                                };
-                                var metadata = JsonSerializer.Serialize(new
-                                {
-                                    purpose = input.Purpose,
-                                    error = ex.Message
-                                });
-                                await SavePromptHistoryAsync("QuestionnaireGeneration", "Questionnaire", null, null,
-                                    prompt, failedResponse, startTime, null, null, null, metadata);
-                            }
-                            catch (Exception saveEx)
-                            {
-                                _logger.LogWarning(saveEx, "Failed to save failed questionnaire generation prompt history");
-                            }
-                        });
-                }
-
-                return new AIQuestionnaireGenerationResult
-                {
-                    Success = false,
-                    Message = $"Failed to generate questionnaire: {ex.Message}",
-                    ConfidenceScore = 0
-                };
-            }
+                    purpose = input.Purpose,
+                    targetAudience = input.TargetAudience,
+                    estimatedQuestions = input.EstimatedQuestions
+                },
+                contextDescription: $"Purpose: {input.Purpose}"
+            );
         }
 
         public async Task<AIChecklistGenerationResult> GenerateChecklistAsync(AIChecklistGenerationInput input)
         {
-            var startTime = DateTime.UtcNow;
-            string prompt = null;
-            AIProviderResponse aiResponse = null;
-
-            try
-            {
-                _logger.LogInformation("Generating checklist for process: {ProcessName}", input.ProcessName);
-
-                prompt = BuildChecklistGenerationPrompt(input);
-                aiResponse = await CallAIProviderAsync(prompt);
-
-                // Save prompt history to database (fire-and-forget)
-                // Background task queued
-                _backgroundTaskQueue.QueueBackgroundWorkItem(async token =>
+            return await ExecuteGenerationAsync<AIChecklistGenerationResult>(
+                operationType: "ChecklistGeneration",
+                entityType: "Checklist",
+                buildPrompt: () => BuildChecklistGenerationPrompt(input),
+                parseResponse: content => ParseChecklistGenerationResponse(content),
+                calculateConfidence: result => CalculateChecklistConfidenceScore(result.GeneratedChecklist),
+                buildMetadata: () => new
                 {
-                    try
-                    {
-                        var metadata = JsonSerializer.Serialize(new
-                        {
-                            processName = input.ProcessName,
-                            team = input.Team,
-                            requiredStepsCount = input.RequiredSteps?.Count ?? 0
-                        });
-                        await SavePromptHistoryAsync("ChecklistGeneration", "Checklist", null, null,
-                            prompt, aiResponse, startTime, null, null, null, metadata);
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogWarning(ex, "Failed to save checklist generation prompt history");
-                    }
-                });
-
-                if (!aiResponse.Success)
-                {
-                    return new AIChecklistGenerationResult
-                    {
-                        Success = false,
-                        Message = aiResponse.ErrorMessage,
-                        ConfidenceScore = 0
-                    };
-                }
-
-                var result = ParseChecklistGenerationResponse(aiResponse.Content);
-                result.ConfidenceScore = CalculateChecklistConfidenceScore(result.GeneratedChecklist);
-
-                return result;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error generating checklist: {ProcessName}", input.ProcessName);
-
-                // Save failed prompt history (fire-and-forget)
-                if (!string.IsNullOrEmpty(prompt))
-                {
-                    // Background task queued
-                    _backgroundTaskQueue.QueueBackgroundWorkItem(async token =>
-                        {
-                            try
-                            {
-                                var failedResponse = new AIProviderResponse
-                                {
-                                    Success = false,
-                                    ErrorMessage = ex.Message,
-                                    Content = ""
-                                };
-                                var metadata = JsonSerializer.Serialize(new
-                                {
-                                    processName = input.ProcessName,
-                                    error = ex.Message
-                                });
-                                await SavePromptHistoryAsync("ChecklistGeneration", "Checklist", null, null,
-                                    prompt, failedResponse, startTime, null, null, null, metadata);
-                            }
-                            catch (Exception saveEx)
-                            {
-                                _logger.LogWarning(saveEx, "Failed to save failed checklist generation prompt history");
-                            }
-                        });
-                }
-
-                return new AIChecklistGenerationResult
-                {
-                    Success = false,
-                    Message = $"Failed to generate checklist: {ex.Message}",
-                    ConfidenceScore = 0
-                };
-            }
+                    processName = input.ProcessName,
+                    team = input.Team,
+                    requiredStepsCount = input.RequiredSteps?.Count ?? 0
+                },
+                contextDescription: $"Process: {input.ProcessName}"
+            );
         }
 
         public async IAsyncEnumerable<AIWorkflowStreamResult> StreamGenerateWorkflowAsync(AIWorkflowGenerationInput input)
@@ -3163,17 +3184,18 @@ Make questions relevant to the project context and stage objectives.";
                         });
                     }
                 }
-                catch (Exception)
+            catch (Exception ex)
+            {
+                // Fallback to plain string, log for debugging
+                _logger.LogDebug(ex, "[AIService] Failed to parse option");
+                result.Add(new QuestionOptionDto
                 {
-                    // Fallback to plain string
-                    result.Add(new QuestionOptionDto
-                    {
-                        Id = optionIndex.ToString(),
-                        Label = opt,
-                        Value = opt,
-                        Order = optionIndex
-                    });
-                }
+                    Id = optionIndex.ToString(),
+                    Label = opt,
+                    Value = opt,
+                    Order = optionIndex
+                });
+            }
 
                 optionIndex++;
             }

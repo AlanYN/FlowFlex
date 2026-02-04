@@ -225,6 +225,7 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
 
         /// <summary>
         /// Core implementation for loading stages progress from JSON
+        /// Uses JsonParsingHelper for consistent double-serialized JSON handling
         /// </summary>
         private void LoadStagesProgressFromJsonInternal(Domain.Entities.OW.Onboarding entity, bool fixStageOrder)
         {
@@ -232,16 +233,8 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
             {
                 if (!string.IsNullOrEmpty(entity.StagesProgressJson))
                 {
-                    var jsonString = entity.StagesProgressJson.Trim();
-
-                    // Handle double-serialized JSON
-                    if (jsonString.StartsWith("\"") && jsonString.EndsWith("\""))
-                    {
-                        jsonString = JsonSerializer.Deserialize<string>(jsonString, JsonOptions) ?? "[]";
-                    }
-
-                    entity.StagesProgress = JsonSerializer.Deserialize<List<OnboardingStageProgress>>(
-                        jsonString, JsonOptions) ?? new List<OnboardingStageProgress>();
+                    // Use JsonParsingHelper for consistent parsing with automatic unwrapping
+                    entity.StagesProgress = JsonParsingHelper.ParseStagesProgress(entity.StagesProgressJson, _logger);
 
                     // Only fix stage order when needed and requested
                     if (fixStageOrder && NeedsStageOrderFix(entity.StagesProgress))
@@ -618,41 +611,8 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
         /// <inheritdoc />
         public List<string> ParseDefaultAssignee(string defaultAssigneeJson)
         {
-            if (string.IsNullOrWhiteSpace(defaultAssigneeJson))
-            {
-                return new List<string>();
-            }
-
-            try
-            {
-                var options = new JsonSerializerOptions
-                {
-                    PropertyNameCaseInsensitive = true
-                };
-
-                var jsonString = defaultAssigneeJson.Trim();
-                if (jsonString.StartsWith("\"") && jsonString.EndsWith("\""))
-                {
-                    jsonString = JsonSerializer.Deserialize<string>(jsonString, options) ?? "[]";
-                }
-
-                if (jsonString.StartsWith("["))
-                {
-                    var result = JsonSerializer.Deserialize<List<string>>(jsonString, options);
-                    return result ?? new List<string>();
-                }
-
-                if (!string.IsNullOrWhiteSpace(jsonString))
-                {
-                    return new List<string> { jsonString };
-                }
-
-                return new List<string>();
-            }
-            catch (JsonException)
-            {
-                return new List<string>();
-            }
+            // Use JsonParsingHelper for consistent parsing
+            return JsonParsingHelper.ParseStringArray(defaultAssigneeJson);
         }
 
         /// <inheritdoc />

@@ -18,7 +18,6 @@ namespace FlowFlex.Application.Services.OW
         private readonly ConcurrentDictionary<string, FileImportTaskDto> _tasks = new();
         private readonly ConcurrentDictionary<string, CancellationTokenSource> _taskCancellationTokens = new();
         private readonly IHttpClientFactory _httpClientFactory;
-        private readonly IOnboardingFileService _onboardingFileService;
         private readonly ILogger<FileImportTaskService> _logger;
 
         // Lazy initialization to avoid circular dependency

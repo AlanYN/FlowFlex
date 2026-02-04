@@ -479,23 +479,26 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
                         {
                             _stageProgressService.LoadStagesProgressFromJsonReadOnly(entity);
                         }
-                        catch (Exception)
+                        catch (Exception ex)
                         {
+                            _logger.LogDebug(ex, "[OnboardingQueryService] Failed to load stages progress for entity {EntityId}", entity.Id);
                             entity.StagesProgress = new List<OnboardingStageProgress>();
                         }
                     });
                 }
             }
-            catch (Exception)
+            catch (Exception ex)
             {
+                _logger.LogDebug(ex, "[OnboardingQueryService] Parallel loading failed, falling back to sequential");
                 foreach (var entity in entities)
                 {
                     try
                     {
                         _stageProgressService.LoadStagesProgressFromJsonReadOnly(entity);
                     }
-                    catch (Exception)
+                    catch (Exception innerEx)
                     {
+                        _logger.LogDebug(innerEx, "[OnboardingQueryService] Failed to load stages progress for entity {EntityId}", entity.Id);
                         entity.StagesProgress = new List<OnboardingStageProgress>();
                     }
                 }

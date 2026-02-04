@@ -427,9 +427,10 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                         }
                     }
                 }
-                catch (Exception)
+                catch (Exception ex)
                 {
                     // Failed to find matching option, will use default behavior
+                    _logger.LogDebug(ex, "[QuestionnaireAnswerParser] Failed to find matching option");
                 }
             }
 
@@ -464,9 +465,10 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                         {
                             optionLabel = matchedOption.label?.ToString();
                         }
-                        catch (Exception)
+                        catch (Exception ex)
                         {
                             // Failed to get option label from dynamic object
+                            _logger.LogDebug(ex, "[QuestionnaireAnswerParser] Failed to get option label");
                         }
                     }
 
@@ -479,9 +481,10 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                         optionLabel = matchedOption.label?.ToString();
                         isOtherOption = IsOtherOption(matchedOption);
                     }
-                    catch (Exception)
+                    catch (Exception ex)
                     {
                         // Failed to extract option label from matched option
+                        _logger.LogDebug(ex, "[QuestionnaireAnswerParser] Failed to extract option label");
                     }
                 }
             }
@@ -1365,8 +1368,9 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
 
                 return itemStr;
             }
-            catch (Exception)
+            catch (Exception ex)
             {
+                _logger.LogDebug(ex, "[QuestionnaireAnswerParser] Failed to format file answer");
                 return item.ToString();
             }
         }

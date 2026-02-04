@@ -37,7 +37,7 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
                     return tenantId;
                 }
             }
-            return "999"; // Default tenant ID
+            return "default"; // Default tenant ID
         }
 
         /// <summary>
@@ -54,7 +54,7 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
                     return appCode;
                 }
             }
-            return "OW"; // Default app code
+            return "default"; // Default app code
         }
 
         /// <summary>
@@ -337,15 +337,19 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
         }
 
         /// <summary>
-        /// Batch get stage information (optimized version)
+        /// Batch get stage information by IDs (performance optimization)
+        /// Implements IStageRepository.GetByIdsAsync
         /// </summary>
-        public async Task<List<Stage>> GetBatchByIdsAsync(List<long> stageIds)
+        public async Task<List<Stage>> GetByIdsAsync(List<long> stageIds)
         {
-            if (!stageIds?.Any() == true)
+            if (stageIds == null || !stageIds.Any())
                 return new List<Stage>();
 
             var currentTenantId = GetCurrentTenantId();
             var currentAppCode = GetCurrentAppCode();
+
+            _logger.LogDebug("[StageRepository] GetByIdsAsync with TenantId={TenantId}, AppCode={AppCode}, StageIds count={Count}",
+                currentTenantId, currentAppCode, stageIds.Count);
 
             return await db.Queryable<Stage>()
                 .Where(x => stageIds.Contains(x.Id) && x.IsValid == true)
@@ -353,6 +357,15 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
                 .OrderBy(x => x.WorkflowId, OrderByType.Asc)
                 .OrderBy(x => x.Order, OrderByType.Asc)
                 .ToListAsync();
+        }
+
+        /// <summary>
+        /// Batch get stage information (optimized version) - legacy method name
+        /// </summary>
+        [Obsolete("Use GetByIdsAsync instead")]
+        public async Task<List<Stage>> GetBatchByIdsAsync(List<long> stageIds)
+        {
+            return await GetByIdsAsync(stageIds);
         }
     }
 }

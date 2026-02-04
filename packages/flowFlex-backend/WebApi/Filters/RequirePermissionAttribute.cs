@@ -170,6 +170,7 @@ namespace FlowFlex.WebApi.Filters
         /// <summary>
         /// Check if current request is using a Portal token and accessing a [PortalAccess] endpoint
         /// Portal tokens should bypass RequirePermission checks on endpoints marked with [PortalAccess]
+        /// Enhanced with token expiry and scope validation
         /// </summary>
         private bool IsPortalTokenWithPortalAccess(HttpContext httpContext)
         {
@@ -179,7 +180,7 @@ namespace FlowFlex.WebApi.Filters
             }
 
             var user = httpContext.User;
-            if (user == null || !user.Identity.IsAuthenticated)
+            if (user == null || user.Identity == null || !user.Identity.IsAuthenticated)
             {
                 return false;
             }
@@ -191,6 +192,26 @@ namespace FlowFlex.WebApi.Filters
             bool isPortalToken = scope == "portal" || tokenType == "portal-access";
 
             if (!isPortalToken)
+            {
+                return false;
+            }
+
+            // Validate token expiry (exp claim)
+            var expClaim = user.Claims.FirstOrDefault(c => c.Type == "exp")?.Value;
+            if (!string.IsNullOrEmpty(expClaim) && long.TryParse(expClaim, out var expUnix))
+            {
+                var expTime = DateTimeOffset.FromUnixTimeSeconds(expUnix);
+                if (expTime < DateTimeOffset.UtcNow)
+                {
+                    // Token has expired, do not bypass permission check
+                    return false;
+                }
+            }
+
+            // Validate portal token has required scope for the operation
+            // Portal tokens should only have limited access (view/read operations)
+            var allowedScopes = new[] { "portal", "portal:read", "portal:view" };
+            if (!string.IsNullOrEmpty(scope) && !allowedScopes.Any(s => scope.Contains(s, StringComparison.OrdinalIgnoreCase)))
             {
                 return false;
             }

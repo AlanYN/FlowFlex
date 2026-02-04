@@ -292,9 +292,11 @@ public class ChecklistService : IChecklistService, IScopedService
                     {
                         await _mappingService.NotifyChecklistNameChangeAsync(id, input.Name);
                     }
-                    catch (Exception)
+                    catch (Exception ex)
                     {
                         // Error already logged by BackgroundTaskService
+                        // Log additional context for debugging
+                        _logger.LogDebug(ex, "[ChecklistService] Checklist name sync failed for id {ChecklistId}", id);
                         // Don't throw to avoid breaking the background task
                     }
                 });

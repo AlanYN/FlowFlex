@@ -761,7 +761,19 @@ Please return the results in JSON format with the following structure:
                 }
 
                 var responseData = JsonSerializer.Deserialize<JsonElement>(responseContent);
-                var messageContent = responseData.GetProperty("choices")[0].GetProperty("message").GetProperty("content").GetString();
+                var choices = responseData.GetProperty("choices");
+                if (choices.GetArrayLength() == 0)
+                {
+                    return new AIProviderResponse
+                    {
+                        Success = false,
+                        ErrorMessage = "DeepSeek API returned empty choices array",
+                        Provider = "DeepSeek",
+                        ModelName = config.ModelName,
+                        ModelId = config.Id.ToString()
+                    };
+                }
+                var messageContent = choices[0].GetProperty("message").GetProperty("content").GetString();
 
                 return new AIProviderResponse
                 {
@@ -848,7 +860,18 @@ Please return the results in JSON format with the following structure:
                 }
 
                 var responseData = JsonSerializer.Deserialize<JsonElement>(responseContent);
-                var messageContent = responseData.GetProperty("choices")[0].GetProperty("message").GetProperty("content").GetString();
+                var choices = responseData.GetProperty("choices");
+                if (choices.GetArrayLength() == 0)
+                {
+                    return new AIProviderResponse
+                    {
+                        Success = false,
+                        ErrorMessage = "ZhipuAI API returned empty choices array",
+                        Provider = "ZhipuAI",
+                        ModelName = _aiOptions.ZhipuAI.Model
+                    };
+                }
+                var messageContent = choices[0].GetProperty("message").GetProperty("content").GetString();
 
                 return new AIProviderResponse
                 {
@@ -938,7 +961,19 @@ Please return the results in JSON format with the following structure:
                 }
 
                 var responseData = JsonSerializer.Deserialize<JsonElement>(responseContent);
-                var messageContent = responseData.GetProperty("choices")[0].GetProperty("message").GetProperty("content").GetString();
+                var choices = responseData.GetProperty("choices");
+                if (choices.GetArrayLength() == 0)
+                {
+                    return new AIProviderResponse
+                    {
+                        Success = false,
+                        ErrorMessage = "OpenAI API returned empty choices array",
+                        Provider = "OpenAI",
+                        ModelName = config.ModelName,
+                        ModelId = config.Id.ToString()
+                    };
+                }
+                var messageContent = choices[0].GetProperty("message").GetProperty("content").GetString();
 
                 return new AIProviderResponse
                 {
@@ -1028,7 +1063,19 @@ Please return the results in JSON format with the following structure:
                 }
 
                 var responseData = JsonSerializer.Deserialize<JsonElement>(responseContent);
-                var messageContent = responseData.GetProperty("content")[0].GetProperty("text").GetString();
+                var contentArray = responseData.GetProperty("content");
+                if (contentArray.GetArrayLength() == 0)
+                {
+                    return new AIProviderResponse
+                    {
+                        Success = false,
+                        ErrorMessage = "Claude API returned empty content array",
+                        Provider = "Claude",
+                        ModelName = config.ModelName,
+                        ModelId = config.Id.ToString()
+                    };
+                }
+                var messageContent = contentArray[0].GetProperty("text").GetString();
 
                 return new AIProviderResponse
                 {
@@ -1138,8 +1185,19 @@ Please return the results in JSON format with the following structure:
 
                 // Parse OpenAI-compatible response format
                 var responseData = JsonSerializer.Deserialize<JsonElement>(responseContent);
-                var messageContent = responseData
-                    .GetProperty("choices")[0]
+                var choices = responseData.GetProperty("choices");
+                if (choices.GetArrayLength() == 0)
+                {
+                    return new AIProviderResponse
+                    {
+                        Success = false,
+                        ErrorMessage = "Gemini API returned empty choices array",
+                        Provider = "Gemini",
+                        ModelName = config.ModelName,
+                        ModelId = config.Id.ToString()
+                    };
+                }
+                var messageContent = choices[0]
                     .GetProperty("message")
                     .GetProperty("content")
                     .GetString();

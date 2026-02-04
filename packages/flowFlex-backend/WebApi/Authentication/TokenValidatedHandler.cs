@@ -32,17 +32,37 @@ namespace WebApi.Authentication
         /// <exception cref="NullReferenceException"></exception>
         public static async Task OnTokenValidated(TokenValidatedContext context)
         {
-            await Task.CompletedTask;
+            var logger = GetLogger(context.HttpContext.RequestServices);
             var principal = context.Principal ?? throw new NullReferenceException(nameof(context.Principal));
             var claims = principal.Claims.ToList();
             var userContext = context.HttpContext.RequestServices.GetService<UserContext>() ??
                               throw new NullReferenceException(nameof(UserContext));
 
-            var userService = context.HttpContext.RequestServices.GetService<IUserService>()!;
+            var userService = context.HttpContext.RequestServices.GetService<IUserService>();
+            if (userService == null)
+            {
+                logger.LogError("IUserService not available in DI container");
+                context.Fail("Service unavailable");
+                return;
+            }
+
             try
             {
-                var authorization = context.HttpContext.Request.Headers.Authorization;
-                var user = await userService.GetUserByEmail(claims.FirstOrDefault(x => x.Type == ClaimTypes.Email)!.Value);
+                var emailClaim = claims.FirstOrDefault(x => x.Type == ClaimTypes.Email);
+                if (emailClaim == null || string.IsNullOrEmpty(emailClaim.Value))
+                {
+                    logger.LogWarning("Email claim not found or empty in token");
+                    context.Fail("Invalid token: missing email claim");
+                    return;
+                }
+
+                var user = await userService.GetUserByEmail(emailClaim.Value);
+                if (user == null)
+                {
+                    logger.LogWarning("User not found for email: {Email}", emailClaim.Value);
+                    context.Fail("User not found");
+                    return;
+                }
                 
                 // Priority: X-Tenant-Id header > JWT claim
                 if (context.Request.Headers.ContainsKey("X-Tenant-Id"))
@@ -59,8 +79,9 @@ namespace WebApi.Authentication
                 userContext.UserName = user.Username;
                 userContext.Email = user.Email;
             }
-            catch
+            catch (Exception ex)
             {
+                logger.LogError(ex, "Token validation failed");
                 context.Fail("auth failed");
             }
         }

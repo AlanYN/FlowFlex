@@ -6,6 +6,7 @@ using Item.Internal.Auth.Authorization.BnpToken.Services;
 using Item.ThirdParty.IdentityHub;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.JsonWebTokens;
 
@@ -21,18 +22,21 @@ namespace WebApi.Authorization
         private readonly UserContext _userContext;
         private readonly IdentityHubClient _client;
         private readonly IHttpContextAccessor _httpContextAccessor;
+        private readonly ILogger<WfeAuthorizationHandler> _logger;
 
         public WfeAuthorizationHandler(
             IBnpTokenService bnpTokenService,
             IOptions<IdentityHubConfigOptions> options,
             UserContext userContext,
             IdentityHubClient client,
-            IHttpContextAccessor httpContextAccessor) : base(bnpTokenService)
+            IHttpContextAccessor httpContextAccessor,
+            ILogger<WfeAuthorizationHandler> logger) : base(bnpTokenService)
         {
             _options = options.Value;
             _userContext = userContext;
             _client = client;
             _httpContextAccessor = httpContextAccessor;
+            _logger = logger;
         }
 
         /// <summary>
@@ -107,9 +111,10 @@ namespace WebApi.Authorization
                 // User doesn't have any of the requested permissions
                 return false;
             }
-            catch (Exception)
+            catch (Exception ex)
             {
-                // On error, deny access for security
+                // Log the error for debugging, but deny access for security
+                _logger.LogWarning(ex, "[WfeAuthorizationHandler] Permission check failed");
                 return false;
             }
         }

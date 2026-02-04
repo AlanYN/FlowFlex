@@ -20,10 +20,12 @@ namespace FlowFlex.WebApi.Controllers.AI
     public class AIWorkflowController : Controllers.ControllerBase
     {
         private readonly IAIService _aiService;
+        private readonly ILogger<AIWorkflowController> _logger;
 
-        public AIWorkflowController(IAIService aiService)
+        public AIWorkflowController(IAIService aiService, ILogger<AIWorkflowController> logger)
         {
             _aiService = aiService;
+            _logger = logger;
         }
 
         /// <summary>
@@ -90,9 +92,10 @@ namespace FlowFlex.WebApi.Controllers.AI
                         var sseData = $"data: {jsonData}\n\n";
                         await Response.WriteAsync(sseData);
                     }
-                    catch (Exception)
+                    catch (Exception ex)
                     {
-                        // Write error handled silently
+                        // Log write error but continue streaming
+                        _logger.LogDebug(ex, "[AIWorkflowController] Stream write error");
                     }
                 }
 

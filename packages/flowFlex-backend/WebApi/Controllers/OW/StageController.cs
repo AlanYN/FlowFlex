@@ -531,6 +531,7 @@ namespace FlowFlex.WebApi.Controllers.OW
         /// Generate AI Summary for stage with streaming response
         /// This endpoint is accessible by Portal tokens with [PortalAccess] attribute
         /// Portal tokens bypass WFEAuthorize permission checks
+        /// SECURITY: Rate limited to prevent abuse of AI resources
         /// </summary>
         /// <param name="stageId">Stage ID</param>
         /// <param name="onboardingId">Onboarding ID (optional)</param>
@@ -540,6 +541,7 @@ namespace FlowFlex.WebApi.Controllers.OW
         [HttpPost("{stageId}/ai-summary/stream")]
         [AllowAnonymous] // Allow anonymous to bypass JWT expiration check for Portal tokens
         [PortalAccess] // Portal token validation happens in middleware
+        [RateLimit(maxRequests: 5, windowSeconds: 60, keyPrefix: "ai-summary")]
         [ProducesResponseType(200)]
         [ProducesResponseType(typeof(ErrorResponse), 400)]
         public async Task StreamAISummary(

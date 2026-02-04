@@ -6,6 +6,7 @@ using System.ComponentModel.DataAnnotations;
 using FlowFlex.Application.Contracts.Dtos.OW.EmailBinding;
 using FlowFlex.Application.Contracts.IServices;
 using FlowFlex.Application.Contracts.IServices.OW;
+using FlowFlex.WebApi.Filters;
 using Item.Internal.StandardApi.Response;
 
 namespace FlowFlex.WebApi.Controllers.MessageCenter;
@@ -54,9 +55,11 @@ public class EmailBindingController : Controllers.ControllerBase
     /// It exchanges the authorization code for access token and creates/updates the email binding.
     /// This endpoint does not require authentication as it's called by Microsoft OAuth redirect.
     /// Returns an HTML page to show the result to the user.
+    /// SECURITY: Rate limited to prevent OAuth callback abuse
     /// </remarks>
     [HttpGet("callback")]
     [AllowAnonymous]
+    [RateLimit(maxRequests: 10, windowSeconds: 60, keyPrefix: "oauth-callback")]
     [Produces("text/html")]
     public async Task<IActionResult> HandleCallbackAsync([FromQuery] string? code, [FromQuery] string state, [FromQuery] string? error = null, [FromQuery] string? error_description = null)
     {

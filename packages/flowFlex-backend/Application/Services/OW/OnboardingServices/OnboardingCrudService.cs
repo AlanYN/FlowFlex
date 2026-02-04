@@ -797,8 +797,14 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
         {
             _backgroundTaskQueue.QueueBackgroundWorkItem(async token =>
             {
-                try { await ClearOnboardingQueryCacheAsync(); }
-                catch (Exception ex) { _logger.LogWarning(ex, "Failed to clear query cache after create"); }
+                try 
+                { 
+                    await ClearOnboardingQueryCacheAsync(); 
+                }
+                catch (Exception ex) 
+                { 
+                    _logger.LogWarning(ex, "Failed to clear query cache after create for onboarding {OnboardingId}", insertedId); 
+                }
             });
 
             _backgroundTaskQueue.QueueBackgroundWorkItem(async token =>
@@ -806,7 +812,11 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
                 try
                 {
                     var insertedEntity = await _onboardingRepository.GetByIdAsync(insertedId);
-                    if (insertedEntity == null) return;
+                    if (insertedEntity == null) 
+                    {
+                        _logger.LogWarning("Onboarding {OnboardingId} not found for logging", insertedId);
+                        return;
+                    }
 
                     string workflowName = null;
                     try
@@ -814,7 +824,10 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
                         var workflow = await _workflowRepository.GetByIdAsync(insertedEntity.WorkflowId);
                         workflowName = workflow?.Name;
                     }
-                    catch { /* Ignore */ }
+                    catch (Exception workflowEx)
+                    {
+                        _logger.LogDebug(workflowEx, "Failed to get workflow name for onboarding {OnboardingId}", insertedId);
+                    }
 
                     var afterData = JsonSerializer.Serialize(new
                     {

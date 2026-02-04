@@ -117,14 +117,14 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                         if (afterJson.TryGetProperty("ViewTeams", out var viewTeamsElement) ||
                             afterJson.TryGetProperty("viewTeams", out viewTeamsElement))
                         {
-                            viewTeamsSummary = GetTeamsSummary(viewTeamsElement);
+                            viewTeamsSummary = await GetTeamsSummaryAsync(viewTeamsElement);
                         }
 
                         string operateTeamsSummary = null;
                         if (afterJson.TryGetProperty("OperateTeams", out var operateTeamsElement) ||
                             afterJson.TryGetProperty("operateTeams", out operateTeamsElement))
                         {
-                            operateTeamsSummary = GetTeamsSummary(operateTeamsElement);
+                            operateTeamsSummary = await GetTeamsSummaryAsync(operateTeamsElement);
                         }
 
                         // Combine view permission mode and teams information
@@ -191,7 +191,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                         if (afterJson.TryGetProperty("DefaultAssignee", out var defaultAssigneeElement) ||
                             afterJson.TryGetProperty("defaultAssignee", out defaultAssigneeElement))
                         {
-                            var defaultAssigneeSummary = GetDefaultAssigneeSummary(defaultAssigneeElement);
+                            var defaultAssigneeSummary = await GetDefaultAssigneeSummaryAsync(defaultAssigneeElement);
                             if (!string.IsNullOrEmpty(defaultAssigneeSummary))
                             {
                                 details.Add($"default assignee: {defaultAssigneeSummary}");

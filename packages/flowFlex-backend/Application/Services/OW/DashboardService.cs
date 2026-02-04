@@ -7,12 +7,14 @@ using AutoMapper;
 using FlowFlex.Application.Contracts.Dtos.OW.Dashboard;
 using FlowFlex.Application.Contracts.Dtos.OW.Message;
 using FlowFlex.Application.Contracts.IServices.OW;
+using FlowFlex.Application.Helpers.OW;
 using FlowFlex.Application.Services.OW.Permission;
 using FlowFlex.Domain.Entities.OW;
 using FlowFlex.Domain.Repository.OW;
 using FlowFlex.Domain.Shared;
 using FlowFlex.Domain.Shared.Enums.OW;
 using FlowFlex.Domain.Shared.Enums.Permission;
+using FlowFlex.Domain.Shared.Helpers;
 using FlowFlex.Domain.Shared.Models;
 using Microsoft.Extensions.Logging;
 
@@ -246,14 +248,16 @@ namespace FlowFlex.Application.Services.OW
         public async Task<StageDistributionResultDto> GetStageDistributionAsync(long? workflowId = null)
         {
             var sw = System.Diagnostics.Stopwatch.StartNew();
+            var tenantId = TenantContextHelper.GetTenantIdOrDefault(_userContext);
             
             // Get all stages ordered by sequence (lightweight query)
+            // Note: Sorting is done at database level for better performance
             var stages = await _stageRepository.GetListAsync(s => 
                 s.IsActive && s.IsValid && 
+                s.TenantId == tenantId &&
                 (workflowId == null || s.WorkflowId == workflowId));
             
-            stages = stages.OrderBy(s => s.Order).ToList();
-
+            // Database already returns ordered results, but ensure order is correct
             if (!stages.Any())
             {
                 return new StageDistributionResultDto
@@ -262,18 +266,22 @@ namespace FlowFlex.Application.Services.OW
                     OverallProgress = 0
                 };
             }
+            
+            // Sort in memory only if needed (small dataset)
+            stages = stages.OrderBy(s => s.Order).ToList();
 
             _logger.LogDebug("GetStageDistributionAsync: Loaded {Count} stages in {Ms}ms", stages.Count, sw.ElapsedMilliseconds);
 
             // Admin bypass - skip permission filtering for better performance
             if (_permissionHelpers.HasAdminPrivileges())
             {
-                return await GetStageDistributionForAdminAsync(stages, workflowId);
+                return await GetStageDistributionForAdminAsync(stages, workflowId, tenantId);
             }
 
             // Get active cases with minimal fields for permission check
             var activeCases = await _onboardingRepository.GetListAsync(o => 
                 o.IsActive && o.IsValid && 
+                o.TenantId == tenantId &&
                 (o.Status == "Started" || o.Status == "InProgress" || o.Status == "Active") &&
                 (workflowId == null || o.WorkflowId == workflowId));
 
@@ -322,10 +330,11 @@ namespace FlowFlex.Application.Services.OW
         /// <summary>
         /// Optimized stage distribution for admin users (no permission filtering)
         /// </summary>
-        private async Task<StageDistributionResultDto> GetStageDistributionForAdminAsync(List<Stage> stages, long? workflowId)
+        private async Task<StageDistributionResultDto> GetStageDistributionForAdminAsync(List<Stage> stages, long? workflowId, string tenantId)
         {
             var activeCases = await _onboardingRepository.GetListAsync(o => 
                 o.IsActive && o.IsValid && 
+                o.TenantId == tenantId &&
                 (o.Status == "Started" || o.Status == "InProgress" || o.Status == "Active") &&
                 (workflowId == null || o.WorkflowId == workflowId));
 
@@ -528,11 +537,13 @@ namespace FlowFlex.Application.Services.OW
             {
                 // Only get cases with non-empty StagesProgressJson to reduce data loading
                 // Limit to recent cases (last 30 days) for better performance
+                var tenantId = TenantContextHelper.GetTenantIdOrDefault(_userContext);
                 var cutoffDate = DateTimeOffset.UtcNow.AddDays(-30);
                 var filterByTeam = !string.IsNullOrEmpty(team);
                 
                 var allCases = await _onboardingRepository.GetListAsync(o =>
                     o.IsValid &&
+                    o.TenantId == tenantId &&
                     o.ModifyDate >= cutoffDate &&
                     !string.IsNullOrEmpty(o.StagesProgressJson) &&
                     (!filterByTeam || o.CurrentTeam == team));
@@ -552,30 +563,14 @@ namespace FlowFlex.Application.Services.OW
 
                 // Get all stages for enrichment (batch load)
                 var stageIds = new HashSet<long>();
-                var jsonOptions = new JsonSerializerOptions
-                {
-                    PropertyNameCaseInsensitive = true,
-                    AllowTrailingCommas = true,
-                    NumberHandling = System.Text.Json.Serialization.JsonNumberHandling.AllowReadingFromString
-                };
 
-                // First pass: parse JSON and collect stage IDs
+                // First pass: parse JSON using helper and collect stage IDs
                 var casesWithProgress = new List<(Onboarding Onboarding, List<OnboardingStageProgress> Progress)>();
                 foreach (var onboarding in filteredCases)
                 {
-                    try
+                    // Use JsonParsingHelper for consistent parsing with automatic unwrapping
+                    if (JsonParsingHelper.TryParseStagesProgress(onboarding.StagesProgressJson, out var progress, _logger))
                     {
-                        var jsonString = onboarding.StagesProgressJson!.Trim();
-
-                        // Handle double-serialized JSON
-                        if (jsonString.StartsWith("\"") && jsonString.EndsWith("\""))
-                        {
-                            jsonString = JsonSerializer.Deserialize<string>(jsonString, jsonOptions) ?? "[]";
-                        }
-
-                        var progress = JsonSerializer.Deserialize<List<OnboardingStageProgress>>(
-                            jsonString, jsonOptions) ?? new List<OnboardingStageProgress>();
-                        
                         // Only keep cases with completed stages
                         var completedStages = progress.Where(p => p.IsCompleted && p.CompletionTime.HasValue).ToList();
                         if (completedStages.Any())
@@ -587,15 +582,11 @@ namespace FlowFlex.Application.Services.OW
                             }
                         }
                     }
-                    catch (JsonException ex)
-                    {
-                        _logger.LogWarning(ex, "Failed to parse StagesProgressJson for onboarding {OnboardingId}", onboarding.Id);
-                    }
                 }
 
-                // Get stage names from Stage repository (batch load)
+                // Get stage names from Stage repository (batch load using optimized method)
                 var stages = stageIds.Any() 
-                    ? await _stageRepository.GetListAsync(s => stageIds.Contains(s.Id))
+                    ? await _stageRepository.GetByIdsAsync(stageIds.ToList())
                     : new List<Stage>();
                 var stageDict = stages.ToDictionary(s => s.Id, s => s);
 
@@ -691,118 +682,82 @@ namespace FlowFlex.Application.Services.OW
                 _logger.LogDebug("GetDeadlinesAsync: Found {Count} active cases for user {UserId}, {FilteredCount} after permission filter", 
                     activeCases.Count, userId, filteredCases.Count);
 
-                var jsonOptions = new JsonSerializerOptions
-                {
-                    PropertyNameCaseInsensitive = true,
-                    AllowTrailingCommas = true,
-                    NumberHandling = System.Text.Json.Serialization.JsonNumberHandling.AllowReadingFromString
-                };
-
-                // Get all stages for enrichment
+                // Get all stages for enrichment (batch load)
                 var allStageIds = new HashSet<long>();
 
-                // First pass: collect all stage IDs
+                // First pass: collect all stage IDs using JsonParsingHelper
+                var casesWithProgress = new List<(Onboarding Onboarding, List<OnboardingStageProgress> Progress)>();
                 foreach (var onboarding in filteredCases)
                 {
                     if (string.IsNullOrEmpty(onboarding.StagesProgressJson))
                         continue;
 
-                    try
+                    // Use JsonParsingHelper for consistent parsing
+                    if (JsonParsingHelper.TryParseStagesProgress(onboarding.StagesProgressJson, out var progress, _logger))
                     {
-                        var jsonString = onboarding.StagesProgressJson.Trim();
-                        if (jsonString.StartsWith("\"") && jsonString.EndsWith("\""))
-                        {
-                            jsonString = JsonSerializer.Deserialize<string>(jsonString, jsonOptions) ?? "[]";
-                        }
-
-                        var progress = JsonSerializer.Deserialize<List<OnboardingStageProgress>>(
-                            jsonString, jsonOptions) ?? new List<OnboardingStageProgress>();
-
+                        casesWithProgress.Add((onboarding, progress));
                         foreach (var p in progress)
                         {
                             allStageIds.Add(p.StageId);
                         }
                     }
-                    catch (JsonException)
-                    {
-                        // Skip invalid JSON
-                    }
                 }
 
-                // Get stage details
+                // Get stage details using batch method
                 var stages = allStageIds.Any()
-                    ? await _stageRepository.GetListAsync(s => allStageIds.Contains(s.Id))
+                    ? await _stageRepository.GetByIdsAsync(allStageIds.ToList())
                     : new List<Stage>();
                 var stageDict = stages.ToDictionary(s => s.Id, s => s);
 
                 // Second pass: extract deadlines
-                foreach (var onboarding in filteredCases)
+                foreach (var (onboarding, progress) in casesWithProgress)
                 {
-                    if (string.IsNullOrEmpty(onboarding.StagesProgressJson))
-                        continue;
-
-                    try
+                    foreach (var stageProgress in progress)
                     {
-                        var jsonString = onboarding.StagesProgressJson.Trim();
-                        if (jsonString.StartsWith("\"") && jsonString.EndsWith("\""))
+                        // Skip completed stages
+                        if (stageProgress.IsCompleted)
+                            continue;
+
+                        // Get stage info for EstimatedDays
+                        var stage = stageDict.GetValueOrDefault(stageProgress.StageId);
+                        if (stage != null)
                         {
-                            jsonString = JsonSerializer.Deserialize<string>(jsonString, jsonOptions) ?? "[]";
+                            stageProgress.EstimatedDays = stage.EstimatedDuration;
+                            stageProgress.StageName = stage.Name;
+                            stageProgress.StageOrder = stage.Order;
                         }
 
-                        var progress = JsonSerializer.Deserialize<List<OnboardingStageProgress>>(
-                            jsonString, jsonOptions) ?? new List<OnboardingStageProgress>();
+                        // Calculate EndTime
+                        var stageEndTime = stageProgress.EndTime;
 
-                        foreach (var stageProgress in progress)
+                        // Only include if EndTime is within the deadline range
+                        if (stageEndTime.HasValue && stageEndTime.Value <= endDate)
                         {
-                            // Skip completed stages
-                            if (stageProgress.IsCompleted)
-                                continue;
+                            var stageName = stage?.Name ?? $"Stage {stageProgress.StageId}";
+                            var stageOrder = stage?.Order ?? 0;
 
-                            // Get stage info for EstimatedDays
-                            var stage = stageDict.GetValueOrDefault(stageProgress.StageId);
-                            if (stage != null)
+                            deadlines.Add(new DeadlineDto
                             {
-                                stageProgress.EstimatedDays = stage.EstimatedDuration;
-                                stageProgress.StageName = stage.Name;
-                                stageProgress.StageOrder = stage.Order;
-                            }
-
-                            // Calculate EndTime
-                            var stageEndTime = stageProgress.EndTime;
-
-                            // Only include if EndTime is within the deadline range
-                            if (stageEndTime.HasValue && stageEndTime.Value <= endDate)
-                            {
-                                var stageName = stage?.Name ?? $"Stage {stageProgress.StageId}";
-                                var stageOrder = stage?.Order ?? 0;
-
-                                deadlines.Add(new DeadlineDto
-                                {
-                                    Id = stageProgress.StageId,
-                                    Name = stageName,
-                                    DueDate = stageEndTime.Value,
-                                    DueDateDisplay = FormatDueDate(stageEndTime, now),
-                                    Urgency = DetermineUrgency(stageEndTime.Value, now),
-                                    DaysUntilDue = (int)(stageEndTime.Value - now).TotalDays,
-                                    CaseCode = onboarding.CaseCode ?? string.Empty,
-                                    CaseName = onboarding.CaseName ?? string.Empty,
-                                    OnboardingId = onboarding.Id,
-                                    ChecklistId = 0,
-                                    Type = "Stage",
-                                    Priority = stageEndTime.Value < now ? "Critical" : 
-                                              (stageEndTime.Value - now).TotalDays <= 1 ? "High" :
-                                              (stageEndTime.Value - now).TotalDays <= 3 ? "Medium" : "Low",
-                                    AssignedTeam = onboarding.CurrentTeam,
-                                    StageId = stageProgress.StageId,
-                                    StageName = stageName,
-                                    StageOrder = stageOrder
-                                });
-                            }
+                                Id = stageProgress.StageId,
+                                Name = stageName,
+                                DueDate = stageEndTime.Value,
+                                DueDateDisplay = FormatDueDate(stageEndTime, now),
+                                Urgency = DetermineUrgency(stageEndTime.Value, now),
+                                DaysUntilDue = (int)(stageEndTime.Value - now).TotalDays,
+                                CaseCode = onboarding.CaseCode ?? string.Empty,
+                                CaseName = onboarding.CaseName ?? string.Empty,
+                                OnboardingId = onboarding.Id,
+                                ChecklistId = 0,
+                                Type = "Stage",
+                                Priority = stageEndTime.Value < now ? "Critical" : 
+                                          (stageEndTime.Value - now).TotalDays <= 1 ? "High" :
+                                          (stageEndTime.Value - now).TotalDays <= 3 ? "Medium" : "Low",
+                                AssignedTeam = onboarding.CurrentTeam,
+                                StageId = stageProgress.StageId,
+                                StageName = stageName,
+                                StageOrder = stageOrder
+                            });
                         }
-                    }
-                    catch (JsonException ex)
-                    {
-                        _logger.LogWarning(ex, "Failed to parse StagesProgressJson for onboarding {OnboardingId}", onboarding.Id);
                     }
                 }
 
@@ -824,9 +779,11 @@ namespace FlowFlex.Application.Services.OW
         /// </summary>
         private async Task<int> GetActiveCasesCountOptimizedAsync(string? team, bool isAdmin)
         {
+            var tenantId = TenantContextHelper.GetTenantIdOrDefault(_userContext);
             var filterByTeam = !string.IsNullOrEmpty(team);
             var cases = await _onboardingRepository.GetListAsync(o => 
                 o.IsActive && o.IsValid && 
+                o.TenantId == tenantId &&
                 (o.Status == "Started" || o.Status == "InProgress" || o.Status == "Active") &&
                 (!filterByTeam || o.CurrentTeam == team));
             
@@ -842,9 +799,11 @@ namespace FlowFlex.Application.Services.OW
         /// </summary>
         private async Task<int> GetActiveCasesCountAtDateOptimizedAsync(DateTimeOffset date, string? team, bool isAdmin)
         {
+            var tenantId = TenantContextHelper.GetTenantIdOrDefault(_userContext);
             var filterByTeam = !string.IsNullOrEmpty(team);
             var cases = await _onboardingRepository.GetListAsync(o => 
                 o.IsValid && 
+                o.TenantId == tenantId &&
                 o.StartDate <= date &&
                 (o.ActualCompletionDate == null || o.ActualCompletionDate > date) &&
                 (!filterByTeam || o.CurrentTeam == team));
@@ -861,9 +820,11 @@ namespace FlowFlex.Application.Services.OW
         /// </summary>
         private async Task<int> GetCompletedCasesCountOptimizedAsync(DateTimeOffset startDate, DateTimeOffset endDate, string? team, bool isAdmin)
         {
+            var tenantId = TenantContextHelper.GetTenantIdOrDefault(_userContext);
             var filterByTeam = !string.IsNullOrEmpty(team);
             var cases = await _onboardingRepository.GetListAsync(o => 
                 o.IsValid && 
+                o.TenantId == tenantId &&
                 (o.Status == "Completed" || o.Status == "Force Completed") &&
                 o.ActualCompletionDate >= startDate &&
                 o.ActualCompletionDate <= endDate &&
@@ -881,9 +842,11 @@ namespace FlowFlex.Application.Services.OW
         /// </summary>
         private async Task<decimal> GetAverageCompletionTimeOptimizedAsync(DateTimeOffset startDate, DateTimeOffset endDate, string? team, bool isAdmin)
         {
+            var tenantId = TenantContextHelper.GetTenantIdOrDefault(_userContext);
             var filterByTeam = !string.IsNullOrEmpty(team);
             var completedCases = await _onboardingRepository.GetListAsync(o => 
                 o.IsValid && 
+                o.TenantId == tenantId &&
                 (o.Status == "Completed" || o.Status == "Force Completed") &&
                 o.ActualCompletionDate >= startDate &&
                 o.ActualCompletionDate <= endDate &&
@@ -906,9 +869,11 @@ namespace FlowFlex.Application.Services.OW
         {
             // Use GetListAsync which has tenant filtering, then count in memory
             // Note: "Started", "InProgress" and "Active" status represent active cases
+            var tenantId = TenantContextHelper.GetTenantIdOrDefault(_userContext);
             var filterByTeam = !string.IsNullOrEmpty(team);
             var cases = await _onboardingRepository.GetListAsync(o => 
                 o.IsActive && o.IsValid && 
+                o.TenantId == tenantId &&
                 (o.Status == "Started" || o.Status == "InProgress" || o.Status == "Active") &&
                 (!filterByTeam || o.CurrentTeam == team));
             
@@ -920,9 +885,11 @@ namespace FlowFlex.Application.Services.OW
         private async Task<int> GetActiveCasesCountAtDateAsync(DateTimeOffset date, string? team)
         {
             // Approximate: count cases that were active at that date
+            var tenantId = TenantContextHelper.GetTenantIdOrDefault(_userContext);
             var filterByTeam = !string.IsNullOrEmpty(team);
             var cases = await _onboardingRepository.GetListAsync(o => 
                 o.IsValid && 
+                o.TenantId == tenantId &&
                 o.StartDate <= date &&
                 (o.ActualCompletionDate == null || o.ActualCompletionDate > date) &&
                 (!filterByTeam || o.CurrentTeam == team));
@@ -934,9 +901,11 @@ namespace FlowFlex.Application.Services.OW
 
         private async Task<int> GetCompletedCasesCountAsync(DateTimeOffset startDate, DateTimeOffset endDate, string? team)
         {
+            var tenantId = TenantContextHelper.GetTenantIdOrDefault(_userContext);
             var filterByTeam = !string.IsNullOrEmpty(team);
             var cases = await _onboardingRepository.GetListAsync(o => 
                 o.IsValid && 
+                o.TenantId == tenantId &&
                 (o.Status == "Completed" || o.Status == "Force Completed") &&
                 o.ActualCompletionDate >= startDate &&
                 o.ActualCompletionDate <= endDate &&
@@ -973,9 +942,11 @@ namespace FlowFlex.Application.Services.OW
 
         private async Task<decimal> GetAverageCompletionTimeAsync(DateTimeOffset startDate, DateTimeOffset endDate, string? team)
         {
+            var tenantId = TenantContextHelper.GetTenantIdOrDefault(_userContext);
             var filterByTeam = !string.IsNullOrEmpty(team);
             var completedCases = await _onboardingRepository.GetListAsync(o => 
                 o.IsValid && 
+                o.TenantId == tenantId &&
                 (o.Status == "Completed" || o.Status == "Force Completed") &&
                 o.ActualCompletionDate >= startDate &&
                 o.ActualCompletionDate <= endDate &&
