@@ -316,10 +316,10 @@ namespace FlowFlex.Application.Services.AI
 
         private async Task<AIProviderResponse> CallAIProviderAsync(string prompt)
         {
-            return await CallAIProviderAsync(prompt, null, null, null);
+            return await CallAIProviderAsync(prompt, null, null, null, null);
         }
 
-        private async Task<AIProviderResponse> CallAIProviderAsync(string prompt, string? modelId, string? modelProvider, string? modelName)
+        private async Task<AIProviderResponse> CallAIProviderAsync(string prompt, string? modelId, string? modelProvider, string? modelName, int? maxTokensOverride = null)
         {
             try
             {
@@ -357,7 +357,7 @@ namespace FlowFlex.Application.Services.AI
                 {
                     case "zhipuai":
                         {
-                            var r = await CallZhipuAIAsync(prompt, effectiveModelId, effectiveModelName);
+                            var r = await CallZhipuAIAsync(prompt, effectiveModelId, effectiveModelName, maxTokensOverride);
                             r.Provider = "zhipuai";
                             r.ModelName = effectiveModelName ?? string.Empty;
                             r.ModelId = effectiveModelId ?? string.Empty;
@@ -365,7 +365,7 @@ namespace FlowFlex.Application.Services.AI
                         }
                     case "openai":
                         {
-                            var r = await CallOpenAIAsync(prompt, effectiveModelId, effectiveModelName);
+                            var r = await CallOpenAIAsync(prompt, effectiveModelId, effectiveModelName, maxTokensOverride);
                             r.Provider = "openai";
                             r.ModelName = effectiveModelName ?? string.Empty;
                             r.ModelId = effectiveModelId ?? string.Empty;
@@ -373,7 +373,7 @@ namespace FlowFlex.Application.Services.AI
                         }
                     case "gemini":
                         {
-                            var r = await CallGeminiAsync(prompt, effectiveModelId, effectiveModelName);
+                            var r = await CallGeminiAsync(prompt, effectiveModelId, effectiveModelName, maxTokensOverride);
                             r.Provider = "gemini";
                             r.ModelName = effectiveModelName ?? string.Empty;
                             r.ModelId = effectiveModelId ?? string.Empty;
@@ -382,7 +382,7 @@ namespace FlowFlex.Application.Services.AI
                     case "claude":
                     case "anthropic":
                         {
-                            var r = await CallClaudeAsync(prompt, effectiveModelId, effectiveModelName);
+                            var r = await CallClaudeAsync(prompt, effectiveModelId, effectiveModelName, maxTokensOverride);
                             r.Provider = "claude";
                             r.ModelName = effectiveModelName ?? string.Empty;
                             r.ModelId = effectiveModelId ?? string.Empty;
@@ -390,7 +390,7 @@ namespace FlowFlex.Application.Services.AI
                         }
                     case "deepseek":
                         {
-                            var r = await CallDeepSeekAsync(prompt, effectiveModelId, effectiveModelName);
+                            var r = await CallDeepSeekAsync(prompt, effectiveModelId, effectiveModelName, maxTokensOverride);
                             r.Provider = "deepseek";
                             r.ModelName = effectiveModelName ?? string.Empty;
                             r.ModelId = effectiveModelId ?? string.Empty;
@@ -400,7 +400,7 @@ namespace FlowFlex.Application.Services.AI
                         // Try to call using generic OpenAI-compatible API
                         _logger.LogInformation("Unknown provider {Provider}, attempting to use OpenAI-compatible API", provider);
                         {
-                            var r = await CallGenericOpenAICompatibleAsync(prompt, effectiveModelId, effectiveModelName, provider);
+                            var r = await CallGenericOpenAICompatibleAsync(prompt, effectiveModelId, effectiveModelName, provider, maxTokensOverride);
                             r.Provider = provider;
                             r.ModelName = effectiveModelName ?? string.Empty;
                             r.ModelId = effectiveModelId ?? string.Empty;
@@ -421,10 +421,10 @@ namespace FlowFlex.Application.Services.AI
 
         private async Task<AIProviderResponse> CallZhipuAIAsync(string prompt)
         {
-            return await CallZhipuAIAsync(prompt, null, null);
+            return await CallZhipuAIAsync(prompt, null, null, null);
         }
 
-        private async Task<AIProviderResponse> CallZhipuAIAsync(string prompt, string? modelId, string? modelName)
+        private async Task<AIProviderResponse> CallZhipuAIAsync(string prompt, string? modelId, string? modelName, int? maxTokensOverride = null)
         {
             try
             {
@@ -441,9 +441,9 @@ namespace FlowFlex.Application.Services.AI
                 var baseUrl = userConfig?.BaseUrl ?? _aiOptions.ZhipuAI.BaseUrl;
                 var model = userConfig?.ModelName ?? modelName ?? _aiOptions.ZhipuAI.Model;
                 var temperature = userConfig?.Temperature ?? _aiOptions.ZhipuAI.Temperature;
-                var maxTokens = userConfig?.MaxTokens ?? _aiOptions.ZhipuAI.MaxTokens;
+                var maxTokens = maxTokensOverride ?? userConfig?.MaxTokens ?? _aiOptions.ZhipuAI.MaxTokens;
 
-                _logger.LogInformation("ZhipuAI Request - Model: {Model}, BaseUrl: {BaseUrl}", model, baseUrl);
+                _logger.LogInformation("ZhipuAI Request - Model: {Model}, BaseUrl: {BaseUrl}, MaxTokens: {MaxTokens}", model, baseUrl, maxTokens);
 
                 var requestBody = new
                 {
@@ -514,10 +514,10 @@ namespace FlowFlex.Application.Services.AI
 
         private async Task<AIProviderResponse> CallOpenAIAsync(string prompt)
         {
-            return await CallOpenAIAsync(prompt, null, null);
+            return await CallOpenAIAsync(prompt, null, null, null);
         }
 
-        private async Task<AIProviderResponse> CallOpenAIAsync(string prompt, string? modelId, string? modelName)
+        private async Task<AIProviderResponse> CallOpenAIAsync(string prompt, string? modelId, string? modelName, int? maxTokensOverride = null)
         {
             try
             {
@@ -549,7 +549,7 @@ namespace FlowFlex.Application.Services.AI
                     try
                     {
                         _logger.LogInformation("Falling back to ZhipuAI for workflow generation due to missing OpenAI configuration");
-                        return await CallZhipuAIAsync(prompt, null, null);
+                        return await CallZhipuAIAsync(prompt, null, null, maxTokensOverride);
                     }
                     catch (Exception fallbackEx)
                     {
@@ -566,9 +566,9 @@ namespace FlowFlex.Application.Services.AI
                 var baseUrl = userConfig.BaseUrl;
                 var rawModel = userConfig.ModelName ?? modelName ?? "gpt-4o-mini";
                 var temperature = userConfig.Temperature > 0 ? userConfig.Temperature : 0.7;
-                var maxTokens = userConfig.MaxTokens > 0 ? userConfig.MaxTokens : 2000;
+                var maxTokens = maxTokensOverride ?? (userConfig.MaxTokens > 0 ? userConfig.MaxTokens : 2000);
 
-                _logger.LogInformation("OpenAI Request - Model: {Model}, BaseUrl: {BaseUrl}", rawModel, baseUrl);
+                _logger.LogInformation("OpenAI Request - Model: {Model}, BaseUrl: {BaseUrl}, MaxTokens: {MaxTokens}", rawModel, baseUrl, maxTokens);
 
                 // Check if using Item Gateway
                 var isItemGateway = !string.IsNullOrEmpty(baseUrl) &&
@@ -658,7 +658,7 @@ namespace FlowFlex.Application.Services.AI
             }
         }
 
-        private async Task<AIProviderResponse> CallGeminiAsync(string prompt, string? modelId, string? modelName)
+        private async Task<AIProviderResponse> CallGeminiAsync(string prompt, string? modelId, string? modelName, int? maxTokensOverride = null)
         {
             try
             {
@@ -684,16 +684,16 @@ namespace FlowFlex.Application.Services.AI
                 if (userConfig == null)
                 {
                     _logger.LogWarning("No Gemini configuration found for model ID: {ModelId}. Attempting to use OpenAI-compatible fallback.", modelId);
-                    return await CallGenericOpenAICompatibleAsync(prompt, modelId, modelName, "gemini");
+                    return await CallGenericOpenAICompatibleAsync(prompt, modelId, modelName, "gemini", maxTokensOverride);
                 }
 
                 var apiKey = userConfig.ApiKey;
                 var baseUrl = userConfig.BaseUrl;
                 var model = userConfig.ModelName ?? modelName ?? "gemini-2.5-flash";
                 var temperature = userConfig.Temperature > 0 ? userConfig.Temperature : 0.7;
-                var maxTokens = userConfig.MaxTokens > 0 ? userConfig.MaxTokens : 2000;
+                var maxTokens = maxTokensOverride ?? (userConfig.MaxTokens > 0 ? userConfig.MaxTokens : 2000);
 
-                _logger.LogInformation("Gemini Request - Model: {Model}, BaseUrl: {BaseUrl}", model, baseUrl);
+                _logger.LogInformation("Gemini Request - Model: {Model}, BaseUrl: {BaseUrl}, MaxTokens: {MaxTokens}", model, baseUrl, maxTokens);
 
                 // Check if using Item Gateway
                 var isItemGateway = !string.IsNullOrEmpty(baseUrl) &&
@@ -843,7 +843,7 @@ namespace FlowFlex.Application.Services.AI
             }
         }
 
-        private async Task<AIProviderResponse> CallClaudeAsync(string prompt, string? modelId, string? modelName)
+        private async Task<AIProviderResponse> CallClaudeAsync(string prompt, string? modelId, string? modelName, int? maxTokensOverride = null)
         {
             try
             {
@@ -874,7 +874,7 @@ namespace FlowFlex.Application.Services.AI
                     try
                     {
                         _logger.LogInformation("Falling back to ZhipuAI for workflow generation due to missing Claude configuration");
-                        return await CallZhipuAIAsync(prompt, null, null);
+                        return await CallZhipuAIAsync(prompt, null, null, maxTokensOverride);
                     }
                     catch (Exception fallbackEx)
                     {
@@ -891,9 +891,9 @@ namespace FlowFlex.Application.Services.AI
                 var baseUrl = userConfig.BaseUrl;
                 var model = userConfig.ModelName ?? modelName ?? "claude-3-sonnet-20240229";
                 var temperature = userConfig.Temperature > 0 ? userConfig.Temperature : 0.7;
-                var maxTokens = userConfig.MaxTokens > 0 ? userConfig.MaxTokens : 2000;
+                var maxTokens = maxTokensOverride ?? (userConfig.MaxTokens > 0 ? userConfig.MaxTokens : 2000);
 
-                _logger.LogInformation("Claude Request - Model: {Model}, BaseUrl: {BaseUrl}", model, baseUrl);
+                _logger.LogInformation("Claude Request - Model: {Model}, BaseUrl: {BaseUrl}, MaxTokens: {MaxTokens}", model, baseUrl, maxTokens);
 
                 var requestBody = new
                 {
@@ -968,7 +968,7 @@ namespace FlowFlex.Application.Services.AI
             }
         }
 
-        private async Task<AIProviderResponse> CallDeepSeekAsync(string prompt, string? modelId, string? modelName)
+        private async Task<AIProviderResponse> CallDeepSeekAsync(string prompt, string? modelId, string? modelName, int? maxTokensOverride = null)
         {
             try
             {
@@ -999,7 +999,7 @@ namespace FlowFlex.Application.Services.AI
                     try
                     {
                         _logger.LogInformation("Falling back to ZhipuAI for workflow generation due to missing DeepSeek configuration");
-                        return await CallZhipuAIAsync(prompt, null, null);
+                        return await CallZhipuAIAsync(prompt, null, null, maxTokensOverride);
                     }
                     catch (Exception fallbackEx)
                     {
@@ -1016,9 +1016,9 @@ namespace FlowFlex.Application.Services.AI
                 var baseUrl = userConfig.BaseUrl;
                 var model = userConfig.ModelName ?? modelName ?? "deepseek-chat";
                 var temperature = userConfig.Temperature > 0 ? userConfig.Temperature : 0.7;
-                var maxTokens = userConfig.MaxTokens > 0 ? userConfig.MaxTokens : 2000;
+                var maxTokens = maxTokensOverride ?? (userConfig.MaxTokens > 0 ? userConfig.MaxTokens : 2000);
 
-                _logger.LogInformation("DeepSeek Request - Model: {Model}, BaseUrl: {BaseUrl}", model, baseUrl);
+                _logger.LogInformation("DeepSeek Request - Model: {Model}, BaseUrl: {BaseUrl}, MaxTokens: {MaxTokens}", model, baseUrl, maxTokens);
 
                 // DeepSeek uses OpenAI-compatible API format
                 var requestBody = new
@@ -1103,7 +1103,7 @@ namespace FlowFlex.Application.Services.AI
             }
         }
 
-        private async Task<AIProviderResponse> CallGenericOpenAICompatibleAsync(string prompt, string? modelId, string? modelName, string providerName)
+        private async Task<AIProviderResponse> CallGenericOpenAICompatibleAsync(string prompt, string? modelId, string? modelName, string providerName, int? maxTokensOverride = null)
         {
             try
             {
@@ -1134,7 +1134,7 @@ namespace FlowFlex.Application.Services.AI
                     try
                     {
                         _logger.LogInformation("Falling back to ZhipuAI for workflow generation due to missing {Provider} configuration", providerName);
-                        return await CallZhipuAIAsync(prompt, null, null);
+                        return await CallZhipuAIAsync(prompt, null, null, maxTokensOverride);
                     }
                     catch (Exception fallbackEx)
                     {
@@ -1151,9 +1151,9 @@ namespace FlowFlex.Application.Services.AI
                 var baseUrl = userConfig.BaseUrl;
                 var model = userConfig.ModelName ?? modelName ?? "default-model";
                 var temperature = userConfig.Temperature > 0 ? userConfig.Temperature : 0.7;
-                var maxTokens = userConfig.MaxTokens > 0 ? userConfig.MaxTokens : 2000;
+                var maxTokens = maxTokensOverride ?? (userConfig.MaxTokens > 0 ? userConfig.MaxTokens : 2000);
 
-                _logger.LogInformation("{Provider} Request - Model: {Model}, BaseUrl: {BaseUrl}", providerName, model, baseUrl);
+                _logger.LogInformation("{Provider} Request - Model: {Model}, BaseUrl: {BaseUrl}, MaxTokens: {MaxTokens}", providerName, model, baseUrl, maxTokens);
 
                 // Use OpenAI-compatible API format (most providers support this)
                 var requestBody = new

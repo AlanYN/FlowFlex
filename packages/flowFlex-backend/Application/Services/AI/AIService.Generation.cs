@@ -62,7 +62,9 @@ namespace FlowFlex.Application.Services.AI
                 await _mcpService.StoreContextAsync(contextId, JsonSerializer.Serialize(input), contextMetadata);
 
                 prompt = BuildWorkflowGenerationPrompt(input);
-                aiResponse = await CallAIProviderAsync(prompt, input.ModelId, input.ModelProvider, input.ModelName);
+                // Use larger max_tokens for workflow generation to prevent truncation
+                const int workflowGenerationMaxTokens = 16000;
+                aiResponse = await CallAIProviderAsync(prompt, input.ModelId, input.ModelProvider, input.ModelName, workflowGenerationMaxTokens);
 
                 // Save prompt history to database using background task queue
                 _backgroundTaskQueue.QueueBackgroundWorkItem(async token =>
