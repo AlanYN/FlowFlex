@@ -33,7 +33,7 @@ export function useInternalNoteUsers(id: string) {
 			const findUser = await findUserList(id);
 			if (findUser.code === '200') {
 				const data = findUser.data
-					.filter((item) => item.userType == UserType.user)
+					.filter((item) => item.userType != UserType.SystemAdmin)
 					.map((item) => ({
 						key: item.id,
 						value: item.name,
