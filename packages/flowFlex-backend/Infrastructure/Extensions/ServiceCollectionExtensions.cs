@@ -39,11 +39,6 @@ namespace FlowFlex.Infrastructure.Extensions
                 .ValidateDataAnnotations()
                 .ValidateOnStart();
 
-            services.AddOptions<MCPOptions>()
-                .Bind(configuration.GetSection(MCPOptions.SectionName))
-                .ValidateDataAnnotations()
-                .ValidateOnStart();
-
             services.AddOptions<CacheOptions>()
                 .Bind(configuration.GetSection(CacheOptions.SectionName))
                 .ValidateDataAnnotations()
@@ -67,7 +62,6 @@ namespace FlowFlex.Infrastructure.Extensions
 
             // Register AI services (will be auto-registered via IScopedService interface)
             // services.AddScoped<IAIService, AIService>();
-            // services.AddScoped<IMCPService, MCPService>();
 
             // Register database migration service
             services.AddDatabaseMigration();

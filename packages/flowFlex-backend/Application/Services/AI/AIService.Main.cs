@@ -29,7 +29,6 @@ namespace FlowFlex.Application.Services.AI
         private readonly AIOptions _aiOptions;
         private readonly ILogger<AIService> _logger;
         private readonly IHttpClientFactory _httpClientFactory;
-        private readonly IMCPService _mcpService;
         private readonly IWorkflowService _workflowService;
         private readonly IAIModelConfigService _configService;
         private readonly IChecklistService _checklistService;
@@ -48,7 +47,6 @@ namespace FlowFlex.Application.Services.AI
             IOptions<AIOptions> aiOptions,
             ILogger<AIService> logger,
             IHttpClientFactory httpClientFactory,
-            IMCPService mcpService,
             IWorkflowService workflowService,
             IAIModelConfigService configService,
             IChecklistService checklistService,
@@ -66,7 +64,6 @@ namespace FlowFlex.Application.Services.AI
             _aiOptions = aiOptions.Value;
             _logger = logger;
             _httpClientFactory = httpClientFactory;
-            _mcpService = mcpService;
             _workflowService = workflowService;
             _configService = configService;
             _checklistService = checklistService;

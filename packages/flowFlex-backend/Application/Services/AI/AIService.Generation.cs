@@ -207,27 +207,6 @@ namespace FlowFlex.Application.Services.AI
                 _logger.LogInformation("Conversation History: {MessageCount} messages",
                     input.ConversationHistory?.Count ?? 0);
 
-                // Store enhanced context in MCP for future reference
-                var contextId = $"workflow_generation_{input.SessionId}_{DateTime.UtcNow:yyyyMMddHHmmss}";
-                var contextMetadata = new Dictionary<string, object>
-                {
-                    { "type", "workflow_generation" },
-                    { "timestamp", DateTime.UtcNow },
-                    { "description", input.Description },
-                    { "sessionId", input.SessionId ?? "" },
-                    { "modelProvider", input.ModelProvider ?? "" },
-                    { "modelName", input.ModelName ?? "" },
-                    { "conversationMessageCount", input.ConversationHistory?.Count ?? 0 }
-                };
-
-                if (input.ConversationMetadata != null)
-                {
-                    contextMetadata.Add("conversationMode", input.ConversationMetadata.ConversationMode ?? "");
-                    contextMetadata.Add("totalMessages", input.ConversationMetadata.TotalMessages);
-                }
-
-                await _mcpService.StoreContextAsync(contextId, JsonSerializer.Serialize(input), contextMetadata);
-
                 prompt = BuildWorkflowGenerationPrompt(input);
                 // Use larger max_tokens for workflow generation to prevent truncation
                 const int workflowGenerationMaxTokens = 16000;
@@ -241,8 +220,7 @@ namespace FlowFlex.Application.Services.AI
                         var metadata = JsonSerializer.Serialize(new
                         {
                             sessionId = input.SessionId,
-                            conversationHistoryCount = input.ConversationHistory?.Count ?? 0,
-                            contextId = contextId
+                            conversationHistoryCount = input.ConversationHistory?.Count ?? 0
                         });
                         await SavePromptHistoryAsync("WorkflowGeneration", "Workflow", null, null,
                             prompt, aiResponse, startTime, input.ModelProvider, input.ModelName, input.ModelId, metadata);

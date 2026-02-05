@@ -53,18 +53,6 @@ namespace FlowFlex.Application.Services.AI
             {
                 _logger.LogInformation("Processing AI chat message for session: {SessionId}", input.SessionId);
 
-                // Store conversation context in MCP
-                await _mcpService.StoreContextAsync(
-                    $"chat_session_{input.SessionId}",
-                    JsonSerializer.Serialize(input.Messages),
-                    new Dictionary<string, object>
-                    {
-                        { "mode", input.Mode },
-                        { "timestamp", DateTime.UtcNow },
-                        { "message_count", input.Messages.Count }
-                    }
-                );
-
                 // Build prompt for history tracking
                 prompt = BuildChatPrompt(input);
                 response = await CallAIProviderForChatAsync(input);

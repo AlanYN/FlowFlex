@@ -137,36 +137,4 @@ namespace FlowFlex.Application.Contracts.Options
         /// </summary>
         public bool EnableDetailedLogging { get; set; } = true;
     }
-
-    /// <summary>
-    /// MCP service configuration options
-    /// </summary>
-    public class MCPOptions
-    {
-        public static readonly string SectionName = "MCP";
-
-        public bool EnableMCP { get; set; } = true;
-        public MCPServices Services { get; set; } = new();
-    }
-
-    public class MCPServices
-    {
-        public MCPMemoryConfig Memory { get; set; } = new();
-        public MCPContextConfig Context { get; set; } = new();
-    }
-
-    public class MCPMemoryConfig
-    {
-        public string Provider { get; set; } = "InMemory";
-        public string ConnectionString { get; set; } = string.Empty;
-        public int MaxEntities { get; set; } = 10000;
-        public bool EnablePersistence { get; set; } = true;
-    }
-
-    public class MCPContextConfig
-    {
-        public int MaxContextLength { get; set; } = 8192;
-        public bool EnableSemanticSearch { get; set; } = true;
-        public string EmbeddingModel { get; set; } = "text-embedding-ada-002";
-    }
 }
