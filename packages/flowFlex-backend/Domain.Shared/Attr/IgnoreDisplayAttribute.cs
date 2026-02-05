@@ -1,9 +1,7 @@
-using System;
-
 namespace FlowFlex.Domain.Shared.Attr;
 
 /// <summary>
-/// Not displayed in the dynamic attribute list
+/// Attribute to mark properties that should be ignored in display/UI contexts
 /// </summary>
 [AttributeUsage(AttributeTargets.Property)]
 public class IgnoreDisplayAttribute : Attribute

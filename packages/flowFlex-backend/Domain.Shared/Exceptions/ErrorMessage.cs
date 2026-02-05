@@ -6,8 +6,8 @@ using System.Linq;
 namespace FlowFlex.Domain.Shared
 {
     /// <summary>
-    /// 错误信息，一个错误码对应一组错误信息.
-    /// 错误信息的格式：零个参数的错误信息（默认）|1个参数的错误信息|2个传参数的错误信息|...
+    /// Error message helper class. Each error code corresponds to an error message.
+    /// Message format: default error message|language1 error message|language2 error message|...
     /// </summary>
     public class ErrorMessage
     {

@@ -864,58 +864,6 @@ namespace FlowFlex.Application.Services.OW
 
             return Math.Round((decimal)(totalDays / filteredCases.Count), 0);
         }
-
-        private async Task<int> GetActiveCasesCountAsync(string? team)
-        {
-            // Use GetListAsync which has tenant filtering, then count in memory
-            // Note: "Started", "InProgress" and "Active" status represent active cases
-            var tenantId = TenantContextHelper.GetTenantIdOrDefault(_userContext);
-            var filterByTeam = !string.IsNullOrEmpty(team);
-            var cases = await _onboardingRepository.GetListAsync(o => 
-                o.IsActive && o.IsValid && 
-                o.TenantId == tenantId &&
-                (o.Status == "Started" || o.Status == "InProgress" || o.Status == "Active") &&
-                (!filterByTeam || o.CurrentTeam == team));
-            
-            // Apply permission filter
-            var filteredCases = await FilterCasesByPermissionAsync(cases);
-            return filteredCases.Count;
-        }
-
-        private async Task<int> GetActiveCasesCountAtDateAsync(DateTimeOffset date, string? team)
-        {
-            // Approximate: count cases that were active at that date
-            var tenantId = TenantContextHelper.GetTenantIdOrDefault(_userContext);
-            var filterByTeam = !string.IsNullOrEmpty(team);
-            var cases = await _onboardingRepository.GetListAsync(o => 
-                o.IsValid && 
-                o.TenantId == tenantId &&
-                o.StartDate <= date &&
-                (o.ActualCompletionDate == null || o.ActualCompletionDate > date) &&
-                (!filterByTeam || o.CurrentTeam == team));
-            
-            // Apply permission filter
-            var filteredCases = await FilterCasesByPermissionAsync(cases);
-            return filteredCases.Count;
-        }
-
-        private async Task<int> GetCompletedCasesCountAsync(DateTimeOffset startDate, DateTimeOffset endDate, string? team)
-        {
-            var tenantId = TenantContextHelper.GetTenantIdOrDefault(_userContext);
-            var filterByTeam = !string.IsNullOrEmpty(team);
-            var cases = await _onboardingRepository.GetListAsync(o => 
-                o.IsValid && 
-                o.TenantId == tenantId &&
-                (o.Status == "Completed" || o.Status == "Force Completed") &&
-                o.ActualCompletionDate >= startDate &&
-                o.ActualCompletionDate <= endDate &&
-                (!filterByTeam || o.CurrentTeam == team));
-            
-            // Apply permission filter
-            var filteredCases = await FilterCasesByPermissionAsync(cases);
-            return filteredCases.Count;
-        }
-
         private async Task<int> GetOverdueTasksCountAsync(string? team)
         {
             var filterByTeam = !string.IsNullOrEmpty(team);
@@ -938,32 +886,6 @@ namespace FlowFlex.Application.Services.OW
                 t.CreateDate <= date &&
                 (!filterByTeam || t.AssignedTeam == team));
             return tasks.Count;
-        }
-
-        private async Task<decimal> GetAverageCompletionTimeAsync(DateTimeOffset startDate, DateTimeOffset endDate, string? team)
-        {
-            var tenantId = TenantContextHelper.GetTenantIdOrDefault(_userContext);
-            var filterByTeam = !string.IsNullOrEmpty(team);
-            var completedCases = await _onboardingRepository.GetListAsync(o => 
-                o.IsValid && 
-                o.TenantId == tenantId &&
-                (o.Status == "Completed" || o.Status == "Force Completed") &&
-                o.ActualCompletionDate >= startDate &&
-                o.ActualCompletionDate <= endDate &&
-                o.StartDate.HasValue &&
-                (!filterByTeam || o.CurrentTeam == team));
-
-            // Apply permission filter
-            var filteredCases = await FilterCasesByPermissionAsync(completedCases);
-
-            if (!filteredCases.Any())
-                return 0;
-
-            var totalDays = filteredCases
-                .Where(c => c.StartDate.HasValue && c.ActualCompletionDate.HasValue)
-                .Sum(c => (c.ActualCompletionDate!.Value - c.StartDate!.Value).TotalDays);
-
-            return Math.Round((decimal)(totalDays / filteredCases.Count), 0);
         }
 
         private StatisticItemDto CreateStatisticItem(decimal currentValue, decimal previousValue, bool increaseIsPositive, string? suffix = null)
@@ -998,49 +920,9 @@ namespace FlowFlex.Application.Services.OW
             };
         }
 
-        private string FormatReceivedDate(DateTimeOffset receivedDate, DateTimeOffset now)
-        {
-            var days = (int)(now.Date - receivedDate.Date).TotalDays;
-
-            return days switch
-            {
-                0 => receivedDate.ToString("h:mm tt"),
-                1 => "Yesterday",
-                _ => receivedDate.ToString("MMM d, yyyy")
-            };
-        }
-
         private string FormatCompletionDate(DateTimeOffset date)
         {
             return date.ToString("MMM d, yyyy");
-        }
-
-        private string GetInitials(string? name)
-        {
-            if (string.IsNullOrWhiteSpace(name))
-                return "??";
-
-            var parts = name.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-            if (parts.Length >= 2)
-                return $"{parts[0][0]}{parts[1][0]}".ToUpper();
-            if (parts.Length == 1 && parts[0].Length >= 2)
-                return parts[0].Substring(0, 2).ToUpper();
-            return name.Substring(0, Math.Min(2, name.Length)).ToUpper();
-        }
-
-        private List<string> ParseLabels(string? labelsJson)
-        {
-            if (string.IsNullOrWhiteSpace(labelsJson))
-                return new List<string>();
-
-            try
-            {
-                return System.Text.Json.JsonSerializer.Deserialize<List<string>>(labelsJson) ?? new List<string>();
-            }
-            catch
-            {
-                return new List<string>();
-            }
         }
 
         private List<string> ParseTeams(string? teamsJson)

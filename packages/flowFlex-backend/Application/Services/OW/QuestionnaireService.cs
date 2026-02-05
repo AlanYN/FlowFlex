@@ -1,4 +1,4 @@
-using FlowFlex.Infrastructure.Services;
+﻿using FlowFlex.Infrastructure.Services;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using AutoMapper;
@@ -8,7 +8,6 @@ using FlowFlex.Application.Contracts.IServices.OW;
 using FlowFlex.Domain.Entities.OW;
 
 using FlowFlex.Domain.Shared;
-using FlowFlex.Domain.Shared.Exceptions;
 using FlowFlex.Domain.Shared.Enums.OW;
 using FlowFlex.Domain.Shared.Helpers;
 using System.Text.Json;
@@ -1152,67 +1151,6 @@ namespace FlowFlex.Application.Services.OW
             } while (usedIds.Contains(newId));
 
             return newId;
-        }
-
-        /// <summary>
-        /// Test method to verify ID normalization in structure JSON (for debugging)
-        /// </summary>
-        public string TestNormalizeStructureJsonIds(string originalStructureJson)
-        {
-            return NormalizeStructureJsonIds(originalStructureJson);
-        }
-
-        /// <summary>
-        /// Test method to verify missing ID generation in structure JSON (for debugging)
-        /// </summary>
-        public string TestGenerateMissingIds(string structureJsonWithMissingIds)
-        {
-            try
-            {
-                _logger.LogDebug("Testing missing ID generation...");
-                var result = NormalizeStructureJsonIds(structureJsonWithMissingIds);
-                _logger.LogDebug("Missing ID generation test completed.");
-                return result;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Error in missing ID generation test");
-                return structureJsonWithMissingIds;
-            }
-        }
-
-        /// <summary>
-        /// Test method to verify ID generation in structure JSON (for debugging)
-        /// </summary>
-        public string TestGenerateNewIdsInStructureJson(string originalStructureJson)
-        {
-            return GenerateNewIdsInStructureJson(originalStructureJson);
-        }
-
-        /// <summary>
-        /// Test method to verify ID generation for rows and columns specifically (for debugging)
-        /// </summary>
-        public string TestRowColumnIdGeneration(string structureJsonWithRowsColumns)
-        {
-            try
-            {
-                _logger.LogDebug("Testing row/column ID generation...");
-
-                // First normalize the structure
-                var normalizedResult = NormalizeStructureJsonIds(structureJsonWithRowsColumns);
-                _logger.LogDebug("Normalized structure for row/column testing: {NormalizedResult}", normalizedResult);
-
-                // Then test duplication (which should generate completely new IDs)
-                var duplicatedResult = GenerateNewIdsInStructureJson(normalizedResult);
-                _logger.LogDebug("Duplicated structure with new IDs: {DuplicatedResult}", duplicatedResult);
-
-                return duplicatedResult;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Error in row/column ID generation test");
-                return structureJsonWithRowsColumns;
-            }
         }
 
         public async Task<QuestionnaireOutputDto> PreviewAsync(long id)

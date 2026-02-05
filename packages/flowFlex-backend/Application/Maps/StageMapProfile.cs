@@ -463,57 +463,6 @@ namespace FlowFlex.Application.Maps
         }
 
         /// <summary>
-        /// Convert List of assignee IDs to JSON string for database storage (legacy method)
-        /// </summary>
-        private static string ConvertAssigneeListToString(List<string> assigneeList)
-        {
-            if (assigneeList == null || !assigneeList.Any())
-                return null;
-
-            try
-            {
-                // Use JSON serialization to preserve all data without truncation
-                return JsonSerializer.Serialize(assigneeList, _jsonOptions);
-            }
-            catch (Exception ex)
-            {
-                // Fallback to comma-separated format if JSON serialization fails
-                LogWarning(ex, "Failed to serialize assignee list to JSON, using comma-separated fallback");
-                return string.Join(",", assigneeList);
-            }
-        }
-
-        /// <summary>
-        /// Convert JSON string or comma-separated string to List of assignee IDs (legacy method)
-        /// </summary>
-        private static List<string> ConvertAssigneeStringToList(string assigneeString)
-        {
-            if (string.IsNullOrWhiteSpace(assigneeString))
-                return new List<string>();
-
-            // Try to deserialize as JSON first
-            if (assigneeString.TrimStart().StartsWith("["))
-            {
-                try
-                {
-                    var jsonResult = JsonSerializer.Deserialize<List<string>>(assigneeString, _jsonOptions);
-                    return jsonResult ?? new List<string>();
-                }
-                catch (JsonException ex)
-                {
-                    // If JSON parsing fails, log and fall back to comma-separated parsing
-                    LogWarning(ex, "Failed to parse assignee string as JSON, using comma-separated fallback");
-                }
-            }
-
-            // Fallback to comma-separated format for backward compatibility
-            return assigneeString.Split(',', StringSplitOptions.RemoveEmptyEntries)
-                                .Select(s => s.Trim())
-                                .Where(s => !string.IsNullOrWhiteSpace(s))
-                                .ToList();
-        }
-
-        /// <summary>
         /// Helper method to deserialize JSON string to List of strings
         /// Handles both direct JSON arrays and double-encoded JSON strings
         /// </summary>

@@ -134,7 +134,6 @@ builder.Services.AddAutoMapper(config =>
     config.AddProfile<FlowFlex.Application.Maps.ChecklistTaskCompletionMapProfile>();
     config.AddProfile<FlowFlex.Application.Maps.ChecklistTaskMapProfile>();
 
-    config.AddProfile<FlowFlex.Application.Maps.QuestionnaireSectionMapProfile>();
     config.AddProfile<FlowFlex.Application.Maps.ActionMapProfile>();
 }, assemblies);
 

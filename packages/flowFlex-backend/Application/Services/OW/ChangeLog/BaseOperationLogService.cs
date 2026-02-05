@@ -382,30 +382,6 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
         }
 
         /// <summary>
-        /// Check if there's meaningful change between before and after data
-        /// </summary>
-        protected virtual bool HasMeaningfulValueChange(string beforeData, string afterData)
-        {
-            if (string.IsNullOrEmpty(beforeData) && string.IsNullOrEmpty(afterData))
-                return false;
-
-            if (string.IsNullOrEmpty(beforeData) || string.IsNullOrEmpty(afterData))
-                return true;
-
-            try
-            {
-                var beforeJson = JsonSerializer.Deserialize<Dictionary<string, object>>(beforeData);
-                var afterJson = JsonSerializer.Deserialize<Dictionary<string, object>>(afterData);
-
-                return !beforeJson.SequenceEqual(afterJson);
-            }
-            catch
-            {
-                return beforeData != afterData;
-            }
-        }
-
-        /// <summary>
         /// Get changed fields between before and after data
         /// </summary>
         protected virtual List<string> GetChangedFields(Dictionary<string, object> beforeData, Dictionary<string, object> afterData)
@@ -476,33 +452,6 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
             string[] sizes = { "Bytes", "KB", "MB", "GB", "TB" };
             int i = (int)Math.Floor(Math.Log(bytes) / Math.Log(1024));
             return Math.Round(bytes / Math.Pow(1024, i), 2) + " " + sizes[i];
-        }
-
-        /// <summary>
-        /// Get relative time display in US time format
-        /// </summary>
-        protected virtual string GetRelativeTimeDisplay(DateTimeOffset dateTime)
-        {
-            // Convert UTC time to US Eastern Time (ET)
-            var easternZone = TimeZoneInfo.FindSystemTimeZoneById("Eastern Standard Time");
-            var easternTime = TimeZoneInfo.ConvertTime(dateTime, easternZone);
-            var now = TimeZoneInfo.ConvertTime(DateTimeOffset.UtcNow, easternZone);
-            var timeSpan = now - easternTime;
-
-            if (timeSpan.TotalMinutes < 1)
-                return "Just now";
-            if (timeSpan.TotalMinutes < 60)
-                return $"{(int)timeSpan.TotalMinutes} minutes ago";
-            if (timeSpan.TotalHours < 24)
-                return $"{(int)timeSpan.TotalHours} hours ago";
-            if (timeSpan.TotalDays < 7)
-                return $"{(int)timeSpan.TotalDays} days ago";
-            if (timeSpan.TotalDays < 30)
-                return $"{(int)(timeSpan.TotalDays / 7)} weeks ago";
-            if (timeSpan.TotalDays < 365)
-                return $"{(int)(timeSpan.TotalDays / 30)} months ago";
-
-            return $"{(int)(timeSpan.TotalDays / 365)} years ago";
         }
 
         /// <summary>

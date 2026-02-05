@@ -27,19 +27,5 @@ namespace FlowFlex.Application.Services.OW.Extensions
             return domain;
         }
 
-        /// <summary>
-        /// Get tenant ID by email domain
-        /// </summary>
-        /// <param name="domain">Email domain</param>
-        /// <returns>Tenant ID</returns>
-        public static string GetTenantIdByDomain(string domain)
-        {
-            if (string.IsNullOrEmpty(domain))
-            {
-                return "default";
-            }
-
-            return domain.ToUpper();
-        }
     }
 }

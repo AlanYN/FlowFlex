@@ -5,7 +5,6 @@ using FlowFlex.Infrastructure.Configuration;
 using FlowFlex.Infrastructure.Services.Logging;
 using FlowFlex.Application.Contracts.Options;
 using FlowFlex.Infrastructure.Exceptions;
-using FlowFlex.Infrastructure.Data;
 using FlowFlex.Application.Contracts.IServices;
 using FlowFlex.Infrastructure.Services.Security;
 using Item.Internal.Auth.Authorization;
@@ -53,9 +52,6 @@ namespace FlowFlex.Infrastructure.Extensions
 
             // Register encryption services
             services.AddScoped<IEncryptionService, EncryptionService>();
-
-            // Register repository services
-            services.AddScoped(typeof(IOptimizedRepository<>), typeof(OptimizedRepository<>));
 
             // Register HttpClient for AI services
             services.AddHttpClient();

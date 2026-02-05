@@ -15,7 +15,6 @@ using FlowFlex.Domain.Shared.Const;
 using FlowFlex.Domain.Shared.Helpers;
 using FlowFlex.Domain.Shared.Models;
 using FlowFlex.Domain.Shared.Enums.Permission;
-using FlowFlex.Domain.Shared.Exceptions;
 using FlowFlex.Infrastructure.Services;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;

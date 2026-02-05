@@ -11,67 +11,67 @@ namespace FlowFlex.Domain.Repository.OW
     public interface IStageRepository : IBaseRepository<Stage>
     {
         /// <summary>
-        /// 根据工作流ID获取阶段列表
+        /// Get stages by workflow ID
         /// </summary>
         Task<List<Stage>> GetByWorkflowIdAsync(long workflowId);
 
         /// <summary>
-        /// 批量根据多个工作流ID获取阶段列表（优化性能）
+        /// Batch get stages by multiple workflow IDs (performance optimization)
         /// </summary>
         Task<List<Stage>> GetByWorkflowIdsAsync(List<long> workflowIds);
 
         /// <summary>
-        /// 分页查询阶段
+        /// Query stages with pagination
         /// </summary>
         Task<(List<Stage> items, int total)> QueryPagedAsync(int pageIndex, int pageSize, long? workflowId = null, string name = null);
 
         /// <summary>
-        /// 获取工作流中的最大排序�?
+        /// Get max order value in workflow
         /// </summary>
         Task<int> GetMaxOrderByWorkflowIdAsync(long workflowId);
 
         /// <summary>
-        /// 批量更新阶段排序
+        /// Batch update stage order
         /// </summary>
         Task<bool> BatchUpdateOrderAsync(List<(long stageId, int order)> stageOrders);
 
         /// <summary>
-        /// 根据工作流ID和排序范围获取阶�?
+        /// Get stages by workflow ID and order range
         /// </summary>
         Task<List<Stage>> GetByWorkflowIdAndOrderRangeAsync(long workflowId, int minOrder, int maxOrder);
 
         /// <summary>
-        /// 删除多个阶段
+        /// Batch delete stages
         /// </summary>
         Task<bool> BatchDeleteAsync(List<long> stageIds);
 
         /// <summary>
-        /// 检查阶段名称在工作流中是否存在
+        /// Check if stage name exists in workflow
         /// </summary>
         Task<bool> ExistsNameInWorkflowAsync(long workflowId, string name, long? excludeId = null);
 
         /// <summary>
-        /// 获取阶段的下一个排序�?
+        /// Get next order value for stage
         /// </summary>
         Task<int> GetNextOrderAsync(long workflowId);
 
         /// <summary>
-        /// 根据颜色获取阶段数量
+        /// Get stage count by color
         /// </summary>
         Task<int> GetCountByColorAsync(string color);
 
         /// <summary>
-        /// 获取工作流中激活的阶段
+        /// Get active stages in workflow
         /// </summary>
         Task<List<Stage>> GetActiveStagesByWorkflowIdAsync(long workflowId);
 
         /// <summary>
-        /// 批量更新阶段状�?
+        /// Batch update stage active status
         /// </summary>
         Task<bool> BatchUpdateActiveStatusAsync(List<long> stageIds, bool isActive);
 
         /// <summary>
-        /// 获取所有阶段（优化版本，仅返回必要字段�?
+        /// Get all stages (optimized version, returns only necessary fields)
         /// </summary>
         Task<List<Stage>> GetAllOptimizedAsync();
 

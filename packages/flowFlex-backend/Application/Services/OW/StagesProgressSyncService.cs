@@ -778,44 +778,6 @@ namespace FlowFlex.Application.Services.OW
             }
         }
 
-        /// <summary>
-        /// Debug method to check onboarding stages progress data
-        /// </summary>
-        public async Task<string> DebugOnboardingStagesProgressAsync(long onboardingId)
-        {
-            try
-            {
-                var onboarding = await _onboardingRepository.GetByIdAsync(onboardingId);
-                if (onboarding == null)
-                {
-                    return $"Onboarding {onboardingId} not found";
-                }
-
-                var result = $"Onboarding {onboardingId} Debug Info:\n";
-                result += $"StagesProgressJson: {onboarding.StagesProgressJson}\n";
-                result += $"StagesProgressJson IsNull: {string.IsNullOrEmpty(onboarding.StagesProgressJson)}\n";
-
-                var currentProgress = LoadStagesProgressFromJson(onboarding);
-                result += $"Loaded Progress Count: {currentProgress.Count}\n";
-
-                for (int i = 0; i < currentProgress.Count; i++)
-                {
-                    var p = currentProgress[i];
-                    result += $"Progress[{i}]: StageId={p.StageId}, Status={p.Status}, IsCompleted={p.IsCompleted}, " +
-                             $"StartTime={p.StartTime}, CompletionTime={p.CompletionTime}, CompletedBy={p.CompletedBy}\n";
-                }
-
-                var invalidEntries = currentProgress.Where(p => p.StageId <= 0).ToList();
-                result += $"Invalid Entries Count: {invalidEntries.Count}\n";
-
-                return result;
-            }
-            catch (Exception ex)
-            {
-                return $"Error debugging onboarding {onboardingId}: {ex.Message}";
-            }
-        }
-
         #endregion
 
         #region Data Validation and Recovery Methods

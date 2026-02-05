@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Net;
 using System.Threading.Tasks;
 using AutoMapper;
@@ -21,7 +21,6 @@ using System.Linq;
 using FlowFlex.Domain.Repository;
 using FlowFlex.Domain.Shared.Models;
 using FlowFlex.Domain.Shared.Enums.OW;
-using FlowFlex.Domain.Shared.Exceptions;
 using FlowFlex.Application.Services.OW.Extensions;
 using Newtonsoft.Json;
 using Microsoft.Extensions.Logging;
@@ -2415,53 +2414,6 @@ namespace FlowFlex.Application.Services.OW
                     ModelUsed = null,
                     GeneratedAt = DateTime.UtcNow
                 };
-            }
-        }
-
-        /// <summary>
-        /// Generate AI summary in background without blocking the main operation
-        /// DEPRECATED: AI summary functionality has been removed from Stage entity
-        /// </summary>
-        /// <param name="stageId">Stage ID</param>
-        /// <param name="trigger">What triggered the summary generation</param>
-        private async Task GenerateAISummaryInBackgroundAsync(long stageId, string trigger)
-        {
-            // AI summary functionality has been removed from Stage entity
-            _logger.LogInformation("Background AI summary generation skipped for Stage {StageId} - functionality removed. Trigger: {Trigger}", stageId, trigger);
-            await Task.CompletedTask;
-        }
-
-        /// <summary>
-        /// Generate AI summary with retry mechanism for better reliability
-        /// </summary>
-        /// <param name="stageId">Stage ID</param>
-        /// <param name="summaryOptions">Summary options</param>
-        /// <returns>AI summary result</returns>
-        private async Task<AIStageSummaryResult> GenerateAISummaryWithRetryAsync(long stageId, StageSummaryOptions summaryOptions)
-        {
-            // AI summary functionality has been removed from Stage entity
-            // Return the same result as GenerateAISummaryAsync for consistency
-            return await GenerateAISummaryAsync(stageId, null, summaryOptions);
-        }
-
-        /// <summary>
-        /// Store the generated AI summary - AI summary fields have been removed from Stage entity
-        /// </summary>
-        /// <param name="stageId">Stage ID</param>
-        /// <param name="summaryResult">AI summary result</param>
-        /// <param name="trigger">What triggered the summary</param>
-        private async Task StoreStageSummaryAsync(long stageId, AIStageSummaryResult summaryResult, string trigger)
-        {
-            try
-            {
-                // AI summary fields have been removed from Stage entity
-                // Stage no longer stores AI summary data, all AI summary data is now only stored in Onboarding StageProgress
-                _logger.LogDebug("StoreStageSummaryAsync: Stage {StageId} - AI summary storage skipped (fields removed from Stage entity)", stageId);
-                // All AI summary data is now only stored in Onboarding StageProgress
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "StoreStageSummaryAsync: Exception occurred but ignored for stage {StageId}", stageId);
             }
         }
 

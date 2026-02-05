@@ -8,6 +8,7 @@ using FlowFlex.Application.Contracts.Dtos.OW.StageCondition;
 using FlowFlex.Application.Contracts.IServices.OW;
 using FlowFlex.Application.Contracts.IServices;
 using FlowFlex.WebApi.Filters;
+using FlowFlex.Domain.Shared;
 using Item.Internal.StandardApi.Response;
 using FlowFlex.Domain.Shared.Const;
 using WebApi.Authorization;
@@ -60,7 +61,7 @@ namespace FlowFlex.WebApi.Controllers.OW
                 var result = await _conditionService.CreateAsync(input);
                 return Success(result);
             }
-            catch (FlowFlex.Domain.Shared.CRMException ex) when (ex.ResponseCode == 410)
+            catch (CRMException ex) when (ex.ResponseCode == 410)
             {
                 // Return HTTP 200 with error code 410 in response body
                 return Ok(new { success = false, code = 410, msg = ex.Message, data = new { errorCode = ex.Code.ToString() } });
@@ -82,7 +83,7 @@ namespace FlowFlex.WebApi.Controllers.OW
                 var result = await _conditionService.UpdateAsync(id, input);
                 return Success(result);
             }
-            catch (FlowFlex.Domain.Shared.CRMException ex) when (ex.ResponseCode == 410)
+            catch (CRMException ex) when (ex.ResponseCode == 410)
             {
                 // Return HTTP 200 with error code 410 in response body
                 return Ok(new { success = false, code = 410, msg = ex.Message, data = new { errorCode = ex.Code.ToString() } });
