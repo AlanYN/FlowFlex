@@ -15,6 +15,7 @@ using FlowFlex.Domain.Repository.OW;
 using FlowFlex.Domain.Shared;
 using FlowFlex.Domain.Shared.Enums.Action;
 using FlowFlex.Domain.Shared.Exceptions;
+using FlowFlex.Domain.Shared.Helpers;
 using FlowFlex.Domain.Shared.Models;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -370,7 +371,7 @@ namespace FlowFlex.Application.Services.Integration
                     // Lookup user by CreatedBy name to get userId for Ownership field
                     try
                     {
-                        var tenantId = _userContext.TenantId ?? "default";
+                        var tenantId = TenantContextHelper.GetTenantIdOrDefault(_userContext);
                         var userInfo = await _idmUserDataClient.SearchUserByNameOrEmailAsync(request.CreatedBy, tenantId);
                         
                         if (userInfo != null && !string.IsNullOrEmpty(userInfo.Id))
@@ -1439,7 +1440,7 @@ namespace FlowFlex.Application.Services.Integration
         /// <returns>Unique case name</returns>
         private async Task<string> GenerateUniqueCaseNameAsync(string baseCaseName)
         {
-            var tenantId = _userContext.TenantId ?? "default";
+            var tenantId = TenantContextHelper.GetTenantIdOrDefault(_userContext);
 
             // Check if the base name already exists within the same tenant
             var existingCases = await _onboardingRepository.GetListAsync(

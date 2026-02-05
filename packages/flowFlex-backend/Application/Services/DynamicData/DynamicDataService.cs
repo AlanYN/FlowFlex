@@ -5,6 +5,7 @@ using FlowFlex.Domain.Repository.OW;
 using FlowFlex.Domain.Shared;
 using FlowFlex.Domain.Shared.Enums.DynamicData;
 using FlowFlex.Domain.Shared.Exceptions;
+using FlowFlex.Domain.Shared.Helpers;
 using FlowFlex.Domain.Shared.Models;
 using FlowFlex.Domain.Shared.Models.DynamicData;
 using Microsoft.Extensions.Logging;
@@ -359,8 +360,8 @@ public class DynamicDataService : IBusinessDataService, IPropertyService, IScope
 
         var entity = MapToDefineField(defineFieldDto);
         entity.ModuleId = DefaultModuleId;
-        entity.TenantId = _userContext.TenantId ?? "default";
-        entity.AppCode = _userContext.AppCode ?? "default";
+        entity.TenantId = TenantContextHelper.GetTenantIdOrDefault(_userContext);
+        entity.AppCode = TenantContextHelper.GetAppCodeOrDefault(_userContext);
         entity.CreateDate = DateTimeOffset.UtcNow;
         entity.CreateBy = _userContext.UserName ?? "SYSTEM";
         entity.CreateUserId = userId;
@@ -557,8 +558,8 @@ public class DynamicDataService : IBusinessDataService, IPropertyService, IScope
                     IsSystemDefine = false,
                     IsDefault = category == "Basic Info",
                     Fields = Array.Empty<long>(),
-                    TenantId = _userContext.TenantId ?? "default",
-                    AppCode = _userContext.AppCode ?? "default",
+                    TenantId = TenantContextHelper.GetTenantIdOrDefault(_userContext),
+                    AppCode = TenantContextHelper.GetAppCodeOrDefault(_userContext),
                     CreateDate = DateTimeOffset.UtcNow,
                     CreateBy = "SYSTEM",
                     CreateUserId = 0,
@@ -601,8 +602,8 @@ public class DynamicDataService : IBusinessDataService, IPropertyService, IScope
                     AllowEdit = true,
                     AllowEditItem = true,
                     Sort = fieldSortOrder++,
-                    TenantId = _userContext.TenantId ?? "default",
-                    AppCode = _userContext.AppCode ?? "default",
+                    TenantId = TenantContextHelper.GetTenantIdOrDefault(_userContext),
+                    AppCode = TenantContextHelper.GetAppCodeOrDefault(_userContext),
                     CreateDate = DateTimeOffset.UtcNow,
                     CreateBy = "SYSTEM",
                     CreateUserId = 0,

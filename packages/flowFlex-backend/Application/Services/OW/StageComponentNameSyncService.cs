@@ -7,6 +7,7 @@ using FlowFlex.Application.Contracts.IServices.OW;
 using FlowFlex.Domain.Entities.OW;
 using FlowFlex.Domain.Repository.OW;
 using FlowFlex.Domain.Shared;
+using FlowFlex.Domain.Shared.Helpers;
 using FlowFlex.Domain.Shared.Models;
 using FlowFlex.Application.Services.OW.Extensions;
 using SqlSugar;
@@ -104,8 +105,8 @@ namespace FlowFlex.Application.Services.OW
         {
             try
             {
-                var tenantId = _userContext?.TenantId ?? "default";
-                var appCode = _userContext?.AppCode ?? "default";
+                var tenantId = TenantContextHelper.GetTenantIdOrDefault(_userContext);
+                var appCode = TenantContextHelper.GetAppCodeOrDefault(_userContext);
                 
                 var stageIds = await _db.Queryable<ChecklistStageMapping>()
                     .Where(m => m.ChecklistId == checklistId)
@@ -130,8 +131,8 @@ namespace FlowFlex.Application.Services.OW
         {
             try
             {
-                var tenantId = _userContext?.TenantId ?? "default";
-                var appCode = _userContext?.AppCode ?? "default";
+                var tenantId = TenantContextHelper.GetTenantIdOrDefault(_userContext);
+                var appCode = TenantContextHelper.GetAppCodeOrDefault(_userContext);
                 
                 var stageIds = await _db.Queryable<QuestionnaireStageMapping>()
                     .Where(m => m.QuestionnaireId == questionnaireId)
@@ -301,8 +302,8 @@ namespace FlowFlex.Application.Services.OW
 
             try
             {
-                var tenantId = _userContext?.TenantId ?? "default";
-                var appCode = _userContext?.AppCode ?? "default";
+                var tenantId = TenantContextHelper.GetTenantIdOrDefault(_userContext);
+                var appCode = TenantContextHelper.GetAppCodeOrDefault(_userContext);
                 
                 // Get all stages that have components
                 var stages = await _db.Queryable<Stage>()
@@ -371,8 +372,8 @@ namespace FlowFlex.Application.Services.OW
         {
             try
             {
-                var tenantId = _userContext?.TenantId ?? "default";
-                var appCode = _userContext?.AppCode ?? "default";
+                var tenantId = TenantContextHelper.GetTenantIdOrDefault(_userContext);
+                var appCode = TenantContextHelper.GetAppCodeOrDefault(_userContext);
                 
                 // Get all stages in this batch
                 var stages = await _db.Queryable<Stage>()

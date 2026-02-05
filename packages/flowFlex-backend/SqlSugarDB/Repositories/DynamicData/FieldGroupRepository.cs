@@ -1,6 +1,7 @@
 using FlowFlex.Domain.Entities.DynamicData;
 using FlowFlex.Domain.Repository.DynamicData;
 using FlowFlex.Domain.Shared;
+using FlowFlex.Domain.Shared.Helpers;
 using FlowFlex.Domain.Shared.Models;
 using Microsoft.Extensions.Logging;
 using SqlSugar;
@@ -26,8 +27,8 @@ public class FieldGroupRepository : BaseRepository<FieldGroup>, IFieldGroupRepos
 
     public async Task<List<FieldGroup>> GetAllAsync()
     {
-        var tenantId = _userContext?.TenantId ?? "default";
-        var appCode = _userContext?.AppCode ?? "default";
+        var tenantId = TenantContextHelper.GetTenantIdOrDefault(_userContext);
+        var appCode = TenantContextHelper.GetAppCodeOrDefault(_userContext);
 
         return await db.Queryable<FieldGroup>()
             .Where(x => x.IsValid)
@@ -38,8 +39,8 @@ public class FieldGroupRepository : BaseRepository<FieldGroup>, IFieldGroupRepos
 
     public async Task<FieldGroup?> GetByIdAsync(long groupId)
     {
-        var tenantId = _userContext?.TenantId ?? "default";
-        var appCode = _userContext?.AppCode ?? "default";
+        var tenantId = TenantContextHelper.GetTenantIdOrDefault(_userContext);
+        var appCode = TenantContextHelper.GetAppCodeOrDefault(_userContext);
 
         return await db.Queryable<FieldGroup>()
             .Where(x => x.Id == groupId && x.IsValid)
@@ -49,8 +50,8 @@ public class FieldGroupRepository : BaseRepository<FieldGroup>, IFieldGroupRepos
 
     public async Task<FieldGroup?> GetDefaultGroupAsync()
     {
-        var tenantId = _userContext?.TenantId ?? "default";
-        var appCode = _userContext?.AppCode ?? "default";
+        var tenantId = TenantContextHelper.GetTenantIdOrDefault(_userContext);
+        var appCode = TenantContextHelper.GetAppCodeOrDefault(_userContext);
 
         return await db.Queryable<FieldGroup>()
             .Where(x => x.IsDefault && x.IsValid)
@@ -60,8 +61,8 @@ public class FieldGroupRepository : BaseRepository<FieldGroup>, IFieldGroupRepos
 
     public async Task<bool> ExistsGroupNameAsync(string groupName, long? excludeId = null)
     {
-        var tenantId = _userContext?.TenantId ?? "default";
-        var appCode = _userContext?.AppCode ?? "default";
+        var tenantId = TenantContextHelper.GetTenantIdOrDefault(_userContext);
+        var appCode = TenantContextHelper.GetAppCodeOrDefault(_userContext);
 
         var query = db.Queryable<FieldGroup>()
             .Where(x => x.GroupName == groupName && x.IsValid)
@@ -75,8 +76,8 @@ public class FieldGroupRepository : BaseRepository<FieldGroup>, IFieldGroupRepos
 
     public async Task UpdateGroupFieldsAsync(long groupId, long[] fieldIds)
     {
-        var tenantId = _userContext?.TenantId ?? "default";
-        var appCode = _userContext?.AppCode ?? "default";
+        var tenantId = TenantContextHelper.GetTenantIdOrDefault(_userContext);
+        var appCode = TenantContextHelper.GetAppCodeOrDefault(_userContext);
         var modifyBy = _userContext?.UserName ?? "SYSTEM";
         // Parse UserId to long, default to 0 if parsing fails
         long.TryParse(_userContext?.UserId, out var modifyUserId);
@@ -93,8 +94,8 @@ public class FieldGroupRepository : BaseRepository<FieldGroup>, IFieldGroupRepos
 
     public async Task BatchUpdateSortAsync(Dictionary<long, int> groupSorts)
     {
-        var tenantId = _userContext?.TenantId ?? "default";
-        var appCode = _userContext?.AppCode ?? "default";
+        var tenantId = TenantContextHelper.GetTenantIdOrDefault(_userContext);
+        var appCode = TenantContextHelper.GetAppCodeOrDefault(_userContext);
 
         foreach (var kvp in groupSorts)
         {

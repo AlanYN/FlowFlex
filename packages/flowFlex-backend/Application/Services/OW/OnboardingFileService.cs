@@ -8,6 +8,7 @@ using AutoMapper;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.DependencyInjection;
 using FlowFlex.Domain.Shared;
+using FlowFlex.Domain.Shared.Helpers;
 using FlowFlex.Domain.Shared.Models;
 using FlowFlex.Application.Contracts;
 using FlowFlex.Application.Contracts.Dtos;
@@ -129,7 +130,7 @@ namespace FlowFlex.Application.Services.OW
                 // Use override tenant ID if specified (for background import tasks)
                 var tenantId = !string.IsNullOrEmpty(input.OverrideTenantId) 
                     ? input.OverrideTenantId 
-                    : (_userContext?.TenantId ?? "default");
+                    : TenantContextHelper.GetTenantIdOrDefault(_userContext);
 
                 var attachment = await _attachmentService.CreateAttachmentAsync(
                     attachmentDto, tenantId, CancellationToken.None);

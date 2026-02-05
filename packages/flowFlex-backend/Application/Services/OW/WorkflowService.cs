@@ -14,6 +14,7 @@ using FlowFlex.Domain.Repository.OW;
 using FlowFlex.Domain.Shared;
 using FlowFlex.Domain.Shared.Exceptions;
 using FlowFlex.Domain.Shared.Enums.OW;
+using FlowFlex.Domain.Shared.Helpers;
 using System.Text.Json;
 using Newtonsoft.Json;
 using JsonSerializer = System.Text.Json.JsonSerializer;
@@ -305,7 +306,7 @@ namespace FlowFlex.Application.Services.OW
 
             if (updateResult)
             {
-                var cacheKey = $"workflow:get_by_id:{id}:{_userContext?.AppCode ?? "default"}";
+                var cacheKey = $"workflow:get_by_id:{id}:{TenantContextHelper.GetAppCodeOrDefault(_userContext)}";
                 await _cacheService.RemoveAsync(cacheKey);
 
                 // Log workflow update operation if there were actual changes (via background queue)
@@ -469,7 +470,7 @@ namespace FlowFlex.Application.Services.OW
             // Clear related cache after successful deletion
             if (result)
             {
-                var cacheKey = $"workflow:get_by_id:{id}:{_userContext?.AppCode ?? "default"}";
+                var cacheKey = $"workflow:get_by_id:{id}:{TenantContextHelper.GetAppCodeOrDefault(_userContext)}";
                 await _cacheService.RemoveAsync(cacheKey);
 
                 // Log workflow delete operation (fire-and-forget via background queue)
@@ -772,7 +773,7 @@ namespace FlowFlex.Application.Services.OW
             // Clear related cache after successful activation
             if (result)
             {
-                var cacheKey = $"workflow:get_by_id:{id}:{_userContext?.AppCode ?? "default"}";
+                var cacheKey = $"workflow:get_by_id:{id}:{TenantContextHelper.GetAppCodeOrDefault(_userContext)}";
                 await _cacheService.RemoveAsync(cacheKey);
 
                 // Log workflow activation
@@ -820,7 +821,7 @@ namespace FlowFlex.Application.Services.OW
             // Clear related cache after successful deactivation
             if (result)
             {
-                var cacheKey = $"workflow:get_by_id:{id}:{_userContext?.AppCode ?? "default"}";
+                var cacheKey = $"workflow:get_by_id:{id}:{TenantContextHelper.GetAppCodeOrDefault(_userContext)}";
                 await _cacheService.RemoveAsync(cacheKey);
 
                 // Log workflow deactivation
@@ -1031,7 +1032,9 @@ namespace FlowFlex.Application.Services.OW
 
             if (search.IsAll)
             {
-                workflows = await _workflowRepository.GetListAsync();
+                // Use tenant-isolated query
+                var tenantId = TenantContextHelper.GetTenantIdOrDefault(_userContext);
+                workflows = await _workflowRepository.GetListAsync(w => w.TenantId == tenantId && w.IsValid);
             }
             else if (search.Ids?.Any() == true)
             {
@@ -1171,7 +1174,7 @@ namespace FlowFlex.Application.Services.OW
             // Clear related cache after successful version creation
             if (result)
             {
-                var cacheKey = $"workflow:get_by_id:{id}:{_userContext?.AppCode ?? "default"}";
+                var cacheKey = $"workflow:get_by_id:{id}:{TenantContextHelper.GetAppCodeOrDefault(_userContext)}";
                 await _cacheService.RemoveAsync(cacheKey);
             }
 

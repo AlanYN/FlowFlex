@@ -8,6 +8,7 @@ using FlowFlex.Application.Contracts.IServices.OW;
 using FlowFlex.Domain.Entities.OW;
 using FlowFlex.Domain.Shared;
 using FlowFlex.Domain.Shared.Exceptions;
+using FlowFlex.Domain.Shared.Helpers;
 using System.Linq.Expressions;
 using SqlSugar;
 using System.Diagnostics;
@@ -904,7 +905,7 @@ ASSIGNMENTS:
             _logger.LogDebug("Fetching team names for {Count} unique team IDs", teamIds.Count);
 
             // Get tenant ID from UserContext
-            var tenantId = _userContext?.TenantId ?? "999";
+            var tenantId = TenantContextHelper.GetTenantIdOrDefault(_userContext);
 
             // Fetch team names from IDM
             var teamNameMap = await _userService.GetTeamNamesByIdsAsync(teamIds, tenantId);

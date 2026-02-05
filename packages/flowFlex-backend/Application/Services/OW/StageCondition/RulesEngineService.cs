@@ -11,6 +11,7 @@ using FlowFlex.Domain.Entities.OW;
 using FlowFlex.Domain.Repository.OW;
 using FlowFlex.Domain.Shared;
 using FlowFlex.Domain.Shared.Const;
+using FlowFlex.Domain.Shared.Helpers;
 using FlowFlex.Domain.Shared.Models;
 using FlowFlex.Domain.Shared.Enums.OW;
 using Microsoft.Extensions.Logging;
@@ -143,7 +144,7 @@ namespace FlowFlex.Application.Services.OW
                     };
                 }
 
-                var tenantId = _userContext?.TenantId ?? "default";
+                var tenantId = TenantContextHelper.GetTenantIdOrDefault(_userContext);
                 var onboarding = await _db.Queryable<Onboarding>()
                     .Where(o => o.CaseCode == caseCode && o.IsValid)
                     .Where(o => o.TenantId == tenantId)
@@ -184,7 +185,7 @@ namespace FlowFlex.Application.Services.OW
             {
                 var dbResult = await _db.Ado.UseTranAsync(async () =>
                 {
-                    var tenantId = _userContext?.TenantId ?? "default";
+                    var tenantId = TenantContextHelper.GetTenantIdOrDefault(_userContext);
                     var onboarding = await _db.Queryable<Onboarding>()
                         .Where(o => o.Id == onboardingId && o.IsValid)
                         .Where(o => o.TenantId == tenantId)
@@ -282,7 +283,7 @@ namespace FlowFlex.Application.Services.OW
                         OnboardingId = onboardingId,
                         StageId = stageId,
                         ConditionId = condition.Id,
-                        TenantId = _userContext?.TenantId ?? "default",
+                        TenantId = TenantContextHelper.GetTenantIdOrDefault(_userContext),
                         UserId = long.TryParse(_userContext?.UserId, out var uid) ? uid : 0
                     };
 
@@ -330,7 +331,7 @@ namespace FlowFlex.Application.Services.OW
 
         private async Task<Onboarding> AcquireLockAndValidateAsync(long onboardingId, long stageId)
         {
-            var tenantId = _userContext?.TenantId ?? "default";
+            var tenantId = TenantContextHelper.GetTenantIdOrDefault(_userContext);
             var onboarding = await _db.Queryable<Onboarding>()
                 .Where(o => o.Id == onboardingId && o.IsValid)
                 .Where(o => o.TenantId == tenantId)
@@ -614,7 +615,7 @@ namespace FlowFlex.Application.Services.OW
 
         private async Task<Domain.Entities.OW.StageCondition> GetConditionByStageIdAsync(long stageId)
         {
-            var tenantId = _userContext?.TenantId ?? "default";
+            var tenantId = TenantContextHelper.GetTenantIdOrDefault(_userContext);
             return await _db.Queryable<Domain.Entities.OW.StageCondition>()
                 .Where(c => c.StageId == stageId && c.IsValid)
                 .Where(c => c.TenantId == tenantId)

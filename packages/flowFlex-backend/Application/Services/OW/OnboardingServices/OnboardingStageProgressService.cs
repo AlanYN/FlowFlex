@@ -6,6 +6,7 @@ using FlowFlex.Domain.Entities.OW;
 using FlowFlex.Domain.Repository.OW;
 using FlowFlex.Domain.Shared;
 using FlowFlex.Domain.Shared.Enums.OW;
+using FlowFlex.Domain.Shared.Helpers;
 using FlowFlex.Domain.Shared.Models;
 using FlowFlex.Infrastructure.Services;
 using Microsoft.Extensions.Logging;
@@ -1117,7 +1118,7 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
             {
                 try
                 {
-                    var tenantId = _userContext?.TenantId ?? "default";
+                    var tenantId = TenantContextHelper.GetTenantIdOrDefault(_userContext);
                     var users = await _userService.GetUsersByIdsAsync(allUserIds.ToList(), tenantId);
                     userNameMap = users
                         .GroupBy(u => u.Id)

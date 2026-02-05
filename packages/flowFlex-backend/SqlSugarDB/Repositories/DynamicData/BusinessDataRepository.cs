@@ -2,6 +2,7 @@ using FlowFlex.Domain.Entities.DynamicData;
 using FlowFlex.Domain.Repository.DynamicData;
 using FlowFlex.Domain.Shared;
 using FlowFlex.Domain.Shared.Enums.DynamicData;
+using FlowFlex.Domain.Shared.Helpers;
 using FlowFlex.Domain.Shared.Models;
 using FlowFlex.Domain.Shared.Models.DynamicData;
 using Microsoft.Extensions.Logging;
@@ -38,8 +39,8 @@ public class BusinessDataRepository : BaseRepository<BusinessData>, IBusinessDat
 
     public async Task<DynamicDataObject?> GetBusinessDataObjectAsync(long businessId)
     {
-        var tenantId = _userContext?.TenantId ?? "default";
-        var appCode = _userContext?.AppCode ?? "default";
+        var tenantId = TenantContextHelper.GetTenantIdOrDefault(_userContext);
+        var appCode = TenantContextHelper.GetAppCodeOrDefault(_userContext);
         
         var businessData = await db.Queryable<BusinessData>()
             .Where(x => x.Id == businessId && x.IsValid)
@@ -57,8 +58,8 @@ public class BusinessDataRepository : BaseRepository<BusinessData>, IBusinessDat
 
     public async Task<List<DynamicDataObject>> GetBusinessDataObjectListAsync(List<long> businessIds)
     {
-        var tenantId = _userContext?.TenantId ?? "default";
-        var appCode = _userContext?.AppCode ?? "default";
+        var tenantId = TenantContextHelper.GetTenantIdOrDefault(_userContext);
+        var appCode = TenantContextHelper.GetAppCodeOrDefault(_userContext);
         
         var businessDataList = await db.Queryable<BusinessData>()
             .Where(x => businessIds.Contains(x.Id) && x.IsValid)
@@ -90,8 +91,8 @@ public class BusinessDataRepository : BaseRepository<BusinessData>, IBusinessDat
         {
             ModuleId = DefaultModuleId,
             InternalData = data.InternalData,
-            TenantId = _userContext.TenantId ?? "default",
-            AppCode = _userContext.AppCode ?? "default",
+            TenantId = TenantContextHelper.GetTenantIdOrDefault(_userContext),
+            AppCode = TenantContextHelper.GetAppCodeOrDefault(_userContext),
             CreateDate = DateTimeOffset.UtcNow,
             CreateBy = _userContext.UserName ?? "SYSTEM",
             CreateUserId = userId,
@@ -126,8 +127,8 @@ public class BusinessDataRepository : BaseRepository<BusinessData>, IBusinessDat
 
     public async Task UpdateBusinessDataAsync(DynamicDataObject data)
     {
-        var tenantId = _userContext?.TenantId ?? "default";
-        var appCode = _userContext?.AppCode ?? "default";
+        var tenantId = TenantContextHelper.GetTenantIdOrDefault(_userContext);
+        var appCode = TenantContextHelper.GetAppCodeOrDefault(_userContext);
         
         var businessData = await db.Queryable<BusinessData>()
             .Where(x => x.Id == data.BusinessId && x.IsValid)
@@ -199,8 +200,8 @@ public class BusinessDataRepository : BaseRepository<BusinessData>, IBusinessDat
 
     public async Task DeleteBusinessDataAsync(long businessId)
     {
-        var tenantId = _userContext?.TenantId ?? "default";
-        var appCode = _userContext?.AppCode ?? "default";
+        var tenantId = TenantContextHelper.GetTenantIdOrDefault(_userContext);
+        var appCode = TenantContextHelper.GetAppCodeOrDefault(_userContext);
         
         var businessData = await db.Queryable<BusinessData>()
             .Where(x => x.Id == businessId && x.IsValid)
@@ -227,8 +228,8 @@ public class BusinessDataRepository : BaseRepository<BusinessData>, IBusinessDat
 
     public async Task BatchDeleteBusinessDataAsync(List<long> businessIds)
     {
-        var tenantId = _userContext?.TenantId ?? "default";
-        var appCode = _userContext?.AppCode ?? "default";
+        var tenantId = TenantContextHelper.GetTenantIdOrDefault(_userContext);
+        var appCode = TenantContextHelper.GetAppCodeOrDefault(_userContext);
         var modifyBy = _userContext?.UserName ?? "SYSTEM";
         // Parse UserId to long, default to 0 if parsing fails
         long.TryParse(_userContext?.UserId, out var modifyUserId);
@@ -328,8 +329,8 @@ public class BusinessDataRepository : BaseRepository<BusinessData>, IBusinessDat
             FieldId = fieldId,
             FieldName = item.FieldName,
             DataType = dataType,
-            TenantId = _userContext?.TenantId ?? "default",
-            AppCode = _userContext?.AppCode ?? "default"
+            TenantId = TenantContextHelper.GetTenantIdOrDefault(_userContext),
+            AppCode = TenantContextHelper.GetAppCodeOrDefault(_userContext)
         };
 
         SetDataValueField(dataValue, item, fieldDict);

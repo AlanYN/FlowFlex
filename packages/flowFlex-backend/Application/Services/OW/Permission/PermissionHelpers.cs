@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using FlowFlex.Domain.Shared;
+using FlowFlex.Domain.Shared.Helpers;
 using FlowFlex.Domain.Shared.Models;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
@@ -242,7 +243,7 @@ namespace FlowFlex.Application.Services.OW.Permission
         /// </summary>
         public string GetCurrentTenantId()
         {
-            return _userContext?.TenantId ?? "default";
+            return TenantContextHelper.GetTenantIdOrDefault(_userContext);
         }
 
         /// <summary>

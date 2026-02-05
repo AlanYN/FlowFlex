@@ -2,6 +2,7 @@ using AutoMapper;
 using FlowFlex.Domain.Entities.OW;
 using FlowFlex.Application.Contracts.Dtos.OW.Stage;
 using FlowFlex.Domain.Shared.Models;
+using Microsoft.Extensions.Logging;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Linq;
@@ -19,6 +20,29 @@ namespace FlowFlex.Application.Maps
             NumberHandling = JsonNumberHandling.AllowReadingFromString,
             PropertyNameCaseInsensitive = true
         };
+        
+        // Static logger for mapping profile - initialized via SetLogger method
+        private static ILogger _logger;
+        
+        /// <summary>
+        /// Set the logger instance for this profile (call during application startup)
+        /// </summary>
+        public static void SetLogger(ILoggerFactory loggerFactory)
+        {
+            _logger = loggerFactory?.CreateLogger<StageMapProfile>();
+        }
+        
+        private static void LogWarning(Exception ex, string message)
+        {
+            if (_logger != null)
+            {
+                _logger.LogWarning(ex, message);
+            }
+            else
+            {
+                System.Diagnostics.Debug.WriteLine($"[StageMapProfile] {message}: {ex.Message}");
+            }
+        }
         public StageMapProfile()
         {
             // Entity to OutputDto mapping
@@ -239,9 +263,10 @@ namespace FlowFlex.Application.Maps
                 
                 return components;
             }
-            catch (Exception)
+            catch (Exception ex)
             {
-                // JSON parsing failed, return empty list
+                // JSON parsing failed, log warning and return empty list
+                LogWarning(ex, "Failed to parse ComponentsJson, returning empty list");
                 return new List<StageComponent>();
             }
         }
@@ -418,9 +443,10 @@ namespace FlowFlex.Application.Maps
                         }
                     }
                 }
-                catch
+                catch (Exception ex)
                 {
-                    // Continue to fallback
+                    // Log and continue to fallback
+                    LogWarning(ex, "Failed to parse nested JSON assignee data, trying fallback");
                 }
 
                 // Fallback for backward compatibility with comma-separated format
@@ -449,9 +475,10 @@ namespace FlowFlex.Application.Maps
                 // Use JSON serialization to preserve all data without truncation
                 return JsonSerializer.Serialize(assigneeList, _jsonOptions);
             }
-            catch (Exception)
+            catch (Exception ex)
             {
                 // Fallback to comma-separated format if JSON serialization fails
+                LogWarning(ex, "Failed to serialize assignee list to JSON, using comma-separated fallback");
                 return string.Join(",", assigneeList);
             }
         }
@@ -472,9 +499,10 @@ namespace FlowFlex.Application.Maps
                     var jsonResult = JsonSerializer.Deserialize<List<string>>(assigneeString, _jsonOptions);
                     return jsonResult ?? new List<string>();
                 }
-                catch (JsonException)
+                catch (JsonException ex)
                 {
-                    // If JSON parsing fails, fall back to comma-separated parsing
+                    // If JSON parsing fails, log and fall back to comma-separated parsing
+                    LogWarning(ex, "Failed to parse assignee string as JSON, using comma-separated fallback");
                 }
             }
 
@@ -519,8 +547,9 @@ namespace FlowFlex.Application.Maps
 
                 return new List<string>();
             }
-            catch
+            catch (Exception ex)
             {
+                LogWarning(ex, "Failed to deserialize team list JSON");
                 return new List<string>();
             }
         }

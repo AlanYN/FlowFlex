@@ -7,6 +7,7 @@ using FlowFlex.Domain.Repository.OW;
 using FlowFlex.Domain.Shared;
 using FlowFlex.Domain.Shared.Enums.OW;
 using FlowFlex.Domain.Shared.Exceptions;
+using FlowFlex.Domain.Shared.Helpers;
 using FlowFlex.Domain.Shared.Models;
 using FlowFlex.Application.Services.OW.Extensions;
 using Microsoft.Extensions.Logging;
@@ -73,11 +74,12 @@ public class ChecklistTaskCompletionService : IChecklistTaskCompletionService, I
     }
 
     /// <summary>
-    /// Get all task completions
+    /// Get all task completions with tenant isolation
     /// </summary>
     public async Task<List<ChecklistTaskCompletionOutputDto>> GetAllTaskCompletionsAsync()
     {
-        var completions = await _completionRepository.GetListAsync();
+        var tenantId = TenantContextHelper.GetTenantIdOrDefault(_userContext);
+        var completions = await _completionRepository.GetListAsync(c => c.TenantId == tenantId);
         return _mapper.Map<List<ChecklistTaskCompletionOutputDto>>(completions);
     }
 

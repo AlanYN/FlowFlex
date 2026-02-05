@@ -6,6 +6,7 @@ using FlowFlex.Application.Contracts.Dtos.OW.OperationChangeLog;
 using FlowFlex.Application.Contracts.IServices.OW;
 using FlowFlex.Application.Contracts.IServices.OW.ChangeLog;
 using FlowFlex.Domain.Shared;
+using FlowFlex.Domain.Shared.Helpers;
 using FlowFlex.Domain.Shared.Models;
 using FlowFlex.Domain.Shared.Enums.OW;
 using FlowFlex.Domain.Repository.OW;
@@ -197,7 +198,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                         {
                             try
                             {
-                                var tenantId = _userContext?.TenantId ?? "999";
+                                var tenantId = TenantContextHelper.GetTenantIdOrDefault(_userContext);
                                 var teamNameMap = await _userService.GetTeamNamesByIdsAsync(items, tenantId);
                                 if (teamNameMap != null && teamNameMap.Any())
                                 {
@@ -643,7 +644,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
 
             try
             {
-                var tenantId = _userContext?.TenantId ?? "999";
+                var tenantId = TenantContextHelper.GetTenantIdOrDefault(_userContext);
                 var userIdsLong = userIds.Where(id => long.TryParse(id, out _))
                     .Select(id => long.Parse(id))
                     .ToList();

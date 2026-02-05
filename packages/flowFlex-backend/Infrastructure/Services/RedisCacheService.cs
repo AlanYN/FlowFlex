@@ -1,6 +1,7 @@
 using FlowFlex.Application.Contracts.IServices;
 using FlowFlex.Application.Contracts.Options;
 using FlowFlex.Domain.Shared;
+using FlowFlex.Domain.Shared.Helpers;
 using FlowFlex.Domain.Shared.Models;
 using Item.Redis;
 using Microsoft.Extensions.Logging;
@@ -251,7 +252,7 @@ namespace FlowFlex.Infrastructure.Services
         /// </summary>
         private string BuildTenantKey(string key)
         {
-            var tenantId = _userContext?.TenantId?.ToLowerInvariant() ?? "default";
+            var tenantId = TenantContextHelper.GetTenantIdOrDefault(_userContext).ToLowerInvariant();
             return $"cache:{tenantId}:{key}";
         }
 

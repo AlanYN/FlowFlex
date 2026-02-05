@@ -6,6 +6,7 @@ using FlowFlex.Application.Services.OW.Extensions;
 using FlowFlex.Domain.Entities.OW;
 using FlowFlex.Domain.Repository.OW;
 using FlowFlex.Domain.Shared;
+using FlowFlex.Domain.Shared.Helpers;
 using FlowFlex.Domain.Shared.Models;
 
 namespace FlowFlex.Application.Services.OW
@@ -58,8 +59,8 @@ namespace FlowFlex.Application.Services.OW
                     TokenType = tokenType,
                     IssuedIp = ipAddress,
                     UserAgent = userAgent,
-                    TenantId = _userContext.TenantId ?? "default",
-                    AppCode = _userContext.AppCode ?? "default"
+                    TenantId = TenantContextHelper.GetTenantIdOrDefault(_userContext),
+                    AppCode = TenantContextHelper.GetAppCodeOrDefault(_userContext)
                 };
 
                 // Initialize create info which should set the ID

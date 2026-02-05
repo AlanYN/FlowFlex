@@ -490,6 +490,10 @@ var app = builder.Build();
 var logger = app.Services.GetRequiredService<ILogger<Program>>();
 FlowFlex.Infrastructure.Extensions.LoggingExtensions.SetLogger(logger);
 
+// Initialize StageMapProfile logger for JSON parsing error logging
+var loggerFactory = app.Services.GetRequiredService<ILoggerFactory>();
+FlowFlex.Application.Maps.StageMapProfile.SetLogger(loggerFactory);
+
 // Configure HTTP request pipeline
 if (app.Environment.IsDevelopment())
 {

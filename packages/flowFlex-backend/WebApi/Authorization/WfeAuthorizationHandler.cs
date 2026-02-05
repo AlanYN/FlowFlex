@@ -1,4 +1,5 @@
 ﻿using FlowFlex.Domain.Shared.Const;
+using FlowFlex.Domain.Shared.Helpers;
 using FlowFlex.Domain.Shared.Models;
 using FlowFlex.Application.Filter;
 using Item.Internal.Auth.Authorization;
@@ -71,7 +72,7 @@ namespace WebApi.Authorization
             }
 
             // Tenant Admin bypass - check if user is tenant administrator for current tenant
-            var currentTenantId = _userContext?.TenantId ?? "default";
+            var currentTenantId = TenantContextHelper.GetTenantIdOrDefault(_userContext);
             if (_userContext != null && _userContext.HasAdminPrivileges(currentTenantId))
             {
                 return true;

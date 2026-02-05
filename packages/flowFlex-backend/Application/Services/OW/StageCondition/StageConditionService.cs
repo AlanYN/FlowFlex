@@ -12,6 +12,7 @@ using FlowFlex.Domain.Entities.OW;
 using FlowFlex.Domain.Repository.OW;
 using FlowFlex.Domain.Shared;
 using FlowFlex.Domain.Shared.Const;
+using FlowFlex.Domain.Shared.Helpers;
 using FlowFlex.Domain.Shared.Models;
 using FlowFlex.Domain.Shared.Enums.Permission;
 using FlowFlex.Domain.Shared.Exceptions;
@@ -80,7 +81,7 @@ namespace FlowFlex.Application.Services.OW
             }
 
             // Validate one condition per stage
-            var tenantId = _userContext?.TenantId ?? "default";
+            var tenantId = TenantContextHelper.GetTenantIdOrDefault(_userContext);
             var existingCondition = await _db.Queryable<StageConditionEntity>()
                 .Where(c => c.StageId == input.StageId && c.IsValid)
                 .Where(c => c.TenantId == tenantId)
@@ -130,8 +131,8 @@ namespace FlowFlex.Application.Services.OW
 
             // Initialize entity fields
             entity.InitNewId();
-            entity.TenantId = _userContext.TenantId ?? "default";
-            entity.AppCode = _userContext.AppCode ?? "default";
+            entity.TenantId = TenantContextHelper.GetTenantIdOrDefault(_userContext);
+            entity.AppCode = TenantContextHelper.GetAppCodeOrDefault(_userContext);
             entity.CreateDate = DateTimeOffset.UtcNow;
             entity.ModifyDate = DateTimeOffset.UtcNow;
             entity.CreateBy = _userContext.UserName ?? StageConditionConstants.SystemUser;
@@ -489,7 +490,7 @@ namespace FlowFlex.Application.Services.OW
         /// </summary>
         public async Task<StageConditionOutputDto?> GetByStageIdAsync(long stageId)
         {
-            var tenantId = _userContext?.TenantId ?? "default";
+            var tenantId = TenantContextHelper.GetTenantIdOrDefault(_userContext);
             var entity = await _db.Queryable<StageConditionEntity>()
                 .Where(c => c.StageId == stageId && c.IsValid)
                 .Where(c => c.TenantId == tenantId)
@@ -514,7 +515,7 @@ namespace FlowFlex.Application.Services.OW
             // Validate read permission
             await ValidateWorkflowPermissionAsync(workflowId, OperationTypeEnum.View);
 
-            var tenantId = _userContext?.TenantId ?? "default";
+            var tenantId = TenantContextHelper.GetTenantIdOrDefault(_userContext);
             var entities = await _db.Queryable<StageConditionEntity>()
                 .Where(c => c.WorkflowId == workflowId && c.IsValid)
                 .Where(c => c.TenantId == tenantId)
@@ -979,7 +980,7 @@ namespace FlowFlex.Application.Services.OW
         /// </summary>
         private async Task<StageConditionEntity?> GetEntityByIdAsync(long id)
         {
-            var tenantId = _userContext?.TenantId ?? "default";
+            var tenantId = TenantContextHelper.GetTenantIdOrDefault(_userContext);
             return await _db.Queryable<StageConditionEntity>()
                 .Where(c => c.Id == id && c.IsValid)
                 .Where(c => c.TenantId == tenantId)
@@ -1122,7 +1123,7 @@ namespace FlowFlex.Application.Services.OW
                 }
                 
                 // Batch query all action definitions at once
-                var tenantId = _userContext?.TenantId ?? "default";
+                var tenantId = TenantContextHelper.GetTenantIdOrDefault(_userContext);
                 var actionDefs = await _db.Queryable<Domain.Entities.Action.ActionDefinition>()
                     .Where(a => actionDefIds.Contains(a.Id) && a.IsValid)
                     .Where(a => a.TenantId == tenantId)
@@ -1161,7 +1162,7 @@ namespace FlowFlex.Application.Services.OW
                 foreach (var action in goToActions)
                 {
                     // Check if target stage has a condition that points back
-                    var tenantId = _userContext?.TenantId ?? "default";
+                    var tenantId = TenantContextHelper.GetTenantIdOrDefault(_userContext);
                     var targetCondition = await _db.Queryable<StageConditionEntity>()
                         .Where(c => c.StageId == action.TargetStageId!.Value && c.IsValid && c.IsActive)
                         .Where(c => c.TenantId == tenantId)

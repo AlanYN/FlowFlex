@@ -5,6 +5,7 @@ using FlowFlex.Domain.Entities.Action;
 using FlowFlex.Domain.Repository.Action;
 using FlowFlex.Domain.Shared.Enums.Action;
 using FlowFlex.Domain.Shared.Enums.OW;
+using FlowFlex.Domain.Shared.Helpers;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json.Linq;
 using Newtonsoft.Json.Serialization;
@@ -207,7 +208,7 @@ namespace FlowFlex.Application.Services.Action
             var currentUserContext = _userContext;
             var currentUserName = _operatorContextService.GetOperatorDisplayName();
             var currentUserId = _operatorContextService.GetOperatorId();
-            var currentTenantId = currentUserContext?.TenantId ?? "default";
+            var currentTenantId = TenantContextHelper.GetTenantIdOrDefault(currentUserContext);
 
             // Async change log recording to database using IActionLogService (fire-and-forget)
             _backgroundTaskQueue.QueueBackgroundWorkItem(async token =>
@@ -545,7 +546,7 @@ namespace FlowFlex.Application.Services.Action
                 var currentUserContext = _userContext;
                 var currentUserName = _operatorContextService.GetOperatorDisplayName();
                 var currentUserId = _operatorContextService.GetOperatorId();
-                var currentTenantId = currentUserContext?.TenantId ?? "default";
+                var currentTenantId = TenantContextHelper.GetTenantIdOrDefault(currentUserContext);
 
                 // Async change log recording to database using IActionLogService (fire-and-forget)
                 _backgroundTaskQueue.QueueBackgroundWorkItem(async token =>
@@ -954,7 +955,7 @@ namespace FlowFlex.Application.Services.Action
             var currentUserContext = _userContext;
             var currentUserName = _operatorContextService.GetOperatorDisplayName();
             var currentUserId = _operatorContextService.GetOperatorId();
-            var currentTenantId = currentUserContext?.TenantId ?? "default";
+            var currentTenantId = TenantContextHelper.GetTenantIdOrDefault(currentUserContext);
 
             // Async change log recording to database using IActionLogService (fire-and-forget)
             _backgroundTaskQueue.QueueBackgroundWorkItem(async token =>
@@ -1040,7 +1041,7 @@ namespace FlowFlex.Application.Services.Action
             var currentUserContext = _userContext;
             var currentUserName = _operatorContextService.GetOperatorDisplayName();
             var currentUserId = _operatorContextService.GetOperatorId();
-            var currentTenantId = currentUserContext?.TenantId ?? "default";
+            var currentTenantId = TenantContextHelper.GetTenantIdOrDefault(currentUserContext);
 
             // Async change log recording to database using IActionLogService (fire-and-forget)
             _backgroundTaskQueue.QueueBackgroundWorkItem(async token =>
@@ -1656,8 +1657,9 @@ namespace FlowFlex.Application.Services.Action
 
             try
             {
-                // Get all questionnaires - we still need to iterate through them as questions are embedded in JSON
-                var questionnaires = await _questionnaireRepository.GetListAsync();
+                // Get all questionnaires with tenant isolation - we still need to iterate through them as questions are embedded in JSON
+                var tenantId = TenantContextHelper.GetTenantIdOrDefault(_userContext);
+                var questionnaires = await _questionnaireRepository.GetListAsync(q => q.TenantId == tenantId && q.IsValid);
                 var updatedCount = 0;
                 var questionIdStrings = questionIds.Select(id => id.ToString()).ToHashSet();
 
@@ -1811,7 +1813,8 @@ namespace FlowFlex.Application.Services.Action
                     case "question":
                         // For questions, we need to find the questionnaire that contains this question
                         // and extract the question title from Structure
-                        var questionnaires = await _questionnaireRepository.GetListAsync();
+                        var tenantIdForQuestion = TenantContextHelper.GetTenantIdOrDefault(_userContext);
+                        var questionnaires = await _questionnaireRepository.GetListAsync(q => q.TenantId == tenantIdForQuestion && q.IsValid);
                         foreach (var questionnaire in questionnaires)
                         {
                             if (questionnaire.Structure == null)
@@ -2096,7 +2099,7 @@ namespace FlowFlex.Application.Services.Action
         {
             try
             {
-                var currentTenantId = _userContext?.TenantId ?? "default";
+                var currentTenantId = TenantContextHelper.GetTenantIdOrDefault(_userContext);
                 _logger.LogInformation("Checking for system predefined actions for tenant: {TenantId}", currentTenantId);
 
                 // Get existing system actions for current tenant to check which ones exist
@@ -2171,7 +2174,7 @@ namespace FlowFlex.Application.Services.Action
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error ensuring system predefined actions exist for tenant: {TenantId}",
-                    _userContext?.TenantId ?? "default");
+                    TenantContextHelper.GetTenantIdOrDefault(_userContext));
                 // Don't throw - this should not break the main query
             }
         }

@@ -9,6 +9,7 @@ using FlowFlex.Domain.Repository.OW;
 using FlowFlex.Domain.Shared;
 using FlowFlex.Domain.Shared.Constants;
 using FlowFlex.Domain.Shared.Exceptions;
+using FlowFlex.Domain.Shared.Helpers;
 using FlowFlex.Domain.Shared.Models;
 
 namespace FlowFlex.Application.Services.MessageCenter;
@@ -58,7 +59,7 @@ public class EmailBindingService : IEmailBindingService, IScopedService
     public Task<AuthorizeUrlDto> GetAuthorizationUrlAsync()
     {
         var userId = GetCurrentUserId();
-        var tenantId = _userContext.TenantId ?? "default";
+        var tenantId = TenantContextHelper.GetTenantIdOrDefault(_userContext);
 
         // Generate state for CSRF protection
         var state = Guid.NewGuid().ToString("N");

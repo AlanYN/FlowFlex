@@ -7,6 +7,7 @@ using FlowFlex.Application.Services.OW;
 using FlowFlex.Domain.Entities.Base;
 using FlowFlex.Domain.Repository.OW;
 using FlowFlex.Domain.Shared;
+using FlowFlex.Domain.Shared.Helpers;
 using FlowFlex.Domain.Shared.Models;
 using FlowFlex.SqlSugarDB.Context;
 using FlowFlex.SqlSugarDB.Implements.OW;
@@ -151,7 +152,7 @@ namespace FlowFlex.WebApi.Extensions
                                           (!string.IsNullOrEmpty(userContext.UserName) ? userContext.UserName :
                                           (!string.IsNullOrEmpty(userContext.Email) ? userContext.Email : "SYSTEM"));
                             var userId = long.TryParse(userContext.UserId, out var parsedUserId) ? parsedUserId : 0;
-                            var tenantId = userContext.TenantId ?? "default";
+                            var tenantId = TenantContextHelper.GetTenantIdOrDefault(userContext);
 
                             if (entityInfo.EntityColumnInfo.PropertyInfo.PropertyType == typeof(DateTimeOffset?))
                             {

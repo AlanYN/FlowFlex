@@ -13,6 +13,7 @@ using FlowFlex.Domain.Entities.OW;
 using FlowFlex.Domain.Repository.OW;
 using FlowFlex.Domain.Shared;
 using FlowFlex.Domain.Shared.Enums.OW;
+using FlowFlex.Domain.Shared.Helpers;
 using FlowFlex.Domain.Shared.Models;
 using FlowFlex.Domain.Shared.Utils;
 using FlowFlex.Infrastructure.Services;
@@ -308,7 +309,7 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
             {
                 if (entityWithoutFilter != null)
                 {
-                    if (entityWithoutFilter.TenantId != (_userContext?.TenantId ?? "default"))
+                    if (entityWithoutFilter.TenantId != TenantContextHelper.GetTenantIdOrDefault(_userContext))
                     {
                         throw new CRMException(ErrorCodeEnum.DataNotFound, "Onboarding not found or access denied. Record belongs to different tenant.");
                     }

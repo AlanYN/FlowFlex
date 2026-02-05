@@ -535,8 +535,8 @@ namespace FlowFlex.Application.Services.OW
 
             try
             {
-                // Only get cases with non-empty StagesProgressJson to reduce data loading
-                // Limit to recent cases (last 30 days) for better performance
+                // Get recent cases without filtering by StagesProgressJson in SQL
+                // This avoids PostgreSQL JSON parsing errors for invalid data
                 var tenantId = TenantContextHelper.GetTenantIdOrDefault(_userContext);
                 var cutoffDate = DateTimeOffset.UtcNow.AddDays(-30);
                 var filterByTeam = !string.IsNullOrEmpty(team);
@@ -545,19 +545,19 @@ namespace FlowFlex.Application.Services.OW
                     o.IsValid &&
                     o.TenantId == tenantId &&
                     o.ModifyDate >= cutoffDate &&
-                    !string.IsNullOrEmpty(o.StagesProgressJson) &&
                     (!filterByTeam || o.CurrentTeam == team));
 
-                // Limit cases to process for performance
-                var casesToProcess = allCases
+                // Filter in memory to avoid SQL JSON parsing issues
+                var recentCases = allCases
+                    .Where(o => !string.IsNullOrEmpty(o.StagesProgressJson))
                     .OrderByDescending(o => o.ModifyDate)
                     .Take(100) // Process at most 100 recent cases
                     .ToList();
 
                 // Apply permission filter only for non-admin users
                 var filteredCases = isAdmin 
-                    ? casesToProcess 
-                    : await FilterCasesByPermissionOptimizedAsync(casesToProcess);
+                    ? recentCases 
+                    : await FilterCasesByPermissionOptimizedAsync(recentCases);
 
                 _logger.LogDebug("GetRecentlyCompletedStagesOptimizedAsync: Processing {Count} cases", filteredCases.Count);
 

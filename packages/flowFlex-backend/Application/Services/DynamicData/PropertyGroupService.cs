@@ -3,6 +3,7 @@ using FlowFlex.Domain.Entities.DynamicData;
 using FlowFlex.Domain.Repository.DynamicData;
 using FlowFlex.Domain.Shared;
 using FlowFlex.Domain.Shared.Exceptions;
+using FlowFlex.Domain.Shared.Helpers;
 using FlowFlex.Domain.Shared.Models;
 using FlowFlex.Domain.Shared.Models.DynamicData;
 using Microsoft.Extensions.Logging;
@@ -67,8 +68,8 @@ public class PropertyGroupService : IPropertyGroupService, IScopedService
             IsSystemDefine = groupDto.IsSystemDefine,
             IsDefault = groupDto.IsDefault,
             Fields = groupDto.FieldIds?.ToArray(),
-            TenantId = _userContext.TenantId ?? "default",
-            AppCode = _userContext.AppCode ?? "default",
+            TenantId = TenantContextHelper.GetTenantIdOrDefault(_userContext),
+            AppCode = TenantContextHelper.GetAppCodeOrDefault(_userContext),
             CreateDate = DateTimeOffset.UtcNow,
             CreateBy = _userContext.UserName ?? "SYSTEM",
             CreateUserId = userId,

@@ -10,6 +10,7 @@ using FlowFlex.Domain.Entities.OW;
 using FlowFlex.Domain.Repository.OW;
 using FlowFlex.Domain.Shared;
 using FlowFlex.Domain.Shared.Events;
+using FlowFlex.Domain.Shared.Helpers;
 using FlowFlex.Domain.Shared.Models;
 using FlowFlex.Domain.Shared.Utils;
 using FlowFlex.Infrastructure.Services;
@@ -1207,7 +1208,7 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
                     SentDate = null, // Leave empty - will be set when invitation is actually sent
                     TokenExpiry = null, // No expiry
                     SendCount = 0, // Not sent via email
-                    TenantId = onboarding.TenantId ?? _userContext.TenantId ?? "default",
+                    TenantId = onboarding.TenantId ?? TenantContextHelper.GetTenantIdOrDefault(_userContext),
                     Notes = "Auto-created default invitation (no email sent)"
                 };
 
@@ -1220,8 +1221,8 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
                 // Generate invitation URL (using default base URL)
                 invitation.InvitationUrl = GenerateShortInvitationUrl(
                     invitation.ShortUrlId,
-                    onboarding.TenantId ?? _userContext.TenantId ?? "default",
-                    onboarding.AppCode ?? _userContext.AppCode ?? "default");
+                    onboarding.TenantId ?? TenantContextHelper.GetTenantIdOrDefault(_userContext),
+                    onboarding.AppCode ?? TenantContextHelper.GetAppCodeOrDefault(_userContext));
 
                 // Initialize create info
                 invitation.InitCreateInfo(_userContext);

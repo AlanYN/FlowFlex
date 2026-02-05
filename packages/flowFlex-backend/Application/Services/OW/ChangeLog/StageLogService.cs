@@ -9,6 +9,7 @@ using FlowFlex.Application.Contracts.IServices.Action;
 using FlowFlex.Domain.Repository.OW;
 using FlowFlex.Domain.Shared;
 using FlowFlex.Domain.Shared.Enums.OW;
+using FlowFlex.Domain.Shared.Helpers;
 using FlowFlex.Domain.Shared.Models;
 
 namespace FlowFlex.Application.Services.OW.ChangeLog
@@ -2022,7 +2023,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                 try
                 {
                     // Get tenant ID from UserContext (works in background tasks)
-                    var tenantId = _userContext?.TenantId ?? "999";
+                    var tenantId = TenantContextHelper.GetTenantIdOrDefault(_userContext);
                     _stageLogger.LogDebug("Using TenantId: {TenantId} for fetching team names", tenantId);
 
                     teamNameMap = await _userService.GetTeamNamesByIdsAsync(allChangedTeams, tenantId);

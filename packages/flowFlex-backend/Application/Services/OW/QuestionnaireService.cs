@@ -10,6 +10,7 @@ using FlowFlex.Domain.Entities.OW;
 using FlowFlex.Domain.Shared;
 using FlowFlex.Domain.Shared.Exceptions;
 using FlowFlex.Domain.Shared.Enums.OW;
+using FlowFlex.Domain.Shared.Helpers;
 using System.Text.Json;
 using Newtonsoft.Json;
 using Microsoft.Extensions.Logging;
@@ -1541,8 +1542,9 @@ namespace FlowFlex.Application.Services.OW
 
             try
             {
-                // Get all stages for debugging
-                var allStages = await _stageRepository.GetListAsync();
+                // Get all stages for debugging with tenant isolation
+                var tenantId = TenantContextHelper.GetTenantIdOrDefault(_userContext);
+                var allStages = await _stageRepository.GetListAsync(s => s.TenantId == tenantId && s.IsValid);
                 _logger.LogDebug("Checking {StageCount} stages for questionnaire {QuestionnaireId}", allStages.Count, questionnaireId);
 
                 foreach (var stage in allStages)

@@ -14,6 +14,7 @@ using FlowFlex.Domain.Repository.Action;
 using FlowFlex.Domain.Repository.Integration;
 using FlowFlex.Domain.Shared;
 using FlowFlex.Domain.Shared.Exceptions;
+using FlowFlex.Domain.Shared.Helpers;
 using FlowFlex.Domain.Shared.Models;
 using Domain.Shared.Enums;
 using Microsoft.Extensions.Logging;
@@ -92,7 +93,7 @@ namespace FlowFlex.Application.Services.Integration
             
             // Initialize create information
             entity.InitCreateInfo(_userContext);
-            entity.TenantId = _userContext?.TenantId ?? "default";
+            entity.TenantId = TenantContextHelper.GetTenantIdOrDefault(_userContext);
 
             var id = await _integrationRepository.InsertReturnSnowflakeIdAsync(entity);
             

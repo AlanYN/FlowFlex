@@ -11,6 +11,7 @@ using FlowFlex.Domain.Entities.OW;
 using FlowFlex.Domain.Repository.OW;
 using FlowFlex.Domain.Shared;
 using FlowFlex.Domain.Shared.Enums.OW;
+using FlowFlex.Domain.Shared.Helpers;
 using FlowFlex.Domain.Shared.Models;
 
 namespace FlowFlex.Application.Services.OW.ChangeLog
@@ -119,8 +120,8 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                     OperationTime = currentUtcTime, // Store as UTC in database
                     IpAddress = GetClientIpAddress(),
                     UserAgent = GetUserAgent(),
-                    TenantId = customTenantId ?? _userContext?.TenantId ?? "default",
-                    AppCode = _userContext?.AppCode ?? "default"
+                    TenantId = customTenantId ?? TenantContextHelper.GetTenantIdOrDefault(_userContext),
+                    AppCode = TenantContextHelper.GetAppCodeOrDefault(_userContext)
                 };
 
                 // Initialize unique snowflake ID
@@ -135,7 +136,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                     operationLog.CreateUserId = customOperatorId.Value;
                     operationLog.ModifyUserId = customOperatorId.Value;
                     operationLog.TenantId = customTenantId ?? "default";
-                    operationLog.AppCode = _userContext?.AppCode ?? "default";
+                    operationLog.AppCode = TenantContextHelper.GetAppCodeOrDefault(_userContext);
                     operationLog.CreateDate = currentUtcTime;
                     operationLog.ModifyDate = currentUtcTime;
                     operationLog.IsValid = true;
@@ -1131,7 +1132,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                                 {
                                     if (_userService != null && !teamValue.Equals("Other", StringComparison.OrdinalIgnoreCase))
                                     {
-                                        var tenantId = _userContext?.TenantId ?? "999";
+                                        var tenantId = TenantContextHelper.GetTenantIdOrDefault(_userContext);
                                         var teamNameMap = await _userService.GetTeamNamesByIdsAsync(
                                             new List<string> { teamValue }, tenantId);
                                         if (teamNameMap != null && teamNameMap.TryGetValue(teamValue, out var teamName) &&
@@ -1469,7 +1470,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                             {
                                 if (_userService != null)
                                 {
-                                    var tenantId = _userContext?.TenantId ?? "999";
+                                    var tenantId = TenantContextHelper.GetTenantIdOrDefault(_userContext);
                                     var teamIds = new List<string>();
 
                                     // Get before team ID
@@ -2726,7 +2727,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                     {
                         if (_userService != null)
                         {
-                            var tenantId = _userContext?.TenantId ?? "999";
+                            var tenantId = TenantContextHelper.GetTenantIdOrDefault(_userContext);
                             var teamNameMap = await _userService.GetTeamNamesByIdsAsync(teamIds, tenantId);
 
                             if (teamNameMap != null && teamNameMap.Any())
@@ -2800,7 +2801,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                     // Try to get user names if UserService is available
                     try
                     {
-                        var tenantId = _userContext?.TenantId ?? "999";
+                        var tenantId = TenantContextHelper.GetTenantIdOrDefault(_userContext);
                         var userIdsLong = userIds.Where(id => long.TryParse(id, out _))
                             .Select(id => long.Parse(id))
                             .ToList();
@@ -3086,7 +3087,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                         try
                         {
                             // Get tenant ID from UserContext (works in background tasks)
-                            var tenantId = _userContext?.TenantId ?? "999";
+                            var tenantId = TenantContextHelper.GetTenantIdOrDefault(_userContext);
                             _logger.LogDebug("Using TenantId: {TenantId} for fetching user names", tenantId);
 
                             // Fixed: Properly await async operation instead of blocking
@@ -4733,7 +4734,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
                 try
                 {
                     // Get tenant ID from UserContext (works in background tasks)
-                    var tenantId = _userContext?.TenantId ?? "999";
+                    var tenantId = TenantContextHelper.GetTenantIdOrDefault(_userContext);
                     _logger.LogDebug("Using TenantId: {TenantId} for fetching team names", tenantId);
 
                     teamNameMap = await _userService.GetTeamNamesByIdsAsync(allChangedTeams, tenantId);

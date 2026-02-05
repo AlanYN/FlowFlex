@@ -8,6 +8,7 @@ using FlowFlex.Domain.Entities.OW;
 using FlowFlex.Domain.Repository.OW;
 using FlowFlex.Domain.Shared;
 using FlowFlex.Domain.Shared.Exceptions;
+using FlowFlex.Domain.Shared.Helpers;
 using FlowFlex.Domain.Shared.Models;
 
 namespace FlowFlex.Application.Services.MessageCenter;
@@ -88,7 +89,7 @@ public class MessageAttachmentService : IMessageAttachmentService, IScopedServic
 
         // Save file to storage
         var formFile = CreateFormFile(content, fileName, contentType);
-        var storageResult = await _fileStorageService.SaveFileAsync(formFile, AttachmentCategory, _userContext?.TenantId ?? "default");
+        var storageResult = await _fileStorageService.SaveFileAsync(formFile, AttachmentCategory, TenantContextHelper.GetTenantIdOrDefault(_userContext));
 
         if (!storageResult.Success)
         {
@@ -126,7 +127,7 @@ public class MessageAttachmentService : IMessageAttachmentService, IScopedServic
     {
         // Save file to storage
         var formFile = CreateFormFile(content, fileName, contentType);
-        var storageResult = await _fileStorageService.SaveFileAsync(formFile, AttachmentCategory, _userContext?.TenantId ?? "default");
+        var storageResult = await _fileStorageService.SaveFileAsync(formFile, AttachmentCategory, TenantContextHelper.GetTenantIdOrDefault(_userContext));
 
         if (!storageResult.Success)
         {

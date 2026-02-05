@@ -9,6 +9,7 @@ using FlowFlex.Application.Contracts.IServices.OW;
 using FlowFlex.Application.Contracts;
 using FlowFlex.Application.Contracts.Dtos;
 using FlowFlex.Domain.Shared;
+using FlowFlex.Domain.Shared.Helpers;
 using FlowFlex.Domain.Shared.Models;
 using Item.Internal.StandardApi.Response;
 using System.Net;
@@ -322,7 +323,7 @@ namespace FlowFlex.WebApi.Controllers.OW
                 CreateBy = _userContext.UserName
             };
 
-            var tenantId = _userContext.TenantId ?? "default";
+            var tenantId = TenantContextHelper.GetTenantIdOrDefault(_userContext);
             var attachment = await _attachmentService.CreateAttachmentAsync(
                 attachmentDto, tenantId, CancellationToken.None);
 
@@ -375,7 +376,7 @@ namespace FlowFlex.WebApi.Controllers.OW
             // Get current gateway/host information
             var request = HttpContext.Request;
             var gateway = $"{request.Scheme}://{request.Host}";
-            var tenantId = _userContext.TenantId ?? "default";
+            var tenantId = TenantContextHelper.GetTenantIdOrDefault(_userContext);
 
             foreach (var formFile in formFiles)
             {

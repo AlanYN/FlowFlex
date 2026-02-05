@@ -8,6 +8,7 @@ using FlowFlex.Application.Contracts.IServices;
 using FlowFlex.Domain.Entities.OW;
 using FlowFlex.Domain.Repository.OW;
 using FlowFlex.Domain.Shared;
+using FlowFlex.Domain.Shared.Helpers;
 using FlowFlex.Domain.Shared.Models;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
@@ -53,7 +54,7 @@ namespace FlowFlex.Application.Services.OW
                 var result = new ChecklistData();
 
                 // Get checklist task completions for this onboarding
-                var tenantId = _userContext?.TenantId ?? "default";
+                var tenantId = TenantContextHelper.GetTenantIdOrDefault(_userContext);
                 var completions = await _db.Queryable<ChecklistTaskCompletion>()
                     .Where(c => c.OnboardingId == onboardingId && c.IsValid)
                     .Where(c => c.TenantId == tenantId)
@@ -216,7 +217,7 @@ namespace FlowFlex.Application.Services.OW
 
                 // Get questionnaire answers for all questionnaires
                 // Build nested structure: answers[questionnaireId][questionId] = value
-                var tenantId = _userContext?.TenantId ?? "default";
+                var tenantId = TenantContextHelper.GetTenantIdOrDefault(_userContext);
                 var answers = await _db.Queryable<QuestionnaireAnswer>()
                     .Where(a => a.OnboardingId == onboardingId && a.QuestionnaireId.HasValue && questionnaireIds.Contains(a.QuestionnaireId.Value) && a.IsValid)
                     .Where(a => a.TenantId == tenantId)
@@ -335,7 +336,7 @@ namespace FlowFlex.Application.Services.OW
                 var result = new AttachmentData();
 
                 // Get files for this onboarding and stage
-                var tenantId = _userContext?.TenantId ?? "default";
+                var tenantId = TenantContextHelper.GetTenantIdOrDefault(_userContext);
                 var files = await _db.Queryable<OnboardingFile>()
                     .Where(f => f.OnboardingId == onboardingId && f.StageId == stageId && f.IsValid)
                     .Where(f => f.TenantId == tenantId)

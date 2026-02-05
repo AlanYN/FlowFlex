@@ -13,6 +13,7 @@ using FlowFlex.Application.Contracts.IServices;
 using FlowFlex.Infrastructure.Services;
 
 using FlowFlex.Domain.Shared;
+using FlowFlex.Domain.Shared.Helpers;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System;
@@ -1159,7 +1160,7 @@ namespace FlowFlex.Application.Services.OW
             try
             {
                 // Safely get tenant ID
-                var tenantId = _userContext?.TenantId ?? "default";
+                var tenantId = TenantContextHelper.GetTenantIdOrDefault(_userContext);
                 if (string.IsNullOrWhiteSpace(tenantId))
                 {
                     tenantId = "default";
@@ -1511,7 +1512,7 @@ namespace FlowFlex.Application.Services.OW
                 throw new CRMException(ErrorCodeEnum.NotFound, $"Stage {stageId} not found or inactive");
             }
 
-            var tenantId = _userContext?.TenantId ?? "default";
+            var tenantId = TenantContextHelper.GetTenantIdOrDefault(_userContext);
             var onboarding = await _db.Queryable<Onboarding>()
                 .Where(o => o.Id == onboardingId && o.IsValid)
                 .Where(o => o.TenantId == tenantId)
@@ -1566,7 +1567,7 @@ namespace FlowFlex.Application.Services.OW
                             OnboardingId = onboardingId,
                             StageId = stageId,
                             ConditionId = condition.Id,
-                            TenantId = _userContext?.TenantId ?? "default",
+                            TenantId = TenantContextHelper.GetTenantIdOrDefault(_userContext),
                             UserId = userIdLong
                         };
 
@@ -3248,7 +3249,7 @@ namespace FlowFlex.Application.Services.OW
                 }
 
                 // Query all onboardings with this workflowId (with tenant isolation)
-                var tenantId = _userContext?.TenantId ?? "default";
+                var tenantId = TenantContextHelper.GetTenantIdOrDefault(_userContext);
                 var onboardings = await _db.Queryable<Onboarding>()
                     .Where(o => o.WorkflowId == workflowId && o.TenantId == tenantId && o.IsValid)
                     .Select(o => new { o.Id, o.StagesProgressJson })

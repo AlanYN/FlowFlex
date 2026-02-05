@@ -4,6 +4,7 @@ using FlowFlex.Application.Contracts.IServices.OW;
 using FlowFlex.Domain.Entities.OW;
 using FlowFlex.Domain.Repository.OW;
 using FlowFlex.Domain.Shared;
+using FlowFlex.Domain.Shared.Helpers;
 using FlowFlex.Domain.Shared.Models;
 using FlowFlex.Application.Services.OW.Extensions;
 using SqlSugar;
@@ -159,7 +160,8 @@ namespace FlowFlex.Application.Services.OW
         {
             _logger.LogInformation("Starting full sync of all stage mappings");
 
-            var allStages = await _stageRepository.GetListAsync();
+            var tenantId = TenantContextHelper.GetTenantIdOrDefault(_userContext);
+            var allStages = await _stageRepository.GetListAsync(s => s.TenantId == tenantId && s.IsValid);
             var totalStages = allStages.Count;
             var processedStages = 0;
 
@@ -191,8 +193,8 @@ namespace FlowFlex.Application.Services.OW
             {
                 _logger.LogDebug("Getting assignments from mapping table for {Count} questionnaires", questionnaireIds.Count);
 
-                var tenantId = _userContext?.TenantId ?? "default";
-                var appCode = _userContext?.AppCode ?? "default";
+                var tenantId = TenantContextHelper.GetTenantIdOrDefault(_userContext);
+                var appCode = TenantContextHelper.GetAppCodeOrDefault(_userContext);
 
                 var mappings = await _db.Queryable<QuestionnaireStageMapping>()
                     .Where(m => questionnaireIds.Contains(m.QuestionnaireId))
@@ -233,8 +235,8 @@ namespace FlowFlex.Application.Services.OW
             {
                 _logger.LogDebug("Getting checklist assignments from mapping table for {Count} checklists", checklistIds.Count);
 
-                var tenantId = _userContext?.TenantId ?? "default";
-                var appCode = _userContext?.AppCode ?? "default";
+                var tenantId = TenantContextHelper.GetTenantIdOrDefault(_userContext);
+                var appCode = TenantContextHelper.GetAppCodeOrDefault(_userContext);
 
                 var mappings = await _db.Queryable<ChecklistStageMapping>()
                     .Where(m => checklistIds.Contains(m.ChecklistId))
@@ -270,8 +272,8 @@ namespace FlowFlex.Application.Services.OW
             {
                 _logger.LogDebug("Getting questionnaire IDs from mapping table - WorkflowId: {WorkflowId}, StageId: {StageId}", workflowId, stageId);
 
-                var tenantId = _userContext?.TenantId ?? "default";
-                var appCode = _userContext?.AppCode ?? "default";
+                var tenantId = TenantContextHelper.GetTenantIdOrDefault(_userContext);
+                var appCode = TenantContextHelper.GetAppCodeOrDefault(_userContext);
 
                 var query = _db.Queryable<QuestionnaireStageMapping>()
                     .Where(m => m.TenantId == tenantId && m.AppCode == appCode)
@@ -309,8 +311,8 @@ namespace FlowFlex.Application.Services.OW
             {
                 _logger.LogDebug("Getting checklist IDs from mapping table - WorkflowId: {WorkflowId}, StageId: {StageId}", workflowId, stageId);
 
-                var tenantId = _userContext?.TenantId ?? "default";
-                var appCode = _userContext?.AppCode ?? "default";
+                var tenantId = TenantContextHelper.GetTenantIdOrDefault(_userContext);
+                var appCode = TenantContextHelper.GetAppCodeOrDefault(_userContext);
 
                 var query = _db.Queryable<ChecklistStageMapping>()
                     .Where(m => m.TenantId == tenantId && m.AppCode == appCode)

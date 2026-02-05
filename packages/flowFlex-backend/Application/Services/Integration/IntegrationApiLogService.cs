@@ -2,6 +2,7 @@ using FlowFlex.Application.Services.OW.Extensions;
 using FlowFlex.Domain.Entities.Integration;
 using FlowFlex.Domain.Repository.Integration;
 using FlowFlex.Domain.Shared;
+using FlowFlex.Domain.Shared.Helpers;
 using FlowFlex.Domain.Shared.Models;
 using Microsoft.Extensions.Logging;
 
@@ -106,7 +107,7 @@ public class IntegrationApiLogService : IIntegrationApiLogService, IScopedServic
             };
 
             log.InitCreateInfo(_userContext);
-            log.TenantId = _userContext?.TenantId ?? "default";
+            log.TenantId = TenantContextHelper.GetTenantIdOrDefault(_userContext);
 
             return await _repository.InsertLogAsync(log);
         }
@@ -145,7 +146,7 @@ public class IntegrationApiLogService : IIntegrationApiLogService, IScopedServic
             };
 
             log.InitCreateInfo(_userContext);
-            log.TenantId = _userContext?.TenantId ?? "default";
+            log.TenantId = TenantContextHelper.GetTenantIdOrDefault(_userContext);
 
             return await _repository.InsertLogAsync(log);
         }

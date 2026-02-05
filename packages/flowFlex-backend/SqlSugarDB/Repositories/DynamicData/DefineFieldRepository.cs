@@ -1,6 +1,7 @@
 using FlowFlex.Domain.Entities.DynamicData;
 using FlowFlex.Domain.Repository.DynamicData;
 using FlowFlex.Domain.Shared;
+using FlowFlex.Domain.Shared.Helpers;
 using FlowFlex.Domain.Shared.Models;
 using FlowFlex.Domain.Shared.Models.DynamicData;
 using Microsoft.Extensions.Logging;
@@ -27,8 +28,8 @@ public class DefineFieldRepository : BaseRepository<DefineField>, IDefineFieldRe
 
     public async Task<List<DefineField>> GetAllAsync()
     {
-        var tenantId = _userContext?.TenantId ?? "default";
-        var appCode = _userContext?.AppCode ?? "default";
+        var tenantId = TenantContextHelper.GetTenantIdOrDefault(_userContext);
+        var appCode = TenantContextHelper.GetAppCodeOrDefault(_userContext);
 
         return await db.Queryable<DefineField>()
             .Where(x => x.IsValid)
@@ -39,8 +40,8 @@ public class DefineFieldRepository : BaseRepository<DefineField>, IDefineFieldRe
 
     public async Task<PagedResult<DefineField>> GetPagedListAsync(PropertyQueryRequest request)
     {
-        var tenantId = _userContext?.TenantId ?? "default";
-        var appCode = _userContext?.AppCode ?? "default";
+        var tenantId = TenantContextHelper.GetTenantIdOrDefault(_userContext);
+        var appCode = TenantContextHelper.GetAppCodeOrDefault(_userContext);
 
         var query = db.Queryable<DefineField>()
             .Where(x => x.IsValid)
@@ -131,8 +132,8 @@ public class DefineFieldRepository : BaseRepository<DefineField>, IDefineFieldRe
 
     public async Task<DefineField?> GetByFieldNameAsync(string fieldName)
     {
-        var tenantId = _userContext?.TenantId ?? "default";
-        var appCode = _userContext?.AppCode ?? "default";
+        var tenantId = TenantContextHelper.GetTenantIdOrDefault(_userContext);
+        var appCode = TenantContextHelper.GetAppCodeOrDefault(_userContext);
 
         return await db.Queryable<DefineField>()
             .Where(x => x.FieldName == fieldName && x.IsValid)
@@ -142,8 +143,8 @@ public class DefineFieldRepository : BaseRepository<DefineField>, IDefineFieldRe
 
     public async Task<DefineField?> GetByIdAsync(long fieldId)
     {
-        var tenantId = _userContext?.TenantId ?? "default";
-        var appCode = _userContext?.AppCode ?? "default";
+        var tenantId = TenantContextHelper.GetTenantIdOrDefault(_userContext);
+        var appCode = TenantContextHelper.GetAppCodeOrDefault(_userContext);
 
         return await db.Queryable<DefineField>()
             .Where(x => x.Id == fieldId && x.IsValid)
@@ -153,8 +154,8 @@ public class DefineFieldRepository : BaseRepository<DefineField>, IDefineFieldRe
 
     public async Task<bool> ExistsFieldNameAsync(string fieldName, long? excludeId = null)
     {
-        var tenantId = _userContext?.TenantId ?? "default";
-        var appCode = _userContext?.AppCode ?? "default";
+        var tenantId = TenantContextHelper.GetTenantIdOrDefault(_userContext);
+        var appCode = TenantContextHelper.GetAppCodeOrDefault(_userContext);
 
         var query = db.Queryable<DefineField>()
             .Where(x => x.FieldName == fieldName && x.IsValid)
@@ -168,8 +169,8 @@ public class DefineFieldRepository : BaseRepository<DefineField>, IDefineFieldRe
 
     public async Task<List<DefineField>> GetByGroupIdAsync(long groupId)
     {
-        var tenantId = _userContext?.TenantId ?? "default";
-        var appCode = _userContext?.AppCode ?? "default";
+        var tenantId = TenantContextHelper.GetTenantIdOrDefault(_userContext);
+        var appCode = TenantContextHelper.GetAppCodeOrDefault(_userContext);
 
         // Get group first to get field IDs
         var group = await db.Queryable<FieldGroup>()
@@ -189,8 +190,8 @@ public class DefineFieldRepository : BaseRepository<DefineField>, IDefineFieldRe
 
     public async Task BatchUpdateSortAsync(Dictionary<long, int> fieldSorts)
     {
-        var tenantId = _userContext?.TenantId ?? "default";
-        var appCode = _userContext?.AppCode ?? "default";
+        var tenantId = TenantContextHelper.GetTenantIdOrDefault(_userContext);
+        var appCode = TenantContextHelper.GetAppCodeOrDefault(_userContext);
 
         foreach (var kvp in fieldSorts)
         {
@@ -237,8 +238,8 @@ public class DefineFieldRepository : BaseRepository<DefineField>, IDefineFieldRe
         if (ids == null || !ids.Any())
             return new List<DefineField>();
 
-        var tenantId = _userContext?.TenantId ?? "default";
-        var appCode = _userContext?.AppCode ?? "default";
+        var tenantId = TenantContextHelper.GetTenantIdOrDefault(_userContext);
+        var appCode = TenantContextHelper.GetAppCodeOrDefault(_userContext);
         var idList = ids.ToList();
 
         return await db.Queryable<DefineField>()

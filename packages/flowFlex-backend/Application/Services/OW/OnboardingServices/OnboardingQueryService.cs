@@ -11,6 +11,7 @@ using FlowFlex.Domain.Entities.OW;
 using FlowFlex.Domain.Repository.OW;
 using FlowFlex.Domain.Shared;
 using FlowFlex.Domain.Shared.Enums.OW;
+using FlowFlex.Domain.Shared.Helpers;
 using FlowFlex.Domain.Shared.Models;
 using FlowFlex.Infrastructure.Extensions;
 using Microsoft.Extensions.Logging;
@@ -75,8 +76,8 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
         public async Task<PageModelDto<OnboardingOutputDto>> QueryAsync(OnboardingQueryRequest request)
         {
             var stopwatch = Stopwatch.StartNew();
-            var tenantId = _userContext?.TenantId ?? "default";
-            var appCode = _userContext?.AppCode ?? "default";
+            var tenantId = TenantContextHelper.GetTenantIdOrDefault(_userContext);
+            var appCode = TenantContextHelper.GetAppCodeOrDefault(_userContext);
             try
             {
                 _logger.LogDebug("QueryAsync started - TenantId: {TenantId}, AppCode: {AppCode}", tenantId, appCode);
@@ -809,8 +810,8 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
             if (pageSize < 1) pageSize = 20;
             if (pageSize > 100) pageSize = 100;
 
-            var tenantId = _userContext?.TenantId ?? "default";
-            var appCode = _userContext?.AppCode ?? "default";
+            var tenantId = TenantContextHelper.GetTenantIdOrDefault(_userContext);
+            var appCode = TenantContextHelper.GetAppCodeOrDefault(_userContext);
 
             try
             {
