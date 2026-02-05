@@ -311,6 +311,7 @@ import InputNumber from '@/components/form/InputNumber/index.vue';
 import { getAllUser } from '@/apis/global';
 import type { Stage } from '#/onboard';
 import { useInternalNoteUsers } from '@/hooks/useInternalNoteUsers';
+import { UserType } from '@/enums/permissionEnum';
 
 // Props 定义
 interface Props {
@@ -343,7 +344,7 @@ const fetchAllUsers = async () => {
 		const res = await getAllUser();
 		if (res?.data && Array.isArray(res.data)) {
 			allAssignOptions.value = res.data
-				.filter((item) => item?.userType == 3)
+				.filter((item) => item?.userType != UserType.SystemAdmin)
 				.map((user: any) => ({
 					key: String(user?.id),
 					value: user?.name,
