@@ -65,8 +65,8 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
 
                 if (names.Any())
                 {
-                    // Create OR condition for multiple names (match any)
-                    whereExpressions.Add(x => names.Any(n => x.Name.ToLower().Contains(n.ToLower())));
+                    // Case-insensitive search via SqlSugar ILike (EnableILike = true)
+                    whereExpressions.Add(x => names.Any(n => x.Name.Contains(n)));
                 }
             }
 
@@ -82,7 +82,7 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
 
             if (!string.IsNullOrWhiteSpace(status))
             {
-                whereExpressions.Add(x => x.Status.ToLower() == status.ToLower());
+                whereExpressions.Add(x => x.Status == status);
             }
 
             // Build query
@@ -97,13 +97,13 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
 
             // Apply sorting based on sortField and sortDirection
             // Always put IsDefault=true workflows first, then apply secondary sorting
-            var isAsc = sortDirection?.ToLower() == "asc";
+            var isAsc = string.Equals(sortDirection, "asc", StringComparison.OrdinalIgnoreCase);
 
             // First, always order by IsDefault descending (true first)
             query = query.OrderByDescending(x => x.IsDefault);
 
             // Then apply secondary sorting based on sortField
-            switch (sortField?.ToLower())
+            switch ((sortField ?? "").ToLowerInvariant())
             {
                 case "name":
                     query = isAsc ? query.OrderBy(x => x.Name) : query.OrderByDescending(x => x.Name);

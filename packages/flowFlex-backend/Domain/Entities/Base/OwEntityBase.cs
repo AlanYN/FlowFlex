@@ -63,14 +63,14 @@ namespace FlowFlex.Domain.Entities
         public DateTimeOffset ModifyDate { get; set; } = DateTimeOffset.UtcNow;
 
         /// <summary>
-        /// 创建�?
+        /// Created by
         /// </summary>
         [MaxLength(50)]
         [SugarColumn(ColumnName = "create_by")]
         public string CreateBy { get; set; } = "SYSTEM";
 
         /// <summary>
-        /// 修改�?
+        /// Modified by
         /// </summary>
         [MaxLength(50)]
         [SugarColumn(ColumnName = "modify_by")]

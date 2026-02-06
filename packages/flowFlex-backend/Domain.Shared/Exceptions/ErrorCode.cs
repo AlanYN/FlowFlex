@@ -17,7 +17,7 @@ public enum ErrorCodeEnum
     /// Incorrect request, protocol, or parameter
     /// </summary>
     [EnumValue(Description = "Bad request")]
-    BadReqeust = 102,
+    BadRequest = 102,
 
     /// <summary>
     /// User authentication failure
@@ -88,20 +88,20 @@ public enum ErrorCodeEnum
     /// <summary>
     /// Service exception
     /// </summary>
-    [EnumValue(Description = "Some error occured when excute.|Some error occured when excute.{0}")]
+    [EnumValue(Description = "Some error occurred when executing.|Some error occurred when executing.{0}")]
     BusinessError = 114,
 
     /// <summary>
     /// The uploaded data exceeds the limit
     /// </summary>
-    [EnumValue(Description = "Some error occured when excute.|The number of uploaded data exceeds the limit of 100")]
+    [EnumValue(Description = "Some error occurred when executing.|The number of uploaded data exceeds the limit of 100")]
     Datalimit = 115,
 
     /// <summary>
     /// Unsupported file types
     /// </summary>
-    [EnumValue(Description = "Some error occured when excute.|Unsupported file")]
-    UnsupportedfileUploadTypes = 116,
+    [EnumValue(Description = "Some error occurred when executing.|Unsupported file")]
+    UnsupportedFileUploadTypes = 116,
 
     /// <summary>
     /// 404

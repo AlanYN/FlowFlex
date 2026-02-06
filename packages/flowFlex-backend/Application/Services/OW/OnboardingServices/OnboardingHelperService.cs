@@ -14,6 +14,7 @@ using FlowFlex.Domain.Shared.Helpers;
 using FlowFlex.Domain.Shared.Models;
 using FlowFlex.Domain.Shared.Utils;
 using FlowFlex.Infrastructure.Services;
+using FlowFlex.Infrastructure.Extensions;
 using MediatR;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
@@ -601,27 +602,13 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
         /// <inheritdoc />
         public string GetClientIpAddress()
         {
-            var httpContext = _httpContextAccessor?.HttpContext;
-            if (httpContext == null) return string.Empty;
-
-            var ipAddress = httpContext.Request.Headers["X-Forwarded-For"].FirstOrDefault();
-            if (string.IsNullOrEmpty(ipAddress))
-            {
-                ipAddress = httpContext.Request.Headers["X-Real-IP"].FirstOrDefault();
-            }
-            if (string.IsNullOrEmpty(ipAddress))
-            {
-                ipAddress = httpContext.Connection.RemoteIpAddress?.ToString();
-            }
-
-            return ipAddress ?? string.Empty;
+            return _httpContextAccessor.GetClientIpAddress();
         }
 
         /// <inheritdoc />
         public string GetUserAgent()
         {
-            var httpContext = _httpContextAccessor?.HttpContext;
-            return httpContext?.Request.Headers["User-Agent"].ToString() ?? string.Empty;
+            return _httpContextAccessor.GetUserAgent();
         }
 
         /// <inheritdoc />

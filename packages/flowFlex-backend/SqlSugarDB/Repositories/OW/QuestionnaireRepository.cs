@@ -195,8 +195,8 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
 
                 if (names.Any())
                 {
-                    // Use OR condition to match any of the questionnaire names (case-insensitive)
-                    whereExpressions.Add(x => names.Any(n => x.Name.ToLower().Contains(n.ToLower())));
+                    // Case-insensitive search via SqlSugar ILike (EnableILike = true)
+                    whereExpressions.Add(x => names.Any(n => x.Name.Contains(n)));
                 }
             }
 
@@ -208,7 +208,7 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
             }
 
             // Determine sort field and direction
-            Expression<Func<Questionnaire, object>> orderByExpression = sortField?.ToLower() switch
+            Expression<Func<Questionnaire, object>> orderByExpression = (sortField ?? "").ToLowerInvariant() switch
             {
                 "name" => x => x.Name,
                 "createdate" => x => x.CreateDate,
@@ -216,7 +216,7 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
                 _ => x => x.CreateDate
             };
 
-            bool isAsc = sortDirection?.ToLower() == "asc";
+            bool isAsc = string.Equals(sortDirection, "asc", StringComparison.OrdinalIgnoreCase);
 
             // Get all matching questionnaires first
             var query = db.Queryable<Questionnaire>();
@@ -524,7 +524,7 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
                 // Note: AppCode comparison is case-insensitive to handle both "default" and "default"
                 var query = db.Queryable<Questionnaire>()
                     .Where(x => x.IsValid == true)
-                    .Where(x => x.TenantId == tenantId && x.AppCode.ToLower() == appCode.ToLower());
+                    .Where(x => x.TenantId == tenantId && x.AppCode == appCode);
 
                 // 执行查询
                 var result = await query.OrderByDescending(x => x.CreateDate).ToListAsync();
@@ -675,7 +675,7 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
             var isDescending = string.Equals(sortDirection, "desc", StringComparison.OrdinalIgnoreCase);
             var direction = isDescending ? "DESC" : "ASC";
 
-            return sortField?.ToLower() switch
+            return (sortField ?? "").ToLowerInvariant() switch
             {
                 "name" => $"q.name {direction}",
                 "createdate" => $"q.create_date {direction}",
@@ -836,7 +836,8 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
                                    .ToList();
                     if (names.Any())
                     {
-                        query = query.Where(x => names.Any(n => x.Name.ToLower().Contains(n.ToLower())));
+                        // Case-insensitive search via SqlSugar ILike (EnableILike = true)
+                        query = query.Where(x => names.Any(n => x.Name.Contains(n)));
                     }
                 }
 
@@ -851,7 +852,7 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
 
                 // Apply sorting
                 var isDescending = string.Equals(sortDirection, "desc", StringComparison.OrdinalIgnoreCase);
-                query = sortField?.ToLower() switch
+                query = (sortField ?? "").ToLowerInvariant() switch
                 {
                     "name" => isDescending ? query.OrderByDescending(x => x.Name) : query.OrderBy(x => x.Name),
                     "createdate" => isDescending ? query.OrderByDescending(x => x.CreateDate) : query.OrderBy(x => x.CreateDate),

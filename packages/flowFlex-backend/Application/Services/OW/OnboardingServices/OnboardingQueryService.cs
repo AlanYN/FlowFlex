@@ -88,14 +88,14 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
                 // Basic filter conditions
                 whereExpressions.Add(x => x.IsValid == true);
                 
-                // Apply tenant isolation
+                // Apply tenant isolation (case-insensitive via database collation)
                 if (!string.IsNullOrEmpty(tenantId))
                 {
-                    whereExpressions.Add(x => x.TenantId.ToLower() == tenantId.ToLower());
+                    whereExpressions.Add(x => x.TenantId == tenantId);
                 }
                 if (!string.IsNullOrEmpty(appCode))
                 {
-                    whereExpressions.Add(x => x.AppCode.ToLower() == appCode.ToLower());
+                    whereExpressions.Add(x => x.AppCode == appCode);
                 }
 
                 // Apply filter conditions
@@ -993,6 +993,19 @@ namespace FlowFlex.Application.Services.OW.OnboardingServices
 
         public async Task<Stream> ExportToExcelAsync(OnboardingQueryRequest query)
         {
+            // Enforce export limit to prevent memory exhaustion
+            const int MaxExportRows = 10000;
+            if (query.AllData)
+            {
+                query.AllData = false;
+                query.PageIndex = 1;
+                query.PageSize = MaxExportRows;
+            }
+            else if (query.PageSize > MaxExportRows)
+            {
+                query.PageSize = MaxExportRows;
+            }
+
             // Get data using existing query method
             var result = await QueryAsync(query);
             var data = result.Data;

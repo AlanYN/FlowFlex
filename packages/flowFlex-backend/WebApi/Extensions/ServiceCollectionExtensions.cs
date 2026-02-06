@@ -306,8 +306,7 @@ namespace FlowFlex.WebApi.Extensions
                         }
 
                         // Determine final values with priority: headers > JWT claims > AppContext > defaults
-                        // 修改优先级顺序，使header优先级高于JWT token
-                        var userId = userIdHeader ?? userIdClaim?.Value ?? "1";
+                        var userId = userIdHeader ?? userIdClaim?.Value ?? "0";
                         var email = emailClaim?.Value ?? string.Empty;
                         var userName = userNameHeader ?? usernameClaim?.Value ?? email ?? "System";
                         var tenantId = tenantIdHeader ?? tenantIdClaim?.Value ?? appContext?.TenantId ?? "default";
@@ -327,11 +326,11 @@ namespace FlowFlex.WebApi.Extensions
                         };
                     }
 
-                    // Default values for test environment or when no HTTP context
+                    // Default values for background tasks or when no HTTP context
                     return new UserContext
                     {
-                        UserId = "1",
-                        UserName = "TestUser",
+                        UserId = "0",
+                        UserName = "System",
                         Email = string.Empty,
                         TenantId = "default",
                         AppCode = "default"
@@ -342,7 +341,7 @@ namespace FlowFlex.WebApi.Extensions
                     // Service provider was disposed during shutdown, return safe default
                     return new UserContext
                     {
-                        UserId = "1",
+                        UserId = "0",
                         UserName = "System",
                         Email = string.Empty,
                         TenantId = "default",
@@ -355,7 +354,7 @@ namespace FlowFlex.WebApi.Extensions
                     System.Diagnostics.Debug.WriteLine($"Warning: Failed to create UserContext: {ex.Message}");
                     return new UserContext
                     {
-                        UserId = "1",
+                        UserId = "0",
                         UserName = "System",
                         Email = string.Empty,
                         TenantId = "default",

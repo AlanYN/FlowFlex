@@ -168,5 +168,19 @@ namespace FlowFlex.Application.Contracts.IServices.OW
         /// <param name="stageId">Stage ID to filter by</param>
         /// <returns>Tree structure with authorized teams and users</returns>
         Task<List<UserTreeNodeDto>> GetUserTreeByStageAsync(long stageId);
+
+        /// <summary>
+        /// Get all valid team IDs from the user tree (excludes placeholder teams like 'Other')
+        /// </summary>
+        /// <returns>HashSet of all valid team IDs</returns>
+        Task<HashSet<string>> GetAllTeamIdsAsync();
+
+        /// <summary>
+        /// Validate that the given team IDs exist in the user tree.
+        /// Throws CRMException if any invalid IDs are found.
+        /// </summary>
+        /// <param name="viewTeams">View team IDs to validate</param>
+        /// <param name="operateTeams">Operate team IDs to validate</param>
+        Task ValidateTeamSelectionsAsync(List<string> viewTeams, List<string> operateTeams);
     }
 }

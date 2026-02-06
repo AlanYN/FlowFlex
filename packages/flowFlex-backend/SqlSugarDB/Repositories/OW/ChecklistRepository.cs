@@ -202,8 +202,8 @@ public class ChecklistRepository : BaseRepository<Checklist>, IChecklistReposito
 
             if (names.Any())
             {
-                // Use OR condition to match any of the checklist names (case-insensitive)
-                whereExpressions.Add(x => names.Any(n => x.Name.ToLower().Contains(n.ToLower())));
+                // Case-insensitive search via SqlSugar ILike (EnableILike = true)
+                whereExpressions.Add(x => names.Any(n => x.Name.Contains(n)));
             }
         }
 
@@ -235,7 +235,7 @@ public class ChecklistRepository : BaseRepository<Checklist>, IChecklistReposito
         // Note: workflowId and stageId filters are removed as these fields no longer exist
 
         // Determine sort field and direction
-        Expression<Func<Checklist, object>> orderByExpression = sortField?.ToLower() switch
+        Expression<Func<Checklist, object>> orderByExpression = (sortField ?? "").ToLowerInvariant() switch
         {
             "name" => x => x.Name,
             "team" => x => x.Team,
@@ -244,7 +244,7 @@ public class ChecklistRepository : BaseRepository<Checklist>, IChecklistReposito
             _ => x => x.CreateDate
         };
 
-        bool isAsc = sortDirection?.ToLower() == "asc";
+        bool isAsc = string.Equals(sortDirection, "asc", StringComparison.OrdinalIgnoreCase);
 
         // Use BaseRepository's safe pagination method
         var (items, totalCount) = await GetPageListAsync(

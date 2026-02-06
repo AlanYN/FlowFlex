@@ -209,10 +209,11 @@ namespace FlowFlex.SqlSugarDB.Migrations
 
             try
             {
-                // Query all migration statuses in one go using IN clause (more compatible)
-                var migrationIdList = string.Join(",", migrationIds.Select(id => $"'{id}'"));
-                var sql = $"SELECT migration_id FROM __migration_history WHERE migration_id IN ({migrationIdList})";
-                var executedMigrations = _db.Ado.SqlQuery<string>(sql);
+                // Query all migration statuses using parameterized query
+                var parameters = migrationIds.Select((id, index) => new SugarParameter($"@id{index}", id)).ToArray();
+                var paramPlaceholders = string.Join(",", migrationIds.Select((_, index) => $"@id{index}"));
+                var sql = $"SELECT migration_id FROM __migration_history WHERE migration_id IN ({paramPlaceholders})";
+                var executedMigrations = _db.Ado.SqlQuery<string>(sql, parameters);
 
                 foreach (var migrationId in migrationIds)
                 {
@@ -252,8 +253,10 @@ namespace FlowFlex.SqlSugarDB.Migrations
                     // Execute migration
                     migrationAction();
 
-                    // Record migration history
-                    _db.Ado.ExecuteCommand($"INSERT INTO __migration_history (migration_id) VALUES ('{migrationId}')");
+                    // Record migration history using parameterized query
+                    _db.Ado.ExecuteCommand(
+                        "INSERT INTO __migration_history (migration_id) VALUES (@migrationId)",
+                        new SugarParameter("@migrationId", migrationId));
 
                     if (_verboseLogging)
                     {

@@ -553,11 +553,11 @@ public class ChecklistTaskRepository : BaseRepository<ChecklistTask>, IChecklist
         {
             if (category.Equals("Sales", StringComparison.OrdinalIgnoreCase))
             {
-                results = results.Where(r => r.AssignedTeam != null && r.AssignedTeam.ToLower().Contains("sales")).ToList();
+                results = results.Where(r => r.AssignedTeam != null && r.AssignedTeam.Contains("sales", StringComparison.OrdinalIgnoreCase)).ToList();
             }
             else if (category.Equals("Account", StringComparison.OrdinalIgnoreCase))
             {
-                results = results.Where(r => r.AssignedTeam != null && r.AssignedTeam.ToLower().Contains("account")).ToList();
+                results = results.Where(r => r.AssignedTeam != null && r.AssignedTeam.Contains("account", StringComparison.OrdinalIgnoreCase)).ToList();
             }
         }
 
@@ -660,11 +660,11 @@ public class ChecklistTaskRepository : BaseRepository<ChecklistTask>, IChecklist
             {
                 if (category.Equals("Sales", StringComparison.OrdinalIgnoreCase))
                 {
-                    if (task.AssignedTeam == null || !task.AssignedTeam.ToLower().Contains("sales")) continue;
+                    if (task.AssignedTeam == null || !task.AssignedTeam.Contains("sales", StringComparison.OrdinalIgnoreCase)) continue;
                 }
                 else if (category.Equals("Account", StringComparison.OrdinalIgnoreCase))
                 {
-                    if (task.AssignedTeam == null || !task.AssignedTeam.ToLower().Contains("account")) continue;
+                    if (task.AssignedTeam == null || !task.AssignedTeam.Contains("account", StringComparison.OrdinalIgnoreCase)) continue;
                 }
             }
 

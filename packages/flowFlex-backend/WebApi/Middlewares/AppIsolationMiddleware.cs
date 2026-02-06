@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using FlowFlex.Domain.Shared.Models;
+using FlowFlex.Infrastructure.Extensions;
 using System.Threading.Tasks;
 using AppContext = FlowFlex.Domain.Shared.Models.AppContext;
 using System;
@@ -201,12 +202,7 @@ namespace FlowFlex.WebApi.Middlewares
 
         private string GetClientIpAddress(HttpContext context)
         {
-            // Try to get real IP from various headers
-            var ipAddress = context.Request.Headers["X-Forwarded-For"].FirstOrDefault()
-                          ?? context.Request.Headers["X-Real-IP"].FirstOrDefault()
-                          ?? context.Connection.RemoteIpAddress?.ToString();
-
-            return ipAddress ?? "unknown";
+            return context.GetClientIpAddress();
         }
 
         private string InferAppCodeFromRequest(HttpContext context)

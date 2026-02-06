@@ -13,6 +13,7 @@ using FlowFlex.Domain.Shared;
 using FlowFlex.Domain.Shared.Enums.OW;
 using FlowFlex.Domain.Shared.Helpers;
 using FlowFlex.Domain.Shared.Models;
+using FlowFlex.Infrastructure.Extensions;
 
 namespace FlowFlex.Application.Services.OW.ChangeLog
 {
@@ -322,15 +323,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
         /// </summary>
         protected virtual string GetClientIpAddress()
         {
-            var httpContext = _httpContextAccessor.HttpContext;
-            if (httpContext != null)
-            {
-                var request = httpContext.Request;
-                return request.Headers.ContainsKey("X-Forwarded-For")
-                    ? request.Headers["X-Forwarded-For"].ToString()
-                    : httpContext.Connection.RemoteIpAddress?.ToString();
-            }
-            return null;
+            return _httpContextAccessor.GetClientIpAddress();
         }
 
         /// <summary>
@@ -338,8 +331,7 @@ namespace FlowFlex.Application.Services.OW.ChangeLog
         /// </summary>
         protected virtual string GetUserAgent()
         {
-            var httpContext = _httpContextAccessor.HttpContext;
-            return httpContext?.Request.Headers["User-Agent"].ToString();
+            return _httpContextAccessor.GetUserAgent();
         }
 
         /// <summary>

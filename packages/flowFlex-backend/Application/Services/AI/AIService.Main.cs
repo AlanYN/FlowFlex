@@ -14,6 +14,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using FlowFlex.Infrastructure.Services;
+using FlowFlex.Infrastructure.Extensions;
 using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
@@ -1353,46 +1354,12 @@ namespace FlowFlex.Application.Services.AI
 
         private string GetClientIpAddress()
         {
-            try
-            {
-                var httpContext = _httpContextAccessor?.HttpContext;
-                if (httpContext?.Connection?.RemoteIpAddress != null)
-                {
-                    return httpContext.Connection.RemoteIpAddress.ToString();
-                }
-
-                // Check for forwarded IPs from proxies/load balancers
-                var forwardedFor = httpContext?.Request?.Headers["X-Forwarded-For"].FirstOrDefault();
-                if (!string.IsNullOrEmpty(forwardedFor))
-                {
-                    return forwardedFor.Split(',').FirstOrDefault()?.Trim() ?? "";
-                }
-
-                var realIp = httpContext?.Request?.Headers["X-Real-IP"].FirstOrDefault();
-                if (!string.IsNullOrEmpty(realIp))
-                {
-                    return realIp;
-                }
-
-                return "";
-            }
-            catch
-            {
-                return "";
-            }
+            return _httpContextAccessor.GetClientIpAddress();
         }
 
         private string GetUserAgent()
         {
-            try
-            {
-                var httpContext = _httpContextAccessor?.HttpContext;
-                return httpContext?.Request?.Headers["User-Agent"].FirstOrDefault() ?? "";
-            }
-            catch
-            {
-                return "";
-            }
+            return _httpContextAccessor.GetUserAgent();
         }
 
         #endregion

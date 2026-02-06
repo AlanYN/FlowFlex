@@ -35,9 +35,10 @@ public abstract class ControllerBase : Microsoft.AspNetCore.Mvc.ControllerBase
     }
 
     /// <summary>
-    /// Get current user ID
+    /// Get current user ID. Throws UnauthorizedAccessException if user identity cannot be determined.
     /// </summary>
     /// <returns>Current user ID</returns>
+    /// <exception cref="UnauthorizedAccessException">Thrown when user ID cannot be resolved from headers or JWT</exception>
     protected long GetCurrentUserId()
     {
         // Get user ID from request header
@@ -51,10 +52,10 @@ public abstract class ControllerBase : Microsoft.AspNetCore.Mvc.ControllerBase
             userIdHeader = userIdClaim?.Value;
         }
 
-        // If still no user ID, use default value 1
-        if (string.IsNullOrEmpty(userIdHeader) || !long.TryParse(userIdHeader, out long userId))
+        // If still no user ID, reject the request instead of falling back to admin
+        if (string.IsNullOrEmpty(userIdHeader) || !long.TryParse(userIdHeader, out long userId) || userId <= 0)
         {
-            userId = 1; // Default admin user ID
+            throw new UnauthorizedAccessException("Unable to determine user identity. Please provide a valid X-User-Id header or JWT token.");
         }
 
         return userId;

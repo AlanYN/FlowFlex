@@ -59,7 +59,8 @@ public class DefineFieldRepository : BaseRepository<DefineField>, IDefineFieldRe
             var fieldNames = request.GetFieldNameList();
             if (fieldNames.Any())
             {
-                query = query.Where(x => fieldNames.Any(n => x.FieldName.ToLower().Contains(n.ToLower())));
+                // Case-insensitive search via SqlSugar ILike (EnableILike = true)
+                query = query.Where(x => fieldNames.Any(n => x.FieldName.Contains(n)));
             }
         }
 
@@ -71,7 +72,7 @@ public class DefineFieldRepository : BaseRepository<DefineField>, IDefineFieldRe
             var createByList = request.GetCreateByList();
             if (createByList.Any())
             {
-                query = query.Where(x => createByList.Any(n => x.CreateBy.ToLower().Contains(n.ToLower())));
+                query = query.Where(x => createByList.Any(n => x.CreateBy.Contains(n)));
             }
         }
 
@@ -80,7 +81,7 @@ public class DefineFieldRepository : BaseRepository<DefineField>, IDefineFieldRe
             var modifyByList = request.GetModifyByList();
             if (modifyByList.Any())
             {
-                query = query.Where(x => modifyByList.Any(n => x.ModifyBy.ToLower().Contains(n.ToLower())));
+                query = query.Where(x => modifyByList.Any(n => x.ModifyBy.Contains(n)));
             }
         }
 

@@ -185,7 +185,7 @@ public class EmailBindingRepository : BaseRepository<EmailBinding>, IEmailBindin
             .Where(x => x.Id == id);
 
         // Update the appropriate delta link field based on folder
-        switch (folder.ToLower())
+        switch (folder.ToLowerInvariant())
         {
             case "inbox":
                 updateable = updateable.SetColumns(x => new EmailBinding
@@ -226,7 +226,7 @@ public class EmailBindingRepository : BaseRepository<EmailBinding>, IEmailBindin
 
         if (binding == null) return null;
 
-        return folder.ToLower() switch
+        return folder.ToLowerInvariant() switch
         {
             "inbox" => binding.DeltaLinkInbox,
             "sentitems" => binding.DeltaLinkSent,

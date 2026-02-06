@@ -147,7 +147,7 @@ namespace FlowFlex.SqlSugarDB.Implements.OW
 
             if (!string.IsNullOrWhiteSpace(name))
             {
-                whereExpressions.Add(x => x.Name.ToLower().Contains(name.ToLower()));
+                whereExpressions.Add(x => x.Name.Contains(name));
             }
 
             // Use BaseRepository's safe pagination method

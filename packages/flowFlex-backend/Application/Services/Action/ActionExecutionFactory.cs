@@ -27,7 +27,6 @@ namespace FlowFlex.Application.Services.Action
             {
                 { ActionTypeEnum.Python, typeof(PythonActionExecutor) },
                 { ActionTypeEnum.HttpApi, typeof(HttpApiActionExecutor) },
-                { ActionTypeEnum.SendEmail, typeof(EmailActionExecutor) },
                 { ActionTypeEnum.System, typeof(SystemActionExecutor) }
             };
         }

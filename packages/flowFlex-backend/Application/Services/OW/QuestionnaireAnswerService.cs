@@ -12,6 +12,7 @@ using SqlSugar;
 using System.Text.Json;
 using System.Linq;
 using FlowFlex.SqlSugarDB.Extensions;
+using FlowFlex.Infrastructure.Extensions;
 using FlowFlex.Application.Services.OW.Extensions;
 using FlowFlex.Application.Contracts.IServices.OW;
 
@@ -630,26 +631,12 @@ namespace FlowFlex.Application.Services.OW
 
         private string GetClientIpAddress()
         {
-            var context = _httpContextAccessor.HttpContext;
-            if (context == null) return "";
-
-            var ipAddress = context.Request.Headers["X-Forwarded-For"].FirstOrDefault();
-            if (string.IsNullOrEmpty(ipAddress))
-            {
-                ipAddress = context.Request.Headers["X-Real-IP"].FirstOrDefault();
-            }
-            if (string.IsNullOrEmpty(ipAddress))
-            {
-                ipAddress = context.Connection.RemoteIpAddress?.ToString() ?? "";
-            }
-
-            return ipAddress;
+            return _httpContextAccessor.GetClientIpAddress();
         }
 
         private string GetDeviceInfo()
         {
-            var context = _httpContextAccessor.HttpContext;
-            var userAgent = context?.Request.Headers["User-Agent"].FirstOrDefault() ?? "";
+            var userAgent = _httpContextAccessor.GetUserAgent();
 
             // Simple device identification
             if (userAgent.Contains("Mobile"))
